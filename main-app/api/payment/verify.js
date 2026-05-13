@@ -41,7 +41,6 @@ module.exports = withAuth(async function (req, res) {
       await aiService.safeUserUpdate(req.userId, {
         isPremium: true,
         hasPaid: true,
-        premiumType: 'lifetime',
         isTrial: false,
         trialEnd: null,
         lastPaymentId: String(paymentId),

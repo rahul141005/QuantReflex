@@ -35,12 +35,7 @@ var API = (function () {
     return _fetch('/api/admin/users');
   }
 
-  function togglePremium(uid, isPremium) {
-    return _fetch('/api/admin/users-premium', {
-      method: 'POST',
-      body: JSON.stringify({ uid: uid, isPremium: isPremium })
-    });
-  }
+
 
   function grantEntitlement(type, action, targetId, trialDays) {
     var payload = { type: type, action: action, targetId: targetId };
@@ -89,7 +84,7 @@ var API = (function () {
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
-    togglePremium: togglePremium,
+
     grantEntitlement: grantEntitlement,
     getCoachings: getCoachings,
     createCoaching: createCoaching,

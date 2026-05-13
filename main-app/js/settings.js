@@ -730,7 +730,14 @@ function openDeleteAccountModal() {
      */
     function deleteAuthAndReload() {
       try {
-        localStorage.clear();
+        if (typeof AppState !== 'undefined' && typeof AppState.clearAll === 'function') {
+          AppState.clearAll();
+        } else if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync._clearUserLocalStorage === 'function') {
+          FirestoreSync._clearUserLocalStorage();
+        } else {
+          var userKeys = ['quant_reflex_settings', 'quant_reflex_progress', 'quant_quick_links', 'quant_custom_topics', 'quant_custom_formulas', 'quant_bookmarks', 'quant_notifications_enabled'];
+          for (var i = 0; i < userKeys.length; i++) localStorage.removeItem(userKeys[i]);
+        }
       } catch (_) {}
       user.delete().then(function () {
         window.location.reload();
