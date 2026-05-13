@@ -1,0 +1,9 @@
+{
+  "name": "quantreflex-admin",
+  "version": "1.0.0",
+  "description": "QuantReflex Super Admin Panel",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^13.7.0"
+  }
+}

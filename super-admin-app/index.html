@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f8fafc" />
+  <meta name="description" content="QuantReflex Super Admin Panel — Manage users, questions, and system operations." />
+  <title>QuantReflex Admin</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="stylesheet" href="css/admin-style.css" />
+</head>
+<body>
+
+  <!-- ==================== LOGIN SCREEN ==================== -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">QR</div>
+        <h1 class="login-title">Admin Portal</h1>
+        <p class="login-subtitle">Super Admin Access Only</p>
+      </div>
+      <div id="loginForm">
+        <div class="login-field">
+          <label for="loginEmail" class="login-label">Email</label>
+          <input type="email" id="loginEmail" class="login-input" placeholder="admin@quantreflex.com" autocomplete="email" autocapitalize="off" />
+        </div>
+        <div class="login-field">
+          <label for="loginPassword" class="login-label">Password</label>
+          <input type="password" id="loginPassword" class="login-input" placeholder="Enter your password" autocomplete="current-password" />
+        </div>
+        <div id="loginError" class="login-error" style="display:none;"></div>
+        <button id="loginBtn" class="btn accent login-btn">Secure Login</button>
+      </div>
+      <p class="login-footer">🔒 Protected by Firebase Authentication</p>
+    </div>
+  </div>
+
+  <!-- ==================== APP SHELL ==================== -->
+  <div id="appShell" class="app-shell" style="display:none;">
+
+    <!-- Mobile Header -->
+    <header class="mobile-header d-md-none">
+      <button id="menuToggleBtn" class="menu-toggle" aria-label="Toggle Menu">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="mobile-brand">QR Admin</div>
+      <div style="width:24px;"></div> <!-- spacer -->
+    </header>
+
+    <!-- Sidebar Overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">QR</div>
+        <div class="sidebar-title">QuantReflex</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#dashboard" class="nav-item active" data-view="dashboard">Dashboard</a>
+        <a href="#users" class="nav-item" data-view="users">Users</a>
+        <a href="#payments" class="nav-item" data-view="payments">Payments</a>
+        <a href="#questions" class="nav-item" data-view="questions">Questions</a>
+        <a href="#ai" class="nav-item" data-view="ai">AI Analytics</a>
+        <a href="#system" class="nav-item" data-view="system">System</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="btn btn-outline" style="width:100%;">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div id="view-dashboard" class="view active"></div>
+      <div id="view-users" class="view"></div>
+      <div id="view-payments" class="view"></div>
+      <div id="view-questions" class="view"></div>
+      <div id="view-ai" class="view"></div>
+      <div id="view-system" class="view"></div>
+    </main>
+
+  </div>
+
+  <!-- ==================== MODAL CONTAINER ==================== -->
+  <div id="modalContainer"></div>
+
+  <!-- ==================== TOAST ==================== -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- App Scripts (layered like main app) -->
+  <script src="js/state/store.js"></script>
+  <script src="js/firebase/firebase.js"></script>
+  <script src="js/firebase/auth.js"></script>
+  <script src="js/services/api.js"></script>
+  <script src="js/ui/toast.js"></script>
+  <script src="js/ui/modal.js"></script>
+  <script src="js/ui/table.js"></script>
+  <script src="js/views/dashboard.js"></script>
+  <script src="js/views/users.js"></script>
+  <script src="js/views/payments.js"></script>
+  <script src="js/views/questions.js"></script>
+  <script src="js/views/ai.js"></script>
+  <script src="js/views/system.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => {
+          console.error('ServiceWorker registration failed: ', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

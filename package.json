@@ -1,0 +1,15 @@
+{
+  "name": "quantreflex-ecosystem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QuantReflex Monorepo — Educational SaaS Ecosystem for mental math and aptitude training",
+  "scripts": {
+    "install:main": "cd main-app && npm install",
+    "install:admin": "cd super-admin-app && npm install",
+    "install:all": "npm run install:main && npm run install:admin",
+    "validate": "powershell -ExecutionPolicy Bypass -File scripts/validate-structure.ps1",
+    "validate:imports": "powershell -ExecutionPolicy Bypass -File scripts/validate-imports.ps1"
+  },
+  "keywords": ["quantreflex", "monorepo", "education", "pwa", "mental-math"],
+  "license": "ISC"
+}

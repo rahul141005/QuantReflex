@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="Train mental math reflexes for competitive exams like CET, CAT, and GMAT. Daily drills, AI coaching, and performance analytics." />
+  <title>QuantReflex</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ==================== SPLASH SCREEN ==================== -->
+  <div id="appLoader" class="app-loader">
+    <div class="splash-blob"></div>
+    <img class="splash-logo" src="appicons/splashQ.svg" alt="Q" />
+  </div>
+
+  <!-- ==================== LOGIN SCREEN ==================== -->
+  <div id="loginScreen" class="login-screen" style="display:none;">
+    <div class="login-card">
+      <div class="login-header">
+        <h1 class="login-title">QuantReflex</h1>
+        <p class="login-subtitle">Train your mental math speed daily</p>
+      </div>
+      <div id="loginForm">
+        <div class="login-field">
+          <label for="loginUsername" class="login-label">Username</label>
+          <input type="text" id="loginUsername" class="login-input" placeholder="Enter your username" autocomplete="username" autocapitalize="off" />
+        </div>
+        <div class="login-field">
+          <label for="loginPassword" class="login-label">Password</label>
+          <input type="password" id="loginPassword" class="login-input" placeholder="Enter your password" autocomplete="current-password" />
+        </div>
+        <div id="coachingIdField" class="login-field coaching-id-field" style="display:none;">
+          <label for="loginCoachingId" class="login-label">Coaching ID (Optional)</label>
+          <input type="text" id="loginCoachingId" class="login-input" placeholder="Enter your coaching's unique ID" autocomplete="off" autocapitalize="characters" maxlength="50" />
+          <p class="login-coaching-hint">Leave blank if you're not part of a coaching institute.</p>
+        </div>
+        <div id="loginError" class="login-error" style="display:none;"></div>
+        <div id="loginValidationHint" class="login-validation-hint">
+          <p>Dont forget your password.</p>
+        </div>
+        <button id="loginBtn" class="btn accent login-btn">Log In</button>
+        <button id="signupBtn" class="btn login-btn login-signup-btn">Create Account</button>
+      </div>
+      <p class="login-footer">🔒 Your data syncs across all your devices with the help of Firebase.</p>
+    </div>
+  </div>
+
+  <!-- ==================== ONBOARDING OVERLAY ==================== -->
+  <div id="onboardingOverlay" class="onboarding-overlay" style="display:none;">
+    <div class="onboarding-card"></div>
+  </div>
+
+  <!-- ==================== CLEAR DATA MODAL ==================== -->
+  <div id="clearDataModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content clear-data-modal">
+      <h3 class="modal-title">🗑️ Clear Data</h3>
+      <p class="secondary-text" style="margin-bottom:1rem;">Choose what data to clear. This action cannot be undone.</p>
+
+      <div id="clearDataOptions">
+        <button class="clear-option-btn" data-clear="stats">
+          <span class="clear-option-icon">📊</span>
+          <div class="clear-option-info">
+            <strong>Clear Statistics</strong>
+            <span>Reset all progress and performance history</span>
+          </div>
+        </button>
+        <button class="clear-option-btn" data-clear="streaks">
+          <span class="clear-option-icon">🔥</span>
+          <div class="clear-option-info">
+            <strong>Clear Streaks</strong>
+            <span>Reset current and best streaks</span>
+          </div>
+        </button>
+        <button class="clear-option-btn" data-clear="formulas">
+          <span class="clear-option-icon">📝</span>
+          <div class="clear-option-info">
+            <strong>Clear Formulas &amp; Tips</strong>
+            <span>Delete all custom topics and added formulas</span>
+          </div>
+        </button>
+        <button class="clear-option-btn clear-option-danger" data-clear="all">
+          <span class="clear-option-icon">⚠️</span>
+          <div class="clear-option-info">
+            <strong>Clear Entire App Data</strong>
+            <span>Reset everything: settings, stats, formulas, bookmarks</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="clearDataCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CLEAR DATA CONFIRM MODAL ==================== -->
+  <div id="clearConfirmModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h3 class="modal-title">⚠️ Confirm</h3>
+      <p id="clearConfirmText" class="secondary-text" style="margin-bottom:1rem;"></p>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="clearConfirmCancel">Cancel</button>
+        <button class="btn" id="clearConfirmOk" style="background:#fee2e2;color:#dc2626;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== EXIT SESSION CONFIRMATION MODAL ==================== -->
+  <div id="exitSessionModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h3 class="modal-title">⚠️ Exit Session?</h3>
+      <p class="secondary-text" style="margin-bottom:1rem;">Your progress will be lost.</p>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="exitSessionCancel">Cancel</button>
+        <button class="btn" id="exitSessionConfirm" style="background:#fee2e2;color:#dc2626;">Exit</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" style="display:none;">
+
+    <!-- ==================== HOME VIEW ==================== -->
+    <div id="view-home" class="spa-view">
+      <header>
+        <h1>QuantReflex</h1>
+        <p id="homeGreeting" class="home-greeting">Train your mental math speed daily</p>
+      </header>
+
+      <!-- Daily Warmup -->
+      <div class="card">
+        <h3 style="margin-bottom:.5rem;">☀️ Daily Warmup</h3>
+        <p class="secondary-text">Start your day with a quick 5-question warmup.</p>
+        <a href="#practice" id="startWarmup" class="btn accent" style="margin-top:.75rem;">Start Warmup</a>
+      </div>
+
+      <!-- Progress Snapshot -->
+      <div class="card">
+        <h3 style="margin-bottom:.75rem;">📊 Progress Snapshot</h3>
+        <div class="stat-grid" id="homeStats"></div>
+      </div>
+
+      <!-- Daily Goal -->
+      <div class="card goal-card" id="dailyGoalCard">
+        <h3 style="margin-bottom:.25rem;">🎯 Daily Goal</h3>
+        <div style="display:flex;align-items:baseline;gap:.5rem;margin-top:.25rem;">
+          <span class="goal-count" id="goalDone">0</span>
+          <span class="secondary-text">/ <span id="goalTarget">50</span> questions</span>
+        </div>
+        <div class="goal-progress-bar">
+          <div class="goal-progress-fill" id="goalFill" style="width:0%"></div>
+        </div>
+        <div class="goal-text">
+          <span id="goalStatus">Keep going!</span>
+          <span id="goalPct">0%</span>
+        </div>
+      </div>
+
+      <!-- Streak at risk banner (dynamic — shown when streak >= 2 and no practice today) -->
+      <div id="streakAtRiskBanner" style="display:none"></div>
+
+
+
+      <!-- Suggested practice card (dynamic — shown when weakest category identified) -->
+      <div id="suggestedPracticeCard" style="display:none"></div>
+
+      <!-- AI Coach Card -->
+      <div id="aiCoachContainer"></div>
+
+      <!-- AI Study Plan Card -->
+      <div id="aiStudyPlanContainer"></div>
+
+      <!-- Quick Study Cards -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:1rem 0 .5rem;">
+        <h3 style="color:#64748b;font-size:.9rem;margin:0;">QUICK STUDY</h3>
+        <button id="editQuickLinks" class="quick-links-edit-btn" title="Customize">✏️</button>
+      </div>
+
+      <div id="quickStudyContainer"></div>
+    </div>
+
+    <!-- ==================== PRACTICE VIEW ==================== -->
+    <div id="view-practice" class="spa-view">
+      <header><h1><img src="appicons/tab/practicetab.svg" alt="Practice" class="header-icon" width="28" height="28" draggable="false"> Practice</h1></header>
+
+      <!-- Daily quota indicator (dynamic — shown for free users only) -->
+      <div id="dailyQuotaIndicator" style="display:none"></div>
+
+      <!-- Mode selection -->
+      <div id="modeSelect" class="card practice-container">
+        <div class="mode-card" data-mode="quick">
+          <h3>⚡ Quick Drill</h3>
+          <p>5 questions · No timer · Quick warmup</p>
+        </div>
+
+        <div class="mode-card" data-mode="reflex">
+          <h3>🧠 Reflex Drill</h3>
+          <p>10 questions · 15s per question · Train speed</p>
+        </div>
+
+        <div class="mode-card" data-mode="timed">
+          <h3>⏱ Timed Test</h3>
+          <p>10 questions · 3 min total · Exam pressure</p>
+        </div>
+
+        <div class="mode-card" data-mode="focus">
+          <h3>🎯 Focus Training</h3>
+          <p>10 questions · Choose a category</p>
+        </div>
+
+        <div class="mode-card" data-mode="custom">
+          <h3><span class="mode-icon mode-icon-custom" aria-hidden="true">📑</span> Custom Training</h3>
+          <p>Multi-topic session · 1–100 questions · Fully personalized</p>
+        </div>
+
+        <div class="mode-card" data-mode="review">
+          <h3>🔄 Review Mistakes</h3>
+          <p>Practice your previously wrong answers</p>
+        </div>
+
+        <div class="mode-card" data-mode="wordproblems">
+          <h3>🤖 Word Problems</h3>
+          <p>AI-generated word problems · Choose category &amp; difficulty</p>
+        </div>
+      </div>
+
+      <!-- Category selection (shown when Focus Training is picked) -->
+      <div id="categorySelect" style="display:none;">
+        <div class="training-card">
+          <h3 class="category-select-title" id="categorySelectTitle">Choose Category</h3>
+          <div class="training-card-body">
+            <div class="category-grid">
+              <button class="category-btn category-card" type="button" data-cat="squares">Squares</button>
+              <button class="category-btn category-card" type="button" data-cat="cubes">Cubes</button>
+              <button class="category-btn category-card" type="button" data-cat="area">Area</button>
+              <button class="category-btn category-card" type="button" data-cat="volume">Volume</button>
+              <button class="category-btn category-card" type="button" data-cat="percentages">Percentages</button>
+              <button class="category-btn category-card" type="button" data-cat="multiplication">Multiplication</button>
+              <button class="category-btn category-card" type="button" data-cat="fractions">Fractions</button>
+              <button class="category-btn category-card" type="button" data-cat="averages">Averages</button>
+              <button class="category-btn category-card" type="button" data-cat="ratios">Ratios</button>
+              <button class="category-btn category-card" type="button" data-cat="profit-loss">Profit &amp; Loss</button>
+              <button class="category-btn category-card" type="button" data-cat="time-speed-distance">Time Speed Dist</button>
+              <button class="category-btn category-card" type="button" data-cat="time-and-work">Time &amp; Work</button>
+            </div>
+
+            <!-- Adaptive Training Toggle (Focus & Custom modes, Premium only) -->
+            <div class="timer-select-section adaptive-toggle-section" id="adaptiveTrainingSection">
+              <div class="timer-toggle-row">
+                <span class="timer-toggle-label">Adaptive Training ✨</span>
+                <label class="toggle">
+                  <input type="checkbox" id="adaptiveTrainingToggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="adaptive-toggle-hint" id="adaptiveHint" style="display:none;">
+                <p class="adaptive-hint-text">Difficulty is auto-managed based on your performance.</p>
+              </div>
+            </div>
+
+            <!-- Timer Selection (shared by Focus & Custom modes) -->
+            <div class="timer-select-section" id="timerSelectSection">
+              <div class="timer-toggle-row">
+                <span class="timer-toggle-label">Timer</span>
+                <label class="toggle">
+                  <input type="checkbox" id="timerToggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="timer-config-area" id="timerConfigArea" style="display:none;">
+                <div class="timer-pill-selector">
+                  <button class="timer-pill active" data-pill="per" type="button">Per Ques.</button>
+                  <button class="timer-pill" data-pill="total" type="button">Total</button>
+                </div>
+                <div class="timer-input-row">
+                  <input type="number" id="timerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />
+                  <span class="timer-unit-label">seconds</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Focus mode start button -->
+            <div id="focusStartSection" style="display:none;">
+              <button class="btn accent custom-practice-start-btn" id="startFocusSessionBtn">Start Focus Session</button>
+            </div>
+
+            <div id="customPracticeConfig" class="custom-practice-config">
+              <label class="secondary-text" for="customQuestionCount">Number of Questions</label>
+              <input id="customQuestionCount" class="custom-question-range" type="range" min="1" max="100" value="20" />
+              <div class="custom-practice-meta-row">
+                <strong id="customQuestionCountValue">20</strong>
+                <span class="secondary-text" id="customQuestionCountText">You will solve 20 questions</span>
+              </div>
+              <p id="customModeError" class="custom-mode-error secondary-text"></p>
+              <button class="btn accent custom-practice-start-btn" id="startCustomSessionBtn">Start Custom Session</button>
+            </div>
+          </div>
+          <button class="training-card-back" id="backToModes" type="button" aria-label="Back to practice modes">← Back</button>
+        </div>
+      </div>
+
+      <!-- Word Problems setup (shown when Word Problems mode is picked) -->
+      <div id="wordProblemsSetup" style="display:none;"></div>
+
+      <!-- Drill engine renders here -->
+      <div id="drillContainer" style="display:none;"></div>
+    </div>
+
+    <!-- ==================== LEARN VIEW ==================== -->
+    <div id="view-learn" class="spa-view">
+      <header><h1><img src="appicons/tab/learntab.svg" alt="Learn" class="header-icon" width="28" height="28" draggable="false"> Learn</h1></header>
+
+      <!-- Search -->
+      <div class="learn-search-container">
+        <input type="text" id="learnSearch" class="learn-search-input" placeholder="🔍 Search topics, formulas, tables..." />
+      </div>
+
+      <!-- Quick Jump Navigation -->
+      <div class="learn-jump-nav" id="learnJumpNav">
+        <button class="learn-jump-btn" data-jump="bookmarksSection">⭐ Starred</button>
+        <button class="learn-jump-btn" data-jump="generalMath">📚 General</button>
+        <button class="learn-jump-btn" data-jump="tablesContainer">✖️ Tables</button>
+        <button class="learn-jump-btn" data-jump="fractionTable">📐 Fractions</button>
+        <button class="learn-jump-btn" data-jump="squaresSection">🔢 Squares</button>
+        <button class="learn-jump-btn" data-jump="cubesSection">🧊 Cubes</button>
+        <button class="learn-jump-btn" data-jump="formulaSections">📝 Formulas</button>
+        <button class="learn-jump-btn" data-jump="mentalTricks">💡 Shortcuts</button>
+        <span id="customTopicJumpBtns"></span>
+      </div>
+
+      <!-- Bookmarked Formulas -->
+      <div class="card bookmarks-card learn-searchable" id="bookmarksSection" style="display:none;">
+        <h3 class="section-title">⭐ Starred Formulas</h3>
+        <div class="bookmarks-content"></div>
+      </div>
+
+      <!-- SECTION 1: General Maths -->
+      <h2 class="learn-group-title" id="generalMath">📚 General Maths</h2>
+      <p class="secondary-text learn-group-subtitle">Calculation foundations every student must memorize.</p>
+
+      <!-- Multiplication Tables (collapsible — large section with selector) -->
+      <div class="card collapsible-card learn-searchable" id="tablesContainer">
+        <div class="collapsible-header" onclick="toggleSection(this)">
+          <h3 class="section-title">✖️ Multiplication Tables (1 – 30)</h3>
+          <span class="collapse-icon">▼</span>
+        </div>
+        <div class="collapsible-content" style="display:none;">
+          <div class="table-selector" id="tableSelector"></div>
+          <div id="tableDisplay" class="tables-container"></div>
+        </div>
+      </div>
+
+      <!-- Fraction → Percentage -->
+      <div class="card learn-searchable" id="fractionTable">
+        <h3 class="section-title">📐 Fraction → Percentage</h3>
+        <table class="math-table">
+          <tr><th>Fraction</th><th>Percentage</th></tr>
+          <tr><td>1/2</td><td>50%</td></tr>
+          <tr><td>1/3</td><td>33.33%</td></tr>
+          <tr><td>2/3</td><td>66.66%</td></tr>
+          <tr><td>1/4</td><td>25%</td></tr>
+          <tr><td>3/4</td><td>75%</td></tr>
+          <tr><td>1/5</td><td>20%</td></tr>
+          <tr><td>2/5</td><td>40%</td></tr>
+          <tr><td>3/5</td><td>60%</td></tr>
+          <tr><td>4/5</td><td>80%</td></tr>
+          <tr><td>1/6</td><td>16.66%</td></tr>
+          <tr><td>5/6</td><td>83.33%</td></tr>
+          <tr><td>1/8</td><td>12.5%</td></tr>
+          <tr><td>3/8</td><td>37.5%</td></tr>
+          <tr><td>5/8</td><td>62.5%</td></tr>
+          <tr><td>7/8</td><td>87.5%</td></tr>
+          <tr><td>1/9</td><td>11.11%</td></tr>
+          <tr><td>2/9</td><td>22.22%</td></tr>
+          <tr><td>4/9</td><td>44.44%</td></tr>
+          <tr><td>5/9</td><td>55.55%</td></tr>
+          <tr><td>7/9</td><td>77.77%</td></tr>
+          <tr><td>8/9</td><td>88.88%</td></tr>
+          <tr><td>1/10</td><td>10%</td></tr>
+          <tr><td>1/11</td><td>9.09%</td></tr>
+          <tr><td>2/11</td><td>18.18%</td></tr>
+          <tr><td>3/11</td><td>27.27%</td></tr>
+          <tr><td>5/11</td><td>45.45%</td></tr>
+          <tr><td>9/11</td><td>81.81%</td></tr>
+          <tr><td>1/12</td><td>8.33%</td></tr>
+          <tr><td>1/15</td><td>6.66%</td></tr>
+          <tr><td>1/20</td><td>5%</td></tr>
+          <tr><td>1/25</td><td>4%</td></tr>
+          <tr><td>1/40</td><td>2.5%</td></tr>
+          <tr><td>1/50</td><td>2%</td></tr>
+        </table>
+      </div>
+
+      <!-- Squares -->
+      <div class="card learn-searchable" id="squaresSection">
+        <h3 class="section-title">🔢 Squares (1² – 30²)</h3>
+        <div class="math-grid" id="squaresGrid"></div>
+      </div>
+
+      <!-- Cubes -->
+      <div class="card learn-searchable" id="cubesSection">
+        <h3 class="section-title">🧊 Cubes (1³ – 20³)</h3>
+        <div class="math-grid" id="cubesGrid"></div>
+      </div>
+
+      <!-- Mental Math Tricks -->
+      <div class="card learn-searchable" id="mentalTricks">
+        <h3 class="section-title">💡 Mental Math Tricks</h3>
+        <table class="math-table">
+          <tr><th>Rule</th><th>Trick</th></tr>
+          <tr><td>× 5</td><td>(n × 10) ÷ 2</td></tr>
+          <tr><td>× 11</td><td>n × 10 + n</td></tr>
+          <tr><td>× 25</td><td>(n × 100) ÷ 4</td></tr>
+          <tr><td>× 50</td><td>(n × 100) ÷ 2</td></tr>
+          <tr><td>× 75</td><td>(n × 300) ÷ 4</td></tr>
+          <tr><td>× 125</td><td>(n × 1000) ÷ 8</td></tr>
+        </table>
+      </div>
+
+      <!-- SECTION 2: Topic Wise Quant -->
+      <h2 class="learn-group-title" id="formulaSections">📝 Topic Wise Quant</h2>
+      <p class="secondary-text learn-group-subtitle">Formulas, shortcuts &amp; tricks organized by topic.</p>
+
+      <!-- Dynamic formula sections rendered by JS from formulas.js -->
+      <div id="topicSections"></div>
+
+      <!-- Custom Topics (user-created) -->
+      <div id="customTopicSections"></div>
+
+      <!-- Add New Topic Button -->
+      <button class="btn add-topic-btn" id="addTopicBtn">+ Add New Topic</button>
+    </div>
+
+    <!-- ==================== STATS VIEW ==================== -->
+    <div id="view-stats" class="spa-view">
+      <header><h1><img src="appicons/tab/statstab.svg" alt="Stats" class="header-icon" width="28" height="28" draggable="false"> Analytics</h1></header>
+
+      <!-- Section 1 — Practice Overview -->
+      <div class="analytics-section">
+        <h3 class="analytics-section-title">Practice Overview</h3>
+        <div class="analytics-card">
+          <div class="stat-grid stat-grid-3" id="statsPracticeOverview"></div>
+        </div>
+      </div>
+
+      <!-- Section 2 — Speed & Efficiency -->
+      <div class="analytics-section">
+        <h3 class="analytics-section-title">Speed &amp; Efficiency</h3>
+        <div class="analytics-card">
+          <div class="stat-grid stat-grid-2" id="statsSpeed"></div>
+        </div>
+      </div>
+
+      <!-- Section 3 — Activity Stats -->
+      <div class="analytics-section">
+        <h3 class="analytics-section-title">Activity Stats</h3>
+        <div class="analytics-card">
+          <div class="stat-grid stat-grid-2" id="statsActivity"></div>
+        </div>
+      </div>
+
+      <!-- Section 4 — Consistency -->
+      <div class="analytics-section">
+        <h3 class="analytics-section-title">Consistency</h3>
+        <div class="analytics-card">
+          <div class="stat-grid stat-grid-2" id="statsConsistency"></div>
+        </div>
+      </div>
+
+      <!-- Section 4b — 7-Day Accuracy Trend -->
+      <div class="analytics-section" id="sparklineSection">
+        <h3 class="analytics-section-title">7-Day Accuracy Trend</h3>
+        <div class="analytics-card">
+          <div id="statsSparkline"></div>
+        </div>
+      </div>
+
+      <!-- Section 5 — Performance Insights -->
+      <div class="analytics-section" id="performanceInsightsSection">
+        <h3 class="analytics-section-title">Performance Insights</h3>
+        <div class="analytics-card">
+          <div class="stat-grid stat-grid-3" id="statsInsights"></div>
+        </div>
+      </div>
+
+      <!-- Category Performance -->
+      <div class="analytics-section" id="categoryAccuracySection">
+        <h3 class="analytics-section-title">Category Accuracy</h3>
+        <div class="analytics-card">
+          <div id="categoryStats">
+            <p class="secondary-text">Start practicing to see category-wise performance.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Insights (always last) -->
+      <div class="analytics-section" id="aiInsightsSection">
+        <h3 class="analytics-section-title">🤖 AI Insights</h3>
+        <div class="analytics-card">
+          <div id="aiInsightsContainer">
+            <p class="secondary-text">AI-powered performance analysis.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS VIEW ==================== -->
+    <div id="view-settings" class="spa-view">
+      <header><h1><img src="appicons/tab/settingstab.svg" alt="Settings" class="header-icon" width="28" height="28" draggable="false"> Settings</h1></header>
+
+      <!-- Install App -->
+      <div class="card" id="installCard" style="display:none;">
+        <h3 style="margin-bottom:.5rem;">📲 Install App</h3>
+        <p class="secondary-text" style="margin-bottom:.75rem;">Install QuantReflex on your device for offline use</p>
+        <button id="installBtn" class="btn accent">Install App</button>
+      </div>
+
+      <!-- SECTION 1 — Premium Upgrade -->
+      <div class="settings-section" id="trialUpgradeSection" style="display:none;">
+        <h3 class="settings-section-title">Premium</h3>
+        <div class="settings-section-card trial-upgrade-card">
+          <h3 class="trial-upgrade-title">Upgrade to Premium 🚀</h3>
+          <ul class="trial-upgrade-list">
+            <li>Custom Training</li>
+            <li>Review Mistakes</li>
+            <li>Performance Insights</li>
+            <li>Hard Mode</li>
+            <li>Advanced Themes</li>
+          </ul>
+          <button id="trialUpgradeBtn" class="btn accent trial-upgrade-btn" type="button">Unlock for ₹89</button>
+        </div>
+      </div>
+
+      <!-- SECTION 2 — Appearance & Personalization -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Appearance &amp; Personalization</h3>
+        <div class="settings-section-card">
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🌙 Dark Mode</h3>
+              <p>Switch between light and dark theme</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="darkModeToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🎨 Theme</h3>
+              <p>Choose a visual style</p>
+            </div>
+            <select id="themeSelect" class="theme-select">
+              <option value="classic">Classic Blue</option>
+              <option value="playful">Playful Professional</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 — Practice Preferences -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Practice Preferences</h3>
+        <div class="settings-section-card">
+          <div class="settings-row" id="difficultySettingsRow">
+            <div class="settings-label">
+              <h3>📈 Difficulty Level</h3>
+              <p>Adjusts question complexity</p>
+            </div>
+            <select id="difficultySelect" class="theme-select" style="min-width:7rem;">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🎯 Daily Goal</h3>
+              <p>Set your daily question target</p>
+            </div>
+            <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="500" step="10" value="50" />
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>⏭️ Skip Questions</h3>
+              <p>Allow skipping questions in drills</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="skipToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4 — Feedback & Interactions -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Feedback &amp; Interactions</h3>
+        <div class="settings-section-card">
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🔊 Sound Feedback</h3>
+              <p>Play sound on answers and navigation</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="soundToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>📳 Vibration</h3>
+              <p>Vibrate on correct answers</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="vibrationToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🐢 Reduced Motion</h3>
+              <p>Reduce animations for accessibility</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="reducedMotionToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 — Notifications -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Notifications</h3>
+        <div class="settings-section-card">
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🔔 Daily Reminders</h3>
+              <p>Receive daily motivational push reminders</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="notificationsToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 6 — Help & Information -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Help &amp; Information</h3>
+        <div class="settings-section-card">
+          <div class="settings-row settings-link" id="openAppGuide">
+            <div class="settings-label">
+              <h3>📖 App Guide</h3>
+              <p>Learn how to use the app</p>
+            </div>
+            <span class="settings-chevron">›</span>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row settings-link" id="openAbout">
+            <div class="settings-label">
+              <h3>💡 About</h3>
+              <p>App info and developer</p>
+            </div>
+            <span class="settings-chevron">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 7 — Account Management -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Account</h3>
+        <div class="settings-section-card">
+          <div class="settings-row-block settings-user-status-block">
+            <p id="settingsUserStatusMessage" class="about-user-status-text">Free user</p>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row settings-link" id="openProfileModal">
+            <div class="settings-label">
+              <h3>👤 Profile</h3>
+              <p>View and edit your profile</p>
+            </div>
+            <span class="settings-chevron">›</span>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row-block">
+            <button id="logoutBtn" class="btn settings-action-btn" type="button">🚪 Log Out</button>
+          </div>
+          <div class="settings-row-block">
+            <button id="deleteAccountBtn" class="btn settings-action-btn settings-action-danger" type="button">🗑️ Delete Account</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 8 — App -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">App</h3>
+        <div class="settings-section-card">
+          <div class="settings-row-block">
+            <button id="updateAppBtn" class="btn settings-action-btn settings-action-with-desc" type="button">
+              <span class="settings-btn-label">🔄 Update App</span>
+              <span class="settings-btn-desc">(Refresh app to latest version)</span>
+            </button>
+          </div>
+          <div class="settings-row-block">
+            <button id="clearDataBtn" class="btn settings-action-btn settings-action-danger settings-action-with-desc" type="button">
+              <span class="settings-btn-label">🗑️ Clear Data</span>
+              <span class="settings-btn-desc">(Clears local app data only)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== APP GUIDE MODAL ==================== -->
+  <div id="appGuideModal" class="info-modal-overlay" style="display:none;">
+    <div class="info-modal-content">
+      <div class="info-hero">
+        <div class="info-modal-header">
+          <h2 class="info-modal-title">📖 App Guide</h2>
+          <button class="info-modal-close" id="appGuideClose" aria-label="Close">✕</button>
+        </div>
+        <p class="info-modal-subtitle">Your complete guide to training with QuantReflex</p>
+      </div>
+      <div class="info-modal-scroll">
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">🚀 Getting Started</h3>
+        <div class="info-block info-block-highlight">
+          <h4>Welcome to QuantReflex</h4>
+          <p>QuantReflex is a precision training platform for mental math and quantitative aptitude. Build speed and accuracy through short, focused daily sessions.</p>
+          <p><strong>Built for:</strong></p>
+          <ul class="info-list">
+            <li><strong>CAT / GMAT / MBA CET aspirants</strong>: sharpen QA section speed</li>
+            <li><strong>Placement preparation</strong>: ace aptitude rounds in campus drives</li>
+            <li><strong>School students (Class 6–12)</strong>: master mental math for boards and classwork</li>
+            <li><strong>NTSE / Olympiad learners</strong>: build competitive math reflexes</li>
+            <li><strong>General aptitude learners</strong>: anyone who wants faster, more accurate calculations</li>
+          </ul>
+          <p>Here's how to get going in 60 seconds:</p>
+          <ul class="info-list">
+            <li>Sign in or create your account</li>
+            <li>Complete the quick onboarding warmup</li>
+            <li>Pick a practice mode from the <strong>Practice</strong> tab</li>
+            <li>Answer with the custom numpad: no keyboard distractions</li>
+            <li>Review your results and mistakes after each session</li>
+            <li>Check your progress on the <strong>Analytics</strong> tab</li>
+            <li>Set a daily goal and turn on reminders in <strong>Settings</strong></li>
+          </ul>
+          <p class="info-tip">💡 Use the Daily Warmup on the Home tab every morning to start your streak and ease into the day.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">🎯 Practice Modes</h3>
+        <div class="info-block">
+          <h4>⚡ Quick Drill</h4>
+          <p>5 questions, no timer. The fastest way to start sharp — use it every morning to build a daily habit before you dive deeper.</p>
+        </div>
+        <div class="info-block">
+          <h4>🧠 Reflex Drill</h4>
+          <p>10 questions, 15 seconds each. Builds the muscle memory you need to solve under exam pressure — where every second counts.</p>
+        </div>
+        <div class="info-block">
+          <h4>⏱ Timed Test</h4>
+          <p>10 questions in 3 minutes. The closest simulation of a real QA section — train your pacing so exam day feels familiar.</p>
+        </div>
+        <div class="info-block">
+          <h4>🎯 Focus Training</h4>
+          <p>10 questions, one category. Drill weak topics — Percentages, TSD, Profit &amp; Loss — until they stop costing you marks.</p>
+        </div>
+        <div class="info-block">
+          <h4>🔓 Custom Training</h4>
+          <p>Pick any mix of categories, set count (1–100), and add a timer. Build sessions around your exact syllabus — not a preset someone else designed.</p>
+          <p class="info-tip">💡 Combine 2–3 weak categories in one session for high-density revision.</p>
+        </div>
+        <div class="info-block">
+          <h4>🔓 Review Mistakes</h4>
+          <p>Retry every question you got wrong — they stay in your pool until you solve them correctly. The fastest path to recovering marks you're already losing.</p>
+          <p class="info-tip">💡 Finish every session with a Review Mistakes round. Mistakes not revisited are marks not recovered.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">📖 Learn Tab</h3>
+        <div class="info-block">
+          <h4>What's in the Learn Vault</h4>
+          <ul class="info-list">
+            <li><strong>Fraction → Percentage</strong>: conversion table to memorize cold — saves 3–5 seconds per question</li>
+            <li><strong>Multiplication Tables</strong>: quick-reference from 1 to 30</li>
+            <li><strong>Quant Formulas</strong>: Profit &amp; Loss, Ratios, Averages, TSD, Time &amp; Work, and more — in one place</li>
+            <li><strong>Shortcut Tricks</strong>: mental math techniques that cut your solving time down</li>
+            <li><strong>🔓 Custom Formulas</strong>: add your own notes and formulas — build a personal cheat sheet</li>
+          </ul>
+        </div>
+        <div class="info-block">
+          <h4>Power Features</h4>
+          <ul class="info-list">
+            <li><strong>Search</strong>: jump directly to any formula without scrolling</li>
+            <li><strong>Jump Navigation</strong>: tap section buttons to reach any topic group instantly</li>
+            <li><strong>Bookmarks</strong>: star formulas to keep your most-used ones a tap away</li>
+            <li><strong>🔓 Custom Topics</strong>: create your own formula cards and organize your study notes your way</li>
+            <li><strong>🔓 Full-Screen Tables</strong>: triple-tap any table to open it distraction-free — great for memorization sprints</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">📊 Reading Your Analytics</h3>
+        <div class="info-block">
+          <h4>What Each Metric Means</h4>
+          <ul class="info-list">
+            <li><strong>Accuracy %</strong>: your correct-answer rate. Get this to 80%+ before you start prioritizing speed.</li>
+            <li><strong>Avg Response Time</strong>: your average seconds per question. Below 10s is solid; below 7s is exam-ready.</li>
+            <li><strong>Current Streak</strong>: days in a row with at least one session. Protect it — consistency is what compounds over time.</li>
+            <li><strong>Weakest Category</strong>: your lowest-accuracy topic. Open Focus Training on it today.</li>
+            <li><strong>🔓 Category Breakdown</strong>: see exactly which topics are costing you marks — and by how much.</li>
+            <li><strong>🔓 Performance Insights</strong>: spot trends in your training before they become exam-day problems.</li>
+            <li><strong>Daily Goal Progress</strong>: how close you are to today's target. Hit it every single day.</li>
+          </ul>
+          <p class="info-tip">💡 Check your weakest category every week. If it's below 60%, run a Focus Training session on it before your next mixed drill.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">⚙️ Settings &amp; Personalization</h3>
+        <div class="info-block">
+          <h4>What You Can Control</h4>
+          <ul class="info-list">
+            <li><strong>🔓 Theme</strong>: switch to the Playful Professional theme for a cleaner alternate look</li>
+            <li><strong>Dark Mode</strong>: easy on the eyes for late-night practice sessions</li>
+            <li><strong>Difficulty</strong>: Easy or Medium for free; 🔓 Hard unlocks the toughest question variants</li>
+            <li><strong>🔓 Skip Questions</strong>: add a Skip button to drills — move past stuck moments without breaking momentum</li>
+            <li><strong>Sound &amp; Vibration</strong>: toggle audio and haptic feedback to match your environment</li>
+            <li><strong>Reduced Motion</strong>: turn off animations for distraction-free or accessibility use</li>
+            <li><strong>Daily Goal</strong>: set your question target per day (🔓 goals above 20 require Premium)</li>
+            <li><strong>Notifications</strong>: daily push reminders so your streak stays intact</li>
+            <li><strong>🔓 Focus Timer</strong>: add time pressure to Focus Training sessions and simulate real exam pacing</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <div class="guide-premium-section guide-premium-tier">
+          <div class="guide-premium-header">
+            <span class="guide-tier-badge guide-tier-badge--premium">🔓 PREMIUM · ₹89 LIFETIME</span>
+            <h3 class="guide-tier-title">Unlock Full Training Experience</h3>
+            <p class="guide-tier-subtitle">Train faster. Improve accuracy. Build consistency.</p>
+          </div>
+
+          <div class="guide-feature-group">
+            <div class="guide-feature-group-label">⚡ Core Training Power</div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Custom Training</span>
+                <span class="guide-feature-desc">Train exactly what you need, when you need it</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Review Mistakes</span>
+                <span class="guide-feature-desc">Every wrong answer becomes a lesson — retry until it sticks</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Adaptive Training ⭐</span>
+                <span class="guide-feature-desc">Questions adapt to your level in real time — always the right challenge</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Hard Mode</span>
+                <span class="guide-feature-desc">Push beyond your comfort zone with the toughest question variants</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-feature-group">
+            <div class="guide-feature-group-label">📊 Performance &amp; Feedback</div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Performance Insights</span>
+                <span class="guide-feature-desc">Understand exactly where you're improving and where you're losing marks</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Category Accuracy</span>
+                <span class="guide-feature-desc">Track your accuracy per topic — know precisely where to focus next</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Speed Benchmark ⭐</span>
+                <span class="guide-feature-desc">See how your solving speed stacks up against other users</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-feature-group">
+            <div class="guide-feature-group-label">🎯 Control &amp; Flexibility</div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Skip Questions</span>
+                <span class="guide-feature-desc">Move forward without getting stuck — just like in a real exam</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Focus Timer</span>
+                <span class="guide-feature-desc">Add time pressure to Focus Training and simulate real exam conditions</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Extended Daily Goals</span>
+                <span class="guide-feature-desc">Go beyond the default cap and set higher daily targets</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Unlimited Questions</span>
+                <span class="guide-feature-desc">No daily cap — practice as much as you want, every day</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-feature-group">
+            <div class="guide-feature-group-label">🎨 Experience</div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Advanced Theme</span>
+                <span class="guide-feature-desc">A clean, distraction-free interface built for long study sessions</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Full-Screen Tables</span>
+                <span class="guide-feature-desc">Open any multiplication table in a focused, full-screen view</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🔓</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Custom Formulas &amp; Topics</span>
+                <span class="guide-feature-desc">Build your own formula cards and organize your personal study notes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-tier-footer">One-time payment. Lifetime access. No subscriptions.</div>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <div class="guide-premium-section guide-ai-tier">
+          <div class="guide-premium-header">
+            <span class="guide-tier-badge guide-tier-badge--ai">🤖 PREMIUM+ AI LAYER</span>
+            <h3 class="guide-tier-title">Train Smarter with AI</h3>
+            <p class="guide-tier-subtitle">Personalized guidance. Smarter practice. Faster improvement.</p>
+          </div>
+
+          <div class="guide-feature-group">
+            <div class="guide-feature-group-label">🤖 AI Learning System</div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🤖</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Mistake Explainer</span>
+                <span class="guide-feature-desc">Understand why you got a question wrong — with step-by-step reasoning, instantly</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🤖</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">AI Coach Insights</span>
+                <span class="guide-feature-desc">Your daily coaching brief — built from your actual session results</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🤖</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Study Plan Generator</span>
+                <span class="guide-feature-desc">A week-by-week study plan built around your exam date, your time, and your gaps</span>
+              </div>
+            </div>
+            <div class="guide-feature-row">
+              <span class="guide-feature-icon">🤖</span>
+              <div class="guide-feature-info">
+                <span class="guide-feature-name">Word Problems</span>
+                <span class="guide-feature-desc">Practice unlimited AI-generated contextual questions from any category</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-tier-footer guide-tier-cta-note">For when good practice isn't enough — train with a personal AI coach.</div>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">📲 Offline &amp; PWA Installation</h3>
+        <div class="info-block">
+          <h4>Install QuantReflex on Your Device</h4>
+          <p>QuantReflex is a Progressive Web App: install it from your browser and use it offline.</p>
+          <ul class="info-list">
+            <li><strong>Android / Chrome</strong>: tap the install banner or use menu → "Add to Home Screen"</li>
+            <li><strong>iOS / Safari</strong>: tap Share → "Add to Home Screen"</li>
+          </ul>
+          <p>Once installed, the app launches full-screen and works offline. Refresh after updates if needed.</p>
+          <p class="info-tip">💡 Installing gives you a faster, distraction-free training experience.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">🛠 Troubleshooting</h3>
+        <div class="info-block">
+          <ul class="info-list">
+            <li><strong>Numpad not showing?</strong> Tap the answer input field to bring it back up.</li>
+            <li><strong>Notifications not arriving?</strong> Check browser notification permissions in your device settings.</li>
+            <li><strong>Progress not syncing?</strong> Ensure you're logged in with an active internet connection.</li>
+            <li><strong>App feels slow after update?</strong> Pull down to refresh, or go to Settings → Update App.</li>
+            <li><strong>Streak not updating?</strong> Complete at least one session per day. Check your device date/time.</li>
+          </ul>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ABOUT MODAL ==================== -->
+  <div id="aboutModal" class="info-modal-overlay" style="display:none;">
+    <div class="info-modal-content">
+      <div class="info-hero">
+        <div class="info-modal-header">
+          <h2 class="info-modal-title">💡 About</h2>
+          <button class="info-modal-close" id="aboutClose" aria-label="Close">✕</button>
+        </div>
+        <p class="info-modal-subtitle">QuantReflex</p>
+      </div>
+      <div class="info-modal-scroll">
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">What is QuantReflex?</h3>
+        <div class="info-block info-block-highlight">
+          <p>QuantReflex is a <strong>performance-focused quantitative aptitude training platform</strong> built for competitive exam preparation. It combines speed drills, concept reinforcement, and mistake-led revision - so you improve both pace and accuracy with measurable consistency.</p>
+          <p>Unlike passive study apps, QuantReflex is <strong>action-first</strong>: every session is deliberate practice that directly reflects exam conditions.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">Who Is It For?</h3>
+        <div class="info-block">
+          <ul class="info-list">
+            <li><strong>CAT / CET / GMAT aspirants</strong>: Build the calculation speed required for QA sections</li>
+            <li><strong>School students (Class 6–12)</strong>: Master mental math fundamentals for board exams and daily classwork</li>
+            <li><strong>NTSE / Olympiad learners</strong>: Sharpen speed and accuracy for competitive math challenges</li>
+            <li><strong>Banking &amp; SSC exam students</strong>: Sharpen arithmetic, percentages, and data interpretation reflexes</li>
+            <li><strong>Anyone rebuilding quant fundamentals</strong>: Structured daily practice that scales from beginner to advanced</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">Why QuantReflex?</h3>
+        <div class="info-block">
+          <ul class="info-list">
+            <li><strong>Reflex-first training</strong>: Modes simulate real time pressure so you build solving speed, not just knowledge</li>
+            <li><strong>Precision practice</strong>: Category-focused drills and mistake-driven review target your exact weak points</li>
+            <li><strong>Measurable progress</strong>: Analytics, streaks, and goals convert daily effort into visible, trackable growth</li>
+            <li><strong>Anytime readiness</strong>: Installable PWA works offline, so you can train anywhere without excuses</li>
+            <li><strong>Personalized experience</strong>: Difficulty, themes, goals, notifications - tuned to how you train best</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">✨ Core Features</h3>
+        <div class="info-block">
+          <ul class="info-list">
+            <li>5 practice modes: Quick Drill, Reflex Drill, Timed Test, Focus Training, Review Mistakes</li>
+            <li>10+ question categories: Squares, Cubes, Percentages, Multiplication, Fractions, Averages, Ratios, Profit &amp; Loss, TSD, Time &amp; Work</li>
+            <li>Learn Vault with formulas, shortcut tricks, tables, and custom notes</li>
+            <li>Analytics dashboard with accuracy, speed, streaks, and category breakdowns</li>
+            <li>Daily goals, push notifications, and streak tracking</li>
+            <li>Two themes (Classic Blue, Playful Professional) with full dark mode</li>
+            <li>Installable offline PWA - no app store required</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">📋 Version Information</h3>
+        <div class="info-block">
+          <h4>Current Version</h4>
+          <p class="info-version">Version 1.0.26</p>
+          <p>Stable release. All core features are live: multi-mode practice, learn vault, analytics, themes, custom formulas, and push notifications.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">👤 Your Plan</h3>
+        <div class="info-block">
+          <p id="aboutUserStatusMessage" class="about-user-status-text">Free user</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">🗺 What's Next</h3>
+        <div class="info-block">
+          <p>QuantReflex is actively developed. Features being explored for future releases:</p>
+          <ul class="info-list">
+            <li>Word Problems practice mode</li>
+            <li>Performance trend graphs and historical charts</li>
+            <li>More question categories and difficulty tiers</li>
+            <li>Competitive leaderboards and social challenges</li>
+          </ul>
+          <p class="info-tip">💡 Features listed here are under consideration and not guaranteed - quality over speed, always.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">👨‍💻 Developer</h3>
+        <div class="info-block">
+          <h4>Built by KrisVeltrix (KVt)</h4>
+          <p>QuantReflex was built with a single conviction: speed in quantitative reasoning isn't talent - it's trained reflex. This platform exists to make that training structured, measurable, and accessible to every serious exam aspirant.</p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <h3 class="info-section-title">📬 Contact</h3>
+        <div class="info-block">
+          <p>For feedback, suggestions, or support, reach out at:</p>
+          <p><a href="mailto:quantreflex@gmail.com"><strong>quantreflex@gmail.com</strong></a></p>
+        </div>
+      </div>
+
+      <div class="info-section guide-animate-section">
+        <div class="info-block info-quote">
+          <p><em>"From practice to percentile - one drill at a time."</em></p>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PROFILE MODAL ==================== -->
+  <div id="profileModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content profile-modal">
+      <h3 class="modal-title">👤 Profile</h3>
+      <div class="profile-banner" id="profileBanner"></div>
+      <div class="profile-field">
+        <label class="profile-field-label">Name</label>
+        <input type="text" id="profileName" class="input profile-input" placeholder="Your name" maxlength="50" />
+      </div>
+      <div class="profile-field">
+        <label class="profile-field-label">Username</label>
+        <input type="text" id="profileUsername" class="input profile-input" readonly disabled />
+      </div>
+      <div class="profile-field">
+        <label class="profile-field-label">Coaching ID</label>
+        <input type="text" id="profileCoachingId" class="input profile-input" readonly disabled />
+      </div>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="profileCancel">Cancel</button>
+        <button class="btn accent" id="profileSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DELETE ACCOUNT MODAL ==================== -->
+  <div id="deleteAccountModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h3 class="modal-title">⚠️ Delete Account</h3>
+      <p class="secondary-text" style="margin-bottom:1rem;">This will permanently delete your account, all data, statistics, and settings. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="deleteAccountCancel">Cancel</button>
+        <button class="btn" id="deleteAccountConfirm" style="background:#fee2e2;color:#dc2626;">Delete Forever</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATIONS ==================== -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ==================== CUSTOM NUMPAD ==================== -->
+  <div id="customNumpad" class="custom-numpad">
+    <div class="numpad-grid">
+      <button class="numpad-btn" data-numpad="7">7</button>
+      <button class="numpad-btn" data-numpad="8">8</button>
+      <button class="numpad-btn" data-numpad="9">9</button>
+      <button class="numpad-btn numpad-backspace" data-numpad="backspace" aria-label="Backspace">⌫</button>
+      <button class="numpad-btn" data-numpad="4">4</button>
+      <button class="numpad-btn" data-numpad="5">5</button>
+      <button class="numpad-btn" data-numpad="6">6</button>
+      <button class="numpad-btn" data-numpad=":">:</button>
+      <button class="numpad-btn" data-numpad="1">1</button>
+      <button class="numpad-btn" data-numpad="2">2</button>
+      <button class="numpad-btn" data-numpad="3">3</button>
+      <button class="numpad-btn" data-numpad="%">%</button>
+      <button class="numpad-btn" data-numpad="-" aria-label="Minus">−</button>
+      <button class="numpad-btn" data-numpad="0">0</button>
+      <button class="numpad-btn" data-numpad=".">.</button>
+      <button class="numpad-btn numpad-submit" data-numpad="submit" aria-label="Submit">↵</button>
+    </div>
+  </div>
+
+  <!-- Offline Indicator -->
+  <div id="offlineBanner" class="offline-banner" style="display:none;">
+    <span>📡 You're offline — changes will sync when reconnected</span>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" style="display:none;" role="tablist">
+    <a href="#home" data-view="home" role="tab"><span class="nav-icon"><img src="appicons/tab/hometab.svg" alt="Home" width="24" height="24" draggable="false"></span>Home</a>
+    <a href="#practice" data-view="practice" role="tab"><span class="nav-icon"><img src="appicons/tab/practicetab.svg" alt="Practice" width="24" height="24" draggable="false"></span>Practice</a>
+    <a href="#learn" data-view="learn" role="tab"><span class="nav-icon"><img src="appicons/tab/learntab.svg" alt="Learn" width="24" height="24" draggable="false"></span>Learn</a>
+    <a href="#stats" data-view="stats" role="tab"><span class="nav-icon"><img src="appicons/tab/statstab.svg" alt="Stats" width="24" height="24" draggable="false"></span>Stats</a>
+    <a href="#settings" data-view="settings" role="tab"><span class="nav-icon"><img src="appicons/tab/settingstab.svg" alt="Settings" width="24" height="24" draggable="false"></span>Settings</a>
+  </nav>
+
+  <!-- Firebase SDK (compat for broad browser support) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+  <!--
+    Script Load Order (dependency graph):
+    ─────────────────────────────────────
+    Layer 1 — State:       store.js (AppState singleton, no deps)
+    Layer 2 — Infra:       firebase.js → auth.js → firestore-sync.js
+    Layer 3 — Services:    adaptive-state.js, scoring-service.js, share-service.js
+    Layer 4 — Data:        progress.js, questions.js (read AppState + AdaptiveState)
+    Layer 5 — Reference:   tables.js, formulas.js, learn-manager.js
+    Layer 6 — Settings:    settings.js (provides showToast global)
+    Layer 7 — Engine:      drill-engine.js (reads questions, progress, AdaptiveState, ScoringService, ShareService)
+    Layer 8 — Navigation:  router.js
+    Layer 9 — Features:    paywall.js, question-bank-service.js, ai-features.js, session-manager.js
+    Layer 10 — Controllers: practice-config.js, practice-modes.js
+    Layer 11 — UI:          numpad.js
+    Layer 12 — Views:       home-view.js, learn-view.js, stats-view.js
+    Layer 13 — Bootstrap:   app.js (must be last — initializes everything)
+    Deferred (non-critical): notifications.js, onboarding.js
+  -->
+  <script src="js/state/store.js"></script>
+  <script src="js/firebase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/firestore-sync.js"></script>
+  <script src="js/services/adaptive-state.js"></script>
+  <script src="js/services/scoring-service.js"></script>
+  <script src="js/services/share-service.js"></script>
+  <script src="js/progress.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/tables.js"></script>
+  <script src="js/formulas.js"></script>
+  <script src="js/learn-manager.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/notifications.js" defer></script>
+  <script src="js/soundEngine.js"></script>
+  <script src="js/drill-engine.js"></script>
+  <script src="js/onboarding.js" defer></script>
+  <script src="js/router.js"></script>
+  <script src="js/paywall.js"></script>
+  <script src="js/services/question-bank-service.js"></script>
+  <script src="js/ai-features.js"></script>
+  <script src="js/session-manager.js"></script>
+  <script src="js/controllers/practice-config.js"></script>
+  <script src="js/controllers/practice-modes.js"></script>
+  <script src="js/ui/numpad.js"></script>
+  <script src="js/ui/swipe-nav.js"></script>
+  <script src="js/views/home-view.js"></script>
+  <script src="js/views/learn-view.js"></script>
+  <script src="js/views/stats-view.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

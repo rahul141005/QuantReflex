@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuantReflex Coaching Institute",
+  "description": "Schema for coaching institute documents in Firestore 'coachings' collection. Created via Super Admin Panel.",
+  "type": "object",
+  "required": ["coachingId", "name"],
+  "properties": {
+    "coachingId": {
+      "type": "string",
+      "description": "Unique identifier for the coaching institute. Uppercase, underscore-separated. Example: 'IMS_NAGPUR_01'",
+      "pattern": "^[A-Z0-9_]+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name of the coaching institute. Example: 'IMS Nagpur'"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp (ISO 8601)"
+    },
+    "studentCount": {
+      "type": "integer",
+      "description": "Number of students enrolled (aggregated). May require periodic sync.",
+      "default": 0
+    }
+  }
+}

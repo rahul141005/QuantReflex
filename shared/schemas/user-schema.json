@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuantReflex User Document",
+  "description": "Canonical schema for user documents in Firestore 'users/{uid}' collection. This is the root document structure — the single source of truth for user state.",
+  "type": "object",
+  "properties": {
+    "profile": {
+      "type": "object",
+      "description": "User profile information.",
+      "properties": {
+        "name": { "type": "string", "description": "Display name" },
+        "username": { "type": "string", "description": "Normalized username (alphanumeric, lowercase)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp (ISO 8601)" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "User preferences.",
+      "properties": {
+        "darkMode": { "type": "boolean", "default": false },
+        "sound": { "type": "boolean", "default": true },
+        "vibration": { "type": "boolean", "default": true },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"], "default": "medium" },
+        "dailyGoal": { "type": "integer", "minimum": 1, "maximum": 200, "default": 20 },
+        "reducedMotion": { "type": "boolean", "default": false },
+        "skipEnabled": { "type": "boolean", "default": false },
+        "notificationsEnabled": { "type": "boolean", "default": false },
+        "theme": { "type": "string", "default": "classic" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "description": "Practice statistics and progress data.",
+      "properties": {
+        "totalAttempted": { "type": "integer", "default": 0 },
+        "totalCorrect": { "type": "integer", "default": 0 },
+        "bestStreak": { "type": "integer", "default": 0 },
+        "currentStreak": { "type": "integer", "default": 0 },
+        "drillSessions": { "type": "integer", "default": 0 },
+        "timedTestSessions": { "type": "integer", "default": 0 },
+        "dailyStreak": { "type": "integer", "default": 0 },
+        "bestDailyStreak": { "type": "integer", "default": 0 },
+        "lastActiveDate": { "type": ["string", "null"], "format": "date-time" },
+        "lastPracticeDate": { "type": ["string", "null"], "format": "date-time" },
+        "todayAttempted": { "type": "integer", "default": 0 },
+        "todayCorrect": { "type": "integer", "default": 0 },
+        "categoryStats": { "type": "object", "description": "Per-category accuracy breakdown" },
+        "mistakes": { "type": "array", "description": "Recent mistake history" },
+        "responseTimes": { "type": "array", "items": { "type": "number" } },
+        "dailyHistory": { "type": "object", "description": "Per-day practice history" }
+      }
+    },
+    "quickLinks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["fractionTable", "tablesContainer", "formulaSections", "mentalTricks"]
+    },
+    "customTopics": { "type": "array", "default": [] },
+    "customFormulas": { "type": "object", "default": {} },
+    "bookmarks": { "type": "array", "default": [] },
+
+    "isPremium": { "type": "boolean", "default": false, "description": "Lifetime premium access" },
+    "isTrial": { "type": "boolean", "default": false, "description": "Active trial status" },
+    "trialEnd": { "type": ["string", "null"], "format": "date-time", "description": "Trial expiration (ISO 8601)" },
+    "hasPaid": { "type": "boolean", "default": false, "description": "Has completed a Razorpay payment" },
+    "isEarlyUser": { "type": "boolean", "default": false, "description": "Legacy field — always false for new users" },
+
+    "isPremiumPlus": { "type": "boolean", "default": false, "description": "Premium+ subscription active" },
+    "premiumPlusPlan": { "type": ["string", "null"], "enum": ["plus_half_yearly", "plus_yearly", null], "description": "Active Plus plan type" },
+    "premiumPlusExpiry": { "type": ["string", "null"], "format": "date-time", "description": "Premium+ expiration (ISO 8601)" },
+    "premiumPlusStatus": { "type": ["string", "null"], "enum": ["active", "expired", null] },
+
+    "lastPaymentId": { "type": ["string", "null"], "description": "Last Razorpay payment ID (Premium)" },
+    "lastPremiumPlusPaymentId": { "type": ["string", "null"], "description": "Last Razorpay payment ID (Premium+)" },
+
+    "coachingId": { "type": ["string", "null"], "description": "Coaching institute ID. Null for independent users." },
+
+    "createdAt": { "type": "string", "format": "date-time", "description": "Document creation timestamp (ISO 8601)" },
+    "updatedAt": { "type": "string", "format": "date-time", "description": "Last modification timestamp (ISO 8601)" }
+  },
+  "subcollections": {
+    "practiceSessions": {
+      "description": "users/{uid}/practiceSessions/{sessionId} — Drill session history",
+      "documentSchema": {
+        "mode": { "type": "string" },
+        "category": { "type": "string" },
+        "score": { "type": "integer" },
+        "total": { "type": "integer" },
+        "duration": { "type": "integer" },
+        "date": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "performance/overall": {
+      "description": "Derived performance metrics",
+      "documentSchema": {
+        "totalAttempted": { "type": "integer" },
+        "totalCorrect": { "type": "integer" },
+        "accuracy": { "type": "integer" },
+        "avgTime": { "type": "number" },
+        "bestStreak": { "type": "integer" },
+        "currentStreak": { "type": "integer" },
+        "dailyStreak": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "practice/data": {
+      "description": "Mistake review and saved questions",
+      "documentSchema": {
+        "mistakes": { "type": "array" },
+        "savedQuestions": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ai/usage": {
+      "description": "AI feature usage tracking",
+      "documentSchema": {
+        "wordProblemsUsedLifetime": { "type": "integer" },
+        "wordProblemsUsedToday": { "type": "integer" },
+        "explanationsUsed": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "profile/data": {
+      "description": "Structured profile subcollection (dual-write)",
+      "documentSchema": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "isTrial": { "type": "boolean" },
+        "trialEnd": { "type": ["string", "null"] },
+        "hasPaid": { "type": "boolean" },
+        "isPremiumPlus": { "type": "boolean" },
+        "premiumPlusPlan": { "type": ["string", "null"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

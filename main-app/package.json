@@ -1,0 +1,17 @@
+{
+  "name": "quantreflex",
+  "version": "1.1.0",
+  "description": "A Progressive Web App (PWA) that trains mental math reflexes for competitive exams like CET, CAT, and GMAT. Built with vanilla HTML, CSS, and JavaScript — no frameworks.",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["math", "pwa", "mental-math", "competitive-exam"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-admin": "^13.7.0",
+    "openai": "^4.86.2",
+    "razorpay": "^2.9.6"
+  }
+}

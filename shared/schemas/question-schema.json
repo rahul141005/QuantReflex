@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuantReflex Question",
+  "description": "Canonical schema for questions in the QuantReflex ecosystem. Used by both the Admin Panel (write) and Main App (read). Stored in Firestore 'questions' collection.",
+  "type": "object",
+  "required": ["type", "topic", "difficulty", "question", "answer", "status"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["word_problem"],
+      "description": "Question type. Currently only 'word_problem' is supported."
+    },
+    "topic": {
+      "type": "string",
+      "description": "Topic category key. Uses underscore_case in Admin Panel (e.g., 'profit_loss'). The Main App normalizes both hyphen-case and underscore_case.",
+      "examples": ["profit_loss", "percentages", "ratios", "averages", "time-speed-distance", "time-and-work", "fractions", "multiplication"]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"],
+      "description": "Difficulty level. Main App uses this for filtering and intelligent fallback."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The question text displayed to the student."
+    },
+    "options": {
+      "type": "array",
+      "items": { "type": "number" },
+      "description": "Optional MCQ options. Empty array for open-answer questions.",
+      "default": []
+    },
+    "answer": {
+      "type": "number",
+      "description": "The correct numeric answer."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Step-by-step explanation of the solution. Displayed after the student answers.",
+      "default": ""
+    },
+    "approved": {
+      "type": "boolean",
+      "description": "Whether the question has been approved by an admin. Must be true for active questions.",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "archived"],
+      "description": "Publication status. Only 'active' questions are served to students.",
+      "default": "draft"
+    },
+    "premiumOnly": {
+      "type": "boolean",
+      "description": "If true, this question is only available to Premium/Premium+ users.",
+      "default": false
+    }
+  },
+  "additionalProperties": false
+}

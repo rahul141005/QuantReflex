@@ -1,0 +1,7 @@
+{
+  "name": "quantreflex-coaching-admin",
+  "version": "0.1.0",
+  "description": "QuantReflex Coaching Admin Panel — Student monitoring and coaching operations",
+  "private": true,
+  "dependencies": {}
+}

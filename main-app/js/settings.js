@@ -1,0 +1,825 @@
+/**
+ * settings.js — User settings management
+ *
+ * Manages: dark mode, sound, vibration, difficulty, reduced motion,
+ *          skip questions, notifications, profile, account deletion.
+ * Stores settings in localStorage and syncs to Firestore.
+ */
+
+var SETTINGS_KEY = 'quant_reflex_settings';
+var _logoutInFlight = false;
+
+function loadSettings() {
+  if (typeof AppState !== 'undefined') return AppState.getSettings();
+  try {
+    var raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) { /* ignore */ }
+  return {
+    darkMode: false, sound: true, vibration: true, difficulty: 'medium',
+    dailyGoal: 20, reducedMotion: false, skipEnabled: false, notificationsEnabled: false,
+    theme: 'classic'
+  };
+}
+
+function saveSettings(s) {
+  try {
+    if (typeof AppState !== 'undefined') {
+      AppState.setSettings(s);
+    } else {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    }
+    if (typeof FirestoreSync !== 'undefined') {
+      FirestoreSync.syncSettings(s);
+    }
+  } catch (e) {
+    console.warn('Failed to save settings:', e);
+  }
+}
+
+/**
+ * Apply a theme by class name.
+ * Removes all theme classes and applies the selected one.
+ * @param {string} theme - 'classic' or 'playful'
+ */
+function applyTheme(theme) {
+  document.body.classList.remove('theme-playful');
+  if (theme === 'playful') {
+    document.body.classList.add('theme-playful');
+  }
+  if (typeof updateNavigationIcons === 'function') {
+    updateNavigationIcons(theme);
+  }
+}
+
+function getDifficulty() {
+  return loadSettings().difficulty || 'medium';
+}
+
+/**
+ * Show a toast notification.
+ * @param {string} message - text to display
+ * @param {number} [duration=3000] - ms before auto-dismiss
+ */
+function showToast(message, duration) {
+  var container = document.getElementById('toastContainer');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  /* Trigger enter animation */
+  requestAnimationFrame(function () {
+    toast.classList.add('toast-visible');
+  });
+  setTimeout(function () {
+    toast.classList.remove('toast-visible');
+    setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, duration || 3000);
+}
+
+/**
+ * Initialize settings view controls.
+ * Called when settings view is shown.
+ */
+function initSettingsView() {
+  var settings = loadSettings();
+  var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
+    ? FirestoreSync.getAccessState()
+    : {};
+  var isPremiumUser = accessState && accessState.isPremium === true;
+  var isTrialUser = accessState && accessState.isTrial === true;
+
+  var darkToggle = document.getElementById('darkModeToggle');
+  var soundToggle = document.getElementById('soundToggle');
+  var vibrationToggle = document.getElementById('vibrationToggle');
+  var difficultySelect = document.getElementById('difficultySelect');
+
+  if (!darkToggle) return;
+
+  /* Remove old listeners by cloning */
+  function rebind(el, event, handler) {
+    if (!el) return null;
+    var newEl = el.cloneNode(true);
+    el.parentNode.replaceChild(newEl, el);
+    newEl.addEventListener(event, handler);
+    return newEl;
+  }
+
+  darkToggle = rebind(darkToggle, 'change', function () {
+    settings.darkMode = this.checked;
+    document.body.classList.toggle('dark-mode', this.checked);
+    saveSettings(settings);
+    SoundEngine.play('settingsToggle');
+    if (typeof triggerHaptic === 'function') triggerHaptic(15);
+  });
+  darkToggle.checked = settings.darkMode || false;
+
+  /* Theme selector */
+  var themeSelect = document.getElementById('themeSelect');
+  if (themeSelect) {
+    themeSelect = rebind(themeSelect, 'change', function () {
+      if (this.value !== 'classic' && !canAccessFeature('advanced_theme')) {
+        this.value = settings.theme || 'classic';
+        showPaywall('settings');
+        return;
+      }
+      settings.theme = this.value;
+      applyTheme(this.value);
+      saveSettings(settings);
+      SoundEngine.play('settingsToggle');
+    });
+    if ((settings.theme || 'classic') !== 'classic' && !canAccessFeature('advanced_theme')) {
+      settings.theme = 'classic';
+      applyTheme('classic');
+      saveSettings(settings);
+    }
+    themeSelect.value = settings.theme || 'classic';
+  }
+
+  soundToggle = rebind(soundToggle, 'change', function () {
+    settings.sound = this.checked;
+    saveSettings(settings);
+    /* Only play confirmation sound when enabling sound */
+    if (this.checked) {
+      SoundEngine.play('settingsToggle');
+    }
+    if (typeof triggerHaptic === 'function') triggerHaptic(15);
+  });
+  soundToggle.checked = settings.sound !== false;
+
+  vibrationToggle = rebind(vibrationToggle, 'change', function () {
+    settings.vibration = this.checked;
+    saveSettings(settings);
+    SoundEngine.play('settingsToggle');
+    /* Provide feedback vibration when turning on; skip check since user is toggling this */
+    if (this.checked && typeof navigator.vibrate === 'function') navigator.vibrate(15);
+  });
+  vibrationToggle.checked = settings.vibration !== false;
+
+  /* Reduced Motion toggle */
+  var reducedMotionToggle = document.getElementById('reducedMotionToggle');
+  if (reducedMotionToggle) {
+    reducedMotionToggle = rebind(reducedMotionToggle, 'change', function () {
+      settings.reducedMotion = this.checked;
+      document.body.classList.toggle('reduced-motion', this.checked);
+      saveSettings(settings);
+      SoundEngine.play('settingsToggle');
+    });
+    reducedMotionToggle.checked = !!settings.reducedMotion;
+  }
+
+  /* Skip Question toggle */
+  var skipToggle = document.getElementById('skipToggle');
+  if (skipToggle) {
+    skipToggle = rebind(skipToggle, 'change', function () {
+      var toggle = this;
+      if (toggle.checked && !canAccessFeature('skip_question')) {
+        toggle.checked = false;
+        settings.skipEnabled = false;
+        saveSettings(settings);
+        showPaywall('settings');
+        return;
+      }
+      if (toggle.checked && settings.difficulty === 'hard') {
+        /* Revert toggle immediately */
+        toggle.checked = false;
+        showToast('Skip is disabled in Hard mode to maintain challenge.');
+        return;
+      }
+      settings.skipEnabled = toggle.checked;
+      saveSettings(settings);
+      SoundEngine.play('settingsToggle');
+    });
+    skipToggle.checked = !!(settings.skipEnabled && settings.difficulty !== 'hard');
+  }
+
+  difficultySelect = rebind(difficultySelect, 'change', function () {
+    if (this.value === 'hard' && !canAccessFeature('hard_mode')) {
+      this.value = settings.difficulty || 'medium';
+      showPaywall('settings');
+      return;
+    }
+    settings.difficulty = this.value;
+    /* If switching to Hard, disable skip */
+    if (this.value === 'hard' && settings.skipEnabled) {
+      settings.skipEnabled = false;
+      var st = document.getElementById('skipToggle');
+      if (st) st.checked = false;
+      showToast('Skip is disabled in Hard mode to maintain challenge.');
+    }
+    saveSettings(settings);
+    SoundEngine.play('settingsToggle');
+  });
+  difficultySelect.value = settings.difficulty || 'medium';
+
+  /* Daily goal input */
+  var dailyGoalInput = document.getElementById('dailyGoalInput');
+  if (dailyGoalInput) {
+    dailyGoalInput = rebind(dailyGoalInput, 'change', function () {
+      var val = parseInt(this.value);
+      if (val >= 10 && val <= 500) {
+        if (val > 20 && !canAccessFeature('daily_goal_limit')) {
+          this.value = String(settings.dailyGoal || 20);
+          showPaywall('settings');
+          return;
+        }
+        settings.dailyGoal = val;
+        saveSettings(settings);
+      }
+    });
+    if ((settings.dailyGoal || 20) > 20 && !canAccessFeature('daily_goal_limit')) {
+      settings.dailyGoal = 20;
+      saveSettings(settings);
+    }
+    dailyGoalInput.value = settings.dailyGoal || 20;
+  }
+
+  /* Notifications toggle */
+  var notifToggle = document.getElementById('notificationsToggle');
+  if (notifToggle) {
+    var notifEnabled = typeof NotificationManager !== 'undefined' && NotificationManager.isEnabled();
+    notifToggle = rebind(notifToggle, 'change', function () {
+      var toggle = this;
+      if (typeof NotificationManager === 'undefined') return;
+      if (toggle.checked) {
+        NotificationManager.enable(function (err) {
+          if (err) {
+            toggle.checked = false;
+            console.warn('Notifications could not be enabled:', err);
+          }
+        });
+      } else {
+        NotificationManager.disable();
+      }
+      SoundEngine.play('settingsToggle');
+    });
+    notifToggle.checked = notifEnabled;
+  }
+
+  /* App Guide button — opens modal */
+  var appGuideBtn = document.getElementById('openAppGuide');
+  if (appGuideBtn) {
+    rebind(appGuideBtn, 'click', function () {
+      openInfoModal('appGuideModal');
+    });
+  }
+
+  /* About button — opens modal */
+  var aboutBtn = document.getElementById('openAbout');
+  if (aboutBtn) {
+    rebind(aboutBtn, 'click', function () {
+      updateAboutUserStatus();
+      openInfoModal('aboutModal');
+    });
+  }
+
+  /* Clear Data button — opens modal */
+  var clearDataBtn = document.getElementById('clearDataBtn');
+  if (clearDataBtn) {
+    rebind(clearDataBtn, 'click', function () {
+      openClearDataModal();
+    });
+  }
+
+  /* Profile button — opens profile modal */
+  var profileBtn = document.getElementById('openProfileModal');
+  if (profileBtn) {
+    rebind(profileBtn, 'click', function () {
+      openProfileModal();
+    });
+  }
+
+  /* Logout button */
+  var logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    rebind(logoutBtn, 'click', function () {
+      if (_logoutInFlight) return;
+      if (typeof Auth !== 'undefined') {
+        _logoutInFlight = true;
+        this.disabled = true;
+        /* Flush pending Firestore writes and clear local state BEFORE
+           signing out, while the user context is still valid */
+        if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.flushUpdatesAsync === 'function') {
+          FirestoreSync.flushUpdatesAsync(function() {
+            FirestoreSync.resetSyncState();
+            Auth.logout(function (err) {
+              _logoutInFlight = false;
+              if (err) {
+                var lb = document.getElementById('logoutBtn');
+                if (lb) lb.disabled = false;
+                alert('Logout failed: ' + err);
+              } else {
+                window.location.reload();
+              }
+            });
+          });
+          return;
+        } else if (typeof FirestoreSync !== 'undefined') {
+          FirestoreSync.resetSyncState();
+        }
+        Auth.logout(function (err) {
+          _logoutInFlight = false;
+          if (err) {
+            var lb = document.getElementById('logoutBtn');
+            if (lb) lb.disabled = false;
+            alert('Logout failed: ' + err);
+          } else {
+            /* Reload page for clean state — auth persistence keeps
+               the user logged out, and all JS state is reset */
+            window.location.reload();
+          }
+        });
+      }
+    });
+  }
+
+  /* Delete Account button */
+  var deleteBtn = document.getElementById('deleteAccountBtn');
+  if (deleteBtn) {
+    rebind(deleteBtn, 'click', function () {
+      openDeleteAccountModal();
+    });
+  }
+
+  var updateAppBtn = document.getElementById('updateAppBtn');
+  if (updateAppBtn) {
+    rebind(updateAppBtn, 'click', function () {
+      updateAppBtn.disabled = true;
+      var labelEl = updateAppBtn.querySelector('.settings-btn-label');
+      if (labelEl) {
+        labelEl.textContent = '⏳ Updating app...';
+      } else {
+        updateAppBtn.textContent = '⏳ Updating app...';
+      }
+      if (typeof showToast === 'function') showToast('Updating app...');
+      var done = function () {
+        try {
+          /* Clear all version-keyed update toast flags */
+          var _storageKeys = Object.keys(localStorage);
+          for (var _si = 0; _si < _storageKeys.length; _si++) {
+            if (_storageKeys[_si].indexOf('updateToastShown') === 0) {
+              localStorage.removeItem(_storageKeys[_si]);
+            }
+          }
+          localStorage.setItem('appUpdating', 'true');
+        } catch (_) {}
+        window.location.reload();
+      };
+      if ('caches' in window) {
+        caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }).then(function () {
+          if ('serviceWorker' in navigator) {
+            return navigator.serviceWorker.getRegistrations().then(function (regs) {
+              for (var i = 0; i < regs.length; i++) {
+                if (regs[i].waiting) {
+                  regs[i].waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                regs[i].update();
+              }
+            });
+          }
+        }).then(done).catch(done);
+      } else {
+        done();
+      }
+    });
+  }
+
+  var trialUpgradeSection = document.getElementById('trialUpgradeSection');
+  if (trialUpgradeSection) {
+    trialUpgradeSection.style.display = (!isPremiumUser || isTrialUser) ? 'block' : 'none';
+  }
+  var trialUpgradeBtn = document.getElementById('trialUpgradeBtn');
+  if (trialUpgradeBtn) {
+    rebind(trialUpgradeBtn, 'click', function () {
+      showPaywall('settings');
+    });
+  }
+
+  /* PWA install button */
+  var installCard = document.getElementById('installCard');
+  var installBtn = document.getElementById('installBtn');
+  if (installCard && installBtn && window._deferredPrompt) {
+    installCard.style.display = 'block';
+    rebind(installBtn, 'click', function () {
+      window._deferredPrompt.prompt();
+      window._deferredPrompt.userChoice.then(function () {
+        window._deferredPrompt = null;
+        installCard.style.display = 'none';
+      });
+    });
+  }
+
+  /* Apply reduced motion on load */
+  document.body.classList.toggle('reduced-motion', !!settings.reducedMotion);
+  updateAboutUserStatus();
+}
+
+function updateAboutUserStatus() {
+  var statusEl = document.getElementById('aboutUserStatusMessage');
+  var settingsStatusEl = document.getElementById('settingsUserStatusMessage');
+  var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
+    ? (FirestoreSync.getAccessState() || {})
+    : {};
+  var message = 'Free user';
+  if (accessState.isPremiumPlus === true) {
+    var planLabel = accessState.premiumPlusPlan === 'plus_yearly' ? '1 Year' : '6 Month';
+    var expiryStr = '';
+    if (accessState.premiumPlusExpiry) {
+      var expMs = 0;
+      if (typeof accessState.premiumPlusExpiry === 'number') {
+        expMs = accessState.premiumPlusExpiry;
+      } else if (typeof accessState.premiumPlusExpiry === 'string') {
+        expMs = new Date(accessState.premiumPlusExpiry).getTime();
+      } else if (typeof accessState.premiumPlusExpiry === 'object' && typeof accessState.premiumPlusExpiry.toDate === 'function') {
+        try { expMs = accessState.premiumPlusExpiry.toDate().getTime(); } catch (_) {}
+      }
+      
+      if (expMs > 0 && !isNaN(expMs)) {
+        var d = new Date(expMs);
+        var formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        expiryStr = ' · Expires on: ' + formatter.format(d);
+      }
+    }
+    message = '✨ Premium+ (' + planLabel + ')' + expiryStr;
+  } else if (accessState.hasPaid === true) {
+    message = '💙 Thank you for upgrading to premium.';
+  } else if (accessState.isTrial === true) {
+    var trialExpStr = '';
+    if (accessState.trialEnd) {
+      var tExpMs = 0;
+      if (typeof accessState.trialEnd === 'number') {
+        tExpMs = accessState.trialEnd;
+      } else if (typeof accessState.trialEnd === 'string') {
+        tExpMs = new Date(accessState.trialEnd).getTime();
+      } else if (typeof accessState.trialEnd === 'object' && typeof accessState.trialEnd.toDate === 'function') {
+        try { tExpMs = accessState.trialEnd.toDate().getTime(); } catch (_) {}
+      }
+      
+      if (tExpMs > 0 && !isNaN(tExpMs)) {
+        var d = new Date(tExpMs);
+        var formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        trialExpStr = ' (Expires on: ' + formatter.format(d) + ')';
+      }
+    }
+    message = '⏳ You are on a premium trial' + trialExpStr + '.';
+  }
+  if (statusEl) {
+    statusEl.textContent = message;
+  }
+  if (settingsStatusEl) {
+    settingsStatusEl.textContent = message;
+  }
+}
+
+/**
+ * Open the Clear Data modal with options.
+ */
+function openClearDataModal() {
+  var modal = document.getElementById('clearDataModal');
+  if (!modal) return;
+  /* Prevent duplicate overlays */
+  var confirmModal = document.getElementById('clearConfirmModal');
+  if (confirmModal) confirmModal.style.display = 'none';
+
+  modal.style.display = 'flex';
+
+  var cancelBtn = document.getElementById('clearDataCancel');
+  var optionBtns = modal.querySelectorAll('.clear-option-btn');
+
+  /* Cancel */
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+  cancelBtn.onclick = closeModal;
+  modal.onclick = function (e) {
+    if (e.target === modal) closeModal();
+  };
+
+  /* Option handlers */
+  for (var i = 0; i < optionBtns.length; i++) {
+    optionBtns[i].onclick = function () {
+      var type = this.getAttribute('data-clear');
+      closeModal();
+      openClearConfirmModal(type);
+    };
+  }
+}
+
+/**
+ * Open a confirmation dialog before clearing data.
+ * @param {string} type - 'stats', 'streaks', 'formulas', or 'all'
+ */
+function openClearConfirmModal(type) {
+  var modal = document.getElementById('clearConfirmModal');
+  var textEl = document.getElementById('clearConfirmText');
+  var cancelBtn = document.getElementById('clearConfirmCancel');
+  var okBtn = document.getElementById('clearConfirmOk');
+  if (!modal || !textEl) return;
+
+  var messages = {
+    stats: 'This will permanently reset all your statistics and performance history. Continue?',
+    streaks: 'This will permanently reset your current and best streaks. Continue?',
+    formulas: 'This will permanently delete all your custom topics and added formulas. Continue?',
+    all: 'This will permanently reset ALL your data including settings, statistics, formulas, and bookmarks. Continue?'
+  };
+  textEl.textContent = messages[type] || 'Are you sure?';
+  modal.style.display = 'flex';
+
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+  cancelBtn.onclick = closeModal;
+  modal.onclick = function (e) {
+    if (e.target === modal) closeModal();
+  };
+
+  okBtn.onclick = function () {
+    closeModal();
+    if (type === 'streaks') {
+      /* Handle streaks clearing through the proper AppState chain */
+      try {
+        var progress = loadProgress();
+        progress.currentStreak = 0;
+        progress.bestStreak = 0;
+        progress.dailyStreak = 0;
+        progress.bestDailyStreak = 0;
+        progress.lastPracticeDate = null;
+        saveProgress(progress);
+      } catch (_) {}
+      showToast('Streaks cleared successfully.');
+      if (typeof Router !== 'undefined') {
+        Router.showView('settings');
+      }
+      return;
+    }
+
+    if (typeof FirestoreSync !== 'undefined') {
+      FirestoreSync.clearUserData(type, function (err) {
+        if (err) {
+          alert('Failed to clear data: ' + err);
+        } else {
+          if (type === 'stats') {
+            /* Stats only — re-render settings view without reload */
+            showToast('Statistics cleared successfully.');
+            if (typeof Router !== 'undefined') {
+              Router.showView('settings');
+            }
+          } else {
+            /* Formulas or all — reload page for clean DOM state.
+               Auth persistence keeps the user logged in. */
+            showToast('Data cleared successfully.');
+            setTimeout(function () { window.location.reload(); }, 500);
+          }
+        }
+      });
+    } else {
+      /* Fallback: clear local data only */
+      if (type === 'stats') {
+        resetProgress();
+      } else if (type === 'formulas') {
+        try {
+          localStorage.setItem('quant_custom_formulas', '{}');
+          localStorage.setItem('quant_custom_topics', '[]');
+          localStorage.setItem('quant_bookmarks', '[]');
+        } catch (_) {}
+        if (typeof AppState !== 'undefined') {
+          AppState.setCustomFormulas({});
+          AppState.setCustomTopics([]);
+          AppState.setBookmarks([]);
+        }
+      } else if (type === 'all') {
+        resetProgress();
+        var defaultSettings = {
+          darkMode: false, sound: true, vibration: true, difficulty: 'medium',
+          dailyGoal: 20, reducedMotion: false, skipEnabled: false, notificationsEnabled: false,
+          theme: 'classic'
+        };
+        try {
+          localStorage.setItem('quant_reflex_settings', JSON.stringify(defaultSettings));
+          localStorage.setItem('quant_custom_formulas', '{}');
+          localStorage.setItem('quant_custom_topics', '[]');
+          localStorage.setItem('quant_bookmarks', '[]');
+          localStorage.setItem('quant_quick_links', JSON.stringify(['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks']));
+          localStorage.setItem('quant_notifications_enabled', 'false');
+        } catch (_) {}
+        if (typeof AppState !== 'undefined') {
+          AppState.setSettings(defaultSettings);
+          AppState.setCustomFormulas({});
+          AppState.setCustomTopics([]);
+          AppState.setBookmarks([]);
+          AppState.setQuickLinks(['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks']);
+        }
+        if (typeof NotificationManager !== 'undefined') {
+          NotificationManager.cancelScheduledNotifications();
+        }
+      }
+      if (type === 'stats') {
+        showToast('Statistics cleared successfully.');
+        if (typeof Router !== 'undefined') {
+          Router.showView('settings');
+        }
+      } else {
+        showToast('Data cleared successfully.');
+        setTimeout(function () { window.location.reload(); }, 500);
+      }
+    }
+  };
+}
+
+/**
+ * Open the profile modal showing user details.
+ */
+function openProfileModal() {
+  var modal = document.getElementById('profileModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+
+  var nameInput = document.getElementById('profileName');
+  var usernameInput = document.getElementById('profileUsername');
+  var bannerEl = document.getElementById('profileBanner');
+  var cancelBtn = document.getElementById('profileCancel');
+  var saveBtn = document.getElementById('profileSave');
+
+  /* Populate fields from Firestore cache or localStorage */
+  var profile = {};
+  var coachingId = null;
+  try {
+    if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
+      var cache = FirestoreSync._getCache();
+      if (cache && cache.profile) profile = cache.profile;
+      if (cache && cache.coachingId) coachingId = cache.coachingId;
+    }
+  } catch (_) {}
+
+  if (nameInput) nameInput.value = profile.name || '';
+  if (usernameInput) usernameInput.value = profile.username || '';
+
+  /* Coaching ID: read-only display */
+  var coachingIdInput = document.getElementById('profileCoachingId');
+  if (coachingIdInput) coachingIdInput.value = coachingId || 'None';
+
+  /* Profile banner: "{Name} started mathing on {Date}" */
+  if (bannerEl) {
+    var displayName = profile.name || 'You';
+    var joinedDate = profile.createdAt ? new Date(profile.createdAt) : null;
+    var dateStr = joinedDate ? joinedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'an unknown date';
+    bannerEl.textContent = displayName + ' started mathing on ' + dateStr + '.';
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+
+  cancelBtn.onclick = closeModal;
+  modal.onclick = function (e) {
+    if (e.target === modal) closeModal();
+  };
+
+  saveBtn.onclick = function () {
+    var newName = nameInput ? nameInput.value.trim() : '';
+
+    /* Update name in Firestore */
+    if (newName && typeof FirestoreSync !== 'undefined') {
+      FirestoreSync.updateProfileName(newName);
+      showToast('Profile updated.');
+    }
+
+    closeModal();
+  };
+}
+
+/**
+ * Open the delete account confirmation modal.
+ */
+function openDeleteAccountModal() {
+  var modal = document.getElementById('deleteAccountModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+
+  var cancelBtn = document.getElementById('deleteAccountCancel');
+  var confirmBtn = document.getElementById('deleteAccountConfirm');
+
+  function closeModal() {
+    modal.style.display = 'none';
+  }
+
+  cancelBtn.onclick = closeModal;
+  modal.onclick = function (e) {
+    if (e.target === modal) closeModal();
+  };
+
+  confirmBtn.onclick = function () {
+    closeModal();
+    if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
+      showToast('Unable to delete account. Not logged in.');
+      return;
+    }
+
+    var user = Auth.getCurrentUser();
+
+    /**
+     * Delete account in proper order:
+     * 1. Delete Firestore user document (while auth context is valid)
+     * 2. Clear all local data
+     * 3. Delete Firebase Auth account (last — invalidates the session)
+     */
+    function deleteAuthAndReload() {
+      try {
+        localStorage.clear();
+      } catch (_) {}
+      user.delete().then(function () {
+        window.location.reload();
+      }).catch(function (err) {
+        showToast('Account deletion failed: ' + err.message);
+      });
+    }
+
+    if (typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
+      var db = FirebaseApp.getDb();
+      var userId = FirebaseApp.getUserId();
+      if (db && userId) {
+        var subcollections = ['performance', 'practice', 'ai', 'usage', 'profile'];
+        var subDeletePromises = subcollections.map(function (sub) {
+          return db.collection('users').doc(userId).collection(sub).get().then(function (snap) {
+            var batch = db.batch();
+            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
+            return batch.commit();
+          }).catch(function (err) {
+            console.warn('Failed to delete subcollection ' + sub + ':', err);
+          });
+        });
+
+        var paymentsDeletePromise = db.collection('payments')
+          .where('uid', '==', userId).get().then(function (snap) {
+            if (snap.empty) return;
+            var batch = db.batch();
+            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
+            return batch.commit();
+          }).catch(function (err) {
+            console.warn('Failed to delete payment records:', err);
+          });
+
+        Promise.all(subDeletePromises.concat([paymentsDeletePromise]))
+          .then(function () {
+            return db.collection('users').doc(userId).delete();
+          })
+          .then(deleteAuthAndReload)
+          .catch(function (err) {
+            console.warn('Failed to delete Firestore user data:', err);
+            deleteAuthAndReload();
+          });
+        return;
+      }
+    }
+
+    /* No Firestore — just clear and delete auth */
+    deleteAuthAndReload();
+  };
+}
+
+/**
+ * Open a full-screen info modal (App Guide or About).
+ * @param {string} modalId - DOM id of the modal overlay
+ */
+function openInfoModal(modalId) {
+  var modal = document.getElementById(modalId);
+  if (!modal) return;
+  modal.style.display = 'block';
+  modal.classList.remove('closing');
+  SoundEngine.play('tableModal');
+
+  var closeBtn = modal.querySelector('.info-modal-close');
+
+  function closeModal() {
+    modal.classList.add('closing');
+    SoundEngine.play('tableModal');
+    document.removeEventListener('keydown', _infoModalEscapeHandler);
+    _infoModalEscapeHandler = null;
+    setTimeout(function () {
+      modal.style.display = 'none';
+      modal.classList.remove('closing');
+    }, 200);
+  }
+
+  /* Store handler reference on module scope for cleanup by _closeAllInfoModals */
+  _infoModalEscapeHandler = function (e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+    }
+  };
+
+  if (closeBtn) closeBtn.onclick = closeModal;
+  modal.onclick = function (e) {
+    if (e.target === modal) closeModal();
+  };
+  document.addEventListener('keydown', _infoModalEscapeHandler);
+}
+
+/* Reference to the active info modal Escape handler for cleanup */
+var _infoModalEscapeHandler = null;
