@@ -1,0 +1,30 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "topic", "order": "ASCENDING" },
+        { "fieldPath": "difficulty", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "topic", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "difficulty", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

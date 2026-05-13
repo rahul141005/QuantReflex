@@ -91,3 +91,25 @@ quantreflex/
 5. **Incremental Centralization** — Shared logic extracted only after stabilization
 6. **Offline First** — Main app functions without connection (PWA)
 7. **ISO 8601 Timestamps** — Universal timestamp format across all apps
+8. **Inline Copies** — Shared utilities exist as inline copies per-app (no cross-app imports in production)
+
+## Known Controlled Duplication
+
+Both apps are independently deployable Vercel projects. Without a bundler, cross-app imports are impossible in production. The following utilities are intentionally maintained as **inline copies** with canonical references in `shared/`:
+
+| Utility | Copies | Canonical Source |
+|---------|--------|-----------------|
+| `_toMillis()` | 4 (paywall, firestore-sync, users, payments) | `shared/constants/entitlements.js` |
+| `_escapeHtml()` | 4 (onboarding, users, payments, ai) | Identical pattern |
+| Firebase Config | 2 (main firebase.js, admin firebase.js) | Same project: `quant-reflex-trainer` |
+| Entitlement Fields | 2 (firestore-sync, admin entitlements API) | `shared/constants/entitlements.js` |
+
+> When modifying any shared pattern, update ALL inline copies AND the canonical reference in `shared/`.
+
+## Centralization Roadmap
+
+| Phase | Trigger | Action |
+|-------|---------|--------|
+| Current | — | Inline copies, canonical refs in `shared/` |
+| Future | Build step introduced | Copy-script syncs `shared/` → `app/js/shared/` |
+| Long-term | Bundler (Vite/Rollup) | True `import` from `shared/` |

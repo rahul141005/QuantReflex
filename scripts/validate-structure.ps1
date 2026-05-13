@@ -12,18 +12,30 @@ function Test-Path-Report {
         Write-Host "  [PASS] $Label" -ForegroundColor Green
         $script:PassCount++
     } elseif ($Required) {
-        Write-Host "  [FAIL] $Label — MISSING: $Path" -ForegroundColor Red
+        Write-Host "  [FAIL] $Label -- MISSING: $Path" -ForegroundColor Red
         $script:ErrorCount++
     } else {
-        Write-Host "  [WARN] $Label — not found (optional)" -ForegroundColor Yellow
+        Write-Host "  [WARN] $Label -- not found (optional)" -ForegroundColor Yellow
         $script:WarnCount++
     }
 }
 
+function Test-NotPath-Report {
+    param([string]$Path, [string]$Label)
+    
+    if (Test-Path $Path) {
+        Write-Host "  [FAIL] $Label -- should NOT exist: $Path" -ForegroundColor Red
+        $script:ErrorCount++
+    } else {
+        Write-Host "  [PASS] $Label" -ForegroundColor Green
+        $script:PassCount++
+    }
+}
+
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  QuantReflex Monorepo Structure Validation" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Root files
@@ -31,6 +43,16 @@ Write-Host "Root Files:" -ForegroundColor White
 Test-Path-Report "package.json" "Root package.json"
 Test-Path-Report "README.md" "Root README.md"
 Test-Path-Report ".gitignore" "Root .gitignore"
+
+Write-Host ""
+
+# Cleanup verification — research dirs should NOT exist
+Write-Host "Cleanup Verification:" -ForegroundColor White
+Test-NotPath-Report "_research_main-app" "No _research_main-app directory"
+Test-NotPath-Report "_research_super-admin" "No _research_super-admin directory"
+Test-NotPath-Report ".env" "No root .env file"
+Test-NotPath-Report "main-app/.env" "No main-app .env file"
+Test-NotPath-Report "super-admin-app/.env" "No super-admin .env file"
 
 Write-Host ""
 
@@ -74,6 +96,7 @@ Test-Path-Report "super-admin-app/js/services/api.js" "js/services/api.js"
 Test-Path-Report "super-admin-app/js/state/store.js" "js/state/store.js"
 Test-Path-Report "super-admin-app/js/views/users.js" "js/views/users.js"
 Test-Path-Report "super-admin-app/js/views/questions.js" "js/views/questions.js"
+Test-Path-Report "super-admin-app/js/views/payments.js" "js/views/payments.js"
 Test-Path-Report "super-admin-app/css/admin-style.css" "css/admin-style.css"
 Test-Path-Report "super-admin-app/api/_lib/firebase-admin.js" "api/_lib/firebase-admin.js"
 Test-Path-Report "super-admin-app/api/admin/entitlements.js" "api/admin/entitlements.js"
@@ -95,12 +118,15 @@ Test-Path-Report "shared/constants/entitlements.js" "constants/entitlements.js"
 Test-Path-Report "shared/schemas/question-schema.json" "schemas/question-schema.json"
 Test-Path-Report "shared/schemas/user-schema.json" "schemas/user-schema.json"
 Test-Path-Report "shared/schemas/coaching-schema.json" "schemas/coaching-schema.json"
+Test-Path-Report "shared/entitlements/README.md" "entitlements/README.md"
 
 Write-Host ""
 
 # Firestore
 Write-Host "Firestore (firestore/):" -ForegroundColor White
 Test-Path-Report "firestore/README.md" "README.md"
+Test-Path-Report "firestore/rules/firestore.rules" "rules/firestore.rules"
+Test-Path-Report "firestore/indexes/firestore.indexes.json" "indexes/firestore.indexes.json"
 Test-Path-Report "firestore/schema-docs/users-collection.md" "schema-docs/users-collection.md"
 Test-Path-Report "firestore/schema-docs/questions-collection.md" "schema-docs/questions-collection.md"
 Test-Path-Report "firestore/schema-docs/coachings-collection.md" "schema-docs/coachings-collection.md"
@@ -120,15 +146,15 @@ Test-Path-Report "docs/SYNCHRONIZATION_PHILOSOPHY.md" "SYNCHRONIZATION_PHILOSOPH
 
 Write-Host ""
 
-# Node modules check
+# Dependencies
 Write-Host "Dependencies:" -ForegroundColor White
 Test-Path-Report "main-app/node_modules" "main-app/node_modules"
 Test-Path-Report "super-admin-app/node_modules" "super-admin-app/node_modules"
 
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  Results: $PassCount passed, $ErrorCount failed, $WarnCount warnings" -ForegroundColor $(if ($ErrorCount -gt 0) { "Red" } else { "Green" })
-Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($ErrorCount -gt 0) {

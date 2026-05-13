@@ -4,6 +4,25 @@
 var PaymentsView = (function () {
   'use strict';
 
+  /**
+   * Convert any timestamp format to milliseconds for comparison.
+   * Canonical: shared/constants/entitlements.js — TIMESTAMP STRATEGY
+   * Handles: ISO 8601 strings, Unix ms (number), Date objects, Firestore Timestamps.
+   */
+  function _toMillis(ts) {
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts;
+    if (typeof ts === 'string') {
+      var parsed = Date.parse(ts);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    if (ts instanceof Date) return ts.getTime();
+    if (typeof ts.toDate === 'function') {
+      try { return ts.toDate().getTime(); } catch (_) { return 0; }
+    }
+    return 0;
+  }
+
   var _allUsers = [];
 
   async function render() {
@@ -77,7 +96,7 @@ var PaymentsView = (function () {
 
     if (user.isPremiumPlus) {
       state.type = 'plus';
-      if (user.premiumPlusExpiry && user.premiumPlusExpiry > now) {
+      if (user.premiumPlusExpiry && _toMillis(user.premiumPlusExpiry) > now) {
         state.status = 'active';
         state.expiry = user.premiumPlusExpiry;
       } else if (user.premiumPlusExpiry) {
@@ -89,7 +108,7 @@ var PaymentsView = (function () {
 
     if (user.isTrial) {
       state.type = 'trial';
-      if (user.trialEnd && user.trialEnd > now) {
+      if (user.trialEnd && _toMillis(user.trialEnd) > now) {
         state.status = 'active';
         state.expiry = user.trialEnd;
       } else if (user.trialEnd) {
@@ -100,7 +119,7 @@ var PaymentsView = (function () {
     }
 
     // Check for explicit expiration statuses even if flags are false
-    if (user.premiumPlusExpiry && user.premiumPlusExpiry < now) {
+    if (user.premiumPlusExpiry && _toMillis(user.premiumPlusExpiry) < now) {
       state.type = 'plus';
       state.status = 'expired';
       state.expiry = user.premiumPlusExpiry;
