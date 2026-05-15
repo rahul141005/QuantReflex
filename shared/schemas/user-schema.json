@@ -66,7 +66,7 @@
     "isEarlyUser": { "type": "boolean", "default": false, "description": "Legacy field — always false for new users" },
 
     "isPremiumPlus": { "type": "boolean", "default": false, "description": "Premium+ subscription active" },
-    "premiumPlusPlan": { "type": ["string", "null"], "enum": ["plus_half_yearly", "plus_yearly", null], "description": "Active Plus plan type" },
+    "premiumPlusPlan": { "type": ["string", "null"], "enum": ["plus_6month", "plus_yearly", null], "description": "Active Plus plan type" },
     "premiumPlusExpiry": { "type": ["string", "null"], "format": "date-time", "description": "Premium+ expiration (ISO 8601)" },
     "premiumPlusStatus": { "type": ["string", "null"], "enum": ["active", "expired", null] },
 

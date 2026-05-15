@@ -54,7 +54,7 @@ var API = (function () {
   function createCoaching(coachingId, name) {
     return _fetch('/api/admin/coachings', {
       method: 'POST',
-      body: JSON.stringify({ coachingId, name })
+      body: JSON.stringify({ coachingId: coachingId, name: name })
     });
   }
 
@@ -77,7 +77,7 @@ var API = (function () {
   function generateQuestion(topic, difficulty) {
     return _fetch('/api/admin/generate-question', {
       method: 'POST',
-      body: JSON.stringify({ topic, difficulty })
+      body: JSON.stringify({ topic: topic, difficulty: difficulty })
     });
   }
 

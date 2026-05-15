@@ -33,10 +33,11 @@ function getClient() {
   return openaiClient;
 }
 
-class AIServiceError {
+class AIServiceError extends Error {
   constructor(code, message, retryable) {
+    super(message);
+    this.name = 'AIServiceError';
     this.code = code;
-    this.message = message;
     this.retryable = retryable || false;
   }
 }
@@ -70,7 +71,7 @@ async function isUserPremium(uid) {
     var doc = await db.collection('users').doc(uid).get();
     if (!doc.exists) return false;
     var data = doc.data();
-    if (data.isPremium === true || data.premiumUser === true || data.hasPaid === true) return true;
+    if (data.isPremium === true || data.hasPaid === true) return true;
     if (data.isTrial === true) {
       var trialEndMs = _toExpiryMillis(data.trialEnd);
       return trialEndMs > 0 && trialEndMs >= Date.now();
@@ -157,6 +158,8 @@ async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
       console.log('[aiService:unlockPremiumPlus] re-applying existing payment (uid: ' + uid + ', paymentId: ' + paymentId + ')');
       tx.set(userRef, {
         isPremiumPlus: true,
+        isPremium: true,
+        hasPaid: true,
         premiumPlusPlan: existing.plan || plan,
         premiumPlusExpiry: finalExpiry,
         premiumPlusStatus: 'active',
@@ -169,12 +172,14 @@ async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
       uid: uid,
       plan: plan,
       expiry: expiry,
-      claimedAt: Date.now()
+      claimedAt: new Date().toISOString()
     };
     if (orderId) paymentDoc2.orderId = String(orderId);
     tx.create(paymentRef, paymentDoc2);
     tx.set(userRef, {
       isPremiumPlus: true,
+      isPremium: true,
+      hasPaid: true,
       premiumPlusPlan: plan,
       premiumPlusExpiry: expiry,
       premiumPlusStatus: 'active',

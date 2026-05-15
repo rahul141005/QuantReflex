@@ -53,11 +53,27 @@ function formatError(err) {
  * Not shared across Vercel instances — defense-in-depth, not a hard global limit.
  */
 var _rateLimitMap = {};
+var _rateLimitCheckCount = 0;
 var RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; /* 1 hour */
 var MAX_REQUESTS_PER_HOUR = 20;
+var CLEANUP_INTERVAL = 50; /* purge stale entries every N checks */
 
 function _checkRateLimit(uid) {
   var now = Date.now();
+
+  /* On-demand cleanup: purge stale entries periodically instead of setInterval.
+     Avoids keeping serverless instances warm with persistent timers. */
+  _rateLimitCheckCount++;
+  if (_rateLimitCheckCount >= CLEANUP_INTERVAL) {
+    _rateLimitCheckCount = 0;
+    var keys = Object.keys(_rateLimitMap);
+    for (var i = 0; i < keys.length; i++) {
+      if (now - _rateLimitMap[keys[i]].windowStart > RATE_LIMIT_WINDOW_MS) {
+        delete _rateLimitMap[keys[i]];
+      }
+    }
+  }
+
   if (!_rateLimitMap[uid]) {
     _rateLimitMap[uid] = { count: 1, windowStart: now };
     return true;
@@ -72,17 +88,6 @@ function _checkRateLimit(uid) {
   entry.count++;
   return entry.count <= MAX_REQUESTS_PER_HOUR;
 }
-
-/* Periodically clean stale rate limit entries (every 10 min) */
-setInterval(function () {
-  var now = Date.now();
-  var keys = Object.keys(_rateLimitMap);
-  for (var i = 0; i < keys.length; i++) {
-    if (now - _rateLimitMap[keys[i]].windowStart > RATE_LIMIT_WINDOW_MS) {
-      delete _rateLimitMap[keys[i]];
-    }
-  }
-}, 10 * 60 * 1000);
 
 /**
  * Wrap a serverless handler with Firebase auth verification.

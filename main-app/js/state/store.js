@@ -325,6 +325,21 @@ var AppState = (function () {
     for (var i = 0; i < allKeys.length; i++) {
       try { localStorage.removeItem(allKeys[i]); } catch (_) {}
     }
+
+    /* Sweep per-user AI cache keys that embed the user's UID.
+       Prefixes: quant_ai_wp_usage_, quant_ai_coach_cache_, quant_ai_sp_, quant_ai_sp_last_ */
+    try {
+      var aiPrefixes = ['quant_ai_'];
+      var allStorageKeys = Object.keys(localStorage);
+      for (var j = 0; j < allStorageKeys.length; j++) {
+        for (var p = 0; p < aiPrefixes.length; p++) {
+          if (allStorageKeys[j].indexOf(aiPrefixes[p]) === 0) {
+            localStorage.removeItem(allStorageKeys[j]);
+            break;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   function _clone(obj) {

@@ -771,7 +771,28 @@ function openDeleteAccountModal() {
             console.warn('Failed to delete payment records:', err);
           });
 
-        Promise.all(subDeletePromises.concat([paymentsDeletePromise]))
+        /* Clean up AI data collections that embed userId in doc IDs */
+        var aiInsightsDeletePromise = db.collection('aiInsights')
+          .where('userId', '==', userId).get().then(function (snap) {
+            if (snap.empty) return;
+            var batch = db.batch();
+            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
+            return batch.commit();
+          }).catch(function (err) {
+            console.warn('Failed to delete AI insights:', err);
+          });
+
+        var aiStudyPlansDeletePromise = db.collection('aiStudyPlans')
+          .where('userId', '==', userId).get().then(function (snap) {
+            if (snap.empty) return;
+            var batch = db.batch();
+            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
+            return batch.commit();
+          }).catch(function (err) {
+            console.warn('Failed to delete AI study plans:', err);
+          });
+
+        Promise.all(subDeletePromises.concat([paymentsDeletePromise, aiInsightsDeletePromise, aiStudyPlansDeletePromise]))
           .then(function () {
             return db.collection('users').doc(userId).delete();
           })

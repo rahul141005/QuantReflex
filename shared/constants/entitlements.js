@@ -36,7 +36,7 @@ var ENTITLEMENT_FIELDS = {
 
   // Premium+
   IS_PREMIUM_PLUS: 'isPremiumPlus',                 // boolean
-  PREMIUM_PLUS_PLAN: 'premiumPlusPlan',             // 'plus_half_yearly' | 'plus_yearly' | null
+  PREMIUM_PLUS_PLAN: 'premiumPlusPlan',             // 'plus_6month' | 'plus_yearly' | null
   PREMIUM_PLUS_EXPIRY: 'premiumPlusExpiry',         // ISO 8601 string | null
   PREMIUM_PLUS_STATUS: 'premiumPlusStatus',         // 'active' | 'expired' | null
   LAST_PREMIUM_PLUS_PAYMENT_ID: 'lastPremiumPlusPaymentId', // string | null
@@ -54,7 +54,7 @@ var ENTITLEMENT_FIELDS = {
 
 var PLAN_IDS = {
   PREMIUM_LIFETIME: 'premium',
-  PLUS_HALF_YEARLY: 'plus_half_yearly',
+  PLUS_6MONTH: 'plus_6month',
   PLUS_YEARLY: 'plus_yearly'
 };
 
@@ -64,7 +64,7 @@ var PLAN_IDS = {
 
 var PRICING = {
   PREMIUM_LIFETIME: 8900,      // ₹89 in paise
-  PLUS_HALF_YEARLY: 29900,     // ₹299 in paise
+  PLUS_6MONTH: 29900,           // ₹299 in paise
   PLUS_YEARLY: 49900           // ₹499 in paise
 };
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-admin-cache-v6';
+const CACHE_NAME = 'qr-admin-cache-v7';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -22,10 +22,30 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  /* Use Promise.allSettled instead of cache.addAll to prevent a single
+     failing asset from blocking the entire service worker install.
+     Do NOT call skipWaiting() here — admin panels performing sensitive
+     operations should not have their SW swapped mid-session. */
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map((url) =>
+          fetch(url).then((response) => {
+            if (response.ok) return cache.put(url, response);
+          }).catch((err) => {
+            console.warn('[SW] Failed to cache:', url, err.message || '');
+          })
+        )
+      );
+    })
   );
-  self.skipWaiting();
+});
+
+/* Allow controlled activation via postMessage from the app */
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -63,7 +83,6 @@ self.addEventListener('fetch', (event) => {
       
       // Fallback to network
       return fetch(event.request).then((networkResponse) => {
-        // Cache dynamic responses for static assets if needed, but here we just return
         return networkResponse;
       });
     })

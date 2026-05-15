@@ -42,6 +42,10 @@ var FirebaseApp = (function () {
   function getDb() { return _db; }
   function getAuth() { return _auth; }
   function isReady() { return _initialized && _db !== null; }
+  function getUserId() {
+    var user = _auth && _auth.currentUser;
+    return user ? user.uid : null;
+  }
 
-  return { init: init, getDb: getDb, getAuth: getAuth, isReady: isReady };
+  return { init: init, getDb: getDb, getAuth: getAuth, isReady: isReady, getUserId: getUserId };
 })();

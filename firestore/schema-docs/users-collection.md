@@ -29,7 +29,7 @@ Where `{uid}` is the Firebase Authentication UID.
 | `hasPaid` | boolean | `false` | Has completed a Razorpay payment |
 | `isEarlyUser` | boolean | `false` | Legacy — always false for new users |
 | `isPremiumPlus` | boolean | `false` | Premium+ subscription active |
-| `premiumPlusPlan` | string\|null | `null` | `'plus_half_yearly'` or `'plus_yearly'` |
+| `premiumPlusPlan` | string\|null | `null` | `'plus_6month'` or `'plus_yearly'` |
 | `premiumPlusExpiry` | string\|null | `null` | Subscription expiration (ISO 8601) |
 | `premiumPlusStatus` | string\|null | `null` | `'active'` or `'expired'` |
 | `lastPaymentId` | string\|null | `null` | Last Razorpay payment ID (Premium) |

@@ -59,8 +59,8 @@ module.exports = withAdmin(async function (req, res) {
         updatedAt
       };
     } else if (action === 'premium_plus_6m' || action === 'premium_plus_1y') {
-      const plan = action === 'premium_plus_1y' ? 'plus_yearly' : 'plus_half_yearly';
-      const days = action === 'premium_plus_1y' ? 365 : 180;
+      const plan = action === 'premium_plus_1y' ? 'plus_yearly' : 'plus_6month';
+      const days = action === 'premium_plus_1y' ? 365 : 182;
       const expiry = new Date(now + days * 24 * 60 * 60 * 1000).toISOString();
       payload = {
         isPremiumPlus: true,
