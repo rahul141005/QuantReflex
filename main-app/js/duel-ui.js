@@ -129,6 +129,8 @@ var DuelUI = (function () {
     var createBtn = document.getElementById('duelCreateBtn');
     if (createBtn) {
       createBtn.addEventListener('click', function () {
+        if (createBtn.disabled) return;
+        
         if (selectedTopics.length === 0) {
           if (typeof showToast === 'function') showToast('Select at least one topic');
           return;
@@ -246,6 +248,8 @@ var DuelUI = (function () {
     var startBtn = document.getElementById('duelStartBtn');
     if (startBtn) {
       startBtn.addEventListener('click', function () {
+        if (startBtn.disabled) return;
+        
         startBtn.disabled = true;
         startBtn.textContent = 'Starting…';
         DuelCore.startDuel(duelId, function (err) {

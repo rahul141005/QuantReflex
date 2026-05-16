@@ -159,6 +159,7 @@ function openQuickLinksEditor() {
   modal.innerHTML = html;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+  document.body.classList.add('modal-open');
 
   /* Limit to 4 selections */
   var checkboxes = modal.querySelectorAll('input[type="checkbox"]');
@@ -184,11 +185,14 @@ function openQuickLinksEditor() {
   }
   updateCheckboxStates();
 
-  overlay.querySelector('.modal-cancel').addEventListener('click', function () {
-    document.body.removeChild(overlay);
-  });
+  function closeModal() {
+    if (overlay.parentNode) document.body.removeChild(overlay);
+    document.body.classList.remove('modal-open');
+  }
+
+  overlay.querySelector('.modal-cancel').addEventListener('click', closeModal);
   overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) document.body.removeChild(overlay);
+    if (e.target === overlay) closeModal();
   });
   overlay.querySelector('.modal-save').addEventListener('click', function () {
     var newLinks = [];
@@ -198,7 +202,7 @@ function openQuickLinksEditor() {
     if (newLinks.length === 0) newLinks = DEFAULT_QUICK_LINKS.slice();
     saveQuickLinks(newLinks);
     renderQuickStudyLinks();
-    document.body.removeChild(overlay);
+    closeModal();
   });
 }
 

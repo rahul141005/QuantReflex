@@ -83,6 +83,7 @@ function showExitSessionDialog(onConfirm) {
   function closeDialog(modalEl) {
     if (modalEl) modalEl.style.display = 'none';
     _exitDialogShowing = false;
+    document.body.classList.remove('modal-open');
   }
 
   var modal = document.getElementById('exitSessionModal');
@@ -93,6 +94,7 @@ function showExitSessionDialog(onConfirm) {
   }
 
   modal.style.display = 'flex';
+  document.body.classList.add('modal-open');
 
   var cancelBtn = document.getElementById('exitSessionCancel');
   var confirmBtn = document.getElementById('exitSessionConfirm');

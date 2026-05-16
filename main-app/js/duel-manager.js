@@ -106,15 +106,20 @@ var DuelManager = (function () {
     });
   }
 
+  var _joinInFlight = false;
+
   /**
    * Handle joining a duel from deep-link or invite.
    */
   function joinDuelById(duelId) {
     if (!_checkPremiumPlus()) return;
-
+    if (_joinInFlight) return;
+    
+    _joinInFlight = true;
     if (typeof showToast === 'function') showToast('Joining duel…');
 
     DuelCore.joinDuel(duelId, function (err, data) {
+      _joinInFlight = false;
       if (err) {
         if (typeof showToast === 'function') showToast(err);
         return;

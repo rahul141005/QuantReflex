@@ -61,6 +61,17 @@ body {
 * { scrollbar-width: none; }
 body.loaded { opacity: 1; }
 
+/* Global scroll lock when modals are open */
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+/* Enforce instant tap registration and prevent double-tap zoom on all interactive elements */
+button, a, input, select, textarea, .mode-card, .category-btn, .numpad-key, .clear-option-btn, .quick-link-option {
+  touch-action: manipulation;
+}
+
 /* ---- Splash Screen ---- */
 .app-loader {
   position: fixed;
@@ -3315,6 +3326,7 @@ body.dark-mode mark.search-highlight { background: #854d0e; color: #fef08a; }
   max-width: 340px;
   max-height: 85vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 32px rgba(0,0,0,.15);
   border: 1px solid rgba(226,232,240,.6);
   position: relative;

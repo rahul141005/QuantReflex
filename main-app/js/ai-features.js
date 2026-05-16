@@ -585,6 +585,8 @@ var AIFeatures = (function () {
     }
 
     startBtn.addEventListener('click', function () {
+      if (startBtn.disabled || _wpInFlight) return;
+      
       if (!_wpSelectedCategory) {
         if (errorEl) errorEl.textContent = 'Please select a category';
         return;
