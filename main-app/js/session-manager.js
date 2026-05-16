@@ -124,6 +124,7 @@ window.addEventListener('beforeunload', function (e) {
     e.preventDefault();
     /* Modern browsers require returnValue to be set */
     e.returnValue = '';
+  }
 });
 
 /* On mobile (especially PWAs), beforeunload is unreliable when the OS kills the app.
