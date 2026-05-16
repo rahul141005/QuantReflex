@@ -3389,18 +3389,30 @@ body.dark-mode .table-modal-title {
 }
 
 /* ---- Practice Container ---- */
+#view-practice.spa-view-active {
+  display: flex;
+  flex-direction: column;
+  /* Dynamically calculate exact remaining viewport height to prevent body scroll */
+  height: calc(100vh - 4.5rem - env(safe-area-inset-bottom, 0px) - 2.5rem);
+  height: calc(100dvh - 4.5rem - env(safe-area-inset-bottom, 0px) - 2.5rem);
+  overflow: hidden;
+}
+
 .practice-container {
   padding: 1rem 1.15rem;
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-height: calc(100vh - 10.5rem);
-  max-height: calc(100dvh - 10.5rem);
+  /* Flex shrink/grow logic to isolate scrolling */
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
+  margin-top: 1rem;
 }
 .practice-container::-webkit-scrollbar { display: none; }
 .practice-container:active {
