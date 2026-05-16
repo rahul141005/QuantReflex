@@ -33,8 +33,9 @@ html {
   font-size: 16px;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
-  overscroll-behavior-y: none;
-  overflow-x: hidden;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   /* Hide scrollbar cross-browser */
   scrollbar-width: none; /* Firefox */
 }
@@ -44,16 +45,15 @@ body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: #f8fafc;
   color: #0f172a;
-  min-height: 100vh;
+  height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); /* space for bottom nav */
   opacity: 0;
   transition: opacity .3s ease;
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Global scrollbar hiding for all scrollable elements */
@@ -64,7 +64,6 @@ body.loaded { opacity: 1; }
 /* Global scroll lock when modals are open */
 body.modal-open {
   overflow: hidden !important;
-  touch-action: none;
 }
 
 /* Enforce instant tap registration and prevent double-tap zoom on all interactive elements */
@@ -208,40 +207,11 @@ a { color: inherit; text-decoration: none; }
   max-width: 480px;
   padding: 1.25rem;
   flex: 1;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-}
-
-/* Web browser mode: allow full page scrolling while keeping PWA immersive behavior */
-html.web-mode,
-body.web-mode {
-  height: auto;
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
-}
-
-/* PWA (installed) mode: explicitly enable page-level scrolling on both html and body.
-   Without this, iOS Safari standalone PWA relies on implicit overflow propagation
-   which can silently suppress vertical scrolling.
-   overscroll-behavior-y: none prevents Chrome pull-to-refresh in PWA mode
-   while preserving normal scroll behavior. */
-html.pwa-mode,
-body.pwa-mode {
-  height: auto;
-  overflow-y: auto;
-  overscroll-behavior-y: none;
-}
-
-body.web-mode .container {
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-body.web-mode:not(.paywall-open):not(.drill-session-active) {
-  overflow-y: auto;
 }
 
 header {
