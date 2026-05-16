@@ -531,7 +531,10 @@ var FirestoreSync = (function () {
   function _enforceTrialExpiry(data, docRef) {
     if (!data || !data.isTrial) return;
     var trialEndMs = _toMillis(data.trialEnd);
-    if (!trialEndMs || Date.now() <= trialEndMs) return;
+    var now = Date.now();
+    var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
+    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
+    if (!trialEndMs || now <= trialEndMs) return;
     data.isPremium = false;
     data.isTrial = false;
     docRef.set({ isPremium: false, isTrial: false, updatedAt: new Date().toISOString() }, { merge: true }).then(function () {
@@ -544,7 +547,10 @@ var FirestoreSync = (function () {
   function _enforcePremiumPlusExpiry(data, docRef) {
     if (!data || data.isPremiumPlus !== true) return;
     var expiryMs = _toMillis(data.premiumPlusExpiry);
-    if (!expiryMs || expiryMs >= Date.now()) return;
+    var now = Date.now();
+    var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
+    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
+    if (!expiryMs || expiryMs >= now) return;
     data.isPremiumPlus = false;
     data.premiumPlusStatus = 'expired';
     console.log('[FirestoreSync:_enforcePremiumPlusExpiry] Premium+ expired on load, revoking access');
@@ -655,6 +661,17 @@ var FirestoreSync = (function () {
       _flushRetryCount = 0;
       if (_flushRetryTimer) { clearTimeout(_flushRetryTimer); _flushRetryTimer = null; }
       console.log('[FirestoreSync:_flushUpdates] flushed', keys.length, 'field(s):', keys.join(', '));
+      
+      /* Trigger subcollection updates after main doc successfully writes */
+      if (snapshot.stats) {
+        _syncPerformanceSubcollection(snapshot.stats);
+      }
+      if (snapshot.stats || snapshot.bookmarks) {
+        var cachedBookmarks = snapshot.bookmarks || ((_memoryCache && Array.isArray(_memoryCache.bookmarks)) ? _memoryCache.bookmarks : null);
+        var cachedStats = snapshot.stats || ((_memoryCache && _memoryCache.stats) ? _memoryCache.stats : null);
+        _syncPracticeSubcollection(cachedStats, cachedBookmarks);
+      }
+      
       if (Object.keys(_pendingUpdates).length > 0) {
         if (_syncTimer) clearTimeout(_syncTimer);
         _syncTimer = setTimeout(_flushUpdates, SYNC_DEBOUNCE_MS);
@@ -729,14 +746,6 @@ var FirestoreSync = (function () {
    */
   function syncStats(stats) {
     queueUpdate('stats', stats);
-    /* Skip subcollection writes during active drill sessions to avoid per-answer write amplification.
-       The drill-end flush (endDrillMode → _flushPendingUpdates → syncStats) runs with _drillActive=false,
-       so subcollections are always updated once at session end. */
-    if (!_drillActive) {
-      _syncPerformanceSubcollection(stats);
-      var cachedBookmarks = (_memoryCache && Array.isArray(_memoryCache.bookmarks)) ? _memoryCache.bookmarks : null;
-      _syncPracticeSubcollection(stats, cachedBookmarks);
-    }
   }
 
   /**
@@ -769,7 +778,6 @@ var FirestoreSync = (function () {
    */
   function syncBookmarks(bookmarks) {
     queueUpdate('bookmarks', bookmarks);
-    _syncPracticeSubcollection(null, bookmarks);
   }
 
   /**

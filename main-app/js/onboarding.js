@@ -296,8 +296,8 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-1">⚡</span>' +
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">✨</span>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Train Your Quant Reflex</h2>' +
-      '<p class="onboarding-desc">Improve mental math speed for CAT, MBA CET, and other aptitude exams using fast drills and smart practice tools.</p>' +
+      '<h2 class="onboarding-title">Sharpen. Compete. Master.</h2>' +
+      '<p class="onboarding-desc">Build the calculation speed that wins — through focused drills, smart repetition, and real competitive pressure. Whether you\'re preparing for CAT, CET, placements, or just leveling up — your growth starts here.</p>' +
       '<div class="onboarding-name-field">' +
       '<label class="onboarding-name-label">What should we call you?</label>' +
       '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_userName) + '" />' +

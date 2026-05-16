@@ -141,6 +141,7 @@ var QuestionBankService = (function () {
     var options = Array.isArray(d.options) ? d.options : [];
 
     return {
+      id: doc.id,
       question: questionText.trim(),
       answer: answer,
       steps: steps, // We keep the local memory object property as 'steps' because the UI components might depend on it.
@@ -363,9 +364,38 @@ var QuestionBankService = (function () {
     });
   }
 
+  /**
+   * Fetch questions by specific document IDs.
+   */
+  function fetchQuestionsByIds(ids, callback) {
+    if (!ids || ids.length === 0 || typeof callback !== 'function') return;
+    var db = _getDb();
+    if (!db) { callback('Database not available'); return; }
+
+    var results = [];
+    var pending = ids.length;
+    var hasError = false;
+
+    ids.forEach(function (id) {
+      db.collection(COLLECTION).doc(id).get().then(function (doc) {
+        if (hasError) return;
+        var normalized = _normalizeQuestion(doc);
+        if (normalized) results.push(normalized);
+        pending--;
+        if (pending === 0) callback(null, results);
+      }).catch(function (err) {
+        if (!hasError) {
+          hasError = true;
+          callback(err.message || 'Error fetching questions');
+        }
+      });
+    });
+  }
+
   /* ---- Public API ---- */
   return {
     fetchQuestions: fetchQuestions,
+    fetchQuestionsByIds: fetchQuestionsByIds,
     clearCache: clearCache
   };
 })();

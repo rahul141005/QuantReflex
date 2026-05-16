@@ -33,7 +33,7 @@ html {
   font-size: 16px;
   -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
   overflow-x: hidden;
   /* Hide scrollbar cross-browser */
   scrollbar-width: none; /* Firefox */
@@ -51,7 +51,7 @@ body {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); /* space for bottom nav */
   opacity: 0;
   transition: opacity .3s ease;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
 }
@@ -212,12 +212,14 @@ body.web-mode {
 
 /* PWA (installed) mode: explicitly enable page-level scrolling on both html and body.
    Without this, iOS Safari standalone PWA relies on implicit overflow propagation
-   which can silently suppress vertical scrolling. */
+   which can silently suppress vertical scrolling.
+   overscroll-behavior-y: none prevents Chrome pull-to-refresh in PWA mode
+   while preserving normal scroll behavior. */
 html.pwa-mode,
 body.pwa-mode {
   height: auto;
   overflow-y: auto;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: none;
 }
 
 body.web-mode .container {
@@ -3388,23 +3390,32 @@ body.dark-mode .table-modal-title {
 
 /* ---- Practice Container ---- */
 .practice-container {
-  padding: 1.25rem;
+  padding: 1rem 1.15rem;
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-height: calc(100vh - 12rem);
-  max-height: calc(100dvh - 12rem);
+  max-height: calc(100vh - 10.5rem);
+  max-height: calc(100dvh - 10.5rem);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
 }
 .practice-container::-webkit-scrollbar { display: none; }
 .practice-container:active {
   transform: none;
 }
 .practice-container .mode-card {
-  margin-bottom: .75rem;
+  padding: 1rem 1.15rem;
+  margin-bottom: .6rem;
+}
+.practice-container .mode-card h3 {
+  font-size: 1rem;
+}
+.practice-container .mode-card p {
+  font-size: .82rem;
+  line-height: 1.35;
 }
 .practice-container .mode-card:last-child {
   margin-bottom: 0;
@@ -6619,3 +6630,577 @@ body.dark-mode .stats-sparkline .sparkline-day {
   fill: #e2e8f0;
 }
 
+/* ======== Native-App Immersion Hardening ======== */
+
+/* Prevent overscroll glow/bounce on scroll containers in PWA mode */
+html.pwa-mode .spa-view,
+html.pwa-mode .container {
+  overscroll-behavior-y: contain;
+}
+
+/* Smoother view transition for native feel */
+@keyframes viewSlideInNative {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+html.pwa-mode .spa-view-active {
+  animation: viewSlideInNative .18s cubic-bezier(.25,.46,.45,.94);
+}
+
+/* Tighter header density for app-like feel */
+html.pwa-mode header {
+  padding: 1.25rem 0 .6rem;
+}
+
+/* Ensure modal overlays prevent background scroll */
+.modal-overlay,
+.info-modal-overlay,
+.paywall-overlay,
+.onboarding-overlay {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+.modal-overlay .modal-content,
+.info-modal-overlay .info-modal-content,
+.paywall-overlay .paywall-card,
+.onboarding-overlay .onboarding-card {
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* Info modal scrollable area isolation */
+.info-modal-scroll {
+  overscroll-behavior-y: contain;
+}
+
+/* ======== Math Duel — Mode Card ======== */
+
+.mode-card-duel {
+  position: relative;
+  background: linear-gradient(135deg, rgba(124,58,237,.06) 0%, rgba(37,99,235,.06) 100%);
+  border: 1.5px solid rgba(124,58,237,.25);
+  overflow: hidden;
+}
+.mode-card-duel::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(124,58,237,.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mode-card-duel h3 {
+  color: #6d28d9;
+}
+body.dark-mode .mode-card-duel {
+  background: linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(37,99,235,.08) 100%);
+  border-color: rgba(124,58,237,.35);
+}
+body.dark-mode .mode-card-duel h3 {
+  color: #a78bfa;
+}
+.mode-card-duel .duel-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-size: .58rem;
+  font-weight: 700;
+  padding: .12rem .45rem;
+  border-radius: .3rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-left: .4rem;
+  vertical-align: middle;
+}
+
+/* ======== Math Duel — Setup Screen ======== */
+
+#duelSetup {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.35);
+  padding: 1rem;
+}
+.duel-setup-card {
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,.10), 0 1px 6px rgba(0,0,0,.06);
+  border: 1px solid rgba(226,232,240,.7);
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  padding: 0;
+}
+.duel-setup-card::-webkit-scrollbar { display: none; }
+body.dark-mode .duel-setup-card {
+  background: rgba(30,41,59,.97);
+  border-color: rgba(51,65,85,.6);
+}
+.duel-setup-header {
+  text-align: center;
+  padding: 1.25rem 1.25rem .5rem;
+}
+.duel-setup-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #6d28d9;
+  margin-bottom: .25rem;
+}
+body.dark-mode .duel-setup-header h3 { color: #a78bfa; }
+.duel-setup-header p {
+  font-size: .82rem;
+  color: #64748b;
+}
+.duel-setup-body {
+  padding: .75rem 1.25rem 1.25rem;
+}
+
+/* Question mode toggle */
+.duel-mode-toggle {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.duel-mode-btn {
+  flex: 1;
+  padding: .6rem .5rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: .7rem;
+  background: transparent;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all .18s ease;
+  text-align: center;
+}
+.duel-mode-btn.active {
+  border-color: #7c3aed;
+  background: rgba(124,58,237,.06);
+  color: #6d28d9;
+}
+body.dark-mode .duel-mode-btn {
+  border-color: #334155;
+  color: #94a3b8;
+}
+body.dark-mode .duel-mode-btn.active {
+  border-color: #7c3aed;
+  background: rgba(124,58,237,.15);
+  color: #a78bfa;
+}
+
+/* Duel start button */
+.duel-create-btn {
+  width: 100%;
+  padding: .85rem;
+  border: none;
+  border-radius: .75rem;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: .75rem;
+  transition: transform .12s ease, box-shadow .18s ease;
+  touch-action: manipulation;
+}
+.duel-create-btn:active {
+  transform: scale(.96);
+}
+.duel-create-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.duel-setup-back {
+  display: block;
+  width: 100%;
+  padding: .65rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+body.dark-mode .duel-setup-back { color: #94a3b8; }
+
+/* ======== Math Duel — Waiting Room ======== */
+
+#duelWaitingRoom {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  padding: 1.5rem;
+}
+body.dark-mode #duelWaitingRoom {
+  background: #0f172a;
+}
+.duel-room-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+.duel-room-code {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #6d28d9;
+  letter-spacing: .15em;
+  margin: .75rem 0;
+  font-family: 'Courier New', monospace;
+}
+body.dark-mode .duel-room-code { color: #a78bfa; }
+.duel-room-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: .35rem;
+}
+body.dark-mode .duel-room-title { color: #f1f5f9; }
+.duel-room-subtitle {
+  font-size: .85rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+}
+
+/* Duel config summary pills */
+.duel-config-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .4rem;
+  margin-bottom: 1.25rem;
+}
+.duel-config-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .3rem .65rem;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 600;
+  background: rgba(124,58,237,.08);
+  color: #6d28d9;
+}
+body.dark-mode .duel-config-pill {
+  background: rgba(124,58,237,.18);
+  color: #c4b5fd;
+}
+
+/* Player slots */
+.duel-players {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1.25rem 0;
+}
+.duel-player-slot {
+  flex: 1;
+  max-width: 140px;
+  padding: 1rem .75rem;
+  border-radius: 1rem;
+  background: rgba(255,255,255,.88);
+  border: 1.5px solid #e2e8f0;
+  text-align: center;
+}
+body.dark-mode .duel-player-slot {
+  background: rgba(30,41,59,.8);
+  border-color: #334155;
+}
+.duel-player-slot.filled {
+  border-color: #7c3aed;
+  background: rgba(124,58,237,.05);
+}
+body.dark-mode .duel-player-slot.filled {
+  border-color: #7c3aed;
+  background: rgba(124,58,237,.12);
+}
+.duel-player-slot.empty {
+  border-style: dashed;
+  opacity: .6;
+}
+.duel-player-icon {
+  font-size: 1.5rem;
+  margin-bottom: .35rem;
+}
+.duel-player-name {
+  font-size: .8rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+body.dark-mode .duel-player-name { color: #e2e8f0; }
+.duel-player-status {
+  font-size: .68rem;
+  color: #64748b;
+  margin-top: .15rem;
+}
+
+/* Waiting animation */
+@keyframes duelPulse {
+  0%, 100% { opacity: .4; }
+  50% { opacity: 1; }
+}
+.duel-waiting-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  margin: 1rem 0;
+  font-size: .85rem;
+  color: #64748b;
+}
+.duel-waiting-indicator .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7c3aed;
+  animation: duelPulse 1.2s ease-in-out infinite;
+}
+.duel-waiting-indicator .dot:nth-child(2) { animation-delay: .2s; }
+.duel-waiting-indicator .dot:nth-child(3) { animation-delay: .4s; }
+
+/* Share/invite button */
+.duel-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .7rem 1.5rem;
+  border: none;
+  border-radius: .75rem;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: .75rem 0;
+  transition: transform .12s ease;
+  touch-action: manipulation;
+}
+.duel-share-btn:active { transform: scale(.96); }
+
+/* Start duel button (when both ready) */
+.duel-start-btn {
+  width: 100%;
+  max-width: 280px;
+  padding: .85rem;
+  border: none;
+  border-radius: .75rem;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: transform .12s ease;
+  touch-action: manipulation;
+  animation: duelStartPulse 2s ease-in-out infinite;
+}
+@keyframes duelStartPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,.3); }
+  50% { box-shadow: 0 0 0 8px rgba(22,163,74,0); }
+}
+.duel-start-btn:active { transform: scale(.96); }
+
+.duel-leave-btn {
+  display: block;
+  margin: 1rem auto 0;
+  padding: .5rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ======== Math Duel — Active Screen ======== */
+
+#duelActiveScreen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  padding: 0;
+}
+body.dark-mode #duelActiveScreen {
+  background: #0f172a;
+}
+
+/* Duel scoreboard header */
+.duel-scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1rem;
+  background: rgba(124,58,237,.06);
+  border-bottom: 1px solid rgba(124,58,237,.12);
+}
+body.dark-mode .duel-scoreboard {
+  background: rgba(124,58,237,.1);
+  border-bottom-color: rgba(124,58,237,.2);
+}
+.duel-sb-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.duel-sb-name {
+  font-size: .68rem;
+  font-weight: 600;
+  color: #6d28d9;
+  margin-bottom: .1rem;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.dark-mode .duel-sb-name { color: #c4b5fd; }
+.duel-sb-score {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+body.dark-mode .duel-sb-score { color: #f1f5f9; }
+.duel-sb-vs {
+  font-size: .75rem;
+  font-weight: 800;
+  color: #7c3aed;
+  padding: 0 .5rem;
+}
+
+/* Duel question area */
+.duel-question-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+/* ======== Math Duel — Results ======== */
+
+#duelResults {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  padding: 1.5rem;
+}
+body.dark-mode #duelResults {
+  background: #0f172a;
+}
+.duel-results-card {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+.duel-result-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: .5rem;
+}
+.duel-result-winner { color: #16a34a; }
+.duel-result-loser { color: #dc2626; }
+.duel-result-draw { color: #7c3aed; }
+
+.duel-result-comparison {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1.25rem 0;
+}
+.duel-result-player {
+  flex: 1;
+  max-width: 150px;
+  padding: 1rem .75rem;
+  border-radius: 1rem;
+  background: rgba(255,255,255,.88);
+  border: 1.5px solid #e2e8f0;
+  text-align: center;
+}
+body.dark-mode .duel-result-player {
+  background: rgba(30,41,59,.8);
+  border-color: #334155;
+}
+.duel-result-player.winner {
+  border-color: #16a34a;
+  background: rgba(22,163,74,.05);
+}
+body.dark-mode .duel-result-player.winner {
+  border-color: #16a34a;
+  background: rgba(22,163,74,.12);
+}
+.duel-result-score {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+body.dark-mode .duel-result-score { color: #f1f5f9; }
+.duel-result-label {
+  font-size: .72rem;
+  color: #64748b;
+  margin-top: .15rem;
+}
+.duel-result-stat {
+  font-size: .78rem;
+  color: #64748b;
+  margin-top: .35rem;
+}
+
+/* Celebrate animation for winner */
+@keyframes duelCelebrate {
+  0%   { transform: scale(0.8); opacity: 0; }
+  50%  { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.duel-result-celebrate {
+  animation: duelCelebrate .5s cubic-bezier(.17,.67,.35,1.2);
+}
+
+.duel-result-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  align-items: center;
+}
+
+/* Playful theme duel overrides */
+body.theme-playful .mode-card-duel {
+  background: linear-gradient(135deg, rgba(124,58,237,.04) 0%, rgba(99,102,241,.04) 100%);
+  border-color: rgba(124,58,237,.2);
+}
+body.theme-playful.dark-mode .mode-card-duel {
+  background: linear-gradient(135deg, rgba(124,58,237,.1) 0%, rgba(99,102,241,.08) 100%);
+  border-color: rgba(124,58,237,.3);
+}

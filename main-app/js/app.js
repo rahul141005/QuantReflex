@@ -39,7 +39,7 @@
 /* ---- Apply dark mode, theme and reduced motion from settings immediately ---- */
 (function () {
   try {
-    var settings = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
     if (settings.darkMode) document.body.classList.add('dark-mode');
     if (settings.reducedMotion) document.body.classList.add('reduced-motion');
     if (settings.theme === 'playful') document.body.classList.add('theme-playful');
@@ -64,6 +64,10 @@ document.addEventListener('contextmenu', function (e) {
 document.addEventListener('dragstart', function (e) {
   e.preventDefault();
 });
+
+/* ---- Prevent pull-to-refresh in PWA mode (Android Chrome fallback) ---- */
+/* Removed: JS-level touchmove with {passive: false} causes severe scroll jitter on Android Chrome.
+   Relying exclusively on CSS overscroll-behavior-y: contain set on body/html. */
 
 /* ---- Offline / Online indicator ---- */
 (function () {
@@ -115,7 +119,7 @@ document.addEventListener('dragstart', function (e) {
 /* ---- Haptic feedback utility ---- */
 function triggerHaptic(pattern) {
   try {
-    var settings = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
     if (settings.vibration === false) return;
     if (typeof navigator.vibrate !== 'function') return;
     navigator.vibrate(pattern || 10);
@@ -543,6 +547,11 @@ document.addEventListener('DOMContentLoaded', function () {
        Router.showView safely handles unknown views by defaulting to home. */
     var currentView = Router.getCurrentView() || 'home';
     Router.showView(currentView);
+
+    /* Consume any pending math duel invite from deep-link */
+    if (typeof DuelManager !== 'undefined') {
+      DuelManager.consumePendingDuel();
+    }
   }
 
   /**

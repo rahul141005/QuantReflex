@@ -228,6 +228,11 @@
           <h3>🤖 Word Problems</h3>
           <p>AI-generated word problems · Choose category &amp; difficulty</p>
         </div>
+
+        <div class="mode-card mode-card-duel" data-mode="duel">
+          <h3>⚔️ Math Duel <span class="duel-badge">Premium+</span></h3>
+          <p>Challenge a friend · Same questions · Realtime 1v1</p>
+        </div>
       </div>
 
       <!-- Category selection (shown when Focus Training is picked) -->
@@ -307,6 +312,18 @@
 
       <!-- Word Problems setup (shown when Word Problems mode is picked) -->
       <div id="wordProblemsSetup" style="display:none;"></div>
+
+      <!-- Math Duel setup (shown when Math Duel mode is picked) -->
+      <div id="duelSetup" style="display:none;"></div>
+
+      <!-- Math Duel waiting room (shown after duel is created/joined) -->
+      <div id="duelWaitingRoom" style="display:none;"></div>
+
+      <!-- Math Duel active screen (shown during active duel) -->
+      <div id="duelActiveScreen" style="display:none;"></div>
+
+      <!-- Math Duel results screen (shown after duel ends) -->
+      <div id="duelResults" style="display:none;"></div>
 
       <!-- Drill engine renders here -->
       <div id="drillContainer" style="display:none;"></div>
@@ -1255,6 +1272,7 @@
     Script Load Order (dependency graph):
     ─────────────────────────────────────
     Layer 1 — State:       store.js (AppState singleton, no deps)
+                           utils/event-registry.js (no deps)
     Layer 2 — Infra:       firebase.js → auth.js → firestore-sync.js
     Layer 3 — Services:    adaptive-state.js, scoring-service.js, share-service.js
     Layer 4 — Data:        progress.js, questions.js (read AppState + AdaptiveState)
@@ -1270,6 +1288,7 @@
     Deferred (non-critical): notifications.js, onboarding.js
   -->
   <script src="js/state/store.js"></script>
+  <script src="js/utils/event-registry.js"></script>
   <script src="js/firebase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/firestore-sync.js"></script>
@@ -1290,6 +1309,9 @@
   <script src="js/paywall.js"></script>
   <script src="js/services/question-bank-service.js"></script>
   <script src="js/ai-features.js"></script>
+  <script src="js/duel-core.js"></script>
+  <script src="js/duel-ui.js"></script>
+  <script src="js/duel-manager.js"></script>
   <script src="js/session-manager.js"></script>
   <script src="js/controllers/practice-config.js"></script>
   <script src="js/controllers/practice-modes.js"></script>

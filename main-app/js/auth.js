@@ -114,25 +114,52 @@ var Auth = (function () {
         var previousUser = _currentUser;
         _currentUser = user;
 
-        /* If transitioning away from an authenticated user (logout, token
-           expiry, or user switch), reset the Firestore sync layer so no
-           cached data from the previous user leaks into the next session.
-           This is a defense-in-depth measure — the logout button handler
-           also calls resetSyncState(), but this covers edge cases like
-           token revocation or sign-out from another tab. */
         if (previousUser && (!user || user.uid !== previousUser.uid)) {
           if (typeof FirestoreSync !== 'undefined') {
             FirestoreSync.resetSyncState();
           }
         }
 
+        if (user) {
+          /* Strictly enforce JWT custom claims for entitlement gating */
+          /* Using false to read cached claims, preventing slow app boots. */
+          user.getIdTokenResult(false).then(function(idTokenResult) {
+            var claims = idTokenResult.claims || {};
+            
+            /* If AppState/store is available, securely sync the claims */
+            if (typeof AppState !== 'undefined') {
+              if (claims.premiumPlus) AppState.setPremiumPlus(true);
+              else AppState.setPremiumPlus(false);
+              
+              if (claims.premium) AppState.setPremium(true);
+              else AppState.setPremium(false);
+            } else {
+              /* Fallback if AppState isn't loaded yet, write directly to store */
+              if (claims.premiumPlus) localStorage.setItem('qr_premium_plus', 'true');
+              else localStorage.setItem('qr_premium_plus', 'false');
+              
+              if (claims.premium) localStorage.setItem('qr_premium', 'true');
+              else localStorage.setItem('qr_premium', 'false');
+            }
+            
+            _finishAuthReady(user);
+          }).catch(function(err) {
+            console.warn('[Auth] Error fetching token claims:', err);
+            _finishAuthReady(user);
+          });
+        } else {
+          _finishAuthReady(user);
+        }
+      });
+      
+      function _finishAuthReady(u) {
         _authReady = true;
         /* Fire all waiting callbacks */
         for (var i = 0; i < _authReadyCallbacks.length; i++) {
-          try { _authReadyCallbacks[i](user); } catch (e) { console.warn('Auth callback error:', e); }
+          try { _authReadyCallbacks[i](u); } catch (e) { console.warn('Auth callback error:', e); }
         }
         _authReadyCallbacks = [];
-      });
+      }
     } catch (e) {
       console.warn('Auth initialization failed:', e);
     }

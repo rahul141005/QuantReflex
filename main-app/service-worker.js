@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-var APP_VERSION = 'v73';
+var APP_VERSION = 'v74';
 var CACHE_NAME = 'quant-reflex-' + APP_VERSION;
 
 var ASSETS = [
@@ -139,12 +139,13 @@ self.addEventListener('fetch', function (event) {
 
   event.respondWith(
     caches.match(event.request).then(function (cached) {
-      if (cached) return cached;
-      return fetch(event.request).then(function (response) {
-        /* Cache Firebase CDN scripts on first fetch for offline support */
+      var isAppAsset = url.endsWith('.js') || url.endsWith('.css');
+      
+      var fetchPromise = fetch(event.request).then(function (response) {
+        /* Update cache on successful fetch for assets and Firebase CDN */
         if (response.ok) {
           var urlBase = url.split('?')[0];
-          if (urlBase.startsWith('https://www.gstatic.com/firebasejs/')) {
+          if (urlBase.startsWith('https://www.gstatic.com/firebasejs/') || isAppAsset) {
             var clone = response.clone();
             caches.open(CACHE_NAME).then(function (cache) {
               cache.put(event.request, clone);
@@ -153,9 +154,13 @@ self.addEventListener('fetch', function (event) {
         }
         return response;
       }).catch(function () {
-        /* Network failed and not in cache — return null to let browser handle gracefully */
-        return new Response('Service Unavailable', { status: 503, statusText: 'Service Unavailable' });
+        if (!cached) {
+          return new Response('Service Unavailable', { status: 503, statusText: 'Service Unavailable' });
+        }
       });
+
+      /* StaleWhileRevalidate: Return cached response immediately while background fetch updates the cache */
+      return cached || fetchPromise;
     })
   );
 });

@@ -80,6 +80,29 @@ var AppState = (function () {
 
   var DEFAULT_QUICK_LINKS = ['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks'];
 
+  /* ---- Cross-Tab Synchronization ---- */
+  /* This ensures that if another tab modifies localStorage, this tab can react to it. */
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', function(e) {
+      if (!e.key) return;
+      var isManaged = false;
+      for (var k in KEYS) {
+        if (KEYS[k] === e.key) { isManaged = true; break; }
+      }
+      if (!isManaged) {
+        for (var l in LEGACY_KEYS) {
+          if (LEGACY_KEYS[l] === e.key) { isManaged = true; break; }
+        }
+      }
+      
+      if (isManaged) {
+        /* Broadcast an internal event so the active view can re-render if necessary */
+        var syncEvent = new CustomEvent('qr_storage_sync', { detail: { key: e.key, newValue: e.newValue } });
+        window.dispatchEvent(syncEvent);
+      }
+    });
+  }
+
   /* ---- Generic helpers ---- */
 
   /**

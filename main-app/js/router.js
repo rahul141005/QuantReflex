@@ -58,6 +58,13 @@ var Router = (function () {
       navLinks[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
     }
 
+    /* Clean up orphaned listeners from the outgoing view */
+    if (currentView && currentView !== viewId) {
+      if (typeof EventRegistry !== 'undefined') {
+        EventRegistry.clearViewListeners(currentView);
+      }
+    }
+
     /* Run init callback once */
     if (viewInitCallbacks[viewId]) {
       viewInitCallbacks[viewId](params);
@@ -93,6 +100,21 @@ var Router = (function () {
    * Initialize router: read hash and show the correct view.
    */
   function init() {
+    /* Detect duel deep-link (?duel=DUEL_ID) before normal routing */
+    try {
+      var urlParams = new URLSearchParams(window.location.search);
+      var duelParam = urlParams.get('duel');
+      if (duelParam && duelParam.length >= 4 && duelParam.length <= 8) {
+        try { sessionStorage.setItem('qr_pending_duel', duelParam.toUpperCase()); } catch (_) {}
+        if (typeof DuelManager !== 'undefined') {
+          DuelManager.setPendingDuelId(duelParam.toUpperCase());
+        }
+        /* Clean URL to prevent re-triggering on refresh */
+        var cleanUrl = window.location.pathname + (window.location.hash || '');
+        history.replaceState(null, '', cleanUrl);
+      }
+    } catch (_) {}
+
     /* Set initial history state so first back press works correctly */
     var hash = window.location.hash.replace('#', '') || 'home';
     history.replaceState({ view: hash }, '', '#' + hash);

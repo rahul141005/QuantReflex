@@ -20,7 +20,8 @@ var _LOCKED_FEATURES = {
   ai_explain: true,
   ai_coach: true,
   ai_study_plan: true,
-  adaptive_training: true
+  adaptive_training: true,
+  math_duel: true
 };
 var PAYWALL_DEBOUNCE_MS = 280;
 var PAYMENT_TIMEOUT_MS = 120000;
@@ -74,7 +75,7 @@ function _resetPaymentGuards(enableButton) {
   }
 }
 
-var _AI_FEATURES = { ai_explain: true, ai_coach: true, ai_study_plan: true };
+var _AI_FEATURES = { ai_explain: true, ai_coach: true, ai_study_plan: true, math_duel: true };
 
 function _getAccessUserState() {
   if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function') {
@@ -86,14 +87,24 @@ function _getAccessUserState() {
 
 function canAccess(feature, user) {
   var normalizedUser = user || _getAccessUserState();
+  
+  var now = Date.now();
+  if (normalizedUser) {
+    var lastUpdateMs = _toMillis(normalizedUser.updatedAt) || _toMillis(normalizedUser.createdAt);
+    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
+  }
+
   if (_AI_FEATURES[feature]) {
-    return !!(normalizedUser && normalizedUser.isPremiumPlus === true);
+    if (!normalizedUser || normalizedUser.isPremiumPlus !== true) return false;
+    var expiryMs = _toMillis(normalizedUser.premiumPlusExpiry);
+    if (expiryMs > 0 && now > expiryMs) return false;
+    return true;
   }
   if (normalizedUser && normalizedUser.isPremium === true) return true;
   if (normalizedUser && normalizedUser.hasPaid === true) return true;
   if (normalizedUser && normalizedUser.isTrial === true) {
     var trialEndMs = _toMillis(normalizedUser.trialEnd);
-    if (trialEndMs > 0 && Date.now() <= trialEndMs) return true;
+    if (trialEndMs > 0 && now <= trialEndMs) return true;
   }
   return !_LOCKED_FEATURES[feature];
 }
@@ -141,6 +152,9 @@ function _getPaywallCopy(featureType) {
     },
     ai_study_plan: {
       accent: '📅 AI Study Plan generator requires Premium+.'
+    },
+    math_duel: {
+      accent: '⚔️ Math Duel is a Premium+ competitive feature. Challenge friends in realtime.'
     },
     upgrade: {
       accent: '🔥 You\'re on a roll! Unlock everything to keep the momentum going.'
