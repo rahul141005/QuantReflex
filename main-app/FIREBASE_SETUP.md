@@ -259,3 +259,98 @@ The app uses Firebase JavaScript SDK **v10.12.2** (compat build) loaded via CDN:
 ```
 
 The compat build is used for maximum browser compatibility with the vanilla JavaScript architecture.
+
+---
+
+## JWT Custom Claims Setup (For Premium/Premium+)
+
+Because Entitlement gating (Premium and Premium+) strictly relies on **JWT Custom Claims**, you need to tell your Firebase project to attach these claims to your users' accounts.
+
+This is a backend operation. We will use a simple, one-off Node.js script on your computer to assign the `premiumPlus` status to a user.
+
+### Step 1: Get Your Firebase Service Account Key
+
+To modify user claims securely, you need "Admin" access to your Firebase project.
+
+1. Go to your [Firebase Console](https://console.firebase.google.com/).
+2. Select your **QuantReflex** project.
+3. Click the **Gear icon** ⚙️ next to "Project Overview" in the top left and select **Project settings**.
+4. Go to the **Service accounts** tab.
+5. Make sure **Node.js** is selected, and click the **Generate new private key** button.
+6. This will download a JSON file (it looks like `your-project-id-firebase-adminsdk-xxxxx.json`).
+7. **Keep this file safe.** Do not share it or commit it to GitHub. Move it to a secure folder on your computer (for example, right next to the script we are about to create, and rename it to `serviceAccountKey.json`).
+
+### Step 2: Set Up the Node.js Script
+
+You will need Node.js installed on your computer.
+
+1. Open your terminal (or Command Prompt / PowerShell on Windows).
+2. Create a new folder for this script and go into it:
+   ```bash
+   mkdir firebase-claims-admin
+   cd firebase-claims-admin
+   ```
+3. Initialize a new Node project and install the Firebase Admin SDK:
+   ```bash
+   npm init -y
+   npm install firebase-admin
+   ```
+4. Move the `serviceAccountKey.json` you downloaded in Step 1 into this folder.
+
+### Step 3: Write the Script
+
+Create a new file in that folder called `setPremium.js` and paste the following code:
+
+```javascript
+// setPremium.js
+const admin = require('firebase-admin');
+const serviceAccount = require('./serviceAccountKey.json');
+
+// 1. Initialize the Admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+// 2. The UID of the user you want to grant Premium+ to
+// You can find this UID in the "Authentication" tab of your Firebase Console.
+const targetUid = 'PASTE_THE_USER_UID_HERE'; 
+
+async function grantPremiumPlus() {
+  try {
+    console.log(`Setting Premium+ claims for user: ${targetUid}...`);
+    
+    // 3. Set the custom claims
+    await admin.auth().setCustomUserClaims(targetUid, {
+      premium: true,
+      premiumPlus: true
+    });
+    
+    console.log('✅ Successfully granted Premium and Premium+!');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error setting custom claims:', error);
+    process.exit(1);
+  }
+}
+
+grantPremiumPlus();
+```
+
+### Step 4: Run the Script
+
+1. Open your Firebase Console, go to the **Authentication** tab, and find the UID of the user account you want to upgrade.
+2. Replace `'PASTE_THE_USER_UID_HERE'` in the script with that exact UID.
+3. Save the file.
+4. Run the script in your terminal:
+   ```bash
+   node setPremium.js
+   ```
+
+If it prints `✅ Successfully granted Premium and Premium+!`, you are done!
+
+### Step 5: Refresh the App
+
+Custom claims are baked into the user's secure token. For the QuantReflex app to see the new claims immediately:
+1. Open the QuantReflex app.
+2. **Log out and log back in.** (This forces Firebase to fetch a brand new token containing the new claims).
+3. The app will now read the token securely and unlock Premium+ features automatically!
