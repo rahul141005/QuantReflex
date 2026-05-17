@@ -58,28 +58,38 @@ function _getAdaptiveHint() {
 
 /* ---- category generators ---- */
 
-/** Squares: n² */
+/** Squares: n² with wording variety */
 function genSquare() {
   var diff = _getDifficulty();
   var hint = _getAdaptiveHint();
   var n;
   if (diff === 'easy') {
-    n = randInt(1, 15);
+    n = randInt(2, 15);
   } else if (diff === 'hard') {
     n = randInt(10, 50);
   } else {
-    n = randInt(1, 30);
+    n = randInt(2, 30);
   }
   /* Bias toward inverse variant when adaptive hint type is 'inverse' */
   var forceInverse = hint && hint.type === 'inverse';
   if (forceInverse || (diff !== 'easy' && randInt(0, 4) === 0)) {
     var sq = n * n;
-    return { question: '√' + sq + ' = ?', answer: n, category: 'squares' };
+    var sqPhrasings = [
+      '√' + sq + ' = ?',
+      'Square root of ' + sq + ' = ?',
+      'If x² = ' + sq + ', x = ?'
+    ];
+    return { question: pick(sqPhrasings), answer: n, category: 'squares' };
   }
-  return { question: n + '² = ?', answer: n * n, category: 'squares' };
+  var sqPhrasings2 = [
+    n + '² = ?',
+    'Square of ' + n + ' = ?',
+    n + ' squared = ?'
+  ];
+  return { question: pick(sqPhrasings2), answer: n * n, category: 'squares' };
 }
 
-/** Cubes: n³ */
+/** Cubes: n³ with wording variety */
 function genCube() {
   var diff = _getDifficulty();
   var n;
@@ -92,9 +102,11 @@ function genCube() {
   }
   if (diff !== 'easy' && randInt(0, 4) === 0) {
     var cube = n * n * n;
-    return { question: '∛' + cube + ' = ?', answer: n, category: 'cubes' };
+    var cbPhrasings = ['∛' + cube + ' = ?', 'Cube root of ' + cube + ' = ?'];
+    return { question: pick(cbPhrasings), answer: n, category: 'cubes' };
   }
-  return { question: n + '³ = ?', answer: n * n * n, category: 'cubes' };
+  var cubePhrasings = [n + '³ = ?', 'Cube of ' + n + ' = ?'];
+  return { question: pick(cubePhrasings), answer: n * n * n, category: 'cubes' };
 }
 
 /** Area calculations */
@@ -165,7 +177,7 @@ function genVolume() {
   return { question: 'Volume of a cone (use π = 3.14) with radius ' + cr + ' cm and height ' + coneH + ' cm = ?', answer: parseFloat(((1 / 3) * PI * cr * cr * coneH).toFixed(2)), category: 'volume', subtype: 'cone' };
 }
 
-/** Fractions → percentage (complete table from spec) */
+/** Fractions → percentage with wording variety */
 function genFraction() {
   var table = [
     { frac: '1/2', pct: '50' },
@@ -203,22 +215,51 @@ function genFraction() {
     { frac: '1/50', pct: '2' }
   ];
   var diff = _getDifficulty();
-  var subset;
-  if (diff === 'easy') {
-    /* Only common fractions */
-    subset = table.slice(0, 11);
-  } else {
-    subset = table;
-  }
+  var subset = diff === 'easy' ? table.slice(0, 11) : table;
   var item = pick(subset);
-  return { question: item.frac + ' = ?%', answer: item.pct, category: 'fractions' };
+  /* Vary question phrasing so the session doesn't feel templated */
+  var phrasings = [
+    item.frac + ' expressed as a percentage = ?',
+    'Convert ' + item.frac + ' to % = ?',
+    item.frac + ' = ?%',
+    'What is ' + item.frac + ' as a percentage?'
+  ];
+  return { question: pick(phrasings), answer: item.pct, category: 'fractions' };
 }
 
-/** Percentage calculations: x% of y with randomized values */
+/** Percentage calculations: varied sub-types */
 function genPercentage() {
   var diff = _getDifficulty();
-  var percentages, bases;
+  var subtype = diff === 'easy' ? 0 : randInt(0, 3);
 
+  if (subtype === 1 && diff !== 'easy') {
+    /* Reverse: p% of ? = result */
+    var knownPcts = diff === 'hard' ? [12, 15, 20, 25, 30, 40] : [10, 20, 25, 50];
+    var knownBases = diff === 'hard' ? [120, 150, 180, 200, 240, 300, 360] : [80, 100, 120, 160, 200];
+    var rp = pick(knownPcts), rb = pick(knownBases);
+    var rResult = (rp / 100) * rb;
+    if (rResult === Math.floor(rResult))
+      return { question: rp + '% of what number is ' + rResult + '?', answer: rb, category: 'percentages', subtype: 'reverse' };
+  }
+  if (subtype === 2 && diff !== 'easy') {
+    /* What % of X is Y */
+    var pctPools = diff === 'hard' ? [8, 12, 15, 20, 25, 30, 40] : [10, 20, 25, 50];
+    var basePools = diff === 'hard' ? [120, 150, 200, 240, 300, 360, 400] : [80, 100, 120, 200];
+    var wp = pick(pctPools), wb = pick(basePools);
+    var wy = (wp / 100) * wb;
+    if (wy === Math.floor(wy))
+      return { question: 'What % of ' + wb + ' is ' + wy + '?', answer: wp, category: 'percentages', subtype: 'what-pct' };
+  }
+  if (subtype === 3 && diff === 'hard') {
+    /* Successive discounts: d1% then d2% on base */
+    var d1 = pick([10, 15, 20, 25]), d2 = pick([5, 10, 15, 20]);
+    var sdBase = pick([200, 250, 300, 400, 500]);
+    var sdResult = Math.round(sdBase * (1 - d1 / 100) * (1 - d2 / 100));
+    return { question: 'Price ' + sdBase + ', discounts ' + d1 + '% then ' + d2 + '%. Final price = ?', answer: sdResult, category: 'percentages', subtype: 'successive-discount' };
+  }
+
+  /* Default: p% of b */
+  var percentages, bases;
   if (diff === 'easy') {
     percentages = [5, 10, 20, 25, 50];
     bases = [80, 120, 160, 200, 240, 400, 500, 600, 800];
@@ -227,46 +268,42 @@ function genPercentage() {
     bases = [120, 144, 160, 175, 200, 225, 240, 288, 300, 360, 400, 432, 480, 500, 576, 600, 720, 840, 960, 1200];
   } else {
     percentages = [5, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75];
-    /* Curated non-trivial bases that avoid being simple multiples of 100 */
     bases = [60, 80, 120, 125, 150, 160, 175, 200, 225, 240, 250, 280, 320, 360, 400, 450, 480, 500, 560, 600, 720];
   }
-
-  /* Pick from curated lists ensuring whole-number results */
-  var p, b, result;
-  var maxAttempts = 60;
+  var p, b, result, maxAttempts = 60;
   do {
-    p = pick(percentages);
-    b = pick(bases);
-    result = (p / 100) * b;
-    maxAttempts--;
+    p = pick(percentages); b = pick(bases);
+    result = (p / 100) * b; maxAttempts--;
   } while (result !== Math.floor(result) && maxAttempts > 0);
-  if (result !== Math.floor(result)) {
-    var safePercentages = [10, 20, 25, 50];
-    var safeBases = [100, 200, 400, 800, 120, 160];
-    p = pick(safePercentages);
-    b = pick(safeBases);
-    result = (p / 100) * b;
-  }
-
+  if (result !== Math.floor(result)) { p = 25; b = 200; result = 50; }
   return { question: p + '% of ' + b + ' = ?', answer: result, category: 'percentages' };
 }
 
-/** Mental multiplication: x × y, with occasional division variant */
+/** Mental multiplication: varied sub-types including 3-factor and squaring */
 function genMultiplication() {
   var diff = _getDifficulty();
   var hint = _getAdaptiveHint();
-  var x, y;
-  if (diff === 'easy') {
-    x = randInt(2, 20);
-    y = randInt(2, 12);
-  } else if (diff === 'hard') {
-    x = randInt(11, 50);
-    y = randInt(2, 25);
-  } else {
-    x = randInt(2, 30);
-    y = randInt(2, 20);
+  var subtype = diff === 'easy' ? 0 : randInt(0, 4);
+
+  /* 3-factor multiplication (medium/hard) */
+  if (subtype === 3 && diff !== 'easy') {
+    var triplets = diff === 'hard'
+      ? [[4,8,5],[6,5,8],[9,4,5],[7,4,5],[8,6,5],[12,5,4],[11,4,5]]
+      : [[2,6,5],[3,4,5],[4,5,5],[2,8,5],[3,6,4]];
+    var t = pick(triplets);
+    return { question: t[0] + ' × ' + t[1] + ' × ' + t[2] + ' = ?', answer: t[0]*t[1]*t[2], category: 'multiplication', subtype: '3-factor' };
   }
-  /* Bias toward division variant when adaptive hint type is 'inverse' or logic includes 'division' */
+  /* Squaring-by-formula: (a+b)² or (a-b)² hint */
+  if (subtype === 4 && diff === 'hard') {
+    var sq = pick([11,12,13,14,15,16,17,18,19,21,22,23,24,25]);
+    return { question: sq + '² = ?', answer: sq * sq, category: 'multiplication', subtype: 'square-mental' };
+  }
+
+  var x, y;
+  if (diff === 'easy') { x = randInt(2, 20); y = randInt(2, 12); }
+  else if (diff === 'hard') { x = randInt(11, 50); y = randInt(2, 25); }
+  else { x = randInt(2, 30); y = randInt(2, 20); }
+
   var hintLogic = hint ? hint.logic : [];
   var biasInverse = hint && (hint.type === 'inverse' || hintLogic.indexOf('division') !== -1);
   if (biasInverse || (diff !== 'easy' && randInt(0, 3) === 0)) {
@@ -276,9 +313,35 @@ function genMultiplication() {
   return { question: x + ' × ' + y + ' = ?', answer: x * y, category: 'multiplication', subtype: 'multiplication' };
 }
 
-/** Ratio: percentage increase/decrease expressed as ratio */
+/** Ratio: % change, computation, and combination sub-types */
 function genRatio() {
   var diff = _getDifficulty();
+  var subtype = diff === 'easy' ? 0 : randInt(0, 2);
+
+  /* Computation: A:B = p:q and A = n, find B */
+  if (subtype === 1 && diff !== 'easy') {
+    var pairs = diff === 'hard'
+      ? [[2,3],[3,4],[3,5],[4,7],[5,8],[2,7],[3,8]]
+      : [[2,3],[3,4],[3,5],[4,5],[1,2]];
+    var pr = pick(pairs);
+    var multiples = [50,60,80,100,120,150,160,180,200];
+    var aVal = pr[0] * pick(multiples.filter(function(m){ return m > 10; }));
+    var bVal = Math.round(aVal * pr[1] / pr[0]);
+    if (Number.isInteger(bVal))
+      return { question: 'A:B = ' + pr[0] + ':' + pr[1] + ' and A = ' + aVal + '. B = ?', answer: bVal, category: 'ratios', subtype: 'computation' };
+  }
+  /* Combination: A:B and B:C, find A:C */
+  if (subtype === 2 && diff === 'hard') {
+    var combos = [
+      { ab: [2,3], bc: [3,4], ac: '1:2', ans: '1:2' },
+      { ab: [3,4], bc: [4,5], ac: '3:5', ans: '3:5' },
+      { ab: [2,5], bc: [5,3], ac: '2:3', ans: '2:3' },
+      { ab: [4,5], bc: [5,6], ac: '2:3', ans: '2:3' }
+    ];
+    var cm = pick(combos);
+    return { question: 'A:B = ' + cm.ab[0] + ':' + cm.ab[1] + ', B:C = ' + cm.bc[0] + ':' + cm.bc[1] + '. A:C = ?', answer: cm.ans, category: 'ratios', subtype: 'combination' };
+  }
+
   var scenarios = [
     { q: 'A is 25% more than B. A:B = ?', a: '5:4' },
     { q: 'A is 20% less than B. A:B = ?', a: '4:5' },
@@ -291,9 +354,7 @@ function genRatio() {
     { q: 'A is 60% more than B. A:B = ?', a: '8:5' },
     { q: 'A is 75% more than B. A:B = ?', a: '7:4' }
   ];
-
   if (diff === 'hard') {
-    /* Add more CAT-style ratio questions */
     scenarios = scenarios.concat([
       { q: 'A is 12.5% more than B. A:B = ?', a: '9:8' },
       { q: 'A is 16.66% less than B. A:B = ?', a: '5:6' },
@@ -302,10 +363,7 @@ function genRatio() {
       { q: 'A is 66.66% more than B. A:B = ?', a: '5:3' },
       { q: 'A is 150% more than B. A:B = ?', a: '5:2' }
     ]);
-  } else if (diff === 'easy') {
-    scenarios = scenarios.slice(0, 6);
-  }
-
+  } else if (diff === 'easy') { scenarios = scenarios.slice(0, 6); }
   var s = pick(scenarios);
   return { question: s.q, answer: s.a, category: 'ratios' };
 }
@@ -360,8 +418,13 @@ function genAverage() {
     for (var s = 0; s < count; s++) nums.push(avg);
     sum = avg * count;
   }
+  var avgPhrasings = [
+    'Average of ' + nums.join(', ') + ' = ?',
+    'Mean of ' + nums.join(', ') + ' = ?',
+    'Find the average: ' + nums.join(', ') + ' = ?'
+  ];
   return {
-    question: 'Average of ' + nums.join(', ') + ' = ?',
+    question: pick(avgPhrasings),
     answer: avg,
     category: 'averages',
     subtype: 'average'
@@ -409,10 +472,10 @@ function genAverageMissing() {
   };
 }
 
-/** Profit and Loss calculations with randomized values */
+/** Profit and Loss calculations — 4 sub-types */
 function genProfitLoss() {
   var diff = _getDifficulty();
-  var type = randInt(0, 2);
+  var type = diff === 'hard' ? randInt(0, 3) : randInt(0, 2);
 
   /* Varied CP pools — avoid all-round-100 figures */
   var cpEasy   = [100, 120, 150, 200, 250, 300, 400, 500];
@@ -446,7 +509,7 @@ function genProfitLoss() {
     } while (sp2 !== Math.floor(sp2) && plAttempts2 < 40);
     if (sp2 !== Math.floor(sp2)) { cp2 = 200; lossPct = 20; sp2 = 160; }
     return { question: 'CP = ' + cp2 + ', Loss = ' + lossPct + '%. SP = ?', answer: sp2, category: 'profit-loss' };
-  } else {
+  } else if (type === 2) {
     /* Find profit% given CP and SP */
     var profitPct2 = pick([10, 15, 20, 25, 30, 50]);
     var cp3 = pick(cpPool);
@@ -460,42 +523,67 @@ function genProfitLoss() {
     } while (p3Attempts < 20);
     if (!sp3 || sp3 !== Math.floor(sp3)) { cp3 = 200; profitPct2 = 25; sp3 = 250; }
     return { question: 'CP = ' + cp3 + ', SP = ' + sp3 + '. Profit% = ?', answer: profitPct2, category: 'profit-loss' };
+  } else if (type === 3) {
+    /* Successive profit/loss */
+    var plSucc = [[10,10],[20,10],[10,20],[25,20],[15,10]];
+    var plS = pick(plSucc);
+    var cpS = pick([100, 200, 250, 400, 500]);
+    var spS = Math.round(cpS * (1 + plS[0]/100) * (1 + plS[1]/100));
+    return { question: 'CP = ' + cpS + ', sold at ' + plS[0] + '% profit then ' + plS[1] + '% profit. Final SP = ?', answer: spS, category: 'profit-loss', subtype: 'successive' };
   }
 }
 
-/** Time, Speed, Distance calculations with randomized values */
+/** Time, Speed, Distance — 4 sub-types with wording variety */
 function genTSD() {
   var diff = _getDifficulty();
-  var type = randInt(0, 2);
+  var type = diff === 'easy' ? randInt(0, 2) : randInt(0, 3);
 
-  /* Varied speed pools — avoid always-multiples-of-10 */
   var speedEasy   = [30, 40, 45, 50, 60, 75, 80, 90, 100];
   var speedMedium = [25, 30, 35, 36, 40, 45, 48, 50, 54, 56, 60, 70, 72, 75, 80, 90, 96];
   var speedHard   = [36, 40, 45, 48, 50, 54, 56, 60, 64, 72, 75, 80, 90, 96, 100, 108, 112, 120];
   var speedPool   = diff === 'easy' ? speedEasy : (diff === 'hard' ? speedHard : speedMedium);
-
-  var timeMaxEasy   = 5;
-  var timeMaxMedium = 8;
-  var timeMaxHard   = 10;
-  var tMax = diff === 'easy' ? timeMaxEasy : (diff === 'hard' ? timeMaxHard : timeMaxMedium);
+  var tMax = diff === 'easy' ? 5 : (diff === 'hard' ? 10 : 8);
 
   if (type === 0) {
-    /* Find distance given speed and time */
     var speed = pick(speedPool);
     var time = randInt(2, tMax);
-    return { question: 'Speed = ' + speed + ' km/h, Time = ' + time + ' hrs. Distance = ?', answer: speed * time, category: 'time-speed-distance' };
+    var distPhrasings = [
+      'Speed = ' + speed + ' km/h, Time = ' + time + ' hrs. Distance = ?',
+      'A car travels at ' + speed + ' km/h for ' + time + ' hrs. Distance covered = ?',
+      'At ' + speed + ' km/h for ' + time + ' hours, distance = ?'
+    ];
+    return { question: pick(distPhrasings), answer: speed * time, category: 'time-speed-distance' };
   } else if (type === 1) {
-    /* Find time given speed and distance */
     var speed2 = pick(speedPool);
     var time2 = randInt(2, 6);
     var dist = speed2 * time2;
-    return { question: 'Speed = ' + speed2 + ' km/h, Distance = ' + dist + ' km. Time = ?', answer: time2, category: 'time-speed-distance' };
-  } else {
-    /* Find speed given distance and time */
+    var timePhrasings = [
+      'Speed = ' + speed2 + ' km/h, Distance = ' + dist + ' km. Time = ?',
+      'At ' + speed2 + ' km/h, time to cover ' + dist + ' km = ?',
+      dist + ' km at ' + speed2 + ' km/h. Time taken = ?'
+    ];
+    return { question: pick(timePhrasings), answer: time2, category: 'time-speed-distance' };
+  } else if (type === 2) {
     var speed3 = pick(speedPool);
     var time3 = randInt(2, 6);
     var dist2 = speed3 * time3;
-    return { question: 'Distance = ' + dist2 + ' km, Time = ' + time3 + ' hrs. Speed = ?', answer: speed3, category: 'time-speed-distance' };
+    var speedPhrasings = [
+      'Distance = ' + dist2 + ' km, Time = ' + time3 + ' hrs. Speed = ?',
+      dist2 + ' km in ' + time3 + ' hrs. Speed = ?',
+      'Covers ' + dist2 + ' km in ' + time3 + ' hours. Speed = ?'
+    ];
+    return { question: pick(speedPhrasings), answer: speed3, category: 'time-speed-distance' };
+  } else {
+    /* Average speed: two equal-distance legs */
+    var avgSpeeds = diff === 'hard'
+      ? [[60,80],[40,60],[50,70],[72,48],[90,60]]
+      : [[30,60],[40,80],[50,100],[60,90]];
+    var avgS = pick(avgSpeeds);
+    var avgAns = (2 * avgS[0] * avgS[1]) / (avgS[0] + avgS[1]);
+    if (avgAns === Math.floor(avgAns))
+      return { question: 'Equal distance at ' + avgS[0] + ' km/h then ' + avgS[1] + ' km/h. Avg speed = ?', answer: avgAns, category: 'time-speed-distance', subtype: 'avg-speed' };
+    var spFb = pick([[30,60],[40,80],[50,100]]);
+    return { question: 'Equal distance at ' + spFb[0] + ' km/h then ' + spFb[1] + ' km/h. Avg speed = ?', answer: (2*spFb[0]*spFb[1])/(spFb[0]+spFb[1]), category: 'time-speed-distance', subtype: 'avg-speed' };
   }
 }
 
@@ -562,7 +650,32 @@ var categoryGenerators = {
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
 var _recentQuestions = [];
-var _MAX_RECENT = 20;
+var _MAX_RECENT = 60; /* raised to 60 — covers a full long session */
+
+/* ---- session-level value fingerprint deduplication ----
+   Tracks compact keys like "pct:20:400" so same numbers aren't
+   reused even with different question phrasing within one session. */
+var _sessionFingerprints = {};
+
+function _makeFingerprint(q) {
+  /* Extract category + first two numeric tokens as a session-unique key */
+  try {
+    var cat = q.category || 'x';
+    var nums = String(q.question).match(/\d+/g) || [];
+    return cat + ':' + nums.slice(0, 3).join(':');
+  } catch (_) { return ''; }
+}
+
+function _hasFingerprintDup(q) {
+  var fp = _makeFingerprint(q);
+  if (!fp) return false;
+  return !!_sessionFingerprints[fp];
+}
+
+function _recordFingerprint(q) {
+  var fp = _makeFingerprint(q);
+  if (fp) _sessionFingerprints[fp] = true;
+}
 
 function _recordRecentQuestion(questionText) {
   _recentQuestions.push(questionText);
@@ -573,9 +686,10 @@ function _wasRecentlyAsked(questionText) {
   return _recentQuestions.indexOf(questionText) !== -1;
 }
 
-/** Reset the recent-question tracker — call at the start of each new drill session */
+/** Reset all trackers — call at the start of each new drill session */
 function resetRecentQuestions() {
   _recentQuestions = [];
+  _sessionFingerprints = {};
 }
 
 /* ---- public API ---- */
@@ -601,24 +715,26 @@ function generateQuestion() {
 function generateQuestions(n, category) {
   var gen = category && categoryGenerators[category] ? categoryGenerators[category] : null;
   var qs = [];
-  var seen = {}; /* track question strings to avoid repeats within this batch */
-  var maxAttempts = n * 8; /* prevent infinite loops */
+  var seen = {}; /* exact question-string dedup within this batch */
+  var maxAttempts = n * 12; /* raised — fingerprint dedup needs more headroom */
   var attempts = 0;
 
   while (qs.length < n && attempts < maxAttempts) {
     var q = gen ? gen() : generateQuestion();
     attempts++;
-    /* Skip exact duplicates within batch or recently-asked questions */
-    if (seen[q.question] || _wasRecentlyAsked(q.question)) continue;
+    /* Skip exact duplicates, recently-asked questions, and same-value fingerprints */
+    if (seen[q.question] || _wasRecentlyAsked(q.question) || _hasFingerprintDup(q)) continue;
     seen[q.question] = true;
     _recordRecentQuestion(q.question);
+    _recordFingerprint(q);
     qs.push(q);
   }
 
-  /* Fill remaining if deduplication exhausted attempts */
+  /* Fill remaining if deduplication exhausted attempts (safety net) */
   while (qs.length < n) {
     var qFill = gen ? gen() : generateQuestion();
     _recordRecentQuestion(qFill.question);
+    _recordFingerprint(qFill);
     qs.push(qFill);
   }
 

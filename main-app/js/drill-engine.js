@@ -94,6 +94,7 @@ function createDrillEngine(container, opts) {
   var perQTimer = null;
   var autoAdvanceTimer = null;
   var answered = false; /* prevents double-counting */
+  var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
   var _isFinished = false; /* prevents timer/checkAnswer race after finish() */
   var reviewOriginalCount = 0; /* track original count for review mode cap */
@@ -149,6 +150,7 @@ function createDrillEngine(container, opts) {
 
   function renderQuestion() {
     answered = false;
+    _nextReady = true; /* reset debounce for each new question */
     var q = questions[current];
     /* Use original count for progress display in review mode to avoid
        confusing jumps when wrong answers add questions to the queue.
@@ -161,7 +163,7 @@ function createDrillEngine(container, opts) {
     var adaptivePill = adaptiveMode ? _adaptiveDiffLabel(_adaptiveDifficulty) : '';
     container.innerHTML =
       '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
-      '<div class="card center-content fade-in">' +
+      '<div class="card center-content fade-in question-card-transition">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
           '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
@@ -422,25 +424,37 @@ function createDrillEngine(container, opts) {
     /* Replace submit with next */
     var submitBtn = ui.submitBtnEl;
     submitBtn.textContent = current + 1 < count ? 'Next →' : 'See Results';
-    submitBtn.onclick = nextQuestion;
+    /* Block next-question for 350ms to prevent carry-over numpad taps */
+    _nextReady = false;
+    var _nextGuardTimer = setTimeout(function () {
+      _nextReady = true;
+      /* Pulse the Next button after the guard clears to draw attention */
+      submitBtn.classList.add('next-btn-pulse');
+      setTimeout(function () { submitBtn.classList.remove('next-btn-pulse'); }, 600);
+    }, 350);
+    submitBtn.onclick = function () {
+      if (!_nextReady) return; /* guard against carry-over taps */
+      nextQuestion();
+    };
 
     /* Focus next button for keyboard navigation */
     submitBtn.focus();
 
     ui.answerInputEl.disabled = true;
 
-    /* Auto-advance on correct answer after a short delay for feedback visibility */
-    if (correct && current + 1 < count) {
-      autoAdvanceTimer = setTimeout(function () {
-        autoAdvanceTimer = null;
-        if (answered) nextQuestion();
-      }, 600);
+    /* Correct-answer micro-interaction: flash card green */
+    if (correct) {
+      var card = ui.cardEl;
+      if (card) {
+        card.classList.add('correct-flash');
+        setTimeout(function () { if (card) card.classList.remove('correct-flash'); }, 450);
+      }
     }
   }
 
   function nextQuestion() {
-    /* Clear any pending auto-advance timer to prevent stale callbacks */
-    if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+    /* Guard against carry-over taps during transition debounce */
+    if (!_nextReady) return;
     current++;
     if (current < count) {
       /* Adaptive: recompute difficulty and generate a fresh question for next slot */
@@ -739,7 +753,7 @@ function createDrillEngine(container, opts) {
   function cleanup() {
     if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }
     if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
-    if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+    _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;
     if (adaptiveMode) _clearAdaptiveOverride();
     /* Clear session pattern so non-adaptive sessions don't inherit stale hints */
@@ -797,6 +811,7 @@ function createDrillEngine(container, opts) {
   function begin() {
     if (beginStarted) return;
     beginStarted = true;
+    _nextReady = true; /* ensure clean guard state at session start */
     /* Reset anti-repetition tracker so new session gets fresh questions */
     if (typeof resetRecentQuestions === 'function') resetRecentQuestions();
     /* Mark session as active and hide nav for immersive experience */

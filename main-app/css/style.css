@@ -50,7 +50,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); /* space for bottom nav */
+  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px)); /* exact nav height — no dead space */
   opacity: 0;
   transition: opacity .3s ease;
   overflow: hidden;
@@ -194,29 +194,35 @@ a { color: inherit; text-decoration: none; }
 }
 .spa-view-active {
   display: block;
-  animation: viewSlideIn .2s cubic-bezier(.25,.46,.45,.94);
+  animation: viewSlideIn .18s cubic-bezier(.25,.46,.45,.94) both;
 }
 @keyframes viewSlideIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+/* Reduced-motion: skip translate, keep opacity fade */
+@media (prefers-reduced-motion: reduce) {
+  .spa-view-active { animation: viewFadeIn .15s ease both; }
+  @keyframes viewFadeIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* ---- Layout ---- */
 .container {
   width: 100%;
   max-width: 480px;
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 0.5rem; /* reduced bottom — content terminates tight above nav */
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: 1rem; /* prevent last card clipping behind nav */
 }
 
 header {
   text-align: center;
-  padding: 1.5rem 0 .75rem;
+  padding: 0.9rem 0 0.45rem; /* tighter — reduces Practice tab vertical waste */
 }
 header h1 {
   font-size: 1.5rem;
@@ -254,12 +260,14 @@ header h1 {
   margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
   border: 1px solid rgba(226,232,240,.6);
-  transition: transform .15s ease, box-shadow .15s ease;
+  transition: transform .12s cubic-bezier(.25,.46,.45,.94), box-shadow .12s ease;
   overflow: hidden;
   word-break: break-word;
+  -webkit-tap-highlight-color: transparent;
 }
 .card:active {
-  transform: scale(.985);
+  transform: scale(.982);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 
 .center-content {
@@ -318,12 +326,22 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   margin-top: .6rem;
   background: #e2e8f0;
   color: #0f172a;
-  transition: background .2s ease, transform .12s ease, box-shadow .2s ease;
+  transition: background .18s ease, transform .1s cubic-bezier(.25,.46,.45,.94), box-shadow .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.btn:active { transform: scale(.95); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.btn:active {
+  transform: scale(.942);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
 .btn.accent {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
+  box-shadow: 0 3px 10px rgba(37,99,235,.28);
+}
+.btn.accent:active {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 1px 4px rgba(37,99,235,.15);
 }
 .btn.accent:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .btn:hover { background: #cbd5e1; }
@@ -344,6 +362,16 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   transition: border-color .2s ease, box-shadow .2s ease;
 }
 .input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+/* Filled state — instant visual confirmation digit was registered */
+.input:not(:placeholder-shown) { border-color: #93c5fd; background: #f0f7ff; }
+/* Prevent sticky hover states on touch devices */
+@media (pointer: coarse) {
+  .btn:hover { background: #e2e8f0; }
+  .btn.accent:hover { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+  .study-card:hover { transform: none; }
+  .mode-card:hover { transform: none; }
+}
+
 
 /* ---- Drill / Test UI ---- */
 .drill-progress {
@@ -366,7 +394,7 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   height: 100%;
   background: linear-gradient(90deg, #2563eb, #3b82f6);
   border-radius: .25rem;
-  transition: width .3s ease;
+  transition: width .4s cubic-bezier(.25,.46,.45,.94);
 }
 
 .timer {
@@ -384,18 +412,28 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   line-height: 1.3;
   word-break: break-word;
   overflow-wrap: break-word;
+  will-change: contents; /* hint GPU for text swaps between questions */
 }
 
 .feedback {
   min-height: 1.75rem;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: .25rem;
-  border-radius: .5rem;
-  padding: .25rem .75rem;
+  border-radius: .65rem;
+  padding: .3rem .85rem;
+  transition: background .15s ease;
 }
-.feedback.correct { color: #16a34a; background: rgba(22,163,74,.08); }
-.feedback.wrong   { color: #dc2626; background: rgba(220,38,38,.08); }
+.feedback.correct {
+  color: #15803d;
+  background: rgba(22,163,74,.1);
+  border: 1px solid rgba(22,163,74,.18);
+}
+.feedback.wrong {
+  color: #dc2626;
+  background: rgba(220,38,38,.08);
+  border: 1px solid rgba(220,38,38,.15);
+}
 
 /* Drill exit button */
 .session-exit,
@@ -1557,16 +1595,18 @@ body.dark-mode .home-greeting {
 .toast {
   background: #1e293b;
   color: #f1f5f9;
-  padding: .75rem 1.25rem;
-  border-radius: .75rem;
-  font-size: .85rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  padding: .7rem 1.1rem;
+  border-radius: .85rem;
+  font-size: .84rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
   opacity: 0;
-  transform: translateY(1rem);
-  transition: opacity .3s, transform .3s;
+  transform: translateY(.75rem);
+  transition: opacity .22s cubic-bezier(.25,.46,.45,.94), transform .22s cubic-bezier(.25,.46,.45,.94);
   pointer-events: auto;
   max-width: 90vw;
   text-align: center;
+  letter-spacing: .01em;
 }
 .toast.toast-visible {
   opacity: 1;
@@ -2936,11 +2976,19 @@ body.theme-playful.dark-mode .guide-tier-cta-note {
 
 /* ---- Animations ---- */
 .fade-in {
-  animation: fadeIn .3s ease;
+  animation: fadeIn .25s ease;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+/* Per-question card transition — snappier than generic fade-in */
+.question-card-transition {
+  animation: questionCardIn .2s cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes questionCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Staggered fade-in for analytics sections */
@@ -3148,39 +3196,46 @@ body.dark-mode .learn-jump-btn:active {
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0,0,0,.48);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
   padding: 1rem;
-  animation: modalOverlayFadeIn .2s ease;
+  animation: modalOverlayFadeIn .15s ease both;
 }
 @keyframes modalOverlayFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+.modal-overlay.closing {
+  animation: modalOverlayFadeOut .15s ease both;
+}
+@keyframes modalOverlayFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
 .modal-content {
   position: relative;
   background: #ffffff;
-  border-radius: 1rem;
+  border-radius: 1.1rem;
   padding: 1.5rem;
   width: 100%;
   max-width: 400px;
   max-height: 85vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 4px 24px rgba(0,0,0,.15);
-  animation: modalContentScaleIn .2s ease;
+  box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  animation: modalContentScaleIn .18s cubic-bezier(.34,1.56,.64,1) both;
 }
 .modal-content::after {
   display: none;
 }
 @keyframes modalContentScaleIn {
-  from { transform: scale(.94); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  from { transform: scale(.9) translateY(8px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 .modal-title {
   font-size: 1.1rem;
@@ -3381,7 +3436,7 @@ body.dark-mode .table-modal-title {
 }
 
 .practice-container {
-  padding: 1rem 1.15rem;
+  padding: .65rem .9rem;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -3394,22 +3449,22 @@ body.dark-mode .table-modal-title {
   scrollbar-width: none;
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
-  margin-top: 1rem;
+  margin-top: .4rem;
 }
 .practice-container::-webkit-scrollbar { display: none; }
 .practice-container:active {
   transform: none;
 }
 .practice-container .mode-card {
-  padding: 1rem 1.15rem;
-  margin-bottom: .6rem;
+  padding: .85rem 1rem;
+  margin-bottom: .45rem;
 }
 .practice-container .mode-card h3 {
-  font-size: 1rem;
+  font-size: .98rem;
 }
 .practice-container .mode-card p {
-  font-size: .82rem;
-  line-height: 1.35;
+  font-size: .81rem;
+  line-height: 1.33;
 }
 .practice-container .mode-card:last-child {
   margin-bottom: 0;
@@ -4024,15 +4079,15 @@ body.dark-mode .clear-option-info span {
 .numpad-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: .4rem;
+  gap: .45rem;
   max-width: 480px;
   margin: 0 auto;
 }
 .numpad-btn {
-  min-height: 48px;
+  min-height: 50px;
   border: none;
-  border-radius: .6rem;
-  font-size: 1.25rem;
+  border-radius: .65rem;
+  font-size: 1.3rem;
   font-weight: 600;
   background: #ffffff;
   color: #0f172a;
@@ -4040,25 +4095,29 @@ body.dark-mode .clear-option-info span {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background .1s ease, transform .1s ease;
+  transition: background .08s ease, transform .08s ease;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,.09);
 }
 .numpad-btn:active {
-  background: #e2e8f0;
-  transform: scale(.95);
+  background: #dbeafe;
+  transform: scale(.93);
 }
 .numpad-btn.numpad-submit {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(37,99,235,.25);
 }
 .numpad-btn.numpad-submit:active {
   background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: none;
 }
 .numpad-btn.numpad-backspace {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  color: #64748b;
 }
 
 /* Dark mode numpad */
@@ -4081,7 +4140,7 @@ body.dark-mode .numpad-btn.numpad-submit {
 
 /* When numpad is visible, add bottom padding to body to prevent content overlap */
 body.numpad-active {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px) + 14rem);
+  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px) + 13.5rem);
 }
 
 /* ---- Drill Session: Fixed-Position Layout ----
@@ -4097,11 +4156,11 @@ body.numpad-active {
      drill-exit-btn  z-index: 100 (fixed top-right)
 
    CSS custom properties keep height calculations DRY.
-   --drill-numpad-h accounts for: 4 rows × 48px + 3 gaps × .4rem + .5rem×2 padding + 1px border
+   --drill-numpad-h: 4 rows × 50px + 3 gaps × .4rem + .5rem×2 padding + 1px border ≈ 13.9rem
 */
 
 body.drill-session-active {
-  --drill-numpad-h: 14.25rem;
+  --drill-numpad-h: 13.75rem;
   --drill-actions-h: 3.5rem;
   --drill-card-gap: .5rem;
   --drill-safe-b: env(safe-area-inset-bottom, 0px);
@@ -4272,11 +4331,13 @@ body.dark-mode .ripple-effect {
 
 /* Numpad key press animation */
 .numpad-btn.pressed {
-  transform: scale(.9);
-  background: #dbeafe;
+  transform: scale(.89);
+  background: #bfdbfe;
+  transition: background .05s ease, transform .05s ease;
 }
 body.dark-mode .numpad-btn.pressed {
-  background: #475569;
+  background: #334155;
+  transition: background .05s ease, transform .05s ease;
 }
 
 /* Feedback card bounce for correct/wrong answers */
@@ -4299,6 +4360,54 @@ body.dark-mode .numpad-btn.pressed {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
+
+/* Next button pulse — draws attention after correct answer without forcing auto-advance */
+.btn.next-btn-pulse {
+  animation: nextBtnPulse .55s cubic-bezier(.25,.46,.45,.94);
+}
+@keyframes nextBtnPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37,99,235,.45); transform: scale(1); }
+  40%  { box-shadow: 0 0 0 8px rgba(37,99,235,.0); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,.0); transform: scale(1); }
+}
+
+/* Correct answer card flash — brief green tint on the card surface */
+.correct-flash {
+  animation: correctFlash .4s ease forwards;
+}
+@keyframes correctFlash {
+  0%   { background: rgba(255,255,255,.88); }
+  25%  { background: rgba(22,163,74,.12); }
+  100% { background: rgba(255,255,255,.88); }
+}
+body.dark-mode .correct-flash {
+  animation: correctFlashDark .4s ease forwards;
+}
+@keyframes correctFlashDark {
+  0%   { background: rgba(30,41,59,.88); }
+  25%  { background: rgba(22,163,74,.18); }
+  100% { background: rgba(30,41,59,.88); }
+}
+
+/* ---- Compact Screen Adjustments (small Android, short-screen PWA) ---- */
+@media (max-height: 600px) {
+  /* Reduce question text size to prevent vertical overflow */
+  .question-text { font-size: 1.6rem; }
+  /* Shrink numpad buttons slightly */
+  .numpad-btn { min-height: 44px; font-size: 1.15rem; }
+  /* Shrink drill card top inset */
+  body.drill-session-active #drillContainer > .card {
+    top: 2.5rem;
+  }
+  /* Tighter mode cards on small screens */
+  .practice-container .mode-card { padding: .65rem .85rem; margin-bottom: .35rem; }
+  header { padding: .5rem 0 .3rem; }
+}
+@media (max-height: 500px) {
+  .question-text { font-size: 1.4rem; }
+  .numpad-btn { min-height: 40px; }
+}
+
 
 /* Smooth scrolling for content area */
 .container {

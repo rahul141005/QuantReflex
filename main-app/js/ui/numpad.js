@@ -36,35 +36,48 @@ function hideCustomNumpad() {
 
 /* ---- Numpad key press visual feedback ---- */
 (function () {
+  var _activePress = null; /* only one key can be in 'pressed' state at a time */
+
   document.addEventListener('pointerdown', function (e) {
     var btn = e.target.closest('.numpad-btn');
     if (!btn) return;
+    /* Release any previously held key (multi-touch guard) */
+    if (_activePress && _activePress !== btn) {
+      _activePress.classList.remove('pressed');
+    }
+    _activePress = btn;
     btn.classList.add('pressed');
     if (typeof triggerHaptic === 'function') triggerHaptic(8);
   });
 
-  document.addEventListener('pointerup', function () {
+  function _releaseAll() {
     var pressed = document.querySelectorAll('.numpad-btn.pressed');
     for (var i = 0; i < pressed.length; i++) {
       pressed[i].classList.remove('pressed');
     }
-  });
+    _activePress = null;
+  }
 
-  document.addEventListener('pointercancel', function () {
-    var pressed = document.querySelectorAll('.numpad-btn.pressed');
-    for (var i = 0; i < pressed.length; i++) {
-      pressed[i].classList.remove('pressed');
-    }
-  });
+  document.addEventListener('pointerup', _releaseAll);
+  document.addEventListener('pointercancel', _releaseAll);
 })();
 
 /* ---- Numpad key click handler ---- */
 (function initNumpad() {
+  var _lastNumpadClick = 0;
+  var _NUMPAD_DEBOUNCE_MS = 40; /* drop simultaneous multi-touch events */
+
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-numpad]');
     if (!btn || !_numpadInput) return;
     /* Guard: ensure input element is still in the DOM (prevents stale reference writes) */
     if (!document.body.contains(_numpadInput)) return;
+
+    /* Multi-touch debounce: drop second event if < 40ms after previous */
+    var now = Date.now();
+    if (now - _lastNumpadClick < _NUMPAD_DEBOUNCE_MS) return;
+    _lastNumpadClick = now;
+
     var key = btn.getAttribute('data-numpad');
 
     /* Prevent input after answer is submitted (input is disabled) */
