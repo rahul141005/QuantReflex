@@ -496,7 +496,14 @@ var DuelCore = (function () {
     });
   }
 
-
+  function deleteDuel(duelId) {
+    var db = _getDb();
+    if (!db || !duelId) return Promise.resolve();
+    return db.collection(DUEL_COLLECTION).doc(duelId).update({
+      status: 'deleted',
+      deletedAt: _serverTimestamp()
+    });
+  }
 
   return {
     createDuel: createDuel,
@@ -506,6 +513,7 @@ var DuelCore = (function () {
     listenToDuel: listenToDuel,
     stopListening: stopListening,
     leaveDuel: leaveDuel,
+    deleteDuel: deleteDuel,
     getDuelState: getDuelState,
     DUEL_EXPIRY_MS: DUEL_EXPIRY_MS
   };

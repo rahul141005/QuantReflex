@@ -812,6 +812,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  Router.onShow('practice', function() { if (typeof DuelManager !== 'undefined') DuelManager.checkActiveDuel(); });
+
   /* Stats view: render on every show */
   Router.onShow('stats', renderStatsView);
 

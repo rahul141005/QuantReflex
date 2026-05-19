@@ -41,8 +41,12 @@ var DuelManager = (function () {
    * Enter waiting room for a duel (after create or join).
    */
   function enterWaitingRoom(duelId) {
+    if (_currentState === 'waiting' && _currentDuelId === duelId) return;
     _currentDuelId = duelId;
     _currentState = 'waiting';
+    try { localStorage.setItem('qr_active_duel', duelId); } catch (_) {}
+    _updateActiveRoomCard(duelId);
+
     var container = _getContainer('duelWaitingRoom');
     if (!container) return;
 
@@ -60,14 +64,17 @@ var DuelManager = (function () {
         exitDuel();
         return;
       }
-      if (event.expired) {
-        if (typeof showToast === 'function') showToast('Duel room expired');
+      if (event.expired || event.data.status === 'deleted') {
+        if (typeof showToast === 'function') showToast('Duel room was closed or expired');
         exitDuel();
         return;
       }
 
       var data = event.data;
       if (!data) return;
+
+      /* Update persistent card */
+      _updateActiveRoomCard(duelId, data);
 
       /* State transitions based on Firestore duel status */
       if (data.status === 'active' && _currentState !== 'active') {
@@ -117,15 +124,46 @@ var DuelManager = (function () {
     if (_joinInFlight) return;
     
     _joinInFlight = true;
-    if (typeof showToast === 'function') showToast('Joining duel…');
+    if (typeof showToast === 'function') showToast('Fetching duel info…');
 
-    DuelCore.joinDuel(duelId, function (err, data) {
-      _joinInFlight = false;
+    DuelCore.getDuelState(duelId, function (err, data) {
       if (err) {
+        _joinInFlight = false;
         if (typeof showToast === 'function') showToast(err);
         return;
       }
-      enterWaitingRoom(duelId);
+      if (!data || data.status !== 'waiting') {
+        _joinInFlight = false;
+        if (typeof showToast === 'function') showToast('This duel is no longer available');
+        return;
+      }
+
+      /* Show preview screen */
+      var container = _getContainer('duelPreview');
+      if (!container) { _joinInFlight = false; return; }
+
+      var nav = document.querySelector('.bottom-nav');
+      if (nav) nav.style.display = 'none';
+      _hideAllDuelScreens();
+
+      DuelUI.renderPreviewScreen(container, data, function () {
+        /* onJoin */
+        DuelCore.joinDuel(duelId, function (joinErr) {
+          _joinInFlight = false;
+          if (joinErr) {
+            if (typeof showToast === 'function') showToast(joinErr);
+            container.style.display = 'none';
+            if (nav) nav.style.display = '';
+            return;
+          }
+          container.style.display = 'none';
+          enterWaitingRoom(duelId);
+        });
+      }, function () {
+        /* onCancel */
+        _joinInFlight = false;
+        if (nav) nav.style.display = '';
+      });
     });
   }
 
@@ -142,9 +180,13 @@ var DuelManager = (function () {
    */
   function exitDuel() {
     DuelCore.stopListening();
+    if (typeof DuelUI !== 'undefined' && DuelUI.clearTimers) DuelUI.clearTimers();
     _unbindLifecycleCleanup();
     _currentDuelId = null;
     _currentState = null;
+    try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
+    _updateActiveRoomCard(null);
+
     _hideAllDuelScreens();
     document.body.classList.remove('drill-session-active');
 
@@ -223,7 +265,7 @@ var DuelManager = (function () {
   /* ---- Helpers ---- */
 
   function _hideAllDuelScreens() {
-    var ids = ['duelSetup', 'duelWaitingRoom', 'duelActiveScreen', 'duelResults'];
+    var ids = ['duelSetup', 'duelPreview', 'duelWaitingRoom', 'duelActiveScreen', 'duelResults'];
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
       if (el) el.style.display = 'none';
@@ -236,6 +278,97 @@ var DuelManager = (function () {
     }
     if (typeof showPaywall === 'function') showPaywall('math_duel');
     return false;
+  }
+
+  /* ---- Persistent Room Card UX ---- */
+
+  function _updateActiveRoomCard(duelId, duelData) {
+    var container = _getContainer('activeDuelRoomContainer');
+    if (!container) return;
+
+    if (!duelId) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    
+    var statusEl = _getContainer('activeDuelRoomStatus');
+    var oppIcon = _getContainer('activeDuelRoomOpponentIndicator');
+    var enterBtn = _getContainer('activeDuelEnterBtn');
+    var shareBtn = _getContainer('activeDuelShareBtn');
+    var delBtn = _getContainer('activeDuelDeleteBtn');
+
+    if (!duelData) {
+      if (statusEl) statusEl.textContent = 'Room active...';
+      if (oppIcon) oppIcon.style.opacity = '0.5';
+    } else {
+      var pCount = duelData.participants ? Object.keys(duelData.participants).length : 0;
+      if (statusEl) {
+        if (duelData.status === 'active') statusEl.textContent = 'Duel in progress! ⚔️';
+        else if (pCount >= 2) statusEl.textContent = 'Opponent joined, ready to start!';
+        else statusEl.textContent = 'Waiting for opponent...';
+      }
+      if (oppIcon) {
+        oppIcon.style.opacity = pCount >= 2 ? '1' : '0.5';
+      }
+      var pillsEl = _getContainer('activeDuelRoomPills');
+      if (pillsEl && duelData.config) {
+        var c = duelData.config;
+        var timerStr = c.timerTotal ? c.timerTotal + 's total' : (c.timerPerQuestion ? c.timerPerQuestion + 's/q' : 'No timer');
+        var modeStr = c.questionMode === 'wordproblems' ? '🤖 Word' : '⚡ Quick';
+        pillsEl.innerHTML = 
+          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">📝 ' + (c.questionCount || 10) + ' Qs</span>' +
+          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">⏱ ' + timerStr + '</span>' +
+          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">' + modeStr + '</span>';
+      }
+    }
+
+    if (enterBtn) {
+      enterBtn.onclick = function() {
+        if (_currentState) return; // Already in it
+        enterWaitingRoom(duelId);
+      };
+    }
+    if (shareBtn) {
+      shareBtn.onclick = function() {
+        var url = window.location.origin + window.location.pathname + '?duel=' + duelId;
+        if (navigator.share) {
+          navigator.share({ title: 'Math Duel Challenge', text: 'Join my Math Duel on QuantReflex!', url: url }).catch(function () {});
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(function () {
+            if (typeof showToast === 'function') showToast('Invite link copied!');
+          });
+        }
+      };
+    }
+    if (delBtn) {
+      delBtn.onclick = function() {
+        if (confirm('Delete this duel room?')) {
+          DuelCore.deleteDuel(duelId);
+          exitDuel();
+        }
+      };
+    }
+  }
+
+  function checkActiveDuel() {
+    var storedId = null;
+    try { storedId = localStorage.getItem('qr_active_duel'); } catch (_) {}
+    if (!storedId) {
+      _updateActiveRoomCard(null);
+      return;
+    }
+    
+    /* Fetch state to see if it's still active */
+    DuelCore.getDuelState(storedId, function (err, data) {
+      if (err || !data || data.status === 'completed' || data.status === 'deleted') {
+        try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
+        _updateActiveRoomCard(null);
+        return;
+      }
+      _updateActiveRoomCard(storedId, data);
+    });
   }
 
   /* ---- Duel Lifecycle Safety Handlers ---- */
@@ -305,6 +438,7 @@ var DuelManager = (function () {
     setPendingDuelId: setPendingDuelId,
     consumePendingDuel: consumePendingDuel,
     getCurrentState: getCurrentState,
-    getCurrentDuelId: getCurrentDuelId
+    getCurrentDuelId: getCurrentDuelId,
+    checkActiveDuel: checkActiveDuel
   };
 })();

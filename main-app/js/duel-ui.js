@@ -38,9 +38,15 @@ var DuelUI = (function () {
         '</div>' +
         '<div class="duel-setup-body">' +
           /* Question mode toggle */
-          '<div class="duel-mode-toggle">' +
-            '<button class="duel-mode-btn active" data-qmode="quick">⚡ Quick Questions</button>' +
-            '<button class="duel-mode-btn" data-qmode="wordproblems">🤖 Word Problems</button>' +
+          '<div class="duel-mode-toggle" style="display:flex;gap:.5rem;margin-bottom:1rem;">' +
+            '<button class="duel-mode-btn active" data-qmode="quick" style="flex:1;text-align:left;padding:.75rem;">' +
+              '<div style="font-weight:600;margin-bottom:.25rem;">⚡ Quick Questions</div>' +
+              '<div style="font-size:.7rem;opacity:.8;font-weight:400;">Procedural generation</div>' +
+            '</button>' +
+            '<button class="duel-mode-btn" data-qmode="wordproblems" style="flex:1;text-align:left;padding:.75rem;">' +
+              '<div style="font-weight:600;margin-bottom:.25rem;">🤖 Word Problems</div>' +
+              '<div style="font-size:.7rem;opacity:.8;font-weight:400;">AI-curated bank</div>' +
+            '</button>' +
           '</div>' +
           /* Topic selection */
           '<label class="secondary-text" style="font-size:.8rem;margin-bottom:.35rem;display:block;">Topics (select 1+)</label>' +
@@ -57,18 +63,27 @@ var DuelUI = (function () {
           /* Question count */
           '<div style="margin-bottom:.75rem;">' +
             '<label class="secondary-text" style="font-size:.8rem;">Questions: <strong id="duelQCountVal">10</strong></label>' +
-            '<input type="range" id="duelQCount" class="custom-question-range" min="5" max="20" value="10" style="width:100%;" />' +
+            '<input type="range" id="duelQCount" class="custom-question-range" min="1" max="100" value="10" style="width:100%;" />' +
           '</div>' +
-          /* Timer */
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">' +
-            '<span style="font-size:.85rem;font-weight:600;">Timer per question</span>' +
-            '<select id="duelTimer" class="theme-select" style="min-width:7rem;">' +
-              '<option value="0">No timer</option>' +
-              '<option value="10">10 sec</option>' +
-              '<option value="15" selected>15 sec</option>' +
-              '<option value="20">20 sec</option>' +
-              '<option value="30">30 sec</option>' +
-            '</select>' +
+          /* Timer Selection */
+          '<div class="timer-select-section" id="duelTimerSelectSection" style="margin-bottom:1rem;">' +
+            '<div class="timer-toggle-row">' +
+              '<span class="timer-toggle-label" style="font-size:.85rem;font-weight:600;">Timer</span>' +
+              '<label class="toggle">' +
+                '<input type="checkbox" id="duelTimerToggle" checked />' +
+                '<span class="toggle-slider"></span>' +
+              '</label>' +
+            '</div>' +
+            '<div class="timer-config-area" id="duelTimerConfigArea" style="margin-top:.5rem;">' +
+              '<div class="timer-pill-selector">' +
+                '<button class="timer-pill active" id="duelTimerPillPer" type="button">Per Ques.</button>' +
+                '<button class="timer-pill" id="duelTimerPillTotal" type="button">Total</button>' +
+              '</div>' +
+              '<div class="timer-input-row">' +
+                '<input type="number" id="duelTimerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />' +
+                '<span class="timer-unit-label">seconds</span>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
           '<button class="duel-create-btn" id="duelCreateBtn">Create Duel</button>' +
         '</div>' +
@@ -116,6 +131,35 @@ var DuelUI = (function () {
       qSlider.addEventListener('input', function () { qVal.textContent = qSlider.value; });
     }
 
+    /* Timer handlers */
+    var timerToggle = document.getElementById('duelTimerToggle');
+    var timerConfigArea = document.getElementById('duelTimerConfigArea');
+    var pillPer = document.getElementById('duelTimerPillPer');
+    var pillTotal = document.getElementById('duelTimerPillTotal');
+    var timerInput = document.getElementById('duelTimerSecondsInput');
+    var timerMode = 'per';
+
+    if (timerToggle && timerConfigArea) {
+      timerToggle.addEventListener('change', function () {
+        timerConfigArea.style.display = this.checked ? 'flex' : 'none';
+      });
+    }
+
+    if (pillPer && pillTotal && timerInput) {
+      pillPer.addEventListener('click', function () {
+        timerMode = 'per';
+        pillPer.classList.add('active');
+        pillTotal.classList.remove('active');
+        timerInput.value = '15';
+      });
+      pillTotal.addEventListener('click', function () {
+        timerMode = 'total';
+        pillTotal.classList.add('active');
+        pillPer.classList.remove('active');
+        timerInput.value = '180'; /* 3 mins default */
+      });
+    }
+
     /* Back button */
     var backBtn = document.getElementById('duelBackBtn');
     if (backBtn) {
@@ -138,14 +182,21 @@ var DuelUI = (function () {
         createBtn.disabled = true;
         createBtn.textContent = 'Creating…';
 
-        var timerVal = parseInt(document.getElementById('duelTimer').value, 10);
+        var timerVal = null;
+        var tTotal = null;
+        if (timerToggle && timerToggle.checked) {
+          var val = parseInt(timerInput.value, 10);
+          if (timerMode === 'per') timerVal = val > 0 ? val : 15;
+          else tTotal = val > 0 ? val : 180;
+        }
+
         var config = {
           topics: selectedTopics.slice(),
           difficulty: document.getElementById('duelDifficulty').value,
           questionCount: parseInt(qSlider.value, 10) || 10,
           questionMode: questionMode,
-          timerPerQuestion: timerVal > 0 ? timerVal : null,
-          timerTotal: null
+          timerPerQuestion: timerVal,
+          timerTotal: tTotal
         };
 
         DuelCore.createDuel(config, function (err, duelId) {
@@ -158,6 +209,65 @@ var DuelUI = (function () {
           container.style.display = 'none';
           DuelManager.enterWaitingRoom(duelId);
         });
+      });
+    }
+  }
+
+  /* ---- Preview Screen (Join via Link) ---- */
+
+  function renderPreviewScreen(container, duelData, onJoin, onCancel) {
+    var config = duelData.config || {};
+    var creatorName = duelData.createdByName || 'A user';
+    
+    var topicPills = '';
+    var topics = config.topics || [];
+    for (var i = 0; i < topics.length; i++) {
+      topicPills += '<span class="duel-config-pill">' +
+        (typeof formatCategoryName === 'function' ? formatCategoryName(topics[i]) : topics[i]) +
+        '</span>';
+    }
+
+    var timerLabel = config.timerPerQuestion ? config.timerPerQuestion + 's/q' : 'No timer';
+
+    container.innerHTML =
+      '<div class="duel-setup-card">' +
+        '<div class="duel-setup-header">' +
+          '<h3>⚔️ Math Duel Invitation</h3>' +
+          '<p>' + creatorName + ' challenged you</p>' +
+        '</div>' +
+        '<div class="duel-setup-body">' +
+          '<div style="text-align:center;margin-bottom:1.5rem;">' +
+            '<div style="font-size:3rem;margin-bottom:.5rem;">🥊</div>' +
+            '<h4 style="margin-bottom:.5rem;">Duel Settings</h4>' +
+            '<div class="duel-config-pills" style="justify-content:center;">' +
+              topicPills +
+              '<span class="duel-config-pill">📝 ' + (config.questionCount || 10) + ' Qs</span>' +
+              '<span class="duel-config-pill">⏱ ' + timerLabel + '</span>' +
+              '<span class="duel-config-pill">📊 ' + (config.difficulty || 'medium') + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<button class="duel-create-btn" id="duelJoinAcceptBtn" style="margin-bottom:.75rem;">Join Duel</button>' +
+          '<button class="btn" id="duelJoinCancelBtn" style="width:100%;">Cancel</button>' +
+        '</div>' +
+      '</div>';
+
+    container.style.display = 'flex';
+
+    var acceptBtn = document.getElementById('duelJoinAcceptBtn');
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', function () {
+        if (acceptBtn.disabled) return;
+        acceptBtn.disabled = true;
+        acceptBtn.textContent = 'Joining...';
+        if (onJoin) onJoin();
+      });
+    }
+
+    var cancelBtn = document.getElementById('duelJoinCancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () {
+        container.style.display = 'none';
+        if (onCancel) onCancel();
       });
     }
   }
@@ -222,10 +332,10 @@ var DuelUI = (function () {
         '<div class="duel-player-name">Waiting…</div>' +
         '</div>';
     }
-    return '<div class="duel-player-slot filled">' +
-      '<div class="duel-player-icon">' + (isFirst ? '🟣' : '🔵') + '</div>' +
-      '<div class="duel-player-name">' + (player.name || 'Player') + '</div>' +
-      '<div class="duel-player-status">Ready</div>' +
+    return '<div class="duel-player-slot filled fade-in" style="animation-duration: 0.3s;">' +
+      '<div class="duel-player-icon" style="transform: scale(1.1);">' + (isFirst ? '🟣' : '🔵') + '</div>' +
+      '<div class="duel-player-name" style="font-weight:600;">' + (player.name || 'Player') + '</div>' +
+      '<div class="duel-player-status" style="color:var(--success);"><span class="dot" style="background:var(--success);animation:none;display:inline-block;width:6px;height:6px;margin-right:4px;"></span>Connected!</div>' +
       '</div>';
   }
 
@@ -268,7 +378,17 @@ var DuelUI = (function () {
 
   /* ---- Active Duel Screen ---- */
 
+  var _activeDuelTimer = null;
+
+  function clearTimers() {
+    if (_activeDuelTimer) {
+      clearInterval(_activeDuelTimer);
+      _activeDuelTimer = null;
+    }
+  }
+
   function renderActiveScreen(container, duelData, onAnswer) {
+    clearTimers();
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
     var participants = duelData.participants || {};
     var uids = Object.keys(participants);
@@ -297,6 +417,12 @@ var DuelUI = (function () {
     }
 
     var q = questions[qIndex];
+    var config = duelData.config || {};
+    var timerHtml = '';
+    if (config.timerTotal || config.timerPerQuestion) {
+      timerHtml = '<p id="duelTimerDisplay" class="timer"></p>';
+    }
+
     container.innerHTML =
       '<div class="duel-scoreboard">' +
         '<div class="duel-sb-player"><div class="duel-sb-name">' + (myP ? myP.name : 'You') + '</div><div class="duel-sb-score">' + (myP ? myP.score : 0) + '</div></div>' +
@@ -306,6 +432,7 @@ var DuelUI = (function () {
       '<div class="duel-question-area">' +
         '<div class="drill-progress">Question ' + (qIndex + 1) + ' of ' + totalQ + '</div>' +
         '<div class="drill-progress-bar" style="max-width:200px;margin:0 auto .75rem;"><div class="drill-progress-fill" style="width:' + ((qIndex / totalQ) * 100) + '%;"></div></div>' +
+        timerHtml +
         '<div class="question-text">' + (q ? q.text : '') + '</div>' +
         '<input type="text" class="input duel-answer-input" id="duelAnswerInput" readonly placeholder="Tap numpad to answer" autocomplete="off" />' +
         '<div class="feedback" id="duelFeedback"></div>' +
@@ -315,9 +442,44 @@ var DuelUI = (function () {
 
     /* Show numpad */
     var input = document.getElementById('duelAnswerInput');
+    var isAnswered = false;
+
+    function _forceSubmit() {
+      if (isAnswered) return;
+      isAnswered = true;
+      clearTimers();
+      input.disabled = true;
+      if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+      if (onAnswer) onAnswer(qIndex, null, false, 0);
+    }
+
+    if (config.timerTotal) {
+      var startedAt = duelData.duelStartedAt ? duelData.duelStartedAt.toMillis() : Date.now();
+      var limitMs = config.timerTotal * 1000;
+      _activeDuelTimer = setInterval(function() {
+        var el = document.getElementById('duelTimerDisplay');
+        var elapsed = Date.now() - startedAt;
+        var rem = Math.ceil((limitMs - elapsed) / 1000);
+        if (rem < 0) rem = 0;
+        if (el) el.textContent = '⏱ ' + rem + 's';
+        if (rem <= 0) _forceSubmit();
+      }, 1000);
+    } else if (config.timerPerQuestion) {
+      var remaining = config.timerPerQuestion;
+      _activeDuelTimer = setInterval(function() {
+        var el = document.getElementById('duelTimerDisplay');
+        if (el) el.textContent = '⏱ ' + remaining + 's';
+        if (remaining <= 0) _forceSubmit();
+        remaining--;
+      }, 1000);
+    }
+
     if (input && typeof showCustomNumpad === 'function') {
       var answerStartTime = Date.now();
       showCustomNumpad(input, function () {
+        if (isAnswered) return;
+        isAnswered = true;
+        clearTimers();
         var val = input.value.trim();
         if (!val) return;
         var userAnswer = parseFloat(val);
@@ -397,8 +559,10 @@ var DuelUI = (function () {
 
   return {
     renderSetup: renderSetup,
+    renderPreviewScreen: renderPreviewScreen,
     renderWaitingRoom: renderWaitingRoom,
     renderActiveScreen: renderActiveScreen,
-    renderResults: renderResults
+    renderResults: renderResults,
+    clearTimers: clearTimers
   };
 })();
