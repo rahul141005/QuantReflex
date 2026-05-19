@@ -51,6 +51,7 @@ var DuelManager = (function () {
     if (nav) nav.style.display = 'none';
     _hideAllDuelScreens();
     document.body.classList.add('drill-session-active');
+    _bindLifecycleCleanup();
 
     /* Start listening for realtime updates */
     DuelCore.listenToDuel(duelId, function (event) {
@@ -141,6 +142,7 @@ var DuelManager = (function () {
    */
   function exitDuel() {
     DuelCore.stopListening();
+    _unbindLifecycleCleanup();
     _currentDuelId = null;
     _currentState = null;
     _hideAllDuelScreens();
@@ -167,7 +169,7 @@ var DuelManager = (function () {
     var container = _getContainer('duelActiveScreen');
     if (!container) return;
 
-    DuelUI.renderActiveScreen(container, duelData, function (qIdx, answer, correct, timeMs) {
+    function _onAnswerSubmit(qIdx, answer, correct, timeMs) {
       /* Answer submitted — send to Firestore */
       DuelCore.submitAnswer(_currentDuelId, qIdx, answer, correct, timeMs, function (err) {
         if (err) console.warn('[Duel] Submit error:', err);
@@ -180,11 +182,13 @@ var DuelManager = (function () {
           if (freshData.status === 'completed') {
             _enterResults(freshData);
           } else {
-            DuelUI.renderActiveScreen(container, freshData, arguments.callee);
+            DuelUI.renderActiveScreen(container, freshData, _onAnswerSubmit);
           }
         });
       }, 600);
-    });
+    }
+
+    DuelUI.renderActiveScreen(container, duelData, _onAnswerSubmit);
   }
 
   function _handleActiveUpdate(duelData) {
@@ -232,6 +236,45 @@ var DuelManager = (function () {
     }
     if (typeof showPaywall === 'function') showPaywall('math_duel');
     return false;
+  }
+
+  /* ---- Duel Lifecycle Safety Handlers ---- */
+  /* Ensure Firestore listeners are cleaned up when the user navigates
+     away from a duel via browser back button, popstate, or app backgrounding. */
+
+  var _duelPopstateHandler = null;
+  var _duelVisibilityHandler = null;
+
+  function _bindLifecycleCleanup() {
+    _unbindLifecycleCleanup(); /* Prevent duplicate listeners */
+
+    _duelPopstateHandler = function () {
+      if (_currentState && (_currentState === 'waiting' || _currentState === 'active')) {
+        console.log('[DuelManager] popstate detected during active duel, cleaning up listeners');
+        DuelCore.stopListening();
+      }
+    };
+    window.addEventListener('popstate', _duelPopstateHandler);
+
+    _duelVisibilityHandler = function () {
+      /* When app goes to background during a duel, don't stop listening
+         (user may come back), but log for diagnostics */
+      if (document.visibilityState === 'hidden' && _currentState === 'active') {
+        console.log('[DuelManager] app backgrounded during active duel');
+      }
+    };
+    document.addEventListener('visibilitychange', _duelVisibilityHandler);
+  }
+
+  function _unbindLifecycleCleanup() {
+    if (_duelPopstateHandler) {
+      window.removeEventListener('popstate', _duelPopstateHandler);
+      _duelPopstateHandler = null;
+    }
+    if (_duelVisibilityHandler) {
+      document.removeEventListener('visibilitychange', _duelVisibilityHandler);
+      _duelVisibilityHandler = null;
+    }
   }
 
   /* ---- Deep-link Support ---- */

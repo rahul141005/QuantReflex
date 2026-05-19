@@ -39,7 +39,7 @@ var DuelCore = (function () {
 
   function _getUserName() {
     try {
-      var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
+      var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
       if (s && s.profile && s.profile.name) return s.profile.name;
     } catch (_) {}
     try {

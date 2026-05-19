@@ -126,6 +126,19 @@ window.addEventListener('beforeunload', function (e) {
     e.preventDefault();
     /* Modern browsers require returnValue to be set */
     e.returnValue = '';
+
+    /* Clear adaptive difficulty override so stale state doesn't persist
+       if the user force-closes the tab mid-drill */
+    if (typeof AdaptiveState !== 'undefined' && typeof AdaptiveState.clearDifficulty === 'function') {
+      AdaptiveState.clearDifficulty();
+    } else {
+      window._adaptiveOverrideDifficulty = null;
+    }
+  }
+
+  /* Always flush pending Firestore writes on page unload */
+  if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.flushUpdatesAsync === 'function') {
+    FirestoreSync.flushUpdatesAsync();
   }
 });
 

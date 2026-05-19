@@ -49,6 +49,54 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // DUELS COLLECTION
+    // ════════════════════════════════════════════
+    // Any authenticated user can read duels (needed for join via invite link).
+    // Any authenticated user can create a new duel room.
+    // Only participants of a duel can update it (submit answers, leave, etc.).
+    // Deletion is denied — expired rooms are cleaned up server-side or by TTL.
+    match /duels/{duelId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+      allow delete: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // PAYMENTS COLLECTION
+    // ════════════════════════════════════════════
+    // Users can only read and delete their own payment records.
+    // Payment creation/updates are server-side only (Admin SDK).
+    match /payments/{paymentId} {
+      allow read, delete: if request.auth != null
+        && resource.data.uid == request.auth.uid;
+      allow create, update: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
+    // AI INSIGHTS COLLECTION
+    // ════════════════════════════════════════════
+    // Users can only read and delete their own AI insight records.
+    // Creation/updates are server-side only (Admin SDK).
+    match /aiInsights/{insightId} {
+      allow read, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create, update: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
+    // AI STUDY PLANS COLLECTION
+    // ════════════════════════════════════════════
+    // Users can only read and delete their own AI study plan records.
+    // Creation/updates are server-side only (Admin SDK).
+    match /aiStudyPlans/{planId} {
+      allow read, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create, update: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════
     match /{document=**} {

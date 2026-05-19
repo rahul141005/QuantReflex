@@ -531,6 +531,8 @@ function genProfitLoss() {
     var spS = Math.round(cpS * (1 + plS[0]/100) * (1 + plS[1]/100));
     return { question: 'CP = ' + cpS + ', sold at ' + plS[0] + '% profit then ' + plS[1] + '% profit. Final SP = ?', answer: spS, category: 'profit-loss', subtype: 'successive' };
   }
+  /* Defensive fallback — should be unreachable but prevents undefined return */
+  return { question: 'CP = 200, Profit = 25%. SP = ?', answer: 250, category: 'profit-loss' };
 }
 
 /** Time, Speed, Distance — 4 sub-types with wording variety */

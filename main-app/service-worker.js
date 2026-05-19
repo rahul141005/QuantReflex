@@ -61,6 +61,18 @@ var ASSETS = [
 
 /* Firebase CDN scripts are cached dynamically on first fetch for offline support */
 
+/* Promise.allSettled polyfill for Safari < 13 and older Android WebViews */
+if (typeof Promise.allSettled !== 'function') {
+  Promise.allSettled = function (promises) {
+    return Promise.all(promises.map(function (p) {
+      return Promise.resolve(p).then(
+        function (value) { return { status: 'fulfilled', value: value }; },
+        function (reason) { return { status: 'rejected', reason: reason }; }
+      );
+    }));
+  };
+}
+
 /* Install: pre-cache all assets — resilient: one failing asset won't abort install */
 self.addEventListener('install', function (event) {
   event.waitUntil(

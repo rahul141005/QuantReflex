@@ -733,10 +733,10 @@ function openDeleteAccountModal() {
     /**
      * Delete account in proper order:
      * 1. Delete Firestore user document (while auth context is valid)
-     * 2. Clear all local data
-     * 3. Delete Firebase Auth account (last — invalidates the session)
+     * 2. Delete Firebase Auth account
+     * 3. Clear all local data (only after auth deletion succeeds)
      */
-    function deleteAuthAndReload() {
+    function _clearAllLocalData() {
       try {
         if (typeof AppState !== 'undefined' && typeof AppState.clearAll === 'function') {
           AppState.clearAll();
@@ -747,7 +747,12 @@ function openDeleteAccountModal() {
           for (var i = 0; i < userKeys.length; i++) localStorage.removeItem(userKeys[i]);
         }
       } catch (_) {}
+    }
+
+    function deleteAuthAndReload() {
       user.delete().then(function () {
+        /* Auth deletion succeeded — NOW safe to clear local data */
+        _clearAllLocalData();
         window.location.reload();
       }).catch(function (err) {
         showToast('Account deletion failed: ' + err.message);

@@ -32,6 +32,7 @@ var FirestoreSync = (function () {
   var _drillActive = false; /* Whether a drill is in progress (defers syncing) */
   var _loadedUserId = null; /* UID whose data is currently loaded — detects user switches */
   var _trialExpiryPersistInFlight = false;
+  var _ppExpiryPersistInFlight = false;
   var _flushRetryCount = 0;
   var _flushRetryTimer = null;
   var _flushInFlight = false;
@@ -179,6 +180,8 @@ var FirestoreSync = (function () {
     _loadedUserId = null;
     _flushRetryCount = 0;
     _flushInFlight = false;
+    _trialExpiryPersistInFlight = false;
+    _ppExpiryPersistInFlight = false;
     if (_flushRetryTimer) {
       clearTimeout(_flushRetryTimer);
       _flushRetryTimer = null;
@@ -647,7 +650,12 @@ var FirestoreSync = (function () {
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
     }
-    snapshot.updatedAt = new Date().toISOString();
+    /* Use Firestore server timestamp for the main document updatedAt
+       to prevent client-side clock manipulation from poisoning the
+       clock-skew reference used by trial/PremiumPlus expiry checks. */
+    snapshot.updatedAt = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+      ? firebase.firestore.FieldValue.serverTimestamp()
+      : new Date().toISOString();
     _pendingUpdates = {};
     _flushInFlight = true;
     var gen = _syncGeneration;
@@ -823,19 +831,23 @@ var FirestoreSync = (function () {
           /* Also reset structured subcollections so they stay consistent */
           var uid = docRef.id;
           var db = docRef.firestore;
-          db.collection('users').doc(uid).collection('performance').doc('overall').set({
-            totalAttempted: 0, totalCorrect: 0, accuracy: 0, avgTime: 0,
-            bestStreak: 0, currentStreak: 0,
-            dailyStreak: 0, bestDailyStreak: 0,
-            drillSessions: 0, timedTestSessions: 0,
-            categoryStats: {}, responseTimes: [],
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] performance reset failed:', e.message || e); });
-          db.collection('users').doc(uid).collection('practice').doc('data').set({
-            mistakes: [], savedQuestions: [],
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] practice reset failed:', e.message || e); });
-          if (callback) callback(null);
+          var subWrites = [
+            db.collection('users').doc(uid).collection('performance').doc('overall').set({
+              totalAttempted: 0, totalCorrect: 0, accuracy: 0, avgTime: 0,
+              bestStreak: 0, currentStreak: 0,
+              dailyStreak: 0, bestDailyStreak: 0,
+              drillSessions: 0, timedTestSessions: 0,
+              categoryStats: {}, responseTimes: [],
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] performance reset failed:', e.message || e); }),
+            db.collection('users').doc(uid).collection('practice').doc('data').set({
+              mistakes: [], savedQuestions: [],
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] practice reset failed:', e.message || e); })
+          ];
+          return Promise.all(subWrites).then(function () {
+            if (callback) callback(null);
+          });
         }).catch(function (err) {
           if (callback) callback(err.message);
         });
@@ -924,19 +936,23 @@ var FirestoreSync = (function () {
           /* Also reset structured subcollections so they stay consistent */
           var uid = docRef.id;
           var db = docRef.firestore;
-          db.collection('users').doc(uid).collection('performance').doc('overall').set({
-            totalAttempted: 0, totalCorrect: 0, accuracy: 0, avgTime: 0,
-            bestStreak: 0, currentStreak: 0,
-            dailyStreak: 0, bestDailyStreak: 0,
-            drillSessions: 0, timedTestSessions: 0,
-            categoryStats: {}, responseTimes: [],
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] performance reset failed:', e.message || e); });
-          db.collection('users').doc(uid).collection('practice').doc('data').set({
-            mistakes: [], savedQuestions: [],
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] practice reset failed:', e.message || e); });
-          if (callback) callback(null);
+          var subWrites = [
+            db.collection('users').doc(uid).collection('performance').doc('overall').set({
+              totalAttempted: 0, totalCorrect: 0, accuracy: 0, avgTime: 0,
+              bestStreak: 0, currentStreak: 0,
+              dailyStreak: 0, bestDailyStreak: 0,
+              drillSessions: 0, timedTestSessions: 0,
+              categoryStats: {}, responseTimes: [],
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] performance reset failed:', e.message || e); }),
+            db.collection('users').doc(uid).collection('practice').doc('data').set({
+              mistakes: [], savedQuestions: [],
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(function (e) { console.warn('[FirestoreSync:clearUserData] practice reset failed:', e.message || e); })
+          ];
+          return Promise.all(subWrites).then(function () {
+            if (callback) callback(null);
+          });
         }).catch(function (err) {
           if (callback) callback(err.message);
         });
@@ -1072,11 +1088,16 @@ var FirestoreSync = (function () {
         if (ppExpiryMs > 0 && ppExpiryMs < now) {
           _memoryCache.isPremiumPlus = false;
           _memoryCache.premiumPlusStatus = 'expired';
-          var ppDocRef = _getUserDocRef();
-          if (ppDocRef) {
-            ppDocRef.set({ isPremiumPlus: false, premiumPlusStatus: 'expired', updatedAt: new Date().toISOString() }, { merge: true }).catch(function (err) {
-              console.warn('Failed to persist PremiumPlus expiry from access state:', err);
-            });
+          if (!_ppExpiryPersistInFlight) {
+            var ppDocRef = _getUserDocRef();
+            if (ppDocRef) {
+              _ppExpiryPersistInFlight = true;
+              ppDocRef.set({ isPremiumPlus: false, premiumPlusStatus: 'expired', updatedAt: new Date().toISOString() }, { merge: true }).catch(function (err) {
+                console.warn('Failed to persist PremiumPlus expiry from access state:', err);
+              }).finally(function () {
+                _ppExpiryPersistInFlight = false;
+              });
+            }
           }
         }
       }
