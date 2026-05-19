@@ -1283,10 +1283,11 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   box-shadow: 0 2px 8px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
   border: 1px solid rgba(226,232,240,.6);
   cursor: pointer;
-  transition: transform .18s cubic-bezier(.25,.46,.45,.94), box-shadow .18s ease;
+  transition: transform .18s cubic-bezier(.25,.46,.45,.94), box-shadow .18s ease, background .15s ease;
   min-height: 48px;
+  touch-action: pan-y; /* Improves scroll responsiveness */
 }
-.mode-card:active { transform: scale(.97) translateY(1px); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.mode-card:active { background: rgba(248,250,252,.9); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .mode-card h3 {
   font-size: 1.05rem;
   color: #0f172a;
@@ -3456,15 +3457,15 @@ body.dark-mode .table-modal-title {
   transform: none;
 }
 .practice-container .mode-card {
-  padding: .85rem 1rem;
-  margin-bottom: .45rem;
+  padding: 1.15rem 1.25rem;
+  margin-bottom: .65rem;
 }
 .practice-container .mode-card h3 {
-  font-size: .98rem;
+  font-size: 1.05rem;
 }
 .practice-container .mode-card p {
-  font-size: .81rem;
-  line-height: 1.33;
+  font-size: .88rem;
+  line-height: 1.4;
 }
 .practice-container .mode-card:last-child {
   margin-bottom: 0;
@@ -4400,7 +4401,7 @@ body.dark-mode .correct-flash {
     top: 2.5rem;
   }
   /* Tighter mode cards on small screens */
-  .practice-container .mode-card { padding: .65rem .85rem; margin-bottom: .35rem; }
+  .practice-container .mode-card { padding: 1rem 1.15rem; margin-bottom: .5rem; }
   header { padding: .5rem 0 .3rem; }
 }
 @media (max-height: 500px) {
