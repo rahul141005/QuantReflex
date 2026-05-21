@@ -515,8 +515,20 @@ body.dark-mode .drill-exit-btn:active {
   margin-left: auto;
   margin-right: auto;
 }
-/* Ensure results card doesn't clip benchmark card shadow */
-#drillContainer > .card.center-content {
+/* Make the drill container scrollable for the results screen */
+body.drill-session-active #drillContainer {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Override the fixed drill card positioning for the results screen */
+body.drill-session-active #drillContainer > .card.center-content {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin: 3.5rem .75rem 3rem .75rem;
   overflow: visible;
 }
 
@@ -1290,6 +1302,7 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   transition: transform .18s cubic-bezier(.25,.46,.45,.94), box-shadow .18s ease, background .15s ease;
   min-height: 48px;
   touch-action: pan-y; /* Improves scroll responsiveness */
+  flex-shrink: 0;
 }
 .mode-card:active { background: rgba(248,250,252,.9); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .mode-card h3 {
