@@ -13,9 +13,10 @@ var DashboardView = (function () {
       '</div>' +
       '<div class="stat-grid" id="dashboardStats">' +
         _statCard('–', 'Total Users') +
+        _statCard('–', 'Free') +
+        _statCard('–', 'Trial') +
         _statCard('–', 'Premium') +
         _statCard('–', 'Premium+') +
-        _statCard('–', 'AI Tokens') +
       '</div>';
 
     _loadData();
@@ -32,9 +33,10 @@ var DashboardView = (function () {
       if (grid && data) {
         grid.innerHTML =
           _statCard(data.totalUsers || 0, 'Total Users') +
+          _statCard(data.freeUsers || 0, 'Free') +
+          _statCard(data.trialUsers || 0, 'Trial') +
           _statCard(data.premiumUsers || 0, 'Premium') +
-          _statCard(data.premiumPlusUsers || 0, 'Premium+') +
-          _statCard(data.aiTokens || 0, 'AI Tokens');
+          _statCard(data.premiumPlusUsers || 0, 'Premium+');
         AdminState.set({ dashboardData: data });
       }
     } catch (e) {

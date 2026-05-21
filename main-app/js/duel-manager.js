@@ -15,6 +15,32 @@ var DuelManager = (function () {
 
   function _getContainer(id) { return document.getElementById(id); }
 
+  /* ---- Duel Loading Indicator ---- */
+
+  function _showDuelLoading(msg) {
+    var el = document.getElementById('duelPreview');
+    if (!el) return;
+    _hideAllDuelScreens();
+    el.innerHTML =
+      '<div class="duel-setup-card" style="text-align:center;">' +
+        '<div class="duel-setup-header">' +
+          '<h3>⚔️ Math Duel</h3>' +
+          '<p>' + (msg || 'Loading…') + '</p>' +
+        '</div>' +
+        '<div class="duel-setup-body" style="padding:2rem;">' +
+          '<div class="duel-waiting-indicator" style="margin:1rem 0;">' +
+            '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    el.style.display = 'flex';
+  }
+
+  function _hideDuelLoading() {
+    var el = document.getElementById('duelPreview');
+    if (el) el.style.display = 'none';
+  }
+
   /* ---- Public API ---- */
 
   /**
@@ -124,9 +150,22 @@ var DuelManager = (function () {
     if (_joinInFlight) return;
     
     _joinInFlight = true;
-    if (typeof showToast === 'function') showToast('Fetching duel info…');
+    _showDuelLoading('Fetching duel info…');
+
+    /* Timeout guard — if Firestore doesn't respond in 12s, abort */
+    var _timedOut = false;
+    var _timeout = setTimeout(function () {
+      _timedOut = true;
+      _joinInFlight = false;
+      _hideDuelLoading();
+      if (typeof showToast === 'function') showToast('Could not reach duel server. Try again.');
+    }, 12000);
 
     DuelCore.getDuelState(duelId, function (err, data) {
+      clearTimeout(_timeout);
+      if (_timedOut) return; /* Already timed out, ignore late response */
+      _hideDuelLoading();
+
       if (err) {
         _joinInFlight = false;
         if (typeof showToast === 'function') showToast(err);
@@ -134,6 +173,12 @@ var DuelManager = (function () {
       }
       if (!data || data.status !== 'waiting') {
         _joinInFlight = false;
+        /* If user is already a participant, enter room directly */
+        var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : null;
+        if (data && data.participants && data.participants[uid]) {
+          enterWaitingRoom(duelId);
+          return;
+        }
         if (typeof showToast === 'function') showToast('This duel is no longer available');
         return;
       }
@@ -344,7 +389,12 @@ var DuelManager = (function () {
     }
     if (delBtn) {
       delBtn.onclick = function() {
-        if (confirm('Delete this duel room?')) {
+        if (typeof showCustomConfirm === 'function') {
+          showCustomConfirm('Delete this duel room?', function () {
+            DuelCore.deleteDuel(duelId);
+            exitDuel();
+          });
+        } else {
           DuelCore.deleteDuel(duelId);
           exitDuel();
         }
@@ -422,8 +472,19 @@ var DuelManager = (function () {
     
     _pendingDuelId = null;
     try { sessionStorage.removeItem('qr_pending_duel'); } catch (_) {}
+
+    /* Navigate to practice view FIRST so duel containers are visible */
+    if (typeof Router !== 'undefined' && Router.showView) {
+      Router.showView('practice');
+    }
     
-    joinDuelById(id);
+    /* Small delay to let practice view render before showing preview */
+    setTimeout(function () { joinDuelById(id); }, 120);
+  }
+
+  function hasPendingDuel() {
+    if (_pendingDuelId) return true;
+    try { return !!sessionStorage.getItem('qr_pending_duel'); } catch (_) { return false; }
   }
 
   function getCurrentState() { return _currentState; }
@@ -437,6 +498,7 @@ var DuelManager = (function () {
     exitDuel: exitDuel,
     setPendingDuelId: setPendingDuelId,
     consumePendingDuel: consumePendingDuel,
+    hasPendingDuel: hasPendingDuel,
     getCurrentState: getCurrentState,
     getCurrentDuelId: getCurrentDuelId,
     checkActiveDuel: checkActiveDuel

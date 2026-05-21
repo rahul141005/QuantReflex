@@ -1121,6 +1121,8 @@ var FirestoreSync = (function () {
       }
       var payload = {
         isPremiumPlus: true,
+        isPremium: true,            // Premium+ ⊃ Premium: ensure Premium access
+        hasPaid: true,
         premiumPlusPlan: plan,
         premiumPlusExpiry: expiry,
         premiumPlusStatus: 'active',
@@ -1129,6 +1131,8 @@ var FirestoreSync = (function () {
       if (paymentId) payload.lastPremiumPlusPaymentId = String(paymentId);
       if (_memoryCache) {
         _memoryCache.isPremiumPlus = true;
+        _memoryCache.isPremium = true;
+        _memoryCache.hasPaid = true;
         _memoryCache.premiumPlusPlan = plan;
         _memoryCache.premiumPlusExpiry = expiry;
         _memoryCache.premiumPlusStatus = 'active';
@@ -1137,7 +1141,7 @@ var FirestoreSync = (function () {
       docRef.set(payload, { merge: true }).then(function () {
         console.log('Firestore: Premium+ unlocked — plan:', plan, 'expiry:', expiry);
         if (callback) callback(null);
-        _syncProfileSubcollection(null, { isPremiumPlus: true, premiumPlusPlan: plan });
+        _syncProfileSubcollection(null, { isPremiumPlus: true, isPremium: true, hasPaid: true, premiumPlusPlan: plan });
       }).catch(function (err) {
         console.warn('Firestore: Premium+ unlock write failed:', err);
         if (callback) callback(err && err.message ? err.message : 'PremiumPlus unlock failed');

@@ -511,9 +511,13 @@ body.dark-mode .drill-exit-btn:active {
 .result-label { font-size: .8rem; color: #64748b; margin-top: .25rem; }
 .results-grid .result-item:last-child:nth-child(odd) {
   grid-column: 1 / -1;
-  max-width: 50%;
+  max-width: 60%;
   margin-left: auto;
   margin-right: auto;
+}
+/* Ensure results card doesn't clip benchmark card shadow */
+#drillContainer > .card.center-content {
+  overflow: visible;
 }
 
 /* Performance badge */
@@ -569,7 +573,7 @@ body.dark-mode .adaptive-hint-text { color: #c4b5fd; }
   border: 1px solid #ddd6fe;
   border-radius: 14px;
   padding: 20px;
-  margin: 16px 0 4px;
+  margin: 16px 0 10px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -3430,14 +3434,15 @@ body.dark-mode .table-modal-title {
 #view-practice.spa-view-active {
   display: flex;
   flex-direction: column;
-  /* Dynamically calculate exact remaining viewport height to prevent body scroll */
-  height: calc(100vh - 4.5rem - env(safe-area-inset-bottom, 0px) - 2.5rem);
-  height: calc(100dvh - 4.5rem - env(safe-area-inset-bottom, 0px) - 2.5rem);
+  /* Subtract only the bottom nav height + safe area — header is inside the view flow */
+  height: calc(100vh - 4.5rem - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 4.5rem - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
 }
 
 .practice-container {
   padding: .65rem .9rem;
+  padding-bottom: 1rem;          /* Extra bottom space so last card isn't clipped */
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -3445,6 +3450,8 @@ body.dark-mode .table-modal-title {
   flex: 1;
   min-height: 0;
   max-height: none;
+  /* Override .card overflow:hidden — scroll container must not clip children */
+  overflow: visible;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -3454,7 +3461,9 @@ body.dark-mode .table-modal-title {
 }
 .practice-container::-webkit-scrollbar { display: none; }
 .practice-container:active {
+  /* Cancel .card tap-scale on the container itself */
   transform: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
 }
 .practice-container .mode-card {
   padding: 1.15rem 1.25rem;
@@ -4407,6 +4416,26 @@ body.dark-mode .correct-flash {
 @media (max-height: 500px) {
   .question-text { font-size: 1.4rem; }
   .numpad-btn { min-height: 40px; }
+}
+
+/* ---- PWA Standalone Mode ---- */
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior: none; /* Prevent pull-to-refresh in installed PWA */
+  }
+}
+
+/* ---- Landscape Compact Mode ---- */
+@media (max-height: 400px) and (orientation: landscape) {
+  .practice-container .mode-card {
+    padding: .75rem 1rem;
+    margin-bottom: .4rem;
+  }
+  .practice-container .mode-card p {
+    display: none; /* Hide descriptions to save vertical space */
+  }
+  header { padding: .35rem 0 .2rem; }
+  header h1 { font-size: 1.1rem; }
 }
 
 
@@ -7307,4 +7336,17 @@ body.theme-playful .mode-card-duel {
 body.theme-playful.dark-mode .mode-card-duel {
   background: linear-gradient(135deg, rgba(124,58,237,.1) 0%, rgba(99,102,241,.08) 100%);
   border-color: rgba(124,58,237,.3);
+}
+
+/* ---- Duel Results Responsive ---- */
+@media (max-width: 340px) {
+  .duel-result-player {
+    padding: .75rem .5rem;
+  }
+  .duel-result-score {
+    font-size: 1.5rem;
+  }
+  .duel-result-title {
+    font-size: 1.25rem;
+  }
 }

@@ -546,7 +546,16 @@ document.addEventListener('DOMContentLoaded', function () {
        Fall back to 'home' if Router hasn't initialized yet —
        Router.showView safely handles unknown views by defaulting to home. */
     var currentView = Router.getCurrentView() || 'home';
-    Router.showView(currentView);
+
+    /* If there's a pending duel deep-link, navigate to practice first
+       so the duel containers (#duelPreview etc.) are visible */
+    var _hasPendingDuel = false;
+    try { _hasPendingDuel = (typeof DuelManager !== 'undefined' && DuelManager.hasPendingDuel && DuelManager.hasPendingDuel()); } catch (_) {}
+    if (_hasPendingDuel) {
+      Router.showView('practice');
+    } else {
+      Router.showView(currentView);
+    }
 
     /* Consume any pending math duel invite from deep-link */
     if (typeof DuelManager !== 'undefined') {

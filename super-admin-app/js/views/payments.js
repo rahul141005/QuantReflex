@@ -88,12 +88,7 @@ var PaymentsView = (function () {
       plan: user.premiumPlusPlan || (user.isPremium ? 'lifetime' : null)
     };
 
-    if (user.isPremium) {
-      state.type = 'premium';
-      state.status = 'active';
-      return state;
-    }
-
+    // Premium+ takes highest precedence (canonical order)
     if (user.isPremiumPlus) {
       state.type = 'plus';
       if (user.premiumPlusExpiry && _toMillis(user.premiumPlusExpiry) > now) {
@@ -105,6 +100,13 @@ var PaymentsView = (function () {
       }
       return state;
     }
+
+    if (user.isPremium) {
+      state.type = 'premium';
+      state.status = 'active';
+      return state;
+    }
+
 
     if (user.isTrial) {
       state.type = 'trial';

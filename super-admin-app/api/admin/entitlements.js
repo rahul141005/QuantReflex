@@ -54,6 +54,10 @@ module.exports = withAdmin(async function (req, res) {
       payload = {
         isPremium: true,
         hasPaid: true,
+        isPremiumPlus: false,       // Mutual exclusivity: clear Premium+
+        premiumPlusPlan: null,
+        premiumPlusExpiry: null,
+        premiumPlusStatus: null,
         isTrial: false, // Precedence: wipe trial
         trialEnd: null,
         updatedAt
@@ -64,6 +68,8 @@ module.exports = withAdmin(async function (req, res) {
       const expiry = new Date(now + days * 24 * 60 * 60 * 1000).toISOString();
       payload = {
         isPremiumPlus: true,
+        isPremium: true,            // Premium+ ⊃ Premium: inherit Premium access
+        hasPaid: true,
         premiumPlusPlan: plan,
         premiumPlusExpiry: expiry,
         premiumPlusStatus: 'active',

@@ -77,6 +77,57 @@ function _resetPaymentGuards(enableButton) {
 
 var _AI_FEATURES = { ai_explain: true, ai_coach: true, ai_study_plan: true, math_duel: true };
 
+/**
+ * Clock-safe now — detects client-side clock manipulation.
+ * If the device clock is set backwards by >5 minutes relative to the last
+ * server-written updatedAt, we treat "now" as MAX_SAFE_INTEGER to prevent exploits.
+ */
+function _clockSafeNow(u) {
+  var now = Date.now();
+  if (u) {
+    var lastUpdateMs = _toMillis(u.updatedAt) || _toMillis(u.createdAt);
+    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
+  }
+  return now;
+}
+
+/**
+ * Centralized entitlement check: does this user have Premium-level access?
+ * Premium+ automatically satisfies Premium (Premium+ ⊃ Premium).
+ * Hierarchy: Free → Trial → Premium → Premium+
+ */
+function hasPremiumAccess(user) {
+  var u = user || _getAccessUserState();
+  if (!u) return false;
+  if (u.isPremium === true || u.hasPaid === true) return true;
+  // Premium+ inherits Premium
+  if (u.isPremiumPlus === true) {
+    var expiryMs = _toMillis(u.premiumPlusExpiry);
+    var now = _clockSafeNow(u);
+    if (!expiryMs || now <= expiryMs) return true;
+  }
+  // Active trial
+  if (u.isTrial === true) {
+    var trialEndMs = _toMillis(u.trialEnd);
+    var now2 = _clockSafeNow(u);
+    if (trialEndMs > 0 && now2 <= trialEndMs) return true;
+  }
+  return false;
+}
+
+/**
+ * Centralized entitlement check: does this user have Premium+ access?
+ * Only Premium+ users with a valid (non-expired) subscription pass this.
+ */
+function hasPremiumPlusAccess(user) {
+  var u = user || _getAccessUserState();
+  if (!u || u.isPremiumPlus !== true) return false;
+  var expiryMs = _toMillis(u.premiumPlusExpiry);
+  var now = _clockSafeNow(u);
+  if (expiryMs > 0 && now > expiryMs) return false;
+  return true;
+}
+
 function _getAccessUserState() {
   if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function') {
     var state = FirestoreSync.getAccessState();
@@ -87,25 +138,11 @@ function _getAccessUserState() {
 
 function canAccess(feature, user) {
   var normalizedUser = user || _getAccessUserState();
-  
-  var now = Date.now();
-  if (normalizedUser) {
-    var lastUpdateMs = _toMillis(normalizedUser.updatedAt) || _toMillis(normalizedUser.createdAt);
-    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
-  }
 
   if (_AI_FEATURES[feature]) {
-    if (!normalizedUser || normalizedUser.isPremiumPlus !== true) return false;
-    var expiryMs = _toMillis(normalizedUser.premiumPlusExpiry);
-    if (expiryMs > 0 && now > expiryMs) return false;
-    return true;
+    return hasPremiumPlusAccess(normalizedUser);
   }
-  if (normalizedUser && normalizedUser.isPremium === true) return true;
-  if (normalizedUser && normalizedUser.hasPaid === true) return true;
-  if (normalizedUser && normalizedUser.isTrial === true) {
-    var trialEndMs = _toMillis(normalizedUser.trialEnd);
-    if (trialEndMs > 0 && now <= trialEndMs) return true;
-  }
+  if (hasPremiumAccess(normalizedUser)) return true;
   return !_LOCKED_FEATURES[feature];
 }
 
@@ -779,12 +816,7 @@ function showPaywall(featureType) {
 
 function getDailyQuestionLimit() {
   var user = _getAccessUserState();
-  if (user && (user.hasPaid || user.isPremium)) return Infinity;
-  /* Trial users only bypass if trial has not expired */
-  if (user && user.isTrial) {
-    var trialEndMs = _toMillis(user.trialEnd);
-    if (trialEndMs > 0 && Date.now() <= trialEndMs) return Infinity;
-  }
+  if (hasPremiumAccess(user)) return Infinity;
   return 20;
 }
 
@@ -802,11 +834,15 @@ global.openPayment = openPayment;
 global.openPremiumPlusPayment = openPremiumPlusPayment;
 global.getDailyQuestionLimit = getDailyQuestionLimit;
 global.hasReachedDailyLimit = hasReachedDailyLimit;
+global.hasPremiumAccess = hasPremiumAccess;
+global.hasPremiumPlusAccess = hasPremiumPlusAccess;
 global.Paywall = {
   canAccess: canAccess,
   canAccessFeature: canAccessFeature,
   showPaywall: showPaywall,
   getDailyQuestionLimit: getDailyQuestionLimit,
-  hasReachedDailyLimit: hasReachedDailyLimit
+  hasReachedDailyLimit: hasReachedDailyLimit,
+  hasPremiumAccess: hasPremiumAccess,
+  hasPremiumPlusAccess: hasPremiumPlusAccess
 };
 })(window);
