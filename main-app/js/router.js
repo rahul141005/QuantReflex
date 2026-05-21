@@ -85,8 +85,10 @@ var Router = (function () {
       history.pushState({ view: viewId }, '', '#' + viewId);
     }
 
-    /* Scroll to top */
+    /* Scroll to top — must target .container since body/html have overflow:hidden */
     window.scrollTo(0, 0);
+    var _scrollContainer = document.querySelector('.container');
+    if (_scrollContainer) _scrollContainer.scrollTop = 0;
   }
 
   /**

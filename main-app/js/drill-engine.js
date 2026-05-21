@@ -592,9 +592,11 @@ function createDrillEngine(container, opts) {
     /* Rule-based post-session insight (always visible, no AI call) */
     var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
 
+    /* Activate fullscreen scrollable results mode on the container */
+    container.classList.add('drill-results-active');
+
     container.innerHTML =
-      '<div class="results-scroll-wrapper" style="position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch;">' +
-      '<div class="card center-content fade-in" style="margin: 3.5rem .75rem 3rem .75rem; overflow: visible;">' +
+      '<div class="card center-content fade-in">' +
         '<h2>Results</h2>' +
         (isNewBest ? '<div class="new-best-badge">🎉 New Best!</div>' : '') +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
@@ -636,7 +638,7 @@ function createDrillEngine(container, opts) {
         '<button class="btn results-share-btn" type="button" id="shareResultBtn">\uD83D\uDCE4 Share Result</button>' +
         '<button class="btn accent" id="tryAgainBtn">Try Again</button>' +
         '<button class="btn" id="homeBtn">Home</button>' +
-      '</div></div>';
+      '</div>';
 
     container.querySelector('#tryAgainBtn').addEventListener('click', function () {
       if (onFinish) {

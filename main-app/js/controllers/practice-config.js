@@ -261,6 +261,7 @@ function _resetPracticeUiToModes() {
   if (catTitle) catTitle.textContent = 'Choose Category';
   if (drillContainer) {
     drillContainer.style.display = 'none';
+    drillContainer.classList.remove('drill-results-active');
     drillContainer.innerHTML = '';
   }
   var wpSetup = document.getElementById('wordProblemsSetup');

@@ -210,7 +210,7 @@ a { color: inherit; text-decoration: none; }
 .container {
   width: 100%;
   max-width: 480px;
-  padding: 1.25rem 1.25rem 0.5rem; /* reduced bottom — content terminates tight above nav */
+  padding: 1.25rem 1.25rem 1rem; /* bottom padding gives breathing room above nav */
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
@@ -515,20 +515,33 @@ body.dark-mode .drill-exit-btn:active {
   margin-left: auto;
   margin-right: auto;
 }
-/* Make the drill container scrollable for the results screen */
-body.drill-session-active #drillContainer {
+/* Results screen: drillContainer goes fullscreen with its own scroll.
+   This class is added by drill-engine.js finish() and removed on navigation.
+   Does NOT depend on body.drill-session-active (which is removed before results render). */
+#drillContainer.drill-results-active {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  background: #f8fafc;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
-
-/* Override the fixed drill card positioning for the results screen */
-body.drill-session-active #drillContainer > .card.center-content {
+body.dark-mode #drillContainer.drill-results-active {
+  background: #0f172a;
+}
+body.theme-playful #drillContainer.drill-results-active {
+  background: #faf9f7;
+}
+body.theme-playful.dark-mode #drillContainer.drill-results-active {
+  background: #0d1117;
+}
+#drillContainer.drill-results-active > .card.center-content {
   position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  margin: 3.5rem .75rem 3rem .75rem;
+  margin: 3rem .75rem 3rem .75rem;
   overflow: visible;
 }
 
