@@ -8,6 +8,7 @@
 const { withAuth, formatError, methodGuard } = require('../_lib/middleware');
 const aiService = require('../../services/aiService');
 const paymentService = require('../../services/paymentService');
+const { setEntitlementClaims } = require('../../services/claimsService');
 
 module.exports = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
@@ -46,10 +47,18 @@ module.exports = withAuth(async function (req, res) {
         lastPaymentId: String(paymentId),
         updatedAt: new Date().toISOString()
       }, 'payment/verify:premium');
+
+      /* Set JWT claims so the token reflects premium status on next refresh */
+      try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: false }); } catch (_) {}
+
       res.json({ success: true, plan: 'premium', type: 'lifetime' });
     } else {
       /* Premium+: time-limited unlock */
       var expiry = await aiService.unlockPremiumPlus(req.userId, trustedPlan, paymentId, orderId);
+
+      /* Set JWT claims so the token reflects premium+ status on next refresh */
+      try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: true }); } catch (_) {}
+
       res.json({ success: true, plan: trustedPlan, expiry: expiry });
     }
   } catch (err) {

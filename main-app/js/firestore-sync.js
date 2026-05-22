@@ -1114,21 +1114,10 @@ var FirestoreSync = (function () {
       };
     },
     unlockPremiumPlus: function (plan, expiry, paymentId, callback) {
-      var docRef = _getUserDocRef();
-      if (!docRef) {
-        if (callback) callback('User not authenticated');
-        return;
-      }
-      var payload = {
-        isPremiumPlus: true,
-        isPremium: true,            // Premium+ ⊃ Premium: ensure Premium access
-        hasPaid: true,
-        premiumPlusPlan: plan,
-        premiumPlusExpiry: expiry,
-        premiumPlusStatus: 'active',
-        updatedAt: new Date().toISOString()
-      };
-      if (paymentId) payload.lastPremiumPlusPaymentId = String(paymentId);
+      /* Server already activated Premium+ via Admin SDK in /api/payment/verify.
+         This function updates the local in-memory cache for immediate UI feedback.
+         No client-side Firestore write needed — Firestore rules now block client-side
+         entitlement grants (isPremiumPlus:true, isPremium:true, hasPaid:true). */
       if (_memoryCache) {
         _memoryCache.isPremiumPlus = true;
         _memoryCache.isPremium = true;
@@ -1138,29 +1127,15 @@ var FirestoreSync = (function () {
         _memoryCache.premiumPlusStatus = 'active';
         if (paymentId) _memoryCache.lastPremiumPlusPaymentId = String(paymentId);
       }
-      docRef.set(payload, { merge: true }).then(function () {
-        console.log('Firestore: Premium+ unlocked — plan:', plan, 'expiry:', expiry);
-        if (callback) callback(null);
-        _syncProfileSubcollection(null, { isPremiumPlus: true, isPremium: true, hasPaid: true, premiumPlusPlan: plan });
-      }).catch(function (err) {
-        console.warn('Firestore: Premium+ unlock write failed:', err);
-        if (callback) callback(err && err.message ? err.message : 'PremiumPlus unlock failed');
-      });
+      console.log('[FirestoreSync] Premium+ cache updated — plan:', plan, 'expiry:', expiry);
+      _syncProfileSubcollection(null, { isPremiumPlus: true, isPremium: true, hasPaid: true, premiumPlusPlan: plan });
+      if (callback) callback(null);
     },
     unlockPremium: function (paymentId, callback) {
-      var docRef = _getUserDocRef();
-      if (!docRef) {
-        if (callback) callback('User not authenticated');
-        return;
-      }
-      var payload = {
-        isPremium: true,
-        hasPaid: true,
-        isTrial: false,
-        trialEnd: null,
-        updatedAt: new Date().toISOString()
-      };
-      if (paymentId) payload.lastPaymentId = String(paymentId);
+      /* Server already activated premium via Admin SDK in /api/payment/verify.
+         This function updates the local in-memory cache for immediate UI feedback.
+         No client-side Firestore write needed — Firestore rules now block client-side
+         entitlement grants (isPremium:true, hasPaid:true). */
       if (_memoryCache) {
         _memoryCache.isPremium = true;
         _memoryCache.hasPaid = true;
@@ -1168,14 +1143,9 @@ var FirestoreSync = (function () {
         _memoryCache.trialEnd = null;
         if (paymentId) _memoryCache.lastPaymentId = String(paymentId);
       }
-      docRef.set(payload, { merge: true }).then(function () {
-        console.log('Firestore: Premium unlocked — paymentId:', paymentId);
-        if (callback) callback(null);
-        _syncProfileSubcollection(null, { isPremium: true, hasPaid: true, isTrial: false, trialEnd: null });
-      }).catch(function (err) {
-        console.warn('Firestore: Premium unlock write failed:', err);
-        if (callback) callback(err && err.message ? err.message : 'Premium unlock failed');
-      });
+      console.log('[FirestoreSync] Premium cache updated — paymentId:', paymentId);
+      _syncProfileSubcollection(null, { isPremium: true, hasPaid: true, isTrial: false, trialEnd: null });
+      if (callback) callback(null);
     }
   };
 })();

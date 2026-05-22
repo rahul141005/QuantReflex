@@ -75,6 +75,12 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
       _activeDrillEngine.cleanup();
       _activeDrillEngine = null;
     }
+    /* Remove fullscreen results overlay before navigating */
+    var _dc = document.getElementById('drillContainer');
+    if (_dc) {
+      _dc.classList.remove('drill-results-active');
+      _dc.style.display = 'none';
+    }
     if (_drillSessionActive && typeof FirestoreSync !== 'undefined') {
       FirestoreSync.endDrillBatch();
     }
@@ -121,6 +127,11 @@ function initPracticeView() {
       FirestoreSync.endDrillBatch();
     }
     _exitDrillSession();
+    /* Remove fullscreen results overlay if still present */
+    var _dc = document.getElementById('drillContainer');
+    if (_dc) {
+      _dc.classList.remove('drill-results-active');
+    }
 
     /* Daily quota indicator (free users only) */
     if (typeof _renderDailyQuota === 'function') {
@@ -176,6 +187,9 @@ function initPracticeView() {
                 mode: '🤖 Word Problems (' + diff + ')',
                 onFinish: function (view) {
                   if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
+                  /* Remove fullscreen results overlay */
+                  var _dc = document.getElementById('drillContainer');
+                  if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
                   if (_drillSessionActive && typeof FirestoreSync !== 'undefined') { FirestoreSync.endDrillBatch(); }
                   _exitDrillSession();
                   if (view === 'practice') _resetPracticeUiToModes();

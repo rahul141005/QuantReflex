@@ -92,7 +92,6 @@ function createDrillEngine(container, opts) {
   var overallStart = 0;
   var overallTimer = null;
   var perQTimer = null;
-  var autoAdvanceTimer = null;
   var answered = false; /* prevents double-counting */
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */

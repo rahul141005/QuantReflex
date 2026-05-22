@@ -433,8 +433,9 @@ var DuelManager = (function () {
 
     _duelPopstateHandler = function () {
       if (_currentState && (_currentState === 'waiting' || _currentState === 'active')) {
-        console.log('[DuelManager] popstate detected during active duel, cleaning up listeners');
-        DuelCore.stopListening();
+        console.log('[DuelManager] popstate detected during active duel, performing full cleanup');
+        /* Full exit — restores bottom nav, clears body classes, resets state */
+        exitDuel();
       }
     };
     window.addEventListener('popstate', _duelPopstateHandler);

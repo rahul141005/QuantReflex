@@ -6945,7 +6945,7 @@ body.dark-mode .duel-setup-header h3 { color: #a78bfa; }
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
-  transition: all .18s ease;
+  transition: border-color .18s ease, background-color .18s ease, color .18s ease;
   text-align: center;
 }
 .duel-mode-btn.active {

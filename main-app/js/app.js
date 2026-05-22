@@ -753,6 +753,12 @@ document.addEventListener('DOMContentLoaded', function () {
         _activeDrillEngine.cleanup();
         _activeDrillEngine = null;
       }
+      /* Clear stale drill results overlay (fullscreen fixed z-index layer) */
+      var _dc = document.getElementById('drillContainer');
+      if (_dc) {
+        _dc.classList.remove('drill-results-active');
+        _dc.style.display = 'none';
+      }
       /* End any active Firestore batch */
       if (_drillSessionActive && typeof FirestoreSync !== 'undefined') {
         FirestoreSync.endDrillBatch();
@@ -787,6 +793,12 @@ document.addEventListener('DOMContentLoaded', function () {
           _activeDrillEngine.cleanup();
           _activeDrillEngine = null;
         }
+        /* Clear stale drill results overlay */
+        var _dc = document.getElementById('drillContainer');
+        if (_dc) {
+          _dc.classList.remove('drill-results-active');
+          _dc.style.display = 'none';
+        }
         /* End Firestore batch that was started when session began */
         if (typeof FirestoreSync !== 'undefined') {
           FirestoreSync.endDrillBatch();
@@ -800,6 +812,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (_activeDrillEngine) {
       _activeDrillEngine.cleanup();
       _activeDrillEngine = null;
+    }
+    /* Clear stale drill results overlay on non-session popstate too */
+    var _dc2 = document.getElementById('drillContainer');
+    if (_dc2) {
+      _dc2.classList.remove('drill-results-active');
+      _dc2.style.display = 'none';
     }
     _exitDrillSession();
   });

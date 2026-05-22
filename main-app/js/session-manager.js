@@ -50,6 +50,11 @@ function _exitDrillSession() {
   document.body.classList.remove('drill-session-active');
   document.documentElement.classList.remove('drill-session-active');
   hideCustomNumpad();
+  /* Clean up exit dialog state in case it was open when session was force-exited */
+  var exitModal = document.getElementById('exitSessionModal');
+  if (exitModal) exitModal.style.display = 'none';
+  _exitDialogShowing = false;
+  document.body.classList.remove('modal-open');
 }
 
 function _tryBeginNavTransition() {

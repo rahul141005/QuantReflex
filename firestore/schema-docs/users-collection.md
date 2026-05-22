@@ -99,23 +99,35 @@ Structured profile (dual-write for admin queries).
 
 ## Security Rules
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /{subcollection}/{document} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-  }
-}
-```
+> **Canonical source:** [`firestore/rules/firestore.rules`](../../firestore/rules/firestore.rules)
+
+The user collection uses **field-level entitlement protection** (Phase 1 hardened):
+
+- **Read**: Owner only (`request.auth.uid == userId`)
+- **Create**: Owner only + all entitlement fields must start at safe defaults (`false` / `null`)
+- **Update**: Owner only + protected entitlement fields can only be **revoked** (set to `false` / `null` / `'expired'`), never **granted** (set to `true` / `'active'`). Entitlement grants are Admin SDK only.
+- **Delete**: Denied (server-side only)
+- **Subcollections**: Owner read/write (no field-level restrictions — mirrors, not sources of truth)
+
+### Protected Fields (client can only revoke, never grant)
+
+| Field | Client can set to |
+|---|---|
+| `isPremium` | `false` only |
+| `isPremiumPlus` | `false` only |
+| `hasPaid` | `false` only |
+| `isTrial` | `false` only |
+| `isEarlyUser` | `false` only |
+| `trialEnd` | `null` only |
+| `premiumPlusPlan` | `null` only |
+| `premiumPlusExpiry` | `null` only |
+| `premiumPlusStatus` | `null` or `'expired'` |
+| `lastPaymentId` | `null` only |
+| `lastPremiumPlusPaymentId` | `null` only |
 
 ## Sync Strategy
 
 - **Main App**: Reads root doc on login → populates localStorage → queues batched writes (2s debounce)
 - **Admin App**: Reads via serverless API endpoints with Firebase Admin SDK (bypasses security rules)
 - **Drill Mode**: All writes deferred until drill ends to prevent per-answer write amplification
+

@@ -69,3 +69,14 @@ const expiry = new Date(now + days * 24 * 60 * 60 * 1000).toISOString();
 ```
 
 This matches the Main App's expectation for ISO string timestamps.
+
+## Exception: Duels Collection
+
+The `duels` collection uses **Firestore `serverTimestamp()`** (Timestamp objects) for `createdAt`, `joinedAt`, `duelStartedAt`, and `deletedAt`. This is an **intentional exception**:
+
+1. **Tamper resistance**: Server-generated timestamps prevent client clock manipulation of duel expiry checks
+2. **Atomicity**: `serverTimestamp()` is resolved at write time, ensuring consistent ordering in transactions
+3. **Compatibility**: The `_toMillis()` helper (in `paywall.js` and `firestore-sync.js`) handles Timestamp objects via `.toDate().getTime()`
+
+All other collections and subcollections follow the ISO 8601 string strategy.
+

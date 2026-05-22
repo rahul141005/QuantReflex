@@ -351,6 +351,12 @@ function openPayment(userId) {
                       return;
                     }
                     /* Server already wrote to Firestore — update local cache */
+                    /* Force-refresh the JWT so new custom claims (premium/premiumPlus)
+                       are available immediately instead of waiting 1 hour. Fire-and-forget. */
+                    try {
+                      var _cu = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
+                      if (_cu && _cu.getIdToken) _cu.getIdToken(true).catch(function () {});
+                    } catch (_) {}
                     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.unlockPremium === 'function') {
                       FirestoreSync.unlockPremium(paymentId, function (err) {
                         if (err) {
@@ -554,6 +560,11 @@ function openPremiumPlusPayment(plan, userId) {
                       showToast(activationMsg);
                       return;
                     }
+                    /* Force-refresh the JWT so new custom claims are available immediately */
+                    try {
+                      var _cu2 = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
+                      if (_cu2 && _cu2.getIdToken) _cu2.getIdToken(true).catch(function () {});
+                    } catch (_) {}
                     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.unlockPremiumPlus === 'function') {
                       FirestoreSync.unlockPremiumPlus(result.plan, result.expiry, paymentId, function (err) {
                         if (err) {

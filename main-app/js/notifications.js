@@ -93,6 +93,12 @@ var NotificationManager = (function () {
 
   /**
    * Register the FCM token and store it in Firestore.
+   *
+   * IMPORTANT: We explicitly link Firebase Messaging to the already-registered
+   * service worker via useServiceWorker(). Without this, the Messaging SDK
+   * may create a separate sw registration or fail to associate the token with
+   * the correct SW — causing push events to never fire on Android PWAs.
+   *
    * @param {function} [callback]
    */
   function _registerToken(callback) {
@@ -101,22 +107,42 @@ var NotificationManager = (function () {
       return;
     }
 
-    try {
-      var messaging = firebase.messaging();
-      messaging.getToken({ vapidKey: VAPID_KEY }).then(function (token) {
+    /* Ensure the service worker is registered before linking messaging */
+    if (!('serviceWorker' in navigator)) {
+      if (callback) callback('Service workers not supported');
+      return;
+    }
+
+    navigator.serviceWorker.getRegistration('./service-worker.js')
+      .then(function (registration) {
+        if (!registration) {
+          /* SW not yet registered — wait for it */
+          return navigator.serviceWorker.ready;
+        }
+        return registration;
+      })
+      .then(function (registration) {
+        try {
+          var messaging = firebase.messaging();
+          /* Explicitly link messaging to OUR service worker.
+             Prevents Messaging from registering its own SW or using the wrong one. */
+          messaging.useServiceWorker(registration);
+          return messaging.getToken({ vapidKey: VAPID_KEY });
+        } catch (e) {
+          return Promise.reject(e);
+        }
+      })
+      .then(function (token) {
         if (token) {
-          /* Store token in Firestore */
           _saveTokenToFirestore(token);
           if (callback) callback(null, token);
         } else {
-          if (callback) callback('No token received');
+          if (callback) callback('No FCM token received — check VAPID key and notification permission');
         }
-      }).catch(function (err) {
+      })
+      .catch(function (err) {
         if (callback) callback(err.message || 'Token registration failed');
       });
-    } catch (e) {
-      if (callback) callback(e.message || 'Messaging initialization failed');
-    }
   }
 
   /**

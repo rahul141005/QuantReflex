@@ -50,6 +50,32 @@ var Router = (function () {
       hideCustomNumpad();
     }
 
+    /* ---- Lifecycle cleanup safety net ----
+       Remove stale fullscreen overlay classes that can persist after abnormal exits
+       (e.g. navigating away from drill results, popstate during duel, stale modals).
+       These classes create position:fixed overlays that block the entire UI if not removed. */
+    var _drillContainer = document.getElementById('drillContainer');
+    if (_drillContainer) {
+      _drillContainer.classList.remove('drill-results-active');
+    }
+    /* Only clear drill-session-active if no actual drill is running.
+       The practice onShow callback handles its own cleanup, but this catches edge cases
+       where the user navigates away via means that skip that callback. */
+    if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
+      document.body.classList.remove('drill-session-active');
+      document.documentElement.classList.remove('drill-session-active');
+    }
+    /* Clear stale modal-open body class (prevents scroll lock after orphaned modals) */
+    var _anyModalVisible = document.querySelector('.modal-overlay[style*="display: flex"], .modal-overlay[style*="display:flex"]');
+    if (!_anyModalVisible) {
+      document.body.classList.remove('modal-open');
+    }
+    /* Ensure bottom nav is visible when not in an active session */
+    if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
+      var _nav = document.querySelector('.bottom-nav');
+      if (_nav) _nav.style.display = '';
+    }
+
     /* Update bottom nav active state */
     var navLinks = document.querySelectorAll('.bottom-nav a');
     for (var j = 0; j < navLinks.length; j++) {

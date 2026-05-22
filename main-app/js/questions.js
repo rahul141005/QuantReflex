@@ -177,7 +177,7 @@ function genVolume() {
   return { question: 'Volume of a cone (use π = 3.14) with radius ' + cr + ' cm and height ' + coneH + ' cm = ?', answer: parseFloat(((1 / 3) * PI * cr * cr * coneH).toFixed(2)), category: 'volume', subtype: 'cone' };
 }
 
-/** Fractions → percentage with wording variety */
+/** Fractions → percentage with wording variety + reverse direction */
 function genFraction() {
   var table = [
     { frac: '1/2', pct: '50' },
@@ -217,6 +217,24 @@ function genFraction() {
   var diff = _getDifficulty();
   var subset = diff === 'easy' ? table.slice(0, 11) : table;
   var item = pick(subset);
+
+  /* Reverse direction: percentage → fraction (medium/hard, 30% chance) */
+  if (diff !== 'easy' && randInt(0, 2) === 0) {
+    /* Only use clean percentage values for reverse questions */
+    var reversePool = subset.filter(function (e) {
+      return e.pct.indexOf('.') === -1 || e.pct === '12.5' || e.pct === '37.5' || e.pct === '62.5' || e.pct === '87.5' || e.pct === '2.5';
+    });
+    if (reversePool.length > 0) {
+      var rItem = pick(reversePool);
+      var revPhrasings = [
+        rItem.pct + '% as a fraction = ?',
+        'Express ' + rItem.pct + '% as a fraction = ?',
+        rItem.pct + '% = ? (fraction)'
+      ];
+      return { question: pick(revPhrasings), answer: rItem.frac, category: 'fractions', subtype: 'reverse' };
+    }
+  }
+
   /* Vary question phrasing so the session doesn't feel templated */
   var phrasings = [
     item.frac + ' expressed as a percentage = ?',
@@ -285,13 +303,17 @@ function genMultiplication() {
   var hint = _getAdaptiveHint();
   var subtype = diff === 'easy' ? 0 : randInt(0, 4);
 
-  /* 3-factor multiplication (medium/hard) */
+  /* 3-factor multiplication (medium/hard) — dynamically generated */
   if (subtype === 3 && diff !== 'easy') {
-    var triplets = diff === 'hard'
-      ? [[4,8,5],[6,5,8],[9,4,5],[7,4,5],[8,6,5],[12,5,4],[11,4,5]]
-      : [[2,6,5],[3,4,5],[4,5,5],[2,8,5],[3,6,4]];
-    var t = pick(triplets);
-    return { question: t[0] + ' × ' + t[1] + ' × ' + t[2] + ' = ?', answer: t[0]*t[1]*t[2], category: 'multiplication', subtype: '3-factor' };
+    var _3a, _3b, _3c;
+    if (diff === 'hard') {
+      _3a = randInt(4, 12); _3b = randInt(3, 8); _3c = randInt(2, 6);
+    } else {
+      _3a = randInt(2, 8); _3b = randInt(2, 6); _3c = randInt(2, 5);
+    }
+    /* Ensure the product is reasonable (≤ 1000 for mental math) */
+    if (_3a * _3b * _3c > 1000) _3c = Math.max(2, Math.floor(1000 / (_3a * _3b)));
+    return { question: _3a + ' × ' + _3b + ' × ' + _3c + ' = ?', answer: _3a*_3b*_3c, category: 'multiplication', subtype: '3-factor' };
   }
   /* Squaring-by-formula: (a+b)² or (a-b)² hint */
   if (subtype === 4 && diff === 'hard') {
@@ -330,16 +352,27 @@ function genRatio() {
     if (Number.isInteger(bVal))
       return { question: 'A:B = ' + pr[0] + ':' + pr[1] + ' and A = ' + aVal + '. B = ?', answer: bVal, category: 'ratios', subtype: 'computation' };
   }
-  /* Combination: A:B and B:C, find A:C */
+  /* Combination: A:B and B:C, find A:C — dynamically generated */
   if (subtype === 2 && diff === 'hard') {
-    var combos = [
-      { ab: [2,3], bc: [3,4], ac: '1:2', ans: '1:2' },
-      { ab: [3,4], bc: [4,5], ac: '3:5', ans: '3:5' },
-      { ab: [2,5], bc: [5,3], ac: '2:3', ans: '2:3' },
-      { ab: [4,5], bc: [5,6], ac: '2:3', ans: '2:3' }
-    ];
-    var cm = pick(combos);
-    return { question: 'A:B = ' + cm.ab[0] + ':' + cm.ab[1] + ', B:C = ' + cm.bc[0] + ':' + cm.bc[1] + '. A:C = ?', answer: cm.ans, category: 'ratios', subtype: 'combination' };
+    /* Generate pairs where B cancels out cleanly */
+    var _abPairs = [[2,3],[3,4],[3,5],[4,5],[2,5],[4,7],[5,6],[3,7],[5,8],[2,7]];
+    var _bcPairs = [[3,4],[4,5],[5,3],[5,6],[3,2],[7,3],[6,5],[7,4],[8,3],[7,5]];
+    var _pIdx = randInt(0, _abPairs.length - 1);
+    var _ab = _abPairs[_pIdx];
+    /* Pick a B:C pair where B matches _ab[1] to allow clean cancellation */
+    var _matchingBc = [];
+    for (var _bi = 0; _bi < _bcPairs.length; _bi++) {
+      if (_bcPairs[_bi][0] === _ab[1]) _matchingBc.push(_bcPairs[_bi]);
+    }
+    if (_matchingBc.length > 0) {
+      var _bc = pick(_matchingBc);
+      /* A:C = _ab[0] : _bc[1] — simplify by GCD */
+      var _gcdVal = _gcd(_ab[0], _bc[1]);
+      var _ansA = _ab[0] / _gcdVal, _ansC = _bc[1] / _gcdVal;
+      return { question: 'A:B = ' + _ab[0] + ':' + _ab[1] + ', B:C = ' + _bc[0] + ':' + _bc[1] + '. A:C = ?', answer: _ansA + ':' + _ansC, category: 'ratios', subtype: 'combination' };
+    }
+    /* Fallback to a known-good combo */
+    return { question: 'A:B = 2:3, B:C = 3:4. A:C = ?', answer: '1:2', category: 'ratios', subtype: 'combination' };
   }
 
   var scenarios = [
@@ -694,17 +727,47 @@ function resetRecentQuestions() {
   _sessionFingerprints = {};
 }
 
+/* ---- GCD helper for ratio simplification ---- */
+function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
+
 /* ---- public API ---- */
 
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork];
 
 /**
- * Generate a single random question (all categories).
+ * Generate a single random question.
+ * @param {string} [category] - optional category filter (e.g. 'squares', 'fractions')
+ * @param {string} [difficulty] - optional difficulty override ('easy', 'medium', 'hard')
  * @returns {{ question: string, answer: number|string, category: string }}
  */
-function generateQuestion() {
-  return pick(generators)();
+function generateQuestion(category, difficulty) {
+  /* Apply temporary difficulty override if provided (used by duel system) */
+  var _prevOverride = null;
+  var _needsRestore = false;
+  if (difficulty) {
+    if (typeof AdaptiveState !== 'undefined') {
+      _prevOverride = AdaptiveState.getDifficulty();
+      AdaptiveState.setDifficulty(difficulty);
+    } else {
+      _prevOverride = window._adaptiveOverrideDifficulty;
+      window._adaptiveOverrideDifficulty = difficulty;
+    }
+    _needsRestore = true;
+  }
+
+  var gen = category && categoryGenerators[category] ? categoryGenerators[category] : null;
+  var q = gen ? gen() : pick(generators)();
+
+  /* Restore previous difficulty state */
+  if (_needsRestore) {
+    if (typeof AdaptiveState !== 'undefined') {
+      AdaptiveState.setDifficulty(_prevOverride);
+    } else {
+      window._adaptiveOverrideDifficulty = _prevOverride;
+    }
+  }
+  return q;
 }
 
 /**

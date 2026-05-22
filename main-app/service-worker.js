@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-var APP_VERSION = 'v75';
+var APP_VERSION = 'v78';
 var CACHE_NAME = 'quant-reflex-' + APP_VERSION;
 
 var ASSETS = [
@@ -39,6 +39,11 @@ var ASSETS = [
   './js/views/home-view.js',
   './js/views/learn-view.js',
   './js/views/stats-view.js',
+  './js/duel-core.js',
+  './js/duel-manager.js',
+  './js/duel-ui.js',
+  './js/utils/event-registry.js',
+  './js/services/question-bank-service.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
