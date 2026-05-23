@@ -21,10 +21,19 @@ rules_version = '2';
 //   2. DUEL ROOMS — participant-only access.
 //      Only the host and joined opponent can read/write a duel room.
 //      Exception: anyone can read a 'waiting' room (needed for join flow).
-//      State machine transitions are enforced (waiting→ready→active→completed).
+//      State machine transitions are enforced (expanded 10-state machine).
 //      Each participant can only modify their own entry in the participants map.
 //
-//   3. OTHER COLLECTIONS — unchanged.
+//   3. DUEL INVITATIONS — sender/receiver access.
+//      Sender creates a pending invitation; receiver can accept/reject.
+//      Status transitions: pending → accepted | rejected | expired | cancelled.
+//
+//   4. PUBLIC USERNAMES — lightweight read-only directory.
+//      Authenticated users can read any entry for duel invitation lookup.
+//      Only the document owner can write their own entry.
+//      Contains: uid, username, displayName, isPremiumPlus. No private data.
+//
+//   5. OTHER COLLECTIONS — unchanged.
 //      Questions, coachings: read-only (writes via Admin SDK).
 //      Payments, AI insights, study plans: owner-read, server-write.
 // ═══════════════════════════════════════════════════════════════════
@@ -120,17 +129,39 @@ service cloud.firestore {
           .affectedKeys().hasOnly([request.auth.uid]);
     }
 
-    // ── Duel Status State Machine ──
-    // Enforces forward-only transitions:
-    //   waiting → ready     (opponent joins)
-    //   ready   → active    (game starts)
-    //   active  → completed (game ends)
-    //   any     → deleted   (soft delete / cleanup)
+    // ── Duel Status State Machine (Expanded) ──
+    // Enforces forward-only transitions across the full duel lifecycle:
+    //
+    //   INVITATION FLOW:
+    //     waiting → waiting_for_acceptance  (invite sent)
+    //     waiting_for_acceptance → waiting_room  (invite accepted)
+    //     waiting_for_acceptance → rejected  (invite declined)
+    //
+    //   LEGACY FLOW (deep-link, preserved for existing rooms):
+    //     waiting → ready     (opponent joins via ID)
+    //     ready   → active    (game starts)
+    //
+    //   GAME FLOW:
+    //     waiting_room → countdown  (both ready, starting)
+    //     countdown    → active     (game begins)
+    //     active       → completed  (both done or exit-resolved)
+    //
+    //   TERMINAL:
+    //     any → expired    (timeout cleanup)
+    //     any → abandoned  (both disconnected)
+    //     any → deleted    (soft delete)
     function validDuelStatusTransition(fromStatus, toStatus) {
       return
+        (fromStatus == 'waiting'                && toStatus == 'waiting_for_acceptance') ||
+        (fromStatus == 'waiting_for_acceptance'  && toStatus == 'waiting_room') ||
+        (fromStatus == 'waiting_for_acceptance'  && toStatus == 'rejected') ||
+        (fromStatus == 'waiting_room'            && toStatus == 'countdown') ||
+        (fromStatus == 'countdown'               && toStatus == 'active') ||
+        (fromStatus == 'active'                  && toStatus == 'completed') ||
         (fromStatus == 'waiting'  && toStatus == 'ready') ||
         (fromStatus == 'ready'    && toStatus == 'active') ||
-        (fromStatus == 'active'   && toStatus == 'completed') ||
+        (toStatus   == 'expired') ||
+        (toStatus   == 'abandoned') ||
         (toStatus   == 'deleted');
     }
 
@@ -219,6 +250,65 @@ service cloud.firestore {
 
       // Delete: denied (use status-based soft delete)
       allow delete: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // DUEL INVITATIONS COLLECTION
+    // ════════════════════════════════════════════
+    // Username-based invitation system for Math Duel.
+    // Sender creates a pending invitation; receiver can accept/reject.
+    // Status transitions: pending → accepted | rejected | expired | cancelled.
+    match /duelInvitations/{invitationId} {
+      // Read: sender or receiver only
+      allow read: if request.auth != null && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid
+      );
+
+      // Create: authenticated, must be the sender, status must be 'pending'
+      allow create: if request.auth != null &&
+        request.resource.data.fromUid == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Update: receiver can accept/reject pending invites,
+      //         sender can expire/cancel pending invites
+      allow update: if request.auth != null && (
+        (resource.data.toUid == request.auth.uid &&
+         resource.data.status == 'pending' &&
+         request.resource.data.status in ['accepted', 'rejected']) ||
+        (resource.data.fromUid == request.auth.uid &&
+         resource.data.status == 'pending' &&
+         request.resource.data.status in ['expired', 'cancelled'])
+      );
+
+      // Delete: denied
+      allow delete: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // PUBLIC USERNAMES INDEX
+    // ════════════════════════════════════════════
+    // Lightweight public directory for username-based duel invitations.
+    // Contains ONLY: uid, username, displayName, isPremiumPlus.
+    // No private data (email, payments, analytics) is stored here.
+    // Writable only by the document owner (uid must match auth.uid).
+    match /publicUsernames/{username} {
+      // Read: any authenticated user (needed for duel invitation lookup)
+      allow read: if request.auth != null;
+
+      // Create: authenticated, uid must match, username must match doc ID
+      allow create: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.username == username;
+
+      // Update: only the owner can update their own entry
+      allow update: if request.auth != null &&
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == request.auth.uid;
+
+      // Delete: only the owner
+      allow delete: if request.auth != null &&
+        resource.data.uid == request.auth.uid;
     }
 
     // ════════════════════════════════════════════

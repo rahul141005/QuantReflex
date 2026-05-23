@@ -1,97 +1,267 @@
 /**
- * duel-manager.js — Math Duel orchestrator
+ * duel-manager.js — Math Duel lifecycle orchestrator (V2 — Stabilized)
  *
- * Coordinates DuelCore (Firestore) and DuelUI (rendering).
- * Manages duel lifecycle: setup → waiting → active → results.
- * Handles deep-link joins (?duel=ID), cleanup, and state transitions.
+ * Complete rebuild with:
+ *   - 10-state lifecycle management
+ *   - Username-based invitation flow (send, listen, accept, reject)
+ *   - Boot-time invitation listener (shows cards on Home tab)
+ *   - Stateful active duel: renders once, updates scoreboard via listener
+ *   - Independent exit handling (partial results → realtime opponent updates)
+ *   - Reconnection on app load (deduplicated)
+ *   - Client-side countdown (3-2-1-GO) — only creator calls startDuel
+ *   - beforeunload cleanup for active duels
+ *   - DuelEvents emitter for future FCM notification hooks
+ *
+ * Depends on DuelCore (Firestore ops) and DuelUI (rendering).
+ * Premium+ gated.
  */
 
 var DuelManager = (function () {
   'use strict';
 
+  /* ---- State ---- */
   var _currentDuelId = null;
-  var _currentState = null; /* 'setup' | 'waiting' | 'active' | 'results' */
-  var _pendingDuelId = null; /* Set from deep-link before auth */
+  var _currentInvitationId = null;
+  var _activeDuelData = null;
+  var _outgoingInviteListener = null;
+  var _duelPhase = 'idle'; /* idle | setup | waiting_for_acceptance | waiting_room | active | results */
+  var _exitedEarly = false;
+  var _invitationListenerActive = false;
+  var _reconnectionChecked = false;
+  var _countdownRunning = false;
+  var _duelScreenRendered = false; /* guard: renderActiveScreen called only once per duel */
 
-  function _getContainer(id) { return document.getElementById(id); }
+  /* ---- DOM Refs ---- */
+  function _getEl(id) { return document.getElementById(id); }
 
-  /* ---- Duel Loading Indicator ---- */
-
-  function _showDuelLoading(msg) {
-    var el = document.getElementById('duelPreview');
-    if (!el) return;
-    _hideAllDuelScreens();
-    el.innerHTML =
-      '<div class="duel-setup-card" style="text-align:center;">' +
-        '<div class="duel-setup-header">' +
-          '<h3>⚔️ Math Duel</h3>' +
-          '<p>' + (msg || 'Loading…') + '</p>' +
-        '</div>' +
-        '<div class="duel-setup-body" style="padding:2rem;">' +
-          '<div class="duel-waiting-indicator" style="margin:1rem 0;">' +
-            '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    el.style.display = 'flex';
+  /* ---- Premium+ Check ---- */
+  function _isPremiumPlus() {
+    return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
   }
 
-  function _hideDuelLoading() {
-    var el = document.getElementById('duelPreview');
-    if (el) el.style.display = 'none';
+  /* ================================================================
+   * DUEL EVENTS — Simple event emitter for notification hooks
+   * Future FCM integration can subscribe to these events.
+   * ================================================================ */
+
+  var _eventHandlers = {};
+
+  var DuelEvents = {
+    on: function (event, handler) {
+      if (!_eventHandlers[event]) _eventHandlers[event] = [];
+      _eventHandlers[event].push(handler);
+    },
+    off: function (event, handler) {
+      if (!_eventHandlers[event]) return;
+      _eventHandlers[event] = _eventHandlers[event].filter(function (h) { return h !== handler; });
+    },
+    emit: function (event, data) {
+      var handlers = _eventHandlers[event] || [];
+      for (var i = 0; i < handlers.length; i++) {
+        try { handlers[i](data); } catch (e) { console.warn('[DuelEvents] Handler error:', e); }
+      }
+    }
+  };
+
+  /* ================================================================
+   * INITIALIZATION — called once on app boot from app.js
+   * ================================================================ */
+
+  function init() {
+    /* Start listening for incoming invitations */
+    _startInvitationListener();
+
+    /* Check for active duel to reconnect */
+    _checkReconnection();
+
+    /* Register beforeunload handler for active duels */
+    window.addEventListener('beforeunload', _handleBeforeUnload);
   }
 
-  /* ---- Public API ---- */
+  function _handleBeforeUnload() {
+    if (_duelPhase === 'active' && _currentDuelId) {
+      /* Attempt to mark player as exited before tab closes */
+      DuelCore.exitDuelEarly(_currentDuelId);
+    }
+  }
 
-  /**
-   * Open duel setup screen (from practice mode card click).
-   */
-  function openSetup() {
-    if (!_checkPremiumPlus()) return;
-    _currentState = 'setup';
-    var container = _getContainer('duelSetup');
-    if (!container) return;
+  /* ================================================================
+   * INVITATION LISTENER (boot-time)
+   * Shows invitation banners on Home tab
+   * ================================================================ */
 
-    /* Hide bottom nav for immersive feel */
-    var nav = document.querySelector('.bottom-nav');
-    if (nav) nav.style.display = 'none';
+  function _startInvitationListener() {
+    if (_invitationListenerActive) return;
 
-    DuelUI.renderSetup(container, function () {
-      /* onBack callback */
-      _currentState = null;
-      if (nav) nav.style.display = '';
+    /* Wait for auth to be ready */
+    if (typeof Auth !== 'undefined' && typeof Auth.onAuthReady === 'function') {
+      Auth.onAuthReady(function (user) {
+        if (!user) return;
+        _invitationListenerActive = true;
+
+        DuelCore.listenToInvitations(function (invitations) {
+          var banner = _getEl('duelInvitationBanner');
+          if (!banner) return;
+          DuelUI.renderInvitationBanner(banner, invitations);
+
+          /* Emit event for each new invitation */
+          if (invitations.length > 0) {
+            DuelEvents.emit('invitation_received', invitations);
+          }
+        });
+
+        /* Also update public username index on login */
+        DuelCore.updatePublicUsername();
+      });
+    }
+  }
+
+  /* ================================================================
+   * INVITATION HANDLING (from invitation banner)
+   * ================================================================ */
+
+  function handleInvitationAccept(invitation) {
+    if (!_isPremiumPlus()) {
+      if (typeof showToast === 'function') showToast('Premium+ is required for Math Duel');
+      return;
+    }
+
+    DuelCore.acceptInvitation(invitation, function (err, duelData) {
+      if (err) {
+        if (typeof showToast === 'function') showToast(err);
+        return;
+      }
+
+      /* Store active duel */
+      _currentDuelId = invitation.duelId;
+      _duelPhase = 'waiting_room';
+      _duelScreenRendered = false;
+      try { localStorage.setItem('qr_active_duel', _currentDuelId); } catch (_) {}
+
+      /* Navigate to practice view and show waiting room */
+      if (typeof Router !== 'undefined') Router.showView('practice');
+
+      /* Start listening to duel updates */
+      _startDuelListener(_currentDuelId);
+
+      DuelEvents.emit('invitation_accepted', { duelId: invitation.duelId });
     });
   }
 
-  /**
-   * Enter waiting room for a duel (after create or join).
-   */
-  function enterWaitingRoom(duelId) {
-    if (_currentState === 'waiting' && _currentDuelId === duelId) return;
-    _currentDuelId = duelId;
-    _currentState = 'waiting';
-    try { localStorage.setItem('qr_active_duel', duelId); } catch (_) {}
-    _updateActiveRoomCard(duelId);
+  function handleInvitationReject(invitation) {
+    DuelCore.rejectInvitation(invitation, function (err) {
+      if (err) {
+        if (typeof showToast === 'function') showToast('Failed to decline: ' + err);
+      }
+    });
+  }
 
-    var container = _getContainer('duelWaitingRoom');
+  /* ================================================================
+   * SETUP FLOW
+   * ================================================================ */
+
+  /**
+   * Open the duel setup screen.
+   * Called from home view / practice view duel button.
+   */
+  function openSetup() {
+    if (!_isPremiumPlus()) {
+      if (typeof canAccessFeature !== 'undefined' && typeof showPremiumPlusModal === 'function') {
+        showPremiumPlusModal('math_duel');
+      } else if (typeof showToast === 'function') {
+        showToast('Premium+ is required for Math Duel');
+      }
+      return;
+    }
+
+    _duelPhase = 'setup';
+    var container = _getEl('duelSetup');
     if (!container) return;
 
-    /* Hide bottom nav and other duel screens */
-    var nav = document.querySelector('.bottom-nav');
-    if (nav) nav.style.display = 'none';
-    _hideAllDuelScreens();
-    document.body.classList.add('drill-session-active');
-    _bindLifecycleCleanup();
+    /* Hide any active duel card */
+    var activeCard = _getEl('activeDuelCard');
+    if (activeCard) activeCard.style.display = 'none';
 
-    /* Start listening for realtime updates */
-    DuelCore.listenToDuel(duelId, function (event) {
-      if (event.error) {
-        if (typeof showToast === 'function') showToast(event.error);
+    DuelUI.renderSetup(container, function onBack() {
+      _duelPhase = 'idle';
+    });
+  }
+
+  /* ================================================================
+   * WAITING FOR ACCEPTANCE (sender side)
+   * After sendInvitation(), listen for accept/reject
+   * ================================================================ */
+
+  function enterWaitingForAcceptance(duelId, invitationId) {
+    _currentDuelId = duelId;
+    _currentInvitationId = invitationId;
+    _duelPhase = 'waiting_for_acceptance';
+    _duelScreenRendered = false;
+    try { localStorage.setItem('qr_active_duel', duelId); } catch (_) {}
+
+    /* Get duel data and render waiting screen */
+    DuelCore.getDuelState(duelId, function (err, data) {
+      if (err) {
+        if (typeof showToast === 'function') showToast(err);
         exitDuel();
         return;
       }
-      if (event.expired || event.data.status === 'deleted') {
-        if (typeof showToast === 'function') showToast('Duel room was closed or expired');
+
+      _activeDuelData = data;
+
+      /* Hide setup, show waiting screen in practice container */
+      var setupEl = _getEl('duelSetup');
+      if (setupEl) setupEl.style.display = 'none';
+
+      var container = _getEl('duelWaiting');
+      if (container) {
+        DuelUI.renderWaitingForAcceptance(container, data, invitationId);
+      }
+
+      /* Listen for invitation status changes */
+      _stopOutgoingInviteListener();
+      _outgoingInviteListener = DuelCore.listenToOutgoingInvitation(invitationId, function (event) {
+        if (event.accepted) {
+          _stopOutgoingInviteListener();
+          /* Transition to waiting room */
+          _duelPhase = 'waiting_room';
+          _startDuelListener(duelId);
+          DuelEvents.emit('invitation_accepted', { duelId: duelId });
+        } else if (event.rejected) {
+          _stopOutgoingInviteListener();
+          if (typeof showToast === 'function') showToast('Your duel invitation was declined');
+          exitDuel();
+        } else if (event.expired || event.error) {
+          _stopOutgoingInviteListener();
+          if (typeof showToast === 'function') showToast('Invitation expired');
+          exitDuel();
+        }
+      });
+    });
+  }
+
+  function _stopOutgoingInviteListener() {
+    if (_outgoingInviteListener) {
+      _outgoingInviteListener();
+      _outgoingInviteListener = null;
+    }
+  }
+
+  /* ================================================================
+   * DUEL LISTENER — realtime state management
+   * Handles all transitions from waiting_room → active → completed
+   * ================================================================ */
+
+  function _startDuelListener(duelId) {
+    DuelCore.listenToDuel(duelId, function (event) {
+      if (event.error) {
+        if (typeof showToast === 'function') showToast('Duel error: ' + event.error);
+        exitDuel();
+        return;
+      }
+
+      if (event.expired) {
+        if (typeof showToast === 'function') showToast('Duel has expired');
         exitDuel();
         return;
       }
@@ -99,409 +269,419 @@ var DuelManager = (function () {
       var data = event.data;
       if (!data) return;
 
-      /* Update persistent card */
-      _updateActiveRoomCard(duelId, data);
+      _activeDuelData = data;
 
-      /* State transitions based on Firestore duel status */
-      if (data.status === 'active' && _currentState !== 'active') {
-        _enterActiveDuel(data);
-        return;
-      }
-      if (data.status === 'completed' && _currentState !== 'results') {
-        _enterResults(data);
-        return;
-      }
+      /* Route to correct UI based on duel status */
+      switch (data.status) {
+        case 'waiting':
+        case 'waiting_for_acceptance':
+          /* Still waiting — keep current screen */
+          break;
 
-      /* Re-render waiting room with updated participant data */
-      if (_currentState === 'waiting') {
-        DuelUI.renderWaitingRoom(container, data);
-      }
+        case 'waiting_room':
+        case 'ready':
+          _renderWaitingRoom(data);
+          break;
 
-      /* During active play, update opponent's score in real-time */
-      if (_currentState === 'active') {
-        _handleActiveUpdate(data);
-      }
-    });
+        case 'active':
+          _enterActiveDuel(data);
+          break;
 
-    /* Initial render — get current state */
-    DuelCore.getDuelState(duelId, function (err, data) {
-      if (err) {
-        if (typeof showToast === 'function') showToast(err);
-        exitDuel();
-        return;
-      }
-      if (data.status === 'active') {
-        _enterActiveDuel(data);
-      } else if (data.status === 'completed') {
-        _enterResults(data);
-      } else {
-        DuelUI.renderWaitingRoom(container, data);
+        case 'completed':
+          _showResults(data, false);
+          break;
+
+        case 'rejected':
+          if (typeof showToast === 'function') showToast('Duel was declined');
+          exitDuel();
+          break;
+
+        case 'expired':
+        case 'abandoned':
+        case 'deleted':
+          if (typeof showToast === 'function') showToast('Duel ended');
+          exitDuel();
+          break;
       }
     });
   }
 
-  var _joinInFlight = false;
+  /* ================================================================
+   * WAITING ROOM
+   * ================================================================ */
 
-  /**
-   * Handle joining a duel from deep-link or invite.
-   */
-  function joinDuelById(duelId) {
-    if (!_checkPremiumPlus()) return;
-    if (_joinInFlight) return;
-    
-    _joinInFlight = true;
-    _showDuelLoading('Fetching duel info…');
-
-    /* Timeout guard — if Firestore doesn't respond in 12s, abort */
-    var _timedOut = false;
-    var _timeout = setTimeout(function () {
-      _timedOut = true;
-      _joinInFlight = false;
-      _hideDuelLoading();
-      if (typeof showToast === 'function') showToast('Could not reach duel server. Try again.');
-    }, 12000);
-
-    DuelCore.getDuelState(duelId, function (err, data) {
-      clearTimeout(_timeout);
-      if (_timedOut) return; /* Already timed out, ignore late response */
-      _hideDuelLoading();
-
-      if (err) {
-        _joinInFlight = false;
-        if (typeof showToast === 'function') showToast(err);
-        return;
-      }
-      if (!data || data.status !== 'waiting') {
-        _joinInFlight = false;
-        /* If user is already a participant, enter room directly */
-        var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : null;
-        if (data && data.participants && data.participants[uid]) {
-          enterWaitingRoom(duelId);
-          return;
-        }
-        if (typeof showToast === 'function') showToast('This duel is no longer available');
-        return;
-      }
-
-      /* Show preview screen */
-      var container = _getContainer('duelPreview');
-      if (!container) { _joinInFlight = false; return; }
-
-      var nav = document.querySelector('.bottom-nav');
-      if (nav) nav.style.display = 'none';
-      _hideAllDuelScreens();
-
-      DuelUI.renderPreviewScreen(container, data, function () {
-        /* onJoin */
-        DuelCore.joinDuel(duelId, function (joinErr) {
-          _joinInFlight = false;
-          if (joinErr) {
-            if (typeof showToast === 'function') showToast(joinErr);
-            container.style.display = 'none';
-            if (nav) nav.style.display = '';
-            return;
-          }
-          container.style.display = 'none';
-          enterWaitingRoom(duelId);
-        });
-      }, function () {
-        /* onCancel */
-        _joinInFlight = false;
-        if (nav) nav.style.display = '';
-      });
-    });
-  }
-
-  /**
-   * Leave current duel and return to practice.
-   */
-  function leaveDuel(duelId) {
-    DuelCore.leaveDuel(duelId || _currentDuelId);
-    exitDuel();
-  }
-
-  /**
-   * Exit duel completely — cleanup and return to practice view.
-   */
-  function exitDuel() {
-    DuelCore.stopListening();
-    if (typeof DuelUI !== 'undefined' && DuelUI.clearTimers) DuelUI.clearTimers();
-    _unbindLifecycleCleanup();
-    _currentDuelId = null;
-    _currentState = null;
-    try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
-    _updateActiveRoomCard(null);
+  function _renderWaitingRoom(data) {
+    if (_duelPhase === 'active' || _duelPhase === 'results') return;
+    _duelPhase = 'waiting_room';
 
     _hideAllDuelScreens();
-    document.body.classList.remove('drill-session-active');
+    var container = _getEl('duelWaiting');
+    if (container) {
+      DuelUI.renderWaitingRoom(container, data);
+    }
 
-    /* Restore bottom nav */
+    /* Hide bottom nav while in duel flow */
+    var nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = 'none';
+  }
+
+  /* ================================================================
+   * COUNTDOWN (3-2-1-GO!) — Client-side only
+   * Only the creator calls DuelCore.startDuel() after countdown.
+   * The other player's listener will pick up the status change.
+   * ================================================================ */
+
+  function _renderCountdown(data, callback) {
+    if (_countdownRunning) return;
+    _countdownRunning = true;
+    _duelPhase = 'active';
+    _hideAllDuelScreens();
+
+    /* Use active container for countdown overlay */
+    var container = _getEl('duelActive');
+    if (container) {
+      container.innerHTML =
+        '<div class="duel-countdown-overlay" id="duelCountdownOverlay">' +
+          '<div class="duel-countdown-number" id="duelCountdownNum">3</div>' +
+        '</div>';
+      container.style.display = 'flex';
+
+      var num = 3;
+      var countEl = document.getElementById('duelCountdownNum');
+      var countInterval = setInterval(function () {
+        num--;
+        if (num > 0) {
+          if (countEl) countEl.textContent = num;
+        } else if (num === 0) {
+          if (countEl) countEl.textContent = 'GO!';
+        } else {
+          clearInterval(countInterval);
+          _countdownRunning = false;
+          if (callback) callback();
+        }
+      }, 800);
+    } else {
+      _countdownRunning = false;
+      if (callback) callback();
+    }
+  }
+
+  /* ================================================================
+   * ACTIVE DUEL — Stateful: renders once, listener only updates scoreboard
+   * ================================================================ */
+
+  function _enterActiveDuel(data) {
+    if (_exitedEarly) {
+      /* If player exited early, update partial results */
+      _showResults(data, true);
+      return;
+    }
+
+    /* Check if already completed from player's perspective */
+    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
+    var myP = data.participants && data.participants[uid];
+    if (myP && (myP.status === 'finished' || myP.status === 'exited')) {
+      _showResults(data, true);
+      return;
+    }
+
+    /* If active duel screen is already rendered, just update scoreboard */
+    if (_duelScreenRendered && _duelPhase === 'active') {
+      DuelUI.updateScoreboard(data);
+      return;
+    }
+
+    _duelPhase = 'active';
+    _duelScreenRendered = true;
+    _hideAllDuelScreens();
+
+    /* Ensure session-active classes for numpad */
+    document.body.classList.add('drill-session-active');
+    document.documentElement.classList.add('drill-session-active');
+
+    /* Hide bottom nav */
+    var nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = 'none';
+
+    var container = _getEl('duelActive');
+    if (!container) return;
+
+    DuelUI.renderActiveScreen(container, data, function onAnswer(qIndex, answer, correct, timeMs) {
+      DuelCore.submitAnswer(data.id, qIndex, answer, correct, timeMs, function (err) {
+        if (err) console.warn('[DuelManager] submitAnswer error:', err);
+      });
+    });
+
+    DuelEvents.emit('duel_started', { duelId: data.id });
+  }
+
+  /* ================================================================
+   * RESULTS
+   * ================================================================ */
+
+  function _showResults(data, isPartial) {
+    if (_duelPhase === 'results' && data.status !== 'completed') {
+      /* Already showing results — update opponent info in place */
+      var container = _getEl('duelResults');
+      if (container) DuelUI.renderResults(container, data, isPartial && data.status !== 'completed');
+      return;
+    }
+
+    /* Clean up active duel session */
+    DuelUI.destroyDuelSession();
+    _duelScreenRendered = false;
+
+    _duelPhase = 'results';
+    _hideAllDuelScreens();
+
+    /* Remove session-active classes */
+    document.body.classList.remove('drill-session-active');
+    document.documentElement.classList.remove('drill-session-active');
+
+    /* Show bottom nav */
     var nav = document.querySelector('.bottom-nav');
     if (nav) nav.style.display = '';
 
     /* Hide numpad */
     if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
 
-    /* Return to practice view */
-    if (typeof Router !== 'undefined' && Router.showView) {
-      Router.showView('practice');
+    var container = _getEl('duelResults');
+    if (container) {
+      DuelUI.renderResults(container, data, isPartial && data.status !== 'completed');
     }
-  }
 
-  /* ---- Internal State Transitions ---- */
-
-  function _enterActiveDuel(duelData) {
-    _currentState = 'active';
-    _hideAllDuelScreens();
-    var container = _getContainer('duelActiveScreen');
-    if (!container) return;
-
-    function _onAnswerSubmit(qIdx, answer, correct, timeMs) {
-      /* Answer submitted — send to Firestore */
-      DuelCore.submitAnswer(_currentDuelId, qIdx, answer, correct, timeMs, function (err) {
-        if (err) console.warn('[Duel] Submit error:', err);
+    if (data.status === 'completed') {
+      DuelEvents.emit('duel_completed', {
+        duelId: data.id,
+        winner: data.winner,
+        result: data.result
       });
-
-      /* Short delay then render next question */
-      setTimeout(function () {
-        DuelCore.getDuelState(_currentDuelId, function (err, freshData) {
-          if (err) return;
-          if (freshData.status === 'completed') {
-            _enterResults(freshData);
-          } else {
-            DuelUI.renderActiveScreen(container, freshData, _onAnswerSubmit);
-          }
-        });
-      }, 600);
-    }
-
-    DuelUI.renderActiveScreen(container, duelData, _onAnswerSubmit);
-  }
-
-  function _handleActiveUpdate(duelData) {
-    /* If duel completed while we're playing, show results */
-    if (duelData.status === 'completed') {
-      _enterResults(duelData);
-      return;
-    }
-
-    /* Update opponent score display */
-    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-    var participants = duelData.participants || {};
-    var uids = Object.keys(participants);
-    var opUid = uids.find(function (u) { return u !== uid; });
-    var opP = opUid ? participants[opUid] : null;
-
-    var opScoreEl = document.querySelectorAll('.duel-sb-score');
-    if (opScoreEl.length >= 2 && opP) {
-      opScoreEl[1].textContent = opP.score || 0;
     }
   }
 
-  function _enterResults(duelData) {
-    _currentState = 'results';
-    DuelCore.stopListening();
-    _hideAllDuelScreens();
-    var container = _getContainer('duelResults');
-    if (!container) return;
-    DuelUI.renderResults(container, duelData);
-  }
+  /* ================================================================
+   * EXIT DUEL
+   * ================================================================ */
 
-  /* ---- Helpers ---- */
+  /**
+   * Show exit confirmation dialog during active duel.
+   */
+  function showExitDuelDialog() {
+    var modal = _getEl('exitDuelModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.classList.add('modal-open');
 
-  function _hideAllDuelScreens() {
-    var ids = ['duelSetup', 'duelPreview', 'duelWaitingRoom', 'duelActiveScreen', 'duelResults'];
-    for (var i = 0; i < ids.length; i++) {
-      var el = document.getElementById(ids[i]);
-      if (el) el.style.display = 'none';
-    }
-  }
+      var cancelBtn = _getEl('exitDuelCancel');
+      var confirmBtn = _getEl('exitDuelConfirm');
 
-  function _checkPremiumPlus() {
-    if (typeof canAccessFeature === 'function' && canAccessFeature('math_duel')) {
-      return true;
-    }
-    if (typeof showPaywall === 'function') showPaywall('math_duel');
-    return false;
-  }
-
-  /* ---- Persistent Room Card UX ---- */
-
-  function _updateActiveRoomCard(duelId, duelData) {
-    var container = _getContainer('activeDuelRoomContainer');
-    if (!container) return;
-
-    if (!duelId) {
-      container.style.display = 'none';
-      return;
-    }
-
-    container.style.display = 'block';
-    
-    var statusEl = _getContainer('activeDuelRoomStatus');
-    var oppIcon = _getContainer('activeDuelRoomOpponentIndicator');
-    var enterBtn = _getContainer('activeDuelEnterBtn');
-    var shareBtn = _getContainer('activeDuelShareBtn');
-    var delBtn = _getContainer('activeDuelDeleteBtn');
-
-    if (!duelData) {
-      if (statusEl) statusEl.textContent = 'Room active...';
-      if (oppIcon) oppIcon.style.opacity = '0.5';
-    } else {
-      var pCount = duelData.participants ? Object.keys(duelData.participants).length : 0;
-      if (statusEl) {
-        if (duelData.status === 'active') statusEl.textContent = 'Duel in progress! ⚔️';
-        else if (pCount >= 2) statusEl.textContent = 'Opponent joined, ready to start!';
-        else statusEl.textContent = 'Waiting for opponent...';
+      if (cancelBtn) {
+        cancelBtn.onclick = function () {
+          modal.style.display = 'none';
+          document.body.classList.remove('modal-open');
+        };
       }
-      if (oppIcon) {
-        oppIcon.style.opacity = pCount >= 2 ? '1' : '0.5';
-      }
-      var pillsEl = _getContainer('activeDuelRoomPills');
-      if (pillsEl && duelData.config) {
-        var c = duelData.config;
-        var timerStr = c.timerTotal ? c.timerTotal + 's total' : (c.timerPerQuestion ? c.timerPerQuestion + 's/q' : 'No timer');
-        var modeStr = c.questionMode === 'wordproblems' ? '🤖 Word' : '⚡ Quick';
-        pillsEl.innerHTML = 
-          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">📝 ' + (c.questionCount || 10) + ' Qs</span>' +
-          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">⏱ ' + timerStr + '</span>' +
-          '<span class="duel-config-pill" style="padding:.15rem .4rem;font-size:.65rem;">' + modeStr + '</span>';
+
+      if (confirmBtn) {
+        confirmBtn.onclick = function () {
+          modal.style.display = 'none';
+          document.body.classList.remove('modal-open');
+          _exitDuelEarly();
+        };
       }
     }
-
-    if (enterBtn) {
-      enterBtn.onclick = function() {
-        if (_currentState) return; // Already in it
-        enterWaitingRoom(duelId);
-      };
-    }
-    if (shareBtn) {
-      shareBtn.onclick = function() {
-        var url = window.location.origin + window.location.pathname + '?duel=' + duelId;
-        if (navigator.share) {
-          navigator.share({ title: 'Math Duel Challenge', text: 'Join my Math Duel on QuantReflex!', url: url }).catch(function () {});
-        } else if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(function () {
-            if (typeof showToast === 'function') showToast('Invite link copied!');
-          });
-        }
-      };
-    }
-    if (delBtn) {
-      delBtn.onclick = function() {
-        if (typeof showCustomConfirm === 'function') {
-          showCustomConfirm('Delete this duel room?', function () {
-            DuelCore.deleteDuel(duelId);
-            exitDuel();
-          });
-        } else {
-          DuelCore.deleteDuel(duelId);
-          exitDuel();
-        }
-      };
-    }
   }
 
-  function checkActiveDuel() {
-    var storedId = null;
-    try { storedId = localStorage.getItem('qr_active_duel'); } catch (_) {}
-    if (!storedId) {
-      _updateActiveRoomCard(null);
-      return;
-    }
-    
-    /* Fetch state to see if it's still active */
-    DuelCore.getDuelState(storedId, function (err, data) {
-      if (err || !data || data.status === 'completed' || data.status === 'deleted') {
-        try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
-        _updateActiveRoomCard(null);
+  /**
+   * Exit duel early — sets participant status to 'exited', keeps listener active
+   * to show partial results and receive opponent updates.
+   */
+  function _exitDuelEarly() {
+    if (!_currentDuelId) return;
+    _exitedEarly = true;
+
+    /* Clean up active session */
+    DuelUI.destroyDuelSession();
+    _duelScreenRendered = false;
+
+    /* Hide numpad */
+    if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+
+    DuelCore.exitDuelEarly(_currentDuelId, function (err, data) {
+      if (err) {
+        if (typeof showToast === 'function') showToast('Error exiting duel: ' + err);
         return;
       }
-      _updateActiveRoomCard(storedId, data);
+      /* Show partial results — listener will update when opponent finishes */
+      if (_activeDuelData) _showResults(_activeDuelData, true);
+
+      DuelEvents.emit('opponent_exited', { duelId: _currentDuelId });
     });
   }
 
-  /* ---- Duel Lifecycle Safety Handlers ---- */
-  /* Ensure Firestore listeners are cleaned up when the user navigates
-     away from a duel via browser back button, popstate, or app backgrounding. */
+  /**
+   * Full exit — cleanup and return to practice view.
+   */
+  function exitDuel() {
+    DuelUI.clearTimers();
+    DuelUI.destroyDuelSession();
+    _stopOutgoingInviteListener();
+    DuelCore.stopListening();
 
-  var _duelPopstateHandler = null;
-  var _duelVisibilityHandler = null;
+    _currentDuelId = null;
+    _currentInvitationId = null;
+    _activeDuelData = null;
+    _duelPhase = 'idle';
+    _exitedEarly = false;
+    _duelScreenRendered = false;
+    _countdownRunning = false;
 
-  function _bindLifecycleCleanup() {
-    _unbindLifecycleCleanup(); /* Prevent duplicate listeners */
+    try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
 
-    _duelPopstateHandler = function () {
-      if (_currentState && (_currentState === 'waiting' || _currentState === 'active')) {
-        console.log('[DuelManager] popstate detected during active duel, performing full cleanup');
-        /* Full exit — restores bottom nav, clears body classes, resets state */
-        exitDuel();
-      }
-    };
-    window.addEventListener('popstate', _duelPopstateHandler);
+    /* Remove session-active classes */
+    document.body.classList.remove('drill-session-active');
+    document.documentElement.classList.remove('drill-session-active');
 
-    _duelVisibilityHandler = function () {
-      /* When app goes to background during a duel, don't stop listening
-         (user may come back), but log for diagnostics */
-      if (document.visibilityState === 'hidden' && _currentState === 'active') {
-        console.log('[DuelManager] app backgrounded during active duel');
-      }
-    };
-    document.addEventListener('visibilitychange', _duelVisibilityHandler);
+    /* Show bottom nav */
+    var nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = '';
+
+    /* Hide numpad BEFORE clearing screens */
+    if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+
+    /* Hide all duel screens */
+    _hideAllDuelScreens();
+
+    /* Navigate back to practice */
+    if (typeof Router !== 'undefined') Router.showView('practice');
   }
 
-  function _unbindLifecycleCleanup() {
-    if (_duelPopstateHandler) {
-      window.removeEventListener('popstate', _duelPopstateHandler);
-      _duelPopstateHandler = null;
+  /**
+   * Leave duel (from waiting room) — mark as exited and exit.
+   */
+  function leaveDuel(duelId) {
+    var id = duelId || _currentDuelId;
+    if (id) {
+      /* Use exitDuelEarly instead of leaveDuel to set status to 'exited'
+         which properly triggers completion check */
+      DuelCore.exitDuelEarly(id, function () {});
     }
-    if (_duelVisibilityHandler) {
-      document.removeEventListener('visibilitychange', _duelVisibilityHandler);
-      _duelVisibilityHandler = null;
-    }
+    exitDuel();
   }
 
-  /* ---- Deep-link Support ---- */
+  /* ================================================================
+   * RECONNECTION (deduplicated)
+   * ================================================================ */
 
-  function setPendingDuelId(id) { _pendingDuelId = id; }
+  function _checkReconnection() {
+    if (_reconnectionChecked) return;
+    if (typeof Auth === 'undefined') return;
 
-  function consumePendingDuel() {
+    Auth.onAuthReady(function (user) {
+      if (!user || _reconnectionChecked) return;
+      _reconnectionChecked = true;
+
+      DuelCore.findActiveDuel(function (err, data) {
+        if (err || !data) return;
+
+        _currentDuelId = data.id;
+        _activeDuelData = data;
+        _duelScreenRendered = false;
+        try { localStorage.setItem('qr_active_duel', data.id); } catch (_) {}
+
+        /* Reconnect based on duel status */
+        if (data.status === 'active') {
+          _duelPhase = 'active';
+          if (typeof Router !== 'undefined') Router.showView('practice');
+          _startDuelListener(data.id);
+        } else if (data.status === 'waiting_room' || data.status === 'ready') {
+          _duelPhase = 'waiting_room';
+          if (typeof Router !== 'undefined') Router.showView('practice');
+          _startDuelListener(data.id);
+        } else if (data.status === 'completed') {
+          _duelPhase = 'results';
+          if (typeof Router !== 'undefined') Router.showView('practice');
+          _showResults(data, false);
+        }
+      });
+    });
+  }
+
+  /* ================================================================
+   * ACTIVE DUEL CARD (shown on practice view)
+   * ================================================================ */
+
+  function checkActiveDuel() {
+    /* Called by practice view to show/hide the active duel card */
+    var activeCard = _getEl('activeDuelCard');
     var storedId = null;
-    try { storedId = sessionStorage.getItem('qr_pending_duel'); } catch (_) {}
-    var id = _pendingDuelId || storedId;
-    if (!id) return;
-    
-    _pendingDuelId = null;
-    try { sessionStorage.removeItem('qr_pending_duel'); } catch (_) {}
+    try { storedId = localStorage.getItem('qr_active_duel'); } catch (_) {}
 
-    /* Navigate to practice view FIRST so duel containers are visible */
-    if (typeof Router !== 'undefined' && Router.showView) {
-      Router.showView('practice');
+    if (storedId && activeCard && _duelPhase !== 'idle') {
+      activeCard.style.display = 'block';
+      activeCard.innerHTML =
+        '<div class="card active-duel-mini-card" style="cursor:pointer;">' +
+          '<div style="display:flex;align-items:center;gap:.5rem;">' +
+            '<span style="font-size:1.3rem;">⚔️</span>' +
+            '<div>' +
+              '<div style="font-weight:600;">Active Duel</div>' +
+              '<div class="secondary-text" style="font-size:.75rem;">Tap to rejoin</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      activeCard.onclick = function () {
+        if (_currentDuelId) _startDuelListener(_currentDuelId);
+      };
+    } else if (activeCard) {
+      activeCard.style.display = 'none';
     }
-    
-    /* Small delay to let practice view render before showing preview */
-    setTimeout(function () { joinDuelById(id); }, 120);
   }
 
-  function hasPendingDuel() {
-    if (_pendingDuelId) return true;
-    try { return !!sessionStorage.getItem('qr_pending_duel'); } catch (_) { return false; }
+  /* ================================================================
+   * UTILITIES
+   * ================================================================ */
+
+  function _hideAllDuelScreens() {
+    /* Hide numpad first to prevent stale reference */
+    if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+
+    var screens = ['duelSetup', 'duelWaiting', 'duelActive', 'duelResults'];
+    for (var i = 0; i < screens.length; i++) {
+      var el = _getEl(screens[i]);
+      if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+    }
   }
 
-  function getCurrentState() { return _currentState; }
-  function getCurrentDuelId() { return _currentDuelId; }
+  function isInDuel() {
+    return _duelPhase !== 'idle';
+  }
+
+  function getCurrentDuelId() {
+    return _currentDuelId;
+  }
+
+  /* ================================================================
+   * PUBLIC API
+   * ================================================================ */
 
   return {
+    init: init,
     openSetup: openSetup,
-    enterWaitingRoom: enterWaitingRoom,
-    joinDuelById: joinDuelById,
-    leaveDuel: leaveDuel,
     exitDuel: exitDuel,
-    setPendingDuelId: setPendingDuelId,
-    consumePendingDuel: consumePendingDuel,
-    hasPendingDuel: hasPendingDuel,
-    getCurrentState: getCurrentState,
+    leaveDuel: leaveDuel,
+    isInDuel: isInDuel,
     getCurrentDuelId: getCurrentDuelId,
-    checkActiveDuel: checkActiveDuel
+    checkActiveDuel: checkActiveDuel,
+
+    /* Invitation handling */
+    handleInvitationAccept: handleInvitationAccept,
+    handleInvitationReject: handleInvitationReject,
+    enterWaitingForAcceptance: enterWaitingForAcceptance,
+
+    /* Exit dialog */
+    showExitDuelDialog: showExitDuelDialog,
+
+    /* Events (for future FCM hooks) */
+    events: DuelEvents
   };
 })();

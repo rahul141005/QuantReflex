@@ -278,6 +278,11 @@ var FirestoreSync = (function () {
         _loadedUserId = currentUserId;
       }
       if (callback) callback(true);
+
+      /* Update public username index for duel invitations (fire-and-forget) */
+      if (typeof DuelCore !== 'undefined' && typeof DuelCore.updatePublicUsername === 'function') {
+        try { DuelCore.updatePublicUsername(); } catch (_) {}
+      }
     }).catch(function (err) {
       console.warn('Firestore load failed:', err);
       _dataLoaded = true; /* Mark as loaded to prevent retries */

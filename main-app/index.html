@@ -124,6 +124,18 @@
     </div>
   </div>
 
+  <!-- Exit Duel Confirmation Modal -->
+  <div id="exitDuelModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <h3 class="modal-title">⚔️ Exit Duel?</h3>
+      <p class="secondary-text" style="margin-bottom:1rem;">You can still see your results. Your opponent can continue playing.</p>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="exitDuelCancel">Continue Playing</button>
+        <button class="btn" id="exitDuelConfirm" style="background:#fee2e2;color:#dc2626;">Exit Duel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="container" style="display:none;">
 
     <!-- ==================== HOME VIEW ==================== -->
@@ -164,6 +176,9 @@
 
       <!-- Streak at risk banner (dynamic — shown when streak >= 2 and no practice today) -->
       <div id="streakAtRiskBanner" style="display:none"></div>
+
+      <!-- Duel Invitation Banner (realtime) -->
+      <div id="duelInvitationBanner" style="display:none"></div>
 
 
 
@@ -337,17 +352,20 @@
       <!-- Math Duel setup (shown when Math Duel mode is picked) -->
       <div id="duelSetup" style="display:none;"></div>
 
-      <!-- Math Duel Preview (shown when joining via invite link) -->
+      <!-- Math Duel Preview (shown when joining via invite link — legacy) -->
       <div id="duelPreview" style="display:none;"></div>
 
       <!-- Math Duel waiting room (shown after duel is created/joined) -->
-      <div id="duelWaitingRoom" style="display:none;"></div>
+      <div id="duelWaiting" style="display:none;"></div>
 
       <!-- Math Duel active screen (shown during active duel) -->
-      <div id="duelActiveScreen" style="display:none;"></div>
+      <div id="duelActive" style="display:none;"></div>
 
       <!-- Math Duel results screen (shown after duel ends) -->
       <div id="duelResults" style="display:none;"></div>
+
+      <!-- Active duel card (mini card on practice view) -->
+      <div id="activeDuelCard" style="display:none;"></div>
 
       <!-- Drill engine renders here -->
       <div id="drillContainer" style="display:none;"></div>

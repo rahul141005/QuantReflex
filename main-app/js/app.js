@@ -546,20 +546,11 @@ document.addEventListener('DOMContentLoaded', function () {
        Fall back to 'home' if Router hasn't initialized yet —
        Router.showView safely handles unknown views by defaulting to home. */
     var currentView = Router.getCurrentView() || 'home';
+    Router.showView(currentView);
 
-    /* If there's a pending duel deep-link, navigate to practice first
-       so the duel containers (#duelPreview etc.) are visible */
-    var _hasPendingDuel = false;
-    try { _hasPendingDuel = (typeof DuelManager !== 'undefined' && DuelManager.hasPendingDuel && DuelManager.hasPendingDuel()); } catch (_) {}
-    if (_hasPendingDuel) {
-      Router.showView('practice');
-    } else {
-      Router.showView(currentView);
-    }
-
-    /* Consume any pending math duel invite from deep-link */
-    if (typeof DuelManager !== 'undefined') {
-      DuelManager.consumePendingDuel();
+    /* Initialize Math Duel invitation listener + reconnection (V2) */
+    if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
+      DuelManager.init();
     }
   }
 
@@ -746,8 +737,10 @@ document.addEventListener('DOMContentLoaded', function () {
       e.preventDefault();
       if (!_tryBeginNavTransition()) return;
       var view = this.getAttribute('data-view');
-      /* Skip if already on this tab and no drill is active */
-      if (this.classList.contains('active') && !_drillSessionActive) return;
+      /* Skip if already on this tab and no drill is active and no stale results overlay */
+      var _dc_check = document.getElementById('drillContainer');
+      var _hasStaleResults = _dc_check && (_dc_check.classList.contains('drill-results-active') || _dc_check.style.display !== 'none');
+      if (this.classList.contains('active') && !_drillSessionActive && !_hasStaleResults) return;
       /* Cleanup any active drill engine when navigating away */
       if (_activeDrillEngine) {
         _activeDrillEngine.cleanup();
@@ -839,6 +832,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  /* Router.onShow now supports multiple callbacks per view, so this is safe to add
+     alongside the main practice cleanup callback registered in initPracticeView(). */
   Router.onShow('practice', function() { if (typeof DuelManager !== 'undefined') DuelManager.checkActiveDuel(); });
 
   /* Stats view: render on every show */

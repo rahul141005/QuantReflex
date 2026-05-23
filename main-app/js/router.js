@@ -21,9 +21,11 @@ var Router = (function () {
 
   /**
    * Register a callback that runs every time a view is shown.
+   * Multiple callbacks per view are supported — they run in registration order.
    */
   function onShow(viewId, callback) {
-    afterShowCallbacks[viewId] = callback;
+    if (!afterShowCallbacks[viewId]) afterShowCallbacks[viewId] = [];
+    afterShowCallbacks[viewId].push(callback);
   }
 
   /**
@@ -57,6 +59,11 @@ var Router = (function () {
     var _drillContainer = document.getElementById('drillContainer');
     if (_drillContainer) {
       _drillContainer.classList.remove('drill-results-active');
+      /* If no drill session is active, ensure the container is fully hidden.
+         Leaving it display:block while empty causes blank space in practice view. */
+      if (typeof _drillSessionActive === 'undefined' || !_drillSessionActive) {
+        _drillContainer.style.display = 'none';
+      }
     }
     /* Only clear drill-session-active if no actual drill is running.
        The practice onShow callback handles its own cleanup, but this catches edge cases
@@ -97,9 +104,11 @@ var Router = (function () {
       delete viewInitCallbacks[viewId];
     }
 
-    /* Run after-show callback every time */
+    /* Run after-show callbacks every time (supports multiple per view) */
     if (afterShowCallbacks[viewId]) {
-      afterShowCallbacks[viewId](params);
+      for (var cb = 0; cb < afterShowCallbacks[viewId].length; cb++) {
+        afterShowCallbacks[viewId][cb](params);
+      }
     }
 
     currentView = viewId;
@@ -128,20 +137,9 @@ var Router = (function () {
    * Initialize router: read hash and show the correct view.
    */
   function init() {
-    /* Detect duel deep-link (?duel=DUEL_ID) before normal routing */
-    try {
-      var urlParams = new URLSearchParams(window.location.search);
-      var duelParam = urlParams.get('duel');
-      if (duelParam && duelParam.length >= 4 && duelParam.length <= 8) {
-        try { sessionStorage.setItem('qr_pending_duel', duelParam.toUpperCase()); } catch (_) {}
-        if (typeof DuelManager !== 'undefined') {
-          DuelManager.setPendingDuelId(duelParam.toUpperCase());
-        }
-        /* Clean URL to prevent re-triggering on refresh */
-        var cleanUrl = window.location.pathname + (window.location.hash || '');
-        history.replaceState(null, '', cleanUrl);
-      }
-    } catch (_) {}
+    /* Duel deep-links removed (V2) — duel invitations are now username-based.
+       The ?duel=ID URL parameter is no longer supported.
+       See duel-manager.js for the new invitation flow. */
 
     /* Set initial history state so first back press works correctly */
     var hash = window.location.hash.replace('#', '') || 'home';
