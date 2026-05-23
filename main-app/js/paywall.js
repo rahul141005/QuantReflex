@@ -700,6 +700,7 @@ function showPaywall(featureType) {
             '<li>✓ AI coach insights</li>' +
             '<li>✓ Study plan generator</li>' +
             '<li>✓ AI word problem trainer</li>' +
+            '<li>✓ Math Duel — real-time challenges</li>' +
           '</ul>' +
           '<button class="btn accent paywall-plus-subscribe" type="button">Buy 6 Months · ₹299</button>' +
           '<p class="paywall-plan-note">One-time payment · No auto-renewal</p>' +
