@@ -118,141 +118,125 @@ var ShareService = (function () {
     var CW = W - PAD * 2;
     var FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
 
-    /* ---- Pre-calculate dynamic height ---- */
-    /* Base content = ~1150px. Add conditionals for benchmark, topics, username. */
-    var estH = 980;
-    if (data.userName) estH += 48;
-    if (data.percentile > 0) estH += 100;
-    if (data.topics && data.topics.length > 0) estH += 60;
-    /* Clamp to sensible portrait range */
-    var H = Math.max(1280, Math.min(1600, estH + 260));
-
+    /* ---- Render pass on oversized buffer ---- */
+    var BUFFER_H = 1600;
     var canvas = document.createElement('canvas');
     canvas.width = W;
-    canvas.height = H;
+    canvas.height = BUFFER_H;
     var ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    /* ---- Background ---- */
-    var bgGrad = _gradient(ctx, 0, 0, 0, H, [
-      [0, '#080c18'],
-      [0.35, '#0c1225'],
-      [0.65, '#0e1630'],
-      [1, '#080c18']
-    ]);
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
-
-    /* Accent glow — top right */
-    var glow1 = ctx.createRadialGradient(W - 80, 160, 40, W - 80, 160, 420);
-    glow1.addColorStop(0, 'rgba(37, 99, 235, 0.14)');
-    glow1.addColorStop(1, 'rgba(37, 99, 235, 0)');
-    ctx.fillStyle = glow1;
-    ctx.fillRect(0, 0, W, H);
-
-    /* Accent glow — bottom left */
-    var glow2 = ctx.createRadialGradient(160, H - 200, 30, 160, H - 200, 350);
-    glow2.addColorStop(0, 'rgba(37, 99, 235, 0.07)');
-    glow2.addColorStop(1, 'rgba(37, 99, 235, 0)');
-    ctx.fillStyle = glow2;
-    ctx.fillRect(0, 0, W, H);
+    /* We draw content first, then produce the final canvas at exact height */
+    /* Use a transparent background for now — final bg is drawn at the end */
+    ctx.clearRect(0, 0, W, BUFFER_H);
 
     /* Reusable accent line gradient */
-    var lineGrad = _gradient(ctx, PAD + 80, 0, W - PAD - 80, 0, [
+    var lineGrad = _gradient(ctx, PAD + 100, 0, W - PAD - 100, 0, [
       [0, 'rgba(37, 99, 235, 0)'],
-      [0.25, 'rgba(37, 99, 235, 0.4)'],
-      [0.75, 'rgba(37, 99, 235, 0.4)'],
+      [0.2, 'rgba(37, 99, 235, 0.35)'],
+      [0.8, 'rgba(37, 99, 235, 0.35)'],
       [1, 'rgba(37, 99, 235, 0)']
     ]);
 
-    var y = 72; /* running y cursor */
+    /* ── Spacing constants (consistent vertical rhythm) ── */
+    var SEC_GAP = 36;    /* between major sections */
+    var INNER_GAP = 14;  /* within a section */
+
+    var y = 56; /* top padding */
     ctx.textAlign = 'center';
 
-    /* ════════════════════════════════════
+    /* ════════════════════════════════
        SECTION 1 — BRAND HEADER
-       ════════════════════════════════════ */
+       ════════════════════════════════ */
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 44px ' + FONT;
+    ctx.font = 'bold 42px ' + FONT;
     ctx.fillText('QuantReflex', W / 2, y);
-    y += 36;
+    y += 30;
 
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
-    ctx.font = '22px ' + FONT;
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+    ctx.font = '20px ' + FONT;
     ctx.fillText('Competitive Aptitude Training', W / 2, y);
-    y += 40;
+    y += 28;
 
-    /* Thin divider */
+    /* Divider */
     ctx.strokeStyle = lineGrad;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(PAD + 80, y);
-    ctx.lineTo(W - PAD - 80, y);
+    ctx.moveTo(PAD + 100, y);
+    ctx.lineTo(W - PAD - 100, y);
     ctx.stroke();
-    y += 38;
+    y += SEC_GAP;
 
-    /* ════════════════════════════════════
+    /* ════════════════════════════════
        SECTION 2 — PLAYER IDENTITY
-       ════════════════════════════════════ */
+       ════════════════════════════════ */
     if (data.userName) {
       ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
-      ctx.font = '28px ' + FONT;
-      ctx.fillText(_truncate(ctx, data.userName, CW - 60), W / 2, y);
-      y += 16;
+      ctx.font = '26px ' + FONT;
+      ctx.fillText(_truncate(ctx, data.userName, CW - 80), W / 2, y);
+      y += INNER_GAP + 6;
     }
 
-    /* ════════════════════════════════════
-       SECTION 3 — PERFORMANCE LABEL (hero emphasis)
-       ════════════════════════════════════ */
+    /* ════════════════════════════════
+       SECTION 3 — PERFORMANCE LABEL + MODE PILL
+       ════════════════════════════════ */
     var perf = _getPerformanceLabel(data.accuracy, data.avgTime);
-    y += 28;
+    y += 16;
     ctx.fillStyle = '#3b82f6';
-    ctx.font = 'bold 34px ' + FONT;
+    ctx.font = 'bold 32px ' + FONT;
     ctx.fillText(perf.emoji + '  ' + perf.label, W / 2, y);
-    y += 18;
+    y += 30; /* equal breathing before pill */
 
     /* Mode + Difficulty pill */
     var modeText = (data.mode || 'Practice').toUpperCase();
     if (data.difficulty && data.difficulty !== 'medium') {
       modeText += '  ·  ' + data.difficulty.toUpperCase();
     }
-    ctx.font = '600 20px ' + FONT;
-    var pillW = ctx.measureText(modeText).width + 40;
-    y += 22;
-    _roundRect(ctx, (W - pillW) / 2, y - 17, pillW, 30, 15);
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.12)';
+    ctx.font = '600 18px ' + FONT;
+    var pillW = ctx.measureText(modeText).width + 36;
+    var pillH = 28;
+    _roundRect(ctx, (W - pillW) / 2, y - pillH / 2 - 2, pillW, pillH, pillH / 2);
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.22)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.fillStyle = 'rgba(147, 197, 253, 0.85)';
+    ctx.fillStyle = 'rgba(147, 197, 253, 0.8)';
     ctx.fillText(modeText, W / 2, y);
-    y += 38;
+    y += 30; /* equal breathing after pill */
 
-    /* ════════════════════════════════════
-       SECTION 4 — HERO SCORE (highest emphasis)
-       ════════════════════════════════════ */
+    /* ════════════════════════════════
+       SECTION 4 — HERO SCORE BLOCK
+       Grouped as one cohesive unit:
+       [  BIG %  ]
+       [ ACCURACY ]
+       [ X of Y correct ]
+       ════════════════════════════════ */
+
+    /* Big percentage — 120px bold */
     var accText = data.accuracy + '%';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 130px ' + FONT;
-    ctx.fillText(accText, W / 2, y + 100);
+    ctx.font = 'bold 120px ' + FONT;
+    /* For 120px font, ascent ≈ 90px. Place baseline so text is optically centered */
+    var scoreBL = y + 88;
+    ctx.fillText(accText, W / 2, scoreBL);
 
-    /* "ACCURACY" sub-label */
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
-    ctx.font = '600 22px ' + FONT;
-    ctx.letterSpacing = '0.12em';
-    ctx.fillText('ACCURACY', W / 2, y + 134);
-    ctx.letterSpacing = '0';
-    y += 158;
+    /* ACCURACY label — tight beneath */
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+    ctx.font = '600 20px ' + FONT;
+    ctx.fillText('A C C U R A C Y', W / 2, scoreBL + 28);
 
     /* Score fraction */
-    ctx.fillStyle = 'rgba(226, 232, 240, 0.5)';
-    ctx.font = '26px ' + FONT;
-    ctx.fillText(data.score + ' of ' + data.total + ' correct', W / 2, y);
-    y += 48;
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
+    ctx.font = '24px ' + FONT;
+    ctx.fillText(data.score + ' of ' + data.total + ' correct', W / 2, scoreBL + 56);
 
-    /* ════════════════════════════════════
-       SECTION 5 — STATS GRID (2×2 premium cards)
-       ════════════════════════════════════ */
+    y = scoreBL + 56 + SEC_GAP;
+
+    /* ════════════════════════════════
+       SECTION 5 — STATS GRID (2×2)
+       Cards with true vertical centering
+       ════════════════════════════════ */
     var stats = [
       { value: data.avgTime + 's', label: 'Avg Time' },
       { value: '' + data.streak,   label: 'Best Streak' },
@@ -260,10 +244,18 @@ var ShareService = (function () {
       { value: '' + data.total,    label: 'Questions' }
     ];
 
-    var colGap = 16;
-    var rowGap = 14;
+    var colGap = 14;
+    var rowGap = 12;
     var sCardW = Math.floor((CW - colGap) / 2);
-    var sCardH = 92;
+    var sCardH = 104; /* taller for proper breathing */
+
+    /* Vertical centering math:
+       Content block = value (36px ascent ~27) + 14px gap + label (18px ascent ~14) = ~55px
+       Top offset = (104 - 55) / 2 ≈ 24
+       Value baseline = 24 + 27 = 51
+       Label baseline = 51 + 14 + 14 = 79 */
+    var valOff = 50;
+    var lblOff = 78;
 
     for (var si = 0; si < stats.length; si++) {
       var col = si % 2;
@@ -272,156 +264,166 @@ var ShareService = (function () {
       var sy = y + row * (sCardH + rowGap);
 
       /* Card bg */
-      _roundRect(ctx, sx, sy, sCardW, sCardH, 14);
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.5)';
+      _roundRect(ctx, sx, sy, sCardW, sCardH, 16);
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.45)';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      /* Value */
+      /* Value — centered */
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 38px ' + FONT;
-      ctx.fillText(stats[si].value, sx + sCardW / 2, sy + 42);
+      ctx.font = 'bold 36px ' + FONT;
+      ctx.fillText(stats[si].value, sx + sCardW / 2, sy + valOff);
 
-      /* Label */
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
-      ctx.font = '20px ' + FONT;
-      ctx.fillText(stats[si].label, sx + sCardW / 2, sy + 72);
+      /* Label — centered */
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+      ctx.font = '18px ' + FONT;
+      ctx.fillText(stats[si].label, sx + sCardW / 2, sy + lblOff);
     }
-    y += (sCardH * 2) + rowGap + 40;
+    y += (sCardH * 2) + rowGap + SEC_GAP;
 
-    /* ════════════════════════════════════
-       SECTION 6 — SPEED BENCHMARK (compact, integrated)
-       ════════════════════════════════════ */
+    /* ════════════════════════════════
+       SECTION 6 — SPEED BENCHMARK
+       Narrower width, visually integrated
+       ════════════════════════════════ */
     if (data.percentile > 0) {
-      var benchH = 64;
-      _roundRect(ctx, PAD, y, CW, benchH, 14);
-      var benchGrad = _gradient(ctx, PAD, y, PAD + CW, y, [
-        [0, 'rgba(37, 99, 235, 0.10)'],
+      var benchW = Math.min(CW, 720); /* narrower than full width */
+      var benchX = (W - benchW) / 2;
+      var benchH = 56;
+      _roundRect(ctx, benchX, y, benchW, benchH, 14);
+      var benchGrad = _gradient(ctx, benchX, y, benchX + benchW, y, [
+        [0, 'rgba(37, 99, 235, 0.08)'],
         [1, 'rgba(37, 99, 235, 0.03)']
       ]);
       ctx.fillStyle = benchGrad;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(37, 99, 235, 0.18)';
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.15)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#93c5fd';
-      ctx.font = 'bold 28px ' + FONT;
-      ctx.fillText('⚡ Faster than ' + data.percentile + '% of users', W / 2, y + 40);
-      y += benchH + 32;
+      ctx.font = 'bold 24px ' + FONT;
+      ctx.fillText('⚡ Faster than ' + data.percentile + '% of users', W / 2, y + 35);
+      y += benchH + SEC_GAP - 8;
     }
 
-    /* ════════════════════════════════════
+    /* ════════════════════════════════
        SECTION 7 — TOPIC CHIPS
-       ════════════════════════════════════ */
+       ════════════════════════════════ */
     if (data.topics && data.topics.length > 0) {
-      ctx.font = '20px ' + FONT;
-      /* Render as centered pill chips */
+      ctx.font = '18px ' + FONT;
       var chipTexts = data.topics.slice(0, 5);
-      var chipPad = 24;
-      var chipGap = 10;
-      var chipH = 32;
+      var chipPadH = 20;
+      var chipGap = 8;
+      var chipH = 30;
 
-      /* Calculate total width of chips to center them */
+      /* Measure chip widths */
       var totalChipW = 0;
       var chipWidths = [];
       for (var ci = 0; ci < chipTexts.length; ci++) {
-        var cw = ctx.measureText(chipTexts[ci]).width + chipPad * 2;
+        var cw = ctx.measureText(chipTexts[ci]).width + chipPadH * 2;
         chipWidths.push(cw);
         totalChipW += cw + (ci > 0 ? chipGap : 0);
       }
 
-      /* If too wide, truncate to 3 + "more" */
+      /* Overflow: truncate to 3 + count */
       if (totalChipW > CW) {
         chipTexts = data.topics.slice(0, 3);
         if (data.topics.length > 3) chipTexts.push('+' + (data.topics.length - 3));
         totalChipW = 0;
         chipWidths = [];
         for (var cj = 0; cj < chipTexts.length; cj++) {
-          var cw2 = ctx.measureText(chipTexts[cj]).width + chipPad * 2;
+          var cw2 = ctx.measureText(chipTexts[cj]).width + chipPadH * 2;
           chipWidths.push(cw2);
           totalChipW += cw2 + (cj > 0 ? chipGap : 0);
         }
       }
 
-      var chipStartX = (W - totalChipW) / 2;
-      var chipX = chipStartX;
+      var chipX = (W - totalChipW) / 2;
       for (var ck = 0; ck < chipTexts.length; ck++) {
         _roundRect(ctx, chipX, y, chipWidths[ck], chipH, chipH / 2);
-        ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(37, 99, 235, 0.20)';
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.16)';
         ctx.lineWidth = 1;
         ctx.stroke();
 
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(147, 197, 253, 0.7)';
-        ctx.font = '20px ' + FONT;
-        ctx.fillText(chipTexts[ck], chipX + chipWidths[ck] / 2, y + 22);
+        ctx.fillStyle = 'rgba(147, 197, 253, 0.6)';
+        ctx.font = '18px ' + FONT;
+        ctx.fillText(chipTexts[ck], chipX + chipWidths[ck] / 2, y + 20);
 
         chipX += chipWidths[ck] + chipGap;
       }
-      y += chipH + 32;
+      y += chipH + SEC_GAP - 6;
     }
 
-    /* ════════════════════════════════════
-       SECTION 8 — MOTIVATIONAL TAGLINE
-       ════════════════════════════════════ */
-    y += 8;
+    /* ════════════════════════════════
+       SECTION 8 — FOOTER GROUP
+       Tagline + divider + URL as one unit
+       ════════════════════════════════ */
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
-    ctx.font = 'italic 24px ' + FONT;
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+    ctx.font = 'italic 22px ' + FONT;
     ctx.fillText('"' + _getRandomTagline() + '"', W / 2, y);
-    y += 44;
+    y += 28;
 
-    /* ════════════════════════════════════
-       SECTION 9 — FOOTER
-       ════════════════════════════════════ */
     /* Bottom divider */
     ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(PAD + 80, y);
-    ctx.lineTo(W - PAD - 80, y);
+    ctx.moveTo(PAD + 100, y);
+    ctx.lineTo(W - PAD - 100, y);
     ctx.stroke();
-    y += 34;
+    y += 28;
 
     /* URL */
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
-    ctx.font = '22px ' + FONT;
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.font = '20px ' + FONT;
     ctx.fillText('www.quantreflex.app', W / 2, y);
-    y += 48;
+    y += 44; /* bottom padding */
 
-    /* ---- Trim canvas to actual content height ---- */
-    var finalH = Math.max(y, 1280);
-    if (finalH < H) {
-      /* Re-render at exact content height for zero dead space */
-      var trimmed = document.createElement('canvas');
-      trimmed.width = W;
-      trimmed.height = finalH;
-      var tctx = trimmed.getContext('2d');
-      if (tctx) {
-        tctx.drawImage(canvas, 0, 0, W, finalH, 0, 0, W, finalH);
-        /* Re-draw background to fill properly */
-        tctx.globalCompositeOperation = 'destination-over';
-        var tbg = _gradient(tctx, 0, 0, 0, finalH, [
-          [0, '#080c18'],
-          [0.35, '#0c1225'],
-          [0.65, '#0e1630'],
-          [1, '#080c18']
-        ]);
-        tctx.fillStyle = tbg;
-        tctx.fillRect(0, 0, W, finalH);
-        tctx.globalCompositeOperation = 'source-over';
-        return trimmed;
-      }
-    }
+    /* ════════════════════════════════
+       FINAL — Produce trimmed canvas
+       Background, glows, and content at exact height
+       ════════════════════════════════ */
+    var finalH = y;
+    var out = document.createElement('canvas');
+    out.width = W;
+    out.height = finalH;
+    var oc = out.getContext('2d');
+    if (!oc) return canvas;
 
-    return canvas;
+    /* 1. Background gradient at exact final height */
+    var bgGrad = _gradient(oc, 0, 0, 0, finalH, [
+      [0, '#080c18'],
+      [0.35, '#0c1225'],
+      [0.65, '#0e1630'],
+      [1, '#080c18']
+    ]);
+    oc.fillStyle = bgGrad;
+    oc.fillRect(0, 0, W, finalH);
+
+    /* 2. Accent glows positioned relative to final height */
+    var g1 = oc.createRadialGradient(W - 80, 140, 30, W - 80, 140, 380);
+    g1.addColorStop(0, 'rgba(37, 99, 235, 0.12)');
+    g1.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    oc.fillStyle = g1;
+    oc.fillRect(0, 0, W, finalH);
+
+    var g2 = oc.createRadialGradient(140, finalH - 160, 20, 140, finalH - 160, 300);
+    g2.addColorStop(0, 'rgba(37, 99, 235, 0.06)');
+    g2.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    oc.fillStyle = g2;
+    oc.fillRect(0, 0, W, finalH);
+
+    /* 3. Composite content on top */
+    oc.drawImage(canvas, 0, 0, W, finalH, 0, 0, W, finalH);
+
+    return out;
   }
 
   /* ---- Share Preview Modal ---- */
