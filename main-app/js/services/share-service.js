@@ -113,212 +113,313 @@ var ShareService = (function () {
    * @returns {HTMLCanvasElement}
    */
   function _generateCard(data) {
-    var W = 1080, H = 1920;
+    var W = 1080;
+    var PAD = 72;
+    var CW = W - PAD * 2;
+    var FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
+
+    /* ---- Pre-calculate dynamic height ---- */
+    /* Base content = ~1150px. Add conditionals for benchmark, topics, username. */
+    var estH = 980;
+    if (data.userName) estH += 48;
+    if (data.percentile > 0) estH += 100;
+    if (data.topics && data.topics.length > 0) estH += 60;
+    /* Clamp to sensible portrait range */
+    var H = Math.max(1280, Math.min(1600, estH + 260));
+
     var canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     var ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    var PAD = 80;           /* side padding */
-    var CW = W - PAD * 2;  /* content width */
-
     /* ---- Background ---- */
     var bgGrad = _gradient(ctx, 0, 0, 0, H, [
-      [0, '#0a0e1a'],
-      [0.3, '#0d1429'],
-      [0.7, '#0f1a35'],
-      [1, '#0a0e1a']
+      [0, '#080c18'],
+      [0.35, '#0c1225'],
+      [0.65, '#0e1630'],
+      [1, '#080c18']
     ]);
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    /* Subtle accent glow — top right */
-    var glowGrad = ctx.createRadialGradient(W - 100, 200, 50, W - 100, 200, 500);
-    glowGrad.addColorStop(0, 'rgba(37, 99, 235, 0.15)');
-    glowGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
-    ctx.fillStyle = glowGrad;
+    /* Accent glow — top right */
+    var glow1 = ctx.createRadialGradient(W - 80, 160, 40, W - 80, 160, 420);
+    glow1.addColorStop(0, 'rgba(37, 99, 235, 0.14)');
+    glow1.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, W, H);
 
-    /* Bottom accent glow */
-    var glowBot = ctx.createRadialGradient(200, H - 300, 50, 200, H - 300, 450);
-    glowBot.addColorStop(0, 'rgba(37, 99, 235, 0.08)');
-    glowBot.addColorStop(1, 'rgba(37, 99, 235, 0)');
-    ctx.fillStyle = glowBot;
+    /* Accent glow — bottom left */
+    var glow2 = ctx.createRadialGradient(160, H - 200, 30, 160, H - 200, 350);
+    glow2.addColorStop(0, 'rgba(37, 99, 235, 0.07)');
+    glow2.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = glow2;
     ctx.fillRect(0, 0, W, H);
 
-    var y = 100; /* running y cursor */
-
-    /* ---- Brand Header ---- */
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 52px "Segoe UI", system-ui, -apple-system, sans-serif';
-    ctx.fillText('QuantReflex', W / 2, y);
-    y += 44;
-
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-    ctx.font = '28px "Segoe UI", system-ui, -apple-system, sans-serif';
-    ctx.fillText('Competitive Aptitude Training', W / 2, y);
-    y += 70;
-
-    /* ---- Thin accent line ---- */
-    var lineGrad = _gradient(ctx, PAD + 100, 0, W - PAD - 100, 0, [
+    /* Reusable accent line gradient */
+    var lineGrad = _gradient(ctx, PAD + 80, 0, W - PAD - 80, 0, [
       [0, 'rgba(37, 99, 235, 0)'],
-      [0.3, 'rgba(37, 99, 235, 0.5)'],
-      [0.7, 'rgba(37, 99, 235, 0.5)'],
+      [0.25, 'rgba(37, 99, 235, 0.4)'],
+      [0.75, 'rgba(37, 99, 235, 0.4)'],
       [1, 'rgba(37, 99, 235, 0)']
     ]);
-    ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(PAD + 100, y);
-    ctx.lineTo(W - PAD - 100, y);
-    ctx.stroke();
-    y += 50;
 
-    /* ---- User Name ---- */
+    var y = 72; /* running y cursor */
+    ctx.textAlign = 'center';
+
+    /* ════════════════════════════════════
+       SECTION 1 — BRAND HEADER
+       ════════════════════════════════════ */
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 44px ' + FONT;
+    ctx.fillText('QuantReflex', W / 2, y);
+    y += 36;
+
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+    ctx.font = '22px ' + FONT;
+    ctx.fillText('Competitive Aptitude Training', W / 2, y);
+    y += 40;
+
+    /* Thin divider */
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(PAD + 80, y);
+    ctx.lineTo(W - PAD - 80, y);
+    ctx.stroke();
+    y += 38;
+
+    /* ════════════════════════════════════
+       SECTION 2 — PLAYER IDENTITY
+       ════════════════════════════════════ */
     if (data.userName) {
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.9)';
-      ctx.font = '32px "Segoe UI", system-ui, -apple-system, sans-serif';
-      ctx.fillText(_truncate(ctx, data.userName, CW - 40), W / 2, y);
-      y += 50;
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
+      ctx.font = '28px ' + FONT;
+      ctx.fillText(_truncate(ctx, data.userName, CW - 60), W / 2, y);
+      y += 16;
     }
 
-    /* ---- Performance Label ---- */
+    /* ════════════════════════════════════
+       SECTION 3 — PERFORMANCE LABEL (hero emphasis)
+       ════════════════════════════════════ */
     var perf = _getPerformanceLabel(data.accuracy, data.avgTime);
-    ctx.fillStyle = '#2563eb';
-    ctx.font = 'bold 36px "Segoe UI", system-ui, -apple-system, sans-serif';
-    ctx.fillText(perf.emoji + ' ' + perf.label, W / 2, y);
-    y += 55;
+    y += 28;
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = 'bold 34px ' + FONT;
+    ctx.fillText(perf.emoji + '  ' + perf.label, W / 2, y);
+    y += 18;
 
-    /* ---- Mode + Difficulty Badge ---- */
+    /* Mode + Difficulty pill */
     var modeText = (data.mode || 'Practice').toUpperCase();
     if (data.difficulty && data.difficulty !== 'medium') {
       modeText += '  ·  ' + data.difficulty.toUpperCase();
     }
-    ctx.font = '600 26px "Segoe UI", system-ui, -apple-system, sans-serif';
-    var modeWidth = ctx.measureText(modeText).width + 48;
-    _roundRect(ctx, (W - modeWidth) / 2, y - 24, modeWidth, 40, 20);
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.15)';
+    ctx.font = '600 20px ' + FONT;
+    var pillW = ctx.measureText(modeText).width + 40;
+    y += 22;
+    _roundRect(ctx, (W - pillW) / 2, y - 17, pillW, 30, 15);
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.12)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(37, 99, 235, 0.3)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+    ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.fillStyle = 'rgba(147, 197, 253, 0.9)';
+    ctx.fillStyle = 'rgba(147, 197, 253, 0.85)';
     ctx.fillText(modeText, W / 2, y);
-    y += 70;
+    y += 38;
 
-    /* ---- Hero Score ---- */
-    var scoreText = data.accuracy + '%';
+    /* ════════════════════════════════════
+       SECTION 4 — HERO SCORE (highest emphasis)
+       ════════════════════════════════════ */
+    var accText = data.accuracy + '%';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 160px "Segoe UI", system-ui, -apple-system, sans-serif';
-    ctx.fillText(scoreText, W / 2, y + 120);
-    y += 140;
+    ctx.font = 'bold 130px ' + FONT;
+    ctx.fillText(accText, W / 2, y + 100);
 
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-    ctx.font = '32px "Segoe UI", system-ui, -apple-system, sans-serif';
-    ctx.fillText('ACCURACY', W / 2, y + 20);
-    y += 80;
+    /* "ACCURACY" sub-label */
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+    ctx.font = '600 22px ' + FONT;
+    ctx.letterSpacing = '0.12em';
+    ctx.fillText('ACCURACY', W / 2, y + 134);
+    ctx.letterSpacing = '0';
+    y += 158;
 
-    /* ---- Score sub-line ---- */
-    ctx.fillStyle = 'rgba(226, 232, 240, 0.6)';
-    ctx.font = '30px "Segoe UI", system-ui, -apple-system, sans-serif';
+    /* Score fraction */
+    ctx.fillStyle = 'rgba(226, 232, 240, 0.5)';
+    ctx.font = '26px ' + FONT;
     ctx.fillText(data.score + ' of ' + data.total + ' correct', W / 2, y);
-    y += 70;
+    y += 48;
 
-    /* ---- Stats Cards Row ---- */
+    /* ════════════════════════════════════
+       SECTION 5 — STATS GRID (2×2 premium cards)
+       ════════════════════════════════════ */
     var stats = [
       { value: data.avgTime + 's', label: 'Avg Time' },
-      { value: data.streak + '', label: 'Best Streak' },
-      { value: data.totalTime + 's', label: 'Total Time' }
+      { value: '' + data.streak,   label: 'Best Streak' },
+      { value: data.totalTime + 's', label: 'Total Time' },
+      { value: '' + data.total,    label: 'Questions' }
     ];
 
-    var cardW = Math.floor((CW - 40) / 3);
-    var cardH = 120;
-    var cardX = PAD;
+    var colGap = 16;
+    var rowGap = 14;
+    var sCardW = Math.floor((CW - colGap) / 2);
+    var sCardH = 92;
 
-    for (var s = 0; s < stats.length; s++) {
-      var cx = cardX + s * (cardW + 20);
+    for (var si = 0; si < stats.length; si++) {
+      var col = si % 2;
+      var row = Math.floor(si / 2);
+      var sx = PAD + col * (sCardW + colGap);
+      var sy = y + row * (sCardH + rowGap);
 
-      /* Card background */
-      _roundRect(ctx, cx, y, cardW, cardH, 16);
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.6)';
+      /* Card bg */
+      _roundRect(ctx, sx, sy, sCardW, sCardH, 14);
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.5)';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
       /* Value */
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 40px "Segoe UI", system-ui, -apple-system, sans-serif';
-      ctx.fillText(stats[s].value, cx + cardW / 2, y + 52);
+      ctx.font = 'bold 38px ' + FONT;
+      ctx.fillText(stats[si].value, sx + sCardW / 2, sy + 42);
 
       /* Label */
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-      ctx.font = '22px "Segoe UI", system-ui, -apple-system, sans-serif';
-      ctx.fillText(stats[s].label, cx + cardW / 2, y + 88);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.font = '20px ' + FONT;
+      ctx.fillText(stats[si].label, sx + sCardW / 2, sy + 72);
     }
-    y += cardH + 50;
+    y += (sCardH * 2) + rowGap + 40;
 
-    /* ---- Speed Benchmark ---- */
+    /* ════════════════════════════════════
+       SECTION 6 — SPEED BENCHMARK (compact, integrated)
+       ════════════════════════════════════ */
     if (data.percentile > 0) {
-      _roundRect(ctx, PAD, y, CW, 110, 20);
+      var benchH = 64;
+      _roundRect(ctx, PAD, y, CW, benchH, 14);
       var benchGrad = _gradient(ctx, PAD, y, PAD + CW, y, [
-        [0, 'rgba(37, 99, 235, 0.12)'],
-        [1, 'rgba(37, 99, 235, 0.04)']
+        [0, 'rgba(37, 99, 235, 0.10)'],
+        [1, 'rgba(37, 99, 235, 0.03)']
       ]);
       ctx.fillStyle = benchGrad;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(37, 99, 235, 0.2)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.18)';
+      ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#93c5fd';
-      ctx.font = 'bold 34px "Segoe UI", system-ui, -apple-system, sans-serif';
-      ctx.fillText('⚡ Faster than ' + data.percentile + '% of users', W / 2, y + 48);
-
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
-      ctx.font = '24px "Segoe UI", system-ui, -apple-system, sans-serif';
-      ctx.fillText('Speed Benchmark', W / 2, y + 84);
-      y += 140;
+      ctx.font = 'bold 28px ' + FONT;
+      ctx.fillText('⚡ Faster than ' + data.percentile + '% of users', W / 2, y + 40);
+      y += benchH + 32;
     }
 
-    /* ---- Topics ---- */
-    if (data.topics && data.topics.length > 0 && data.topics.length <= 6) {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
-      ctx.font = '24px "Segoe UI", system-ui, -apple-system, sans-serif';
-      var topicStr = data.topics.join('  ·  ');
-      if (ctx.measureText(topicStr).width > CW - 40) {
-        topicStr = data.topics.slice(0, 3).join('  ·  ') + '  +' + (data.topics.length - 3) + ' more';
+    /* ════════════════════════════════════
+       SECTION 7 — TOPIC CHIPS
+       ════════════════════════════════════ */
+    if (data.topics && data.topics.length > 0) {
+      ctx.font = '20px ' + FONT;
+      /* Render as centered pill chips */
+      var chipTexts = data.topics.slice(0, 5);
+      var chipPad = 24;
+      var chipGap = 10;
+      var chipH = 32;
+
+      /* Calculate total width of chips to center them */
+      var totalChipW = 0;
+      var chipWidths = [];
+      for (var ci = 0; ci < chipTexts.length; ci++) {
+        var cw = ctx.measureText(chipTexts[ci]).width + chipPad * 2;
+        chipWidths.push(cw);
+        totalChipW += cw + (ci > 0 ? chipGap : 0);
       }
-      ctx.fillText(_truncate(ctx, topicStr, CW - 40), W / 2, y + 10);
-      y += 50;
+
+      /* If too wide, truncate to 3 + "more" */
+      if (totalChipW > CW) {
+        chipTexts = data.topics.slice(0, 3);
+        if (data.topics.length > 3) chipTexts.push('+' + (data.topics.length - 3));
+        totalChipW = 0;
+        chipWidths = [];
+        for (var cj = 0; cj < chipTexts.length; cj++) {
+          var cw2 = ctx.measureText(chipTexts[cj]).width + chipPad * 2;
+          chipWidths.push(cw2);
+          totalChipW += cw2 + (cj > 0 ? chipGap : 0);
+        }
+      }
+
+      var chipStartX = (W - totalChipW) / 2;
+      var chipX = chipStartX;
+      for (var ck = 0; ck < chipTexts.length; ck++) {
+        _roundRect(ctx, chipX, y, chipWidths[ck], chipH, chipH / 2);
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.20)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(147, 197, 253, 0.7)';
+        ctx.font = '20px ' + FONT;
+        ctx.fillText(chipTexts[ck], chipX + chipWidths[ck] / 2, y + 22);
+
+        chipX += chipWidths[ck] + chipGap;
+      }
+      y += chipH + 32;
     }
 
-    /* ---- Tagline ---- */
-    y = Math.max(y, H - 240);
+    /* ════════════════════════════════════
+       SECTION 8 — MOTIVATIONAL TAGLINE
+       ════════════════════════════════════ */
+    y += 8;
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
-    ctx.font = 'italic 28px "Segoe UI", system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+    ctx.font = 'italic 24px ' + FONT;
     ctx.fillText('"' + _getRandomTagline() + '"', W / 2, y);
-    y += 60;
+    y += 44;
 
-    /* ---- Bottom accent line ---- */
+    /* ════════════════════════════════════
+       SECTION 9 — FOOTER
+       ════════════════════════════════════ */
+    /* Bottom divider */
     ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(PAD + 100, y);
-    ctx.lineTo(W - PAD - 100, y);
+    ctx.moveTo(PAD + 80, y);
+    ctx.lineTo(W - PAD - 80, y);
     ctx.stroke();
-    y += 45;
+    y += 34;
 
-    /* ---- Footer Branding ---- */
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
-    ctx.font = '26px "Segoe UI", system-ui, -apple-system, sans-serif';
+    /* URL */
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+    ctx.font = '22px ' + FONT;
     ctx.fillText('www.quantreflex.app', W / 2, y);
+    y += 48;
+
+    /* ---- Trim canvas to actual content height ---- */
+    var finalH = Math.max(y, 1280);
+    if (finalH < H) {
+      /* Re-render at exact content height for zero dead space */
+      var trimmed = document.createElement('canvas');
+      trimmed.width = W;
+      trimmed.height = finalH;
+      var tctx = trimmed.getContext('2d');
+      if (tctx) {
+        tctx.drawImage(canvas, 0, 0, W, finalH, 0, 0, W, finalH);
+        /* Re-draw background to fill properly */
+        tctx.globalCompositeOperation = 'destination-over';
+        var tbg = _gradient(tctx, 0, 0, 0, finalH, [
+          [0, '#080c18'],
+          [0.35, '#0c1225'],
+          [0.65, '#0e1630'],
+          [1, '#080c18']
+        ]);
+        tctx.fillStyle = tbg;
+        tctx.fillRect(0, 0, W, finalH);
+        tctx.globalCompositeOperation = 'source-over';
+        return trimmed;
+      }
+    }
 
     return canvas;
   }
