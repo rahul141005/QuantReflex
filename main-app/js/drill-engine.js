@@ -119,8 +119,8 @@ function createDrillEngine(container, opts) {
       '<div class="card center-content">' +
         '<h2>' + mode + '</h2>' +
         '<p>' + subtitle + '</p>' +
-        '<button id="startBtn" class="btn accent">START</button>' +
-        '<button id="startBackBtn" class="btn">← Back</button>' +
+        '<button id="startBtn" class="btn accent">Begin Challenge</button>' +
+        '<button id="startBackBtn" class="btn">← Back to Modes</button>' +
       '</div>';
     hideCustomNumpad();
     _exitDrillSession();
@@ -422,7 +422,7 @@ function createDrillEngine(container, opts) {
 
     /* Replace submit with next */
     var submitBtn = ui.submitBtnEl;
-    submitBtn.textContent = current + 1 < count ? 'Next →' : 'See Results';
+    submitBtn.textContent = current + 1 < count ? 'Next →' : 'View Results';
     /* Block next-question for 350ms to prevent carry-over numpad taps */
     _nextReady = false;
     var _nextGuardTimer = setTimeout(function () {
@@ -513,8 +513,8 @@ function createDrillEngine(container, opts) {
     return ScoringService.getAutoTip(cat, subtype);
   }
 
-  function _shareAsImage(accuracy, avg, percentile) {
-    ShareService.shareAsImage(accuracy, avg, percentile);
+  function _shareAsImage(shareData) {
+    ShareService.shareAsImage(shareData);
   }
 
   function _shareTextFallback(accuracy, percentile) {
@@ -583,10 +583,10 @@ function createDrillEngine(container, opts) {
 
     /* Performance badge */
     var badgeText, badgeClass;
-    if (accNum >= 90) { badgeText = '🏆 Excellent'; badgeClass = 'badge-excellent'; }
-    else if (accNum >= 75) { badgeText = '👍 Good'; badgeClass = 'badge-good'; }
-    else if (accNum >= 50) { badgeText = '📝 Needs Practice'; badgeClass = 'badge-practice'; }
-    else { badgeText = '💪 Keep Trying'; badgeClass = 'badge-weak'; }
+    if (accNum >= 90) { badgeText = '🏆 Outstanding Performance'; badgeClass = 'badge-excellent'; }
+    else if (accNum >= 75) { badgeText = '💎 Strong Performance'; badgeClass = 'badge-good'; }
+    else if (accNum >= 50) { badgeText = '📈 Building Momentum'; badgeClass = 'badge-practice'; }
+    else { badgeText = '🌱 Growth in Progress'; badgeClass = 'badge-weak'; }
 
     /* Rule-based post-session insight (always visible, no AI call) */
     var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
@@ -594,10 +594,55 @@ function createDrillEngine(container, opts) {
     /* Activate fullscreen scrollable results mode on the container */
     container.classList.add('drill-results-active');
 
+    /* Resolve user display name for share card */
+    var _shareUserName = '';
+    try {
+      if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
+        var _cache = FirestoreSync._getCache();
+        if (_cache && _cache.profile && _cache.profile.name) {
+          _shareUserName = String(_cache.profile.name).trim();
+        }
+      }
+    } catch (_) {}
+
+    /* Resolve topics for share card */
+    var _shareTopics = [];
+    if (topics && topics.length) {
+      for (var ti = 0; ti < Math.min(topics.length, 6); ti++) {
+        var _tLabel = (typeof formatCategoryName === 'function') ? formatCategoryName(topics[ti]) : topics[ti];
+        _shareTopics.push(_tLabel);
+      }
+    } else if (category) {
+      var _cLabel = (typeof formatCategoryName === 'function') ? formatCategoryName(category) : category;
+      _shareTopics.push(_cLabel);
+    }
+
+    /* Resolve difficulty label */
+    var _shareDifficulty = 'medium';
+    try {
+      var _sett = (typeof loadSettings === 'function') ? loadSettings() : {};
+      _shareDifficulty = _sett.difficulty || 'medium';
+    } catch (_) {}
+
+    /* Build share data object for the new ShareService API */
+    var _shareData = {
+      accuracy: accuracy,
+      avgTime: avg,
+      percentile: percentile,
+      score: score,
+      total: count,
+      streak: bestSessionStreak,
+      mode: mode,
+      difficulty: _shareDifficulty,
+      totalTime: totalTime,
+      userName: _shareUserName,
+      topics: _shareTopics
+    };
+
     container.innerHTML =
       '<div class="card center-content fade-in">' +
-        '<h2>Results</h2>' +
-        (isNewBest ? '<div class="new-best-badge">🎉 New Best!</div>' : '') +
+        '<h2>Session Complete</h2>' +
+        (isNewBest ? '<div class="new-best-badge">🎉 New Personal Best!</div>' : '') +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
         '<div class="session-insight-card">' + _escHtml(_insightText) + '</div>' +
         '<div class="results-grid">' +
@@ -634,9 +679,9 @@ function createDrillEngine(container, opts) {
             '<div class="benchmark-ai-placeholder" id="benchmarkAiPlaceholder"></div>' +
           '</div>' +
         '</div>' +
-        '<button class="btn results-share-btn" type="button" id="shareResultBtn">\uD83D\uDCE4 Share Result</button>' +
-        '<button class="btn accent" id="tryAgainBtn">Try Again</button>' +
-        '<button class="btn" id="homeBtn">Home</button>' +
+        '<button class="btn accent results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
+        '<button class="btn accent" id="tryAgainBtn">Challenge Again</button>' +
+        '<button class="btn" id="homeBtn">Back to Home</button>' +
       '</div>';
 
     container.querySelector('#tryAgainBtn').addEventListener('click', function () {
@@ -653,11 +698,11 @@ function createDrillEngine(container, opts) {
         Router.showView('home');
       }
     });
-    /* Share button — generates a PNG image card and shares it */
+    /* Share button — opens premium share card preview */
     var shareBtn = container.querySelector('#shareResultBtn');
     if (shareBtn) {
       shareBtn.addEventListener('click', function () {
-        _shareAsImage(accuracy, avg, percentile);
+        _shareAsImage(_shareData);
       });
     }
 
@@ -690,8 +735,8 @@ function createDrillEngine(container, opts) {
             var _banner = document.createElement('div');
             _banner.className = 'session-upgrade-banner';
             _banner.innerHTML =
-              '<span class="session-upgrade-text">Enjoying the app? Unlock all features.</span>' +
-              '<button class="session-upgrade-btn" type="button">Upgrade</button>' +
+              '<span class="session-upgrade-text">Ready for the next level? Unlock your full potential.</span>' +
+              '<button class="session-upgrade-btn" type="button">Go Premium</button>' +
               '<button class="session-upgrade-dismiss" type="button" aria-label="Dismiss">×</button>';
             _banner.querySelector('.session-upgrade-btn').addEventListener('click', function () {
               if (typeof showPaywall === 'function') showPaywall('upgrade');
@@ -844,9 +889,9 @@ function createDrillEngine(container, opts) {
         }
         container.innerHTML =
           '<div class="card center-content">' +
-            '<h2>No Mistakes to Review</h2>' +
-            '<p class="secondary-text">Great job! You have no wrong answers to review.</p>' +
-            '<button class="btn accent" id="backToPractice">Back to Practice</button>' +
+            '<h2>All Caught Up!</h2>' +
+            '<p class="secondary-text">Impressive — you\'ve mastered all your previous mistakes.</p>' +
+            '<button class="btn accent" id="backToPractice">Continue Training</button>' +
           '</div>';
         container.querySelector('#backToPractice').addEventListener('click', function () {
           Router.showView('practice');

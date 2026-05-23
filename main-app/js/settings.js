@@ -186,7 +186,7 @@ function initSettingsView() {
       if (toggle.checked && settings.difficulty === 'hard') {
         /* Revert toggle immediately */
         toggle.checked = false;
-        showToast('Skip is disabled in Hard mode to maintain challenge.');
+        showToast('Skip is unavailable in Hard mode for maximum challenge.');
         return;
       }
       settings.skipEnabled = toggle.checked;
@@ -208,7 +208,7 @@ function initSettingsView() {
       settings.skipEnabled = false;
       var st = document.getElementById('skipToggle');
       if (st) st.checked = false;
-      showToast('Skip is disabled in Hard mode to maintain challenge.');
+      showToast('Skip is unavailable in Hard mode for maximum challenge.');
     }
     saveSettings(settings);
     SoundEngine.play('settingsToggle');
@@ -425,7 +425,7 @@ function updateAboutUserStatus() {
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
     ? (FirestoreSync.getAccessState() || {})
     : {};
-  var message = 'Free user';
+  var message = 'Free Plan';
   if (accessState.isPremiumPlus === true) {
     var planLabel = accessState.premiumPlusPlan === 'plus_yearly' ? '1 Year' : '6 Month';
     var expiryStr = '';
@@ -447,7 +447,7 @@ function updateAboutUserStatus() {
     }
     message = '✨ Premium+ (' + planLabel + ')' + expiryStr;
   } else if (accessState.hasPaid === true) {
-    message = '💙 Thank you for upgrading to premium.';
+    message = '💎 Premium — All features unlocked';
   } else if (accessState.isTrial === true) {
     var trialExpStr = '';
     if (accessState.trialEnd) {
@@ -466,7 +466,7 @@ function updateAboutUserStatus() {
         trialExpStr = ' (Expires on: ' + formatter.format(d) + ')';
       }
     }
-    message = '⏳ You are on a premium trial' + trialExpStr + '.';
+    message = '⏳ Premium Trial Active' + trialExpStr + '';
   }
   if (statusEl) {
     statusEl.textContent = message;
@@ -555,7 +555,7 @@ function openClearConfirmModal(type) {
         progress.lastPracticeDate = null;
         saveProgress(progress);
       } catch (_) {}
-      showToast('Streaks cleared successfully.');
+      showToast('Streak data has been reset.');
       if (typeof Router !== 'undefined') {
         Router.showView('settings');
       }
@@ -569,14 +569,14 @@ function openClearConfirmModal(type) {
         } else {
           if (type === 'stats') {
             /* Stats only — re-render settings view without reload */
-            showToast('Statistics cleared successfully.');
+            showToast('Performance statistics have been reset.');
             if (typeof Router !== 'undefined') {
               Router.showView('settings');
             }
           } else {
             /* Formulas or all — reload page for clean DOM state.
                Auth persistence keeps the user logged in. */
-            showToast('Data cleared successfully.');
+            showToast('App data has been cleared.');
             setTimeout(function () { window.location.reload(); }, 500);
           }
         }
@@ -623,12 +623,12 @@ function openClearConfirmModal(type) {
         }
       }
       if (type === 'stats') {
-        showToast('Statistics cleared successfully.');
+        showToast('Performance statistics have been reset.');
         if (typeof Router !== 'undefined') {
           Router.showView('settings');
         }
       } else {
-        showToast('Data cleared successfully.');
+        showToast('App data has been cleared.');
         setTimeout(function () { window.location.reload(); }, 500);
       }
     }
@@ -692,7 +692,7 @@ function openProfileModal() {
     /* Update name in Firestore */
     if (newName && typeof FirestoreSync !== 'undefined') {
       FirestoreSync.updateProfileName(newName);
-      showToast('Profile updated.');
+      showToast('Profile saved successfully.');
     }
 
     closeModal();
@@ -724,7 +724,7 @@ function openDeleteAccountModal() {
   confirmBtn.onclick = function () {
     closeModal();
     if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
-      showToast('Unable to delete account. Not logged in.');
+      showToast('Sign in to manage your account.');
       return;
     }
 
@@ -755,7 +755,7 @@ function openDeleteAccountModal() {
         _clearAllLocalData();
         window.location.reload();
       }).catch(function (err) {
-        showToast('Account deletion failed: ' + err.message);
+        showToast('Unable to delete account: ' + err.message);
       });
     }
 

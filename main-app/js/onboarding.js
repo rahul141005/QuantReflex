@@ -296,10 +296,10 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-1">⚡</span>' +
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">✨</span>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Sharpen. Compete. Master.</h2>' +
-      '<p class="onboarding-desc">Master mental math with daily drills, smart analytics, and competitive practice.</p>' +
+      '<h2 class="onboarding-title">Sharpen Your Edge. Master Every Number.</h2>' +
+      '<p class="onboarding-desc">Build elite quantitative reflexes through precision drills, AI coaching, and competitive challenges.</p>' +
       '<div class="onboarding-name-field">' +
-      '<label class="onboarding-name-label">What should we call you?</label>' +
+      '<label class="onboarding-name-label">What\'s your name?</label>' +
       '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_userName) + '" />' +
       '</div>' +
       '<div class="onboarding-actions">' +
@@ -314,7 +314,7 @@ var Onboarding = (function () {
       '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">📖</span><span class="onboarding-preview-label">Learn</span></div>' +
       '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">Drill</span></div>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Learn Fast. Practice Faster.</h2>' +
+      '<h2 class="onboarding-title">Learn Smarter. Practice Faster.</h2>' +
       '<p class="onboarding-desc">Use the Learn tab to revise multiplication tables, formulas, and shortcuts. Then jump into drills to train your calculation speed.</p>' +
       '<p class="onboarding-hint">💡 Triple tap any table to open a larger full-screen view.</p>' +
       '<div class="onboarding-actions">' +
@@ -330,9 +330,9 @@ var Onboarding = (function () {
       '<div class="onboarding-stat-item"><span class="onboarding-stat-val">1.8s</span><span class="onboarding-stat-label">Avg Time</span></div>' +
       '<div class="onboarding-stat-item"><span class="onboarding-stat-val">5</span><span class="onboarding-stat-label">Streak</span></div>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Track Your Progress</h2>' +
-      '<p class="onboarding-desc">See your accuracy, response time, and weakest categories so you know exactly where to improve.</p>' +
-      '<p class="onboarding-hint">The system helps identify weak topics automatically.</p>' +
+      '<h2 class="onboarding-title">Measure Your Growth</h2>' +
+      '<p class="onboarding-desc">Track accuracy, speed, and category performance — your analytics dashboard shows exactly where to focus next.</p>' +
+      '<p class="onboarding-hint">💡 Your weakest topics are automatically identified so you never waste time guessing.</p>' +
       '<div class="onboarding-actions">' +
       '<button class="btn accent onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
@@ -343,7 +343,7 @@ var Onboarding = (function () {
     return '<div class="onboarding-visual">' +
       '<span class="onboarding-goal-icon">🎯</span>' +
       '</div>' +
-      '<h2 class="onboarding-title">How many questions per day?</h2>' +
+      '<h2 class="onboarding-title">Set Your Daily Training Goal</h2>' +
       '<div class="onboarding-goal-options">' +
       '<button class="onboarding-goal-btn' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10">10 questions</button>' +
       '<button class="onboarding-goal-btn' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20">20 questions</button>' +
@@ -357,8 +357,8 @@ var Onboarding = (function () {
   function _screen5() {
     var safeName = _escapeHtml(_userName);
     var title = safeName
-      ? safeName + ', are you ready to train?'
-      : 'Ready to Train Your Brain?';
+      ? safeName + ', ready to begin?'
+      : 'Ready to Begin?';
     return '<div class="onboarding-visual">' +
       '<div class="onboarding-icon-anim">' +
       '<span class="onboarding-icon-main">🚀</span>' +
@@ -366,9 +366,9 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">🔥</span>' +
       '</div></div>' +
       '<h2 class="onboarding-title">' + title + '</h2>' +
-      '<p class="onboarding-desc">Your daily goal is set. Let\'s start your first question.</p>' +
+      '<p class="onboarding-desc">Your training plan is set. Let\'s see what you can do.</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Start Training</button>' +
+      '<button class="btn accent onboarding-next-btn" id="obNext">Let\'s Go</button>' +
       '</div>';
   }
 
@@ -588,7 +588,7 @@ var Onboarding = (function () {
       inputEl.disabled = true;
       if (typeof triggerHaptic === 'function') triggerHaptic(50);
       if (typeof SoundEngine !== 'undefined') SoundEngine.play('drillEnd');
-      feedback.innerHTML = '<span class="onboarding-success">🎉 Great job! You\'re ready to start training.</span>';
+      feedback.innerHTML = '<span class="onboarding-success">🎉 Perfect! You\'re all set to begin.</span>';
       feedback.style.display = 'block';
 
       /* Auto-complete after a short delay */
@@ -603,8 +603,8 @@ var Onboarding = (function () {
         /* Attempts 1 or 2: show supportive message, then present new question */
         if (typeof triggerHaptic === 'function') triggerHaptic([40, 30, 40]);
         var msg = _questionAttempt === 1
-          ? 'Almost there. Try the next one.'
-          : 'You\'re close. Give it one more try.';
+          ? 'Not quite — here\'s another one.'
+          : 'Getting warmer. One more chance.';
         feedback.innerHTML = '<span class="onboarding-retry-msg">' + msg + '</span>';
         feedback.style.display = 'block';
 
@@ -616,7 +616,7 @@ var Onboarding = (function () {
         /* 3rd wrong answer: reassuring message, redirect to Learn tab */
         inputEl.disabled = true;
         if (typeof triggerHaptic === 'function') triggerHaptic([40, 30, 40]);
-        feedback.innerHTML = '<span class="onboarding-retry-msg">No worries. Everyone starts somewhere. Let\'s practice together.</span>';
+        feedback.innerHTML = '<span class="onboarding-retry-msg">That\'s okay — everyone starts somewhere. Let\'s build your foundation.</span>';
         feedback.style.display = 'block';
 
         setTimeout(function () {

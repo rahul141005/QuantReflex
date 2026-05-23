@@ -239,11 +239,11 @@ function initHomeView() {
       var hour = new Date().getHours();
       var greeting;
       if (hour < 12) {
-        greeting = userName ? 'Good morning, ' + userName + '. Ready to train your brain?' : 'Good morning! Ready to train your brain?';
+        greeting = userName ? 'Good morning, ' + userName + '. Time to sharpen your edge.' : 'Good morning! Time to sharpen your edge.';
       } else if (hour < 17) {
-        greeting = userName ? 'Keep the momentum going, ' + userName + '.' : 'Keep the momentum going!';
+        greeting = userName ? 'Stay sharp — keep the momentum, ' + userName + '.' : 'Stay sharp — keep the momentum!';
       } else {
-        greeting = userName ? 'Let\'s finish today\'s training strong, ' + userName + '.' : 'Let\'s finish today\'s training strong!';
+        greeting = userName ? 'Finish today\'s training on a high note, ' + userName + '.' : 'Finish today\'s training on a high note!';
       }
       greetingEl.textContent = greeting;
     }
@@ -266,10 +266,10 @@ function initHomeView() {
     }
     if (goalPct) goalPct.textContent = pct + '%';
     if (goalStatus) {
-      if (pct >= 100) goalStatus.textContent = '🎉 Goal completed!';
-      else if (pct >= 75) goalStatus.textContent = '🔥 Almost there!';
-      else if (pct >= 50) goalStatus.textContent = '💪 Halfway done!';
-      else goalStatus.textContent = 'Keep going!';
+       if (pct >= 100) goalStatus.textContent = '🎉 Daily goal achieved!';
+       else if (pct >= 75) goalStatus.textContent = '🔥 Almost at your goal!';
+       else if (pct >= 50) goalStatus.textContent = '💪 Halfway to your goal!';
+       else goalStatus.textContent = 'Start training to hit your goal';
     }
 
     /* Render customizable quick study links */
@@ -337,7 +337,7 @@ function _renderStreakAtRisk(progress) {
       '<span class="streak-risk-icon">🔥</span>' +
       '<div class="streak-risk-content">' +
         '<strong>' + streak + '-day streak at risk!</strong>' +
-        '<span class="streak-risk-sub">Practice now to keep it going.</span>' +
+         '<span class="streak-risk-sub">Complete a session to protect your streak.</span>' +
       '</div>' +
       '<a href="#practice" class="streak-risk-btn" id="streakRiskPractice">Go</a>' +
     '</div>';
@@ -377,7 +377,7 @@ function _renderSuggestedPractice() {
       '<span class="suggested-icon">🎯</span>' +
       '<div class="suggested-content">' +
         '<strong>Focus on ' + label + '</strong>' +
-        '<span class="suggested-sub">Your weakest area — targeted practice helps most.</span>' +
+         '<span class="suggested-sub">Your weakest topic — targeted practice drives the fastest improvement.</span>' +
       '</div>' +
       '<button class="suggested-btn" id="suggestedPracticeBtn" type="button">Start</button>' +
     '</div>';
