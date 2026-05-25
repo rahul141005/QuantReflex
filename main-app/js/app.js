@@ -630,10 +630,251 @@ document.addEventListener('DOMContentLoaded', function () {
       if (signupBtn) signupBtn.disabled = disabled;
     }
 
+    /* Track whether user is in signup mode (vs login mode) */
+    var _isSignupMode = false;
+    var loginCoachingId = document.getElementById('loginCoachingId');
+    var coachingIdField = document.getElementById('coachingIdField');
+
+    /* ---- Realtime Validation System ---- */
+    var _usernameTouched = false;
+    var _passwordTouched = false;
+    var _usernameDebounce = null;
+    var _passwordDebounce = null;
+    var _availabilityDebounce = null;
+    var _lastAvailabilityCheck = ''; /* prevent duplicate Firestore queries */
+    var usernameValidationEl = document.getElementById('usernameValidation');
+    var passwordValidationEl = document.getElementById('passwordValidation');
+    var usernamePreviewEl = document.getElementById('usernamePreview');
+
+    /**
+     * Render validation results into a container element.
+     * Shows checklist-style feedback with pass/fail indicators.
+     */
+    function _renderValidation(inputEl, containerEl, result, rules) {
+      if (!containerEl) return;
+      if (!result) {
+        containerEl.className = 'login-field-validation';
+        containerEl.innerHTML = '';
+        if (inputEl) { inputEl.classList.remove('input-error', 'input-valid'); }
+        return;
+      }
+
+      if (result.valid) {
+        containerEl.className = 'login-field-validation active all-valid';
+        containerEl.innerHTML = '<span class="val-summary">Looks good</span>';
+        if (inputEl) {
+          inputEl.classList.remove('input-error');
+          inputEl.classList.add('input-valid');
+        }
+      } else {
+        var html = '<ul>';
+        for (var i = 0; i < rules.length; i++) {
+          var r = rules[i];
+          var passed = r.test();
+          html += '<li class="' + (passed ? 'val-pass' : 'val-error') + '">' + r.label + '</li>';
+        }
+        html += '</ul>';
+        containerEl.className = 'login-field-validation active';
+        containerEl.innerHTML = html;
+        if (inputEl) {
+          inputEl.classList.remove('input-valid');
+          inputEl.classList.add('input-error');
+        }
+      }
+    }
+
+    function _resetFieldValidation(inputEl, containerEl) {
+      if (containerEl) {
+        containerEl.className = 'login-field-validation';
+        containerEl.innerHTML = '';
+      }
+      if (inputEl) {
+        inputEl.classList.remove('input-error', 'input-valid');
+      }
+    }
+
+    /** Update normalized username preview */
+    function _updateUsernamePreview(rawVal) {
+      if (!usernamePreviewEl) return;
+      if (!rawVal || !rawVal.trim()) {
+        usernamePreviewEl.className = 'login-username-preview';
+        usernamePreviewEl.innerHTML = '';
+        return;
+      }
+      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(rawVal) : rawVal.toLowerCase().trim();
+      if (!clean) {
+        usernamePreviewEl.className = 'login-username-preview';
+        usernamePreviewEl.innerHTML = '';
+        return;
+      }
+      usernamePreviewEl.className = 'login-username-preview active';
+      usernamePreviewEl.innerHTML = '<span class="preview-label">Your username: </span><span class="preview-username">' + clean + '</span>';
+    }
+
+    /** Reset username preview */
+    function _resetUsernamePreview() {
+      if (usernamePreviewEl) {
+        usernamePreviewEl.className = 'login-username-preview';
+        usernamePreviewEl.innerHTML = '';
+      }
+    }
+
+    /** Check username availability via Firestore (debounced, only after local validation passes) */
+    function _checkAvailability() {
+      if (!loginUsername) return;
+      var raw = loginUsername.value;
+      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(raw) : raw.toLowerCase().trim();
+
+      /* Only check if local validation passed */
+      var result = typeof Auth !== 'undefined' ? Auth.validateUsername(raw) : { valid: true, errors: [] };
+      if (!result.valid || !clean || clean.length < 4) {
+        _lastAvailabilityCheck = '';
+        _hideAvailability();
+        return;
+      }
+
+      /* Skip if same username was already checked */
+      if (clean === _lastAvailabilityCheck) return;
+      _lastAvailabilityCheck = clean;
+
+      /* Show checking state */
+      _showAvailability('checking', '<span class="duel-search-spinner"></span> Checking availability...');
+
+      if (typeof DuelCore !== 'undefined' && typeof DuelCore.checkUsernameAvailability === 'function') {
+        DuelCore.checkUsernameAvailability(clean, function (err, availResult) {
+          /* Discard stale result if username changed while checking */
+          var currentClean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(loginUsername.value) : loginUsername.value.toLowerCase().trim();
+          if (currentClean !== clean) return;
+
+          if (availResult && availResult.available) {
+            _showAvailability('available', 'Username available');
+          } else {
+            _showAvailability('taken', 'Username is already taken');
+          }
+        });
+      }
+    }
+
+    function _showAvailability(state, html) {
+      if (!usernameValidationEl) return;
+      var avail = usernameValidationEl.parentNode.querySelector('.login-username-availability');
+      if (!avail) {
+        avail = document.createElement('div');
+        avail.className = 'login-username-availability';
+        /* Insert after validation, before preview */
+        if (usernamePreviewEl) {
+          usernameValidationEl.parentNode.insertBefore(avail, usernamePreviewEl);
+        } else {
+          usernameValidationEl.parentNode.appendChild(avail);
+        }
+      }
+      avail.className = 'login-username-availability active ' + state;
+      avail.innerHTML = html;
+    }
+
+    function _hideAvailability() {
+      if (!usernameValidationEl) return;
+      var avail = usernameValidationEl.parentNode.querySelector('.login-username-availability');
+      if (avail) {
+        avail.className = 'login-username-availability';
+        avail.innerHTML = '';
+      }
+    }
+
+    function _validateUsernameField() {
+      if (!loginUsername || !usernameValidationEl) return;
+      var val = loginUsername.value;
+
+      /* Update preview on every validation */
+      _updateUsernamePreview(val);
+
+      if (!val) {
+        _resetFieldValidation(loginUsername, usernameValidationEl);
+        _hideAvailability();
+        _lastAvailabilityCheck = '';
+        return;
+      }
+      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(val) : val.toLowerCase().trim();
+      var result = typeof Auth !== 'undefined' ? Auth.validateUsername(val) : { valid: true, errors: [] };
+
+      var rules = [
+        { label: 'At least 4 characters', test: function () { return clean.length >= 4; } },
+        { label: '30 characters or less', test: function () { return clean.length <= 30; } },
+        { label: 'Contains at least one letter', test: function () { return /[a-z]/.test(clean); } },
+        { label: 'Contains at least one number', test: function () { return /[0-9]/.test(clean); } }
+      ];
+
+      _renderValidation(loginUsername, usernameValidationEl, result, rules);
+
+      /* Trigger availability check if local validation passed */
+      if (result.valid) {
+        if (_availabilityDebounce) clearTimeout(_availabilityDebounce);
+        _availabilityDebounce = setTimeout(_checkAvailability, 800);
+      } else {
+        _hideAvailability();
+        _lastAvailabilityCheck = '';
+      }
+    }
+
+    function _validatePasswordField() {
+      if (!loginPassword || !passwordValidationEl) return;
+      var val = loginPassword.value;
+      if (!val) {
+        _resetFieldValidation(loginPassword, passwordValidationEl);
+        return;
+      }
+      var result = typeof Auth !== 'undefined' ? Auth.validatePassword(val) : { valid: true, errors: [] };
+
+      var rules = [
+        { label: 'At least 8 characters', test: function () { return val.length >= 8; } },
+        { label: 'One uppercase letter', test: function () { return /[A-Z]/.test(val); } },
+        { label: 'One lowercase letter', test: function () { return /[a-z]/.test(val); } },
+        { label: 'One number', test: function () { return /[0-9]/.test(val); } }
+      ];
+
+      _renderValidation(loginPassword, passwordValidationEl, result, rules);
+    }
+
+    /** Full state reset — clears all validation, preview, availability */
+    function _resetAllValidation() {
+      _usernameTouched = false;
+      _passwordTouched = false;
+      _lastAvailabilityCheck = '';
+      if (_usernameDebounce) clearTimeout(_usernameDebounce);
+      if (_passwordDebounce) clearTimeout(_passwordDebounce);
+      if (_availabilityDebounce) clearTimeout(_availabilityDebounce);
+      _resetFieldValidation(loginUsername, usernameValidationEl);
+      _resetFieldValidation(loginPassword, passwordValidationEl);
+      _resetUsernamePreview();
+      _hideAvailability();
+    }
+
+    /** Show coaching ID field with animation */
+    function _showCoachingId() {
+      if (coachingIdField) {
+        coachingIdField.classList.add('coaching-visible');
+      }
+    }
+
+    /** Hide coaching ID field */
+    function _hideCoachingId() {
+      if (coachingIdField) {
+        coachingIdField.classList.remove('coaching-visible');
+        coachingIdField.style.display = 'none';
+      }
+    }
+
+    /* ---- Login Button ---- */
     if (loginBtn) {
       loginBtn.addEventListener('click', function () {
         if (_authRequestInFlight) return;
         hideError();
+        /* If switching from signup mode back to login, clear everything */
+        if (_isSignupMode) {
+          _isSignupMode = false;
+          _resetAllValidation();
+          _hideCoachingId();
+        }
         var username = loginUsername ? loginUsername.value : '';
         var password = loginPassword ? loginPassword.value : '';
         _authRequestInFlight = true;
@@ -645,30 +886,24 @@ document.addEventListener('DOMContentLoaded', function () {
           if (err) {
             showError(err);
           } else {
-            /* Clear form fields for security */
             if (loginUsername) loginUsername.value = '';
             if (loginPassword) loginPassword.value = '';
+            _resetAllValidation();
             showApp();
           }
         });
       });
     }
 
+    /* ---- Signup Button ---- */
     if (signupBtn) {
-      var _signupFieldRevealed = false;
-      var coachingIdField = document.getElementById('coachingIdField');
-      var loginCoachingId = document.getElementById('loginCoachingId');
-
       signupBtn.addEventListener('click', function () {
         if (_authRequestInFlight) return;
         hideError();
-
-        /* First click: reveal coaching ID field, change button text */
-        if (!_signupFieldRevealed && coachingIdField) {
-          coachingIdField.style.display = '';
-          _signupFieldRevealed = true;
-          signupBtn.textContent = 'Continue Creating Account';
-          return;
+        /* Enter signup mode — reveals coaching ID */
+        if (!_isSignupMode) {
+          _isSignupMode = true;
+          _showCoachingId();
         }
 
         var username = loginUsername ? loginUsername.value : '';
@@ -681,19 +916,61 @@ document.addEventListener('DOMContentLoaded', function () {
           setButtonsDisabled(false);
           if (err) {
             showError(err);
+            /* Trigger full validation display after a failed signup attempt */
+            _usernameTouched = true;
+            _passwordTouched = true;
+            _validateUsernameField();
+            _validatePasswordField();
           } else {
             /* Persist coaching ID if provided */
             var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
             if (coachingId && typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.updateCoachingId === 'function') {
               FirestoreSync.updateCoachingId(coachingId);
             }
-            /* Clear form fields for security */
             if (loginUsername) loginUsername.value = '';
             if (loginPassword) loginPassword.value = '';
             if (loginCoachingId) loginCoachingId.value = '';
+            _isSignupMode = false;
+            _resetAllValidation();
+            _hideCoachingId();
             showApp();
           }
         });
+      });
+    }
+
+    /* ---- Validation Listeners ---- */
+    /* Validation activates on first meaningful input — no mode flag required.
+       The user feels guided immediately, not punished after submit. */
+
+    /* Username: validate on blur, then on debounced input after first blur */
+    if (loginUsername) {
+      loginUsername.addEventListener('blur', function () {
+        if (!loginUsername.value) return;
+        _usernameTouched = true;
+        _validateUsernameField();
+      });
+      loginUsername.addEventListener('input', function () {
+        /* Always update preview as user types */
+        _updateUsernamePreview(loginUsername.value);
+        /* Only show validation checklist after first blur */
+        if (!_usernameTouched) return;
+        if (_usernameDebounce) clearTimeout(_usernameDebounce);
+        _usernameDebounce = setTimeout(_validateUsernameField, 400);
+      });
+    }
+
+    /* Password: validate on blur, then on debounced input after first blur */
+    if (loginPassword) {
+      loginPassword.addEventListener('blur', function () {
+        if (!loginPassword.value) return;
+        _passwordTouched = true;
+        _validatePasswordField();
+      });
+      loginPassword.addEventListener('input', function () {
+        if (!_passwordTouched) return;
+        if (_passwordDebounce) clearTimeout(_passwordDebounce);
+        _passwordDebounce = setTimeout(_validatePasswordField, 400);
       });
     }
 
@@ -714,6 +991,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
     }
+
   } else {
     /* Firebase not available — show app directly (localStorage only mode) */
     _hideAppLoader();

@@ -61,7 +61,7 @@ var DuelCore = (function () {
     try {
       var user = (typeof Auth !== 'undefined') ? Auth.getCurrentUser() : null;
       if (user && user.email) {
-        return user.email.split('@')[0];
+        return user.email.split('@')[0].toLowerCase().trim();
       }
     } catch (_) {}
     return '';
@@ -159,18 +159,46 @@ var DuelCore = (function () {
 
     var displayName = _getUserName();
     var isPP = _isPremiumPlus();
+    var docRef = db.collection(USERNAME_COLLECTION).doc(username);
 
-    db.collection(USERNAME_COLLECTION).doc(username).set({
-      uid: uid,
-      username: username,
-      displayName: displayName || username,
-      isPremiumPlus: isPP,
-      updatedAt: _serverTimestamp()
-    }, { merge: true })
-      .then(function () { if (callback) callback(null); })
+    /* Get-then-set: only include createdAt on first creation */
+    docRef.get().then(function (snap) {
+      var payload = {
+        uid: uid,
+        username: username,
+        displayName: displayName || username,
+        isPremiumPlus: isPP,
+        updatedAt: _serverTimestamp()
+      };
+      if (!snap.exists) {
+        payload.createdAt = _serverTimestamp();
+      }
+      return docRef.set(payload, { merge: true });
+    })
+      .then(function () {
+        console.log('[DuelCore] publicUsername synced: ' + username);
+        if (callback) callback(null);
+      })
       .catch(function (e) {
-        console.warn('[DuelCore] updatePublicUsername failed:', e);
-        if (callback) callback(e.message);
+        console.warn('[DuelCore] updatePublicUsername failed, retrying in 3s:', e.message || e);
+        /* Single retry after 3 seconds for transient failures */
+        setTimeout(function () {
+          var retryDb = _getDb();
+          if (!retryDb) { if (callback) callback(e.message); return; }
+          var retryPayload = {
+            uid: uid, username: username, displayName: displayName || username,
+            isPremiumPlus: isPP, updatedAt: _serverTimestamp(), createdAt: _serverTimestamp()
+          };
+          retryDb.collection(USERNAME_COLLECTION).doc(username).set(retryPayload, { merge: true })
+            .then(function () {
+              console.log('[DuelCore] publicUsername retry succeeded: ' + username);
+              if (callback) callback(null);
+            })
+            .catch(function (retryErr) {
+              console.error('[DuelCore] publicUsername retry failed:', retryErr.message || retryErr);
+              if (callback) callback(retryErr.message);
+            });
+        }, 3000);
       });
   }
 
@@ -182,18 +210,20 @@ var DuelCore = (function () {
   function lookupUser(username, callback) {
     var db = _getDb();
     if (!db) { callback('Database not available'); return; }
-    if (!username || username.length < 4) { callback('Username must be at least 4 characters'); return; }
+
+    if (!username || typeof username !== 'string') { callback('Please enter a username'); return; }
 
     var clean = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
-    if (!clean) { callback('Invalid username'); return; }
+    if (!clean) { callback('Invalid username — only letters, numbers, and underscores allowed'); return; }
+    if (clean.length < 4) { callback('Username must be at least 4 characters'); return; }
 
     /* Prevent self-invite */
     var myUsername = _getUsername();
-    if (clean === myUsername) { callback('You cannot invite yourself'); return; }
+    if (clean === myUsername) { callback('You cannot duel yourself'); return; }
 
     db.collection(USERNAME_COLLECTION).doc(clean).get()
       .then(function (snap) {
-        if (!snap.exists) { callback('User not found'); return; }
+        if (!snap.exists) { callback('Username does not exist'); return; }
         var data = snap.data();
         callback(null, {
           uid: data.uid,
@@ -202,7 +232,35 @@ var DuelCore = (function () {
           isPremiumPlus: data.isPremiumPlus === true
         });
       })
-      .catch(function (e) { callback(e.message || 'Lookup failed'); });
+      .catch(function (e) {
+        console.warn('[DuelCore] lookupUser failed:', e.message || e);
+        callback('Lookup failed — check your connection');
+      });
+  }
+
+  /**
+   * Check if a username is available (not yet registered).
+   * Used by signup validation for realtime availability feedback.
+   * @param {string} username - raw username (will be normalized)
+   * @param {function} callback - (error, { available: boolean })
+   */
+  function checkUsernameAvailability(username, callback) {
+    var db = _getDb();
+    if (!db) { callback('Database not available'); return; }
+    if (!username || typeof username !== 'string') { callback(null, { available: true }); return; }
+
+    var clean = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+    if (!clean || clean.length < 4) { callback(null, { available: true }); return; }
+
+    db.collection(USERNAME_COLLECTION).doc(clean).get()
+      .then(function (snap) {
+        callback(null, { available: !snap.exists });
+      })
+      .catch(function (e) {
+        console.warn('[DuelCore] checkUsernameAvailability failed:', e.message || e);
+        /* On error, don't block signup — assume available and let Firebase Auth catch duplicates */
+        callback(null, { available: true });
+      });
   }
 
   /* ================================================================
@@ -978,6 +1036,7 @@ var DuelCore = (function () {
     /* Username index */
     updatePublicUsername: updatePublicUsername,
     lookupUser: lookupUser,
+    checkUsernameAvailability: checkUsernameAvailability,
 
     /* Invitations */
     sendInvitation: sendInvitation,

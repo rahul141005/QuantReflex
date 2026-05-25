@@ -400,6 +400,10 @@ var FirestoreSync = (function () {
             updatedAt: new Date().toISOString()
           }, { merge: true }).catch(function (err) { console.warn('AI usage seed failed:', err); });
         }
+        /* Eagerly sync public username index so new users are immediately discoverable for duels */
+        if (typeof DuelCore !== 'undefined' && typeof DuelCore.updatePublicUsername === 'function') {
+          try { DuelCore.updatePublicUsername(); } catch (_) {}
+        }
       });
     }).catch(function (err) {
       console.warn('Firestore default document creation failed:', err);

@@ -30,20 +30,23 @@
       <div id="loginForm">
         <div class="login-field">
           <label for="loginUsername" class="login-label">Username</label>
-          <input type="text" id="loginUsername" class="login-input" placeholder="Enter your username" autocomplete="username" autocapitalize="off" />
+          <input type="text" id="loginUsername" class="login-input" placeholder="e.g. krishna01" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" />
+          <div id="usernameValidation" class="login-field-validation"></div>
+          <div id="usernamePreview" class="login-username-preview"></div>
         </div>
         <div class="login-field">
           <label for="loginPassword" class="login-label">Password</label>
           <input type="password" id="loginPassword" class="login-input" placeholder="Enter your password" autocomplete="current-password" />
+          <div id="passwordValidation" class="login-field-validation"></div>
         </div>
         <div id="coachingIdField" class="login-field coaching-id-field" style="display:none;">
-          <label for="loginCoachingId" class="login-label">Coaching ID (Optional)</label>
-          <input type="text" id="loginCoachingId" class="login-input" placeholder="Enter your coaching's unique ID" autocomplete="off" autocapitalize="characters" maxlength="50" />
-          <p class="login-coaching-hint">Leave blank if you're not part of a coaching institute.</p>
+          <label for="loginCoachingId" class="login-label">Coaching ID <span class="login-optional-tag">(Optional)</span></label>
+          <input type="text" id="loginCoachingId" class="login-input" placeholder="Coaching ID (Optional)" autocomplete="off" autocapitalize="characters" maxlength="50" />
+          <p class="login-coaching-hint">Enter your coaching code if provided by your institute.</p>
         </div>
         <div id="loginError" class="login-error" style="display:none;"></div>
         <div id="loginValidationHint" class="login-validation-hint">
-          <p>Dont forget your password.</p>
+          <p>Don't forget your password.</p>
         </div>
         <button id="loginBtn" class="btn accent login-btn">Log In</button>
         <button id="signupBtn" class="btn login-btn login-signup-btn">Create Account</button>

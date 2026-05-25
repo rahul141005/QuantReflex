@@ -148,6 +148,9 @@ var DuelUI = (function () {
       createBtn.disabled = !(foundUser && selectedTopics.length > 0);
     }
 
+    var _searchDebounce = null;
+    var _searchInFlight = false;
+
     function _searchUser() {
       var val = searchInput ? searchInput.value.trim() : '';
       if (!val || val.length < 4) {
@@ -159,16 +162,29 @@ var DuelUI = (function () {
         return;
       }
 
+      if (_searchInFlight) return;
+      _searchInFlight = true;
+
       statusEl.className = 'duel-username-status loading';
-      statusEl.innerHTML = '<span class="duel-search-spinner"></span> Searching...';
+      statusEl.innerHTML = '<span class="duel-search-spinner"></span> Searching for player...';
       userCardEl.style.display = 'none';
       foundUser = null;
       _updateCreateBtnState();
 
       DuelCore.lookupUser(val, function (err, user) {
+        _searchInFlight = false;
+
+        /* If input changed while searching, ignore stale result */
+        var currentVal = searchInput ? searchInput.value.trim() : '';
+        if (currentVal !== val) return;
+
         if (err) {
-          statusEl.className = 'duel-username-status error';
-          statusEl.textContent = err;
+          /* Choose appropriate icon/message based on error type */
+          var isNotFound = err.indexOf('does not exist') >= 0;
+          var isSelf = err.indexOf('yourself') >= 0;
+          var errIcon = isNotFound ? '✗' : isSelf ? '⚠️' : '⚠️';
+          statusEl.className = 'duel-username-status ' + (isSelf ? 'warning' : 'error');
+          statusEl.textContent = errIcon + ' ' + err;
           userCardEl.style.display = 'none';
           foundUser = null;
           _updateCreateBtnState();
@@ -176,7 +192,7 @@ var DuelUI = (function () {
         }
 
         if (!user.isPremiumPlus) {
-          statusEl.className = 'duel-username-status';
+          statusEl.className = 'duel-username-status warning';
           statusEl.textContent = '';
           userCardEl.style.display = 'block';
           userCardEl.innerHTML =
@@ -211,13 +227,28 @@ var DuelUI = (function () {
       searchInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); _searchUser(); }
       });
-      /* Clear found user when input changes */
+      /* Debounced auto-search + clear stale results on re-type */
       searchInput.addEventListener('input', function () {
         foundUser = null;
+        _updateCreateBtnState();
+        if (_searchDebounce) clearTimeout(_searchDebounce);
+
+        var val = searchInput.value.trim();
+        if (!val) {
+          statusEl.className = 'duel-username-status';
+          statusEl.textContent = '';
+          userCardEl.style.display = 'none';
+          return;
+        }
+        /* Clear previous results immediately */
         statusEl.className = 'duel-username-status';
         statusEl.textContent = '';
         userCardEl.style.display = 'none';
-        _updateCreateBtnState();
+
+        /* Auto-search after 500ms if input is long enough */
+        if (val.length >= 4) {
+          _searchDebounce = setTimeout(_searchUser, 500);
+        }
       });
     }
 

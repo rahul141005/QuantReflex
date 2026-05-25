@@ -300,6 +300,54 @@ var Auth = (function () {
     return _currentUser !== null;
   }
 
+  /**
+   * Granular username validation for realtime UX feedback.
+   * Returns all applicable errors at once (not just the first).
+   * @param {string} rawUsername - unsanitized username input
+   * @returns {{ valid: boolean, errors: string[] }}
+   */
+  function validateUsername(rawUsername) {
+    var errors = [];
+    var clean = sanitizeUsername(rawUsername);
+
+    if (!clean || clean.length < 4) {
+      errors.push('Username must be at least 4 characters.');
+    }
+    if (clean.length > 30) {
+      errors.push('Username must be 30 characters or less.');
+    }
+    if (clean.length >= 1 && !/[a-z]/.test(clean)) {
+      errors.push('Username must contain at least one letter.');
+    }
+    if (clean.length >= 4 && !/[0-9]/.test(clean)) {
+      errors.push('Username must contain at least one number.');
+    }
+    return { valid: errors.length === 0, errors: errors };
+  }
+
+  /**
+   * Granular password validation for realtime UX feedback (signup rules).
+   * Returns all applicable errors at once for checklist-style display.
+   * @param {string} password - raw password
+   * @returns {{ valid: boolean, errors: string[] }}
+   */
+  function validatePassword(password) {
+    var errors = [];
+    if (!password || password.length < 8) {
+      errors.push('At least 8 characters.');
+    }
+    if (password && password.length >= 1 && !/[A-Z]/.test(password)) {
+      errors.push('At least one uppercase letter.');
+    }
+    if (password && password.length >= 1 && !/[a-z]/.test(password)) {
+      errors.push('At least one lowercase letter.');
+    }
+    if (password && password.length >= 1 && !/[0-9]/.test(password)) {
+      errors.push('At least one number.');
+    }
+    return { valid: errors.length === 0, errors: errors };
+  }
+
   return {
     init: init,
     onAuthReady: onAuthReady,
@@ -309,6 +357,8 @@ var Auth = (function () {
     getCurrentUser: getCurrentUser,
     getUserId: getUserId,
     isLoggedIn: isLoggedIn,
-    sanitizeUsername: sanitizeUsername
+    sanitizeUsername: sanitizeUsername,
+    validateUsername: validateUsername,
+    validatePassword: validatePassword
   };
 })();

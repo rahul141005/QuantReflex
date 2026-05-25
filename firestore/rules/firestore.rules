@@ -219,23 +219,26 @@ service cloud.firestore {
     // ════════════════════════════════════════════
     // Participant-only access with controlled join flow.
     //
-    // Read:   participants always; anyone can read a 'waiting' room
-    //         (needed for invite link → getDuelState → join flow).
+    // Read:   participants always; anyone can read a 'waiting' or
+    //         'waiting_for_acceptance' room; invitation target can also read.
     // Create: any authenticated user (must be creator + in participants).
-    // Update: participants only (+ users joining a waiting room).
+    //         Valid initial statuses: 'waiting' (legacy) or
+    //         'waiting_for_acceptance' (invitation flow).
+    // Update: participants only (+ users joining a waiting/invitation room).
     //         Immutable fields, state machine, and own-entry-only enforced.
     // Delete: denied — use status-based soft delete (status → 'deleted').
     match /duels/{duelId} {
-      // Read: participants OR anyone for 'waiting' rooms (join flow)
+      // Read: participants OR anyone for joinable rooms OR the invitation target
       allow read: if request.auth != null && (
         request.auth.uid in resource.data.participants ||
-        resource.data.status == 'waiting'
+        resource.data.status in ['waiting', 'waiting_for_acceptance'] ||
+        resource.data.targetUid == request.auth.uid
       );
 
-      // Create: authenticated user, must be the creator, status must be 'waiting'
+      // Create: authenticated user, must be the creator, valid initial status
       allow create: if request.auth != null &&
         request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.status == 'waiting' &&
+        request.resource.data.status in ['waiting', 'waiting_for_acceptance'] &&
         request.auth.uid in request.resource.data.participants;
 
       // Update: existing participant OR user joining a waiting room
@@ -243,8 +246,8 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         // Existing participant
         request.auth.uid in resource.data.participants ||
-        // User joining a waiting room (not yet a participant)
-        (resource.data.status == 'waiting' &&
+        // User joining a waiting/invitation room (not yet a participant)
+        (resource.data.status in ['waiting', 'waiting_for_acceptance'] &&
          request.auth.uid in request.resource.data.participants)
       ) && validDuelUpdate();
 
