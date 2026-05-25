@@ -27,18 +27,18 @@ var API = (function () {
 
   /* ---- Dashboard ---- */
   function getDashboard() {
-    return _fetch('/api/admin/system/health');
+    return _fetch('/api/admin/system?action=dashboard');
   }
 
   /* ---- Users & Entitlements ---- */
   function getUsers(cursor) {
-    var url = '/api/admin/users';
-    if (cursor) url += '?startAfter=' + encodeURIComponent(cursor);
+    var url = '/api/admin/users?action=list';
+    if (cursor) url += '&startAfter=' + encodeURIComponent(cursor);
     return _fetch(url);
   }
   
   function getUserDetails(uid) {
-    return _fetch('/api/admin/users/details?uid=' + encodeURIComponent(uid));
+    return _fetch('/api/admin/users?action=details&uid=' + encodeURIComponent(uid));
   }
 
   function grantEntitlement(type, action, targetId, trialDays) {
@@ -52,18 +52,18 @@ var API = (function () {
 
   /* ---- Coachings ---- */
   function getCoachings() {
-    return _fetch('/api/admin/coachings');
+    return _fetch('/api/admin/coachings?action=list');
   }
 
   function createCoaching(data) {
-    return _fetch('/api/admin/coachings/create', {
+    return _fetch('/api/admin/coachings?action=create', {
       method: 'POST',
       body: JSON.stringify(data)
     });
   }
 
   function mutateCoaching(coachingId, action) {
-    return _fetch('/api/admin/coachings/mutate', {
+    return _fetch('/api/admin/coachings?action=mutate', {
       method: 'POST',
       body: JSON.stringify({ coachingId: coachingId, action: action })
     });
@@ -71,11 +71,11 @@ var API = (function () {
 
   /* ---- Questions & AI ---- */
   function getQuestions() {
-    return _fetch('/api/admin/questions');
+    return _fetch('/api/admin/questions?action=list');
   }
 
   function saveQuestion(questionData) {
-    return _fetch('/api/admin/questions', {
+    return _fetch('/api/admin/questions?action=list', {
       method: 'POST',
       body: JSON.stringify(questionData)
     });
@@ -86,7 +86,7 @@ var API = (function () {
   }
 
   function generateQuestion(topic, difficulty) {
-    return _fetch('/api/admin/generate-question', {
+    return _fetch('/api/admin/questions?action=generate', {
       method: 'POST',
       body: JSON.stringify({ topic: topic, difficulty: difficulty })
     });
@@ -94,7 +94,7 @@ var API = (function () {
 
   /* ---- Notifications ---- */
   function sendBroadcast(payload) {
-    return _fetch('/api/admin/notifications/broadcast', {
+    return _fetch('/api/admin/notifications?action=broadcast', {
       method: 'POST',
       body: JSON.stringify(payload)
     });
@@ -102,7 +102,7 @@ var API = (function () {
 
   /* ---- Payments ---- */
   function getPaymentLogs() {
-    return _fetch('/api/admin/payments/logs');
+    return _fetch('/api/admin/payments?action=logs');
   }
 
   return {
@@ -120,13 +120,13 @@ var API = (function () {
     sendBroadcast: sendBroadcast,
     getPaymentLogs: getPaymentLogs,
     runAudit: function() {
-      return _fetch('/api/admin/system/audit');
+      return _fetch('/api/admin/system?action=health');
     },
     getAuditLogs: function() {
-      return _fetch('/api/admin/system/auditLogs');
+      return _fetch('/api/admin/system?action=auditLogs');
     },
     cleanupDuels: function() {
-      return _fetch('/api/admin/duels/cleanup', { method: 'POST' });
+      return _fetch('/api/admin/duels?action=cleanup', { method: 'POST' });
     }
   };
 })();

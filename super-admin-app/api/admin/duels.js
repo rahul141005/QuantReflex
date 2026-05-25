@@ -1,4 +1,4 @@
-const { withAdminAuth, methodGuard, formatError } = require('../../_lib/middleware');
+const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
