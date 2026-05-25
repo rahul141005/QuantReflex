@@ -179,12 +179,18 @@ var Auth = (function () {
   }
 
   /**
-   * Sign up a new user.
+   * Sign up a new user via the atomic server-side register endpoint.
    * @param {string} username
    * @param {string} password
+   * @param {string} coachingId (optional)
    * @param {function} callback - receives (error, user)
    */
-  function signup(username, password, callback) {
+  function signup(username, password, coachingId, callback) {
+    if (typeof coachingId === 'function') {
+      callback = coachingId;
+      coachingId = '';
+    }
+
     var clean = sanitizeUsername(username);
     var err = _validateSignup(clean, password);
     if (err) {
@@ -198,22 +204,35 @@ var Auth = (function () {
     }
 
     var email = _usernameToEmail(clean);
-    _auth.createUserWithEmailAndPassword(email, password)
-      .then(function (cred) {
-        _currentUser = cred.user;
-        callback(null, cred.user);
+
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: clean,
+        email: email,
+        password: password,
+        coachingId: coachingId || ''
       })
-      .catch(function (error) {
-        var msg = 'Account creation failed.';
-        if (error.code === 'auth/email-already-in-use') {
-          msg = 'This username is already taken.';
-        } else if (error.code === 'auth/weak-password') {
-          msg = 'Password is too weak. Use at least 8 characters with uppercase, lowercase, and a number.';
-        } else if (error.code === 'auth/invalid-email') {
-          msg = 'Invalid username format.';
-        }
-        callback(msg, null);
-      });
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.error) {
+        throw new Error(data.error.message || 'Account creation failed.');
+      }
+      if (!data.token) {
+        throw new Error('Invalid response from server.');
+      }
+      return _auth.signInWithCustomToken(data.token);
+    })
+    .then(function (cred) {
+      _currentUser = cred.user;
+      callback(null, cred.user);
+    })
+    .catch(function (error) {
+      var msg = error.message || 'Account creation failed. Please check your connection.';
+      callback(msg, null);
+    });
   }
 
   /**
@@ -264,6 +283,11 @@ var Auth = (function () {
     if (!_auth) {
       if (callback) callback('Authentication service not available.');
       return;
+    }
+
+    if (typeof DuelCore !== 'undefined') {
+      if (typeof DuelCore.stopInvitationListener === 'function') DuelCore.stopInvitationListener();
+      if (typeof DuelCore.stopListening === 'function') DuelCore.stopListening();
     }
 
     _auth.signOut()

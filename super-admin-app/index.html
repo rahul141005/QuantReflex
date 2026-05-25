@@ -62,10 +62,12 @@
       <nav class="sidebar-nav">
         <a href="#dashboard" class="nav-item active" data-view="dashboard">Dashboard</a>
         <a href="#users" class="nav-item" data-view="users">Users</a>
+        <a href="#coachings" class="nav-item" data-view="coachings">Coachings</a>
         <a href="#payments" class="nav-item" data-view="payments">Payments</a>
         <a href="#questions" class="nav-item" data-view="questions">Questions</a>
         <a href="#ai" class="nav-item" data-view="ai">AI Analytics</a>
         <a href="#system" class="nav-item" data-view="system">System</a>
+        <a href="#notifications" class="nav-item" data-view="notifications">Notifications</a>
       </nav>
       <div class="sidebar-footer">
         <button id="logoutBtn" class="btn btn-outline" style="width:100%;">Logout</button>
@@ -76,12 +78,35 @@
     <main class="main-content">
       <div id="view-dashboard" class="view active"></div>
       <div id="view-users" class="view"></div>
+      <div id="view-coachings" class="view"></div>
       <div id="view-payments" class="view"></div>
       <div id="view-questions" class="view"></div>
       <div id="view-ai" class="view"></div>
       <div id="view-system" class="view"></div>
+      <div id="view-notifications" class="view"></div>
     </main>
 
+  </div>
+
+  <!-- ==================== USER 360 DRAWER ==================== -->
+  <div id="userDrawerOverlay" class="drawer-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;" onclick="UserDrawer.close()"></div>
+  <div id="userDrawer" class="user-drawer" style="display:none; position:fixed; top:0; right:-400px; width:400px; max-width:100%; height:100%; background:#fff; z-index:1001; box-shadow:-4px 0 15px rgba(0,0,0,0.1); transition:right 0.3s ease; overflow-y:auto; display:flex; flex-direction:column;">
+    <div style="padding:1rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+      <h3 style="margin:0; font-size:1.1rem; color:#0f172a;">User 360 View</h3>
+      <button onclick="UserDrawer.close()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
+    </div>
+    <div id="userDrawerContent" style="padding:1rem; flex:1;"></div>
+  </div>
+
+  <!-- ==================== GLOBAL SEARCH (Cmd+K) ==================== -->
+  <div id="globalSearchOverlay" class="search-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); z-index:2000; backdrop-filter:blur(4px);" onclick="GlobalSearch.close()">
+    <div class="search-modal" style="width:90%; max-width:600px; margin:10vh auto; background:#fff; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.2); overflow:hidden;" onclick="event.stopPropagation()">
+      <div style="padding:1rem; border-bottom:1px solid #e2e8f0; display:flex; align-items:center;">
+        <span style="font-size:1.2rem; margin-right:0.5rem;">🔍</span>
+        <input type="text" id="globalSearchInput" placeholder="Search by username, uid, or coaching ID..." style="width:100%; border:none; outline:none; font-size:1.1rem; padding:0.5rem;" autocomplete="off" />
+      </div>
+      <div id="globalSearchResults" style="max-height:400px; overflow-y:auto; background:#f8fafc;"></div>
+    </div>
   </div>
 
   <!-- ==================== MODAL CONTAINER ==================== -->
@@ -105,10 +130,12 @@
   <script src="js/ui/table.js"></script>
   <script src="js/views/dashboard.js"></script>
   <script src="js/views/users.js"></script>
+  <script src="js/views/coachings.js"></script>
   <script src="js/views/payments.js"></script>
   <script src="js/views/questions.js"></script>
   <script src="js/views/ai.js"></script>
   <script src="js/views/system.js"></script>
+  <script src="js/views/notifications.js"></script>
   <script src="js/app.js"></script>
 
   <!-- Service Worker Registration -->

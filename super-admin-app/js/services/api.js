@@ -27,12 +27,18 @@ var API = (function () {
 
   /* ---- Dashboard ---- */
   function getDashboard() {
-    return _fetch('/api/admin/dashboard');
+    return _fetch('/api/admin/system/health');
   }
 
   /* ---- Users & Entitlements ---- */
-  function getUsers() {
-    return _fetch('/api/admin/users');
+  function getUsers(cursor) {
+    var url = '/api/admin/users';
+    if (cursor) url += '?startAfter=' + encodeURIComponent(cursor);
+    return _fetch(url);
+  }
+  
+  function getUserDetails(uid) {
+    return _fetch('/api/admin/users/details?uid=' + encodeURIComponent(uid));
   }
 
 
@@ -51,10 +57,17 @@ var API = (function () {
     return _fetch('/api/admin/coachings');
   }
 
-  function createCoaching(coachingId, name) {
-    return _fetch('/api/admin/coachings', {
+  function createCoaching(data) {
+    return _fetch('/api/admin/coachings/create', {
       method: 'POST',
-      body: JSON.stringify({ coachingId: coachingId, name: name })
+      body: JSON.stringify(data)
+    });
+  }
+
+  function mutateCoaching(coachingId, action) {
+    return _fetch('/api/admin/coachings/mutate', {
+      method: 'POST',
+      body: JSON.stringify({ coachingId: coachingId, action: action })
     });
   }
 
@@ -81,16 +94,36 @@ var API = (function () {
     });
   }
 
+  /* ---- Notifications ---- */
+  function sendBroadcast(payload) {
+    return _fetch('/api/admin/notifications/broadcast', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
-
+    getUserDetails: getUserDetails,
     grantEntitlement: grantEntitlement,
     getCoachings: getCoachings,
     createCoaching: createCoaching,
+    mutateCoaching: mutateCoaching,
     getQuestions: getQuestions,
     saveQuestion: saveQuestion,
     generateQuestion: generateQuestion,
-    getAIUsage: getAIUsage
+    getAIUsage: getAIUsage,
+    sendBroadcast: sendBroadcast,
+    getPaymentLogs: getPaymentLogs,
+    runAudit: function() {
+      return _fetch('/api/admin/system/audit');
+    },
+    getAuditLogs: function() {
+      return _fetch('/api/admin/system/auditLogs');
+    },
+    cleanupDuels: function() {
+      return _fetch('/api/admin/duels/cleanup', { method: 'POST' });
+    }
   };
 })();

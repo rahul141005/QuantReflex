@@ -219,6 +219,41 @@ var PaymentsView = (function () {
     });
 
     container.innerHTML = html;
+    _renderAuditLogs();
+  }
+
+  async function _renderAuditLogs() {
+    var container = document.getElementById('paymentsListContainer');
+    try {
+      var logs = await API.getPaymentLogs();
+      if (!logs || logs.length === 0) return;
+
+      var html = '<h3 style="margin-top:2rem;">Recent Entitlement Actions</h3>';
+      html += '<div style="background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.1); overflow:hidden;">';
+      html += '<table style="width:100%; text-align:left; border-collapse:collapse; font-size:0.875rem;">';
+      html += '<tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">' +
+        '<th style="padding:1rem;">Timestamp</th>' +
+        '<th style="padding:1rem;">User ID</th>' +
+        '<th style="padding:1rem;">Action</th>' +
+        '<th style="padding:1rem;">Admin</th>' +
+        '</tr>';
+
+      logs.forEach(function(l) {
+        var ts = l.timestamp ? new Date(l.timestamp._seconds * 1000).toLocaleString() : 'N/A';
+        html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
+          '<td style="padding:1rem;">' + ts + '</td>' +
+          '<td style="padding:1rem; font-family:monospace;">' + _escapeHtml(l.uid) + '</td>' +
+          '<td style="padding:1rem; font-weight:600;">' + _escapeHtml(l.action) + '</td>' +
+          '<td style="padding:1rem;">' + _escapeHtml(l.adminUid || 'System') + '</td>' +
+          '</tr>';
+      });
+
+      html += '</table></div>';
+      container.innerHTML += html;
+
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   function _escapeHtml(str) {

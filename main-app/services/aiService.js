@@ -275,6 +275,19 @@ async function checkWordProblemQuota(uid, isPremium) {
   return Math.max(0, WP_FREE_LIMIT - entry.wordProblemsUsedLifetime);
 }
 
+async function trackGlobalAIUsage(metricName, count) {
+  try {
+    var today = new Date().toISOString().split('T')[0];
+    var metricRef = db.collection('systemMetrics').doc('ai_daily_' + today);
+    var updates = {};
+    updates[metricName] = admin.firestore.FieldValue.increment(count || 1);
+    updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+    await metricRef.set(updates, { merge: true });
+  } catch (err) {
+    console.warn('[aiService:trackGlobalAIUsage] write failed:', err.message);
+  }
+}
+
 async function consumeWordProblemQuota(uid, isPremium, count) {
   var entry = await _loadUsage(uid);
   var now = new Date();
@@ -290,6 +303,7 @@ async function consumeWordProblemQuota(uid, isPremium, count) {
   entry.lastUsageDate = now.toISOString();
   usageCache[uid] = entry;
   await _saveUsage(uid);
+  await trackGlobalAIUsage('wordProblems', count);
 }
 
 async function trackExplanationUsage(uid) {
@@ -298,6 +312,7 @@ async function trackExplanationUsage(uid) {
   entry.lastUsageDate = new Date().toISOString();
   usageCache[uid] = entry;
   await _saveUsage(uid);
+  await trackGlobalAIUsage('explanations', 1);
 }
 
 async function trackInsightsUsage(uid) {
@@ -308,6 +323,7 @@ async function trackInsightsUsage(uid) {
   entry.lastUsageDate = today.toISOString();
   usageCache[uid] = entry;
   await _saveUsage(uid);
+  await trackGlobalAIUsage('insights', 1);
 }
 
 /**

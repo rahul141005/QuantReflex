@@ -1,5 +1,5 @@
 /**
- * dashboard.js — Dashboard view
+ * dashboard.js — Realtime System Health Center
  */
 var DashboardView = (function () {
   'use strict';
@@ -8,39 +8,67 @@ var DashboardView = (function () {
     var container = document.getElementById('view-dashboard');
     container.innerHTML =
       '<div class="view-header">' +
-        '<h2 class="view-title">Dashboard</h2>' +
-        '<p class="view-subtitle">QuantReflex ecosystem overview</p>' +
+        '<h2 class="view-title">System Health & Operations</h2>' +
+        '<p class="view-subtitle">Realtime ecosystem observability</p>' +
       '</div>' +
-      '<div class="stat-grid" id="dashboardStats">' +
-        _statCard('–', 'Total Users') +
-        _statCard('–', 'Free') +
-        _statCard('–', 'Trial') +
-        _statCard('–', 'Premium') +
-        _statCard('–', 'Premium+') +
-      '</div>';
+      '<div id="dashboardContent">Loading metrics...</div>';
 
     _loadData();
   }
 
-  function _statCard(value, label) {
-    return '<div class="stat-card"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div>';
+  function _statCard(value, label, color) {
+    var style = color ? 'border-left: 4px solid ' + color + ';' : '';
+    return '<div class="stat-card" style="' + style + '"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div>';
+  }
+
+  function _healthBadge(label, status) {
+    var color = status === 'green' ? '#10b981' : (status === 'yellow' ? '#f59e0b' : '#ef4444');
+    return '<div style="display:flex; align-items:center; gap:8px; padding:8px; background:#1e293b; border-radius:6px; font-size:14px;">' +
+      '<div style="width:10px; height:10px; border-radius:50%; background:' + color + '"></div>' +
+      '<span>' + label + '</span>' +
+      '</div>';
   }
 
   async function _loadData() {
     try {
       var data = await API.getDashboard();
-      var grid = document.getElementById('dashboardStats');
-      if (grid && data) {
-        grid.innerHTML =
-          _statCard(data.totalUsers || 0, 'Total Users') +
-          _statCard(data.freeUsers || 0, 'Free') +
-          _statCard(data.trialUsers || 0, 'Trial') +
-          _statCard(data.premiumUsers || 0, 'Premium') +
-          _statCard(data.premiumPlusUsers || 0, 'Premium+');
+      var content = document.getElementById('dashboardContent');
+      if (content && data) {
+        var m = data.metrics || {};
+        var ai = data.ai || {};
+        var h = data.health || {};
+
+        var html = '<h3>User Lifecycle</h3>' +
+          '<div class="stat-grid" style="margin-bottom:24px;">' +
+          _statCard(m.totalUsers || 0, 'Total Users') +
+          _statCard(m.dau || 0, 'DAU (24h)', '#3b82f6') +
+          _statCard(m.mau || 0, 'MAU (30d)', '#3b82f6') +
+          _statCard(m.premiumUsers || 0, 'Premium', '#f59e0b') +
+          _statCard(m.premiumPlusUsers || 0, 'Premium+', '#8b5cf6') +
+          '</div>';
+
+        html += '<h3>System Operations</h3>' +
+          '<div class="stat-grid" style="margin-bottom:24px;">' +
+          _statCard(ai.tokensToday ? (ai.tokensToday / 1000).toFixed(1) + 'k' : '0', 'AI Tokens (Today)') +
+          _statCard('$' + (ai.costTodayUSD || 0), 'AI Cost (Today USD)', '#ef4444') +
+          _statCard(m.orphanDuels || 0, 'Orphaned Duels', m.orphanDuels > 0 ? '#ef4444' : '#10b981') +
+          '</div>';
+        
+        html += '<h3>Infrastructure Health</h3>' +
+          '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">' +
+          _healthBadge('Firebase Auth', h.firebaseAuth) +
+          _healthBadge('Firestore', h.firestore) +
+          _healthBadge('AI API (OpenAI)', h.aiApi) +
+          _healthBadge('Webhooks', h.webhooks) +
+          '</div>';
+
+        content.innerHTML = html;
         AdminState.set({ dashboardData: data });
       }
     } catch (e) {
       console.error('[Dashboard] Load error:', e);
+      var content = document.getElementById('dashboardContent');
+      if (content) content.innerHTML = '<p style="color:#ef4444;">Failed to load system health: ' + e.message + '</p>';
     }
   }
 

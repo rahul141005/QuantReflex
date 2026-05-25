@@ -46,24 +46,50 @@ var UsersView = (function () {
     _loadData();
   }
 
-  async function _loadData() {
+  var _nextCursor = null;
+
+  async function _loadData(loadMore = false) {
     var area = document.getElementById('usersContainerArea');
-    if (!area) return;
-    area.innerHTML = '<div class="loading">Loading ecosystem...</div>';
+    var loadBtn = document.getElementById('uLoadMoreBtn');
+    
+    if (!loadMore) {
+      if (!area) return;
+      area.innerHTML = '<div class="loading">Loading ecosystem...</div>';
+      _allUsers = [];
+      _nextCursor = null;
+    } else if (loadBtn) {
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'Loading...';
+    }
 
     try {
+      // Coachings are fetched only on initial load or full refresh
+      let coachingsPromise = (!loadMore || _coachings.length === 0) ? API.getCoachings() : Promise.resolve({ coachings: _coachings });
+      
       const [usersRes, coachingsRes] = await Promise.all([
-        API.getUsers(),
-        API.getCoachings()
+        API.getUsers(loadMore ? _nextCursor : null),
+        coachingsPromise
       ]);
 
-      _allUsers = usersRes.users || [];
-      _coachings = coachingsRes.coachings || [];
+      // API might return data in 'data' (new API) or 'users' (old API)
+      var fetchedUsers = usersRes.data || usersRes.users || [];
+      _allUsers = _allUsers.concat(fetchedUsers);
+      _nextCursor = usersRes.nextCursor || null;
+      
+      if (!loadMore || _coachings.length === 0) {
+        // Coachings API might return array or object with coachings field
+        _coachings = Array.isArray(coachingsRes) ? coachingsRes : (coachingsRes.coachings || []);
+      }
       
       AdminState.set({ usersCache: _allUsers, coachingsCache: _coachings });
       _renderGroups();
     } catch (e) {
-      area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ' + e.message + '</div></div>';
+      if (!loadMore) {
+        area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ' + e.message + '</div></div>';
+      } else if (loadBtn) {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Failed to load. Try again.';
+      }
     }
   }
 
@@ -90,7 +116,18 @@ var UsersView = (function () {
       html += _buildGroupHTML('Independent / Unaffiliated Users', independentUsers, 'individual', null);
     }
 
+    if (_nextCursor) {
+      html += '<div style="text-align: center; margin-top: 1.5rem; margin-bottom: 2rem;">' +
+        '<button id="uLoadMoreBtn" class="btn btn-outline" style="width: auto;">Load More Users</button>' +
+      '</div>';
+    }
+
     area.innerHTML = html;
+
+    var loadBtn = document.getElementById('uLoadMoreBtn');
+    if (loadBtn) {
+      loadBtn.onclick = function() { _loadData(true); };
+    }
   }
 
   function _buildGroupHTML(title, users, type, targetId) {
@@ -134,10 +171,7 @@ var UsersView = (function () {
         var actionLabel = stateType === 'free' ? 'Grant Access' : 'Modify Access';
         var actionAccent = stateType === 'free' ? 'accent' : 'btn-outline';
 
-        // Use a container that expands on click
-        var detailId = 'details_' + u.uid;
-        
-        html += '<div style="border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; background: var(--bg-surface); cursor: pointer; transition: all var(--transition-fast);" onclick="var d=document.getElementById(\'' + detailId + '\'); if(d.style.maxHeight!==\'500px\'){d.style.maxHeight=\'500px\';d.style.opacity=\'1\';d.style.marginTop=\'1rem\';}else{d.style.maxHeight=\'0\';d.style.opacity=\'0\';d.style.marginTop=\'0\';}">';
+        html += '<div style="border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; background: var(--bg-surface); cursor: pointer; transition: all var(--transition-fast);" onclick="UserDrawer.open(\'' + u.uid + '\')">';
         html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; flex-wrap: wrap;">';
         html += '<div style="flex: 1; min-width: 150px;">';
         html += '<div style="font-weight: 600; font-size: .9375rem; color: var(--text-primary); word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; margin-bottom: .25rem;">' + _escapeHtml(name) + '</div>';
@@ -145,28 +179,9 @@ var UsersView = (function () {
         html += '</div>';
         html += '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: .25rem;">';
         html += badgeHTML;
-        html += '<div style="font-size: .6875rem; color: #94a3b8; margin-top: .25rem;">Tap for details ▼</div>';
+        html += '<div style="font-size: .6875rem; color: #94a3b8; margin-top: .25rem;">View 360 Details &rarr;</div>';
         html += '</div>';
         html += '</div>';
-        
-        // Expanded Details
-        html += '<div id="' + detailId + '" style="max-height: 0; opacity: 0; overflow: hidden; margin-top: 0; transition: all var(--transition-smooth); border-top: 1px dashed var(--border-color);">';
-        html += '<div style="padding-top: 1rem;">';
-        html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; margin-bottom: 1rem; font-size: .8125rem;">';
-        html += '<div><span style="color: var(--text-secondary); display: block; font-size: .6875rem; text-transform: uppercase;">Joined</span><strong style="color:var(--text-primary);">' + (u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '–') + '</strong></div>';
-        if (stateType === 'plus') {
-          html += '<div><span style="color: var(--text-secondary); display: block; font-size: .6875rem; text-transform: uppercase;">Expiry</span><strong style="color:var(--text-primary);">' + new Date(u.premiumPlusExpiry).toLocaleDateString() + '</strong></div>';
-        } else if (stateType === 'trial') {
-          html += '<div><span style="color: var(--text-secondary); display: block; font-size: .6875rem; text-transform: uppercase;">Trial Ends</span><strong style="color:var(--text-primary);">' + new Date(u.trialEnd).toLocaleDateString() + '</strong></div>';
-        }
-        html += '</div>';
-        
-        html += '<div style="display: flex; gap: .5rem; flex-wrap: wrap;">';
-        html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="event.stopPropagation(); UsersView.showIndividualActions(\'' + u.uid + '\', \'' + stateType + '\', \'' + _escapeHtml(name) + '\')">' + actionLabel + '</button>';
-        html += '</div>';
-        html += '</div>';
-        
-        html += '</div>'; // End Expanded Details
         html += '</div>'; // End Card
       });
     }
@@ -329,5 +344,148 @@ var UsersView = (function () {
     showBulkActions: _showBulkActions,
     showIndividualActions: _showIndividualActions,
     confirmEnt: _confirmEntitlement 
+  };
+})();
+
+/**
+ * UserDrawer - Handles the slide-out 360 User View
+ */
+var UserDrawer = (function () {
+  'use strict';
+
+  function open(uid) {
+    var overlay = document.getElementById('userDrawerOverlay');
+    var drawer = document.getElementById('userDrawer');
+    var content = document.getElementById('userDrawerContent');
+    
+    if (!overlay || !drawer || !content) return;
+    
+    overlay.style.display = 'block';
+    drawer.style.display = 'flex';
+    // Small delay to allow display block to apply before transition
+    setTimeout(function() {
+      drawer.style.right = '0';
+    }, 10);
+
+    content.innerHTML = '<div class="loading">Loading 360 view...</div>';
+
+    API.getUserDetails(uid).then(function(data) {
+      if (data.error) throw new Error(data.error);
+      _renderDetails(content, data);
+    }).catch(function(err) {
+      content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load: ' + err.message + '</div></div>';
+    });
+  }
+
+  function close() {
+    var overlay = document.getElementById('userDrawerOverlay');
+    var drawer = document.getElementById('userDrawer');
+    
+    if (!overlay || !drawer) return;
+    
+    drawer.style.right = '-400px';
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      drawer.style.display = 'none';
+    }, 300); // match CSS transition duration
+  }
+
+  function _renderDetails(container, data) {
+    var p = data.profile || {};
+    var html = '';
+    
+    var stateType = 'free';
+    var badgeHTML = '<span class="badge badge-free">Free</span>';
+    var now = Date.now();
+    
+    if (p.isPremiumPlus) {
+      badgeHTML = '<span class="badge badge-premium-plus">Premium+</span>';
+      stateType = 'plus';
+    } else if (p.isPremium) {
+      badgeHTML = '<span class="badge badge-premium">Premium</span>';
+      stateType = 'premium';
+    }
+
+    // Profile Section
+    html += '<div style="margin-bottom: 2rem;">';
+    html += '<div style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.25rem;">' + escapeHtml(p.username) + '</div>';
+    html += '<div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">' + escapeHtml(p.email) + '</div>';
+    html += '<div style="display:flex; align-items:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 1rem;">';
+    html += badgeHTML;
+    if (p.coachingId) html += '<span class="badge badge-draft">Inst: ' + escapeHtml(p.coachingId) + '</span>';
+    html += '</div>';
+    html += '<div style="font-size: 0.8125rem; color: var(--text-secondary);">Joined: ' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Unknown') + '</div>';
+    html += '</div>';
+
+    // Quick Actions
+    var actionLabel = stateType === 'free' ? 'Grant Access' : 'Modify Access';
+    var actionAccent = stateType === 'free' ? 'accent' : 'btn-outline';
+    html += '<div style="margin-bottom: 2rem; display:flex; gap: 0.5rem;">';
+    html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="UsersView.showIndividualActions(\'' + p.uid + '\', \'' + stateType + '\', \'' + escapeHtml(p.username) + '\')">' + actionLabel + '</button>';
+    html += '</div>';
+
+    // AI Usage Section
+    var ai = data.aiUsage || { tokens: 0, count: 0 };
+    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
+    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">AI Usage</div>';
+    html += '<div style="display: flex; justify-content: space-between; font-size: 0.875rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">';
+    html += '<span>Total Tokens</span><strong>' + (ai.tokens || 0).toLocaleString() + '</strong></div>';
+    html += '<div style="display: flex; justify-content: space-between; font-size: 0.875rem;">';
+    html += '<span>Requests</span><strong>' + (ai.count || 0).toLocaleString() + '</strong></div>';
+    html += '</div>';
+
+    // Recent Duels
+    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
+    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Recent Duels</div>';
+    if (!data.recentDuels || data.recentDuels.length === 0) {
+      html += '<div class="text-secondary text-sm">No recent duels completed.</div>';
+    } else {
+      data.recentDuels.forEach(function(d) {
+        var isWin = d.winner === p.uid;
+        var isDraw = d.result === 'draw';
+        var resultText = isDraw ? 'Draw' : (isWin ? 'Win' : 'Loss');
+        var color = isDraw ? '#64748b' : (isWin ? '#10b981' : '#ef4444');
+        
+        html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">';
+        html += '<span>' + new Date(d.createdAt).toLocaleDateString() + '</span>';
+        html += '<strong style="color: ' + color + ';">' + resultText + '</strong>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    // Entitlement History
+    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
+    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Entitlement History</div>';
+    if (!data.entitlementLogs || data.entitlementLogs.length === 0) {
+      html += '<div class="text-secondary text-sm">No entitlement changes recorded.</div>';
+    } else {
+      data.entitlementLogs.forEach(function(log) {
+        html += '<div style="font-size: 0.8125rem; padding: 0.5rem 0; border-bottom: 1px dashed var(--border-color);">';
+        html += '<div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">';
+        html += '<strong>' + escapeHtml(log.action) + '</strong>';
+        html += '<span style="color: var(--text-secondary);">' + (log.timestamp ? new Date(log.timestamp).toLocaleDateString() : '') + '</span>';
+        html += '</div>';
+        if (log.adminUid) {
+          html += '<div style="color: var(--text-secondary); font-size: 0.6875rem;">By: ' + escapeHtml(log.adminEmail || log.adminUid) + '</div>';
+        }
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+    });
+  }
+
+  return {
+    open: open,
+    close: close
   };
 })();

@@ -900,42 +900,66 @@ document.addEventListener('DOMContentLoaded', function () {
       signupBtn.addEventListener('click', function () {
         if (_authRequestInFlight) return;
         hideError();
+        
         /* Enter signup mode — reveals coaching ID */
         if (!_isSignupMode) {
           _isSignupMode = true;
           _showCoachingId();
+          return;
         }
 
         var username = loginUsername ? loginUsername.value : '';
         var password = loginPassword ? loginPassword.value : '';
+        var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
+
         _authRequestInFlight = true;
         setButtonsDisabled(true);
 
-        Auth.signup(username, password, function (err) {
-          _authRequestInFlight = false;
-          setButtonsDisabled(false);
-          if (err) {
-            showError(err);
-            /* Trigger full validation display after a failed signup attempt */
-            _usernameTouched = true;
-            _passwordTouched = true;
-            _validateUsernameField();
-            _validatePasswordField();
-          } else {
-            /* Persist coaching ID if provided */
-            var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
-            if (coachingId && typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.updateCoachingId === 'function') {
-              FirestoreSync.updateCoachingId(coachingId);
+        function _proceedWithSignup() {
+          Auth.signup(username, password, coachingId, function (err) {
+            _authRequestInFlight = false;
+            setButtonsDisabled(false);
+            if (err) {
+              showError(err);
+              /* Trigger full validation display after a failed signup attempt */
+              _usernameTouched = true;
+              _passwordTouched = true;
+              _validateUsernameField();
+              _validatePasswordField();
+            } else {
+              /* Server now atomically links the coaching ID. No client-side sync required. */
+              if (loginUsername) loginUsername.value = '';
+              if (loginPassword) loginPassword.value = '';
+              if (loginCoachingId) loginCoachingId.value = '';
+              _isSignupMode = false;
+              _resetAllValidation();
+              _hideCoachingId();
+              showApp();
             }
-            if (loginUsername) loginUsername.value = '';
-            if (loginPassword) loginPassword.value = '';
-            if (loginCoachingId) loginCoachingId.value = '';
-            _isSignupMode = false;
-            _resetAllValidation();
-            _hideCoachingId();
-            showApp();
-          }
-        });
+          });
+        }
+
+        /* If a coaching ID is provided, validate it first via our unauthenticated endpoint */
+        if (coachingId) {
+          fetch('/api/validate-coaching?id=' + encodeURIComponent(coachingId))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data && data.valid) {
+                _proceedWithSignup();
+              } else {
+                _authRequestInFlight = false;
+                setButtonsDisabled(false);
+                showError('This Coaching ID does not exist or is inactive.');
+              }
+            })
+            .catch(function(err) {
+              _authRequestInFlight = false;
+              setButtonsDisabled(false);
+              showError('Could not verify Coaching ID. Please check your connection.');
+            });
+        } else {
+          _proceedWithSignup();
+        }
       });
     }
 

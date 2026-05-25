@@ -1155,6 +1155,42 @@ var FirestoreSync = (function () {
       console.log('[FirestoreSync] Premium cache updated — paymentId:', paymentId);
       _syncProfileSubcollection(null, { isPremium: true, hasPaid: true, isTrial: false, trialEnd: null });
       if (callback) callback(null);
+    },
+    claimCoaching: function (coachingId, callback) {
+      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) {
+        if (callback) callback(new Error('User not authenticated'));
+        return;
+      }
+      if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
+        if (callback) callback(new Error('User not authenticated'));
+        return;
+      }
+      
+      Auth.getCurrentUser().getIdToken().then(function (token) {
+        return fetch('/api/claim-coaching', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ coachingId: coachingId })
+        });
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error.message || 'Failed to claim coaching');
+        if (_memoryCache) _memoryCache.coachingId = coachingId;
+        console.log('[FirestoreSync] claimCoaching success:', coachingId);
+        if (callback) callback(null);
+      })
+      .catch(function (err) {
+        console.error('[FirestoreSync] claimCoaching error:', err);
+        if (callback) callback(err);
+      });
+    },
+    updateCoachingId: function (coachingId) {
+      /* Legacy support fallback - delegates to claimCoaching */
+      this.claimCoaching(coachingId);
     }
   };
 })();

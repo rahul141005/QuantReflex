@@ -158,4 +158,47 @@ function withAuth(handler) {
   };
 }
 
-module.exports = { withAuth, formatError, methodGuard, parseBody };
+/**
+ * Wrap a serverless handler with Firebase auth verification, requiring Admin access.
+ *
+ * @param {function} handler - async (req, res) => void
+ * @returns {function} Vercel-compatible handler
+ */
+function withAdminAuth(handler) {
+  return async function (req, res) {
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE, PUT');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Max-Age', '86400');
+      return res.status(200).end();
+    }
+
+    var authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } });
+    }
+
+    var idToken = authHeader.substring(7);
+    var decoded;
+    try {
+      decoded = await aiService.verifyIdToken(idToken);
+    } catch (tokenErr) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication failed.' } });
+    }
+    
+    if (!decoded || !decoded.uid) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid token.' } });
+    }
+
+    // Verify Admin Custom Claim
+    if (decoded.admin !== true) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin privileges required.' } });
+    }
+
+    req.userId = decoded.uid;
+    return handler(req, res);
+  };
+}
+
+module.exports = { withAuth, withAdminAuth, formatError, methodGuard, parseBody };

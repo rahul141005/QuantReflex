@@ -75,6 +75,7 @@ service cloud.firestore {
         (!changed.hasAny(['trialEnd'])              || after.trialEnd == null) &&
         (!changed.hasAny(['premiumPlusPlan'])        || after.premiumPlusPlan == null) &&
         (!changed.hasAny(['premiumPlusExpiry'])      || after.premiumPlusExpiry == null) &&
+        (!changed.hasAny(['coachingId'])             || after.coachingId == null) &&
 
         // ── Status: client can only set to null or 'expired' ──
         (!changed.hasAny(['premiumPlusStatus'])      || after.premiumPlusStatus == null
@@ -102,6 +103,7 @@ service cloud.firestore {
         d.get('premiumPlusExpiry', null)           == null  &&
         d.get('premiumPlusStatus', null)           == null  &&
         d.get('lastPaymentId', null)               == null  &&
+        d.get('coachingId', null)                  == null  &&
         d.get('lastPremiumPlusPaymentId', null)    == null;
     }
 
@@ -177,8 +179,8 @@ service cloud.firestore {
       // Read: owner only
       allow read: if isOwner(userId);
 
-      // Create: owner only, entitlement fields must be safe defaults
-      allow create: if isOwner(userId) && entitlementCreateSafe();
+      // Create: denied — account creation is now server-side only via /api/auth/register
+      allow create: if false;
 
       // Update: owner only, entitlement fields protected
       allow update: if isOwner(userId) && entitlementFieldsSafe();
@@ -299,10 +301,8 @@ service cloud.firestore {
       // Read: any authenticated user (needed for duel invitation lookup)
       allow read: if request.auth != null;
 
-      // Create: authenticated, uid must match, username must match doc ID
-      allow create: if request.auth != null &&
-        request.resource.data.uid == request.auth.uid &&
-        request.resource.data.username == username;
+      // Create: denied — handled atomically server-side during signup
+      allow create: if false;
 
       // Update: only the owner can update their own entry
       allow update: if request.auth != null &&

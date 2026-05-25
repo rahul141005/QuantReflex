@@ -17,6 +17,7 @@ var App = (function () {
     _bindLogin();
     _bindLogout();
     _bindSidebar();
+    GlobalSearch.init();
 
     AdminAuth.onAuthReady(function (user) {
       if (user) {
@@ -37,7 +38,7 @@ var App = (function () {
 
   function _handleRoute() {
     var hash = (window.location.hash || '#dashboard').substring(1);
-    var views = ['dashboard', 'users', 'payments', 'questions', 'system', 'ai'];
+    var views = ['dashboard', 'users', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications'];
     if (views.indexOf(hash) === -1) hash = 'dashboard';
 
     // Update state
@@ -60,10 +61,12 @@ var App = (function () {
     // Render view
     if (hash === 'dashboard') DashboardView.render();
     if (hash === 'users') UsersView.render();
+    if (hash === 'coachings') CoachingsView.render();
     if (hash === 'payments') PaymentsView.render();
     if (hash === 'questions') QuestionsView.render();
     if (hash === 'system') SystemView.render();
     if (hash === 'ai') AIAnalyticsView.render();
+    if (hash === 'notifications') NotificationsView.render();
   }
 
   /* ---- Login Form ---- */
@@ -122,6 +125,97 @@ var App = (function () {
   }
 
   return { init: init };
+})();
+
+/**
+ * GlobalSearch - Handles Cmd+K / Ctrl+K search functionality
+ */
+var GlobalSearch = (function() {
+  'use strict';
+  
+  var _searchTimeout = null;
+
+  function init() {
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        open();
+      }
+      if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    var input = document.getElementById('globalSearchInput');
+    if (input) {
+      input.addEventListener('input', function(e) {
+        clearTimeout(_searchTimeout);
+        var query = e.target.value.trim();
+        if (query.length < 3) {
+          document.getElementById('globalSearchResults').innerHTML = '';
+          return;
+        }
+        _searchTimeout = setTimeout(function() {
+          _performSearch(query);
+        }, 400);
+      });
+    }
+  }
+
+  function open() {
+    var overlay = document.getElementById('globalSearchOverlay');
+    var input = document.getElementById('globalSearchInput');
+    if (!overlay) return;
+    overlay.style.display = 'block';
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    document.getElementById('globalSearchResults').innerHTML = '';
+  }
+
+  function close() {
+    var overlay = document.getElementById('globalSearchOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function _performSearch(query) {
+    var resultsEl = document.getElementById('globalSearchResults');
+    resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">Searching ecosystem...</div>';
+    
+    // We fetch all users for now and filter locally (assuming <10k users cached or server-side endpoint needed).
+    // A production search should hit Algolia or a dedicated search endpoint.
+    // For this pass, we'll call API.getUsers and filter on name, uid, email, coachingId
+    API.getUsers().then(function(res) {
+      var allUsers = res.data || res.users || [];
+      var q = query.toLowerCase();
+      var matches = allUsers.filter(function(u) {
+        return (u.username && u.username.toLowerCase().indexOf(q) > -1) ||
+               (u.email && u.email.toLowerCase().indexOf(q) > -1) ||
+               (u.uid && u.uid.toLowerCase().indexOf(q) > -1) ||
+               (u.coachingId && u.coachingId.toLowerCase().indexOf(q) > -1);
+      }).slice(0, 10); // max 10 results
+
+      if (matches.length === 0) {
+        resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">No matching users found.</div>';
+        return;
+      }
+
+      var html = '';
+      matches.forEach(function(u) {
+        html += '<div style="padding:1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" class="search-result-item" onclick="GlobalSearch.close(); if(typeof UserDrawer !== \'undefined\') UserDrawer.open(\'' + u.uid + '\')">';
+        html += '<div style="font-weight:600; color:#0f172a;">' + (u.username || u.displayName || 'Unknown') + '</div>';
+        html += '<div style="font-size:0.875rem; color:#64748b;">' + (u.email || u.uid) + '</div>';
+        if (u.coachingId) html += '<span class="badge badge-draft" style="font-size:0.7rem;">' + u.coachingId + '</span>';
+        html += '</div>';
+      });
+      resultsEl.innerHTML = html;
+    }).catch(function(err) {
+      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#ef4444;">Search failed: ' + err.message + '</div>';
+    });
+  }
+
+  return { init: init, open: open, close: close };
 })();
 
 /* ---- Bootstrap ---- */
