@@ -41,8 +41,6 @@ var API = (function () {
     return _fetch('/api/admin/users/details?uid=' + encodeURIComponent(uid));
   }
 
-
-
   function grantEntitlement(type, action, targetId, trialDays) {
     var payload = { type: type, action: action, targetId: targetId };
     if (trialDays) payload.trialDays = trialDays;
@@ -100,6 +98,11 @@ var API = (function () {
       method: 'POST',
       body: JSON.stringify(payload)
     });
+  }
+
+  /* ---- Payments ---- */
+  function getPaymentLogs() {
+    return _fetch('/api/admin/payments/logs');
   }
 
   return {

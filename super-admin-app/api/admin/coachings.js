@@ -1,60 +1,40 @@
-const { withAdmin, db } = require('../_lib/firebase-admin');
+const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
+const admin = require('firebase-admin');
 
-module.exports = withAdmin(async function (req, res) {
-  if (req.method === 'GET') {
-    try {
-      const snapshot = await db.collection('coachings').orderBy('createdAt', 'desc').get();
-      const coachings = [];
-      const countPromises = [];
-      
-      snapshot.forEach(doc => {
-        const c = { id: doc.id, ...doc.data() };
-        coachings.push(c);
-        // Safely and dynamically aggregate accurate student count
-        countPromises.push(db.collection('users').where('coachingId', '==', c.coachingId).count().get());
-      });
-
-      const countSnapshots = await Promise.all(countPromises);
-      countSnapshots.forEach((cSnap, i) => {
-        coachings[i].studentCount = cSnap.data().count;
-      });
-
-      return res.status(200).json({ coachings });
-    } catch (error) {
-      console.error('[coachings] GET Error:', error);
-      return res.status(500).json({ error: error.message });
-    }
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+    });
+  } catch (err) {
+    console.error('Firebase admin initialization failed:', err);
   }
+}
 
-  if (req.method === 'POST') {
-    try {
-      const { coachingId, name } = req.body;
-      if (!coachingId || !name) {
-        return res.status(400).json({ error: 'coachingId and name are required' });
-      }
+async function handler(req, res) {
+  if (methodGuard(req, res, 'GET')) return;
 
-      const docRef = db.collection('coachings').doc(coachingId);
-      const doc = await docRef.get();
-      if (doc.exists) {
-        return res.status(400).json({ error: 'Coaching ID already exists' });
-      }
+  try {
+    const db = admin.firestore();
+    const snapshot = await db.collection('coachings').orderBy('createdAt', 'desc').get();
+    
+    const coachings = [];
+    snapshot.forEach(doc => {
+      coachings.push({
+        id: doc.id,
+        ...doc.data(),
+        // serialize timestamps
+        createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null,
+        updatedAt: doc.data().updatedAt ? doc.data().updatedAt.toDate().toISOString() : null
+      });
+    });
 
-      const payload = {
-        coachingId,
-        name,
-        status: 'active',
-        studentCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await docRef.set(payload);
-      return res.status(200).json({ success: true, coaching: payload });
-    } catch (error) {
-      console.error('[coachings] POST Error:', error);
-      return res.status(500).json({ error: error.message });
-    }
+    return res.status(200).json(coachings);
+  } catch (err) {
+    console.error('Error fetching coachings:', err);
+    return res.status(500).json({ error: formatError(err) });
   }
+}
 
-  return res.status(405).json({ error: 'Method Not Allowed' });
-});
+module.exports = withAdminAuth(handler);

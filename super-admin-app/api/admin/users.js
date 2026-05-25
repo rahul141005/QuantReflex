@@ -1,62 +1,66 @@
-const { withAdmin, db, auth } = require('../_lib/firebase-admin');
+const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
+const admin = require('firebase-admin');
 
-module.exports = withAdmin(async function (req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+    });
+  } catch (err) {
+    console.error('Firebase admin initialization failed:', err);
   }
+}
+
+async function handler(req, res) {
+  if (methodGuard(req, res, 'GET')) return;
 
   try {
-    const listUsersResult = await auth.listUsers(500); // Increased limit slightly to ensure we capture all
+    const db = admin.firestore();
+    const { limit = '100', startAfter } = req.query;
+    
+    let query = db.collection('users').orderBy('createdAt', 'desc').limit(parseInt(limit, 10));
 
-    const users = await Promise.all(listUsersResult.users.map(async function (userRecord) {
-      let isPremium = false;
-      let isPremiumPlus = false;
-      let hasPaid = false;
-      let isTrial = false;
-      let trialEnd = null;
-      let premiumPlusPlan = null;
-      let premiumPlusExpiry = null;
-      let coachingId = null;
-      let username = userRecord.displayName || 'Unknown';
+    if (startAfter) {
+      // Decode the cursor (assuming it's a timestamp string or ID)
+      // Since we order by createdAt desc, we need the doc to start after.
+      const doc = await db.collection('users').doc(startAfter).get();
+      if (doc.exists) {
+        query = query.startAfter(doc);
+      }
+    }
 
-      try {
-        const userDoc = await db.collection('users').doc(userRecord.uid).get();
-        if (userDoc.exists) {
-          const data = userDoc.data();
-          isPremium = data.isPremium === true;
-          isPremiumPlus = data.isPremiumPlus === true;
-          hasPaid = data.hasPaid === true;
-          isTrial = data.isTrial === true;
-          trialEnd = data.trialEnd || null;
-          premiumPlusPlan = data.premiumPlusPlan || null;
-          premiumPlusExpiry = data.premiumPlusExpiry || null;
-          coachingId = data.coachingId || null;
+    const snapshot = await query.get();
+    
+    const users = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Don't send entire object if it's too large, but for now we send what's needed.
+      users.push({
+        id: doc.id,
+        uid: doc.id,
+        username: data.username || 'Unknown',
+        email: data.email || '',
+        coachingId: data.coachingId || null,
+        isPremium: !!data.isPremium,
+        isPremiumPlus: !!data.isPremiumPlus,
+        premiumPlusStatus: data.premiumPlusStatus || null,
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
+      });
+    });
 
-          if (data.profile && data.profile.username) {
-            username = data.profile.username;
-          }
-        }
-      } catch (e) { /* Firestore doc may not exist */ }
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    const nextCursor = lastDoc ? lastDoc.id : null;
 
-      return {
-        uid: userRecord.uid,
-        email: userRecord.email || '',
-        username: username,
-        createdAt: userRecord.metadata.creationTime,
-        isPremium,
-        isPremiumPlus,
-        hasPaid,
-        isTrial,
-        trialEnd,
-        premiumPlusPlan,
-        premiumPlusExpiry,
-        coachingId
-      };
-    }));
+    return res.status(200).json({
+      data: users,
+      nextCursor: nextCursor
+    });
 
-    res.status(200).json({ users });
-  } catch (error) {
-    console.error('[users] Error:', error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    return res.status(500).json({ error: formatError(err) });
   }
-});
+}
+
+module.exports = withAdminAuth(handler);

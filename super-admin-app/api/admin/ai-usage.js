@@ -1,79 +1,96 @@
-const { withAdmin, db, auth } = require('../_lib/firebase-admin');
+const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
+const admin = require('firebase-admin');
 
-module.exports = withAdmin(async function (req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+    });
+  } catch (err) {
+    console.error('Firebase admin initialization failed:', err);
   }
+}
+
+async function handler(req, res) {
+  if (methodGuard(req, res, 'GET')) return;
 
   try {
-    const listUsersResult = await auth.listUsers(500);
+    const db = admin.firestore();
+    
+    // 1. Fetch system metrics (global AI daily counters)
+    const systemMetrics = {};
+    const metricsSnapshot = await db.collection('systemMetrics').where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_').get();
+    metricsSnapshot.forEach(doc => {
+      systemMetrics[doc.id] = doc.data();
+    });
 
-    const analytics = await Promise.all(listUsersResult.users.map(async function (userRecord) {
-      let usageData = {
-        wordProblemsUsedLifetime: 0,
-        wordProblemsUsedToday: 0,
-        explanationsUsed: 0,
-        lastUsageDate: null
-      };
+    // 2. Fetch individual user usages using collectionGroup query for efficiency
+    // The collection name is 'usage', doc id is 'ai'.
+    // Alternatively, we can just query users and their usage subcollection, but collectionGroup is faster.
+    const usageQuery = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').get();
+    
+    const analytics = [];
+    const userIds = [];
+    const usageDataMap = {};
 
-      let username = userRecord.displayName || 'Unknown';
-      let coachingId = 'None';
-      let isPremium = false;
+    usageQuery.forEach(doc => {
+      // The parent of the 'usage' doc is the 'users' doc.
+      // Ref: users/{userId}/usage/ai
+      const userId = doc.ref.parent.parent.id;
+      userIds.push(userId);
+      usageDataMap[userId] = doc.data();
+    });
 
-      try {
-        const userDoc = await db.collection('users').doc(userRecord.uid).get();
-        if (userDoc.exists) {
-          const data = userDoc.data();
-          username = (data.profile && data.profile.username) || username;
-          coachingId = data.coachingId || 'None';
-          isPremium = data.isPremium || data.isPremiumPlus || data.isTrial;
-        }
+    // Note: We can't query > 30 userIds in a single 'in' clause, so we fetch all users or chunk them.
+    // Given this is an admin panel, we can just fetch all users and map them.
+    const usersSnapshot = await db.collection('users').get();
+    const usersMap = {};
+    usersSnapshot.forEach(doc => {
+      usersMap[doc.id] = doc.data();
+    });
 
-        const usageDoc = await db.collection('users').doc(userRecord.uid).collection('usage').doc('ai').get();
-        if (usageDoc.exists) {
-          usageData = { ...usageData, ...usageDoc.data() };
-        }
-      } catch (e) {
-        // Skip
-      }
+    userIds.forEach(uid => {
+      const user = usersMap[uid];
+      if (!user) return; // Orphaned usage
 
-      // Calculate estimated cost
-      // Using GPT-4o-mini rough averages:
-      // Word problem: ~500 prompt, ~300 completion tokens
-      // Explanation: ~300 prompt, ~200 completion tokens
-      // $0.15/1M input, $0.60/1M output
+      const usage = usageDataMap[uid];
+      const wp = usage.wordProblemsUsedLifetime || 0;
+      const exp = usage.explanationsUsed || 0;
       
-      const totalWP = usageData.wordProblemsUsedLifetime || 0;
-      const totalExp = usageData.explanationsUsed || 0;
+      // Cost heuristics based on gpt-4o-mini
+      // WP: ~800 tokens input, ~600 output
+      // Exp: ~400 tokens input, ~300 output
+      const wpTokens = wp * 1400;
+      const expTokens = exp * 700;
+      const totalTokens = wpTokens + expTokens;
       
-      const wpCost = totalWP * ((500/1000000)*0.15 + (300/1000000)*0.60);
-      const expCost = totalExp * ((300/1000000)*0.15 + (200/1000000)*0.60);
-      const totalEstimatedCost = wpCost + expCost;
-      const totalEstimatedTokens = totalWP * 800 + totalExp * 500;
+      // Cost formula: ($0.15/1M input + $0.60/1M output) -> average ~$0.375 per 1M tokens
+      const costPerToken = 0.375 / 1000000;
+      const estCost = totalTokens * costPerToken;
 
-      return {
-        uid: userRecord.uid,
-        email: userRecord.email,
-        username,
-        coachingId,
-        isPremium,
-        totalWP,
-        totalExp,
-        totalCalls: totalWP + totalExp,
-        totalEstimatedTokens,
-        totalEstimatedCost: totalEstimatedCost.toFixed(4),
-        lastUsageDate: usageData.lastUsageDate
-      };
-    }));
+      analytics.push({
+        uid: uid,
+        username: user.username || user.displayName || user.profile?.name || 'Unknown',
+        email: user.email || 'N/A',
+        coachingId: user.coachingId || 'Independent',
+        isPremium: user.isPremium || user.isPremiumPlus || false,
+        totalWP: wp,
+        totalExp: exp,
+        totalCalls: wp + exp,
+        totalEstimatedTokens: totalTokens,
+        totalEstimatedCost: estCost.toFixed(6)
+      });
+    });
 
-    // Filter out users with zero usage
-    const activeUsers = analytics.filter(u => u.totalCalls > 0);
-    // Sort by highest cost
-    activeUsers.sort((a, b) => parseFloat(b.totalEstimatedCost) - parseFloat(a.totalEstimatedCost));
-
-    res.status(200).json({ analytics: activeUsers });
-  } catch (error) {
-    console.error('[ai-usage] Error:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(200).json({
+      analytics: analytics,
+      systemMetrics: systemMetrics
+    });
+  } catch (err) {
+    console.error('Error fetching AI usage:', err);
+    return res.status(500).json({ error: formatError(err) });
   }
-});
+}
+
+module.exports = withAdminAuth(handler);
