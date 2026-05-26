@@ -547,7 +547,7 @@ input, textarea, select { font-family: inherit; }
   animation: modalScaleIn var(--transition-smooth);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .modal-overlay {
     align-items: flex-end;
   }
@@ -654,8 +654,8 @@ input, textarea, select { font-family: inherit; }
 .text-secondary { color: #64748b; }
 .text-sm { font-size: .8125rem; }
 
-/* ==================== DESKTOP (768px+) ==================== */
-@media (min-width: 768px) {
+/* ==================== DESKTOP (1024px+) ==================== */
+@media (min-width: 1024px) {
   .mobile-header { display: none; }
   
   .sidebar {

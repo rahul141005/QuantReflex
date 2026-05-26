@@ -20,7 +20,11 @@ var API = (function () {
     if (!response.ok) {
       var errData;
       try { errData = await response.json(); } catch (e) { errData = {}; }
-      throw new Error(errData.error || 'Request failed (' + response.status + ')');
+      var errObj = errData.error || errData;
+      var errMessage = typeof errObj === 'object' && errObj !== null 
+        ? (errObj.message || JSON.stringify(errObj)) 
+        : errObj;
+      throw new Error(errMessage || 'Request failed (' + response.status + ')');
     }
     return response.json();
   }

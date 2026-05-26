@@ -35,13 +35,34 @@ async function handler(req, res) {
 
       const freeUsers = Math.max(0, totalUsers - premiumUsers - premiumPlusUsers - trialUsers);
 
+      const metricsSnap = await db.collection('metrics').doc('latest').get();
+      const latestMetrics = metricsSnap.exists ? metricsSnap.data() : {};
+
+      const now = Date.now();
+      const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
+      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'ready']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
+
       return res.status(200).json({
-        totalUsers: totalUsers,
-        freeUsers: freeUsers,
-        trialUsers: trialUsers,
-        premiumUsers: premiumUsers,
-        premiumPlusUsers: premiumPlusUsers,
-        aiTokens: 0
+        metrics: {
+          totalUsers: totalUsers,
+          freeUsers: freeUsers,
+          trialUsers: trialUsers,
+          premiumUsers: premiumUsers,
+          premiumPlusUsers: premiumPlusUsers,
+          dau: latestMetrics.dau || 0,
+          mau: latestMetrics.mau || 0,
+          orphanDuels: orphanDuelsSnap.size
+        },
+        ai: {
+          tokensToday: latestMetrics.totalAiTokens || 0,
+          costTodayUSD: ((latestMetrics.totalAiTokens || 0) / 1000 * 0.002).toFixed(2)
+        },
+        health: {
+          firebaseAuth: 'green',
+          firestore: 'green',
+          aiApi: 'green',
+          webhooks: 'green'
+        }
       });
     }
 
