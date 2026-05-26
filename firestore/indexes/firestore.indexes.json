@@ -43,6 +43,14 @@
         { "fieldPath": "topic", "order": "ASCENDING" },
         { "fieldPath": "difficulty", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "entitlementLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

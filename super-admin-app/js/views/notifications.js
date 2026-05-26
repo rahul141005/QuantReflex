@@ -72,11 +72,14 @@ var NotificationsView = (function () {
     if (segment === 'coaching') payload.coachingId = coachingId;
 
     API.sendBroadcast(payload).then(function(res) {
-      Toast.show('Sent to ' + res.sent + ' devices. Failed: ' + res.failed + '. Cleaned: ' + res.cleaned, 'success');
+      var sent = res.sent || res.successCount || 0;
+      var failed = res.failed || res.failureCount || 0;
+      var cleaned = res.cleaned || res.staleTokensCleaned || 0;
+      Toast.show('Sent to ' + sent + ' devices. Failed: ' + failed + '. Cleaned: ' + cleaned, 'success');
       document.getElementById('notifTitle').value = '';
       document.getElementById('notifBody').value = '';
     }).catch(function(err) {
-      Toast.show('Broadcast failed: ' + err.message, 'error');
+      Toast.show('Broadcast failed: ' + AdminUtils.getReadableError(err), 'error');
     }).finally(function() {
       if (btn) { btn.disabled = false; btn.innerText = 'Send Broadcast'; }
     });

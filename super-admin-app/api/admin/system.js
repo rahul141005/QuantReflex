@@ -85,8 +85,8 @@ async function handler(req, res) {
     if (action === 'auditLogs' && req.method === 'GET') {
       const [entitlementSnaps, notifSnaps] = await Promise.all([ db.collection('entitlementLogs').orderBy('timestamp', 'desc').limit(25).get(), db.collection('notificationLogs').orderBy('timestamp', 'desc').limit(25).get() ]);
       const auditLogs = [];
-      entitlementSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'entitlement', action: d.action, target: d.uid, admin: d.adminUid || d.adminEmail || 'System', timestamp: d.timestamp ? d.timestamp.toMillis() : 0 }); });
-      notifSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'notification', action: `Broadcast to ${d.segment}`, target: `Sent: ${d.successCount}, Failed: ${d.failureCount}`, admin: d.adminUid || 'System', timestamp: d.timestamp ? d.timestamp.toMillis() : 0 }); });
+      entitlementSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'entitlement', action: d.action, target: d.uid, admin: d.adminUid || d.adminEmail || 'System', timestamp: d.timestamp && typeof d.timestamp.toMillis === 'function' ? d.timestamp.toMillis() : (typeof d.timestamp === 'number' ? d.timestamp : (typeof d.timestamp === 'string' ? Date.parse(d.timestamp) || 0 : 0)) }); });
+      notifSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'notification', action: `Broadcast to ${d.segment || 'unknown'}`, target: `Sent: ${d.successCount || 0}, Failed: ${d.failureCount || 0}`, admin: d.adminUid || 'System', timestamp: d.timestamp && typeof d.timestamp.toMillis === 'function' ? d.timestamp.toMillis() : (typeof d.timestamp === 'number' ? d.timestamp : (typeof d.timestamp === 'string' ? Date.parse(d.timestamp) || 0 : 0)) }); });
       auditLogs.sort((a, b) => b.timestamp - a.timestamp);
       auditLogs.forEach(l => { l.timestamp = new Date(l.timestamp).toISOString(); });
       return res.status(200).json(auditLogs);

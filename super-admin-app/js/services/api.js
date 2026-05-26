@@ -19,12 +19,24 @@ var API = (function () {
     var response = await fetch(endpoint, config);
     if (!response.ok) {
       var errData;
-      try { errData = await response.json(); } catch (e) { errData = {}; }
-      var errObj = errData.error || errData;
-      var errMessage = typeof errObj === 'object' && errObj !== null 
-        ? (errObj.message || JSON.stringify(errObj)) 
-        : errObj;
-      throw new Error(errMessage || 'Request failed (' + response.status + ')');
+      try { errData = await response.json(); } catch (e) { errData = null; }
+      // Extract the most meaningful error message from any response shape
+      var errMessage = 'Request failed (' + response.status + ')';
+      if (errData) {
+        if (typeof errData.error === 'string') {
+          errMessage = errData.error;
+        } else if (errData.error && errData.error.message) {
+          errMessage = errData.error.message;
+        } else if (errData.message) {
+          errMessage = errData.message;
+        } else {
+          try {
+            var s = JSON.stringify(errData);
+            if (s && s !== '{}' && s !== '""') errMessage = s;
+          } catch (_) {}
+        }
+      }
+      throw new Error(errMessage);
     }
     return response.json();
   }

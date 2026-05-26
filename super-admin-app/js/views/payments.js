@@ -6,21 +6,10 @@ var PaymentsView = (function () {
 
   /**
    * Convert any timestamp format to milliseconds for comparison.
-   * Canonical: shared/constants/entitlements.js — TIMESTAMP STRATEGY
-   * Handles: ISO 8601 strings, Unix ms (number), Date objects, Firestore Timestamps.
+   * Uses centralized AdminUtils.
    */
   function _toMillis(ts) {
-    if (!ts) return 0;
-    if (typeof ts === 'number') return ts;
-    if (typeof ts === 'string') {
-      var parsed = Date.parse(ts);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    if (ts instanceof Date) return ts.getTime();
-    if (typeof ts.toDate === 'function') {
-      try { return ts.toDate().getTime(); } catch (_) { return 0; }
-    }
-    return 0;
+    return AdminUtils.toMillis(ts);
   }
 
   var _allUsers = [];
@@ -68,12 +57,13 @@ var PaymentsView = (function () {
 
   async function _loadData() {
     try {
-      _allUsers = await API.getUsers();
+      var res = await API.getUsers();
+      _allUsers = res.data || res.users || (Array.isArray(res) ? res : []);
       _renderList();
     } catch (err) {
       console.error(err);
       var c = document.getElementById('paymentsListContainer');
-      if (c) c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load entitlement data.</div></div>';
+      if (c) c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load entitlement data: ' + AdminUtils.getReadableError(err) + '</div></div>';
     }
   }
 
@@ -239,12 +229,12 @@ var PaymentsView = (function () {
         '</tr>';
 
       logs.forEach(function(l) {
-        var ts = l.timestamp ? new Date(l.timestamp._seconds * 1000).toLocaleString() : 'N/A';
+        var ts = AdminUtils.formatDateTime(l.timestamp);
         html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
           '<td style="padding:1rem;">' + ts + '</td>' +
-          '<td style="padding:1rem; font-family:monospace;">' + _escapeHtml(l.uid) + '</td>' +
-          '<td style="padding:1rem; font-weight:600;">' + _escapeHtml(l.action) + '</td>' +
-          '<td style="padding:1rem;">' + _escapeHtml(l.adminUid || 'System') + '</td>' +
+          '<td style="padding:1rem; font-family:monospace;">' + AdminUtils.escapeHtml(l.uid) + '</td>' +
+          '<td style="padding:1rem; font-weight:600;">' + AdminUtils.escapeHtml(l.action) + '</td>' +
+          '<td style="padding:1rem;">' + AdminUtils.escapeHtml(l.adminUid || 'System') + '</td>' +
           '</tr>';
       });
 
@@ -257,10 +247,7 @@ var PaymentsView = (function () {
   }
 
   function _escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"']/g, function(m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-    });
+    return AdminUtils.escapeHtml(str);
   }
 
   return { render: render };

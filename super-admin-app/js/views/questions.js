@@ -173,7 +173,7 @@ var QuestionsView = (function () {
       
       try {
         var token = await AdminAuth.getToken();
-        var res = await fetch('/api/admin/questions-import', {
+        var res = await fetch('/api/admin/questions?action=import', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

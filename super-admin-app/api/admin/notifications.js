@@ -1,4 +1,4 @@
-const { withAdminAuth, methodGuard, formatError } = require('../../_lib/middleware');
+const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -118,7 +118,7 @@ async function handler(req, res) {
       failureCount,
       staleTokensCleaned: tokensToRemove.length,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      adminUid: req.user.uid
+      adminUid: req.userId || 'unknown'
     });
 
     return res.status(200).json({
@@ -130,7 +130,19 @@ async function handler(req, res) {
 
   } catch (err) {
     console.error('Error broadcasting notification:', err);
-    return res.status(500).json({ error: formatError(err) });
+    const errMsg = err.message || 'Unknown notification error';
+    // Provide descriptive error messages for common FCM failures
+    let userMessage = errMsg;
+    if (errMsg.includes('not-initialized') || errMsg.includes('no-app')) {
+      userMessage = 'Firebase Admin SDK not initialized. Check FIREBASE_SERVICE_ACCOUNT env variable.';
+    } else if (errMsg.includes('invalid-argument')) {
+      userMessage = 'Invalid notification payload. Check title and body formatting.';
+    } else if (errMsg.includes('permission') || errMsg.includes('PERMISSION_DENIED')) {
+      userMessage = 'Permission denied. Check Firebase service account permissions.';
+    } else if (errMsg.includes('sender-id-mismatch')) {
+      userMessage = 'Sender ID mismatch. FCM tokens belong to a different Firebase project.';
+    }
+    return res.status(500).json({ error: { code: 'NOTIFICATION_ERROR', message: userMessage } });
   }
 }
 

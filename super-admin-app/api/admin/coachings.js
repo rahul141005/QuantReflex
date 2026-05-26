@@ -12,6 +12,17 @@ if (!admin.apps.length) {
   }
 }
 
+/** Safely convert any timestamp to ISO string */
+function _safeTS(val) {
+  if (val == null) return null;
+  if (typeof val.toDate === 'function') { try { return val.toDate().toISOString(); } catch (_) { return null; } }
+  if (typeof val === 'string') { var d = new Date(val); return isNaN(d.getTime()) ? null : d.toISOString(); }
+  if (val instanceof Date) { return isNaN(val.getTime()) ? null : val.toISOString(); }
+  if (typeof val === 'number' && isFinite(val)) { return new Date(val < 1e12 ? val * 1000 : val).toISOString(); }
+  if (typeof val === 'object' && val._seconds != null) { try { return new Date(val._seconds * 1000).toISOString(); } catch (_) { return null; } }
+  return null;
+}
+
 function generateCoachingId(length = 8) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
@@ -30,11 +41,13 @@ async function handler(req, res) {
       const snapshot = await db.collection('coachings').orderBy('createdAt', 'desc').get();
       const coachings = [];
       snapshot.forEach(doc => {
+        const data = doc.data();
         coachings.push({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt ? doc.data().createdAt.toDate().toISOString() : null,
-          updatedAt: doc.data().updatedAt ? doc.data().updatedAt.toDate().toISOString() : null
+          coachingId: doc.id,
+          ...data,
+          createdAt: _safeTS(data.createdAt),
+          updatedAt: _safeTS(data.updatedAt)
         });
       });
       return res.status(200).json(coachings);

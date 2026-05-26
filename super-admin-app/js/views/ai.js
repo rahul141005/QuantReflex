@@ -53,7 +53,7 @@ var AIAnalyticsView = (function () {
     } catch (err) {
       console.error(err);
       var c = document.getElementById('aiListContainer');
-      if (c) c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load AI usage analytics.</div></div>';
+      if (c) c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load AI usage analytics: ' + AdminUtils.getReadableError(err) + '</div></div>';
     }
   }
 
@@ -66,8 +66,8 @@ var AIAnalyticsView = (function () {
     var totalUsers = _allData.length;
 
     _allData.forEach(function(u) {
-      totalCost += parseFloat(u.totalEstimatedCost);
-      totalTokens += u.totalEstimatedTokens;
+      totalCost += parseFloat(u.totalEstimatedCost) || 0;
+      totalTokens += (u.totalEstimatedTokens || 0);
     });
 
     container.innerHTML = 
@@ -138,10 +138,7 @@ var AIAnalyticsView = (function () {
   }
 
   function _escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"']/g, function(m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-    });
+    return AdminUtils.escapeHtml(str);
   }
 
   return { render: render };

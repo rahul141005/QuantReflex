@@ -82,23 +82,82 @@ var SystemView = (function () {
         output.style.display = 'block';
         output.textContent = 'Fetching state from Firestore...';
         
+        var db = FirebaseApp.getDb();
+        if (!db) {
+          output.textContent = 'ERROR: Firebase not initialized. Please refresh the page.';
+          return;
+        }
+
         try {
           var userDoc = await db.collection('users').doc(targetId).get();
           if (userDoc.exists) {
-            output.textContent = 'USER RECORD FOUND:\n\n' + JSON.stringify(userDoc.data(), null, 2);
+            var data = userDoc.data();
+            var now = Date.now();
+            var lines = [];
+            lines.push('═══ USER RECORD FOUND ═══');
+            lines.push('UID: ' + targetId);
+            lines.push('Username: ' + (data.username || 'Unknown'));
+            lines.push('Email: ' + (data.email || 'N/A'));
+            lines.push('CoachingId: ' + (data.coachingId || 'None (Independent)'));
+            lines.push('');
+            lines.push('── Entitlement State ──');
+            lines.push('isPremium: ' + (data.isPremium === true ? '✅ YES' : '❌ NO'));
+            lines.push('isPremiumPlus: ' + (data.isPremiumPlus === true ? '✅ YES' : '❌ NO'));
+            lines.push('isTrial: ' + (data.isTrial === true ? '✅ YES' : '❌ NO'));
+            lines.push('hasPaid: ' + (data.hasPaid === true ? '✅ YES' : '❌ NO'));
+            lines.push('');
+            lines.push('── Expiration Details ──');
+            var trialEndMs = AdminUtils.toMillis(data.trialEnd);
+            lines.push('trialEnd: ' + (trialEndMs ? AdminUtils.formatDateTime(data.trialEnd) + (trialEndMs > now ? ' (ACTIVE)' : ' (EXPIRED)') : 'null'));
+            var ppExpiryMs = AdminUtils.toMillis(data.premiumPlusExpiry);
+            lines.push('premiumPlusExpiry: ' + (ppExpiryMs ? AdminUtils.formatDateTime(data.premiumPlusExpiry) + (ppExpiryMs > now ? ' (ACTIVE)' : ' (EXPIRED)') : 'null'));
+            lines.push('premiumPlusStatus: ' + (data.premiumPlusStatus || 'null'));
+            lines.push('premiumPlusPlan: ' + (data.premiumPlusPlan || 'null'));
+            lines.push('');
+            lines.push('── Precedence Resolution ──');
+            var activeSource = 'FREE';
+            if (data.isPremiumPlus && ppExpiryMs > now) activeSource = 'PREMIUM_PLUS (active)';
+            else if (data.isPremiumPlus && ppExpiryMs && ppExpiryMs <= now) activeSource = 'PREMIUM_PLUS (EXPIRED)';
+            else if (data.isPremium && !data.isTrial) activeSource = 'PREMIUM (lifetime)';
+            else if (data.isTrial && trialEndMs > now) activeSource = 'TRIAL (active)';
+            else if (data.isTrial && trialEndMs && trialEndMs <= now) activeSource = 'TRIAL (EXPIRED)';
+            lines.push('Active Source: ' + activeSource);
+            if (data.coachingId) lines.push('Coaching Inheritance: YES — linked to ' + data.coachingId);
+            lines.push('');
+            lines.push('── Timestamps ──');
+            lines.push('createdAt: ' + AdminUtils.formatDateTime(data.createdAt));
+            lines.push('updatedAt: ' + AdminUtils.formatDateTime(data.updatedAt));
+            lines.push('');
+            lines.push('── Raw Data ──');
+            lines.push(JSON.stringify(data, null, 2));
+            output.textContent = lines.join('\n');
             return;
           }
           
           var coachingDoc = await db.collection('coachings').doc(targetId).get();
           if (coachingDoc.exists) {
-            output.textContent = 'COACHING RECORD FOUND:\n\n' + JSON.stringify(coachingDoc.data(), null, 2);
+            var cData = coachingDoc.data();
+            var cLines = [];
+            cLines.push('═══ COACHING RECORD FOUND ═══');
+            cLines.push('CoachingId: ' + targetId);
+            cLines.push('Name: ' + (cData.name || 'Unknown'));
+            cLines.push('Status: ' + (cData.status || 'unknown'));
+            cLines.push('isActive: ' + (cData.isActive === true ? '✅ YES' : '❌ NO'));
+            cLines.push('Owner: ' + (cData.ownerEmail || 'None'));
+            cLines.push('Capacity: ' + (cData.capacity || 'Unlimited'));
+            cLines.push('Students: ' + (cData.studentCount || 0));
+            cLines.push('Plan: ' + (cData.entitlementPlan || 'standard'));
+            cLines.push('');
+            cLines.push('── Raw Data ──');
+            cLines.push(JSON.stringify(cData, null, 2));
+            output.textContent = cLines.join('\n');
             return;
           }
           
           output.textContent = 'No records found for ID: ' + targetId;
         } catch (err) {
           console.error(err);
-          output.textContent = 'Error fetching state: ' + err.message;
+          output.textContent = 'Error fetching state: ' + AdminUtils.getReadableError(err);
         }
       });
     }

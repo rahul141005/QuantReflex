@@ -5,22 +5,10 @@ var UsersView = (function () {
   'use strict';
 
   /**
-   * Convert any timestamp format to milliseconds for comparison.
-   * Canonical: shared/constants/entitlements.js — TIMESTAMP STRATEGY
-   * Handles: ISO 8601 strings, Unix ms (number), Date objects, Firestore Timestamps.
+   * Delegate to centralized AdminUtils for timestamp conversion.
    */
   function _toMillis(ts) {
-    if (!ts) return 0;
-    if (typeof ts === 'number') return ts;
-    if (typeof ts === 'string') {
-      var parsed = Date.parse(ts);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    if (ts instanceof Date) return ts.getTime();
-    if (typeof ts.toDate === 'function') {
-      try { return ts.toDate().getTime(); } catch (_) { return 0; }
-    }
-    return 0;
+    return AdminUtils.toMillis(ts);
   }
 
   var _allUsers = [];

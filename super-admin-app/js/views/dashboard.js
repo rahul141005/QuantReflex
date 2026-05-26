@@ -47,19 +47,23 @@ var DashboardView = (function () {
           _statCard(m.premiumPlusUsers || 0, 'Premium+', '#8b5cf6') +
           '</div>';
 
+        var tokensToday = ai.tokensToday || 0;
+        var costToday = ai.costTodayUSD || 0;
+        var orphanDuels = m.orphanDuels || 0;
+
         html += '<h3>System Operations</h3>' +
           '<div class="stat-grid" style="margin-bottom:24px;">' +
-          _statCard(ai.tokensToday ? (ai.tokensToday / 1000).toFixed(1) + 'k' : '0', 'AI Tokens (Today)') +
-          _statCard('$' + (ai.costTodayUSD || 0), 'AI Cost (Today USD)', '#ef4444') +
-          _statCard(m.orphanDuels || 0, 'Orphaned Duels', m.orphanDuels > 0 ? '#ef4444' : '#10b981') +
+          _statCard(tokensToday > 0 ? (tokensToday / 1000).toFixed(1) + 'k' : '0', 'AI Tokens (Today)') +
+          _statCard('$' + (typeof costToday === 'number' ? costToday.toFixed(2) : '0.00'), 'AI Cost (Today USD)', '#ef4444') +
+          _statCard(orphanDuels, 'Orphaned Duels', orphanDuels > 0 ? '#ef4444' : '#10b981') +
           '</div>';
         
         html += '<h3>Infrastructure Health</h3>' +
           '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">' +
-          _healthBadge('Firebase Auth', h.firebaseAuth) +
-          _healthBadge('Firestore', h.firestore) +
-          _healthBadge('AI API (OpenAI)', h.aiApi) +
-          _healthBadge('Webhooks', h.webhooks) +
+          _healthBadge('Firebase Auth', h.firebaseAuth || 'green') +
+          _healthBadge('Firestore', h.firestore || 'green') +
+          _healthBadge('AI API (OpenAI)', h.aiApi || 'yellow') +
+          _healthBadge('Webhooks', h.webhooks || 'green') +
           '</div>';
 
         content.innerHTML = html;
@@ -68,7 +72,7 @@ var DashboardView = (function () {
     } catch (e) {
       console.error('[Dashboard] Load error:', e);
       var content = document.getElementById('dashboardContent');
-      if (content) content.innerHTML = '<p style="color:#ef4444;">Failed to load system health: ' + e.message + '</p>';
+      if (content) content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load system health: ' + AdminUtils.getReadableError(e) + '</div></div>';
     }
   }
 

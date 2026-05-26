@@ -11,31 +11,28 @@ var CoachingsView = (function () {
     if (!_container) return;
     
     _container.innerHTML =
-      '<div class="view-header">' +
-        '<h2 class="view-title">Coaching CRM</h2>' +
-        '<p class="view-subtitle">Manage coaching institutes and their student allocations</p>' +
-        '<div style="margin-top: 16px;">' +
-          '<button class="btn accent" id="btnCreateCoaching">+ New Coaching</button>' +
+      '<div class="view-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;">' +
+        '<div>' +
+          '<h2 class="view-title">Coaching CRM</h2>' +
+          '<p class="view-subtitle">Manage coaching institutes and their student allocations</p>' +
         '</div>' +
+        '<button class="btn btn-sm accent" id="btnCreateCoaching">+ New Coaching</button>' +
       '</div>' +
-      '<div class="content-card">' +
-        '<div id="coachingsTableContainer">Loading coachings...</div>' +
-      '</div>';
+      '<div id="coachingsTableContainer"><div class="loading">Loading coachings...</div></div>';
 
     document.getElementById('btnCreateCoaching').addEventListener('click', _showCreateModal);
-
     _loadData();
   }
 
   async function _loadData() {
     try {
-      var coachings = await API.getCoachings();
-      if (!Array.isArray(coachings)) coachings = [];
+      var res = await API.getCoachings();
+      var coachings = Array.isArray(res) ? res : (res.coachings || []);
       _renderTable(coachings);
     } catch (e) {
       console.error('[Coachings] Load error:', e);
       var tc = document.getElementById('coachingsTableContainer');
-      if (tc) tc.innerHTML = '<p class="error-text">Failed to load coachings: ' + e.message + '</p>';
+      if (tc) tc.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load coachings: ' + AdminUtils.getReadableError(e) + '</div></div>';
     }
   }
 
@@ -44,73 +41,87 @@ var CoachingsView = (function () {
     if (!tc) return;
 
     if (coachings.length === 0) {
-      tc.innerHTML = '<p>No coachings found.</p>';
+      tc.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-text">No coaching institutes created yet.</div></div>';
       return;
     }
 
-    var headers = ['Coaching ID', 'Name', 'Status', 'Plan', 'Students', 'Premium', 'Owner', 'Actions'];
-    var rows = coachings.map(function(c) {
+    var html = '<div class="table-wrap"><table class="data-table">';
+    html += '<thead><tr>' +
+      '<th>Coaching ID</th>' +
+      '<th>Name</th>' +
+      '<th>Status</th>' +
+      '<th>Plan</th>' +
+      '<th>Students</th>' +
+      '<th>Premium</th>' +
+      '<th>Owner</th>' +
+      '<th>Actions</th>' +
+    '</tr></thead><tbody>';
+
+    coachings.forEach(function(c) {
       var isSuspended = c.status === 'suspended';
       var isDeleted = c.status === 'deleted';
       var statusBadge = '';
-      if (isDeleted) statusBadge = '<span class="badge badge-danger">Deleted</span>';
-      else if (isSuspended) statusBadge = '<span class="badge badge-warning">Suspended</span>';
-      else statusBadge = '<span class="badge badge-success">Active</span>';
+      if (isDeleted) statusBadge = '<span class="badge" style="background:#fef2f2;color:#dc2626;">Deleted</span>';
+      else if (isSuspended) statusBadge = '<span class="badge badge-draft">Suspended</span>';
+      else statusBadge = '<span class="badge badge-active">Active</span>';
       
       var actions = '';
       if (!isDeleted) {
         if (isSuspended) {
-          actions = '<button class="btn btn-sm btn-outline" onclick="CoachingsView.mutate(\'' + c.id + '\', \'activate\')">Activate</button>';
+          actions = '<button class="btn btn-sm btn-outline" onclick="CoachingsView.mutate(\'' + AdminUtils.escapeHtml(c.id || c.coachingId) + '\', \'activate\')">Activate</button>';
         } else {
-          actions = '<button class="btn btn-sm btn-outline" style="color:#ef4444; border-color:#ef4444;" onclick="CoachingsView.mutate(\'' + c.id + '\', \'suspend\')">Suspend</button>';
+          actions = '<button class="btn btn-sm btn-outline" style="color:#ef4444; border-color:#ef4444;" onclick="CoachingsView.mutate(\'' + AdminUtils.escapeHtml(c.id || c.coachingId) + '\', \'suspend\')">Suspend</button>';
         }
       }
 
-      return [
-        '<code>' + c.id + '</code>',
-        '<strong>' + c.name + '</strong>',
-        statusBadge,
-        c.entitlementPlan || 'standard',
-        c.studentCount || 0,
-        (c.activePremiumUsers || 0) + ' / ' + (c.activePremiumPlusUsers || 0),
-        c.ownerEmail || '<span class="text-muted">None</span>',
-        actions
-      ];
+      html += '<tr>' +
+        '<td><code>' + AdminUtils.escapeHtml(c.id || c.coachingId) + '</code></td>' +
+        '<td><strong>' + AdminUtils.escapeHtml(c.name) + '</strong></td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td>' + AdminUtils.escapeHtml(c.entitlementPlan || 'standard') + '</td>' +
+        '<td>' + (c.studentCount || 0) + '</td>' +
+        '<td>' + (c.activePremiumUsers || 0) + ' / ' + (c.activePremiumPlusUsers || 0) + '</td>' +
+        '<td>' + AdminUtils.escapeHtml(c.ownerEmail || '—') + '</td>' +
+        '<td>' + actions + '</td>' +
+      '</tr>';
     });
 
-    tc.innerHTML = UITable.generate(headers, rows);
+    html += '</tbody></table></div>';
+    tc.innerHTML = html;
   }
 
   function _showCreateModal() {
-    UIModal.show('Create New Coaching',
-      '<div class="form-group">' +
-        '<label>Coaching Name</label>' +
-        '<input type="text" id="coachingName" class="form-control" placeholder="e.g. Allen Academy">' +
-      '</div>' +
-      '<div class="form-group" style="margin-top:12px;">' +
-        '<label>Owner Email (Optional)</label>' +
-        '<input type="email" id="coachingEmail" class="form-control" placeholder="admin@allen.in">' +
-      '</div>' +
-      '<div class="form-group" style="margin-top:12px;">' +
-        '<label>Capacity (Optional)</label>' +
-        '<input type="number" id="coachingCapacity" class="form-control" placeholder="Leave blank for unlimited">' +
-      '</div>',
-      [
-        { text: 'Cancel', class: 'btn-outline', onClick: function() { UIModal.hide(); } },
-        { text: 'Create Coaching', class: 'btn-accent', onClick: _handleCreate }
+    var body = document.createElement('div');
+    body.innerHTML =
+      '<div class="modal-field"><label class="modal-label">Coaching Name</label>' +
+        '<input type="text" id="coachingName" class="modal-input" placeholder="e.g. Allen Academy" /></div>' +
+      '<div class="modal-field"><label class="modal-label">Owner Email (Optional)</label>' +
+        '<input type="email" id="coachingEmail" class="modal-input" placeholder="admin@allen.in" /></div>' +
+      '<div class="modal-field"><label class="modal-label">Capacity (Optional)</label>' +
+        '<input type="number" id="coachingCapacity" class="modal-input" placeholder="Leave blank for unlimited" /></div>';
+
+    Modal.show({
+      title: 'Create New Coaching',
+      body: body,
+      actions: [
+        { label: 'Cancel' },
+        { label: 'Create Coaching', accent: true, onClick: _handleCreate, autoClose: false }
       ]
-    );
+    });
   }
 
-  async function _handleCreate() {
+  async function _handleCreate(btn) {
     var name = document.getElementById('coachingName').value.trim();
     var capacity = document.getElementById('coachingCapacity').value.trim();
     var email = document.getElementById('coachingEmail').value.trim();
 
     if (!name) {
-      UIToast.show('Name is required.', 'error');
+      Toast.error('Name is required.');
       return;
     }
+
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
 
     try {
       var payload = { name: name };
@@ -118,24 +129,27 @@ var CoachingsView = (function () {
       if (email) payload.ownerEmail = email;
       
       var res = await API.createCoaching(payload);
-      UIModal.hide();
-      UIToast.show('Coaching created successfully: ' + res.coachingId, 'success');
+      Modal.close();
+      Toast.success('Coaching created successfully: ' + (res.coachingId || 'OK'));
       _loadData();
     } catch (e) {
-      UIToast.show('Failed to create coaching: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Create Coaching';
+      Toast.error('Failed to create coaching: ' + AdminUtils.getReadableError(e));
     }
   }
 
   async function mutate(coachingId, action) {
     if (!confirm('Are you sure you want to ' + action + ' this coaching?')) return;
     try {
-      var res = await API.mutateCoaching(coachingId, action);
-      UIToast.show('Successfully ' + action + 'd coaching.', 'success');
+      await API.mutateCoaching(coachingId, action);
+      Toast.success('Successfully ' + action + 'd coaching.');
       _loadData();
     } catch (e) {
-      UIToast.show('Failed to mutate coaching: ' + e.message, 'error');
+      Toast.error('Failed: ' + AdminUtils.getReadableError(e));
     }
   }
 
   return { render: render, mutate: mutate };
 })();
+

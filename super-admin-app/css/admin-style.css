@@ -654,6 +654,30 @@ input, textarea, select { font-family: inherit; }
 .text-secondary { color: #64748b; }
 .text-sm { font-size: .8125rem; }
 
+/* ==================== TABLET (768px–1023px) ==================== */
+@media (min-width: 768px) {
+  .main-content {
+    max-width: 720px;
+    padding: 1.5rem 2rem;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .modal-content {
+    max-width: 500px;
+  }
+
+  .user-drawer {
+    width: 420px !important;
+  }
+
+  .search-modal {
+    max-width: 560px;
+  }
+}
+
 /* ==================== DESKTOP (1024px+) ==================== */
 @media (min-width: 1024px) {
   .mobile-header { display: none; }
@@ -666,7 +690,7 @@ input, textarea, select { font-family: inherit; }
   .main-content {
     margin-left: 280px;
     padding: 2rem 3rem;
-    max-width: 1000px; /* Slightly wider since sidebar takes space */
+    max-width: 960px;
   }
 
   .stat-grid {
@@ -681,6 +705,18 @@ input, textarea, select { font-family: inherit; }
   .modal-overlay {
     align-items: center;
   }
+
+  .data-table tbody tr:hover {
+    background: #f8fafc;
+  }
+}
+
+/* ==================== ULTRAWIDE (1440px+) ==================== */
+@media (min-width: 1440px) {
+  .main-content {
+    max-width: 1100px;
+    padding: 2rem 4rem;
+  }
 }
 
 /* ---- Very small screens ---- */
@@ -689,3 +725,14 @@ input, textarea, select { font-family: inherit; }
   .login-card { padding: 2rem 1.5rem; }
   .main-content { padding: 1rem; }
 }
+
+/* ---- Safe area support (iPad, notched devices) ---- */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .sidebar-footer {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+  .main-content {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
