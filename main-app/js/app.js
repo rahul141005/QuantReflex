@@ -464,168 +464,141 @@ document.addEventListener('DOMContentLoaded', function () {
   var container = document.querySelector('.container');
   var bottomNav = document.querySelector('.bottom-nav');
   var _authRequestInFlight = false;
-  var _authViewToken = 0;
+  var _currentAppState = 'initializing';
 
   /**
-   * Show the main app and hide the login screen.
-   * Loads data from Firestore and initializes the app.
-   * Onboarding is checked before revealing the main app UI
-   * to prevent the main interface from flashing before onboarding.
+   * Sets the application state and manages DOM visibility strictly.
    */
-  function showApp() {
-    _authViewToken++;
-    var token = _authViewToken;
-    var expectedUserId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
-    if (authScreen) authScreen.style.display = 'none';
+  function setAppState(state) {
+    if (state === 'unauthenticated' && _currentAppState === 'unauthenticated') return;
+    if (state === 'app' && _currentAppState === 'app') return;
+    _currentAppState = state;
+    
+    if (state === 'unauthenticated') {
+      _hideAppLoader();
+      document.body.classList.remove('auth-resolved');
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      if (authScreen) authScreen.style.display = 'flex';
+      if (container) container.style.display = 'none';
+      if (bottomNav) bottomNav.style.display = 'none';
+      if (typeof Router !== 'undefined' && typeof Router.teardown === 'function') {
+        Router.teardown();
+      }
+      /* Restore button text if it was loading */
+      var authBtn = document.getElementById('authSubmitBtn');
+      if (authBtn) authBtn.textContent = (document.querySelector('.auth-tab.active') && document.querySelector('.auth-tab.active').getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+    } else if (state === 'hydrating') {
+      /* Wait for data. Do not hide the login screen or splash screen yet,
+         but keep the loading button text active. */
+    } else if (state === 'app') {
+      _hideAppLoader();
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.classList.add('auth-resolved');
+      
+      if (authScreen) authScreen.style.display = 'none';
+      if (container) container.style.display = '';
+      if (bottomNav) bottomNav.style.display = '';
+      
+      try {
+        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        updateNavigationIcons(s.theme || 'classic');
+      } catch (_) {
+        updateNavigationIcons('classic');
+      }
 
-    /* Load data from Firestore after authentication */
+      if (typeof Router !== 'undefined') {
+        if (!window._routerInitialized) {
+          window._routerInitialized = true;
+          Router.init();
+        } else {
+          var currentView = Router.getCurrentView() || 'home';
+          Router.showView(currentView);
+        }
+      }
+
+      if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
+        DuelManager.init();
+      }
+    }
+  }
+
+  function startHydrationAndShowApp() {
+    if (_currentAppState === 'app') return;
+    setAppState('hydrating');
+    
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
       FirestoreSync.loadFromFirestore(function (success) {
-        if (token !== _authViewToken) return;
-        var currentUserId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
-        if (expectedUserId && currentUserId !== expectedUserId) return;
         if (success) {
-          /* Re-apply dark mode and theme in case Firestore had updated settings */
           try {
             var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
             document.body.classList.toggle('dark-mode', !!s.darkMode);
             if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
           } catch (_) { /* ignore */ }
         }
-        /* Check onboarding BEFORE showing main UI */
         _launchOnboardingOrShowMain();
       });
     } else {
-      if (token !== _authViewToken) return;
-      var currentUserId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
-      if (expectedUserId && currentUserId !== expectedUserId) return;
-      /* No Firestore — check onboarding immediately */
+      /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
+      if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
+         setTimeout(startHydrationAndShowApp, 100);
+         return;
+      }
       _launchOnboardingOrShowMain();
     }
   }
 
-  /**
-   * Check onboarding: if needed, show it first (main UI stays hidden).
-   * After onboarding completes, reveal the main app.
-   * If no onboarding needed, reveal immediately.
-   */
   function _launchOnboardingOrShowMain() {
     if (typeof Onboarding !== 'undefined' && Onboarding.shouldShow()) {
+      if (authScreen) authScreen.style.display = 'none';
+      _hideAppLoader();
       Onboarding.show(function () {
-        _revealMainApp();
-        Router.showView('learn');
+        setAppState('app');
+        if (typeof Router !== 'undefined') Router.showView('learn');
       });
     } else {
-      _revealMainApp();
+      setAppState('app');
     }
-
-    /* Initialize notification scheduling if enabled */
+    
     if (typeof NotificationManager !== 'undefined') {
       NotificationManager.init();
     }
   }
 
-  /**
-   * Reveal the main app container and bottom nav.
-   * Re-render the current view to reflect loaded data.
-   */
-  function _revealMainApp() {
-    _hideAppLoader();
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
-    
-    /* Mark auth as resolved so the router is allowed to show the nav bar */
-    document.body.classList.add('auth-resolved');
-    
-    if (container) container.style.display = '';
-    if (bottomNav) bottomNav.style.display = '';
-    /* Apply correct navigation icons for the current theme */
-    try {
-      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-      updateNavigationIcons(s.theme || 'classic');
-    } catch (_) {
-      updateNavigationIcons('classic');
-    }
-    /* Re-render current view to reflect loaded data.
-       Fall back to 'home' if Router hasn't initialized yet —
-       Router.showView safely handles unknown views by defaulting to home. */
-    if (typeof Router !== 'undefined') {
-      if (!window._routerInitialized) {
-        window._routerInitialized = true;
-        Router.init();
-      } else {
-        var currentView = Router.getCurrentView() || 'home';
-        Router.showView(currentView);
-      }
-    }
-
-    /* Initialize Math Duel invitation listener + reconnection (V2) */
-    if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
-      DuelManager.init();
-    }
-  }
-
-  /**
-   * Show the login screen and hide the main app.
-   */
-  function showLogin() {
-    _authViewToken++;
-    _hideAppLoader();
-    _authRequestInFlight = false;
-    
-    /* Ensure the router doesn't try to show the nav bar */
-    document.body.classList.remove('auth-resolved');
-    
-    if (authScreen) authScreen.style.display = 'flex';
-    else console.error('[AuthGate] CRITICAL: authScreen DOM element not found');
-    if (container) container.style.display = 'none';
-    if (bottomNav) bottomNav.style.display = 'none';
-  }
-
-  /* ---- Auth Gate ---- */
+  /* ---- Reactive Auth Gate ---- */
   if (typeof Auth !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
-    /* Keep everything hidden until auth state is determined.
-       This prevents the login screen from flashing for authenticated users. */
     if (authScreen) authScreen.style.display = 'none';
     if (container) container.style.display = 'none';
     if (bottomNav) bottomNav.style.display = 'none';
 
-    var _authResolved = false;
-    /* Fallback: if Firebase auth doesn't respond within 8 seconds, show login.
-       Cold starts with cached credentials can take 3-6s on slow networks. */
     var _authTimeoutId = setTimeout(function () {
-      if (!_authResolved) {
-        _authResolved = true;
+      if (_currentAppState === 'initializing') {
         console.warn('Firebase auth timeout — falling back to login screen.');
-        showLogin();
+        setAppState('unauthenticated');
       }
     }, 8000);
 
-    Auth.onAuthReady(function (user) {
-      if (_authResolved) {
-        /* Late resolution: if we timed out and showed login, but Firebase
-           now confirms the user is logged in, smoothly transition to the app
-           instead of leaving them stranded on the login screen. */
+    if (typeof Auth.onStateChange === 'function') {
+      Auth.onStateChange(function (user) {
+        clearTimeout(_authTimeoutId);
         if (user) {
-          console.log('Firebase auth resolved late with user, transitioning to app.');
-          showApp();
+          startHydrationAndShowApp();
+        } else {
+          setAppState('unauthenticated');
         }
-        return;
-      }
-      _authResolved = true;
-      clearTimeout(_authTimeoutId);
-      if (user) {
-        showApp();
-      } else {
-        showLogin();
-      }
-    });
+      });
+    } else {
+      Auth.onAuthReady(function (user) {
+        clearTimeout(_authTimeoutId);
+        if (user) startHydrationAndShowApp();
+        else setAppState('unauthenticated');
+      });
+    }
   } else {
-    /* Firebase not available — show auth screen with error.
-       Do NOT bypass authentication. The app requires Firebase for all functionality. */
     _hideAppLoader();
-    console.error('[AuthGate] Firebase unavailable — cannot authenticate. Showing auth screen.');
-    showLogin();
+    console.error('[AuthGate] Firebase unavailable.');
+    setAppState('unauthenticated');
   }
 
     /* Login form handlers */
@@ -811,8 +784,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!_isSignupMode) {
             /* LOGIN FLOW */
             _authRequestInFlight = true;
-            setButtonsDisabled(true);
-            
             if (typeof Auth === 'undefined' || !Auth.login) {
               _authRequestInFlight = false;
               setButtonsDisabled(false);
@@ -822,14 +793,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
             Auth.login(email, password, function (err) {
               _authRequestInFlight = false;
-            setButtonsDisabled(false);
             if (err) {
+              setButtonsDisabled(false);
               showError(err);
             } else {
               if (loginEmail) loginEmail.value = '';
               if (loginPassword) loginPassword.value = '';
               _resetAllValidation();
-              showApp();
+              if (authSubmitBtn) authSubmitBtn.textContent = 'Loading...';
+              /* onStateChange listener will handle the rest */
             }
           });
         } else {
@@ -854,13 +826,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             Auth.signup(email, password, coachingId, function (err) {
               _authRequestInFlight = false;
-              setButtonsDisabled(false);
               if (err) {
+                setButtonsDisabled(false);
                 showError(err);
-                /* Trigger full validation display after a failed signup attempt */
-                _emailTouched = true;
-                _passwordTouched = true;
-                _validateEmailField();
                 _validatePasswordField();
               } else {
                 if (loginEmail) loginEmail.value = '';

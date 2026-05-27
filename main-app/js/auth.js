@@ -7,6 +7,8 @@
 var Auth = (function () {
   'use strict';
 
+  var _appStateChangeListener = null;
+
   function init() {
     AuthCore.init(function(user, tokenResult) {
       if (user && tokenResult && tokenResult.claims) {
@@ -20,7 +22,14 @@ var Auth = (function () {
           localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
         }
       }
+      if (_appStateChangeListener) {
+        _appStateChangeListener(user, tokenResult);
+      }
     });
+  }
+
+  function onStateChange(callback) {
+    _appStateChangeListener = callback;
   }
 
   function signup(email, password, coachingId, callback) {
@@ -97,6 +106,7 @@ var Auth = (function () {
   return {
     init: init,
     onAuthReady: onAuthReady,
+    onStateChange: onStateChange,
     signup: signup,
     login: login,
     logout: logout,

@@ -300,6 +300,19 @@ function initSettingsView() {
       if (typeof Auth !== 'undefined') {
         _logoutInFlight = true;
         this.disabled = true;
+
+        /* Hide the authenticated UI immediately to prevent stale visual flashes */
+        if (typeof Router !== 'undefined' && typeof Router.teardown === 'function') {
+          Router.teardown();
+        }
+        document.body.classList.remove('auth-resolved');
+        var container = document.querySelector('.container');
+        var authScreen = document.getElementById('authScreen');
+        var bottomNav = document.querySelector('.bottom-nav');
+        if (container) container.style.display = 'none';
+        if (bottomNav) bottomNav.style.display = 'none';
+        if (authScreen) authScreen.style.display = 'flex';
+
         /* Flush pending Firestore writes and clear local state BEFORE
            signing out, while the user context is still valid */
         if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.flushUpdatesAsync === 'function') {
@@ -311,6 +324,7 @@ function initSettingsView() {
                 var lb = document.getElementById('logoutBtn');
                 if (lb) lb.disabled = false;
                 alert('Logout failed: ' + err);
+                window.location.reload(); /* Force reload to recover state */
               } else {
                 window.location.reload();
               }

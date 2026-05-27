@@ -72,11 +72,12 @@ var Router = (function () {
       document.body.classList.remove('drill-session-active');
       document.documentElement.classList.remove('drill-session-active');
     }
-    /* Clear stale modal-open body class (prevents scroll lock after orphaned modals) */
-    var _anyModalVisible = document.querySelector('.modal-overlay[style*="display: flex"], .modal-overlay[style*="display:flex"]');
-    if (!_anyModalVisible) {
-      document.body.classList.remove('modal-open');
+    /* Clear all modals and stale modal-open body class to prevent scroll lock and dead click zones */
+    var _allModals = document.querySelectorAll('.modal-overlay');
+    for (var m = 0; m < _allModals.length; m++) {
+      _allModals[m].style.display = 'none';
     }
+    document.body.classList.remove('modal-open');
     /* Ensure bottom nav is visible when not in an active session, 
        BUT ONLY IF authentication has completed and the app shell is allowed to render */
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
@@ -161,11 +162,36 @@ var Router = (function () {
     });
   }
 
+  /**
+   * Resets the router state completely. Used during logout.
+   */
+  function teardown() {
+    var views = document.querySelectorAll('.spa-view');
+    for (var i = 0; i < views.length; i++) {
+      views[i].classList.remove('spa-view-active');
+    }
+    currentView = null;
+    window.location.hash = '';
+    
+    var navLinks = document.querySelectorAll('.bottom-nav a');
+    for (var j = 0; j < navLinks.length; j++) {
+      navLinks[j].classList.remove('active');
+      navLinks[j].setAttribute('aria-selected', 'false');
+    }
+    
+    var _allModals = document.querySelectorAll('.modal-overlay');
+    for (var m = 0; m < _allModals.length; m++) {
+      _allModals[m].style.display = 'none';
+    }
+    document.body.classList.remove('modal-open');
+  }
+
   return {
     showView: showView,
     onInit: onInit,
     onShow: onShow,
     getCurrentView: getCurrentView,
-    init: init
+    init: init,
+    teardown: teardown
   };
 })();
