@@ -90,9 +90,9 @@ var LeaderboardView = (function () {
       var rankClass = i === 0 ? ' gold' : (i === 1 ? ' silver' : (i === 2 ? ' bronze' : ''));
       html += '<div class="leaderboard-item" onclick="StudentsView.showProfile(\'' + s.uid + '\')" style="cursor:pointer;">';
       html += '<div class="leaderboard-rank' + rankClass + '">' + (i < 3 ? _rankEmoji(i) : s.rank) + '</div>';
-      html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(s.name || s.username) + '</div>';
+      html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
       html += '<div class="flex-1" style="min-width:0;">';
-      html += '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + CoachingUtils.escapeHtml(s.name || s.username) + '</div>';
+      html += '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + CoachingUtils.escapeHtml(s.name || s.email) + '</div>';
       html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + s.accuracy + '% · ' + CoachingUtils.formatSpeed(s.speed) + ' · 🔥' + s.streak + '</div>';
       html += '</div>';
       html += '<div style="font-weight:700;color:var(--accent-primary);white-space:nowrap;">' + _formatMetricValue(s.metricValue) + '</div>';
@@ -108,8 +108,8 @@ var LeaderboardView = (function () {
 
   function _podiumItem(s, rank, cls) {
     return '<div class="podium-item">' +
-      '<div class="student-avatar" style="width:40px;height:40px;font-size:var(--font-base);">' + CoachingUtils.getInitial(s.name || s.username) + '</div>' +
-      '<div class="podium-name">' + CoachingUtils.escapeHtml(s.name || s.username) + '</div>' +
+      '<div class="student-avatar" style="width:40px;height:40px;font-size:var(--font-base);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>' +
+      '<div class="podium-name">' + CoachingUtils.escapeHtml(s.name || s.email) + '</div>' +
       '<div class="podium-bar ' + cls + '">' +
       '<div style="font-size:var(--font-xl);">' + _rankEmoji(rank - 1) + '</div>' +
       '<div class="podium-value">' + _formatMetricValue(s.metricValue) + '</div>' +

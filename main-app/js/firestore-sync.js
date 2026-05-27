@@ -6,7 +6,7 @@
  *
  * Firestore structure:
  *   users/{userId}                               (root doc — source of truth)
- *     ├── profile (username, createdAt)
+ *     ├── profile (name, createdAt)
  *     ├── settings
  *     ├── stats (progress data)
  *     ├── quickLinks, customTopics, customFormulas, bookmarks
@@ -144,7 +144,7 @@ var FirestoreSync = (function () {
     } catch (_) {}
     if (profile) {
       if (profile.name !== undefined) payload.name = profile.name || '';
-      if (profile.username !== undefined && !payload.name) payload.name = profile.username || '';
+
     }
     if (premiumFlags) {
       if (premiumFlags.isPremium !== undefined) payload.isPremium = !!premiumFlags.isPremium;
@@ -279,10 +279,6 @@ var FirestoreSync = (function () {
       }
       if (callback) callback(true);
 
-      /* Update public username index for duel invitations (fire-and-forget) */
-      if (typeof DuelCore !== 'undefined' && typeof DuelCore.updatePublicUsername === 'function') {
-        try { DuelCore.updatePublicUsername(); } catch (_) {}
-      }
     }).catch(function (err) {
       console.warn('Firestore load failed:', err);
       _dataLoaded = true; /* Mark as loaded to prevent retries */
@@ -302,17 +298,16 @@ var FirestoreSync = (function () {
     if (!db) return;
 
     var userId = FirebaseApp.getUserId();
-    var username = userId || 'user';
-    /* Extract display username from Firebase Auth email */
+    var displayName = '';
+    /* Extract display name from Firebase Auth email */
     if (typeof Auth !== 'undefined' && Auth.getCurrentUser() && Auth.getCurrentUser().email) {
-      username = Auth.getCurrentUser().email.split('@')[0];
+      displayName = Auth.getCurrentUser().email.split('@')[0];
     }
     var now = new Date();
     /* New users start on free tier — no auto-trial or early-user grants */
     var fallbackDefaults = {
       profile: {
-        name: '',
-        username: username,
+        name: displayName,
         createdAt: now.toISOString()
       },
       settings: {
@@ -382,7 +377,7 @@ var FirestoreSync = (function () {
         var mc = _memoryCache || fallbackDefaults;
         var seedDocRef = _getUserDocRef();
         _syncProfileSubcollection(
-          { name: (mc.profile && mc.profile.name) || '', username: (mc.profile && mc.profile.username) || '' },
+          { name: (mc.profile && mc.profile.name) || '' },
           { isPremium: false, isTrial: false, trialEnd: null, hasPaid: false }
         );
         _syncPerformanceSubcollection(mc.stats || fallbackDefaults.stats);
@@ -400,10 +395,7 @@ var FirestoreSync = (function () {
             updatedAt: new Date().toISOString()
           }, { merge: true }).catch(function (err) { console.warn('AI usage seed failed:', err); });
         }
-        /* Eagerly sync public username index so new users are immediately discoverable for duels */
-        if (typeof DuelCore !== 'undefined' && typeof DuelCore.updatePublicUsername === 'function') {
-          try { DuelCore.updatePublicUsername(); } catch (_) {}
-        }
+
       });
     }).catch(function (err) {
       console.warn('Firestore default document creation failed:', err);
@@ -1046,9 +1038,9 @@ var FirestoreSync = (function () {
         _memoryCache.profile.name = name;
         queueUpdate('profile', _memoryCache.profile);
       } else {
-        /* No full profile in cache — use dot-notation update to avoid
-           overwriting username and createdAt inside the profile sub-document.
-           set({ profile: {name} }, { merge:true }) would replace the ENTIRE
+         /* No full profile in cache — use dot-notation update to avoid
+            overwriting createdAt inside the profile sub-document.
+            set({ profile: {name} }, { merge:true }) would replace the ENTIRE
            profile map; update() with dot notation patches only the one field. */
         if (_memoryCache) _memoryCache.profile = { name: name };
         var docRef = _getUserDocRef();

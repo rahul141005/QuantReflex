@@ -4,12 +4,12 @@
   "description": "Canonical schema for user documents in Firestore 'users/{uid}' collection. This is the root document structure — the single source of truth for user state.",
   "type": "object",
   "properties": {
+    "email": { "type": "string", "format": "email", "description": "Canonical email identity (e.g. handle@quantreflex.app)" },
     "profile": {
       "type": "object",
       "description": "User profile information.",
       "properties": {
         "name": { "type": "string", "description": "Display name" },
-        "username": { "type": "string", "description": "Normalized username (alphanumeric, lowercase)" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp (ISO 8601)" }
       }
     },

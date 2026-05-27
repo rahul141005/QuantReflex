@@ -54,7 +54,7 @@ var SystemView = (function () {
         '<h3 style="font-size:1.125rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;">' +
           '<span>🩺</span> Ecosystem Integrity Scanner' +
         '</h3>' +
-        '<p class="text-secondary text-sm" style="margin-bottom:1rem;">Run a self-diagnostic audit across Firestore to detect orphaned duels, missing usernames, and entitlement desyncs.</p>' +
+        '<p class="text-secondary text-sm" style="margin-bottom:1rem;">Run a self-diagnostic audit across Firestore to detect orphaned duels and entitlement desyncs.</p>' +
         '<button id="btnRunAudit" class="btn btn-outline" style="width:auto; margin-bottom:1rem;">Run Full Diagnostic Scan</button>' +
         '<div id="auditOutput" style="display:none;"></div>' +
       '</div>' +
@@ -96,7 +96,7 @@ var SystemView = (function () {
             var lines = [];
             lines.push('═══ USER RECORD FOUND ═══');
             lines.push('UID: ' + targetId);
-            lines.push('Username: ' + (data.username || 'Unknown'));
+            lines.push('User: ' + (data.email || 'Unknown'));
             lines.push('Email: ' + (data.email || 'N/A'));
             lines.push('CoachingId: ' + (data.coachingId || 'None (Independent)'));
             lines.push('');

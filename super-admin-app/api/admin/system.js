@@ -75,10 +75,7 @@ async function handler(req, res) {
       const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'ready']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
       if (!orphanDuelsSnap.empty) { issues.push({ type: 'ORPHANED_DUELS', severity: 'medium', message: `Found ${orphanDuelsSnap.size} stale duel rooms clogging the database.`, actionPayload: { fixEndpoint: '/api/admin/duels/cleanup' } }); }
       const recentUsers = await db.collection('users').orderBy('createdAt', 'desc').limit(50).get();
-      let missingUsernameCount = 0; const usernameChecks = [];
-      recentUsers.forEach(doc => { const u = doc.data(); if (u.username) { usernameChecks.push(db.collection('publicUsernames').doc(u.username.toLowerCase()).get().then(uDoc => { if (!uDoc.exists) missingUsernameCount++; })); } });
-      await Promise.all(usernameChecks);
-      if (missingUsernameCount > 0) { issues.push({ type: 'MISSING_PUBLIC_USERNAMES', severity: 'critical', message: `Found ${missingUsernameCount} recent users missing their publicUsernames index (Duel invitations will fail).`, actionPayload: { fixEndpoint: '/api/admin/system/repair-usernames' } }); }
+
       return res.status(200).json({ status: issues.length > 0 ? 'issues_found' : 'healthy', issues: issues, scannedAt: new Date().toISOString() });
     }
 

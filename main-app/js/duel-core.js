@@ -1,10 +1,9 @@
 /**
- * duel-core.js — Math Duel Firestore operations & question generation (V2)
+ * duel-core.js — Math Duel Firestore operations & question generation (V3)
  *
- * Complete rebuild with:
- *   - Username-based invitation system (publicUsernames index)
- *   - 10-state duel lifecycle machine
- *   - Invitation CRUD (send/accept/reject/listen/expire)
+ * Room-code-only duel system:
+ *   - No invitation system, no publicUsernames, no username lookup
+ *   - Clean 5-state lifecycle: waiting → active → completed / abandoned / expired / cancelled
  *   - Independent exit handling (player exits without killing opponent)
  *   - Reconnection support
  *   - Duplicate submission guards
@@ -17,12 +16,8 @@ var DuelCore = (function () {
   'use strict';
 
   var DUEL_EXPIRY_MS = 30 * 60 * 1000; /* 30 minutes */
-  var INVITE_EXPIRY_MS = 5 * 60 * 1000; /* 5 minutes */
   var DUEL_COLLECTION = 'duels';
-  var INVITE_COLLECTION = 'duelInvitations';
-  var USERNAME_COLLECTION = 'publicUsernames';
   var _activeListener = null;
-  var _inviteListener = null;
 
   /* ---- Helpers ---- */
 
@@ -53,18 +48,12 @@ var DuelCore = (function () {
         ? FirestoreSync.getProfile() : null;
       if (p && p.name) return p.name;
     } catch (_) {}
-    return 'Player';
-  }
-
-  function _getUsername() {
-    /* Extract sanitized username from Firebase Auth email */
+    /* Fallback: email prefix */
     try {
       var user = (typeof Auth !== 'undefined') ? Auth.getCurrentUser() : null;
-      if (user && user.email) {
-        return user.email.split('@')[0].toLowerCase().trim();
-      }
+      if (user && user.email) return user.email.split('@')[0];
     } catch (_) {}
-    return '';
+    return 'Player';
   }
 
   function _isPremiumPlus() {
@@ -78,13 +67,6 @@ var DuelCore = (function () {
     var createdMs = duel.createdAt.toDate ? duel.createdAt.toDate().getTime() : 0;
     if (createdMs === 0) return false;
     return (Date.now() - createdMs) > DUEL_EXPIRY_MS;
-  }
-
-  function _isInviteExpired(invite) {
-    if (!invite || !invite.createdAt) return true;
-    var createdMs = invite.createdAt.toDate ? invite.createdAt.toDate().getTime() : 0;
-    if (createdMs === 0) return false;
-    return (Date.now() - createdMs) > INVITE_EXPIRY_MS;
   }
 
   function _serverTimestamp() {
@@ -141,411 +123,12 @@ var DuelCore = (function () {
   }
 
   /* ================================================================
-   * PUBLIC USERNAMES INDEX
-   * ================================================================ */
-
-  /**
-   * Write/update the current user's public username entry.
-   * Called on login/auth state change by firestore-sync.js.
-   */
-  function updatePublicUsername(callback) {
-    var db = _getDb();
-    var uid = _getUserId();
-    var username = _getUsername();
-    if (!db || !uid || !username) {
-      if (callback) callback('Not ready');
-      return;
-    }
-
-    var displayName = _getUserName();
-    var isPP = _isPremiumPlus();
-    var docRef = db.collection(USERNAME_COLLECTION).doc(username);
-
-    /* Get-then-set: only include createdAt on first creation */
-    docRef.get().then(function (snap) {
-      var payload = {
-        uid: uid,
-        username: username,
-        displayName: displayName || username,
-        isPremiumPlus: isPP,
-        updatedAt: _serverTimestamp()
-      };
-      if (!snap.exists) {
-        payload.createdAt = _serverTimestamp();
-      }
-      return docRef.set(payload, { merge: true });
-    })
-      .then(function () {
-        console.log('[DuelCore] publicUsername synced: ' + username);
-        if (callback) callback(null);
-      })
-      .catch(function (e) {
-        console.warn('[DuelCore] updatePublicUsername failed, retrying in 3s:', e.message || e);
-        /* Single retry after 3 seconds for transient failures */
-        setTimeout(function () {
-          var retryDb = _getDb();
-          if (!retryDb) { if (callback) callback(e.message); return; }
-          var retryPayload = {
-            uid: uid, username: username, displayName: displayName || username,
-            isPremiumPlus: isPP, updatedAt: _serverTimestamp(), createdAt: _serverTimestamp()
-          };
-          retryDb.collection(USERNAME_COLLECTION).doc(username).set(retryPayload, { merge: true })
-            .then(function () {
-              console.log('[DuelCore] publicUsername retry succeeded: ' + username);
-              if (callback) callback(null);
-            })
-            .catch(function (retryErr) {
-              console.error('[DuelCore] publicUsername retry failed:', retryErr.message || retryErr);
-              if (callback) callback(retryErr.message);
-            });
-        }, 3000);
-      });
-  }
-
-  /**
-   * Look up a user by username via the publicUsernames collection.
-   * @param {string} username - target username
-   * @param {function} callback - (error, { uid, username, displayName, isPremiumPlus })
-   */
-  function lookupUser(username, callback) {
-    var db = _getDb();
-    if (!db) { callback('Database not available'); return; }
-
-    if (!username || typeof username !== 'string') { callback('Please enter a username'); return; }
-
-    var clean = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
-    if (!clean) { callback('Invalid username — only letters, numbers, and underscores allowed'); return; }
-    if (clean.length < 4) { callback('Username must be at least 4 characters'); return; }
-
-    /* Prevent self-invite */
-    var myUsername = _getUsername();
-    if (clean === myUsername) { callback('You cannot duel yourself'); return; }
-
-    db.collection(USERNAME_COLLECTION).doc(clean).get()
-      .then(function (snap) {
-        if (!snap.exists) { callback('Username does not exist'); return; }
-        var data = snap.data();
-        callback(null, {
-          uid: data.uid,
-          username: data.username || clean,
-          displayName: data.displayName || data.username || clean,
-          isPremiumPlus: data.isPremiumPlus === true
-        });
-      })
-      .catch(function (e) {
-        console.warn('[DuelCore] lookupUser failed:', e.message || e);
-        callback('Lookup failed — check your connection');
-      });
-  }
-
-  /**
-   * Check if a username is available (not yet registered).
-   * Used by signup validation for realtime availability feedback.
-   * @param {string} username - raw username (will be normalized)
-   * @param {function} callback - (error, { available: boolean })
-   */
-  function checkUsernameAvailability(username, callback) {
-    var db = _getDb();
-    if (!db) { callback('Database not available'); return; }
-    if (!username || typeof username !== 'string') { callback(null, { available: true }); return; }
-
-    var clean = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
-    if (!clean || clean.length < 4) { callback(null, { available: true }); return; }
-
-    db.collection(USERNAME_COLLECTION).doc(clean).get()
-      .then(function (snap) {
-        callback(null, { available: !snap.exists });
-      })
-      .catch(function (e) {
-        console.warn('[DuelCore] checkUsernameAvailability failed:', e.message || e);
-        /* On error, don't block signup — assume available and let Firebase Auth catch duplicates */
-        callback(null, { available: true });
-      });
-  }
-
-  /* ================================================================
-   * INVITATION SYSTEM
-   * ================================================================ */
-
-  /**
-   * Send a duel invitation to a target user.
-   * Creates both the duel room AND the invitation document.
-   * @param {object} targetUser - { uid, username, displayName } from lookupUser
-   * @param {object} config - duel configuration
-   * @param {function} callback - (error, { duelId, invitationId })
-   */
-  function sendInvitation(targetUser, config, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
-    if (!db || !uid) { callback('Not authenticated'); return; }
-    if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
-    if (!targetUser || !targetUser.uid) { callback('Invalid target user'); return; }
-    if (!targetUser.isPremiumPlus) { callback('Target user is not a Premium+ member'); return; }
-
-    var duelId = _generateDuelId();
-    var userName = _getUserName();
-    var myUsername = _getUsername();
-
-    /* Generate questions */
-    var questions = [];
-    var questionIds = [];
-
-    if (config.questionMode === 'wordproblems') {
-      if (typeof QuestionBankService !== 'undefined' && typeof QuestionBankService.fetchQuestions === 'function') {
-        QuestionBankService.fetchQuestions({
-          category: config.topics && config.topics.length === 1 ? config.topics[0] : null,
-          difficulty: config.difficulty || 'medium',
-          count: config.questionCount || 10
-        }, function (err, fetchedQuestions) {
-          if (err || !fetchedQuestions || fetchedQuestions.length === 0) {
-            config.questionMode = 'quick';
-            questions = _generateQuickQuestions(config, duelId);
-          } else {
-            fetchedQuestions.forEach(function (q) {
-              questionIds.push(q.id || String(Math.random()));
-            });
-          }
-          _writeInvitationAndDuel(db, duelId, uid, userName, myUsername, targetUser, config, questions, questionIds, callback);
-        });
-        return;
-      }
-      questions = _generateQuickQuestions(config, duelId);
-    } else {
-      questions = _generateQuickQuestions(config, duelId);
-    }
-
-    _writeInvitationAndDuel(db, duelId, uid, userName, myUsername, targetUser, config, questions, questionIds, callback);
-  }
-
-  function _writeInvitationAndDuel(db, duelId, uid, userName, myUsername, targetUser, config, questions, questionIds, callback) {
-    var batch = db.batch();
-
-    /* Create duel room */
-    var participants = {};
-    participants[uid] = {
-      name: userName,
-      username: myUsername,
-      joinedAt: _serverTimestamp(),
-      status: 'joined',
-      answers: [],
-      score: 0,
-      totalTime: 0
-    };
-
-    var duelDoc = {
-      id: duelId,
-      createdBy: uid,
-      createdByName: userName,
-      createdByUsername: myUsername,
-      targetUid: targetUser.uid,
-      targetUsername: targetUser.username,
-      targetDisplayName: targetUser.displayName,
-      status: 'waiting_for_acceptance',
-      createdAt: _serverTimestamp(),
-      config: {
-        topics: config.topics || [],
-        difficulty: config.difficulty || 'medium',
-        questionCount: config.questionCount || 10,
-        questionMode: config.questionMode || 'quick',
-        timerPerQuestion: config.timerPerQuestion || null,
-        timerTotal: config.timerTotal || null
-      },
-      questions: questions || [],
-      questionIds: questionIds || [],
-      participants: participants,
-      duelStartedAt: null,
-      winner: null,
-      result: null
-    };
-
-    var duelRef = db.collection(DUEL_COLLECTION).doc(duelId);
-    batch.set(duelRef, duelDoc);
-
-    /* Create invitation */
-    var inviteRef = db.collection(INVITE_COLLECTION).doc();
-    var inviteDoc = {
-      id: inviteRef.id,
-      fromUid: uid,
-      fromUsername: myUsername,
-      fromDisplayName: userName,
-      toUid: targetUser.uid,
-      toUsername: targetUser.username,
-      toDisplayName: targetUser.displayName,
-      duelId: duelId,
-      config: duelDoc.config,
-      status: 'pending',
-      createdAt: _serverTimestamp(),
-      respondedAt: null
-    };
-    batch.set(inviteRef, inviteDoc);
-
-    batch.commit()
-      .then(function () { callback(null, { duelId: duelId, invitationId: inviteRef.id }); })
-      .catch(function (e) { callback(e.message || 'Failed to send invitation'); });
-  }
-
-  /**
-   * Listen for incoming duel invitations (realtime).
-   * Called on app boot — shows invitation cards in Home tab.
-   * @param {function} callback - (invitations[]) called on each change
-   */
-  function listenToInvitations(callback) {
-    stopInvitationListener();
-    var db = _getDb();
-    var uid = _getUserId();
-    if (!db || !uid) return;
-
-    /* Add timestamp filter to avoid zombie invitations older than expiry */
-    var cutoffDate = new Date(Date.now() - INVITE_EXPIRY_MS);
-
-    _inviteListener = db.collection(INVITE_COLLECTION)
-      .where('toUid', '==', uid)
-      .where('status', '==', 'pending')
-      .where('createdAt', '>', cutoffDate)
-      .onSnapshot(function (snap) {
-        var invites = [];
-        snap.forEach(function (doc) {
-          var data = doc.data();
-          data.id = doc.id;
-          /* Double-check expiry client-side */
-          if (!_isInviteExpired(data)) {
-            invites.push(data);
-          }
-        });
-        callback(invites);
-      }, function (err) {
-        console.warn('[DuelCore] Invitation listener error:', err);
-        callback([]);
-      });
-  }
-
-  /**
-   * Listen for outgoing invitation status changes (sender watches for accept/reject).
-   * @param {string} invitationId
-   * @param {function} callback - (event) with { accepted, rejected, expired, data }
-   */
-  function listenToOutgoingInvitation(invitationId, callback) {
-    var db = _getDb();
-    if (!db || !invitationId) return null;
-
-    return db.collection(INVITE_COLLECTION).doc(invitationId)
-      .onSnapshot(function (snap) {
-        if (!snap.exists) { callback({ expired: true }); return; }
-        var data = snap.data();
-        if (data.status === 'accepted') {
-          callback({ accepted: true, data: data });
-        } else if (data.status === 'rejected') {
-          callback({ rejected: true, data: data });
-        } else if (data.status === 'expired' || data.status === 'cancelled') {
-          callback({ expired: true, data: data });
-        } else if (_isInviteExpired(data)) {
-          callback({ expired: true, data: data });
-        } else {
-          callback({ pending: true, data: data });
-        }
-      }, function (err) {
-        console.warn('[DuelCore] Outgoing invitation listener error:', err);
-        callback({ error: err.message });
-      });
-  }
-
-  function stopInvitationListener() {
-    if (_inviteListener) {
-      _inviteListener();
-      _inviteListener = null;
-    }
-  }
-
-  /**
-   * Accept an invitation — join the duel room and update invitation status.
-   * @param {object} invitation - the invitation document data
-   * @param {function} callback - (error, duelData)
-   */
-  function acceptInvitation(invitation, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
-    if (!db || !uid) { callback('Not authenticated'); return; }
-    if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
-
-    var batch = db.batch();
-
-    /* Update invitation status */
-    var inviteRef = db.collection(INVITE_COLLECTION).doc(invitation.id);
-    batch.update(inviteRef, {
-      status: 'accepted',
-      respondedAt: _serverTimestamp()
-    });
-
-    batch.commit()
-      .then(function () {
-        /* Now join the duel via transaction */
-        _joinDuelTransaction(invitation.duelId, callback);
-      })
-      .catch(function (e) { callback(e.message || 'Failed to accept invitation'); });
-  }
-
-  /**
-   * Reject an invitation.
-   * @param {object} invitation - the invitation document data
-   * @param {function} callback - (error)
-   */
-  function rejectInvitation(invitation, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
-    if (!db || !uid) { if (callback) callback('Not authenticated'); return; }
-
-    var batch = db.batch();
-
-    /* Update invitation status */
-    var inviteRef = db.collection(INVITE_COLLECTION).doc(invitation.id);
-    batch.update(inviteRef, {
-      status: 'rejected',
-      respondedAt: _serverTimestamp()
-    });
-
-    /* Update duel room status */
-    var duelRef = db.collection(DUEL_COLLECTION).doc(invitation.duelId);
-    batch.update(duelRef, { status: 'rejected' });
-
-    batch.commit()
-      .then(function () { if (callback) callback(null); })
-      .catch(function (e) { if (callback) callback(e.message); });
-  }
-
-  /**
-   * Expire/cancel an outgoing invitation (sender side).
-   */
-  function cancelInvitation(invitationId, duelId, callback) {
-    var db = _getDb();
-    if (!db) { if (callback) callback('Not ready'); return; }
-
-    var batch = db.batch();
-
-    var inviteRef = db.collection(INVITE_COLLECTION).doc(invitationId);
-    batch.update(inviteRef, {
-      status: 'expired',
-      respondedAt: _serverTimestamp()
-    });
-
-    if (duelId) {
-      var duelRef = db.collection(DUEL_COLLECTION).doc(duelId);
-      batch.update(duelRef, {
-        status: 'expired'
-      });
-    }
-
-    batch.commit()
-      .then(function () { if (callback) callback(null); })
-      .catch(function (e) { if (callback) callback(e.message); });
-  }
-
-  /* ================================================================
    * DUEL ROOM OPERATIONS
    * ================================================================ */
 
   /**
-   * Create a new duel room (legacy — without invitation).
-   * Preserved for backward compatibility.
+   * Create a new duel room.
+   * Returns a room code that can be shared with the opponent.
    */
   function createDuel(config, callback) {
     var db = _getDb();
@@ -591,11 +174,9 @@ var DuelCore = (function () {
       questionIds = [];
     }
     var userName = _getUserName();
-    var myUsername = _getUsername();
     var participants = {};
     participants[uid] = {
       name: userName,
-      username: myUsername,
       joinedAt: _serverTimestamp(),
       status: 'joined',
       answers: [],
@@ -607,7 +188,6 @@ var DuelCore = (function () {
       id: duelId,
       createdBy: uid,
       createdByName: userName,
-      createdByUsername: myUsername,
       status: 'waiting',
       createdAt: _serverTimestamp(),
       config: {
@@ -632,7 +212,7 @@ var DuelCore = (function () {
   }
 
   /**
-   * Join an existing duel room (transaction-safe).
+   * Join an existing duel room via room code (transaction-safe).
    */
   function joinDuel(duelId, callback) {
     if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
@@ -648,7 +228,7 @@ var DuelCore = (function () {
 
     db.runTransaction(function (transaction) {
       return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) { throw new Error('Duel not found'); }
+        if (!snap.exists) { throw new Error('Room not found — check the code and try again'); }
         var data = snap.data();
 
         if (_isExpired(data)) { throw new Error('This duel has expired'); }
@@ -658,9 +238,8 @@ var DuelCore = (function () {
           return data;
         }
 
-        /* Validate status allows joining */
-        var joinableStatuses = ['waiting', 'waiting_for_acceptance'];
-        if (joinableStatuses.indexOf(data.status) === -1) {
+        /* Only 'waiting' status allows joining */
+        if (data.status !== 'waiting') {
           throw new Error('This duel is no longer accepting players');
         }
 
@@ -668,11 +247,9 @@ var DuelCore = (function () {
         if (pCount >= 2) { throw new Error('Duel room is full'); }
 
         var userName = _getUserName();
-        var myUsername = _getUsername();
         var participants = data.participants || {};
         participants[uid] = {
           name: userName,
-          username: myUsername,
           joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
           status: 'joined',
           answers: [],
@@ -680,16 +257,12 @@ var DuelCore = (function () {
           totalTime: 0
         };
 
-        /* Transition to waiting_room (invitation flow) or ready (legacy) */
-        var newStatus = data.status === 'waiting_for_acceptance' ? 'waiting_room' : 'ready';
-
         transaction.update(docRef, {
           participants: participants,
-          status: newStatus
+          status: 'waiting' /* Stay in waiting until host starts */
         });
 
         data.participants = participants;
-        data.status = newStatus;
         return data;
       });
     }).then(function (data) {
@@ -733,11 +306,10 @@ var DuelCore = (function () {
 
         var answers = p.answers ? p.answers.slice() : [];
 
-        /* Duplicate submission guard — check if this question was already answered */
+        /* Duplicate submission guard */
         for (var d = 0; d < answers.length; d++) {
           if (answers[d].questionIndex === questionIndex) {
-            /* Already submitted — skip silently */
-            return null;
+            return null; /* Already submitted — skip silently */
           }
         }
 
@@ -847,7 +419,6 @@ var DuelCore = (function () {
   /**
    * Exit duel early — player leaves but opponent continues.
    * Sets participant status to 'exited' with current results preserved.
-   * Does NOT stop the opponent or mark duel as completed.
    */
   function exitDuelEarly(duelId, callback) {
     var db = _getDb();
@@ -990,14 +561,13 @@ var DuelCore = (function () {
     var db = _getDb();
     if (!db || !duelId) return Promise.resolve();
     return db.collection(DUEL_COLLECTION).doc(duelId).update({
-      status: 'deleted',
-      deletedAt: _serverTimestamp()
+      status: 'cancelled',
+      cancelledAt: _serverTimestamp()
     });
   }
 
   /**
    * Check if user has any active duel (for reconnection).
-   * Queries duels where the user is a participant and status is active/waiting_room/countdown.
    * @param {function} callback - (error, duelData | null)
    */
   function findActiveDuel(callback) {
@@ -1017,7 +587,7 @@ var DuelCore = (function () {
           return;
         }
         /* Check if duel is still active and user is participant */
-        var activeStatuses = ['waiting_for_acceptance', 'waiting_room', 'countdown', 'active', 'waiting', 'ready'];
+        var activeStatuses = ['waiting', 'active'];
         if (activeStatuses.indexOf(data.status) >= 0 && data.participants && data.participants[uid]) {
           callback(null, data);
         } else {
@@ -1033,20 +603,6 @@ var DuelCore = (function () {
   /* ---- External API ---- */
 
   return {
-    /* Username index */
-    updatePublicUsername: updatePublicUsername,
-    lookupUser: lookupUser,
-    checkUsernameAvailability: checkUsernameAvailability,
-
-    /* Invitations */
-    sendInvitation: sendInvitation,
-    listenToInvitations: listenToInvitations,
-    listenToOutgoingInvitation: listenToOutgoingInvitation,
-    stopInvitationListener: stopInvitationListener,
-    acceptInvitation: acceptInvitation,
-    rejectInvitation: rejectInvitation,
-    cancelInvitation: cancelInvitation,
-
     /* Duel room operations */
     createDuel: createDuel,
     joinDuel: joinDuel,
@@ -1065,7 +621,6 @@ var DuelCore = (function () {
     findActiveDuel: findActiveDuel,
 
     /* Constants */
-    DUEL_EXPIRY_MS: DUEL_EXPIRY_MS,
-    INVITE_EXPIRY_MS: INVITE_EXPIRY_MS
+    DUEL_EXPIRY_MS: DUEL_EXPIRY_MS
   };
 })();

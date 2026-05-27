@@ -20,9 +20,9 @@ var StudentProfileView = (function () {
 
     /* ── Header ── */
     html += '<div style="display:flex;align-items:center;gap:var(--space-lg);margin-bottom:var(--space-xl);">';
-    html += '<div class="student-avatar" style="width:56px;height:56px;font-size:var(--font-xl);">' + CoachingUtils.getInitial(p.name || p.username) + '</div>';
+    html += '<div class="student-avatar" style="width:56px;height:56px;font-size:var(--font-xl);">' + CoachingUtils.getInitial(p.name || p.email) + '</div>';
     html += '<div class="flex-1">';
-    html += '<div style="font-size:var(--font-xl);font-weight:700;">' + CoachingUtils.escapeHtml(p.name || p.username || 'Unknown') + '</div>';
+    html += '<div style="font-size:var(--font-xl);font-weight:700;">' + CoachingUtils.escapeHtml(p.name || p.email || 'Unknown') + '</div>';
     if (p.email) html += '<div style="font-size:var(--font-sm);color:var(--text-tertiary);">' + CoachingUtils.escapeHtml(p.email) + '</div>';
     html += '<div style="margin-top:var(--space-xs);">' + CoachingUtils.getEngagementBadge(p.engagementLevel);
     if (p.isPremium) html += ' <span class="badge badge-premium">Premium</span>';

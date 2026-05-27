@@ -2,8 +2,9 @@
  * auth.js — Firebase Authentication module
  *
  * Manages user authentication using Firebase Auth with email/password.
- * Converts usernames to email format internally for Firebase compatibility.
- * Replaces the previous device-based identity system.
+ * Users enter a short handle (e.g. 'krishna01') which is internally
+ * converted to an email (handle@quantreflex.app) for Firebase Auth.
+ * The ecosystem is EMAIL-FIRST — no usernames or username collections.
  */
 
 var Auth = (function () {
@@ -15,43 +16,43 @@ var Auth = (function () {
   var EMAIL_DOMAIN = 'quantreflex.app';
 
   /**
-   * Convert a username to a valid email for Firebase Auth.
-   * @param {string} username
+   * Convert a handle to a valid email for Firebase Auth.
+   * @param {string} handle
    * @returns {string}
    */
-  function _usernameToEmail(username) {
-    return sanitizeUsername(username) + '@' + EMAIL_DOMAIN;
+  function _handleToEmail(handle) {
+    return sanitizeHandle(handle) + '@' + EMAIL_DOMAIN;
   }
 
   /**
-   * Sanitize username: lowercase, trim, allow only alphanumeric and underscore.
-   * @param {string} username
+   * Sanitize handle: lowercase, trim, allow only alphanumeric and underscore.
+   * @param {string} handle
    * @returns {string}
    */
-  function sanitizeUsername(username) {
-    if (!username) return '';
-    return username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+  function sanitizeHandle(handle) {
+    if (!handle) return '';
+    return handle.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
   }
 
   /**
-   * Validate username and password inputs for login.
+   * Validate handle and password inputs for login.
    * Uses relaxed password rules so existing users aren't locked out.
-   * @param {string} username - sanitized username
+   * @param {string} handle - sanitized handle
    * @param {string} password - raw password
    * @returns {string|null} Error message or null if valid
    */
-  function _validateLogin(username, password) {
-    if (!username || username.length < 4) {
-      return 'Username must be at least 4 characters.';
+  function _validateLogin(handle, password) {
+    if (!handle || handle.length < 4) {
+      return 'Handle must be at least 4 characters.';
     }
-    if (username.length > 30) {
-      return 'Username must be 30 characters or less.';
+    if (handle.length > 30) {
+      return 'Handle must be 30 characters or less.';
     }
-    if (!/[a-z]/.test(username)) {
-      return 'Username must contain at least one letter.';
+    if (!/[a-z]/.test(handle)) {
+      return 'Handle must contain at least one letter.';
     }
-    if (!/[0-9]/.test(username)) {
-      return 'Username must contain at least one number.';
+    if (!/[0-9]/.test(handle)) {
+      return 'Handle must contain at least one number.';
     }
     if (!password || password.length < 6) {
       return 'Password must be at least 6 characters.';
@@ -61,21 +62,20 @@ var Auth = (function () {
 
   /**
    * Validate inputs for signup with strict password rules.
-   * Username validation is fully handled by _validate().
-   * @param {string} username - sanitized username
+   * @param {string} handle - sanitized handle
    * @param {string} password - raw password
    * @returns {string|null} Error message or null if valid
    */
-  function _validateSignup(username, password) {
-    /* Username checks — reuse _validateLogin but skip its password check */
-    if (!username || username.length < 4) {
-      return 'Username must be at least 4 characters with at least one letter and one number.';
+  function _validateSignup(handle, password) {
+    /* Handle checks */
+    if (!handle || handle.length < 4) {
+      return 'Handle must be at least 4 characters with at least one letter and one number.';
     }
-    if (username.length > 30) {
-      return 'Username must be 30 characters or less.';
+    if (handle.length > 30) {
+      return 'Handle must be 30 characters or less.';
     }
-    if (!/[a-z]/.test(username) || !/[0-9]/.test(username)) {
-      return 'Username must contain at least one letter and one number.';
+    if (!/[a-z]/.test(handle) || !/[0-9]/.test(handle)) {
+      return 'Handle must contain at least one letter and one number.';
     }
     /* Strict password checks */
     if (!password || password.length < 8) {
@@ -180,18 +180,18 @@ var Auth = (function () {
 
   /**
    * Sign up a new user via the atomic server-side register endpoint.
-   * @param {string} username
+   * @param {string} handle - short handle (e.g. 'krishna01')
    * @param {string} password
    * @param {string} coachingId (optional)
    * @param {function} callback - receives (error, user)
    */
-  function signup(username, password, coachingId, callback) {
+  function signup(handle, password, coachingId, callback) {
     if (typeof coachingId === 'function') {
       callback = coachingId;
       coachingId = '';
     }
 
-    var clean = sanitizeUsername(username);
+    var clean = sanitizeHandle(handle);
     var err = _validateSignup(clean, password);
     if (err) {
       callback(err, null);
@@ -203,13 +203,12 @@ var Auth = (function () {
       return;
     }
 
-    var email = _usernameToEmail(clean);
+    var email = _handleToEmail(clean);
 
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: clean,
         email: email,
         password: password,
         coachingId: coachingId || ''
@@ -237,12 +236,12 @@ var Auth = (function () {
 
   /**
    * Log in an existing user.
-   * @param {string} username
+   * @param {string} handle - short handle (e.g. 'krishna01')
    * @param {string} password
    * @param {function} callback - receives (error, user)
    */
-  function login(username, password, callback) {
-    var clean = sanitizeUsername(username);
+  function login(handle, password, callback) {
+    var clean = sanitizeHandle(handle);
     var err = _validateLogin(clean, password);
     if (err) {
       callback(err, null);
@@ -254,7 +253,7 @@ var Auth = (function () {
       return;
     }
 
-    var email = _usernameToEmail(clean);
+    var email = _handleToEmail(clean);
     _auth.signInWithEmailAndPassword(email, password)
       .then(function (cred) {
         _currentUser = cred.user;
@@ -263,11 +262,11 @@ var Auth = (function () {
       .catch(function (error) {
         var msg = 'Login failed.';
         if (error.code === 'auth/user-not-found') {
-          msg = 'No account found with this username.';
+          msg = 'No account found with this handle.';
         } else if (error.code === 'auth/wrong-password') {
           msg = 'Incorrect password.';
         } else if (error.code === 'auth/invalid-credential') {
-          msg = 'Invalid username or password.';
+          msg = 'Invalid handle or password.';
         } else if (error.code === 'auth/too-many-requests') {
           msg = 'Too many attempts. Please try again later.';
         }
@@ -286,7 +285,6 @@ var Auth = (function () {
     }
 
     if (typeof DuelCore !== 'undefined') {
-      if (typeof DuelCore.stopInvitationListener === 'function') DuelCore.stopInvitationListener();
       if (typeof DuelCore.stopListening === 'function') DuelCore.stopListening();
     }
 
@@ -325,31 +323,6 @@ var Auth = (function () {
   }
 
   /**
-   * Granular username validation for realtime UX feedback.
-   * Returns all applicable errors at once (not just the first).
-   * @param {string} rawUsername - unsanitized username input
-   * @returns {{ valid: boolean, errors: string[] }}
-   */
-  function validateUsername(rawUsername) {
-    var errors = [];
-    var clean = sanitizeUsername(rawUsername);
-
-    if (!clean || clean.length < 4) {
-      errors.push('Username must be at least 4 characters.');
-    }
-    if (clean.length > 30) {
-      errors.push('Username must be 30 characters or less.');
-    }
-    if (clean.length >= 1 && !/[a-z]/.test(clean)) {
-      errors.push('Username must contain at least one letter.');
-    }
-    if (clean.length >= 4 && !/[0-9]/.test(clean)) {
-      errors.push('Username must contain at least one number.');
-    }
-    return { valid: errors.length === 0, errors: errors };
-  }
-
-  /**
    * Granular password validation for realtime UX feedback (signup rules).
    * Returns all applicable errors at once for checklist-style display.
    * @param {string} password - raw password
@@ -381,8 +354,7 @@ var Auth = (function () {
     getCurrentUser: getCurrentUser,
     getUserId: getUserId,
     isLoggedIn: isLoggedIn,
-    sanitizeUsername: sanitizeUsername,
-    validateUsername: validateUsername,
+    sanitizeHandle: sanitizeHandle,
     validatePassword: validatePassword
   };
 })();

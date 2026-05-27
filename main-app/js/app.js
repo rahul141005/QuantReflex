@@ -636,15 +636,11 @@ document.addEventListener('DOMContentLoaded', function () {
     var coachingIdField = document.getElementById('coachingIdField');
 
     /* ---- Realtime Validation System ---- */
-    var _usernameTouched = false;
+    var _handleTouched = false;
     var _passwordTouched = false;
-    var _usernameDebounce = null;
+    var _handleDebounce = null;
     var _passwordDebounce = null;
-    var _availabilityDebounce = null;
-    var _lastAvailabilityCheck = ''; /* prevent duplicate Firestore queries */
-    var usernameValidationEl = document.getElementById('usernameValidation');
     var passwordValidationEl = document.getElementById('passwordValidation');
-    var usernamePreviewEl = document.getElementById('usernamePreview');
 
     /**
      * Render validation results into a container element.
@@ -693,126 +689,21 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    /** Update normalized username preview */
-    function _updateUsernamePreview(rawVal) {
-      if (!usernamePreviewEl) return;
-      if (!rawVal || !rawVal.trim()) {
-        usernamePreviewEl.className = 'login-username-preview';
-        usernamePreviewEl.innerHTML = '';
-        return;
-      }
-      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(rawVal) : rawVal.toLowerCase().trim();
-      if (!clean) {
-        usernamePreviewEl.className = 'login-username-preview';
-        usernamePreviewEl.innerHTML = '';
-        return;
-      }
-      usernamePreviewEl.className = 'login-username-preview active';
-      usernamePreviewEl.innerHTML = '<span class="preview-label">Your username: </span><span class="preview-username">' + clean + '</span>';
-    }
-
-    /** Reset username preview */
-    function _resetUsernamePreview() {
-      if (usernamePreviewEl) {
-        usernamePreviewEl.className = 'login-username-preview';
-        usernamePreviewEl.innerHTML = '';
-      }
-    }
-
-    /** Check username availability via Firestore (debounced, only after local validation passes) */
-    function _checkAvailability() {
+    function _validateHandleField() {
       if (!loginUsername) return;
-      var raw = loginUsername.value;
-      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(raw) : raw.toLowerCase().trim();
-
-      /* Only check if local validation passed */
-      var result = typeof Auth !== 'undefined' ? Auth.validateUsername(raw) : { valid: true, errors: [] };
-      if (!result.valid || !clean || clean.length < 4) {
-        _lastAvailabilityCheck = '';
-        _hideAvailability();
-        return;
-      }
-
-      /* Skip if same username was already checked */
-      if (clean === _lastAvailabilityCheck) return;
-      _lastAvailabilityCheck = clean;
-
-      /* Show checking state */
-      _showAvailability('checking', '<span class="duel-search-spinner"></span> Checking availability...');
-
-      if (typeof DuelCore !== 'undefined' && typeof DuelCore.checkUsernameAvailability === 'function') {
-        DuelCore.checkUsernameAvailability(clean, function (err, availResult) {
-          /* Discard stale result if username changed while checking */
-          var currentClean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(loginUsername.value) : loginUsername.value.toLowerCase().trim();
-          if (currentClean !== clean) return;
-
-          if (availResult && availResult.available) {
-            _showAvailability('available', 'Username available');
-          } else {
-            _showAvailability('taken', 'Username is already taken');
-          }
-        });
-      }
-    }
-
-    function _showAvailability(state, html) {
-      if (!usernameValidationEl) return;
-      var avail = usernameValidationEl.parentNode.querySelector('.login-username-availability');
-      if (!avail) {
-        avail = document.createElement('div');
-        avail.className = 'login-username-availability';
-        /* Insert after validation, before preview */
-        if (usernamePreviewEl) {
-          usernameValidationEl.parentNode.insertBefore(avail, usernamePreviewEl);
-        } else {
-          usernameValidationEl.parentNode.appendChild(avail);
-        }
-      }
-      avail.className = 'login-username-availability active ' + state;
-      avail.innerHTML = html;
-    }
-
-    function _hideAvailability() {
-      if (!usernameValidationEl) return;
-      var avail = usernameValidationEl.parentNode.querySelector('.login-username-availability');
-      if (avail) {
-        avail.className = 'login-username-availability';
-        avail.innerHTML = '';
-      }
-    }
-
-    function _validateUsernameField() {
-      if (!loginUsername || !usernameValidationEl) return;
       var val = loginUsername.value;
-
-      /* Update preview on every validation */
-      _updateUsernamePreview(val);
-
       if (!val) {
-        _resetFieldValidation(loginUsername, usernameValidationEl);
-        _hideAvailability();
-        _lastAvailabilityCheck = '';
+        loginUsername.classList.remove('input-error', 'input-valid');
         return;
       }
-      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeUsername(val) : val.toLowerCase().trim();
-      var result = typeof Auth !== 'undefined' ? Auth.validateUsername(val) : { valid: true, errors: [] };
-
-      var rules = [
-        { label: 'At least 4 characters', test: function () { return clean.length >= 4; } },
-        { label: '30 characters or less', test: function () { return clean.length <= 30; } },
-        { label: 'Contains at least one letter', test: function () { return /[a-z]/.test(clean); } },
-        { label: 'Contains at least one number', test: function () { return /[0-9]/.test(clean); } }
-      ];
-
-      _renderValidation(loginUsername, usernameValidationEl, result, rules);
-
-      /* Trigger availability check if local validation passed */
-      if (result.valid) {
-        if (_availabilityDebounce) clearTimeout(_availabilityDebounce);
-        _availabilityDebounce = setTimeout(_checkAvailability, 800);
+      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeHandle(val) : val.toLowerCase().trim();
+      var valid = clean.length >= 4 && clean.length <= 30 && /[a-z]/.test(clean) && /[0-9]/.test(clean);
+      if (valid) {
+        loginUsername.classList.remove('input-error');
+        loginUsername.classList.add('input-valid');
       } else {
-        _hideAvailability();
-        _lastAvailabilityCheck = '';
+        loginUsername.classList.remove('input-valid');
+        loginUsername.classList.add('input-error');
       }
     }
 
@@ -835,18 +726,14 @@ document.addEventListener('DOMContentLoaded', function () {
       _renderValidation(loginPassword, passwordValidationEl, result, rules);
     }
 
-    /** Full state reset — clears all validation, preview, availability */
+    /** Full state reset — clears all validation */
     function _resetAllValidation() {
-      _usernameTouched = false;
+      _handleTouched = false;
       _passwordTouched = false;
-      _lastAvailabilityCheck = '';
-      if (_usernameDebounce) clearTimeout(_usernameDebounce);
+      if (_handleDebounce) clearTimeout(_handleDebounce);
       if (_passwordDebounce) clearTimeout(_passwordDebounce);
-      if (_availabilityDebounce) clearTimeout(_availabilityDebounce);
-      _resetFieldValidation(loginUsername, usernameValidationEl);
+      if (loginUsername) loginUsername.classList.remove('input-error', 'input-valid');
       _resetFieldValidation(loginPassword, passwordValidationEl);
-      _resetUsernamePreview();
-      _hideAvailability();
     }
 
     /** Show coaching ID field with animation */
@@ -922,9 +809,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (err) {
               showError(err);
               /* Trigger full validation display after a failed signup attempt */
-              _usernameTouched = true;
+              _handleTouched = true;
               _passwordTouched = true;
-              _validateUsernameField();
+              _validateHandleField();
               _validatePasswordField();
             } else {
               /* Server now atomically links the coaching ID. No client-side sync required. */
@@ -967,20 +854,18 @@ document.addEventListener('DOMContentLoaded', function () {
     /* Validation activates on first meaningful input — no mode flag required.
        The user feels guided immediately, not punished after submit. */
 
-    /* Username: validate on blur, then on debounced input after first blur */
+    /* Handle: validate on blur, then on debounced input after first blur */
     if (loginUsername) {
       loginUsername.addEventListener('blur', function () {
         if (!loginUsername.value) return;
-        _usernameTouched = true;
-        _validateUsernameField();
+        _handleTouched = true;
+        _validateHandleField();
       });
       loginUsername.addEventListener('input', function () {
-        /* Always update preview as user types */
-        _updateUsernamePreview(loginUsername.value);
-        /* Only show validation checklist after first blur */
-        if (!_usernameTouched) return;
-        if (_usernameDebounce) clearTimeout(_usernameDebounce);
-        _usernameDebounce = setTimeout(_validateUsernameField, 400);
+        /* Only show validation after first blur */
+        if (!_handleTouched) return;
+        if (_handleDebounce) clearTimeout(_handleDebounce);
+        _handleDebounce = setTimeout(_validateHandleField, 400);
       });
     }
 

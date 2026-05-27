@@ -91,8 +91,8 @@ var DashboardView = (function () {
       for (var k = 0; k < Math.min(data.inactiveStudents.length, 5); k++) {
         var inactive = data.inactiveStudents[k];
         html += '<div class="card card-compact" style="display:flex;align-items:center;gap:var(--space-md);">';
-        html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(inactive.name || inactive.username) + '</div>';
-        html += '<div class="flex-1"><div style="font-weight:500;">' + CoachingUtils.escapeHtml(inactive.name || inactive.username) + '</div>';
+        html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(inactive.name || inactive.email) + '</div>';
+        html += '<div class="flex-1"><div style="font-weight:500;">' + CoachingUtils.escapeHtml(inactive.name || inactive.email || 'Unknown') + '</div>';
         html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">Last seen ' + CoachingUtils.getRelativeTime(inactive.lastActive) + '</div></div>';
         html += '</div>';
       }
@@ -129,8 +129,8 @@ var DashboardView = (function () {
     var rankEmoji = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : '🥉');
     return '<div class="card card-compact" style="display:flex;align-items:center;gap:var(--space-md);cursor:pointer;" onclick="StudentsView.showProfile(\'' + s.uid + '\')">' +
       '<div style="font-size:var(--font-lg);">' + rankEmoji + '</div>' +
-      '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(s.name || s.username) + '</div>' +
-      '<div class="flex-1"><div style="font-weight:600;">' + CoachingUtils.escapeHtml(s.name || s.username) + '</div></div>' +
+      '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>' +
+      '<div class="flex-1"><div style="font-weight:600;">' + CoachingUtils.escapeHtml(s.name || s.email || 'Unknown') + '</div></div>' +
       '<div class="stat-pill accuracy">' + s.accuracy + '%</div>' +
       '</div>';
   }

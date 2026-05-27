@@ -70,7 +70,7 @@ async function handler(req, res) {
         users.push({
           id: doc.id,
           uid: doc.id,
-          username: data.username || 'Unknown',
+          displayName: (data.profile && data.profile.name) || data.email || 'Unknown',
           email: data.email || '',
           coachingId: data.coachingId || null,
           isPremium: !!data.isPremium,
@@ -113,7 +113,7 @@ async function handler(req, res) {
       const details = {
         profile: {
           uid: uid,
-          username: userData.username || 'Unknown',
+          displayName: (userData.profile && userData.profile.name) || userData.email || 'Unknown',
           email: userData.email || '',
           coachingId: userData.coachingId || null,
           isPremium: !!userData.isPremium,

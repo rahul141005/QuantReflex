@@ -258,60 +258,19 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
-    // DUEL INVITATIONS COLLECTION
+    // DUEL INVITATIONS COLLECTION (DEPRECATED)
     // ════════════════════════════════════════════
-    // Username-based invitation system for Math Duel.
-    // Sender creates a pending invitation; receiver can accept/reject.
-    // Status transitions: pending → accepted | rejected | expired | cancelled.
+    // Invitation system removed — duels now use room codes only.
     match /duelInvitations/{invitationId} {
-      // Read: sender or receiver only
-      allow read: if request.auth != null && (
-        resource.data.fromUid == request.auth.uid ||
-        resource.data.toUid == request.auth.uid
-      );
-
-      // Create: authenticated, must be the sender, status must be 'pending'
-      allow create: if request.auth != null &&
-        request.resource.data.fromUid == request.auth.uid &&
-        request.resource.data.status == 'pending';
-
-      // Update: receiver can accept/reject pending invites,
-      //         sender can expire/cancel pending invites
-      allow update: if request.auth != null && (
-        (resource.data.toUid == request.auth.uid &&
-         resource.data.status == 'pending' &&
-         request.resource.data.status in ['accepted', 'rejected']) ||
-        (resource.data.fromUid == request.auth.uid &&
-         resource.data.status == 'pending' &&
-         request.resource.data.status in ['expired', 'cancelled'])
-      );
-
-      // Delete: denied
-      allow delete: if false;
+      allow read, write: if false;
     }
 
     // ════════════════════════════════════════════
-    // PUBLIC USERNAMES INDEX
+    // PUBLIC USERNAMES INDEX (DEPRECATED)
     // ════════════════════════════════════════════
-    // Lightweight public directory for username-based duel invitations.
-    // Contains ONLY: uid, username, displayName, isPremiumPlus.
-    // No private data (email, payments, analytics) is stored here.
-    // Writable only by the document owner (uid must match auth.uid).
-    match /publicUsernames/{username} {
-      // Read: any authenticated user (needed for duel invitation lookup)
-      allow read: if request.auth != null;
-
-      // Create: denied — handled atomically server-side during signup
-      allow create: if false;
-
-      // Update: only the owner can update their own entry
-      allow update: if request.auth != null &&
-        resource.data.uid == request.auth.uid &&
-        request.resource.data.uid == request.auth.uid;
-
-      // Delete: only the owner
-      allow delete: if request.auth != null &&
-        resource.data.uid == request.auth.uid;
+    // Username system removed — ecosystem is email-first.
+    match /publicUsernames/{doc} {
+      allow read, write: if false;
     }
 
     // ════════════════════════════════════════════

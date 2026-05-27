@@ -71,7 +71,7 @@ async function handler(req, res) {
 
       analytics.push({
         uid: uid,
-        username: user.username || user.displayName || user.profile?.name || 'Unknown',
+        displayName: (user.profile && user.profile.name) || user.email || 'Unknown',
         email: user.email || 'N/A',
         coachingId: user.coachingId || 'Independent',
         isPremium: user.isPremium || user.isPremiumPlus || false,

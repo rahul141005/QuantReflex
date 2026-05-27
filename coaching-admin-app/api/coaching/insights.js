@@ -73,7 +73,7 @@ async function handler(req, res) {
       if (lastActive < sevenDaysAgo && attempted > 0) {
         inactiveStudents.push({
           uid: doc.id,
-          name: (u.profile && u.profile.name) || u.username || 'Unknown',
+          name: (u.profile && u.profile.name) || u.email || 'Unknown',
           lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
           daysSinceActive: Math.floor((now - lastActive) / (24 * 60 * 60 * 1000))
         });
@@ -94,7 +94,7 @@ async function handler(req, res) {
           if (improvement > 10) {
             improvingStudents.push({
               uid: doc.id,
-              name: (u.profile && u.profile.name) || u.username || 'Unknown',
+              name: (u.profile && u.profile.name) || u.email || 'Unknown',
               improvement: Math.round(improvement),
               currentSpeed: parseFloat(recentAvg.toFixed(1)),
               accuracy: currentAccuracy
@@ -102,7 +102,7 @@ async function handler(req, res) {
           } else if (improvement < -10) {
             decliningStudents.push({
               uid: doc.id,
-              name: (u.profile && u.profile.name) || u.username || 'Unknown',
+              name: (u.profile && u.profile.name) || u.email || 'Unknown',
               decline: Math.round(Math.abs(improvement)),
               currentSpeed: parseFloat(recentAvg.toFixed(1)),
               accuracy: currentAccuracy

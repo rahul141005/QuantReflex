@@ -136,7 +136,7 @@ var UsersView = (function () {
       html += '<div class="empty-state" style="padding: 1.5rem 1rem;"><div class="empty-state-text">No students in this group.</div></div>';
     } else {
       users.forEach(function (u) {
-        var name = u.username || u.displayName || 'Unknown';
+        var name = u.displayName || u.email || 'Unknown';
         var email = u.email || 'No email';
         var isPrem = u.isPremiumPlus || u.isPremium;
         var badgeHTML = '';
@@ -396,7 +396,7 @@ var UserDrawer = (function () {
 
     // Profile Section
     html += '<div style="margin-bottom: 2rem;">';
-    html += '<div style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.25rem;">' + escapeHtml(p.username) + '</div>';
+    html += '<div style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.25rem;">' + escapeHtml(p.displayName || p.email || 'Unknown') + '</div>';
     html += '<div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">' + escapeHtml(p.email) + '</div>';
     html += '<div style="display:flex; align-items:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 1rem;">';
     html += badgeHTML;
@@ -409,7 +409,7 @@ var UserDrawer = (function () {
     var actionLabel = stateType === 'free' ? 'Grant Access' : 'Modify Access';
     var actionAccent = stateType === 'free' ? 'accent' : 'btn-outline';
     html += '<div style="margin-bottom: 2rem; display:flex; gap: 0.5rem;">';
-    html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="UsersView.showIndividualActions(\'' + p.uid + '\', \'' + stateType + '\', \'' + escapeHtml(p.username) + '\')">' + actionLabel + '</button>';
+    html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="UsersView.showIndividualActions(\'' + p.uid + '\', \'' + stateType + '\', \'' + escapeHtml(p.displayName || p.email || 'Unknown') + '\')">' + actionLabel + '</button>';
     html += '</div>';
 
     // AI Usage Section

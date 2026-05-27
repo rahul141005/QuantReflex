@@ -1,13 +1,13 @@
 /**
- * duel-ui.js — Math Duel UI rendering (V2)
+ * duel-ui.js — Math Duel UI rendering (V3 — Room Code Only)
  *
- * Complete rebuild with:
- *   - Username-based setup screen (search + validate + invite)
- *   - Realtime invitation card/banner
+ * Simplified rebuild:
+ *   - Room-code-only setup screen (create duel → share code)
+ *   - Room-code join screen (enter code → join)
  *   - Premium waiting room with countdown
  *   - Fixed active screen (numpad always visible, exit button)
  *   - Premium results with realtime comparison
- *   - Premium+ restriction notice
+ *   - No invitation system, no username lookup
  *
  * Depends on DuelCore for Firestore operations.
  */
@@ -48,7 +48,7 @@ var DuelUI = (function () {
   }
 
   /* ================================================================
-   * SETUP SCREEN (with username-based invitation)
+   * SETUP SCREEN (Create Duel — room code flow)
    * ================================================================ */
 
   function renderSetup(container, onBack) {
@@ -61,20 +61,10 @@ var DuelUI = (function () {
     container.innerHTML =
       '<div class="duel-setup-card">' +
         '<div class="duel-setup-header">' +
-          '<h3>⚔️ Math Duel Setup</h3>' +
-          '<p>Challenge a friend to a 1v1 math battle</p>' +
+          '<h3>⚔️ Create Math Duel</h3>' +
+          '<p>Set up a duel and share the room code</p>' +
         '</div>' +
         '<div class="duel-setup-body">' +
-          /* Username input */
-          '<div class="duel-username-input-container">' +
-            '<label class="secondary-text" style="font-size:.8rem;margin-bottom:.35rem;display:block;">Opponent Username</label>' +
-            '<div class="duel-username-input-row">' +
-              '<input type="text" id="duelUsernameInput" class="duel-username-input" placeholder="Enter friend\'s username" autocomplete="off" autocapitalize="off" maxlength="30" />' +
-              '<button class="duel-username-search-btn" id="duelSearchBtn" type="button">🔍</button>' +
-            '</div>' +
-            '<div id="duelUsernameStatus" class="duel-username-status"></div>' +
-            '<div id="duelUsernameUserCard" class="duel-username-user-card" style="display:none;"></div>' +
-          '</div>' +
           /* Question mode toggle */
           '<div class="duel-mode-toggle" style="display:flex;gap:.5rem;margin-bottom:1rem;">' +
             '<button class="duel-mode-btn active" data-qmode="quick" style="flex:1;text-align:left;padding:.75rem;">' +
@@ -123,7 +113,7 @@ var DuelUI = (function () {
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="duel-create-btn" id="duelCreateBtn" disabled>Send Challenge ⚔️</button>' +
+          '<button class="duel-create-btn" id="duelCreateBtn" disabled>Create Duel ⚔️</button>' +
         '</div>' +
         '<button class="duel-setup-back" id="duelBackBtn">← Back</button>' +
       '</div>';
@@ -135,121 +125,10 @@ var DuelUI = (function () {
   function _bindSetupHandlers(container, onBack) {
     var selectedTopics = [];
     var questionMode = 'quick';
-    var foundUser = null;
-
-    /* Username search */
-    var searchInput = document.getElementById('duelUsernameInput');
-    var searchBtn = document.getElementById('duelSearchBtn');
-    var statusEl = document.getElementById('duelUsernameStatus');
-    var userCardEl = document.getElementById('duelUsernameUserCard');
     var createBtn = document.getElementById('duelCreateBtn');
 
     function _updateCreateBtnState() {
-      createBtn.disabled = !(foundUser && selectedTopics.length > 0);
-    }
-
-    var _searchDebounce = null;
-    var _searchInFlight = false;
-
-    function _searchUser() {
-      var val = searchInput ? searchInput.value.trim() : '';
-      if (!val || val.length < 4) {
-        statusEl.className = 'duel-username-status error';
-        statusEl.textContent = 'Username must be at least 4 characters';
-        userCardEl.style.display = 'none';
-        foundUser = null;
-        _updateCreateBtnState();
-        return;
-      }
-
-      if (_searchInFlight) return;
-      _searchInFlight = true;
-
-      statusEl.className = 'duel-username-status loading';
-      statusEl.innerHTML = '<span class="duel-search-spinner"></span> Searching for player...';
-      userCardEl.style.display = 'none';
-      foundUser = null;
-      _updateCreateBtnState();
-
-      DuelCore.lookupUser(val, function (err, user) {
-        _searchInFlight = false;
-
-        /* If input changed while searching, ignore stale result */
-        var currentVal = searchInput ? searchInput.value.trim() : '';
-        if (currentVal !== val) return;
-
-        if (err) {
-          /* Choose appropriate icon/message based on error type */
-          var isNotFound = err.indexOf('does not exist') >= 0;
-          var isSelf = err.indexOf('yourself') >= 0;
-          var errIcon = isNotFound ? '✗' : isSelf ? '⚠️' : '⚠️';
-          statusEl.className = 'duel-username-status ' + (isSelf ? 'warning' : 'error');
-          statusEl.textContent = errIcon + ' ' + err;
-          userCardEl.style.display = 'none';
-          foundUser = null;
-          _updateCreateBtnState();
-          return;
-        }
-
-        if (!user.isPremiumPlus) {
-          statusEl.className = 'duel-username-status warning';
-          statusEl.textContent = '';
-          userCardEl.style.display = 'block';
-          userCardEl.innerHTML =
-            '<div class="duel-premium-notice">' +
-              '<div style="font-size:1.5rem;margin-bottom:.5rem;">🔒</div>' +
-              '<p style="font-weight:600;margin-bottom:.25rem;">Not a Premium+ member</p>' +
-              '<p class="secondary-text" style="font-size:.75rem;">Your friend needs Premium+ to join Math Duels.</p>' +
-            '</div>';
-          foundUser = null;
-          _updateCreateBtnState();
-          return;
-        }
-
-        statusEl.className = 'duel-username-status found';
-        statusEl.textContent = '✓ Player found';
-        userCardEl.style.display = 'block';
-        userCardEl.innerHTML =
-          '<div class="duel-found-user-card">' +
-            '<div class="duel-player-avatar avatar-blue">' + _getInitials(user.displayName) + '</div>' +
-            '<div>' +
-              '<div style="font-weight:600;">' + (user.displayName || user.username) + '</div>' +
-              '<div class="secondary-text" style="font-size:.75rem;">@' + user.username + ' <span class="duel-premium-badge">Premium+</span></div>' +
-            '</div>' +
-          '</div>';
-        foundUser = user;
-        _updateCreateBtnState();
-      });
-    }
-
-    if (searchBtn) searchBtn.addEventListener('click', _searchUser);
-    if (searchInput) {
-      searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); _searchUser(); }
-      });
-      /* Debounced auto-search + clear stale results on re-type */
-      searchInput.addEventListener('input', function () {
-        foundUser = null;
-        _updateCreateBtnState();
-        if (_searchDebounce) clearTimeout(_searchDebounce);
-
-        var val = searchInput.value.trim();
-        if (!val) {
-          statusEl.className = 'duel-username-status';
-          statusEl.textContent = '';
-          userCardEl.style.display = 'none';
-          return;
-        }
-        /* Clear previous results immediately */
-        statusEl.className = 'duel-username-status';
-        statusEl.textContent = '';
-        userCardEl.style.display = 'none';
-
-        /* Auto-search after 500ms if input is long enough */
-        if (val.length >= 4) {
-          _searchDebounce = setTimeout(_searchUser, 500);
-        }
-      });
+      createBtn.disabled = !(selectedTopics.length > 0);
     }
 
     /* Topic selection */
@@ -324,17 +203,17 @@ var DuelUI = (function () {
       });
     }
 
-    /* Create / Send Challenge button */
+    /* Create Duel button */
     if (createBtn) {
       createBtn.addEventListener('click', function () {
-        if (createBtn.disabled || !foundUser) return;
+        if (createBtn.disabled) return;
 
         if (selectedTopics.length === 0) {
           if (typeof showToast === 'function') showToast('Select at least one topic');
           return;
         }
         createBtn.disabled = true;
-        createBtn.textContent = 'Sending...';
+        createBtn.textContent = 'Creating…';
 
         var timerVal = null;
         var tTotal = null;
@@ -353,127 +232,109 @@ var DuelUI = (function () {
           timerTotal: tTotal
         };
 
-        DuelCore.sendInvitation(foundUser, config, function (err, result) {
+        DuelCore.createDuel(config, function (err, duelId) {
           createBtn.disabled = false;
-          createBtn.textContent = 'Send Challenge ⚔️';
+          createBtn.textContent = 'Create Duel ⚔️';
           if (err) {
             if (typeof showToast === 'function') showToast(err);
             _updateCreateBtnState();
             return;
           }
           container.style.display = 'none';
-          /* Enter waiting room — DuelManager handles the invitation listener */
-          DuelManager.enterWaitingForAcceptance(result.duelId, result.invitationId);
+          /* Enter waiting room — DuelManager handles the realtime listener */
+          DuelManager.enterWaitingRoom(duelId);
         });
       });
     }
   }
 
   /* ================================================================
-   * INVITATION CARD (shown on Home tab)
+   * JOIN SCREEN (Room Code Input)
    * ================================================================ */
 
-  function renderInvitationBanner(container, invitations) {
-    if (!invitations || invitations.length === 0) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      return;
-    }
-
-    var html = '';
-    for (var i = 0; i < invitations.length; i++) {
-      var inv = invitations[i];
-      var config = inv.config || {};
-      var topicStr = (config.topics || []).map(_fmtCat).join(', ') || 'Mixed';
-      var timerStr = config.timerTotal ? config.timerTotal + 's total' : (config.timerPerQuestion ? config.timerPerQuestion + 's/q' : 'No timer');
-
-      html +=
-        '<div class="duel-invite-banner" data-invite-id="' + inv.id + '">' +
-          '<div class="duel-invite-banner-glow"></div>' +
-          '<div class="duel-invite-banner-content">' +
-            '<div class="duel-invite-banner-header">' +
-              '<div class="duel-invite-banner-icon">⚔️</div>' +
-              '<div class="duel-invite-banner-info">' +
-                '<div class="duel-invite-banner-title">Duel Challenge!</div>' +
-                '<div class="duel-invite-banner-from">' + (inv.fromDisplayName || inv.fromUsername || 'Someone') + ' challenged you</div>' +
-              '</div>' +
-              '<div class="duel-invite-countdown" id="inviteCountdown_' + inv.id + '"></div>' +
-            '</div>' +
-            '<div class="duel-invite-banner-pills">' +
-              '<span class="duel-config-pill">📝 ' + (config.questionCount || 10) + ' Qs</span>' +
-              '<span class="duel-config-pill">⏱ ' + timerStr + '</span>' +
-              '<span class="duel-config-pill">📊 ' + (config.difficulty || 'medium') + '</span>' +
-              '<span class="duel-config-pill">' + topicStr + '</span>' +
-            '</div>' +
-            '<div class="duel-invite-banner-actions">' +
-              '<button class="duel-invite-accept-btn" data-invite-idx="' + i + '">Accept ⚔️</button>' +
-              '<button class="duel-invite-reject-btn" data-invite-idx="' + i + '">Decline</button>' +
-            '</div>' +
+  function renderJoinScreen(container, onBack) {
+    container.innerHTML =
+      '<div class="duel-setup-card">' +
+        '<div class="duel-setup-header">' +
+          '<h3>⚔️ Join Math Duel</h3>' +
+          '<p>Enter the room code from your friend</p>' +
+        '</div>' +
+        '<div class="duel-setup-body">' +
+          '<div style="text-align:center;padding:1rem 0;">' +
+            '<div style="font-size:3rem;margin-bottom:.75rem;">🎮</div>' +
+            '<label class="secondary-text" style="font-size:.85rem;margin-bottom:.5rem;display:block;">Room Code</label>' +
+            '<input type="text" id="duelJoinCodeInput" class="duel-room-code-input" ' +
+              'placeholder="e.g. ABC123" autocomplete="off" autocapitalize="characters" ' +
+              'maxlength="6" style="font-size:1.75rem;text-align:center;letter-spacing:.5rem;' +
+              'padding:.75rem;width:100%;max-width:240px;margin:0 auto;display:block;' +
+              'border-radius:12px;border:2px solid var(--border-primary);background:var(--bg-primary);' +
+              'color:var(--text-primary);font-weight:700;text-transform:uppercase;" />' +
+            '<div id="duelJoinStatus" style="margin-top:.5rem;font-size:.8rem;min-height:1.25em;"></div>' +
           '</div>' +
-        '</div>';
-    }
+          '<button class="duel-create-btn" id="duelJoinBtn" disabled>Join Duel ⚔️</button>' +
+        '</div>' +
+        '<button class="duel-setup-back" id="duelJoinBackBtn">← Back</button>' +
+      '</div>';
 
-    container.innerHTML = html;
-    container.style.display = 'block';
+    container.style.display = 'flex';
 
-    /* Start countdown timers for each invitation */
-    for (var j = 0; j < invitations.length; j++) {
-      _startInviteCountdown(invitations[j]);
-    }
+    var codeInput = document.getElementById('duelJoinCodeInput');
+    var joinBtn = document.getElementById('duelJoinBtn');
+    var statusEl = document.getElementById('duelJoinStatus');
+    var backBtn = document.getElementById('duelJoinBackBtn');
 
-    /* Bind accept/reject buttons */
-    var acceptBtns = container.querySelectorAll('.duel-invite-accept-btn');
-    var rejectBtns = container.querySelectorAll('.duel-invite-reject-btn');
-
-    for (var a = 0; a < acceptBtns.length; a++) {
-      acceptBtns[a].addEventListener('click', function () {
-        var idx = parseInt(this.getAttribute('data-invite-idx'), 10);
-        if (isNaN(idx) || !invitations[idx]) return;
-        this.disabled = true;
-        this.textContent = 'Joining...';
-        DuelManager.handleInvitationAccept(invitations[idx]);
+    /* Enable join button when 6 characters entered */
+    if (codeInput) {
+      codeInput.addEventListener('input', function () {
+        var val = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        codeInput.value = val;
+        joinBtn.disabled = val.length !== 6;
+        if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
+      });
+      codeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !joinBtn.disabled) joinBtn.click();
       });
     }
 
-    for (var r = 0; r < rejectBtns.length; r++) {
-      rejectBtns[r].addEventListener('click', function () {
-        var idx = parseInt(this.getAttribute('data-invite-idx'), 10);
-        if (isNaN(idx) || !invitations[idx]) return;
-        this.disabled = true;
-        this.textContent = 'Declining...';
-        DuelManager.handleInvitationReject(invitations[idx]);
+    if (joinBtn) {
+      joinBtn.addEventListener('click', function () {
+        if (joinBtn.disabled) return;
+        var code = codeInput.value.toUpperCase().trim();
+        if (code.length !== 6) return;
+
+        joinBtn.disabled = true;
+        joinBtn.textContent = 'Joining…';
+        if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
+
+        DuelCore.joinDuel(code, function (err, data) {
+          if (err) {
+            joinBtn.disabled = false;
+            joinBtn.textContent = 'Join Duel ⚔️';
+            if (statusEl) {
+              statusEl.textContent = err;
+              statusEl.style.color = 'var(--danger, #ef4444)';
+            }
+            return;
+          }
+
+          container.style.display = 'none';
+          /* Store active duel and start listening */
+          try { localStorage.setItem('qr_active_duel', code); } catch (_) {}
+          DuelManager.enterWaitingRoom(code);
+        });
       });
     }
-  }
 
-  function _startInviteCountdown(invite) {
-    if (!invite.createdAt) return;
-    var createdMs = invite.createdAt.toDate ? invite.createdAt.toDate().getTime() : 0;
-    if (createdMs === 0) return;
-    var expiresMs = createdMs + DuelCore.INVITE_EXPIRY_MS;
-
-    var el = document.getElementById('inviteCountdown_' + invite.id);
-    if (!el) return;
-
-    var tick = setInterval(function () {
-      var remaining = Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
-      if (!document.getElementById('inviteCountdown_' + invite.id)) {
-        clearInterval(tick);
-        return;
-      }
-      var mins = Math.floor(remaining / 60);
-      var secs = remaining % 60;
-      el.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
-      el.className = 'duel-invite-countdown' + (remaining <= 30 ? ' urgent' : '');
-      if (remaining <= 0) {
-        clearInterval(tick);
-        el.textContent = 'Expired';
-      }
-    }, 1000);
+    if (backBtn) {
+      backBtn.addEventListener('click', function () {
+        container.style.display = 'none';
+        if (onBack) onBack();
+      });
+    }
   }
 
   /* ================================================================
-   * WAITING ROOM (enhanced)
+   * WAITING ROOM
    * ================================================================ */
 
   function renderWaitingRoom(container, duelData) {
@@ -501,6 +362,7 @@ var DuelUI = (function () {
         '<div class="duel-room-header-section">' +
           '<p class="duel-room-subtitle">⚔️ Duel Room</p>' +
           '<div class="duel-room-code">' + d.id + '</div>' +
+          '<p class="secondary-text" style="font-size:.75rem;margin-top:.5rem;">Share this code with your friend</p>' +
         '</div>' +
         '<div class="duel-config-pills">' +
           topicPills +
@@ -582,78 +444,12 @@ var DuelUI = (function () {
       '</div>';
     }
     var initials = _getInitials(player.name);
-    var name = player.name || player.username || 'Player';
-    var username = player.username ? '@' + player.username : '';
+    var name = player.name || 'Player';
     return '<div class="duel-player-card filled">' +
       '<div class="duel-player-avatar' + (isFirst ? ' avatar-purple' : ' avatar-blue') + '">' + initials + '</div>' +
       '<div class="duel-player-name">' + name + '</div>' +
-      (username ? '<div class="duel-player-username">' + username + '</div>' : '') +
       '<div class="duel-player-connection-dot online"><span class="dot-pulse"></span> Connected</div>' +
     '</div>';
-  }
-
-  /* ================================================================
-   * WAITING FOR ACCEPTANCE (sender sees this while opponent decides)
-   * ================================================================ */
-
-  function renderWaitingForAcceptance(container, duelData, invitationId) {
-    var config = duelData.config || {};
-    var targetName = duelData.targetDisplayName || duelData.targetUsername || 'Opponent';
-
-    container.innerHTML =
-      '<div class="duel-waiting-room-card">' +
-        '<div class="duel-room-header-section">' +
-          '<p class="duel-room-subtitle">⚔️ Challenge Sent!</p>' +
-        '</div>' +
-        '<div style="text-align:center;padding:1.5rem 0;">' +
-          '<div style="font-size:3rem;margin-bottom:.75rem;">📨</div>' +
-          '<h3 style="margin-bottom:.5rem;">Waiting for ' + targetName + '</h3>' +
-          '<p class="secondary-text">Your duel invitation has been sent.</p>' +
-          '<div class="duel-waiting-indicator" style="margin-top:1rem;">' +
-            '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
-          '</div>' +
-          '<div class="duel-invite-sender-countdown" id="senderInviteCountdown" style="margin-top:1rem;font-size:.85rem;color:var(--text-secondary);"></div>' +
-        '</div>' +
-        '<button class="duel-leave-btn" id="duelCancelInviteBtn">Cancel Invitation</button>' +
-      '</div>';
-
-    container.style.display = 'flex';
-
-    /* Start sender-side countdown (5 minutes from duel creation) */
-    var createdMs = duelData.createdAt && duelData.createdAt.toDate
-      ? duelData.createdAt.toDate().getTime() : Date.now();
-    var expiresMs = createdMs + DuelCore.INVITE_EXPIRY_MS;
-    var senderCountdownEl = document.getElementById('senderInviteCountdown');
-    if (senderCountdownEl) {
-      var senderTick = setInterval(function () {
-        if (!document.getElementById('senderInviteCountdown')) {
-          clearInterval(senderTick);
-          return;
-        }
-        var remaining = Math.max(0, Math.ceil((expiresMs - Date.now()) / 1000));
-        var mins = Math.floor(remaining / 60);
-        var secs = remaining % 60;
-        senderCountdownEl.textContent = 'Expires in ' + mins + ':' + (secs < 10 ? '0' : '') + secs;
-        if (remaining <= 30) {
-          senderCountdownEl.style.color = 'var(--danger, #ef4444)';
-        }
-        if (remaining <= 0) {
-          clearInterval(senderTick);
-          senderCountdownEl.textContent = 'Expired';
-        }
-      }, 1000);
-    }
-
-    var cancelBtn = document.getElementById('duelCancelInviteBtn');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', function () {
-        cancelBtn.disabled = true;
-        cancelBtn.textContent = 'Cancelling...';
-        DuelCore.cancelInvitation(invitationId, duelData.id, function () {
-          DuelManager.exitDuel();
-        });
-      });
-    }
   }
 
   /* ================================================================
@@ -682,8 +478,8 @@ var DuelUI = (function () {
     var startIdx = myP ? (myP.answers ? myP.answers.length : 0) : 0;
     var localScore = myP ? (myP.score || 0) : 0;
 
-    var myName = myP ? (myP.name || myP.username || 'You') : 'You';
-    var opName = opP ? (opP.name || opP.username || 'Opponent') : 'Opponent';
+    var myName = myP ? (myP.name || 'You') : 'You';
+    var opName = opP ? (opP.name || 'Opponent') : 'Opponent';
 
     /* Ensure body has drill-session-active for numpad positioning */
     document.body.classList.add('drill-session-active');
@@ -875,7 +671,6 @@ var DuelUI = (function () {
   function _onDuelSessionFinished(session) {
     session.destroyed = true;
     clearTimers();
-    /* DON'T hide numpad here — _showResults in manager will handle it */
     _renderDuelFinished(session.container, session.myName, session.opName, null, null);
   }
 
@@ -960,7 +755,6 @@ var DuelUI = (function () {
 
   /**
    * Update only the scoreboard (opponent score) without rebuilding the entire DOM.
-   * Called by DuelManager on each listener snapshot during active duel.
    */
   function updateScoreboard(duelData) {
     if (!duelData || !duelData.participants) return;
@@ -997,7 +791,7 @@ var DuelUI = (function () {
   }
 
   /* ================================================================
-   * RESULTS SCREEN (premium redesign)
+   * RESULTS SCREEN
    * ================================================================ */
 
   function renderResults(container, duelData, isPartial) {
@@ -1010,8 +804,8 @@ var DuelUI = (function () {
     var config = duelData.config || {};
     var totalQ = config.questionCount || 10;
 
-    var myName = myP ? (myP.name || myP.username || 'You') : 'You';
-    var opName = opP ? (opP.name || opP.username || 'Opponent') : 'Opponent';
+    var myName = myP ? (myP.name || 'You') : 'You';
+    var opName = opP ? (opP.name || 'Opponent') : 'Opponent';
 
     /* Calculate stats */
     var myScore = myP ? (myP.score || 0) : 0;
@@ -1142,74 +936,13 @@ var DuelUI = (function () {
   }
 
   /* ================================================================
-   * PREVIEW SCREEN (legacy — for deep link joins, kept for compat)
-   * ================================================================ */
-
-  function renderPreviewScreen(container, duelData, onJoin, onCancel) {
-    var config = duelData.config || {};
-    var creatorName = duelData.createdByName || 'A user';
-
-    var topicPills = '';
-    var topics = config.topics || [];
-    for (var i = 0; i < topics.length; i++) {
-      topicPills += '<span class="duel-config-pill">' + _fmtCat(topics[i]) + '</span>';
-    }
-
-    var timerLabel = config.timerPerQuestion ? config.timerPerQuestion + 's/q' : 'No timer';
-
-    container.innerHTML =
-      '<div class="duel-setup-card">' +
-        '<div class="duel-setup-header">' +
-          '<h3>⚔️ Math Duel Invitation</h3>' +
-          '<p>' + creatorName + ' challenged you</p>' +
-        '</div>' +
-        '<div class="duel-setup-body">' +
-          '<div style="text-align:center;margin-bottom:1.5rem;">' +
-            '<div style="font-size:3rem;margin-bottom:.5rem;">🥊</div>' +
-            '<h4 style="margin-bottom:.5rem;">Duel Settings</h4>' +
-            '<div class="duel-config-pills" style="justify-content:center;">' +
-              topicPills +
-              '<span class="duel-config-pill">📝 ' + (config.questionCount || 10) + ' Qs</span>' +
-              '<span class="duel-config-pill">⏱ ' + timerLabel + '</span>' +
-              '<span class="duel-config-pill">📊 ' + (config.difficulty || 'medium') + '</span>' +
-            '</div>' +
-          '</div>' +
-          '<button class="duel-create-btn" id="duelJoinAcceptBtn" style="margin-bottom:.75rem;">Join Duel</button>' +
-          '<button class="btn" id="duelJoinCancelBtn" style="width:100%;">Cancel</button>' +
-        '</div>' +
-      '</div>';
-
-    container.style.display = 'flex';
-
-    var acceptBtn = document.getElementById('duelJoinAcceptBtn');
-    if (acceptBtn) {
-      acceptBtn.addEventListener('click', function () {
-        if (acceptBtn.disabled) return;
-        acceptBtn.disabled = true;
-        acceptBtn.textContent = 'Joining...';
-        if (onJoin) onJoin();
-      });
-    }
-
-    var cancelBtn = document.getElementById('duelJoinCancelBtn');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', function () {
-        container.style.display = 'none';
-        if (onCancel) onCancel();
-      });
-    }
-  }
-
-  /* ================================================================
    * PUBLIC API
    * ================================================================ */
 
   return {
     renderSetup: renderSetup,
-    renderPreviewScreen: renderPreviewScreen,
+    renderJoinScreen: renderJoinScreen,
     renderWaitingRoom: renderWaitingRoom,
-    renderWaitingForAcceptance: renderWaitingForAcceptance,
-    renderInvitationBanner: renderInvitationBanner,
     renderActiveScreen: renderActiveScreen,
     renderResults: renderResults,
     updateScoreboard: updateScoreboard,

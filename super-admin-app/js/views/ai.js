@@ -93,7 +93,7 @@ var AIAnalyticsView = (function () {
     var filterQ = document.getElementById('aiFilter').value;
 
     var filtered = _allData.filter(function(u) {
-      var matchesSearch = (u.username && u.username.toLowerCase().indexOf(searchQ) > -1) ||
+      var matchesSearch = (u.displayName && u.displayName.toLowerCase().indexOf(searchQ) > -1) ||
                           (u.email && u.email.toLowerCase().indexOf(searchQ) > -1) ||
                           (u.coachingId && u.coachingId.toLowerCase().indexOf(searchQ) > -1);
       return matchesSearch;
@@ -118,7 +118,7 @@ var AIAnalyticsView = (function () {
       html += '<div class="card" style="padding:1.25rem;margin-bottom:0;">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">' +
           '<div style="flex:1;min-width:150px;">' +
-            '<h3 style="font-size:1.0625rem;font-weight:700;color:#0f172a;margin-bottom:.25rem;word-break:break-word;overflow-wrap:anywhere;">' + _escapeHtml(u.username) + '</h3>' +
+            '<h3 style="font-size:1.0625rem;font-weight:700;color:#0f172a;margin-bottom:.25rem;word-break:break-word;overflow-wrap:anywhere;">' + _escapeHtml(u.displayName || u.email || 'Unknown') + '</h3>' +
             '<p class="text-secondary text-sm" style="word-break:break-word;overflow-wrap:anywhere;">' + _escapeHtml(u.email) + ' • Coaching: ' + _escapeHtml(u.coachingId) + '</p>' +
           '</div>' +
           '<div style="text-align:right;">' +

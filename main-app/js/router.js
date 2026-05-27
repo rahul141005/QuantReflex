@@ -137,9 +137,9 @@ var Router = (function () {
    * Initialize router: read hash and show the correct view.
    */
   function init() {
-    /* Duel deep-links removed (V2) — duel invitations are now username-based.
+    /* Duel deep-links removed — duels now use room codes only.
        The ?duel=ID URL parameter is no longer supported.
-       See duel-manager.js for the new invitation flow. */
+       See duel-manager.js for the room-code flow. */
 
     /* Set initial history state so first back press works correctly */
     var hash = window.location.hash.replace('#', '') || 'home';

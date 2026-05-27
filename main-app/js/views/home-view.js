@@ -290,6 +290,13 @@ function initHomeView() {
     if (typeof AIFeatures !== 'undefined' && typeof AIFeatures.renderStudyPlanCard === 'function') {
       AIFeatures.renderStudyPlanCard('aiStudyPlanContainer');
     }
+
+    /* ---- Duel Hub card (Premium+ only) ---- */
+    var duelHub = document.getElementById('duelHubCard');
+    if (duelHub) {
+      var isDuelPremium = (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
+      duelHub.style.display = isDuelPremium ? '' : 'none';
+    }
   });
 
   /* ---- HOME VIEW: warmup handler ---- */
@@ -309,6 +316,22 @@ function initHomeView() {
   if (editBtn) {
     editBtn.addEventListener('click', function () {
       openQuickLinksEditor();
+    });
+  }
+
+  /* ---- Duel Hub buttons ---- */
+  var duelCreateBtn = document.getElementById('homeDuelCreate');
+  if (duelCreateBtn) {
+    duelCreateBtn.addEventListener('click', function () {
+      Router.showView('practice');
+      if (typeof DuelManager !== 'undefined') DuelManager.openSetup();
+    });
+  }
+  var duelJoinBtn = document.getElementById('homeDuelJoin');
+  if (duelJoinBtn) {
+    duelJoinBtn.addEventListener('click', function () {
+      Router.showView('practice');
+      if (typeof DuelManager !== 'undefined') DuelManager.openJoinDuel();
     });
   }
 }

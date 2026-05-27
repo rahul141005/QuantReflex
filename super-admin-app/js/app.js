@@ -190,7 +190,7 @@ var GlobalSearch = (function() {
       var allUsers = res.data || res.users || [];
       var q = query.toLowerCase();
       var matches = allUsers.filter(function(u) {
-        return (u.username && u.username.toLowerCase().indexOf(q) > -1) ||
+        return (u.displayName && u.displayName.toLowerCase().indexOf(q) > -1) ||
                (u.email && u.email.toLowerCase().indexOf(q) > -1) ||
                (u.uid && u.uid.toLowerCase().indexOf(q) > -1) ||
                (u.coachingId && u.coachingId.toLowerCase().indexOf(q) > -1);
@@ -204,7 +204,7 @@ var GlobalSearch = (function() {
       var html = '';
       matches.forEach(function(u) {
         html += '<div style="padding:1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" class="search-result-item" onclick="GlobalSearch.close(); if(typeof UserDrawer !== \'undefined\') UserDrawer.open(\'' + u.uid + '\')">';
-        html += '<div style="font-weight:600; color:#0f172a;">' + (u.username || u.displayName || 'Unknown') + '</div>';
+        html += '<div style="font-weight:600; color:#0f172a;">' + (u.displayName || u.email || 'Unknown') + '</div>';
         html += '<div style="font-size:0.875rem; color:#64748b;">' + (u.email || u.uid) + '</div>';
         if (u.coachingId) html += '<span class="badge badge-draft" style="font-size:0.7rem;">' + u.coachingId + '</span>';
         html += '</div>';

@@ -12,7 +12,6 @@ if (!admin.apps.length) {
 }
 
 // Basic regex validations
-const usernameRegex = /^[a-zA-Z0-9_]{4,30}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 module.exports = async (req, res) => {
@@ -28,14 +27,10 @@ module.exports = async (req, res) => {
   if (methodGuard(req, res, 'POST')) return;
 
   const body = parseBody(req);
-  const { username, email, password, coachingId } = body;
+  const { email, password, coachingId } = body;
 
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'Username, email, and password are required.' } });
-  }
-
-  if (!usernameRegex.test(username)) {
-    return res.status(400).json({ error: { code: 'INVALID_USERNAME', message: 'Username must be 4-30 characters, alphanumeric and underscores only.' } });
+  if (!email || !password) {
+    return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'Email and password are required.' } });
   }
 
   if (!emailRegex.test(email)) {
@@ -49,14 +44,7 @@ module.exports = async (req, res) => {
   try {
     const db = admin.firestore();
 
-    // 1. Validate Username uniqueness (Case insensitive via publicUsernames)
-    const lowerUsername = username.toLowerCase();
-    const usernameDoc = await db.collection('publicUsernames').doc(lowerUsername).get();
-    if (usernameDoc.exists) {
-      return res.status(409).json({ error: { code: 'USERNAME_TAKEN', message: 'This username is already taken.' } });
-    }
-
-    // 2. Validate Coaching ID (if provided)
+    // 1. Validate Coaching ID (if provided)
     if (coachingId) {
       const coachingDoc = await db.collection('coachings').doc(coachingId).get();
       if (!coachingDoc.exists) {
@@ -68,13 +56,15 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 3. Create Firebase Auth User
+    // 2. Create Firebase Auth User
+    // Display name derived from email local part
+    const displayName = email.split('@')[0] || 'User';
     let authUser;
     try {
       authUser = await admin.auth().createUser({
         email: email,
         password: password,
-        displayName: username
+        displayName: displayName
       });
     } catch (authErr) {
       if (authErr.code === 'auth/email-already-exists') {
@@ -85,19 +75,18 @@ module.exports = async (req, res) => {
 
     const uid = authUser.uid;
 
-    // 4. Atomic Firestore Setup
+    // 3. Atomic Firestore Setup
     const batch = db.batch();
 
-    // User Profile
+    // User Profile — email-first, no username
     const userRef = db.collection('users').doc(uid);
     batch.set(userRef, {
       uid: uid,
-      username: username,
       email: email,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       coachingId: coachingId || null,
-      
+
       // Entitlement Defaults (Safe)
       isPremium: false,
       isPremiumPlus: false,
@@ -106,15 +95,6 @@ module.exports = async (req, res) => {
       trialEnd: null,
       premiumPlusExpiry: null,
       premiumPlusStatus: null
-    });
-
-    // Public Username Entry
-    const publicRef = db.collection('publicUsernames').doc(lowerUsername);
-    batch.set(publicRef, {
-      uid: uid,
-      username: username,
-      displayName: username,
-      isPremiumPlus: false
     });
 
     // Subcollections Setup
@@ -128,7 +108,7 @@ module.exports = async (req, res) => {
 
     await batch.commit();
 
-    // 5. Generate Custom Token for immediate client login
+    // 4. Generate Custom Token for immediate client login
     const customToken = await admin.auth().createCustomToken(uid);
 
     return res.status(200).json({ success: true, token: customToken, uid: uid });

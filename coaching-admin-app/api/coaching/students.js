@@ -73,8 +73,7 @@ async function _handleList(db, coachingId, req, res) {
 
     students.push({
       uid: doc.id,
-      name: (u.profile && u.profile.name) || u.username || 'Unknown',
-      username: u.username || (u.profile && u.profile.username) || '',
+      name: (u.profile && u.profile.name) || u.email || 'Unknown',
       email: u.email || '',
       accuracy: attempted > 0 ? Math.round((correct / attempted) * 100) : 0,
       speed: times.length > 0 ? parseFloat((times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)) : 0,
@@ -197,8 +196,7 @@ async function _handleDetails(db, coachingId, req, res) {
   return res.status(200).json({
     profile: {
       uid,
-      name: (userData.profile && userData.profile.name) || userData.username || 'Unknown',
-      username: userData.username || (userData.profile && userData.profile.username) || '',
+      name: (userData.profile && userData.profile.name) || userData.email || 'Unknown',
       email: userData.email || '',
       isPremium: !!userData.isPremium,
       isPremiumPlus: !!userData.isPremiumPlus,

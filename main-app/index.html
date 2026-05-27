@@ -29,10 +29,8 @@
       </div>
       <div id="loginForm">
         <div class="login-field">
-          <label for="loginUsername" class="login-label">Username</label>
+          <label for="loginUsername" class="login-label">Handle</label>
           <input type="text" id="loginUsername" class="login-input" placeholder="e.g. krishna01" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" />
-          <div id="usernameValidation" class="login-field-validation"></div>
-          <div id="usernamePreview" class="login-username-preview"></div>
         </div>
         <div class="login-field">
           <label for="loginPassword" class="login-label">Password</label>
@@ -180,9 +178,18 @@
       <!-- Streak at risk banner (dynamic — shown when streak >= 2 and no practice today) -->
       <div id="streakAtRiskBanner" style="display:none"></div>
 
-      <!-- Duel Invitation Banner (realtime) -->
-      <div id="duelInvitationBanner" style="display:none"></div>
-
+      <!-- Duel Hub Card (Premium+) -->
+      <div class="card duel-hub-card" id="duelHubCard" style="display:none;">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+          <span style="font-size:1.3rem;">⚔️</span>
+          <h3 style="margin:0;">Math Duel</h3>
+        </div>
+        <p class="secondary-text" style="font-size:.8rem;margin-bottom:.75rem;">Challenge a friend to a 1v1 math battle with room codes</p>
+        <div style="display:flex;gap:.5rem;">
+          <button class="btn accent" id="homeDuelCreate" style="flex:1;font-size:.85rem;padding:.6rem;">Create Duel</button>
+          <button class="btn" id="homeDuelJoin" style="flex:1;font-size:.85rem;padding:.6rem;">Join Duel</button>
+        </div>
+      </div>
 
 
       <!-- Suggested practice card (dynamic — shown when weakest category identified) -->

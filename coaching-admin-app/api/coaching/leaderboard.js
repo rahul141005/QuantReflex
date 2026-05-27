@@ -75,8 +75,7 @@ async function handler(req, res) {
 
       leaderboard.push({
         uid: doc.id,
-        name: (u.profile && u.profile.name) || u.username || 'Unknown',
-        username: u.username || (u.profile && u.profile.username) || '',
+        name: (u.profile && u.profile.name) || u.email || 'Unknown',
         metricValue,
         accuracy: attempted > 0 ? Math.round((correct / attempted) * 100) : 0,
         speed: times.length > 0 ? parseFloat((times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)) : 0,

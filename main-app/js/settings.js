@@ -662,7 +662,15 @@ function openProfileModal() {
   } catch (_) {}
 
   if (nameInput) nameInput.value = profile.name || '';
-  if (usernameInput) usernameInput.value = profile.username || '';
+  if (usernameInput) {
+    /* Show handle (email prefix) — read-only */
+    var handleStr = '';
+    try {
+      var currentUser = (typeof Auth !== 'undefined' && Auth.getCurrentUser()) ? Auth.getCurrentUser() : null;
+      if (currentUser && currentUser.email) handleStr = currentUser.email.split('@')[0];
+    } catch (_) {}
+    usernameInput.value = handleStr;
+  }
 
   /* Coaching ID: read-only display */
   var coachingIdInput = document.getElementById('profileCoachingId');

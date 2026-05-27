@@ -80,9 +80,9 @@ var StudentsView = (function () {
 
   function _studentCard(s) {
     var html = '<div class="student-card" onclick="StudentsView.showProfile(\'' + s.uid + '\')">';
-    html += '<div class="student-avatar">' + CoachingUtils.getInitial(s.name || s.username) + '</div>';
+    html += '<div class="student-avatar">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
     html += '<div class="student-info">';
-    html += '<div class="student-name">' + CoachingUtils.escapeHtml(s.name || s.username || 'Unknown');
+    html += '<div class="student-name">' + CoachingUtils.escapeHtml(s.name || s.email || 'Unknown');
     if (s.isPremium || s.isPremiumPlus) {
       html += ' <span class="stat-pill premium" style="font-size:0.6rem;">★</span>';
     }
@@ -109,7 +109,7 @@ var StudentsView = (function () {
       var q = _searchQuery.toLowerCase();
       students = students.filter(function (s) {
         return (s.name && s.name.toLowerCase().indexOf(q) !== -1) ||
-               (s.username && s.username.toLowerCase().indexOf(q) !== -1) ||
+               (s.email && s.email.toLowerCase().indexOf(q) !== -1) ||
                (s.email && s.email.toLowerCase().indexOf(q) !== -1);
       });
     }
