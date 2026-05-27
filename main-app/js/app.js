@@ -533,6 +533,10 @@ document.addEventListener('DOMContentLoaded', function () {
     _hideAppLoader();
     document.body.style.overflow = '';
     document.documentElement.style.overflow = '';
+    
+    /* Mark auth as resolved so the router is allowed to show the nav bar */
+    document.body.classList.add('auth-resolved');
+    
     if (container) container.style.display = '';
     if (bottomNav) bottomNav.style.display = '';
     /* Apply correct navigation icons for the current theme */
@@ -561,6 +565,10 @@ document.addEventListener('DOMContentLoaded', function () {
     _authViewToken++;
     _hideAppLoader();
     _authRequestInFlight = false;
+    
+    /* Ensure the router doesn't try to show the nav bar */
+    document.body.classList.remove('auth-resolved');
+    
     if (authScreen) authScreen.style.display = 'flex';
     else console.error('[AuthGate] CRITICAL: authScreen DOM element not found');
     if (container) container.style.display = 'none';

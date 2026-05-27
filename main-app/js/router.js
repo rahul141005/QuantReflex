@@ -77,10 +77,13 @@ var Router = (function () {
     if (!_anyModalVisible) {
       document.body.classList.remove('modal-open');
     }
-    /* Ensure bottom nav is visible when not in an active session */
+    /* Ensure bottom nav is visible when not in an active session, 
+       BUT ONLY IF authentication has completed and the app shell is allowed to render */
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
-      var _nav = document.querySelector('.bottom-nav');
-      if (_nav) _nav.style.display = '';
+      if (document.body.classList.contains('auth-resolved')) {
+        var _nav = document.querySelector('.bottom-nav');
+        if (_nav) _nav.style.display = '';
+      }
     }
 
     /* Update bottom nav active state */
