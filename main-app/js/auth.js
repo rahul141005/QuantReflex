@@ -37,27 +37,21 @@ var Auth = (function () {
       }
     }
 
-    fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: email,
-        password: password,
-        coachingId: coachingId || ''
+    firebase.auth().createUserWithEmailAndPassword(email, password)
+      .then(function (cred) {
+        callback(null, cred.user);
       })
-    })
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error.message || 'Account creation failed.');
-      if (!data.token) throw new Error('Invalid response from server.');
-      return AuthCore.signInWithCustomToken(data.token);
-    })
-    .then(function (cred) {
-      callback(null, AuthCore.getCurrentUser());
-    })
-    .catch(function (error) {
-      callback(AuthCore.getReadableError(error) || error.message, null);
-    });
+      .catch(function (error) {
+        var msg = error.message || 'Account creation failed. Please check your connection.';
+        if (error.code === 'auth/email-already-in-use') {
+          msg = 'An account already exists with this email address.';
+        } else if (error.code === 'auth/weak-password') {
+          msg = 'Password is too weak.';
+        } else if (error.code === 'auth/invalid-email') {
+          msg = 'Invalid email format.';
+        }
+        callback(msg, null);
+      });
   }
 
   function login(email, password, callback) {

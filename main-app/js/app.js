@@ -838,27 +838,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
           }
 
-          /* If a coaching ID is provided, validate it first via our unauthenticated endpoint */
-          if (coachingId) {
-            fetch('/api/validate-coaching?id=' + encodeURIComponent(coachingId))
-              .then(function(res) { return res.json(); })
-              .then(function(data) {
-                if (data && data.valid) {
-                  _proceedWithSignup();
-                } else {
-                  _authRequestInFlight = false;
-                  setButtonsDisabled(false);
-                  showError('This Coaching ID does not exist or is inactive.');
-                }
-              })
-              .catch(function(err) {
-                _authRequestInFlight = false;
-                setButtonsDisabled(false);
-                showError('Could not verify Coaching ID. Please check your connection.');
-              });
-          } else {
-            _proceedWithSignup();
-          }
+          /* Proceed with signup directly. If a coaching ID is provided, 
+             it will be handled during the onboarding/sync phase. */
+          _proceedWithSignup();
         }
       });
     }
