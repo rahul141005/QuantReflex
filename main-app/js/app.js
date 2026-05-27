@@ -801,8 +801,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /* ---- Submit Action ---- */
-    if (authSubmitBtn) {
-      authSubmitBtn.addEventListener('click', function () {
+    function _handleAuthSubmit() {
         if (_authRequestInFlight) return;
         hideError();
         
@@ -878,6 +877,19 @@ document.addEventListener('DOMContentLoaded', function () {
              it will be handled during the onboarding/sync phase. */
           _proceedWithSignup();
         }
+    }
+
+    if (authSubmitBtn) {
+      /* Standard click event for enter key and desktop interactions */
+      authSubmitBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        _handleAuthSubmit();
+      });
+      /* pointerdown catches touches BEFORE blur layout shift moves the button out of bounds */
+      authSubmitBtn.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        if (document.activeElement) document.activeElement.blur();
+        _handleAuthSubmit();
       });
     }
 
