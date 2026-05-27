@@ -265,13 +265,6 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ════════════════════════════════════════════
-    // PUBLIC USERNAMES INDEX (DEPRECATED)
-    // ════════════════════════════════════════════
-    // Username system removed — ecosystem is email-first.
-    match /publicUsernames/{doc} {
-      allow read, write: if false;
-    }
 
     // ════════════════════════════════════════════
     // PAYMENTS COLLECTION

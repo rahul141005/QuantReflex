@@ -1,89 +1,59 @@
 /**
  * auth.js — Firebase Auth module for Coaching Admin Panel
  *
- * Handles:
+ * Wraps shared AuthCore. Handles:
  *   - Create Account (email + password + coachingId → server registration → auto-login)
- *   - Login (email + password → verify coaching_admin claim)
+ *   - Login
  *   - Logout
- *   - Auth state persistence
- *
  * Enforces coaching_admin: true custom claim.
- * Extracts coachingId from claims and stores in CoachingState.
  */
 var CoachingAuth = (function () {
   'use strict';
 
-  var _authReadyCallbacks = [];
-  var _authReady = false;
-
   function init() {
-    var auth = FirebaseApp.getAuth();
-    if (!auth) return;
-
-    auth.onAuthStateChanged(function (user) {
+    AuthCore.init(function(user, tokenResult) {
       if (user) {
-        _verifyCoachingAdmin(user);
+        if (tokenResult && tokenResult.claims && tokenResult.claims.coaching_admin === true && tokenResult.claims.coachingId) {
+          CoachingState.set({
+            user: user,
+            isCoachingAdmin: true,
+            coachingId: tokenResult.claims.coachingId
+          });
+          _showApp();
+        } else {
+          _showAuthError('Access denied. Coaching admin privileges required.');
+          AuthCore.logout();
+        }
       } else {
         CoachingState.set({ user: null, isCoachingAdmin: false, coachingId: null, coachingName: null });
-        _fireReady(null);
         _showAuth();
       }
     });
   }
 
-  /**
-   * Verify the user has coaching_admin: true custom claim.
-   * Extract coachingId from claims and load coaching info.
-   */
-  function _verifyCoachingAdmin(user) {
-    user.getIdTokenResult(true).then(function (result) {
-      if (result.claims.coaching_admin === true && result.claims.coachingId) {
-        CoachingState.set({
-          user: user,
-          isCoachingAdmin: true,
-          coachingId: result.claims.coachingId
-        });
-        _fireReady(user);
-        _showApp();
-      } else {
-        _showAuthError('Access denied. Coaching admin privileges required.');
-        FirebaseApp.getAuth().signOut();
-      }
-    }).catch(function (err) {
-      console.error('Token verification failed:', err);
-      _showAuthError('Authentication failed. Please try again.');
-      FirebaseApp.getAuth().signOut();
-    });
-  }
-
-  /**
-   * Login with email and password.
-   */
   function login(email, password) {
-    var auth = FirebaseApp.getAuth();
-    if (!auth) return;
     _hideAuthError();
     _setLoading(true);
 
-    auth.signInWithEmailAndPassword(email, password).catch(function (error) {
+    AuthCore.login(email, password).catch(function(err) {
       _setLoading(false);
-      var msg = 'Login failed.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') msg = 'Invalid email or password.';
-      if (error.code === 'auth/wrong-password') msg = 'Incorrect password.';
-      if (error.code === 'auth/too-many-requests') msg = 'Too many attempts. Try again later.';
-      if (error.code === 'auth/invalid-email') msg = 'Invalid email format.';
-      _showAuthError(msg);
+      _showAuthError(err.message);
     });
   }
 
-  /**
-   * Register a new coaching admin account.
-   * POSTs to /api/coaching/auth?action=register
-   * On success, signs in with the returned custom token.
-   */
   function register(email, password, coachingId) {
     _hideAuthError();
     _setLoading(true);
+    
+    // AuthValidators is global via script tag
+    if (typeof AuthValidators !== 'undefined') {
+      var err = AuthValidators.validateSignup(email, password);
+      if (err) {
+        _setLoading(false);
+        _showAuthError(err);
+        return;
+      }
+    }
 
     fetch('/api/coaching/auth?action=register', {
       method: 'POST',
@@ -99,14 +69,13 @@ var CoachingAuth = (function () {
         return;
       }
 
-      // Auto-login with custom token
-      var auth = FirebaseApp.getAuth();
-      return auth.signInWithCustomToken(result.data.token).then(function () {
-        // Store coaching name for immediate use
+      AuthCore.signInWithCustomToken(result.data.token).then(function () {
         if (result.data.coachingName) {
           CoachingState.set({ coachingName: result.data.coachingName });
         }
-        // onAuthStateChanged will handle the rest
+      }).catch(function(e) {
+         _setLoading(false);
+         _showAuthError(AuthCore.getReadableError(e));
       });
     })
     .catch(function (err) {
@@ -117,22 +86,14 @@ var CoachingAuth = (function () {
   }
 
   function logout() {
-    var auth = FirebaseApp.getAuth();
-    if (auth) auth.signOut();
+    AuthCore.logout();
     CoachingState.reset();
   }
 
   function onAuthReady(fn) {
-    if (_authReady) { fn(CoachingState.get('user')); }
-    else { _authReadyCallbacks.push(fn); }
-  }
-
-  function _fireReady(user) {
-    _authReady = true;
-    for (var i = 0; i < _authReadyCallbacks.length; i++) {
-      try { _authReadyCallbacks[i](user); } catch (e) { /* ignore */ }
-    }
-    _authReadyCallbacks = [];
+    AuthCore.onAuthReady(function() {
+      fn(CoachingState.get('user'));
+    });
   }
 
   function _showAuth() {
@@ -170,9 +131,7 @@ var CoachingAuth = (function () {
   }
 
   function getToken() {
-    var user = CoachingState.get('user');
-    if (!user) return Promise.reject(new Error('Not authenticated'));
-    return user.getIdToken();
+    return AuthCore.getIdToken();
   }
 
   return {

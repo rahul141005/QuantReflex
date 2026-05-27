@@ -103,7 +103,7 @@
     <div class="search-modal" style="width:90%; max-width:600px; margin:10vh auto; background:#fff; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.2); overflow:hidden;" onclick="event.stopPropagation()">
       <div style="padding:1rem; border-bottom:1px solid #e2e8f0; display:flex; align-items:center;">
         <span style="font-size:1.2rem; margin-right:0.5rem;">🔍</span>
-        <input type="text" id="globalSearchInput" placeholder="Search by username, uid, or coaching ID..." style="width:100%; border:none; outline:none; font-size:1.1rem; padding:0.5rem;" autocomplete="off" />
+        <input type="text" id="globalSearchInput" placeholder="Search by email, uid, or coaching ID..." style="width:100%; border:none; outline:none; font-size:1.1rem; padding:0.5rem;" autocomplete="off" />
       </div>
       <div id="globalSearchResults" style="max-height:400px; overflow-y:auto; background:#f8fafc;"></div>
     </div>
@@ -123,6 +123,8 @@
   <!-- App Scripts (layered like main app) -->
   <script src="js/state/store.js"></script>
   <script src="js/firebase/firebase.js"></script>
+  <script src="../shared/validation/auth-validators.js"></script>
+  <script src="../shared/auth/core.js"></script>
   <script src="js/firebase/auth.js"></script>
   <script src="js/services/api.js"></script>
   <script src="js/ui/toast.js"></script>

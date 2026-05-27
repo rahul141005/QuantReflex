@@ -38,7 +38,7 @@ var DuelCore = (function () {
     return (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
   }
 
-  function _getUserName() {
+  function _getDisplayName() {
     try {
       var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
       if (s && s.profile && s.profile.name) return s.profile.name;
@@ -173,10 +173,10 @@ var DuelCore = (function () {
       callback = questionIds;
       questionIds = [];
     }
-    var userName = _getUserName();
+    var displayName = _getDisplayName();
     var participants = {};
     participants[uid] = {
-      name: userName,
+      name: displayName,
       joinedAt: _serverTimestamp(),
       status: 'joined',
       answers: [],
@@ -187,7 +187,7 @@ var DuelCore = (function () {
     var duelDoc = {
       id: duelId,
       createdBy: uid,
-      createdByName: userName,
+      createdByName: displayName,
       status: 'waiting',
       createdAt: _serverTimestamp(),
       config: {
@@ -246,10 +246,10 @@ var DuelCore = (function () {
         var pCount = data.participants ? Object.keys(data.participants).length : 0;
         if (pCount >= 2) { throw new Error('Duel room is full'); }
 
-        var userName = _getUserName();
+        var displayName = _getDisplayName();
         var participants = data.participants || {};
         participants[uid] = {
-          name: userName,
+          name: displayName,
           joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
           status: 'joined',
           answers: [],

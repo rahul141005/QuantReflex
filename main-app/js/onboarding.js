@@ -28,7 +28,7 @@ var Onboarding = (function () {
   var _currentScreen = 0;
   var _skipped = false;
   var _selectedGoal = 20;
-  var _userName = '';
+  var _displayName = '';
   var _onComplete = null;
   var _questionAttempt = 0;       /* 0-based: tracks which attempt (0, 1, 2) */
   var _currentQuestion = null;    /* current question object {text, answer} */
@@ -120,8 +120,8 @@ var Onboarding = (function () {
       if (typeof FirestoreSync !== 'undefined') {
         FirestoreSync.syncSettings(settings);
         /* Save user name to Firestore profile */
-        if (_userName) {
-          FirestoreSync.updateProfileName(_userName);
+        if (_displayName) {
+          FirestoreSync.updateProfileName(_displayName);
         }
       }
     } catch (_) { /* ignore */ }
@@ -300,7 +300,7 @@ var Onboarding = (function () {
       '<p class="onboarding-desc">Build elite quantitative reflexes through precision drills, AI coaching, and competitive challenges.</p>' +
       '<div class="onboarding-name-field">' +
       '<label class="onboarding-name-label">What\'s your name?</label>' +
-      '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_userName) + '" />' +
+      '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_displayName) + '" />' +
       '</div>' +
       '<div class="onboarding-actions">' +
       '<button class="btn accent onboarding-next-btn" id="obNext">Next</button>' +
@@ -355,7 +355,7 @@ var Onboarding = (function () {
   }
 
   function _screen5() {
-    var safeName = _escapeHtml(_userName);
+    var safeName = _escapeHtml(_displayName);
     var title = safeName
       ? safeName + ', ready to begin?'
       : 'Ready to Begin?';
@@ -400,7 +400,7 @@ var Onboarding = (function () {
         if (index === 0) {
           var nameInput = document.getElementById('obNameInput');
           if (nameInput && nameInput.value.trim()) {
-            _userName = nameInput.value.trim();
+            _displayName = nameInput.value.trim();
           } else {
             if (nameInput) {
               nameInput.style.borderColor = '#dc2626';
@@ -434,7 +434,7 @@ var Onboarding = (function () {
         if (index === 0) {
           var nameInput = document.getElementById('obNameInput');
           if (nameInput && nameInput.value.trim()) {
-            _userName = nameInput.value.trim();
+            _displayName = nameInput.value.trim();
           } else {
             if (nameInput) {
               nameInput.style.borderColor = '#dc2626';

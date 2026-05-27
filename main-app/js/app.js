@@ -606,11 +606,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* Login form handlers */
-    var loginBtn = document.getElementById('loginBtn');
-    var signupBtn = document.getElementById('signupBtn');
-    var loginUsername = document.getElementById('loginUsername');
+    var authSubmitBtn = document.getElementById('authSubmitBtn');
+    var loginEmail = document.getElementById('loginEmail');
     var loginPassword = document.getElementById('loginPassword');
     var loginError = document.getElementById('loginError');
+    var authTabs = document.querySelectorAll('.auth-tab');
+    var registerFields = document.getElementById('registerFields');
 
     function showError(msg) {
       if (loginError) {
@@ -626,21 +627,43 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function setButtonsDisabled(disabled) {
-      if (loginBtn) loginBtn.disabled = disabled;
-      if (signupBtn) signupBtn.disabled = disabled;
+      if (authSubmitBtn) authSubmitBtn.disabled = disabled;
     }
 
-    /* Track whether user is in signup mode (vs login mode) */
     var _isSignupMode = false;
     var loginCoachingId = document.getElementById('loginCoachingId');
-    var coachingIdField = document.getElementById('coachingIdField');
+    var coachingIdField = document.querySelector('.coaching-id-field');
+
+    /* Tab Switching Logic */
+    if (authTabs && authTabs.length > 0) {
+      for (var i = 0; i < authTabs.length; i++) {
+        authTabs[i].addEventListener('click', function(e) {
+          for (var j = 0; j < authTabs.length; j++) authTabs[j].classList.remove('active');
+          this.classList.add('active');
+          var mode = this.getAttribute('data-mode');
+          if (mode === 'register') {
+            _isSignupMode = true;
+            if (registerFields) registerFields.style.display = 'block';
+            if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
+          } else {
+            _isSignupMode = false;
+            if (registerFields) registerFields.style.display = 'none';
+            if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
+          }
+          hideError();
+          _resetAllValidation();
+        });
+      }
+    }
 
     /* ---- Realtime Validation System ---- */
-    var _handleTouched = false;
+    var _emailTouched = false;
     var _passwordTouched = false;
-    var _handleDebounce = null;
+    var _emailDebounce = null;
     var _passwordDebounce = null;
+    var _coachingDebounce = null;
     var passwordValidationEl = document.getElementById('passwordValidation');
+    var coachingIdValidationEl = document.getElementById('coachingIdValidation');
 
     /**
      * Render validation results into a container element.
@@ -689,21 +712,20 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    function _validateHandleField() {
-      if (!loginUsername) return;
-      var val = loginUsername.value;
+    function _validateEmailField() {
+      if (!loginEmail) return;
+      var val = loginEmail.value;
       if (!val) {
-        loginUsername.classList.remove('input-error', 'input-valid');
+        loginEmail.classList.remove('input-error', 'input-valid');
         return;
       }
-      var clean = typeof Auth !== 'undefined' ? Auth.sanitizeHandle(val) : val.toLowerCase().trim();
-      var valid = clean.length >= 4 && clean.length <= 30 && /[a-z]/.test(clean) && /[0-9]/.test(clean);
+      var valid = typeof Auth !== 'undefined' ? Auth.validateEmail(val) : false;
       if (valid) {
-        loginUsername.classList.remove('input-error');
-        loginUsername.classList.add('input-valid');
+        loginEmail.classList.remove('input-error');
+        loginEmail.classList.add('input-valid');
       } else {
-        loginUsername.classList.remove('input-valid');
-        loginUsername.classList.add('input-error');
+        loginEmail.classList.remove('input-valid');
+        loginEmail.classList.add('input-error');
       }
     }
 
@@ -714,6 +736,20 @@ document.addEventListener('DOMContentLoaded', function () {
         _resetFieldValidation(loginPassword, passwordValidationEl);
         return;
       }
+      
+      if (!_isSignupMode) {
+        // Skip detailed validation rendering when logging in, just basic UI class
+        if (val.length >= 6) {
+          loginPassword.classList.remove('input-error');
+          loginPassword.classList.add('input-valid');
+        } else {
+          loginPassword.classList.remove('input-valid');
+          loginPassword.classList.add('input-error');
+        }
+        _resetFieldValidation(null, passwordValidationEl);
+        return;
+      }
+
       var result = typeof Auth !== 'undefined' ? Auth.validatePassword(val) : { valid: true, errors: [] };
 
       var rules = [
@@ -728,144 +764,109 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /** Full state reset — clears all validation */
     function _resetAllValidation() {
-      _handleTouched = false;
+      _emailTouched = false;
       _passwordTouched = false;
-      if (_handleDebounce) clearTimeout(_handleDebounce);
+      if (_emailDebounce) clearTimeout(_emailDebounce);
       if (_passwordDebounce) clearTimeout(_passwordDebounce);
-      if (loginUsername) loginUsername.classList.remove('input-error', 'input-valid');
+      if (_coachingDebounce) clearTimeout(_coachingDebounce);
+      if (loginEmail) loginEmail.classList.remove('input-error', 'input-valid');
+      if (loginCoachingId) loginCoachingId.classList.remove('input-error', 'input-valid');
       _resetFieldValidation(loginPassword, passwordValidationEl);
+      _resetFieldValidation(loginCoachingId, coachingIdValidationEl);
     }
 
-    /** Show coaching ID field with animation */
-    function _showCoachingId() {
-      if (coachingIdField) {
-        coachingIdField.classList.add('coaching-visible');
-      }
-    }
-
-    /** Hide coaching ID field */
-    function _hideCoachingId() {
-      if (coachingIdField) {
-        coachingIdField.classList.remove('coaching-visible');
-        coachingIdField.style.display = 'none';
-      }
-    }
-
-    /* ---- Login Button ---- */
-    if (loginBtn) {
-      loginBtn.addEventListener('click', function () {
-        if (_authRequestInFlight) return;
-        hideError();
-        /* If switching from signup mode back to login, clear everything */
-        if (_isSignupMode) {
-          _isSignupMode = false;
-          _resetAllValidation();
-          _hideCoachingId();
-        }
-        var username = loginUsername ? loginUsername.value : '';
-        var password = loginPassword ? loginPassword.value : '';
-        _authRequestInFlight = true;
-        setButtonsDisabled(true);
-
-        Auth.login(username, password, function (err) {
-          _authRequestInFlight = false;
-          setButtonsDisabled(false);
-          if (err) {
-            showError(err);
-          } else {
-            if (loginUsername) loginUsername.value = '';
-            if (loginPassword) loginPassword.value = '';
-            _resetAllValidation();
-            showApp();
-          }
-        });
-      });
-    }
-
-    /* ---- Signup Button ---- */
-    if (signupBtn) {
-      signupBtn.addEventListener('click', function () {
+    /* ---- Submit Action ---- */
+    if (authSubmitBtn) {
+      authSubmitBtn.addEventListener('click', function () {
         if (_authRequestInFlight) return;
         hideError();
         
-        /* Enter signup mode — reveals coaching ID */
-        if (!_isSignupMode) {
-          _isSignupMode = true;
-          _showCoachingId();
-          return;
-        }
-
-        var username = loginUsername ? loginUsername.value : '';
+        var email = loginEmail ? loginEmail.value : '';
         var password = loginPassword ? loginPassword.value : '';
-        var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
-
-        _authRequestInFlight = true;
-        setButtonsDisabled(true);
-
-        function _proceedWithSignup() {
-          Auth.signup(username, password, coachingId, function (err) {
+        
+        if (!_isSignupMode) {
+          /* LOGIN FLOW */
+          _authRequestInFlight = true;
+          setButtonsDisabled(true);
+          
+          Auth.login(email, password, function (err) {
             _authRequestInFlight = false;
             setButtonsDisabled(false);
             if (err) {
               showError(err);
-              /* Trigger full validation display after a failed signup attempt */
-              _handleTouched = true;
-              _passwordTouched = true;
-              _validateHandleField();
-              _validatePasswordField();
             } else {
-              /* Server now atomically links the coaching ID. No client-side sync required. */
-              if (loginUsername) loginUsername.value = '';
+              if (loginEmail) loginEmail.value = '';
               if (loginPassword) loginPassword.value = '';
-              if (loginCoachingId) loginCoachingId.value = '';
-              _isSignupMode = false;
               _resetAllValidation();
-              _hideCoachingId();
               showApp();
             }
           });
-        }
+        } else {
+          /* SIGNUP FLOW */
+          var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
+          _authRequestInFlight = true;
+          setButtonsDisabled(true);
 
-        /* If a coaching ID is provided, validate it first via our unauthenticated endpoint */
-        if (coachingId) {
-          fetch('/api/validate-coaching?id=' + encodeURIComponent(coachingId))
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-              if (data && data.valid) {
-                _proceedWithSignup();
-              } else {
-                _authRequestInFlight = false;
-                setButtonsDisabled(false);
-                showError('This Coaching ID does not exist or is inactive.');
-              }
-            })
-            .catch(function(err) {
+          function _proceedWithSignup() {
+            Auth.signup(email, password, coachingId, function (err) {
               _authRequestInFlight = false;
               setButtonsDisabled(false);
-              showError('Could not verify Coaching ID. Please check your connection.');
+              if (err) {
+                showError(err);
+                /* Trigger full validation display after a failed signup attempt */
+                _emailTouched = true;
+                _passwordTouched = true;
+                _validateEmailField();
+                _validatePasswordField();
+              } else {
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                if (loginCoachingId) loginCoachingId.value = '';
+                // reset back to login mode for next time
+                if (authTabs && authTabs.length > 0) authTabs[0].click();
+                showApp();
+              }
             });
-        } else {
-          _proceedWithSignup();
+          }
+
+          /* If a coaching ID is provided, validate it first via our unauthenticated endpoint */
+          if (coachingId) {
+            fetch('/api/validate-coaching?id=' + encodeURIComponent(coachingId))
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                if (data && data.valid) {
+                  _proceedWithSignup();
+                } else {
+                  _authRequestInFlight = false;
+                  setButtonsDisabled(false);
+                  showError('This Coaching ID does not exist or is inactive.');
+                }
+              })
+              .catch(function(err) {
+                _authRequestInFlight = false;
+                setButtonsDisabled(false);
+                showError('Could not verify Coaching ID. Please check your connection.');
+              });
+          } else {
+            _proceedWithSignup();
+          }
         }
       });
     }
 
     /* ---- Validation Listeners ---- */
-    /* Validation activates on first meaningful input — no mode flag required.
-       The user feels guided immediately, not punished after submit. */
 
-    /* Handle: validate on blur, then on debounced input after first blur */
-    if (loginUsername) {
-      loginUsername.addEventListener('blur', function () {
-        if (!loginUsername.value) return;
-        _handleTouched = true;
-        _validateHandleField();
+    /* Email: validate on blur, then on debounced input after first blur */
+    if (loginEmail) {
+      loginEmail.addEventListener('blur', function () {
+        if (!loginEmail.value) return;
+        _emailTouched = true;
+        _validateEmailField();
       });
-      loginUsername.addEventListener('input', function () {
-        /* Only show validation after first blur */
-        if (!_handleTouched) return;
-        if (_handleDebounce) clearTimeout(_handleDebounce);
-        _handleDebounce = setTimeout(_validateHandleField, 400);
+      loginEmail.addEventListener('input', function () {
+        if (!_emailTouched) return;
+        if (_emailDebounce) clearTimeout(_emailDebounce);
+        _emailDebounce = setTimeout(_validateEmailField, 400);
       });
     }
 
@@ -883,17 +884,57 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
-    /* Allow Enter key to submit login */
+    /* Coaching ID: debounced validation via API */
+    function _validateCoachingIdField() {
+      if (!loginCoachingId || !coachingIdValidationEl) return;
+      var val = loginCoachingId.value.trim();
+      if (!val) {
+        _resetFieldValidation(loginCoachingId, coachingIdValidationEl);
+        return;
+      }
+      if (!_isSignupMode) return;
+
+      if (_coachingDebounce) clearTimeout(_coachingDebounce);
+      _coachingDebounce = setTimeout(function() {
+        fetch('/api/validate-coaching?id=' + encodeURIComponent(val))
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data && data.valid) {
+              coachingIdValidationEl.className = 'login-field-validation active all-valid';
+              coachingIdValidationEl.innerHTML = '<span class="val-summary">Valid coaching code</span>';
+              loginCoachingId.classList.remove('input-error');
+              loginCoachingId.classList.add('input-valid');
+            } else {
+              coachingIdValidationEl.className = 'login-field-validation active';
+              coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Code not found or inactive</li></ul>';
+              loginCoachingId.classList.remove('input-valid');
+              loginCoachingId.classList.add('input-error');
+            }
+          })
+          .catch(function(err) {
+            coachingIdValidationEl.className = 'login-field-validation active';
+            coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Could not verify code</li></ul>';
+          });
+      }, 500);
+    }
+
+    if (loginCoachingId) {
+      loginCoachingId.addEventListener('input', function () {
+        _validateCoachingIdField();
+      });
+    }
+
+    /* Allow Enter key to submit */
     if (loginPassword) {
       loginPassword.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (loginBtn) loginBtn.click();
+          if (authSubmitBtn) authSubmitBtn.click();
         }
       });
     }
-    if (loginUsername) {
-      loginUsername.addEventListener('keydown', function (e) {
+    if (loginEmail) {
+      loginEmail.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
           if (loginPassword) loginPassword.focus();

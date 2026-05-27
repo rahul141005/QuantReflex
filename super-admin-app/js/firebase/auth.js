@@ -1,87 +1,76 @@
 /**
- * auth.js — Firebase Auth module for Admin Panel
+ * auth.js — Firebase Auth module for Super Admin App
  *
- * Handles login/logout and enforces admin: true custom claim.
- * Unauthorized users are rejected immediately.
+ * Wraps shared AuthCore. Handles login/logout and enforces admin: true custom claim.
+ * Hardcoded security requirement: Only quantreflex@gmail.com is permitted to login.
  */
 var AdminAuth = (function () {
   'use strict';
 
-  var _authReadyCallbacks = [];
-  var _authReady = false;
-
   function init() {
-    var auth = FirebaseApp.getAuth();
-    if (!auth) return;
-
-    auth.onAuthStateChanged(function (user) {
+    AuthCore.init(function(user, tokenResult) {
       if (user) {
-        _verifyAdmin(user);
+        if (user.email !== 'quantreflex@gmail.com') {
+          _showLoginError('Unauthorized email address.');
+          AuthCore.logout();
+          return;
+        }
+
+        if (tokenResult && tokenResult.claims && tokenResult.claims.admin === true) {
+          AdminState.set({ user: user, isAdmin: true });
+          _showApp();
+        } else {
+          _showLoginError('Access denied. Admin privileges required.');
+          AuthCore.logout();
+        }
       } else {
         AdminState.set({ user: null, isAdmin: false });
-        _fireReady(null);
         _showLogin();
       }
     });
   }
 
-  function _verifyAdmin(user) {
-    user.getIdTokenResult(true).then(function (result) {
-      if (result.claims.admin === true) {
-        AdminState.set({ user: user, isAdmin: true });
-        _fireReady(user);
-        _showApp();
-      } else {
-        _showLoginError('Access denied. Admin privileges required.');
-        FirebaseApp.getAuth().signOut();
-      }
-    }).catch(function (err) {
-      console.error('Token verification failed:', err);
-      _showLoginError('Authentication failed. Please try again.');
-      FirebaseApp.getAuth().signOut();
-    });
-  }
-
   function login(email, password) {
-    var auth = FirebaseApp.getAuth();
-    if (!auth) return;
     _hideLoginError();
-    auth.signInWithEmailAndPassword(email, password).catch(function (error) {
-      var msg = 'Login failed.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') msg = 'Invalid email or password.';
-      if (error.code === 'auth/wrong-password') msg = 'Incorrect password.';
-      if (error.code === 'auth/too-many-requests') msg = 'Too many attempts. Try again later.';
-      _showLoginError(msg);
+    if (email !== 'quantreflex@gmail.com') {
+      _showLoginError('Unauthorized email address.');
+      return;
+    }
+    
+    // Check if the password provided is strictly the permitted one
+    if (password !== 'pass@iON2203') {
+       _showLoginError('Invalid credentials.');
+       return;
+    }
+
+    AuthCore.login(email, password).catch(function(err) {
+      _showLoginError(err.message);
     });
   }
 
   function logout() {
-    var auth = FirebaseApp.getAuth();
-    if (auth) auth.signOut();
+    AuthCore.logout();
     AdminState.reset();
   }
 
   function onAuthReady(fn) {
-    if (_authReady) { fn(AdminState.get('user')); }
-    else { _authReadyCallbacks.push(fn); }
-  }
-
-  function _fireReady(user) {
-    _authReady = true;
-    for (var i = 0; i < _authReadyCallbacks.length; i++) {
-      try { _authReadyCallbacks[i](user); } catch (e) { /* ignore */ }
-    }
-    _authReadyCallbacks = [];
+    AuthCore.onAuthReady(function() {
+      fn(AdminState.get('user'));
+    });
   }
 
   function _showLogin() {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('appShell').style.display = 'none';
+    var loginScreen = document.getElementById('loginScreen');
+    var appShell = document.getElementById('appShell');
+    if(loginScreen) loginScreen.style.display = 'flex';
+    if(appShell) appShell.style.display = 'none';
   }
 
   function _showApp() {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appShell').style.display = 'flex';
+    var loginScreen = document.getElementById('loginScreen');
+    var appShell = document.getElementById('appShell');
+    if(loginScreen) loginScreen.style.display = 'none';
+    if(appShell) appShell.style.display = 'flex';
   }
 
   function _showLoginError(msg) {
@@ -95,9 +84,7 @@ var AdminAuth = (function () {
   }
 
   function getToken() {
-    var user = AdminState.get('user');
-    if (!user) return Promise.reject(new Error('Not authenticated'));
-    return user.getIdToken();
+    return AuthCore.getIdToken();
   }
 
   return { init: init, login: login, logout: logout, onAuthReady: onAuthReady, getToken: getToken };

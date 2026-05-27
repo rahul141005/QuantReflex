@@ -20,36 +20,45 @@
     <img class="splash-logo" src="appicons/splashQ.svg" alt="Q" />
   </div>
 
-  <!-- ==================== LOGIN SCREEN ==================== -->
-  <div id="loginScreen" class="login-screen" style="display:none;">
-    <div class="login-card">
-      <div class="login-header">
-        <h1 class="login-title">QuantReflex</h1>
-        <p class="login-subtitle">Train your mental math speed daily</p>
+  <!-- ==================== AUTH SCREEN ==================== -->
+  <div id="authScreen" class="auth-screen" style="display:none;">
+    <div class="auth-card">
+      <div class="auth-logo">QR</div>
+      <h1 class="auth-title">QuantReflex</h1>
+      <p class="auth-subtitle">Train your mental math speed daily</p>
+
+      <!-- Auth Tabs -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-mode="login">Login</button>
+        <button class="auth-tab" data-mode="register">Create Account</button>
       </div>
-      <div id="loginForm">
-        <div class="login-field">
-          <label for="loginUsername" class="login-label">Handle</label>
-          <input type="text" id="loginUsername" class="login-input" placeholder="e.g. krishna01" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" />
+
+      <!-- Auth Form -->
+      <div id="authForm">
+        <div class="auth-field">
+          <label for="loginEmail" class="auth-label">Email</label>
+          <input type="email" id="loginEmail" class="auth-input" placeholder="you@example.com" autocomplete="email" autocapitalize="off" />
         </div>
-        <div class="login-field">
-          <label for="loginPassword" class="login-label">Password</label>
-          <input type="password" id="loginPassword" class="login-input" placeholder="Enter your password" autocomplete="current-password" />
+        <div class="auth-field">
+          <label for="loginPassword" class="auth-label">Password</label>
+          <input type="password" id="loginPassword" class="auth-input" placeholder="Enter your password" autocomplete="current-password" />
           <div id="passwordValidation" class="login-field-validation"></div>
         </div>
-        <div id="coachingIdField" class="login-field coaching-id-field" style="display:none;">
-          <label for="loginCoachingId" class="login-label">Coaching ID <span class="login-optional-tag">(Optional)</span></label>
-          <input type="text" id="loginCoachingId" class="login-input" placeholder="Coaching ID (Optional)" autocomplete="off" autocapitalize="characters" maxlength="50" />
-          <p class="login-coaching-hint">Enter your coaching code if provided by your institute.</p>
+
+        <!-- Register-only field -->
+        <div id="registerFields" style="display:none;">
+          <div class="auth-field coaching-id-field">
+            <label for="loginCoachingId" class="auth-label">Coaching ID <span style="font-weight:normal;text-transform:none;opacity:0.8;">(Optional)</span></label>
+            <input type="text" id="loginCoachingId" class="auth-input" placeholder="e.g. QRABCD1234" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;" maxlength="50" />
+            <div id="coachingIdValidation" class="login-field-validation"></div>
+            <div style="font-size:var(--font-xs);color:var(--text-muted);margin-top:4px;">Enter your coaching code if provided by your institute.</div>
+          </div>
         </div>
-        <div id="loginError" class="login-error" style="display:none;"></div>
-        <div id="loginValidationHint" class="login-validation-hint">
-          <p>Don't forget your password.</p>
-        </div>
-        <button id="loginBtn" class="btn accent login-btn">Log In</button>
-        <button id="signupBtn" class="btn login-btn login-signup-btn">Create Account</button>
+
+        <div id="loginError" class="auth-error" style="display:none;"></div>
+        <button id="authSubmitBtn" class="auth-btn">Log In</button>
       </div>
-      <p class="login-footer">🔒 Your data syncs across all your devices with the help of Firebase.</p>
+      <p class="auth-footer">🔒 Your data syncs across all your devices.</p>
     </div>
   </div>
 
@@ -1332,8 +1341,8 @@
         <input type="text" id="profileName" class="input profile-input" placeholder="Your name" maxlength="50" />
       </div>
       <div class="profile-field">
-        <label class="profile-field-label">Username</label>
-        <input type="text" id="profileUsername" class="input profile-input" readonly disabled />
+        <label class="profile-field-label">Handle</label>
+        <input type="text" id="profileHandle" class="input profile-input" readonly disabled />
       </div>
       <div class="profile-field">
         <label class="profile-field-label">Coaching ID</label>
@@ -1424,6 +1433,8 @@
   <script src="js/state/store.js"></script>
   <script src="js/utils/event-registry.js"></script>
   <script src="js/firebase.js"></script>
+  <script src="../shared/validation/auth-validators.js"></script>
+  <script src="../shared/auth/core.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/firestore-sync.js"></script>
   <script src="js/services/adaptive-state.js"></script>
