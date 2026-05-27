@@ -622,8 +622,15 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    function setButtonsDisabled(disabled) {
-      if (authSubmitBtn) authSubmitBtn.disabled = disabled;
+    function _setLoading(loading) {
+      if (!authSubmitBtn) return;
+      authSubmitBtn.disabled = loading;
+      if (loading) {
+        authSubmitBtn.textContent = 'Please wait...';
+      } else {
+        var activeTab = document.querySelector('.auth-tab.active');
+        authSubmitBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+      }
     }
 
     var _isSignupMode = false;
@@ -652,6 +659,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       hideError();
       _resetAllValidation();
+      _setLoading(false);
     });
 
     /* ---- Realtime Validation System ---- */
@@ -775,88 +783,66 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ---- Submit Action ---- */
     function _handleAuthSubmit() {
-        if (_authRequestInFlight) return;
+        if (authSubmitBtn && authSubmitBtn.disabled) return;
         hideError();
         
-        var email = loginEmail ? loginEmail.value : '';
+        var email = loginEmail ? loginEmail.value.trim() : '';
         var password = loginPassword ? loginPassword.value : '';
         
         if (!_isSignupMode) {
             /* LOGIN FLOW */
-            _authRequestInFlight = true;
             if (typeof Auth === 'undefined' || !Auth.login) {
-              _authRequestInFlight = false;
-              setButtonsDisabled(false);
               showError('Authentication service is currently unavailable. Please check your connection and refresh.');
               return;
             }
 
+            _setLoading(true);
             Auth.login(email, password, function (err) {
-              _authRequestInFlight = false;
-            if (err) {
-              setButtonsDisabled(false);
-              showError(err);
-            } else {
-              if (loginEmail) loginEmail.value = '';
-              if (loginPassword) loginPassword.value = '';
-              _resetAllValidation();
-              if (authSubmitBtn) authSubmitBtn.textContent = 'Loading...';
-              /* onStateChange listener will handle the rest */
-            }
-          });
+              if (err) {
+                _setLoading(false);
+                showError(err);
+              } else {
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                _resetAllValidation();
+                /* Button remains disabled and says 'Please wait...' while onStateChange handles hydration transition */
+              }
+            });
         } else {
-          /* SIGNUP FLOW */
-          var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
-          
-          if (loginCoachingId && loginCoachingId.classList.contains('input-error')) {
-            showError('Please enter a valid coaching code or leave it blank.');
-            return;
-          }
-          
-          _authRequestInFlight = true;
-          setButtonsDisabled(true);
-
-          function _proceedWithSignup() {
+            /* SIGNUP FLOW */
+            var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
+            
+            if (loginCoachingId && loginCoachingId.classList.contains('input-error')) {
+              showError('Please enter a valid coaching code or leave it blank.');
+              return;
+            }
+            
             if (typeof Auth === 'undefined' || !Auth.signup) {
-              _authRequestInFlight = false;
-              setButtonsDisabled(false);
               showError('Authentication service is currently unavailable. Please check your connection and refresh.');
               return;
             }
 
+            _setLoading(true);
             Auth.signup(email, password, coachingId, function (err) {
-              _authRequestInFlight = false;
               if (err) {
-                setButtonsDisabled(false);
+                _setLoading(false);
                 showError(err);
                 _validatePasswordField();
               } else {
                 if (loginEmail) loginEmail.value = '';
                 if (loginPassword) loginPassword.value = '';
                 if (loginCoachingId) loginCoachingId.value = '';
-                // reset back to login mode for next time
                 if (authTabs && authTabs.length > 0) authTabs[0].click();
-                showApp();
+                /* Button remains disabled while onStateChange handles transition */
               }
             });
-          }
-
-          /* Proceed with signup directly. If a coaching ID is provided, 
-             it will be handled during the onboarding/sync phase. */
-          _proceedWithSignup();
         }
     }
 
     if (authSubmitBtn) {
-      /* Standard click event for enter key and desktop interactions */
+      /* Standard click event matching Coaching Admin App reference architecture */
       authSubmitBtn.addEventListener('click', function (e) {
         e.preventDefault();
-        _handleAuthSubmit();
-      });
-      /* pointerdown catches touches BEFORE blur layout shift moves the button out of bounds */
-      authSubmitBtn.addEventListener('pointerdown', function(e) {
-        e.preventDefault();
-        if (document.activeElement) document.activeElement.blur();
         _handleAuthSubmit();
       });
     }
