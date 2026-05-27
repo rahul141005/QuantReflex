@@ -650,27 +650,29 @@ document.addEventListener('DOMContentLoaded', function () {
     var loginCoachingId = document.getElementById('loginCoachingId');
     var coachingIdField = document.querySelector('.coaching-id-field');
 
-    /* Tab Switching Logic */
-    if (authTabs && authTabs.length > 0) {
-      for (var i = 0; i < authTabs.length; i++) {
-        authTabs[i].addEventListener('click', function(e) {
-          for (var j = 0; j < authTabs.length; j++) authTabs[j].classList.remove('active');
-          this.classList.add('active');
-          var mode = this.getAttribute('data-mode');
-          if (mode === 'register') {
-            _isSignupMode = true;
-            if (registerFields) registerFields.style.display = 'block';
-            if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
-          } else {
-            _isSignupMode = false;
-            if (registerFields) registerFields.style.display = 'none';
-            if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
-          }
-          hideError();
-          _resetAllValidation();
-        });
+    /* Tab Switching Logic (Event Delegation) */
+    document.addEventListener('click', function(e) {
+      var tab = e.target.closest('.auth-tab');
+      if (!tab) return;
+      e.preventDefault();
+
+      var allTabs = document.querySelectorAll('.auth-tab');
+      for (var j = 0; j < allTabs.length; j++) allTabs[j].classList.remove('active');
+      tab.classList.add('active');
+
+      var mode = tab.getAttribute('data-mode');
+      if (mode === 'register') {
+        _isSignupMode = true;
+        if (registerFields) registerFields.style.display = 'block';
+        if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
+      } else {
+        _isSignupMode = false;
+        if (registerFields) registerFields.style.display = 'none';
+        if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
       }
-    }
+      hideError();
+      _resetAllValidation();
+    });
 
     /* ---- Realtime Validation System ---- */
     var _emailTouched = false;
