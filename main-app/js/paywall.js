@@ -630,8 +630,8 @@ function showPaywall(featureType) {
   }
   /* Debounce rapid clicks — but only for NEW open attempts */
   if (now - _paywallLastOpenAt < PAYWALL_DEBOUNCE_MS) return;
-  /* If already open, just ensure it's visible */
-  if (_paywallModalOpen || existing) {
+  /* If the modal is already in the DOM, just ensure it's visible */
+  if (existing) {
     document.body.classList.add('paywall-open');
     if (_paywallEscHandler) {
       document.removeEventListener('keydown', _paywallEscHandler);
@@ -641,7 +641,7 @@ function showPaywall(featureType) {
       if (event.key === 'Escape') _closePaywallModal();
     };
     document.addEventListener('keydown', _paywallEscHandler);
-    if (existing) _paywallUpgradeBtn = existing.querySelector('.paywall-upgrade');
+    _paywallUpgradeBtn = existing.querySelector('.paywall-upgrade');
     _paywallModalOpen = true;
     return;
   }

@@ -52,7 +52,8 @@ const firebaseConfig = {
 4. Enable the **Email/Password** toggle.
 5. Click **Save**.
 
-> **Note:** The app converts usernames to email format internally (e.g., `username@quantreflex.app`). Users never see or enter an email — they use a simple username and password.
+> **Note:** The app relies on email and password for authentication.
+
 
 ---
 
@@ -136,7 +137,7 @@ No additional setup is needed.
 
 1. Open the app in a browser.
 2. You should see the login screen.
-3. Create an account with a username and password.
+3. Create an account with an email and password.
 4. Open the browser Developer Tools → Console — no Firebase errors should appear.
 5. Go to the Firebase Console → Authentication → Users — you should see your new account.
 6. Go to Firebase Console → Firestore Database → Data — you should see a document under the `users` collection with your user UID.
@@ -149,7 +150,7 @@ No additional setup is needed.
 users/
   └── {userId}/                      (Firebase Auth UID)
         ├── profile
-        │     ├── username           (display username)
+        │     ├── name               (display name)
         │     └── createdAt          (account creation date)
         ├── settings
         │     ├── darkMode           (boolean)
@@ -186,8 +187,7 @@ users/
 
 ## How Authentication Works
 
-- Users create an account with a **username** and **password**.
-- The app converts the username to an email format internally (e.g., `john_doe` → `john_doe@quantreflex.app`).
+- Users create an account with an **email** and **password**.
 - Firebase Authentication handles password hashing and session management.
 - Login persists across browser sessions using Firebase Auth's `LOCAL` persistence.
 - If browser data is cleared, users can log in again and all their data is restored from Firestore.
@@ -212,7 +212,7 @@ This ensures the UI is always fast while data stays synchronized.
 
 If localStorage is cleared (e.g., user clears browser data):
 
-1. User logs in again with their username and password.
+1. User logs in again with their email and password.
 2. All data is automatically reloaded from Firestore.
 3. localStorage cache is rebuilt.
 4. No progress is lost.

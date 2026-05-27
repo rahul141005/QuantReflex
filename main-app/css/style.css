@@ -4059,71 +4059,6 @@ body.dark-mode .login-input.input-valid:focus {
   box-shadow: 0 0 0 3px rgba(74,222,128,.12);
 }
 
-/* ---- Normalized username preview ---- */
-.login-username-preview {
-  font-size: .72rem;
-  color: #64748b;
-  margin-top: .25rem;
-  min-height: 0;
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height .25s ease, opacity .2s ease, margin .25s ease;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-}
-.login-username-preview.active {
-  max-height: 1.5rem;
-  opacity: 1;
-  margin-top: .3rem;
-}
-.login-username-preview .preview-label {
-  color: #94a3b8;
-}
-.login-username-preview .preview-username {
-  color: #7c3aed;
-  font-weight: 600;
-}
-body.dark-mode .login-username-preview { color: #94a3b8; }
-body.dark-mode .login-username-preview .preview-label { color: #64748b; }
-body.dark-mode .login-username-preview .preview-username { color: #a78bfa; }
-
-/* ---- Username availability status ---- */
-.login-username-availability {
-  font-size: .72rem;
-  margin-top: .2rem;
-  min-height: 0;
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height .25s ease, opacity .2s ease;
-}
-.login-username-availability.active {
-  max-height: 1.5rem;
-  opacity: 1;
-}
-.login-username-availability.checking {
-  color: #7c3aed;
-}
-.login-username-availability.available {
-  color: #16a34a;
-  font-weight: 500;
-}
-.login-username-availability.available::before {
-  content: '✓ ';
-  font-weight: 600;
-}
-.login-username-availability.taken {
-  color: #dc2626;
-  font-weight: 500;
-}
-.login-username-availability.taken::before {
-  content: '✗ ';
-  font-weight: 600;
-}
-body.dark-mode .login-username-availability.checking { color: #a78bfa; }
-body.dark-mode .login-username-availability.available { color: #4ade80; }
-body.dark-mode .login-username-availability.taken { color: #f87171; }
-
 /* ---- Coaching ID slide-in ---- */
 .coaching-id-field.coaching-visible {
   display: block !important;
@@ -5900,12 +5835,6 @@ body.theme-playful.dark-mode .login-input.input-valid { border-color: rgba(74,22
 body.theme-playful.dark-mode .login-field-validation li.val-error { color: #f85149; }
 body.theme-playful.dark-mode .login-field-validation li.val-pass { color: #3fb950; }
 body.theme-playful.dark-mode .login-field-validation .val-summary { color: #3fb950; }
-body.theme-playful.dark-mode .login-username-preview { color: #8b949e; }
-body.theme-playful.dark-mode .login-username-preview .preview-label { color: #484f58; }
-body.theme-playful.dark-mode .login-username-preview .preview-username { color: #bc8cff; }
-body.theme-playful.dark-mode .login-username-availability.checking { color: #bc8cff; }
-body.theme-playful.dark-mode .login-username-availability.available { color: #3fb950; }
-body.theme-playful.dark-mode .login-username-availability.taken { color: #f85149; }
 body.theme-playful.dark-mode .login-coaching-hint { color: #484f58; }
 
 

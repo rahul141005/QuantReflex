@@ -46,23 +46,29 @@ var Auth = (function () {
       }
     }
 
-    firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then(function (cred) {
-        if (coachingId && typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.setPendingCoachingId === 'function') {
-          FirestoreSync.setPendingCoachingId(coachingId);
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password, coachingId: coachingId })
+    })
+      .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
+      .then(function (result) {
+        if (!result.ok) {
+          var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || 'Registration failed.';
+          callback(errMsg, null);
+          return;
         }
-        callback(null, cred.user);
+        AuthCore.signInWithCustomToken(result.data.token)
+          .then(function () {
+            callback(null, AuthCore.getCurrentUser());
+          })
+          .catch(function (e) {
+            callback(AuthCore.getReadableError(e), null);
+          });
       })
       .catch(function (error) {
-        var msg = error.message || 'Account creation failed. Please check your connection.';
-        if (error.code === 'auth/email-already-in-use') {
-          msg = 'An account already exists with this email address.';
-        } else if (error.code === 'auth/weak-password') {
-          msg = 'Password is too weak.';
-        } else if (error.code === 'auth/invalid-email') {
-          msg = 'Invalid email format.';
-        }
-        callback(msg, null);
+        console.error('Registration network error:', error);
+        callback('Network error. Please check your connection and try again.', null);
       });
   }
 

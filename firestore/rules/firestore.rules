@@ -28,12 +28,7 @@ rules_version = '2';
 //      Sender creates a pending invitation; receiver can accept/reject.
 //      Status transitions: pending → accepted | rejected | expired | cancelled.
 //
-//   4. PUBLIC USERNAMES — lightweight read-only directory.
-//      Authenticated users can read any entry for duel invitation lookup.
-//      Only the document owner can write their own entry.
-//      Contains: uid, username, displayName, isPremiumPlus. No private data.
-//
-//   5. OTHER COLLECTIONS — unchanged.
+//   4. OTHER COLLECTIONS — unchanged.
 //      Questions, coachings: read-only (writes via Admin SDK).
 //      Payments, AI insights, study plans: owner-read, server-write.
 // ═══════════════════════════════════════════════════════════════════
