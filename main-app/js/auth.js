@@ -39,6 +39,9 @@ var Auth = (function () {
 
     firebase.auth().createUserWithEmailAndPassword(email, password)
       .then(function (cred) {
+        if (coachingId && typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.setPendingCoachingId === 'function') {
+          FirestoreSync.setPendingCoachingId(coachingId);
+        }
         callback(null, cred.user);
       })
       .catch(function (error) {

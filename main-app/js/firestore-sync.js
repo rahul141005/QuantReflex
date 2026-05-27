@@ -37,6 +37,7 @@ var FirestoreSync = (function () {
   var _flushRetryTimer = null;
   var _flushInFlight = false;
   var _syncGeneration = 0;
+  var _pendingCoachingId = null;
   var SYNC_DEBOUNCE_MS = 2000; /* batch updates every 2 seconds */
   var FLUSH_RETRY_DELAY_MS = 5000;
   var FLUSH_MAX_RETRIES = 2;
@@ -72,6 +73,14 @@ var FirestoreSync = (function () {
       /* Invalidate progress cache to prevent stale reads after user switch */
       if (typeof invalidateProgressCache === 'function') invalidateProgressCache();
     } catch (_) {}
+  }
+
+  /**
+   * Set a pending coaching ID to be saved when the default document is created.
+   * @param {string|null} id
+   */
+  function setPendingCoachingId(id) {
+    _pendingCoachingId = id;
   }
 
   /**
@@ -338,10 +347,13 @@ var FirestoreSync = (function () {
       premiumPlusPlan: null,
       premiumPlusExpiry: null,
       premiumPlusStatus: null,
-      coachingId: null,
+      coachingId: _pendingCoachingId || null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
     };
+
+    /* Clear the pending ID so it's not reused accidentally */
+    _pendingCoachingId = null;
 
     _memoryCache = fallbackDefaults;
     _dataLoaded = true;
@@ -1183,6 +1195,7 @@ var FirestoreSync = (function () {
     updateCoachingId: function (coachingId) {
       /* Legacy support fallback - delegates to claimCoaching */
       this.claimCoaching(coachingId);
-    }
+    },
+    setPendingCoachingId: setPendingCoachingId
   };
 })();

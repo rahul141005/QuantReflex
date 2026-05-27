@@ -97,6 +97,7 @@ var CoachingApp = (function () {
   }
 
   function _handleHash() {
+    if (!CoachingState.get('user')) return;
     var hash = window.location.hash.replace('#', '') || 'dashboard';
     navigateTo(hash);
   }

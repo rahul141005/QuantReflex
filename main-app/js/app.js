@@ -46,12 +46,7 @@
   } catch (_) { /* ignore */ }
 })();
 
-/* ---- Initialize Firebase ---- */
-(function () {
-  if (typeof FirebaseApp !== 'undefined') {
-    FirebaseApp.init();
-  }
-})();
+/* ---- Initialize Firebase is now handled inside DOMContentLoaded ---- */
 
 /* ---- Prevent native context menu on long-press (native app feel) ---- */
 document.addEventListener('contextmenu', function (e) {
@@ -458,6 +453,11 @@ function _closeAllInfoModals() {
 
 /* ---- Initialize SPA when DOM is ready ---- */
 document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Initialize Firebase ---- */
+  if (typeof FirebaseApp !== 'undefined') {
+    FirebaseApp.init();
+  }
+
   document.body.classList.add('loaded');
 
   var authScreen = document.getElementById('authScreen');
@@ -549,8 +549,15 @@ document.addEventListener('DOMContentLoaded', function () {
     /* Re-render current view to reflect loaded data.
        Fall back to 'home' if Router hasn't initialized yet —
        Router.showView safely handles unknown views by defaulting to home. */
-    var currentView = Router.getCurrentView() || 'home';
-    Router.showView(currentView);
+    if (typeof Router !== 'undefined') {
+      if (!window._routerInitialized) {
+        window._routerInitialized = true;
+        Router.init();
+      } else {
+        var currentView = Router.getCurrentView() || 'home';
+        Router.showView(currentView);
+      }
+    }
 
     /* Initialize Math Duel invitation listener + reconnection (V2) */
     if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
@@ -813,6 +820,12 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
           /* SIGNUP FLOW */
           var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
+          
+          if (loginCoachingId && loginCoachingId.classList.contains('input-error')) {
+            showError('Please enter a valid coaching code or leave it blank.');
+            return;
+          }
+          
           _authRequestInFlight = true;
           setButtonsDisabled(true);
 
@@ -1064,7 +1077,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* ---- Initialize swipe navigation ---- */
   initSwipeNavigation();
-
-  /* ---- Initialize router ---- */
-  Router.init();
 });
