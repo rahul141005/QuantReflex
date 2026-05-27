@@ -620,6 +620,13 @@ document.addEventListener('DOMContentLoaded', function () {
         showLogin();
       }
     });
+  } else {
+    /* Firebase not available — show auth screen with error.
+       Do NOT bypass authentication. The app requires Firebase for all functionality. */
+    _hideAppLoader();
+    console.error('[AuthGate] Firebase unavailable — cannot authenticate. Showing auth screen.');
+    showLogin();
+  }
 
     /* Login form handlers */
     var authSubmitBtn = document.getElementById('authSubmitBtn');
@@ -803,12 +810,19 @@ document.addEventListener('DOMContentLoaded', function () {
         var password = loginPassword ? loginPassword.value : '';
         
         if (!_isSignupMode) {
-          /* LOGIN FLOW */
-          _authRequestInFlight = true;
-          setButtonsDisabled(true);
-          
-          Auth.login(email, password, function (err) {
-            _authRequestInFlight = false;
+            /* LOGIN FLOW */
+            _authRequestInFlight = true;
+            setButtonsDisabled(true);
+            
+            if (typeof Auth === 'undefined' || !Auth.login) {
+              _authRequestInFlight = false;
+              setButtonsDisabled(false);
+              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              return;
+            }
+
+            Auth.login(email, password, function (err) {
+              _authRequestInFlight = false;
             setButtonsDisabled(false);
             if (err) {
               showError(err);
@@ -832,6 +846,13 @@ document.addEventListener('DOMContentLoaded', function () {
           setButtonsDisabled(true);
 
           function _proceedWithSignup() {
+            if (typeof Auth === 'undefined' || !Auth.signup) {
+              _authRequestInFlight = false;
+              setButtonsDisabled(false);
+              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              return;
+            }
+
             Auth.signup(email, password, coachingId, function (err) {
               _authRequestInFlight = false;
               setButtonsDisabled(false);
@@ -947,14 +968,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       });
     }
-
-  } else {
-    /* Firebase not available — show auth screen with error.
-       Do NOT bypass authentication. The app requires Firebase for all functionality. */
-    _hideAppLoader();
-    console.error('[AuthGate] Firebase unavailable — cannot authenticate. Showing auth screen.');
-    showLogin();
-  }
 
   /* ---- Bottom nav click handlers ---- */
   var navLinks = document.querySelectorAll('.bottom-nav a');
