@@ -528,24 +528,37 @@ document.addEventListener('DOMContentLoaded', function () {
     if (_currentAppState === 'app') return;
     setAppState('hydrating');
     
+    var transitionFired = false;
+    function _executeTransition() {
+      if (transitionFired) return;
+      transitionFired = true;
+      try {
+        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        document.body.classList.toggle('dark-mode', !!s.darkMode);
+        if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
+      } catch (_) { /* ignore */ }
+      _launchOnboardingOrShowMain();
+    }
+
+    var timeoutId = setTimeout(function() {
+      console.warn('Hydration timeout — forcing transition to bypass offline deadlock.');
+      _executeTransition();
+    }, 6000);
+
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
       FirestoreSync.loadFromFirestore(function (success) {
-        if (success) {
-          try {
-            var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-            document.body.classList.toggle('dark-mode', !!s.darkMode);
-            if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
-          } catch (_) { /* ignore */ }
-        }
-        _launchOnboardingOrShowMain();
+        clearTimeout(timeoutId);
+        _executeTransition();
       });
     } else {
       /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
       if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
+         clearTimeout(timeoutId);
          setTimeout(startHydrationAndShowApp, 100);
          return;
       }
-      _launchOnboardingOrShowMain();
+      clearTimeout(timeoutId);
+      _executeTransition();
     }
   }
 
@@ -797,6 +810,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             _setLoading(true);
+            
+            var currentUser = typeof Auth !== 'undefined' && typeof Auth.getCurrentUser === 'function' ? Auth.getCurrentUser() : null;
+            if (currentUser && currentUser.email === email) {
+                console.warn('User is already logged in with these credentials, manually triggering hydration.');
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                _resetAllValidation();
+                startHydrationAndShowApp();
+                return;
+            }
+
             Auth.login(email, password, function (err) {
               if (err) {
                 _setLoading(false);
@@ -832,8 +856,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (loginEmail) loginEmail.value = '';
                 if (loginPassword) loginPassword.value = '';
                 if (loginCoachingId) loginCoachingId.value = '';
-                if (authTabs && authTabs.length > 0) authTabs[0].click();
-                /* Button remains disabled while onStateChange handles transition */
+                /* DO NOT trigger tab click; button MUST remain disabled while onStateChange handles transition */
               }
             });
         }
