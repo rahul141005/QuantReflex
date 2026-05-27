@@ -26,7 +26,6 @@ var _LOCKED_FEATURES = {
 var PAYWALL_DEBOUNCE_MS = 280;
 var PAYMENT_TIMEOUT_MS = 120000;
 var _paywallModalOpen = false;
-var _paywallClosing = false;
 var _paywallPaymentBusy = false;
 var _paywallUpgradeBtn = null;
 var _paywallEscHandler = null;
@@ -201,15 +200,12 @@ function _getPaywallCopy(featureType) {
 }
 
 function _closePaywallModal() {
-  if (_paywallClosing) return;
   var overlay = document.getElementById('paywallModalOverlay');
-  if (!overlay) {
+  if (!overlay || overlay.classList.contains('closing')) {
     _paywallModalOpen = false;
-    _paywallClosing = false;
     document.body.classList.remove('paywall-open');
     return;
   }
-  _paywallClosing = true;
   overlay.classList.add('closing');
   document.body.classList.remove('paywall-open');
   _paywallUpgradeBtn = null;
@@ -220,7 +216,6 @@ function _closePaywallModal() {
   setTimeout(function () {
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     _paywallModalOpen = false;
-    _paywallClosing = false;
   }, 220);
 }
 
@@ -626,10 +621,17 @@ function showPaywall(featureType) {
     if (user && user.isPremiumPlus === true) return;
   }
   var now = Date.now();
-  if (now - _paywallLastOpenAt < PAYWALL_DEBOUNCE_MS) return;
-  if (_paywallModalOpen || _paywallClosing) return;
   var existing = document.getElementById('paywallModalOverlay');
-  if (existing) {
+  /* If the modal is in its closing animation, wait for it to finish then retry.
+     Do NOT debounce this — the retry must succeed. */
+  if (existing && existing.classList.contains('closing')) {
+    setTimeout(function() { showPaywall(featureType); }, 300);
+    return;
+  }
+  /* Debounce rapid clicks — but only for NEW open attempts */
+  if (now - _paywallLastOpenAt < PAYWALL_DEBOUNCE_MS) return;
+  /* If already open, just ensure it's visible */
+  if (_paywallModalOpen || existing) {
     document.body.classList.add('paywall-open');
     if (_paywallEscHandler) {
       document.removeEventListener('keydown', _paywallEscHandler);
@@ -639,7 +641,7 @@ function showPaywall(featureType) {
       if (event.key === 'Escape') _closePaywallModal();
     };
     document.addEventListener('keydown', _paywallEscHandler);
-    _paywallUpgradeBtn = existing.querySelector('.paywall-upgrade');
+    if (existing) _paywallUpgradeBtn = existing.querySelector('.paywall-upgrade');
     _paywallModalOpen = true;
     return;
   }

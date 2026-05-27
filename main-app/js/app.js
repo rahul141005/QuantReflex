@@ -460,7 +460,7 @@ function _closeAllInfoModals() {
 document.addEventListener('DOMContentLoaded', function () {
   document.body.classList.add('loaded');
 
-  var loginScreen = document.getElementById('loginScreen');
+  var authScreen = document.getElementById('authScreen');
   var container = document.querySelector('.container');
   var bottomNav = document.querySelector('.bottom-nav');
   var _authRequestInFlight = false;
@@ -476,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _authViewToken++;
     var token = _authViewToken;
     var expectedUserId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
-    if (loginScreen) loginScreen.style.display = 'none';
+    if (authScreen) authScreen.style.display = 'none';
 
     /* Load data from Firestore after authentication */
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
@@ -561,7 +561,8 @@ document.addEventListener('DOMContentLoaded', function () {
     _authViewToken++;
     _hideAppLoader();
     _authRequestInFlight = false;
-    if (loginScreen) loginScreen.style.display = 'flex';
+    if (authScreen) authScreen.style.display = 'flex';
+    else console.error('[AuthGate] CRITICAL: authScreen DOM element not found');
     if (container) container.style.display = 'none';
     if (bottomNav) bottomNav.style.display = 'none';
   }
@@ -570,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof Auth !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
     /* Keep everything hidden until auth state is determined.
        This prevents the login screen from flashing for authenticated users. */
-    if (loginScreen) loginScreen.style.display = 'none';
+    if (authScreen) authScreen.style.display = 'none';
     if (container) container.style.display = 'none';
     if (bottomNav) bottomNav.style.display = 'none';
 
@@ -943,10 +944,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
   } else {
-    /* Firebase not available — show app directly (localStorage only mode) */
+    /* Firebase not available — show auth screen with error.
+       Do NOT bypass authentication. The app requires Firebase for all functionality. */
     _hideAppLoader();
-    if (loginScreen) loginScreen.style.display = 'none';
-    _launchOnboardingOrShowMain();
+    console.error('[AuthGate] Firebase unavailable — cannot authenticate. Showing auth screen.');
+    showLogin();
   }
 
   /* ---- Bottom nav click handlers ---- */
