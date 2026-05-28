@@ -22,6 +22,13 @@ var AuthCore = (function () {
    *                                   Receives (user, result_from_getIdTokenResult).
    */
   function init(onStateChange) {
+    if (_auth) {
+      if (onStateChange && _stateChangeListeners.indexOf(onStateChange) === -1) {
+        _stateChangeListeners.push(onStateChange);
+      }
+      return;
+    }
+
     if (!FirebaseApp.isConfigured() || typeof firebase === 'undefined' || !firebase.auth) {
       return;
     }

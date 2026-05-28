@@ -2,7 +2,7 @@
  * duel-manager.js — Math Duel lifecycle orchestrator (V3 — Room Code Only)
  *
  * Simplified rebuild:
- *   - Room-code-only flow (no invitations, no username lookup)
+ *   - Room-code-only flow
  *   - 5-state lifecycle: idle → setup → waiting → active → results
  *   - Stateful active duel: renders once, updates scoreboard via listener
  *   - Independent exit handling (partial results → realtime opponent updates)
