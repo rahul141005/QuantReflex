@@ -10,35 +10,95 @@
 var CoachingAuth = (function () {
   'use strict';
 
+  var _auth = null;
+  var _currentUser = null;
+  var _authReady = false;
+  var _authReadyCallbacks = [];
+
   function init() {
-    AuthCore.init(function(user, tokenResult) {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      console.warn('Firebase Auth SDK not loaded');
+      return;
+    }
+
+    _auth = firebase.auth();
+    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      console.warn('Auth persistence error:', err);
+    });
+
+    _auth.onAuthStateChanged(function (user) {
+      _currentUser = user;
+
       if (user) {
-        if (tokenResult && tokenResult.claims && tokenResult.claims.coaching_admin === true && tokenResult.claims.coachingId) {
-          CoachingState.set({
-            user: user,
-            isCoachingAdmin: true,
-            coachingId: tokenResult.claims.coachingId
-          });
-          _showApp();
-        } else {
-          _showAuthError('Access denied. Coaching admin privileges required.');
-          AuthCore.logout();
-        }
+        user.getIdTokenResult(false).then(function (tokenResult) {
+          if (tokenResult && tokenResult.claims && tokenResult.claims.coaching_admin === true && tokenResult.claims.coachingId) {
+            CoachingState.set({
+              user: user,
+              isCoachingAdmin: true,
+              coachingId: tokenResult.claims.coachingId
+            });
+            _showApp();
+          } else {
+            _showAuthError('Access denied. Coaching admin privileges required.');
+            logout();
+          }
+          _finishAuthReady(user);
+        }).catch(function (err) {
+          console.warn('[Auth] Error fetching token claims:', err);
+          _showAuthError('Failed to verify coaching privileges.');
+          logout();
+          _finishAuthReady(user);
+        });
       } else {
         CoachingState.set({ user: null, isCoachingAdmin: false, coachingId: null, coachingName: null });
         _showAuth();
+        _finishAuthReady(null);
       }
     });
+  }
+
+  function _finishAuthReady(user) {
+    _authReady = true;
+    for (var i = 0; i < _authReadyCallbacks.length; i++) {
+      try { _authReadyCallbacks[i](user); } catch (e) { console.warn('Auth callback error:', e); }
+    }
+    _authReadyCallbacks = [];
+  }
+
+  function getReadableError(error) {
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+      return 'No account found with this email.';
+    } else if (error.code === 'auth/wrong-password') {
+      return 'Incorrect password.';
+    } else if (error.code === 'auth/invalid-credential') {
+      return 'Invalid email or password.';
+    } else if (error.code === 'auth/too-many-requests') {
+      return 'Too many attempts. Please try again later.';
+    } else if (error.code === 'auth/email-already-in-use') {
+      return 'An account already exists with this email address.';
+    } else if (error.code === 'auth/weak-password') {
+      return 'Password is too weak.';
+    } else if (error.code === 'auth/network-request-failed') {
+      return 'Network unavailable. Please check your connection.';
+    }
+    return error.message || 'Authentication failed.';
   }
 
   function login(email, password) {
     _hideAuthError();
     _setLoading(true);
 
-    AuthCore.login(email, password).catch(function(err) {
+    if (!_auth) {
       _setLoading(false);
-      _showAuthError(err.message);
-    });
+      _showAuthError('Authentication service not available.');
+      return;
+    }
+
+    _auth.signInWithEmailAndPassword((email || '').trim().toLowerCase(), password)
+      .catch(function(err) {
+        _setLoading(false);
+        _showAuthError(getReadableError(err));
+      });
   }
 
   function register(email, password, coachingId) {
@@ -85,13 +145,15 @@ var CoachingAuth = (function () {
         throw new Error('Registration succeeded, but the server returned an invalid authentication token.');
       }
 
-      return AuthCore.signInWithCustomToken(result.data.token).then(function () {
+      if (!_auth) throw new Error('Authentication service not available.');
+
+      return _auth.signInWithCustomToken(result.data.token).then(function () {
         if (result.data.coachingName) {
           CoachingState.set({ coachingName: result.data.coachingName });
         }
       }).catch(function(e) {
          _setLoading(false);
-         _showAuthError(AuthCore.getReadableError(e));
+         _showAuthError(getReadableError(e));
       });
     })
     .catch(function (error) {
@@ -106,14 +168,26 @@ var CoachingAuth = (function () {
   }
 
   function logout() {
-    AuthCore.logout();
-    CoachingState.reset();
+    if (_auth) {
+      _auth.signOut().then(function() {
+        _currentUser = null;
+        CoachingState.reset();
+      }).catch(function(err) {
+        _showAuthError('Logout failed: ' + err.message);
+      });
+    } else {
+      CoachingState.reset();
+    }
   }
 
   function onAuthReady(fn) {
-    AuthCore.onAuthReady(function() {
-      fn(CoachingState.get('user'));
-    });
+    if (_authReady) {
+      fn(_currentUser);
+    } else {
+      _authReadyCallbacks.push(function(user) {
+        fn(user);
+      });
+    }
   }
 
   function _showAuth() {
@@ -151,7 +225,8 @@ var CoachingAuth = (function () {
   }
 
   function getToken() {
-    return AuthCore.getIdToken();
+    if (!_currentUser) return Promise.reject(new Error('Not authenticated'));
+    return _currentUser.getIdToken();
   }
 
   return {

@@ -7,29 +7,106 @@
 var Auth = (function () {
   'use strict';
 
+  var _auth = null;
+  var _currentUser = null;
+  var _authReady = false;
+  var _authReadyCallbacks = [];
+  var _stateChangeListeners = [];
   var _appStateChangeListener = null;
 
   function init() {
-    AuthCore.init(function(user, tokenResult) {
-      if (user && tokenResult && tokenResult.claims) {
-        /* Sync premium claims to AppState */
-        var claims = tokenResult.claims;
-        if (typeof AppState !== 'undefined') {
-          AppState.setPremiumPlus(!!claims.premiumPlus);
-          AppState.setPremium(!!claims.premium);
-        } else {
-          localStorage.setItem('qr_premium_plus', claims.premiumPlus ? 'true' : 'false');
-          localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
+    if (!FirebaseApp.isConfigured() || typeof firebase === 'undefined' || !firebase.auth) {
+      return;
+    }
+
+    _auth = firebase.auth();
+    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      console.warn('Auth persistence error:', err);
+    });
+
+    _auth.onAuthStateChanged(function (user) {
+      var previousUser = _currentUser;
+      _currentUser = user;
+
+      // Handle user change (e.g. logout or switch)
+      if (previousUser && (!user || user.uid !== previousUser.uid)) {
+        if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.resetSyncState === 'function') {
+          FirestoreSync.resetSyncState();
         }
       }
-      if (_appStateChangeListener) {
-        _appStateChangeListener(user, tokenResult);
+
+      if (user) {
+        user.getIdTokenResult(false).then(function (result) {
+          if (result && result.claims) {
+            var claims = result.claims;
+            if (typeof AppState !== 'undefined') {
+              AppState.setPremiumPlus(!!claims.premiumPlus);
+              AppState.setPremium(!!claims.premium);
+            } else {
+              localStorage.setItem('qr_premium_plus', claims.premiumPlus ? 'true' : 'false');
+              localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
+            }
+          }
+          _notifyListeners(user, result);
+          _finishAuthReady(user);
+        }).catch(function (err) {
+          console.warn('[Auth] Error fetching token claims:', err);
+          _notifyListeners(user, null);
+          _finishAuthReady(user);
+        });
+      } else {
+        _notifyListeners(null, null);
+        _finishAuthReady(null);
       }
     });
   }
 
+  function _notifyListeners(user, tokenResult) {
+    if (_appStateChangeListener) {
+      try { _appStateChangeListener(user, tokenResult); } catch (e) { console.warn('Auth state listener error:', e); }
+    }
+    for (var i = 0; i < _stateChangeListeners.length; i++) {
+      try { _stateChangeListeners[i](user, tokenResult); } catch (e) { console.warn('Auth state listener error:', e); }
+    }
+  }
+
+  function _finishAuthReady(user) {
+    _authReady = true;
+    for (var i = 0; i < _authReadyCallbacks.length; i++) {
+      try { _authReadyCallbacks[i](user); } catch (e) { console.warn('Auth callback error:', e); }
+    }
+    _authReadyCallbacks = [];
+  }
+
+  function onAuthReady(callback) {
+    if (_authReady) {
+      callback(_currentUser);
+    } else {
+      _authReadyCallbacks.push(callback);
+    }
+  }
+
   function onStateChange(callback) {
     _appStateChangeListener = callback;
+  }
+
+  function getReadableError(error) {
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+      return 'No account found with this email.';
+    } else if (error.code === 'auth/wrong-password') {
+      return 'Incorrect password.';
+    } else if (error.code === 'auth/invalid-credential') {
+      return 'Invalid email or password.';
+    } else if (error.code === 'auth/too-many-requests') {
+      return 'Too many attempts. Please try again later.';
+    } else if (error.code === 'auth/email-already-in-use') {
+      return 'An account already exists with this email address.';
+    } else if (error.code === 'auth/weak-password') {
+      return 'Password is too weak.';
+    } else if (error.code === 'auth/network-request-failed') {
+      return 'Network unavailable. Please check your connection.';
+    }
+    return error.message || 'Authentication failed.';
   }
 
   function signup(email, password, coachingId, callback) {
@@ -68,24 +145,24 @@ var Auth = (function () {
         if (!result.ok) {
           var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || 'Registration failed.';
           callback(errMsg, null);
-          return Promise.resolve(); // Return a resolved promise to safely exit the chain
+          return Promise.resolve();
         }
         
         if (!result.data || !result.data.token) {
            throw new Error('Registration succeeded, but the server returned an invalid authentication token.');
         }
 
-        return AuthCore.signInWithCustomToken(result.data.token)
+        if (!_auth) throw new Error('Authentication service not available.');
+        return _auth.signInWithCustomToken(result.data.token)
           .then(function () {
-            callback(null, AuthCore.getCurrentUser());
+            callback(null, _currentUser);
           })
           .catch(function (e) {
-            callback(AuthCore.getReadableError(e), null);
+            callback(getReadableError(e), null);
           });
       })
       .catch(function (error) {
         console.error('Registration pipeline error:', error);
-        // Do not mask the error with generic "Network error" if it's a specific issue.
         var displayMsg = error && error.message ? error.message : 'A connection error occurred. Please try again.';
         if (displayMsg === 'Failed to fetch') {
            displayMsg = 'Network error. Please check your connection to the server.';
@@ -95,40 +172,66 @@ var Auth = (function () {
   }
 
   function login(email, password, callback) {
-    AuthCore.login(email, password)
+    var cleanEmail = (email || '').trim().toLowerCase();
+    
+    if (typeof AuthValidators !== 'undefined') {
+      var validationErr = AuthValidators.validateLogin(cleanEmail, password);
+      if (validationErr) {
+        callback(validationErr, null);
+        return;
+      }
+    }
+
+    if (!_auth) {
+      callback('Authentication service not available.', null);
+      return;
+    }
+
+    _auth.signInWithEmailAndPassword(cleanEmail, password)
       .then(function() {
-        callback(null, AuthCore.getCurrentUser());
+        callback(null, _currentUser);
       })
       .catch(function(err) {
-        callback(err.message, null);
+        callback(getReadableError(err), null);
       });
   }
 
   function logout(callback) {
-    AuthCore.logout()
+    if (!_auth) {
+      if (callback) callback('Authentication service not available.');
+      return;
+    }
+
+    /* Clean up specific app modules before signing out */
+    if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
+      DuelCore.stopListening();
+    }
+
+    _auth.signOut()
       .then(function() {
+        _currentUser = null;
         if (callback) callback(null);
       })
       .catch(function(err) {
-        if (callback) callback(err.message);
+        if (callback) callback('Logout failed: ' + err.message);
       });
   }
 
   function getCurrentUser() {
-    return AuthCore.getCurrentUser();
+    return _currentUser;
   }
 
   function getUserId() {
-    var u = AuthCore.getCurrentUser();
-    return u ? u.uid : null;
+    return _currentUser ? _currentUser.uid : null;
   }
 
   function isLoggedIn() {
-    return AuthCore.getCurrentUser() !== null;
+    return _currentUser !== null;
   }
 
-  function onAuthReady(callback) {
-    AuthCore.onAuthReady(callback);
+  function getIdToken() {
+    if (!_currentUser) return Promise.reject(new Error('Not authenticated'));
+    return _currentUser.getIdToken();
   }
 
   return {
@@ -141,7 +244,7 @@ var Auth = (function () {
     getCurrentUser: getCurrentUser,
     getUserId: getUserId,
     isLoggedIn: isLoggedIn,
-    // Expose validation methods safely to prevent ReferenceErrors if external script is missing
+    getIdToken: getIdToken,
     validateEmail: function(e) { 
       return typeof AuthValidators !== 'undefined' ? AuthValidators.validateEmail(e) : true; 
     },
