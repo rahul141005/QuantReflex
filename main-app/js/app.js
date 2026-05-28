@@ -635,6 +635,26 @@ document.addEventListener('DOMContentLoaded', function () {
     var authTabs = document.querySelectorAll('.auth-tab');
     var registerFields = document.getElementById('registerFields');
 
+    /* Password visibility toggle */
+    var togglePasswordBtn = document.getElementById('togglePasswordVisibility');
+    if (togglePasswordBtn && loginPassword) {
+      togglePasswordBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+        loginPassword.setAttribute('type', type);
+        
+        var showIcon = this.querySelector('.eye-icon-show');
+        var hideIcon = this.querySelector('.eye-icon-hide');
+        if (type === 'text') {
+          if (showIcon) showIcon.style.display = 'none';
+          if (hideIcon) hideIcon.style.display = 'block';
+        } else {
+          if (showIcon) showIcon.style.display = 'block';
+          if (hideIcon) hideIcon.style.display = 'none';
+        }
+      });
+    }
+
     function showError(msg) {
       if (loginError) {
         loginError.textContent = msg;
