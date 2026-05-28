@@ -60,16 +60,32 @@ var CoachingAuth = (function () {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email, password: password, coachingId: coachingId })
     })
-    .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
+    .then(function (resp) {
+      if (!resp.ok) {
+        return resp.text().then(function(text) {
+          try {
+            var data = JSON.parse(text);
+            return { ok: false, data: data };
+          } catch (e) {
+            return { ok: false, data: { error: { message: 'Server error (' + resp.status + '). Please try again later.' } } };
+          }
+        });
+      }
+      return resp.json().then(function (data) { return { ok: true, data: data }; });
+    })
     .then(function (result) {
       if (!result.ok) {
         _setLoading(false);
-        var errMsg = (result.data.error && result.data.error.message) || result.data.error || 'Registration failed.';
+        var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || 'Registration failed.';
         _showAuthError(errMsg);
-        return;
+        return Promise.resolve(); // Safe exit
+      }
+      
+      if (!result.data || !result.data.token) {
+        throw new Error('Registration succeeded, but the server returned an invalid authentication token.');
       }
 
-      AuthCore.signInWithCustomToken(result.data.token).then(function () {
+      return AuthCore.signInWithCustomToken(result.data.token).then(function () {
         if (result.data.coachingName) {
           CoachingState.set({ coachingName: result.data.coachingName });
         }
@@ -78,10 +94,14 @@ var CoachingAuth = (function () {
          _showAuthError(AuthCore.getReadableError(e));
       });
     })
-    .catch(function (err) {
+    .catch(function (error) {
       _setLoading(false);
-      console.error('Registration error:', err);
-      _showAuthError('Network error. Please check your connection and try again.');
+      console.error('Registration pipeline error:', error);
+      var displayMsg = error && error.message ? error.message : 'A connection error occurred. Please try again.';
+      if (displayMsg === 'Failed to fetch') {
+         displayMsg = 'Network error. Please check your connection to the server.';
+      }
+      _showAuthError(displayMsg);
     });
   }
 

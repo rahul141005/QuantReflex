@@ -68,9 +68,14 @@ var Auth = (function () {
         if (!result.ok) {
           var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || 'Registration failed.';
           callback(errMsg, null);
-          return;
+          return Promise.resolve(); // Return a resolved promise to safely exit the chain
         }
-        AuthCore.signInWithCustomToken(result.data.token)
+        
+        if (!result.data || !result.data.token) {
+           throw new Error('Registration succeeded, but the server returned an invalid authentication token.');
+        }
+
+        return AuthCore.signInWithCustomToken(result.data.token)
           .then(function () {
             callback(null, AuthCore.getCurrentUser());
           })
@@ -79,8 +84,13 @@ var Auth = (function () {
           });
       })
       .catch(function (error) {
-        console.error('Registration network error:', error);
-        callback('Network error. Please check your connection and try again.', null);
+        console.error('Registration pipeline error:', error);
+        // Do not mask the error with generic "Network error" if it's a specific issue.
+        var displayMsg = error && error.message ? error.message : 'A connection error occurred. Please try again.';
+        if (displayMsg === 'Failed to fetch') {
+           displayMsg = 'Network error. Please check your connection to the server.';
+        }
+        callback(displayMsg, null);
       });
   }
 
