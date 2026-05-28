@@ -59,15 +59,31 @@ var Router = (function () {
     var _drillContainer = document.getElementById('drillContainer');
     if (_drillContainer) {
       _drillContainer.classList.remove('drill-results-active');
-      /* If no drill session is active, ensure the container is fully hidden.
-         Leaving it display:block while empty causes blank space in practice view. */
       if (typeof _drillSessionActive === 'undefined' || !_drillSessionActive) {
         _drillContainer.style.display = 'none';
       }
     }
-    /* Only clear drill-session-active if no actual drill is running.
-       The practice onShow callback handles its own cleanup, but this catches edge cases
-       where the user navigates away via means that skip that callback. */
+
+    var _onboardingOverlay = document.getElementById('onboardingOverlay');
+    if (_onboardingOverlay && _onboardingOverlay.style.display !== 'none') {
+      _onboardingOverlay.style.display = 'none';
+      if (typeof Onboarding !== 'undefined' && typeof Onboarding.forceCleanup === 'function') {
+        Onboarding.forceCleanup();
+      }
+    }
+
+    var _paywallOverlay = document.getElementById('paywallModalOverlay');
+    if (_paywallOverlay) {
+      if (_paywallOverlay.parentNode) _paywallOverlay.parentNode.removeChild(_paywallOverlay);
+      document.body.classList.remove('paywall-open');
+    }
+
+    if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
+      if (typeof DuelManager !== 'undefined' && DuelManager.isInDuel()) {
+        DuelCore.stopListening();
+      }
+    }
+
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
       document.body.classList.remove('drill-session-active');
       document.documentElement.classList.remove('drill-session-active');

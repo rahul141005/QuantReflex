@@ -63,9 +63,7 @@ function _resetPaymentGuards(enableButton) {
   }
   _paywallPaymentBusy = false;
   if (enableButton) {
-    /* Use fresh DOM query as fallback — the cached reference may be stale
-       if the paywall modal was closed and reopened between payments */
-    var btn = _paywallUpgradeBtn || document.querySelector('.paywall-upgrade');
+    var btn = document.querySelector('.paywall-upgrade');
     if (btn) {
       btn.disabled = false;
       btn.classList.remove('btn-loading');
@@ -242,15 +240,17 @@ function _loadRazorpayScript(callback) {
 function openPayment(userId) {
   if (_paywallPaymentBusy) return;
   _paywallPaymentBusy = true;
-  if (_paywallUpgradeBtn) {
-    _paywallUpgradeBtn.disabled = true;
-    _paywallUpgradeBtn.textContent = 'Processing\u2026';
-    _paywallUpgradeBtn.classList.add('btn-loading');
+  var btn = document.querySelector('.paywall-upgrade');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Processing\u2026';
+    btn.classList.add('btn-loading');
   }
   if (_paymentSlowTimer) clearTimeout(_paymentSlowTimer);
   _paymentSlowTimer = setTimeout(function () {
-    if (_paywallUpgradeBtn && _paywallPaymentBusy) {
-      _paywallUpgradeBtn.textContent = 'Still processing, please wait\u2026';
+    var slowBtn = document.querySelector('.paywall-upgrade');
+    if (slowBtn && _paywallPaymentBusy) {
+      slowBtn.textContent = 'Still processing, please wait\u2026';
     }
   }, PAYMENT_SLOW_MS);
   if (_paymentSafetyTimer) clearTimeout(_paymentSafetyTimer);
@@ -281,11 +281,18 @@ function openPayment(userId) {
       })
         .then(function (resp) {
           if (!resp.ok) {
-            return resp.json().catch(function () { return {}; }).then(function (errData) {
-              _resetPaymentGuards(true);
-              var errMsg = (errData && errData.error && errData.error.message) ? errData.error.message : 'Could not create payment. Please try again.';
-              showToast(errMsg);
-              return null;
+            return resp.text().then(function (text) {
+              try {
+                var errData = JSON.parse(text);
+                _resetPaymentGuards(true);
+                var errMsg = (errData && errData.error && errData.error.message) ? errData.error.message : 'Could not create payment. Please try again.';
+                showToast(errMsg);
+                return null;
+              } catch(e) {
+                _resetPaymentGuards(true);
+                showToast('Server error (' + resp.status + '). Please try again later.');
+                return null;
+              }
             });
           }
           return resp.json();
@@ -481,13 +488,20 @@ function openPremiumPlusPayment(plan, userId) {
           if (currentAttempt !== _plusAttemptId) return null;
           console.log('[Premium+] /api/payment/create-order response status:', resp.status);
           if (!resp.ok) {
-            return resp.json().catch(function () { return {}; }).then(function (errData) {
+            return resp.text().then(function (text) {
               if (currentAttempt !== _plusAttemptId) return null;
-              _resetPlusPaymentGuards();
-              var errMsg = (errData && errData.error && errData.error.message) ? errData.error.message : 'Could not create payment. Please try again.';
-              console.error('[Premium+] Create order failed:', errMsg, errData);
-              showToast(errMsg);
-              return null;
+              try {
+                var errData = JSON.parse(text);
+                _resetPlusPaymentGuards();
+                var errMsg = (errData && errData.error && errData.error.message) ? errData.error.message : 'Could not create payment. Please try again.';
+                console.error('[Premium+] Create order failed:', errMsg, errData);
+                showToast(errMsg);
+                return null;
+              } catch(e) {
+                _resetPlusPaymentGuards();
+                showToast('Server error (' + resp.status + '). Please try again later.');
+                return null;
+              }
             });
           }
           return resp.json();

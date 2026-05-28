@@ -460,81 +460,519 @@ document.addEventListener('DOMContentLoaded', function () {
 
   document.body.classList.add('loaded');
 
-  /* ---- Initialize Auth and App Shell Boot Sequence ---- */
-  if (typeof Auth !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
-    Auth.init(function (user) {
-      if (user) {
-        /* User logged in. Wait for Firestore sync then show app/onboarding */
-        if (typeof FirestoreSync !== 'undefined') {
-          FirestoreSync.loadFromFirestore(function (success) {
-            _launchOnboardingOrShowMain();
-          });
-        } else {
-          _launchOnboardingOrShowMain();
-        }
-      } else {
-        /* User logged out */
-        _hideAppLoader();
-        Auth.showAuthScreen();
-      }
-    });
-  } else {
-    _hideAppLoader();
-    console.error('[App] Firebase unavailable.');
-    if (typeof Auth !== 'undefined') {
-      Auth.showAuthScreen();
-    } else {
-      /* Fallback if even Auth is missing */
-      var authScreen = document.getElementById('authScreen');
+  var authScreen = document.getElementById('authScreen');
+  var container = document.querySelector('.container');
+  var bottomNav = document.querySelector('.bottom-nav');
+  var _authRequestInFlight = false;
+  var _currentAppState = 'initializing';
+
+  /**
+   * Sets the application state and manages DOM visibility strictly.
+   */
+  function setAppState(state) {
+    if (state === 'unauthenticated' && _currentAppState === 'unauthenticated') return;
+    if (state === 'app' && _currentAppState === 'app') return;
+    _currentAppState = state;
+    
+    if (state === 'unauthenticated') {
+      _hideAppLoader();
+      document.body.classList.remove('auth-resolved');
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
       if (authScreen) authScreen.style.display = 'flex';
+      if (container) container.style.display = 'none';
+      if (bottomNav) bottomNav.style.display = 'none';
+      if (typeof Router !== 'undefined' && typeof Router.teardown === 'function') {
+        Router.teardown();
+      }
+      /* Restore button text if it was loading */
+      var authBtn = document.getElementById('authSubmitBtn');
+      if (authBtn) authBtn.textContent = (document.querySelector('.auth-tab.active') && document.querySelector('.auth-tab.active').getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+    } else if (state === 'hydrating') {
+      /* Wait for data. Do not hide the login screen or splash screen yet,
+         but keep the loading button text active. */
+    } else if (state === 'app') {
+      _hideAppLoader();
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.classList.add('auth-resolved');
+      
+      if (authScreen) authScreen.style.display = 'none';
+      if (container) container.style.display = '';
+      if (bottomNav) bottomNav.style.display = '';
+      
+      try {
+        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        updateNavigationIcons(s.theme || 'classic');
+      } catch (_) {
+        updateNavigationIcons('classic');
+      }
+
+      if (typeof Router !== 'undefined') {
+        if (!window._routerInitialized) {
+          window._routerInitialized = true;
+          Router.init();
+        } else {
+          var currentView = Router.getCurrentView() || 'home';
+          Router.showView(currentView);
+        }
+      }
+
+      if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
+        DuelManager.init();
+      }
+    }
+  }
+
+  function startHydrationAndShowApp() {
+    if (_currentAppState === 'app') return;
+    setAppState('hydrating');
+    
+    var transitionFired = false;
+    function _executeTransition() {
+      if (transitionFired) return;
+      transitionFired = true;
+      try {
+        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        document.body.classList.toggle('dark-mode', !!s.darkMode);
+        if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
+      } catch (_) { /* ignore */ }
+      _launchOnboardingOrShowMain();
+    }
+
+    var timeoutId = setTimeout(function() {
+      console.warn('Hydration timeout — bypassing onboarding to prevent state corruption.');
+      _executeTransition();
+    }, 6000);
+
+    if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
+      FirestoreSync.loadFromFirestore(function (success) {
+        clearTimeout(timeoutId);
+        _executeTransition();
+      });
+    } else {
+      /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
+      if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
+         clearTimeout(timeoutId);
+         setTimeout(startHydrationAndShowApp, 100);
+         return;
+      }
+      clearTimeout(timeoutId);
+      _executeTransition();
     }
   }
 
   function _launchOnboardingOrShowMain() {
-    /* Apply dark mode/theme from settings before showing */
-    try {
-      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-      document.body.classList.toggle('dark-mode', !!s.darkMode);
-      if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
-      updateNavigationIcons(s.theme || 'classic');
-    } catch (_) { 
-      updateNavigationIcons('classic');
-    }
-
-    if (typeof Onboarding !== 'undefined' && Onboarding.shouldShow()) {
-      Auth.hideAuthScreen();
+    var hasUid = typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && !!FirebaseApp.getUserId();
+    
+    if (typeof Onboarding !== 'undefined' && Onboarding.shouldShow() && hasUid) {
+      if (authScreen) authScreen.style.display = 'none';
       _hideAppLoader();
       Onboarding.show(function () {
-        Auth.showAppShell();
-        _initializeAppState();
+        setAppState('app');
         if (typeof Router !== 'undefined') Router.showView('learn');
       });
     } else {
-      _hideAppLoader();
-      Auth.showAppShell();
-      _initializeAppState();
+      setAppState('app');
     }
-  }
-
-  function _initializeAppState() {
+    
     if (typeof NotificationManager !== 'undefined') {
       NotificationManager.init();
     }
-    
-    if (typeof Router !== 'undefined') {
-      if (!window._routerInitialized) {
-        window._routerInitialized = true;
-        Router.init();
-      } else {
-        var currentView = Router.getCurrentView() || 'home';
-        Router.showView(currentView);
+  }
+
+  /* ---- Reactive Auth Gate ---- */
+  if (typeof Auth !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
+    if (authScreen) authScreen.style.display = 'none';
+    if (container) container.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
+
+    var _authTimeoutId = setTimeout(function () {
+      if (_currentAppState === 'initializing') {
+        console.warn('Firebase auth timeout — falling back to login screen.');
+        setAppState('unauthenticated');
+      }
+    }, 8000);
+
+    if (typeof Auth.onStateChange === 'function') {
+      Auth.onStateChange(function (user) {
+        clearTimeout(_authTimeoutId);
+        if (user) {
+          startHydrationAndShowApp();
+        } else {
+          setAppState('unauthenticated');
+        }
+      });
+    } else {
+      Auth.onAuthReady(function (user) {
+        clearTimeout(_authTimeoutId);
+        if (user) startHydrationAndShowApp();
+        else setAppState('unauthenticated');
+      });
+    }
+  } else {
+    _hideAppLoader();
+    console.error('[AuthGate] Firebase unavailable.');
+    setAppState('unauthenticated');
+  }
+
+    /* Login form handlers */
+    var authSubmitBtn = document.getElementById('authSubmitBtn');
+    var loginEmail = document.getElementById('loginEmail');
+    var loginPassword = document.getElementById('loginPassword');
+    var loginError = document.getElementById('loginError');
+    var authTabs = document.querySelectorAll('.auth-tab');
+    var registerFields = document.getElementById('registerFields');
+
+    function showError(msg) {
+      if (loginError) {
+        loginError.textContent = msg;
+        loginError.style.display = 'block';
       }
     }
 
-    if (typeof DuelManager !== 'undefined' && typeof DuelManager.init === 'function') {
-      DuelManager.init();
+    function hideError() {
+      if (loginError) {
+        loginError.style.display = 'none';
+      }
     }
-  }
+
+    function _setLoading(loading) {
+      if (!authSubmitBtn) return;
+      authSubmitBtn.disabled = loading;
+      if (loading) {
+        authSubmitBtn.textContent = 'Please wait...';
+      } else {
+        var activeTab = document.querySelector('.auth-tab.active');
+        authSubmitBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+      }
+    }
+
+    var _isSignupMode = false;
+    var loginCoachingId = document.getElementById('loginCoachingId');
+    var coachingIdField = document.querySelector('.coaching-id-field');
+
+    /* Tab Switching Logic (Event Delegation) */
+    document.addEventListener('click', function(e) {
+      var tab = e.target.closest('.auth-tab');
+      if (!tab) return;
+      e.preventDefault();
+
+      var allTabs = document.querySelectorAll('.auth-tab');
+      for (var j = 0; j < allTabs.length; j++) allTabs[j].classList.remove('active');
+      tab.classList.add('active');
+
+      var mode = tab.getAttribute('data-mode');
+      if (mode === 'register') {
+        _isSignupMode = true;
+        if (registerFields) registerFields.style.display = 'block';
+        if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
+      } else {
+        _isSignupMode = false;
+        if (registerFields) registerFields.style.display = 'none';
+        if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
+      }
+      hideError();
+      _resetAllValidation();
+      _setLoading(false);
+    });
+
+    /* ---- Realtime Validation System ---- */
+    var _emailTouched = false;
+    var _passwordTouched = false;
+    var _emailDebounce = null;
+    var _passwordDebounce = null;
+    var _coachingDebounce = null;
+    var passwordValidationEl = document.getElementById('passwordValidation');
+    var coachingIdValidationEl = document.getElementById('coachingIdValidation');
+
+    /**
+     * Render validation results into a container element.
+     * Shows checklist-style feedback with pass/fail indicators.
+     */
+    function _renderValidation(inputEl, containerEl, result, rules) {
+      if (!containerEl) return;
+      if (!result) {
+        containerEl.className = 'login-field-validation';
+        containerEl.innerHTML = '';
+        if (inputEl) { inputEl.classList.remove('input-error', 'input-valid'); }
+        return;
+      }
+
+      if (result.valid) {
+        containerEl.className = 'login-field-validation active all-valid';
+        containerEl.innerHTML = '<span class="val-summary">Looks good</span>';
+        if (inputEl) {
+          inputEl.classList.remove('input-error');
+          inputEl.classList.add('input-valid');
+        }
+      } else {
+        var html = '<ul>';
+        for (var i = 0; i < rules.length; i++) {
+          var r = rules[i];
+          var passed = r.test();
+          html += '<li class="' + (passed ? 'val-pass' : 'val-error') + '">' + r.label + '</li>';
+        }
+        html += '</ul>';
+        containerEl.className = 'login-field-validation active';
+        containerEl.innerHTML = html;
+        if (inputEl) {
+          inputEl.classList.remove('input-valid');
+          inputEl.classList.add('input-error');
+        }
+      }
+    }
+
+    function _resetFieldValidation(inputEl, containerEl) {
+      if (containerEl) {
+        containerEl.className = 'login-field-validation';
+        containerEl.innerHTML = '';
+      }
+      if (inputEl) {
+        inputEl.classList.remove('input-error', 'input-valid');
+      }
+    }
+
+    function _validateEmailField() {
+      if (!loginEmail) return;
+      var val = loginEmail.value;
+      if (!val) {
+        loginEmail.classList.remove('input-error', 'input-valid');
+        return;
+      }
+      var valid = typeof Auth !== 'undefined' ? Auth.validateEmail(val) : false;
+      if (valid) {
+        loginEmail.classList.remove('input-error');
+        loginEmail.classList.add('input-valid');
+      } else {
+        loginEmail.classList.remove('input-valid');
+        loginEmail.classList.add('input-error');
+      }
+    }
+
+    function _validatePasswordField() {
+      if (!loginPassword || !passwordValidationEl) return;
+      var val = loginPassword.value;
+      if (!val) {
+        _resetFieldValidation(loginPassword, passwordValidationEl);
+        return;
+      }
+      
+      if (!_isSignupMode) {
+        // Skip detailed validation rendering when logging in, just basic UI class
+        if (val.length >= 6) {
+          loginPassword.classList.remove('input-error');
+          loginPassword.classList.add('input-valid');
+        } else {
+          loginPassword.classList.remove('input-valid');
+          loginPassword.classList.add('input-error');
+        }
+        _resetFieldValidation(null, passwordValidationEl);
+        return;
+      }
+
+      var result = typeof Auth !== 'undefined' ? Auth.validatePassword(val) : { valid: true, errors: [] };
+
+      var rules = [
+        { label: 'At least 8 characters', test: function () { return val.length >= 8; } },
+        { label: 'One uppercase letter', test: function () { return /[A-Z]/.test(val); } },
+        { label: 'One lowercase letter', test: function () { return /[a-z]/.test(val); } },
+        { label: 'One number', test: function () { return /[0-9]/.test(val); } }
+      ];
+
+      _renderValidation(loginPassword, passwordValidationEl, result, rules);
+    }
+
+    /** Full state reset — clears all validation */
+    function _resetAllValidation() {
+      _emailTouched = false;
+      _passwordTouched = false;
+      if (_emailDebounce) clearTimeout(_emailDebounce);
+      if (_passwordDebounce) clearTimeout(_passwordDebounce);
+      if (_coachingDebounce) clearTimeout(_coachingDebounce);
+      if (loginEmail) loginEmail.classList.remove('input-error', 'input-valid');
+      if (loginCoachingId) loginCoachingId.classList.remove('input-error', 'input-valid');
+      _resetFieldValidation(loginPassword, passwordValidationEl);
+      _resetFieldValidation(loginCoachingId, coachingIdValidationEl);
+    }
+
+    /* ---- Submit Action ---- */
+    function _handleAuthSubmit() {
+        if (authSubmitBtn && authSubmitBtn.disabled) return;
+        hideError();
+        
+        var email = loginEmail ? loginEmail.value.trim() : '';
+        var password = loginPassword ? loginPassword.value : '';
+        
+        if (!_isSignupMode) {
+            /* LOGIN FLOW */
+            if (typeof Auth === 'undefined' || !Auth.login) {
+              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              return;
+            }
+
+            _setLoading(true);
+            
+            var currentUser = typeof Auth !== 'undefined' && typeof Auth.getCurrentUser === 'function' ? Auth.getCurrentUser() : null;
+            if (currentUser && currentUser.email === email) {
+                console.warn('User is already logged in with these credentials, manually triggering hydration.');
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                _resetAllValidation();
+                startHydrationAndShowApp();
+                return;
+            }
+
+            Auth.login(email, password, function (err) {
+              if (err) {
+                _setLoading(false);
+                showError(err);
+              } else {
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                _resetAllValidation();
+                /* Button remains disabled and says 'Please wait...' while onStateChange handles hydration transition */
+                setTimeout(function() {
+                  if (authSubmitBtn && authSubmitBtn.disabled) {
+                    console.warn('Auth state transition timeout. Forcing hydration.');
+                    _setLoading(false);
+                    startHydrationAndShowApp();
+                  }
+                }, 5000);
+              }
+            });
+        } else {
+            /* SIGNUP FLOW */
+            var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
+            
+            if (loginCoachingId && loginCoachingId.classList.contains('input-error')) {
+              showError('Please enter a valid coaching code or leave it blank.');
+              return;
+            }
+            
+            if (typeof Auth === 'undefined' || !Auth.signup) {
+              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              return;
+            }
+
+            _setLoading(true);
+            Auth.signup(email, password, coachingId, function (err) {
+              if (err) {
+                _setLoading(false);
+                showError(err);
+                _validatePasswordField();
+              } else {
+                if (loginEmail) loginEmail.value = '';
+                if (loginPassword) loginPassword.value = '';
+                if (loginCoachingId) loginCoachingId.value = '';
+                /* DO NOT trigger tab click; button MUST remain disabled while onStateChange handles transition */
+                setTimeout(function() {
+                  if (authSubmitBtn && authSubmitBtn.disabled) {
+                    console.warn('Auth state transition timeout. Forcing hydration.');
+                    _setLoading(false);
+                    startHydrationAndShowApp();
+                  }
+                }, 5000);
+              }
+            });
+        }
+    }
+
+    if (authSubmitBtn) {
+      /* Standard click event matching Coaching Admin App reference architecture */
+      authSubmitBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        _handleAuthSubmit();
+      });
+    }
+
+    /* ---- Validation Listeners ---- */
+
+    /* Email: validate on blur, then on debounced input after first blur */
+    if (loginEmail) {
+      loginEmail.addEventListener('blur', function () {
+        if (!loginEmail.value) return;
+        _emailTouched = true;
+        _validateEmailField();
+      });
+      loginEmail.addEventListener('input', function () {
+        if (!_emailTouched) return;
+        if (_emailDebounce) clearTimeout(_emailDebounce);
+        _emailDebounce = setTimeout(_validateEmailField, 400);
+      });
+    }
+
+    /* Password: validate on blur, then on debounced input after first blur */
+    if (loginPassword) {
+      loginPassword.addEventListener('blur', function () {
+        if (!loginPassword.value) return;
+        _passwordTouched = true;
+        _validatePasswordField();
+      });
+      loginPassword.addEventListener('input', function () {
+        if (!_passwordTouched) return;
+        if (_passwordDebounce) clearTimeout(_passwordDebounce);
+        _passwordDebounce = setTimeout(_validatePasswordField, 400);
+      });
+    }
+
+    /* Coaching ID: debounced validation via API */
+    function _validateCoachingIdField() {
+      if (!loginCoachingId || !coachingIdValidationEl) return;
+      var val = loginCoachingId.value.trim();
+      if (!val) {
+        _resetFieldValidation(loginCoachingId, coachingIdValidationEl);
+        return;
+      }
+      if (!_isSignupMode) return;
+
+      if (_coachingDebounce) clearTimeout(_coachingDebounce);
+      _coachingDebounce = setTimeout(function() {
+        fetch('/api/validate-coaching?id=' + encodeURIComponent(val))
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data && data.valid) {
+              coachingIdValidationEl.className = 'login-field-validation active all-valid';
+              coachingIdValidationEl.innerHTML = '<span class="val-summary">Valid coaching code</span>';
+              loginCoachingId.classList.remove('input-error');
+              loginCoachingId.classList.add('input-valid');
+            } else {
+              coachingIdValidationEl.className = 'login-field-validation active';
+              coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Code not found or inactive</li></ul>';
+              loginCoachingId.classList.remove('input-valid');
+              loginCoachingId.classList.add('input-error');
+            }
+          })
+          .catch(function(err) {
+            coachingIdValidationEl.className = 'login-field-validation active';
+            coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Could not verify code</li></ul>';
+          });
+      }, 500);
+    }
+
+    if (loginCoachingId) {
+      loginCoachingId.addEventListener('input', function () {
+        _validateCoachingIdField();
+      });
+    }
+
+    /* Allow Enter key to submit */
+    if (loginPassword) {
+      loginPassword.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (authSubmitBtn) authSubmitBtn.click();
+        }
+      });
+    }
+    if (loginEmail) {
+      loginEmail.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (loginPassword) loginPassword.focus();
+        }
+      });
+    }
 
   /* ---- Bottom nav click handlers ---- */
   var navLinks = document.querySelectorAll('.bottom-nav a');

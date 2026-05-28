@@ -237,10 +237,15 @@ var FirestoreSync = (function () {
       return;
     }
 
-    /* Clear stale localStorage before loading the authenticated user's data.
-       This prevents the previous user's cached data from being displayed
-       before Firestore responds. */
-    _clearUserLocalStorage();
+    /* Safe-merge migration: Only clear local cache if auth UID changed.
+       Preserve compatibility and avoid resetting existing sessions. */
+    try {
+      var lastUid = localStorage.getItem('qr_last_uid');
+      if (lastUid && lastUid !== currentUserId) {
+        _clearUserLocalStorage();
+      }
+      localStorage.setItem('qr_last_uid', currentUserId);
+    } catch (_) {}
 
     docRef.get().then(function (doc) {
       if (doc.exists) {

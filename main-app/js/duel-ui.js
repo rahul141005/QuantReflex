@@ -7,7 +7,7 @@
  *   - Premium waiting room with countdown
  *   - Fixed active screen (numpad always visible, exit button)
  *   - Premium results with realtime comparison
- *   - No invitation system
+ *   - No invitation system, no username lookup
  *
  * Depends on DuelCore for Firestore operations.
  */

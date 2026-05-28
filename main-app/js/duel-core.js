@@ -2,7 +2,7 @@
  * duel-core.js — Math Duel Firestore operations & question generation (V3)
  *
  * Room-code-only duel system:
- *   - Room codes only
+ *   - No invitation system, no publicUsernames, no username lookup
  *   - Clean 5-state lifecycle: waiting → active → completed / abandoned / expired / cancelled
  *   - Independent exit handling (player exits without killing opponent)
  *   - Reconnection support

@@ -735,6 +735,7 @@ var Onboarding = (function () {
 
   return {
     shouldShow: shouldShow,
-    show: show
+    show: show,
+    forceCleanup: _cleanupNumpad
   };
 })();
