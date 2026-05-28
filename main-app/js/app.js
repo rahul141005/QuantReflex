@@ -1048,7 +1048,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (_drillSessionActive) {
       /* Push history state back to prevent the browser from actually navigating away.
          This must happen before the dialog to keep the URL stable. */
-      history.pushState({ view: 'practice' }, '', '#practice');
+      try {
+        history.pushState({ view: 'practice' }, '', '#practice');
+      } catch (e) {
+        window.location.hash = '#practice';
+      }
 
       showExitSessionDialog(function () {
         if (_activeDrillEngine) {

@@ -120,7 +120,11 @@ var Router = (function () {
     currentView = viewId;
 
     if (!_navigatingFromPopstate && window.location.hash !== '#' + viewId) {
-      history.pushState({ view: viewId }, '', '#' + viewId);
+      try {
+        history.pushState({ view: viewId }, '', '#' + viewId);
+      } catch(e) {
+        window.location.hash = '#' + viewId;
+      }
     }
 
     window.scrollTo(0, 0);
@@ -137,7 +141,11 @@ var Router = (function () {
   function init() {
     console.log('[ROUTER] router init');
     var hash = window.location.hash.replace('#', '') || 'home';
-    history.replaceState({ view: hash }, '', '#' + hash);
+    try {
+      history.replaceState({ view: hash }, '', '#' + hash);
+    } catch (e) {
+      window.location.hash = '#' + hash;
+    }
     _navigatingFromPopstate = true;
     try { 
        console.log('[ROUTER] route selection:', hash);
