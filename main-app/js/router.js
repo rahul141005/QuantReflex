@@ -29,25 +29,11 @@ var Router = (function () {
   }
 
   /**
-   * Show a view by its ID, hide all others.
-   * @param {string} viewId - The view to show (e.g. 'home', 'practice')
-   * @param {object} [params] - Optional parameters to pass to callbacks
+   * Globally destroys all active overlays, modals, and sessions.
+   * Called on auth transitions or major route shifts to ensure a clean slate.
    */
-  function showView(viewId, params) {
-    var views = document.querySelectorAll('.spa-view');
-    for (var i = 0; i < views.length; i++) {
-      views[i].classList.remove('spa-view-active');
-    }
-
-    var target = document.getElementById('view-' + viewId);
-    if (!target) {
-      target = document.getElementById('view-home');
-      viewId = 'home';
-    }
-    target.classList.add('spa-view-active');
-
-    /* Hide custom numpad on every view transition to prevent stale numpad state.
-       The drill engine will re-show it when a question is rendered. */
+  function teardown() {
+    /* Hide custom numpad to prevent stale numpad state. */
     if (typeof hideCustomNumpad === 'function') {
       hideCustomNumpad();
     }
@@ -88,12 +74,34 @@ var Router = (function () {
       document.body.classList.remove('drill-session-active');
       document.documentElement.classList.remove('drill-session-active');
     }
+
     /* Clear all modals and stale modal-open body class to prevent scroll lock and dead click zones */
     var _allModals = document.querySelectorAll('.modal-overlay');
     for (var m = 0; m < _allModals.length; m++) {
       _allModals[m].style.display = 'none';
     }
     document.body.classList.remove('modal-open');
+  }
+
+  /**
+   * Show a view by its ID, hide all others.
+   * @param {string} viewId - The view to show (e.g. 'home', 'practice')
+   * @param {object} [params] - Optional parameters to pass to callbacks
+   */
+  function showView(viewId, params) {
+    var views = document.querySelectorAll('.spa-view');
+    for (var i = 0; i < views.length; i++) {
+      views[i].classList.remove('spa-view-active');
+    }
+
+    var target = document.getElementById('view-' + viewId);
+    if (!target) {
+      target = document.getElementById('view-home');
+      viewId = 'home';
+    }
+    target.classList.add('spa-view-active');
+
+    teardown();
     /* Ensure bottom nav is visible when not in an active session, 
        BUT ONLY IF authentication has completed and the app shell is allowed to render */
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
@@ -198,16 +206,12 @@ var Router = (function () {
     var _allModals = document.querySelectorAll('.modal-overlay');
     for (var m = 0; m < _allModals.length; m++) {
       _allModals[m].style.display = 'none';
-    }
-    document.body.classList.remove('modal-open');
-  }
-
   return {
+    init: init,
     showView: showView,
+    getCurrentView: getCurrentView,
     onInit: onInit,
     onShow: onShow,
-    getCurrentView: getCurrentView,
-    init: init,
     teardown: teardown
   };
 })();

@@ -487,7 +487,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       /* Restore button text if it was loading */
       var authBtn = document.getElementById('authSubmitBtn');
-      if (authBtn) authBtn.textContent = (document.querySelector('.auth-tab.active') && document.querySelector('.auth-tab.active').getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+      if (authBtn) {
+        var activeTab = document.querySelector('.auth-tab.active');
+        authBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+        authBtn.disabled = false;
+      }
     } else if (state === 'hydrating') {
       /* Wait for data. Do not hide the login screen or splash screen yet,
          but keep the loading button text active. */
@@ -594,22 +598,22 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }, 8000);
 
-    if (typeof Auth.onStateChange === 'function') {
-      Auth.onStateChange(function (user) {
-        clearTimeout(_authTimeoutId);
-        if (user) {
-          startHydrationAndShowApp();
-        } else {
-          setAppState('unauthenticated');
-        }
-      });
-    } else {
-      Auth.onAuthReady(function (user) {
-        clearTimeout(_authTimeoutId);
-        if (user) startHydrationAndShowApp();
-        else setAppState('unauthenticated');
-      });
-    }
+    /* Bind to the single source of truth observer */
+    Auth.onStateChange(function (user) {
+      clearTimeout(_authTimeoutId);
+      if (user) {
+        startHydrationAndShowApp();
+      } else {
+        setAppState('unauthenticated');
+      }
+    });
+
+    /* Initial state check */
+    Auth.onAuthReady(function (user) {
+      clearTimeout(_authTimeoutId);
+      if (user) startHydrationAndShowApp();
+      else setAppState('unauthenticated');
+    });
   } else {
     _hideAppLoader();
     console.error('[AuthGate] Firebase unavailable.');
@@ -833,9 +837,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 _resetAllValidation();
                 /* Button remains disabled and says 'Please wait...' while onStateChange handles hydration transition */
                 setTimeout(function() {
-                  if (authSubmitBtn && authSubmitBtn.disabled) {
+                  if (authSubmitBtn && authSubmitBtn.disabled && _currentAppState !== 'app') {
                     console.warn('Auth state transition timeout. Forcing hydration.');
-                    _setLoading(false);
                     startHydrationAndShowApp();
                   }
                 }, 5000);
@@ -867,9 +870,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (loginCoachingId) loginCoachingId.value = '';
                 /* DO NOT trigger tab click; button MUST remain disabled while onStateChange handles transition */
                 setTimeout(function() {
-                  if (authSubmitBtn && authSubmitBtn.disabled) {
+                  if (authSubmitBtn && authSubmitBtn.disabled && _currentAppState !== 'app') {
                     console.warn('Auth state transition timeout. Forcing hydration.');
-                    _setLoading(false);
                     startHydrationAndShowApp();
                   }
                 }, 5000);
