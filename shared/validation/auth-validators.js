@@ -26,20 +26,25 @@ var AuthValidators = (function () {
    * @returns {{ valid: boolean, errors: string[] }}
    */
   function validatePasswordStrength(password) {
+    var p = password || '';
+    var rules = [
+      { label: 'At least 8 characters', passed: p.length >= 8 },
+      { label: 'One uppercase letter', passed: /[A-Z]/.test(p) },
+      { label: 'One lowercase letter', passed: /[a-z]/.test(p) },
+      { label: 'One number', passed: /[0-9]/.test(p) }
+    ];
+    
+    var valid = true;
     var errors = [];
-    if (!password || password.length < 8) {
-      errors.push('At least 8 characters.');
+    
+    for (var i = 0; i < rules.length; i++) {
+      if (!rules[i].passed) {
+        valid = false;
+        errors.push(rules[i].label);
+      }
     }
-    if (password && password.length >= 1 && !/[A-Z]/.test(password)) {
-      errors.push('At least one uppercase letter.');
-    }
-    if (password && password.length >= 1 && !/[a-z]/.test(password)) {
-      errors.push('At least one lowercase letter.');
-    }
-    if (password && password.length >= 1 && !/[0-9]/.test(password)) {
-      errors.push('At least one number.');
-    }
-    return { valid: errors.length === 0, errors: errors };
+    
+    return { valid: valid, errors: errors, rules: rules };
   }
 
   /**

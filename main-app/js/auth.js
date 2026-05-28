@@ -141,8 +141,12 @@ var Auth = (function () {
     getCurrentUser: getCurrentUser,
     getUserId: getUserId,
     isLoggedIn: isLoggedIn,
-    // Expose validation methods from AuthValidators to maintain backwards compatibility
-    validateEmail: function(e) { return AuthValidators.validateEmail(e); },
-    validatePassword: function(p) { return AuthValidators.validatePasswordStrength(p); }
+    // Expose validation methods safely to prevent ReferenceErrors if external script is missing
+    validateEmail: function(e) { 
+      return typeof AuthValidators !== 'undefined' ? AuthValidators.validateEmail(e) : true; 
+    },
+    validatePassword: function(p) { 
+      return typeof AuthValidators !== 'undefined' ? AuthValidators.validatePasswordStrength(p) : { valid: true, errors: [], rules: [] }; 
+    }
   };
 })();

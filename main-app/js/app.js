@@ -714,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var html = '<ul>';
         for (var i = 0; i < rules.length; i++) {
           var r = rules[i];
-          var passed = r.test();
+          var passed = r.passed !== undefined ? r.passed : (typeof r.test === 'function' ? r.test() : false);
           html += '<li class="' + (passed ? 'val-pass' : 'val-error') + '">' + r.label + '</li>';
         }
         html += '</ul>';
@@ -775,16 +775,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      var result = typeof Auth !== 'undefined' ? Auth.validatePassword(val) : { valid: true, errors: [] };
+      var result = typeof Auth !== 'undefined' ? Auth.validatePassword(val) : { valid: true, errors: [], rules: [] };
 
-      var rules = [
-        { label: 'At least 8 characters', test: function () { return val.length >= 8; } },
-        { label: 'One uppercase letter', test: function () { return /[A-Z]/.test(val); } },
-        { label: 'One lowercase letter', test: function () { return /[a-z]/.test(val); } },
-        { label: 'One number', test: function () { return /[0-9]/.test(val); } }
-      ];
-
-      _renderValidation(loginPassword, passwordValidationEl, result, rules);
+      // Render the validation checklist based on the rules array from AuthValidators
+      if (result.rules && result.rules.length > 0) {
+        _renderValidation(loginPassword, passwordValidationEl, result, result.rules);
+      } else {
+        // Fallback if rules are not returned (e.g. AuthValidators script failed to load)
+        if (val.length >= 8) {
+          loginPassword.classList.remove('input-error');
+          loginPassword.classList.add('input-valid');
+          _resetFieldValidation(null, passwordValidationEl);
+        } else {
+          loginPassword.classList.remove('input-valid');
+          loginPassword.classList.add('input-error');
+          _resetFieldValidation(null, passwordValidationEl);
+        }
+      }
     }
 
     /** Full state reset — clears all validation */
