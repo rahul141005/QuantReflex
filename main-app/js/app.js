@@ -453,6 +453,7 @@ function _closeAllInfoModals() {
 
 /* ---- Initialize SPA when DOM is ready ---- */
 document.addEventListener('DOMContentLoaded', function () {
+  console.log('[BOOT] app boot start');
   /* ---- Initialize Firebase ---- */
   if (typeof FirebaseApp !== 'undefined') {
     FirebaseApp.init();
@@ -530,6 +531,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function startHydrationAndShowApp() {
     if (_currentAppState === 'app') return;
+    console.log('[BOOT] hydration start');
     setAppState('hydrating');
     
     var transitionFired = false;
@@ -551,6 +553,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
       FirestoreSync.loadFromFirestore(function (success) {
+        console.log('[BOOT] hydration complete. Success:', success);
         clearTimeout(timeoutId);
         _executeTransition();
       });
@@ -602,6 +605,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Auth.onStateChange(function (user) {
       clearTimeout(_authTimeoutId);
       if (user) {
+        console.log('[AUTH] auth success, user state resolved:', user.uid);
         startHydrationAndShowApp();
       } else {
         setAppState('unauthenticated');
@@ -611,7 +615,10 @@ document.addEventListener('DOMContentLoaded', function () {
     /* Initial state check */
     Auth.onAuthReady(function (user) {
       clearTimeout(_authTimeoutId);
-      if (user) startHydrationAndShowApp();
+      if (user) {
+        console.log('[AUTH] auth success (onReady), user state resolved:', user.uid);
+        startHydrationAndShowApp();
+      }
       else setAppState('unauthenticated');
     });
   } else {
