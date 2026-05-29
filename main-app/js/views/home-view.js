@@ -103,7 +103,10 @@ function renderQuickStudyLinks() {
       card.href = '#' + linkData.id;
     }
 
-    card.innerHTML = '<h3>' + linkData.icon + ' ' + linkData.title + '</h3><p>' + linkData.desc + '</p>';
+    card.innerHTML = '<div class="study-card-content">' +
+                     '<h3>' + linkData.icon + ' ' + linkData.title + '</h3>' +
+                     '<p>' + linkData.desc + '</p>' +
+                     '</div><div class="study-card-arrow">→</div>';
     container.appendChild(card);
   }
 

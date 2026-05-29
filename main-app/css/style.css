@@ -310,41 +310,67 @@ body.dark-mode .study-card {
 }
 
 /* Quick Study Color Accents */
+.study-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.study-card-content {
+  flex: 1;
+}
+.study-card-arrow {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #94a3b8;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.study-card:active .study-card-arrow {
+  opacity: 1;
+  transform: translateX(4px);
+}
+body.dark-mode .study-card-arrow { color: #64748b; }
+
 .quick-study-blue {
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(239,246,255,0.9) 100%);
-  border-left: 3px solid #3b82f6;
+  background: rgba(59,130,246,0.04);
+  border: 1px solid rgba(59,130,246,0.15);
 }
 body.dark-mode .quick-study-blue {
-  background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(30,58,138,0.3) 100%);
-  border-left: 3px solid #60a5fa;
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.25);
 }
+.quick-study-blue:active { border-color: rgba(59,130,246,0.3); }
 
 .quick-study-orange {
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,237,213,0.9) 100%);
-  border-left: 3px solid #f97316;
+  background: rgba(249,115,22,0.04);
+  border: 1px solid rgba(249,115,22,0.15);
 }
 body.dark-mode .quick-study-orange {
-  background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(124,45,18,0.3) 100%);
-  border-left: 3px solid #fb923c;
+  background: rgba(249,115,22,0.08);
+  border-color: rgba(249,115,22,0.25);
 }
+.quick-study-orange:active { border-color: rgba(249,115,22,0.3); }
 
 .quick-study-purple {
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(243,232,255,0.9) 100%);
-  border-left: 3px solid #a855f7;
+  background: rgba(168,85,247,0.04);
+  border: 1px solid rgba(168,85,247,0.15);
 }
 body.dark-mode .quick-study-purple {
-  background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(88,28,135,0.3) 100%);
-  border-left: 3px solid #c084fc;
+  background: rgba(168,85,247,0.08);
+  border-color: rgba(168,85,247,0.25);
 }
+.quick-study-purple:active { border-color: rgba(168,85,247,0.3); }
 
 .quick-study-green {
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(220,252,231,0.9) 100%);
-  border-left: 3px solid #22c55e;
+  background: rgba(34,197,94,0.04);
+  border: 1px solid rgba(34,197,94,0.15);
 }
 body.dark-mode .quick-study-green {
-  background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(20,83,45,0.3) 100%);
-  border-left: 3px solid #4ade80;
+  background: rgba(34,197,94,0.08);
+  border-color: rgba(34,197,94,0.25);
 }
+.quick-study-green:active { border-color: rgba(34,197,94,0.3); }
 
 /* Prevent 300ms tap delay on interactive elements */
 a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
@@ -8833,12 +8859,12 @@ body.dark-mode .login-field-validation.success {
 /* ---- Hero Section ---- */
 .home-hero {
   position: relative;
-  padding: 2rem 1.5rem 1.5rem;
-  margin: -1rem -1.25rem 1.5rem;
+  padding: calc(max(env(safe-area-inset-top, 2.5rem), 2.5rem) + 1rem) 1.5rem 1.5rem;
+  margin: -1.25rem -1.25rem 1.5rem;
   overflow: hidden;
   text-align: left;
   border-radius: 0 0 1.5rem 1.5rem;
-  box-shadow: 0 4px 24px rgba(37,99,235,0.06);
+  box-shadow: 0 8px 32px rgba(37,99,235,0.08);
 }
 .home-hero-bg {
   position: absolute;
@@ -8848,23 +8874,25 @@ body.dark-mode .login-field-validation.success {
 .home-hero-bg-layer1 {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 60%, #bfdbfe 100%);
 }
 body.dark-mode .home-hero-bg-layer1 {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 70%, #172554 100%);
 }
 .home-hero-bg-layer2 {
   position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
+  top: -60px;
+  right: -60px;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 60%);
   border-radius: 50%;
-  animation: slowSpin 20s linear infinite;
+  animation: slowSpin 25s linear infinite;
+  mix-blend-mode: multiply;
 }
 body.dark-mode .home-hero-bg-layer2 {
-  background: radial-gradient(circle, rgba(96,165,250,0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(96,165,250,0.15) 0%, transparent 60%);
+  mix-blend-mode: screen;
 }
 @keyframes slowSpin {
   0% { transform: rotate(0deg); }
@@ -9009,36 +9037,36 @@ body.dark-mode .home-streak-badge.streak-active {
 
 /* ---- Primary CTA Button ---- */
 .home-cta-section {
-  margin: 1.25rem 0;
+  margin: 1.5rem 0;
 }
 .home-cta-btn {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: .85rem;
-  padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  background: linear-gradient(145deg, #3b82f6, #1d4ed8);
   color: #fff;
-  border: none;
+  border: 1px solid rgba(255,255,255,0.15);
   border-radius: var(--qr-card-radius);
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(37,99,235,.3), 0 1px 3px rgba(37,99,235,.1);
-  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 8px 24px rgba(37,99,235,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: transform 0.15s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.15s ease;
   animation: ctaPulse 3s ease-in-out infinite;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 .home-cta-btn:active {
-  transform: scale(.97);
-  box-shadow: 0 2px 8px rgba(37,99,235,.2);
+  transform: scale(0.96);
+  box-shadow: 0 4px 12px rgba(37,99,235,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
   animation: none;
 }
 @keyframes ctaPulse {
-  0%, 100% { box-shadow: 0 4px 16px rgba(37,99,235,.3), 0 1px 3px rgba(37,99,235,.1); }
-  50% { box-shadow: 0 6px 24px rgba(37,99,235,.45), 0 2px 6px rgba(37,99,235,.15); }
+  0%, 100% { box-shadow: 0 8px 24px rgba(37,99,235,0.35), inset 0 1px 0 rgba(255,255,255,0.2); }
+  50% { box-shadow: 0 12px 32px rgba(37,99,235,0.5), inset 0 1px 0 rgba(255,255,255,0.3); }
 }
 .home-cta-icon {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   flex-shrink: 0;
 }
 .home-cta-text {
@@ -9048,19 +9076,19 @@ body.dark-mode .home-streak-badge.streak-active {
   flex: 1;
 }
 .home-cta-text strong {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 .home-cta-text small {
-  font-size: .78rem;
-  opacity: .8;
-  font-weight: 400;
-  margin-top: .1rem;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  font-weight: 500;
+  margin-top: 0.1rem;
 }
 .home-cta-arrow {
-  font-size: 1.3rem;
-  font-weight: 600;
-  opacity: .7;
+  font-size: 1.4rem;
+  font-weight: 700;
+  opacity: 0.9;
   flex-shrink: 0;
 }
 
@@ -9330,11 +9358,13 @@ body.dark-mode .home-bento-desc { color: #94a3b8; }
 .home-duel-create {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
-  box-shadow: 0 2px 6px rgba(37,99,235,.2);
+  box-shadow: 0 4px 12px rgba(37,99,235,.25);
+  padding: 0.75rem 1rem;
 }
 .home-duel-join {
   background: #e2e8f0;
   color: #0f172a;
+  padding: 0.75rem 1rem;
 }
 body.dark-mode .home-duel-join {
   background: #334155;
@@ -9344,27 +9374,32 @@ body.dark-mode .home-duel-join {
 /* Bento Action Buttons (locked state) */
 .home-bento-action-btn {
   width: 100%;
-  padding: .55rem .75rem;
-  border: 1.5px dashed rgba(124,58,237,.3);
-  border-radius: .65rem;
-  background: rgba(124,58,237,.05);
+  padding: 0.65rem 1rem;
+  border: 2px solid rgba(124,58,237,0.4);
+  border-radius: 0.75rem;
+  background: rgba(124,58,237,0.05);
   color: #7c3aed;
-  font-size: .78rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background .15s, transform .1s;
+  transition: all 0.15s ease;
   touch-action: manipulation;
 }
 .home-bento-action-btn:hover {
-  background: rgba(124,58,237,.1);
+  background: rgba(124,58,237,0.15);
+  border-color: rgba(124,58,237,0.6);
 }
 .home-bento-action-btn:active {
-  transform: scale(.96);
+  transform: scale(0.97);
 }
 body.dark-mode .home-bento-action-btn {
-  border-color: rgba(167,139,250,.3);
-  background: rgba(167,139,250,.08);
+  border-color: rgba(167,139,250,0.5);
+  background: rgba(167,139,250,0.1);
   color: #c4b5fd;
+}
+body.dark-mode .home-bento-action-btn:hover {
+  background: rgba(167,139,250,0.2);
+  border-color: rgba(167,139,250,0.8);
 }
 
 /* Override AI Coach card styling when inside bento */
