@@ -595,12 +595,12 @@ function createDrillEngine(container, opts) {
     container.classList.add('drill-results-active');
 
     /* Resolve user display name for share card */
-    var _shareUserName = '';
+    var _shareDisplayName = '';
     try {
       if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
         var _cache = FirestoreSync._getCache();
         if (_cache && _cache.profile && _cache.profile.name) {
-          _shareUserName = String(_cache.profile.name).trim();
+          _shareDisplayName = String(_cache.profile.name).trim();
         }
       }
     } catch (_) {}
@@ -635,7 +635,7 @@ function createDrillEngine(container, opts) {
       mode: mode,
       difficulty: _shareDifficulty,
       totalTime: totalTime,
-      userName: _shareUserName,
+      displayName: _shareDisplayName,
       topics: _shareTopics
     };
 

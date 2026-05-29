@@ -529,8 +529,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  var _hydrationStarted = false;
   function startHydrationAndShowApp() {
     if (_currentAppState === 'app') return;
+    if (_hydrationStarted) return;
+    _hydrationStarted = true;
     console.log('[BOOT] hydration start');
     setAppState('hydrating');
     
@@ -561,6 +564,7 @@ document.addEventListener('DOMContentLoaded', function () {
       /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
       if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
          clearTimeout(timeoutId);
+         _hydrationStarted = false; /* Allow retry */
          setTimeout(startHydrationAndShowApp, 100);
          return;
       }
@@ -1125,9 +1129,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  /* Router.onShow now supports multiple callbacks per view, so this is safe to add
-     alongside the main practice cleanup callback registered in initPracticeView(). */
-  Router.onShow('practice', function() { if (typeof DuelManager !== 'undefined') DuelManager.checkActiveDuel(); });
+  /* Duel is now in its own dedicated view — no active duel check needed on practice */
 
   /* Stats view: render on every show */
   Router.onShow('stats', renderStatsView);

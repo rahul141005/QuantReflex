@@ -1,7 +1,7 @@
 /**
  * auth.js — Firebase Auth module for Coaching Admin Panel
  *
- * Wraps shared AuthCore. Handles:
+ * Handles:
  *   - Create Account (email + password + coachingId → server registration → auto-login)
  *   - Login
  *   - Logout
@@ -16,17 +16,13 @@ var CoachingAuth = (function () {
   var _authReadyCallbacks = [];
 
   function init() {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      console.warn('Firebase Auth SDK not loaded');
+    if (typeof SharedAuth === 'undefined') {
+      console.warn('SharedAuth not loaded.');
       return;
     }
 
-    _auth = firebase.auth();
-    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
-      console.warn('Auth persistence error:', err);
-    });
-
-    _auth.onAuthStateChanged(function (user) {
+    SharedAuth.init(function(user, authInstance) {
+      _auth = authInstance;
       _currentUser = user;
 
       if (user) {

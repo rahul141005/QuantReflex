@@ -160,12 +160,6 @@ function initPracticeView() {
         if (!_tryPracticeAction()) return;
         SoundEngine.play('settingsToggle');
         var modeKey = this.getAttribute('data-mode');
-        if (modeKey === 'duel') {
-          if (typeof DuelManager !== 'undefined') {
-            DuelManager.openSetup();
-          }
-          return;
-        }
         if (modeKey === 'wordproblems') {
           _customPracticeActive = false;
           _focusModeActive = false;

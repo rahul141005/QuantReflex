@@ -145,7 +145,7 @@ var SystemView = (function () {
             cLines.push('isActive: ' + (cData.isActive === true ? '✅ YES' : '❌ NO'));
             cLines.push('Owner: ' + (cData.ownerEmail || 'None'));
             cLines.push('Capacity: ' + (cData.capacity || 'Unlimited'));
-            cLines.push('Students: ' + (cData.studentCount || 0));
+            cLines.push('Students: ' + (cData.studentsCount || 0));
             cLines.push('Plan: ' + (cData.entitlementPlan || 'standard'));
             cLines.push('');
             cLines.push('── Raw Data ──');

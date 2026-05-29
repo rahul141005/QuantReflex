@@ -64,11 +64,11 @@ function genSquare() {
   var hint = _getAdaptiveHint();
   var n;
   if (diff === 'easy') {
-    n = randInt(2, 15);
+    n = randInt(2, 10);
   } else if (diff === 'hard') {
-    n = randInt(10, 50);
+    n = randInt(26, 50);
   } else {
-    n = randInt(2, 30);
+    n = randInt(11, 25);
   }
   /* Bias toward inverse variant when adaptive hint type is 'inverse' */
   var forceInverse = hint && hint.type === 'inverse';
@@ -94,11 +94,11 @@ function genCube() {
   var diff = _getDifficulty();
   var n;
   if (diff === 'easy') {
-    n = randInt(1, 10);
+    n = randInt(1, 5);
   } else if (diff === 'hard') {
-    n = randInt(5, 15);
+    n = randInt(11, 15);
   } else {
-    n = randInt(1, 12);
+    n = randInt(6, 10);
   }
   if (diff !== 'easy' && randInt(0, 4) === 0) {
     var cube = n * n * n;
@@ -115,15 +115,15 @@ function genArea() {
   var type = randInt(0, 5);
 
   if (type === 0) {
-    var a = diff === 'easy' ? randInt(2, 15) : (diff === 'hard' ? randInt(8, 40) : randInt(4, 25));
+    var a = diff === 'easy' ? randInt(2, 9) : (diff === 'hard' ? randInt(21, 40) : randInt(10, 20));
     return { question: 'Area of a square with side ' + a + ' cm = ? cm²', answer: a * a, category: 'area', subtype: 'square' };
   } else if (type === 1) {
-    var l = diff === 'easy' ? randInt(4, 18) : (diff === 'hard' ? randInt(10, 45) : randInt(6, 30));
-    var b = diff === 'easy' ? randInt(3, 14) : (diff === 'hard' ? randInt(8, 35) : randInt(5, 24));
+    var l = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 45) : randInt(11, 20));
+    var b = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 35) : randInt(9, 15));
     return { question: 'Area of a rectangle with length ' + l + ' cm and breadth ' + b + ' cm = ? cm²', answer: l * b, category: 'area', subtype: 'rectangle' };
   } else if (type === 2) {
-    var base = diff === 'easy' ? randInt(4, 20) : (diff === 'hard' ? randInt(10, 50) : randInt(6, 30));
-    var height = diff === 'easy' ? randInt(3, 16) : (diff === 'hard' ? randInt(8, 36) : randInt(5, 24));
+    var base = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 50) : randInt(11, 20));
+    var height = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 36) : randInt(9, 15));
     var tri = (base * height) / 2;
     if (tri !== Math.floor(tri)) {
       if (base % 2 === 1) base++;
@@ -131,17 +131,17 @@ function genArea() {
     }
     return { question: 'Area of a triangle with base ' + base + ' cm and height ' + height + ' cm = ? cm²', answer: tri, category: 'area', subtype: 'triangle' };
   } else if (type === 3) {
-    var r = diff === 'easy' ? randInt(2, 10) : (diff === 'hard' ? randInt(6, 20) : randInt(3, 14));
+    var r = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(13, 20) : randInt(7, 12));
     return { question: 'Area of a circle (use π = 3.14) with radius ' + r + ' cm = ?', answer: parseFloat((PI * r * r).toFixed(2)), category: 'area', subtype: 'circle' };
   } else if (type === 4) {
-    var pb = diff === 'easy' ? randInt(4, 18) : (diff === 'hard' ? randInt(10, 40) : randInt(6, 26));
-    var ph = diff === 'easy' ? randInt(3, 14) : (diff === 'hard' ? randInt(8, 30) : randInt(5, 22));
+    var pb = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 40) : randInt(11, 20));
+    var ph = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 30) : randInt(9, 15));
     return { question: 'Area of a parallelogram with base ' + pb + ' cm and height ' + ph + ' cm = ? cm²', answer: pb * ph, category: 'area', subtype: 'parallelogram' };
   }
 
-  var ta = diff === 'easy' ? randInt(4, 14) : (diff === 'hard' ? randInt(8, 26) : randInt(5, 18));
-  var tb = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(7, 22) : randInt(4, 16));
-  var th = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(6, 20) : randInt(4, 14));
+  var ta = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(19, 26) : randInt(11, 18));
+  var tb = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(17, 22) : randInt(9, 16));
+  var th = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(15, 20) : randInt(7, 14));
   var trap = ((ta + tb) * th) / 2;
   if (trap !== Math.floor(trap)) {
     if ((ta + tb) % 2 === 1) ta++;
@@ -156,24 +156,24 @@ function genVolume() {
   var type = randInt(0, 4);
 
   if (type === 0) {
-    var a = diff === 'easy' ? randInt(2, 12) : (diff === 'hard' ? randInt(6, 25) : randInt(3, 18));
+    var a = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(15, 25) : randInt(8, 14));
     return { question: 'Volume of a cube with side ' + a + ' cm = ? cm³', answer: a * a * a, category: 'volume', subtype: 'cube' };
   } else if (type === 1) {
-    var l = diff === 'easy' ? randInt(3, 14) : (diff === 'hard' ? randInt(8, 28) : randInt(4, 18));
-    var b = diff === 'easy' ? randInt(2, 12) : (diff === 'hard' ? randInt(6, 22) : randInt(3, 16));
-    var h = diff === 'easy' ? randInt(2, 10) : (diff === 'hard' ? randInt(5, 18) : randInt(3, 14));
+    var l = diff === 'easy' ? randInt(3, 8) : (diff === 'hard' ? randInt(17, 28) : randInt(9, 16));
+    var b = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(14, 22) : randInt(7, 13));
+    var h = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(12, 18) : randInt(6, 11));
     return { question: 'Volume of a cuboid with dimensions ' + l + ' cm × ' + b + ' cm × ' + h + ' cm = ? cm³', answer: l * b * h, category: 'volume', subtype: 'cuboid' };
   } else if (type === 2) {
-    var r = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(5, 14) : randInt(3, 10));
-    var ch = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(6, 20) : randInt(4, 15));
+    var r = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(11, 14) : randInt(6, 10));
+    var ch = diff === 'easy' ? randInt(3, 7) : (diff === 'hard' ? randInt(14, 20) : randInt(8, 13));
     return { question: 'Volume of a cylinder (use π = 3.14) with radius ' + r + ' cm and height ' + ch + ' cm = ?', answer: parseFloat((PI * r * r * ch).toFixed(2)), category: 'volume', subtype: 'cylinder' };
   } else if (type === 3) {
-    var sr = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(4, 12) : randInt(3, 9));
+    var sr = diff === 'easy' ? randInt(2, 4) : (diff === 'hard' ? randInt(9, 12) : randInt(5, 8));
     return { question: 'Volume of a sphere (use π = 3.14) with radius ' + sr + ' cm = ?', answer: parseFloat(((4 / 3) * PI * sr * sr * sr).toFixed(2)), category: 'volume', subtype: 'sphere' };
   }
 
-  var cr = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(4, 12) : randInt(3, 10));
-  var coneH = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(6, 18) : randInt(4, 14));
+  var cr = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(11, 12) : randInt(6, 10));
+  var coneH = diff === 'easy' ? randInt(3, 7) : (diff === 'hard' ? randInt(14, 18) : randInt(8, 13));
   return { question: 'Volume of a cone (use π = 3.14) with radius ' + cr + ' cm and height ' + coneH + ' cm = ?', answer: parseFloat(((1 / 3) * PI * cr * cr * coneH).toFixed(2)), category: 'volume', subtype: 'cone' };
 }
 
@@ -212,10 +212,13 @@ function genFraction() {
     { frac: '1/20', pct: '5' },
     { frac: '1/25', pct: '4' },
     { frac: '1/40', pct: '2.5' },
-    { frac: '1/50', pct: '2' }
+    { frac: '1/50', pct: '2' },
+    { frac: '3/10', pct: '30' },
+    { frac: '7/10', pct: '70' },
+    { frac: '9/10', pct: '90' }
   ];
   var diff = _getDifficulty();
-  var subset = diff === 'easy' ? table.slice(0, 11) : table;
+  var subset = diff === 'easy' ? table.slice(0, 15) : table;
   var item = pick(subset);
 
   /* Reverse direction: percentage → fraction (medium/hard, 30% chance) */
@@ -781,26 +784,27 @@ function generateQuestions(n, category) {
   var gen = category && categoryGenerators[category] ? categoryGenerators[category] : null;
   var qs = [];
   var seen = {}; /* exact question-string dedup within this batch */
-  var maxAttempts = n * 12; /* raised — fingerprint dedup needs more headroom */
+  var maxAttempts = n * 12; /* headroom for fingerprint dedup */
   var attempts = 0;
 
-  while (qs.length < n && attempts < maxAttempts) {
+  while (qs.length < n) {
+    if (attempts >= maxAttempts) {
+      /* Unique pool exhausted! Reset trackers gracefully instead of dumping 
+         blind duplicates, ensuring repeats are still spaced out. */
+      seen = {};
+      resetRecentQuestions();
+      attempts = 0;
+    }
+
     var q = gen ? gen() : generateQuestion();
     attempts++;
     /* Skip exact duplicates, recently-asked questions, and same-value fingerprints */
     if (seen[q.question] || _wasRecentlyAsked(q.question) || _hasFingerprintDup(q)) continue;
+    
     seen[q.question] = true;
     _recordRecentQuestion(q.question);
     _recordFingerprint(q);
     qs.push(q);
-  }
-
-  /* Fill remaining if deduplication exhausted attempts (safety net) */
-  while (qs.length < n) {
-    var qFill = gen ? gen() : generateQuestion();
-    _recordRecentQuestion(qFill.question);
-    _recordFingerprint(qFill);
-    qs.push(qFill);
   }
 
   return qs;

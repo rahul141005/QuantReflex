@@ -1,7 +1,7 @@
 /**
  * auth.js — Firebase Authentication module for Main App
  *
- * Wraps shared AuthCore. Handles standard login/signup for students.
+ * Handles standard login/signup for students.
  * Enforces NO special custom claims (except evaluating premium status).
  */
 var Auth = (function () {
@@ -15,16 +15,13 @@ var Auth = (function () {
   var _appStateChangeListener = null;
 
   function init() {
-    if (!FirebaseApp.isConfigured() || typeof firebase === 'undefined' || !firebase.auth) {
+    if (typeof SharedAuth === 'undefined') {
+      console.warn('SharedAuth not loaded.');
       return;
     }
 
-    _auth = firebase.auth();
-    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
-      console.warn('Auth persistence error:', err);
-    });
-
-    _auth.onAuthStateChanged(function (user) {
+    SharedAuth.init(function(user, authInstance) {
+      _auth = authInstance;
       var previousUser = _currentUser;
       _currentUser = user;
 

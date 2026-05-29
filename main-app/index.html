@@ -154,75 +154,136 @@
 
   <div class="container" style="display:none;">
 
+    <!-- ==================== DUEL VIEW ==================== -->
+    <div id="view-duel" class="spa-view">
+      <div id="duelSetup" style="display:none; flex-direction:column; align-items:center; width:100%; height:100%;"></div>
+      <div id="duelWaiting" style="display:none; flex-direction:column; align-items:center; width:100%; height:100%;"></div>
+      <div id="activeDuelCard" style="display:none; flex-direction:column; width:100%; height:100%;"></div>
+      <div id="duelResultsCard" style="display:none; flex-direction:column; width:100%; height:100%;"></div>
+    </div>
+
     <!-- ==================== HOME VIEW ==================== -->
     <div id="view-home" class="spa-view">
-      <header>
-        <h1>QuantReflex</h1>
-        <p id="homeGreeting" class="home-greeting">Train your mental math speed daily</p>
-      </header>
 
-      <!-- Daily Warmup -->
-      <div class="card">
-        <h3 style="margin-bottom:.5rem;">☀️ Daily Warmup</h3>
-        <p class="secondary-text">Start your day with a quick 5-question warmup.</p>
-        <a href="#practice" id="startWarmup" class="btn accent" style="margin-top:.75rem;">Start Warmup</a>
-      </div>
-
-      <!-- Progress Snapshot -->
-      <div class="card">
-        <h3 style="margin-bottom:.75rem;">📊 Progress Snapshot</h3>
-        <div class="stat-grid" id="homeStats"></div>
-      </div>
-
-      <!-- Daily Goal -->
-      <div class="card goal-card" id="dailyGoalCard">
-        <h3 style="margin-bottom:.25rem;">🎯 Daily Goal</h3>
-        <div style="display:flex;align-items:baseline;gap:.5rem;margin-top:.25rem;">
-          <span class="goal-count" id="goalDone">0</span>
-          <span class="secondary-text">/ <span id="goalTarget">50</span> questions</span>
-        </div>
-        <div class="goal-progress-bar">
-          <div class="goal-progress-fill" id="goalFill" style="width:0%"></div>
-        </div>
-        <div class="goal-text">
-          <span id="goalStatus">Keep going!</span>
-          <span id="goalPct">0%</span>
+      <!-- HERO SECTION -->
+      <div class="home-hero">
+        <div class="home-hero-bg"></div>
+        <div class="home-hero-content">
+          <h1 class="home-hero-title">QuantReflex</h1>
+          <p id="homeGreeting" class="home-hero-greeting">Train your mental math speed daily</p>
+          <div class="home-hero-badges">
+            <div class="home-streak-badge" id="homeStreakBadge">
+              <span class="streak-fire">🔥</span>
+              <span class="streak-count" id="homeStreakCount">0</span>
+              <span class="streak-label">day streak</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Streak at risk banner (dynamic — shown when streak >= 2 and no practice today) -->
+      <!-- PRIMARY CTA -->
+      <div class="home-cta-section">
+        <button class="home-cta-btn" id="startWarmup" type="button">
+          <span class="home-cta-icon">⚡</span>
+          <span class="home-cta-text">
+            <strong id="homeCTALabel">Start Training</strong>
+            <small id="homeCTADesc">5-question daily warmup</small>
+          </span>
+          <span class="home-cta-arrow">→</span>
+        </button>
+      </div>
+
+      <!-- PROGRESS SNAPSHOT (Pill Style) -->
+      <div class="home-stats-row" id="homeStats">
+        <div class="home-stat-pill">
+          <span class="home-stat-value" id="homeTodayCount">0</span>
+          <span class="home-stat-label">Today</span>
+        </div>
+        <div class="home-stat-pill">
+          <span class="home-stat-value" id="homeAccuracy">0%</span>
+          <span class="home-stat-label">Accuracy</span>
+        </div>
+        <div class="home-stat-pill">
+          <span class="home-stat-value" id="homeBestStreak">0</span>
+          <span class="home-stat-label">Best Streak</span>
+        </div>
+      </div>
+
+      <!-- DAILY GOAL (Circular Ring) -->
+      <div class="home-goal-card" id="dailyGoalCard">
+        <div class="home-goal-ring-wrap">
+          <svg class="home-goal-ring" viewBox="0 0 120 120">
+            <circle class="home-goal-ring-bg" cx="60" cy="60" r="52" />
+            <circle class="home-goal-ring-fill" id="goalRingFill" cx="60" cy="60" r="52" stroke-dasharray="326.73" stroke-dashoffset="326.73" />
+          </svg>
+          <div class="home-goal-ring-text">
+            <span class="home-goal-pct" id="goalPct">0%</span>
+          </div>
+        </div>
+        <div class="home-goal-info">
+          <h3 class="home-goal-title">🎯 Daily Goal</h3>
+          <p class="home-goal-detail"><span id="goalDone">0</span> / <span id="goalTarget">20</span> questions</p>
+          <p class="home-goal-status" id="goalStatus">Start training to hit your goal</p>
+        </div>
+      </div>
+
+      <!-- Streak at risk banner (dynamic) -->
       <div id="streakAtRiskBanner" style="display:none"></div>
 
-      <!-- Duel Hub Card (Premium+) -->
-      <div class="card duel-hub-card" id="duelHubCard" style="display:none;">
-        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
-          <span style="font-size:1.3rem;">⚔️</span>
-          <h3 style="margin:0;">Math Duel</h3>
-        </div>
-        <p class="secondary-text" style="font-size:.8rem;margin-bottom:.75rem;">Challenge a friend to a 1v1 math battle with room codes</p>
-        <div style="display:flex;gap:.5rem;">
-          <button class="btn accent" id="homeDuelCreate" style="flex:1;font-size:.85rem;padding:.6rem;">Create Duel</button>
-          <button class="btn" id="homeDuelJoin" style="flex:1;font-size:.85rem;padding:.6rem;">Join Duel</button>
-        </div>
-      </div>
-
-
-      <!-- Suggested practice card (dynamic — shown when weakest category identified) -->
+      <!-- Suggested practice card (dynamic) -->
       <div id="suggestedPracticeCard" style="display:none"></div>
 
-      <!-- AI Coach Card -->
-      <div id="aiCoachContainer"></div>
-
-      <!-- AI Study Plan Card -->
-      <div id="aiStudyPlanContainer"></div>
-
-      <!-- Quick Study Cards -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:1rem 0 .5rem;">
-        <h3 style="color:#64748b;font-size:.9rem;margin:0;">QUICK STUDY</h3>
-        <button id="editQuickLinks" class="quick-links-edit-btn" title="Customize">✏️</button>
+      <!-- FEATURE DISCOVERY — Bento Grid -->
+      <div class="home-section-header">
+        <h3 class="home-section-title">Explore</h3>
       </div>
 
+      <div class="home-bento-grid">
+        <!-- Duel Arena Card -->
+        <div class="home-bento-card home-bento-duel" id="homeDuelCard">
+          <div class="home-bento-glow"></div>
+          <div class="home-bento-header">
+            <span class="home-bento-icon">⚔️</span>
+            <span class="home-premium-badge" id="duelPremiumBadge">✨ Premium+</span>
+          </div>
+          <h4 class="home-bento-title">Math Duel</h4>
+          <p class="home-bento-desc">Challenge friends in live math battles</p>
+          <div class="home-duel-actions" id="homeDuelActions">
+            <button class="home-duel-btn home-duel-create" id="homeDuelCreate" type="button">Create Room</button>
+            <button class="home-duel-btn home-duel-join" id="homeDuelJoin" type="button">Join Room</button>
+          </div>
+        </div>
+
+        <!-- AI Coach Card -->
+        <div class="home-bento-card home-bento-coach" id="homeBentoCoach">
+          <div class="home-bento-header">
+            <span class="home-bento-icon">🤖</span>
+            <span class="home-premium-badge" id="coachPremiumBadge">✨ Premium+</span>
+          </div>
+          <h4 class="home-bento-title">AI Coach</h4>
+          <p class="home-bento-desc">AI-powered weak area detection</p>
+          <div id="aiCoachContainer"></div>
+        </div>
+
+        <!-- AI Timetable Card -->
+        <div class="home-bento-card home-bento-timetable" id="homeBentoTimetable">
+          <div class="home-bento-header">
+            <span class="home-bento-icon">📅</span>
+            <span class="home-premium-badge" id="timetablePremiumBadge">✨ Premium+</span>
+          </div>
+          <h4 class="home-bento-title">AI Study Plan</h4>
+          <p class="home-bento-desc">Personalized study plan for your exam</p>
+          <div id="aiStudyPlanContainer"></div>
+        </div>
+      </div>
+
+      <!-- QUICK STUDY -->
+      <div class="home-section-header">
+        <h3 class="home-section-title">Quick Study</h3>
+        <button id="editQuickLinks" class="home-section-edit" title="Customize">✏️</button>
+      </div>
       <div id="quickStudyContainer"></div>
+
     </div>
 
     <!-- ==================== PRACTICE VIEW ==================== -->
@@ -231,27 +292,6 @@
 
       <!-- Daily quota indicator (dynamic — shown for free users only) -->
       <div id="dailyQuotaIndicator" style="display:none"></div>
-
-      <!-- Active Duel Room Card (Persistent state for creator/participants) -->
-      <div id="activeDuelRoomContainer" style="display:none;margin-bottom:1rem;">
-        <div class="card" style="border:2px solid var(--accent);background:var(--card-bg);">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <h3 style="margin-bottom:.25rem;display:flex;align-items:center;gap:.35rem;">
-                ⚔️ Your Active Duel Room
-              </h3>
-              <p class="secondary-text" id="activeDuelRoomStatus">Waiting for opponent...</p>
-              <div id="activeDuelRoomPills" class="duel-config-pills" style="margin-top:.5rem;justify-content:flex-start;"></div>
-            </div>
-            <div id="activeDuelRoomOpponentIndicator" style="font-size:1.5rem;opacity:0.5;transition:all 0.3s ease;">👤</div>
-          </div>
-          <div style="display:flex;gap:.5rem;margin-top:1rem;">
-            <button class="btn accent" id="activeDuelEnterBtn" style="flex:1;">Enter Room</button>
-            <button class="btn" id="activeDuelShareBtn" style="flex:1;">📤 Invite</button>
-            <button class="btn" id="activeDuelDeleteBtn" style="flex:0;min-width:3rem;background:#fee2e2;color:#dc2626;">🗑️</button>
-          </div>
-        </div>
-      </div>
 
       <!-- Mode selection -->
       <div id="modeSelect" class="card practice-container">
@@ -289,11 +329,6 @@
           <h3>🤖 Word Problems</h3>
           <p>AI-generated word problems · Choose category &amp; difficulty</p>
         </div>
-
-        <div class="mode-card mode-card-duel" data-mode="duel">
-          <h3>⚔️ Math Duel <span class="duel-badge">Premium+</span></h3>
-          <p>Challenge a friend · Same questions · Realtime 1v1</p>
-        </div>
       </div>
 
       <!-- Category selection (shown when Focus Training is picked) -->
@@ -316,7 +351,7 @@
               <button class="category-btn category-card" type="button" data-cat="time-and-work">Time &amp; Work</button>
             </div>
 
-            <!-- Adaptive Training Toggle (Focus & Custom modes, Premium only) -->
+            <!-- Adaptive Training Toggle -->
             <div class="timer-select-section adaptive-toggle-section" id="adaptiveTrainingSection">
               <div class="timer-toggle-row">
                 <span class="timer-toggle-label">Adaptive Training ✨</span>
@@ -330,7 +365,7 @@
               </div>
             </div>
 
-            <!-- Timer Selection (shared by Focus & Custom modes) -->
+            <!-- Timer Selection -->
             <div class="timer-select-section" id="timerSelectSection">
               <div class="timer-toggle-row">
                 <span class="timer-toggle-label">Timer</span>
@@ -371,29 +406,27 @@
         </div>
       </div>
 
-      <!-- Word Problems setup (shown when Word Problems mode is picked) -->
+      <!-- Word Problems setup -->
       <div id="wordProblemsSetup" style="display:none;"></div>
-
-      <!-- Math Duel setup (shown when Math Duel mode is picked) -->
-      <div id="duelSetup" style="display:none;"></div>
-
-      <!-- Math Duel Preview (shown when joining via invite link — legacy) -->
-      <div id="duelPreview" style="display:none;"></div>
-
-      <!-- Math Duel waiting room (shown after duel is created/joined) -->
-      <div id="duelWaiting" style="display:none;"></div>
-
-      <!-- Math Duel active screen (shown during active duel) -->
-      <div id="duelActive" style="display:none;"></div>
-
-      <!-- Math Duel results screen (shown after duel ends) -->
-      <div id="duelResults" style="display:none;"></div>
-
-      <!-- Active duel card (mini card on practice view) -->
-      <div id="activeDuelCard" style="display:none;"></div>
 
       <!-- Drill engine renders here -->
       <div id="drillContainer" style="display:none;"></div>
+    </div>
+
+    <!-- ==================== DUEL VIEW (Dedicated) ==================== -->
+    <div id="view-duel" class="spa-view">
+      <!-- Duel setup -->
+      <div id="duelSetup" style="display:none;"></div>
+      <!-- Duel preview (legacy invite links) -->
+      <div id="duelPreview" style="display:none;"></div>
+      <!-- Duel waiting room -->
+      <div id="duelWaiting" style="display:none;"></div>
+      <!-- Duel active screen -->
+      <div id="duelActive" style="display:none;"></div>
+      <!-- Duel results screen -->
+      <div id="duelResults" style="display:none;"></div>
+      <!-- Active duel card (mini) -->
+      <div id="activeDuelCard" style="display:none;"></div>
     </div>
 
     <!-- ==================== LEARN VIEW ==================== -->
@@ -1440,6 +1473,7 @@
   <script src="js/utils/event-registry.js"></script>
   <script src="js/firebase.js"></script>
   <script src="../shared/validation/auth-validators.js"></script>
+  <script src="../shared/validation/shared-auth.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/firestore-sync.js"></script>
   <script src="js/services/adaptive-state.js"></script>

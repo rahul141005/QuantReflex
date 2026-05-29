@@ -31,6 +31,7 @@ var Onboarding = (function () {
   var _displayName = '';
   var _onComplete = null;
   var _questionAttempt = 0;       /* 0-based: tracks which attempt (0, 1, 2) */
+  var _isShowing = false;         /* re-entry guard: true while onboarding is visible */
   var _currentQuestion = null;    /* current question object {text, answer} */
 
   /* Numpad re-show tracking — prevents duplicate listener stacking */
@@ -85,9 +86,12 @@ var Onboarding = (function () {
 
   /**
    * Check if onboarding should be shown.
+   * Returns false if already showing (re-entry guard).
    * @returns {boolean}
    */
   function shouldShow() {
+    /* Prevent double-show from race conditions */
+    if (_isShowing) return false;
     if (typeof AppState !== 'undefined') {
       var s = AppState.getSettings();
       return !s.onboardingCompleted;
@@ -98,6 +102,26 @@ var Onboarding = (function () {
     } catch (_) {
       return true;
     }
+  }
+
+  /**
+   * Mark onboarding as started — writes onboardingCompleted=true IMMEDIATELY
+   * to both AppState and localStorage so that any concurrent shouldShow()
+   * calls return false. This prevents the race condition where auth callbacks
+   * trigger onboarding twice.
+   */
+  function _markStarted() {
+    try {
+      if (typeof AppState !== 'undefined') {
+        var s = AppState.getSettings();
+        s.onboardingCompleted = true;
+        AppState.setSettings(s);
+      }
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      var settings = raw ? JSON.parse(raw) : {};
+      settings.onboardingCompleted = true;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch (_) { /* ignore */ }
   }
 
   /**
@@ -149,6 +173,14 @@ var Onboarding = (function () {
    * @param {function} onComplete - Called when onboarding finishes
    */
   function show(onComplete) {
+    /* Re-entry guard — bail if already showing */
+    if (_isShowing) return;
+    _isShowing = true;
+
+    /* Write onboardingCompleted=true IMMEDIATELY to prevent race conditions.
+       The daily goal and profile name are written later in _markCompleted(). */
+    _markStarted();
+
     _onComplete = onComplete;
     _currentScreen = 0;
     _skipped = false;
@@ -157,7 +189,7 @@ var Onboarding = (function () {
     _currentQuestion = null;
 
     _overlay = document.getElementById('onboardingOverlay');
-    if (!_overlay) return;
+    if (!_overlay) { _isShowing = false; return; }
 
     _overlay.style.display = 'flex';
     _renderScreen(0);
@@ -690,6 +722,7 @@ var Onboarding = (function () {
       }, 300);
     }
 
+    _isShowing = false;
     if (_onComplete) _onComplete();
   }
 
@@ -711,6 +744,7 @@ var Onboarding = (function () {
       }, 300);
     }
 
+    _isShowing = false;
     /* Reveal the main app first (via the onComplete callback),
        then navigate to Learn tab so user can study first */
     if (_onComplete) _onComplete();

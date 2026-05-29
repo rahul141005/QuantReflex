@@ -1,7 +1,7 @@
 /**
  * auth.js — Firebase Auth module for Super Admin App
  *
- * Wraps shared AuthCore. Handles login/logout and enforces admin: true custom claim.
+ * Handles login/logout and enforces admin: true custom claim.
  * Hardcoded security requirement: Only quantreflex@gmail.com is permitted to login.
  */
 var AdminAuth = (function () {
@@ -13,17 +13,13 @@ var AdminAuth = (function () {
   var _authReadyCallbacks = [];
 
   function init() {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      console.warn('Firebase Auth SDK not loaded');
+    if (typeof SharedAuth === 'undefined') {
+      console.warn('SharedAuth not loaded.');
       return;
     }
 
-    _auth = firebase.auth();
-    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
-      console.warn('Auth persistence error:', err);
-    });
-
-    _auth.onAuthStateChanged(function (user) {
+    SharedAuth.init(function(user, authInstance) {
+      _auth = authInstance;
       _currentUser = user;
 
       if (user) {

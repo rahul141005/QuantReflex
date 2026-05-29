@@ -108,7 +108,7 @@ var ShareService = (function () {
    * @param {string} data.mode - e.g. "Reflex Drill"
    * @param {string} data.difficulty - e.g. "medium"
    * @param {string} data.totalTime - e.g. "45.2"
-   * @param {string} data.userName - display name
+   * @param {string} data.displayName - display name
    * @param {string[]} [data.topics] - topics practiced
    * @returns {HTMLCanvasElement}
    */
@@ -170,10 +170,10 @@ var ShareService = (function () {
     /* ════════════════════════════════
        SECTION 2 — PLAYER IDENTITY
        ════════════════════════════════ */
-    if (data.userName) {
+    if (data.displayName) {
       ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
       ctx.font = '26px ' + FONT;
-      ctx.fillText(_truncate(ctx, data.userName, CW - 80), W / 2, y);
+      ctx.fillText(_truncate(ctx, data.displayName, CW - 80), W / 2, y);
       y += INNER_GAP + 6;
     }
 
@@ -568,7 +568,7 @@ var ShareService = (function () {
         mode: 'Practice',
         difficulty: 'medium',
         totalTime: '0',
-        userName: ''
+        displayName: ''
       };
     }
 

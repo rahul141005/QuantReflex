@@ -8777,3 +8777,464 @@ body.dark-mode .login-field-validation.success {
   color: #6ee7b7;
 }
 
+/* ================================================================
+   HOME TAB — Premium Redesign
+   ================================================================ */
+
+/* ---- Hero Section ---- */
+.home-hero {
+  position: relative;
+  padding: 1.75rem 1.25rem 1.25rem;
+  margin: -.5rem -1.25rem 0;
+  overflow: hidden;
+  text-align: center;
+}
+.home-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 40%, #3b82f6 80%, #60a5fa 100%);
+  opacity: .08;
+  z-index: 0;
+  border-radius: 0 0 2rem 2rem;
+}
+body.dark-mode .home-hero-bg {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #2563eb 100%);
+  opacity: .15;
+}
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+}
+.home-hero-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #2563eb;
+  margin-bottom: .15rem;
+}
+body.dark-mode .home-hero-title { color: #60a5fa; }
+
+.home-hero-greeting {
+  font-size: .92rem;
+  color: #475569;
+  line-height: 1.4;
+  margin-bottom: .75rem;
+}
+body.dark-mode .home-hero-greeting { color: #94a3b8; }
+
+/* Streak Badge */
+.home-hero-badges {
+  display: flex;
+  justify-content: center;
+  gap: .5rem;
+}
+.home-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .85rem;
+  border-radius: 999px;
+  background: rgba(37,99,235,.08);
+  border: 1px solid rgba(37,99,235,.15);
+  font-size: .82rem;
+  color: #475569;
+  transition: all .3s ease;
+}
+body.dark-mode .home-streak-badge {
+  background: rgba(96,165,250,.12);
+  border-color: rgba(96,165,250,.2);
+  color: #94a3b8;
+}
+.home-streak-badge.streak-active {
+  background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(239,68,68,.08));
+  border-color: rgba(245,158,11,.3);
+  color: #b45309;
+}
+body.dark-mode .home-streak-badge.streak-active {
+  background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(239,68,68,.12));
+  border-color: rgba(245,158,11,.35);
+  color: #fbbf24;
+}
+.streak-fire { font-size: 1rem; }
+.streak-count { font-weight: 800; font-size: .95rem; }
+.streak-label { font-weight: 500; }
+
+/* ---- Primary CTA Button ---- */
+.home-cta-section {
+  margin: 1rem 0;
+}
+.home-cta-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37,99,235,.3), 0 1px 3px rgba(37,99,235,.1);
+  transition: transform .15s ease, box-shadow .15s ease;
+  animation: ctaPulse 3s ease-in-out infinite;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-cta-btn:active {
+  transform: scale(.97);
+  box-shadow: 0 2px 8px rgba(37,99,235,.2);
+  animation: none;
+}
+@keyframes ctaPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(37,99,235,.3), 0 1px 3px rgba(37,99,235,.1); }
+  50% { box-shadow: 0 6px 24px rgba(37,99,235,.45), 0 2px 6px rgba(37,99,235,.15); }
+}
+.home-cta-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.home-cta-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  flex: 1;
+}
+.home-cta-text strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.home-cta-text small {
+  font-size: .78rem;
+  opacity: .8;
+  font-weight: 400;
+  margin-top: .1rem;
+}
+.home-cta-arrow {
+  font-size: 1.3rem;
+  font-weight: 600;
+  opacity: .7;
+  flex-shrink: 0;
+}
+
+/* ---- Progress Stat Pills ---- */
+.home-stats-row {
+  display: flex;
+  gap: .6rem;
+  margin-bottom: 1rem;
+}
+.home-stat-pill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: .75rem .5rem;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: .85rem;
+  border: 1px solid rgba(226,232,240,.6);
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+body.dark-mode .home-stat-pill {
+  background: rgba(30,41,59,.7);
+  border-color: rgba(51,65,85,.5);
+}
+.home-stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+body.dark-mode .home-stat-value { color: #f1f5f9; }
+.home-stat-label {
+  font-size: .7rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: .2rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+body.dark-mode .home-stat-label { color: #94a3b8; }
+
+/* ---- Daily Goal Ring Card ---- */
+.home-goal-card {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 1.15rem 1.25rem;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  border: 1px solid rgba(226,232,240,.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  margin-bottom: 1rem;
+}
+body.dark-mode .home-goal-card {
+  background: rgba(30,41,59,.65);
+  border-color: rgba(51,65,85,.5);
+}
+.home-goal-ring-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+.home-goal-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.home-goal-ring-bg {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 8;
+}
+body.dark-mode .home-goal-ring-bg { stroke: #334155; }
+.home-goal-ring-fill {
+  fill: none;
+  stroke: var(--accent, #2563eb);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease-out;
+}
+.home-goal-ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-goal-pct {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #2563eb;
+}
+body.dark-mode .home-goal-pct { color: #60a5fa; }
+.home-goal-info { flex: 1; }
+.home-goal-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 .2rem;
+}
+body.dark-mode .home-goal-title { color: #f1f5f9; }
+.home-goal-detail {
+  font-size: .82rem;
+  color: #64748b;
+  margin: 0 0 .15rem;
+}
+body.dark-mode .home-goal-detail { color: #94a3b8; }
+.home-goal-status {
+  font-size: .78rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ---- Section Headers ---- */
+.home-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1.25rem 0 .65rem;
+}
+.home-section-title {
+  font-size: .88rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin: 0;
+}
+body.dark-mode .home-section-title { color: #94a3b8; }
+.home-section-edit {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: .25rem;
+  opacity: .6;
+  transition: opacity .15s;
+}
+.home-section-edit:hover { opacity: 1; }
+
+/* ---- Bento Grid ---- */
+.home-bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+.home-bento-card {
+  position: relative;
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  padding: 1.1rem;
+  border: 1px solid rgba(226,232,240,.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  overflow: hidden;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.home-bento-card:active {
+  transform: scale(.98);
+}
+body.dark-mode .home-bento-card {
+  background: rgba(30,41,59,.7);
+  border-color: rgba(51,65,85,.5);
+}
+/* Duel card spans full width */
+.home-bento-duel {
+  grid-column: 1 / -1;
+}
+.home-bento-glow {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37,99,235,.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+body.dark-mode .home-bento-glow {
+  background: radial-gradient(circle, rgba(96,165,250,.12) 0%, transparent 70%);
+}
+.home-bento-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .5rem;
+}
+.home-bento-icon {
+  font-size: 1.5rem;
+}
+.home-premium-badge {
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(124,58,237,.1), rgba(37,99,235,.08));
+  color: #7c3aed;
+  border: 1px solid rgba(124,58,237,.2);
+  letter-spacing: .03em;
+}
+body.dark-mode .home-premium-badge {
+  background: linear-gradient(135deg, rgba(167,139,250,.15), rgba(96,165,250,.1));
+  color: #c4b5fd;
+  border-color: rgba(167,139,250,.25);
+}
+.home-bento-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 .25rem;
+}
+body.dark-mode .home-bento-title { color: #f1f5f9; }
+.home-bento-desc {
+  font-size: .78rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0 0 .65rem;
+}
+body.dark-mode .home-bento-desc { color: #94a3b8; }
+
+/* Duel Arena Buttons */
+.home-duel-actions {
+  display: flex;
+  gap: .5rem;
+}
+.home-duel-btn {
+  flex: 1;
+  padding: .6rem .5rem;
+  border: none;
+  border-radius: .65rem;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .1s ease, background .15s ease;
+  touch-action: manipulation;
+}
+.home-duel-btn:active { transform: scale(.95); }
+.home-duel-create {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(37,99,235,.2);
+}
+.home-duel-join {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+body.dark-mode .home-duel-join {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* Bento Action Buttons (locked state) */
+.home-bento-action-btn {
+  width: 100%;
+  padding: .55rem .75rem;
+  border: 1.5px dashed rgba(124,58,237,.3);
+  border-radius: .65rem;
+  background: rgba(124,58,237,.05);
+  color: #7c3aed;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  touch-action: manipulation;
+}
+.home-bento-action-btn:hover {
+  background: rgba(124,58,237,.1);
+}
+.home-bento-action-btn:active {
+  transform: scale(.96);
+}
+body.dark-mode .home-bento-action-btn {
+  border-color: rgba(167,139,250,.3);
+  background: rgba(167,139,250,.08);
+  color: #c4b5fd;
+}
+
+/* Override AI Coach card styling when inside bento */
+.home-bento-coach .ai-coach-card,
+.home-bento-coach .card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.home-bento-coach .ai-coach-card h3,
+.home-bento-timetable .card h3 {
+  display: none; /* Title already in bento header */
+}
+.home-bento-coach .ai-coach-locked {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+.home-bento-coach .ai-coach-unlock-btn {
+  width: 100%;
+  padding: .55rem .75rem;
+  border: 1.5px dashed rgba(124,58,237,.3);
+  border-radius: .65rem;
+  background: rgba(124,58,237,.05);
+  color: #7c3aed;
+  font-size: .78rem;
+  font-weight: 600;
+  box-shadow: none;
+  margin: 0;
+  max-width: none;
+}
+
+/* Reduced-motion: disable CTA pulse */
+@media (prefers-reduced-motion: reduce) {
+  .home-cta-btn { animation: none; }
+  .home-goal-ring-fill { transition: none; }
+}

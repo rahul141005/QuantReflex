@@ -95,6 +95,9 @@ var DuelManager = (function () {
       return;
     }
 
+    /* Navigate to dedicated duel view */
+    if (typeof Router !== 'undefined') Router.showView('duel');
+
     _duelPhase = 'setup';
     var container = _getEl('duelSetup');
     if (!container) return;
@@ -105,6 +108,7 @@ var DuelManager = (function () {
 
     DuelUI.renderSetup(container, function onBack() {
       _duelPhase = 'idle';
+      if (typeof Router !== 'undefined') Router.showView('home');
     });
   }
 
@@ -122,12 +126,16 @@ var DuelManager = (function () {
       return;
     }
 
+    /* Navigate to dedicated duel view */
+    if (typeof Router !== 'undefined') Router.showView('duel');
+
     _duelPhase = 'setup';
     var container = _getEl('duelSetup');
     if (!container) return;
 
     DuelUI.renderJoinScreen(container, function onBack() {
       _duelPhase = 'idle';
+      if (typeof Router !== 'undefined') Router.showView('home');
     });
   }
 
@@ -478,8 +486,8 @@ var DuelManager = (function () {
     /* Hide all duel screens */
     _hideAllDuelScreens();
 
-    /* Navigate back to practice */
-    if (typeof Router !== 'undefined') Router.showView('practice');
+    /* Navigate back to home */
+    if (typeof Router !== 'undefined') Router.showView('home');
   }
 
   /**
@@ -516,15 +524,15 @@ var DuelManager = (function () {
         /* Reconnect based on duel status */
         if (data.status === 'active') {
           _duelPhase = 'active';
-          if (typeof Router !== 'undefined') Router.showView('practice');
+          if (typeof Router !== 'undefined') Router.showView('duel');
           _startDuelListener(data.id);
         } else if (data.status === 'waiting') {
           _duelPhase = 'waiting';
-          if (typeof Router !== 'undefined') Router.showView('practice');
+          if (typeof Router !== 'undefined') Router.showView('duel');
           _startDuelListener(data.id);
         } else if (data.status === 'completed') {
           _duelPhase = 'results';
-          if (typeof Router !== 'undefined') Router.showView('practice');
+          if (typeof Router !== 'undefined') Router.showView('duel');
           _showResults(data, false);
         }
       });

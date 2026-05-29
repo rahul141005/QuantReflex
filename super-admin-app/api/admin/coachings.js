@@ -76,7 +76,7 @@ async function handler(req, res) {
         capacity: capacity ? parseInt(capacity, 10) : null,
         ownerEmail: body.ownerEmail ? body.ownerEmail.trim() : null,
         entitlementPlan: body.entitlementPlan || 'standard',
-        studentCount: 0,
+        studentsCount: 0,
         activePremiumUsers: 0,
         activePremiumPlusUsers: 0,
         expiryDate: expiryDate ? new Date(expiryDate).toISOString() : null,

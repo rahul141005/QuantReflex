@@ -215,65 +215,103 @@ function initHomeView() {
   Router.onShow('home', function () {
     var p = loadProgress();
     var accuracy = p.totalAttempted ? ((p.totalCorrect / p.totalAttempted) * 100).toFixed(0) : '0';
-    var el = document.getElementById('homeStats');
-    if (el) {
-      el.innerHTML =
-        '<div class="stat-card"><div class="value">' + (p.todayAttempted || 0) + '</div><div class="label">Today</div></div>' +
-        '<div class="stat-card"><div class="value">' + accuracy + '%</div><div class="label">Accuracy</div></div>' +
-        '<div class="stat-card"><div class="value">' + (p.currentStreak || 0) + '</div><div class="label">Current Streak</div></div>' +
-        '<div class="stat-card"><div class="value">' + (p.bestStreak || 0) + '</div><div class="label">Best Streak</div></div>';
-    }
 
-    /* Dynamic greeting */
+    /* ---- Dynamic greeting ---- */
     var greetingEl = document.getElementById('homeGreeting');
     if (greetingEl) {
-      var userName = '';
+      var displayName = '';
       try {
         if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
           var cache = FirestoreSync._getCache();
           if (cache && cache.profile && cache.profile.name) {
-            userName = String(cache.profile.name).trim();
+            displayName = String(cache.profile.name).trim();
           }
         }
       } catch (_) {}
       var hour = new Date().getHours();
       var greeting;
       if (hour < 12) {
-        greeting = userName ? 'Good morning, ' + userName + '. Time to sharpen your edge.' : 'Good morning! Time to sharpen your edge.';
+        greeting = displayName ? 'Good morning, ' + displayName : 'Good morning!';
       } else if (hour < 17) {
-        greeting = userName ? 'Stay sharp — keep the momentum, ' + userName + '.' : 'Stay sharp — keep the momentum!';
+        greeting = displayName ? 'Good afternoon, ' + displayName : 'Good afternoon!';
       } else {
-        greeting = userName ? 'Finish today\'s training on a high note, ' + userName + '.' : 'Finish today\'s training on a high note!';
+        greeting = displayName ? 'Good evening, ' + displayName : 'Good evening!';
       }
       greetingEl.textContent = greeting;
     }
 
-    /* Daily goal card */
+    /* ---- Streak badge ---- */
+    var streakCount = document.getElementById('homeStreakCount');
+    var streakBadge = document.getElementById('homeStreakBadge');
+    var dailyStreak = parseInt(p.dailyStreak) || 0;
+    if (streakCount) streakCount.textContent = dailyStreak;
+    if (streakBadge) {
+      streakBadge.classList.toggle('streak-active', dailyStreak > 0);
+    }
+
+    /* ---- Progress stat pills ---- */
+    var todayEl = document.getElementById('homeTodayCount');
+    var accEl = document.getElementById('homeAccuracy');
+    var bestEl = document.getElementById('homeBestStreak');
+    if (todayEl) todayEl.textContent = p.todayAttempted || 0;
+    if (accEl) accEl.textContent = accuracy + '%';
+    if (bestEl) bestEl.textContent = p.bestStreak || 0;
+
+    /* ---- Dynamic CTA text ---- */
+    var ctaLabel = document.getElementById('homeCTALabel');
+    var ctaDesc = document.getElementById('homeCTADesc');
+    if (ctaLabel && ctaDesc) {
+      var todayDone = parseInt(p.todayAttempted) || 0;
+      if (todayDone > 0) {
+        ctaLabel.textContent = 'Continue Training';
+        ctaDesc.textContent = todayDone + ' questions done today';
+      } else if (dailyStreak > 0) {
+        ctaLabel.textContent = 'Keep Your Streak';
+        ctaDesc.textContent = dailyStreak + '-day streak — don\'t break it!';
+      } else {
+        ctaLabel.textContent = 'Start Training';
+        ctaDesc.textContent = '5-question daily warmup';
+      }
+    }
+
+    /* ---- Daily goal circular ring ---- */
     var settings = loadSettings();
-    var goal = settings.dailyGoal || 50;
+    var goal = settings.dailyGoal || 20;
     var done = p.todayAttempted || 0;
     var pct = Math.min(100, Math.round((done / goal) * 100));
     var goalDone = document.getElementById('goalDone');
     var goalTarget = document.getElementById('goalTarget');
-    var goalFill = document.getElementById('goalFill');
     var goalStatus = document.getElementById('goalStatus');
     var goalPct = document.getElementById('goalPct');
+    var goalRingFill = document.getElementById('goalRingFill');
+
     if (goalDone) goalDone.textContent = done;
     if (goalTarget) goalTarget.textContent = goal;
-    if (goalFill) {
-      goalFill.style.width = pct + '%';
-      goalFill.className = 'goal-progress-fill' + (pct >= 100 ? ' goal-met' : '');
-    }
     if (goalPct) goalPct.textContent = pct + '%';
     if (goalStatus) {
-       if (pct >= 100) goalStatus.textContent = '🎉 Daily goal achieved!';
-       else if (pct >= 75) goalStatus.textContent = '🔥 Almost at your goal!';
-       else if (pct >= 50) goalStatus.textContent = '💪 Halfway to your goal!';
-       else goalStatus.textContent = 'Start training to hit your goal';
+      if (pct >= 100) goalStatus.textContent = '🎉 Daily goal achieved!';
+      else if (pct >= 75) goalStatus.textContent = '🔥 Almost at your goal!';
+      else if (pct >= 50) goalStatus.textContent = '💪 Halfway to your goal!';
+      else if (done > 0) goalStatus.textContent = 'Keep going!';
+      else goalStatus.textContent = 'Start training to hit your goal';
     }
 
-    /* Render customizable quick study links */
-    renderQuickStudyLinks();
+    /* Animate circular ring fill */
+    if (goalRingFill) {
+      var circumference = 2 * Math.PI * 52; /* r=52 */
+      var offset = circumference - (pct / 100) * circumference;
+      goalRingFill.style.strokeDasharray = circumference.toFixed(2);
+      /* Animate from fully offset to calculated offset */
+      goalRingFill.style.strokeDashoffset = circumference.toFixed(2);
+      requestAnimationFrame(function () {
+        goalRingFill.style.transition = 'stroke-dashoffset 0.8s ease-out';
+        goalRingFill.style.strokeDashoffset = offset.toFixed(2);
+      });
+      /* Color based on progress */
+      if (pct >= 100) goalRingFill.style.stroke = 'var(--accent-success, #22c55e)';
+      else if (pct >= 50) goalRingFill.style.stroke = 'var(--accent, #2563eb)';
+      else goalRingFill.style.stroke = 'var(--accent-muted, #60a5fa)';
+    }
 
     /* ---- Streak-at-risk banner ---- */
     _renderStreakAtRisk(p);
@@ -281,25 +319,60 @@ function initHomeView() {
     /* ---- Suggested practice card ---- */
     _renderSuggestedPractice();
 
-    /* Render AI Coach card */
-    if (typeof AIFeatures !== 'undefined') {
-      AIFeatures.renderAICoachCard('aiCoachContainer', p);
+    /* ---- Premium badge visibility ---- */
+    var isPP = (typeof canAccessFeature === 'function') && canAccessFeature('ai_coach');
+    var isDuelPP = (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
+
+    var duelBadge = document.getElementById('duelPremiumBadge');
+    var coachBadge = document.getElementById('coachPremiumBadge');
+    var timetableBadge = document.getElementById('timetablePremiumBadge');
+    if (duelBadge) duelBadge.style.display = isDuelPP ? 'none' : '';
+    if (coachBadge) coachBadge.style.display = isPP ? 'none' : '';
+    if (timetableBadge) timetableBadge.style.display = isPP ? 'none' : '';
+
+    /* ---- AI Coach card (inside bento) ---- */
+    var coachContainer = document.getElementById('aiCoachContainer');
+    if (coachContainer && typeof AIFeatures !== 'undefined') {
+      if (isPP) {
+        AIFeatures.renderAICoachCard('aiCoachContainer', p);
+      } else {
+        coachContainer.innerHTML =
+          '<button class="home-bento-action-btn" type="button" id="coachUnlockBtn">' +
+            'View AI Insights ✨' +
+          '</button>';
+        var coachUnlockBtn = document.getElementById('coachUnlockBtn');
+        if (coachUnlockBtn) {
+          coachUnlockBtn.addEventListener('click', function () {
+            if (typeof showPaywall === 'function') showPaywall('ai_coach');
+          });
+        }
+      }
     }
 
-    /* Render AI Study Plan card */
-    if (typeof AIFeatures !== 'undefined' && typeof AIFeatures.renderStudyPlanCard === 'function') {
-      AIFeatures.renderStudyPlanCard('aiStudyPlanContainer');
+    /* ---- AI Study Plan card (inside bento) ---- */
+    var spContainer = document.getElementById('aiStudyPlanContainer');
+    if (spContainer) {
+      if (isPP && typeof AIFeatures !== 'undefined' && typeof AIFeatures.renderStudyPlanCard === 'function') {
+        AIFeatures.renderStudyPlanCard('aiStudyPlanContainer');
+      } else {
+        spContainer.innerHTML =
+          '<button class="home-bento-action-btn" type="button" id="timetableUnlockBtn">' +
+            'Create Study Plan ✨' +
+          '</button>';
+        var timetableUnlockBtn = document.getElementById('timetableUnlockBtn');
+        if (timetableUnlockBtn) {
+          timetableUnlockBtn.addEventListener('click', function () {
+            if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
+          });
+        }
+      }
     }
 
-    /* ---- Duel Hub card (Premium+ only) ---- */
-    var duelHub = document.getElementById('duelHubCard');
-    if (duelHub) {
-      var isDuelPremium = (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
-      duelHub.style.display = isDuelPremium ? '' : 'none';
-    }
+    /* Render customizable quick study links */
+    renderQuickStudyLinks();
   });
 
-  /* ---- HOME VIEW: warmup handler ---- */
+  /* ---- HOME VIEW: warmup/CTA handler ---- */
   var warmupBtn = document.getElementById('startWarmup');
   if (warmupBtn) {
     warmupBtn.addEventListener('click', function (e) {
@@ -319,18 +392,16 @@ function initHomeView() {
     });
   }
 
-  /* ---- Duel Hub buttons ---- */
+  /* ---- Duel Hub buttons (navigate to dedicated duel view) ---- */
   var duelCreateBtn = document.getElementById('homeDuelCreate');
   if (duelCreateBtn) {
     duelCreateBtn.addEventListener('click', function () {
-      Router.showView('practice');
       if (typeof DuelManager !== 'undefined') DuelManager.openSetup();
     });
   }
   var duelJoinBtn = document.getElementById('homeDuelJoin');
   if (duelJoinBtn) {
     duelJoinBtn.addEventListener('click', function () {
-      Router.showView('practice');
       if (typeof DuelManager !== 'undefined') DuelManager.openJoinDuel();
     });
   }
