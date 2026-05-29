@@ -165,17 +165,44 @@
     <!-- ==================== HOME VIEW ==================== -->
     <div id="view-home" class="spa-view">
 
-      <!-- HERO SECTION -->
+      <!-- DASHBOARD HERO SECTION -->
       <div class="home-hero">
-        <div class="home-hero-bg"></div>
+        <div class="home-hero-bg">
+          <div class="home-hero-bg-layer1"></div>
+          <div class="home-hero-bg-layer2"></div>
+        </div>
         <div class="home-hero-content">
-          <h1 class="home-hero-title">QuantReflex</h1>
-          <p id="homeGreeting" class="home-hero-greeting">Train your mental math speed daily</p>
-          <div class="home-hero-badges">
-            <div class="home-streak-badge" id="homeStreakBadge">
-              <span class="streak-fire">🔥</span>
-              <span class="streak-count" id="homeStreakCount">0</span>
-              <span class="streak-label">day streak</span>
+          <div class="hero-header-row">
+            <div class="hero-profile-pic">
+              <span id="heroProfileInitial">Q</span>
+            </div>
+            <div class="hero-greeting-col">
+              <p id="homeGreeting" class="home-hero-greeting">Train your mental math speed daily</p>
+              <h1 class="home-hero-title" id="homeUserName">QuantReflex</h1>
+            </div>
+            <div class="hero-streak-col">
+              <div class="home-streak-badge" id="homeStreakBadge">
+                <span class="streak-fire">🔥</span>
+                <span class="streak-count" id="homeStreakCount">0</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Integrated Dashboard Stats -->
+          <div class="hero-dashboard-stats" id="homeStats">
+            <div class="hero-stat-item">
+              <span class="hero-stat-val" id="homeTodayCount">0</span>
+              <span class="hero-stat-lbl">Today</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat-item">
+              <span class="hero-stat-val" id="homeAccuracy">0%</span>
+              <span class="hero-stat-lbl">Accuracy</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat-item">
+              <span class="hero-stat-val" id="homeBestStreak">0</span>
+              <span class="hero-stat-lbl">Best</span>
             </div>
           </div>
         </div>
@@ -191,22 +218,6 @@
           </span>
           <span class="home-cta-arrow">→</span>
         </button>
-      </div>
-
-      <!-- PROGRESS SNAPSHOT (Pill Style) -->
-      <div class="home-stats-row" id="homeStats">
-        <div class="home-stat-pill">
-          <span class="home-stat-value" id="homeTodayCount">0</span>
-          <span class="home-stat-label">Today</span>
-        </div>
-        <div class="home-stat-pill">
-          <span class="home-stat-value" id="homeAccuracy">0%</span>
-          <span class="home-stat-label">Accuracy</span>
-        </div>
-        <div class="home-stat-pill">
-          <span class="home-stat-value" id="homeBestStreak">0</span>
-          <span class="home-stat-label">Best Streak</span>
-        </div>
       </div>
 
       <!-- DAILY GOAL (Circular Ring) -->
@@ -242,37 +253,36 @@
         <!-- Duel Arena Card -->
         <div class="home-bento-card home-bento-duel" id="homeDuelCard">
           <div class="home-bento-glow"></div>
-          <div class="home-bento-header">
-            <span class="home-bento-icon">⚔️</span>
-            <span class="home-premium-badge" id="duelPremiumBadge">✨ Premium+</span>
+          <div class="home-bento-duel-live">
+            <span class="live-dot"></span> <span id="duelOnlineCount">241 Players Online</span>
           </div>
-          <h4 class="home-bento-title">Math Duel</h4>
-          <p class="home-bento-desc">Challenge friends in live math battles</p>
+          <div class="home-bento-header">
+            <div class="home-bento-icon-squircle icon-amber"><span class="home-bento-icon">⚔️</span></div>
+            <h4 class="home-bento-title">Math Duel <span class="home-premium-badge" id="duelPremiumBadge" style="display:none;" title="Premium+">🔒 PRO</span></h4>
+          </div>
+          <p class="home-bento-desc">Challenge anyone in real-time competitive math battles.</p>
           <div class="home-duel-actions" id="homeDuelActions">
-            <button class="home-duel-btn home-duel-create" id="homeDuelCreate" type="button">Create Room</button>
-            <button class="home-duel-btn home-duel-join" id="homeDuelJoin" type="button">Join Room</button>
+            <button class="home-duel-btn home-duel-create" id="homeDuelCreate" type="button">Enter Arena</button>
           </div>
         </div>
 
         <!-- AI Coach Card -->
         <div class="home-bento-card home-bento-coach" id="homeBentoCoach">
           <div class="home-bento-header">
-            <span class="home-bento-icon">🤖</span>
-            <span class="home-premium-badge" id="coachPremiumBadge">✨ Premium+</span>
+            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon">🤖</span></div>
+            <h4 class="home-bento-title">AI Coach <span class="home-premium-badge" id="coachPremiumBadge" title="Premium+">🔒 PRO</span></h4>
           </div>
-          <h4 class="home-bento-title">AI Coach</h4>
-          <p class="home-bento-desc">AI-powered weak area detection</p>
+          <p class="home-bento-desc">Personalized weak area detection</p>
           <div id="aiCoachContainer"></div>
         </div>
 
         <!-- AI Timetable Card -->
         <div class="home-bento-card home-bento-timetable" id="homeBentoTimetable">
           <div class="home-bento-header">
-            <span class="home-bento-icon">📅</span>
-            <span class="home-premium-badge" id="timetablePremiumBadge">✨ Premium+</span>
+            <div class="home-bento-icon-squircle icon-purple"><span class="home-bento-icon">📅</span></div>
+            <h4 class="home-bento-title">Study Plan <span class="home-premium-badge" id="timetablePremiumBadge" title="Premium+">🔒 PRO</span></h4>
           </div>
-          <h4 class="home-bento-title">AI Study Plan</h4>
-          <p class="home-bento-desc">Personalized study plan for your exam</p>
+          <p class="home-bento-desc">AI-generated study schedule</p>
           <div id="aiStudyPlanContainer"></div>
         </div>
       </div>

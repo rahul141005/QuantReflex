@@ -84,7 +84,17 @@ function renderQuickStudyLinks() {
     if (!linkData) continue;
 
     var card = document.createElement('a');
-    card.className = 'study-card';
+    var colorClass = '';
+    if (linkData.id === 'fractionTable') colorClass = ' quick-study-blue';
+    else if (linkData.id === 'tablesContainer') colorClass = ' quick-study-orange';
+    else if (linkData.id === 'formulaSections') colorClass = ' quick-study-purple';
+    else if (linkData.id === 'mentalTricks') colorClass = ' quick-study-green';
+    else if (linkData.id === 'squaresSection') colorClass = ' quick-study-purple';
+    else if (linkData.id === 'practice') colorClass = ' quick-study-blue';
+    else if (linkData.id === 'stats') colorClass = ' quick-study-orange';
+    else if (linkData.id === 'bookmarksSection') colorClass = ' quick-study-green';
+    
+    card.className = 'study-card' + colorClass;
 
     if (linkData.type === 'learn') {
       card.href = '#learn';
@@ -216,29 +226,34 @@ function initHomeView() {
     var p = loadProgress();
     var accuracy = p.totalAttempted ? ((p.totalCorrect / p.totalAttempted) * 100).toFixed(0) : '0';
 
-    /* ---- Dynamic greeting ---- */
+    /* ---- Dynamic greeting & Profile ---- */
     var greetingEl = document.getElementById('homeGreeting');
-    if (greetingEl) {
-      var displayName = '';
-      try {
-        if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
-          var cache = FirestoreSync._getCache();
-          if (cache && cache.profile && cache.profile.name) {
-            displayName = String(cache.profile.name).trim();
-          }
+    var userNameEl = document.getElementById('homeUserName');
+    var initialEl = document.getElementById('heroProfileInitial');
+
+    var displayName = '';
+    try {
+      if (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) {
+        var cache = FirestoreSync._getCache();
+        if (cache && cache.profile && cache.profile.name) {
+          displayName = String(cache.profile.name).trim();
         }
-      } catch (_) {}
-      var hour = new Date().getHours();
-      var greeting;
-      if (hour < 12) {
-        greeting = displayName ? 'Good morning, ' + displayName : 'Good morning!';
-      } else if (hour < 17) {
-        greeting = displayName ? 'Good afternoon, ' + displayName : 'Good afternoon!';
-      } else {
-        greeting = displayName ? 'Good evening, ' + displayName : 'Good evening!';
       }
-      greetingEl.textContent = greeting;
+    } catch (_) {}
+
+    var hour = new Date().getHours();
+    var greeting;
+    if (hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour < 17) {
+      greeting = 'Good afternoon';
+    } else {
+      greeting = 'Good evening';
     }
+
+    if (greetingEl) greetingEl.textContent = greeting;
+    if (userNameEl) userNameEl.textContent = displayName || 'QuantReflex';
+    if (initialEl) initialEl.textContent = displayName ? displayName.charAt(0).toUpperCase() : 'Q';
 
     /* ---- Streak badge ---- */
     var streakCount = document.getElementById('homeStreakCount');
