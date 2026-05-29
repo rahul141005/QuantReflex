@@ -38,6 +38,19 @@
 
 /* ---- Apply dark mode, theme and reduced motion from settings immediately ---- */
 (function () {
+  /* Force cleanup of any stuck state classes that might persist across soft-reloads */
+  document.body.classList.remove('modal-open', 'drill-session-active');
+  document.documentElement.classList.remove('modal-open', 'drill-session-active');
+
+  /* Bulletproof viewport height fix for mobile browsers */
+  function setVH() {
+    var vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', vh + 'px');
+  }
+  setVH();
+  window.addEventListener('resize', setVH);
+  window.addEventListener('orientationchange', setVH);
+
   try {
     var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
     if (settings.darkMode) document.body.classList.add('dark-mode');

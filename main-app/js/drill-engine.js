@@ -119,8 +119,8 @@ function createDrillEngine(container, opts) {
       '<div class="card center-content">' +
         '<h2>' + mode + '</h2>' +
         '<p>' + subtitle + '</p>' +
-        '<button id="startBtn" class="btn accent">Begin Challenge</button>' +
-        '<button id="startBackBtn" class="btn">← Back to Modes</button>' +
+        '<button id="startBtn" class="btn-primary">Begin Challenge</button>' +
+        '<button id="startBackBtn" class="btn-secondary">← Back to Modes</button>' +
       '</div>';
     hideCustomNumpad();
     _exitDrillSession();
@@ -174,7 +174,7 @@ function createDrillEngine(container, opts) {
         '</div>' +
       '</div>' +
       '<div class="drill-actions">' +
-        '<button id="submitBtn" class="btn accent">Submit</button>' +
+        '<button id="submitBtn" class="btn-primary">Submit</button>' +
       '</div>';
     ui.globalTimerEl = container.querySelector('#globalTimer');
     ui.perQTimerEl = container.querySelector('#perQTimer');
@@ -679,9 +679,9 @@ function createDrillEngine(container, opts) {
             '<div class="benchmark-ai-placeholder" id="benchmarkAiPlaceholder"></div>' +
           '</div>' +
         '</div>' +
-        '<button class="btn accent results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
-        '<button class="btn accent" id="tryAgainBtn">Challenge Again</button>' +
-        '<button class="btn" id="homeBtn">Back to Home</button>' +
+        '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
+        '<button class="btn-primary" id="tryAgainBtn">Challenge Again</button>' +
+        '<button class="btn-secondary" id="homeBtn">Back to Home</button>' +
       '</div>';
 
     container.querySelector('#tryAgainBtn').addEventListener('click', function () {
@@ -891,7 +891,7 @@ function createDrillEngine(container, opts) {
           '<div class="card center-content">' +
             '<h2>All Caught Up!</h2>' +
             '<p class="secondary-text">Impressive — you\'ve mastered all your previous mistakes.</p>' +
-            '<button class="btn accent" id="backToPractice">Continue Training</button>' +
+            '<button class="btn-primary" id="backToPractice">Continue Training</button>' +
           '</div>';
         container.querySelector('#backToPractice').addEventListener('click', function () {
           Router.showView('practice');

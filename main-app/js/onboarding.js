@@ -335,7 +335,7 @@ var Onboarding = (function () {
       '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_displayName) + '" />' +
       '</div>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Next</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
       '</div>';
   }
@@ -350,7 +350,7 @@ var Onboarding = (function () {
       '<p class="onboarding-desc">Use the Learn tab to revise multiplication tables, formulas, and shortcuts. Then jump into drills to train your calculation speed.</p>' +
       '<p class="onboarding-hint">💡 Triple tap any table to open a larger full-screen view.</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Next</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
       '</div>';
   }
@@ -366,7 +366,7 @@ var Onboarding = (function () {
       '<p class="onboarding-desc">Track accuracy, speed, and category performance — your analytics dashboard shows exactly where to focus next.</p>' +
       '<p class="onboarding-hint">💡 Your weakest topics are automatically identified so you never waste time guessing.</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Next</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
       '</div>';
   }
@@ -377,12 +377,12 @@ var Onboarding = (function () {
       '</div>' +
       '<h2 class="onboarding-title">Set Your Daily Training Goal</h2>' +
       '<div class="onboarding-goal-options">' +
-      '<button class="onboarding-goal-btn' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10">10 questions</button>' +
-      '<button class="onboarding-goal-btn' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20">20 questions</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10">10 questions</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20">20 questions</button>' +
       '</div>' +
       '<p class="onboarding-note">You can change this anytime from the Settings tab.<br>Goals above 20 require Premium.</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Continue</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">Continue</button>' +
       '</div>';
   }
 
@@ -400,7 +400,7 @@ var Onboarding = (function () {
       '<h2 class="onboarding-title">' + title + '</h2>' +
       '<p class="onboarding-desc">Your training plan is set. Let\'s see what you can do.</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn accent onboarding-next-btn" id="obNext">Let\'s Go</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">Let\'s Go</button>' +
       '</div>';
   }
 

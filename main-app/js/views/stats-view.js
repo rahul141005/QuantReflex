@@ -236,7 +236,7 @@ function renderStatsView() {
     if (!AIFeatures.isPremium()) {
       aiInsightsContainer.innerHTML =
         '<p class="secondary-text" style="text-align:center;">🔒 AI-powered insights are a Premium+ feature.</p>' +
-        '<button class="btn accent ai-coach-unlock-btn" type="button" style="margin-top:.5rem;width:100%;">Unlock with Premium+</button>';
+        '<button class="btn-primary ai-coach-unlock-btn" type="button" style="margin-top:.5rem;width:100%;">Unlock with Premium+</button>';
       var aiUnlockBtn = aiInsightsContainer.querySelector('.ai-coach-unlock-btn');
       if (aiUnlockBtn) aiUnlockBtn.addEventListener('click', function () { showPaywall('ai_coach'); });
     } else if (p.totalAttempted >= 5) {
@@ -247,7 +247,7 @@ function renderStatsView() {
       } else {
         aiInsightsContainer.innerHTML =
           '<div class="ai-stats-body">' +
-            '<button class="btn accent ai-insights-btn" type="button">View AI Insights ✨</button>' +
+            '<button class="btn-primary ai-insights-btn" type="button">View AI Insights ✨</button>' +
           '</div>';
         var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
         var _statsInsightsBody = aiInsightsContainer.querySelector('.ai-stats-body');

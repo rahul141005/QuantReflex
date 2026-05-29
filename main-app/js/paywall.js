@@ -699,7 +699,7 @@ function showPaywall(featureType) {
             '<li>✓ Speed benchmark & analytics</li>' +
             '<li>✓ All future updates included</li>' +
           '</ul>' +
-          '<button class="btn accent paywall-upgrade" type="button">Unlock Premium – ₹89</button>' +
+          '<button class="btn-primary paywall-upgrade" type="button">Unlock Premium – ₹89</button>' +
           '<p class="paywall-plan-note">One-time payment · No subscription</p>' +
         '</div>' +
 
@@ -718,7 +718,7 @@ function showPaywall(featureType) {
             '<li>✓ AI word problem trainer</li>' +
             '<li>✓ Math Duel — real-time challenges</li>' +
           '</ul>' +
-          '<button class="btn accent paywall-plus-subscribe" type="button">Buy 6 Months · ₹299</button>' +
+          '<button class="btn-primary paywall-plus-subscribe" type="button">Buy 6 Months · ₹299</button>' +
           '<p class="paywall-plan-note">One-time payment · No auto-renewal</p>' +
         '</div>' +
       '</div>' +

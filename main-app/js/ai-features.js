@@ -239,7 +239,7 @@ var AIFeatures = (function () {
           '<div class="ai-loading"><div class="ai-spinner"></div><p>Generating explanation...</p></div>' +
         '</div>' +
         '<div class="modal-actions">' +
-          '<button class="btn modal-cancel ai-explain-close">Close</button>' +
+          '<button class="btn-secondary modal-cancel ai-explain-close">Close</button>' +
         '</div>' +
       '</div>';
 
@@ -319,11 +319,7 @@ var AIFeatures = (function () {
 
     if (!_isPremium()) {
       container.innerHTML =
-        '<div class="card ai-coach-card ai-coach-locked">' +
-          '<h3>🤖 AI Coach</h3>' +
-          '<p class="secondary-text">Get personalized daily insights powered by AI.</p>' +
-          '<button class="btn accent ai-coach-unlock-btn" type="button">🔒 Unlock with Premium+</button>' +
-        '</div>';
+        '<button class="home-bento-action-btn ai-coach-unlock-btn" type="button" id="coachUnlockBtn">View AI Insights ✨</button>';
       var unlockBtn = container.querySelector('.ai-coach-unlock-btn');
       if (unlockBtn) {
         unlockBtn.addEventListener('click', function () {
@@ -335,11 +331,8 @@ var AIFeatures = (function () {
 
     if (!stats || !stats.totalAttempted || stats.totalAttempted < 5) {
       container.innerHTML =
-        '<div class="card ai-coach-card">' +
-          '<h3>🤖 AI Coach</h3>' +
-          '<div class="ai-coach-body">' +
-            '<p class="secondary-text">Complete at least 5 questions to get your first AI insight.</p>' +
-          '</div>' +
+        '<div class="ai-coach-body">' +
+          '<p class="secondary-text">Complete at least 5 questions to get your first AI insight.</p>' +
         '</div>';
       return;
     }
@@ -347,20 +340,14 @@ var AIFeatures = (function () {
     var cached = _getCachedCoach();
     if (cached) {
       container.innerHTML =
-        '<div class="card ai-coach-card">' +
-          '<h3>🤖 AI Coach</h3>' +
-          '<div class="ai-coach-body"></div>' +
-        '</div>';
+        '<div class="ai-coach-body"></div>';
       _renderInsightsResult(container.querySelector('.ai-coach-body'), cached);
       return;
     }
 
     container.innerHTML =
-      '<div class="card ai-coach-card">' +
-        '<h3>🤖 AI Coach</h3>' +
-        '<div class="ai-coach-body">' +
-          '<button class="btn accent ai-insights-btn" type="button">View AI Insights ✨</button>' +
-        '</div>' +
+      '<div class="ai-coach-body">' +
+        '<button class="home-bento-action-btn ai-insights-btn" type="button">View AI Insights ✨</button>' +
       '</div>';
 
     var insightsBtn = container.querySelector('.ai-insights-btn');
@@ -485,7 +472,7 @@ var AIFeatures = (function () {
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn accent custom-practice-start-btn" id="startWordProblems" type="button">Generate Word Problems</button>' +
+          '<button class="btn-primary custom-practice-start-btn" id="startWordProblems" type="button">Generate Word Problems</button>' +
           '<div id="wpError" class="custom-mode-error secondary-text"></div>' +
         '</div>' +
         '<button class="training-card-back" id="wpBackToModes" type="button" aria-label="Back to practice modes">← Back</button>' +
@@ -794,7 +781,7 @@ var AIFeatures = (function () {
           '<div class="sp-range-labels"><span>15 min</span><span>3 hrs</span></div>' +
         '</div>' +
         '<div class="sp-error" id="spError" style="display:none;"></div>' +
-        '<button class="btn accent sp-generate-btn" id="spGenerateBtn" type="button">Generate Plan ✨</button>' +
+        '<button class="btn-primary sp-generate-btn" id="spGenerateBtn" type="button">Generate Plan ✨</button>' +
       '</div>';
 
     var overlay = document.createElement('div');
@@ -1032,11 +1019,7 @@ var AIFeatures = (function () {
 
     if (!_isPremium()) {
       container.innerHTML =
-        '<div class="card sp-card sp-card-locked">' +
-          '<h3>📅 Your Study Plan</h3>' +
-          '<p class="secondary-text">Get a personalized AI study plan tailored to your exam and timeline.</p>' +
-          '<button class="btn accent sp-unlock-btn" type="button">🔒 Unlock with Premium+</button>' +
-        '</div>';
+        '<button class="home-bento-action-btn sp-unlock-btn" type="button">🔒 Unlock with Premium+</button>';
       container.querySelector('.sp-unlock-btn').addEventListener('click', function () {
         if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
       });
@@ -1044,11 +1027,7 @@ var AIFeatures = (function () {
     }
 
     container.innerHTML =
-      '<div class="card sp-card">' +
-        '<h3>📅 Your Study Plan</h3>' +
-        '<p class="secondary-text">AI-personalized prep plan based on your exam date and weak topics.</p>' +
-        '<button class="btn accent sp-open-btn" type="button">Generate Plan ✨</button>' +
-      '</div>';
+      '<button class="home-bento-action-btn sp-open-btn" type="button">Generate Plan ✨</button>';
 
     container.querySelector('.sp-open-btn').addEventListener('click', function () {
       _openStudyPlanModal(containerId);

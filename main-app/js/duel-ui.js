@@ -113,9 +113,11 @@ var DuelUI = (function () {
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="duel-create-btn" id="duelCreateBtn" disabled>Create Duel ⚔️</button>' +
         '</div>' +
-        '<button class="duel-setup-back" id="duelBackBtn">← Back</button>' +
+        '<div class="duel-setup-footer">' +
+          '<button class="duel-create-btn" id="duelCreateBtn" disabled>Create Duel ⚔️</button>' +
+          '<button class="duel-setup-back" id="duelBackBtn">← Back</button>' +
+        '</div>' +
       '</div>';
 
     container.style.display = 'flex';
@@ -908,7 +910,7 @@ var DuelUI = (function () {
 
         /* Action buttons */
         '<div class="duel-result-actions">' +
-          '<button class="btn accent" id="duelResultDone" style="max-width:240px;">Back to Practice</button>' +
+          '<button class="btn-primary" id="duelResultDone" style="max-width:240px;">Back to Practice</button>' +
         '</div>' +
       '</div>';
 

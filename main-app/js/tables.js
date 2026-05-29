@@ -37,8 +37,8 @@ function renderTableSelector(selectorContainer, displayContainer, maxNum) {
   var controls = document.createElement('div');
   controls.className = 'table-controls';
   controls.innerHTML =
-    '<button class="btn" id="showAllTables" style="font-size:.85rem;padding:.5rem;">Show All</button>' +
-    '<button class="btn" id="clearAllTables" style="font-size:.85rem;padding:.5rem;">Clear All</button>';
+    '<button class="btn-secondary" id="showAllTables" style="font-size:.85rem;padding:.5rem;">Show All</button>' +
+    '<button class="btn-secondary" id="clearAllTables" style="font-size:.85rem;padding:.5rem;">Clear All</button>';
   selectorContainer.appendChild(controls);
 
   controls.querySelector('#showAllTables').addEventListener('click', function () {

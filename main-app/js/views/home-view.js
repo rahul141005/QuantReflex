@@ -165,8 +165,8 @@ function openQuickLinksEditor() {
   }
 
   html += '<div class="modal-actions">';
-  html += '<button class="btn modal-cancel">Cancel</button>';
-  html += '<button class="btn accent modal-save">Save</button>';
+  html += '<button class="btn-secondary modal-cancel">Cancel</button>';
+  html += '<button class="btn-primary modal-save">Save</button>';
   html += '</div>';
 
   modal.innerHTML = html;

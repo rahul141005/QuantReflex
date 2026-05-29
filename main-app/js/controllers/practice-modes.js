@@ -38,7 +38,7 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
         var banner = document.createElement('div');
         banner.className = 'daily-limit-banner';
         banner.innerHTML = '🔒 You\'ve reached your daily limit of 20 free questions.<br>Upgrade to Premium for unlimited practice.' +
-          '<br><button class="btn accent" onclick="showPaywall(\'settings\')">Upgrade Now</button>';
+          '<br><button class="btn-primary" onclick="showPaywall(\'settings\')">Upgrade Now</button>';
         modeSelectEl.parentNode.insertBefore(banner, modeSelectEl);
       }
     }

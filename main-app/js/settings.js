@@ -380,7 +380,8 @@ function initSettingsView() {
           }
           localStorage.setItem('appUpdating', 'true');
         } catch (_) {}
-        window.location.reload();
+        // Force the app to reload at the root (home) rather than the current hash
+        window.location.href = window.location.pathname;
       };
       if ('caches' in window) {
         caches.keys().then(function (keys) {

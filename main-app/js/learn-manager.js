@@ -211,8 +211,8 @@ function _createModal(title, fields, onSave) {
     }
   }
   html += '<div class="modal-actions">';
-  html += '<button class="btn modal-cancel">Cancel</button>';
-  html += '<button class="btn accent modal-save">Save</button>';
+  html += '<button class="btn-secondary modal-cancel">Cancel</button>';
+  html += '<button class="btn-primary modal-save">Save</button>';
   html += '</div>';
   modal.innerHTML = html;
 
@@ -266,7 +266,7 @@ function renderCustomFormulas(container, topicId, onUpdate) {
     html += '<div class="custom-formula-header">';
     html += '<strong>' + escapeHtml(f.title) + '</strong>';
     html += '<span class="custom-formula-actions">';
-    html += '<button class="formula-action-btn bookmark-btn' + starred + '" data-fid="' + f.id + '" title="Bookmark">⭐</button>';
+    html += '<button class="formula-action-btn bookmark-btn ' + starred + '" data-fid="' + f.id + '" title="Bookmark">⭐</button>';
     html += '<button class="formula-action-btn edit-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="Edit">✏️</button>';
     html += '<button class="formula-action-btn delete-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="Delete">🗑️</button>';
     html += '</span>';
