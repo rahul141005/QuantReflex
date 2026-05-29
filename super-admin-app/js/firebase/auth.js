@@ -13,13 +13,17 @@ var AdminAuth = (function () {
   var _authReadyCallbacks = [];
 
   function init() {
-    if (typeof SharedAuth === 'undefined') {
-      console.warn('SharedAuth not loaded.');
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      console.warn('Firebase Auth SDK not loaded');
       return;
     }
 
-    SharedAuth.init(function(user, authInstance) {
-      _auth = authInstance;
+    _auth = firebase.auth();
+    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      console.warn('Auth persistence error:', err);
+    });
+
+    _auth.onAuthStateChanged(function (user) {
       _currentUser = user;
 
       if (user) {

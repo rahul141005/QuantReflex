@@ -15,13 +15,16 @@ var Auth = (function () {
   var _appStateChangeListener = null;
 
   function init() {
-    if (typeof SharedAuth === 'undefined') {
-      console.warn('SharedAuth not loaded.');
+    if (!FirebaseApp.isConfigured() || typeof firebase === 'undefined' || !firebase.auth) {
       return;
     }
 
-    SharedAuth.init(function(user, authInstance) {
-      _auth = authInstance;
+    _auth = firebase.auth();
+    _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      console.warn('Auth persistence error:', err);
+    });
+
+    _auth.onAuthStateChanged(function (user) {
       var previousUser = _currentUser;
       _currentUser = user;
 
