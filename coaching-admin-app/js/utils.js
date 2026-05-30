@@ -102,6 +102,42 @@ var CoachingUtils = (function () {
   }
 
   /**
+   * Centralized subscription badge display.
+   * Premium+ supersedes Premium. Free users get nothing.
+   * @param {boolean} isPremium
+   * @param {boolean} isPremiumPlus
+   * @returns {string} HTML badge or empty string
+   */
+  function getSubscriptionBadge(isPremium, isPremiumPlus) {
+    if (isPremiumPlus) return '<span class="badge badge-premium-plus">★ Premium+</span>';
+    if (isPremium) return '<span class="badge badge-premium">★ Premium</span>';
+    return '';
+  }
+
+  /**
+   * Calculate Consistency Score (replaces XP).
+   * Weighted composite: streak contribution + volume + accuracy.
+   * @param {object} opts - { streak, totalAttempted, accuracy }
+   * @returns {number} Score 0–100
+   */
+  function getConsistencyScore(opts) {
+    var streak = opts.streak || 0;
+    var attempted = opts.totalAttempted || 0;
+    var accuracy = opts.accuracy || 0;
+
+    // Streak component (0–35): rewards sustained daily practice
+    var streakScore = Math.min(streak / 30, 1) * 35;
+
+    // Volume component (0–35): rewards question volume (diminishing returns)
+    var volumeScore = Math.min(attempted / 500, 1) * 35;
+
+    // Accuracy component (0–30): rewards high accuracy
+    var accuracyScore = (accuracy / 100) * 30;
+
+    return Math.round(streakScore + volumeScore + accuracyScore);
+  }
+
+  /**
    * Get initial letter for avatar.
    */
   function getInitial(name) {
@@ -182,6 +218,8 @@ var CoachingUtils = (function () {
     formatSpeed: formatSpeed,
     getStreakEmoji: getStreakEmoji,
     getEngagementBadge: getEngagementBadge,
+    getSubscriptionBadge: getSubscriptionBadge,
+    getConsistencyScore: getConsistencyScore,
     getInitial: getInitial,
     getAccuracyColor: getAccuracyColor,
     getReadableError: getReadableError,

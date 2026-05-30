@@ -5,7 +5,7 @@
  * All queries scoped by req.coachingId from JWT claims.
  */
 
-const { withCoachingAuth, formatError, safeTimestamp } = require('../_lib/middleware');
+const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -46,7 +46,7 @@ async function handler(req, res) {
       const stats = u.stats || {};
       const attempted = stats.totalAttempted || 0;
       const correct = stats.totalCorrect || 0;
-      const lastActive = _toMillis(stats.lastActiveDate || u.updatedAt);
+      const lastActive = toMillis(stats.lastActiveDate || u.updatedAt);
 
       // Topic accuracy aggregation
       const catStats = stats.categoryStats || {};
@@ -160,15 +160,6 @@ async function handler(req, res) {
     console.error('[Coaching Insights] Error:', err);
     return res.status(500).json({ error: formatError(err) });
   }
-}
-
-function _toMillis(val) {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') { const p = Date.parse(val); return isNaN(p) ? 0 : p; }
-  if (typeof val.toDate === 'function') { try { return val.toDate().getTime(); } catch (_) { return 0; } }
-  if (val instanceof Date) return val.getTime();
-  return 0;
 }
 
 module.exports = withCoachingAuth(handler);

@@ -224,13 +224,4 @@ async function _handleDetails(db, coachingId, req, res) {
   });
 }
 
-function _toMillis(val) {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') { const p = Date.parse(val); return isNaN(p) ? 0 : p; }
-  if (typeof val.toDate === 'function') { try { return val.toDate().getTime(); } catch (_) { return 0; } }
-  if (val instanceof Date) return val.getTime();
-  return 0;
-}
-
 module.exports = withCoachingAuth(handler);

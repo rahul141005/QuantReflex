@@ -20,21 +20,25 @@ var StudentProfileView = (function () {
 
     /* ── Header ── */
     html += '<div style="display:flex;align-items:center;gap:var(--space-lg);margin-bottom:var(--space-xl);">';
-    html += '<div class="student-avatar" style="width:56px;height:56px;font-size:var(--font-xl);">' + CoachingUtils.getInitial(p.name || p.email) + '</div>';
+    html += '<div class="student-avatar profile-avatar-ring" style="width:56px;height:56px;font-size:var(--font-xl);">' + CoachingUtils.getInitial(p.name || p.email) + '</div>';
     html += '<div class="flex-1">';
     html += '<div style="font-size:var(--font-xl);font-weight:700;">' + CoachingUtils.escapeHtml(p.name || p.email || 'Unknown') + '</div>';
     if (p.email) html += '<div style="font-size:var(--font-sm);color:var(--text-tertiary);">' + CoachingUtils.escapeHtml(p.email) + '</div>';
-    html += '<div style="margin-top:var(--space-xs);">' + CoachingUtils.getEngagementBadge(p.engagementLevel);
-    if (p.isPremium) html += ' <span class="badge badge-premium">Premium</span>';
-    if (p.isPremiumPlus) html += ' <span class="badge badge-premium">Premium+</span>';
+    html += '<div style="margin-top:var(--space-xs);display:flex;gap:var(--space-xs);flex-wrap:wrap;">' + CoachingUtils.getEngagementBadge(p.engagementLevel);
+    html += CoachingUtils.getSubscriptionBadge(p.isPremium, p.isPremiumPlus);
     html += '</div></div></div>';
 
     /* ── Quick Stats ── */
+    var consistencyScore = CoachingUtils.getConsistencyScore({
+      streak: s.dailyStreak,
+      totalAttempted: s.totalAttempted,
+      accuracy: s.accuracy
+    });
     html += '<div class="metrics-grid" style="margin-bottom:var(--space-xl);">';
     html += _miniMetric(CoachingUtils.formatAccuracy(s.accuracy), 'Accuracy', 'accent-emerald');
     html += _miniMetric(CoachingUtils.formatSpeed(s.avgSpeed), 'Avg Speed', 'accent-cyan');
     html += _miniMetric(s.dailyStreak + 'd', 'Streak ' + CoachingUtils.getStreakEmoji(s.dailyStreak), 'accent-amber');
-    html += _miniMetric(CoachingUtils.formatNumber(s.totalAttempted), 'Questions', 'accent-primary');
+    html += _miniMetric(consistencyScore + '/100', '🧠 Consistency', 'accent-violet');
     html += '</div>';
 
     /* ── Today's Progress ── */

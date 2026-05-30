@@ -76,7 +76,7 @@ var CoachingAPI = (function () {
   /**
    * Get leaderboard.
    * @param {string} [period] — daily|weekly|monthly|allTime
-   * @param {string} [metric] — accuracy|speed|streak|questions|xp
+   * @param {string} [metric] — accuracy|speed|streak|questions|consistency
    * @param {boolean} [forceRefresh]
    * @returns {Promise<object>}
    */
@@ -101,12 +101,15 @@ var CoachingAPI = (function () {
    * Send a notice to coaching students.
    * @param {string} title
    * @param {string} body
+   * @param {string} [scheduledFor] — ISO date string for scheduled delivery
    * @returns {Promise<object>}
    */
-  function sendNotice(title, body) {
+  function sendNotice(title, body, scheduledFor) {
+    var payload = { title: title, body: body };
+    if (scheduledFor) payload.scheduledFor = scheduledFor;
     return _fetch('/api/coaching/notices?action=send', {
       method: 'POST',
-      body: JSON.stringify({ title: title, body: body })
+      body: JSON.stringify(payload)
     }).then(function (data) {
       /* Invalidate notices cache so history refreshes */
       CoachingState.invalidateCache('noticesCache', 'noticesFetchedAt');
@@ -144,6 +147,26 @@ var CoachingAPI = (function () {
     });
   }
 
+  /**
+   * Get pending scheduled notices.
+   * @returns {Promise<object>}
+   */
+  function getScheduledNotices() {
+    return _fetch('/api/coaching/notices?action=scheduled');
+  }
+
+  /**
+   * Cancel a pending scheduled notice.
+   * @param {string} noticeId
+   * @returns {Promise<object>}
+   */
+  function cancelScheduledNotice(noticeId) {
+    return _fetch('/api/coaching/notices?action=cancel-scheduled', {
+      method: 'POST',
+      body: JSON.stringify({ noticeId: noticeId })
+    });
+  }
+
   return {
     getDashboard: getDashboard,
     getStudents: getStudents,
@@ -151,6 +174,8 @@ var CoachingAPI = (function () {
     getLeaderboard: getLeaderboard,
     sendNotice: sendNotice,
     getNoticeHistory: getNoticeHistory,
+    getScheduledNotices: getScheduledNotices,
+    cancelScheduledNotice: cancelScheduledNotice,
     getInsights: getInsights
   };
 })();

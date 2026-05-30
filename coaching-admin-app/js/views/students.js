@@ -83,9 +83,7 @@ var StudentsView = (function () {
     html += '<div class="student-avatar">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
     html += '<div class="student-info">';
     html += '<div class="student-name">' + CoachingUtils.escapeHtml(s.name || s.email || 'Unknown');
-    if (s.isPremium || s.isPremiumPlus) {
-      html += ' <span class="stat-pill premium" style="font-size:0.6rem;">★</span>';
-    }
+    html += CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
     html += '</div>';
     html += '<div class="student-meta">';
     html += '<span>' + CoachingUtils.getRelativeTime(s.lastActive) + '</span>';
@@ -109,7 +107,6 @@ var StudentsView = (function () {
       var q = _searchQuery.toLowerCase();
       students = students.filter(function (s) {
         return (s.name && s.name.toLowerCase().indexOf(q) !== -1) ||
-               (s.email && s.email.toLowerCase().indexOf(q) !== -1) ||
                (s.email && s.email.toLowerCase().indexOf(q) !== -1);
       });
     }

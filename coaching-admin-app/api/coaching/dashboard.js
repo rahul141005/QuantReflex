@@ -6,7 +6,7 @@
  * All queries scoped by req.coachingId from JWT claims.
  */
 
-const { withCoachingAuth, formatError, safeTimestamp } = require('../_lib/middleware');
+const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -24,6 +24,10 @@ async function handler(req, res) {
     const db = admin.firestore();
     const coachingId = req.coachingId;
 
+    // Fetch coaching info (needed for denormalized studentCount)
+    const coachingDoc = await db.collection('coachings').doc(coachingId).get();
+    const coachingData = coachingDoc.exists ? coachingDoc.data() : {};
+
     // Fetch all students for this coaching
     const studentsSnap = await db.collection('users')
       .where('coachingId', '==', coachingId)
@@ -33,7 +37,8 @@ async function handler(req, res) {
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-    let totalStudents = 0;
+    let totalStudents = coachingData.studentCount !== undefined ? coachingData.studentCount : 0;
+    let fallbackCount = 0;
     let activeToday = 0;
     let activeThisWeek = 0;
     let totalAccuracy = 0;
@@ -51,10 +56,10 @@ async function handler(req, res) {
 
     studentsSnap.forEach(doc => {
       const u = doc.data();
-      totalStudents++;
+      fallbackCount++;
 
       const stats = u.stats || {};
-      const lastActive = _toMillis(stats.lastActiveDate || u.updatedAt);
+      const lastActive = toMillis(stats.lastActiveDate || u.updatedAt);
 
       // Active today / this week
       if (lastActive >= oneDayAgo) activeToday++;
@@ -140,15 +145,15 @@ async function handler(req, res) {
 
     // Sort inactive by lastActive asc (most inactive first)
     inactiveStudents.sort((a, b) => {
-      const aMs = _toMillis(a.lastActive);
-      const bMs = _toMillis(b.lastActive);
+      const aMs = toMillis(a.lastActive);
+      const bMs = toMillis(b.lastActive);
       return aMs - bMs;
     });
 
     // Sort recent activity by last active desc
     recentActivity.sort((a, b) => {
-      const aMs = _toMillis(a.lastActive);
-      const bMs = _toMillis(b.lastActive);
+      const aMs = toMillis(a.lastActive);
+      const bMs = toMillis(b.lastActive);
       return bMs - aMs;
     });
 
@@ -166,9 +171,9 @@ async function handler(req, res) {
     }
     weakTopics.sort((a, b) => a.accuracy - b.accuracy);
 
-    // Fetch coaching info
-    const coachingDoc = await db.collection('coachings').doc(coachingId).get();
-    const coachingData = coachingDoc.exists ? coachingDoc.data() : {};
+    if (coachingData.studentCount === undefined) {
+      totalStudents = fallbackCount;
+    }
 
     return res.status(200).json({
       coaching: {
@@ -181,7 +186,7 @@ async function handler(req, res) {
         createdAt: safeTimestamp(coachingData.createdAt)
       },
       metrics: {
-        totalStudents,
+        totalStudents: totalStudents,
         activeToday,
         activeThisWeek,
         avgAccuracy: accuracyCount > 0 ? Math.round(totalAccuracy / accuracyCount) : 0,
@@ -201,16 +206,6 @@ async function handler(req, res) {
     console.error('[Coaching Dashboard] Error:', err);
     return res.status(500).json({ error: formatError(err) });
   }
-}
-
-function _toMillis(val) {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') { const p = Date.parse(val); return isNaN(p) ? 0 : p; }
-  if (typeof val.toDate === 'function') { try { return val.toDate().getTime(); } catch (_) { return 0; } }
-  if (val instanceof Date) return val.getTime();
-  if (typeof val === 'object' && val._seconds != null) return val._seconds * 1000;
-  return 0;
 }
 
 module.exports = withCoachingAuth(handler);

@@ -103,4 +103,20 @@ function withCoachingAuth(handler) {
   };
 }
 
-module.exports = { withCoachingAuth, formatError, parseBody, safeTimestamp };
+/**
+ * Convert any Firestore-like timestamp value to milliseconds.
+ * Handles: number, string, Firestore Timestamp, Date object.
+ * @param {*} val
+ * @returns {number} milliseconds since epoch, or 0
+ */
+function toMillis(val) {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') { const p = Date.parse(val); return isNaN(p) ? 0 : p; }
+  if (typeof val.toDate === 'function') { try { return val.toDate().getTime(); } catch (_) { return 0; } }
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'object' && val._seconds != null) return val._seconds * 1000;
+  return 0;
+}
+
+module.exports = { withCoachingAuth, formatError, parseBody, safeTimestamp, toMillis };

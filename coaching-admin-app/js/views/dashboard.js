@@ -2,8 +2,8 @@
  * dashboard.js — Performance Command Center View
  *
  * The main landing view for coaching admins.
- * Shows aggregated metrics, weak topics, top performers,
- * inactive alerts, and recent activity.
+ * Shows greeting, multi-factor coaching health display, aggregated metrics,
+ * weak topics, top performers, inactive alerts, and recent activity.
  */
 var DashboardView = (function () {
   'use strict';
@@ -32,7 +32,7 @@ var DashboardView = (function () {
     }).catch(function (err) {
       container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
         '<div class="empty-state-text">' + CoachingUtils.escapeHtml(CoachingUtils.getReadableError(err)) + '</div>' +
-        '<button class="btn btn-outline mt-lg" onclick="DashboardView.render(true)">Try Again</button></div>';
+        '<button class="btn-retry" onclick="DashboardView.render(true)">Try Again</button></div>';
     });
   }
 
@@ -40,7 +40,13 @@ var DashboardView = (function () {
     var m = data.metrics || {};
     var html = '';
 
-    /* ── Hero Metrics ── */
+    /* ── Hero Greeting ── */
+    html += _buildGreetingHero(data);
+
+    /* ── Coaching Health Display (Multi-Factor) ── */
+    html += _buildHealthDisplay(m);
+
+    /* ── Hero Metrics Grid ── */
     html += '<div class="metrics-grid">';
     html += _metricCard(m.activeToday, 'Active Today', '📊', 'accent-emerald');
     html += _metricCard(CoachingUtils.formatAccuracy(m.avgAccuracy), 'Avg Accuracy', '🎯', 'accent-primary');
@@ -106,6 +112,7 @@ var DashboardView = (function () {
         var act = data.recentActivity[l];
         html += '<div style="display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) 0;' +
           (l < data.recentActivity.length - 1 ? 'border-bottom:1px solid var(--border-subtle);' : '') + '">';
+        html += '<div class="student-avatar" style="width:28px;height:28px;font-size:0.65rem;">' + CoachingUtils.getInitial(act.name) + '</div>';
         html += '<div style="font-size:var(--font-sm);font-weight:500;flex:1;">' + CoachingUtils.escapeHtml(act.name) + '</div>';
         html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + (act.todayAttempted || 0) + ' Qs</div>';
         html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + CoachingUtils.getRelativeTime(act.lastActive) + '</div>';
@@ -115,6 +122,70 @@ var DashboardView = (function () {
     }
 
     return html;
+  }
+
+  /* ── Greeting Hero Section ── */
+  function _buildGreetingHero(data) {
+    var hour = new Date().getHours();
+    var greeting = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+    var dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+    var name = (data.coaching && data.coaching.name) || 'Coach';
+
+    var html = '<div class="dashboard-hero">';
+    html += '<div class="dashboard-hero-greeting">';
+    html += '<div class="dashboard-hero-date">' + dateStr + '</div>';
+    html += '<div class="dashboard-hero-text">' + greeting + ' 👋</div>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  /* ── Multi-Factor Coaching Health Display ── */
+  function _buildHealthDisplay(m) {
+    var totalStudents = m.totalStudents || 0;
+    var activeThisWeek = m.activeThisWeek || 0;
+    var avgAccuracy = m.avgAccuracy || 0;
+
+    /* Calculate engagement rate */
+    var engagementPct = totalStudents > 0 ? Math.round((activeThisWeek / totalStudents) * 100) : 0;
+
+    /* Accuracy trend (compare to a baseline of 60%) */
+    var accuracyTrend = avgAccuracy >= 70 ? 'strong' : (avgAccuracy >= 50 ? 'moderate' : 'needs-attention');
+    var accuracyLabel = avgAccuracy >= 70 ? 'Strong' : (avgAccuracy >= 50 ? 'Moderate' : 'Needs Focus');
+
+    /* Retention label */
+    var retentionLabel = engagementPct >= 70 ? 'Excellent' : (engagementPct >= 40 ? 'Good' : 'Low');
+    var retentionStatus = engagementPct >= 70 ? 'strong' : (engagementPct >= 40 ? 'moderate' : 'needs-attention');
+
+    var html = '<div class="health-display">';
+    html += '<div class="health-display-title">📊 Coaching Health</div>';
+    html += '<div class="health-factors">';
+
+    /* Factor 1: Engagement */
+    html += _healthFactor('👥 Engagement', engagementPct + '%', engagementPct >= 60 ? 'strong' : (engagementPct >= 30 ? 'moderate' : 'needs-attention'),
+      activeThisWeek + '/' + totalStudents + ' active this week');
+
+    /* Factor 2: Accuracy Trend */
+    html += _healthFactor('🎯 Accuracy', avgAccuracy + '%', accuracyTrend, accuracyLabel);
+
+    /* Factor 3: Retention */
+    html += _healthFactor('📈 Retention', retentionLabel, retentionStatus,
+      engagementPct + '% weekly return rate');
+
+    html += '</div></div>';
+    return html;
+  }
+
+  function _healthFactor(title, value, status, subtitle) {
+    var statusClass = 'health-factor-' + status;
+    return '<div class="health-factor ' + statusClass + '">' +
+      '<div class="health-factor-header">' +
+      '<span class="health-factor-title">' + title + '</span>' +
+      '<span class="health-factor-value">' + value + '</span>' +
+      '</div>' +
+      '<div class="health-factor-bar"><div class="health-factor-fill"></div></div>' +
+      '<div class="health-factor-subtitle">' + subtitle + '</div>' +
+      '</div>';
   }
 
   function _metricCard(value, label, icon, accentClass) {
@@ -136,7 +207,9 @@ var DashboardView = (function () {
   }
 
   function _skeletonHtml() {
-    return CoachingUtils.skeletonMetrics() +
+    return '<div class="skeleton skeleton-card" style="height:64px;margin-bottom:var(--space-lg);"></div>' +
+      '<div class="skeleton skeleton-card" style="height:120px;margin-bottom:var(--space-lg);"></div>' +
+      CoachingUtils.skeletonMetrics() +
       '<div class="skeleton skeleton-card" style="height:60px;"></div>' +
       '<div class="skeleton skeleton-card" style="height:120px;"></div>' +
       CoachingUtils.skeletonCard(3);

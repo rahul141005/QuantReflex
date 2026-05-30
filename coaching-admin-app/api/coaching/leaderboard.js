@@ -1,11 +1,11 @@
 /**
  * leaderboard.js — Coaching Leaderboard API
  *
- * GET ?period=daily|weekly|monthly|allTime&metric=accuracy|speed|streak|questions|xp
+ * GET ?period=daily|weekly|monthly|allTime&metric=accuracy|speed|streak|questions|consistency
  * Returns ranked students for the coaching institute.
  */
 
-const { withCoachingAuth, formatError, safeTimestamp } = require('../_lib/middleware');
+const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -42,7 +42,7 @@ async function handler(req, res) {
     studentsSnap.forEach(doc => {
       const u = doc.data();
       const stats = u.stats || {};
-      const lastActive = _toMillis(stats.lastActiveDate || u.updatedAt);
+      const lastActive = toMillis(stats.lastActiveDate || u.updatedAt);
 
       // For period-based filtering (except allTime), only include recently active students
       if (period !== 'allTime' && lastActive < cutoff) return;
@@ -65,10 +65,15 @@ async function handler(req, res) {
         case 'questions':
           metricValue = attempted;
           break;
-        case 'xp':
-          // XP approximation: correct answers weighted
-          metricValue = correct * 10 + (stats.dailyStreak || 0) * 5;
+        case 'consistency': {
+          // Consistency Score (0–100): streak (35%) + volume (35%) + accuracy (30%)
+          const acc = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+          const streakComp = Math.min((stats.dailyStreak || 0) / 30, 1) * 35;
+          const volumeComp = Math.min(attempted / 500, 1) * 35;
+          const accuracyComp = (acc / 100) * 30;
+          metricValue = Math.round(streakComp + volumeComp + accuracyComp);
           break;
+        }
         default:
           metricValue = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
       }
@@ -109,15 +114,6 @@ async function handler(req, res) {
     console.error('[Coaching Leaderboard] Error:', err);
     return res.status(500).json({ error: formatError(err) });
   }
-}
-
-function _toMillis(val) {
-  if (!val) return 0;
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') { const p = Date.parse(val); return isNaN(p) ? 0 : p; }
-  if (typeof val.toDate === 'function') { try { return val.toDate().getTime(); } catch (_) { return 0; } }
-  if (val instanceof Date) return val.getTime();
-  return 0;
 }
 
 module.exports = withCoachingAuth(handler);

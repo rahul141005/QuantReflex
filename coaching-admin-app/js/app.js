@@ -143,6 +143,29 @@ var CoachingApp = (function () {
    * Bind auth form events (login/register tabs and submit).
    */
   function _bindAuthForm() {
+    /* Password visibility toggle */
+    var togglePasswordBtn = document.getElementById('togglePasswordVisibility');
+    var passwordInput = document.getElementById('authPassword');
+    if (togglePasswordBtn && passwordInput) {
+      togglePasswordBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+
+        var showIcon = this.querySelector('.eye-icon-show');
+        var hideIcon = this.querySelector('.eye-icon-hide');
+        if (type === 'text') {
+          if (showIcon) showIcon.style.display = 'none';
+          if (hideIcon) hideIcon.style.display = 'block';
+          this.setAttribute('aria-label', 'Hide password');
+        } else {
+          if (showIcon) showIcon.style.display = 'block';
+          if (hideIcon) hideIcon.style.display = 'none';
+          this.setAttribute('aria-label', 'Show password');
+        }
+      });
+    }
+
     /* Tab switching */
     document.addEventListener('click', function (e) {
       var tab = e.target.closest('.auth-tab');

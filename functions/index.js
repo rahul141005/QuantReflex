@@ -30,6 +30,7 @@
 
 const { setGlobalOptions } = require('firebase-functions');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -312,5 +313,57 @@ exports.dailyPracticeReminder = onSchedule(
     } catch (err) {
       logger.error('[reminder] Error:', err.message);
     }
+  }
+);
+
+
+// ════════════════════════════════════════════════════════════════
+// 4. COACHING STUDENT COUNT SYNC
+// ════════════════════════════════════════════════════════════════
+//
+// WHY: Dashboard loading for massive coaching centers (>10k students)
+// requires O(N) reads. Denormalizing the total student count prevents
+// 10,000 document reads just to get the headline number.
+//
+// WHAT IT DOES:
+// - Listens to writes on the `users` collection.
+// - Increments/decrements `studentCount` on the `coachings` document
+//   when a user's `coachingId` changes, or when a user is created/deleted.
+// ════════════════════════════════════════════════════════════════
+
+exports.syncCoachingStudentCount = onDocumentWritten(
+  { document: 'users/{userId}' },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : null;
+    const afterData = event.data.after.exists ? event.data.after.data() : null;
+
+    const oldCoachingId = beforeData ? beforeData.coachingId : null;
+    const newCoachingId = afterData ? afterData.coachingId : null;
+
+    if (oldCoachingId === newCoachingId) {
+      return null; // No change in coaching association
+    }
+
+    const promises = [];
+
+    /* Decrement from old coaching */
+    if (oldCoachingId) {
+      promises.push(
+        db.collection('coachings').doc(oldCoachingId).update({
+          studentCount: FieldValue.increment(-1)
+        }).catch((err) => logger.error(`[syncCount] Error decrementing coaching ${oldCoachingId}`, err.message))
+      );
+    }
+
+    /* Increment on new coaching */
+    if (newCoachingId) {
+      promises.push(
+        db.collection('coachings').doc(newCoachingId).update({
+          studentCount: FieldValue.increment(1)
+        }).catch((err) => logger.error(`[syncCount] Error incrementing coaching ${newCoachingId}`, err.message))
+      );
+    }
+
+    return Promise.all(promises);
   }
 );

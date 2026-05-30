@@ -45,6 +45,14 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    // Check if the user is a member of or admin for a coaching institute
+    function isCoachingMember(coachingId) {
+      return request.auth != null && (
+        request.auth.token.coachingId == coachingId ||
+        (request.auth.token.coaching_admin == true && request.auth.token.coachingId == coachingId)
+      );
+    }
+
     // ── Entitlement Protection (UPDATE) ──
     // For UPDATES to existing user documents: validate that protected
     // entitlement fields can only be set to revocation-safe values
@@ -202,12 +210,13 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
-    // COACHINGS COLLECTION
+    // COACHINGS COLLECTION (HARDENED)
     // ════════════════════════════════════════════
-    // Read-only for authenticated users.
-    // Write access is via Admin SDK only (Super Admin Panel).
+    // Read: only members of the coaching (via custom claim coachingId match)
+    //       or coaching admins for their own coaching.
+    // Write: Admin SDK only (Super Admin Panel).
     match /coachings/{coachingId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && isCoachingMember(coachingId);
       allow write: if false; // Admin SDK bypasses this
     }
 
@@ -292,6 +301,24 @@ service cloud.firestore {
       allow read, delete: if request.auth != null
         && resource.data.userId == request.auth.uid;
       allow create, update: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
+    // NOTIFICATION LOGS COLLECTION
+    // ════════════════════════════════════════════
+    // All access is via Admin SDK only (Coaching Admin serverless functions).
+    // Client-side access is denied.
+    match /notificationLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // ════════════════════════════════════════════
+    // SCHEDULED NOTICES COLLECTION
+    // ════════════════════════════════════════════
+    // All access is via Admin SDK only (Coaching Admin serverless functions).
+    // Client-side access is denied.
+    match /scheduledNotices/{noticeId} {
+      allow read, write: if false;
     }
 
     // ════════════════════════════════════════════
