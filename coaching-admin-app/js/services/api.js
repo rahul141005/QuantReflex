@@ -60,10 +60,20 @@ var CoachingAPI = (function () {
     if (!forceRefresh && CoachingState.isCacheFresh('studentsCache', 'studentsFetchedAt')) {
       return Promise.resolve(CoachingState.get('studentsCache'));
     }
-    return _fetch('/api/coaching/students?action=list').then(function (data) {
+    return _fetch('/api/coaching/students?action=list&limit=50').then(function (data) {
       CoachingState.set({ studentsCache: data, studentsFetchedAt: Date.now() });
       return data;
     });
+  }
+
+  /**
+   * Get paginated student list.
+   * @param {string} cursor
+   * @returns {Promise<object>}
+   */
+  function getStudentsPaginated(cursor) {
+    if (!cursor) return Promise.resolve({ students: [] });
+    return _fetch('/api/coaching/students?action=list&limit=50&cursor=' + encodeURIComponent(cursor));
   }
 
   /**
@@ -176,6 +186,7 @@ var CoachingAPI = (function () {
   return {
     getDashboard: getDashboard,
     getStudents: getStudents,
+    getStudentsPaginated: getStudentsPaginated,
     getStudentDetails: getStudentDetails,
     getLeaderboard: getLeaderboard,
     sendNotice: sendNotice,

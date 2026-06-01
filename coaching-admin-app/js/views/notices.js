@@ -15,11 +15,12 @@ var NoticesView = (function () {
   var _targetName = null;
 
   var TEMPLATES = [
-    { emoji: '💪', label: 'Motivational', title: '💪 Keep Pushing!', body: 'Consistency is the key to mastering math. Keep practicing and you\'ll ace your exams!' },
-    { emoji: '🚨', label: 'Urgent Alert', title: '🚨 Don\'t Lose Your Streak!', body: 'Your daily streak is at risk. Solve just 10 questions today to keep your momentum going.' },
-    { emoji: '🏆', label: 'Leaderboard', title: '🏆 Leaderboard Update', body: 'The weekly leaderboard has been updated! Did you make the Top 10? Check it out now!' },
-    { emoji: '🎯', label: 'Weekend Challenge', title: '🎯 Weekend Mastery', body: 'This weekend\'s challenge: Master 3 weak topics and boost your overall accuracy. Are you up for it?' },
-    { emoji: '💎', label: 'Premium Teaser', title: '💎 Unlock Deep Analytics', body: 'Want to know exactly where you are losing marks? Upgrade to Premium for deep topic analytics and AI insights.' }
+    { emoji: '⚠️', label: 'Attendance Alert', title: 'Missing in Action ⚠️', body: 'We missed you at practice today. Jump in and protect your streak!' },
+    { emoji: '📝', label: 'Test Reminder', title: 'Test Tomorrow! 📝', body: 'Don\'t forget tomorrow\'s weekly assessment. Review your weak topics tonight.' },
+    { emoji: '🏆', label: 'Weekend Challenge', title: 'Weekend Challenge 🏆', body: 'Complete 50 questions this weekend to earn bonus profile badges!' },
+    { emoji: '⭐', label: 'Top Performer', title: 'Excellent Work! ⭐', body: 'Your speed and accuracy this week have been outstanding. Keep it up!' },
+    { emoji: '📉', label: 'Low Activity', title: 'Slipping Accuracy 📉', body: 'We noticed a slight drop in your recent accuracy. Try slowing down and using the scratchpad.' },
+    { emoji: '🎉', label: 'Holiday Notice', title: 'Holiday Break 🎉', body: 'No official assignments this weekend. Enjoy the break!' }
   ];
 
   function render(forceRefresh) {
@@ -337,6 +338,7 @@ var NoticesView = (function () {
   }
 
   function sendNudge(uid, name) {
+    if (typeof BottomSheet !== 'undefined') BottomSheet.close();
     _targetUid = uid;
     _targetName = name;
     _targetTopic = null;
@@ -354,6 +356,7 @@ var NoticesView = (function () {
   }
 
   function targetTopic(topic) {
+    if (typeof BottomSheet !== 'undefined') BottomSheet.close();
     _targetTopic = topic;
     _targetUid = null;
     _targetName = null;

@@ -29,12 +29,12 @@ async function handler(req, res) {
     const db = admin.firestore();
     const coachingId = req.coachingId;
 
-    if (action === 'list') {
-      return _handleList(db, coachingId, req, res);
+    if (action === 'list' && req.method === 'GET') {
+      return await _handleList(db, coachingId, req, res);
     }
 
-    if (action === 'details') {
-      return _handleDetails(db, coachingId, req, res);
+    if (action === 'details' && req.method === 'GET') {
+      return await _handleDetails(db, coachingId, req, res);
     }
 
     return res.status(404).json({ error: 'Unknown action' });
@@ -45,9 +45,27 @@ async function handler(req, res) {
 }
 
 async function _handleList(db, coachingId, req, res) {
-  const studentsSnap = await db.collection('users')
-    .where('coachingId', '==', coachingId)
-    .get();
+  const limit = parseInt(req.query.limit, 10) || 50;
+  const cursor = req.query.cursor; // The lastActiveDate string of the last student seen
+  const search = (req.query.search || '').trim().toLowerCase();
+
+  let query = db.collection('users').where('coachingId', '==', coachingId);
+
+  // If there's a search term, we can't easily paginate on it without Algolia/Elasticsearch.
+  // We'll fall back to fetching more or doing a simple client-side filter if search is used.
+  if (!search) {
+    query = query.orderBy('stats.lastActiveDate', 'desc');
+    if (cursor) {
+      query = query.startAfter(cursor);
+    }
+    query = query.limit(limit);
+  } else {
+    // If searching, we have to fetch all and filter in JS (temporary workaround until full search index)
+    // To prevent total OOM, we cap it at 1000 max.
+    query = query.limit(1000);
+  }
+
+  const studentsSnap = await query.get();
 
   const students = [];
   studentsSnap.forEach(doc => {
@@ -92,14 +110,27 @@ async function _handleList(db, coachingId, req, res) {
     });
   });
 
-  // Sort by last active descending by default
-  students.sort((a, b) => {
-    const aMs = a.lastActive ? Date.parse(a.lastActive) || 0 : 0;
-    const bMs = b.lastActive ? Date.parse(b.lastActive) || 0 : 0;
-    return bMs - aMs;
-  });
+  // Sort by last active descending (if we fetched all for search)
+  if (search) {
+    students = students.filter(s => 
+      s.name.toLowerCase().includes(search) || 
+      (s.email && s.email.toLowerCase().includes(search))
+    );
+    students.sort((a, b) => {
+      const aMs = a.lastActive ? Date.parse(a.lastActive) || 0 : 0;
+      const bMs = b.lastActive ? Date.parse(b.lastActive) || 0 : 0;
+      return bMs - aMs;
+    });
+  }
 
-  return res.status(200).json({ students, total: students.length });
+  const nextCursor = students.length > 0 && !search ? students[students.length - 1].lastActive : null;
+
+  return res.status(200).json({ 
+    students, 
+    total: students.length,
+    nextCursor,
+    hasMore: !search && students.length === limit
+  });
 }
 
 async function _handleDetails(db, coachingId, req, res) {

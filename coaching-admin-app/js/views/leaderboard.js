@@ -158,9 +158,9 @@ var LeaderboardView = (function () {
       // Main Info
       html += '<div class="flex-1" style="min-width:0;">';
       html += '<div style="display:flex; align-items:center; gap:var(--space-xs); margin-bottom:2px;">';
-      html += '<span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + CoachingUtils.escapeHtml(s.name || s.email) + '</span>';
+      html += '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + CoachingUtils.escapeHtml(s.name || s.email) + '</div>';
       var badge = CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
-      if (badge) html += badge;
+      if (badge) html += '<div style="flex-shrink:0;">' + badge + '</div>';
       html += '</div>';
       html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + s.accuracy + '% Accuracy • ' + CoachingUtils.formatSpeed(s.speed) + ' Speed</div>';
       html += '</div>';

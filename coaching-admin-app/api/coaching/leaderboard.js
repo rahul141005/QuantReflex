@@ -47,12 +47,32 @@ async function handler(req, res) {
       const stats = u.stats || {};
       const lastActive = toMillis(stats.lastActiveDate || u.updatedAt);
 
-      // For period-based filtering (except allTime), only include recently active students
-      if (period !== 'allTime' && lastActive < cutoff) return;
+      // For period-based filtering, we MUST calculate stats using dailyHistory
+      let attempted = 0;
+      let correct = 0;
+      let times = [];
 
-      const attempted = stats.totalAttempted || 0;
-      const correct = stats.totalCorrect || 0;
-      const times = Array.isArray(stats.responseTimes) ? stats.responseTimes : [];
+      if (period === 'allTime') {
+        attempted = stats.totalAttempted || 0;
+        correct = stats.totalCorrect || 0;
+        times = Array.isArray(stats.responseTimes) ? stats.responseTimes : [];
+      } else {
+        if (lastActive < cutoff) return; // User wasn't active in this period
+
+        const dailyHistory = stats.dailyHistory || {};
+        for (const dateKey in dailyHistory) {
+          if (!dailyHistory.hasOwnProperty(dateKey)) continue;
+          const dayMs = Date.parse(dateKey);
+          if (dayMs >= cutoff) {
+            const dayData = dailyHistory[dateKey];
+            attempted += (dayData.attempted || 0);
+            correct += (dayData.correct || 0);
+            // Since responseTimes are not stored historically per day, we have to fall back 
+            // to recent responseTimes if they practiced in this period.
+          }
+        }
+        times = Array.isArray(stats.responseTimes) ? stats.responseTimes : [];
+      }
 
       let metricValue = 0;
       switch (metric) {

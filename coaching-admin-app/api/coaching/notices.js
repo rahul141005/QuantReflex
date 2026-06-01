@@ -28,19 +28,19 @@ async function handler(req, res) {
     const coachingId = req.coachingId;
 
     if (action === 'send' && req.method === 'POST') {
-      return _handleSend(db, coachingId, req, res);
+      return await _handleSend(db, coachingId, req, res);
     }
 
     if (action === 'history' && req.method === 'GET') {
-      return _handleHistory(db, coachingId, req, res);
+      return await _handleHistory(db, coachingId, req, res);
     }
 
     if (action === 'scheduled' && req.method === 'GET') {
-      return _handleScheduledList(db, coachingId, req, res);
+      return await _handleScheduledList(db, coachingId, req, res);
     }
 
     if (action === 'cancel-scheduled' && req.method === 'POST') {
-      return _handleCancelScheduled(db, coachingId, req, res);
+      return await _handleCancelScheduled(db, coachingId, req, res);
     }
 
     return res.status(404).json({ error: 'Unknown notices action' });
@@ -99,6 +99,7 @@ async function _handleSend(db, coachingId, req, res) {
 
   const totalStudents = studentsSnap.size;
   const tokens = [];
+  const targetUids = [];
   const uidMap = {};
   studentsSnap.forEach(doc => {
     const u = doc.data();
@@ -116,14 +117,16 @@ async function _handleSend(db, coachingId, req, res) {
       if (acc >= 0.5) return; // Skip if accuracy is 50% or higher
     }
 
+    targetUids.push(doc.id);
+
     if (u.fcmToken) {
       tokens.push(u.fcmToken);
       uidMap[u.fcmToken] = doc.id;
     }
   });
 
-  if (tokens.length === 0) {
-    // Still log the notice even if no tokens
+  if (targetUids.length === 0) {
+    // Still log the notice even if no matching students found
     await _logNotice(db, coachingId, req.userId, title, messageBody, 0, 0, 0);
     return res.status(200).json({
       success: true,
@@ -132,12 +135,33 @@ async function _handleSend(db, coachingId, req, res) {
       sent: 0,
       failed: 0,
       cleaned: 0,
-      message: totalStudents > 0
-        ? 'Notice saved. ' + totalStudents + ' student(s) found but none have push notifications enabled.'
-        : 'No students are linked to your coaching yet.'
+      message: 'No students matched the target criteria.'
     });
   }
 
+  // 1. Write persistent notification to Student Inbox in batches of 500
+  let inboxWrites = 0;
+  for (let i = 0; i < targetUids.length; i += 500) {
+    const chunk = targetUids.slice(i, i + 500);
+    const batch = db.batch();
+    const noticePayload = {
+      title,
+      body: messageBody,
+      type: targetUid ? 'direct_message' : (targetTopic ? 'topic_nudge' : 'announcement'),
+      coachingId,
+      isRead: false,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    chunk.forEach(uid => {
+      const ref = db.collection('users').doc(uid).collection('notifications').doc();
+      batch.set(ref, noticePayload);
+      inboxWrites++;
+    });
+    await batch.commit();
+  }
+
+  // 2. Send push notifications via FCM
   const messaging = admin.messaging();
   const messagePayload = {
     notification: { title, body: messageBody },

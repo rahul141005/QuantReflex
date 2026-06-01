@@ -1197,6 +1197,40 @@ var FirestoreSync = (function () {
         if (callback) callback(err);
       });
     },
+    getNotifications: function (callback) {
+      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
+      Auth.getCurrentUser().getIdToken().then(function (token) {
+        return fetch('/api/notifications?action=list', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error.message || 'Failed to fetch notifications');
+        if (callback) callback(null, data);
+      })
+      .catch(function (err) {
+        if (callback) callback(err);
+      });
+    },
+    markNotificationRead: function (id, callback) {
+      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
+      Auth.getCurrentUser().getIdToken().then(function (token) {
+        return fetch('/api/notifications?action=markRead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ id: id })
+        });
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error.message || 'Failed to mark read');
+        if (callback) callback(null);
+      })
+      .catch(function (err) {
+        if (callback) callback(err);
+      });
+    },
     updateCoachingId: function (coachingId) {
       /* Legacy support fallback - delegates to claimCoaching */
       this.claimCoaching(coachingId);

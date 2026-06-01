@@ -51,6 +51,22 @@
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "notificationLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coachingId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coachingId", "order": "ASCENDING" },
+        { "fieldPath": "stats.lastActiveDate", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

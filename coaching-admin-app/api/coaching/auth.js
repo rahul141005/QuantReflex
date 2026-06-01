@@ -44,7 +44,7 @@ async function handler(req, res) {
   const action = req.query.action || 'register';
 
   if (action === 'register' && req.method === 'POST') {
-    return _handleRegister(req, res);
+    return await _handleRegister(req, res);
   }
 
   return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown auth action.' } });
@@ -53,7 +53,7 @@ async function handler(req, res) {
 async function _handleRegister(req, res) {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const { email, password, coachingId } = body;
+    const { email, password, registrationToken } = body;
 
     // ── Input Validation ──
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -64,21 +64,24 @@ async function _handleRegister(req, res) {
       return res.status(400).json({ error: { code: 'INVALID_PASSWORD', message: 'Password must be at least 6 characters.' } });
     }
 
-    if (!coachingId || typeof coachingId !== 'string' || coachingId.trim().length === 0) {
-      return res.status(400).json({ error: { code: 'INVALID_COACHING_ID', message: 'Coaching ID is required. Contact your coaching institute for this code.' } });
+    if (!registrationToken || typeof registrationToken !== 'string' || registrationToken.trim().length === 0) {
+      return res.status(400).json({ error: { code: 'INVALID_TOKEN', message: 'Registration Token is required. Contact the Super Admin for this secure code.' } });
     }
 
-    const cleanCoachingId = coachingId.trim().toUpperCase();
+    const cleanToken = registrationToken.trim().toUpperCase();
     const cleanEmail = email.trim().toLowerCase();
     const db = admin.firestore();
 
-    // ── Verify Coaching Exists & Is Active ──
-    const coachingDoc = await db.collection('coachings').doc(cleanCoachingId).get();
-    if (!coachingDoc.exists) {
-      return res.status(404).json({ error: { code: 'COACHING_NOT_FOUND', message: 'Coaching ID not found. Please verify the code with your institute.' } });
+    // ── Verify Coaching Exists & Is Active by Registration Token ──
+    const coachingsSnap = await db.collection('coachings').where('registrationToken', '==', cleanToken).limit(1).get();
+    if (coachingsSnap.empty) {
+      return res.status(404).json({ error: { code: 'TOKEN_NOT_FOUND', message: 'Invalid or expired Registration Token.' } });
     }
 
+    const coachingDoc = coachingsSnap.docs[0];
     const coachingData = coachingDoc.data();
+    const cleanCoachingId = coachingDoc.id;
+
     if (coachingData.status === 'suspended' || coachingData.status === 'deleted') {
       return res.status(403).json({ error: { code: 'COACHING_INACTIVE', message: 'This coaching institute is currently inactive. Contact support.' } });
     }
@@ -119,6 +122,7 @@ async function _handleRegister(req, res) {
     await db.collection('coachings').doc(cleanCoachingId).update({
       adminUid: userRecord.uid,
       adminEmail: cleanEmail,
+      registrationToken: admin.firestore.FieldValue.delete(), // Nullify token after use for security
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 

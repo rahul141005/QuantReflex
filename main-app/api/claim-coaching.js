@@ -60,10 +60,13 @@ async function handler(req, res) {
       // 5. Decrement the old coaching document's student count (if any)
       if (oldCoachingId && typeof oldCoachingId === 'string' && oldCoachingId.trim().length > 0) {
         const oldCoachingRef = db.collection('coachings').doc(oldCoachingId);
-        transaction.update(oldCoachingRef, {
-          studentsCount: admin.firestore.FieldValue.increment(-1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+        const oldDoc = await transaction.get(oldCoachingRef);
+        if (oldDoc.exists) {
+          transaction.update(oldCoachingRef, {
+            studentsCount: admin.firestore.FieldValue.increment(-1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
       }
 
       // 6. Update user document

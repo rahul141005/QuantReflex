@@ -114,14 +114,32 @@ async function handler(req, res) {
         }
       }
 
-      // Accuracy trend (this week vs last week)
-      if (lastActive >= sevenDaysAgo) {
-        const acc = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-        accuracyThisWeek.total += acc;
+      // Accuracy trend (this week vs last week) using dailyHistory
+      let thisWeekAttempted = 0;
+      let thisWeekCorrect = 0;
+      let lastWeekAttempted = 0;
+      let lastWeekCorrect = 0;
+
+      const dailyHistory = stats.dailyHistory || {};
+      for (const dateKey in dailyHistory) {
+        if (!dailyHistory.hasOwnProperty(dateKey)) continue;
+        const dayMs = Date.parse(dateKey);
+        
+        if (dayMs >= sevenDaysAgo) {
+          thisWeekAttempted += (dailyHistory[dateKey].attempted || 0);
+          thisWeekCorrect += (dailyHistory[dateKey].correct || 0);
+        } else if (dayMs >= fourteenDaysAgo) {
+          lastWeekAttempted += (dailyHistory[dateKey].attempted || 0);
+          lastWeekCorrect += (dailyHistory[dateKey].correct || 0);
+        }
+      }
+
+      if (thisWeekAttempted > 0) {
+        accuracyThisWeek.total += Math.round((thisWeekCorrect / thisWeekAttempted) * 100);
         accuracyThisWeek.count++;
-      } else if (lastActive >= fourteenDaysAgo) {
-        const acc = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-        accuracyLastWeek.total += acc;
+      }
+      if (lastWeekAttempted > 0) {
+        accuracyLastWeek.total += Math.round((lastWeekCorrect / lastWeekAttempted) * 100);
         accuracyLastWeek.count++;
       }
     });

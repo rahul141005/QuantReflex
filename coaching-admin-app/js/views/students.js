@@ -10,6 +10,9 @@ var StudentsView = (function () {
   var _allStudents = [];
   var _currentSort = 'recent';
   var _searchQuery = '';
+  var _nextCursor = null;
+  var _hasMore = false;
+  var _isLoadingMore = false;
 
   function render(forceRefresh) {
     var container = document.getElementById('view-students');
@@ -24,6 +27,8 @@ var StudentsView = (function () {
 
     CoachingAPI.getStudents(forceRefresh).then(function (data) {
       _allStudents = data.students || [];
+      _nextCursor = data.nextCursor || null;
+      _hasMore = data.hasMore || false;
       container.innerHTML = _buildShell();
       _renderStudentList(container);
       _bindSearch();
@@ -66,15 +71,32 @@ var StudentsView = (function () {
     var students = _getFilteredAndSorted();
 
     if (students.length === 0) {
-      listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>' +
-        '<div class="empty-state-text">' + (_searchQuery ? 'No students match your search.' : 'No students in your coaching yet.') + '</div></div>';
+      if (_searchQuery) {
+        listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">No students match your search.</div></div>';
+      } else {
+        listEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div>' +
+          '<div class="empty-state-text">No students in your coaching yet.</div>' +
+          '<div style="margin-top:var(--space-md);padding:var(--space-md);background:var(--bg-elevated);border-radius:var(--radius-md);border:1px dashed var(--border-default);">' +
+          '<div style="font-size:var(--font-xs);color:var(--text-secondary);margin-bottom:var(--space-xs);">Your Invite Code</div>' +
+          '<div style="font-size:var(--font-lg);font-weight:700;font-family:monospace;color:var(--text-primary); letter-spacing:1px;">' + CoachingState.get('coachingId') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-sm mt-md" onclick="navigator.clipboard.writeText(\'' + CoachingState.get('coachingId') + '\'); Toast.show(\'Copied!\');">Copy Code</button>' +
+          '</div>';
+      }
       return;
     }
 
-    var html = '<div style="font-size:var(--font-xs);color:var(--text-muted);margin-bottom:var(--space-md);">' + students.length + ' student' + (students.length !== 1 ? 's' : '') + '</div>';
+    var html = '<div style="font-size:var(--font-xs);color:var(--text-muted);margin-bottom:var(--space-md);">' + students.length + ' student' + (students.length !== 1 ? 's' : '') + ' loaded</div>';
     for (var i = 0; i < students.length; i++) {
       html += _studentCard(students[i]);
     }
+    
+    if (_hasMore && !_searchQuery) {
+      html += '<div style="text-align:center; padding:var(--space-lg) 0;">';
+      html += '<button id="btnLoadMore" class="btn btn-outline" onclick="StudentsView.loadMore()">Load More</button>';
+      html += '</div>';
+    }
+    
     listEl.innerHTML = html;
   }
 
@@ -161,15 +183,37 @@ var StudentsView = (function () {
    * Show student profile in bottom sheet.
    */
   function showProfile(uid) {
-    BottomSheet.open('Student Profile', '<div style="text-align:center;padding:var(--space-2xl);"><div class="skeleton skeleton-card" style="height:200px;"></div></div>');
+    if (typeof BottomSheet !== 'undefined') {
+      BottomSheet.open('Loading profile...', true);
+      CoachingAPI.getStudentDetails(uid).then(function (data) {
+        if (typeof StudentProfileView !== 'undefined') {
+          BottomSheet.setContent(StudentProfileView.buildProfileHtml(data));
+        }
+      }).catch(function (err) {
+        BottomSheet.setContent('<div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
+          '<div class="empty-state-text">' + CoachingUtils.escapeHtml(CoachingUtils.getReadableError(err)) + '</div></div>');
+      });
+    }
+  }
 
-    CoachingAPI.getStudentDetails(uid).then(function (data) {
-      BottomSheet.setContent(StudentProfileView.buildProfileHtml(data));
-    }).catch(function (err) {
-      BottomSheet.setContent('<div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
-        '<div class="empty-state-text">' + CoachingUtils.escapeHtml(CoachingUtils.getReadableError(err)) + '</div></div>');
+  function loadMore() {
+    if (_isLoadingMore || !_hasMore || !_nextCursor) return;
+    _isLoadingMore = true;
+    var btn = document.getElementById('btnLoadMore');
+    if (btn) btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:auto;"></div>';
+    
+    CoachingAPI.getStudentsPaginated(_nextCursor).then(function (data) {
+      _allStudents = _allStudents.concat(data.students || []);
+      _nextCursor = data.nextCursor || null;
+      _hasMore = data.hasMore || false;
+      _isLoadingMore = false;
+      _renderStudentList(document.getElementById('view-students'));
+    }).catch(function(err) {
+      _isLoadingMore = false;
+      if (btn) btn.innerHTML = 'Load More';
+      Toast.show('Failed to load more: ' + err.message);
     });
   }
 
-  return { render: render, setSort: setSort, showProfile: showProfile };
+  return { render: render, setSort: setSort, showProfile: showProfile, loadMore: loadMore };
 })();

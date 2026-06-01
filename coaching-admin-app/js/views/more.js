@@ -138,7 +138,7 @@ var MoreView = (function () {
         html += '</div>';
       }
 
-      if (!html) {
+      if (!html || (data.accuracyTrend && data.accuracyTrend.thisWeek === 0 && data.accuracyTrend.lastWeek === 0 && !html)) {
         html = '<div class="empty-state" style="padding:var(--space-xl);"><div class="empty-state-text">Insights will appear once students start practicing.</div></div>';
       }
 
@@ -158,7 +158,7 @@ var MoreView = (function () {
   }
 
   function openSupport() {
-    window.open('mailto:admin@quantreflex.app?subject=Coaching%20Admin%20Support', '_blank');
+    window.open('mailto:quantreflex@gmail.com?subject=Coaching%20Admin%20Support', '_blank');
   }
 
   return { render: render, refreshAll: refreshAll, openSupport: openSupport };

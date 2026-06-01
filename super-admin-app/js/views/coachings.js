@@ -47,7 +47,7 @@ var CoachingsView = (function () {
 
     var html = '<div class="table-wrap"><table class="data-table">';
     html += '<thead><tr>' +
-      '<th>Coaching ID</th>' +
+      '<th>Coaching ID / Token</th>' +
       '<th>Name</th>' +
       '<th>Status</th>' +
       '<th>Plan</th>' +
@@ -75,7 +75,7 @@ var CoachingsView = (function () {
       }
 
       html += '<tr>' +
-        '<td><code>' + AdminUtils.escapeHtml(c.id || c.coachingId) + '</code></td>' +
+        '<td><code>' + AdminUtils.escapeHtml(c.id || c.coachingId) + '</code>' + (c.registrationToken && !c.adminUid ? '<br><small style="color:#666;">Token: ' + c.registrationToken + '</small>' : '') + '</td>' +
         '<td><strong>' + AdminUtils.escapeHtml(c.name) + '</strong></td>' +
         '<td>' + statusBadge + '</td>' +
         '<td>' + AdminUtils.escapeHtml(c.entitlementPlan || 'standard') + '</td>' +

@@ -63,6 +63,7 @@ async function handler(req, res) {
 
       let isUnique = false;
       let coachingId;
+      let registrationToken = 'REG' + generateCoachingId(8);
       while (!isUnique) {
         coachingId = 'QR' + generateCoachingId(); 
         const doc = await db.collection('coachings').doc(coachingId).get();
@@ -79,6 +80,7 @@ async function handler(req, res) {
         studentsCount: 0,
         activePremiumUsers: 0,
         activePremiumPlusUsers: 0,
+        registrationToken: registrationToken,
         expiryDate: expiryDate ? new Date(expiryDate).toISOString() : null,
         createdBy: req.userId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -124,7 +126,6 @@ async function handler(req, res) {
           usersSnapshot.forEach((userDoc) => {
             if (count === 500) { batches.push(currentBatch); currentBatch = db.batch(); count = 0; }
             currentBatch.update(userDoc.ref, {
-              isPremium: false,
               isPremiumPlus: false,
               premiumPlusStatus: 'revoked_org_suspended',
               updatedAt: admin.firestore.FieldValue.serverTimestamp()

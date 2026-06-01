@@ -603,6 +603,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (typeof NotificationManager !== 'undefined') {
       NotificationManager.init();
     }
+    
+    if (typeof InboxView !== 'undefined') {
+      InboxView.init();
+    }
   }
 
   /* ---- Reactive Auth Gate ---- */
