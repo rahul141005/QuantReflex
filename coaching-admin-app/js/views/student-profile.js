@@ -17,95 +17,96 @@ var StudentProfileView = (function () {
     var p = data.profile || {};
     var s = data.stats || {};
     var html = '';
-
-    /* ── Header ── */
-    html += '<div style="display:flex;align-items:center;gap:var(--space-lg);margin-bottom:var(--space-xl);">';
-    html += '<div class="student-avatar profile-avatar-ring" style="width:56px;height:56px;font-size:var(--font-xl);">' + CoachingUtils.getInitial(p.name || p.email) + '</div>';
+    
+    /* ── Header & Profile ── */
+    html += '<div style="display:flex;align-items:center;gap:var(--space-lg);margin-bottom:var(--space-md);">';
+    html += '<div class="student-avatar profile-avatar-ring" style="width:64px;height:64px;font-size:var(--font-2xl);">' + CoachingUtils.getInitial(p.name || p.email) + '</div>';
     html += '<div class="flex-1">';
     html += '<div style="font-size:var(--font-xl);font-weight:700;">' + CoachingUtils.escapeHtml(p.name || p.email || 'Unknown') + '</div>';
     if (p.email) html += '<div style="font-size:var(--font-sm);color:var(--text-tertiary);">' + CoachingUtils.escapeHtml(p.email) + '</div>';
-    html += '<div style="margin-top:var(--space-xs);display:flex;gap:var(--space-xs);flex-wrap:wrap;">' + CoachingUtils.getEngagementBadge(p.engagementLevel);
+    html += '<div style="margin-top:var(--space-xs);display:flex;gap:var(--space-xs);flex-wrap:wrap;">';
+    html += CoachingUtils.getEngagementBadge(p.engagementLevel);
     html += CoachingUtils.getSubscriptionBadge(p.isPremium, p.isPremiumPlus);
     html += '</div></div></div>';
     
-    /* Download Parent Report Button */
-    html += '<button class="btn btn-sm" onclick="window.print()" style="margin-bottom:var(--space-xl); width:100%; display:flex; justify-content:center; align-items:center; gap:var(--space-sm); background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--text-primary); cursor:pointer;"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><path d="M4.5 3h7v1h-7V3zm0 3h7v1h-7V6zm0 3h7v1h-7V9zm0 3h4v1h-4v-1z"/></svg> Download Parent Report</button>';
+    /* Action Row */
+    html += '<div style="display:flex; gap:var(--space-sm); margin-bottom:var(--space-xl);">';
+    html += '<button class="btn btn-sm flex-1" onclick="NoticesView.sendNudge(\'' + p.uid + '\', \'' + CoachingUtils.escapeHtml(p.name || p.email || 'Student') + '\')" style="background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--text-primary); cursor:pointer;">🔔 Direct Message</button>';
+    html += '<button class="btn btn-sm flex-1" onclick="window.print()" style="background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--text-primary); cursor:pointer;">📄 Download Report</button>';
+    html += '</div>';
 
-    /* ── Quick Stats ── */
+    /* ── Performance Analytics ── */
+    html += '<div class="section-header"><div class="section-title">📊 Performance Analytics</div></div>';
     var consistencyScore = CoachingUtils.getConsistencyScore({
       streak: s.dailyStreak,
       totalAttempted: s.totalAttempted,
       accuracy: s.accuracy
     });
     html += '<div class="metrics-grid" style="margin-bottom:var(--space-xl);">';
-    html += _miniMetric(CoachingUtils.formatAccuracy(s.accuracy), 'Accuracy', 'accent-emerald');
-    html += _miniMetric(CoachingUtils.formatSpeed(s.avgSpeed), 'Avg Speed', 'accent-cyan');
-    html += _miniMetric(s.dailyStreak + 'd', 'Streak ' + CoachingUtils.getStreakEmoji(s.dailyStreak), 'accent-amber');
-    html += _miniMetric(consistencyScore + '/100', '🧠 Consistency', 'accent-violet');
+    html += _miniMetric(CoachingUtils.formatAccuracy(s.accuracy), 'Lifetime Accuracy', 'accent-emerald');
+    html += _miniMetric(CoachingUtils.formatSpeed(s.avgSpeed), 'Average Speed', 'accent-cyan');
+    html += _miniMetric(s.dailyStreak + 'd', 'Active Streak ' + CoachingUtils.getStreakEmoji(s.dailyStreak), 'accent-amber');
+    html += _miniMetric(consistencyScore + '%', 'Consistency Score', 'accent-violet');
     html += '</div>';
 
-    /* ── Today's Progress ── */
-    if (s.todayAttempted > 0) {
-      html += '<div class="card card-compact mb-lg">';
-      html += '<div class="card-title">Today\'s Progress</div>';
-      html += '<div style="display:flex;gap:var(--space-xl);">';
-      html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Attempted</span><br><strong>' + s.todayAttempted + '</strong></div>';
-      html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Correct</span><br><strong>' + s.todayCorrect + '</strong></div>';
-      var todayAcc = s.todayAttempted > 0 ? Math.round((s.todayCorrect / s.todayAttempted) * 100) : 0;
-      html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Accuracy</span><br><strong class="text-' + (todayAcc >= 70 ? 'emerald' : todayAcc >= 40 ? 'amber' : 'red') + '">' + todayAcc + '%</strong></div>';
-      html += '</div></div>';
-    }
-
-    /* ── Category Performance ── */
+    /* ── Topic Analysis ── */
     if (data.categoryPerformance && data.categoryPerformance.length > 0) {
+      html += '<div class="section-header"><div class="section-title">🎯 Topic Analysis</div></div>';
       html += '<div class="card mb-lg">';
-      html += '<div class="card-title">Topic Performance</div>';
-      for (var i = 0; i < data.categoryPerformance.length; i++) {
-        var cat = data.categoryPerformance[i];
-        var color = CoachingUtils.getAccuracyColor(cat.accuracy);
-        html += '<div class="bar-chart-row">';
-        html += '<div class="bar-chart-label">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(cat.topic)) + '</div>';
-        html += '<div class="bar-chart-track"><div class="bar-chart-fill ' + color + '" style="width:' + cat.accuracy + '%;"></div></div>';
-        html += '<div class="bar-chart-value">' + cat.accuracy + '%</div>';
-        html += '</div>';
+      
+      // Separate into strengths and weaknesses (threshold 60%)
+      var strengths = data.categoryPerformance.filter(function(c) { return c.accuracy >= 60; });
+      var weaknesses = data.categoryPerformance.filter(function(c) { return c.accuracy < 60; });
+
+      if (weaknesses.length > 0) {
+        html += '<div style="font-weight:600; color:var(--text-secondary); font-size:var(--font-xs); text-transform:uppercase; margin-bottom:var(--space-sm);">Needs Attention</div>';
+        for (var w = 0; w < weaknesses.length; w++) {
+          var wCat = weaknesses[w];
+          html += '<div class="bar-chart-row" style="cursor:pointer; transition:background 0.2s; border-radius:4px; padding:2px;" onclick="NoticesView.targetTopic(\'' + wCat.topic + '\')" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'transparent\'">';
+          html += '<div class="bar-chart-label">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(wCat.topic)) + '</div>';
+          html += '<div class="bar-chart-track"><div class="bar-chart-fill ' + CoachingUtils.getAccuracyColor(wCat.accuracy) + '" style="width:' + wCat.accuracy + '%;"></div></div>';
+          html += '<div class="bar-chart-value">' + wCat.accuracy + '%</div>';
+          html += '</div>';
+        }
+        if (strengths.length > 0) html += '<hr style="border:0; border-top:1px solid var(--border-subtle); margin:var(--space-md) 0;">';
       }
+
+      if (strengths.length > 0) {
+        html += '<div style="font-weight:600; color:var(--text-secondary); font-size:var(--font-xs); text-transform:uppercase; margin-bottom:var(--space-sm);">Strong Areas</div>';
+        for (var st = 0; st < strengths.length; st++) {
+          var sCat = strengths[st];
+          html += '<div class="bar-chart-row">';
+          html += '<div class="bar-chart-label">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(sCat.topic)) + '</div>';
+          html += '<div class="bar-chart-track"><div class="bar-chart-fill ' + CoachingUtils.getAccuracyColor(sCat.accuracy) + '" style="width:' + sCat.accuracy + '%;"></div></div>';
+          html += '<div class="bar-chart-value">' + sCat.accuracy + '%</div>';
+          html += '</div>';
+        }
+      }
+      
       html += '</div>';
     }
 
-    /* ── Speed Trend ── */
-    if (data.speedTrend && data.speedTrend.length > 2) {
-      html += '<div class="card mb-lg">';
-      html += '<div class="card-title">Speed Trend (last ' + data.speedTrend.length + ')</div>';
-      html += _miniSparkline(data.speedTrend);
-      html += '</div>';
-    }
-
-    /* ── Duel Stats ── */
+    /* ── Recent Activity & Retention ── */
+    html += '<div class="section-header"><div class="section-title">📈 Activity & Retention</div></div>';
+    
+    // Duel Stats inline
     if (data.duelStats && (data.duelStats.wins > 0 || data.duelStats.losses > 0 || data.duelStats.draws > 0)) {
-      html += '<div class="card card-compact mb-lg">';
-      html += '<div class="card-title">Duel Record</div>';
-      html += '<div style="display:flex;gap:var(--space-xl);">';
-      html += '<div><span class="text-emerald" style="font-size:var(--font-2xl);font-weight:800;">' + data.duelStats.wins + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Wins</span></div>';
-      html += '<div><span class="text-red" style="font-size:var(--font-2xl);font-weight:800;">' + data.duelStats.losses + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Losses</span></div>';
-      html += '<div><span class="text-secondary" style="font-size:var(--font-2xl);font-weight:800;">' + data.duelStats.draws + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Draws</span></div>';
-      html += '</div></div>';
+      html += '<div class="card card-compact mb-md" style="display:flex; justify-content:space-around; text-align:center;">';
+      html += '<div><span class="text-emerald" style="font-size:var(--font-xl);font-weight:800;">' + data.duelStats.wins + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Duel Wins</span></div>';
+      html += '<div><span class="text-red" style="font-size:var(--font-xl);font-weight:800;">' + data.duelStats.losses + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Duel Losses</span></div>';
+      html += '<div><span class="text-secondary" style="font-size:var(--font-xl);font-weight:800;">' + data.duelStats.draws + '</span><br><span class="text-secondary" style="font-size:var(--font-xs);">Duel Draws</span></div>';
+      html += '</div>';
     }
 
-    /* ── Recent Sessions ── */
     if (data.recentSessions && data.recentSessions.length > 0) {
       html += '<div class="card mb-lg">';
-      html += '<div class="card-title">Recent Sessions</div>';
+      html += '<div class="card-title">Recent Practice Sessions</div>';
       for (var j = 0; j < data.recentSessions.length; j++) {
         var sess = data.recentSessions[j];
         var sessAcc = sess.total > 0 ? Math.round((sess.score / sess.total) * 100) : 0;
-        html += '<div style="display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) 0;' +
-          (j < data.recentSessions.length - 1 ? 'border-bottom:1px solid var(--border-subtle);' : '') + '">';
-        html += '<div style="font-size:var(--font-sm);flex:1;">';
-        html += '<div style="font-weight:500;">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(sess.mode)) + '</div>';
-        html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(sess.category)) + '</div>';
-        html += '</div>';
-        html += '<div class="stat-pill accuracy">' + sess.score + '/' + sess.total + '</div>';
-        html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + CoachingUtils.getRelativeTime(sess.timestamp) + '</div>';
+        html += '<div style="display:flex;justify-content:space-between;padding:var(--space-sm) 0;border-bottom:1px solid var(--border-subtle);">';
+        html += '<div><div style="font-weight:500;">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(sess.category)) + '</div><div style="font-size:var(--font-xs);color:var(--text-muted);">' + CoachingUtils.getRelativeTime(sess.timestamp) + '</div></div>';
+        html += '<div style="text-align:right;"><div style="font-weight:600;color:var(--accent-primary);">' + sessAcc + '%</div><div style="font-size:var(--font-xs);color:var(--text-muted);">' + sess.score + '/' + sess.total + '</div></div>';
         html += '</div>';
       }
       html += '</div>';

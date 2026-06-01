@@ -15,10 +15,11 @@ var NoticesView = (function () {
   var _targetName = null;
 
   var TEMPLATES = [
-    { emoji: '💪', label: 'Motivational', title: '💪 Keep Pushing!', body: 'Your hard work is paying off. Keep practicing and you\'ll ace your exams!' },
-    { emoji: '📝', label: 'Reminder', title: '📝 Practice Reminder', body: 'Don\'t forget your daily math practice! Even 10 minutes makes a difference.' },
-    { emoji: '🏆', label: 'Leaderboard', title: '🏆 Leaderboard Update', body: 'Check out this week\'s leaderboard rankings! Can you reach the top?' },
-    { emoji: '🎯', label: 'Challenge', title: '🎯 Weekly Challenge', body: 'This week\'s challenge: Solve 50 questions with 80%+ accuracy. Are you up for it?' }
+    { emoji: '💪', label: 'Motivational', title: '💪 Keep Pushing!', body: 'Consistency is the key to mastering math. Keep practicing and you\'ll ace your exams!' },
+    { emoji: '🚨', label: 'Urgent Alert', title: '🚨 Don\'t Lose Your Streak!', body: 'Your daily streak is at risk. Solve just 10 questions today to keep your momentum going.' },
+    { emoji: '🏆', label: 'Leaderboard', title: '🏆 Leaderboard Update', body: 'The weekly leaderboard has been updated! Did you make the Top 10? Check it out now!' },
+    { emoji: '🎯', label: 'Weekend Challenge', title: '🎯 Weekend Mastery', body: 'This weekend\'s challenge: Master 3 weak topics and boost your overall accuracy. Are you up for it?' },
+    { emoji: '💎', label: 'Premium Teaser', title: '💎 Unlock Deep Analytics', body: 'Want to know exactly where you are losing marks? Upgrade to Premium for deep topic analytics and AI insights.' }
   ];
 
   function render(forceRefresh) {

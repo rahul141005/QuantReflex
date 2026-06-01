@@ -23,6 +23,7 @@ if (!admin.apps.length) {
     }
   } catch (error) {
     console.error('Failed to initialize Firebase Admin:', error);
+    throw new Error('FATAL: Firebase Admin could not be initialized.');
   }
 }
 

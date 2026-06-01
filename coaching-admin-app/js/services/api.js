@@ -24,7 +24,9 @@ var CoachingAPI = (function () {
       }, options || {});
       return fetch(url, opts);
     }).then(function (resp) {
-      return resp.json().then(function (data) {
+      return resp.json().catch(function () {
+        throw new Error('Received an invalid response from the server.');
+      }).then(function (data) {
         if (!resp.ok) {
           var errMsg = (data.error && data.error.message) || data.error || 'Request failed';
           throw new Error(errMsg);

@@ -11,7 +11,10 @@ const admin = require('firebase-admin');
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-  } catch (err) { console.error('Firebase admin init failed:', err); }
+  } catch (err) { 
+    console.error('Firebase admin init failed:', err);
+    throw new Error('FATAL: Firebase Admin could not be initialized.');
+  }
 }
 
 async function handler(req, res) {

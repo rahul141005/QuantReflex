@@ -12,7 +12,10 @@ const admin = require('firebase-admin');
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-  } catch (err) { console.error('Firebase admin init failed:', err); }
+  } catch (err) { 
+    console.error('Firebase admin init failed:', err);
+    throw new Error('FATAL: Firebase Admin could not be initialized.');
+  }
 }
 
 async function handler(req, res) {
@@ -89,8 +92,8 @@ async function handler(req, res) {
       totalQuestionsSolved += attempted;
 
       // Premium
-      if (u.isPremium) premiumUsers++;
       if (u.isPremiumPlus) premiumPlusUsers++;
+      else if (u.isPremium) premiumUsers++;
 
       // Category stats aggregation (for weak topics)
       const catStats = stats.categoryStats || {};
@@ -171,8 +174,8 @@ async function handler(req, res) {
     }
     weakTopics.sort((a, b) => a.accuracy - b.accuracy);
 
-    if (coachingData.studentCount === undefined) {
-      totalStudents = fallbackCount;
+    if (coachingData.studentCount === undefined || coachingData.studentCount < fallbackCount) {
+      totalStudents = Math.max(coachingData.studentCount || 0, fallbackCount);
     }
 
     return res.status(200).json({

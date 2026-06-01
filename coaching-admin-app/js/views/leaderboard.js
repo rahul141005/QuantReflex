@@ -114,10 +114,8 @@ var LeaderboardView = (function () {
 
     /* Use requestAnimationFrame to ensure DOM is laid out */
     requestAnimationFrame(function () {
-      var containerRect = container.getBoundingClientRect();
-      var btnRect = activeBtn.getBoundingClientRect();
-      indicator.style.width = btnRect.width + 'px';
-      indicator.style.transform = 'translateX(' + (btnRect.left - containerRect.left) + 'px)';
+      indicator.style.width = activeBtn.offsetWidth + 'px';
+      indicator.style.transform = 'translateX(' + activeBtn.offsetLeft + 'px)';
     });
   }
 
@@ -151,16 +149,25 @@ var LeaderboardView = (function () {
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
       var rankClass = i === 0 ? ' gold' : (i === 1 ? ' silver' : (i === 2 ? ' bronze' : ''));
-      html += '<div class="leaderboard-item" onclick="StudentsView.showProfile(\'' + s.uid + '\')" style="cursor:pointer;">';
-      html += '<div class="leaderboard-rank' + rankClass + '">' + (i < 3 ? _rankEmoji(i) : s.rank) + '</div>';
-      html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
+      html += '<div class="leaderboard-item" onclick="StudentsView.showProfile(\'' + s.uid + '\')" style="cursor:pointer; display:flex; align-items:center; padding:var(--space-md) var(--space-lg); border-bottom:1px solid var(--border-subtle);">';
+      
+      // Rank & Avatar
+      html += '<div class="leaderboard-rank' + rankClass + '" style="font-size:var(--font-lg); font-weight:700; width:30px; margin-right:var(--space-md); text-align:center;">' + (i < 3 ? _rankEmoji(i) : '#' + s.rank) + '</div>';
+      html += '<div class="student-avatar" style="width:40px;height:40px;font-size:var(--font-sm); margin-right:var(--space-md);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
+      
+      // Main Info
       html += '<div class="flex-1" style="min-width:0;">';
-      html += '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + CoachingUtils.escapeHtml(s.name || s.email);
-      html += CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
+      html += '<div style="display:flex; align-items:center; gap:var(--space-xs); margin-bottom:2px;">';
+      html += '<span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + CoachingUtils.escapeHtml(s.name || s.email) + '</span>';
+      var badge = CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
+      if (badge) html += badge;
       html += '</div>';
-      html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + s.accuracy + '% · ' + CoachingUtils.formatSpeed(s.speed) + ' · 🔥' + s.streak + '</div>';
+      html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + s.accuracy + '% Accuracy • ' + CoachingUtils.formatSpeed(s.speed) + ' Speed</div>';
       html += '</div>';
-      html += '<div style="font-weight:700;color:var(--accent-primary);white-space:nowrap;">' + _formatMetricValue(s.metricValue) + '</div>';
+
+      // Primary Metric
+      html += '<div style="font-weight:700; color:var(--text-primary); text-align:right; font-size:var(--font-sm); background:var(--bg-elevated); padding:var(--space-xs) var(--space-sm); border-radius:var(--radius-sm); border:1px solid var(--border-default);">' + _formatMetricValue(s.metricValue) + '</div>';
+      
       html += '</div>';
     }
     html += '</div>';
@@ -189,11 +196,11 @@ var LeaderboardView = (function () {
   }
 
   function _formatMetricValue(val) {
-    if (_currentMetric === 'accuracy') return val + '%';
-    if (_currentMetric === 'speed') return val < 999 ? val.toFixed(1) + 's' : '—';
-    if (_currentMetric === 'streak') return val + 'd';
-    if (_currentMetric === 'consistency') return val + '/100';
-    return CoachingUtils.formatNumber(val);
+    if (_currentMetric === 'accuracy') return val + '% Avg Accuracy';
+    if (_currentMetric === 'speed') return (val < 999 ? val.toFixed(1) + 's' : '—') + ' Avg Speed';
+    if (_currentMetric === 'streak') return '🔥 ' + val + ' Day Streak';
+    if (_currentMetric === 'consistency') return val + '% Consistency Score';
+    return CoachingUtils.formatNumber(val) + ' Questions Solved';
   }
 
   /* Legacy pill-based API preserved for backward compat */

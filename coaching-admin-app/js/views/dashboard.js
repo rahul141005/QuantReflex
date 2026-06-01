@@ -46,24 +46,21 @@ var DashboardView = (function () {
     /* ── Coaching Health Display (Multi-Factor) ── */
     html += _buildHealthDisplay(m);
 
-    /* ── Hero Metrics Grid ── */
-    html += '<div class="metrics-grid">';
-    html += _metricCard(m.activeToday, 'Active Today', '📊', 'accent-emerald');
-    html += _metricCard(CoachingUtils.formatAccuracy(m.avgAccuracy), 'Avg Accuracy', '🎯', 'accent-primary');
-    html += _metricCard(CoachingUtils.formatSpeed(m.avgSpeed), 'Avg Speed', '⚡', 'accent-cyan');
-    html += _metricCard(m.activeStreakUsers, 'On Streaks', '🔥', 'accent-amber');
+    /* ── Quick Actions ── */
+    html += '<div class="section-header"><div class="section-title">⚡ Quick Actions</div></div>';
+    html += '<div style="display:flex; gap:var(--space-sm); margin-bottom:var(--space-lg); overflow-x:auto; padding-bottom:var(--space-xs);">';
+    html += '<button class="btn btn-sm" onclick="app.navigate(\'notices\')" style="background:var(--bg-elevated); border:1px solid var(--border-default); white-space:nowrap;">📢 Send Notice</button>';
+    html += '<button class="btn btn-sm" onclick="app.navigate(\'students\')" style="background:var(--bg-elevated); border:1px solid var(--border-default); white-space:nowrap;">👥 View Roster</button>';
+    html += '<button class="btn btn-sm" onclick="app.navigate(\'leaderboard\')" style="background:var(--bg-elevated); border:1px solid var(--border-default); white-space:nowrap;">🏆 Leaderboard</button>';
     html += '</div>';
 
-    /* ── Quick Stats Row ── */
-    html += '<div class="card card-compact">';
-    html += '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-md);">';
-    html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Total Students</span><br><strong>' + CoachingUtils.formatNumber(m.totalStudents) + '</strong></div>';
-    html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Questions Solved</span><br><strong>' + CoachingUtils.formatNumber(m.totalQuestionsSolved) + '</strong></div>';
-    html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Active This Week</span><br><strong>' + CoachingUtils.formatNumber(m.activeThisWeek) + '</strong></div>';
-    if (m.premiumUsers > 0 || m.premiumPlusUsers > 0) {
-      html += '<div><span class="text-secondary" style="font-size:var(--font-xs);">Premium</span><br><strong>' + (m.premiumUsers + m.premiumPlusUsers) + '</strong></div>';
-    }
-    html += '</div></div>';
+    /* ── Hero Metrics Grid ── */
+    html += '<div class="metrics-grid">';
+    html += _metricCard(m.activeToday, 'Active Today', '🟢', 'accent-emerald');
+    html += _metricCard((m.premiumUsers + m.premiumPlusUsers) + '/' + m.totalStudents, 'Premium Users', '💎', 'accent-primary');
+    html += _metricCard(m.activeThisWeek, 'Active This Week', '📈', 'accent-cyan');
+    html += _metricCard(data.inactiveStudents ? data.inactiveStudents.length : 0, 'At-Risk (Inactive)', '⚠️', 'accent-red');
+    html += '</div>';
 
     /* ── Weak Topics ── */
     if (data.weakTopics && data.weakTopics.length > 0) {

@@ -6,13 +6,16 @@
  * All queries scoped by req.coachingId from JWT claims.
  */
 
-const { withCoachingAuth, formatError, safeTimestamp } = require('../_lib/middleware');
+const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-  } catch (err) { console.error('Firebase admin init failed:', err); }
+  } catch (err) { 
+    console.error('Firebase admin init failed:', err);
+    throw new Error('FATAL: Firebase Admin could not be initialized.');
+  }
 }
 
 async function handler(req, res) {
@@ -187,7 +190,7 @@ async function _handleDetails(db, coachingId, req, res) {
   const dailyHistory = stats.dailyHistory || {};
 
   // Engagement level
-  const lastActiveMs = _toMillis(stats.lastActiveDate || userData.updatedAt);
+  const lastActiveMs = toMillis(stats.lastActiveDate || userData.updatedAt);
   const now = Date.now();
   let engagementLevel = 'inactive';
   if (lastActiveMs >= now - 24 * 60 * 60 * 1000) engagementLevel = 'active';
