@@ -72,7 +72,7 @@ var DashboardView = (function () {
       for (var i = 0; i < data.weakTopics.length; i++) {
         var t = data.weakTopics[i];
         var color = CoachingUtils.getAccuracyColor(t.accuracy);
-        html += '<div class="bar-chart-row">';
+        html += '<div class="bar-chart-row" style="cursor:pointer; transition:background 0.2s; border-radius:4px; padding:2px;" onclick="NoticesView.targetTopic(\'' + t.topic + '\')" onmouseover="this.style.background=\'var(--bg-elevated)\'" onmouseout="this.style.background=\'transparent\'">';
         html += '<div class="bar-chart-label">' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(t.topic)) + '</div>';
         html += '<div class="bar-chart-track"><div class="bar-chart-fill ' + color + '" style="width:' + t.accuracy + '%;"></div></div>';
         html += '<div class="bar-chart-value">' + t.accuracy + '%</div>';
@@ -100,6 +100,7 @@ var DashboardView = (function () {
         html += '<div class="student-avatar" style="width:36px;height:36px;font-size:var(--font-sm);">' + CoachingUtils.getInitial(inactive.name || inactive.email) + '</div>';
         html += '<div class="flex-1"><div style="font-weight:500;">' + CoachingUtils.escapeHtml(inactive.name || inactive.email || 'Unknown') + '</div>';
         html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">Last seen ' + CoachingUtils.getRelativeTime(inactive.lastActive) + '</div></div>';
+        html += '<button class="btn btn-sm" style="padding:6px 12px;font-size:var(--font-xs);background:var(--bg-elevated);border:1px solid var(--border-default);color:var(--text-primary);border-radius:var(--radius-sm);cursor:pointer;" onclick="NoticesView.sendNudge(\'' + inactive.uid + '\', \'' + CoachingUtils.escapeHtml(inactive.name || inactive.email || 'Student') + '\')">🔔 Nudge</button>';
         html += '</div>';
       }
     }

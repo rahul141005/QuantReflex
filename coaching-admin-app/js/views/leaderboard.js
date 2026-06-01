@@ -131,6 +131,12 @@ var LeaderboardView = (function () {
 
     var html = '';
 
+    if (list.length >= 3 && (_currentPeriod === 'weekly' || _currentPeriod === 'monthly')) {
+      html += '<div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-md);">';
+      html += '<button class="btn btn-sm" onclick="LeaderboardView.exportSocial()" style="background:var(--gradient-premium); color:white; border:none; padding:6px 12px; font-size:var(--font-xs); font-weight:bold; cursor:pointer;"><svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px;"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>Export for Instagram</button>';
+      html += '</div>';
+    }
+
     /* Podium (top 3) */
     if (list.length >= 3) {
       html += '<div class="podium-section">';
@@ -201,5 +207,72 @@ var LeaderboardView = (function () {
     render(true);
   }
 
-  return { render: render, setPeriod: setPeriod, setMetric: setMetric };
+  function exportSocial() {
+    var contentEl = document.getElementById('leaderboardContent');
+    if (!contentEl) return;
+    
+    // Add temporary watermark
+    var watermark = document.createElement('div');
+    watermark.style.position = 'absolute';
+    watermark.style.bottom = '20px';
+    watermark.style.left = '0';
+    watermark.style.width = '100%';
+    watermark.style.textAlign = 'center';
+    watermark.style.color = 'var(--text-secondary)';
+    watermark.style.fontWeight = '700';
+    watermark.style.fontSize = '24px';
+    watermark.style.opacity = '0.5';
+    watermark.innerHTML = 'Powered by QuantReflex 🚀';
+    
+    var cloneContainer = document.createElement('div');
+    cloneContainer.style.background = 'var(--bg-primary)';
+    cloneContainer.style.padding = '40px';
+    cloneContainer.style.width = '1080px';
+    cloneContainer.style.height = '1080px';
+    cloneContainer.style.position = 'fixed';
+    cloneContainer.style.top = '-2000px';
+    cloneContainer.style.left = '-2000px';
+    cloneContainer.style.display = 'flex';
+    cloneContainer.style.flexDirection = 'column';
+    cloneContainer.style.justifyContent = 'center';
+    
+    // Add title
+    var title = document.createElement('h1');
+    title.innerHTML = 'Top Performers - ' + (_currentPeriod === 'weekly' ? 'This Week' : 'This Month');
+    title.style.textAlign = 'center';
+    title.style.fontSize = '48px';
+    title.style.marginBottom = '60px';
+    title.style.color = 'white';
+    cloneContainer.appendChild(title);
+    
+    var clone = contentEl.cloneNode(true);
+    // Remove the export button from the clone
+    var btn = clone.querySelector('button');
+    if (btn) btn.parentNode.removeChild(btn);
+    
+    cloneContainer.appendChild(clone);
+    cloneContainer.appendChild(watermark);
+    document.body.appendChild(cloneContainer);
+    
+    Toast.show('Generating graphic...', 'info');
+    
+    if (typeof html2canvas !== 'undefined') {
+      html2canvas(cloneContainer, { backgroundColor: '#050914', scale: 1 }).then(function(canvas) {
+        document.body.removeChild(cloneContainer);
+        var link = document.createElement('a');
+        link.download = 'QR_Leaderboard_' + _currentPeriod + '.png';
+        link.href = canvas.toDataURL();
+        link.click();
+        Toast.show('Graphic exported!', 'success');
+      }).catch(function(err) {
+        document.body.removeChild(cloneContainer);
+        Toast.show('Export failed', 'error');
+      });
+    } else {
+      document.body.removeChild(cloneContainer);
+      Toast.show('Export library not loaded', 'error');
+    }
+  }
+
+  return { render: render, exportSocial: exportSocial, setPeriod: setPeriod, setMetric: setMetric };
 })();

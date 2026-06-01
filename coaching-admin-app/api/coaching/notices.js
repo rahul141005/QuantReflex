@@ -49,7 +49,7 @@ async function handler(req, res) {
 
 async function _handleSend(db, coachingId, req, res) {
   const reqBody = req.body && typeof req.body === 'object' ? req.body : {};
-  const { title, body: messageBody, scheduledFor } = reqBody;
+  const { title, body: messageBody, scheduledFor, targetUid, targetTopic } = reqBody;
 
   if (!title || !messageBody) {
     return res.status(400).json({ error: 'Title and body are required' });
@@ -99,6 +99,20 @@ async function _handleSend(db, coachingId, req, res) {
   const uidMap = {};
   studentsSnap.forEach(doc => {
     const u = doc.data();
+    
+    // Filter by targetUid
+    if (targetUid && doc.id !== targetUid) return;
+    
+    // Filter by targetTopic (< 50% accuracy)
+    if (targetTopic) {
+      const stats = u.stats || {};
+      const catStats = stats.categoryStats || {};
+      const c = catStats[targetTopic];
+      if (!c || !c.attempted || c.attempted < 5) return; // Ignore if barely attempted
+      const acc = c.correct / c.attempted;
+      if (acc >= 0.5) return; // Skip if accuracy is 50% or higher
+    }
+
     if (u.fcmToken) {
       tokens.push(u.fcmToken);
       uidMap[u.fcmToken] = doc.id;

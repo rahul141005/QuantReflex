@@ -10,6 +10,9 @@ var NoticesView = (function () {
   'use strict';
 
   var _currentTab = 'compose';
+  var _targetUid = null;
+  var _targetTopic = null;
+  var _targetName = null;
 
   var TEMPLATES = [
     { emoji: '💪', label: 'Motivational', title: '💪 Keep Pushing!', body: 'Your hard work is paying off. Keep practicing and you\'ll ace your exams!' },
@@ -54,14 +57,23 @@ var NoticesView = (function () {
   function _buildCompose() {
     var html = '';
 
-    /* Quick Templates */
-    html += '<div class="card-title">Quick Templates</div>';
-    html += '<div class="template-grid">';
-    for (var i = 0; i < TEMPLATES.length; i++) {
-      var t = TEMPLATES[i];
-      html += '<button class="template-btn" onclick="NoticesView.useTemplate(' + i + ')">' + t.emoji + ' ' + t.label + '</button>';
+    if (_targetUid || _targetTopic) {
+      html += '<div style="background:var(--accent-primary-glow); border:1px solid var(--accent-primary); border-radius:var(--radius-sm); padding:var(--space-md); margin-bottom:var(--space-md); font-size:var(--font-sm);">';
+      if (_targetUid) html += '🎯 <strong>Targeted Nudge:</strong> Sending specifically to ' + CoachingUtils.escapeHtml(_targetName || 'Student') + ' <button onclick="NoticesView.clearTarget()" style="float:right;background:none;border:none;color:var(--accent-primary);cursor:pointer;font-size:var(--font-xs);font-weight:bold;">Clear</button>';
+      if (_targetTopic) html += '🎯 <strong>Targeted Topic:</strong> Sending to students weak in ' + CoachingUtils.escapeHtml(CoachingUtils.capitalize(_targetTopic)) + ' (<50% accuracy) <button onclick="NoticesView.clearTarget()" style="float:right;background:none;border:none;color:var(--accent-primary);cursor:pointer;font-size:var(--font-xs);font-weight:bold;">Clear</button>';
+      html += '</div>';
     }
-    html += '</div>';
+
+    /* Quick Templates */
+    if (!_targetUid && !_targetTopic) {
+      html += '<div class="card-title">Quick Templates</div>';
+      html += '<div class="template-grid">';
+      for (var i = 0; i < TEMPLATES.length; i++) {
+        var t = TEMPLATES[i];
+        html += '<button class="template-btn" onclick="NoticesView.useTemplate(' + i + ')">' + t.emoji + ' ' + t.label + '</button>';
+      }
+      html += '</div>';
+    }
 
     /* Compose Form */
     html += '<div class="notice-compose">';
@@ -186,7 +198,7 @@ var NoticesView = (function () {
     if (errorEl) errorEl.style.display = 'none';
     if (btn) { btn.disabled = true; btn.textContent = scheduledFor ? 'Scheduling…' : 'Sending…'; }
 
-    CoachingAPI.sendNotice(title, body, scheduledFor).then(function (data) {
+    CoachingAPI.sendNotice(title, body, scheduledFor, _targetUid, _targetTopic).then(function (data) {
       if (btn) { btn.disabled = false; btn.textContent = scheduledFor ? '⏰ Schedule Notice' : '📨 Send Notice'; }
 
       /* Handle scheduled response */
@@ -323,5 +335,46 @@ var NoticesView = (function () {
     render(tab === 'history');
   }
 
-  return { render: render, setTab: setTab, useTemplate: useTemplate, send: send, cancelScheduled: cancelScheduled };
+  function sendNudge(uid, name) {
+    _targetUid = uid;
+    _targetName = name;
+    _targetTopic = null;
+    app.navigate('notices');
+    setTimeout(function() {
+      var titleInput = document.getElementById('noticeTitle');
+      var bodyInput = document.getElementById('noticeBody');
+      if (titleInput) titleInput.value = 'We missed you! 🔔';
+      if (bodyInput) bodyInput.value = 'Hi ' + (name || 'there') + ', we noticed you haven\'t practiced in a few days. Jump back in and protect your streak!';
+      var titleCount = document.getElementById('noticeTitleCount');
+      if (titleCount && titleInput) titleCount.textContent = titleInput.value.length + '/100';
+      var bodyCount = document.getElementById('noticeBodyCount');
+      if (bodyCount && bodyInput) bodyCount.textContent = bodyInput.value.length + '/500';
+    }, 100);
+  }
+
+  function targetTopic(topic) {
+    _targetTopic = topic;
+    _targetUid = null;
+    _targetName = null;
+    app.navigate('notices');
+    setTimeout(function() {
+      var titleInput = document.getElementById('noticeTitle');
+      var bodyInput = document.getElementById('noticeBody');
+      if (titleInput) titleInput.value = 'Focus on ' + CoachingUtils.capitalize(topic) + ' 🎯';
+      if (bodyInput) bodyInput.value = 'It looks like you could use some extra practice in ' + CoachingUtils.capitalize(topic) + '. Let\'s focus on improving that accuracy this week!';
+      var titleCount = document.getElementById('noticeTitleCount');
+      if (titleCount && titleInput) titleCount.textContent = titleInput.value.length + '/100';
+      var bodyCount = document.getElementById('noticeBodyCount');
+      if (bodyCount && bodyInput) bodyCount.textContent = bodyInput.value.length + '/500';
+    }, 100);
+  }
+
+  function clearTarget() {
+    _targetUid = null;
+    _targetTopic = null;
+    _targetName = null;
+    render(false);
+  }
+
+  return { render: render, setTab: setTab, useTemplate: useTemplate, send: send, cancelScheduled: cancelScheduled, sendNudge: sendNudge, targetTopic: targetTopic, clearTarget: clearTarget };
 })();

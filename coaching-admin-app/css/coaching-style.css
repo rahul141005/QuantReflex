@@ -5,18 +5,18 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Google Fonts ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 /* ── CSS Custom Properties ── */
 :root {
   /* Backgrounds */
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-card: #1a1f2e;
-  --bg-card-hover: #222840;
-  --bg-elevated: #242b3d;
-  --bg-input: #1e2536;
-  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-primary: #050914;
+  --bg-secondary: #0d1222;
+  --bg-card: #141b2e;
+  --bg-card-hover: #1c243d;
+  --bg-elevated: #1e2640;
+  --bg-input: #171e33;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
 
   /* Text */
   --text-primary: #f1f5f9;
@@ -26,16 +26,17 @@
 
   /* Accents */
   --accent-primary: #6366f1;
-  --accent-primary-glow: rgba(99, 102, 241, 0.3);
+  --accent-primary-glow: rgba(99, 102, 241, 0.4);
   --accent-emerald: #10b981;
-  --accent-emerald-glow: rgba(16, 185, 129, 0.2);
+  --accent-emerald-glow: rgba(16, 185, 129, 0.25);
   --accent-amber: #f59e0b;
-  --accent-amber-glow: rgba(245, 158, 11, 0.2);
+  --accent-amber-glow: rgba(245, 158, 11, 0.25);
   --accent-red: #ef4444;
-  --accent-red-glow: rgba(239, 68, 68, 0.2);
+  --accent-red-glow: rgba(239, 68, 68, 0.25);
   --accent-cyan: #06b6d4;
+  --accent-cyan-glow: rgba(6, 182, 212, 0.25);
   --accent-violet: #8b5cf6;
-  --accent-violet-glow: rgba(139, 92, 246, 0.2);
+  --accent-violet-glow: rgba(139, 92, 246, 0.25);
 
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -72,6 +73,7 @@
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-display: 'Outfit', 'Inter', sans-serif;
   --font-xs: 0.6875rem;
   --font-sm: 0.8125rem;
   --font-base: 0.9375rem;
@@ -358,8 +360,9 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(10, 14, 23, 0.85);
-  backdrop-filter: blur(20px);
+  background: rgba(5, 9, 20, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--border-subtle);
   padding: var(--space-md) var(--space-xl);
   display: flex;
@@ -443,8 +446,9 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
   right: 0;
   height: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
   padding-bottom: var(--safe-area-bottom);
-  background: rgba(17, 24, 39, 0.95);
-  backdrop-filter: blur(20px);
+  background: rgba(13, 18, 34, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -660,6 +664,7 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
 .metric-card.accent-red::after { background: var(--accent-red); }
 
 .metric-value {
+  font-family: var(--font-family-display);
   font-size: var(--font-2xl);
   font-weight: 800;
   line-height: 1.1;
@@ -688,7 +693,7 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
   padding: var(--space-lg);
   margin-bottom: var(--space-md);
   cursor: pointer;
-  transition: var(--transition-base);
+  transition: all var(--transition-base);
   display: flex;
   gap: var(--space-md);
   align-items: flex-start;
@@ -698,6 +703,14 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
 .student-card:active {
   background: var(--bg-card-hover);
   transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .student-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
 }
 
 .student-avatar {
@@ -1727,6 +1740,64 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
 .mb-sm { margin-bottom: var(--space-sm); }
 .mb-md { margin-bottom: var(--space-md); }
 .mb-lg { margin-bottom: var(--space-lg); }
+
+/* ═══════════════════════════════════════
+   PRINT STYLES (Parent Report Cards)
+   ═══════════════════════════════════════ */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .app-header, .bottom-nav, button {
+    display: none !important;
+  }
+
+  .bottom-sheet {
+    position: static;
+    transform: none;
+    background: white;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .sheet-header {
+    display: none;
+  }
+
+  .card {
+    border: 1px solid #ccc;
+    box-shadow: none;
+    page-break-inside: avoid;
+    background: white;
+  }
+
+  .metric-card {
+    border: 1px solid #ddd;
+    background: #f9f9f9;
+  }
+
+  .metric-value {
+    color: black;
+  }
+
+  .text-secondary, .text-tertiary, .text-muted {
+    color: #555;
+  }
+
+  .bar-chart-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .stat-pill {
+    border: 1px solid #ccc;
+    background: transparent !important;
+    color: black !important;
+  }
+}
 .mb-xl { margin-bottom: var(--space-xl); }
 .d-none { display: none; }
 .d-flex { display: flex; }

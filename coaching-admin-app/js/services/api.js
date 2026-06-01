@@ -102,11 +102,15 @@ var CoachingAPI = (function () {
    * @param {string} title
    * @param {string} body
    * @param {string} [scheduledFor] — ISO date string for scheduled delivery
+   * @param {string} [targetUid] — Send specifically to this student
+   * @param {string} [targetTopic] — Send specifically to students struggling in this topic
    * @returns {Promise<object>}
    */
-  function sendNotice(title, body, scheduledFor) {
+  function sendNotice(title, body, scheduledFor, targetUid, targetTopic) {
     var payload = { title: title, body: body };
     if (scheduledFor) payload.scheduledFor = scheduledFor;
+    if (targetUid) payload.targetUid = targetUid;
+    if (targetTopic) payload.targetTopic = targetTopic;
     return _fetch('/api/coaching/notices?action=send', {
       method: 'POST',
       body: JSON.stringify(payload)
