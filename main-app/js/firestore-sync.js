@@ -1167,6 +1167,32 @@ var FirestoreSync = (function () {
         if (callback) callback(err);
       });
     },
+    listenForNotifications: function (onData) {
+      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return null;
+      var db = FirebaseApp.getDb();
+      return db.collection('users').doc(FirebaseApp.getUserId()).collection('notifications')
+        .orderBy('timestamp', 'desc')
+        .limit(50)
+        .onSnapshot(function(snapshot) {
+          var notifications = [];
+          var unreadCount = 0;
+          snapshot.forEach(function(doc) {
+            var d = doc.data();
+            if (!d.isRead) unreadCount++;
+            notifications.push({
+              id: doc.id,
+              title: d.title || '',
+              body: d.body || '',
+              type: d.type || 'announcement',
+              isRead: !!d.isRead,
+              timestamp: d.timestamp ? (d.timestamp.toDate ? d.timestamp.toDate().toISOString() : d.timestamp) : null
+            });
+          });
+          if (onData) onData({ notifications: notifications, unreadCount: unreadCount });
+        }, function(err) {
+          console.warn('Notifications snapshot error', err);
+        });
+    },
     getNotifications: function (callback) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
       Auth.getCurrentUser().getIdToken().then(function (token) {

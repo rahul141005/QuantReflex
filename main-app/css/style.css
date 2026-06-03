@@ -11,11 +11,31 @@
 
 /* ==================== DESIGN TOKENS ==================== */
 :root {
-  --qr-card-radius: 1.25rem;
+  /* Card System */
+  --qr-card-radius: 1.5rem;
   --qr-card-padding: 1.25rem;
   --qr-card-gap: 1rem;
-  --qr-shadow-light: 0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
-  --qr-shadow-dark: 0 4px 20px rgba(0,0,0,0.2);
+  --qr-shadow-light: 0 8px 32px rgba(37,99,235,0.06), 0 2px 8px rgba(37,99,235,0.04);
+  --qr-shadow-dark: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.05);
+  
+  /* Typography System */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --text-display: 2.25rem;
+  --text-h1: 1.75rem;
+  --text-h2: 1.35rem;
+  --text-h3: 1.15rem;
+  --text-body: 0.95rem;
+  --text-sub: 0.85rem;
+  --text-caption: 0.75rem;
+
+  /* Spacing System */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
 }
 
 /* ---- Reset & Base ---- */
@@ -51,7 +71,7 @@ html {
 html::-webkit-scrollbar { display: none; } /* Chrome, Edge, Samsung Internet */
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   background: #f8fafc;
   color: #0f172a;
   height: 100%;
@@ -1589,15 +1609,17 @@ body.dark-mode .settings-section-title {
 }
 .settings-section-card {
   background: #ffffff;
-  border-radius: 1rem;
-  padding: .75rem 1rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
-  border: 1px solid rgba(226,232,240,.5);
+  border-radius: var(--qr-card-radius);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.6);
 }
 body.dark-mode .settings-section-card {
-  background: #1e293b;
-  box-shadow: 0 1px 4px rgba(0,0,0,.2);
-  border-color: rgba(51,65,85,.5);
+  background: #ffffff;
+  border-radius: var(--qr-card-radius);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.6);
 }
 .settings-row-divider {
   height: 1px;
@@ -1627,9 +1649,10 @@ body.dark-mode .settings-row-block h3 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  min-height: 48px;
-  padding: .25rem 0;
+  padding: 1.25rem;
+  background: transparent;
+  border-bottom: 1px solid rgba(226,232,240,0.6);
+  transition: background 0.2s ease;
 }
 .settings-label { flex: 1; }
 .settings-label h3 {
@@ -3533,8 +3556,15 @@ body.dark-mode .table-modal-title {
   box-shadow: 0 2px 8px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
 }
 .practice-container .mode-card {
-  padding: 1.15rem 1.25rem;
-  margin-bottom: .65rem;
+  position: relative;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(226,232,240,0.8);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 }
 .practice-container .mode-card h3 {
   font-size: 1.05rem;
@@ -4601,7 +4631,17 @@ body.dark-mode .correct-flash {
     top: 2.5rem;
   }
   /* Tighter mode cards on small screens */
-  .practice-container .mode-card { padding: 1rem 1.15rem; margin-bottom: .5rem; }
+  .practice-container .mode-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(226,232,240,0.8);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
   header { padding: .5rem 0 .3rem; }
 }
 @media (max-height: 500px) {
@@ -4619,9 +4659,16 @@ body.dark-mode .correct-flash {
 /* ---- Landscape Compact Mode ---- */
 @media (max-height: 400px) and (orientation: landscape) {
   .practice-container .mode-card {
-    padding: .75rem 1rem;
-    margin-bottom: .4rem;
-  }
+  position: relative;
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(226,232,240,0.8);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
   .practice-container .mode-card p {
     display: none; /* Hide descriptions to save vertical space */
   }
@@ -5121,8 +5168,10 @@ body.theme-playful .stat-card-negative .value { color: #dc2626; }
 body.theme-playful .settings-section-title { color: #5a6275; }
 body.theme-playful .settings-section-card {
   background: #ffffff;
-  border-color: rgba(226,222,214,.5);
-  box-shadow: 0 1px 4px rgba(120,100,70,.05), 0 2px 8px rgba(120,100,70,.03);
+  border-radius: var(--qr-card-radius);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.6);
 }
 body.theme-playful .settings-row-divider { background: #f0efec; }
 body.theme-playful .settings-label h3 { color: #1a1a2e; }
@@ -5599,9 +5648,11 @@ body.theme-playful.dark-mode .stat-card-negative .value { color: #f85149; }
 
 body.theme-playful.dark-mode .settings-section-title { color: #8b949e; }
 body.theme-playful.dark-mode .settings-section-card {
-  background: rgba(22,27,45,.88);
-  border-color: rgba(79,143,247,.10);
-  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  background: #ffffff;
+  border-radius: var(--qr-card-radius);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.6);
 }
 body.theme-playful.dark-mode .settings-row-divider { background: rgba(255,255,255,.06); }
 body.theme-playful.dark-mode .settings-row-block h3 { color: #e6edf3; }
@@ -6176,7 +6227,11 @@ body.theme-playful.dark-mode .skip-btn:active {
 
 /* Task 13: Settings section card tap feedback */
 .settings-section-card {
-  transition: transform .15s ease;
+  background: #ffffff;
+  border-radius: var(--qr-card-radius);
+  box-shadow: var(--qr-shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(226,232,240,0.6);
 }
 .settings-action-btn {
   width: 100%;
@@ -8490,15 +8545,15 @@ body.dark-mode .active-duel-mini-card {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 54px;
-  padding: 1.15rem 1.25rem;
+  min-height: 56px;
+  padding: 1rem 1.5rem;
   border: none;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   text-align: center;
-  transition: background 0.2s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   gap: 0.75rem;
@@ -8507,6 +8562,7 @@ body.dark-mode .active-duel-mini-card {
 
 .btn-primary:active, .btn-secondary:active, .btn:active {
   transform: scale(0.96);
+  filter: brightness(0.95);
 }
 
 .btn-primary, .btn.accent {
@@ -8891,12 +8947,14 @@ body.dark-mode .login-field-validation.success {
 /* ---- Hero Section ---- */
 .home-hero {
   position: relative;
-  padding: calc(max(env(safe-area-inset-top, 2.5rem), 2.5rem) + 1.5rem) 1.5rem 2rem;
+  background: linear-gradient(135deg, #1e3a8a, #2563eb, #3b82f6);
+  padding: calc(max(env(safe-area-inset-top, 2.5rem), 2.5rem) + 1.5rem) 1.5rem 2.5rem;
   margin: -1.25rem -1.25rem 1.5rem;
+  color: #ffffff;
   overflow: hidden;
-  text-align: left;
-  border-radius: 0 0 1.5rem 1.5rem;
-  box-shadow: 0 8px 32px rgba(37,99,235,0.08);
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.2);
+  border-bottom-left-radius: 1.5rem;
+  border-bottom-right-radius: 1.5rem;
 }
 .home-hero-bg {
   position: absolute;
@@ -9069,7 +9127,7 @@ body.dark-mode .home-streak-badge.streak-active {
 
 /* ---- Primary CTA Button ---- */
 .home-cta-section {
-  margin: 1.5rem 1.25rem;
+  margin: 1.5rem 0;
 }
 .home-cta-btn {
   width: 100%;
@@ -9496,3 +9554,111 @@ body.dark-mode .home-bento-action-btn:hover {
   .home-cta-btn { animation: none; }
   .home-goal-ring-fill { transition: none; }
 }
+
+/* ---- Audit Fixes: Phase 1 Missing UI Refinements ---- */
+/* 1. Learn screen buttons - border removal */
+.add-formula-btn, .add-topic-btn {
+  box-shadow: none !important;
+  border: none !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #2563eb !important;
+}
+body.dark-mode .add-formula-btn, body.dark-mode .add-topic-btn {
+  background: rgba(96, 165, 250, 0.1) !important;
+  color: #60a5fa !important;
+}
+
+/* 2. Settings page Update App & Clear Data cards - height reduction */
+.settings-action-with-desc {
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+  padding: 0.75rem 1rem !important;
+  min-height: auto !important;
+}
+.settings-action-with-desc .settings-btn-label {
+  font-size: 0.95rem;
+}
+.settings-action-with-desc .settings-btn-desc {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  font-weight: 500;
+}
+/* Ensure danger action styling overrides gracefully */
+.settings-action-danger {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+  box-shadow: none !important;
+}
+body.dark-mode .settings-action-danger {
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.settings-section-card .settings-row:last-child { border-bottom: none; }
+
+/* Premium Home Stats Glassmorphism */
+.home-hero-stats {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 1rem;
+}
+.home-stat-label { font-size: 0.75rem; font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.05em; }
+.home-stat-value { font-size: 1.5rem; font-weight: 800; }
+
+/* Learn Formulas Monospace */
+.formula-text {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  background: rgba(15,23,42,0.03);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #1e293b;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+body.dark-mode .formula-text {
+  background: rgba(0,0,0,0.2);
+  color: #e2e8f0;
+}
+
+/* Global Empty States */
+.qr-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  min-height: 50vh;
+  opacity: 0;
+  animation: viewSlideIn 0.3s ease forwards 0.1s;
+}
+.qr-empty-state svg {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1.5rem;
+  color: #cbd5e1;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.05));
+}
+.qr-empty-state h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+.qr-empty-state p {
+  font-size: 0.95rem;
+  color: #64748b;
+  max-width: 280px;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+body.dark-mode .qr-empty-state h2 { color: #f8fafc; }
+body.dark-mode .qr-empty-state p { color: #94a3b8; }
+body.dark-mode .qr-empty-state svg { color: #334155; }

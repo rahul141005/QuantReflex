@@ -723,6 +723,11 @@ function openDeleteAccountModal() {
 
   var cancelBtn = document.getElementById('deleteAccountCancel');
   var confirmBtn = document.getElementById('deleteAccountConfirm');
+  var passInput = document.getElementById('deleteAccountPassword');
+  var errDiv = document.getElementById('deleteAccountError');
+
+  if (passInput) passInput.value = '';
+  if (errDiv) errDiv.style.display = 'none';
 
   function closeModal() {
     modal.style.display = 'none';
@@ -732,11 +737,12 @@ function openDeleteAccountModal() {
   function _setDeleteLoading(loading) {
     if (confirmBtn) {
       confirmBtn.disabled = loading;
-      confirmBtn.textContent = loading ? 'Deleting account...' : 'Delete My Account';
+      confirmBtn.textContent = loading ? 'Deleting account...' : 'Delete Forever';
       if (loading) confirmBtn.classList.add('btn-loading');
       else confirmBtn.classList.remove('btn-loading');
     }
     if (cancelBtn) cancelBtn.disabled = loading;
+    if (passInput) passInput.disabled = loading;
   }
 
   /* Map Firebase/server error codes to user-friendly messages */
@@ -766,6 +772,15 @@ function openDeleteAccountModal() {
   };
 
   confirmBtn.onclick = function () {
+    var passInput = document.getElementById('deleteAccountPassword');
+    var errDiv = document.getElementById('deleteAccountError');
+    var password = passInput ? passInput.value.trim() : '';
+    
+    if (passInput && !password) {
+      if (errDiv) { errDiv.textContent = 'Password is required to delete your account.'; errDiv.style.display = 'block'; }
+      return;
+    }
+
     if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
       showToast('Sign in to manage your account.');
       closeModal();
@@ -773,9 +788,14 @@ function openDeleteAccountModal() {
     }
 
     _setDeleteLoading(true);
+    if (errDiv) errDiv.style.display = 'none';
 
-    /* Get a fresh ID token for the server request */
-    Auth.getIdToken().then(function (idToken) {
+    var user = Auth.getCurrentUser();
+    var credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
+
+    user.reauthenticateWithCredential(credential).then(function() {
+      return Auth.getIdToken();
+    }).then(function (idToken) {
       return fetch('/api/account/delete', {
         method: 'POST',
         headers: {
@@ -794,7 +814,10 @@ function openDeleteAccountModal() {
         var serverMsg = (result.data && result.data.error && result.data.error.message)
           ? result.data.error.message
           : null;
-        showToast(_getDeleteErrorMessage({ message: serverMsg || 'DELETION_FAILED' }));
+        if (errDiv) { 
+          errDiv.textContent = _getDeleteErrorMessage({ message: serverMsg || 'DELETION_FAILED' });
+          errDiv.style.display = 'block';
+        }
         return;
       }
 
@@ -803,12 +826,13 @@ function openDeleteAccountModal() {
         if (typeof AppState !== 'undefined' && typeof AppState.clearAll === 'function') {
           AppState.clearAll();
         }
+        localStorage.removeItem('quant_reflex_user');
+        localStorage.removeItem('quant_reflex_settings');
       } catch (_) {}
 
       closeModal();
       showToast('Your account has been deleted.');
 
-      /* Brief delay for toast visibility, then reload to login screen */
       setTimeout(function () {
         window.location.reload();
       }, 1500);
@@ -816,7 +840,10 @@ function openDeleteAccountModal() {
     }).catch(function (err) {
       _setDeleteLoading(false);
       console.error('[Settings] Account deletion error:', err);
-      showToast(_getDeleteErrorMessage(err));
+      if (errDiv) { 
+        errDiv.textContent = _getDeleteErrorMessage(err);
+        errDiv.style.display = 'block';
+      }
     });
   };
 }

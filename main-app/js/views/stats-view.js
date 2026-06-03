@@ -91,7 +91,7 @@ function renderStatsView() {
     });
     var _last7 = _allDates.slice(-7);
     if (_last7.length < 2) {
-      sparklineEl.innerHTML = '<p class="secondary-text sparkline-empty">Practice for 2+ days to see your accuracy trend.</p>';
+      sparklineEl.innerHTML = '<div class="qr-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><h2>Not enough data</h2><p>Practice for 2+ days to see your accuracy trend.</p></div>';
     } else {
       var _DAY_ABBREV = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
       var _barW = 28, _barGap = 12, _chartH = 72, _labelH = 20, _topPad = 18;
