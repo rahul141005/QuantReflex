@@ -872,7 +872,7 @@ function createDrillEngine(container, opts) {
     /* Set initial adaptive difficulty based on session settings */
     if (adaptiveMode) {
       try {
-        var _s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        var _s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
         _setAdaptiveOverride(_s.difficulty || 'medium');
       } catch (_) { _setAdaptiveOverride('medium'); }
     }

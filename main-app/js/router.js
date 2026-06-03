@@ -157,7 +157,51 @@ var Router = (function () {
     }
 
     window.addEventListener('popstate', function () {
-      if (typeof _drillSessionActive !== 'undefined' && _drillSessionActive) return;
+      /* Close any open info modals on navigation */
+      if (typeof _closeAllInfoModals === 'function') _closeAllInfoModals();
+
+      /* If a drill session is active, show exit dialog instead of navigating */
+      if (typeof _drillSessionActive !== 'undefined' && _drillSessionActive) {
+        /* Push history state back to prevent the browser from actually navigating away */
+        try {
+          history.pushState({ view: 'practice' }, '', '#practice');
+        } catch (e) {
+          window.location.hash = '#practice';
+        }
+
+        if (typeof showExitSessionDialog === 'function') {
+          showExitSessionDialog(function () {
+            if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) {
+              _activeDrillEngine.cleanup();
+              _activeDrillEngine = null;
+            }
+            var _dc = document.getElementById('drillContainer');
+            if (_dc) {
+              _dc.classList.remove('drill-results-active');
+              _dc.style.display = 'none';
+            }
+            if (typeof FirestoreSync !== 'undefined') {
+              FirestoreSync.endDrillBatch();
+            }
+            if (typeof _exitDrillSession === 'function') _exitDrillSession();
+            showView('practice');
+          });
+        }
+        return;
+      }
+
+      /* Non-session popstate: clean up any stale drill state */
+      if (typeof _activeDrillEngine !== 'undefined' && _activeDrillEngine) {
+        _activeDrillEngine.cleanup();
+        _activeDrillEngine = null;
+      }
+      var _dc2 = document.getElementById('drillContainer');
+      if (_dc2) {
+        _dc2.classList.remove('drill-results-active');
+        _dc2.style.display = 'none';
+      }
+      if (typeof _exitDrillSession === 'function') _exitDrillSession();
+
       var hash = window.location.hash.replace('#', '') || 'home';
       _navigatingFromPopstate = true;
       try { showView(hash); } finally { _navigatingFromPopstate = false; }
@@ -182,6 +226,11 @@ var Router = (function () {
     var _allModals = document.querySelectorAll('.modal-overlay');
     for (var m = 0; m < _allModals.length; m++) {
       _allModals[m].style.display = 'none';
+    }
+
+    /* Clean up all registered event listeners to prevent leaks across login/logout */
+    if (typeof EventRegistry !== 'undefined' && typeof EventRegistry.clearAll === 'function') {
+      EventRegistry.clearAll();
     }
   }
 

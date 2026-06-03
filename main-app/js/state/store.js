@@ -397,6 +397,29 @@ var AppState = (function () {
     return copy;
   }
 
+  /* ---- Boot-time migration: remove all legacy keys ---- */
+  /* Since there are no live users yet, we do a hard one-time migration
+     instead of the lazy read-time approach. This prevents split-brain
+     state between legacy and canonical keys. */
+  (function _migrateOnBoot() {
+    try {
+      if (localStorage.getItem('qr_migration_v1') === '1') return;
+      for (var k in LEGACY_KEYS) {
+        if (LEGACY_KEYS.hasOwnProperty(k)) {
+          var legacyVal = localStorage.getItem(LEGACY_KEYS[k]);
+          if (legacyVal !== null) {
+            /* Write to canonical only if not already present */
+            if (localStorage.getItem(KEYS[k]) === null) {
+              localStorage.setItem(KEYS[k], legacyVal);
+            }
+            localStorage.removeItem(LEGACY_KEYS[k]);
+          }
+        }
+      }
+      localStorage.setItem('qr_migration_v1', '1');
+    } catch (_) { /* localStorage unavailable — skip silently */ }
+  })();
+
   /* ---- Public API ---- */
   return {
     /* Settings */

@@ -11,6 +11,32 @@
 const aiService = require('../../services/aiService');
 
 /**
+ * Allowed CORS origins.
+ * Production domains + localhost for development.
+ */
+var _ALLOWED_ORIGINS = [
+  'https://quantreflex.app',
+  'https://dev.quantreflex.app',
+  'https://admin.quantreflex.app'
+];
+if (process.env.NODE_ENV !== 'production') {
+  _ALLOWED_ORIGINS.push('http://localhost:3000', 'http://localhost:5500', 'http://localhost:5173');
+}
+
+/**
+ * Set CORS headers if the request origin is in the allowlist.
+ * @param {object} req
+ * @param {object} res
+ */
+function _setCorsHeaders(req, res) {
+  var origin = req.headers.origin;
+  if (origin && _ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+}
+
+/**
  * Parse JSON body from the request.
  * Vercel typically auto-parses, but this is a safety net.
  */
@@ -104,12 +130,15 @@ function withAuth(handler) {
   return async function (req, res) {
     /* Handle CORS preflight — required for POST with Authorization header */
     if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      _setCorsHeaders(req, res);
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       res.setHeader('Access-Control-Max-Age', '86400');
       return res.status(200).end();
     }
+
+    /* Set CORS headers for non-preflight requests too */
+    _setCorsHeaders(req, res);
 
     var authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -167,12 +196,15 @@ function withAuth(handler) {
 function withAdminAuth(handler) {
   return async function (req, res) {
     if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      _setCorsHeaders(req, res);
       res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE, PUT');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       res.setHeader('Access-Control-Max-Age', '86400');
       return res.status(200).end();
     }
+
+    /* Set CORS headers for non-preflight requests too */
+    _setCorsHeaders(req, res);
 
     var authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -201,4 +233,4 @@ function withAdminAuth(handler) {
   };
 }
 
-module.exports = { withAuth, withAdminAuth, formatError, methodGuard, parseBody };
+module.exports = { withAuth, withAdminAuth, formatError, methodGuard, parseBody, setCorsHeaders: _setCorsHeaders };

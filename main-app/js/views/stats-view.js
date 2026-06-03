@@ -8,9 +8,16 @@
  *   - AI insights integration
  *   - Category accuracy bars
  */
+var _lastStatsFingerprint = null;
 
 function renderStatsView() {
   var p = loadProgress();
+
+  /* Dirty-flag cache: skip full DOM rebuild if progress hasn't changed */
+  var fingerprint = (p.totalAttempted || 0) + ':' + (p.totalCorrect || 0) + ':' +
+    (p.dailyStreak || 0) + ':' + (p.todayAttempted || 0);
+  if (_lastStatsFingerprint === fingerprint) return;
+  _lastStatsFingerprint = fingerprint;
   var canSeeInsights = canAccessFeature('performance_insights');
   var canSeeCategoryAccuracy = canAccessFeature('category_accuracy');
   var accuracy = p.totalAttempted ? ((p.totalCorrect / p.totalAttempted) * 100).toFixed(1) : '0';
@@ -58,7 +65,7 @@ function renderStatsView() {
   var speedEl = document.getElementById('statsSpeed');
   if (speedEl) {
     speedEl.innerHTML =
-      '<div class="stat-card"><div class="value">' + (avgTime || '-') + 's</div><div class="label">Avg Response Time</div></div>' +
+      '<div class="stat-card"><div class="value">' + (Number(avgTime) > 0 ? avgTime + 's' : '-') + '</div><div class="label">Avg Response Time</div></div>' +
       '<div class="stat-card"><div class="value">' + (p.bestStreak || 0) + '</div><div class="label">Best Streak</div></div>';
   }
 

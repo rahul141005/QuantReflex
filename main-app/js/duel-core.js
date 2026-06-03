@@ -18,6 +18,7 @@ var DuelCore = (function () {
   var DUEL_EXPIRY_MS = 30 * 60 * 1000; /* 30 minutes */
   var DUEL_COLLECTION = 'duels';
   var _activeListener = null;
+  var _listenerTimeout = null;
 
   /* ---- Helpers ---- */
 
@@ -518,9 +519,22 @@ var DuelCore = (function () {
       }, function (err) {
         callback({ error: err.message || 'Listener error' });
       });
+
+    /* Auto-timeout: stop the listener after 30 minutes to prevent memory leaks
+       from abandoned duel views. The listener is refreshed each time listenToDuel
+       is called, so active duels are not affected. */
+    if (_listenerTimeout) clearTimeout(_listenerTimeout);
+    _listenerTimeout = setTimeout(function () {
+      console.warn('[DuelCore] onSnapshot listener auto-stopped after 30 min timeout');
+      stopListening();
+    }, 30 * 60 * 1000);
   }
 
   function stopListening() {
+    if (_listenerTimeout) {
+      clearTimeout(_listenerTimeout);
+      _listenerTimeout = null;
+    }
     if (_activeListener) {
       _activeListener();
       _activeListener = null;

@@ -77,13 +77,20 @@ var _AI_FEATURES = { ai_explain: true, ai_coach: true, ai_study_plan: true, math
 /**
  * Clock-safe now — detects client-side clock manipulation.
  * If the device clock is set backwards by >5 minutes relative to the last
- * server-written updatedAt, we treat "now" as MAX_SAFE_INTEGER to prevent exploits.
+ * server-written updatedAt, we use the server timestamp instead.
+ * This prevents clock-rewind exploits while avoiding permanent lockout
+ * of users with genuinely wrong device clocks.
  */
 function _clockSafeNow(u) {
   var now = Date.now();
   if (u) {
     var lastUpdateMs = _toMillis(u.updatedAt) || _toMillis(u.createdAt);
-    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
+    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) {
+      /* Clock is >5 min behind server — use server time as best estimate.
+         Using MAX_SAFE_INTEGER here would permanently revoke valid subscriptions
+         for users whose device clock is simply wrong (not malicious). */
+      now = lastUpdateMs;
+    }
   }
   return now;
 }

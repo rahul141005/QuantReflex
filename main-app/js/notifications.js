@@ -45,7 +45,7 @@ var NotificationManager = (function () {
       if (val !== null) return val === 'true';
       /* Fallback: check settings object for Firestore-synced state.
          Field name is notificationsEnabled — matches settings.js default. */
-      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+      var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
       return s.notificationsEnabled === true;
     } catch (_) { return false; }
   }

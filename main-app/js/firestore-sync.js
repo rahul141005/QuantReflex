@@ -257,33 +257,25 @@ var FirestoreSync = (function () {
         _enforcePremiumPlusExpiry(_memoryCache, docRef);
         _dataLoaded = true;
         _loadedUserId = currentUserId;
-        /* Write to both legacy and canonical (AppState) keys so that
-           AppState reads always return fresh Firestore data without
-           depending on lazy migration timing. */
+        /* Write to canonical AppState keys — single source of truth for localStorage */
         if (data.settings) {
-          try { localStorage.setItem('quant_reflex_settings', JSON.stringify(data.settings)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setSettings(data.settings);
         }
         if (data.stats) {
-          try { localStorage.setItem('quant_reflex_progress', JSON.stringify(data.stats)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setProgress(data.stats);
           /* Invalidate progress.js cache so next loadProgress() reads fresh Firestore data */
           if (typeof invalidateProgressCache === 'function') invalidateProgressCache();
         }
         if (data.quickLinks) {
-          try { localStorage.setItem('quant_quick_links', JSON.stringify(data.quickLinks)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setQuickLinks(data.quickLinks);
         }
         if (data.customTopics) {
-          try { localStorage.setItem('quant_custom_topics', JSON.stringify(data.customTopics)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setCustomTopics(data.customTopics);
         }
         if (data.customFormulas) {
-          try { localStorage.setItem('quant_custom_formulas', JSON.stringify(data.customFormulas)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setCustomFormulas(data.customFormulas);
         }
         if (data.bookmarks) {
-          try { localStorage.setItem('quant_bookmarks', JSON.stringify(data.bookmarks)); } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setBookmarks(data.bookmarks);
         }
       } else {
@@ -363,18 +355,7 @@ var FirestoreSync = (function () {
     _memoryCache = fallbackDefaults;
     _dataLoaded = true;
 
-    /* Write clean defaults to localStorage so the app has consistent state.
-       Write to BOTH legacy keys (for backward compat) and canonical AppState keys
-       (for modules that read via AppState). */
-    try {
-      localStorage.setItem('quant_reflex_settings', JSON.stringify(fallbackDefaults.settings));
-      localStorage.setItem('quant_reflex_progress', JSON.stringify(fallbackDefaults.stats));
-      localStorage.setItem('quant_quick_links', JSON.stringify(fallbackDefaults.quickLinks));
-      localStorage.setItem('quant_custom_topics', JSON.stringify(fallbackDefaults.customTopics));
-      localStorage.setItem('quant_custom_formulas', JSON.stringify(fallbackDefaults.customFormulas));
-      localStorage.setItem('quant_bookmarks', JSON.stringify(fallbackDefaults.bookmarks));
-    } catch (_) {}
-    /* Also write to canonical AppState keys to prevent stale qr_* reads */
+    /* Write clean defaults to canonical AppState keys — single source of truth */
     if (typeof AppState !== 'undefined') {
       AppState.setSettings(fallbackDefaults.settings);
       AppState.setProgress(fallbackDefaults.stats);
@@ -590,31 +571,34 @@ var FirestoreSync = (function () {
     var docRef = _getUserDocRef();
     if (!docRef) return;
 
+    /* Read from canonical AppState keys (single source of truth) */
     var data = {};
-    try {
-      var settings = localStorage.getItem('quant_reflex_settings');
-      if (settings) data.settings = JSON.parse(settings);
-    } catch (_) {}
-    try {
-      var stats = localStorage.getItem('quant_reflex_progress');
-      if (stats) data.stats = JSON.parse(stats);
-    } catch (_) {}
-    try {
-      var quickLinks = localStorage.getItem('quant_quick_links');
-      if (quickLinks) data.quickLinks = JSON.parse(quickLinks);
-    } catch (_) {}
-    try {
-      var customTopics = localStorage.getItem('quant_custom_topics');
-      if (customTopics) data.customTopics = JSON.parse(customTopics);
-    } catch (_) {}
-    try {
-      var customFormulas = localStorage.getItem('quant_custom_formulas');
-      if (customFormulas) data.customFormulas = JSON.parse(customFormulas);
-    } catch (_) {}
-    try {
-      var bookmarks = localStorage.getItem('quant_bookmarks');
-      if (bookmarks) data.bookmarks = JSON.parse(bookmarks);
-    } catch (_) {}
+    if (typeof AppState !== 'undefined') {
+      try {
+        var settings = AppState.getSettings();
+        if (settings) data.settings = settings;
+      } catch (_) {}
+      try {
+        var progress = AppState.getProgress();
+        if (progress) data.stats = progress;
+      } catch (_) {}
+      try {
+        var quickLinks = AppState.getQuickLinks();
+        if (quickLinks) data.quickLinks = quickLinks;
+      } catch (_) {}
+      try {
+        var customTopics = AppState.getCustomTopics();
+        if (customTopics) data.customTopics = customTopics;
+      } catch (_) {}
+      try {
+        var customFormulas = AppState.getCustomFormulas();
+        if (customFormulas) data.customFormulas = customFormulas;
+      } catch (_) {}
+      try {
+        var bookmarks = AppState.getBookmarks();
+        if (bookmarks) data.bookmarks = bookmarks;
+      } catch (_) {}
+    }
 
     if (Object.keys(data).length > 0) {
       docRef.set(data, { merge: true }).catch(function (err) {
@@ -840,7 +824,6 @@ var FirestoreSync = (function () {
         categoryStats: {}, mistakes: [],
         responseTimes: [], dailyHistory: {}
       };
-      try { localStorage.setItem('quant_reflex_progress', JSON.stringify(resetStats)); } catch (_) {}
       if (typeof AppState !== 'undefined') AppState.setProgress(resetStats);
       if (typeof invalidateProgressCache === 'function') invalidateProgressCache();
       if (_memoryCache) _memoryCache.stats = resetStats;
@@ -873,9 +856,6 @@ var FirestoreSync = (function () {
         if (callback) callback(null);
       }
     } else if (type === 'formulas') {
-      try { localStorage.setItem('quant_custom_formulas', '{}'); } catch (_) {}
-      try { localStorage.setItem('quant_custom_topics', '[]'); } catch (_) {}
-      try { localStorage.setItem('quant_bookmarks', '[]'); } catch (_) {}
       if (typeof AppState !== 'undefined') {
         AppState.setCustomFormulas({});
         AppState.setCustomTopics([]);
@@ -912,17 +892,7 @@ var FirestoreSync = (function () {
         categoryStats: {}, mistakes: [],
         responseTimes: [], dailyHistory: {}
       };
-      try {
-        localStorage.setItem('quant_reflex_settings', JSON.stringify(defaultSettings));
-        localStorage.setItem('quant_reflex_progress', JSON.stringify(defaultStats));
-        localStorage.setItem('quant_quick_links', JSON.stringify(['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks']));
-        localStorage.setItem('quant_custom_topics', '[]');
-        localStorage.setItem('quant_custom_formulas', '{}');
-        localStorage.setItem('quant_bookmarks', '[]');
-        /* Reset notification state when clearing all data */
-        localStorage.setItem('quant_notifications_enabled', 'false');
-      } catch (_) {}
-      /* Also write to canonical AppState keys */
+      /* Write to canonical AppState keys (single source of truth for localStorage) */
       if (typeof AppState !== 'undefined') {
         AppState.setSettings(defaultSettings);
         AppState.setProgress(defaultStats);

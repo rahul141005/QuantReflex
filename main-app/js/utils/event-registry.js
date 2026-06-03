@@ -55,9 +55,23 @@ var EventRegistry = (function () {
     }
   }
 
+  /**
+   * Cleans up ALL listeners for ALL views.
+   * Used during full logout teardown to prevent any listener leaks.
+   */
+  function clearAll() {
+    for (var viewId in _listeners) {
+      if (_listeners.hasOwnProperty(viewId)) {
+        clearViewListeners(viewId);
+      }
+    }
+    _listeners = {};
+  }
+
   return {
     addDOMListener: addDOMListener,
     addFirebaseListener: addFirebaseListener,
-    clearViewListeners: clearViewListeners
+    clearViewListeners: clearViewListeners,
+    clearAll: clearAll
   };
 })();

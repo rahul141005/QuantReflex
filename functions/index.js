@@ -75,7 +75,7 @@ exports.cleanupExpiredDuels = onSchedule(
     try {
       /* Find stale rooms (waiting/ready for more than 30 min) */
       const staleRooms = await db.collection('duels')
-        .where('status', 'in', ['waiting', 'ready'])
+        .where('status', 'in', ['waiting', 'ready', 'waiting_for_acceptance', 'waiting_room'])
         .where('createdAt', '<', thirtyMinutesAgo)
         .limit(400)
         .get();
@@ -145,54 +145,65 @@ exports.enforceEntitlementExpiry = onSchedule(
   async (event) => {
 
     const now = Date.now();
+    let totalRevoked = 0;
+    let lastDoc = null;
 
     try {
-      const premiumPlusUsers = await db.collection('users')
-        .where('isPremiumPlus', '==', true)
-        .limit(200)
-        .get();
+      /* Paginate through ALL Premium+ users */
+      while (true) {
+        let query = db.collection('users')
+          .where('isPremiumPlus', '==', true)
+          .limit(200);
+        if (lastDoc) query = query.startAfter(lastDoc);
 
-      if (premiumPlusUsers.empty) {
-        logger.info('[expiry] No Premium+ users to check.');
-        return;
+        const snapshot = await query.get();
+        if (snapshot.empty) break;
+
+        const batch = db.batch();
+        let revokedCount = 0;
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (!data.premiumPlusExpiry) return;
+
+          let expiryMs = 0;
+          if (typeof data.premiumPlusExpiry === 'number') {
+            expiryMs = data.premiumPlusExpiry;
+          } else if (typeof data.premiumPlusExpiry === 'string') {
+            expiryMs = Date.parse(data.premiumPlusExpiry);
+          } else if (data.premiumPlusExpiry.toMillis) {
+            expiryMs = data.premiumPlusExpiry.toMillis();
+          } else if (data.premiumPlusExpiry.toDate) {
+            expiryMs = data.premiumPlusExpiry.toDate().getTime();
+          }
+
+          if (isNaN(expiryMs) || expiryMs <= 0) return;
+
+          if (expiryMs < now) {
+            batch.update(doc.ref, {
+              isPremiumPlus: false,
+              premiumPlusStatus: 'expired',
+              updatedAt: new Date().toISOString()
+            });
+            revokedCount++;
+            logger.info('[expiry] Revoking Premium+ for uid:', doc.id,
+              'expired:', new Date(expiryMs).toISOString());
+          }
+        });
+
+        if (revokedCount > 0) {
+          await batch.commit();
+          totalRevoked += revokedCount;
+        }
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+        /* Safety: stop after 5000 users to stay within Cloud Function timeout */
+        if (totalRevoked > 5000) break;
       }
 
-      const batch = db.batch();
-      let revokedCount = 0;
-
-      premiumPlusUsers.forEach((doc) => {
-        const data = doc.data();
-        if (!data.premiumPlusExpiry) return;
-
-        /* Parse the expiry timestamp — could be ISO string, Firestore Timestamp, or number */
-        let expiryMs = 0;
-        if (typeof data.premiumPlusExpiry === 'number') {
-          expiryMs = data.premiumPlusExpiry;
-        } else if (typeof data.premiumPlusExpiry === 'string') {
-          expiryMs = Date.parse(data.premiumPlusExpiry);
-        } else if (data.premiumPlusExpiry.toMillis) {
-          expiryMs = data.premiumPlusExpiry.toMillis();
-        } else if (data.premiumPlusExpiry.toDate) {
-          expiryMs = data.premiumPlusExpiry.toDate().getTime();
-        }
-
-        if (isNaN(expiryMs) || expiryMs <= 0) return;
-
-        if (expiryMs < now) {
-          batch.update(doc.ref, {
-            isPremiumPlus: false,
-            premiumPlusStatus: 'expired',
-            updatedAt: new Date().toISOString()
-          });
-          revokedCount++;
-          logger.info('[expiry] Revoking Premium+ for uid:', doc.id,
-            'expired:', new Date(expiryMs).toISOString());
-        }
-      });
-
-      if (revokedCount > 0) {
-        await batch.commit();
-        logger.info('[expiry] Revoked ' + revokedCount + ' expired Premium+ entitlements.');
+      if (totalRevoked > 0) {
+        logger.info('[expiry] Total revoked: ' + totalRevoked + ' expired Premium+ entitlements.');
       } else {
         logger.info('[expiry] All Premium+ users still within their subscription period.');
       }
@@ -240,24 +251,32 @@ exports.dailyPracticeReminder = onSchedule(
     const msg = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
 
     try {
-      /* Fetch all users who have an FCM token */
-      const snapshot = await db.collection('users')
-        .where('fcmToken', '!=', null)
-        .limit(500)
-        .get();
-
-      if (snapshot.empty) {
-        logger.info('[reminder] No users with FCM tokens found.');
-        return;
-      }
-
+      /* Paginate through ALL users with FCM tokens */
       const tokens = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.fcmToken && typeof data.fcmToken === 'string' && data.fcmToken.length > 20) {
-          tokens.push(data.fcmToken);
-        }
-      });
+      const tokenToDocId = {};
+      let lastDoc = null;
+
+      while (true) {
+        let query = db.collection('users')
+          .where('fcmToken', '!=', null)
+          .limit(500);
+        if (lastDoc) query = query.startAfter(lastDoc);
+
+        const snapshot = await query.get();
+        if (snapshot.empty) break;
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.fcmToken && typeof data.fcmToken === 'string' && data.fcmToken.length > 20) {
+            tokens.push(data.fcmToken);
+            tokenToDocId[data.fcmToken] = doc.id;
+          }
+        });
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        /* Safety: cap at 5000 tokens per run */
+        if (tokens.length >= 5000) break;
+      }
 
       if (tokens.length === 0) {
         logger.info('[reminder] No valid FCM tokens found.');
@@ -266,49 +285,51 @@ exports.dailyPracticeReminder = onSchedule(
 
       logger.info('[reminder] Sending "' + msg.title + '" to ' + tokens.length + ' devices');
 
-      /* Send to all tokens using multicast */
+      /* Send to all tokens using multicast (max 500 per call) */
       const messaging = getMessaging();
-      const response = await messaging.sendEachForMulticast({
-        notification: {
-          title: msg.title,
-          body: msg.body
-        },
-        tokens: tokens
-      });
+      let totalSuccess = 0;
+      let totalFailure = 0;
+      const invalidTokenDocIds = [];
 
-      logger.info('[reminder] Success: ' + response.successCount +
-                   ', Failed: ' + response.failureCount);
-
-      /* Clean up invalid tokens from Firestore */
-      if (response.failureCount > 0) {
-        const invalidTokens = [];
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success && resp.error) {
-            const code = resp.error.code;
-            if (code === 'messaging/invalid-registration-token' ||
-                code === 'messaging/registration-token-not-registered') {
-              invalidTokens.push(tokens[idx]);
-            }
-          }
+      for (let i = 0; i < tokens.length; i += 500) {
+        const batch = tokens.slice(i, i + 500);
+        const response = await messaging.sendEachForMulticast({
+          notification: { title: msg.title, body: msg.body },
+          tokens: batch
         });
 
-        if (invalidTokens.length > 0) {
-          logger.info('[reminder] Cleaning up ' + invalidTokens.length + ' invalid tokens');
-          /* Find and clear invalid tokens from user documents */
-          for (const badToken of invalidTokens) {
-            try {
-              const q = await db.collection('users')
-                .where('fcmToken', '==', badToken)
-                .limit(1)
-                .get();
-              q.forEach((doc) => {
-                doc.ref.update({ fcmToken: null }).catch(() => {});
-              });
-            } catch (cleanErr) {
-              logger.warn('[reminder] Token cleanup failed:', cleanErr.message);
+        totalSuccess += response.successCount;
+        totalFailure += response.failureCount;
+
+        /* Collect invalid tokens for batch cleanup */
+        if (response.failureCount > 0) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success && resp.error) {
+              const code = resp.error.code;
+              if (code === 'messaging/invalid-registration-token' ||
+                  code === 'messaging/registration-token-not-registered') {
+                const token = batch[idx];
+                if (tokenToDocId[token]) {
+                  invalidTokenDocIds.push(tokenToDocId[token]);
+                }
+              }
             }
-          }
+          });
         }
+      }
+
+      logger.info('[reminder] Success: ' + totalSuccess + ', Failed: ' + totalFailure);
+
+      /* Batch-clean invalid tokens using known doc IDs (no N+1 queries) */
+      if (invalidTokenDocIds.length > 0) {
+        logger.info('[reminder] Cleaning up ' + invalidTokenDocIds.length + ' invalid tokens');
+        const cleanBatch = db.batch();
+        for (const docId of invalidTokenDocIds) {
+          cleanBatch.update(db.collection('users').doc(docId), { fcmToken: null });
+        }
+        await cleanBatch.commit().catch((err) => {
+          logger.warn('[reminder] Token cleanup batch failed:', err.message);
+        });
       }
     } catch (err) {
       logger.error('[reminder] Error:', err.message);

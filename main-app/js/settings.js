@@ -601,11 +601,6 @@ function openClearConfirmModal(type) {
       if (type === 'stats') {
         resetProgress();
       } else if (type === 'formulas') {
-        try {
-          localStorage.setItem('quant_custom_formulas', '{}');
-          localStorage.setItem('quant_custom_topics', '[]');
-          localStorage.setItem('quant_bookmarks', '[]');
-        } catch (_) {}
         if (typeof AppState !== 'undefined') {
           AppState.setCustomFormulas({});
           AppState.setCustomTopics([]);
@@ -618,20 +613,14 @@ function openClearConfirmModal(type) {
           dailyGoal: 20, reducedMotion: false, skipEnabled: false, notificationsEnabled: false,
           theme: 'classic'
         };
-        try {
-          localStorage.setItem('quant_reflex_settings', JSON.stringify(defaultSettings));
-          localStorage.setItem('quant_custom_formulas', '{}');
-          localStorage.setItem('quant_custom_topics', '[]');
-          localStorage.setItem('quant_bookmarks', '[]');
-          localStorage.setItem('quant_quick_links', JSON.stringify(['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks']));
-          localStorage.setItem('quant_notifications_enabled', 'false');
-        } catch (_) {}
+        /* Write to canonical AppState keys — single source of truth */
         if (typeof AppState !== 'undefined') {
           AppState.setSettings(defaultSettings);
           AppState.setCustomFormulas({});
           AppState.setCustomTopics([]);
           AppState.setBookmarks([]);
           AppState.setQuickLinks(['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks']);
+          AppState.setNotifEnabled(false);
         }
         if (typeof NotificationManager !== 'undefined') {
           NotificationManager.cancelScheduledNotifications();
@@ -724,6 +713,7 @@ function openProfileModal() {
 
 /**
  * Open the delete account confirmation modal.
+ * Uses server-side API for safe, complete data deletion.
  */
 function openDeleteAccountModal() {
   var modal = document.getElementById('deleteAccountModal');
@@ -739,110 +729,95 @@ function openDeleteAccountModal() {
     document.body.classList.remove('modal-open');
   }
 
+  function _setDeleteLoading(loading) {
+    if (confirmBtn) {
+      confirmBtn.disabled = loading;
+      confirmBtn.textContent = loading ? 'Deleting account...' : 'Delete My Account';
+      if (loading) confirmBtn.classList.add('btn-loading');
+      else confirmBtn.classList.remove('btn-loading');
+    }
+    if (cancelBtn) cancelBtn.disabled = loading;
+  }
+
+  /* Map Firebase/server error codes to user-friendly messages */
+  function _getDeleteErrorMessage(err) {
+    if (!err) return 'Account deletion failed. Please try again.';
+    var msg = err.message || err;
+    if (typeof msg === 'string') {
+      if (msg.indexOf('auth/requires-recent-login') !== -1) {
+        return 'For security, please log out and log back in, then try deleting again.';
+      }
+      if (msg.indexOf('UNAUTHORIZED') !== -1 || msg.indexOf('token') !== -1) {
+        return 'Your session has expired. Please log out, log back in, and try again.';
+      }
+      if (msg.indexOf('DELETION_FAILED') !== -1) {
+        return 'Account deletion partially failed. Please try again or contact support.';
+      }
+      if (msg.indexOf('network') !== -1 || msg.indexOf('fetch') !== -1 || msg.indexOf('Failed to fetch') !== -1) {
+        return 'Network error. Please check your connection and try again.';
+      }
+    }
+    return 'Unable to delete account. Please try again or contact support.';
+  }
+
   cancelBtn.onclick = closeModal;
   modal.onclick = function (e) {
     if (e.target === modal) closeModal();
   };
 
   confirmBtn.onclick = function () {
-    closeModal();
     if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
       showToast('Sign in to manage your account.');
+      closeModal();
       return;
     }
 
-    var user = Auth.getCurrentUser();
+    _setDeleteLoading(true);
 
-    /**
-     * Delete account in proper order:
-     * 1. Delete Firestore user document (while auth context is valid)
-     * 2. Delete Firebase Auth account
-     * 3. Clear all local data (only after auth deletion succeeds)
-     */
-    function _clearAllLocalData() {
+    /* Get a fresh ID token for the server request */
+    Auth.getIdToken().then(function (idToken) {
+      return fetch('/api/account/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + idToken
+        }
+      });
+    }).then(function (resp) {
+      return resp.json().then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    }).then(function (result) {
+      _setDeleteLoading(false);
+
+      if (!result.ok || !result.data.success) {
+        var serverMsg = (result.data && result.data.error && result.data.error.message)
+          ? result.data.error.message
+          : null;
+        showToast(_getDeleteErrorMessage({ message: serverMsg || 'DELETION_FAILED' }));
+        return;
+      }
+
+      /* Server confirmed complete deletion — clear all local data */
       try {
         if (typeof AppState !== 'undefined' && typeof AppState.clearAll === 'function') {
           AppState.clearAll();
-        } else if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync._clearUserLocalStorage === 'function') {
-          FirestoreSync._clearUserLocalStorage();
-        } else {
-          var userKeys = ['quant_reflex_settings', 'quant_reflex_progress', 'quant_quick_links', 'quant_custom_topics', 'quant_custom_formulas', 'quant_bookmarks', 'quant_notifications_enabled'];
-          for (var i = 0; i < userKeys.length; i++) localStorage.removeItem(userKeys[i]);
         }
       } catch (_) {}
-    }
 
-    function deleteAuthAndReload() {
-      user.delete().then(function () {
-        /* Auth deletion succeeded — NOW safe to clear local data */
-        _clearAllLocalData();
+      closeModal();
+      showToast('Your account has been deleted.');
+
+      /* Brief delay for toast visibility, then reload to login screen */
+      setTimeout(function () {
         window.location.reload();
-      }).catch(function (err) {
-        showToast('Unable to delete account: ' + err.message);
-      });
-    }
+      }, 1500);
 
-    if (typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
-      var db = FirebaseApp.getDb();
-      var userId = FirebaseApp.getUserId();
-      if (db && userId) {
-        var subcollections = ['performance', 'practice', 'ai', 'usage', 'profile'];
-        var subDeletePromises = subcollections.map(function (sub) {
-          return db.collection('users').doc(userId).collection(sub).get().then(function (snap) {
-            var batch = db.batch();
-            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
-            return batch.commit();
-          }).catch(function (err) {
-            console.warn('Failed to delete subcollection ' + sub + ':', err);
-          });
-        });
-
-        var paymentsDeletePromise = db.collection('payments')
-          .where('uid', '==', userId).get().then(function (snap) {
-            if (snap.empty) return;
-            var batch = db.batch();
-            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
-            return batch.commit();
-          }).catch(function (err) {
-            console.warn('Failed to delete payment records:', err);
-          });
-
-        /* Clean up AI data collections that embed userId in doc IDs */
-        var aiInsightsDeletePromise = db.collection('aiInsights')
-          .where('userId', '==', userId).get().then(function (snap) {
-            if (snap.empty) return;
-            var batch = db.batch();
-            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
-            return batch.commit();
-          }).catch(function (err) {
-            console.warn('Failed to delete AI insights:', err);
-          });
-
-        var aiStudyPlansDeletePromise = db.collection('aiStudyPlans')
-          .where('userId', '==', userId).get().then(function (snap) {
-            if (snap.empty) return;
-            var batch = db.batch();
-            snap.docs.forEach(function (doc) { batch.delete(doc.ref); });
-            return batch.commit();
-          }).catch(function (err) {
-            console.warn('Failed to delete AI study plans:', err);
-          });
-
-        Promise.all(subDeletePromises.concat([paymentsDeletePromise, aiInsightsDeletePromise, aiStudyPlansDeletePromise]))
-          .then(function () {
-            return db.collection('users').doc(userId).delete();
-          })
-          .then(deleteAuthAndReload)
-          .catch(function (err) {
-            console.warn('Failed to delete Firestore user data:', err);
-            deleteAuthAndReload();
-          });
-        return;
-      }
-    }
-
-    /* No Firestore — just clear and delete auth */
-    deleteAuthAndReload();
+    }).catch(function (err) {
+      _setDeleteLoading(false);
+      console.error('[Settings] Account deletion error:', err);
+      showToast(_getDeleteErrorMessage(err));
+    });
   };
 }
 

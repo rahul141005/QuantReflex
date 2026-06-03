@@ -186,7 +186,7 @@ try {
 function _showUpdateToast() {
   if (document.getElementById('_swUpdateToast')) return;
   try {
-    var _updateKey = 'updateToastShown_' + (typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : 'unknown');
+    var _updateKey = 'updateToastShown_' + (document.lastModified || 'v1');
     if (localStorage.getItem(_updateKey) === '1') return;
     localStorage.setItem(_updateKey, '1');
   } catch (_) {}
@@ -225,8 +225,7 @@ function showCustomConfirm(msg, onConfirm) {
   var okBtn = document.getElementById('clearConfirmOk');
 
   if (!modal || !textEl || !cancelBtn || !okBtn) {
-    console.error('Missing custom confirm dialog elements.');
-    onConfirm();
+    console.error('Missing custom confirm dialog elements — action blocked for safety.');
     return;
   }
 
@@ -520,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (bottomNav) bottomNav.style.display = '';
       
       try {
-        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
         updateNavigationIcons(s.theme || 'classic');
       } catch (_) {
         updateNavigationIcons('classic');
@@ -543,6 +542,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   var _hydrationStarted = false;
+  var _hydrationRetryCount = 0;
+  var _MAX_HYDRATION_RETRIES = 30; /* 3 seconds at 100ms intervals */
+
   function startHydrationAndShowApp() {
     if (_currentAppState === 'app') return;
     if (_hydrationStarted) return;
@@ -555,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (transitionFired) return;
       transitionFired = true;
       try {
-        var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+        var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
         document.body.classList.toggle('dark-mode', !!s.darkMode);
         if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
       } catch (_) { /* ignore */ }
@@ -576,10 +578,13 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
       if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
-         clearTimeout(timeoutId);
-         _hydrationStarted = false; /* Allow retry */
-         setTimeout(startHydrationAndShowApp, 100);
-         return;
+         if (_hydrationRetryCount++ < _MAX_HYDRATION_RETRIES) {
+           clearTimeout(timeoutId);
+           _hydrationStarted = false; /* Allow retry */
+           setTimeout(startHydrationAndShowApp, 100);
+           return;
+         }
+         console.error('[BOOT] getUserId() still null after ' + _MAX_HYDRATION_RETRIES + ' retries. Proceeding without Firestore.');
       }
       clearTimeout(timeoutId);
       _executeTransition();
@@ -1082,52 +1087,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* ---- Cleanup drill engine on back/forward navigation ---- */
-  window.addEventListener('popstate', function (e) {
-    /* Close any open info modals on navigation */
-    _closeAllInfoModals();
-    if (_drillSessionActive) {
-      /* Push history state back to prevent the browser from actually navigating away.
-         This must happen before the dialog to keep the URL stable. */
-      try {
-        history.pushState({ view: 'practice' }, '', '#practice');
-      } catch (e) {
-        window.location.hash = '#practice';
-      }
-
-      showExitSessionDialog(function () {
-        if (_activeDrillEngine) {
-          _activeDrillEngine.cleanup();
-          _activeDrillEngine = null;
-        }
-        /* Clear stale drill results overlay */
-        var _dc = document.getElementById('drillContainer');
-        if (_dc) {
-          _dc.classList.remove('drill-results-active');
-          _dc.style.display = 'none';
-        }
-        /* End Firestore batch that was started when session began */
-        if (typeof FirestoreSync !== 'undefined') {
-          FirestoreSync.endDrillBatch();
-        }
-        _exitDrillSession();
-        Router.showView('practice');
-      });
-      /* If cancelled, session continues — dialog closes without action */
-      return;
-    }
-    if (_activeDrillEngine) {
-      _activeDrillEngine.cleanup();
-      _activeDrillEngine = null;
-    }
-    /* Clear stale drill results overlay on non-session popstate too */
-    var _dc2 = document.getElementById('drillContainer');
-    if (_dc2) {
-      _dc2.classList.remove('drill-results-active');
-      _dc2.style.display = 'none';
-    }
-    _exitDrillSession();
-  });
+  /* NOTE: popstate drill-session handling has been consolidated into Router.init()
+     to prevent double-firing of popstate handlers. See router.js. */
 
 
   /* ---- Initialize view modules ---- */
