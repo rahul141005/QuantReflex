@@ -162,10 +162,9 @@ var InboxView = (function () {
     }
 
     if (_notifications.length === 0) {
-      listEl.innerHTML = '<div class="qr-empty-state">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>' +
-        '<h2>You\'re all caught up!</h2>' +
-        '<p>No new notifications at this time.</p>' +
+      listEl.innerHTML = '<div class="empty-state" style="padding:3rem 1rem; text-align:center;">' +
+        '<div class="empty-state-icon" style="font-size:3rem; margin-bottom:1rem; opacity:0.5;">📭</div>' +
+        '<div class="empty-state-text" style="color:var(--text-secondary);">You\'re all caught up! No new notifications.</div>' +
         '</div>';
       return;
     }

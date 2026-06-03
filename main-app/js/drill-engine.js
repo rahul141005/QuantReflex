@@ -119,7 +119,7 @@ function createDrillEngine(container, opts) {
       '<div class="card center-content">' +
         '<h2>' + mode + '</h2>' +
         '<p>' + subtitle + '</p>' +
-        '<button id="startBtn" class="btn-primary" style="margin-bottom: 0.75rem;">Begin Challenge</button>' +
+        '<button id="startBtn" class="btn-primary">Begin Challenge</button>' +
         '<button id="startBackBtn" class="btn-secondary">← Back to Modes</button>' +
       '</div>';
     hideCustomNumpad();
@@ -679,8 +679,8 @@ function createDrillEngine(container, opts) {
             '<div class="benchmark-ai-placeholder" id="benchmarkAiPlaceholder"></div>' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn" style="margin-bottom: 0.75rem;">🏆 Share Achievement</button>' +
-        '<button class="btn-primary" id="tryAgainBtn" style="margin-bottom: 0.75rem;">Challenge Again</button>' +
+        '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
+        '<button class="btn-primary" id="tryAgainBtn">Challenge Again</button>' +
         '<button class="btn-secondary" id="homeBtn">Back to Home</button>' +
       '</div>';
 
