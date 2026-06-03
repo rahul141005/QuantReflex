@@ -31,13 +31,7 @@ var DuelCore = (function () {
     return id;
   }
 
-  function _getDb() {
-    return (typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) ? FirebaseApp.getDb() : null;
-  }
 
-  function _getUserId() {
-    return (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : null;
-  }
 
   function _getDisplayName() {
     try {
@@ -132,8 +126,8 @@ var DuelCore = (function () {
    * Returns a room code that can be shared with the opponent.
    */
   function createDuel(config, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid) { callback('Not authenticated'); return; }
     if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
 
@@ -222,8 +216,8 @@ var DuelCore = (function () {
   }
 
   function _joinDuelTransaction(duelId, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid) { callback('Not authenticated'); return; }
 
     var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
@@ -283,7 +277,7 @@ var DuelCore = (function () {
    * Start the duel (both players present) — with countdown.
    */
   function startDuel(duelId, callback) {
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db) { callback('Not ready'); return; }
 
     db.collection(DUEL_COLLECTION).doc(duelId).update({
@@ -298,8 +292,8 @@ var DuelCore = (function () {
    * Submit an answer for the current user (transaction-safe with duplicate guard).
    */
   function submitAnswer(duelId, questionIndex, userAnswer, correct, timeMs, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid) { if (callback) callback('Not ready'); return; }
 
     var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
@@ -369,7 +363,7 @@ var DuelCore = (function () {
   var _completionLocks = {};
 
   function _checkDuelCompletion(duelId) {
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db || _completionLocks[duelId]) return;
     _completionLocks[duelId] = true;
 
@@ -428,8 +422,8 @@ var DuelCore = (function () {
    * Sets participant status to 'exited' with current results preserved.
    */
   function exitDuelEarly(duelId, callback) {
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid || !duelId) { if (callback) callback('Not ready'); return; }
 
     var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
@@ -483,7 +477,7 @@ var DuelCore = (function () {
    * Get current state of a duel room (one-time fetch).
    */
   function getDuelState(duelId, callback) {
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db) { callback('Database not available'); return; }
 
     db.collection(DUEL_COLLECTION).doc(duelId).get()
@@ -504,7 +498,7 @@ var DuelCore = (function () {
    */
   function listenToDuel(duelId, callback) {
     stopListening();
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db) return;
 
     _activeListener = db.collection(DUEL_COLLECTION).doc(duelId)
@@ -553,8 +547,8 @@ var DuelCore = (function () {
    */
   function leaveDuel(duelId) {
     stopListening();
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid || !duelId) return;
 
     var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
@@ -578,7 +572,7 @@ var DuelCore = (function () {
   }
 
   function deleteDuel(duelId) {
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db || !duelId) return Promise.resolve();
     return db.collection(DUEL_COLLECTION).doc(duelId).update({
       status: 'cancelled',
@@ -591,8 +585,8 @@ var DuelCore = (function () {
    * @param {function} callback - (error, duelData | null)
    */
   function findActiveDuel(callback) {
-    var db = _getDb();
-    var uid = _getUserId();
+    var db = FirebaseApp.getDb();
+    var uid = FirebaseApp.getUserId();
     if (!db || !uid) { callback(null, null); return; }
 
     /* Check localStorage first for stored duel ID */

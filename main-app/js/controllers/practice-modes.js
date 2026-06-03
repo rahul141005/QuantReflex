@@ -30,6 +30,14 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
     showPaywall('review_mistakes');
     return;
   }
+  /* Secondary explicit guard against console UI bypass for premium modes */
+  if ((modeKey === 'custom' || modeKey === 'review') && typeof AppState !== 'undefined') {
+    var isPrem = AppState.getPremiumStatus() === 'true' || AppState.getPremiumPlus() === 'true';
+    if (!isPrem) {
+      showPaywall('premium_required');
+      return;
+    }
+  }
   if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) {
     var modeSelectEl = document.getElementById('modeSelect');
     if (modeSelectEl) {

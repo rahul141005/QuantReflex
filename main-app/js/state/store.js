@@ -46,19 +46,7 @@ var AppState = (function () {
     premiumPlus:    'qr_premium_plus'
   };
 
-  /* Legacy keys (for backward-compatible reads) */
-  var LEGACY_KEYS = {
-    settings:       'quant_reflex_settings',
-    progress:       'quant_reflex_progress',
-    quickLinks:     'quant_quick_links',
-    customTopics:   'quant_custom_topics',
-    customFormulas: 'quant_custom_formulas',
-    bookmarks:      'quant_bookmarks',
-    notifEnabled:   'quant_notifications_enabled',
-    onboardingDone: 'quant_onboarding_complete',
-    premium:        'premiumStatus',
-    premiumPlus:    'premiumPlusStatus'
-  };
+
 
   /* ---- Defaults ---- */
   var DEFAULT_SETTINGS = {
@@ -89,11 +77,7 @@ var AppState = (function () {
       for (var k in KEYS) {
         if (KEYS[k] === e.key) { isManaged = true; break; }
       }
-      if (!isManaged) {
-        for (var l in LEGACY_KEYS) {
-          if (LEGACY_KEYS[l] === e.key) { isManaged = true; break; }
-        }
-      }
+      if (!isManaged) return;
       
       if (isManaged) {
         /* Broadcast an internal event so the active view can re-render if necessary */
@@ -159,57 +143,12 @@ var AppState = (function () {
     }
   }
 
-  /**
-   * Read JSON from canonical key first, fallback to legacy key.
-   * If found in legacy key but not canonical, auto-migrate to canonical.
-   * @param {string} canonicalKey
-   * @param {string} legacyKey
-   * @param {*} fallback
-   * @returns {*}
-   */
-  function _readJSONMigrating(canonicalKey, legacyKey, fallback) {
-    /* Try canonical key first */
-    var canonical = _readJSON(canonicalKey, null);
-    if (canonical !== null) return canonical;
 
-    /* Fallback to legacy key */
-    var legacy = _readJSON(legacyKey, null);
-    if (legacy !== null) {
-      /* Auto-migrate: write to canonical key and delete legacy to prevent split-brain */
-      _writeJSON(canonicalKey, legacy);
-      try { localStorage.removeItem(legacyKey); } catch (_) {}
-      return legacy;
-    }
-
-    return (typeof fallback === 'function') ? fallback() : fallback;
-  }
-
-  /**
-   * Read string from canonical key first, fallback to legacy key.
-   * If found in legacy key but not canonical, auto-migrate to canonical.
-   * @param {string} canonicalKey
-   * @param {string} legacyKey
-   * @param {string} fallback
-   * @returns {string}
-   */
-  function _readStringMigrating(canonicalKey, legacyKey, fallback) {
-    var canonical = _readString(canonicalKey, null);
-    if (canonical !== null) return canonical;
-
-    var legacy = _readString(legacyKey, null);
-    if (legacy !== null) {
-      _writeString(canonicalKey, legacy);
-      try { localStorage.removeItem(legacyKey); } catch (_) {}
-      return legacy;
-    }
-
-    return fallback;
-  }
 
   /* ---- Settings ---- */
 
   function getSettings() {
-    var s = _readJSONMigrating(KEYS.settings, LEGACY_KEYS.settings, null);
+    var s = _readJSON(KEYS.settings, null);
     if (s && typeof s === 'object') return s;
     return _clone(DEFAULT_SETTINGS);
   }
@@ -221,7 +160,7 @@ var AppState = (function () {
   /* ---- Progress ---- */
 
   function getProgress() {
-    var p = _readJSONMigrating(KEYS.progress, LEGACY_KEYS.progress, null);
+    var p = _readJSON(KEYS.progress, null);
     if (p && typeof p === 'object') return p;
     return _clone(DEFAULT_PROGRESS);
   }
@@ -233,7 +172,7 @@ var AppState = (function () {
   /* ---- Quick Links ---- */
 
   function getQuickLinks() {
-    var links = _readJSONMigrating(KEYS.quickLinks, LEGACY_KEYS.quickLinks, null);
+    var links = _readJSON(KEYS.quickLinks, null);
     if (Array.isArray(links) && links.length > 0) return links;
     return DEFAULT_QUICK_LINKS.slice();
   }
@@ -245,7 +184,7 @@ var AppState = (function () {
   /* ---- Custom Topics ---- */
 
   function getCustomTopics() {
-    var topics = _readJSONMigrating(KEYS.customTopics, LEGACY_KEYS.customTopics, null);
+    var topics = _readJSON(KEYS.customTopics, null);
     return Array.isArray(topics) ? topics : [];
   }
 
@@ -256,7 +195,7 @@ var AppState = (function () {
   /* ---- Custom Formulas ---- */
 
   function getCustomFormulas() {
-    var formulas = _readJSONMigrating(KEYS.customFormulas, LEGACY_KEYS.customFormulas, null);
+    var formulas = _readJSON(KEYS.customFormulas, null);
     return (formulas && typeof formulas === 'object' && !Array.isArray(formulas)) ? formulas : {};
   }
 
@@ -267,7 +206,7 @@ var AppState = (function () {
   /* ---- Bookmarks ---- */
 
   function getBookmarks() {
-    var bm = _readJSONMigrating(KEYS.bookmarks, LEGACY_KEYS.bookmarks, null);
+    var bm = _readJSON(KEYS.bookmarks, null);
     return Array.isArray(bm) ? bm : [];
   }
 
@@ -278,7 +217,7 @@ var AppState = (function () {
   /* ---- Notifications Enabled ---- */
 
   function getNotifEnabled() {
-    var val = _readStringMigrating(KEYS.notifEnabled, LEGACY_KEYS.notifEnabled, null);
+    var val = _readString(KEYS.notifEnabled, null);
     if (val !== null) return val === 'true';
     /* Fallback: check settings object for Firestore-synced state */
     var s = getSettings();
@@ -292,7 +231,7 @@ var AppState = (function () {
   /* ---- Onboarding Done ---- */
 
   function getOnboardingDone() {
-    var val = _readStringMigrating(KEYS.onboardingDone, LEGACY_KEYS.onboardingDone, null);
+    var val = _readString(KEYS.onboardingDone, null);
     return val === 'true' || val === '1';
   }
 
@@ -303,7 +242,7 @@ var AppState = (function () {
   /* ---- Premium Status ---- */
 
   function getPremiumStatus() {
-    var val = _readStringMigrating(KEYS.premium, LEGACY_KEYS.premium, null);
+    var val = _readString(KEYS.premium, null);
     return val || null;
   }
 
@@ -318,7 +257,7 @@ var AppState = (function () {
   /* ---- Premium Plus Status ---- */
 
   function getPremiumPlus() {
-    var val = _readStringMigrating(KEYS.premiumPlus, LEGACY_KEYS.premiumPlus, null);
+    var val = _readString(KEYS.premiumPlus, null);
     return val || null;
   }
 
@@ -341,9 +280,6 @@ var AppState = (function () {
     var k;
     for (k in KEYS) {
       if (KEYS.hasOwnProperty(k)) allKeys.push(KEYS[k]);
-    }
-    for (k in LEGACY_KEYS) {
-      if (LEGACY_KEYS.hasOwnProperty(k)) allKeys.push(LEGACY_KEYS[k]);
     }
     for (var i = 0; i < allKeys.length; i++) {
       try { localStorage.removeItem(allKeys[i]); } catch (_) {}
@@ -383,42 +319,9 @@ var AppState = (function () {
     return copy;
   }
 
-  /**
-   * Expose legacy key constants for code that still reads/writes
-   * using old key names directly (e.g. Firestore sync, progress.js).
-   * These will be phased out in future migration phases.
-   * @returns {Object} map of logical names → legacy localStorage key strings
-   */
-  function getLegacyKeys() {
-    var copy = {};
-    for (var k in LEGACY_KEYS) {
-      if (LEGACY_KEYS.hasOwnProperty(k)) copy[k] = LEGACY_KEYS[k];
-    }
-    return copy;
-  }
 
-  /* ---- Boot-time migration: remove all legacy keys ---- */
-  /* Since there are no live users yet, we do a hard one-time migration
-     instead of the lazy read-time approach. This prevents split-brain
-     state between legacy and canonical keys. */
-  (function _migrateOnBoot() {
-    try {
-      if (localStorage.getItem('qr_migration_v1') === '1') return;
-      for (var k in LEGACY_KEYS) {
-        if (LEGACY_KEYS.hasOwnProperty(k)) {
-          var legacyVal = localStorage.getItem(LEGACY_KEYS[k]);
-          if (legacyVal !== null) {
-            /* Write to canonical only if not already present */
-            if (localStorage.getItem(KEYS[k]) === null) {
-              localStorage.setItem(KEYS[k], legacyVal);
-            }
-            localStorage.removeItem(LEGACY_KEYS[k]);
-          }
-        }
-      }
-      localStorage.setItem('qr_migration_v1', '1');
-    } catch (_) { /* localStorage unavailable — skip silently */ }
-  })();
+
+
 
   /* ---- Public API ---- */
   return {
@@ -464,7 +367,6 @@ var AppState = (function () {
 
     /* Utility */
     getKeys: getKeys,
-    getLegacyKeys: getLegacyKeys,
     clearAll: clearAll,
 
     /* Expose defaults for reset operations */

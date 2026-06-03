@@ -3238,40 +3238,54 @@ body.dark-mode .learn-jump-btn:active {
 }
 .custom-topic-header .section-title { margin: 0; }
 .add-formula-btn {
-  font-size: .85rem;
-  padding: .65rem;
-  margin-top: .5rem;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #2563eb;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border-radius: .75rem;
-  transition: all 0.2s ease;
+  font-size: .9rem;
+  padding: .85rem;
+  margin-top: .75rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #3b82f6;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  border-radius: .85rem;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
 }
-.add-formula-btn:hover { background: rgba(255, 255, 255, 0.8); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+.add-formula-btn:hover { 
+  background: rgba(255, 255, 255, 0.1); 
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.6); 
+  transform: translateY(-1px);
+}
 
 /* ---- Add Topic Button ---- */
 .add-topic-btn {
-  font-size: .9rem;
-  padding: .75rem;
-  margin-top: .5rem;
+  font-size: .95rem;
+  padding: .9rem;
+  margin-top: .75rem;
   margin-bottom: 1rem;
   width: 100%;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #2563eb;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border-radius: .75rem;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #3b82f6;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  border-radius: .85rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
 }
-.add-topic-btn:hover { background: rgba(255, 255, 255, 0.8); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+.add-topic-btn:hover { 
+  background: rgba(255, 255, 255, 0.1); 
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.6); 
+  transform: translateY(-1px);
+}
 
 /* ---- Bookmarks Section ---- */
-.bookmarks-card { border-left: 3px solid #f59e0b; }
 
 /* ---- Modal ---- */
 .modal-overlay {
@@ -3386,14 +3400,14 @@ body.dark-mode .custom-formula-item { border-bottom-color: #334155; }
 body.dark-mode .formula-action-btn:hover { background: rgba(255,255,255,.1); }
 body.dark-mode .add-formula-btn,
 body.dark-mode .add-topic-btn {
-  background: rgba(30, 41, 59, 0.5);
+  background: rgba(30, 41, 59, 0.4);
   color: #60a5fa;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 body.dark-mode .add-formula-btn:hover,
 body.dark-mode .add-topic-btn:hover {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(30, 41, 59, 0.6);
 }
 body.dark-mode .modal-content { background: rgba(30, 41, 59, 0.75); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
 body.dark-mode .modal-content::after {
@@ -6201,6 +6215,8 @@ body.theme-playful.dark-mode .skip-btn:active {
   color: inherit;
   box-shadow: 0 1px 3px rgba(15,23,42,.08);
   transition: border-color .15s ease, box-shadow .15s ease, transform .12s ease, background .15s ease;
+  min-height: 44px;
+  padding: .75rem 1rem;
 }
 .settings-action-btn:hover {
   border-color: rgba(15,23,42,.2);
@@ -6233,8 +6249,8 @@ body.dark-mode .settings-action-danger {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .2rem;
-  padding: .7rem 1rem;
+  gap: .15rem;
+  padding: .6rem 1rem;
 }
 .settings-btn-label {
   font-size: .95rem;
@@ -9244,14 +9260,12 @@ body.dark-mode .home-section-title { color: #94a3b8; }
 /* ---- Bento Grid ---- */
 .home-bento-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-@media (max-width: 375px) {
-  .home-bento-grid {
-    grid-template-columns: 1fr;
-  }
+.home-bento-grid * {
+  word-break: break-word;
 }
 .home-bento-card {
   position: relative;
@@ -9374,7 +9388,7 @@ body.dark-mode .home-bento-duel-live {
 }
 
 .home-bento-title {
-  font-size: 1rem;
+  font-size: clamp(0.8rem, 2.5vw, 1rem);
   font-weight: 800;
   color: #0f172a;
   margin: 0;
@@ -9384,7 +9398,7 @@ body.dark-mode .home-bento-duel-live {
 }
 body.dark-mode .home-bento-title { color: #f1f5f9; }
 .home-bento-desc {
-  font-size: 0.8rem;
+  font-size: clamp(0.7rem, 2vw, 0.8rem);
   color: #64748b;
   line-height: 1.4;
   margin: 0 0 0.85rem;

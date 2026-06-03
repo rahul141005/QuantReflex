@@ -37,14 +37,6 @@ var QuestionBankService = (function () {
     hard:   ['medium']
   };
 
-  /* ---- Firestore reference helper ---- */
-  function _getDb() {
-    if (typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady()) {
-      return FirebaseApp.getDb();
-    }
-    return null;
-  }
-
   /* ---- Topic key normalization ---- */
 
   /**
@@ -177,7 +169,7 @@ var QuestionBankService = (function () {
    * @param {function} callback - (error, questions[])
    */
   function _queryQuestions(topic, difficulty, limit, callback) {
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db) {
       callback('Database not available');
       return;
@@ -369,7 +361,7 @@ var QuestionBankService = (function () {
    */
   function fetchQuestionsByIds(ids, callback) {
     if (!ids || ids.length === 0 || typeof callback !== 'function') return;
-    var db = _getDb();
+    var db = FirebaseApp.getDb();
     if (!db) { callback('Database not available'); return; }
 
     var results = [];

@@ -36,7 +36,7 @@ var Auth = (function () {
       }
 
       if (user) {
-        user.getIdTokenResult(false).then(function (result) {
+        var claimsPromise = user.getIdTokenResult(false).then(function (result) {
           if (result && result.claims) {
             var claims = result.claims;
             if (typeof AppState !== 'undefined') {
@@ -47,11 +47,23 @@ var Auth = (function () {
               localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
             }
           }
-          _notifyListeners(user, result);
-          _finishAuthReady(user);
+          return result;
         }).catch(function (err) {
           console.warn('[Auth] Error fetching token claims:', err);
-          _notifyListeners(user, null);
+          return null;
+        });
+
+        var firestorePromise = new Promise(function(resolve) {
+          if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.loadFromFirestore === 'function') {
+            FirestoreSync.loadFromFirestore(function(success) { resolve(success); });
+          } else {
+            resolve(false);
+          }
+        });
+
+        Promise.all([claimsPromise, firestorePromise]).then(function(results) {
+          var result = results[0];
+          _notifyListeners(user, result);
           _finishAuthReady(user);
         });
       } else {
