@@ -730,8 +730,7 @@ var DuelUI = (function () {
         if (session.destroyed) { clearInterval(_activeDuelTimer); _activeDuelTimer = null; return; }
         var el = document.getElementById('duelTimerDisplay');
         var elapsed = Date.now() - startedAt;
-        var rem = Math.ceil((limitMs - elapsed) / 1000);
-        if (rem < 0) rem = 0;
+        var rem = Math.max(0, Math.ceil((limitMs - elapsed) / 1000));
         if (el) el.textContent = '⏱ ' + rem + 's';
         if (rem <= 0) { clearInterval(_activeDuelTimer); _activeDuelTimer = null; _forceSubmitDuel(session); }
       }, 1000);

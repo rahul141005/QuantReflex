@@ -197,7 +197,8 @@ var DuelCore = (function () {
         questionCount: config.questionCount || 10,
         questionMode: config.questionMode || 'quick',
         timerPerQuestion: config.timerPerQuestion || null,
-        timerTotal: config.timerTotal || null
+        timerTotal: config.timerTotal || null,
+        isPremium: true
       },
       questions: questions || [],
       questionIds: questionIds || [],
@@ -242,6 +243,11 @@ var DuelCore = (function () {
         /* Only 'waiting' status allows joining */
         if (data.status !== 'waiting') {
           throw new Error('This duel is no longer accepting players');
+        }
+
+        /* Prevent non-premium users from joining premium rooms */
+        if (data.isPremium && !_isPremiumPlus()) {
+          throw new Error('Premium+ is required to join this duel room.');
         }
 
         var pCount = data.participants ? Object.keys(data.participants).length : 0;
