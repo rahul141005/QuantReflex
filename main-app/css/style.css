@@ -270,7 +270,8 @@ header h1 {
   box-shadow: var(--qr-shadow-light);
   border: 1px solid rgba(226,232,240,.6);
   transition: transform .12s cubic-bezier(.25,.46,.45,.94), box-shadow .12s ease;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
   -webkit-tap-highlight-color: transparent;
 }
 .card:active {
@@ -979,14 +980,23 @@ body.dark-mode .benchmark-unlock-btn {
 .shortcut-table th { color: #64748b; font-weight: 600; }
 
 /* ---- Table Selector (Learn page) ---- */
+/* CSS Grid ensures exactly 6 columns × 5 rows regardless of device width */
 .table-selector {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: .35rem;
   margin-bottom: 1rem;
 }
+@media (max-width: 300px) {
+  .table-selector {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
 .table-select-btn {
-  display: inline-block;
-  width: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 2.5rem;
-  margin: .2rem;
   border: 2px solid #e2e8f0;
   border-radius: .65rem;
   background: #ffffff;
@@ -995,6 +1005,7 @@ body.dark-mode .benchmark-unlock-btn {
   font-weight: 600;
   cursor: pointer;
   transition: border-color .2s, background .2s, transform .15s;
+  padding: 0;
 }
 .table-select-btn:active,
 .table-select-btn.active {
@@ -1005,11 +1016,13 @@ body.dark-mode .benchmark-unlock-btn {
 }
 .table-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: .5rem;
   margin-top: .5rem;
 }
 .table-controls .btn {
   flex: 1;
+  min-width: 0;
   margin-top: 0;
 }
 
@@ -9264,8 +9277,10 @@ body.dark-mode .home-section-title { color: #94a3b8; }
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-.home-bento-grid * {
-  word-break: break-word;
+@media (max-width: 359px) {
+  .home-bento-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .home-bento-card {
   position: relative;
@@ -9394,6 +9409,7 @@ body.dark-mode .home-bento-duel-live {
   margin: 0;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
 }
 body.dark-mode .home-bento-title { color: #f1f5f9; }

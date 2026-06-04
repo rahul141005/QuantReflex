@@ -71,6 +71,7 @@ async function handler(req, res) {
         updates.isPremium = true;
         updates.isTrial = true;
         updates.trialEnd = end.toISOString();
+        updates.trialDays = days;
       } else if (action === 'premium_plus_6m' || action === 'premium_plus_1y') {
         const months = action === 'premium_plus_1y' ? 12 : 6;
         const end = new Date();
@@ -80,7 +81,7 @@ async function handler(req, res) {
         updates.hasPaid = true;
         updates.premiumPlusStatus = 'active';
         updates.premiumPlusExpiry = end.toISOString();
-        updates.premiumPlusPlan = action === 'premium_plus_1y' ? 'yearly' : '6_months';
+        updates.premiumPlusPlan = action === 'premium_plus_1y' ? 'plus_yearly' : 'plus_6month';
       }
 
       batch.update(userRef, updates);

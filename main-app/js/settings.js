@@ -478,10 +478,14 @@ function updateAboutUserStatus() {
       if (tExpMs > 0 && !isNaN(tExpMs)) {
         var d = new Date(tExpMs);
         var formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        trialExpStr = ' (Expires on: ' + formatter.format(d) + ')';
+        trialExpStr = ' — Expires on: ' + formatter.format(d);
       }
     }
-    message = '⏳ Premium Trial Active' + trialExpStr + '';
+    var trialDaysLabel = '';
+    if (accessState.trialDays && accessState.trialDays > 0) {
+      trialDaysLabel = ' (' + accessState.trialDays + ' Day' + (accessState.trialDays !== 1 ? 's' : '') + ')';
+    }
+    message = '⏳ Trial' + trialDaysLabel + trialExpStr;
   }
   if (statusEl) {
     statusEl.textContent = message;

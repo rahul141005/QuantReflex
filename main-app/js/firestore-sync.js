@@ -1089,13 +1089,29 @@ var FirestoreSync = (function () {
           }
         }
       }
+      /* Normalize premiumPlusPlan to canonical values the UI expects.
+         Handles legacy Firestore data from admin API that stored 'yearly'/'6_months'. */
+      var rawPlan = _memoryCache.premiumPlusPlan || null;
+      if (rawPlan === 'yearly') rawPlan = 'plus_yearly';
+      else if (rawPlan === '6_months') rawPlan = 'plus_6month';
+
+      /* Compute trialDays: prefer stored value, fallback to calculating from trialEnd */
+      var computedTrialDays = _memoryCache.trialDays || null;
+      if (!computedTrialDays && _memoryCache.isTrial === true && _memoryCache.trialEnd) {
+        var _teMs = _toMillis(_memoryCache.trialEnd);
+        if (_teMs > 0) {
+          computedTrialDays = Math.max(1, Math.ceil((_teMs - Date.now()) / 86400000));
+        }
+      }
+
       return {
         isPremium: _memoryCache.isPremium === true,
         isPremiumPlus: _memoryCache.isPremiumPlus === true,
-        premiumPlusPlan: _memoryCache.premiumPlusPlan || null,
+        premiumPlusPlan: rawPlan,
         premiumPlusExpiry: _memoryCache.premiumPlusExpiry || null,
         isTrial: _memoryCache.isTrial === true,
         trialEnd: _memoryCache.trialEnd || null,
+        trialDays: computedTrialDays,
         hasPaid: _memoryCache.hasPaid === true,
         isEarlyUser: _memoryCache.isEarlyUser === true,
         createdAt: _memoryCache.createdAt || null
