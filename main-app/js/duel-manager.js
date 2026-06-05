@@ -344,6 +344,8 @@ var DuelManager = (function () {
     var container = _getEl('duelActive');
     if (!container) return;
 
+    container.style.display = 'block';
+
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
     var myName = data.participants && data.participants[uid] ? (data.participants[uid].name || 'You') : 'You';
     var opUid = Object.keys(data.participants).find(function (u) { return u !== uid; });

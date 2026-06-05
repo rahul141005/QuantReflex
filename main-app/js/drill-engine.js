@@ -953,5 +953,14 @@ function createDrillEngine(container, opts) {
   }
 
   /* ---- public API ---- */
-  return { start: renderStart, cleanup: cleanup };
+  return { 
+    start: function() {
+      if (isDuel) {
+        begin();
+      } else {
+        renderStart();
+      }
+    }, 
+    cleanup: cleanup 
+  };
 }

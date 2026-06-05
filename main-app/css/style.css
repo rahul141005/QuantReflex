@@ -207,7 +207,7 @@ a { color: inherit; text-decoration: none; }
 }
 @keyframes viewSlideIn {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 /* Reduced-motion: skip translate, keep opacity fade */
 @media (prefers-reduced-motion: reduce) {
