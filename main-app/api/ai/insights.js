@@ -45,13 +45,23 @@ module.exports = withAuth(async function (req, res) {
       });
     }
 
-    var insights = await aiService.generateInsights(stats, req.userId);
+    var type = body.type || 'coach'; // Default to coach for backwards compatibility
+
+    var result;
+    if (type === 'coach') {
+      result = await aiService.generateCoachV2(stats, req.userId);
+    } else if (type === 'insights') {
+      result = await aiService.generateInsightsV2(stats, req.userId);
+    } else {
+      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid type. Use "coach" or "insights".', retryable: false } });
+    }
+
     try {
       await aiService.trackInsightsUsage(req.userId);
     } catch (e) {
       console.warn('[api/ai/insights] usage tracking failed (uid: ' + req.userId + '):', e.message);
     }
-    res.json({ insights: insights });
+    res.json({ insights: result, type: type });
   } catch (err) {
     console.error('Insights error:', err.message);
     res.status(500).json({ error: formatError(err) });

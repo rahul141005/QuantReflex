@@ -11,6 +11,10 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/style.css" />
+  <script>
+    /* Global App Version for Update Checking */
+    window.APP_VERSION = '2.0.0';
+  </script>
 </head>
 <body>
 
@@ -228,6 +232,17 @@
               <span class="hero-stat-lbl">Best</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- UPDATE CHIP -->
+      <div id="homeUpdateChipContainer" style="display:none; padding: 1rem 1.5rem 0 1.5rem;">
+        <div class="notification-card" id="homeUpdateChip" style="background:var(--bg-elevated); border:1px solid var(--accent-primary, #ef4444); border-radius:var(--radius-lg); padding:1rem; cursor:pointer; transition:transform 0.2s, background 0.2s;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem; gap:0.5rem;">
+            <div style="font-weight:700; color:var(--text-primary); font-size:0.9375rem; display:flex; align-items:center; gap:0.5rem;" id="homeUpdateTitle">🚀 Update Available</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0;">Now</div>
+          </div>
+          <div style="font-size:0.875rem; color:var(--text-secondary); line-height:1.4;" id="homeUpdateDesc">A new version is available.</div>
         </div>
       </div>
 
@@ -666,6 +681,18 @@
         <h3 style="margin-bottom:.5rem;">📲 Install App</h3>
         <p class="secondary-text" style="margin-bottom:.75rem;">Install QuantReflex on your device for offline use</p>
         <button id="installBtn" class="btn-primary">Install App</button>
+      </div>
+
+      <!-- Update App -->
+      <div class="settings-section" id="settingsUpdateSection" style="display:none;">
+        <h3 class="settings-section-title">Update Available</h3>
+        <div class="settings-section-card">
+          <div style="padding: 1rem;">
+            <h3 style="margin-bottom:.5rem; display:flex; align-items:center; gap:0.5rem;" id="settingsUpdateTitle">🚀 Version X.X.X</h3>
+            <p class="secondary-text" style="margin-bottom:.75rem;" id="settingsUpdateDesc">A new version is available.</p>
+            <button id="settingsPerformUpdateBtn" class="btn-primary">Update Now</button>
+          </div>
+        </div>
       </div>
 
       <!-- SECTION 1 — Premium Upgrade -->
@@ -1348,7 +1375,7 @@
         <h3 class="info-section-title">📋 Version Information</h3>
         <div class="info-block">
           <h4>Current Version</h4>
-          <p class="info-version">Version 2.0.0</p>
+          <p class="info-version" id="settingsVersionDisplay">Version 2.0.0</p>
           <p>Major release. Premium branding, redesigned share cards, AI coaching, Math Duel system, adaptive training, and comprehensive analytics — all live.</p>
         </div>
       </div>

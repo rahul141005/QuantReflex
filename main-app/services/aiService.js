@@ -469,32 +469,34 @@ async function generateExplanation(question, answer, category) {
   return result;
 }
 
-async function generateInsights(stats, userId) {
+async function generateCoachV2(stats, userId) {
   var today = new Date();
   var dateKey = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
-  var cacheDocId = userId + '_' + dateKey;
-  var cacheRef = db.collection('aiInsights');
+  var cacheDocId = userId + '_coach_' + dateKey;
+  var cacheRef = db.collection('aiCoachV2');
 
   try {
     var cached = await cacheRef.doc(cacheDocId).get();
     if (cached.exists) {
-      var data = cached.data();
-      return { insight: data.insight, problem: data.problem, action: data.action };
+      var d = cached.data();
+      return {
+        focusToday: d.focusToday,
+        whyThisMatters: d.whyThisMatters,
+        recommendedMode: d.recommendedMode,
+        recommendedTopic: d.recommendedTopic,
+        expectedImprovement: d.expectedImprovement,
+        weeklyGoal: d.weeklyGoal,
+        coachingObservation: d.coachingObservation
+      };
     }
   } catch (cacheErr) {
-    console.warn('Firestore insights cache read failed:', cacheErr.message);
+    console.warn('Firestore coach cache read failed:', cacheErr.message);
   }
 
   var client = getClient();
   if (!client) throw new AIServiceError('SERVICE_UNAVAILABLE', 'AI service unavailable', true);
 
-  var accuracy = stats.totalAttempted > 0
-    ? ((stats.totalCorrect / stats.totalAttempted) * 100).toFixed(1)
-    : '0';
-  var avgTime = stats.responseTimes && stats.responseTimes.length > 0
-    ? (stats.responseTimes.reduce(function (a, b) { return a + b; }, 0) / stats.responseTimes.length).toFixed(1)
-    : 'N/A';
-
+  var accuracy = stats.totalAttempted > 0 ? ((stats.totalCorrect / stats.totalAttempted) * 100).toFixed(1) : '0';
   var catStats = stats.categoryStats || {};
   var weakCats = [];
   var strongCats = [];
@@ -507,28 +509,128 @@ async function generateInsights(stats, userId) {
     }
   }
 
-  var prompt = 'You are an AI math coach for a student preparing for competitive exams (CAT/GMAT/placements). Analyze their performance and give a brief, actionable daily insight.\n\nStudent Stats:\n- Overall Accuracy: ' + accuracy + '%\n- Average Response Time: ' + avgTime + ' seconds\n- Total Questions Attempted: ' + (stats.totalAttempted || 0) + '\n- Current Daily Streak: ' + (stats.dailyStreak || 0) + ' days\n- Total Sessions: ' + ((stats.drillSessions || 0) + (stats.timedTestSessions || 0)) + '\n- Mistakes Logged: ' + ((stats.mistakes || []).length) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None identified yet') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None identified yet') + '\n\nReturn ONLY a valid JSON object with:\n- "insight": A personalized 1-2 sentence observation about their current performance (string)\n- "problem": The single biggest area for improvement right now (string, 1 sentence)\n- "action": A specific, actionable recommendation for today\'s practice (string, 1-2 sentences)\n\nKeep the tone encouraging but direct. Be specific — reference actual numbers.\n\nReturn ONLY the JSON object, no markdown, no code fences.';
+  var prompt = 'You are an elite CAT quantitative mentor. Prescribe today\'s exact practice regimen based on the student\'s data.\n\nIMPORTANT: Do NOT repeat raw statistics like accuracy percentages, streak counts, or topic rankings — the student can already see those. Focus entirely on actionable coaching: what to do, which mode, which topic, why, and what improvement to expect.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nProvide actionable, data-backed advice. Answer: What should this student do next?';
 
-  var result = await _callAndParse(client, prompt, function (parsed) {
-    if (!parsed || typeof parsed.insight !== 'string') return null;
-    return {
-      insight: parsed.insight,
-      problem: parsed.problem || '',
-      action: parsed.action || ''
-    };
+  var completion = await client.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: 'system', content: 'You are an elite CAT quantitative mentor. Never repeat raw statistics. Focus on prescriptive coaching actions.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 1024,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "coach_report",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            focusToday: { type: "string" },
+            whyThisMatters: { type: "string" },
+            recommendedMode: { type: "string", enum: ["Quick Drill", "Reflex Drill", "Timed Test", "Focus Training"] },
+            recommendedTopic: { type: "string" },
+            expectedImprovement: { type: "string" },
+            weeklyGoal: { type: "string" },
+            coachingObservation: { type: "string" }
+          },
+          required: ["focusToday", "whyThisMatters", "recommendedMode", "recommendedTopic", "expectedImprovement", "weeklyGoal", "coachingObservation"],
+          additionalProperties: false
+        }
+      }
+    }
   });
 
-  if (!result) throw new AIServiceError('INVALID_RESPONSE', 'Invalid insights format after retries', true);
+  var result = JSON.parse(completion.choices[0].message.content);
 
   try {
-    await cacheRef.doc(cacheDocId).set({
-      userId: userId,
-      date: dateKey,
-      insight: result.insight,
-      problem: result.problem,
-      action: result.action,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    var toSave = Object.assign({ userId: userId, date: dateKey, createdAt: admin.firestore.FieldValue.serverTimestamp() }, result);
+    await cacheRef.doc(cacheDocId).set(toSave);
+  } catch (writeErr) {
+    console.warn('Firestore coach cache write failed:', writeErr.message);
+  }
+
+  return result;
+}
+
+async function generateInsightsV2(stats, userId) {
+  var today = new Date();
+  var dateKey = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+  var cacheDocId = userId + '_insights_' + dateKey;
+  var cacheRef = db.collection('aiInsightsV2');
+
+  try {
+    var cached = await cacheRef.doc(cacheDocId).get();
+    if (cached.exists) {
+      var d = cached.data();
+      return { observations: d.observations || [] };
+    }
+  } catch (cacheErr) {
+    console.warn('Firestore insights cache read failed:', cacheErr.message);
+  }
+
+  var client = getClient();
+  if (!client) throw new AIServiceError('SERVICE_UNAVAILABLE', 'AI service unavailable', true);
+
+  var accuracy = stats.totalAttempted > 0 ? ((stats.totalCorrect / stats.totalAttempted) * 100).toFixed(1) : '0';
+  var catStats = stats.categoryStats || {};
+  var weakCats = [];
+  var strongCats = [];
+  for (var cat in catStats) {
+    var d = catStats[cat];
+    if (d.attempted >= 3) {
+      var catAcc = (d.correct / d.attempted) * 100;
+      if (catAcc < 60) weakCats.push(cat + ' (' + catAcc.toFixed(0) + '%)');
+      else if (catAcc >= 80) strongCats.push(cat + ' (' + catAcc.toFixed(0) + '%)');
+    }
+  }
+
+  var prompt = 'You are an elite data analyst for a CAT/GMAT student. Identify up to 5 hidden patterns, root causes of mistakes, or high-ROI projections.\n\nCRITICAL RULES:\n- DO NOT repeat raw statistics (accuracy %, streak count, attempt count).\n- DO NOT restate information visible on a dashboard.\n- ONLY provide observations the student cannot discover by looking at their stats.\n- Focus on: behavioral patterns, correlations between topics, root causes of recurring mistakes, improvement projections, and non-obvious weaknesses.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nAnswer: What patterns is this student NOT seeing?';
+
+  var completion = await client.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: 'system', content: 'You are an elite data analyst. Find hidden patterns that are not visible from raw statistics. Never repeat dashboard data.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 1024,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "insights_report",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            observations: {
+              type: "array",
+              maxItems: 5,
+              items: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: ["root_cause", "pattern", "projection"] },
+                  title: { type: "string" },
+                  observation: { type: "string" }
+                },
+                required: ["type", "title", "observation"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["observations"],
+          additionalProperties: false
+        }
+      }
+    }
+  });
+
+  var result = JSON.parse(completion.choices[0].message.content);
+
+  try {
+    var toSave = Object.assign({ userId: userId, date: dateKey, createdAt: admin.firestore.FieldValue.serverTimestamp() }, result);
+    await cacheRef.doc(cacheDocId).set(toSave);
   } catch (writeErr) {
     console.warn('Firestore insights cache write failed:', writeErr.message);
   }
@@ -693,4 +795,4 @@ async function clearStudyPlanCache(userId, examDate) {
   }
 }
 
-module.exports = { generateWordProblems, generateExplanation, generateInsights, generateStudyPlan, clearStudyPlanCache, verifyIdToken, isUserPremium, isUserPremiumPlus, unlockPremiumPlus, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };
+module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, clearStudyPlanCache, verifyIdToken, isUserPremium, isUserPremiumPlus, unlockPremiumPlus, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };

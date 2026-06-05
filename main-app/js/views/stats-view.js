@@ -247,22 +247,14 @@ function renderStatsView() {
       var aiUnlockBtn = aiInsightsContainer.querySelector('.ai-coach-unlock-btn');
       if (aiUnlockBtn) aiUnlockBtn.addEventListener('click', function () { showPaywall('ai_coach'); });
     } else if (p.totalAttempted >= 5) {
-      var _statsCachedInsights = AIFeatures.getCachedInsights();
-      if (_statsCachedInsights) {
-        aiInsightsContainer.innerHTML = '<div class="ai-stats-body"></div>';
-        AIFeatures.renderInsightsResult(aiInsightsContainer.querySelector('.ai-stats-body'), _statsCachedInsights);
-      } else {
-        aiInsightsContainer.innerHTML =
-          '<div class="ai-stats-body">' +
-            '<button class="btn-primary ai-insights-btn" type="button">View AI Insights ✨</button>' +
-          '</div>';
-        var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
-        var _statsInsightsBody = aiInsightsContainer.querySelector('.ai-stats-body');
-        _statsInsightsBtn.addEventListener('click', function () {
-          _statsInsightsBtn.disabled = true;
-          AIFeatures.triggerInsightsFetch(_statsInsightsBody, _statsInsightsBtn, p);
-        });
-      }
+      aiInsightsContainer.innerHTML =
+        '<div class="ai-stats-body">' +
+          '<button class="btn-primary ai-insights-btn" type="button">AI Pattern Analysis ✨</button>' +
+        '</div>';
+      var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
+      _statsInsightsBtn.addEventListener('click', function () {
+        AIFeatures.showStatsInsightsModal(p);
+      });
     } else {
       aiInsightsContainer.innerHTML = '<p class="secondary-text">Complete at least 5 questions to get AI insights.</p>';
     }

@@ -987,11 +987,6 @@ body.dark-mode .benchmark-unlock-btn {
   gap: .35rem;
   margin-bottom: 1rem;
 }
-@media (max-width: 300px) {
-  .table-selector {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
 .table-select-btn {
   display: flex;
   align-items: center;
@@ -1015,10 +1010,16 @@ body.dark-mode .benchmark-unlock-btn {
   transform: scale(.93);
 }
 .table-controls {
+  grid-column: 1 / -1;
   display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
+  flex-wrap: nowrap;
+  gap: 1rem;
   margin-top: .5rem;
+  width: 100%;
+}
+.table-controls button {
+  flex: 1;
+  width: 50%;
 }
 .table-controls .btn {
   flex: 1;
@@ -9603,3 +9604,42 @@ body.dark-mode #view-stats .card {
 body.dark-mode .qr-empty-state h2 { color: #f8fafc; }
 body.dark-mode .qr-empty-state p { color: #94a3b8; }
 body.dark-mode .qr-empty-state svg { color: #334155; }
+
+/* PART 1 - LEARN TAB BUTTON FIX */
+.table-controls {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+#showAllTables,
+#clearAllTables {
+  flex: 1;
+  max-width: calc(50% - 0.5rem);
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* PART 2 & 3 - AI COACH & STUDY PLAN VISUAL CONSISTENCY */
+.home-bento-coach,
+.home-bento-timetable {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--qr-card-padding);
+  min-height: 180px;
+}
+
+.ai-coach-body,
+.ai-study-plan-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 50px;
+}

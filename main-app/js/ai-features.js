@@ -6,6 +6,7 @@ var AIFeatures = (function () {
   var _wpInFlight = false;
   var _wpAdaptiveModeActive = false;
   var _explainInFlight = false;
+  var _coachInFlight = false;
   var _insightsInFlight = false;
 
   function _esc(str) {
@@ -25,6 +26,7 @@ var AIFeatures = (function () {
 
   function _wpKey() { return 'quant_ai_wp_usage_' + _uid(); }
   function _coachKey() { return 'quant_ai_coach_cache_' + _uid(); }
+  function _insightsKey() { return 'quant_ai_insights_cache_' + _uid(); }
 
   function _getWpUsage() {
     try {
@@ -185,22 +187,34 @@ var AIFeatures = (function () {
       });
   }
 
-  function fetchInsights(stats, callback) {
-    if (_insightsInFlight) { callback('request_in_progress'); return; }
-
+  function fetchCoachV2(stats, callback) {
+    if (_coachInFlight) { callback('request_in_progress'); return; }
     var cached = _getCachedCoach();
-    if (cached) {
-      callback(null, cached);
-      return;
-    }
+    if (cached) { callback(null, cached); return; }
+
+    _coachInFlight = true;
+    _sendAuthenticatedRequest('POST', '/api/ai/insights',
+      { stats: stats, type: 'coach' }, 20000,
+      function (err, data) {
+        _coachInFlight = false;
+        if (err) { callback(err); return; }
+        _cacheCoach(data.insights);
+        callback(null, data.insights);
+      });
+  }
+
+  function fetchInsightsV2(stats, callback) {
+    if (_insightsInFlight) { callback('request_in_progress'); return; }
+    var cached = _getCachedInsights();
+    if (cached) { callback(null, cached); return; }
 
     _insightsInFlight = true;
     _sendAuthenticatedRequest('POST', '/api/ai/insights',
-      { stats: stats }, 20000,
+      { stats: stats, type: 'insights' }, 20000,
       function (err, data) {
         _insightsInFlight = false;
         if (err) { callback(err); return; }
-        _cacheCoach(data.insights);
+        _cacheInsights(data.insights);
         callback(null, data.insights);
       });
   }
@@ -210,16 +224,27 @@ var AIFeatures = (function () {
       var raw = localStorage.getItem(_coachKey());
       if (!raw) return null;
       var cached = JSON.parse(raw);
-      var age = Date.now() - (cached.timestamp || 0);
-      if (age < COACH_CACHE_HOURS * 60 * 60 * 1000) return cached.data;
+      if (Date.now() - (cached.timestamp || 0) < COACH_CACHE_HOURS * 60 * 60 * 1000) return cached.data;
     } catch (_) {}
     return null;
   }
 
   function _cacheCoach(data) {
+    try { localStorage.setItem(_coachKey(), JSON.stringify({ data: data, timestamp: Date.now() })); } catch (_) {}
+  }
+
+  function _getCachedInsights() {
     try {
-      localStorage.setItem(_coachKey(), JSON.stringify({ data: data, timestamp: Date.now() }));
+      var raw = localStorage.getItem(_insightsKey());
+      if (!raw) return null;
+      var cached = JSON.parse(raw);
+      if (Date.now() - (cached.timestamp || 0) < COACH_CACHE_HOURS * 60 * 60 * 1000) return cached.data;
     } catch (_) {}
+    return null;
+  }
+
+  function _cacheInsights(data) {
+    try { localStorage.setItem(_insightsKey(), JSON.stringify({ data: data, timestamp: Date.now() })); } catch (_) {}
   }
 
   function showExplanationModal(question, answer, category) {
@@ -285,31 +310,138 @@ var AIFeatures = (function () {
     });
   }
 
-  function _renderInsightsResult(container, insights) {
-    container.innerHTML =
-      '<div class="ai-insight-block">' +
-        '<p class="ai-insight-text">' + _esc(insights.insight) + '</p>' +
-      '</div>' +
-      (insights.problem ? '<div class="ai-insight-block ai-insight-problem"><strong>Focus area:</strong> ' + _esc(insights.problem) + '</div>' : '') +
-      (insights.action ? '<div class="ai-insight-block ai-insight-action"><strong>Today\'s action:</strong> ' + _esc(insights.action) + '</div>' : '');
-  }
+  function showCoachModal(stats) {
+    var existing = document.getElementById('aiCoachModal');
+    if (existing) existing.parentNode.removeChild(existing);
 
-  function _triggerInsightsFetch(bodyEl, btnEl, stats) {
-    var cached = _getCachedCoach();
-    if (cached) {
-      _renderInsightsResult(bodyEl, cached);
-      return;
+    var overlay = document.createElement('div');
+    overlay.id = 'aiCoachModal';
+    overlay.className = 'modal-overlay ai-explain-overlay';
+    overlay.style.display = 'flex';
+    overlay.innerHTML =
+      '<div class="modal-content ai-explain-modal" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">' +
+        '<h3 class="modal-title" style="color:#fff; border-bottom: 1px solid #334155; padding-bottom: 1rem;">🎯 Personal Coach</h3>' +
+        '<div class="ai-explain-body">' +
+          '<div class="ai-loading"><div class="ai-spinner"></div><p style="color:#94a3b8;">Preparing your plan...</p></div>' +
+        '</div>' +
+        '<div class="modal-actions">' +
+          '<button class="btn-secondary modal-cancel ai-explain-close" style="background:#334155; color:#fff; border:none;">Close</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
-    if (btnEl) btnEl.style.display = 'none';
-    bodyEl.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><p>Analyzing your performance...</p></div>';
-    fetchInsights(stats, function (err, insights) {
+    overlay.querySelector('.ai-explain-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
+
+    var bodyEl = overlay.querySelector('.ai-explain-body');
+    fetchCoachV2(stats, function (err, coachData) {
       if (err) {
-        var _insightsErrMsg = err === 'rate_limited' ? 'Too many requests. Please wait a moment and try again.' : 'Unable to generate right now. Try again later.';
-        bodyEl.innerHTML = '<p class="ai-error">' + _insightsErrMsg + '</p>';
-        if (btnEl) { btnEl.style.display = ''; btnEl.disabled = false; }
+        bodyEl.innerHTML = '<p class="ai-error" style="color:#f87171;">' + (err === 'rate_limited' ? 'Too many requests. Please wait a moment.' : 'Unable to generate right now.') + '</p>';
         return;
       }
-      _renderInsightsResult(bodyEl, insights);
+
+      bodyEl.innerHTML =
+        '<div class="ai-explain-section" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 1rem; border-radius: 8px;">' +
+          '<h4 style="color:#60a5fa; margin-top:0;">⚡ Focus Today</h4>' +
+          '<p style="color:#f8fafc; font-size: 1.05rem; font-weight: 500;">' + _esc(coachData.focusToday) + '</p>' +
+          '<p style="color:#94a3b8; font-size: 0.9rem; margin-top: 0.5rem;">' + _esc(coachData.whyThisMatters) + '</p>' +
+        '</div>' +
+        
+        '<div style="display:flex; gap: 1rem; margin-top: 1rem;">' +
+          '<div style="flex: 1; background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">' +
+            '<h4 style="color:#a78bfa; font-size: 0.8rem; text-transform: uppercase; margin-top:0;">Mode</h4>' +
+            '<p style="color:#f8fafc; font-weight: 600; margin: 0.25rem 0 0 0;">' + _esc(coachData.recommendedMode) + '</p>' +
+          '</div>' +
+          '<div style="flex: 1; background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">' +
+            '<h4 style="color:#34d399; font-size: 0.8rem; text-transform: uppercase; margin-top:0;">Topic</h4>' +
+            '<p style="color:#f8fafc; font-weight: 600; margin: 0.25rem 0 0 0;">' + _esc(coachData.recommendedTopic) + '</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="ai-explain-section" style="margin-top: 1rem;">' +
+          '<h4 style="color:#94a3b8;">📈 Expected Improvement</h4>' +
+          '<p style="color:#cbd5e1;">' + _esc(coachData.expectedImprovement) + '</p>' +
+        '</div>' +
+
+        '<div class="ai-explain-section" style="margin-top: 1rem;">' +
+          '<h4 style="color:#94a3b8;">📅 Weekly Goal</h4>' +
+          '<p style="color:#cbd5e1;">' + _esc(coachData.weeklyGoal) + '</p>' +
+        '</div>' +
+
+        '<div class="ai-explain-section ai-tip-section" style="margin-top: 1rem; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">' +
+          '<h4 style="color:#fbbf24;">💡 Coaching Observation</h4>' +
+          '<p style="color:#fef3c7;">' + _esc(coachData.coachingObservation) + '</p>' +
+        '</div>';
+    });
+  }
+
+  function showStatsInsightsModal(stats) {
+    var existing = document.getElementById('aiInsightsModal');
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var overlay = document.createElement('div');
+    overlay.id = 'aiInsightsModal';
+    overlay.className = 'modal-overlay ai-explain-overlay';
+    overlay.style.display = 'flex';
+    overlay.innerHTML =
+      '<div class="modal-content ai-explain-modal">' +
+        '<h3 class="modal-title">🔍 Pattern Analysis</h3>' +
+        '<div class="ai-explain-body">' +
+          '<div class="ai-loading"><div class="ai-spinner"></div><p>Searching for hidden patterns...</p></div>' +
+        '</div>' +
+        '<div class="modal-actions">' +
+          '<button class="btn-secondary modal-cancel ai-explain-close">Close</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    overlay.querySelector('.ai-explain-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
+
+    var bodyEl = overlay.querySelector('.ai-explain-body');
+    fetchInsightsV2(stats, function (err, insightsData) {
+      if (err) {
+        bodyEl.innerHTML = '<p class="ai-error">' + (err === 'rate_limited' ? 'Too many requests. Please wait a moment.' : 'Unable to generate right now.') + '</p>';
+        return;
+      }
+
+      var obsHtml = '';
+      var icons = {
+        'root_cause': '⚠️',
+        'pattern': '🔄',
+        'projection': '🚀'
+      };
+      
+      var observations = insightsData.observations || [];
+      if (observations.length === 0) {
+         obsHtml = '<p class="secondary-text">No distinct patterns found yet. Keep practicing!</p>';
+      } else {
+        for (var i = 0; i < observations.length; i++) {
+          var obs = observations[i];
+          var icon = icons[obs.type] || '📌';
+          obsHtml += 
+            '<div class="ai-insight-block" style="margin-bottom: 1rem; border-left: 3px solid var(--accent-primary); padding-left: 1rem;">' +
+              '<h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">' + 
+                '<span>' + icon + '</span> ' + _esc(obs.title) + 
+              '</h4>' +
+              '<p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">' + _esc(obs.observation) + '</p>' +
+            '</div>';
+        }
+      }
+
+      bodyEl.innerHTML = obsHtml;
     });
   }
 
@@ -319,7 +451,9 @@ var AIFeatures = (function () {
 
     if (!_isPremium()) {
       container.innerHTML =
-        '<button class="home-bento-action-btn ai-coach-unlock-btn" type="button" id="coachUnlockBtn">View AI Insights ✨</button>';
+        '<div class="ai-coach-body">' +
+          '<button class="home-bento-action-btn ai-coach-unlock-btn" type="button" id="coachUnlockBtn">Unlock AI Coach ✨</button>' +
+        '</div>';
       var unlockBtn = container.querySelector('.ai-coach-unlock-btn');
       if (unlockBtn) {
         unlockBtn.addEventListener('click', function () {
@@ -332,29 +466,19 @@ var AIFeatures = (function () {
     if (!stats || !stats.totalAttempted || stats.totalAttempted < 5) {
       container.innerHTML =
         '<div class="ai-coach-body">' +
-          '<p class="secondary-text">Complete at least 5 questions to get your first AI insight.</p>' +
+          '<p class="secondary-text">Complete at least 5 questions to unlock coaching.</p>' +
         '</div>';
-      return;
-    }
-
-    var cached = _getCachedCoach();
-    if (cached) {
-      container.innerHTML =
-        '<div class="ai-coach-body"></div>';
-      _renderInsightsResult(container.querySelector('.ai-coach-body'), cached);
       return;
     }
 
     container.innerHTML =
       '<div class="ai-coach-body">' +
-        '<button class="home-bento-action-btn ai-insights-btn" type="button">View AI Insights ✨</button>' +
+        '<button class="home-bento-action-btn ai-insights-btn" type="button">Get Coach Advice ✨</button>' +
       '</div>';
 
     var insightsBtn = container.querySelector('.ai-insights-btn');
-    var bodyEl = container.querySelector('.ai-coach-body');
     insightsBtn.addEventListener('click', function () {
-      insightsBtn.disabled = true;
-      _triggerInsightsFetch(bodyEl, insightsBtn, stats);
+      showCoachModal(stats);
     });
   }
 
@@ -1091,13 +1215,12 @@ var AIFeatures = (function () {
   return {
     fetchSpeedBenchmark: fetchSpeedBenchmark,
     showExplanationModal: showExplanationModal,
+    showStatsInsightsModal: showStatsInsightsModal,
+    showCoachModal: showCoachModal,
     renderAICoachCard: renderAICoachCard,
     renderStudyPlanCard: renderStudyPlanCard,
     renderWordProblemsSetup: renderWordProblemsSetup,
     resetWpAdaptive: resetWpAdaptive,
-    isPremium: _isPremium,
-    getCachedInsights: _getCachedCoach,
-    triggerInsightsFetch: _triggerInsightsFetch,
-    renderInsightsResult: _renderInsightsResult
+    isPremium: _isPremium
   };
 })();

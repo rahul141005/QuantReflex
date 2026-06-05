@@ -356,7 +356,7 @@ function initHomeView() {
       } else {
         coachContainer.innerHTML =
           '<button class="home-bento-action-btn" type="button" id="coachUnlockBtn">' +
-            'View AI Insights ✨' +
+            'Unlock AI Coach ✨' +
           '</button>';
         var coachUnlockBtn = document.getElementById('coachUnlockBtn');
         if (coachUnlockBtn) {
@@ -383,6 +383,43 @@ function initHomeView() {
             if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
           });
         }
+      }
+    }
+
+    /* ---- Update Chip ---- */
+    var homeUpdateChipContainer = document.getElementById('homeUpdateChipContainer');
+    if (homeUpdateChipContainer) {
+      var latestRelease = typeof FirestoreSync !== 'undefined' && FirestoreSync.getLatestRelease ? FirestoreSync.getLatestRelease() : null;
+      var appVersion = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : (window.APP_VERSION || '2.0.0');
+      
+      function isVerGreater(v1, v2) {
+        if (!v1 || !v2) return false;
+        var p1 = v1.replace(/[^0-9.]/g, '').split('.');
+        var p2 = v2.replace(/[^0-9.]/g, '').split('.');
+        for (var i = 0; i < Math.max(p1.length, p2.length); i++) {
+          var n1 = parseInt(p1[i] || 0, 10);
+          var n2 = parseInt(p2[i] || 0, 10);
+          if (n1 > n2) return true;
+          if (n1 < n2) return false;
+        }
+        return false;
+      }
+
+      if (latestRelease && isVerGreater(latestRelease.version, appVersion)) {
+         homeUpdateChipContainer.style.display = 'block';
+         var titleEl = document.getElementById('homeUpdateTitle');
+         var descEl = document.getElementById('homeUpdateDesc');
+         if (titleEl) titleEl.textContent = latestRelease.title || ('🚀 Update Available: ' + latestRelease.version);
+         if (descEl) descEl.textContent = latestRelease.description || 'Tap to update from Settings.';
+         
+         var chip = document.getElementById('homeUpdateChip');
+         if (chip) {
+            chip.onclick = function() {
+               if (typeof Router !== 'undefined') Router.showView('settings');
+            };
+         }
+      } else {
+         homeUpdateChipContainer.style.display = 'none';
       }
     }
 
