@@ -167,7 +167,7 @@ function createDrillEngine(container, opts) {
     var adaptivePill = adaptiveMode ? _adaptiveDiffLabel(_adaptiveDifficulty) : '';
     container.innerHTML =
       (isDuel ? duelHeaderHTML : '') +
-      '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
+      (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' : '') +
       '<div class="card center-content fade-in question-card-transition">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
@@ -350,7 +350,7 @@ function createDrillEngine(container, opts) {
     if (!isDuel) {
       recordAnswer(correct, q.category, q, elapsedRounded);
     } else if (typeof onDuelAnswerSubmit === 'function') {
-      onDuelAnswerSubmit(correct, expected, elapsedRounded, q, function advance() {
+      onDuelAnswerSubmit(correct, expected, elapsedRounded, q, current, function advance() {
         /* This allows the duel manager to control when to advance to the next question */
       });
     }
@@ -453,20 +453,10 @@ function createDrillEngine(container, opts) {
       setTimeout(function () { submitBtn.classList.remove('next-btn-pulse'); }, 600);
     }, 350);
 
-    if (isDuel) {
-      // In a duel, auto-advance is handled or skipped. Let's still pause 1.5s then nextQuestion,
-      // but only if the user didn't hit next. Wait, in standard drill it auto advances.
-      // We will let it auto advance locally so the user proceeds to their next question.
+    /* Auto-advance logic for quick reflex modes */
+    if (!isDuel && mode === 'Reflex Drill' && correct) {
       _nextReady = false;
-      setTimeout(nextQuestion, 1500);
-    } else {
-      /* Auto-advance logic for quick reflex modes */
-      if (mode === 'Reflex Drill' && correct) {
-        _nextReady = false;
-        setTimeout(nextQuestion, 600);
-      } else {
-        /* Wait for manual "Next" button click for standard modes */
-      }
+      setTimeout(nextQuestion, 600);
     }
     
     submitBtn.onclick = function () {
@@ -492,6 +482,7 @@ function createDrillEngine(container, opts) {
   function nextQuestion() {
     /* Guard against carry-over taps during transition debounce */
     if (!_nextReady) return;
+    _nextReady = false; /* Immediately lock to prevent double-advance */
     current++;
     if (current < count) {
       /* Adaptive: recompute difficulty and generate a fresh question for next slot */

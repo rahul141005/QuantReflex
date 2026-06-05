@@ -214,13 +214,24 @@ var DuelManager = (function () {
 
         case 'active':
           console.log('[DUEL TRACE] Listener state: active. screenRendered:', _duelScreenRendered, 'countdownRunning:', _countdownRunning, 'questions:', (data.questions || []).length);
+          
+          /* If local player is finished, DO NOT force jump. We wait for user to click View Results 
+             which triggers onFinish('duel_ended'). Just update the scoreboard behind the scenes. */
+          var myUid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
+          var myP = data.participants[myUid] || {};
+          
           if (!_duelScreenRendered && !_countdownRunning) {
             _renderCountdown(data, function () {
               console.log('[DUEL TRACE] Countdown complete, entering active duel');
               _enterActiveDuel(data);
             });
           } else if (!_countdownRunning) {
-            _enterActiveDuel(data);
+            if (_duelScreenRendered) {
+              /* Engine is already running. Just update scoreboard with opponent stats. */
+              if (typeof DuelUI !== 'undefined') DuelUI.updateScoreboard(data);
+            } else {
+              _enterActiveDuel(data);
+            }
           }
           break;
 
@@ -350,6 +361,10 @@ var DuelManager = (function () {
     var pmWrapper = _getEl('practiceModesWrapper');
     if (pmWrapper) pmWrapper.style.display = 'none';
 
+    /* Hide the practice header to prevent layout squeezing */
+    var practiceHeader = document.querySelector('#view-practice header');
+    if (practiceHeader) practiceHeader.style.display = 'none';
+
     container.style.display = 'block';
 
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
@@ -358,8 +373,9 @@ var DuelManager = (function () {
     var opName = opUid && data.participants[opUid] ? (data.participants[opUid].name || 'Opponent') : 'Opponent';
 
     var headerHTML =
-      '<div class="duel-scoreboard-wrapper" style="width:100%; max-width:800px; margin:0 auto; padding:0 1rem;">' +
-        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">' +
+      '<div class="duel-scoreboard-wrapper" style="width:100%; max-width:800px; margin:0 auto; padding:0 1rem; position:relative;">' +
+        '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session" style="position:absolute; top:-35px; right:1rem; z-index:10; background:transparent; border:none; color:rgba(255,255,255,0.6); font-size:1.5rem; cursor:pointer;">✕</button>' +
+        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; margin-top: 1rem; background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">' +
           '<div class="duel-sb-player" style="flex:1; text-align:left; min-width:0;">' +
             '<div class="duel-sb-name" style="font-size:0.9rem; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + myName + '</div>' +
             '<div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[uid].score || 0) + '</div>' +
@@ -394,10 +410,10 @@ var DuelManager = (function () {
       onFinish: function(state) {
         if (state === 'duel_ended') {
           console.log('[DUEL] DrillEngine finished questions.');
-          DuelCore.getDuelState(data.id, function() {});
+          _showResults(_activeDuelData, true);
         }
       },
-      onDuelAnswerSubmit: function(correct, expected, timeMs, qObj, advanceCb) {
+      onDuelAnswerSubmit: function(correct, expected, timeMs, qObj, qIndex, advanceCb) {
         /* This is called by checkAnswer when the user taps Submit */
         /* Update local my score optimistically */
         var currentScore = parseInt(document.getElementById('duelMyScore').textContent || '0');
@@ -405,10 +421,7 @@ var DuelManager = (function () {
           document.getElementById('duelMyScore').textContent = currentScore + 1;
         }
 
-        /* Determine index based on active data */
-        var myP = _activeDuelData && _activeDuelData.participants ? _activeDuelData.participants[uid] : data.participants[uid];
-        var qIndex = myP && myP.answers ? myP.answers.length : 0;
-
+        /* Submit answer exactly at the provided index */
         DuelCore.submitAnswer(data.id, qIndex, qObj.answer, correct, timeMs, function(err) {
           if (err) console.warn('[DuelManager] submitAnswer error:', err);
           /* The DrillEngine handles advancing locally */
