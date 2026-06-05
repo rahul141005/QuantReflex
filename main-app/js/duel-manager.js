@@ -409,6 +409,23 @@ var DuelManager = (function () {
   function showExitDuelDialog() {
     var modal = _getEl('exitDuelModal');
     if (modal) {
+      /* Populate counts */
+      var solvedCount = 0;
+      var totalCount = 0;
+      if (_activeDuelData) {
+        var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
+        var myP = _activeDuelData.participants && _activeDuelData.participants[uid];
+        solvedCount = myP && myP.answers ? myP.answers.length : 0;
+        totalCount = _activeDuelData.config && _activeDuelData.config.questionCount 
+          ? _activeDuelData.config.questionCount 
+          : (_activeDuelData.questions ? _activeDuelData.questions.length : 0);
+      }
+      
+      var solvedEl = _getEl('exitDuelSolvedCount');
+      var totalEl = _getEl('exitDuelTotalCount');
+      if (solvedEl) solvedEl.textContent = solvedCount;
+      if (totalEl) totalEl.textContent = totalCount;
+
       modal.style.display = 'flex';
       document.body.classList.add('modal-open');
 

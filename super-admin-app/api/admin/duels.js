@@ -25,7 +25,7 @@ async function handler(req, res) {
     const waitingThreshold = now - (24 * 60 * 60 * 1000); // 24 hours ago
     const activeThreshold = now - (4 * 60 * 60 * 1000);   // 4 hours ago
 
-    const snapshot = await db.collection('duels').where('status', 'in', ['waiting', 'in_progress']).get();
+    const snapshot = await db.collection('duels').where('status', 'in', ['waiting', 'active']).get();
     
     let deletedCount = 0;
     const batch = db.batch();
@@ -37,7 +37,7 @@ async function handler(req, res) {
       let shouldDelete = false;
       if (data.status === 'waiting' && createdAt < waitingThreshold) {
         shouldDelete = true;
-      } else if (data.status === 'in_progress' && createdAt < activeThreshold) {
+      } else if (data.status === 'active' && createdAt < activeThreshold) {
         shouldDelete = true;
       }
 

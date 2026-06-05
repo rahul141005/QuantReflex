@@ -430,6 +430,62 @@ var AIFeatures = (function () {
     });
   }
 
+  function showInsufficientDataModal(title, typeName, futureInsights) {
+    var existing = document.getElementById('aiInsufficientModal');
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var overlay = document.createElement('div');
+    overlay.id = 'aiInsufficientModal';
+    overlay.className = 'modal-overlay ai-explain-overlay';
+    overlay.style.display = 'flex';
+    
+    var listHtml = '';
+    if (futureInsights && futureInsights.length > 0) {
+      listHtml = '<ul style="text-align:left; color:#94a3b8; font-size:1rem; padding-left:1.5rem; margin-top:1rem; line-height:1.6;">';
+      for (var i = 0; i < futureInsights.length; i++) {
+        listHtml += '<li>' + _esc(futureInsights[i]) + '</li>';
+      }
+      listHtml += '</ul>';
+    }
+
+    overlay.innerHTML =
+      '<div class="modal-content ai-explain-modal" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); max-width: 400px; text-align: center;">' +
+        '<h3 class="modal-title" style="color:#fff; border-bottom: 1px solid #334155; padding-bottom: 1rem; margin-bottom: 1.5rem;">' + _esc(title) + '</h3>' +
+        '<div class="ai-explain-body">' +
+          '<div style="font-size:3rem; margin-bottom:1rem;">🤖</div>' +
+          '<p style="color:#f8fafc; font-size: 1.1rem; font-weight: 500; margin-bottom: 0.5rem;">Not enough ' + (typeName === 'coaching' ? 'practice' : 'performance') + ' data yet.</p>' +
+          '<p style="color:#94a3b8;">Complete at least 5 questions to unlock ' + (typeName === 'coaching' ? 'personalized coaching' : 'advanced insights') + '.</p>' +
+          (listHtml ? ('<p style="color:#f8fafc; font-weight: 500; margin-top:1.5rem; text-align:left;">What you\'ll unlock:</p>' + listHtml) : '') +
+        '</div>' +
+        '<div class="modal-actions" style="margin-top:2rem; flex-direction:column; gap:0.5rem;">' +
+          '<button class="btn-primary" id="aiInsufficientStartBtn" style="width:100%;">Start Practicing</button>' +
+          '<button class="btn-secondary modal-cancel ai-explain-close" style="width:100%; background:transparent; border:1px solid #334155;">Close</button>' +
+        '</div>' +
+      '</div>';
+      
+    document.body.appendChild(overlay);
+
+    function closeModal() {
+      overlay.style.display = 'none';
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    
+    overlay.querySelector('.ai-explain-close').addEventListener('click', closeModal);
+    overlay.querySelector('#aiInsufficientStartBtn').addEventListener('click', function() {
+      closeModal();
+      if (typeof Router !== 'undefined') {
+        var _navLinks = document.querySelectorAll('.bottom-nav a');
+        var practiceLink = Array.from(_navLinks).find(l => l.getAttribute('data-view') === 'practice');
+        if (practiceLink) practiceLink.click();
+        else Router.showView('practice');
+      }
+    });
+    
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeModal();
+    });
+  }
+
   function renderAICoachCard(containerId, stats) {
     var container = document.getElementById(containerId);
     if (!container) return;
@@ -448,14 +504,6 @@ var AIFeatures = (function () {
       return;
     }
 
-    if (!stats || !stats.totalAttempted || stats.totalAttempted < 5) {
-      container.innerHTML =
-        '<div class="ai-coach-body">' +
-          '<p class="secondary-text">Complete at least 5 questions to unlock coaching.</p>' +
-        '</div>';
-      return;
-    }
-
     container.innerHTML =
       '<div class="ai-coach-body">' +
         '<button class="home-bento-action-btn ai-insights-btn" type="button">Get Coach Advice ✨</button>' +
@@ -463,6 +511,15 @@ var AIFeatures = (function () {
 
     var insightsBtn = container.querySelector('.ai-insights-btn');
     insightsBtn.addEventListener('click', function () {
+      if (!stats || !stats.totalAttempted || stats.totalAttempted < 5) {
+        showInsufficientDataModal('AI Coach', 'coaching', [
+          'Weak area detection',
+          'Accuracy coaching',
+          'Study recommendations',
+          'Practice strategy'
+        ]);
+        return;
+      }
       showCoachModal(stats);
     });
   }
@@ -1202,6 +1259,7 @@ var AIFeatures = (function () {
     showExplanationModal: showExplanationModal,
     showStatsInsightsModal: showStatsInsightsModal,
     showCoachModal: showCoachModal,
+    showInsufficientDataModal: showInsufficientDataModal,
     renderAICoachCard: renderAICoachCard,
     renderStudyPlanCard: renderStudyPlanCard,
     renderWordProblemsSetup: renderWordProblemsSetup,

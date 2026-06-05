@@ -503,22 +503,23 @@ var DuelUI = (function () {
       ? '<p id="duelTimerDisplay" class="timer"></p>' : '';
 
     container.innerHTML =
-      '<div class="duel-header-bar">' +
-        '<span class="duel-header-title">⚔️ Duel</span>' +
-        '<button class="duel-exit-btn" id="duelExitBtnActive">Exit</button>' +
+      '<button class="session-exit drill-exit-btn" id="duelExitBtnActive" aria-label="Exit session" title="Exit session">✕</button>' +
+      '<div class="duel-scoreboard-wrapper">' +
+        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:center; align-items:center; gap:2rem; margin-bottom:1rem;">' +
+          '<div class="duel-sb-player"><div class="duel-sb-name">' + myName + '</div><div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + localScore + '</div></div>' +
+          '<div class="duel-sb-vs" style="font-size:1rem; opacity:0.5;">VS</div>' +
+          '<div class="duel-sb-player"><div class="duel-sb-name">' + opName + '</div><div class="duel-sb-score" id="duelOpScore" style="font-size:1.5rem; font-weight:700;">' + (opP ? opP.score : 0) + '</div></div>' +
+        '</div>' +
       '</div>' +
-      '<div class="duel-scoreboard" id="duelScoreboard">' +
-        '<div class="duel-sb-player"><div class="duel-sb-name">' + myName + '</div><div class="duel-sb-score" id="duelMyScore">' + localScore + '</div></div>' +
-        '<div class="duel-sb-vs">VS</div>' +
-        '<div class="duel-sb-player"><div class="duel-sb-name">' + opName + '</div><div class="duel-sb-score" id="duelOpScore">' + (opP ? opP.score : 0) + '</div></div>' +
-      '</div>' +
-      '<div class="duel-question-area" id="duelQuestionArea">' +
-        '<div class="drill-progress" id="duelProgress">Question ' + (startIdx + 1) + ' of ' + totalQ + '</div>' +
-        '<div class="drill-progress-bar" style="max-width:200px;margin:0 auto .75rem;"><div class="drill-progress-fill" id="duelProgressFill" style="width:' + ((startIdx / totalQ) * 100) + '%;"></div></div>' +
-        timerHtml +
-        '<div class="question-text" id="duelQuestionText"></div>' +
-        '<input type="text" class="input duel-answer-input" id="duelAnswerInput" inputmode="none" readonly placeholder="Tap numpad to answer" autocomplete="off" />' +
-        '<div class="feedback" id="duelFeedback"></div>' +
+      '<div class="card center-content fade-in question-card-transition duel-question-area" id="duelQuestionArea">' +
+        '<div class="drill-question-scroll">' +
+          '<p class="drill-progress" id="duelProgress">Question ' + (startIdx + 1) + ' / ' + totalQ + '</p>' +
+          '<div class="drill-progress-bar"><div class="drill-progress-fill" id="duelProgressFill" style="width:' + ((startIdx / totalQ) * 100) + '%;"></div></div>' +
+          timerHtml +
+          '<h2 class="question-text" id="duelQuestionText"></h2>' +
+          '<input id="duelAnswerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
+          '<div id="duelFeedback" class="feedback"></div>' +
+        '</div>' +
       '</div>';
 
     container.style.display = 'flex';
@@ -871,63 +872,112 @@ var DuelUI = (function () {
       topicPills += '<span class="duel-config-pill" style="font-size:.65rem;">' + _fmtCat(topics[t]) + '</span>';
     }
 
-    container.innerHTML =
-      '<div class="duel-results-card-v2 ' + titleClass + '">' +
-        /* Header */
-        '<div class="duel-result-header">' +
-          (isCompleted && isWinner ? '<div class="duel-result-crown">👑</div>' : '') +
-          '<h2 class="duel-result-title">' + titleText + '</h2>' +
-        '</div>' +
-
-        /* Score comparison */
-        '<div class="duel-result-comparison-grid">' +
-          '<div class="duel-result-player-col">' +
-            '<div class="duel-player-avatar' + (isWinner ? ' avatar-purple winner-glow' : ' avatar-purple') + '">' + _getInitials(myName) + '</div>' +
-            '<div class="duel-result-player-name">' + myName + '</div>' +
-            '<div class="duel-result-big-score">' + myScore + '</div>' +
-            '<div class="duel-result-score-label">correct</div>' +
+    if (isPartial && !isCompleted) {
+      /* Waiting Result Screen */
+      container.innerHTML =
+        '<div class="duel-results-card-v2 duel-result-waiting" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">' +
+          '<div class="duel-result-header" style="border-bottom: 1px solid #334155; padding-bottom: 1rem;">' +
+            '<h2 class="duel-result-title" style="color: #f8fafc; font-size: 1.5rem;">Waiting For Opponent</h2>' +
           '</div>' +
-          '<div class="duel-result-vs-col">' +
-            '<div class="duel-result-vs-text">VS</div>' +
+          '<div style="padding: 2rem 1rem; text-align: center;">' +
+            '<div class="duel-waiting-indicator" style="margin-bottom: 1rem;"><span class="dot" style="background:#60a5fa;"></span><span class="dot" style="background:#60a5fa;"></span><span class="dot" style="background:#60a5fa;"></span></div>' +
+            '<p style="color:#e2e8f0; font-size: 1.1rem; font-weight: 500; margin-bottom: 0.5rem;">Your duel has been submitted.</p>' +
+            '<p style="color:#94a3b8; margin-bottom: 2rem;">Waiting for the other player to finish...</p>' +
+            '<div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; display: flex; justify-content: space-around; margin-bottom: 2rem;">' +
+              '<div>' +
+                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myScore + '</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem;">Score</p>' +
+              '</div>' +
+              '<div>' +
+                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAttempted + '/' + totalQ + '</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem;">Attempted</p>' +
+              '</div>' +
+              '<div>' +
+                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAccuracy + '%</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem;">Accuracy</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="duel-result-actions" style="flex-direction: column; gap: 0.5rem;">' +
+              '<button class="btn-secondary" id="duelReturnToApp" style="width: 100%; background: transparent; border: 1px solid #334155; color: #94a3b8;">Return To App</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="duel-result-player-col">' +
-            '<div class="duel-player-avatar' + (!isWinner && !isDraw && isCompleted ? ' avatar-blue winner-glow' : ' avatar-blue') + '">' + _getInitials(opName) + '</div>' +
-            '<div class="duel-result-player-name">' + opName + '</div>' +
-            '<div class="duel-result-big-score">' + (isPartial && !isCompleted && (opStatus === 'playing' || opStatus === 'joined') ? '…' : opScore) + '</div>' +
-            '<div class="duel-result-score-label">' + (isPartial && !isCompleted ? opStatusText : 'correct') + '</div>' +
+        '</div>';
+      
+      var returnBtn = container.querySelector('#duelReturnToApp');
+      if (returnBtn) returnBtn.addEventListener('click', function() { DuelManager.exitDuel(); });
+    } else {
+      /* Final Result Screen */
+      container.innerHTML =
+        '<div class="duel-results-card-v2 ' + titleClass + '" id="duelShareCardContainer">' +
+          /* Header */
+          '<div class="duel-result-header" style="margin-bottom: 1.5rem;">' +
+            (isCompleted && isWinner ? '<div class="duel-result-crown" style="font-size:3rem; margin-bottom:0.5rem;">👑</div>' : '') +
+            '<h2 class="duel-result-title" style="font-size: 2rem;">' + titleText + '</h2>' +
           '</div>' +
+          
+          /* Score comparison */
+          '<div class="duel-result-comparison-grid" style="margin-bottom: 2rem;">' +
+            '<div class="duel-result-player-col">' +
+              '<div class="duel-player-avatar' + (isWinner ? ' avatar-purple winner-glow' : ' avatar-purple') + '" style="width:60px; height:60px; font-size:1.5rem;">' + _getInitials(myName) + '</div>' +
+              '<div class="duel-result-player-name" style="font-size:1.1rem; font-weight:600; margin-top:0.5rem;">' + myName + '</div>' +
+              '<div class="duel-result-big-score" style="font-size:3rem;">' + myScore + '</div>' +
+              '<div class="duel-result-score-label">correct</div>' +
+            '</div>' +
+            '<div class="duel-result-vs-col">' +
+              '<div class="duel-result-vs-text" style="font-size:1.2rem; opacity:0.6;">VS</div>' +
+            '</div>' +
+            '<div class="duel-result-player-col">' +
+              '<div class="duel-player-avatar' + (!isWinner && !isDraw && isCompleted ? ' avatar-blue winner-glow' : ' avatar-blue') + '" style="width:60px; height:60px; font-size:1.5rem;">' + _getInitials(opName) + '</div>' +
+              '<div class="duel-result-player-name" style="font-size:1.1rem; font-weight:600; margin-top:0.5rem;">' + opName + '</div>' +
+              '<div class="duel-result-big-score" style="font-size:3rem;">' + opScore + '</div>' +
+              '<div class="duel-result-score-label">correct</div>' +
+            '</div>' +
+          '</div>' +
+          
+          /* Detailed stats */
+          '<div class="duel-result-stats-section" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.5rem;">' +
+            _renderStatRow('Accuracy', myAccuracy + '%', opAccuracy + '%', myAccuracy, opAccuracy) +
+            _renderStatRow('Avg Speed', myAvgTime + 's', opAvgTime + 's', 0, 0) +
+            _renderStatRow('Attempted', myAttempted + '/' + totalQ, opAttempted + '/' + totalQ, 0, 0) +
+            _renderStatRow('Total Time', myTotalTime, opTotalTime, 0, 0) +
+          '</div>' +
+          
+          /* Topic summary */
+          (topicPills
+            ? '<div class="duel-result-topic-summary" style="margin-top: 1.5rem; text-align: center;">' +
+                '<span class="secondary-text" style="font-size:.8rem; display:block; margin-bottom:0.5rem;">Topics</span>' + 
+                '<div>' + topicPills + '</div>' +
+              '</div>'
+            : ''
+          ) +
         '</div>' +
-
-        /* Detailed stats */
-        '<div class="duel-result-stats-section">' +
-          _renderStatRow('Accuracy', myAccuracy + '%', isCompleted ? opAccuracy + '%' : '—', myAccuracy, opAccuracy) +
-          _renderStatRow('Avg Speed', myAvgTime + 's', isCompleted ? opAvgTime + 's' : '—', 0, 0) +
-          _renderStatRow('Attempted', myAttempted + '/' + totalQ, isCompleted ? opAttempted + '/' + totalQ : '—', 0, 0) +
-          _renderStatRow('Total Time', myTotalTime, isCompleted ? opTotalTime : '—', 0, 0) +
-        '</div>' +
-
-        /* Opponent status (if partial/waiting) */
-        (isPartial && !isCompleted
-          ? '<div class="duel-result-waiting-opponent" id="duelResultOpponentStatus">' +
-              '<div class="duel-waiting-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>' +
-              '<p class="secondary-text" style="margin-top:.5rem;">' + opName + ' is still playing. Results will update automatically.</p>' +
-            '</div>'
-          : ''
-        ) +
-
-        /* Topic summary */
-        (topicPills
-          ? '<div class="duel-result-topic-summary">' +
-              '<span class="secondary-text" style="font-size:.7rem;">Topics: </span>' + topicPills +
-            '</div>'
-          : ''
-        ) +
-
-        /* Action buttons */
-        '<div class="duel-result-actions">' +
-          '<button class="btn-primary" id="duelResultDone" style="max-width:240px;">Back to Practice</button>' +
-        '</div>' +
-      '</div>';
+        
+        /* Action buttons outside the shareable card area */
+        '<div class="duel-result-actions" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem;">' +
+          '<button class="btn-primary" id="duelShareBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Share Result</button>' +
+          '<button class="btn-secondary" id="duelResultDone" style="width: 100%; background: #334155; border: none; color: #fff;">Back to Home</button>' +
+        '</div>';
+      var shareBtn = container.querySelector('#duelShareBtn');
+      if (shareBtn) {
+        shareBtn.addEventListener('click', function () {
+          if (typeof ShareService !== 'undefined') {
+            ShareService.shareAsImage({
+              mode: 'Duel vs ' + opName,
+              displayName: myName,
+              score: myScore,
+              total: totalQ,
+              accuracy: myAccuracy,
+              avgTime: myAvgTime !== '-' ? myAvgTime : '0',
+              percentile: 0, /* We could calculate if we wanted */
+              streak: 0,
+              difficulty: 'Duel',
+              totalTime: myTotalTime.replace('s', ''),
+              topics: topics
+            });
+          }
+        });
+      }
+    }
 
     container.style.display = 'flex';
 

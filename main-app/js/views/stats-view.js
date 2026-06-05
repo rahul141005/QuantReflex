@@ -246,15 +246,22 @@ function renderStatsView() {
         '<button class="btn-primary ai-coach-unlock-btn" type="button" style="margin-top:.5rem;">Unlock with Premium+</button>';
       var aiUnlockBtn = aiInsightsContainer.querySelector('.ai-coach-unlock-btn');
       if (aiUnlockBtn) aiUnlockBtn.addEventListener('click', function () { showPaywall('ai_coach'); });
-    } else if (p.totalAttempted >= 5) {
+    } else {
       aiInsightsContainer.innerHTML =
         '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding: 1rem 2rem; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🧠 View AI Insights</button>';
       var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
       _statsInsightsBtn.addEventListener('click', function () {
-        AIFeatures.showStatsInsightsModal(p);
+        if (p.totalAttempted < 5) {
+          AIFeatures.showInsufficientDataModal('AI Insights', 'performance', [
+            'Accuracy trends',
+            'Topic weaknesses',
+            'Speed patterns',
+            'Performance forecasting'
+          ]);
+        } else {
+          AIFeatures.showStatsInsightsModal(p);
+        }
       });
-    } else {
-      aiInsightsContainer.innerHTML = '<p class="secondary-text">Complete at least 5 questions to get AI insights.</p>';
     }
   }
 }

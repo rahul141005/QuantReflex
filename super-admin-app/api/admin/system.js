@@ -40,7 +40,7 @@ async function handler(req, res) {
 
       const now = Date.now();
       const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
-      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'ready']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
+      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
 
       return res.status(200).json({
         metrics: {
@@ -72,7 +72,7 @@ async function handler(req, res) {
       const issues = [];
       const expiredPremiumPlusSnap = await db.collection('users').where('isPremiumPlus', '==', true).where('premiumPlusExpiry', '<', now).limit(100).get();
       if (!expiredPremiumPlusSnap.empty) { issues.push({ type: 'EXPIRED_PREMIUM_PLUS', severity: 'high', message: `Found ${expiredPremiumPlusSnap.size} users with active Premium+ but expired timestamps.`, actionPayload: { fixEndpoint: '/api/admin/entitlements/mutate', action: 'revoke_expired' } }); }
-      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'ready']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
+      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
       if (!orphanDuelsSnap.empty) { issues.push({ type: 'ORPHANED_DUELS', severity: 'medium', message: `Found ${orphanDuelsSnap.size} stale duel rooms clogging the database.`, actionPayload: { fixEndpoint: '/api/admin/duels/cleanup' } }); }
       const recentUsers = await db.collection('users').orderBy('createdAt', 'desc').limit(50).get();
 
