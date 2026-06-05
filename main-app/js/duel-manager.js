@@ -213,7 +213,7 @@ var DuelManager = (function () {
           break;
 
         case 'active':
-          console.log('[DUEL TRACE] Listener state: active. screenRendered:', _duelScreenRendered, 'countdownRunning:', _countdownRunning);
+          console.log('[DUEL TRACE] Listener state: active. screenRendered:', _duelScreenRendered, 'countdownRunning:', _countdownRunning, 'questions:', (data.questions || []).length);
           if (!_duelScreenRendered && !_countdownRunning) {
             _renderCountdown(data, function () {
               console.log('[DUEL TRACE] Countdown complete, entering active duel');
@@ -349,6 +349,8 @@ var DuelManager = (function () {
         if (err) console.warn('[DuelManager] submitAnswer error:', err);
       });
     });
+
+    console.log('[DUEL] Question Render Success');
 
     DuelEvents.emit('duel_started', { duelId: data.id });
   }

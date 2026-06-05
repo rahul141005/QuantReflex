@@ -205,7 +205,10 @@ var DuelCore = (function () {
     };
 
     db.collection(DUEL_COLLECTION).doc(duelId).set(duelDoc)
-      .then(function () { callback(null, duelId); })
+      .then(function () {
+        console.log('[DUEL] Room Created. id=' + duelId + ' questionsStored=' + (duelDoc.questions || []).length + ' questionIdsStored=' + (duelDoc.questionIds || []).length);
+        callback(null, duelId);
+      })
       .catch(function (e) {
         console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: CREATE\n[FIRESTORE OP] Error Message: ' + e.message);
         callback('Room initialization failed. Please try again.');

@@ -450,6 +450,7 @@ var DuelUI = (function () {
   var _duelSession = null;
 
   function renderActiveScreen(container, duelData, onAnswer) {
+    console.log('[DUEL] renderActiveScreen called. container:', !!container, 'visible:', container ? container.offsetParent !== null : false);
     clearTimers();
 
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
@@ -461,6 +462,7 @@ var DuelUI = (function () {
     var questions = duelData.questions || [];
     var config = duelData.config || {};
     var totalQ = config.questionCount || questions.length;
+    console.log('[DUEL] renderActiveScreen: questions.length=' + questions.length + ' totalQ=' + totalQ + ' uid=' + uid);
 
     /* Calculate starting question index from existing answers */
     var startIdx = myP ? (myP.answers ? myP.answers.length : 0) : 0;
@@ -475,6 +477,23 @@ var DuelUI = (function () {
 
     /* If already finished, show waiting screen */
     if (startIdx >= totalQ || startIdx >= questions.length) {
+      console.warn('[DUEL] Question Render Failed: startIdx=' + startIdx + ' totalQ=' + totalQ + ' questions.length=' + questions.length);
+      if (questions.length === 0) {
+        /* Questions array is empty - show error instead of finished screen */
+        container.innerHTML =
+          '<div class="duel-header-bar">' +
+            '<span class="duel-header-title">⚔️ Duel</span>' +
+            '<button class="duel-exit-btn" id="duelExitBtnActive">Exit</button>' +
+          '</div>' +
+          '<div class="duel-question-area" style="text-align:center;padding:2rem;">' +
+            '<div style="font-size:2rem;margin-bottom:1rem;">⚠️</div>' +
+            '<h3 style="margin-bottom:.5rem;">Failed to load questions</h3>' +
+            '<p class="secondary-text">The duel data could not be loaded. Please exit and try again.</p>' +
+          '</div>';
+        container.style.display = 'flex';
+        _bindExitBtn();
+        return;
+      }
       _renderDuelFinished(container, myName, opName, myP, opP);
       return;
     }
