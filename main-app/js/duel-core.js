@@ -126,6 +126,7 @@ var DuelCore = (function () {
    * Returns a room code that can be shared with the opponent.
    */
   function createDuel(config, callback) {
+    console.log('[DUEL TRACE] createDuel initiated');
     var db = FirebaseApp.getDb();
     var uid = FirebaseApp.getUserId();
     if (!db || !uid) { callback('Not authenticated'); return; }
@@ -160,6 +161,7 @@ var DuelCore = (function () {
       questions = _generateQuickQuestions(config, duelId);
     }
 
+    console.log('[DUEL TRACE] createDuel writing document', duelId);
     _writeDuelDoc(db, duelId, uid, config, questions, callback);
   }
 
@@ -211,6 +213,7 @@ var DuelCore = (function () {
    * Join an existing duel room via room code (transaction-safe).
    */
   function joinDuel(duelId, callback) {
+    console.log('[DUEL TRACE] joinDuel initiated for room:', duelId);
     if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
     _joinDuelTransaction(duelId, callback);
   }
@@ -231,6 +234,7 @@ var DuelCore = (function () {
 
         /* Allow rejoin if already a participant */
         if (data.participants && data.participants[uid]) {
+          console.log('[DUEL TRACE] joinDuel: Rejoining as existing participant');
           return data;
         }
 
@@ -245,8 +249,12 @@ var DuelCore = (function () {
         }
 
         var pCount = data.participants ? Object.keys(data.participants).length : 0;
-        if (pCount >= 2) { throw new Error('Duel room is full'); }
+        if (pCount >= 2) {
+          console.warn('[DUEL TRACE] joinDuel rejected: Room full');
+          throw new Error('Duel room is full');
+        }
 
+        console.log('[DUEL TRACE] joinDuel transaction updating doc with new player');
         var displayName = _getDisplayName();
         var participants = data.participants || {};
         participants[uid] = {
@@ -277,6 +285,7 @@ var DuelCore = (function () {
    * Start the duel (both players present) — with countdown.
    */
   function startDuel(duelId, callback) {
+    console.log('[DUEL TRACE] startDuel initiated for room:', duelId);
     var db = FirebaseApp.getDb();
     if (!db) { callback('Not ready'); return; }
 
@@ -284,8 +293,14 @@ var DuelCore = (function () {
       status: 'active',
       duelStartedAt: _serverTimestamp()
     })
-      .then(function () { callback(null); })
-      .catch(function (e) { callback(e.message); });
+      .then(function () {
+        console.log('[DUEL TRACE] startDuel successful');
+        callback(null);
+      })
+      .catch(function (e) {
+        console.warn('[DUEL TRACE] startDuel failed:', e);
+        callback(e.message);
+      });
   }
 
   /**

@@ -206,26 +206,22 @@ var DuelManager = (function () {
       /* Route to correct UI based on duel status */
       switch (data.status) {
         case 'waiting':
-          /* Check participant count — if 2 players, start countdown */
-          var pCount = data.participants ? Object.keys(data.participants).length : 0;
-          if (pCount >= 2) {
-            _renderCountdown(data, function () {
-              /* Only the creator triggers the Firestore status transition */
-              var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-              if (data.createdBy === uid) {
-                DuelCore.startDuel(data.id, function (err) {
-                  if (err) console.warn('[DuelManager] startDuel error:', err);
-                });
-              }
-            });
-          } else {
-            /* Still waiting for opponent — update waiting room UI */
-            _renderWaitingRoom(data);
-          }
+          console.log('[DUEL TRACE] Listener state: waiting');
+          /* Always render waiting room. Do NOT auto-start countdown.
+             Host must explicitly click "Start Duel". */
+          _renderWaitingRoom(data);
           break;
 
         case 'active':
-          _enterActiveDuel(data);
+          console.log('[DUEL TRACE] Listener state: active. screenRendered:', _duelScreenRendered, 'countdownRunning:', _countdownRunning);
+          if (!_duelScreenRendered && !_countdownRunning) {
+            _renderCountdown(data, function () {
+              console.log('[DUEL TRACE] Countdown complete, entering active duel');
+              _enterActiveDuel(data);
+            });
+          } else if (!_countdownRunning) {
+            _enterActiveDuel(data);
+          }
           break;
 
         case 'completed':
@@ -269,6 +265,7 @@ var DuelManager = (function () {
 
   function _renderCountdown(data, callback) {
     if (_countdownRunning) return;
+    console.log('[DUEL TRACE] _renderCountdown started');
     _countdownRunning = true;
     _duelPhase = 'active';
     _hideAllDuelScreens();
@@ -307,8 +304,10 @@ var DuelManager = (function () {
    * ================================================================ */
 
   function _enterActiveDuel(data) {
+    console.log('[DUEL TRACE] _enterActiveDuel initiated');
     if (_exitedEarly) {
       /* If player exited early, update partial results */
+      console.log('[DUEL TRACE] _enterActiveDuel aborted: _exitedEarly');
       _showResults(data, true);
       return;
     }
@@ -317,16 +316,19 @@ var DuelManager = (function () {
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
     var myP = data.participants && data.participants[uid];
     if (myP && (myP.status === 'finished' || myP.status === 'exited')) {
+      console.log('[DUEL TRACE] _enterActiveDuel aborted: player already finished');
       _showResults(data, true);
       return;
     }
 
     /* If active duel screen is already rendered, just update scoreboard */
     if (_duelScreenRendered && _duelPhase === 'active') {
+      console.log('[DUEL TRACE] _enterActiveDuel: screen already rendered, updating scoreboard');
       DuelUI.updateScoreboard(data);
       return;
     }
 
+    console.log('[DUEL TRACE] _enterActiveDuel: hiding old screens and rendering new active screen');
     _duelPhase = 'active';
     _duelScreenRendered = true;
     _hideAllDuelScreens();

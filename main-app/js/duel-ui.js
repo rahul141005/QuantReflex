@@ -395,7 +395,7 @@ var DuelUI = (function () {
 
     container.style.display = 'flex';
 
-    /* Bind start button (creator only) — shows 3-2-1-GO then starts */
+    /* Bind start button (creator only) — instantly calls startDuel, countdown handled globally */
     var startBtn = document.getElementById('duelStartBtn');
     if (startBtn) {
       startBtn.addEventListener('click', function () {
@@ -403,28 +403,14 @@ var DuelUI = (function () {
         startBtn.disabled = true;
         startBtn.textContent = 'Starting…';
 
-        /* Show countdown overlay inside waiting room */
-        var countdownDiv = document.createElement('div');
-        countdownDiv.className = 'duel-countdown-overlay';
-        countdownDiv.innerHTML = '<div class="duel-countdown-number" id="duelCountdownNum">3</div>';
-        container.appendChild(countdownDiv);
-
-        var num = 3;
-        var countEl = document.getElementById('duelCountdownNum');
-        var countInterval = setInterval(function () {
-          num--;
-          if (num > 0) {
-            if (countEl) countEl.textContent = num;
-          } else if (num === 0) {
-            if (countEl) countEl.textContent = 'GO!';
-          } else {
-            clearInterval(countInterval);
-            /* NOW transition to active in Firestore */
-            DuelCore.startDuel(d.id, function (err) {
-              if (err && typeof showToast === 'function') showToast(err);
-            });
+        console.log('[DUEL TRACE] Host clicked Start Duel, transitioning to active in Firestore');
+        DuelCore.startDuel(d.id, function (err) {
+          if (err && typeof showToast === 'function') {
+            showToast(err);
+            startBtn.disabled = false;
+            startBtn.textContent = 'Start Duel ⚔️';
           }
-        }, 800);
+        });
       });
     }
 
@@ -553,7 +539,18 @@ var DuelUI = (function () {
     if (session.destroyed) return;
 
     var q = session.questions[session.qIndex];
-    if (!q) return;
+    if (!q) {
+      console.warn('[DUEL TRACE] Failed to load question at index', session.qIndex);
+      var textEl = document.getElementById('duelQuestionText');
+      if (textEl) {
+        textEl.innerHTML = '<div style="color:var(--text-error);padding:1rem;background:rgba(239,68,68,0.1);border-radius:8px;">' +
+                           '⚠️ Failed to load question data. Please check your connection and try again.</div>';
+      }
+      var input = document.getElementById('duelAnswerInput');
+      if (input) input.disabled = true;
+      if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+      return;
+    }
 
     /* Update progress */
     var progressEl = document.getElementById('duelProgress');
