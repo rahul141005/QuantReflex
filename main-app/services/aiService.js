@@ -709,84 +709,225 @@ function _shuffleInPlace(arr) {
   }
 }
 
-var STUDY_PLAN_TTL_DAYS = 7;
+async function getActiveStudyPlan(userId) {
+  try {
+    var snapshot = await db.collection('aiStudyPlans')
+      .where('userId', '==', userId)
+      .where('status', '==', 'active')
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+    if (!snapshot.empty) {
+      var doc = snapshot.docs[0];
+      var data = doc.data();
+      data.id = doc.id;
+      return data;
+    }
+  } catch (err) {
+    console.warn('getActiveStudyPlan failed:', err.message);
+  }
+  return null;
+}
+
+async function finalizeStudyPlan(userId, planId) {
+  try {
+    var snapshot = await db.collection('aiStudyPlans')
+      .where('userId', '==', userId)
+      .where('status', '==', 'active')
+      .get();
+    var batch = db.batch();
+    snapshot.forEach(function (doc) {
+      if (doc.id !== planId) batch.update(doc.ref, { status: 'archived' });
+    });
+    batch.update(db.collection('aiStudyPlans').doc(planId), { status: 'active' });
+    await batch.commit();
+  } catch (err) {
+    console.error('finalizeStudyPlan error:', err.message);
+    throw new AIServiceError('DB_ERROR', 'Failed to finalize study plan.', true);
+  }
+}
+
+async function updateStudyPlanProgress(userId, planId, dayIndex, completed) {
+  try {
+    var ref = db.collection('aiStudyPlans').doc(planId);
+    var doc = await ref.get();
+    if (doc.exists && doc.data().userId === userId) {
+      var progress = doc.data().progress || {};
+      progress[dayIndex] = completed === true;
+      await ref.update({ progress: progress, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    }
+  } catch (err) {
+    console.error('updateStudyPlanProgress error:', err.message);
+    throw new AIServiceError('DB_ERROR', 'Failed to update progress.', true);
+  }
+}
 
 async function generateStudyPlan(params) {
   var examName = params.examName;
   var examDate = params.examDate;
   var daysRemaining = params.daysRemaining;
   var dailyTimeMinutes = params.dailyTimeMinutes;
+  var targetScore = params.targetScore || '';
+  var currentLevel = params.currentLevel || 'Intermediate';
   var weakTopics = params.weakTopics || [];
+  var strongTopics = params.strongTopics || [];
   var accuracy = params.accuracy || '0';
   var userId = params.userId;
-
-  var cacheRef = db.collection('aiStudyPlans');
-  var cacheDocId = userId + '_' + examDate.replace(/[^a-z0-9]/gi, '-');
-
-  try {
-    var cached = await cacheRef.doc(cacheDocId).get();
-    if (cached.exists) {
-      var data = cached.data();
-      var createdMs = data.createdAt ? data.createdAt.toMillis() : 0;
-      var ageMs = Date.now() - createdMs;
-      var examNameMatch = data.examName === examName;
-      var dailyTimeMatch = data.dailyTimeMinutes === dailyTimeMinutes;
-      if (ageMs < STUDY_PLAN_TTL_DAYS * 24 * 60 * 60 * 1000 && examNameMatch && dailyTimeMatch) {
-        if (data.timetable) {
-          return { strategy: data.strategy, timetable: data.timetable, tip: data.tip };
-        }
-      }
-    }
-  } catch (cacheErr) {
-    console.warn('Study plan cache read failed:', cacheErr.message);
-  }
+  var previousPlanId = params.previousPlanId;
 
   var client = getClient();
   if (!client) throw new AIServiceError('SERVICE_UNAVAILABLE', 'AI service unavailable', true);
 
-  var weakStr = weakTopics.length > 0 ? weakTopics.join(', ') : 'None identified yet';
-  var timeLabel = daysRemaining <= 7 ? 'critical — less than a week' : daysRemaining <= 30 ? 'short — under a month' : daysRemaining <= 60 ? 'moderate — 1-2 months' : 'comfortable — more than 2 months';
+  var weakStr = weakTopics.length > 0 ? weakTopics.join(', ') : 'None explicitly identified';
+  var strongStr = strongTopics.length > 0 ? strongTopics.join(', ') : 'None explicitly identified';
+  
+  var prevContext = '';
+  var startDay = 1;
+  var daysToPlan = Math.min(daysRemaining, 14);
 
-  var prompt = 'You are an expert aptitude coach for competitive exams like CAT, GMAT, CET, and placements.\n\nUser details:\n- Target Exam: ' + examName + '\n- Days remaining: ' + daysRemaining + ' (' + timeLabel + ')\n- Daily time available: ' + dailyTimeMinutes + ' minutes\n- Weak topics: ' + weakStr + '\n- Current accuracy: ' + accuracy + '%\n\nCreate a SMART and REALISTIC full exam preparation plan.\n\nRequirements:\n- Generate an actual day-by-day timetable\n- Do NOT generate quant-only plans. Generate full exam preparation plans including Quant, Logical Reasoning, Verbal Ability etc as relevant to the exam.\n- Allocate time realistically per day (totaling ' + dailyTimeMinutes + ' minutes)\n- Focus on weak areas\n- Use specific topic names (not vague advice)\n- Provide exactly ' + Math.min(daysRemaining, 14) + ' days of planning\n\nReturn ONLY a valid JSON object with exactly these fields:\n{\n  "strategy": "Overall 2-3 sentence approach",\n  "timetable": [\n    {\n      "day": 1,\n      "subject": "Quantitative Aptitude",\n      "topic": "Profit & Loss",\n      "subTopic": "Discounts",\n      "estimatedMinutes": 60\n    }\n  ],\n  "tip": "One powerful improvement tip"\n}\n\nReturn ONLY the JSON object, no markdown, no explanation, no code fences.';
+  if (previousPlanId) {
+    try {
+      var prevDoc = await db.collection('aiStudyPlans').doc(previousPlanId).get();
+      if (prevDoc.exists) {
+        var prevData = prevDoc.data();
+        var prevCompletedDays = Object.keys(prevData.progress || {}).filter(function (k) { return prevData.progress[k]; }).length;
+        
+        var prevTopics = [];
+        if (prevData.timetable && prevData.timetable.length > 0) {
+          startDay = prevData.timetable[prevData.timetable.length - 1].day + 1;
+          for (var i = 0; i < prevData.timetable.length; i++) {
+            var dayObj = prevData.timetable[i];
+            if (dayObj.sessions) {
+              for (var j = 0; j < dayObj.sessions.length; j++) {
+                prevTopics.push(dayObj.sessions[j].topic);
+              }
+            }
+          }
+        }
+        var uniqueTopics = Array.from(new Set(prevTopics)).join(', ');
+        
+        prevContext = '\\n--- CONTEXT: CONTINUING FROM PREVIOUS BLOCK ---\\n' +
+          'The user has already completed ' + prevCompletedDays + ' days out of their previous 14-day block.\\n' +
+          'Previously scheduled topics: ' + uniqueTopics + '\\n' +
+          'CRITICAL: Do NOT schedule these previously covered topics again unless it is specifically marked as a Revision or Mock test session. Progress to new topics to build knowledge.\\n' +
+          'Start day numbering from Day ' + startDay + ' up to Day ' + (startDay + daysToPlan - 1) + '.\\n';
+      }
+    } catch(e){}
+  }
 
-  var result = await _callAndParse(client, prompt, function (parsed) {
-    if (!parsed || typeof parsed.strategy !== 'string') return null;
-    if (!Array.isArray(parsed.timetable) || parsed.timetable.length < 1) return null;
-    if (typeof parsed.tip !== 'string') return null;
-    return {
-      strategy: parsed.strategy,
-      timetable: parsed.timetable,
-      tip: parsed.tip
-    };
+  var prompt = 'You are an expert aptitude coach for competitive exams like CAT, GMAT, Bank PO, and SSC.\\n' +
+    '\\nUser details:\\n' +
+    '- Target Exam: ' + examName + '\\n' +
+    '- Target Score: ' + targetScore + '\\n' +
+    '- Current Level: ' + currentLevel + '\\n' +
+    '- Days remaining until exam: ' + daysRemaining + '\\n' +
+    '- Daily time available: ' + dailyTimeMinutes + ' minutes\\n' +
+    '- Strong topics (Auto-detected + Manual): ' + strongStr + '\\n' +
+    '- Weak topics (Auto-detected + Manual): ' + weakStr + '\\n' +
+    '- Current accuracy: ' + accuracy + '%\\n' +
+    prevContext +
+    '\\nCreate an exact, day-by-day executable timetable.\\n' +
+    '\\nRequirements:\\n' +
+    '- Generate EXACTLY ' + daysToPlan + ' days of planning. (No more, no less).\\n' +
+    (startDay === 1 ? '- Start day numbering from Day 1 up to Day ' + daysToPlan + '.\\n' : '') +
+    '- Allocate ' + dailyTimeMinutes + ' minutes total per day.\\n' +
+    '- Use precise subjects relevant to the target exam (e.g., CAT = QA, VARC, DILR; GMAT = Quant, Verbal, Data Insights; Bank PO = Quant, Reasoning, English, GA).\\n' +
+    '- Break down the daily time into multiple subjects/sessions (e.g., 30m Quant, 20m VARC). Do NOT put all time into a single subject per day.\\n' +
+    '- Heavily allocate time to Weak Topics. Adjust focus based on accuracy.\\n' +
+    '- Include specific Revision Days, Mock Test Days, and Error Review Days based on days remaining.\\n' +
+    '- Provide a rationale explaining WHY this specific block was structured this way, referencing their weak/strong areas.\\n' +
+    '- Calculate the overarching phases for the entire remaining duration (e.g. Phase 1: Concept Building 30 days, Phase 2: Practice 40 days, etc).';
+
+  var completion = await client.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: 'system', content: 'You are an elite exam strategist. Output valid JSON adhering to the required schema. Ensure day numbering is strictly sequential.' },
+      { role: 'user', content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 4096,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "study_plan",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            rationale: { type: "string" },
+            phases: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  durationDays: { type: "number" }
+                },
+                required: ["name", "durationDays"],
+                additionalProperties: false
+              }
+            },
+            timetable: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  day: { type: "number" },
+                  isRevision: { type: "boolean" },
+                  isMock: { type: "boolean" },
+                  totalMinutes: { type: "number" },
+                  sessions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        subject: { type: "string" },
+                        topic: { type: "string" },
+                        subTopic: { type: "string" },
+                        estimatedMinutes: { "type": "number" }
+                      },
+                      required: ["subject", "topic", "subTopic", "estimatedMinutes"],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ["day", "isRevision", "isMock", "totalMinutes", "sessions"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["rationale", "phases", "timetable"],
+          additionalProperties: false
+        }
+      }
+    }
   });
 
-  if (!result) throw new AIServiceError('INVALID_RESPONSE', 'Invalid study plan format after retries', true);
+  var result = JSON.parse(completion.choices[0].message.content);
+
+  var planDoc = {
+    userId: userId,
+    examName: examName,
+    examDate: examDate,
+    dailyTimeMinutes: dailyTimeMinutes,
+    targetScore: targetScore,
+    currentLevel: currentLevel,
+    status: 'draft',
+    rationale: result.rationale,
+    phases: result.phases,
+    timetable: result.timetable,
+    progress: {},
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  };
 
   try {
-    await cacheRef.doc(cacheDocId).set({
-      userId: userId,
-      examName: examName,
-      examDate: examDate,
-      dailyTimeMinutes: dailyTimeMinutes,
-      strategy: result.strategy,
-      timetable: result.timetable,
-      tip: result.tip,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    var ref = await db.collection('aiStudyPlans').add(planDoc);
+    planDoc.id = ref.id;
   } catch (writeErr) {
     console.warn('Study plan cache write failed:', writeErr.message);
   }
 
-  return result;
+  return planDoc;
 }
 
-async function clearStudyPlanCache(userId, examDate) {
-  try {
-    var cacheDocId = userId + '_' + examDate.replace(/[^a-z0-9]/gi, '-');
-    await db.collection('aiStudyPlans').doc(cacheDocId).delete();
-  } catch (err) {
-    console.warn('Study plan cache clear failed:', err.message);
-  }
-}
-
-module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, clearStudyPlanCache, verifyIdToken, isUserPremium, isUserPremiumPlus, unlockPremiumPlus, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };
+module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, isUserPremium, isUserPremiumPlus, unlockPremiumPlus, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };

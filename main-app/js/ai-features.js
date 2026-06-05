@@ -796,125 +796,113 @@ var AIFeatures = (function () {
   }
 
   var _studyPlanInFlight = false;
-  var SP_EXAMS = ['CAT', 'GMAT', 'CET', 'Placement', 'GRE', 'XAT', 'SNAP', 'NMAT', 'Other'];
+  var SP_EXAMS = ['CAT', 'GMAT', 'CET', 'Placement', 'GRE', 'XAT', 'SNAP', 'NMAT', 'Bank PO', 'SSC', 'Other'];
 
-  function _spCacheKey(examDate) {
-    return 'quant_ai_sp_' + _uid() + '_' + examDate;
-  }
-
-  function _getStudyPlanCache(examDate) {
-    try {
-      var raw = localStorage.getItem(_spCacheKey(examDate));
-      if (!raw) return null;
-      var cached = JSON.parse(raw);
-      var ageMs = Date.now() - (cached.timestamp || 0);
-      if (ageMs < 7 * 24 * 60 * 60 * 1000) return cached;
-    } catch (_) {}
-    return null;
-  }
-
-  function _setStudyPlanCache(examDate, examName, dailyTimeMinutes, plan) {
-    try {
-      localStorage.setItem(_spCacheKey(examDate), JSON.stringify({
-        examDate: examDate,
-        examName: examName,
-        dailyTimeMinutes: dailyTimeMinutes,
-        plan: plan,
-        timestamp: Date.now()
-      }));
-      _saveLastUsed(examDate, examName, dailyTimeMinutes);
-    } catch (_) {}
-  }
-
-  function _clearStudyPlanCache(examDate) {
-    try { localStorage.removeItem(_spCacheKey(examDate)); } catch (_) {}
-  }
-
-  function _spLastUsedKey() {
-    return 'quant_ai_sp_last_' + _uid();
-  }
-
-  function _saveLastUsed(examDate, examName, dailyTimeMinutes) {
-    try {
-      localStorage.setItem(_spLastUsedKey(), JSON.stringify({ examDate: examDate, examName: examName, dailyTimeMinutes: dailyTimeMinutes }));
-    } catch (_) {}
-  }
-
-  function _getLastUsed() {
-    try {
-      var raw = localStorage.getItem(_spLastUsedKey());
-      return raw ? JSON.parse(raw) : null;
-    } catch (_) { return null; }
-  }
-
-  function _buildResultHTML(plan, examName, examDate, daysRemaining) {
-    var timetableHtml = '';
+  function _buildResultHTML(plan) {
     var csvData = 'Day,Subject,Topic,SubTopic,Estimated_Minutes\n';
-
-    if (plan.timetable && plan.timetable.length > 0) {
-      timetableHtml = '<div style="overflow-x:auto;"><table class="sp-timetable-table" style="width:100%; text-align:left; border-collapse:collapse; margin-top:1rem; font-size:0.9rem;">' +
-        '<thead>' +
-          '<tr style="border-bottom:2px solid var(--border-light);">' +
-            '<th style="padding:0.5rem;">Day</th>' +
-            '<th style="padding:0.5rem;">Subject</th>' +
-            '<th style="padding:0.5rem;">Topic</th>' +
-            '<th style="padding:0.5rem;">Sub-Topic</th>' +
-            '<th style="padding:0.5rem;">Time (min)</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>';
-
-      for (var i = 0; i < plan.timetable.length; i++) {
-        var row = plan.timetable[i];
-        timetableHtml += '<tr style="border-bottom:1px solid var(--border-light);">' +
-          '<td style="padding:0.5rem; font-weight:700;">' + _esc(row.day) + '</td>' +
-          '<td style="padding:0.5rem;">' + _esc(row.subject) + '</td>' +
-          '<td style="padding:0.5rem;">' + _esc(row.topic) + '</td>' +
-          '<td style="padding:0.5rem; color:var(--text-secondary);">' + _esc(row.subTopic || '') + '</td>' +
-          '<td style="padding:0.5rem; text-align:center;">' + _esc(row.estimatedMinutes) + '</td>' +
-        '</tr>';
-
-        // Add to CSV
-        csvData += [
-          '"' + _esc(row.day) + '"',
-          '"' + _esc(row.subject) + '"',
-          '"' + _esc(row.topic) + '"',
-          '"' + _esc(row.subTopic || '') + '"',
-          '"' + _esc(row.estimatedMinutes) + '"'
-        ].join(',') + '\n';
+    
+    var phasesHtml = '';
+    if (plan.phases && plan.phases.length > 0) {
+      phasesHtml = '<div class="sp-phases-bar">';
+      for(var p=0; p<plan.phases.length; p++) {
+        phasesHtml += '<span class="sp-phase-badge">' + _esc(plan.phases[p].name) + ' (' + plan.phases[p].durationDays + 'd)</span>';
       }
-      timetableHtml += '</tbody></table></div>';
+      phasesHtml += '</div>';
     }
 
+    var timetableHtml = '<div class="sp-timeline">';
+    var completedCount = 0;
+    var totalCount = plan.timetable ? plan.timetable.length : 0;
+
+    if (plan.timetable && plan.timetable.length > 0) {
+      for (var i = 0; i < plan.timetable.length; i++) {
+        var dayObj = plan.timetable[i];
+        var isCompleted = plan.progress && plan.progress[dayObj.day] === true;
+        if (isCompleted) completedCount++;
+
+        var dayClass = isCompleted ? 'sp-day-card completed' : 'sp-day-card';
+        if (dayObj.isRevision) dayClass += ' revision-day';
+        if (dayObj.isMock) dayClass += ' mock-day';
+
+        var sessionsHtml = '';
+        if (dayObj.sessions && dayObj.sessions.length > 0) {
+          for(var j=0; j < dayObj.sessions.length; j++) {
+            var sess = dayObj.sessions[j];
+            sessionsHtml += '<div class="sp-session-row">' +
+              '<span class="sp-session-sub">' + _esc(sess.subject) + '</span>' +
+              '<span class="sp-session-top">' + _esc(sess.topic) + (sess.subTopic ? ' - ' + _esc(sess.subTopic) : '') + '</span>' +
+              '<span class="sp-session-time">' + _esc(sess.estimatedMinutes) + 'm</span>' +
+            '</div>';
+            
+            csvData += [
+              '"' + _esc(dayObj.day) + '"',
+              '"' + _esc(sess.subject) + '"',
+              '"' + _esc(sess.topic) + '"',
+              '"' + _esc(sess.subTopic || '') + '"',
+              '"' + _esc(sess.estimatedMinutes) + '"'
+            ].join(',') + '\n';
+          }
+        }
+
+        timetableHtml += '<div class="' + dayClass + '" data-day="' + dayObj.day + '">' +
+          '<div class="sp-day-header">' +
+            '<label class="sp-checkbox-label">' +
+              '<input type="checkbox" class="sp-day-checkbox" data-day="' + dayObj.day + '" ' + (isCompleted ? 'checked' : '') + ' ' + (plan.status === 'draft' ? 'disabled' : '') + '/>' +
+              '<span class="sp-checkbox-custom"></span>' +
+              '<strong>Day ' + dayObj.day + '</strong>' +
+            '</label>' +
+            '<span class="sp-day-total">' + dayObj.totalMinutes + 'm</span>' +
+          '</div>' +
+          '<div class="sp-day-sessions">' + sessionsHtml + '</div>' +
+        '</div>';
+      }
+    }
+    timetableHtml += '</div>';
+
+    var progressPct = totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0;
+    var progressRingHtml = '';
+    if (plan.status !== 'draft') {
+      progressRingHtml = '<div class="sp-progress-container">' +
+        '<div class="sp-progress-ring" style="--sp-pct: ' + progressPct + '%;">' + progressPct + '%</div>' +
+        '<div class="sp-progress-text">' + completedCount + ' / ' + totalCount + ' Days Completed</div>' +
+      '</div>';
+    }
+
+    var examMs = new Date(plan.examDate).getTime();
+    var daysRemaining = Math.max(1, Math.ceil((examMs - Date.now()) / (1000 * 60 * 60 * 24)));
     var daysLabel = daysRemaining === 1 ? '1 day' : daysRemaining + ' days';
     
-    // Convert csvData to Base64 for download link
     var csvBlob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
     var csvUrl = URL.createObjectURL(csvBlob);
 
-    return '<div class="sp-result" id="spResult">' +
-      '<div class="sp-meta">' +
-        '<span class="sp-exam-badge">' + _esc(examName) + '</span>' +
-        '<span class="sp-days-badge">' + _esc(daysLabel) + ' left</span>' +
-      '</div>' +
-      '<div class="sp-section">' +
-        '<h4 class="sp-section-title">🎯 Strategy</h4>' +
-        '<p class="sp-section-body">' + _esc(plan.strategy) + '</p>' +
-      '</div>' +
-      '<div class="sp-section">' +
-        '<h4 class="sp-section-title">📅 Daily Timetable</h4>' +
-        timetableHtml +
-      '</div>' +
-      '<div class="sp-section sp-tip-section">' +
-        '<h4 class="sp-section-title">💡 Tip</h4>' +
-        '<p class="sp-section-body">' + _esc(plan.tip) + '</p>' +
-      '</div>' +
-      '<div class="sp-regen-error" id="spRegenError" style="display:none;"></div>' +
-      '<div class="sp-result-actions" style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:2rem;">' +
-        '<button class="btn sp-edit-inputs-btn" type="button" style="flex:1;">✏️ Edit Inputs</button>' +
+    var actionsHtml = '';
+    if (plan.status === 'draft') {
+      actionsHtml = '<div class="sp-draft-actions">' +
         '<button class="btn sp-regenerate-btn" type="button" style="flex:1;">Regenerate ↺</button>' +
-        '<a href="' + csvUrl + '" download="' + _esc(examName) + '_StudyPlan.csv" class="btn btn-primary" style="flex:1; text-align:center; text-decoration:none;">📥 Export CSV</a>' +
+        '<button class="btn-primary sp-finalize-btn" type="button" style="flex:2;">Finalize Plan ✨</button>' +
+      '</div>';
+    } else {
+      actionsHtml = '<div class="sp-active-actions">' +
+        '<a href="' + csvUrl + '" download="' + _esc(plan.examName) + '_StudyPlan.csv" class="btn btn-secondary sp-csv-btn">📥 Export CSV</a>' +
+        '<button class="btn-primary sp-next-14-btn" type="button">Generate Next 14 Days ⏭️</button>' +
+      '</div>';
+    }
+
+    return '<div class="sp-result" id="spResult" data-planid="' + _esc(plan.id || '') + '">' +
+      '<div class="sp-meta-header">' +
+        '<div class="sp-meta-tags">' +
+          '<span class="sp-exam-badge">' + _esc(plan.examName) + '</span>' +
+          '<span class="sp-days-badge">' + _esc(daysLabel) + ' left</span>' +
+        '</div>' +
+        progressRingHtml +
       '</div>' +
+      '<div class="sp-rationale-card">' +
+        '<h4>🤖 AI Strategy Insight</h4>' +
+        '<p>' + _esc(plan.rationale) + '</p>' +
+      '</div>' +
+      phasesHtml +
+      timetableHtml +
+      '<div class="sp-action-bar">' + actionsHtml + '</div>' +
     '</div>';
   }
 
@@ -934,7 +922,7 @@ var AIFeatures = (function () {
         xhr.open('POST', '/api/ai/study-plan', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        xhr.timeout = 45000;
+        xhr.timeout = 60000;
         xhr.onload = function () {
           _spActiveXhr = null;
           if (_spClosed) return;
@@ -965,36 +953,64 @@ var AIFeatures = (function () {
     }
 
     var formHTML =
-      '<div class="sp-form" id="spForm">' +
-        '<div class="sp-field">' +
-          '<label class="sp-label" for="spExamSelect">Target Exam</label>' +
-          '<select id="spExamSelect" class="sp-select">' + examOptions + '</select>' +
-          '<input id="spExamCustom" class="sp-input" type="text" placeholder="Or type exam name..." maxlength="80" style="display:none;margin-top:.5rem;" />' +
+      '<div class="sp-form-container">' +
+        '<div class="sp-form" id="spForm">' +
+          '<div class="sp-field">' +
+            '<label class="sp-label" for="spExamSelect">Target Exam</label>' +
+            '<select id="spExamSelect" class="sp-select">' + examOptions + '</select>' +
+            '<input id="spExamCustom" class="sp-input" type="text" placeholder="Or type exam name..." maxlength="80" style="display:none;margin-top:.5rem;" />' +
+          '</div>' +
+          '<div class="sp-field-row">' +
+            '<div class="sp-field" style="flex:1;">' +
+              '<label class="sp-label" for="spExamDate">Exam Date</label>' +
+              '<input id="spExamDate" class="sp-input" type="date" min="' + todayStr + '" />' +
+            '</div>' +
+            '<div class="sp-field" style="flex:1;">' +
+              '<label class="sp-label" for="spTargetScore">Target Score / Percentile</label>' +
+              '<input id="spTargetScore" class="sp-input" type="text" placeholder="e.g. 99%ile" maxlength="50" />' +
+            '</div>' +
+          '</div>' +
+          '<div class="sp-field-row">' +
+            '<div class="sp-field" style="flex:1;">' +
+              '<label class="sp-label" for="spCurrentLevel">Current Level</label>' +
+              '<select id="spCurrentLevel" class="sp-select">' +
+                '<option value="Beginner">Beginner</option>' +
+                '<option value="Intermediate" selected>Intermediate</option>' +
+                '<option value="Advanced">Advanced</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sp-field">' +
+            '<label class="sp-label" for="spDailyTime">Daily Study Time: <strong id="spDailyTimeVal">60</strong> min</label>' +
+            '<input id="spDailyTime" type="range" min="15" max="360" step="15" value="60" class="sp-range" />' +
+            '<div class="sp-range-labels"><span>15m</span><span>6h</span></div>' +
+          '</div>' +
+          '<div class="sp-field">' +
+            '<label class="sp-label" for="spWeakTopics">Weak Areas (Optional)</label>' +
+            '<input id="spWeakTopics" class="sp-input" type="text" placeholder="e.g. Geometry, Reading Comprehension" />' +
+          '</div>' +
+          '<div class="sp-field">' +
+            '<label class="sp-label" for="spStrongTopics">Strong Areas (Optional)</label>' +
+            '<input id="spStrongTopics" class="sp-input" type="text" placeholder="e.g. Arithmetic, Logic Games" />' +
+          '</div>' +
+          '<div class="sp-error" id="spError" style="display:none;"></div>' +
+          '<button class="btn-primary sp-generate-btn" id="spGenerateBtn" type="button">Generate 14-Day Plan ✨</button>' +
         '</div>' +
-        '<div class="sp-field">' +
-          '<label class="sp-label" for="spExamDate">Exam Date</label>' +
-          '<input id="spExamDate" class="sp-input" type="date" min="' + todayStr + '" />' +
-        '</div>' +
-        '<div class="sp-field">' +
-          '<label class="sp-label" for="spDailyTime">Daily Study Time: <strong id="spDailyTimeVal">60</strong> min</label>' +
-          '<input id="spDailyTime" type="range" min="15" max="180" step="15" value="60" class="sp-range" />' +
-          '<div class="sp-range-labels"><span>15 min</span><span>3 hrs</span></div>' +
-        '</div>' +
-        '<div class="sp-error" id="spError" style="display:none;"></div>' +
-        '<button class="btn-primary sp-generate-btn" id="spGenerateBtn" type="button">Generate Plan ✨</button>' +
       '</div>';
 
     var overlay = document.createElement('div');
     overlay.id = 'aiStudyPlanModal';
-    overlay.className = 'modal-overlay sp-modal-overlay';
+    overlay.className = 'modal-overlay sp-premium-overlay';
     overlay.style.display = 'flex';
     overlay.innerHTML =
-      '<div class="modal-content sp-modal" style="max-height:90vh; overflow:hidden; display:flex; flex-direction:column;">' +
-        '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:1rem; margin-bottom:1rem;">' +
-          '<h3 class="modal-title" style="margin:0;">📅 Your Study Plan</h3>' +
-          '<button class="info-modal-close sp-close-btn" aria-label="Close" style="position:static;">✕</button>' +
+      '<div class="modal-content sp-premium-modal">' +
+        '<div class="sp-modal-header">' +
+          '<h3 class="modal-title">📅 AI Study Planner</h3>' +
+          '<button class="info-modal-close sp-close-btn" aria-label="Close">✕</button>' +
         '</div>' +
-        '<div class="sp-modal-body" id="spModalBody" style="overflow-y:auto; flex:1; padding-right:0.5rem;">' + formHTML + '</div>' +
+        '<div class="sp-modal-body" id="spModalBody">' +
+          '<div class="sp-loading-active" style="text-align:center; padding: 3rem;"><div class="ai-spinner" style="margin:0 auto;"></div><p>Loading your active plan...</p></div>' +
+        '</div>' +
       '</div>';
 
     document.body.appendChild(overlay);
@@ -1007,32 +1023,88 @@ var AIFeatures = (function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
 
-    function showForm() {
+    function showForm(defaults) {
       var bodyEl = overlay.querySelector('#spModalBody');
       bodyEl.innerHTML = formHTML;
-      _bindFormHandlers(bodyEl);
+      _bindFormHandlers(bodyEl, defaults || {});
     }
 
-    function showResult(plan, examName, examDate, dailyMins) {
-      var examMs = new Date(examDate).getTime();
-      var daysRemaining = Math.max(1, Math.ceil((examMs - Date.now()) / (1000 * 60 * 60 * 24)));
+    function showResult(plan) {
       var bodyEl = overlay.querySelector('#spModalBody');
-      bodyEl.innerHTML = _buildResultHTML(plan, examName, examDate, daysRemaining);
+      bodyEl.innerHTML = _buildResultHTML(plan);
+      bodyEl.scrollTop = 0;
 
-      var editBtn = bodyEl.querySelector('.sp-edit-inputs-btn');
-      if (editBtn) editBtn.addEventListener('click', showForm);
+      var checkboxes = bodyEl.querySelectorAll('.sp-day-checkbox');
+      for (var i=0; i<checkboxes.length; i++) {
+        checkboxes[i].addEventListener('change', function(e) {
+          if (plan.status === 'draft') {
+            e.preventDefault();
+            return;
+          }
+          var dayIdx = this.getAttribute('data-day');
+          var isChecked = this.checked;
+          
+          var card = this.closest('.sp-day-card');
+          if(isChecked) card.classList.add('completed');
+          else card.classList.remove('completed');
 
-      var regenErrorEl = bodyEl.querySelector('#spRegenError');
-      var regenBtn = bodyEl.querySelector('.sp-regenerate-btn');
-      if (regenBtn) {
-        regenBtn.addEventListener('click', function () {
+          if (!plan.progress) plan.progress = {};
+          plan.progress[dayIdx] = isChecked;
+
+          _spPost({
+            action: 'update_progress',
+            planId: plan.id,
+            dayIndex: dayIdx,
+            completed: isChecked
+          }, function() {
+            var currentChecked = bodyEl.querySelectorAll('.sp-day-checkbox:checked').length;
+            var ring = bodyEl.querySelector('.sp-progress-ring');
+            var text = bodyEl.querySelector('.sp-progress-text');
+            if (ring && text) {
+              var pct = Math.round((currentChecked / checkboxes.length) * 100);
+              ring.style.setProperty('--sp-pct', pct + '%');
+              ring.textContent = pct + '%';
+              text.textContent = currentChecked + ' / ' + checkboxes.length + ' Days Completed';
+            }
+          });
+        });
+      }
+
+      var finalizeBtn = bodyEl.querySelector('.sp-finalize-btn');
+      if (finalizeBtn) {
+        finalizeBtn.addEventListener('click', function() {
           if (_studyPlanInFlight) return;
           _studyPlanInFlight = true;
-          regenBtn.disabled = true;
-          regenBtn.innerHTML = '<div class="ai-spinner-inline"></div>';
-          if (regenErrorEl) regenErrorEl.style.display = 'none';
-          _clearStudyPlanCache(examDate);
+          finalizeBtn.innerHTML = '<div class="ai-spinner-inline"></div>';
+          _spPost({ action: 'finalize', planId: plan.id }, function(err) {
+            _studyPlanInFlight = false;
+            if (err) { finalizeBtn.innerHTML = 'Error finalizing'; return; }
+            plan.status = 'active';
+            showResult(plan);
+          });
+        });
+      }
 
+      var regenBtn = bodyEl.querySelector('.sp-regenerate-btn');
+      if (regenBtn) {
+        regenBtn.addEventListener('click', function() {
+          showForm({
+            examName: plan.examName,
+            examDate: plan.examDate,
+            dailyTimeMinutes: plan.dailyTimeMinutes,
+            targetScore: plan.targetScore,
+            currentLevel: plan.currentLevel
+          });
+        });
+      }
+
+      var nextBtn = bodyEl.querySelector('.sp-next-14-btn');
+      if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+          if (_studyPlanInFlight) return;
+          _studyPlanInFlight = true;
+          nextBtn.innerHTML = '<div class="ai-spinner-inline"></div> Generating...';
+          
           var progress = typeof loadProgress === 'function' ? loadProgress() : {};
           var statsPayload = {
             totalAttempted: progress.totalAttempted || 0,
@@ -1041,51 +1113,52 @@ var AIFeatures = (function () {
           };
 
           _spPost({
-            examName: examName,
-            examDate: examDate,
-            dailyTimeMinutes: dailyMins,
-            forceRefresh: true,
+            action: 'generate',
+            previousPlanId: plan.id,
+            examName: plan.examName,
+            examDate: plan.examDate,
+            dailyTimeMinutes: plan.dailyTimeMinutes,
+            targetScore: plan.targetScore,
+            currentLevel: plan.currentLevel,
             stats: statsPayload
-          }, function (err, data) {
+          }, function(err, data) {
             _studyPlanInFlight = false;
-            if (err === 'premium_required') {
-              closeModal();
-              if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
-              return;
-            }
-            if (err === 'rate_limited') {
-              regenBtn.disabled = false;
-              regenBtn.innerHTML = 'Regenerate ↺';
-              if (regenErrorEl) {
-                regenErrorEl.textContent = 'Too many requests. Please wait a moment and try again.';
-                regenErrorEl.style.display = 'block';
-              }
-              return;
-            }
-            if (err || !data || !data.plan) {
-              regenBtn.disabled = false;
-              regenBtn.innerHTML = 'Regenerate ↺';
-              if (regenErrorEl) {
-                regenErrorEl.textContent = 'Unable to regenerate right now. Please try again.';
-                regenErrorEl.style.display = 'block';
-              }
-              return;
-            }
-            _setStudyPlanCache(examDate, examName, dailyMins, data.plan);
-            showResult(data.plan, examName, examDate, dailyMins);
+            if (err) { nextBtn.innerHTML = 'Error generating'; return; }
+            if (data && data.plan) showResult(data.plan);
           });
         });
       }
     }
 
-    function _bindFormHandlers(formContainer) {
+    function _bindFormHandlers(formContainer, defaults) {
       var examSelect = formContainer.querySelector('#spExamSelect');
       var examCustom = formContainer.querySelector('#spExamCustom');
       var examDateInput = formContainer.querySelector('#spExamDate');
+      var targetScoreInput = formContainer.querySelector('#spTargetScore');
+      var currentLevelSelect = formContainer.querySelector('#spCurrentLevel');
+      var weakTopicsInput = formContainer.querySelector('#spWeakTopics');
+      var strongTopicsInput = formContainer.querySelector('#spStrongTopics');
       var dailyTimeInput = formContainer.querySelector('#spDailyTime');
       var dailyTimeVal = formContainer.querySelector('#spDailyTimeVal');
       var generateBtn = formContainer.querySelector('#spGenerateBtn');
       var errorEl = formContainer.querySelector('#spError');
+
+      if (defaults.examDate) examDateInput.value = defaults.examDate;
+      if (defaults.targetScore) targetScoreInput.value = defaults.targetScore;
+      if (defaults.currentLevel) currentLevelSelect.value = defaults.currentLevel;
+      if (defaults.dailyTimeMinutes) {
+        dailyTimeInput.value = defaults.dailyTimeMinutes;
+        dailyTimeVal.textContent = defaults.dailyTimeMinutes;
+      }
+      if (defaults.examName) {
+        if (SP_EXAMS.indexOf(defaults.examName) > -1) {
+          examSelect.value = defaults.examName;
+        } else {
+          examSelect.value = 'Other';
+          examCustom.value = defaults.examName;
+          examCustom.style.display = 'block';
+        }
+      }
 
       examSelect.addEventListener('change', function () {
         if (this.value === 'Other') {
@@ -1109,6 +1182,11 @@ var AIFeatures = (function () {
           : examSelect.value;
         var examDate = examDateInput.value;
         var dailyMins = parseInt(dailyTimeInput.value, 10);
+        var ts = targetScoreInput.value.trim();
+        var cl = currentLevelSelect.value;
+        
+        var wt = weakTopicsInput.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+        var st = strongTopicsInput.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
 
         errorEl.style.display = 'none';
 
@@ -1131,20 +1209,7 @@ var AIFeatures = (function () {
           examDateInput.focus();
           return;
         }
-        var examMs = new Date(examDate).getTime();
-        var daysRemaining = Math.ceil((examMs - Date.now()) / (1000 * 60 * 60 * 24));
-        if (!dailyMins || dailyMins < 15) {
-          errorEl.textContent = 'Please set a daily study time of at least 15 minutes.';
-          errorEl.style.display = 'block';
-          return;
-        }
-
-        var cached = _getStudyPlanCache(examDate);
-        if (cached && cached.examName === examName && cached.dailyTimeMinutes === dailyMins && cached.plan) {
-          showResult(cached.plan, examName, examDate, dailyMins);
-          return;
-        }
-
+        
         _studyPlanInFlight = true;
         generateBtn.disabled = true;
         generateBtn.innerHTML = '<div class="ai-spinner-inline"></div> Generating...';
@@ -1157,14 +1222,19 @@ var AIFeatures = (function () {
         };
 
         _spPost({
+          action: 'generate',
           examName: examName,
           examDate: examDate,
           dailyTimeMinutes: dailyMins,
+          targetScore: ts,
+          currentLevel: cl,
+          weakTopics: wt,
+          strongTopics: st,
           stats: statsPayload
         }, function (err, data) {
           _studyPlanInFlight = false;
           generateBtn.disabled = false;
-          generateBtn.innerHTML = 'Generate Plan ✨';
+          generateBtn.innerHTML = 'Generate 14-Day Plan ✨';
 
           if (err === 'premium_required') {
             closeModal();
@@ -1176,22 +1246,12 @@ var AIFeatures = (function () {
             errorEl.style.display = 'block';
             return;
           }
-          if (err) {
+          if (err || !data || !data.plan) {
             errorEl.textContent = 'Unable to generate plan right now. Please try again.';
             errorEl.style.display = 'block';
             return;
           }
-          if (!data || !data.plan) {
-            errorEl.textContent = 'Received an invalid response. Please try again.';
-            errorEl.style.display = 'block';
-            return;
-          }
-          _setStudyPlanCache(examDate, examName, dailyMins, data.plan);
-          showResult(data.plan, examName, examDate, dailyMins);
-          if (typeof AIFeatures !== 'undefined' && containerId) {
-            var cont = document.getElementById(containerId);
-            if (cont) renderStudyPlanCard(containerId);
-          }
+          showResult(data.plan);
         });
       });
     }
@@ -1201,16 +1261,13 @@ var AIFeatures = (function () {
       if (e.target === overlay) closeModal();
     });
 
-    var initialForm = overlay.querySelector('#spForm');
-    _bindFormHandlers(initialForm);
-
-    var lastUsed = _getLastUsed();
-    if (lastUsed && lastUsed.examDate && lastUsed.examName && lastUsed.dailyTimeMinutes) {
-      var lastCached = _getStudyPlanCache(lastUsed.examDate);
-      if (lastCached && lastCached.examName === lastUsed.examName && lastCached.dailyTimeMinutes === lastUsed.dailyTimeMinutes && lastCached.plan) {
-        showResult(lastCached.plan, lastCached.examName, lastUsed.examDate, lastUsed.dailyTimeMinutes);
+    _spPost({ action: 'get_active' }, function(err, data) {
+      if (err || !data || !data.plan) {
+        showForm({});
+      } else {
+        showResult(data.plan);
       }
-    }
+    });
   }
 
   function renderStudyPlanCard(containerId) {

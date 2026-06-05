@@ -1,6 +1,6 @@
 /**
  * POST /api/ai/study-plan
- * Generate a personalized AI study plan.
+ * Manage AI study plans: generate, finalize, and update progress.
  * Requires Premium+ entitlement.
  */
 
@@ -18,10 +18,38 @@ module.exports = withAuth(async function (req, res) {
     }
 
     var body = req.body || {};
+    var action = typeof body.action === 'string' ? body.action : 'generate';
+    var planId = typeof body.planId === 'string' ? body.planId : '';
+
+    // -- Handle Progress Update --
+    if (action === 'update_progress') {
+      if (!planId) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'planId is required.', retryable: false } });
+      await aiService.updateStudyPlanProgress(req.userId, planId, body.dayIndex, body.completed);
+      return res.json({ success: true });
+    }
+
+    // -- Handle Finalize --
+    if (action === 'finalize') {
+      if (!planId) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'planId is required.', retryable: false } });
+      await aiService.finalizeStudyPlan(req.userId, planId);
+      return res.json({ success: true });
+    }
+
+    // -- Handle Get Active --
+    if (action === 'get_active') {
+      var activePlan = await aiService.getActiveStudyPlan(req.userId);
+      return res.json({ plan: activePlan });
+    }
+
+    // -- Handle Generation --
     var examName = typeof body.examName === 'string' ? body.examName.trim().substring(0, 100) : '';
     var examDate = typeof body.examDate === 'string' ? body.examDate.trim() : '';
     var dailyTimeMinutes = parseInt(body.dailyTimeMinutes) || 0;
-    var forceRefresh = body.forceRefresh === true;
+    var targetScore = typeof body.targetScore === 'string' ? body.targetScore.trim() : '';
+    var currentLevel = typeof body.currentLevel === 'string' ? body.currentLevel.trim() : 'Intermediate';
+    var strongTopics = Array.isArray(body.strongTopics) ? body.strongTopics : [];
+    var explicitWeakTopics = Array.isArray(body.weakTopics) ? body.weakTopics : [];
+    var previousPlanId = typeof body.previousPlanId === 'string' ? body.previousPlanId : null;
 
     if (!examName) {
       return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Exam name is required.', retryable: false } });
@@ -37,8 +65,8 @@ module.exports = withAuth(async function (req, res) {
     var examMs = new Date(examDate).getTime();
     var daysRemaining = Math.ceil((examMs - Date.now()) / (1000 * 60 * 60 * 24));
 
-    if (dailyTimeMinutes < 15 || dailyTimeMinutes > 180) {
-      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Daily time must be between 15 and 180 minutes.', retryable: false } });
+    if (dailyTimeMinutes < 15 || dailyTimeMinutes > 360) {
+      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Daily time must be between 15 and 360 minutes.', retryable: false } });
     }
 
     var rawStats = body.stats || {};
@@ -46,7 +74,8 @@ module.exports = withAuth(async function (req, res) {
     var totalCorrect = parseInt(rawStats.totalCorrect) || 0;
     var accuracy = totalAttempted > 0 ? ((totalCorrect / totalAttempted) * 100).toFixed(1) : '0';
 
-    var weakTopics = [];
+    var autoWeakTopics = [];
+    var autoStrongTopics = [];
     if (rawStats.categoryStats && typeof rawStats.categoryStats === 'object') {
       var catKeys = Object.keys(rawStats.categoryStats).slice(0, 20);
       catKeys.forEach(function (key) {
@@ -56,24 +85,29 @@ module.exports = withAuth(async function (req, res) {
           var correct = parseInt(d.correct) || 0;
           if (attempted >= 5) {
             var catAcc = (correct / attempted) * 100;
-            if (catAcc < 60) weakTopics.push(String(key).substring(0, 50));
+            if (catAcc < 50) autoWeakTopics.push(String(key).substring(0, 50));
+            if (catAcc > 80) autoStrongTopics.push(String(key).substring(0, 50));
           }
         }
       });
     }
 
-    if (forceRefresh) {
-      await aiService.clearStudyPlanCache(req.userId, examDate);
-    }
+    // Merge explicit overrides with auto-detected topics
+    var finalWeakTopics = Array.from(new Set(autoWeakTopics.concat(explicitWeakTopics)));
+    var finalStrongTopics = Array.from(new Set(autoStrongTopics.concat(strongTopics)));
 
     var plan = await aiService.generateStudyPlan({
       examName: examName,
       examDate: examDate,
       daysRemaining: daysRemaining,
       dailyTimeMinutes: dailyTimeMinutes,
-      weakTopics: weakTopics,
+      targetScore: targetScore,
+      currentLevel: currentLevel,
+      weakTopics: finalWeakTopics,
+      strongTopics: finalStrongTopics,
       accuracy: accuracy,
-      userId: req.userId
+      userId: req.userId,
+      previousPlanId: previousPlanId
     });
 
     res.json({ plan: plan });
