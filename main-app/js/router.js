@@ -68,7 +68,7 @@ var Router = (function () {
   }
 
   function showView(viewId, params) {
-    console.log('[ROUTER] route transition to:', viewId);
+
     
     var views = document.querySelectorAll('.spa-view');
     for (var i = 0; i < views.length; i++) {
@@ -105,13 +105,13 @@ var Router = (function () {
     }
 
     if (viewInitCallbacks[viewId]) {
-      console.log('[VIEWS] ' + viewId + ' render begin (init)');
+
       viewInitCallbacks[viewId](params);
       delete viewInitCallbacks[viewId];
     }
 
     if (afterShowCallbacks[viewId]) {
-      console.log('[VIEWS] ' + viewId + ' render begin (show)');
+
       for (var cb = 0; cb < afterShowCallbacks[viewId].length; cb++) {
         afterShowCallbacks[viewId][cb](params);
       }
@@ -131,7 +131,7 @@ var Router = (function () {
     var _scrollContainer = document.querySelector('.container');
     if (_scrollContainer) _scrollContainer.scrollTop = 0;
     
-    console.log('[VIEWS] DOM mount success for:', viewId);
+
   }
 
   function getCurrentView() {
@@ -139,7 +139,7 @@ var Router = (function () {
   }
 
   function init() {
-    console.log('[ROUTER] router init');
+
     var hash = window.location.hash.replace('#', '') || 'home';
     try {
       history.replaceState({ view: hash }, '', '#' + hash);
@@ -148,7 +148,7 @@ var Router = (function () {
     }
     _navigatingFromPopstate = true;
     try { 
-       console.log('[ROUTER] route selection:', hash);
+
        showView(hash); 
     } catch(e) {
        console.error('[ERRORS] Router initialization failed:', e);
@@ -209,7 +209,7 @@ var Router = (function () {
   }
 
   function teardown() {
-    console.log('[ROUTER] full teardown (logout)');
+
     var views = document.querySelectorAll('.spa-view');
     for (var i = 0; i < views.length; i++) {
       views[i].classList.remove('spa-view-active');

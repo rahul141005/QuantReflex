@@ -42,7 +42,7 @@ async function setEntitlementClaims(uid, claims) {
       premium: !!claims.premium,
       premiumPlus: !!claims.premiumPlus
     });
-    console.log('[Claims] Set for uid:', uid, '→ premium:', !!claims.premium, ', premiumPlus:', !!claims.premiumPlus);
+
   } catch (err) {
     /* Non-fatal — Firestore entitlement still works as source of truth.
        Log the error but don't throw — we don't want a claims failure

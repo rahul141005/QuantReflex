@@ -193,7 +193,9 @@ function _showUpdateToast() {
   try {
     _updateKey = localStorage.getItem('qr_pending_update_id');
     if (!_updateKey) {
-      _updateKey = 'app_update_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      var d = new Date();
+      var dateStr = d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
+      _updateKey = 'app_update_' + dateStr;
       localStorage.setItem('qr_pending_update_id', _updateKey);
     }
   } catch (_) {}
@@ -489,7 +491,7 @@ function _closeAllInfoModals() {
 
 /* ---- Initialize SPA when DOM is ready ---- */
 document.addEventListener('DOMContentLoaded', function () {
-  console.log('[BOOT] app boot start');
+
   /* ---- Initialize Firebase ---- */
   if (typeof FirebaseApp !== 'undefined') {
     FirebaseApp.init();
@@ -573,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (_currentAppState === 'app') return;
     if (_hydrationStarted) return;
     _hydrationStarted = true;
-    console.log('[BOOT] hydration start');
+
     setAppState('hydrating');
     
     var transitionFired = false;
@@ -595,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
       FirestoreSync.loadFromFirestore(function (success) {
-        console.log('[BOOT] hydration complete. Success:', success);
+
         clearTimeout(timeoutId);
         _executeTransition();
       });
@@ -655,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Auth.onStateChange(function (user) {
       clearTimeout(_authTimeoutId);
       if (user) {
-        console.log('[AUTH] auth success, user state resolved:', user.uid);
+
         startHydrationAndShowApp();
       } else {
         setAppState('unauthenticated');
@@ -666,7 +668,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Auth.onAuthReady(function (user) {
       clearTimeout(_authTimeoutId);
       if (user) {
-        console.log('[AUTH] auth success (onReady), user state resolved:', user.uid);
+
         startHydrationAndShowApp();
       }
       else setAppState('unauthenticated');

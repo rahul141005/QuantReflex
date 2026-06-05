@@ -108,7 +108,7 @@ async function safeUserUpdate(uid, data, caller) {
   payload.updatedAt = new Date().toISOString();
   try {
     await db.collection('users').doc(uid).set(payload, { merge: true });
-    console.log('[aiService:safeUserUpdate] success from ' + (caller || 'unknown') + ' (uid: ' + uid + ') fields:', Object.keys(payload).join(', '));
+
   } catch (err) {
     console.error('[aiService:safeUserUpdate] FAILED from ' + (caller || 'unknown') + ' (uid: ' + uid + '):', err.message);
     throw err;
@@ -155,7 +155,7 @@ async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
         throw new AIServiceError('PAYMENT_REPLAY', 'Payment already used by another account.', false);
       }
       finalExpiry = existing.expiry || expiry;
-      console.log('[aiService:unlockPremiumPlus] re-applying existing payment (uid: ' + uid + ', paymentId: ' + paymentId + ')');
+
       tx.set(userRef, {
         isPremiumPlus: true,
         isPremium: true,
@@ -188,7 +188,7 @@ async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
     }, { merge: true });
   });
 
-  console.log('[aiService:unlockPremiumPlus] success (uid: ' + uid + ', plan: ' + plan + ', expiry: ' + new Date(finalExpiry).toISOString() + ', paymentId: ' + paymentId + ', orderId: ' + (orderId || 'N/A') + ')');
+
   return finalExpiry;
 }
 
@@ -480,13 +480,10 @@ async function generateCoachV2(stats, userId) {
     if (cached.exists) {
       var d = cached.data();
       return {
-        focusToday: d.focusToday,
-        whyThisMatters: d.whyThisMatters,
-        recommendedMode: d.recommendedMode,
-        recommendedTopic: d.recommendedTopic,
-        expectedImprovement: d.expectedImprovement,
-        weeklyGoal: d.weeklyGoal,
-        coachingObservation: d.coachingObservation
+        today: d.today,
+        tomorrow: d.tomorrow,
+        thisWeek: d.thisWeek,
+        recommendations: d.recommendations
       };
     }
   } catch (cacheErr) {
@@ -509,7 +506,7 @@ async function generateCoachV2(stats, userId) {
     }
   }
 
-  var prompt = 'You are an elite CAT quantitative mentor. Prescribe today\'s exact practice regimen based on the student\'s data.\n\nIMPORTANT: Do NOT repeat raw statistics like accuracy percentages, streak counts, or topic rankings — the student can already see those. Focus entirely on actionable coaching: what to do, which mode, which topic, why, and what improvement to expect.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nProvide actionable, data-backed advice. Answer: What should this student do next?';
+  var prompt = 'You are an elite CAT quantitative mentor. Prescribe an exact practice regimen based on the student\'s data.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nProvide actionable, data-backed advice with specific tasks for Today, Tomorrow, This Week, and general Recommendations.';
 
   var completion = await client.chat.completions.create({
     model: AI_MODEL,
@@ -527,15 +524,12 @@ async function generateCoachV2(stats, userId) {
         schema: {
           type: "object",
           properties: {
-            focusToday: { type: "string" },
-            whyThisMatters: { type: "string" },
-            recommendedMode: { type: "string", enum: ["Quick Drill", "Reflex Drill", "Timed Test", "Focus Training"] },
-            recommendedTopic: { type: "string" },
-            expectedImprovement: { type: "string" },
-            weeklyGoal: { type: "string" },
-            coachingObservation: { type: "string" }
+            today: { type: "string" },
+            tomorrow: { type: "string" },
+            thisWeek: { type: "string" },
+            recommendations: { type: "string" }
           },
-          required: ["focusToday", "whyThisMatters", "recommendedMode", "recommendedTopic", "expectedImprovement", "weeklyGoal", "coachingObservation"],
+          required: ["today", "tomorrow", "thisWeek", "recommendations"],
           additionalProperties: false
         }
       }
@@ -564,7 +558,16 @@ async function generateInsightsV2(stats, userId) {
     var cached = await cacheRef.doc(cacheDocId).get();
     if (cached.exists) {
       var d = cached.data();
-      return { observations: d.observations || [] };
+      return {
+        learningPattern: d.learningPattern,
+        accuracyTrend: d.accuracyTrend,
+        speedTrend: d.speedTrend,
+        consistencyScore: d.consistencyScore,
+        strongestCategory: d.strongestCategory,
+        weakestCategory: d.weakestCategory,
+        improvementPotential: d.improvementPotential,
+        aiSummary: d.aiSummary
+      };
     }
   } catch (cacheErr) {
     console.warn('Firestore insights cache read failed:', cacheErr.message);
@@ -586,7 +589,7 @@ async function generateInsightsV2(stats, userId) {
     }
   }
 
-  var prompt = 'You are an elite data analyst for a CAT/GMAT student. Identify up to 5 hidden patterns, root causes of mistakes, or high-ROI projections.\n\nCRITICAL RULES:\n- DO NOT repeat raw statistics (accuracy %, streak count, attempt count).\n- DO NOT restate information visible on a dashboard.\n- ONLY provide observations the student cannot discover by looking at their stats.\n- Focus on: behavioral patterns, correlations between topics, root causes of recurring mistakes, improvement projections, and non-obvious weaknesses.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nAnswer: What patterns is this student NOT seeing?';
+  var prompt = 'You are an elite data analyst for a CAT/GMAT student.\n\nStats:\n- Accuracy: ' + accuracy + '%\n- Total Attempts: ' + (stats.totalAttempted || 0) + '\n- Daily Streak: ' + (stats.dailyStreak || 0) + '\n- Weak Categories: ' + (weakCats.length > 0 ? weakCats.join(', ') : 'None') + '\n- Strong Categories: ' + (strongCats.length > 0 ? strongCats.join(', ') : 'None') + '\n\nAnalyze the data and provide deep insights on: learningPattern, accuracyTrend, speedTrend, consistencyScore (e.g. "8.5/10"), strongestCategory, weakestCategory, improvementPotential, and an overall aiSummary. DO NOT repeat raw statistics, provide deep and unique qualitative insights.';
 
   var completion = await client.chat.completions.create({
     model: AI_MODEL,
@@ -604,22 +607,16 @@ async function generateInsightsV2(stats, userId) {
         schema: {
           type: "object",
           properties: {
-            observations: {
-              type: "array",
-              maxItems: 5,
-              items: {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["root_cause", "pattern", "projection"] },
-                  title: { type: "string" },
-                  observation: { type: "string" }
-                },
-                required: ["type", "title", "observation"],
-                additionalProperties: false
-              }
-            }
+            learningPattern: { type: "string" },
+            accuracyTrend: { type: "string" },
+            speedTrend: { type: "string" },
+            consistencyScore: { type: "string" },
+            strongestCategory: { type: "string" },
+            weakestCategory: { type: "string" },
+            improvementPotential: { type: "string" },
+            aiSummary: { type: "string" }
           },
-          required: ["observations"],
+          required: ["learningPattern", "accuracyTrend", "speedTrend", "consistencyScore", "strongestCategory", "weakestCategory", "improvementPotential", "aiSummary"],
           additionalProperties: false
         }
       }
@@ -657,7 +654,7 @@ async function _callAndParse(client, prompt, validator) {
         var inputCost = (usage.prompt_tokens / 1000000) * 0.15;
         var outputCost = (usage.completion_tokens / 1000000) * 0.60;
         var totalCost = inputCost + outputCost;
-        console.log('[AI:cost] tokens: ' + usage.prompt_tokens + '/' + usage.completion_tokens + ' est: $' + totalCost.toFixed(6) + ' (attempt ' + (attempt + 1) + ')');
+
       }
       var text = completion.choices[0].message.content || '';
       var parsed = _parseJsonResponse(text);

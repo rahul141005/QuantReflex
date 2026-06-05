@@ -58,8 +58,8 @@ async function createOrder(plan, uid) {
   var rzp = _getRazorpay();
   var receipt = 'rcpt_' + (uid || 'anon').substring(0, 20) + '_' + Date.now();
 
-  console.log('[Payment] Creating order — plan:', plan, 'amount:', config.amountPaise, 'uid:', uid);
 
+  console.info('[PaymentFlow] ORDER_CREATED | backend initiation | plan: ' + plan + ' | amount: ' + config.amountPaise + ' | uid: ' + uid);
   var order = await rzp.orders.create({
     amount: config.amountPaise,
     currency: 'INR',
@@ -67,7 +67,8 @@ async function createOrder(plan, uid) {
     notes: { plan: plan, product: plan === 'premium' ? 'Premium' : 'PremiumPlus', uid: uid || '' }
   });
 
-  console.log('[Payment] Order created:', order.id, 'status:', order.status);
+  console.info('[PaymentFlow] ORDER_CREATED | backend success | orderId: ' + order.id + ' | status: ' + order.status);
+
   return {
     orderId: order.id,
     plan: plan,
@@ -89,10 +90,18 @@ function verifyPaymentSignature(orderId, paymentId, signature) {
       .createHmac('sha256', RAZORPAY_KEY_SECRET)
       .update(body)
       .digest('hex');
-    return crypto.timingSafeEqual(
+
+    var isValid = crypto.timingSafeEqual(
       Buffer.from(expected, 'hex'),
       Buffer.from(signature, 'hex')
     );
+
+    if (isValid) {
+      console.info('[PaymentFlow] SIGNATURE_VERIFIED | orderId: ' + orderId + ' | paymentId: ' + paymentId);
+    } else {
+      console.error('[PaymentFlow] PAYMENT_FAILED | backend signature mismatch | orderId: ' + orderId + ' | paymentId: ' + paymentId);
+    }
+    return isValid;
   } catch (_) {
     return false;
   }

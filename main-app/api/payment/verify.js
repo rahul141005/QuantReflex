@@ -35,7 +35,7 @@ module.exports = withAuth(async function (req, res) {
 
     /* Fetch order from Razorpay to get server-trusted plan */
     var trustedPlan = await paymentService.fetchOrderPlan(orderId);
-    console.log('Payment verified for user', req.userId, '- plan:', trustedPlan, 'paymentId:', paymentId);
+    console.info('[PaymentFlow] PAYMENT_VERIFIED | backend | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | paymentId: ' + paymentId);
 
     if (trustedPlan === 'premium') {
       /* Premium: lifetime unlock via Firestore */
@@ -51,6 +51,7 @@ module.exports = withAuth(async function (req, res) {
       /* Set JWT claims so the token reflects premium status on next refresh */
       try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: false }); } catch (_) {}
 
+      console.info('[PaymentFlow] PREMIUM_GRANTED | backend lifetime | uid: ' + req.userId + ' | paymentId: ' + paymentId);
       res.json({ success: true, plan: 'premium', type: 'lifetime' });
     } else {
       /* Premium+: time-limited unlock */
@@ -59,6 +60,7 @@ module.exports = withAuth(async function (req, res) {
       /* Set JWT claims so the token reflects premium+ status on next refresh */
       try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: true }); } catch (_) {}
 
+      console.info('[PaymentFlow] PREMIUM_GRANTED | backend premium+ | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | expiry: ' + expiry);
       res.json({ success: true, plan: trustedPlan, expiry: expiry });
     }
   } catch (err) {

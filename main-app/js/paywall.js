@@ -253,6 +253,7 @@ function openPayment(userId) {
     btn.textContent = 'Processing\u2026';
     btn.classList.add('btn-loading');
   }
+  console.info('[PaymentFlow] PAYMENT_INITIATED | plan: premium | uid: ' + userId);
   if (_paymentSlowTimer) clearTimeout(_paymentSlowTimer);
   _paymentSlowTimer = setTimeout(function () {
     var slowBtn = document.querySelector('.paywall-upgrade');
@@ -310,10 +311,11 @@ function openPayment(userId) {
               _resetPaymentGuards(true);
               showToast('Could not create payment. Please try again.');
             }
+            console.error('[PaymentFlow] PAYMENT_FAILED | Missing orderId in create-order response');
             return;
           }
 
-          /* Step 2: Open Razorpay with server-generated order_id */
+          console.info('[PaymentFlow] ORDER_CREATED | orderId: ' + data.orderId + ' | amount: ' + data.amount);
           var options = {
             key: RAZORPAY_LIVE_KEY,
             order_id: data.orderId,
@@ -333,9 +335,11 @@ function openPayment(userId) {
               var signature = response.razorpay_signature;
               if (!paymentId || !rzpOrderId || !signature) {
                 _resetPaymentGuards(true);
+                console.error('[PaymentFlow] PAYMENT_FAILED | Verification missing payload');
                 showToast('Payment verification failed. Please retry.');
                 return;
               }
+              console.info('[PaymentFlow] PAYMENT_SUCCESS | paymentId: ' + paymentId + ' | orderId: ' + rzpOrderId);
 
               /* Step 3: Verify payment on server */
               _getPlusIdToken(function (freshToken) {
@@ -356,9 +360,11 @@ function openPayment(userId) {
                     _resetPaymentGuards(true);
                     if (!result || !result.success) {
                       var activationMsg = (result && result._serverError) ? result._serverError : 'Payment activation failed. Please contact support.';
+                      console.error('[PaymentFlow] PAYMENT_FAILED | Server verification failed: ' + activationMsg);
                       showToast(activationMsg);
                       return;
                     }
+                    console.info('[PaymentFlow] PAYMENT_VERIFIED | plan: ' + result.plan);
                     /* Server already wrote to Firestore — update local cache */
                     /* Force-refresh the JWT so new custom claims (premium/premiumPlus)
                        are available immediately instead of waiting 1 hour. Fire-and-forget. */
@@ -369,8 +375,10 @@ function openPayment(userId) {
                     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.unlockPremium === 'function') {
                       FirestoreSync.unlockPremium(paymentId, function (err) {
                         if (err) {
+                          console.info('[PaymentFlow] PREMIUM_GRANTED | local sync warning: ' + err);
                           showToast('Premium unlocked! Refresh to see your benefits.');
                         } else {
+                          console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
                           showToast('Premium unlocked successfully 🎉');
                           _closePaywallModal();
                           var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
@@ -378,6 +386,7 @@ function openPayment(userId) {
                         }
                       });
                     } else {
+                      console.info('[PaymentFlow] PREMIUM_GRANTED | fallback sync');
                       showToast('Premium unlocked! Refresh to see your benefits.');
                       _closePaywallModal();
                     }
@@ -392,10 +401,12 @@ function openPayment(userId) {
 
           try {
             var rzp = new Razorpay(options);
-            rzp.on('payment.failed', function () {
+            rzp.on('payment.failed', function (resp) {
               _resetPaymentGuards(true);
+              console.error('[PaymentFlow] PAYMENT_FAILED | Razorpay error: ', resp.error);
               showToast('Payment failed. Please try again.');
             });
+            console.info('[PaymentFlow] RAZORPAY_OPENED');
             rzp.open();
           } catch (_) {
             _resetPaymentGuards(true);
@@ -453,6 +464,7 @@ function openPremiumPlusPayment(plan, userId) {
     plusBtn.textContent = 'Processing\u2026';
     plusBtn.classList.add('btn-loading');
   }
+  console.info('[PaymentFlow] PAYMENT_INITIATED | plan: ' + plan + ' | uid: ' + userId);
 
   var currentAttempt = ++_plusAttemptId;
 
@@ -485,7 +497,7 @@ function openPremiumPlusPayment(plan, userId) {
         return;
       }
 
-      console.log('[Premium+] Calling /api/payment/create-order, plan:', plan);
+
       fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
@@ -493,7 +505,7 @@ function openPremiumPlusPayment(plan, userId) {
       })
         .then(function (resp) {
           if (currentAttempt !== _plusAttemptId) return null;
-          console.log('[Premium+] /api/payment/create-order response status:', resp.status);
+
           if (!resp.ok) {
             return resp.text().then(function (text) {
               if (currentAttempt !== _plusAttemptId) return null;
@@ -515,18 +527,19 @@ function openPremiumPlusPayment(plan, userId) {
         })
         .then(function (data) {
           if (currentAttempt !== _plusAttemptId) return;
-          console.log('[Premium+] Order response data:', JSON.stringify(data));
+
           if (!data || !data.orderId) {
             if (data !== null) {
               _resetPlusPaymentGuards();
               console.error('[Premium+] Missing orderId in response:', data);
               showToast('Could not create payment. Please try again.');
             }
+            console.error('[PaymentFlow] PAYMENT_FAILED | Missing orderId in create-order response');
             return;
           }
 
-          var description = plan === 'plus_yearly' ? 'Premium+ 1 Year - Rs 499' : 'Premium+ 6 Months - Rs 299';
-          console.log('[Premium+] Opening Razorpay checkout with order_id:', data.orderId);
+          console.info('[PaymentFlow] ORDER_CREATED | plan: ' + plan + ' | orderId: ' + data.orderId);
+
           var options = {
             key: RAZORPAY_LIVE_KEY,
             order_id: data.orderId,
@@ -542,15 +555,17 @@ function openPremiumPlusPayment(plan, userId) {
             },
             handler: function (response) {
               if (currentAttempt !== _plusAttemptId) return;
-              console.log('[Premium+] Payment success:', response.razorpay_payment_id);
+
               var paymentId = response.razorpay_payment_id;
               var rzpOrderId = response.razorpay_order_id;
               var signature = response.razorpay_signature;
               if (!paymentId || !rzpOrderId || !signature) {
                 _resetPlusPaymentGuards();
+                console.error('[PaymentFlow] PAYMENT_FAILED | Verification missing payload');
                 showToast('Payment verification failed. Please retry.');
                 return;
               }
+              console.info('[PaymentFlow] PAYMENT_SUCCESS | paymentId: ' + paymentId + ' | orderId: ' + rzpOrderId);
 
               _getPlusIdToken(function (freshToken) {
                 if (currentAttempt !== _plusAttemptId) return;
@@ -573,9 +588,11 @@ function openPremiumPlusPayment(plan, userId) {
                     _resetPlusPaymentGuards();
                     if (!result || !result.success) {
                       var activationMsg = (result && result._serverError) ? result._serverError : 'Payment activation failed. Please contact support.';
+                      console.error('[PaymentFlow] PAYMENT_FAILED | Server verification failed: ' + activationMsg);
                       showToast(activationMsg);
                       return;
                     }
+                    console.info('[PaymentFlow] PAYMENT_VERIFIED | plan: ' + result.plan);
                     /* Force-refresh the JWT so new custom claims are available immediately */
                     try {
                       var _cu2 = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
@@ -584,8 +601,10 @@ function openPremiumPlusPayment(plan, userId) {
                     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.unlockPremiumPlus === 'function') {
                       FirestoreSync.unlockPremiumPlus(result.plan, result.expiry, paymentId, function (err) {
                         if (err) {
+                          console.info('[PaymentFlow] PREMIUM_GRANTED | local sync warning: ' + err);
                           showToast('Payment successful! Refresh to see your benefits.');
                         } else {
+                          console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
                           showToast('Premium+ activated! AI features unlocked.');
                           _closePaywallModal();
                           var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
@@ -593,6 +612,7 @@ function openPremiumPlusPayment(plan, userId) {
                         }
                       });
                     } else {
+                      console.info('[PaymentFlow] PREMIUM_GRANTED | fallback sync');
                       showToast('Payment successful! Refresh to see your benefits.');
                       _closePaywallModal();
                     }
@@ -608,10 +628,12 @@ function openPremiumPlusPayment(plan, userId) {
 
           try {
             var rzp = new Razorpay(options);
-            rzp.on('payment.failed', function () {
+            rzp.on('payment.failed', function (resp) {
               _resetPlusPaymentGuards();
+              console.error('[PaymentFlow] PAYMENT_FAILED | Razorpay error: ', resp.error);
               showToast('Payment failed. Please try again.');
             });
+            console.info('[PaymentFlow] RAZORPAY_OPENED');
             rzp.open();
           } catch (_) {
             _resetPlusPaymentGuards();

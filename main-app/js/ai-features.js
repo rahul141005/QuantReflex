@@ -348,35 +348,20 @@ var AIFeatures = (function () {
 
       bodyEl.innerHTML =
         '<div class="ai-explain-section" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 1rem; border-radius: 8px;">' +
-          '<h4 style="color:#60a5fa; margin-top:0;">⚡ Focus Today</h4>' +
-          '<p style="color:#f8fafc; font-size: 1.05rem; font-weight: 500;">' + _esc(coachData.focusToday) + '</p>' +
-          '<p style="color:#94a3b8; font-size: 0.9rem; margin-top: 0.5rem;">' + _esc(coachData.whyThisMatters) + '</p>' +
+          '<h4 style="color:#60a5fa; margin-top:0;">⚡ Today</h4>' +
+          '<p style="color:#f8fafc; font-size: 1.05rem; font-weight: 500;">' + _esc(coachData.today) + '</p>' +
         '</div>' +
-        
-        '<div style="display:flex; gap: 1rem; margin-top: 1rem;">' +
-          '<div style="flex: 1; background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">' +
-            '<h4 style="color:#a78bfa; font-size: 0.8rem; text-transform: uppercase; margin-top:0;">Mode</h4>' +
-            '<p style="color:#f8fafc; font-weight: 600; margin: 0.25rem 0 0 0;">' + _esc(coachData.recommendedMode) + '</p>' +
-          '</div>' +
-          '<div style="flex: 1; background: #1e293b; padding: 1rem; border-radius: 8px; border: 1px solid #334155;">' +
-            '<h4 style="color:#34d399; font-size: 0.8rem; text-transform: uppercase; margin-top:0;">Topic</h4>' +
-            '<p style="color:#f8fafc; font-weight: 600; margin: 0.25rem 0 0 0;">' + _esc(coachData.recommendedTopic) + '</p>' +
-          '</div>' +
+        '<div class="ai-explain-section" style="margin-top: 1rem; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.2); padding: 1rem; border-radius: 8px;">' +
+          '<h4 style="color:#34d399; margin-top:0;">📅 Tomorrow</h4>' +
+          '<p style="color:#f8fafc; font-weight: 500;">' + _esc(coachData.tomorrow) + '</p>' +
         '</div>' +
-
         '<div class="ai-explain-section" style="margin-top: 1rem;">' +
-          '<h4 style="color:#94a3b8;">📈 Expected Improvement</h4>' +
-          '<p style="color:#cbd5e1;">' + _esc(coachData.expectedImprovement) + '</p>' +
+          '<h4 style="color:#a78bfa;">📆 This Week</h4>' +
+          '<p style="color:#cbd5e1;">' + _esc(coachData.thisWeek) + '</p>' +
         '</div>' +
-
-        '<div class="ai-explain-section" style="margin-top: 1rem;">' +
-          '<h4 style="color:#94a3b8;">📅 Weekly Goal</h4>' +
-          '<p style="color:#cbd5e1;">' + _esc(coachData.weeklyGoal) + '</p>' +
-        '</div>' +
-
         '<div class="ai-explain-section ai-tip-section" style="margin-top: 1rem; background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">' +
-          '<h4 style="color:#fbbf24;">💡 Coaching Observation</h4>' +
-          '<p style="color:#fef3c7;">' + _esc(coachData.coachingObservation) + '</p>' +
+          '<h4 style="color:#fbbf24;">💡 Recommendations</h4>' +
+          '<p style="color:#fef3c7;">' + _esc(coachData.recommendations) + '</p>' +
         '</div>';
     });
   }
@@ -418,28 +403,28 @@ var AIFeatures = (function () {
       }
 
       var obsHtml = '';
-      var icons = {
-        'root_cause': '⚠️',
-        'pattern': '🔄',
-        'projection': '🚀'
+
+      var renderField = function (icon, title, value) {
+        return '<div class="ai-insight-block" style="margin-bottom: 1rem; border-left: 3px solid var(--accent-primary); padding-left: 1rem;">' +
+                 '<h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">' + 
+                   '<span>' + icon + '</span> ' + _esc(title) + 
+                 '</h4>' +
+                 '<p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">' + _esc(value || 'Insufficient data') + '</p>' +
+               '</div>';
       };
+
+      obsHtml += renderField('🧠', 'Learning Pattern', insightsData.learningPattern);
+      obsHtml += renderField('📈', 'Accuracy Trend', insightsData.accuracyTrend);
+      obsHtml += renderField('⏱️', 'Speed Trend', insightsData.speedTrend);
+      obsHtml += renderField('🎯', 'Consistency Score', insightsData.consistencyScore);
+      obsHtml += renderField('💪', 'Strongest Category', insightsData.strongestCategory);
+      obsHtml += renderField('⚠️', 'Weakest Category', insightsData.weakestCategory);
+      obsHtml += renderField('🚀', 'Improvement Potential', insightsData.improvementPotential);
       
-      var observations = insightsData.observations || [];
-      if (observations.length === 0) {
-         obsHtml = '<p class="secondary-text">No distinct patterns found yet. Keep practicing!</p>';
-      } else {
-        for (var i = 0; i < observations.length; i++) {
-          var obs = observations[i];
-          var icon = icons[obs.type] || '📌';
-          obsHtml += 
-            '<div class="ai-insight-block" style="margin-bottom: 1rem; border-left: 3px solid var(--accent-primary); padding-left: 1rem;">' +
-              '<h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">' + 
-                '<span>' + icon + '</span> ' + _esc(obs.title) + 
-              '</h4>' +
-              '<p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem;">' + _esc(obs.observation) + '</p>' +
-            '</div>';
-        }
-      }
+      obsHtml += '<div class="ai-explain-section ai-tip-section" style="margin-top: 1.5rem; background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);">' +
+                   '<h4 style="color:#60a5fa;">📋 AI Summary</h4>' +
+                   '<p style="color:#f8fafc;">' + _esc(insightsData.aiSummary || 'Keep practicing to unlock detailed summaries.') + '</p>' +
+                 '</div>';
 
       bodyEl.innerHTML = obsHtml;
     });

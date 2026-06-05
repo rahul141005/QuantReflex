@@ -248,9 +248,7 @@ function renderStatsView() {
       if (aiUnlockBtn) aiUnlockBtn.addEventListener('click', function () { showPaywall('ai_coach'); });
     } else if (p.totalAttempted >= 5) {
       aiInsightsContainer.innerHTML =
-        '<div class="ai-stats-body">' +
-          '<button class="btn-primary ai-insights-btn" type="button">AI Pattern Analysis ✨</button>' +
-        '</div>';
+        '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding: 1rem 2rem; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🧠 View AI Insights</button>';
       var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
       _statsInsightsBtn.addEventListener('click', function () {
         AIFeatures.showStatsInsightsModal(p);

@@ -56,8 +56,8 @@ async function handler(req, res) {
   try {
     rawBody = await _getRawBody(req);
   } catch (readErr) {
-    console.error('[webhook] Failed to read body:', readErr.message);
-    return res.status(400).json({ error: 'Failed to read body' });
+    console.error('[PaymentFlow] PAYMENT_FAILED | webhook read failed: ' + readErr.message);
+    return res.status(500).json({ error: 'Failed to read body' });
   }
 
   if (!rawBody || rawBody.length === 0) {
@@ -143,8 +143,8 @@ async function handler(req, res) {
     }
 
     if (!uid) {
-      console.error('[webhook] No uid in payment notes. Cannot grant entitlement. orderId:', orderId, 'paymentId:', paymentId);
-      return res.status(200).json({ status: 'ignored', reason: 'no uid in notes' });
+      console.error('[PaymentFlow] PAYMENT_FAILED | webhook missing uid | orderId: ' + orderId + ' | paymentId: ' + paymentId);
+      return res.status(200).json({ status: 'ok', warning: 'no uid' });
     }
 
     /* Validate plan is known */
@@ -183,7 +183,7 @@ async function handler(req, res) {
         console.warn('[webhook] Claims update failed (non-fatal):', claimsErr.message);
       }
 
-      console.log('[webhook] Entitlement granted — uid:', uid, 'plan:', plan, 'paymentId:', paymentId);
+      console.info('[PaymentFlow] PREMIUM_GRANTED | webhook fallback | uid: ' + uid + ' | plan: ' + plan + ' | paymentId: ' + paymentId);
       return res.status(200).json({ status: 'ok', granted: true });
 
     } catch (grantErr) {
@@ -192,7 +192,7 @@ async function handler(req, res) {
         console.log('[webhook] Payment already processed (replay) — uid:', uid, 'paymentId:', paymentId);
         return res.status(200).json({ status: 'ok', replay: true });
       }
-      console.error('[webhook] Grant failed:', grantErr.message);
+      console.error('[PaymentFlow] PAYMENT_FAILED | webhook grant failed: ' + grantErr.message);
       /* Return 500 so Razorpay retries the webhook */
       return res.status(500).json({ error: 'Grant failed — will retry' });
     }

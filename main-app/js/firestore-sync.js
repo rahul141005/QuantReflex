@@ -111,12 +111,12 @@ var FirestoreSync = (function () {
     var uid = _loadedUserId || 'unknown';
     var ref = docRef.collection(collPath).doc(docId);
     ref.set(payload, { merge: true }).then(function () {
-      console.log('[FirestoreSync:' + label + '] write succeeded (uid: ' + uid + ')');
+
     }).catch(function (err) {
       console.warn('[FirestoreSync:' + label + '] write failed (uid: ' + uid + '), retrying in 3s:', err.message || err);
       setTimeout(function () {
         ref.set(payload, { merge: true }).then(function () {
-          console.log('[FirestoreSync:' + label + '] retry succeeded (uid: ' + uid + ')');
+
         }).catch(function (retryErr) {
           console.error('[FirestoreSync:' + label + '] retry failed (uid: ' + uid + '), data lost for this cycle:', retryErr.message || retryErr);
         });
@@ -379,7 +379,7 @@ var FirestoreSync = (function () {
     docRef.get().then(function (userDoc) {
       if (userDoc.exists) return;
       return docRef.set(fallbackDefaults, { merge: true }).then(function () {
-        console.log('Firestore: new user document created successfully');
+
         /* Non-blocking: eagerly seed all structured subcollections for new user */
         var mc = _memoryCache || fallbackDefaults;
         var seedDocRef = _getUserDocRef();
@@ -462,7 +462,7 @@ var FirestoreSync = (function () {
       data[keys[i]] = patch[keys[i]];
     }
     docRef.set(patch, { merge: true }).then(function () {
-      console.log('Firestore: normalized monetization fields:', Object.keys(patch).join(', '));
+
     }).catch(function (err) {
       console.warn('Failed to normalize monetization fields:', err);
     });
@@ -533,7 +533,7 @@ var FirestoreSync = (function () {
     patch.updatedAt = new Date().toISOString();
     data.updatedAt = patch.updatedAt;
     docRef.set(patch, { merge: true }).then(function () {
-      console.log('Firestore: filled missing defaults:', Object.keys(patch).join(', '));
+
     }).catch(function (err) {
       console.warn('Failed to fill missing defaults:', err);
     });
@@ -549,7 +549,7 @@ var FirestoreSync = (function () {
     data.isPremium = false;
     data.isTrial = false;
     docRef.set({ isPremium: false, isTrial: false, updatedAt: new Date().toISOString() }, { merge: true }).then(function () {
-      console.log('[FirestoreSync:_enforceTrialExpiry] trial expired, access revoked');
+
     }).catch(function (err) {
       console.warn('[FirestoreSync:_enforceTrialExpiry] failed to persist trial expiry:', err.message || err);
     });
@@ -564,9 +564,9 @@ var FirestoreSync = (function () {
     if (!expiryMs || expiryMs >= now) return;
     data.isPremiumPlus = false;
     data.premiumPlusStatus = 'expired';
-    console.log('[FirestoreSync:_enforcePremiumPlusExpiry] Premium+ expired on load, revoking access');
+
     docRef.set({ isPremiumPlus: false, premiumPlusStatus: 'expired', updatedAt: new Date().toISOString() }, { merge: true }).then(function () {
-      console.log('[FirestoreSync:_enforcePremiumPlusExpiry] expiry persisted to Firestore');
+
     }).catch(function (err) {
       console.warn('[FirestoreSync:_enforcePremiumPlusExpiry] failed to persist expiry:', err.message || err);
     });
@@ -679,7 +679,7 @@ var FirestoreSync = (function () {
       }
       _flushRetryCount = 0;
       if (_flushRetryTimer) { clearTimeout(_flushRetryTimer); _flushRetryTimer = null; }
-      console.log('[FirestoreSync:_flushUpdates] flushed', keys.length, 'field(s):', keys.join(', '));
+
       
       /* Trigger subcollection updates after main doc successfully writes */
       if (snapshot.stats) {
@@ -1140,7 +1140,7 @@ var FirestoreSync = (function () {
         _memoryCache.premiumPlusStatus = 'active';
         if (paymentId) _memoryCache.lastPremiumPlusPaymentId = String(paymentId);
       }
-      console.log('[FirestoreSync] Premium+ cache updated — plan:', plan, 'expiry:', expiry);
+
       _syncProfileSubcollection(null, { isPremiumPlus: true, isPremium: true, hasPaid: true, premiumPlusPlan: plan });
       if (callback) callback(null);
     },
@@ -1156,7 +1156,7 @@ var FirestoreSync = (function () {
         _memoryCache.trialEnd = null;
         if (paymentId) _memoryCache.lastPaymentId = String(paymentId);
       }
-      console.log('[FirestoreSync] Premium cache updated — paymentId:', paymentId);
+
       _syncProfileSubcollection(null, { isPremium: true, hasPaid: true, isTrial: false, trialEnd: null });
       if (callback) callback(null);
     },
@@ -1184,7 +1184,7 @@ var FirestoreSync = (function () {
       .then(function (data) {
         if (data.error) throw new Error(data.error.message || 'Failed to claim coaching');
         if (_memoryCache) _memoryCache.coachingId = coachingId;
-        console.log('[FirestoreSync] claimCoaching success:', coachingId);
+
         if (callback) callback(null);
       })
       .catch(function (err) {
