@@ -38,6 +38,14 @@ var FirestoreSync = (function () {
   var _flushInFlight = false;
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
+  var _pendingSystemNotifications = [];
+  function _flushPendingSystemNotifications() {
+    if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return;
+    while (_pendingSystemNotifications.length > 0) {
+      var notif = _pendingSystemNotifications.shift();
+      FirestoreSync.createSystemNotification(notif);
+    }
+  }
   var SYNC_DEBOUNCE_MS = 2000; /* batch updates every 2 seconds */
   var FLUSH_RETRY_DELAY_MS = 5000;
   var FLUSH_MAX_RETRIES = 2;
@@ -1190,7 +1198,7 @@ var FirestoreSync = (function () {
       return db.collection('users').doc(FirebaseApp.getUserId()).collection('notifications')
         .orderBy('timestamp', 'desc')
         .limit(50)
-        .onSnapshot(function(snapshot) {
+        .onSnapshot({ includeMetadataChanges: true }, function(snapshot) {
           var notifications = [];
           var unreadCount = 0;
           snapshot.forEach(function(doc) {

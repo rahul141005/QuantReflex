@@ -149,6 +149,10 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('./service-worker.js')
       .then(function (registration) {
+        if (!registration.waiting) {
+          try { localStorage.removeItem('qr_pending_update_id'); } catch(_) {}
+        }
+
         /* Detect a new SW waiting to activate and prompt user to reload */
         function onUpdateFound() {
           var newWorker = registration.installing;
@@ -187,8 +191,11 @@ function _showUpdateToast() {
   if (document.getElementById('_swUpdateToast')) return;
   var _updateKey = '';
   try {
-    var rawKey = document.lastModified || 'v1';
-    _updateKey = 'app_update_' + rawKey.replace(/[^a-zA-Z0-9]/g, '_');
+    _updateKey = localStorage.getItem('qr_pending_update_id');
+    if (!_updateKey) {
+      _updateKey = 'app_update_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      localStorage.setItem('qr_pending_update_id', _updateKey);
+    }
   } catch (_) {}
 
   // Inbox Notification generation (idempotent via Firestore get() check)
