@@ -10157,3 +10157,164 @@ body.dark-mode .sp-fab-bar {
     padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
   }
 }
+/* ========================================================================= */
+/* ---- AI STUDY PLANNER REDESIGN (V3) - PERFECT CENTERING & SAFE AREAS ---- */
+/* ========================================================================= */
+
+.sp-premium-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.6); /* Richer dark overlay */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex !important;
+  align-items: center; /* Vertical Center */
+  justify-content: center; /* Horizontal Center */
+  z-index: 9999;
+  padding: 1.5rem; /* Safe area padding */
+  box-sizing: border-box;
+}
+
+.sp-premium-modal {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 480px !important; /* Mobile safe width */
+  max-height: 90dvh !important;
+  background: #ffffff !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 0 !important; /* Prevent legacy margins */
+  transform: none !important; /* Prevent legacy offsets */
+}
+
+@media (min-width: 768px) {
+  .sp-premium-modal { max-width: 700px !important; }
+}
+
+@media (min-width: 1024px) {
+  .sp-premium-modal { max-width: 900px !important; }
+}
+
+/* Close Button (Top Right) */
+.sp-modal-header {
+  position: relative;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+  background: #ffffff;
+  z-index: 10;
+}
+body.dark-mode .sp-modal-header { background: #0f172a; }
+
+.sp-modal-header .modal-title {
+  display: none; /* Hide default title, wiz handles it */
+}
+
+.sp-close-btn {
+  position: absolute !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: none !important;
+  font-size: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 50 !important;
+  transition: all 0.2s ease !important;
+}
+.sp-close-btn:hover { background: #e2e8f0 !important; color: #0f172a !important; }
+body.dark-mode .sp-close-btn { background: #1e293b !important; color: #94a3b8 !important; }
+body.dark-mode .sp-close-btn:hover { background: #334155 !important; color: #f8fafc !important; }
+
+/* Vertically Centered Slides */
+.sp-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-wiz-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Visual Horizontal Center */
+  justify-content: center; /* Visual Vertical Center */
+  text-align: center; /* Center all text */
+  padding: 1rem 0 2rem 0;
+}
+
+.sp-wiz-title, .sp-wiz-desc, .sp-wiz-chips, .sp-wiz-grid {
+  width: 100%;
+  justify-content: center;
+}
+
+.sp-wiz-list {
+  width: 100%;
+  max-width: 400px;
+}
+.sp-wiz-list-item { text-align: left; } /* Keep items left aligned internally */
+
+.sp-input, .sp-date-lg {
+  text-align: left; /* Keep inputs left aligned */
+  max-width: 400px;
+}
+
+/* Action Bar Bottom Lock */
+.sp-fab-bar {
+  position: sticky !important;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 1.25rem 0 0 0;
+  background: #ffffff;
+  border-top: none !important;
+  display: flex;
+  gap: 1rem;
+  z-index: 20;
+}
+body.dark-mode .sp-fab-bar { background: #0f172a; }
+
+.sp-fab-bar .btn, .sp-fab-bar .btn-primary {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 1rem;
+  font-size: 1.1rem;
+}
+
+/* Dark Mode Overrides for structural integrity */
+body.dark-mode .sp-premium-modal {
+  background: #0f172a !important;
+}
+
+/* Ensure no bleeding under safe area on mobile */
+@media (max-width: 600px) {
+  .sp-premium-overlay { padding: 0 !important; }
+  .sp-premium-modal {
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+  .sp-fab-bar { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Strategy Insight Expandable */
+.sp-ai-insight-details summary {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
+body.dark-mode .sp-ai-insight-details summary { background: #1e293b; }
+
+/* Continuous Timeline Fix */
+.sp-timeline-wrapper {
+  margin-bottom: 2rem;
+}

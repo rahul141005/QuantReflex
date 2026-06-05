@@ -808,7 +808,7 @@ var AIFeatures = (function () {
   };
   var _spWizardStep = 1;
 
-  function _buildResultHTML(plan) {
+    function _buildResultHTML(plan) {
     var totalCount = plan.timetable ? plan.timetable.length : 0;
     var completedCount = 0;
     if (plan.timetable) {
@@ -828,7 +828,7 @@ var AIFeatures = (function () {
        '<div class="sp-progress-ring-lg" style="--sp-pct: ' + (totalCount > 0 ? Math.round((completedCount/totalCount)*100) : 0) + '%;">' +
          '<div class="sp-progress-ring-inner">' +
            '<span class="sp-ring-val">' + completedCount + ' / ' + totalCount + '</span>' +
-           '<span class="sp-ring-lbl">Days Completed</span>' +
+           '<span class="sp-ring-lbl">Days Done</span>' +
          '</div>' +
        '</div>' +
        '<div class="sp-top-meta">' +
@@ -838,54 +838,52 @@ var AIFeatures = (function () {
        '</div>' +
     '</div>';
 
-    // Collapsible AI Strategy Summary
-    html += '<details class="sp-ai-insight-details">' +
-       '<summary><span class="icon">🤖</span> AI Strategy Insight <span class="expand-icon">▼</span></summary>' +
-       '<div class="sp-ai-insight-content">' + _esc(plan.rationale) + '</div>' +
-    '</details>';
-
-    // Timetable
+    // Timetable (Continuous)
     html += '<div class="sp-timeline-wrapper">';
     if (plan.timetable) {
       for(var i=0; i<plan.timetable.length; i++) {
         var dayObj = plan.timetable[i];
         var isCompleted = plan.progress && plan.progress[dayObj.day] === true;
-        var dayClass = isCompleted ? 'sp-tl-node completed' : 'sp-tl-node';
-        if (dayObj.isRevision) dayClass += ' revision-day';
-        if (dayObj.isMock) dayClass += ' mock-day';
+        var nodeClass = isCompleted ? 'completed' : '';
+        if(dayObj.dayType === 'revision') nodeClass += ' revision-day';
+        if(dayObj.dayType === 'mock') nodeClass += ' mock-day';
 
+        var dayTotalMin = 0;
         var sessionsHtml = '';
         if (dayObj.sessions) {
           for(var j=0; j<dayObj.sessions.length; j++) {
             var sess = dayObj.sessions[j];
+            dayTotalMin += (sess.estimatedMinutes || 0);
+            
+            // Rich Session Cards
             sessionsHtml += '<div class="sp-tl-session">' +
-              '<span class="sp-tl-subj">' + _esc(sess.subject) + '</span>' +
-              '<span class="sp-tl-top">' + _esc(sess.topic) + (sess.subTopic ? ' • ' + _esc(sess.subTopic) : '') + '</span>' +
-              '<span class="sp-tl-min">' + sess.estimatedMinutes + 'm</span>' +
+              '<div class="sp-tl-subj">' + _esc(sess.subject || 'Focus') + '</div>' +
+              '<div class="sp-tl-top">' +
+                '<strong style="display:block;margin-bottom:0.25rem">' + _esc(sess.topic) + '</strong>' +
+                (sess.subTopic ? '<span style="font-size:0.8rem;color:#64748b;display:block;margin-bottom:0.25rem">' + _esc(sess.subTopic) + '</span>' : '') +
+                (sess.focusArea ? '<span style="font-size:0.75rem;background:#fef3c7;color:#92400e;padding:0.15rem 0.3rem;border-radius:4px;display:inline-block">Goal: ' + _esc(sess.focusArea) + '</span>' : '') +
+              '</div>' +
+              '<div class="sp-tl-min">' + (sess.estimatedMinutes || 0) + 'm</div>' +
             '</div>';
           }
         }
 
-        html += '<div class="' + dayClass + '" data-day="' + dayObj.day + '">' +
+        html += '<div class="sp-tl-node ' + nodeClass + '">' +
           '<div class="sp-tl-line"></div>' +
           '<div class="sp-tl-dot"></div>' +
           '<div class="sp-tl-card">' +
-            '<div class="sp-tl-card-header">' +
-              '<label class="sp-checkbox-label">' +
-                '<input type="checkbox" class="sp-day-checkbox" data-day="' + dayObj.day + '" ' + (isCompleted ? 'checked' : '') + ' ' + (plan.status === 'draft' ? 'disabled' : '') + '/>' +
-                '<span class="sp-checkbox-custom"></span>' +
-                '<strong>Day ' + dayObj.day + '</strong>' +
-              '</label>' +
-              '<span class="sp-tl-total-min">' + dayObj.totalMinutes + 'm</span>' +
+            '<div class="sp-tl-card-header sp-day-toggle" data-day="' + dayObj.day + '">' +
+              '<div><strong style="color:#0f172a;font-size:1.05rem">Day ' + dayObj.day + '</strong>' + (isCompleted ? ' <span style="color:#10b981;font-size:0.8rem;margin-left:0.5rem">✓ Done</span>' : '') + '</div>' +
+              '<div class="sp-tl-total-min">' + dayTotalMin + 'm <span style="font-size:0.7rem;margin-left:0.25rem">▼</span></div>' +
             '</div>' +
             '<div class="sp-tl-card-body">' + sessionsHtml + '</div>' +
           '</div>' +
         '</div>';
       }
     }
-    html += '</div>';
+    html += '</div>'; // close timeline-wrapper
 
-    // Sticky Bottom Action Bar with Glass effect
+    // Actions Area (OUTSIDE Timeline)
     var csvData = 'Day,Subject,Topic,Subtopic,EstimatedMinutes,Completed,PlanPhase,ExamType\n';
     if(plan.timetable) {
       for(var i=0; i<plan.timetable.length; i++) {
@@ -926,9 +924,17 @@ var AIFeatures = (function () {
       }
     }
     html += '</div>';
+
+    // Collapsible AI Strategy Summary (Moved to Bottom)
+    html += '<details class="sp-ai-insight-details" style="margin-top:2rem;">' +
+       '<summary><span class="icon">🤖</span> AI Strategy Insight <span class="expand-icon">▼</span></summary>' +
+       '<div class="sp-ai-insight-content">' + _esc(plan.rationale) + '</div>' +
+    '</details>';
+
     html += '</div>';
     return html;
   }
+
 
   function _openStudyPlanModal(containerId) {
     var existing = document.getElementById('aiStudyPlanModal');
@@ -995,30 +1001,17 @@ var AIFeatures = (function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
 
-    function renderWizardStep() {
+        function renderWizardStep() {
       var bodyEl = overlay.querySelector('#spModalBody');
       var html = '';
       
-      var progressPct = Math.round((_spWizardStep / 7) * 100);
+      var progressPct = Math.round((_spWizardStep / 5) * 100);
       var wizardHeader = '<div class="sp-wiz-header">' +
         '<button class="sp-wiz-back" ' + (_spWizardStep === 1 ? 'style="visibility:hidden"' : '') + '>← Back</button>' +
         '<div class="sp-wiz-progress"><div class="sp-wiz-bar" style="width:' + progressPct + '%"></div></div>' +
         '</div>';
 
       if (_spWizardStep === 1) {
-        html = wizardHeader + 
-          '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">What exam are you preparing for?</h3>' +
-            '<div class="sp-wiz-grid">' +
-              SP_EXAMS.map(function(ex) {
-                 var isSel = _spWizardData.examName === ex || (ex === 'Other' && _spWizardData.examName && SP_EXAMS.indexOf(_spWizardData.examName) === -1);
-                 return '<div class="sp-wiz-card ' + (isSel ? 'selected' : '') + '" data-exam="' + ex + '"><span>' + ex + '</span></div>';
-              }).join('') +
-            '</div>' +
-            '<input id="spExamCustom" class="sp-input" type="text" placeholder="Type exam name..." maxlength="80" style="display:' + (SP_EXAMS.indexOf(_spWizardData.examName) === -1 && _spWizardData.examName ? 'block' : 'none') + ';margin-top:1rem;" value="' + (SP_EXAMS.indexOf(_spWizardData.examName) === -1 ? _spWizardData.examName : '') + '"/>' +
-          '</div>' +
-          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next" ' + (_spWizardData.examName ? '' : 'disabled') + '>Next</button></div>';
-      } else if (_spWizardStep === 2) {
         var todayStr = new Date().toISOString().slice(0, 10);
         var daysLeftHtml = '';
         if (_spWizardData.examDate) {
@@ -1028,33 +1021,33 @@ var AIFeatures = (function () {
              daysLeftHtml = '<div class="sp-wiz-days-left">⏳ ' + daysRemaining + ' Days Remaining</div>';
           }
         }
+        
+        var isOther = SP_EXAMS.indexOf(_spWizardData.examName) === -1 && _spWizardData.examName;
         html = wizardHeader + 
           '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">When is your exam?</h3>' +
-            '<p class="sp-wiz-desc">We will tailor the plan to the time you have left.</p>' +
-            '<input id="spExamDate" class="sp-input sp-date-lg" type="date" min="' + todayStr + '" value="' + _spWizardData.examDate + '" />' +
-            daysLeftHtml +
-          '</div>' +
-          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next" ' + (_spWizardData.examDate ? '' : 'disabled') + '>Next</button></div>';
-      } else if (_spWizardStep === 3) {
-        var chips = [30, 45, 60, 90, 120, 180];
-        html = wizardHeader + 
-          '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">How much time can you study daily?</h3>' +
-            '<div class="sp-wiz-chips">' +
-              chips.map(function(m) {
-                 var isSel = _spWizardData.dailyTimeMinutes === m;
-                 return '<div class="sp-wiz-chip ' + (isSel ? 'selected' : '') + '" data-mins="' + m + '">' + m + ' mins</div>';
+            '<h3 class="sp-wiz-title">Target Exam</h3>' +
+            '<p class="sp-wiz-desc">Select your target exam and date.</p>' +
+            '<div class="sp-wiz-grid" style="margin-bottom:1.5rem;width:100%">' +
+              SP_EXAMS.map(function(ex) {
+                 var isSel = _spWizardData.examName === ex || (ex === 'Other' && isOther);
+                 return '<div class="sp-wiz-card ' + (isSel ? 'selected' : '') + '" data-exam="' + ex + '"><span>' + ex + '</span></div>';
               }).join('') +
-              '<div class="sp-wiz-chip ' + (chips.indexOf(_spWizardData.dailyTimeMinutes) === -1 ? 'selected' : '') + '" data-mins="custom">Custom</div>' +
             '</div>' +
-            '<input id="spTimeCustom" class="sp-input" type="number" placeholder="Minutes per day" style="display:' + (chips.indexOf(_spWizardData.dailyTimeMinutes) === -1 ? 'block' : 'none') + ';margin-top:1rem;" value="' + (chips.indexOf(_spWizardData.dailyTimeMinutes) === -1 ? _spWizardData.dailyTimeMinutes : '') + '"/>' +
+            '<div id="spExamCustomWrapper" style="display:' + (isOther ? 'block' : 'none') + ';width:100%;margin-bottom:1.5rem;">' +
+              '<input id="spExamCustom" class="sp-input" type="text" placeholder="Type exam name..." maxlength="80" value="' + (isOther ? _spWizardData.examName : '') + '"/>' +
+            '</div>' +
+            '<h3 class="sp-wiz-title" style="font-size:1.2rem;margin-bottom:0.5rem">Exam Date</h3>' +
+            '<input id="spExamDate" class="sp-input sp-date-lg" type="date" min="' + todayStr + '" value="' + _spWizardData.examDate + '" style="margin-bottom:0.5rem;width:100%" />' +
+            daysLeftHtml +
+            '<h3 class="sp-wiz-title" style="font-size:1.2rem;margin-top:1.5rem;margin-bottom:0.5rem">Target Score (Optional)</h3>' +
+            '<input id="spTargetScore" class="sp-input sp-date-lg" type="text" placeholder="e.g. 99%ile, 720" maxlength="50" value="' + _spWizardData.targetScore + '" style="margin-bottom:1.5rem;width:100%"/>' +
           '</div>' +
-          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Next</button></div>';
-      } else if (_spWizardStep === 4) {
+          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next" ' + (_spWizardData.examName && _spWizardData.examDate ? '' : 'disabled') + '>Next</button></div>';
+      } else if (_spWizardStep === 2) {
         html = wizardHeader + 
           '<div class="sp-wiz-content">' +
             '<h3 class="sp-wiz-title">What is your current level?</h3>' +
+            '<p class="sp-wiz-desc">We will adapt the plan difficulty.</p>' +
             '<div class="sp-wiz-list">' +
               ['Beginner', 'Intermediate', 'Advanced'].map(function(lvl) {
                  var isSel = _spWizardData.currentLevel === lvl;
@@ -1063,7 +1056,24 @@ var AIFeatures = (function () {
             '</div>' +
           '</div>' +
           '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next" ' + (_spWizardData.currentLevel ? '' : 'disabled') + '>Next</button></div>';
-      } else if (_spWizardStep === 5) {
+      } else if (_spWizardStep === 3) {
+        var chips = [30, 45, 60, 90, 120, 180];
+        var isCustomTime = chips.indexOf(_spWizardData.dailyTimeMinutes) === -1;
+        html = wizardHeader + 
+          '<div class="sp-wiz-content">' +
+            '<h3 class="sp-wiz-title">How much time can you study daily?</h3>' +
+            '<p class="sp-wiz-desc">Be realistic to avoid burnout.</p>' +
+            '<div class="sp-wiz-chips">' +
+              chips.map(function(m) {
+                 var isSel = _spWizardData.dailyTimeMinutes === m;
+                 return '<div class="sp-wiz-chip ' + (isSel ? 'selected' : '') + '" data-mins="' + m + '">' + m + ' mins</div>';
+              }).join('') +
+              '<div class="sp-wiz-chip ' + (isCustomTime ? 'selected' : '') + '" data-mins="custom">Custom</div>' +
+            '</div>' +
+            '<input id="spTimeCustom" class="sp-input" type="number" placeholder="Minutes per day" style="display:' + (isCustomTime ? 'block' : 'none') + ';margin-top:1rem;width:100%" value="' + (isCustomTime ? _spWizardData.dailyTimeMinutes : '') + '"/>' +
+          '</div>' +
+          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Next</button></div>';
+      } else if (_spWizardStep === 4) {
         var commonWeak = ['Percentages', 'Geometry', 'RC', 'LRDI', 'Algebra', 'Data Insights'];
         var weakStr = _spWizardData.weakTopics.filter(function(t){ return commonWeak.indexOf(t) === -1; }).join(', ');
         var strongStr = _spWizardData.strongTopics.join(', ');
@@ -1071,9 +1081,9 @@ var AIFeatures = (function () {
           '<div class="sp-wiz-content">' +
             '<h3 class="sp-wiz-title">Strengths & Weaknesses</h3>' +
             '<p class="sp-wiz-desc">Select or type areas you struggle with.</p>' +
-            '<div class="sp-field">' +
-              '<label class="sp-label">Weak Areas</label>' +
-              '<div class="sp-wiz-chips sp-chips-sm" style="margin-bottom:0.5rem;">' +
+            '<div class="sp-field" style="width:100%">' +
+              '<label class="sp-label" style="text-align:center;display:block">Weak Areas</label>' +
+              '<div class="sp-wiz-chips sp-chips-sm" style="margin-bottom:0.5rem;justify-content:center">' +
                  commonWeak.map(function(t) {
                    var isSel = _spWizardData.weakTopics.indexOf(t) > -1;
                    return '<div class="sp-wiz-chip sp-wiz-chip-toggle ' + (isSel ? 'selected' : '') + '" data-type="weak" data-val="' + t + '">+' + t + '</div>';
@@ -1081,33 +1091,30 @@ var AIFeatures = (function () {
               '</div>' +
               '<input id="spWeakTopics" class="sp-input" type="text" placeholder="Other weak areas (comma separated)..." maxlength="200" value="' + weakStr + '" />' +
             '</div>' +
-            '<div class="sp-field" style="margin-top:1.5rem;">' +
-              '<label class="sp-label">Strong Areas</label>' +
+            '<div class="sp-field" style="margin-top:1.5rem;width:100%">' +
+              '<label class="sp-label" style="text-align:center;display:block">Strong Areas</label>' +
               '<input id="spStrongTopics" class="sp-input" type="text" placeholder="e.g. Arithmetic, Logic Games" maxlength="200" value="' + strongStr + '" />' +
             '</div>' +
           '</div>' +
-          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Next</button></div>';
-      } else if (_spWizardStep === 6) {
-        html = wizardHeader + 
-          '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">Target Score</h3>' +
-            '<p class="sp-wiz-desc">Optional. e.g. 99%ile, 720</p>' +
-            '<input id="spTargetScore" class="sp-input sp-date-lg" type="text" placeholder="Your target..." maxlength="50" value="' + _spWizardData.targetScore + '" />' +
-          '</div>' +
           '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Review Plan</button></div>';
-      } else if (_spWizardStep === 7) {
+      } else if (_spWizardStep === 5) {
         var examMs2 = new Date(_spWizardData.examDate).getTime();
-        var daysRemaining2 = Math.ceil((examMs2 - Date.now()) / (1000 * 60 * 60 * 24));
+        var daysRemaining2 = Math.max(1, Math.ceil((examMs2 - Date.now()) / (1000 * 60 * 60 * 24)));
+        var estTotalHours = Math.round((daysRemaining2 * _spWizardData.dailyTimeMinutes) / 60);
         html = wizardHeader + 
           '<div class="sp-wiz-content">' +
             '<h3 class="sp-wiz-title">Ready to Generate</h3>' +
-            '<div class="sp-wiz-summary">' +
-              '<div class="sp-wiz-sum-row"><span>Target Exam</span><strong>' + _esc(_spWizardData.examName) + '</strong></div>' +
+            '<p class="sp-wiz-desc">Review your details before generating the plan.</p>' +
+            '<div class="sp-wiz-summary" style="width:100%">' +
+              '<div class="sp-wiz-sum-row"><span>Exam</span><strong>' + _esc(_spWizardData.examName) + ' (' + _esc(_spWizardData.examDate) + ')</strong></div>' +
               '<div class="sp-wiz-sum-row"><span>Days Left</span><strong>' + daysRemaining2 + '</strong></div>' +
+              '<div class="sp-wiz-sum-row"><span>Target Score</span><strong>' + (_spWizardData.targetScore ? _esc(_spWizardData.targetScore) : 'N/A') + '</strong></div>' +
+              '<div class="sp-wiz-sum-row"><span>Level</span><strong>' + _esc(_spWizardData.currentLevel) + '</strong></div>' +
               '<div class="sp-wiz-sum-row"><span>Daily Study</span><strong>' + _spWizardData.dailyTimeMinutes + 'm</strong></div>' +
-              '<div class="sp-wiz-sum-row"><span>Current Level</span><strong>' + _esc(_spWizardData.currentLevel) + '</strong></div>' +
+              '<div class="sp-wiz-sum-row"><span>Weak Areas</span><strong style="max-width:150px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + _esc(_spWizardData.weakTopics.join(', ')) + '">' + (_spWizardData.weakTopics.length ? _esc(_spWizardData.weakTopics.join(', ')) : 'None') + '</strong></div>' +
+              '<div class="sp-wiz-sum-row"><span>Estimated Total</span><strong>~' + estTotalHours + ' Hours</strong></div>' +
             '</div>' +
-            '<div class="sp-error" id="spError" style="display:none;margin-top:1rem;"></div>' +
+            '<div class="sp-error" id="spError" style="display:none;margin-top:1rem;width:100%;text-align:center"></div>' +
           '</div>' +
           '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-generate" id="spGenerateBtn">Generate Study Plan ✨</button></div>';
       }
@@ -1127,43 +1134,69 @@ var AIFeatures = (function () {
       // Step 1
       if (_spWizardStep === 1) {
         var cards = bodyEl.querySelectorAll('.sp-wiz-card');
+        var customInpWrapper = bodyEl.querySelector('#spExamCustomWrapper');
         var customInp = bodyEl.querySelector('#spExamCustom');
+        var dateInp = bodyEl.querySelector('#spExamDate');
+        var targetInp = bodyEl.querySelector('#spTargetScore');
         var nextBtn = bodyEl.querySelector('.sp-wiz-next');
+        
+        function validateStep1() {
+          nextBtn.disabled = !(_spWizardData.examName && _spWizardData.examDate);
+        }
+
         for (var i = 0; i < cards.length; i++) {
           cards[i].addEventListener('click', function() {
             var ex = this.getAttribute('data-exam');
             if (ex === 'Other') {
               _spWizardData.examName = customInp.value;
-              customInp.style.display = 'block';
+              customInpWrapper.style.display = 'block';
               customInp.focus();
             } else {
               _spWizardData.examName = ex;
-              customInp.style.display = 'none';
+              customInpWrapper.style.display = 'none';
             }
-            renderWizardStep(); // re-render to update selected state
+            // Update UI without full rerender to avoid losing input focus
+            for (var j = 0; j < cards.length; j++) cards[j].classList.remove('selected');
+            this.classList.add('selected');
+            validateStep1();
           });
         }
         if (customInp) {
           customInp.addEventListener('input', function() {
             _spWizardData.examName = this.value;
-            nextBtn.disabled = !_spWizardData.examName;
+            validateStep1();
           });
         }
+        dateInp.addEventListener('input', function() {
+          _spWizardData.examDate = this.value;
+          validateStep1();
+        });
+        targetInp.addEventListener('input', function() {
+          _spWizardData.targetScore = this.value;
+        });
+
         nextBtn.addEventListener('click', function() {
-          if (_spWizardData.examName) { _spWizardStep++; renderWizardStep(); }
+          if (_spWizardData.examName && _spWizardData.examDate) { 
+             var todayStr = new Date().toISOString().slice(0, 10); 
+             if (_spWizardData.examDate > todayStr) { 
+                 _spWizardStep++; renderWizardStep(); 
+             } 
+          }
         });
       }
 
       // Step 2
       if (_spWizardStep === 2) {
-        var dateInp = bodyEl.querySelector('#spExamDate');
+        var listItems = bodyEl.querySelectorAll('.sp-wiz-list-item');
         var nextBtn = bodyEl.querySelector('.sp-wiz-next');
-        dateInp.addEventListener('input', function() {
-          _spWizardData.examDate = this.value;
-          renderWizardStep(); // re-render to update days left
-        });
+        for (var i = 0; i < listItems.length; i++) {
+          listItems[i].addEventListener('click', function() {
+            _spWizardData.currentLevel = this.getAttribute('data-level');
+            renderWizardStep();
+          });
+        }
         nextBtn.addEventListener('click', function() {
-          if (_spWizardData.examDate) { var todayStr = new Date().toISOString().slice(0, 10); if (_spWizardData.examDate > todayStr) { _spWizardStep++; renderWizardStep(); } }
+          if (_spWizardData.currentLevel) { _spWizardStep++; renderWizardStep(); }
         });
       }
 
@@ -1198,21 +1231,6 @@ var AIFeatures = (function () {
 
       // Step 4
       if (_spWizardStep === 4) {
-        var listItems = bodyEl.querySelectorAll('.sp-wiz-list-item');
-        var nextBtn = bodyEl.querySelector('.sp-wiz-next');
-        for (var i = 0; i < listItems.length; i++) {
-          listItems[i].addEventListener('click', function() {
-            _spWizardData.currentLevel = this.getAttribute('data-level');
-            renderWizardStep();
-          });
-        }
-        nextBtn.addEventListener('click', function() {
-          if (_spWizardData.currentLevel) { _spWizardStep++; renderWizardStep(); }
-        });
-      }
-
-      // Step 5
-      if (_spWizardStep === 5) {
         var toggles = bodyEl.querySelectorAll('.sp-wiz-chip-toggle');
         var weakInp = bodyEl.querySelector('#spWeakTopics');
         var strongInp = bodyEl.querySelector('#spStrongTopics');
@@ -1243,18 +1261,8 @@ var AIFeatures = (function () {
         });
       }
 
-      // Step 6
-      if (_spWizardStep === 6) {
-        var targetInp = bodyEl.querySelector('#spTargetScore');
-        var nextBtn = bodyEl.querySelector('.sp-wiz-next');
-        nextBtn.addEventListener('click', function() {
-          _spWizardData.targetScore = targetInp.value.trim();
-          _spWizardStep++; renderWizardStep();
-        });
-      }
-
-      // Step 7
-      if (_spWizardStep === 7) {
+      // Step 5
+      if (_spWizardStep === 5) {
         var genBtn = bodyEl.querySelector('#spGenerateBtn');
         var errorEl = bodyEl.querySelector('#spError');
         genBtn.addEventListener('click', function() {
@@ -1301,129 +1309,6 @@ var AIFeatures = (function () {
       }
     }
 
-    function showResult(plan) {
-      var bodyEl = overlay.querySelector('#spModalBody');
-      bodyEl.innerHTML = _buildResultHTML(plan);
-      bodyEl.scrollTop = 0;
-
-      var checkboxes = bodyEl.querySelectorAll('.sp-day-checkbox');
-      for (var i=0; i<checkboxes.length; i++) {
-        checkboxes[i].addEventListener('change', function(e) {
-          if (plan.status === 'draft') {
-            e.preventDefault();
-            return;
-          }
-          var dayIdx = this.getAttribute('data-day');
-          var isChecked = this.checked;
-          
-          var node = this.closest('.sp-tl-node');
-          if(isChecked) {
-             node.classList.add('completed');
-             node.classList.add('animate-pulse'); // Micro animation
-             setTimeout(function(){ node.classList.remove('animate-pulse'); }, 500);
-          } else {
-             node.classList.remove('completed');
-          }
-
-          if (!plan.progress) plan.progress = {};
-          plan.progress[dayIdx] = isChecked;
-
-          _spPost({
-            action: 'update_progress',
-            planId: plan.id,
-            dayIndex: dayIdx,
-            completed: isChecked
-          }, function() {
-            var currentChecked = bodyEl.querySelectorAll('.sp-day-checkbox:checked').length;
-            var ring = bodyEl.querySelector('.sp-progress-ring-lg');
-            var val = bodyEl.querySelector('.sp-ring-val');
-            if (ring && val) {
-              var pct = Math.round((currentChecked / checkboxes.length) * 100);
-              ring.style.setProperty('--sp-pct', pct + '%');
-              val.textContent = currentChecked + ' / ' + checkboxes.length;
-              
-              if (currentChecked === checkboxes.length) {
-                 // Trigger full re-render to show Phase Complete actions
-                 showResult(plan);
-              }
-            }
-          });
-        });
-      }
-
-      var detailsNodes = bodyEl.querySelectorAll('.sp-tl-node');
-      for(var k=0; k<detailsNodes.length; k++) {
-        var header = detailsNodes[k].querySelector('.sp-tl-card-header');
-        header.addEventListener('click', function(e) {
-          if(e.target.tagName.toLowerCase() === 'input' || e.target.classList.contains('sp-checkbox-custom')) return;
-          var body = this.nextElementSibling;
-          if (body.style.display === 'none') {
-             body.style.display = 'block';
-          } else {
-             body.style.display = 'none';
-          }
-        });
-      }
-
-      var finalizeBtn = bodyEl.querySelector('.sp-finalize-btn');
-      if (finalizeBtn) {
-        finalizeBtn.addEventListener('click', function() {
-          if (_studyPlanInFlight) return;
-          _studyPlanInFlight = true;
-          finalizeBtn.innerHTML = '<div class="ai-spinner-inline"></div>';
-          _spPost({ action: 'finalize', planId: plan.id }, function(err) {
-            _studyPlanInFlight = false;
-            if (err) { finalizeBtn.innerHTML = 'Error finalizing'; return; }
-            plan.status = 'active';
-            showResult(plan);
-          });
-        });
-      }
-
-      var regenBtn = bodyEl.querySelector('.sp-regenerate-btn');
-      if (regenBtn) {
-        regenBtn.addEventListener('click', function() {
-          _spWizardData.examName = plan.examName;
-          _spWizardData.examDate = plan.examDate;
-          _spWizardData.dailyTimeMinutes = plan.dailyTimeMinutes;
-          _spWizardData.targetScore = plan.targetScore;
-          _spWizardData.currentLevel = plan.currentLevel;
-          _spWizardStep = 1;
-          renderWizardStep();
-        });
-      }
-
-      var nextBtn = bodyEl.querySelector('.sp-next-14-btn');
-      if (nextBtn) {
-        nextBtn.addEventListener('click', function() {
-          if (_studyPlanInFlight) return;
-          _studyPlanInFlight = true;
-          nextBtn.innerHTML = '<div class="ai-spinner-inline"></div> Generating...';
-          
-          var progress = typeof loadProgress === 'function' ? loadProgress() : {};
-          var statsPayload = {
-            totalAttempted: progress.totalAttempted || 0,
-            totalCorrect: progress.totalCorrect || 0,
-            categoryStats: progress.categoryStats || {}
-          };
-
-          _spPost({
-            action: 'generate',
-            previousPlanId: plan.id,
-            examName: plan.examName,
-            examDate: plan.examDate,
-            dailyTimeMinutes: plan.dailyTimeMinutes,
-            targetScore: plan.targetScore,
-            currentLevel: plan.currentLevel,
-            stats: statsPayload
-          }, function(err, data) {
-            _studyPlanInFlight = false;
-            if (err) { nextBtn.innerHTML = 'Error generating'; return; }
-            if (data && data.plan) showResult(data.plan);
-          });
-        });
-      }
-    }
 
     overlay.querySelector('.sp-close-btn').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) {
