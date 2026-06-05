@@ -206,7 +206,10 @@ var DuelCore = (function () {
 
     db.collection(DUEL_COLLECTION).doc(duelId).set(duelDoc)
       .then(function () { callback(null, duelId); })
-      .catch(function (e) { callback(e.message || 'Failed to create duel'); });
+      .catch(function (e) {
+        console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: CREATE\n[FIRESTORE OP] Error Message: ' + e.message);
+        callback('Room initialization failed. Please try again.');
+      });
   }
 
   /**
@@ -277,7 +280,9 @@ var DuelCore = (function () {
     }).then(function (data) {
       callback(null, data);
     }).catch(function (e) {
-      callback(e.message || 'Failed to join duel');
+      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: JOIN (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
+      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('full') === -1 && e.message.indexOf('Premium+') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
+      callback(msg || 'Connection problem detected. Unable to join duel.');
     });
   }
 
@@ -298,8 +303,8 @@ var DuelCore = (function () {
         callback(null);
       })
       .catch(function (e) {
-        console.warn('[DUEL TRACE] startDuel failed:', e);
-        callback(e.message);
+        console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + FirebaseApp.getUserId() + '\n[FIRESTORE OP] Requested Operation: START_DUEL (Update)\n[FIRESTORE OP] Error Message: ' + e.message);
+        callback('Unable to start duel. Please try again.');
       });
   }
 
@@ -582,7 +587,7 @@ var DuelCore = (function () {
     }).then(function (updated) {
       if (updated) _checkDuelCompletion(duelId);
     }).catch(function (e) {
-      console.warn('[DuelCore] Leave duel transaction failed:', e);
+      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: LEAVE_DUEL (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
     });
   }
 
@@ -592,6 +597,9 @@ var DuelCore = (function () {
     return db.collection(DUEL_COLLECTION).doc(duelId).update({
       status: 'cancelled',
       cancelledAt: _serverTimestamp()
+    }).catch(function (e) {
+      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + FirebaseApp.getUserId() + '\n[FIRESTORE OP] Requested Operation: DELETE_DUEL (Update)\n[FIRESTORE OP] Error Message: ' + e.message);
+      throw e;
     });
   }
 

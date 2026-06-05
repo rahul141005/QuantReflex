@@ -157,7 +157,7 @@ service cloud.firestore {
     //     any → deleted    (soft delete)
     function validDuelStatusTransition(fromStatus, toStatus) {
       // Block any transition FROM a terminal state — once finished, it's final
-      let isFromTerminal = fromStatus in ['completed', 'expired', 'abandoned', 'deleted', 'rejected'];
+      let isFromTerminal = fromStatus in ['completed', 'expired', 'abandoned', 'deleted', 'rejected', 'cancelled'];
       return !isFromTerminal && (
         (fromStatus == 'waiting'                && toStatus == 'waiting_for_acceptance') ||
         (fromStatus == 'waiting_for_acceptance'  && toStatus == 'waiting_room') ||
@@ -167,9 +167,11 @@ service cloud.firestore {
         (fromStatus == 'active'                  && toStatus == 'completed') ||
         (fromStatus == 'waiting'  && toStatus == 'ready') ||
         (fromStatus == 'ready'    && toStatus == 'active') ||
+        (fromStatus == 'waiting'  && toStatus == 'active') ||
         (toStatus   == 'expired') ||
         (toStatus   == 'abandoned') ||
-        (toStatus   == 'deleted')
+        (toStatus   == 'deleted') ||
+        (toStatus   == 'cancelled')
       );
     }
 
