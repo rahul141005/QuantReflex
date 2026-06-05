@@ -537,34 +537,115 @@ var DuelUI = (function () {
       topicPills += '<span class="duel-config-pill" style="font-size:.65rem;">' + _fmtCat(topics[t]) + '</span>';
     }
 
+    /* Compute Question Breakdown & Insights */
+    var breakdownHTML = '<div class="duel-breakdown-list" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">' +
+      '<h3 style="text-align:center; margin-bottom:1rem; font-size:1.1rem;">Question Breakdown</h3>';
+    
+    var questions = duelData.questions || [];
+    var myAnswers = myP && myP.answers ? myP.answers : [];
+    var opAnswers = opP && opP.answers ? opP.answers : [];
+    
+    var fastestUid = null;
+    var mostAccUid = null;
+    if (myAttempted > 0 && opAttempted > 0) {
+      if (myAccuracy > opAccuracy) mostAccUid = uid;
+      else if (opAccuracy > myAccuracy) mostAccUid = opUid;
+      
+      var myTotal = myP.totalTime || 0;
+      var opTotal = opP.totalTime || 0;
+      if (myTotal > 0 && opTotal > 0) {
+        if (myTotal < opTotal) fastestUid = uid;
+        else if (opTotal < myTotal) fastestUid = opUid;
+      }
+    }
+    
+    for (var i = 0; i < questions.length; i++) {
+      var qText = questions[i].text;
+      var myA = myAnswers.find(function(a) { return a.questionIndex === i; });
+      var opA = opAnswers.find(function(a) { return a.questionIndex === i; });
+      
+      var myMark = myA ? (myA.correct ? '✅' : '❌') : '➖';
+      var opMark = opA ? (opA.correct ? '✅' : '❌') : '➖';
+      
+      breakdownHTML += '<div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:1rem; margin-bottom:0.5rem; text-align:left;">' +
+        '<p style="font-size:0.9rem; margin-bottom:0.8rem; color:#e2e8f0; line-height:1.4;"><strong>Q' + (i+1) + ':</strong> ' + qText + '</p>' +
+        '<div style="display:flex; justify-content:space-between; font-size:0.85rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;">' +
+          '<div><span style="opacity:0.7">You:</span> <span style="margin-left:0.3rem;">' + myMark + '</span></div>' +
+          '<div><span style="opacity:0.7">Opponent:</span> <span style="margin-left:0.3rem;">' + opMark + '</span></div>' +
+        '</div>' +
+      '</div>';
+    }
+    breakdownHTML += '</div>';
+
+    var insightsHTML = '<div class="duel-insights" style="margin-top:2rem;">' +
+      '<h3 style="text-align:center; margin-bottom:1rem; font-size:1.1rem;">Performance Insights</h3>' +
+      '<div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">';
+    
+    if (fastestUid) {
+      var fName = fastestUid === uid ? 'You' : opName;
+      insightsHTML += '<div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; text-align:center;">' +
+        '<div style="font-size:1.5rem; margin-bottom:0.5rem;">⚡</div>' +
+        '<div style="font-size:0.8rem; opacity:0.7; text-transform:uppercase;">Fastest Solver</div>' +
+        '<div style="font-weight:700; margin-top:0.3rem;">' + fName + '</div>' +
+      '</div>';
+    }
+    if (mostAccUid) {
+      var mName = mostAccUid === uid ? 'You' : opName;
+      insightsHTML += '<div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; text-align:center;">' +
+        '<div style="font-size:1.5rem; margin-bottom:0.5rem;">🎯</div>' +
+        '<div style="font-size:0.8rem; opacity:0.7; text-transform:uppercase;">Most Accurate</div>' +
+        '<div style="font-weight:700; margin-top:0.3rem;">' + mName + '</div>' +
+      '</div>';
+    }
+    if (!fastestUid && !mostAccUid) {
+      insightsHTML += '<div style="grid-column: 1 / -1; text-align:center; opacity:0.5; font-size:0.9rem;">Perfectly tied in speed and accuracy!</div>';
+    }
+    insightsHTML += '</div></div>';
+
     if (isPartial && !isCompleted) {
-      /* Waiting Result Screen */
+      /* Waiting Result Screen Redesign */
       container.innerHTML =
-        '<div class="duel-results-card-v2 duel-result-waiting" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">' +
-          '<div class="duel-result-header" style="border-bottom: 1px solid #334155; padding-bottom: 1rem;">' +
-            '<h2 class="duel-result-title" style="color: #f8fafc; font-size: 1.5rem;">Waiting For Opponent</h2>' +
+        '<div class="duel-results-card-v2 duel-result-waiting" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); max-width:600px; margin:0 auto; padding:2rem; border-radius:16px; border:1px solid rgba(255,255,255,0.05); text-align:center;">' +
+          '<div class="duel-result-header" style="margin-bottom: 2rem;">' +
+            '<div style="font-size:3rem; margin-bottom:1rem; animation: pulse 2s infinite;">🏆</div>' +
+            '<h2 style="color: #f8fafc; font-size: 2rem; margin-bottom:0.5rem; font-weight:800;">Duel Submitted</h2>' +
+            '<p style="color:#94a3b8; font-size: 1.1rem;">Your performance has been saved.</p>' +
           '</div>' +
-          '<div style="padding: 2rem 1rem; text-align: center;">' +
-            '<div class="duel-waiting-indicator" style="margin-bottom: 1rem;"><span class="dot" style="background:#60a5fa;"></span><span class="dot" style="background:#60a5fa;"></span><span class="dot" style="background:#60a5fa;"></span></div>' +
-            '<p style="color:#e2e8f0; font-size: 1.1rem; font-weight: 500; margin-bottom: 0.5rem;">Your duel has been submitted.</p>' +
-            '<p style="color:#94a3b8; margin-bottom: 2rem;">Waiting for the other player to finish...</p>' +
-            '<div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; display: flex; justify-content: space-around; margin-bottom: 2rem;">' +
-              '<div>' +
+          
+          '<div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">' +
+            '<h3 style="color:#e2e8f0; font-size: 1rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:1.5rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">Your Performance</h3>' +
+            '<div style="display: flex; justify-content: space-around; flex-wrap:wrap; gap:1rem;">' +
+              '<div style="min-width:100px;">' +
                 '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myScore + '</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem;">Score</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Score</p>' +
               '</div>' +
-              '<div>' +
-                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAttempted + '/' + totalQ + '</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem;">Attempted</p>' +
-              '</div>' +
-              '<div>' +
+              '<div style="min-width:100px;">' +
                 '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAccuracy + '%</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem;">Accuracy</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Accuracy</p>' +
+              '</div>' +
+              '<div style="min-width:100px;">' +
+                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAttempted + '/' + totalQ + '</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Solved</p>' +
+              '</div>' +
+              '<div style="min-width:100px;">' +
+                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myTotalTime + '</p>' +
+                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Time Taken</p>' +
               '</div>' +
             '</div>' +
-            '<div class="duel-result-actions" style="flex-direction: column; gap: 0.5rem;">' +
-              '<button class="btn-secondary" id="duelReturnToHome" style="width: 100%; background: transparent; border: 1px solid #334155; color: #94a3b8;">Return To Home</button>' +
+          '</div>' +
+
+          '<div style="margin-bottom: 2rem; display:flex; flex-direction:column; align-items:center;">' +
+            '<div class="duel-waiting-indicator" style="margin-bottom: 1rem; display:flex; gap:0.5rem;">' +
+              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px;"></span>' +
+              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px; animation-delay:0.2s"></span>' +
+              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px; animation-delay:0.4s"></span>' +
             '</div>' +
+            '<p style="color:#cbd5e1; font-weight: 500;">Waiting for opponent to finish...</p>' +
+            '<p style="color:#64748b; font-size:0.9rem; margin-top:0.5rem;">Estimated Wait: <span id="estWaitTime">calculating...</span></p>' +
+          '</div>' +
+          
+          '<div class="duel-result-actions">' +
+            '<button class="btn-secondary" id="duelReturnToHome" style="padding:1rem 2rem; font-size:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#cbd5e1; cursor:pointer;">Leave Duel</button>' +
           '</div>' +
         '</div>';
       
@@ -607,6 +688,9 @@ var DuelUI = (function () {
             _renderStatRow('Attempted', myAttempted + '/' + totalQ, opAttempted + '/' + totalQ, 0, 0) +
             _renderStatRow('Total Time', myTotalTime, opTotalTime, 0, 0) +
           '</div>' +
+          
+          insightsHTML +
+          breakdownHTML +
           
           /* Topic summary */
           (topicPills

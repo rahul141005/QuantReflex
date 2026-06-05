@@ -409,7 +409,7 @@ var DuelManager = (function () {
       _preloadedQuestions: mappedQuestions,
       onFinish: function(state) {
         if (state === 'duel_ended') {
-          console.log('[DUEL] DrillEngine finished questions.');
+          console.log('[DUEL_DEBUG] DrillEngine finished questions. Entering Result Processing state.');
           _showResults(_activeDuelData, true);
         }
       },
@@ -477,7 +477,13 @@ var DuelManager = (function () {
 
     var container = _getEl('duelResults');
     if (container) {
+      if (isPartial && data.status !== 'completed') {
+        console.log('[DUEL_DEBUG] Waiting State Triggered. Local player finished, waiting for opponent.');
+      } else {
+        console.log('[DUEL_DEBUG] Results Generated. Result Navigation Triggered.');
+      }
       DuelUI.renderResults(container, data, isPartial && data.status !== 'completed');
+      container.style.display = 'block';
     }
 
     if (data.status === 'completed') {

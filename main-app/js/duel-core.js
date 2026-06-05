@@ -281,6 +281,7 @@ var DuelCore = (function () {
         return data;
       });
     }).then(function (data) {
+      console.log('[DUEL_DEBUG] Player Joined room:', duelId, 'as UID:', uid);
       callback(null, data);
     }).catch(function (e) {
       console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: JOIN (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
@@ -313,7 +314,7 @@ var DuelCore = (function () {
       });
     })
       .then(function () {
-        console.log('[DUEL TRACE] startDuel successful');
+        console.log('[DUEL_DEBUG] Countdown Started for room:', duelId);
         callback(null);
       })
       .catch(function (e) {
@@ -383,10 +384,12 @@ var DuelCore = (function () {
           participants: participants
         });
 
-        return { finished: p.status === 'finished' };
+        return { finished: p.status === 'finished', answersLen: answers.length, score: score };
       });
     }).then(function (result) {
+      console.log('[DUEL_DEBUG] Question Submitted for QIndex:', questionIndex, '| Total answers:', result ? result.answersLen : 0, '| Correct:', correct);
       if (result && result.finished) {
+        console.log('[DUEL_DEBUG] Player Completion Saved for UID:', uid, '| Final Score:', result.score);
         _checkDuelCompletion(duelId);
       }
       if (callback) callback(null);
@@ -442,9 +445,12 @@ var DuelCore = (function () {
           result: result,
           completedAt: _serverTimestamp()
         });
-        return true;
+        return { winner: winner, result: result };
       });
-    }).then(function () {
+    }).then(function (computed) {
+      if (computed) {
+        console.log('[DUEL_DEBUG] Opponent Completion Detected. Both players finished. Status -> completed. Winner:', computed.winner);
+      }
       _completionLocks[duelId] = false;
     }).catch(function (e) {
       _completionLocks[duelId] = false;
@@ -606,15 +612,17 @@ var DuelCore = (function () {
     });
   }
 
-  function deleteDuel(duelId) {
+  function deleteDuelRoom(duelId, callback) {
     var db = FirebaseApp.getDb();
-    if (!db || !duelId) return Promise.resolve();
-    return db.collection(DUEL_COLLECTION).doc(duelId).update({
-      status: 'cancelled',
-      cancelledAt: _serverTimestamp()
-    }).catch(function (e) {
-      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + FirebaseApp.getUserId() + '\n[FIRESTORE OP] Requested Operation: DELETE_DUEL (Update)\n[FIRESTORE OP] Error Message: ' + e.message);
-      throw e;
+    if (!db || !duelId) { if (callback) callback('Not ready'); return; }
+    
+    console.log('[DUEL_DEBUG] Admin executing physical document deletion for room:', duelId);
+    db.collection(DUEL_COLLECTION).doc(duelId).delete().then(function() {
+      console.log('[DUEL_DEBUG] Room Archived/Deleted successfully:', duelId);
+      if (callback) callback(null);
+    }).catch(function(e) {
+      console.error('[FIRESTORE OP] DELETE_DUEL error: ' + e.message);
+      if (callback) callback(e.message);
     });
   }
 
@@ -668,7 +676,7 @@ var DuelCore = (function () {
 
     /* Lifecycle */
     leaveDuel: leaveDuel,
-    deleteDuel: deleteDuel,
+    deleteDuelRoom: deleteDuelRoom,
     getDuelState: getDuelState,
     findActiveDuel: findActiveDuel,
 
