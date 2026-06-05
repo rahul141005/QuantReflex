@@ -676,10 +676,8 @@ var DuelUI = (function () {
     renderSetup: renderSetup,
     renderJoinScreen: renderJoinScreen,
     renderWaitingRoom: renderWaitingRoom,
-    renderActiveScreen: renderActiveScreen,
     renderResults: renderResults,
     updateScoreboard: updateScoreboard,
-    destroyDuelSession: destroyDuelSession,
     clearTimers: clearTimers
   };
 })();

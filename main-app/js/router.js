@@ -105,13 +105,11 @@ var Router = (function () {
     }
 
     if (viewInitCallbacks[viewId]) {
-
       viewInitCallbacks[viewId](params);
       delete viewInitCallbacks[viewId];
     }
 
     if (afterShowCallbacks[viewId]) {
-
       for (var cb = 0; cb < afterShowCallbacks[viewId].length; cb++) {
         afterShowCallbacks[viewId][cb](params);
       }
