@@ -218,6 +218,7 @@ var FirestoreSync = (function () {
    */
   function loadFromFirestore(callback) {
     var currentUserId = FirebaseApp.getUserId();
+    _flushPendingSystemNotifications();
 
     /* If a different user is now authenticated, force a full reset so we
        never serve stale data from the previous user's cache. */
@@ -1183,95 +1184,18 @@ var FirestoreSync = (function () {
         if (callback) callback(err);
       });
     },
-  var _latestReleaseInfo = null;
-  var _firestoreNotifications = [];
-  var _onNotificationsCallback = null;
-
-  function _isVersionGreater(v1, v2) {
-    if (!v1 || !v2) return false;
-    var p1 = v1.replace(/[^0-9.]/g, '').split('.');
-    var p2 = v2.replace(/[^0-9.]/g, '').split('.');
-    for (var i = 0; i < Math.max(p1.length, p2.length); i++) {
-      var n1 = parseInt(p1[i] || 0, 10);
-      var n2 = parseInt(p2[i] || 0, 10);
-      if (n1 > n2) return true;
-      if (n1 < n2) return false;
-    }
-    return false;
-  }
-
-  function _emitNotifications() {
-    if (!_onNotificationsCallback) return;
-    var combined = _firestoreNotifications.slice();
-    var unreadCount = 0;
-    
-    var appVersion = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : (window.APP_VERSION || '2.0.0');
-    
-    if (_latestReleaseInfo && _isVersionGreater(_latestReleaseInfo.version, appVersion)) {
-       var isRead = false;
-       try {
-          var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : (_memoryCache ? _memoryCache.settings : {});
-          if (settings && settings.lastReadRelease === _latestReleaseInfo.version) {
-             isRead = true;
-          }
-       } catch(e) {}
-       
-       var virtualNotif = {
-          id: 'virtual_update_' + _latestReleaseInfo.version,
-          title: _latestReleaseInfo.title || ('🚀 Update Available: ' + _latestReleaseInfo.version),
-          body: _latestReleaseInfo.description || 'Update from Settings to access the latest features.',
-          type: 'system_update',
-          isRead: isRead,
-          timestamp: _latestReleaseInfo.timestamp || new Date().toISOString(),
-          isVirtual: true
-       };
-       combined.unshift(virtualNotif);
-    }
-    
-    combined.forEach(function(n) {
-       if (!n.isRead) unreadCount++;
-    });
-    
-    combined.sort(function(a, b) {
-       return new Date(b.timestamp) - new Date(a.timestamp);
-    });
-    
-    _onNotificationsCallback({ notifications: combined, unreadCount: unreadCount });
-  }
-
-    listenForRelease: function () {
-      if (!FirebaseApp.isReady()) return null;
-      var db = FirebaseApp.getDb();
-      return db.collection('system').doc('release').onSnapshot(function(doc) {
-        if (doc.exists) {
-          _latestReleaseInfo = doc.data();
-        } else {
-          _latestReleaseInfo = null;
-        }
-        _emitNotifications();
-      }, function(err) {
-        console.warn('Release snapshot error', err);
-      });
-    },
-
-    getLatestRelease: function () {
-      return _latestReleaseInfo;
-    },
-
     listenForNotifications: function (onData) {
-      _onNotificationsCallback = onData;
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return null;
       var db = FirebaseApp.getDb();
-      
-      this.listenForRelease();
-
       return db.collection('users').doc(FirebaseApp.getUserId()).collection('notifications')
         .orderBy('timestamp', 'desc')
         .limit(50)
         .onSnapshot(function(snapshot) {
           var notifications = [];
+          var unreadCount = 0;
           snapshot.forEach(function(doc) {
             var d = doc.data();
+            if (!d.isRead) unreadCount++;
             notifications.push({
               id: doc.id,
               title: d.title || '',
@@ -1281,8 +1205,7 @@ var FirestoreSync = (function () {
               timestamp: d.timestamp ? (d.timestamp.toDate ? d.timestamp.toDate().toISOString() : d.timestamp) : null
             });
           });
-          _firestoreNotifications = notifications;
-          _emitNotifications();
+          if (onData) onData({ notifications: notifications, unreadCount: unreadCount });
         }, function(err) {
           console.warn('Notifications snapshot error', err);
         });
@@ -1304,27 +1227,6 @@ var FirestoreSync = (function () {
       });
     },
     markNotificationRead: function (id, callback) {
-      if (id === 'all') {
-         if (_latestReleaseInfo) {
-            var version = _latestReleaseInfo.version;
-            var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : (_memoryCache ? _memoryCache.settings : {});
-            settings.lastReadRelease = version;
-            if (typeof AppState !== 'undefined') AppState.setSettings(settings);
-            if (_memoryCache) _memoryCache.settings = settings;
-            queueUpdate('settings', settings);
-         }
-         // Continue to server call for firestore notifications
-      } else if (id.indexOf('virtual_update_') === 0) {
-         var version = id.replace('virtual_update_', '');
-         var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : (_memoryCache ? _memoryCache.settings : {});
-         settings.lastReadRelease = version;
-         if (typeof AppState !== 'undefined') AppState.setSettings(settings);
-         if (_memoryCache) _memoryCache.settings = settings;
-         queueUpdate('settings', settings);
-         _emitNotifications();
-         if (callback) callback(null);
-         return;
-      }
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
       Auth.getCurrentUser().getIdToken().then(function (token) {
         return fetch('/api/notifications?action=markRead', {
@@ -1346,6 +1248,36 @@ var FirestoreSync = (function () {
       /* Legacy support fallback - delegates to claimCoaching */
       this.claimCoaching(coachingId);
     },
-    setPendingCoachingId: setPendingCoachingId
+    setPendingCoachingId: setPendingCoachingId,
+    createSystemNotification: function (notif) {
+      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) {
+        _pendingSystemNotifications.push(notif);
+        return;
+      }
+      var db = FirebaseApp.getDb();
+      var uid = FirebaseApp.getUserId();
+      if (!notif.id) {
+        console.warn('createSystemNotification requires an explicit id for deduplication');
+        return;
+      }
+      var docRef = db.collection('users').doc(uid).collection('notifications').doc(notif.id);
+      
+      docRef.get().then(function(doc) {
+        if (!doc.exists) {
+          docRef.set({
+            title: notif.title,
+            body: notif.body,
+            type: notif.type || 'system',
+            isRead: false,
+            timestamp: (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) 
+              ? firebase.firestore.FieldValue.serverTimestamp() 
+              : new Date()
+          }).catch(function(e) { console.warn('Failed to create system notification', e); });
+        }
+      }).catch(function(err) {
+        console.warn('Error checking system notification', err);
+      });
+    },
+    flushPendingSystemNotifications: _flushPendingSystemNotifications
   };
 })();

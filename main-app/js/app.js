@@ -185,11 +185,28 @@ try {
 
 function _showUpdateToast() {
   if (document.getElementById('_swUpdateToast')) return;
+  var _updateKey = '';
   try {
-    var _updateKey = 'updateToastShown_' + (document.lastModified || 'v1');
+    var rawKey = document.lastModified || 'v1';
+    _updateKey = 'app_update_' + rawKey.replace(/[^a-zA-Z0-9]/g, '_');
+  } catch (_) {}
+
+  // Inbox Notification generation (idempotent via Firestore get() check)
+  if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.createSystemNotification === 'function' && _updateKey) {
+    FirestoreSync.createSystemNotification({
+      id: _updateKey,
+      title: '🚀 App Update Available',
+      body: 'A new version of QuantReflex is available. Update from Settings to access the latest features, improvements and fixes.',
+      type: 'app_update'
+    });
+  }
+
+  // Toast Notification generation (deduplicated via localStorage)
+  try {
     if (localStorage.getItem(_updateKey) === '1') return;
     localStorage.setItem(_updateKey, '1');
   } catch (_) {}
+
   var toast = document.createElement('div');
   toast.id = '_swUpdateToast';
   toast.setAttribute('role', 'status');

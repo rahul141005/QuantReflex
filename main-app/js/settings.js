@@ -429,44 +429,6 @@ function initSettingsView() {
     });
   }
 
-  /* Update Settings Card */
-  var settingsUpdateSection = document.getElementById('settingsUpdateSection');
-  if (settingsUpdateSection) {
-    var latestRelease = typeof FirestoreSync !== 'undefined' && FirestoreSync.getLatestRelease ? FirestoreSync.getLatestRelease() : null;
-    var appVersion = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : (window.APP_VERSION || '2.0.0');
-    
-    function isVerGreater(v1, v2) {
-      if (!v1 || !v2) return false;
-      var p1 = v1.replace(/[^0-9.]/g, '').split('.');
-      var p2 = v2.replace(/[^0-9.]/g, '').split('.');
-      for (var i = 0; i < Math.max(p1.length, p2.length); i++) {
-        var n1 = parseInt(p1[i] || 0, 10);
-        var n2 = parseInt(p2[i] || 0, 10);
-        if (n1 > n2) return true;
-        if (n1 < n2) return false;
-      }
-      return false;
-    }
-    
-    if (latestRelease && isVerGreater(latestRelease.version, appVersion)) {
-       settingsUpdateSection.style.display = 'block';
-       var titleEl = document.getElementById('settingsUpdateTitle');
-       var descEl = document.getElementById('settingsUpdateDesc');
-       if (titleEl) titleEl.textContent = latestRelease.title || ('🚀 Version ' + latestRelease.version);
-       if (descEl) descEl.textContent = latestRelease.description || 'Update from Settings to access the latest features.';
-       
-       var performUpdateBtn = document.getElementById('settingsPerformUpdateBtn');
-       if (performUpdateBtn) {
-          rebind(performUpdateBtn, 'click', function() {
-             var btn = document.getElementById('updateAppBtn');
-             if (btn) btn.click();
-          });
-       }
-    } else {
-       settingsUpdateSection.style.display = 'none';
-    }
-  }
-
   /* Apply reduced motion on load */
   document.body.classList.toggle('reduced-motion', !!settings.reducedMotion);
   updateAboutUserStatus();
