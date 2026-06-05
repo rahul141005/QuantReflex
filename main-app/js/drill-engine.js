@@ -42,6 +42,11 @@ function createDrillEngine(container, opts) {
   var onFinish = opts.onFinish || null;
   var preloadedQuestions = opts._preloadedQuestions || null;
   var adaptiveMode = opts.adaptive === true;
+  
+  /* ---- Duel Context Extensions ---- */
+  var isDuel = opts.isDuel === true;
+  var duelHeaderHTML = opts.duelHeaderHTML || '';
+  var onDuelAnswerSubmit = opts.onDuelAnswerSubmit || null;
 
   /* ---- Adaptive controller state ---- */
   var _adaptiveHistory = [];   /* [{correct, timeSec}] last N answers */
@@ -161,6 +166,7 @@ function createDrillEngine(container, opts) {
     var progressPct = displayCount > 0 ? Math.min(100, Math.round(((current) / displayCount) * 100)) : 0;
     var adaptivePill = adaptiveMode ? _adaptiveDiffLabel(_adaptiveDifficulty) : '';
     container.innerHTML =
+      (isDuel ? duelHeaderHTML : '') +
       '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
       '<div class="card center-content fade-in question-card-transition">' +
         '<div class="drill-question-scroll">' +
@@ -299,7 +305,7 @@ function createDrillEngine(container, opts) {
     }
 
     /* Track for adaptive controller */
-    if (adaptiveMode) {
+    if (adaptiveMode && !isDuel) {
       _adaptiveHistory.push({ correct: correct, timeSec: elapsedRounded });
     }
 
@@ -332,7 +338,13 @@ function createDrillEngine(container, opts) {
     }
 
     /* Record answer with response time and question data for mistake tracking */
-    recordAnswer(correct, q.category, q, elapsedRounded);
+    if (!isDuel) {
+      recordAnswer(correct, q.category, q, elapsedRounded);
+    } else if (typeof onDuelAnswerSubmit === 'function') {
+      onDuelAnswerSubmit(correct, expected, elapsedRounded, q, function advance() {
+        /* This allows the duel manager to control when to advance to the next question */
+      });
+    }
 
     /* Provide optional haptic/sound feedback */
     if (correct) {
@@ -431,6 +443,23 @@ function createDrillEngine(container, opts) {
       submitBtn.classList.add('next-btn-pulse');
       setTimeout(function () { submitBtn.classList.remove('next-btn-pulse'); }, 600);
     }, 350);
+
+    if (isDuel) {
+      // In a duel, auto-advance is handled or skipped. Let's still pause 1.5s then nextQuestion,
+      // but only if the user didn't hit next. Wait, in standard drill it auto advances.
+      // We will let it auto advance locally so the user proceeds to their next question.
+      _nextReady = false;
+      setTimeout(nextQuestion, 1500);
+    } else {
+      /* Auto-advance logic for quick reflex modes */
+      if (mode === 'Reflex Drill' && correct) {
+        _nextReady = false;
+        setTimeout(nextQuestion, 600);
+      } else {
+        /* Wait for manual "Next" button click for standard modes */
+      }
+    }
+    
     submitBtn.onclick = function () {
       if (!_nextReady) return; /* guard against carry-over taps */
       nextQuestion();
@@ -535,15 +564,22 @@ function createDrillEngine(container, opts) {
     if (typeof triggerHaptic === 'function') triggerHaptic([50, 50, 100]);
 
     /* Record session type */
-    if (timeLimit) {
-      recordTimedTestSession();
-    } else {
-      recordDrillSession();
+    if (!isDuel) {
+      if (timeLimit) {
+        recordTimedTestSession();
+      } else {
+        recordDrillSession();
+      }
     }
 
     /* End Firestore write batching — flush all queued updates */
-    if (typeof FirestoreSync !== 'undefined') {
+    if (typeof FirestoreSync !== 'undefined' && !isDuel) {
       FirestoreSync.endDrillBatch();
+    }
+    
+    if (isDuel) {
+      if (onFinish) onFinish('duel_ended');
+      return; /* Duel UI takes over from here */
     }
 
     var totalTime = ((performance.now() - overallStart) / 1000).toFixed(1);

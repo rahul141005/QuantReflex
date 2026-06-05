@@ -732,7 +732,9 @@ async function generateStudyPlan(params) {
       var examNameMatch = data.examName === examName;
       var dailyTimeMatch = data.dailyTimeMinutes === dailyTimeMinutes;
       if (ageMs < STUDY_PLAN_TTL_DAYS * 24 * 60 * 60 * 1000 && examNameMatch && dailyTimeMatch) {
-        return { strategy: data.strategy, weeklyPlan: data.weeklyPlan, dailyStructure: data.dailyStructure, tip: data.tip };
+        if (data.timetable) {
+          return { strategy: data.strategy, timetable: data.timetable, tip: data.tip };
+        }
       }
     }
   } catch (cacheErr) {
@@ -745,19 +747,15 @@ async function generateStudyPlan(params) {
   var weakStr = weakTopics.length > 0 ? weakTopics.join(', ') : 'None identified yet';
   var timeLabel = daysRemaining <= 7 ? 'critical — less than a week' : daysRemaining <= 30 ? 'short — under a month' : daysRemaining <= 60 ? 'moderate — 1-2 months' : 'comfortable — more than 2 months';
 
-  var prompt = 'You are an expert quantitative aptitude coach for competitive exams like CAT, GMAT, CET, and placements.\n\nUser details:\n- Exam: ' + examName + '\n- Days remaining: ' + daysRemaining + ' (' + timeLabel + ')\n- Daily time available: ' + dailyTimeMinutes + ' minutes\n- Weak topics: ' + weakStr + '\n- Current accuracy: ' + accuracy + '%\n\nCreate a SMART and REALISTIC quant study plan.\n\nRequirements:\n- Focus ONLY on quant preparation\n- Prioritize weak areas specifically\n- Keep plan achievable within the given daily time\n- Break into weekly phases proportional to days remaining\n- Use specific topic names (not vague advice)\n- Keep it practical, not theoretical\n- For short timelines (< 14 days), focus on high-impact topics only\n- Reference actual numbers where helpful\n\nReturn ONLY a valid JSON object with exactly these fields:\n{\n  "strategy": "Overall 2-3 sentence approach, referencing the timeline and accuracy",\n  "weeklyPlan": ["Week 1: ...", "Week 2: ...", ...],\n  "dailyStructure": "How to split ' + dailyTimeMinutes + ' minutes per day effectively",\n  "tip": "One powerful, specific improvement tip for this exam"\n}\n\nThe weeklyPlan array must have at least 1 entry and at most 8 entries.\nReturn ONLY the JSON object, no markdown, no explanation, no code fences.';
+  var prompt = 'You are an expert aptitude coach for competitive exams like CAT, GMAT, CET, and placements.\n\nUser details:\n- Target Exam: ' + examName + '\n- Days remaining: ' + daysRemaining + ' (' + timeLabel + ')\n- Daily time available: ' + dailyTimeMinutes + ' minutes\n- Weak topics: ' + weakStr + '\n- Current accuracy: ' + accuracy + '%\n\nCreate a SMART and REALISTIC full exam preparation plan.\n\nRequirements:\n- Generate an actual day-by-day timetable\n- Do NOT generate quant-only plans. Generate full exam preparation plans including Quant, Logical Reasoning, Verbal Ability etc as relevant to the exam.\n- Allocate time realistically per day (totaling ' + dailyTimeMinutes + ' minutes)\n- Focus on weak areas\n- Use specific topic names (not vague advice)\n- Provide exactly ' + Math.min(daysRemaining, 14) + ' days of planning\n\nReturn ONLY a valid JSON object with exactly these fields:\n{\n  "strategy": "Overall 2-3 sentence approach",\n  "timetable": [\n    {\n      "day": 1,\n      "subject": "Quantitative Aptitude",\n      "topic": "Profit & Loss",\n      "subTopic": "Discounts",\n      "estimatedMinutes": 60\n    }\n  ],\n  "tip": "One powerful improvement tip"\n}\n\nReturn ONLY the JSON object, no markdown, no explanation, no code fences.';
 
   var result = await _callAndParse(client, prompt, function (parsed) {
     if (!parsed || typeof parsed.strategy !== 'string') return null;
-    if (!Array.isArray(parsed.weeklyPlan) || parsed.weeklyPlan.length < 1 || parsed.weeklyPlan.length > 8) return null;
-    if (typeof parsed.dailyStructure !== 'string') return null;
+    if (!Array.isArray(parsed.timetable) || parsed.timetable.length < 1) return null;
     if (typeof parsed.tip !== 'string') return null;
-    var validWeeks = parsed.weeklyPlan.filter(function (s) { return typeof s === 'string'; });
-    if (validWeeks.length < 1) return null;
     return {
       strategy: parsed.strategy,
-      weeklyPlan: validWeeks,
-      dailyStructure: parsed.dailyStructure,
+      timetable: parsed.timetable,
       tip: parsed.tip
     };
   });
@@ -771,8 +769,7 @@ async function generateStudyPlan(params) {
       examDate: examDate,
       dailyTimeMinutes: dailyTimeMinutes,
       strategy: result.strategy,
-      weeklyPlan: result.weeklyPlan,
-      dailyStructure: result.dailyStructure,
+      timetable: result.timetable,
       tip: result.tip,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });

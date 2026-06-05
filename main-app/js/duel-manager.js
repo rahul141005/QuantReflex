@@ -344,13 +344,70 @@ var DuelManager = (function () {
     var container = _getEl('duelActive');
     if (!container) return;
 
-    DuelUI.renderActiveScreen(container, data, function onAnswer(qIndex, answer, correct, timeMs) {
-      DuelCore.submitAnswer(data.id, qIndex, answer, correct, timeMs, function (err) {
-        if (err) console.warn('[DuelManager] submitAnswer error:', err);
-      });
+    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
+    var myName = data.participants && data.participants[uid] ? (data.participants[uid].name || 'You') : 'You';
+    var opUid = Object.keys(data.participants).find(function (u) { return u !== uid; });
+    var opName = opUid && data.participants[opUid] ? (data.participants[opUid].name || 'Opponent') : 'Opponent';
+
+    var headerHTML =
+      '<div class="duel-scoreboard-wrapper" style="width:100%; max-width:800px; margin:0 auto; padding:0 1rem;">' +
+        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:center; align-items:center; gap:2rem; margin-bottom:1rem; background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">' +
+          '<div class="duel-sb-player"><div class="duel-sb-name" style="font-size:0.9rem;opacity:0.8;">' + myName + '</div><div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[uid].score || 0) + '</div></div>' +
+          '<div class="duel-sb-vs" style="font-size:1rem; opacity:0.5; font-weight:600;">VS</div>' +
+          '<div class="duel-sb-player"><div class="duel-sb-name" style="font-size:0.9rem;opacity:0.8;">' + opName + '</div><div class="duel-sb-score" id="duelOpScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[opUid].score || 0) + '</div></div>' +
+        '</div>' +
+      '</div>';
+
+    /* Map questions for DrillEngine */
+    var mappedQuestions = (data.questions || []).map(function(q) {
+      return {
+        question: q.text,
+        answer: q.answer,
+        category: 'duel',
+        subtype: 'duel'
+      };
     });
 
-    console.log('[DUEL] Question Render Success');
+    /* We use createDrillEngine from drill-engine.js natively */
+    var engine = createDrillEngine(container, {
+      count: mappedQuestions.length,
+      timeLimitSec: data.config.timerTotal || null,
+      perQuestionSec: data.config.timerPerQuestion || null,
+      mode: 'Duel',
+      isDuel: true,
+      duelHeaderHTML: headerHTML,
+      _preloadedQuestions: mappedQuestions,
+      onFinish: function(state) {
+        if (state === 'duel_ended') {
+          console.log('[DUEL] DrillEngine finished questions.');
+          DuelCore.getDuelState(data.id, function() {});
+        }
+      },
+      onDuelAnswerSubmit: function(correct, expected, timeMs, qObj, advanceCb) {
+        /* This is called by checkAnswer when the user taps Submit */
+        /* Update local my score optimistically */
+        var currentScore = parseInt(document.getElementById('duelMyScore').textContent || '0');
+        if (correct) {
+          document.getElementById('duelMyScore').textContent = currentScore + 1;
+        }
+
+        /* Determine index based on active data */
+        var myP = _activeDuelData && _activeDuelData.participants ? _activeDuelData.participants[uid] : data.participants[uid];
+        var qIndex = myP && myP.answers ? myP.answers.length : 0;
+
+        DuelCore.submitAnswer(data.id, qIndex, qObj.answer, correct, timeMs, function(err) {
+          if (err) console.warn('[DuelManager] submitAnswer error:', err);
+          /* The DrillEngine handles advancing locally */
+        });
+      }
+    });
+
+    engine.start();
+
+    /* Make engine globally accessible for cleanup */
+    window._activeDrillEngine = engine;
+
+    console.log('[DUEL] Question Render Success via DrillEngine');
 
     DuelEvents.emit('duel_started', { duelId: data.id });
   }
@@ -367,8 +424,11 @@ var DuelManager = (function () {
       return;
     }
 
-    /* Clean up active duel session */
-    DuelUI.destroyDuelSession();
+    /* Clean up active duel session via DrillEngine */
+    if (window._activeDrillEngine) {
+      window._activeDrillEngine.cleanup();
+      window._activeDrillEngine = null;
+    }
     _duelScreenRendered = false;
 
     _duelPhase = 'results';
@@ -420,11 +480,26 @@ var DuelManager = (function () {
           ? _activeDuelData.config.questionCount 
           : (_activeDuelData.questions ? _activeDuelData.questions.length : 0);
       }
-      
-      var solvedEl = _getEl('exitDuelSolvedCount');
-      var totalEl = _getEl('exitDuelTotalCount');
-      if (solvedEl) solvedEl.textContent = solvedCount;
-      if (totalEl) totalEl.textContent = totalCount;
+      /* Build Accuracy metrics */
+      var myScore = _activeDuelData && _activeDuelData.participants && _activeDuelData.participants[uid] ? (_activeDuelData.participants[uid].score || 0) : 0;
+      var accuracy = solvedCount > 0 ? Math.round((myScore / solvedCount) * 100) : 0;
+      var remainingCount = Math.max(0, totalCount - solvedCount);
+
+      modal.innerHTML = 
+        '<div class="modal-content premium-modal">' +
+          '<h3 style="font-size:1.5rem; margin-bottom:1rem;">Leave Duel?</h3>' +
+          '<div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; display:flex; justify-content:space-around; margin-bottom:1rem; text-align:center;">' +
+            '<div><div style="font-size:1.5rem; font-weight:700;">' + myScore + '</div><div style="font-size:0.8rem; color:#94a3b8;">Score</div></div>' +
+            '<div><div style="font-size:1.5rem; font-weight:700;">' + solvedCount + '</div><div style="font-size:0.8rem; color:#94a3b8;">Solved</div></div>' +
+            '<div><div style="font-size:1.5rem; font-weight:700;">' + remainingCount + '</div><div style="font-size:0.8rem; color:#94a3b8;">Remaining</div></div>' +
+            '<div><div style="font-size:1.5rem; font-weight:700; color:#4ade80;">' + accuracy + '%</div><div style="font-size:0.8rem; color:#94a3b8;">Accuracy</div></div>' +
+          '</div>' +
+          '<p style="color:#94a3b8; font-size:0.95rem; margin-bottom:1.5rem;">Leaving now will submit your current progress and end participation in this duel.</p>' +
+          '<div class="modal-actions" style="display:flex; flex-direction:column; gap:0.5rem;">' +
+            '<button class="btn btn-secondary" id="exitDuelCancel" style="width:100%;">Continue Duel</button>' +
+            '<button class="btn btn-primary" id="exitDuelConfirm" style="width:100%; background:var(--color-accent); color:black;">Confirm Exit</button>' +
+          '</div>' +
+        '</div>';
 
       modal.style.display = 'flex';
       document.body.classList.add('modal-open');
@@ -457,8 +532,11 @@ var DuelManager = (function () {
     if (!_currentDuelId) return;
     _exitedEarly = true;
 
-    /* Clean up active session */
-    DuelUI.destroyDuelSession();
+    /* Clean up active session via DrillEngine */
+    if (window._activeDrillEngine) {
+      window._activeDrillEngine.cleanup();
+      window._activeDrillEngine = null;
+    }
     _duelScreenRendered = false;
 
     /* Hide numpad */
@@ -480,8 +558,10 @@ var DuelManager = (function () {
    * Full exit — cleanup and return to practice view.
    */
   function exitDuel() {
-    DuelUI.clearTimers();
-    DuelUI.destroyDuelSession();
+    if (window._activeDrillEngine) {
+      window._activeDrillEngine.cleanup();
+      window._activeDrillEngine = null;
+    }
     DuelCore.stopListening();
 
     _currentDuelId = null;
@@ -520,6 +600,19 @@ var DuelManager = (function () {
       DuelCore.deleteDuel(id);
     }
     exitDuel();
+  }
+
+  /**
+   * Return to Home screen without destroying the duel (e.g. from waiting room)
+   */
+  function returnToHome() {
+    /* Hide all duel screens */
+    _hideAllDuelScreens();
+    /* Show bottom nav */
+    var nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = '';
+    /* Navigate back to home */
+    if (typeof Router !== 'undefined') Router.showView('home');
   }
 
   /* ================================================================
@@ -624,6 +717,7 @@ var DuelManager = (function () {
     enterWaitingRoom: enterWaitingRoom,
     exitDuel: exitDuel,
     leaveDuel: leaveDuel,
+    returnToHome: returnToHome,
     isInDuel: isInDuel,
     getCurrentDuelId: getCurrentDuelId,
     checkActiveDuel: checkActiveDuel,

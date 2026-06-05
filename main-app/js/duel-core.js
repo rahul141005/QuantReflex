@@ -257,7 +257,7 @@ var DuelCore = (function () {
         var pCount = data.participants ? Object.keys(data.participants).length : 0;
         if (pCount >= 2) {
           console.warn('[DUEL TRACE] joinDuel rejected: Room full');
-          throw new Error('Duel room is full');
+          throw new Error('This duel room is already full.');
         }
 
         console.log('[DUEL TRACE] joinDuel transaction updating doc with new player');
@@ -284,7 +284,7 @@ var DuelCore = (function () {
       callback(null, data);
     }).catch(function (e) {
       console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: JOIN (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
-      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('full') === -1 && e.message.indexOf('Premium+') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
+      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('participants') === -1 && e.message.indexOf('Premium+') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
       callback(msg || 'Connection problem detected. Unable to join duel.');
     });
   }
@@ -295,19 +295,31 @@ var DuelCore = (function () {
   function startDuel(duelId, callback) {
     console.log('[DUEL TRACE] startDuel initiated for room:', duelId);
     var db = FirebaseApp.getDb();
-    if (!db) { callback('Not ready'); return; }
+    var uid = FirebaseApp.getUserId();
+    if (!db || !uid) { callback('Not ready'); return; }
 
-    db.collection(DUEL_COLLECTION).doc(duelId).update({
-      status: 'active',
-      duelStartedAt: _serverTimestamp()
+    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
+    db.runTransaction(function (transaction) {
+      return transaction.get(docRef).then(function (snap) {
+        if (!snap.exists) { throw new Error('Room not found'); }
+        var data = snap.data();
+        if (data.createdBy !== uid) {
+          throw new Error('Only the creator can start the duel');
+        }
+        transaction.update(docRef, {
+          status: 'active',
+          duelStartedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
     })
       .then(function () {
         console.log('[DUEL TRACE] startDuel successful');
         callback(null);
       })
       .catch(function (e) {
-        console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + FirebaseApp.getUserId() + '\n[FIRESTORE OP] Requested Operation: START_DUEL (Update)\n[FIRESTORE OP] Error Message: ' + e.message);
-        callback('Unable to start duel. Please try again.');
+        console.error('[FIRESTORE OP] START_DUEL error: ' + e.message);
+        var msg = e.message === 'Only the creator can start the duel' ? e.message : 'Unable to start duel. Please try again.';
+        callback(msg);
       });
   }
 

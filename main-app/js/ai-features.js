@@ -848,13 +848,50 @@ var AIFeatures = (function () {
   }
 
   function _buildResultHTML(plan, examName, examDate, daysRemaining) {
-    var weekHtml = '';
-    if (plan.weeklyPlan && plan.weeklyPlan.length > 0) {
-      for (var i = 0; i < plan.weeklyPlan.length; i++) {
-        weekHtml += '<li class="sp-week-item">' + _esc(plan.weeklyPlan[i]) + '</li>';
+    var timetableHtml = '';
+    var csvData = 'Day,Subject,Topic,SubTopic,Estimated_Minutes\n';
+
+    if (plan.timetable && plan.timetable.length > 0) {
+      timetableHtml = '<div style="overflow-x:auto;"><table class="sp-timetable-table" style="width:100%; text-align:left; border-collapse:collapse; margin-top:1rem; font-size:0.9rem;">' +
+        '<thead>' +
+          '<tr style="border-bottom:2px solid var(--border-light);">' +
+            '<th style="padding:0.5rem;">Day</th>' +
+            '<th style="padding:0.5rem;">Subject</th>' +
+            '<th style="padding:0.5rem;">Topic</th>' +
+            '<th style="padding:0.5rem;">Sub-Topic</th>' +
+            '<th style="padding:0.5rem;">Time (min)</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+      for (var i = 0; i < plan.timetable.length; i++) {
+        var row = plan.timetable[i];
+        timetableHtml += '<tr style="border-bottom:1px solid var(--border-light);">' +
+          '<td style="padding:0.5rem; font-weight:700;">' + _esc(row.day) + '</td>' +
+          '<td style="padding:0.5rem;">' + _esc(row.subject) + '</td>' +
+          '<td style="padding:0.5rem;">' + _esc(row.topic) + '</td>' +
+          '<td style="padding:0.5rem; color:var(--text-secondary);">' + _esc(row.subTopic || '') + '</td>' +
+          '<td style="padding:0.5rem; text-align:center;">' + _esc(row.estimatedMinutes) + '</td>' +
+        '</tr>';
+
+        // Add to CSV
+        csvData += [
+          '"' + _esc(row.day) + '"',
+          '"' + _esc(row.subject) + '"',
+          '"' + _esc(row.topic) + '"',
+          '"' + _esc(row.subTopic || '') + '"',
+          '"' + _esc(row.estimatedMinutes) + '"'
+        ].join(',') + '\n';
       }
+      timetableHtml += '</tbody></table></div>';
     }
+
     var daysLabel = daysRemaining === 1 ? '1 day' : daysRemaining + ' days';
+    
+    // Convert csvData to Base64 for download link
+    var csvBlob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    var csvUrl = URL.createObjectURL(csvBlob);
+
     return '<div class="sp-result" id="spResult">' +
       '<div class="sp-meta">' +
         '<span class="sp-exam-badge">' + _esc(examName) + '</span>' +
@@ -865,21 +902,18 @@ var AIFeatures = (function () {
         '<p class="sp-section-body">' + _esc(plan.strategy) + '</p>' +
       '</div>' +
       '<div class="sp-section">' +
-        '<h4 class="sp-section-title">📅 Weekly Plan</h4>' +
-        '<ul class="sp-week-list">' + weekHtml + '</ul>' +
-      '</div>' +
-      '<div class="sp-section">' +
-        '<h4 class="sp-section-title">⏱ Daily Structure</h4>' +
-        '<p class="sp-section-body">' + _esc(plan.dailyStructure) + '</p>' +
+        '<h4 class="sp-section-title">📅 Daily Timetable</h4>' +
+        timetableHtml +
       '</div>' +
       '<div class="sp-section sp-tip-section">' +
         '<h4 class="sp-section-title">💡 Tip</h4>' +
         '<p class="sp-section-body">' + _esc(plan.tip) + '</p>' +
       '</div>' +
       '<div class="sp-regen-error" id="spRegenError" style="display:none;"></div>' +
-      '<div class="sp-result-actions">' +
-        '<button class="btn sp-edit-inputs-btn" type="button">✏️ Edit Inputs</button>' +
-        '<button class="btn sp-regenerate-btn" type="button">Regenerate ↺</button>' +
+      '<div class="sp-result-actions" style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:2rem;">' +
+        '<button class="btn sp-edit-inputs-btn" type="button" style="flex:1;">✏️ Edit Inputs</button>' +
+        '<button class="btn sp-regenerate-btn" type="button" style="flex:1;">Regenerate ↺</button>' +
+        '<a href="' + csvUrl + '" download="' + _esc(examName) + '_StudyPlan.csv" class="btn btn-primary" style="flex:1; text-align:center; text-decoration:none;">📥 Export CSV</a>' +
       '</div>' +
     '</div>';
   }
@@ -955,12 +989,12 @@ var AIFeatures = (function () {
     overlay.className = 'modal-overlay sp-modal-overlay';
     overlay.style.display = 'flex';
     overlay.innerHTML =
-      '<div class="modal-content sp-modal">' +
-        '<h3 class="modal-title">📅 Your Study Plan</h3>' +
-        '<div class="sp-modal-body" id="spModalBody">' + formHTML + '</div>' +
-        '<div class="modal-actions">' +
-          '<button class="btn modal-cancel sp-close-btn">Close</button>' +
+      '<div class="modal-content sp-modal" style="max-height:90vh; overflow:hidden; display:flex; flex-direction:column;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:1rem; margin-bottom:1rem;">' +
+          '<h3 class="modal-title" style="margin:0;">📅 Your Study Plan</h3>' +
+          '<button class="info-modal-close sp-close-btn" aria-label="Close" style="position:static;">✕</button>' +
         '</div>' +
+        '<div class="sp-modal-body" id="spModalBody" style="overflow-y:auto; flex:1; padding-right:0.5rem;">' + formHTML + '</div>' +
       '</div>';
 
     document.body.appendChild(overlay);

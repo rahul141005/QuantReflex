@@ -441,339 +441,11 @@ var DuelUI = (function () {
   }
 
   /* ================================================================
-   * ACTIVE DUEL SCREEN — Stateful session controller
-   * Renders once. Progresses questions locally. Numpad stays visible.
-   * Listener only updates scoreboard (via updateScoreboard).
+   * ACTIVE DUEL SCREEN — Scoreboard updater
+   * Actual session is handled by DrillEngine. This just updates the
+   * DOM elements injected by DuelManager -> DrillEngine.
    * ================================================================ */
 
-  /* Shared state for the active duel session */
-  var _duelSession = null;
-
-  function renderActiveScreen(container, duelData, onAnswer) {
-    console.log('[DUEL] renderActiveScreen called. container:', !!container, 'visible:', container ? container.offsetParent !== null : false);
-    clearTimers();
-
-    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-    var participants = duelData.participants || {};
-    var uids = Object.keys(participants);
-    var myP = participants[uid];
-    var opUid = uids.find(function (u) { return u !== uid; });
-    var opP = opUid ? participants[opUid] : null;
-    var questions = duelData.questions || [];
-    var config = duelData.config || {};
-    var totalQ = config.questionCount || questions.length;
-    console.log('[DUEL] renderActiveScreen: questions.length=' + questions.length + ' totalQ=' + totalQ + ' uid=' + uid);
-
-    /* Calculate starting question index from existing answers */
-    var startIdx = myP ? (myP.answers ? myP.answers.length : 0) : 0;
-    var localScore = myP ? (myP.score || 0) : 0;
-
-    var myName = myP ? (myP.name || 'You') : 'You';
-    var opName = opP ? (opP.name || 'Opponent') : 'Opponent';
-
-    /* Ensure body has drill-session-active for numpad positioning */
-    document.body.classList.add('drill-session-active');
-    document.documentElement.classList.add('drill-session-active');
-
-    /* If already finished, show waiting screen */
-    if (startIdx >= totalQ || startIdx >= questions.length) {
-      console.warn('[DUEL] Question Render Failed: startIdx=' + startIdx + ' totalQ=' + totalQ + ' questions.length=' + questions.length);
-      if (questions.length === 0) {
-        /* Questions array is empty - show error instead of finished screen */
-        container.innerHTML =
-          '<div class="duel-header-bar">' +
-            '<span class="duel-header-title">⚔️ Duel</span>' +
-            '<button class="duel-exit-btn" id="duelExitBtnActive">Exit</button>' +
-          '</div>' +
-          '<div class="duel-question-area" style="text-align:center;padding:2rem;">' +
-            '<div style="font-size:2rem;margin-bottom:1rem;">⚠️</div>' +
-            '<h3 style="margin-bottom:.5rem;">Failed to load questions</h3>' +
-            '<p class="secondary-text">The duel data could not be loaded. Please exit and try again.</p>' +
-          '</div>';
-        container.style.display = 'flex';
-        _bindExitBtn();
-        return;
-      }
-      _renderDuelFinished(container, myName, opName, myP, opP);
-      return;
-    }
-
-    /* Build the full layout ONCE */
-    var timerHtml = (config.timerTotal || config.timerPerQuestion)
-      ? '<p id="duelTimerDisplay" class="timer"></p>' : '';
-
-    container.innerHTML =
-      '<button class="session-exit drill-exit-btn" id="duelExitBtnActive" aria-label="Exit session" title="Exit session">✕</button>' +
-      '<div class="duel-scoreboard-wrapper">' +
-        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:center; align-items:center; gap:2rem; margin-bottom:1rem;">' +
-          '<div class="duel-sb-player"><div class="duel-sb-name">' + myName + '</div><div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + localScore + '</div></div>' +
-          '<div class="duel-sb-vs" style="font-size:1rem; opacity:0.5;">VS</div>' +
-          '<div class="duel-sb-player"><div class="duel-sb-name">' + opName + '</div><div class="duel-sb-score" id="duelOpScore" style="font-size:1.5rem; font-weight:700;">' + (opP ? opP.score : 0) + '</div></div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="card center-content fade-in question-card-transition duel-question-area" id="duelQuestionArea">' +
-        '<div class="drill-question-scroll">' +
-          '<p class="drill-progress" id="duelProgress">Question ' + (startIdx + 1) + ' / ' + totalQ + '</p>' +
-          '<div class="drill-progress-bar"><div class="drill-progress-fill" id="duelProgressFill" style="width:' + ((startIdx / totalQ) * 100) + '%;"></div></div>' +
-          timerHtml +
-          '<h2 class="question-text" id="duelQuestionText"></h2>' +
-          '<input id="duelAnswerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
-          '<div id="duelFeedback" class="feedback"></div>' +
-        '</div>' +
-      '</div>';
-
-    container.style.display = 'flex';
-    _bindExitBtn();
-
-    /* Initialize session state in closure */
-    var qIndex = startIdx;
-    var session = {
-      container: container,
-      duelData: duelData,
-      questions: questions,
-      totalQ: totalQ,
-      config: config,
-      uid: uid,
-      myName: myName,
-      opName: opName,
-      onAnswer: onAnswer,
-      qIndex: qIndex,
-      localScore: localScore,
-      isAnswered: false,
-      totalTimeMs: myP ? (myP.totalTime || 0) : 0,
-      destroyed: false
-    };
-    _duelSession = session;
-
-    /* Load the first question */
-    _loadDuelQuestion(session);
-
-    /* Start timers */
-    _startDuelTimers(session);
-  }
-
-  /**
-   * Load a question into the existing DOM (no full re-render).
-   */
-  function _loadDuelQuestion(session) {
-    if (session.destroyed) return;
-
-    var q = session.questions[session.qIndex];
-    if (!q) {
-      console.warn('[DUEL TRACE] Failed to load question at index', session.qIndex);
-      var textEl = document.getElementById('duelQuestionText');
-      if (textEl) {
-        textEl.innerHTML = '<div style="color:var(--text-error);padding:1rem;background:rgba(239,68,68,0.1);border-radius:8px;">' +
-                           '⚠️ Failed to load question data. Please check your connection and try again.</div>';
-      }
-      var input = document.getElementById('duelAnswerInput');
-      if (input) input.disabled = true;
-      if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
-      return;
-    }
-
-    /* Update progress */
-    var progressEl = document.getElementById('duelProgress');
-    if (progressEl) progressEl.textContent = 'Question ' + (session.qIndex + 1) + ' of ' + session.totalQ;
-
-    var fillEl = document.getElementById('duelProgressFill');
-    if (fillEl) fillEl.style.width = ((session.qIndex / session.totalQ) * 100) + '%';
-
-    /* Update question text */
-    var textEl = document.getElementById('duelQuestionText');
-    if (textEl) textEl.textContent = q.text || '';
-
-    /* Clear and reset input */
-    var input = document.getElementById('duelAnswerInput');
-    if (input) {
-      input.value = '';
-      input.disabled = false;
-    }
-
-    /* Clear feedback */
-    var fb = document.getElementById('duelFeedback');
-    if (fb) { fb.textContent = ''; fb.className = 'feedback'; }
-
-    /* Update my score display */
-    var myScoreEl = document.getElementById('duelMyScore');
-    if (myScoreEl) myScoreEl.textContent = session.localScore;
-
-    /* Reset answered flag */
-    session.isAnswered = false;
-    var answerStartTime = Date.now();
-
-    /* Show numpad (or rebind if already visible) */
-    if (input && typeof showCustomNumpad === 'function') {
-      showCustomNumpad(input, function () {
-        _handleDuelAnswer(session, answerStartTime);
-      });
-    }
-
-    /* Per-question timer reset */
-    if (session.config.timerPerQuestion && !session.config.timerTotal) {
-      _resetPerQuestionTimer(session);
-    }
-  }
-
-  /**
-   * Handle answer submission from numpad.
-   */
-  function _handleDuelAnswer(session, answerStartTime) {
-    if (session.isAnswered || session.destroyed) return;
-    session.isAnswered = true;
-
-    var input = document.getElementById('duelAnswerInput');
-    var val = input ? input.value.trim() : '';
-    if (!val) return; /* empty submit — ignore */
-
-    var q = session.questions[session.qIndex];
-    var userAnswer = parseFloat(val);
-    var timeMs = Date.now() - answerStartTime;
-
-    /* Answer comparison with tolerance (matching drill-engine logic) */
-    var correct = false;
-    if (q) {
-      var expected = q.answer;
-      if (userAnswer === expected) {
-        correct = true;
-      } else if (!isNaN(userAnswer) && !isNaN(expected)) {
-        var tolerance = Math.abs(expected) > 0 ? Math.max(0.01, Math.abs(expected) * 0.001) : 0.01;
-        if (Math.abs(userAnswer - expected) <= tolerance) {
-          correct = true;
-        }
-      }
-    }
-
-    if (correct) session.localScore++;
-    session.totalTimeMs += timeMs;
-
-    /* Show feedback */
-    var fb = document.getElementById('duelFeedback');
-    if (fb) {
-      fb.textContent = correct ? '✓ Correct!' : '✗ ' + (q ? q.answer : '');
-      fb.className = 'feedback feedback-anim ' + (correct ? 'correct' : 'wrong');
-    }
-    if (typeof triggerHaptic === 'function') triggerHaptic(correct ? 10 : [30, 20, 30]);
-    if (typeof SoundEngine !== 'undefined') SoundEngine.play(correct ? 'correct' : 'wrong');
-
-    /* Disable input during feedback (but DON'T hide numpad) */
-    if (input) input.disabled = true;
-
-    /* Update score immediately */
-    var myScoreEl = document.getElementById('duelMyScore');
-    if (myScoreEl) myScoreEl.textContent = session.localScore;
-
-    /* Submit answer to Firestore (async) */
-    if (session.onAnswer) {
-      session.onAnswer(session.qIndex, userAnswer, correct, timeMs);
-    }
-
-    /* After brief feedback delay, advance to next question */
-    var feedbackDelay = correct ? 600 : 900;
-    setTimeout(function () {
-      if (session.destroyed) return;
-      session.qIndex++;
-
-      if (session.qIndex >= session.totalQ || session.qIndex >= session.questions.length) {
-        /* Player finished all questions */
-        _onDuelSessionFinished(session);
-      } else {
-        /* Load next question — numpad stays visible */
-        _loadDuelQuestion(session);
-      }
-    }, feedbackDelay);
-  }
-
-  /**
-   * Called when player finishes all questions.
-   */
-  function _onDuelSessionFinished(session) {
-    session.destroyed = true;
-    clearTimers();
-    _renderDuelFinished(session.container, session.myName, session.opName, null, null);
-  }
-
-  /**
-   * Render "You finished! Waiting for opponent" state.
-   */
-  function _renderDuelFinished(container, myName, opName, myP, opP) {
-    container.innerHTML =
-      '<div class="duel-header-bar">' +
-        '<span class="duel-header-title">⚔️ Duel</span>' +
-        '<button class="duel-exit-btn" id="duelExitBtnActive">Exit</button>' +
-      '</div>' +
-      '<div class="duel-scoreboard">' +
-        '<div class="duel-sb-player"><div class="duel-sb-name">' + myName + '</div><div class="duel-sb-score" id="duelMyScore">' + (_duelSession ? _duelSession.localScore : (myP ? myP.score : 0)) + '</div></div>' +
-        '<div class="duel-sb-vs">VS</div>' +
-        '<div class="duel-sb-player"><div class="duel-sb-name">' + opName + '</div><div class="duel-sb-score" id="duelOpScore">' + (opP ? opP.score : 0) + '</div></div>' +
-      '</div>' +
-      '<div class="duel-question-area">' +
-        '<h2 style="margin-bottom:.5rem;">✅ You finished!</h2>' +
-        '<p class="secondary-text">Waiting for ' + opName + ' to finish…</p>' +
-        '<div class="duel-waiting-indicator" style="margin-top:1rem;"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>' +
-      '</div>';
-    container.style.display = 'flex';
-    _bindExitBtn();
-    if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
-  }
-
-  /**
-   * Force-submit current question (timer expiry).
-   */
-  function _forceSubmitDuel(session) {
-    if (session.isAnswered || session.destroyed) return;
-    session.isAnswered = true;
-    if (session.onAnswer) {
-      session.onAnswer(session.qIndex, null, false, 0);
-    }
-    session.qIndex++;
-    if (session.qIndex >= session.totalQ || session.qIndex >= session.questions.length) {
-      _onDuelSessionFinished(session);
-    } else {
-      _loadDuelQuestion(session);
-    }
-  }
-
-  /**
-   * Start duel timers.
-   */
-  function _startDuelTimers(session) {
-    var config = session.config;
-    if (config.timerTotal) {
-      var startedAt = session.duelData.duelStartedAt && session.duelData.duelStartedAt.toDate
-        ? session.duelData.duelStartedAt.toDate().getTime() : Date.now();
-      var limitMs = config.timerTotal * 1000;
-      _activeDuelTimer = setInterval(function () {
-        if (session.destroyed) { clearInterval(_activeDuelTimer); _activeDuelTimer = null; return; }
-        var el = document.getElementById('duelTimerDisplay');
-        var elapsed = Date.now() - startedAt;
-        var rem = Math.max(0, Math.ceil((limitMs - elapsed) / 1000));
-        if (el) el.textContent = '⏱ ' + rem + 's';
-        if (rem <= 0) { clearInterval(_activeDuelTimer); _activeDuelTimer = null; _forceSubmitDuel(session); }
-      }, 1000);
-    } else if (config.timerPerQuestion) {
-      _resetPerQuestionTimer(session);
-    }
-  }
-
-  /**
-   * Reset per-question timer.
-   */
-  function _resetPerQuestionTimer(session) {
-    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
-    var remaining = session.config.timerPerQuestion;
-    _countdownTimer = setInterval(function () {
-      if (session.destroyed || session.isAnswered) { clearInterval(_countdownTimer); _countdownTimer = null; return; }
-      var el = document.getElementById('duelTimerDisplay');
-      if (el) el.textContent = '⏱ ' + remaining + 's';
-      if (remaining <= 0) { clearInterval(_countdownTimer); _countdownTimer = null; _forceSubmitDuel(session); return; }
-      remaining--;
-    }, 1000);
-  }
-
-  /**
-   * Update only the scoreboard (opponent score) without rebuilding the entire DOM.
-   */
   function updateScoreboard(duelData) {
     if (!duelData || !duelData.participants) return;
     var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
@@ -788,22 +460,13 @@ var DuelUI = (function () {
     }
   }
 
-  /**
-   * Destroy the active duel session (cleanup).
-   */
-  function destroyDuelSession() {
-    if (_duelSession) {
-      _duelSession.destroyed = true;
-      _duelSession = null;
-    }
-    clearTimers();
-  }
-
   function _bindExitBtn() {
     var exitBtn = document.getElementById('duelExitBtnActive');
     if (exitBtn) {
       exitBtn.addEventListener('click', function () {
-        DuelManager.showExitDuelDialog();
+        if (typeof DuelManager !== 'undefined') {
+          DuelManager.showExitDuelDialog();
+        }
       });
     }
   }
@@ -830,6 +493,8 @@ var DuelUI = (function () {
     var opScore = opP ? (opP.score || 0) : 0;
     var myAttempted = myP ? (myP.answers ? myP.answers.length : 0) : 0;
     var opAttempted = opP ? (opP.answers ? opP.answers.length : 0) : 0;
+    var myWrong = Math.max(0, myAttempted - myScore);
+    var opWrong = Math.max(0, opAttempted - opScore);
     var myAccuracy = myAttempted > 0 ? Math.round((myScore / myAttempted) * 100) : 0;
     var opAccuracy = opAttempted > 0 ? Math.round((opScore / opAttempted) * 100) : 0;
     var myAvgTime = myP && myP.totalTime && myAttempted ? ((myP.totalTime / myAttempted) / 1000).toFixed(1) : '-';
@@ -898,13 +563,13 @@ var DuelUI = (function () {
               '</div>' +
             '</div>' +
             '<div class="duel-result-actions" style="flex-direction: column; gap: 0.5rem;">' +
-              '<button class="btn-secondary" id="duelReturnToApp" style="width: 100%; background: transparent; border: 1px solid #334155; color: #94a3b8;">Return To App</button>' +
+              '<button class="btn-secondary" id="duelReturnToHome" style="width: 100%; background: transparent; border: 1px solid #334155; color: #94a3b8;">Return To Home</button>' +
             '</div>' +
           '</div>' +
         '</div>';
       
-      var returnBtn = container.querySelector('#duelReturnToApp');
-      if (returnBtn) returnBtn.addEventListener('click', function() { DuelManager.exitDuel(); });
+      var returnBtn = container.querySelector('#duelReturnToHome');
+      if (returnBtn) returnBtn.addEventListener('click', function() { DuelManager.returnToHome(); });
     } else {
       /* Final Result Screen */
       container.innerHTML =
@@ -937,6 +602,7 @@ var DuelUI = (function () {
           /* Detailed stats */
           '<div class="duel-result-stats-section" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.5rem;">' +
             _renderStatRow('Accuracy', myAccuracy + '%', opAccuracy + '%', myAccuracy, opAccuracy) +
+            _renderStatRow('Wrong', myWrong, opWrong, 0, 0) +
             _renderStatRow('Avg Speed', myAvgTime + 's', opAvgTime + 's', 0, 0) +
             _renderStatRow('Attempted', myAttempted + '/' + totalQ, opAttempted + '/' + totalQ, 0, 0) +
             _renderStatRow('Total Time', myTotalTime, opTotalTime, 0, 0) +

@@ -167,7 +167,7 @@ service cloud.firestore {
         (fromStatus == 'active'                  && toStatus == 'completed') ||
         (fromStatus == 'waiting'  && toStatus == 'ready') ||
         (fromStatus == 'ready'    && toStatus == 'active') ||
-        (fromStatus == 'waiting'  && toStatus == 'active') ||
+        (fromStatus == 'waiting'  && toStatus == 'active' && request.auth.uid == resource.data.createdBy) ||
         (toStatus   == 'expired') ||
         (toStatus   == 'abandoned') ||
         (toStatus   == 'deleted') ||
