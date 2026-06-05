@@ -341,8 +341,14 @@ var DuelManager = (function () {
     var nav = document.querySelector('.bottom-nav');
     if (nav) nav.style.display = 'none';
 
-    var container = _getEl('duelActive');
+    if (typeof Router !== 'undefined') Router.showView('practice');
+
+    var container = _getEl('drillContainer');
     if (!container) return;
+
+    /* Hide practice modes wrapper so only the drill container shows */
+    var pmWrapper = _getEl('practiceModesWrapper');
+    if (pmWrapper) pmWrapper.style.display = 'none';
 
     container.style.display = 'block';
 
@@ -353,10 +359,16 @@ var DuelManager = (function () {
 
     var headerHTML =
       '<div class="duel-scoreboard-wrapper" style="width:100%; max-width:800px; margin:0 auto; padding:0 1rem;">' +
-        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:center; align-items:center; gap:2rem; margin-bottom:1rem; background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">' +
-          '<div class="duel-sb-player"><div class="duel-sb-name" style="font-size:0.9rem;opacity:0.8;">' + myName + '</div><div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[uid].score || 0) + '</div></div>' +
-          '<div class="duel-sb-vs" style="font-size:1rem; opacity:0.5; font-weight:600;">VS</div>' +
-          '<div class="duel-sb-player"><div class="duel-sb-name" style="font-size:0.9rem;opacity:0.8;">' + opName + '</div><div class="duel-sb-score" id="duelOpScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[opUid].score || 0) + '</div></div>' +
+        '<div class="duel-scoreboard" id="duelScoreboard" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; background:rgba(255,255,255,0.05); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">' +
+          '<div class="duel-sb-player" style="flex:1; text-align:left; min-width:0;">' +
+            '<div class="duel-sb-name" style="font-size:0.9rem; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + myName + '</div>' +
+            '<div class="duel-sb-score" id="duelMyScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[uid].score || 0) + '</div>' +
+          '</div>' +
+          '<div class="duel-sb-vs" style="font-size:1rem; opacity:0.5; font-weight:600; padding:0 1rem;">VS</div>' +
+          '<div class="duel-sb-player" style="flex:1; text-align:right; min-width:0;">' +
+            '<div class="duel-sb-name" style="font-size:0.9rem; opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + opName + '</div>' +
+            '<div class="duel-sb-score" id="duelOpScore" style="font-size:1.5rem; font-weight:700;">' + (data.participants[opUid].score || 0) + '</div>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -443,6 +455,9 @@ var DuelManager = (function () {
     /* Show bottom nav */
     var nav = document.querySelector('.bottom-nav');
     if (nav) nav.style.display = '';
+
+    /* Restore duel view */
+    if (typeof Router !== 'undefined') Router.showView('duel');
 
     /* Hide numpad */
     if (typeof hideCustomNumpad === 'function') hideCustomNumpad();

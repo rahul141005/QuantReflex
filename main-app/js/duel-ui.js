@@ -626,19 +626,19 @@ var DuelUI = (function () {
       var shareBtn = container.querySelector('#duelShareBtn');
       if (shareBtn) {
         shareBtn.addEventListener('click', function () {
-          if (typeof ShareService !== 'undefined') {
-            ShareService.shareAsImage({
-              mode: 'Duel vs ' + opName,
-              displayName: myName,
-              score: myScore,
-              total: totalQ,
-              accuracy: myAccuracy,
-              avgTime: myAvgTime !== '-' ? myAvgTime : '0',
-              percentile: 0, /* We could calculate if we wanted */
-              streak: 0,
-              difficulty: 'Duel',
-              totalTime: myTotalTime.replace('s', ''),
-              topics: topics
+          if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) {
+            ShareService.shareDuelAsImage({
+              result: duelData.result,
+              winner: duelData.winner,
+              myUid: uid,
+              myName: myName,
+              opName: opName,
+              myScore: myScore,
+              opScore: opScore,
+              myAccuracy: myAccuracy,
+              opAccuracy: opAccuracy,
+              myAttempted: myAttempted,
+              opAttempted: opAttempted
             });
           }
         });

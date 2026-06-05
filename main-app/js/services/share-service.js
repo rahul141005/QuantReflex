@@ -581,6 +581,146 @@ var ShareService = (function () {
     _createPreviewModal(canvas, data);
   }
 
+  }
+
+  function _generateDuelCard(data) {
+    var W = 1080;
+    var PAD = 72;
+    var CW = W - PAD * 2;
+    var FONT = '"Segoe UI", system-ui, -apple-system, sans-serif';
+    var BUFFER_H = 1400;
+    var canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = BUFFER_H;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.clearRect(0, 0, W, BUFFER_H);
+
+    var y = 80;
+    ctx.textAlign = 'center';
+
+    /* Brand Header */
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 42px ' + FONT;
+    ctx.fillText('QuantReflex', W / 2, y);
+    y += 30;
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+    ctx.font = '22px ' + FONT;
+    ctx.fillText('Math Duel Result', W / 2, y);
+    y += 100;
+
+    /* Winner Banner */
+    var isDraw = data.result === 'draw';
+    var myName = data.myName;
+    var opName = data.opName;
+    var myScore = data.myScore;
+    var opScore = data.opScore;
+    var isWinner = data.winner === data.myUid;
+
+    var title = isDraw ? '🤝 DRAW!' : (isWinner ? '👑 ' + myName + ' WINS!' : '👑 ' + opName + ' WINS!');
+    
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 72px ' + FONT;
+    ctx.fillText(title, W / 2, y);
+    y += 120;
+
+    /* Score Comparison Grid */
+    var colW = 300;
+    var gap = 120;
+    var totalW = colW * 2 + gap;
+    var startX = (W - totalW) / 2;
+
+    _roundRect(ctx, startX, y, colW, 280, 24, isWinner && !isDraw ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)');
+    _roundRect(ctx, startX + colW + gap, y, colW, 280, 24, !isWinner && !isDraw ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)');
+
+    ctx.textAlign = 'center';
+    /* Player 1 */
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 28px ' + FONT;
+    ctx.fillText(myName, startX + colW / 2, y + 60);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 100px ' + FONT;
+    ctx.fillText(myScore, startX + colW / 2, y + 180);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '24px ' + FONT;
+    ctx.fillText('correct', startX + colW / 2, y + 230);
+
+    /* VS text */
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 48px ' + FONT;
+    ctx.fillText('VS', W / 2, y + 150);
+
+    /* Player 2 */
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 28px ' + FONT;
+    ctx.fillText(opName, startX + colW + gap + colW / 2, y + 60);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 100px ' + FONT;
+    ctx.fillText(opScore, startX + colW + gap + colW / 2, y + 180);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '24px ' + FONT;
+    ctx.fillText('correct', startX + colW + gap + colW / 2, y + 230);
+    
+    y += 340;
+
+    /* Metrics */
+    var metrics = [
+      { label: 'Accuracy', val1: data.myAccuracy + '%', val2: data.opAccuracy + '%' },
+      { label: 'Attempted', val1: data.myAttempted, val2: data.opAttempted }
+    ];
+
+    for (var i = 0; i < metrics.length; i++) {
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '600 32px ' + FONT;
+      ctx.textAlign = 'right';
+      ctx.fillText(metrics[i].val1, W / 2 - 140, y);
+      ctx.textAlign = 'left';
+      ctx.fillText(metrics[i].val2, W / 2 + 140, y);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '24px ' + FONT;
+      ctx.fillText(metrics[i].label, W / 2, y - 4);
+      y += 60;
+    }
+
+    y += 80;
+
+    /* Tagline */
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '600 32px ' + FONT;
+    ctx.fillText('Challenge accepted.', W / 2, y);
+    y += 100;
+
+    /* Draw final canvas */
+    var finalCanvas = document.createElement('canvas');
+    finalCanvas.width = W;
+    finalCanvas.height = y;
+    var fctx = finalCanvas.getContext('2d');
+
+    var bgGrad = fctx.createLinearGradient(0, 0, 0, y);
+    bgGrad.addColorStop(0, '#0f172a');
+    bgGrad.addColorStop(1, '#020617');
+    fctx.fillStyle = bgGrad;
+    fctx.fillRect(0, 0, W, y);
+
+    fctx.drawImage(canvas, 0, 0, W, y, 0, 0, W, y);
+    return finalCanvas;
+  }
+
+  /**
+   * Generate and show the premium share card preview for Duels.
+   *
+   * @param {object} data - Duel Result data object
+   */
+  function shareDuelAsImage(data) {
+    var canvas = _generateDuelCard(data);
+    if (!canvas) {
+      shareTextFallback(data.myAccuracy, 0);
+      return;
+    }
+    _createPreviewModal(canvas, data);
+  }
+
   /**
    * Share drill result as text via Web Share API or clipboard.
    *
@@ -604,6 +744,7 @@ var ShareService = (function () {
 
   return {
     shareAsImage: shareAsImage,
+    shareDuelAsImage: shareDuelAsImage,
     shareTextFallback: shareTextFallback
   };
 })();

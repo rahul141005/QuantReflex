@@ -200,14 +200,23 @@ function createDrillEngine(container, opts) {
           FirestoreSync.endDrillBatch();
         }
         if (onFinish) {
-          onFinish('practice');
+          onFinish(isDuel ? 'duel_ended' : 'practice');
         } else {
           Router.showView('practice');
         }
       }
 
       if (typeof showExitSessionDialog === 'function') {
-        showExitSessionDialog(performExit);
+        var opts = null;
+        if (isDuel) {
+          opts = {
+            title: '⚠️ Exit Duel?',
+            messageHTML: 'Questions Solved: <b>' + current + '</b><br>Current Score: <b>' + score + '</b><br><br><span style="color:#dc2626; font-weight: 500;">If you exit now, your duel attempt will be submitted.</span>',
+            cancelText: 'Continue Duel',
+            confirmText: 'Confirm Exit'
+          };
+        }
+        showExitSessionDialog(performExit, opts);
       } else {
         console.error('[DrillEngine] showExitSessionDialog missing. Exiting automatically.');
         performExit();

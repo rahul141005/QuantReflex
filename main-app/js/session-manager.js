@@ -81,7 +81,7 @@ function _tryPracticeAction() {
  * sometimes ending the session even when Cancel is pressed.
  * @param {function} onConfirm - callback when user confirms exit
  */
-function showExitSessionDialog(onConfirm) {
+function showExitSessionDialog(onConfirm, customOptions) {
   if (_exitDialogShowing) return;
   _exitDialogShowing = true;
 
@@ -98,16 +98,33 @@ function showExitSessionDialog(onConfirm) {
     return;
   }
 
-  modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
-
+  var titleEl = modal.querySelector('.modal-title');
+  var descEl = modal.querySelector('p');
   var cancelBtn = document.getElementById('exitSessionCancel');
   var confirmBtn = document.getElementById('exitSessionConfirm');
+
   if (!cancelBtn || !confirmBtn) {
     console.error('[SessionManager] exitSession buttons missing from DOM');
     onConfirm();
     return;
   }
+
+  /* Reset to defaults */
+  if (titleEl) titleEl.textContent = '⚠️ Exit Session?';
+  if (descEl) descEl.innerHTML = 'Your progress will be lost.';
+  cancelBtn.textContent = 'Cancel';
+  confirmBtn.textContent = 'Exit';
+
+  /* Apply overrides */
+  if (customOptions) {
+    if (titleEl && customOptions.title) titleEl.textContent = customOptions.title;
+    if (descEl && customOptions.messageHTML) descEl.innerHTML = customOptions.messageHTML;
+    if (customOptions.cancelText) cancelBtn.textContent = customOptions.cancelText;
+    if (customOptions.confirmText) confirmBtn.textContent = customOptions.confirmText;
+  }
+
+  modal.style.display = 'flex';
+  document.body.classList.add('modal-open');
 
   cancelBtn.onclick = function () {
     closeDialog(modal);
