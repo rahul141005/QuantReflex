@@ -18,7 +18,7 @@
     }
   ],
   "functions": {
-    "api/ai/**/*.js": { "maxDuration": 30 },
+    "api/ai/**/*.js": { "maxDuration": 60 },
     "api/payment/**/*.js": { "maxDuration": 15 },
     "api/account/**/*.js": { "maxDuration": 30 }
   },

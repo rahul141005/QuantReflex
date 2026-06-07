@@ -796,7 +796,7 @@ var AIFeatures = (function () {
   }
 
   var _studyPlanInFlight = false;
-  var SP_EXAMS = ['CAT', 'GMAT', 'Bank PO', 'SSC', 'UPSC', 'Other'];
+  var SP_EXAMS = ['CAT', 'GMAT', 'Bank PO', 'SSC', 'UPSC', 'NTSE', 'XAT', 'Other'];
   var _spWizardData = {
     examName: '',
     examDate: '',
@@ -850,7 +850,7 @@ var AIFeatures = (function () {
 
         var dayTotalMin = 0;
         var sessionsHtml = '';
-        if (dayObj.sessions) {
+        if (dayObj.sessions && dayObj.sessions.length > 0) {
           for(var j=0; j<dayObj.sessions.length; j++) {
             var sess = dayObj.sessions[j];
             dayTotalMin += (sess.estimatedMinutes || 0);
@@ -866,6 +866,8 @@ var AIFeatures = (function () {
               '<div class="sp-tl-min">' + (sess.estimatedMinutes || 0) + 'm</div>' +
             '</div>';
           }
+        } else {
+          sessionsHtml = '<div style="color:#64748b;font-style:italic;padding:1rem;text-align:center;">Self Practice / General Revision</div>';
         }
 
         html += '<div class="sp-tl-node ' + nodeClass + '">' +
@@ -1005,7 +1007,7 @@ var AIFeatures = (function () {
       var bodyEl = overlay.querySelector('#spModalBody');
       var html = '';
       
-      var progressPct = Math.round((_spWizardStep / 5) * 100);
+      var progressPct = Math.round((_spWizardStep / 4) * 100);
       var wizardHeader = '<div class="sp-wiz-header">' +
         '<button class="sp-wiz-back" ' + (_spWizardStep === 1 ? 'style="visibility:hidden"' : '') + '>← Back</button>' +
         '<div class="sp-wiz-progress"><div class="sp-wiz-bar" style="width:' + progressPct + '%"></div></div>' +
@@ -1057,30 +1059,19 @@ var AIFeatures = (function () {
           '</div>' +
           '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next" ' + (_spWizardData.currentLevel ? '' : 'disabled') + '>Next</button></div>';
       } else if (_spWizardStep === 3) {
-        var chips = [30, 45, 60, 90, 120, 180];
-        var isCustomTime = chips.indexOf(_spWizardData.dailyTimeMinutes) === -1;
-        html = wizardHeader + 
-          '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">How much time can you study daily?</h3>' +
-            '<p class="sp-wiz-desc">Be realistic to avoid burnout.</p>' +
-            '<div class="sp-wiz-chips">' +
-              chips.map(function(m) {
-                 var isSel = _spWizardData.dailyTimeMinutes === m;
-                 return '<div class="sp-wiz-chip ' + (isSel ? 'selected' : '') + '" data-mins="' + m + '">' + m + ' mins</div>';
-              }).join('') +
-              '<div class="sp-wiz-chip ' + (isCustomTime ? 'selected' : '') + '" data-mins="custom">Custom</div>' +
-            '</div>' +
-            '<input id="spTimeCustom" class="sp-input" type="number" placeholder="Minutes per day" style="display:' + (isCustomTime ? 'block' : 'none') + ';margin-top:1rem;width:100%" value="' + (isCustomTime ? _spWizardData.dailyTimeMinutes : '') + '"/>' +
-          '</div>' +
-          '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Next</button></div>';
-      } else if (_spWizardStep === 4) {
         var commonWeak = ['Percentages', 'Geometry', 'RC', 'LRDI', 'Algebra', 'Data Insights'];
         var weakStr = _spWizardData.weakTopics.filter(function(t){ return commonWeak.indexOf(t) === -1; }).join(', ');
         var strongStr = _spWizardData.strongTopics.join(', ');
         html = wizardHeader + 
           '<div class="sp-wiz-content">' +
-            '<h3 class="sp-wiz-title">Strengths & Weaknesses</h3>' +
-            '<p class="sp-wiz-desc">Select or type areas you struggle with.</p>' +
+            '<h3 class="sp-wiz-title">Study Preferences</h3>' +
+            '<p class="sp-wiz-desc">Configure your daily time and focus areas.</p>' +
+            '<div class="sp-slider-container">' +
+              '<div class="sp-slider-val" id="spSliderVal">60 mins</div>' +
+              '<input type="range" min="0" max="4" step="1" value="2" class="sp-slider" id="spTimeSlider">' +
+              '<div class="sp-slider-labels"><span>15m</span><span>Custom</span></div>' +
+              '<input id="spTimeCustom" class="sp-input" type="number" placeholder="Minutes per day" style="display:none;margin-top:1rem;width:100%" value="60"/>' +
+            '</div>' +
             '<div class="sp-field" style="width:100%">' +
               '<label class="sp-label" style="text-align:center;display:block">Weak Areas</label>' +
               '<div class="sp-wiz-chips sp-chips-sm" style="margin-bottom:0.5rem;justify-content:center">' +
@@ -1097,7 +1088,7 @@ var AIFeatures = (function () {
             '</div>' +
           '</div>' +
           '<div class="sp-fab-bar"><button class="btn-primary sp-wiz-next">Review Plan</button></div>';
-      } else if (_spWizardStep === 5) {
+      } else if (_spWizardStep === 4) {
         var examMs2 = new Date(_spWizardData.examDate).getTime();
         var daysRemaining2 = Math.max(1, Math.ceil((examMs2 - Date.now()) / (1000 * 60 * 60 * 24)));
         var estTotalHours = Math.round((daysRemaining2 * _spWizardData.dailyTimeMinutes) / 60);
@@ -1202,39 +1193,48 @@ var AIFeatures = (function () {
 
       // Step 3
       if (_spWizardStep === 3) {
-        var chips = bodyEl.querySelectorAll('.sp-wiz-chip');
+        var slider = bodyEl.querySelector('#spTimeSlider');
+        var sliderVal = bodyEl.querySelector('#spSliderVal');
         var customInp = bodyEl.querySelector('#spTimeCustom');
-        var nextBtn = bodyEl.querySelector('.sp-wiz-next');
-        for (var i = 0; i < chips.length; i++) {
-          chips[i].addEventListener('click', function() {
-            var m = this.getAttribute('data-mins');
-            if (m === 'custom') {
-              customInp.style.display = 'block';
-              customInp.focus();
-              _spWizardData.dailyTimeMinutes = Math.max(15, Math.min(360, parseInt(customInp.value) || 60));
-            } else {
-              _spWizardData.dailyTimeMinutes = parseInt(m);
-              customInp.style.display = 'none';
-            }
-            renderWizardStep();
-          });
-        }
-        if (customInp) {
-          customInp.addEventListener('input', function() {
-            _spWizardData.dailyTimeMinutes = Math.max(15, Math.min(360, parseInt(this.value) || 60));
-          });
-        }
-        nextBtn.addEventListener('click', function() {
-          _spWizardStep++; renderWizardStep();
-        });
-      }
-
-      // Step 4
-      if (_spWizardStep === 4) {
         var toggles = bodyEl.querySelectorAll('.sp-wiz-chip-toggle');
         var weakInp = bodyEl.querySelector('#spWeakTopics');
         var strongInp = bodyEl.querySelector('#spStrongTopics');
         var nextBtn = bodyEl.querySelector('.sp-wiz-next');
+
+        var stops = [15, 30, 60, 90, 'Custom'];
+
+        if (slider) {
+          var initVal = _spWizardData.dailyTimeMinutes;
+          var idx = stops.indexOf(initVal);
+          if (idx === -1) {
+            slider.value = 4;
+            customInp.value = initVal;
+            customInp.style.display = 'block';
+            sliderVal.textContent = 'Custom';
+          } else {
+            slider.value = idx;
+            sliderVal.textContent = initVal + ' mins';
+            customInp.style.display = 'none';
+          }
+
+          slider.addEventListener('input', function() {
+            var v = parseInt(this.value);
+            if (v === 4) {
+              sliderVal.textContent = 'Custom';
+              customInp.style.display = 'block';
+              _spWizardData.dailyTimeMinutes = Math.max(15, Math.min(720, parseInt(customInp.value) || 60));
+            } else {
+              sliderVal.textContent = stops[v] + ' mins';
+              customInp.style.display = 'none';
+              _spWizardData.dailyTimeMinutes = stops[v];
+            }
+          });
+          customInp.addEventListener('input', function() {
+            var v = parseInt(this.value);
+            if (isNaN(v)) v = 60;
+            _spWizardData.dailyTimeMinutes = Math.max(15, Math.min(720, v));
+          });
+        }
 
         for (var i = 0; i < toggles.length; i++) {
           toggles[i].addEventListener('click', function() {
@@ -1245,7 +1245,7 @@ var AIFeatures = (function () {
             } else {
                _spWizardData.weakTopics.push(val);
             }
-            renderWizardStep();
+            renderWizardStep(); // Will re-render Step 3 with updated chips
           });
         }
         nextBtn.addEventListener('click', function() {
@@ -1261,8 +1261,8 @@ var AIFeatures = (function () {
         });
       }
 
-      // Step 5
-      if (_spWizardStep === 5) {
+      // Step 4
+      if (_spWizardStep === 4) {
         var genBtn = bodyEl.querySelector('#spGenerateBtn');
         var errorEl = bodyEl.querySelector('#spError');
         genBtn.addEventListener('click', function() {
@@ -1309,6 +1309,78 @@ var AIFeatures = (function () {
       }
     }
 
+
+    function showResult(plan) {
+      var bodyEl = overlay.querySelector('#spModalBody');
+      bodyEl.innerHTML = _buildResultHTML(plan);
+      
+      var nextBtn = bodyEl.querySelector('.sp-next-14-btn');
+      if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+          if (_studyPlanInFlight) return;
+          _studyPlanInFlight = true;
+          this.disabled = true;
+          this.innerHTML = '<div class="ai-spinner-inline"></div> Generating...';
+          
+          _spPost({
+            action: 'generate',
+            examName: plan.examName,
+            examDate: plan.examDate,
+            dailyTimeMinutes: plan.dailyTimeMinutes,
+            targetScore: plan.targetScore,
+            currentLevel: plan.currentLevel,
+            weakTopics: plan.weakTopics,
+            strongTopics: plan.strongTopics,
+            previousPlanId: plan.id
+          }, function(err, data) {
+            _studyPlanInFlight = false;
+            if (err || !data || !data.plan) {
+               alert('Unable to generate next block. Please try again.');
+               var resetBtn = document.querySelector('.sp-next-14-btn');
+               if(resetBtn){ resetBtn.disabled=false; resetBtn.innerHTML='Generate Next Block ⏭️'; }
+               return;
+            }
+            showResult(data.plan);
+          });
+        });
+      }
+
+      var regenBtn = bodyEl.querySelector('.sp-regenerate-btn');
+      if (regenBtn) {
+        regenBtn.addEventListener('click', function() {
+          _spWizardStep = 1;
+          renderWizardStep();
+        });
+      }
+
+      var finBtn = bodyEl.querySelector('.sp-finalize-btn');
+      if (finBtn) {
+        finBtn.addEventListener('click', function() {
+          if (_studyPlanInFlight) return;
+          _studyPlanInFlight = true;
+          this.disabled = true;
+          this.innerHTML = '<div class="ai-spinner-inline"></div> Finalizing...';
+          _spPost({ action: 'finalize', planId: plan.id }, function(err) {
+            _studyPlanInFlight = false;
+            if (err) { alert('Unable to finalize.'); return; }
+            plan.status = 'active';
+            showResult(plan);
+          });
+        });
+      }
+
+      var dayToggles = bodyEl.querySelectorAll('.sp-day-toggle');
+      for(var i=0; i<dayToggles.length; i++) {
+        dayToggles[i].addEventListener('click', function() {
+          var body = this.nextElementSibling;
+          if (body.style.display === 'block') {
+            body.style.display = 'none';
+          } else {
+            body.style.display = 'block';
+          }
+        });
+      }
+    }
 
     overlay.querySelector('.sp-close-btn').addEventListener('click', closeModal);
     overlay.addEventListener('click', function (e) {

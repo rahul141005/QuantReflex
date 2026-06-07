@@ -873,6 +873,7 @@ async function generateStudyPlan(params) {
                 type: "object",
                 properties: {
                   day: { type: "number" },
+                  dayType: { type: "string", enum: ["learning", "revision", "mock"] },
                   isRevision: { type: "boolean" },
                   isMock: { type: "boolean" },
                   totalMinutes: { type: "number" },
@@ -884,14 +885,15 @@ async function generateStudyPlan(params) {
                         subject: { type: "string" },
                         topic: { type: "string" },
                         subTopic: { type: "string" },
+                        focusArea: { type: "string" },
                         estimatedMinutes: { "type": "number" }
                       },
-                      required: ["subject", "topic", "subTopic", "estimatedMinutes"],
+                      required: ["subject", "topic", "subTopic", "focusArea", "estimatedMinutes"],
                       additionalProperties: false
                     }
                   }
                 },
-                required: ["day", "isRevision", "isMock", "totalMinutes", "sessions"],
+                required: ["day", "dayType", "isRevision", "isMock", "totalMinutes", "sessions"],
                 additionalProperties: false
               }
             }

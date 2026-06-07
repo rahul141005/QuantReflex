@@ -16,6 +16,12 @@
   --qr-card-gap: 1rem;
   --qr-shadow-light: 0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
   --qr-shadow-dark: 0 4px 20px rgba(0,0,0,0.2);
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-2xl: 48px;
 }
 
 /* ---- Reset & Base ---- */
@@ -10157,6 +10163,7 @@ body.dark-mode .sp-fab-bar {
     padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
   }
 }
+
 /* ========================================================================= */
 /* ---- AI STUDY PLANNER REDESIGN (V3) - PERFECT CENTERING & SAFE AREAS ---- */
 /* ========================================================================= */
@@ -10171,13 +10178,13 @@ body.dark-mode .sp-fab-bar {
   align-items: center; /* Vertical Center */
   justify-content: center; /* Horizontal Center */
   z-index: 9999;
-  padding: 1.5rem; /* Safe area padding */
+  padding: var(--sp-lg); /* Safe area padding */
   box-sizing: border-box;
 }
 
 .sp-premium-modal {
   position: relative !important;
-  width: 100% !important;
+  width: 92% !important; /* Premium inset on mobile */
   max-width: 480px !important; /* Mobile safe width */
   max-height: 90dvh !important;
   background: #ffffff !important;
@@ -10191,19 +10198,20 @@ body.dark-mode .sp-fab-bar {
 }
 
 @media (min-width: 768px) {
-  .sp-premium-modal { max-width: 700px !important; }
+  .sp-premium-modal { max-width: 650px !important; }
 }
 
 @media (min-width: 1024px) {
-  .sp-premium-modal { max-width: 900px !important; }
+  .sp-premium-modal { max-width: 800px !important; }
 }
-
 /* Close Button (Top Right) */
 .sp-modal-header {
-  position: relative;
-  padding: 1.5rem 1.5rem 0 1.5rem;
+  padding: var(--sp-lg) var(--sp-lg) 0 var(--sp-lg);
   background: #ffffff;
   z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 body.dark-mode .sp-modal-header { background: #0f172a; }
 
@@ -10212,9 +10220,6 @@ body.dark-mode .sp-modal-header { background: #0f172a; }
 }
 
 .sp-close-btn {
-  position: absolute !important;
-  top: 1rem !important;
-  right: 1rem !important;
   width: 44px !important;
   height: 44px !important;
   border-radius: 50% !important;
@@ -10317,4 +10322,65 @@ body.dark-mode .sp-ai-insight-details summary { background: #1e293b; }
 /* Continuous Timeline Fix */
 .sp-timeline-wrapper {
   margin-bottom: 2rem;
+}
+
+/* Premium Slider CSS */
+.sp-slider-container {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--sp-md) 0;
+  margin: var(--sp-sm) 0 var(--sp-lg);
+}
+
+.sp-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  outline: none;
+  margin-bottom: var(--sp-md);
+}
+
+body.dark-mode .sp-slider {
+  background: #334155;
+}
+
+.sp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.4);
+  transition: transform 0.1s;
+}
+
+.sp-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.sp-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+body.dark-mode .sp-slider-labels {
+  color: #94a3b8;
+}
+
+.sp-slider-val {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: var(--sp-xs);
+}
+
+body.dark-mode .sp-slider-val {
+  color: #60a5fa;
 }
