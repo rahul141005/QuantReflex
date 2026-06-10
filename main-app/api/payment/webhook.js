@@ -156,28 +156,15 @@ async function handler(req, res) {
 
     /* ── Step 5: Grant entitlement (idempotent) ── */
     try {
-      if (plan === 'premium') {
-        await aiService.safeUserUpdate(uid, {
-          isPremium: true,
-          hasPaid: true,
-          isTrial: false,
-          trialEnd: null,
-          lastPaymentId: String(paymentId)
-        }, 'webhook:premium');
-      } else {
-        /* Premium+ — unlockPremiumPlus is already idempotent
-           (checks if payment doc exists before creating) */
-        await aiService.unlockPremiumPlus(uid, plan, paymentId, orderId);
-      }
+      /* v2: single Premium tier. activatePremium uses payments/{paymentId} as a
+         transactional lock, so verify + webhook both firing will not double-grant,
+         and a replay from another account is rejected with PAYMENT_REPLAY. */
+      await aiService.activatePremium(uid, plan, paymentId, orderId);
 
-      /* Set JWT custom claims so token reflects entitlement immediately */
+      /* Set JWT custom claim so token reflects entitlement immediately */
       try {
         var claimsService = require('../../services/claimsService');
-        if (plan === 'premium') {
-          await claimsService.setEntitlementClaims(uid, { premium: true, premiumPlus: false });
-        } else {
-          await claimsService.setEntitlementClaims(uid, { premium: true, premiumPlus: true });
-        }
+        await claimsService.setEntitlementClaims(uid, { premium: true });
       } catch (claimsErr) {
         /* Non-fatal: Firestore entitlement is the source of truth */
         console.warn('[webhook] Claims update failed (non-fatal):', claimsErr.message);

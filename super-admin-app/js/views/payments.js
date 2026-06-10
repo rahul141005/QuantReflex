@@ -29,8 +29,7 @@ var PaymentsView = (function () {
           '</div>' +
           '<select id="payFilter" class="modal-select" style="width:auto;min-width:180px;">' +
             '<option value="all">All Entitled Users</option>' +
-            '<option value="premium">Premium Lifetime</option>' +
-            '<option value="plus">Premium+ (Active)</option>' +
+            '<option value="premium">Premium (Active)</option>' +
             '<option value="trial">Active Trials</option>' +
             '<option value="expired">Expired Plans</option>' +
             '<option value="coaching">Coaching Granted</option>' +
@@ -70,52 +69,24 @@ var PaymentsView = (function () {
   function _getEntitlementState(user) {
     var now = Date.now();
     var state = {
-      type: 'none', // premium, plus, trial, none
+      type: 'none', // premium, trial, none
       status: 'inactive', // active, expired
       expiry: null,
-      source: user.coachingId ? 'coaching' : 'direct',
-      paymentId: user.lastPremiumPlusPaymentId || user.lastPaymentId || null,
-      plan: user.premiumPlusPlan || (user.isPremium ? 'lifetime' : null)
+      source: user.planSource || (user.coachingId ? 'coaching' : 'direct'),
+      paymentId: user.lastPaymentId || null,
+      plan: user.planType || null
     };
 
-    // Premium+ takes highest precedence (canonical order)
-    if (user.isPremiumPlus) {
-      state.type = 'plus';
-      if (user.premiumPlusExpiry && _toMillis(user.premiumPlusExpiry) > now) {
-        state.status = 'active';
-        state.expiry = user.premiumPlusExpiry;
-      } else if (user.premiumPlusExpiry) {
-        state.status = 'expired';
-        state.expiry = user.premiumPlusExpiry;
+    if (user.plan === 'premium') {
+      var active = !user.planExpiry || _toMillis(user.planExpiry) > now;
+      if (user.isTrial) {
+        state.type = 'trial';
+        state.expiry = user.trialEnd || user.planExpiry || null;
+      } else {
+        state.type = 'premium';
+        state.expiry = user.planExpiry || null;
       }
-      return state;
-    }
-
-    if (user.isPremium) {
-      state.type = 'premium';
-      state.status = 'active';
-      return state;
-    }
-
-
-    if (user.isTrial) {
-      state.type = 'trial';
-      if (user.trialEnd && _toMillis(user.trialEnd) > now) {
-        state.status = 'active';
-        state.expiry = user.trialEnd;
-      } else if (user.trialEnd) {
-        state.status = 'expired';
-        state.expiry = user.trialEnd;
-      }
-      return state;
-    }
-
-    // Check for explicit expiration statuses even if flags are false
-    if (user.premiumPlusExpiry && _toMillis(user.premiumPlusExpiry) < now) {
-      state.type = 'plus';
-      state.status = 'expired';
-      state.expiry = user.premiumPlusExpiry;
-      return state;
+      state.status = active ? 'active' : 'expired';
     }
 
     return state;
@@ -139,12 +110,11 @@ var PaymentsView = (function () {
                           (item.state.paymentId && item.state.paymentId.toLowerCase().indexOf(searchQ) > -1);
       if (!matchesSearch) return false;
 
-      if (filterQ === 'premium' && item.state.type !== 'premium') return false;
-      if (filterQ === 'plus' && (item.state.type !== 'plus' || item.state.status !== 'active')) return false;
+      if (filterQ === 'premium' && (item.state.type !== 'premium' || item.state.status !== 'active')) return false;
       if (filterQ === 'trial' && (item.state.type !== 'trial' || item.state.status !== 'active')) return false;
       if (filterQ === 'expired' && item.state.status !== 'expired') return false;
       if (filterQ === 'coaching' && item.state.source !== 'coaching') return false;
-      if (filterQ === 'direct' && item.state.source !== 'direct') return false;
+      if (filterQ === 'direct' && item.state.source === 'coaching') return false;
 
       return true;
     });
@@ -154,14 +124,13 @@ var PaymentsView = (function () {
       return;
     }
 
-    // Sort: Active first, then by expiry (closest first), then premium lifetime
+    // Sort: Active first, then by expiry (most recent first)
     filtered.sort(function(a, b) {
       if (a.state.status === 'active' && b.state.status !== 'active') return -1;
       if (a.state.status !== 'active' && b.state.status === 'active') return 1;
       
-      if (a.state.expiry && b.state.expiry) return b.state.expiry - a.state.expiry; // Most recent first
-      if (a.state.type === 'premium') return -1;
-      return 1;
+      if (a.state.expiry && b.state.expiry) return _toMillis(b.state.expiry) - _toMillis(a.state.expiry); // Most recent first
+      return 0;
     });
 
     var html = '';
@@ -173,15 +142,14 @@ var PaymentsView = (function () {
       
       var badgeClass = 'badge-free';
       var badgeText = 'Unknown';
-      if (s.type === 'premium') { badgeClass = 'badge-premium'; badgeText = 'Lifetime'; }
-      if (s.type === 'plus') { badgeClass = 'badge-premium-plus'; badgeText = 'Premium+'; }
+      if (s.type === 'premium') { badgeClass = 'badge-premium'; badgeText = s.plan === 'premium_12m' ? 'Premium · 12m' : (s.plan === 'premium_6m' ? 'Premium · 6m' : 'Premium'); }
       if (s.type === 'trial') { badgeClass = 'badge-draft'; badgeText = 'Trial'; }
 
       var statusBadge = '';
       if (s.status === 'active') statusBadge = '<span class="badge badge-active" style="margin-left:.5rem;">Active</span>';
       else statusBadge = '<span class="badge badge-archived" style="margin-left:.5rem;">Expired</span>';
 
-      var expiryStr = 'Lifetime';
+      var expiryStr = '—';
       if (s.expiry) {
         expiryStr = new Date(s.expiry).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
       }

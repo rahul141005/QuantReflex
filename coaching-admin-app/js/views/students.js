@@ -105,7 +105,7 @@ var StudentsView = (function () {
     html += '<div class="student-avatar">' + CoachingUtils.getInitial(s.name || s.email) + '</div>';
     html += '<div class="student-info">';
     html += '<div class="student-name">' + CoachingUtils.escapeHtml(s.name || s.email || 'Unknown');
-    html += CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
+    html += CoachingUtils.getSubscriptionBadge(s.plan, s.isTrial);
     html += '</div>';
     html += '<div class="student-meta">';
     html += '<span>' + CoachingUtils.getRelativeTime(s.lastActive) + '</span>';

@@ -1,4 +1,4 @@
-const { methodGuard, formatError } = require('./_lib/middleware');
+const { methodGuard, formatError, isCoachingActive } = require('./_lib/middleware');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
     }
 
     var data = doc.data();
-    if (data.isActive === false || data.status === 'expired') {
+    if (!isCoachingActive(data)) {
       return res.status(200).json({ valid: false, message: 'Coaching is inactive or expired' });
     }
 

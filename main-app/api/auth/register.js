@@ -1,4 +1,4 @@
-const { methodGuard, formatError, parseBody } = require('../_lib/middleware');
+const { methodGuard, formatError, parseBody, isCoachingActive } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -14,6 +14,33 @@ if (!admin.apps.length) {
 // Basic regex validations
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* audit H3: per-IP in-memory rate limiter for this PUBLIC, unauthenticated
+   endpoint. Defense-in-depth (per serverless instance, like the AI/admin
+   limiters) — blunts scripted account-creation abuse. For a hard global
+   cap, front this with App Check / a captcha / a shared counter. */
+const _regRateMap = {};
+let _regCheckCount = 0;
+const REG_WINDOW_MS = 60 * 60 * 1000; /* 1 hour */
+const REG_MAX_PER_WINDOW = 10;        /* accounts per IP per hour */
+
+function _registerRateLimited(ip) {
+  if (!ip) return false; /* cannot identify caller — do not block */
+  const now = Date.now();
+  if (++_regCheckCount >= 100) {
+    _regCheckCount = 0;
+    Object.keys(_regRateMap).forEach((k) => {
+      if (now - _regRateMap[k].windowStart > REG_WINDOW_MS) delete _regRateMap[k];
+    });
+  }
+  const entry = _regRateMap[ip];
+  if (!entry || now - entry.windowStart > REG_WINDOW_MS) {
+    _regRateMap[ip] = { count: 1, windowStart: now };
+    return false;
+  }
+  entry.count++;
+  return entry.count > REG_MAX_PER_WINDOW;
+}
+
 module.exports = async (req, res) => {
   // CORS for public access
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,6 +52,14 @@ module.exports = async (req, res) => {
   }
 
   if (methodGuard(req, res, 'POST')) return;
+
+  /* Rate-limit by client IP (audit H3) */
+  const fwd = req.headers['x-forwarded-for'];
+  const clientIp = (typeof fwd === 'string' ? fwd.split(',')[0].trim() : '') || req.socket?.remoteAddress || '';
+  if (_registerRateLimited(clientIp)) {
+    console.warn('[register] rate limit exceeded for ip:', clientIp);
+    return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many sign-up attempts. Please try again later.', retryable: true } });
+  }
 
   const body = parseBody(req);
   const { email, password, coachingId } = body;
@@ -51,7 +86,7 @@ module.exports = async (req, res) => {
         return res.status(404).json({ error: { code: 'COACHING_NOT_FOUND', message: 'The provided Coaching ID does not exist.' } });
       }
       const cData = coachingDoc.data();
-      if (cData.isActive === false || cData.status === 'suspended' || cData.status === 'deleted') {
+      if (!isCoachingActive(cData)) {
         return res.status(403).json({ error: { code: 'COACHING_INACTIVE', message: 'This Coaching ID is currently inactive or suspended.' } });
       }
     }
@@ -87,14 +122,15 @@ module.exports = async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       coachingId: coachingId || null,
 
-      // Entitlement Defaults (Safe)
-      isPremium: false,
-      isPremiumPlus: false,
-      hasPaid: false,
+      // Entitlement Defaults (v2 — safe free tier)
+      plan: 'free',
+      planType: null,
+      planExpiry: null,
+      planSource: null,
       isTrial: false,
       trialEnd: null,
-      premiumPlusExpiry: null,
-      premiumPlusStatus: null
+      planUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPaymentId: null
     });
 
     // Subcollections Setup

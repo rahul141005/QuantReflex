@@ -1,7 +1,7 @@
 /**
  * POST /api/ai/insights
  * Generate AI coaching insights from user stats.
- * Requires Premium+ entitlement.
+ * Requires Premium entitlement.
  */
 
 const { withAuth, formatError, methodGuard } = require('../_lib/middleware');
@@ -11,9 +11,9 @@ module.exports = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
 
   try {
-    if (!req.userPremiumPlus) {
+    if (!req.userPremium) {
       return res.status(403).json({
-        error: { code: 'PREMIUM_PLUS_REQUIRED', message: 'This feature requires Premium+. Upgrade to continue.', retryable: false }
+        error: { code: 'PREMIUM_REQUIRED', message: 'This feature requires Premium. Upgrade to continue.', retryable: false }
       });
     }
 

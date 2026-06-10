@@ -5,11 +5,11 @@
  * Now reads from the centralized Firestore `questions` collection
  * (pre-generated, curated, and approved via the Super Admin pipeline).
  *
- * Server-side quota enforcement and Premium+ validation remain as
+ * Server-side quota enforcement and Premium validation remain as
  * defense-in-depth — the client now fetches directly from Firestore
  * as the primary path, but this endpoint stays as a fallback.
  *
- * Requires Premium+ entitlement.
+ * Requires Premium entitlement.
  */
 
 const { withAuth, formatError, methodGuard } = require('../_lib/middleware');
@@ -21,15 +21,15 @@ module.exports = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
 
   try {
-    if (!req.userPremiumPlus) {
+    if (!req.userPremium) {
       return res.status(403).json({
-        error: { code: 'PREMIUM_PLUS_REQUIRED', message: 'This feature requires Premium+. Upgrade to continue.', retryable: false }
+        error: { code: 'PREMIUM_REQUIRED', message: 'This feature requires Premium. Upgrade to continue.', retryable: false }
       });
     }
 
-    var remaining = await aiService.checkWordProblemQuota(req.userId, req.userPremiumPlus);
+    var remaining = await aiService.checkWordProblemQuota(req.userId, req.userPremium);
     if (remaining <= 0) {
-      var msg = req.userPremiumPlus ? 'Daily word problem limit reached. Come back tomorrow.' : 'Free word problem limit reached. Upgrade to Premium+ for more.';
+      var msg = req.userPremium ? 'Daily word problem limit reached. Come back tomorrow.' : 'Free word problem limit reached. Upgrade to Premium for more.';
       return res.status(429).json({ error: { code: 'QUOTA_EXCEEDED', message: msg, retryable: false } });
     }
 
@@ -55,8 +55,17 @@ module.exports = withAuth(async function (req, res) {
     /* DEPRECATED: was aiService.generateWordProblems(category, difficulty, clampedCount)
        Now reads from centralized question bank (Firestore `questions` collection). */
     var questions = await aiService.generateWordProblems(category, difficulty, clampedCount);
-    await aiService.consumeWordProblemQuota(req.userId, req.userPremiumPlus, questions.length);
-    res.json({ questions: questions, remaining: remaining - questions.length });
+
+    /* audit H2: consumption is now atomic and returns how many were actually
+       granted (may be fewer than requested under concurrency / at the cap).
+       Only serve the granted count so the quota can never be exceeded. */
+    var granted = await aiService.consumeWordProblemQuota(req.userId, req.userPremium, questions.length);
+    if (granted <= 0) {
+      var qmsg = req.userPremium ? 'Daily word problem limit reached. Come back tomorrow.' : 'Free word problem limit reached. Upgrade to Premium for more.';
+      return res.status(429).json({ error: { code: 'QUOTA_EXCEEDED', message: qmsg, retryable: false } });
+    }
+    var served = questions.slice(0, granted);
+    res.json({ questions: served, remaining: Math.max(0, remaining - served.length) });
   } catch (err) {
     console.error('Word problems error:', err.message);
     res.status(500).json({ error: formatError(err) });

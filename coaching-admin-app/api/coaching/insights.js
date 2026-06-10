@@ -120,7 +120,7 @@ async function handler(req, res) {
       let lastWeekAttempted = 0;
       let lastWeekCorrect = 0;
 
-      const dailyHistory = stats.dailyHistory || {};
+      // reuse `dailyHistory` declared above
       for (const dateKey in dailyHistory) {
         if (!dailyHistory.hasOwnProperty(dateKey)) continue;
         const dayMs = Date.parse(dateKey);

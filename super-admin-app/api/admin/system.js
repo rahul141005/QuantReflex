@@ -21,19 +21,16 @@ async function handler(req, res) {
       const usersSnap = await db.collection('users').count().get();
       const totalUsers = usersSnap.data().count;
 
-      const premiumPlusSnap = await db.collection('users').where('isPremiumPlus', '==', true).count().get();
-      const premiumPlusUsers = premiumPlusSnap.data().count;
-
-      const premiumOnlySnap = await db.collection('users')
-        .where('isPremium', '==', true)
-        .where('isPremiumPlus', '==', false)
-        .count().get();
-      const premiumUsers = premiumOnlySnap.data().count;
+      /* v2: a trial is plan:'premium' with isTrial:true, so premiumTotal
+         already includes trials. paidPremium = premiumTotal - trials. */
+      const premiumTotalSnap = await db.collection('users').where('plan', '==', 'premium').count().get();
+      const premiumTotal = premiumTotalSnap.data().count;
 
       const trialSnap = await db.collection('users').where('isTrial', '==', true).count().get();
       const trialUsers = trialSnap.data().count;
 
-      const freeUsers = Math.max(0, totalUsers - premiumUsers - premiumPlusUsers - trialUsers);
+      const premiumUsers = Math.max(0, premiumTotal - trialUsers);
+      const freeUsers = Math.max(0, totalUsers - premiumTotal);
 
       const metricsSnap = await db.collection('metrics').doc('latest').get();
       const latestMetrics = metricsSnap.exists ? metricsSnap.data() : {};
@@ -48,7 +45,6 @@ async function handler(req, res) {
           freeUsers: freeUsers,
           trialUsers: trialUsers,
           premiumUsers: premiumUsers,
-          premiumPlusUsers: premiumPlusUsers,
           dau: latestMetrics.dau || 0,
           mau: latestMetrics.mau || 0,
           orphanDuels: orphanDuelsSnap.size
@@ -70,8 +66,13 @@ async function handler(req, res) {
       const now = Date.now();
       const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
       const issues = [];
-      const expiredPremiumPlusSnap = await db.collection('users').where('isPremiumPlus', '==', true).where('premiumPlusExpiry', '<', now).limit(100).get();
-      if (!expiredPremiumPlusSnap.empty) { issues.push({ type: 'EXPIRED_PREMIUM_PLUS', severity: 'high', message: `Found ${expiredPremiumPlusSnap.size} users with active Premium+ but expired timestamps.`, actionPayload: { fixEndpoint: '/api/admin/entitlements/mutate', action: 'revoke_expired' } }); }
+      /* Premium users whose planExpiry (ISO string) is in the past but plan still
+         shows 'premium'. Filter in code (ISO-string compare) to avoid a composite index. */
+      const nowIso = new Date().toISOString();
+      const premiumSnap = await db.collection('users').where('plan', '==', 'premium').limit(500).get();
+      let expiredCount = 0;
+      premiumSnap.forEach(d => { const e = d.data().planExpiry; if (e && typeof e === 'string' && e < nowIso) expiredCount++; });
+      if (expiredCount > 0) { issues.push({ type: 'EXPIRED_PREMIUM', severity: 'high', message: `Found ${expiredCount} users with active premium but expired timestamps.`, actionPayload: { fixEndpoint: '/api/admin/entitlements', action: 'revoke' } }); }
       const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
       if (!orphanDuelsSnap.empty) { issues.push({ type: 'ORPHANED_DUELS', severity: 'medium', message: `Found ${orphanDuelsSnap.size} stale duel rooms clogging the database.`, actionPayload: { fixEndpoint: '/api/admin/duels/cleanup' } }); }
       const recentUsers = await db.collection('users').orderBy('createdAt', 'desc').limit(50).get();

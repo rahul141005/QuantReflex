@@ -1,0 +1,145 @@
+# QuantReflex Technical Bible
+
+**Doc Version:** 1.0 · **Architecture Version:** 1.0 (see [VERSIONS.md](VERSIONS.md))
+**Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
+**Last updated:** 2026-06-11
+**Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
+
+Companion documents (start at [README.md](README.md)):
+- [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) — collection/field schema source of truth
+- [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) — auth, rules, secrets
+- [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md) — Razorpay flows, entitlements
+- [GOVERNANCE.md](GOVERNANCE.md) — mandatory change workflow · [VERSIONS.md](VERSIONS.md) — version registry
+- [DECISION_LOG.md](DECISION_LOG.md) — ADRs · [ROADMAP.md](ROADMAP.md) — plan + debt · [CHANGELOG.md](CHANGELOG.md) — every change
+
+---
+
+## 1. What QuantReflex Is
+
+A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants (CAT, GMAT, Bank PO, SSC, CET). Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹299/6mo or ₹499/12mo — includes everything: all training features, the full AI suite, and Math Duel). One paid tier; trials are time-limited Premium grants.
+
+## 2. Tech Stack (canonical)
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend | Vanilla HTML/CSS/JS SPA | No React/Vue/bundler. Layered `<script>` load order. |
+| Hosting | Vercel (3 separate projects) | Static assets + serverless `/api/*`. |
+| Auth | Firebase Authentication | Email/Password + Google. Custom claims for roles. |
+| Database | Cloud Firestore | Single project `quant-reflex-trainer`. ISO-8601 timestamp standard. |
+| Server logic | Vercel serverless (Node) + Firebase Cloud Functions (Node 24) | Admin SDK = trust boundary. |
+| Payments | Razorpay (one-time orders, no subscriptions) | HMAC-SHA256 verification + webhook. |
+| AI | OpenAI `gpt-4o-mini` | Server-side key only. Firestore-cached. |
+| Push | Firebase Cloud Messaging | Daily reminder function. |
+
+**Firebase project (all apps & functions):** `quant-reflex-trainer`.
+
+## 3. Applications (canonical boundaries)
+
+| App | Deploy target | Audience | Auth gate | Server APIs |
+|---|---|---|---|---|
+| `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai/*`, `payment/*`, `auth/register`, `account/delete`, `claim-coaching`, `validate-coaching`, `notifications` |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users, entitlements, coachings, questions, payments, ai-usage, duels, notifications, system) |
+| `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
+| `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
+
+**Isolation rule:** apps deploy independently from their own root directory. There is **no bundler**, so runtime `import ../shared/` is impossible. Shared logic (`_toMillis`, `_escapeHtml`, Firebase config, entitlement constants) is **inline-copied** into each app; `shared/` is the canonical reference only. When you change a shared utility, update every inline copy and note it in the changelog.
+
+## 4. main-app Client Architecture
+
+### 4.1 Layered script load order (must be preserved — `index.html`)
+```
+1 State          state/store.js (AppState)
+2 Infrastructure firebase.js → auth.js → firestore-sync.js
+3 Services        services/{adaptive-state,scoring-service,share-service,question-bank-service}.js
+4 Data            progress.js, questions.js
+5 References      tables.js, formulas.js, learn-manager.js
+6 Settings        settings.js  (provides showToast)
+7 Engine          drill-engine.js
+8 Navigation      router.js
+9 Features        paywall.js, ai-features.js, session-manager.js
+10 Controllers     controllers/{practice-config,practice-modes}.js
+11 UI             ui/{numpad,swipe-nav}.js
+12 Views           views/{home,learn,stats,inbox}-view.js
+13 Bootstrap       app.js  (MUST be last)
+Deferred           notifications.js, onboarding.js
+```
+
+### 4.2 State model (canonical)
+- **Source of truth (client):** `AppState` (localStorage, canonical `qr_*` keys; legacy `quant_reflex_*` keys are fallback-read only) and `FirestoreSync._memoryCache` (in-memory copy of the user doc).
+- **Server is final authority.** Client entitlement flags are display-only; the server re-checks Firestore on every protected call. Client code must never treat a local flag as authorization.
+- **Sync:** `FirestoreSync.queueUpdate` debounces writes (2000ms). During drills, writes defer until `endDrillBatch()`. `updatedAt` on the main doc is written with `serverTimestamp()` to anchor clock-skew checks.
+- **User-switch safety:** `resetSyncState()` + `AppState.clearAll()` + `qr_last_uid` guard prevent cross-user leakage. `_syncGeneration` discards in-flight writes after a user switch.
+
+### 4.3 Premium gating (client)
+`paywall.js` exposes `canAccess(feature)`, `hasPremiumAccess()`, `getDailyQuestionLimit()`. v2: **every** gated feature (incl. AI features and `math_duel`) requires `plan==='premium'` — there is no AI-only sub-tier. See [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md).
+
+## 5. Server (Vercel serverless) Architecture
+
+- **Trust boundary:** the Firebase **Admin SDK** bypasses Firestore rules. All entitlement grants, account creation, payment processing, and admin mutations run server-side with Admin SDK.
+- **Auth middleware (`main-app/api/_lib/middleware.js`):** `withAuth` verifies the Firebase ID token, resolves the single `req.userPremium` from Firestore (`aiService.isUserPremium`→`resolvePlan`), applies a per-instance in-memory rate limit (20/hr). `withAdminAuth` additionally requires `decoded.admin===true`.
+- **Admin middleware (`super-admin-app/api/_lib/`):** **canonical wrapper is `middleware.js#withAdminAuth`** (token + `admin:true` claim + per-admin rate limit 30/hr; sets both `req.userId` and `req.adminUid`). `firebase-admin.js#withAdmin` is now a thin re-export of it (audit M5, fixed 2026-06-11). All admin endpoints are rate-limited.
+- **Coaching middleware (`coaching-admin-app/api/_lib/middleware.js`):** `withCoachingAuth` requires `coaching_admin===true` AND a `coachingId` claim, attaches `req.coachingId` for data scoping.
+
+### 5.1 Services (`main-app/services/`)
+- `aiService.js` — Admin SDK + OpenAI. Entitlement: `resolvePlan`/`isUserPremium` (self-healing), `activatePremium` (transactional/idempotent grant), `safeUserUpdate`; AI generation + Firestore caching; AI usage quota.
+- `paymentService.js` — Razorpay client, `createOrder`, `verifyPaymentSignature` (constant-time), `fetchOrder`/`fetchOrderPlan` (server-trusted plan + uid), `getPlanConfig`, `PLAN_CONFIG` (`premium_6m`/`premium_12m`).
+- `claimsService.js` — `setEntitlementClaims(uid, {premium})` (single custom JWT claim; non-fatal optimization; Firestore `plan` is source of truth).
+
+## 6. Cloud Functions (`functions/index.js`)
+
+| Function | Trigger | Purpose | Scale guards |
+|---|---|---|---|
+| `cleanupExpiredDuels` | every 60 min | Soft-expire stale waiting/ready duels >30 min | `.limit(400)`, batch |
+| `enforceEntitlementExpiry` | every 6 h | Revert expired premium (`plan:'premium'` + `planExpiry`<now → `plan:'free'`) | paginate 200, stop >5000 |
+| `dailyPracticeReminder` | 07:00 IST | FCM reminder, prune invalid tokens | paginate 500, **caps 5000 tokens/run** |
+| `syncCoachingStudentCount` | onWrite `users/{uid}` | **Sole writer** of `coachings.studentCount` on `coachingId` change | increment/decrement |
+
+> `studentCount` is the **canonical** denormalized counter and is maintained **only** by `syncCoachingStudentCount`. No request handler may increment it directly (claim-coaching previously wrote a divergent `studentsCount` — removed, audit M8). Drift is repaired by `firestore/migrations/2026-06-11-reconcile-studentCount.js`.
+
+> Note: premium access is also reverted **live** on read (`resolvePlan` self-heals on access), so the 6-hour function only affects dashboard counts, not access correctness.
+
+## 7. AI Subsystem
+
+- Model `gpt-4o-mini`, key server-side (`OPENAI_API_KEY`).
+- Caching: `explanations` (content hash), `aiCoachV2`/`aiInsightsV2` (per-user-per-day), `aiStudyPlans` (persisted).
+- Structured output via strict `json_schema`; explanation path self-checks numeric answer and retries twice.
+- Global counters in `systemMetrics/ai_daily_{date}`.
+- Quota: free = 5 lifetime word-problem credits; premium = 25/day. Stored in `users/{uid}/usage/ai` (server source of truth). Consumption is **atomic** (Firestore transaction in `consumeWordProblemQuota`, audit H2 fixed 2026-06-11) — returns the count actually granted so the cap holds under concurrency.
+
+## 8. Data Flow Summaries
+
+**Practice answer →** drill-engine updates stats → `AppState`/`FirestoreSync` (deferred during drill) → on `endDrillBatch`: main doc + `performance/overall` + `practice/data` written.
+
+**Payment →** see [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md).
+
+**AI request →** client → `/api/ai/*` (`withAuth`) → entitlement + quota check → cache lookup → OpenAI on miss → cache write → response.
+
+## 9. Environments & Secrets
+
+Server env vars (Vercel, never committed): `OPENAI_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `FIREBASE_SERVICE_ACCOUNT`. Public-by-design: Firebase web config, Razorpay key-id. See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
+
+## 10. Conventions
+
+- **Timestamps:** ISO-8601 strings are the documented standard; `serverTimestamp()` is used for main-doc `updatedAt` and some server writes. All readers normalize via a `_toMillis`-style helper. New writes SHOULD prefer `serverTimestamp()` where a server context exists.
+- **Entitlement field names (canonical, v2):** `plan, planType, planExpiry, planSource, isTrial, trialEnd, planUpdatedAt, lastPaymentId, coachingId`. Do not introduce synonyms or reintroduce the removed v1 fields.
+- **Plan keys (canonical):** `premium_6m`, `premium_12m`. Tier values: `free`, `premium`.
+
+## 11. Known Deprecated / Dead Code (do not extend)
+- `duelInvitations` collection (rules deny all).
+- `generateWordProblems` OpenAI path (now reads curated `questions`).
+- Duplicate `FirestoreSync.updateCoachingId` (second definition wins).
+
+## 12. Open Architectural Debts (tracked)
+See the founding audit ([../../AUDIT-REPORT.md](../../AUDIT-REPORT.md)) and the live debt register in [ROADMAP.md](ROADMAP.md). Resolution status for each finding is in [CHANGELOG.md](CHANGELOG.md).
+
+## 13. Change Control
+
+**The authoritative, mandatory workflow is defined in [GOVERNANCE.md](GOVERNANCE.md).** Summary — a change is "synchronized" only when, in the same change set:
+1. Code is modified.
+2. Any affected section of this Bible is updated (Bible-first, before code).
+3. Schema changes are reflected in [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md).
+4. Security/payment changes are reflected in their respective documents.
+5. A Change Impact Report + dated entry is added to [CHANGELOG.md](CHANGELOG.md) (referencing finding/ADR IDs and file:line).
+6. Affected version tracks are bumped in [VERSIONS.md](VERSIONS.md), with migration notes for breaking/data changes.
+
+Version semantics (MAJOR/MINOR) and the full Definition of Done are in [GOVERNANCE.md](GOVERNANCE.md) and [VERSIONS.md](VERSIONS.md).

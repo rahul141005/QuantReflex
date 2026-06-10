@@ -102,15 +102,16 @@ var CoachingUtils = (function () {
   }
 
   /**
-   * Centralized subscription badge display.
-   * Premium+ supersedes Premium. Free users get nothing.
-   * @param {boolean} isPremium
-   * @param {boolean} isPremiumPlus
+   * Centralized subscription badge display (v2: single Premium tier).
+   * @param {string} plan - 'free' | 'premium'
+   * @param {boolean} [isTrial] - true if the premium is a trial
    * @returns {string} HTML badge or empty string
    */
-  function getSubscriptionBadge(isPremium, isPremiumPlus) {
-    if (isPremiumPlus) return '<span class="badge badge-premium-plus">★ Premium+</span>';
-    if (isPremium) return '<span class="badge badge-premium">★ Premium</span>';
+  function getSubscriptionBadge(plan, isTrial) {
+    if (plan === 'premium') {
+      if (isTrial) return '<span class="badge badge-draft">★ Trial</span>';
+      return '<span class="badge badge-premium">★ Premium</span>';
+    }
     return '';
   }
 

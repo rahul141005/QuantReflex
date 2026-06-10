@@ -1,23 +1,44 @@
 /**
- * entitlements.js — Canonical Entitlement Constants
+ * entitlements.js — Canonical Entitlement Constants (v2)
  *
- * Single source of truth for entitlement tier definitions,
- * field names, and precedence rules across the QuantReflex ecosystem.
+ * Single source of truth for the QuantReflex v2 monetization model.
  *
- * STATUS: Reference constants only. Not yet imported by apps.
- * Apps currently define these inline. This file documents the canonical
- * contract to prevent drift during future centralization.
+ * MODEL: one paid tier. A user's access resolves entirely through `plan`:
+ *   plan = 'free' | 'premium'
+ * Premium is time-limited (6 or 12 months) or a custom-duration admin trial.
+ * There is NO lifetime plan and NO second "plus" tier — everything premium
+ * lives in the single `premium` plan.
+ *
+ * STATUS: Reference constants only (apps inline-copy these; no bundler).
  */
 
 // ══════════════════════════════════════════════
-// ENTITLEMENT TIERS
+// PLANS (the only tiers)
 // ══════════════════════════════════════════════
 
-var ENTITLEMENT_TIERS = {
+var PLANS = {
   FREE: 'free',
-  TRIAL: 'trial',
-  PREMIUM: 'premium',
-  PREMIUM_PLUS: 'premium_plus'
+  PREMIUM: 'premium'
+};
+
+// ══════════════════════════════════════════════
+// PLAN TYPES (purchasable products)
+// ══════════════════════════════════════════════
+
+var PLAN_TYPES = {
+  PREMIUM_6M: 'premium_6m',
+  PREMIUM_12M: 'premium_12m'
+};
+
+// ══════════════════════════════════════════════
+// PLAN SOURCES (how the current premium was granted)
+// ══════════════════════════════════════════════
+
+var PLAN_SOURCES = {
+  PURCHASE: 'purchase',   // paid via Razorpay
+  TRIAL: 'trial',         // admin-granted custom-duration trial
+  ADMIN: 'admin',         // admin-granted premium
+  COACHING: 'coaching'    // granted via coaching institute
 };
 
 // ══════════════════════════════════════════════
@@ -25,70 +46,30 @@ var ENTITLEMENT_TIERS = {
 // ══════════════════════════════════════════════
 
 var ENTITLEMENT_FIELDS = {
-  // Premium (Lifetime)
-  IS_PREMIUM: 'isPremium',         // boolean
-  HAS_PAID: 'hasPaid',             // boolean
+  PLAN: 'plan',                 // 'free' | 'premium'
+  PLAN_TYPE: 'planType',        // 'premium_6m' | 'premium_12m' | null
+  PLAN_EXPIRY: 'planExpiry',    // ISO 8601 string | null
+  PLAN_SOURCE: 'planSource',    // 'purchase' | 'trial' | 'admin' | 'coaching' | null
+  IS_TRIAL: 'isTrial',          // boolean — true while current premium is a trial
+  TRIAL_END: 'trialEnd',        // ISO 8601 string | null (mirrors planExpiry during a trial)
+  PLAN_UPDATED_AT: 'planUpdatedAt', // ISO 8601 string
   LAST_PAYMENT_ID: 'lastPaymentId', // string | null
-
-  // Trial
-  IS_TRIAL: 'isTrial',             // boolean
-  TRIAL_END: 'trialEnd',           // ISO 8601 string | null
-
-  // Premium+
-  IS_PREMIUM_PLUS: 'isPremiumPlus',                 // boolean
-  PREMIUM_PLUS_PLAN: 'premiumPlusPlan',             // 'plus_6month' | 'plus_yearly' | null
-  PREMIUM_PLUS_EXPIRY: 'premiumPlusExpiry',         // ISO 8601 string | null
-  PREMIUM_PLUS_STATUS: 'premiumPlusStatus',         // 'active' | 'expired' | null
-  LAST_PREMIUM_PLUS_PAYMENT_ID: 'lastPremiumPlusPaymentId', // string | null
-
-  // Legacy (deprecated but preserved for backward compat)
-  IS_EARLY_USER: 'isEarlyUser',    // boolean — always false for new users
-
-  // Coaching
-  COACHING_ID: 'coachingId'        // string | null
+  COACHING_ID: 'coachingId'     // string | null
 };
 
 // ══════════════════════════════════════════════
-// PLAN IDENTIFIERS
-// ══════════════════════════════════════════════
-
-var PLAN_IDS = {
-  PREMIUM_LIFETIME: 'premium',
-  PLUS_6MONTH: 'plus_6month',
-  PLUS_YEARLY: 'plus_yearly'
-};
-
-// ══════════════════════════════════════════════
-// PRICING (INR)
+// PRICING (INR, paise) + DURATIONS (days)
 // ══════════════════════════════════════════════
 
 var PRICING = {
-  PREMIUM_LIFETIME: 8900,      // ₹89 in paise
-  PLUS_6MONTH: 29900,           // ₹299 in paise
-  PLUS_YEARLY: 49900           // ₹499 in paise
+  PREMIUM_6M: 29900,   // ₹299
+  PREMIUM_12M: 49900   // ₹499
 };
 
-// ══════════════════════════════════════════════
-// ENTITLEMENT PRECEDENCE (highest → lowest)
-// ══════════════════════════════════════════════
-//
-// 1. Premium+ (active, not expired)
-// 2. Premium (lifetime, hasPaid)
-// 3. Trial (active, not expired)
-// 4. Free
-//
-// Rules:
-// - Granting Premium wipes Trial fields
-// - Granting Premium+ wipes Trial fields
-// - Granting Trial does NOT downgrade Premium/Premium+
-// - Revoking clears ALL entitlement fields
-
-var PRECEDENCE_ORDER = [
-  ENTITLEMENT_TIERS.PREMIUM_PLUS,
-  ENTITLEMENT_TIERS.PREMIUM,
-  ENTITLEMENT_TIERS.TRIAL,
-  ENTITLEMENT_TIERS.FREE
-];
+var DURATIONS_DAYS = {
+  PREMIUM_6M: 182,
+  PREMIUM_12M: 365
+};
 
 // ══════════════════════════════════════════════
 // FREE TIER LIMITS
@@ -100,18 +81,10 @@ var FREE_TIER_LIMITS = {
 };
 
 // ══════════════════════════════════════════════
-// AI FEATURES (Premium+ only)
+// PREMIUM FEATURES (all included in the single premium plan)
 // ══════════════════════════════════════════════
-
-var AI_FEATURES = {
-  AI_EXPLAIN: 'ai_explain',
-  AI_COACH: 'ai_coach',
-  AI_STUDY_PLAN: 'ai_study_plan'
-};
-
-// ══════════════════════════════════════════════
-// PREMIUM FEATURES (Premium and above)
-// ══════════════════════════════════════════════
+// Every gated feature now requires `plan === 'premium'`. There is no AI-only
+// sub-tier — AI features and Math Duel are part of premium like everything else.
 
 var PREMIUM_FEATURES = {
   CUSTOM_TRAINING: 'custom_training',
@@ -126,35 +99,36 @@ var PREMIUM_FEATURES = {
   DAILY_GOAL_LIMIT: 'daily_goal_limit',
   FOCUS_TIMER: 'focus_timer',
   TABLE_MODAL: 'table_modal',
-  ADAPTIVE_TRAINING: 'adaptive_training'
+  ADAPTIVE_TRAINING: 'adaptive_training',
+  AI_EXPLAIN: 'ai_explain',
+  AI_COACH: 'ai_coach',
+  AI_STUDY_PLAN: 'ai_study_plan',
+  MATH_DUEL: 'math_duel'
 };
 
 // ══════════════════════════════════════════════
-// TIMESTAMP STRATEGY
+// RESOLUTION RULE
 // ══════════════════════════════════════════════
 //
-// ALL timestamps in the ecosystem MUST be ISO 8601 strings.
-// Generated via: new Date().toISOString()
-// Format: "2026-05-13T06:00:00.000Z"
+//   premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
 //
-// DO NOT use:
-// - Unix milliseconds (number)
-// - Firestore Timestamps
-// - Date objects
-// - Custom date formats
+// A trial is plan:'premium' with planSource:'trial', isTrial:true,
+// trialEnd === planExpiry. On expiry, state self-heals to free:
+//   plan:'free', planType:null, planExpiry:null, planSource:null,
+//   isTrial:false, trialEnd:null
 //
-// Parsing: Date.parse(isoString) → milliseconds for comparison
+// TIMESTAMPS: ISO 8601 strings (new Date().toISOString()); parse via Date.parse().
 
 // Export for future use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    ENTITLEMENT_TIERS: ENTITLEMENT_TIERS,
+    PLANS: PLANS,
+    PLAN_TYPES: PLAN_TYPES,
+    PLAN_SOURCES: PLAN_SOURCES,
     ENTITLEMENT_FIELDS: ENTITLEMENT_FIELDS,
-    PLAN_IDS: PLAN_IDS,
     PRICING: PRICING,
-    PRECEDENCE_ORDER: PRECEDENCE_ORDER,
+    DURATIONS_DAYS: DURATIONS_DAYS,
     FREE_TIER_LIMITS: FREE_TIER_LIMITS,
-    AI_FEATURES: AI_FEATURES,
     PREMIUM_FEATURES: PREMIUM_FEATURES
   };
 }

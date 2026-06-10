@@ -27,7 +27,7 @@ async function handler(req, res) {
     let query = db.collection('users').where('fcmToken', '!=', null);
     
     if (segment === 'premium') {
-      // Note: requires composite index on [fcmToken, isPremium]
+      // Note: filtered in memory below by plan === 'premium'
       // Or we filter in memory if the dataset isn't too huge. Let's do memory filter for now to avoid breaking indexes.
       // Actually, a better query is to just fetch tokens and filter manually in batches for this God-tier pass.
     } else if (segment === 'coaching' && coachingId) {
@@ -47,7 +47,7 @@ async function handler(req, res) {
       if (!u.fcmToken) return;
 
       // In-memory filter for premium (avoids needing a complex index right now)
-      if (segment === 'premium' && !u.isPremium && !u.isPremiumPlus) return;
+      if (segment === 'premium' && u.plan !== 'premium') return;
       
       tokens.push(u.fcmToken);
       uidMap[u.fcmToken] = doc.id;

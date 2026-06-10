@@ -19,7 +19,7 @@ var NotificationsView = (function () {
           '<label>Target Segment</label>' +
           '<select id="notifSegment" class="form-control" style="width:100%; padding:0.5rem;" onchange="NotificationsView.toggleCoachingInput()">' +
             '<option value="all">All Users (with tokens)</option>' +
-            '<option value="premium">Premium / Premium+ Only</option>' +
+            '<option value="premium">Premium Only</option>' +
             '<option value="coaching">Specific Coaching Institute</option>' +
           '</select>' +
         '</div>' +

@@ -22,6 +22,14 @@ async function handler(req, res) {
     return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'type, action, and targetId are required.' } });
   }
 
+  const VALID_ACTIONS = ['premium_6m', 'premium_12m', 'trial', 'revoke'];
+  if (VALID_ACTIONS.indexOf(action) === -1) {
+    return res.status(400).json({ error: { code: 'INVALID_ACTION', message: 'action must be one of: ' + VALID_ACTIONS.join(', ') + '.' } });
+  }
+  if (action === 'trial' && (!trialDays || parseInt(trialDays, 10) < 1)) {
+    return res.status(400).json({ error: { code: 'INVALID_TRIAL', message: 'trialDays (positive integer) is required for a trial grant.' } });
+  }
+
   try {
     const db = admin.firestore();
     let querySnapshot;
@@ -46,60 +54,77 @@ async function handler(req, res) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No users found matching target.' } });
     }
 
-    const batch = db.batch();
+    /* audit C2: each user produces 2 writes (entitlement update + audit log).
+       Firestore caps a batch at 500 ops, so a single batch fails for any
+       coaching with >250 students. Chunk into ≤200-user batches (≤400 ops)
+       and commit sequentially. */
+    const CHUNK_SIZE = 200;
     let updatedCount = 0;
 
-    usersToUpdate.forEach(userDoc => {
-      const userRef = userDoc.ref;
-      const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    /* v2 grant actions. Trial supports a custom duration (trialDays). */
+    const _expiryAfterDays = (days) => {
+      const end = new Date();
+      end.setDate(end.getDate() + days);
+      return end.toISOString();
+    };
 
-      if (action === 'premium') {
-        updates.isPremium = true;
-        updates.hasPaid = true;
+    const buildUpdates = () => {
+      const nowIso = new Date().toISOString();
+      const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp(), planUpdatedAt: nowIso };
+
+      if (action === 'premium_6m' || action === 'premium_12m') {
+        updates.plan = 'premium';
+        updates.planType = action === 'premium_12m' ? 'premium_12m' : 'premium_6m';
+        updates.planExpiry = _expiryAfterDays(action === 'premium_12m' ? 365 : 182);
+        updates.planSource = 'admin';
         updates.isTrial = false;
         updates.trialEnd = null;
-      } else if (action === 'revoke') {
-        updates.isPremium = false;
-        updates.hasPaid = false;
-        updates.isPremiumPlus = false;
-        updates.premiumPlusStatus = 'expired';
-        updates.isTrial = false;
       } else if (action === 'trial') {
-        const days = trialDays || 14;
-        const end = new Date();
-        end.setDate(end.getDate() + days);
-        updates.isPremium = true;
+        const days = Math.max(1, parseInt(trialDays, 10) || 0);
+        const exp = _expiryAfterDays(days);
+        updates.plan = 'premium';
+        updates.planType = null;
+        updates.planExpiry = exp;
+        updates.planSource = 'trial';
         updates.isTrial = true;
-        updates.trialEnd = end.toISOString();
-        updates.trialDays = days;
-      } else if (action === 'premium_plus_6m' || action === 'premium_plus_1y') {
-        const months = action === 'premium_plus_1y' ? 12 : 6;
-        const end = new Date();
-        end.setMonth(end.getMonth() + months);
-        updates.isPremiumPlus = true;
-        updates.isPremium = true; // PremiumPlus includes Premium
-        updates.hasPaid = true;
-        updates.premiumPlusStatus = 'active';
-        updates.premiumPlusExpiry = end.toISOString();
-        updates.premiumPlusPlan = action === 'premium_plus_1y' ? 'plus_yearly' : 'plus_6month';
+        updates.trialEnd = exp;
+      } else if (action === 'revoke') {
+        updates.plan = 'free';
+        updates.planType = null;
+        updates.planExpiry = null;
+        updates.planSource = null;
+        updates.isTrial = false;
+        updates.trialEnd = null;
       }
 
-      batch.update(userRef, updates);
+      return updates;
+    };
 
-      // Log the entitlement change
-      const logRef = userRef.collection('entitlementLogs').doc();
-      batch.set(logRef, {
-        type: type,
-        action: action,
-        adminId: req.userId,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        details: updates
+    for (let i = 0; i < usersToUpdate.length; i += CHUNK_SIZE) {
+      const chunk = usersToUpdate.slice(i, i + CHUNK_SIZE);
+      const batch = db.batch();
+
+      chunk.forEach(userDoc => {
+        const userRef = userDoc.ref;
+        const updates = buildUpdates();
+
+        batch.update(userRef, updates);
+
+        // Log the entitlement change
+        const logRef = userRef.collection('entitlementLogs').doc();
+        batch.set(logRef, {
+          type: type,
+          action: action,
+          adminId: req.userId,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          details: updates
+        });
+
+        updatedCount++;
       });
 
-      updatedCount++;
-    });
-
-    await batch.commit();
+      await batch.commit();
+    }
 
     return res.status(200).json({ success: true, count: updatedCount, updatedCount: updatedCount });
   } catch (err) {

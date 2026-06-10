@@ -51,7 +51,6 @@ async function handler(req, res) {
     let activeStreakUsers = 0;
     let totalQuestionsSolved = 0;
     let premiumUsers = 0;
-    let premiumPlusUsers = 0;
     const categoryAccuracyMap = {};
     const strongestStudents = [];
     const inactiveStudents = [];
@@ -91,9 +90,8 @@ async function handler(req, res) {
       // Total questions
       totalQuestionsSolved += attempted;
 
-      // Premium
-      if (u.isPremiumPlus) premiumPlusUsers++;
-      else if (u.isPremium) premiumUsers++;
+      // Premium (v2: single tier)
+      if (u.plan === 'premium') premiumUsers++;
 
       // Category stats aggregation (for weak topics)
       const catStats = stats.categoryStats || {};
@@ -116,8 +114,8 @@ async function handler(req, res) {
         streak: stats.dailyStreak || 0,
         lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
         totalAttempted: attempted,
-        isPremium: !!u.isPremium,
-        isPremiumPlus: !!u.isPremiumPlus
+        plan: u.plan === 'premium' ? 'premium' : 'free',
+        isTrial: !!u.isTrial
       };
 
       // Strongest students (by accuracy, min 10 questions)
@@ -196,8 +194,7 @@ async function handler(req, res) {
         avgSpeed: speedCount > 0 ? parseFloat((totalSpeed / speedCount).toFixed(1)) : 0,
         activeStreakUsers,
         totalQuestionsSolved,
-        premiumUsers,
-        premiumPlusUsers
+        premiumUsers
       },
       weakTopics: weakTopics.slice(0, 5),
       strongestStudents: strongestStudents.slice(0, 5),

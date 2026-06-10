@@ -159,7 +159,7 @@ var LeaderboardView = (function () {
       html += '<div class="flex-1" style="min-width:0;">';
       html += '<div style="display:flex; align-items:center; gap:var(--space-xs); margin-bottom:2px;">';
       html += '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + CoachingUtils.escapeHtml(s.name || s.email) + '</div>';
-      var badge = CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
+      var badge = CoachingUtils.getSubscriptionBadge(s.plan, s.isTrial);
       if (badge) html += '<div style="flex-shrink:0;">' + badge + '</div>';
       html += '</div>';
       html += '<div style="font-size:var(--font-xs);color:var(--text-muted);">' + s.accuracy + '% Accuracy • ' + CoachingUtils.formatSpeed(s.speed) + ' Speed</div>';
@@ -179,7 +179,7 @@ var LeaderboardView = (function () {
   }
 
   function _podiumItem(s, rank, cls) {
-    var badge = CoachingUtils.getSubscriptionBadge(s.isPremium, s.isPremiumPlus);
+    var badge = CoachingUtils.getSubscriptionBadge(s.plan, s.isTrial);
     return '<div class="podium-item">' +
       '<div class="student-avatar podium-avatar-' + cls + '" style="width:44px;height:44px;font-size:var(--font-base);">' + CoachingUtils.getInitial(s.name || s.email) + '</div>' +
       '<div class="podium-name">' + CoachingUtils.escapeHtml(s.name || s.email) + '</div>' +

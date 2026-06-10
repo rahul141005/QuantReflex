@@ -56,7 +56,7 @@ function _toMillis(ts) {
 | `createdAt` | `users/{uid}` | Account creation |
 | `updatedAt` | `users/{uid}` | Last sync |
 | `trialEnd` | `users/{uid}` | Trial expiration |
-| `premiumPlusExpiry` | `users/{uid}` | Premium+ expiration |
+| `planExpiry` | `users/{uid}` | Premium expiration |
 | `timestamp` | `practiceSessions/{id}` | Session timestamp |
 | `updatedAt` | All subcollections | Subcollection sync time |
 

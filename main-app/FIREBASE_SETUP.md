@@ -262,11 +262,12 @@ The compat build is used for maximum browser compatibility with the vanilla Java
 
 ---
 
-## JWT Custom Claims Setup (For Premium/Premium+)
+## Granting Premium manually (v2)
 
-Because Entitlement gating (Premium and Premium+) strictly relies on **JWT Custom Claims**, you need to tell your Firebase project to attach these claims to your users' accounts.
-
-This is a backend operation. We will use a simple, one-off Node.js script on your computer to assign the `premiumPlus` status to a user.
+> The normal way to grant Premium is the **Super Admin app** (`/api/admin/entitlements`), which writes
+> the canonical `users/{uid}.plan` field **and** the JWT claim. Use the script below only for a one-off
+> manual grant. In v2 the JWT `premium` claim is a fast-path optimization — the **source of truth is the
+> Firestore `plan` field**, so the script must set both.
 
 ### Step 1: Get Your Firebase Service Account Key
 
@@ -311,29 +312,36 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-// 2. The UID of the user you want to grant Premium+ to
+// 2. The UID of the user you want to grant Premium to
 // You can find this UID in the "Authentication" tab of your Firebase Console.
-const targetUid = 'PASTE_THE_USER_UID_HERE'; 
+const targetUid = 'PASTE_THE_USER_UID_HERE';
+const planType = 'premium_12m'; // 'premium_6m' | 'premium_12m'
+const days = planType === 'premium_12m' ? 365 : 182;
 
-async function grantPremiumPlus() {
+async function grantPremium() {
   try {
-    console.log(`Setting Premium+ claims for user: ${targetUid}...`);
-    
-    // 3. Set the custom claims
-    await admin.auth().setCustomUserClaims(targetUid, {
-      premium: true,
-      premiumPlus: true
-    });
-    
-    console.log('✅ Successfully granted Premium and Premium+!');
+    console.log(`Granting Premium (${planType}) to user: ${targetUid}...`);
+
+    // 3a. Source of truth — write the canonical plan fields to Firestore
+    const expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    await admin.firestore().collection('users').doc(targetUid).set({
+      plan: 'premium', planType, planExpiry: expiry, planSource: 'admin',
+      isTrial: false, trialEnd: null,
+      planUpdatedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    // 3b. Fast-path JWT claim (single `premium` claim in v2)
+    await admin.auth().setCustomUserClaims(targetUid, { premium: true });
+
+    console.log('✅ Successfully granted Premium!');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error setting custom claims:', error);
+    console.error('❌ Error granting Premium:', error);
     process.exit(1);
   }
 }
 
-grantPremiumPlus();
+grantPremium();
 ```
 
 ### Step 4: Run the Script
@@ -346,11 +354,11 @@ grantPremiumPlus();
    node setPremium.js
    ```
 
-If it prints `✅ Successfully granted Premium and Premium+!`, you are done!
+If it prints `✅ Successfully granted Premium!`, you are done!
 
 ### Step 5: Refresh the App
 
 Custom claims are baked into the user's secure token. For the QuantReflex app to see the new claims immediately:
 1. Open the QuantReflex app.
 2. **Log out and log back in.** (This forces Firebase to fetch a brand new token containing the new claims).
-3. The app will now read the token securely and unlock Premium+ features automatically!
+3. The app will now read the token securely and unlock Premium features automatically!

@@ -14,10 +14,11 @@ QuantReflex is a premium, mobile-first educational SaaS PWA focused on mental ma
 - Adaptive difficulty progression based on real-time speed/accuracy profiling.
 - AI-driven explanations, study plans, and interactive coaching.
 
-**Product & Monetization Philosophy:**
+**Product & Monetization Philosophy (v2):**
 - **Free Tier:** Strictly capped at a 20-question daily limit to encourage conversion. 5 lifetime AI explanation credits.
-- **Premium Tier (₹89/mo):** Unlimited practice drills. Unlimited basic AI explanations. Ad-free, uninterrupted focus.
-- **Premium+ Tier (₹299/6mo, ₹499/yr):** Advanced AI Coach access, personalized AI Study Plans, deeper analytics, and AI Speed Benchmarks.
+- **Premium Tier (₹299/6mo, ₹499/12mo):** One paid tier that includes everything — unlimited practice, all modes, the full AI suite (explanations, coach, study plans, word problems), Math Duel, and deeper analytics. Admins can also grant custom-duration trials.
+
+> Canonical entitlement model: [`docs/BIBLE/PAYMENT_ARCHITECTURE.md`](../docs/BIBLE/PAYMENT_ARCHITECTURE.md). Access resolves through `users/{uid}.plan` (`'free'|'premium'`).
 
 **Architecture Philosophy:**
 Extremely lightweight, zero-bloat vanilla web stack. No React, no Vue, no Tailwind (in the main app). It relies on pure HTML, Vanilla JS, CSS variables, and native DOM APIs, achieving sub-second load times and native app-like fluidity.
@@ -88,7 +89,7 @@ Acts as the immediate source of truth for the session.
 - `profile`: name, username, createdAt.
 - `settings`: theme, audio, dailyGoal.
 - `stats`: totalAttempted, streaks.
-- `isPremium`, `trialEnd`, `isPremiumPlus`, `premiumPlusExpiry`.
+- `plan`, `planType`, `planExpiry`, `planSource`, `isTrial`, `trialEnd`.
 
 **Subcollections (The Scalability Layer):**
 To prevent massive document payload sizes on every load, analytical data is shunted to subcollections:
@@ -109,8 +110,8 @@ To prevent massive document payload sizes on every load, analytical data is shun
 1. **Initiation:** User clicks upgrade. Client requests `/api/payment/create-order` with JWT.
 2. **Order Creation:** Backend verifies JWT, generates a Razorpay order, injects server-side secrets (`RAZORPAY_KEY_SECRET`), and returns `orderId`.
 3. **Client Checkout:** Razorpay UI opens natively. User pays.
-4. **Verification (Critical):** Client sends payment signature to `/api/payment/verify`. Backend cryptographically verifies the signature. **If valid, the Backend (Firebase Admin) executes the Firestore write to grant `isPremium` or `isPremiumPlus`.**
-5. **Client Sync:** Client detects success, triggers `FirestoreSync.unlockPremium`, and updates UI.
+4. **Verification (Critical):** Client sends payment signature to `/api/payment/verify`. Backend cryptographically verifies the signature + binds the order to the caller. **If valid, the Backend (Firebase Admin) runs `aiService.activatePremium` to set `plan:'premium'` (+ planType/planExpiry).**
+5. **Client Sync:** Client detects success, triggers `FirestoreSync.activatePremium`, and updates UI.
 
 ---
 
@@ -220,7 +221,7 @@ To maintain ecosystem continuity and eliminate context-switching friction for de
 
 **3. Premium & Trial Controls**
 - **UI:** Detail pane for a specific user.
-- **Features:** Toggle `isPremium`, set `isPremiumPlus`, manually override `trialEnd` dates for customer support.
+- **Features:** Grant Premium (6m/12m), grant a custom-duration trial, or revoke — sets the `plan` fields for customer support.
 - **Backend:** `/api/admin/grant-premium` to safely update Firestore without client-side spoofing.
 
 **4. Question Bank Management (Crucial)**

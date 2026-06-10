@@ -79,7 +79,7 @@ var CoachingsView = (function () {
         '<td><strong>' + AdminUtils.escapeHtml(c.name) + '</strong></td>' +
         '<td>' + statusBadge + '</td>' +
         '<td>' + AdminUtils.escapeHtml(c.entitlementPlan || 'standard') + '</td>' +
-        '<td>' + (c.studentsCount || 0) + '</td>' +
+        '<td>' + (c.studentCount != null ? c.studentCount : (c.studentsCount || 0)) + '</td>' +
         '<td>' + (c.activePremiumUsers || 0) + ' / ' + (c.activePremiumPlusUsers || 0) + '</td>' +
         '<td>' + AdminUtils.escapeHtml(c.ownerEmail || '—') + '</td>' +
         '<td>' + actions + '</td>' +

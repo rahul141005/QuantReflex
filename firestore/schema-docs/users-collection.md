@@ -23,18 +23,19 @@ Where `{uid}` is the Firebase Authentication UID.
 | `customTopics` | array | `[]` | User-created practice topics |
 | `customFormulas` | object | `{}` | User-saved formulas |
 | `bookmarks` | array | `[]` | Bookmarked questions |
-| `isPremium` | boolean | `false` | Lifetime premium access granted |
-| `isTrial` | boolean | `false` | Active trial status |
+| `plan` | string | `'free'` | v2 tier: `'free'` \| `'premium'` (all gates resolve through this) |
+| `planType` | string\|null | `null` | `'premium_6m'` \| `'premium_12m'` \| null (null for trial/admin) |
+| `planExpiry` | string\|null | `null` | Premium expiry (ISO 8601); equals `trialEnd` during a trial |
+| `planSource` | string\|null | `null` | `'purchase'` \| `'trial'` \| `'admin'` \| `'coaching'` \| null |
+| `isTrial` | boolean | `false` | True while current premium is a trial |
 | `trialEnd` | string\|null | `null` | Trial expiration (ISO 8601) |
-| `hasPaid` | boolean | `false` | Has completed a Razorpay payment |
-| `isEarlyUser` | boolean | `false` | Legacy — always false for new users |
-| `isPremiumPlus` | boolean | `false` | Premium+ subscription active |
-| `premiumPlusPlan` | string\|null | `null` | `'plus_6month'` or `'plus_yearly'` |
-| `premiumPlusExpiry` | string\|null | `null` | Subscription expiration (ISO 8601) |
-| `premiumPlusStatus` | string\|null | `null` | `'active'` or `'expired'` |
-| `lastPaymentId` | string\|null | `null` | Last Razorpay payment ID (Premium) |
-| `lastPremiumPlusPaymentId` | string\|null | `null` | Last Razorpay payment ID (Premium+) |
+| `planUpdatedAt` | string\|null | `null` | Last entitlement change (ISO 8601) |
+| `lastPaymentId` | string\|null | `null` | Last Razorpay payment ID |
 | `coachingId` | string\|null | `null` | Coaching institute affiliation |
+
+> v2 (2026-06-11): removed `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan,
+> premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`. Canonical source:
+> [`docs/BIBLE/FIRESTORE_BLUEPRINT.md`](../../docs/BIBLE/FIRESTORE_BLUEPRINT.md).
 | `createdAt` | string | (ISO 8601) | Document creation timestamp |
 | `updatedAt` | string | (ISO 8601) | Last modification timestamp |
 
@@ -92,9 +93,10 @@ Structured profile (dual-write for admin queries).
 |-------|------|-------------|
 | `name` | string | Display name |
 | `email` | string | Account email |
-| `isPremium` | boolean | Premium status |
+| `plan` | string | `'free'` \| `'premium'` |
+| `planType` | string\|null | `'premium_6m'` \| `'premium_12m'` \| null |
+| `planExpiry` | string\|null | ISO 8601 |
 | `isTrial` | boolean | Trial status |
-| `isPremiumPlus` | boolean | Premium+ status |
 | `updatedAt` | string | ISO 8601 |
 
 ## Security Rules
@@ -113,15 +115,12 @@ The user collection uses **field-level entitlement protection** (Phase 1 hardene
 
 | Field | Client can set to |
 |---|---|
-| `isPremium` | `false` only |
-| `isPremiumPlus` | `false` only |
-| `hasPaid` | `false` only |
+| `plan` | `'free'` only |
+| `planType` | `null` only |
+| `planExpiry` | `null` only |
+| `planSource` | `null` only |
 | `isTrial` | `false` only |
-| `isEarlyUser` | `false` only |
 | `trialEnd` | `null` only |
-| `premiumPlusPlan` | `null` only |
-| `premiumPlusExpiry` | `null` only |
-| `premiumPlusStatus` | `null` or `'expired'` |
 | `lastPaymentId` | `null` only |
 | `lastPremiumPlusPaymentId` | `null` only |
 

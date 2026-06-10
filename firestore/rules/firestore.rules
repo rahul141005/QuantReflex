@@ -12,11 +12,11 @@ rules_version = '2';
 // ═══════════════════════════════════════════════════════════════════
 // SECURITY MODEL (Phase 1 Hardening):
 //
-//   1. USER DOCUMENTS — field-level entitlement protection.
+//   1. USER DOCUMENTS — field-level entitlement protection (v2 plan model).
 //      Clients can update settings, stats, profile, bookmarks etc.
-//      BUT cannot grant entitlements (isPremium, isPremiumPlus, etc.).
-//      Clients CAN revoke (set to false/null) for client-side expiry
-//      enforcement. All entitlement GRANTS are server-side only.
+//      BUT cannot grant premium — `plan` may only be set to 'free', and the
+//      plan/trial fields may only be cleared. Clients CAN downgrade (client-side
+//      expiry self-heal). All premium GRANTS are server-side only (Admin SDK).
 //
 //   2. DUEL ROOMS — participant-only access.
 //      Only the host and joined opponent can read/write a duel room.
@@ -55,10 +55,10 @@ service cloud.firestore {
 
     // ── Entitlement Protection (UPDATE) ──
     // For UPDATES to existing user documents: validate that protected
-    // entitlement fields can only be set to revocation-safe values
-    // (false / null / 'expired'). This prevents users from self-granting
-    // premium access via browser console while still allowing client-side
-    // expiry enforcement (_enforceTrialExpiry, _enforcePremiumPlusExpiry).
+    // plan/trial fields can only be set to downgrade-safe values
+    // (plan→'free' / null / false). This prevents users from self-granting
+    // premium via browser console while still allowing client-side expiry
+    // self-heal (_enforcePremiumExpiry / getAccessState).
     //
     // Admin SDK bypasses these rules entirely — server-side entitlement
     // grants (payment verification, admin panel) are unaffected.
@@ -67,48 +67,33 @@ service cloud.firestore {
       let changed = after.diff(resource.data).affectedKeys();
 
       return
-        // ── Boolean flags: client can only set to false ──
-        (!changed.hasAny(['isPremium'])     || after.isPremium == false) &&
-        (!changed.hasAny(['isPremiumPlus']) || after.isPremiumPlus == false) &&
-        (!changed.hasAny(['hasPaid'])       || after.hasPaid == false) &&
-        (!changed.hasAny(['isTrial'])       || after.isTrial == false) &&
-        (!changed.hasAny(['isEarlyUser'])   || after.isEarlyUser == false) &&
+        // ── v2 plan model ──
+        // Plan: client can only DOWNGRADE to 'free' (client-side expiry
+        // self-heal). Grants to 'premium' are server-side (Admin SDK) only.
+        (!changed.hasAny(['plan'])        || after.plan == 'free') &&
 
-        // ── Nullable fields: client can only set to null ──
-        (!changed.hasAny(['trialEnd'])              || after.trialEnd == null) &&
-        (!changed.hasAny(['premiumPlusPlan'])        || after.premiumPlusPlan == null) &&
-        (!changed.hasAny(['premiumPlusExpiry'])      || after.premiumPlusExpiry == null) &&
-        (!changed.hasAny(['coachingId'])             || after.coachingId == null) &&
+        // Nullable plan fields: client can only clear to null.
+        (!changed.hasAny(['planType'])    || after.planType == null) &&
+        (!changed.hasAny(['planExpiry'])  || after.planExpiry == null) &&
+        (!changed.hasAny(['planSource'])  || after.planSource == null) &&
 
-        // ── Status: client can only set to null or 'expired' ──
-        (!changed.hasAny(['premiumPlusStatus'])      || after.premiumPlusStatus == null
-                                                     || after.premiumPlusStatus == 'expired') &&
+        // Trial (retained): client can only revoke (false / null).
+        (!changed.hasAny(['isTrial'])     || after.isTrial == false) &&
+        (!changed.hasAny(['trialEnd'])    || after.trialEnd == null) &&
 
-        // ── Payment IDs: client can only set to null ──
-        (!changed.hasAny(['lastPaymentId'])           || after.lastPaymentId == null) &&
-        (!changed.hasAny(['lastPremiumPlusPaymentId']) || after.lastPremiumPlusPaymentId == null);
+        // Coaching + payment id: client can only clear to null.
+        (!changed.hasAny(['coachingId'])     || after.coachingId == null) &&
+        (!changed.hasAny(['lastPaymentId'])  || after.lastPaymentId == null);
     }
 
     // ── Entitlement Protection (CREATE) ──
-    // For NEW user documents: all entitlement fields must start with
-    // safe defaults (false / null). Prevents creating a document with
-    // isPremium: true already set.
-    function entitlementCreateSafe() {
-      let d = request.resource.data;
-      return
-        d.get('isPremium', false)                  == false &&
-        d.get('isPremiumPlus', false)              == false &&
-        d.get('hasPaid', false)                    == false &&
-        d.get('isTrial', false)                    == false &&
-        d.get('isEarlyUser', false)                == false &&
-        d.get('trialEnd', null)                    == null  &&
-        d.get('premiumPlusPlan', null)             == null  &&
-        d.get('premiumPlusExpiry', null)           == null  &&
-        d.get('premiumPlusStatus', null)           == null  &&
-        d.get('lastPaymentId', null)               == null  &&
-        d.get('coachingId', null)                  == null  &&
-        d.get('lastPremiumPlusPaymentId', null)    == null;
-    }
+    // NOTE: Client-side creation of user documents is denied outright
+    // (`allow create: if false` below) — accounts are created server-side via
+    // /api/auth/register using the Admin SDK. The former entitlementCreateSafe()
+    // helper that validated safe entitlement defaults on create was therefore
+    // dead code (never reachable) and was removed to keep the ruleset clean.
+    // If client-side create is ever re-enabled, reinstate a create-time
+    // entitlement guard alongside it.
 
     // ── Duel Update Validation ──
     // Ensures immutable fields cannot be tampered with, status transitions
@@ -180,9 +165,9 @@ service cloud.firestore {
     // USERS COLLECTION (HARDENED)
     // ════════════════════════════════════════════
     // Each user can only read/write their own document and subcollections.
-    // Entitlement writes (isPremium, isPremiumPlus, etc.) are performed
-    // server-side via Admin SDK — the client can only REVOKE (set to
-    // false/null), never GRANT (set to true/active).
+    // Premium grants (plan:'premium', planType, planExpiry, …) are performed
+    // server-side via Admin SDK — the client can only DOWNGRADE (plan→'free',
+    // clear plan/trial fields), never GRANT.
     match /users/{userId} {
       // Read: owner only
       allow read: if isOwner(userId);

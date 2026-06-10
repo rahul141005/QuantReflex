@@ -109,8 +109,8 @@ async function handler(req, res) {
         speed: times.length > 0 ? parseFloat((times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)) : 0,
         streak: stats.dailyStreak || 0,
         totalAttempted: attempted,
-        isPremium: !!u.isPremium,
-        isPremiumPlus: !!u.isPremiumPlus
+        plan: u.plan === 'premium' ? 'premium' : 'free',
+        isTrial: !!u.isTrial
       });
     });
 

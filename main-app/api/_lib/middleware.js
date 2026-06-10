@@ -3,7 +3,7 @@
  *
  * Provides:
  *   withAuth(handler)  — wraps a handler with Firebase ID token verification
- *                        and entitlement resolution (userId, userPremium, userPremiumPlus)
+ *                        and entitlement resolution (userId, userPremium)
  *   formatError(err)   — consistent JSON error envelope
  *   methodGuard(req, res, allowed) — reject non-matching HTTP methods
  */
@@ -119,9 +119,8 @@ function _checkRateLimit(uid) {
  * Wrap a serverless handler with Firebase auth verification.
  *
  * The wrapped handler receives (req, res) where:
- *   req.userId         — Firebase UID
- *   req.userPremium    — boolean
- *   req.userPremiumPlus — boolean
+ *   req.userId      — Firebase UID
+ *   req.userPremium — boolean (plan === 'premium', not expired)
  *
  * @param {function} handler - async (req, res) => void
  * @returns {function} Vercel-compatible handler
@@ -173,12 +172,9 @@ function withAuth(handler) {
 
     req.userId = decoded.uid;
     try {
-      var entitlement = await Promise.all([
-        aiService.isUserPremium(decoded.uid),
-        aiService.isUserPremiumPlus(decoded.uid)
-      ]);
-      req.userPremium = entitlement[0];
-      req.userPremiumPlus = entitlement[1];
+      /* v2: single entitlement — req.userPremium is true iff plan==='premium'
+         (and not expired). resolvePlan self-heals expired premium/trials. */
+      req.userPremium = await aiService.isUserPremium(decoded.uid);
     } catch (entitlementErr) {
       return res.status(503).json({ error: formatError(entitlementErr) });
     }
@@ -233,4 +229,28 @@ function withAdminAuth(handler) {
   };
 }
 
-module.exports = { withAuth, withAdminAuth, formatError, methodGuard, parseBody, setCorsHeaders: _setCorsHeaders };
+/**
+ * Canonical coaching active-state check (audit M4).
+ *
+ * Single source of truth for "can this coaching accept students / be claimed".
+ * Previously three endpoints disagreed: register checked status
+ * 'suspended'/'deleted', while claim/validate checked status 'expired'
+ * (a value the admin tooling never writes) — so a suspended coaching could
+ * slip through claim/validate unless `isActive:false` happened to be set too.
+ *
+ * Canonical rule: a coaching is active IFF `status === 'active'` when a
+ * `status` field is present; otherwise fall back to `isActive !== false`
+ * for legacy documents that predate the status field.
+ *
+ * @param {object} data - coachings/{id} document data
+ * @returns {boolean}
+ */
+function isCoachingActive(data) {
+  if (!data) return false;
+  if (typeof data.status === 'string' && data.status.length > 0) {
+    return data.status === 'active';
+  }
+  return data.isActive !== false;
+}
+
+module.exports = { withAuth, withAdminAuth, formatError, methodGuard, parseBody, isCoachingActive, setCorsHeaders: _setCorsHeaders };

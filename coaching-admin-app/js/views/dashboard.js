@@ -57,7 +57,7 @@ var DashboardView = (function () {
     /* ── Hero Metrics Grid ── */
     html += '<div class="metrics-grid">';
     html += _metricCard(m.activeToday, 'Active Today', '🟢', 'accent-emerald');
-    html += _metricCard((m.premiumUsers + m.premiumPlusUsers) + '/' + m.totalStudents, 'Premium Users', '💎', 'accent-primary');
+    html += _metricCard((m.premiumUsers || 0) + '/' + m.totalStudents, 'Premium Users', '💎', 'accent-primary');
     html += _metricCard(m.activeThisWeek, 'Active This Week', '📈', 'accent-cyan');
     html += _metricCard(data.inactiveStudents ? data.inactiveStudents.length : 0, 'At-Risk (Inactive)', '⚠️', 'accent-red');
     html += '</div>';

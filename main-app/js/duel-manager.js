@@ -12,7 +12,7 @@
  *   - DuelEvents emitter for future FCM notification hooks
  *
  * Depends on DuelCore (Firestore ops) and DuelUI (rendering).
- * Premium+ gated.
+ * Premium gated.
  */
 
 var DuelManager = (function () {
@@ -30,8 +30,8 @@ var DuelManager = (function () {
   /* ---- DOM Refs ---- */
   function _getEl(id) { return document.getElementById(id); }
 
-  /* ---- Premium+ Check ---- */
-  function _isPremiumPlus() {
+  /* ---- Premium Check (Math Duel is premium-gated) ---- */
+  function _hasPremium() {
     return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
   }
 
@@ -86,12 +86,9 @@ var DuelManager = (function () {
    * Called from home view / practice view duel button.
    */
   function openSetup() {
-    if (!_isPremiumPlus()) {
-      if (typeof canAccessFeature !== 'undefined' && typeof showPremiumPlusModal === 'function') {
-        showPremiumPlusModal('math_duel');
-      } else if (typeof showToast === 'function') {
-        showToast('Premium+ is required for Math Duel');
-      }
+    if (!_hasPremium()) {
+      if (typeof showPaywall === 'function') showPaywall('math_duel');
+      else if (typeof showToast === 'function') showToast('Premium is required for Math Duel');
       return;
     }
 
@@ -117,12 +114,9 @@ var DuelManager = (function () {
    * Called from home view "Join Duel" button.
    */
   function openJoinDuel() {
-    if (!_isPremiumPlus()) {
-      if (typeof canAccessFeature !== 'undefined' && typeof showPremiumPlusModal === 'function') {
-        showPremiumPlusModal('math_duel');
-      } else if (typeof showToast === 'function') {
-        showToast('Premium+ is required for Math Duel');
-      }
+    if (!_hasPremium()) {
+      if (typeof showPaywall === 'function') showPaywall('math_duel');
+      else if (typeof showToast === 'function') showToast('Premium is required for Math Duel');
       return;
     }
 

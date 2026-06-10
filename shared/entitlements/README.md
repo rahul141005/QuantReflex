@@ -1,51 +1,40 @@
-# Entitlement Resolution Logic
+# Entitlement Resolution Logic (v2)
 
-> Canonical documentation for how entitlements are interpreted across the ecosystem.
+> Canonical documentation: [`docs/BIBLE/PAYMENT_ARCHITECTURE.md`](../../docs/BIBLE/PAYMENT_ARCHITECTURE.md).
+> This page is a quick reference for how entitlements are interpreted across the ecosystem.
 
 ## Resolution Algorithm
 
-Both the Main App and Admin App MUST interpret entitlements identically:
+Main App, Admin App, Coaching App, and Cloud Functions MUST interpret entitlements identically:
 
 ```
-function resolveEntitlement(user):
-  1. If isPremiumPlus === true AND premiumPlusExpiry > now:
-     → PREMIUM_PLUS (active)
-  
-  2. If isPremium === true OR hasPaid === true:
-     → PREMIUM (lifetime)
-  
-  3. If isTrial === true AND trialEnd > now:
-     → TRIAL (active)
-  
-  4. Otherwise:
-     → FREE
+function isPremium(user):
+  return user.plan === 'premium'
+      && (user.planExpiry == null || parse(user.planExpiry) > now)
+  // otherwise → FREE
 ```
+
+A trial is `plan:'premium'` with `isTrial:true` and `trialEnd === planExpiry` — it passes the same gate.
 
 ## Expiry Enforcement
 
-- Trial expiry: checked on app load via `_enforceTrialExpiry()`
-- Premium+ expiry: checked on app load via `_enforcePremiumPlusExpiry()`
-- Both write back to Firestore to persist the revocation
+- Live, on read: `aiService.resolvePlan` (server) and `getAccessState`/`_enforcePremiumExpiry` (client)
+  revert an expired `plan:'premium'` to free and persist it.
+- Sweep: `enforceEntitlementExpiry` Cloud Function (every 6h).
 
 ## Grant Precedence Rules
 
-| Action | Effect on Existing State |
-|--------|------------------------|
-| Grant Trial | Skipped if already Premium or Premium+ |
-| Grant Premium | Clears isTrial, trialEnd |
-| Grant Premium+ | Clears isTrial, trialEnd |
-| Revoke | Clears ALL entitlement fields |
+| Action | Effect |
+|--------|--------|
+| Grant Premium (6m/12m) | plan:premium, planType, planExpiry, isTrial:false |
+| Grant Trial (custom days) | plan:premium, planExpiry, planSource:'trial', isTrial:true, trialEnd |
+| Revoke | plan:free; clear all plan/trial fields |
 
 ## Timestamp Format
 
-ALL expiry timestamps use ISO 8601:
-```
-new Date(now + durationMs).toISOString()
-// "2026-11-13T06:00:00.000Z"
-```
+ALL expiry timestamps use ISO 8601: `new Date(now + durationMs).toISOString()`.
 
 ## Feature Gating
 
-- Premium features: `canAccess(feature)` checks `isPremium || hasPaid || (isTrial && !expired)`
-- AI features: `canAccess(feature)` checks `isPremiumPlus === true` only
-- Free tier: 20 daily questions, 5 lifetime AI explanation credits
+Every gated feature requires `plan === 'premium'` — there is no AI-only sub-tier. Free tier: 20 daily
+questions, 5 lifetime-total AI explanation credits.

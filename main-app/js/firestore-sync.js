@@ -10,8 +10,8 @@
  *     ├── settings
  *     ├── stats (progress data)
  *     ├── quickLinks, customTopics, customFormulas, bookmarks
- *     ├── isPremium, isTrial, trialEnd, hasPaid, isEarlyUser
- *     ├── isPremiumPlus, premiumPlusPlan, premiumPlusExpiry, premiumPlusStatus
+ *     ├── plan ('free'|'premium'), planType, planExpiry, planSource
+ *     ├── isTrial, trialEnd, planUpdatedAt, lastPaymentId
  *     ├── updatedAt, createdAt
  *
  *   users/{userId}/practiceSessions/{sessionId}  (subcollection — drill history)
@@ -20,8 +20,10 @@
  *   users/{userId}/profile/data                  (name, premium flags)
  *   users/{userId}/performance/overall           (derived accuracy, avgTime, streaks)
  *   users/{userId}/practice/data                 (mistakes, savedQuestions)
- *   users/{userId}/ai/usage                      (mirrors usage/ai)
  *   users/{userId}/ai/benchmarks/{fingerprint}   (speed benchmark results — server-written)
+ *
+ *   AI usage quota lives at users/{userId}/usage/ai (server source of truth).
+ *   The legacy client-side ai/usage mirror was removed (audit M1).
  */
 
 var FirestoreSync = (function () {
@@ -31,8 +33,7 @@ var FirestoreSync = (function () {
   var _dataLoaded = false; /* Whether initial load has completed */
   var _drillActive = false; /* Whether a drill is in progress (defers syncing) */
   var _loadedUserId = null; /* UID whose data is currently loaded — detects user switches */
-  var _trialExpiryPersistInFlight = false;
-  var _ppExpiryPersistInFlight = false;
+  var _planExpiryPersistInFlight = false;
   var _flushRetryCount = 0;
   var _flushRetryTimer = null;
   var _flushInFlight = false;
@@ -164,13 +165,11 @@ var FirestoreSync = (function () {
 
     }
     if (premiumFlags) {
-      if (premiumFlags.isPremium !== undefined) payload.isPremium = !!premiumFlags.isPremium;
+      if (premiumFlags.plan !== undefined) payload.plan = premiumFlags.plan === 'premium' ? 'premium' : 'free';
+      if (premiumFlags.planType !== undefined) payload.planType = premiumFlags.planType || null;
+      if (premiumFlags.planExpiry !== undefined) payload.planExpiry = premiumFlags.planExpiry || null;
       if (premiumFlags.isTrial !== undefined) payload.isTrial = !!premiumFlags.isTrial;
       if (premiumFlags.trialEnd !== undefined) payload.trialEnd = premiumFlags.trialEnd || null;
-      if (premiumFlags.isEarlyUser !== undefined) payload.isEarlyUser = !!premiumFlags.isEarlyUser;
-      if (premiumFlags.hasPaid !== undefined) payload.hasPaid = !!premiumFlags.hasPaid;
-      if (premiumFlags.isPremiumPlus !== undefined) payload.isPremiumPlus = !!premiumFlags.isPremiumPlus;
-      if (premiumFlags.premiumPlusPlan !== undefined) payload.premiumPlusPlan = premiumFlags.premiumPlusPlan || null;
     }
     _subcollectionWrite('profile', 'data', payload, 'Profile');
   }
@@ -197,8 +196,7 @@ var FirestoreSync = (function () {
     _loadedUserId = null;
     _flushRetryCount = 0;
     _flushInFlight = false;
-    _trialExpiryPersistInFlight = false;
-    _ppExpiryPersistInFlight = false;
+    _planExpiryPersistInFlight = false;
     if (_flushRetryTimer) {
       clearTimeout(_flushRetryTimer);
       _flushRetryTimer = null;
@@ -262,8 +260,7 @@ var FirestoreSync = (function () {
         _normalizeMonetization(data, docRef);
         _validateAndFillDefaults(data, docRef);
         _memoryCache = data;
-        _enforceTrialExpiry(_memoryCache, docRef);
-        _enforcePremiumPlusExpiry(_memoryCache, docRef);
+        _enforcePremiumExpiry(_memoryCache, docRef);
         _dataLoaded = true;
         _loadedUserId = currentUserId;
         /* Write to canonical AppState keys — single source of truth for localStorage */
@@ -344,15 +341,14 @@ var FirestoreSync = (function () {
       customTopics: [],
       customFormulas: {},
       bookmarks: [],
-      isPremium: false,
+      plan: 'free',
+      planType: null,
+      planExpiry: null,
+      planSource: null,
       isTrial: false,
       trialEnd: null,
-      hasPaid: false,
-      isEarlyUser: false,
-      isPremiumPlus: false,
-      premiumPlusPlan: null,
-      premiumPlusExpiry: null,
-      premiumPlusStatus: null,
+      planUpdatedAt: now.toISOString(),
+      lastPaymentId: null,
       coachingId: _pendingCoachingId || null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
@@ -375,7 +371,7 @@ var FirestoreSync = (function () {
     }
     if (typeof invalidateProgressCache === 'function') invalidateProgressCache();
     /* Simple document creation — no transaction, no appMeta read.
-       New users start on free tier (isPremium:false, isTrial:false). */
+       New users start on free tier (plan:'free', isTrial:false). */
     docRef.get().then(function (userDoc) {
       if (userDoc.exists) return;
       return docRef.set(fallbackDefaults, { merge: true }).then(function () {
@@ -385,22 +381,20 @@ var FirestoreSync = (function () {
         var seedDocRef = _getUserDocRef();
         _syncProfileSubcollection(
           { name: (mc.profile && mc.profile.name) || '' },
-          { isPremium: false, isTrial: false, trialEnd: null, hasPaid: false }
+          { plan: 'free', planType: null, planExpiry: null, isTrial: false, trialEnd: null }
         );
         _syncPerformanceSubcollection(mc.stats || fallbackDefaults.stats);
-        /* Eagerly create practice/data and ai/usage so all subcollections exist from day 0 */
+        /* Eagerly create practice/data so the subcollection exists from day 0.
+           NOTE (audit M1): AI usage is owned server-side at users/{uid}/usage/ai
+           (seeded by /api/auth/register, read/written by aiService). The old
+           client-side ai/usage seed was an orphaned mirror that nothing read —
+           removed to eliminate schema drift. */
         if (seedDocRef) {
           seedDocRef.collection('practice').doc('data').set({
             mistakes: [],
             savedQuestions: [],
             updatedAt: new Date().toISOString()
           }, { merge: true }).catch(function (err) { console.warn('Practice seed failed:', err); });
-          seedDocRef.collection('ai').doc('usage').set({
-            wordProblemsUsedLifetime: 0,
-            wordProblemsUsedToday: 0,
-            explanationsUsed: 0,
-            updatedAt: new Date().toISOString()
-          }, { merge: true }).catch(function (err) { console.warn('AI usage seed failed:', err); });
         }
 
       });
@@ -429,30 +423,23 @@ var FirestoreSync = (function () {
   function _normalizeMonetization(data, docRef) {
     if (!data) return;
     var hasAll =
-      typeof data.isPremium === 'boolean' &&
+      (data.plan === 'free' || data.plan === 'premium') &&
+      data.hasOwnProperty('planType') &&
+      data.hasOwnProperty('planExpiry') &&
       typeof data.isTrial === 'boolean' &&
-      typeof data.hasPaid === 'boolean' &&
-      typeof data.isEarlyUser === 'boolean' &&
       data.hasOwnProperty('trialEnd') &&
       data.hasOwnProperty('createdAt') &&
-      typeof data.isPremiumPlus === 'boolean' &&
-      data.hasOwnProperty('premiumPlusPlan') &&
-      data.hasOwnProperty('premiumPlusExpiry') &&
-      data.hasOwnProperty('premiumPlusStatus') &&
       data.hasOwnProperty('updatedAt');
     if (hasAll) return;
 
     var patch = {};
-    if (typeof data.isPremium !== 'boolean') patch.isPremium = false;
+    if (data.plan !== 'free' && data.plan !== 'premium') patch.plan = 'free';
+    if (!data.hasOwnProperty('planType')) patch.planType = null;
+    if (!data.hasOwnProperty('planExpiry')) patch.planExpiry = null;
+    if (!data.hasOwnProperty('planSource')) patch.planSource = null;
     if (typeof data.isTrial !== 'boolean') patch.isTrial = false;
     if (!data.hasOwnProperty('trialEnd')) patch.trialEnd = null;
-    if (typeof data.hasPaid !== 'boolean') patch.hasPaid = false;
-    if (typeof data.isEarlyUser !== 'boolean') patch.isEarlyUser = false;
     if (!data.hasOwnProperty('createdAt')) patch.createdAt = new Date().toISOString();
-    if (typeof data.isPremiumPlus !== 'boolean') patch.isPremiumPlus = false;
-    if (!data.hasOwnProperty('premiumPlusPlan')) patch.premiumPlusPlan = null;
-    if (!data.hasOwnProperty('premiumPlusExpiry')) patch.premiumPlusExpiry = null;
-    if (!data.hasOwnProperty('premiumPlusStatus')) patch.premiumPlusStatus = null;
     if (!data.hasOwnProperty('updatedAt')) patch.updatedAt = new Date().toISOString();
 
     var keys = Object.keys(patch);
@@ -539,36 +526,35 @@ var FirestoreSync = (function () {
     });
   }
 
-  function _enforceTrialExpiry(data, docRef) {
-    if (!data || !data.isTrial) return;
-    var trialEndMs = _toMillis(data.trialEnd);
+  /**
+   * v2: client-side premium expiry self-heal. Covers both paid premium and
+   * trials (a trial is plan:'premium' with planExpiry===trialEnd). If the
+   * active premium has lapsed, downgrade to free locally + persist. Rules
+   * allow this client write (plan→'free' is a permitted revocation).
+   */
+  function _enforcePremiumExpiry(data, docRef) {
+    if (!data || data.plan !== 'premium') return;
+    var expiryMs = _toMillis(data.planExpiry);
     var now = Date.now();
     var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
-    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
-    if (!trialEndMs || now <= trialEndMs) return;
-    data.isPremium = false;
-    data.isTrial = false;
-    docRef.set({ isPremium: false, isTrial: false, updatedAt: new Date().toISOString() }, { merge: true }).then(function () {
-
-    }).catch(function (err) {
-      console.warn('[FirestoreSync:_enforceTrialExpiry] failed to persist trial expiry:', err.message || err);
-    });
-  }
-
-  function _enforcePremiumPlusExpiry(data, docRef) {
-    if (!data || data.isPremiumPlus !== true) return;
-    var expiryMs = _toMillis(data.premiumPlusExpiry);
-    var now = Date.now();
-    var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
+    /* Clock-rewind guard: if device clock is >5min behind last server write,
+       treat as far-future so a wrong local clock can't revoke valid premium. */
     if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
     if (!expiryMs || expiryMs >= now) return;
-    data.isPremiumPlus = false;
-    data.premiumPlusStatus = 'expired';
-
-    docRef.set({ isPremiumPlus: false, premiumPlusStatus: 'expired', updatedAt: new Date().toISOString() }, { merge: true }).then(function () {
+    data.plan = 'free';
+    data.planType = null;
+    data.planExpiry = null;
+    data.planSource = null;
+    data.isTrial = false;
+    data.trialEnd = null;
+    docRef.set({
+      plan: 'free', planType: null, planExpiry: null, planSource: null,
+      isTrial: false, trialEnd: null,
+      planUpdatedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    }, { merge: true }).then(function () {
 
     }).catch(function (err) {
-      console.warn('[FirestoreSync:_enforcePremiumPlusExpiry] failed to persist expiry:', err.message || err);
+      console.warn('[FirestoreSync:_enforcePremiumExpiry] failed to persist expiry:', err.message || err);
     });
   }
 
@@ -1061,104 +1047,92 @@ var FirestoreSync = (function () {
     getAccessState: function () {
       if (!_memoryCache) return null;
       var now = Date.now();
-      if (_memoryCache.isTrial === true) {
-        var trialEndMs = _toMillis(_memoryCache.trialEnd);
-        if (trialEndMs > 0 && now > trialEndMs) {
-          _memoryCache.isPremium = false;
+      /* Self-heal expired premium/trial (covers both — a trial is plan:'premium') */
+      if (_memoryCache.plan === 'premium') {
+        var expMs = _toMillis(_memoryCache.planExpiry);
+        if (expMs > 0 && expMs < now) {
+          _memoryCache.plan = 'free';
+          _memoryCache.planType = null;
+          _memoryCache.planExpiry = null;
+          _memoryCache.planSource = null;
           _memoryCache.isTrial = false;
-          if (!_trialExpiryPersistInFlight) {
+          _memoryCache.trialEnd = null;
+          if (!_planExpiryPersistInFlight) {
             var docRef = _getUserDocRef();
             if (docRef) {
-              _trialExpiryPersistInFlight = true;
-              docRef.set({ isPremium: false, isTrial: false, updatedAt: new Date().toISOString() }, { merge: true }).catch(function (err) {
-                console.warn('Failed to persist trial expiry from access state:', err);
+              _planExpiryPersistInFlight = true;
+              docRef.set({
+                plan: 'free', planType: null, planExpiry: null, planSource: null,
+                isTrial: false, trialEnd: null,
+                planUpdatedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+              }, { merge: true }).catch(function (err) {
+                console.warn('Failed to persist premium expiry from access state:', err);
               }).finally(function () {
-                _trialExpiryPersistInFlight = false;
+                _planExpiryPersistInFlight = false;
               });
             }
           }
         }
       }
-      if (_memoryCache.isPremiumPlus === true) {
-        var ppExpiry = _memoryCache.premiumPlusExpiry;
-        var ppExpiryMs = _toMillis(ppExpiry);
-        if (ppExpiryMs > 0 && ppExpiryMs < now) {
-          _memoryCache.isPremiumPlus = false;
-          _memoryCache.premiumPlusStatus = 'expired';
-          if (!_ppExpiryPersistInFlight) {
-            var ppDocRef = _getUserDocRef();
-            if (ppDocRef) {
-              _ppExpiryPersistInFlight = true;
-              ppDocRef.set({ isPremiumPlus: false, premiumPlusStatus: 'expired', updatedAt: new Date().toISOString() }, { merge: true }).catch(function (err) {
-                console.warn('Failed to persist PremiumPlus expiry from access state:', err);
-              }).finally(function () {
-                _ppExpiryPersistInFlight = false;
-              });
-            }
-          }
-        }
-      }
-      /* Normalize premiumPlusPlan to canonical values the UI expects.
-         Handles legacy Firestore data from admin API that stored 'yearly'/'6_months'. */
-      var rawPlan = _memoryCache.premiumPlusPlan || null;
-      if (rawPlan === 'yearly') rawPlan = 'plus_yearly';
-      else if (rawPlan === '6_months') rawPlan = 'plus_6month';
 
-      /* Compute trialDays: prefer stored value, fallback to calculating from trialEnd */
-      var computedTrialDays = _memoryCache.trialDays || null;
-      if (!computedTrialDays && _memoryCache.isTrial === true && _memoryCache.trialEnd) {
+      /* Days remaining on an active trial (for "Trial — N days left" UI) */
+      var computedTrialDays = null;
+      if (_memoryCache.isTrial === true && _memoryCache.trialEnd) {
         var _teMs = _toMillis(_memoryCache.trialEnd);
-        if (_teMs > 0) {
-          computedTrialDays = Math.max(1, Math.ceil((_teMs - Date.now()) / 86400000));
-        }
+        if (_teMs > 0) computedTrialDays = Math.max(0, Math.ceil((_teMs - now) / 86400000));
       }
 
       return {
-        isPremium: _memoryCache.isPremium === true,
-        isPremiumPlus: _memoryCache.isPremiumPlus === true,
-        premiumPlusPlan: rawPlan,
-        premiumPlusExpiry: _memoryCache.premiumPlusExpiry || null,
+        plan: _memoryCache.plan === 'premium' ? 'premium' : 'free',
+        planType: _memoryCache.planType || null,
+        planExpiry: _memoryCache.planExpiry || null,
+        planSource: _memoryCache.planSource || null,
         isTrial: _memoryCache.isTrial === true,
         trialEnd: _memoryCache.trialEnd || null,
         trialDays: computedTrialDays,
-        hasPaid: _memoryCache.hasPaid === true,
-        isEarlyUser: _memoryCache.isEarlyUser === true,
         createdAt: _memoryCache.createdAt || null
       };
     },
-    unlockPremiumPlus: function (plan, expiry, paymentId, callback) {
-      /* Server already activated Premium+ via Admin SDK in /api/payment/verify.
-         This function updates the local in-memory cache for immediate UI feedback.
-         No client-side Firestore write needed — Firestore rules now block client-side
-         entitlement grants (isPremiumPlus:true, isPremium:true, hasPaid:true). */
+    /**
+     * v2: reflect a just-completed Premium activation in the local cache for
+     * instant UI feedback. The server already wrote Firestore via Admin SDK in
+     * /api/payment/verify; client entitlement grants are blocked by rules.
+     */
+    activatePremium: function (planType, expiry, paymentId, callback) {
       if (_memoryCache) {
-        _memoryCache.isPremiumPlus = true;
-        _memoryCache.isPremium = true;
-        _memoryCache.hasPaid = true;
-        _memoryCache.premiumPlusPlan = plan;
-        _memoryCache.premiumPlusExpiry = expiry;
-        _memoryCache.premiumPlusStatus = 'active';
-        if (paymentId) _memoryCache.lastPremiumPlusPaymentId = String(paymentId);
-      }
-
-      _syncProfileSubcollection(null, { isPremiumPlus: true, isPremium: true, hasPaid: true, premiumPlusPlan: plan });
-      if (callback) callback(null);
-    },
-    unlockPremium: function (paymentId, callback) {
-      /* Server already activated premium via Admin SDK in /api/payment/verify.
-         This function updates the local in-memory cache for immediate UI feedback.
-         No client-side Firestore write needed — Firestore rules now block client-side
-         entitlement grants (isPremium:true, hasPaid:true). */
-      if (_memoryCache) {
-        _memoryCache.isPremium = true;
-        _memoryCache.hasPaid = true;
+        _memoryCache.plan = 'premium';
+        _memoryCache.planType = planType || null;
+        _memoryCache.planExpiry = expiry || null;
+        _memoryCache.planSource = 'purchase';
         _memoryCache.isTrial = false;
         _memoryCache.trialEnd = null;
         if (paymentId) _memoryCache.lastPaymentId = String(paymentId);
       }
-
-      _syncProfileSubcollection(null, { isPremium: true, hasPaid: true, isTrial: false, trialEnd: null });
+      _syncProfileSubcollection(null, { plan: 'premium', planType: planType || null, planExpiry: expiry || null, isTrial: false, trialEnd: null });
       if (callback) callback(null);
+    },
+    /**
+     * Re-read the user doc from the server and refresh ONLY the entitlement
+     * fields in the in-memory cache (no localStorage wipe). Used by the paywall
+     * "Restore Access" action so a purchase made on another device is picked up
+     * without disturbing local settings/progress.
+     */
+    refreshFromServer: function (callback) {
+      var docRef = _getUserDocRef();
+      if (!docRef) { if (callback) callback(false); return; }
+      docRef.get().then(function (doc) {
+        if (doc.exists && _memoryCache) {
+          var d = doc.data();
+          _memoryCache.plan = d.plan === 'premium' ? 'premium' : 'free';
+          _memoryCache.planType = d.planType || null;
+          _memoryCache.planExpiry = d.planExpiry || null;
+          _memoryCache.planSource = d.planSource || null;
+          _memoryCache.isTrial = d.isTrial === true;
+          _memoryCache.trialEnd = d.trialEnd || null;
+          _enforcePremiumExpiry(_memoryCache, docRef);
+        }
+        if (callback) callback(true);
+      }).catch(function () { if (callback) callback(false); });
     },
     claimCoaching: function (coachingId, callback) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) {

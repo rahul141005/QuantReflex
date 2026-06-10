@@ -1,6 +1,6 @@
 # Firestore — Duels Collection (`duels/{duelId}`)
 
-> Realtime 1v1 Math Duel rooms. Premium+ gated.
+> Realtime 1v1 Math Duel rooms. Premium gated.
 
 ---
 

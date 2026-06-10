@@ -4,6 +4,12 @@
 
 QuantReflex is a mental math and quantitative aptitude training ecosystem designed for competitive exam preparation (CAT, MBA CET, SSC, GMAT).
 
+> 📖 **Source of truth: [`docs/BIBLE/`](docs/BIBLE/README.md).** Architecture, schema, security,
+> payments, and business logic live there and are the authoritative reference. **Every change must
+> follow the governance workflow in [`docs/BIBLE/GOVERNANCE.md`](docs/BIBLE/GOVERNANCE.md)** (Bible-first,
+> impact report, implement, verify, changelog, version bump). New contributors and AI sessions: start
+> at [`docs/BIBLE/README.md`](docs/BIBLE/README.md).
+
 ---
 
 ## Monorepo Structure

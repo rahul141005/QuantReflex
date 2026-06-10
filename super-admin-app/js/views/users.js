@@ -138,19 +138,18 @@ var UsersView = (function () {
       users.forEach(function (u) {
         var name = u.displayName || u.email || 'Unknown';
         var email = u.email || 'No email';
-        var isPrem = u.isPremiumPlus || u.isPremium;
+        var _premActive = u.plan === 'premium' && (!u.planExpiry || _toMillis(u.planExpiry) > Date.now());
+        var isPrem = _premActive;
         var badgeHTML = '';
         var stateType = 'free';
-        
-        if (u.isPremiumPlus && u.premiumPlusExpiry && _toMillis(u.premiumPlusExpiry) > Date.now()) {
-          badgeHTML = '<span class="badge badge-premium-plus">Premium+</span>';
-          stateType = 'plus';
-        } else if (u.isPremium) {
-          badgeHTML = '<span class="badge badge-premium">Premium</span>';
-          stateType = 'premium';
-        } else if (u.isTrial && u.trialEnd && _toMillis(u.trialEnd) > Date.now()) {
+
+        if (_premActive && u.isTrial) {
           badgeHTML = '<span class="badge badge-draft">Trial</span>';
           stateType = 'trial';
+        } else if (_premActive) {
+          var _lbl = u.planType === 'premium_12m' ? 'Premium · 12m' : (u.planType === 'premium_6m' ? 'Premium · 6m' : 'Premium');
+          badgeHTML = '<span class="badge badge-premium">' + _lbl + '</span>';
+          stateType = 'premium';
         } else {
           badgeHTML = '<span class="badge badge-free">Free</span>';
           stateType = 'free';
@@ -213,10 +212,9 @@ var UsersView = (function () {
       '</div>' +
       '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'individual\', \'trial\', \'' + uid + '\');">Grant Trial</button>';
 
-    var premiumHtml = 
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'individual\', \'premium\', \'' + uid + '\');">Grant Premium (Lifetime)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_plus_6m\', \'' + uid + '\');">Grant Premium+ (6 Months)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_plus_1y\', \'' + uid + '\');">Grant Premium+ (1 Year)</button>';
+    var premiumHtml =
+      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_6m\', \'' + uid + '\');">Grant Premium (6 Months)</button>' +
+      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_12m\', \'' + uid + '\');">Grant Premium (12 Months)</button>';
 
     var revokeHtml = '';
     if (stateType !== 'free') {
@@ -245,9 +243,8 @@ var UsersView = (function () {
         '<span style="font-size:.875rem; color:var(--text-secondary);">Days Trial</span>' +
       '</div>' +
       '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'bulk\', \'trial\', \'' + targetId + '\');">Grant Trial</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'bulk\', \'premium\', \'' + targetId + '\');">Grant Premium (Lifetime)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_plus_6m\', \'' + targetId + '\');">Grant Premium+ (6 Months)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_plus_1y\', \'' + targetId + '\');">Grant Premium+ (1 Year)</button>' +
+      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_6m\', \'' + targetId + '\');">Grant Premium (6 Months)</button>' +
+      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_12m\', \'' + targetId + '\');">Grant Premium (12 Months)</button>' +
       '<hr style="border:0; border-top:1px dashed var(--border-color); margin:1rem 0;" />' +
       '<button class="btn btn-danger" style="width:100%;" onclick="UsersView.confirmEnt(\'bulk\', \'revoke\', \'' + targetId + '\');">Revoke All Access</button>';
     
@@ -288,9 +285,8 @@ var UsersView = (function () {
 
     var actionLabels = {
       'trial': trialDays + '-Day Trial',
-      'premium': 'Lifetime Premium',
-      'premium_plus_6m': 'Premium+ (6 Months)',
-      'premium_plus_1y': 'Premium+ (1 Year)',
+      'premium_6m': 'Premium (6 Months)',
+      'premium_12m': 'Premium (12 Months)',
       'revoke': 'Revoke All Access'
     };
 
@@ -386,10 +382,11 @@ var UserDrawer = (function () {
     var badgeHTML = '<span class="badge badge-free">Free</span>';
     var now = Date.now();
     
-    if (p.isPremiumPlus) {
-      badgeHTML = '<span class="badge badge-premium-plus">Premium+</span>';
-      stateType = 'plus';
-    } else if (p.isPremium) {
+    var _active = p.plan === 'premium' && (!p.planExpiry || _toMillis(p.planExpiry) > now);
+    if (_active && p.isTrial) {
+      badgeHTML = '<span class="badge badge-draft">Trial</span>';
+      stateType = 'trial';
+    } else if (_active) {
       badgeHTML = '<span class="badge badge-premium">Premium</span>';
       stateType = 'premium';
     }

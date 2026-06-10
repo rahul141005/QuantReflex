@@ -2,7 +2,7 @@
  * claimsService.js — Firebase Custom JWT Claims for Entitlements
  *
  * WHAT THIS DOES:
- * When a user pays for Premium or Premium+, we store the entitlement in
+ * When a user pays for Premium, we store the entitlement in
  * Firestore (the source of truth). But we ALSO embed it in the user's
  * JWT token as a "custom claim". This way, the server can check entitlement
  * by reading the token (0 Firestore reads) instead of querying Firestore
@@ -26,10 +26,10 @@
 const admin = require('firebase-admin');
 
 /**
- * Set entitlement claims on a user's JWT.
+ * Set entitlement claims on a user's JWT (v2 — single premium tier).
  *
  * @param {string} uid — Firebase user ID
- * @param {{ premium: boolean, premiumPlus: boolean }} claims
+ * @param {{ premium: boolean }} claims
  */
 async function setEntitlementClaims(uid, claims) {
   if (!uid) {
@@ -39,8 +39,7 @@ async function setEntitlementClaims(uid, claims) {
 
   try {
     await admin.auth().setCustomUserClaims(uid, {
-      premium: !!claims.premium,
-      premiumPlus: !!claims.premiumPlus
+      premium: !!claims.premium
     });
 
   } catch (err) {

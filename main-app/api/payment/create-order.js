@@ -1,7 +1,7 @@
 /**
  * POST /api/payment/create-order
  * Create a Razorpay order for one-time payment.
- * Accepts: { plan: 'premium' | 'plus_6month' | 'plus_yearly' }
+ * Accepts: { plan: 'premium_6m' | 'premium_12m' }
  * Returns: { orderId, plan, amount }
  */
 
@@ -16,7 +16,7 @@ module.exports = withAuth(async function (req, res) {
     var plan = body.plan;
     if (!plan || !paymentService.PLAN_CONFIG[plan]) {
       return res.status(400).json({
-        error: { code: 'BAD_REQUEST', message: 'Invalid plan. Must be one of: premium, plus_6month, plus_yearly.', retryable: false }
+        error: { code: 'BAD_REQUEST', message: 'Invalid plan. Must be one of: premium_6m, premium_12m.', retryable: false }
       });
     }
 

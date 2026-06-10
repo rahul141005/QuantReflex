@@ -37,6 +37,38 @@ function formatError(err) {
   return { code: 'INTERNAL_ERROR', message: err.message || 'An unexpected error occurred.', retryable: true };
 }
 
+/* Per-admin in-memory rate limiter (audit M5/M6 — defense-in-depth, per
+   serverless instance). Previously only firebase-admin.js#withAdmin was
+   rate-limited (used by questions.js); the sensitive endpoints that use
+   withAdminAuth (entitlements, payments, coachings, …) had NO limit. */
+var _adminRateLimitMap = {};
+var _adminRateLimitCheckCount = 0;
+var ADMIN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; /* 1 hour */
+var ADMIN_MAX_REQUESTS_PER_HOUR = 30;
+
+function _checkAdminRateLimit(uid) {
+  var now = Date.now();
+  if (++_adminRateLimitCheckCount >= 30) {
+    _adminRateLimitCheckCount = 0;
+    Object.keys(_adminRateLimitMap).forEach(function (k) {
+      if (now - _adminRateLimitMap[k].windowStart > ADMIN_RATE_LIMIT_WINDOW_MS) delete _adminRateLimitMap[k];
+    });
+  }
+  var entry = _adminRateLimitMap[uid];
+  if (!entry || now - entry.windowStart > ADMIN_RATE_LIMIT_WINDOW_MS) {
+    _adminRateLimitMap[uid] = { count: 1, windowStart: now };
+    return true;
+  }
+  entry.count++;
+  return entry.count <= ADMIN_MAX_REQUESTS_PER_HOUR;
+}
+
+/**
+ * Canonical Super-Admin auth wrapper (audit M5).
+ * Verifies the Firebase ID token + `admin:true` claim, applies a per-admin
+ * rate limit, and exposes BOTH `req.userId` and `req.adminUid` so either
+ * naming convention works across endpoints.
+ */
 function withAdminAuth(handler) {
   return async function (req, res) {
     if (req.method === 'OPTIONS') {
@@ -59,7 +91,7 @@ function withAdminAuth(handler) {
     } catch (tokenErr) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication failed.' } });
     }
-    
+
     if (!decoded || !decoded.uid) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid token.' } });
     }
@@ -69,7 +101,13 @@ function withAdminAuth(handler) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin privileges required.' } });
     }
 
+    if (!_checkAdminRateLimit(decoded.uid)) {
+      console.warn('[admin:middleware] rate limit exceeded for admin uid:', decoded.uid);
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Please try again later.', retryable: true } });
+    }
+
     req.userId = decoded.uid;
+    req.adminUid = decoded.uid; /* alias — canonical going forward (audit M5) */
     return handler(req, res);
   };
 }

@@ -77,7 +77,7 @@ async function handler(req, res) {
         capacity: capacity ? parseInt(capacity, 10) : null,
         ownerEmail: body.ownerEmail ? body.ownerEmail.trim() : null,
         entitlementPlan: body.entitlementPlan || 'standard',
-        studentsCount: 0,
+        studentCount: 0,
         activePremiumUsers: 0,
         activePremiumPlusUsers: 0,
         registrationToken: registrationToken,
@@ -126,8 +126,13 @@ async function handler(req, res) {
           usersSnapshot.forEach((userDoc) => {
             if (count === 500) { batches.push(currentBatch); currentBatch = db.batch(); count = 0; }
             currentBatch.update(userDoc.ref, {
-              isPremiumPlus: false,
-              premiumPlusStatus: 'revoked_org_suspended',
+              plan: 'free',
+              planType: null,
+              planExpiry: null,
+              planSource: null,
+              isTrial: false,
+              trialEnd: null,
+              planUpdatedAt: new Date().toISOString(),
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             count++;

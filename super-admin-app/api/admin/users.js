@@ -73,12 +73,12 @@ async function handler(req, res) {
           displayName: (data.profile && data.profile.name) || data.email || 'Unknown',
           email: data.email || '',
           coachingId: data.coachingId || null,
-          isPremium: !!data.isPremium,
-          isPremiumPlus: !!data.isPremiumPlus,
+          plan: data.plan === 'premium' ? 'premium' : 'free',
+          planType: data.planType || null,
+          planExpiry: safeTimestampToISO(data.planExpiry),
+          planSource: data.planSource || null,
           isTrial: !!data.isTrial,
           trialEnd: safeTimestampToISO(data.trialEnd),
-          premiumPlusExpiry: safeTimestampToISO(data.premiumPlusExpiry),
-          premiumPlusStatus: data.premiumPlusStatus || null,
           createdAt: safeTimestampToISO(data.createdAt),
           updatedAt: safeTimestampToISO(data.updatedAt),
         });
@@ -101,7 +101,7 @@ async function handler(req, res) {
         db.collection('users').doc(uid).get(),
         db.collection('users').doc(uid).collection('usage').doc('ai').get(),
         db.collection('duels').where(`participants.${uid}.status`, 'in', ['finished', 'exited']).limit(10).get(),
-        db.collection('entitlementLogs').where('uid', '==', uid).orderBy('timestamp', 'desc').limit(5).get()
+        db.collection('users').doc(uid).collection('entitlementLogs').orderBy('timestamp', 'desc').limit(5).get()
       ]);
 
       if (!userDoc.exists) {
@@ -116,12 +116,12 @@ async function handler(req, res) {
           displayName: (userData.profile && userData.profile.name) || userData.email || 'Unknown',
           email: userData.email || '',
           coachingId: userData.coachingId || null,
-          isPremium: !!userData.isPremium,
-          isPremiumPlus: !!userData.isPremiumPlus,
+          plan: userData.plan === 'premium' ? 'premium' : 'free',
+          planType: userData.planType || null,
+          planExpiry: safeTimestampToISO(userData.planExpiry),
+          planSource: userData.planSource || null,
           isTrial: !!userData.isTrial,
           trialEnd: safeTimestampToISO(userData.trialEnd),
-          premiumPlusStatus: userData.premiumPlusStatus || null,
-          premiumPlusExpiry: safeTimestampToISO(userData.premiumPlusExpiry),
           createdAt: safeTimestampToISO(userData.createdAt),
         },
         aiUsage: aiSnapshot.exists ? aiSnapshot.data() : { tokens: 0, count: 0 },

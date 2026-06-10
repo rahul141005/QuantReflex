@@ -33,36 +33,37 @@ module.exports = withAuth(async function (req, res) {
       });
     }
 
-    /* Fetch order from Razorpay to get server-trusted plan */
-    var trustedPlan = await paymentService.fetchOrderPlan(orderId);
+    /* Fetch order from Razorpay to get server-trusted plan + owner (notes.uid) */
+    var order = await paymentService.fetchOrder(orderId);
+    var trustedPlan = order.notes && order.notes.plan;
+    if (!trustedPlan || !paymentService.getPlanConfig(trustedPlan)) {
+      console.error('Order plan mismatch or unknown plan for order:', orderId);
+      return res.status(400).json({
+        error: { code: 'PLAN_MISMATCH', message: 'Payment verification failed. Please contact support.', retryable: false }
+      });
+    }
+
+    /* audit H1: bind the order to the authenticated caller. The order notes
+       carry the uid that created it; reject if a different account tries to
+       claim someone else's payment. */
+    var orderUid = order.notes && order.notes.uid;
+    if (orderUid && orderUid !== req.userId) {
+      console.error('[PaymentFlow] PAYMENT_FAILED | order owner mismatch | orderUid: ' + orderUid + ' | caller: ' + req.userId + ' | orderId: ' + orderId);
+      return res.status(403).json({
+        error: { code: 'PAYMENT_OWNER_MISMATCH', message: 'This payment belongs to a different account.', retryable: false }
+      });
+    }
+
     console.info('[PaymentFlow] PAYMENT_VERIFIED | backend | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | paymentId: ' + paymentId);
 
-    if (trustedPlan === 'premium') {
-      /* Premium: lifetime unlock via Firestore */
-      await aiService.safeUserUpdate(req.userId, {
-        isPremium: true,
-        hasPaid: true,
-        isTrial: false,
-        trialEnd: null,
-        lastPaymentId: String(paymentId),
-        updatedAt: new Date().toISOString()
-      }, 'payment/verify:premium');
+    /* v2: single Premium tier — time-limited unlock (idempotent + replay-protected) */
+    var expiry = await aiService.activatePremium(req.userId, trustedPlan, paymentId, orderId);
 
-      /* Set JWT claims so the token reflects premium status on next refresh */
-      try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: false }); } catch (_) {}
+    /* Set JWT claim so the token reflects premium status on next refresh */
+    try { await setEntitlementClaims(req.userId, { premium: true }); } catch (_) {}
 
-      console.info('[PaymentFlow] PREMIUM_GRANTED | backend lifetime | uid: ' + req.userId + ' | paymentId: ' + paymentId);
-      res.json({ success: true, plan: 'premium', type: 'lifetime' });
-    } else {
-      /* Premium+: time-limited unlock */
-      var expiry = await aiService.unlockPremiumPlus(req.userId, trustedPlan, paymentId, orderId);
-
-      /* Set JWT claims so the token reflects premium+ status on next refresh */
-      try { await setEntitlementClaims(req.userId, { premium: true, premiumPlus: true }); } catch (_) {}
-
-      console.info('[PaymentFlow] PREMIUM_GRANTED | backend premium+ | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | expiry: ' + expiry);
-      res.json({ success: true, plan: trustedPlan, expiry: expiry });
-    }
+    console.info('[PaymentFlow] PREMIUM_GRANTED | backend | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | expiry: ' + expiry);
+    res.json({ success: true, plan: trustedPlan, expiry: expiry });
   } catch (err) {
     console.error('Verify payment error:', err.message);
     if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REPLAY') {

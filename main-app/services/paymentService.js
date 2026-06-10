@@ -11,16 +11,15 @@ if (!RAZORPAY_KEY_SECRET) {
 }
 
 /**
- * Plan definitions — one-time payments only, no subscriptions.
+ * Plan definitions (v2) — one-time payments only, no subscriptions.
+ * Single Premium tier, two durations.
  *
- * premium:      ₹89 lifetime
- * plus_6month:  ₹299 for 6 months
- * plus_yearly:  ₹499 for 1 year
+ * premium_6m:   ₹299 for 6 months
+ * premium_12m:  ₹499 for 12 months
  */
 var PLAN_CONFIG = {
-  premium: { amountPaise: 8900, label: 'Lifetime Premium', durationDays: null },
-  plus_6month: { amountPaise: 29900, label: 'Premium+ 6 Months', durationDays: 182 },
-  plus_yearly: { amountPaise: 49900, label: 'Premium+ 1 Year', durationDays: 365 }
+  premium_6m: { amountPaise: 29900, label: 'Premium · 6 Months', durationDays: 182 },
+  premium_12m: { amountPaise: 49900, label: 'Premium · 12 Months', durationDays: 365 }
 };
 
 var razorpayInstance = null;
@@ -46,14 +45,14 @@ function _getRazorpay() {
 
 /**
  * Create a Razorpay Order for a one-time payment.
- * @param {string} plan - One of: 'premium', 'plus_6month', 'plus_yearly'
+ * @param {string} plan - One of: 'premium_6m', 'premium_12m'
  * @param {string} uid - Firebase UID (used in receipt for traceability)
  * @returns {{ orderId: string, plan: string, amount: number }}
  */
 async function createOrder(plan, uid) {
   var config = PLAN_CONFIG[plan];
   if (!config) {
-    throw new Error('Invalid plan: "' + plan + '". Must be one of: premium, plus_6month, plus_yearly.');
+    throw new Error('Invalid plan: "' + plan + '". Must be one of: premium_6m, premium_12m.');
   }
   var rzp = _getRazorpay();
   var receipt = 'rcpt_' + (uid || 'anon').substring(0, 20) + '_' + Date.now();
@@ -64,7 +63,7 @@ async function createOrder(plan, uid) {
     amount: config.amountPaise,
     currency: 'INR',
     receipt: receipt,
-    notes: { plan: plan, product: plan === 'premium' ? 'Premium' : 'PremiumPlus', uid: uid || '' }
+    notes: { plan: plan, product: 'Premium', uid: uid || '' }
   });
 
   console.info('[PaymentFlow] ORDER_CREATED | backend success | orderId: ' + order.id + ' | status: ' + order.status);
@@ -109,16 +108,27 @@ function verifyPaymentSignature(orderId, paymentId, signature) {
 
 /**
  * Fetch the order from Razorpay and verify it is paid.
- * Returns the plan from the order notes (server-side source of truth).
+ * Returns the full order (server-side source of truth for plan + uid in notes).
  * @param {string} orderId
- * @returns {string} plan key
+ * @returns {object} Razorpay order
  */
-async function fetchOrderPlan(orderId) {
+async function fetchOrder(orderId) {
   var rzp = _getRazorpay();
   var order = await rzp.orders.fetch(orderId);
   if (!order || order.status !== 'paid') {
     throw new Error('Order not in paid state. Status: ' + (order && order.status) + ' (id: ' + orderId + ')');
   }
+  return order;
+}
+
+/**
+ * Fetch the order from Razorpay and verify it is paid.
+ * Returns the plan from the order notes (server-side source of truth).
+ * @param {string} orderId
+ * @returns {string} plan key
+ */
+async function fetchOrderPlan(orderId) {
+  var order = await fetchOrder(orderId);
   var plan = order.notes && order.notes.plan;
   if (!plan || !PLAN_CONFIG[plan]) {
     throw new Error('Order plan mismatch or unknown plan: ' + plan + ' (id: ' + orderId + ')');
@@ -133,4 +143,4 @@ function getPlanConfig(plan) {
   return PLAN_CONFIG[plan] || null;
 }
 
-module.exports = { createOrder, verifyPaymentSignature, fetchOrderPlan, getPlanConfig, PLAN_CONFIG };
+module.exports = { createOrder, verifyPaymentSignature, fetchOrder, fetchOrderPlan, getPlanConfig, PLAN_CONFIG };

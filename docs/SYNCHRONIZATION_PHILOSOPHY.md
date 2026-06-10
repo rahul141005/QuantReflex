@@ -34,7 +34,7 @@
 2. Reads `users/{uid}` document
 3. Normalizes monetization fields (`_normalizeMonetization`)
 4. Fills missing defaults (`_validateAndFillDefaults`)
-5. Enforces trial/Premium+ expiry
+5. Enforces premium/trial expiry (`_enforcePremiumExpiry`)
 6. Writes to localStorage + AppState
 7. App UI reads from AppState (fast, synchronous)
 

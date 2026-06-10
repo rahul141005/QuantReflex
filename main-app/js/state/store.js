@@ -25,7 +25,6 @@
  *   quant_notifications_enabled→ qr_notif_enabled
  *   quant_onboarding_complete  → qr_onboarding_done
  *   premiumStatus              → qr_premium
- *   premiumPlusStatus          → qr_premium_plus
  */
 
 var AppState = (function () {
@@ -42,8 +41,7 @@ var AppState = (function () {
     bookmarks:      'qr_bookmarks',
     notifEnabled:   'qr_notif_enabled',
     onboardingDone: 'qr_onboarding_done',
-    premium:        'qr_premium',
-    premiumPlus:    'qr_premium_plus'
+    premium:        'qr_premium'
   };
 
 
@@ -254,21 +252,6 @@ var AppState = (function () {
     }
   }
 
-  /* ---- Premium Plus Status ---- */
-
-  function getPremiumPlus() {
-    var val = _readString(KEYS.premiumPlus, null);
-    return val || null;
-  }
-
-  function setPremiumPlus(status) {
-    if (status === null || status === undefined) {
-      try { localStorage.removeItem(KEYS.premiumPlus); } catch (_) {}
-    } else {
-      _writeString(KEYS.premiumPlus, String(status));
-    }
-  }
-
   /* ---- Utility ---- */
 
   /**
@@ -360,10 +343,6 @@ var AppState = (function () {
     /* Premium */
     getPremiumStatus: getPremiumStatus,
     setPremiumStatus: setPremiumStatus,
-
-    /* Premium Plus */
-    getPremiumPlus: getPremiumPlus,
-    setPremiumPlus: setPremiumPlus,
 
     /* Utility */
     getKeys: getKeys,

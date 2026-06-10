@@ -581,8 +581,6 @@ var ShareService = (function () {
     _createPreviewModal(canvas, data);
   }
 
-  }
-
   function _generateDuelCard(data) {
     var W = 1080;
     var PAD = 72;

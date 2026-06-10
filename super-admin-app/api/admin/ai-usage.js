@@ -74,7 +74,7 @@ async function handler(req, res) {
         displayName: (user.profile && user.profile.name) || user.email || 'Unknown',
         email: user.email || 'N/A',
         coachingId: user.coachingId || 'Independent',
-        isPremium: user.isPremium || user.isPremiumPlus || false,
+        isPremium: user.plan === 'premium',
         totalWP: wp,
         totalExp: exp,
         totalCalls: wp + exp,

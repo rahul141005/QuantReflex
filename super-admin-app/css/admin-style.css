@@ -450,7 +450,6 @@ input, textarea, select { font-family: inherit; }
   letter-spacing: .02em;
 }
 .badge-premium { background: #dbeafe; color: #1e40af; }
-.badge-premium-plus { background: #ede9fe; color: #5b21b6; }
 .badge-free { background: #f1f5f9; color: #475569; }
 .badge-active { background: #dcfce7; color: #15803d; }
 .badge-draft { background: #fef9c3; color: #a16207; }

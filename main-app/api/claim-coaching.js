@@ -1,4 +1,4 @@
-const { withAuth, methodGuard, parseBody, formatError } = require('./_lib/middleware');
+const { withAuth, methodGuard, parseBody, formatError, isCoachingActive } = require('./_lib/middleware');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -37,7 +37,7 @@ async function handler(req, res) {
       }
 
       const coachingData = newCoachingDoc.data();
-      if (coachingData.isActive === false || coachingData.status === 'expired') {
+      if (!isCoachingActive(coachingData)) {
         throw new Error('INACTIVE: Coaching ID is inactive or expired.');
       }
 
@@ -51,25 +51,13 @@ async function handler(req, res) {
       // 3. If already claimed the same coaching, do nothing
       if (oldCoachingId === cleanCoachingId) return;
 
-      // 4. Increment the new coaching document's student count
-      transaction.update(newCoachingRef, {
-        studentsCount: admin.firestore.FieldValue.increment(1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      // 5. Decrement the old coaching document's student count (if any)
-      if (oldCoachingId && typeof oldCoachingId === 'string' && oldCoachingId.trim().length > 0) {
-        const oldCoachingRef = db.collection('coachings').doc(oldCoachingId);
-        const oldDoc = await transaction.get(oldCoachingRef);
-        if (oldDoc.exists) {
-          transaction.update(oldCoachingRef, {
-            studentsCount: admin.firestore.FieldValue.increment(-1),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-        }
-      }
-
-      // 6. Update user document
+      // 4. Update user document.
+      //    NOTE: the canonical `coachings.studentCount` is maintained by the
+      //    `syncCoachingStudentCount` Cloud Function, which fires on this very
+      //    coachingId change (decrements old, increments new). We deliberately
+      //    do NOT increment a counter here — doing so previously wrote a
+      //    divergent `studentsCount` field and would double-count once names
+      //    are aligned. The function is the single writer of studentCount.
       transaction.set(userRef, {
         coachingId: cleanCoachingId,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()

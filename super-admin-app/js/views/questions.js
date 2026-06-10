@@ -236,7 +236,7 @@ var QuestionsView = (function () {
             else badges += '<span class="badge badge-archived">' + (val || 'draft') + '</span>';
             
             if (row.premiumOnly) {
-              badges += ' <span class="badge badge-premium-plus" style="margin-left:4px;">Premium</span>';
+              badges += ' <span class="badge badge-premium" style="margin-left:4px;">Premium</span>';
             }
             return badges;
           }

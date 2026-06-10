@@ -1271,10 +1271,6 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
   color: var(--accent-violet);
 }
 
-.badge-premium-plus {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2));
-  color: #e879f9;
-}
 
 /* ── Section Headers ── */
 .section-header {

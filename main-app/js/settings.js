@@ -89,7 +89,7 @@ function initSettingsView() {
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
     ? FirestoreSync.getAccessState()
     : {};
-  var isPremiumUser = accessState && accessState.isPremium === true;
+  var isPremiumUser = accessState && accessState.plan === 'premium';
   var isTrialUser = accessState && accessState.isTrial === true;
 
   var darkToggle = document.getElementById('darkModeToggle');
@@ -440,52 +440,33 @@ function updateAboutUserStatus() {
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
     ? (FirestoreSync.getAccessState() || {})
     : {};
+  function _fmtDate(value) {
+    var ms = 0;
+    if (typeof value === 'number') ms = value;
+    else if (typeof value === 'string') ms = new Date(value).getTime();
+    else if (value && typeof value.toDate === 'function') { try { ms = value.toDate().getTime(); } catch (_) {} }
+    if (!ms || isNaN(ms)) return '';
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms));
+  }
+
   var message = 'Free Plan';
-  if (accessState.isPremiumPlus === true) {
-    var planLabel = accessState.premiumPlusPlan === 'plus_yearly' ? '1 Year' : '6 Month';
-    var expiryStr = '';
-    if (accessState.premiumPlusExpiry) {
-      var expMs = 0;
-      if (typeof accessState.premiumPlusExpiry === 'number') {
-        expMs = accessState.premiumPlusExpiry;
-      } else if (typeof accessState.premiumPlusExpiry === 'string') {
-        expMs = new Date(accessState.premiumPlusExpiry).getTime();
-      } else if (typeof accessState.premiumPlusExpiry === 'object' && typeof accessState.premiumPlusExpiry.toDate === 'function') {
-        try { expMs = accessState.premiumPlusExpiry.toDate().getTime(); } catch (_) {}
+  if (accessState.plan === 'premium') {
+    if (accessState.isTrial === true) {
+      /* Trial — N days left */
+      var trialDaysLabel = '';
+      if (accessState.trialDays != null && accessState.trialDays > 0) {
+        trialDaysLabel = ' — ' + accessState.trialDays + ' day' + (accessState.trialDays !== 1 ? 's' : '') + ' left';
+      } else {
+        var tStr = _fmtDate(accessState.trialEnd);
+        if (tStr) trialDaysLabel = ' — Expires ' + tStr;
       }
-      
-      if (expMs > 0 && !isNaN(expMs)) {
-        var d = new Date(expMs);
-        var formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        expiryStr = ' · Expires on: ' + formatter.format(d);
-      }
+      message = '⏳ Premium Trial' + trialDaysLabel;
+    } else {
+      var planLabel = accessState.planType === 'premium_12m' ? '12 Months'
+                    : accessState.planType === 'premium_6m' ? '6 Months' : '';
+      var expStr = _fmtDate(accessState.planExpiry);
+      message = '💎 Premium' + (planLabel ? ' (' + planLabel + ')' : '') + (expStr ? ' · Expires ' + expStr : '');
     }
-    message = '✨ Premium+ (' + planLabel + ')' + expiryStr;
-  } else if (accessState.hasPaid === true) {
-    message = '💎 Premium — All features unlocked';
-  } else if (accessState.isTrial === true) {
-    var trialExpStr = '';
-    if (accessState.trialEnd) {
-      var tExpMs = 0;
-      if (typeof accessState.trialEnd === 'number') {
-        tExpMs = accessState.trialEnd;
-      } else if (typeof accessState.trialEnd === 'string') {
-        tExpMs = new Date(accessState.trialEnd).getTime();
-      } else if (typeof accessState.trialEnd === 'object' && typeof accessState.trialEnd.toDate === 'function') {
-        try { tExpMs = accessState.trialEnd.toDate().getTime(); } catch (_) {}
-      }
-      
-      if (tExpMs > 0 && !isNaN(tExpMs)) {
-        var d = new Date(tExpMs);
-        var formatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        trialExpStr = ' — Expires on: ' + formatter.format(d);
-      }
-    }
-    var trialDaysLabel = '';
-    if (accessState.trialDays && accessState.trialDays > 0) {
-      trialDaysLabel = ' (' + accessState.trialDays + ' Day' + (accessState.trialDays !== 1 ? 's' : '') + ')';
-    }
-    message = '⏳ Trial' + trialDaysLabel + trialExpStr;
   }
   if (statusEl) {
     statusEl.textContent = message;

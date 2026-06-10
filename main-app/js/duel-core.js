@@ -9,7 +9,7 @@
  *   - Duplicate submission guards
  *   - Realtime result synchronization
  *
- * Premium+ gated — all operations require isPremiumPlus === true.
+ * Premium gated — all operations require an active premium plan.
  */
 
 var DuelCore = (function () {
@@ -51,7 +51,7 @@ var DuelCore = (function () {
     return 'Player';
   }
 
-  function _isPremiumPlus() {
+  function _hasPremium() {
     return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
   }
 
@@ -130,7 +130,7 @@ var DuelCore = (function () {
     var db = FirebaseApp.getDb();
     var uid = FirebaseApp.getUserId();
     if (!db || !uid) { callback('Not authenticated'); return; }
-    if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
+    if (!_hasPremium()) { callback('Premium required'); return; }
 
     var duelId = _generateDuelId();
     var questions = [];
@@ -194,7 +194,7 @@ var DuelCore = (function () {
         questionMode: config.questionMode || 'quick',
         timerPerQuestion: config.timerPerQuestion || null,
         timerTotal: config.timerTotal || null,
-        isPremium: true
+        premiumRoom: true
       },
       questions: questions || [],
       questionIds: questionIds || [],
@@ -220,7 +220,7 @@ var DuelCore = (function () {
    */
   function joinDuel(duelId, callback) {
     console.log('[DUEL TRACE] joinDuel initiated for room:', duelId);
-    if (!_isPremiumPlus()) { callback('Premium+ required'); return; }
+    if (!_hasPremium()) { callback('Premium required'); return; }
     _joinDuelTransaction(duelId, callback);
   }
 
@@ -249,9 +249,9 @@ var DuelCore = (function () {
           throw new Error('This duel is no longer accepting players');
         }
 
-        /* Prevent non-premium users from joining premium rooms */
-        if (data.isPremium && !_isPremiumPlus()) {
-          throw new Error('Premium+ is required to join this duel room.');
+        /* Math Duel is premium-gated — every joiner must have premium. */
+        if (!_hasPremium()) {
+          throw new Error('Premium is required to join this duel room.');
         }
 
         var pCount = data.participants ? Object.keys(data.participants).length : 0;
@@ -285,7 +285,7 @@ var DuelCore = (function () {
       callback(null, data);
     }).catch(function (e) {
       console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: JOIN (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
-      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('participants') === -1 && e.message.indexOf('Premium+') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
+      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('participants') === -1 && e.message.indexOf('Premium') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
       callback(msg || 'Connection problem detected. Unable to join duel.');
     });
   }

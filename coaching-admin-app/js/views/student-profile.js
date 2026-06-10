@@ -26,7 +26,7 @@ var StudentProfileView = (function () {
     if (p.email) html += '<div style="font-size:var(--font-sm);color:var(--text-tertiary);">' + CoachingUtils.escapeHtml(p.email) + '</div>';
     html += '<div style="margin-top:var(--space-xs);display:flex;gap:var(--space-xs);flex-wrap:wrap;">';
     html += CoachingUtils.getEngagementBadge(p.engagementLevel);
-    html += CoachingUtils.getSubscriptionBadge(p.isPremium, p.isPremiumPlus);
+    html += CoachingUtils.getSubscriptionBadge(p.plan, p.isTrial);
     html += '</div></div></div>';
     
     /* Action Row */

@@ -40,10 +40,8 @@ var Auth = (function () {
           if (result && result.claims) {
             var claims = result.claims;
             if (typeof AppState !== 'undefined') {
-              AppState.setPremiumPlus(!!claims.premiumPlus);
-              AppState.setPremium(!!claims.premium);
+              AppState.setPremiumStatus(!!claims.premium);
             } else {
-              localStorage.setItem('qr_premium_plus', claims.premiumPlus ? 'true' : 'false');
               localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
             }
           }

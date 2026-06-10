@@ -41,12 +41,11 @@ var AIFeatures = (function () {
   }
 
   function _isPremium() {
-    if (typeof canAccessFeature === 'function') {
-      return canAccessFeature('ai_coach');
-    }
+    if (typeof hasPremiumAccess === 'function') return hasPremiumAccess();
+    if (typeof canAccessFeature === 'function') return canAccessFeature('ai_coach');
     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function') {
       var state = FirestoreSync.getAccessState();
-      if (state && state.isPremiumPlus === true) return true;
+      if (state && state.plan === 'premium') return true;
     }
     return false;
   }
@@ -90,7 +89,7 @@ var AIFeatures = (function () {
           try {
             var errData = JSON.parse(xhr.responseText);
             var code = errData.error && errData.error.code;
-            callback((code === 'PREMIUM_REQUIRED' || code === 'PREMIUM_PLUS_REQUIRED') ? 'premium_required' : FRIENDLY_ERROR);
+            callback(code === 'PREMIUM_REQUIRED' ? 'premium_required' : FRIENDLY_ERROR);
           } catch (_) {
             callback(FRIENDLY_ERROR);
           }
@@ -732,7 +731,7 @@ var AIFeatures = (function () {
       startBtn.disabled = true;
       startBtn.textContent = quota.type === 'lifetime' ? '🔒 Free limit reached' : 'Daily limit reached';
       if (quota.type === 'lifetime') {
-        errorEl.textContent = 'Upgrade to Premium+ for 25 AI questions per day.';
+        errorEl.textContent = 'Upgrade to Premium for 25 AI questions per day.';
         errorEl.style.display = 'block';
       }
     }
@@ -769,7 +768,7 @@ var AIFeatures = (function () {
           startBtn.disabled = false;
           startBtn.textContent = 'Generate Word Problems';
           if (err === 'free_limit_reached') {
-            errorEl.textContent = 'You\'ve used all 5 free AI questions. Upgrade to Premium+ for more.';
+            errorEl.textContent = 'You\'ve used all 5 free AI questions. Upgrade to Premium for more.';
             if (typeof showPaywall === 'function') showPaywall('ai_explain');
           } else if (err === 'daily_limit_reached') {
             errorEl.textContent = 'You\'ve reached today\'s limit of 25 AI questions. Come back tomorrow!';
@@ -964,7 +963,7 @@ var AIFeatures = (function () {
             try {
               var errData = JSON.parse(xhr.responseText);
               var spCode = errData.error && errData.error.code;
-              callback((spCode === 'PREMIUM_REQUIRED' || spCode === 'PREMIUM_PLUS_REQUIRED') ? 'premium_required' : FRIENDLY_ERROR);
+              callback(spCode === 'PREMIUM_REQUIRED' ? 'premium_required' : FRIENDLY_ERROR);
             } catch (_e) { callback(FRIENDLY_ERROR); }
           } else if (xhr.status === 429) {
             callback('rate_limited');
@@ -1403,7 +1402,7 @@ var AIFeatures = (function () {
 
     if (!_isPremium()) {
       container.innerHTML =
-        '<button class="home-bento-action-btn sp-unlock-btn" type="button">🔒 Unlock with Premium+</button>';
+        '<button class="home-bento-action-btn sp-unlock-btn" type="button">🔒 Unlock with Premium</button>';
       container.querySelector('.sp-unlock-btn').addEventListener('click', function () {
         if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
       });

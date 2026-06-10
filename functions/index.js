@@ -9,8 +9,8 @@
  * 1. cleanupExpiredDuels — Every 60 minutes, marks stale duel rooms as 'expired'
  *    so they don't pollute the Firestore 'duels' collection forever.
  *
- * 2. enforceEntitlementExpiry — Every 6 hours, checks for Premium+ users whose
- *    subscription has expired and revokes their access server-side.
+ * 2. enforceEntitlementExpiry — Every 6 hours, checks for premium users whose
+ *    subscription has expired and reverts their access to free server-side.
  *
  * 3. dailyPracticeReminder — At 7:00 AM IST every day, sends a push notification
  *    to all users who have FCM tokens saved in Firestore.
@@ -120,17 +120,16 @@ exports.cleanupExpiredDuels = onSchedule(
 // 2. ENTITLEMENT EXPIRY ENFORCEMENT
 // ════════════════════════════════════════════════════════════════
 //
-// WHY: Premium+ is a time-limited subscription (6 months or 1 year).
-// The client-side code checks expiry and revokes locally, but if a
-// user never opens the app again, their Firestore document still
-// shows isPremiumPlus: true. This makes admin dashboards inaccurate
-// and inflates premium user counts.
+// WHY: Premium is time-limited (6 or 12 months, or a custom-duration trial).
+// The client self-heals expiry on read, but if a user never reopens the app
+// their doc still shows plan: 'premium'. This makes admin dashboards inaccurate
+// and inflates premium counts.
 //
-// WHAT IT DOES:
-// - Finds users where isPremiumPlus == true
-// - Checks if premiumPlusExpiry is in the past
-// - Sets isPremiumPlus: false and premiumPlusStatus: 'expired'
-// - Does NOT revoke isPremium (lifetime premium stays)
+// WHAT IT DOES (v2):
+// - Finds users where plan == 'premium'
+// - Checks if planExpiry is in the past
+// - Resets to free: plan:'free', planType/planExpiry/planSource:null,
+//   isTrial:false, trialEnd:null
 //
 // SCHEDULE: Every 6 hours
 // ════════════════════════════════════════════════════════════════
@@ -149,10 +148,10 @@ exports.enforceEntitlementExpiry = onSchedule(
     let lastDoc = null;
 
     try {
-      /* Paginate through ALL Premium+ users */
+      /* Paginate through ALL premium users */
       while (true) {
         let query = db.collection('users')
-          .where('isPremiumPlus', '==', true)
+          .where('plan', '==', 'premium')
           .limit(200);
         if (lastDoc) query = query.startAfter(lastDoc);
 
@@ -164,29 +163,35 @@ exports.enforceEntitlementExpiry = onSchedule(
 
         snapshot.forEach((doc) => {
           const data = doc.data();
-          if (!data.premiumPlusExpiry) return;
+          if (!data.planExpiry) return; /* indefinite admin grant — never auto-expires */
 
           let expiryMs = 0;
-          if (typeof data.premiumPlusExpiry === 'number') {
-            expiryMs = data.premiumPlusExpiry;
-          } else if (typeof data.premiumPlusExpiry === 'string') {
-            expiryMs = Date.parse(data.premiumPlusExpiry);
-          } else if (data.premiumPlusExpiry.toMillis) {
-            expiryMs = data.premiumPlusExpiry.toMillis();
-          } else if (data.premiumPlusExpiry.toDate) {
-            expiryMs = data.premiumPlusExpiry.toDate().getTime();
+          if (typeof data.planExpiry === 'number') {
+            expiryMs = data.planExpiry;
+          } else if (typeof data.planExpiry === 'string') {
+            expiryMs = Date.parse(data.planExpiry);
+          } else if (data.planExpiry.toMillis) {
+            expiryMs = data.planExpiry.toMillis();
+          } else if (data.planExpiry.toDate) {
+            expiryMs = data.planExpiry.toDate().getTime();
           }
 
           if (isNaN(expiryMs) || expiryMs <= 0) return;
 
           if (expiryMs < now) {
+            const iso = new Date().toISOString();
             batch.update(doc.ref, {
-              isPremiumPlus: false,
-              premiumPlusStatus: 'expired',
-              updatedAt: new Date().toISOString()
+              plan: 'free',
+              planType: null,
+              planExpiry: null,
+              planSource: null,
+              isTrial: false,
+              trialEnd: null,
+              planUpdatedAt: iso,
+              updatedAt: iso
             });
             revokedCount++;
-            logger.info('[expiry] Revoking Premium+ for uid:', doc.id,
+            logger.info('[expiry] Reverting premium→free for uid:', doc.id,
               'expired:', new Date(expiryMs).toISOString());
           }
         });
@@ -203,9 +208,9 @@ exports.enforceEntitlementExpiry = onSchedule(
       }
 
       if (totalRevoked > 0) {
-        logger.info('[expiry] Total revoked: ' + totalRevoked + ' expired Premium+ entitlements.');
+        logger.info('[expiry] Total reverted: ' + totalRevoked + ' expired premium entitlements.');
       } else {
-        logger.info('[expiry] All Premium+ users still within their subscription period.');
+        logger.info('[expiry] All premium users still within their subscription period.');
       }
     } catch (err) {
       logger.error('[expiry] Error:', err.message);

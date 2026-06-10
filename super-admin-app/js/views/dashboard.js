@@ -44,7 +44,7 @@ var DashboardView = (function () {
           _statCard(m.dau || 0, 'DAU (24h)', '#3b82f6') +
           _statCard(m.mau || 0, 'MAU (30d)', '#3b82f6') +
           _statCard(m.premiumUsers || 0, 'Premium', '#f59e0b') +
-          _statCard(m.premiumPlusUsers || 0, 'Premium+', '#8b5cf6') +
+          _statCard(m.trialUsers || 0, 'Trials', '#8b5cf6') +
           '</div>';
 
         var tokensToday = ai.tokensToday || 0;

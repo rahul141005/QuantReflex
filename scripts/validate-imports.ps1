@@ -98,7 +98,7 @@ $adminJsFiles = Get-ChildItem -Path "super-admin-app/js" -Recurse -Include "*.js
 foreach ($file in $adminJsFiles) {
     $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
     # Check for raw ISO-string-vs-number comparisons (the bug we fixed)
-    if ($content -match '\.premiumPlusExpiry\s*[<>]=?\s*Date\.now' -or $content -match '\.trialEnd\s*[<>]=?\s*Date\.now') {
+    if ($content -match '\.planExpiry\s*[<>]=?\s*Date\.now' -or $content -match '\.trialEnd\s*[<>]=?\s*Date\.now') {
         Write-Host "  [FAIL] Raw string-vs-number timestamp comparison in $($file.Name)" -ForegroundColor Red
         $ErrorCount++
     }

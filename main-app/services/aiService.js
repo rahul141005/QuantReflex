@@ -66,21 +66,43 @@ async function verifyIdToken(idToken) {
   }
 }
 
-async function isUserPremium(uid) {
+/**
+ * Resolve a user's entitlement (v2). The ONLY entitlement check.
+ *
+ *   premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+ *
+ * Self-heals: an expired premium/trial is written back to 'free' on read,
+ * so dashboards and gates stay consistent even if the sweep function lags.
+ *
+ * @returns {'free'|'premium'}
+ */
+async function resolvePlan(uid) {
   try {
     var doc = await db.collection('users').doc(uid).get();
-    if (!doc.exists) return false;
+    if (!doc.exists) return 'free';
     var data = doc.data();
-    if (data.isPremium === true || data.hasPaid === true) return true;
-    if (data.isTrial === true) {
-      var trialEndMs = _toExpiryMillis(data.trialEnd);
-      return trialEndMs > 0 && trialEndMs >= Date.now();
+    if (data.plan !== 'premium') return 'free';
+    var expiryMs = _toExpiryMillis(data.planExpiry);
+    if (expiryMs > 0 && expiryMs < Date.now()) {
+      try {
+        await safeUserUpdate(uid, {
+          plan: 'free', planType: null, planExpiry: null, planSource: null,
+          isTrial: false, trialEnd: null, planUpdatedAt: new Date().toISOString()
+        }, 'resolvePlan:expiry');
+      } catch (expiryErr) {
+        console.error('[aiService:resolvePlan] expiry self-heal failed (uid: ' + uid + '):', expiryErr.message);
+      }
+      return 'free';
     }
-    return false;
+    return 'premium';
   } catch (err) {
-    console.error('Premium lookup failed for uid ' + uid + ':', err.message);
+    console.error('[aiService:resolvePlan] lookup failed (uid: ' + uid + '):', err.message);
     throw new AIServiceError('ENTITLEMENT_ERROR', 'Unable to verify access status. Please try again.', true);
   }
+}
+
+async function isUserPremium(uid) {
+  return (await resolvePlan(uid)) === 'premium';
 }
 
 function _toExpiryMillis(value) {
@@ -115,35 +137,27 @@ async function safeUserUpdate(uid, data, caller) {
   }
 }
 
-async function isUserPremiumPlus(uid) {
-  try {
-    var doc = await db.collection('users').doc(uid).get();
-    if (!doc.exists) return false;
-    var data = doc.data();
-    if (data.isPremiumPlus !== true) return false;
-    var expiryMs = _toExpiryMillis(data.premiumPlusExpiry);
-    if (expiryMs > 0 && expiryMs < Date.now()) {
-      try {
-        await safeUserUpdate(uid, { isPremiumPlus: false, premiumPlusStatus: 'expired' }, 'isUserPremiumPlus:expiry');
-      } catch (expiryErr) {
-        console.error('[aiService:isUserPremiumPlus] expiry revocation write failed (uid: ' + uid + '):', expiryErr.message);
-      }
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('[aiService:isUserPremiumPlus] lookup failed (uid: ' + uid + '):', err.message);
-    throw new AIServiceError('ENTITLEMENT_ERROR', 'Unable to verify access status. Please try again.', true);
-  }
-}
+var PREMIUM_DURATION_DAYS = { premium_6m: 182, premium_12m: 365 };
 
-async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
-  var days = plan === 'plus_yearly' ? 365 : 182;
+/**
+ * Activate the single Premium plan from a verified payment (v2).
+ *
+ * Idempotent + replay-protected: uses payments/{paymentId} as a transactional
+ * lock so one payment cannot be replayed across accounts, and records an audit
+ * row. Sets the canonical plan fields; clears any trial.
+ *
+ * @param {string} uid
+ * @param {string} planType - 'premium_6m' | 'premium_12m'
+ * @param {string|number} paymentId
+ * @param {string} [orderId]
+ * @returns {string} planExpiry (ISO 8601)
+ */
+async function activatePremium(uid, planType, paymentId, orderId) {
+  var days = PREMIUM_DURATION_DAYS[planType] || 182;
   var expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
   var paymentRef = db.collection('payments').doc(String(paymentId));
   var userRef = db.collection('users').doc(uid);
-
   var finalExpiry = expiry;
 
   await db.runTransaction(async function (tx) {
@@ -151,43 +165,39 @@ async function unlockPremiumPlus(uid, plan, paymentId, orderId) {
     if (paymentDoc.exists) {
       var existing = paymentDoc.data();
       if (existing.uid !== uid) {
-        console.error('[aiService:unlockPremiumPlus] PAYMENT_REPLAY detected (uid: ' + uid + ', paymentId: ' + paymentId + ', existingUid: ' + existing.uid + ')');
+        console.error('[aiService:activatePremium] PAYMENT_REPLAY detected (uid: ' + uid + ', paymentId: ' + paymentId + ', existingUid: ' + existing.uid + ')');
         throw new AIServiceError('PAYMENT_REPLAY', 'Payment already used by another account.', false);
       }
+      /* Same-uid replay (verify + webhook both fire) — re-apply safely */
       finalExpiry = existing.expiry || expiry;
-
       tx.set(userRef, {
-        isPremiumPlus: true,
-        isPremium: true,
-        hasPaid: true,
-        premiumPlusPlan: existing.plan || plan,
-        premiumPlusExpiry: finalExpiry,
-        premiumPlusStatus: 'active',
-        lastPremiumPlusPaymentId: String(paymentId),
+        plan: 'premium',
+        planType: existing.plan || planType,
+        planExpiry: finalExpiry,
+        planSource: 'purchase',
+        isTrial: false,
+        trialEnd: null,
+        lastPaymentId: String(paymentId),
+        planUpdatedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
       return;
     }
-    var paymentDoc2 = {
-      uid: uid,
-      plan: plan,
-      expiry: expiry,
-      claimedAt: new Date().toISOString()
-    };
+    var paymentDoc2 = { uid: uid, plan: planType, expiry: expiry, claimedAt: new Date().toISOString() };
     if (orderId) paymentDoc2.orderId = String(orderId);
     tx.create(paymentRef, paymentDoc2);
     tx.set(userRef, {
-      isPremiumPlus: true,
-      isPremium: true,
-      hasPaid: true,
-      premiumPlusPlan: plan,
-      premiumPlusExpiry: expiry,
-      premiumPlusStatus: 'active',
-      lastPremiumPlusPaymentId: String(paymentId),
+      plan: 'premium',
+      planType: planType,
+      planExpiry: expiry,
+      planSource: 'purchase',
+      isTrial: false,
+      trialEnd: null,
+      lastPaymentId: String(paymentId),
+      planUpdatedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }, { merge: true });
   });
-
 
   return finalExpiry;
 }
@@ -288,22 +298,59 @@ async function trackGlobalAIUsage(metricName, count) {
   }
 }
 
+/**
+ * Atomically consume word-problem quota (audit H2).
+ *
+ * Previously this did a non-transactional read-modify-write against an
+ * in-memory cache, so N concurrent requests on one warm serverless instance
+ * could all pass the quota gate before any write landed. This now performs
+ * the limit check AND the increment inside a single Firestore transaction,
+ * so the cap (WP_FREE_LIMIT lifetime / WP_PREMIUM_DAILY per day) holds under
+ * concurrency. Returns the number actually granted (0 if the cap is hit).
+ *
+ * @returns {number} count actually consumed
+ */
 async function consumeWordProblemQuota(uid, isPremium, count) {
-  var entry = await _loadUsage(uid);
+  var usageRef = db.collection('users').doc(uid).collection('usage').doc('ai');
   var now = new Date();
   var today = now.toDateString();
-  var lastDate = entry.wordProblemsLastDate ? new Date(entry.wordProblemsLastDate).toDateString() : null;
-  if (isPremium) {
-    if (lastDate !== today) { entry.wordProblemsUsedToday = 0; }
-    entry.wordProblemsUsedToday += count;
-  } else {
-    entry.wordProblemsUsedLifetime += count;
+
+  var granted = await db.runTransaction(async function (tx) {
+    var doc = await tx.get(usageRef);
+    var data = doc.exists ? _normalizeUsageDoc(doc.data()) : {
+      wordProblemsUsedLifetime: 0, wordProblemsUsedToday: 0,
+      wordProblemsLastDate: null, lastUsageDate: null, explanationsUsed: 0
+    };
+
+    var allow;
+    if (isPremium) {
+      var lastDate = data.wordProblemsLastDate ? new Date(data.wordProblemsLastDate).toDateString() : null;
+      if (lastDate !== today) data.wordProblemsUsedToday = 0;
+      allow = Math.max(0, Math.min(count, WP_PREMIUM_DAILY - (data.wordProblemsUsedToday || 0)));
+      data.wordProblemsUsedToday = (data.wordProblemsUsedToday || 0) + allow;
+    } else {
+      allow = Math.max(0, Math.min(count, WP_FREE_LIMIT - (data.wordProblemsUsedLifetime || 0)));
+      data.wordProblemsUsedLifetime = (data.wordProblemsUsedLifetime || 0) + allow;
+    }
+
+    if (allow <= 0) return 0;
+
+    data.wordProblemsLastDate = now.toISOString();
+    data.lastUsageDate = now.toISOString();
+    tx.set(usageRef, data, { merge: true });
+    return allow;
+  });
+
+  /* Keep the in-memory cache coherent with the authoritative write */
+  if (usageCache[uid]) {
+    if (isPremium) usageCache[uid].wordProblemsUsedToday = (usageCache[uid].wordProblemsUsedToday || 0) + granted;
+    else usageCache[uid].wordProblemsUsedLifetime = (usageCache[uid].wordProblemsUsedLifetime || 0) + granted;
+    usageCache[uid].wordProblemsLastDate = now.toISOString();
+    usageCache[uid].lastUsageDate = now.toISOString();
   }
-  entry.wordProblemsLastDate = now.toISOString();
-  entry.lastUsageDate = now.toISOString();
-  usageCache[uid] = entry;
-  await _saveUsage(uid);
-  await trackGlobalAIUsage('wordProblems', count);
+
+  if (granted > 0) await trackGlobalAIUsage('wordProblems', granted);
+  return granted;
 }
 
 async function trackExplanationUsage(uid) {
@@ -932,4 +979,4 @@ async function generateStudyPlan(params) {
   return planDoc;
 }
 
-module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, isUserPremium, isUserPremiumPlus, unlockPremiumPlus, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };
+module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };

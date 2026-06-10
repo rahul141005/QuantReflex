@@ -1,0 +1,189 @@
+# QuantReflex Changelog
+
+All notable code + documentation changes. Format: dated entries, newest first. Each code change references its audit finding / ADR ID and the affected file:line, lists the documentation kept in sync, and (per [GOVERNANCE.md](GOVERNANCE.md)) any version bump.
+
+Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) · [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md) · [VERSIONS.md](VERSIONS.md) · [DECISION_LOG.md](DECISION_LOG.md)
+
+---
+
+## 2026-06-11 — v2 verification-audit fixes + production deploy
+
+Independent verification audit of the v2 migration found and fixed:
+- **fix(migration idempotency) 🔴** — `2026-06-11-v2-plan-schema.js` was not idempotent: `_targetState`
+  derived only from v1 fields, so an already-migrated `plan:'premium'` doc (v1 fields deleted) was
+  mis-targeted back to `free`. A second `--apply` would have wiped premium users. Added `_isAlreadyV2`
+  guard so migrated docs are never touched. Verified: re-run reports `changed=0`.
+- **fix(doc drift M1–M4)** — TECHNICAL_BIBLE §5.1 (aiService function list), ROADMAP DEBT-1 (obsolete),
+  firestore.rules comment (renamed expiry fns), DECISION_LOG ADR-002 (single `{premium}` claim note).
+- **fix(pre-existing, unrelated to v2)** — `share-service.js` stray `}` (file failed to parse);
+  `coaching/insights.js` duplicate `const dailyHistory`. Both now parse; **entire repo passes `node --check`**.
+- **chore(LOW)** — removed dead `.badge-premium-plus` CSS (admin + coaching); paywall "Restore Access"
+  now uses new `FirestoreSync.refreshFromServer` (re-reads entitlement without wiping localStorage).
+- **deploy** — `firebase deploy --only firestore:rules` (v2 rules live → `plan` protected, closes the
+  self-grant window); ran `2026-06-11-v2-plan-schema.js --apply` against prod: 11 users normalized
+  (2 active Premium+ → `premium/premium_12m` with expiry preserved, 9 → `free`, all legacy fields
+  deleted). Direct read-back confirmed. **Vercel app + `functions` deploy still pending (your CI).**
+
+---
+
+## 2026-06-11 — v2 monetization: single `plan` model (ADR-009) 🔶 MAJOR / breaking
+
+- **Requested change:** remove the ₹89 lifetime tier and the "Premium+" name; collapse to one Premium
+  tier (₹299/6mo, ₹499/12mo) that includes everything; super-admin keeps Premium + custom-duration
+  trial grants; retain `isTrial`/`trialEnd`. Zero production users → clean rewrite, no back-compat.
+- **Impacted systems:** Student App · Admin Dashboard · Coaching Portal · Firestore Schema · Security
+  Rules · Payments · Entitlements · Analytics · AI Services · APIs (all of them).
+- **Schema delta:** new `plan, planType, planExpiry, planSource, planUpdatedAt` (+ retained `isTrial,
+  trialEnd`); removed `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan,
+  premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`. Plan keys → `premium_6m`/`premium_12m`.
+- **API delta:** `aiService.activatePremium`/`resolvePlan`/`isUserPremium` replace
+  `unlockPremium(Plus)`/`isUserPremium(Plus)`; AI gates → `req.userPremium`; `create-order`/`verify`/
+  `webhook` single grant path; admin `entitlements` actions → `premium_6m|premium_12m|trial|revoke`;
+  admin/coaching APIs return `plan`/`isTrial`. `claimsService` → single `{premium}` claim.
+- **Security review:** `entitlementFieldsSafe` rewritten (client may only downgrade `plan`→'free' and
+  clear plan/trial fields). Deployed rules compile clean.
+- **Cross-app compatibility:** verified — every reader/writer (main-app, super-admin, coaching, functions)
+  resolves through `plan`; reference sweep shows ZERO `isPremiumPlus/plus_*/₹89/Premium+/hasPaid` in
+  live code (only historical CHANGELOG/ADR/AUDIT + migration scripts retain mentions; AI-usage
+  `wordProblemsUsedLifetime` counter is unrelated and retained).
+- **UI:** full product-grade paywall redesign (hero, value cards, FREE/PREMIUM comparison matrix,
+  6m/12m selector with 12m default + BEST VALUE, "Start Premium" CTA, trust builders, footer; new
+  `.pw-*` CSS with dark-mode + responsive; ~370 lines of dead legacy `.paywall-*` CSS removed). Guide,
+  FAQ, settings plan label (Trial countdown / Premium expiry), and home badges updated.
+- **Version bumps:** Bible/Architecture/Firestore/Security/Payment → **2.0** (MAJOR). Migration note in
+  [VERSIONS.md](VERSIONS.md).
+- **Migration:** `firestore/migrations/2026-06-11-v2-plan-schema.js` (dry-run default; `--apply` to
+  normalize dev/test docs + delete removed fields). Supersedes `2026-06-11-normalize-premiumPlusPlan.js`.
+- **Verification:** `node --check` on every changed JS (60+ files) passes; rules compile; reference
+  sweep clean; migration script `node --check` passes. See [DECISION_LOG.md](DECISION_LOG.md) ADR-009.
+
+---
+
+## 2026-06-11 — Bible governance system established (ADR-008)
+
+### docs: create `/docs/BIBLE/` source-of-truth set + versioning + governance
+- Requested change: formalize the Bible as the permanent, governed source of truth.
+- Impacted systems: Documentation/governance only (no code, schema, or runtime change).
+- Created `/docs/BIBLE/`: `README.md`, `TECHNICAL_BIBLE.md`, `FIRESTORE_BLUEPRINT.md`,
+  `SECURITY_ARCHITECTURE.md`, `PAYMENT_ARCHITECTURE.md`, `CHANGELOG.md`, `DECISION_LOG.md`,
+  `ROADMAP.md`, plus `GOVERNANCE.md` (mandatory workflow) and `VERSIONS.md` (version registry).
+- Migrated the four core docs + changelog from `/docs/` (content preserved); old `/docs/*.md`
+  replaced with redirect stubs to avoid dual sources of truth.
+- Established the versioning system: Bible / Architecture / Firestore / Security / Payment, all at
+  1.0 baseline; defined MAJOR/MINOR semantics and migration-note requirement.
+- Version bumps: Bible 1.0 (initial); all tracks 1.0 baseline.
+- Verification: cross-doc links rewritten to underscore names; UTF-8 preserved; stubs point to new home.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-008.
+
+---
+
+## 2026-06-11 — rules cleanup
+
+### chore: remove dead `entitlementCreateSafe()` helper
+- **File:** `firestore/rules/firestore.rules`.
+- Removed the unreachable create-time entitlement helper (client `create` is denied; accounts are server-only via `/api/auth/register`). Clears both rules-compiler warnings ("Unused function" + "Invalid variable name: request"). No behavioral change.
+- Redeployed rules to `quant-reflex-trainer` — compiled clean, no warnings.
+
+---
+
+## 2026-06-11 — production deploy + data migrations (executed)
+
+- **Deployed Firestore rules** to `quant-reflex-trainer` (`firebase deploy --only firestore:rules`).
+- **Deployed Firestore indexes** incl. corrected `entitlementLogs` COLLECTION_GROUP index; old orphaned index removed via `--force` (M2 live).
+- **Ran data migrations** (GOOGLE_APPLICATION_CREDENTIALS service-account):
+  - `normalize-premiumPlusPlan --apply` → 11 users, 0 legacy values (no change needed). M3 closed.
+  - `reconcile-studentCount --apply` → 2 coachings corrected (`QRE6OAMANJ` 0→1, `QRYOIN9IBW` unset→0 + dropped legacy `studentsCount`); re-run confirms 0 drift. M8 closed.
+- Migration scripts hardened to accept `GOOGLE_APPLICATION_CREDENTIALS` (ADC) in addition to `FIREBASE_SERVICE_ACCOUNT`.
+- **Note:** app code fixes (C1, C2, H1–H3, M1, M4, M5, student-count) still deploy via Vercel on next push — Firebase deploy only covered rules+indexes.
+
+---
+
+## 2026-06-11 — remaining bugs (student-count drift, M5, M8) + debt triage
+
+### fix(BUG): coaching student-count field drift + double-count 🟠 HIGH
+- **Files:** `main-app/api/claim-coaching.js`, `super-admin-app/api/admin/coachings.js`, `super-admin-app/js/views/coachings.js`, `super-admin-app/js/views/system.js`.
+- **Root cause:** two divergent fields — the Cloud Function maintained `studentCount` (read by the coaching dashboard), while admin-create + claim-coaching wrote `studentsCount` (read by super-admin UI). claim-coaching's manual writes also double-counted against the function.
+- **Change:** canonical field is `studentCount` (Cloud Function = sole writer). Removed claim-coaching's manual counter writes; admin-create now seeds `studentCount`; super-admin views read `studentCount` (with `studentsCount` fallback for un-reconciled docs).
+- **Docs synced:** TECHNICAL-BIBLE §6, FIRESTORE-BLUEPRINT (coachings).
+
+### fix(M5): single canonical super-admin auth wrapper + rate limit 🟡 MED (security)
+- **Files:** `super-admin-app/api/_lib/middleware.js`, `super-admin-app/api/_lib/firebase-admin.js`.
+- **Root cause:** two admin wrappers existed; only `firebase-admin#withAdmin` (used by `questions.js`) was rate-limited — the sensitive endpoints (`entitlements`, `payments`, `coachings`, …) using `withAdminAuth` had **no** rate limit.
+- **Change:** `withAdminAuth` now enforces a per-admin 30/hr limit and sets both `req.userId` and `req.adminUid`; `withAdmin` re-exports it. All super-admin endpoints are now rate-limited under one implementation.
+- **Docs synced:** TECHNICAL-BIBLE §5, SECURITY-ARCHITECTURE §5.
+
+### chore(M8): student-count reconciliation script 🟡 MED
+- **File:** `firestore/migrations/2026-06-11-reconcile-studentCount.js` (new) — recomputes `studentCount` from users, drops legacy `studentsCount`. Dry-run default; `--apply` to write.
+
+### triage(M6/M7/M9): infrastructure/debt — not code defects
+- **M6** global rate limiting → per-instance limits now uniform; a hard global cap needs a shared counter/App Check (infra).
+- **M7** Firebase App Check → console + SDK-init task (infra), cannot be resolved in repo logic alone.
+- **M9** mixed timestamp types → tolerated (all readers normalize); documented as convention, no mass edit to avoid churn/risk.
+- **Docs synced:** SECURITY-ARCHITECTURE §6, FIRESTORE-BLUEPRINT (drift register).
+
+---
+
+## 2026-06-11 — medium-severity cleanups (M1–M4)
+
+### fix(M1): remove orphaned `ai/usage` client mirror 🟡 MED
+- **File:** `main-app/js/firestore-sync.js` (`_createDefaultDocument` seed + header comment).
+- **Root cause:** client seeded `users/{uid}/ai/usage` which nothing reads; server quota truth is `users/{uid}/usage/ai`.
+- **Change:** deleted the client `ai/usage` seed; kept `practice/data` seed; updated header doc.
+- **Docs synced:** FIRESTORE-BLUEPRINT (subcollections + drift register).
+
+### fix(M2): correct `entitlementLogs` index 🟡 MED
+- **File:** `firestore/indexes/firestore.indexes.json`.
+- **Root cause:** index was COLLECTION-scope on `uid`+`timestamp`, but docs live in subcollection `users/{uid}/entitlementLogs` with no `uid` field.
+- **Change:** `COLLECTION_GROUP` scope on `adminId`+`timestamp`. **Deploy:** `firebase deploy --only firestore:indexes`.
+- **Docs synced:** FIRESTORE-BLUEPRINT (indexes + drift register).
+
+### fix(M3): canonical `premiumPlusPlan` + backfill migration 🟡 MED
+- **Files:** `firestore/migrations/2026-06-11-normalize-premiumPlusPlan.js` (new).
+- **Status:** write paths already emit canonical `plus_6month`/`plus_yearly`; legacy `yearly`/`6_months` exist only in old data. Added an idempotent, dry-run-by-default backfill script. Client read-normalization retained as tolerance until backfill runs.
+- **Action required:** run the migration with `--apply` against production, then the client compensation can be removed in a later change.
+- **Docs synced:** FIRESTORE-BLUEPRINT (drift register), PAYMENT-ARCHITECTURE §1.
+
+### fix(M4): single canonical coaching active-state check 🟡 MED
+- **Files:** `main-app/api/_lib/middleware.js` (new `isCoachingActive`), `main-app/api/auth/register.js`, `main-app/api/claim-coaching.js`, `main-app/api/validate-coaching.js`.
+- **Root cause:** three endpoints disagreed — claim/validate only checked `status==='expired'` (never written), so a `suspended`/`deleted` coaching could be claimed/validated.
+- **Change:** all three now use `isCoachingActive(data)` (`status==='active'`, else `isActive!==false`).
+- **Docs synced:** SECURITY-ARCHITECTURE §3, FIRESTORE-BLUEPRINT (coachings).
+
+---
+
+## 2026-06-11
+
+### fix(C1): repair Premium+ checkout — declare `description` 🔴 CRITICAL
+- **File:** `main-app/js/paywall.js` (`openPremiumPlusPayment`, ~line 543).
+- **Root cause:** Razorpay `options.description` referenced an undeclared `description` variable → `ReferenceError` swallowed by the create-order `.catch`, so every Premium+ (₹299/₹499) checkout failed before the sheet opened.
+- **Change:** declare `var description = plan === 'plus_yearly' ? 'Premium+ – 1 Year' : 'Premium+ – 6 Months';`.
+- **Docs synced:** PAYMENT-ARCHITECTURE §7/§8.
+
+### fix(C2): chunk bulk entitlement grants to respect Firestore batch limit 🔴 CRITICAL
+- **File:** `super-admin-app/api/admin/entitlements.js`.
+- **Root cause:** one `db.batch()` accumulated 2 writes/user (update + audit log); Firestore caps batches at 500 ops, so bulk grant aborted for any coaching with >250 students.
+- **Change:** extracted `buildUpdates()`; commit in sequential chunks of ≤200 users (≤400 ops).
+- **Docs synced:** FIRESTORE-BLUEPRINT (entitlementLogs note), AUDIT C2.
+
+### fix(H1): idempotent, user-bound lifetime premium grant 🟠 HIGH
+- **Files:** `main-app/services/aiService.js` (new `unlockPremium`), `main-app/services/paymentService.js` (new `fetchOrder`), `main-app/api/payment/verify.js`, `main-app/api/payment/webhook.js`.
+- **Root cause:** lifetime `premium` granted via `safeUserUpdate` with no `payments/{paymentId}` lock and no order→caller binding → cross-account replay of one payment.
+- **Change:** `unlockPremium` transacts on `payments/{paymentId}` (rejects different-uid reuse with `PAYMENT_REPLAY`, writes audit row, `expiry:null`); `verify.js` asserts `order.notes.uid === req.userId` (`403 PAYMENT_OWNER_MISMATCH`).
+- **Docs synced:** PAYMENT-ARCHITECTURE §5/§8, FIRESTORE-BLUEPRINT `payments`.
+
+### fix(H2): atomic AI word-problem quota 🟠 HIGH
+- **Files:** `main-app/services/aiService.js` (`consumeWordProblemQuota`), `main-app/api/ai/word-problems.js`.
+- **Root cause:** non-transactional in-memory check-then-consume let concurrent requests bypass the cap.
+- **Change:** consumption runs inside a Firestore transaction against `usage/ai`, enforces cap atomically, returns granted count; endpoint serves only the granted slice and 429s at 0.
+- **Docs synced:** TECHNICAL-BIBLE §7, SECURITY-ARCHITECTURE §6.
+
+### fix(H3): rate-limit public register endpoint 🟠 HIGH
+- **File:** `main-app/api/auth/register.js`.
+- **Root cause:** unauthenticated, un-rate-limited account creation (CORS `*`) → scripted abuse.
+- **Change:** per-IP in-memory limiter (10/hr/IP) via `x-forwarded-for`; returns 429 on exceed. Noted as per-instance defense-in-depth; hard cap requires App Check/captcha.
+- **Docs synced:** SECURITY-ARCHITECTURE §6.
+
+### docs: establish source-of-truth documentation v1.0
+- Added Technical Bible v1.0, Firestore Blueprint v1.0, Security Architecture v1.0, Payment Architecture v1.0.
+- Basis: full read-only audit ([../AUDIT-REPORT.md](../../AUDIT-REPORT.md)).
+- Documentation generated BEFORE any code change, per change-control policy.

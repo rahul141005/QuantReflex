@@ -59,19 +59,15 @@
     "customFormulas": { "type": "object", "default": {} },
     "bookmarks": { "type": "array", "default": [] },
 
-    "isPremium": { "type": "boolean", "default": false, "description": "Lifetime premium access" },
-    "isTrial": { "type": "boolean", "default": false, "description": "Active trial status" },
-    "trialEnd": { "type": ["string", "null"], "format": "date-time", "description": "Trial expiration (ISO 8601)" },
-    "hasPaid": { "type": "boolean", "default": false, "description": "Has completed a Razorpay payment" },
-    "isEarlyUser": { "type": "boolean", "default": false, "description": "Legacy field — always false for new users" },
+    "plan": { "type": "string", "enum": ["free", "premium"], "default": "free", "description": "v2 canonical entitlement tier. All feature gates resolve through this." },
+    "planType": { "type": ["string", "null"], "enum": ["premium_6m", "premium_12m", null], "description": "Purchased product; null for trial / admin / coaching grants" },
+    "planExpiry": { "type": ["string", "null"], "format": "date-time", "description": "Premium expiry (ISO 8601). null when free. Equals trialEnd during a trial." },
+    "planSource": { "type": ["string", "null"], "enum": ["purchase", "trial", "admin", "coaching", null], "description": "How the current premium was granted" },
+    "isTrial": { "type": "boolean", "default": false, "description": "True while the current premium access is a trial" },
+    "trialEnd": { "type": ["string", "null"], "format": "date-time", "description": "Trial expiration (ISO 8601); mirrors planExpiry during a trial" },
+    "planUpdatedAt": { "type": ["string", "null"], "format": "date-time", "description": "Last entitlement change (ISO 8601)" },
 
-    "isPremiumPlus": { "type": "boolean", "default": false, "description": "Premium+ subscription active" },
-    "premiumPlusPlan": { "type": ["string", "null"], "enum": ["plus_6month", "plus_yearly", null], "description": "Active Plus plan type" },
-    "premiumPlusExpiry": { "type": ["string", "null"], "format": "date-time", "description": "Premium+ expiration (ISO 8601)" },
-    "premiumPlusStatus": { "type": ["string", "null"], "enum": ["active", "expired", null] },
-
-    "lastPaymentId": { "type": ["string", "null"], "description": "Last Razorpay payment ID (Premium)" },
-    "lastPremiumPlusPaymentId": { "type": ["string", "null"], "description": "Last Razorpay payment ID (Premium+)" },
+    "lastPaymentId": { "type": ["string", "null"], "description": "Last Razorpay payment ID" },
 
     "coachingId": { "type": ["string", "null"], "description": "Coaching institute ID. Null for independent users." },
 
@@ -126,12 +122,11 @@
       "documentSchema": {
         "name": { "type": "string" },
         "email": { "type": "string" },
-        "isPremium": { "type": "boolean" },
+        "plan": { "type": "string", "enum": ["free", "premium"] },
+        "planType": { "type": ["string", "null"] },
+        "planExpiry": { "type": ["string", "null"] },
         "isTrial": { "type": "boolean" },
         "trialEnd": { "type": ["string", "null"] },
-        "hasPaid": { "type": "boolean" },
-        "isPremiumPlus": { "type": "boolean" },
-        "premiumPlusPlan": { "type": ["string", "null"] },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     }

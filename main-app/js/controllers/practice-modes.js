@@ -31,8 +31,8 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
     return;
   }
   /* Secondary explicit guard against console UI bypass for premium modes */
-  if ((modeKey === 'custom' || modeKey === 'review') && typeof AppState !== 'undefined') {
-    var isPrem = AppState.getPremiumStatus() === 'true' || AppState.getPremiumPlus() === 'true';
+  if (modeKey === 'custom' || modeKey === 'review') {
+    var isPrem = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
     if (!isPrem) {
       showPaywall('premium_required');
       return;

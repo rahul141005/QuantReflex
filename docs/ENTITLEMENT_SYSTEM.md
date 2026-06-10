@@ -1,6 +1,8 @@
-# Entitlement System
+# Entitlement System (v2)
 
 > How premium access works across the QuantReflex ecosystem.
+> **Canonical source:** [`docs/BIBLE/PAYMENT_ARCHITECTURE.md`](BIBLE/PAYMENT_ARCHITECTURE.md) and
+> [`docs/BIBLE/FIRESTORE_BLUEPRINT.md`](BIBLE/FIRESTORE_BLUEPRINT.md). This page is a quick reference.
 
 ---
 
@@ -8,23 +10,23 @@
 
 | Tier | Price | Duration | Features |
 |------|-------|----------|----------|
-| **Free** | ₹0 | Forever | 20 daily questions, 5 AI credits |
-| **Premium** | ₹89 | Lifetime | Unlimited practice, all modes, no daily limit |
-| **Premium+** | ₹299/₹499 | 6mo/1yr | Everything in Premium + AI Coach, Study Plans |
+| **Free** | ₹0 | Forever | 20 daily questions, 5 AI explanation credits |
+| **Premium** | ₹299 / ₹499 | 6 months / 12 months | Everything — unlimited practice, all modes, full AI suite, Math Duel |
 
-## Firestore Fields
+One paid tier. A **trial** is an admin-granted, custom-duration Premium (`isTrial:true`).
+
+## Firestore Fields (`users/{uid}`)
 
 ```json
 {
-  "isPremium": false,
-  "hasPaid": false,
+  "plan": "free",            // 'free' | 'premium'
+  "planType": null,          // 'premium_6m' | 'premium_12m' | null
+  "planExpiry": null,        // ISO string | null
+  "planSource": null,        // 'purchase' | 'trial' | 'admin' | 'coaching' | null
   "isTrial": false,
   "trialEnd": null,
-  "isPremiumPlus": false,
-  "premiumPlusPlan": null,
-  "premiumPlusExpiry": null,
-  "premiumPlusStatus": null,
-  "isEarlyUser": false,
+  "planUpdatedAt": null,
+  "lastPaymentId": null,
   "coachingId": null
 }
 ```
@@ -32,47 +34,34 @@
 ## Resolution Algorithm
 
 ```
-1. isPremiumPlus && premiumPlusExpiry > now  → PREMIUM+ (active)
-2. isPremium || hasPaid                      → PREMIUM (lifetime)
-3. isTrial && trialEnd > now                 → TRIAL (active)
-4. Otherwise                                 → FREE
+premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+otherwise → free
 ```
 
-## Grant Precedence
-
-| Action | Premium Fields | Trial Fields | Plus Fields |
-|--------|---------------|--------------|-------------|
-| Grant Trial | Unchanged | Set | Unchanged |
-| Grant Premium | Set | Cleared | Unchanged |
-| Grant Premium+ | Unchanged | Cleared | Set |
-| Revoke All | Cleared | Cleared | Cleared |
-
-**Critical**: Granting Trial to a Premium/Premium+ user is **skipped** (never downgrade).
+Expired premium/trials self-heal to free on read (server `aiService.resolvePlan`, client
+`getAccessState`/`_enforcePremiumExpiry`) and via the `enforceEntitlementExpiry` function.
 
 ## Expiry Enforcement
 
-Both are enforced on Main App load:
-
-- **Trial**: `_enforceTrialExpiry()` — sets `isPremium=false, isTrial=false`
-- **Premium+**: `_enforcePremiumPlusExpiry()` — sets `isPremiumPlus=false, premiumPlusStatus='expired'`
+- **Live:** `resolvePlan` reverts an expired `plan:'premium'` to free on any access.
+- **Sweep:** `enforceEntitlementExpiry` (every 6h) reverts expired premium docs.
 
 ## Payment Flow
 
 ```
-Client → /api/payment/create-order → Razorpay Order
+Client → /api/payment/create-order { plan: premium_6m | premium_12m } → Razorpay Order
 Client → Razorpay Checkout UI → Payment
-Client → /api/payment/verify → Server validates signature
-Server → Firestore write (isPremium=true / isPremiumPlus=true)
-Client → FirestoreSync.unlockPremium() → UI update
+Client → /api/payment/verify → server validates signature + binds order to caller
+Server → aiService.activatePremium() → Firestore write (plan='premium', planType, planExpiry)
+Client → FirestoreSync.activatePremium() → UI update
 ```
 
 ## Feature Gating
 
-### Premium Features
-`custom_training`, `review_mistakes`, `add_formula`, `add_topic`, `performance_insights`, `category_accuracy`, `hard_mode`, `skip_question`, `advanced_theme`, `daily_goal_limit`, `focus_timer`, `table_modal`, `adaptive_training`
-
-### Premium+ Features (AI)
-`ai_explain`, `ai_coach`, `ai_study_plan`
+Every gated feature requires `plan === 'premium'` (no AI-only sub-tier):
+`custom_training, review_mistakes, add_formula, add_topic, performance_insights, category_accuracy,
+hard_mode, skip_question, advanced_theme, daily_goal_limit, focus_timer, table_modal,
+adaptive_training, ai_explain, ai_coach, ai_study_plan, math_duel`.
 
 ## Admin Entitlement API
 
@@ -81,6 +70,6 @@ POST /api/admin/entitlements
 Body: { type, action, targetId, trialDays }
 
 type: 'individual' | 'bulk'
-action: 'trial' | 'premium' | 'premium_plus_6m' | 'premium_plus_1y' | 'revoke'
+action: 'premium_6m' | 'premium_12m' | 'trial' | 'revoke'   (trialDays required for 'trial')
 targetId: uid (individual) or coachingId (bulk)
 ```

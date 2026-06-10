@@ -103,8 +103,8 @@ async function _handleList(db, coachingId, req, res) {
       lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
       totalAttempted: attempted,
       totalCorrect: correct,
-      isPremium: !!u.isPremium,
-      isPremiumPlus: !!u.isPremiumPlus,
+      plan: u.plan === 'premium' ? 'premium' : 'free',
+      isTrial: !!u.isTrial,
       weakTopic: weakTopic,
       createdAt: safeTimestamp(u.createdAt)
     });
@@ -232,8 +232,8 @@ async function _handleDetails(db, coachingId, req, res) {
       uid,
       name: (userData.profile && userData.profile.name) || userData.email || 'Unknown',
       email: userData.email || '',
-      isPremium: !!userData.isPremium,
-      isPremiumPlus: !!userData.isPremiumPlus,
+      plan: userData.plan === 'premium' ? 'premium' : 'free',
+      isTrial: !!userData.isTrial,
       createdAt: safeTimestamp(userData.createdAt),
       engagementLevel
     },

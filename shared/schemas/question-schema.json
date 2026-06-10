@@ -54,7 +54,7 @@
     },
     "premiumOnly": {
       "type": "boolean",
-      "description": "If true, this question is only available to Premium/Premium+ users.",
+      "description": "If true, this question is only available to Premium users.",
       "default": false
     }
   },
