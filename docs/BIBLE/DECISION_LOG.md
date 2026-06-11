@@ -8,6 +8,74 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-021 — Emergency Controls: maintenance mode + AI kill switch + payment kill switch (cross-app, 2026-06-12)
+- **Context:** The platform had no break-glass controls. An AI cost runaway, a Razorpay incident, or a bad
+  deploy could only be stopped by code changes + redeploys. Super Admin V2 (ADR-019) adds operator-grade
+  governance, so it must include enforced emergency controls — not just toggles, but flags the **student app
+  actually honors** before running protected operations.
+- **Decision:** Three central Firestore config docs are the single source of truth:
+  `config/maintenance {enabled, message?, updatedBy, updatedAt}`, `config/aiKillSwitch {enabled, …}`,
+  `config/paymentKillSwitch {enabled, …}`. **Super-admin** toggles them via `system?action=config-get|config-set`
+  (Admin SDK write + immutable `auditLogs`, category `system`). **main-app enforces** them: `aiService` reads
+  `config/aiKillSwitch` and refuses OpenAI calls when enabled; `paymentService`/`payment.js` reads
+  `config/paymentKillSwitch` and refuses to create a Razorpay order when enabled; the client checks
+  `config/maintenance` on boot and shows a maintenance screen (blocking core learning) for non-admins. Flags are
+  cached with a short TTL to avoid a per-request read.
+- **Security (rules):** the three flags must be **client-readable** (the student app reads them to enforce) but
+  **Admin-SDK-write-only**. `config/maintenance` → `allow read: if true` (must show pre-auth); `aiKillSwitch` +
+  `paymentKillSwitch` → `allow read: if request.auth != null`; all three `allow write: if false`.
+  `config/aiBudget` keeps NO client rule (default-deny / Admin-SDK only). The flags are non-sensitive booleans.
+- **Options considered:** (a) Remote-config / env-var flags — rejected (needs redeploy; not instant; not
+  audited). (b) A new `api/config` function — rejected (Vercel-Free budget; folds into `system.js` as actions).
+  (c) Enforce only in super-admin (toggle without teeth) — rejected by the owner; controls must actually block.
+- **Consequence:** real break-glass governance with one audited write path; zero new serverless functions
+  (config actions live on `system.js`); a small main-app read-and-honor change in `aiService`/`paymentService`/
+  boot. Payment track bumps (flow now gated). Documented in GOVERNANCE, SECURITY_ARCHITECTURE, TECHNICAL_BIBLE,
+  FIRESTORE_BLUEPRINT.
+
+## ADR-020 — Global Search as a scalable ecosystem governance primitive (2026-06-12)
+- **Context:** The old Cmd+K fetched **all** users to the client and filtered in-browser (`app.js`) — fine at
+  test scale, unusable at 100k→1M. Firestore has no native full-text search. Super Admin V2 needs one fast
+  "search anything" entry point.
+- **Decision:** A single server-side search action — `system?action=search&q=<prefix>` on the cross-domain
+  `system` handler — is the **ecosystem search primitive**. This pass implements prefix search over **users**
+  (`email`, `profile.name`, doc-id `uid`, `coachingId`) and **coachings** (doc-id, `name`) via Firestore range
+  queries (`where(f,'>=',q).where(f,'<=', q + String.fromCharCode(0xf8ff))`), run in parallel, capped per group, deduped — **never a
+  client fetch-all**. The action is designed to grow new `scope`s (payments, questions, AI analytics, audit)
+  without a new function.
+- **Options considered:** (a) keep client filter — rejected (won't scale). (b) external engine (Algolia/
+  Typesense) — deferred (cost/complexity; revisit if prefix search proves insufficient). (c) a dedicated
+  `api/search` function — rejected (Vercel-Free budget; lives on `system.js`).
+- **Consequence:** O(prefix) reads instead of O(all-users); one new `?action=` branch (stays 8/12); single search
+  surface to extend. Cross-entity fuzzy/relevance ranking is a future enhancement. Documented in GOVERNANCE,
+  TECHNICAL_BIBLE, DECISION_LOG.
+
+## ADR-019 — Super Admin V2: tablet-first information architecture + admin design system (2026-06-12)
+- **Context:** The Super Admin app is operationally sound but architecturally messy: 12 flat nav items,
+  duplicated workflows (coaching-create in Users + Coachings; inactive-export in Inactive + Exports; orphan-duels
+  in Dashboard + System; AI cost in Dashboard + AI), a 522-line Users grab-bag, an overlay "drawer", vanity-heavy
+  Dashboard, reference docs mixed into System, and AI abuse flags with no inline remediation. It is desktop/phone-
+  first: the sidebar is hidden behind a hamburger until 1024px, so the **11-inch tablet landscape** (the owner's
+  primary device, Chrome PWA) wastes its width. Content max-width caps + centering waste more.
+- **Decision:** Rebuild it as a **tablet-first governance OS** with a consolidated **7-domain IA** — Command
+  Center · Users · Coachings · Revenue · Content · AI · Operations — and an **admin design system**: a persistent
+  **collapsible left rail** visible at ≥768px (icon+label ↔ icon-only), an in-flow **master/detail SplitView**
+  (replaces the overlay drawer; powers User-360 / Coaching-360), a **Tabs** primitive, **Table card-mode**
+  (kills forced horizontal scroll), **focus-trapped modals**, `auto-fit` stat grids, and a corrected viewport
+  (re-enable zoom). Each screen answers what-happened / what's-happening / what-needs-attention / what-action,
+  with **inline remediation** (e.g. AI abuse → suspend/throttle in place) and audited destructive actions.
+  Rollout is **strangler** (new shell + domains alongside old views → redirect → delete last), not big-bang.
+- **Infra:** every new capability is a `?action=` branch on an existing handler — **zero new serverless
+  functions** (super-admin stays 8/12; reaffirms ADR-017). Reuses existing design tokens (`css/admin-style.css`).
+- **Options considered:** (a) keep the 12-view structure, restyle only — rejected (the IA *is* the problem).
+  (b) framework rewrite (React/etc.) — rejected (no bundler; would break the no-build deploy + PWA + the rest of
+  the codebase's conventions). (c) big-bang replacement — rejected (risk; strangler keeps the panel working
+  throughout).
+- **Consequence:** a coherent operating system with ~6-7 domains instead of 12 flat screens, tablet-native
+  ergonomics, and a reusable admin design system documented in TECHNICAL_BIBLE §10B. A multi-phase program
+  (this pass: shell + Command Center + Global Search + Emergency Controls; later: Users/Coachings/Revenue/AI/
+  Content/Operations build-out). Arch + Bible bump. See ADR-020 (search) and ADR-021 (emergency controls).
+
 ## ADR-018 — Super Admin Control Center Phase 5: Security Center + Firestore-Ops + Content Management (2026-06-12)
 - **Context:** Phase 5 is the final scoped installment of the Control Center program (ROADMAP): a Security
   Center (explicitly "needs new failed-login capture"), Firestore-Ops (collection sizes/growth), and Content

@@ -32,6 +32,9 @@
   --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* Super Admin V2 (ADR-019, §10B) — tablet-first rail */
+  --rail-w: 248px;
+  --rail-w-collapsed: 72px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -232,7 +235,7 @@ input, textarea, select { font-family: inherit; }
 .sidebar {
   position: fixed;
   top: 0; left: 0; bottom: 0;
-  width: 280px;
+  width: var(--rail-w, 248px);
   background: #ffffff;
   border-right: 1px solid rgba(226,232,240,.8);
   z-index: 101;
@@ -317,7 +320,7 @@ input, textarea, select { font-family: inherit; }
   flex: 1;
   padding: 1.5rem 1rem;
   width: 100%;
-  max-width: 800px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -355,7 +358,7 @@ input, textarea, select { font-family: inherit; }
 /* ---- Stat Cards ---- */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: .75rem;
 }
 
@@ -546,7 +549,8 @@ input, textarea, select { font-family: inherit; }
   animation: modalScaleIn var(--transition-smooth);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
+  /* Bottom-sheet only below the rail breakpoint; tablets (>=768px) get centered modals (ADR-019, §10B). */
   .modal-overlay {
     align-items: flex-end;
   }
@@ -655,67 +659,46 @@ input, textarea, select { font-family: inherit; }
 
 /* ==================== TABLET (768px–1023px) ==================== */
 @media (min-width: 768px) {
-  .main-content {
-    max-width: 720px;
-    padding: 1.5rem 2rem;
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .modal-content {
-    max-width: 500px;
-  }
-
-  .user-drawer {
-    width: 420px !important;
-  }
-
-  .search-modal {
-    max-width: 560px;
-  }
-}
-
-/* ==================== DESKTOP (1024px+) ==================== */
-@media (min-width: 1024px) {
+  /* Persistent collapsible rail — the tablet-landscape fix (ADR-019, §10B).
+     Sidebar stays visible (fixed); content is offset by the rail width. */
   .mobile-header { display: none; }
-  
+  .sidebar-overlay { display: none !important; }
   .sidebar {
     transform: translateX(0);
     box-shadow: none;
+    transition: width var(--transition-smooth);
   }
-  
   .main-content {
-    margin-left: 280px;
-    padding: 2rem 3rem;
-    max-width: 960px;
+    margin-left: var(--rail-w, 248px);
+    max-width: none;
+    padding: 1.75rem 2rem;
+    transition: margin-left var(--transition-smooth);
   }
+  /* Collapsed rail (icon-only) */
+  body.rail-collapsed .sidebar { width: var(--rail-w-collapsed, 72px); }
+  body.rail-collapsed .main-content { margin-left: var(--rail-w-collapsed, 72px); }
+  body.rail-collapsed .sidebar .nav-label,
+  body.rail-collapsed .sidebar-title,
+  body.rail-collapsed #railCollapseBtn .rail-label { display: none; }
+  body.rail-collapsed .sidebar .nav-item { justify-content: center; gap: 0; }
 
-  .stat-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  .modal-content { max-width: 540px; }
+  .search-modal { max-width: 620px; }
+}
 
-  .modal-content {
-    border-radius: 1.25rem;
-    margin-bottom: 0;
-    align-self: center;
-  }
-  .modal-overlay {
-    align-items: center;
-  }
-
-  .data-table tbody tr:hover {
-    background: #f8fafc;
-  }
+/* ==================== DESKTOP (1024px+) ==================== */
+/* Rail + content offset are already handled at >=768px; desktop only widens padding
+   and switches modals to centered (the bottom-sheet styles cap at <=767px). */
+@media (min-width: 1024px) {
+  .main-content { padding: 2rem 3rem; }
+  .modal-content { border-radius: 1.25rem; margin-bottom: 0; align-self: center; }
+  .modal-overlay { align-items: center; }
+  .data-table tbody tr:hover { background: #f8fafc; }
 }
 
 /* ==================== ULTRAWIDE (1440px+) ==================== */
 @media (min-width: 1440px) {
-  .main-content {
-    max-width: 1100px;
-    padding: 2rem 4rem;
-  }
+  .main-content { padding: 2rem 3.5rem; }  /* full-bleed governance density — no narrow cap */
 }
 
 /* ---- Very small screens ---- */
@@ -734,4 +717,103 @@ input, textarea, select { font-family: inherit; }
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ==================================================================== */
+/* SUPER ADMIN V2 — tablet-first components (ADR-019, TECHNICAL_BIBLE §10B) */
+/* ==================================================================== */
+
+/* ---- Rail nav (icon + label) ---- */
+.nav-item { display: flex; align-items: center; gap: .75rem; }
+.nav-item svg { width: 20px; height: 20px; flex: 0 0 auto; stroke: currentColor; }
+.nav-label { white-space: nowrap; overflow: hidden; }
+#railCollapseBtn {
+  display: none; align-items: center; gap: .6rem; width: 100%;
+  padding: .6rem .75rem; margin-top: .25rem; border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-secondary);
+  font-size: .8rem; font-weight: 600; cursor: pointer;
+}
+@media (min-width: 768px) { #railCollapseBtn { display: flex; } }
+#railCollapseBtn:hover { background: var(--bg-secondary); }
+
+/* ---- SplitView (master / detail) ---- */
+.splitview { display: block; }
+.splitview-list { width: 100%; }
+.splitview-detail { width: 100%; }
+.splitview-detail .sv-back { display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .75rem; }
+.sv-active { outline: 2px solid var(--accent-primary); outline-offset: -2px; border-radius: var(--radius-md); }
+@media (min-width: 768px) {
+  .splitview { display: grid; grid-template-columns: minmax(300px, 36%) 1fr; gap: 1.25rem; align-items: start; }
+  .splitview-detail .sv-back { display: none; }  /* both panes visible — no Back needed */
+}
+@media (max-width: 767px) {
+  .splitview.detail-open .splitview-list { display: none; }   /* push detail full-screen */
+  .splitview:not(.detail-open) .splitview-detail { display: none; }
+}
+.splitview-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text-secondary); }
+
+/* ---- Tabs ---- */
+.tabs-bar { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem; }
+.tab-btn {
+  min-height: 44px; padding: .6rem 1rem; border: none; background: none; cursor: pointer;
+  font-size: .9rem; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.tab-btn:hover { color: var(--text-primary); background: var(--bg-secondary); }
+.tab-btn.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); }
+
+/* ---- Responsive table card-mode ---- */
+@media (max-width: 900px) {
+  .qr-table--cards { overflow-x: visible; }
+  .qr-table--cards table { min-width: 0; }
+  .qr-table--cards thead { display: none; }
+  .qr-table--cards table, .qr-table--cards tbody, .qr-table--cards tr, .qr-table--cards td { display: block; }
+  .qr-table--cards tr { border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: .6rem; padding: .35rem .85rem; background: var(--bg-surface); }
+  .qr-table--cards td { display: flex; justify-content: space-between; gap: 1rem; border: none; padding: .35rem 0; text-align: right; }
+  .qr-table--cards td::before { content: attr(data-label); font-weight: 600; color: var(--text-secondary); text-align: left; }
+  .qr-table--cards td.empty-state { display: block; text-align: center; }
+}
+
+/* ---- Command Center ---- */
+.cc-section { margin-bottom: 1.5rem; }
+.cc-section-title { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin: 0 0 .6rem; }
+.cc-alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .75rem; }
+.cc-alert { display: flex; align-items: flex-start; gap: .75rem; padding: .9rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--bg-surface); }
+.cc-alert .cc-sev { width: 6px; align-self: stretch; border-radius: 3px; flex: 0 0 auto; }
+.cc-alert.sev-critical .cc-sev { background: var(--danger-primary); }
+.cc-alert.sev-warning .cc-sev { background: #f59e0b; }
+.cc-alert.sev-info .cc-sev { background: var(--accent-primary); }
+.cc-alert .cc-body { flex: 1; min-width: 0; }
+.cc-alert .cc-msg { font-size: .875rem; color: var(--text-primary); }
+.cc-alert .cc-acts { display: flex; gap: .4rem; margin-top: .5rem; flex-wrap: wrap; }
+.cc-allclear { padding: 1rem; border-radius: var(--radius-md); background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-weight: 600; }
+.cc-feed { max-height: 360px; overflow-y: auto; }
+.cc-feed-row { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--border-color); font-size: .82rem; }
+.cc-feed-row:last-child { border-bottom: none; }
+.cc-feed-row .cc-feed-when { color: var(--text-secondary); white-space: nowrap; }
+.cc-quick { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ---- Emergency Controls ---- */
+.cc-emergency { border: 1px solid #fecaca; background: #fff7f7; border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; }
+.cc-emergency h3 { margin: 0 0 .25rem; color: var(--danger-hover); font-size: 1rem; }
+.cc-emergency .cc-em-sub { color: var(--text-secondary); font-size: .8rem; margin: 0 0 1rem; }
+.cc-em-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 0; border-top: 1px solid #fee2e2; }
+.cc-em-row:first-of-type { border-top: none; }
+.cc-em-meta { font-size: .75rem; color: var(--text-secondary); }
+.cc-em-state { font-weight: 700; font-size: .8rem; }
+.cc-em-state.on { color: var(--danger-primary); }
+.cc-em-state.off { color: var(--success-primary); }
+/* Toggle switch */
+.qr-switch { position: relative; display: inline-block; width: 52px; height: 30px; flex: 0 0 auto; }
+.qr-switch input { opacity: 0; width: 0; height: 0; }
+.qr-switch .qr-slider { position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px; transition: var(--transition-fast); cursor: pointer; }
+.qr-switch .qr-slider::before { content: ''; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: var(--transition-fast); box-shadow: var(--shadow-sm); }
+.qr-switch input:checked + .qr-slider { background: var(--danger-primary); }
+.qr-switch input:checked + .qr-slider::before { transform: translateX(22px); }
+
+/* ---- Global Search result groups ---- */
+.search-group-label { padding: .5rem 1rem .25rem; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+
+/* ---- small helpers ---- */
+.btn-sm { min-height: 36px; padding: .4rem .75rem; font-size: .8rem; }
+.muted { color: var(--text-secondary); }
 

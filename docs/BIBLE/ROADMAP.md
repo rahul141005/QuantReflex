@@ -76,3 +76,14 @@ version bump.)_
   Center. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze dependency.
   **Hardening follow-up (tracked, M7):** enable Firebase App Check to attest the unauthenticated `securityEvents`
   capture write — see SECURITY_ARCHITECTURE §6.
+- **Super Admin V2 — tablet-first governance rebuild (ADR-019/020/021)** — turns the operational app into a
+  tablet-first governance OS (11" Android tablet, Chrome PWA, landscape): 7-domain IA (Command Center · Users ·
+  Coachings · Revenue · Content · AI · Operations), an admin design system (collapsible rail, in-flow SplitView
+  360s, Tabs, Table card-mode, focus-trap modals — TECHNICAL_BIBLE §10B), a Global Search ecosystem primitive
+  (server-side prefix, `system?action=search`), and end-to-end Emergency Controls (maintenance / AI-kill /
+  payment-kill enforced in main-app). All within the Vercel-Free 8/12 budget (5 new `system` actions, zero new
+  functions; strangler rollout). **Pass 1 (2026-06-12):** Phase 0 governance docs + Phase 1 tablet-first shell +
+  Phase 2 Command Center + Global Search + Emergency Controls. **Remaining phases:** Users-360 split (merge
+  Inactive) · AI Cost Center (inline remediation + per-coaching/feature/lifetime + AI-kill UI) · Coachings-360
+  (details/students/reset-token) · Revenue · Operations build-out · retire the legacy 12-view scaffolding. Each
+  phase is Bible-first + governed.

@@ -1,5 +1,8 @@
 /**
- * table.js — Reusable data table builder
+ * table.js — Reusable data table builder.
+ * Super Admin V2 (ADR-019, §10B): each cell carries `data-label` and an optional card-mode
+ * (`opts.cards`) so narrow panes render rows as label/value cards instead of forcing a
+ * horizontal scroll (see `.qr-table--cards` in admin-style.css).
  */
 var Table = (function () {
   'use strict';
@@ -9,11 +12,12 @@ var Table = (function () {
    * @param {Array} columns - [{ key, label, render? }]
    * @param {Array} data - array of row objects
    * @param {Function} actionsRenderer - optional, receives row, returns DOM element
+   * @param {Object} opts - optional, { cards: bool } → enable card-mode at narrow widths
    * @returns {HTMLElement}
    */
-  function build(columns, data, actionsRenderer) {
+  function build(columns, data, actionsRenderer, opts) {
     var wrap = document.createElement('div');
-    wrap.className = 'table-wrap';
+    wrap.className = 'table-wrap' + (opts && opts.cards ? ' qr-table--cards' : '');
 
     var table = document.createElement('table');
     table.className = 'data-table';
@@ -27,9 +31,9 @@ var Table = (function () {
       trHead.appendChild(th);
     });
     if (actionsRenderer) {
-      var th = document.createElement('th');
-      th.textContent = 'Actions';
-      trHead.appendChild(th);
+      var thA = document.createElement('th');
+      thA.textContent = 'Actions';
+      trHead.appendChild(thA);
     }
     thead.appendChild(trHead);
     table.appendChild(thead);
@@ -49,6 +53,7 @@ var Table = (function () {
         var tr = document.createElement('tr');
         columns.forEach(function (col) {
           var td = document.createElement('td');
+          td.setAttribute('data-label', col.label || '');
           if (col.render) {
             td.innerHTML = col.render(row[col.key], row);
           } else {
@@ -57,9 +62,10 @@ var Table = (function () {
           tr.appendChild(td);
         });
         if (actionsRenderer) {
-          var td = document.createElement('td');
-          td.appendChild(actionsRenderer(row));
-          tr.appendChild(td);
+          var tdA = document.createElement('td');
+          tdA.setAttribute('data-label', 'Actions');
+          tdA.appendChild(actionsRenderer(row));
+          tr.appendChild(tdA);
         }
         tbody.appendChild(tr);
       });

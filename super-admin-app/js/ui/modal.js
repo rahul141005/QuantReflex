@@ -1,13 +1,24 @@
 /**
- * modal.js — Bottom-sheet modal system (mobile-first)
+ * modal.js — Modal system. Bottom-sheet on small screens, centered >=768px (admin-style.css).
+ * Super Admin V2 (ADR-019, §10B): adds a focus-trap, Escape-to-close, and focus restoration.
  */
 var Modal = (function () {
   'use strict';
+
+  var _prevFocus = null;
+  var _keyHandler = null;
+
+  function _focusable(root) {
+    return Array.prototype.slice.call(root.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+  }
 
   function show(config) {
     var container = document.getElementById('modalContainer');
     if (!container) return;
     close(); // remove any existing
+    _prevFocus = document.activeElement;
 
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -15,6 +26,9 @@ var Modal = (function () {
 
     var content = document.createElement('div');
     content.className = 'modal-content';
+    content.setAttribute('role', 'dialog');
+    content.setAttribute('aria-modal', 'true');
+    content.setAttribute('tabindex', '-1');
 
     // Header
     var header = document.createElement('div');
@@ -24,6 +38,7 @@ var Modal = (function () {
     title.textContent = config.title || '';
     var closeBtn = document.createElement('button');
     closeBtn.className = 'modal-close';
+    closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '✕';
     closeBtn.onclick = close;
     header.appendChild(title);
@@ -62,11 +77,33 @@ var Modal = (function () {
     });
 
     container.appendChild(overlay);
+
+    // Focus management: focus the first input (or first focusable / the dialog itself).
+    var firstInput = content.querySelector('input, select, textarea');
+    var firstFocusable = _focusable(content)[0];
+    var target = firstInput || firstFocusable || content;
+    if (target && target.focus) { try { target.focus(); } catch (_) { /* ignore */ } }
+
+    // Focus-trap + Escape.
+    _keyHandler = function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key === 'Tab') {
+        var f = _focusable(content);
+        if (!f.length) return;
+        var firstE = f[0], lastE = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === firstE) { e.preventDefault(); lastE.focus(); }
+        else if (!e.shiftKey && document.activeElement === lastE) { e.preventDefault(); firstE.focus(); }
+      }
+    };
+    document.addEventListener('keydown', _keyHandler, true);
   }
 
   function close() {
     var existing = document.getElementById('activeModal');
     if (existing) existing.remove();
+    if (_keyHandler) { document.removeEventListener('keydown', _keyHandler, true); _keyHandler = null; }
+    if (_prevFocus && _prevFocus.focus) { try { _prevFocus.focus(); } catch (_) { /* ignore */ } }
+    _prevFocus = null;
   }
 
   return { show: show, close: close };

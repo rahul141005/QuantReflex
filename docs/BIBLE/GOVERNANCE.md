@@ -137,3 +137,27 @@ is one function; `api/_lib/**` excluded), and cron ≤ once/day. When designing 
   [TECHNICAL_BIBLE §3.1](TECHNICAL_BIBLE.md)).
 - **Minimize deployment complexity.** Reuse shared `_lib/*` helpers; keep one cron per scheduled concern.
 - A change that would push an app over the function budget is **blocked** until consolidated under the cap.
+
+## Super Admin V2 Governance (ADR-019 / ADR-020 / ADR-021)
+
+The super-admin app is a **tablet-first governance OS** with a **7-domain IA** (Command Center · Users ·
+Coachings · Revenue · Content · AI · Operations). Design and review against [TECHNICAL_BIBLE §10B](TECHNICAL_BIBLE.md).
+
+- **One owner per capability.** A workflow appears in exactly ONE domain — no duplicate entry points. Canonical
+  owners: coaching-create → **Coachings**; inactive users + inactive-export → **Users**; orphan-duels +
+  abandoned-data cleanup → **Operations**; AI cost/abuse → **AI**; entitlement + lifecycle actions → the
+  **User-360 / Coaching-360** detail pane. Adding a second entry point for an existing capability is a
+  governance violation — extend the owner instead.
+- **Global Search is a governance primitive (ADR-020).** All "search anything" goes through ONE server-side
+  action (`system?action=search`) — never a client fetch-all. New searchable entities (payments, questions, AI,
+  audit) are added as `scope`s on that action, not as new endpoints/clients. It is the single ecosystem search
+  surface and must stay within the function budget.
+- **Emergency Controls are break-glass infrastructure (ADR-021).** Maintenance mode, AI kill switch, and payment
+  kill switch are **permanent platform governance**. They are toggled ONLY via the audited admin path
+  (`system?action=config-set` → `config/*` + `auditLogs`), and the student app MUST honor them
+  (`aiService`/`paymentService`/boot). Any new "protected operation" (a new AI feature, a new paid flow, a new
+  user-facing surface) must check the relevant flag before executing. Removing or bypassing an enforcement check
+  is a governance violation. Toggling a kill switch in production is an operational action — record why.
+- **Every admin screen must answer** what-happened / what's-happening / what-needs-attention / what-action, with
+  **inline remediation** (no navigate-away to act) and audited destructive actions (type-`DELETE` + server
+  `confirm:'DELETE'` + `auditLogs`). Alerts are acknowledgeable + drill-downable, not read-only.

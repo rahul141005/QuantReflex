@@ -173,6 +173,12 @@ var API = (function () {
   function getAlerts() { return _fetch('/api/admin/system?action=alerts'); }
   function getSecurity() { return _fetch('/api/admin/system?action=security'); }
   function getFirestoreOps() { return _fetch('/api/admin/system?action=firestore-ops'); }
+  function getRevenueIntel() { return _fetch('/api/admin/system?action=revenue-intel'); }
+  function ackAlert(type, hours) { return _fetch('/api/admin/system?action=ack-alert', { method: 'POST', body: JSON.stringify({ type: type, hours: hours || 24 }) }); }
+  function searchEcosystem(q) { return _fetch('/api/admin/system?action=search&q=' + encodeURIComponent(q)); }
+  function aggregateMetrics() { return _fetch('/api/admin/system?action=aggregate-metrics', { method: 'POST' }); }
+  function getEmergencyConfig() { return _fetch('/api/admin/system?action=config-get'); }
+  function setEmergencyConfig(key, enabled, message) { return _fetch('/api/admin/system?action=config-set', { method: 'POST', body: JSON.stringify({ key: key, enabled: enabled, message: message }) }); }
 
   return {
     getDashboard: getDashboard,
@@ -206,6 +212,12 @@ var API = (function () {
     getAlerts: getAlerts,
     getSecurity: getSecurity,
     getFirestoreOps: getFirestoreOps,
+    getRevenueIntel: getRevenueIntel,
+    aggregateMetrics: aggregateMetrics,
+    ackAlert: ackAlert,
+    searchEcosystem: searchEcosystem,
+    getEmergencyConfig: getEmergencyConfig,
+    setEmergencyConfig: setEmergencyConfig,
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

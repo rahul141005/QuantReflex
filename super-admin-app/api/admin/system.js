@@ -142,6 +142,8 @@ async function handler(req, res) {
     if (action === 'alerts' && req.method === 'GET') {
       const alerts = [];
       const nowIso = new Date().toISOString();
+      let _acks = {};
+      try { const _aSnap = await db.collection('config').doc('alertAcks').get(); if (_aSnap.exists) _acks = _aSnap.data() || {}; } catch (_) { /* ignore */ }
       const cfgSnap = await db.collection('config').doc('aiBudget').get();
       const cfg = Object.assign({ monthlyBudgetUSD: 25, warnPct: 80, critPct: 90 }, cfgSnap.exists ? cfgSnap.data() : {});
       const nowD = new Date();
@@ -190,7 +192,8 @@ async function handler(req, res) {
         const fl = (await db.collection('securityEvents').where('type', '==', 'failed_login').where('createdAt', '>=', secCut).count().get()).data().count;
         if (fl >= 20) alerts.push({ severity: 'warning', type: 'login_failures', message: fl + ' failed login(s) in the last 24h — possible brute-force; review the Security Center.' });
       } catch (_) { /* securityEvents collection/index may not exist yet */ }
-      return res.status(200).json({ alerts: alerts, generatedAt: nowIso });
+      const _visible = alerts.filter(function (al) { const ak = _acks[al.type]; return !(ak && ak.until && ak.until > nowIso); });
+      return res.status(200).json({ alerts: _visible, suppressed: alerts.length - _visible.length, generatedAt: nowIso });
     }
 
     /* ── security (Phase 5, ADR-018) — Security Center read: recent feed + 24h per-type counts + posture ── */
@@ -307,6 +310,106 @@ async function handler(req, res) {
         await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'cleanup_duels', category: 'system', targetType: 'bulk', targetId: null, summary: 'deleted ' + deletedCount + ' stale duel room(s)' });
       }
       return res.status(200).json({ success: true, deletedCount: deletedCount });
+    }
+
+    /* ── search (Phase V2, ADR-020) — ecosystem prefix search: users + coachings (server-side, no client fetch-all) ── */
+    if (action === 'search' && req.method === 'GET') {
+      const q = (req.query.q || '').trim();
+      if (q.length < 2) return res.status(200).json({ q: q, users: [], coachings: [] });
+      const end = q + String.fromCharCode(0xf8ff); // U+F8FF prefix-range upper bound (ADR-020)
+      const usersCol = db.collection('users');
+      const coachCol = db.collection('coachings');
+      const idPath = admin.firestore.FieldPath.documentId();
+      /* NOTE: prefix queries are case-sensitive (Firestore lexical order). Emails are stored as
+         entered (no `emailLower` field today), so email prefix match assumes the admin types the
+         stored casing; uid / name / coachingId still match. Durable fix = a normalized `emailLower`
+         field + backfill (tracked follow-up, ADR-020). */
+      const r = await Promise.all([
+        usersCol.orderBy('email').startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
+        usersCol.orderBy('profile.name').startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
+        usersCol.orderBy(idPath).startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
+        usersCol.where('coachingId', '==', q).limit(8).get().catch(function () { return null; }),
+        coachCol.orderBy(idPath).startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
+        coachCol.orderBy('name').startAt(q).endAt(end).limit(8).get().catch(function () { return null; })
+      ]);
+      const userMap = {};
+      [r[0], r[1], r[2], r[3]].forEach(function (snap) {
+        if (!snap) return;
+        snap.forEach(function (doc) {
+          if (userMap[doc.id]) return;
+          const d = doc.data();
+          userMap[doc.id] = { uid: doc.id, name: (d.profile && d.profile.name) || d.email || 'Unknown', email: d.email || '', coachingId: d.coachingId || null, plan: d.plan === 'premium' ? 'premium' : 'free', accountStatus: d.accountStatus || 'active' };
+        });
+      });
+      const coachMap = {};
+      [r[4], r[5]].forEach(function (snap) {
+        if (!snap) return;
+        snap.forEach(function (doc) {
+          if (coachMap[doc.id]) return;
+          const d = doc.data();
+          coachMap[doc.id] = { coachingId: doc.id, name: d.name || '', status: d.status || (d.isActive === false ? 'suspended' : 'active'), studentCount: d.studentCount || 0, ownerEmail: d.ownerEmail || null };
+        });
+      });
+      return res.status(200).json({ q: q, users: Object.keys(userMap).map(function (k) { return userMap[k]; }).slice(0, 10), coachings: Object.keys(coachMap).map(function (k) { return coachMap[k]; }).slice(0, 10) });
+    }
+
+    /* ── config-get (Phase V2, ADR-021) — emergency control flags ── */
+    if (action === 'config-get' && req.method === 'GET') {
+      const keys = ['maintenance', 'aiKillSwitch', 'paymentKillSwitch'];
+      const out = {};
+      await Promise.all(keys.map(async function (k) {
+        try { const s = await db.collection('config').doc(k).get(); out[k] = s.exists ? s.data() : { enabled: false }; }
+        catch (_) { out[k] = { enabled: false }; }
+      }));
+      return res.status(200).json({ config: out, generatedAt: new Date().toISOString() });
+    }
+
+    /* ── config-set (Phase V2, ADR-021) — toggle an emergency control (audited; Admin SDK write) ── */
+    if (action === 'config-set' && req.method === 'POST') {
+      const body = req.body || {};
+      const key = body.key;
+      if (['maintenance', 'aiKillSwitch', 'paymentKillSwitch'].indexOf(key) === -1) {
+        return res.status(400).json({ error: { code: 'INVALID_KEY', message: 'Unknown config key.' } });
+      }
+      const update = { enabled: !!body.enabled, updatedBy: req.adminEmail || req.userId, updatedAt: new Date().toISOString() };
+      if (key === 'maintenance' && typeof body.message === 'string') update.message = body.message.slice(0, 300);
+      await db.collection('config').doc(key).set(update, { merge: true });
+      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: (update.enabled ? 'enable_' : 'disable_') + key, category: 'system', targetType: 'config', targetId: key, summary: (update.enabled ? 'ENABLED ' : 'disabled ') + key + ' emergency control', after: update });
+      return res.status(200).json({ success: true, key: key, config: update });
+    }
+
+    /* ── revenue-intel (Phase V2, ADR-019) — trend + expiring plans + premium share ── */
+    if (action === 'revenue-intel' && req.method === 'GET') {
+      const nowIso = new Date().toISOString();
+      const in7 = new Date(Date.now() + 7 * 86400000).toISOString();
+      const in30 = new Date(Date.now() + 30 * 86400000).toISOString();
+      const trend = [];
+      try {
+        const snap = await db.collection('metrics').orderBy(admin.firestore.FieldPath.documentId(), 'desc').limit(15).get();
+        snap.forEach(function (doc) { if (doc.id === 'latest') return; const d = doc.data(); trend.push({ date: doc.id, revenueTotalINR: d.revenueTotalINR || 0, premiumUsers: d.premiumUsers || 0, totalUsers: d.totalUsers || 0 }); });
+        trend.reverse();
+      } catch (_) { /* non-fatal */ }
+      let expiring7 = 0, expiring30 = 0;
+      try {
+        const prem = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
+        prem.forEach(function (doc) { const e = doc.data().planExpiry; if (e && typeof e === 'string' && e > nowIso) { if (e <= in7) expiring7++; if (e <= in30) expiring30++; } });
+      } catch (_) { /* non-fatal */ }
+      let totalUsers = 0, premiumUsers = 0, premiumShare = 0;
+      try { const latest = await db.collection('metrics').doc('latest').get(); if (latest.exists) { const d = latest.data(); totalUsers = d.totalUsers || 0; premiumUsers = d.premiumUsers || 0; premiumShare = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0; } } catch (_) { /* non-fatal */ }
+      return res.status(200).json({ trend: trend, expiring7d: expiring7, expiring30d: expiring30, premiumShare: Number(premiumShare.toFixed(1)), totalUsers: totalUsers, premiumUsers: premiumUsers, generatedAt: nowIso });
+    }
+
+    /* ── ack-alert (Phase V2, ADR-019) — suppress an alert type for N hours (audited) ── */
+    if (action === 'ack-alert' && req.method === 'POST') {
+      const body = req.body || {};
+      const type = body.type;
+      if (!type) return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'alert type is required.' } });
+      const hours = Math.min(168, Math.max(1, parseInt(body.hours || '24', 10)));
+      const until = new Date(Date.now() + hours * 3600000).toISOString();
+      const patch = {}; patch[type] = { until: until, by: req.adminEmail || req.userId, at: new Date().toISOString() };
+      await db.collection('config').doc('alertAcks').set(patch, { merge: true });
+      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'ack_alert', category: 'system', targetType: 'alert', targetId: type, summary: 'acknowledged alert "' + type + '" for ' + hours + 'h' });
+      return res.status(200).json({ success: true, type: type, until: until });
     }
 
     return res.status(404).json({ error: 'System action not found' });

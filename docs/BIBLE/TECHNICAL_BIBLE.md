@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.4 · **Architecture Version:** 2.5 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.5 · **Architecture Version:** 2.6 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-12
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -38,7 +38,7 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
 | `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|insights\|study-plan), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `auth/register` (public), `validate-coaching` (public) |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated) |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops\|search\|config-get\|config-set\|revenue-intel\|ack-alert), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated). **V2 UI (ADR-019)** organizes these under a 7-domain tablet-first nav: **Command Center · Users · Coachings · Revenue · Content · AI · Operations** (Global Search = Cmd+K shell affordance). |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 
@@ -61,7 +61,9 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
   `CRON_SECRET`; the Razorpay webhook stays isolated (HMAC + `bodyParser:false`); public endpoints
   (`auth/register`, `validate-coaching`) stay isolated.
 - **Current counts (post-consolidation, ADR-017):** main-app **6**, super-admin **8**, coaching **6** — all under
-  the 12-function cap with headroom.
+  the 12-function cap with headroom. **Super Admin V2 (ADR-019/020/021)** adds `search`, `config-get`,
+  `config-set`, `revenue-intel`, `ack-alert` as new `?action=` branches on `system.js` — **no new function**
+  (stays 8/12). Global Search and Emergency-Control config endpoints deliberately ride existing handlers.
 
 ## 4. main-app Client Architecture
 
@@ -229,6 +231,59 @@ scroll panel centered between them. All in `css/style.css` unless noted:
 Any element swapped into the scroll slot MUST carry the scroll properties or it will clip. Adding new
 practice sections is safe — they extend the single panel. (Root-cause history: the `.container`
 padded-overshoot double-scroll — see [DECISION_LOG.md](DECISION_LOG.md) ADR-011 and the CHANGELOG.)
+
+## 10B. Super Admin Design System (tablet-first) — ADR-019
+
+`super-admin-app` is a **separate** design language from the student app (own `css/admin-style.css`, own
+tokens — slate/blue SaaS, not the navy/glass student identity). It is a **tablet-first governance OS**:
+primary device is an **11-inch Android tablet, Chrome PWA, landscape, touch**. Build admin screens from this
+system; do not hand-style new surfaces.
+
+**Reused tokens (`css/admin-style.css :root`):** `--bg-primary #f8fafc`, `--bg-surface #fff`, `--accent-primary
+#2563eb`, `--danger-primary #ef4444`, `--success-primary #10b981`, `--text-primary #0f172a`, `--text-secondary
+#64748b`, `--border-color #e2e8f0`, radii `--radius-sm…xl`, `--shadow-sm…float`, `--transition-fast/smooth`.
+**Added tokens:** `--rail-w: 248px`, `--rail-w-collapsed: 72px`.
+
+**Information architecture (7 domains):** Command Center · Users · Coachings · Revenue · Content · AI ·
+Operations. One owner per capability (no duplicate entry points). Global Search (Cmd+K) is a shell affordance.
+The legacy 12-view scaffolding is retired **strangler-style** (new shell + domains alongside old views →
+redirect → delete last), never big-bang.
+
+**Shell & layout contract:**
+- **Persistent collapsible left rail at ≥768px.** The rail is `position:sticky; height:100dvh`, always visible
+  in tablet landscape (NOT hidden behind a hamburger — the old <1024px defect). `body.rail-collapsed` swaps
+  `--rail-w`→`--rail-w-collapsed` and hides labels (icon-only); the state persists (localStorage + `AdminState`).
+  `.main-content { margin-left: var(--rail-w) }` (or collapsed). Below 768px the rail returns to the slide-in
+  drawer + mobile header.
+- **No content max-width cap on split/dashboard screens** — full-bleed two-column instead of centering a 720px
+  column. Keep a reading cap only on single-column forms.
+- **`stat-grid: repeat(auto-fit, minmax(190px, 1fr))`** — density follows width; no hardcoded 2/3/4 columns.
+- **Viewport (`index.html`):** `width=device-width, initial-scale=1, viewport-fit=cover` — **zoom enabled**
+  (no `maximum-scale`/`user-scalable=no`; a11y).
+- **Touch targets ≥44px** for nav/buttons, ≥40px hit area for inline row actions.
+
+**Reusable primitives (`js/ui/`):**
+- **`SplitView` (`split.js`)** — master-list + **in-flow** detail pane (`grid-template-columns: minmax(320px,38%)
+  1fr` at ≥768px; below, list full-width and selecting pushes a full-screen detail with Back). This is the
+  canonical **360 pattern** — it **replaces the old overlay drawer**. Detail state is deep-linkable
+  (`#domain/:id`).
+- **`Tabs` (`tabs.js`)** — segmented control (ARIA `tablist`, 44px targets, hash-synced) for Operations sub-tabs
+  and Revenue/AI inner tabs.
+- **`Table` (`table.js`)** — `Table.build(columns, data, actionsRenderer, opts)`; below `opts.cardBreakpoint`
+  each row renders as a label/value **card** (no forced horizontal scroll). All cell output is escaped.
+- **`Modal` (`modal.js`)** — focus-trap (Tab cycles inside, first field focused, Esc closes, focus restored);
+  bottom-sheet on small screens, centered ≥768px.
+
+**Governance UX (every screen):** answers **what happened** (audit/history) · **what's happening** (live
+counts/feed) · **what needs attention** (alerts on top) · **what action** (inline buttons — no navigate-away;
+e.g. AI abuse → suspend/throttle in place). Destructive actions: type-`DELETE` + double-confirm + server
+`confirm:'DELETE'` + immutable `auditLogs`. Command Center alerts support **Acknowledge** (`system?action=ack-alert`,
+audited, suppress N hours) + **Drill-down** deep-links.
+
+**Emergency Controls (ADR-021)** live in the Command Center: maintenance / AI-kill / payment-kill toggles write
+central `config/*` docs (`system?action=config-set`, audited); the student app reads and **honors** them
+(`aiService` skips OpenAI, `paymentService` skips Razorpay, boot shows a maintenance screen for non-admins).
+See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) for the config rules.
 
 ## 11. Known Deprecated / Dead Code (do not extend)
 - `duelInvitations` collection (rules deny all).

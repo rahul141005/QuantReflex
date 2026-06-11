@@ -17,6 +17,7 @@ var App = (function () {
     _bindLogin();
     _bindLogout();
     _bindSidebar();
+    _bindRail();
     GlobalSearch.init();
 
     AdminAuth.onAuthReady(function (user) {
@@ -29,48 +30,55 @@ var App = (function () {
   /* ---- Router ---- */
   function _startRouter() {
     window.addEventListener('hashchange', _handleRoute);
-    if (!window.location.hash) {
-      window.location.hash = '#dashboard';
+    if (!window.location.hash || !DOMAINS[(window.location.hash || '').substring(1).split('/')[0]]) {
+      window.location.hash = '#command-center';
     } else {
       _handleRoute();
     }
   }
 
-  function _handleRoute() {
-    var hash = (window.location.hash || '#dashboard').substring(1);
-    var views = ['dashboard', 'users', 'inactive', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications', 'exports', 'security', 'firestore'];
-    if (views.indexOf(hash) === -1) hash = 'dashboard';
+  /* V2 7-domain router (ADR-019). Hash may be `#domain` or `#domain/:id` (the id is reserved
+     for the 360 detail panes added in later phases; views that ignore it still work). */
+  var DOMAINS = {
+    'command-center': { cid: 'view-command-center', view: 'CommandCenterView' },
+    'users':          { cid: 'view-users',          view: 'UsersView' },
+    'coachings':      { cid: 'view-coachings',       view: 'CoachingsView' },
+    'revenue':        { cid: 'view-payments',        view: 'PaymentsView' },
+    'content':        { cid: 'view-questions',       view: 'QuestionsView' },
+    'ai':             { cid: 'view-ai',              view: 'AIAnalyticsView' },
+    'operations':     { cid: 'view-operations',      view: 'OperationsView' }
+  };
 
-    // Update state
+  function _handleRoute() {
+    var raw = (window.location.hash || '#command-center').substring(1);
+    var hash = raw.split('/')[0];
+    if (!DOMAINS[hash]) hash = 'command-center';
+
     AdminState.set({ currentView: hash });
 
-    // Toggle views
-    views.forEach(function (v) {
-      var el = document.getElementById('view-' + v);
-      if (el) {
-        el.style.display = v === hash ? 'block' : 'none';
-        el.classList.toggle('active', v === hash);
-      }
+    var activeCid = DOMAINS[hash].cid;
+    Object.keys(DOMAINS).forEach(function (h) {
+      var el = document.getElementById(DOMAINS[h].cid);
+      if (el) { el.style.display = (DOMAINS[h].cid === activeCid) ? 'block' : 'none'; el.classList.toggle('active', DOMAINS[h].cid === activeCid); }
     });
 
-    // Update nav active state
     document.querySelectorAll('.nav-item').forEach(function (link) {
       link.classList.toggle('active', link.getAttribute('data-view') === hash);
     });
 
-    // Render view
-    if (hash === 'dashboard') DashboardView.render();
-    if (hash === 'users') UsersView.render();
-    if (hash === 'inactive' && typeof InactiveView !== 'undefined') InactiveView.render();
-    if (hash === 'coachings') CoachingsView.render();
-    if (hash === 'payments') PaymentsView.render();
-    if (hash === 'questions') QuestionsView.render();
-    if (hash === 'system') SystemView.render();
-    if (hash === 'ai') AIAnalyticsView.render();
-    if (hash === 'notifications') NotificationsView.render();
-    if (hash === 'exports' && typeof ExportsView !== 'undefined') ExportsView.render();
-    if (hash === 'security' && typeof SecurityView !== 'undefined') SecurityView.render();
-    if (hash === 'firestore' && typeof FirestoreOpsView !== 'undefined') FirestoreOpsView.render();
+    var V = window[DOMAINS[hash].view];
+    if (V && typeof V.render === 'function') { try { V.render(); } catch (e) { console.error('[router] view render failed:', hash, e); } }
+  }
+
+  /* ---- Collapsible rail (persisted) ---- */
+  function _bindRail() {
+    var btn = document.getElementById('railCollapseBtn');
+    if (!btn) return;
+    try { if (localStorage.getItem('qrAdminRailCollapsed') === '1') document.body.classList.add('rail-collapsed'); } catch (_) {}
+    btn.addEventListener('click', function () {
+      var collapsed = document.body.classList.toggle('rail-collapsed');
+      try { localStorage.setItem('qrAdminRailCollapsed', collapsed ? '1' : '0'); } catch (_) {}
+    });
   }
 
   /* ---- Login Form ---- */
@@ -185,37 +193,36 @@ var GlobalSearch = (function() {
 
   function _performSearch(query) {
     var resultsEl = document.getElementById('globalSearchResults');
-    resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">Searching ecosystem...</div>';
-    
-    // We fetch all users for now and filter locally (assuming <10k users cached or server-side endpoint needed).
-    // A production search should hit Algolia or a dedicated search endpoint.
-    // For this pass, we'll call API.getUsers and filter on name, uid, email, coachingId
-    API.getUsers().then(function(res) {
-      var allUsers = res.data || res.users || [];
-      var q = query.toLowerCase();
-      var matches = allUsers.filter(function(u) {
-        return (u.displayName && u.displayName.toLowerCase().indexOf(q) > -1) ||
-               (u.email && u.email.toLowerCase().indexOf(q) > -1) ||
-               (u.uid && u.uid.toLowerCase().indexOf(q) > -1) ||
-               (u.coachingId && u.coachingId.toLowerCase().indexOf(q) > -1);
-      }).slice(0, 10); // max 10 results
-
-      if (matches.length === 0) {
-        resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">No matching users found.</div>';
+    resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">Searching ecosystem…</div>';
+    var esc = (typeof AdminUtils !== 'undefined' && AdminUtils.escapeHtml) ? AdminUtils.escapeHtml : function (s) { return String(s == null ? '' : s); };
+    /* Server-side ecosystem search (ADR-020) — no client fetch-all. */
+    API.searchEcosystem(query).then(function (res) {
+      var users = (res && res.users) || [];
+      var coachings = (res && res.coachings) || [];
+      if (!users.length && !coachings.length) {
+        resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">No matches.</div>';
         return;
       }
-
       var html = '';
-      matches.forEach(function(u) {
-        html += '<div style="padding:1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" class="search-result-item" onclick="GlobalSearch.close(); if(typeof UserDrawer !== \'undefined\') UserDrawer.open(\'' + u.uid + '\')">';
-        html += '<div style="font-weight:600; color:#0f172a;">' + (u.displayName || u.email || 'Unknown') + '</div>';
-        html += '<div style="font-size:0.875rem; color:#64748b;">' + (u.email || u.uid) + '</div>';
-        if (u.coachingId) html += '<span class="badge badge-draft" style="font-size:0.7rem;">' + u.coachingId + '</span>';
-        html += '</div>';
-      });
+      if (users.length) {
+        html += '<div class="search-group-label">Users</div>';
+        users.forEach(function (u) {
+          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#users\';">' +
+            '<div style="font-weight:600; color:#0f172a;">' + esc(u.name || u.email || u.uid) + '</div>' +
+            '<div style="font-size:.8rem; color:#64748b;">' + esc(u.email || u.uid) + (u.coachingId ? ' · ' + esc(u.coachingId) : '') + '</div></div>';
+        });
+      }
+      if (coachings.length) {
+        html += '<div class="search-group-label">Coachings</div>';
+        coachings.forEach(function (c) {
+          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#coachings\';">' +
+            '<div style="font-weight:600; color:#0f172a;">' + esc(c.name || c.coachingId) + '</div>' +
+            '<div style="font-size:.8rem; color:#64748b;">' + esc(c.coachingId) + ' · ' + (c.studentCount || 0) + ' students</div></div>';
+        });
+      }
       resultsEl.innerHTML = html;
-    }).catch(function(err) {
-      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#ef4444;">Search failed: ' + err.message + '</div>';
+    }).catch(function (err) {
+      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#ef4444;">Search failed: ' + esc(err && err.message ? err.message : 'error') + '</div>';
     });
   }
 

@@ -13,6 +13,7 @@ const aiService = require('../services/aiService');
 const paymentService = require('../services/paymentService');
 const { setEntitlementClaims } = require('../services/claimsService');
 const admin = require('firebase-admin');
+const { isEnabled } = require('./_lib/config-flags');
 
 /* Best-effort server-side security event for the payment-failure-spike alert (Phase 5, ADR-018).
    Admin SDK bypasses Firestore rules. Fire-and-forget — never blocks the payment path. */
@@ -30,6 +31,10 @@ function _recordPaymentFailure(reason, uid) {
 /* ── ?action=create-order ── */
 async function _createOrder(req, res) {
   try {
+    /* Emergency payment kill switch (ADR-021) — never create a Razorpay order while enabled. */
+    if (await isEnabled('paymentKillSwitch')) {
+      return res.status(503).json({ error: { code: 'PAYMENTS_DISABLED', message: 'Payments are temporarily disabled. Please try again shortly.', retryable: true } });
+    }
     var body = req.body || {};
     var plan = body.plan;
     if (!plan || !paymentService.PLAN_CONFIG[plan]) {

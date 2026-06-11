@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin V2: tablet-first governance rebuild — foundation + Command Center (ADR-019/020/021)
+
+- **Requested change:** Redesign super-admin into a tablet-first governance operating system (11" Android tablet,
+  Chrome PWA, landscape): consolidated IA, persistent rail, split-view 360s, a Command Center, a scalable Global
+  Search, and end-to-end Emergency Controls. First pass = foundation (shell + admin design system) + Command
+  Center + Global Search + Emergency Controls; remaining domains follow.
+- **Impacted systems:** Admin (UI + IA) · Security (config rules) · main-app (kill-switch/maintenance enforcement)
+  · APIs · Firestore.
+- **Bible docs updated (FIRST):** DECISION_LOG (ADR-019 IA+design-system, ADR-020 Global Search, ADR-021 Emergency
+  Controls), TECHNICAL_BIBLE (§3 nav+actions, §3.1 reaffirm 8/12, new §10B admin design system), GOVERNANCE
+  (Super Admin V2 governance: one-owner-per-capability, search primitive, emergency procedure), SECURITY_ARCHITECTURE
+  (§6A Emergency Controls + config rules + search auth; Security 2.4), FIRESTORE_BLUEPRINT (the three `config/*`
+  flags + search index note; Firestore 2.5), VERSIONS (Bible 2.9 / Arch 2.6 / Firestore 2.5 / Security 2.4 /
+  Payment 2.2 + history), ROADMAP.
+- **Schema delta:** NEW `config/maintenance`, `config/aiKillSwitch`, `config/paymentKillSwitch` (client-readable
+  break-glass flags; Admin-SDK write only). No new index (Global Search uses single-field auto-indexes). No data
+  migration.
+- **API delta (ZERO new functions — super-admin stays 8/12):** `system.js` += `search`, `config-get`, `config-set`,
+  `revenue-intel`, `ack-alert`. main-app enforcement adds NO function (reads `config/*` in
+  aiService/paymentService/boot). New admin UI: tablet-first shell (rail / SplitView / Tabs / Table card-mode /
+  focus-trap), Command Center view, rebuilt server-side Global Search (Cmd+K), Emergency Controls panel.
+- **Security review:** config flags are client-**readable** but Admin-SDK-write-only (rules); `maintenance`
+  world-readable (pre-auth screen), kill switches authed-read; `aiBudget` stays Admin-only. `config-set` audited
+  (category `system`). Global Search is `withAdminAuth`, server-side prefix only (no client fetch-all). Kill
+  switches only block, never widen access.
+- **Version bumps:** Bible 2.8→2.9, Arch 2.5→2.6, Firestore 2.4→2.5, Security 2.3→2.4, Payment 2.1→2.2 (flow gated).
+- **Migration:** none. **Deploy step:** `firebase deploy --only firestore:rules,firestore:indexes` (config read rules).
+- **Verification:** `node --check`; function counts (super 8 / main 6); rules + indexes valid; Preview render (rail
+  at tablet width, Command Center, Cmd+K hits server search); enforcement trace (AI / payment / maintenance kills);
+  adversarial review.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-019/020/021.
+
+---
+
 ## 2026-06-12 — Super Admin Control Center, Phase 5: Security Center + Firestore-Ops + Content Management (ADR-018)
 
 - **Requested change:** Deliver the final Control Center phase — a Security Center (with new failed-login

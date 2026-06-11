@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.8 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.5 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.4 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.3 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.1 | Razorpay flows, plan config, entitlement grant logic. |
+| **Bible Version** | 2.9 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.6 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.5 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.4 | Auth model, rules, claims, abuse controls. |
+| **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.0 (2026-06-11)** — v2 monetization (ADR-009): single `plan` model, lifetime + Premium+ removed.
 > Breaking schema change (MAJOR) across every track. The 1.0 baseline (also 2026-06-11) incorporated
@@ -62,6 +62,7 @@ file and moves independently of the system-level tracks above.
 | 2026-06-12 | 2.5 | 2.3 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 3 (ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget + warn/crit thresholds), month-to-date spend + projection + status from pre-aggregated `systemMetrics`, usage-based abuse flags. Additive (MINOR). |
 | 2026-06-12 | 2.6 | 2.4 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 4 (ADR-016):** Export Center (authenticated CSV via JSON+Blob; fixes the P2 inactive-export auth gap) + Alert Center (AI budget / expired-premium / stale duels / pending purges, on the Dashboard). Additive (MINOR). |
 | 2026-06-12 | 2.7 | 2.5 | 2.3 | 2.2 | 2.1 | **API Consolidation (ADR-017):** domain-based action-routed handlers under the Vercel Free 12-function cap — super-admin 15→8, main-app 12→6 (dead `ai/word-problems` dropped); auth boundaries preserved. Infra-only (MINOR); no schema/data change. |
+| 2026-06-12 | 2.9 | 2.6 | 2.5 | 2.4 | 2.2 | **Super Admin V2 — tablet-first governance rebuild (ADR-019/020/021):** 7-domain IA + admin design system (collapsible rail ≥768px, in-flow SplitView 360, Tabs, Table card-mode, focus-trap modals, `auto-fit` grids, viewport zoom re-enabled) [TECHNICAL_BIBLE §10B]; **Global Search** ecosystem primitive (server-side prefix on users+coachings, `system?action=search`, no client fetch-all); **Emergency Controls** (maintenance / AI-kill / payment-kill `config/*` docs + audited `config-set` + main-app enforcement in aiService/paymentService/boot). Foundation + Command Center pass. Additive (MINOR) across all tracks; **zero new serverless functions** (5 new `system` actions: search/config-get/config-set/revenue-intel/ack-alert); Payment track moves (flow now gated by kill switch); no data migration. |
 | 2026-06-12 | 2.8 | 2.5 | 2.4 | 2.3 | 2.1 | **Super Admin Control Center — Phase 5 (ADR-018):** Security Center (new append-only `securityEvents` collection — client-side failed-login/suspicious/admin-login capture with SHA-256 emailHash; admin-read, immutable; + composite index) read via `system?action=security`; Firestore-Ops (`metrics.collectionCounts` daily growth + `system?action=firestore-ops`); Content Management (`questions` CRUD — `update`/`archive`/`delete` + new `updatedAt` field, fixes edit-duplication); unblocked payment-failure-spike + Firestore-growth-spike alerts. Additive Firestore + Security (MINOR); **zero new serverless functions**; no data migration. |
 
 ---

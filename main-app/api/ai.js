@@ -11,6 +11,7 @@
 
 const { withAuth, formatError, methodGuard } = require('./_lib/middleware');
 const aiService = require('../services/aiService');
+const { isEnabled } = require('./_lib/config-flags');
 
 var MAX_QUESTION_INPUT_LENGTH = 500;
 
@@ -199,6 +200,13 @@ async function _studyPlan(req, res) {
 
 module.exports = withAuth(async function (req, res) {
   if (methodGuard(req, res, 'POST')) return;
+
+  /* Emergency AI kill switch (ADR-021) — never call OpenAI while enabled. */
+  if (await isEnabled('aiKillSwitch')) {
+    return res.status(503).json({
+      error: { code: 'AI_DISABLED', message: 'AI features are temporarily disabled. Please try again later.', retryable: true }
+    });
+  }
 
   if (!req.userPremium) {
     return res.status(403).json({

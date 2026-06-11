@@ -1,6 +1,6 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.2 · **Security Version:** 2.3 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.3 · **Security Version:** 2.4 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
 **Last updated:** 2026-06-12
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
@@ -51,6 +51,9 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `auditLogs/{id}` | `admin:true` only | **denied** | **denied** | **denied** (Admin-SDK-write only; immutable) |
 | `securityEvents/{id}` | `admin:true` only | **shape-validated** `validSecurityEvent()` — key allowlist, `type` allowlist, `createdAt == request.time`, capped strings; **unauthenticated create allowed** (failed logins have no auth) | **denied** | **denied** (append-only; ADR-018, see §6 SEC1) |
 | `aiInsights`/`aiStudyPlans` | owner | denied (admin) | denied (admin) | owner |
+| `config/maintenance` (ADR-021) | **anyone** (must render pre-auth) | **denied** (Admin-SDK only) | **denied** | **denied** |
+| `config/aiKillSwitch` · `config/paymentKillSwitch` (ADR-021) | authed users (client enforces) | **denied** (Admin-SDK only) | **denied** | **denied** |
+| `config/aiBudget` (+ any other `config/*`) | **denied** (Admin-SDK only) | **denied** | **denied** | **denied** |
 | `notificationLogs`/`scheduledNotices` | denied | denied | denied | denied |
 | `duelInvitations` | denied | denied | denied | denied |
 | default `**` | denied | denied | denied | denied |
@@ -131,6 +134,33 @@ Residual risk (write-quota flooding while App Check is off, M7) is accepted pre-
 treats `emailHash`/`reason` as untrusted, and Firebase Auth throttles the underlying login attempts. The
 documented upgrade path is **App Check (M7)** + optionally moving the write behind the existing public-endpoint
 pattern (`main-app/api/auth/register.js`) once a function slot is justified.
+
+## 6A. Emergency Controls & Config (ADR-021)
+
+Break-glass governance flags live in central Firestore config docs and are the single source of truth:
+`config/maintenance {enabled, message?, updatedBy, updatedAt}`, `config/aiKillSwitch {enabled, …}`,
+`config/paymentKillSwitch {enabled, …}`.
+
+- **Who may toggle:** only `admin:true` via the Admin SDK, through the audited `system?action=config-set`
+  endpoint (writes the config doc + one immutable `auditLogs` row, category `system`). The client SDK can **never**
+  write `config/*` (`allow write: if false` for all config docs).
+- **Read scope (why these are client-readable):** the student app must read the flags to enforce them.
+  `config/maintenance` is world-readable (`allow read: if true`) so the maintenance screen can render even
+  pre-auth; `config/aiKillSwitch` + `config/paymentKillSwitch` are readable by authenticated users
+  (`allow read: if request.auth != null`) since they gate authenticated operations. They are non-sensitive
+  booleans. `config/aiBudget` (and any future non-flag config) has **no** client read rule — Admin-SDK only.
+- **Enforcement points (main-app):** `aiService` checks `config/aiKillSwitch` before any OpenAI call (covers
+  `api/ai.js` explain/insights/study-plan); `paymentService`/`api/payment.js` checks `config/paymentKillSwitch`
+  before creating a Razorpay order; the client checks `config/maintenance` on boot and blocks core learning with
+  a maintenance screen for non-admins. Flags are short-TTL cached. New protected operations MUST add the
+  matching check (GOVERNANCE).
+- **Trust note:** enforcement is defense-in-depth via the client + the serverless layer (Admin SDK reads the
+  same docs). A determined client that bypasses the JS check still cannot grant itself anything — the kill
+  switches only *block*; they never widen access.
+
+**Global Search auth (ADR-020):** `system?action=search` is `withAdminAuth`-gated (admin-only) like every other
+`admin/*` action; it performs server-side prefix queries (no client fetch-all) and never returns more than a
+capped result set per entity.
 
 ## 7. Secrets
 

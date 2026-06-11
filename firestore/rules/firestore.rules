@@ -353,6 +353,29 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // CONFIG COLLECTION (ADR-021) — break-glass emergency flags
+    // ════════════════════════════════════════════
+    // Emergency-control flags must be CLIENT-READABLE so the student app can enforce them
+    // (block AI / payments / show a maintenance screen). ALL writes are Admin-SDK-only
+    // (super-admin system?action=config-set). Any other config doc (aiBudget, alertAcks, …)
+    // has NO client rule → default-deny (Admin-SDK only).
+    //   config/maintenance       → world-readable (renders the pre-auth maintenance screen)
+    //   config/aiKillSwitch      → authed-readable (gates authenticated AI calls)
+    //   config/paymentKillSwitch → authed-readable (gates the authenticated payment flow)
+    match /config/maintenance {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /config/aiKillSwitch {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /config/paymentKillSwitch {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════
     match /{document=**} {
