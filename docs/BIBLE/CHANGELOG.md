@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-11 — App-wide design-system consolidation (ADR-010)
+
+- **Requested change:** make the student app feel built from one design system; fix the Practice scroll
+  bug; simplify Practice to "action, not dashboard"; make AI Coach/Study Plan match Math Duel; remove
+  dominant purple; unify glassmorphism + tokens. Bible-first per Governance.
+- **Impacted systems:** Student App · Technical Bible · Design System · UI Architecture · UX/Navigation ·
+  Premium Experience. (No entitlement/payment/Firestore/API/logic change.)
+- **Docs updated FIRST:** `TECHNICAL_BIBLE.md §10A Design System` (tokens, glass foundation, 3 elevation
+  levels, premium-feature card, typography + CTA hierarchy, Practice scroll contract); ADR-010; ROADMAP;
+  VERSIONS (Bible → 2.1).
+- **🔴 Bug fix — Practice tab could not scroll:** `#view-practice` is a fixed-height `overflow:hidden`
+  flex column; its scroll region is the active content slot. The prior section refactor removed
+  `.practice-container` (the scroll container) from `#modeSelect`, clipping content below the fold.
+  Restored the class → full vertical scrolling. Documented the scroll contract in the Bible.
+- **Practice simplified:** removed the duplicate Today's-Progress metrics strip (Questions/Accuracy/
+  Streak already live on Home); Practice now focuses on training modes (Quick Start / Advanced Modes),
+  32px section rhythm. Free-tier daily-quota indicator retained (functional limit).
+- **Premium feature cards:** AI Coach + Study Plan now inherit `.home-bento-card` verbatim (Math Duel's
+  siblings) — removed the bespoke gradient/purple border + tall fixed-height stack; compact Duel-style
+  header; identical CTA; Study Plan icon de-purpled to blue. ~25% shorter.
+- **Design tokens:** added `--qr-card-radius-sm` (20px) + `--qr-btn-radius` (18px) to the existing
+  24px/navy-shadow/hairline-border system; applied to stat tiles + CTAs. De-purpled `.home-bento-action-btn`
+  and `.pw-cta` (indigo→blue).
+- **Verification:** `node --check` passes on all touched JS; dead twin classes + today-strip fully removed;
+  `#modeSelect` scroll container confirmed. **Recheck pass (post-implementation):** removed one duplicate
+  `body.dark-mode .pw-plan--active` rule (kept the fuller box-shadow variant) and a pre-existing orphan/dead
+  CSS block in the duel-results styles (malformed since `5a86ed8` — declarations with no selector + a stray
+  `}`, parser-discarded, never rendered). `style.css` is now fully brace-balanced (depth 0, no negative dips,
+  max nesting 2); zero visual change. **Live device pass (4 tabs + paywall) pending user eyeball** — see note.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-010.
+
+---
+
 ## 2026-06-11 — v2 verification-audit fixes + production deploy
 
 Independent verification audit of the v2 migration found and fixed:

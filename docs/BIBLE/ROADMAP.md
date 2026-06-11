@@ -8,6 +8,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
+## Design system (established 2026-06-11 — ADR-010)
+The app-wide UI design system is now documented in [TECHNICAL_BIBLE.md §10A](TECHNICAL_BIBLE.md):
+tokens (24/20/18px radii, hairline borders, soft navy shadows, 32/24/16 spacing), one glassmorphism
+foundation + 3 elevation levels, the reusable premium-feature card, and typography/CTA hierarchy.
+**Delivered this pass:** Practice scroll-bug fix, Practice simplification (action-focused), AI Coach +
+Study Plan unified with Math Duel, de-purpling, stat/CTA token alignment.
+**Remaining UX follow-ups (low priority):** audit Learn sub-element radii (`.table-card`, `.math-grid-item`)
+and Settings/Session-Results screens against the tokens; optional "Recent Sessions" strip on Practice
+(needs a session feed). Track new screens against §10A rather than hand-styling.
+
 ## Open technical debt (from the 2026-06-11 audit)
 
 | ID | Item | Type | Priority | Notes |

@@ -11,7 +11,9 @@
 
 /* ==================== DESIGN TOKENS ==================== */
 :root {
-  --qr-card-radius: 1.5rem;        /* 24px — unified app-wide card radius */
+  --qr-card-radius: 1.5rem;        /* 24px — large cards */
+  --qr-card-radius-sm: 1.25rem;    /* 20px — small cards / tiles */
+  --qr-btn-radius: 1.125rem;       /* 18px — buttons / CTAs */
   --qr-card-padding: 1.25rem;      /* 20px */
   --qr-card-gap: 1rem;             /* 16px between cards */
   --qr-card-border-light: 1px solid rgba(15,23,42,0.06);
@@ -3338,7 +3340,7 @@ body.web-mode #wordProblemsSetup {
 }
 .stat-card {
   background: #f1f5f9;
-  border-radius: .85rem;
+  border-radius: var(--qr-card-radius-sm);
   padding: 1rem .65rem;
   text-align: center;
   display: flex;
@@ -7836,16 +7838,6 @@ body.dark-mode .duel-result-waiting-opponent {
   gap: .5rem;
 }
 
-  width: 100%;
-  max-width: 200px;
-  text-align: center;
-  font-size: 1.3rem;
-  font-weight: 700;
-  padding: .6rem .75rem;
-  border-radius: .7rem;
-  margin-top: .75rem;
-}
-
 /* ======== Math Duel V2 — Countdown Overlay ======== */
 
 .duel-countdown-overlay {
@@ -9091,10 +9083,10 @@ body.dark-mode .home-duel-join {
 .home-bento-action-btn {
   width: 100%;
   padding: 0.65rem 1rem;
-  border: 2px solid rgba(124,58,237,0.4);
-  border-radius: 0.75rem;
-  background: rgba(124,58,237,0.05);
-  color: #7c3aed;
+  border: 1.5px solid rgba(37,99,235,0.4);
+  border-radius: var(--qr-btn-radius);
+  background: rgba(37,99,235,0.06);
+  color: #2563eb;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -9102,20 +9094,20 @@ body.dark-mode .home-duel-join {
   touch-action: manipulation;
 }
 .home-bento-action-btn:hover {
-  background: rgba(124,58,237,0.15);
-  border-color: rgba(124,58,237,0.6);
+  background: rgba(37,99,235,0.14);
+  border-color: rgba(37,99,235,0.6);
 }
 .home-bento-action-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 body.dark-mode .home-bento-action-btn {
-  border-color: rgba(167,139,250,0.5);
-  background: rgba(167,139,250,0.1);
-  color: #c4b5fd;
+  border-color: rgba(96,165,250,0.5);
+  background: rgba(96,165,250,0.12);
+  color: #93c5fd;
 }
 body.dark-mode .home-bento-action-btn:hover {
-  background: rgba(167,139,250,0.2);
-  border-color: rgba(167,139,250,0.8);
+  background: rgba(96,165,250,0.22);
+  border-color: rgba(96,165,250,0.8);
 }
 
 /* Override AI Coach card styling when inside bento */
@@ -9186,65 +9178,17 @@ body.dark-mode .home-bento-action-btn:hover {
 }
 
 /* ───────────────────────────────────────────────────────────────────────
-   Section D: AI Coach + Study Plan as matched premium TWIN cards.
-   Identical structure (icon ▸ title ▸ PRO badge ▸ fixed-height desc ▸ filler
-   ▸ CTA), so every row sits on the same horizontal plane side-by-side, and
-   the CTA buttons begin at identical positions regardless of text length.
+   AI Coach + Study Plan = premium feature cards, Math Duel's smaller siblings.
+   They inherit .home-bento-card verbatim (same glass, hairline border, navy
+   shadow — NO gradient/purple/glow). Compact header (icon+title like Duel) +
+   short desc + identical CTA. Twins stay the same height via grid stretch.
    ─────────────────────────────────────────────────────────────────────── */
-.home-twin-card {
-  align-items: stretch;
-  /* Subtle premium gradient border + soft navy shadow — no neon glow */
-  border: 1px solid transparent;
-  background:
-    linear-gradient(#ffffff, #ffffff) padding-box,
-    linear-gradient(160deg, rgba(37,99,235,0.30), rgba(124,58,237,0.18)) border-box;
-  box-shadow: var(--qr-shadow-light);
-}
-body.dark-mode .home-twin-card {
-  background:
-    linear-gradient(rgba(30,41,59,0.7), rgba(30,41,59,0.7)) padding-box,
-    linear-gradient(160deg, rgba(96,165,250,0.40), rgba(167,139,250,0.28)) border-box;
-  box-shadow: var(--qr-shadow-dark);
-}
-/* Strict fixed-height sections so both twins are pixel-identical (Issue 2) */
-.home-twin-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 0;
-}
-.home-twin-icon {
-  height: 48px;
-  display: flex; align-items: center; justify-content: center;
-}
-.home-twin-title {
-  margin: 0;
-  min-height: 30px;        /* title row */
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.98rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-body.dark-mode .home-twin-title { color: #f1f5f9; }
-.home-twin-badge-row {
-  min-height: 28px;        /* PRO badge row (reserved even when hidden) */
-  display: flex; align-items: center; justify-content: center;
-}
-.home-twin-badge { display: inline-block; }
-.home-twin-desc {
-  margin: 0;
-  min-height: 48px;        /* fixed description area → CTAs always align */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-/* CTA pinned to the bottom, identical box for both twins (Issue 2) */
+.home-twin-card { align-items: stretch; }
+/* CTA pinned to the bottom; identical box for both twins. */
 .home-twin-card #aiCoachContainer,
 .home-twin-card #aiStudyPlanContainer { padding-top: 0.5rem; }
 .home-twin-card .home-bento-action-btn {
-  min-height: 52px;
+  min-height: 44px;
   display: flex; align-items: center; justify-content: center;
   width: 100%;
   font-size: 0.82rem; line-height: 1.2; padding: 0 0.75rem;
@@ -10186,9 +10130,9 @@ body.dark-mode .pw-plan--active {
 /* CTA */
 .pw-cta {
   width: 100%; margin: 1.1rem 0 .35rem; padding: .95rem 1rem;
-  border: none; border-radius: .85rem; cursor: pointer;
+  border: none; border-radius: var(--qr-btn-radius); cursor: pointer;
   font-size: 1.02rem; font-weight: 800; color: #fff;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   box-shadow: 0 8px 22px rgba(37,99,235,.32);
   transition: transform .12s ease, box-shadow .18s ease, filter .18s ease;
 }
@@ -10233,7 +10177,6 @@ body.dark-mode .pw-compare tbody td { color: #94a3b8; border-bottom-color: #1e29
 body.dark-mode .pw-compare td.pw-compare-feat { color: #e2e8f0; }
 body.dark-mode .pw-compare td.pw-compare-prem { color: #93c5fd; background: rgba(37,99,235,.14); }
 body.dark-mode .pw-plan { background: #0f172a; border-color: #1e293b; }
-body.dark-mode .pw-plan--active { background: linear-gradient(180deg, #0b1b35, #0f172a); border-color: #3b82f6; }
 body.dark-mode .pw-plan-price { color: #f1f5f9; }
 body.dark-mode .pw-plan--active .pw-plan-price { color: #93c5fd; }
 body.dark-mode .pw-cta-note, body.dark-mode .pw-trust-item, body.dark-mode .pw-footer-link { color: #94a3b8; }
@@ -10243,23 +10186,8 @@ body.dark-mode .pw-footer { border-top-color: #1e293b; }
    Practice tab — sectioned hierarchy (Today's Progress / Quick Start /
    Advanced Modes). Brings the screen up to the Home tab's intentional feel.
    ─────────────────────────────────────────────────────────────────────── */
-.practice-section { margin-bottom: 24px; }            /* section gap */
-.practice-section:last-child { margin-bottom: 0; }
-.practice-mode-group { display: flex; flex-direction: column; gap: 16px; } /* card gap */
+.practice-section { margin-bottom: 32px; }            /* between major sections */
+.practice-section:first-child { margin-top: .25rem; }
+.practice-section:last-child { margin-bottom: .5rem; }
+.practice-mode-group { display: flex; flex-direction: column; gap: 16px; } /* between cards */
 .practice-mode-group .mode-card { margin-bottom: 0; }  /* gap handles spacing */
-
-/* Today's Progress strip — 3 compact metrics, one row */
-.practice-today-strip {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.practice-today-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: .85rem .5rem; border-radius: 14px;
-  background: #f8fafc; border: var(--qr-card-border-light);
-}
-.practice-today-value { font-size: 1.3rem; font-weight: 800; color: #2563eb; line-height: 1.1; }
-.practice-today-label { font-size: .72rem; font-weight: 600; color: #64748b; margin-top: .25rem; }
-body.dark-mode .practice-today-item { background: rgba(30,41,59,0.55); border: var(--qr-card-border-dark); }
-body.dark-mode .practice-today-value { color: #60a5fa; }
-body.dark-mode .practice-today-label { color: #94a3b8; }

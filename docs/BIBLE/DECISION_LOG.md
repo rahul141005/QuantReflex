@@ -8,6 +8,22 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-010 — Unified design system (one card language, glass + tokens) (2026-06-11)
+- **Context:** The app had drifted into per-screen styling — Home felt modern while Practice/Stats/Learn
+  and the premium cards looked older and inconsistent (different radii, shadows, borders, heavy purple
+  accents, mixed glassmorphism). A scroll regression was also introduced when the Practice mode-list lost
+  its scroll-container class during the prior section refactor.
+- **Decision:** Establish ONE design system documented in [TECHNICAL_BIBLE.md §10A](TECHNICAL_BIBLE.md):
+  app-wide tokens (radius 24/20/18px, hairline borders, soft navy shadows, spacing 32/24/16), a single
+  glassmorphism foundation with 3 elevation levels, and a reusable **premium feature card** (AI Coach /
+  Study Plan inherit Math Duel's exact styling — its "smaller siblings"). Purple demoted to a sparing
+  supporting-gradient accent; primary identity is navy + electric blue + soft white + slate + gold.
+- **Options considered:** keep per-screen bespoke styling (rejected — that *is* the drift); a heavier
+  component framework (rejected — vanilla app, no bundler; CSS tokens + shared classes suffice).
+- **Consequence:** Practice screen simplified to *action* (training modes), not a second dashboard —
+  duplicate Home metrics removed. Scroll contract for `#view-practice` documented to prevent regressions.
+  Bible bumped to 2.1 (new UI-architecture subsystem). Visual-only; no entitlement/data/logic change.
+
 ## ADR-009 — v2 monetization: single `plan` model, remove lifetime + Premium+ (2026-06-11)
 - **Context:** v1 sold two paid tiers — ₹89 lifetime (`isPremium`/`hasPaid`) and ₹299/₹499 "Premium+"
   (`isPremiumPlus`, the only tier with AI). Confusing for users, duplicated gating logic, and split

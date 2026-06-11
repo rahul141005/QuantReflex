@@ -146,20 +146,6 @@ function initPracticeView() {
       _renderDailyQuota((typeof loadProgress === 'function') ? loadProgress() : {});
     }
 
-    /* Today's Progress strip (all users) */
-    var _todayStrip = document.getElementById('practiceTodayStrip');
-    if (_todayStrip) {
-      var _tp = (typeof loadProgress === 'function') ? (loadProgress() || {}) : {};
-      var _ta = _tp.todayAttempted || 0;
-      var _tc = _tp.todayCorrect || 0;
-      var _acc = _ta > 0 ? Math.round((_tc / _ta) * 100) : 0;
-      var _streak = _tp.dailyStreak || 0;
-      _todayStrip.innerHTML =
-        '<div class="practice-today-item"><span class="practice-today-value">' + _ta + '</span><span class="practice-today-label">Questions</span></div>' +
-        '<div class="practice-today-item"><span class="practice-today-value">' + _acc + '%</span><span class="practice-today-label">Accuracy</span></div>' +
-        '<div class="practice-today-item"><span class="practice-today-value">' + _streak + ' 🔥</span><span class="practice-today-label">Day Streak</span></div>';
-    }
-
     _resetPracticeUiToModes();
   });
 

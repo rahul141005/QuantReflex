@@ -9,7 +9,7 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.0 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.1 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.0 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.0 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.0 | Auth model, rules, claims, abuse controls. |
@@ -55,6 +55,7 @@ file and moves independently of the system-level tracks above.
 |---|---|---|---|---|---|---|
 | 2026-06-11 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | Initial authoritative Bible established under `/docs/BIBLE/`. Baseline includes audit fixes C1–M8 (see CHANGELOG). |
 | 2026-06-11 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 | **v2 monetization (ADR-009):** single `plan` model; ₹89 lifetime + Premium+ removed; one Premium tier (₹299/6mo, ₹499/12mo) + custom-duration trials. Breaking schema. |
+| 2026-06-11 | 2.1 | 2.0 | 2.0 | 2.0 | 2.0 | **Design-system consolidation (ADR-010):** unified card tokens/glass/elevation + premium-feature card + typography/CTA hierarchy documented in TECHNICAL_BIBLE §10A. UI-only (MINOR). |
 
 ---
 

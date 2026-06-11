@@ -124,6 +124,54 @@ Server env vars (Vercel, never committed): `OPENAI_API_KEY`, `RAZORPAY_KEY_ID`, 
 - **Entitlement field names (canonical, v2):** `plan, planType, planExpiry, planSource, isTrial, trialEnd, planUpdatedAt, lastPaymentId, coachingId`. Do not introduce synonyms or reintroduce the removed v1 fields.
 - **Plan keys (canonical):** `premium_6m`, `premium_12m`. Tier values: `free`, `premium`.
 
+## 10A. Design System (UI) — single source of truth
+
+The student app (`main-app`) uses **one** design language. Build every screen from these tokens and
+card levels — do not hand-style new surfaces. Identity: **professional, academic, focused, premium** —
+deep navy + electric blue + soft white + muted slate, gold as a sparing accent. **Not** gaming/neon/crypto.
+
+### Design tokens (`css/style.css` `:root`)
+| Token | Value | Use |
+|---|---|---|
+| `--qr-card-radius` | `1.5rem` (24px) | large cards (home-bento, `.card`, study-card, mode-card) |
+| `--qr-card-radius-sm` | `1.25rem` (20px) | small cards (stat-card, today/metric tiles, feature cells) |
+| `--qr-btn-radius` | `1.125rem` (18px) | buttons / CTAs |
+| `--qr-card-border-light` | `1px solid rgba(15,23,42,0.06)` | hairline border (light) |
+| `--qr-card-border-dark` | `1px solid rgba(255,255,255,0.08)` | hairline border on navy (dark) |
+| `--qr-shadow-light` / `--qr-shadow-dark` | soft **navy** shadow | depth — **no neon/purple glow** |
+| `--sp-md` / `--sp-lg` / `--sp-xl` | 16 / 24 / 32px | related items / between cards / between major sections |
+
+### Glassmorphism foundation
+One philosophy for every card: dark-navy glass surface (`rgba(30,41,59,…)` dark / translucent white
+light, `backdrop-filter: blur(10px)`), **1px subtle border** (the tokens above), **soft depth shadow,
+no glow**. No card invents its own surface, blur, or glow.
+
+### Card elevation levels
+- **L1 — Informational** (stats, progress, training summaries): flat glass, hairline border, minimal shadow.
+- **L2 — Interactive** (Quick Drill, Math Duel, Quick Study, mode cards): glass + standard `--qr-shadow-*`, `:active { scale(.98) }`.
+- **L3 — Primary CTA** (Start Premium, selected plan, Continue Training): strongest emphasis — blue gradient fill + elevated shadow.
+
+### Premium feature card (reusable)
+AI Coach, Study Plan, and all future premium upsell widgets use the **same** card as Math Duel
+(`.home-bento-card`) — they are Math Duel's smaller siblings, not bespoke designs. No special purple
+border/glow. Implemented via `.home-twin-card` (icon → title → PRO badge → short description → CTA),
+height kept compact (feature card, not dashboard widget).
+
+### Typography hierarchy (never mix scales arbitrarily)
+1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.
+2. **Card title** — `home-bento-title` / `.card h3` (800) — second.
+3. **Supporting text** — `home-bento-desc` / `.secondary-text` (muted slate) — third.
+
+### CTA hierarchy
+Primary = filled blue gradient (`btn-primary`, `.pw-cta`). Secondary = outline/ghost (`btn-secondary`).
+Tertiary = text link. **Purple is a supporting gradient accent only** — never a dominant CTA/border/surface color.
+
+### Practice-screen scroll contract
+`#view-practice` is a fixed-height (`100vh − nav`) `overflow:hidden` flex column; the active content
+region (`#modeSelect`, `categorySelect`, `drillContainer`) is the **internal scroll container**
+(`flex:1; min-height:0; overflow-y:auto`). Any element swapped into that slot MUST carry these scroll
+properties or the screen will clip. (Regression source — see CHANGELOG 2026-06-11 design refactor.)
+
 ## 11. Known Deprecated / Dead Code (do not extend)
 - `duelInvitations` collection (rules deny all).
 - `generateWordProblems` OpenAI path (now reads curated `questions`).
