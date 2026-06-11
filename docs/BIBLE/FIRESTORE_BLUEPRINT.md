@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.0 · **Firestore Version:** 1.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.1 · **Firestore Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-11
@@ -58,10 +58,10 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `performance/overall` | derived mirror | client | `{totalAttempted, totalCorrect, accuracy, avgTime, bestStreak, currentStreak, dailyStreak, ...}` |
 | `practice/data` | derived mirror | client | `{mistakes[], savedQuestions[], updatedAt}` |
 | `profile/data` | derived mirror | client | `{name, email, premium mirror flags, updatedAt}` |
-| **`usage/ai`** | **AI quota — SOURCE OF TRUTH** | admin (register, aiService) | `{wordProblemsUsedLifetime, wordProblemsUsedToday, wordProblemsLastDate, explanationsUsed, lastUsageDate, insightsGeneratedDate}` |
+| **`usage/ai`** | **AI quota + cost — SOURCE OF TRUTH** | admin (register, aiService) | `{wordProblemsUsedLifetime, wordProblemsUsedToday, wordProblemsLastDate, explanationsUsed, lastUsageDate, insightsGeneratedDate, gptTokensInput, gptTokensOutput, gptCostUSD, gptCalls}` — the four `gpt*` counters (`increment`-written by `aiService.trackGptCost` on every OpenAI call) are per-user token/cost telemetry (added 2026-06-11, Super Admin Phase 1). |
 | `ai/usage` | **removed (audit M1, 2026-06-11)** | — | legacy orphaned client mirror; client seed deleted. Do not recreate. |
 | `notifications/{id}` | per-user notices | admin/client(read) | `{title, body, type, isRead, timestamp}` |
-| `entitlementLogs/{auto}` | admin audit | admin | `{type, action, adminId, timestamp, details}` — **no `uid` field** (it is the doc's parent). |
+| `entitlementLogs/{auto}` | admin audit (per-user, RETAINED for back-compat) | admin | `{type, action, adminId, timestamp, details}` — **no `uid` field** (it is the doc's parent). The **canonical platform-wide immutable audit trail is now the root `auditLogs` collection** (§3); entitlement grants write to both. |
 
 > **Canonical AI-usage path is `users/{uid}/usage/ai`.** Do not write new logic against `ai/usage`.
 
@@ -81,7 +81,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 `{status(state machine), createdBy, participants{uid→entry}, config, questions, questionIds, targetUid?, createdAt, expiredAt?}`. State machine and participant rules in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 
 ### `payments/{paymentId}`
-`{uid, plan, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
+`{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=29900, `premium_12m`=49900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
 
 ### AI caches
 - `explanations/{contentHash}` — `{question, answer, category, concept, steps[], mistake, tip, usageCount, createdAt}`
@@ -91,9 +91,10 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 - `aiInsights/{id}`, `aiStudyPlans` legacy reads — owner-read, admin-write.
 
 ### System / admin-only
-- `systemMetrics/ai_daily_{YYYY-MM-DD}` — `{explanations, insights, wordProblems, updatedAt}` (admin-only).
+- `systemMetrics/ai_daily_{YYYY-MM-DD}` — `{explanations, insights, wordProblems, totalTokensInput, totalTokensOutput, estimatedCostUSD, gptCalls, updatedAt}` (admin-only). All counters are `increment`-written at point of use (`aiService.trackGlobalAIUsage` + `trackGptCost`); the four token/cost fields were added 2026-06-11 (Super Admin Phase 1) so the GPT Cost Center reads pre-aggregated daily cost without scanning.
+- **`auditLogs/{auto}`** — **platform-wide immutable audit trail** (admin-only read; Admin-SDK write; client create/update/delete **denied** by rules). One doc **per admin action**: `{ts (serverTimestamp), actorUid, actorEmail, action, category ('entitlement'|'coaching'|'content'|'ai'|'user'|'system'), targetType, targetId, summary, before, after}`. Written by the shared `super-admin-app/api/_lib/audit.js#writeAuditLog` from every super-admin mutation endpoint. Append-only by design — see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) and [DECISION_LOG.md](DECISION_LOG.md) ADR-012.
 - `notificationLogs/{id}`, `scheduledNotices/{id}` — admin-only (rules deny client).
-- `metrics/{dateStr}` — daily snapshot (admin). `UNVERIFIED` exact shape.
+- `metrics/{dateStr}` + `metrics/latest` — platform snapshot (admin-only), refreshed **hourly** by the Vercel-Cron endpoint `super-admin-app/api/cron/daily-snapshot.js` and read **O(1)** by the admin dashboard (which additionally reads today's `systemMetrics/ai_daily_*` doc **live** so the GPT Cost Center is real-time, not frozen to the last snapshot). DAU/MAU/newToday counts use a disjoint Timestamp+ISO-string `count()` union (mixed-type `updatedAt`/`createdAt`, M9). Shape: `{date, totalUsers, premiumUsers, trialUsers, freeUsers, dau, mau, newToday, revenueTotalINR, revenueTodayINR, revenue6mCount, revenue12mCount, totalTokensInput, totalTokensOutput, estimatedCostUSD, gptCalls, updatedAt}`. Counts come from Firestore **`count()` aggregation** (not document scans) so the snapshot scales to 1M+ users; `metrics/latest` mirrors the newest day for instant dashboard load. (ADR-013.)
 
 ### Deprecated
 - `duelInvitations/{id}` — removed; rules deny all. Do not use.
@@ -112,6 +113,9 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | entitlementLogs | **COLLECTION_GROUP** adminId (ASC), timestamp (DESC) | Fixed audit M2 (2026-06-11): scope corrected to `COLLECTION_GROUP` (docs live in `users/{uid}/entitlementLogs`) and keyed on `adminId`+`timestamp` (fields the docs actually contain) → supports "an admin's actions newest-first across all users". Deploy with `firebase deploy --only firestore:indexes`. |
 | notificationLogs | coachingId, timestamp DESC | coaching notices |
 | users | coachingId, stats.lastActiveDate DESC | coaching dashboards |
+| auditLogs | category (ASC), ts (DESC) | audit center filtered by category |
+| auditLogs | actorUid (ASC), ts (DESC) | "an admin's actions" newest-first |
+| auditLogs | targetId (ASC), ts (DESC) | all actions against one user/coaching |
 
 **Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). `aiStudyPlans (userId,status,createdAt)` requires a composite — `UNVERIFIED` whether present; `getActiveStudyPlan` orders by `createdAt` with two equality filters and will require `userId,status,createdAt`.
 
@@ -130,5 +134,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | M5 | duplicate admin auth wrappers | single canonical `withAdminAuth` (rate-limited) | **Resolved 2026-06-11** |
 | M8 | `studentsCount` vs `studentCount` drift + double-count | canonical `studentCount`, function-only writer, reconcile script | **Resolved 2026-06-11** — reconcile applied (2 coachings corrected, legacy `studentsCount` dropped); re-run shows 0 drift |
 | M9 | mixed timestamp types | prefer `serverTimestamp()` server-side | Open (tolerated — all readers normalize; convention documented, no churn) |
+| SA1 | admin "audit" readers (`payments.js`, `system.js`) queried a **root** `entitlementLogs` never written (writes go to the per-user subcollection) → empty dashboards | repoint readers to the new root `auditLogs`; every mutation now writes there | **Resolved 2026-06-11** (Super Admin Phase 1) |
+| SA2 | `system.js` AI-token metric queried `collectionGroup('usage').where('tokens'>0)` — no `tokens` field exists → always 0 | persist real token/cost via `aiService.trackGptCost`; dashboard reads `metrics/latest`/`systemMetrics` | **Resolved 2026-06-11** (Super Admin Phase 1) |
 
 Resolutions are recorded in [CHANGELOG.md](CHANGELOG.md) as they land.

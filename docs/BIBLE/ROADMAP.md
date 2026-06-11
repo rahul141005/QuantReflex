@@ -55,4 +55,13 @@ _(Add product features here as they are scoped. Each must pass through the
 [GOVERNANCE.md](GOVERNANCE.md) workflow: Bible-first, impact report, implement, verify, changelog,
 version bump.)_
 
-- _None recorded yet — populate as the product roadmap is defined._
+- **Super Admin Control Center (multi-phase program)** — elevate `super-admin-app` into the platform's
+  operating system. **Phase 1 ✅ (2026-06-11, ADR-012/013):** GPT token/cost instrumentation, revenue dashboard
+  from `payments`, one immutable `auditLogs` (every admin action), pre-aggregated `metrics/latest` via Vercel
+  Cron + Firestore `count()`. **Phase 2:** user lifecycle (suspend/restore/delete/reset-progress) + Inactive
+  User Center + safe archive→30-day-hold→permanent-delete workflow (per the GOVERNANCE Account Deletion policy)
+  + Auth-user removal. **Phase 3:** AI budget config + thresholds (80/90/100%) + AI abuse detection (request
+  spikes). **Phase 4:** Export Center (CSV) + Alert Center (budget / payment-failure / growth spikes).
+  **Phase 5:** Security Center (needs new failed-login capture) + Firestore-ops (collection sizes/growth) +
+  Content Management. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze
+  dependency.

@@ -1,4 +1,5 @@
 const { withAdminAuth, methodGuard, parseBody, formatError } = require('../_lib/middleware');
+const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -125,6 +126,17 @@ async function handler(req, res) {
 
       await batch.commit();
     }
+
+    await writeAuditLog(db, {
+      actorUid: req.userId,
+      actorEmail: req.adminEmail,
+      action: 'entitlement_' + action,
+      category: 'entitlement',
+      targetType: type,
+      targetId: targetId,
+      summary: action + ' applied to ' + updatedCount + ' user(s) (' + type + ': ' + targetId + ')',
+      after: { action: action, count: updatedCount }
+    });
 
     return res.status(200).json({ success: true, count: updatedCount, updatedCount: updatedCount });
   } catch (err) {

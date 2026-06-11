@@ -47,14 +47,25 @@ var DashboardView = (function () {
           _statCard(m.trialUsers || 0, 'Trials', '#8b5cf6') +
           '</div>';
 
-        var tokensToday = ai.tokensToday || 0;
-        var costToday = ai.costTodayUSD || 0;
         var orphanDuels = m.orphanDuels || 0;
+        var costUSD = parseFloat(ai.costUSD || 0) || 0;
+        var tokensTotal = (ai.tokensInput || 0) + (ai.tokensOutput || 0);
+        var gptCalls = ai.gptCalls || 0;
 
-        html += '<h3>System Operations</h3>' +
+        html += '<h3>Revenue</h3>' +
           '<div class="stat-grid" style="margin-bottom:24px;">' +
-          _statCard(tokensToday > 0 ? (tokensToday / 1000).toFixed(1) + 'k' : '0', 'AI Tokens (Today)') +
-          _statCard('$' + (typeof costToday === 'number' ? costToday.toFixed(2) : '0.00'), 'AI Cost (Today USD)', '#ef4444') +
+          _statCard('₹' + (m.revenueTotalINR || 0).toLocaleString('en-IN'), 'Revenue (Lifetime)', '#10b981') +
+          _statCard('₹' + (m.revenueTodayINR || 0).toLocaleString('en-IN'), 'Revenue (Today)', '#10b981') +
+          _statCard(m.revenue6mCount || 0, '6-Month Plans', '#3b82f6') +
+          _statCard(m.revenue12mCount || 0, '12-Month Plans', '#3b82f6') +
+          _statCard(m.newToday || 0, 'New Signups (Today)', '#8b5cf6') +
+          '</div>';
+
+        html += '<h3>AI Cost (GPT)</h3>' +
+          '<div class="stat-grid" style="margin-bottom:24px;">' +
+          _statCard('$' + costUSD.toFixed(4), 'Est. Cost (Today USD)', '#ef4444') +
+          _statCard(tokensTotal > 0 ? (tokensTotal / 1000).toFixed(1) + 'k' : '0', 'Tokens (Today)') +
+          _statCard(gptCalls, 'GPT Calls (Today)') +
           _statCard(orphanDuels, 'Orphaned Duels', orphanDuels > 0 ? '#ef4444' : '#10b981') +
           '</div>';
         

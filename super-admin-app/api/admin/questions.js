@@ -1,4 +1,5 @@
-const { withAdmin, db } = require('../_lib/firebase-admin');
+const { withAdmin, db, admin } = require('../_lib/firebase-admin');
+const { writeAuditLog } = require('../_lib/audit');
 
 module.exports = withAdmin(async function (req, res) {
   const action = req.query.action || 'list';
@@ -41,6 +42,11 @@ module.exports = withAdmin(async function (req, res) {
       };
 
       const docRef = await db.collection('questions').add(payload);
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'create_question', category: 'content', targetType: 'question', targetId: docRef.id,
+        summary: 'created question (' + topic + ' / ' + difficulty + ')'
+      });
       return res.status(200).json({ success: true, question: { id: docRef.id, ...payload } });
     } catch (error) {
       console.error('[questions] POST Error:', error);
@@ -109,6 +115,27 @@ Example valid output:
         throw new Error('Generated content did not match the required schema.');
       }
 
+      // GPT cost telemetry — admin question generation uses gpt-4o ($2.50/1M in, $10.00/1M out)
+      try {
+        if (data.usage) {
+          const inc = admin.firestore.FieldValue.increment;
+          const inT = data.usage.prompt_tokens || 0;
+          const outT = data.usage.completion_tokens || 0;
+          const cost = (inT / 1000000) * 2.50 + (outT / 1000000) * 10.00;
+          const dayKey = new Date().toISOString().split('T')[0];
+          await db.collection('systemMetrics').doc('ai_daily_' + dayKey).set({
+            totalTokensInput: inc(inT), totalTokensOutput: inc(outT), estimatedCostUSD: inc(cost), gptCalls: inc(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+      } catch (e) { console.warn('[questions:generate] cost telemetry failed:', e.message); }
+
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'generate_question', category: 'ai', targetType: 'question', targetId: null,
+        summary: 'AI-generated a ' + difficulty + ' question for "' + topic + '"'
+      });
+
       return res.status(200).json(parsedContent);
     } catch (error) {
       console.error('[generate-question] Error:', error);
@@ -164,6 +191,12 @@ Example valid output:
       }
 
       await batch.commit();
+
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'import_questions', category: 'content', targetType: 'bulk', targetId: null,
+        summary: 'imported ' + totalAdded + ' questions'
+      });
 
       return res.status(200).json({ success: true, count: totalAdded });
     } catch (error) {

@@ -1,6 +1,6 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.0 · **Security Version:** 1.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.1 · **Security Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
 **Last updated:** 2026-06-11
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
@@ -48,6 +48,7 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `coachings/{id}` | coaching member (claim match) | — | denied (admin) | denied |
 | `duels/{id}` | participant \| joinable status \| target | authed creator, valid initial status | participant/joiner + `validDuelUpdate()` | denied (soft-delete) |
 | `payments/{id}` | owner | denied (admin) | denied (admin) | owner |
+| `auditLogs/{id}` | `admin:true` only | **denied** | **denied** | **denied** (Admin-SDK-write only; immutable) |
 | `aiInsights`/`aiStudyPlans` | owner | denied (admin) | denied (admin) | owner |
 | `notificationLogs`/`scheduledNotices` | denied | denied | denied | denied |
 | `duelInvitations` | denied | denied | denied | denied |
@@ -77,6 +78,31 @@ Forward-only transitions; terminal states (`completed/expired/abandoned/deleted/
 ### 5.1 CORS
 - main-app: strict allowlist (`quantreflex.app`, `dev.…`, `admin.…`, localhost in non-prod).
 - `register`, `withAdmin`, coaching middleware currently send `Access-Control-Allow-Origin: *`. Acceptable where a Bearer token is still required, but `register` is unauthenticated → see §6.
+
+### 5.2 Admin Permissions & Audit Logging (Super Admin Control Center)
+Every privileged operation runs through a `super-admin-app/api/admin/*` endpoint wrapped by `withAdminAuth`
+(token + `admin:true` claim + 30/hr/admin). The `admin:true` claim is granted only via Firebase console /
+admin tooling (never self-granted). **Every admin mutation writes one immutable `auditLogs` row** via the
+shared `super-admin-app/api/_lib/audit.js#writeAuditLog` (it never throws, so a logging failure cannot fail
+the action). Captured: `actorUid`, `actorEmail` (now set on `req.adminEmail` by `withAdminAuth`), `action`,
+`category`, `targetType`, `targetId`, `summary`, and `before`/`after` snapshots. `auditLogs` is
+**append-only**: client read requires `admin:true`; client create/update/delete are denied by rules (only
+the Admin SDK writes, and it never updates/deletes). The per-user `users/{uid}/entitlementLogs` subcollection
+is retained for the user-360 view; entitlement grants write to both. (ADR-012.)
+
+### 5.3 Destructive-Action Protection
+Revokes, coaching suspend/delete, and (future, Phase 2) user suspend/delete must record `before`/`after` in
+`auditLogs` and route through the Control Center — **never** direct Firestore-console mutation (ADR-012).
+Destructive UI actions additionally require explicit confirmation client-side (e.g. typing `DELETE` +
+double-confirm for account deletion — Phase 2). Bulk entitlement writes are chunked (≤200/batch) and logged
+as a single action row carrying the affected count in `summary`.
+
+### 5.4 Cron Authorization
+`super-admin-app/api/cron/*` endpoints (e.g. `daily-snapshot`) are **not** wrapped by `withAdminAuth` (no
+admin user is present). They are gated by a `CRON_SECRET` env secret: the request must present it
+(`Authorization: Bearer <CRON_SECRET>`), compared with a constant-time check; missing/incorrect → 401. Vercel
+Cron sends this header. These endpoints only read + write admin-only analytics docs (`metrics/*`), never user
+data mutations.
 
 ## 6. Abuse Controls & Hardening Backlog
 

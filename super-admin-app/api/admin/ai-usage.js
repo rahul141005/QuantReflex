@@ -57,17 +57,21 @@ async function handler(req, res) {
       const usage = usageDataMap[uid];
       const wp = usage.wordProblemsUsedLifetime || 0;
       const exp = usage.explanationsUsed || 0;
-      
-      // Cost heuristics based on gpt-4o-mini
-      // WP: ~800 tokens input, ~600 output
-      // Exp: ~400 tokens input, ~300 output
-      const wpTokens = wp * 1400;
-      const expTokens = exp * 700;
-      const totalTokens = wpTokens + expTokens;
-      
-      // Cost formula: ($0.15/1M input + $0.60/1M output) -> average ~$0.375 per 1M tokens
-      const costPerToken = 0.375 / 1000000;
-      const estCost = totalTokens * costPerToken;
+
+      /* Prefer the REAL persisted GPT telemetry (aiService.trackGptCost — usage/ai is the
+         per-user cost source of truth). Fall back to a coarse WP/exp heuristic only for users
+         with no gpt* data yet. */
+      const realTokens = (usage.gptTokensInput || 0) + (usage.gptTokensOutput || 0);
+      const realCost = usage.gptCostUSD || 0;
+      let totalTokens, estCost;
+      if (realTokens > 0 || realCost > 0) {
+        totalTokens = realTokens;
+        estCost = realCost;
+      } else {
+        // Heuristic fallback (gpt-4o-mini): WP ~1400 tok, exp ~700 tok, blended ~$0.375/1M.
+        totalTokens = wp * 1400 + exp * 700;
+        estCost = totalTokens * (0.375 / 1000000);
+      }
 
       analytics.push({
         uid: uid,
@@ -79,7 +83,7 @@ async function handler(req, res) {
         totalExp: exp,
         totalCalls: wp + exp,
         totalEstimatedTokens: totalTokens,
-        totalEstimatedCost: estCost.toFixed(6)
+        totalEstimatedCost: Number(estCost).toFixed(6)
       });
     });
 

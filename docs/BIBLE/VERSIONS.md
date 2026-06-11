@@ -9,11 +9,11 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.2 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.0 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.0 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.0 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.0 | Razorpay flows, plan config, entitlement grant logic. |
+| **Bible Version** | 2.3 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.1 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.1 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.1 | Auth model, rules, claims, abuse controls. |
+| **Payment Version** | 2.1 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.0 (2026-06-11)** — v2 monetization (ADR-009): single `plan` model, lifetime + Premium+ removed.
 > Breaking schema change (MAJOR) across every track. The 1.0 baseline (also 2026-06-11) incorporated
@@ -57,6 +57,7 @@ file and moves independently of the system-level tracks above.
 | 2026-06-11 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 | **v2 monetization (ADR-009):** single `plan` model; ₹89 lifetime + Premium+ removed; one Premium tier (₹299/6mo, ₹499/12mo) + custom-duration trials. Breaking schema. |
 | 2026-06-11 | 2.1 | 2.0 | 2.0 | 2.0 | 2.0 | **Design-system consolidation (ADR-010):** unified card tokens/glass/elevation + premium-feature card + typography/CTA hierarchy documented in TECHNICAL_BIBLE §10A. UI-only (MINOR). |
 | 2026-06-11 | 2.2 | 2.0 | 2.0 | 2.0 | 2.0 | **Practice fixed-shell layout (ADR-011):** `--qr-nav-h` nav-height token, app-scroller (`.container`) neutralization for Practice, fixed header + centered single scroll panel, safe-area top/bottom. UI-architecture (MINOR). |
+| 2026-06-11 | 2.3 | 2.1 | 2.1 | 2.1 | 2.1 | **Super Admin Control Center — Phase 1 (ADR-012, ADR-013):** unified immutable `auditLogs` (every admin action); GPT token/cost instrumentation (`usage/ai` + `systemMetrics`); revenue accounting (`payments.amount`); pre-aggregated `metrics/latest` via Vercel Cron + Firestore `count()`. Additive (MINOR) across all four engineering tracks; **no data migration** (historical revenue via price-map fallback). |
 
 ---
 

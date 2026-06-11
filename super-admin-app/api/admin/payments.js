@@ -28,19 +28,19 @@ async function handler(req, res) {
   try {
     const db = admin.firestore();
     
-    // Fetch last 50 entitlement logs
-    const snapshot = await db.collection('entitlementLogs').orderBy('timestamp', 'desc').limit(50).get();
-    
+    // Fetch last 50 entitlement actions from the unified immutable audit log (ADR-012)
+    const snapshot = await db.collection('auditLogs').where('category', '==', 'entitlement').orderBy('ts', 'desc').limit(50).get();
+
     const logs = [];
     snapshot.forEach(doc => {
       const data = doc.data();
       logs.push({
         id: doc.id,
-        uid: data.uid || null,
+        uid: data.targetId || null,
         action: data.action || 'unknown',
-        adminUid: data.adminUid || data.adminId || null,
-        adminEmail: data.adminEmail || null,
-        timestamp: _safeTS(data.timestamp)
+        adminUid: data.actorUid || null,
+        adminEmail: data.actorEmail || null,
+        timestamp: _safeTS(data.ts)
       });
     });
 

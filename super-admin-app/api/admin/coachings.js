@@ -1,4 +1,5 @@
 const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
+const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -88,6 +89,16 @@ async function handler(req, res) {
       };
 
       await db.collection('coachings').doc(coachingId).set(payload);
+      await writeAuditLog(db, {
+        actorUid: req.userId,
+        actorEmail: req.adminEmail,
+        action: 'create_coaching',
+        category: 'coaching',
+        targetType: 'coaching',
+        targetId: coachingId,
+        summary: 'created coaching "' + payload.name + '" (' + coachingId + ')',
+        after: { name: payload.name, ownerEmail: payload.ownerEmail, registrationToken: registrationToken }
+      });
       return res.status(200).json({ success: true, coachingId: coachingId, data: payload });
     }
 
@@ -100,15 +111,19 @@ async function handler(req, res) {
         return res.status(400).json({ error: { code: 'INVALID_ACTION', message: 'Action must be suspend, activate, or delete.' } });
       }
 
+      let beforeStatus = null;
+      let newStatusFinal = 'active';
       await db.runTransaction(async (transaction) => {
         const coachingRef = db.collection('coachings').doc(coachingId);
         const doc = await transaction.get(coachingRef);
         if (!doc.exists) throw new Error('Coaching not found');
+        beforeStatus = (doc.data() || {}).status || null;
 
         let newStatus = 'active';
         let isActive = true;
-        if (mutateAction === 'suspend') { newStatus = 'suspended'; isActive = false; } 
+        if (mutateAction === 'suspend') { newStatus = 'suspended'; isActive = false; }
         else if (mutateAction === 'delete') { newStatus = 'deleted'; isActive = false; }
+        newStatusFinal = newStatus;
 
         transaction.update(coachingRef, {
           status: newStatus,
@@ -141,6 +156,17 @@ async function handler(req, res) {
           await Promise.all(batches.map(b => b.commit()));
         }
       }
+      await writeAuditLog(db, {
+        actorUid: req.userId,
+        actorEmail: req.adminEmail,
+        action: mutateAction + '_coaching',
+        category: 'coaching',
+        targetType: 'coaching',
+        targetId: coachingId,
+        summary: 'coaching ' + coachingId + ' ' + mutateAction + ((mutateAction === 'suspend' || mutateAction === 'delete') ? ' (students cascade-revoked)' : ''),
+        before: { status: beforeStatus },
+        after: { status: newStatusFinal }
+      });
       return res.status(200).json({ success: true, coachingId, newStatus: mutateAction });
     }
 

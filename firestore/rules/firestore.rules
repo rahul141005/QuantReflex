@@ -312,6 +312,16 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // AUDIT LOGS COLLECTION (ADR-012) — immutable
+    // ════════════════════════════════════════════
+    // Platform-wide audit trail. Admin SDK writes (bypasses rules); the client may
+    // only READ with an admin claim. Create/update/delete denied → append-only/immutable.
+    match /auditLogs/{logId} {
+      allow read: if request.auth != null && request.auth.token.admin == true;
+      allow create, update, delete: if false;
+    }
+
+    // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════
     match /{document=**} {

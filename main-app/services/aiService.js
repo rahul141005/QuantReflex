@@ -138,6 +138,7 @@ async function safeUserUpdate(uid, data, caller) {
 }
 
 var PREMIUM_DURATION_DAYS = { premium_6m: 182, premium_12m: 365 };
+var PREMIUM_PRICE_PAISE = { premium_6m: 29900, premium_12m: 49900 }; /* canonical plan→price (paise) — revenue accounting */
 
 /**
  * Activate the single Premium plan from a verified payment (v2).
@@ -183,7 +184,7 @@ async function activatePremium(uid, planType, paymentId, orderId) {
       }, { merge: true });
       return;
     }
-    var paymentDoc2 = { uid: uid, plan: planType, expiry: expiry, claimedAt: new Date().toISOString() };
+    var paymentDoc2 = { uid: uid, plan: planType, amount: (PREMIUM_PRICE_PAISE[planType] || 0), status: 'paid', expiry: expiry, claimedAt: new Date().toISOString() };
     if (orderId) paymentDoc2.orderId = String(orderId);
     tx.create(paymentRef, paymentDoc2);
     tx.set(userRef, {
@@ -295,6 +296,43 @@ async function trackGlobalAIUsage(metricName, count) {
     await metricRef.set(updates, { merge: true });
   } catch (err) {
     console.warn('[aiService:trackGlobalAIUsage] write failed:', err.message);
+  }
+}
+
+/**
+ * Persist real GPT token usage + estimated cost on every OpenAI call (Super Admin Phase 1).
+ * Increments per-user `users/{uid}/usage/ai` (gpt*) and global `systemMetrics/ai_daily_{date}`.
+ * Never throws — telemetry must never break generation.
+ * @param {string|null} uid   end-user uid (null/omitted → global rollup only)
+ * @param {{prompt_tokens:number, completion_tokens:number}} usage  the OpenAI `completion.usage`
+ * @param {{in:number,out:number}} [rates]  USD per 1M tokens (default gpt-4o-mini 0.15/0.60)
+ */
+async function trackGptCost(uid, usage, rates) {
+  try {
+    if (!usage) return;
+    rates = rates || { in: 0.15, out: 0.60 };
+    var inT = usage.prompt_tokens || 0;
+    var outT = usage.completion_tokens || 0;
+    var cost = (inT / 1000000) * rates.in + (outT / 1000000) * rates.out;
+    var inc = admin.firestore.FieldValue.increment;
+    var today = new Date().toISOString().split('T')[0];
+    await db.collection('systemMetrics').doc('ai_daily_' + today).set({
+      totalTokensInput: inc(inT),
+      totalTokensOutput: inc(outT),
+      estimatedCostUSD: inc(cost),
+      gptCalls: inc(1),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    if (uid) {
+      await db.collection('users').doc(uid).collection('usage').doc('ai').set({
+        gptTokensInput: inc(inT),
+        gptTokensOutput: inc(outT),
+        gptCostUSD: inc(cost),
+        gptCalls: inc(1)
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('[aiService:trackGptCost] write failed:', err.message);
   }
 }
 
@@ -455,7 +493,7 @@ async function generateWordProblems(category, difficulty, count) {
   return pool.slice(0, count);
 }
 
-async function generateExplanation(question, answer, category) {
+async function generateExplanation(question, answer, category, uid) {
   var questionHash = _hashString(question + ':' + answer);
   var cacheRef = db.collection('explanations');
 
@@ -492,7 +530,7 @@ async function generateExplanation(question, answer, category) {
       mistake: parsed.mistake || '',
       tip: parsed.tip || ''
     };
-  });
+  }, uid);
 
   if (!result) throw new AIServiceError('INVALID_RESPONSE', 'Invalid explanation format after retries', true);
 
@@ -582,6 +620,7 @@ async function generateCoachV2(stats, userId) {
       }
     }
   });
+  await trackGptCost(userId, completion.usage);
 
   var result = JSON.parse(completion.choices[0].message.content);
 
@@ -669,6 +708,7 @@ async function generateInsightsV2(stats, userId) {
       }
     }
   });
+  await trackGptCost(userId, completion.usage);
 
   var result = JSON.parse(completion.choices[0].message.content);
 
@@ -682,7 +722,7 @@ async function generateInsightsV2(stats, userId) {
   return result;
 }
 
-async function _callAndParse(client, prompt, validator) {
+async function _callAndParse(client, prompt, validator, uid) {
   var lastErr = null;
   for (var attempt = 0; attempt < 2; attempt++) {
     try {
@@ -695,14 +735,7 @@ async function _callAndParse(client, prompt, validator) {
         temperature: attempt === 0 ? 0.7 : 0.3,
         max_tokens: 4096
       });
-      /* Cost estimation logging (gpt-4o-mini: $0.15/1M input, $0.60/1M output) */
-      var usage = completion.usage;
-      if (usage) {
-        var inputCost = (usage.prompt_tokens / 1000000) * 0.15;
-        var outputCost = (usage.completion_tokens / 1000000) * 0.60;
-        var totalCost = inputCost + outputCost;
-
-      }
+      await trackGptCost(uid, completion.usage);
       var text = completion.choices[0].message.content || '';
       var parsed = _parseJsonResponse(text);
       var validated = validator(parsed);
@@ -951,6 +984,7 @@ async function generateStudyPlan(params) {
       }
     }
   });
+  await trackGptCost(userId, completion.usage);
 
   var result = JSON.parse(completion.choices[0].message.content);
 

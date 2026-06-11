@@ -1,4 +1,5 @@
 const { withAdminAuth, formatError } = require('../_lib/middleware');
+const { computeDailySnapshot } = require('../_lib/metrics');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -9,6 +10,13 @@ if (!admin.apps.length) {
   } catch (err) {
     console.error('Firebase admin initialization failed:', err);
   }
+}
+
+function _ms(ts) {
+  if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'number') return ts;
+  if (typeof ts === 'string') return Date.parse(ts) || 0;
+  return 0;
 }
 
 async function handler(req, res) {
@@ -35,6 +43,12 @@ async function handler(req, res) {
       const metricsSnap = await db.collection('metrics').doc('latest').get();
       const latestMetrics = metricsSnap.exists ? metricsSnap.data() : {};
 
+      /* AI cost for TODAY is read LIVE from the incremental counter (not the daily snapshot)
+         so the GPT Cost Center is real-time, not frozen at the last cron run. */
+      const aiDayKey = new Date().toISOString().split('T')[0];
+      const aiTodaySnap = await db.collection('systemMetrics').doc('ai_daily_' + aiDayKey).get();
+      const aiToday = aiTodaySnap.exists ? aiTodaySnap.data() : {};
+
       const now = Date.now();
       const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
       const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
@@ -47,11 +61,18 @@ async function handler(req, res) {
           premiumUsers: premiumUsers,
           dau: latestMetrics.dau || 0,
           mau: latestMetrics.mau || 0,
-          orphanDuels: orphanDuelsSnap.size
+          newToday: latestMetrics.newToday || 0,
+          orphanDuels: orphanDuelsSnap.size,
+          revenueTotalINR: latestMetrics.revenueTotalINR || 0,
+          revenueTodayINR: latestMetrics.revenueTodayINR || 0,
+          revenue6mCount: latestMetrics.revenue6mCount || 0,
+          revenue12mCount: latestMetrics.revenue12mCount || 0
         },
         ai: {
-          tokensToday: latestMetrics.totalAiTokens || 0,
-          costTodayUSD: ((latestMetrics.totalAiTokens || 0) / 1000 * 0.002).toFixed(2)
+          tokensInput: aiToday.totalTokensInput || 0,
+          tokensOutput: aiToday.totalTokensOutput || 0,
+          gptCalls: aiToday.gptCalls || 0,
+          costUSD: Number(aiToday.estimatedCostUSD || 0).toFixed(4)
         },
         health: {
           firebaseAuth: 'green',
@@ -81,24 +102,23 @@ async function handler(req, res) {
     }
 
     if (action === 'auditLogs' && req.method === 'GET') {
-      const [entitlementSnaps, notifSnaps] = await Promise.all([ db.collection('entitlementLogs').orderBy('timestamp', 'desc').limit(25).get(), db.collection('notificationLogs').orderBy('timestamp', 'desc').limit(25).get() ]);
+      /* Unified immutable audit trail (ADR-012) + notification broadcasts. */
+      const [auditSnaps, notifSnaps] = await Promise.all([
+        db.collection('auditLogs').orderBy('ts', 'desc').limit(50).get(),
+        db.collection('notificationLogs').orderBy('timestamp', 'desc').limit(25).get()
+      ]);
       const auditLogs = [];
-      entitlementSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'entitlement', action: d.action, target: d.uid, admin: d.adminUid || d.adminEmail || 'System', timestamp: d.timestamp && typeof d.timestamp.toMillis === 'function' ? d.timestamp.toMillis() : (typeof d.timestamp === 'number' ? d.timestamp : (typeof d.timestamp === 'string' ? Date.parse(d.timestamp) || 0 : 0)) }); });
-      notifSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'notification', action: `Broadcast to ${d.segment || 'unknown'}`, target: `Sent: ${d.successCount || 0}, Failed: ${d.failureCount || 0}`, admin: d.adminUid || 'System', timestamp: d.timestamp && typeof d.timestamp.toMillis === 'function' ? d.timestamp.toMillis() : (typeof d.timestamp === 'number' ? d.timestamp : (typeof d.timestamp === 'string' ? Date.parse(d.timestamp) || 0 : 0)) }); });
+      auditSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: d.category || 'admin', action: d.action || 'unknown', target: d.targetId || d.targetType || null, admin: d.actorEmail || d.actorUid || 'System', summary: d.summary || null, timestamp: _ms(d.ts) }); });
+      notifSnaps.forEach(doc => { const d = doc.data(); auditLogs.push({ id: doc.id, type: 'notification', action: `Broadcast to ${d.segment || 'unknown'}`, target: `Sent: ${d.successCount || 0}, Failed: ${d.failureCount || 0}`, admin: d.adminUid || 'System', timestamp: _ms(d.timestamp) }); });
       auditLogs.sort((a, b) => b.timestamp - a.timestamp);
       auditLogs.forEach(l => { l.timestamp = new Date(l.timestamp).toISOString(); });
       return res.status(200).json(auditLogs);
     }
 
     if (action === 'aggregate-metrics' && req.method === 'POST') {
-      const now = Date.now(); const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000); const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-      const dauSnapshot = await db.collection('users').where('updatedAt', '>=', admin.firestore.Timestamp.fromDate(oneDayAgo)).count().get(); const dau = dauSnapshot.data().count;
-      const mauSnapshot = await db.collection('users').where('updatedAt', '>=', admin.firestore.Timestamp.fromDate(thirtyDaysAgo)).count().get(); const mau = mauSnapshot.data().count;
-      const aiUsageSnap = await db.collectionGroup('usage').where('tokens', '>', 0).get();
-      let totalAiTokens = 0; aiUsageSnap.forEach(doc => { if (doc.ref.id === 'ai') { totalAiTokens += (doc.data().tokens || 0); } });
-      const todayStr = new Date().toISOString().split('T')[0]; const metricsRef = db.collection('metrics').doc(todayStr);
-      const payload = { dau: dau, mau: mau, totalAiTokens: totalAiTokens, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-      await metricsRef.set(payload, { merge: true });
+      /* Manual on-demand refresh — same computor as the Vercel-Cron daily-snapshot (ADR-013). */
+      const payload = await computeDailySnapshot(db);
+      await db.collection('metrics').doc(payload.date).set(payload, { merge: true });
       await db.collection('metrics').doc('latest').set(payload, { merge: true });
       return res.status(200).json({ success: true, metrics: payload });
     }

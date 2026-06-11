@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-013 — Vercel Cron + Firestore `count()` aggregation as the Spark-compatible analytics backbone (2026-06-11)
+- **Context:** The Super Admin Control Center needs platform metrics (user counts, DAU/MAU, revenue, AI cost)
+  that scale to 100k–1M users, plus scheduled rollups. Firebase is on the **Spark** plan, so Cloud Functions
+  (scheduled triggers) cannot deploy; and scanning whole collections on demand from a 15s Vercel function does
+  not scale.
+- **Decision:** (1) Pre-aggregate — a Vercel-Cron endpoint `super-admin-app/api/cron/daily-snapshot` (gated by
+  `CRON_SECRET`) computes counts via Firestore **`count()` aggregation** (server-side, not document reads),
+  rolls up `payments` (bounded) for revenue, and reads the incrementally-maintained `systemMetrics/ai_daily_*`
+  for AI cost — writing `metrics/{date}` + `metrics/latest` **hourly**. (2) The dashboard reads `metrics/latest`
+  **O(1)**, and reads today's `systemMetrics/ai_daily_*` **live** for real-time AI cost. (3) AI token/cost is
+  pre-aggregated at write time (`aiService.trackGptCost`), never scanned. Mixed-type `updatedAt`/`createdAt`
+  counts use a disjoint Timestamp+string `count()` union. (4) `auditLogs` is the immutable audit backbone.
+- **Options considered:** (a) Upgrade to Blaze + Cloud Functions — rejected for now (the user can't upgrade;
+  Vercel Cron is plan-independent and already where the APIs live); (b) on-demand full-collection scans —
+  rejected (doesn't scale; 15s timeout); (c) Firestore distributed counters on every write — heavier than a
+  daily snapshot needs, kept only for the hot AI-cost path.
+- **Consequence:** Analytics scale to 1M users without Blaze. Trade-off: pre-aggregated figures (revenue, DAU/MAU)
+  are as fresh as the last snapshot (cron runs **hourly**); today's AI cost is read **live** (real-time); an
+  on-demand recompute is also available. Firestore 2.1, Arch 2.1.
+
+## ADR-012 — Operational changes flow through the Super Admin Control Center; never direct DB manipulation (2026-06-11)
+- **Context:** Admins can technically edit Firestore directly in the Firebase console. Doing so bypasses
+  authorization, rate limiting, validation, and — most importantly — leaves **no audit trail**. As the platform
+  grows (entitlements, coaching lifecycle, user deletion, refunds), untracked manual edits become a governance
+  and safety hazard.
+- **Decision:** The `super-admin-app` Control Center is the **single enforcement point** for all operational
+  changes. Every mutation goes through an `api/admin/*` endpoint (`withAdminAuth`) and writes one **immutable
+  `auditLogs` row** via the shared `api/_lib/audit.js#writeAuditLog` (who/when/what/before/after). `auditLogs`
+  is append-only (client create/update/delete denied by rules; Admin-SDK-write only). Direct console mutation
+  is prohibited by policy ([GOVERNANCE.md](GOVERNANCE.md)); if a capability is missing, add the endpoint rather
+  than hand-editing data. Destructive actions (revoke, delete) must record before/after and follow the
+  soft-delete→hold→delete flow.
+- **Options considered:** (a) Trust admins + console edits — rejected (no trail, no safety); (b) log only
+  entitlement actions (status quo) — rejected (coaching/content/deletion went unlogged, and the dashboard
+  reader was even pointed at a never-written root collection).
+- **Consequence:** Complete, immutable operational history; enforceable approval/retention policy; the Control
+  Center becomes the operating system for QuantReflex. Security 2.1, Bible 2.3.
+
 ## ADR-011 — Practice tab is a fixed app shell (single centered scroll panel) (2026-06-11)
 - **Context:** The Practice screen felt unstable — the header drifted while scrolling, spacing above/
   below the mode list was asymmetric, and it read as "the whole screen scrolls." Root cause (traced in

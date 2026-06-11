@@ -1,4 +1,5 @@
 const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
+const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -49,6 +50,15 @@ async function handler(req, res) {
 
     if (deletedCount > 0) {
       await batch.commit();
+      await writeAuditLog(db, {
+        actorUid: req.userId,
+        actorEmail: req.adminEmail,
+        action: 'cleanup_duels',
+        category: 'system',
+        targetType: 'bulk',
+        targetId: null,
+        summary: 'deleted ' + deletedCount + ' stale duel room(s)'
+      });
     }
 
     return res.status(200).json({ success: true, deletedCount: deletedCount });

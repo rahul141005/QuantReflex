@@ -11,7 +11,11 @@
     }
   ],
   "functions": {
-    "api/admin/**/*.js": { "maxDuration": 15 }
+    "api/admin/**/*.js": { "maxDuration": 15 },
+    "api/cron/**/*.js": { "maxDuration": 60 }
   },
+  "crons": [
+    { "path": "/api/cron/daily-snapshot", "schedule": "0 * * * *" }
+  ],
   "cleanUrls": false
 }

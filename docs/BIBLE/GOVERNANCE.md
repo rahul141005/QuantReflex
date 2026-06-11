@@ -89,3 +89,37 @@ If a change is requested that would touch code without a corresponding Bible upd
 response is to **update the Bible first (step 3) and produce the impact report (step 4) before
 writing code** — not to implement and document later. This ordering is what keeps the repository
 documentation-synchronized so that a cold reader, months later, can trust the Bible completely.
+
+---
+
+## Super Admin Operational Rules (ADR-012)
+
+The `super-admin-app` Control Center is the **single enforcement point** for all operational changes —
+entitlement grants/revokes, coaching create/suspend/delete, content edits, and (Phase 2) user
+suspend/delete. These MUST be performed through the app's `api/admin/*` endpoints, **never** by editing
+Firestore directly in the Firebase console. Each endpoint enforces auth (`admin:true`), rate limiting
+(30/hr), validation, and — critically — an **immutable `auditLogs` entry** (who/when/what/before/after).
+Direct console edits bypass all of that and leave no trail. If an operation is needed that the Control
+Center doesn't yet support, the correct response is to **add the endpoint** (Bible-first), not to hand-edit
+data.
+
+## Data Retention Policy
+
+| Data | Retention | Notes |
+|---|---|---|
+| `auditLogs` | **Indefinite, immutable** | Append-only; never edited or deleted. The permanent record of admin actions. |
+| `users/{uid}/entitlementLogs` | Indefinite | Per-user mirror for the User-360 view. |
+| `metrics/{dateStr}` | Indefinite (small) | One doc/day; `metrics/latest` always mirrors newest. |
+| `systemMetrics/ai_daily_*` | Indefinite (small) | One doc/day. |
+| `practiceSessions/{auto}` | Indefinite today | Candidate for a rolling window if volume grows (Phase 5). |
+| Inactive `users` | **No automatic deletion today** | The safe archive workflow lands in Phase 2 (below). |
+
+## Account Deletion Policy (policy now; mechanism in Phase 2)
+
+Accounts are **never instantly hard-deleted** by an admin. The sanctioned flow is **soft-delete → archive
+queue → hold → permanent delete**, every step audit-logged:
+`inactive 6+ months → flagged → archive queue (status:'archived', archivedAt) → 30-day hold → permanent
+delete (Auth user + Firestore doc + subcollections)`. Admin-initiated deletion requires explicit in-UI
+confirmation (type `DELETE` + double-confirm). User-initiated deletion (`main-app/api/account/delete`) clears
+subcollections today; reconciling it with the archive workflow + Auth-user removal is Phase 2. No deletion
+path may skip the `auditLogs` entry. (Mechanism tracked in [ROADMAP.md](ROADMAP.md) Phase 2.)

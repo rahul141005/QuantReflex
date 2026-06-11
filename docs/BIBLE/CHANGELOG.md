@@ -6,6 +6,44 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-11 — Super Admin Control Center, Phase 1: Data + Revenue + Audit (ADR-012, ADR-013)
+
+- **Requested change:** elevate the super-admin app into an operational control center. Phase 1 delivers the
+  data/governance foundation — GPT token/cost instrumentation, a revenue dashboard, and one immutable
+  platform-wide audit log; plus full Bible/governance docs + ADRs. (Later phases — user lifecycle/cleanup, AI
+  budget/abuse, exports/alerts, security/firestore-ops — scoped in ROADMAP.)
+- **Impacted systems:** Student App (AI-cost write) · Admin · Firestore · Rules · Payments · Entitlements ·
+  Analytics · AI · APIs.
+- **Bible docs updated (FIRST):** FIRESTORE_BLUEPRINT (auditLogs + `usage/ai.gpt*` + systemMetrics token/cost +
+  `metrics/latest` shape + `payments.amount` + 3 auditLogs indexes + drift SA1/SA2); SECURITY (§5.2 Admin
+  Permissions & Audit Logging, §5.3 Destructive-Action Protection, §5.4 Cron Authorization, auditLogs rule
+  row); PAYMENT (§11 Revenue Accounting); TECHNICAL_BIBLE (§5.2 Super Admin Architecture, §6 Spark/Vercel-Cron
+  callout, §7 AI counters); GOVERNANCE (Operational Rules + Data Retention + Account Deletion policy);
+  DECISION_LOG (ADR-012, ADR-013); VERSIONS; ROADMAP.
+- **Schema delta:** +`auditLogs/{auto}` (immutable); +`usage/ai.{gptTokensInput,gptTokensOutput,gptCostUSD,gptCalls}`;
+  +`systemMetrics/ai_daily_*.{totalTokensInput,totalTokensOutput,estimatedCostUSD,gptCalls}`;
+  +`payments.{amount,status}`; +`metrics/{date}`+`metrics/latest` concrete shape; +3 `auditLogs` composites. All additive.
+- **API delta:** +`super-admin-app/api/_lib/audit.js#writeAuditLog`; +`super-admin-app/api/cron/daily-snapshot`
+  (GET, `CRON_SECRET`); `withAdminAuth` now sets `req.adminEmail`; `system.js?action=auditLogs` + `payments.js`
+  readers repointed to `auditLogs`; dashboard payload extended with revenue + real AI cost.
+- **Security review:** `auditLogs` admin-read-only + client write denied (immutable); cron gated by `CRON_SECRET`
+  (constant-time), not `withAdminAuth`. No change to user-facing auth.
+- **Cross-app compatibility:** student app writes the new `usage/ai`/`systemMetrics` counters + `payments.amount`;
+  super-admin reads them; `count()` aggregation (firebase-admin 13.10) drives the cron.
+- **Version bumps:** Arch/Firestore/Security/Payment 2.0→2.1; Bible 2.2→2.3 (all MINOR).
+- **Migration:** none (historical payments without `amount` use the plan→price fallback).
+- **Verification:** `node --check` all touched + 2 new JS; firestore rules/indexes parse; revenue/cost math
+  fixtures; cron 401/200; Preview-MCP dashboard render. Deploy at rollout: `firebase deploy --only
+  firestore:rules,firestore:indexes`; set Vercel `CRON_SECRET`. Cloud Functions stay undeployed (Spark).
+- **Adversarial review hardening (29-agent workflow, 8 confirmed findings fixed):** AI-cost staleness — the
+  dashboard now reads today's `systemMetrics/ai_daily_*` **live** + the cron runs **hourly** (was daily); the
+  mixed-type DAU/MAU/newToday undercount fixed with a disjoint Timestamp+ISO-string `count()` union in
+  `metrics.js`; `ai-usage.js` now prefers the real per-user `gpt*` telemetry over heuristics; and
+  `notifications.js` + the destructive `duels.js` cleanup now write `auditLogs` rows (every admin mutation logged).
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-012, ADR-013.
+
+---
+
 ## 2026-06-11 — Practice scroll panel: softer corners (visual refinement)
 
 - **Requested change:** the outer Practice scroll container looked too rectangular versus the rest of the

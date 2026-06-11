@@ -108,6 +108,7 @@ function withAdminAuth(handler) {
 
     req.userId = decoded.uid;
     req.adminUid = decoded.uid; /* alias — canonical going forward (audit M5) */
+    req.adminEmail = decoded.email || null; /* for auditLogs actorEmail (Super Admin Phase 1) */
     return handler(req, res);
   };
 }

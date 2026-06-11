@@ -1,4 +1,5 @@
 const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
+const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -119,6 +120,16 @@ async function handler(req, res) {
       staleTokensCleaned: tokensToRemove.length,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       adminUid: req.userId || 'unknown'
+    });
+
+    await writeAuditLog(db, {
+      actorUid: req.userId,
+      actorEmail: req.adminEmail,
+      action: 'broadcast_notification',
+      category: 'system',
+      targetType: 'segment',
+      targetId: segment || 'all',
+      summary: 'broadcast "' + title + '" to ' + (segment || 'all') + ' (' + successCount + ' sent, ' + failureCount + ' failed)'
     });
 
     return res.status(200).json({

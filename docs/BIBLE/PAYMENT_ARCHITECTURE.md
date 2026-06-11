@@ -1,6 +1,6 @@
 # QuantReflex Payment Architecture
 
-**Doc Version:** 2.0 · **Payment Version:** 2.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 2.1 · **Payment Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for payments, plans, entitlement grants, and idempotency.
 **Gateway:** Razorpay (one-time Orders API — no subscriptions/auto-renewal).
 **Last updated:** 2026-06-11
@@ -71,8 +71,9 @@ orderId)` (uid/plan from order notes, refetched if missing) + single `{premium:t
 
 ## 6. Admin grants (super-admin app, owner-only)
 
-`super-admin-app/api/admin/entitlements.js` actions (write via Admin SDK, audit-logged to
-`users/{uid}/entitlementLogs`, chunked ≤200/batch):
+`super-admin-app/api/admin/entitlements.js` actions (write via Admin SDK, audit-logged to **both**
+`users/{uid}/entitlementLogs` (per-user) **and** the root immutable `auditLogs` (platform-wide; see
+[SECURITY_ARCHITECTURE.md §5.2](SECURITY_ARCHITECTURE.md)), chunked ≤200/batch):
 
 | Action | Effect |
 |---|---|
@@ -111,3 +112,13 @@ from the server.
 v1 had a ₹89 lifetime tier (`isPremium`) + a ₹299/₹499 "Premium+" tier (`isPremiumPlus`). v2
 (2026-06-11) removed lifetime and collapsed to the single Premium tier above. See
 [DECISION_LOG.md](DECISION_LOG.md) ADR-009 and the v2 migration `firestore/migrations/2026-06-11-v2-plan-schema.js`.
+
+## 11. Revenue Accounting (Super Admin Phase 1, 2026-06-11)
+
+Every Premium grant writes `payments/{paymentId}` with `amount` (price in **paise**, int) and `status:'paid'`.
+The revenue rollup (the Vercel-Cron `daily-snapshot` + the admin dashboard) **sums `amount`**; for
+**historical** docs written before this change (no `amount`), it falls back to the canonical plan→price map —
+`premium_6m`=29900, `premium_12m`=49900 paise. Revenue is reported in **INR** (`paise / 100`). Refunds /
+chargebacks are **not** tracked yet (no Razorpay refund webhook wired) — `status` is always `'paid'` today; a
+later phase adds refund reconciliation. There is no recurring billing (one-time Orders API), so "revenue" in a
+window = the sum of one-time captures in that window.

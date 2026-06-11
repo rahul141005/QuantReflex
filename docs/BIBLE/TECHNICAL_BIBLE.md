@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.2 · **Architecture Version:** 2.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.3 · **Architecture Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-11
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -38,7 +38,7 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
 | `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai/*`, `payment/*`, `auth/register`, `account/delete`, `claim-coaching`, `validate-coaching`, `notifications` |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users, entitlements, coachings, questions, payments, ai-usage, duels, notifications, system) |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users, entitlements, coachings, questions, payments, ai-usage, duels, notifications, system) + `cron/daily-snapshot` (Vercel Cron, `CRON_SECRET`-gated) |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 
@@ -85,6 +85,24 @@ Deferred           notifications.js, onboarding.js
 - `paymentService.js` — Razorpay client, `createOrder`, `verifyPaymentSignature` (constant-time), `fetchOrder`/`fetchOrderPlan` (server-trusted plan + uid), `getPlanConfig`, `PLAN_CONFIG` (`premium_6m`/`premium_12m`).
 - `claimsService.js` — `setEntitlementClaims(uid, {premium})` (single custom JWT claim; non-fatal optimization; Firestore `plan` is source of truth).
 
+### 5.2 Super Admin Architecture (operational control plane)
+The `super-admin-app` is the **operational control plane** for the platform — all entitlement, coaching,
+content, and analytics operations flow through it, never direct Firestore-console edits (ADR-012). It is a
+vanilla-JS SPA (`js/views/*` over `js/ui/{modal,table,toast}.js`, `js/services/api.js` auto-JWT,
+`js/state/store.js`) calling `api/admin/*` endpoints, every one wrapped by `withAdminAuth`
+(token + `admin:true` + 30/hr).
+- **Immutable audit trail:** every mutation endpoint calls the shared `api/_lib/audit.js#writeAuditLog`,
+  appending one `auditLogs` row (`{ts, actorUid, actorEmail, action, category, targetType, targetId, summary,
+  before, after}`). Append-only; admin-read-only. See [SECURITY_ARCHITECTURE.md §5.2](SECURITY_ARCHITECTURE.md).
+- **Pre-aggregated analytics (scales to 1M):** the dashboard reads a single pre-aggregated `metrics/latest`
+  doc (O(1)) instead of scanning collections. A Vercel-Cron endpoint `api/cron/daily-snapshot` recomputes
+  `metrics/{date}` + `metrics/latest` **hourly** using Firestore **`count()` aggregation** for user counts and a
+  bounded `payments` rollup for revenue; AI token/cost is pre-aggregated incrementally at write time
+  (`aiService.trackGptCost` → `systemMetrics/ai_daily_*`). See [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md)
+  and ADR-013.
+- **Spark-compatible:** because Firebase is on the Spark plan (Cloud Functions don't deploy), all scheduled
+  admin work runs on **Vercel Cron** (independent of the Firebase plan), not Cloud Functions.
+
 ## 6. Cloud Functions (`functions/index.js`)
 
 | Function | Trigger | Purpose | Scale guards |
@@ -98,12 +116,14 @@ Deferred           notifications.js, onboarding.js
 
 > Note: premium access is also reverted **live** on read (`resolvePlan` self-heals on access), so the 6-hour function only affects dashboard counts, not access correctness.
 
+> **Deployment reality (Spark plan):** these Cloud Functions are **not deployed** — the project is on the Firebase Spark plan and scheduled functions require Blaze. Access correctness does not depend on them (self-heal on read). Scheduled **admin analytics** instead run on **Vercel Cron** (`super-admin-app/api/cron/*`), independent of the Firebase plan — see §5.2 and ADR-013.
+
 ## 7. AI Subsystem
 
 - Model `gpt-4o-mini`, key server-side (`OPENAI_API_KEY`).
 - Caching: `explanations` (content hash), `aiCoachV2`/`aiInsightsV2` (per-user-per-day), `aiStudyPlans` (persisted).
 - Structured output via strict `json_schema`; explanation path self-checks numeric answer and retries twice.
-- Global counters in `systemMetrics/ai_daily_{date}`.
+- Global counters in `systemMetrics/ai_daily_{date}` — request counts (`wordProblems, explanations, insights`) **plus** real GPT telemetry (`totalTokensInput, totalTokensOutput, estimatedCostUSD, gptCalls`) written by `aiService.trackGptCost` on every OpenAI call; mirrored per-user on `users/{uid}/usage/ai` (`gpt*`). Powers the Super Admin GPT Cost Center.
 - Quota: free = 5 lifetime word-problem credits; premium = 25/day. Stored in `users/{uid}/usage/ai` (server source of truth). Consumption is **atomic** (Firestore transaction in `consumeWordProblemQuota`, audit H2 fixed 2026-06-11) — returns the count actually granted so the cap holds under concurrency.
 
 ## 8. Data Flow Summaries

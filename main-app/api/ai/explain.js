@@ -29,7 +29,7 @@ module.exports = withAuth(async function (req, res) {
     }
 
     var answerStr = String(answer).substring(0, 50);
-    var explanation = await aiService.generateExplanation(question, answerStr, category);
+    var explanation = await aiService.generateExplanation(question, answerStr, category, req.userId);
     try {
       await aiService.trackExplanationUsage(req.userId);
     } catch (e) {
