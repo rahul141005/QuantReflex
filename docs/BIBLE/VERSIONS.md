@@ -9,9 +9,9 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.9 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.10 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.6 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.5 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.6 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.4 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
 
@@ -62,6 +62,7 @@ file and moves independently of the system-level tracks above.
 | 2026-06-12 | 2.5 | 2.3 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 3 (ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget + warn/crit thresholds), month-to-date spend + projection + status from pre-aggregated `systemMetrics`, usage-based abuse flags. Additive (MINOR). |
 | 2026-06-12 | 2.6 | 2.4 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 4 (ADR-016):** Export Center (authenticated CSV via JSON+Blob; fixes the P2 inactive-export auth gap) + Alert Center (AI budget / expired-premium / stale duels / pending purges, on the Dashboard). Additive (MINOR). |
 | 2026-06-12 | 2.7 | 2.5 | 2.3 | 2.2 | 2.1 | **API Consolidation (ADR-017):** domain-based action-routed handlers under the Vercel Free 12-function cap — super-admin 15→8, main-app 12→6 (dead `ai/word-problems` dropped); auth boundaries preserved. Infra-only (MINOR); no schema/data change. |
+| 2026-06-12 | 2.10 | 2.6 | 2.6 | 2.4 | 2.2 | **Email normalization (ADR-020 update):** new `users.emailLower` (lowercased `email`) written at register + backfilled (`firestore/migrations/2026-06-12-add-emailLower.js`); Global Search email matching is now **case-insensitive** (`orderBy('emailLower')` with a lowercased prefix). Additive Firestore (MINOR); backfill migration (non-breaking); no API/function change. |
 | 2026-06-12 | 2.9 | 2.6 | 2.5 | 2.4 | 2.2 | **Super Admin V2 — tablet-first governance rebuild (ADR-019/020/021):** 7-domain IA + admin design system (collapsible rail ≥768px, in-flow SplitView 360, Tabs, Table card-mode, focus-trap modals, `auto-fit` grids, viewport zoom re-enabled) [TECHNICAL_BIBLE §10B]; **Global Search** ecosystem primitive (server-side prefix on users+coachings, `system?action=search`, no client fetch-all); **Emergency Controls** (maintenance / AI-kill / payment-kill `config/*` docs + audited `config-set` + main-app enforcement in aiService/paymentService/boot). Foundation + Command Center pass. Additive (MINOR) across all tracks; **zero new serverless functions** (5 new `system` actions: search/config-get/config-set/revenue-intel/ack-alert); Payment track moves (flow now gated by kill switch); no data migration. |
 | 2026-06-12 | 2.8 | 2.5 | 2.4 | 2.3 | 2.1 | **Super Admin Control Center — Phase 5 (ADR-018):** Security Center (new append-only `securityEvents` collection — client-side failed-login/suspicious/admin-login capture with SHA-256 emailHash; admin-read, immutable; + composite index) read via `system?action=security`; Firestore-Ops (`metrics.collectionCounts` daily growth + `system?action=firestore-ops`); Content Management (`questions` CRUD — `update`/`archive`/`delete` + new `updatedAt` field, fixes edit-duplication); unblocked payment-failure-spike + Firestore-growth-spike alerts. Additive Firestore + Security (MINOR); **zero new serverless functions**; no data migration. |
 
@@ -90,6 +91,17 @@ migration script. Format: what changed, who is affected, the migration action, r
   there are no production users.
 - **Supersedes:** `2026-06-11-normalize-premiumPlusPlan.js` (historical; the `premiumPlusPlan` field
   it normalized no longer exists).
+
+### 2026-06-12 — `emailLower` backfill (non-breaking, MINOR)
+- **What changed:** added `users.emailLower` (lowercased `email`) so Global Search can match email
+  case-insensitively. Written at register going forward; the search email sub-query now uses `emailLower`.
+- **Who is affected:** existing `users` docs lack the field until backfilled; until then, email search falls back
+  to a miss for those docs (uid / name / coachingId still match) — no functional breakage.
+- **Migration action:** run `firestore/migrations/2026-06-12-add-emailLower.js` (dry-run, then `--apply`). It
+  pages all users and sets `emailLower = (email||'').toLowerCase()` where missing or stale (batched ≤400/commit).
+  Idempotent and safe to re-run. No rules/index change (single-field auto-index covers the prefix query).
+- **Rollback:** none needed; the field is additive and unused by older readers. To remove, delete the field via
+  a follow-up script — but there is no reason to.
 
 ### 2026-06-11 — Baseline (no MAJOR; recorded for completeness)
 - **Firestore data migrations shipped (not schema-breaking):**

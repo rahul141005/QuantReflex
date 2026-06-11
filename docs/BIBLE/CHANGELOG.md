@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Email normalization: `users.emailLower` + case-insensitive Global Search (ADR-020 update)
+
+- **Requested change:** Normalize email before the user base grows — add `emailLower` to every user doc,
+  backfill existing records, write all future emails normalized, and migrate Global Search to query `emailLower`.
+- **Impacted systems:** Firestore schema · main-app (register write-path) · Admin (Global Search).
+- **Bible docs updated (FIRST):** FIRESTORE_BLUEPRINT (`users.emailLower` field; Firestore Version 2.6),
+  DECISION_LOG (ADR-020 update — search queries `emailLower`, case-insensitive), VERSIONS (Bible 2.10 / Firestore
+  2.6 + history row + migration note).
+- **Schema delta:** NEW `users.emailLower` (lowercased `email`). Single-field auto-index covers the prefix query
+  (no new composite). **Backfill migration** `firestore/migrations/2026-06-12-add-emailLower.js`.
+- **API delta:** none (no new function). `main-app/api/auth/register.js` now writes `emailLower` on the root user
+  doc. `super-admin system?action=search` email sub-query now does `orderBy('emailLower')` with a lowercased
+  prefix → **case-insensitive email search**; uid / name / coachingId unchanged.
+- **Security review:** `emailLower` is non-sensitive (derived from `email`, both admin-written at register; root
+  `email`/`emailLower` are not client-mutated). No rules change. Search stays `withAdminAuth`.
+- **Version bumps:** Firestore 2.5→2.6, Bible 2.9→2.10 (additive/MINOR). Others unchanged.
+- **Migration:** run `firestore/migrations/2026-06-12-add-emailLower.js` (dry-run → `--apply`). Idempotent.
+- **Verification:** `node --check`; function counts unchanged (super 8 / main 6); search returns case-insensitive
+  email matches after backfill.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-020.
+
+---
+
 ## 2026-06-12 — Super Admin V2: tablet-first governance rebuild — foundation + Command Center (ADR-019/020/021)
 
 - **Requested change:** Redesign super-admin into a tablet-first governance operating system (11" Android tablet,

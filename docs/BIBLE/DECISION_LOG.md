@@ -39,7 +39,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   "search anything" entry point.
 - **Decision:** A single server-side search action — `system?action=search&q=<prefix>` on the cross-domain
   `system` handler — is the **ecosystem search primitive**. This pass implements prefix search over **users**
-  (`email`, `profile.name`, doc-id `uid`, `coachingId`) and **coachings** (doc-id, `name`) via Firestore range
+  (`emailLower` — **case-insensitive**, `profile.name`, doc-id `uid`, `coachingId`) and **coachings** (doc-id, `name`) via Firestore range
   queries (`where(f,'>=',q).where(f,'<=', q + String.fromCharCode(0xf8ff))`), run in parallel, capped per group, deduped — **never a
   client fetch-all**. The action is designed to grow new `scope`s (payments, questions, AI analytics, audit)
   without a new function.
@@ -49,6 +49,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Consequence:** O(prefix) reads instead of O(all-users); one new `?action=` branch (stays 8/12); single search
   surface to extend. Cross-entity fuzzy/relevance ranking is a future enhancement. Documented in GOVERNANCE,
   TECHNICAL_BIBLE, DECISION_LOG.
+- **Update (2026-06-12, email normalization):** Firestore string ordering is case-sensitive, and `users.email`
+  preserves the casing the user typed — so the original email prefix query missed mixed-case matches. Resolved
+  by adding a normalized **`emailLower`** field (lowercased `email`), written at register, backfilled across
+  existing docs, and queried by Global Search with a lowercased prefix → **case-insensitive email search**. Done
+  before the user base grows to avoid a larger backfill later. (Firestore 2.5→2.6; FIRESTORE_BLUEPRINT + migration.)
 
 ## ADR-019 — Super Admin V2: tablet-first information architecture + admin design system (2026-06-12)
 - **Context:** The Super Admin app is operationally sound but architecturally messy: 12 flat nav items,

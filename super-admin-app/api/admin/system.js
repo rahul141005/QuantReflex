@@ -316,16 +316,17 @@ async function handler(req, res) {
     if (action === 'search' && req.method === 'GET') {
       const q = (req.query.q || '').trim();
       if (q.length < 2) return res.status(200).json({ q: q, users: [], coachings: [] });
-      const end = q + String.fromCharCode(0xf8ff); // U+F8FF prefix-range upper bound (ADR-020)
+      const SENT = String.fromCharCode(0xf8ff); // U+F8FF prefix-range upper bound (ADR-020)
+      const end = q + SENT;
+      const qLower = q.toLowerCase();
+      const endLower = qLower + SENT;
       const usersCol = db.collection('users');
       const coachCol = db.collection('coachings');
       const idPath = admin.firestore.FieldPath.documentId();
-      /* NOTE: prefix queries are case-sensitive (Firestore lexical order). Emails are stored as
-         entered (no `emailLower` field today), so email prefix match assumes the admin types the
-         stored casing; uid / name / coachingId still match. Durable fix = a normalized `emailLower`
-         field + backfill (tracked follow-up, ADR-020). */
+      /* Email matches CASE-INSENSITIVELY via the normalized `emailLower` field (ADR-020 + 2026-06-12
+         migration). uid / profile.name / coachingId are matched as stored (case-sensitive). */
       const r = await Promise.all([
-        usersCol.orderBy('email').startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
+        usersCol.orderBy('emailLower').startAt(qLower).endAt(endLower).limit(8).get().catch(function () { return null; }),
         usersCol.orderBy('profile.name').startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
         usersCol.orderBy(idPath).startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
         usersCol.where('coachingId', '==', q).limit(8).get().catch(function () { return null; }),

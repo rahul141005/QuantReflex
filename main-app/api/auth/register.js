@@ -118,6 +118,7 @@ module.exports = async (req, res) => {
     batch.set(userRef, {
       uid: uid,
       email: email,
+      emailLower: (email || '').toLowerCase(), // case-insensitive Global Search key (ADR-020)
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       coachingId: coachingId || null,

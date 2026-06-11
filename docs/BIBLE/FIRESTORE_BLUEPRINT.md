@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.3 · **Firestore Version:** 2.5 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.4 · **Firestore Version:** 2.6 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-11
@@ -23,7 +23,8 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | Field | Type | Default | Writer | Notes |
 |---|---|---|---|---|
 | `uid` | string | — | admin | set at register |
-| `email` | string | — | admin | set at register |
+| `email` | string | — | admin | set at register (preserves the casing entered) |
+| `emailLower` | string | — | admin (register) | **lowercased `email`** — the case-insensitive Global Search key (ADR-020). Set at register; existing docs backfilled 2026-06-12 via `firestore/migrations/2026-06-12-add-emailLower.js`. |
 | `profile` | map `{name, createdAt}` | `{}` | client/admin | display name |
 | `settings` | map | defaults | client | theme, sound, vibration, difficulty, dailyGoal, etc. |
 | `stats` | map | defaults | client | attempts, streaks, categoryStats, mistakes[], responseTimes[], dailyHistory{} |
