@@ -326,29 +326,32 @@ function _contextAccent(featureType) {
 var _COMPARE_ROWS = [
   ['Daily practice questions', '20 / day', 'Unlimited'],
   ['AI explanations', '5 total', 'Unlimited'],
-  ['AI Teaching Assistant', '—', '✓'],
-  ['AI Study Planner', '—', '✓'],
+  ['AI Word Problems', '5 lifetime', '30 / day'],
+  ['AI Coach', '—', '✓'],
+  ['Study Plans', '—', '✓'],
   ['Math Duel', '—', '✓'],
-  ['Performance insights', '—', '✓'],
-  ['Category accuracy', '—', '✓'],
-  ['Mistake review', '—', '✓'],
-  ['Advanced practice modes', '—', '✓'],
-  ['Priority features', '—', '✓'],
-  ['Future premium updates', '—', '✓'],
-  ['Progress analytics', 'Basic', 'Advanced'],
-  ['Accuracy tracking', 'Basic', 'Detailed'],
-  ['Personalized recommendations', '—', '✓']
+  ['Performance Insights', '—', '✓'],
+  ['Category Accuracy', '—', '✓'],
+  ['Mistake Review', '—', '✓'],
+  ['Advanced Practice Modes', '—', '✓'],
+  ['Priority Features', '—', '✓'],
+  ['Future Premium Updates', '—', '✓'],
+  ['Detailed Analytics', 'Basic', 'Advanced'],
+  ['Personalized Recommendations', '—', '✓']
 ];
 
+/* Premium benefits chips (Section 2) */
 var _VALUE_CARDS = [
-  ['⚡', 'Solve calculations faster'],
-  ['🧠', 'Learn shortcuts instantly'],
-  ['📈', 'Track performance growth'],
-  ['🤖', 'Get AI-powered guidance'],
-  ['🏆', 'Practice without limits']
+  ['⚡', 'Unlimited Practice'],
+  ['🤖', 'AI Coach'],
+  ['🧠', 'AI Word Problems'],
+  ['📈', 'Advanced Analytics'],
+  ['🏆', 'Math Duel'],
+  ['📅', 'Study Plans'],
+  ['🎯', 'Personalized Insights']
 ];
 
-var _TRUST = ['🔒 Secure Payments', '⚡ Instant Activation', '🔁 No Auto-Renewal', '↩ Restore Access', '⭐ Trusted by Students'];
+var _TRUST = ['🔒 Secure Payments', '⚡ Instant Activation', '🚫 No Auto-Renewal'];
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -438,11 +441,9 @@ function showPaywall(featureType) {
       '<div class="pw-trust">' + trust + '</div>' +
 
       '<div class="pw-footer">' +
-        '<button class="pw-footer-link pw-continue-free" type="button">Continue Free</button>' +
-        '<button class="pw-footer-link pw-restore" type="button">Restore Access</button>' +
         '<a class="pw-footer-link" href="#terms" data-view="terms">Terms</a>' +
+        '<span class="pw-footer-dot">·</span>' +
         '<a class="pw-footer-link" href="#privacy" data-view="privacy">Privacy</a>' +
-        '<a class="pw-footer-link" href="mailto:support@quantreflex.app">Support</a>' +
       '</div>' +
     '</div>';
 
@@ -482,28 +483,7 @@ function showPaywall(featureType) {
     openPremiumPayment(selected, userId);
   });
 
-  /* Footer actions */
-  var freeBtn = overlay.querySelector('.pw-continue-free');
-  if (freeBtn) freeBtn.addEventListener('click', _closePaywallModal);
-
-  var restoreBtn = overlay.querySelector('.pw-restore');
-  if (restoreBtn) restoreBtn.addEventListener('click', function () {
-    /* Re-check entitlement from server (force token refresh + re-read user doc).
-       Uses refreshFromServer so local settings/progress are NOT wiped. */
-    showToast('Checking your access…');
-    try {
-      var _cu = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
-      if (_cu && _cu.getIdToken) _cu.getIdToken(true).catch(function () {});
-    } catch (_) {}
-    if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.refreshFromServer === 'function') {
-      FirestoreSync.refreshFromServer(function () {
-        if (hasPremiumAccess(_getAccessUserState())) { showToast('Premium restored 🎉'); _closePaywallModal(); }
-        else showToast('No active premium found on this account.');
-      });
-    } else {
-      showToast('Could not check access right now.');
-    }
-  });
+  /* Footer is minimal (Terms · Privacy) — dismissal is via the × / backdrop / Esc. */
 
   _loadRazorpayScript(null);
 }

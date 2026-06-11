@@ -292,6 +292,26 @@ header h1 {
   text-align: center;
 }
 
+/* Sections B & C: comfortable CTA stack — equal, generous vertical spacing
+   between stacked action buttons in centered cards (results + quick-drill setup).
+   Buttons share a uniform width so the stack reads as one modern CTA group. */
+.card.center-content > .btn-primary,
+.card.center-content > .btn-secondary {
+  width: 100%;
+  max-width: 340px;
+}
+.card.center-content > .btn-primary + .btn-primary,
+.card.center-content > .btn-primary + .btn-secondary,
+.card.center-content > .btn-secondary + .btn-primary,
+.card.center-content > .btn-secondary + .btn-secondary {
+  margin-top: 20px;
+}
+.card.center-content > .speed-benchmark-card + .btn-primary,
+.card.center-content > .results-grid + .btn-primary,
+.card.center-content > p + .btn-primary {
+  margin-top: 22px;
+}
+
 /* ---- Study Cards (Home page) ---- */
 .study-card {
   background: #ffffff;
@@ -764,7 +784,7 @@ body.dark-mode .benchmark-loading { color: #a78bfa; }
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .03em;
-  align-self: flex-start;
+  align-self: center; /* Section A: status badge centered under metrics row */
   box-shadow: 0 2px 6px rgba(124,58,237,.3);
 }
 .benchmark-summary {
@@ -9140,6 +9160,75 @@ body.dark-mode .home-bento-action-btn:hover {
   justify-content: flex-end;
 }
 
+/* Section E: Stats premium CTA — dominant, perfectly centered, full-width,
+   equal margins, responsive across all device widths. */
+#aiInsightsContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+#aiInsightsContainer .stats-premium-note {
+  text-align: center;
+  width: 100%;
+  margin: 0 0 .85rem;
+}
+#aiInsightsContainer .stats-premium-cta {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: .95rem 1.25rem;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Section D: AI Coach + Study Plan as matched premium TWIN cards.
+   Identical structure (icon ▸ title ▸ PRO badge ▸ fixed-height desc ▸ filler
+   ▸ CTA), so every row sits on the same horizontal plane side-by-side, and
+   the CTA buttons begin at identical positions regardless of text length.
+   ─────────────────────────────────────────────────────────────────────── */
+.home-twin-card {
+  align-items: stretch;
+  border: 1px solid rgba(124,58,237,0.22);
+  box-shadow: 0 6px 20px rgba(124,58,237,0.10);
+}
+body.dark-mode .home-twin-card {
+  border-color: rgba(167,139,250,0.32);
+  box-shadow: 0 6px 22px rgba(124,58,237,0.22);
+}
+.home-twin-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+}
+.home-twin-head .home-bento-icon-squircle { margin: 0 auto; }
+.home-twin-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+body.dark-mode .home-twin-title { color: #f1f5f9; }
+.home-twin-badge {
+  display: inline-block;   /* its own centered row (Row 3) */
+  margin: 0 auto;
+}
+.home-twin-desc {
+  margin: 0;
+  min-height: 2.6em;       /* fixed area → CTAs align even if text wraps */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+/* CTA pinned to the bottom of each twin (Row 5) via the flex:1 container */
+.home-twin-card #aiCoachContainer,
+.home-twin-card #aiStudyPlanContainer { padding-top: 0.25rem; }
+
 .ai-coach-body {
   display: flex;
   flex-direction: column;
@@ -10027,17 +10116,20 @@ body.dark-mode .sp-slider-val {
 }
 
 /* Value cards */
+/* Section 2: premium benefit chips — visual, scannable, centered */
 .pw-values {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: 1rem 0 .25rem;
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: .5rem; margin: 1.1rem 0 .35rem;
 }
 .pw-value {
-  display: flex; align-items: center; gap: .55rem;
-  padding: .6rem .7rem; border-radius: .7rem;
-  background: #f8fafc; border: 1px solid #eef2f7;
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem .8rem; border-radius: 999px;
+  background: linear-gradient(135deg, rgba(37,99,235,.08), rgba(124,58,237,.08));
+  border: 1px solid rgba(124,58,237,.18);
 }
-.pw-value:nth-child(5) { grid-column: 1 / -1; }
-.pw-value-icon { font-size: 1.2rem; line-height: 1; }
-.pw-value-text { font-size: .84rem; font-weight: 600; color: #334155; }
+.pw-value-icon { font-size: 1rem; line-height: 1; }
+.pw-value-text { font-size: .82rem; font-weight: 700; color: #334155; white-space: nowrap; }
+.pw-footer-dot { color: #cbd5e1; font-weight: 700; }
 
 /* Comparison matrix */
 .pw-compare-wrap { margin: 1.1rem 0 .35rem; border: 1px solid #e8edf3; border-radius: .8rem; overflow: hidden; }
@@ -10064,8 +10156,13 @@ body.dark-mode .sp-slider-val {
 }
 .pw-plan:hover { border-color: #cbd5e1; }
 .pw-plan--active {
-  border-color: #2563eb; background: linear-gradient(180deg, #f5f9ff, #fff);
-  box-shadow: 0 6px 22px rgba(37,99,235,.22); transform: translateY(-2px);
+  border-color: #2563eb; background: linear-gradient(180deg, #eef5ff, #fff);
+  box-shadow: 0 0 0 1px #2563eb, 0 10px 28px rgba(37,99,235,.34); /* brighter border + stronger glow */
+  transform: translateY(-3px);
+}
+body.dark-mode .pw-plan--active {
+  background: linear-gradient(180deg, #0b1b35, #0f172a); border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6, 0 10px 30px rgba(59,130,246,.45);
 }
 .pw-plan-badge {
   position: absolute; top: -.6rem; left: 50%; transform: translateX(-50%);
@@ -10118,8 +10215,8 @@ body.dark-mode .sp-slider-val {
 }
 
 /* Dark mode */
-body.dark-mode .pw-value { background: #0f172a; border-color: #1e293b; }
-body.dark-mode .pw-value-text { color: #cbd5e1; }
+body.dark-mode .pw-value { background: linear-gradient(135deg, rgba(37,99,235,.18), rgba(124,58,237,.18)); border-color: rgba(167,139,250,.32); }
+body.dark-mode .pw-value-text { color: #e2e8f0; }
 body.dark-mode .pw-hero-sub { color: #94a3b8; }
 body.dark-mode .pw-context { background: rgba(37,99,235,.12); border-color: rgba(37,99,235,.35); color: #bfdbfe; }
 body.dark-mode .pw-compare-wrap { border-color: #1e293b; }

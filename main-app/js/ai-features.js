@@ -1,6 +1,6 @@
 var AIFeatures = (function () {
   var WP_FREE_LIMIT = 5;
-  var WP_PREMIUM_DAILY_LIMIT = 25;
+  var WP_PREMIUM_DAILY_LIMIT = 30;
   var COACH_CACHE_HOURS = 24;
 
   var _wpInFlight = false;
@@ -731,7 +731,7 @@ var AIFeatures = (function () {
       startBtn.disabled = true;
       startBtn.textContent = quota.type === 'lifetime' ? '🔒 Free limit reached' : 'Daily limit reached';
       if (quota.type === 'lifetime') {
-        errorEl.textContent = 'Upgrade to Premium for 25 AI questions per day.';
+        errorEl.textContent = 'Upgrade to Premium for 30 AI questions per day.';
         errorEl.style.display = 'block';
       }
     }
@@ -771,7 +771,7 @@ var AIFeatures = (function () {
             errorEl.textContent = 'You\'ve used all 5 free AI questions. Upgrade to Premium for more.';
             if (typeof showPaywall === 'function') showPaywall('ai_explain');
           } else if (err === 'daily_limit_reached') {
-            errorEl.textContent = 'You\'ve reached today\'s limit of 25 AI questions. Come back tomorrow!';
+            errorEl.textContent = 'You\'ve reached today\'s limit of 30 AI questions. Come back tomorrow!';
           } else if (err === 'request_in_progress') {
             errorEl.textContent = 'A request is already in progress. Please wait.';
           } else if (err === 'rate_limited') {

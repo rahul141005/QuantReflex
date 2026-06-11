@@ -203,7 +203,7 @@ async function activatePremium(uid, planType, paymentId, orderId) {
 }
 
 var WP_FREE_LIMIT = 5;
-var WP_PREMIUM_DAILY = 25;
+var WP_PREMIUM_DAILY = 30;
 var MAX_QUESTION_LENGTH = 300;
 var usageCache = {};
 
