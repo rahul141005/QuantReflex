@@ -21,9 +21,11 @@ questions/{auto-id}
 | `options` | number[] | ❌ | `[]` | MCQ options (empty for open-answer) |
 | `answer` | number | ✅ | — | Correct numeric answer |
 | `explanation` | string | ❌ | `""` | Step-by-step solution explanation |
-| `approved` | boolean | ❌ | `false` | Admin approval status |
-| `status` | string | ✅ | `'draft'` | `'draft'`, `'active'`, or `'archived'` |
+| `approved` | boolean | ❌ | `true` | Admin approval status. Server `create`/`import` default `true`; the UI derives `approved = (status === 'active')`. Students see only `approved !== false`. |
+| `status` | string | ✅ | `'active'` | `'draft'`, `'active'`, or `'archived'`. Lifecycle `draft → active → archived`. Only `'active'` (+ `approved !== false`) is served to students; `'archived'` = unpublished (soft-delete). Server `create`/`import` default to `'active'` (auto-publish). |
 | `premiumOnly` | boolean | ❌ | `false` | Premium-gated content |
+| `createdAt` | ISO string | ✅ | (set on write) | Creation timestamp, set by `create`/`import` |
+| `updatedAt` | ISO string | ❌ | (set on edit) | Last-edit timestamp — set by `action=update`/`archive` (Phase 5, ADR-018); absent on pre-Phase-5 docs (and on hard-`delete`, which removes the doc) |
 
 ## Topic Keys
 
@@ -42,8 +44,18 @@ questions/{auto-id}
 
 ## Write Authority
 
-- **Super Admin Panel**: Creates, edits, and manages questions via `/api/admin/questions` and `/api/admin/questions-import`
-- **AI Generation**: Super Admin generates draft questions via `/api/admin/generate-question` (OpenAI)
+All writes go through the consolidated `/api/admin/questions` handler (Admin SDK; `withAdmin` + immutable
+`auditLogs`). Actions (ADR-017 consolidation + Phase 5 ADR-018 CRUD):
+
+- `?action=list` (GET) — read (newest 500; optional client-side `topic`/`status`/`difficulty` filter)
+- `?action=list` (POST) — **create** a single question
+- `?action=update` (POST) — **edit in place** by `id` (sets `updatedAt`; fixes the prior bug where editing created a duplicate doc)
+- `?action=archive` (POST) — **soft-unpublish** by `id` (`status:'archived'`)
+- `?action=delete` (POST) — **hard delete** by `id` (requires `confirm:'DELETE'`)
+- `?action=generate` (POST) — **AI-draft** a question via OpenAI (returns a draft; not persisted until saved)
+- `?action=import` (POST) — **bulk create** (≤500 per batch)
+
+Every mutation writes one immutable `auditLogs` row (`category:'content'`; `generate` uses `category:'ai'`).
 
 ## Read Authority
 

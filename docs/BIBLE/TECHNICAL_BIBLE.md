@@ -1,8 +1,8 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.3 · **Architecture Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.4 · **Architecture Version:** 2.5 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-12
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
 
 Companion documents (start at [README.md](README.md)):
@@ -38,7 +38,7 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
 | `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|insights\|study-plan), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `auth/register` (public), `validate-coaching` (public) |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions`, `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated) |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated) |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 

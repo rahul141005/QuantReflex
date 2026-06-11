@@ -70,6 +70,8 @@
         <a href="#system" class="nav-item" data-view="system">System</a>
         <a href="#notifications" class="nav-item" data-view="notifications">Notifications</a>
         <a href="#exports" class="nav-item" data-view="exports">Exports</a>
+        <a href="#security" class="nav-item" data-view="security">Security</a>
+        <a href="#firestore" class="nav-item" data-view="firestore">Firestore Ops</a>
       </nav>
       <div class="sidebar-footer">
         <button id="logoutBtn" class="btn btn-outline" style="width:100%;">Logout</button>
@@ -88,6 +90,8 @@
       <div id="view-system" class="view"></div>
       <div id="view-notifications" class="view"></div>
       <div id="view-exports" class="view"></div>
+      <div id="view-security" class="view"></div>
+      <div id="view-firestore" class="view"></div>
     </main>
 
   </div>
@@ -127,6 +131,7 @@
   <!-- App Scripts (layered like main app) -->
   <script src="js/state/store.js"></script>
   <script src="js/firebase/firebase.js"></script>
+  <script src="js/firebase/security-events.js"></script>
   <script src="../shared/validation/auth-validators.js"></script>
   <script src="js/firebase/auth.js"></script>
   <script src="js/services/api.js"></script>
@@ -144,6 +149,8 @@
   <script src="js/views/system.js"></script>
   <script src="js/views/notifications.js"></script>
   <script src="js/views/exports.js"></script>
+  <script src="js/views/security.js"></script>
+  <script src="js/views/firestore-ops.js"></script>
   <script src="js/app.js"></script>
 
   <!-- Service Worker Registration -->

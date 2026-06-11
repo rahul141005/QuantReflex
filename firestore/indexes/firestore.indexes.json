@@ -99,6 +99,14 @@
         { "fieldPath": "accountStatus", "order": "ASCENDING" },
         { "fieldPath": "purgeAfter", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "securityEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

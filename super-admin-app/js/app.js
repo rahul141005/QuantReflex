@@ -38,7 +38,7 @@ var App = (function () {
 
   function _handleRoute() {
     var hash = (window.location.hash || '#dashboard').substring(1);
-    var views = ['dashboard', 'users', 'inactive', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications', 'exports'];
+    var views = ['dashboard', 'users', 'inactive', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications', 'exports', 'security', 'firestore'];
     if (views.indexOf(hash) === -1) hash = 'dashboard';
 
     // Update state
@@ -69,6 +69,8 @@ var App = (function () {
     if (hash === 'ai') AIAnalyticsView.render();
     if (hash === 'notifications') NotificationsView.render();
     if (hash === 'exports' && typeof ExportsView !== 'undefined') ExportsView.render();
+    if (hash === 'security' && typeof SecurityView !== 'undefined') SecurityView.render();
+    if (hash === 'firestore' && typeof FirestoreOpsView !== 'undefined') FirestoreOpsView.render();
   }
 
   /* ---- Login Form ---- */

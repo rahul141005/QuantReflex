@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-018 — Super Admin Control Center Phase 5: Security Center + Firestore-Ops + Content Management (2026-06-12)
+- **Context:** Phase 5 is the final scoped installment of the Control Center program (ROADMAP): a Security
+  Center (explicitly "needs new failed-login capture"), Firestore-Ops (collection sizes/growth), and Content
+  Management (real CRUD over `questions`). It also unblocks the two alerts Phase 4 (ADR-016) deferred for lack
+  of data: payment-failure-spike and Firestore-growth-spike. Binding constraints: Vercel Free 12-function cap
+  (super-admin at 8 — must add **zero** new `api/*.js`), Firebase Spark (no Cloud Functions → no Auth-trigger
+  for failed logins; cron stays once/day), and Bible-first governance.
+- **Decision:**
+  1. **Failed-login capture is client-side** (Spark has no auth triggers) into a new append-only
+     `securityEvents` collection, written from the login error paths of all three apps via a small inline-copied
+     `SecurityEvents.record()` helper. **Write-path:** a *direct* client write guarded by a hardened Firestore
+     rule (fixed key allowlist, `type` allowlist, `createdAt == request.time` to block backdating, **SHA-256
+     `emailHash` — never the raw email, never the password**, size-capped strings; admin-only read;
+     update/delete denied). Server-observed failures (payment) are written via the Admin SDK (bypasses rules).
+  2. **Zero new functions.** Security Center read = `system.js?action=security`; Firestore-Ops =
+     `system.js?action=firestore-ops`; the two new alerts fold into `system.js?action=alerts`; collection-growth
+     history folds into `_lib/metrics.js#computeDailySnapshot` (`collectionCounts`, persisted by the existing
+     daily `cron/sweep`). Content Management extends the existing `questions` handler/view (no parallel surface).
+  3. **Content Management** adds `questions?action=update|archive|delete` (fixing the silent-duplication bug
+     where editing created a new doc), a shared validate/normalize helper, an `updatedAt` field, and Table
+     edit/archive/delete actions. `delete` requires `confirm:'DELETE'`; every mutation writes `auditLogs`
+     (`category:'content'`); soft-archive (`status:'archived'`) is preferred over hard delete.
+- **Security trade-off (explicit):** the `securityEvents` create rule must allow an *unauthenticated* write
+  (a failed login has `request.auth == null`). With Firebase App Check not yet enabled (tracked debt M7), this
+  is an open—but shape-bounded—write surface. It is acceptable pre-launch because (a) Firebase Auth's own
+  `auth/too-many-requests` throttles brute force at the platform level, so an attacker cannot generate unbounded
+  *login* events; (b) the rule forbids raw PII, backdating, arbitrary shapes, and any read; (c) the Security
+  Center treats the `emailHash`/`reason` as untrusted. **Enabling App Check (M7) is the documented hardening
+  follow-up** and would let the rule additionally require attestation.
+- **Options considered:** (a) server endpoint (per-IP rate-limited) for the failed-login write — rejected as the
+  default because it adds a function and still consumes the same Spark write quota; kept as the App-Check-era
+  upgrade path. (b) one aggregate counter doc per day instead of one doc per event — rejected: loses per-event
+  forensic detail and hits single-doc write contention; event volume is already bounded by Firebase Auth
+  throttling. (c) a separate `content` collection/view — rejected: would duplicate and drift from `questions`.
+- **Consequence:** super-admin stays at **8/12** functions; one new collection (`securityEvents`) + one composite
+  index; `questions` gains `updatedAt`; `metrics` gains `collectionCounts`. Additive across Firestore + Security
+  tracks (MINOR). Firestore 2.3→2.4, Security 2.2→2.3, Bible 2.7→2.8. No data migration.
+
 ## ADR-017 — API Consolidation Strategy: domain-based action-routed handlers under the Vercel Free cap (2026-06-12)
 - **Context:** QuantReflex deploys on Vercel Free (Hobby), which caps a deployment at **12 Serverless Functions
   per project** (every `api/*.js` = one function; `api/_lib/**` excluded). An audit found super-admin-app at

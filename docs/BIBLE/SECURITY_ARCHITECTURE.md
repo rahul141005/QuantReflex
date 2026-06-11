@@ -1,8 +1,8 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.1 · **Security Version:** 2.1 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.2 · **Security Version:** 2.3 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-12
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
 
 Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
@@ -49,6 +49,7 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `duels/{id}` | participant \| joinable status \| target | authed creator, valid initial status | participant/joiner + `validDuelUpdate()` | denied (soft-delete) |
 | `payments/{id}` | owner | denied (admin) | denied (admin) | owner |
 | `auditLogs/{id}` | `admin:true` only | **denied** | **denied** | **denied** (Admin-SDK-write only; immutable) |
+| `securityEvents/{id}` | `admin:true` only | **shape-validated** `validSecurityEvent()` — key allowlist, `type` allowlist, `createdAt == request.time`, capped strings; **unauthenticated create allowed** (failed logins have no auth) | **denied** | **denied** (append-only; ADR-018, see §6 SEC1) |
 | `aiInsights`/`aiStudyPlans` | owner | denied (admin) | denied (admin) | owner |
 | `notificationLogs`/`scheduledNotices` | denied | denied | denied | denied |
 | `duelInvitations` | denied | denied | denied | denied |
@@ -115,9 +116,21 @@ data mutations.
 |---|---|---|---|
 | H3 | `/api/auth/register` rate limit | **Fixed 2026-06-11** — per-IP in-memory limit (10/hr/IP) added; CORS `*` retained | For a hard global cap, add App Check / captcha / shared counter |
 | H2 | AI word-problem quota atomicity | **Fixed 2026-06-11** — `consumeWordProblemQuota` now Firestore-transactional, returns granted count | — |
+| SEC1 | `securityEvents` capture (Phase 5, ADR-018) | **Added 2026-06-12** — client-side failed-login / suspicious-access / admin-login + server-side payment-failure events into an append-only collection; hardened rule `validSecurityEvent()` (key allowlist, `type` allowlist, server-clock `createdAt`, **SHA-256 `emailHash` only — no raw email/password**, size caps, admin-only read, immutable) | Abuse surface is **bounded** (no PII, no backdating, no reads, fixed shape) and login-event volume is throttled by Firebase Auth's own `auth/too-many-requests`. **Enabling App Check (M7) is the hardening follow-up** to attest the unauthenticated create. |
 | M6 | Global rate limiting | per-instance only (now applied uniformly across user/admin/register) | **Infra task** — a true global cap needs a Firestore/Redis shared counter or App Check; not a code defect. |
-| M7 | Firebase App Check | **not enabled** | **Infra/console task** — enable in Firebase console + add SDK init; not fixable in repo logic alone. |
+| M7 | Firebase App Check | **not enabled** | **Infra/console task** — enable in Firebase console + add SDK init; not fixable in repo logic alone. **Also the hardening follow-up for the Phase-5 `securityEvents` unauthenticated-create rule (SEC1).** |
 | — | Duel `waiting` read scope | broad | tighten if content sensitive |
+
+**`securityEvents` write-path rationale (ADR-018).** Firebase Spark has no Auth-trigger Cloud Functions, so a
+failed login (which happens with `request.auth == null`) can only be captured by a **client-side write**. We
+chose a *direct* client write into `securityEvents` over a public per-IP-rate-limited serverless endpoint to
+honour the Vercel-Free zero-new-function rule (ADR-017) and because a server endpoint would consume the same
+Spark Firestore write quota anyway. Abuse is bounded by the hardened create rule (`validSecurityEvent()`):
+unauthenticated callers may only append well-shaped, server-timestamped, PII-free docs they cannot read back.
+Residual risk (write-quota flooding while App Check is off, M7) is accepted pre-launch: the Security Center
+treats `emailHash`/`reason` as untrusted, and Firebase Auth throttles the underlying login attempts. The
+documented upgrade path is **App Check (M7)** + optionally moving the write behind the existing public-endpoint
+pattern (`main-app/api/auth/register.js`) once a function slot is justified.
 
 ## 7. Secrets
 

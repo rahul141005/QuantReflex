@@ -11,6 +11,7 @@ var AdminAuth = (function () {
   var _currentUser = null;
   var _authReady = false;
   var _authReadyCallbacks = [];
+  var _freshLogin = false; /* true only between an interactive login() and the next onAuthStateChanged (Phase 5) */
 
   function init() {
     if (typeof firebase === 'undefined' || !firebase.auth) {
@@ -28,6 +29,7 @@ var AdminAuth = (function () {
 
       if (user) {
         if (user.email !== 'quantreflex@gmail.com') {
+          if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: user.email, uid: user.uid, reason: 'unauthorized_email_authed' });
           _showLoginError('Unauthorized email address.');
           logout();
           _finishAuthReady(user);
@@ -36,9 +38,12 @@ var AdminAuth = (function () {
 
         user.getIdTokenResult(false).then(function (tokenResult) {
           if (tokenResult && tokenResult.claims && tokenResult.claims.admin === true) {
+            if (_freshLogin && typeof SecurityEvents !== 'undefined') SecurityEvents.record('admin_login', { email: user.email, uid: user.uid, reason: 'admin_login_success' });
+            _freshLogin = false;
             AdminState.set({ user: user, isAdmin: true });
             _showApp();
           } else {
+            if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: user.email, uid: user.uid, reason: 'non_admin_access' });
             _showLoginError('Access denied. Admin privileges required.');
             logout();
           }
@@ -68,12 +73,14 @@ var AdminAuth = (function () {
   function login(email, password) {
     _hideLoginError();
     if (email !== 'quantreflex@gmail.com') {
+      if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: email, reason: 'unauthorized_email' });
       _showLoginError('Unauthorized email address.');
       return;
     }
     
     // Check if the password provided is strictly the permitted one
     if (password !== 'pass@iON2203') {
+       if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: email, reason: 'invalid_admin_credentials' });
        _showLoginError('Invalid credentials.');
        return;
     }
@@ -83,7 +90,9 @@ var AdminAuth = (function () {
       return;
     }
 
+    _freshLogin = true;
     _auth.signInWithEmailAndPassword(email, password).catch(function(err) {
+      if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('failed_login', { email: email, errorCode: err && err.code, reason: 'admin_login_failed' });
       _showLoginError(err.message);
     });
   }

@@ -1,15 +1,82 @@
 const { withAdmin, db, admin } = require('../_lib/firebase-admin');
 const { writeAuditLog } = require('../_lib/audit');
 
+const _DIFFICULTIES = ['easy', 'medium', 'hard'];
+const _STATUSES = ['draft', 'active', 'archived'];
+
+/**
+ * Validate + normalize a question body (shared by create + update — Phase 5, ADR-018).
+ * `partial=true` (update): only the provided fields are validated/returned.
+ * `partial=false` (create): all required fields must be present and defaults applied.
+ * Enforces difficulty/status enums and answer∈options integrity (when both are in the
+ * resulting field set) so unsolvable questions never reach students.
+ * Returns { error: '<message>' } or { fields: {<normalized>} }.
+ */
+function _normalizeQuestion(body, partial) {
+  body = body || {};
+  const out = {};
+  const has = function (k) { return body[k] !== undefined && body[k] !== null; };
+
+  if (!partial || has('topic')) {
+    if (!body.topic || typeof body.topic !== 'string' || !body.topic.trim()) return { error: 'topic is required.' };
+    out.topic = String(body.topic).trim().slice(0, 80);
+  }
+  if (!partial || has('difficulty')) {
+    if (_DIFFICULTIES.indexOf(body.difficulty) === -1) return { error: 'difficulty must be easy, medium, or hard.' };
+    out.difficulty = body.difficulty;
+  }
+  if (!partial || has('question')) {
+    if (!body.question || typeof body.question !== 'string' || !body.question.trim()) return { error: 'question text is required.' };
+    out.question = String(body.question).slice(0, 2000);
+  }
+  if (!partial || has('answer')) {
+    const ans = Number(body.answer);
+    if (!isFinite(ans)) return { error: 'answer must be a number.' };
+    out.answer = ans;
+  }
+  if (!partial || has('options')) {
+    out.options = Array.isArray(body.options) ? body.options.map(Number).filter(function (n) { return isFinite(n); }) : [];
+  }
+  if (has('explanation')) out.explanation = String(body.explanation).slice(0, 4000);
+  else if (!partial) out.explanation = '';
+  if (has('type')) out.type = String(body.type).slice(0, 40);
+  else if (!partial) out.type = 'word_problem';
+  if (has('status')) {
+    if (_STATUSES.indexOf(body.status) === -1) return { error: 'status must be draft, active, or archived.' };
+    out.status = body.status;
+  } else if (!partial) out.status = 'active';
+  if (has('premiumOnly')) out.premiumOnly = !!body.premiumOnly;
+  else if (!partial) out.premiumOnly = false;
+  if (has('approved')) out.approved = !!body.approved;
+  else if (!partial) out.approved = (out.status === 'active');
+
+  /* answer-in-options integrity (only when both are part of THIS write). */
+  if (out.options !== undefined && out.options.length > 0 && out.answer !== undefined && out.options.indexOf(out.answer) === -1) {
+    return { error: 'answer must be one of the numeric options.' };
+  }
+  return { fields: out };
+}
+
 module.exports = withAdmin(async function (req, res) {
   const action = req.query.action || 'list';
 
   if (action === 'list' && req.method === 'GET') {
     try {
-      const snapshot = await db.collection('questions').orderBy('createdAt', 'desc').limit(100).get();
+      /* Newest-first; optional client-supplied topic/status/difficulty filter applied in
+         code (avoids a [filter + createdAt] composite index). Bumped 100→500 for Content
+         Management (Phase 5, ADR-018); pagination is a future upgrade for very large banks. */
+      const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit || '500', 10)));
+      const snapshot = await db.collection('questions').orderBy('createdAt', 'desc').limit(limit).get();
+      const fTopic = req.query.topic || '';
+      const fStatus = req.query.status || '';
+      const fDiff = req.query.difficulty || '';
       const questions = [];
       snapshot.forEach(function (doc) {
-        questions.push({ id: doc.id, ...doc.data() });
+        const d = doc.data();
+        if (fTopic && d.topic !== fTopic) return;
+        if (fStatus && (d.status || 'active') !== fStatus) return;
+        if (fDiff && d.difficulty !== fDiff) return;
+        questions.push({ id: doc.id, ...d });
       });
 
       return res.status(200).json({ questions: questions });
@@ -21,35 +88,98 @@ module.exports = withAdmin(async function (req, res) {
 
   if (action === 'list' && req.method === 'POST') {
     try {
-      const { type, topic, difficulty, question, options, answer, explanation, approved, status, premiumOnly } = req.body;
-      
-      if (!topic || !difficulty || !question || answer === undefined) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
+      const norm = _normalizeQuestion(req.body, false);
+      if (norm.error) return res.status(400).json({ error: norm.error });
 
-      const payload = {
-        type: type || 'word_problem',
-        topic: topic,
-        difficulty: difficulty,
-        question: question,
-        options: options || [],
-        answer: Number(answer),
-        explanation: explanation || '',
-        approved: approved !== undefined ? !!approved : true,
-        status: status || 'active',
-        premiumOnly: !!premiumOnly,
-        createdAt: new Date().toISOString()
-      };
-
+      const payload = Object.assign({}, norm.fields, { createdAt: new Date().toISOString() });
       const docRef = await db.collection('questions').add(payload);
       await writeAuditLog(db, {
         actorUid: req.userId, actorEmail: req.adminEmail,
         action: 'create_question', category: 'content', targetType: 'question', targetId: docRef.id,
-        summary: 'created question (' + topic + ' / ' + difficulty + ')'
+        summary: 'created question (' + payload.topic + ' / ' + payload.difficulty + ')'
       });
       return res.status(200).json({ success: true, question: { id: docRef.id, ...payload } });
     } catch (error) {
       console.error('[questions] POST Error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /* ── update (Phase 5, ADR-018) — edit in place by id; fixes the prior bug where editing created a duplicate ── */
+  if (action === 'update' && req.method === 'POST') {
+    try {
+      const id = req.body && req.body.id;
+      if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Missing question id' });
+      const norm = _normalizeQuestion(req.body, true);
+      if (norm.error) return res.status(400).json({ error: norm.error });
+      const ref = db.collection('questions').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'Question not found' });
+      const before = snap.data();
+      /* answer∈options integrity across the MERGE: validate the effective post-update
+         pair, since a partial update may change only one of answer/options. */
+      const effAnswer = ('answer' in norm.fields) ? norm.fields.answer : before.answer;
+      const effOptions = ('options' in norm.fields) ? norm.fields.options : before.options;
+      if (Array.isArray(effOptions) && effOptions.length > 0 && typeof effAnswer === 'number' && effOptions.indexOf(effAnswer) === -1) {
+        return res.status(400).json({ error: 'answer must be one of the numeric options.' });
+      }
+      const update = Object.assign({}, norm.fields, { updatedAt: new Date().toISOString() });
+      await ref.set(update, { merge: true });
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'update_question', category: 'content', targetType: 'question', targetId: id,
+        summary: 'edited question ' + id,
+        before: { topic: before.topic, difficulty: before.difficulty, status: before.status, premiumOnly: before.premiumOnly },
+        after: norm.fields
+      });
+      return res.status(200).json({ success: true, id: id });
+    } catch (error) {
+      console.error('[questions] UPDATE Error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /* ── archive (Phase 5, ADR-018) — soft unpublish (status:'archived'; hidden from students) ── */
+  if (action === 'archive' && req.method === 'POST') {
+    try {
+      const id = req.body && req.body.id;
+      if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Missing question id' });
+      const ref = db.collection('questions').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'Question not found' });
+      await ref.set({ status: 'archived', updatedAt: new Date().toISOString() }, { merge: true });
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'archive_question', category: 'content', targetType: 'question', targetId: id,
+        summary: 'archived (unpublished) question ' + id
+      });
+      return res.status(200).json({ success: true, id: id });
+    } catch (error) {
+      console.error('[questions] ARCHIVE Error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  /* ── delete (Phase 5, ADR-018) — hard delete; requires confirm:'DELETE' (destructive-action posture) ── */
+  if (action === 'delete' && req.method === 'POST') {
+    try {
+      const id = req.body && req.body.id;
+      if (!id || typeof id !== 'string') return res.status(400).json({ error: 'Missing question id' });
+      if (req.body.confirm !== 'DELETE') return res.status(400).json({ error: { code: 'CONFIRM_REQUIRED', message: 'Pass confirm:"DELETE" to permanently delete a question. Prefer archive for a reversible unpublish.' } });
+      const ref = db.collection('questions').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'Question not found' });
+      const before = snap.data();
+      await ref.delete();
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail,
+        action: 'delete_question', category: 'content', targetType: 'question', targetId: id,
+        summary: 'permanently deleted question ' + id + ' (' + (before.topic || '?') + ' / ' + (before.difficulty || '?') + ')',
+        before: { topic: before.topic, difficulty: before.difficulty, status: before.status }
+      });
+      return res.status(200).json({ success: true, id: id });
+    } catch (error) {
+      console.error('[questions] DELETE Error:', error);
       return res.status(500).json({ error: error.message });
     }
   }

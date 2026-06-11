@@ -322,6 +322,37 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // SECURITY EVENTS COLLECTION (ADR-018) — append-only
+    // ════════════════════════════════════════════
+    // Client-side capture of login security events (failed logins, suspicious
+    // access, admin logins). Firebase Spark has no Auth-trigger Cloud Functions,
+    // so capture is a constrained CLIENT write. Create is allowed even when
+    // UNAUTHENTICATED (a failed login has request.auth == null), but the doc is
+    // strictly shape-validated: a fixed key set, an allow-listed `type`, a
+    // server-clock `createdAt` (no backdating), and size-capped strings (only a
+    // SHA-256 emailHash — never the raw email or password). Read is admin-only;
+    // update/delete denied (immutable). Server-side captures (payment_failure)
+    // use the Admin SDK and bypass these rules. See SECURITY_ARCHITECTURE §6
+    // (SEC1) — App Check (M7) is the documented hardening follow-up.
+    function validSecurityEvent() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['type', 'app', 'emailHash', 'reason', 'errorCode', 'uid', 'userAgent', 'createdAt'])
+        && d.type in ['failed_login', 'suspicious_access', 'admin_login', 'payment_failure']
+        && d.app in ['main', 'super-admin', 'coaching']
+        && d.createdAt == request.time
+        && (!('emailHash' in d) || d.emailHash == null || (d.emailHash is string && d.emailHash.size() <= 64))
+        && (!('reason' in d)    || d.reason == null    || (d.reason is string    && d.reason.size() <= 120))
+        && (!('errorCode' in d) || d.errorCode == null || (d.errorCode is string && d.errorCode.size() <= 60))
+        && (!('uid' in d)       || d.uid == null       || (d.uid is string       && d.uid.size() <= 128))
+        && (!('userAgent' in d) || d.userAgent == null || (d.userAgent is string && d.userAgent.size() <= 300));
+    }
+    match /securityEvents/{eventId} {
+      allow read: if request.auth != null && request.auth.token.admin == true;
+      allow create: if validSecurityEvent();
+      allow update, delete: if false;
+    }
+
+    // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════
     match /{document=**} {

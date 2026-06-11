@@ -68,7 +68,11 @@ version bump.)_
   archive→30-day-hold→permanent-delete workflow + `cleanup-sweep` cron + Auth-user removal. **Phase 3 ✅ (2026-06-12, ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget +
   warn/critical thresholds), month-to-date spend + linear projection + status, usage-based AI abuse flags. **Phase 4 ✅ (2026-06-12, ADR-016):** Export Center (authenticated CSV — users/premium/coachings/revenue/
   AI-usage/inactive) + Alert Center (AI budget / expired-premium / stale duels / pending purges) on the
-  Dashboard. _Deferred (need new instrumentation): payment-failure-spike + Firestore-growth-spike alerts._
-  **Phase 5:** Security Center (needs new failed-login capture) + Firestore-ops (collection sizes/growth) +
-  Content Management. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze
-  dependency.
+  Dashboard. **Phase 5 ✅ (2026-06-12, ADR-018):** Security Center (client-side failed-login / suspicious-access /
+  admin-login capture → append-only `securityEvents`; 24h counters + posture + recent feed) + Firestore-Ops
+  (per-collection `count()` sizes + daily growth series from `metrics.collectionCounts`) + Content Management
+  (`questions` CRUD — update/archive/delete, fixes the edit-duplication bug, adds `updatedAt`, all audited).
+  Unblocked the two Phase-4 deferred alerts (payment-failure-spike + Firestore-growth-spike) into the Alert
+  Center. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze dependency.
+  **Hardening follow-up (tracked, M7):** enable Firebase App Check to attest the unauthenticated `securityEvents`
+  capture write — see SECURITY_ARCHITECTURE §6.

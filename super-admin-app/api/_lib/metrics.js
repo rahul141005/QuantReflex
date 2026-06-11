@@ -73,6 +73,16 @@ async function computeDailySnapshot(db) {
   const aiSnap = await db.collection('systemMetrics').doc('ai_daily_' + dayKey).get();
   const ai = aiSnap.exists ? aiSnap.data() : {};
 
+  /* Per-collection sizes for the Firestore-Ops growth series (Phase 5, ADR-018).
+     count() aggregation — server-side, not document reads. Each wrapped so a missing
+     or denied collection yields null instead of failing the whole snapshot. */
+  const opsCols = ['users', 'questions', 'duels', 'payments', 'coachings', 'auditLogs', 'securityEvents'];
+  const collectionCounts = {};
+  await Promise.all(opsCols.map(async function (c) {
+    try { collectionCounts[c] = (await db.collection(c).count().get()).data().count; }
+    catch (_) { collectionCounts[c] = null; }
+  }));
+
   return {
     date: dayKey,
     totalUsers: totalUsers,
@@ -90,6 +100,7 @@ async function computeDailySnapshot(db) {
     totalTokensOutput: ai.totalTokensOutput || 0,
     estimatedCostUSD: Number(ai.estimatedCostUSD || 0),
     gptCalls: ai.gptCalls || 0,
+    collectionCounts: collectionCounts,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
 }

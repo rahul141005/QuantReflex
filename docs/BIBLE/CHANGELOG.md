@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin Control Center, Phase 5: Security Center + Firestore-Ops + Content Management (ADR-018)
+
+- **Requested change:** Deliver the final Control Center phase — a Security Center (with new failed-login
+  capture), Firestore-Ops (collection sizes/growth), and Content Management — and unblock the two alerts Phase 4
+  deferred (payment-failure-spike, Firestore-growth-spike).
+- **Impacted systems:** Admin · Security · Content · all three client apps (login capture) · APIs · Firestore.
+- **Bible docs updated (FIRST):** DECISION_LOG (ADR-018), FIRESTORE_BLUEPRINT (`securityEvents` collection +
+  composite index + `metrics.collectionCounts` + `questions.updatedAt`; Firestore Version 2.4),
+  SECURITY_ARCHITECTURE (rules-table row + §6 SEC1 + write-path rationale; Security Version 2.3), TECHNICAL_BIBLE
+  §3 (new actions), VERSIONS (Bible 2.8 / Firestore 2.4 / Security 2.3 + history row), ROADMAP (Phase 5 → done),
+  `firestore/schema-docs/questions-collection.md`.
+- **Schema delta:** NEW `securityEvents/{auto}` (append-only; admin-read; hardened unauthenticated create). NEW
+  `questions.updatedAt` (ISO). NEW `metrics.collectionCounts{users,questions,duels,payments,coachings,auditLogs,securityEvents}`.
+  NEW composite index `securityEvents (type ASC, createdAt DESC)`. No data migration (all additive; absent fields
+  tolerated on pre-Phase-5 docs).
+- **API delta (ZERO new serverless functions — super-admin stays 8/12):** `system?action=security` +
+  `system?action=firestore-ops` (GET); +3 alerts in `system?action=alerts` (`firestore_growth`,
+  `payment_failures`, `login_failures`); `questions?action=update|archive|delete` (and `list` gains
+  topic/status/difficulty filtering); `_lib/metrics.js#computeDailySnapshot` gains `collectionCounts` (persisted
+  by the existing daily `cron/sweep`). Client capture: new inline-copied `SecurityEvents.record()` helper in each
+  app wired into login error/success paths; server-side `payment_failure` writes in `main-app payment.js` +
+  `payment/webhook.js` (Admin SDK).
+- **Security review:** the `securityEvents` create rule (`validSecurityEvent()`) allows an *unauthenticated*
+  write (failed logins have `request.auth == null`) but is shape-bounded — key allowlist, `type` allowlist,
+  `createdAt == request.time`, **SHA-256 `emailHash` only (no raw email, no password)**, size caps; admin-only
+  read; update/delete denied. Abuse is bounded by Firebase Auth's own `auth/too-many-requests` throttle; App
+  Check (M7) is the documented hardening follow-up. No auth-boundary changes; content mutations stay behind
+  `withAdmin` + immutable `auditLogs`; the webhook capture is added AFTER signature verification and does not
+  touch the HMAC/`bodyParser:false` isolation. The Content-Management view escapes all question fields
+  (`AdminUtils.escapeHtml`) so imported/AI-generated content cannot inject markup into the admin panel
+  (adversarial-review hardening). Partial question edits revalidate answer∈options against the merged doc.
+- **Version bumps:** Firestore 2.3→2.4, Security 2.2→2.3, Bible 2.7→2.8 (all MINOR/additive). Architecture +
+  Payment unchanged.
+- **Migration:** none. **Deploy step:** `firebase deploy --only firestore:rules,firestore:indexes` (so
+  `securityEvents` is writable + the composite index exists); app code redeploys via Vercel on push.
+- **Verification:** `node --check` all changed handlers + client JS; super-admin function count stays 8/12;
+  rules + indexes valid; adversarial review (security/rules, governance/Bible-sync, wiring, cross-app-compat);
+  render smoke of the new views.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-018.
+
+---
+
 ## 2026-06-12 — API Consolidation for Vercel Free Plan (ADR-017)
 
 - **Requested change:** QuantReflex is on Vercel Free (12 functions/project). super-admin (15) exceeds the cap

@@ -97,6 +97,27 @@ var API = (function () {
     });
   }
 
+  function updateQuestion(id, data) {
+    return _fetch('/api/admin/questions?action=update', {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ id: id }, data || {}))
+    });
+  }
+
+  function archiveQuestion(id) {
+    return _fetch('/api/admin/questions?action=archive', {
+      method: 'POST',
+      body: JSON.stringify({ id: id })
+    });
+  }
+
+  function deleteQuestion(id) {
+    return _fetch('/api/admin/questions?action=delete', {
+      method: 'POST',
+      body: JSON.stringify({ id: id, confirm: 'DELETE' })
+    });
+  }
+
   function getAIUsage() {
     return _fetch('/api/admin/ai?action=usage');
   }
@@ -150,6 +171,8 @@ var API = (function () {
   }
   function getInactiveExport(days) { return _fetch('/api/admin/users?action=inactive-export&days=' + (days || 90)); }
   function getAlerts() { return _fetch('/api/admin/system?action=alerts'); }
+  function getSecurity() { return _fetch('/api/admin/system?action=security'); }
+  function getFirestoreOps() { return _fetch('/api/admin/system?action=firestore-ops'); }
 
   return {
     getDashboard: getDashboard,
@@ -161,6 +184,9 @@ var API = (function () {
     mutateCoaching: mutateCoaching,
     getQuestions: getQuestions,
     saveQuestion: saveQuestion,
+    updateQuestion: updateQuestion,
+    archiveQuestion: archiveQuestion,
+    deleteQuestion: deleteQuestion,
     generateQuestion: generateQuestion,
     getAIUsage: getAIUsage,
     sendBroadcast: sendBroadcast,
@@ -178,6 +204,8 @@ var API = (function () {
     exportData: exportData,
     getInactiveExport: getInactiveExport,
     getAlerts: getAlerts,
+    getSecurity: getSecurity,
+    getFirestoreOps: getFirestoreOps,
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

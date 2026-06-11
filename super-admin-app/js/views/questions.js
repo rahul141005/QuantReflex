@@ -4,6 +4,9 @@
 var QuestionsView = (function () {
   'use strict';
 
+  var _editingId = null; /* set when the edit modal is opened for an existing question (Phase 5, ADR-018) */
+  function _esc(s) { return (typeof AdminUtils !== 'undefined' && AdminUtils.escapeHtml) ? AdminUtils.escapeHtml(s == null ? '' : String(s)) : (s == null ? '' : String(s)); }
+
   function render() {
     var container = document.getElementById('view-questions');
     container.innerHTML =
@@ -222,8 +225,9 @@ var QuestionsView = (function () {
         {
           key: 'question', label: 'Question',
           render: function (val, row) {
-            var txt = val || row.text || '';
-            return txt.length > 50 ? txt.substring(0, 50) + '…' : txt;
+            var txt = String(val || row.text || '');
+            var clipped = txt.length > 50 ? txt.substring(0, 50) + '…' : txt;
+            return _esc(clipped);
           }
         },
         { key: 'difficulty', label: 'Difficulty' },
@@ -233,7 +237,7 @@ var QuestionsView = (function () {
             var badges = '';
             if (val === 'active') badges += '<span class="badge badge-active">Active</span>';
             else if (val === 'draft') badges += '<span class="badge badge-draft">Draft</span>';
-            else badges += '<span class="badge badge-archived">' + (val || 'draft') + '</span>';
+            else badges += '<span class="badge badge-archived">' + _esc(val || 'draft') + '</span>';
             
             if (row.premiumOnly) {
               badges += ' <span class="badge badge-premium" style="margin-left:4px;">Premium</span>';
@@ -244,7 +248,7 @@ var QuestionsView = (function () {
       ];
 
       area.innerHTML = '';
-      area.appendChild(Table.build(columns, questions));
+      area.appendChild(Table.build(columns, questions, _rowActions));
     } catch (e) {
       area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ' + e.message + '</div></div>';
     }
@@ -310,13 +314,14 @@ var QuestionsView = (function () {
 
   function _showEditModal(data) {
     data = data || {};
+    _editingId = data.id || null;
     var optsStr = data.options ? data.options.join(', ') : '';
 
     var body = document.createElement('div');
     body.innerHTML =
       '<div style="display:flex; gap:1rem;">' +
         '<div class="modal-field" style="flex:1;"><label class="modal-label">Topic</label>' +
-          '<input type="text" class="modal-input" id="mqTopic" value="' + (data.topic || '') + '" placeholder="e.g. profit-loss" /></div>' +
+          '<input type="text" class="modal-input" id="mqTopic" value="' + _esc(data.topic || '') + '" placeholder="e.g. profit-loss" /></div>' +
         '<div class="modal-field" style="flex:1;"><label class="modal-label">Difficulty</label>' +
           '<select class="modal-select" id="mqDifficulty">' +
             '<option value="easy" ' + (data.difficulty==='easy'?'selected':'') + '>Easy</option>' +
@@ -325,30 +330,94 @@ var QuestionsView = (function () {
           '</select></div>' +
       '</div>' +
       '<div class="modal-field"><label class="modal-label">Question Text</label>' +
-        '<textarea class="modal-input" id="mqQuestion" rows="3">' + (data.question || '') + '</textarea></div>' +
+        '<textarea class="modal-input" id="mqQuestion" rows="3">' + _esc(data.question || '') + '</textarea></div>' +
       '<div class="modal-field"><label class="modal-label">Options (comma separated numbers)</label>' +
-        '<input type="text" class="modal-input" id="mqOptions" value="' + optsStr + '" placeholder="e.g. 10, 20, 30, 40" /></div>' +
+        '<input type="text" class="modal-input" id="mqOptions" value="' + _esc(optsStr) + '" placeholder="e.g. 10, 20, 30, 40" /></div>' +
       '<div style="display:flex; gap:1rem;">' +
         '<div class="modal-field" style="flex:1;"><label class="modal-label">Correct Answer (Number)</label>' +
-          '<input type="number" class="modal-input" id="mqAnswer" value="' + (data.answer !== undefined ? data.answer : '') + '" /></div>' +
+          '<input type="number" class="modal-input" id="mqAnswer" value="' + _esc(data.answer !== undefined ? data.answer : '') + '" /></div>' +
         '<div class="modal-field" style="flex:1;"><label class="modal-label">Status</label>' +
           '<select class="modal-select" id="mqStatus">' +
-            '<option value="draft" ' + (data.status==='draft'||!data.status?'selected':'') + '>Draft</option>' +
-            '<option value="active" ' + (data.status==='active'?'selected':'') + '>Active</option>' +
+            '<option value="draft" ' + (data.status==='draft'?'selected':'') + '>Draft</option>' +
+            '<option value="active" ' + (data.status==='active'||!data.status?'selected':'') + '>Active</option>' +
+            '<option value="archived" ' + (data.status==='archived'?'selected':'') + '>Archived (unpublished)</option>' +
           '</select></div>' +
       '</div>' +
       '<div class="modal-field"><label class="modal-label">Explanation</label>' +
-        '<textarea class="modal-input" id="mqExplanation" rows="4">' + (data.explanation || '') + '</textarea></div>' +
+        '<textarea class="modal-input" id="mqExplanation" rows="4">' + _esc(data.explanation || '') + '</textarea></div>' +
       '<div class="modal-field" style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">' +
         '<input type="checkbox" id="mqPremium" ' + (data.premiumOnly?'checked':'') + ' /> <label for="mqPremium" class="modal-label" style="margin:0;">Premium Only</label>' +
       '</div>';
 
     Modal.show({
-      title: 'Question Details',
+      title: _editingId ? 'Edit Question' : 'New Question',
       body: body,
       actions: [
         { label: 'Cancel' },
         { label: 'Save Question', accent: true, onClick: _saveQuestion, autoClose: false }
+      ]
+    });
+  }
+
+  /* Per-row Edit / Archive / Delete actions (Phase 5, ADR-018). */
+  function _rowActions(row) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:.35rem;flex-wrap:wrap;';
+    var edit = document.createElement('button');
+    edit.className = 'btn btn-sm btn-outline';
+    edit.textContent = 'Edit';
+    edit.onclick = function () { _showEditModal(row); };
+    wrap.appendChild(edit);
+    if ((row.status || 'active') !== 'archived') {
+      var arch = document.createElement('button');
+      arch.className = 'btn btn-sm btn-outline';
+      arch.textContent = 'Archive';
+      arch.onclick = function () { _archiveQuestion(row); };
+      wrap.appendChild(arch);
+    }
+    var del = document.createElement('button');
+    del.className = 'btn btn-sm';
+    del.style.cssText = 'color:#dc2626;border:1px solid #fecaca;background:#fff;';
+    del.textContent = 'Delete';
+    del.onclick = function () { _deleteQuestion(row); };
+    wrap.appendChild(del);
+    return wrap;
+  }
+
+  async function _archiveQuestion(row) {
+    if (!row || !row.id) return;
+    try {
+      await API.archiveQuestion(row.id);
+      Toast.success('Question archived (unpublished).');
+      _loadQuestions();
+    } catch (e) {
+      Toast.error('Archive failed: ' + (e && e.message ? e.message : 'unknown error'));
+    }
+  }
+
+  function _deleteQuestion(row) {
+    if (!row || !row.id) return;
+    var body = document.createElement('div');
+    body.innerHTML =
+      '<p class="text-sm text-secondary" style="margin-bottom:.75rem;">This <strong>permanently deletes</strong> the question. Prefer <strong>Archive</strong> for a reversible unpublish. Type <strong>DELETE</strong> to confirm.</p>' +
+      '<input type="text" class="modal-input" id="qDelConfirm" placeholder="DELETE" autocomplete="off" />';
+    Modal.show({
+      title: 'Delete Question',
+      body: body,
+      actions: [
+        { label: 'Cancel' },
+        { label: 'Delete Permanently', danger: true, autoClose: false, onClick: async function () {
+          var el = document.getElementById('qDelConfirm');
+          if (!el || el.value !== 'DELETE') { Toast.error('Type DELETE to confirm.'); return; }
+          try {
+            await API.deleteQuestion(row.id);
+            Toast.success('Question permanently deleted.');
+            Modal.close();
+            _loadQuestions();
+          } catch (e) {
+            Toast.error('Delete failed: ' + (e && e.message ? e.message : 'unknown error'));
+          }
+        } }
       ]
     });
   }
@@ -389,8 +458,14 @@ var QuestionsView = (function () {
     };
 
     try {
-      await API.saveQuestion(payload);
-      Toast.success('Question saved successfully');
+      if (_editingId) {
+        await API.updateQuestion(_editingId, payload);
+        Toast.success('Question updated successfully');
+      } else {
+        await API.saveQuestion(payload);
+        Toast.success('Question created successfully');
+      }
+      _editingId = null;
       Modal.close();
       _loadQuestions();
     } catch (e) {

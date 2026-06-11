@@ -161,7 +161,90 @@ async function handler(req, res) {
       if (!duelSnap.empty) alerts.push({ severity: 'info', type: 'orphan_duels', message: duelSnap.size + '+ stale duel room(s) — run duel cleanup.' });
       const purgeSnap = await db.collection('users').where('accountStatus', '==', 'archived').where('purgeAfter', '<', nowIso).limit(200).get();
       if (!purgeSnap.empty) alerts.push({ severity: 'info', type: 'pending_purge', message: purgeSnap.size + '+ archived account(s) past their hold — the cleanup-sweep cron will purge them.' });
+      /* Firestore-growth-spike (Phase 5, ADR-018) — compare metrics/latest.collectionCounts vs yesterday's. */
+      try {
+        const latestSnap = await db.collection('metrics').doc('latest').get();
+        const latest = latestSnap.exists ? latestSnap.data() : {};
+        const yKey = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const prevSnap = await db.collection('metrics').doc(yKey).get();
+        const prev = prevSnap.exists ? prevSnap.data() : {};
+        const lc = latest.collectionCounts, pc = prev.collectionCounts;
+        if (lc && pc) {
+          Object.keys(lc).forEach(function (c) {
+            const a = lc[c], b = pc[c];
+            if (typeof a === 'number' && typeof b === 'number') {
+              const delta = a - b;
+              const pct = b > 0 ? (delta / b) * 100 : (a > 0 ? 100 : 0);
+              if (delta >= 200 && pct >= 50) alerts.push({ severity: 'warning', type: 'firestore_growth', message: '`' + c + '` grew +' + delta + ' docs (+' + pct.toFixed(0) + '%) since yesterday — check for runaway writes.' });
+            }
+          });
+        }
+      } catch (_) { /* non-fatal — growth history may not exist yet */ }
+      /* payment-failure-spike + login-failure-spike (Phase 5, ADR-018) — from securityEvents 24h counts. */
+      const secCut = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      try {
+        const pf = (await db.collection('securityEvents').where('type', '==', 'payment_failure').where('createdAt', '>=', secCut).count().get()).data().count;
+        if (pf >= 5) alerts.push({ severity: 'warning', type: 'payment_failures', message: pf + ' payment failure(s) in the last 24h — check Razorpay / webhook health.' });
+      } catch (_) { /* securityEvents collection/index may not exist yet */ }
+      try {
+        const fl = (await db.collection('securityEvents').where('type', '==', 'failed_login').where('createdAt', '>=', secCut).count().get()).data().count;
+        if (fl >= 20) alerts.push({ severity: 'warning', type: 'login_failures', message: fl + ' failed login(s) in the last 24h — possible brute-force; review the Security Center.' });
+      } catch (_) { /* securityEvents collection/index may not exist yet */ }
       return res.status(200).json({ alerts: alerts, generatedAt: nowIso });
+    }
+
+    /* ── security (Phase 5, ADR-018) — Security Center read: recent feed + 24h per-type counts + posture ── */
+    if (action === 'security' && req.method === 'GET') {
+      const cut24 = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+      /* Recent feed (newest 50) — single-field auto-index on createdAt. */
+      let events = [];
+      try {
+        const feedSnap = await db.collection('securityEvents').orderBy('createdAt', 'desc').limit(50).get();
+        feedSnap.forEach(function (doc) {
+          const x = doc.data();
+          events.push({ id: doc.id, type: x.type || 'unknown', app: x.app || null, emailHash: x.emailHash || null, reason: x.reason || null, errorCode: x.errorCode || null, uid: x.uid || null, createdAt: _safeTS(x.createdAt) });
+        });
+      } catch (_) { events = []; }
+      /* Per-type counts over the last 24h — composite (type, createdAt). */
+      const types = ['failed_login', 'suspicious_access', 'admin_login', 'payment_failure'];
+      const counts24 = {};
+      await Promise.all(types.map(async function (t) {
+        try { counts24[t] = (await db.collection('securityEvents').where('type', '==', t).where('createdAt', '>=', cut24).count().get()).data().count; }
+        catch (_) { counts24[t] = null; }
+      }));
+      /* Account-posture signals (Firestore-observable). */
+      let suspendedUsers = null, archivedUsers = null, expiredPremium = null;
+      try { suspendedUsers = (await db.collection('users').where('accountStatus', '==', 'suspended').count().get()).data().count; } catch (_) { /* ignore */ }
+      try { archivedUsers = (await db.collection('users').where('accountStatus', '==', 'archived').count().get()).data().count; } catch (_) { /* ignore */ }
+      try {
+        const nowIso2 = new Date().toISOString();
+        const premSnap = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
+        let exp = 0; premSnap.forEach(function (d) { const e = d.data().planExpiry; if (e && typeof e === 'string' && e < nowIso2) exp++; });
+        expiredPremium = exp;
+      } catch (_) { /* ignore */ }
+      return res.status(200).json({ events: events, counts24: counts24, posture: { suspendedUsers: suspendedUsers, archivedUsers: archivedUsers, expiredPremium: expiredPremium }, generatedAt: new Date().toISOString() });
+    }
+
+    /* ── firestore-ops (Phase 5, ADR-018) — live collection sizes + daily growth series ── */
+    if (action === 'firestore-ops' && req.method === 'GET') {
+      const cols = ['users', 'questions', 'duels', 'payments', 'coachings', 'auditLogs', 'securityEvents', 'metrics', 'systemMetrics', 'notificationLogs'];
+      const live = {};
+      await Promise.all(cols.map(async function (c) {
+        try { live[c] = (await db.collection(c).count().get()).data().count; }
+        catch (_) { live[c] = null; }
+      }));
+      /* Growth series from recent daily metrics docs (skip the 'latest' alias + docs without collectionCounts). */
+      const series = [];
+      try {
+        const histSnap = await db.collection('metrics').orderBy(admin.firestore.FieldPath.documentId(), 'desc').limit(21).get(); /* +1 for the always-first 'latest' alias which is skipped below */
+        histSnap.forEach(function (doc) {
+          if (doc.id === 'latest') return;
+          const d = doc.data();
+          if (d.collectionCounts) series.push({ date: doc.id, totalUsers: d.totalUsers || 0, collectionCounts: d.collectionCounts });
+        });
+      } catch (_) { /* non-fatal */ }
+      series.reverse(); /* oldest → newest for charting */
+      return res.status(200).json({ live: live, series: series, generatedAt: new Date().toISOString() });
     }
 
     /* ── payments-logs (was admin/payments) — entitlement actions from the immutable audit log ── */

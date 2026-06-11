@@ -28,6 +28,7 @@
 const crypto = require('crypto');
 const aiService = require('../../services/aiService');
 const paymentService = require('../../services/paymentService');
+const admin = require('firebase-admin');
 
 /**
  * Read the raw request body as a string.
@@ -191,6 +192,18 @@ async function handler(req, res) {
     console.warn('[webhook] Payment failed — id:', failedPayment.id,
       'reason:', failedPayment.error_description || 'unknown',
       'code:', failedPayment.error_code || 'unknown');
+    /* Capture a security event for the payment-failure-spike alert (Phase 5, ADR-018).
+       This runs AFTER HMAC signature verification — it does not touch the verification path. */
+    try {
+      var fpUid = (failedPayment.notes && failedPayment.notes.uid) || null;
+      admin.firestore().collection('securityEvents').add({
+        type: 'payment_failure', app: 'main', emailHash: null,
+        reason: ('razorpay:' + (failedPayment.error_code || 'failed')).slice(0, 120),
+        errorCode: failedPayment.error_code ? String(failedPayment.error_code).slice(0, 60) : null,
+        uid: fpUid ? String(fpUid).slice(0, 128) : null, userAgent: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }).catch(function () {});
+    } catch (_) { /* non-fatal */ }
     /* Log but don't take action — user stays on current tier */
     return res.status(200).json({ status: 'ok', event: 'payment.failed' });
   }

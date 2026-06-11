@@ -14,6 +14,7 @@ var CoachingAuth = (function () {
   var _currentUser = null;
   var _authReady = false;
   var _authReadyCallbacks = [];
+  var _freshLogin = false; /* true only between an interactive login()/register() and the next onAuthStateChanged (Phase 5) */
 
   function init() {
     if (typeof firebase === 'undefined' || !firebase.auth) {
@@ -32,6 +33,8 @@ var CoachingAuth = (function () {
       if (user) {
         user.getIdTokenResult(false).then(function (tokenResult) {
           if (tokenResult && tokenResult.claims && tokenResult.claims.coaching_admin === true && tokenResult.claims.coachingId) {
+            if (_freshLogin && typeof SecurityEvents !== 'undefined') SecurityEvents.record('admin_login', { email: user.email, uid: user.uid, reason: 'coaching_login_success' });
+            _freshLogin = false;
             CoachingState.set({
               user: user,
               isCoachingAdmin: true,
@@ -39,6 +42,7 @@ var CoachingAuth = (function () {
             });
             _showApp();
           } else {
+            if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: user.email, uid: user.uid, reason: 'non_coaching_admin_access' });
             _showAuthError('Access denied. Coaching admin privileges required.');
             logout();
           }
@@ -94,8 +98,10 @@ var CoachingAuth = (function () {
       return;
     }
 
+    _freshLogin = true;
     _auth.signInWithEmailAndPassword((email || '').trim().toLowerCase(), password)
       .catch(function(err) {
+        if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('failed_login', { email: email, errorCode: err && err.code, reason: 'coaching_login_failed' });
         _setLoading(false);
         _showAuthError(getReadableError(err));
       });
@@ -104,6 +110,7 @@ var CoachingAuth = (function () {
   function register(email, password, coachingId) {
     _hideAuthError();
     _setLoading(true);
+    _freshLogin = true;
     
     // AuthValidators is global via script tag
     if (typeof AuthValidators !== 'undefined') {

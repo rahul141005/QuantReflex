@@ -12,6 +12,20 @@ const { withAuth, methodGuard } = require('./_lib/middleware');
 const aiService = require('../services/aiService');
 const paymentService = require('../services/paymentService');
 const { setEntitlementClaims } = require('../services/claimsService');
+const admin = require('firebase-admin');
+
+/* Best-effort server-side security event for the payment-failure-spike alert (Phase 5, ADR-018).
+   Admin SDK bypasses Firestore rules. Fire-and-forget — never blocks the payment path. */
+function _recordPaymentFailure(reason, uid) {
+  try {
+    admin.firestore().collection('securityEvents').add({
+      type: 'payment_failure', app: 'main', emailHash: null,
+      reason: reason ? String(reason).slice(0, 120) : null, errorCode: null,
+      uid: uid ? String(uid).slice(0, 128) : null, userAgent: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(function () {});
+  } catch (_) { /* never block the payment path */ }
+}
 
 /* ── ?action=create-order ── */
 async function _createOrder(req, res) {
@@ -54,6 +68,7 @@ async function _verify(req, res) {
     var valid = paymentService.verifyPaymentSignature(orderId, paymentId, signature);
     if (!valid) {
       console.error('Payment signature verification failed for order:', orderId);
+      _recordPaymentFailure('signature_invalid', req.userId);
       return res.status(400).json({
         error: { code: 'SIGNATURE_INVALID', message: 'Payment verification failed. Please contact support.', retryable: false }
       });
@@ -64,6 +79,7 @@ async function _verify(req, res) {
     var trustedPlan = order.notes && order.notes.plan;
     if (!trustedPlan || !paymentService.getPlanConfig(trustedPlan)) {
       console.error('Order plan mismatch or unknown plan for order:', orderId);
+      _recordPaymentFailure('plan_mismatch', req.userId);
       return res.status(400).json({
         error: { code: 'PLAN_MISMATCH', message: 'Payment verification failed. Please contact support.', retryable: false }
       });
@@ -75,6 +91,7 @@ async function _verify(req, res) {
     var orderUid = order.notes && order.notes.uid;
     if (orderUid && orderUid !== req.userId) {
       console.error('[PaymentFlow] PAYMENT_FAILED | order owner mismatch | orderUid: ' + orderUid + ' | caller: ' + req.userId + ' | orderId: ' + orderId);
+      _recordPaymentFailure('owner_mismatch', req.userId);
       return res.status(403).json({
         error: { code: 'PAYMENT_OWNER_MISMATCH', message: 'This payment belongs to a different account.', retryable: false }
       });
@@ -95,6 +112,7 @@ async function _verify(req, res) {
     if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REPLAY') {
       return res.status(409).json({ error: { code: 'PAYMENT_REPLAY', message: err.message, retryable: false } });
     }
+    _recordPaymentFailure('verify_error', req.userId);
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate payment. Please contact support.', retryable: false } });
   }
 }

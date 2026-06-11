@@ -202,6 +202,7 @@ var Auth = (function () {
         callback(null, _currentUser);
       })
       .catch(function(err) {
+        if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('failed_login', { email: cleanEmail, errorCode: err && err.code, reason: 'login_failed' });
         callback(getReadableError(err), null);
       });
   }
