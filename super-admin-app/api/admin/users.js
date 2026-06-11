@@ -1,4 +1,6 @@
-const { withAdminAuth, formatError } = require('../_lib/middleware');
+const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
+const { writeAuditLog } = require('../_lib/audit');
+const { purgeUser, resetProgress, HOLD_DAYS } = require('../_lib/user-lifecycle');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -81,6 +83,7 @@ async function handler(req, res) {
           trialEnd: safeTimestampToISO(data.trialEnd),
           createdAt: safeTimestampToISO(data.createdAt),
           updatedAt: safeTimestampToISO(data.updatedAt),
+          accountStatus: data.accountStatus || 'active',
         });
       });
 
@@ -123,6 +126,10 @@ async function handler(req, res) {
           isTrial: !!userData.isTrial,
           trialEnd: safeTimestampToISO(userData.trialEnd),
           createdAt: safeTimestampToISO(userData.createdAt),
+          accountStatus: userData.accountStatus || 'active',
+          suspendedAt: safeTimestampToISO(userData.suspendedAt),
+          archivedAt: safeTimestampToISO(userData.archivedAt),
+          purgeAfter: safeTimestampToISO(userData.purgeAfter),
         },
         aiUsage: aiSnapshot.exists ? aiSnapshot.data() : { tokens: 0, count: 0 },
         recentDuels: [],
@@ -152,6 +159,51 @@ async function handler(req, res) {
       });
 
       return res.status(200).json(details);
+    }
+
+    /* ── Lifecycle actions (POST) — ADR-014. Suspend/archive disable the Firebase Auth user. ── */
+    if (req.method === 'POST') {
+      const body = parseBody(req);
+      const uid = body.uid || req.query.uid;
+      if (!uid) return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'uid is required.' } });
+      const userRef = db.collection('users').doc(uid);
+      const nowIso = new Date().toISOString();
+
+      if (action === 'suspend') {
+        try { await admin.auth().updateUser(uid, { disabled: true }); } catch (e) { /* may be Firestore-only */ }
+        await userRef.set({ accountStatus: 'suspended', suspendedAt: nowIso, statusUpdatedAt: nowIso, updatedAt: nowIso }, { merge: true });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'suspend_user', category: 'user', targetType: 'user', targetId: uid, summary: 'suspended user ' + uid, after: { accountStatus: 'suspended' } });
+        return res.status(200).json({ success: true, uid: uid, accountStatus: 'suspended' });
+      }
+
+      if (action === 'restore') {
+        try { await admin.auth().updateUser(uid, { disabled: false }); } catch (e) {}
+        const del = admin.firestore.FieldValue.delete();
+        await userRef.set({ accountStatus: 'active', suspendedAt: del, archivedAt: del, purgeAfter: del, archiveReason: del, inactiveFlaggedAt: del, statusUpdatedAt: nowIso, updatedAt: nowIso }, { merge: true });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'restore_user', category: 'user', targetType: 'user', targetId: uid, summary: 'restored user ' + uid, after: { accountStatus: 'active' } });
+        return res.status(200).json({ success: true, uid: uid, accountStatus: 'active' });
+      }
+
+      if (action === 'archive') {
+        const purgeAfter = new Date(Date.now() + HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        try { await admin.auth().updateUser(uid, { disabled: true }); } catch (e) {}
+        await userRef.set({ accountStatus: 'archived', archivedAt: nowIso, purgeAfter: purgeAfter, archiveReason: (body.reason || null), statusUpdatedAt: nowIso, updatedAt: nowIso }, { merge: true });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'archive_user', category: 'user', targetType: 'user', targetId: uid, summary: 'archived user ' + uid + ' (purge after ' + purgeAfter.split('T')[0] + ')', after: { accountStatus: 'archived', purgeAfter: purgeAfter } });
+        return res.status(200).json({ success: true, uid: uid, accountStatus: 'archived', purgeAfter: purgeAfter });
+      }
+
+      if (action === 'purge') {
+        if (body.confirm !== 'DELETE') return res.status(400).json({ error: { code: 'CONFIRM_REQUIRED', message: 'Pass confirm:"DELETE" to permanently delete this account.' } });
+        const report = await purgeUser(db, uid);
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'purge_user', category: 'user', targetType: 'user', targetId: uid, summary: 'PERMANENTLY deleted user ' + uid, before: { authAccount: report.authAccount, userDoc: report.userDoc } });
+        return res.status(200).json({ success: true, uid: uid, purged: true, report: report });
+      }
+
+      if (action === 'reset-progress') {
+        const report = await resetProgress(db, uid);
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reset_progress', category: 'user', targetType: 'user', targetId: uid, summary: 'reset learning progress for ' + uid });
+        return res.status(200).json({ success: true, uid: uid, reset: true, report: report });
+      }
     }
 
     return res.status(404).json({ error: 'User action not found' });

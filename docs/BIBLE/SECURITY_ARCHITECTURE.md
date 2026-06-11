@@ -91,11 +91,16 @@ the Admin SDK writes, and it never updates/deletes). The per-user `users/{uid}/e
 is retained for the user-360 view; entitlement grants write to both. (ADR-012.)
 
 ### 5.3 Destructive-Action Protection
-Revokes, coaching suspend/delete, and (future, Phase 2) user suspend/delete must record `before`/`after` in
-`auditLogs` and route through the Control Center — **never** direct Firestore-console mutation (ADR-012).
-Destructive UI actions additionally require explicit confirmation client-side (e.g. typing `DELETE` +
-double-confirm for account deletion — Phase 2). Bulk entitlement writes are chunked (≤200/batch) and logged
-as a single action row carrying the affected count in `summary`.
+Revokes, coaching suspend/delete, and user lifecycle actions all record `before`/`after` in `auditLogs` and
+route through the Control Center — **never** direct Firestore-console mutation (ADR-012). **User lifecycle
+(Phase 2, ADR-014):** *suspend* and *archive* (soft-delete) set `accountStatus` **and disable the Firebase
+Auth user** — the real access gate (a disabled user cannot obtain a valid token, so suspension is enforced at
+auth regardless of the Firestore field). *Archive* sets a 30-day `purgeAfter` hold and is reversible via
+*restore*. *Purge* (hard delete: Auth user + Firestore doc + subcollections + related `payments`/`aiInsights`/
+`aiStudyPlans`) requires the caller to pass `confirm:'DELETE'` server-side (the UI additionally requires
+typing `DELETE` + a double-confirm). The `cleanup-sweep` cron only ever hard-purges archived users whose hold
+has expired (never active users). Bulk writes are chunked (≤200–500/batch) and logged as a single action row
+carrying the affected count in `summary`.
 
 ### 5.4 Cron Authorization
 `super-admin-app/api/cron/*` endpoints (e.g. `daily-snapshot`) are **not** wrapped by `withAdminAuth` (no

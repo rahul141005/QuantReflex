@@ -58,9 +58,9 @@ version bump.)_
 - **Super Admin Control Center (multi-phase program)** — elevate `super-admin-app` into the platform's
   operating system. **Phase 1 ✅ (2026-06-11, ADR-012/013):** GPT token/cost instrumentation, revenue dashboard
   from `payments`, one immutable `auditLogs` (every admin action), pre-aggregated `metrics/latest` via Vercel
-  Cron + Firestore `count()`. **Phase 2:** user lifecycle (suspend/restore/delete/reset-progress) + Inactive
-  User Center + safe archive→30-day-hold→permanent-delete workflow (per the GOVERNANCE Account Deletion policy)
-  + Auth-user removal. **Phase 3:** AI budget config + thresholds (80/90/100%) + AI abuse detection (request
+  Cron + Firestore `count()`. **Phase 2 ✅ (2026-06-11, ADR-014):** user lifecycle
+  (suspend/restore/archive/purge/reset-progress, Firebase-Auth-disable-enforced) + Inactive User Center + safe
+  archive→30-day-hold→permanent-delete workflow + `cleanup-sweep` cron + Auth-user removal. **Phase 3:** AI budget config + thresholds (80/90/100%) + AI abuse detection (request
   spikes). **Phase 4:** Export Center (CSV) + Alert Center (budget / payment-failure / growth spikes).
   **Phase 5:** Security Center (needs new failed-login capture) + Firestore-ops (collection sizes/growth) +
   Content Management. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze

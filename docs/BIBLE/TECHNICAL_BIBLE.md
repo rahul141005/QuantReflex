@@ -38,7 +38,7 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
 | `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai/*`, `payment/*`, `auth/register`, `account/delete`, `claim-coaching`, `validate-coaching`, `notifications` |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users, entitlements, coachings, questions, payments, ai-usage, duels, notifications, system) + `cron/daily-snapshot` (Vercel Cron, `CRON_SECRET`-gated) |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users [list/details + lifecycle: suspend/restore/archive/purge/reset], entitlements, coachings, questions, payments, ai-usage, inactive-users, duels, notifications, system) + `cron/{daily-snapshot,cleanup-sweep}` (Vercel Cron, `CRON_SECRET`-gated) |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 

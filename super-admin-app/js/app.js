@@ -38,7 +38,7 @@ var App = (function () {
 
   function _handleRoute() {
     var hash = (window.location.hash || '#dashboard').substring(1);
-    var views = ['dashboard', 'users', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications'];
+    var views = ['dashboard', 'users', 'inactive', 'coachings', 'payments', 'questions', 'system', 'ai', 'notifications'];
     if (views.indexOf(hash) === -1) hash = 'dashboard';
 
     // Update state
@@ -61,6 +61,7 @@ var App = (function () {
     // Render view
     if (hash === 'dashboard') DashboardView.render();
     if (hash === 'users') UsersView.render();
+    if (hash === 'inactive' && typeof InactiveView !== 'undefined') InactiveView.render();
     if (hash === 'coachings') CoachingsView.render();
     if (hash === 'payments') PaymentsView.render();
     if (hash === 'questions') QuestionsView.render();

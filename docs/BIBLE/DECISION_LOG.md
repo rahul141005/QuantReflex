@@ -8,6 +8,26 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-014 — User lifecycle: soft-delete → 30-day hold → purge, enforced via Firebase Auth disable (2026-06-11)
+- **Context:** The Control Center needs operational user management (suspend/restore/delete/reset) and a safe
+  way to reduce database clutter from long-inactive accounts — without the risk of instant, irreversible
+  deletion. The spec mandates a staged flow (inactive 6mo → flagged → archive → 30-day hold → permanent
+  delete) and guarded deletes (type DELETE + double-confirm).
+- **Decision:** Add lifecycle state to `users/{uid}` (`accountStatus` + `suspendedAt`/`archivedAt`/`purgeAfter`/
+  `archiveReason`/`inactiveFlaggedAt`). **Suspension is enforced at Firebase Auth** (`updateUser{disabled:true}`)
+  — the real gate, since a disabled user gets no valid token; the Firestore field is admin-visibility/cleanup
+  state. *Archive* is a reversible soft-delete (Auth-disabled + 30-day `purgeAfter` hold). *Purge* is the only
+  hard delete (Auth user + Firestore doc + subcollections + related docs), requires `confirm:'DELETE'`, and is
+  done either by an explicit guarded admin action or automatically by the `cleanup-sweep` Vercel-Cron once the
+  hold expires. The cron also *flags* (never archives) still-active users inactive >180d for admin review.
+  Every action writes an immutable `auditLogs` row (ADR-012).
+- **Options considered:** (a) hard-delete on the admin action — rejected (irreversible, no recovery window);
+  (b) cron auto-archives inactive users without review — rejected (a returning user would be locked out;
+  flag-for-review is safer); (c) a separate `archivedUsers` collection — rejected (lifecycle on the user doc is
+  simpler, and the doc is deleted at purge anyway).
+- **Consequence:** Safe, reversible, fully-audited user lifecycle that scales (cron-driven purge). Suspension
+  correctness does not depend on Firestore (Auth-enforced). Firestore 2.2, Arch 2.2, Security 2.2, Bible 2.4.
+
 ## ADR-013 — Vercel Cron + Firestore `count()` aggregation as the Spark-compatible analytics backbone (2026-06-11)
 - **Context:** The Super Admin Control Center needs platform metrics (user counts, DAU/MAU, revenue, AI cost)
   that scale to 100k–1M users, plus scheduled rollups. Firebase is on the **Spark** plan, so Cloud Functions

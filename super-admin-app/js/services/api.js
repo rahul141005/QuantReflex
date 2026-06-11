@@ -121,6 +121,23 @@ var API = (function () {
     return _fetch('/api/admin/payments?action=logs');
   }
 
+  /* ---- User Lifecycle (Phase 2) ---- */
+  function userAction(action, uid, extra) {
+    return _fetch('/api/admin/users?action=' + action, {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ uid: uid }, extra || {}))
+    });
+  }
+  function getInactiveUsers(days, limit) {
+    return _fetch('/api/admin/inactive-users?action=list&days=' + (days || 90) + '&limit=' + (limit || 200));
+  }
+  function bulkInactive(action, uids, extra) {
+    return _fetch('/api/admin/inactive-users?action=' + action, {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ uids: uids }, extra || {}))
+    });
+  }
+
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
@@ -135,6 +152,14 @@ var API = (function () {
     getAIUsage: getAIUsage,
     sendBroadcast: sendBroadcast,
     getPaymentLogs: getPaymentLogs,
+    suspendUser: function (uid) { return userAction('suspend', uid); },
+    restoreUser: function (uid) { return userAction('restore', uid); },
+    archiveUser: function (uid, reason) { return userAction('archive', uid, { reason: reason }); },
+    purgeUser: function (uid) { return userAction('purge', uid, { confirm: 'DELETE' }); },
+    resetUserProgress: function (uid) { return userAction('reset-progress', uid); },
+    getInactiveUsers: getInactiveUsers,
+    bulkArchiveInactive: function (uids) { return bulkInactive('bulk-archive', uids); },
+    bulkRemindInactive: function (uids) { return bulkInactive('bulk-remind', uids); },
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

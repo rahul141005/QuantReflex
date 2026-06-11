@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-11 — Super Admin Control Center, Phase 2: User Lifecycle + Cleanup (ADR-014)
+
+- **Requested change:** operational user management + safe inactive-account cleanup — suspend / restore /
+  archive / purge / reset-progress, an Inactive User Center, and the staged soft-delete→hold→purge workflow.
+- **Impacted systems:** Admin · Firestore · Security · APIs.
+- **Bible docs updated (FIRST):** FIRESTORE_BLUEPRINT (users lifecycle fields), SECURITY (§5.3
+  destructive-action mechanism), GOVERNANCE (Account Deletion now implemented), TECHNICAL_BIBLE (§3 endpoints),
+  DECISION_LOG (ADR-014), VERSIONS (Bible 2.4; Arch/FS/Sec 2.2), ROADMAP (Phase 2 done).
+- **Schema delta:** +`users.{accountStatus, suspendedAt, archivedAt, purgeAfter, archiveReason,
+  inactiveFlaggedAt, statusUpdatedAt}`. All additive/optional (absent `accountStatus` ⇒ active).
+- **API delta:** super-admin `api/admin/users.js` POST actions (suspend/restore/archive/purge/reset);
+  new `api/admin/inactive-users.js` (list by inactivity window + bulk archive/remind/export-CSV); new
+  `api/cron/cleanup-sweep.js` (`CRON_SECRET`; flag inactive>180d + purge archived-past-hold); shared
+  `api/_lib/user-lifecycle.js` (`purgeUser`/`resetProgress`). Suspend/archive disable the Firebase Auth user.
+- **Security review:** suspension enforced at Firebase Auth (disabled user → no token); purge requires
+  `confirm:'DELETE'`; every action audit-logged (category `user`). `accountStatus` is admin-authoritative.
+- **Version bumps:** Firestore/Arch/Security 2.1→2.2; Bible 2.3→2.4 (MINOR). Payment unchanged.
+- **Migration:** none (new optional fields).
+- **Verification:** `node --check` all P2 JS; logic fixtures (hold math, inactivity cutoff); render check.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-014.
+
+---
+
 ## 2026-06-11 — Super Admin Control Center, Phase 1: Data + Revenue + Audit (ADR-012, ADR-013)
 
 - **Requested change:** elevate the super-admin app into an operational control center. Phase 1 delivers the

@@ -409,6 +409,23 @@ var UserDrawer = (function () {
     html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="UsersView.showIndividualActions(\'' + p.uid + '\', \'' + stateType + '\', \'' + escapeHtml(p.displayName || p.email || 'Unknown') + '\')">' + actionLabel + '</button>';
     html += '</div>';
 
+    // Account Lifecycle (Phase 2 — ADR-014)
+    var lcStatus = p.accountStatus || 'active';
+    html += '<div class="card" style="margin-bottom:1.5rem; padding:1rem;">';
+    html += '<div style="font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">Account Lifecycle &nbsp;<span class="badge badge-' + (lcStatus === 'active' ? 'active' : 'archived') + '">' + lcStatus + '</span></div>';
+    html += '<div style="display:flex; flex-wrap:wrap; gap:0.5rem;">';
+    if (lcStatus === 'active') {
+      html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'suspend\', \'' + p.uid + '\')">Suspend</button>';
+      html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'archive\', \'' + p.uid + '\')">Archive</button>';
+    } else {
+      html += '<button class="btn btn-sm accent" onclick="UserDrawer.lifecycle(\'restore\', \'' + p.uid + '\')">Restore</button>';
+    }
+    html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'reset\', \'' + p.uid + '\')">Reset Progress</button>';
+    html += '<button class="btn btn-sm btn-danger" onclick="UserDrawer.lifecycle(\'purge\', \'' + p.uid + '\')">Delete</button>';
+    html += '</div>';
+    if (p.purgeAfter) html += '<div style="font-size:0.75rem; color:#b45309; margin-top:0.5rem;">⚠ Scheduled purge: ' + new Date(p.purgeAfter).toLocaleDateString() + '</div>';
+    html += '</div>';
+
     // AI Usage Section
     var ai = data.aiUsage || { tokens: 0, count: 0 };
     html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
@@ -469,8 +486,36 @@ var UserDrawer = (function () {
     });
   }
 
+  /* Account lifecycle actions (Phase 2 — ADR-014). */
+  function lifecycle(action, uid) {
+    if (action === 'purge') {
+      var typed = prompt('PERMANENT DELETE — this erases the account, all its data, and the login. This CANNOT be undone.\n\nType DELETE to confirm:');
+      if (typed !== 'DELETE') { Toast.show('Cancelled.', 'error'); return; }
+      if (!confirm('Final confirmation: permanently delete this account?')) return;
+      API.purgeUser(uid).then(function () {
+        Toast.show('Account permanently deleted.', 'success');
+        close();
+        if (typeof UsersView !== 'undefined') UsersView.render();
+      }).catch(function (e) { Toast.show('Delete failed: ' + AdminUtils.getReadableError(e), 'error'); });
+      return;
+    }
+    var fnMap = { suspend: API.suspendUser, restore: API.restoreUser, archive: API.archiveUser, reset: API.resetUserProgress };
+    var confirms = {
+      suspend: 'Suspend this account? The user will be unable to log in.',
+      restore: 'Restore this account to active?',
+      archive: 'Archive (soft-delete) this account? It is Auth-disabled now and permanently deleted after a 30-day hold — reversible via Restore until then.',
+      reset: "Reset this user's learning progress? Stats and practice history are cleared (the account is kept)."
+    };
+    if (!confirm(confirms[action])) return;
+    fnMap[action](uid).then(function () {
+      Toast.show('Done: ' + action + '.', 'success');
+      open(uid);
+    }).catch(function (e) { Toast.show(action + ' failed: ' + AdminUtils.getReadableError(e), 'error'); });
+  }
+
   return {
     open: open,
-    close: close
+    close: close,
+    lifecycle: lifecycle
   };
 })();

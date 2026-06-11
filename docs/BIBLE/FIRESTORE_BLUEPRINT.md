@@ -43,6 +43,12 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `lastPaymentId` | string \| null | `null` | admin / client(null) | last Razorpay receipt |
 | `createdAt` | ISO string \| serverTimestamp | — | admin/client | |
 | `updatedAt` | serverTimestamp \| ISO string | — | client/admin | anchors clock-skew checks |
+| `accountStatus` | `'active'`\|`'suspended'`\|`'archived'` | `'active'` (absent⇒active) | admin (Admin SDK) | **user lifecycle (Phase 2).** Suspended/archived users are also **Firebase-Auth-disabled** — the real access gate (a disabled user gets no valid token). `accountStatus` is admin-authoritative visibility/cleanup state. |
+| `suspendedAt` / `archivedAt` | ISO \| absent | — | admin | when suspended / soft-deleted (archived) |
+| `purgeAfter` | ISO \| absent | — | admin / fn | `archivedAt + 30d` hold; the `cleanup-sweep` cron hard-purges archived users past this |
+| `archiveReason` | string \| absent | — | admin | optional reason recorded at archive |
+| `inactiveFlaggedAt` | ISO \| absent | — | fn (cron) | set when a still-active user has been inactive >180d (flagged for admin review) |
+| `statusUpdatedAt` | ISO | — | admin | last lifecycle change |
 
 **Removed in v2** (do not reintroduce): `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan, premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`.
 
@@ -116,6 +122,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | auditLogs | category (ASC), ts (DESC) | audit center filtered by category |
 | auditLogs | actorUid (ASC), ts (DESC) | "an admin's actions" newest-first |
 | auditLogs | targetId (ASC), ts (DESC) | all actions against one user/coaching |
+| users | accountStatus (ASC), purgeAfter (ASC) | cleanup-sweep cron: archived users past their hold |
 
 **Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). `aiStudyPlans (userId,status,createdAt)` requires a composite — `UNVERIFIED` whether present; `getActiveStudyPlan` orders by `createdAt` with two equality filters and will require `userId,status,createdAt`.
 

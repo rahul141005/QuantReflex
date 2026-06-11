@@ -114,12 +114,13 @@ data.
 | `practiceSessions/{auto}` | Indefinite today | Candidate for a rolling window if volume grows (Phase 5). |
 | Inactive `users` | **No automatic deletion today** | The safe archive workflow lands in Phase 2 (below). |
 
-## Account Deletion Policy (policy now; mechanism in Phase 2)
+## Account Deletion Policy (implemented — Phase 2, ADR-014)
 
 Accounts are **never instantly hard-deleted** by an admin. The sanctioned flow is **soft-delete → archive
 queue → hold → permanent delete**, every step audit-logged:
-`inactive 6+ months → flagged → archive queue (status:'archived', archivedAt) → 30-day hold → permanent
-delete (Auth user + Firestore doc + subcollections)`. Admin-initiated deletion requires explicit in-UI
-confirmation (type `DELETE` + double-confirm). User-initiated deletion (`main-app/api/account/delete`) clears
-subcollections today; reconciling it with the archive workflow + Auth-user removal is Phase 2. No deletion
-path may skip the `auditLogs` entry. (Mechanism tracked in [ROADMAP.md](ROADMAP.md) Phase 2.)
+`inactive 6+ months → flagged (inactiveFlaggedAt, by the cleanup-sweep cron) → admin archives
+(accountStatus:'archived', archivedAt, Auth-disabled) → 30-day hold (purgeAfter) → permanent delete (Auth
+user + Firestore doc + subcollections + related docs), by the cron or an explicit guarded purge`. Admin
+purge requires `confirm:'DELETE'` server-side + in-UI type-`DELETE` + double-confirm. Archive is
+**reversible** via *restore* during the hold. User-initiated deletion (`main-app/api/account/delete`) remains
+available (clears subcollections + Auth user). No deletion path may skip the `auditLogs` entry.
