@@ -351,7 +351,7 @@ var _VALUE_CARDS = [
   ['🎯', 'Personalized Insights']
 ];
 
-var _TRUST = ['🔒 Secure Payments', '⚡ Instant Activation', '🚫 No Auto-Renewal'];
+var _TRUST = ['🔒 Secure Payments', '⚡ Instant Activation'];
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

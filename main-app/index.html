@@ -287,11 +287,10 @@
 
         <!-- AI Coach Card (twin) -->
         <div class="home-bento-card home-bento-coach home-twin-card" id="homeBentoCoach">
-          <div class="home-bento-glow"></div>
           <div class="home-twin-head">
-            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon">🤖</span></div>
+            <div class="home-twin-icon"><div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon">🤖</span></div></div>
             <h4 class="home-bento-title home-twin-title">AI Coach</h4>
-            <span class="home-premium-badge home-twin-badge" id="coachPremiumBadge" title="Premium">🔒 PRO</span>
+            <div class="home-twin-badge-row"><span class="home-premium-badge home-twin-badge" id="coachPremiumBadge" title="Premium">🔒 PRO</span></div>
             <p class="home-bento-desc home-twin-desc">Personalized preparation guidance</p>
           </div>
           <div id="aiCoachContainer"></div>
@@ -299,11 +298,10 @@
 
         <!-- AI Study Plan Card (twin) -->
         <div class="home-bento-card home-bento-timetable home-twin-card" id="homeBentoTimetable">
-          <div class="home-bento-glow"></div>
           <div class="home-twin-head">
-            <div class="home-bento-icon-squircle icon-purple"><span class="home-bento-icon">📅</span></div>
+            <div class="home-twin-icon"><div class="home-bento-icon-squircle icon-purple"><span class="home-bento-icon">📅</span></div></div>
             <h4 class="home-bento-title home-twin-title">Study Plan</h4>
-            <span class="home-premium-badge home-twin-badge" id="timetablePremiumBadge" title="Premium">🔒 PRO</span>
+            <div class="home-twin-badge-row"><span class="home-premium-badge home-twin-badge" id="timetablePremiumBadge" title="Premium">🔒 PRO</span></div>
             <p class="home-bento-desc home-twin-desc">AI-generated study schedule</p>
           </div>
           <div id="aiStudyPlanContainer"></div>
@@ -323,45 +321,57 @@
     <div id="view-practice" class="spa-view">
       <header><h1><img src="appicons/tab/practicetab.svg" alt="Practice" class="header-icon" width="28" height="28" draggable="false"> Practice</h1></header>
 
-      <!-- Daily quota indicator (dynamic — shown for free users only) -->
-      <div id="dailyQuotaIndicator" style="display:none"></div>
+      <!-- Mode selection (sectioned) -->
+      <div id="modeSelect">
 
-      <!-- Mode selection -->
-      <div id="modeSelect" class="card practice-container">
-        <div class="mode-card" data-mode="quick">
-          <h3>⚡ Quick Drill</h3>
-          <p>5 questions · No timer · Quick warmup</p>
-        </div>
+        <!-- Today's Progress -->
+        <section class="practice-section">
+          <div class="home-section-header"><h3 class="home-section-title">Today's Progress</h3></div>
+          <div id="practiceTodayStrip" class="practice-today-strip"></div>
+          <div id="dailyQuotaIndicator" style="display:none"></div>
+        </section>
 
-        <div class="mode-card" data-mode="reflex">
-          <h3>🧠 Reflex Drill</h3>
-          <p>10 questions · 15s per question · Train speed</p>
-        </div>
+        <!-- Quick Start -->
+        <section class="practice-section">
+          <div class="home-section-header"><h3 class="home-section-title">Quick Start</h3></div>
+          <div class="practice-mode-group">
+            <div class="mode-card" data-mode="quick">
+              <h3>⚡ Quick Drill</h3>
+              <p>5 questions · No timer · Quick warmup</p>
+            </div>
+            <div class="mode-card" data-mode="reflex">
+              <h3>🧠 Reflex Drill</h3>
+              <p>10 questions · 15s per question · Train speed</p>
+            </div>
+            <div class="mode-card" data-mode="timed">
+              <h3>⏱ Timed Test</h3>
+              <p>10 questions · 3 min total · Exam pressure</p>
+            </div>
+          </div>
+        </section>
 
-        <div class="mode-card" data-mode="timed">
-          <h3>⏱ Timed Test</h3>
-          <p>10 questions · 3 min total · Exam pressure</p>
-        </div>
-
-        <div class="mode-card" data-mode="focus">
-          <h3>🎯 Focus Training</h3>
-          <p>10 questions · Choose a category</p>
-        </div>
-
-        <div class="mode-card" data-mode="custom">
-          <h3><span class="mode-icon mode-icon-custom" aria-hidden="true">📑</span> Custom Training</h3>
-          <p>Multi-topic session · 1–100 questions · Fully personalized</p>
-        </div>
-
-        <div class="mode-card" data-mode="review">
-          <h3>🔄 Review Mistakes</h3>
-          <p>Practice your previously wrong answers</p>
-        </div>
-
-        <div class="mode-card" data-mode="wordproblems">
-          <h3>🤖 Word Problems</h3>
-          <p>AI-generated word problems · Choose category &amp; difficulty</p>
-        </div>
+        <!-- Advanced Modes -->
+        <section class="practice-section">
+          <div class="home-section-header"><h3 class="home-section-title">Advanced Modes</h3></div>
+          <div class="practice-mode-group">
+            <div class="mode-card" data-mode="focus">
+              <h3>🎯 Focus Training</h3>
+              <p>10 questions · Choose a category</p>
+            </div>
+            <div class="mode-card" data-mode="custom">
+              <h3><span class="mode-icon mode-icon-custom" aria-hidden="true">📑</span> Custom Training</h3>
+              <p>Multi-topic session · 1–100 questions · Fully personalized</p>
+            </div>
+            <div class="mode-card" data-mode="review">
+              <h3>🔄 Review Mistakes</h3>
+              <p>Practice your previously wrong answers</p>
+            </div>
+            <div class="mode-card" data-mode="wordproblems">
+              <h3>🤖 Word Problems</h3>
+              <p>AI-generated word problems · Choose category &amp; difficulty</p>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- Category selection (shown when Focus Training is picked) -->

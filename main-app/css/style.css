@@ -11,11 +11,13 @@
 
 /* ==================== DESIGN TOKENS ==================== */
 :root {
-  --qr-card-radius: 1.25rem;
-  --qr-card-padding: 1.25rem;
-  --qr-card-gap: 1rem;
-  --qr-shadow-light: 0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
-  --qr-shadow-dark: 0 4px 20px rgba(0,0,0,0.2);
+  --qr-card-radius: 1.5rem;        /* 24px — unified app-wide card radius */
+  --qr-card-padding: 1.25rem;      /* 20px */
+  --qr-card-gap: 1rem;             /* 16px between cards */
+  --qr-card-border-light: 1px solid rgba(15,23,42,0.06);
+  --qr-card-border-dark: 1px solid rgba(255,255,255,0.08); /* soft hairline on navy */
+  --qr-shadow-light: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.03);
+  --qr-shadow-dark: 0 8px 24px rgba(2,6,23,0.45);          /* soft navy shadow */
   --sp-xs: 8px;
   --sp-sm: 12px;
   --sp-md: 16px;
@@ -274,15 +276,15 @@ header h1 {
   padding: var(--qr-card-padding);
   margin-bottom: 1rem;
   box-shadow: var(--qr-shadow-light);
-  border: 1px solid rgba(226,232,240,.6);
+  border: var(--qr-card-border-light);
   transition: transform .12s cubic-bezier(.25,.46,.45,.94), box-shadow .12s ease;
   overflow-wrap: break-word;
   word-break: normal;
   -webkit-tap-highlight-color: transparent;
 }
 .card:active {
-  transform: scale(.982);
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  transform: scale(.98);
+  box-shadow: 0 1px 4px rgba(15,23,42,.06);
 }
 
 .center-content {
@@ -319,18 +321,18 @@ header h1 {
   padding: var(--qr-card-padding);
   margin-bottom: 1rem;
   box-shadow: var(--qr-shadow-light);
-  border: 1px solid rgba(226,232,240,0.6);
+  border: var(--qr-card-border-light);
   display: block;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.study-card:active { 
-  transform: scale(0.97); 
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06); 
+.study-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 10px rgba(15,23,42,0.06);
 }
 body.dark-mode .study-card {
   background: rgba(30,41,59,0.7);
-  border-color: rgba(51,65,85,0.5);
+  border: var(--qr-card-border-dark);
   box-shadow: var(--qr-shadow-dark);
 }
 .study-card h3 {
@@ -1389,18 +1391,18 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   background: rgba(255,255,255,.88);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border-radius: var(--qr-card-radius);
+  padding: var(--qr-card-padding);
   margin-bottom: .85rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
-  border: 1px solid rgba(226,232,240,.6);
+  box-shadow: var(--qr-shadow-light);
+  border: var(--qr-card-border-light);
   cursor: pointer;
   transition: transform .18s cubic-bezier(.25,.46,.45,.94), box-shadow .18s ease, background .15s ease;
   min-height: 48px;
   touch-action: pan-y; /* Improves scroll responsiveness */
   flex-shrink: 0;
 }
-.mode-card:active { background: rgba(248,250,252,.9); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.mode-card:active { transform: scale(.98); background: rgba(248,250,252,.9); box-shadow: 0 1px 4px rgba(15,23,42,.08); }
 .mode-card h3 {
   font-size: 1.05rem;
   color: #0f172a;
@@ -2727,8 +2729,8 @@ body.dark-mode header h1 {
 body.dark-mode .card,
 body.dark-mode .mode-card {
   background: rgba(30,41,59,.88);
-  border-color: rgba(51,65,85,.6);
-  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+  border: var(--qr-card-border-dark);
+  box-shadow: var(--qr-shadow-dark);
 }
 body.dark-mode .bottom-nav {
   background: #1e293b;
@@ -8917,7 +8919,7 @@ body.dark-mode .home-section-title { color: #94a3b8; }
   background: #ffffff;
   border-radius: var(--qr-card-radius);
   padding: var(--qr-card-padding);
-  border: 1px solid rgba(226,232,240,0.6);
+  border: var(--qr-card-border-light);
   box-shadow: var(--qr-shadow-light);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   display: flex;
@@ -8925,12 +8927,12 @@ body.dark-mode .home-section-title { color: #94a3b8; }
   height: 100%;
 }
 .home-bento-card:active {
-  transform: scale(0.97);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  transform: scale(0.98);
+  box-shadow: 0 2px 10px rgba(15,23,42,0.06);
 }
 body.dark-mode .home-bento-card {
   background: rgba(30,41,59,0.7);
-  border-color: rgba(51,65,85,0.5);
+  border: var(--qr-card-border-dark);
   box-shadow: var(--qr-shadow-dark);
 }
 /* Duel card spans full width */
@@ -9191,43 +9193,62 @@ body.dark-mode .home-bento-action-btn:hover {
    ─────────────────────────────────────────────────────────────────────── */
 .home-twin-card {
   align-items: stretch;
-  border: 1px solid rgba(124,58,237,0.22);
-  box-shadow: 0 6px 20px rgba(124,58,237,0.10);
+  /* Subtle premium gradient border + soft navy shadow — no neon glow */
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(160deg, rgba(37,99,235,0.30), rgba(124,58,237,0.18)) border-box;
+  box-shadow: var(--qr-shadow-light);
 }
 body.dark-mode .home-twin-card {
-  border-color: rgba(167,139,250,0.32);
-  box-shadow: 0 6px 22px rgba(124,58,237,0.22);
+  background:
+    linear-gradient(rgba(30,41,59,0.7), rgba(30,41,59,0.7)) padding-box,
+    linear-gradient(160deg, rgba(96,165,250,0.40), rgba(167,139,250,0.28)) border-box;
+  box-shadow: var(--qr-shadow-dark);
 }
+/* Strict fixed-height sections so both twins are pixel-identical (Issue 2) */
 .home-twin-head {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.4rem;
+  gap: 0;
 }
-.home-twin-head .home-bento-icon-squircle { margin: 0 auto; }
+.home-twin-icon {
+  height: 48px;
+  display: flex; align-items: center; justify-content: center;
+}
 .home-twin-title {
   margin: 0;
+  min-height: 30px;        /* title row */
+  display: flex; align-items: center; justify-content: center;
   font-size: 0.98rem;
   font-weight: 800;
   color: #0f172a;
 }
 body.dark-mode .home-twin-title { color: #f1f5f9; }
-.home-twin-badge {
-  display: inline-block;   /* its own centered row (Row 3) */
-  margin: 0 auto;
+.home-twin-badge-row {
+  min-height: 28px;        /* PRO badge row (reserved even when hidden) */
+  display: flex; align-items: center; justify-content: center;
 }
+.home-twin-badge { display: inline-block; }
 .home-twin-desc {
   margin: 0;
-  min-height: 2.6em;       /* fixed area → CTAs align even if text wraps */
+  min-height: 48px;        /* fixed description area → CTAs always align */
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
 }
-/* CTA pinned to the bottom of each twin (Row 5) via the flex:1 container */
+/* CTA pinned to the bottom, identical box for both twins (Issue 2) */
 .home-twin-card #aiCoachContainer,
-.home-twin-card #aiStudyPlanContainer { padding-top: 0.25rem; }
+.home-twin-card #aiStudyPlanContainer { padding-top: 0.5rem; }
+.home-twin-card .home-bento-action-btn {
+  min-height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  font-size: 0.82rem; line-height: 1.2; padding: 0 0.75rem;
+}
 
 .ai-coach-body {
   display: flex;
@@ -9251,21 +9272,7 @@ body.dark-mode .home-twin-title { color: #f1f5f9; }
 /* =========================================================================
    STATS TAB PREMIUM ISOLATION
    ========================================================================= */
-#view-stats {
-  --qr-card-radius: 1.5rem;
-  --qr-shadow-light: 0 4px 16px rgba(0,0,0,0.06);
-}
-#view-stats .card {
-  border-radius: var(--qr-card-radius) !important;
-  box-shadow: var(--qr-shadow-light) !important;
-  border: 1px solid rgba(226,232,240,0.8) !important;
-  background: #ffffff !important;
-}
-body.dark-mode #view-stats .card {
-  background: rgba(22,27,45,0.88) !important;
-  border: 1px solid rgba(79,143,247,0.15) !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
-}
+/* Stats cards now inherit the unified global card standard (no per-tab override). */
 
 /* Global Empty States (Isolated to Stats after Rollback) */
 .qr-empty-state {
@@ -10116,19 +10123,19 @@ body.dark-mode .sp-slider-val {
 }
 
 /* Value cards */
-/* Section 2: premium benefit chips — visual, scannable, centered */
+/* Section 2: minimal 2-col feature grid — Apple-settings calm, no glow */
 .pw-values {
-  display: flex; flex-wrap: wrap; justify-content: center;
-  gap: .5rem; margin: 1.1rem 0 .35rem;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin: 1.1rem 0 .35rem;
 }
 .pw-value {
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: .5rem .8rem; border-radius: 999px;
-  background: linear-gradient(135deg, rgba(37,99,235,.08), rgba(124,58,237,.08));
-  border: 1px solid rgba(124,58,237,.18);
+  display: flex; align-items: center; gap: .55rem;
+  padding: .65rem .7rem; border-radius: 12px;
+  background: #f8fafc; border: 1px solid rgba(15,23,42,0.06);
 }
-.pw-value-icon { font-size: 1rem; line-height: 1; }
-.pw-value-text { font-size: .82rem; font-weight: 700; color: #334155; white-space: nowrap; }
+.pw-value:last-child:nth-child(odd) { grid-column: 1 / -1; } /* center the 7th */
+.pw-value-icon { font-size: 1.05rem; line-height: 1; flex-shrink: 0; }
+.pw-value-text { font-size: .8rem; font-weight: 600; color: #334155; }
 .pw-footer-dot { color: #cbd5e1; font-weight: 700; }
 
 /* Comparison matrix */
@@ -10215,7 +10222,7 @@ body.dark-mode .pw-plan--active {
 }
 
 /* Dark mode */
-body.dark-mode .pw-value { background: linear-gradient(135deg, rgba(37,99,235,.18), rgba(124,58,237,.18)); border-color: rgba(167,139,250,.32); }
+body.dark-mode .pw-value { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
 body.dark-mode .pw-value-text { color: #e2e8f0; }
 body.dark-mode .pw-hero-sub { color: #94a3b8; }
 body.dark-mode .pw-context { background: rgba(37,99,235,.12); border-color: rgba(37,99,235,.35); color: #bfdbfe; }
@@ -10231,3 +10238,28 @@ body.dark-mode .pw-plan-price { color: #f1f5f9; }
 body.dark-mode .pw-plan--active .pw-plan-price { color: #93c5fd; }
 body.dark-mode .pw-cta-note, body.dark-mode .pw-trust-item, body.dark-mode .pw-footer-link { color: #94a3b8; }
 body.dark-mode .pw-footer { border-top-color: #1e293b; }
+
+/* ───────────────────────────────────────────────────────────────────────
+   Practice tab — sectioned hierarchy (Today's Progress / Quick Start /
+   Advanced Modes). Brings the screen up to the Home tab's intentional feel.
+   ─────────────────────────────────────────────────────────────────────── */
+.practice-section { margin-bottom: 24px; }            /* section gap */
+.practice-section:last-child { margin-bottom: 0; }
+.practice-mode-group { display: flex; flex-direction: column; gap: 16px; } /* card gap */
+.practice-mode-group .mode-card { margin-bottom: 0; }  /* gap handles spacing */
+
+/* Today's Progress strip — 3 compact metrics, one row */
+.practice-today-strip {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.practice-today-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: .85rem .5rem; border-radius: 14px;
+  background: #f8fafc; border: var(--qr-card-border-light);
+}
+.practice-today-value { font-size: 1.3rem; font-weight: 800; color: #2563eb; line-height: 1.1; }
+.practice-today-label { font-size: .72rem; font-weight: 600; color: #64748b; margin-top: .25rem; }
+body.dark-mode .practice-today-item { background: rgba(30,41,59,0.55); border: var(--qr-card-border-dark); }
+body.dark-mode .practice-today-value { color: #60a5fa; }
+body.dark-mode .practice-today-label { color: #94a3b8; }
