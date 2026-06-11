@@ -26,6 +26,8 @@
   --sp-lg: 24px;
   --sp-xl: 32px;
   --sp-2xl: 48px;
+  --qr-nav-h: 3.75rem;             /* bottom-nav height — single source of truth (ADR-011) */
+  --qr-practice-gap: .6rem;        /* Practice scroll-panel: equal top/bottom inset */
 }
 
 /* ---- Reset & Base ---- */
@@ -69,7 +71,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px)); /* exact nav height — no dead space */
+  padding-bottom: calc(var(--qr-nav-h) + env(safe-area-inset-bottom, 0px)); /* reserves the fixed nav */
   opacity: 0;
   transition: opacity .3s ease;
   overflow: hidden;
@@ -1289,7 +1291,7 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   display: flex;
   justify-content: space-around;
   align-items: center;
-  height: 3.75rem;
+  height: var(--qr-nav-h);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 100;
   box-shadow: 0 -2px 12px rgba(0,0,0,.06);
@@ -3175,33 +3177,45 @@ body.dark-mode .table-modal-title {
   color: #60a5fa;
 }
 
-/* ---- Practice Container ---- */
+/* ---- Practice: fixed app shell (ADR-011) ---- */
+/* When Practice is active the app-level scroller (.container) yields scroll control to this
+   shell, so the fixed header and bottom nav never drift (eliminates the double scroll). */
+body.view-practice-active > .container {
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
 #view-practice.spa-view-active {
   display: flex;
   flex-direction: column;
-  /* Subtract only the bottom nav height + safe area — header is inside the view flow */
-  height: calc(var(--vh, 1vh) * 100 - 4.5rem - env(safe-area-inset-bottom, 0px));
+  /* Viewport − fixed nav − bottom safe area; top safe area clears the notch / status bar. */
+  height: calc(var(--vh, 1vh) * 100 - var(--qr-nav-h) - env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   overflow: hidden;
+}
+/* The header is the fixed band — never grows, shrinks, or scrolls. */
+#view-practice.spa-view-active > header {
+  flex: 0 0 auto;
 }
 
 .practice-container {
-  padding: .65rem .9rem;
-  padding-bottom: 1rem;          /* Extra bottom space so last card isn't clipped */
   display: flex;
   flex-direction: column;
   gap: 0;
-  /* Flex shrink/grow logic to isolate scrolling */
+  /* The single Practice scroller — isolates scrolling to this panel. */
   flex: 1;
   min-height: 0;
-  max-height: none;
-  /* Override .card overflow:hidden — scroll container must not clip children */
-  overflow: visible;
+  width: 100%;
+  /* Equal top/bottom margin → panel visually centered between header and nav. */
+  margin: var(--qr-practice-gap) auto;
+  /* Symmetric internal padding → dedicated-panel feel. */
+  padding: .9rem;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
-  margin-top: .4rem;
 }
 .practice-container::-webkit-scrollbar { display: none; }
 .practice-container:active {
@@ -5830,12 +5844,6 @@ body.theme-playful.dark-mode .skip-btn:active {
 }
 
 /* ======== UI/UX Polish & Micro-interactions ======== */
-
-/* Task 8: Practice container centering & spacing */
-.practice-container {
-  margin-left: auto;
-  margin-right: auto;
-}
 
 /* Task 13: Subtle card tap feedback on analytics cards */
 .analytics-card {
@@ -10187,7 +10195,7 @@ body.dark-mode .pw-footer { border-top-color: #1e293b; }
    Advanced Modes). Brings the screen up to the Home tab's intentional feel.
    ─────────────────────────────────────────────────────────────────────── */
 .practice-section { margin-bottom: 32px; }            /* between major sections */
-.practice-section:first-child { margin-top: .25rem; }
-.practice-section:last-child { margin-bottom: .5rem; }
+.practice-section:first-child { margin-top: 0; }
+.practice-section:last-child { margin-bottom: 0; }
 .practice-mode-group { display: flex; flex-direction: column; gap: 16px; } /* between cards */
 .practice-mode-group .mode-card { margin-bottom: 0; }  /* gap handles spacing */

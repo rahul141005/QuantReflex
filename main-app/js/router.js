@@ -81,6 +81,9 @@ var Router = (function () {
       viewId = 'home';
     }
     target.classList.add('spa-view-active');
+    /* Practice owns its own scroll shell — neutralize the app-level .container scroller so the
+       fixed header and bottom nav never drift (ADR-011). */
+    document.body.classList.toggle('view-practice-active', viewId === 'practice');
 
     _cleanupOverlays();
     

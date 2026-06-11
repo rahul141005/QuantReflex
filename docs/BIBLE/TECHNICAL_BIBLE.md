@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.0 · **Architecture Version:** 1.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.1 · **Architecture Version:** 2.0 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-11
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -166,11 +166,29 @@ height kept compact (feature card, not dashboard widget).
 Primary = filled blue gradient (`btn-primary`, `.pw-cta`). Secondary = outline/ghost (`btn-secondary`).
 Tertiary = text link. **Purple is a supporting gradient accent only** — never a dominant CTA/border/surface color.
 
-### Practice-screen scroll contract
-`#view-practice` is a fixed-height (`100vh − nav`) `overflow:hidden` flex column; the active content
-region (`#modeSelect`, `categorySelect`, `drillContainer`) is the **internal scroll container**
-(`flex:1; min-height:0; overflow-y:auto`). Any element swapped into that slot MUST carry these scroll
-properties or the screen will clip. (Regression source — see CHANGELOG 2026-06-11 design refactor.)
+### Practice-screen scroll contract (fixed app shell — ADR-011)
+The Practice screen is a **fixed app shell**: a fixed header, a fixed bottom nav, and exactly **one**
+scroll panel centered between them. All in `css/style.css` unless noted:
+- **`--qr-nav-h: 3.75rem`** is the single source of truth for the bottom-nav height — consumed by
+  `.bottom-nav` `height`, `body` `padding-bottom`, and the Practice shell height. **Never hardcode the
+  nav height** (the old `4.5rem` vs `3.75rem` split caused a phantom gap).
+- **`#view-practice.spa-view-active`** is a fixed-height `overflow:hidden` flex column:
+  `height: calc(var(--vh,1vh)*100 − var(--qr-nav-h) − env(safe-area-inset-bottom))` with
+  `padding-top: env(safe-area-inset-top)` (clears notch / status bar). Its `<header>` is
+  `flex:0 0 auto` — the fixed band, never scrolls.
+- The **only** scroller is **`.practice-container`** (the active content slot — `#modeSelect`,
+  `categorySelect`, `drillContainer`): `flex:1; min-height:0; overflow-y:auto`, with **equal top/bottom
+  margin** (`var(--qr-practice-gap) auto`) so the panel sits visually centered between header and nav,
+  and symmetric internal `padding` for the glass-panel feel.
+- **Container neutralization (critical):** every view is wrapped in the app scroller `.container`
+  (`overflow-y:auto`, padded). Practice MUST disable it or the shell overshoots the padded content box
+  and `.container` *also* scrolls — a **double scroll that drags the header**. `router.js` toggles
+  `body.view-practice-active`, and `body.view-practice-active > .container { padding-top:0;
+  padding-bottom:0; overflow:hidden }` hands scroll control entirely to the Practice shell.
+
+Any element swapped into the scroll slot MUST carry the scroll properties or it will clip. Adding new
+practice sections is safe — they extend the single panel. (Root-cause history: the `.container`
+padded-overshoot double-scroll — see [DECISION_LOG.md](DECISION_LOG.md) ADR-011 and the CHANGELOG.)
 
 ## 11. Known Deprecated / Dead Code (do not extend)
 - `duelInvitations` collection (rules deny all).

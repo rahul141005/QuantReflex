@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-11 — Practice tab: fixed app shell + centered scroll panel (ADR-011)
+
+- **Requested change:** Practice must behave like a modern app section — fixed header, fixed bottom nav,
+  and ONE dedicated scroll area between them with equal top/bottom spacing; safe-area-aware; responsive;
+  future-proof. Layout-architecture change, not a visual tweak. Bible-first per Governance.
+- **Impacted systems:** Student App · UI Architecture · Design System · Technical Bible. (No
+  entitlement/payment/Firestore/API/logic change; no new colors/shadows/glass.)
+- **Docs updated FIRST:** TECHNICAL_BIBLE §10A scroll contract rewritten; ADR-011; VERSIONS (Bible → 2.2);
+  ROADMAP.
+- **🔴 Root cause — double scroll dragging the header:** every view is wrapped in the app scroller
+  `.container` (`overflow-y:auto`, padded). The Practice shell height (`100vh − 4.5rem − safe`) exceeded
+  `.container`'s padded content box by ~1.5rem, so `.container` *also* scrolled and dragged the fixed
+  header. Fixed by neutralizing `.container` when Practice is active.
+- **Nav-height token:** added `--qr-nav-h: 3.75rem` (real `.bottom-nav` height); `.bottom-nav`, `body`
+  padding-bottom, and the Practice shell height now all consume it (was a `4.5rem`/`3.75rem` split).
+- **Container neutralization:** `router.js` toggles `body.view-practice-active`;
+  `body.view-practice-active > .container { padding-top:0; padding-bottom:0; overflow:hidden }` hands
+  scroll control to the Practice shell — no nested/double scroll.
+- **Fixed shell + safe areas:** `#view-practice.spa-view-active` height
+  `calc(var(--vh)*100 − var(--qr-nav-h) − env(safe-area-inset-bottom))`, `padding-top:
+  env(safe-area-inset-top)`; `<header>` is `flex:0 0 auto` (fixed band).
+- **Centered scroll panel:** `.practice-container` → `flex:1; min-height:0; overflow-y:auto` with EQUAL
+  top/bottom margin (`var(--qr-practice-gap) auto`) + symmetric `padding:.9rem`; removed the duplicate
+  `.practice-container` centering rule; cleaned `overflow:visible; overflow-y:auto` →
+  `overflow-x:hidden; overflow-y:auto`. `.practice-section` first/last vertical margins zeroed (panel
+  padding owns the inset).
+- **Verification:** `node --check` on router.js; CSS brace-balanced (depth 0); viewport math confirmed
+  (`practice height + nav = 100vh`; `.container` no longer overflows when Practice is active). **Live
+  device pass (small / large / tablet, notch) pending user eyeball.**
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-011.
+
+---
+
 ## 2026-06-11 — App-wide design-system consolidation (ADR-010)
 
 - **Requested change:** make the student app feel built from one design system; fix the Practice scroll

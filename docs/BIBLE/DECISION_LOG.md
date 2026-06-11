@@ -8,6 +8,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-011 — Practice tab is a fixed app shell (single centered scroll panel) (2026-06-11)
+- **Context:** The Practice screen felt unstable — the header drifted while scrolling, spacing above/
+  below the mode list was asymmetric, and it read as "the whole screen scrolls." Root cause (traced in
+  code): every view is wrapped in the app scroller `.container` (`flex:1; overflow-y:auto;
+  padding:1.25rem 1.25rem 1rem`). Practice was *meant* to opt out via a fixed-height `#view-practice`
+  shell (`overflow:hidden`) with an inner `.practice-container` scroller — but the shell height
+  (`100vh − 4.5rem − safe`) exceeded `.container`'s padded content box by ~1.5rem, so `.container` ALSO
+  scrolled and dragged the fixed header (a double scroll). The `4.5rem` nav subtraction also mismatched
+  the real `3.75rem` nav height, adding a phantom asymmetric gap.
+- **Decision:** Make Practice a true fixed app shell. (1) Introduce `--qr-nav-h: 3.75rem` as the single
+  nav-height source (nav `height`, `body` padding, shell height all consume it). (2) When Practice is
+  active the router sets `body.view-practice-active` and CSS neutralizes the app scroller
+  (`> .container { padding-top:0; padding-bottom:0; overflow:hidden }`) so the shell owns scrolling — no
+  double scroll, the header can never drift. (3) The shell respects `env(safe-area-inset-top/bottom)`.
+  (4) The inner `.practice-container` gets equal top/bottom margin (`--qr-practice-gap auto`) + symmetric
+  padding so the panel is visually centered between header and nav.
+- **Options considered:** (a) make the practice `<header>` `position:sticky` inside `.container` and let
+  the app scroller run — rejected: sticky inside a padded scroller is fragile and the padding shows above
+  it; (b) shrink the shell height to fit inside `.container`'s padding — rejected: couples Practice to
+  `.container`'s exact padding and leaves the asymmetric outer gaps; (c) a `:has()` selector instead of
+  the JS class — viable, but a one-line router toggle is bulletproof across all WebViews.
+- **Consequence:** UI-architecture refinement of the §10A scroll contract; documented there. Bible
+  2.1 → 2.2 (MINOR — non-breaking; no entitlement/data/logic change). One scroller on Practice; future
+  sections extend the panel without breaking layout. Other views are unaffected (the body class is
+  present only while Practice is active).
+
 ## ADR-010 — Unified design system (one card language, glass + tokens) (2026-06-11)
 - **Context:** The app had drifted into per-screen styling — Home felt modern while Practice/Stats/Learn
   and the premium cards looked older and inconsistent (different radii, shadows, borders, heavy purple

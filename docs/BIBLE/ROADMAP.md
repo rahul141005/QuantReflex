@@ -18,6 +18,12 @@ Study Plan unified with Math Duel, de-purpling, stat/CTA token alignment.
 and Settings/Session-Results screens against the tokens; optional "Recent Sessions" strip on Practice
 (needs a session feed). Track new screens against §10A rather than hand-styling.
 
+**Practice layout hardened (2026-06-11 — ADR-011):** Practice is now a fixed app shell — `--qr-nav-h`
+nav-height token, app-scroller (`.container`) neutralization (eliminates the double-scroll that dragged
+the header), fixed header + a single centered scroll panel with equal top/bottom spacing, and
+`env(safe-area-inset-top/bottom)` handling. See the §10A scroll contract. Follow-up (low priority):
+consider extending the same safe-area-top treatment to the other views for full notch consistency.
+
 ## Open technical debt (from the 2026-06-11 audit)
 
 | ID | Item | Type | Priority | Notes |
