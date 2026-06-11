@@ -142,6 +142,15 @@ var API = (function () {
   function getAiBudget() { return _fetch('/api/admin/ai-budget'); }
   function setAiBudget(cfg) { return _fetch('/api/admin/ai-budget', { method: 'POST', body: JSON.stringify(cfg) }); }
 
+  /* ---- Export + Alerts (Phase 4) ---- */
+  function exportData(type, params) {
+    var qs = '?type=' + encodeURIComponent(type);
+    if (params) Object.keys(params).forEach(function (k) { qs += '&' + k + '=' + encodeURIComponent(params[k]); });
+    return _fetch('/api/admin/export' + qs);
+  }
+  function getInactiveExport(days) { return _fetch('/api/admin/inactive-users?action=export&days=' + (days || 90)); }
+  function getAlerts() { return _fetch('/api/admin/alerts'); }
+
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
@@ -166,6 +175,9 @@ var API = (function () {
     bulkRemindInactive: function (uids) { return bulkInactive('bulk-remind', uids); },
     getAiBudget: getAiBudget,
     setAiBudget: setAiBudget,
+    exportData: exportData,
+    getInactiveExport: getInactiveExport,
+    getAlerts: getAlerts,
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

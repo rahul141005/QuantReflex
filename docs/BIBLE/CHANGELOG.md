@@ -6,6 +6,27 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin Control Center, Phase 4: Export Center + Alert Center (ADR-016)
+
+- **Requested change:** CSV export tools + a centralized Alert feed.
+- **Impacted systems:** Admin · Analytics · APIs.
+- **Bible docs updated (FIRST):** TECHNICAL_BIBLE §3 (export/alerts endpoints), DECISION_LOG (ADR-016),
+  VERSIONS (Bible 2.6; Arch 2.4), ROADMAP (Phase 4 done).
+- **Schema delta:** none (both computed from existing data).
+- **API delta:** new `api/admin/export` (GET `?type=users|premium|coachings|revenue|ai-usage` → JSON
+  `{filename, csv}`, ≤10–20k rows); new `api/admin/alerts` (GET → computed AI-budget / expired-premium /
+  stale-duel / pending-purge alerts); `inactive-users?action=export` now returns JSON `{filename,csv}` (was raw
+  — fixes the auth gap). New Export Center view (+nav) downloads via authenticated fetch + `AdminUtils.downloadCsv`
+  (Blob); Dashboard shows an Alerts banner.
+- **Security review:** exports/alerts admin-only (withAdminAuth); CSV fetched with the Bearer header then
+  downloaded client-side (no token in URL). Deferred: payment-failure / Firestore-growth alerts (need new data).
+- **Version bumps:** Architecture 2.3→2.4; Bible 2.5→2.6 (MINOR). Firestore/Security/Payment unchanged.
+- **Migration:** none.
+- **Verification:** `node --check` all P4 JS; live render (Export view + Dashboard alerts banner).
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-016.
+
+---
+
 ## 2026-06-12 — Super Admin Control Center, Phase 3: AI Operations Center (ADR-015)
 
 - **Requested change:** GPT budget tracking (configurable monthly budget + warn/critical thresholds,

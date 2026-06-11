@@ -61,7 +61,9 @@ version bump.)_
   Cron + Firestore `count()`. **Phase 2 ✅ (2026-06-11, ADR-014):** user lifecycle
   (suspend/restore/archive/purge/reset-progress, Firebase-Auth-disable-enforced) + Inactive User Center + safe
   archive→30-day-hold→permanent-delete workflow + `cleanup-sweep` cron + Auth-user removal. **Phase 3 ✅ (2026-06-12, ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget +
-  warn/critical thresholds), month-to-date spend + linear projection + status, usage-based AI abuse flags. **Phase 4:** Export Center (CSV) + Alert Center (budget / payment-failure / growth spikes).
+  warn/critical thresholds), month-to-date spend + linear projection + status, usage-based AI abuse flags. **Phase 4 ✅ (2026-06-12, ADR-016):** Export Center (authenticated CSV — users/premium/coachings/revenue/
+  AI-usage/inactive) + Alert Center (AI budget / expired-premium / stale duels / pending purges) on the
+  Dashboard. _Deferred (need new instrumentation): payment-failure-spike + Firestore-growth-spike alerts._
   **Phase 5:** Security Center (needs new failed-login capture) + Firestore-ops (collection sizes/growth) +
   Content Management. Each phase is Bible-first + governed; targets 100k→1M scale via pre-aggregation, no Blaze
   dependency.

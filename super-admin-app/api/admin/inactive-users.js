@@ -68,9 +68,9 @@ async function handler(req, res) {
         rows.push([doc.id, d.email || '', (d.profile && d.profile.name) || '', d.plan || 'free', d.accountStatus || 'active', (d.stats && d.stats.lastActiveDate) || '', (d.profile && d.profile.createdAt) || '']);
       });
       const csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="inactive-users-' + Math.max(1, days) + 'd.csv"');
-      return res.status(200).send(csv);
+      /* Return JSON (not raw download) so the request keeps the admin Bearer token via API._fetch;
+         the client builds the Blob download. (ADR-016 — fixes the prior auth gap.) */
+      return res.status(200).json({ filename: 'inactive-users-' + Math.max(1, days) + 'd.csv', csv: csv, rowCount: rows.length - 1 });
     }
 
     if (action === 'bulk-archive' && req.method === 'POST') {

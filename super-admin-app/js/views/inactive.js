@@ -28,7 +28,7 @@ var InactiveView = (function () {
           '<option value="365">365 days</option>' +
         '</select>' +
         '<button id="inactiveLoadBtn" style="' + BTN_PRIMARY + '">Load</button>' +
-        '<a id="inactiveExportBtn" style="' + BTN + 'text-decoration:none;color:#0f172a;" href="#" target="_blank" rel="noopener">Export CSV</a>' +
+        '<button id="inactiveExportBtn" style="' + BTN + '">Export CSV</button>' +
       '</div>' +
       '<div id="inactiveBulkBar" style="display:none;gap:8px;margin-bottom:12px;align-items:center;">' +
         '<button id="inactiveArchiveBtn" style="' + BTN_DANGER + '">Archive Selected</button>' +
@@ -40,7 +40,7 @@ var InactiveView = (function () {
     document.getElementById('inactiveLoadBtn').addEventListener('click', _load);
     document.getElementById('inactiveArchiveBtn').addEventListener('click', _archiveSelected);
     document.getElementById('inactiveRemindBtn').addEventListener('click', _remindSelected);
-    document.getElementById('inactiveExportBtn').setAttribute('href', '/api/admin/inactive-users?action=export&days=' + _days);
+    document.getElementById('inactiveExportBtn').addEventListener('click', _export);
   }
 
   function _selectedUids() {
@@ -57,7 +57,6 @@ var InactiveView = (function () {
 
   async function _load() {
     _days = parseInt(document.getElementById('inactiveDays').value, 10) || 90;
-    document.getElementById('inactiveExportBtn').setAttribute('href', '/api/admin/inactive-users?action=export&days=' + _days);
     var content = document.getElementById('inactiveContent');
     content.innerHTML = 'Loading…';
     try {
@@ -114,6 +113,14 @@ var InactiveView = (function () {
       var r = await API.bulkRemindInactive(uids);
       Toast.show('Reminder sent to ' + r.sent + ' of ' + r.targeted + ' user(s).', 'success');
     } catch (e) { Toast.show('Reminder failed: ' + AdminUtils.getReadableError(e), 'error'); }
+  }
+
+  async function _export() {
+    try {
+      var res = await API.getInactiveExport(_days);
+      AdminUtils.downloadCsv(res.filename, res.csv);
+      Toast.show('Exported ' + (res.rowCount != null ? res.rowCount : '?') + ' row(s).', 'success');
+    } catch (e) { Toast.show('Export failed: ' + AdminUtils.getReadableError(e), 'error'); }
   }
 
   return { render: render };

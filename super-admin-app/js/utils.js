@@ -171,12 +171,28 @@ var AdminUtils = (function () {
     return 'An unexpected error occurred.';
   }
 
+  /* Trigger a client-side CSV download from a string (keeps auth in the fetch, not the URL). */
+  function downloadCsv(filename, csv) {
+    try {
+      var blob = new Blob([csv == null ? '' : csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'export.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) { console.error('downloadCsv failed:', e); }
+  }
+
   return {
     normalizeFirestoreDate: normalizeFirestoreDate,
     toMillis: toMillis,
     formatDate: formatDate,
     formatDateTime: formatDateTime,
     escapeHtml: escapeHtml,
-    getReadableError: getReadableError
+    getReadableError: getReadableError,
+    downloadCsv: downloadCsv
   };
 })();

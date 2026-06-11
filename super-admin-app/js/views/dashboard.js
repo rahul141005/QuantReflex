@@ -29,16 +29,28 @@ var DashboardView = (function () {
       '</div>';
   }
 
+  function _renderAlerts(alerts) {
+    if (!alerts || !alerts.length) return '';
+    var items = alerts.map(function (a) {
+      var color = a.severity === 'critical' ? '#ef4444' : (a.severity === 'warning' ? '#f59e0b' : '#3b82f6');
+      return '<div style="border-left:4px solid ' + color + ';background:#1e293b;padding:.6rem .9rem;border-radius:6px;margin-bottom:.5rem;color:#e2e8f0;font-size:.85rem;">' +
+        '<strong style="color:' + color + ';text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;">' + a.severity + '</strong> &nbsp;' + AdminUtils.escapeHtml(a.message) + '</div>';
+    }).join('');
+    return '<h3 style="color:#ef4444;">⚠ Alerts (' + alerts.length + ')</h3><div style="margin-bottom:24px;">' + items + '</div>';
+  }
+
   async function _loadData() {
     try {
       var data = await API.getDashboard();
+      var alertsRes = await API.getAlerts().catch(function () { return { alerts: [] }; });
       var content = document.getElementById('dashboardContent');
       if (content && data) {
         var m = data.metrics || {};
         var ai = data.ai || {};
         var h = data.health || {};
 
-        var html = '<h3>User Lifecycle</h3>' +
+        var html = _renderAlerts(alertsRes.alerts) +
+          '<h3>User Lifecycle</h3>' +
           '<div class="stat-grid" style="margin-bottom:24px;">' +
           _statCard(m.totalUsers || 0, 'Total Users') +
           _statCard(m.dau || 0, 'DAU (24h)', '#3b82f6') +

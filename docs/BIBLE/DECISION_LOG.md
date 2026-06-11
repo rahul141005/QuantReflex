@@ -8,6 +8,20 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-016 — Export Center (authenticated CSV) + Alert Center (computed from existing data) (2026-06-12)
+- **Context:** Admins need CSV exports (users/premium/coachings/revenue/AI-usage/inactive) and one Alert feed.
+  Admin endpoints require a Bearer JWT, so a plain `<a href download>` to an API route would be unauthenticated
+  (401). And several spec'd alerts (payment-failure spike, Firestore-growth spike) have no underlying data yet.
+- **Decision:** Exports return **JSON `{filename, csv}`** from `api/admin/export` (+ `inactive-users?action=export`),
+  fetched through the authenticated `API._fetch` (Bearer header), then turned into a client-side **Blob download**
+  (`AdminUtils.downloadCsv`) — auth is preserved and no token leaks in a URL. (This also fixes the Phase-2
+  inactive-export link, which had the same auth gap.) Exports are capped (≤10k–20k rows) per serverless request;
+  true large-scale export is a future background job. The **Alert Center** (`api/admin/alerts`) computes alerts
+  from data we already have — AI budget warning/critical/over, expired-premium count, stale duel rooms,
+  archived-past-hold pending purges — rendered at the top of the Dashboard. Payment-failure and Firestore-growth
+  alerts are deferred (need new instrumentation; ROADMAP).
+- **Consequence:** Working authenticated exports + an actionable alert feed with zero new schema. Arch 2.4, Bible 2.6.
+
 ## ADR-015 — AI Operations Center: editable spend budget + threshold alerts + usage-based abuse flags (2026-06-12)
 - **Context:** The GPT Cost Center (Phase 1) records real per-call cost, but there was no spend ceiling,
   projection, or abuse signal. The spec asks for a configurable monthly budget with warning/critical
