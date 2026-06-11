@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.1 · **Architecture Version:** 2.0 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.2 · **Architecture Version:** 2.0 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-11
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -179,7 +179,8 @@ scroll panel centered between them. All in `css/style.css` unless noted:
 - The **only** scroller is **`.practice-container`** (the active content slot — `#modeSelect`,
   `categorySelect`, `drillContainer`): `flex:1; min-height:0; overflow-y:auto`, with **equal top/bottom
   margin** (`var(--qr-practice-gap) auto`) so the panel sits visually centered between header and nav,
-  and symmetric internal `padding` for the glass-panel feel.
+  symmetric internal `padding`, and `border-radius: var(--qr-card-radius)` so the glass panel reads as a
+  soft container consistent with Home — not a sharp rectangle.
 - **Container neutralization (critical):** every view is wrapped in the app scroller `.container`
   (`overflow-y:auto`, padded). Practice MUST disable it or the shell overshoots the padded content box
   and `.container` *also* scrolls — a **double scroll that drags the header**. `router.js` toggles

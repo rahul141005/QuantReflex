@@ -6,6 +6,19 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-11 — Practice scroll panel: softer corners (visual refinement)
+
+- **Requested change:** the outer Practice scroll container looked too rectangular versus the rest of the
+  app. Soften its corners to match Home — subtle, not pill/bubble. Only the outer container *shape*; glass,
+  blur, border, shadow, spacing, layout, and inner cards unchanged.
+- **Change:** `.practice-container` gains `border-radius: var(--qr-card-radius)` (24px — the same soft
+  radius Home cards use). One declaration; no new token and no version bump (cosmetic refinement of the
+  ADR-011 panel; `TECHNICAL_BIBLE §10A` scroll-contract note added, doc version → 1.2).
+- **Verification:** CSS brace-balanced; computed radius confirmed; scroll / corner-clip / fixed-header /
+  fixed-nav behavior unchanged (cards stay inset by the panel padding, so no corner clipping).
+
+---
+
 ## 2026-06-11 — Practice tab: fixed app shell + centered scroll panel (ADR-011)
 
 - **Requested change:** Practice must behave like a modern app section — fixed header, fixed bottom nav,

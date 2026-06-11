@@ -3210,6 +3210,9 @@ body.view-practice-active > .container {
   margin: var(--qr-practice-gap) auto;
   /* Symmetric internal padding → dedicated-panel feel. */
   padding: .9rem;
+  /* Soft glass-panel corners — same radius as Home cards, so it reads as an intentional
+     container rather than a sharp rectangle. (Visual refinement of the ADR-011 panel.) */
+  border-radius: var(--qr-card-radius);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
