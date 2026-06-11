@@ -9,9 +9,9 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.4 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.2 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.2 | Collection/field/path schema + indexes. |
+| **Bible Version** | 2.5 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.3 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.3 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.2 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.1 | Razorpay flows, plan config, entitlement grant logic. |
 
@@ -59,6 +59,7 @@ file and moves independently of the system-level tracks above.
 | 2026-06-11 | 2.2 | 2.0 | 2.0 | 2.0 | 2.0 | **Practice fixed-shell layout (ADR-011):** `--qr-nav-h` nav-height token, app-scroller (`.container`) neutralization for Practice, fixed header + centered single scroll panel, safe-area top/bottom. UI-architecture (MINOR). |
 | 2026-06-11 | 2.3 | 2.1 | 2.1 | 2.1 | 2.1 | **Super Admin Control Center — Phase 1 (ADR-012, ADR-013):** unified immutable `auditLogs` (every admin action); GPT token/cost instrumentation (`usage/ai` + `systemMetrics`); revenue accounting (`payments.amount`); pre-aggregated `metrics/latest` via Vercel Cron + Firestore `count()`. Additive (MINOR) across all four engineering tracks; **no data migration** (historical revenue via price-map fallback). |
 | 2026-06-11 | 2.4 | 2.2 | 2.2 | 2.2 | 2.1 | **Super Admin Control Center — Phase 2 (ADR-014):** user lifecycle (suspend/restore/archive/purge/reset, Firebase-Auth-disable-enforced), Inactive User Center, soft-delete→30-day-hold→purge cleanup workflow + `cleanup-sweep` cron. Additive (MINOR); no data migration. |
+| 2026-06-12 | 2.5 | 2.3 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 3 (ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget + warn/crit thresholds), month-to-date spend + projection + status from pre-aggregated `systemMetrics`, usage-based abuse flags. Additive (MINOR). |
 
 ---
 

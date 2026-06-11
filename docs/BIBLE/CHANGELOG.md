@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin Control Center, Phase 3: AI Operations Center (ADR-015)
+
+- **Requested change:** GPT budget tracking (configurable monthly budget + warn/critical thresholds,
+  projected spend, remaining) + AI abuse detection.
+- **Impacted systems:** Admin · Firestore · Analytics · AI · APIs.
+- **Bible docs updated (FIRST):** FIRESTORE_BLUEPRINT (`config/aiBudget`), TECHNICAL_BIBLE §3 (ai-budget
+  endpoint), DECISION_LOG (ADR-015), VERSIONS (Bible 2.5; Arch/FS 2.3), ROADMAP (Phase 3 done).
+- **Schema delta:** +`config/aiBudget` `{monthlyBudgetUSD, warnPct, critPct, updatedAt, updatedBy}` (admin-only).
+- **API delta:** new `api/admin/ai-budget` (GET computes month-to-date spend from `systemMetrics/ai_daily_*`
+  + used%/projected/remaining/status; POST updates config, audit-logged). `ai-usage` now returns per-user
+  `abuseFlags` + `flaggedCount`. AI Analytics view gains a budget panel (configurable) + flagged-user badges.
+- **Security review:** budget config admin-SDK-write only (client denied by default-deny); config change
+  audit-logged (category `system`). Budget is **advisory** (alerting), not request-blocking.
+- **Version bumps:** Architecture/Firestore 2.2→2.3; Bible 2.4→2.5 (MINOR). Security/Payment unchanged.
+- **Migration:** none (config defaults applied when absent).
+- **Verification:** `node --check` all P3 JS; budget math fixtures; live AI-view render (budget panel + flags).
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-015.
+
+---
+
 ## 2026-06-11 — Super Admin Control Center, Phase 2: User Lifecycle + Cleanup (ADR-014)
 
 - **Requested change:** operational user management + safe inactive-account cleanup — suspend / restore /

@@ -138,6 +138,10 @@ var API = (function () {
     });
   }
 
+  /* ---- AI Budget (Phase 3) ---- */
+  function getAiBudget() { return _fetch('/api/admin/ai-budget'); }
+  function setAiBudget(cfg) { return _fetch('/api/admin/ai-budget', { method: 'POST', body: JSON.stringify(cfg) }); }
+
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
@@ -160,6 +164,8 @@ var API = (function () {
     getInactiveUsers: getInactiveUsers,
     bulkArchiveInactive: function (uids) { return bulkInactive('bulk-archive', uids); },
     bulkRemindInactive: function (uids) { return bulkInactive('bulk-remind', uids); },
+    getAiBudget: getAiBudget,
+    setAiBudget: setAiBudget,
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

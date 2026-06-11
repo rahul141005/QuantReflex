@@ -73,6 +73,15 @@ async function handler(req, res) {
         estCost = totalTokens * (0.375 / 1000000);
       }
 
+      /* Abuse heuristics (ADR-015) — advisory flags over cumulative usage counters. */
+      const wpToday = usage.wordProblemsUsedToday || 0;
+      const gptCalls = usage.gptCalls || 0;
+      const abuseFlags = [];
+      if (wpToday >= 25) abuseFlags.push('high-daily-usage');
+      if (gptCalls > 300) abuseFlags.push('heavy-gpt-user');
+      if (Number(estCost) > 1.0) abuseFlags.push('high-cost');
+      if (user.plan !== 'premium' && wp > 5) abuseFlags.push('over-free-cap');
+
       analytics.push({
         uid: uid,
         displayName: (user.profile && user.profile.name) || user.email || 'Unknown',
@@ -82,14 +91,20 @@ async function handler(req, res) {
         totalWP: wp,
         totalExp: exp,
         totalCalls: wp + exp,
+        wordProblemsToday: wpToday,
+        gptCalls: gptCalls,
         totalEstimatedTokens: totalTokens,
-        totalEstimatedCost: Number(estCost).toFixed(6)
+        totalEstimatedCost: Number(estCost).toFixed(6),
+        abuseFlags: abuseFlags
       });
     });
 
+    const flaggedCount = analytics.filter(function (a) { return a.abuseFlags && a.abuseFlags.length; }).length;
+
     return res.status(200).json({
       analytics: analytics,
-      systemMetrics: systemMetrics
+      systemMetrics: systemMetrics,
+      flaggedCount: flaggedCount
     });
   } catch (err) {
     console.error('Error fetching AI usage:', err);

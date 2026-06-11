@@ -8,6 +8,24 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-015 — AI Operations Center: editable spend budget + threshold alerts + usage-based abuse flags (2026-06-12)
+- **Context:** The GPT Cost Center (Phase 1) records real per-call cost, but there was no spend ceiling,
+  projection, or abuse signal. The spec asks for a configurable monthly budget with warning/critical
+  thresholds (80/90/100%), projected spend, and detection of excessive/suspicious AI usage.
+- **Decision:** Store an editable `config/aiBudget` (`monthlyBudgetUSD` + `warnPct`/`critPct`, defaults
+  25 / 80 / 90) written only via `api/admin/ai-budget` (audit-logged). The GET computes month-to-date spend
+  by summing the already-pre-aggregated `systemMetrics/ai_daily_*.estimatedCostUSD` for the current month
+  (≤31 cheap doc reads — no per-call scan), then derives used%, linear projected monthly spend, remaining,
+  and a status (ok/warning/critical/over). **Abuse detection** is heuristic over the per-user `usage/ai`
+  counters surfaced by `ai-usage` (high daily word-problem volume, heavy lifetime GPT calls, high cost,
+  free-tier over-cap) — flags are advisory for admin review, not auto-enforced.
+- **Options considered:** (a) hard-stop AI when over budget — rejected for Phase 3 (would break paying
+  users; budget is observability + alerting first); (b) per-request rate/time-series abuse detection —
+  deferred (needs per-call event logging; cumulative counters are a pragmatic first signal); (c) currency
+  in INR — rejected (OpenAI bills USD and the cost data is USD; keep one unit).
+- **Consequence:** Real spend governance + early-warning without new scan cost. Budget is advisory
+  (alerting), not enforcing. Arch 2.3, Firestore 2.3, Bible 2.5.
+
 ## ADR-014 — User lifecycle: soft-delete → 30-day hold → purge, enforced via Firebase Auth disable (2026-06-11)
 - **Context:** The Control Center needs operational user management (suspend/restore/delete/reset) and a safe
   way to reduce database clutter from long-inactive accounts — without the risk of instant, irreversible
