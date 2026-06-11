@@ -54,7 +54,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** (1) Pre-aggregate — a Vercel-Cron endpoint `super-admin-app/api/cron/daily-snapshot` (gated by
   `CRON_SECRET`) computes counts via Firestore **`count()` aggregation** (server-side, not document reads),
   rolls up `payments` (bounded) for revenue, and reads the incrementally-maintained `systemMetrics/ai_daily_*`
-  for AI cost — writing `metrics/{date}` + `metrics/latest` **hourly**. (2) The dashboard reads `metrics/latest`
+  for AI cost — writing `metrics/{date}` + `metrics/latest` **daily** (Vercel Hobby caps cron at once/day). (2) The dashboard reads `metrics/latest`
   **O(1)**, and reads today's `systemMetrics/ai_daily_*` **live** for real-time AI cost. (3) AI token/cost is
   pre-aggregated at write time (`aiService.trackGptCost`), never scanned. Mixed-type `updatedAt`/`createdAt`
   counts use a disjoint Timestamp+string `count()` union. (4) `auditLogs` is the immutable audit backbone.
@@ -63,8 +63,9 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   rejected (doesn't scale; 15s timeout); (c) Firestore distributed counters on every write — heavier than a
   daily snapshot needs, kept only for the hot AI-cost path.
 - **Consequence:** Analytics scale to 1M users without Blaze. Trade-off: pre-aggregated figures (revenue, DAU/MAU)
-  are as fresh as the last snapshot (cron runs **hourly**); today's AI cost is read **live** (real-time); an
-  on-demand recompute is also available. Firestore 2.1, Arch 2.1.
+  are as fresh as the last snapshot (cron runs **daily** — Vercel Hobby caps cron frequency at once/day; Pro
+  can go hourly); today's AI cost is read **live** (real-time); an on-demand recompute is also available.
+  Firestore 2.1, Arch 2.1.
 
 ## ADR-012 — Operational changes flow through the Super Admin Control Center; never direct DB manipulation (2026-06-11)
 - **Context:** Admins can technically edit Firestore directly in the Firebase console. Doing so bypasses

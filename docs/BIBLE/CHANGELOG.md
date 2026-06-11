@@ -79,7 +79,8 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
   fixtures; cron 401/200; Preview-MCP dashboard render. Deploy at rollout: `firebase deploy --only
   firestore:rules,firestore:indexes`; set Vercel `CRON_SECRET`. Cloud Functions stay undeployed (Spark).
 - **Adversarial review hardening (29-agent workflow, 8 confirmed findings fixed):** AI-cost staleness — the
-  dashboard now reads today's `systemMetrics/ai_daily_*` **live** + the cron runs **hourly** (was daily); the
+  dashboard now reads today's `systemMetrics/ai_daily_*` **live** (the snapshot cron stays **daily** — Vercel
+  Hobby caps cron at once/day; live AI read means daily revenue/DAU is fine); the
   mixed-type DAU/MAU/newToday undercount fixed with a disjoint Timestamp+ISO-string `count()` union in
   `metrics.js`; `ai-usage.js` now prefers the real per-user `gpt*` telemetry over heuristics; and
   `notifications.js` + the destructive `duels.js` cleanup now write `auditLogs` rows (every admin mutation logged).

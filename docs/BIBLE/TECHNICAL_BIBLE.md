@@ -96,7 +96,7 @@ vanilla-JS SPA (`js/views/*` over `js/ui/{modal,table,toast}.js`, `js/services/a
   before, after}`). Append-only; admin-read-only. See [SECURITY_ARCHITECTURE.md §5.2](SECURITY_ARCHITECTURE.md).
 - **Pre-aggregated analytics (scales to 1M):** the dashboard reads a single pre-aggregated `metrics/latest`
   doc (O(1)) instead of scanning collections. A Vercel-Cron endpoint `api/cron/daily-snapshot` recomputes
-  `metrics/{date}` + `metrics/latest` **hourly** using Firestore **`count()` aggregation** for user counts and a
+  `metrics/{date}` + `metrics/latest` **daily** (Vercel Hobby caps cron at once/day) using Firestore **`count()` aggregation** for user counts and a
   bounded `payments` rollup for revenue; AI token/cost is pre-aggregated incrementally at write time
   (`aiService.trackGptCost` → `systemMetrics/ai_daily_*`). See [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md)
   and ADR-013.
