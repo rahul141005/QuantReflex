@@ -1096,7 +1096,7 @@ var FirestoreSync = (function () {
     /**
      * v2: reflect a just-completed Premium activation in the local cache for
      * instant UI feedback. The server already wrote Firestore via Admin SDK in
-     * /api/payment/verify; client entitlement grants are blocked by rules.
+     * /api/payment?action=verify; client entitlement grants are blocked by rules.
      */
     activatePremium: function (planType, expiry, paymentId, callback) {
       if (_memoryCache) {
@@ -1145,7 +1145,7 @@ var FirestoreSync = (function () {
       }
       
       Auth.getCurrentUser().getIdToken().then(function (token) {
-        return fetch('/api/claim-coaching', {
+        return fetch('/api/account?action=claim-coaching', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1195,7 +1195,7 @@ var FirestoreSync = (function () {
     getNotifications: function (callback) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
       Auth.getCurrentUser().getIdToken().then(function (token) {
-        return fetch('/api/notifications?action=list', {
+        return fetch('/api/account?action=notifications-list', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
       })
@@ -1211,7 +1211,7 @@ var FirestoreSync = (function () {
     markNotificationRead: function (id, callback) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
       Auth.getCurrentUser().getIdToken().then(function (token) {
-        return fetch('/api/notifications?action=markRead', {
+        return fetch('/api/account?action=notifications-markRead', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ id: id })

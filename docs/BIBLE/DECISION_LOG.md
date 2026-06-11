@@ -8,6 +8,27 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-017 — API Consolidation Strategy: domain-based action-routed handlers under the Vercel Free cap (2026-06-12)
+- **Context:** QuantReflex deploys on Vercel Free (Hobby), which caps a deployment at **12 Serverless Functions
+  per project** (every `api/*.js` = one function; `api/_lib/**` excluded). An audit found super-admin-app at
+  **15** functions (over by 3 — the real reason it would not deploy) and main-app at exactly **12** (no
+  headroom). Adding any endpoint would break deployment. There are **zero live users** (test data only).
+- **Decision:** Restructure into **domain-based, action-routed** APIs — one file per domain dispatching on
+  `?action=`/`?type=`, with a SINGLE auth wrapper per file. super-admin **15→8** (`system`, `users`, `ai`,
+  `entitlements`, `coachings`, `questions`, `notifications` + one merged `cron/sweep`); main-app **12→6** (`ai`,
+  `payment`, `account` + isolated `payment/webhook`, `auth/register`, `validate-coaching`). Legacy/dead
+  endpoints dropped (no back-compat needed pre-launch): the deprecated `ai/word-problems` is removed (the client
+  reads `questions` directly from Firestore). **Auth boundaries are inviolable:** admin↔admin and
+  student↔student merges only; crons keep `CRON_SECRET`; the Razorpay webhook stays isolated (HMAC +
+  `bodyParser:false`); public endpoints stay isolated. Future features must fit an existing domain API
+  (enforced by GOVERNANCE Infrastructure Governance + TECHNICAL_BIBLE §3.1).
+- **Options considered:** (a) keep endpoint-per-feature + upgrade to Vercel Pro — rejected (cost; the structure
+  is the real problem); (b) merge across auth models to save more files — rejected (security regression / role
+  leakage); (c) move admin analytics to Cloud Functions — rejected (Spark plan; not deployable).
+- **Consequence:** Both apps deploy on Free with headroom (super 8, main 6, coaching 6 — all <12); lower
+  maintenance; a clean growth path. Trade-off: merged in-memory rate-limit buckets are slightly tighter per
+  user (acceptable / arguably more correct). Arch 2.5, Bible 2.7.
+
 ## ADR-016 — Export Center (authenticated CSV) + Alert Center (computed from existing data) (2026-06-12)
 - **Context:** Admins need CSV exports (users/premium/coachings/revenue/AI-usage/inactive) and one Alert feed.
   Admin endpoints require a Bearer JWT, so a plain `<a href download>` to an API route would be unauthenticated

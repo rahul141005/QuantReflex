@@ -177,7 +177,7 @@ var AIFeatures = (function () {
     if (_explainInFlight) { callback('request_in_progress'); return; }
     _explainInFlight = true;
 
-    _sendAuthenticatedRequest('POST', '/api/ai/explain',
+    _sendAuthenticatedRequest('POST', '/api/ai?action=explain',
       { question: question, answer: answer, category: category }, 20000,
       function (err, data) {
         _explainInFlight = false;
@@ -192,7 +192,7 @@ var AIFeatures = (function () {
     if (cached) { callback(null, cached); return; }
 
     _coachInFlight = true;
-    _sendAuthenticatedRequest('POST', '/api/ai/insights',
+    _sendAuthenticatedRequest('POST', '/api/ai?action=insights',
       { stats: stats, type: 'coach' }, 20000,
       function (err, data) {
         _coachInFlight = false;
@@ -208,7 +208,7 @@ var AIFeatures = (function () {
     if (cached) { callback(null, cached); return; }
 
     _insightsInFlight = true;
-    _sendAuthenticatedRequest('POST', '/api/ai/insights',
+    _sendAuthenticatedRequest('POST', '/api/ai?action=insights',
       { stats: stats, type: 'insights' }, 20000,
       function (err, data) {
         _insightsInFlight = false;
@@ -950,7 +950,7 @@ var AIFeatures = (function () {
         if (!token) { callback(FRIENDLY_ERROR); return; }
         var xhr = new XMLHttpRequest();
         _spActiveXhr = xhr;
-        xhr.open('POST', '/api/ai/study-plan', true);
+        xhr.open('POST', '/api/ai?action=study-plan', true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr.timeout = 60000;

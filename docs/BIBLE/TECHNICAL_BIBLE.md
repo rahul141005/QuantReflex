@@ -37,12 +37,31 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
-| `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai/*`, `payment/*`, `auth/register`, `account/delete`, `claim-coaching`, `validate-coaching`, `notifications` |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` (users [list/details + lifecycle: suspend/restore/archive/purge/reset], entitlements, coachings, questions, payments, ai-usage, ai-budget, inactive-users, export, alerts, duels, notifications, system) + `cron/{daily-snapshot,cleanup-sweep}` (Vercel Cron, `CRON_SECRET`-gated) |
+| `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|insights\|study-plan), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `auth/register` (public), `validate-coaching` (public) |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions`, `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated) |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 
 **Isolation rule:** apps deploy independently from their own root directory. There is **no bundler**, so runtime `import ../shared/` is impossible. Shared logic (`_toMillis`, `_escapeHtml`, Firebase config, entitlement constants) is **inline-copied** into each app; `shared/` is the canonical reference only. When you change a shared utility, update every inline copy and note it in the changelog.
+
+### 3.1 Infrastructure Constraints (Vercel Free / Hobby) — ADR-017
+
+QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official architecture constraint:
+- **A deployment may contain at most 12 Serverless Functions per project.** Every `.js` file directly under an
+  app's `api/` tree is one function; files under `api/_lib/**` are **private (excluded)**. Cron endpoints count.
+- **Cron jobs run at most once per day on Hobby** — a sub-daily schedule fails the whole deployment.
+- **Cloud Functions are NOT deployed** (Firebase Spark) — scheduled work runs on **Vercel Cron**.
+
+**Mandatory consequences (enforced by [GOVERNANCE.md](GOVERNANCE.md) + ADR-017):**
+- **Minimize API count.** Do NOT add a new `api/*.js` file unless unavoidable; reuse/extend an existing domain
+  endpoint first.
+- **Favor domain-based, action-routed handlers** — one file per domain dispatching on `?action=` (and `?type=`),
+  with a **single auth wrapper per file**. New features must fit an existing domain API.
+- **One auth model per handler** (never mix in one file): admin → `withAdminAuth`; student → `withAuth`; crons →
+  `CRON_SECRET`; the Razorpay webhook stays isolated (HMAC + `bodyParser:false`); public endpoints
+  (`auth/register`, `validate-coaching`) stay isolated.
+- **Current counts (post-consolidation, ADR-017):** main-app **6**, super-admin **8**, coaching **6** — all under
+  the 12-function cap with headroom.
 
 ## 4. main-app Client Architecture
 

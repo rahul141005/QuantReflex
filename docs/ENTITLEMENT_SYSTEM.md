@@ -49,9 +49,9 @@ Expired premium/trials self-heal to free on read (server `aiService.resolvePlan`
 ## Payment Flow
 
 ```
-Client → /api/payment/create-order { plan: premium_6m | premium_12m } → Razorpay Order
+Client → /api/payment?action=create-order { plan: premium_6m | premium_12m } → Razorpay Order
 Client → Razorpay Checkout UI → Payment
-Client → /api/payment/verify → server validates signature + binds order to caller
+Client → /api/payment?action=verify → server validates signature + binds order to caller
 Server → aiService.activatePremium() → Firestore write (plan='premium', planType, planExpiry)
 Client → FirestoreSync.activatePremium() → UI update
 ```

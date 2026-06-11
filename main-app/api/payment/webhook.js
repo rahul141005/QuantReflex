@@ -5,14 +5,14 @@
  *
  * WHY THIS EXISTS:
  * The normal payment flow is:
- *   User pays → Razorpay confirms → Client calls /api/payment/verify → Server grants Premium
+ *   User pays → Razorpay confirms → Client calls /api/payment?action=verify → Server grants Premium
  *
  * But if the user's phone loses internet, or the browser tab closes, or the
- * Vercel function times out — the client never calls /api/payment/verify.
+ * Vercel function times out — the client never calls /api/payment?action=verify.
  * The user pays but never gets Premium. No recovery.
  *
  * This webhook is the SAFETY NET. Razorpay calls it directly (server-to-server)
- * regardless of what happens on the user's device. Even if /api/payment/verify
+ * regardless of what happens on the user's device. Even if /api/payment?action=verify
  * fails, this webhook will grant the entitlement.
  *
  * SECURITY:
@@ -22,7 +22,7 @@
  * IDEMPOTENCY:
  * - Uses payments/{paymentId} Firestore document as a lock
  * - If the document already exists, entitlement is re-applied (safe replay)
- * - Both /api/payment/verify AND this webhook can fire — no double-granting
+ * - Both /api/payment?action=verify AND this webhook can fire — no double-granting
  */
 
 const crypto = require('crypto');

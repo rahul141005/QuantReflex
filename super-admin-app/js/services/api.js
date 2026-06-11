@@ -98,7 +98,7 @@ var API = (function () {
   }
 
   function getAIUsage() {
-    return _fetch('/api/admin/ai-usage');
+    return _fetch('/api/admin/ai?action=usage');
   }
 
   function generateQuestion(topic, difficulty) {
@@ -118,7 +118,7 @@ var API = (function () {
 
   /* ---- Payments ---- */
   function getPaymentLogs() {
-    return _fetch('/api/admin/payments?action=logs');
+    return _fetch('/api/admin/system?action=payments-logs');
   }
 
   /* ---- User Lifecycle (Phase 2) ---- */
@@ -129,27 +129,27 @@ var API = (function () {
     });
   }
   function getInactiveUsers(days, limit) {
-    return _fetch('/api/admin/inactive-users?action=list&days=' + (days || 90) + '&limit=' + (limit || 200));
+    return _fetch('/api/admin/users?action=inactive-list&days=' + (days || 90) + '&limit=' + (limit || 200));
   }
   function bulkInactive(action, uids, extra) {
-    return _fetch('/api/admin/inactive-users?action=' + action, {
+    return _fetch('/api/admin/users?action=' + action, {
       method: 'POST',
       body: JSON.stringify(Object.assign({ uids: uids }, extra || {}))
     });
   }
 
   /* ---- AI Budget (Phase 3) ---- */
-  function getAiBudget() { return _fetch('/api/admin/ai-budget'); }
-  function setAiBudget(cfg) { return _fetch('/api/admin/ai-budget', { method: 'POST', body: JSON.stringify(cfg) }); }
+  function getAiBudget() { return _fetch('/api/admin/ai?action=budget'); }
+  function setAiBudget(cfg) { return _fetch('/api/admin/ai?action=budget', { method: 'POST', body: JSON.stringify(cfg) }); }
 
   /* ---- Export + Alerts (Phase 4) ---- */
   function exportData(type, params) {
-    var qs = '?type=' + encodeURIComponent(type);
+    var qs = '?action=export&type=' + encodeURIComponent(type);
     if (params) Object.keys(params).forEach(function (k) { qs += '&' + k + '=' + encodeURIComponent(params[k]); });
-    return _fetch('/api/admin/export' + qs);
+    return _fetch('/api/admin/system' + qs);
   }
-  function getInactiveExport(days) { return _fetch('/api/admin/inactive-users?action=export&days=' + (days || 90)); }
-  function getAlerts() { return _fetch('/api/admin/alerts'); }
+  function getInactiveExport(days) { return _fetch('/api/admin/users?action=inactive-export&days=' + (days || 90)); }
+  function getAlerts() { return _fetch('/api/admin/system?action=alerts'); }
 
   return {
     getDashboard: getDashboard,
@@ -185,7 +185,7 @@ var API = (function () {
       return _fetch('/api/admin/system?action=auditLogs');
     },
     cleanupDuels: function() {
-      return _fetch('/api/admin/duels?action=cleanup', { method: 'POST' });
+      return _fetch('/api/admin/system?action=duels-cleanup', { method: 'POST' });
     }
   };
 })();

@@ -42,10 +42,10 @@ Free tier: 20 questions/day, 5 lifetime-total AI explanation credits.
 ```
 Client (paywall.js)
   openPremiumPayment(planType)                         planType ∈ {premium_6m, premium_12m}
-   └─ POST /api/payment/create-order { plan: planType }            (withAuth)
+   └─ POST /api/payment?action=create-order { plan: planType }     (withAuth)
         paymentService.createOrder → Razorpay order (notes:{plan,uid})
    └─ Razorpay checkout sheet (client, RAZORPAY_LIVE_KEY)
-   └─ POST /api/payment/verify { orderId, paymentId, signature }   (withAuth)
+   └─ POST /api/payment?action=verify { orderId, paymentId, signature }  (withAuth)
         1. paymentService.verifyPaymentSignature   (HMAC-SHA256, timingSafeEqual)
         2. paymentService.fetchOrder(orderId)       → asserts status==='paid'; reads notes.plan + notes.uid
         3. assert order.notes.uid === req.userId    → else 403 PAYMENT_OWNER_MISMATCH

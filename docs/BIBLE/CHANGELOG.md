@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — API Consolidation for Vercel Free Plan (ADR-017)
+
+- **Requested change:** QuantReflex is on Vercel Free (12 functions/project). super-admin (15) exceeds the cap
+  and won't deploy; main-app (12) is at the cap. Consolidate into domain-based action-routed APIs (no live
+  users → no back-compat) so super-admin deploys + a future-proof structure.
+- **Impacted systems:** Student App · Admin · APIs · Infra. No Firestore / security-model / payment change.
+- **Bible docs updated (FIRST):** TECHNICAL_BIBLE (§3.1 Infrastructure Constraints + §3 endpoint rewrite),
+  GOVERNANCE (Infrastructure Governance), DECISION_LOG (ADR-017), VERSIONS (Bible 2.7; Arch 2.5), ROADMAP.
+- **super-admin 15→8:** `system` absorbs alerts/duels/export/payments-logs; `users` absorbs inactive-users
+  (inactive-list/inactive-export/bulk-archive/bulk-remind); new `ai` (usage+budget); `cron/sweep` merges
+  daily-snapshot+cleanup-sweep. Deleted: alerts, duels, export, payments, inactive-users, ai-usage, ai-budget,
+  cron/daily-snapshot, cron/cleanup-sweep. `js/services/api.js` repointed; vercel crons→1.
+- **main-app 12→6:** new `ai` (explain/insights/study-plan), `payment` (create-order/verify), `account`
+  (delete/notifications-list/notifications-markRead/claim-coaching). `payment/webhook` (HMAC, bodyParser:false),
+  `auth/register` + `validate-coaching` (public) stay isolated. Dropped dead `ai/word-problems` (client reads
+  `questions` from Firestore). Client callers repointed (ai-features/paywall/settings/firestore-sync); vercel
+  function globs flattened.
+- **Security review:** NO handler mixes auth models (admin↔admin, student↔student only); crons keep CRON_SECRET;
+  webhook keeps HMAC + isolation; public endpoints isolated; per-action method/premium guards preserved; no role
+  leakage. Minor: merged AI actions share one per-user in-memory rate-limit bucket (slightly tighter).
+- **Version bumps:** Architecture 2.4→2.5; Bible 2.6→2.7 (MINOR). Firestore/Security/Payment unchanged.
+- **Migration:** none (Razorpay webhook path unchanged → no dashboard reconfig).
+- **Verification:** `node --check` all; function counts (super 8 / main 6); Preview render of all super-admin
+  views + route-resolution; main-app flow trace; cron auth; adversarial review.
+- See [DECISION_LOG.md](DECISION_LOG.md) ADR-017.
+
+---
+
 ## 2026-06-12 — Super Admin Control Center, Phase 4: Export Center + Alert Center (ADR-016)
 
 - **Requested change:** CSV export tools + a centralized Alert feed.

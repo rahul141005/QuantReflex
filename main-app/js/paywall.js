@@ -177,7 +177,7 @@ function openPremiumPayment(planType, userId) {
       if (attempt !== _attemptId) return;
       if (!idToken) { _resetPaymentGuards(); showToast('Please login to continue payment.'); return; }
 
-      fetch('/api/payment/create-order', {
+      fetch('/api/payment?action=create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
         body: JSON.stringify({ plan: planType })
@@ -220,7 +220,7 @@ function openPremiumPayment(planType, userId) {
               console.info('[PaymentFlow] PAYMENT_SUCCESS | paymentId: ' + paymentId + ' | orderId: ' + rzpOrderId);
 
               _getIdToken(function (freshToken) {
-                fetch('/api/payment/verify', {
+                fetch('/api/payment?action=verify', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (freshToken || idToken) },
                   body: JSON.stringify({ orderId: rzpOrderId, paymentId: paymentId, signature: signature })

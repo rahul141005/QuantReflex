@@ -781,7 +781,7 @@ function openDeleteAccountModal() {
     user.reauthenticateWithCredential(credential).then(function() {
       return Auth.getIdToken();
     }).then(function (idToken) {
-      return fetch('/api/account/delete', {
+      return fetch('/api/account?action=delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

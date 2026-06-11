@@ -122,5 +122,18 @@ queue → hold → permanent delete**, every step audit-logged:
 (accountStatus:'archived', archivedAt, Auth-disabled) → 30-day hold (purgeAfter) → permanent delete (Auth
 user + Firestore doc + subcollections + related docs), by the cron or an explicit guarded purge`. Admin
 purge requires `confirm:'DELETE'` server-side + in-UI type-`DELETE` + double-confirm. Archive is
-**reversible** via *restore* during the hold. User-initiated deletion (`main-app/api/account/delete`) remains
-available (clears subcollections + Auth user). No deletion path may skip the `auditLogs` entry.
+**reversible** via *restore* during the hold. User-initiated deletion (`main-app/api/account?action=delete`)
+remains available (clears subcollections + Auth user). No deletion path may skip the `auditLogs` entry.
+
+## Infrastructure Governance (Vercel Free Plan — ADR-017)
+
+QuantReflex runs on the **Vercel Free (Hobby) plan**: ≤12 Serverless Functions per project (every `api/*.js`
+is one function; `api/_lib/**` excluded), and cron ≤ once/day. When designing ANY feature:
+- **Consider the function-count limit first.** Adding an `api/*.js` file is a budget decision, not free.
+- **No endpoint proliferation.** Prefer **action-based, domain APIs** over endpoint-per-feature. A new
+  capability should land as a new `?action=` branch in the relevant domain handler, not a new file.
+- **Consolidate admin operations** when they share an auth model and domain — but **never** merge across auth
+  boundaries (admin / student / cron / webhook-HMAC / public stay isolated; see
+  [TECHNICAL_BIBLE §3.1](TECHNICAL_BIBLE.md)).
+- **Minimize deployment complexity.** Reuse shared `_lib/*` helpers; keep one cron per scheduled concern.
+- A change that would push an app over the function budget is **blocked** until consolidated under the cap.

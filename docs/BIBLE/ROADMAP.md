@@ -40,6 +40,11 @@ consider extending the same safe-area-top treatment to the other views for full 
 
 - **App code deploys via Vercel** (`main-app`, `super-admin-app`, `coaching-admin-app`) on push —
   Firebase deploy only covers rules + indexes.
+- **Vercel Free (Hobby) cap = 12 Serverless Functions/project** (ADR-017). Post-consolidation counts:
+  main-app **6**, super-admin **8**, coaching **6**. New features must fit an existing domain API (no new
+  `api/*.js` unless unavoidable) — see [TECHNICAL_BIBLE §3.1](TECHNICAL_BIBLE.md) + GOVERNANCE Infrastructure
+  Governance. Cron ≤ once/day on Hobby. If a Razorpay webhook path ever changes, reconfigure the Razorpay
+  dashboard.
 - **Firestore rules/indexes** deploy via `firebase deploy --only firestore[:rules|:indexes]`.
 - **Cloud Functions** deploy via `firebase deploy --only functions`.
 

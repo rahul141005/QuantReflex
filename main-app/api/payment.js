@@ -1,18 +1,44 @@
 /**
- * POST /api/payment/verify
- * Verify Razorpay payment signature and activate the plan.
- * Accepts: { orderId, paymentId, signature }
- * Returns: { success, plan, type?, expiry? }
+ * Payment domain API (ADR-017) — consolidates payment/create-order + payment/verify into ONE
+ * serverless function. withAuth (JWT + entitlement). Both actions are POST.
+ *   POST ?action=create-order → create a Razorpay order
+ *   POST ?action=verify       → verify the signature + activate the plan
+ *
+ * NOTE: payment/webhook.js stays a SEPARATE function (HMAC verification + `bodyParser:false`).
+ * Its path remains /api/payment/webhook so the Razorpay dashboard needs no reconfiguration.
  */
 
-const { withAuth, formatError, methodGuard } = require('../_lib/middleware');
-const aiService = require('../../services/aiService');
-const paymentService = require('../../services/paymentService');
-const { setEntitlementClaims } = require('../../services/claimsService');
+const { withAuth, methodGuard } = require('./_lib/middleware');
+const aiService = require('../services/aiService');
+const paymentService = require('../services/paymentService');
+const { setEntitlementClaims } = require('../services/claimsService');
 
-module.exports = withAuth(async function (req, res) {
-  if (methodGuard(req, res, 'POST')) return;
+/* ── ?action=create-order ── */
+async function _createOrder(req, res) {
+  try {
+    var body = req.body || {};
+    var plan = body.plan;
+    if (!plan || !paymentService.PLAN_CONFIG[plan]) {
+      return res.status(400).json({
+        error: { code: 'BAD_REQUEST', message: 'Invalid plan. Must be one of: premium_6m, premium_12m.', retryable: false }
+      });
+    }
 
+    var order = await paymentService.createOrder(plan, req.userId);
+    console.log('Order created for user', req.userId, ':', order.orderId, 'plan:', plan);
+    return res.json(order);
+  } catch (err) {
+    console.error('Create order error:', err.message, err.statusCode || '', JSON.stringify(err.error || ''));
+    var userMsg = 'Could not create payment. Please try again.';
+    if (err.statusCode && err.error && err.error.description) {
+      userMsg = err.error.description;
+    }
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: userMsg, retryable: true } });
+  }
+}
+
+/* ── ?action=verify ── */
+async function _verify(req, res) {
   try {
     var body = req.body || {};
     var orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
@@ -63,12 +89,21 @@ module.exports = withAuth(async function (req, res) {
     try { await setEntitlementClaims(req.userId, { premium: true }); } catch (_) {}
 
     console.info('[PaymentFlow] PREMIUM_GRANTED | backend | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | expiry: ' + expiry);
-    res.json({ success: true, plan: trustedPlan, expiry: expiry });
+    return res.json({ success: true, plan: trustedPlan, expiry: expiry });
   } catch (err) {
     console.error('Verify payment error:', err.message);
     if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REPLAY') {
       return res.status(409).json({ error: { code: 'PAYMENT_REPLAY', message: err.message, retryable: false } });
     }
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate payment. Please contact support.', retryable: false } });
+    return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate payment. Please contact support.', retryable: false } });
   }
+}
+
+module.exports = withAuth(async function (req, res) {
+  if (methodGuard(req, res, 'POST')) return;
+
+  var action = req.query.action || '';
+  if (action === 'create-order') return _createOrder(req, res);
+  if (action === 'verify') return _verify(req, res);
+  return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown payment action: ' + action, retryable: false } });
 });

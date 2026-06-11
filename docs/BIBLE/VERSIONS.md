@@ -9,8 +9,8 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.6 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.4 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.7 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.5 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.3 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.2 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.1 | Razorpay flows, plan config, entitlement grant logic. |
@@ -61,6 +61,7 @@ file and moves independently of the system-level tracks above.
 | 2026-06-11 | 2.4 | 2.2 | 2.2 | 2.2 | 2.1 | **Super Admin Control Center — Phase 2 (ADR-014):** user lifecycle (suspend/restore/archive/purge/reset, Firebase-Auth-disable-enforced), Inactive User Center, soft-delete→30-day-hold→purge cleanup workflow + `cleanup-sweep` cron. Additive (MINOR); no data migration. |
 | 2026-06-12 | 2.5 | 2.3 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 3 (ADR-015):** AI Operations Center — editable `config/aiBudget` (monthly budget + warn/crit thresholds), month-to-date spend + projection + status from pre-aggregated `systemMetrics`, usage-based abuse flags. Additive (MINOR). |
 | 2026-06-12 | 2.6 | 2.4 | 2.3 | 2.2 | 2.1 | **Super Admin Control Center — Phase 4 (ADR-016):** Export Center (authenticated CSV via JSON+Blob; fixes the P2 inactive-export auth gap) + Alert Center (AI budget / expired-premium / stale duels / pending purges, on the Dashboard). Additive (MINOR). |
+| 2026-06-12 | 2.7 | 2.5 | 2.3 | 2.2 | 2.1 | **API Consolidation (ADR-017):** domain-based action-routed handlers under the Vercel Free 12-function cap — super-admin 15→8, main-app 12→6 (dead `ai/word-problems` dropped); auth boundaries preserved. Infra-only (MINOR); no schema/data change. |
 
 ---
 

@@ -1,11 +1,11 @@
 /**
- * Vercel-Cron account cleanup sweep (ADR-014). Spark-compatible (not a Cloud Function).
- * Gated by CRON_SECRET (NOT withAdminAuth). Two bounded steps per run:
- *   (1) FLAG still-active users inactive > 180d (sets inactiveFlaggedAt) for admin review.
- *   (2) PURGE archived users whose 30-day hold (`purgeAfter`) has expired.
- * Never auto-archives active users — that stays an explicit admin decision (safety).
+ * Vercel-Cron daily sweep (ADR-017) — consolidates the former daily-snapshot + cleanup-sweep crons
+ * into ONE function (Hobby plan: ≤12 functions, cron ≤ once/day). Gated by CRON_SECRET.
+ *   (1) Snapshot: computeDailySnapshot → metrics/{date} + metrics/latest.
+ *   (2) Cleanup: flag still-active users inactive>180d; purge archived users past their 30-day hold.
  */
 const admin = require('firebase-admin');
+const { computeDailySnapshot } = require('../_lib/metrics');
 const { purgeUser, INACTIVE_FLAG_DAYS } = require('../_lib/user-lifecycle');
 const { writeAuditLog } = require('../_lib/audit');
 
@@ -35,13 +35,25 @@ module.exports = async function (req, res) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
   }
 
+  const result = { snapshot: false, flagged: 0, purged: 0 };
   try {
     const db = admin.firestore();
+
+    /* (1) Daily metrics snapshot (non-fatal — cleanup still runs if it fails). */
+    try {
+      const payload = await computeDailySnapshot(db);
+      await db.collection('metrics').doc(payload.date).set(payload, { merge: true });
+      await db.collection('metrics').doc('latest').set(payload, { merge: true });
+      result.snapshot = true;
+    } catch (e) {
+      console.error('[cron/sweep] snapshot failed:', e);
+      result.snapshotError = e.message;
+    }
+
+    /* (2) Account cleanup. */
     const nowIso = new Date().toISOString();
     const inactiveCutoff = new Date(Date.now() - INACTIVE_FLAG_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    /* (1) Flag inactive>180d still-active users not yet flagged (bounded). */
-    let flagged = 0;
     const flagSnap = await db.collection('users')
       .where('stats.lastActiveDate', '<', inactiveCutoff)
       .orderBy('stats.lastActiveDate', 'asc')
@@ -52,14 +64,12 @@ module.exports = async function (req, res) {
         const d = doc.data();
         if ((d.accountStatus || 'active') === 'active' && !d.inactiveFlaggedAt) {
           batch.set(doc.ref, { inactiveFlaggedAt: nowIso }, { merge: true });
-          flagged++;
+          result.flagged++;
         }
       });
-      if (flagged > 0) await batch.commit();
+      if (result.flagged > 0) await batch.commit();
     }
 
-    /* (2) Purge archived users past their hold (bounded — purges are heavier). */
-    let purged = 0;
     const purgeSnap = await db.collection('users')
       .where('accountStatus', '==', 'archived')
       .where('purgeAfter', '<', nowIso)
@@ -67,13 +77,13 @@ module.exports = async function (req, res) {
     for (const doc of purgeSnap.docs) {
       const uid = doc.id;
       await purgeUser(db, uid);
-      await writeAuditLog(db, { actorUid: 'system:cron', actorEmail: 'cleanup-sweep', action: 'purge_user_auto', category: 'user', targetType: 'user', targetId: uid, summary: 'auto-purged archived user ' + uid + ' (30-day hold expired)' });
-      purged++;
+      await writeAuditLog(db, { actorUid: 'system:cron', actorEmail: 'cron/sweep', action: 'purge_user_auto', category: 'user', targetType: 'user', targetId: uid, summary: 'auto-purged archived user ' + uid + ' (30-day hold expired)' });
+      result.purged++;
     }
 
-    return res.status(200).json({ success: true, flagged: flagged, purged: purged });
+    return res.status(200).json(Object.assign({ success: true }, result));
   } catch (err) {
-    console.error('[cron/cleanup-sweep] failed:', err);
-    return res.status(500).json({ error: { code: 'SWEEP_FAILED', message: err.message } });
+    console.error('[cron/sweep] failed:', err);
+    return res.status(500).json({ error: { code: 'SWEEP_FAILED', message: err.message }, partial: result });
   }
 };
