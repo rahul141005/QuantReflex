@@ -44,11 +44,21 @@ var OperationsView = (function () {
       var audit = r[0] || {}, dash = r[1] || {}, emc = (r[2] && r[2].config) || {};
       var health = (dash && dash.health) || {};
       var issues = audit.issues || [];
-      var hb = function (k, label) { var v = health[k]; var col = v === 'green' ? 'var(--success-primary)' : (v === 'red' ? 'var(--danger-primary)' : 'var(--warn-primary)'); return '<div class="stat-card"><div style="font-size:1.5rem;color:' + col + ';">●</div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);">' + _esc(label) + '</div><div style="font-size:.72rem;color:var(--text-faint);">' + _esc(v || '—') + '</div></div>'; };
+      /* Subsystem tile — base health, but a live kill switch downgrades it to a red "disabled" (ADR-025). */
+      var sub = function (label, base, killOn) {
+        var status = killOn ? 'disabled' : (base || 'green');
+        var col = killOn || base === 'red' ? 'var(--danger-primary)' : ((base === 'amber' || base === 'yellow') ? 'var(--warn-primary)' : 'var(--success-primary)');
+        return '<div class="stat-card"><div style="font-size:1.5rem;color:' + col + ';">●</div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);">' + _esc(label) + '</div><div style="font-size:.72rem;color:var(--text-faint);">' + _esc(status) + '</div></div>';
+      };
       var emState = function (k, label) { var on = emc[k] && emc[k].enabled; return '<div class="cc-feed-row"><span>' + _esc(label) + '</span><span class="cc-em-state ' + (on ? 'on' : 'off') + '">' + (on ? 'ON' : 'off') + '</span></div>'; };
 
       el.innerHTML =
-        '<div class="stat-grid" style="margin-bottom:1.25rem;">' + hb('firebaseAuth', 'Auth') + hb('firestore', 'Firestore') + hb('aiApi', 'AI API') + hb('webhooks', 'Webhooks') + '</div>' +
+        '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
+          sub('Auth', health.firebaseAuth, false) + sub('Firestore', health.firestore, false) +
+          sub('AI API', health.aiApi, !!(emc.aiKillSwitch && emc.aiKillSwitch.enabled)) +
+          sub('Payments', health.webhooks, !!(emc.paymentKillSwitch && emc.paymentKillSwitch.enabled)) +
+          sub('Notifications', 'green', false) + sub('Storage', 'green', false) +
+        '</div>' +
         '<div class="card" style="padding:1rem;margin-bottom:1.25rem;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;"><div class="cc-section-title" style="margin:0;">Emergency status</div><button class="btn btn-sm btn-outline" onclick="window.location.hash=\'#command-center\';">Manage controls</button></div>' +
           emState('maintenance', 'Maintenance mode') + emState('aiKillSwitch', 'AI kill switch') + emState('paymentKillSwitch', 'Payment kill switch') + '</div>' +
         '<div class="card" style="padding:1rem;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;"><div class="cc-section-title" style="margin:0;">Integrity scan</div>' +

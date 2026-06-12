@@ -19,6 +19,7 @@ var App = (function () {
     _bindSidebar();
     _bindRail();
     _bindTheme();
+    _bindPrefs();
     GlobalSearch.init();
 
     AdminAuth.onAuthReady(function (user) {
@@ -31,8 +32,11 @@ var App = (function () {
   /* ---- Router ---- */
   function _startRouter() {
     window.addEventListener('hashchange', _handleRoute);
+    /* Default landing page is configurable in the Settings Center (ADR-025); falls back to Command Center. */
+    var landing = 'command-center';
+    try { var p = localStorage.getItem('qrAdminLanding'); if (p && DOMAINS[p]) landing = p; } catch (_) {}
     if (!window.location.hash || !DOMAINS[(window.location.hash || '').substring(1).split('/')[0]]) {
-      window.location.hash = '#command-center';
+      window.location.hash = '#' + landing;
     } else {
       _handleRoute();
     }
@@ -47,7 +51,8 @@ var App = (function () {
     'revenue':        { cid: 'view-revenue',         view: 'RevenueCenter' },
     'content':        { cid: 'view-questions',       view: 'QuestionsView' },
     'ai':             { cid: 'view-ai',              view: 'AIAnalyticsView' },
-    'operations':     { cid: 'view-operations',      view: 'OperationsView' }
+    'operations':     { cid: 'view-operations',      view: 'OperationsView' },
+    'settings':       { cid: 'view-settings',        view: 'SettingsView' }
   };
 
   function _handleRoute() {
@@ -92,6 +97,17 @@ var App = (function () {
       apply(next);
     });
     if (mql && mql.addEventListener) mql.addEventListener('change', function () { if (current() === 'system') apply('system'); });
+    /* Expose a tiny theme API for the Settings Center Appearance panel (ADR-025). */
+    window.AdminTheme = { get: current, set: function (mode) { try { localStorage.setItem(KEY, mode); } catch (_) {} apply(mode); } };
+  }
+
+  /* ---- Admin preferences (ADR-025): table density + animations applied as body classes on boot ---- */
+  function _bindPrefs() {
+    try {
+      var d = localStorage.getItem('qrAdminDensity');
+      if (d === 'compact' || d === 'comfortable') document.body.classList.add('density-' + d);
+      if (localStorage.getItem('qrAdminAnims') === '0') document.body.classList.add('no-anim');
+    } catch (_) {}
   }
 
   /* ---- Collapsible rail (persisted) ---- */

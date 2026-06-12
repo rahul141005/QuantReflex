@@ -447,6 +447,16 @@ async function handler(req, res) {
       return res.status(200).json({ success: true, type: type, until: until });
     }
 
+    /* ── revoke-tokens (Settings Center, ADR-025) — "log out everywhere": revoke the CALLING admin's own
+       refresh tokens. Existing sessions can no longer mint new ID tokens after their current one (≤1h) expires.
+       Scoped to req.userId only (an admin can sign themselves out, not others). Audited. ── */
+    if (action === 'revoke-tokens' && req.method === 'POST') {
+      try { await admin.auth().revokeRefreshTokens(req.userId); }
+      catch (e) { return res.status(500).json({ error: { code: 'REVOKE_FAILED', message: 'Could not revoke sessions: ' + (e && e.message ? e.message : 'error') } }); }
+      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'revoke_own_sessions', category: 'system', targetType: 'admin', targetId: req.userId, summary: 'admin revoked all of their own sessions (logout-all-devices)' });
+      return res.status(200).json({ success: true, revokedAt: new Date().toISOString() });
+    }
+
     return res.status(404).json({ error: 'System action not found' });
   } catch (err) {
     console.error('System Route Error:', err);

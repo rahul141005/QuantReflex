@@ -213,6 +213,7 @@ var API = (function () {
   function aggregateMetrics() { return _fetch('/api/admin/system?action=aggregate-metrics', { method: 'POST' }); }
   function getEmergencyConfig() { return _fetch('/api/admin/system?action=config-get'); }
   function setEmergencyConfig(key, enabled, message) { return _fetch('/api/admin/system?action=config-set', { method: 'POST', body: JSON.stringify({ key: key, enabled: enabled, message: message }) }); }
+  function revokeMyTokens() { return _fetch('/api/admin/system?action=revoke-tokens', { method: 'POST' }); }
 
   return {
     getDashboard: getDashboard,
@@ -263,6 +264,7 @@ var API = (function () {
     searchEcosystem: searchEcosystem,
     getEmergencyConfig: getEmergencyConfig,
     setEmergencyConfig: setEmergencyConfig,
+    revokeMyTokens: revokeMyTokens,
     runAudit: function() {
       return _fetch('/api/admin/system?action=health');
     },

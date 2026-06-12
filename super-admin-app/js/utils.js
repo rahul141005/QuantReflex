@@ -84,11 +84,22 @@ var AdminUtils = (function () {
    * @param {object} [options] — Intl.DateTimeFormat options
    * @returns {string}
    */
+  /* Admin preferences (ADR-025): date format + timezone, read from localStorage. */
+  function _pref(k, def) { try { var v = localStorage.getItem(k); return v == null ? def : v; } catch (_) { return def; } }
+  function _prefTz() { var t = _pref('qrAdminTz', 'local'); return (t && t !== 'local') ? t : undefined; }
+
   function formatDate(value, options) {
     var d = normalizeFirestoreDate(value);
     if (!d) return 'Unknown';
-    var defaults = { year: 'numeric', month: 'short', day: 'numeric' };
-    return d.toLocaleDateString(undefined, options || defaults);
+    var tz = _prefTz();
+    if (!options) {
+      var fmt = _pref('qrAdminDateFmt', 'local');
+      if (fmt === 'iso') return d.toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined);  /* YYYY-MM-DD */
+      if (fmt === 'dmy') return d.toLocaleDateString('en-GB', tz ? { timeZone: tz } : undefined);  /* DD/MM/YYYY */
+      options = { year: 'numeric', month: 'short', day: 'numeric' };
+    }
+    if (tz && !options.timeZone) options = Object.assign({}, options, { timeZone: tz });
+    return d.toLocaleDateString(undefined, options);
   }
 
   /**
@@ -100,7 +111,8 @@ var AdminUtils = (function () {
   function formatDateTime(value) {
     var d = normalizeFirestoreDate(value);
     if (!d) return 'N/A';
-    return d.toLocaleString();
+    var tz = _prefTz();
+    return d.toLocaleString(undefined, tz ? { timeZone: tz } : undefined);
   }
 
   /**

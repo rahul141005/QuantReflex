@@ -8,6 +8,34 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-025 — Super Admin Settings Center + Operations enhancements (Pass 2, 2026-06-12)
+- **Context:** Pass 2 of the ADR-024 refinement program. The admin app had no place to manage the admin's own
+  account/session, no persisted per-admin preferences, and no platform-info surface.
+- **Decision:** add an **8th domain — Settings** (`js/views/settings.js`, `view-settings`, gear nav), tabbed:
+  - **Account** — email/uid/role (from `firebase.auth().currentUser`), recent admin sign-ins (from
+    `system?action=security` `admin_login` events), **change password** (Firebase `reauthenticateWithCredential`
+    → `updatePassword`) and **change email** (reauth → `verifyBeforeUpdateEmail`) via the client SDK.
+  - **Security** — 24h failed-login / suspicious counts + posture (`system?action=security`), recent security
+    events, and **"log out everywhere"** → **one new** `system?action=revoke-tokens` (POST) that revokes the
+    CALLING admin's own refresh tokens (scoped to `req.userId` — an admin can sign *themselves* out, never
+    others; audited `revoke_own_sessions`).
+  - **Appearance** — theme light/dark/system (reuses the ADR-024 `window.AdminTheme`).
+  - **Preferences (this device)** — default landing page (honored in `app.js` router), table **density** +
+    **animations** (body classes `density-*`/`no-anim` applied on boot), **date format** + **timezone**
+    (honored by `AdminUtils.formatDate`/`formatDateTime`). All persisted in the `qrAdmin*` localStorage
+    namespace. (No per-admin notification channel exists, so that preference is intentionally omitted.)
+  - **Platform** — app/Bible version, env (`location.hostname`), Firestore project (`firebase.options`),
+    function count (8/12), live collection sizes (`system?action=firestore-ops`).
+  - **Backup** — authenticated CSV exports (`system?action=export`) + a link to the Operations audit feed.
+  - **Operations enhancement:** the Diagnostics health grid now shows 6 subsystems and **reflects the live
+    emergency state** — an enabled AI / payment kill switch downgrades that subsystem tile to a red "disabled".
+- **Infra:** **zero new functions** — `revoke-tokens` is a `?action=` branch on `system.js` (super-admin stays
+  8/12). No schema/Firestore change (token revocation is an Auth operation, not a doc write). 100% token-themed
+  (no hardcoded colors). Preferences are device-local (localStorage), not server state.
+- **Consequence:** a complete admin self-service surface (credentials, session control, preferences, platform
+  visibility, backup) without leaving the Vercel-Free budget. Security 2.5→2.6 (self-session revocation), Arch
+  2.8→2.9, Bible 2.14→2.15.
+
 ## ADR-024 — Super Admin stability + UX + dark-mode polish program (3-pass, 2026-06-12)
 - **Context:** Two production operational bugs + a desktop-leaning UX. **Bug #1:** deleting a user in
   User-360 frequently showed *"Too many requests."* — root cause is NOT a loop: the per-admin rate limit was

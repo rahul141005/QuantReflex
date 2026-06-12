@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin Settings Center + Operations enhancements — Pass 2 (ADR-025)
+
+- **New 8th domain — Settings** (`js/views/settings.js`, `view-settings`, gear nav, routed in `app.js`):
+  Account (email/uid/role; change password via reauth+`updatePassword`; change email via
+  reauth+`verifyBeforeUpdateEmail`; recent admin sign-ins) · Security (24h failed-login/suspicious counts +
+  posture + events; **log out everywhere**) · Appearance (theme, reuses `window.AdminTheme`) · Preferences
+  (default landing page, table density, animations, date format, timezone — device-local) · Platform
+  (version/env/Firestore project/function count/collection sizes) · Backup (authenticated CSV exports).
+- **API delta (ZERO new functions — super-admin 8/12):** `system?action=revoke-tokens` (POST) revokes the
+  calling admin's own refresh tokens (`req.userId` only; audited `revoke_own_sessions`). Client `revokeMyTokens`.
+- **Preference plumbing:** `app.js` honors `qrAdminLanding` (default landing) + applies `qrAdminDensity`/
+  `qrAdminAnims` body classes on boot + exposes `window.AdminTheme`; `AdminUtils.formatDate`/`formatDateTime`
+  honor `qrAdminDateFmt` + `qrAdminTz`; CSS adds `.settings-*`, `.seg`, `body.density-*`, `body.no-anim`.
+- **Operations enhancement:** the Diagnostics health grid now shows 6 subsystems and reflects the live
+  emergency state — an enabled AI/payment kill switch downgrades that subsystem tile to red "disabled".
+- **Bible:** DECISION_LOG (ADR-025), TECHNICAL_BIBLE §3 (settings domain + `revoke-tokens`), VERSIONS
+  (Bible 2.15 / Arch 2.9 / Security 2.6 + row), this entry. No schema/Firestore change.
+- **Verification:** `node --check` all touched JS (pass); CSS balance (254); settings fully wired
+  (container/nav/script/DOMAINS/global); function count 8/12; zero hardcoded colors in settings.js. SW v10→v11.
+
+---
+
 ## 2026-06-12 — Super Admin thorough dark mode — Pass 1b (ADR-024)
 
 100% design-system-driven theming. The entire stylesheet **and** every view were re-tokenized onto a
