@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Coaching App V3: mobile-first "Speed Training Control Center" (Phase 1+2, ADR-028)
+
+Rebuilds `coaching-admin-app` around the speed mission (depends on the ADR-027 foundation). **Mobile-first**
+(bottom-nav kept + restyled — NOT tabletized), de-gamered calm dark theme, pinch-zoom re-enabled.
+
+- **IA → 5 bottom-nav tabs:** Dashboard · Students · Performance · Engagement · Settings (the brief's "Growth"
+  folds into Performance). `index.html` + `app.js` router remapped; `html2canvas` dropped.
+- **Speed is the headline** everywhere; **honesty rule** enforced — every history-dependent metric (speed
+  trend, Coaching Improvement Score, top improvers, conversion/retention) renders `CoachingUtils.collectingCard`
+  ("collecting data — live in N days"), never a fabricated number. Participation/accuracy trends + current avg
+  speed are real from day one.
+- **Views:** Dashboard (speed hero + at-risk queue + weak topics + premium), Students (roster → full-screen
+  Student-360 with a REAL speed curve from dated `dailyHistory`), Performance (new), Engagement (new — replaces
+  Notices: Quick Broadcast / Smart Nudges + Achievements / Recent-20), Settings (new — replaces More).
+- **Fixes:** broken `app.navigate` intervention arm → `CoachingApp.navigateTo`; signup contract drift
+  (`coachingId` → `registrationToken`); vanity removed (Consistency Score, duel W/L, `window.print` report,
+  Instagram export, podium); `insights` trimmed to real accuracy+participation trends (dropped the
+  last-200-question heuristic + always-zero `avgPracticeTime` + dashboard dups); `notices` drops the dead
+  scheduling subsystem + adds audience `segment`; `students` details drops duels/`speedTrend`. Coaching
+  functions **6 → 5** (`leaderboard.js` deleted); retired views deleted; SW cache `v1 → v2`.
+- **Adversarial review pass (15 agents, 11/11 confirmed findings fixed):** roster keyset-pagination cursor now
+  uses the raw indexed `lastActiveDate` (ISO cursor sorted below all rows → empty page 2 / silent 50-cap);
+  `nextCursor` gated on `hasMore`; dashboard "Need attention" shows the true `inactiveCount` (was capped at 10);
+  profile "Topics needing attention" relabels to "Topic performance" when none are weak; profile/perf
+  "collecting" countdowns keyed to real speed-days; Engagement chip audience honored; `coachingMetrics` cache
+  keys added to store defaults/reset/invalidateAll; dead `performanceCache`/`leaderboardCache` keys removed.
+  Tracked debt: `stats.lastActiveDate` is a non-sortable `toDateString` (ROADMAP DEBT-3 — mitigated, proper fix
+  needs a migration).
+- **Bible:** DECISION_LOG (ADR-028), VERSIONS (row), ROADMAP (DEBT-3), this entry. **Verified:** `node --check`
+  all JS; CSS balanced (327); zero `app.navigate`/`getConsistencyScore`/`getLeaderboard`/slice-heuristic; 5/12
+  functions.
+
+---
+
 ## 2026-06-13 — Coaching App V3: Analytics Foundation (Phase 0, ADR-027) — Bible-first
 
 Foundational analytics milestone: establish the first **real dated speed history** so the Coaching App's

@@ -47,7 +47,7 @@ var StudentProfileView = (function () {
         '<div class="d-flex" style="justify-content:space-between;font-size:var(--font-xs);color:var(--text-muted);margin-top:6px;">' +
           '<span>Older</span><span>' + deltaHtml + '</span><span>Recent</span></div></div>';
     } else {
-      html += U.collectingCard('Speed trend for this student', speedDays.length, 7);
+      html += U.collectingCard('Speed trend for this student', speedDays.length, 2);
       html += '<div class="collecting-sub mt-sm muted">Each day of practice from now adds a real data point.</div>';
     }
 
@@ -60,9 +60,10 @@ var StudentProfileView = (function () {
     /* Topic speed/accuracy — actionable nudge target (performance lens, not LMS remediation) */
     var cats = (data.categoryPerformance || []).slice();
     if (cats.length) {
-      html += '<div class="section-label">Topics needing attention</div>';
       var weak = cats.filter(function (c) { return c.accuracy < 60; }).slice(0, 5);
       var show = weak.length ? weak : cats.slice(0, 4);
+      /* Don't label strong topics "needing attention" when none are actually weak. */
+      html += '<div class="section-label">' + (weak.length ? 'Topics needing attention' : 'Topic performance') + '</div>';
       html += '<div class="card mb-md">';
       html += show.map(function (c) {
         var color = c.accuracy >= 70 ? 'var(--accent-emerald)' : (c.accuracy >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)');

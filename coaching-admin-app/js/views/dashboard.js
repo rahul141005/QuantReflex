@@ -72,7 +72,7 @@ var DashboardView = (function () {
     var grid = '<div class="metrics-grid">' +
       metric('Active today', (m.activeToday || 0) + (total ? ' / ' + total : ''), '🟢', 'var(--accent-emerald)') +
       metric('Active this week', (m.activeThisWeek || 0) + (total ? ' / ' + total : ''), '📈', 'var(--accent-primary)') +
-      metric('Need attention', String(inactive.length), '⚠️', 'var(--accent-amber)') +
+      metric('Need attention', String(m.inactiveCount != null ? m.inactiveCount : inactive.length), '⚠️', 'var(--accent-amber)') +
       metric('Avg accuracy', (m.avgAccuracy != null ? m.avgAccuracy + '%' : '—'), '🎯', 'var(--accent-cyan)') +
     '</div>';
 

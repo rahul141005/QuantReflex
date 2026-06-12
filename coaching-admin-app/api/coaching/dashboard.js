@@ -194,7 +194,8 @@ async function handler(req, res) {
         avgSpeed: speedCount > 0 ? parseFloat((totalSpeed / speedCount).toFixed(1)) : 0,
         activeStreakUsers,
         totalQuestionsSolved,
-        premiumUsers
+        premiumUsers,
+        inactiveCount: inactiveStudents.length   /* true at-risk total (the list below is sliced to 10) */
       },
       weakTopics: weakTopics.slice(0, 5),
       strongestStudents: strongestStudents.slice(0, 5),

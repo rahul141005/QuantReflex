@@ -20,8 +20,8 @@ var CoachingState = (function () {
     dashboardFetchedAt: 0,
     studentsCache: null,
     studentsFetchedAt: 0,
-    leaderboardCache: null,
-    leaderboardFetchedAt: 0,
+    coachingMetricsCache: null,
+    coachingMetricsFetchedAt: 0,
     noticesCache: null,
     noticesFetchedAt: 0,
     selectedStudent: null,
@@ -88,8 +88,8 @@ var CoachingState = (function () {
     _state.dashboardFetchedAt = 0;
     _state.studentsCache = null;
     _state.studentsFetchedAt = 0;
-    _state.leaderboardCache = null;
-    _state.leaderboardFetchedAt = 0;
+    _state.coachingMetricsCache = null;
+    _state.coachingMetricsFetchedAt = 0;
     _state.noticesCache = null;
     _state.noticesFetchedAt = 0;
     _state.insightsCache = null;
@@ -107,8 +107,8 @@ var CoachingState = (function () {
       dashboardFetchedAt: 0,
       studentsCache: null,
       studentsFetchedAt: 0,
-      leaderboardCache: null,
-      leaderboardFetchedAt: 0,
+      coachingMetricsCache: null,
+      coachingMetricsFetchedAt: 0,
       noticesCache: null,
       noticesFetchedAt: 0,
       selectedStudent: null,

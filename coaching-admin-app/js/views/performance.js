@@ -69,7 +69,9 @@ var PerformanceView = (function () {
       if (have < 7) html += '<div class="list-row-sub muted mt-sm">Full 7-day trend in ' + (7 - have) + ' more day' + ((7 - have) === 1 ? '' : 's') + '.</div>';
       html += '</div>';
     } else {
-      html += U.collectingCard('7-day speed trend', have, 7);
+      /* Key the countdown to days that actually carry speed data (avgSpeed>0), not raw rollup days —
+         otherwise a sparse-speed coaching with ≥7 rollups would falsely read "enough data". */
+      html += U.collectingCard('7-day speed trend', speedSeries.length, 7);
     }
 
     /* ── Participation + Accuracy trend (REAL today, from dated dailyHistory) ── */

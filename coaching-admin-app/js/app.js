@@ -117,13 +117,14 @@ var CoachingApp = (function () {
     switch (currentView) {
       case 'dashboard':
         CoachingState.invalidateCache('dashboardData', 'dashboardFetchedAt');
+        CoachingState.invalidateCache('coachingMetricsCache', 'coachingMetricsFetchedAt');
         break;
       case 'students':
         CoachingState.invalidateCache('studentsCache', 'studentsFetchedAt');
         break;
       case 'performance':
-        CoachingState.invalidateCache('performanceCache', 'performanceFetchedAt');
         CoachingState.invalidateCache('insightsCache', 'insightsFetchedAt');
+        CoachingState.invalidateCache('coachingMetricsCache', 'coachingMetricsFetchedAt');
         break;
       case 'engagement':
         CoachingState.invalidateCache('noticesCache', 'noticesFetchedAt');

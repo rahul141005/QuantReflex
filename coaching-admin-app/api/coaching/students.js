@@ -106,7 +106,11 @@ async function _handleList(db, coachingId, req, res) {
       plan: u.plan === 'premium' ? 'premium' : 'free',
       isTrial: !!u.isTrial,
       weakTopic: weakTopic,
-      createdAt: safeTimestamp(u.createdAt)
+      createdAt: safeTimestamp(u.createdAt),
+      /* Raw indexed value for keyset pagination — the cursor MUST match the field orderBy() sorts on
+         (stats.lastActiveDate is a toDateString string; safeTimestamp would turn it into an ISO string
+         that sorts below every row and returns an empty page). Internal; the client ignores it. */
+      _rawLastActive: stats.lastActiveDate || u.updatedAt || null
     });
   });
 
@@ -123,13 +127,14 @@ async function _handleList(db, coachingId, req, res) {
     });
   }
 
-  const nextCursor = students.length > 0 && !search ? students[students.length - 1].lastActive : null;
+  const hasMore = !search && students.length === limit;
+  const nextCursor = hasMore ? students[students.length - 1]._rawLastActive : null;
 
-  return res.status(200).json({ 
-    students, 
+  return res.status(200).json({
+    students,
     total: students.length,
     nextCursor,
-    hasMore: !search && students.length === limit
+    hasMore
   });
 }
 

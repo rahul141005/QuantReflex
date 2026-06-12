@@ -31,6 +31,8 @@ var EngagementView = (function () {
     var root = document.getElementById('view-engagement');
     if (!root) return;
     var pending = _pending; _pending = null;
+    /* Honor a chip-selected audience for plain broadcasts (targeted nudges ignore segment). */
+    var initSeg = (pending && !pending.targetUid && !pending.targetTopic && pending.segment) ? pending.segment : 'all';
 
     var html = '<div class="view-pad">';
 
@@ -42,9 +44,9 @@ var EngagementView = (function () {
       html += '<div class="pill warn mb-sm">Targeting students weak in ' + U.escapeHtml(pending.targetTopic) + '</div>';
     } else {
       html += '<div class="seg mb-sm" id="engSeg">' +
-        '<button class="active" data-seg="all" onclick="EngagementView.setSeg(\'all\')">Everyone</button>' +
-        '<button data-seg="premium" onclick="EngagementView.setSeg(\'premium\')">Premium</button>' +
-        '<button data-seg="free" onclick="EngagementView.setSeg(\'free\')">Free</button>' +
+        '<button class="' + (initSeg === 'all' ? 'active' : '') + '" data-seg="all" onclick="EngagementView.setSeg(\'all\')">Everyone</button>' +
+        '<button class="' + (initSeg === 'premium' ? 'active' : '') + '" data-seg="premium" onclick="EngagementView.setSeg(\'premium\')">Premium</button>' +
+        '<button class="' + (initSeg === 'free' ? 'active' : '') + '" data-seg="free" onclick="EngagementView.setSeg(\'free\')">Free</button>' +
       '</div>';
     }
     html += '<input type="text" id="engTitle" class="auth-input mb-sm" maxlength="100" placeholder="Title (e.g. Today\'s speed challenge)" value="' + U.escapeHtml(pending ? pending.title : '') + '" />';
@@ -72,7 +74,7 @@ var EngagementView = (function () {
 
     html += '</div>';
     root.innerHTML = html;
-    _segment = 'all';
+    _segment = initSeg;
 
     CoachingAPI.getNoticeHistory().then(function (data) {
       var list = (data && (data.notices || data.history)) || [];
