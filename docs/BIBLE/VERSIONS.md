@@ -101,6 +101,10 @@ migration script. Format: what changed, who is affected, the migration action, r
 - **Migration action:** run `firestore/migrations/2026-06-12-add-emailLower.js` (dry-run, then `--apply`). It
   pages all users and sets `emailLower = (email||'').toLowerCase()` where missing or stale (batched ≤400/commit).
   Idempotent and safe to re-run. No rules/index change (single-field auto-index covers the prefix query).
+- **Status:** ✅ **Applied 2026-06-12** to `quant-reflex-trainer` — scanned 12, updated 12, alreadyOk 0, noEmail 0;
+  re-run confirms idempotent (updated 0 / alreadyOk 12). Firestore rules + indexes also (re)deployed the same day
+  (`firebase deploy --only firestore:rules,firestore:indexes` — rules compiled + released, indexes deployed, no
+  index deletions).
 - **Rollback:** none needed; the field is additive and unused by older readers. To remove, delete the field via
   a follow-up script — but there is no reason to.
 
