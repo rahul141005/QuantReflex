@@ -69,7 +69,9 @@ var App = (function () {
     });
 
     document.querySelectorAll('.nav-item').forEach(function (link) {
-      link.classList.toggle('active', link.getAttribute('data-view') === hash);
+      var on = link.getAttribute('data-view') === hash;
+      link.classList.toggle('active', on);
+      if (on) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); /* a11y (ADR-026) */
     });
 
     var V = window[DOMAINS[hash].view];
@@ -245,24 +247,33 @@ var GlobalSearch = (function() {
       }
       var html = '';
       if (users.length) {
-        html += '<div class="search-group-label">Users</div>';
+        html += '<div class="search-group-label" role="presentation">Users</div>';
         users.forEach(function (u) {
-          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#users\';">' +
+          html += '<div class="search-result-item" role="option" tabindex="0" data-go="#users" aria-label="Open user ' + esc(u.name || u.email || u.uid) + '" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;">' +
             '<div style="font-weight:600; color:var(--text-strong);">' + esc(u.name || u.email || u.uid) + '</div>' +
             '<div style="font-size:.8rem; color:var(--text-secondary);">' + esc(u.email || u.uid) + (u.coachingId ? ' · ' + esc(u.coachingId) : '') + '</div></div>';
         });
       }
       if (coachings.length) {
-        html += '<div class="search-group-label">Coachings</div>';
+        html += '<div class="search-group-label" role="presentation">Coachings</div>';
         coachings.forEach(function (c) {
-          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#coachings\';">' +
+          html += '<div class="search-result-item" role="option" tabindex="0" data-go="#coachings" aria-label="Open coaching ' + esc(c.name || c.coachingId) + '" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;">' +
             '<div style="font-weight:600; color:var(--text-strong);">' + esc(c.name || c.coachingId) + '</div>' +
             '<div style="font-size:.8rem; color:var(--text-secondary);">' + esc(c.coachingId) + ' · ' + (c.studentCount || 0) + ' students</div></div>';
         });
       }
       resultsEl.innerHTML = html;
+      /* Mouse + keyboard operable (ADR-026): one delegated handler for click and Enter/Space. */
+      resultsEl.querySelectorAll('.search-result-item').forEach(function (it) {
+        function go() { var dest = it.getAttribute('data-go'); close(); window.location.hash = dest; }
+        it.addEventListener('click', go);
+        it.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); go(); }
+        });
+      });
     }).catch(function (err) {
-      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--danger-primary);">Search failed: ' + esc(err && err.message ? err.message : 'error') + '</div>';
+      var msg = (typeof AdminUtils !== 'undefined' && AdminUtils.getReadableError) ? AdminUtils.getReadableError(err) : (err && err.message ? err.message : 'error');
+      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--danger-primary);">Search failed: ' + esc(msg) + '</div>';
     });
   }
 

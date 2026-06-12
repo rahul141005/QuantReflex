@@ -10,7 +10,7 @@
 var SettingsView = (function () {
   'use strict';
 
-  var APP_VERSION = '2.15'; /* tracks the Bible version */
+  var APP_VERSION = '2.16'; /* tracks the Bible version */
 
   function _esc(s) { return AdminUtils.escapeHtml(s); }
   function _fmtT(v) { return AdminUtils.formatDateTime(v); }

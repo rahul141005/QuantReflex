@@ -103,12 +103,12 @@
 
   <!-- ==================== GLOBAL SEARCH (Cmd+K) ==================== -->
   <div id="globalSearchOverlay" class="search-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--overlay); z-index:2000; backdrop-filter:blur(4px);" onclick="GlobalSearch.close()">
-    <div class="search-modal" style="width:90%; max-width:600px; margin:10vh auto; background:var(--bg-surface); color:var(--text); border-radius:12px; box-shadow:var(--shadow-float); overflow:hidden;" onclick="event.stopPropagation()">
+    <div class="search-modal" role="dialog" aria-modal="true" aria-label="Global search" style="width:90%; max-width:600px; margin:10vh auto; background:var(--bg-surface); color:var(--text); border-radius:12px; box-shadow:var(--shadow-float); overflow:hidden;" onclick="event.stopPropagation()">
       <div style="padding:1rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center;">
-        <span style="font-size:1.2rem; margin-right:0.5rem;">🔍</span>
-        <input type="text" id="globalSearchInput" placeholder="Search by email, uid, or coaching ID..." style="width:100%; border:none; outline:none; font-size:1.1rem; padding:0.5rem; background:transparent; color:var(--text);" autocomplete="off" />
+        <span style="font-size:1.2rem; margin-right:0.5rem;" aria-hidden="true">🔍</span>
+        <input type="search" id="globalSearchInput" aria-label="Search by email, uid, or coaching ID" placeholder="Search by email, uid, or coaching ID..." style="width:100%; border:none; outline:none; font-size:1.1rem; padding:0.5rem; background:transparent; color:var(--text);" autocomplete="off" />
       </div>
-      <div id="globalSearchResults" style="max-height:400px; overflow-y:auto; background:var(--bg-inset);"></div>
+      <div id="globalSearchResults" role="listbox" aria-label="Search results" style="max-height:400px; overflow-y:auto; background:var(--bg-inset);"></div>
     </div>
   </div>
 
@@ -116,7 +116,7 @@
   <div id="modalContainer"></div>
 
   <!-- ==================== TOAST ==================== -->
-  <div id="toastContainer" class="toast-container"></div>
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>

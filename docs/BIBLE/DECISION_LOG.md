@@ -8,6 +8,47 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-026 — Super Admin accessibility + governance enforcement audit (Pass 3, 2026-06-12)
+- **Context:** Pass 3 (final pass) of the ADR-024 refinement program — a from-source UX / visual / a11y /
+  navigation / design-system enforcement audit run as an adversarial multi-agent review (35 candidate
+  findings → **18 confirmed**). The app shipped functional but carried interaction-quality debt: clickable
+  rows and a file drop-zone that only responded to mouse (no keyboard path → WCAG 2.1.1 fail); a modal whose
+  `aria-labelledby` pointed at an id that was never set (dangling reference); tabs without the WAI-ARIA tab
+  pattern; toasts not announced to assistive tech; raw technical error strings (`e.message`) still surfacing
+  in several views despite the ADR-024 `getReadableError` layer; a metric-tile markup triplicated across three
+  Centers; one latent **self-referential CSS token** (`--accent-glow: var(--accent-glow)`) introduced by a
+  Pass-1b global value-sweep that broke focus rings / accent glows in **light** mode only.
+- **Decision:** fix all 18 confirmed findings, no new product surface:
+  - **Keyboard operability (2.1.1):** every `.sv-row` (User-360, Coaching-360), the Content drop-zone, and the
+    Global-Search result items get `role="button"`/`role="option"` + `tabindex="0"` + an Enter/Space `keydown`
+    handler mirroring their click. Global Search result navigation moved from inline `onclick` to a delegated
+    click+keydown handler.
+  - **Names/roles (4.1.2):** filter inputs (Users / Coachings / AI) and the bulk select-row checkboxes get
+    `aria-label`s; the Global-Search overlay becomes a labelled `role="dialog"` with a `role="listbox"` results
+    region and an `aria-label`led `type="search"` input; the active nav item carries `aria-current="page"`.
+  - **Modal (4.1.2):** the `<h3 class="modal-title">` now actually sets `id="modalTitle"`, so the dialog's
+    `aria-labelledby` resolves (was dangling).
+  - **Tabs (APG):** the Tabs primitive was rebuilt to the full WAI-ARIA tab pattern — per-mount unique ids,
+    `role=tablist/tab/tabpanel`, `aria-selected`/`aria-controls`/`aria-labelledby`, roving `tabindex`, and
+    Arrow/Home/End keyboard navigation.
+  - **Status messages (4.1.3):** `#toastContainer` is an `aria-live="polite"` `role="status"` region; error
+    toasts set `role="alert"`.
+  - **Operator-friendly errors:** the remaining raw `e.message` sites (questions ×6, command-center ×4,
+    global-search) now route through `AdminUtils.getReadableError`; the Content table renders in **card mode**
+    on narrow panes (`Table.build(..., { cards: true })`) instead of forcing a horizontal scroll, and its empty
+    state uses the shared `AdminUtils.emptyState`.
+  - **Design-system enforcement:** the triplicated per-view `_tile()` collapses to a single owner
+    `AdminUtils.statTile` (backed by `.stat-num`/`.stat-cap`/`.stat-sub` classes); prominent empty lists migrate
+    to `AdminUtils.emptyState`; the self-referential `--accent-glow`/`--accent-ring` token definitions are
+    restored to real light-mode values; a global `:focus-visible` ring + density `.card` rules added.
+- **Infra:** **zero new functions** (super-admin 8/12, main-app 6/12); no schema/security/payment change —
+  pure client (JS/CSS/HTML) + Bible. Verified: `node --check` all JS, CSS braces balanced (260/260), **zero**
+  hardcoded hex/rgba color literals in any view, no self-referential token definitions.
+- **Consequence:** the admin surface is now keyboard-navigable end-to-end, announces state changes to assistive
+  tech, never leaks raw technical errors, and has a single source of truth for stat tiles + empty states — the
+  ADR-024 program's quality bar is met. UI/a11y only (MINOR). Bible 2.15→2.16, Arch 2.9 (unchanged — no
+  topology change; documented in §10B).
+
 ## ADR-025 — Super Admin Settings Center + Operations enhancements (Pass 2, 2026-06-12)
 - **Context:** Pass 2 of the ADR-024 refinement program. The admin app had no place to manage the admin's own
   account/session, no persisted per-admin preferences, and no platform-info surface.

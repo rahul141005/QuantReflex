@@ -246,6 +246,17 @@ var AdminUtils = (function () {
     '</div>';
   }
 
+  /**
+   * Shared stat tile (ADR-026) — the single owner of the metric-tile markup that was triplicated as a
+   * per-view `_tile()` across Command Center / Revenue / AI. `value` is trusted markup (a number or "$x");
+   * label + sub are escaped. `colorVar` is an optional CSS color (token var) for the number.
+   */
+  function statTile(label, value, sub, colorVar) {
+    return '<div class="stat-card"><div class="stat-num"' + (colorVar ? ' style="color:' + colorVar + ';"' : '') + '>' + value + '</div>' +
+      '<div class="stat-cap">' + escapeHtml(label) + '</div>' +
+      (sub ? '<div class="stat-sub">' + escapeHtml(sub) + '</div>' : '') + '</div>';
+  }
+
   return {
     normalizeFirestoreDate: normalizeFirestoreDate,
     toMillis: toMillis,
@@ -255,6 +266,7 @@ var AdminUtils = (function () {
     getReadableError: getReadableError,
     downloadCsv: downloadCsv,
     entitlementState: entitlementState,
-    emptyState: emptyState
+    emptyState: emptyState,
+    statTile: statTile
   };
 })();

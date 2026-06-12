@@ -35,7 +35,11 @@ var SplitView = (function () {
       root.classList.add('detail-open');
       detailEl.innerHTML = '<div class="loading">Loading…</div>';
       try { opts.renderDetail(detailEl, id); }
-      catch (e) { detailEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">Error: ' + (e && e.message ? e.message : 'failed') + '</div></div>'; }
+      catch (e) {
+        var msg = (typeof AdminUtils !== 'undefined' && AdminUtils.getReadableError) ? AdminUtils.getReadableError(e) : (e && e.message ? e.message : 'failed');
+        var esc = (typeof AdminUtils !== 'undefined' && AdminUtils.escapeHtml) ? AdminUtils.escapeHtml(msg) : String(msg);
+        detailEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">' + esc + '</div></div>';
+      }
       listEl.querySelectorAll('[data-sv-id]').forEach(function (el) {
         el.classList.toggle('sv-active', el.getAttribute('data-sv-id') === String(id));
       });

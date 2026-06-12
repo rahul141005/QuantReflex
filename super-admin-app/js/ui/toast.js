@@ -10,6 +10,7 @@ var Toast = (function () {
 
     var toast = document.createElement('div');
     toast.className = 'toast' + (type ? ' ' + type : '');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status'); /* announce to AT (ADR-026, WCAG 4.1.3) */
     toast.textContent = message;
     container.appendChild(toast);
 

@@ -49,10 +49,9 @@ var RevenueCenter = (function () {
     });
   }
 
+  /* Delegates to the single shared stat tile (ADR-026); `color` maps to the optional colorVar. */
   function _tile(label, value, sub, color) {
-    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
+    return AdminUtils.statTile(label, value, sub, color);
   }
 
   function _growth(p) { if (p == null) return '—'; var c = p >= 0 ? 'var(--success-strong)' : 'var(--danger-hover)'; return '<span style="color:' + c + ';font-weight:700;">' + (p >= 0 ? '+' : '') + p + '%</span>'; }

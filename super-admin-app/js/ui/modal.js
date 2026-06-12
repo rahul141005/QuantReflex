@@ -29,12 +29,15 @@ var Modal = (function () {
     content.setAttribute('role', 'dialog');
     content.setAttribute('aria-modal', 'true');
     content.setAttribute('tabindex', '-1');
+    if (config.title) content.setAttribute('aria-labelledby', 'modalTitle'); /* accessible name (ADR-026) */
+    else content.setAttribute('aria-label', 'Dialog');
 
     // Header
     var header = document.createElement('div');
     header.className = 'modal-header';
     var title = document.createElement('h3');
     title.className = 'modal-title';
+    title.id = 'modalTitle';                 /* target of content's aria-labelledby (ADR-026) */
     title.textContent = config.title || '';
     var closeBtn = document.createElement('button');
     closeBtn.className = 'modal-close';

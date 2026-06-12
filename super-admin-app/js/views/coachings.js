@@ -41,7 +41,7 @@ var CoachingsView = (function () {
         '<div><h2 class="view-title">Coaching-360</h2><p class="view-subtitle">Single source of truth for every coaching.</p></div>' +
         '<button class="btn btn-sm accent" id="cNew">+ New</button></div>' +
       '<div class="chip-bar" id="cChips">' + chips + '</div>' +
-      '<input type="text" class="modal-input" id="cText" placeholder="Filter by name / ID / owner" style="margin:.5rem 0;" />' +
+      '<input type="text" class="modal-input" id="cText" placeholder="Filter by name / ID / owner" aria-label="Filter coachings by name, ID, or owner" style="margin:.5rem 0;" />' +
       '<div id="cList"><div class="loading">Loading…</div></div>';
     listEl.querySelector('#cNew').addEventListener('click', _showCreateModal);
     listEl.querySelector('#cChips').addEventListener('click', function (e) {
@@ -72,15 +72,28 @@ var CoachingsView = (function () {
   function _renderList() {
     var listEl = document.getElementById('cList'); if (!listEl) return;
     var rows = _all.filter(_matches);
-    if (!rows.length) { listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No coachings match.</div></div>'; return; }
+    if (!rows.length) {
+      listEl.innerHTML = AdminUtils.emptyState({
+        icon: '🏫', title: 'No coachings match',
+        text: (_text || _filter !== 'all') ? 'No coachings match this filter. Try a different status or clear the search.' : 'No coachings yet. Use “+ New” to create the first one.'
+      });
+      return;
+    }
     listEl.innerHTML = rows.map(function (c) {
       var id = c.id || c.coachingId;
-      return '<div class="sv-row" data-sv-id="' + _esc(id) + '" data-cid="' + _esc(id) + '">' +
-        '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(c.name || id) + '</div>' +
+      var name = c.name || id;
+      return '<div class="sv-row" role="button" tabindex="0" aria-label="Open ' + _esc(name) + '" data-sv-id="' + _esc(id) + '" data-cid="' + _esc(id) + '">' +
+        '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(name) + '</div>' +
         '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;"><code>' + _esc(id) + '</code> · ' + (c.studentCount != null ? c.studentCount : (c.studentsCount || 0)) + ' students' + (c.ownerEmail ? ' · ' + _esc(c.ownerEmail) : '') + '</div></div>' +
         _statusBadge(_statusOf(c)) + '</div>';
     }).join('');
-    listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-cid')); }); });
+    listEl.querySelectorAll('.sv-row').forEach(function (r) {
+      function open() { _split.select(r.getAttribute('data-cid')); }
+      r.addEventListener('click', open);
+      r.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); open(); }
+      });
+    });
   }
 
   /* Local list-sync (ADR-024) — patch the master row from a freshly-loaded detail so a mutate needs

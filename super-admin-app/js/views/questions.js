@@ -22,7 +22,7 @@ var QuestionsView = (function () {
         '</div>' +
       '</div>' +
       
-      '<div id="qDropZone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 2rem; text-align: center; margin-bottom: 1.5rem; background: var(--bg-surface); cursor: pointer; transition: all var(--transition-fast);">' +
+      '<div id="qDropZone" role="button" tabindex="0" aria-label="Upload questions JSON file — drag and drop, or activate to browse" style="border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 2rem; text-align: center; margin-bottom: 1.5rem; background: var(--bg-surface); cursor: pointer; transition: all var(--transition-fast);">' +
         '<div style="font-size: 2rem; margin-bottom: .5rem;">📥</div>' +
         '<div style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">Drag & Drop JSON File</div>' +
         '<div style="font-size: .8125rem; color: var(--text-secondary); margin-top: .25rem;">or click to browse from your device</div>' +
@@ -39,7 +39,10 @@ var QuestionsView = (function () {
     var fileInput = document.getElementById('qFileInput');
     
     dropZone.onclick = function() { fileInput.click(); };
-    
+    dropZone.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); fileInput.click(); }
+    });
+
     dropZone.addEventListener('dragover', function(e) {
       e.preventDefault();
       dropZone.style.borderColor = 'var(--accent-primary)';
@@ -193,9 +196,9 @@ var QuestionsView = (function () {
           throw new Error(data.error || 'Batch import rejected.');
         }
       } catch (e) {
-        console.error('Batch failed:', e.message);
+        console.error('Batch failed:', e && e.message);
         totalFailed += chunks[i].length;
-        Toast.error('Batch ' + (i + 1) + ' failed: ' + e.message);
+        Toast.error('Batch ' + (i + 1) + ' failed: ' + AdminUtils.getReadableError(e));
         break; // Stop further chunks if one fails critically
       }
     }
@@ -248,9 +251,13 @@ var QuestionsView = (function () {
       ];
 
       area.innerHTML = '';
-      area.appendChild(Table.build(columns, questions, _rowActions));
+      if (!questions.length) {
+        area.innerHTML = AdminUtils.emptyState({ icon: '📝', title: 'No questions yet', text: 'Add a question, generate a set, or drag-and-drop a JSON file to seed the bank.' });
+      } else {
+        area.appendChild(Table.build(columns, questions, _rowActions, { cards: true }));
+      }
     } catch (e) {
-      area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ' + e.message + '</div></div>';
+      area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>';
     }
   }
 
@@ -308,7 +315,7 @@ var QuestionsView = (function () {
       });
     } catch (e) {
       if(btn) { btn.disabled = false; btn.textContent = 'Generate'; }
-      Toast.error('Failed to generate: ' + e.message);
+      Toast.error('Failed to generate: ' + AdminUtils.getReadableError(e));
     }
   }
 
@@ -391,7 +398,7 @@ var QuestionsView = (function () {
       Toast.success('Question archived (unpublished).');
       _loadQuestions();
     } catch (e) {
-      Toast.error('Archive failed: ' + (e && e.message ? e.message : 'unknown error'));
+      Toast.error('Archive failed: ' + AdminUtils.getReadableError(e));
     }
   }
 
@@ -415,7 +422,7 @@ var QuestionsView = (function () {
             Modal.close();
             _loadQuestions();
           } catch (e) {
-            Toast.error('Delete failed: ' + (e && e.message ? e.message : 'unknown error'));
+            Toast.error('Delete failed: ' + AdminUtils.getReadableError(e));
           }
         } }
       ]
@@ -469,7 +476,7 @@ var QuestionsView = (function () {
       Modal.close();
       _loadQuestions();
     } catch (e) {
-      Toast.error('Failed to save: ' + e.message);
+      Toast.error('Failed to save: ' + AdminUtils.getReadableError(e));
     }
   }
 

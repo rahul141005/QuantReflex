@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.5 · **Architecture Version:** 2.6 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.6 · **Architecture Version:** 2.9 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-12
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -238,7 +238,7 @@ Any element swapped into the scroll slot MUST carry the scroll properties or it 
 practice sections is safe — they extend the single panel. (Root-cause history: the `.container`
 padded-overshoot double-scroll — see [DECISION_LOG.md](DECISION_LOG.md) ADR-011 and the CHANGELOG.)
 
-## 10B. Super Admin Design System (tablet-first) — ADR-019
+## 10B. Super Admin Design System (tablet-first) — ADR-019 (theming ADR-024, settings ADR-025, accessibility ADR-026)
 
 `super-admin-app` is a **separate** design language from the student app (own `css/admin-style.css`, own
 tokens — slate/blue SaaS, not the navy/glass student identity). It is a **tablet-first governance OS**:
@@ -256,7 +256,22 @@ ramps** danger/success/warning each as `*-primary`/`*-bg`/`*-fg`/`*-border` (+ `
 `:root[data-theme="dark"]` override of every token; applied no-FOUC by an inline boot script in `index.html`
 (set BEFORE the stylesheet paints) and toggled light/dark/system via the sidebar footer, persisted to
 `qrAdminTheme`. **Rule: build new admin surfaces from these tokens — never a raw hex.** Touch targets: primary
-≥48px, dense ≥44px. Reusable empty-state primitive (`AdminUtils.emptyState`) + loading spinner.
+≥48px, dense ≥44px. Shared content primitives (single owners — do not re-implement): empty lists →
+`AdminUtils.emptyState({icon,title,text,actionLabel})`; metric tiles → `AdminUtils.statTile(label,value,sub,colorVar)`
+(`.stat-num`/`.stat-cap`/`.stat-sub`); a `.loading` spinner for pending panes.
+
+**Accessibility contract (ADR-026).** The admin app meets WCAG 2.1 AA on the patterns it ships:
+- **Keyboard operability (2.1.1):** any element that acts as a control but is not a native `<button>`/`<a>`
+  (clickable `.sv-row`, the Content drop-zone, Global-Search result items) MUST carry `role="button"`/`"option"`,
+  `tabindex="0"`, and a `keydown` handler that fires the same action on **Enter and Space** (preventDefault on
+  Space). New clickable rows follow this or they fail audit.
+- **Names/roles (4.1.2):** icon-only and placeholder-only controls get an `aria-label`; filter inputs and bulk
+  checkboxes are labelled; the active nav item carries `aria-current="page"`; modals set `aria-labelledby` to a
+  real title `id` (`#modalTitle`) or `aria-label` when titleless.
+- **Status messages (4.1.3):** the toast region is `role="status" aria-live="polite"`; error toasts escalate to
+  `role="alert"`. Never convey state by color alone.
+- **Focus visibility (2.4.7):** a global `:focus-visible` ring (`outline: 2px solid var(--accent-primary)`) is
+  never removed; rows/inputs inherit it.
 
 **Information architecture (7 domains):** Command Center · Users · Coachings · Revenue · Content · AI ·
 Operations. One owner per capability (no duplicate entry points). Global Search (Cmd+K) is a shell affordance.
@@ -281,8 +296,9 @@ redirect → delete last), never big-bang.
   1fr` at ≥768px; below, list full-width and selecting pushes a full-screen detail with Back). This is the
   canonical **360 pattern** — it **replaces the old overlay drawer**. Detail state is deep-linkable
   (`#domain/:id`).
-- **`Tabs` (`tabs.js`)** — segmented control (ARIA `tablist`, 44px targets, hash-synced) for Operations sub-tabs
-  and Revenue/AI inner tabs.
+- **`Tabs` (`tabs.js`)** — segmented control implementing the **full WAI-ARIA tab pattern** (ADR-026): per-mount
+  unique ids, `role=tablist/tab/tabpanel`, `aria-selected`/`aria-controls`/`aria-labelledby`, roving `tabindex`,
+  and Arrow/Home/End keyboard navigation; ≥48px targets. Used for Operations sub-tabs and Revenue/AI inner tabs.
 - **`Table` (`table.js`)** — `Table.build(columns, data, actionsRenderer, opts)`; below `opts.cardBreakpoint`
   each row renders as a label/value **card** (no forced horizontal scroll). All cell output is escaped.
 - **`Modal` (`modal.js`)** — focus-trap (Tab cycles inside, first field focused, Esc closes, focus restored);

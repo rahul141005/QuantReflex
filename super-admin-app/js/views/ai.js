@@ -61,10 +61,9 @@ var AIAnalyticsView = (function () {
     });
   }
 
+  /* Delegates to the single shared stat tile (ADR-026); `color` maps to the optional colorVar. */
   function _tile(label, value, sub, color) {
-    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
+    return AdminUtils.statTile(label, value, sub, color);
   }
 
   function _tabOverview(el) {
@@ -124,7 +123,7 @@ var AIAnalyticsView = (function () {
 
   function _tabUsers(el) {
     var rows = _data.slice().sort(function (a, b) { return _cost(b) - _cost(a); });
-    el.innerHTML = '<input type="text" class="modal-input" id="aiUserFilter" placeholder="Filter by name / email / coaching" style="margin-bottom:.6rem;" /><div id="aiUserList"></div>';
+    el.innerHTML = '<input type="text" class="modal-input" id="aiUserFilter" placeholder="Filter by name / email / coaching" aria-label="Filter AI users by name, email, or coaching" style="margin-bottom:.6rem;" /><div id="aiUserList"></div>';
     var render = function () {
       var q = (document.getElementById('aiUserFilter').value || '').toLowerCase();
       var list = rows.filter(function (u) { return !q || ((u.displayName || '') + ' ' + (u.email || '') + ' ' + (u.coachingId || '')).toLowerCase().indexOf(q) > -1; });

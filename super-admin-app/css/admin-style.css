@@ -37,8 +37,8 @@
   --accent-ai: #7c3aed;       /* AI / cost purple */
   --accent-solid: #2563eb;    /* solid fill that carries white --on-accent text (AA in both themes) */
   --accent-solid-2: #1d4ed8;  /* darker gradient stop for solid accent fills */
-  --accent-glow: var(--accent-glow); /* accent shadow/halo */
-  --accent-ring: var(--accent-ring); /* focus ring */
+  --accent-glow: rgba(37,99,235,.25); /* accent shadow/halo */
+  --accent-ring: rgba(37,99,235,.18); /* focus ring */
   /* Buttons (neutral default) */
   --btn-bg: #e2e8f0;
   --btn-fg: #0f172a;
@@ -483,6 +483,10 @@ input, textarea, select { font-family: inherit; }
   color: var(--accent-primary);
   line-height: 1.1;
 }
+/* Shared stat-tile typography (ADR-026) — owns what the per-view _tile() helpers duplicated. */
+.stat-num { font-size: 1.5rem; font-weight: 800; line-height: 1.1; color: var(--text-strong); word-break: break-word; }
+.stat-cap { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--text-secondary); margin-top: .15rem; }
+.stat-sub { font-size: .72rem; color: var(--text-faint); margin-top: .15rem; }
 .stat-label {
   color: var(--text-secondary);
   font-size: .75rem;
@@ -972,12 +976,18 @@ input, textarea, select { font-family: inherit; }
 .seg button.active { background: var(--accent-soft); color: var(--accent-primary); }
 
 /* ---- Admin preferences: table density + reduced motion (ADR-025) ---- */
-body.density-compact .card { padding: .85rem; margin-bottom: 1rem; }
+/* !important so density wins over the per-card inline padding:1rem the views set (ADR-026). */
+body.density-compact .card { padding: .85rem !important; margin-bottom: 1rem; }
 body.density-compact .cc-feed-row { padding: .35rem 0; }
 body.density-compact .sv-row { padding: .45rem .6rem; margin-bottom: .3rem; }
 body.density-compact .data-table th, body.density-compact .data-table td { padding: .5rem .75rem; }
-body.density-comfortable .card { padding: 1.6rem; }
+body.density-comfortable .card { padding: 1.6rem !important; }
 body.density-comfortable .cc-feed-row { padding: .75rem 0; }
 body.density-comfortable .sv-row { padding: .9rem 1rem; }
 body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none !important; transition: none !important; }
+
+/* ---- Accessibility: visible keyboard focus (ADR-026, WCAG 2.4.7) ---- */
+:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; border-radius: inherit; }
+.sv-row:focus-visible, .chip:focus-visible, .tab-btn:focus-visible, .nav-item:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.search-result-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
 

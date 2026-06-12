@@ -32,12 +32,9 @@ var CommandCenterView = (function () {
     _loadData();
   }
 
+  /* Delegates to the single shared stat tile (ADR-026); `color` maps to the optional colorVar. */
   function _tile(label, value, sub, color) {
-    return '<div class="stat-card">' +
-      '<div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') +
-    '</div>';
+    return AdminUtils.statTile(label, value, sub, color);
   }
 
   async function _loadData() {
@@ -105,7 +102,7 @@ var CommandCenterView = (function () {
       return '<div class="cc-em-row"><div>' +
         '<div style="font-weight:600;">' + _esc(EM_LABELS[key]) + '</div>' +
         '<div class="cc-em-meta">' + _esc(desc) + ' — <span class="cc-em-state ' + (on ? 'on' : 'off') + '">' + (on ? 'ON' : 'off') + '</span> · ' + meta + '</div>' +
-        '</div><label class="qr-switch"><input type="checkbox" data-em="' + key + '" ' + (on ? 'checked' : '') + ' /><span class="qr-slider"></span></label></div>';
+        '</div><label class="qr-switch"><input type="checkbox" data-em="' + key + '" aria-label="' + _esc(EM_LABELS[key] || key) + '" ' + (on ? 'checked' : '') + ' /><span class="qr-slider"></span></label></div>';
     };
     var emergency = '<div class="cc-section"><div class="cc-section-title">Emergency controls</div><div class="cc-emergency">' +
       '<h3>⚠ Break-glass controls</h3><p class="cc-em-sub">Honored by the student app immediately. Every toggle is audited.</p>' +
@@ -124,13 +121,13 @@ var CommandCenterView = (function () {
       btn.onclick = function () {
         var t = btn.getAttribute('data-ack'); btn.disabled = true;
         API.ackAlert(t, 24).then(function () { Toast.success('Alert acknowledged'); _loadData(); })
-          .catch(function (e) { btn.disabled = false; Toast.error('Failed: ' + (e && e.message ? e.message : 'error')); });
+          .catch(function (e) { btn.disabled = false; Toast.error('Failed: ' + AdminUtils.getReadableError(e)); });
       };
     });
     var cu = document.getElementById('ccCleanup');
-    if (cu) cu.onclick = function () { cu.disabled = true; API.cleanupDuels().then(function (r) { Toast.success('Cleaned ' + (r.deletedCount || 0) + ' duel(s)'); _loadData(); }).catch(function (e) { cu.disabled = false; Toast.error('Failed: ' + (e && e.message ? e.message : 'error')); }); };
+    if (cu) cu.onclick = function () { cu.disabled = true; API.cleanupDuels().then(function (r) { Toast.success('Cleaned ' + (r.deletedCount || 0) + ' duel(s)'); _loadData(); }).catch(function (e) { cu.disabled = false; Toast.error('Failed: ' + AdminUtils.getReadableError(e)); }); };
     var ag = document.getElementById('ccAggregate');
-    if (ag) ag.onclick = function () { ag.disabled = true; API.aggregateMetrics().then(function () { Toast.success('Metrics refreshed'); _loadData(); }).catch(function (e) { ag.disabled = false; Toast.error('Failed: ' + (e && e.message ? e.message : 'error')); }); };
+    if (ag) ag.onclick = function () { ag.disabled = true; API.aggregateMetrics().then(function () { Toast.success('Metrics refreshed'); _loadData(); }).catch(function (e) { ag.disabled = false; Toast.error('Failed: ' + AdminUtils.getReadableError(e)); }); };
     body.querySelectorAll('[data-em]').forEach(function (inp) {
       inp.onchange = function () { _toggleEmergency(inp.getAttribute('data-em'), inp.checked, inp); };
     });
@@ -144,7 +141,7 @@ var CommandCenterView = (function () {
         { label: 'Cancel', onClick: function () { inp.checked = !enabled; } },
         { label: enabled ? 'Enable' : 'Disable', accent: !enabled, danger: enabled, autoClose: false, onClick: function () {
           API.setEmergencyConfig(key, enabled).then(function () { Toast.success((EM_LABELS[key] || key) + ' ' + (enabled ? 'ENABLED' : 'disabled')); Modal.close(); _loadData(); })
-            .catch(function (e) { inp.checked = !enabled; Toast.error('Failed: ' + (e && e.message ? e.message : 'error')); });
+            .catch(function (e) { inp.checked = !enabled; Toast.error('Failed: ' + AdminUtils.getReadableError(e)); });
         } }
       ]
     });

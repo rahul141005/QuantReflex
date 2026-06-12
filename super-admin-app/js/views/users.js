@@ -38,7 +38,7 @@ var UsersView = (function () {
     listEl.innerHTML =
       '<div class="view-header" style="margin-bottom:.4rem;"><h2 class="view-title">User-360</h2><p class="view-subtitle">Single source of truth for every user.</p></div>' +
       '<div class="chip-bar" id="uChips">' + chips + '</div>' +
-      '<input type="text" class="modal-input" id="uText" placeholder="Filter loaded users (name / email)" style="margin:.5rem 0;" />' +
+      '<input type="text" class="modal-input" id="uText" placeholder="Filter loaded users (name / email)" aria-label="Filter loaded users by name or email" style="margin:.5rem 0;" />' +
       '<div id="uBulk"></div>' +
       '<div id="uList"><div class="loading">Loading…</div></div>' +
       '<div id="uMore" style="margin-top:.5rem;"></div>';
@@ -78,17 +78,28 @@ var UsersView = (function () {
   function _renderList() {
     var listEl = document.getElementById('uList'); if (!listEl) return;
     var rows = _all.filter(_matches);
-    if (!rows.length) { listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No users match.</div></div>'; }
-    else {
+    if (!rows.length) {
+      listEl.innerHTML = AdminUtils.emptyState({
+        icon: '👤', title: 'No users match',
+        text: (_text || _filter !== 'all') ? 'No loaded users match this filter. Try a different segment or clear the search.' : 'No users have been loaded yet.'
+      });
+    } else {
       var bulk = (_filter === 'inactive');
       listEl.innerHTML = rows.map(function (u) {
-        return '<div class="sv-row" data-sv-id="' + _esc(u.uid) + '" data-uid="' + _esc(u.uid) + '">' +
-          (bulk ? '<input type="checkbox" class="uCheck" data-uid="' + _esc(u.uid) + '" ' + (_bulk[u.uid] ? 'checked' : '') + ' onclick="event.stopPropagation();" /> ' : '') +
-          '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(u.displayName || u.email || u.uid) + _statusBadge(u.accountStatus) + '</div>' +
+        var name = u.displayName || u.email || u.uid;
+        return '<div class="sv-row" role="button" tabindex="0" aria-label="Open ' + _esc(name) + '" data-sv-id="' + _esc(u.uid) + '" data-uid="' + _esc(u.uid) + '">' +
+          (bulk ? '<input type="checkbox" class="uCheck" aria-label="Select ' + _esc(name) + '" data-uid="' + _esc(u.uid) + '" ' + (_bulk[u.uid] ? 'checked' : '') + ' onclick="event.stopPropagation();" /> ' : '') +
+          '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(name) + _statusBadge(u.accountStatus) + '</div>' +
           '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(u.coachingId) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
           _entBadge(u) + '</div>';
       }).join('');
-      listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-uid')); }); });
+      listEl.querySelectorAll('.sv-row').forEach(function (r) {
+        function open() { _split.select(r.getAttribute('data-uid')); }
+        r.addEventListener('click', open);
+        r.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); open(); }
+        });
+      });
       listEl.querySelectorAll('.uCheck').forEach(function (cb) { cb.addEventListener('change', function () { _bulk[cb.getAttribute('data-uid')] = cb.checked; _renderBulkBar(); }); });
     }
     var moreEl = document.getElementById('uMore');

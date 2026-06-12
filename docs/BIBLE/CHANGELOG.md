@@ -6,6 +6,46 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin accessibility + governance enforcement — Pass 3 (ADR-026)
+
+Final pass of the ADR-024 refinement program. An adversarial multi-agent UX / visual / a11y / navigation /
+design-system audit surfaced 35 candidates; **18 were confirmed** and fixed. Pure client (JS/CSS/HTML) + Bible
+— **zero new functions** (super-admin 8/12), no schema/security/payment change.
+
+- **Keyboard operability (WCAG 2.1.1):**
+  - `.sv-row` in User-360 (`js/views/users.js`) and Coaching-360 (`js/views/coachings.js`) → `role="button"`,
+    `tabindex="0"`, `aria-label`, and a shared click + Enter/Space `keydown` handler.
+  - Content drop-zone (`js/views/questions.js`) → `role="button"`, `tabindex="0"`, descriptive `aria-label`,
+    Enter/Space opens the file picker.
+  - Global-Search results (`js/app.js`) → `role="option"`, `tabindex="0"`, `aria-label`; navigation moved off
+    inline `onclick` to a delegated click + keydown handler.
+- **Names / roles / state (4.1.2):** filter inputs in Users/Coachings/AI + the bulk select checkboxes get
+  `aria-label`s; the Global-Search overlay (`index.html`) becomes a labelled `role="dialog"` with a
+  `role="listbox"` results region and an `aria-label`led `type="search"` input; the active nav item gets
+  `aria-current="page"` (`app.js` router). `modal.js` now sets `title.id = 'modalTitle'` so the dialog's
+  `aria-labelledby` resolves (was dangling).
+- **Tabs WAI-ARIA pattern (`js/ui/tabs.js`):** rebuilt to per-mount unique ids, `role=tablist/tab/tabpanel`,
+  `aria-selected`/`aria-controls`/`aria-labelledby`, roving `tabindex`, Arrow/Home/End keyboard nav.
+- **Status messages (4.1.3):** `#toastContainer` is `role="status" aria-live="polite"` (`index.html`); error
+  toasts add `role="alert"` (`js/ui/toast.js`).
+- **Operator-friendly errors:** remaining raw `e.message` sites now route through `AdminUtils.getReadableError`
+  — `questions.js` (×6: batch import, load, generate, archive, delete, save), `command-center.js` (×4: ack
+  alert, cleanup duels, aggregate metrics, emergency toggle), `app.js` Global Search. The Content table renders
+  in **card mode** on narrow panes (`Table.build(columns, questions, _rowActions, { cards: true })`) instead of
+  forcing a horizontal scroll, and its empty state uses `AdminUtils.emptyState`.
+- **Design-system enforcement:** the triplicated per-view `_tile()` (command-center / revenue / ai) collapses to
+  one owner `AdminUtils.statTile(label,value,sub,colorVar)` (backed by `.stat-num`/`.stat-cap`/`.stat-sub`);
+  prominent empty lists migrate to `AdminUtils.emptyState`. **Latent bug fixed:** the self-referential
+  `--accent-glow: var(--accent-glow)` / `--accent-ring: var(--accent-ring)` token definitions (introduced by a
+  Pass-1b global value-sweep, broke focus rings/accent glows in **light** mode only) restored to real values; a
+  global `:focus-visible` ring + density `.card` rules added.
+- **Bible:** DECISION_LOG (ADR-026), TECHNICAL_BIBLE §10B (accessibility contract + Tabs/empty-state/statTile
+  primitives; Doc Version 1.6), VERSIONS (Bible 2.15→**2.16** + row), this entry.
+- **Verification:** `node --check` all JS (pass); CSS braces balanced (260/260); **zero** hardcoded hex/rgba
+  color literals in any view (grep-proven); no self-referential token definitions; function count 8/12.
+
+---
+
 ## 2026-06-12 — Super Admin Settings Center + Operations enhancements — Pass 2 (ADR-025)
 
 - **New 8th domain — Settings** (`js/views/settings.js`, `view-settings`, gear nav, routed in `app.js`):
