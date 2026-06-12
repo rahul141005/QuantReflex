@@ -6,6 +6,32 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin V2: entity-centric 360 consolidation (ADR-022) — backend foundation + shared resolver
+
+- **Requested change:** Freeze features; consolidate ALL admin workflows into entity-centric 360 views (User-360,
+  Coaching-360, AI Cost Center, Revenue Center, Operations Center); remove duplicate pages/metrics/filters/actions;
+  tablet-first + minimum-click governance.
+- **Impacted systems:** Admin (UI + IA) · APIs (new read/write branches) · Firestore (additive field).
+- **Bible docs updated (FIRST):** DECISION_LOG (ADR-022), FIRESTORE_BLUEPRINT (`users.aiThrottle`; Firestore 2.7),
+  VERSIONS (Bible 2.11 / Arch 2.7 / Firestore 2.7 + history row).
+- **Schema delta:** NEW additive `users.aiThrottle {cap,setBy,setAt}` (per-user AI cap). No new index/migration.
+- **API delta (ZERO new functions — super-admin stays 8/12):** new `?action=` branches on existing handlers —
+  users +`payment-history`/`activity-timeline`/`admin-history`/`throttle`/`pending-purge-list`; coachings +`details`/
+  `students`/`reset-token`; (ai/system/notifications branches land with their Centers). UI groundwork: a shared
+  client-side entitlement-state resolver (`AdminUtils.entitlementState`) replacing the 4× duplicated logic + matching
+  `api.js` client methods. The 5 Center UIs (User-360 → Coaching-360 → AI Cost Center → Revenue Center → Operations
+  Center) and the removals (overlay drawer, grouped Users list, standalone Payments/Inactive/Security/Firestore-ops/
+  Exports/Notifications views) land in focused follow-up commits.
+- **Security review:** all new actions `withAdminAuth`; mutations (throttle/lifecycle/entitlement) audited; no
+  auth-boundary change.
+- **Version bumps:** Architecture 2.6→2.7, Firestore 2.6→2.7, Bible 2.10→2.11 (additive/MINOR).
+- **Migration:** none. **Verification:** `node --check`; function counts (super 8 / main 6); render smoke;
+  adversarial review.
+- Remaining Centers (Coaching-360, AI Cost Center, Revenue Center, Operations Center) + main-app throttle
+  enforcement land in follow-up commits. See [DECISION_LOG.md](DECISION_LOG.md) ADR-022.
+
+---
+
 ## 2026-06-12 — Email normalization: `users.emailLower` + case-insensitive Global Search (ADR-020 update)
 
 - **Requested change:** Normalize email before the user base grows — add `emailLower` to every user doc,

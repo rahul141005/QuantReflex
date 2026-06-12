@@ -161,6 +161,53 @@ async function handler(req, res) {
       return res.status(200).json(details);
     }
 
+    /* ── User-360 read tabs (ADR-022) ── */
+    if (action === 'payment-history' && req.method === 'GET') {
+      const uid = req.query.uid;
+      if (!uid) return res.status(400).json({ error: 'Missing uid' });
+      const snap = await db.collection('payments').where('uid', '==', uid).limit(50).get();
+      const payments = [];
+      snap.forEach(function (doc) { const p = doc.data(); payments.push({ id: doc.id, plan: p.plan || null, amountINR: (typeof p.amount === 'number' ? Math.round(p.amount / 100) : null), status: p.status || 'paid', claimedAt: safeTimestampToISO(p.claimedAt), orderId: p.orderId || null }); });
+      payments.sort(function (a, b) { return String(b.claimedAt || '').localeCompare(String(a.claimedAt || '')); });
+      return res.status(200).json({ uid: uid, payments: payments });
+    }
+
+    if (action === 'activity-timeline' && req.method === 'GET') {
+      const uid = req.query.uid;
+      if (!uid) return res.status(400).json({ error: 'Missing uid' });
+      const events = [];
+      try {
+        const ps = await db.collection('users').doc(uid).collection('practiceSessions').orderBy('timestamp', 'desc').limit(20).get();
+        ps.forEach(function (doc) { const d = doc.data(); events.push({ type: 'practice', detail: (d.mode || 'practice') + (d.category ? ' · ' + d.category : '') + (d.score != null ? ' · ' + d.score + '/' + (d.total != null ? d.total : '?') : ''), at: safeTimestampToISO(d.timestamp) || safeTimestampToISO(d.date) }); });
+      } catch (_) { /* subcollection may be absent */ }
+      try {
+        const se = await db.collection('securityEvents').where('uid', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
+        se.forEach(function (doc) { const d = doc.data(); events.push({ type: d.type || 'security', detail: d.reason || d.type || 'event', at: safeTimestampToISO(d.createdAt) }); });
+      } catch (_) { /* [uid,createdAt] composite may be absent — degrade */ }
+      events.sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
+      return res.status(200).json({ uid: uid, timeline: events.slice(0, 30) });
+    }
+
+    if (action === 'admin-history' && req.method === 'GET') {
+      const uid = req.query.uid;
+      if (!uid) return res.status(400).json({ error: 'Missing uid' });
+      let logs = [];
+      try {
+        const snap = await db.collection('auditLogs').where('targetId', '==', uid).orderBy('ts', 'desc').limit(30).get();
+        snap.forEach(function (doc) { const d = doc.data(); logs.push({ id: doc.id, action: d.action || 'unknown', actor: d.actorEmail || d.actorUid || 'System', summary: d.summary || null, category: d.category || null, timestamp: safeTimestampToISO(d.ts) }); });
+      } catch (_) { logs = []; }
+      return res.status(200).json({ uid: uid, actions: logs });
+    }
+
+    if (action === 'pending-purge-list' && req.method === 'GET') {
+      const nowIso = new Date().toISOString();
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '100', 10)));
+      const snap = await db.collection('users').where('accountStatus', '==', 'archived').where('purgeAfter', '<', nowIso).limit(limit).get();
+      const users = [];
+      snap.forEach(function (doc) { const u = doc.data(); users.push({ uid: doc.id, email: u.email || '', name: (u.profile && u.profile.name) || u.email || 'Unknown', archivedAt: safeTimestampToISO(u.archivedAt), purgeAfter: safeTimestampToISO(u.purgeAfter), archiveReason: u.archiveReason || null }); });
+      return res.status(200).json({ count: users.length, data: users });
+    }
+
     /* ── Inactive User Center (ADR-014, was admin/inactive-users) ── */
     if (action === 'inactive-list' && req.method === 'GET') {
       const days = parseInt(req.query.days || '90', 10);
@@ -269,6 +316,20 @@ async function handler(req, res) {
         const report = await resetProgress(db, uid);
         await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reset_progress', category: 'user', targetType: 'user', targetId: uid, summary: 'reset learning progress for ' + uid });
         return res.status(200).json({ success: true, uid: uid, reset: true, report: report });
+      }
+
+      /* ── throttle (ADR-022) — set/clear a per-user AI daily cap, honored by main-app aiService ── */
+      if (action === 'throttle') {
+        const cap = parseInt(body.cap, 10);
+        if (!cap || cap <= 0) {
+          await userRef.set({ aiThrottle: admin.firestore.FieldValue.delete(), updatedAt: nowIso }, { merge: true });
+          await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'clear_ai_throttle', category: 'ai', targetType: 'user', targetId: uid, summary: 'cleared AI throttle for ' + uid });
+          return res.status(200).json({ success: true, uid: uid, aiThrottle: null });
+        }
+        const throttle = { cap: Math.min(10000, cap), setBy: req.adminEmail || req.userId, setAt: nowIso };
+        await userRef.set({ aiThrottle: throttle, updatedAt: nowIso }, { merge: true });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'set_ai_throttle', category: 'ai', targetType: 'user', targetId: uid, summary: 'throttled AI for ' + uid + ' to ' + throttle.cap + '/day', after: throttle });
+        return res.status(200).json({ success: true, uid: uid, aiThrottle: throttle });
       }
     }
 

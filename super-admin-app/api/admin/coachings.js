@@ -170,6 +170,52 @@ async function handler(req, res) {
       return res.status(200).json({ success: true, coachingId, newStatus: mutateAction });
     }
 
+    /* ── details (Coaching-360, ADR-022) — overview + live counts ── */
+    if (action === 'details' && req.method === 'GET') {
+      const coachingId = req.query.coachingId;
+      if (!coachingId) return res.status(400).json({ error: { code: 'INVALID_ID', message: 'coachingId is required.' } });
+      const doc = await db.collection('coachings').doc(coachingId).get();
+      if (!doc.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
+      const d = doc.data();
+      let studentCount = (d.studentCount != null ? d.studentCount : null), premiumCount = null;
+      try { studentCount = (await db.collection('users').where('coachingId', '==', coachingId).count().get()).data().count; } catch (_) { /* keep denormalized */ }
+      try { premiumCount = (await db.collection('users').where('coachingId', '==', coachingId).where('plan', '==', 'premium').count().get()).data().count; } catch (_) { /* needs composite index — best-effort */ }
+      return res.status(200).json({
+        id: doc.id, coachingId: doc.id, name: d.name || '', status: d.status || (d.isActive === false ? 'suspended' : 'active'),
+        ownerEmail: d.ownerEmail || null, capacity: d.capacity != null ? d.capacity : null, entitlementPlan: d.entitlementPlan || null,
+        registrationToken: d.registrationToken || null, studentCount: studentCount, premiumCount: premiumCount,
+        createdAt: _safeTS(d.createdAt), createdBy: d.createdBy || null, updatedAt: _safeTS(d.updatedAt)
+      });
+    }
+
+    /* ── students (Coaching-360, ADR-022) — server-side roster (no client fetch-all) ── */
+    if (action === 'students' && req.method === 'GET') {
+      const coachingId = req.query.coachingId;
+      if (!coachingId) return res.status(400).json({ error: { code: 'INVALID_ID', message: 'coachingId is required.' } });
+      const limit = Math.min(300, Math.max(1, parseInt(req.query.limit || '200', 10)));
+      const snap = await db.collection('users').where('coachingId', '==', coachingId).limit(limit).get();
+      const students = [];
+      snap.forEach(function (doc) {
+        const u = doc.data();
+        students.push({ uid: doc.id, name: (u.profile && u.profile.name) || u.email || 'Unknown', email: u.email || '', plan: u.plan === 'premium' ? 'premium' : 'free', planExpiry: u.planExpiry || null, accountStatus: u.accountStatus || 'active', lastActive: (u.stats && u.stats.lastActiveDate) || null });
+      });
+      return res.status(200).json({ coachingId: coachingId, count: students.length, students: students, truncated: students.length >= limit });
+    }
+
+    /* ── reset-token (Coaching-360, ADR-022) — rotate the registration token (audited) ── */
+    if (action === 'reset-token' && req.method === 'POST') {
+      const body = parseBody(req);
+      const coachingId = body.coachingId;
+      if (!coachingId) return res.status(400).json({ error: { code: 'INVALID_ID', message: 'coachingId is required.' } });
+      const ref = db.collection('coachings').doc(coachingId);
+      const doc = await ref.get();
+      if (!doc.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
+      const newToken = 'REG' + generateCoachingId(8);
+      await ref.update({ registrationToken: newToken, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reset_coaching_token', category: 'coaching', targetType: 'coaching', targetId: coachingId, summary: 'rotated registration token for ' + coachingId });
+      return res.status(200).json({ success: true, coachingId: coachingId, registrationToken: newToken });
+    }
+
     return res.status(404).json({ error: 'Coaching action not found' });
   } catch (err) {
     console.error('Error in coaching routes:', err);

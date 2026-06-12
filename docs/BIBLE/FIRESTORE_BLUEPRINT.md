@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.4 · **Firestore Version:** 2.6 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.5 · **Firestore Version:** 2.7 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-11
@@ -50,6 +50,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `archiveReason` | string \| absent | — | admin | optional reason recorded at archive |
 | `inactiveFlaggedAt` | ISO \| absent | — | fn (cron) | set when a still-active user has been inactive >180d (flagged for admin review) |
 | `statusUpdatedAt` | ISO | — | admin | last lifecycle change |
+| `aiThrottle` | map `{cap, setBy, setAt}` \| absent | — | admin (User-360 throttle) | **per-user AI daily cap (ADR-022)** — honored by main-app `aiService`: AI is blocked when the user's daily AI count exceeds `cap`. Absent = no throttle. Set/cleared via `users?action=throttle`. |
 
 **Removed in v2** (do not reintroduce): `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan, premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`.
 

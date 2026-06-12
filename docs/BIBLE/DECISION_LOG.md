@@ -8,6 +8,34 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-022 — Super Admin V2: entity-centric 360 consolidation (2026-06-12)
+- **Context:** After the V2 shell (ADR-019), 5 of 7 domains still rendered the legacy views under a strangler,
+  leaving heavy duplication (governance UX audit): the user list fetched in 3 views; entitlement state recomputed
+  in 4 places; coaching-create in 2 (one buggy 2-arg call); AI cost in 3; duel-cleanup / inactive-export /
+  audit-feed each in 2+. The Users view grouped every user under its coaching as expanded cards (infinite vertical
+  scroll) and opened a 400px overlay drawer — both tablet-hostile.
+- **Decision:** Consolidate every admin workflow into **5 entity-centric Centers**, **one owner per capability**
+  (GOVERNANCE): **User-360** (Users — SplitView flat filterable master with status chips + tabs
+  Profile|Entitlement|Lifecycle|AI|Activity|Payments|Audit; absorbs Inactive as a filter + bulk-bar; **sole owner
+  of per-user entitlement + lifecycle**; replaces the overlay drawer with the in-flow SplitView); **Coaching-360**
+  (Coachings — SplitView; **sole coaching-create + bulk-entitlement owner**; Overview|Students|Entitlement|Token|Audit);
+  **AI Cost Center** (AI — Spend|Breakdown|Top Consumers|Abuse with **inline** suspend/throttle remediation; surfaces
+  but does not re-own the AI kill switch); **Revenue Center** (Revenue — Intelligence|Entitlement Admin|Payment Audit;
+  wires the previously-dead `revenue-intel`); **Operations Center** (Operations — first-class Health|Cleanup|Security|
+  Data|Campaigns|Exports|Emergency|Audit panels replacing the strangler wrappers). Command Center + Content unchanged.
+  **Removed:** the grouped Users list + overlay drawer; the standalone Payments / Inactive / Security / Firestore-ops /
+  Exports / Notifications / System views (folded into Centers). One shared client-side **entitlement-state resolver**
+  replaces the 4 copies.
+- **Infra:** new reads/writes are `?action=` branches on existing handlers — **zero new functions** (stays 8/12):
+  users +`payment-history`/`activity-timeline`/`admin-history`/`throttle`/`pending-purge-list`; coachings +`details`/
+  `students`/`reset-token`; ai +`lifetime`/`per-coaching`/`top-consumers`/`feature-breakdown`; system `revenue-intel`
+  extended; notifications +`history`. One new **additive** user field `aiThrottle` (per-user AI cap honored by main-app).
+- **Options considered:** (a) keep strangler wrappers — rejected (the duplication is the problem). (b) a separate
+  search/store service — folded into the existing Global Search primitive + a shared AdminState store instead.
+- **Consequence:** minimum-click governance (chip → row → tab → inline action), tablet-first (SplitView master/detail,
+  card-mode), zero duplicate entry points. Implemented strangler-style, Center by Center. Arch 2.6→2.7, Firestore
+  2.6→2.7, Bible 2.10→2.11.
+
 ## ADR-021 — Emergency Controls: maintenance mode + AI kill switch + payment kill switch (cross-app, 2026-06-12)
 - **Context:** The platform had no break-glass controls. An AI cost runaway, a Razorpay incident, or a bad
   deploy could only be stopped by code changes + redeploys. Super Admin V2 (ADR-019) adds operator-grade

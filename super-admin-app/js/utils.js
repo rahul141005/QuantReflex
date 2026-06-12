@@ -186,6 +186,22 @@ var AdminUtils = (function () {
     } catch (e) { console.error('downloadCsv failed:', e); }
   }
 
+  /**
+   * Single source of truth for a user's entitlement state (ADR-022) — replaces the 4 duplicated
+   * copies (users list, drawer, payments, debugger). Input: a user object with plan/planExpiry/
+   * isTrial/planType. Returns { state, label, badgeClass }.
+   */
+  function entitlementState(u) {
+    u = u || {};
+    var now = Date.now();
+    var expMs = u.planExpiry ? toMillis(u.planExpiry) : 0;
+    var active = (u.plan === 'premium') && (!u.planExpiry || expMs > now);
+    if (active && u.isTrial) return { state: 'trial', label: 'Trial', badgeClass: 'badge-draft' };
+    if (active) return { state: 'premium', label: (u.planType === 'premium_12m' ? 'Premium 12m' : (u.planType === 'premium_6m' ? 'Premium 6m' : 'Premium')), badgeClass: 'badge-active' };
+    if (u.plan === 'premium' && u.planExpiry && expMs <= now) return { state: 'expired', label: 'Expired', badgeClass: 'badge-archived' };
+    return { state: 'free', label: 'Free', badgeClass: 'badge-draft' };
+  }
+
   return {
     normalizeFirestoreDate: normalizeFirestoreDate,
     toMillis: toMillis,
@@ -193,6 +209,7 @@ var AdminUtils = (function () {
     formatDateTime: formatDateTime,
     escapeHtml: escapeHtml,
     getReadableError: getReadableError,
-    downloadCsv: downloadCsv
+    downloadCsv: downloadCsv,
+    entitlementState: entitlementState
   };
 })();

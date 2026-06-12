@@ -56,6 +56,14 @@ var API = (function () {
   function getUserDetails(uid) {
     return _fetch('/api/admin/users?action=details&uid=' + encodeURIComponent(uid));
   }
+  function getUserPaymentHistory(uid) { return _fetch('/api/admin/users?action=payment-history&uid=' + encodeURIComponent(uid)); }
+  function getUserActivity(uid) { return _fetch('/api/admin/users?action=activity-timeline&uid=' + encodeURIComponent(uid)); }
+  function getUserAdminHistory(uid) { return _fetch('/api/admin/users?action=admin-history&uid=' + encodeURIComponent(uid)); }
+  function getPendingPurgeList() { return _fetch('/api/admin/users?action=pending-purge-list'); }
+  function throttleUser(uid, cap) { return _fetch('/api/admin/users?action=throttle', { method: 'POST', body: JSON.stringify({ uid: uid, cap: cap }) }); }
+  function getCoachingDetails(coachingId) { return _fetch('/api/admin/coachings?action=details&coachingId=' + encodeURIComponent(coachingId)); }
+  function getCoachingStudents(coachingId) { return _fetch('/api/admin/coachings?action=students&coachingId=' + encodeURIComponent(coachingId)); }
+  function resetCoachingToken(coachingId) { return _fetch('/api/admin/coachings?action=reset-token', { method: 'POST', body: JSON.stringify({ coachingId: coachingId }) }); }
 
   function grantEntitlement(type, action, targetId, trialDays) {
     var payload = { type: type, action: action, targetId: targetId };
@@ -184,6 +192,14 @@ var API = (function () {
     getDashboard: getDashboard,
     getUsers: getUsers,
     getUserDetails: getUserDetails,
+    getUserPaymentHistory: getUserPaymentHistory,
+    getUserActivity: getUserActivity,
+    getUserAdminHistory: getUserAdminHistory,
+    getPendingPurgeList: getPendingPurgeList,
+    throttleUser: throttleUser,
+    getCoachingDetails: getCoachingDetails,
+    getCoachingStudents: getCoachingStudents,
+    resetCoachingToken: resetCoachingToken,
     grantEntitlement: grantEntitlement,
     getCoachings: getCoachings,
     createCoaching: createCoaching,
