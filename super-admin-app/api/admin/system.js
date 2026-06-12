@@ -52,7 +52,15 @@ async function handler(req, res) {
       const trialSnap = await db.collection('users').where('isTrial', '==', true).count().get();
       const trialUsers = trialSnap.data().count;
 
-      const premiumUsers = Math.max(0, premiumTotal - trialUsers);
+      /* Active-premium accuracy (ADR-023): premiumTotal counts plan=='premium' INCLUDING
+         expired-but-unswept docs. Subtract expired (planExpiry < now) via a count() aggregation —
+         needs the (plan, planExpiry) composite index. Wrapped so a missing index degrades to the
+         legacy (slightly-overcounted) figure instead of failing the dashboard. */
+      const nowIsoDash = new Date().toISOString();
+      let expiredPremium = 0;
+      try { expiredPremium = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIsoDash).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
+
+      const premiumUsers = Math.max(0, premiumTotal - trialUsers - expiredPremium);
       const freeUsers = Math.max(0, totalUsers - premiumTotal);
 
       const metricsSnap = await db.collection('metrics').doc('latest').get();
@@ -74,6 +82,7 @@ async function handler(req, res) {
           freeUsers: freeUsers,
           trialUsers: trialUsers,
           premiumUsers: premiumUsers,
+          expiredPremium: expiredPremium,
           dau: latestMetrics.dau || 0,
           mau: latestMetrics.mau || 0,
           newToday: latestMetrics.newToday || 0,
@@ -155,8 +164,10 @@ async function handler(req, res) {
       if (usedPct >= 100) alerts.push({ severity: 'critical', type: 'ai_budget', message: 'AI budget EXCEEDED — $' + mtd.toFixed(2) + ' of $' + budget + ' (' + usedPct.toFixed(0) + '%).' });
       else if (usedPct >= cfg.critPct) alerts.push({ severity: 'critical', type: 'ai_budget', message: 'AI spend at ' + usedPct.toFixed(0) + '% of budget (critical ' + cfg.critPct + '%).' });
       else if (usedPct >= cfg.warnPct) alerts.push({ severity: 'warning', type: 'ai_budget', message: 'AI spend at ' + usedPct.toFixed(0) + '% of budget (warning ' + cfg.warnPct + '%).' });
-      const premSnap = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
-      let expired = 0; premSnap.forEach(d => { const e = d.data().planExpiry; if (e && typeof e === 'string' && e < nowIso) expired++; });
+      /* Expired-but-unswept premium via count() aggregation (ADR-023) — accurate at any scale,
+         needs the (plan, planExpiry) index; degrades to 0 if the index isn't live yet. */
+      let expired = 0;
+      try { expired = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIso).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
       if (expired > 0) alerts.push({ severity: 'warning', type: 'expired_premium', message: expired + ' user(s) show premium but have an expired timestamp — run the entitlement sweep.' });
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
       const duelSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinAgo).limit(200).get();
@@ -219,12 +230,11 @@ async function handler(req, res) {
       let suspendedUsers = null, archivedUsers = null, expiredPremium = null;
       try { suspendedUsers = (await db.collection('users').where('accountStatus', '==', 'suspended').count().get()).data().count; } catch (_) { /* ignore */ }
       try { archivedUsers = (await db.collection('users').where('accountStatus', '==', 'archived').count().get()).data().count; } catch (_) { /* ignore */ }
+      /* Expired-unswept premium via count() aggregation (ADR-023) — accurate at scale, (plan,planExpiry) index. */
       try {
         const nowIso2 = new Date().toISOString();
-        const premSnap = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
-        let exp = 0; premSnap.forEach(function (d) { const e = d.data().planExpiry; if (e && typeof e === 'string' && e < nowIso2) exp++; });
-        expiredPremium = exp;
-      } catch (_) { /* ignore */ }
+        expiredPremium = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIso2).count().get()).data().count;
+      } catch (_) { /* index missing — leave null */ }
       return res.status(200).json({ events: events, counts24: counts24, posture: { suspendedUsers: suspendedUsers, archivedUsers: archivedUsers, expiredPremium: expiredPremium }, generatedAt: new Date().toISOString() });
     }
 
@@ -261,32 +271,38 @@ async function handler(req, res) {
     /* ── export (ADR-016, was admin/export) — authenticated CSV ── */
     if (action === 'export' && req.method === 'GET') {
       const type = req.query.type || 'users';
-      let rows, filename;
+      let rows, filename, cap; /* cap = per-type row ceiling; surfaced as `truncated` so the operator
+                                  is never silently handed a partial export (ADR-023). */
       if (type === 'users' || type === 'premium') {
+        cap = 10000;
         const q = (type === 'premium') ? db.collection('users').where('plan', '==', 'premium') : db.collection('users');
-        const snap = await q.limit(10000).get();
+        const snap = await q.limit(cap).get();
         rows = [['uid', 'email', 'name', 'plan', 'planType', 'planExpiry', 'planSource', 'coachingId', 'accountStatus', 'createdAt']];
         snap.forEach(d => { const u = d.data(); rows.push([d.id, u.email || '', (u.profile && u.profile.name) || '', u.plan || 'free', u.planType || '', _safeTS(u.planExpiry) || '', u.planSource || '', u.coachingId || '', u.accountStatus || 'active', _safeTS(u.createdAt) || '']); });
         filename = type + '-users.csv';
       } else if (type === 'coachings') {
-        const snap = await db.collection('coachings').limit(5000).get();
+        cap = 5000;
+        const snap = await db.collection('coachings').limit(cap).get();
         rows = [['coachingId', 'name', 'status', 'studentCount', 'ownerEmail', 'createdAt']];
         snap.forEach(d => { const c = d.data(); rows.push([d.id, c.name || '', c.status || '', c.studentCount || 0, c.ownerEmail || '', _safeTS(c.createdAt) || '']); });
         filename = 'coachings.csv';
       } else if (type === 'revenue') {
-        const snap = await db.collection('payments').limit(20000).get();
+        cap = 20000;
+        const snap = await db.collection('payments').limit(cap).get();
         rows = [['paymentId', 'uid', 'plan', 'amountINR', 'status', 'claimedAt', 'orderId']];
         snap.forEach(d => { const p = d.data(); const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0); rows.push([d.id, p.uid || '', p.plan || '', (amt / 100), p.status || 'paid', _safeTS(p.claimedAt) || '', p.orderId || '']); });
         filename = 'revenue.csv';
       } else if (type === 'ai-usage') {
-        const snap = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').get();
+        cap = 10000; /* ADR-023: was unbounded — a 1M-user collectionGroup scan would OOM the 512 MB function. */
+        const snap = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').limit(cap).get();
         rows = [['uid', 'wordProblemsLifetime', 'explanationsUsed', 'gptCalls', 'gptTokensInput', 'gptTokensOutput', 'gptCostUSD']];
         snap.forEach(d => { const a = d.data(); const uid = d.ref.parent.parent.id; rows.push([uid, a.wordProblemsUsedLifetime || 0, a.explanationsUsed || 0, a.gptCalls || 0, a.gptTokensInput || 0, a.gptTokensOutput || 0, a.gptCostUSD || 0]); });
         filename = 'ai-usage.csv';
       } else {
         return res.status(400).json({ error: { code: 'INVALID_TYPE', message: 'Unknown export type: ' + type } });
       }
-      return res.status(200).json({ filename: filename, csv: _csv(rows), rowCount: rows.length - 1 });
+      const rowCount = rows.length - 1;
+      return res.status(200).json({ filename: filename, csv: _csv(rows), rowCount: rowCount, truncated: rowCount >= cap });
     }
 
     /* ── duels-cleanup (was admin/duels) ── */
@@ -294,7 +310,10 @@ async function handler(req, res) {
       const now = Date.now();
       const waitingThreshold = now - (24 * 60 * 60 * 1000);
       const activeThreshold = now - (4 * 60 * 60 * 1000);
-      const snapshot = await db.collection('duels').where('status', 'in', ['waiting', 'active']).get();
+      /* Bounded to 500/run (ADR-023): the single delete batch is within Firestore's 500-write
+         limit, and an unbounded scan over a high-concurrency duels collection can't sink the call.
+         `scanned === 500` signals more remain — re-run (or the next cron pass) drains the rest. */
+      const snapshot = await db.collection('duels').where('status', 'in', ['waiting', 'active']).limit(500).get();
       let deletedCount = 0;
       const batch = db.batch();
       snapshot.forEach(doc => {
@@ -309,7 +328,7 @@ async function handler(req, res) {
         await batch.commit();
         await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'cleanup_duels', category: 'system', targetType: 'bulk', targetId: null, summary: 'deleted ' + deletedCount + ' stale duel room(s)' });
       }
-      return res.status(200).json({ success: true, deletedCount: deletedCount });
+      return res.status(200).json({ success: true, deletedCount: deletedCount, scanned: snapshot.size, more: snapshot.size >= 500 });
     }
 
     /* ── search (Phase V2, ADR-020) — ecosystem prefix search: users + coachings (server-side, no client fetch-all) ── */
@@ -391,10 +410,10 @@ async function handler(req, res) {
         trend.reverse();
       } catch (_) { /* non-fatal */ }
       let expiring7 = 0, expiring30 = 0;
-      try {
-        const prem = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
-        prem.forEach(function (doc) { const e = doc.data().planExpiry; if (e && typeof e === 'string' && e > nowIso) { if (e <= in7) expiring7++; if (e <= in30) expiring30++; } });
-      } catch (_) { /* non-fatal */ }
+      /* Accurate at scale via count() range aggregations (ADR-023) — (plan, planExpiry) index.
+         expiring = active premium with planExpiry in (now, now+N]. Degrades to 0 if index absent. */
+      try { expiring7 = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '>', nowIso).where('planExpiry', '<=', in7).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
+      try { expiring30 = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '>', nowIso).where('planExpiry', '<=', in30).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
       let totalUsers = 0, premiumUsers = 0, premiumShare = 0, trialUsers = 0;
       try { const latest = await db.collection('metrics').doc('latest').get(); if (latest.exists) { const d = latest.data(); totalUsers = d.totalUsers || 0; premiumUsers = d.premiumUsers || 0; trialUsers = d.trialUsers || 0; premiumShare = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0; } } catch (_) { /* non-fatal */ }
       /* conversionRate = paid-premium share of all users (ADR-022). */

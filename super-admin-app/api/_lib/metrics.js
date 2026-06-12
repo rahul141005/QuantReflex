@@ -58,7 +58,12 @@ async function computeDailySnapshot(db) {
      plan→price for historical docs). Recomputed each run; ROADMAP tracks an incremental
      counter before payment volume grows large. */
   let revenueTotalPaise = 0, revenueTodayPaise = 0, revenue6mCount = 0, revenue12mCount = 0;
-  const paymentsSnap = await db.collection('payments').get();
+  /* Safety cap (ADR-023): the daily cron must never be sunk by an enormous payments collection.
+     50k lifetime sales is far beyond Spark/Hobby scale; the durable fix is a day-bucketed incremental
+     revenue counter (ROADMAP). If the cap is hit, revenueTotal under-reports → `revenueTruncated`. */
+  const PAYMENTS_CAP = 50000;
+  const paymentsSnap = await db.collection('payments').limit(PAYMENTS_CAP).get();
+  const revenueTruncated = paymentsSnap.size >= PAYMENTS_CAP;
   paymentsSnap.forEach(function (doc) {
     const p = doc.data();
     const amt = (typeof p.amount === 'number' && p.amount > 0) ? p.amount : (PREMIUM_PRICE_PAISE[p.plan] || 0);
@@ -94,6 +99,7 @@ async function computeDailySnapshot(db) {
     newToday: newToday,
     revenueTotalINR: Math.round(revenueTotalPaise / 100),
     revenueTodayINR: Math.round(revenueTodayPaise / 100),
+    revenueTruncated: revenueTruncated,
     revenue6mCount: revenue6mCount,
     revenue12mCount: revenue12mCount,
     totalTokensInput: ai.totalTokensInput || 0,

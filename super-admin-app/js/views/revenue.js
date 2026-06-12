@@ -101,7 +101,7 @@ var RevenueCenter = (function () {
 
   function _tabGrants(el) {
     el.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:.6rem;"><button class="btn btn-sm btn-outline" id="revExport">Export revenue CSV</button></div><div id="revGrantList"><div class="loading">Loading grant history…</div></div>';
-    document.getElementById('revExport').onclick = function () { var b = this; b.disabled = true; API.exportData('revenue').then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); b.disabled = false; }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); };
+    document.getElementById('revExport').onclick = function () { var b = this; b.disabled = true; API.exportData('revenue').then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); b.disabled = false; if (r.truncated) Toast.error('Export truncated to ' + r.rowCount + ' rows.'); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); };
     API.getPaymentLogs().then(function (logs) {
       var arr = Array.isArray(logs) ? logs : (logs.data || []);
       var c = document.getElementById('revGrantList');

@@ -1,8 +1,10 @@
 /**
  * auth.js — Firebase Auth module for Super Admin App
  *
- * Handles login/logout and enforces admin: true custom claim.
- * Hardcoded security requirement: Only quantreflex@gmail.com is permitted to login.
+ * Handles login/logout. The ONLY admin gate is the server-verified `admin:true` custom claim
+ * (withAdminAuth on every API) plus the client-side claim re-check below — there are NO hardcoded
+ * credentials or email allow-lists in client code (ADR-023). A valid-but-non-admin Firebase user
+ * who signs in is rejected at the claim check and logged as `suspicious_access`.
  */
 var AdminAuth = (function () {
   'use strict';
@@ -28,14 +30,8 @@ var AdminAuth = (function () {
       _currentUser = user;
 
       if (user) {
-        if (user.email !== 'quantreflex@gmail.com') {
-          if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: user.email, uid: user.uid, reason: 'unauthorized_email_authed' });
-          _showLoginError('Unauthorized email address.');
-          logout();
-          _finishAuthReady(user);
-          return;
-        }
-
+        /* Admin authority = the server-verified `admin:true` claim ONLY (ADR-023). No client email
+           allow-list. A non-admin who authenticates is rejected here and logged below. */
         user.getIdTokenResult(false).then(function (tokenResult) {
           if (tokenResult && tokenResult.claims && tokenResult.claims.admin === true) {
             if (_freshLogin && typeof SecurityEvents !== 'undefined') SecurityEvents.record('admin_login', { email: user.email, uid: user.uid, reason: 'admin_login_success' });
@@ -72,26 +68,20 @@ var AdminAuth = (function () {
 
   function login(email, password) {
     _hideLoginError();
-    if (email !== 'quantreflex@gmail.com') {
-      if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: email, reason: 'unauthorized_email' });
-      _showLoginError('Unauthorized email address.');
+    /* NO hardcoded credentials (ADR-023). Authenticate with exactly what the human typed; Firebase
+       rejects a wrong password, and onAuthStateChanged rejects any account lacking the `admin:true`
+       claim. The real gate is server-side (withAdminAuth) — never a string compared in the browser. */
+    if (!email || !password) {
+      _showLoginError('Email and password are required.');
       return;
     }
-    
-    // Check if the password provided is strictly the permitted one
-    if (password !== 'pass@iON2203') {
-       if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('suspicious_access', { email: email, reason: 'invalid_admin_credentials' });
-       _showLoginError('Invalid credentials.');
-       return;
-    }
-
     if (!_auth) {
       _showLoginError('Authentication service not available.');
       return;
     }
 
     _freshLogin = true;
-    _auth.signInWithEmailAndPassword(email, password).catch(function(err) {
+    _auth.signInWithEmailAndPassword(email, password).catch(function (err) {
       if (typeof SecurityEvents !== 'undefined') SecurityEvents.record('failed_login', { email: email, errorCode: err && err.code, reason: 'admin_login_failed' });
       _showLoginError(err.message);
     });

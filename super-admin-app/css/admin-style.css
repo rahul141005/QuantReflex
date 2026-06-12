@@ -581,7 +581,7 @@ input, textarea, select { font-family: inherit; }
 }
 .modal-title { font-size: 1.125rem; font-weight: 700; }
 .modal-close {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px; /* ≥40px tablet touch target (ADR-023) */
   display: flex; align-items: center; justify-content: center;
   background: #f1f5f9; border: none; border-radius: 50%;
   font-size: 1rem; color: #64748b; cursor: pointer;
@@ -837,6 +837,6 @@ input, textarea, select { font-family: inherit; }
 .bulk-bar > span { margin-right: auto; color: var(--text-secondary); }
 
 /* ---- small helpers ---- */
-.btn-sm { min-height: 36px; padding: .4rem .75rem; font-size: .8rem; }
+.btn-sm { min-height: 40px; padding: .45rem .75rem; font-size: .8rem; } /* ≥40px tablet touch target (ADR-023) */
 .muted { color: var(--text-secondary); }
 

@@ -9,7 +9,7 @@
 var AIAnalyticsView = (function () {
   'use strict';
 
-  var _data = [], _flagged = 0, _budget = null, _kill = null;
+  var _data = [], _flagged = 0, _budget = null, _kill = null, _truncated = false;
 
   function _esc(s) { return AdminUtils.escapeHtml(s); }
   function _cost(u) { return parseFloat(u.totalEstimatedCost) || 0; }
@@ -37,6 +37,7 @@ var AIAnalyticsView = (function () {
       _flagged = (r[0] && r[0].flaggedCount) || 0;
       _budget = r[1];
       _kill = (r[2] && r[2].config && r[2].config.aiKillSwitch) || null;
+      _truncated = !!(r[0] && r[0].truncated);
       _mount();
     }).catch(function (e) {
       var body = document.getElementById('aiBody');
@@ -46,7 +47,10 @@ var AIAnalyticsView = (function () {
 
   function _mount() {
     var body = document.getElementById('aiBody'); if (!body) return;
-    body.innerHTML = '<div id="aiTabs"></div>';
+    var banner = _truncated
+      ? '<div class="cc-emergency" style="background:#fff7ed;border-color:#fed7aa;margin-bottom:1rem;padding:.75rem 1rem;"><strong>⚠ Showing a capped sample.</strong> AI cost data is truncated to the first 5,000 records for performance; totals below are a lower bound. (Pre-aggregation is tracked in the roadmap.)</div>'
+      : '';
+    body.innerHTML = banner + '<div id="aiTabs"></div>';
     Tabs.mount(document.getElementById('aiTabs'), {
       tabs: [
         { id: 'overview', label: 'Overview', render: _tabOverview },

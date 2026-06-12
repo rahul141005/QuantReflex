@@ -136,7 +136,7 @@ var OperationsView = (function () {
     el.innerHTML = '<div class="card" style="padding:1rem;"><div class="cc-section-title">Authenticated CSV exports</div><div class="cc-quick">' +
       TYPES.map(function (t) { return '<button class="btn btn-sm btn-outline" data-exp="' + t.type + '">' + _esc(t.label) + '</button>'; }).join('') + '</div>' +
       '<div class="muted" style="margin-top:.5rem;font-size:.78rem;">Inactive-user export lives in User-360 (Inactive filter). Files download client-side; auth stays in the request, not the URL.</div></div>';
-    el.querySelectorAll('[data-exp]').forEach(function (b) { b.onclick = function () { var t = b.getAttribute('data-exp'); b.disabled = true; API.exportData(t).then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); b.disabled = false; }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); }; });
+    el.querySelectorAll('[data-exp]').forEach(function (b) { b.onclick = function () { var t = b.getAttribute('data-exp'); b.disabled = true; API.exportData(t).then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); b.disabled = false; if (r.truncated) Toast.error('Export truncated to ' + r.rowCount + ' rows — refine and re-export.'); else Toast.success('Exported ' + (r.rowCount || 0) + ' rows'); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); }; });
   }
 
   /* ───────── Cleanup ───────── */

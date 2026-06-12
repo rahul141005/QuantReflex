@@ -91,3 +91,11 @@ version bump.)_
   throttle enforced end-to-end in main-app. **Final consolidation pass** deleted all 7 legacy view files + the drawer
   DOM — **no hybrid old/new state remains**. Zero new functions (super-admin 8/12, main-app 6/12). This closes the
   Super Admin V2 program; future admin work extends an existing Center, never adds a parallel screen.
+- **Production-hardening audit remediation ✅ (2026-06-12, ADR-023)** — closed the CRITICAL client-side admin
+  credential leak (admin auth is now the server `admin:true` claim only; **operational: rotate the Firebase
+  password + enable MFA**) and bounded every unbounded admin Firestore scan (AI usage, exports, daily payments
+  snapshot, duels-cleanup, premium broadcast, coaching cascade) so they truncate/paginate instead of OOM/timeout.
+  Accurate active-premium via `count()` aggregations + two new composite indexes. **Tracked follow-up (before
+  ~100k users):** durable per-user/per-coaching **AI-cost pre-aggregation** into the daily snapshot (replaces the
+  interim 5000-row cap on `ai?action=usage`) and a **day-bucketed incremental revenue counter** (replaces the
+  full `payments` scan in `metrics.js`). Until then the capped endpoints degrade gracefully (surface `truncated`).

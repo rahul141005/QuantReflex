@@ -40,11 +40,15 @@ async function _monthToDate(db, now) {
 
 /* ── ?action=usage (GET) ── */
 async function _usage(db, res) {
+  /* ADR-023: cap the two full-collection scans so this endpoint degrades (truncates) instead of
+     OOM (512 MB) / timeout (15 s) at scale. The durable fix is per-user/per-coaching AI-cost
+     pre-aggregation into the daily snapshot (tracked in ROADMAP). */
+  const AI_USAGE_CAP = 5000;
   const systemMetrics = {};
   const metricsSnapshot = await db.collection('systemMetrics').where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_').get();
   metricsSnapshot.forEach(function (doc) { systemMetrics[doc.id] = doc.data(); });
 
-  const usageQuery = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').get();
+  const usageQuery = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').limit(AI_USAGE_CAP).get();
   const analytics = [];
   const userIds = [];
   const usageDataMap = {};
@@ -54,7 +58,7 @@ async function _usage(db, res) {
     usageDataMap[userId] = doc.data();
   });
 
-  const usersSnapshot = await db.collection('users').get();
+  const usersSnapshot = await db.collection('users').limit(AI_USAGE_CAP).get();
   const usersMap = {};
   usersSnapshot.forEach(function (doc) { usersMap[doc.id] = doc.data(); });
 
@@ -97,7 +101,8 @@ async function _usage(db, res) {
   });
 
   const flaggedCount = analytics.filter(function (a) { return a.abuseFlags && a.abuseFlags.length; }).length;
-  return res.status(200).json({ analytics: analytics, systemMetrics: systemMetrics, flaggedCount: flaggedCount });
+  const truncated = usageQuery.size >= AI_USAGE_CAP || usersSnapshot.size >= AI_USAGE_CAP;
+  return res.status(200).json({ analytics: analytics, systemMetrics: systemMetrics, flaggedCount: flaggedCount, truncated: truncated });
 }
 
 /* ── ?action=budget (GET) ── */

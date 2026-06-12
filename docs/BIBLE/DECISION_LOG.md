@@ -8,6 +8,43 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-023 — Production hardening: remove client-side admin credential + bound unbounded scans (2026-06-12)
+- **Context:** A zero-compromise from-source audit of the Super Admin app found one CRITICAL and several
+  scalability defects. **CRITICAL (C1):** `js/firebase/auth.js` hardcoded the admin email
+  (`quantreflex@gmail.com`) AND password (`pass@iON2203`) and signed in with them — so the real Firebase
+  password of the `admin:true` account was shipped in public client JS. Anyone with the deployed URL could
+  sign in as the admin and receive a token that legitimately passes `withAdminAuth` → total platform takeover.
+  `withAdminAuth` cannot mitigate this (the attacker authenticates *as* the real admin). **HIGH:** several
+  endpoints do unbounded full-collection scans / in-memory joins that OOM (512 MB) or time out (15 s) between
+  ~100k–500k users: AI usage (`ai.js` reads all `users` + all `usage/ai`), the `ai-usage` CSV export, the
+  daily `payments` scan in `metrics.js`, `duels-cleanup`, the premium broadcast over-read, and the coaching
+  suspend/delete cascade. Dashboard premium counts also overcount expired-but-unswept premium.
+- **Decision:**
+  1. **Security (C1):** remove ALL hardcoded credentials/emails from the client. `login()` calls
+     `signInWithEmailAndPassword(email, password)` with the values the human types — no client password check.
+     Admin authority is the **server `admin:true` claim ONLY** (`withAdminAuth`) plus the client claim re-check
+     in `onAuthStateChanged`. A non-admin Firebase user who signs into the admin form is rejected at the claim
+     check and logged as `suspicious_access`. **The password must be rotated in the Firebase Console** (the old
+     one is published) and MFA enabled — operational actions outside the repo.
+  2. **Scalability:** every admin Firestore read is **bounded** — add `.limit()` to the AI usage scans (with a
+     `truncated` flag surfaced in the UI), the `ai-usage` export, the `payments` snapshot scan, `duels-cleanup`
+     (+ chunked deletes ≤500), and paginate the coaching-cascade read. `coachings?action=list` gains a limit.
+  3. **Accuracy:** active premium = `count(plan=='premium')` − `count(plan=='premium' && planExpiry<now)` via
+     `count()` aggregations (no 1000-cap in-memory scan), needing a `(plan, planExpiry)` composite index. The
+     premium broadcast filters server-side via a `(plan, fcmToken)` composite index instead of reading all
+     token-holders.
+- **Infra:** **zero new serverless functions** (all edits are inside existing handlers; super-admin stays
+  8/12, main-app 6/12). **Two new composite indexes** (`users (plan,planExpiry)`, `users (plan,fcmToken)`).
+- **Options considered:** (a) full pre-aggregation of AI cost into the daily snapshot — deferred as the
+  durable fix; this pass caps the scans so they cannot OOM/timeout, which is sufficient at current scale.
+  (b) keep a client email allow-list — rejected (brittle, M5; the claim is the real gate). (c) leave the
+  password and rely on `withAdminAuth` — rejected; the leaked password yields a *claim-bearing* token, so the
+  server gate is moot.
+- **Consequence:** the credential leak is closed; admin authority is claim-only; every admin read is bounded
+  so the app degrades gracefully (truncates, never OOMs) instead of failing at scale; premium analytics are
+  accurate. Security 2.4→2.5, Firestore 2.7→2.8, Bible 2.11→2.12. Pre-aggregating AI cost remains a tracked
+  follow-up (ROADMAP).
+
 ## ADR-022 — Super Admin V2: entity-centric 360 consolidation (2026-06-12)
 - **Context:** After the V2 shell (ADR-019), 5 of 7 domains still rendered the legacy views under a strangler,
   leaving heavy duplication (governance UX audit): the user list fetched in 3 views; entitlement state recomputed

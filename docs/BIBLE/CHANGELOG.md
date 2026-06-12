@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Production-hardening audit remediation (ADR-023)
+
+- **Requested change:** a zero-compromise, from-source audit of the Super Admin app (the highest-authority
+  system) — find every security/scalability/governance defect before production. The audit found 1 CRITICAL +
+  7 HIGH + 5 MEDIUM/LOW; this entry is the remediation.
+- **CRITICAL — admin credential leak (C1):** `js/firebase/auth.js` hardcoded the admin email
+  (`quantreflex@gmail.com`) AND password (`pass@iON2203`) and signed in with them, so the real Firebase
+  password of the `admin:true` account shipped in public client JS → anyone could obtain a claim-bearing admin
+  token (`withAdminAuth` could not defend against it). **Fixed:** removed all client-side credential/email
+  checks; `login()` uses the typed password; admin authority is the server `admin:true` claim only.
+  **Operational follow-up (NOT code):** rotate the Firebase password + enable MFA.
+- **HIGH — bounded every unbounded scan (no more OOM/timeout at scale):** AI usage (`ai.js` — capped the
+  `users` + `usage/ai` full scans to 5000, `truncated` flag + UI banner); `ai-usage` CSV export (`system.js` —
+  added `.limit(10000)`); daily `payments` snapshot (`metrics.js` — 50k cap + `revenueTruncated`);
+  `duels-cleanup` (`system.js` — `.limit(500)` so the single delete batch is within Firestore's 500-write
+  limit, `more` flag); premium broadcast (`notifications.js` — server-side `plan` filter via the new
+  `(plan,fcmToken)` index + 10k cap, removed the dead no-op segment branch + in-memory filter); coaching
+  suspend/delete cascade (`coachings.js` — paginated revoke in pages of 400, resumable).
+- **Accuracy (H4/M3):** active premium = `count(plan=='premium')` − `count(plan=='premium' && planExpiry<now)`
+  via `count()` aggregations on the new `(plan,planExpiry)` index — dashboard now excludes expired-unswept
+  premium (new `expiredPremium` figure); alerts/security/revenue-intel expiry checks converted from
+  `.limit(1000)` in-memory scans to accurate `count()` (incl. `expiring7d/30d` range counts).
+- **MEDIUM/LOW:** `coachings?action=list` capped at 1000; export responses carry a `truncated` flag (toasts in
+  Operations + Revenue); `.btn-sm` + `.modal-close` raised to ≥40px tablet touch targets. (CORS `*` left as-is
+  with Bearer auth — documented LOW; `duelInvitations` explicit deny kept intentionally over the catch-all.)
+- **Schema/indexes:** NEW additive `metrics.{expiredPremium via dashboard, revenueTruncated}`,
+  `usage/ai.gptThrottle*` (pre-existing); **two new composite indexes** `users (plan,planExpiry)` +
+  `users (plan,fcmToken)` in `firestore/indexes/firestore.indexes.json`.
+- **API delta:** ZERO new functions — super-admin **8/12**, main-app **6/12** unchanged.
+- **Bible docs:** DECISION_LOG (ADR-023), SECURITY_ARCHITECTURE (§5.2 credential-free admin auth),
+  FIRESTORE_BLUEPRINT (2 indexes), VERSIONS (Bible 2.12 / Firestore 2.8 / Security 2.5 + history row), ROADMAP
+  (AI-cost pre-aggregation follow-up), this CHANGELOG.
+- **Verification:** `node --check` all touched JS (pass); indexes JSON valid (15); CSS balanced (227); no
+  credential strings remain; function counts unchanged. **Deploy:** `firebase deploy --only
+  firestore:rules,firestore:indexes` (the two new composites build async). **Tracked follow-up:** durable
+  per-user/per-coaching AI-cost pre-aggregation (replaces the 5000-cap) + day-bucketed revenue counter.
+
+---
+
 ## 2026-06-12 — Super Admin V2: entity-centric 360 consolidation (ADR-022) — full Center migration + final cutover
 
 - **Requested change:** Proceed straight through all five Centers; complete the entire migration; then a mandatory

@@ -46,20 +46,23 @@ async function handler(req, res) {
     const db = admin.firestore();
     const messaging = admin.messaging();
 
-    let query = db.collection('users').where('fcmToken', '!=', null);
-    
+    /* Segment → server-side query (ADR-023). The premium segment now filters by plan in the QUERY
+       (needs the (plan, fcmToken) composite index) instead of reading EVERY token-holder and
+       filtering in memory. Bounded to BROADCAST_CAP; a larger audience needs a queued job. */
+    const BROADCAST_CAP = 10000;
+    let query;
     if (segment === 'premium') {
-      // Note: filtered in memory below by plan === 'premium'
-      // Or we filter in memory if the dataset isn't too huge. Let's do memory filter for now to avoid breaking indexes.
-      // Actually, a better query is to just fetch tokens and filter manually in batches for this God-tier pass.
+      query = db.collection('users').where('plan', '==', 'premium').where('fcmToken', '!=', null);
     } else if (segment === 'coaching' && coachingId) {
       query = db.collection('users').where('coachingId', '==', coachingId).where('fcmToken', '!=', null);
     } else if (segment === 'custom' && Array.isArray(targetUids)) {
       if (targetUids.length === 0) return res.status(400).json({ error: 'targetUids cannot be empty' });
       query = db.collection('users').where(admin.firestore.FieldPath.documentId(), 'in', targetUids);
+    } else {
+      query = db.collection('users').where('fcmToken', '!=', null);
     }
 
-    const snapshot = await query.get();
+    const snapshot = await query.limit(BROADCAST_CAP).get();
     
     const tokens = [];
     const uidMap = {}; // mapping token -> uid for cleanup
@@ -67,10 +70,6 @@ async function handler(req, res) {
     snapshot.forEach(doc => {
       const u = doc.data();
       if (!u.fcmToken) return;
-
-      // In-memory filter for premium (avoids needing a complex index right now)
-      if (segment === 'premium' && u.plan !== 'premium') return;
-      
       tokens.push(u.fcmToken);
       uidMap[u.fcmToken] = doc.id;
     });

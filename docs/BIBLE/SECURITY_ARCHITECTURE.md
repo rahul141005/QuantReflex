@@ -86,7 +86,17 @@ Forward-only transitions; terminal states (`completed/expired/abandoned/deleted/
 ### 5.2 Admin Permissions & Audit Logging (Super Admin Control Center)
 Every privileged operation runs through a `super-admin-app/api/admin/*` endpoint wrapped by `withAdminAuth`
 (token + `admin:true` claim + 30/hr/admin). The `admin:true` claim is granted only via Firebase console /
-admin tooling (never self-granted). **Every admin mutation writes one immutable `auditLogs` row** via the
+admin tooling (never self-granted).
+
+> **Admin authentication = the server `admin:true` claim ONLY (ADR-023).** The super-admin client
+> (`js/firebase/auth.js`) carries **no hardcoded credentials or email allow-list**. `login()` calls
+> `signInWithEmailAndPassword` with exactly what the operator types; Firebase rejects a wrong password, and
+> `onAuthStateChanged` rejects any account whose token lacks `admin:true` (logged as `suspicious_access`).
+> A prior build hardcoded the admin email + password in shipped client JS — since the client signed in with
+> that password, it was the *real* Firebase password of the claim-bearing account, so anyone reading the
+> bundle could obtain a legitimately-claimed admin token (`withAdminAuth` cannot defend against this). That
+> credential is removed; **the password MUST be rotated in the Firebase Console and MFA enabled** (operational
+> actions outside the repo). NEVER place a credential or secret in any client bundle. **Every admin mutation writes one immutable `auditLogs` row** via the
 shared `super-admin-app/api/_lib/audit.js#writeAuditLog` (it never throws, so a logging failure cannot fail
 the action). Captured: `actorUid`, `actorEmail` (now set on `req.adminEmail` by `withAdminAuth`), `action`,
 `category`, `targetType`, `targetId`, `summary`, and `before`/`after` snapshots. `auditLogs` is

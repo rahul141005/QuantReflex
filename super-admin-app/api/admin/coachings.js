@@ -39,7 +39,9 @@ async function handler(req, res) {
 
   try {
     if (action === 'list' && req.method === 'GET') {
-      const snapshot = await db.collection('coachings').orderBy('createdAt', 'desc').get();
+      /* Bounded (ADR-023): the Coaching-360 master loads this whole list client-side; 1000 coachings
+         is far beyond current scale. Add a cursor here if coaching count ever approaches the cap. */
+      const snapshot = await db.collection('coachings').orderBy('createdAt', 'desc').limit(1000).get();
       const coachings = [];
       snapshot.forEach(doc => {
         const data = doc.data();
@@ -139,27 +141,22 @@ async function handler(req, res) {
       });
 
       if (mutateAction === 'suspend' || mutateAction === 'delete') {
-        const usersSnapshot = await db.collection('users').where('coachingId', '==', coachingId).get();
-        if (!usersSnapshot.empty) {
-          const batches = [];
-          let currentBatch = db.batch();
-          let count = 0;
-          usersSnapshot.forEach((userDoc) => {
-            if (count === 500) { batches.push(currentBatch); currentBatch = db.batch(); count = 0; }
-            currentBatch.update(userDoc.ref, {
-              plan: 'free',
-              planType: null,
-              planExpiry: null,
-              planSource: null,
-              isTrial: false,
-              trialEnd: null,
-              planUpdatedAt: new Date().toISOString(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            count++;
-          });
-          if (count > 0) batches.push(currentBatch);
-          await Promise.all(batches.map(b => b.commit()));
+        /* Paginated cascade (ADR-023): revoke premium from students in pages of 400, committing each
+           page before fetching the next, so an enormous coaching can't load all students into memory
+           or exceed the 15 s window in one shot. Paging is by documentId (stable — the cascade does not
+           change coachingId), so no student is processed twice or skipped. */
+        const revokeFields = { plan: 'free', planType: null, planExpiry: null, planSource: null, isTrial: false, trialEnd: null, planUpdatedAt: new Date().toISOString(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+        let last = null;
+        for (;;) {
+          let q = db.collection('users').where('coachingId', '==', coachingId).orderBy(admin.firestore.FieldPath.documentId()).limit(400);
+          if (last) q = q.startAfter(last);
+          const page = await q.get();
+          if (page.empty) break;
+          const batch = db.batch();
+          page.forEach((userDoc) => batch.update(userDoc.ref, revokeFields));
+          await batch.commit();
+          last = page.docs[page.docs.length - 1];
+          if (page.size < 400) break;
         }
       }
       await writeAuditLog(db, {
