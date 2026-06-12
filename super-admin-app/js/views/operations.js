@@ -44,7 +44,7 @@ var OperationsView = (function () {
       var audit = r[0] || {}, dash = r[1] || {}, emc = (r[2] && r[2].config) || {};
       var health = (dash && dash.health) || {};
       var issues = audit.issues || [];
-      var hb = function (k, label) { var v = health[k]; var col = v === 'green' ? '#10b981' : (v === 'red' ? '#ef4444' : '#f59e0b'); return '<div class="stat-card"><div style="font-size:1.5rem;color:' + col + ';">●</div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b;">' + _esc(label) + '</div><div style="font-size:.72rem;color:#94a3b8;">' + _esc(v || '—') + '</div></div>'; };
+      var hb = function (k, label) { var v = health[k]; var col = v === 'green' ? 'var(--success-primary)' : (v === 'red' ? 'var(--danger-primary)' : 'var(--warn-primary)'); return '<div class="stat-card"><div style="font-size:1.5rem;color:' + col + ';">●</div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);">' + _esc(label) + '</div><div style="font-size:.72rem;color:var(--text-faint);">' + _esc(v || '—') + '</div></div>'; };
       var emState = function (k, label) { var on = emc[k] && emc[k].enabled; return '<div class="cc-feed-row"><span>' + _esc(label) + '</span><span class="cc-em-state ' + (on ? 'on' : 'off') + '">' + (on ? 'ON' : 'off') + '</span></div>'; };
 
       el.innerHTML =
@@ -66,7 +66,7 @@ var OperationsView = (function () {
     el.innerHTML = '<div class="loading">Loading security posture…</div>';
     API.getSecurity().then(function (d) {
       var counts = d.counts24 || {}, posture = d.posture || {}, events = d.events || [];
-      var cTile = function (label, v, warn) { return '<div class="stat-card"><div style="font-size:1.4rem;font-weight:800;color:' + (warn && v > 0 ? '#dc2626' : '#0f172a') + ';">' + (v == null ? '—' : v) + '</div><div style="font-size:.7rem;font-weight:600;text-transform:uppercase;color:#64748b;">' + _esc(label) + '</div></div>'; };
+      var cTile = function (label, v, warn) { return '<div class="stat-card"><div style="font-size:1.4rem;font-weight:800;color:' + (warn && v > 0 ? 'var(--danger-hover)' : 'var(--text-strong)') + ';">' + (v == null ? '—' : v) + '</div><div style="font-size:.7rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);">' + _esc(label) + '</div></div>'; };
       el.innerHTML =
         '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
           cTile('Failed logins 24h', counts.failed_login, true) + cTile('Payment failures 24h', counts.payment_failure, true) +
@@ -88,7 +88,7 @@ var OperationsView = (function () {
         var first = series[0], last = series[series.length - 1];
         var fc = first.collectionCounts || {}, lc = last.collectionCounts || {};
         growth = '<div class="card" style="padding:1rem;"><div class="cc-section-title">Growth (' + _esc(first.date) + ' → ' + _esc(last.date) + ')</div>' +
-          Object.keys(lc).map(function (k) { var delta = (lc[k] || 0) - (fc[k] || 0); return '<div class="cc-feed-row"><span class="muted">' + _esc(k) + '</span><span style="color:' + (delta > 0 ? '#0f172a' : '#94a3b8') + ';">' + (delta >= 0 ? '+' : '') + delta + '</span></div>'; }).join('') + '</div>';
+          Object.keys(lc).map(function (k) { var delta = (lc[k] || 0) - (fc[k] || 0); return '<div class="cc-feed-row"><span class="muted">' + _esc(k) + '</span><span style="color:' + (delta > 0 ? 'var(--text-strong)' : 'var(--text-faint)') + ';">' + (delta >= 0 ? '+' : '') + delta + '</span></div>'; }).join('') + '</div>';
       }
       el.innerHTML = '<div class="card" style="padding:1rem;margin-bottom:1.25rem;"><div class="cc-section-title">Live collection sizes</div>' + rows + '</div>' + growth;
     }).catch(function (e) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });

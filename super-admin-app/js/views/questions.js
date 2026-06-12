@@ -43,7 +43,7 @@ var QuestionsView = (function () {
     dropZone.addEventListener('dragover', function(e) {
       e.preventDefault();
       dropZone.style.borderColor = 'var(--accent-primary)';
-      dropZone.style.background = '#eff6ff';
+      dropZone.style.background = 'var(--accent-soft)';
     });
     
     dropZone.addEventListener('dragleave', function(e) {
@@ -116,22 +116,22 @@ var QuestionsView = (function () {
     body.innerHTML = 
       '<p class="text-secondary text-sm" style="margin-bottom:1rem;">Your file has been scanned.</p>' +
       '<div style="display:flex; gap:1rem; margin-bottom:1rem;">' +
-        '<div style="flex:1; padding:1rem; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:.75rem; text-align:center;">' +
-          '<div style="font-size:1.5rem; font-weight:800; color:#059669;">' + valid.length + '</div>' +
-          '<div style="font-size:.75rem; color:#065f46; font-weight:600; text-transform:uppercase;">Valid</div>' +
+        '<div style="flex:1; padding:1rem; background:var(--success-bg); border:1px solid var(--success-border); border-radius:.75rem; text-align:center;">' +
+          '<div style="font-size:1.5rem; font-weight:800; color:var(--success-strong);">' + valid.length + '</div>' +
+          '<div style="font-size:.75rem; color:var(--success-fg); font-weight:600; text-transform:uppercase;">Valid</div>' +
         '</div>' +
-        '<div style="flex:1; padding:1rem; background:#fef2f2; border:1px solid #fecaca; border-radius:.75rem; text-align:center;">' +
-          '<div style="font-size:1.5rem; font-weight:800; color:#dc2626;">' + invalid + '</div>' +
-          '<div style="font-size:.75rem; color:#991b1b; font-weight:600; text-transform:uppercase;">Invalid/Skipped</div>' +
+        '<div style="flex:1; padding:1rem; background:var(--danger-bg); border:1px solid var(--danger-border); border-radius:.75rem; text-align:center;">' +
+          '<div style="font-size:1.5rem; font-weight:800; color:var(--danger-hover);">' + invalid + '</div>' +
+          '<div style="font-size:.75rem; color:var(--danger-fg); font-weight:600; text-transform:uppercase;">Invalid/Skipped</div>' +
         '</div>' +
       '</div>' +
-      '<div style="background:#f8fafc; padding:.75rem; border-radius:.5rem; margin-bottom:1.5rem; font-size:.8125rem;">' +
+      '<div style="background:var(--bg-inset); padding:.75rem; border-radius:.5rem; margin-bottom:1.5rem; font-size:.8125rem;">' +
         '<div style="display:flex; justify-content:space-between; margin-bottom:.25rem;"><span>Unique Topics:</span> <strong>' + topicCount + '</strong></div>' +
         '<div style="display:flex; justify-content:space-between; margin-bottom:.25rem;"><span>Easy:</span> <strong>' + difficultyDist.easy + '</strong></div>' +
         '<div style="display:flex; justify-content:space-between; margin-bottom:.25rem;"><span>Medium:</span> <strong>' + difficultyDist.medium + '</strong></div>' +
         '<div style="display:flex; justify-content:space-between;"><span>Hard:</span> <strong>' + difficultyDist.hard + '</strong></div>' +
       '</div>' +
-      '<div id="importProgressBar" style="display:none; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin-bottom:1rem;"><div id="importProgressFill" style="width:0%; height:100%; background:#2563eb; transition:width .2s;"></div></div>' +
+      '<div id="importProgressBar" style="display:none; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden; margin-bottom:1rem;"><div id="importProgressFill" style="width:0%; height:100%; background:var(--accent-primary); transition:width .2s;"></div></div>' +
       '<p id="importProgressText" class="text-sm text-secondary">Clicking Confirm will immediately batch upload the valid questions.</p>';
       
     Modal.show({
@@ -377,7 +377,7 @@ var QuestionsView = (function () {
     }
     var del = document.createElement('button');
     del.className = 'btn btn-sm';
-    del.style.cssText = 'color:#dc2626;border:1px solid #fecaca;background:#fff;';
+    del.style.cssText = 'color:var(--danger-hover);border:1px solid var(--danger-border);background:var(--bg-surface);';
     del.textContent = 'Delete';
     del.onclick = function () { _deleteQuestion(row); };
     wrap.appendChild(del);

@@ -6,6 +6,56 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin thorough dark mode — Pass 1b (ADR-024)
+
+100% design-system-driven theming. The entire stylesheet **and** every view were re-tokenized onto a
+semantic theme-token system; an intentionally-designed dark palette flips via `[data-theme="dark"]`.
+**No hardcoded UI color literals remain** in the stylesheet component rules, the views, `app.js`, or
+`index.html` (verified by grep — the only `#` left are the `<meta theme-color>` hint and the `&#039;`
+entity).
+
+- **New token structure (`css/admin-style.css` `:root`):** surfaces (`--bg-app`/`--bg-surface`/
+  `--bg-surface-2`/`--bg-inset`), text (`--text-strong`/`--text`/`--text-mid`/`--text-muted`/`--text-faint`/
+  `--on-accent`), lines (`--border-color`/`--border-strong`), accent (`--accent-primary`/`-hover`/`-bright`/
+  `-soft`/`--accent-ai`), neutral button (`--btn-bg`), full **state ramps** danger/success/warning each as
+  `*-primary`/`*-bg`/`*-fg`/`*-border` (+ `--premium-*`, `--neutral-*`), `--overlay`, and theme-independent
+  `--toast-*`. Legacy names (`--bg-primary`/`--text-primary`/…) are aliased to the canonical tokens so old
+  rules follow automatically. Radius/shadow/motion tokens retained.
+- **Dark palette (`:root[data-theme="dark"]`):** deep-slate surfaces (`#0b1220`→`#1d2940`), AA-contrast text
+  (`#f1f5f9`/`#e2e8f0`/`#94a3b8`), brighter accent (`#3b82f6`), and muted-but-legible state ramps (e.g.
+  `--success-fg #6ee7b7` on `--success-bg #0f2a22`). Designed, not auto-inverted.
+- **Colors removed (every category now themed):** body/cards/sidebar/login surfaces; all text shades; borders;
+  buttons (neutral/accent/danger/outline); badges (premium/free/active/draft/archived); tables; modals +
+  inputs/selects; toasts; empty/loading states; chips/pills; the Command-Center alert severities + all-clear +
+  emergency panel + toggle slider; stat-tile numbers; progress bars; status dots; warning/success banners;
+  the global-search overlay + results. View inline `#hex` → `var(--token)` across all 7 views + app.js
+  (73 + 9 literals); stylesheet literals → tokens via declaration-scoped sweeps + targeted edits.
+- **Theme application:** a no-FOUC inline boot script in `index.html` resolves + sets `data-theme` **before**
+  the stylesheet paints; `js/app.js#_bindTheme` wires a footer **light → dark → system** toggle, persists to
+  `qrAdminTheme` (the established `qrAdmin*` pattern), and live-updates on OS-preference change in system mode.
+  `color-scheme` is set per theme for native controls/scrollbars.
+- **Screens verified (both themes, reasoned contrast — live auth-gated app not runnable here):** Command
+  Center, User-360, Coaching-360, AI Cost Center, Revenue Center, Operations, Content, login, modals, toasts,
+  empty/loading/error, collapsed + expanded rail. Adversarial review workflow run for AA-contrast + semantic-
+  mapping + missed-color + regression checks.
+- **Remaining limitations:** the `<meta name="theme-color">` browser-chrome hint stays light (cosmetic, not UI
+  content); the `modal-select` dropdown-arrow data-uri keeps a fixed muted stroke (legible in both themes).
+- **Infra:** CSS/JS/HTML only; zero new functions; no schema/security/payment change.
+- **Adversarial AA-contrast review → 15 confirmed findings, all fixed:** retuned light `--text-muted #5e6e82`
+  / `--text-faint #566275` and dark `--text-faint #8a96a9` (were below 4.5:1 on their surfaces); introduced a
+  dedicated `--accent-solid`/`-2` for white-on-blue fills (`.btn.accent`, `.chip.active`, logos — dark
+  `#3b82f6` only gave 3.68:1 with white); darkened `--toast-success #047857`; tokenized the last hardcoded
+  surfaces/overlays that survived the sweep (`.login-card`, `.mobile-header` → `--bg-surface`;
+  `.sidebar-overlay`/`.modal-overlay` → `--overlay` — these were white/slate-pinned in dark); added
+  `--accent-glow`/`--accent-ring` (focus rings + brand glows now track the accent per theme); dark dropdown-arrow
+  override; pointed `.btn` at `--btn-fg`; recolored per-consumer/per-coaching AI spend from danger-red to the
+  cost token (`--accent-ai`). Every fix re-verified by independent WCAG computation.
+- **Verification:** `node --check` all touched JS (pass); CSS brace balance (238); grep proves zero hardcoded
+  UI colors in views/app/index; all 57 referenced tokens defined; theme toggle + persistence wired; function
+  counts unchanged (8/12, 6/12). Bible: ADR-024 (1b shipped), TECHNICAL_BIBLE §10B (theme tokens), VERSIONS 2.14.
+
+---
+
 ## 2026-06-12 — Super Admin stability + UX polish — Pass 1a (ADR-024)
 
 - **Requested change:** a dedicated stability/UX/tablet refinement pass, delivered in 3 controlled phases.

@@ -34,9 +34,9 @@ var CommandCenterView = (function () {
 
   function _tile(label, value, sub, color) {
     return '<div class="stat-card">' +
-      '<div style="font-size:1.5rem;font-weight:800;color:' + (color || '#0f172a') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b;letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:#94a3b8;margin-top:.15rem;">' + _esc(sub) + '</div>' : '') +
+      '<div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
+      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
+      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') +
     '</div>';
   }
 
@@ -75,12 +75,12 @@ var CommandCenterView = (function () {
     attn += '</div>';
 
     /* Snapshot */
-    var hBadge = function (k, label) { var v = health[k]; var col = v === 'green' ? '#10b981' : (v === 'red' ? '#ef4444' : '#f59e0b'); return _tile(label, '●', v || '—', col); };
+    var hBadge = function (k, label) { var v = health[k]; var col = v === 'green' ? 'var(--success-primary)' : (v === 'red' ? 'var(--danger-primary)' : 'var(--warn-primary)'); return _tile(label, '●', v || '—', col); };
     var summary = '<div class="cc-section"><div class="cc-section-title">Snapshot</div><div class="stat-grid">' +
-      _tile('Total users', (metrics.totalUsers != null ? metrics.totalUsers : '—'), (metrics.premiumUsers || 0) + ' premium', '#0f172a') +
-      _tile('New today', (metrics.newToday != null ? metrics.newToday : '—'), 'DAU ' + (metrics.dau || 0), '#2563eb') +
-      _tile('AI cost today', '$' + (ai.costUSD != null ? ai.costUSD : '0'), (ai.gptCalls || 0) + ' calls', '#7c3aed') +
-      _tile('Revenue total', '₹' + (metrics.revenueTotalINR || 0), '₹' + (metrics.revenueTodayINR || 0) + ' today', '#059669') +
+      _tile('Total users', (metrics.totalUsers != null ? metrics.totalUsers : '—'), (metrics.premiumUsers || 0) + ' premium', 'var(--text-strong)') +
+      _tile('New today', (metrics.newToday != null ? metrics.newToday : '—'), 'DAU ' + (metrics.dau || 0), 'var(--accent-primary)') +
+      _tile('AI cost today', '$' + (ai.costUSD != null ? ai.costUSD : '0'), (ai.gptCalls || 0) + ' calls', 'var(--accent-ai)') +
+      _tile('Revenue total', '₹' + (metrics.revenueTotalINR || 0), '₹' + (metrics.revenueTodayINR || 0) + ' today', 'var(--success-strong)') +
       hBadge('firestore', 'Firestore') + hBadge('aiApi', 'AI API') +
     '</div></div>';
 

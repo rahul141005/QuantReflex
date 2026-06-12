@@ -18,6 +18,7 @@ var App = (function () {
     _bindLogout();
     _bindSidebar();
     _bindRail();
+    _bindTheme();
     GlobalSearch.init();
 
     AdminAuth.onAuthReady(function (user) {
@@ -68,6 +69,29 @@ var App = (function () {
 
     var V = window[DOMAINS[hash].view];
     if (V && typeof V.render === 'function') { try { V.render(); } catch (e) { console.error('[router] view render failed:', hash, e); } }
+  }
+
+  /* ---- Theme: light / dark / system, persisted (ADR-024). The no-FOUC boot is inline in index.html;
+     this wires the footer toggle (cycles light→dark→system) + live OS-preference updates in system mode. ---- */
+  function _bindTheme() {
+    var KEY = 'qrAdminTheme';
+    var btn = document.getElementById('themeToggleBtn');
+    var label = document.getElementById('themeToggleLabel');
+    var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    function current() { try { return localStorage.getItem(KEY) || 'system'; } catch (_) { return 'system'; } }
+    function apply(mode) {
+      var dark = mode === 'dark' || (mode === 'system' && mql && mql.matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (label) label.textContent = mode === 'system' ? 'System' : (mode === 'dark' ? 'Dark' : 'Light');
+    }
+    apply(current());
+    if (btn) btn.addEventListener('click', function () {
+      var order = ['light', 'dark', 'system'];
+      var next = order[(order.indexOf(current()) + 1) % order.length];
+      try { localStorage.setItem(KEY, next); } catch (_) {}
+      apply(next);
+    });
+    if (mql && mql.addEventListener) mql.addEventListener('change', function () { if (current() === 'system') apply('system'); });
   }
 
   /* ---- Collapsible rail (persisted) ---- */
@@ -193,36 +217,36 @@ var GlobalSearch = (function() {
 
   function _performSearch(query) {
     var resultsEl = document.getElementById('globalSearchResults');
-    resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">Searching ecosystem…</div>';
+    resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary);">Searching ecosystem…</div>';
     var esc = (typeof AdminUtils !== 'undefined' && AdminUtils.escapeHtml) ? AdminUtils.escapeHtml : function (s) { return String(s == null ? '' : s); };
     /* Server-side ecosystem search (ADR-020) — no client fetch-all. */
     API.searchEcosystem(query).then(function (res) {
       var users = (res && res.users) || [];
       var coachings = (res && res.coachings) || [];
       if (!users.length && !coachings.length) {
-        resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#64748b;">No matches.</div>';
+        resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary);">No matches.</div>';
         return;
       }
       var html = '';
       if (users.length) {
         html += '<div class="search-group-label">Users</div>';
         users.forEach(function (u) {
-          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#users\';">' +
-            '<div style="font-weight:600; color:#0f172a;">' + esc(u.name || u.email || u.uid) + '</div>' +
-            '<div style="font-size:.8rem; color:#64748b;">' + esc(u.email || u.uid) + (u.coachingId ? ' · ' + esc(u.coachingId) : '') + '</div></div>';
+          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#users\';">' +
+            '<div style="font-weight:600; color:var(--text-strong);">' + esc(u.name || u.email || u.uid) + '</div>' +
+            '<div style="font-size:.8rem; color:var(--text-secondary);">' + esc(u.email || u.uid) + (u.coachingId ? ' · ' + esc(u.coachingId) : '') + '</div></div>';
         });
       }
       if (coachings.length) {
         html += '<div class="search-group-label">Coachings</div>';
         coachings.forEach(function (c) {
-          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid #e2e8f0; cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#coachings\';">' +
-            '<div style="font-weight:600; color:#0f172a;">' + esc(c.name || c.coachingId) + '</div>' +
-            '<div style="font-size:.8rem; color:#64748b;">' + esc(c.coachingId) + ' · ' + (c.studentCount || 0) + ' students</div></div>';
+          html += '<div class="search-result-item" style="padding:.85rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;" onclick="GlobalSearch.close(); window.location.hash=\'#coachings\';">' +
+            '<div style="font-weight:600; color:var(--text-strong);">' + esc(c.name || c.coachingId) + '</div>' +
+            '<div style="font-size:.8rem; color:var(--text-secondary);">' + esc(c.coachingId) + ' · ' + (c.studentCount || 0) + ' students</div></div>';
         });
       }
       resultsEl.innerHTML = html;
     }).catch(function (err) {
-      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:#ef4444;">Search failed: ' + esc(err && err.message ? err.message : 'error') + '</div>';
+      resultsEl.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--danger-primary);">Search failed: ' + esc(err && err.message ? err.message : 'error') + '</div>';
     });
   }
 

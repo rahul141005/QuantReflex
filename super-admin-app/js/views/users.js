@@ -85,7 +85,7 @@ var UsersView = (function () {
         return '<div class="sv-row" data-sv-id="' + _esc(u.uid) + '" data-uid="' + _esc(u.uid) + '">' +
           (bulk ? '<input type="checkbox" class="uCheck" data-uid="' + _esc(u.uid) + '" ' + (_bulk[u.uid] ? 'checked' : '') + ' onclick="event.stopPropagation();" /> ' : '') +
           '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(u.displayName || u.email || u.uid) + _statusBadge(u.accountStatus) + '</div>' +
-          '<div style="font-size:.78rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(u.coachingId) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
+          '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(u.coachingId) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
           _entBadge(u) + '</div>';
       }).join('');
       listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-uid')); }); });

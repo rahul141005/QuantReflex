@@ -245,10 +245,18 @@ tokens — slate/blue SaaS, not the navy/glass student identity). It is a **tabl
 primary device is an **11-inch Android tablet, Chrome PWA, landscape, touch**. Build admin screens from this
 system; do not hand-style new surfaces.
 
-**Reused tokens (`css/admin-style.css :root`):** `--bg-primary #f8fafc`, `--bg-surface #fff`, `--accent-primary
-#2563eb`, `--danger-primary #ef4444`, `--success-primary #10b981`, `--text-primary #0f172a`, `--text-secondary
-#64748b`, `--border-color #e2e8f0`, radii `--radius-sm…xl`, `--shadow-sm…float`, `--transition-fast/smooth`.
-**Added tokens:** `--rail-w: 248px`, `--rail-w-collapsed: 72px`.
+**Semantic theme tokens + dark mode (ADR-024).** The admin app is **100% design-system-driven** — every UI
+color resolves to a token in `css/admin-style.css :root`; **no hardcoded hex in component rules or views.**
+Token groups: surfaces (`--bg-app`/`--bg-surface`/`--bg-surface-2`/`--bg-inset`), text (`--text-strong`/
+`--text`/`--text-mid`/`--text-muted`/`--text-faint`/`--on-accent`), lines (`--border-color`/`--border-strong`),
+accent (`--accent-primary`/`-hover`/`-bright`/`-soft`/`--accent-ai`), neutral button (`--btn-bg`), **state
+ramps** danger/success/warning each as `*-primary`/`*-bg`/`*-fg`/`*-border` (+ `--premium-*`, `--neutral-*`),
+`--overlay`, theme-independent `--toast-*`, and `--rail-w`/`--rail-w-collapsed`. Legacy aliases
+(`--bg-primary`/`--text-primary`/…) follow the canonical tokens. **Dark mode** = a designed (not auto-inverted)
+`:root[data-theme="dark"]` override of every token; applied no-FOUC by an inline boot script in `index.html`
+(set BEFORE the stylesheet paints) and toggled light/dark/system via the sidebar footer, persisted to
+`qrAdminTheme`. **Rule: build new admin surfaces from these tokens — never a raw hex.** Touch targets: primary
+≥48px, dense ≥44px. Reusable empty-state primitive (`AdminUtils.emptyState`) + loading spinner.
 
 **Information architecture (7 domains):** Command Center · Users · Coachings · Revenue · Content · AI ·
 Operations. One owner per capability (no duplicate entry points). Global Search (Cmd+K) is a shell affordance.

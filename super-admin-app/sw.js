@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-admin-cache-v9';
+const CACHE_NAME = 'qr-admin-cache-v10';
 /* Super Admin V2 (ADR-022) script set — matches index.html exactly. The legacy
    dashboard/payments/system/inactive/security/firestore-ops/exports/notifications
    view files were deleted in the 5-Center consolidation and are no longer cached. */

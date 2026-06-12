@@ -77,7 +77,7 @@ var CoachingsView = (function () {
       var id = c.id || c.coachingId;
       return '<div class="sv-row" data-sv-id="' + _esc(id) + '" data-cid="' + _esc(id) + '">' +
         '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(c.name || id) + '</div>' +
-        '<div style="font-size:.78rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;"><code>' + _esc(id) + '</code> · ' + (c.studentCount != null ? c.studentCount : (c.studentsCount || 0)) + ' students' + (c.ownerEmail ? ' · ' + _esc(c.ownerEmail) : '') + '</div></div>' +
+        '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;"><code>' + _esc(id) + '</code> · ' + (c.studentCount != null ? c.studentCount : (c.studentsCount || 0)) + ' students' + (c.ownerEmail ? ' · ' + _esc(c.ownerEmail) : '') + '</div></div>' +
         _statusBadge(_statusOf(c)) + '</div>';
     }).join('');
     listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-cid')); }); });

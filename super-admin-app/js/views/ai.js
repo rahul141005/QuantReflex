@@ -48,7 +48,7 @@ var AIAnalyticsView = (function () {
   function _mount() {
     var body = document.getElementById('aiBody'); if (!body) return;
     var banner = _truncated
-      ? '<div class="cc-emergency" style="background:#fff7ed;border-color:#fed7aa;margin-bottom:1rem;padding:.75rem 1rem;"><strong>⚠ Showing a capped sample.</strong> AI cost data is truncated to the first 5,000 records for performance; totals below are a lower bound. (Pre-aggregation is tracked in the roadmap.)</div>'
+      ? '<div class="cc-emergency" style="background:var(--warn-bg);border-color:var(--warn-border);margin-bottom:1rem;padding:.75rem 1rem;"><strong>⚠ Showing a capped sample.</strong> AI cost data is truncated to the first 5,000 records for performance; totals below are a lower bound. (Pre-aggregation is tracked in the roadmap.)</div>'
       : '';
     body.innerHTML = banner + '<div id="aiTabs"></div>';
     Tabs.mount(document.getElementById('aiTabs'), {
@@ -62,9 +62,9 @@ var AIAnalyticsView = (function () {
   }
 
   function _tile(label, value, sub, color) {
-    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || '#0f172a') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b;letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:#94a3b8;margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
+    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
+      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
+      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
   }
 
   function _tabOverview(el) {
@@ -81,10 +81,10 @@ var AIAnalyticsView = (function () {
       : '<span class="badge badge-active">AI online</span>';
 
     var html = '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
-      _tile('Spend (MTD)', '$' + Number(mtd).toFixed(2), (_budget && _budget.config ? 'of $' + _budget.config.monthlyBudgetUSD + ' budget' : 'budget n/a'), '#7c3aed') +
-      _tile('Lifetime spend', '$' + lifetimeCost.toFixed(2), lifetimeTokens.toLocaleString() + ' tokens', '#0f172a') +
-      _tile('AI consumers', _data.length, '', '#2563eb') +
-      _tile('Flagged (abuse)', _flagged, '', _flagged > 0 ? '#dc2626' : '#10b981') +
+      _tile('Spend (MTD)', '$' + Number(mtd).toFixed(2), (_budget && _budget.config ? 'of $' + _budget.config.monthlyBudgetUSD + ' budget' : 'budget n/a'), 'var(--accent-ai)') +
+      _tile('Lifetime spend', '$' + lifetimeCost.toFixed(2), lifetimeTokens.toLocaleString() + ' tokens', 'var(--text-strong)') +
+      _tile('AI consumers', _data.length, '', 'var(--accent-primary)') +
+      _tile('Flagged (abuse)', _flagged, '', _flagged > 0 ? 'var(--danger-hover)' : 'var(--success-primary)') +
     '</div>';
 
     /* Kill-switch visibility (toggle lives on the Command Center). */
@@ -105,11 +105,11 @@ var AIAnalyticsView = (function () {
 
   function _row(u) {
     var prem = u.isPremium ? '<span class="badge badge-active">Paid</span>' : '<span class="badge badge-draft">Free</span>';
-    var flags = (u.abuseFlags && u.abuseFlags.length) ? '<div style="font-size:.7rem;color:#b91c1c;font-weight:700;">⚠ ' + _esc(u.abuseFlags.join(', ')) + '</div>' : '';
+    var flags = (u.abuseFlags && u.abuseFlags.length) ? '<div style="font-size:.7rem;color:var(--danger-fg);font-weight:700;">⚠ ' + _esc(u.abuseFlags.join(', ')) + '</div>' : '';
     return '<div class="card" style="padding:.85rem 1rem;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">' +
       '<div style="flex:1;min-width:160px;"><div style="font-weight:600;word-break:break-word;">' + _esc(u.displayName || u.email || u.uid) + ' ' + prem + '</div>' +
       '<div class="muted" style="font-size:.78rem;">' + _esc(u.email) + ' · ' + _esc(u.coachingId || 'Independent') + ' · ' + (u.totalCalls || 0) + ' calls</div>' + flags + '</div>' +
-      '<div style="text-align:right;"><div style="font-weight:700;color:#dc2626;">$' + _cost(u).toFixed(4) + '</div>' +
+      '<div style="text-align:right;"><div style="font-weight:700;color:var(--accent-ai);">$' + _cost(u).toFixed(4) + '</div>' +
       '<button class="btn btn-sm btn-outline" data-throttle="' + _esc(u.uid) + '">Throttle</button></div></div>';
   }
 
@@ -141,7 +141,7 @@ var AIAnalyticsView = (function () {
     _data.forEach(function (u) { var k = u.coachingId || 'Independent'; if (!groups[k]) groups[k] = { coaching: k, cost: 0, calls: 0, users: 0 }; groups[k].cost += _cost(u); groups[k].calls += (u.totalCalls || 0); groups[k].users += 1; });
     var arr = Object.keys(groups).map(function (k) { return groups[k]; }).sort(function (a, b) { return b.cost - a.cost; });
     el.innerHTML = '<div class="card" style="padding:1rem;">' + (arr.length ? arr.map(function (g) {
-      return '<div class="cc-feed-row"><span><strong>' + _esc(g.coaching) + '</strong> <span class="muted">' + g.users + ' consumers · ' + g.calls + ' calls</span></span><span style="font-weight:700;color:#dc2626;">$' + g.cost.toFixed(4) + '</span></div>';
+      return '<div class="cc-feed-row"><span><strong>' + _esc(g.coaching) + '</strong> <span class="muted">' + g.users + ' consumers · ' + g.calls + ' calls</span></span><span style="font-weight:700;color:var(--accent-ai);">$' + g.cost.toFixed(4) + '</span></div>';
     }).join('') : '<div class="muted">No AI usage yet.</div>') + '</div>';
   }
 
@@ -155,20 +155,20 @@ var AIAnalyticsView = (function () {
   function _renderBudget(panel, b) {
     if (!panel) return;
     if (!b || !b.config) { panel.innerHTML = ''; return; }
-    var color = (b.status === 'over' || b.status === 'critical') ? '#dc2626' : (b.status === 'warning' ? '#f59e0b' : '#10b981');
+    var color = (b.status === 'over' || b.status === 'critical') ? 'var(--danger-hover)' : (b.status === 'warning' ? 'var(--warn-primary)' : 'var(--success-primary)');
     var pct = Math.min(100, b.usedPct || 0);
     var mtd = (b.monthToDate && b.monthToDate.costUSD) || 0;
     panel.innerHTML =
       '<div class="card" style="padding:1.25rem;margin-bottom:1.25rem;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">' +
-          '<div style="font-weight:700;color:#0f172a;">GPT Monthly Budget &nbsp;<span style="color:' + color + ';font-weight:800;text-transform:uppercase;font-size:.8rem;">' + (b.status || 'ok') + '</span></div>' +
+          '<div style="font-weight:700;color:var(--text-strong);">GPT Monthly Budget &nbsp;<span style="color:' + color + ';font-weight:800;text-transform:uppercase;font-size:.8rem;">' + (b.status || 'ok') + '</span></div>' +
           '<button id="aiBudgetCfgBtn" class="btn btn-sm btn-outline">Configure</button></div>' +
-        '<div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:.75rem;"><div style="height:100%;width:' + pct + '%;background:' + color + ';transition:width .3s;"></div></div>' +
+        '<div style="height:12px;background:var(--border-color);border-radius:6px;overflow:hidden;margin-bottom:.75rem;"><div style="height:100%;width:' + pct + '%;background:' + color + ';transition:width .3s;"></div></div>' +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;font-size:.85rem;">' +
-          '<div><div style="color:#64748b;">Spent (MTD)</div><strong>$' + mtd + ' / $' + b.config.monthlyBudgetUSD + '</strong></div>' +
-          '<div><div style="color:#64748b;">Used</div><strong style="color:' + color + ';">' + b.usedPct + '%</strong></div>' +
-          '<div><div style="color:#64748b;">Projected</div><strong>$' + b.projectedMonthlyUSD + '</strong></div>' +
-          '<div><div style="color:#64748b;">Remaining</div><strong>$' + b.remainingUSD + '</strong></div></div></div>';
+          '<div><div style="color:var(--text-secondary);">Spent (MTD)</div><strong>$' + mtd + ' / $' + b.config.monthlyBudgetUSD + '</strong></div>' +
+          '<div><div style="color:var(--text-secondary);">Used</div><strong style="color:' + color + ';">' + b.usedPct + '%</strong></div>' +
+          '<div><div style="color:var(--text-secondary);">Projected</div><strong>$' + b.projectedMonthlyUSD + '</strong></div>' +
+          '<div><div style="color:var(--text-secondary);">Remaining</div><strong>$' + b.remainingUSD + '</strong></div></div></div>';
     var cfgBtn = document.getElementById('aiBudgetCfgBtn');
     if (cfgBtn) cfgBtn.addEventListener('click', function () { _showBudgetModal(b.config); });
   }

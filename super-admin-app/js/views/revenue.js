@@ -50,21 +50,21 @@ var RevenueCenter = (function () {
   }
 
   function _tile(label, value, sub, color) {
-    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || '#0f172a') + ';">' + value + '</div>' +
-      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:#64748b;letter-spacing:.03em;">' + _esc(label) + '</div>' +
-      (sub ? '<div style="font-size:.72rem;color:#94a3b8;margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
+    return '<div class="stat-card"><div style="font-size:1.5rem;font-weight:800;color:' + (color || 'var(--text-strong)') + ';">' + value + '</div>' +
+      '<div style="font-size:.72rem;font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.03em;">' + _esc(label) + '</div>' +
+      (sub ? '<div style="font-size:.72rem;color:var(--text-faint);margin-top:.15rem;">' + _esc(sub) + '</div>' : '') + '</div>';
   }
 
-  function _growth(p) { if (p == null) return '—'; var c = p >= 0 ? '#059669' : '#dc2626'; return '<span style="color:' + c + ';font-weight:700;">' + (p >= 0 ? '+' : '') + p + '%</span>'; }
+  function _growth(p) { if (p == null) return '—'; var c = p >= 0 ? 'var(--success-strong)' : 'var(--danger-hover)'; return '<span style="color:' + c + ';font-weight:700;">' + (p >= 0 ? '+' : '') + p + '%</span>'; }
 
   function _tabOverview(el) {
     var m = (_dash && _dash.metrics) || {};
     var g = _intel.growth || {};
     el.innerHTML = '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
-      _tile('Revenue total', _inr(m.revenueTotalINR), _inr(m.revenueTodayINR) + ' today', '#059669') +
-      _tile('Active premium', (_intel.premiumUsers != null ? _intel.premiumUsers : (m.premiumUsers || 0)), (_intel.trialUsers || m.trialUsers || 0) + ' on trial', '#2563eb') +
-      _tile('Conversion', (_intel.conversionRate != null ? _intel.conversionRate : 0) + '%', 'premium share of base', '#7c3aed') +
-      _tile('Expiring ≤7d', (_intel.expiring7d != null ? _intel.expiring7d : 0), (_intel.expiring30d || 0) + ' within 30d', (_intel.expiring7d > 0 ? '#f59e0b' : '#10b981')) +
+      _tile('Revenue total', _inr(m.revenueTotalINR), _inr(m.revenueTodayINR) + ' today', 'var(--success-strong)') +
+      _tile('Active premium', (_intel.premiumUsers != null ? _intel.premiumUsers : (m.premiumUsers || 0)), (_intel.trialUsers || m.trialUsers || 0) + ' on trial', 'var(--accent-primary)') +
+      _tile('Conversion', (_intel.conversionRate != null ? _intel.conversionRate : 0) + '%', 'premium share of base', 'var(--accent-ai)') +
+      _tile('Expiring ≤7d', (_intel.expiring7d != null ? _intel.expiring7d : 0), (_intel.expiring30d || 0) + ' within 30d', (_intel.expiring7d > 0 ? 'var(--warn-primary)' : 'var(--success-primary)')) +
     '</div>' +
     '<div class="card" style="padding:1rem;"><div class="cc-section-title">Plan mix &amp; growth (' + (g.windowDays || 0) + 'd window)</div>' +
       '<div class="cc-feed-row"><span>6-month plans sold</span><span>' + (m.revenue6mCount || 0) + '</span></div>' +
@@ -81,7 +81,7 @@ var RevenueCenter = (function () {
       '<div class="cc-feed-row"><span class="muted">Active premium</span><span>' + (_intel.premiumUsers || m.premiumUsers || 0) + '</span></div>' +
       '<div class="cc-feed-row"><span class="muted">On trial</span><span>' + (_intel.trialUsers || m.trialUsers || 0) + '</span></div>' +
       '<div class="cc-feed-row"><span class="muted">Free users</span><span>' + (m.freeUsers != null ? m.freeUsers : '—') + '</span></div>' +
-      '<div class="cc-feed-row"><span class="muted">Expiring within 7 days</span><span style="font-weight:700;color:' + (_intel.expiring7d > 0 ? '#f59e0b' : '#0f172a') + ';">' + (_intel.expiring7d || 0) + '</span></div>' +
+      '<div class="cc-feed-row"><span class="muted">Expiring within 7 days</span><span style="font-weight:700;color:' + (_intel.expiring7d > 0 ? 'var(--warn-primary)' : 'var(--text-strong)') + ';">' + (_intel.expiring7d || 0) + '</span></div>' +
       '<div class="cc-feed-row"><span class="muted">Expiring within 30 days</span><span>' + (_intel.expiring30d || 0) + '</span></div>' +
       '<div class="muted" style="margin-top:.5rem;font-size:.8rem;">Entitlement anomalies (premium flag with an expired timestamp) surface as alerts on the <a href="#" onclick="window.location.hash=\'#command-center\';return false;">Command Center</a> and can be swept from <a href="#" onclick="window.location.hash=\'#operations\';return false;">Operations</a>.</div>' +
     '</div>';
@@ -95,7 +95,7 @@ var RevenueCenter = (function () {
       trend.map(function (t) {
         var w = Math.round(((t.revenueTotalINR || 0) / maxRev) * 100);
         return '<div style="margin-bottom:.5rem;"><div style="display:flex;justify-content:space-between;font-size:.78rem;"><span class="muted">' + _esc(t.date) + '</span><span>' + _inr(t.revenueTotalINR) + ' · ' + (t.premiumUsers || 0) + ' premium</span></div>' +
-          '<div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + w + '%;background:#059669;"></div></div></div>';
+          '<div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + w + '%;background:var(--success-strong);"></div></div></div>';
       }).join('') + '</div>';
   }
 

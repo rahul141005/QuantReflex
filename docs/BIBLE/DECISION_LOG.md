@@ -26,7 +26,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
     Coaching-360). First-class **collapsed logout** (icon + label expanded, centered 48px icon collapsed).
     Touch targets: primary ≥48px, dense ≥44px. Polished **empty-state primitive** (`AdminUtils.emptyState`:
     icon+title+text+CTA) + a **loading spinner**.
-  - **Pass 1b (next) — thorough 100% dark mode:** re-tokenize the ENTIRE stylesheet + every view onto a
+  - **Pass 1b (SHIPPED) — thorough 100% dark mode:** re-tokenize the ENTIRE stylesheet + every view onto a
     semantic theme-token system (surfaces, text, border, accent, and full state ramps danger/success/warning/
     info as `-bg`/`-fg`/`-border`), with a complete, *intentionally-designed* `:root[data-theme="dark"]`
     palette (not auto-inverted) and **zero hardcoded color literals left in views**. No-FOUC boot script +
