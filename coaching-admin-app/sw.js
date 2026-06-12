@@ -1,4 +1,5 @@
-const CACHE_NAME = 'qr-coach-cache-v1';
+/* V3 (ADR-028): 5-tab IA — leaderboard/notices/more views retired; performance/engagement/settings added. */
+const CACHE_NAME = 'qr-coach-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -6,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/js/app.js',
   '/js/state/store.js',
   '/js/firebase/firebase.js',
+  '/js/firebase/security-events.js',
   '/js/firebase/auth.js',
   '/js/services/api.js',
   '/js/utils.js',
@@ -14,9 +16,9 @@ const ASSETS_TO_CACHE = [
   '/js/views/dashboard.js',
   '/js/views/students.js',
   '/js/views/student-profile.js',
-  '/js/views/leaderboard.js',
-  '/js/views/notices.js',
-  '/js/views/more.js',
+  '/js/views/performance.js',
+  '/js/views/engagement.js',
+  '/js/views/settings.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/manifest.json'

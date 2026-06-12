@@ -125,7 +125,9 @@ var CoachingAuth = (function () {
     fetch('/api/coaching/auth?action=register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, coachingId: coachingId })
+      /* The field is a one-time Registration Token (not the coaching id); the backend looks it up via
+         coachings.registrationToken (ADR-028 — fixes the signup contract drift). */
+      body: JSON.stringify({ email: email, password: password, registrationToken: coachingId })
     })
     .then(function (resp) {
       if (!resp.ok) {

@@ -116,26 +116,60 @@ var CoachingUtils = (function () {
   }
 
   /**
-   * Calculate Consistency Score (replaces XP).
-   * Weighted composite: streak contribution + volume + accuracy.
-   * @param {object} opts - { streak, totalAttempted, accuracy }
-   * @returns {number} Score 0–100
+   * Honest "collecting data" card (ADR-027/028) — shown wherever a history-dependent metric
+   * (speed trend, improvement score, conversion/retention) does not yet have enough days of real
+   * data. NEVER renders a fabricated number — only an explanation + countdown.
+   * @param {string} title - what is being collected
+   * @param {number} have - days of real history accrued so far
+   * @param {number} need - days required (e.g. 7 or 30)
    */
-  function getConsistencyScore(opts) {
-    var streak = opts.streak || 0;
-    var attempted = opts.totalAttempted || 0;
-    var accuracy = opts.accuracy || 0;
+  function collectingCard(title, have, need) {
+    have = have || 0; need = need || 7;
+    var remaining = Math.max(0, need - have);
+    var pct = Math.min(100, Math.round((have / need) * 100));
+    var sub = remaining === 0
+      ? 'Enough data — pull to refresh to view.'
+      : 'Collecting real speed data — available in ' + remaining + ' day' + (remaining === 1 ? '' : 's') + '.';
+    return '<div class="collecting"><div class="collecting-title">⏳ ' + escapeHtml(title) + '</div>' +
+      '<div class="collecting-sub">' + sub + '</div>' +
+      '<div class="collecting-bar"><span style="width:' + pct + '%"></span></div></div>';
+  }
 
-    // Streak component (0–35): rewards sustained daily practice
-    var streakScore = Math.min(streak / 30, 1) * 35;
+  /**
+   * Render an inline SVG sparkline from a numeric series. Returns '' for <2 points.
+   * @param {number[]} values
+   * @param {object} [opts] - { invert: lower-is-better (e.g. speed), color }
+   */
+  function sparkline(values, opts) {
+    opts = opts || {};
+    var vals = (values || []).filter(function (v) { return typeof v === 'number' && isFinite(v); });
+    if (vals.length < 2) return '';
+    var w = 280, h = 44, pad = 4;
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var range = (max - min) || 1;
+    var stepX = (w - pad * 2) / (vals.length - 1);
+    var pts = vals.map(function (v, i) {
+      var x = pad + i * stepX;
+      var norm = (v - min) / range;          // 0..1
+      if (opts.invert) norm = 1 - norm;      // lower plotted higher (speed: faster = up)
+      var y = pad + (1 - norm) * (h - pad * 2);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var color = opts.color || 'var(--accent-primary)';
+    return '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
 
-    // Volume component (0–35): rewards question volume (diminishing returns)
-    var volumeScore = Math.min(attempted / 500, 1) * 35;
-
-    // Accuracy component (0–30): rewards high accuracy
-    var accuracyScore = (accuracy / 100) * 30;
-
-    return Math.round(streakScore + volumeScore + accuracyScore);
+  /** Signed-percent delta with an up/down arrow; `goodWhenNegative` flips color (speed: lower=better). */
+  function deltaBadge(pct, goodWhenNegative) {
+    if (pct === null || pct === undefined || !isFinite(pct)) return '';
+    var rounded = Math.round(pct);
+    if (rounded === 0) return '<span class="muted">±0%</span>';
+    var positive = rounded > 0;
+    var good = goodWhenNegative ? !positive : positive;
+    var cls = good ? 'delta-up' : 'delta-down';
+    var arrow = positive ? '↑' : '↓';
+    return '<span class="' + cls + '">' + arrow + ' ' + Math.abs(rounded) + '%</span>';
   }
 
   /**
@@ -220,7 +254,9 @@ var CoachingUtils = (function () {
     getStreakEmoji: getStreakEmoji,
     getEngagementBadge: getEngagementBadge,
     getSubscriptionBadge: getSubscriptionBadge,
-    getConsistencyScore: getConsistencyScore,
+    collectingCard: collectingCard,
+    sparkline: sparkline,
+    deltaBadge: deltaBadge,
     getInitial: getInitial,
     getAccuracyColor: getAccuracyColor,
     getReadableError: getReadableError,

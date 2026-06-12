@@ -7,12 +7,13 @@
 var CoachingApp = (function () {
   'use strict';
 
+  /* 5-tab mobile-first IA (ADR-028): Dashboard · Students · Performance · Engagement · Settings */
   var VIEWS = {
-    dashboard: { view: DashboardView, label: 'Home', icon: 'home' },
+    dashboard: { view: DashboardView, label: 'Dashboard', icon: 'home' },
     students: { view: StudentsView, label: 'Students', icon: 'users' },
-    leaderboard: { view: LeaderboardView, label: 'Board', icon: 'trophy' },
-    notices: { view: NoticesView, label: 'Notices', icon: 'bell' },
-    more: { view: MoreView, label: 'More', icon: 'more' }
+    performance: { view: PerformanceView, label: 'Performance', icon: 'trending' },
+    engagement: { view: EngagementView, label: 'Engagement', icon: 'megaphone' },
+    settings: { view: SettingsView, label: 'Settings', icon: 'settings' }
   };
 
   function init() {
@@ -120,13 +121,14 @@ var CoachingApp = (function () {
       case 'students':
         CoachingState.invalidateCache('studentsCache', 'studentsFetchedAt');
         break;
-      case 'leaderboard':
-        CoachingState.invalidateCache('leaderboardCache', 'leaderboardFetchedAt');
+      case 'performance':
+        CoachingState.invalidateCache('performanceCache', 'performanceFetchedAt');
+        CoachingState.invalidateCache('insightsCache', 'insightsFetchedAt');
         break;
-      case 'notices':
+      case 'engagement':
         CoachingState.invalidateCache('noticesCache', 'noticesFetchedAt');
         break;
-      case 'more':
+      case 'settings':
         CoachingState.invalidateAll();
         break;
     }

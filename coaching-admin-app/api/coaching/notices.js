@@ -35,14 +35,6 @@ async function handler(req, res) {
       return await _handleHistory(db, coachingId, req, res);
     }
 
-    if (action === 'scheduled' && req.method === 'GET') {
-      return await _handleScheduledList(db, coachingId, req, res);
-    }
-
-    if (action === 'cancel-scheduled' && req.method === 'POST') {
-      return await _handleCancelScheduled(db, coachingId, req, res);
-    }
-
     return res.status(404).json({ error: 'Unknown notices action' });
   } catch (err) {
     console.error('[Coaching Notices] Error:', err);
@@ -52,7 +44,7 @@ async function handler(req, res) {
 
 async function _handleSend(db, coachingId, req, res) {
   const reqBody = req.body && typeof req.body === 'object' ? req.body : {};
-  const { title, body: messageBody, scheduledFor, targetUid, targetTopic } = reqBody;
+  const { title, body: messageBody, targetUid, targetTopic, segment } = reqBody;
 
   if (!title || !messageBody) {
     return res.status(400).json({ error: 'Title and body are required' });
@@ -63,33 +55,6 @@ async function _handleSend(db, coachingId, req, res) {
   }
   if (messageBody.length > 500) {
     return res.status(400).json({ error: 'Message must be 500 characters or less' });
-  }
-
-  /* ── Scheduled Notice Flow ── */
-  if (scheduledFor) {
-    const scheduledDate = new Date(scheduledFor);
-    if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
-      return res.status(400).json({ error: 'scheduledFor must be a valid future date/time' });
-    }
-
-    await db.collection('scheduledNotices').add({
-      coachingId,
-      createdBy: req.userId,
-      title,
-      body: messageBody,
-      scheduledFor: admin.firestore.Timestamp.fromDate(scheduledDate),
-      status: 'pending',
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    return res.status(200).json({
-      success: true,
-      scheduled: true,
-      scheduledFor: scheduledDate.toISOString(),
-      message: 'Notice scheduled for ' + scheduledDate.toLocaleString('en-IN', {
-        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-      })
-    });
   }
 
   // Fetch ALL students for this coaching (not just those with tokens)
@@ -103,10 +68,14 @@ async function _handleSend(db, coachingId, req, res) {
   const uidMap = {};
   studentsSnap.forEach(doc => {
     const u = doc.data();
-    
-    // Filter by targetUid
+
+    // Filter by targetUid (single-student nudge)
     if (targetUid && doc.id !== targetUid) return;
-    
+
+    // Filter by audience segment (Engagement Center broadcast: all | premium | free)
+    if (segment === 'premium' && u.plan !== 'premium') return;
+    if (segment === 'free' && u.plan === 'premium') return;
+
     // Filter by targetTopic (< 50% accuracy)
     if (targetTopic) {
       const stats = u.stats || {};
@@ -257,55 +226,6 @@ async function _handleHistory(db, coachingId, req, res) {
   });
 
   return res.status(200).json({ notices });
-}
-
-async function _handleScheduledList(db, coachingId, req, res) {
-  const snap = await db.collection('scheduledNotices')
-    .where('coachingId', '==', coachingId)
-    .where('status', '==', 'pending')
-    .orderBy('scheduledFor', 'asc')
-    .limit(20)
-    .get();
-
-  const scheduled = [];
-  snap.forEach(doc => {
-    const d = doc.data();
-    scheduled.push({
-      id: doc.id,
-      title: d.title || '',
-      body: d.body || '',
-      scheduledFor: safeTimestamp(d.scheduledFor),
-      createdAt: safeTimestamp(d.createdAt)
-    });
-  });
-
-  return res.status(200).json({ scheduled });
-}
-
-async function _handleCancelScheduled(db, coachingId, req, res) {
-  const { noticeId } = req.body && typeof req.body === 'object' ? req.body : {};
-  if (!noticeId) {
-    return res.status(400).json({ error: 'noticeId is required' });
-  }
-
-  const docRef = db.collection('scheduledNotices').doc(noticeId);
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    return res.status(404).json({ error: 'Scheduled notice not found' });
-  }
-
-  const data = doc.data();
-  if (data.coachingId !== coachingId) {
-    return res.status(403).json({ error: 'Not authorized to cancel this notice' });
-  }
-
-  if (data.status !== 'pending') {
-    return res.status(400).json({ error: 'Notice is no longer pending' });
-  }
-
-  await docRef.update({ status: 'cancelled', cancelledAt: admin.firestore.FieldValue.serverTimestamp() });
-  return res.status(200).json({ success: true, message: 'Scheduled notice cancelled' });
 }
 
 module.exports = withCoachingAuth(handler);

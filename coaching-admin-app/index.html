@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0e17" />
-  <meta name="description" content="QuantReflex Coaching Admin — Monitor student performance, track progress, and manage your coaching institute." />
+  <!-- Mobile-first; pinch-zoom ENABLED (WCAG 1.4.4 — ADR-028) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e14" />
+  <meta name="description" content="QuantReflex Coaching — a Speed Training Control Center: monitor practice, track solving speed, and intervene when students slip." />
   <title>QuantReflex Coach</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -18,8 +19,8 @@
   <div id="authScreen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-logo">QR</div>
-      <h1 class="auth-title">Coaching Admin</h1>
-      <p class="auth-subtitle">Monitor & elevate your students</p>
+      <h1 class="auth-title">Coaching Console</h1>
+      <p class="auth-subtitle">Monitor speed · motivate students · intervene early</p>
 
       <!-- Auth Tabs -->
       <div class="auth-tabs">
@@ -44,12 +45,12 @@
           </div>
         </div>
 
-        <!-- Register-only field -->
+        <!-- Register-only field: a one-time Registration Token issued by the Super Admin (NOT the Coaching ID) -->
         <div id="registerFields" style="display:none;">
           <div class="auth-field">
-            <label for="authCoachingId" class="auth-label">Coaching ID</label>
+            <label for="authCoachingId" class="auth-label">Registration Token</label>
             <input type="text" id="authCoachingId" class="auth-input" placeholder="e.g. QRABCD1234" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;" />
-            <div style="font-size:var(--font-xs);color:var(--text-muted);margin-top:4px;">Provided by your Super Admin when coaching was created</div>
+            <div style="font-size:var(--font-xs);color:var(--text-muted);margin-top:4px;">The one-time token your Super Admin gave you when the coaching was created.</div>
           </div>
         </div>
 
@@ -79,42 +80,42 @@
     <main class="main-content">
       <div id="view-dashboard" class="view active"></div>
       <div id="view-students" class="view"></div>
-      <div id="view-leaderboard" class="view"></div>
-      <div id="view-notices" class="view"></div>
-      <div id="view-more" class="view"></div>
+      <div id="view-performance" class="view"></div>
+      <div id="view-engagement" class="view"></div>
+      <div id="view-settings" class="view"></div>
     </main>
 
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-      <button class="nav-tab active" data-view="dashboard" onclick="CoachingApp.navigateTo('dashboard')">
+    <!-- Bottom Navigation (5 tabs, mobile-first; safe-area inset handled in CSS) -->
+    <nav class="bottom-nav" role="tablist" aria-label="Primary">
+      <button class="nav-tab active" data-view="dashboard" role="tab" aria-label="Dashboard" onclick="CoachingApp.navigateTo('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
         <span class="nav-tab-label">Home</span>
       </button>
-      <button class="nav-tab" data-view="students" onclick="CoachingApp.navigateTo('students')">
+      <button class="nav-tab" data-view="students" role="tab" aria-label="Students" onclick="CoachingApp.navigateTo('students')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
         <span class="nav-tab-label">Students</span>
       </button>
-      <button class="nav-tab" data-view="leaderboard" onclick="CoachingApp.navigateTo('leaderboard')">
+      <button class="nav-tab" data-view="performance" role="tab" aria-label="Performance" onclick="CoachingApp.navigateTo('performance')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
         </svg>
-        <span class="nav-tab-label">Board</span>
+        <span class="nav-tab-label">Performance</span>
       </button>
-      <button class="nav-tab" data-view="notices" onclick="CoachingApp.navigateTo('notices')">
+      <button class="nav-tab" data-view="engagement" role="tab" aria-label="Engagement" onclick="CoachingApp.navigateTo('engagement')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+          <path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
         </svg>
-        <span class="nav-tab-label">Notices</span>
+        <span class="nav-tab-label">Engage</span>
       </button>
-      <button class="nav-tab" data-view="more" onclick="CoachingApp.navigateTo('more')">
+      <button class="nav-tab" data-view="settings" role="tab" aria-label="Settings" onclick="CoachingApp.navigateTo('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        <span class="nav-tab-label">More</span>
+        <span class="nav-tab-label">Settings</span>
       </button>
     </nav>
 
@@ -132,7 +133,7 @@
   </div>
 
   <!-- ==================== TOAST ==================== -->
-  <div id="toastContainer" class="toast-container"></div>
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
 
   <!-- Firebase SDKs (compat v10.12.0 — same as main app) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -146,16 +147,15 @@
   <script src="../shared/validation/auth-validators.js"></script>
   <script src="js/firebase/auth.js"></script>
   <script src="js/services/api.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/ui/toast.js"></script>
   <script src="js/ui/bottom-sheet.js"></script>
   <script src="js/views/dashboard.js"></script>
   <script src="js/views/students.js"></script>
   <script src="js/views/student-profile.js"></script>
-  <script src="js/views/leaderboard.js"></script>
-  <script src="js/views/notices.js"></script>
-  <script src="js/views/more.js"></script>
+  <script src="js/views/performance.js"></script>
+  <script src="js/views/engagement.js"></script>
+  <script src="js/views/settings.js"></script>
   <script src="js/app.js"></script>
 
   <!-- Service Worker Registration -->

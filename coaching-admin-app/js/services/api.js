@@ -86,57 +86,68 @@ var CoachingAPI = (function () {
   }
 
   /**
-   * Get leaderboard.
-   * @param {string} [period] — daily|weekly|monthly|allTime
-   * @param {string} [metric] — accuracy|speed|streak|questions|consistency
+   * Get the coaching's PERFORMANCE data (server-computed from real dated dailyHistory):
+   * accuracy trend + participation trend (live today), improving/declining are NOT returned here
+   * (the old slice heuristic was removed — real improvers come from coachingMetrics history).
    * @param {boolean} [forceRefresh]
-   * @returns {Promise<object>}
    */
-  function getLeaderboard(period, metric, forceRefresh) {
-    var p = period || 'weekly';
-    var m = metric || 'accuracy';
-    /* Cache key includes params so different combos aren't mixed */
-    var cacheKey = p + '_' + m;
-    var cached = CoachingState.get('leaderboardCache');
-    if (!forceRefresh && cached && cached._cacheKey === cacheKey &&
-        CoachingState.isCacheFresh('leaderboardCache', 'leaderboardFetchedAt')) {
-      return Promise.resolve(cached);
+  function getPerformance(forceRefresh) {
+    if (!forceRefresh && CoachingState.isCacheFresh('insightsCache', 'insightsFetchedAt')) {
+      return Promise.resolve(CoachingState.get('insightsCache'));
     }
-    return _fetch('/api/coaching/leaderboard?period=' + p + '&metric=' + m).then(function (data) {
-      data._cacheKey = cacheKey;
-      CoachingState.set({ leaderboardCache: data, leaderboardFetchedAt: Date.now() });
+    return _fetch('/api/coaching/insights').then(function (data) {
+      CoachingState.set({ insightsCache: data, insightsFetchedAt: Date.now() });
       return data;
     });
   }
 
   /**
-   * Send a notice to coaching students.
-   * @param {string} title
-   * @param {string} body
-   * @param {string} [scheduledFor] — ISO date string for scheduled delivery
-   * @param {string} [targetUid] — Send specifically to this student
-   * @param {string} [targetTopic] — Send specifically to students struggling in this topic
-   * @returns {Promise<object>}
+   * Read this coaching's per-day rollup (coachingMetrics/{coachingId}, ADR-027) DIRECTLY via the
+   * Firebase client SDK — the security rule allows a coaching admin to read only its own doc, so no
+   * serverless function is needed. Returns { days: { 'YYYY-MM-DD': {avgSpeed, avgAccuracy, ...} } } or
+   * { days: {} } when no rollups have accrued yet (the daily cron writes them from 2026-06-13 forward).
+   * @param {boolean} [forceRefresh]
    */
-  function sendNotice(title, body, scheduledFor, targetUid, targetTopic) {
-    var payload = { title: title, body: body };
-    if (scheduledFor) payload.scheduledFor = scheduledFor;
-    if (targetUid) payload.targetUid = targetUid;
-    if (targetTopic) payload.targetTopic = targetTopic;
+  function getCoachingMetrics(forceRefresh) {
+    if (!forceRefresh && CoachingState.isCacheFresh('coachingMetricsCache', 'coachingMetricsFetchedAt')) {
+      return Promise.resolve(CoachingState.get('coachingMetricsCache'));
+    }
+    var coachingId = CoachingState.get('coachingId');
+    if (!coachingId || typeof firebase === 'undefined' || !firebase.firestore) {
+      return Promise.resolve({ days: {} });
+    }
+    return firebase.firestore().collection('coachingMetrics').doc(coachingId).get()
+      .then(function (snap) {
+        var data = snap.exists ? (snap.data() || {}) : {};
+        if (!data.days) data.days = {};
+        CoachingState.set({ coachingMetricsCache: data, coachingMetricsFetchedAt: Date.now() });
+        return data;
+      })
+      .catch(function () { return { days: {} }; });   // missing/denied → honest empty (collecting state)
+  }
+
+  /**
+   * Send an engagement notice. Audience-aware (ADR-028 Engagement Center). NO scheduling (removed).
+   * @param {object} opts - { title, body, segment?: 'all'|'premium'|'free', targetUid?, targetTopic? }
+   */
+  function sendNotice(opts) {
+    opts = opts || {};
+    var payload = { title: opts.title, body: opts.body };
+    if (opts.segment && opts.segment !== 'all') payload.segment = opts.segment;
+    if (opts.targetUid) payload.targetUid = opts.targetUid;
+    if (opts.targetTopic) payload.targetTopic = opts.targetTopic;
     return _fetch('/api/coaching/notices?action=send', {
       method: 'POST',
       body: JSON.stringify(payload)
     }).then(function (data) {
-      /* Invalidate notices cache so history refreshes */
       CoachingState.invalidateCache('noticesCache', 'noticesFetchedAt');
       return data;
     });
   }
 
   /**
-   * Get notice history.
+   * Recent notices (last 20) — a read-only log, not a management console.
    * @param {boolean} [forceRefresh]
-   * @returns {Promise<object>}
    */
   function getNoticeHistory(forceRefresh) {
     if (!forceRefresh && CoachingState.isCacheFresh('noticesCache', 'noticesFetchedAt')) {
@@ -148,51 +159,14 @@ var CoachingAPI = (function () {
     });
   }
 
-  /**
-   * Get coaching insights.
-   * @param {boolean} [forceRefresh]
-   * @returns {Promise<object>}
-   */
-  function getInsights(forceRefresh) {
-    if (!forceRefresh && CoachingState.isCacheFresh('insightsCache', 'insightsFetchedAt')) {
-      return Promise.resolve(CoachingState.get('insightsCache'));
-    }
-    return _fetch('/api/coaching/insights').then(function (data) {
-      CoachingState.set({ insightsCache: data, insightsFetchedAt: Date.now() });
-      return data;
-    });
-  }
-
-  /**
-   * Get pending scheduled notices.
-   * @returns {Promise<object>}
-   */
-  function getScheduledNotices() {
-    return _fetch('/api/coaching/notices?action=scheduled');
-  }
-
-  /**
-   * Cancel a pending scheduled notice.
-   * @param {string} noticeId
-   * @returns {Promise<object>}
-   */
-  function cancelScheduledNotice(noticeId) {
-    return _fetch('/api/coaching/notices?action=cancel-scheduled', {
-      method: 'POST',
-      body: JSON.stringify({ noticeId: noticeId })
-    });
-  }
-
   return {
     getDashboard: getDashboard,
     getStudents: getStudents,
     getStudentsPaginated: getStudentsPaginated,
     getStudentDetails: getStudentDetails,
-    getLeaderboard: getLeaderboard,
+    getPerformance: getPerformance,
+    getCoachingMetrics: getCoachingMetrics,
     sendNotice: sendNotice,
-    getNoticeHistory: getNoticeHistory,
-    getScheduledNotices: getScheduledNotices,
-    cancelScheduledNotice: cancelScheduledNotice,
-    getInsights: getInsights
+    getNoticeHistory: getNoticeHistory
   };
 })();

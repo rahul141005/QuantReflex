@@ -67,7 +67,7 @@ async function _handleList(db, coachingId, req, res) {
 
   const studentsSnap = await query.get();
 
-  const students = [];
+  let students = [];   // reassigned in the search branch below (was `const` — latent TypeError)
   studentsSnap.forEach(doc => {
     const u = doc.data();
     const stats = u.stats || {};
@@ -148,15 +148,13 @@ async function _handleDetails(db, coachingId, req, res) {
     return res.status(403).json({ error: 'Student does not belong to your coaching' });
   }
 
-  // Fetch subcollection data in parallel
-  const [perfDoc, practiceDoc, sessionsSnap, duelsSnap] = await Promise.all([
+  // Fetch subcollection data in parallel (duels removed — PvP outcomes are off-mission for an owner
+  // judging speed, and the per-field map query was a needless failure surface; ADR-028).
+  const [perfDoc, practiceDoc, sessionsSnap] = await Promise.all([
     db.collection('users').doc(uid).collection('performance').doc('overall').get(),
     db.collection('users').doc(uid).collection('practice').doc('data').get(),
     db.collection('users').doc(uid).collection('practiceSessions')
-      .orderBy('timestamp', 'desc').limit(15).get(),
-    db.collection('duels')
-      .where(`participants.${uid}.status`, 'in', ['finished', 'exited'])
-      .limit(10).get()
+      .orderBy('timestamp', 'desc').limit(15).get()
   ]);
 
   const stats = userData.stats || {};
@@ -197,27 +195,8 @@ async function _handleDetails(db, coachingId, req, res) {
     });
   });
 
-  // Build duel stats
-  const recentDuels = [];
-  let duelWins = 0;
-  let duelLosses = 0;
-  let duelDraws = 0;
-  duelsSnap.forEach(doc => {
-    const d = doc.data();
-    if (d.winner === uid) duelWins++;
-    else if (d.result === 'draw') duelDraws++;
-    else if (d.winner && d.winner !== uid) duelLosses++;
-
-    recentDuels.push({
-      id: doc.id,
-      status: d.status || 'unknown',
-      winner: d.winner || null,
-      result: d.result || null,
-      createdAt: safeTimestamp(d.createdAt)
-    });
-  });
-
-  // Daily history for streak/activity heatmap
+  // Daily history — now carries per-day {attempted, correct, sumTimes, count} (ADR-027), the basis for
+  // the student's REAL speed curve in the 360 (the client derives per-day avg speed = sumTimes/count).
   const dailyHistory = stats.dailyHistory || {};
 
   // Engagement level
@@ -252,9 +231,7 @@ async function _handleDetails(db, coachingId, req, res) {
     },
     categoryPerformance,
     recentSessions,
-    duelStats: { wins: duelWins, losses: duelLosses, draws: duelDraws, recent: recentDuels },
-    dailyHistory,
-    speedTrend: times.slice(-20)
+    dailyHistory
   });
 }
 
