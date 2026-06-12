@@ -813,6 +813,29 @@ input, textarea, select { font-family: inherit; }
 /* ---- Global Search result groups ---- */
 .search-group-label { padding: .5rem 1rem .25rem; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
 
+/* ---- Entity-360 master list (User-360 / Coaching-360, ADR-022) ---- */
+.chip-bar { display: flex; gap: .4rem; flex-wrap: wrap; }
+.chip {
+  min-height: 36px; padding: .35rem .8rem; border: 1px solid var(--border-color);
+  border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary);
+  font-size: .8rem; font-weight: 600; cursor: pointer; transition: var(--transition-fast);
+}
+.chip:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.chip.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.sv-row {
+  display: flex; align-items: center; gap: .6rem; padding: .65rem .75rem; cursor: pointer;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface);
+  margin-bottom: .4rem; transition: var(--transition-fast);
+}
+.sv-row:hover { background: var(--bg-secondary); }
+.sv-row .uCheck { width: 22px; height: 22px; flex: 0 0 auto; margin: .25rem; accent-color: var(--accent-primary); cursor: pointer; }
+.bulk-bar {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .55rem .75rem;
+  margin-bottom: .5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-secondary); font-size: .8rem; font-weight: 600;
+}
+.bulk-bar > span { margin-right: auto; color: var(--text-secondary); }
+
 /* ---- small helpers ---- */
 .btn-sm { min-height: 36px; padding: .4rem .75rem; font-size: .8rem; }
 .muted { color: var(--text-secondary); }

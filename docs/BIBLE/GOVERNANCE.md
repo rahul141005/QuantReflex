@@ -143,11 +143,23 @@ is one function; `api/_lib/**` excluded), and cron ≤ once/day. When designing 
 The super-admin app is a **tablet-first governance OS** with a **7-domain IA** (Command Center · Users ·
 Coachings · Revenue · Content · AI · Operations). Design and review against [TECHNICAL_BIBLE §10B](TECHNICAL_BIBLE.md).
 
-- **One owner per capability.** A workflow appears in exactly ONE domain — no duplicate entry points. Canonical
-  owners: coaching-create → **Coachings**; inactive users + inactive-export → **Users**; orphan-duels +
-  abandoned-data cleanup → **Operations**; AI cost/abuse → **AI**; entitlement + lifecycle actions → the
-  **User-360 / Coaching-360** detail pane. Adding a second entry point for an existing capability is a
-  governance violation — extend the owner instead.
+- **One owner per capability (ADR-022 — fully consolidated).** A workflow appears in exactly ONE Center — no
+  duplicate entry points. Canonical owners:
+  - **User-360** (Users): every per-user action — profile, entitlement grant/revoke/trial, lifecycle
+    (suspend/restore/archive/reset/delete), **AI throttle**, **coaching reassignment**, payment history, activity,
+    audit. Inactive users are a filter chip + bulk-bar here (no separate view). *No user action exists outside User-360.*
+  - **Coaching-360** (Coachings): **sole coaching-create owner** + all coaching management (token rotate,
+    suspend/activate/delete, roster, allocation, per-coaching AI, activity). *No coaching action elsewhere.*
+  - **AI Cost Center** (AI): all AI cost/abuse governance + inline throttle remediation; by-user / by-coaching /
+    by-feature aggregations derived client-side from `ai?action=usage`.
+  - **Revenue Center** (Revenue): revenue intelligence + grant history + revenue CSV export.
+  - **Operations Center** (Operations): diagnostics/health, security, Firestore, campaigns (broadcast + history),
+    exports, cleanup (orphan duels + pending purge), audit feed.
+  - **Command Center**: alerts, snapshot, activity, **and the sole write-owner of the Emergency Controls** (below).
+
+  Adding a second entry point for an existing capability is a governance violation — extend the owner instead. The
+  legacy Payments / Inactive / Security / Firestore-ops / Exports / Notifications / System **view files** and the
+  overlay User-360 drawer were **deleted** in ADR-022; do not reintroduce a parallel screen for a Center's capability.
 - **Global Search is a governance primitive (ADR-020).** All "search anything" goes through ONE server-side
   action (`system?action=search`) — never a client fetch-all. New searchable entities (payments, questions, AI,
   audit) are added as `scope`s on that action, not as new endpoints/clients. It is the single ecosystem search
@@ -158,6 +170,13 @@ Coachings · Revenue · Content · AI · Operations). Design and review against 
   (`aiService`/`paymentService`/boot). Any new "protected operation" (a new AI feature, a new paid flow, a new
   user-facing surface) must check the relevant flag before executing. Removing or bypassing an enforcement check
   is a governance violation. Toggling a kill switch in production is an operational action — record why.
+  - **Single write-owner = the Command Center (ADR-022).** The toggles live in exactly one place for fast incident
+    response. The AI Cost Center and Operations Center surface the **read-only live state** with a "Manage in
+    Command Center" link — never a second toggle. This is the one-owner rule applied to break-glass controls.
+- **Per-user AI throttle (ADR-022).** A super-admin can cap a single user's daily AI requests
+  (`users?action=throttle` → `users/{uid}.aiThrottle.cap`). main-app honors it in `api/ai.js` via
+  `aiService.enforceAiThrottle` (transactional daily counter; fails open on a read glitch so a non-throttled user is
+  never blocked). It is set/cleared only from **User-360** or the **AI Cost Center** (the two AI-cost owners).
 - **Every admin screen must answer** what-happened / what's-happening / what-needs-attention / what-action, with
   **inline remediation** (no navigate-away to act) and audited destructive actions (type-`DELETE` + server
   `confirm:'DELETE'` + `auditLogs`). Alerts are acknowledgeable + drill-downable, not read-only.

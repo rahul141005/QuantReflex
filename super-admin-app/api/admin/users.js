@@ -130,6 +130,7 @@ async function handler(req, res) {
           suspendedAt: safeTimestampToISO(userData.suspendedAt),
           archivedAt: safeTimestampToISO(userData.archivedAt),
           purgeAfter: safeTimestampToISO(userData.purgeAfter),
+          aiThrottle: userData.aiThrottle || null,
         },
         aiUsage: aiSnapshot.exists ? aiSnapshot.data() : { tokens: 0, count: 0 },
         recentDuels: [],
@@ -330,6 +331,15 @@ async function handler(req, res) {
         await userRef.set({ aiThrottle: throttle, updatedAt: nowIso }, { merge: true });
         await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'set_ai_throttle', category: 'ai', targetType: 'user', targetId: uid, summary: 'throttled AI for ' + uid + ' to ' + throttle.cap + '/day', after: throttle });
         return res.status(200).json({ success: true, uid: uid, aiThrottle: throttle });
+      }
+
+      /* ── reassign-coaching (ADR-022) — move a user to another coaching (or independent) ── */
+      if (action === 'reassign-coaching') {
+        const newCoachingId = (typeof body.coachingId === 'string' && body.coachingId.trim()) ? body.coachingId.trim() : null;
+        const before = (await userRef.get()).data() || {};
+        await userRef.set({ coachingId: newCoachingId, updatedAt: nowIso }, { merge: true });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reassign_coaching', category: 'user', targetType: 'user', targetId: uid, summary: 'reassigned ' + uid + ' → coaching ' + (newCoachingId || '(none)'), before: { coachingId: before.coachingId || null }, after: { coachingId: newCoachingId } });
+        return res.status(200).json({ success: true, uid: uid, coachingId: newCoachingId });
       }
     }
 

@@ -16,25 +16,36 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   scroll) and opened a 400px overlay drawer — both tablet-hostile.
 - **Decision:** Consolidate every admin workflow into **5 entity-centric Centers**, **one owner per capability**
   (GOVERNANCE): **User-360** (Users — SplitView flat filterable master with status chips + tabs
-  Profile|Entitlement|Lifecycle|AI|Activity|Payments|Audit; absorbs Inactive as a filter + bulk-bar; **sole owner
-  of per-user entitlement + lifecycle**; replaces the overlay drawer with the in-flow SplitView); **Coaching-360**
-  (Coachings — SplitView; **sole coaching-create + bulk-entitlement owner**; Overview|Students|Entitlement|Token|Audit);
-  **AI Cost Center** (AI — Spend|Breakdown|Top Consumers|Abuse with **inline** suspend/throttle remediation; surfaces
-  but does not re-own the AI kill switch); **Revenue Center** (Revenue — Intelligence|Entitlement Admin|Payment Audit;
-  wires the previously-dead `revenue-intel`); **Operations Center** (Operations — first-class Health|Cleanup|Security|
-  Data|Campaigns|Exports|Emergency|Audit panels replacing the strangler wrappers). Command Center + Content unchanged.
-  **Removed:** the grouped Users list + overlay drawer; the standalone Payments / Inactive / Security / Firestore-ops /
-  Exports / Notifications / System views (folded into Centers). One shared client-side **entitlement-state resolver**
-  replaces the 4 copies.
+  Profile|Entitlement|Lifecycle|AI|Activity|Payments|Audit; absorbs Inactive as a filter chip + bulk-bar; **sole owner
+  of per-user entitlement + lifecycle + AI throttle + coaching reassignment**; replaces the overlay drawer with the
+  in-flow SplitView); **Coaching-360** (Coachings — SplitView; **sole coaching-create + management owner**;
+  Overview|Students|Allocation|AI|Activity|Settings, Settings owning token-rotate + suspend/activate/delete);
+  **AI Cost Center** (AI — Overview|By User|By Coaching|Abuse with **inline** throttle remediation; surfaces but does
+  not re-own the AI kill switch — toggle stays on Command Center); **Revenue Center** (Revenue — Overview|Subscriptions|
+  Trends|Grants; wires the previously-dead `revenue-intel`); **Operations Center** (Operations — first-class
+  Diagnostics|Security|Firestore|Campaigns|Exports|Cleanup|Audit panels replacing the strangler wrappers). Command
+  Center + Content unchanged. **Removed:** the grouped Users list + overlay drawer DOM; the standalone Payments /
+  Inactive / Security / Firestore-ops / Exports / Notifications / System **view files** (folded into Centers — the
+  corresponding `api/admin/*` handlers stay). One shared client-side **entitlement-state resolver** replaces the 4 copies.
+- **Emergency ownership:** the break-glass toggles (maintenance / AI-kill / payment-kill) keep a **single write owner —
+  the Command Center** (fast incident response). The AI Cost Center and Operations Center show their **read-only live
+  state** with a one-click "Manage in Command Center" link — no duplicate write surface.
 - **Infra:** new reads/writes are `?action=` branches on existing handlers — **zero new functions** (stays 8/12):
-  users +`payment-history`/`activity-timeline`/`admin-history`/`throttle`/`pending-purge-list`; coachings +`details`/
-  `students`/`reset-token`; ai +`lifetime`/`per-coaching`/`top-consumers`/`feature-breakdown`; system `revenue-intel`
-  extended; notifications +`history`. One new **additive** user field `aiThrottle` (per-user AI cap honored by main-app).
-- **Options considered:** (a) keep strangler wrappers — rejected (the duplication is the problem). (b) a separate
-  search/store service — folded into the existing Global Search primitive + a shared AdminState store instead.
+  users +`payment-history`/`activity-timeline`/`admin-history`/`throttle`/`reassign-coaching`/`pending-purge-list`;
+  coachings +`details`/`students`/`activity`/`reset-token`; system `revenue-intel` extended (+`conversionRate`/
+  `failedGrants`/`growth`/`trialUsers`); notifications +`history` (GET) alongside the existing broadcast (POST). **AI
+  by-feature / by-coaching / top-consumers are derived client-side** from the existing `ai?action=usage` payload (no
+  new AI actions — the usage endpoint already returns the full per-user analytics array). One new **additive** user
+  field `aiThrottle {cap,setBy,setAt}` (per-user daily AI-request cap honored by main-app `api/ai.js` via
+  `aiService.enforceAiThrottle`, which keeps a transactional daily counter `usage/ai.gptThrottleDate|gptThrottleCount`).
+- **Options considered:** (a) keep strangler wrappers — rejected (the duplication is the problem). (b) dedicated AI
+  per-coaching/top-consumer **backend** actions — rejected; the `usage` endpoint already returns every consumer, so
+  aggregation is a pure client-side group-by (no extra Firestore reads, no new function surface). (c) duplicate the
+  Emergency toggles onto Operations — rejected (two write owners for one capability violates the one-owner rule).
 - **Consequence:** minimum-click governance (chip → row → tab → inline action), tablet-first (SplitView master/detail,
-  card-mode), zero duplicate entry points. Implemented strangler-style, Center by Center. Arch 2.6→2.7, Firestore
-  2.6→2.7, Bible 2.10→2.11.
+  card-mode), zero duplicate entry points, no hybrid old/new state (every legacy view file and the overlay drawer are
+  gone). Implemented strangler-style then fully cut over, Center by Center. Arch 2.6→2.7, Firestore 2.6→2.7, Bible
+  2.10→2.11.
 
 ## ADR-021 — Emergency Controls: maintenance mode + AI kill switch + payment kill switch (cross-app, 2026-06-12)
 - **Context:** The platform had no break-glass controls. An AI cost runaway, a Razorpay incident, or a bad

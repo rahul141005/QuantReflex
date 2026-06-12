@@ -61,9 +61,12 @@ var API = (function () {
   function getUserAdminHistory(uid) { return _fetch('/api/admin/users?action=admin-history&uid=' + encodeURIComponent(uid)); }
   function getPendingPurgeList() { return _fetch('/api/admin/users?action=pending-purge-list'); }
   function throttleUser(uid, cap) { return _fetch('/api/admin/users?action=throttle', { method: 'POST', body: JSON.stringify({ uid: uid, cap: cap }) }); }
+  function reassignCoaching(uid, coachingId) { return _fetch('/api/admin/users?action=reassign-coaching', { method: 'POST', body: JSON.stringify({ uid: uid, coachingId: coachingId }) }); }
   function getCoachingDetails(coachingId) { return _fetch('/api/admin/coachings?action=details&coachingId=' + encodeURIComponent(coachingId)); }
   function getCoachingStudents(coachingId) { return _fetch('/api/admin/coachings?action=students&coachingId=' + encodeURIComponent(coachingId)); }
+  function getCoachingActivity(coachingId) { return _fetch('/api/admin/coachings?action=activity&coachingId=' + encodeURIComponent(coachingId)); }
   function resetCoachingToken(coachingId) { return _fetch('/api/admin/coachings?action=reset-token', { method: 'POST', body: JSON.stringify({ coachingId: coachingId }) }); }
+  function getNotificationHistory() { return _fetch('/api/admin/notifications?action=history'); }
 
   function grantEntitlement(type, action, targetId, trialDays) {
     var payload = { type: type, action: action, targetId: targetId };
@@ -86,10 +89,12 @@ var API = (function () {
     });
   }
 
-  function mutateCoaching(coachingId, action) {
+  function mutateCoaching(coachingId, action, confirm) {
+    var payload = { coachingId: coachingId, action: action };
+    if (confirm) payload.confirm = confirm; /* required by the server for suspend/delete (cascade revoke) */
     return _fetch('/api/admin/coachings?action=mutate', {
       method: 'POST',
-      body: JSON.stringify({ coachingId: coachingId, action: action })
+      body: JSON.stringify(payload)
     });
   }
 
@@ -197,9 +202,12 @@ var API = (function () {
     getUserAdminHistory: getUserAdminHistory,
     getPendingPurgeList: getPendingPurgeList,
     throttleUser: throttleUser,
+    reassignCoaching: reassignCoaching,
     getCoachingDetails: getCoachingDetails,
     getCoachingStudents: getCoachingStudents,
+    getCoachingActivity: getCoachingActivity,
     resetCoachingToken: resetCoachingToken,
+    getNotificationHistory: getNotificationHistory,
     grantEntitlement: grantEntitlement,
     getCoachings: getCoachings,
     createCoaching: createCoaching,

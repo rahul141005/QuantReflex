@@ -43,7 +43,7 @@ var App = (function () {
     'command-center': { cid: 'view-command-center', view: 'CommandCenterView' },
     'users':          { cid: 'view-users',          view: 'UsersView' },
     'coachings':      { cid: 'view-coachings',       view: 'CoachingsView' },
-    'revenue':        { cid: 'view-payments',        view: 'PaymentsView' },
+    'revenue':        { cid: 'view-revenue',         view: 'RevenueCenter' },
     'content':        { cid: 'view-questions',       view: 'QuestionsView' },
     'ai':             { cid: 'view-ai',              view: 'AIAnalyticsView' },
     'operations':     { cid: 'view-operations',      view: 'OperationsView' }

@@ -13,6 +13,27 @@ if (!admin.apps.length) {
 }
 
 async function handler(req, res) {
+  const action = req.query.action || 'broadcast';
+
+  /* ── history (Operations → Campaigns, ADR-022) — recent broadcast campaign log ── */
+  if (action === 'history' && req.method === 'GET') {
+    try {
+      const db = admin.firestore();
+      const snap = await db.collection('notificationLogs').orderBy('timestamp', 'desc').limit(30).get();
+      const campaigns = [];
+      snap.forEach(function (doc) {
+        const d = doc.data();
+        let ts = null;
+        if (d.timestamp && typeof d.timestamp.toDate === 'function') { try { ts = d.timestamp.toDate().toISOString(); } catch (_) {} }
+        campaigns.push({ id: doc.id, title: d.title || '', segment: d.segment || 'unknown', successCount: d.successCount || 0, failureCount: d.failureCount || 0, staleTokensCleaned: d.staleTokensCleaned || 0, adminUid: d.adminUid || 'System', timestamp: ts });
+      });
+      return res.status(200).json({ campaigns: campaigns });
+    } catch (err) {
+      console.error('Error reading notification history:', err);
+      return res.status(500).json({ error: formatError(err) });
+    }
+  }
+
   if (methodGuard(req, res, 'POST')) return;
 
   try {

@@ -6,6 +6,52 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin V2: entity-centric 360 consolidation (ADR-022) — full Center migration + final cutover
+
+- **Requested change:** Proceed straight through all five Centers; complete the entire migration; then a mandatory
+  final consolidation pass removing every obsolete screen, drawer, duplicate table/action, and transitional
+  component. *Goal: a governance-first command platform, not a hybrid old/new admin.*
+- **Impacted systems:** Admin (all 5 Centers rebuilt as first-class views) · APIs (new read branches) · main-app
+  (AI throttle enforcement) · Firestore (additive counters).
+- **Centers shipped (all SplitView/Tabs, tablet-first):**
+  - **User-360** (`js/views/users.js`) — flat filterable master (status chips) + Profile|Entitlement|Lifecycle|AI|
+    Activity|Payments|Audit; Inactive is a chip + bulk-bar; sole owner of per-user entitlement/lifecycle/throttle/
+    coaching-reassign. Replaces the grouped list + overlay drawer.
+  - **Coaching-360** (`js/views/coachings.js`) — master + Overview|Students|Allocation|AI|Activity|Settings; **sole**
+    coaching create/manage owner (token rotate, suspend/activate/delete).
+  - **AI Cost Center** (`js/views/ai.js`) — Overview|By User|By Coaching|Abuse; inline throttle; AI-kill state shown
+    read-only (link to Command Center). By-coaching/feature/top-consumer aggregations derived client-side.
+  - **Revenue Center** (NEW `js/views/revenue.js`, `RevenueCenter`) — Overview|Subscriptions|Trends|Grants; wires
+    `revenue-intel` (now incl. `conversionRate`/`failedGrants`/`growth`/`trialUsers`); revenue CSV export.
+  - **Operations Center** (`js/views/operations.js`) — first-class Diagnostics|Security|Firestore|Campaigns|Exports|
+    Cleanup|Audit panels (no more strangler wrappers); campaigns = broadcast + history.
+- **API delta (ZERO new functions — super-admin 8/12, main-app 6/12):** coachings +`activity`; notifications
+  +`history` (GET, alongside broadcast POST); system `revenue-intel` extended. main-app `api/ai.js` now calls
+  `aiService.enforceAiThrottle` (per-user daily AI cap; transactional `usage/ai.gptThrottleDate|gptThrottleCount`).
+- **Final consolidation (cutover):** DELETED legacy view files `js/views/{payments,inactive,system,security,
+  firestore-ops,exports,notifications}.js`; REMOVED the `#userDrawer*` overlay DOM + their `<script>` tags from
+  `index.html`; repointed the `revenue` domain in `app.js` (`view-payments`/`PaymentsView` → `view-revenue`/
+  `RevenueCenter`). The corresponding `api/admin/*` handlers are retained (data sources for the Centers).
+- **CSS:** added `.chip/.chip-bar/.sv-row/.bulk-bar` (entity-360 master list) to `admin-style.css`.
+- **Bible docs updated:** DECISION_LOG (ADR-022 reconciled to as-built), TECHNICAL_BIBLE (§3 action inventory +
+  §3.1 zero-function note), FIRESTORE_BLUEPRINT (`usage/ai.gptThrottle*`), GOVERNANCE (one-owner map + Emergency
+  single-write-owner + throttle), VERSIONS (2.11 row amended), CHANGELOG (this entry), ROADMAP.
+- **Audits (final pass):** render (every domain mounts its Center; no dangling `view-payments`/`*View`/`UserDrawer`
+  refs), tablet UX (SplitView master/detail + Tabs + card-mode; no overlay drawer), governance (one owner per
+  capability; Emergency single write-owner), Vercel-Free deployment (function counts unchanged: super-admin **8/12**,
+  main-app **6/12**).
+- **Post-audit fixes (5-dimension adversarial workflow; 3 confirmed of 23 raw):** (1) **§10B server confirm-guard** —
+  `coachings?action=mutate` now requires `confirm:'DELETE'` for `suspend`/`delete` (both cascade-revoke premium from
+  every student), returning 400 `CONFIRM_REQUIRED` otherwise — mirrors the users.js purge guard; (2) **type-`DELETE`
+  UI gate** — Coaching-360 Settings replaces the one-click suspend/delete with a type-`DELETE` double-confirm (activate
+  stays one-click, non-destructive); (3) **touch target** — the Inactive bulk checkbox (`.sv-row .uCheck`) sized to
+  22px (was the ~13px native default, below the tablet floor). Stale `sw.js` precache list realigned to the V2 script
+  set (cache v8→v9; deleted view files removed).
+- **Verification:** `node --check` on all changed/created JS files (pass); function-count enumeration (super-admin
+  **8/12**, main-app **6/12**); reference sweep for deleted views (clean); CSS brace balance (226/226). **Migration:** none.
+
+---
+
 ## 2026-06-12 — Super Admin V2: entity-centric 360 consolidation (ADR-022) — backend foundation + shared resolver
 
 - **Requested change:** Freeze features; consolidate ALL admin workflows into entity-centric 360 views (User-360,

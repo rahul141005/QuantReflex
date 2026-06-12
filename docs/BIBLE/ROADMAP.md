@@ -83,7 +83,11 @@ version bump.)_
   (server-side prefix, `system?action=search`), and end-to-end Emergency Controls (maintenance / AI-kill /
   payment-kill enforced in main-app). All within the Vercel-Free 8/12 budget (5 new `system` actions, zero new
   functions; strangler rollout). **Pass 1 (2026-06-12):** Phase 0 governance docs + Phase 1 tablet-first shell +
-  Phase 2 Command Center + Global Search + Emergency Controls. **Remaining phases:** Users-360 split (merge
-  Inactive) · AI Cost Center (inline remediation + per-coaching/feature/lifetime + AI-kill UI) · Coachings-360
-  (details/students/reset-token) · Revenue · Operations build-out · retire the legacy 12-view scaffolding. Each
-  phase is Bible-first + governed.
+  Phase 2 Command Center + Global Search + Emergency Controls.
+- **Super Admin V2 — entity-centric 360 consolidation ✅ COMPLETE (2026-06-12, ADR-022)** — the full Center
+  migration shipped and the legacy scaffolding is retired: **User-360**, **Coaching-360**, **AI Cost Center**,
+  **Revenue Center**, and **Operations Center** are first-class views (SplitView master/detail + Tabs, one owner per
+  capability). Inactive merged into a Users filter chip; the overlay drawer + grouped list removed; per-user AI
+  throttle enforced end-to-end in main-app. **Final consolidation pass** deleted all 7 legacy view files + the drawer
+  DOM — **no hybrid old/new state remains**. Zero new functions (super-admin 8/12, main-app 6/12). This closes the
+  Super Admin V2 program; future admin work extends an existing Center, never adds a parallel screen.

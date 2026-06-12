@@ -1,21 +1,30 @@
-const CACHE_NAME = 'qr-admin-cache-v8';
+const CACHE_NAME = 'qr-admin-cache-v9';
+/* Super Admin V2 (ADR-022) script set — matches index.html exactly. The legacy
+   dashboard/payments/system/inactive/security/firestore-ops/exports/notifications
+   view files were deleted in the 5-Center consolidation and are no longer cached. */
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/css/admin-style.css',
-  '/js/app.js',
-  '/js/services/api.js',
   '/js/state/store.js',
   '/js/firebase/firebase.js',
+  '/js/firebase/security-events.js',
   '/js/firebase/auth.js',
+  '/js/services/api.js',
   '/js/ui/toast.js',
   '/js/ui/modal.js',
   '/js/ui/table.js',
-  '/js/views/dashboard.js',
+  '/js/ui/split.js',
+  '/js/ui/tabs.js',
+  '/js/utils.js',
   '/js/views/users.js',
-  '/js/views/payments.js',
+  '/js/views/coachings.js',
+  '/js/views/revenue.js',
   '/js/views/questions.js',
-  '/js/views/system.js',
+  '/js/views/ai.js',
+  '/js/views/operations.js',
+  '/js/views/command-center.js',
+  '/js/app.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/manifest.json'

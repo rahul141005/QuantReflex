@@ -110,6 +110,12 @@ async function handler(req, res) {
       if (!['suspend', 'activate', 'delete'].includes(mutateAction)) {
         return res.status(400).json({ error: { code: 'INVALID_ACTION', message: 'Action must be suspend, activate, or delete.' } });
       }
+      /* Destructive-action guard (§10B / ADR-022): suspend + delete cascade-revoke premium from EVERY
+         enrolled student, so the server requires an explicit confirm token — mirrors users.js purge.
+         activate is non-destructive and needs none. */
+      if ((mutateAction === 'suspend' || mutateAction === 'delete') && body.confirm !== 'DELETE') {
+        return res.status(400).json({ error: { code: 'CONFIRM_REQUIRED', message: 'Pass confirm:"DELETE" to ' + mutateAction + ' this coaching (cascade-revokes premium from all students).' } });
+      }
 
       let beforeStatus = null;
       let newStatusFinal = 'active';
@@ -200,6 +206,18 @@ async function handler(req, res) {
         students.push({ uid: doc.id, name: (u.profile && u.profile.name) || u.email || 'Unknown', email: u.email || '', plan: u.plan === 'premium' ? 'premium' : 'free', planExpiry: u.planExpiry || null, accountStatus: u.accountStatus || 'active', lastActive: (u.stats && u.stats.lastActiveDate) || null });
       });
       return res.status(200).json({ coachingId: coachingId, count: students.length, students: students, truncated: students.length >= limit });
+    }
+
+    /* ── activity (Coaching-360, ADR-022) — coaching-scoped immutable audit trail ── */
+    if (action === 'activity' && req.method === 'GET') {
+      const coachingId = req.query.coachingId;
+      if (!coachingId) return res.status(400).json({ error: { code: 'INVALID_ID', message: 'coachingId is required.' } });
+      let logs = [];
+      try {
+        const snap = await db.collection('auditLogs').where('targetId', '==', coachingId).orderBy('ts', 'desc').limit(30).get();
+        snap.forEach(function (doc) { const d = doc.data(); logs.push({ id: doc.id, action: d.action || 'unknown', actor: d.actorEmail || d.actorUid || 'System', summary: d.summary || null, category: d.category || null, timestamp: _safeTS(d.ts) }); });
+      } catch (_) { logs = []; }
+      return res.status(200).json({ coachingId: coachingId, actions: logs });
     }
 
     /* ── reset-token (Coaching-360, ADR-022) — rotate the registration token (audited) ── */

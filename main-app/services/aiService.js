@@ -391,6 +391,41 @@ async function consumeWordProblemQuota(uid, isPremium, count) {
   return granted;
 }
 
+/**
+ * Enforce a per-user daily AI-request cap set by a super-admin (ADR-022).
+ *
+ * Reads `users/{uid}.aiThrottle.cap` (set via the AI Cost Center / User-360 throttle control).
+ * If a positive cap is present, atomically checks+increments a daily counter on the usage doc
+ * (`gptThrottleDate` / `gptThrottleCount`, reset each UTC day) and throws AI_THROTTLED once the
+ * cap is reached. No throttle doc → no-op (zero added cost for the overwhelming majority of users).
+ * Counts AI requests at the gate (blunt abuse-control instrument by design).
+ */
+async function enforceAiThrottle(uid) {
+  if (!uid) return;
+  var userDoc;
+  try {
+    userDoc = await db.collection('users').doc(uid).get();
+  } catch (err) {
+    console.warn('[aiService:enforceAiThrottle] user read failed (uid: ' + uid + '):', err.message);
+    return; /* fail open — a glitch must not block a non-throttled user */
+  }
+  var thr = userDoc.exists ? userDoc.data().aiThrottle : null;
+  var cap = thr && typeof thr.cap === 'number' ? thr.cap : 0;
+  if (!cap || cap <= 0) return; /* not throttled */
+
+  var usageRef = db.collection('users').doc(uid).collection('usage').doc('ai');
+  var today = new Date().toISOString().split('T')[0];
+  await db.runTransaction(async function (tx) {
+    var doc = await tx.get(usageRef);
+    var data = doc.exists ? doc.data() : {};
+    var count = (data.gptThrottleDate === today) ? (data.gptThrottleCount || 0) : 0;
+    if (count >= cap) {
+      throw new AIServiceError('AI_THROTTLED', 'Your AI usage has been rate-limited by an administrator (' + cap + '/day). Please try again tomorrow.', false);
+    }
+    tx.set(usageRef, { gptThrottleDate: today, gptThrottleCount: count + 1 }, { merge: true });
+  });
+}
+
 async function trackExplanationUsage(uid) {
   var entry = await _loadUsage(uid);
   entry.explanationsUsed = (entry.explanationsUsed || 0) + 1;
@@ -1013,4 +1048,4 @@ async function generateStudyPlan(params) {
   return planDoc;
 }
 
-module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };
+module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };

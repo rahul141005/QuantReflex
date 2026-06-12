@@ -1,521 +1,235 @@
 /**
- * users.js — Grouped User & Coaching Management View
+ * users.js — USER-360 (Super Admin V2, ADR-022).
+ *
+ * The single source of truth for any user. SplitView: a flat, filterable master list
+ * (status chips, NOT grouped-by-coaching; the Inactive chip becomes a bulk-action mode that
+ * absorbs the old Inactive view) + an in-flow detail pane (replaces the overlay drawer) with
+ * tabs Profile | Entitlement | Lifecycle | AI | Activity | Payments | Audit. EVERY user action
+ * lives here — grant/revoke, trial, lifecycle (suspend/restore/archive/reset/delete), AI throttle,
+ * and coaching reassignment. No user action exists outside User-360.
  */
 var UsersView = (function () {
   'use strict';
 
-  /**
-   * Delegate to centralized AdminUtils for timestamp conversion.
-   */
-  function _toMillis(ts) {
-    return AdminUtils.toMillis(ts);
-  }
+  var _split = null, _all = [], _cursor = null, _filter = 'all', _text = '', _coachings = [], _bulk = {};
+  var CHIPS = ['all', 'free', 'premium', 'trial', 'inactive', 'suspended', 'archived'];
 
-  var _allUsers = [];
-  var _coachings = [];
+  function _esc(s) { return AdminUtils.escapeHtml(s); }
+  function _fmt(v) { return AdminUtils.formatDate(v); }
+  function _fmtT(v) { return AdminUtils.formatDateTime(v); }
+  function _entBadge(u) { var e = AdminUtils.entitlementState(u); return '<span class="badge ' + e.badgeClass + '">' + _esc(e.label) + '</span>'; }
+  function _statusBadge(s) { s = s || 'active'; if (s === 'active') return ''; return ' <span class="badge ' + (s === 'suspended' ? 'badge-archived' : 'badge-draft') + '">' + _esc(s) + '</span>'; }
 
   function render() {
-    var container = document.getElementById('view-users');
-    container.innerHTML =
-      '<div class="view-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;">' +
-        '<div>' +
-          '<h2 class="view-title">Ecosystem Users</h2>' +
-          '<p class="view-subtitle">Manage organization and individual entitlements</p>' +
-        '</div>' +
-        '<div style="display:flex;gap:.5rem;">' +
-          '<button class="btn btn-sm btn-outline" id="uRefreshBtn">Refresh</button>' +
-          '<button class="btn btn-sm accent" id="uAddCoachingBtn">+ New Coaching</button>' +
-        '</div>' +
-      '</div>' +
-      '<div id="usersContainerArea"><div class="loading">Loading ecosystem...</div></div>';
-
-    document.getElementById('uRefreshBtn').onclick = _loadData;
-    document.getElementById('uAddCoachingBtn').onclick = _showAddCoachingModal;
-    _loadData();
-  }
-
-  var _nextCursor = null;
-
-  async function _loadData(loadMore = false) {
-    var area = document.getElementById('usersContainerArea');
-    var loadBtn = document.getElementById('uLoadMoreBtn');
-    
-    if (!loadMore) {
-      if (!area) return;
-      area.innerHTML = '<div class="loading">Loading ecosystem...</div>';
-      _allUsers = [];
-      _nextCursor = null;
-    } else if (loadBtn) {
-      loadBtn.disabled = true;
-      loadBtn.textContent = 'Loading...';
-    }
-
-    try {
-      // Coachings are fetched only on initial load or full refresh
-      let coachingsPromise = (!loadMore || _coachings.length === 0) ? API.getCoachings() : Promise.resolve({ coachings: _coachings });
-      
-      const [usersRes, coachingsRes] = await Promise.all([
-        API.getUsers(loadMore ? _nextCursor : null),
-        coachingsPromise
-      ]);
-
-      // API might return data in 'data' (new API) or 'users' (old API)
-      var fetchedUsers = usersRes.data || usersRes.users || [];
-      _allUsers = _allUsers.concat(fetchedUsers);
-      _nextCursor = usersRes.nextCursor || null;
-      
-      if (!loadMore || _coachings.length === 0) {
-        // Coachings API might return array or object with coachings field
-        _coachings = Array.isArray(coachingsRes) ? coachingsRes : (coachingsRes.coachings || []);
-      }
-      
-      AdminState.set({ usersCache: _allUsers, coachingsCache: _coachings });
-      _renderGroups();
-    } catch (e) {
-      if (!loadMore) {
-        area.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Error: ' + e.message + '</div></div>';
-      } else if (loadBtn) {
-        loadBtn.disabled = false;
-        loadBtn.textContent = 'Failed to load. Try again.';
-      }
-    }
-  }
-
-  function _renderGroups() {
-    var area = document.getElementById('usersContainerArea');
-    if (!area) return;
-
-    var html = '';
-
-    // Render Coaching Groups
-    _coachings.forEach(function (coaching) {
-      var groupUsers = _allUsers.filter(u => u.coachingId === coaching.coachingId);
-      html += _buildGroupHTML(
-        coaching.name + ' — ' + coaching.coachingId, 
-        groupUsers, 
-        'bulk', 
-        coaching.coachingId
-      );
+    var c = document.getElementById('view-users');
+    if (!c) return;
+    _split = SplitView.mount(c, {
+      renderList: _renderMaster,
+      renderDetail: _renderDetail,
+      emptyDetail: function () { return '<div class="splitview-empty empty-state"><div class="empty-state-icon">👤</div><div class="empty-state-text">Select a user to open their 360.</div></div>'; }
     });
-
-    // Render Independent Users
-    var independentUsers = _allUsers.filter(u => !u.coachingId);
-    if (independentUsers.length > 0 || _coachings.length === 0) {
-      html += _buildGroupHTML('Independent / Unaffiliated Users', independentUsers, 'individual', null);
-    }
-
-    if (_nextCursor) {
-      html += '<div style="text-align: center; margin-top: 1.5rem; margin-bottom: 2rem;">' +
-        '<button id="uLoadMoreBtn" class="btn btn-outline" style="width: auto;">Load More Users</button>' +
-      '</div>';
-    }
-
-    area.innerHTML = html;
-
-    var loadBtn = document.getElementById('uLoadMoreBtn');
-    if (loadBtn) {
-      loadBtn.onclick = function() { _loadData(true); };
-    }
+    if (!_coachings.length) { API.getCoachings().then(function (l) { _coachings = l || []; }).catch(function () { }); }
+    _load();
   }
 
-  function _buildGroupHTML(title, users, type, targetId) {
-    var html = '<div class="coaching-group card" style="margin-bottom: 1.5rem; padding:0; overflow: hidden;">';
-    
-    // Header
-    html += '<div class="group-header" style="padding: 1.25rem; border-bottom: 1px solid rgba(226,232,240,.6); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-wrap: wrap; gap: 1rem;">';
-    html += '<div style="font-weight: 700; font-size: 1.0625rem; color: #0f172a; display: flex; align-items: center; gap: .5rem; word-break: break-word;">' + _escapeHtml(title) + ' <span class="badge badge-free">' + users.length + ' students</span></div>';
-    
-    if (type === 'bulk' && targetId) {
-      html += '<button class="btn btn-sm accent" style="width: auto;" onclick="UsersView.showBulkActions(\'' + targetId + '\')">Bulk Actions ⚡</button>';
-    }
-    html += '</div>';
+  /* ───────── Master list ───────── */
+  function _renderMaster(listEl) {
+    var chips = CHIPS.map(function (ch) { return '<button class="chip' + (ch === _filter ? ' active' : '') + '" data-chip="' + ch + '">' + ch.charAt(0).toUpperCase() + ch.slice(1) + '</button>'; }).join('');
+    listEl.innerHTML =
+      '<div class="view-header" style="margin-bottom:.4rem;"><h2 class="view-title">User-360</h2><p class="view-subtitle">Single source of truth for every user.</p></div>' +
+      '<div class="chip-bar" id="uChips">' + chips + '</div>' +
+      '<input type="text" class="modal-input" id="uText" placeholder="Filter loaded users (name / email)" style="margin:.5rem 0;" />' +
+      '<div id="uBulk"></div>' +
+      '<div id="uList"><div class="loading">Loading…</div></div>' +
+      '<div id="uMore" style="margin-top:.5rem;"></div>';
+    listEl.querySelector('#uChips').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-chip]') : null;
+      if (!b) return;
+      _filter = b.getAttribute('data-chip'); _bulk = {}; _text = '';
+      listEl.querySelectorAll('.chip').forEach(function (el) { el.classList.toggle('active', el.getAttribute('data-chip') === _filter); });
+      var t = listEl.querySelector('#uText'); if (t) t.value = '';
+      _load();
+    });
+    var txt = listEl.querySelector('#uText'); txt.value = _text;
+    txt.addEventListener('input', function (e) { _text = e.target.value; _renderList(); });
+  }
 
-    // Users List
-    html += '<div class="group-content" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">';
-    if (users.length === 0) {
-      html += '<div class="empty-state" style="padding: 1.5rem 1rem;"><div class="empty-state-text">No students in this group.</div></div>';
+  function _load() {
+    var listEl = document.getElementById('uList'); if (listEl) listEl.innerHTML = '<div class="loading">Loading…</div>';
+    var moreEl = document.getElementById('uMore'); if (moreEl) moreEl.innerHTML = '';
+    if (_filter === 'inactive') {
+      API.getInactiveUsers(90, 300).then(function (res) { _all = (res && res.data) || []; _cursor = null; _renderBulkBar(); _renderList(); })
+        .catch(function (e) { if (listEl) listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
     } else {
-      users.forEach(function (u) {
-        var name = u.displayName || u.email || 'Unknown';
-        var email = u.email || 'No email';
-        var _premActive = u.plan === 'premium' && (!u.planExpiry || _toMillis(u.planExpiry) > Date.now());
-        var isPrem = _premActive;
-        var badgeHTML = '';
-        var stateType = 'free';
+      _renderBulkBar();
+      API.getUsers().then(function (res) { _all = (res && (res.data || res.users)) || []; _cursor = (res && res.nextCursor) || null; _renderList(); })
+        .catch(function (e) { if (listEl) listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
+    }
+  }
 
-        if (_premActive && u.isTrial) {
-          badgeHTML = '<span class="badge badge-draft">Trial</span>';
-          stateType = 'trial';
-        } else if (_premActive) {
-          var _lbl = u.planType === 'premium_12m' ? 'Premium · 12m' : (u.planType === 'premium_6m' ? 'Premium · 6m' : 'Premium');
-          badgeHTML = '<span class="badge badge-premium">' + _lbl + '</span>';
-          stateType = 'premium';
-        } else {
-          badgeHTML = '<span class="badge badge-free">Free</span>';
-          stateType = 'free';
-        }
+  function _matches(u) {
+    if (_text) { var q = _text.toLowerCase(); var hay = ((u.displayName || '') + ' ' + (u.email || '')).toLowerCase(); if (hay.indexOf(q) === -1) return false; }
+    if (_filter === 'all' || _filter === 'inactive') return true;
+    if (_filter === 'suspended') return (u.accountStatus === 'suspended');
+    if (_filter === 'archived') return (u.accountStatus === 'archived');
+    return AdminUtils.entitlementState(u).state === _filter; /* free / premium / trial */
+  }
 
-        var actionLabel = stateType === 'free' ? 'Grant Access' : 'Modify Access';
-        var actionAccent = stateType === 'free' ? 'accent' : 'btn-outline';
+  function _renderList() {
+    var listEl = document.getElementById('uList'); if (!listEl) return;
+    var rows = _all.filter(_matches);
+    if (!rows.length) { listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No users match.</div></div>'; }
+    else {
+      var bulk = (_filter === 'inactive');
+      listEl.innerHTML = rows.map(function (u) {
+        return '<div class="sv-row" data-sv-id="' + _esc(u.uid) + '" data-uid="' + _esc(u.uid) + '">' +
+          (bulk ? '<input type="checkbox" class="uCheck" data-uid="' + _esc(u.uid) + '" ' + (_bulk[u.uid] ? 'checked' : '') + ' onclick="event.stopPropagation();" /> ' : '') +
+          '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(u.displayName || u.email || u.uid) + _statusBadge(u.accountStatus) + '</div>' +
+          '<div style="font-size:.78rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(u.coachingId) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
+          _entBadge(u) + '</div>';
+      }).join('');
+      listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-uid')); }); });
+      listEl.querySelectorAll('.uCheck').forEach(function (cb) { cb.addEventListener('change', function () { _bulk[cb.getAttribute('data-uid')] = cb.checked; _renderBulkBar(); }); });
+    }
+    var moreEl = document.getElementById('uMore');
+    if (moreEl) moreEl.innerHTML = (_cursor && _filter !== 'inactive') ? '<button class="btn btn-sm btn-outline" id="uMoreBtn">Load more</button>' : '';
+    var mb = document.getElementById('uMoreBtn');
+    if (mb) mb.onclick = function () { mb.disabled = true; API.getUsers(_cursor).then(function (res) { _all = _all.concat((res && (res.data || res.users)) || []); _cursor = (res && res.nextCursor) || null; _renderList(); }).catch(function () { mb.disabled = false; }); };
+  }
 
-        html += '<div style="border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; background: var(--bg-surface); cursor: pointer; transition: all var(--transition-fast);" onclick="UserDrawer.open(\'' + u.uid + '\')">';
-        html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; flex-wrap: wrap;">';
-        html += '<div style="flex: 1; min-width: 150px;">';
-        html += '<div style="font-weight: 600; font-size: .9375rem; color: var(--text-primary); word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; margin-bottom: .25rem;">' + _escapeHtml(name) + '</div>';
-        html += '<div style="font-size: .8125rem; color: var(--text-secondary); word-break: break-word; overflow-wrap: anywhere;">' + _escapeHtml(email) + '</div>';
-        html += '</div>';
-        html += '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: .25rem;">';
-        html += badgeHTML;
-        html += '<div style="font-size: .6875rem; color: #94a3b8; margin-top: .25rem;">View 360 Details &rarr;</div>';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>'; // End Card
+  function _renderBulkBar() {
+    var el = document.getElementById('uBulk'); if (!el) return;
+    if (_filter !== 'inactive') { el.innerHTML = ''; return; }
+    var ids = Object.keys(_bulk).filter(function (k) { return _bulk[k]; });
+    el.innerHTML = '<div class="bulk-bar"><span>' + ids.length + ' selected (inactive ≥90d)</span>' +
+      '<button class="btn btn-sm btn-outline" id="uArch"' + (ids.length ? '' : ' disabled') + '>Archive</button>' +
+      '<button class="btn btn-sm btn-outline" id="uRemind"' + (ids.length ? '' : ' disabled') + '>Remind</button>' +
+      '<button class="btn btn-sm btn-outline" id="uExp">Export CSV</button></div>';
+    var arch = document.getElementById('uArch'); if (arch) arch.onclick = function () { _confirmBulk(ids); };
+    var rem = document.getElementById('uRemind'); if (rem) rem.onclick = function () { API.bulkRemindInactive(ids).then(function (r) { Toast.success('Reminded ' + (r.sent || 0)); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); };
+    var exp = document.getElementById('uExp'); if (exp) exp.onclick = function () { API.getInactiveExport(90).then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); };
+  }
+  function _confirmBulk(ids) {
+    Modal.show({ title: 'Archive ' + ids.length + ' user(s)?', body: '<p class="text-sm text-secondary">Each will be Auth-disabled and scheduled for purge after the hold. Audited.</p>', actions: [{ label: 'Cancel' }, { label: 'Archive', danger: true, autoClose: false, onClick: function () { API.bulkArchiveInactive(ids).then(function (r) { Toast.success('Archived ' + (r.archived || 0)); Modal.close(); _bulk = {}; _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); } }] });
+  }
+
+  /* ───────── Detail (360) ───────── */
+  function _renderDetail(detailEl, uid) {
+    detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a><div class="loading">Loading user…</div>';
+    API.getUserDetails(uid).then(function (d) {
+      var p = d.profile || {};
+      detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a>' +
+        '<div class="view-header" style="margin:.25rem 0 .5rem;"><h2 class="view-title" style="font-size:1.2rem;">' + _esc(p.displayName || p.email || uid) + ' ' + _entBadge(p) + _statusBadge(p.accountStatus) + '</h2>' +
+        '<p class="view-subtitle">' + _esc(p.email || '') + ' · <code>' + _esc(uid) + '</code></p></div>' +
+        '<div id="uTabs"></div>';
+      Tabs.mount(document.getElementById('uTabs'), {
+        tabs: [
+          { id: 'profile', label: 'Profile', render: function (el) { _tabProfile(el, uid, p); } },
+          { id: 'entitlement', label: 'Entitlement', render: function (el) { _tabEntitlement(el, uid, p); } },
+          { id: 'lifecycle', label: 'Lifecycle', render: function (el) { _tabLifecycle(el, uid, p); } },
+          { id: 'ai', label: 'AI', render: function (el) { _tabAI(el, uid, d); } },
+          { id: 'activity', label: 'Activity', render: function (el) { _tabActivity(el, uid); } },
+          { id: 'payments', label: 'Payments', render: function (el) { _tabPayments(el, uid); } },
+          { id: 'audit', label: 'Audit', render: function (el) { _tabAudit(el, uid); } }
+        ]
       });
-    }
-    html += '</div></div>';
-
-    return html;
+    }).catch(function (e) { detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a><div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
   }
 
-  function _escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"']/g, function(m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-    });
-  }
+  function _kv(k, v) { return '<div class="cc-feed-row"><span class="muted">' + _esc(k) + '</span><span>' + (v == null || v === '' ? '—' : _esc(v)) + '</span></div>'; }
 
-  function _showAddCoachingModal() {
-    var body = document.createElement('div');
-    body.innerHTML =
-      '<div class="modal-field"><label class="modal-label">Coaching ID (e.g., IMS_NAGPUR_01)</label>' +
-        '<input type="text" class="modal-input" id="cIdInput" placeholder="Must be unique, no spaces" style="text-transform: uppercase;" /></div>' +
-      '<div class="modal-field"><label class="modal-label">Coaching Name</label>' +
-        '<input type="text" class="modal-input" id="cNameInput" placeholder="e.g. IMS Nagpur" /></div>';
-
-    Modal.show({
-      title: 'Create Coaching Institute',
-      body: body,
-      actions: [
-        { label: 'Cancel' },
-        { label: 'Create', accent: true, onClick: _createCoaching, autoClose: false }
-      ]
-    });
-  }
-
-  function _showIndividualActions(uid, stateType, name) {
-    var body = document.createElement('div');
-    
-    var trialHtml = 
-      '<div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem;">' +
-        '<input type="number" id="trialDays_' + uid + '" class="modal-input" style="width:80px; margin:0;" value="7" min="1" max="365" />' +
-        '<span style="font-size:.875rem; color:var(--text-secondary);">Days Trial</span>' +
-      '</div>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'individual\', \'trial\', \'' + uid + '\');">Grant Trial</button>';
-
-    var premiumHtml =
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_6m\', \'' + uid + '\');">Grant Premium (6 Months)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'individual\', \'premium_12m\', \'' + uid + '\');">Grant Premium (12 Months)</button>';
-
-    var revokeHtml = '';
-    if (stateType !== 'free') {
-      revokeHtml = 
-        '<hr style="border:0; border-top:1px dashed var(--border-color); margin:1rem 0;" />' +
-        '<button class="btn btn-danger" style="width:100%;" onclick="UsersView.confirmEnt(\'individual\', \'revoke\', \'' + uid + '\');">Revoke All Access</button>';
-    }
-
-    body.innerHTML = 
-      '<p class="text-secondary text-sm" style="margin-bottom: 1.5rem;">Select an action for <strong>' + name + '</strong>.</p>' +
-      trialHtml + premiumHtml + revokeHtml;
-    
-    Modal.show({
-      title: 'Manage Access',
-      body: body,
-      actions: [ { label: 'Cancel' } ]
-    });
-  }
-
-  function _showBulkActions(targetId) {
-    var body = document.createElement('div');
-    body.innerHTML = 
-      '<p class="text-secondary text-sm" style="margin-bottom: 1.5rem;">Select an action to apply to all students within coaching group <strong>' + _escapeHtml(targetId) + '</strong>.</p>' +
-      '<div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem;">' +
-        '<input type="number" id="trialDays_' + targetId + '" class="modal-input" style="width:80px; margin:0;" value="7" min="1" max="365" />' +
-        '<span style="font-size:.875rem; color:var(--text-secondary);">Days Trial</span>' +
-      '</div>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem;" onclick="UsersView.confirmEnt(\'bulk\', \'trial\', \'' + targetId + '\');">Grant Trial</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_6m\', \'' + targetId + '\');">Grant Premium (6 Months)</button>' +
-      '<button class="btn btn-outline" style="width:100%; margin-bottom:.75rem; color:var(--accent-primary); border-color:#bfdbfe;" onclick="UsersView.confirmEnt(\'bulk\', \'premium_12m\', \'' + targetId + '\');">Grant Premium (12 Months)</button>' +
-      '<hr style="border:0; border-top:1px dashed var(--border-color); margin:1rem 0;" />' +
-      '<button class="btn btn-danger" style="width:100%;" onclick="UsersView.confirmEnt(\'bulk\', \'revoke\', \'' + targetId + '\');">Revoke All Access</button>';
-    
-    Modal.show({
-      title: 'Bulk Actions',
-      body: body,
-      actions: [ { label: 'Cancel' } ]
-    });
-  }
-
-  async function _createCoaching() {
-    var cId = document.getElementById('cIdInput').value.trim().toUpperCase().replace(/\s+/g, '_');
-    var cName = document.getElementById('cNameInput').value.trim();
-
-    if (!cId || !cName) {
-      Toast.error('Both fields are required.');
-      return;
-    }
-
-    try {
-      await API.createCoaching(cId, cName);
-      Toast.success('Coaching created successfully.');
-      Modal.close();
-      _loadData();
-    } catch (e) {
-      Toast.error('Failed: ' + e.message);
-    }
-  }
-
-  function _confirmEntitlement(type, action, targetId) {
-    var trialDays = 7;
-    if (action === 'trial') {
-      var inputEl = document.getElementById('trialDays_' + targetId);
-      if (inputEl) {
-        trialDays = parseInt(inputEl.value, 10) || 7;
-      }
-    }
-
-    var actionLabels = {
-      'trial': trialDays + '-Day Trial',
-      'premium_6m': 'Premium (6 Months)',
-      'premium_12m': 'Premium (12 Months)',
-      'revoke': 'Revoke All Access'
+  function _tabProfile(el, uid, p) {
+    var opts = '<option value="">— Independent —</option>' + _coachings.map(function (c) { var id = c.id || c.coachingId; return '<option value="' + _esc(id) + '"' + (p.coachingId === id ? ' selected' : '') + '>' + _esc((c.name || id) + ' (' + id + ')') + '</option>'; }).join('');
+    el.innerHTML = '<div class="card" style="padding:1rem;">' +
+      _kv('Name', p.displayName) + _kv('Email', p.email) + _kv('UID', uid) +
+      _kv('Plan', AdminUtils.entitlementState(p).label) + _kv('Plan source', p.planSource) + _kv('Account status', p.accountStatus || 'active') + _kv('Joined', _fmt(p.createdAt)) +
+      '<div style="margin-top:.75rem;"><label class="modal-label">Coaching affiliation</label><div style="display:flex;gap:.5rem;"><select class="modal-select" id="uReassign" style="flex:1;">' + opts + '</select><button class="btn btn-sm accent" id="uReassignBtn">Reassign</button></div></div></div>';
+    document.getElementById('uReassignBtn').onclick = function () {
+      var cid = document.getElementById('uReassign').value;
+      API.reassignCoaching(uid, cid).then(function () { Toast.success('Coaching reassigned'); _split.select(uid); _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
     };
+  }
 
-    var msg = 'Are you sure you want to ' + (action === 'revoke' ? 'apply' : 'grant') + ' ' + actionLabels[action] + ' for ' + (type === 'bulk' ? 'all users in ' + _escapeHtml(targetId) : 'this user') + '?';
-
-    var body = document.createElement('div');
-    body.innerHTML = '<p>' + msg + '</p>';
-
-    Modal.show({
-      title: 'Confirm Entitlement',
-      body: body,
-      actions: [
-        { label: 'Cancel' },
-        { 
-          label: 'Confirm', 
-          accent: action === 'revoke', 
-          onClick: async function (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Processing...';
-            try {
-              const res = await API.grantEntitlement(type, action, targetId, trialDays);
-              Toast.success('Updated ' + res.updatedCount + ' user(s) successfully.');
-              Modal.close();
-              _loadData();
-            } catch (e) {
-              btn.disabled = false;
-              btn.textContent = 'Confirm';
-              Toast.error('Failed to update entitlements: ' + e.message);
-            }
-          }, 
-          autoClose: false 
+  function _tabEntitlement(el, uid, p) {
+    var e = AdminUtils.entitlementState(p);
+    el.innerHTML = '<div class="card" style="padding:1rem;">' +
+      _kv('Current', e.label) + _kv('Plan type', p.planType) + _kv('Expiry', _fmt(p.planExpiry)) + _kv('Trial?', p.isTrial ? 'yes (ends ' + _fmt(p.trialEnd) + ')' : 'no') +
+      '<div class="cc-quick" style="margin-top:.75rem;">' +
+      '<button class="btn btn-sm accent" data-ent="premium_6m">Grant 6m</button>' +
+      '<button class="btn btn-sm accent" data-ent="premium_12m">Grant 12m</button>' +
+      '<button class="btn btn-sm btn-outline" data-ent="trial">Grant trial…</button>' +
+      '<button class="btn btn-sm btn-danger" data-ent="revoke">Revoke</button>' +
+      '</div></div>';
+    el.querySelectorAll('[data-ent]').forEach(function (b) {
+      b.onclick = function () {
+        var act = b.getAttribute('data-ent');
+        if (act === 'trial') {
+          Modal.show({ title: 'Grant trial', body: '<label class="modal-label">Days</label><input type="number" class="modal-input" id="uTrialDays" value="7" min="1" max="365" />', actions: [{ label: 'Cancel' }, { label: 'Grant', accent: true, autoClose: false, onClick: function () { var days = parseInt((document.getElementById('uTrialDays') || {}).value, 10) || 7; API.grantEntitlement('individual', 'trial', uid, days).then(function () { Toast.success('Trial granted'); Modal.close(); _split.select(uid); _load(); }).catch(function (er) { Toast.error(AdminUtils.getReadableError(er)); }); } }] });
+          return;
         }
-      ]
+        b.disabled = true;
+        API.grantEntitlement('individual', act, uid).then(function () { Toast.success(act === 'revoke' ? 'Revoked' : 'Granted'); _split.select(uid); _load(); }).catch(function (er) { b.disabled = false; Toast.error(AdminUtils.getReadableError(er)); });
+      };
     });
   }
 
-  return { 
-    render: render, 
-    showBulkActions: _showBulkActions,
-    showIndividualActions: _showIndividualActions,
-    confirmEnt: _confirmEntitlement 
-  };
-})();
-
-/**
- * UserDrawer - Handles the slide-out 360 User View
- */
-var UserDrawer = (function () {
-  'use strict';
-
-  function open(uid) {
-    var overlay = document.getElementById('userDrawerOverlay');
-    var drawer = document.getElementById('userDrawer');
-    var content = document.getElementById('userDrawerContent');
-    
-    if (!overlay || !drawer || !content) return;
-    
-    overlay.style.display = 'block';
-    drawer.style.display = 'flex';
-    // Small delay to allow display block to apply before transition
-    setTimeout(function() {
-      drawer.style.right = '0';
-    }, 10);
-
-    content.innerHTML = '<div class="loading">Loading 360 view...</div>';
-
-    API.getUserDetails(uid).then(function(data) {
-      if (data.error) throw new Error(data.error);
-      _renderDetails(content, data);
-    }).catch(function(err) {
-      content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load: ' + err.message + '</div></div>';
+  function _tabLifecycle(el, uid, p) {
+    var s = p.accountStatus || 'active';
+    el.innerHTML = '<div class="card" style="padding:1rem;">' + _kv('Status', s) + _kv('Suspended', _fmt(p.suspendedAt)) + _kv('Archived', _fmt(p.archivedAt)) + _kv('Purge after', _fmt(p.purgeAfter)) +
+      '<div class="cc-quick" style="margin-top:.75rem;">' +
+      ((s === 'suspended' || s === 'archived') ? '<button class="btn btn-sm accent" data-lc="restore">Restore</button>' : '<button class="btn btn-sm btn-outline" data-lc="suspend">Suspend</button>') +
+      (s !== 'archived' ? '<button class="btn btn-sm btn-outline" data-lc="archive">Archive</button>' : '') +
+      '<button class="btn btn-sm btn-outline" data-lc="reset">Reset progress</button>' +
+      '<button class="btn btn-sm btn-danger" data-lc="delete">Delete account</button>' +
+      '</div></div>';
+    el.querySelectorAll('[data-lc]').forEach(function (b) {
+      b.onclick = function () {
+        var lc = b.getAttribute('data-lc');
+        if (lc === 'delete') { return _confirmDelete(uid); }
+        var fn = lc === 'suspend' ? API.suspendUser : lc === 'restore' ? API.restoreUser : lc === 'archive' ? function (u) { return API.archiveUser(u, 'admin'); } : API.resetUserProgress;
+        b.disabled = true;
+        fn(uid).then(function () { Toast.success(lc + ' done'); _split.select(uid); _load(); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); });
+      };
     });
   }
-
-  function close() {
-    var overlay = document.getElementById('userDrawerOverlay');
-    var drawer = document.getElementById('userDrawer');
-    
-    if (!overlay || !drawer) return;
-    
-    drawer.style.right = '-400px';
-    setTimeout(function() {
-      overlay.style.display = 'none';
-      drawer.style.display = 'none';
-    }, 300); // match CSS transition duration
+  function _confirmDelete(uid) {
+    Modal.show({ title: 'Permanently delete account', body: '<p class="text-sm text-secondary">This deletes the Auth account + all Firestore data. Irreversible. Type <strong>DELETE</strong> to confirm.</p><input type="text" class="modal-input" id="uDel" placeholder="DELETE" />', actions: [{ label: 'Cancel' }, { label: 'Delete', danger: true, autoClose: false, onClick: function () { if ((document.getElementById('uDel') || {}).value !== 'DELETE') { Toast.error('Type DELETE'); return; } API.purgeUser(uid).then(function () { Toast.success('Account deleted'); Modal.close(); _split.clear(); _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); } }] });
   }
 
-  function _renderDetails(container, data) {
-    var p = data.profile || {};
-    var html = '';
-    
-    var stateType = 'free';
-    var badgeHTML = '<span class="badge badge-free">Free</span>';
-    var now = Date.now();
-    
-    var _active = p.plan === 'premium' && (!p.planExpiry || _toMillis(p.planExpiry) > now);
-    if (_active && p.isTrial) {
-      badgeHTML = '<span class="badge badge-draft">Trial</span>';
-      stateType = 'trial';
-    } else if (_active) {
-      badgeHTML = '<span class="badge badge-premium">Premium</span>';
-      stateType = 'premium';
-    }
-
-    // Profile Section
-    html += '<div style="margin-bottom: 2rem;">';
-    html += '<div style="font-weight: 700; font-size: 1.25rem; color: var(--text-primary); margin-bottom: 0.25rem;">' + escapeHtml(p.displayName || p.email || 'Unknown') + '</div>';
-    html += '<div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">' + escapeHtml(p.email) + '</div>';
-    html += '<div style="display:flex; align-items:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 1rem;">';
-    html += badgeHTML;
-    if (p.coachingId) html += '<span class="badge badge-draft">Inst: ' + escapeHtml(p.coachingId) + '</span>';
-    html += '</div>';
-    html += '<div style="font-size: 0.8125rem; color: var(--text-secondary);">Joined: ' + (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Unknown') + '</div>';
-    html += '</div>';
-
-    // Quick Actions
-    var actionLabel = stateType === 'free' ? 'Grant Access' : 'Modify Access';
-    var actionAccent = stateType === 'free' ? 'accent' : 'btn-outline';
-    html += '<div style="margin-bottom: 2rem; display:flex; gap: 0.5rem;">';
-    html += '<button class="btn btn-sm ' + actionAccent + '" style="flex:1;" onclick="UsersView.showIndividualActions(\'' + p.uid + '\', \'' + stateType + '\', \'' + escapeHtml(p.displayName || p.email || 'Unknown') + '\')">' + actionLabel + '</button>';
-    html += '</div>';
-
-    // Account Lifecycle (Phase 2 — ADR-014)
-    var lcStatus = p.accountStatus || 'active';
-    html += '<div class="card" style="margin-bottom:1.5rem; padding:1rem;">';
-    html += '<div style="font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">Account Lifecycle &nbsp;<span class="badge badge-' + (lcStatus === 'active' ? 'active' : 'archived') + '">' + lcStatus + '</span></div>';
-    html += '<div style="display:flex; flex-wrap:wrap; gap:0.5rem;">';
-    if (lcStatus === 'active') {
-      html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'suspend\', \'' + p.uid + '\')">Suspend</button>';
-      html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'archive\', \'' + p.uid + '\')">Archive</button>';
-    } else {
-      html += '<button class="btn btn-sm accent" onclick="UserDrawer.lifecycle(\'restore\', \'' + p.uid + '\')">Restore</button>';
-    }
-    html += '<button class="btn btn-sm btn-outline" onclick="UserDrawer.lifecycle(\'reset\', \'' + p.uid + '\')">Reset Progress</button>';
-    html += '<button class="btn btn-sm btn-danger" onclick="UserDrawer.lifecycle(\'purge\', \'' + p.uid + '\')">Delete</button>';
-    html += '</div>';
-    if (p.purgeAfter) html += '<div style="font-size:0.75rem; color:#b45309; margin-top:0.5rem;">⚠ Scheduled purge: ' + new Date(p.purgeAfter).toLocaleDateString() + '</div>';
-    html += '</div>';
-
-    // AI Usage Section
-    var ai = data.aiUsage || { tokens: 0, count: 0 };
-    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
-    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">AI Usage</div>';
-    html += '<div style="display: flex; justify-content: space-between; font-size: 0.875rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">';
-    html += '<span>Total Tokens</span><strong>' + (ai.tokens || 0).toLocaleString() + '</strong></div>';
-    html += '<div style="display: flex; justify-content: space-between; font-size: 0.875rem;">';
-    html += '<span>Requests</span><strong>' + (ai.count || 0).toLocaleString() + '</strong></div>';
-    html += '</div>';
-
-    // Recent Duels
-    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
-    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Recent Duels</div>';
-    if (!data.recentDuels || data.recentDuels.length === 0) {
-      html += '<div class="text-secondary text-sm">No recent duels completed.</div>';
-    } else {
-      data.recentDuels.forEach(function(d) {
-        var isWin = d.winner === p.uid;
-        var isDraw = d.result === 'draw';
-        var resultText = isDraw ? 'Draw' : (isWin ? 'Win' : 'Loss');
-        var color = isDraw ? '#64748b' : (isWin ? '#10b981' : '#ef4444');
-        
-        html += '<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">';
-        html += '<span>' + new Date(d.createdAt).toLocaleDateString() + '</span>';
-        html += '<strong style="color: ' + color + ';">' + resultText + '</strong>';
-        html += '</div>';
-      });
-    }
-    html += '</div>';
-
-    // Entitlement History
-    html += '<div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">';
-    html += '<div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Entitlement History</div>';
-    if (!data.entitlementLogs || data.entitlementLogs.length === 0) {
-      html += '<div class="text-secondary text-sm">No entitlement changes recorded.</div>';
-    } else {
-      data.entitlementLogs.forEach(function(log) {
-        html += '<div style="font-size: 0.8125rem; padding: 0.5rem 0; border-bottom: 1px dashed var(--border-color);">';
-        html += '<div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">';
-        html += '<strong>' + escapeHtml(log.action) + '</strong>';
-        html += '<span style="color: var(--text-secondary);">' + (log.timestamp ? new Date(log.timestamp).toLocaleDateString() : '') + '</span>';
-        html += '</div>';
-        if (log.adminUid) {
-          html += '<div style="color: var(--text-secondary); font-size: 0.6875rem;">By: ' + escapeHtml(log.adminEmail || log.adminUid) + '</div>';
-        }
-        html += '</div>';
-      });
-    }
-    html += '</div>';
-
-    container.innerHTML = html;
+  function _tabAI(el, uid, d) {
+    var a = d.aiUsage || {};
+    var cost = a.gptCostUSD != null ? Number(a.gptCostUSD).toFixed(4) : '0';
+    var thr = (d.profile && d.profile.aiThrottle) || null;
+    el.innerHTML = '<div class="card" style="padding:1rem;">' +
+      _kv('GPT cost (lifetime)', '$' + cost) + _kv('GPT calls', a.gptCalls || 0) + _kv('Tokens in/out', (a.gptTokensInput || 0) + ' / ' + (a.gptTokensOutput || 0)) + _kv('Word problems', a.wordProblemsUsedLifetime || 0) + _kv('Explanations', a.explanationsUsed || 0) +
+      _kv('Throttle', thr ? thr.cap + '/day (by ' + (thr.setBy || '?') + ')' : 'none') +
+      '<div style="display:flex;gap:.5rem;margin-top:.75rem;"><input type="number" class="modal-input" id="uCap" placeholder="daily cap (0 = clear)" style="flex:1;" value="' + (thr ? thr.cap : '') + '" /><button class="btn btn-sm accent" id="uThrBtn">Set throttle</button></div></div>';
+    document.getElementById('uThrBtn').onclick = function () { var cap = parseInt((document.getElementById('uCap') || {}).value, 10) || 0; API.throttleUser(uid, cap).then(function () { Toast.success(cap > 0 ? 'Throttled to ' + cap + '/day' : 'Throttle cleared'); _split.select(uid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); };
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"']/g, function(m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-    });
+  function _tabActivity(el, uid) {
+    el.innerHTML = '<div class="loading">Loading…</div>';
+    API.getUserActivity(uid).then(function (r) {
+      var t = (r && r.timeline) || [];
+      el.innerHTML = '<div class="card" style="padding:1rem;">' + (t.length ? t.map(function (ev) { return '<div class="cc-feed-row"><span>' + _esc(ev.type) + ' · ' + _esc(ev.detail || '') + '</span><span class="cc-feed-when">' + _esc(_fmtT(ev.at)) + '</span></div>'; }).join('') : '<div class="muted">No recent activity.</div>') + '</div>';
+    }).catch(function (e) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
   }
 
-  /* Account lifecycle actions (Phase 2 — ADR-014). */
-  function lifecycle(action, uid) {
-    if (action === 'purge') {
-      var typed = prompt('PERMANENT DELETE — this erases the account, all its data, and the login. This CANNOT be undone.\n\nType DELETE to confirm:');
-      if (typed !== 'DELETE') { Toast.show('Cancelled.', 'error'); return; }
-      if (!confirm('Final confirmation: permanently delete this account?')) return;
-      API.purgeUser(uid).then(function () {
-        Toast.show('Account permanently deleted.', 'success');
-        close();
-        if (typeof UsersView !== 'undefined') UsersView.render();
-      }).catch(function (e) { Toast.show('Delete failed: ' + AdminUtils.getReadableError(e), 'error'); });
-      return;
-    }
-    var fnMap = { suspend: API.suspendUser, restore: API.restoreUser, archive: API.archiveUser, reset: API.resetUserProgress };
-    var confirms = {
-      suspend: 'Suspend this account? The user will be unable to log in.',
-      restore: 'Restore this account to active?',
-      archive: 'Archive (soft-delete) this account? It is Auth-disabled now and permanently deleted after a 30-day hold — reversible via Restore until then.',
-      reset: "Reset this user's learning progress? Stats and practice history are cleared (the account is kept)."
-    };
-    if (!confirm(confirms[action])) return;
-    fnMap[action](uid).then(function () {
-      Toast.show('Done: ' + action + '.', 'success');
-      open(uid);
-    }).catch(function (e) { Toast.show(action + ' failed: ' + AdminUtils.getReadableError(e), 'error'); });
+  function _tabPayments(el, uid) {
+    el.innerHTML = '<div class="loading">Loading…</div>';
+    API.getUserPaymentHistory(uid).then(function (r) {
+      var ps = (r && r.payments) || [];
+      el.innerHTML = '<div class="card" style="padding:1rem;">' + (ps.length ? ps.map(function (p) { return '<div class="cc-feed-row"><span>' + _esc(p.plan || '?') + ' · ₹' + (p.amountINR != null ? p.amountINR : '?') + ' · ' + _esc(p.status || '') + '</span><span class="cc-feed-when">' + _esc(_fmt(p.claimedAt)) + '</span></div>'; }).join('') : '<div class="muted">No payments.</div>') + '</div>';
+    }).catch(function (e) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
   }
 
-  return {
-    open: open,
-    close: close,
-    lifecycle: lifecycle
-  };
+  function _tabAudit(el, uid) {
+    el.innerHTML = '<div class="loading">Loading…</div>';
+    API.getUserAdminHistory(uid).then(function (r) {
+      var ls = (r && r.actions) || [];
+      el.innerHTML = '<div class="card" style="padding:1rem;">' + (ls.length ? ls.map(function (l) { return '<div class="cc-feed-row"><span>' + _esc(l.action) + ' — ' + _esc(l.summary || '') + ' <span class="muted">(' + _esc(l.actor) + ')</span></span><span class="cc-feed-when">' + _esc(_fmtT(l.timestamp)) + '</span></div>'; }).join('') : '<div class="muted">No admin actions on this user.</div>') + '</div>';
+    }).catch(function (e) { el.innerHTML = '<div class="empty-state"><div class="empty-state-text">' + _esc(AdminUtils.getReadableError(e)) + '</div></div>'; });
+  }
+
+  return { render: render };
 })();

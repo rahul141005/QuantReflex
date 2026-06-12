@@ -395,9 +395,24 @@ async function handler(req, res) {
         const prem = await db.collection('users').where('plan', '==', 'premium').limit(1000).get();
         prem.forEach(function (doc) { const e = doc.data().planExpiry; if (e && typeof e === 'string' && e > nowIso) { if (e <= in7) expiring7++; if (e <= in30) expiring30++; } });
       } catch (_) { /* non-fatal */ }
-      let totalUsers = 0, premiumUsers = 0, premiumShare = 0;
-      try { const latest = await db.collection('metrics').doc('latest').get(); if (latest.exists) { const d = latest.data(); totalUsers = d.totalUsers || 0; premiumUsers = d.premiumUsers || 0; premiumShare = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0; } } catch (_) { /* non-fatal */ }
-      return res.status(200).json({ trend: trend, expiring7d: expiring7, expiring30d: expiring30, premiumShare: Number(premiumShare.toFixed(1)), totalUsers: totalUsers, premiumUsers: premiumUsers, generatedAt: nowIso });
+      let totalUsers = 0, premiumUsers = 0, premiumShare = 0, trialUsers = 0;
+      try { const latest = await db.collection('metrics').doc('latest').get(); if (latest.exists) { const d = latest.data(); totalUsers = d.totalUsers || 0; premiumUsers = d.premiumUsers || 0; trialUsers = d.trialUsers || 0; premiumShare = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0; } } catch (_) { /* non-fatal */ }
+      /* conversionRate = paid-premium share of all users (ADR-022). */
+      const conversionRate = Number(premiumShare.toFixed(1));
+      /* growth = % change vs the oldest point in the (≤14d) trend window, for revenue + premium base. */
+      let growth = { revenuePct: null, premiumPct: null, windowDays: trend.length };
+      if (trend.length >= 2) {
+        const first = trend[0], last = trend[trend.length - 1];
+        if (first.revenueTotalINR > 0) growth.revenuePct = Number((((last.revenueTotalINR - first.revenueTotalINR) / first.revenueTotalINR) * 100).toFixed(1));
+        if (first.premiumUsers > 0) growth.premiumPct = Number((((last.premiumUsers - first.premiumUsers) / first.premiumUsers) * 100).toFixed(1));
+      }
+      /* failedGrants = payment failures in the last 30d (signal that intended grants did not land). */
+      let failedGrants = null;
+      try {
+        const cut30 = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30 * 86400000));
+        failedGrants = (await db.collection('securityEvents').where('type', '==', 'payment_failure').where('createdAt', '>=', cut30).count().get()).data().count;
+      } catch (_) { /* securityEvents/index may be absent — degrade */ }
+      return res.status(200).json({ trend: trend, expiring7d: expiring7, expiring30d: expiring30, premiumShare: conversionRate, conversionRate: conversionRate, trialUsers: trialUsers, growth: growth, failedGrants: failedGrants, totalUsers: totalUsers, premiumUsers: premiumUsers, generatedAt: nowIso });
     }
 
     /* ── ack-alert (Phase V2, ADR-019) — suppress an alert type for N hours (audited) ── */

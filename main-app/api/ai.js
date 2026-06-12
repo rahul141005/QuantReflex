@@ -214,6 +214,16 @@ module.exports = withAuth(async function (req, res) {
     });
   }
 
+  /* Per-user AI throttle (ADR-022) — admin-set daily request cap; honored before any generation. */
+  try {
+    await aiService.enforceAiThrottle(req.userId);
+  } catch (err) {
+    if (err && err.code === 'AI_THROTTLED') {
+      return res.status(429).json({ error: { code: 'AI_THROTTLED', message: err.message, retryable: false } });
+    }
+    return res.status(500).json({ error: formatError(err) });
+  }
+
   var action = req.query.action || '';
   if (action === 'explain') return _explain(req, res);
   if (action === 'insights') return _insights(req, res);

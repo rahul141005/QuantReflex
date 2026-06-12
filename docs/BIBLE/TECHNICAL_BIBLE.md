@@ -38,7 +38,7 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
 | `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|insights\|study-plan), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `auth/register` (public), `validate-coaching` (public) |
-| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops\|search\|config-get\|config-set\|revenue-intel\|ack-alert), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind), `ai` (usage\|budget), `entitlements`, `coachings`, `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated). **V2 UI (ADR-019)** organizes these under a 7-domain tablet-first nav: **Command Center · Users · Coachings · Revenue · Content · AI · Operations** (Global Search = Cmd+K shell affordance). |
+| `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops\|search\|config-get\|config-set\|revenue-intel\|ack-alert), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind\|payment-history\|activity-timeline\|admin-history\|pending-purge-list\|throttle\|reassign-coaching), `ai` (usage\|budget), `entitlements`, `coachings` (list\|create\|mutate\|details\|students\|activity\|reset-token), `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` (broadcast POST \| history GET) + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated). **V2 UI (ADR-019)** is a 7-domain tablet-first nav: **Command Center · Users · Coachings · Revenue · Content · AI · Operations** (Global Search = Cmd+K shell affordance). **ADR-022** consolidated each domain into a first-class **entity-360 / Center** (User-360, Coaching-360, AI Cost Center, Revenue Center, Operations Center) — one owner per capability, no legacy/strangler view files remain. |
 | `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, `syncCoachingStudentCount` |
 
@@ -64,6 +64,12 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
   the 12-function cap with headroom. **Super Admin V2 (ADR-019/020/021)** adds `search`, `config-get`,
   `config-set`, `revenue-intel`, `ack-alert` as new `?action=` branches on `system.js` — **no new function**
   (stays 8/12). Global Search and Emergency-Control config endpoints deliberately ride existing handlers.
+- **ADR-022 (entity-360 consolidation) adds ZERO functions** (super-admin stays **8/12**): all new reads/writes are
+  `?action=` branches on existing handlers (users +6, coachings +4, notifications +1 GET, system `revenue-intel`
+  extended), and AI by-coaching / top-consumer / by-feature aggregations are derived **client-side** from the
+  existing `ai?action=usage` payload (no new AI actions). The per-user AI throttle (`users?action=throttle`) is
+  honored by main-app **without a new function** — `api/ai.js` calls `aiService.enforceAiThrottle` inside the
+  existing AI handler (still main-app **6/12**).
 
 ## 4. main-app Client Architecture
 
