@@ -170,10 +170,17 @@ function recordAnswer(correct, category, questionData, responseTime) {
   /* Daily history tracking */
   if (!p.dailyHistory) p.dailyHistory = {};
   if (!p.dailyHistory[today]) {
-    p.dailyHistory[today] = { attempted: 0, correct: 0 };
+    p.dailyHistory[today] = { attempted: 0, correct: 0, sumTimes: 0, count: 0 };
   }
   p.dailyHistory[today].attempted++;
   if (correct) p.dailyHistory[today].correct++;
+  /* Dated speed history (Analytics Foundation, ADR-027): accumulate per-day response time so the
+     Coaching App can compute a REAL per-day avg solving speed (sumTimes / count). Backward-compatible —
+     pre-ADR-027 day records lack these keys, so default to 0 before incrementing. */
+  if (typeof responseTime === 'number' && isFinite(responseTime)) {
+    p.dailyHistory[today].sumTimes = (p.dailyHistory[today].sumTimes || 0) + responseTime;
+    p.dailyHistory[today].count = (p.dailyHistory[today].count || 0) + 1;
+  }
 
   /* Cap dailyHistory to last 90 days to prevent unbounded storage growth */
   var histKeys = Object.keys(p.dailyHistory);

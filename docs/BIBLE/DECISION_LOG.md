@@ -8,6 +8,72 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-028 — Coaching App V3: mobile-first "Speed Training Control Center" (2026-06-13)
+- **Context:** A ruthless 8-agent product audit of the coaching-owner app (`coaching-admin-app`) found it is
+  **a speed product that never shows speed**: the dashboard API computes `avgSpeed` from real data and the home
+  screen renders none of it; the only speed-over-time chart (`_miniSparkline`) is dead code (data fetched +
+  discarded); the two on-mission widgets (improving/declining students) are buried under "More"; the entire
+  intervention arm is broken (every cross-view jump calls a non-existent `app.navigate` instead of
+  `CoachingApp.navigateTo`); and it carries LMS/gamification scope creep (Instagram export, duel W/L,
+  report-card print, a dead scheduled-notice subsystem, 6 classroom templates, fabricated "Consistency Score"
+  and "Retention" metrics).
+- **Decision:** rebuild it into a focused, **mobile-first** (the primary device is a phone — bottom-nav is
+  retained and restyled, NOT replaced with a tablet sidebar) **Speed Training Control Center** answering five
+  owner questions in <30s (practicing? · getting faster? · who needs attention? · who improves fastest? · is
+  QR working?). **5 bottom-nav tabs:** Dashboard · Students · Performance · Engagement · Settings (the
+  brief's "Growth" adoption metrics fold into Performance; one-owner clarity, no duplicate entry points).
+  - **Notices → "Student Engagement Center"** (behavior-change engine, not a comms platform): exactly 3
+    sections — Quick Broadcast (audiences all/premium/free/selected, used for motivation: speed challenges,
+    targets, congratulations), Smart Nudges (auto-generated: inactive / weak-topic / low-streak /
+    low-participation) + Achievement Broadcasts, Recent Notices (last 20, read-only). **Removed:** templates
+    library, scheduling subsystem (also a dead feature — nothing dispatched `scheduledNotices`),
+    history-management console, and all inbox/conversation/reply/chat/LMS workflows.
+  - **No "Coaching Rank"** (the app is JWT-scoped to one coaching; cross-tenant comparison is governance-owned
+    by super-admin). Replaced by a **Coaching Improvement Score** measured vs the coaching's OWN history
+    (speed-improvement + accuracy-improvement + active-% + streak-retention). Any future platform benchmark
+    must come from super-admin aggregates, be **anonymized**, and never expose competing coaching identities.
+  - **Calm, de-gamered dark theme** (Linear-style, tokenized) replacing the gamer-navy + podium/medal/Instagram
+    aesthetic; **re-enable pinch-zoom** (the viewport disabled it — WCAG 1.4.4); ≥44px touch targets;
+    Student-360 stays a full-screen push detail (correct mobile pattern), not a split-pane.
+  - **Honesty rule (ties to ADR-027):** every history-dependent metric (speed trend, improvement score, top
+    improvers, conversion/retention) renders a **"collecting data — live in N days"** state, never a fabricated
+    or approximated number. Metrics already backed by real dated data (participation, accuracy trend,
+    questions/day, current avg speed, active/at-risk, premium/trial) are live from day one.
+- **Infra:** zero new coaching serverless functions (stays **6/12**); reads the ADR-027 `coachingMetrics`
+  rollup instead of the old 3× unbounded `users` full-scan; drops the ~200 KB `html2canvas` eager load.
+- **Consequence:** an owner opens the app and immediately sees whether students are practicing and (as data
+  accrues) getting faster, with a working intervention loop — and the product gets more valuable every week as
+  history accumulates. Bible 2.16→2.17, Arch 2.9→2.10. Depends on ADR-027.
+
+## ADR-027 — Historical Analytics Foundation: dated speed history + per-coaching daily rollup (2026-06-13)
+- **Context:** The coaching owner's headline question — "are my students getting **faster**?" — had **no
+  truthful answer** because there is **zero dated speed history** in the system: `stats.responseTimes` is a
+  timestamp-less 200-item FIFO ring and `stats.dailyHistory` stored only `{attempted, correct}` per day (no
+  times). Existing "improvement"/"weekly speed" surfaces faked the time axis (a last-200-questions slice
+  relabeled as a 7-day trend; lifetime speed relabeled as "weekly speed"). The owner directive: **measure real
+  improvement, never invent it** — build the data foundation now, show honest "collecting" states until it
+  accrues.
+- **Decision:** establish the analytics foundation as a first-class, Bible-documented milestone:
+  1. **Widen `users/{uid}.stats.dailyHistory[date]`** from `{attempted, correct}` to
+     `{attempted, correct, sumTimes, count}` in `main-app/js/progress.js#recordAnswer` (avgTime/day =
+     `sumTimes/count`). Additive + backward-compatible (readers default the new keys to 0); the existing
+     90-day prune keeps it bounded. This is the **single root unblock** for every speed-trend metric.
+  2. **Populate `practiceSessions/{auto}`** — wire the exported-but-never-called
+     `firestore-sync.savePracticeSession()` into the drill/timed-test completion flow so per-session
+     `duration`+`date` exist (enables "sessions today" and per-session speed).
+  3. **Per-coaching daily rollup `coachingMetrics/{coachingId}`** — written by the **existing super-admin daily
+     cron** (it already scans everything for `metrics/{date}`), so cross-tenant aggregation stays
+     super-admin-owned and the coaching app adds **zero functions**. Backs growth/retention/trends AND replaces
+     the coaching app's 3× unbounded per-load roster scans.
+  4. **Composite indexes** `users(coachingId, plan)`, `(coachingId, isTrial)`, `(coachingId, createdAt)` for
+     coaching-scoped `count()` aggregations.
+- **Honesty contract:** no backfill, no synthetic history — day rows accrue from 2026-06-13 forward; trend
+  metrics stay in a "collecting data" state until ≥7/≥30 days exist. **Real improvement, measured — never
+  invented.**
+- **Consequence:** the Coaching App (ADR-028) becomes automatically more valuable each week as history
+  accumulates, with no fabricated analytics. Firestore 2.8→2.9, Security 2.6→2.7, Arch 2.9→2.10. Recorded in
+  [ROADMAP.md](ROADMAP.md) as the Historical Analytics Foundation milestone.
+
 ## ADR-026 — Super Admin accessibility + governance enforcement audit (Pass 3, 2026-06-12)
 - **Context:** Pass 3 (final pass) of the ADR-024 refinement program — a from-source UX / visual / a11y /
   navigation / design-system enforcement audit run as an adversarial multi-agent review (35 candidate

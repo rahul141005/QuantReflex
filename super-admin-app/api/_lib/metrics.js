@@ -14,6 +14,17 @@ const admin = require('firebase-admin');
 
 const PREMIUM_PRICE_PAISE = { premium_6m: 29900, premium_12m: 49900 };
 
+/* Normalize any stored timestamp (Firestore Timestamp | ISO/locale string | number | {_seconds}) to ms. */
+function _toMs(v) {
+  if (v == null) return 0;
+  if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (_) { return 0; } }
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
+  if (typeof v === 'string') { const t = Date.parse(v); return isNaN(t) ? 0 : t; }
+  if (typeof v === 'object' && v._seconds != null) return v._seconds * 1000;
+  return 0;
+}
+
 /**
  * Count docs whose MIXED-type timestamp field (`updatedAt`/`createdAt` can be a Firestore
  * Timestamp OR an ISO string across the codebase — drift M9) is >= `since`. Firestore range
@@ -111,4 +122,74 @@ async function computeDailySnapshot(db) {
   };
 }
 
-module.exports = { computeDailySnapshot, PREMIUM_PRICE_PAISE };
+/**
+ * Per-coaching daily rollup (Analytics Foundation, ADR-027). Writes one `coachingMetrics/{coachingId}` doc
+ * per coaching, each holding a date-keyed `days` map (90-day cap). Every day row is a snapshot of that
+ * coaching's CURRENT averages — a real measurement taken that day — so the sequence of rows forms an honest
+ * speed / accuracy / participation trend (no backfill, no synthetic data). This centralizes, into the
+ * once-a-day cron, the full-roster aggregation the coaching dashboard used to run 3× per page load.
+ * Bounded by COACHINGS_CAP × STUDENTS_CAP; each coaching is non-fatal (a failure skips just that doc).
+ * Returns the number of coachingMetrics docs written.
+ */
+async function writeCoachingRollups(db) {
+  const COACHINGS_CAP = 2000, STUDENTS_CAP = 5000, DAYS_CAP = 90;
+  const dayKey = new Date().toISOString().split('T')[0];           // 'YYYY-MM-DD' (sorts chronologically)
+  const now = Date.now();
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+  const coachingsSnap = await db.collection('coachings').limit(COACHINGS_CAP).get();
+  let written = 0;
+  for (const cDoc of coachingsSnap.docs) {
+    const coachingId = cDoc.id;
+    try {
+      const studentsSnap = await db.collection('users')
+        .where('coachingId', '==', coachingId).limit(STUDENTS_CAP).get();
+
+      let totalStudents = 0, activeToday = 0, activeThisWeek = 0, premiumCount = 0, trialCount = 0;
+      let sumSpeed = 0, speedN = 0, sumAcc = 0, accN = 0, attempts = 0;
+      studentsSnap.forEach(function (doc) {
+        const u = doc.data() || {};
+        const s = u.stats || {};
+        totalStudents++;
+        const last = _toMs(s.lastActiveDate || u.updatedAt);
+        if (last >= oneDayAgo) activeToday++;
+        if (last >= sevenDaysAgo) activeThisWeek++;
+        const times = Array.isArray(s.responseTimes) ? s.responseTimes : [];
+        if (times.length) { sumSpeed += times.reduce(function (a, b) { return a + b; }, 0) / times.length; speedN++; }
+        const att = s.totalAttempted || 0, cor = s.totalCorrect || 0;
+        attempts += att;
+        if (att > 0) { sumAcc += Math.round((cor / att) * 100); accN++; }
+        if (u.plan === 'premium') premiumCount++;
+        if (u.isTrial) trialCount++;
+      });
+
+      const row = {
+        avgSpeed: speedN ? Number((sumSpeed / speedN).toFixed(2)) : 0,   // seconds/question (lower = faster)
+        avgAccuracy: accN ? Math.round(sumAcc / accN) : 0,
+        activeToday: activeToday,
+        activeThisWeek: activeThisWeek,
+        totalStudents: totalStudents,
+        premiumCount: premiumCount,
+        trialCount: trialCount,
+        participation: totalStudents ? Math.round((activeThisWeek / totalStudents) * 100) : 0,
+        attempts: attempts
+      };
+
+      const ref = db.collection('coachingMetrics').doc(coachingId);
+      const snap = await ref.get();
+      const days = (snap.exists && snap.data() && snap.data().days) ? snap.data().days : {};
+      days[dayKey] = row;
+      const keys = Object.keys(days).sort();                              // ISO keys sort chronologically
+      while (keys.length > DAYS_CAP) { delete days[keys.shift()]; }
+      /* Full set (no merge) so the prune actually removes old keys. */
+      await ref.set({ coachingId: coachingId, updatedAt: admin.firestore.FieldValue.serverTimestamp(), days: days });
+      written++;
+    } catch (e) {
+      console.error('[coachingRollups] failed for', coachingId, e && e.message);
+    }
+  }
+  return written;
+}
+
+module.exports = { computeDailySnapshot, writeCoachingRollups, PREMIUM_PRICE_PAISE };

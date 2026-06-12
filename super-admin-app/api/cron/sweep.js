@@ -5,7 +5,7 @@
  *   (2) Cleanup: flag still-active users inactive>180d; purge archived users past their 30-day hold.
  */
 const admin = require('firebase-admin');
-const { computeDailySnapshot } = require('../_lib/metrics');
+const { computeDailySnapshot, writeCoachingRollups } = require('../_lib/metrics');
 const { purgeUser, INACTIVE_FLAG_DAYS } = require('../_lib/user-lifecycle');
 const { writeAuditLog } = require('../_lib/audit');
 
@@ -35,7 +35,7 @@ module.exports = async function (req, res) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
   }
 
-  const result = { snapshot: false, flagged: 0, purged: 0 };
+  const result = { snapshot: false, coachingRollups: 0, flagged: 0, purged: 0 };
   try {
     const db = admin.firestore();
 
@@ -48,6 +48,15 @@ module.exports = async function (req, res) {
     } catch (e) {
       console.error('[cron/sweep] snapshot failed:', e);
       result.snapshotError = e.message;
+    }
+
+    /* (1b) Per-coaching daily rollup → coachingMetrics/{id} (Analytics Foundation, ADR-027).
+       Non-fatal; builds the honest per-coaching speed/accuracy/participation trend the Coaching App reads. */
+    try {
+      result.coachingRollups = await writeCoachingRollups(db);
+    } catch (e) {
+      console.error('[cron/sweep] coaching rollups failed:', e);
+      result.coachingRollupsError = e.message;
     }
 
     /* (2) Account cleanup. */

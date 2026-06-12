@@ -46,6 +46,7 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `users/{uid}/{sub}/{doc}` | owner | owner | owner | owner |
 | `questions` | any authed | — | denied (admin) | denied |
 | `coachings/{id}` | coaching member (claim match) | — | denied (admin) | denied |
+| `coachingMetrics/{coachingId}` (ADR-027) | coaching admin of **own** coaching (`coaching_admin:true` && `request.auth.token.coachingId == coachingId`) | **denied** (Admin-SDK only — written by the super-admin daily cron) | **denied** | **denied** |
 | `duels/{id}` | participant \| joinable status \| target | authed creator, valid initial status | participant/joiner + `validDuelUpdate()` | denied (soft-delete) |
 | `payments/{id}` | owner | denied (admin) | denied (admin) | owner |
 | `auditLogs/{id}` | `admin:true` only | **denied** | **denied** | **denied** (Admin-SDK-write only; immutable) |

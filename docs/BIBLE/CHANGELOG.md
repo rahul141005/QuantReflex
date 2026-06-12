@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Coaching App V3: Analytics Foundation (Phase 0, ADR-027) — Bible-first
+
+Foundational analytics milestone: establish the first **real dated speed history** so the Coaching App's
+"are students getting faster?" promise can be answered truthfully (never fabricated). **Docs land before
+code** per [GOVERNANCE.md](GOVERNANCE.md); the schema/instrumentation code follows in the same phase.
+
+- **Schema (FIRESTORE_BLUEPRINT §2, §3, §4):**
+  - `users.stats.dailyHistory[date]` widened `{attempted, correct}` → **`{attempted, correct, sumTimes, count}`**
+    (per-day avg speed = `sumTimes/count`). Additive + backward-compatible (readers default new keys to 0);
+    existing 90-day prune keeps it bounded. Written by `main-app/js/progress.js#recordAnswer`.
+  - `practiceSessions/{auto}` documented as **now actually populated** (the exported-but-uncalled
+    `firestore-sync.savePracticeSession()` is wired into the drill/timed-test completion flow).
+  - New **`coachingMetrics/{coachingId}`** per-coaching daily rollup (date-keyed, 90-day cap) — written by the
+    existing super-admin daily cron (zero new coaching functions); read O(1) by the coaching app instead of a
+    3× unbounded roster scan.
+  - 3 composite indexes: `users(coachingId, plan)`, `(coachingId, isTrial)`, `(coachingId, createdAt)`.
+- **Security (SECURITY_ARCHITECTURE §3 rules table):** a coaching admin may read **only its own**
+  `coachingMetrics/{coachingId}` (claim match); client writes denied (Admin-SDK/cron only).
+- **Honesty contract:** no backfill, no synthetic trends — day rows accrue from 2026-06-13 forward;
+  history-dependent UI shows a "collecting data — live in N days" state until ≥7/≥30 days exist.
+- **Bible:** FIRESTORE_BLUEPRINT (Doc 1.6, Firestore 2.9), SECURITY_ARCHITECTURE (Security 2.7),
+  DECISION_LOG (ADR-027 foundation + ADR-028 Coaching V3 redesign), ROADMAP (Historical Analytics Foundation
+  milestone), VERSIONS (Bible 2.17 / Arch 2.10 / Firestore 2.9 / Security 2.7 + history row + migration note),
+  this entry. **Deploy:** `firebase deploy --only firestore:indexes,firestore:rules` (3 new composites build
+  async; new `coachingMetrics` read rule).
+
+---
+
 ## 2026-06-12 — Super Admin accessibility + governance enforcement — Pass 3 (ADR-026)
 
 Final pass of the ADR-024 refinement program. An adversarial multi-agent UX / visual / a11y / navigation /

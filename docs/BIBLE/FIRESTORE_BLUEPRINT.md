@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.5 · **Firestore Version:** 2.7 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.6 · **Firestore Version:** 2.9 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-11
@@ -27,7 +27,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `emailLower` | string | — | admin (register) | **lowercased `email`** — the case-insensitive Global Search key (ADR-020). Set at register; existing docs backfilled 2026-06-12 via `firestore/migrations/2026-06-12-add-emailLower.js`. |
 | `profile` | map `{name, createdAt}` | `{}` | client/admin | display name |
 | `settings` | map | defaults | client | theme, sound, vibration, difficulty, dailyGoal, etc. |
-| `stats` | map | defaults | client | attempts, streaks, categoryStats, mistakes[], responseTimes[], dailyHistory{} |
+| `stats` | map | defaults | client | attempts, streaks, categoryStats, mistakes[], responseTimes[], **dailyHistory{}** (see note) |
 | `quickLinks` | array | seeded | client | |
 | `customTopics` | array | `[]` | client | |
 | `customFormulas` | map | `{}` | client | |
@@ -58,11 +58,13 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 
 **Entitlement write rule (client):** clients may only DOWNGRADE — `plan`→`'free'`, and clear `planType/planExpiry/planSource/trialEnd`→null, `isTrial`→false. Grants are admin-only. Enforced by `entitlementFieldsSafe()` in rules. See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 
+**`stats.dailyHistory` shape (Analytics Foundation, ADR-027, 2026-06-13):** a map of `dateKey (Date.toDateString())` → per-day record, **widened** from `{attempted, correct}` to **`{attempted, correct, sumTimes, count}`**. `sumTimes` accumulates that day's response times (seconds) and `count` the number of timed answers, so **per-day average solving speed = `sumTimes / count`** — the first **dated speed history** in the system (`stats.responseTimes` is a timestamp-less 200-item ring and cannot support a calendar trend). Written by `main-app/js/progress.js#recordAnswer` (capped to the last **90 days** by the existing prune); the two new keys are **additive and backward-compatible** — pre-ADR-027 day records lack them and all readers default `sumTimes/count` to `0`. This is the root substrate for every honest speed-trend metric in the Coaching App (ADR-028); 7d/30d speed trends become real only after ≥7/≥30 days of accumulation (until then the UI shows a "collecting data" state — never a fabricated number).
+
 ### 2.1 Subcollections of `users/{uid}`
 
 | Path | Authority | Writer | Shape |
 |---|---|---|---|
-| `practiceSessions/{auto}` | append log | client | `{mode, category, score, total, duration, date, timestamp}` |
+| `practiceSessions/{auto}` | append log | client | `{mode, category, score, total, duration, date, timestamp}` — **now actually populated (ADR-027):** the `firestore-sync.savePracticeSession()` writer was exported but had **zero call sites**, so this subcollection was effectively empty. It is now called from the drill/timed-test completion flow, giving per-session `duration` (speed) + `date` for the Coaching App's session list and "sessions today" count. |
 | `performance/overall` | derived mirror | client | `{totalAttempted, totalCorrect, accuracy, avgTime, bestStreak, currentStreak, dailyStreak, ...}` |
 | `practice/data` | derived mirror | client | `{mistakes[], savedQuestions[], updatedAt}` |
 | `profile/data` | derived mirror | client | `{name, email, premium mirror flags, updatedAt}` |
@@ -84,6 +86,9 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 `{name, status:'active'|'suspended'|'deleted', isActive:bool, registrationToken, adminUid, adminEmail, studentCount, createdAt, updatedAt}` — read: coaching members (claim match); write: admin only.
 **`studentCount` (canonical, audit M8 fixed 2026-06-11):** denormalized counter written **only** by the `syncCoachingStudentCount` Cloud Function. The legacy `studentsCount` field (initialized by admin create, incremented by claim-coaching) is **removed**; all writers/readers now use `studentCount`. Reconcile drift with `firestore/migrations/2026-06-11-reconcile-studentCount.js`.
 **Canonical active check (audit M4, fixed 2026-06-11):** use `isCoachingActive(data)` in `main-app/api/_lib/middleware.js` — active IFF `status === 'active'` when `status` is present, else fallback `isActive !== false`. All three consumers (`register`, `claim-coaching`, `validate-coaching`) now use this helper; previously claim/validate only checked `status === 'expired'` (never written) and could let a `suspended` coaching through.
+
+### `coachingMetrics/{coachingId}` (Analytics Foundation, ADR-027)
+Per-coaching **daily rollup** powering the Coaching App's Performance/Growth analytics without an unbounded per-load roster scan. Shape: `{ coachingId, updatedAt, days: { 'YYYY-MM-DD': { avgSpeed, avgAccuracy, activeToday, activeThisWeek, totalStudents, premiumCount, trialCount, participation, attempts } } }` — `days` is a date-keyed map capped to the last **90 days** (matching `stats.dailyHistory`). **Writer:** the super-admin daily metrics cron (`super-admin-app/api/cron/sweep.js`, Admin SDK) — it already scans all users/coachings for the platform `metrics/{date}` snapshot, so it emits one `coachingMetrics/{id}` per coaching in the same pass (cross-tenant aggregation stays governance-owned by super-admin; **zero new coaching serverless functions**). **Read:** a coaching admin may read **only its own** doc (`coachingId` claim match); client writes denied (see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md)). The coaching dashboard/performance endpoints read this O(1) doc instead of re-scanning the full `users` roster 3× per load. Day rows accrue from 2026-06-13 forward — **no backfill** (honest history only); week-over-week growth/retention and speed trends light up as rows accumulate.
 
 ### `duels/{id}`
 `{status(state machine), createdBy, participants{uid→entry}, config, questions, questionIds, targetUid?, createdAt, expiredAt?}`. State machine and participant rules in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
@@ -131,6 +136,9 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | securityEvents | type (ASC), createdAt (DESC) | Security Center per-type 24h `count()` + payment-failure/login-failure spike alerts (Phase 5, ADR-018). The plain `orderBy(createdAt desc)` recent feed uses the single-field auto-index (no composite). |
 | users | plan (ASC), planExpiry (ASC) | **ADR-023** — accurate active-premium accounting via `count()` range aggregations: expired-unswept (`plan=='premium' && planExpiry<now`) and expiring (`planExpiry` in `(now, now+N]`) on the dashboard / alerts / security / revenue-intel. Replaces the old `.limit(1000)` + in-memory scans. |
 | users | plan (ASC), fcmToken (ASC) | **ADR-023** — premium-segment broadcast filters by `plan=='premium' && fcmToken!=null` server-side instead of reading every token-holder and filtering in memory. |
+| users | coachingId (ASC), plan (ASC) | **ADR-027** — coaching-scoped premium `count()` (Growth/Adoption) without a full-roster scan. |
+| users | coachingId (ASC), isTrial (ASC) | **ADR-027** — coaching-scoped trial `count()` (Growth/Adoption). |
+| users | coachingId (ASC), createdAt (ASC) | **ADR-027** — coaching-scoped "new students this week" via a `createdAt` range `count()`. |
 
 **Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). **Global Search (ADR-020)** prefix range queries on `users.email`, `users.profile.name`, `users.coachingId`, the user doc-id (`FieldPath.documentId()`), and `coachings.name` + doc-id also use single-field auto-indexes — **no new composite** is required unless a multi-field search variant is introduced. `aiStudyPlans (userId,status,createdAt)` requires a composite — `UNVERIFIED` whether present; `getActiveStudyPlan` orders by `createdAt` with two equality filters and will require `userId,status,createdAt`.
 

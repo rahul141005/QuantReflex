@@ -211,6 +211,18 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // COACHING METRICS (per-coaching daily rollup, ADR-027)
+    // ════════════════════════════════════════════
+    // Read: the coaching ADMIN of THIS coaching only (own analytics).
+    // Write: Admin SDK only (written by the super-admin daily cron).
+    match /coachingMetrics/{coachingId} {
+      allow read: if request.auth != null
+                  && request.auth.token.coaching_admin == true
+                  && request.auth.token.coachingId == coachingId;
+      allow write: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
     // DUELS COLLECTION (HARDENED)
     // ════════════════════════════════════════════
     // Participant-only access with controlled join flow.

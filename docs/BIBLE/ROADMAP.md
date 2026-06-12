@@ -8,6 +8,35 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
+## ⭐ Historical Analytics Foundation (milestone — established 2026-06-13, ADR-027)
+
+**The principle: measure real improvement, never invent it.** QuantReflex's central promise is not "students
+are practicing" — it is "students are getting **faster**." That claim can only be made from **real dated
+history**, which did not exist before this milestone (`responseTimes` was a timestamp-less ring; `dailyHistory`
+stored no times). This milestone lays the permanent substrate so **all future coaching analytics are built on
+real historical performance data** — never fabricated, estimated, inferred, or backfilled.
+
+**Landed (foundation):**
+- `users.stats.dailyHistory[date]` now records `{attempted, correct, sumTimes, count}` → per-day avg speed,
+  accuracy, and participation (90-day rolling window) — the first dated speed history in the system.
+- `practiceSessions/{auto}` is now actually written (per-session duration + date).
+- `coachingMetrics/{coachingId}` daily rollup (written by the existing super-admin cron) → per-coaching avg
+  speed / accuracy / active / premium / trial / participation per day; backs trends without per-load scans.
+- Composite `users(coachingId, plan|isTrial|createdAt)` indexes for coaching-scoped `count()`.
+
+**Lights up automatically as history accrues (no further code):**
+- 7-day speed trend → real after 7 days; 30-day speed trend → after 30 days (UI shows "collecting data —
+  available in N days" until then).
+- Coaching Improvement Score (speed Δ + accuracy Δ + active-% + streak-retention vs the coaching's OWN past).
+- Real "Top/Bottom improvers" (dated speed delta, not the old last-200-question heuristic).
+- Week-over-week growth + retention (from `coachingMetrics` day rows).
+
+**Governance:** no backfill, no synthetic trends. History-dependent metrics MUST render an honest "collecting"
+state until the data exists. Any future **platform** benchmark (e.g. "faster than 68% of students") must be
+super-admin-owned and **anonymized** — never expose competing coaching identities (ADR-028).
+
+---
+
 ## Design system (established 2026-06-11 — ADR-010)
 The app-wide UI design system is now documented in [TECHNICAL_BIBLE.md §10A](TECHNICAL_BIBLE.md):
 tokens (24/20/18px radii, hairline borders, soft navy shadows, 32/24/16 spacing), one glassmorphism

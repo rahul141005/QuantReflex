@@ -590,6 +590,22 @@ function createDrillEngine(container, opts) {
     var accuracy = ((score / count) * 100).toFixed(0);
     var accNum = parseFloat(accuracy);
 
+    /* Persist this session to the practiceSessions subcollection (Analytics Foundation, ADR-027) so the
+       Coaching App gets per-session duration + date ("sessions today" + per-session speed). Non-duel only
+       (the duel path returned above). Best-effort — never blocks the results UI. */
+    if (typeof FirestoreSync !== 'undefined' && FirestoreSync.savePracticeSession) {
+      try {
+        FirestoreSync.savePracticeSession({
+          mode: timeLimit ? 'timed' : 'drill',
+          category: category || (topics && topics.length ? (topics.length > 1 ? 'mixed' : topics[0]) : 'mixed'),
+          score: score,
+          total: count,
+          duration: parseFloat(totalTime),
+          date: new Date().toDateString()
+        });
+      } catch (_) { /* ignore */ }
+    }
+
     /* Speed benchmark computation */
     var speedScore = _computeSpeedScore(accNum, avgRaw);
     var percentile = _computeContinuousPercentile(speedScore);
