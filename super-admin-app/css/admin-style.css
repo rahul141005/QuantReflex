@@ -140,8 +140,8 @@ input, textarea, select { font-family: inherit; }
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
-  padding: .75rem 1.25rem;
+  min-height: 48px; /* tablet primary touch target (ADR-024) */
+  padding: .8rem 1.25rem;
   border: none;
   border-radius: .625rem;
   font-size: .9375rem;
@@ -162,8 +162,8 @@ input, textarea, select { font-family: inherit; }
 }
 .btn.accent:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .btn-sm {
-  min-height: 36px;
-  padding: .5rem 1rem;
+  min-height: 44px; /* dense touch target (ADR-024) */
+  padding: .55rem 1rem;
   font-size: .8125rem;
   border-radius: .5rem;
   width: auto;
@@ -287,7 +287,7 @@ input, textarea, select { font-family: inherit; }
   font-size: 0.9375rem;
   text-decoration: none;
   transition: all var(--transition-fast);
-  min-height: 44px; /* Mobile touch target */
+  min-height: 48px; /* tablet primary touch target (ADR-024) */
   position: relative;
   overflow: hidden;
 }
@@ -314,6 +314,9 @@ input, textarea, select { font-family: inherit; }
   padding: 1.25rem;
   border-top: 1px solid rgba(226,232,240,.6);
 }
+/* Logout is a first-class rail row: icon + label expanded, icon-only when collapsed (ADR-024 Bug #2). */
+#logoutBtn { gap: .6rem; }
+#logoutBtn svg { width: 20px; height: 20px; flex: 0 0 auto; }
 
 /* ---- Main Content ---- */
 .main-content {
@@ -463,7 +466,8 @@ input, textarea, select { font-family: inherit; }
   display: inline-flex;
   align-items: center;
   gap: .25rem;
-  padding: .375rem .75rem;
+  min-height: 40px; /* row-action touch target (ADR-024) */
+  padding: .5rem .8rem;
   font-size: .75rem;
   font-weight: 600;
   border: 1px solid #e2e8f0;
@@ -581,7 +585,7 @@ input, textarea, select { font-family: inherit; }
 }
 .modal-title { font-size: 1.125rem; font-weight: 700; }
 .modal-close {
-  width: 40px; height: 40px; /* ≥40px tablet touch target (ADR-023) */
+  width: 44px; height: 44px; /* dense touch target (ADR-024) */
   display: flex; align-items: center; justify-content: center;
   background: #f1f5f9; border: none; border-radius: 50%;
   font-size: 1rem; color: #64748b; cursor: pointer;
@@ -641,17 +645,22 @@ input, textarea, select { font-family: inherit; }
 .user-detail-label { color: #64748b; font-weight: 500; }
 .user-detail-value { color: #0f172a; font-weight: 600; }
 
-/* ---- Empty State ---- */
+/* ---- Empty State (polished: icon + title + explanation + optional CTA — ADR-024) ---- */
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
   color: #94a3b8;
+  display: flex; flex-direction: column; align-items: center; gap: .25rem;
 }
-.empty-state-icon { font-size: 2.5rem; margin-bottom: .75rem; }
-.empty-state-text { font-size: .875rem; }
+.empty-state-icon { font-size: 2.5rem; margin-bottom: .5rem; opacity: .9; line-height: 1; }
+.empty-state-title { font-size: 1rem; font-weight: 700; color: #475569; }
+.empty-state-text { font-size: .875rem; max-width: 34ch; }
+.empty-state-action { margin-top: .9rem; }
 
-/* ---- Loading ---- */
-.loading { text-align: center; padding: 2rem; color: #94a3b8; font-size: .875rem; }
+/* ---- Loading (spinner + label) ---- */
+.loading { text-align: center; padding: 2rem; color: #94a3b8; font-size: .875rem; display: flex; flex-direction: column; align-items: center; gap: .6rem; }
+.loading::before { content: ''; width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--border-color); border-top-color: var(--accent-primary); animation: qrspin .7s linear infinite; }
+@keyframes qrspin { to { transform: rotate(360deg); } }
 
 /* ---- Secondary Text ---- */
 .text-secondary { color: #64748b; }
@@ -681,6 +690,11 @@ input, textarea, select { font-family: inherit; }
   body.rail-collapsed .sidebar-title,
   body.rail-collapsed #railCollapseBtn .rail-label { display: none; }
   body.rail-collapsed .sidebar .nav-item { justify-content: center; gap: 0; }
+  /* Collapsed footer + logout (ADR-024 Bug #2) — the label (.nav-label) is already hidden above;
+     shrink the footer padding and turn logout into a centered 48px icon button so it never clips,
+     overflows, or becomes unreachable in the 72px rail. */
+  body.rail-collapsed .sidebar-footer { padding: .75rem .5rem; }
+  body.rail-collapsed #logoutBtn { width: 48px; height: 48px; min-height: 48px; padding: 0; margin: 0 auto; gap: 0; }
 
   .modal-content { max-width: 540px; }
   .search-modal { max-width: 620px; }
@@ -754,7 +768,7 @@ input, textarea, select { font-family: inherit; }
 /* ---- Tabs ---- */
 .tabs-bar { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem; }
 .tab-btn {
-  min-height: 44px; padding: .6rem 1rem; border: none; background: none; cursor: pointer;
+  min-height: 48px; padding: .7rem 1rem; border: none; background: none; cursor: pointer; /* tablet touch (ADR-024) */
   font-size: .9rem; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid transparent;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
@@ -816,7 +830,7 @@ input, textarea, select { font-family: inherit; }
 /* ---- Entity-360 master list (User-360 / Coaching-360, ADR-022) ---- */
 .chip-bar { display: flex; gap: .4rem; flex-wrap: wrap; }
 .chip {
-  min-height: 36px; padding: .35rem .8rem; border: 1px solid var(--border-color);
+  min-height: 44px; padding: .5rem .9rem; border: 1px solid var(--border-color); /* dense touch (ADR-024) */
   border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary);
   font-size: .8rem; font-weight: 600; cursor: pointer; transition: var(--transition-fast);
 }
@@ -828,7 +842,7 @@ input, textarea, select { font-family: inherit; }
   margin-bottom: .4rem; transition: var(--transition-fast);
 }
 .sv-row:hover { background: var(--bg-secondary); }
-.sv-row .uCheck { width: 22px; height: 22px; flex: 0 0 auto; margin: .25rem; accent-color: var(--accent-primary); cursor: pointer; }
+.sv-row .uCheck { width: 28px; height: 28px; flex: 0 0 auto; margin: .25rem .35rem; accent-color: var(--accent-primary); cursor: pointer; } /* dense touch (ADR-024) */
 .bulk-bar {
   display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .55rem .75rem;
   margin-bottom: .5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);

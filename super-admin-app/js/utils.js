@@ -136,21 +136,39 @@ var AdminUtils = (function () {
    * @param {*} error — Any error value
    * @returns {string} — Human-readable error message
    */
+  /**
+   * Map a known error (by code / status / message) to operator-friendly copy (ADR-024) so a raw
+   * technical string ("Too many requests…", "Failed to fetch", a 5xx body) never reaches the admin.
+   * Returns null when there's no friendlier phrasing (the caller then uses the real message).
+   */
+  function _friendlyError(code, message, status) {
+    var m = String(message == null ? '' : message);
+    if (code === 'RATE_LIMIT_EXCEEDED' || status === 429 || /too many requests/i.test(m)) {
+      return "You're working quickly — pause a moment, then try again.";
+    }
+    if ((typeof status === 'number' && status >= 500) || /failed to fetch|network\s?error|load failed/i.test(m)) {
+      return "That didn't go through — please try again in a moment.";
+    }
+    return null;
+  }
+
   function getReadableError(error) {
     if (!error) return 'An unknown error occurred.';
 
     // String
     if (typeof error === 'string') {
-      return error || 'An unknown error occurred.';
+      return _friendlyError(null, error, null) || error || 'An unknown error occurred.';
     }
 
-    // Error instance
+    // Error instance (carries .status/.code from api.js _fetch)
     if (error instanceof Error) {
-      return error.message || 'An unexpected error occurred.';
+      return _friendlyError(error.code, error.message, error.status) || error.message || 'An unexpected error occurred.';
     }
 
     // Object with message
     if (typeof error === 'object') {
+      var friendly = _friendlyError(error.code, error.message || (error.error && error.error.message), error.status);
+      if (friendly) return friendly;
       // Nested error.error.message (API response format)
       if (error.error) {
         if (typeof error.error === 'string') return error.error;
@@ -202,6 +220,20 @@ var AdminUtils = (function () {
     return { state: 'free', label: 'Free', badgeClass: 'badge-draft' };
   }
 
+  /**
+   * Standardized polished empty-state markup (ADR-024) — icon + title + explanation + optional CTA.
+   * The CTA renders a button carrying the given id so the caller can wire an onclick.
+   */
+  function emptyState(o) {
+    o = o || {};
+    return '<div class="empty-state">' +
+      (o.icon ? '<div class="empty-state-icon">' + escapeHtml(o.icon) + '</div>' : '') +
+      (o.title ? '<div class="empty-state-title">' + escapeHtml(o.title) + '</div>' : '') +
+      (o.text ? '<div class="empty-state-text">' + escapeHtml(o.text) + '</div>' : '') +
+      (o.actionLabel ? '<div class="empty-state-action"><button class="btn btn-sm accent"' + (o.actionId ? ' id="' + escapeHtml(o.actionId) + '"' : '') + '>' + escapeHtml(o.actionLabel) + '</button></div>' : '') +
+    '</div>';
+  }
+
   return {
     normalizeFirestoreDate: normalizeFirestoreDate,
     toMillis: toMillis,
@@ -210,6 +242,7 @@ var AdminUtils = (function () {
     escapeHtml: escapeHtml,
     getReadableError: getReadableError,
     downloadCsv: downloadCsv,
-    entitlementState: entitlementState
+    entitlementState: entitlementState,
+    emptyState: emptyState
   };
 })();

@@ -9,8 +9,8 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.12 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.7 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.13 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.8 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.8 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.5 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
@@ -53,6 +53,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-12 | 2.13 | 2.8 | 2.8 | 2.5 | 2.2 | **Super Admin stability + UX polish — Pass 1a (ADR-024):** fixed the "Too many requests" user-delete bug at the root (admin rate limit 30→300/hr; bounded single-retry + operator-friendly errors in the API client; User-360/Coaching-360 delete now instant + zero-fetch, status mutations 2 calls→1 via local row-sync); fixed the collapsed-rail logout (first-class icon button); tablet touch targets (primary ≥48px / dense ≥44px); polished empty-state primitive + loading spinner. Zero new functions. UI/UX + one middleware constant (MINOR). The thorough 100% dark mode lands in Pass 1b. |
 | 2026-06-12 | 2.12 | 2.7 | 2.8 | 2.5 | 2.2 | **Production-hardening audit remediation (ADR-023):** removed the hardcoded admin email+password from `super-admin-app/js/firebase/auth.js` (CRITICAL — admin authority is now the server `admin:true` claim only; **password must be rotated in Firebase Console + MFA enabled**). Bounded every unbounded admin scan (AI usage, `ai-usage` export, daily `payments` snapshot, `duels-cleanup`, premium broadcast, coaching cascade) so they truncate/paginate instead of OOM/timeout. Accurate active-premium via `count()` aggregations. **Two new composite indexes** `users (plan,planExpiry)` + `users (plan,fcmToken)`. Zero new functions (8/12 super-admin, 6/12 main). Additive Firestore + Security hardening (MINOR). |
 | 2026-06-11 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | Initial authoritative Bible established under `/docs/BIBLE/`. Baseline includes audit fixes C1–M8 (see CHANGELOG). |
 | 2026-06-11 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 | **v2 monetization (ADR-009):** single `plan` model; ₹89 lifetime + Premium+ removed; one Premium tier (₹299/6mo, ₹499/12mo) + custom-duration trials. Breaking schema. |

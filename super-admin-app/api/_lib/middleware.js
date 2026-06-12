@@ -44,7 +44,11 @@ function formatError(err) {
 var _adminRateLimitMap = {};
 var _adminRateLimitCheckCount = 0;
 var ADMIN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; /* 1 hour */
-var ADMIN_MAX_REQUESTS_PER_HOUR = 30;
+/* Best-effort per-serverless-instance abuse ceiling (ADR-024). Raised 30→300 (5/min sustained): the
+   old 30/hr throttled a normal interactive User-360 session (open a few users, check tabs, do 2-3
+   actions) and surfaced "Too many requests". 300/hr is generous for governance work yet still bounds
+   a runaway client. Not a security control — the real gate is withAdminAuth's admin:true claim. */
+var ADMIN_MAX_REQUESTS_PER_HOUR = 300;
 
 function _checkAdminRateLimit(uid) {
   var now = Date.now();

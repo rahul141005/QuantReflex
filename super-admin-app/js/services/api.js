@@ -7,7 +7,9 @@
 var API = (function () {
   'use strict';
 
-  async function _fetch(endpoint, options) {
+  function _delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  async function _attempt(endpoint, options) {
     var token = await AdminAuth.getToken();
     var config = Object.assign({}, options || {}, {
       headers: Object.assign({
@@ -17,28 +19,47 @@ var API = (function () {
     });
 
     var response = await fetch(endpoint, config);
-    if (!response.ok) {
-      var errData;
-      try { errData = await response.json(); } catch (e) { errData = null; }
-      // Extract the most meaningful error message from any response shape
-      var errMessage = 'Request failed (' + response.status + ')';
-      if (errData) {
-        if (typeof errData.error === 'string') {
-          errMessage = errData.error;
-        } else if (errData.error && errData.error.message) {
-          errMessage = errData.error.message;
-        } else if (errData.message) {
-          errMessage = errData.message;
-        } else {
-          try {
-            var s = JSON.stringify(errData);
-            if (s && s !== '{}' && s !== '""') errMessage = s;
-          } catch (_) {}
-        }
+    if (response.ok) return response.json();
+
+    var errData;
+    try { errData = await response.json(); } catch (e) { errData = null; }
+    // Extract the most meaningful message AND the error code from any response shape.
+    var errMessage = 'Request failed (' + response.status + ')';
+    var errCode = null;
+    if (errData) {
+      if (errData.error && typeof errData.error === 'object') {
+        errMessage = errData.error.message || errMessage;
+        errCode = errData.error.code || null;
+      } else if (typeof errData.error === 'string') {
+        errMessage = errData.error;
+      } else if (errData.message) {
+        errMessage = errData.message;
+      } else {
+        try { var s = JSON.stringify(errData); if (s && s !== '{}' && s !== '""') errMessage = s; } catch (_) {}
       }
-      throw new Error(errMessage);
     }
-    return response.json();
+    var err = new Error(errMessage);
+    err.status = response.status;
+    err.code = errCode;
+    throw err;
+  }
+
+  /**
+   * One automatic retry on transient failures (ADR-024) — bounded to a single retry, no storms.
+   * 429 (request rejected pre-processing) is always safe to retry; 5xx is retried only for GET
+   * (idempotent reads) so a mutation that may have partially applied is never silently re-sent.
+   * The thrown Error carries `.status` + `.code` so AdminUtils.getReadableError can map it to
+   * operator-friendly copy.
+   */
+  async function _fetch(endpoint, options) {
+    try {
+      return await _attempt(endpoint, options);
+    } catch (err) {
+      var isGet = !options || !options.method || String(options.method).toUpperCase() === 'GET';
+      var retryable = err && (err.status === 429 || (isGet && err.status >= 500 && err.status <= 599));
+      if (retryable) { await _delay(1200); return await _attempt(endpoint, options); }
+      throw err;
+    }
   }
 
   /* ---- Dashboard ---- */

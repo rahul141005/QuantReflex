@@ -113,11 +113,26 @@ var UsersView = (function () {
     Modal.show({ title: 'Archive ' + ids.length + ' user(s)?', body: '<p class="text-sm text-secondary">Each will be Auth-disabled and scheduled for purge after the hold. Audited.</p>', actions: [{ label: 'Cancel' }, { label: 'Archive', danger: true, autoClose: false, onClick: function () { API.bulkArchiveInactive(ids).then(function (r) { Toast.success('Archived ' + (r.archived || 0)); Modal.close(); _bulk = {}; _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); } }] });
   }
 
+  /* Local list-sync (ADR-024) — keep the master row in step with mutations WITHOUT a second getUsers
+     refetch. _syncRow patches the row from a freshly-loaded detail (re-renders only if something
+     actually changed); _removeRow drops a deleted user instantly. This is what turns every mutation
+     from 2 network calls into 1, and delete from 1 into 0. */
+  function _syncRow(uid, p) {
+    var r = null; for (var i = 0; i < _all.length; i++) { if (_all[i].uid === uid) { r = _all[i]; break; } }
+    if (!r) return;
+    var next = { displayName: p.displayName, email: p.email, coachingId: p.coachingId, plan: p.plan, planType: p.planType, planExpiry: p.planExpiry, isTrial: p.isTrial, accountStatus: p.accountStatus };
+    var changed = false;
+    Object.keys(next).forEach(function (k) { if (next[k] !== undefined && r[k] !== next[k]) { r[k] = next[k]; changed = true; } });
+    if (changed) _renderList();
+  }
+  function _removeRow(uid) { _all = _all.filter(function (u) { return u.uid !== uid; }); _renderList(); }
+
   /* ───────── Detail (360) ───────── */
   function _renderDetail(detailEl, uid) {
     detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a><div class="loading">Loading user…</div>';
     API.getUserDetails(uid).then(function (d) {
       var p = d.profile || {};
+      _syncRow(uid, p);
       detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a>' +
         '<div class="view-header" style="margin:.25rem 0 .5rem;"><h2 class="view-title" style="font-size:1.2rem;">' + _esc(p.displayName || p.email || uid) + ' ' + _entBadge(p) + _statusBadge(p.accountStatus) + '</h2>' +
         '<p class="view-subtitle">' + _esc(p.email || '') + ' · <code>' + _esc(uid) + '</code></p></div>' +
@@ -146,7 +161,7 @@ var UsersView = (function () {
       '<div style="margin-top:.75rem;"><label class="modal-label">Coaching affiliation</label><div style="display:flex;gap:.5rem;"><select class="modal-select" id="uReassign" style="flex:1;">' + opts + '</select><button class="btn btn-sm accent" id="uReassignBtn">Reassign</button></div></div></div>';
     document.getElementById('uReassignBtn').onclick = function () {
       var cid = document.getElementById('uReassign').value;
-      API.reassignCoaching(uid, cid).then(function () { Toast.success('Coaching reassigned'); _split.select(uid); _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
+      API.reassignCoaching(uid, cid).then(function () { Toast.success('Coaching reassigned'); _split.select(uid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
     };
   }
 
@@ -164,11 +179,11 @@ var UsersView = (function () {
       b.onclick = function () {
         var act = b.getAttribute('data-ent');
         if (act === 'trial') {
-          Modal.show({ title: 'Grant trial', body: '<label class="modal-label">Days</label><input type="number" class="modal-input" id="uTrialDays" value="7" min="1" max="365" />', actions: [{ label: 'Cancel' }, { label: 'Grant', accent: true, autoClose: false, onClick: function () { var days = parseInt((document.getElementById('uTrialDays') || {}).value, 10) || 7; API.grantEntitlement('individual', 'trial', uid, days).then(function () { Toast.success('Trial granted'); Modal.close(); _split.select(uid); _load(); }).catch(function (er) { Toast.error(AdminUtils.getReadableError(er)); }); } }] });
+          Modal.show({ title: 'Grant trial', body: '<label class="modal-label">Days</label><input type="number" class="modal-input" id="uTrialDays" value="7" min="1" max="365" />', actions: [{ label: 'Cancel' }, { label: 'Grant', accent: true, autoClose: false, onClick: function () { var days = parseInt((document.getElementById('uTrialDays') || {}).value, 10) || 7; API.grantEntitlement('individual', 'trial', uid, days).then(function () { Toast.success('Trial granted'); Modal.close(); _split.select(uid); }).catch(function (er) { Toast.error(AdminUtils.getReadableError(er)); }); } }] });
           return;
         }
         b.disabled = true;
-        API.grantEntitlement('individual', act, uid).then(function () { Toast.success(act === 'revoke' ? 'Revoked' : 'Granted'); _split.select(uid); _load(); }).catch(function (er) { b.disabled = false; Toast.error(AdminUtils.getReadableError(er)); });
+        API.grantEntitlement('individual', act, uid).then(function () { Toast.success(act === 'revoke' ? 'Revoked' : 'Granted'); _split.select(uid); }).catch(function (er) { b.disabled = false; Toast.error(AdminUtils.getReadableError(er)); });
       };
     });
   }
@@ -188,12 +203,12 @@ var UsersView = (function () {
         if (lc === 'delete') { return _confirmDelete(uid); }
         var fn = lc === 'suspend' ? API.suspendUser : lc === 'restore' ? API.restoreUser : lc === 'archive' ? function (u) { return API.archiveUser(u, 'admin'); } : API.resetUserProgress;
         b.disabled = true;
-        fn(uid).then(function () { Toast.success(lc + ' done'); _split.select(uid); _load(); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); });
+        fn(uid).then(function () { Toast.success(lc + ' done'); _split.select(uid); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); });
       };
     });
   }
   function _confirmDelete(uid) {
-    Modal.show({ title: 'Permanently delete account', body: '<p class="text-sm text-secondary">This deletes the Auth account + all Firestore data. Irreversible. Type <strong>DELETE</strong> to confirm.</p><input type="text" class="modal-input" id="uDel" placeholder="DELETE" />', actions: [{ label: 'Cancel' }, { label: 'Delete', danger: true, autoClose: false, onClick: function () { if ((document.getElementById('uDel') || {}).value !== 'DELETE') { Toast.error('Type DELETE'); return; } API.purgeUser(uid).then(function () { Toast.success('Account deleted'); Modal.close(); _split.clear(); _load(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); } }] });
+    Modal.show({ title: 'Permanently delete account', body: '<p class="text-sm text-secondary">This deletes the Auth account + all Firestore data. Irreversible. Type <strong>DELETE</strong> to confirm.</p><input type="text" class="modal-input" id="uDel" placeholder="DELETE" />', actions: [{ label: 'Cancel' }, { label: 'Delete', danger: true, autoClose: false, onClick: function () { if ((document.getElementById('uDel') || {}).value !== 'DELETE') { Toast.error('Type DELETE'); return; } API.purgeUser(uid).then(function () { Toast.success('Account deleted'); Modal.close(); _removeRow(uid); _split.clear(); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); } }] });
   }
 
   function _tabAI(el, uid, d) {

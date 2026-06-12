@@ -83,10 +83,22 @@ var CoachingsView = (function () {
     listEl.querySelectorAll('.sv-row').forEach(function (r) { r.addEventListener('click', function () { _split.select(r.getAttribute('data-cid')); }); });
   }
 
+  /* Local list-sync (ADR-024) — patch the master row from a freshly-loaded detail so a mutate needs
+     only ONE network call (the detail refresh) instead of a second getCoachings. */
+  function _syncRow(cid, d) {
+    var r = null; for (var i = 0; i < _all.length; i++) { var id = _all[i].id || _all[i].coachingId; if (id === cid) { r = _all[i]; break; } }
+    if (!r) return;
+    var changed = false;
+    if (d.status !== undefined && r.status !== d.status) { r.status = d.status; r.isActive = (d.status === 'active'); changed = true; }
+    if (d.name !== undefined && r.name !== d.name) { r.name = d.name; changed = true; }
+    if (changed) _renderList();
+  }
+
   /* ───────── Detail (360) ───────── */
   function _renderDetail(detailEl, cid) {
     detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a><div class="loading">Loading coaching…</div>';
     API.getCoachingDetails(cid).then(function (d) {
+      _syncRow(cid, d);
       detailEl.innerHTML = '<a href="#" class="sv-back btn btn-sm btn-outline">← Back</a>' +
         '<div class="view-header" style="margin:.25rem 0 .5rem;"><h2 class="view-title" style="font-size:1.2rem;">' + _esc(d.name || cid) + ' ' + _statusBadge(d.status) + '</h2>' +
         '<p class="view-subtitle"><code>' + _esc(cid) + '</code>' + (d.ownerEmail ? ' · ' + _esc(d.ownerEmail) : '') + '</p></div>' +
@@ -180,7 +192,7 @@ var CoachingsView = (function () {
         if (act === 'activate') {
           /* Non-destructive — simple confirm, no token. */
           Modal.show({ title: 'Activate coaching?', body: '<p class="text-sm text-secondary">Re-activates the coaching. (Premium previously revoked from students is NOT auto-restored.)</p>', actions: [{ label: 'Cancel' }, { label: 'Activate', accent: true, autoClose: false, onClick: function () {
-            API.mutateCoaching(cid, 'activate').then(function () { Toast.success('Coaching activated'); Modal.close(); _load(); _split.select(cid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
+            API.mutateCoaching(cid, 'activate').then(function () { Toast.success('Coaching activated'); Modal.close(); _split.select(cid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
           } }] });
           return;
         }
@@ -190,7 +202,7 @@ var CoachingsView = (function () {
           body: '<p class="text-sm text-secondary">This <strong>cascade-revokes premium from every enrolled student</strong> and is audited. Type <strong>DELETE</strong> to confirm.</p><input type="text" class="modal-input" id="cMutConfirm" placeholder="DELETE" />',
           actions: [{ label: 'Cancel' }, { label: label, danger: true, autoClose: false, onClick: function () {
             if ((document.getElementById('cMutConfirm') || {}).value !== 'DELETE') { Toast.error('Type DELETE to confirm'); return; }
-            API.mutateCoaching(cid, act, 'DELETE').then(function () { Toast.success('Coaching ' + act + 'd'); Modal.close(); _load(); _split.select(cid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
+            API.mutateCoaching(cid, act, 'DELETE').then(function () { Toast.success('Coaching ' + act + 'd'); Modal.close(); _split.select(cid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); });
           } }]
         });
       };

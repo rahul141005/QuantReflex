@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-024 — Super Admin stability + UX + dark-mode polish program (3-pass, 2026-06-12)
+- **Context:** Two production operational bugs + a desktop-leaning UX. **Bug #1:** deleting a user in
+  User-360 frequently showed *"Too many requests."* — root cause is NOT a loop: the per-admin rate limit was
+  **30 req/hr** (`api/_lib/middleware.js`) and User-360 **double-refreshed** after every mutation
+  (`_split.select(uid)` + `_load()` both refetched), so a normal session reached 30 in minutes; `api.js`
+  surfaced the raw server string with no retry. **Bug #2:** the collapsed rail had no `.sidebar-footer` /
+  `#logoutBtn` rule, so the full-width text "Logout" overflowed the 72px rail. Plus: sub-48px touch targets,
+  bare empty/loading states, and a stylesheet built on hundreds of hardcoded hex colors (no real dark mode).
+- **Decision:** a **3-pass refinement program**, each committed + verified separately (user-directed):
+  - **Pass 1a (this commit) — stability + UX + tablet:** raise the admin limit **30→300/hr** (best-effort
+    per-instance ceiling; the real gate is the `admin:true` claim); add a bounded **single-retry** transient
+    layer in `api.js` `_fetch` (429/5xx, max 1; carries `.status`/`.code`); map known codes to **operator-
+    friendly** copy in `getReadableError` (no raw "Too many requests"). Eliminate the double-refresh: **delete
+    is instant + zero-fetch** (drop the row from the in-memory list, clear the detail — no getUsers), and every
+    status mutation does **one** detail refresh that **locally syncs the master row** (2 calls → 1; same in
+    Coaching-360). First-class **collapsed logout** (icon + label expanded, centered 48px icon collapsed).
+    Touch targets: primary ≥48px, dense ≥44px. Polished **empty-state primitive** (`AdminUtils.emptyState`:
+    icon+title+text+CTA) + a **loading spinner**.
+  - **Pass 1b (next) — thorough 100% dark mode:** re-tokenize the ENTIRE stylesheet + every view onto a
+    semantic theme-token system (surfaces, text, border, accent, and full state ramps danger/success/warning/
+    info as `-bg`/`-fg`/`-border`), with a complete, *intentionally-designed* `:root[data-theme="dark"]`
+    palette (not auto-inverted) and **zero hardcoded color literals left in views**. No-FOUC boot script +
+    footer light/dark/system toggle, persisted via the `qrAdmin*` localStorage pattern. AA-contrast verified
+    in both themes at tablet width. (Split out from 1a so a large regression-sensitive re-tokenization is its
+    own verified commit, per the user's "no partial/broken dark mode" bar.)
+  - **Pass 2 — Settings Center + Operations enhancements.** **Pass 3 — UX/visual/a11y/navigation enforcement
+    audits.**
+- **Infra:** zero new functions (super-admin 8/12, main-app 6/12); no schema/security/payment change. All
+  client + the one middleware constant.
+- **Consequence:** the deletion bug + "Too many requests" are eliminated at the root (raised ceiling + halved
+  per-action calls + instant local delete + graceful retry/messaging); the collapsed rail is fully usable;
+  tablet touch ergonomics meet the floor. Bible 2.12→2.13, Arch 2.7→2.8.
+
 ## ADR-023 — Production hardening: remove client-side admin credential + bound unbounded scans (2026-06-12)
 - **Context:** A zero-compromise from-source audit of the Super Admin app found one CRITICAL and several
   scalability defects. **CRITICAL (C1):** `js/firebase/auth.js` hardcoded the admin email

@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-12 — Super Admin stability + UX polish — Pass 1a (ADR-024)
+
+- **Requested change:** a dedicated stability/UX/tablet refinement pass, delivered in 3 controlled phases.
+  Pass 1a (this commit) = the two CRITICAL bugs + error/loading/empty states + tablet touch targets + the
+  render/query/performance fixes. Pass 1b (next) = the thorough 100% dark mode. (Passes 2–3 follow.)
+- **Bug #1 — "Too many requests" on user delete (root-caused, not patched):** cumulative rate-limit
+  exhaustion, not a loop. Fixes: `api/_lib/middleware.js` admin limit **30→300/hr**; `js/services/api.js`
+  `_fetch` gains a **single bounded retry** on 429/5xx (carries `.status`/`.code`); `js/utils.js`
+  `getReadableError` maps `RATE_LIMIT_EXCEEDED`/5xx/network to operator-friendly copy. `js/views/users.js`:
+  **delete is now instant + zero-fetch** (drop the in-memory row + clear detail, no getUsers) and every status
+  mutation does **one** detail refresh that locally syncs the master row (**2 calls → 1**); same in
+  `js/views/coachings.js`. Net: delete 2→0 reads, each mutation 2→1.
+- **Bug #2 — collapsed sidebar logout:** `index.html` logout is now an icon+label row; `admin-style.css` adds
+  `body.rail-collapsed .sidebar-footer`/`#logoutBtn` rules → a centered 48px icon button that never clips or
+  overflows the 72px rail.
+- **Tablet touch targets:** primary controls (`.btn`/`.nav-item`/`.tab-btn`) → ≥48px; dense controls
+  (`.btn-sm`/`.chip`/`.modal-close`/`.action-btn`/`.sv-row .uCheck`) → ≥44/40px.
+- **Empty/loading states:** polished `.empty-state` (icon+title+text+CTA) + `AdminUtils.emptyState()` helper;
+  `.loading` now shows a spinner.
+- **Performance/leak audit:** confirmed no `setInterval`/`onSnapshot` leaks (only a one-shot `setTimeout` in
+  questions.js); the read reductions above are the perf win.
+- **Infra:** ZERO new functions (super-admin 8/12, main-app 6/12); no schema/security/payment change.
+- **Bible:** DECISION_LOG (ADR-024, 3-pass program), VERSIONS (Bible 2.13 / Arch 2.8 + row), this entry.
+- **Verification:** `node --check` all touched JS (pass); CSS brace balance (236); logout markup confirmed.
+  **Deferred to Pass 1b:** the full dark-mode token system + view color refactor + both-theme contrast report.
+
+---
+
 ## 2026-06-12 — Production-hardening audit remediation (ADR-023)
 
 - **Requested change:** a zero-compromise, from-source audit of the Super Admin app (the highest-authority
