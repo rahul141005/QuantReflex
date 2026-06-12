@@ -138,9 +138,10 @@ async function writeCoachingRollups(db) {
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
+  const CONCURRENCY = 10;   // bounded parallelism (ADR-029) so wall-clock scales with coaching COUNT/CONCURRENCY, not sequentially
   const coachingsSnap = await db.collection('coachings').limit(COACHINGS_CAP).get();
-  let written = 0;
-  for (const cDoc of coachingsSnap.docs) {
+
+  async function processCoaching(cDoc) {
     const coachingId = cDoc.id;
     try {
       const studentsSnap = await db.collection('users')
@@ -152,7 +153,7 @@ async function writeCoachingRollups(db) {
         const u = doc.data() || {};
         const s = u.stats || {};
         totalStudents++;
-        const last = _toMs(s.lastActiveDate || u.updatedAt);
+        const last = (typeof s.lastActiveMs === 'number' ? s.lastActiveMs : 0) || _toMs(s.lastActiveDate || u.updatedAt);
         if (last >= oneDayAgo) activeToday++;
         if (last >= sevenDaysAgo) activeThisWeek++;
         const times = Array.isArray(s.responseTimes) ? s.responseTimes : [];
@@ -160,7 +161,7 @@ async function writeCoachingRollups(db) {
         const att = s.totalAttempted || 0, cor = s.totalCorrect || 0;
         attempts += att;
         if (att > 0) { sumAcc += Math.round((cor / att) * 100); accN++; }
-        if (u.plan === 'premium') premiumCount++;
+        if (u.plan === 'premium' && !u.isTrial) premiumCount++;   // PAID premium only (trials counted separately)
         if (u.isTrial) trialCount++;
       });
 
@@ -184,10 +185,18 @@ async function writeCoachingRollups(db) {
       while (keys.length > DAYS_CAP) { delete days[keys.shift()]; }
       /* Full set (no merge) so the prune actually removes old keys. */
       await ref.set({ coachingId: coachingId, updatedAt: admin.firestore.FieldValue.serverTimestamp(), days: days });
-      written++;
+      return true;
     } catch (e) {
       console.error('[coachingRollups] failed for', coachingId, e && e.message);
+      return false;
     }
+  }
+
+  let written = 0;
+  const docs = coachingsSnap.docs;
+  for (let i = 0; i < docs.length; i += CONCURRENCY) {
+    const results = await Promise.all(docs.slice(i, i + CONCURRENCY).map(processCoaching));
+    written += results.filter(Boolean).length;
   }
   return written;
 }

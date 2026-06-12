@@ -31,6 +31,22 @@ if (!admin.apps.length) {
   }
 }
 
+/* In-memory per-instance rate limit (ADR-029) for this PRE-AUTH, admin-privilege-granting endpoint —
+   blunts brute-forcing the registration token. Best-effort (per serverless instance; App Check / a shared
+   counter is the durable cap — ROADMAP M6/M7). */
+var _rl = {};
+var _rlN = 0;
+var RL_WINDOW_MS = 60 * 1000;
+var RL_MAX = 8;
+function _rateLimited(ip) {
+  var now = Date.now();
+  if (++_rlN >= 50) { _rlN = 0; for (var k in _rl) { if (now - _rl[k].t > RL_WINDOW_MS) delete _rl[k]; } }
+  var e = _rl[ip];
+  if (!e || now - e.t > RL_WINDOW_MS) { _rl[ip] = { c: 1, t: now }; return false; }
+  e.c++;
+  return e.c > RL_MAX;
+}
+
 async function handler(req, res) {
   // CORS
   if (req.method === 'OPTIONS') {
@@ -52,6 +68,11 @@ async function handler(req, res) {
 
 async function _handleRegister(req, res) {
   try {
+    var ip = req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || 'unknown';
+    if (_rateLimited(String(ip).split(',')[0].trim())) {
+      return res.status(429).json({ error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many attempts. Please wait a minute and try again.' } });
+    }
+
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const { email, password, registrationToken } = body;
 

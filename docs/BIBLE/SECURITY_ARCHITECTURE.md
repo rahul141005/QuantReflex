@@ -59,6 +59,22 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `duelInvitations` | denied | denied | denied | denied |
 | default `**` | denied | denied | denied | denied |
 
+### 4.0A Coaching offboarding enforcement (ADR-029)
+A coaching's `coaching_admin` claim is a long-lived custom claim, so suspending/deleting a coaching must
+**actively cut the owner** — not merely flip a status field:
+- **Super-admin `coachings.js` mutate** — on suspend/delete: `setCustomUserClaims(adminUid, {})` (drop the
+  `coaching_admin`/`coachingId` claim) + `revokeRefreshTokens(adminUid)`; **delete** also
+  `updateUser(adminUid, {disabled:true})`. **activate** restores the claim. Best-effort (a missing Auth user
+  never fails the mutation).
+- **Coaching `withCoachingAuth`** — verifies the ID token with **`checkRevoked=true`** (so the revoke bites
+  immediately, not after the ~1h token TTL) and adds a **status gate**: reads `coachings/{coachingId}.status`
+  (60 s per-instance cache) and rejects `suspended`/`deleted` with `COACHING_INACTIVE`. Active-state
+  coaching-to-coaching isolation is unchanged and remains claim-scoped (no client-supplied `coachingId`).
+- **Registration hardening** — the pre-auth `coaching auth?action=register` endpoint now has a per-IP
+  in-memory rate limit (8/min/instance) and the one-time `registrationToken` is **crypto-strong**
+  (`crypto.randomBytes(15)`, ~120 bits) instead of a `Math.random()` 8-char code. (App Check / a shared
+  counter remain the durable global cap — ROADMAP M6/M7.)
+
 ### 4.1 Entitlement field protection
 - **Update:** `entitlementFieldsSafe()` (v2) — protected fields may change only to downgrade values: `plan`→`'free'`; `planType`/`planExpiry`/`planSource`/`trialEnd`→`null`; `isTrial`→`false`. Prevents browser-console self-grant while allowing client-side expiry self-heal.
 - **Create:** `entitlementCreateSafe()` — all entitlement fields must start at safe defaults (moot today since client create is denied, but retained as defense-in-depth).

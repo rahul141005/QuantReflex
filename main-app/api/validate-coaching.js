@@ -77,15 +77,23 @@ module.exports = async (req, res) => {
     var doc = await db.collection('coachings').doc(coachingId).get();
     
     if (!doc.exists) {
-      return res.status(200).json({ valid: false, message: 'Coaching not found' });
+      return res.status(200).json({ valid: false, reason: 'not_found', message: 'Coaching not found' });
     }
 
     var data = doc.data();
     if (!isCoachingActive(data)) {
-      return res.status(200).json({ valid: false, message: 'Coaching is inactive or expired' });
+      var reason = data.status === 'suspended' ? 'suspended' : (data.status === 'deleted' ? 'deleted' : 'inactive');
+      return res.status(200).json({ valid: false, reason: reason, message: 'Coaching is inactive or expired' });
     }
 
-    return res.status(200).json({ valid: true, name: data.name || 'Verified Coaching' });
+    /* Return enough to build a trust-confirming "Joined: <name>" UI (ADR-029) — name + status +
+       student count (logo would need a new coachings field; tracked separately). */
+    return res.status(200).json({
+      valid: true,
+      name: data.name || 'Verified Coaching',
+      status: data.status || 'active',
+      studentCount: (typeof data.studentCount === 'number') ? data.studentCount : null
+    });
   } catch (err) {
     console.error('Error validating coaching ID:', err);
     return res.status(500).json({ error: formatError(err) });

@@ -17,9 +17,10 @@ var DashboardView = (function () {
 
     Promise.all([
       CoachingAPI.getDashboard(forceRefresh),
-      CoachingAPI.getCoachingMetrics(forceRefresh).catch(function () { return { days: {} }; })
+      CoachingAPI.getCoachingMetrics(forceRefresh).catch(function () { return { days: {} }; }),
+      CoachingAPI.getPerformance(forceRefresh).catch(function () { return {}; })   // for the week-over-week participation delta (Q5)
     ]).then(function (res) {
-      _paint(root, res[0] || {}, res[1] || { days: {} });
+      _paint(root, res[0] || {}, res[1] || { days: {} }, res[2] || {});
     }).catch(function (err) {
       root.innerHTML = '<div class="view-pad"><div class="empty-state">' +
         '<div class="empty-state-icon">⚠️</div>' +
@@ -29,11 +30,12 @@ var DashboardView = (function () {
     });
   }
 
-  function _paint(root, data, rollup) {
+  function _paint(root, data, rollup, perf) {
     var m = data.metrics || {};
     var inactive = data.inactiveStudents || [];
     var weak = data.weakTopics || [];
     var total = m.totalStudents || 0;
+    var part = (perf && perf.participation) || {};   // {activeThisWeek, activeLastWeek, change}
 
     /* Speed hero — current coaching-wide avg solving speed (real now). Trend delta only if ≥7 real days. */
     var speedStr = (m.avgSpeed && m.avgSpeed > 0) ? m.avgSpeed.toFixed(1) : '—';
@@ -53,7 +55,7 @@ var DashboardView = (function () {
     }
 
     var hero =
-      '<div class="speed-hero" role="button" tabindex="0" onclick="CoachingApp.navigateTo(\'performance\')" aria-label="Open Performance">' +
+      '<div class="speed-hero" role="button" tabindex="0" onclick="CoachingApp.navigateTo(\'performance\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();CoachingApp.navigateTo(\'performance\');}" aria-label="Open Performance — view speed trend">' +
         '<div style="flex:1;">' +
           '<div><span class="speed-hero-num">' + speedStr + '</span> <span class="speed-hero-unit">s/question</span></div>' +
           '<div class="speed-hero-label">Average solving speed · lower is faster</div>' +
@@ -71,7 +73,7 @@ var DashboardView = (function () {
     }
     var grid = '<div class="metrics-grid">' +
       metric('Active today', (m.activeToday || 0) + (total ? ' / ' + total : ''), '🟢', 'var(--accent-emerald)') +
-      metric('Active this week', (m.activeThisWeek || 0) + (total ? ' / ' + total : ''), '📈', 'var(--accent-primary)') +
+      metric('Active this week' + (part.change != null ? ' ' + U.deltaBadge(part.change, false) : ''), (m.activeThisWeek || 0) + (total ? ' / ' + total : ''), '📈', 'var(--accent-primary)') +
       metric('Need attention', String(m.inactiveCount != null ? m.inactiveCount : inactive.length), '⚠️', 'var(--accent-amber)') +
       metric('Avg accuracy', (m.avgAccuracy != null ? m.avgAccuracy + '%' : '—'), '🎯', 'var(--accent-cyan)') +
     '</div>';
@@ -83,6 +85,8 @@ var DashboardView = (function () {
         '<div class="empty-state-text">Everyone\'s been practicing recently.</div>' +
         '<div class="empty-state-hint">At-risk students (no practice in 3+ days) appear here.</div></div>';
     } else {
+      var shown = Math.min(6, inactive.length);
+      var attnTotal = (m.inactiveCount != null ? m.inactiveCount : inactive.length);
       attn += inactive.slice(0, 6).map(function (s) {
         var name = s.name || s.uid;
         var safeName = (name + '').replace(/'/g, '');
@@ -94,22 +98,28 @@ var DashboardView = (function () {
           '<button class="btn btn-sm btn-outline" onclick="EngagementView.nudgeStudent(\'' + U.escapeHtml(s.uid) + '\',\'' + U.escapeHtml(safeName) + '\')">Nudge</button>' +
         '</div>';
       }).join('');
+      if (attnTotal > shown) {
+        attn += '<div class="list-row-sub muted text-center mt-sm">Showing ' + shown + ' of ' + attnTotal + ' — open Students to see the rest.</div>';
+      }
     }
 
     /* Weak topics (accuracy) — actionable: nudge everyone weak in a topic. */
-    var topics = '';
+    var topics = '<div class="section-label">Weak topics</div>';
     if (weak.length) {
-      topics = '<div class="section-label">Weak topics</div>';
       topics += weak.slice(0, 5).map(function (t) {
         var acc = t.accuracy || 0;
         var color = acc >= 70 ? 'var(--accent-emerald)' : (acc >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)');
         var safeTopic = (t.topic + '').replace(/'/g, '');
-        return '<div class="bar-chart-row" role="button" tabindex="0" onclick="EngagementView.nudgeTopic(\'' + U.escapeHtml(safeTopic) + '\')" aria-label="Nudge students weak in ' + U.escapeHtml(t.topic) + '">' +
+        return '<div class="bar-chart-row" role="button" tabindex="0" onclick="EngagementView.nudgeTopic(\'' + U.escapeHtml(safeTopic) + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();EngagementView.nudgeTopic(\'' + U.escapeHtml(safeTopic) + '\');}" aria-label="Nudge students weak in ' + U.escapeHtml(t.topic) + '">' +
           '<div class="bar-chart-label">' + U.escapeHtml(U.capitalize(t.topic)) + '</div>' +
           '<div class="bar-chart-track"><div class="bar-chart-fill" style="width:' + acc + '%;background:' + color + ';"></div></div>' +
           '<div class="bar-chart-value">' + acc + '%</div>' +
         '</div>';
       }).join('');
+    } else {
+      /* Honest empty state instead of silently hiding the section. */
+      topics += '<div class="empty-state"><div class="empty-state-text">Not enough practice yet to spot weak topics.</div>' +
+        '<div class="empty-state-hint">Topics with 5+ attempts across your students appear here.</div></div>';
     }
 
     /* Premium strip (monetization — kept small, beside the speed mission) */

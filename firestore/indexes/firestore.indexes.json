@@ -65,7 +65,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "coachingId", "order": "ASCENDING" },
-        { "fieldPath": "stats.lastActiveDate", "order": "DESCENDING" }
+        { "fieldPath": "stats.lastActiveMs", "order": "DESCENDING" }
       ]
     },
     {

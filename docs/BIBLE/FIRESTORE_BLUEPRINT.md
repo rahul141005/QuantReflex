@@ -60,6 +60,8 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 
 **`stats.dailyHistory` shape (Analytics Foundation, ADR-027, 2026-06-13):** a map of `dateKey (Date.toDateString())` → per-day record, **widened** from `{attempted, correct}` to **`{attempted, correct, sumTimes, count}`**. `sumTimes` accumulates that day's response times (seconds) and `count` the number of timed answers, so **per-day average solving speed = `sumTimes / count`** — the first **dated speed history** in the system (`stats.responseTimes` is a timestamp-less 200-item ring and cannot support a calendar trend). Written by `main-app/js/progress.js#recordAnswer` (capped to the last **90 days** by the existing prune); the two new keys are **additive and backward-compatible** — pre-ADR-027 day records lack them and all readers default `sumTimes/count` to `0`. This is the root substrate for every honest speed-trend metric in the Coaching App (ADR-028); 7d/30d speed trends become real only after ≥7/≥30 days of accumulation (until then the UI shows a "collecting data" state — never a fabricated number).
 
+**`stats.lastActiveMs` (ADR-029, 2026-06-13):** sortable epoch-ms last-active, written by `progress.js` alongside the human `stats.lastActiveDate` (a `Date.toDateString()` string kept for display only). **All Firestore order/range queries use `lastActiveMs`** — the coaching roster order + keyset pagination and the super-admin inactive sweep/list/export — because `lastActiveDate` sorts lexically by weekday, not chronologically (it silently mis-ordered the roster and made the inactive `< cutoff` range never match). Backfilled for existing docs by `firestore/migrations/2026-06-13-add-lastActiveMs.js`. Skips no longer pollute speed: `progress.js#recordAnswer` excludes a skipped question's `responseTime` (passed `null`, not `0`) from `responseTimes`/`dailyHistory.sumTimes`.
+
 ### 2.1 Subcollections of `users/{uid}`
 
 | Path | Authority | Writer | Shape |
@@ -128,7 +130,7 @@ Per-coaching **daily rollup** powering the Coaching App's Performance/Growth ana
 | duels | status, createdAt | `cleanupExpiredDuels` |
 | entitlementLogs | **COLLECTION_GROUP** adminId (ASC), timestamp (DESC) | Fixed audit M2 (2026-06-11): scope corrected to `COLLECTION_GROUP` (docs live in `users/{uid}/entitlementLogs`) and keyed on `adminId`+`timestamp` (fields the docs actually contain) → supports "an admin's actions newest-first across all users". Deploy with `firebase deploy --only firestore:indexes`. |
 | notificationLogs | coachingId, timestamp DESC | coaching notices |
-| users | coachingId, stats.lastActiveDate DESC | coaching dashboards |
+| users | coachingId, **stats.lastActiveMs** DESC | coaching roster order + keyset pagination (ADR-029 — replaced `stats.lastActiveDate`, a non-sortable toDateString) |
 | auditLogs | category (ASC), ts (DESC) | audit center filtered by category |
 | auditLogs | actorUid (ASC), ts (DESC) | "an admin's actions" newest-first |
 | auditLogs | targetId (ASC), ts (DESC) | all actions against one user/coaching |

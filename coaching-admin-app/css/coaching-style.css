@@ -1852,3 +1852,10 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
 .text-emerald { color: var(--accent-emerald); }
 .text-red { color: var(--accent-red); }
 .text-center { text-align: center; }
+
+/* ── Audit remediation (ADR-029) ── */
+.badge-draft { background: rgba(211, 146, 44, 0.16); color: var(--accent-amber); }
+.speed-hero[role="button"] { cursor: pointer; }
+.speed-hero[role="button"]:active { background: var(--bg-card-hover); }
+.speed-hero[role="button"]:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.metric-value { padding-right: 26px; }   /* keep long values clear of the absolutely-positioned .metric-icon */

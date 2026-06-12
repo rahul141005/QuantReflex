@@ -18,9 +18,26 @@ var SettingsView = (function () {
       var c = (data && data.coaching) || {};
       var m = (data && data.metrics) || {};
       _paint(root, c, m);
-    }).catch(function () {
-      _paint(root, {}, {});   // settings should still render account actions even if metrics fail
+    }).catch(function (err) {
+      /* Don't paint placeholder data as if real — show an honest error + retry, but keep the
+         always-available account actions (support/logout) usable. */
+      root.innerHTML = '<div class="view-pad">' +
+        '<div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
+        '<div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
+        '<button class="btn btn-outline btn-sm mt-md" onclick="SettingsView.render(true)">Retry</button></div>' +
+        _accountActions() + '</div>';
     });
+  }
+
+  /* Account actions (support + logout) — always available even when coaching info fails to load. */
+  function _accountActions() {
+    return '<div class="section-label">Account</div>' +
+      '<button class="more-item" onclick="SettingsView.support()">' +
+        '<span class="more-icon">✉️</span><span class="more-text"><span class="more-label">Support</span>' +
+        '<span class="more-hint">' + U.escapeHtml(SUPPORT_EMAIL) + '</span></span><span class="more-chevron">›</span></button>' +
+      '<button class="more-item" onclick="SettingsView.logout()">' +
+        '<span class="more-icon">🚪</span><span class="more-text"><span class="more-label">Log out</span></span>' +
+        '<span class="more-chevron">›</span></button>';
   }
 
   function _row(label, value) {
@@ -47,13 +64,7 @@ var SettingsView = (function () {
     html += '</div>';
 
     /* Actions */
-    html += '<div class="section-label">Account</div>';
-    html += '<button class="more-item" onclick="SettingsView.support()">' +
-      '<span class="more-icon">✉️</span><span class="more-text"><span class="more-label">Support</span>' +
-      '<span class="more-hint">' + U.escapeHtml(SUPPORT_EMAIL) + '</span></span><span class="more-chevron">›</span></button>';
-    html += '<button class="more-item" onclick="SettingsView.logout()">' +
-      '<span class="more-icon">🚪</span><span class="more-text"><span class="more-label">Log out</span></span>' +
-      '<span class="more-chevron">›</span></button>';
+    html += _accountActions();
 
     html += '<div class="text-center list-row-sub muted" style="padding:var(--space-2xl) 0;">QuantReflex Coach v' + APP_VERSION + '</div>';
     html += '</div>';

@@ -213,8 +213,10 @@ async function handler(req, res) {
     if (action === 'inactive-list' && req.method === 'GET') {
       const days = parseInt(req.query.days || '90', 10);
       const limit = Math.min(500, Math.max(1, parseInt(req.query.limit || '200', 10)));
-      const cutoff = new Date(Date.now() - Math.max(1, days) * 24 * 60 * 60 * 1000).toISOString();
-      const snap = await db.collection('users').where('stats.lastActiveDate', '<', cutoff).orderBy('stats.lastActiveDate', 'asc').limit(limit).get();
+      /* Range on the SORTABLE epoch-ms field (ADR-029) — the old ISO `<` compare against the toDateString
+         lastActiveDate never matched (weekday letters > '2'), so inactive users were never listed. */
+      const cutoffMs = Date.now() - Math.max(1, days) * 24 * 60 * 60 * 1000;
+      const snap = await db.collection('users').where('stats.lastActiveMs', '<', cutoffMs).orderBy('stats.lastActiveMs', 'asc').limit(limit).get();
       const users = [];
       snap.forEach(function (doc) {
         const d = doc.data();
@@ -226,8 +228,8 @@ async function handler(req, res) {
 
     if (action === 'inactive-export' && req.method === 'GET') {
       const days = parseInt(req.query.days || '90', 10);
-      const cutoff = new Date(Date.now() - Math.max(1, days) * 24 * 60 * 60 * 1000).toISOString();
-      const snap = await db.collection('users').where('stats.lastActiveDate', '<', cutoff).orderBy('stats.lastActiveDate', 'asc').limit(5000).get();
+      const cutoffMs = Date.now() - Math.max(1, days) * 24 * 60 * 60 * 1000;   /* sortable ms (ADR-029) */
+      const snap = await db.collection('users').where('stats.lastActiveMs', '<', cutoffMs).orderBy('stats.lastActiveMs', 'asc').limit(5000).get();
       const rows = [['uid', 'email', 'name', 'plan', 'accountStatus', 'lastActive', 'createdAt']];
       snap.forEach(function (doc) { const d = doc.data(); rows.push([doc.id, d.email || '', (d.profile && d.profile.name) || '', d.plan || 'free', d.accountStatus || 'active', (d.stats && d.stats.lastActiveDate) || '', (d.profile && d.profile.createdAt) || '']); });
       const csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');

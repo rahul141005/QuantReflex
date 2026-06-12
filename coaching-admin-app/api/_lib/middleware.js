@@ -52,12 +52,40 @@ function safeTimestamp(val) {
 }
 
 /**
+ * Coaching status gate (ADR-029) — a coaching that the super-admin has suspended/deleted must lose
+ * access even though its admin still holds a coaching_admin claim. Reads coachings/{id}.status with a
+ * short in-memory cache (per serverless instance) to bound reads. Fails OPEN on a transient read error
+ * (a Firestore blip must not lock out a healthy coaching) — the authoritative cutoff is the token
+ * revocation done by super-admin mutate + checkRevoked below.
+ */
+var _coachingStatusCache = {};
+var COACHING_STATUS_TTL_MS = 60 * 1000;
+async function _coachingActive(coachingId) {
+  var now = Date.now();
+  var cached = _coachingStatusCache[coachingId];
+  if (cached && (now - cached.at) < COACHING_STATUS_TTL_MS) return cached;
+  try {
+    var doc = await admin.firestore().collection('coachings').doc(coachingId).get();
+    var data = doc.exists ? (doc.data() || {}) : {};
+    var status = data.status || (data.isActive === false ? 'suspended' : 'active');
+    var active = doc.exists && status !== 'suspended' && status !== 'deleted' && data.isActive !== false;
+    var entry = { active: active, status: status, at: now };
+    _coachingStatusCache[coachingId] = entry;
+    return entry;
+  } catch (_) {
+    return cached || { active: true, status: 'unknown', at: now }; // fail-open on transient error
+  }
+}
+
+/**
  * Auth middleware for coaching admin endpoints.
  * Verifies:
  *   1. Bearer token present
- *   2. Token is valid
+ *   2. Token is valid AND not revoked (checkRevoked — so a suspend/delete that revokes refresh tokens
+ *      cuts off existing sessions immediately instead of leaving a ~1h window)
  *   3. coaching_admin === true custom claim
  *   4. coachingId claim is present
+ *   5. the coaching itself is still active (status gate — ADR-029)
  *
  * Attaches req.userId and req.coachingId for downstream handlers.
  */
@@ -79,9 +107,10 @@ function withCoachingAuth(handler) {
     var idToken = authHeader.substring(7);
     var decoded;
     try {
-      decoded = await admin.auth().verifyIdToken(idToken);
+      decoded = await admin.auth().verifyIdToken(idToken, true); // checkRevoked = true (ADR-029)
     } catch (tokenErr) {
-      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication failed.' } });
+      var revoked = tokenErr && (tokenErr.code === 'auth/id-token-revoked' || tokenErr.code === 'auth/user-disabled');
+      return res.status(401).json({ error: { code: revoked ? 'SESSION_REVOKED' : 'UNAUTHORIZED', message: revoked ? 'Your session has ended. Please sign in again.' : 'Authentication failed.' } });
     }
 
     if (!decoded || !decoded.uid) {
@@ -96,6 +125,12 @@ function withCoachingAuth(handler) {
     // Extract coachingId from claims
     if (!decoded.coachingId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No coaching association found. Contact support.' } });
+    }
+
+    // Coaching status gate (ADR-029): block suspended/deleted coachings even with a valid claim.
+    var statusCheck = await _coachingActive(decoded.coachingId);
+    if (!statusCheck.active) {
+      return res.status(403).json({ error: { code: 'COACHING_INACTIVE', message: 'This coaching is suspended or closed. Contact your administrator.' } });
     }
 
     req.userId = decoded.uid;

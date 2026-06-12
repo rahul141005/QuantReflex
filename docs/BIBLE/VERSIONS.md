@@ -9,10 +9,10 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.17 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.18 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.10 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.9 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.7 | Auth model, rules, claims, abuse controls. |
+| **Firestore Version** | 2.10 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.8 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.0 (2026-06-11)** — v2 monetization (ADR-009): single `plan` model, lifetime + Premium+ removed.
@@ -53,6 +53,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-13 | 2.18 | 2.10 | 2.10 | 2.8 | 2.2 | **Coaching ecosystem audit remediation (ADR-029):** fixed the audit's CRITICAL + HIGH findings. **Security:** suspend/delete a coaching now revokes the owner's tokens + drops their `coaching_admin` claim (delete also disables Auth), `withCoachingAuth` verifies with `checkRevoked` + a coaching-status gate, register endpoint rate-limited + crypto-strong token. **Data integrity:** Skip no longer records a 0-second solve (speed un-polluted); new sortable `users.stats.lastActiveMs` replaces the non-sortable `toDateString` in all order/range queries (coaching roster + super-admin inactive sweep/list/export, which previously never matched) — index updated, backfill migration added. **Scale:** dashboard/insights/notices scans bounded (5000) + the rollup cron parallelized (bounded concurrency); trial users no longer double-counted as premium; offboarded students excluded from coaching counts/lists. **Join UX:** validate-coaching surfaces the institute name ("Joined: …") + status; Smart-Nudge chips actually target inactive/low-streak; notices report true in-app reach; settings/profile/notices error+retry; badge/keyboard/affordance a11y. Security 2.7→2.8, Firestore 2.9→2.10, Bible 2.17→2.18. |
 | 2026-06-13 | 2.17 | 2.10 | 2.9 | 2.7 | 2.2 | **Coaching App V3 — Analytics Foundation + mobile-first redesign (ADR-027/028):** establishes the first **dated speed history** — `users.stats.dailyHistory[date]` widened to `{attempted,correct,sumTimes,count}` (avgTime/day) in `main-app/js/progress.js`; `practiceSessions` now actually written (`savePracticeSession` wired); new per-coaching daily rollup `coachingMetrics/{id}` (written by the existing super-admin cron — **zero new functions**); 3 composite `users(coachingId,·)` indexes. Coaching App rebuilt as a mobile-first 5-tab "Speed Training Control Center" (Dashboard/Students/Performance/Engagement/Settings), Notices→Engagement Center, no Coaching Rank (→ Coaching Improvement Score vs own history), de-gamered dark theme + re-enabled zoom, broken `app.navigate` intervention arm fixed. **Honesty rule:** history-dependent metrics show "collecting data — live in N days", never fabricated/approximated trends; no backfill. Additive Firestore (MINOR), new `coachingMetrics` read rule (Security MINOR), cross-app data-flow (Arch MINOR). |
 | 2026-06-12 | 2.16 | 2.9 | 2.8 | 2.6 | 2.2 | **Super Admin accessibility + governance enforcement — Pass 3 (ADR-026):** final pass of the ADR-024 program — an adversarial multi-agent UX/visual/a11y/navigation audit (35 candidates → 18 confirmed fixes). Keyboard-operable `.sv-row` / drop-zone / search results (`role`+`tabindex`+Enter/Space, WCAG 2.1.1); `aria-label`s on filter inputs + bulk checkboxes; labelled Global-Search `role="dialog"`/`listbox`/`type=search`; active nav `aria-current="page"`; fixed the dangling modal `aria-labelledby` (`#modalTitle` now set); rebuilt Tabs to the full WAI-ARIA tab pattern (roving tabindex + Arrow/Home/End); `aria-live` toast region (+ `role="alert"` on errors); remaining raw `e.message` sites (questions/command-center/global-search) routed through `getReadableError`; Content table card-mode on narrow panes; triplicated `_tile()` collapsed to one `AdminUtils.statTile`; restored the self-referential `--accent-glow`/`--accent-ring` light-mode token values; global `:focus-visible` ring. Zero new functions (8/12); client + Bible only; no schema change. UI/a11y (MINOR). |
 | 2026-06-12 | 2.15 | 2.9 | 2.8 | 2.6 | 2.2 | **Super Admin Settings Center — Pass 2 (ADR-025):** new 8th domain (Settings) — Account (change password/email via Firebase SDK reauth) · Security (login history + **log out everywhere** via the one new `system?action=revoke-tokens`, self-scoped + audited) · Appearance (theme) · Preferences (landing/density/animations/date-format/timezone, device-local) · Platform info · Backup (CSV exports). Operations Diagnostics health grid reflects live kill-switch state. Zero new functions (8/12); no schema change. Security 2.5→2.6 (self-session revocation). |
@@ -79,6 +80,19 @@ file and moves independently of the system-level tracks above.
 
 Migration notes are required for every MAJOR bump and for any change that requires a data
 migration script. Format: what changed, who is affected, the migration action, rollback.
+
+### 2026-06-13 — `stats.lastActiveMs` backfill (non-breaking, MINOR, ADR-029)
+- **What changed:** added a sortable epoch-ms `users.stats.lastActiveMs` (written by `progress.js` going
+  forward) because `stats.lastActiveDate` (a `toDateString`) sorts lexically by weekday, breaking the coaching
+  roster order/pagination and making the super-admin inactive `< cutoff` range query never match.
+- **Who is affected:** additive — existing docs lack the field until backfilled; the coaching roster + inactive
+  queries (which now `orderBy/where` on `lastActiveMs`) skip un-backfilled docs until the migration runs.
+  In-memory readers still use `lastActiveDate` (tolerant). No field renamed/removed.
+- **Migration action:** **run `firestore/migrations/2026-06-13-add-lastActiveMs.js` (dry-run, then `--apply`)**
+  — idempotent; sets `lastActiveMs = Date.parse(lastActiveDate)` (fallback `updatedAt`) where missing. Deploy
+  the updated index + rules first (`firebase deploy --only firestore:indexes,firestore:rules`).
+- **Rollback:** the field is additive; to revert, switch the queries back to `lastActiveDate` (not recommended —
+  it never sorted correctly). No data cleanup needed.
 
 ### 2026-06-13 — Analytics Foundation: `dailyHistory` widening + `coachingMetrics` (non-breaking, MINOR, ADR-027)
 - **What changed:** `users/{uid}.stats.dailyHistory[date]` gains `{sumTimes, count}` alongside the existing

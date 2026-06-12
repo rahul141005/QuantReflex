@@ -45,6 +45,7 @@ function loadProgress() {
         data.todayAttempted = 0;
         data.todayCorrect = 0;
         data.lastActiveDate = today;
+        data.lastActiveMs = Date.now();   /* sortable last-active (ADR-029) — toDateString isn't query-safe */
         saveProgress(data);
       }
       /* Ensure required fields exist */
@@ -125,6 +126,7 @@ function recordAnswer(correct, category, questionData, responseTime) {
   }
 
   p.lastActiveDate = today;
+  p.lastActiveMs = Date.now();   /* sortable last-active (ADR-029) — backs coaching roster order + the inactive-sweep range query that toDateString silently broke */
   p.totalAttempted++;
   p.todayAttempted = (p.todayAttempted || 0) + 1;
 

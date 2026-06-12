@@ -8,7 +8,7 @@
  * Scoped to students with matching coachingId.
  */
 
-const { withCoachingAuth, formatError, safeTimestamp } = require('../_lib/middleware');
+const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -57,9 +57,11 @@ async function _handleSend(db, coachingId, req, res) {
     return res.status(400).json({ error: 'Message must be 500 characters or less' });
   }
 
-  // Fetch ALL students for this coaching (not just those with tokens)
+  // Fetch students for this coaching — BOUNDED (ADR-029) so an enormous roster can't OOM/timeout the
+  // 15s function. (A coaching beyond 5000 students reaches the first 5000; FCM is already chunked at 500.)
   const studentsSnap = await db.collection('users')
     .where('coachingId', '==', coachingId)
+    .limit(5000)
     .get();
 
   const totalStudents = studentsSnap.size;
@@ -75,6 +77,19 @@ async function _handleSend(db, coachingId, req, res) {
     // Filter by audience segment (Engagement Center broadcast: all | premium | free)
     if (segment === 'premium' && u.plan !== 'premium') return;
     if (segment === 'free' && u.plan === 'premium') return;
+
+    // Behavior-based Smart-Nudge segments (ADR-029) — so "Re-engage inactive" / "Streak reminder"
+    // actually reach their stated audience instead of broadcasting to everyone.
+    if (segment === 'inactive' || segment === 'lowstreak') {
+      const st = u.stats || {};
+      if (segment === 'inactive') {
+        const lastMs = (typeof st.lastActiveMs === 'number' ? st.lastActiveMs : 0) || toMillis(st.lastActiveDate || u.updatedAt);
+        if (!lastMs || lastMs >= (Date.now() - 3 * 24 * 60 * 60 * 1000)) return; // active in last 3d → skip
+      } else { // lowstreak: at-risk streak — has practiced but streak is short
+        if ((st.totalAttempted || 0) === 0) return;        // never practiced → not a "streak at risk"
+        if ((st.dailyStreak || 0) >= 3) return;            // healthy streak → skip
+      }
+    }
 
     // Filter by targetTopic (< 50% accuracy)
     if (targetTopic) {
@@ -96,10 +111,11 @@ async function _handleSend(db, coachingId, req, res) {
 
   if (targetUids.length === 0) {
     // Still log the notice even if no matching students found
-    await _logNotice(db, coachingId, req.userId, title, messageBody, 0, 0, 0);
+    await _logNotice(db, coachingId, req.userId, title, messageBody, 0, 0, 0, 0);
     return res.status(200).json({
       success: true,
       totalStudents,
+      reached: 0,
       withTokens: 0,
       sent: 0,
       failed: 0,
@@ -178,12 +194,15 @@ async function _handleSend(db, coachingId, req, res) {
     await batch.commit();
   }
 
-  // Log the notice
-  await _logNotice(db, coachingId, req.userId, title, messageBody, successCount, failureCount, tokensToRemove.length);
+  // Log the notice. `reached` = students who got the in-app inbox notice (targetUids.length) — the true
+  // delivery number; `successCount` is only the FCM push subset (ADR-029: don't report "0 delivered" when
+  // every student got the inbox notice but none had a push token).
+  await _logNotice(db, coachingId, req.userId, title, messageBody, targetUids.length, successCount, failureCount, tokensToRemove.length);
 
   return res.status(200).json({
     success: true,
     totalStudents,
+    reached: targetUids.length,
     withTokens: tokens.length,
     sent: successCount,
     failed: failureCount,
@@ -191,13 +210,14 @@ async function _handleSend(db, coachingId, req, res) {
   });
 }
 
-async function _logNotice(db, coachingId, adminUid, title, body, sent, failed, cleaned) {
+async function _logNotice(db, coachingId, adminUid, title, body, reached, pushed, failed, cleaned) {
   await db.collection('notificationLogs').add({
     title,
     body,
     segment: 'coaching',
     coachingId,
-    successCount: sent,
+    reached: reached,            // in-app inbox deliveries (true reach)
+    successCount: pushed,        // FCM push successes (subset)
     failureCount: failed,
     staleTokensCleaned: cleaned,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -219,7 +239,8 @@ async function _handleHistory(db, coachingId, req, res) {
       id: doc.id,
       title: d.title || '',
       body: d.body || '',
-      sent: d.successCount || 0,
+      sent: (d.reached != null ? d.reached : (d.successCount || 0)),  // true reach (fallback for old logs)
+      pushSent: d.successCount || 0,
       failed: d.failureCount || 0,
       timestamp: safeTimestamp(d.timestamp)
     });

@@ -251,7 +251,10 @@ function createDrillEngine(container, opts) {
         if (answered) return;
         answered = true;
         if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
-        recordAnswer(false, q.category, q, 0);
+        /* Skip: pass null (not 0) so the response-time is EXCLUDED from speed (a skip is not a 0-second
+           solve — recording 0 deflated the coaching North-Star avgSpeed). progress.js's typeof-number
+           guard drops null. ADR-027/028. */
+        recordAnswer(false, q.category, q, null);
         nextQuestion();
       });
       var actionsDiv = container.querySelector('.drill-actions');

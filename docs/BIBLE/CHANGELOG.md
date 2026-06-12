@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Coaching ecosystem audit remediation (ADR-029)
+
+Fixed the production-readiness audit's findings (1 critical, 10 high, the actionable mediums/lows). Across the
+student / coaching / super-admin apps + Firebase.
+
+- **CRITICAL — offboarding now cuts the owner:** super-admin `coachings.js` suspend/delete drops the owner's
+  `coaching_admin` claim + `revokeRefreshTokens` (delete also disables Auth); activate restores it. Coaching
+  `withCoachingAuth` verifies with `checkRevoked=true` + a cached `coachings/{id}.status` gate
+  (`COACHING_INACTIVE`). [SECURITY §4.0A]
+- **HIGH — register hardening:** per-IP rate limit on the pre-auth `coaching auth?action=register`; one-time
+  token is now `crypto.randomBytes(15)` (~120 bits), not `Math.random()`.
+- **HIGH — speed integrity:** Skip records `null` (not `0`) response-time (`drill-engine.js`) so a skip is no
+  longer a 0-second solve deflating the coaching avg speed.
+- **HIGH — `lastActiveMs`:** new sortable epoch field (`progress.js`) replaces the non-sortable `toDateString`
+  in every order/range query — coaching roster order+cursor (`students.js`) and the super-admin inactive
+  sweep/list/export (`sweep.js`, `users.js`), which previously **never matched** so no one was ever flagged
+  inactive. Index `users(coachingId, stats.lastActiveMs DESC)`; backfill migration; ROADMAP DEBT-3 resolved.
+- **HIGH — scale:** `dashboard.js`/`insights.js`/`notices.js` roster scans bounded to 5000 (+`rosterTruncated`
+  flag); `writeCoachingRollups` parallelized (bounded concurrency of 10).
+- **MED — correctness:** trial users no longer double-counted as premium (rollup + dashboard = paid-only);
+  offboarded (`accountStatus!=='active'`) students excluded from coaching counts/lists/aggregates; notices
+  report **true in-app reach** (`reached`), not just FCM push successes; zero-match send shows "no students
+  matched" instead of a false "Sent."; Smart-Nudge chips actually target `inactive`/`lowstreak` (server filters).
+- **MED/LOW — UX:** join screen shows **"Joined: <Coaching Name>" + student count** (+ suspended/deleted
+  messaging) — `validate-coaching` already returned the name (`app.js` was discarding it); `.badge-draft` CSS
+  (trial badge was invisible); settings/profile/notices error+retry states; dashboard participation Δ (Q5),
+  weak-topics empty state, "showing N of M" at-risk, speed-hero+weak-topic keyboard handlers + cursor
+  affordance; students search caret no longer jumps to end.
+- **Bible:** DECISION_LOG (ADR-029), SECURITY (§4.0A, 2.8), FIRESTORE_BLUEPRINT (`lastActiveMs` + index, 2.10),
+  ROADMAP (DEBT-3 done), VERSIONS (Bible 2.18 + row + migration note), this entry. **Deploy:** `firebase deploy
+  --only firestore:indexes,firestore:rules` + run `2026-06-13-add-lastActiveMs.js --apply`. **Verified:**
+  `node --check` all touched JS (3 apps); CSS balanced; coaching 5/12 functions.
+
+---
+
 ## 2026-06-13 — Coaching App V3: mobile-first "Speed Training Control Center" (Phase 1+2, ADR-028)
 
 Rebuilds `coaching-admin-app` around the speed mission (depends on the ADR-027 foundation). **Mobile-first**

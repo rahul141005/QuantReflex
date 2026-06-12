@@ -1019,14 +1019,22 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch('/api/validate-coaching?id=' + encodeURIComponent(val))
           .then(function(res) { return res.json(); })
           .then(function(data) {
+            /* Inline escape (no load-order assumption on the global escapeHtml). */
+            function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]; }); }
             if (data && data.valid) {
+              /* Trust signal (ADR-029): confirm WHICH institute, not a generic "valid". */
+              var nm = data.name ? ('Joined: ' + _esc(data.name)) : 'Valid coaching code';
+              var sc = (typeof data.studentCount === 'number' && data.studentCount > 0) ? (' · ' + data.studentCount + ' students') : '';
               coachingIdValidationEl.className = 'login-field-validation active all-valid';
-              coachingIdValidationEl.innerHTML = '<span class="val-summary">Valid coaching code</span>';
+              coachingIdValidationEl.innerHTML = '<span class="val-summary">✓ ' + nm + sc + '</span>';
               loginCoachingId.classList.remove('input-error');
               loginCoachingId.classList.add('input-valid');
             } else {
+              var msg = (data && data.reason === 'suspended') ? 'This institute is suspended — contact them.'
+                : (data && data.reason === 'deleted') ? 'This institute is no longer active.'
+                : 'Code not found.';
               coachingIdValidationEl.className = 'login-field-validation active';
-              coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Code not found or inactive</li></ul>';
+              coachingIdValidationEl.innerHTML = '<ul><li class="val-error">' + msg + '</li></ul>';
               loginCoachingId.classList.remove('input-valid');
               loginCoachingId.classList.add('input-error');
             }

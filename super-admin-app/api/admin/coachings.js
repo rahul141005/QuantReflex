@@ -1,6 +1,7 @@
 const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -31,6 +32,12 @@ function generateCoachingId(length = 8) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+}
+
+/* Registration token (ADR-029): the SECRET that lets a coaching owner claim admin access, so it must be
+   crypto-strong + unguessable — not the Math.random() coachingId generator. ~120 bits of entropy. */
+function generateSecureToken() {
+  return 'REG' + crypto.randomBytes(15).toString('hex').toUpperCase();
 }
 
 async function handler(req, res) {
@@ -66,7 +73,7 @@ async function handler(req, res) {
 
       let isUnique = false;
       let coachingId;
-      let registrationToken = 'REG' + generateCoachingId(8);
+      let registrationToken = generateSecureToken();
       while (!isUnique) {
         coachingId = 'QR' + generateCoachingId(); 
         const doc = await db.collection('coachings').doc(coachingId).get();
@@ -121,11 +128,14 @@ async function handler(req, res) {
 
       let beforeStatus = null;
       let newStatusFinal = 'active';
+      let coachingAdminUid = null;
       await db.runTransaction(async (transaction) => {
         const coachingRef = db.collection('coachings').doc(coachingId);
         const doc = await transaction.get(coachingRef);
         if (!doc.exists) throw new Error('Coaching not found');
-        beforeStatus = (doc.data() || {}).status || null;
+        const cd = doc.data() || {};
+        beforeStatus = cd.status || null;
+        coachingAdminUid = cd.adminUid || null;
 
         let newStatus = 'active';
         let isActive = true;
@@ -159,6 +169,29 @@ async function handler(req, res) {
           if (page.size < 400) break;
         }
       }
+
+      /* Lock out the coaching OWNER too (ADR-029) — suspension/deletion must cut the admin's access, not
+         only students' premium. Drop the coaching_admin claim + revoke refresh tokens (coaching middleware
+         verifies with checkRevoked, so this bites immediately); delete also disables the Auth account.
+         activate restores the claim. Best-effort — a missing/already-deleted Auth user must not fail the
+         mutation (the Firestore status change already happened). */
+      if (coachingAdminUid) {
+        try {
+          if (mutateAction === 'suspend' || mutateAction === 'delete') {
+            await admin.auth().setCustomUserClaims(coachingAdminUid, {});
+            await admin.auth().revokeRefreshTokens(coachingAdminUid);
+            if (mutateAction === 'delete') {
+              try { await admin.auth().updateUser(coachingAdminUid, { disabled: true }); } catch (_) {}
+            }
+          } else if (mutateAction === 'activate') {
+            await admin.auth().setCustomUserClaims(coachingAdminUid, { coaching_admin: true, coachingId: coachingId });
+            try { await admin.auth().updateUser(coachingAdminUid, { disabled: false }); } catch (_) {}
+          }
+        } catch (claimErr) {
+          console.error('[coachings.mutate] owner Auth/claim update failed for', coachingAdminUid, claimErr && claimErr.message);
+        }
+      }
+
       await writeAuditLog(db, {
         actorUid: req.userId,
         actorEmail: req.adminEmail,
@@ -225,7 +258,7 @@ async function handler(req, res) {
       const ref = db.collection('coachings').doc(coachingId);
       const doc = await ref.get();
       if (!doc.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
-      const newToken = 'REG' + generateCoachingId(8);
+      const newToken = generateSecureToken();
       await ref.update({ registrationToken: newToken, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
       await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reset_coaching_token', category: 'coaching', targetType: 'coaching', targetId: coachingId, summary: 'rotated registration token for ' + coachingId });
       return res.status(200).json({ success: true, coachingId: coachingId, registrationToken: newToken });

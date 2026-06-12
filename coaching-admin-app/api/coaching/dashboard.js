@@ -31,10 +31,14 @@ async function handler(req, res) {
     const coachingDoc = await db.collection('coachings').doc(coachingId).get();
     const coachingData = coachingDoc.exists ? coachingDoc.data() : {};
 
-    // Fetch all students for this coaching
+    // Fetch students for this coaching — BOUNDED (ADR-029) so a huge roster can't OOM/timeout the 15s
+    // function. 5000 matches the daily rollup's cap; beyond it, headline aggregates are flagged truncated.
+    const SCAN_CAP = 5000;
     const studentsSnap = await db.collection('users')
       .where('coachingId', '==', coachingId)
+      .limit(SCAN_CAP)
       .get();
+    const rosterTruncated = studentsSnap.size >= SCAN_CAP;
 
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
@@ -58,6 +62,9 @@ async function handler(req, res) {
 
     studentsSnap.forEach(doc => {
       const u = doc.data();
+      /* Exclude offboarded students (ADR-029) — suspended/archived users can't practice, so they must not
+         inflate active/at-risk/accuracy/speed aggregates or appear in the nudge list. */
+      if ((u.accountStatus || 'active') !== 'active') return;
       fallbackCount++;
 
       const stats = u.stats || {};
@@ -90,8 +97,8 @@ async function handler(req, res) {
       // Total questions
       totalQuestionsSolved += attempted;
 
-      // Premium (v2: single tier)
-      if (u.plan === 'premium') premiumUsers++;
+      // Premium (v2: single tier) — PAID only; trials are tracked separately so they aren't double-counted.
+      if (u.plan === 'premium' && !u.isTrial) premiumUsers++;
 
       // Category stats aggregation (for weak topics)
       const catStats = stats.categoryStats || {};
@@ -195,7 +202,8 @@ async function handler(req, res) {
         activeStreakUsers,
         totalQuestionsSolved,
         premiumUsers,
-        inactiveCount: inactiveStudents.length   /* true at-risk total (the list below is sliced to 10) */
+        inactiveCount: inactiveStudents.length,  /* true at-risk total (the list below is sliced to 10) */
+        rosterTruncated: rosterTruncated          /* aggregates cover the first 5000 students only */
       },
       weakTopics: weakTopics.slice(0, 5),
       strongestStudents: strongestStudents.slice(0, 5),

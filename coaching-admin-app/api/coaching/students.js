@@ -46,7 +46,7 @@ async function handler(req, res) {
 
 async function _handleList(db, coachingId, req, res) {
   const limit = parseInt(req.query.limit, 10) || 50;
-  const cursor = req.query.cursor; // The lastActiveDate string of the last student seen
+  const cursor = req.query.cursor; // numeric stats.lastActiveMs of the last student seen (ADR-029)
   const search = (req.query.search || '').trim().toLowerCase();
 
   let query = db.collection('users').where('coachingId', '==', coachingId);
@@ -54,9 +54,11 @@ async function _handleList(db, coachingId, req, res) {
   // If there's a search term, we can't easily paginate on it without Algolia/Elasticsearch.
   // We'll fall back to fetching more or doing a simple client-side filter if search is used.
   if (!search) {
-    query = query.orderBy('stats.lastActiveDate', 'desc');
+    // Order on the SORTABLE epoch-ms field, not the toDateString lastActiveDate (which sorts by weekday).
+    query = query.orderBy('stats.lastActiveMs', 'desc');
     if (cursor) {
-      query = query.startAfter(cursor);
+      var cursorMs = Number(cursor);
+      if (!isNaN(cursorMs)) query = query.startAfter(cursorMs);
     }
     query = query.limit(limit);
   } else {
@@ -70,6 +72,7 @@ async function _handleList(db, coachingId, req, res) {
   let students = [];   // reassigned in the search branch below (was `const` — latent TypeError)
   studentsSnap.forEach(doc => {
     const u = doc.data();
+    if ((u.accountStatus || 'active') !== 'active') return;   // hide offboarded students from the roster (ADR-029)
     const stats = u.stats || {};
     const attempted = stats.totalAttempted || 0;
     const correct = stats.totalCorrect || 0;
@@ -107,10 +110,9 @@ async function _handleList(db, coachingId, req, res) {
       isTrial: !!u.isTrial,
       weakTopic: weakTopic,
       createdAt: safeTimestamp(u.createdAt),
-      /* Raw indexed value for keyset pagination — the cursor MUST match the field orderBy() sorts on
-         (stats.lastActiveDate is a toDateString string; safeTimestamp would turn it into an ISO string
-         that sorts below every row and returns an empty page). Internal; the client ignores it. */
-      _rawLastActive: stats.lastActiveDate || u.updatedAt || null
+      /* Raw indexed value for keyset pagination — MUST equal the orderBy field (stats.lastActiveMs, a
+         number) so startAfter compares like-for-like. Internal; the client passes it back verbatim. */
+      _rawLastActive: (typeof stats.lastActiveMs === 'number') ? stats.lastActiveMs : 0
     });
   });
 

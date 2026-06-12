@@ -26,8 +26,10 @@ async function handler(req, res) {
     const db = admin.firestore();
     const coachingId = req.coachingId;
 
+    /* BOUNDED scan (ADR-029) — caps reads so a huge roster can't OOM/timeout the 15s function. */
     const studentsSnap = await db.collection('users')
       .where('coachingId', '==', coachingId)
+      .limit(5000)
       .get();
 
     const now = Date.now();
@@ -46,6 +48,7 @@ async function handler(req, res) {
 
     studentsSnap.forEach(doc => {
       const u = doc.data();
+      if ((u.accountStatus || 'active') !== 'active') return;   // exclude offboarded students (ADR-029)
       const stats = u.stats || {};
       const lastActive = toMillis(stats.lastActiveDate || u.updatedAt);
 

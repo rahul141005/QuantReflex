@@ -97,9 +97,11 @@ var StudentsView = (function () {
     var search = document.getElementById('stuSearch');
     if (search) {
       search.addEventListener('input', function (e) {
+        var caret = e.target.selectionStart;   // preserve caret so mid-string editing works on mobile (was: jump-to-end)
         _text = e.target.value;
         _renderRoster(root);
-        var s2 = document.getElementById('stuSearch'); if (s2) { s2.focus(); var v = s2.value; s2.value = ''; s2.value = v; }
+        var s2 = document.getElementById('stuSearch');
+        if (s2) { s2.focus(); try { s2.setSelectionRange(caret, caret); } catch (_) { /* unsupported input type */ } }
       });
     }
   }
@@ -133,7 +135,8 @@ var StudentsView = (function () {
         StudentProfileView.buildProfileHtml(data) + '</div>';
     }).catch(function (err) {
       root.innerHTML = '<div class="view-pad"><button class="btn btn-sm btn-outline mb-md" onclick="StudentsView.render()">‹ Back</button>' +
-        '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div></div></div>';
+        '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
+        '<button class="btn btn-outline btn-sm mt-md" onclick="StudentsView.showProfile(\'' + U.escapeHtml(uid) + '\')">Retry</button></div></div>';
     });
   }
 

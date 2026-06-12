@@ -31,8 +31,10 @@ var EngagementView = (function () {
     var root = document.getElementById('view-engagement');
     if (!root) return;
     var pending = _pending; _pending = null;
-    /* Honor a chip-selected audience for plain broadcasts (targeted nudges ignore segment). */
+    /* Honor a chip-selected audience. 'all'|'premium'|'free' show the selector; behavior segments
+       ('inactive'|'lowstreak') show a "targeting" banner and the server filters them (ADR-029). */
     var initSeg = (pending && !pending.targetUid && !pending.targetTopic && pending.segment) ? pending.segment : 'all';
+    var isBehaviorSeg = (initSeg === 'inactive' || initSeg === 'lowstreak');
 
     var html = '<div class="view-pad">';
 
@@ -42,6 +44,8 @@ var EngagementView = (function () {
       html += '<div class="pill good mb-sm">Sending to ' + U.escapeHtml(pending.targetName) + '</div>';
     } else if (pending && pending.targetTopic) {
       html += '<div class="pill warn mb-sm">Targeting students weak in ' + U.escapeHtml(pending.targetTopic) + '</div>';
+    } else if (isBehaviorSeg) {
+      html += '<div class="pill warn mb-sm">Targeting ' + (initSeg === 'inactive' ? 'inactive (3+ days)' : 'low-streak') + ' students</div>';
     } else {
       html += '<div class="seg mb-sm" id="engSeg">' +
         '<button class="' + (initSeg === 'all' ? 'active' : '') + '" data-seg="all" onclick="EngagementView.setSeg(\'all\')">Everyone</button>' +
@@ -58,10 +62,10 @@ var EngagementView = (function () {
 
     /* ── 2) Smart Nudges + Achievement broadcasts ── */
     html += '<div class="section-label">Smart nudges</div><div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);" id="engChips">';
-    html += _chip('💤 Re-engage inactive', 'We miss you!', 'Haven\'t seen you practice lately — come back for a quick speed set today!', 'all');
+    html += _chip('💤 Re-engage inactive', 'We miss you!', 'Haven\'t seen you practice lately — come back for a quick speed set today!', 'inactive');
     html += _chip('⚡ Speed challenge', 'Today\'s speed challenge', 'Beat your best solving time today! Aim for a faster average than yesterday.', 'all');
     html += _chip('🎯 Daily target', 'Hit 50 today', 'Target: 50 questions today. Small daily reps compound into big speed gains.', 'all');
-    html += _chip('🔥 Streak reminder', 'Keep your streak alive', 'Your practice streak is at risk — a 2-minute set keeps it going!', 'all');
+    html += _chip('🔥 Streak reminder', 'Keep your streak alive', 'Your practice streak is at risk — a 2-minute set keeps it going!', 'lowstreak');
     html += '</div>';
 
     html += '<div class="section-label">Celebrate</div><div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);">';
@@ -94,7 +98,8 @@ var EngagementView = (function () {
       }).join('');
     }).catch(function () {
       var el = document.getElementById('engHistory');
-      if (el) el.innerHTML = '<div class="empty-state"><div class="empty-state-text">Couldn\'t load recent notices.</div></div>';
+      if (el) el.innerHTML = '<div class="empty-state"><div class="empty-state-text">Couldn\'t load recent notices.</div>' +
+        '<button class="btn btn-outline btn-sm mt-md" onclick="EngagementView.render()">Retry</button></div>';
     });
   }
 
@@ -130,8 +135,14 @@ var EngagementView = (function () {
       targetUid: targetUid || undefined,
       targetTopic: targetTopic || undefined
     }).then(function (res) {
-      var n = (res && (res.successCount != null ? res.successCount : res.sent)) || 0;
-      Toast.success(targetUid ? 'Nudge sent.' : ('Sent' + (n ? ' to ' + n + ' students' : '') + '.'));
+      var reached = (res && res.reached != null) ? res.reached : 0;
+      if (reached === 0) {
+        /* Don't claim success when the targeting matched nobody (ADR-029). */
+        Toast.show((res && res.message) || 'No students matched — nobody was messaged.', 4000, 'info');
+        if (btn) { btn.disabled = false; btn.textContent = 'Send now'; }
+        return;
+      }
+      Toast.success(targetUid ? 'Nudge sent.' : ('Delivered to ' + reached + ' student' + (reached === 1 ? '' : 's') + '.'));
       render();
     }).catch(function (err) {
       Toast.error(U.getReadableError(err));

@@ -8,6 +8,26 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-029 — Coaching offboarding is enforced end-to-end (suspend/delete cuts the owner) (2026-06-13)
+- **Context:** A zero-compromise ecosystem audit of the Coaching App found a CRITICAL gap: super-admin
+  suspend/delete (`coachings.js` mutate) only flipped `coachings/{id}.status` and cascade-revoked *students'*
+  premium — it never revoked the **owner's** access. `withCoachingAuth` trusted the `coaching_admin` claim
+  alone and no endpoint/rule re-checked coaching status, so a suspended/removed coaching's admin kept a valid
+  JWT and full access to student PII + broadcast indefinitely. Deactivation was cosmetic.
+- **Decision:** offboarding must cut the owner, immediately and durably:
+  1. **super-admin `coachings.js` mutate** — on suspend/delete, also `setCustomUserClaims(adminUid, {})`
+     (drop `coaching_admin`/`coachingId`) + `revokeRefreshTokens(adminUid)`; **delete** additionally
+     `updateUser(adminUid, {disabled:true})`. **activate** restores the claim (+ re-enables). Best-effort
+     (a missing Auth user never fails the Firestore mutation).
+  2. **coaching `withCoachingAuth`** — verify the ID token with **`checkRevoked=true`** (so the revoke bites
+     immediately, not after the ~1h token TTL) **and** add a **coaching-status gate**: read
+     `coachings/{coachingId}.status` (60s per-instance cache) and reject `suspended`/`deleted` with
+     `COACHING_INACTIVE`. The status gate is the authoritative backstop; the token revoke is the immediate cut.
+- **Consequence:** suspending/deleting a coaching now ends the owner's session within one request (revoked
+  token) and keeps them out (status gate + dropped claim); activate cleanly restores access. Active-state
+  isolation (already sound) is unchanged. Security 2.7→2.8, Bible 2.17→2.18. Pairs with the audit's
+  registration-rate-limit + token-strength hardening (same pass).
+
 ## ADR-028 — Coaching App V3: mobile-first "Speed Training Control Center" (2026-06-13)
 - **Context:** A ruthless 8-agent product audit of the coaching-owner app (`coaching-admin-app`) found it is
   **a speed product that never shows speed**: the dashboard API computes `avgSpeed` from real data and the home

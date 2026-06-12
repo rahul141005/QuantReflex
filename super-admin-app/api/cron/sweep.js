@@ -61,11 +61,13 @@ module.exports = async function (req, res) {
 
     /* (2) Account cleanup. */
     const nowIso = new Date().toISOString();
-    const inactiveCutoff = new Date(Date.now() - INACTIVE_FLAG_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    /* Range on the SORTABLE epoch-ms field (ADR-029) — the prior ISO `<` compare against the toDateString
+       lastActiveDate never matched, so no user was ever flagged inactive. */
+    const inactiveCutoffMs = Date.now() - INACTIVE_FLAG_DAYS * 24 * 60 * 60 * 1000;
 
     const flagSnap = await db.collection('users')
-      .where('stats.lastActiveDate', '<', inactiveCutoff)
-      .orderBy('stats.lastActiveDate', 'asc')
+      .where('stats.lastActiveMs', '<', inactiveCutoffMs)
+      .orderBy('stats.lastActiveMs', 'asc')
       .limit(400).get();
     if (!flagSnap.empty) {
       const batch = db.batch();
