@@ -40,6 +40,14 @@ function generateSecureToken() {
   return 'REG' + crypto.randomBytes(15).toString('hex').toUpperCase();
 }
 
+/* Optional institute logo URL (ADR-030): must be an absolute https URL, length-capped. Anything else → null
+   (no upload pipeline — a plain, validated URL field). */
+function _cleanLogoUrl(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  return (/^https:\/\//i.test(s) && s.length <= 500) ? s : null;
+}
+
 async function handler(req, res) {
   const action = req.query.action || 'list';
   const db = admin.firestore();
@@ -85,6 +93,7 @@ async function handler(req, res) {
         isActive: true,
         status: 'active',
         capacity: capacity ? parseInt(capacity, 10) : null,
+        logoUrl: _cleanLogoUrl(body.logoUrl),   // optional institute logo (ADR-030)
         ownerEmail: body.ownerEmail ? body.ownerEmail.trim() : null,
         entitlementPlan: body.entitlementPlan || 'standard',
         studentCount: 0,
@@ -109,6 +118,31 @@ async function handler(req, res) {
         after: { name: payload.name, ownerEmail: payload.ownerEmail, registrationToken: registrationToken }
       });
       return res.status(200).json({ success: true, coachingId: coachingId, data: payload });
+    }
+
+    /* edit (ADR-030) — update the operational fields a super-admin owns: name, capacity, logoUrl. Narrow by
+       design (status changes go through `mutate`; the registration token through `reset-token`). */
+    if (action === 'edit' && req.method === 'POST') {
+      const body = parseBody(req);
+      const coachingId = body.coachingId;
+      if (!coachingId) return res.status(400).json({ error: { code: 'INVALID_ID', message: 'Coaching ID is required.' } });
+      const ref = db.collection('coachings').doc(coachingId);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
+
+      const update = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      if (typeof body.name === 'string' && body.name.trim()) update.name = body.name.trim();
+      if (body.capacity !== undefined) update.capacity = body.capacity ? parseInt(body.capacity, 10) : null;
+      if (body.logoUrl !== undefined) update.logoUrl = _cleanLogoUrl(body.logoUrl);  // '' / invalid → null (clears it)
+
+      await ref.update(update);
+      await writeAuditLog(db, {
+        actorUid: req.userId, actorEmail: req.adminEmail, action: 'edit_coaching', category: 'coaching',
+        targetType: 'coaching', targetId: coachingId,
+        summary: 'edited coaching ' + coachingId + ' (' + Object.keys(update).filter(function (k) { return k !== 'updatedAt'; }).join(', ') + ')',
+        after: { name: update.name, capacity: update.capacity, logoUrl: update.logoUrl }
+      });
+      return res.status(200).json({ success: true, coachingId: coachingId });
     }
 
     if (action === 'mutate' && req.method === 'POST') {
@@ -219,6 +253,7 @@ async function handler(req, res) {
       return res.status(200).json({
         id: doc.id, coachingId: doc.id, name: d.name || '', status: d.status || (d.isActive === false ? 'suspended' : 'active'),
         ownerEmail: d.ownerEmail || null, capacity: d.capacity != null ? d.capacity : null, entitlementPlan: d.entitlementPlan || null,
+        logoUrl: d.logoUrl || null,   // optional institute logo (ADR-030)
         registrationToken: d.registrationToken || null, studentCount: studentCount, premiumCount: premiumCount,
         createdAt: _safeTS(d.createdAt), createdBy: d.createdBy || null, updatedAt: _safeTS(d.updatedAt)
       });

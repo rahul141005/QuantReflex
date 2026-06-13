@@ -514,6 +514,23 @@ function createDrillEngine(container, opts) {
     return ScoringService.computeSpeedScore(accNum, avgTimeSec);
   }
 
+  /* Session Improvement (ADR-030): first-half vs last-half mean solve time within ONE session.
+     Returns null for <6 timed answers (halves too small to be meaningful). For odd N the middle
+     answer is dropped so the two halves are equal-sized. improvementPct > 0 ⟺ the student sped up. */
+  function _computeSessionImprovement(times) {
+    if (!Array.isArray(times) || times.length < 6) return null;
+    var n = times.length;
+    var half = Math.floor(n / 2);
+    var first = times.slice(0, half);
+    var second = times.slice(n - half); // last `half` items; for odd n this skips the middle
+    var mean = function (arr) { return arr.reduce(function (a, b) { return a + b; }, 0) / arr.length; };
+    var firstHalfAvg = parseFloat(mean(first).toFixed(2));
+    var secondHalfAvg = parseFloat(mean(second).toFixed(2));
+    if (!(firstHalfAvg > 0)) return null; // guard divide-by-zero / degenerate timing
+    var improvementPct = parseFloat((((firstHalfAvg - secondHalfAvg) / firstHalfAvg) * 100).toFixed(1));
+    return { firstHalfAvg: firstHalfAvg, secondHalfAvg: secondHalfAvg, improvementPct: improvementPct };
+  }
+
   var _PERCENTILE_KEY = ScoringService.PERCENTILE_KEY;
   var _SESSIONS_COUNT_KEY = ScoringService.SESSIONS_COUNT_KEY;
 
@@ -593,6 +610,14 @@ function createDrillEngine(container, opts) {
     var accuracy = ((score / count) * 100).toFixed(0);
     var accNum = parseFloat(accuracy);
 
+    /* Session Improvement (ADR-030) — honest within-session speed delta from the per-question times we
+       already collected (skips are excluded, so these are genuine solves). First-half vs last-half mean
+       solve time; positive pct = the student sped up over the session. Requires ≥6 timed answers so the
+       halves are meaningful; otherwise left null. This is the day-one speed-proof signal the Coaching App
+       shows while the multi-day calendar speed trend is still accumulating — NEVER charted as a 7/30-day
+       trend. */
+    var _sessImp = _computeSessionImprovement(perQuestionTimes);
+
     /* Persist this session to the practiceSessions subcollection (Analytics Foundation, ADR-027) so the
        Coaching App gets per-session duration + date ("sessions today" + per-session speed). Non-duel only
        (the duel path returned above). Best-effort — never blocks the results UI. */
@@ -604,9 +629,21 @@ function createDrillEngine(container, opts) {
           score: score,
           total: count,
           duration: parseFloat(totalTime),
-          date: new Date().toDateString()
+          date: new Date().toDateString(),
+          /* Session Improvement fields (ADR-030) — present only when ≥6 timed answers. */
+          firstHalfAvg: _sessImp ? _sessImp.firstHalfAvg : null,
+          secondHalfAvg: _sessImp ? _sessImp.secondHalfAvg : null,
+          sessionImprovementPct: _sessImp ? _sessImp.improvementPct : null,
+          timedCount: perQuestionTimes.length
         });
       } catch (_) { /* ignore */ }
+    }
+
+    /* Roll the within-session improvement into the user's stats so the coaching roster scan reads it
+       cheaply off the root doc (no per-student practiceSessions fan-out). Best-effort. recordSessionImprovement
+       is a global from progress.js (same plain-<script> namespace as recordAnswer). */
+    if (_sessImp && typeof recordSessionImprovement === 'function') {
+      try { recordSessionImprovement(_sessImp.improvementPct); } catch (_) { /* ignore */ }
     }
 
     /* Speed benchmark computation */

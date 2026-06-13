@@ -86,13 +86,14 @@ module.exports = async (req, res) => {
       return res.status(200).json({ valid: false, reason: reason, message: 'Coaching is inactive or expired' });
     }
 
-    /* Return enough to build a trust-confirming "Joined: <name>" UI (ADR-029) — name + status +
-       student count (logo would need a new coachings field; tracked separately). */
+    /* Return enough to build a trust-confirming "✓ Connected to <name>" UI (ADR-030) — name + status +
+       student count + optional logo URL (rendered only when present). */
     return res.status(200).json({
       valid: true,
       name: data.name || 'Verified Coaching',
       status: data.status || 'active',
-      studentCount: (typeof data.studentCount === 'number') ? data.studentCount : null
+      studentCount: (typeof data.studentCount === 'number') ? data.studentCount : null,
+      logoUrl: (typeof data.logoUrl === 'string' && /^https:\/\//i.test(data.logoUrl)) ? data.logoUrl : null
     });
   } catch (err) {
     console.error('Error validating coaching ID:', err);
