@@ -88,6 +88,14 @@ Forward-only transitions; terminal states (`completed/expired/abandoned/deleted/
 
 **Known low-severity note:** any authenticated user can read a `waiting`/`waiting_for_acceptance` duel doc (needed for join), exposing `participants`/`questionIds`. Tracked (audit LOW). Tighten to participant/target-only if duel content becomes sensitive.
 
+**ADR-036 hardening (release audit):** the answer-write rule now also requires `request.time < room.totalDeadline`
+(no post-deadline answering — closes a timer-bypass on Spark where there is no realtime reaper), and presence
+cannot be set to `'solving'` while `status=='lobby'` (no pre-arming the answer-write precondition). Server-side
+`_grade` ignores answer indices not in the key (forged-index inflation) and clamps client-reported `clientMs` to
+`[200ms, 120s]` (a forged tiny time can't max the ≤300 speed bonus; accuracy still dominates 1000:≤300). **Accepted
+residual risks (documented):** the per-question timer is a client convenience (the server `totalDeadline` is the
+authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvantages and cannot forge a result).
+
 ## 5. Serverless Authorization
 
 | Wrapper | File | Requires | Sets | Rate limit |

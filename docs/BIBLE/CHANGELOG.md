@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Math Duel release-blocking audit + full remediation (ADR-036)
+
+A 20-phase adversarial audit found **68 verified issues (2C/7H/24M/35L)**; **all 68 are now fixed or documented as
+accepted-risk** across `main-app/{js/router.js, js/duel-manager.js, js/duel-core.js, js/duel-ui.js, api/duel.js,
+service-worker.js, css/style.css}`, `super-admin-app/api/admin/system.js`, and `firestore/rules/firestore.rules`.
+
+- **Keystone (C):** the duel realtime listener was torn down on every internal re-render (`Router._cleanupOverlays`
+  on `showView('duel')`) → sync died after one snapshot. Now gated to nav-AWAY only + `DuelManager.suspend()`.
+- **Back-button (C):** hardware Back during solving silently left an un-submitted duel → `DuelManager.handleBackNav()`
+  + router popstate hook.
+- **Highs:** `suspend()` stops leaked timers; new server **`leaveLobby`** action; `await setPresence` + answer
+  retry; resilient recurring waiting poll; **rule blocks post-deadline answer writes**; countdown beacon
+  `solving`-only; multi-device freshness gate.
+- **Mediums/lows:** word-problem top-up + blank skip; start opponent-liveness + lobby heartbeat; clamped `clientMs`;
+  forged-index ignored; presence can't arm `solving` in lobby; single-flight countdown; recursive cron delete;
+  honest result copy; canonical SW deep-link cache key; touch targets / dark contrast / safe-area.
+- **Simulation:** new `main-app/scripts/duel-sim.js` exercises the REAL server scoring/state-machine fns + the
+  generator across every scenario — **47/47 green** (run `node main-app/scripts/duel-sim.js`).
+- **Docs:** [ADR-036](DECISION_LOG.md), [VERSIONS.md](VERSIONS.md) (Bible 2.25, Security 2.11, Architecture 2.16),
+  [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md), [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md). SW v94→v96.
+  Firestore rules redeployed (deadline + presence-arming guards). Pending: owner two-device validation.
+
 ## 2026-06-14 — Math Duel full redesign + lifecycle hard guards (ADR-035; ADR-031/033 reaffirmed)
 
 **Lifecycle hard guards (P0, commit `8ba0e15`).** A two-device test produced a fake result from a never-played

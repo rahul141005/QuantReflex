@@ -130,7 +130,8 @@ completedAt, createdAt }`.
   divergent 6-category `api/_lib/duel-questions.js` was deleted). Word-Problem mode still resolves from the
   `questions` bank. Answer shapes are unchanged (numbers + string answers like `5:4`/`1/2`, graded by `_isCorrect`).
 - **Subcollection `duels/{code}/players/{uid}`** (own-uid read; **own-uid write only while `status=='active'`
-  AND own `presence.state=='solving'`**; opponent **denied**): each player's own answers —
+  AND own `presence.state=='solving'` AND `request.time < room.totalDeadline`** (ADR-036 — answer writes are
+  rejected after the timer deadline, closing the post-deadline bypass); opponent **denied**): each player's own answers —
   `{answers:{<index>:{value,clientMs}}, answeredCount}` (a map keyed by index via merge → idempotent, no array
   clobber). Written **per-answer while solving** as a durability backstop — **NOT a resume store** (exit/kill =
   finalized submission, no continue-after-exit). Once the endpoint stamps `presence.state=finished` at finalize,
@@ -146,6 +147,7 @@ completedAt, createdAt }`.
 - **`users/{uid}.activeDuelId`** (string|null) — recovery mirror written by the duel endpoint (Admin SDK) on
   create/join. It is **NOT cleared at finalize** (ADR-033 correction — it deliberately stays set so the Active-Duel
   "Duel ready · View Results" home card survives until the user acks); it is cleared on **result-ack, host-abandon,
+  guest-`leaveLobby` (ADR-036 — removes the guest from `participantUids`+`presence` so the room isn't bricked),
   or cron-expire**. A `complete` value never blocks a new create (the create-guard only blocks `lobby`/`active`).
   One O(1) read on app boot recovers an in-flight
   duel cross-device (reinstall/another device) and drives the **Active-Duel home card** (derived; no second flag).

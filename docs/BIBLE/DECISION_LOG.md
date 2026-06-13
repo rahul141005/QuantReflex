@@ -8,6 +8,41 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-036 — Math Duel release-blocking audit + remediation (2026-06-14)
+- **Context:** Before opening the Duel to real users, a 20-phase adversarial audit (12 dimension-auditors over the
+  real code, every finding independently verified, refute-by-default) surfaced **68 issues — 2 critical · 7 high ·
+  24 medium · 35 low**. The keystone critical explained every prior "host doesn't see guest / opponent chip frozen /
+  waiting stalls" report.
+- **Decision (root cause + fixes; all duel-scoped — Practice engine + generator untouched):**
+  - **KEYSTONE (realtime-sync-01, C):** `Router.showView('duel')` → `_cleanupOverlays()` tore down the live duel
+    Firestore listener on EVERY internal re-render (the render fns run inside `_onSnapshot`), so realtime sync died
+    after one snapshot. Fix: `_cleanupOverlays(targetViewId)` suspends the duel ONLY when navigating AWAY
+    (`!== 'duel'`); a real nav-away calls `DuelManager.suspend()` (stops listener + lobby/deadline/recover timers,
+    keeps state for the Home "Resume" card).
+  - **Back button (solving-exit-forfeit-01, C):** the solving runner never set the JS session flag, so hardware Back
+    silently left an un-submitted duel. Fix: `DuelManager.handleBackNav()` + a router popstate hook → Submit & Leave
+    modal (solving) / absorb (countdown).
+  - **Highs:** nav-away timer leak → `suspend()`; no guest-leave path → new server **`leaveLobby`** action;
+    first-answer rule race → `await setPresence('solving')` + `writeAnswer` retry-on-denied; one-shot deadline poll →
+    resilient recurring poll; **post-deadline answer-write bypass** → rule rejects writes past `totalDeadline`;
+    countdown keepalive finalizing a 0-answer loss → beacon `solving`-only; multi-device reopen force-finish → a
+    presence-freshness gate.
+  - **Mediums/lows:** word-problem **top-up** (never a partial set) + blank-prompt skip; `_start` opponent-liveness +
+    a lobby heartbeat; clamped `clientMs`; forged-index ignored in `_grade`; presence can't arm `solving` during
+    lobby (rule); single-flight countdown; **recursive** cron delete (no orphaned subcollections); honest result
+    copy; canonical SW deep-link cache key; touch targets / dark-mode contrast / notch safe-area.
+  - **Accepted-risks (documented, NOT faked):** the per-question timer is a client convenience — the server
+    `totalDeadline` is the rule-enforced authority; `presence.lastSeenAt` is client-written (a spoof only
+    self-disadvantages and can't forge a result); `duelHistory` is a forward-looking write for the planned History
+    view (its accuracy denominator + no_contest coverage were corrected).
+- **Verification:** `main-app/scripts/duel-sim.js` drives the REAL server scoring/state-machine functions
+  (`_grade`/`_decideWinner`/`_budgets`/`_isCorrect`/`_validConfig`) + `generateMultiTopic` across every scenario
+  (honest speed, no fake winner, no-contest, forged-index, clamp, string answers, all timer modes, end-to-end) —
+  **47/47**. Rules deployed to cloud.firestore; code on Vercel.
+- **Consequence:** The Duel is server-authoritative and reliable end-to-end — realtime sync is instant again, and
+  there is no un-submitted-leave / lockout / fake-result / timer-bypass path. A Node simulation now guards the
+  scoring invariants.
+
 ## ADR-035 — Math Duel full redesign: one generator, modal setup, host/guest lobby, §10A (2026-06-14)
 - **Context:** A live two-device test showed the Duel still felt "bolted on": the create screen was a long
   full-page form (the owner could not even scroll to the Create button), the lobby was one shared "debug" screen
