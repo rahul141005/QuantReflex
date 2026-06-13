@@ -43,10 +43,11 @@ function createDrillEngine(container, opts) {
   var preloadedQuestions = opts._preloadedQuestions || null;
   var adaptiveMode = opts.adaptive === true;
   
-  /* ---- Duel Context Extensions ---- */
+  /* ---- Duel Context Extensions (ADR-033: true component reuse, capture-only) ---- */
   var isDuel = opts.isDuel === true;
   var duelHeaderHTML = opts.duelHeaderHTML || '';
   var onDuelAnswerSubmit = opts.onDuelAnswerSubmit || null;
+  var onDuelRender = opts.onDuelRender || null;   /* (container, index, total) after each duel question render */
 
   /* ---- Adaptive controller state ---- */
   var _adaptiveHistory = [];   /* [{correct, timeSec}] last N answers */
@@ -189,39 +190,34 @@ function createDrillEngine(container, opts) {
     ui.feedbackEl = container.querySelector('#feedback');
     ui.cardEl = container.querySelector('.card');
 
-    /* Exit button handler — uses custom in-app dialog because native
-       confirm() can behave unreliably, sometimes ending sessions prematurely */
-    container.querySelector('#drillExitBtn').addEventListener('click', function () {
-      function performExit() {
-        cleanup();
-        _exitDrillSession();
-        /* End Firestore batch that was started in begin() */
-        if (typeof FirestoreSync !== 'undefined') {
-          FirestoreSync.endDrillBatch();
+    /* Exit button handler (NON-duel only — the button is rendered only when !isDuel; the duel's Submit & Leave
+       lives in the manager-controlled duel header). Guarded so the absent button in duel mode can't throw. Uses
+       the custom in-app dialog because native confirm() can end sessions prematurely. */
+    var _drillExitBtn = container.querySelector('#drillExitBtn');
+    if (_drillExitBtn) {
+      _drillExitBtn.addEventListener('click', function () {
+        function performExit() {
+          cleanup();
+          _exitDrillSession();
+          /* End Firestore batch that was started in begin() */
+          if (typeof FirestoreSync !== 'undefined') {
+            FirestoreSync.endDrillBatch();
+          }
+          if (onFinish) {
+            onFinish('practice');
+          } else {
+            Router.showView('practice');
+          }
         }
-        if (onFinish) {
-          onFinish(isDuel ? 'duel_ended' : 'practice');
-        } else {
-          Router.showView('practice');
-        }
-      }
 
-      if (typeof showExitSessionDialog === 'function') {
-        var opts = null;
-        if (isDuel) {
-          opts = {
-            title: '⚠️ Exit Duel?',
-            messageHTML: 'Questions Solved: <b>' + current + '</b><br>Current Score: <b>' + score + '</b><br><br><span style="color:#dc2626; font-weight: 500;">If you exit now, your duel attempt will be submitted.</span>',
-            cancelText: 'Continue Duel',
-            confirmText: 'Confirm Exit'
-          };
+        if (typeof showExitSessionDialog === 'function') {
+          showExitSessionDialog(performExit);
+        } else {
+          console.error('[DrillEngine] showExitSessionDialog missing. Exiting automatically.');
+          performExit();
         }
-        showExitSessionDialog(performExit, opts);
-      } else {
-        console.error('[DrillEngine] showExitSessionDialog missing. Exiting automatically.');
-        performExit();
-      }
-    });
+      });
+    }
 
     var input = ui.answerInputEl;
     var submitBtn = ui.submitBtnEl;
@@ -230,7 +226,9 @@ function createDrillEngine(container, opts) {
        The input is readonly and receives input from the custom numpad buttons. */
 
     function submit() {
-      if (!answered) checkAnswer(input.value.trim());
+      if (answered) return;
+      if (isDuel) captureDuelAnswer(input.value.trim());   /* capture-only: no client grading (ADR-033) */
+      else checkAnswer(input.value.trim());
     }
     submitBtn.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) {
@@ -240,40 +238,55 @@ function createDrillEngine(container, opts) {
       }
     });
 
-    /* Skip button — only when skip setting is enabled and difficulty is not hard */
-    var _skipSettings = typeof loadSettings === 'function' ? loadSettings() : {};
-    var _skipFeatureAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
-    if (_skipFeatureAccess && _skipSettings.skipEnabled && _skipSettings.difficulty !== 'hard') {
-      var skipBtn = document.createElement('button');
-      skipBtn.className = 'btn skip-btn';
-      skipBtn.textContent = 'Skip →';
-      skipBtn.addEventListener('click', function () {
-        if (answered) return;
-        answered = true;
-        if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
-        /* Skip: pass null (not 0) so the response-time is EXCLUDED from speed (a skip is not a 0-second
-           solve — recording 0 deflated the coaching North-Star avgSpeed). progress.js's typeof-number
-           guard drops null. ADR-027/028. */
-        recordAnswer(false, q.category, q, null);
-        nextQuestion();
-      });
-      var actionsDiv = container.querySelector('.drill-actions');
-      if (actionsDiv) {
-        actionsDiv.classList.add('has-skip');
-        actionsDiv.insertBefore(skipBtn, submitBtn);
+    /* Skip button (same `.btn.skip-btn` styling either way — true reuse).
+       Duel: ALWAYS available (a skip = blank wrong answer that advances) via the capture-only path.
+       Practice: gated on the skip setting + difficulty. */
+    if (isDuel) {
+      var dSkipBtn = document.createElement('button');
+      dSkipBtn.className = 'btn skip-btn';
+      dSkipBtn.textContent = 'Skip →';
+      dSkipBtn.addEventListener('click', function () { if (!answered) captureDuelAnswer(''); });
+      var dActionsDiv = container.querySelector('.drill-actions');
+      if (dActionsDiv) { dActionsDiv.classList.add('has-skip'); dActionsDiv.insertBefore(dSkipBtn, submitBtn); }
+    } else {
+      var _skipSettings = typeof loadSettings === 'function' ? loadSettings() : {};
+      var _skipFeatureAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
+      if (_skipFeatureAccess && _skipSettings.skipEnabled && _skipSettings.difficulty !== 'hard') {
+        var skipBtn = document.createElement('button');
+        skipBtn.className = 'btn skip-btn';
+        skipBtn.textContent = 'Skip →';
+        skipBtn.addEventListener('click', function () {
+          if (answered) return;
+          answered = true;
+          if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+          /* Skip: pass null (not 0) so the response-time is EXCLUDED from speed (a skip is not a 0-second
+             solve — recording 0 deflated the coaching North-Star avgSpeed). progress.js's typeof-number
+             guard drops null. ADR-027/028. */
+          recordAnswer(false, q.category, q, null);
+          nextQuestion();
+        });
+        var actionsDiv = container.querySelector('.drill-actions');
+        if (actionsDiv) {
+          actionsDiv.classList.add('has-skip');
+          actionsDiv.insertBefore(skipBtn, submitBtn);
+        }
       }
     }
 
     qStart = performance.now();
 
-    /* Show custom numpad */
-    showCustomNumpad(input, function() {
-      if (!answered) checkAnswer(input.value.trim());
-    });
+    /* Show custom numpad (the SAME component as Practice — true reuse, ADR-033) */
+    showCustomNumpad(input, function() { submit(); });
 
     /* Per-question timer */
     if (perQLimit) {
       startPerQTimer();
+    }
+
+    /* Duel: let the manager (re)inject the live opponent presence chip + bind the header Exit, after each
+       render (the engine re-renders the whole container per question). */
+    if (isDuel && typeof onDuelRender === 'function') {
+      try { onDuelRender(container, current, count); } catch (_) {}
     }
   }
 
@@ -480,6 +493,24 @@ function createDrillEngine(container, opts) {
         setTimeout(function () { if (card) card.classList.remove('correct-flash'); }, 450);
       }
     }
+  }
+
+  /* Duel capture-only answer (ADR-033): server-authoritative + hidden-until-results. The client has NO answer
+     key, so there is NO grading, NO correct/wrong feedback, NO running score, NO answer reveal. We capture the
+     raw input + elapsed ms, hand it to the duel manager (which persists it to the player's OWN doc — the server
+     grades at finalize), then advance with the SAME animated transition Practice uses. */
+  function captureDuelAnswer(raw) {
+    if (answered || _isFinished) return;
+    answered = true;
+    if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+    var elapsed = (performance.now() - qStart) / 1000;
+    var elapsedRounded = parseFloat(elapsed.toFixed(1));
+    perQuestionTimes.push(elapsedRounded);
+    var q = questions[current];
+    if (typeof onDuelAnswerSubmit === 'function') {
+      try { onDuelAnswerSubmit(raw, Math.round(elapsed * 1000), current, q); } catch (_) {}
+    }
+    nextQuestion();
   }
 
   function nextQuestion() {
@@ -878,8 +909,8 @@ function createDrillEngine(container, opts) {
       if (remaining <= 0) {
         clearInterval(perQTimer);
         perQTimer = null;
-        /* Auto-submit empty answer when time runs out */
-        if (!answered && !_isFinished) checkAnswer('');
+        /* Auto-submit empty answer when time runs out (duel → capture-only path) */
+        if (!answered && !_isFinished) { if (isDuel) captureDuelAnswer(''); else checkAnswer(''); }
         return;
       }
       remaining--;
@@ -956,8 +987,9 @@ function createDrillEngine(container, opts) {
     /* Mark session as active and hide nav for immersive experience */
     _enterDrillSession();
 
-    /* Begin Firestore write batching during drill */
-    if (typeof FirestoreSync !== 'undefined') {
+    /* Begin Firestore write batching during drill (NON-duel only — duel answers go straight to the player's
+       own doc via DuelCore.writeAnswer, never the practice drill batch; ADR-033). */
+    if (typeof FirestoreSync !== 'undefined' && !isDuel) {
       FirestoreSync.beginDrillBatch();
     }
 

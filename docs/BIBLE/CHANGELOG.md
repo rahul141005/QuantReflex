@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Sections 2–10 program: P1-a (part 1) — Duel solving = true Practice drill-engine reuse (ADR-033)
+
+The owner-LOCKED design-language inheritance, keystone first: the in-duel **solving screen now literally runs on
+the Practice `drill-engine`** (not a look-alike). The hand-rolled, inline-styled answerless runner in
+`duel-manager.js` (~80 lines) is deleted; the duel calls `createDrillEngine(..., { isDuel:true })`, so the question
+container, answer input, **custom numpad**, action buttons, spacing, transitions and feedback animations ARE the
+Practice components. The duel layer adds only the multiplayer header (opponent presence chip + Exit).
+
+- **drill-engine.js** — completed the previously-vestigial (and crash-prone) `isDuel` path as a clean
+  **capture-only** mode: NO client grading, NO correct/wrong feedback, NO running score, NO answer reveal
+  (server-authoritative + hidden-until-results preserved — the client has no answer key). New `captureDuelAnswer`
+  emits `{raw, elapsedMs}` via `onDuelAnswerSubmit` and advances with the same animated transition; a new
+  `onDuelRender` hook lets the manager (re)inject the live opponent chip + bind Exit each render; the missing-exit-
+  button crash is guarded; the duel batch/score paths are skipped. Practice path byte-unchanged.
+- **duel-manager.js** — `_startSolving` mounts the engine into `#duelActive`; opponent chip + Submit-&-Leave kept
+  via the header + `onDuelRender`. **De-indigo:** Active-Duel home card → `.home-bento-card` + amber duel squircle
+  (matches the static `#homeDuelCard`; keyboard-operable role/tabindex/Enter-Space); countdown overlay tokenized.
+- **style.css** — new §10A duel classes (`.duel-solve-header`, `.duel-opp-chip/-dot`, `.duel-countdown-*`,
+  `.duel-active-card-*`); the Practice **fixed-shell** (ADR-011) is mirrored onto `#duelActive` (6 container-keyed
+  rules) so the duel solving layout is identical to Practice. `--color-accent` indigo fallback removed from the
+  manager.
+- Impacted systems: Student App (main-app). Schema/API delta: none. Security review: no change
+  (server-authoritative reinforced — the client still never grades).
+- **Remaining in P1-a (part 2, not yet landed):** de-indigo `duel-ui.js` (setup/config sheet, lobby, waiting,
+  results, exit modal); delete the dead `.mode-card-duel`/`.duel-setup-card` purple CSS (grep-confirmed 0 JS refs);
+  remove the dead static exit-modal body in `index.html`. **Verification needed:** the duel solving-screen layout
+  in `#duelActive` must be confirmed by a live two-account playthrough (can't render headless) per the plan.
+- Version bumps: deferred to P1-a completion (part 2).
+
+---
+
 ## 2026-06-13 — Sections 2–10 program: P0 — gate + live-breaking fixes (ADR-033 + ADR-034)
 
 A 13-agent adversarial audit (audit → independent verify → synthesize) of the shipped Duel V2 + the Super-Admin

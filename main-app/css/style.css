@@ -6716,6 +6716,40 @@ html.pwa-mode header {
   overscroll-behavior-y: contain;
 }
 
+/* ======== Math Duel V2 — solving header · presence chip · countdown · active card (ADR-033, §10A) ======== */
+.duel-solve-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; max-width: 520px; margin: 0 auto .25rem; padding: .25rem; }
+.duel-opp-chip { display: inline-flex; align-items: center; gap: .4rem; color: #64748b; font-size: .85rem; }
+body.dark-mode .duel-opp-chip { color: #94a3b8; }
+.duel-opp-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.duel-opp-dot.is-solving { background: #f59e0b; }   /* amber = solving */
+.duel-opp-dot.is-finished { background: #10b981; }  /* green = finished */
+.duel-countdown-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.92); z-index: 50; }
+.duel-countdown-num { font-size: 6rem; font-weight: 900; color: #fff; }
+.duel-active-card { cursor: pointer; }
+.duel-active-card-row { display: flex; align-items: center; gap: .75rem; }
+.duel-active-card-body { flex: 1; min-width: 0; }
+.duel-active-card-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duel-active-card-sub { color: #64748b; font-size: .8rem; }
+body.dark-mode .duel-active-card-sub { color: #94a3b8; }
+.duel-active-card-cta { color: #2563eb; font-weight: 600; font-size: .85rem; flex: none; }
+
+/* Duel solving REUSES the Practice fixed-shell (ADR-011/033). The drill engine renders into #duelActive (the
+   duel's visible container — #drillContainer lives in the hidden practice view and a position:fixed child of a
+   display:none ancestor won't paint), so mirror ONLY the 6 container-keyed overlay rules here. Every other shell
+   rule keys on classes (.drill-actions/.drill-question-scroll/.custom-numpad) and already applies. */
+body.drill-session-active #duelActive { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; background: #f8fafc; }
+body.dark-mode.drill-session-active #duelActive { background: #0f172a; }
+body.theme-playful.drill-session-active #duelActive { background: #faf9f7; }
+body.theme-playful.dark-mode.drill-session-active #duelActive { background: #0d1117; }
+body.drill-session-active #duelActive > .card {
+  position: fixed; top: 3rem; left: .75rem; right: .75rem;
+  bottom: calc(var(--drill-numpad-h) + var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
+  display: flex; flex-direction: column; overflow: hidden; margin: 0; z-index: 11;
+}
+body.drill-session-active #duelActive > .card:active { transform: none; }
+/* Duel multiplayer header: fixed in the top bar (where Practice's exit button sits), above the card. */
+body.drill-session-active .duel-solve-header { position: fixed; top: .55rem; left: .75rem; right: .75rem; z-index: 100; max-width: none; margin: 0; padding: 0; }
+
 /* ======== Math Duel — Mode Card ======== */
 
 .mode-card-duel {
