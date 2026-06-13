@@ -419,10 +419,12 @@ async function _start(req, res) {
   if ((room.participantUids || []).length < 2) return res.status(409).json({ error: { code: 'NO_OPPONENT', message: 'Wait for an opponent to join.' } });
   if ((room.participantUids || []).length > 2) return res.status(409).json({ error: { code: 'BAD_ROOM_STATE', message: 'This duel room is in an invalid state.' } });   // DR3 — strict 2-player
   // Don't start against a guest who already left / closed their tab (audit room-occupancy-02). Their presence is
-  // lobby-heartbeated (~2s), so a missing or >20s-stale lastSeenAt means they're gone.
+  // lobby-heartbeated (~2s); a >45s-stale lastSeenAt means they're gone. The generous window avoids any false
+  // "opponent left" for a normal lobby dwell (and is safe across the heartbeat rollout). A missing lastSeenAt is
+  // treated as a legacy/just-joined presence and allowed (the no_contest guard still protects the outcome).
   const oppStart = (room.participantUids || []).find(function (u) { return u !== uid; });
   const oppStartP = (room.presence && oppStart) ? room.presence[oppStart] : null;
-  if (!oppStartP || !oppStartP.lastSeenAt || (_now() - oppStartP.lastSeenAt > 20000)) {
+  if (oppStartP && oppStartP.lastSeenAt && (_now() - oppStartP.lastSeenAt > 45000)) {
     return res.status(409).json({ error: { code: 'OPPONENT_LEFT', message: 'Your opponent has left — wait for someone to join.' } });
   }
 
