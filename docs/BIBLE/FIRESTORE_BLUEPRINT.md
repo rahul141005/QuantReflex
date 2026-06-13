@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.7 · **Firestore Version:** 2.11 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.8 · **Firestore Version:** 2.12 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-11
@@ -97,8 +97,52 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 ### `coachingMetrics/{coachingId}` (Analytics Foundation, ADR-027)
 Per-coaching **daily rollup** powering the Coaching App's Performance/Growth analytics without an unbounded per-load roster scan. Shape: `{ coachingId, updatedAt, days: { 'YYYY-MM-DD': { avgSpeed, avgAccuracy, activeToday, activeThisWeek, totalStudents, premiumCount, trialCount, participation, attempts } } }` — `days` is a date-keyed map capped to the last **90 days** (matching `stats.dailyHistory`). **Writer:** the super-admin daily metrics cron (`super-admin-app/api/cron/sweep.js`, Admin SDK) — it already scans all users/coachings for the platform `metrics/{date}` snapshot, so it emits one `coachingMetrics/{id}` per coaching in the same pass (cross-tenant aggregation stays governance-owned by super-admin; **zero new coaching serverless functions**). **Read:** a coaching admin may read **only its own** doc (`coachingId` claim match); client writes denied (see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md)). The coaching dashboard/performance endpoints read this O(1) doc instead of re-scanning the full `users` roster 3× per load. Day rows accrue from 2026-06-13 forward — **no backfill** (honest history only); week-over-week growth/retention and speed trends light up as rows accumulate.
 
-### `duels/{id}`
-`{status(state machine), createdBy, participants{uid→entry}, config, questions, questionIds, targetUid?, createdAt, expiredAt?}`. State machine and participant rules in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
+### `duels/{code}` (Duel V2 — server-authoritative, ADR-031)
+Premium 1v1 speed-challenge room. `{code}` is a 6-char crypto-random code. **Server-authoritative:** the
+`main-app/api/duel.js` endpoint (Admin SDK) is the **only** writer of questions, status, winner, and graded
+results; clients write only their own presence. Shape:
+`{ schemaVersion:2, code, createdBy, createdByName, status('lobby'|'active'|'complete'|'abandoned'|'expired'),
+config{topics[],difficulty,questionMode,questionCount(1–30,user-requested),timerPerQuestion?,timerTotal?},
+prompts:[{index,text,category}] (TEXT ONLY — no answers; populated by the endpoint at start),
+effectiveQuestionCount (server-resolved actual count — the completion gate compares against THIS),
+participantUids:[uidA,uidB], presence:{uid:{name, state('joined'|'ready'|'solving'|'finished'), finishReason('completed_all'|'submitted_early'|'timed_out')?, lastSeenAt}}
+(NO score, NO answeredCount — strict hidden-until-results), startedAt(server ms), totalDeadline(server ms — always
+set, even with no user timer, to bound stalling), winnerUid|null, result('win'|'draw')|null,
+perPlayer:{uid:{correctCount, duelScore, totalSolveMs}} (server-written at complete),
+completedAt, createdAt }`.
+- **Winner (server-computed):** `duelScore = correctCount×1000 + speedBonus`,
+  `speedBonus = round(300 × (1 − clamp(totalSolveMs/budgetMs,0,1)))` (max 300 < 1000). Accuracy strictly dominates;
+  equal accuracy separated by **server-measured** `totalSolveMs` (`finishedAt−startedAt`); unanswered/skipped =
+  wrong; exact `duelScore` tie ⇒ `result:'draw'`. `presence[uid].state` is the only client-writable field-path
+  (own uid only, while `status=='active'`).
+- **Subcollection `duels/{code}/private/key`** (Admin-SDK only; **client read AND write denied**): the answer key
+  — `{prompts:[{index,text,category}], answers:[{index,answer}]}`. Never leaves the server.
+- **Subcollection `duels/{code}/players/{uid}`** (own-uid read; **own-uid write only while `status=='active'`
+  AND own `presence.state=='solving'`**; opponent **denied**): each player's own answers —
+  `{answers:{<index>:{value,clientMs}}, answeredCount}` (a map keyed by index via merge → idempotent, no array
+  clobber). Written **per-answer while solving** as a durability backstop — **NOT a resume store** (exit/kill =
+  finalized submission, no continue-after-exit). Once the endpoint stamps `presence.state=finished` at finalize,
+  the `solving`-guard denies further answers (**no answering after the submission lock**). The opponent never
+  subscribes to it (hidden-until-results + zero hot-path fan-out). The endpoint reads it at `finish` to grade.
+- **State machine + transitions:** see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md). Status is written only
+  by the endpoint/cron (Admin SDK); `lobby→active` (host `start`, generates Qs+key, stamps `startedAt`/
+  `totalDeadline`, freezes), `active→complete` (one status-CAS finalize txn when both `finish` or
+  `now>totalDeadline`). **No data migration** — duels are ephemeral; `schemaVersion:2` new docs only; legacy docs
+  drain/expire (≤ TTL). Index: `duels (participantUids array-contains, status)`.
+
+### `users/{uid}.activeDuelId` + `users/{uid}/duelHistory/{duelId}` (Duel V2, ADR-031)
+- **`users/{uid}.activeDuelId`** (string|null) — recovery mirror written by the duel endpoint (Admin SDK) on
+  create/join, **cleared in the finalize txn** (and on abandon). One O(1) read on app boot recovers an in-flight
+  duel cross-device (reinstall/another device) and drives the **Active-Duel home card** (derived; no second flag).
+  Recovery restores only the **waiting-for-results** or **results** screen — **never the solving screen** (no
+  resume): if the app comes back off the solving screen mid-duel, the client `finish`es (finalizes) on the synced
+  answers. Client-write denied (it's under `users/{uid}` but `entitlementFieldsSafe()` / server-only — written by
+  the endpoint).
+- **Subcollection `users/{uid}/duelHistory/{duelId}`** — `{opponentName, outcome('win'|'loss'|'draw'), myScore,
+  oppScore, mySpeed, oppSpeed, accuracy, playedAt}`. **Server-written** (Admin SDK, docId=duelId → idempotent) for
+  **both** players at completion. **Client read own; write DENIED** — note this requires an explicit deny
+  **overriding** the blanket `users/{uid}/{sub}/{doc}` owner-write grant (see SECURITY). Retained indefinitely
+  (small); independent of room-doc cleanup.
 
 ### `payments/{paymentId}`
 `{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=29900, `premium_12m`=49900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
@@ -146,6 +190,7 @@ Per-coaching **daily rollup** powering the Coaching App's Performance/Growth ana
 | users | coachingId (ASC), plan (ASC) | **ADR-027** — coaching-scoped premium `count()` (Growth/Adoption) without a full-roster scan. |
 | users | coachingId (ASC), isTrial (ASC) | **ADR-027** — coaching-scoped trial `count()` (Growth/Adoption). |
 | users | coachingId (ASC), createdAt (ASC) | **ADR-027** — coaching-scoped "new students this week" via a `createdAt` range `count()`. |
+| duels | participantUids (ARRAY-CONTAINS), status (ASC) | **ADR-031** — Duel V2 reaper/sweep: find a user's in-flight rooms / abandoned-`active` rooms past deadline by a static-field composite (the per-uid `participants.<uid>` field-path query is **not** used; primary recovery is the `users.activeDuelId` mirror). |
 
 **Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). **Global Search (ADR-020)** prefix range queries on `users.email`, `users.profile.name`, `users.coachingId`, the user doc-id (`FieldPath.documentId()`), and `coachings.name` + doc-id also use single-field auto-indexes — **no new composite** is required unless a multi-field search variant is introduced. `aiStudyPlans (userId,status,createdAt)` requires a composite — `UNVERIFIED` whether present; `getActiveStudyPlan` orders by `createdAt` with two equality filters and will require `userId,status,createdAt`.
 

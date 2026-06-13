@@ -95,69 +95,35 @@ service cloud.firestore {
     // If client-side create is ever re-enabled, reinstate a create-time
     // entitlement guard alongside it.
 
-    // ── Duel Update Validation ──
-    // Ensures immutable fields cannot be tampered with, status transitions
-    // are forward-only, and each participant can only modify their own entry.
-    function validDuelUpdate() {
+    // ── Duel V2 (ADR-031): the ONLY client-writable room mutation ──
+    // A participant may change ONLY its own presence.{uid}.{state,lastSeenAt}, and only while the room is
+    // in 'lobby' or 'active'. Status / winner / result / prompts / perPlayer / participantUids are
+    // server-only (Admin SDK). `state` may be set to joined|ready|solving — NEVER 'finished' (the endpoint
+    // is the sole writer of 'finished'); and a player may never transition OUT of 'finished' (which would
+    // let them un-lock and keep answering after submission). Two-level nested diff, every sibling pinned.
+    function validDuelPresenceWrite() {
       let before = resource.data;
       let after = request.resource.data;
-
+      let uid = request.auth.uid;
       return
-        // Immutable fields: cannot change after creation
-        after.createdBy     == before.createdBy &&
-        after.id            == before.id &&
-        after.config        == before.config &&
-        after.questions     == before.questions &&
-        after.questionIds   == before.questionIds &&
-
-        // Status: must not change OR must be a valid forward transition
-        (after.status == before.status ||
-         validDuelStatusTransition(before.status, after.status)) &&
-
-        // Participants: only the requesting user's entry can be modified
-        after.participants.diff(before.participants)
-          .affectedKeys().hasOnly([request.auth.uid]);
+        before.status in ['lobby', 'active'] &&
+        (uid in before.participantUids) &&
+        (uid in before.presence) &&
+        after.diff(before).affectedKeys().hasOnly(['presence']) &&
+        after.presence.diff(before.presence).affectedKeys().hasOnly([uid]) &&
+        after.presence[uid].diff(before.presence[uid]).affectedKeys().hasOnly(['state', 'lastSeenAt']) &&
+        after.presence[uid].name == before.presence[uid].name &&
+        after.presence[uid].state in ['joined', 'ready', 'solving'] &&
+        before.presence[uid].state != 'finished';
     }
 
-    // ── Duel Status State Machine (Expanded) ──
-    // Enforces forward-only transitions across the full duel lifecycle:
-    //
-    //   INVITATION FLOW:
-    //     waiting → waiting_for_acceptance  (invite sent)
-    //     waiting_for_acceptance → waiting_room  (invite accepted)
-    //     waiting_for_acceptance → rejected  (invite declined)
-    //
-    //   LEGACY FLOW (deep-link, preserved for existing rooms):
-    //     waiting → ready     (opponent joins via ID)
-    //     ready   → active    (game starts)
-    //
-    //   GAME FLOW:
-    //     waiting_room → countdown  (both ready, starting)
-    //     countdown    → active     (game begins)
-    //     active       → completed  (both done or exit-resolved)
-    //
-    //   TERMINAL:
-    //     any → expired    (timeout cleanup)
-    //     any → abandoned  (both disconnected)
-    //     any → deleted    (soft delete)
-    function validDuelStatusTransition(fromStatus, toStatus) {
-      // Block any transition FROM a terminal state — once finished, it's final
-      let isFromTerminal = fromStatus in ['completed', 'expired', 'abandoned', 'deleted', 'rejected', 'cancelled'];
-      return !isFromTerminal && (
-        (fromStatus == 'waiting'                && toStatus == 'waiting_for_acceptance') ||
-        (fromStatus == 'waiting_for_acceptance'  && toStatus == 'waiting_room') ||
-        (fromStatus == 'waiting_for_acceptance'  && toStatus == 'rejected') ||
-        (fromStatus == 'waiting_room'            && toStatus == 'countdown') ||
-        (fromStatus == 'countdown'               && toStatus == 'active') ||
-        (fromStatus == 'active'                  && toStatus == 'completed') ||
-        (fromStatus == 'waiting'  && toStatus == 'ready') ||
-        (fromStatus == 'ready'    && toStatus == 'active') ||
-        (fromStatus == 'waiting'  && toStatus == 'active' && request.auth.uid == resource.data.createdBy) ||
-        (toStatus   == 'expired') ||
-        (toStatus   == 'abandoned') ||
-        (toStatus   == 'deleted') ||
-        (toStatus   == 'cancelled')
-      );
+    // A player may write their own answers doc ONLY while the duel is active AND they are still 'solving'.
+    // Once the endpoint stamps presence.state='finished', this returns false → no answering after the lock.
+    function duelActiveSolving(code, playerId) {
+      let room = get(/databases/$(database)/documents/duels/$(code)).data;
+      return room.status == 'active'
+        && (playerId in room.presence)
+        && room.presence[playerId].state == 'solving';
     }
 
 
@@ -184,8 +150,16 @@ service cloud.firestore {
       // Subcollections: practiceSessions, performance, practice, ai, profile
       // Owner-only read/write. No field-level restrictions on subcollections
       // because they are mirrors of the root document, not sources of truth.
+      // EXCEPTION (ADR-031): duelHistory is server-written (authoritative duel results) — the client may
+      // READ its own history but must NOT write it (would let a player forge wins). The carve-out narrows
+      // this blanket grant because Firestore unions all matching rules (a later deny cannot revoke a grant).
       match /{subcollection}/{document} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && subcollection != 'duelHistory';
+      }
+      // Explicit (read-only) duelHistory match for clarity; write stays denied (no allow write here).
+      match /duelHistory/{duelId} {
+        allow read: if isOwner(userId);
       }
     }
 
@@ -231,44 +205,32 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
-    // DUELS COLLECTION (HARDENED)
+    // DUELS COLLECTION (Duel V2 — server-authoritative, ADR-031)
     // ════════════════════════════════════════════
-    // Participant-only access with controlled join flow.
-    //
-    // Read:   participants always; anyone can read a 'waiting' or
-    //         'waiting_for_acceptance' room; invitation target can also read.
-    // Create: any authenticated user (must be creator + in participants).
-    //         Valid initial statuses: 'waiting' (legacy) or
-    //         'waiting_for_acceptance' (invitation flow).
-    // Update: participants only (+ users joining a waiting/invitation room).
-    //         Immutable fields, state machine, and own-entry-only enforced.
-    // Delete: denied — use status-based soft delete (status → 'deleted').
-    match /duels/{duelId} {
-      // Read: participants OR anyone for joinable rooms OR the invitation target
-      allow read: if request.auth != null && (
-        request.auth.uid in resource.data.participants ||
-        resource.data.status in ['waiting', 'waiting_for_acceptance'] ||
-        resource.data.targetUid == request.auth.uid
-      );
-
-      // Create: authenticated user, must be the creator, valid initial status
-      allow create: if request.auth != null &&
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.status in ['waiting', 'waiting_for_acceptance'] &&
-        request.auth.uid in request.resource.data.participants;
-
-      // Update: existing participant OR user joining a waiting room
-      // All updates must pass validDuelUpdate() for integrity checks
-      allow update: if request.auth != null && (
-        // Existing participant
-        request.auth.uid in resource.data.participants ||
-        // User joining a waiting/invitation room (not yet a participant)
-        (resource.data.status in ['waiting', 'waiting_for_acceptance'] &&
-         request.auth.uid in request.resource.data.participants)
-      ) && validDuelUpdate();
-
-      // Delete: denied (use status-based soft delete)
+    // Read:   participants only (no world-readable lobby → closes the answer-harvest path). The join flow
+    //         resolves server-side via `api/duel?action=join`, which returns the full room JSON.
+    // Create/Delete: client DENIED (Admin SDK only — `api/duel`).
+    // Update: client may write ONLY its own presence.{uid}.{state,lastSeenAt} (validDuelPresenceWrite()).
+    //         Status / winner / result / prompts / perPlayer are server-only.
+    // Subdocs: private/key (answer key) DENIED; players/{uid} own-uid + active + still-solving only.
+    match /duels/{code} {
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.participantUids;
+      allow create: if false;   // Admin SDK only (server generates the code + room)
+      allow update: if request.auth != null && validDuelPresenceWrite();
       allow delete: if false;
+
+      // Per-player private answers — own uid, only while active AND still solving (no answering after lock).
+      match /players/{playerId} {
+        allow read: if request.auth != null && request.auth.uid == playerId;
+        allow write: if request.auth != null
+                     && request.auth.uid == playerId
+                     && duelActiveSolving(code, playerId);
+      }
+      // Server-only answer key — never client-readable/writable.
+      match /private/{doc} {
+        allow read, write: if false;   // Admin SDK only
+      }
     }
 
     // ════════════════════════════════════════════

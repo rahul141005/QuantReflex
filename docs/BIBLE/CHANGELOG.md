@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Duel V2: server-authoritative premium 1v1 speed challenge — full rebuild (ADR-031)
+
+A 33-agent adversarial workflow + two red-team passes found **65 confirmed problems** in the client-trust duel
+system (plaintext answer key in the room doc; 100% client-written score/winner; active-forever hang on timeout;
+localStorage-only recovery; client-only premium; whole-`participants`-map write per answer; unsynchronised
+countdowns; no Active-Duel card / history / share). Rebuilt from first principles to the owner's four binding
+decisions, with **exit = finalized submission (no resume/rejoin)**: leaving an active duel grades what was
+answered and locks the rest — not a forfeit (performance decides; an early submitter with more correct can win).
+
+- **Server-authoritative scoring (the spine):** new Vercel `main-app/api/duel.js` (action-routed, Admin SDK,
+  `withAuth`→`req.userPremium`) is the **only** writer of questions, the answer key, grading, the winner, `status`,
+  and history. Clients never grade or decide. Answer key lives in a **server-only** `duels/{code}/private/key`
+  subdoc (client read/write denied) → the plaintext-answer-key leak (B3) and winner/score forgery (B2/B13) are
+  structurally closed.
+- **Split documents, hidden-until-results:** `duels/{code}` carries prompts (text-only) + `presence` (state only,
+  no score/progress); each player's answers live in `duels/{code}/players/{uid}` (own-uid only, opponent denied),
+  so the per-answer hot path has **zero opponent snapshot fan-out** (B8/B16) and the opponent sees only
+  Connected/Solving/Finished.
+- **Speed-weighted, accuracy-dominant winner** (`duelScore = correctCount×1000 + speedBonus≤300`, server-measured
+  time) — quitter/timeout can't win on speed (B10/B13); explainable in one line.
+- **Recovery from the server:** `users.activeDuelId` mirror (cross-device, no index) drives a derived
+  **Active-Duel home card** that restores only the **waiting/results** screen — never solving (B5/B6). Finalize is **one status-CAS transaction** (idempotent simultaneous-finish /
+  re-finish) that writes winner+`perPlayer`+history (docId=duelId) + clears both mirrors, then sends the
+  **"opponent finished" FCM** from the endpoint (Admin SDK).
+- **Spark-correct infra:** the project is on **Spark**, so `functions/index.js`'s scheduled jobs/triggers don't
+  run — the redesign touches **no Firebase functions**. Stuck/abandoned duels resolve via **lazy finalize-on-
+  `?action=state`** (instant for whoever's waiting) + a **Vercel daily cron** backstop (`?action=cron-sweep`,
+  `CRON_SECRET`). `totalDeadline` is always set (bounds stalling); the countdown is anchored to server `startedAt`
+  with a server-time offset (B9).
+- **Rules rewrite (`/duels`):** participants-only read (removes the world-readable waiting-room answer-harvest
+  path, B4); client update allowed **only** for own `presence.{uid}.{state,lastSeenAt}` while `status==active`
+  (hand-written two-level nested diff); create/delete/private/winner/status client-denied; an explicit
+  `duelHistory` write-deny **overrides** the blanket `users/{uid}/{sub}` owner-write grant. Premium enforced at
+  the endpoint via `aiService.resolvePlan` (works for coaching-granted premium — no custom claim, no lockout).
+- **Docs:** ADR-031; FIRESTORE_BLUEPRINT (`duels/{code}` v2 shape, `private/key`, `players/{uid}`,
+  `users.activeDuelId`, `duelHistory`, `participantUids` index); SECURITY (rules table + carve-out); VERSIONS
+  (Bible 2.19→2.20, Arch/Firestore/Security MINOR) + ephemeral hard-cutover migration note. **No data migration**
+  (`schemaVersion:2`). One new Vercel function (7/12).
+
 ## 2026-06-13 — Coaching App V4: value / premium-UI / performance pass (ADR-030)
 
 A brutally-honest product review found the rebuilt coaching app *feels empty, low-information, and slow* — the

@@ -21,7 +21,11 @@
     "api/ai.js": { "maxDuration": 60 },
     "api/payment.js": { "maxDuration": 15 },
     "api/payment/webhook.js": { "maxDuration": 15 },
-    "api/account.js": { "maxDuration": 30 }
+    "api/account.js": { "maxDuration": 30 },
+    "api/duel.js": { "maxDuration": 30 }
   },
+  "crons": [
+    { "path": "/api/duel?action=cron-sweep", "schedule": "0 2 * * *" }
+  ],
   "cleanUrls": false
 }

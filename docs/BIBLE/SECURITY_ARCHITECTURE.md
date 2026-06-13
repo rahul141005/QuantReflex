@@ -1,6 +1,6 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.4 · **Security Version:** 2.9 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.5 · **Security Version:** 2.10 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
 **Last updated:** 2026-06-12
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
@@ -43,12 +43,15 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | Collection | Read | Create | Update | Delete |
 |---|---|---|---|---|
 | `users/{uid}` | owner | denied (server-only) | owner + `entitlementFieldsSafe()` | denied |
-| `users/{uid}/{sub}/{doc}` | owner | owner | owner | owner |
+| `users/{uid}/{sub}/{doc}` | owner | owner | owner (**except `sub=='duelHistory'` → write denied**, ADR-031) | owner |
+| `users/{uid}/duelHistory/{id}` (ADR-031) | owner | **denied** | **denied** | **denied** (server-written only; the deny is an explicit carve-out **overriding** the blanket `users/{uid}/{sub}` owner-write grant) |
 | `questions` | any authed | — | denied (admin) | denied |
 | `coachings/{id}` | coaching member (claim match) | — | denied (admin) | denied |
 | `coachings/{id}/notes/{studentUid}` (ADR-030) | **denied** (server-only — merged into `students?action=details` via Admin SDK) | **denied** | **denied** | **denied** (Admin-SDK-write only via `students?action=save-note`; client never touches the note) |
 | `coachingMetrics/{coachingId}` (ADR-027) | coaching admin of **own** coaching (`coaching_admin:true` && `request.auth.token.coachingId == coachingId`) | **denied** (Admin-SDK only — written by the super-admin daily cron) | **denied** | **denied** |
-| `duels/{id}` | participant \| joinable status \| target | authed creator, valid initial status | participant/joiner + `validDuelUpdate()` | denied (soft-delete) |
+| `duels/{code}` (Duel V2, ADR-031) | **participant only** (`uid in resource.data.participantUids`) | **denied** (Admin-SDK only — `api/duel.js?action=create`) | **own-presence only:** a participant may change **only** `presence.{ownUid}.{state,lastSeenAt}` while `status=='active'` — a hand-written two-level nested diff (`affectedKeys()==['presence']` → `presence.diff==[uid]` → `presence[uid].diff hasOnly(['state','lastSeenAt'])`, `name` pinned, `state in enum`). Status/winner/result/prompts client-unwritable. | **denied** |
+| `duels/{code}/private/key` (ADR-031) | **denied** (server-only answer key) | **denied** | **denied** | **denied** (Admin-SDK only) |
+| `duels/{code}/players/{uid}` (ADR-031) | **own uid only** | own uid, `status=='active'` **AND own `presence.state=='solving'`** | own uid, `status=='active'` **AND own `presence.state=='solving'`** (once the endpoint stamps `finished`, writes are denied → **no answering after the submission lock**; exit/kill = finalized submission, no resume) | **denied** (opponent always denied; endpoint reads via Admin SDK to grade) |
 | `payments/{id}` | owner | denied (admin) | denied (admin) | owner |
 | `auditLogs/{id}` | `admin:true` only | **denied** | **denied** | **denied** (Admin-SDK-write only; immutable) |
 | `securityEvents/{id}` | `admin:true` only | **shape-validated** `validSecurityEvent()` — key allowlist, `type` allowlist, `createdAt == request.time`, capped strings; **unauthenticated create allowed** (failed logins have no auth) | **denied** | **denied** (append-only; ADR-018, see §6 SEC1) |
