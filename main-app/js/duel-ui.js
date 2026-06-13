@@ -1,767 +1,279 @@
 /**
- * duel-ui.js — Math Duel UI rendering (V3 — Room Code Only)
+ * duel-ui.js — Duel V2 screen renderers (ADR-031). Pure-ish render helpers; DuelManager owns state.
  *
- * Simplified rebuild:
- *   - Room-code-only setup screen (create duel → share code)
- *   - Room-code join screen (enter code → join)
- *   - Premium waiting room with countdown
- *   - Fixed active screen (numpad always visible, exit button)
- *   - Premium results with realtime comparison
- *   - No invitation system, no username lookup
- *
- * Depends on DuelCore for Firestore operations.
+ * Calm, premium dark styling (no gamer neon). Hidden-until-results: the opponent surface is presence
+ * only (Connected / Solving / Finished) during play — never score/progress. The in-duel SOLVING runner
+ * lives in DuelManager (it is stateful + answerless); this module renders setup/join/lobby/waiting/results
+ * + the Submit-&-Leave modal.
  */
-
 var DuelUI = (function () {
   'use strict';
 
-  var _categories = [
-    { key: 'squares', label: 'Squares' },
-    { key: 'cubes', label: 'Cubes' },
-    { key: 'percentages', label: 'Percentages' },
-    { key: 'multiplication', label: 'Multiplication' },
-    { key: 'fractions', label: 'Fractions' },
-    { key: 'averages', label: 'Averages' },
-    { key: 'ratios', label: 'Ratios' },
-    { key: 'profit-loss', label: 'Profit & Loss' },
-    { key: 'time-speed-distance', label: 'Time Speed Dist' },
-    { key: 'time-and-work', label: 'Time & Work' }
-  ];
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
+  function _el(id) { return document.getElementById(id); }
 
-  var _activeDuelTimer = null;
-  var _countdownTimer = null;
+  var SURFACE = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;';
+  var ACCENT = 'var(--color-accent,#6366f1)';
+  var TOPICS = ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Squares', 'Percentages'];
+  var DIFFS = ['easy', 'medium', 'hard'];
 
-  function clearTimers() {
-    if (_activeDuelTimer) { clearInterval(_activeDuelTimer); _activeDuelTimer = null; }
-    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+  function _backBar(label, onBack) {
+    var b = document.createElement('button');
+    b.className = 'btn btn-sm btn-secondary'; b.textContent = '‹ ' + (label || 'Back');
+    b.style.cssText = 'margin-bottom:1rem;';
+    b.onclick = onBack;
+    return b;
   }
 
-  function _fmtCat(cat) {
-    return (typeof formatCategoryName === 'function') ? formatCategoryName(cat) : cat;
-  }
-
-  function _getInitials(name) {
-    if (!name) return '?';
-    var parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  }
-
-  /* ================================================================
-   * SETUP SCREEN (Create Duel — room code flow)
-   * ================================================================ */
-
-  function renderSetup(container, onBack) {
-    var topicsHtml = '';
-    for (var i = 0; i < _categories.length; i++) {
-      topicsHtml += '<button class="category-btn category-card duel-topic-btn" data-cat="' +
-        _categories[i].key + '">' + _categories[i].label + '</button>';
-    }
-
+  /* ───────── Setup (create) ───────── */
+  function renderSetup(container, opts) {
+    container.style.display = 'block';
     container.innerHTML =
-      '<div class="duel-setup-card">' +
-        '<div class="duel-setup-header">' +
-          '<h3>⚔️ Create Math Duel</h3>' +
-          '<p>Set up a duel and share the room code</p>' +
-        '</div>' +
-        '<div class="duel-setup-body">' +
-          /* Question mode toggle */
-          '<div class="duel-mode-toggle" style="display:flex;gap:.5rem;margin-bottom:1rem;">' +
-            '<button class="duel-mode-btn active" data-qmode="quick" style="flex:1;text-align:left;padding:.75rem;">' +
-              '<div style="font-weight:600;margin-bottom:.25rem;">⚡ Quick Questions</div>' +
-              '<div style="font-size:.7rem;opacity:.8;font-weight:400;">Procedural generation</div>' +
-            '</button>' +
-            '<button class="duel-mode-btn" data-qmode="wordproblems" style="flex:1;text-align:left;padding:.75rem;">' +
-              '<div style="font-weight:600;margin-bottom:.25rem;">🤖 Word Problems</div>' +
-              '<div style="font-size:.7rem;opacity:.8;font-weight:400;">AI-curated bank</div>' +
-            '</button>' +
-          '</div>' +
-          /* Topic selection */
-          '<label class="secondary-text" style="font-size:.8rem;margin-bottom:.35rem;display:block;">Topics (select 1+)</label>' +
-          '<div class="category-grid" style="margin-bottom:.75rem;">' + topicsHtml + '</div>' +
-          /* Difficulty */
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">' +
-            '<span style="font-size:.85rem;font-weight:600;">Difficulty</span>' +
-            '<select id="duelDifficulty" class="theme-select" style="min-width:7rem;">' +
-              '<option value="easy">Easy</option>' +
-              '<option value="medium" selected>Medium</option>' +
-              '<option value="hard">Hard</option>' +
-            '</select>' +
-          '</div>' +
-          /* Question count */
-          '<div style="margin-bottom:.75rem;">' +
-            '<label class="secondary-text" style="font-size:.8rem;">Questions: <strong id="duelQCountVal">10</strong></label>' +
-            '<input type="range" id="duelQCount" class="custom-question-range" min="1" max="100" value="10" style="width:100%;" />' +
-          '</div>' +
-          /* Timer Selection */
-          '<div class="timer-select-section" id="duelTimerSelectSection" style="margin-bottom:1rem;">' +
-            '<div class="timer-toggle-row">' +
-              '<span class="timer-toggle-label" style="font-size:.85rem;font-weight:600;">Timer</span>' +
-              '<label class="toggle">' +
-                '<input type="checkbox" id="duelTimerToggle" checked />' +
-                '<span class="toggle-slider"></span>' +
-              '</label>' +
-            '</div>' +
-            '<div class="timer-config-area" id="duelTimerConfigArea" style="margin-top:.5rem;">' +
-              '<div class="timer-pill-selector">' +
-                '<button class="timer-pill active" id="duelTimerPillPer" type="button">Per Ques.</button>' +
-                '<button class="timer-pill" id="duelTimerPillTotal" type="button">Total</button>' +
-              '</div>' +
-              '<div class="timer-input-row">' +
-                '<input type="number" id="duelTimerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />' +
-                '<span class="timer-unit-label">seconds</span>' +
-              '</div>' +
-            '</div>' +
+      '<div class="view-pad" style="max-width:520px;margin:0 auto;">' +
+        '<h2 style="font-size:1.4rem;font-weight:800;margin:0 0 .25rem;">Create a Duel</h2>' +
+        '<div style="color:#94a3b8;font-size:.9rem;margin-bottom:1.25rem;">Challenge a friend to a math speed battle.</div>' +
+        '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;">' +
+          '<label style="display:block;font-weight:600;margin-bottom:.5rem;">Questions</label>' +
+          '<div id="duQ" style="display:flex;gap:.4rem;">' +
+            [5, 10, 15, 20].map(function (n) { return '<button data-q="' + n + '" style="flex:1;padding:.6rem;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:' + (n === 10 ? ACCENT : 'transparent') + ';color:#fff;">' + n + '</button>'; }).join('') +
           '</div>' +
         '</div>' +
-        '<div class="duel-setup-footer">' +
-          '<button class="duel-create-btn" id="duelCreateBtn" disabled>Create Duel ⚔️</button>' +
-          '<button class="duel-setup-back" id="duelBackBtn">← Back</button>' +
+        '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;">' +
+          '<label style="display:block;font-weight:600;margin-bottom:.5rem;">Difficulty</label>' +
+          '<div id="duD" style="display:flex;gap:.4rem;">' +
+            DIFFS.map(function (d) { return '<button data-d="' + d + '" style="flex:1;padding:.6rem;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:' + (d === 'medium' ? ACCENT : 'transparent') + ';color:#fff;text-transform:capitalize;">' + d + '</button>'; }).join('') +
+          '</div>' +
         '</div>' +
+        '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;">' +
+          '<label style="display:block;font-weight:600;margin-bottom:.5rem;">Topics <span style="color:#64748b;font-weight:400;">— none = mixed</span></label>' +
+          '<div id="duT" style="display:flex;flex-wrap:wrap;gap:.4rem;">' +
+            TOPICS.map(function (t) { return '<button data-t="' + t.toLowerCase() + '" style="padding:.45rem .8rem;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:transparent;color:#fff;font-size:.85rem;">' + t + '</button>'; }).join('') +
+          '</div>' +
+        '</div>' +
+        '<button id="duCreateBtn" class="btn btn-primary" style="width:100%;padding:.9rem;font-size:1rem;font-weight:700;">Create Duel</button>' +
       '</div>';
+    container.insertBefore(_backBar('Home', opts.onBack), container.firstChild);
 
-    container.style.display = 'flex';
-    _bindSetupHandlers(container, onBack);
+    var qSel = 10, dSel = 'medium', tSel = {};
+    function _segActivate(sel, btn) { container.querySelectorAll(sel + ' button').forEach(function (x) { x.style.background = 'transparent'; }); btn.style.background = ACCENT; }
+    container.querySelectorAll('#duQ button').forEach(function (b) { b.onclick = function () { qSel = parseInt(b.getAttribute('data-q'), 10); _segActivate('#duQ', b); }; });
+    container.querySelectorAll('#duD button').forEach(function (b) { b.onclick = function () { dSel = b.getAttribute('data-d'); _segActivate('#duD', b); }; });
+    container.querySelectorAll('#duT button').forEach(function (b) {
+      b.onclick = function () { var k = b.getAttribute('data-t'); if (tSel[k]) { delete tSel[k]; b.style.background = 'transparent'; } else { tSel[k] = 1; b.style.background = ACCENT; } };
+    });
+
+    var createBtn = _el('duCreateBtn');
+    createBtn.onclick = function () {
+      createBtn.disabled = true; createBtn.textContent = 'Creating…';
+      opts.onCreate({ questionCount: qSel, difficulty: dSel, topics: Object.keys(tSel), questionMode: 'quick' }, function () { createBtn.disabled = false; createBtn.textContent = 'Create Duel'; });
+    };
   }
 
-  function _bindSetupHandlers(container, onBack) {
-    var selectedTopics = [];
-    var questionMode = 'quick';
-    var createBtn = document.getElementById('duelCreateBtn');
-
-    function _updateCreateBtnState() {
-      createBtn.disabled = !(selectedTopics.length > 0);
-    }
-
-    /* Topic selection */
-    var topicBtns = container.querySelectorAll('.duel-topic-btn');
-    for (var i = 0; i < topicBtns.length; i++) {
-      topicBtns[i].addEventListener('click', function () {
-        var cat = this.getAttribute('data-cat');
-        var idx = selectedTopics.indexOf(cat);
-        if (idx >= 0) {
-          selectedTopics.splice(idx, 1);
-          this.classList.remove('selected');
-        } else {
-          selectedTopics.push(cat);
-          this.classList.add('selected');
-        }
-        _updateCreateBtnState();
-      });
-    }
-
-    /* Question mode toggle */
-    var modeBtns = container.querySelectorAll('.duel-mode-btn');
-    for (var m = 0; m < modeBtns.length; m++) {
-      modeBtns[m].addEventListener('click', function () {
-        for (var j = 0; j < modeBtns.length; j++) modeBtns[j].classList.remove('active');
-        this.classList.add('active');
-        questionMode = this.getAttribute('data-qmode');
-      });
-    }
-
-    /* Question count slider */
-    var qSlider = document.getElementById('duelQCount');
-    var qVal = document.getElementById('duelQCountVal');
-    if (qSlider && qVal) {
-      qSlider.addEventListener('input', function () { qVal.textContent = qSlider.value; });
-    }
-
-    /* Timer handlers */
-    var timerToggle = document.getElementById('duelTimerToggle');
-    var timerConfigArea = document.getElementById('duelTimerConfigArea');
-    var pillPer = document.getElementById('duelTimerPillPer');
-    var pillTotal = document.getElementById('duelTimerPillTotal');
-    var timerInput = document.getElementById('duelTimerSecondsInput');
-    var timerMode = 'per';
-
-    if (timerToggle && timerConfigArea) {
-      timerToggle.addEventListener('change', function () {
-        timerConfigArea.style.display = this.checked ? 'flex' : 'none';
-      });
-    }
-
-    if (pillPer && pillTotal && timerInput) {
-      pillPer.addEventListener('click', function () {
-        timerMode = 'per';
-        pillPer.classList.add('active');
-        pillTotal.classList.remove('active');
-        timerInput.value = '15';
-      });
-      pillTotal.addEventListener('click', function () {
-        timerMode = 'total';
-        pillTotal.classList.add('active');
-        pillPer.classList.remove('active');
-        timerInput.value = '180';
-      });
-    }
-
-    /* Back button */
-    var backBtn = document.getElementById('duelBackBtn');
-    if (backBtn) {
-      backBtn.addEventListener('click', function () {
-        container.style.display = 'none';
-        if (onBack) onBack();
-      });
-    }
-
-    /* Create Duel button */
-    if (createBtn) {
-      createBtn.addEventListener('click', function () {
-        if (createBtn.disabled) return;
-
-        if (selectedTopics.length === 0) {
-          if (typeof showToast === 'function') showToast('Select at least one topic');
-          return;
-        }
-        createBtn.disabled = true;
-        createBtn.textContent = 'Creating…';
-
-        var timerVal = null;
-        var tTotal = null;
-        if (timerToggle && timerToggle.checked) {
-          var val = parseInt(timerInput.value, 10);
-          if (timerMode === 'per') timerVal = val > 0 ? val : 15;
-          else tTotal = val > 0 ? val : 180;
-        }
-
-        var config = {
-          topics: selectedTopics.slice(),
-          difficulty: document.getElementById('duelDifficulty').value,
-          questionCount: parseInt(qSlider.value, 10) || 10,
-          questionMode: questionMode,
-          timerPerQuestion: timerVal,
-          timerTotal: tTotal
-        };
-
-        DuelCore.createDuel(config, function (err, duelId) {
-          createBtn.disabled = false;
-          createBtn.textContent = 'Create Duel ⚔️';
-          if (err) {
-            if (typeof showToast === 'function') showToast(err);
-            _updateCreateBtnState();
-            return;
-          }
-          container.style.display = 'none';
-          /* Enter waiting room — DuelManager handles the realtime listener */
-          DuelManager.enterWaitingRoom(duelId);
-        });
-      });
-    }
-  }
-
-  /* ================================================================
-   * JOIN SCREEN (Room Code Input)
-   * ================================================================ */
-
-  function renderJoinScreen(container, onBack) {
+  /* ───────── Join (by code) ───────── */
+  function renderJoin(container, opts) {
+    container.style.display = 'block';
     container.innerHTML =
-      '<div class="duel-setup-card">' +
-        '<div class="duel-setup-header">' +
-          '<h3>⚔️ Join Math Duel</h3>' +
-          '<p>Enter the room code from your friend</p>' +
-        '</div>' +
-        '<div class="duel-setup-body">' +
-          '<div style="text-align:center;padding:1rem 0;">' +
-            '<div style="font-size:3rem;margin-bottom:.75rem;">🎮</div>' +
-            '<label class="secondary-text" style="font-size:.85rem;margin-bottom:.5rem;display:block;">Room Code</label>' +
-            '<input type="text" id="duelJoinCodeInput" class="duel-room-code-input" ' +
-              'placeholder="e.g. ABC123" autocomplete="off" autocapitalize="characters" ' +
-              'maxlength="6" style="font-size:1.75rem;text-align:center;letter-spacing:.5rem;' +
-              'padding:.75rem;width:100%;max-width:240px;margin:0 auto;display:block;' +
-              'border-radius:12px;border:2px solid var(--border-primary);background:var(--bg-primary);' +
-              'color:var(--text-primary);font-weight:700;text-transform:uppercase;" />' +
-            '<div id="duelJoinStatus" style="margin-top:.5rem;font-size:.8rem;min-height:1.25em;"></div>' +
-          '</div>' +
-          '<button class="duel-create-btn" id="duelJoinBtn" disabled>Join Duel ⚔️</button>' +
-        '</div>' +
-        '<button class="duel-setup-back" id="duelJoinBackBtn">← Back</button>' +
+      '<div class="view-pad" style="max-width:420px;margin:0 auto;">' +
+        '<h2 style="font-size:1.4rem;font-weight:800;margin:0 0 .25rem;">Join a Duel</h2>' +
+        '<div style="color:#94a3b8;font-size:.9rem;margin-bottom:1.25rem;">Enter the room code your friend shared.</div>' +
+        '<input id="duJoinCode" inputmode="text" autocapitalize="characters" maxlength="6" placeholder="ABC123" ' +
+          'style="width:100%;text-align:center;letter-spacing:.35em;font-size:1.8rem;font-weight:700;text-transform:uppercase;padding:1rem;border-radius:14px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#fff;margin-bottom:1rem;" />' +
+        '<div id="duJoinErr" style="color:#f87171;font-size:.85rem;min-height:1.1rem;margin-bottom:.5rem;text-align:center;"></div>' +
+        '<button id="duJoinBtn" class="btn btn-primary" style="width:100%;padding:.9rem;font-size:1rem;font-weight:700;">Join Duel</button>' +
       '</div>';
-
-    container.style.display = 'flex';
-
-    var codeInput = document.getElementById('duelJoinCodeInput');
-    var joinBtn = document.getElementById('duelJoinBtn');
-    var statusEl = document.getElementById('duelJoinStatus');
-    var backBtn = document.getElementById('duelJoinBackBtn');
-
-    /* Enable join button when 6 characters entered */
-    if (codeInput) {
-      codeInput.addEventListener('input', function () {
-        var val = codeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        codeInput.value = val;
-        joinBtn.disabled = val.length !== 6;
-        if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
-      });
-      codeInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !joinBtn.disabled) joinBtn.click();
-      });
+    container.insertBefore(_backBar('Home', opts.onBack), container.firstChild);
+    var input = _el('duJoinCode'), btn = _el('duJoinBtn'), err = _el('duJoinErr');
+    function go() {
+      var code = (input.value || '').trim().toUpperCase();
+      if (code.length < 4) { err.textContent = 'Enter the full room code.'; return; }
+      err.textContent = ''; btn.disabled = true; btn.textContent = 'Joining…';
+      opts.onJoin(code, function (msg) { btn.disabled = false; btn.textContent = 'Join Duel'; if (msg) err.textContent = msg; });
     }
-
-    if (joinBtn) {
-      joinBtn.addEventListener('click', function () {
-        if (joinBtn.disabled) return;
-        var code = codeInput.value.toUpperCase().trim();
-        if (code.length !== 6) return;
-
-        joinBtn.disabled = true;
-        joinBtn.textContent = 'Joining…';
-        if (statusEl) { statusEl.textContent = ''; statusEl.className = ''; }
-
-        DuelCore.joinDuel(code, function (err, data) {
-          if (err) {
-            joinBtn.disabled = false;
-            joinBtn.textContent = 'Join Duel ⚔️';
-            if (statusEl) {
-              statusEl.textContent = err;
-              statusEl.style.color = 'var(--danger, #ef4444)';
-            }
-            return;
-          }
-
-          container.style.display = 'none';
-          /* Store active duel and start listening */
-          try { localStorage.setItem('qr_active_duel', code); } catch (_) {}
-          DuelManager.enterWaitingRoom(code);
-        });
-      });
-    }
-
-    if (backBtn) {
-      backBtn.addEventListener('click', function () {
-        container.style.display = 'none';
-        if (onBack) onBack();
-      });
-    }
+    btn.onclick = go;
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    try { input.focus(); } catch (_) {}
   }
 
-  /* ================================================================
-   * WAITING ROOM
-   * ================================================================ */
-
-  function renderWaitingRoom(container, duelData) {
-    var d = duelData;
-    var participants = d.participants || {};
-    var uids = Object.keys(participants);
-    var p1 = uids.length > 0 ? participants[uids[0]] : null;
-    var p2 = uids.length > 1 ? participants[uids[1]] : null;
-    var config = d.config || {};
-
-    var topicPills = '';
-    var topics = config.topics || [];
-    for (var i = 0; i < topics.length; i++) {
-      topicPills += '<span class="duel-config-pill">' + _fmtCat(topics[i]) + '</span>';
-    }
-
-    var timerLabel = config.timerTotal ? config.timerTotal + 's total' :
-                     (config.timerPerQuestion ? config.timerPerQuestion + 's/q' : 'No timer');
-    var myUid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-    var bothReady = uids.length >= 2;
-    var isCreator = (d.createdBy === myUid);
-
+  /* ───────── Lobby ───────── */
+  function renderLobby(container, opts) {
+    var d = opts.duel || {}, code = opts.code, isHost = opts.isHost;
+    var uids = d.participantUids || [];
+    var opp = uids.find(function (u) { return u !== opts.myUid; });
+    var oppName = (opp && d.presence && d.presence[opp]) ? d.presence[opp].name : null;
+    container.style.display = 'block';
     container.innerHTML =
-      '<div class="duel-waiting-room-card">' +
-        '<div class="duel-room-header-section">' +
-          '<p class="duel-room-subtitle">⚔️ Duel Room</p>' +
-          '<div class="duel-room-code">' + d.id + '</div>' +
-          '<p class="secondary-text" style="font-size:.75rem;margin-top:.5rem;">Share this code with your friend</p>' +
+      '<div class="view-pad" style="max-width:480px;margin:0 auto;">' +
+        '<div style="' + SURFACE + 'padding:1.25rem;text-align:center;margin-bottom:1rem;">' +
+          '<div style="color:#94a3b8;font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;">Room code</div>' +
+          '<div id="duCode" style="font-size:2.2rem;font-weight:800;letter-spacing:.25em;margin:.25rem 0 .75rem;">' + _esc(code) + '</div>' +
+          '<div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;">' +
+            '<button id="duCopy" class="btn btn-sm btn-secondary">Copy</button>' +
+            '<button id="duWhats" class="btn btn-sm btn-secondary">WhatsApp</button>' +
+            '<button id="duShare" class="btn btn-sm btn-secondary">Share</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="duel-config-pills">' +
-          topicPills +
-          '<span class="duel-config-pill">📝 ' + (config.questionCount || 10) + ' Qs</span>' +
-          '<span class="duel-config-pill">⏱ ' + timerLabel + '</span>' +
-          '<span class="duel-config-pill">📊 ' + (config.difficulty || 'medium') + '</span>' +
-          '<span class="duel-config-pill">' + (config.questionMode === 'wordproblems' ? '🤖 Word' : '⚡ Quick') + '</span>' +
+        '<div style="' + SURFACE + 'padding:1rem;margin-bottom:1rem;">' +
+          _player(d, opts.myUid, opts.myUid, 'You') +
+          _player(d, opp, opts.myUid, oppName || 'Waiting for opponent…') +
         '</div>' +
-        '<div class="duel-players-section">' +
-          _renderPlayerCard(p1, true) +
-          '<div class="duel-vs-separator"><span>VS</span></div>' +
-          _renderPlayerCard(p2, false) +
+        '<div style="color:#94a3b8;font-size:.85rem;text-align:center;margin-bottom:1rem;">' +
+          _esc(String((d.config && d.config.questionCount) || '?')) + ' questions · ' + _esc((d.config && d.config.difficulty) || 'medium') +
         '</div>' +
-        (bothReady && isCreator
-          ? '<button class="duel-start-btn" id="duelStartBtn">Start Duel ⚔️</button>'
-          : bothReady && !isCreator
-            ? '<div class="duel-waiting-indicator">' +
-                '<span style="margin-right:.35rem;">⏳</span>' +
-                '<span>Waiting for host to start…</span>' +
-              '</div>'
-            : '<div class="duel-waiting-indicator">' +
-                '<span class="dot"></span><span class="dot"></span><span class="dot"></span>' +
-                '<span style="margin-left:.35rem;">Waiting for opponent…</span>' +
-              '</div>'
-        ) +
-        '<button class="duel-leave-btn" id="duelLeaveBtn">Leave Duel</button>' +
+        (isHost
+          ? '<button id="duStart" class="btn btn-primary" style="width:100%;padding:.9rem;font-weight:700;" ' + (uids.length < 2 ? 'disabled' : '') + '>' + (uids.length < 2 ? 'Waiting for opponent…' : 'Start Duel') + '</button>'
+          : '<div style="text-align:center;color:#94a3b8;padding:.75rem;">Waiting for the host to start…</div>') +
+        '<button id="duLeave" class="btn btn-sm btn-secondary" style="width:100%;margin-top:.75rem;">Leave</button>' +
       '</div>';
 
-    container.style.display = 'flex';
-
-    /* Bind start button (creator only) — instantly calls startDuel, countdown handled globally */
-    var startBtn = document.getElementById('duelStartBtn');
-    if (startBtn) {
-      startBtn.addEventListener('click', function () {
-        if (startBtn.disabled) return;
-        startBtn.disabled = true;
-        startBtn.textContent = 'Starting…';
-
-        console.log('[DUEL TRACE] Host clicked Start Duel, transitioning to active in Firestore');
-        DuelCore.startDuel(d.id, function (err) {
-          if (err && typeof showToast === 'function') {
-            showToast(err);
-            startBtn.disabled = false;
-            startBtn.textContent = 'Start Duel ⚔️';
-          }
-        });
-      });
-    }
-
-    /* Bind leave button */
-    var leaveBtn = document.getElementById('duelLeaveBtn');
-    if (leaveBtn) {
-      leaveBtn.addEventListener('click', function () {
-        DuelManager.leaveDuel(d.id);
-      });
-    }
+    var inviteText = 'Join my QuantReflex duel — code ' + code + '\n' + _inviteUrl(code);
+    var copyBtn = _el('duCopy'); if (copyBtn) copyBtn.onclick = function () { _copy(code); copyBtn.textContent = 'Copied!'; setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1500); };
+    var wBtn = _el('duWhats'); if (wBtn) wBtn.onclick = function () { window.open('https://wa.me/?text=' + encodeURIComponent(inviteText), '_blank'); };
+    var sBtn = _el('duShare'); if (sBtn) sBtn.onclick = function () { _nativeShare('Join my QuantReflex duel', inviteText); };
+    var startBtn = _el('duStart'); if (startBtn) startBtn.onclick = function () { startBtn.disabled = true; startBtn.textContent = 'Starting…'; opts.onStart(function () { startBtn.disabled = false; startBtn.textContent = 'Start Duel'; }); };
+    var leaveBtn = _el('duLeave'); if (leaveBtn) leaveBtn.onclick = opts.onLeave;
   }
 
-  function _renderPlayerCard(player, isFirst) {
-    if (!player) {
-      return '<div class="duel-player-card empty">' +
-        '<div class="duel-player-avatar empty-avatar">?</div>' +
-        '<div class="duel-player-name">Waiting…</div>' +
-        '<div class="duel-player-connection-dot offline"></div>' +
-      '</div>';
-    }
-    var initials = _getInitials(player.name);
-    var name = player.name || 'Player';
-    return '<div class="duel-player-card filled">' +
-      '<div class="duel-player-avatar' + (isFirst ? ' avatar-purple' : ' avatar-blue') + '">' + initials + '</div>' +
-      '<div class="duel-player-name">' + name + '</div>' +
-      '<div class="duel-player-connection-dot online"><span class="dot-pulse"></span> Connected</div>' +
+  function _player(d, uid, myUid, fallback) {
+    var p = (uid && d.presence && d.presence[uid]) ? d.presence[uid] : null;
+    var name = p ? p.name : fallback;
+    var ready = p && (p.state === 'ready' || uid === d.createdBy);
+    var dotColor = p ? (ready ? '#34d399' : '#fbbf24') : '#64748b';
+    return '<div style="display:flex;align-items:center;gap:.6rem;padding:.5rem 0;">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + dotColor + ';flex:none;"></span>' +
+      '<span style="font-weight:600;">' + _esc(name) + (uid === myUid ? ' <span style="color:#64748b;font-weight:400;">(you)</span>' : '') + (uid === d.createdBy ? ' <span style="color:#64748b;font-weight:400;font-size:.8rem;">host</span>' : '') + '</span>' +
+      '<span style="margin-left:auto;color:#94a3b8;font-size:.8rem;">' + (p ? (ready ? 'Ready' : 'Joined') : 'Empty') + '</span>' +
     '</div>';
   }
 
-  /* ================================================================
-   * ACTIVE DUEL SCREEN — Scoreboard updater
-   * Actual session is handled by DrillEngine. This just updates the
-   * DOM elements injected by DuelManager -> DrillEngine.
-   * ================================================================ */
-
-  function updateScoreboard(duelData) {
-    if (!duelData || !duelData.participants) return;
-    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-    var participants = duelData.participants;
-    var uids = Object.keys(participants);
-    var opUid = uids.find(function (u) { return u !== uid; });
-
-    /* Update opponent score */
-    if (opUid) {
-      var opScoreEl = document.getElementById('duelOpScore');
-      if (opScoreEl) opScoreEl.textContent = participants[opUid].score || 0;
-    }
-  }
-
-  function _bindExitBtn() {
-    var exitBtn = document.getElementById('duelExitBtnActive');
-    if (exitBtn) {
-      exitBtn.addEventListener('click', function () {
-        if (typeof DuelManager !== 'undefined') {
-          DuelManager.showExitDuelDialog();
-        }
-      });
-    }
-  }
-
-  /* ================================================================
-   * RESULTS SCREEN
-   * ================================================================ */
-
-  function renderResults(container, duelData, isPartial) {
-    var uid = (typeof Auth !== 'undefined') ? Auth.getUserId() : '';
-    var participants = duelData.participants || {};
-    var uids = Object.keys(participants);
-    var myP = participants[uid];
-    var opUid = uids.find(function (u) { return u !== uid; });
-    var opP = opUid ? participants[opUid] : null;
-    var config = duelData.config || {};
-    var totalQ = config.questionCount || 10;
-
-    var myName = myP ? (myP.name || 'You') : 'You';
-    var opName = opP ? (opP.name || 'Opponent') : 'Opponent';
-
-    /* Calculate stats */
-    var myScore = myP ? (myP.score || 0) : 0;
-    var opScore = opP ? (opP.score || 0) : 0;
-    var myAttempted = myP ? (myP.answers ? myP.answers.length : 0) : 0;
-    var opAttempted = opP ? (opP.answers ? opP.answers.length : 0) : 0;
-    var myWrong = Math.max(0, myAttempted - myScore);
-    var opWrong = Math.max(0, opAttempted - opScore);
-    var myAccuracy = myAttempted > 0 ? Math.round((myScore / myAttempted) * 100) : 0;
-    var opAccuracy = opAttempted > 0 ? Math.round((opScore / opAttempted) * 100) : 0;
-    var myAvgTime = myP && myP.totalTime && myAttempted ? ((myP.totalTime / myAttempted) / 1000).toFixed(1) : '-';
-    var opAvgTime = opP && opP.totalTime && opAttempted ? ((opP.totalTime / opAttempted) / 1000).toFixed(1) : '-';
-    var myTotalTime = myP ? ((myP.totalTime || 0) / 1000).toFixed(1) + 's' : '-';
-    var opTotalTime = opP ? ((opP.totalTime || 0) / 1000).toFixed(1) + 's' : '-';
-
-    var isWinner = duelData.winner === uid;
-    var isDraw = duelData.result === 'draw';
-    var isCompleted = duelData.status === 'completed';
-
-    /* Opponent status */
-    var opStatus = opP ? opP.status : 'unknown';
-    var opStatusText = '';
-    if (opStatus === 'exited') opStatusText = '🚪 Exited early';
-    else if (opStatus === 'disconnected') opStatusText = '📡 Disconnected';
-    else if (opStatus === 'finished') opStatusText = '✅ Finished';
-    else if (opStatus === 'playing' || opStatus === 'joined') opStatusText = '⏳ Still playing…';
-
-    /* Title */
-    var titleText, titleClass;
-    if (!isCompleted || isPartial) {
-      titleText = '📊 Your Results';
-      titleClass = 'duel-result-partial';
-    } else if (isDraw) {
-      titleText = '🤝 Draw!';
-      titleClass = 'duel-result-draw';
-    } else if (isWinner) {
-      titleText = '🏆 You Won!';
-      titleClass = 'duel-result-winner';
-    } else {
-      titleText = '😤 You Lost';
-      titleClass = 'duel-result-loser';
-    }
-
-    /* Topic summary */
-    var topicPills = '';
-    var topics = config.topics || [];
-    for (var t = 0; t < topics.length; t++) {
-      topicPills += '<span class="duel-config-pill" style="font-size:.65rem;">' + _fmtCat(topics[t]) + '</span>';
-    }
-
-    /* Compute Question Breakdown & Insights */
-    var breakdownHTML = '<div class="duel-breakdown-list" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">' +
-      '<h3 style="text-align:center; margin-bottom:1rem; font-size:1.1rem;">Question Breakdown</h3>';
-    
-    var questions = duelData.questions || [];
-    var myAnswers = myP && myP.answers ? myP.answers : [];
-    var opAnswers = opP && opP.answers ? opP.answers : [];
-    
-    var fastestUid = null;
-    var mostAccUid = null;
-    if (myAttempted > 0 && opAttempted > 0) {
-      if (myAccuracy > opAccuracy) mostAccUid = uid;
-      else if (opAccuracy > myAccuracy) mostAccUid = opUid;
-      
-      var myTotal = myP.totalTime || 0;
-      var opTotal = opP.totalTime || 0;
-      if (myTotal > 0 && opTotal > 0) {
-        if (myTotal < opTotal) fastestUid = uid;
-        else if (opTotal < myTotal) fastestUid = opUid;
-      }
-    }
-    
-    for (var i = 0; i < questions.length; i++) {
-      var qText = questions[i].text;
-      var myA = myAnswers.find(function(a) { return a.questionIndex === i; });
-      var opA = opAnswers.find(function(a) { return a.questionIndex === i; });
-      
-      var myMark = myA ? (myA.correct ? '✅' : '❌') : '➖';
-      var opMark = opA ? (opA.correct ? '✅' : '❌') : '➖';
-      
-      breakdownHTML += '<div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:1rem; margin-bottom:0.5rem; text-align:left;">' +
-        '<p style="font-size:0.9rem; margin-bottom:0.8rem; color:#e2e8f0; line-height:1.4;"><strong>Q' + (i+1) + ':</strong> ' + qText + '</p>' +
-        '<div style="display:flex; justify-content:space-between; font-size:0.85rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;">' +
-          '<div><span style="opacity:0.7">You:</span> <span style="margin-left:0.3rem;">' + myMark + '</span></div>' +
-          '<div><span style="opacity:0.7">Opponent:</span> <span style="margin-left:0.3rem;">' + opMark + '</span></div>' +
+  /* ───────── Finished-waiting ───────── */
+  function renderWaiting(container, opts) {
+    var oppName = opts.opponentName || 'your opponent';
+    var oppState = opts.opponentState || 'solving';
+    var chip = oppState === 'finished' ? 'Finished' : (opts.opponentStale ? 'Reconnecting…' : 'Solving');
+    container.style.display = 'block';
+    container.innerHTML =
+      '<div class="view-pad" style="max-width:440px;margin:0 auto;text-align:center;padding-top:2rem;">' +
+        '<div style="font-size:2.6rem;margin-bottom:.5rem;">⚔</div>' +
+        '<h2 style="font-size:1.4rem;font-weight:800;margin:0 0 .5rem;">Waiting for ' + _esc(oppName) + '…</h2>' +
+        '<div style="color:#94a3b8;margin-bottom:1.25rem;">Your responses have been submitted. Results will be available once both players finish.</div>' +
+        '<div style="' + SURFACE + 'padding:1rem;display:inline-flex;align-items:center;gap:.6rem;margin-bottom:1.5rem;">' +
+          '<span style="width:10px;height:10px;border-radius:50%;background:' + (oppState === 'finished' ? '#34d399' : '#fbbf24') + ';"></span>' +
+          '<span>' + _esc(oppName) + ': ' + chip + '</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:.5rem;justify-content:center;">' +
+          '<button id="duStay" class="btn btn-secondary">Stay Here</button>' +
+          '<button id="duHome" class="btn btn-primary">Return to Home</button>' +
         '</div>' +
       '</div>';
-    }
-    breakdownHTML += '</div>';
-
-    var insightsHTML = '<div class="duel-insights" style="margin-top:2rem;">' +
-      '<h3 style="text-align:center; margin-bottom:1rem; font-size:1.1rem;">Performance Insights</h3>' +
-      '<div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">';
-    
-    if (fastestUid) {
-      var fName = fastestUid === uid ? 'You' : opName;
-      insightsHTML += '<div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; text-align:center;">' +
-        '<div style="font-size:1.5rem; margin-bottom:0.5rem;">⚡</div>' +
-        '<div style="font-size:0.8rem; opacity:0.7; text-transform:uppercase;">Fastest Solver</div>' +
-        '<div style="font-weight:700; margin-top:0.3rem;">' + fName + '</div>' +
-      '</div>';
-    }
-    if (mostAccUid) {
-      var mName = mostAccUid === uid ? 'You' : opName;
-      insightsHTML += '<div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; text-align:center;">' +
-        '<div style="font-size:1.5rem; margin-bottom:0.5rem;">🎯</div>' +
-        '<div style="font-size:0.8rem; opacity:0.7; text-transform:uppercase;">Most Accurate</div>' +
-        '<div style="font-weight:700; margin-top:0.3rem;">' + mName + '</div>' +
-      '</div>';
-    }
-    if (!fastestUid && !mostAccUid) {
-      insightsHTML += '<div style="grid-column: 1 / -1; text-align:center; opacity:0.5; font-size:0.9rem;">Perfectly tied in speed and accuracy!</div>';
-    }
-    insightsHTML += '</div></div>';
-
-    if (isPartial && !isCompleted) {
-      /* Waiting Result Screen Redesign */
-      container.innerHTML =
-        '<div class="duel-results-card-v2 duel-result-waiting" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); max-width:600px; margin:0 auto; padding:2rem; border-radius:16px; border:1px solid rgba(255,255,255,0.05); text-align:center;">' +
-          '<div class="duel-result-header" style="margin-bottom: 2rem;">' +
-            '<div style="font-size:3rem; margin-bottom:1rem; animation: pulse 2s infinite;">🏆</div>' +
-            '<h2 style="color: #f8fafc; font-size: 2rem; margin-bottom:0.5rem; font-weight:800;">Duel Submitted</h2>' +
-            '<p style="color:#94a3b8; font-size: 1.1rem;">Your performance has been saved.</p>' +
-          '</div>' +
-          
-          '<div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">' +
-            '<h3 style="color:#e2e8f0; font-size: 1rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:1.5rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">Your Performance</h3>' +
-            '<div style="display: flex; justify-content: space-around; flex-wrap:wrap; gap:1rem;">' +
-              '<div style="min-width:100px;">' +
-                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myScore + '</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Score</p>' +
-              '</div>' +
-              '<div style="min-width:100px;">' +
-                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAccuracy + '%</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Accuracy</p>' +
-              '</div>' +
-              '<div style="min-width:100px;">' +
-                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myAttempted + '/' + totalQ + '</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Solved</p>' +
-              '</div>' +
-              '<div style="min-width:100px;">' +
-                '<p style="font-size: 2rem; font-weight: 700; color: #fff;">' + myTotalTime + '</p>' +
-                '<p style="color: #94a3b8; font-size: 0.8rem; text-transform:uppercase;">Time Taken</p>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-
-          '<div style="margin-bottom: 2rem; display:flex; flex-direction:column; align-items:center;">' +
-            '<div class="duel-waiting-indicator" style="margin-bottom: 1rem; display:flex; gap:0.5rem;">' +
-              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px;"></span>' +
-              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px; animation-delay:0.2s"></span>' +
-              '<span class="dot" style="background:#8b5cf6; width:12px; height:12px; animation-delay:0.4s"></span>' +
-            '</div>' +
-            '<p style="color:#cbd5e1; font-weight: 500;">Waiting for opponent to finish...</p>' +
-            '<p style="color:#64748b; font-size:0.9rem; margin-top:0.5rem;">Estimated Wait: <span id="estWaitTime">calculating...</span></p>' +
-          '</div>' +
-          
-          '<div class="duel-result-actions">' +
-            '<button class="btn-secondary" id="duelReturnToHome" style="padding:1rem 2rem; font-size:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#cbd5e1; cursor:pointer;">Leave Duel</button>' +
-          '</div>' +
-        '</div>';
-      
-      var returnBtn = container.querySelector('#duelReturnToHome');
-      if (returnBtn) returnBtn.addEventListener('click', function() { DuelManager.returnToHome(); });
-    } else {
-      /* Final Result Screen */
-      container.innerHTML =
-        '<div class="duel-results-card-v2 ' + titleClass + '" id="duelShareCardContainer">' +
-          /* Header */
-          '<div class="duel-result-header" style="margin-bottom: 1.5rem;">' +
-            (isCompleted && isWinner ? '<div class="duel-result-crown" style="font-size:3rem; margin-bottom:0.5rem;">👑</div>' : '') +
-            '<h2 class="duel-result-title" style="font-size: 2rem;">' + titleText + '</h2>' +
-          '</div>' +
-          
-          /* Score comparison */
-          '<div class="duel-result-comparison-grid" style="margin-bottom: 2rem;">' +
-            '<div class="duel-result-player-col">' +
-              '<div class="duel-player-avatar' + (isWinner ? ' avatar-purple winner-glow' : ' avatar-purple') + '" style="width:60px; height:60px; font-size:1.5rem;">' + _getInitials(myName) + '</div>' +
-              '<div class="duel-result-player-name" style="font-size:1.1rem; font-weight:600; margin-top:0.5rem;">' + myName + '</div>' +
-              '<div class="duel-result-big-score" style="font-size:3rem;">' + myScore + '</div>' +
-              '<div class="duel-result-score-label">correct</div>' +
-            '</div>' +
-            '<div class="duel-result-vs-col">' +
-              '<div class="duel-result-vs-text" style="font-size:1.2rem; opacity:0.6;">VS</div>' +
-            '</div>' +
-            '<div class="duel-result-player-col">' +
-              '<div class="duel-player-avatar' + (!isWinner && !isDraw && isCompleted ? ' avatar-blue winner-glow' : ' avatar-blue') + '" style="width:60px; height:60px; font-size:1.5rem;">' + _getInitials(opName) + '</div>' +
-              '<div class="duel-result-player-name" style="font-size:1.1rem; font-weight:600; margin-top:0.5rem;">' + opName + '</div>' +
-              '<div class="duel-result-big-score" style="font-size:3rem;">' + opScore + '</div>' +
-              '<div class="duel-result-score-label">correct</div>' +
-            '</div>' +
-          '</div>' +
-          
-          /* Detailed stats */
-          '<div class="duel-result-stats-section" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 1.5rem;">' +
-            _renderStatRow('Accuracy', myAccuracy + '%', opAccuracy + '%', myAccuracy, opAccuracy) +
-            _renderStatRow('Wrong', myWrong, opWrong, 0, 0) +
-            _renderStatRow('Avg Speed', myAvgTime + 's', opAvgTime + 's', 0, 0) +
-            _renderStatRow('Attempted', myAttempted + '/' + totalQ, opAttempted + '/' + totalQ, 0, 0) +
-            _renderStatRow('Total Time', myTotalTime, opTotalTime, 0, 0) +
-          '</div>' +
-          
-          insightsHTML +
-          breakdownHTML +
-          
-          /* Topic summary */
-          (topicPills
-            ? '<div class="duel-result-topic-summary" style="margin-top: 1.5rem; text-align: center;">' +
-                '<span class="secondary-text" style="font-size:.8rem; display:block; margin-bottom:0.5rem;">Topics</span>' + 
-                '<div>' + topicPills + '</div>' +
-              '</div>'
-            : ''
-          ) +
-        '</div>' +
-        
-        /* Action buttons outside the shareable card area */
-        '<div class="duel-result-actions" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem;">' +
-          '<button class="btn-primary" id="duelShareBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg> Share Result</button>' +
-          '<button class="btn-secondary" id="duelResultDone" style="width: 100%; background: #334155; border: none; color: #fff;">Back to Home</button>' +
-        '</div>';
-      var shareBtn = container.querySelector('#duelShareBtn');
-      if (shareBtn) {
-        shareBtn.addEventListener('click', function () {
-          if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) {
-            ShareService.shareDuelAsImage({
-              result: duelData.result,
-              winner: duelData.winner,
-              myUid: uid,
-              myName: myName,
-              opName: opName,
-              myScore: myScore,
-              opScore: opScore,
-              myAccuracy: myAccuracy,
-              opAccuracy: opAccuracy,
-              myAttempted: myAttempted,
-              opAttempted: opAttempted
-            });
-          }
-        });
-      }
-    }
-
-    container.style.display = 'flex';
-
-    if (isCompleted) {
-      if (typeof triggerHaptic === 'function') triggerHaptic(isWinner ? [50, 30, 50] : 30);
-      if (typeof SoundEngine !== 'undefined') SoundEngine.play('drillEnd');
-    }
-
-    var doneBtn = document.getElementById('duelResultDone');
-    if (doneBtn) {
-      doneBtn.addEventListener('click', function () {
-        DuelManager.exitDuel();
-      });
-    }
+    var stay = _el('duStay'); if (stay) stay.onclick = function () { /* already here */ };
+    var home = _el('duHome'); if (home) home.onclick = opts.onHome;
   }
 
-  function _renderStatRow(label, myVal, opVal, myNum, opNum) {
-    return '<div class="duel-result-stat-row">' +
-      '<span class="duel-result-stat-val left">' + myVal + '</span>' +
-      '<span class="duel-result-stat-label">' + label + '</span>' +
-      '<span class="duel-result-stat-val right">' + opVal + '</span>' +
+  /* ───────── Result (premium head-to-head) ───────── */
+  function renderResults(container, opts) {
+    var d = opts.duel || {}, myUid = opts.myUid;
+    var uids = d.participantUids || [];
+    var opp = uids.find(function (u) { return u !== myUid; });
+    var per = d.perPlayer || {};
+    var me = per[myUid] || { correctCount: 0, totalSolveMs: 0 };
+    var op = per[opp] || { correctCount: 0, totalSolveMs: 0 };
+    var myName = (d.presence && d.presence[myUid] && d.presence[myUid].name) || 'You';
+    var opName = (d.presence && opp && d.presence[opp] && d.presence[opp].name) || 'Opponent';
+    var n = d.effectiveQuestionCount || 1;
+    var draw = d.result === 'draw';
+    var iWon = d.winnerUid === myUid;
+    var banner = draw ? 'Draw' : (iWon ? 'You win' : opName + ' wins');
+    var bannerColor = draw ? '#94a3b8' : (iWon ? '#34d399' : '#f87171');
+    function spd(r) { return (r.totalSolveMs > 0) ? (r.totalSolveMs / 1000 / n).toFixed(1) + 's/q' : '—'; }
+    function why() {
+      if (draw) return 'Dead even — same score and speed.';
+      var w = iWon ? me : op, l = iWon ? op : me, wn = iWon ? 'You' : opName;
+      if (w.correctCount > l.correctCount) return wn + ' won on accuracy (' + w.correctCount + ' vs ' + l.correctCount + ' correct).';
+      return wn + ' won on speed — same accuracy, faster solving.';
+    }
+    container.style.display = 'block';
+    container.innerHTML =
+      '<div class="view-pad" style="max-width:480px;margin:0 auto;">' +
+        '<div style="text-align:center;margin:1rem 0 1.25rem;">' +
+          '<div style="font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Duel result</div>' +
+          '<div style="font-size:2rem;font-weight:800;color:' + bannerColor + ';margin-top:.25rem;">' + _esc(banner) + '</div>' +
+        '</div>' +
+        '<div style="' + SURFACE + 'padding:1.25rem;display:flex;align-items:stretch;margin-bottom:1rem;">' +
+          _resultCol(myName + ' (you)', me, iWon && !draw) +
+          '<div style="display:flex;align-items:center;color:#64748b;font-weight:700;padding:0 .5rem;">VS</div>' +
+          _resultCol(opName, op, !iWon && !draw) +
+        '</div>' +
+        '<div style="' + SURFACE + 'padding:1rem;margin-bottom:1rem;">' +
+          _metricRow('Correct', me.correctCount + ' / ' + n, op.correctCount + ' / ' + n) +
+          _metricRow('Speed', spd(me), spd(op)) +
+          _metricRow('Accuracy', _acc(me) + '%', _acc(op) + '%') +
+        '</div>' +
+        '<div style="text-align:center;color:#cbd5e1;font-size:.95rem;margin-bottom:1.25rem;">' + _esc(why()) + '</div>' +
+        '<div style="display:flex;gap:.5rem;">' +
+          '<button id="duRematch" class="btn btn-secondary" style="flex:1;">Rematch</button>' +
+          '<button id="duShareRes" class="btn btn-primary" style="flex:1;">Share</button>' +
+        '</div>' +
+        '<button id="duDone" class="btn btn-sm btn-secondary" style="width:100%;margin-top:.75rem;">Done</button>' +
+      '</div>';
+    var rm = _el('duRematch'); if (rm) rm.onclick = opts.onRematch;
+    var sh = _el('duShareRes'); if (sh) sh.onclick = function () {
+      var data = { result: d.result, myName: myName, opName: opName, myScore: me.correctCount, opScore: op.correctCount, winner: d.winnerUid, myUid: myUid, myAccuracy: _acc(me), opAccuracy: _acc(op), myAttempted: (me.answeredCount != null ? me.answeredCount : me.correctCount), opAttempted: (op.answeredCount != null ? op.answeredCount : op.correctCount) };
+      if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) ShareService.shareDuelAsImage(data);
+      else _nativeShare('QuantReflex Duel', (iWon ? myName + ' defeated ' + opName : opName + ' defeated ' + myName) + ' · ' + n + ' Q · ' + spd(me) + ' · ' + _acc(me) + '%');
+    };
+    var dn = _el('duDone'); if (dn) dn.onclick = opts.onDone;
+  }
+  function _resultCol(name, r, win) {
+    return '<div style="flex:1;text-align:center;' + (win ? 'opacity:1;' : 'opacity:.85;') + '">' +
+      '<div style="color:#94a3b8;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(name) + '</div>' +
+      '<div style="font-size:2.4rem;font-weight:800;margin:.2rem 0;">' + r.correctCount + '</div>' +
+      '<div style="color:#64748b;font-size:.75rem;">correct</div>' + (win ? '<div style="color:#34d399;font-size:.75rem;margin-top:.2rem;">winner</div>' : '') +
     '</div>';
   }
+  function _metricRow(label, a, b) {
+    return '<div style="display:flex;align-items:center;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.06);">' +
+      '<span style="flex:1;text-align:right;font-weight:600;">' + _esc(a) + '</span>' +
+      '<span style="color:#64748b;font-size:.75rem;padding:0 1rem;min-width:90px;text-align:center;">' + _esc(label) + '</span>' +
+      '<span style="flex:1;text-align:left;font-weight:600;">' + _esc(b) + '</span>' +
+    '</div>';
+  }
+  function _acc(r) { var a = (r.answeredCount != null) ? r.answeredCount : r.correctCount; return a > 0 ? Math.round((r.correctCount / a) * 100) : 0; }
 
-  /* ================================================================
-   * PUBLIC API
-   * ================================================================ */
+  /* ───────── Submit & Leave modal ───────── */
+  function showExitModal(opts) {
+    var modal = _el('exitDuelModal'); if (!modal) { opts.onConfirm(); return; }
+    modal.innerHTML =
+      '<div class="modal-content" style="max-width:380px;">' +
+        '<h3 style="font-size:1.3rem;margin:0 0 .75rem;">Leave Duel?</h3>' +
+        '<p style="color:#cbd5e1;font-size:.95rem;margin-bottom:1rem;">You have completed <strong>' + opts.answered + ' / ' + opts.total + '</strong> questions. Your current responses will be permanently submitted. <strong>You will not be able to rejoin this duel.</strong> The result will be available after your opponent finishes.</p>' +
+        '<div style="display:flex;flex-direction:column;gap:.5rem;">' +
+          '<button id="duExitCancel" class="btn btn-secondary" style="width:100%;">Continue Duel</button>' +
+          '<button id="duExitConfirm" class="btn btn-primary" style="width:100%;">Submit &amp; Leave</button>' +
+        '</div>' +
+      '</div>';
+    modal.style.display = 'flex'; document.body.classList.add('modal-open');
+    _el('duExitCancel').onclick = function () { hideExitModal(); if (opts.onCancel) opts.onCancel(); };
+    _el('duExitConfirm').onclick = function () { hideExitModal(); opts.onConfirm(); };
+  }
+  function hideExitModal() { var m = _el('exitDuelModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; } document.body.classList.remove('modal-open'); }
+
+  /* ───────── shared share/clipboard helpers ───────── */
+  function _inviteUrl(code) {
+    try { return location.origin + '/?duel=' + encodeURIComponent(code); } catch (_) { return 'https://quantreflex.app/?duel=' + code; }
+  }
+  function _copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {});
+    else { try { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); } catch (_) {} }
+  }
+  function _nativeShare(title, text) {
+    if (navigator.share) navigator.share({ title: title, text: text }).catch(function () {});
+    else _copy(text);
+  }
 
   return {
-    renderSetup: renderSetup,
-    renderJoinScreen: renderJoinScreen,
-    renderWaitingRoom: renderWaitingRoom,
-    renderResults: renderResults,
-    updateScoreboard: updateScoreboard,
-    clearTimers: clearTimers
+    renderSetup: renderSetup, renderJoin: renderJoin, renderLobby: renderLobby,
+    renderWaiting: renderWaiting, renderResults: renderResults,
+    showExitModal: showExitModal, hideExitModal: hideExitModal,
+    inviteUrl: _inviteUrl
   };
 })();

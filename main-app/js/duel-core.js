@@ -61,6 +61,7 @@ var DuelCore = (function () {
   function startDuel(code) { return api('start', { code: code }); }
   function finishDuel(code, reason) { return api('finish', { code: code, finishReason: reason }); }
   function fetchState(code) { return api('state', { code: code }); }
+  function ackResult(code) { return api('ackResult', { code: code }).catch(function () {}); }
   function abandonDuel(code) { return api('abandon', { code: code }); }
 
   /* ── Narrow client-SDK writes (rules-allowed) ── */

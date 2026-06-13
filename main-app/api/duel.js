@@ -226,9 +226,9 @@ async function _finalizeTxn(code, finalizeSpec) {
     const perPlayer = {}; perPlayer[a] = ra; perPlayer[b] = rb;
     const completedAt = now;
     txn.update(roomRef, { status: 'complete', presence: presence, winnerUid: decided.winnerUid, result: decided.result, perPlayer: perPlayer, completedAt: completedAt });
-    // Clear both recovery mirrors.
-    txn.set(db.collection(USERS).doc(a), { activeDuelId: null }, { merge: true });
-    txn.set(db.collection(USERS).doc(b), { activeDuelId: null }, { merge: true });
+    // NOTE: activeDuelId is intentionally NOT cleared here — it keeps the Home "Duel ready · View Results"
+    // card alive until the user acks. A 'complete' activeDuelId never blocks a new create (the create guard
+    // only blocks on 'lobby'/'active'); the client clears it on result-ack, or the next create overwrites it.
     // History for both (idempotent docId = code).
     const nameA = (presence[a] && presence[a].name) || 'Player';
     const nameB = (presence[b] && presence[b].name) || 'Player';
@@ -450,6 +450,20 @@ async function _state(req, res) {
   return res.status(200).json({ duel: _viewRoom(room, uid), serverNow: _now(), my: (mine.exists && mine.data().result) || null });
 }
 
+async function _ackResult(req, res) {
+  // Clear the caller's recovery mirror after they've viewed a finished/abandoned duel's result, so the
+  // Home "Active Duel" card disappears. Only clears if it still points to THIS code (no race with a new duel).
+  const uid = req.userId;
+  const body = parseBody(req);
+  const code = String(body.code || '').trim().toUpperCase();
+  const meRef = db.collection(USERS).doc(uid);
+  await db.runTransaction(async function (txn) {
+    const me = await txn.get(meRef);
+    if (me.exists && me.data().activeDuelId === code) txn.set(meRef, { activeDuelId: null }, { merge: true });
+  });
+  return res.status(200).json({ success: true });
+}
+
 async function _abandon(req, res) {
   const uid = req.userId;
   const body = parseBody(req);
@@ -535,6 +549,7 @@ async function handler(req, res) {
       case 'start': return await _start(req, res);
       case 'finish': return await _finish(req, res);
       case 'state': return await _state(req, res);
+      case 'ackResult': return await _ackResult(req, res);
       case 'abandon': return await _abandon(req, res);
       default: return res.status(404).json({ error: { code: 'UNKNOWN_ACTION', message: 'Unknown action.' } });
     }

@@ -423,6 +423,10 @@ function initHomeView() {
       if (typeof DuelManager !== 'undefined') DuelManager.openJoinDuel();
     });
   }
+
+  /* Active-Duel card (Duel V2, ADR-031) — derived from the user's recovery mirror; shows the
+     waiting-for-opponent / result-ready state on Home so a finished duel is always reachable. */
+  if (typeof DuelManager !== 'undefined' && DuelManager.refreshActiveCard) DuelManager.refreshActiveCard();
 }
 
 /* ---- Batch 3: Streak-at-risk banner ---- */
