@@ -22,11 +22,17 @@ function pick(arr) {
 
 var PI = 3.14;
 
+/* Server-safe difficulty override. When set (by generateQuestions/generateMultiTopic) _getDifficulty returns it
+   directly — no DOM/AppState/AdaptiveState reads — so api/duel.js can require this module and generate at a chosen
+   difficulty server-side. Stays null on the client except while an explicit-difficulty call is in flight. */
+var _difficultyOverride = null;
+
 /** Get current difficulty from settings (or adaptive override if set) */
 function _getDifficulty() {
+  if (_difficultyOverride) return _difficultyOverride;
   var adaptiveOverride = (typeof AdaptiveState !== 'undefined')
     ? AdaptiveState.getDifficulty()
-    : window._adaptiveOverrideDifficulty;
+    : (typeof window !== 'undefined' ? window._adaptiveOverrideDifficulty : null);
   if (adaptiveOverride) return adaptiveOverride;
   try {
     var s = (typeof AppState !== 'undefined')
@@ -745,16 +751,16 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
  * @returns {{ question: string, answer: number|string, category: string }}
  */
 function generateQuestion(category, difficulty) {
-  /* Apply temporary difficulty override if provided (used by duel system) */
-  var _prevOverride = null;
+  /* Apply a temporary difficulty override if provided (duel / explicit calls). Uses the server-safe
+     _difficultyOverride; also mirrors AdaptiveState on the client so adaptive biasing stays consistent. */
+  var _prevModule = _difficultyOverride;
+  var _prevAdaptive = null;
   var _needsRestore = false;
   if (difficulty) {
+    _difficultyOverride = difficulty;
     if (typeof AdaptiveState !== 'undefined') {
-      _prevOverride = AdaptiveState.getDifficulty();
+      _prevAdaptive = AdaptiveState.getDifficulty();
       AdaptiveState.setDifficulty(difficulty);
-    } else {
-      _prevOverride = window._adaptiveOverrideDifficulty;
-      window._adaptiveOverrideDifficulty = difficulty;
     }
     _needsRestore = true;
   }
@@ -764,11 +770,8 @@ function generateQuestion(category, difficulty) {
 
   /* Restore previous difficulty state */
   if (_needsRestore) {
-    if (typeof AdaptiveState !== 'undefined') {
-      AdaptiveState.setDifficulty(_prevOverride);
-    } else {
-      window._adaptiveOverrideDifficulty = _prevOverride;
-    }
+    _difficultyOverride = _prevModule;
+    if (typeof AdaptiveState !== 'undefined') AdaptiveState.setDifficulty(_prevAdaptive);
   }
   return q;
 }
@@ -780,34 +783,77 @@ function generateQuestion(category, difficulty) {
  * @param {string} [category] - optional category filter
  * @returns {Array<{ question: string, answer: number|string, category: string }>}
  */
-function generateQuestions(n, category) {
-  var gen = category && categoryGenerators[category] ? categoryGenerators[category] : null;
-  var qs = [];
-  var seen = {}; /* exact question-string dedup within this batch */
-  var maxAttempts = n * 12; /* headroom for fingerprint dedup */
-  var attempts = 0;
+function generateQuestions(n, category, difficulty) {
+  /* Optional difficulty override (server / duel): set for the whole batch, restored after. The client omits it and
+     keeps reading the user's settings difficulty via _getDifficulty. */
+  var _prevDiff = _difficultyOverride;
+  if (difficulty) _difficultyOverride = difficulty;
+  try {
+    var gen = category && categoryGenerators[category] ? categoryGenerators[category] : null;
+    var qs = [];
+    var seen = {}; /* exact question-string dedup within this batch */
+    var maxAttempts = n * 12; /* headroom for fingerprint dedup */
+    var attempts = 0;
 
-  while (qs.length < n) {
-    if (attempts >= maxAttempts) {
-      /* Unique pool exhausted! Reset trackers gracefully instead of dumping 
-         blind duplicates, ensuring repeats are still spaced out. */
-      seen = {};
-      resetRecentQuestions();
-      attempts = 0;
+    while (qs.length < n) {
+      if (attempts >= maxAttempts) {
+        /* Unique pool exhausted! Reset trackers gracefully instead of dumping
+           blind duplicates, ensuring repeats are still spaced out. */
+        seen = {};
+        resetRecentQuestions();
+        attempts = 0;
+      }
+
+      var q = gen ? gen() : generateQuestion();
+      attempts++;
+      /* Skip exact duplicates, recently-asked questions, and same-value fingerprints */
+      if (seen[q.question] || _wasRecentlyAsked(q.question) || _hasFingerprintDup(q)) continue;
+
+      seen[q.question] = true;
+      _recordRecentQuestion(q.question);
+      _recordFingerprint(q);
+      qs.push(q);
     }
 
-    var q = gen ? gen() : generateQuestion();
-    attempts++;
-    /* Skip exact duplicates, recently-asked questions, and same-value fingerprints */
-    if (seen[q.question] || _wasRecentlyAsked(q.question) || _hasFingerprintDup(q)) continue;
-    
-    seen[q.question] = true;
-    _recordRecentQuestion(q.question);
-    _recordFingerprint(q);
-    qs.push(q);
+    return qs;
+  } finally {
+    if (difficulty) _difficultyOverride = _prevDiff;
   }
+}
 
-  return qs;
+/**
+ * Generate `n` questions spread across multiple topics (Custom Training / Duel). Splits the count across the valid
+ * topics, generates per-topic (deduped), shuffles, caps to n. THE single multi-topic generator — both the client
+ * (drill-engine custom mode) and the server (api/duel.js) call this, so a Duel topic produces the same questions as
+ * Practice. Empty / all-invalid topics → a mixed batch.
+ * @param {number} n
+ * @param {Array<string>} topicKeys
+ * @param {string} [difficulty] - optional override; client omits it (uses settings)
+ * @returns {Array<{ question: string, answer: number|string, category: string }>}
+ */
+function generateMultiTopic(n, topicKeys, difficulty) {
+  var validTopics = [];
+  var seen = {};
+  (topicKeys || []).forEach(function (k) {
+    if (categoryGenerators[k] && !seen[k]) { validTopics.push(k); seen[k] = true; }
+  });
+  if (!validTopics.length) return generateQuestions(n, null, difficulty);
+
+  var eachCount = Math.floor(n / validTopics.length);
+  var remainder = n % validTopics.length;
+  var assembled = [];
+  for (var v = 0; v < validTopics.length; v++) {
+    var perTopic = eachCount + (v < remainder ? 1 : 0);
+    if (perTopic <= 0) continue;
+    var topicQs = generateQuestions(perTopic, validTopics[v], difficulty);
+    for (var q = 0; q < topicQs.length; q++) assembled.push(topicQs[q]);
+  }
+  /* Fisher-Yates shuffle so topics interleave instead of clustering */
+  for (var i = assembled.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = assembled[i]; assembled[i] = assembled[j]; assembled[j] = tmp;
+  }
+  return assembled.slice(0, n);
 }
 
 /**
@@ -831,4 +877,16 @@ function generateMistakeReviewQuestions(n) {
   return shuffled.slice(0, n).map(function (m) {
     return { question: m.question, answer: m.answer, category: m.category };
   });
+}
+
+/* Dual-mode export: on the client this file loads as a <script> (no `module`); under Node (api/duel.js
+   `require('../js/questions.js')`) it exports the generators so the Duel uses the SAME engine as Practice. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    generateQuestion: generateQuestion,
+    generateQuestions: generateQuestions,
+    generateMultiTopic: generateMultiTopic,
+    categoryGenerators: categoryGenerators,
+    resetRecentQuestions: resetRecentQuestions
+  };
 }

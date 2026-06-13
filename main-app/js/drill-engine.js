@@ -939,46 +939,10 @@ function createDrillEngine(container, opts) {
 
   /* ---- begin drill ---- */
 
+  /* Delegates to the single shared multi-topic generator in questions.js (the same one api/duel.js uses), so
+     Custom Training and Duel produce identical question sets. Client omits difficulty → uses settings. */
   function _generateCustomTopicQuestions(totalCount, topicKeys) {
-    var validTopics = [];
-    var topicSeen = {};
-    for (var i = 0; i < topicKeys.length; i++) {
-      var topicKey = topicKeys[i];
-      if (categoryGenerators[topicKey] && !topicSeen[topicKey]) {
-        validTopics.push(topicKey);
-        topicSeen[topicKey] = true;
-      }
-    }
-
-    if (!validTopics.length) {
-      return generateQuestions(totalCount, null);
-    }
-
-    var eachCount = Math.floor(totalCount / validTopics.length);
-    var remainder = totalCount % validTopics.length;
-    var assembled = [];
-
-    for (var v = 0; v < validTopics.length; v++) {
-      var perTopic = eachCount + (v < remainder ? 1 : 0);
-      if (perTopic <= 0) continue;
-      var topicQuestions = generateQuestions(perTopic, validTopics[v]);
-      for (var q = 0; q < topicQuestions.length; q++) {
-        assembled.push(topicQuestions[q]);
-      }
-    }
-
-    _shuffleInPlace(assembled);
-
-    return assembled.slice(0, totalCount);
-  }
-
-  function _shuffleInPlace(arr) {
-    for (var currentIndex = arr.length - 1; currentIndex > 0; currentIndex--) {
-      var randomIndex = Math.floor(Math.random() * (currentIndex + 1));
-      var tempQuestion = arr[currentIndex];
-      arr[currentIndex] = arr[randomIndex];
-      arr[randomIndex] = tempQuestion;
-    }
+    return generateMultiTopic(totalCount, topicKeys);
   }
 
   function begin() {

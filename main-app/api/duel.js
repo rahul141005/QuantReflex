@@ -15,7 +15,7 @@
 'use strict';
 
 const { withAuth, parseBody, formatError } = require('./_lib/middleware');
-const { generateQuickQuestions } = require('./_lib/duel-questions');
+const QGen = require('../js/questions.js');   // unified generator — the SAME engine Practice uses (one generator, ADR)
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -411,7 +411,17 @@ async function _start(req, res) {
       bank.forEach(function (d, i) { const x = d.data(); if (x && x.answer != null) questions.push({ index: questions.length, text: x.question || x.text || '', category: x.topic || 'word_problem', answer: x.answer }); });
     } catch (e) { /* missing index / no bank → fall through to quick */ }
   }
-  if (!questions.length) questions = generateQuickQuestions(room.config);
+  if (!questions.length) {
+    // Quick Math: the unified Practice generator (js/questions.js) — all 12 authoritative categories + difficulty,
+    // identical to what Practice/Custom Training produce. {question} → text. Reset dedup so a warm Vercel instance
+    // doesn't over-dedup across back-to-back duels.
+    QGen.resetRecentQuestions();
+    const cfg = room.config || {};
+    const raw = (cfg.topics && cfg.topics.length)
+      ? QGen.generateMultiTopic(cfg.questionCount, cfg.topics, cfg.difficulty)
+      : QGen.generateQuestions(cfg.questionCount, null, cfg.difficulty);
+    questions = raw.map(function (q, i) { return { index: i, text: q.question, category: q.category, answer: q.answer }; });
+  }
   questions = questions.slice(0, MAX_Q).map(function (q, i) { return { index: i, text: q.text, category: q.category, answer: q.answer }; });
   const n = questions.length;
   if (!n) return res.status(500).json({ error: { code: 'GEN_FAILED', message: 'Could not prepare questions. Try again.' } });

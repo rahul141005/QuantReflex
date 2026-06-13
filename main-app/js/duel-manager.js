@@ -49,6 +49,20 @@ var DuelManager = (function () {
   }
   function _showNav() { var nav = document.querySelector('.bottom-nav'); if (nav) nav.style.display = ''; }
 
+  /* Setup/Join render as a bottom-sheet MODAL over Home (no route switch) — the user configures a session, never
+     navigates to another screen. Lobby/solving/waiting/results remain full duel-view screens. */
+  function _openSetupModal() {
+    var m = _el('duelSetupModal');
+    if (m) { m.style.display = 'flex'; document.body.classList.add('modal-open'); }
+    return m;
+  }
+  function _closeSetupModal(keepPhase) {
+    var m = _el('duelSetupModal');
+    if (m) { m.style.display = 'none'; m.innerHTML = ''; m.onclick = null; }
+    document.body.classList.remove('modal-open');
+    if (!keepPhase && (_phase === 'setup' || _phase === 'join')) _phase = 'idle';
+  }
+
   /* ── Init ── */
   function init() {
     // Finalize-on-leave fires ONLY on a real page unload (pagehide) — NOT on a brief background
@@ -89,12 +103,12 @@ var DuelManager = (function () {
   function openSetup() {
     if (!_premiumOk()) { _paywall(); return; }
     _phase = 'setup';
-    _showContainer('duelSetup');
-    DuelUI.renderSetup(_el('duelSetup'), {
-      onBack: exitToHome,
+    var modal = _openSetupModal();
+    DuelUI.renderSetup(modal, {
+      onBack: _closeSetupModal,
       onCreate: function (config, done) {
-        DuelCore.createDuel(config, _myName()).then(function (res) { _enterLobby(res.code, res.duel); })
-          .catch(function (e) { done && done(); _toast(_err(e)); if (e && e.code === 'DUEL_IN_PROGRESS' && e.payload && e.payload.code) { DuelCore.fetchState(e.payload.code).then(function (r) { _routeRecovered(e.payload.code, r.duel, r.my); }).catch(function () {}); } });
+        DuelCore.createDuel(config, _myName()).then(function (res) { _closeSetupModal(true); _enterLobby(res.code, res.duel); })
+          .catch(function (e) { done && done(); _toast(_err(e)); if (e && e.code === 'DUEL_IN_PROGRESS' && e.payload && e.payload.code) { _closeSetupModal(true); DuelCore.fetchState(e.payload.code).then(function (r) { _routeRecovered(e.payload.code, r.duel, r.my); }).catch(function () {}); } });
       }
     });
   }
@@ -102,12 +116,13 @@ var DuelManager = (function () {
   function _openJoinWith(prefill) {
     if (!_premiumOk()) { _paywall(); return; }
     _phase = 'join';
-    _showContainer('duelSetup');
-    DuelUI.renderJoin(_el('duelSetup'), {
-      onBack: exitToHome,
+    var modal = _openSetupModal();
+    DuelUI.renderJoin(modal, {
+      onBack: _closeSetupModal,
+      onSwitchToCreate: function () { _closeSetupModal(true); openSetup(); },
       onJoin: function (code, done) {
-        DuelCore.joinDuel(code, _myName()).then(function (res) { _enterLobby(res.code, res.duel); })
-          .catch(function (e) { done && done(_err(e)); });
+        DuelCore.joinDuel(code, _myName()).then(function (res) { _closeSetupModal(true); _enterLobby(res.code, res.duel); })
+          .catch(function (e) { done && done(_err(e), e && e.code); });
       }
     });
     if (prefill) { var inp = _el('duJoinCode'); var btn = _el('duJoinBtn'); if (inp) inp.value = prefill; if (btn) setTimeout(function () { btn.click(); }, 50); }
@@ -348,7 +363,7 @@ var DuelManager = (function () {
     _showContainer('duelResults');
     DuelUI.renderResults(_el('duelResults'), {
       duel: duel, myUid: _myUid(),
-      onRematch: function () { DuelCore.ackResult(code); _resetState(); openSetup(); /* fresh room; user re-confirms config */ },
+      onRematch: function () { DuelCore.ackResult(code); _resetState(); exitToHome(); openSetup(); /* Home, then the setup modal */ },
       onShare: function () {},
       onDone: function () { DuelCore.ackResult(code); _resetState(); exitToHome(); }
     });
@@ -361,29 +376,45 @@ var DuelManager = (function () {
      mutate when crossing idle⇄active, so the static card + home-view's wiring stay intact when there's no duel. */
   function refreshActiveCard() {
     var card = _el('homeDuelCard'); if (!card) return;
-    var active = (_phase === 'waiting') || (_phase === 'results') || (_duel && _duel.status === 'complete' && _phase !== 'idle');
-    if (active) { _setHomeCardActive(card); _homeCardState = 'active'; }
+    var mode = null;
+    if (_phase === 'lobby' && _duel && _duel.status === 'lobby') mode = 'lobby';
+    else if (_phase === 'waiting') mode = 'waiting';
+    else if (_phase === 'results' || (_duel && _duel.status === 'complete' && _phase !== 'idle')) mode = 'results';
+    if (mode) { _setHomeCardActive(card, mode); _homeCardState = 'active'; }
     else { if (_homeCardState === 'active') _setHomeCardIdle(card); _homeCardState = 'idle'; }
   }
-  function _setHomeCardActive(card) {
+  function _setHomeCardActive(card, mode) {
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
     var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'your opponent';
-    var complete = _duel.status === 'complete';
     var desc = card.querySelector('.home-bento-desc');
     var actions = card.querySelector('#homeDuelActions');
-    if (desc) desc.textContent = complete ? ('Results ready · vs ' + oppName) : ('Waiting for ' + oppName + ' to finish…');
-    if (actions) {
-      actions.innerHTML = '<button class="home-duel-btn btn-secondary home-duel-view" id="homeDuelView" type="button">' + (complete ? 'View Results →' : 'View Status →') + '</button>';
-      var v = _el('homeDuelView');
-      if (v) v.onclick = function () {
-        DuelCore.fetchState(_code).then(function (res) {
-          _serverOffset = (res.serverNow || Date.now()) - Date.now();
-          if (res.duel && res.duel.status === 'complete') _showResults(_code, res.duel);
-          else { _duel = res.duel || _duel; _enterWaiting(_code, _duel); }
-        }).catch(function () { if (_duel && _duel.status === 'complete') _showResults(_code, _duel); else _enterWaiting(_code, _duel); });
-      };
+    var label, cta;
+    if (mode === 'lobby') {
+      var full = (_duel.participantUids || []).length >= 2;
+      label = full ? ('Lobby ready · vs ' + oppName) : ('Lobby · code ' + (_code || '') + ' · waiting for a player');
+      cta = 'Resume Lobby →';
+    } else if (mode === 'results') {
+      label = 'Results ready · vs ' + oppName; cta = 'View Results →';
+    } else {
+      label = 'Waiting for ' + oppName + ' to finish…'; cta = 'View Status →';
     }
+    if (desc) desc.textContent = label;
+    if (actions) {
+      actions.innerHTML = '<button class="home-duel-btn btn-secondary home-duel-view" id="homeDuelView" type="button">' + cta + '</button>';
+      var v = _el('homeDuelView'); if (v) v.onclick = _resumeActiveDuel;
+    }
+  }
+  /* Resume whatever active duel the card points at — server status decides the screen (no resume into solving). */
+  function _resumeActiveDuel() {
+    if (!_code) { refreshActiveCard(); return; }
+    DuelCore.fetchState(_code).then(function (res) {
+      _serverOffset = (res.serverNow || Date.now()) - Date.now();
+      var dd = res.duel;
+      if (!dd) { _resetState(); refreshActiveCard(); return; }
+      if (dd.status === 'abandoned' || dd.status === 'expired') { _toast('That duel has ended.'); _resetState(); exitToHome(); return; }
+      _routeRecovered(_code, dd, res.my);
+    }).catch(function () { if (_duel && _duel.status === 'complete') _showResults(_code, _duel); else if (_phase === 'waiting') _enterWaiting(_code, _duel); });
   }
   function _setHomeCardIdle(card) {
     var desc = card.querySelector('.home-bento-desc');
@@ -410,7 +441,7 @@ var DuelManager = (function () {
     // Sanitize: the raw doc may carry perPlayer only when complete (server keeps it off the doc until then).
     _duel = d;
     var uid = _myUid();
-    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
+    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
     if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? 'Duel ended — no questions were answered.' : (d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.')); _resetState(); exitToHome(); return; }
     if (d.status === 'lobby') { if (_phase === 'lobby') { _lobbySig = _lobbySigOf(d); _renderLobby(); } return; }
     if (d.status === 'active') {
@@ -465,6 +496,8 @@ var DuelManager = (function () {
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
     if (_recoverTimer) { clearTimeout(_recoverTimer); _recoverTimer = null; }
     _teardownSolving();
+    var _sm = _el('duelSetupModal'); if (_sm) { _sm.style.display = 'none'; _sm.innerHTML = ''; _sm.onclick = null; }   // no setup-modal ghost
+    document.body.classList.remove('modal-open');
     _lobbySig = '';
     _code = null; _duel = null; _my = null; _phase = 'idle'; _finalizing = false;
   }
