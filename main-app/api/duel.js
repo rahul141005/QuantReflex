@@ -65,7 +65,8 @@ function _validConfig(raw) {
   const topics = Array.isArray(raw.topics) ? raw.topics.filter(function (t) { return typeof t === 'string'; }).slice(0, 12) : [];
   let perQ = parseInt(raw.timerPerQuestion, 10); if (isNaN(perQ) || perQ <= 0) perQ = null; else perQ = _clamp(perQ, 3, 120);
   let total = parseInt(raw.timerTotal, 10); if (isNaN(total) || total <= 0) total = null; else total = _clamp(total, 10, 3600);
-  return { topics: topics, difficulty: diff, questionMode: mode, questionCount: count, timerPerQuestion: perQ, timerTotal: total };
+  const allowSkip = raw.allowSkip === true;   // host-set, default OFF — every question must be answered unless ON
+  return { topics: topics, difficulty: diff, questionMode: mode, questionCount: count, timerPerQuestion: perQ, timerTotal: total, allowSkip: allowSkip };
 }
 
 /** Server-side correctness check (mirrors drill-engine normalization: trim + numeric equivalence + tolerance). */

@@ -48,6 +48,7 @@ function createDrillEngine(container, opts) {
   var duelHeaderHTML = opts.duelHeaderHTML || '';
   var onDuelAnswerSubmit = opts.onDuelAnswerSubmit || null;
   var onDuelRender = opts.onDuelRender || null;   /* (container, index, total) after each duel question render */
+  var duelAllowSkip = opts.duelAllowSkip === true;   /* host-set: Skip is OFF by default in a duel (ADR-033) */
 
   /* ---- Adaptive controller state ---- */
   var _adaptiveHistory = [];   /* [{correct, timeSec}] last N answers */
@@ -242,12 +243,14 @@ function createDrillEngine(container, opts) {
        Duel: ALWAYS available (a skip = blank wrong answer that advances) via the capture-only path.
        Practice: gated on the skip setting + difficulty. */
     if (isDuel) {
-      var dSkipBtn = document.createElement('button');
-      dSkipBtn.className = 'btn skip-btn';
-      dSkipBtn.textContent = 'Skip →';
-      dSkipBtn.addEventListener('click', function () { if (!answered) captureDuelAnswer(''); });
-      var dActionsDiv = container.querySelector('.drill-actions');
-      if (dActionsDiv) { dActionsDiv.classList.add('has-skip'); dActionsDiv.insertBefore(dSkipBtn, submitBtn); }
+      if (duelAllowSkip) {   /* default OFF — only when the host enabled "Allow Skip Questions" */
+        var dSkipBtn = document.createElement('button');
+        dSkipBtn.className = 'btn skip-btn';
+        dSkipBtn.textContent = 'Skip →';
+        dSkipBtn.addEventListener('click', function () { if (!answered) captureDuelAnswer(''); });
+        var dActionsDiv = container.querySelector('.drill-actions');
+        if (dActionsDiv) { dActionsDiv.classList.add('has-skip'); dActionsDiv.insertBefore(dSkipBtn, submitBtn); }
+      }
     } else {
       var _skipSettings = typeof loadSettings === 'function' ? loadSettings() : {};
       var _skipFeatureAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;

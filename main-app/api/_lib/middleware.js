@@ -86,7 +86,9 @@ var MAX_REQUESTS_PER_HOUR = 20;
    create/join/start/state/finish/ackResult, which the shared 20/hr AI cap could 429 mid-finish. 120/hr ≈ 8
    duels/hr of endpoint traffic — ample for real play, still a cap (NOT a blanket bypass). Keyed separately so
    duel polling never consumes a user's AI budget and vice-versa. */
-var DUEL_MAX_REQUESTS_PER_HOUR = 120;
+var DUEL_MAX_REQUESTS_PER_HOUR = 600;   /* a live duel legitimately POLLS room state (lobby sync + waiting) — 120
+                                            could 429 the poll mid-lobby during back-to-back play, stranding a
+                                            player. 600/hr (~10/min sustained) covers real play + rapid testing. */
 var CLEANUP_INTERVAL = 50; /* purge stale entries every N checks */
 
 /* Parameterized per-user limiter. `max` defaults to the AI cap; `bucket` namespaces the counter so different

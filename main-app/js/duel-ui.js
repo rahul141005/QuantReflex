@@ -59,6 +59,10 @@ var DuelUI = (function () {
             TOPICS.map(function (t) { return '<button data-t="' + t.toLowerCase() + '" style="padding:.45rem .8rem;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:transparent;color:#fff;font-size:.85rem;">' + t + '</button>'; }).join('') +
           '</div>' +
         '</div>' +
+        '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;">' +
+          '<div><div style="font-weight:600;">Allow skipping questions</div><div style="color:#64748b;font-size:.8rem;">Off = every question must be answered</div></div>' +
+          '<label class="toggle"><input type="checkbox" id="duSkipChk" /><span class="toggle-slider"></span></label>' +
+        '</div>' +
         '<button id="duCreateBtn" class="btn btn-primary" style="width:100%;padding:.9rem;font-size:1rem;font-weight:700;">Create Duel</button>' +
       '</div>';
     container.insertBefore(_backBar('Home', opts.onBack), container.firstChild);
@@ -81,7 +85,7 @@ var DuelUI = (function () {
     var createBtn = _el('duCreateBtn');
     createBtn.onclick = function () {
       createBtn.disabled = true; createBtn.textContent = 'Creating…';
-      opts.onCreate({ questionCount: qSel, difficulty: dSel, topics: Object.keys(tSel), questionMode: 'quick' }, function () { createBtn.disabled = false; createBtn.textContent = 'Create Duel'; });
+      opts.onCreate({ questionCount: qSel, difficulty: dSel, topics: Object.keys(tSel), questionMode: 'quick', allowSkip: !!(_el('duSkipChk') && _el('duSkipChk').checked) }, function () { createBtn.disabled = false; createBtn.textContent = 'Create Duel'; });
     };
   }
 

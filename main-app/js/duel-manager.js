@@ -18,6 +18,7 @@ var DuelManager = (function () {
   var _token = null;         // cached ID token for the finalize-on-leave keepalive beacon
   var _hbTimer = null, _deadlineTimer = null, _countTimer = null, _perqTimer = null;
   var _lobbyPollTimer = null, _recoverTimer = null, _lobbySig = '';   // presence-sync backstop + listener-recovery debounce (DR1)
+  var _homeCardState = 'idle', _syncRetries = 0;   // in-place Home duel-card state + start-sync retry cap (Bug-2 / Bug-1)
   var _runner = null;        // light solving state { total, index } for the Submit-&-Leave counts
   var _engine = null;        // the reused Practice drill-engine instance (capture-only duel mode, ADR-033)
   var _finalizing = false;
@@ -170,6 +171,7 @@ var DuelManager = (function () {
   /* ── Countdown (server-anchored) ── */
   function _beginCountdown() {
     _phase = 'countdown';
+    _syncRetries = 0;
     _showContainer('duelActive', true);
     var c = _el('duelActive');
     c.innerHTML = '<div class="duel-countdown-overlay"><div id="duCount" class="duel-countdown-num">3</div></div>';
@@ -212,6 +214,7 @@ var DuelManager = (function () {
       count: qObjs.length,
       _preloadedQuestions: qObjs,
       perQuestionSec: (_duel.config && _duel.config.timerPerQuestion) || null,
+      duelAllowSkip: !!(_duel.config && _duel.config.allowSkip),   /* host-set Skip toggle (default OFF) */
       duelHeaderHTML: _duelHeaderHTML(),
       onDuelRender: _onDuelRender,
       onDuelAnswerSubmit: function (raw, ms, idx) {
@@ -353,39 +356,45 @@ var DuelManager = (function () {
   }
 
   /* ── Active-Duel home card (derived from current waiting/results state) ── */
+  /* Active-Duel state mutates the EXISTING #homeDuelCard IN PLACE — no second floating card, Home hierarchy
+     preserved (owner Bug-2). idle = "Challenge…" + Create/Join; active = "Waiting…/Results ready" + View. We only
+     mutate when crossing idle⇄active, so the static card + home-view's wiring stay intact when there's no duel. */
   function refreshActiveCard() {
-    var home = _el('view-home'); if (!home) return;
-    var card = _el('homeActiveDuelCard');
-    var show = (_phase === 'waiting') || (_phase === 'results') || (_duel && _duel.status === 'complete' && _phase !== 'idle');
-    if (!show) { if (card) card.style.display = 'none'; return; }
-    if (!card) { card = document.createElement('div'); card.id = 'homeActiveDuelCard'; card.style.cssText = 'padding:0 1rem;margin:.75rem 0;'; home.insertBefore(card, home.firstChild); }
-    card.style.display = 'block';
+    var card = _el('homeDuelCard'); if (!card) return;
+    var active = (_phase === 'waiting') || (_phase === 'results') || (_duel && _duel.status === 'complete' && _phase !== 'idle');
+    if (active) { _setHomeCardActive(card); _homeCardState = 'active'; }
+    else { if (_homeCardState === 'active') _setHomeCardIdle(card); _homeCardState = 'idle'; }
+  }
+  function _setHomeCardActive(card) {
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
-    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'opponent';
+    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'your opponent';
     var complete = _duel.status === 'complete';
-    /* On-system home card (ADR-033): reuse .home-bento-card + the amber duel squircle (matches the static
-       #homeDuelCard on the same screen) — no indigo. Keyboard-operable (role/tabindex/Enter-Space). */
-    card.innerHTML =
-      '<div id="duHomeCard" class="home-bento-card duel-active-card" role="button" tabindex="0" aria-label="Open active duel">' +
-        '<div class="duel-active-card-row">' +
-          '<div class="home-bento-icon-squircle icon-amber"><span class="home-bento-icon">⚔️</span></div>' +
-          '<div class="duel-active-card-body"><div class="duel-active-card-title">Active Duel · vs ' + _escText(oppName) + '</div>' +
-            '<div class="duel-active-card-sub">' + (complete ? 'Result ready' : 'Waiting for opponent to finish') + '</div></div>' +
-          '<span class="duel-active-card-cta">' + (complete ? 'View Results' : 'View Status') + '</span>' +
-        '</div>' +
-      '</div>';
-    var tap = _el('duHomeCard');
-    if (tap) {
-      var _openActive = function () {
+    var desc = card.querySelector('.home-bento-desc');
+    var actions = card.querySelector('#homeDuelActions');
+    if (desc) desc.textContent = complete ? ('Results ready · vs ' + oppName) : ('Waiting for ' + oppName + ' to finish…');
+    if (actions) {
+      actions.innerHTML = '<button class="home-duel-btn btn-secondary home-duel-view" id="homeDuelView" type="button">' + (complete ? 'View Results →' : 'View Status →') + '</button>';
+      var v = _el('homeDuelView');
+      if (v) v.onclick = function () {
         DuelCore.fetchState(_code).then(function (res) {
           _serverOffset = (res.serverNow || Date.now()) - Date.now();
           if (res.duel && res.duel.status === 'complete') _showResults(_code, res.duel);
           else { _duel = res.duel || _duel; _enterWaiting(_code, _duel); }
         }).catch(function () { if (_duel && _duel.status === 'complete') _showResults(_code, _duel); else _enterWaiting(_code, _duel); });
       };
-      tap.onclick = _openActive;
-      tap.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); _openActive(); } });
+    }
+  }
+  function _setHomeCardIdle(card) {
+    var desc = card.querySelector('.home-bento-desc');
+    var actions = card.querySelector('#homeDuelActions');
+    if (desc) desc.textContent = 'Challenge anyone in real-time competitive math battles.';
+    if (actions) {
+      actions.innerHTML =
+        '<button class="home-duel-btn btn-secondary home-duel-create" id="homeDuelCreate" type="button">Create Duel</button>' +
+        '<button class="home-duel-btn btn-secondary home-duel-join" id="homeDuelJoin" type="button">Join Duel</button>';
+      var c = _el('homeDuelCreate'); if (c) c.onclick = function () { openSetup(); };
+      var j = _el('homeDuelJoin'); if (j) j.onclick = function () { openJoinDuel(); };
     }
   }
 
@@ -432,6 +441,8 @@ var DuelManager = (function () {
   }
   function _retryActiveFromLobby() {
     if (_phase !== 'lobby' && _phase !== 'countdown') return;
+    _syncRetries++;
+    if (_syncRetries > 6) { _syncRetries = 0; _toast('Trouble reaching the duel — check your connection.'); return; }   // surface, don't loop forever
     _toast('Syncing with host…');
     setTimeout(function () { if (_phase === 'lobby' || _phase === 'countdown') _onActiveFromLobby(); }, 1200);
   }
