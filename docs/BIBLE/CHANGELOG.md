@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Math Duel full redesign + lifecycle hard guards (ADR-035; ADR-031/033 reaffirmed)
+
+**Lifecycle hard guards (P0, commit `8ba0e15`).** A two-device test produced a fake result from a never-played
+duel (0-vs-0 with a declared winner + fabricated speed) and a stuck `activeDuelId` that blocked new duels. Fixes in
+`api/duel.js`: `_grade` derives `totalSolveMs` from the **sum of real per-answer client times** (never wall-clock)
+and gives **zero** speed bonus when 0 answered; `_decideWinner` returns `no_contest` when both answered 0;
+`_finalizeTxn` marks a both-zero room **`abandoned`** (no winner/metrics) and clears both mirrors; `_create`
+**self-heals** a terminal/stale `activeDuelId` (finalizes an active-past-deadline room, clears complete/abandoned/
+missing) so a user is never locked out. Client: `renderResults` speed shows "No data" when 0 answered;
+abandoned/no_contest → a clean message + reset; the waiting/deadline poll routes through the state machine.
+
+**Full redesign (ADR-035).**
+- **One generator** — `js/questions.js` is now the single source for client + server (guarded `module.exports`,
+  server-safe `_difficultyOverride`, `generateMultiTopic`). `api/duel.js` `_start` requires it; the divergent
+  6-category `api/_lib/duel-questions.js` is **deleted**. A Duel topic now generates the same 12 authoritative
+  categories as Practice; string-answer cats grade via the existing `_isCorrect` (already mirrors `checkAnswer`).
+- **Setup = bottom-sheet modal** (`#duelSetupModal`, `js/duel-ui.js renderSetup`) reusing the Custom Training
+  slider (5–50) / `_CATEGORY_LABELS` topics / timer section / difficulty pills / Skip toggle, with a **sticky
+  Create footer** (fixes the can't-scroll-to-Create bug). Word Problems disabled with a "Soon" badge.
+- **Host/guest lobby split** (`renderLobby` → host vs guest), strict 2-player + a polished "arena is full" card on
+  `ROOM_FULL`. **Home card** (`#homeDuelCard`) reflects lobby/waiting/results in place (no layout jump).
+- **Waiting + results redesign** on §10A (`.results-grid`/`.stat-card`, honest speed/accuracy, Rematch → Home →
+  setup modal). All inline indigo removed; dead `.mode-card-duel` purple deleted; SW cache `v92`→`v94`.
+- **Files:** `js/questions.js`, `js/drill-engine.js`, `api/duel.js`, `api/_lib/duel-questions.js` (deleted),
+  `js/duel-ui.js`, `js/duel-manager.js`, `index.html`, `css/style.css`, `service-worker.js`.
+- **Docs:** [ADR-035](DECISION_LOG.md), [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) (generator note),
+  [VERSIONS.md](VERSIONS.md) (Bible 2.24, Architecture 2.15).
+- **Verify:** `node --check` all touched JS; CSS braces balanced; Node generator-parity test (12 cats incl.
+  ratios/fractions/time-and-work). Pending: two-device live playthrough.
+
 ## 2026-06-13 — Sections 2–10 program: P1-a (part 1) — Duel solving = true Practice drill-engine reuse (ADR-033)
 
 The owner-LOCKED design-language inheritance, keystone first: the in-duel **solving screen now literally runs on

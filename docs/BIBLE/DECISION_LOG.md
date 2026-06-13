@@ -8,6 +8,40 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-035 — Math Duel full redesign: one generator, modal setup, host/guest lobby, §10A (2026-06-14)
+- **Context:** A live two-device test showed the Duel still felt "bolted on": the create screen was a long
+  full-page form (the owner could not even scroll to the Create button), the lobby was one shared "debug" screen
+  for host and guest, the server ran a **divergent 6-category** generator (`api/_lib/duel-questions.js` —
+  addition/subtraction/division, none of which exist in the 12 authoritative Practice categories), and every duel
+  screen used inline `SURFACE`/`ACCENT` indigo, not the §10A design system. The owner mandated a single-pass
+  redesign so the Duel feels like **multiplayer Practice**. (The server-authoritative core of ADR-031 + the
+  lifecycle hard guards of the same-day fix-pass are unchanged.)
+- **Decision:**
+  1. **One generator (no duel-specific generator).** `js/questions.js` is now the single source for client AND
+     server: a guarded `module.exports` (no-op in the browser) + a server-safe `_difficultyOverride` (so
+     `_getDifficulty` needs no DOM/AppState) + `generateQuestions(n, cat, difficulty)` + a new
+     `generateMultiTopic(n, topicKeys, difficulty)` (the multi-topic splitter, which `drill-engine.js` now
+     delegates to). `api/duel.js _start` `require('../js/questions.js')` and generates the chosen authoritative
+     topics at the chosen difficulty. **`api/_lib/duel-questions.js` is deleted.** Grading is unaffected: the
+     server `_isCorrect` already mirrors the client `checkAnswer` (whitespace-strip → exact string match → numeric
+     tolerance), so string-answer categories (ratios `5:4`, fractions `1/2`, reverse-% `33.33`) grade correctly.
+  2. **Setup = bottom-sheet modal over Home (no route).** `DuelUI.renderSetup` renders a `.training-card`
+     overlay (`#duelSetupModal`, body-level) with a scrollable `.training-card-body` + a **sticky footer** holding
+     Create — so the CTA is always reachable. It reuses the Custom Training `.custom-question-range` slider (5–50),
+     the authoritative `_CATEGORY_LABELS` topics via `.category-btn`, the `.timer-select-section` (OFF / per-Q /
+     total), difficulty pills, and a Skip toggle (default OFF). Word Problems is shown disabled with a "Soon" badge.
+  3. **Host vs guest lobby split.** Host sees room code + Copy/WhatsApp + player slots + a Start that appears only
+     when full; guest sees "Joined", read-only match settings, and "waiting for the host" — **no invite tools**.
+     Capacity stays strict 2 (server `_join` → `ROOM_FULL`; client shows a polished "arena is full" card).
+  4. **Single state-aware Home card + §10A everywhere.** `#homeDuelCard` mutates in place across
+     idle/lobby/waiting/results (no second card, no layout jump). Waiting + results are rebuilt on §10A
+     (`.results-grid`/`.stat-card`, honest speed/accuracy, Rematch → Home → setup modal). All inline indigo removed;
+     the dead `.mode-card-duel` purple block deleted.
+- **Consequence:** A Duel topic now produces the **same** questions as Practice end-to-end. The setup can never
+  hide its CTA again. Host and guest get distinct, state-clear premium screens. One generator means one place to add
+  a category. Trade-off: `questions.js` now carries a tiny dual-mode tail and is bundled into the duel serverless
+  function (the same cross-dir `require` pattern middleware already uses for `aiService`).
+
 ## ADR-034 — Super-Admin first-class Independent affiliation + coaching grouping (Section 2) (2026-06-13)
 - **Context:** The Super-Admin User-360 master is a flat ≤100-row page segmented client-side; there is no
   server-derived "group by coaching" view and no authoritative Independent count. The owner's requirement:

@@ -138,7 +138,7 @@ var DuelUI = (function () {
 
     // Skip hint
     var skip = _el('duSkipChk');
-    skip.addEventListener('change', function () { _el('duCreateBtn'); var h = overlay.querySelector('.duel-skip-hint'); if (h) h.textContent = skip.checked ? 'On — a Skip button appears during solving.' : 'Off — every question must be answered.'; });
+    skip.addEventListener('change', function () { var h = overlay.querySelector('.duel-skip-hint'); if (h) h.textContent = skip.checked ? 'On — a Skip button appears during solving.' : 'Off — every question must be answered.'; });
 
     _el('duSetupBack').onclick = function () { opts.onBack(); };
 

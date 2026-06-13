@@ -9,8 +9,8 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.23 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.14 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.24 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.15 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.13 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.10 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
