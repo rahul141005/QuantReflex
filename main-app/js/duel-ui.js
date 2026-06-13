@@ -34,6 +34,28 @@ var DuelUI = (function () {
   }
   function _cap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 
+  /* ═════════════════ PWA-only install gate (ADR-038) ═════════════════ */
+  function renderInstallGate(overlay, opts) {
+    if (!overlay) return;
+    var canInstall = !!(typeof window !== 'undefined' && window._deferredPrompt);
+    overlay.style.display = 'flex';
+    overlay.innerHTML =
+      '<div class="training-card duel-sheet duel-sheet-compact" role="dialog" aria-modal="true" aria-label="Install QuantReflex">' +
+        '<div class="training-card-body duel-installgate">' +
+          '<div class="duel-installgate-icon">⚔️</div>' +
+          '<h3 class="duel-installgate-title">Math Duels live in the app</h3>' +
+          '<p class="secondary-text">Real-time duels need the installed QuantReflex app for reliable sync and notifications — they don’t run in a browser tab.</p>' +
+        '</div>' +
+        '<div class="duel-sheet-footer">' +
+          '<button id="duInstall" class="btn-primary duel-sheet-cta" type="button">' + (canInstall ? 'Install QuantReflex' : 'How to install') + '</button>' +
+          '<button id="duGateClose" class="training-card-back" type="button">Not now</button>' +
+        '</div>' +
+      '</div>';
+    overlay.onclick = function (e) { if (e.target === overlay) opts.onClose(); };
+    var ib = _el('duInstall'); if (ib) ib.onclick = function () { if (opts.onInstall) opts.onInstall(); };
+    var cb = _el('duGateClose'); if (cb) cb.onclick = function () { opts.onClose(); };
+  }
+
   /* ═════════════════ Setup (create) — bottom-sheet modal ═════════════════ */
   function renderSetup(overlay, opts) {
     if (!overlay) { return; }
@@ -370,7 +392,7 @@ var DuelUI = (function () {
       '</div></div>';
 
     var sh = _el('duShareRes'); if (sh) sh.onclick = function () {
-      var data = { result: d.result, myName: myName, opName: opName, myScore: me.correctCount, opScore: op.correctCount, winner: d.winnerUid, myUid: myUid, myAccuracy: _acc(me), opAccuracy: _acc(op), myAttempted: (me.answeredCount != null ? me.answeredCount : me.correctCount), opAttempted: (op.answeredCount != null ? op.answeredCount : op.correctCount) };
+      var data = { result: d.result, myName: myName, opName: opName, myScore: me.correctCount, opScore: op.correctCount, total: n, winner: d.winnerUid, myUid: myUid, myAccuracy: _acc(me), opAccuracy: _acc(op), myAttempted: (me.answeredCount != null ? me.answeredCount : me.correctCount), opAttempted: (op.answeredCount != null ? op.answeredCount : op.correctCount), mySpeed: _spd(me), opSpeed: _spd(op) };
       if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) ShareService.shareDuelAsImage(data);
       else _nativeShare('QuantReflex Duel', (iWon ? myName + ' defeated ' + opName : opName + ' defeated ' + myName) + ' · ' + n + ' Q · ' + _spd(me) + ' · ' + _acc(me) + '%');
     };
@@ -391,17 +413,21 @@ var DuelUI = (function () {
   /* One stat row → three grid cells (you · label · opp). The parent .duel-result-stats is a symmetric 1fr·auto·1fr
      grid, so values mirror around the centered label. */
   function _statRow(label, youVal, oppVal) {
-    return '<div class="rs-you">' + _esc(youVal) + '</div>' +
-           '<div class="rs-label">' + _esc(label) + '</div>' +
-           '<div class="rs-opp">' + _esc(oppVal) + '</div>';
+    return '<div class="rs-row">' +
+      '<div class="rs-you">' + _esc(youVal) + '</div>' +
+      '<div class="rs-label">' + _esc(label) + '</div>' +
+      '<div class="rs-opp">' + _esc(oppVal) + '</div>' +
+    '</div>';
   }
   function _resultCol(name, r, win) {
+    // A fixed-height crown slot on BOTH columns keeps them exactly equal height (no perceived tilt); the winner
+    // highlight is a subtle avatar ring (set via .is-winner CSS), not an extra text line.
     return '<div class="duel-result-col' + (win ? ' is-winner' : '') + '">' +
+      '<div class="duel-result-crown">' + (win ? '👑' : '') + '</div>' +
       '<span class="duel-avatar">' + _esc(_initial(name)) + '</span>' +
       '<div class="duel-result-name">' + _esc(name) + '</div>' +
       '<div class="duel-result-score">' + (r.correctCount || 0) + '</div>' +
       '<div class="duel-result-correct">correct</div>' +
-      (win ? '<div class="duel-result-crown">Winner</div>' : '') +
     '</div>';
   }
   function _spd(r) { return (r.answeredCount > 0 && r.totalSolveMs > 0) ? (r.totalSolveMs / 1000 / r.answeredCount).toFixed(1) + 's/q' : 'No data'; }
@@ -446,6 +472,7 @@ var DuelUI = (function () {
   }
 
   return {
+    renderInstallGate: renderInstallGate,
     renderSetup: renderSetup, renderJoin: renderJoin, renderLobby: renderLobby,
     renderWaiting: renderWaiting, renderResults: renderResults,
     showExitModal: showExitModal, hideExitModal: hideExitModal,

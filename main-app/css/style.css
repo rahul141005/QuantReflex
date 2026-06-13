@@ -4066,7 +4066,8 @@ body.numpad-active {
 body.drill-session-active {
   --drill-numpad-h: 13.75rem;
   --drill-actions-h: 3.5rem;
-  --drill-card-gap: .5rem;
+  --drill-card-gap: 1.25rem;   /* the LARGER gap between the question card and Submit — creates hierarchy */
+  --drill-submit-gap: .5rem;   /* the small gap between Submit and the numpad (Submit lifts off the keypad) */
   --drill-safe-b: env(safe-area-inset-bottom, 0px);
 }
 
@@ -4111,10 +4112,10 @@ body.drill-session-active .drill-exit-btn {
 /* Question card: fixed viewport between exit area and action bar */
 body.drill-session-active #drillContainer > .card {
   position: fixed;
-  top: 3rem;
+  top: 3.4rem;
   left: .75rem;
   right: .75rem;
-  bottom: calc(var(--drill-numpad-h) + var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
+  bottom: calc(var(--drill-numpad-h) + var(--drill-submit-gap) + var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4156,7 +4157,7 @@ body.drill-session-active .drill-actions {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--drill-numpad-h) + var(--drill-safe-b));
+  bottom: calc(var(--drill-numpad-h) + var(--drill-submit-gap) + var(--drill-safe-b));
   z-index: 98;
   display: flex;
   flex-direction: row;
@@ -4179,7 +4180,10 @@ body.drill-session-active .drill-actions .btn {
 body.drill-session-active .drill-actions.has-skip {
   gap: .5rem;
 }
-body.drill-session-active .drill-actions .skip-btn {
+/* Unified Skip · Submit layout — ONE design across Practice / Focus / Drills / Tests / Duels: Skip = 1/3 (left,
+   clean secondary), Submit = 2/3 (right, primary), equal height. When skip is off, no element + no reserved space. */
+body.drill-session-active .drill-actions.has-skip .skip-btn {
+  flex: 0 0 33%;
   font-size: 1rem;
   font-weight: 600;
   padding: .9rem 1rem;
@@ -4188,7 +4192,11 @@ body.drill-session-active .drill-actions .skip-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #eef2f7;
+  color: #475569;
+  border: none;
 }
+body.dark-mode.drill-session-active .drill-actions.has-skip .skip-btn { background: #1e293b; color: #94a3b8; }
 .skip-btn-disabled {
   opacity: .4;
   pointer-events: none;
@@ -4299,9 +4307,10 @@ body.dark-mode .correct-flash {
   .question-text { font-size: 1.6rem; }
   /* Shrink numpad buttons slightly */
   .numpad-btn { min-height: 44px; font-size: 1.15rem; }
-  /* Shrink drill card top inset */
+  /* Tighten the spacing rhythm + top inset on short screens so the card never overlaps the numpad */
+  body.drill-session-active { --drill-card-gap: .7rem; --drill-submit-gap: .35rem; }
   body.drill-session-active #drillContainer > .card {
-    top: 2.5rem;
+    top: 2.6rem;
   }
   /* Tighter mode cards on small screens */
   .practice-container .mode-card { padding: 1rem 1.15rem; margin-bottom: .5rem; }
@@ -6717,14 +6726,18 @@ html.pwa-mode header {
 }
 
 /* ======== Math Duel V2 — solving header · presence chip · countdown · active card (ADR-033, §10A) ======== */
-.duel-solve-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; max-width: 520px; margin: 0 auto .25rem; padding: .25rem; }
-.duel-opp-chip { display: inline-flex; align-items: center; gap: .4rem; color: #64748b; font-size: .85rem; }
+/* Solving header: opponent name+status LEFT (~66%, flexes + truncates long names), Exit RIGHT (~33%, fixed). */
+.duel-solve-header { display: flex; align-items: center; gap: .6rem; max-width: 520px; margin: 0 auto .25rem; padding: .25rem .15rem; }
+.duel-opp-chip { display: inline-flex; align-items: center; gap: .4rem; color: #64748b; font-size: .9rem; flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
+.duel-opp-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.dark-mode .duel-opp-chip { color: #94a3b8; }
+.duel-solve-header #duExit { flex: 0 0 auto; min-width: 4.5rem; }
 .duel-opp-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .duel-opp-dot.is-solving { background: #f59e0b; }   /* amber = solving */
 .duel-opp-dot.is-finished { background: #10b981; }  /* green = finished */
-.duel-countdown-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.92); z-index: 50; }
-.duel-countdown-num { font-size: 6rem; font-weight: 900; color: #fff; }
+.duel-countdown-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.92); z-index: 1000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.duel-countdown-num { font-size: 6rem; font-weight: 900; color: #fff; animation: duelCountdownPop .55s cubic-bezier(.17,.67,.35,1.2); }
+@keyframes duelCountdownPop { 0% { transform: scale(1.9); opacity: 0; } 55% { transform: scale(.95); opacity: 1; } 100% { transform: scale(1); } }
 .duel-active-card { cursor: pointer; }
 .duel-active-card-row { display: flex; align-items: center; gap: .75rem; }
 .duel-active-card-body { flex: 1; min-width: 0; }
@@ -6743,7 +6756,9 @@ body.theme-playful.drill-session-active #duelActive { background: #faf9f7; }
 body.theme-playful.dark-mode.drill-session-active #duelActive { background: #0d1117; }
 body.drill-session-active #duelActive > .card {
   position: fixed; top: 3rem; left: .75rem; right: .75rem;
-  bottom: calc(var(--drill-numpad-h) + var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
+  /* mirror the Practice card bottom EXACTLY (incl. --drill-submit-gap) so the card → Submit → numpad rhythm is
+     identical across Practice/Focus/Drills/Tests/Duels (the §10A unified answering screen). */
+  bottom: calc(var(--drill-numpad-h) + var(--drill-submit-gap) + var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
   display: flex; flex-direction: column; overflow: hidden; margin: 0; z-index: 11;
 }
 body.drill-session-active #duelActive > .card:active { transform: none; }
@@ -7140,19 +7155,11 @@ body.dark-mode .duel-sb-score { color: #f1f5f9; }
   padding: 0 .5rem;
 }
 
-/* Duel question area */
-.duel-question-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  text-align: center;
-}
-
-/* ======== Math Duel — Results ======== */
-
+/* ======== Math Duel — Results host ======== */
+/* #duelResults is the fixed full-screen container the §10A result card (.duel-result-card) renders INTO. The V1
+   inner layout (.duel-results-card / .duel-result-title / .duel-result-comparison / .duel-result-player / celebrate /
+   .mode-card-duel) was removed — it was dead (0 JS refs) and its stray `.duel-result-actions { flex-direction:column }`
+   was silently stacking the live Share/Finish row. The card's own styling lives in the CENTERED block below. */
 #duelResults {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -7164,106 +7171,10 @@ body.dark-mode .duel-sb-score { color: #f1f5f9; }
   background: #f8fafc;
   padding: 1.5rem;
 }
-body.dark-mode #duelResults {
-  background: #0f172a;
-}
-.duel-results-card {
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-}
-.duel-result-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin-bottom: .5rem;
-}
-.duel-result-winner { color: #16a34a; }
-.duel-result-loser { color: #dc2626; }
-.duel-result-draw { color: #7c3aed; }
-
-.duel-result-comparison {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin: 1.25rem 0;
-}
-.duel-result-player {
-  flex: 1;
-  max-width: 150px;
-  padding: 1rem .75rem;
-  border-radius: 1rem;
-  background: rgba(255,255,255,.88);
-  border: 1.5px solid #e2e8f0;
-  text-align: center;
-}
-body.dark-mode .duel-result-player {
-  background: rgba(30,41,59,.8);
-  border-color: #334155;
-}
-.duel-result-player.winner {
-  border-color: #16a34a;
-  background: rgba(22,163,74,.05);
-}
-body.dark-mode .duel-result-player.winner {
-  border-color: #16a34a;
-  background: rgba(22,163,74,.12);
-}
-.duel-result-score {
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-body.dark-mode .duel-result-score { color: #f1f5f9; }
-.duel-result-label {
-  font-size: .72rem;
-  color: #64748b;
-  margin-top: .15rem;
-}
-.duel-result-stat {
-  font-size: .78rem;
-  color: #64748b;
-  margin-top: .35rem;
-}
-
-/* Celebrate animation for winner */
-@keyframes duelCelebrate {
-  0%   { transform: scale(0.8); opacity: 0; }
-  50%  { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
-}
-.duel-result-celebrate {
-  animation: duelCelebrate .5s cubic-bezier(.17,.67,.35,1.2);
-}
-
-.duel-result-actions {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: .5rem;
-  align-items: center;
-}
-
-/* Playful theme duel overrides */
-body.theme-playful .mode-card-duel {
-  background: linear-gradient(135deg, rgba(124,58,237,.04) 0%, rgba(99,102,241,.04) 100%);
-  border-color: rgba(124,58,237,.2);
-}
-body.theme-playful.dark-mode .mode-card-duel {
-  background: linear-gradient(135deg, rgba(124,58,237,.1) 0%, rgba(99,102,241,.08) 100%);
-  border-color: rgba(124,58,237,.3);
-}
-
-/* ---- Duel Results Responsive ---- */
+body.dark-mode #duelResults { background: #0f172a; }
+/* Small phones: shrink the head-to-head score so it never overflows the card. */
 @media (max-width: 340px) {
-  .duel-result-player {
-    padding: .75rem .5rem;
-  }
-  .duel-result-score {
-    font-size: 1.5rem;
-  }
-  .duel-result-title {
-    font-size: 1.25rem;
-  }
+  .duel-result-score { font-size: 1.6rem; }
 }
 
 /* ======== Math Duel V2 — Username Search ======== */
@@ -7664,391 +7575,6 @@ body.dark-mode .duel-exit-btn {
   padding: .6rem .75rem;
   border-radius: .7rem;
   margin-top: .75rem;
-}
-
-/* ======== Math Duel V2 — Countdown Overlay ======== */
-
-.duel-countdown-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15,23,42,.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.duel-countdown-number {
-  font-size: 5rem;
-  font-weight: 900;
-  color: #fff;
-  animation: duelCountdownPop .7s cubic-bezier(.17,.67,.35,1.2);
-  text-shadow: 0 0 30px rgba(124,58,237,.5);
-}
-@keyframes duelCountdownPop {
-  0% { transform: scale(2); opacity: 0; }
-  60% { transform: scale(.95); opacity: 1; }
-  100% { transform: scale(1); }
-}
-
-/* ======== Math Duel V2 — Premium Results ======== */
-
-.duel-results-card-v2 {
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
-  max-height: 85vh;
-  max-height: 85dvh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.duel-results-card-v2::-webkit-scrollbar { display: none; }
-
-.duel-result-header {
-  margin-bottom: 1rem;
-}
-.duel-result-crown {
-  font-size: 2.5rem;
-  animation: duelCrownBounce .6s cubic-bezier(.17,.67,.35,1.2);
-}
-@keyframes duelCrownBounce {
-  0% { transform: translateY(-20px) scale(.5); opacity: 0; }
-  60% { transform: translateY(5px) scale(1.1); }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.duel-result-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin-bottom: .5rem;
-}
-.duel-result-winner .duel-result-title,
-.duel-result-winner.duel-results-card-v2 .duel-result-title { color: #16a34a; }
-.duel-result-loser .duel-result-title,
-.duel-result-loser.duel-results-card-v2 .duel-result-title { color: #dc2626; }
-.duel-result-draw .duel-result-title,
-.duel-result-draw.duel-results-card-v2 .duel-result-title { color: #7c3aed; }
-body.dark-mode .duel-result-winner .duel-result-title,
-body.dark-mode .duel-result-winner.duel-results-card-v2 .duel-result-title { color: #4ade80; }
-body.dark-mode .duel-result-loser .duel-result-title,
-body.dark-mode .duel-result-loser.duel-results-card-v2 .duel-result-title { color: #f87171; }
-body.dark-mode .duel-result-draw .duel-result-title,
-body.dark-mode .duel-result-draw.duel-results-card-v2 .duel-result-title { color: #a78bfa; }
-
-/* Comparison grid */
-.duel-result-comparison-grid {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: .5rem;
-  margin: 1rem 0;
-}
-.duel-result-player-col {
-  flex: 1;
-  max-width: 140px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-}
-.duel-result-player-name {
-  font-size: .78rem;
-  font-weight: 600;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.duel-result-big-score {
-  font-size: 2rem;
-  font-weight: 900;
-  color: #0f172a;
-}
-body.dark-mode .duel-result-big-score { color: #f1f5f9; }
-.duel-result-score-label {
-  font-size: .7rem;
-  color: #64748b;
-}
-.duel-result-vs-col {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 2.5rem;
-}
-.duel-result-vs-text {
-  font-size: .85rem;
-  font-weight: 800;
-  color: #7c3aed;
-}
-
-/* Stat rows */
-.duel-result-stats-section {
-  margin: .75rem 0;
-  padding: .75rem;
-  border-radius: .75rem;
-  background: rgba(0,0,0,.02);
-  border: 1px solid rgba(0,0,0,.04);
-}
-body.dark-mode .duel-result-stats-section {
-  background: rgba(255,255,255,.03);
-  border-color: rgba(255,255,255,.05);
-}
-.duel-result-stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .35rem 0;
-  border-bottom: 1px solid rgba(0,0,0,.04);
-}
-.duel-result-stat-row:last-child { border-bottom: none; }
-body.dark-mode .duel-result-stat-row { border-bottom-color: rgba(255,255,255,.05); }
-.duel-result-stat-val {
-  font-size: .8rem;
-  font-weight: 700;
-  min-width: 50px;
-  color: #0f172a;
-}
-body.dark-mode .duel-result-stat-val { color: #e2e8f0; }
-.duel-result-stat-val.left { text-align: left; }
-.duel-result-stat-val.right { text-align: right; }
-.duel-result-stat-label {
-  font-size: .7rem;
-  color: #64748b;
-  text-align: center;
-  flex: 1;
-  font-weight: 600;
-}
-
-/* Opponent waiting indicator */
-.duel-result-waiting-opponent {
-  text-align: center;
-  padding: .75rem;
-  border-radius: .6rem;
-  background: rgba(124,58,237,.05);
-  margin: .5rem 0;
-}
-body.dark-mode .duel-result-waiting-opponent {
-  background: rgba(124,58,237,.1);
-}
-
-/* Topic summary */
-.duel-result-topic-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: .25rem;
-  margin: .5rem 0;
-}
-
-/* Result actions */
-.duel-result-actions {
-  margin-top: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .5rem;
-}
-
-/* ======== Math Duel V2 — Countdown Overlay ======== */
-
-.duel-countdown-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15,23,42,.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.duel-countdown-number {
-  font-size: 5rem;
-  font-weight: 900;
-  color: #fff;
-  animation: duelCountdownPop .7s cubic-bezier(.17,.67,.35,1.2);
-  text-shadow: 0 0 30px rgba(124,58,237,.5);
-}
-@keyframes duelCountdownPop {
-  0% { transform: scale(2); opacity: 0; }
-  60% { transform: scale(.95); opacity: 1; }
-  100% { transform: scale(1); }
-}
-
-/* ======== Math Duel V2 — Premium Results ======== */
-
-.duel-results-card-v2 {
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
-  max-height: 85vh;
-  max-height: 85dvh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.duel-results-card-v2::-webkit-scrollbar { display: none; }
-
-.duel-result-header {
-  margin-bottom: 1rem;
-}
-.duel-result-crown {
-  font-size: 2.5rem;
-  animation: duelCrownBounce .6s cubic-bezier(.17,.67,.35,1.2);
-}
-@keyframes duelCrownBounce {
-  0% { transform: translateY(-20px) scale(.5); opacity: 0; }
-  60% { transform: translateY(5px) scale(1.1); }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.duel-result-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin-bottom: .5rem;
-}
-.duel-result-winner .duel-result-title,
-.duel-result-winner.duel-results-card-v2 .duel-result-title { color: #16a34a; }
-.duel-result-loser .duel-result-title,
-.duel-result-loser.duel-results-card-v2 .duel-result-title { color: #dc2626; }
-.duel-result-draw .duel-result-title,
-.duel-result-draw.duel-results-card-v2 .duel-result-title { color: #7c3aed; }
-body.dark-mode .duel-result-winner .duel-result-title,
-body.dark-mode .duel-result-winner.duel-results-card-v2 .duel-result-title { color: #4ade80; }
-body.dark-mode .duel-result-loser .duel-result-title,
-body.dark-mode .duel-result-loser.duel-results-card-v2 .duel-result-title { color: #f87171; }
-body.dark-mode .duel-result-draw .duel-result-title,
-body.dark-mode .duel-result-draw.duel-results-card-v2 .duel-result-title { color: #a78bfa; }
-
-/* Comparison grid */
-.duel-result-comparison-grid {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: .5rem;
-  margin: 1rem 0;
-}
-.duel-result-player-col {
-  flex: 1;
-  max-width: 140px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-}
-.duel-result-player-name {
-  font-size: .78rem;
-  font-weight: 600;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.duel-result-big-score {
-  font-size: 2rem;
-  font-weight: 900;
-  color: #0f172a;
-}
-body.dark-mode .duel-result-big-score { color: #f1f5f9; }
-.duel-result-score-label {
-  font-size: .7rem;
-  color: #64748b;
-}
-.duel-result-vs-col {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 2.5rem;
-}
-.duel-result-vs-text {
-  font-size: .85rem;
-  font-weight: 800;
-  color: #7c3aed;
-}
-
-/* Stat rows */
-.duel-result-stats-section {
-  margin: .75rem 0;
-  padding: .75rem;
-  border-radius: .75rem;
-  background: rgba(0,0,0,.02);
-  border: 1px solid rgba(0,0,0,.04);
-}
-body.dark-mode .duel-result-stats-section {
-  background: rgba(255,255,255,.03);
-  border-color: rgba(255,255,255,.05);
-}
-.duel-result-stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .35rem 0;
-  border-bottom: 1px solid rgba(0,0,0,.04);
-}
-.duel-result-stat-row:last-child { border-bottom: none; }
-body.dark-mode .duel-result-stat-row { border-bottom-color: rgba(255,255,255,.05); }
-.duel-result-stat-val {
-  font-size: .8rem;
-  font-weight: 700;
-  min-width: 50px;
-  color: #0f172a;
-}
-body.dark-mode .duel-result-stat-val { color: #e2e8f0; }
-.duel-result-stat-val.left { text-align: left; }
-.duel-result-stat-val.right { text-align: right; }
-.duel-result-stat-label {
-  font-size: .7rem;
-  color: #64748b;
-  text-align: center;
-  flex: 1;
-  font-weight: 600;
-}
-
-/* Opponent waiting indicator */
-.duel-result-waiting-opponent {
-  text-align: center;
-  padding: .75rem;
-  border-radius: .6rem;
-  background: rgba(124,58,237,.05);
-  margin: .5rem 0;
-}
-body.dark-mode .duel-result-waiting-opponent {
-  background: rgba(124,58,237,.1);
-}
-
-/* Topic summary */
-.duel-result-topic-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: .25rem;
-  margin: .5rem 0;
-}
-
-/* Result actions */
-.duel-result-actions {
-  margin-top: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .5rem;
-}
-
-/* ======== Math Duel V2 — Active Duel Mini Card ======== */
-
-.active-duel-mini-card {
-  border: 1.5px solid rgba(124,58,237,.25);
-  background: rgba(124,58,237,.04);
-  transition: background .15s ease;
-}
-.active-duel-mini-card:active {
-  background: rgba(124,58,237,.1);
-}
-body.dark-mode .active-duel-mini-card {
-  border-color: rgba(124,58,237,.35);
-  background: rgba(124,58,237,.1);
 }
 
 /* ======== Share Preview Modal ======== */
@@ -10480,23 +10006,21 @@ body.dark-mode .duel-opp-status { background: rgba(15, 23, 42, .5); color: #cbd5
 .duel-result-banner.is-win { color: #16a34a; }
 .duel-result-banner.is-loss { color: #dc2626; }
 .duel-result-banner.is-draw { color: #64748b; }
-.duel-result-vs { display: flex; align-items: stretch; margin-bottom: 1.1rem; }
-.duel-result-col { flex: 1; text-align: center; padding: .25rem; }
-.duel-result-col.is-winner .duel-result-score { color: #16a34a; }
+/* Layout for .duel-result-vs / .duel-result-col / .duel-result-crown lives in the CENTERED block below.
+   Here we keep only the visual tokens (colors, name/caption typography) shared by both. */
 .duel-vs-sep { display: flex; align-items: center; color: #94a3b8; font-weight: 800; font-size: .8rem; padding: 0 .5rem; }
 .duel-result-name {
   font-size: .85rem;
   color: #64748b;
   margin-top: .3rem;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.duel-result-score { font-size: 2.4rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+.duel-result-score { color: #0f172a; }
 body.dark-mode .duel-result-score { color: #f1f5f9; }
 .duel-result-correct { font-size: .72rem; color: #94a3b8; }
-.duel-result-crown { font-size: .72rem; font-weight: 700; color: #16a34a; margin-top: .2rem; }
-.duel-results-grid { margin-bottom: 1rem; }
 .duel-result-why { text-align: center; color: #475569; font-size: .92rem; margin-bottom: 1.1rem; }
 body.dark-mode .duel-result-why { color: #cbd5e1; }
 .duel-result-actions { display: flex; gap: .5rem; }
@@ -10540,22 +10064,40 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
   margin-bottom: 1.2rem;
 }
 .duel-vs-sep { justify-content: center; }
-/* Full stats table: same symmetric 1fr·auto·1fr grid — your value mirrors the opponent's around the centered label. */
+/* Player columns: equal-height (fixed crown slot on both), subtle winner ring, restrained score size. */
+.duel-result-col { display: flex; flex-direction: column; align-items: center; padding: .25rem; }
+.duel-result-crown { height: 1.6rem; line-height: 1.6rem; font-size: 1.15rem; }
+.duel-result-score { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
+.duel-result-col.is-winner .duel-avatar { box-shadow: 0 0 0 3px #2563eb, 0 0 0 6px rgba(37, 99, 235, .18); }
+/* Stats: THREE perfectly equal rows, each its own symmetric 1fr·auto·1fr grid, hairline divider between. */
 .duel-result-stats {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: .55rem 1rem;
   background: #f1f5f9;
   border-radius: var(--qr-card-radius-sm, 1.25rem);
-  padding: .9rem 1rem;
+  padding: .15rem 1rem;
   margin-bottom: 1.2rem;
 }
 body.dark-mode .duel-result-stats { background: rgba(15, 23, 42, .5); }
+.rs-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3rem;
+  border-bottom: 1px solid rgba(15, 23, 42, .06);
+}
+.rs-row:last-child { border-bottom: none; }
+body.dark-mode .rs-row { border-bottom-color: rgba(255, 255, 255, .07); }
 .rs-you { text-align: right; font-weight: 700; color: #0f172a; }
 .rs-opp { text-align: left; font-weight: 700; color: #0f172a; }
 body.dark-mode .rs-you, body.dark-mode .rs-opp { color: #e2e8f0; }
-.rs-label { text-align: center; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: #64748b; white-space: nowrap; }
-.duel-result-why { margin-bottom: 1.3rem; }
+.rs-label { text-align: center; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: #64748b; white-space: nowrap; }
+.duel-result-why { margin-bottom: 1.3rem; font-size: .85rem; color: #64748b; letter-spacing: .01em; }
+body.dark-mode .duel-result-why { color: #94a3b8; }
 .duel-result-actions .duel-finish-btn { flex: 1.5; min-height: 48px; font-weight: 700; }
 .duel-result-actions .btn-secondary { min-height: 48px; }
+
+/* ---- PWA install gate (ADR-038) ---- */
+.duel-installgate { text-align: center; padding: 1.6rem 1.3rem .5rem; }
+.duel-installgate-icon { font-size: 2.8rem; line-height: 1; }
+.duel-installgate-title { font-size: 1.25rem; font-weight: 800; margin: .6rem 0 .45rem; color: #0f172a; }
+body.dark-mode .duel-installgate-title { color: #fff; }

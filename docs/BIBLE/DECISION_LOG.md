@@ -8,6 +8,54 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-038 — Math Duel production polish: PWA-only lock, premium result/share/answering, legacy-CSS purge (2026-06-14)
+- **Context:** With the lifecycle finally working (ADR-037), the owner asked for production-grade *feel* on par with
+  Practice/Drill/Test: duels were to be **playable only inside the installed PWA** (browser play was both broken and
+  unwanted), the result screen had to be **truly** (perceptually) centered with **all** data kept, the share image
+  needed to be a dedicated premium card (not a screenshot), and the shared answering screen needed a calmer spacing
+  rhythm + one skip-button design across every mode. Plus a final dead-code/listener/lifecycle audit.
+- **Decision:**
+  - **PWA-only lock (access policy).** `js/duel-manager.js` gains `_pwaOk()` (mirrors `_premiumOk`; reads
+    `body.pwa-mode`/`.web-mode` with a `matchMedia('(display-mode: standalone)')` + `navigator.standalone` fallback).
+    **Every** duel entry is gated BEFORE premium — `openSetup`, `_openJoinWith` (covers Create / Join / `?duel=CODE`
+    deep-link), `_resumeActiveDuel`; recovery routing (`_routeRecovered`) in a browser surfaces only the passive Home
+    card, never auto-enters. In a browser the entry points render `DuelUI.renderInstallGate` — a premium gate
+    (⚔️, "Math Duels live in the app", Install / Not-now) reusing the modal shell; Install calls
+    `window._deferredPrompt.prompt()` when available, else shows add-to-home guidance. No bypass. The Home duel card
+    stays visible (discoverability); tapping it in a browser shows the gate.
+  - **Result screen — perceptually centered, full data.** Both player columns carry a **fixed-height crown slot**
+    (👑 on the winner, empty on the loser) so the columns are exactly equal height (kills the perceived tilt); the
+    winner highlight is a **subtle avatar ring**, not an extra text line; scores are **restrained** (1.9rem). The
+    stats card is **three perfectly equal rows** (`.rs-row`, each its own symmetric `1fr·auto·1fr` grid, equal
+    min-height, hairline dividers): Correct · Accuracy · Speed. Win-reason is smaller/lighter. A **latent bug** was
+    fixed: a dead V1 `.duel-result-actions { flex-direction:column }` was the only direction declaration and was
+    silently **stacking** the live Share/Finish row — removing it restores the intended side-by-side (`flex 1 : 1.5`).
+  - **Share image — premium esports card** (`share-service._generateDuelCard`, full rewrite). Brand header → winner
+    banner → two **frosted player blocks** each with a gradient avatar (initial), name, big score, **accuracy +
+    speed** → centered VS badge, over a dark gradient with accent glows + a **gold ring/glow on the winner**. Fixes a
+    real defect: the old code passed a 7th "fill" arg to `_roundRect` (which only builds a path) so the score boxes
+    **never rendered**. `js/duel-ui.js` now passes `mySpeed`/`opSpeed`/`total` into the share `data`.
+  - **Answering screen (shared engine — all modes).** The fixed-shell vars give a calmer rhythm:
+    `--drill-card-gap` (larger card→Submit) + `--drill-submit-gap` (Submit lifts OFF the numpad); the **duel** card
+    `bottom` now includes `--drill-submit-gap` too, so Practice/Focus/Drills/Tests/**Duels** share an identical
+    card → Submit → numpad cadence. **One** skip design everywhere: `.has-skip .skip-btn { flex: 0 0 33% }` + clean
+    secondary fill, Submit takes the remaining ~67%, equal height. Duel header is opponent-chip ~66% (left) / Exit
+    ~33% (right). Countdown overlay upgraded (z-index 1000 + blur) and the digit now **pops** each tick.
+  - **Legacy-CSS purge.** Removed ~495 lines of dead/duplicated duel CSS: the twice-duplicated "Math Duel V2 —
+    Countdown Overlay / Premium Results" block (`.duel-results-card-v2`, `-comparison-grid`, `-big-score`,
+    `-stat-row`, `duelCrownBounce`…), the dead "Active Duel Mini Card", and the dead V1 results block
+    (`.duel-results-card`, `.duel-result-title`, `-comparison`, `-player`, `duelCelebrate`, `.mode-card-duel`,
+    `.duel-question-area`). The duplicate `.duel-result-crown { animation: duelCrownBounce }` had also been making the
+    new crown slot bounce. Kept the genuinely-live `#duelResults` host + `.duel-result-score` + small-phone responsive
+    rule. Zero JS refs to any removed selector (grep-verified).
+- **Verification:** `node --check` all touched JS (incl. SW); CSS braces balanced (2344/2344, −114 pairs);
+  `duel-sim` 47/47; dead-selector grep clean. SW v98→v99 (network-first JS/CSS picks up the deploy). Gate: owner
+  two-device full lifecycle on v99 (browser → install gate, no play; PWA → create→join→solve on the roomier answering
+  screen→centered result→premium Share→Finish→both idle→repeat; no stale rooms/listeners/console errors).
+- **Consequence:** Duels are installed-app-only with a premium gate; the result screen reads as one centered
+  celebration with all data; the share card is a shareable esports artifact; the answering screen breathes uniformly;
+  ~495 lines of legacy CSS and a silent stacking bug are gone. No schema/rules/index change (additive client + CSS).
+
 ## ADR-037 — Math Duel P0 stabilization: guest-no-questions, Finish Duel, no result-trap, Rematch removed (2026-06-14)
 - **Context:** A two-device test still failed: the **guest received no questions** (host fine), the **Done** control
   did nothing / looked like text, completed duels **trapped the user on the result screen on reopen**, **Rematch was

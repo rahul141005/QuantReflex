@@ -29,6 +29,27 @@ var DuelManager = (function () {
 
   function _el(id) { return document.getElementById(id); }
   function _premiumOk() { return (typeof canAccessFeature === 'function') ? canAccessFeature('math_duel') : true; }
+  /* Math Duel is PWA-ONLY (ADR-038): real-time multiplayer needs the installed app — browser tabs don't run duels. */
+  function _pwaOk() {
+    try {
+      if (document.body.classList.contains('pwa-mode')) return true;
+      if (document.body.classList.contains('web-mode')) return false;
+      return !!((window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone === true);
+    } catch (_) { return true; }   // fail-open: never hard-block a legitimate installed user on a detection error
+  }
+  function _showInstallGate() {
+    _phase = 'idle';
+    var modal = _openSetupModal();
+    if (!modal || typeof DuelUI.renderInstallGate !== 'function') { _toast('Open Math Duels inside the installed QuantReflex app.'); return; }
+    DuelUI.renderInstallGate(modal, {
+      onClose: _closeSetupModal,
+      onInstall: function () {
+        var dp = window._deferredPrompt;
+        if (dp && dp.prompt) { try { dp.prompt(); dp.userChoice.then(function () { window._deferredPrompt = null; }); } catch (_) {} }
+        else { _toast('In your browser menu, choose "Add to Home screen" to install QuantReflex.'); }
+      }
+    });
+  }
   function _myUid() { return DuelCore.getMyUid(); }
   function _myName() {
     try {
@@ -88,6 +109,7 @@ var DuelManager = (function () {
   /* Recovery routing — never lands on the solving screen (no resume). */
   function _routeRecovered(code, duel, my) {
     _code = code; _duel = duel; _my = my || null;
+    if (!_pwaOk()) { _phase = 'idle'; refreshActiveCard(); return; }   // PWA-only: in a browser, never auto-enter a duel — just surface the Home card
     var uid = _myUid();
     var st = duel.status;
     if (st === 'lobby') { _enterLobby(code, duel); return; }
@@ -109,6 +131,7 @@ var DuelManager = (function () {
 
   /* ── Entry points (called from home view / deep link) ── */
   function openSetup() {
+    if (!_pwaOk()) { _showInstallGate(); return; }
     if (!_premiumOk()) { _paywall(); return; }
     _phase = 'setup';
     var modal = _openSetupModal();
@@ -122,6 +145,7 @@ var DuelManager = (function () {
   }
   function openJoinDuel() { _openJoinWith(null); }
   function _openJoinWith(prefill) {
+    if (!_pwaOk()) { _showInstallGate(); return; }
     if (!_premiumOk()) { _paywall(); return; }
     _phase = 'join';
     var modal = _openSetupModal();
@@ -210,10 +234,12 @@ var DuelManager = (function () {
     _countTimer = setInterval(function () {
       var remain = goAt - (Date.now() + _serverOffset);
       var el = _el('duCount');
-      if (remain <= 0) { clearInterval(_countTimer); _countTimer = null; if (el) el.textContent = 'GO!'; setTimeout(_startSolving, 250); }
-      else if (el) { var s = Math.ceil(remain / 1000); el.textContent = String(Math.min(3, Math.max(1, s))); }
+      if (remain <= 0) { clearInterval(_countTimer); _countTimer = null; if (el && el.textContent !== 'GO!') { el.textContent = 'GO!'; _popCount(el); } setTimeout(_startSolving, 250); }
+      else if (el) { var s = String(Math.min(3, Math.max(1, Math.ceil(remain / 1000)))); if (el.textContent !== s) { el.textContent = s; _popCount(el); } }
     }, 150);
   }
+  /* Re-trigger the count-pop keyframe on each digit change (reflow forces a restart on the reused element). */
+  function _popCount(el) { try { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; } catch (_) {} }
 
   /* ── Solving runner — REUSES the Practice drill-engine in capture-only mode (ADR-033). The duel adds ONLY the
      multiplayer header (opponent presence chip + Exit); the question container, answer input, custom numpad,
@@ -275,8 +301,8 @@ var DuelManager = (function () {
      opponent state + Exit binding are (re)applied by _onDuelRender after each render. */
   function _duelHeaderHTML() {
     return '<div class="duel-solve-header">' +
-      '<button id="duExit" class="btn btn-secondary btn-sm" type="button">Exit</button>' +
       '<span id="duOppChip" class="duel-opp-chip"></span>' +
+      '<button id="duExit" class="btn btn-secondary btn-sm" type="button">Exit</button>' +
     '</div>';
   }
   function _onDuelRender(container, index, total) {
@@ -471,6 +497,7 @@ var DuelManager = (function () {
   }
   /* Resume whatever active duel the card points at — server status decides the screen (no resume into solving). */
   function _resumeActiveDuel() {
+    if (!_pwaOk()) { _showInstallGate(); return; }
     if (!_code) { refreshActiveCard(); return; }
     DuelCore.fetchState(_code).then(function (res) {
       _serverOffset = (res.serverNow || Date.now()) - Date.now();

@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Math Duel production polish: PWA-only lock, premium result/share/answering, legacy-CSS purge (ADR-038)
+
+Production-grade *feel* pass on the now-working duel lifecycle (Bible 2.26→2.27, Arch 2.16→2.17; additive client + CSS, no schema/rules/index change).
+
+- **PWA-only lock** (`main-app/js/duel-manager.js`, `js/duel-ui.js`, `css/style.css`): new `_pwaOk()` gates **every**
+  duel entry before premium — `openSetup`, `_openJoinWith` (Create / Join / `?duel=CODE`), `_resumeActiveDuel`;
+  recovery routing in a browser surfaces only the passive Home card. Browser entry → `DuelUI.renderInstallGate` (⚔️
+  "Math Duels live in the app", Install → `window._deferredPrompt.prompt()` / add-to-home guidance, Not-now). No
+  bypass; Home card stays discoverable.
+- **Result screen perceptually centered, full data** (`js/duel-ui.js` `_resultCol`/`_statRow`, `css/style.css`):
+  fixed-height crown slot on **both** columns (equal height → no tilt), subtle winner avatar ring (not a text line),
+  restrained 1.9rem score, stats as **three equal `.rs-row` rows** (Correct · Accuracy · Speed) with dividers. Fixed a
+  latent bug — a dead V1 `.duel-result-actions { flex-direction:column }` was silently **stacking** the live
+  Share/Finish row; removed → intended side-by-side `flex 1 : 1.5`.
+- **Premium share card** (`js/services/share-service.js` `_generateDuelCard`, full rewrite): brand header → winner
+  banner → two frosted player blocks (gradient avatar + name + big score + **accuracy + speed**) → centered VS badge →
+  dark gradient + accent glows + **gold winner ring**. Fixed a real defect — the old `_roundRect(…, fill)` 7th arg was
+  ignored so the score boxes **never rendered**. `js/duel-ui.js` now passes `mySpeed`/`opSpeed`/`total`.
+- **Answering screen rhythm, unified across modes** (`css/style.css`, `js/duel-manager.js`): `--drill-card-gap`
+  (larger card→Submit) + `--drill-submit-gap` (Submit lifts off the numpad); the **duel** card `bottom` now includes
+  `--drill-submit-gap` so Practice/Focus/Drills/Tests/**Duels** share one cadence. One skip design everywhere
+  (`.has-skip .skip-btn { flex: 0 0 33% }`, Submit ~67%, equal height). Duel header 66/33 (opponent chip / Exit).
+  Countdown overlay upgraded (z-index 1000 + blur) and the digit pops each tick (`_popCount`).
+- **Legacy-CSS purge** (`css/style.css`, −~495 lines): removed the twice-duplicated "Math Duel V2 — Countdown
+  Overlay / Premium Results" block, the dead "Active Duel Mini Card", and the dead V1 results block; the duplicate
+  `.duel-result-crown { animation: duelCrownBounce }` had been making the new crown slot bounce. Kept live `#duelResults`
+  + `.duel-result-score` + responsive rule. Zero JS refs to any removed selector (grep-verified).
+- **Verify:** `node --check` all touched JS (incl. service-worker); CSS braces 2344/2344; `node main-app/scripts/duel-sim.js`
+  47/47; dead-selector grep clean. **SW v98→v99.** Docs synced: [DECISION_LOG.md](DECISION_LOG.md) ADR-038, [VERSIONS.md](VERSIONS.md).
+
 ## 2026-06-14 — Math Duel P0 stabilization + result redesign (ADR-037)
 
 A two-device test surfaced P0s beyond the audit. **Guest received no questions** — root-caused to ADR-036's own

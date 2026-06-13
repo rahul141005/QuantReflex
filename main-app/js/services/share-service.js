@@ -581,6 +581,11 @@ var ShareService = (function () {
     _createPreviewModal(canvas, data);
   }
 
+  /**
+   * Premium esports-style Math Duel share card.
+   * Two frosted player blocks (avatar · name · big score · accuracy · speed), a centered VS badge,
+   * a winner banner + gold avatar ring, drawn over a dark gradient with accent glows.
+   */
   function _generateDuelCard(data) {
     var W = 1080;
     var PAD = 72;
@@ -594,116 +599,129 @@ var ShareService = (function () {
     if (!ctx) return null;
     ctx.clearRect(0, 0, W, BUFFER_H);
 
-    var y = 80;
-    ctx.textAlign = 'center';
-
-    /* Brand Header */
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 42px ' + FONT;
-    ctx.fillText('QuantReflex', W / 2, y);
-    y += 30;
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
-    ctx.font = '22px ' + FONT;
-    ctx.fillText('Math Duel Result', W / 2, y);
-    y += 100;
-
-    /* Winner Banner */
     var isDraw = data.result === 'draw';
-    var myName = data.myName;
-    var opName = data.opName;
-    var myScore = data.myScore;
-    var opScore = data.opScore;
+    var myName = String(data.myName || 'You');
+    var opName = String(data.opName || 'Opponent');
     var isWinner = data.winner === data.myUid;
 
-    var title = isDraw ? '🤝 DRAW!' : (isWinner ? '👑 ' + myName + ' WINS!' : '👑 ' + opName + ' WINS!');
-    
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 72px ' + FONT;
-    ctx.fillText(title, W / 2, y);
-    y += 120;
-
-    /* Score Comparison Grid */
-    var colW = 300;
-    var gap = 120;
-    var totalW = colW * 2 + gap;
-    var startX = (W - totalW) / 2;
-
-    _roundRect(ctx, startX, y, colW, 280, 24, isWinner && !isDraw ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)');
-    _roundRect(ctx, startX + colW + gap, y, colW, 280, 24, !isWinner && !isDraw ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)');
-
-    ctx.textAlign = 'center';
-    /* Player 1 */
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 28px ' + FONT;
-    ctx.fillText(myName, startX + colW / 2, y + 60);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 100px ' + FONT;
-    ctx.fillText(myScore, startX + colW / 2, y + 180);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '24px ' + FONT;
-    ctx.fillText('correct', startX + colW / 2, y + 230);
-
-    /* VS text */
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 48px ' + FONT;
-    ctx.fillText('VS', W / 2, y + 150);
-
-    /* Player 2 */
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 28px ' + FONT;
-    ctx.fillText(opName, startX + colW + gap + colW / 2, y + 60);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 100px ' + FONT;
-    ctx.fillText(opScore, startX + colW + gap + colW / 2, y + 180);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '24px ' + FONT;
-    ctx.fillText('correct', startX + colW + gap + colW / 2, y + 230);
-    
-    y += 340;
-
-    /* Metrics */
-    var metrics = [
-      { label: 'Accuracy', val1: data.myAccuracy + '%', val2: data.opAccuracy + '%' },
-      { label: 'Attempted', val1: data.myAttempted, val2: data.opAttempted }
-    ];
-
-    for (var i = 0; i < metrics.length; i++) {
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '600 32px ' + FONT;
-      ctx.textAlign = 'right';
-      ctx.fillText(metrics[i].val1, W / 2 - 140, y);
-      ctx.textAlign = 'left';
-      ctx.fillText(metrics[i].val2, W / 2 + 140, y);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#64748b';
-      ctx.font = '24px ' + FONT;
-      ctx.fillText(metrics[i].label, W / 2, y - 4);
-      y += 60;
+    /* ---- local draw helpers (closure over ctx) ---- */
+    function fillRR(x, yy, w, h, r, fill) { _roundRect(ctx, x, yy, w, h, r); ctx.fillStyle = fill; ctx.fill(); }
+    function strokeRR(x, yy, w, h, r, col, lw) { _roundRect(ctx, x, yy, w, h, r); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke(); }
+    function cleanSpd(s) { s = String(s == null ? '' : s); if (s.indexOf('No data') >= 0 || s === '') return '—'; return s.replace('/q', ''); }
+    function avatar(cx, cy, r, c1, c2, initial) {
+      var g = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
+      g.addColorStop(0, c1); g.addColorStop(1, c2);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath();
+      ctx.fillStyle = g; ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold ' + Math.round(r * 0.95) + 'px ' + FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(_duelInitial(initial), cx, cy + 2);
+      ctx.textBaseline = 'alphabetic';
     }
 
-    y += 80;
+    var y = 100;
+    ctx.textAlign = 'center';
 
-    /* Tagline */
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '600 32px ' + FONT;
-    ctx.fillText('Challenge accepted.', W / 2, y);
-    y += 100;
+    /* ── Brand header ── */
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 46px ' + FONT;
+    ctx.fillText('QuantReflex', W / 2, y);
+    y += 38;
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = '600 22px ' + FONT;
+    ctx.fillText('M A T H   D U E L', W / 2, y);
+    y += 64;
 
-    /* Draw final canvas */
+    /* ── Winner banner ── */
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 56px ' + FONT;
+    var bannerText = isDraw ? 'Draw' : ((isWinner ? myName : opName) + ' wins');
+    ctx.fillText((isDraw ? '🤝 ' : '👑 ') + _truncate(ctx, bannerText, CW - 110), W / 2, y);
+    y += 72;
+
+    /* ── Player cards ── */
+    var cardW = 392;
+    var cardH = 472;
+    var card1X = PAD;
+    var card2X = W - PAD - cardW;
+    var yC = y;
+    var glowX = null, glowY = null;
+
+    function drawPlayer(cardX, name, score, accStr, spdStr, c1, c2, isW) {
+      var cx = cardX + cardW / 2;
+      fillRR(cardX, yC, cardW, cardH, 28, isW ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.035)');
+      strokeRR(cardX, yC, cardW, cardH, 28, isW ? 'rgba(251,191,36,0.9)' : 'rgba(255,255,255,0.08)', isW ? 3 : 1.5);
+      var ay = yC + 104;
+      if (isW) { ctx.beginPath(); ctx.arc(cx, ay, 70, 0, Math.PI * 2); ctx.closePath(); ctx.fillStyle = 'rgba(251,191,36,0.20)'; ctx.fill(); }
+      avatar(cx, ay, 58, c1, c2, name);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#f1f5f9'; ctx.font = '600 30px ' + FONT;
+      ctx.fillText(_truncate(ctx, name, cardW - 56), cx, yC + 210);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 96px ' + FONT;
+      ctx.fillText(String(score), cx, yC + 318);
+      ctx.fillStyle = '#64748b'; ctx.font = '600 19px ' + FONT;
+      ctx.fillText('C O R R E C T', cx, yC + 354);
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cardX + 40, yC + 384); ctx.lineTo(cardX + cardW - 40, yC + 384); ctx.stroke();
+      var lx = cardX + cardW * 0.30, rx = cardX + cardW * 0.70;
+      ctx.fillStyle = '#94a3b8'; ctx.font = '600 18px ' + FONT;
+      ctx.fillText('ACCURACY', lx, yC + 420);
+      ctx.fillText('SPEED', rx, yC + 420);
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 30px ' + FONT;
+      ctx.fillText(accStr, lx, yC + 456);
+      ctx.fillText(spdStr, rx, yC + 456);
+      if (isW) { glowX = cx; glowY = ay; }
+    }
+
+    drawPlayer(card1X, myName, data.myScore, data.myAccuracy + '%', cleanSpd(data.mySpeed), '#3b82f6', '#2563eb', isWinner && !isDraw);
+    drawPlayer(card2X, opName, data.opScore, data.opAccuracy + '%', cleanSpd(data.opSpeed), '#fb7185', '#f43f5e', !isWinner && !isDraw);
+
+    /* VS badge centered in the gap, aligned to the avatars */
+    var vsY = yC + 104;
+    ctx.beginPath(); ctx.arc(W / 2, vsY, 42, 0, Math.PI * 2); ctx.closePath();
+    ctx.fillStyle = '#0b1220'; ctx.fill();
+    ctx.strokeStyle = 'rgba(148,163,184,0.40)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#cbd5e1'; ctx.font = 'bold 30px ' + FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('VS', W / 2, vsY + 1); ctx.textBaseline = 'alphabetic';
+
+    y = yC + cardH + 58;
+
+    /* ── Footer ── */
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '600 30px ' + FONT;
+    ctx.fillText('Think you can solve faster?', W / 2, y);
+    y += 44;
+    ctx.fillStyle = 'rgba(148,163,184,0.75)'; ctx.font = '24px ' + FONT;
+    ctx.fillText('quantreflex.app', W / 2, y);
+    y += 64;
+
+    /* ── Compose final canvas: gradient bg + accent glows under the content buffer ── */
+    var H = Math.ceil(y);
     var finalCanvas = document.createElement('canvas');
     finalCanvas.width = W;
-    finalCanvas.height = y;
+    finalCanvas.height = H;
     var fctx = finalCanvas.getContext('2d');
-
-    var bgGrad = fctx.createLinearGradient(0, 0, 0, y);
-    bgGrad.addColorStop(0, '#0f172a');
+    var bgGrad = fctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, '#0b1220');
+    bgGrad.addColorStop(0.5, '#0f172a');
     bgGrad.addColorStop(1, '#020617');
     fctx.fillStyle = bgGrad;
-    fctx.fillRect(0, 0, W, y);
-
-    fctx.drawImage(canvas, 0, 0, W, y, 0, 0, W, y);
+    fctx.fillRect(0, 0, W, H);
+    function radial(cx, cy, r, col) {
+      var g = fctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+      fctx.fillStyle = g; fctx.fillRect(0, 0, W, H);
+    }
+    radial(180, 230, 440, 'rgba(59,130,246,0.16)');
+    radial(900, 250, 440, 'rgba(244,63,94,0.13)');
+    if (glowX != null) radial(glowX, glowY, 360, 'rgba(251,191,36,0.18)');
+    fctx.drawImage(canvas, 0, 0, W, H, 0, 0, W, H);
     return finalCanvas;
   }
+
+  /** First letter for a duel avatar (mirrors DuelUI._initial). */
+  function _duelInitial(name) { var n = String(name || '?').trim(); return n ? n.charAt(0).toUpperCase() : '?'; }
 
   /**
    * Generate and show the premium share card preview for Duels.
