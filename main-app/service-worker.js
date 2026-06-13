@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v90';
-const CACHE_NAME = 'qr-cache-v90';
+const APP_VERSION = 'v91';
+const CACHE_NAME = 'qr-cache-v91';
 
 var ASSETS = [
   './',
@@ -80,6 +80,7 @@ if (typeof Promise.allSettled !== 'function') {
 
 /* Install: pre-cache all assets — resilient: one failing asset won't abort install */
 self.addEventListener('install', function (event) {
+  self.skipWaiting();   // activate the new SW immediately — a deploy shouldn't wait for every old tab to close
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
       return Promise.allSettled(
@@ -176,7 +177,10 @@ self.addEventListener('fetch', function (event) {
         }
       });
 
-      /* StaleWhileRevalidate: Return cached response immediately while background fetch updates the cache */
+      /* App JS/CSS: NETWORK-FIRST so a new deploy is picked up on the very next load (the cache stays as the
+         offline fallback). Other assets (images / sounds / fonts): cache-first for speed + offline.
+         This stops a deploy from being masked by a stale cached bundle. */
+      if (isAppAsset) { return fetchPromise.then(function (resp) { return resp || cached; }); }
       return cached || fetchPromise;
     })
   );
