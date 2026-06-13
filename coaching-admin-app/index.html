@@ -86,32 +86,32 @@
     </main>
 
     <!-- Bottom Navigation (5 tabs, mobile-first; safe-area inset handled in CSS) -->
-    <nav class="bottom-nav" role="tablist" aria-label="Primary">
-      <button class="nav-tab active" data-view="dashboard" role="tab" aria-label="Dashboard" onclick="CoachingApp.navigateTo('dashboard')">
+    <nav class="bottom-nav" aria-label="Primary">
+      <button class="nav-tab active" data-view="dashboard" aria-label="Dashboard" aria-current="page" onclick="CoachingApp.navigateTo('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
         <span class="nav-tab-label">Home</span>
       </button>
-      <button class="nav-tab" data-view="students" role="tab" aria-label="Students" onclick="CoachingApp.navigateTo('students')">
+      <button class="nav-tab" data-view="students" aria-label="Students" onclick="CoachingApp.navigateTo('students')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
         <span class="nav-tab-label">Students</span>
       </button>
-      <button class="nav-tab" data-view="performance" role="tab" aria-label="Performance" onclick="CoachingApp.navigateTo('performance')">
+      <button class="nav-tab" data-view="performance" aria-label="Performance" onclick="CoachingApp.navigateTo('performance')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
         </svg>
         <span class="nav-tab-label">Performance</span>
       </button>
-      <button class="nav-tab" data-view="engagement" role="tab" aria-label="Engagement" onclick="CoachingApp.navigateTo('engagement')">
+      <button class="nav-tab" data-view="engagement" aria-label="Engagement" onclick="CoachingApp.navigateTo('engagement')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
         </svg>
         <span class="nav-tab-label">Engage</span>
       </button>
-      <button class="nav-tab" data-view="settings" role="tab" aria-label="Settings" onclick="CoachingApp.navigateTo('settings')">
+      <button class="nav-tab" data-view="settings" aria-label="Settings" onclick="CoachingApp.navigateTo('settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>

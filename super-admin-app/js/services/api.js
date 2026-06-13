@@ -110,6 +110,14 @@ var API = (function () {
     });
   }
 
+  /* Edit operational fields (name / capacity / logoUrl) — ADR-030. */
+  function editCoaching(coachingId, data) {
+    return _fetch('/api/admin/coachings?action=edit', {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ coachingId: coachingId }, data || {}))
+    });
+  }
+
   function mutateCoaching(coachingId, action, confirm) {
     var payload = { coachingId: coachingId, action: action };
     if (confirm) payload.confirm = confirm; /* required by the server for suspend/delete (cascade revoke) */
@@ -233,6 +241,7 @@ var API = (function () {
     grantEntitlement: grantEntitlement,
     getCoachings: getCoachings,
     createCoaching: createCoaching,
+    editCoaching: editCoaching,
     mutateCoaching: mutateCoaching,
     getQuestions: getQuestions,
     saveQuestion: saveQuestion,

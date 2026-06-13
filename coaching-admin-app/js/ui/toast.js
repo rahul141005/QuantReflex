@@ -28,6 +28,7 @@ var Toast = (function () {
 
   function success(msg, dur) { show(msg, dur || 3000, 'success'); }
   function error(msg, dur) { show(msg, dur || 4000, 'error'); }
+  function info(msg, dur) { show(msg, dur || 3000, 'info'); }
 
-  return { show: show, success: success, error: error };
+  return { show: show, success: success, error: error, info: info };
 })();

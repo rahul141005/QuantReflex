@@ -22,7 +22,7 @@ var StudentsView = (function () {
       _cursor = (data && data.nextCursor) || null;
       _renderRoster(root);
     }).catch(function (err) {
-      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
+      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">' + U.icon('alert', 28) + '</div>' +
         '<div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
         '<button class="btn btn-outline btn-sm mt-md" onclick="StudentsView.render(true)">Retry</button></div></div>';
     });
@@ -55,38 +55,26 @@ var StudentsView = (function () {
   function _renderRoster(root) {
     if (!_all.length) {
       var code = CoachingState.get('coachingId') || '';
-      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">👥</div>' +
+      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">' + U.icon('users', 28) + '</div>' +
         '<div class="empty-state-text">No students yet</div>' +
         '<div class="empty-state-hint">Share your coaching code <strong>' + U.escapeHtml(code) + '</strong> so students can join.</div></div></div>';
       return;
     }
 
-    function pill(active, key, label) {
+    function pill(key, label) {
       return '<button class="' + (key === _sort ? 'active' : '') + '" onclick="StudentsView.setSort(\'' + key + '\')">' + label + '</button>';
     }
     var rows = _sorted(_all.filter(_matches));
 
     var html = '<div class="view-pad">';
     html += '<input type="search" id="stuSearch" class="auth-input mb-md" placeholder="Search by name or email" aria-label="Search students" value="' + U.escapeHtml(_text) + '" />';
-    html += '<div class="seg mb-md">' + pill(1, 'recent', 'Recent') + pill(1, 'speed', '⚡ Fastest') + pill(1, 'accuracy', '🎯 Accuracy') + '</div>';
+    html += '<div class="seg mb-md">' + pill('recent', 'Recent') + pill('speed', 'Fastest') + pill('accuracy', 'Accuracy') + '</div>';
 
     if (!rows.length) {
       html += '<div class="empty-state"><div class="empty-state-text">No students match “' + U.escapeHtml(_text) + '”.</div></div>';
     } else {
-      html += rows.map(function (s) {
-        var name = s.name || s.uid;
-        var speedTxt = (s.speed && s.speed !== 999) ? ('⚡ ' + s.speed.toFixed(1) + 's') : '⚡ —';
-        var accTxt = '🎯 ' + (s.accuracy || 0) + '%';
-        return '<div class="list-row" role="button" tabindex="0" onclick="StudentsView.showProfile(\'' + U.escapeHtml(s.uid) + '\')" ' +
-          'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();StudentsView.showProfile(\'' + U.escapeHtml(s.uid) + '\');}" ' +
-          'aria-label="Open ' + U.escapeHtml(name) + '">' +
-          '<div class="list-row-main">' +
-            '<div class="list-row-title">' + U.escapeHtml(name) + ' ' + U.getSubscriptionBadge(s.plan, s.isTrial) + '</div>' +
-            '<div class="list-row-sub">' + speedTxt + ' · ' + accTxt + ' · ' + U.escapeHtml(U.getRelativeTime(s.lastActive)) + '</div>' +
-          '</div>' +
-          '<span class="more-chevron">›</span>' +
-        '</div>';
-      }).join('');
+      var now = Date.now();
+      html += rows.map(function (s) { return _rosterRow(s, now); }).join('');
       if (_cursor) {
         html += '<button class="btn btn-outline btn-full mt-md" id="stuMore" onclick="StudentsView.loadMore()">Load more</button>';
       }
@@ -104,6 +92,38 @@ var StudentsView = (function () {
         if (s2) { s2.focus(); try { s2.setSelectionRange(caret, caret); } catch (_) { /* unsupported input type */ } }
       });
     }
+  }
+
+  /* Triage row (ADR-030): speed-led, plus the streak + weak-topic + attention dot the API already returns
+     (they were discarded before V4). "New" replaces "⚡—" for a student with no timed sets yet. */
+  function _rosterRow(s, now) {
+    var name = s.name || s.uid;
+    var lastMs = s.lastActive ? (Date.parse(s.lastActive) || 0) : 0;
+    var idleDays = lastMs ? (now - lastMs) / 86400000 : 999;
+    var dotCls = idleDays >= 3 ? 'attn-dot attn-red' : (idleDays >= 1 ? 'attn-dot attn-amber' : 'attn-dot attn-green');
+
+    var isNew = !(s.speed && s.speed !== 999) && (s.totalAttempted || 0) === 0;
+    var speedHtml = (s.speed && s.speed !== 999)
+      ? '<span class="roster-speed">' + s.speed.toFixed(1) + '<span class="roster-speed-u">s</span></span>'
+      : (isNew ? '<span class="roster-new">New</span>' : '<span class="roster-speed roster-speed-none">—</span>');
+
+    var subParts = [];
+    subParts.push((s.accuracy || 0) + '% acc');
+    if (s.streak) subParts.push(U.icon('flame', 12) + ' ' + s.streak + 'd');
+    if (s.weakTopic) subParts.push('weak: ' + U.escapeHtml(U.capitalize(s.weakTopic)));
+    subParts.push(U.escapeHtml(U.getRelativeTime(s.lastActive)));
+
+    return '<div class="list-row roster-row" role="button" tabindex="0" onclick="StudentsView.showProfile(\'' + U.escapeHtml(s.uid) + '\')" ' +
+      'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();StudentsView.showProfile(\'' + U.escapeHtml(s.uid) + '\');}" ' +
+      'aria-label="Open ' + U.escapeHtml(name) + '">' +
+      '<span class="' + dotCls + '" aria-hidden="true"></span>' +
+      '<div class="list-row-main">' +
+        '<div class="list-row-title">' + U.escapeHtml(name) + ' ' + U.getSubscriptionBadge(s.plan, s.isTrial) + '</div>' +
+        '<div class="list-row-sub roster-sub">' + subParts.join(' · ') + '</div>' +
+      '</div>' +
+      speedHtml +
+      '<span class="more-chevron">›</span>' +
+    '</div>';
   }
 
   function setSort(key) {
@@ -135,7 +155,7 @@ var StudentsView = (function () {
         StudentProfileView.buildProfileHtml(data) + '</div>';
     }).catch(function (err) {
       root.innerHTML = '<div class="view-pad"><button class="btn btn-sm btn-outline mb-md" onclick="StudentsView.render()">‹ Back</button>' +
-        '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
+        '<div class="empty-state"><div class="empty-state-icon">' + U.icon('alert', 28) + '</div><div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
         '<button class="btn btn-outline btn-sm mt-md" onclick="StudentsView.showProfile(\'' + U.escapeHtml(uid) + '\')">Retry</button></div></div>';
     });
   }

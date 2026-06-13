@@ -1022,11 +1022,15 @@ document.addEventListener('DOMContentLoaded', function () {
             /* Inline escape (no load-order assumption on the global escapeHtml). */
             function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]; }); }
             if (data && data.valid) {
-              /* Trust signal (ADR-029): confirm WHICH institute, not a generic "valid". */
-              var nm = data.name ? ('Joined: ' + _esc(data.name)) : 'Valid coaching code';
+              /* Trust signal (ADR-030): confirm WHICH institute ("Connected to <name>"), with the logo when
+                 the coaching has set one (coachings.logoUrl) — a stronger join confirmation than "valid". */
+              var nm = data.name ? ('Connected to ' + _esc(data.name)) : 'Valid coaching code';
               var sc = (typeof data.studentCount === 'number' && data.studentCount > 0) ? (' · ' + data.studentCount + ' students') : '';
+              var logo = (typeof data.logoUrl === 'string' && /^https:\/\//i.test(data.logoUrl))
+                ? '<img class="coaching-join-logo" src="' + _esc(data.logoUrl) + '" alt="" onerror="this.style.display=\'none\'" /> ' : '';
               coachingIdValidationEl.className = 'login-field-validation active all-valid';
-              coachingIdValidationEl.innerHTML = '<span class="val-summary">✓ ' + nm + sc + '</span>';
+              /* The ✓ is supplied by .val-summary::before — don't add a literal one (would double it). */
+              coachingIdValidationEl.innerHTML = '<span class="val-summary">' + logo + nm + sc + '</span>';
               loginCoachingId.classList.remove('input-error');
               loginCoachingId.classList.add('input-valid');
             } else {

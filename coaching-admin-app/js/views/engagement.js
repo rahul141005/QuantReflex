@@ -31,6 +31,22 @@ var EngagementView = (function () {
     var root = document.getElementById('view-engagement');
     if (!root) return;
     var pending = _pending; _pending = null;
+    root.innerHTML = '<div class="view-pad">' + U.skeletonCard(4) + '</div>';
+    /* Pull the dashboard (cached → instant) so audience counts + at-risk names + top performers are REAL,
+       not blind (ADR-030). Failure degrades to no-counts, never blocks sending. */
+    CoachingAPI.getDashboard().then(function (dash) { _paint(root, pending, dash || {}); })
+      .catch(function () { _paint(root, pending, {}); });
+  }
+
+  function _paint(root, pending, dash) {
+    var m = (dash && dash.metrics) || {};
+    var inactive = (dash && dash.inactiveStudents) || [];
+    var strongest = (dash && dash.strongestStudents) || [];
+    var total = m.totalStudents || 0;
+    var premium = m.premiumUsers || 0;
+    var free = (total && premium != null) ? Math.max(0, total - premium) : null;
+    function cnt(n) { return (n != null) ? ' <span class="seg-count">' + n + '</span>' : ''; }
+
     /* Honor a chip-selected audience. 'all'|'premium'|'free' show the selector; behavior segments
        ('inactive'|'lowstreak') show a "targeting" banner and the server filters them (ADR-029). */
     var initSeg = (pending && !pending.targetUid && !pending.targetTopic && pending.segment) ? pending.segment : 'all';
@@ -38,8 +54,8 @@ var EngagementView = (function () {
 
     var html = '<div class="view-pad">';
 
-    /* ── 1) Quick Broadcast ── */
-    html += '<div class="section-label">Quick broadcast</div><div class="card mb-md">';
+    /* ── 1) Quick Broadcast (audience counts are live) ── */
+    html += '<div class="section-title">Quick broadcast</div><div class="card mb-md">';
     if (pending && pending.targetUid) {
       html += '<div class="pill good mb-sm">Sending to ' + U.escapeHtml(pending.targetName) + '</div>';
     } else if (pending && pending.targetTopic) {
@@ -48,9 +64,9 @@ var EngagementView = (function () {
       html += '<div class="pill warn mb-sm">Targeting ' + (initSeg === 'inactive' ? 'inactive (3+ days)' : 'low-streak') + ' students</div>';
     } else {
       html += '<div class="seg mb-sm" id="engSeg">' +
-        '<button class="' + (initSeg === 'all' ? 'active' : '') + '" data-seg="all" onclick="EngagementView.setSeg(\'all\')">Everyone</button>' +
-        '<button class="' + (initSeg === 'premium' ? 'active' : '') + '" data-seg="premium" onclick="EngagementView.setSeg(\'premium\')">Premium</button>' +
-        '<button class="' + (initSeg === 'free' ? 'active' : '') + '" data-seg="free" onclick="EngagementView.setSeg(\'free\')">Free</button>' +
+        '<button class="' + (initSeg === 'all' ? 'active' : '') + '" data-seg="all" onclick="EngagementView.setSeg(\'all\')">Everyone' + cnt(total || null) + '</button>' +
+        '<button class="' + (initSeg === 'premium' ? 'active' : '') + '" data-seg="premium" onclick="EngagementView.setSeg(\'premium\')">Premium' + cnt(premium) + '</button>' +
+        '<button class="' + (initSeg === 'free' ? 'active' : '') + '" data-seg="free" onclick="EngagementView.setSeg(\'free\')">Free' + cnt(free) + '</button>' +
       '</div>';
     }
     html += '<input type="text" id="engTitle" class="auth-input mb-sm" maxlength="100" placeholder="Title (e.g. Today\'s speed challenge)" value="' + U.escapeHtml(pending ? pending.title : '') + '" />';
@@ -58,23 +74,49 @@ var EngagementView = (function () {
     html += '<input type="hidden" id="engTargetUid" value="' + U.escapeHtml(pending && pending.targetUid ? pending.targetUid : '') + '" />';
     html += '<input type="hidden" id="engTargetTopic" value="' + U.escapeHtml(pending && pending.targetTopic ? pending.targetTopic : '') + '" />';
     html += '<button class="btn btn-primary btn-full mt-sm" id="engSend" onclick="EngagementView.send()">Send now</button>';
+    /* Broadcast presets (motivational, audience = current selector) — folded out of "Smart nudges" since
+       they don't target a behavior (ADR-030). */
+    html += '<div class="d-flex mt-sm" style="flex-wrap:wrap;gap:var(--space-sm);">';
+    html += _preset('Speed challenge', 'Today\'s speed challenge', 'Beat your best solving time today! Aim for a faster average than yesterday.');
+    html += _preset('Daily target', 'Hit 50 today', 'Target: 50 questions today. Small daily reps compound into big speed gains.');
+    html += '</div>';
     html += '</div>';
 
-    /* ── 2) Smart Nudges + Achievement broadcasts ── */
-    html += '<div class="section-label">Smart nudges</div><div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);" id="engChips">';
-    html += _chip('💤 Re-engage inactive', 'We miss you!', 'Haven\'t seen you practice lately — come back for a quick speed set today!', 'inactive');
-    html += _chip('⚡ Speed challenge', 'Today\'s speed challenge', 'Beat your best solving time today! Aim for a faster average than yesterday.', 'all');
-    html += _chip('🎯 Daily target', 'Hit 50 today', 'Target: 50 questions today. Small daily reps compound into big speed gains.', 'all');
-    html += _chip('🔥 Streak reminder', 'Keep your streak alive', 'Your practice streak is at risk — a 2-minute set keeps it going!', 'lowstreak');
+    /* ── 2) Smart Nudges — behavior-targeted (server filters to genuinely inactive/low-streak) ── */
+    html += '<div class="section-title">Smart nudges <span class="section-sub">targeted by behavior</span></div>';
+    html += '<div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);" id="engChips">';
+    html += _chip('Re-engage inactive', 'We miss you!', 'Haven\'t seen you practice lately — come back for a quick speed set today!', 'inactive');
+    html += _chip('Streak reminder', 'Keep your streak alive', 'Your practice streak is at risk — a 2-minute set keeps it going!', 'lowstreak');
     html += '</div>';
 
-    html += '<div class="section-label">Celebrate</div><div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);">';
-    html += _chip('🏆 Top performers', 'Shoutout to our top performers', 'Huge congratulations to this week\'s fastest and most consistent students — keep it up!', 'all');
-    html += _chip('📈 Most improved', 'Most improved this week', 'Big shoutout to everyone who got faster this week. Improvement is the whole game!', 'all');
-    html += '</div>';
+    /* At-risk students with NAMES (real, from the dashboard) — one-tap per-student nudge. */
+    if (inactive.length) {
+      html += '<div class="section-label mt-md">At-risk students</div>';
+      html += inactive.slice(0, 5).map(function (s) {
+        var name = s.name || s.uid; var safe = (name + '').replace(/'/g, '');
+        return '<div class="list-row list-row-tight"><div class="list-row-main">' +
+          '<div class="list-row-title">' + U.escapeHtml(name) + '</div>' +
+          '<div class="list-row-sub">Last seen ' + U.escapeHtml(U.getRelativeTime(s.lastActive)) + '</div></div>' +
+          '<button class="btn btn-sm btn-outline" onclick="EngagementView.nudgeStudent(\'' + U.escapeHtml(s.uid) + '\',\'' + U.escapeHtml(safe) + '\')">Nudge</button></div>';
+      }).join('');
+    }
 
-    /* ── 3) Recent notices (last 20, read-only) ── */
-    html += '<div class="section-label">Recent notices</div><div id="engHistory">' + U.skeletonCard(2) + '</div>';
+    /* ── 3) Celebrate — names the actual top performers (real, from strongestStudents) ── */
+    html += '<div class="section-title">Celebrate</div>';
+    var topNames = strongest.slice(0, 3).map(function (s) { return s.name; }).filter(Boolean);
+    if (topNames.length) {
+      var nameList = topNames.map(function (n) { return U.truncate(n, 18); }).join(', ');
+      var celebrateBody = 'Huge congratulations to ' + nameList + ' for leading the way this week — keep it up, everyone!';
+      html += '<div class="card mb-md"><div class="list-row-sub mb-sm">Top performers right now: <strong>' + U.escapeHtml(nameList) + '</strong></div>' +
+        '<button class="btn btn-outline btn-full" onclick="EngagementView.fill(\'Shoutout to our top performers\',\'' + celebrateBody.replace(/'/g, '\\\'') + '\',\'all\')">Broadcast a shoutout</button></div>';
+    } else {
+      html += '<div class="d-flex" style="flex-wrap:wrap;gap:var(--space-sm);">' +
+        _preset('Top performers', 'Shoutout to our top performers', 'Huge congratulations to this week\'s fastest and most consistent students — keep it up!') +
+        '</div>';
+    }
+
+    /* ── 4) Recent notices (last 20, read-only) ── */
+    html += '<div class="section-title">Recent notices</div><div id="engHistory">' + U.skeletonCard(2) + '</div>';
 
     html += '</div>';
     root.innerHTML = html;
@@ -106,6 +148,19 @@ var EngagementView = (function () {
   function _chip(label, title, body, seg) {
     var t = title.replace(/'/g, '\\\''), b = body.replace(/'/g, '\\\'');
     return '<button class="pill" style="cursor:pointer;padding:8px 12px;" onclick="EngagementView.fill(\'' + t + '\',\'' + b + '\',\'' + seg + '\')">' + label + '</button>';
+  }
+
+  /* A broadcast preset just fills the title/body in place (preserving the chosen audience) — it does NOT
+     re-target a behavior segment, so it must not re-render with a segment (ADR-030). */
+  function _preset(label, title, body) {
+    var t = title.replace(/'/g, '\\\''), b = body.replace(/'/g, '\\\'');
+    return '<button class="pill" style="cursor:pointer;padding:8px 12px;" onclick="EngagementView.fillText(\'' + t + '\',\'' + b + '\')">' + label + '</button>';
+  }
+  function fillText(title, body) {
+    var t = document.getElementById('engTitle'), b = document.getElementById('engBody');
+    if (t) t.value = title;
+    if (b) b.value = body;
+    if (b) b.focus();
   }
 
   function fill(title, body, seg) {
@@ -150,5 +205,5 @@ var EngagementView = (function () {
     });
   }
 
-  return { render: render, send: send, setSeg: setSeg, fill: fill, nudgeStudent: nudgeStudent, nudgeTopic: nudgeTopic };
+  return { render: render, send: send, setSeg: setSeg, fill: fill, fillText: fillText, nudgeStudent: nudgeStudent, nudgeTopic: nudgeTopic };
 })();

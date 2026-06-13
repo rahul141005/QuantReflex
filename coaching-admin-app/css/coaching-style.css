@@ -1859,3 +1859,101 @@ input, button, textarea, select { font-family: inherit; font-size: inherit; }
 .speed-hero[role="button"]:active { background: var(--bg-card-hover); }
 .speed-hero[role="button"]:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 .metric-value { padding-right: 26px; }   /* keep long values clear of the absolutely-positioned .metric-icon */
+
+/* ════════════════════════════════════════════════════════════════════
+   V4 — premium UI surfaces + a11y (ADR-030)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Inline SVG icons (replace content emoji). Color follows currentColor. */
+.ic { display: inline-block; vertical-align: -0.15em; flex: none; }
+
+/* Metric-card icon now picks up the card's accent (was flat). */
+.metric-card .metric-icon { opacity: 0.85; color: var(--text-tertiary); }
+.metric-card.accent-emerald .metric-icon { color: var(--accent-emerald); }
+.metric-card.accent-amber   .metric-icon { color: var(--accent-amber); }
+.metric-card.accent-primary .metric-icon { color: var(--accent-primary); }
+.metric-card.accent-cyan    .metric-icon { color: var(--accent-cyan); }
+.metric-card.accent-red     .metric-icon { color: var(--accent-red); }
+
+/* Stronger section heading tier + inline subtitle. */
+.section-title { margin: var(--space-lg) 0 var(--space-sm); display: flex; align-items: baseline; gap: var(--space-sm); }
+.section-title:first-child { margin-top: 0; }
+.section-sub { font-size: var(--font-xs); font-weight: 500; color: var(--text-tertiary); }
+
+/* Speed-hero eyebrow label. */
+.speed-hero-eyebrow { display: inline-flex; align-items: center; gap: 5px; font-size: var(--font-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 4px; }
+
+/* Momentum (this week vs last) — compact 3-up. */
+.momentum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); margin-bottom: var(--space-md); }
+.momentum-stat { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-md); text-align: center; }
+.momentum-stat-val { font-family: var(--font-family-display); font-size: var(--font-xl); font-weight: 800; line-height: 1.1; }
+.momentum-stat-label { font-size: 0.66rem; color: var(--text-tertiary); margin-top: 2px; display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap; }
+
+/* Coaching-wins rows. */
+.list-row-tight { padding: var(--space-sm) 0; }
+.win-ic { color: var(--accent-amber); display: inline-flex; }
+.win-val { font-weight: 700; font-size: var(--font-sm); white-space: nowrap; }
+.rank-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-full); background: var(--bg-elevated); color: var(--text-secondary); font-size: var(--font-xs); font-weight: 700; }
+
+/* Roster triage row — attention dot + speed-led. */
+.roster-row { gap: var(--space-sm); }
+.attn-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-right: 2px; }
+.attn-green { background: var(--accent-emerald); }
+.attn-amber { background: var(--accent-amber); }
+.attn-red { background: var(--accent-red); }
+.roster-sub { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.roster-sub .ic { color: var(--accent-amber); }
+.roster-speed { font-family: var(--font-family-display); font-weight: 800; font-size: var(--font-lg); color: var(--accent-emerald); white-space: nowrap; }
+.roster-speed-u { font-size: var(--font-xs); font-weight: 600; color: var(--text-tertiary); margin-left: 1px; }
+.roster-speed-none { color: var(--text-tertiary); }
+.roster-new { font-size: var(--font-xs); font-weight: 700; color: var(--accent-primary); background: var(--accent-primary-glow); border: 1px solid var(--accent-primary); border-radius: var(--radius-full); padding: 2px 8px; }
+
+/* Audience-count chip in the engagement segment selector. */
+.seg-count { display: inline-block; min-width: 16px; padding: 0 5px; margin-left: 4px; border-radius: var(--radius-full); background: var(--bg-elevated); font-size: 0.66rem; font-weight: 700; }
+
+/* Coaching note textarea. */
+.note-textarea { width: 100%; resize: vertical; min-height: 64px; font-family: inherit; }
+
+/* Copyable coaching code row. */
+.coaching-code-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-md) 0; cursor: pointer; }
+.coaching-code-val { font-family: var(--font-family-mono, monospace); font-weight: 700; font-size: var(--font-lg); letter-spacing: .04em; }
+.coaching-code-copy { display: inline-flex; align-items: center; gap: 5px; font-size: var(--font-sm); font-weight: 600; color: var(--accent-primary); white-space: nowrap; }
+.coaching-code-row:active .coaching-code-copy { opacity: .6; }
+.coaching-code-row:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* Logo image variants. */
+.coaching-logo-img { object-fit: cover; }
+
+/* Settings inline info panels (How it works / Privacy). */
+.info-panel { padding: var(--space-md); margin: 0 0 var(--space-sm); background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); font-size: var(--font-sm); color: var(--text-secondary); }
+.info-panel p { margin: 0 0 var(--space-sm); }
+.info-panel p:last-child { margin-bottom: 0; }
+
+/* Toast info variant. */
+.toast.info { border-left: 3px solid var(--accent-primary); }
+
+/* Delta colors (shared by dashboard/performance/profile). */
+.delta-up { color: var(--accent-emerald); font-weight: 700; }
+.delta-down { color: var(--accent-red); font-weight: 700; }
+
+/* ── A11y: global focus-visible + reduced motion ── */
+.nav-tab:focus-visible,
+.btn:focus-visible,
+.seg button:focus-visible,
+.pill:focus-visible,
+.more-item:focus-visible,
+.list-row[role="button"]:focus-visible,
+.bar-chart-row[role="button"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

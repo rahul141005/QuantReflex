@@ -17,48 +17,116 @@ var PerformanceView = (function () {
     root.innerHTML = '<div class="view-pad">' + U.skeletonCard(5) + '</div>';
     Promise.all([
       CoachingAPI.getCoachingMetrics(forceRefresh).catch(function () { return { days: {} }; }),
-      CoachingAPI.getPerformance(forceRefresh).catch(function () { return {}; })
+      CoachingAPI.getPerformance(forceRefresh).catch(function () { return {}; }),
+      CoachingAPI.getDashboard(forceRefresh).catch(function () { return {}; })   // speed distribution, session improvement, leaderboard (ADR-030)
     ]).then(function (res) {
-      _paint(root, res[0] || { days: {} }, res[1] || {});
+      _paint(root, res[0] || { days: {} }, res[1] || {}, res[2] || {});
     }).catch(function (err) {
-      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">⚠️</div>' +
+      root.innerHTML = '<div class="view-pad"><div class="empty-state"><div class="empty-state-icon">' + U.icon('alert', 28) + '</div>' +
         '<div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
         '<button class="btn btn-outline btn-sm mt-md" onclick="PerformanceView.render(true)">Retry</button></div></div>';
     });
   }
 
-  function _paint(root, rollup, perf) {
+  function _paint(root, rollup, perf, dash) {
     var days = (rollup && rollup.days) || {};
     var keys = Object.keys(days).sort();
     var have = keys.length;
-    var latest = have ? days[keys[keys.length - 1]] : {};
     var speedSeries = keys.map(function (k) { return days[k].avgSpeed; }).filter(function (v) { return v > 0; });
+    var m = (dash && dash.metrics) || {};
+    var strongest = (dash && dash.strongestStudents) || [];
+    var improvers = (dash && dash.topImprovers) || [];
+    var weak = (dash && dash.weakTopics) || [];
 
     var html = '<div class="view-pad">';
 
-    /* ── Coaching Improvement Score (vs the coaching's OWN history) ── */
-    html += '<div class="section-label">Coaching Improvement Score</div>';
-    if (have >= 7) {
-      var first = days[keys[0]], last = latest;
-      var speedImp = (first.avgSpeed > 0 && last.avgSpeed > 0) ? ((first.avgSpeed - last.avgSpeed) / first.avgSpeed) * 100 : 0; // +ve = faster
-      var accImp = (last.avgAccuracy || 0) - (first.avgAccuracy || 0);
-      var participation = last.participation || 0;
-      /* Simple, documented composite (0–100): speed improvement (45) + accuracy improvement (25) + participation (30). */
-      var score = Math.round(
-        Math.max(0, Math.min(1, speedImp / 25)) * 45 +
-        Math.max(0, Math.min(1, accImp / 25)) * 25 +
-        (participation / 100) * 30
-      );
-      html += '<div class="card mb-md text-center">' +
-        '<div class="score-big">' + score + '<span class="speed-hero-unit"> / 100</span></div>' +
-        '<div class="list-row-sub mt-sm">Speed ' + U.deltaBadge(speedImp, false) + ' · Accuracy ' + U.deltaBadge(accImp, false) + ' · Participation ' + participation + '%</div>' +
-        '<div class="list-row-sub muted mt-sm">Measured against your own history over ' + have + ' days.</div></div>';
+    /* ── Anchor: today's coaching-wide avg speed (real now) ── */
+    var speedNow = (m.avgSpeed && m.avgSpeed > 0) ? m.avgSpeed.toFixed(1) : '—';
+    html += '<div class="speed-hero mb-md"><div style="flex:1;">' +
+      '<div class="speed-hero-eyebrow">' + U.icon('bolt', 15) + ' Today</div>' +
+      '<div><span class="speed-hero-num">' + speedNow + '</span> <span class="speed-hero-unit">s/question</span></div>' +
+      '<div class="speed-hero-label">Coaching-wide average solving speed</div></div></div>';
+
+    /* ── This week vs last (REAL today, from dated dailyHistory) — promoted to lead ── */
+    var at = perf.accuracyTrend || {};
+    var pt = perf.participation || {};
+    html += '<div class="section-title">This week vs last week</div><div class="metrics-grid mb-md">';
+    html += '<div class="metric-card accent-cyan"><div class="metric-value">' + (at.thisWeek != null ? at.thisWeek + '%' : '—') + '</div>' +
+      '<div class="metric-label">Accuracy ' + (at.change != null ? U.deltaBadge(at.change, false) : '') + '</div></div>';
+    html += '<div class="metric-card accent-primary"><div class="metric-value">' + (pt.activeThisWeek != null ? pt.activeThisWeek : '—') + '</div>' +
+      '<div class="metric-label">Active students ' + (pt.change != null ? U.deltaBadge(pt.change, false) : '') + '</div></div>';
+    html += '</div>';
+
+    /* ── Speed distribution (real now — counts only, ADR-030) ── */
+    var sd = m.speedDistribution || {};
+    var totalSd = (sd.fast || 0) + (sd.onTrack || 0) + (sd.slow || 0);
+    html += '<div class="section-title">Speed distribution</div>';
+    if (totalSd > 0) {
+      function bucketBar(label, n, color) {
+        var pct = Math.round((n / totalSd) * 100);
+        return '<div class="bar-chart-row">' +
+          '<div class="bar-chart-label">' + label + '</div>' +
+          '<div class="bar-chart-track"><div class="bar-chart-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+          '<div class="bar-chart-value">' + n + '</div></div>';
+      }
+      html += '<div class="card mb-md">' +
+        bucketBar('Fast (&lt;5s)', sd.fast || 0, 'var(--accent-emerald)') +
+        bucketBar('On track (5–10s)', sd.onTrack || 0, 'var(--accent-primary)') +
+        bucketBar('Slow (10s+)', sd.slow || 0, 'var(--accent-amber)') +
+        '<div class="list-row-sub muted mt-sm">Based on each student\'s average solving speed.</div></div>';
     } else {
-      html += U.collectingCard('Coaching Improvement Score', have, 7);
+      html += '<div class="empty-state"><div class="empty-state-text">No timed practice yet to chart speed spread.</div></div>';
     }
 
-    /* ── Speed trend (North Star) ── */
-    html += '<div class="section-label">Speed trend (lower is faster)</div>';
+    /* ── Session Improvement (ADR-030 — honest cold-start speed proof) ── */
+    html += '<div class="section-title">Session Improvement <span class="section-sub">faster by end of session</span></div>';
+    if (improvers.length && m.avgSessionImprovement != null) {
+      html += '<div class="card mb-md">' +
+        '<div class="d-flex" style="justify-content:space-between;align-items:baseline;">' +
+          '<div class="font-semibold">Coaching average</div>' +
+          '<div class="font-bold" style="font-size:var(--font-lg);">' + (m.avgSessionImprovement > 0 ? '<span class="delta-up">↑ ' + m.avgSessionImprovement + '%</span>' : m.avgSessionImprovement + '%') + '</div>' +
+        '</div>' +
+        '<div class="list-row-sub">Students typically speed up this much from the first half to the last half of a session (' + (m.sessionImprovementSampleSize || 0) + ' student' + ((m.sessionImprovementSampleSize === 1) ? '' : 's') + ').</div>';
+      html += improvers.slice(0, 5).map(function (s) {
+        return '<div class="d-flex" style="justify-content:space-between;padding:var(--space-sm) 0;border-bottom:1px solid var(--border-subtle);">' +
+          '<div class="font-semibold">' + U.escapeHtml(U.truncate(s.name, 22)) + '</div>' +
+          '<div class="delta-up">↑ ' + Math.abs(Math.round(s.sessionImprovement)) + '%</div></div>';
+      }).join('');
+      html += '</div>';
+    } else {
+      html += '<div class="collecting"><div class="collecting-title">' + U.icon('bolt', 16) + ' Session Improvement</div>' +
+        '<div class="collecting-sub">Once students complete 6+ question timed sessions, we show who speeds up the most from start to finish.</div></div>';
+    }
+
+    /* ── Current fastest students (real now — leaderboard from strongestStudents) ── */
+    var fastest = strongest.filter(function (s) { return s.speed && s.speed > 0; })
+      .sort(function (a, b) { return a.speed - b.speed; }).slice(0, 5);
+    html += '<div class="section-title">Fastest right now</div>';
+    if (fastest.length) {
+      html += '<div class="card mb-md">' + fastest.map(function (s, i) {
+        return '<div class="d-flex" style="justify-content:space-between;align-items:center;padding:var(--space-sm) 0;border-bottom:1px solid var(--border-subtle);">' +
+          '<div class="d-flex" style="align-items:center;gap:var(--space-sm);"><span class="rank-num">' + (i + 1) + '</span><div class="font-semibold">' + U.escapeHtml(U.truncate(s.name, 22)) + '</div></div>' +
+          '<div class="font-bold" style="color:var(--accent-emerald);">' + s.speed.toFixed(1) + 's</div></div>';
+      }).join('') + '</div>';
+    } else {
+      html += '<div class="empty-state"><div class="empty-state-text">No timed sessions yet.</div></div>';
+    }
+
+    /* ── Weak topics across the coaching (real now) ── */
+    if (weak.length) {
+      html += '<div class="section-title">Weakest topics</div><div class="card mb-md">';
+      html += weak.slice(0, 5).map(function (t) {
+        var acc = t.accuracy || 0;
+        var color = acc >= 70 ? 'var(--accent-emerald)' : (acc >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)');
+        return '<div class="bar-chart-row"><div class="bar-chart-label">' + U.escapeHtml(U.capitalize(t.topic)) + '</div>' +
+          '<div class="bar-chart-track"><div class="bar-chart-fill" style="width:' + acc + '%;background:' + color + ';"></div></div>' +
+          '<div class="bar-chart-value">' + acc + '%</div></div>';
+      }).join('');
+      html += '</div>';
+    }
+
+    /* ── The genuinely-accruing multi-day speed trend (ONE honest teaser/chart) ── */
+    html += '<div class="section-title">Speed trend over time <span class="section-sub">lower is faster</span></div>';
     if (speedSeries.length >= 2) {
       var f = speedSeries[0], l = speedSeries[speedSeries.length - 1];
       var delta = f > 0 ? U.deltaBadge(((l - f) / f) * 100, true) : '';
@@ -69,34 +137,7 @@ var PerformanceView = (function () {
       if (have < 7) html += '<div class="list-row-sub muted mt-sm">Full 7-day trend in ' + (7 - have) + ' more day' + ((7 - have) === 1 ? '' : 's') + '.</div>';
       html += '</div>';
     } else {
-      /* Key the countdown to days that actually carry speed data (avgSpeed>0), not raw rollup days —
-         otherwise a sparse-speed coaching with ≥7 rollups would falsely read "enough data". */
-      html += U.collectingCard('7-day speed trend', speedSeries.length, 7);
-    }
-
-    /* ── Participation + Accuracy trend (REAL today, from dated dailyHistory) ── */
-    var at = perf.accuracyTrend || {};
-    var pt = perf.participation || {};
-    html += '<div class="section-label">This week vs last week</div><div class="metrics-grid mb-md">';
-    html += '<div class="metric-card"><div class="metric-value">' + (at.thisWeek != null ? at.thisWeek + '%' : '—') + '</div>' +
-      '<div class="metric-label">Accuracy ' + (at.change != null ? U.deltaBadge(at.change, false) : '') + '</div></div>';
-    html += '<div class="metric-card"><div class="metric-value">' + (pt.activeThisWeek != null ? pt.activeThisWeek : '—') + '</div>' +
-      '<div class="metric-label">Active students ' + (pt.change != null ? U.deltaBadge(pt.change, false) : '') + '</div></div>';
-    html += '</div>';
-
-    /* ── Top / bottom improvers (need real dated speed deltas) ── */
-    html += '<div class="section-label">Fastest improving students</div>';
-    html += U.collectingCard('Per-student speed improvement', have, 7);
-
-    /* ── Adoption (real now) + conversion/retention (collecting) ── */
-    html += '<div class="section-label">Adoption</div><div class="metrics-grid mb-md">';
-    html += '<div class="metric-card"><div class="metric-value">' + (latest.premiumCount != null ? latest.premiumCount : '—') + '</div><div class="metric-label">Premium</div></div>';
-    html += '<div class="metric-card"><div class="metric-value">' + (latest.trialCount != null ? latest.trialCount : '—') + '</div><div class="metric-label">On trial</div></div>';
-    html += '<div class="metric-card"><div class="metric-value">' + (latest.activeThisWeek != null ? latest.activeThisWeek : '—') + '</div><div class="metric-label">Active / week</div></div>';
-    html += '<div class="metric-card"><div class="metric-value">' + (latest.totalStudents != null ? latest.totalStudents : '—') + '</div><div class="metric-label">Total students</div></div>';
-    html += '</div>';
-    if (have < 7) {
-      html += U.collectingCard('Conversion & retention', have, 7);
+      html += U.collectingCard('Multi-day speed trend', speedSeries.length, 7);
     }
 
     html += '</div>';
