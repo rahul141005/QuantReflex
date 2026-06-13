@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Coaching-affiliation data correctness on Spark (Section 1, ADR-032)
+
+A brutally-honest repository audit, item 1: a student created with a **valid `coachingId`** was correctly
+affiliated (proven with live data — `users/{uid}.coachingId` set) yet Super-Admin showed the coaching with **0
+students**. Root cause traced end-to-end: `coachings/{id}.studentCount` was maintained **only** by the
+`syncCoachingStudentCount` `onDocumentWritten` trigger, which **does not run on Firebase Spark** — so every
+counter was frozen at its creation value. Fixed at the root, not the symptom.
+
+### fix(ADR-032): Spark-safe studentCount + affiliation reflects correctly across all three apps
+- Requested change: investigate + fix the coaching-affiliation bug properly (no symptom patches); prove data
+  correctness with code-level evidence before the larger redesign.
+- Impacted systems: Student App · Admin · Coaching (reads) · Firestore · APIs · (Functions, retired)
+- **studentCount maintenance moved into the request path** (trigger retired): `register` increments in its create
+  batch; `account.claim-coaching` and `users.reassign-coaching` adjust ±1 transactionally (reassign now
+  txn-wrapped, reads old+new before writing); `users.purge` (`_lib/user-lifecycle.js`) and `account.delete`
+  decrement best-effort before deleting the user doc. Decrement fires only when `coachingId` is actually removed —
+  suspend/archive keep it, matching live-`count()` semantics. Detail surfaces (Coaching-360) already use live
+  `count()` as truth; the `(coachingId, plan)` index it needs already exists.
+- **`syncCoachingStudentCount` neutralized** (`functions/index.js`) — early `return null` so it can never
+  double-count if the project ever moves to Blaze.
+- **`stats.lastActiveMs`/`lastActiveDate` initialized at register** so the coaching roster `orderBy('stats.
+  lastActiveMs')` never silently drops a never-practiced joiner.
+- **User-360 "recent duels"** repointed from the dead Duel-V1 `duels.where('participants.${uid}.status')` query to
+  `users/{uid}/duelHistory` (the canonical Duel-V2 record), and surfaced in the Activity timeline.
+- **Super-Admin Users list/detail** now resolves `coachingId → coaching name` (client-side, reusing the loaded
+  `_coachings`) instead of showing the raw code; Profile tab shows the current coaching by name.
+- Schema delta: `users.stats.{lastActiveMs,lastActiveDate}` now set at creation; `coachings.studentCount` writer
+  contract changed (request-path, not trigger). No new fields, paths, or indexes.
+- API delta: none (same endpoints/actions; internal write logic only).
+- Security review: **no change** — affiliation writes stay own-scoped (`claim-coaching`) / admin-gated; reads
+  unchanged; no rules touched.
+- Cross-app compatibility: Student writes the count on join; Coaching App + Super-Admin read it (list) or derive
+  it live (detail) — confirmed consistent with the live `count()` semantics.
+- Version bumps: Firestore 2.12→2.13, Architecture 2.12→2.13, Bible 2.20→2.21.
+- Migration: two one-time backfills (`firestore/diagnostics/backfill-student-counts.js`,
+  `backfill-stats-lastactive.js`) — read-then-write, **owner-authorized prod runs**; the audit script
+  (`affiliation-audit.js`) verifies `mismatch=FALSE` after.
+- Verification: `node --check` on every touched JS; read-only `affiliation-audit.js` before/after trace; grep proof
+  that no `participants.${uid}` reader remains and increment/decrement exists at each mutation site.
+
+---
+
 ## 2026-06-13 — Duel V2: server-authoritative premium 1v1 speed challenge — full rebuild (ADR-031)
 
 A 33-agent adversarial workflow + two red-team passes found **65 confirmed problems** in the client-trust duel

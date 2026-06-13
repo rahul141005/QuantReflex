@@ -42,6 +42,10 @@ async function purgeUser(db, uid) {
   const userDocRef = db.collection('users').doc(uid);
   const subs = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'entitlementLogs'];
   const report = { uid: uid, subcollections: {}, payments: 0, aiInsights: 0, aiStudyPlans: 0, userDoc: false, authAccount: false };
+  /* Capture the user's coaching BEFORE deletion so studentCount stays correct (ADR-032 — the trigger that used
+     to maintain it does not run on Spark). Best-effort; never blocks the purge. */
+  let coachingIdForCount = null;
+  try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (e) { /* ignore */ }
   await Promise.all(subs.map(function (s) {
     return _deleteSubcollection(db, userDocRef, s)
       .then(function (c) { report.subcollections[s] = c; })
@@ -54,6 +58,10 @@ async function purgeUser(db, uid) {
   ]);
   report.payments = related[0]; report.aiInsights = related[1]; report.aiStudyPlans = related[2];
   try { await userDocRef.delete(); report.userDoc = true; } catch (e) { /* ignore */ }
+  /* studentCount maintenance (ADR-032) — decrement the coaching this user belonged to, best-effort. */
+  if (coachingIdForCount) {
+    try { await db.collection('coachings').doc(coachingIdForCount).update({ studentCount: admin.firestore.FieldValue.increment(-1) }); } catch (e) { /* coaching may be gone */ }
+  }
   try { await admin.auth().deleteUser(uid); report.authAccount = true; } catch (e) { /* Auth user may not exist (Firestore-only) */ }
   return report;
 }

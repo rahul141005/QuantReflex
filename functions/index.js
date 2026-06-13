@@ -360,6 +360,14 @@ exports.dailyPracticeReminder = onSchedule(
 exports.syncCoachingStudentCount = onDocumentWritten(
   { document: 'users/{userId}' },
   async (event) => {
+    /* RETIRED (ADR-032, 2026-06-13): studentCount is now maintained in the REQUEST PATH
+       (register / claim-coaching / reassign-coaching / purge / self-delete) and read live via
+       count() at display time, because Firestore triggers do NOT run on the Spark plan — this
+       trigger never fired, leaving every counter frozen at 0. This no-op early-return also
+       prevents DOUBLE-counting if the project ever moves to Blaze and the trigger reactivates.
+       The original increment/decrement logic is preserved below for reference (unreachable). */
+    return null;
+    /* eslint-disable no-unreachable */
     const beforeData = event.data.before.exists ? event.data.before.data() : null;
     const afterData = event.data.after.exists ? event.data.after.data() : null;
 

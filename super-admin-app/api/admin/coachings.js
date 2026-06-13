@@ -247,9 +247,11 @@ async function handler(req, res) {
       const doc = await db.collection('coachings').doc(coachingId).get();
       if (!doc.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
       const d = doc.data();
+      /* Live count() is the source of truth for Coaching-360 (ADR-032) — the denormalized studentCount is only a
+         fallback if the aggregation read glitches. The premium count's (coachingId, plan) composite index exists. */
       let studentCount = (d.studentCount != null ? d.studentCount : null), premiumCount = null;
       try { studentCount = (await db.collection('users').where('coachingId', '==', coachingId).count().get()).data().count; } catch (_) { /* keep denormalized */ }
-      try { premiumCount = (await db.collection('users').where('coachingId', '==', coachingId).where('plan', '==', 'premium').count().get()).data().count; } catch (_) { /* needs composite index — best-effort */ }
+      try { premiumCount = (await db.collection('users').where('coachingId', '==', coachingId).where('plan', '==', 'premium').count().get()).data().count; } catch (_) { /* (coachingId,plan) index present — best-effort guard */ }
       return res.status(200).json({
         id: doc.id, coachingId: doc.id, name: d.name || '', status: d.status || (d.isActive === false ? 'suspended' : 'active'),
         ownerEmail: d.ownerEmail || null, capacity: d.capacity != null ? d.capacity : null, entitlementPlan: d.entitlementPlan || null,

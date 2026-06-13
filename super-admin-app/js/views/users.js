@@ -19,6 +19,13 @@ var UsersView = (function () {
   function _fmtT(v) { return AdminUtils.formatDateTime(v); }
   function _entBadge(u) { var e = AdminUtils.entitlementState(u); return '<span class="badge ' + e.badgeClass + '">' + _esc(e.label) + '</span>'; }
   function _statusBadge(s) { s = s || 'active'; if (s === 'active') return ''; return ' <span class="badge ' + (s === 'suspended' ? 'badge-archived' : 'badge-draft') + '">' + _esc(s) + '</span>'; }
+  /* Resolve a coachingId → coaching name (ADR-032) so affiliation reads as the institute name, not a raw code.
+     Reuses the already-loaded _coachings (API.getCoachings on render). Unknown/deleted coaching → show the raw id. */
+  function _coachingName(id) {
+    if (!id) return null;
+    for (var i = 0; i < _coachings.length; i++) { var c = _coachings[i]; if ((c.id || c.coachingId) === id) return c.name || id; }
+    return id;
+  }
 
   function render() {
     var c = document.getElementById('view-users');
@@ -28,7 +35,7 @@ var UsersView = (function () {
       renderDetail: _renderDetail,
       emptyDetail: function () { return '<div class="splitview-empty empty-state"><div class="empty-state-icon">👤</div><div class="empty-state-text">Select a user to open their 360.</div></div>'; }
     });
-    if (!_coachings.length) { API.getCoachings().then(function (l) { _coachings = l || []; }).catch(function () { }); }
+    if (!_coachings.length) { API.getCoachings().then(function (l) { _coachings = l || []; if (document.getElementById('uList')) _renderList(); }).catch(function () { }); }
     _load();
   }
 
@@ -90,7 +97,7 @@ var UsersView = (function () {
         return '<div class="sv-row" role="button" tabindex="0" aria-label="Open ' + _esc(name) + '" data-sv-id="' + _esc(u.uid) + '" data-uid="' + _esc(u.uid) + '">' +
           (bulk ? '<input type="checkbox" class="uCheck" aria-label="Select ' + _esc(name) + '" data-uid="' + _esc(u.uid) + '" ' + (_bulk[u.uid] ? 'checked' : '') + ' onclick="event.stopPropagation();" /> ' : '') +
           '<div style="flex:1;min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">' + _esc(name) + _statusBadge(u.accountStatus) + '</div>' +
-          '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(u.coachingId) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
+          '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;">' + _esc(u.email || '') + (u.coachingId ? ' · ' + _esc(_coachingName(u.coachingId)) : '') + (u.lastActive ? ' · last ' + _fmt(u.lastActive) : '') + '</div></div>' +
           _entBadge(u) + '</div>';
       }).join('');
       listEl.querySelectorAll('.sv-row').forEach(function (r) {
@@ -169,6 +176,7 @@ var UsersView = (function () {
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
       _kv('Name', p.displayName) + _kv('Email', p.email) + _kv('UID', uid) +
       _kv('Plan', AdminUtils.entitlementState(p).label) + _kv('Plan source', p.planSource) + _kv('Account status', p.accountStatus || 'active') + _kv('Joined', _fmt(p.createdAt)) +
+      _kv('Coaching', _coachingName(p.coachingId) || 'Independent') +
       '<div style="margin-top:.75rem;"><label class="modal-label">Coaching affiliation</label><div style="display:flex;gap:.5rem;"><select class="modal-select" id="uReassign" style="flex:1;">' + opts + '</select><button class="btn btn-sm accent" id="uReassignBtn">Reassign</button></div></div></div>';
     document.getElementById('uReassignBtn').onclick = function () {
       var cid = document.getElementById('uReassign').value;

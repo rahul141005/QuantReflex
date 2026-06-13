@@ -73,6 +73,11 @@ async function _delete(req, res, db) {
   try {
     const userDocRef = db.collection('users').doc(uid);
 
+    /* Capture the user's coaching BEFORE deletion so we can keep its studentCount correct (ADR-032 — the
+       trigger that used to do this doesn't run on Spark). Best-effort; never blocks deletion. */
+    let coachingIdForCount = null;
+    try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (_) { /* ignore */ }
+
     /* Delete all subcollections in parallel. */
     const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications'];
     await Promise.all(subcollections.map(function (sub) {
@@ -99,6 +104,11 @@ async function _delete(req, res, db) {
     await userDocRef.delete();
     report.userDoc = true;
     console.log('[account:delete] User document deleted for uid:', uid);
+
+    /* studentCount maintenance (ADR-032) — decrement the coaching this user belonged to, best-effort. */
+    if (coachingIdForCount) {
+      try { await db.collection('coachings').doc(coachingIdForCount).update({ studentCount: admin.firestore.FieldValue.increment(-1) }); } catch (_) { /* coaching may be gone */ }
+    }
 
     /* Delete the Firebase Auth account. */
     await admin.auth().deleteUser(uid);
@@ -187,17 +197,24 @@ async function _claimCoaching(req, res, db) {
       }
 
       const userDoc = await transaction.get(userRef);
-      let oldCoachingId = null;
-      if (userDoc.exists) { oldCoachingId = userDoc.data().coachingId; }
+      const oldCoachingId = userDoc.exists ? (userDoc.data().coachingId || null) : null;
       if (oldCoachingId === cleanCoachingId) return;
 
-      /* The canonical `coachings.studentCount` is maintained by the
-         syncCoachingStudentCount Cloud Function, which fires on this coachingId
-         change. We deliberately do NOT increment a counter here. */
+      /* studentCount maintenance in the request path (ADR-032) — the syncCoachingStudentCount trigger does NOT
+         run on Spark, so the counter is moved here, transactionally. Read the old coaching BEFORE any write
+         (Firestore txn ordering: all reads precede all writes) and decrement it only if it still exists. */
+      let oldExists = false;
+      if (oldCoachingId) {
+        const oldDoc = await transaction.get(db.collection('coachings').doc(oldCoachingId));
+        oldExists = oldDoc.exists;
+      }
+      const inc = admin.firestore.FieldValue.increment;
       transaction.set(userRef, {
         coachingId: cleanCoachingId,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      transaction.update(newCoachingRef, { studentCount: inc(1) });
+      if (oldExists) transaction.update(db.collection('coachings').doc(oldCoachingId), { studentCount: inc(-1) });
     });
 
     return res.status(200).json({ success: true, message: 'Coaching claimed successfully.' });

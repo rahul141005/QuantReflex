@@ -100,10 +100,12 @@ async function handler(req, res) {
       const { uid } = req.query;
       if (!uid) return res.status(400).json({ error: 'Missing uid' });
 
-      const [userDoc, aiSnapshot, duelsSnapshot, entitlementLogs] = await Promise.all([
+      const [userDoc, aiSnapshot, duelHistorySnap, entitlementLogs] = await Promise.all([
         db.collection('users').doc(uid).get(),
         db.collection('users').doc(uid).collection('usage').doc('ai').get(),
-        db.collection('duels').where(`participants.${uid}.status`, 'in', ['finished', 'exited']).limit(10).get(),
+        /* Duel V2 (ADR-031/032): the per-user record is users/{uid}/duelHistory — the old
+           duels.where('participants.${uid}.status') query targeted a schema that no longer exists. */
+        db.collection('users').doc(uid).collection('duelHistory').orderBy('playedAt', 'desc').limit(10).get(),
         db.collection('users').doc(uid).collection('entitlementLogs').orderBy('timestamp', 'desc').limit(5).get()
       ]);
 
@@ -137,14 +139,15 @@ async function handler(req, res) {
         entitlementLogs: []
       };
 
-      duelsSnapshot.forEach(doc => {
+      duelHistorySnap.forEach(doc => {
         const d = doc.data();
         details.recentDuels.push({
           id: doc.id,
-          status: d.status || 'unknown',
-          winner: d.winner || null,
-          result: d.result || null,
-          createdAt: safeTimestampToISO(d.createdAt)
+          outcome: d.outcome || 'unknown',          /* 'win' | 'loss' | 'draw' */
+          opponentName: d.opponentName || 'Opponent',
+          myScore: (d.myScore != null ? d.myScore : null),
+          oppScore: (d.oppScore != null ? d.oppScore : null),
+          playedAt: safeTimestampToISO(d.playedAt)
         });
       });
 
@@ -185,6 +188,11 @@ async function handler(req, res) {
         const se = await db.collection('securityEvents').where('uid', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
         se.forEach(function (doc) { const d = doc.data(); events.push({ type: d.type || 'security', detail: d.reason || d.type || 'event', at: safeTimestampToISO(d.createdAt) }); });
       } catch (_) { /* [uid,createdAt] composite may be absent — degrade */ }
+      try {
+        /* Duel V2 (ADR-032): surface duel results in the activity timeline from the canonical per-user record. */
+        const dh = await db.collection('users').doc(uid).collection('duelHistory').orderBy('playedAt', 'desc').limit(20).get();
+        dh.forEach(function (doc) { const d = doc.data(); events.push({ type: 'duel', detail: 'vs ' + (d.opponentName || 'Opponent') + (d.outcome ? ' · ' + d.outcome : '') + ((d.myScore != null && d.oppScore != null) ? ' · ' + d.myScore + '–' + d.oppScore : ''), at: safeTimestampToISO(d.playedAt) }); });
+      } catch (_) { /* duelHistory subcollection may be absent */ }
       events.sort(function (a, b) { return String(b.at || '').localeCompare(String(a.at || '')); });
       return res.status(200).json({ uid: uid, timeline: events.slice(0, 30) });
     }
@@ -338,9 +346,25 @@ async function handler(req, res) {
       /* ── reassign-coaching (ADR-022) — move a user to another coaching (or independent) ── */
       if (action === 'reassign-coaching') {
         const newCoachingId = (typeof body.coachingId === 'string' && body.coachingId.trim()) ? body.coachingId.trim() : null;
-        const before = (await userRef.get()).data() || {};
-        await userRef.set({ coachingId: newCoachingId, updatedAt: nowIso }, { merge: true });
-        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reassign_coaching', category: 'user', targetType: 'user', targetId: uid, summary: 'reassigned ' + uid + ' → coaching ' + (newCoachingId || '(none)'), before: { coachingId: before.coachingId || null }, after: { coachingId: newCoachingId } });
+        let beforeCoachingId = null;
+        /* studentCount maintenance in the request path (ADR-032) — txn-wrapped: read old + new before writing,
+           decrement old / increment new only when they actually exist and the affiliation changes. */
+        await db.runTransaction(async function (t) {
+          const uDoc = await t.get(userRef);
+          beforeCoachingId = uDoc.exists ? (uDoc.data().coachingId || null) : null;
+          if (beforeCoachingId === newCoachingId) {
+            t.set(userRef, { coachingId: newCoachingId, updatedAt: nowIso }, { merge: true });
+            return;
+          }
+          let newExists = false, oldExists = false;
+          if (newCoachingId) { const nd = await t.get(db.collection('coachings').doc(newCoachingId)); newExists = nd.exists; }
+          if (beforeCoachingId) { const od = await t.get(db.collection('coachings').doc(beforeCoachingId)); oldExists = od.exists; }
+          const inc = admin.firestore.FieldValue.increment;
+          t.set(userRef, { coachingId: newCoachingId, updatedAt: nowIso }, { merge: true });
+          if (newCoachingId && newExists) t.update(db.collection('coachings').doc(newCoachingId), { studentCount: inc(1) });
+          if (beforeCoachingId && oldExists) t.update(db.collection('coachings').doc(beforeCoachingId), { studentCount: inc(-1) });
+        });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'reassign_coaching', category: 'user', targetType: 'user', targetId: uid, summary: 'reassigned ' + uid + ' → coaching ' + (newCoachingId || '(none)'), before: { coachingId: beforeCoachingId }, after: { coachingId: newCoachingId } });
         return res.status(200).json({ success: true, uid: uid, coachingId: newCoachingId });
       }
     }

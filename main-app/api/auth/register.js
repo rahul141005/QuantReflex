@@ -123,6 +123,14 @@ module.exports = async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       coachingId: coachingId || null,
 
+      // stats seed (ADR-032) — a real sortable lastActiveMs (+ human lastActiveDate) at creation, so the
+      // coaching roster query orderBy('stats.lastActiveMs') never silently excludes a never-practiced joiner
+      // (Firestore drops docs missing the orderBy field). Practice instrumentation deep-merges into stats later.
+      stats: {
+        lastActiveMs: Date.now(),
+        lastActiveDate: new Date().toDateString()
+      },
+
       // Entitlement Defaults (v2 — safe free tier)
       plan: 'free',
       planType: null,
@@ -142,6 +150,15 @@ module.exports = async (req, res) => {
       wordProblemsUsedToday: 0,
       explanationsUsed: 0
     });
+
+    // studentCount maintenance in the request path (ADR-032) — the syncCoachingStudentCount trigger does NOT run
+    // on Spark, so increment the canonical coaching counter here, atomically with the user-doc create. The
+    // coaching's existence + active status were validated above (step 1).
+    if (coachingId) {
+      batch.update(db.collection('coachings').doc(coachingId), {
+        studentCount: admin.firestore.FieldValue.increment(1)
+      });
+    }
 
     await batch.commit();
 

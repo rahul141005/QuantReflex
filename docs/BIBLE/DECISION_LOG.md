@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-032 — Spark-safe denormalized-counter maintenance: `studentCount` in the request path + live `count()` (2026-06-13)
+- **Context:** A student created with a valid `coachingId` was **correctly affiliated** (`users/{uid}.coachingId`
+  set — proven with live data via `firestore/diagnostics/affiliation-audit.js`), yet Super-Admin showed the
+  coaching with **0 students** (`denormalizedStudentCount=0` vs `liveStudentCount=1`, `mismatch=TRUE`). Root cause:
+  `coachings/{id}.studentCount` was maintained **only** by the `syncCoachingStudentCount` `onDocumentWritten`
+  trigger (`functions/index.js:360`), and the project runs on **Firebase Spark**, where Cloud Function triggers/
+  schedulers **do not run** (see [quantreflex-firebase-spark] memory / ADR-031). So every coaching's counter was
+  frozen at its creation value (0) forever. Three read-side defects compounded the confusion: the coaching roster
+  `orderBy('stats.lastActiveMs')` (`coaching/students.js:108`) silently **drops** students whose user doc never
+  initialized `stats` (register wrote none — Firestore excludes docs missing the orderBy field); the Super-Admin
+  User-360 "recent duels" query (`admin/users.js:106`) used the **removed Duel-V1** `participants.${uid}` schema;
+  and the Users list (`js/views/users.js:93`) rendered the **raw `coachingId` code** instead of the coaching name.
+- **Decision — retire trigger-based counter maintenance (hybrid: request-path maintenance + display-time truth):**
+  1. **Maintain `studentCount` in the request path**, transactionally, at every affiliation mutation — `register`
+     (+1, in the create batch), `account.claim-coaching` (±1, in its existing txn), `users.reassign-coaching`
+     (±1, now txn-wrapped), and the offboarding deletes `users.purge` / `account.delete` (−1, best-effort, guarded
+     by coaching existence). Decrements fire **only when `coachingId` is actually removed**; suspend/archive keep
+     `coachingId`, so they don't change the count — matching the live-`count()` semantics exactly.
+  2. **Live `count()` is the display-time source of truth** at detail surfaces (Coaching-360 `details` already runs
+     `users.where('coachingId','==',id).count()`; the `(coachingId, plan)` index for the premium count already
+     exists). The maintained field backs the **list** view (1000 coachings — a `count()` per row would be wasteful)
+     and is reconciled once by backfill.
+  3. **Neutralize the trigger** — `syncCoachingStudentCount` now no-ops with an early `return null` so it can never
+     **double-count** if the project ever moves to Blaze (request-path maintenance would then run alongside it).
+  4. **Initialize `stats.lastActiveMs`/`lastActiveDate` at register** so the roster `orderBy` never excludes a new
+     joiner (+ a one-time backfill for existing stat-less users).
+  5. **Repoint** the User-360 duels read to `users/{uid}/duelHistory` (the canonical Duel-V2 per-user record) and
+     surface it in the Activity timeline.
+  6. **Resolve `coachingId → coaching name`** in the Super-Admin Users list/detail — client-side, reusing the
+     already-loaded `_coachings` array (no backend N+1). The full Independent-vs-Coaching grouping is deferred to
+     the Section-2 redesign; this ADR only makes the existing affiliation **read correctly**.
+- **Options considered:** (a) *keep denormalizing only, fix the trigger* — impossible on Spark; rejected.
+  (b) *drop the counter; always `count()`* — drift-proof but a 1000-row list would issue 1000 aggregation queries
+  per load; rejected for the list, **adopted for detail**. (c) **hybrid (b-for-detail + request-path maintenance +
+  one-time backfill)** — correct-by-construction, cheap, self-healing at detail; **chosen.**
+- **Consequences:** Affiliation now reflects correctly across Student → Coaching → Super-Admin with **no trigger
+  dependency**. The counter is eventually-correct by construction and authoritatively reconciled by `count()` where
+  it matters. A tiny TOCTOU remains (a coaching deleted in the microsecond between validation and the increment
+  fails that one registration) — acceptable and rare. **Security:** no rules change — affiliation writes stay
+  own-scoped (student `claim-coaching`) / admin-gated (super-admin); reads unchanged. **Migration:** two one-time
+  backfills (`firestore/diagnostics/backfill-student-counts.js`, `backfill-stats-lastactive.js`) — owner-authorized
+  prod runs. **Supersedes** the FIRESTORE_BLUEPRINT "studentCount written only by the Cloud Function" note (audit
+  M8) and reopens it as **M8b**. Firestore 2.12→2.13, Arch 2.12→2.13, Bible 2.20→2.21.
+
+---
+
 ## ADR-031 — Duel V2: server-authoritative premium 1v1 speed challenge (full rebuild) (2026-06-13)
 - **Context:** A 33-agent adversarial workflow + two red-team passes found the existing client-trust duel system
   has **critical** fairness/recovery/integrity holes: the **answer key is stored plaintext in the room doc**
