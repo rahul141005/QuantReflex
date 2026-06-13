@@ -26,11 +26,16 @@ var StudentProfileView = (function () {
     html += '<div class="mt-sm" style="display:flex;gap:6px;flex-wrap:wrap;">' + U.getEngagementBadge(p.engagementLevel) + U.getSubscriptionBadge(p.plan, p.isTrial) + '</div>';
     html += '</div></div>';
 
-    /* Current speed hero */
+    /* Current speed hero + the practice VOLUME it's measured over (credibility — was discarded) */
     var speedStr = (s.avgSpeed && s.avgSpeed > 0) ? s.avgSpeed.toFixed(1) : '—';
+    var volTxt = (s.totalAttempted || 0) > 0
+      ? 'Across ' + U.formatNumber(s.totalAttempted) + ' questions practiced'
+      : 'Current average solving speed';
+    if ((s.todayAttempted || 0) > 0) volTxt += ' · ' + s.todayAttempted + ' today';
     html += '<div class="speed-hero mb-md"><div style="flex:1;">' +
+      '<div class="speed-hero-eyebrow">' + U.icon('bolt', 15) + ' Speed</div>' +
       '<div><span class="speed-hero-num">' + speedStr + '</span> <span class="speed-hero-unit">s/question</span></div>' +
-      '<div class="speed-hero-label">Current average solving speed</div></div></div>';
+      '<div class="speed-hero-label">' + volTxt + '</div></div></div>';
 
     /* Real speed curve from dated dailyHistory (ADR-027), else honest collecting state */
     var dh = data.dailyHistory || {};
@@ -53,9 +58,34 @@ var StudentProfileView = (function () {
 
     /* Accuracy + streak (secondary, real) */
     html += '<div class="metrics-grid mb-md">' +
-      '<div class="metric-card"><div class="metric-value">' + (s.accuracy != null ? s.accuracy + '%' : '—') + '</div><div class="metric-label">Lifetime accuracy</div></div>' +
-      '<div class="metric-card"><div class="metric-value">' + (s.dailyStreak || 0) + 'd ' + U.getStreakEmoji(s.dailyStreak) + '</div><div class="metric-label">Daily streak</div></div>' +
+      '<div class="metric-card accent-cyan"><div class="metric-value">' + (s.accuracy != null ? s.accuracy + '%' : '—') + '</div><div class="metric-label">Lifetime accuracy</div></div>' +
+      '<div class="metric-card accent-amber"><div class="metric-value">' + (s.dailyStreak || 0) + 'd</div><div class="metric-label">Daily streak</div></div>' +
     '</div>';
+
+    /* Session Improvement (ADR-030) — honest cold-start speed proof, kept SEPARATE from the multi-day trend. */
+    html += '<div class="section-label">Session Improvement</div>';
+    var sessImp = s.avgSessionImprovementPct;
+    var sessions = (data.recentSessions || []).filter(function (ss) { return typeof ss.sessionImprovementPct === 'number'; });
+    if (typeof sessImp === 'number' && sessions.length) {
+      var impSign = sessImp > 0 ? 'faster' : (sessImp < 0 ? 'slower' : 'flat');
+      html += '<div class="card mb-md">' +
+        '<div class="d-flex" style="justify-content:space-between;align-items:baseline;">' +
+          '<div class="font-semibold">Within a session, on average</div>' +
+          '<div class="font-bold" style="font-size:var(--font-lg);">' + (sessImp > 0 ? '<span class="delta-up">↑ ' + Math.abs(sessImp) + '%</span>' : (sessImp < 0 ? '<span class="delta-down">↓ ' + Math.abs(sessImp) + '%</span>' : '±0%')) + '</div>' +
+        '</div>' +
+        '<div class="list-row-sub">Typically ends each session ' + impSign + ' than they start (first half vs last half).</div>';
+      html += sessions.slice(0, 4).map(function (ss) {
+        var fa = ss.firstHalfAvg, sa = ss.secondHalfAvg;
+        var arrow = ss.sessionImprovementPct > 0 ? '<span class="delta-up">↑</span>' : (ss.sessionImprovementPct < 0 ? '<span class="delta-down">↓</span>' : '±');
+        return '<div class="d-flex" style="justify-content:space-between;padding:var(--space-sm) 0;border-bottom:1px solid var(--border-subtle);">' +
+          '<div class="list-row-sub">' + U.escapeHtml(U.getRelativeTime(ss.timestamp)) + '</div>' +
+          '<div class="font-semibold">' + (fa != null ? fa.toFixed(1) + 's' : '—') + ' → ' + (sa != null ? sa.toFixed(1) + 's' : '—') + ' ' + arrow + '</div></div>';
+      }).join('');
+      html += '</div>';
+    } else {
+      html += '<div class="collecting"><div class="collecting-title">' + U.icon('bolt', 16) + ' Session Improvement</div>' +
+        '<div class="collecting-sub">Shows how much faster this student gets from the start to the end of a session, once they complete a 6+ question timed session.</div></div>';
+    }
 
     /* Topic speed/accuracy — actionable nudge target (performance lens, not LMS remediation) */
     var cats = (data.categoryPerformance || []).slice();
@@ -81,7 +111,7 @@ var StudentProfileView = (function () {
       html += data.recentSessions.slice(0, 10).map(function (ss) {
         var acc = ss.total > 0 ? Math.round((ss.score / ss.total) * 100) : 0;
         var perQ = (ss.duration > 0 && ss.total > 0) ? (ss.duration / ss.total) : 0;
-        var speedTag = perQ > 0 ? ('⚡ ' + perQ.toFixed(1) + 's/q') : '';
+        var speedTag = perQ > 0 ? (perQ.toFixed(1) + 's/q') : '';
         return '<div class="d-flex" style="justify-content:space-between;padding:var(--space-sm) 0;border-bottom:1px solid var(--border-subtle);">' +
           '<div><div class="font-semibold">' + U.escapeHtml(U.capitalize(ss.category)) + '</div>' +
           '<div class="list-row-sub">' + U.escapeHtml(U.getRelativeTime(ss.timestamp)) + (speedTag ? ' · ' + speedTag : '') + '</div></div>' +
@@ -91,12 +121,39 @@ var StudentProfileView = (function () {
       html += '</div>';
     }
 
+    /* Coaching note (ADR-030) — one private plain-text note. Server-read/written (clients denied the path). */
+    var note = (data.note && data.note.text) ? data.note.text : '';
+    html += '<div class="section-label">Coaching note <span class="section-sub">private to you</span></div>';
+    html += '<div class="card mb-md">' +
+      '<textarea id="coachNote" class="auth-input note-textarea" rows="3" maxlength="2000" placeholder="A private note about this student (only you can see this)." aria-label="Coaching note">' + U.escapeHtml(note) + '</textarea>' +
+      '<div class="d-flex" style="justify-content:space-between;align-items:center;margin-top:var(--space-sm);">' +
+        '<span class="list-row-sub" id="noteMeta">' + (data.note && data.note.updatedAt ? 'Saved ' + U.escapeHtml(U.getRelativeTime(data.note.updatedAt)) : 'Not saved yet') + '</span>' +
+        '<button class="btn btn-sm btn-outline" onclick="StudentProfileView.saveNote(\'' + U.escapeHtml(p.uid) + '\')">Save note</button>' +
+      '</div></div>';
+
     /* Intervention */
-    html += '<button class="btn btn-primary btn-full mb-md" onclick="EngagementView.nudgeStudent(\'' + U.escapeHtml(p.uid) + '\',\'' + U.escapeHtml(safeName) + '\')">🔔 Send a nudge</button>';
+    html += '<button class="btn btn-primary btn-full mb-md" onclick="EngagementView.nudgeStudent(\'' + U.escapeHtml(p.uid) + '\',\'' + U.escapeHtml(safeName) + '\')">Send a nudge</button>';
     html += '<div class="text-center list-row-sub" style="padding-bottom:var(--space-lg);">Member since ' + U.escapeHtml(U.formatDate(p.createdAt)) + '</div>';
 
     return html;
   }
 
-  return { buildProfileHtml: buildProfileHtml };
+  /* Persist the coaching note (ADR-030). Best-effort; surfaces a toast either way. */
+  function saveNote(uid) {
+    var ta = document.getElementById('coachNote');
+    if (!ta) return;
+    var btn = ta.parentNode ? ta.parentNode.querySelector('button') : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    CoachingAPI.saveNote(uid, ta.value).then(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save note'; }
+      var meta = document.getElementById('noteMeta');
+      if (meta) meta.textContent = 'Saved just now';
+      if (typeof Toast !== 'undefined') Toast.success('Note saved');
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save note'; }
+      if (typeof Toast !== 'undefined') Toast.error(U.getReadableError(err));
+    });
+  }
+
+  return { buildProfileHtml: buildProfileHtml, saveNote: saveNote };
 })();

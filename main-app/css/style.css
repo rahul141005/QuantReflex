@@ -3763,6 +3763,15 @@ body.dark-mode .login-optional-tag {
   content: '✓ ';
   font-weight: 600;
 }
+/* Optional coaching logo on the join confirmation (ADR-030) — rendered only when coachings.logoUrl is set. */
+.login-field-validation .coaching-join-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  vertical-align: -4px;
+  margin-right: 4px;
+}
 
 /* Validation-aware input border states */
 .login-input.input-error {

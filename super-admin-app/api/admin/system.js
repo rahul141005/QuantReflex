@@ -41,40 +41,37 @@ async function handler(req, res) {
     const db = admin.firestore();
 
     if (action === 'dashboard' && req.method === 'GET') {
-      const usersSnap = await db.collection('users').count().get();
-      const totalUsers = usersSnap.data().count;
-
-      /* v2: a trial is plan:'premium' with isTrial:true, so premiumTotal
-         already includes trials. paidPremium = premiumTotal - trials. */
-      const premiumTotalSnap = await db.collection('users').where('plan', '==', 'premium').count().get();
-      const premiumTotal = premiumTotalSnap.data().count;
-
-      const trialSnap = await db.collection('users').where('isTrial', '==', true).count().get();
-      const trialUsers = trialSnap.data().count;
-
-      /* Active-premium accuracy (ADR-023): premiumTotal counts plan=='premium' INCLUDING
-         expired-but-unswept docs. Subtract expired (planExpiry < now) via a count() aggregation —
-         needs the (plan, planExpiry) composite index. Wrapped so a missing index degrades to the
-         legacy (slightly-overcounted) figure instead of failing the dashboard. */
+      /* Command Center landing data (ADR-030 perf): these seven reads are independent, so fire them in
+         PARALLEL instead of seven sequential awaits (~7× round-trips → 1). The expired-premium count()
+         needs the (plan, planExpiry) composite index; it's wrapped so a missing index degrades to null
+         (→ 0) rather than rejecting the whole Promise.all and blanking the dashboard. */
       const nowIsoDash = new Date().toISOString();
-      let expiredPremium = 0;
-      try { expiredPremium = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIsoDash).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
-
-      const premiumUsers = Math.max(0, premiumTotal - trialUsers - expiredPremium);
-      const freeUsers = Math.max(0, totalUsers - premiumTotal);
-
-      const metricsSnap = await db.collection('metrics').doc('latest').get();
-      const latestMetrics = metricsSnap.exists ? metricsSnap.data() : {};
-
-      /* AI cost for TODAY is read LIVE from the incremental counter (not the daily snapshot)
-         so the GPT Cost Center is real-time, not frozen at the last cron run. */
-      const aiDayKey = new Date().toISOString().split('T')[0];
-      const aiTodaySnap = await db.collection('systemMetrics').doc('ai_daily_' + aiDayKey).get();
-      const aiToday = aiTodaySnap.exists ? aiTodaySnap.data() : {};
-
+      const aiDayKey = nowIsoDash.split('T')[0];
       const now = Date.now();
       const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000);
-      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
+
+      const [usersSnap, premiumTotalSnap, trialSnap, expiredSnap, metricsSnap, aiTodaySnap, orphanDuelsSnap] = await Promise.all([
+        db.collection('users').count().get(),
+        /* v2: a trial is plan:'premium' with isTrial:true, so premiumTotal already includes trials;
+           paidPremium = premiumTotal − trials − expired. */
+        db.collection('users').where('plan', '==', 'premium').count().get(),
+        db.collection('users').where('isTrial', '==', true).count().get(),
+        db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIsoDash).count().get().catch(function () { return null; }),
+        db.collection('metrics').doc('latest').get(),
+        /* AI cost for TODAY is read LIVE from the incremental counter (not the daily snapshot) so the GPT
+           Cost Center is real-time, not frozen at the last cron run. */
+        db.collection('systemMetrics').doc('ai_daily_' + aiDayKey).get(),
+        db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get()
+      ]);
+
+      const totalUsers = usersSnap.data().count;
+      const premiumTotal = premiumTotalSnap.data().count;
+      const trialUsers = trialSnap.data().count;
+      const expiredPremium = expiredSnap ? expiredSnap.data().count : 0;
+      const premiumUsers = Math.max(0, premiumTotal - trialUsers - expiredPremium);
+      const freeUsers = Math.max(0, totalUsers - premiumTotal);
+      const latestMetrics = metricsSnap.exists ? metricsSnap.data() : {};
+      const aiToday = aiTodaySnap.exists ? aiTodaySnap.data() : {};
 
       return res.status(200).json({
         metrics: {
@@ -343,14 +340,18 @@ async function handler(req, res) {
       const coachCol = db.collection('coachings');
       const idPath = admin.firestore.FieldPath.documentId();
       /* Email matches CASE-INSENSITIVELY via the normalized `emailLower` field (ADR-020 + 2026-06-12
-         migration). uid / profile.name / coachingId are matched as stored (case-sensitive). */
+         migration). uid / profile.name / coachingId are matched as stored (case-sensitive).
+         Field masks (ADR-030): user docs are large (responseTimes ring + dailyHistory map + …) — return
+         only the 5 fields each result row shows, not the whole document. */
+      const USER_SEL = ['profile.name', 'email', 'coachingId', 'plan', 'accountStatus'];
+      const COACH_SEL = ['name', 'status', 'isActive', 'studentCount', 'ownerEmail'];
       const r = await Promise.all([
-        usersCol.orderBy('emailLower').startAt(qLower).endAt(endLower).limit(8).get().catch(function () { return null; }),
-        usersCol.orderBy('profile.name').startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
-        usersCol.orderBy(idPath).startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
-        usersCol.where('coachingId', '==', q).limit(8).get().catch(function () { return null; }),
-        coachCol.orderBy(idPath).startAt(q).endAt(end).limit(8).get().catch(function () { return null; }),
-        coachCol.orderBy('name').startAt(q).endAt(end).limit(8).get().catch(function () { return null; })
+        usersCol.orderBy('emailLower').startAt(qLower).endAt(endLower).select(...USER_SEL).limit(8).get().catch(function () { return null; }),
+        usersCol.orderBy('profile.name').startAt(q).endAt(end).select(...USER_SEL).limit(8).get().catch(function () { return null; }),
+        usersCol.orderBy(idPath).startAt(q).endAt(end).select(...USER_SEL).limit(8).get().catch(function () { return null; }),
+        usersCol.where('coachingId', '==', q).select(...USER_SEL).limit(8).get().catch(function () { return null; }),
+        coachCol.orderBy(idPath).startAt(q).endAt(end).select(...COACH_SEL).limit(8).get().catch(function () { return null; }),
+        coachCol.orderBy('name').startAt(q).endAt(end).select(...COACH_SEL).limit(8).get().catch(function () { return null; })
       ]);
       const userMap = {};
       [r[0], r[1], r[2], r[3]].forEach(function (snap) {

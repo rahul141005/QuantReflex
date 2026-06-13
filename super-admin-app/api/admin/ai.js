@@ -45,10 +45,16 @@ async function _usage(db, res) {
      pre-aggregation into the daily snapshot (tracked in ROADMAP). */
   const AI_USAGE_CAP = 5000;
   const systemMetrics = {};
-  const metricsSnapshot = await db.collection('systemMetrics').where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_').get();
+  /* ADR-030 perf: the three scans are independent — fire them in PARALLEL (was three sequential awaits).
+     The users scan is field-masked to the 4 fields this view shows (drops the responseTimes ring,
+     dailyHistory map, settings, etc. from every user doc). */
+  const [metricsSnapshot, usageQuery, usersSnapshot] = await Promise.all([
+    db.collection('systemMetrics').where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_').get(),
+    db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').limit(AI_USAGE_CAP).get(),
+    db.collection('users').select('profile.name', 'email', 'coachingId', 'plan').limit(AI_USAGE_CAP).get()
+  ]);
   metricsSnapshot.forEach(function (doc) { systemMetrics[doc.id] = doc.data(); });
 
-  const usageQuery = await db.collectionGroup('usage').where(admin.firestore.FieldPath.documentId(), '==', 'ai').limit(AI_USAGE_CAP).get();
   const analytics = [];
   const userIds = [];
   const usageDataMap = {};
@@ -58,7 +64,6 @@ async function _usage(db, res) {
     usageDataMap[userId] = doc.data();
   });
 
-  const usersSnapshot = await db.collection('users').limit(AI_USAGE_CAP).get();
   const usersMap = {};
   usersSnapshot.forEach(function (doc) { usersMap[doc.id] = doc.data(); });
 

@@ -86,6 +86,18 @@ var CoachingAPI = (function () {
   }
 
   /**
+   * Save (or clear, when text is empty) the one plain-text coaching note for a student (ADR-030).
+   * @param {string} uid
+   * @param {string} text
+   */
+  function saveNote(uid, text) {
+    return _fetch('/api/coaching/students?action=save-note', {
+      method: 'POST',
+      body: JSON.stringify({ uid: uid, text: text || '' })
+    });
+  }
+
+  /**
    * Get the coaching's PERFORMANCE data (server-computed from real dated dailyHistory):
    * accuracy trend + participation trend (live today), improving/declining are NOT returned here
    * (the old slice heuristic was removed — real improvers come from coachingMetrics history).
@@ -164,6 +176,7 @@ var CoachingAPI = (function () {
     getStudents: getStudents,
     getStudentsPaginated: getStudentsPaginated,
     getStudentDetails: getStudentDetails,
+    saveNote: saveNote,
     getPerformance: getPerformance,
     getCoachingMetrics: getCoachingMetrics,
     sendNotice: sendNotice,

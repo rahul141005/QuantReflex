@@ -787,13 +787,19 @@ var FirestoreSync = (function () {
 
   /**
    * Save a practice session to the subcollection.
-   * @param {object} sessionData - {mode, category, score, total, duration, date}
+   * @param {object} sessionData - {mode, category, score, total, duration, date,
+   *   firstHalfAvg?, secondHalfAvg?, sessionImprovementPct?, timedCount?}  (ADR-030 session-improvement)
    */
   function savePracticeSession(sessionData) {
     var docRef = _getUserDocRef();
     if (!docRef) return;
 
     sessionData.timestamp = new Date().toISOString();
+    /* Drop null/undefined keys so the optional Session-Improvement fields (ADR-030) are genuinely ABSENT
+       on sessions with <6 timed answers, rather than stored as null. */
+    Object.keys(sessionData).forEach(function (k) {
+      if (sessionData[k] === null || sessionData[k] === undefined) delete sessionData[k];
+    });
     docRef.collection('practiceSessions').add(sessionData).catch(function (err) {
       console.warn('Failed to save practice session:', err);
     });

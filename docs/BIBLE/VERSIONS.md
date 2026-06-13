@@ -9,10 +9,10 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.18 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.10 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.10 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.8 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.19 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.11 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.11 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.9 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.2 | Razorpay flows, plan config, entitlement grant logic. |
 
 > **2.0 (2026-06-11)** — v2 monetization (ADR-009): single `plan` model, lifetime + Premium+ removed.
@@ -53,6 +53,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-13 | 2.19 | 2.11 | 2.11 | 2.9 | 2.2 | **Coaching App V4 — value / premium-UI / performance pass (ADR-030):** a brutally-honest product review found the rebuilt coaching app *feels empty, low-information, and slow* — root cause: the backends compute rich data the views **discard** + the ADR-029 "masked scans" were never actually masked. **Performance:** real Firestore field masks (`.select()`) on the heavy coaching scans (students/dashboard/insights) + `Promise.allSettled` on the super-admin Command Center waterfall (the actual slowness). **Value:** Dashboard/Students/Performance/Engagement rebuilt to surface already-fetched-but-discarded data (`strongestStudents`/`recentActivity`/`streak`/`weakTopic`/`totalQuestionsSolved`) + demote vanity; honest available-today signal (WoW accuracy/participation) promoted. **Session Improvement (cold-start speed bridge):** student app computes first-half vs last-half session speed from the existing `perQuestionTimes` (≥6 timed Qs) → per-session `practiceSessions.{firstHalfAvg,secondHalfAvg,sessionImprovementPct}` + a rolling `users.stats.avgSessionImprovementPct` (read cheaply by the coaching scan); strictly a "Session Improvement" metric, never a 7/30-day trend. **Onboarding trust:** student join shows "✓ Connected to <Coaching Name>" (+ optional new `coachings.logoUrl`, set in super-admin); coaching code one-tap copyable in Settings. **Minimal coaching notes:** one plain-text note per student in `coachings/{id}/notes/{uid}` (Admin-SDK via `students?action=save-note` — no new function; client read/write denied). **Premium UI:** content emoji→inline-SVG, `.metric-card.accent-*` activated, heading tier, uniform empty/collecting/error taxonomy, `prefers-reduced-motion` + `:focus-visible`, ARIA tab fix. No new functions (coaching 5/12); additive Firestore + cross-app data-flow + a notes-deny rule. Bible 2.18→2.19, Arch 2.10→2.11, Firestore 2.10→2.11, Security 2.8→2.9. |
 | 2026-06-13 | 2.18 | 2.10 | 2.10 | 2.8 | 2.2 | **Coaching ecosystem audit remediation (ADR-029):** fixed the audit's CRITICAL + HIGH findings. **Security:** suspend/delete a coaching now revokes the owner's tokens + drops their `coaching_admin` claim (delete also disables Auth), `withCoachingAuth` verifies with `checkRevoked` + a coaching-status gate, register endpoint rate-limited + crypto-strong token. **Data integrity:** Skip no longer records a 0-second solve (speed un-polluted); new sortable `users.stats.lastActiveMs` replaces the non-sortable `toDateString` in all order/range queries (coaching roster + super-admin inactive sweep/list/export, which previously never matched) — index updated, backfill migration added. **Scale:** dashboard/insights/notices scans bounded (5000) + the rollup cron parallelized (bounded concurrency); trial users no longer double-counted as premium; offboarded students excluded from coaching counts/lists. **Join UX:** validate-coaching surfaces the institute name ("Joined: …") + status; Smart-Nudge chips actually target inactive/low-streak; notices report true in-app reach; settings/profile/notices error+retry; badge/keyboard/affordance a11y. Security 2.7→2.8, Firestore 2.9→2.10, Bible 2.17→2.18. |
 | 2026-06-13 | 2.17 | 2.10 | 2.9 | 2.7 | 2.2 | **Coaching App V3 — Analytics Foundation + mobile-first redesign (ADR-027/028):** establishes the first **dated speed history** — `users.stats.dailyHistory[date]` widened to `{attempted,correct,sumTimes,count}` (avgTime/day) in `main-app/js/progress.js`; `practiceSessions` now actually written (`savePracticeSession` wired); new per-coaching daily rollup `coachingMetrics/{id}` (written by the existing super-admin cron — **zero new functions**); 3 composite `users(coachingId,·)` indexes. Coaching App rebuilt as a mobile-first 5-tab "Speed Training Control Center" (Dashboard/Students/Performance/Engagement/Settings), Notices→Engagement Center, no Coaching Rank (→ Coaching Improvement Score vs own history), de-gamered dark theme + re-enabled zoom, broken `app.navigate` intervention arm fixed. **Honesty rule:** history-dependent metrics show "collecting data — live in N days", never fabricated/approximated trends; no backfill. Additive Firestore (MINOR), new `coachingMetrics` read rule (Security MINOR), cross-app data-flow (Arch MINOR). |
 | 2026-06-12 | 2.16 | 2.9 | 2.8 | 2.6 | 2.2 | **Super Admin accessibility + governance enforcement — Pass 3 (ADR-026):** final pass of the ADR-024 program — an adversarial multi-agent UX/visual/a11y/navigation audit (35 candidates → 18 confirmed fixes). Keyboard-operable `.sv-row` / drop-zone / search results (`role`+`tabindex`+Enter/Space, WCAG 2.1.1); `aria-label`s on filter inputs + bulk checkboxes; labelled Global-Search `role="dialog"`/`listbox`/`type=search`; active nav `aria-current="page"`; fixed the dangling modal `aria-labelledby` (`#modalTitle` now set); rebuilt Tabs to the full WAI-ARIA tab pattern (roving tabindex + Arrow/Home/End); `aria-live` toast region (+ `role="alert"` on errors); remaining raw `e.message` sites (questions/command-center/global-search) routed through `getReadableError`; Content table card-mode on narrow panes; triplicated `_tile()` collapsed to one `AdminUtils.statTile`; restored the self-referential `--accent-glow`/`--accent-ring` light-mode token values; global `:focus-visible` ring. Zero new functions (8/12); client + Bible only; no schema change. UI/a11y (MINOR). |
@@ -80,6 +81,23 @@ file and moves independently of the system-level tracks above.
 
 Migration notes are required for every MAJOR bump and for any change that requires a data
 migration script. Format: what changed, who is affected, the migration action, rollback.
+
+### 2026-06-13 — Coaching V4: session-improvement + logoUrl + notes (non-breaking, MINOR, ADR-030)
+- **What changed:** three additive schema items — `users.stats.avgSessionImprovementPct` (rolling within-session
+  speed-delta %) + optional `practiceSessions.{firstHalfAvg,secondHalfAvg,sessionImprovementPct,timedCount}`
+  (the "Session Improvement" bridge); optional `coachings.logoUrl` (institute logo URL); and a new
+  `coachings/{id}/notes/{studentUid}` subcollection (one plain-text coaching note per student, Admin-SDK only).
+- **Who is affected:** additive only. Existing user docs lack `avgSessionImprovementPct` until a ≥6-question
+  session completes; all readers default it to `null`/0. Pre-ADR-030 `practiceSessions` lack the half-avg fields
+  (readers treat them as "no session-improvement data"). `logoUrl`/notes are absent until set. No field renamed
+  or removed; no reader breaks.
+- **Migration action:** **none — no backfill by design** (honest data only). `avgSessionImprovementPct` accrues
+  from 2026-06-13 forward as students finish timed sessions; `logoUrl`/notes are set on demand. Deploy the
+  updated rules (`firebase deploy --only firestore:rules`) for the explicit `notes` deny. **No new index**
+  (the note is read by doc id; `avgSessionImprovementPct` is read off already-scanned user docs, not queried).
+- **Rollback:** all three are additive and ignored by older readers; to revert, stop writing them (no data
+  cleanup required). The notes subcollection is server-only, so removing the feature leaves orphaned notes that
+  are never read.
 
 ### 2026-06-13 — `stats.lastActiveMs` backfill (non-breaking, MINOR, ADR-029)
 - **What changed:** added a sortable epoch-ms `users.stats.lastActiveMs` (written by `progress.js` going

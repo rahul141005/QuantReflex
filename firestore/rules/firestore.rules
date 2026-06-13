@@ -208,6 +208,14 @@ service cloud.firestore {
     match /coachings/{coachingId} {
       allow read: if request.auth != null && isCoachingMember(coachingId);
       allow write: if false; // Admin SDK bypasses this
+
+      // Minimal coaching notes (ADR-030): one private plain-text note per student.
+      // Server-only — read is merged into students?action=details and writes go
+      // through students?action=save-note (both Admin SDK). The client NEVER touches
+      // the note (it could expose another student's private note), so deny outright.
+      match /notes/{studentUid} {
+        allow read, write: if false; // Admin SDK bypasses this
+      }
     }
 
     // ════════════════════════════════════════════

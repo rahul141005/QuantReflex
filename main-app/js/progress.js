@@ -197,6 +197,27 @@ function recordAnswer(correct, category, questionData, responseTime) {
   saveProgress(p);
 }
 
+/**
+ * Record a finished session's within-session speed improvement % into a rolling average on the user's stats
+ * (ADR-030). The Coaching App reads `stats.avgSessionImprovementPct` cheaply off the root user doc (no
+ * per-student practiceSessions fan-out). EMA-smoothed (~last 10-20 sessions) so one outlier session can't
+ * swing it; seeded directly on the first session. Called from drill-engine#finish for ≥6-question sessions.
+ */
+function recordSessionImprovement(pct) {
+  if (typeof pct !== 'number' || !isFinite(pct)) return;
+  var p = loadProgress();
+  var prior = p.avgSessionImprovementPct;
+  var next;
+  if (typeof prior !== 'number' || !isFinite(prior)) {
+    next = pct;
+  } else {
+    var alpha = 0.1; /* EMA weight — ~last 10-20 sessions */
+    next = prior * (1 - alpha) + pct * alpha;
+  }
+  p.avgSessionImprovementPct = parseFloat(next.toFixed(1));
+  saveProgress(p);
+}
+
 /** Record completion of a drill session */
 function recordDrillSession() {
   var p = loadProgress();

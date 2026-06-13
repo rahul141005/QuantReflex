@@ -9,6 +9,19 @@
 const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
+/* Field mask for the roster scan (ADR-030 — the real "Students is slow" fix; ADR-029 only added .limit(),
+   which bounds row COUNT but not per-doc PAYLOAD). Selecting just these fields makes Firestore return ~15
+   fields instead of the entire user document — it drops the 90-key `stats.dailyHistory` map (unused in the
+   list) plus every other heavy field (settings, quickLinks, customTopics, customFormulas, bookmarks,
+   stats.mistakes, fcmToken, …). `stats.responseTimes` + `stats.categoryStats` are kept because the row's speed
+   and weak-topic are derived from them. Keep this in sync with the fields read in `_handleList`. */
+const LIST_FIELDS = [
+  'accountStatus', 'email', 'profile.name', 'plan', 'isTrial', 'createdAt',
+  'stats.totalAttempted', 'stats.totalCorrect', 'stats.responseTimes', 'stats.categoryStats',
+  'stats.dailyStreak', 'stats.bestDailyStreak', 'stats.lastActiveDate', 'stats.lastActiveMs',
+  'stats.avgSessionImprovementPct'
+];
+
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -19,10 +32,6 @@ if (!admin.apps.length) {
 }
 
 async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Only GET is allowed' });
-  }
-
   const action = req.query.action || 'list';
 
   try {
@@ -37,11 +46,52 @@ async function handler(req, res) {
       return await _handleDetails(db, coachingId, req, res);
     }
 
-    return res.status(404).json({ error: 'Unknown action' });
+    /* Minimal coaching note (ADR-030) — one plain-text note per student. Write goes through the Admin SDK
+       here (clients are denied the notes path by rules), scoped to this coaching. No new function. */
+    if (action === 'save-note' && req.method === 'POST') {
+      return await _handleSaveNote(db, coachingId, req, res);
+    }
+
+    return res.status(404).json({ error: 'Unknown action or method' });
   } catch (err) {
     console.error('[Coaching Students] Error:', err);
     return res.status(500).json({ error: formatError(err) });
   }
+}
+
+/* Note storage path is per-coaching + per-student (ADR-030). The note doc id is the student uid, so there is
+   exactly one note per student and a cross-tenant write is impossible (path is built from req.coachingId). */
+function _noteRef(db, coachingId, studentUid) {
+  return db.collection('coachings').doc(coachingId).collection('notes').doc(studentUid);
+}
+
+async function _handleSaveNote(db, coachingId, req, res) {
+  const body = req.body || {};
+  const uid = (body.uid || '').trim();
+  let text = typeof body.text === 'string' ? body.text : '';
+  if (!uid) return res.status(400).json({ error: 'Missing uid' });
+  if (text.length > 2000) text = text.slice(0, 2000);   // schema cap (ADR-030)
+
+  // The student must belong to THIS coaching (no cross-tenant notes).
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (!userDoc.exists || userDoc.data().coachingId !== coachingId) {
+    return res.status(403).json({ error: 'Student does not belong to your coaching' });
+  }
+
+  const ref = _noteRef(db, coachingId, uid);
+  const trimmed = text.trim();
+  if (!trimmed) {
+    // Empty text clears the note (delete is harmless if it never existed).
+    await ref.delete().catch(function () { /* ignore */ });
+    return res.status(200).json({ success: true, note: null });
+  }
+  const payload = {
+    text: trimmed,
+    updatedAt: new Date().toISOString(),
+    updatedByUid: req.userId || req.uid || null
+  };
+  await ref.set(payload, { merge: true });
+  return res.status(200).json({ success: true, note: payload });
 }
 
 async function _handleList(db, coachingId, req, res) {
@@ -66,6 +116,8 @@ async function _handleList(db, coachingId, req, res) {
     // To prevent total OOM, we cap it at 1000 max.
     query = query.limit(1000);
   }
+
+  query = query.select(...LIST_FIELDS); // field mask — return ~15 fields, not the whole user doc
 
   const studentsSnap = await query.get();
 
@@ -109,6 +161,10 @@ async function _handleList(db, coachingId, req, res) {
       plan: u.plan === 'premium' ? 'premium' : 'free',
       isTrial: !!u.isTrial,
       weakTopic: weakTopic,
+      // Honest cold-start speed signal (ADR-030) — rolling within-session improvement %, read cheaply off the
+      // already-scanned root doc. null until the student finishes a first ≥6-question timed session.
+      sessionImprovement: (typeof stats.avgSessionImprovementPct === 'number')
+        ? parseFloat(stats.avgSessionImprovementPct.toFixed(1)) : null,
       createdAt: safeTimestamp(u.createdAt),
       /* Raw indexed value for keyset pagination — MUST equal the orderBy field (stats.lastActiveMs, a
          number) so startAfter compares like-for-like. Internal; the client passes it back verbatim. */
@@ -155,13 +211,15 @@ async function _handleDetails(db, coachingId, req, res) {
     return res.status(403).json({ error: 'Student does not belong to your coaching' });
   }
 
-  // Fetch subcollection data in parallel (duels removed — PvP outcomes are off-mission for an owner
-  // judging speed, and the per-field map query was a needless failure surface; ADR-028).
-  const [perfDoc, practiceDoc, sessionsSnap] = await Promise.all([
+  // Fetch subcollection data + the coaching note in parallel (duels removed — PvP outcomes are off-mission
+  // for an owner judging speed, and the per-field map query was a needless failure surface; ADR-028).
+  // The note (ADR-030) is server-read here and merged into the payload — clients can't read the notes path.
+  const [perfDoc, practiceDoc, sessionsSnap, noteDoc] = await Promise.all([
     db.collection('users').doc(uid).collection('performance').doc('overall').get(),
     db.collection('users').doc(uid).collection('practice').doc('data').get(),
     db.collection('users').doc(uid).collection('practiceSessions')
-      .orderBy('timestamp', 'desc').limit(15).get()
+      .orderBy('timestamp', 'desc').limit(15).get(),
+    _noteRef(db, coachingId, uid).get().catch(function () { return null; })
   ]);
 
   const stats = userData.stats || {};
@@ -187,7 +245,7 @@ async function _handleDetails(db, coachingId, req, res) {
   }
   categoryPerformance.sort((a, b) => a.accuracy - b.accuracy);
 
-  // Build recent sessions
+  // Build recent sessions (incl. per-session Session Improvement deltas, ADR-030, when present)
   const recentSessions = [];
   sessionsSnap.forEach(doc => {
     const s = doc.data();
@@ -198,9 +256,14 @@ async function _handleDetails(db, coachingId, req, res) {
       score: s.score || 0,
       total: s.total || 0,
       duration: s.duration || 0,
-      timestamp: safeTimestamp(s.timestamp)
+      timestamp: safeTimestamp(s.timestamp),
+      firstHalfAvg: (typeof s.firstHalfAvg === 'number') ? s.firstHalfAvg : null,
+      secondHalfAvg: (typeof s.secondHalfAvg === 'number') ? s.secondHalfAvg : null,
+      sessionImprovementPct: (typeof s.sessionImprovementPct === 'number') ? s.sessionImprovementPct : null
     });
   });
+
+  const noteData = (noteDoc && noteDoc.exists) ? noteDoc.data() : null;
 
   // Daily history — now carries per-day {attempted, correct, sumTimes, count} (ADR-027), the basis for
   // the student's REAL speed curve in the 360 (the client derives per-day avg speed = sumTimes/count).
@@ -234,11 +297,16 @@ async function _handleDetails(db, coachingId, req, res) {
       bestDailyStreak: stats.bestDailyStreak || 0,
       drillSessions: stats.drillSessions || 0,
       todayAttempted: stats.todayAttempted || 0,
-      todayCorrect: stats.todayCorrect || 0
+      todayCorrect: stats.todayCorrect || 0,
+      // Session Improvement (ADR-030) — honest cold-start speed signal; null until a first ≥6-question session.
+      avgSessionImprovementPct: (typeof stats.avgSessionImprovementPct === 'number')
+        ? parseFloat(stats.avgSessionImprovementPct.toFixed(1)) : null
     },
     categoryPerformance,
     recentSessions,
-    dailyHistory
+    dailyHistory,
+    // One plain-text coaching note (ADR-030), or null. {text, updatedAt} only.
+    note: noteData ? { text: noteData.text || '', updatedAt: safeTimestamp(noteData.updatedAt) } : null
   });
 }
 

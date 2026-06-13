@@ -1,6 +1,6 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.3 · **Security Version:** 2.4 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.4 · **Security Version:** 2.9 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
 **Last updated:** 2026-06-12
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
@@ -46,6 +46,7 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `users/{uid}/{sub}/{doc}` | owner | owner | owner | owner |
 | `questions` | any authed | — | denied (admin) | denied |
 | `coachings/{id}` | coaching member (claim match) | — | denied (admin) | denied |
+| `coachings/{id}/notes/{studentUid}` (ADR-030) | **denied** (server-only — merged into `students?action=details` via Admin SDK) | **denied** | **denied** | **denied** (Admin-SDK-write only via `students?action=save-note`; client never touches the note) |
 | `coachingMetrics/{coachingId}` (ADR-027) | coaching admin of **own** coaching (`coaching_admin:true` && `request.auth.token.coachingId == coachingId`) | **denied** (Admin-SDK only — written by the super-admin daily cron) | **denied** | **denied** |
 | `duels/{id}` | participant \| joinable status \| target | authed creator, valid initial status | participant/joiner + `validDuelUpdate()` | denied (soft-delete) |
 | `payments/{id}` | owner | denied (admin) | denied (admin) | owner |

@@ -69,13 +69,14 @@ var CoachingApp = (function () {
     var targetView = document.getElementById('view-' + viewName);
     if (targetView) targetView.classList.add('active');
 
-    /* Update bottom nav */
+    /* Update bottom nav (it's navigation, not an ARIA tab widget — mark the active item with
+       aria-current="page", ADR-030). */
     var allTabs = document.querySelectorAll('.nav-tab');
     for (var j = 0; j < allTabs.length; j++) {
-      allTabs[j].classList.remove('active');
-      if (allTabs[j].dataset.view === viewName) {
-        allTabs[j].classList.add('active');
-      }
+      var isActive = allTabs[j].dataset.view === viewName;
+      allTabs[j].classList.toggle('active', isActive);
+      if (isActive) allTabs[j].setAttribute('aria-current', 'page');
+      else allTabs[j].removeAttribute('aria-current');
     }
 
     /* Update header title */

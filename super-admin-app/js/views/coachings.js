@@ -191,6 +191,9 @@ var CoachingsView = (function () {
     var s = d.status;
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
       '<div class="cc-feed-row"><span class="muted">Registration token</span><span><code id="cTok">' + _esc(d.registrationToken || '—') + '</code> <button class="btn btn-sm btn-outline" id="cTokBtn">Rotate</button></span></div>' +
+      '<div class="modal-field" style="margin-top:.75rem;"><label class="modal-label">Logo URL (shown on the student join screen)</label>' +
+        '<input type="url" id="cLogo" class="modal-input" placeholder="https://… (blank to remove)" value="' + _esc(d.logoUrl || '') + '" />' +
+        '<button class="btn btn-sm btn-outline" id="cLogoBtn" style="margin-top:.5rem;">Save logo</button></div>' +
       '<div class="cc-quick" style="margin-top:.75rem;">' +
       (s === 'suspended' ? '<button class="btn btn-sm accent" data-mut="activate">Activate</button>' : (s !== 'deleted' ? '<button class="btn btn-sm btn-outline" data-mut="suspend">Suspend</button>' : '')) +
       (s !== 'deleted' ? '<button class="btn btn-sm btn-danger" data-mut="delete">Delete</button>' : '') +
@@ -198,6 +201,13 @@ var CoachingsView = (function () {
       '<div class="muted" style="margin-top:.5rem;font-size:.8rem;">Suspend / delete cascade-revokes premium from all students.</div></div>';
     var tb = document.getElementById('cTokBtn');
     if (tb) tb.onclick = function () { tb.disabled = true; API.resetCoachingToken(cid).then(function (r) { var t = document.getElementById('cTok'); if (t) t.textContent = r.registrationToken; Toast.success('Token rotated'); }).catch(function (e) { tb.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); };
+    var lb = document.getElementById('cLogoBtn');
+    if (lb) lb.onclick = function () {
+      var logo = (document.getElementById('cLogo') || {}).value || '';
+      lb.disabled = true; lb.textContent = 'Saving…';
+      API.editCoaching(cid, { logoUrl: logo.trim() }).then(function () { lb.disabled = false; lb.textContent = 'Save logo'; Toast.success('Logo updated'); })
+        .catch(function (e) { lb.disabled = false; lb.textContent = 'Save logo'; Toast.error(AdminUtils.getReadableError(e)); });
+    };
     el.querySelectorAll('[data-mut]').forEach(function (b) {
       b.onclick = function () {
         var act = b.getAttribute('data-mut');
@@ -228,7 +238,8 @@ var CoachingsView = (function () {
     body.innerHTML =
       '<div class="modal-field"><label class="modal-label">Coaching Name</label><input type="text" id="coachingName" class="modal-input" placeholder="e.g. Allen Academy" /></div>' +
       '<div class="modal-field"><label class="modal-label">Owner Email (optional)</label><input type="email" id="coachingEmail" class="modal-input" placeholder="admin@allen.in" /></div>' +
-      '<div class="modal-field"><label class="modal-label">Capacity (optional)</label><input type="number" id="coachingCapacity" class="modal-input" placeholder="Leave blank for unlimited" /></div>';
+      '<div class="modal-field"><label class="modal-label">Capacity (optional)</label><input type="number" id="coachingCapacity" class="modal-input" placeholder="Leave blank for unlimited" /></div>' +
+      '<div class="modal-field"><label class="modal-label">Logo URL (optional)</label><input type="url" id="coachingLogo" class="modal-input" placeholder="https://… (shown on the student join screen)" /></div>';
     Modal.show({ title: 'Create New Coaching', body: body, actions: [{ label: 'Cancel' }, { label: 'Create Coaching', accent: true, autoClose: false, onClick: _handleCreate }] });
   }
 
@@ -236,12 +247,14 @@ var CoachingsView = (function () {
     var name = document.getElementById('coachingName').value.trim();
     var capacity = document.getElementById('coachingCapacity').value.trim();
     var email = document.getElementById('coachingEmail').value.trim();
+    var logo = document.getElementById('coachingLogo').value.trim();
     if (!name) { Toast.error('Name is required.'); return; }
     btn.disabled = true; btn.textContent = 'Creating...';
     try {
       var payload = { name: name };
       if (capacity) payload.capacity = parseInt(capacity, 10);
       if (email) payload.ownerEmail = email;
+      if (logo) payload.logoUrl = logo;
       var res = await API.createCoaching(payload);
       Modal.close();
       Toast.success('Coaching created: ' + (res.coachingId || 'OK'));
