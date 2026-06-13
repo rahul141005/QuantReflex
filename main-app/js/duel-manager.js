@@ -17,6 +17,7 @@ var DuelManager = (function () {
   var _serverOffset = 0;     // estimated (serverNow - clientNow) ms — anchors the countdown
   var _token = null;         // cached ID token for the finalize-on-leave keepalive beacon
   var _hbTimer = null, _deadlineTimer = null, _countTimer = null, _perqTimer = null;
+  var _lobbyPollTimer = null, _recoverTimer = null, _lobbySig = '';   // presence-sync backstop + listener-recovery debounce (DR1)
   var _runner = null;        // light solving state { total, index } for the Submit-&-Leave counts
   var _engine = null;        // the reused Practice drill-engine instance (capture-only duel mode, ADR-033)
   var _finalizing = false;
@@ -117,8 +118,39 @@ var DuelManager = (function () {
     try { firebase.auth(); } catch (_) {}
     _renderLobby();
     DuelCore.listen(code, _onSnapshot);   // attach AFTER we have the room payload (join returns it)
+    _lobbySig = _lobbySigOf(duel);
+    _syncLobbyOnce();                      // DR1 — immediate authoritative refresh (covers a missed initial snapshot)
+    _startLobbyPoll();                     // DR1 — ~2s backstop so the host sees the guest even if the listener hiccups
     refreshActiveCard();
   }
+
+  /* DR1 — presence-sync robustness. The room onSnapshot stays the PRIMARY (instant) path; these guarantee the host
+     sees the guest within ~2s even if a transient listener error is dropped, with no refresh. */
+  function _lobbySigOf(d) {
+    if (!d) return '';
+    var uids = (d.participantUids || []).slice().sort();
+    var states = uids.map(function (u) { return (d.presence && d.presence[u]) ? (u + ':' + d.presence[u].state) : (u + ':?'); });
+    return (d.status || '') + '|' + states.join(',');
+  }
+  function _syncLobbyOnce() {
+    if (!_code) return;
+    DuelCore.fetchState(_code).then(function (res) {
+      if (!res || !res.duel || _phase !== 'lobby') return;
+      if (res.serverNow) _serverOffset = res.serverNow - Date.now();
+      if (res.duel.status !== 'lobby') { _onSnapshot({ data: res.duel }); return; }   // host started while we polled
+      var sig = _lobbySigOf(res.duel);
+      _duel = res.duel;
+      if (sig !== _lobbySig) { _lobbySig = sig; _renderLobby(); }
+    }).catch(function () {});
+  }
+  function _startLobbyPoll() {
+    _stopLobbyPoll();
+    _lobbyPollTimer = setInterval(function () {
+      if (_phase !== 'lobby') { _stopLobbyPoll(); return; }
+      _syncLobbyOnce();
+    }, 2000);
+  }
+  function _stopLobbyPoll() { if (_lobbyPollTimer) { clearInterval(_lobbyPollTimer); _lobbyPollTimer = null; } }
   function _renderLobby() {
     _showContainer('duelPreview');
     var uid = _myUid();
@@ -157,10 +189,15 @@ var DuelManager = (function () {
      never grades; the server grades the answers we persist per question. ── */
   function _startSolving() {
     if (_phase === 'solving') return;
+    var prompts = (_duel.prompts || []).slice().sort(function (a, b) { return a.index - b.index; });
+    if (!prompts.length) {   // DR2 backstop — never run a 0-question engine; re-fetch the room, then retry
+      _toast('Loading questions…');
+      DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) { _duel = res.duel; if (res.serverNow) _serverOffset = res.serverNow - Date.now(); } setTimeout(_startSolving, 400); }).catch(function () { setTimeout(_startSolving, 800); });
+      return;
+    }
     _phase = 'solving';
     DuelCore.setPresence(_code, 'solving').catch(function () {});
     _cacheToken();
-    var prompts = (_duel.prompts || []).slice().sort(function (a, b) { return a.index - b.index; });
     _runner = { total: prompts.length, index: 0 };   // light state for the Submit-&-Leave counts
     if (_hbTimer) clearInterval(_hbTimer);
     _hbTimer = setInterval(function () { DuelCore.heartbeat(_code); }, 10000);
@@ -247,6 +284,7 @@ var DuelManager = (function () {
     if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; }
     if (_perqTimer) { clearInterval(_perqTimer); _perqTimer = null; }
     if (_countTimer) { clearInterval(_countTimer); _countTimer = null; }
+    _stopLobbyPoll();
     if (_engine) { try { _engine.cleanup(); } catch (_) {} _engine = null; }
     _runner = null;
     if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
@@ -353,25 +391,49 @@ var DuelManager = (function () {
 
   /* ── Realtime snapshot routing ── */
   function _onSnapshot(ev) {
-    if (ev.error) { return; }   // transient — keep current screen
+    if (ev.error) {
+      console.warn('[Duel] listener error:', ev.error);
+      _scheduleListenerRecovery();   // DR1 — never silently swallow; re-sync + re-attach once (debounced)
+      return;
+    }
     if (ev.removed) { return; }
     var d = ev.data; if (!d) return;
     // Sanitize: the raw doc may carry perPlayer only when complete (server keeps it off the doc until then).
     _duel = d;
     var uid = _myUid();
-    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _phase = 'idle'; openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
-    if (d.status === 'abandoned' || d.status === 'expired') { _toast('Duel ended.'); _resetState(); exitToHome(); return; }
-    if (d.status === 'lobby') { if (_phase === 'lobby') _renderLobby(); return; }
+    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
+    if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.'); _resetState(); exitToHome(); return; }
+    if (d.status === 'lobby') { if (_phase === 'lobby') { _lobbySig = _lobbySigOf(d); _renderLobby(); } return; }
     if (d.status === 'active') {
-      if (_phase === 'lobby') { _onActiveFromLobby(); return; }
+      if (_phase === 'lobby') { _stopLobbyPoll(); _onActiveFromLobby(); return; }
       if (_phase === 'solving' || _phase === 'countdown') { _updateOppChip(); return; }
       if (_phase === 'waiting') { _renderWaiting(); return; }   // opponent presence/stale refresh
     }
   }
+  function _scheduleListenerRecovery() {
+    if (_recoverTimer || !_code) return;   // debounce: one recovery in flight at a time
+    _recoverTimer = setTimeout(function () {
+      _recoverTimer = null;
+      if (!_code) return;
+      DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) _onSnapshot({ data: res.duel }); }).catch(function () {});
+      if (_phase === 'lobby' || _phase === 'waiting' || _phase === 'solving' || _phase === 'countdown') DuelCore.listen(_code, _onSnapshot);
+    }, 1500);
+  }
   function _onActiveFromLobby() {
-    // The host started. Fetch state once for a fresh server-time offset + prompts, then count down.
-    DuelCore.fetchState(_code).then(function (res) { _serverOffset = (res.serverNow || Date.now()) - Date.now(); _duel = res.duel; _beginCountdown(); })
-      .catch(function () { _beginCountdown(); });
+    // The host started. Fetch a fresh server-time offset + the prompts, then count down. DR2: NEVER proceed with
+    // empty prompts (that would build a 0-question engine) — re-sync and retry until the prompts are present.
+    DuelCore.fetchState(_code).then(function (res) {
+      if (!res || !res.duel) { _retryActiveFromLobby(); return; }
+      _serverOffset = (res.serverNow || Date.now()) - Date.now();
+      _duel = res.duel;
+      if (!_duel.prompts || !_duel.prompts.length) { _retryActiveFromLobby(); return; }
+      _beginCountdown();
+    }).catch(function () { _retryActiveFromLobby(); });
+  }
+  function _retryActiveFromLobby() {
+    if (_phase !== 'lobby' && _phase !== 'countdown') return;
+    _toast('Syncing with host…');
+    setTimeout(function () { if (_phase === 'lobby' || _phase === 'countdown') _onActiveFromLobby(); }, 1200);
   }
 
   /* ── Exit / cleanup ── */
@@ -390,7 +452,9 @@ var DuelManager = (function () {
   function _resetState() {
     DuelCore.stopListening();
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
+    if (_recoverTimer) { clearTimeout(_recoverTimer); _recoverTimer = null; }
     _teardownSolving();
+    _lobbySig = '';
     _code = null; _duel = null; _my = null; _phase = 'idle'; _finalizing = false;
   }
 

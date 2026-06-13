@@ -183,7 +183,7 @@ async function _finalizeTxn(code, finalizeSpec) {
     if (room.status === 'complete') return { completed: true, room: room };
     if (room.status !== 'active') return { room: room };
 
-    const uids = room.participantUids || [];
+    const uids = (room.participantUids || []).slice(0, 2);   // DR3 — a duel is strictly 2-player; never grade/compare a 3rd
     // Read the answer key + the player docs we may need (reads before writes).
     const keySnap = await txn.get(roomRef.collection('private').doc('key'));
     const keyAnswers = keySnap.exists ? (keySnap.data().answers || []) : [];
@@ -369,6 +369,7 @@ async function _start(req, res) {
   }
   if (room.status !== 'lobby') return res.status(409).json({ error: { code: 'BAD_STATE', message: 'Cannot start this duel.' } });
   if ((room.participantUids || []).length < 2) return res.status(409).json({ error: { code: 'NO_OPPONENT', message: 'Wait for an opponent to join.' } });
+  if ((room.participantUids || []).length > 2) return res.status(409).json({ error: { code: 'BAD_ROOM_STATE', message: 'This duel room is in an invalid state.' } });   // DR3 — strict 2-player
 
   // Generate questions (server-side). Word-problems resolve real bank questions; fall back to quick.
   let questions = [];
