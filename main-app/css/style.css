@@ -10522,3 +10522,6 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
   body.drill-session-active .duel-solve-header { top: .25rem; }
   .duel-countdown-num { font-size: 3.5rem; }
 }
+/* The compact Join sheet sits CENTERED (not as a bottom sheet) so the soft keyboard rising from the bottom doesn't
+   hide its footer "Join Duel" button (audit mobile-ux-perf-03). */
+.duel-sheet-compact { align-self: center; border-radius: 1.25rem; }

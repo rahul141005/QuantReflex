@@ -61,7 +61,13 @@ var DuelCore = (function () {
   function startDuel(code) { return api('start', { code: code }); }
   function finishDuel(code, reason) { return api('finish', { code: code, finishReason: reason }); }
   function fetchState(code) { return api('state', { code: code }); }
-  function ackResult(code) { return api('ackResult', { code: code }).catch(function () {}); }
+  function ackResult(code) {
+    // Best-effort, but retry ONCE on failure so a dropped ack doesn't leave the Home "Results ready" card / mirror
+    // lingering on next launch (audit home-history-04 / arch-statemachine-07).
+    return api('ackResult', { code: code }).catch(function () {
+      return new Promise(function (r) { setTimeout(r, 1200); }).then(function () { return api('ackResult', { code: code }); }).catch(function () {});
+    });
+  }
   function abandonDuel(code) { return api('abandon', { code: code }); }
   function leaveLobby(code) { return api('leaveLobby', { code: code }); }   // guest leaves the lobby cleanly (server removes them)
 

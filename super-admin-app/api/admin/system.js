@@ -317,9 +317,8 @@ async function handler(req, res) {
          a live `active` room would destroy private/key + player docs and skip the duelHistory write. Bounded to
          500/run (ADR-023): `scanned === 500` signals more remain — re-run drains the rest. */
       const snapshot = await db.collection('duels').where('status', 'in', ['lobby', 'abandoned', 'expired', 'complete']).limit(500).get();
-      let deletedCount = 0;
-      const batch = db.batch();
       const _ms = function (v) { return v ? (typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v)) : 0; };
+      const toDelete = [];
       snapshot.forEach(doc => {
         const data = doc.data();
         const createdAt = _ms(data.createdAt);
@@ -327,11 +326,25 @@ async function handler(req, res) {
         if (data.status === 'lobby' && createdAt < lobbyThreshold) shouldDelete = true;
         else if ((data.status === 'abandoned' || data.status === 'expired') && createdAt < terminalThreshold) shouldDelete = true;
         else if (data.status === 'complete' && (_ms(data.completedAt) || createdAt) < completeThreshold) shouldDelete = true;
-        if (shouldDelete) { batch.delete(doc.ref); deletedCount++; }
+        if (shouldDelete) toDelete.push(doc.ref);
       });
+      let deletedCount = 0;
+      // RECURSIVE delete — also removes duels/{code}/private/key + players/{uid}. A flat batch.delete of just the
+      // room doc would ORPHAN those subcollections in Firestore forever (audit home-history-06).
+      for (const ref of toDelete) {
+        try {
+          if (typeof db.recursiveDelete === 'function') {
+            await db.recursiveDelete(ref);
+          } else {
+            const cols = await ref.listCollections();
+            for (const col of cols) { const sub = await col.limit(100).get(); const b = db.batch(); sub.forEach(d => b.delete(d.ref)); if (!sub.empty) await b.commit(); }
+            await ref.delete();
+          }
+          deletedCount++;
+        } catch (e) { /* skip one, continue draining */ }
+      }
       if (deletedCount > 0) {
-        await batch.commit();
-        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'cleanup_duels', category: 'system', targetType: 'bulk', targetId: null, summary: 'deleted ' + deletedCount + ' stale duel room(s)' });
+        await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'cleanup_duels', category: 'system', targetType: 'bulk', targetId: null, summary: 'deleted ' + deletedCount + ' stale duel room(s) + subcollections' });
       }
       return res.status(200).json({ success: true, deletedCount: deletedCount, scanned: snapshot.size, more: snapshot.size >= 500 });
     }

@@ -157,6 +157,7 @@ var DuelManager = (function () {
   }
   function _syncLobbyOnce() {
     if (!_code) return;
+    DuelCore.heartbeat(_code);   // lobby heartbeat — keep our presence.lastSeenAt fresh so the host's start-liveness check is trustworthy (audit room-occupancy-05 → -02)
     DuelCore.fetchState(_code).then(function (res) {
       if (!res || !res.duel || _phase !== 'lobby') return;
       if (res.serverNow) _serverOffset = res.serverNow - Date.now();
@@ -196,8 +197,10 @@ var DuelManager = (function () {
 
   /* ── Countdown (server-anchored) ── */
   function _beginCountdown() {
+    if (_phase === 'countdown' || _phase === 'solving') return;   // single-flight — a queued retry/reconnect must not restart the countdown (audit countdown-timer-02 / network-recovery-07)
     _phase = 'countdown';
     _syncRetries = 0;
+    _cacheToken();   // cache the ID token early so the keepalive beacon has one even on a fast close (audit solving-exit-forfeit-05)
     _showContainer('duelActive', true);
     var c = _el('duelActive');
     c.innerHTML = '<div class="duel-countdown-overlay"><div id="duCount" class="duel-countdown-num">3</div></div>';
@@ -218,7 +221,9 @@ var DuelManager = (function () {
   function _startSolving() {
     if (_phase === 'solving') return;
     var prompts = (_duel.prompts || []).slice().sort(function (a, b) { return a.index - b.index; });
-    if (!prompts.length) {   // DR2 backstop — never run a 0-question engine; re-fetch the room, then retry
+    if (!prompts.length) {   // DR2 backstop — never run a 0-question engine; re-fetch the room, then retry (CAPPED)
+      _syncRetries++;
+      if (_syncRetries > 6) { _syncRetries = 0; _toast('Trouble loading the duel — check your connection.'); exitToHome(true); return; }   // surface, don't loop forever (audit question-delivery-03)
       _toast('Loading questions…');
       DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) { _duel = res.duel; if (res.serverNow) _serverOffset = res.serverNow - Date.now(); } setTimeout(_startSolving, 400); }).catch(function () { setTimeout(_startSolving, 800); });
       return;
@@ -368,7 +373,7 @@ var DuelManager = (function () {
     var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'your opponent';
     var oppP = (opp && _duel.presence) ? _duel.presence[opp] : null;
     var stale = oppP && oppP.lastSeenAt && (Date.now() + _serverOffset - oppP.lastSeenAt > 30000);
-    DuelUI.renderWaiting(_el('duelWaiting'), { opponentName: oppName, opponentState: oppP ? oppP.state : 'solving', opponentStale: stale, onHome: function () { exitToHome(true); } });
+    DuelUI.renderWaiting(_el('duelWaiting'), { opponentName: oppName, opponentState: oppP ? oppP.state : 'connecting', opponentStale: stale, onHome: function () { exitToHome(true); } });
   }
   /* RESILIENT waiting-phase finalize poll. On Spark there is no realtime reaper, so for a waiting player whose
      opponent abandoned, this poll is the ONLY thing that converts active→complete. It RE-ARMS on every tick
@@ -382,7 +387,7 @@ var DuelManager = (function () {
     var tick = function () {
       if (_phase !== 'waiting') { _deadlineTimer = null; return; }
       DuelCore.fetchState(_code)
-        .then(function (res) { if (res && res.duel) _onSnapshot({ data: res.duel }); })
+        .then(function (res) { if (res && res.duel) { if (res.serverNow) _serverOffset = res.serverNow - Date.now(); _onSnapshot({ data: res.duel }); } })   // refresh clock offset on reconnect (audit network-recovery-04)
         .catch(function () {})
         .then(function () { if (_phase === 'waiting') _deadlineTimer = setTimeout(tick, 8000); });   // keep polling ~8s until terminal
     };
@@ -450,7 +455,7 @@ var DuelManager = (function () {
       if (!dd) { _resetState(); refreshActiveCard(); return; }
       if (dd.status === 'abandoned' || dd.status === 'expired') { _toast('That duel has ended.'); _resetState(); exitToHome(); return; }
       _routeRecovered(_code, dd, res.my);
-    }).catch(function () { if (_duel && _duel.status === 'complete') _showResults(_code, _duel); else if (_phase === 'waiting') _enterWaiting(_code, _duel); });
+    }).catch(function () { _toast('Couldn’t reach the duel — check your connection.'); refreshActiveCard(); });   // don't blindly re-enter from stale _duel (audit arch-statemachine-05 / home-history-05)
   }
   function _setHomeCardIdle(card) {
     var desc = card.querySelector('.home-bento-desc');
@@ -472,18 +477,18 @@ var DuelManager = (function () {
       _scheduleListenerRecovery();   // DR1 — never silently swallow; re-sync + re-attach once (debounced)
       return;
     }
-    if (ev.removed) { return; }
+    if (ev.removed) { _scheduleListenerRecovery(); return; }   // doc read-denied / participant-removed → attempt recovery, don't silently stall (audit realtime-sync-04)
     var d = ev.data; if (!d) return;
     // Sanitize: the raw doc may carry perPlayer only when complete (server keeps it off the doc until then).
     _duel = d;
     var uid = _myUid();
     if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
     if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? 'Duel ended — no questions were answered.' : (d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.')); _resetState(); exitToHome(); return; }
-    if (d.status === 'lobby') { if (_phase === 'lobby') { _lobbySig = _lobbySigOf(d); _renderLobby(); } return; }
+    if (d.status === 'lobby') { if (_phase === 'lobby') { var lsig = _lobbySigOf(d); if (lsig !== _lobbySig) { _lobbySig = lsig; _renderLobby(); } } return; }   // re-render only on real change (audit realtime-sync-04)
     if (d.status === 'active') {
       if (_phase === 'lobby') { _stopLobbyPoll(); _onActiveFromLobby(); return; }
       if (_phase === 'solving' || _phase === 'countdown') { _updateOppChip(); return; }
-      if (_phase === 'waiting') { _renderWaiting(); return; }   // opponent presence/stale refresh
+      if (_phase === 'waiting') { var wsig = _lobbySigOf(d); if (wsig !== _lobbySig) { _lobbySig = wsig; _renderWaiting(); } return; }   // re-render only when opponent presence changed (audit realtime-sync-05)
     }
   }
   function _scheduleListenerRecovery() {
@@ -493,6 +498,7 @@ var DuelManager = (function () {
       if (!_code) return;
       DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) _onSnapshot({ data: res.duel }); }).catch(function () {});
       if (_phase === 'lobby' || _phase === 'waiting' || _phase === 'solving' || _phase === 'countdown') DuelCore.listen(_code, _onSnapshot);
+      if (_phase === 'lobby' && !_lobbyPollTimer) _startLobbyPoll();   // ensure the 2s backstop survives a listener hiccup (audit realtime-sync-04)
     }, 1500);
   }
   function _onActiveFromLobby() {

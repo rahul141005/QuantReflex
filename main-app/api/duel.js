@@ -98,7 +98,9 @@ function _grade(playerAnswers, keyAnswers, startedAt, finishedAt, budgetMs) {
     const inKey = Object.prototype.hasOwnProperty.call(byIndex, Number(idx)) || Object.prototype.hasOwnProperty.call(byIndex, idx);
     if (inKey && a && a.value != null && String(a.value) !== '') {
       answered++;
-      if (typeof a.clientMs === 'number' && a.clientMs > 0) sumMs += a.clientMs;   // real per-answer solve time
+      // Clamp each per-answer time to a sane human range so a forged tiny clientMs (e.g. 1ms) can't max the speed
+      // bonus (audit firestore-security-02). The bonus is still only a ≤300 tie-breaker; accuracy dominates 1000:300.
+      if (typeof a.clientMs === 'number' && a.clientMs > 0) sumMs += _clamp(a.clientMs, 200, 120000);
       const exp = byIndex[Number(idx)] !== undefined ? byIndex[Number(idx)] : byIndex[idx];
       if (_isCorrect(a.value, exp)) correct++;
     }
@@ -240,6 +242,10 @@ async function _finalizeTxn(code, finalizeSpec) {
     if ((ra.answeredCount || 0) === 0 && (rb.answeredCount || 0) === 0) {
       txn.update(roomRef, { status: 'abandoned', presence: presence, abandonedReason: 'no_contest', completedAt: completedAt });
       uids.forEach(function (u) { txn.set(db.collection(USERS).doc(u), { activeDuelId: null }, { merge: true }); });
+      // History coverage: record a no_contest for both so the History view represents EVERY duel (home-history-08).
+      const ncA = (presence[a] && presence[a].name) || 'Player', ncB = (presence[b] && presence[b].name) || 'Player';
+      txn.set(db.collection(USERS).doc(a).collection('duelHistory').doc(code), { opponentName: ncB, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt }, { merge: true });
+      txn.set(db.collection(USERS).doc(b).collection('duelHistory').doc(code), { opponentName: ncA, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt }, { merge: true });
       return { completed: true, room: Object.assign({}, room, { status: 'abandoned', presence: presence }) };
     }
 
@@ -257,12 +263,12 @@ async function _finalizeTxn(code, finalizeSpec) {
     txn.set(db.collection(USERS).doc(a).collection('duelHistory').doc(code), {
       opponentName: nameB, outcome: outcome(a), myScore: ra.correctCount, oppScore: rb.correctCount,
       mySpeed: speed(ra, room.effectiveQuestionCount), oppSpeed: speed(rb, room.effectiveQuestionCount),
-      accuracy: ra.answeredCount ? Math.round((ra.correctCount / ra.answeredCount) * 100) : 0, playedAt: completedAt
+      accuracy: room.effectiveQuestionCount ? Math.round((ra.correctCount / room.effectiveQuestionCount) * 100) : 0, playedAt: completedAt
     }, { merge: true });
     txn.set(db.collection(USERS).doc(b).collection('duelHistory').doc(code), {
       opponentName: nameA, outcome: outcome(b), myScore: rb.correctCount, oppScore: ra.correctCount,
       mySpeed: speed(rb, room.effectiveQuestionCount), oppSpeed: speed(ra, room.effectiveQuestionCount),
-      accuracy: rb.answeredCount ? Math.round((rb.correctCount / rb.answeredCount) * 100) : 0, playedAt: completedAt
+      accuracy: room.effectiveQuestionCount ? Math.round((rb.correctCount / room.effectiveQuestionCount) * 100) : 0, playedAt: completedAt
     }, { merge: true });
 
     fcmTargets = uids.slice();
@@ -412,28 +418,39 @@ async function _start(req, res) {
   if (room.status !== 'lobby') return res.status(409).json({ error: { code: 'BAD_STATE', message: 'Cannot start this duel.' } });
   if ((room.participantUids || []).length < 2) return res.status(409).json({ error: { code: 'NO_OPPONENT', message: 'Wait for an opponent to join.' } });
   if ((room.participantUids || []).length > 2) return res.status(409).json({ error: { code: 'BAD_ROOM_STATE', message: 'This duel room is in an invalid state.' } });   // DR3 — strict 2-player
+  // Don't start against a guest who already left / closed their tab (audit room-occupancy-02). Their presence is
+  // lobby-heartbeated (~2s), so a missing or >20s-stale lastSeenAt means they're gone.
+  const oppStart = (room.participantUids || []).find(function (u) { return u !== uid; });
+  const oppStartP = (room.presence && oppStart) ? room.presence[oppStart] : null;
+  if (!oppStartP || !oppStartP.lastSeenAt || (_now() - oppStartP.lastSeenAt > 20000)) {
+    return res.status(409).json({ error: { code: 'OPPONENT_LEFT', message: 'Your opponent has left — wait for someone to join.' } });
+  }
 
-  // Generate questions (server-side). Word-problems resolve real bank questions; fall back to quick.
+  // Generate questions (server-side). Word-problems resolve real bank questions; quick TOPS UP any shortfall.
+  const cfg = room.config || {};
+  const want = cfg.questionCount;
   let questions = [];
-  if (room.config.questionMode === 'wordproblems') {
+  if (cfg.questionMode === 'wordproblems') {
     try {
       let q = db.collection('questions').where('status', '==', 'active').where('type', '==', 'word_problem');
-      if (room.config.topics && room.config.topics.length === 1) q = q.where('topic', '==', room.config.topics[0]);
-      if (room.config.difficulty) q = q.where('difficulty', '==', room.config.difficulty);
-      const bank = await q.limit(room.config.questionCount).get();
-      bank.forEach(function (d, i) { const x = d.data(); if (x && x.answer != null) questions.push({ index: questions.length, text: x.question || x.text || '', category: x.topic || 'word_problem', answer: x.answer }); });
-    } catch (e) { /* missing index / no bank → fall through to quick */ }
+      if (cfg.topics && cfg.topics.length === 1) q = q.where('topic', '==', cfg.topics[0]);
+      if (cfg.difficulty) q = q.where('difficulty', '==', cfg.difficulty);
+      const bank = await q.limit(want).get();
+      // Skip blank/whitespace-only prompts — never ship an unanswerable question (question-delivery-02).
+      bank.forEach(function (d) { const x = d.data(); const t = String((x && (x.question || x.text)) || '').trim(); if (x && x.answer != null && t !== '') questions.push({ index: questions.length, text: t, category: x.topic || 'word_problem', answer: x.answer }); });
+    } catch (e) { /* missing index / no bank → top up with quick below */ }
   }
-  if (!questions.length) {
-    // Quick Math: the unified Practice generator (js/questions.js) — all 12 authoritative categories + difficulty,
-    // identical to what Practice/Custom Training produce. {question} → text. Reset dedup so a warm Vercel instance
-    // doesn't over-dedup across back-to-back duels.
+  // Top up (or fully generate) with the unified Practice generator (js/questions.js) so we ALWAYS deliver `want`
+  // questions — never a partial or empty set (question-delivery-01). All 12 authoritative categories + difficulty,
+  // identical to Practice/Custom Training. {question} → text. resetRecentQuestions so a warm Vercel instance doesn't
+  // over-dedup across back-to-back duels.
+  if (questions.length < want) {
     QGen.resetRecentQuestions();
-    const cfg = room.config || {};
+    const need = want - questions.length;
     const raw = (cfg.topics && cfg.topics.length)
-      ? QGen.generateMultiTopic(cfg.questionCount, cfg.topics, cfg.difficulty)
-      : QGen.generateQuestions(cfg.questionCount, null, cfg.difficulty);
-    questions = raw.map(function (q, i) { return { index: i, text: q.question, category: q.category, answer: q.answer }; });
+      ? QGen.generateMultiTopic(need, cfg.topics, cfg.difficulty)
+      : QGen.generateQuestions(need, null, cfg.difficulty);
+    raw.forEach(function (q) { questions.push({ index: questions.length, text: q.question, category: q.category, answer: q.answer }); });
   }
   questions = questions.slice(0, MAX_Q).map(function (q, i) { return { index: i, text: q.text, category: q.category, answer: q.answer }; });
   const n = questions.length;
@@ -653,3 +670,7 @@ module.exports = function (req, res) {
   if (action === 'cron-sweep') return _cronSweep(req, res);   // CRON_SECRET-authed, no user token
   return _authed(req, res);
 };
+
+// Test-only export (attached to the handler fn — zero effect on Vercel routing). Lets scripts/duel-sim.js exercise
+// the REAL pure scoring/grading functions end-to-end.
+module.exports._internals = { _grade: _grade, _decideWinner: _decideWinner, _budgets: _budgets, _isCorrect: _isCorrect, _validConfig: _validConfig };

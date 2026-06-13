@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v95';
-const CACHE_NAME = 'qr-cache-v95';
+const APP_VERSION = 'v96';
+const CACHE_NAME = 'qr-cache-v96';
 
 var ASSETS = [
   './',
@@ -143,8 +143,10 @@ self.addEventListener('fetch', function (event) {
       fetch(event.request, { cache: 'no-cache' }).then(function (response) {
         if (response.ok) {
           var clone = response.clone();
+          // Cache navigations under the CANONICAL shell key, never the full URL incl ?duel=CODE — otherwise every
+          // deep link grows the cache unbounded and fragments the shell (audit network-recovery-03).
           caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(event.request, clone);
+            cache.put('./index.html', clone);
           });
         }
         return response;

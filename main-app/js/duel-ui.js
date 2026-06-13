@@ -86,7 +86,7 @@ var DuelUI = (function () {
                 '<button class="timer-pill" data-tmode="total" type="button">Total</button>' +
               '</div>' +
               '<div class="timer-input-row">' +
-                '<input type="number" id="duTimerSec" class="timer-seconds-input" min="5" max="600" value="15" />' +
+                '<input type="number" id="duTimerSec" class="timer-seconds-input" min="5" max="120" value="15" />' +
                 '<span class="timer-unit-label">seconds</span>' +
               '</div>' +
             '</div>' +
@@ -134,7 +134,7 @@ var DuelUI = (function () {
     // Timer
     var tToggle = _el('duTimerToggle'), tArea = _el('duTimerArea');
     tToggle.addEventListener('change', function () { tArea.style.display = tToggle.checked ? 'block' : 'none'; });
-    _pillGroup('duTimerPills', null);
+    _pillGroup('duTimerPills', function (btn) { var sec = _el('duTimerSec'); if (sec) sec.max = (btn.getAttribute('data-tmode') === 'per') ? '120' : '600'; });   // per-Q server clamp ≤120; total ≤600 (audit countdown-timer-04)
 
     // Skip hint
     var skip = _el('duSkipChk');
@@ -312,9 +312,10 @@ var DuelUI = (function () {
   /* ═════════════════ Finished-waiting ═════════════════ */
   function renderWaiting(container, opts) {
     var oppName = opts.opponentName || 'your opponent';
-    var oppState = opts.opponentState || 'solving';
-    var chipCls = oppState === 'finished' ? 'is-finished' : (opts.opponentStale ? 'is-stale' : 'is-solving');
-    var chip = oppState === 'finished' ? 'Finished' : (opts.opponentStale ? 'Reconnecting…' : 'Solving…');
+    var oppState = opts.opponentState || 'connecting';
+    var connecting = oppState === 'connecting';   // presence unknown → neutral, don't claim "Solving…" (audit waiting-result-05)
+    var chipCls = oppState === 'finished' ? 'is-finished' : ((opts.opponentStale || connecting) ? 'is-stale' : 'is-solving');
+    var chip = oppState === 'finished' ? 'Finished' : (connecting ? 'Connecting…' : (opts.opponentStale ? 'Reconnecting…' : 'Solving…'));
     container.style.display = 'block';
     container.innerHTML =
       '<div class="duel-screen"><div class="duel-card duel-waiting-card">' +
@@ -390,6 +391,7 @@ var DuelUI = (function () {
     if (draw) return 'Dead even — same score and speed.';
     var w = iWon ? me : op, l = iWon ? op : me, wn = iWon ? 'You' : opName;
     if ((w.correctCount || 0) > (l.correctCount || 0)) return wn + ' won on accuracy (' + (w.correctCount || 0) + ' vs ' + (l.correctCount || 0) + ' correct).';
+    if ((l.answeredCount || 0) === 0) return wn + ' won — opponent didn’t answer.';   // honest: don't claim "same accuracy" when the loser played nothing (audit waiting-result-03)
     return wn + ' won on speed — same accuracy, faster solving.';
   }
 
