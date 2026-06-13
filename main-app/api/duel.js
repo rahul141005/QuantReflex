@@ -93,13 +93,14 @@ function _grade(playerAnswers, keyAnswers, startedAt, finishedAt, budgetMs) {
   const ans = (playerAnswers && playerAnswers.answers) || {};
   Object.keys(ans).forEach(function (idx) {
     const a = ans[idx];
-    if (a && a.value != null && String(a.value) !== '') {
+    // Only count indices that exist in the answer key — a tampering client can write extra/forged indices into its
+    // own players doc, but they must NEVER inflate answeredCount or speed (audit adversarial-03).
+    const inKey = Object.prototype.hasOwnProperty.call(byIndex, Number(idx)) || Object.prototype.hasOwnProperty.call(byIndex, idx);
+    if (inKey && a && a.value != null && String(a.value) !== '') {
       answered++;
       if (typeof a.clientMs === 'number' && a.clientMs > 0) sumMs += a.clientMs;   // real per-answer solve time
-      if (Object.prototype.hasOwnProperty.call(byIndex, Number(idx)) || Object.prototype.hasOwnProperty.call(byIndex, idx)) {
-        const exp = byIndex[Number(idx)] !== undefined ? byIndex[Number(idx)] : byIndex[idx];
-        if (_isCorrect(a.value, exp)) correct++;
-      }
+      const exp = byIndex[Number(idx)] !== undefined ? byIndex[Number(idx)] : byIndex[idx];
+      if (_isCorrect(a.value, exp)) correct++;
     }
   });
   // Honest speed (P0): totalSolveMs is the SUM OF REAL per-answer client times — never wall-clock. No answers ⇒
@@ -342,6 +343,18 @@ async function _join(req, res) {
   if (!code) return res.status(400).json({ error: { code: 'INVALID_CODE', message: 'Enter a room code.' } });
   const roomRef = db.collection(DUELS).doc(code);
 
+  // Don't clobber an existing in-progress duel mirror with this join (audit firestore-security-04): a live
+  // (lobby/active) DIFFERENT room blocks the join; a terminal/missing mirror is safe to overwrite below.
+  const meJoin = await db.collection(USERS).doc(uid).get();
+  const existingJoinId = meJoin.exists ? meJoin.data().activeDuelId : null;
+  if (existingJoinId && existingJoinId !== code) {
+    const exJoin = await db.collection(DUELS).doc(existingJoinId).get();
+    const exJoinData = exJoin.exists ? exJoin.data() : null;
+    if (exJoinData && ['lobby', 'active'].indexOf(exJoinData.status) >= 0) {
+      return res.status(409).json({ error: { code: 'DUEL_IN_PROGRESS', message: 'Finish your current duel first.' }, code: existingJoinId });
+    }
+  }
+
   const out = await db.runTransaction(async function (txn) {
     const snap = await txn.get(roomRef);
     if (!snap.exists) return { err: { s: 404, code: 'ROOM_NOT_FOUND', m: 'Room not found — check the code.' } };
@@ -524,6 +537,38 @@ async function _abandon(req, res) {
   return res.status(200).json({ success: true });
 }
 
+// A GUEST leaves the lobby cleanly: remove them from participantUids + presence and clear their mirror, so they are
+// not stranded as a ghost participant and the room can accept a replacement (audit room-occupancy-01). The HOST
+// leaving the lobby == abandon. After start, leaving is a finalized finish (not a lobby-leave).
+async function _leaveLobby(req, res) {
+  const uid = req.userId;
+  const body = parseBody(req);
+  const code = String(body.code || '').trim().toUpperCase();
+  const roomRef = db.collection(DUELS).doc(code);
+  const out = await db.runTransaction(async function (txn) {
+    const snap = await txn.get(roomRef);
+    if (!snap.exists) return { ok: true };
+    const d = snap.data();
+    const uids = d.participantUids || [];
+    if (uids.indexOf(uid) < 0) { txn.set(db.collection(USERS).doc(uid), { activeDuelId: null }, { merge: true }); return { ok: true }; }
+    if (d.createdBy === uid) {
+      if (d.status !== 'lobby') return { err: { s: 409, code: 'ALREADY_STARTED', m: 'The duel has already started — finish it instead.' } };
+      txn.update(roomRef, { status: 'abandoned' });
+      uids.forEach(function (u) { txn.set(db.collection(USERS).doc(u), { activeDuelId: null }, { merge: true }); });
+      return { ok: true };
+    }
+    // Guest: only a lobby is safely leavable (after start, leaving must finalize via _finish).
+    if (d.status !== 'lobby') return { err: { s: 409, code: 'ALREADY_STARTED', m: 'The duel has already started — finish it instead.' } };
+    const presence = d.presence || {};
+    delete presence[uid];
+    txn.update(roomRef, { participantUids: uids.filter(function (u) { return u !== uid; }), presence: presence });
+    txn.set(db.collection(USERS).doc(uid), { activeDuelId: null }, { merge: true });
+    return { ok: true };
+  });
+  if (out.err) return res.status(out.err.s).json({ error: { code: out.err.code, message: out.err.m } });
+  return res.status(200).json({ success: true });
+}
+
 /* ───────────────────────── cron backstop (CRON_SECRET-authed; bypasses withAuth) ───────────────────────── */
 
 function _safeEqual(a, b) {
@@ -592,6 +637,7 @@ async function handler(req, res) {
       case 'state': return await _state(req, res);
       case 'ackResult': return await _ackResult(req, res);
       case 'abandon': return await _abandon(req, res);
+      case 'leaveLobby': return await _leaveLobby(req, res);
       default: return res.status(404).json({ error: { code: 'UNKNOWN_ACTION', message: 'Unknown action.' } });
     }
   } catch (err) {

@@ -24,7 +24,7 @@ var Router = (function () {
    * Globally destroys all active overlays, modals, and sessions.
    * Called on auth transitions or major route shifts to ensure a clean slate.
    */
-  function _cleanupOverlays() {
+  function _cleanupOverlays(targetViewId) {
     if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
 
     var _drillContainer = document.getElementById('drillContainer');
@@ -49,10 +49,14 @@ var Router = (function () {
       document.body.classList.remove('paywall-open');
     }
 
-    if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
-      if (typeof DuelManager !== 'undefined' && DuelManager.isInDuel()) {
-        DuelCore.stopListening();
-      }
+    /* Duel realtime: tear down ONLY when actually navigating AWAY from the duel view. Internal duel re-renders
+       call showView('duel') on every screen change — tearing the listener down there silently kills realtime sync
+       after the first snapshot (audit realtime-sync-01, the keystone defect). On a genuine nav-away, suspend()
+       stops the listener AND the lobby/deadline polls (audit realtime-sync-02) while keeping state for the Home
+       "Resume" card. */
+    if (typeof DuelManager !== 'undefined' && DuelManager.isInDuel() && targetViewId !== 'duel') {
+      if (typeof DuelManager.suspend === 'function') DuelManager.suspend();
+      else if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') DuelCore.stopListening();
     }
 
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
@@ -85,7 +89,7 @@ var Router = (function () {
        fixed header and bottom nav never drift (ADR-011). */
     document.body.classList.toggle('view-practice-active', viewId === 'practice');
 
-    _cleanupOverlays();
+    _cleanupOverlays(viewId);
     
     if (typeof _drillSessionActive !== 'undefined' && !_drillSessionActive) {
       if (document.body.classList.contains('auth-resolved')) {
@@ -187,6 +191,18 @@ var Router = (function () {
             if (typeof _exitDrillSession === 'function') _exitDrillSession();
             showView('practice');
           });
+        }
+        return;
+      }
+
+      /* Duel solving/countdown: intercept Back so it can never silently leave an un-submitted duel (audit
+         solving-exit-forfeit-01). The manager shows the Submit & Leave modal (solving) or absorbs it (countdown);
+         re-push the duel state so the browser does not actually navigate. */
+      if (typeof DuelManager !== 'undefined' && typeof DuelManager.handleBackNav === 'function' && DuelManager.handleBackNav()) {
+        try {
+          history.pushState({ view: 'duel' }, '', '#duel');
+        } catch (e) {
+          window.location.hash = '#duel';
         }
         return;
       }

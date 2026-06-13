@@ -10509,3 +10509,16 @@ body.dark-mode .duel-exit-title { color: #f1f5f9; }
 .duel-exit-body { color: #475569; font-size: .92rem; line-height: 1.55; margin-bottom: 1rem; }
 body.dark-mode .duel-exit-body { color: #cbd5e1; }
 .duel-exit-actions { display: flex; flex-direction: column; gap: .5rem; }
+
+/* ---- Release-audit UX fixes: touch targets ≥40-44px, dark-mode contrast, notch safe-area ---- */
+.duel-sheet .category-btn { min-height: 44px; }                       /* audit mobile-ux-perf-06 */
+.duel-sheet .timer-pill { min-height: 40px; }                         /* audit mobile-ux-perf-09 */
+.duel-share-btn { min-height: 40px; }                                 /* audit mobile-ux-perf-10 */
+.duel-leave-link { min-height: 40px; }
+body.dark-mode .duel-result-banner.is-draw { color: #94a3b8; }        /* audit mobile-ux-perf-07 (Draw contrast) */
+body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-inset-top, 0px)); }  /* audit mobile-ux-perf-01 (notch) */
+/* Landscape: never let the duel question card collapse under the fixed numpad/header (audit mobile-ux-perf-02). */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.drill-session-active .duel-solve-header { top: .25rem; }
+  .duel-countdown-num { font-size: 3.5rem; }
+}

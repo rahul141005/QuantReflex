@@ -63,6 +63,7 @@ var DuelCore = (function () {
   function fetchState(code) { return api('state', { code: code }); }
   function ackResult(code) { return api('ackResult', { code: code }).catch(function () {}); }
   function abandonDuel(code) { return api('abandon', { code: code }); }
+  function leaveLobby(code) { return api('leaveLobby', { code: code }); }   // guest leaves the lobby cleanly (server removes them)
 
   /* ── Narrow client-SDK writes (rules-allowed) ── */
 
@@ -81,13 +82,25 @@ var DuelCore = (function () {
     return _db().collection(DUELS).doc(code).update(upd).catch(function () { /* transient — ignore */ });
   }
 
-  /** Persist one answer to the player's own doc (merge → no clobber). Allowed only while solving (rules). */
+  /** Persist one answer to the player's own doc (merge → no clobber). Allowed only while solving (rules).
+   *  Returns the write promise. On PERMISSION_DENIED (the presence='solving' precondition hadn't propagated yet,
+   *  audit solving-exit-forfeit-03), re-assert presence and retry ONCE so a first-answer race self-heals instead
+   *  of silently dropping the answer. */
   function writeAnswer(code, index, value, clientMs) {
     var uid = _uid(); if (!uid || !code) return Promise.resolve();
     var answers = {}; answers[String(index)] = { value: value == null ? '' : String(value), clientMs: clientMs || 0 };
-    return _db().collection(DUELS).doc(code).collection('players').doc(uid)
-      .set({ answers: answers }, { merge: true })
-      .catch(function (e) { console.warn('[Duel] answer write failed:', e && e.message); });
+    var ref = _db().collection(DUELS).doc(code).collection('players').doc(uid);
+    function doWrite() { return ref.set({ answers: answers }, { merge: true }); }
+    function isPermDenied(e) { return e && (e.code === 'permission-denied' || /permission|denied/i.test(e.message || '')); }
+    return doWrite().catch(function (e) {
+      if (isPermDenied(e)) {
+        return setPresence(code, 'solving')
+          .then(function () { return new Promise(function (r) { setTimeout(r, 350); }); })
+          .then(doWrite)
+          .catch(function (e2) { console.warn('[Duel] answer write failed (after retry):', e2 && e2.message); });
+      }
+      console.warn('[Duel] answer write failed:', e && e.message);
+    });
   }
 
   /* ── Realtime room listener ── */
@@ -143,6 +156,7 @@ var DuelCore = (function () {
     finishDuel: finishDuel,
     fetchState: fetchState,
     abandonDuel: abandonDuel,
+    leaveLobby: leaveLobby,
     setPresence: setPresence,
     heartbeat: heartbeat,
     writeAnswer: writeAnswer,

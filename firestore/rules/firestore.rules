@@ -114,6 +114,9 @@ service cloud.firestore {
         after.presence[uid].diff(before.presence[uid]).affectedKeys().hasOnly(['state', 'lastSeenAt']) &&
         after.presence[uid].name == before.presence[uid].name &&
         after.presence[uid].state in ['joined', 'ready', 'solving'] &&
+        // 'solving' may be armed ONLY once the room is active — never during 'lobby' (audit firestore-security-05):
+        // otherwise a client could pre-arm its own answer-write precondition before the duel starts.
+        (after.presence[uid].state != 'solving' || before.status == 'active') &&
         before.presence[uid].state != 'finished';
     }
 
@@ -123,7 +126,11 @@ service cloud.firestore {
       let room = get(/databases/$(database)/documents/duels/$(code)).data;
       return room.status == 'active'
         && (playerId in room.presence)
-        && room.presence[playerId].state == 'solving';
+        && room.presence[playerId].state == 'solving'
+        // Reject answer writes after the timer/total deadline. Without this, on Spark (no realtime reaper) a client
+        // that stops polling could keep answering for up to a day, bypassing the timer (audit firestore-security-01).
+        // totalDeadline is epoch ms (server _now()); compare against request.time.
+        && (!('totalDeadline' in room) || room.totalDeadline == null || request.time.toMillis() < room.totalDeadline);
     }
 
 

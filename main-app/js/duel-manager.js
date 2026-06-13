@@ -20,6 +20,7 @@ var DuelManager = (function () {
   var _lobbyPollTimer = null, _recoverTimer = null, _lobbySig = '';   // presence-sync backstop + listener-recovery debounce (DR1)
   var _homeCardState = 'idle', _syncRetries = 0;   // in-place Home duel-card state + start-sync retry cap (Bug-2 / Bug-1)
   var _runner = null;        // light solving state { total, index } for the Submit-&-Leave counts
+  var _lastAnswerWrite = null;   // promise of the most recent answer write — flushed before finalize (audit fix)
   var _engine = null;        // the reused Practice drill-engine instance (capture-only duel mode, ADR-033)
   var _finalizing = false;
   var _reconChecked = false;
@@ -91,9 +92,15 @@ var DuelManager = (function () {
     if (st === 'lobby') { _enterLobby(code, duel); return; }
     if (st === 'complete') { _showResults(code, duel); return; }
     if (st === 'active') {
-      var myState = (duel.presence && duel.presence[uid]) ? duel.presence[uid].state : 'joined';
-      if (myState === 'finished') { _enterWaiting(code, duel); }
-      else { _finishMe('submitted_early'); }   // off the solving screen → finalize on the synced answers
+      var myP = (duel.presence && duel.presence[uid]) ? duel.presence[uid] : null;
+      var myState = myP ? myP.state : 'joined';
+      if (myState === 'finished') { _enterWaiting(code, duel); return; }
+      // Another device may be actively solving as this same uid — if our presence heartbeat is FRESH, do NOT
+      // force-finalize (that stamps 'finished' and locks the live device out of answering — audit adversarial-04
+      // / network-recovery-05). Leave the active duel to the other device; this one just returns to Home.
+      var freshMs = (myP && myP.lastSeenAt) ? ((Date.now() + _serverOffset) - myP.lastSeenAt) : Infinity;
+      if (myState === 'solving' && freshMs >= 0 && freshMs < 15000) { _toast('This duel is active on another device.'); exitToHome(true); return; }
+      _finishMe('submitted_early');   // off the solving screen → finalize on the synced answers
       return;
     }
     refreshActiveCard();
@@ -177,7 +184,11 @@ var DuelManager = (function () {
           .catch(function (e) { done && done(); _toast(_err(e)); });
       },
       onLeave: function () {
-        if (_duel.createdBy === uid && _duel.status === 'lobby') { DuelCore.abandonDuel(_code).catch(function () {}); }
+        // Host abandons the room; a GUEST must call leaveLobby so the server removes them from participantUids +
+        // presence + clears their activeDuelId (audit room-occupancy-01 — otherwise they're stranded as a ghost
+        // participant, the room is bricked to replacements, and their next create is bounced DUEL_IN_PROGRESS).
+        if (_duel.createdBy === uid) { if (_duel.status === 'lobby') DuelCore.abandonDuel(_code).catch(function () {}); }
+        else { DuelCore.leaveLobby(_code).catch(function () {}); }
         exitToHome();
       }
     });
@@ -213,9 +224,9 @@ var DuelManager = (function () {
       return;
     }
     _phase = 'solving';
-    DuelCore.setPresence(_code, 'solving').catch(function () {});
     _cacheToken();
     _runner = { total: prompts.length, index: 0 };   // light state for the Submit-&-Leave counts
+    _lastAnswerWrite = null;
     if (_hbTimer) clearInterval(_hbTimer);
     _hbTimer = setInterval(function () { DuelCore.heartbeat(_code); }, 10000);
     document.body.classList.add('drill-session-active');
@@ -234,11 +245,16 @@ var DuelManager = (function () {
       onDuelRender: _onDuelRender,
       onDuelAnswerSubmit: function (raw, ms, idx) {
         if (_runner) _runner.index = idx + 1;
-        DuelCore.writeAnswer(_code, idx, raw, ms);   // persist to own doc; server grades at finalize
+        _lastAnswerWrite = DuelCore.writeAnswer(_code, idx, raw, ms);   // persist; track for the finalize flush
       },
       onFinish: function () { _finishMe('completed_all'); }
     });
-    _engine.start();
+    // Set presence='solving' (the server room precondition for answer writes) BEFORE the engine accepts input, so
+    // the FIRST answer can't be rejected by the rules' duelActiveSolving precondition (audit solving-exit-forfeit-03).
+    // The "GO!" overlay stays visible for the ~one round-trip; then Q1 renders.
+    DuelCore.setPresence(_code, 'solving')
+      .then(function () { if (_phase === 'solving' && _engine) _engine.start(); })
+      .catch(function () { if (_phase === 'solving' && _engine) _engine.start(); });
   }
 
   /* The multiplayer header injected above the Practice question card on every render. Static structure; the live
@@ -283,17 +299,24 @@ var DuelManager = (function () {
   function _finishMe(reason) {
     if (_finalizing) return;
     _finalizing = true;
+    var code = _code;
+    // Flush the LAST answer write before finalizing, so completing the final question can't grade BEFORE its answer
+    // commits (audit solving-exit-forfeit-02). Bounded by a 1.5s cap so a hung write never blocks finalize.
+    var flush = Promise.race([
+      Promise.resolve(_lastAnswerWrite).catch(function () {}),
+      new Promise(function (r) { setTimeout(r, 1500); })
+    ]);
     _teardownSolving();
-    DuelCore.finishDuel(_code, reason).then(function (res) {
+    flush.then(function () { return DuelCore.finishDuel(code, reason); }).then(function (res) {
       _finalizing = false;
       _my = res.my || _my;
       if (res.duel) _duel = res.duel;
-      if (res.complete) { _showResults(_code, _duel); }
-      else { _enterWaiting(_code, _duel); }
+      if (res.complete) { _showResults(code, _duel); }
+      else { _enterWaiting(code, _duel); }
     }).catch(function (e) {
       _finalizing = false;
       // Couldn't reach the server — go to waiting; the deadline/cron/opponent poll will finalize.
-      _enterWaiting(_code, _duel || { participantUids: [], presence: {} });
+      _enterWaiting(code, _duel || { participantUids: [], presence: {} });
       _toast(_err(e));
     });
   }
@@ -302,6 +325,7 @@ var DuelManager = (function () {
     if (_hbTimer) { clearInterval(_hbTimer); _hbTimer = null; }
     if (_perqTimer) { clearInterval(_perqTimer); _perqTimer = null; }
     if (_countTimer) { clearInterval(_countTimer); _countTimer = null; }
+    if (_recoverTimer) { clearTimeout(_recoverTimer); _recoverTimer = null; }   // no stale re-listen after teardown (audit adversarial-08)
     _stopLobbyPoll();
     if (_engine) { try { _engine.cleanup(); } catch (_) {} _engine = null; }
     _runner = null;
@@ -309,9 +333,11 @@ var DuelManager = (function () {
     document.body.classList.remove('drill-session-active');
   }
 
-  /* Best-effort finalize when the player leaves the solving screen (keepalive beacon). */
+  /* Best-effort finalize when the player leaves the solving screen (keepalive beacon). SOLVING ONLY — a close
+     during the countdown has nothing answerable and must NOT finalize (audit network-recovery-01): it would record
+     a 0-answer loss for a player who never saw a question. The server deadline + reopen-recovery resolve it. */
   function _finalizeOnLeave() {
-    if ((_phase !== 'solving' && _phase !== 'countdown') || !_code || _finalizing) return;
+    if (_phase !== 'solving' || !_code || _finalizing) return;
     try {
       fetch('/api/duel?action=finish', {
         method: 'POST', keepalive: true,
@@ -344,13 +370,23 @@ var DuelManager = (function () {
     var stale = oppP && oppP.lastSeenAt && (Date.now() + _serverOffset - oppP.lastSeenAt > 30000);
     DuelUI.renderWaiting(_el('duelWaiting'), { opponentName: oppName, opponentState: oppP ? oppP.state : 'solving', opponentStale: stale, onHome: function () { exitToHome(true); } });
   }
-  /* When the deadline passes with no opponent finish, poke ?action=state to force the server finalize. */
+  /* RESILIENT waiting-phase finalize poll. On Spark there is no realtime reaper, so for a waiting player whose
+     opponent abandoned, this poll is the ONLY thing that converts active→complete. It RE-ARMS on every tick
+     (whether the fetch succeeds, returns still-active, or errors) until the room is terminal — so a single
+     transient offline at the deadline can no longer strand the player forever (audit waiting-result-01 / -06 /
+     mobile-ux-perf-08). It self-stops once _onSnapshot routes off the waiting phase (complete/abandoned). */
   function _armDeadlinePoll() {
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
-    if (!_duel || !_duel.totalDeadline) return;
-    var ms = _duel.totalDeadline - (Date.now() + _serverOffset) + 1500;
-    var poll = function () { DuelCore.fetchState(_code).then(function (res) { if (res.duel) _onSnapshot({ data: res.duel }); }).catch(function () {}); };   // route through the state machine (handles complete/abandoned)
-    _deadlineTimer = setTimeout(poll, Math.max(2000, ms));
+    var firstDelay = 2000;
+    if (_duel && _duel.totalDeadline) firstDelay = Math.max(2000, _duel.totalDeadline - (Date.now() + _serverOffset) + 1500);
+    var tick = function () {
+      if (_phase !== 'waiting') { _deadlineTimer = null; return; }
+      DuelCore.fetchState(_code)
+        .then(function (res) { if (res && res.duel) _onSnapshot({ data: res.duel }); })
+        .catch(function () {})
+        .then(function () { if (_phase === 'waiting') _deadlineTimer = setTimeout(tick, 8000); });   // keep polling ~8s until terminal
+    };
+    _deadlineTimer = setTimeout(tick, firstDelay);
   }
 
   /* ── Results ── */
@@ -505,6 +541,29 @@ var DuelManager = (function () {
   function isInDuel() { return _phase !== 'idle'; }
   function getCurrentDuelId() { return _code; }
 
+  /* Nav-away from a live duel view (lobby/waiting/results) via the bottom nav — stop ALL live sync (listener +
+     polls + timers) but KEEP _code/_duel/_phase so the Home "Resume" card works (audit realtime-sync-02). Solving
+     and countdown hide the nav, so suspend is never reached there. The internal duel re-renders do NOT call this
+     (router gates it on target view !== 'duel'). */
+  function suspend() {
+    if (_phase === 'idle') return;
+    DuelCore.stopListening();
+    _stopLobbyPoll();
+    if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
+    if (_recoverTimer) { clearTimeout(_recoverTimer); _recoverTimer = null; }
+    if (_countTimer) { clearInterval(_countTimer); _countTimer = null; }
+  }
+
+  /* Browser/hardware Back during a duel. Returns true if handled (the router then absorbs the navigation). Solving
+     → the Submit & Leave modal (never a silent un-submitted leave — audit solving-exit-forfeit-01); countdown →
+     absorb it (the ~3.5s countdown finishes shortly, nothing answerable to leave). Lobby/waiting/results fall
+     through to normal navigation, where suspend() tidies up. */
+  function handleBackNav() {
+    if (_phase === 'solving') { _promptExit(); return true; }
+    if (_phase === 'countdown') { return true; }
+    return false;
+  }
+
   /* ── helpers ── */
   function _err(e) { return (e && e.message) ? e.message : 'Something went wrong. Try again.'; }
   function _escText(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
@@ -516,6 +575,8 @@ var DuelManager = (function () {
     isInDuel: isInDuel,
     getCurrentDuelId: getCurrentDuelId,
     refreshActiveCard: refreshActiveCard,
+    suspend: suspend,
+    handleBackNav: handleBackNav,
     exitDuel: exitToHome
   };
 })();
