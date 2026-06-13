@@ -18,6 +18,11 @@ auto-opening results; results render once; nav-away from results acks (no ghost)
 handler + both callbacks). **Result screen redesigned** (`js/duel-ui.js` + `css/style.css`): banner → comparison →
 one metric → one sentence → Share + Finish Duel. SW v96→v97. `duel-sim` 47/47. Docs: [ADR-037](DECISION_LOG.md),
 [VERSIONS.md](VERSIONS.md) (Bible 2.26). Gate: owner two-device full-lifecycle pass.
+- **Follow-up (SW v98):** fixed a **Finish-Duel deadlock** ("Finishing…" forever) — `_finishDuel` now does local
+  cleanup + navigation FIRST/synchronously then ackResult in the background, plus a 2.5s results-screen **failsafe**
+  (`DuelManager.forceReset()` + force-Home) so a missing handler / hung cleanup / SW version mismatch can never trap
+  the user. **Result screen** layout regression fixed: full data restored (correct/score/accuracy/speed comparison +
+  win reason) in a **mathematically centered** composition — VS row + stats table are symmetric `1fr·auto·1fr` grids.
 
 ## 2026-06-14 — Math Duel release-blocking audit + full remediation (ADR-036)
 
