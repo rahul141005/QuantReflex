@@ -1,686 +1,153 @@
 /**
- * duel-core.js — Math Duel Firestore operations & question generation (V3)
+ * duel-core.js — Duel V2 client data layer (ADR-031). Server-authoritative.
  *
- * Room-code-only duel system:
- *   - No invitation system, no publicUsernames, no username lookup
- *   - Clean 5-state lifecycle: waiting → active → completed / abandoned / expired / cancelled
- *   - Independent exit handling (player exits without killing opponent)
- *   - Reconnection support
- *   - Duplicate submission guards
- *   - Realtime result synchronization
+ * This is a THIN client over the `api/duel` endpoint (which is the only authority for questions, the
+ * answer key, grading, the winner, status, and history) plus two narrow client-SDK writes the rules allow:
+ *   1. own presence  (duels/{code}.presence.{uid}.{state,lastSeenAt})  — ready / solving / heartbeat
+ *   2. own answers    (duels/{code}/players/{uid}.answers.{index})       — persisted per-answer while solving
+ * It also owns the room onSnapshot listener and server-mirror recovery (users/{uid}.activeDuelId).
  *
- * Premium gated — all operations require an active premium plan.
+ * There is NO resume / rejoin / continue-after-exit here — exit is a finalized submission (see DuelManager).
  */
-
 var DuelCore = (function () {
   'use strict';
 
-  var DUEL_EXPIRY_MS = 30 * 60 * 1000; /* 30 minutes */
-  var DUEL_COLLECTION = 'duels';
-  var _activeListener = null;
-  var _listenerTimeout = null;
+  var DUELS = 'duels';
+  var _listener = null;
 
-  /* ---- Helpers ---- */
-
-  function _generateDuelId() {
-    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    var id = '';
-    for (var i = 0; i < 6; i++) {
-      id += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return id;
+  function _db() { return firebase.firestore(); }
+  function _uid() {
+    if (typeof Auth !== 'undefined' && Auth.getUserId) return Auth.getUserId();
+    if (typeof FirebaseApp !== 'undefined' && FirebaseApp.getUserId) return FirebaseApp.getUserId();
+    var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    return u ? u.uid : null;
   }
 
-
-
-  function _getDisplayName() {
-    try {
-      var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-      if (s && s.profile && s.profile.name) return s.profile.name;
-    } catch (_) {}
-    try {
-      var p = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getProfile === 'function')
-        ? FirestoreSync.getProfile() : null;
-      if (p && p.name) return p.name;
-    } catch (_) {}
-    /* Fallback: email prefix */
-    try {
-      var user = (typeof Auth !== 'undefined') ? Auth.getCurrentUser() : null;
-      if (user && user.email) return user.email.split('@')[0];
-    } catch (_) {}
-    return 'Player';
-  }
-
-  function _hasPremium() {
-    return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
-  }
-
-  function _isExpired(duel) {
-    if (!duel) return true;
-    /* If createdAt is null (pending serverTimestamp), the duel is brand new, not expired. */
-    if (!duel.createdAt) return false;
-    var createdMs = duel.createdAt.toDate ? duel.createdAt.toDate().getTime() : 0;
-    if (createdMs === 0) return false;
-    return (Date.now() - createdMs) > DUEL_EXPIRY_MS;
-  }
-
-  function _serverTimestamp() {
-    return firebase.firestore.FieldValue.serverTimestamp();
-  }
-
-  /* ---- Seeded PRNG for deterministic question generation ---- */
-
-  function _seedHash(str) {
-    var hash = 0;
-    for (var i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-    }
-    return Math.abs(hash);
-  }
-
-  function _seededRandom(seed) {
-    var s = seed;
-    return function () {
-      s = (s * 1103515245 + 12345) & 0x7fffffff;
-      return s / 0x7fffffff;
-    };
-  }
-
-  /* ---- Question Generation ---- */
-
-  /**
-   * Generate questions using the existing generateQuestion() engine.
-   * Uses a seeded PRNG based on duelId for deterministic output.
-   */
-  function _generateQuickQuestions(config, duelId) {
-    var questions = [];
-    var count = config.questionCount || 10;
-    var rng = _seededRandom(_seedHash(duelId));
-
-    if (typeof generateQuestion !== 'function') return questions;
-
-    var topics = config.topics && config.topics.length > 0 ? config.topics : null;
-    var diff = config.difficulty || 'medium';
-
-    for (var i = 0; i < count; i++) {
-      var cat = topics ? topics[Math.floor(rng() * topics.length)] : null;
-      var q = generateQuestion(cat, diff);
-      if (q) {
-        questions.push({
-          text: q.question || q.text || '',
-          answer: q.answer,
-          category: q.category || cat || 'mixed',
-          index: i
-        });
-      }
-    }
-    return questions;
-  }
-
-  /* ================================================================
-   * DUEL ROOM OPERATIONS
-   * ================================================================ */
-
-  /**
-   * Create a new duel room.
-   * Returns a room code that can be shared with the opponent.
-   */
-  function createDuel(config, callback) {
-    console.log('[DUEL TRACE] createDuel initiated');
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid) { callback('Not authenticated'); return; }
-    if (!_hasPremium()) { callback('Premium required'); return; }
-
-    var duelId = _generateDuelId();
-    var questions = [];
-
-    if (config.questionMode === 'wordproblems') {
-      if (typeof QuestionBankService !== 'undefined' && typeof QuestionBankService.fetchQuestions === 'function') {
-        QuestionBankService.fetchQuestions({
-          category: config.topics && config.topics.length === 1 ? config.topics[0] : null,
-          difficulty: config.difficulty || 'medium',
-          count: config.questionCount || 10
-        }, function (err, fetchedQuestions) {
-          if (err || !fetchedQuestions || fetchedQuestions.length === 0) {
-            config.questionMode = 'quick';
-            questions = _generateQuickQuestions(config, duelId);
-            _writeDuelDoc(db, duelId, uid, config, questions, callback);
-          } else {
-            var questionIds = [];
-            fetchedQuestions.forEach(function (q) {
-              questionIds.push(q.id || String(Math.random()));
-            });
-            _writeDuelDoc(db, duelId, uid, config, [], questionIds, callback);
-          }
-        });
-        return;
-      }
-      questions = _generateQuickQuestions(config, duelId);
-    } else {
-      questions = _generateQuickQuestions(config, duelId);
-    }
-
-    console.log('[DUEL TRACE] createDuel writing document', duelId);
-    _writeDuelDoc(db, duelId, uid, config, questions, callback);
-  }
-
-  function _writeDuelDoc(db, duelId, uid, config, questions, questionIds, callback) {
-    if (typeof questionIds === 'function') {
-      callback = questionIds;
-      questionIds = [];
-    }
-    var displayName = _getDisplayName();
-    var participants = {};
-    participants[uid] = {
-      name: displayName,
-      joinedAt: _serverTimestamp(),
-      status: 'joined',
-      answers: [],
-      score: 0,
-      totalTime: 0
-    };
-
-    var duelDoc = {
-      id: duelId,
-      createdBy: uid,
-      createdByName: displayName,
-      status: 'waiting',
-      createdAt: _serverTimestamp(),
-      config: {
-        topics: config.topics || [],
-        difficulty: config.difficulty || 'medium',
-        questionCount: config.questionCount || 10,
-        questionMode: config.questionMode || 'quick',
-        timerPerQuestion: config.timerPerQuestion || null,
-        timerTotal: config.timerTotal || null,
-        premiumRoom: true
-      },
-      questions: questions || [],
-      questionIds: questionIds || [],
-      participants: participants,
-      duelStartedAt: null,
-      winner: null,
-      result: null
-    };
-
-    db.collection(DUEL_COLLECTION).doc(duelId).set(duelDoc)
+  /* ── Authenticated endpoint call ── */
+  function api(action, body) {
+    return Promise.resolve()
       .then(function () {
-        console.log('[DUEL] Room Created. id=' + duelId + ' questionsStored=' + (duelDoc.questions || []).length + ' questionIdsStored=' + (duelDoc.questionIds || []).length);
-        callback(null, duelId);
+        if (typeof Auth !== 'undefined' && Auth.getIdToken) return Auth.getIdToken();
+        var u = firebase.auth().currentUser;
+        if (!u) throw new Error('Not signed in.');
+        return u.getIdToken();
       })
-      .catch(function (e) {
-        console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: CREATE\n[FIRESTORE OP] Error Message: ' + e.message);
-        callback('Room initialization failed. Please try again.');
-      });
-  }
-
-  /**
-   * Join an existing duel room via room code (transaction-safe).
-   */
-  function joinDuel(duelId, callback) {
-    console.log('[DUEL TRACE] joinDuel initiated for room:', duelId);
-    if (!_hasPremium()) { callback('Premium required'); return; }
-    _joinDuelTransaction(duelId, callback);
-  }
-
-  function _joinDuelTransaction(duelId, callback) {
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid) { callback('Not authenticated'); return; }
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) { throw new Error('Room not found — check the code and try again'); }
-        var data = snap.data();
-
-        if (_isExpired(data)) { throw new Error('This duel has expired'); }
-
-        /* Allow rejoin if already a participant */
-        if (data.participants && data.participants[uid]) {
-          console.log('[DUEL TRACE] joinDuel: Rejoining as existing participant');
-          return data;
-        }
-
-        /* Only 'waiting' status allows joining */
-        if (data.status !== 'waiting') {
-          throw new Error('This duel is no longer accepting players');
-        }
-
-        /* Math Duel is premium-gated — every joiner must have premium. */
-        if (!_hasPremium()) {
-          throw new Error('Premium is required to join this duel room.');
-        }
-
-        var pCount = data.participants ? Object.keys(data.participants).length : 0;
-        if (pCount >= 2) {
-          console.warn('[DUEL TRACE] joinDuel rejected: Room full');
-          throw new Error('This duel room is already full.');
-        }
-
-        console.log('[DUEL TRACE] joinDuel transaction updating doc with new player');
-        var displayName = _getDisplayName();
-        var participants = data.participants || {};
-        participants[uid] = {
-          name: displayName,
-          joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          status: 'joined',
-          answers: [],
-          score: 0,
-          totalTime: 0
-        };
-
-        transaction.update(docRef, {
-          participants: participants,
-          status: 'waiting' /* Stay in waiting until host starts */
+      .then(function (token) {
+        return fetch('/api/duel?action=' + encodeURIComponent(action), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(body || {})
         });
-
-        data.participants = participants;
-        return data;
-      });
-    }).then(function (data) {
-      console.log('[DUEL_DEBUG] Player Joined room:', duelId, 'as UID:', uid);
-      callback(null, data);
-    }).catch(function (e) {
-      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: JOIN (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
-      var msg = e.message && e.message.indexOf('Room not found') === -1 && e.message.indexOf('expired') === -1 && e.message.indexOf('no longer accepting') === -1 && e.message.indexOf('participants') === -1 && e.message.indexOf('Premium') === -1 ? 'Connection problem detected. Unable to join duel.' : e.message;
-      callback(msg || 'Connection problem detected. Unable to join duel.');
-    });
-  }
-
-  /**
-   * Start the duel (both players present) — with countdown.
-   */
-  function startDuel(duelId, callback) {
-    console.log('[DUEL TRACE] startDuel initiated for room:', duelId);
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid) { callback('Not ready'); return; }
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) { throw new Error('Room not found'); }
-        var data = snap.data();
-        if (data.createdBy !== uid) {
-          throw new Error('Only the creator can start the duel');
-        }
-        transaction.update(docRef, {
-          status: 'active',
-          duelStartedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      });
-    })
-      .then(function () {
-        console.log('[DUEL_DEBUG] Countdown Started for room:', duelId);
-        callback(null);
       })
-      .catch(function (e) {
-        console.error('[FIRESTORE OP] START_DUEL error: ' + e.message);
-        var msg = e.message === 'Only the creator can start the duel' ? e.message : 'Unable to start duel. Please try again.';
-        callback(msg);
-      });
-  }
-
-  /**
-   * Submit an answer for the current user (transaction-safe with duplicate guard).
-   */
-  function submitAnswer(duelId, questionIndex, userAnswer, correct, timeMs, callback) {
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid) { if (callback) callback('Not ready'); return; }
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) { throw new Error('Duel not found'); }
-        var data = snap.data();
-        var p = data.participants && data.participants[uid];
-        if (!p) { throw new Error('Not a participant'); }
-
-        var answers = p.answers ? p.answers.slice() : [];
-
-        /* Duplicate submission guard */
-        for (var d = 0; d < answers.length; d++) {
-          if (answers[d].questionIndex === questionIndex) {
-            return null; /* Already submitted — skip silently */
-          }
-        }
-
-        answers.push({
-          questionIndex: questionIndex,
-          answer: userAnswer,
-          correct: !!correct,
-          timeMs: timeMs || 0
-        });
-
-        var score = 0;
-        var totalTime = 0;
-        for (var i = 0; i < answers.length; i++) {
-          if (answers[i].correct) score++;
-          totalTime += answers[i].timeMs || 0;
-        }
-
-        p.answers = answers;
-        p.score = score;
-        p.totalTime = totalTime;
-
-        /* Check if this player is done */
-        var totalQ = data.config ? data.config.questionCount : 10;
-        if (answers.length >= totalQ) {
-          p.status = 'finished';
-          p.finishedAt = new Date().toISOString();
-        } else {
-          p.status = 'playing';
-        }
-
-        var participants = data.participants;
-        participants[uid] = p;
-
-        transaction.update(docRef, {
-          participants: participants
-        });
-
-        return { finished: p.status === 'finished', answersLen: answers.length, score: score };
-      });
-    }).then(function (result) {
-      console.log('[DUEL_DEBUG] Question Submitted for QIndex:', questionIndex, '| Total answers:', result ? result.answersLen : 0, '| Correct:', correct);
-      if (result && result.finished) {
-        console.log('[DUEL_DEBUG] Player Completion Saved for UID:', uid, '| Final Score:', result.score);
-        _checkDuelCompletion(duelId);
-      }
-      if (callback) callback(null);
-    }).catch(function (e) {
-      if (callback) callback(e.message);
-    });
-  }
-
-  var _completionLocks = {};
-
-  function _checkDuelCompletion(duelId) {
-    var db = FirebaseApp.getDb();
-    if (!db || _completionLocks[duelId]) return;
-    _completionLocks[duelId] = true;
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) return null;
-        var data = snap.data();
-        if (data.status !== 'active') return null;
-
-        var participants = data.participants || {};
-        var uids = Object.keys(participants);
-        if (uids.length < 2) return null;
-
-        /* Check if all players are done (finished, exited, or disconnected) */
-        var allDone = uids.every(function (u) {
-          var s = participants[u].status;
-          return s === 'finished' || s === 'exited' || s === 'disconnected';
-        });
-        if (!allDone) return null;
-
-        /* Determine winner */
-        var p1 = participants[uids[0]];
-        var p2 = participants[uids[1]];
-        var winner = null;
-        var result = 'draw';
-
-        if (p1.score > p2.score) {
-          winner = uids[0]; result = 'player1';
-        } else if (p2.score > p1.score) {
-          winner = uids[1]; result = 'player2';
-        } else if (p1.totalTime < p2.totalTime) {
-          winner = uids[0]; result = 'player1';
-        } else if (p2.totalTime < p1.totalTime) {
-          winner = uids[1]; result = 'player2';
-        }
-
-        transaction.update(docRef, {
-          status: 'completed',
-          winner: winner,
-          result: result,
-          completedAt: _serverTimestamp()
-        });
-        return { winner: winner, result: result };
-      });
-    }).then(function (computed) {
-      if (computed) {
-        console.log('[DUEL_DEBUG] Opponent Completion Detected. Both players finished. Status -> completed. Winner:', computed.winner);
-      }
-      _completionLocks[duelId] = false;
-    }).catch(function (e) {
-      _completionLocks[duelId] = false;
-      console.warn('[DuelCore] Completion check failed:', e);
-    });
-  }
-
-  /**
-   * Exit duel early — player leaves but opponent continues.
-   * Sets participant status to 'exited' with current results preserved.
-   */
-  function exitDuelEarly(duelId, callback) {
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid || !duelId) { if (callback) callback('Not ready'); return; }
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) return null;
-        var data = snap.data();
-        if (!data.participants || !data.participants[uid]) return null;
-
-        var participants = data.participants;
-        participants[uid].status = 'exited';
-        participants[uid].exitedAt = new Date().toISOString();
-
-        transaction.update(docRef, { participants: participants });
-        return data;
-      });
-    }).then(function (data) {
-      if (data) _checkDuelCompletion(duelId);
-      if (callback) callback(null, data);
-    }).catch(function (e) {
-      if (callback) callback(e.message);
-    });
-  }
-
-  /* ---- Word Problems Hydration ---- */
-
-  function _hydrateWordProblems(data, callback) {
-    if (typeof QuestionBankService === 'undefined' || !QuestionBankService.fetchQuestionsByIds) {
-      callback(null, data);
-      return;
-    }
-    QuestionBankService.fetchQuestionsByIds(data.questionIds, function (err, fetchedQuestions) {
-      if (!err && fetchedQuestions) {
-        data.questions = fetchedQuestions.map(function (q, idx) {
-          return {
-            text: q.question || q.text || '',
-            answer: q.answer,
-            category: q.category || 'mixed',
-            index: idx
-          };
-        });
-      }
-      callback(null, data);
-    });
-  }
-
-  /* ---- Realtime Listeners ---- */
-
-  /**
-   * Get current state of a duel room (one-time fetch).
-   */
-  function getDuelState(duelId, callback) {
-    var db = FirebaseApp.getDb();
-    if (!db) { callback('Database not available'); return; }
-
-    db.collection(DUEL_COLLECTION).doc(duelId).get()
-      .then(function (snap) {
-        if (!snap.exists) { callback('Duel not found'); return; }
-        var data = snap.data();
-        if (data.config && data.config.questionMode === 'wordproblems' && data.questionIds && data.questionIds.length > 0 && (!data.questions || data.questions.length === 0)) {
-          _hydrateWordProblems(data, callback);
-        } else {
-          callback(null, data);
-        }
-      })
-      .catch(function (e) { callback(e.message || 'Error fetching duel state'); });
-  }
-
-  /**
-   * Listen to duel room changes in realtime.
-   */
-  function listenToDuel(duelId, callback) {
-    stopListening();
-    var db = FirebaseApp.getDb();
-    if (!db) return;
-
-    _activeListener = db.collection(DUEL_COLLECTION).doc(duelId)
-      .onSnapshot(function (snap) {
-        if (!snap.exists) { callback({ error: 'Duel removed' }); return; }
-        var data = snap.data();
-        if (_isExpired(data) && data.status !== 'completed' && data.status !== 'expired') {
-          callback({ expired: true, data: data });
-          return;
-        }
-        if (data.config && data.config.questionMode === 'wordproblems' && data.questionIds && data.questionIds.length > 0 && (!data.questions || data.questions.length === 0)) {
-          _hydrateWordProblems(data, function (err, hydratedData) {
-            callback({ data: hydratedData });
+      .then(function (resp) {
+        return resp.json().catch(function () { throw new Error('Unexpected server response.'); })
+          .then(function (data) {
+            if (!resp.ok) {
+              var msg = (data && data.error && data.error.message) || 'Request failed';
+              var err = new Error(msg);
+              err.code = (data && data.error && data.error.code) || null;
+              err.payload = data;
+              throw err;
+            }
+            return data;
           });
-        } else {
-          callback({ data: data });
-        }
-      }, function (err) {
-        callback({ error: err.message || 'Listener error' });
       });
-
-    /* Auto-timeout: stop the listener after 30 minutes to prevent memory leaks
-       from abandoned duel views. The listener is refreshed each time listenToDuel
-       is called, so active duels are not affected. */
-    if (_listenerTimeout) clearTimeout(_listenerTimeout);
-    _listenerTimeout = setTimeout(function () {
-      console.warn('[DuelCore] onSnapshot listener auto-stopped after 30 min timeout');
-      stopListening();
-    }, 30 * 60 * 1000);
   }
 
-  function stopListening() {
-    if (_listenerTimeout) {
-      clearTimeout(_listenerTimeout);
-      _listenerTimeout = null;
-    }
-    if (_activeListener) {
-      _activeListener();
-      _activeListener = null;
-    }
+  /* ── Endpoint actions (thin wrappers) ── */
+  function createDuel(config, name) { return api('create', { config: config, name: name }); }
+  function joinDuel(code, name) { return api('join', { code: code, name: name }); }
+  function editConfig(code, config) { return api('editConfig', { code: code, config: config }); }
+  function startDuel(code) { return api('start', { code: code }); }
+  function finishDuel(code, reason) { return api('finish', { code: code, finishReason: reason }); }
+  function fetchState(code) { return api('state', { code: code }); }
+  function abandonDuel(code) { return api('abandon', { code: code }); }
+
+  /* ── Narrow client-SDK writes (rules-allowed) ── */
+
+  /** Set own presence state (joined|ready|solving) + bump lastSeenAt. Dotted paths → only own sub-fields. */
+  function setPresence(code, state) {
+    var uid = _uid(); if (!uid || !code) return Promise.resolve();
+    var upd = {}; upd['presence.' + uid + '.lastSeenAt'] = Date.now();
+    if (state) upd['presence.' + uid + '.state'] = state;
+    return _db().collection(DUELS).doc(code).update(upd).catch(function (e) { console.warn('[Duel] presence write failed:', e && e.message); });
   }
 
-  /**
-   * Leave duel (disconnect) — sets status to exited.
-   * Used for tab close / navigation away.
-   */
-  function leaveDuel(duelId) {
+  /** Heartbeat (lastSeenAt only) — used while solving so the opponent's "Reconnecting…" chip is accurate. */
+  function heartbeat(code) {
+    var uid = _uid(); if (!uid || !code) return Promise.resolve();
+    var upd = {}; upd['presence.' + uid + '.lastSeenAt'] = Date.now();
+    return _db().collection(DUELS).doc(code).update(upd).catch(function () { /* transient — ignore */ });
+  }
+
+  /** Persist one answer to the player's own doc (merge → no clobber). Allowed only while solving (rules). */
+  function writeAnswer(code, index, value, clientMs) {
+    var uid = _uid(); if (!uid || !code) return Promise.resolve();
+    var answers = {}; answers[String(index)] = { value: value == null ? '' : String(value), clientMs: clientMs || 0 };
+    return _db().collection(DUELS).doc(code).collection('players').doc(uid)
+      .set({ answers: answers }, { merge: true })
+      .catch(function (e) { console.warn('[Duel] answer write failed:', e && e.message); });
+  }
+
+  /* ── Realtime room listener ── */
+  function listen(code, cb) {
     stopListening();
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid || !duelId) return;
-
-    var docRef = db.collection(DUEL_COLLECTION).doc(duelId);
-    db.runTransaction(function (transaction) {
-      return transaction.get(docRef).then(function (snap) {
-        if (!snap.exists) return null;
-        var data = snap.data();
-        if (!data.participants || !data.participants[uid]) return null;
-
-        var participants = data.participants;
-        participants[uid].status = 'exited';
-        participants[uid].exitedAt = new Date().toISOString();
-        transaction.update(docRef, { participants: participants });
-        return true;
-      });
-    }).then(function (updated) {
-      if (updated) _checkDuelCompletion(duelId);
-    }).catch(function (e) {
-      console.error('[FIRESTORE OP] Collection: ' + DUEL_COLLECTION + '\n[FIRESTORE OP] Document Path: ' + DUEL_COLLECTION + '/' + duelId + '\n[FIRESTORE OP] Authenticated UID: ' + uid + '\n[FIRESTORE OP] Requested Operation: LEAVE_DUEL (Transaction)\n[FIRESTORE OP] Error Message: ' + e.message);
-    });
+    if (!code) return;
+    _listener = _db().collection(DUELS).doc(code).onSnapshot(
+      function (snap) {
+        if (!snap.exists) { cb({ removed: true }); return; }
+        cb({ data: snap.data() });
+      },
+      function (err) { cb({ error: err && err.message ? err.message : 'listener error' }); }
+    );
   }
+  function stopListening() { if (_listener) { try { _listener(); } catch (_) {} _listener = null; } }
 
-  function deleteDuelRoom(duelId, callback) {
-    var db = FirebaseApp.getDb();
-    if (!db || !duelId) { if (callback) callback('Not ready'); return; }
-    
-    console.log('[DUEL_DEBUG] Admin executing physical document deletion for room:', duelId);
-    db.collection(DUEL_COLLECTION).doc(duelId).delete().then(function() {
-      console.log('[DUEL_DEBUG] Room Archived/Deleted successfully:', duelId);
-      if (callback) callback(null);
-    }).catch(function(e) {
-      console.error('[FIRESTORE OP] DELETE_DUEL error: ' + e.message);
-      if (callback) callback(e.message);
-    });
-  }
+  /* ── Recovery from the server mirror (no localStorage dependency) ── */
 
   /**
-   * Check if user has any active duel (for reconnection).
-   * @param {function} callback - (error, duelData | null)
+   * Find the user's active duel for recovery. Primary: users/{uid}.activeDuelId. Fallback: a participant
+   * query (the declared (participantUids array-contains, status) index). Returns the endpoint `state`
+   * payload ({code, duel, my}) or null. Recovery only ever lands on waiting/results — never solving.
    */
-  function findActiveDuel(callback) {
-    var db = FirebaseApp.getDb();
-    var uid = FirebaseApp.getUserId();
-    if (!db || !uid) { callback(null, null); return; }
-
-    /* Check localStorage first for stored duel ID */
-    var storedId = null;
-    try { storedId = localStorage.getItem('qr_active_duel'); } catch (_) {}
-
-    if (storedId) {
-      getDuelState(storedId, function (err, data) {
-        if (err || !data) {
-          try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
-          callback(null, null);
-          return;
-        }
-        /* Check if duel is still active and user is participant */
-        var activeStatuses = ['waiting', 'active'];
-        if (activeStatuses.indexOf(data.status) >= 0 && data.participants && data.participants[uid]) {
-          callback(null, data);
-        } else {
-          try { localStorage.removeItem('qr_active_duel'); } catch (_) {}
-          callback(null, null);
-        }
+  function recover() {
+    var uid = _uid();
+    if (!uid) return Promise.resolve(null);
+    return _db().collection('users').doc(uid).get()
+      .then(function (snap) {
+        var id = snap.exists ? snap.data().activeDuelId : null;
+        if (id) return id;
+        // Fallback: query my in-flight rooms (belt-and-suspenders if the mirror was lost).
+        return _db().collection(DUELS).where('participantUids', 'array-contains', uid)
+          .where('status', 'in', ['lobby', 'active']).limit(1).get()
+          .then(function (q) { return q.empty ? null : q.docs[0].id; })
+          .catch(function () { return null; });
+      })
+      .then(function (code) {
+        if (!code) return null;
+        return fetchState(code)
+          .then(function (res) { return { code: code, duel: res.duel, my: res.my, serverNow: res.serverNow }; })
+          .catch(function () { return null; });   // stale/foreign/complete-and-gone → no recovery
       });
-    } else {
-      callback(null, null);
-    }
   }
 
-  /* ---- External API ---- */
+  function getMyUid() { return _uid(); }
 
   return {
-    /* Duel room operations */
+    api: api,
     createDuel: createDuel,
     joinDuel: joinDuel,
+    editConfig: editConfig,
     startDuel: startDuel,
-    submitAnswer: submitAnswer,
-    exitDuelEarly: exitDuelEarly,
-
-    /* Realtime */
-    listenToDuel: listenToDuel,
+    finishDuel: finishDuel,
+    fetchState: fetchState,
+    abandonDuel: abandonDuel,
+    setPresence: setPresence,
+    heartbeat: heartbeat,
+    writeAnswer: writeAnswer,
+    listen: listen,
     stopListening: stopListening,
-
-    /* Lifecycle */
-    leaveDuel: leaveDuel,
-    deleteDuelRoom: deleteDuelRoom,
-    getDuelState: getDuelState,
-    findActiveDuel: findActiveDuel,
-
-    /* Constants */
-    DUEL_EXPIRY_MS: DUEL_EXPIRY_MS
+    recover: recover,
+    getMyUid: getMyUid
   };
 })();
