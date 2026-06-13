@@ -8,6 +8,80 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-034 — Super-Admin first-class Independent affiliation + coaching grouping (Section 2) (2026-06-13)
+- **Context:** The Super-Admin User-360 master is a flat ≤100-row page segmented client-side; there is no
+  server-derived "group by coaching" view and no authoritative Independent count. The owner's requirement:
+  Independent users are a **first-class affiliation type** — explicit in the data model, backfilled, authoritative,
+  and queryable — not a derived/inferred estimate; Super-Admin gets **All · Coaching (grouped) · Independent** with
+  exactly-reconciling counts and no fabricated numbers.
+- **Decision:** (1) **Make affiliation explicit:** `register` already writes `coachingId: null` for independent
+  signups; **backfill** explicit `coachingId: null` onto every legacy user doc missing the field, so Independent is
+  an authoritative `where('coachingId','==',null).count()` bucket (Firestore cannot match an *absent* field — the
+  backfill is what makes it first-class and queryable). (2) **Server `?action=groupTotals`** on
+  `super-admin-app/api/admin/users.js` (no new file → stays 8/12): per-coaching totals read O(1) from the
+  already-maintained `coachings.studentCount` (not N `count()` queries); Independent = authoritative `count()`;
+  expose a reconciliation invariant `sum(coaching) + independent == total`. (3) **Client:** an affiliation axis
+  (All/Coaching-grouped/Independent) **orthogonal** to the existing status/plan chips + Inactive bulk mode (both
+  preserved); coaching sections expand via the existing `coachings.js students` action (surface its 300-row
+  `truncated` flag). Bulk-reassign **deferred** (couples a write path to a read feature → count drift risk).
+- **Options considered:** Independent by **subtraction** (`total − Σ studentCount`) — cheaper but a *derived
+  estimate* subject to `studentCount` drift; **rejected** (owner: no estimates in admin). Per-coaching live
+  `count()` per row — accurate but N aggregation queries on every list load; **rejected** for the list.
+- **Consequences:** Authoritative, reconciling affiliation counts platform-wide; no estimates; no new functions;
+  Spark-safe. One-time backfill (`firestore/diagnostics/backfill-independent-affiliation.js`, owner-authorized).
+  Builds on ADR-032 (`coachingId→name` resolution + transactional `studentCount`). Firestore MINOR (explicit
+  `coachingId:null` Independent model), Arch MINOR (new aggregation action).
+
+---
+
+## ADR-033 — Duel V2 fix-pass: design-language inheritance (drill-engine reuse) + edge-defect remediation (2026-06-13)
+- **Context:** A 13-agent adversarial audit of the **shipped** Duel V2 (ADR-031) reached a verified verdict:
+  **PRESERVE the architecture, do not rebuild.** It is genuinely server-authoritative (`api/duel.js` is the sole
+  writer of questions/key/grading/winner/status/history; the answer key is client-unreachable; `_finalizeTxn` is
+  one idempotent CAS; resolution is triple-guaranteed). No critical security hole. But it carries: a cross-cutting
+  **§10A design-system bypass** (the Duel UI hand-rolls every screen with a private `SURFACE` const + an undefined
+  `--color-accent` that always falls back to indigo `#6366f1` + ~80 inline styles → "feels like a separate
+  mini-app"); a **governance drift** (`_finalizeTxn` header + two Bible docs claimed `activeDuelId` is cleared at
+  finalize; the code intentionally does NOT — corrected in this ADR); and several edge defects (D1 high; D2/D3/D4
+  med; D5/D6 low). The owner LOCKED a non-negotiable constraint: the Duel experience must **truly inherit** the
+  Practice/Focus/Custom design language (not imitate it), and every duel metric must be **honest** everywhere.
+- **Decision — targeted fix-pass on the preserved architecture (zero new `api/*.js` files):**
+  1. **Design-language inheritance (owner-LOCKED, the centrepiece):** re-home the in-duel solving screen onto the
+     existing Practice `drill-engine` in a **render+capture-only mode** — the question container, answer input,
+     custom numpad, action buttons, spacing, transitions, and feedback animations become the REAL Practice
+     components; the duel layer adds only multiplayer behavior. **No client grading, no client score display**
+     (server-authoritative + hidden-until-results preserved; the engine's `isDuel` "Current Score" exit text is
+     removed). Delete the hand-rolled parallel runner. De-indigo + tokenize every remaining duel screen: replace
+     the undefined `--color-accent` indigo fallback with a documented `.duel-seg` class on the **existing blue
+     gradient** `#2563eb→#1d4ed8`; inherit `.card`, `.results-grid`/`.result-item`, `.home-bento-card` (Active-Duel
+     card), `--qr-*` radius tokens; collapse the duplicate exit modal to the single JS source; delete orphaned
+     purple CSS (`style.css:6721-6788`).
+  2. **D1 — rate-limit class:** the 20/hr AI limiter (`middleware.js:84/166`) is applied unconditionally and can
+     429 a live duel mid-finish. Give `withAuth` a rate-limit *class* — a dedicated higher duel counter (~120/hr)
+     with a cap still on create/finish (not a blanket bypass).
+  3. **Admin V2-lifecycle correctness:** `super-admin system.js` queries a dead `waiting` status (V1) in 4 places
+     and `duels-cleanup` can hard-delete a live `active` room. Replace with real V2 orphan defs (`lobby` aged-out +
+     `active` past `totalDeadline`); make cleanup **non-destructive to `active`** (purge only terminal rooms) —
+     `api/duel.js` stays the sole finalizer.
+  4. **Per-question data + honest metrics:** `_grade` also emits `perPlayer.{uid}.perQuestion=[{index,correct,
+     answered,ms}]` (renders only post-`complete`). Displayed speed switches to **sum of per-answer solve time**
+     (client `clientMs`, **display-only — never feeds `duelScore`/winner**, which stay server-trusted); add a server
+     `decisionBasis ∈ {accuracy,speed,draw}` so the "why" copy always matches the winner logic; early/incomplete
+     attempts are labeled; a metric-correctness audit runs against the §F.6 interruption matrix.
+  5. **`activeDuelId` drift correction (Bible-first):** DECISION_LOG / FIRESTORE_BLUEPRINT / the `_finalizeTxn`
+     header now state the truth — it is NOT cleared at finalize (kept for the View-Results card; cleared on
+     ack/abandon/cron-expire). Duels are strictly 2-player.
+  6. **D2/D3 edge fixes:** `?action=leaveLobby` (non-host clears only its own `activeDuelId`); create-time
+     self-heal (finalize an `active` room past `totalDeadline` inline before the create-guard blocks).
+- **Consequences:** The Duel feels like native QuantReflex Practice (true component reuse), is fully on the §10A
+  design system, has trustworthy metrics under every interruption path, and no live-breaking rate-limit. The
+  server-authoritative model is **reinforced, not changed** (sole-writer invariant strengthened — the admin app
+  loses its ability to delete live rooms). Drives a duel-history surface (DX-1, see the Duel History note) and a
+  per-question data-shape **amendment to ADR-031**. Zero new functions; Spark-safe; Bible-first per phase. Arch/
+  Firestore/Security MINOR as phases land.
+
+---
+
 ## ADR-032 — Spark-safe denormalized-counter maintenance: `studentCount` in the request path + live `count()` (2026-06-13)
 - **Context:** A student created with a valid `coachingId` was **correctly affiliated** (`users/{uid}.coachingId`
   set — proven with live data via `firestore/diagnostics/affiliation-audit.js`), yet Super-Admin showed the
@@ -89,8 +163,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
      is NOT a forfeit — performance (F.4) decides, and an early submitter with more correct answers can still win.
      `participantUids:[a,b]` + a `(participantUids array-contains, status)` index back the sweep.
   4. **Finalize = one status-CAS transaction** (`active→complete`) writing `perPlayer`+`winnerUid`+history (docId=
-     duelId, idempotent) + clearing both `activeDuelId` — so simultaneous-finish / cron-interleave / re-finish are
-     idempotent. The endpoint **sends the "opponent finished" FCM** at finalize (Admin SDK `admin.messaging()`).
+     duelId, idempotent) — so simultaneous-finish / cron-interleave / re-finish are idempotent. **`activeDuelId` is
+     intentionally NOT cleared at finalize** (ADR-033 correction — it keeps the Home "Duel ready · View Results"
+     card alive); it is cleared on result-ack, host-abandon, or cron-expire — a `complete` value never blocks a new
+     create (the guard only blocks `lobby`/`active`). **Duels are strictly 2-player** (start gates on exactly 2
+     present). The endpoint **sends the "opponent finished" FCM** at finalize (Admin SDK `admin.messaging()`).
   5. **Spark-correct infra (no Firebase functions run on Spark):** resolution is **lazy on `?action=state`**
      (instant for whoever is waiting); a **Vercel daily cron** (`?action=cron-sweep`, `CRON_SECRET`) only mops up
      the both-abandoned tail. Honest worst case: instant in the common cases, ≤24h only when nobody is waiting.

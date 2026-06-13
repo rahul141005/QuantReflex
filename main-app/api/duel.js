@@ -168,7 +168,8 @@ async function _sendOpponentFinishedFcm(toUid, opponentName, code) {
 /**
  * Finalize-and-maybe-complete inside ONE transaction. Finalizes every participant in `finalizeUids` that
  * isn't already `finished` (grading their own answers), then — if ALL participants are finished —
- * status-CAS to `complete`, compute winner, write perPlayer+history, clear both activeDuelId.
+ * status-CAS to `complete`, compute winner, write perPlayer+history. (activeDuelId is intentionally NOT cleared
+ * here — it keeps the Home "Duel ready · View Results" card alive; cleared on ackResult/abandon/cron-expire.)
  * Idempotent: a re-run after `complete` no-ops. Returns { completed, room } (post-state).
  */
 async function _finalizeTxn(code, finalizeSpec) {
@@ -559,7 +560,7 @@ async function handler(req, res) {
   }
 }
 
-const _authed = withAuth(handler);
+const _authed = withAuth(handler, { rateLimitClass: 'duel' });   /* ADR-033/D1: dedicated 120/hr duel bucket */
 
 module.exports = function (req, res) {
   const action = (req.query && req.query.action) || (req.body && req.body.action) || '';

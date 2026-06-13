@@ -61,7 +61,7 @@ async function handler(req, res) {
         /* AI cost for TODAY is read LIVE from the incremental counter (not the daily snapshot) so the GPT
            Cost Center is real-time, not frozen at the last cron run. */
         db.collection('systemMetrics').doc('ai_daily_' + aiDayKey).get(),
-        db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get()
+        db.collection('duels').where('status', 'in', ['lobby', 'abandoned', 'expired']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get()
       ]);
 
       const totalUsers = usersSnap.data().count;
@@ -115,7 +115,7 @@ async function handler(req, res) {
       let expiredCount = 0;
       premiumSnap.forEach(d => { const e = d.data().planExpiry; if (e && typeof e === 'string' && e < nowIso) expiredCount++; });
       if (expiredCount > 0) { issues.push({ type: 'EXPIRED_PREMIUM', severity: 'high', message: `Found ${expiredCount} users with active premium but expired timestamps.`, actionPayload: { fixEndpoint: '/api/admin/entitlements', action: 'revoke' } }); }
-      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
+      const orphanDuelsSnap = await db.collection('duels').where('status', 'in', ['lobby', 'abandoned', 'expired']).where('createdAt', '<', thirtyMinutesAgo).limit(100).get();
       if (!orphanDuelsSnap.empty) { issues.push({ type: 'ORPHANED_DUELS', severity: 'medium', message: `Found ${orphanDuelsSnap.size} stale duel rooms clogging the database.`, actionPayload: { fixEndpoint: '/api/admin/system?action=duels-cleanup', method: 'POST' } }); }
       const recentUsers = await db.collection('users').orderBy('createdAt', 'desc').limit(50).get();
 
@@ -167,7 +167,10 @@ async function handler(req, res) {
       try { expired = (await db.collection('users').where('plan', '==', 'premium').where('planExpiry', '<', nowIso).count().get()).data().count; } catch (_) { /* index missing — degrade */ }
       if (expired > 0) alerts.push({ severity: 'warning', type: 'expired_premium', message: expired + ' user(s) show premium but have an expired timestamp — run the entitlement sweep.' });
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
-      const duelSnap = await db.collection('duels').where('status', 'in', ['waiting', 'active']).where('createdAt', '<', thirtyMinAgo).limit(200).get();
+      /* ADR-033: Duel V2 statuses are lobby/active/complete/abandoned/expired (no 'waiting'). Flag only NON-LIVE
+         rooms lingering (stale lobby never started + terminal abandoned/expired); active-past-deadline is the duel
+         endpoint's job to finalize (lazy state + cron-sweep), not a manual-cleanup orphan. */
+      const duelSnap = await db.collection('duels').where('status', 'in', ['lobby', 'abandoned', 'expired']).where('createdAt', '<', thirtyMinAgo).limit(200).get();
       if (!duelSnap.empty) alerts.push({ severity: 'info', type: 'orphan_duels', message: duelSnap.size + '+ stale duel room(s) — run duel cleanup.' });
       const purgeSnap = await db.collection('users').where('accountStatus', '==', 'archived').where('purgeAfter', '<', nowIso).limit(200).get();
       if (!purgeSnap.empty) alerts.push({ severity: 'info', type: 'pending_purge', message: purgeSnap.size + '+ archived account(s) past their hold — the cleanup-sweep cron will purge them.' });
@@ -305,20 +308,25 @@ async function handler(req, res) {
     /* ── duels-cleanup (was admin/duels) ── */
     if (action === 'duels-cleanup' && req.method === 'POST') {
       const now = Date.now();
-      const waitingThreshold = now - (24 * 60 * 60 * 1000);
-      const activeThreshold = now - (4 * 60 * 60 * 1000);
-      /* Bounded to 500/run (ADR-023): the single delete batch is within Firestore's 500-write
-         limit, and an unbounded scan over a high-concurrency duels collection can't sink the call.
-         `scanned === 500` signals more remain — re-run (or the next cron pass) drains the rest. */
-      const snapshot = await db.collection('duels').where('status', 'in', ['waiting', 'active']).limit(500).get();
+      const lobbyThreshold = now - (24 * 60 * 60 * 1000);          // stale lobby that never started
+      const terminalThreshold = now - (60 * 60 * 1000);            // abandoned/expired terminal cruft (1h)
+      const completeThreshold = now - (7 * 24 * 60 * 60 * 1000);   // keep complete rooms 7d (View-Results window; duelHistory is permanent)
+      /* NON-DESTRUCTIVE to live rooms (ADR-033): purge only NON-LIVE Duel V2 rooms past retention —
+         stale `lobby` (never started), terminal `abandoned`/`expired`, and old `complete`. `active` is NEVER
+         deleted: api/duel.js (lazy finalize-on-state + the duel cron-sweep) is the SOLE finalizer, and deleting
+         a live `active` room would destroy private/key + player docs and skip the duelHistory write. Bounded to
+         500/run (ADR-023): `scanned === 500` signals more remain — re-run drains the rest. */
+      const snapshot = await db.collection('duels').where('status', 'in', ['lobby', 'abandoned', 'expired', 'complete']).limit(500).get();
       let deletedCount = 0;
       const batch = db.batch();
+      const _ms = function (v) { return v ? (typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v)) : 0; };
       snapshot.forEach(doc => {
         const data = doc.data();
-        const createdAt = data.createdAt ? (typeof data.createdAt.toMillis === 'function' ? data.createdAt.toMillis() : Date.parse(data.createdAt)) : 0;
+        const createdAt = _ms(data.createdAt);
         let shouldDelete = false;
-        if (data.status === 'waiting' && createdAt < waitingThreshold) shouldDelete = true;
-        else if (data.status === 'active' && createdAt < activeThreshold) shouldDelete = true;
+        if (data.status === 'lobby' && createdAt < lobbyThreshold) shouldDelete = true;
+        else if ((data.status === 'abandoned' || data.status === 'expired') && createdAt < terminalThreshold) shouldDelete = true;
+        else if (data.status === 'complete' && (_ms(data.completedAt) || createdAt) < completeThreshold) shouldDelete = true;
         if (shouldDelete) { batch.delete(doc.ref); deletedCount++; }
       });
       if (deletedCount > 0) {

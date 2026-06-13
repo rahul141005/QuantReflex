@@ -82,9 +82,18 @@ var _rateLimitMap = {};
 var _rateLimitCheckCount = 0;
 var RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; /* 1 hour */
 var MAX_REQUESTS_PER_HOUR = 20;
+/* Duel endpoint (api/duel.js) gets its OWN, higher bucket (ADR-033/D1): a live duel hits ?action=
+   create/join/start/state/finish/ackResult, which the shared 20/hr AI cap could 429 mid-finish. 120/hr ≈ 8
+   duels/hr of endpoint traffic — ample for real play, still a cap (NOT a blanket bypass). Keyed separately so
+   duel polling never consumes a user's AI budget and vice-versa. */
+var DUEL_MAX_REQUESTS_PER_HOUR = 120;
 var CLEANUP_INTERVAL = 50; /* purge stale entries every N checks */
 
-function _checkRateLimit(uid) {
+/* Parameterized per-user limiter. `max` defaults to the AI cap; `bucket` namespaces the counter so different
+   traffic classes (AI vs duel) don't share a budget. */
+function _checkRateLimit(uid, max, bucket) {
+  max = max || MAX_REQUESTS_PER_HOUR;
+  var key = bucket ? (bucket + ':' + uid) : uid;
   var now = Date.now();
 
   /* On-demand cleanup: purge stale entries periodically instead of setInterval.
@@ -100,11 +109,11 @@ function _checkRateLimit(uid) {
     }
   }
 
-  if (!_rateLimitMap[uid]) {
-    _rateLimitMap[uid] = { count: 1, windowStart: now };
+  if (!_rateLimitMap[key]) {
+    _rateLimitMap[key] = { count: 1, windowStart: now };
     return true;
   }
-  var entry = _rateLimitMap[uid];
+  var entry = _rateLimitMap[key];
   if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     /* Window expired — reset */
     entry.count = 1;
@@ -112,7 +121,7 @@ function _checkRateLimit(uid) {
     return true;
   }
   entry.count++;
-  return entry.count <= MAX_REQUESTS_PER_HOUR;
+  return entry.count <= max;
 }
 
 /**
@@ -125,7 +134,12 @@ function _checkRateLimit(uid) {
  * @param {function} handler - async (req, res) => void
  * @returns {function} Vercel-compatible handler
  */
-function withAuth(handler) {
+function withAuth(handler, opts) {
+  opts = opts || {};
+  /* Rate-limit class (ADR-033/D1): default is the shared AI bucket (20/hr); the duel endpoint passes
+     { rateLimitClass: 'duel' } for its own 120/hr bucket so it can't 429 mid-duel or eat the AI budget. */
+  var rlMax = MAX_REQUESTS_PER_HOUR, rlBucket = '';
+  if (opts.rateLimitClass === 'duel') { rlMax = DUEL_MAX_REQUESTS_PER_HOUR; rlBucket = 'duel'; }
   return async function (req, res) {
     /* Handle CORS preflight — required for POST with Authorization header */
     if (req.method === 'OPTIONS') {
@@ -162,8 +176,8 @@ function withAuth(handler) {
       });
     }
 
-    /* Per-user rate limiting */
-    if (!_checkRateLimit(decoded.uid)) {
+    /* Per-user rate limiting (parameterized class — duel uses its own higher bucket; ADR-033/D1) */
+    if (!_checkRateLimit(decoded.uid, rlMax, rlBucket)) {
       console.warn('[middleware:withAuth] rate limit exceeded for uid:', decoded.uid);
       return res.status(429).json({
         error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests. Please try again later.', retryable: true }

@@ -140,7 +140,10 @@ completedAt, createdAt }`.
 
 ### `users/{uid}.activeDuelId` + `users/{uid}/duelHistory/{duelId}` (Duel V2, ADR-031)
 - **`users/{uid}.activeDuelId`** (string|null) — recovery mirror written by the duel endpoint (Admin SDK) on
-  create/join, **cleared in the finalize txn** (and on abandon). One O(1) read on app boot recovers an in-flight
+  create/join. It is **NOT cleared at finalize** (ADR-033 correction — it deliberately stays set so the Active-Duel
+  "Duel ready · View Results" home card survives until the user acks); it is cleared on **result-ack, host-abandon,
+  or cron-expire**. A `complete` value never blocks a new create (the create-guard only blocks `lobby`/`active`).
+  One O(1) read on app boot recovers an in-flight
   duel cross-device (reinstall/another device) and drives the **Active-Duel home card** (derived; no second flag).
   Recovery restores only the **waiting-for-results** or **results** screen — **never the solving screen** (no
   resume): if the app comes back off the solving screen mid-duel, the client `finish`es (finalizes) on the synced

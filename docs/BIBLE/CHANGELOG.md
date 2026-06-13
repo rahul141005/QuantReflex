@@ -6,6 +6,43 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Sections 2–10 program: P0 — gate + live-breaking fixes (ADR-033 + ADR-034)
+
+A 13-agent adversarial audit (audit → independent verify → synthesize) of the shipped Duel V2 + the Super-Admin
+user view produced a verified verdict: **preserve the Duel architecture, don't rebuild** (it is genuinely
+server-authoritative; issues are edge defects, not structural). This entry is the **Bible-first gate** for the
+multi-phase fix-pass that follows — docs land before any code.
+
+- **ADR-033 (Duel V2 fix-pass)** authored: drill-engine **component reuse** for the solving screen (owner-LOCKED
+  §10A inheritance — true Practice reuse, render+capture only, no client grading/score), de-indigo every duel
+  screen (undefined `--color-accent` indigo fallback → blue-gradient `.duel-seg`), D1 rate-limit class, admin
+  V2-lifecycle correctness (dead-`waiting` queries + non-destructive cleanup), per-question data shape + honest
+  metrics (`clientMs` display-only; server `decisionBasis`), `leaveLobby`/create-time self-heal.
+- **ADR-034 (Section 2)** authored: **first-class Independent affiliation** — backfilled explicit `coachingId:null`,
+  authoritative `count()` bucket, `?action=groupTotals` (O(1) per-coaching via `studentCount` + reconciliation),
+  All/Coaching-grouped/Independent UI axis. No estimates.
+- **`activeDuelId` drift corrected (D4):** `DECISION_LOG.md:92`, `FIRESTORE_BLUEPRINT.md:143`, and the
+  `_finalizeTxn` header (`main-app/api/duel.js:171`) claimed the mirror is cleared at finalize; the shipped code
+  intentionally does NOT (it keeps the "View Results" card alive — `duel.js:229-231`). All three now state the
+  truth (cleared on ack/abandon/cron-expire); added the strictly-2-player note.
+- **P0-b code (D1 rate-limit class):** `withAuth(handler, { rateLimitClass: 'duel' })` → a dedicated **120/hr**
+  duel bucket in `main-app/api/_lib/middleware.js` (separate counter key from the 20/hr AI bucket); `api/duel.js`
+  opts in. A live duel can no longer 429 mid-finish or drain a user's AI budget. Back-compatible (default callers
+  unchanged).
+- **P0-c code (admin V2-lifecycle):** `super-admin-app/api/admin/system.js` orphan/health/alert probes +
+  `duels-cleanup` no longer query the dead V1 `waiting` status. Probes flag only **non-live** rooms
+  (`lobby`/`abandoned`/`expired`); cleanup is **non-destructive to `active`** (purges `lobby`>24h /
+  `abandoned`+`expired`>1h / `complete`>7d only) so `api/duel.js` stays the sole finalizer (a deleted `active` room
+  would destroy `private/key` + player docs and skip the `duelHistory` write).
+- Impacted systems: Student App (duel rate-limit) · Admin (`system.js` lifecycle) · APIs · Firestore.
+- Schema/API delta: `withAuth` gains a back-compatible opts arg; no schema/endpoint change. Security review:
+  rate-limit class is defense-in-depth; admin cleanup can no longer delete live rooms (strictly safer).
+- Version bumps: Bible 2.21→2.23, Arch 2.13→2.14 (P0-b/c code). Firestore/Security bump in later phases.
+- Verification: drift cites independently spot-checked against source; `node --check` passes on middleware.js,
+  duel.js, and system.js.
+
+---
+
 ## 2026-06-13 — Coaching-affiliation data correctness on Spark (Section 1, ADR-032)
 
 A brutally-honest repository audit, item 1: a student created with a **valid `coachingId`** was correctly
