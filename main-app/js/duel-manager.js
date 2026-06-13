@@ -334,7 +334,7 @@ var DuelManager = (function () {
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
     if (!_duel || !_duel.totalDeadline) return;
     var ms = _duel.totalDeadline - (Date.now() + _serverOffset) + 1500;
-    var poll = function () { DuelCore.fetchState(_code).then(function (res) { if (res.duel) { _duel = res.duel; if (res.duel.status === 'complete') { _showResults(_code, res.duel); } } }).catch(function () {}); };
+    var poll = function () { DuelCore.fetchState(_code).then(function (res) { if (res.duel) _onSnapshot({ data: res.duel }); }).catch(function () {}); };   // route through the state machine (handles complete/abandoned)
     _deadlineTimer = setTimeout(poll, Math.max(2000, ms));
   }
 
@@ -411,7 +411,7 @@ var DuelManager = (function () {
     _duel = d;
     var uid = _myUid();
     if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
-    if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.'); _resetState(); exitToHome(); return; }
+    if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? 'Duel ended — no questions were answered.' : (d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.')); _resetState(); exitToHome(); return; }
     if (d.status === 'lobby') { if (_phase === 'lobby') { _lobbySig = _lobbySigOf(d); _renderLobby(); } return; }
     if (d.status === 'active') {
       if (_phase === 'lobby') { _stopLobbyPoll(); _onActiveFromLobby(); return; }

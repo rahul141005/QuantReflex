@@ -87,7 +87,7 @@ function _isCorrect(userVal, expected) {
 
 /** Grade one player's answers map against the answer key → {correctCount, duelScore, totalSolveMs, answeredCount}. */
 function _grade(playerAnswers, keyAnswers, startedAt, finishedAt, budgetMs) {
-  let correct = 0, answered = 0;
+  let correct = 0, answered = 0, sumMs = 0;
   const byIndex = {};
   (keyAnswers || []).forEach(function (k) { byIndex[k.index] = k.answer; });
   const ans = (playerAnswers && playerAnswers.answers) || {};
@@ -95,21 +95,29 @@ function _grade(playerAnswers, keyAnswers, startedAt, finishedAt, budgetMs) {
     const a = ans[idx];
     if (a && a.value != null && String(a.value) !== '') {
       answered++;
+      if (typeof a.clientMs === 'number' && a.clientMs > 0) sumMs += a.clientMs;   // real per-answer solve time
       if (Object.prototype.hasOwnProperty.call(byIndex, Number(idx)) || Object.prototype.hasOwnProperty.call(byIndex, idx)) {
         const exp = byIndex[Number(idx)] !== undefined ? byIndex[Number(idx)] : byIndex[idx];
         if (_isCorrect(a.value, exp)) correct++;
       }
     }
   });
-  const solveMs = _clamp((finishedAt || _now()) - (startedAt || _now()), 0, budgetMs);
-  const ratio = budgetMs > 0 ? _clamp(solveMs / budgetMs, 0, 1) : 1;
-  const speedBonus = Math.round(SPEED_BONUS_MAX * (1 - ratio));
+  // Honest speed (P0): totalSolveMs is the SUM OF REAL per-answer client times — never wall-clock. No answers ⇒
+  // no solve data (0) and ZERO speed bonus, so an early-exiter or a never-played timeout can't look "fast" or win
+  // on fabricated speed. The bonus is capped < 1000 so accuracy always dominates; it only separates equal accuracy.
+  const totalSolveMs = answered > 0 ? _clamp(sumMs, 0, budgetMs) : 0;
+  let speedBonus = 0;
+  if (answered > 0 && totalSolveMs > 0 && budgetMs > 0) {
+    speedBonus = Math.round(SPEED_BONUS_MAX * (1 - _clamp(totalSolveMs / budgetMs, 0, 1)));
+  }
   const duelScore = correct * 1000 + speedBonus;
-  return { correctCount: correct, answeredCount: answered, totalSolveMs: solveMs, speedBonus: speedBonus, duelScore: duelScore };
+  return { correctCount: correct, answeredCount: answered, totalSolveMs: totalSolveMs, speedBonus: speedBonus, duelScore: duelScore };
 }
 
 /** Decide the winner from two graded results. Accuracy dominates (1000 vs ≤300 bonus); exact tie ⇒ draw. */
 function _decideWinner(uidA, a, uidB, b) {
+  // No contest (P0): if NEITHER player answered a single question, the duel never happened → no winner.
+  if ((a.answeredCount || 0) === 0 && (b.answeredCount || 0) === 0) return { winnerUid: null, result: 'no_contest' };
   if (a.duelScore > b.duelScore) return { winnerUid: uidA, result: 'win' };
   if (b.duelScore > a.duelScore) return { winnerUid: uidB, result: 'win' };
   return { winnerUid: null, result: 'draw' };
@@ -222,11 +230,20 @@ async function _finalizeTxn(code, finalizeSpec) {
 
     // Complete: compute winner from both graded results, write the authoritative outcome.
     const a = uids[0], b = uids[1];
-    const ra = playerResults[a] || (playerSnaps[a].data() && playerSnaps[a].data().result) || { correctCount: 0, duelScore: 0, totalSolveMs: 0 };
-    const rb = playerResults[b] || (playerSnaps[b].data() && playerSnaps[b].data().result) || { correctCount: 0, duelScore: 0, totalSolveMs: 0 };
+    const ra = playerResults[a] || (playerSnaps[a].data() && playerSnaps[a].data().result) || { correctCount: 0, answeredCount: 0, duelScore: 0, totalSolveMs: 0 };
+    const rb = playerResults[b] || (playerSnaps[b].data() && playerSnaps[b].data().result) || { correctCount: 0, answeredCount: 0, duelScore: 0, totalSolveMs: 0 };
+    const completedAt = now;
+
+    // HARD GUARD (P0): a duel where NEITHER player answered ANY question never really happened — never fabricate a
+    // winner/result/metrics. Mark it abandoned (no-contest) + clear both recovery mirrors so a fresh duel can start.
+    if ((ra.answeredCount || 0) === 0 && (rb.answeredCount || 0) === 0) {
+      txn.update(roomRef, { status: 'abandoned', presence: presence, abandonedReason: 'no_contest', completedAt: completedAt });
+      uids.forEach(function (u) { txn.set(db.collection(USERS).doc(u), { activeDuelId: null }, { merge: true }); });
+      return { completed: true, room: Object.assign({}, room, { status: 'abandoned', presence: presence }) };
+    }
+
     const decided = _decideWinner(a, ra, b, rb);
     const perPlayer = {}; perPlayer[a] = ra; perPlayer[b] = rb;
-    const completedAt = now;
     txn.update(roomRef, { status: 'complete', presence: presence, winnerUid: decided.winnerUid, result: decided.result, perPlayer: perPlayer, completedAt: completedAt });
     // NOTE: activeDuelId is intentionally NOT cleared here — it keeps the Home "Duel ready · View Results"
     // card alive until the user acks. A 'complete' activeDuelId never blocks a new create (the create guard
@@ -273,14 +290,25 @@ async function _create(req, res) {
   const config = _validConfig(body.config || body);
   const name = _cleanName(body.name);
 
-  // Block creating a second duel while one is unfinalized (avoids orphaning the mirror — red-team H3).
+  // Block a second duel only while one is GENUINELY in progress; otherwise SELF-HEAL the mirror so the user is
+  // never permanently locked (P0). complete/abandoned/expired/missing → clear it; active-past-deadline → finalize
+  // it first (which may itself abandon a no-contest), then clear.
   const me = await db.collection(USERS).doc(uid).get();
   const existingId = me.exists ? me.data().activeDuelId : null;
   if (existingId) {
-    const ex = await db.collection(DUELS).doc(existingId).get();
-    if (ex.exists && ['lobby', 'active'].indexOf(ex.data().status) >= 0) {
+    const exRef = db.collection(DUELS).doc(existingId);
+    const exSnap = await exRef.get();
+    let exData = exSnap.exists ? exSnap.data() : null;
+    if (exData && exData.status === 'active' && exData.totalDeadline && _now() > exData.totalDeadline) {
+      const spec = {};
+      (exData.participantUids || []).forEach(function (u) { const st = exData.presence && exData.presence[u] && exData.presence[u].state; if (st !== 'finished') spec[u] = 'timed_out'; });
+      try { const r = await _finalizeTxn(existingId, spec); if (r.room) exData = r.room; } catch (_) { /* fall through to the lock check */ }
+    }
+    if (exData && ['lobby', 'active'].indexOf(exData.status) >= 0) {
       return res.status(409).json({ error: { code: 'DUEL_IN_PROGRESS', message: 'Finish your current duel first.' }, code: existingId });
     }
+    // Terminal/missing room → clear the stale mirror so create proceeds (never strand the user).
+    await db.collection(USERS).doc(uid).set({ activeDuelId: null }, { merge: true });
   }
 
   // Mint a unique code with .create() (existence guard at the DB level — no .set() clobber).

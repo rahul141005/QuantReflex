@@ -204,7 +204,7 @@ var DuelUI = (function () {
     var iWon = d.winnerUid === myUid;
     var banner = draw ? 'Draw' : (iWon ? 'You win' : opName + ' wins');
     var bannerColor = draw ? '#94a3b8' : (iWon ? '#34d399' : '#f87171');
-    function spd(r) { return (r.totalSolveMs > 0) ? (r.totalSolveMs / 1000 / n).toFixed(1) + 's/q' : '—'; }
+    function spd(r) { return (r.answeredCount > 0 && r.totalSolveMs > 0) ? (r.totalSolveMs / 1000 / r.answeredCount).toFixed(1) + 's/q' : 'No data'; }
     function why() {
       if (draw) return 'Dead even — same score and speed.';
       var w = iWon ? me : op, l = iWon ? op : me, wn = iWon ? 'You' : opName;
