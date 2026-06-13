@@ -40,6 +40,13 @@ answered and locks the rest — not a forfeit (performance decides; an early sub
   (hand-written two-level nested diff); create/delete/private/winner/status client-denied; an explicit
   `duelHistory` write-deny **overrides** the blanket `users/{uid}/{sub}` owner-write grant. Premium enforced at
   the endpoint via `aiService.resolvePlan` (works for coaching-granted premium — no custom claim, no lockout).
+- **Release scope — Word Problems staged as "Coming Soon":** the (feature-complete-ish) Word Problems mode is
+  held back from this release but **kept visible** as an intentionally-staged upcoming premium feature. A shared
+  `js/ui/coming-soon.js` modal opens on tap and triggers **nothing else** (no session, question generation,
+  navigation, analytics, or backend call). Applied in two places: the Practice mode card (`mode-card-soon` +
+  "Coming soon" pill, intercepted before the practice-action gate) and the Duel **create** flow's new "Question
+  type" selector (Quick Math selectable; Word Problems shows a "Soon" tag and is not selectable). The duel backend
+  still supports `questionMode:'wordproblems'`, but the create UI only ever sends `quick`.
 - **Docs:** ADR-031; FIRESTORE_BLUEPRINT (`duels/{code}` v2 shape, `private/key`, `players/{uid}`,
   `users.activeDuelId`, `duelHistory`, `participantUids` index); SECURITY (rules table + carve-out); VERSIONS
   (Bible 2.19→2.20, Arch/Firestore/Security MINOR) + ephemeral hard-cutover migration note. **No data migration**

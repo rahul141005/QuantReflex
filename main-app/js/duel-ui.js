@@ -33,6 +33,15 @@ var DuelUI = (function () {
         '<h2 style="font-size:1.4rem;font-weight:800;margin:0 0 .25rem;">Create a Duel</h2>' +
         '<div style="color:#94a3b8;font-size:.9rem;margin-bottom:1.25rem;">Challenge a friend to a math speed battle.</div>' +
         '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;">' +
+          '<label style="display:block;font-weight:600;margin-bottom:.5rem;">Question type</label>' +
+          '<div style="display:flex;gap:.5rem;">' +
+            '<button id="duTypeQuick" style="flex:1;padding:.7rem;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:' + ACCENT + ';color:#fff;font-weight:600;">Quick Math</button>' +
+            '<button id="duTypeWord" style="flex:1;position:relative;padding:.7rem;border-radius:12px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.08);color:#c7d2fe;font-weight:600;cursor:pointer;">Word Problems' +
+              '<span style="position:absolute;top:-8px;right:-6px;font-size:.55rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.15rem .4rem;border-radius:999px;color:#0b1120;background:#818cf8;">Soon</span>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="' + SURFACE + 'padding:1.1rem;margin-bottom:1rem;">' +
           '<label style="display:block;font-weight:600;margin-bottom:.5rem;">Questions</label>' +
           '<div id="duQ" style="display:flex;gap:.4rem;">' +
             [5, 10, 15, 20].map(function (n) { return '<button data-q="' + n + '" style="flex:1;padding:.6rem;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:' + (n === 10 ? ACCENT : 'transparent') + ';color:#fff;">' + n + '</button>'; }).join('') +
@@ -61,6 +70,13 @@ var DuelUI = (function () {
     container.querySelectorAll('#duT button').forEach(function (b) {
       b.onclick = function () { var k = b.getAttribute('data-t'); if (tSel[k]) { delete tSel[k]; b.style.background = 'transparent'; } else { tSel[k] = 1; b.style.background = ACCENT; } };
     });
+
+    // Question type: Quick Math is the only selectable type this release. Word Problems is staged — tapping
+    // it opens the Coming Soon modal and never selects it (questionMode stays 'quick' in onCreate). ADR-031.
+    var typeWord = _el('duTypeWord');
+    if (typeWord) typeWord.onclick = function () {
+      if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problems Duels', blurb: 'Battle a friend with AI-crafted, exam-style word problems. We’re putting the final polish on it. Launching soon for Premium.' });
+    };
 
     var createBtn = _el('duCreateBtn');
     createBtn.onclick = function () {

@@ -165,6 +165,13 @@ function initPracticeView() {
     var modeCards = modeSelect.querySelectorAll('.mode-card');
     for (var i = 0; i < modeCards.length; i++) {
       modeCards[i].addEventListener('click', function () {
+        /* Word Problems is intentionally staged for a future launch — open the Coming Soon modal and do
+           NOTHING else: no session, no question generation, no navigation, no analytics, no backend (ADR-031
+           release scope). Intercept BEFORE the practice-action gate / sound / dispatch. */
+        if (this.getAttribute('data-mode') === 'wordproblems') {
+          if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problems', blurb: 'AI-crafted, exam-style word problems that test comprehension and calculation — not just speed. We’re putting the final polish on it. Launching soon for Premium.' });
+          return;
+        }
         if (!_tryPracticeAction()) return;
         SoundEngine.play('settingsToggle');
         var modeKey = this.getAttribute('data-mode');
