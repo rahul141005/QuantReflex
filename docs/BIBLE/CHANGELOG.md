@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-13 — Coaching App V4: value / premium-UI / performance pass (ADR-030)
+
+A brutally-honest product review found the rebuilt coaching app *feels empty, low-information, and slow* — the
+root cause being **discarded backend data** + the never-actually-applied ADR-029 field masks, not over-minimalism.
+Scope = Phase 1+2 (surface what exists, premium UI, fix the slowness); growth features deferred to Phase 3.
+
+- **PERF — real field masks (the missing ADR-029 fix):** added Firestore `.select()` to the heavy coaching scans
+  — `coaching/students.js` `_handleList` (drops the 200-element `responseTimes` ring + 90-key `dailyHistory` map
+  from the list payload, the Students-screen slowness), `coaching/dashboard.js` + `coaching/insights.js`
+  (the two unmasked per-render scans). Super-admin `system.js` Command Center `_loadData` 4 sequential awaits →
+  `Promise.allSettled`; `ai.js` `_usage` double scan parallelized + masked; `system.js` global search `.select()`.
+- **VALUE — stop discarding fetched data:** Dashboard (Snapshot · Momentum · Action Required · Coaching Wins),
+  Students roster (triage row: speed + `streak` + `weakTopic` + attention dot), Performance, and Engagement now
+  render data already on the response path but previously dropped (`strongestStudents`, `recentActivity`,
+  `activeStreakUsers`, `totalQuestionsSolved`, `streak`, `weakTopic`); vanity demoted; honest available-today
+  signal (WoW accuracy/participation) promoted out of the "collecting" states.
+- **Session Improvement (honest day-one speed proof):** `main-app/js/drill-engine.js`#finish + `progress.js`
+  compute first-half vs last-half session speed from the existing `perQuestionTimes` (≥6 timed Qs) → per-session
+  `practiceSessions.{firstHalfAvg,secondHalfAvg,sessionImprovementPct,timedCount}` + a rolling
+  `users.stats.avgSessionImprovementPct` (read cheaply off the coaching user scan). Labeled strictly "Session
+  Improvement"; never mixed with the 7/30-day calendar trend; becomes secondary once `dailyHistory` matures.
+- **Onboarding trust:** `main-app/js/app.js` join shows "✓ Connected to <Coaching Name>" (+ count + logo);
+  new optional `coachings.logoUrl` set in super-admin (`api/admin/coachings.js` + `js/views/coachings.js`),
+  returned by `validate-coaching.js`, rendered where present. Coaching code one-tap copyable in Settings.
+- **Minimal coaching notes:** one plain-text note per student at `coachings/{id}/notes/{studentUid}`, written via
+  a new `students?action=save-note` branch + read on `students?action=details` (both Admin SDK — **no new
+  function**, coaching stays 5/12); client read/write denied by an explicit rule.
+- **Premium UI + a11y:** content emoji → the inline-SVG icon set; activated the unused `.metric-card.accent-*`
+  bar; one stronger heading tier; uniform empty/collecting/error taxonomy + `.toast.info`; layout-matched
+  skeletons; global `@media (prefers-reduced-motion)` + `:focus-visible`; fixed the ARIA tab pattern. **No** dead
+  UI (no dark-mode toggle, no notification prefs).
+- **Docs:** ADR-030; FIRESTORE_BLUEPRINT (session fields, `logoUrl`, `notes` subcollection), SECURITY (notes
+  deny), `firestore.rules` (explicit `notes` deny), VERSIONS (Bible 2.18→2.19, Arch 2.10→2.11, Firestore
+  2.10→2.11, Security 2.8→2.9) + migration note, TECHNICAL_BIBLE §10B (coaching design-system additions).
+
 ## 2026-06-13 — Coaching ecosystem audit remediation (ADR-029)
 
 Fixed the production-readiness audit's findings (1 critical, 10 high, the actionable mediums/lows). Across the

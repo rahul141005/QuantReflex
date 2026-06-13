@@ -12,10 +12,29 @@ const admin = require('firebase-admin');
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-  } catch (err) { 
+  } catch (err) {
     console.error('Firebase admin init failed:', err);
     throw new Error('FATAL: Firebase Admin could not be initialized.');
   }
+}
+
+/* Field mask for the dashboard aggregate scan (ADR-030) — return only what's aggregated, not the whole user
+   doc. Drops the 90-key `stats.dailyHistory` map (not used here) + settings/bookmarks/customFormulas/mistakes/
+   etc. Keep in sync with the fields read in the forEach below. */
+const DASH_FIELDS = [
+  'accountStatus', 'email', 'profile.name', 'plan', 'isTrial', 'updatedAt',
+  'stats.lastActiveDate', 'stats.totalAttempted', 'stats.totalCorrect', 'stats.responseTimes',
+  'stats.categoryStats', 'stats.dailyStreak', 'stats.todayAttempted', 'stats.todayCorrect',
+  'stats.avgSessionImprovementPct'
+];
+
+/* Speed-distribution buckets (ADR-030). Honest fixed thresholds on mean solve time (seconds): a student is
+   Fast if they average under 5s/question, On-track 5–10s, Slow at 10s+. Bucketing is a coaching-wide count
+   only — raw responseTimes are NEVER shipped to the client. */
+function _speedBucket(avgTime) {
+  if (avgTime < 5) return 'fast';
+  if (avgTime < 10) return 'onTrack';
+  return 'slow';
 }
 
 async function handler(req, res) {
@@ -37,6 +56,7 @@ async function handler(req, res) {
     const studentsSnap = await db.collection('users')
       .where('coachingId', '==', coachingId)
       .limit(SCAN_CAP)
+      .select(...DASH_FIELDS)   // field mask — only the aggregated fields, not the whole user doc (ADR-030)
       .get();
     const rosterTruncated = studentsSnap.size >= SCAN_CAP;
 
@@ -55,8 +75,12 @@ async function handler(req, res) {
     let activeStreakUsers = 0;
     let totalQuestionsSolved = 0;
     let premiumUsers = 0;
+    let sessionImpSum = 0;        // coaching-wide avg within-session improvement (ADR-030)
+    let sessionImpCount = 0;
+    const speedBuckets = { fast: 0, onTrack: 0, slow: 0 };   // speed distribution (ADR-030)
     const categoryAccuracyMap = {};
     const strongestStudents = [];
+    const sessionImprovers = [];  // top same-session improvers (ADR-030)
     const inactiveStudents = [];
     const recentActivity = [];
 
@@ -83,12 +107,20 @@ async function handler(req, res) {
         accuracyCount++;
       }
 
-      // Speed aggregation
+      // Speed aggregation + distribution bucket (ADR-030)
       const times = Array.isArray(stats.responseTimes) ? stats.responseTimes : [];
       if (times.length > 0) {
         const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
         totalSpeed += avgTime;
         speedCount++;
+        speedBuckets[_speedBucket(avgTime)]++;
+      }
+
+      // Session Improvement (ADR-030) — honest cold-start speed signal, read off the root doc
+      const sessImp = stats.avgSessionImprovementPct;
+      if (typeof sessImp === 'number' && isFinite(sessImp)) {
+        sessionImpSum += sessImp;
+        sessionImpCount++;
       }
 
       // Streak users
@@ -122,12 +154,19 @@ async function handler(req, res) {
         lastActive: safeTimestamp(stats.lastActiveDate || u.updatedAt),
         totalAttempted: attempted,
         plan: u.plan === 'premium' ? 'premium' : 'free',
-        isTrial: !!u.isTrial
+        isTrial: !!u.isTrial,
+        sessionImprovement: (typeof sessImp === 'number' && isFinite(sessImp))
+          ? parseFloat(sessImp.toFixed(1)) : null
       };
 
       // Strongest students (by accuracy, min 10 questions)
       if (attempted >= 10) {
         strongestStudents.push(studentSummary);
+      }
+
+      // Top same-session improvers (positive within-session speed delta only)
+      if (typeof sessImp === 'number' && isFinite(sessImp) && sessImp > 0) {
+        sessionImprovers.push(studentSummary);
       }
 
       // Inactive students (no activity in 3+ days)
@@ -150,6 +189,9 @@ async function handler(req, res) {
 
     // Sort strongest by accuracy desc
     strongestStudents.sort((a, b) => b.accuracy - a.accuracy);
+
+    // Sort session improvers by within-session improvement desc (ADR-030)
+    sessionImprovers.sort((a, b) => (b.sessionImprovement || 0) - (a.sessionImprovement || 0));
 
     // Sort inactive by lastActive asc (most inactive first)
     inactiveStudents.sort((a, b) => {
@@ -190,6 +232,7 @@ async function handler(req, res) {
         status: coachingData.status || 'active',
         plan: coachingData.entitlementPlan || 'standard',
         capacity: coachingData.capacity || null,
+        logoUrl: coachingData.logoUrl || null,   // optional institute logo (ADR-030)
         expiryDate: safeTimestamp(coachingData.expiryDate),
         createdAt: safeTimestamp(coachingData.createdAt)
       },
@@ -203,10 +246,17 @@ async function handler(req, res) {
         totalQuestionsSolved,
         premiumUsers,
         inactiveCount: inactiveStudents.length,  /* true at-risk total (the list below is sliced to 10) */
-        rosterTruncated: rosterTruncated          /* aggregates cover the first 5000 students only */
+        rosterTruncated: rosterTruncated,         /* aggregates cover the first 5000 students only */
+        /* Session Improvement (ADR-030) — coaching-wide avg within-session speed delta + how many students it
+           is based on (so the UI can label it honestly and hide it until there's data). */
+        avgSessionImprovement: sessionImpCount > 0 ? parseFloat((sessionImpSum / sessionImpCount).toFixed(1)) : null,
+        sessionImprovementSampleSize: sessionImpCount,
+        /* Speed distribution buckets (counts only — raw times never leave the server). */
+        speedDistribution: speedBuckets
       },
       weakTopics: weakTopics.slice(0, 5),
       strongestStudents: strongestStudents.slice(0, 5),
+      topImprovers: sessionImprovers.slice(0, 5),   // top same-session speed improvers (ADR-030)
       inactiveStudents: inactiveStudents.slice(0, 10),
       recentActivity: recentActivity.slice(0, 10)
     });

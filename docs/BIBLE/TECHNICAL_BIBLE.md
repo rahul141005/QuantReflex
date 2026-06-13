@@ -315,6 +315,58 @@ central `config/*` docs (`system?action=config-set`, audited); the student app r
 (`aiService` skips OpenAI, `paymentService` skips Razorpay, boot shows a maintenance screen for non-admins).
 See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) for the config rules.
 
+## 10C. Coaching Admin Design System (mobile-first) — ADR-028 (value/UI/perf ADR-030)
+
+`coaching-admin-app` is a **third, separate** design language (own `css/coaching-style.css`, own tokens — a
+calm, de-gamered dark theme; NOT the student navy/glass, NOT the admin slate/blue). It is a **mobile-first sales
+tool**: primary device is a **phone**, **bottom-nav 5 tabs** (Dashboard · Students · Performance · Engagement ·
+Settings), and detail screens **push full-screen** (NOT a split-pane/sidebar — that's the tablet admin pattern).
+Its job is owner trust + demonstrating QuantReflex's math-**speed** value; it must NOT grow into an
+LMS/CRM/analytics suite. Build coaching surfaces from this system; do not hand-style new ones.
+
+**Product contract (ADR-030 — the "value" guarantee).** Every card must earn its place: (a) its data is on the
+render path **today**, and (b) it changes what the owner **does** (triage / nudge / celebrate / decide). The
+recurring failure mode is **discarding fetched data** — the backend computes `strongestStudents`,
+`recentActivity`, `activeStreakUsers`, `totalQuestionsSolved`, per-student `streak`/`weakTopic`, and the view
+must render them, not drop them. Conversely, never fabricate: a metric that needs history it doesn't have yet
+shows a single honest **`.collecting`** state ("live in N days"), never an approximated/last-200-question number.
+Vanity (e.g. a standalone Premium-count hero) is demoted below actionable signal.
+
+**Honesty taxonomy (one set, used everywhere):** `.collecting` (real data accruing — show the countdown),
+`.empty-state` + inline SVG (genuinely empty — e.g. no students yet), and one error+retry component. Toasts:
+success / error / **`.toast.info`**. Skeletons **match the real layout** (hero + rows) to avoid CLS. Never two
+different "no data" treatments on one screen.
+
+**Premium-UI levers (ADR-030):**
+- **Inline SVG, not emoji.** Content glyphs use the thin-stroke inline-SVG icon set already shipped in the bottom
+  nav (`CoachingUtils.icon(name)` / the nav set) — **no content emoji** (🟢📈⚠️🎯🔥) in shipped views.
+- **`.metric-card.accent-*` color system** (speed / accuracy / activity / attention) is **active** — the metric
+  grid is color-coded by meaning, one restrained accent per tile, not flat grey.
+- **Heading tier:** `.section-title` (~1.06rem, the stronger tier) for top sections + optional one-line subtitle;
+  `.section-label` stays for sub-groups.
+- **Real-data density** is restored from previously-dead CSS where the data is live: a compact Coaching-Health
+  strip and a best-in-coaching Wins strip (current fastest / longest streaks) — real, not vanity.
+
+**Reusable primitives (`js/utils.js` `CoachingUtils`, single owners — do not re-implement):** `sparkline`,
+`deltaBadge`, `collectingCard`, `getInitial`, `escapeHtml`, `icon`, `Toast`. Reuse the `coachingMetrics/{id}`
+daily rollup for trend reads (no per-load full-roster re-scan).
+
+**Performance contract (ADR-030).** The heavy `users`-roster scans (`coaching/students.js` list,
+`coaching/dashboard.js`, `coaching/insights.js`) MUST use a Firestore field mask (`.select(...)`) so the
+200-element `stats.responseTimes` ring and the 90-key `stats.dailyHistory` map are **never** shipped to a
+list/aggregate that doesn't need them (`.limit()` bounds row count but not payload — both are required). New
+coaching scans follow this or they regress the Students-screen load.
+
+**Accessibility:** global `@media (prefers-reduced-motion: reduce)`; a shared `:focus-visible` ring on every
+control (`.nav-tab`/`.btn`/`.seg button`/`.pill`/`.more-item`); the tab shell uses a correct ARIA pattern
+(`aria-selected` + `role=tabpanel`, or `role=navigation` for the bottom nav). Thumb-reach: primary daily CTAs are
+not flush-right out of reach; list rows are tappable to their primary action.
+
+**Session Improvement (ADR-030) — display rule.** The within-session speed-delta
+(`users.stats.avgSessionImprovementPct` / per-session `firstHalfAvg→secondHalfAvg`) is always labeled **"Session
+Improvement"** and rendered in its own card. It is the honest **cold-start** speed signal; it is **never** merged
+into, or charted alongside, the 7/30-day calendar speed trend, and it becomes secondary once that trend matures.
+
 ## 11. Known Deprecated / Dead Code (do not extend)
 - `duelInvitations` collection (rules deny all).
 - `generateWordProblems` OpenAI path (now reads curated `questions`).

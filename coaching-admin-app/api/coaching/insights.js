@@ -26,10 +26,13 @@ async function handler(req, res) {
     const db = admin.firestore();
     const coachingId = req.coachingId;
 
-    /* BOUNDED scan (ADR-029) — caps reads so a huge roster can't OOM/timeout the 15s function. */
+    /* BOUNDED scan (ADR-029) + field mask (ADR-030) — caps reads AND returns only the 4 fields this trend
+       needs (drops the 200-element responseTimes ring, categoryStats, settings, bookmarks, … — the per-doc
+       payload, not just the row count). */
     const studentsSnap = await db.collection('users')
       .where('coachingId', '==', coachingId)
       .limit(5000)
+      .select('accountStatus', 'updatedAt', 'stats.lastActiveDate', 'stats.dailyHistory')
       .get();
 
     const now = Date.now();

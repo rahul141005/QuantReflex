@@ -9,6 +9,19 @@
 const { withCoachingAuth, formatError, safeTimestamp, toMillis } = require('../_lib/middleware');
 const admin = require('firebase-admin');
 
+/* Field mask for the roster scan (ADR-030 — the real "Students is slow" fix; ADR-029 only added .limit(),
+   which bounds row COUNT but not per-doc PAYLOAD). Selecting just these fields makes Firestore return ~15
+   fields instead of the entire user document — it drops the 90-key `stats.dailyHistory` map (unused in the
+   list) plus every other heavy field (settings, quickLinks, customTopics, customFormulas, bookmarks,
+   stats.mistakes, fcmToken, …). `stats.responseTimes` + `stats.categoryStats` are kept because the row's speed
+   and weak-topic are derived from them. Keep this in sync with the fields read in `_handleList`. */
+const LIST_FIELDS = [
+  'accountStatus', 'email', 'profile.name', 'plan', 'isTrial', 'createdAt',
+  'stats.totalAttempted', 'stats.totalCorrect', 'stats.responseTimes', 'stats.categoryStats',
+  'stats.dailyStreak', 'stats.bestDailyStreak', 'stats.lastActiveDate', 'stats.lastActiveMs',
+  'stats.avgSessionImprovementPct'
+];
+
 if (!admin.apps.length) {
   try {
     admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -67,6 +80,8 @@ async function _handleList(db, coachingId, req, res) {
     query = query.limit(1000);
   }
 
+  query = query.select(...LIST_FIELDS); // field mask — return ~15 fields, not the whole user doc
+
   const studentsSnap = await query.get();
 
   let students = [];   // reassigned in the search branch below (was `const` — latent TypeError)
@@ -109,6 +124,10 @@ async function _handleList(db, coachingId, req, res) {
       plan: u.plan === 'premium' ? 'premium' : 'free',
       isTrial: !!u.isTrial,
       weakTopic: weakTopic,
+      // Honest cold-start speed signal (ADR-030) — rolling within-session improvement %, read cheaply off the
+      // already-scanned root doc. null until the student finishes a first ≥6-question timed session.
+      sessionImprovement: (typeof stats.avgSessionImprovementPct === 'number')
+        ? parseFloat(stats.avgSessionImprovementPct.toFixed(1)) : null,
       createdAt: safeTimestamp(u.createdAt),
       /* Raw indexed value for keyset pagination — MUST equal the orderBy field (stats.lastActiveMs, a
          number) so startAfter compares like-for-like. Internal; the client passes it back verbatim. */

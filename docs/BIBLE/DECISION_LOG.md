@@ -8,6 +8,43 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-030 — Coaching App V4: value/UI/perf pass — surface real data, premium UI, honest cold-start (2026-06-13)
+- **Context:** A brutally-honest product review (9-agent audit + adversarial self-challenge) found the rebuilt
+  coaching app **feels empty, low-information, and slow** — but the root cause is NOT minimalism: the backends
+  already compute rich data the views **discard** (dashboard returns `strongestStudents`/`recentActivity`/
+  `activeStreakUsers`/`totalQuestionsSolved` and renders none; the roster returns `streak`/`bestStreak`/
+  `weakTopic` and drops them), available-today signal (week-over-week accuracy/participation) is buried behind
+  "collecting" states, and ADR-029's "masked scans" were never actually masked (only `.limit()`; no `.select()`
+  → the Students-screen slowness). The coaching app is a **sales tool** (owner trust / student adoption /
+  retention / demonstrate math-SPEED value) — not an LMS/CRM.
+- **Decision (Phase 1+2; growth features deferred):**
+  1. **Stop discarding fetched data + demote vanity.** Rebuild Dashboard (Snapshot · Momentum · Action Required ·
+     Coaching Wins), the Students roster (triage row: speed + streak + weak topic + attention dot), Performance
+     (anchor today's speed + real WoW accuracy/participation + speed distribution + current-fastest + ONE honest
+     speed-trend teaser), and Engagement (live audience counts + named at-risk list + real-name achievements; cut
+     the fake `seg='all'` chips) — using data already on the render path. A card earns its place only if its data
+     is live today AND it changes what the owner does.
+  2. **Performance:** add Firestore field masks (`.select()`) to the heavy coaching scans (students/dashboard/
+     insights) and `Promise.allSettled` the super-admin Command Center's sequential calls (the actual slowness).
+  3. **"Session Improvement" cold-start bridge** (honest day-one speed proof): the student app computes
+     first-half vs last-half session speed from the existing `perQuestionTimes` and persists per-session
+     `firstHalfAvg`/`secondHalfAvg` (on `practiceSessions`) + a rolling `stats.avgSessionImprovementPct` (on the
+     user doc, read cheaply by the coaching scan). Shown as **"Session Improvement"**, strictly separate from the
+     7/30-day trends; it becomes secondary once real history accrues. No fabrication, no benchmarks.
+  4. **Onboarding trust:** student join shows **"✓ Connected to <Coaching Name>"** (+ count + logo when present);
+     new optional `coachings.logoUrl` (set in super-admin, rendered where present). Coaching code one-tap copyable
+     in Settings.
+  5. **Minimal coaching notes:** one plain-text note per student in `coachings/{coachingId}/notes/{studentUid}`
+     (Admin-SDK write via a `students?action=save-note` branch — no new function; client-write denied). No CRM
+     (no tags/reminders/timeline/attachments).
+  6. **Premium UI:** content emoji → the inline-SVG icon set already shipped in the nav; activate the unused
+     `.metric-card.accent-*` system; one stronger heading tier; uniform empty/collecting/error taxonomy +
+     `.toast.info`; skeletons that match layout; `prefers-reduced-motion` + global `:focus-visible`; fix the ARIA
+     tab pattern. **No** dead UI: NO dark-mode toggle, NO notification preferences (no backend for either).
+- **Consequence:** the app communicates its value in <3s and loads fast, without recreating the bloat the rebuild
+  removed (no acquisition/benchmark/upgrade-engine/nudge-analytics — Phase 3). Additive Firestore (session fields,
+  `logoUrl`, notes subcollection); no new functions; coaching stays 5/12. Firestore 2.10→2.11, Bible 2.18→2.19.
+
 ## ADR-029 — Coaching offboarding is enforced end-to-end (suspend/delete cuts the owner) (2026-06-13)
 - **Context:** A zero-compromise ecosystem audit of the Coaching App found a CRITICAL gap: super-admin
   suspend/delete (`coachings.js` mutate) only flipped `coachings/{id}.status` and cascade-revoked *students'*
