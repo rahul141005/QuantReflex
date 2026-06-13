@@ -10525,3 +10525,21 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
 /* The compact Join sheet sits CENTERED (not as a bottom sheet) so the soft keyboard rising from the bottom doesn't
    hide its footer "Join Duel" button (audit mobile-ux-perf-03). */
 .duel-sheet-compact { align-self: center; border-radius: 1.25rem; }
+
+/* ---- Result screen redesign (celebration, not dashboard): banner → comparison → ONE metric → sentence → actions ---- */
+.duel-result-card { padding: 1.7rem 1.3rem; }
+.duel-result-banner { margin-bottom: 1.3rem; }
+.duel-result-vs { margin-bottom: 1.3rem; }
+.duel-result-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  margin: .25rem 0 1.1rem;
+}
+.duel-result-metric-val { font-size: 2.1rem; font-weight: 800; color: #2563eb; line-height: 1; }
+body.dark-mode .duel-result-metric-val { color: #60a5fa; }
+.duel-result-metric-lbl { font-size: .82rem; color: #64748b; }
+.duel-result-why { margin-bottom: 1.4rem; }
+.duel-result-actions .duel-finish-btn { flex: 1.5; min-height: 48px; font-weight: 700; }  /* Finish Duel = the prominent primary action */
+.duel-result-actions .btn-secondary { min-height: 48px; }

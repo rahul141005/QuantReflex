@@ -346,34 +346,30 @@ var DuelUI = (function () {
 
     container.style.display = 'block';
     container.innerHTML =
-      '<div class="duel-screen"><div class="duel-card">' +
+      '<div class="duel-screen"><div class="duel-card duel-result-card">' +
         '<div class="duel-result-banner ' + bannerCls + '">' + _esc(banner) + '</div>' +
         '<div class="duel-result-vs">' +
           _resultCol(myName + ' (you)', me, iWon && !draw) +
-          '<div class="duel-vs-sep">VS</div>' +
+          '<div class="duel-vs-sep">vs</div>' +
           _resultCol(opName, op, !iWon && !draw) +
         '</div>' +
-        '<div class="results-grid duel-results-grid">' +
-          _stat(me.correctCount + ' / ' + n, 'Your score') +
-          _stat(op.correctCount + ' / ' + n, opName + '’s score') +
-          _stat(_acc(me) + '%', 'Your accuracy') +
-          _stat(_spd(me), 'Your speed') +
+        '<div class="duel-result-metric">' +
+          '<span class="duel-result-metric-val">' + _acc(me) + '%</span>' +
+          '<span class="duel-result-metric-lbl">your accuracy · ' + _esc(_spd(me)) + '</span>' +
         '</div>' +
         '<div class="duel-result-why">' + _esc(_why(draw, iWon, me, op, opName)) + '</div>' +
         '<div class="duel-result-actions">' +
-          '<button id="duRematch" class="btn-secondary" type="button">Rematch</button>' +
-          '<button id="duShareRes" class="btn-primary" type="button">Share</button>' +
+          '<button id="duShareRes" class="btn-secondary" type="button">Share</button>' +
+          '<button id="duFinish" class="btn-primary duel-finish-btn" type="button">Finish Duel</button>' +
         '</div>' +
-        '<button id="duDone" class="duel-leave-link" type="button">Done</button>' +
       '</div></div>';
 
-    var rm = _el('duRematch'); if (rm) rm.onclick = opts.onRematch;
     var sh = _el('duShareRes'); if (sh) sh.onclick = function () {
       var data = { result: d.result, myName: myName, opName: opName, myScore: me.correctCount, opScore: op.correctCount, winner: d.winnerUid, myUid: myUid, myAccuracy: _acc(me), opAccuracy: _acc(op), myAttempted: (me.answeredCount != null ? me.answeredCount : me.correctCount), opAttempted: (op.answeredCount != null ? op.answeredCount : op.correctCount) };
       if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) ShareService.shareDuelAsImage(data);
       else _nativeShare('QuantReflex Duel', (iWon ? myName + ' defeated ' + opName : opName + ' defeated ' + myName) + ' · ' + n + ' Q · ' + _spd(me) + ' · ' + _acc(me) + '%');
     };
-    var dn = _el('duDone'); if (dn) dn.onclick = opts.onDone;
+    var fin = _el('duFinish'); if (fin) fin.onclick = function () { fin.disabled = true; fin.textContent = 'Finishing…'; if (opts.onFinish) opts.onFinish(); };
   }
   function _resultCol(name, r, win) {
     return '<div class="duel-result-col' + (win ? ' is-winner' : '') + '">' +
@@ -384,7 +380,6 @@ var DuelUI = (function () {
       (win ? '<div class="duel-result-crown">Winner</div>' : '') +
     '</div>';
   }
-  function _stat(value, label) { return '<div class="stat-card"><div class="value">' + _esc(value) + '</div><div class="label">' + _esc(label) + '</div></div>'; }
   function _spd(r) { return (r.answeredCount > 0 && r.totalSolveMs > 0) ? (r.totalSolveMs / 1000 / r.answeredCount).toFixed(1) + 's/q' : 'No data'; }
   function _acc(r) { var a = (r.answeredCount != null) ? r.answeredCount : r.correctCount; return a > 0 ? Math.round((r.correctCount / a) * 100) : 0; }
   function _why(draw, iWon, me, op, opName) {

@@ -21,6 +21,7 @@ var DuelManager = (function () {
   var _homeCardState = 'idle', _syncRetries = 0;   // in-place Home duel-card state + start-sync retry cap (Bug-2 / Bug-1)
   var _runner = null;        // light solving state { total, index } for the Submit-&-Leave counts
   var _lastAnswerWrite = null;   // promise of the most recent answer write — flushed before finalize (audit fix)
+  var _solvePrompts = null;       // LOCKED question set for the active solve — snapshots can't clobber it (P0 guest-no-questions)
   var _engine = null;        // the reused Practice drill-engine instance (capture-only duel mode, ADR-033)
   var _finalizing = false;
   var _reconChecked = false;
@@ -90,7 +91,7 @@ var DuelManager = (function () {
     var uid = _myUid();
     var st = duel.status;
     if (st === 'lobby') { _enterLobby(code, duel); return; }
-    if (st === 'complete') { _showResults(code, duel); return; }
+    if (st === 'complete') { _phase = 'idle'; refreshActiveCard(); return; }   // P0: a completed duel must NEVER hijack navigation on reopen — show the passive "Results ready" Home card; the user opens it intentionally
     if (st === 'active') {
       var myP = (duel.presence && duel.presence[uid]) ? duel.presence[uid] : null;
       var myState = myP ? myP.state : 'joined';
@@ -181,7 +182,7 @@ var DuelManager = (function () {
     DuelUI.renderLobby(_el('duelPreview'), {
       duel: _duel, code: _code, myUid: uid, isHost: _duel.createdBy === uid,
       onStart: function (done) {
-        DuelCore.startDuel(_code).then(function (res) { _serverOffset = (res.serverNow || Date.now()) - Date.now(); _duel = res.duel; _beginCountdown(); })
+        DuelCore.startDuel(_code).then(function (res) { _serverOffset = (res.serverNow || Date.now()) - Date.now(); _duel = res.duel; if (res.duel && res.duel.prompts && res.duel.prompts.length) _solvePrompts = res.duel.prompts.slice(); _beginCountdown(); })
           .catch(function (e) { done && done(); _toast(_err(e)); });
       },
       onLeave: function () {
@@ -220,14 +221,18 @@ var DuelManager = (function () {
      never grades; the server grades the answers we persist per question. ── */
   function _startSolving() {
     if (_phase === 'solving') return;
-    var prompts = (_duel.prompts || []).slice().sort(function (a, b) { return a.index - b.index; });
+    // Read from the LOCKED question set captured at the active-transition (immune to snapshot clobber), falling back
+    // to _duel.prompts. This is the P0 guarantee that the guest renders the SAME questions the host does.
+    var src = (_solvePrompts && _solvePrompts.length) ? _solvePrompts : (_duel && _duel.prompts) || [];
+    var prompts = src.slice().sort(function (a, b) { return a.index - b.index; });
     if (!prompts.length) {   // DR2 backstop — never run a 0-question engine; re-fetch the room, then retry (CAPPED)
       _syncRetries++;
       if (_syncRetries > 6) { _syncRetries = 0; _toast('Trouble loading the duel — check your connection.'); exitToHome(true); return; }   // surface, don't loop forever (audit question-delivery-03)
       _toast('Loading questions…');
-      DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) { _duel = res.duel; if (res.serverNow) _serverOffset = res.serverNow - Date.now(); } setTimeout(_startSolving, 400); }).catch(function () { setTimeout(_startSolving, 800); });
+      DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) { _duel = res.duel; if (res.duel.prompts && res.duel.prompts.length) _solvePrompts = res.duel.prompts.slice(); if (res.serverNow) _serverOffset = res.serverNow - Date.now(); } setTimeout(_startSolving, 400); }).catch(function () { setTimeout(_startSolving, 800); });
       return;
     }
+    _solvePrompts = prompts;   // lock the question set for this solve
     _phase = 'solving';
     _cacheToken();
     _runner = { total: prompts.length, index: 0 };   // light state for the Submit-&-Leave counts
@@ -254,12 +259,16 @@ var DuelManager = (function () {
       },
       onFinish: function () { _finishMe('completed_all'); }
     });
-    // Set presence='solving' (the server room precondition for answer writes) BEFORE the engine accepts input, so
-    // the FIRST answer can't be rejected by the rules' duelActiveSolving precondition (audit solving-exit-forfeit-03).
-    // The "GO!" overlay stays visible for the ~one round-trip; then Q1 renders.
-    DuelCore.setPresence(_code, 'solving')
-      .then(function () { if (_phase === 'solving' && _engine) _engine.start(); })
-      .catch(function () { if (_phase === 'solving' && _engine) _engine.start(); });
+    // Start the engine IMMEDIATELY — NEVER gate it on a network write. (A slow/hung presence write must never blank
+    // the guest's screen — that was the guest-no-questions P0.) setPresence runs in parallel; the rules' first-answer
+    // race is covered by writeAnswer's retry-on-permission-denied (it re-asserts presence + retries). A watchdog
+    // re-starts the engine if the first question somehow didn't render.
+    DuelCore.setPresence(_code, 'solving');
+    try { _engine.start(); } catch (_) {}
+    if (_perqTimer) { clearTimeout(_perqTimer); }
+    _perqTimer = setTimeout(function () {
+      if (_phase === 'solving' && _engine && !_el('duOppChip')) { try { _engine.start(); } catch (_) {} }   // #duOppChip is rendered by the duel header on first render → its absence means Q1 never rendered
+    }, 1200);
   }
 
   /* The multiplayer header injected above the Practice question card on every render. Static structure; the live
@@ -404,11 +413,19 @@ var DuelManager = (function () {
     _showContainer('duelResults');
     DuelUI.renderResults(_el('duelResults'), {
       duel: duel, myUid: _myUid(),
-      onRematch: function () { DuelCore.ackResult(code); _resetState(); exitToHome(); openSetup(); /* Home, then the setup modal */ },
       onShare: function () {},
-      onDone: function () { DuelCore.ackResult(code); _resetState(); exitToHome(); }
+      onFinish: function () { _finishDuel(code); }
     });
     refreshActiveCard();
+  }
+
+  /* Finish Duel — the ONLY exit from results (Rematch removed). FULL cleanup so the user lands on a clean idle Home
+     and can immediately start a fresh duel: clear the server mirror (ackResult), reset all client state + listeners +
+     timers, drop the Home card to idle, and route Home. Idempotent. */
+  function _finishDuel(code) {
+    DuelCore.ackResult(code || _code);
+    _resetState();          // stops listener, clears all timers/poll/recover, nulls _code/_duel/_my/_solvePrompts, _phase='idle'
+    exitToHome();           // → refreshActiveCard() → Home card returns to idle (Create/Join)
   }
 
   /* ── Active-Duel home card (derived from current waiting/results state) ── */
@@ -420,7 +437,7 @@ var DuelManager = (function () {
     var mode = null;
     if (_phase === 'lobby' && _duel && _duel.status === 'lobby') mode = 'lobby';
     else if (_phase === 'waiting') mode = 'waiting';
-    else if (_phase === 'results' || (_duel && _duel.status === 'complete' && _phase !== 'idle')) mode = 'results';
+    else if (_phase === 'results' || (_duel && _duel.status === 'complete' && _code)) mode = 'results';
     if (mode) { _setHomeCardActive(card, mode); _homeCardState = 'active'; }
     else { if (_homeCardState === 'active') _setHomeCardIdle(card); _homeCardState = 'idle'; }
   }
@@ -454,6 +471,7 @@ var DuelManager = (function () {
       var dd = res.duel;
       if (!dd) { _resetState(); refreshActiveCard(); return; }
       if (dd.status === 'abandoned' || dd.status === 'expired') { _toast('That duel has ended.'); _resetState(); exitToHome(); return; }
+      if (dd.status === 'complete') { _duel = dd; _my = res.my || _my; _showResults(_code, dd); return; }   // INTENTIONAL open from the Home "Results ready" card
       _routeRecovered(_code, dd, res.my);
     }).catch(function () { _toast('Couldn’t reach the duel — check your connection.'); refreshActiveCard(); });   // don't blindly re-enter from stale _duel (audit arch-statemachine-05 / home-history-05)
   }
@@ -480,9 +498,10 @@ var DuelManager = (function () {
     if (ev.removed) { _scheduleListenerRecovery(); return; }   // doc read-denied / participant-removed → attempt recovery, don't silently stall (audit realtime-sync-04)
     var d = ev.data; if (!d) return;
     // Sanitize: the raw doc may carry perPlayer only when complete (server keeps it off the doc until then).
+    if (d && (!d.prompts || !d.prompts.length) && _solvePrompts && _solvePrompts.length) d.prompts = _solvePrompts;   // never let a snapshot blank the active question set (P0)
     _duel = d;
     var uid = _myUid();
-    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); else DuelUI.renderResults(_el('duelResults'), { duel: d, myUid: uid, onRematch: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); openSetup(); }, onShare: function () {}, onDone: function () { DuelCore.ackResult(_code); _resetState(); exitToHome(); } }); return; }
+    if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); return; }   // render results ONCE — never re-render on every snapshot (that rebinds the Finish button mid-click)
     if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? 'Duel ended — no questions were answered.' : (d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.')); _resetState(); exitToHome(); return; }
     if (d.status === 'lobby') { if (_phase === 'lobby') { var lsig = _lobbySigOf(d); if (lsig !== _lobbySig) { _lobbySig = lsig; _renderLobby(); } } return; }   // re-render only on real change (audit realtime-sync-04)
     if (d.status === 'active') {
@@ -509,6 +528,7 @@ var DuelManager = (function () {
       _serverOffset = (res.serverNow || Date.now()) - Date.now();
       _duel = res.duel;
       if (!_duel.prompts || !_duel.prompts.length) { _retryActiveFromLobby(); return; }
+      _solvePrompts = _duel.prompts.slice();   // P0: lock the guest's question set the moment we have it
       _beginCountdown();
     }).catch(function () { _retryActiveFromLobby(); });
   }
@@ -541,7 +561,7 @@ var DuelManager = (function () {
     var _sm = _el('duelSetupModal'); if (_sm) { _sm.style.display = 'none'; _sm.innerHTML = ''; _sm.onclick = null; }   // no setup-modal ghost
     document.body.classList.remove('modal-open');
     _lobbySig = '';
-    _code = null; _duel = null; _my = null; _phase = 'idle'; _finalizing = false;
+    _code = null; _duel = null; _my = null; _solvePrompts = null; _phase = 'idle'; _finalizing = false;
   }
 
   function isInDuel() { return _phase !== 'idle'; }
@@ -553,6 +573,8 @@ var DuelManager = (function () {
      (router gates it on target view !== 'duel'). */
   function suspend() {
     if (_phase === 'idle') return;
+    // Leaving the RESULTS screen via the nav == finished — clear the completed duel so it never ghosts on Home.
+    if (_phase === 'results') { DuelCore.ackResult(_code); _resetState(); return; }
     DuelCore.stopListening();
     _stopLobbyPoll();
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
