@@ -419,13 +419,19 @@ var DuelManager = (function () {
     refreshActiveCard();
   }
 
-  /* Finish Duel — the ONLY exit from results (Rematch removed). FULL cleanup so the user lands on a clean idle Home
-     and can immediately start a fresh duel: clear the server mirror (ackResult), reset all client state + listeners +
-     timers, drop the Home card to idle, and route Home. Idempotent. */
+  /* Finish Duel — the ONLY exit from results (Rematch removed). The user must ESCAPE INSTANTLY and can NEVER hang on
+     "Finishing…": do local cleanup + navigation FIRST and SYNCHRONOUSLY (each guarded so one failure can't block the
+     others), then clear the server mirror in the BACKGROUND (best-effort, never awaited). Idempotent. */
   function _finishDuel(code) {
-    DuelCore.ackResult(code || _code);
-    _resetState();          // stops listener, clears all timers/poll/recover, nulls _code/_duel/_my/_solvePrompts, _phase='idle'
-    exitToHome();           // → refreshActiveCard() → Home card returns to idle (Create/Join)
+    var theCode = code || _code;
+    try { _resetState(); } catch (_) {}   // stops listener, clears all timers/poll/recover, nulls state, _phase='idle'
+    try { exitToHome(); } catch (_) {}     // hides duel containers + routes Home + refreshActiveCard() → card idle
+    try { DuelCore.ackResult(theCode); } catch (_) {}   // background mirror clear; its own retry; never blocks the exit
+  }
+  /* Hard escape hatch for the results-screen failsafe (and any "stuck" guard): nuke all duel state + go Home. */
+  function forceReset() {
+    try { _resetState(); } catch (_) {}
+    try { exitToHome(); } catch (_) {}
   }
 
   /* ── Active-Duel home card (derived from current waiting/results state) ── */
@@ -605,6 +611,7 @@ var DuelManager = (function () {
     refreshActiveCard: refreshActiveCard,
     suspend: suspend,
     handleBackNav: handleBackNav,
+    forceReset: forceReset,
     exitDuel: exitToHome
   };
 })();

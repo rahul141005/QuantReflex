@@ -341,21 +341,26 @@ var DuelUI = (function () {
     var n = d.effectiveQuestionCount || 1;
     var draw = d.result === 'draw';
     var iWon = d.winnerUid === myUid;
-    var banner = draw ? 'Draw' : (iWon ? 'You win! 🏆' : opName + ' wins');
+    var banner = draw ? 'Draw' : (iWon ? 'You win' : opName + ' wins');
     var bannerCls = draw ? 'is-draw' : (iWon ? 'is-win' : 'is-loss');
+    var icon = draw ? '🤝' : (iWon ? '🏆' : '⚔️');
 
     container.style.display = 'block';
+    // CENTERED composition: every block aligns to one vertical axis. The VS row and the stats table are both
+    // symmetric 3-column grids (1fr · auto · 1fr) — you on the left half, opponent on the right half, label centered.
     container.innerHTML =
       '<div class="duel-screen"><div class="duel-card duel-result-card">' +
+        '<div class="duel-result-icon">' + icon + '</div>' +
         '<div class="duel-result-banner ' + bannerCls + '">' + _esc(banner) + '</div>' +
         '<div class="duel-result-vs">' +
           _resultCol(myName + ' (you)', me, iWon && !draw) +
           '<div class="duel-vs-sep">vs</div>' +
           _resultCol(opName, op, !iWon && !draw) +
         '</div>' +
-        '<div class="duel-result-metric">' +
-          '<span class="duel-result-metric-val">' + _acc(me) + '%</span>' +
-          '<span class="duel-result-metric-lbl">your accuracy · ' + _esc(_spd(me)) + '</span>' +
+        '<div class="duel-result-stats">' +
+          _statRow('Correct', me.correctCount + ' / ' + n, op.correctCount + ' / ' + n) +
+          _statRow('Accuracy', _acc(me) + '%', _acc(op) + '%') +
+          _statRow('Speed', _spd(me), _spd(op)) +
         '</div>' +
         '<div class="duel-result-why">' + _esc(_why(draw, iWon, me, op, opName)) + '</div>' +
         '<div class="duel-result-actions">' +
@@ -369,7 +374,26 @@ var DuelUI = (function () {
       if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) ShareService.shareDuelAsImage(data);
       else _nativeShare('QuantReflex Duel', (iWon ? myName + ' defeated ' + opName : opName + ' defeated ' + myName) + ' · ' + n + ' Q · ' + _spd(me) + ' · ' + _acc(me) + '%');
     };
-    var fin = _el('duFinish'); if (fin) fin.onclick = function () { fin.disabled = true; fin.textContent = 'Finishing…'; if (opts.onFinish) opts.onFinish(); };
+    var fin = _el('duFinish'); if (fin) fin.onclick = function () {
+      if (fin._busy) return; fin._busy = true;
+      fin.disabled = true; fin.textContent = 'Finishing…';
+      try { if (opts.onFinish) opts.onFinish(); } catch (_) {}
+      // FAILSAFE — the user must NEVER stay trapped on "Finishing…". If we're STILL on the results screen ~2.5s
+      // later (handler missing / cleanup hung / version mismatch), force-escape: hide results, hard-reset, go Home.
+      setTimeout(function () {
+        if (!document.getElementById('duFinish')) return;   // already navigated away → all good
+        try { var dr = _el('duelResults'); if (dr) { dr.style.display = 'none'; dr.innerHTML = ''; } } catch (_) {}
+        try { if (typeof DuelManager !== 'undefined' && DuelManager.forceReset) DuelManager.forceReset(); } catch (_) {}
+        try { if (typeof Router !== 'undefined') Router.showView('home'); else location.hash = '#home'; } catch (_) { try { location.hash = '#home'; } catch (e2) {} }
+      }, 2500);
+    };
+  }
+  /* One stat row → three grid cells (you · label · opp). The parent .duel-result-stats is a symmetric 1fr·auto·1fr
+     grid, so values mirror around the centered label. */
+  function _statRow(label, youVal, oppVal) {
+    return '<div class="rs-you">' + _esc(youVal) + '</div>' +
+           '<div class="rs-label">' + _esc(label) + '</div>' +
+           '<div class="rs-opp">' + _esc(oppVal) + '</div>';
   }
   function _resultCol(name, r, win) {
     return '<div class="duel-result-col' + (win ? ' is-winner' : '') + '">' +

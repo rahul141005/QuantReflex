@@ -10526,20 +10526,36 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
    hide its footer "Join Duel" button (audit mobile-ux-perf-03). */
 .duel-sheet-compact { align-self: center; border-radius: 1.25rem; }
 
-/* ---- Result screen redesign (celebration, not dashboard): banner → comparison → ONE metric → sentence → actions ---- */
-.duel-result-card { padding: 1.7rem 1.3rem; }
-.duel-result-banner { margin-bottom: 1.3rem; }
-.duel-result-vs { margin-bottom: 1.3rem; }
-.duel-result-metric {
-  display: flex;
-  flex-direction: column;
+/* ---- Result screen: CENTERED composition on a single vertical axis, full data restored ---- */
+.duel-result-card { padding: 1.7rem 1.3rem; text-align: center; }
+.duel-result-icon { font-size: 2.6rem; line-height: 1; margin-bottom: .35rem; }
+.duel-result-banner { margin-bottom: 1.2rem; text-align: center; }
+/* VS row: a symmetric 3-column grid → the two player columns are EXACTLY equal width regardless of name/score
+   length, with "vs" perfectly centered. No left-drift. */
+.duel-result-vs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: .15rem;
-  margin: .25rem 0 1.1rem;
+  gap: .5rem;
+  margin-bottom: 1.2rem;
 }
-.duel-result-metric-val { font-size: 2.1rem; font-weight: 800; color: #2563eb; line-height: 1; }
-body.dark-mode .duel-result-metric-val { color: #60a5fa; }
-.duel-result-metric-lbl { font-size: .82rem; color: #64748b; }
-.duel-result-why { margin-bottom: 1.4rem; }
-.duel-result-actions .duel-finish-btn { flex: 1.5; min-height: 48px; font-weight: 700; }  /* Finish Duel = the prominent primary action */
+.duel-vs-sep { justify-content: center; }
+/* Full stats table: same symmetric 1fr·auto·1fr grid — your value mirrors the opponent's around the centered label. */
+.duel-result-stats {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: .55rem 1rem;
+  background: #f1f5f9;
+  border-radius: var(--qr-card-radius-sm, 1.25rem);
+  padding: .9rem 1rem;
+  margin-bottom: 1.2rem;
+}
+body.dark-mode .duel-result-stats { background: rgba(15, 23, 42, .5); }
+.rs-you { text-align: right; font-weight: 700; color: #0f172a; }
+.rs-opp { text-align: left; font-weight: 700; color: #0f172a; }
+body.dark-mode .rs-you, body.dark-mode .rs-opp { color: #e2e8f0; }
+.rs-label { text-align: center; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: #64748b; white-space: nowrap; }
+.duel-result-why { margin-bottom: 1.3rem; }
+.duel-result-actions .duel-finish-btn { flex: 1.5; min-height: 48px; font-weight: 700; }
 .duel-result-actions .btn-secondary { min-height: 48px; }
