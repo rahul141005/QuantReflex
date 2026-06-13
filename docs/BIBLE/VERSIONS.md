@@ -9,7 +9,7 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.25 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.26 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.16 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.13 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.11 | Auth model, rules, claims, abuse controls. |

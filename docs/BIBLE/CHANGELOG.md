@@ -6,6 +6,19 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Math Duel P0 stabilization + result redesign (ADR-037)
+
+A two-device test surfaced P0s beyond the audit. **Guest received no questions** — root-caused to ADR-036's own
+`solving-exit-forfeit-03` change (it gated `_engine.start()` on `setPresence('solving')` resolving; a slow guest
+write left the engine un-started). Fixed in `js/duel-manager.js`: start the engine immediately + `setPresence` in
+parallel (`writeAnswer` retry covers the rule race); lock the question set in `_solvePrompts` (snapshot-clobber
+proof) + a start watchdog. **Done → "Finish Duel"** real primary button with full cleanup (ackResult + _resetState +
+Home idle). **Result-trap fixed:** `_routeRecovered` shows the passive "Results ready" Home card instead of
+auto-opening results; results render once; nav-away from results acks (no ghost). **Rematch removed** (button +
+handler + both callbacks). **Result screen redesigned** (`js/duel-ui.js` + `css/style.css`): banner → comparison →
+one metric → one sentence → Share + Finish Duel. SW v96→v97. `duel-sim` 47/47. Docs: [ADR-037](DECISION_LOG.md),
+[VERSIONS.md](VERSIONS.md) (Bible 2.26). Gate: owner two-device full-lifecycle pass.
+
 ## 2026-06-14 — Math Duel release-blocking audit + full remediation (ADR-036)
 
 A 20-phase adversarial audit found **68 verified issues (2C/7H/24M/35L)**; **all 68 are now fixed or documented as

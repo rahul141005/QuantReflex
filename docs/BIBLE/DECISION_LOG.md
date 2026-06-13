@@ -8,6 +8,33 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-037 — Math Duel P0 stabilization: guest-no-questions, Finish Duel, no result-trap, Rematch removed (2026-06-14)
+- **Context:** A two-device test still failed: the **guest received no questions** (host fine), the **Done** control
+  did nothing / looked like text, completed duels **trapped the user on the result screen on reopen**, **Rematch was
+  broken**, and the result screen felt like a dashboard with a **ghost Home card**.
+- **Decision:**
+  - **Guest-no-questions (P0) — a regression from ADR-036.** ADR-036's solving-exit-forfeit-03 fix made
+    `_startSolving` gate `_engine.start()` on `setPresence('solving')` resolving. On the guest's slower link that
+    Firestore write could be slow/hang, so the engine never started → blank screen. Fix: **start the engine
+    immediately**; fire `setPresence` in parallel (the first-answer rule race stays covered by `writeAnswer`'s
+    retry-on-`permission-denied`). Also **lock the question set** into `_solvePrompts` at the active-transition so a
+    snapshot can never clobber `_duel.prompts`, preserve prompts in `_onSnapshot`, and add a 1.2s start watchdog.
+  - **Finish Duel (replaces Done).** A real prominent primary button with FULL cleanup: `ackResult` → `_resetState`
+    (listener/timers/poll/recover cleared; `_code`/`_duel`/`_solvePrompts` nulled; phase idle) → Home card idle →
+    Home. The user can immediately create/join a new duel.
+  - **No result-trap.** `_routeRecovered` no longer auto-opens results for a completed duel on reopen — it shows the
+    passive "Results ready" Home card and stays on Home; results open only on intentional tap (`_resumeActiveDuel`)
+    or when the duel just completed. The `_onSnapshot` 'complete' branch renders ONCE (no rebind mid-click). Leaving
+    results via the nav acks + resets (no ghost card).
+  - **Rematch removed** entirely (button + handler + both manager callbacks; no dead code) — to be reintroduced later.
+  - **Result redesign:** winner banner → player comparison → ONE key metric (accuracy · speed) → one honest sentence
+    → Share + Finish Duel. Removed the 4-tile grid + the text-link Done.
+- **Verification:** `node --check` all; `duel-sim` 47/47; SW v96→v97. Gate: owner two-device full-lifecycle pass
+  (both receive the same questions → solve → finish → Finish Duel → both idle on Home → both can immediately re-create
+  → reopen shows no hijack/ghost).
+- **Consequence:** Both players can actually play; results no longer trap or ghost; the result screen is a clean
+  celebration with a single decisive exit.
+
 ## ADR-036 — Math Duel release-blocking audit + remediation (2026-06-14)
 - **Context:** Before opening the Duel to real users, a 20-phase adversarial audit (12 dimension-auditors over the
   real code, every finding independently verified, refute-by-default) surfaced **68 issues — 2 critical · 7 high ·
