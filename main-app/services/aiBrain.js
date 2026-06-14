@@ -86,9 +86,9 @@ async function coachToday(uid, opts) {
       ? 'Nice — ' + doneT + ' done today. Push a little further and I\'ll start calling out your real patterns: your pace, your accuracy, the topics that slow you down.'
       : 'I\'m ' + prompts.PERSONA + ', your coach. Run a quick set and I\'ll start reading your real patterns — pace, accuracy, and the topics that trip you up.';
     return envelope('coach', [
-      say('I\'m ' + prompts.PERSONA + ', your coach. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
-      missionBlock('Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
-    ], [chipDeep('Start warm-up', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
+      say(coldMsg),
+      missionBlock(doneT > 0 ? 'Keep going — 10 more' : 'Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
+    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Start a set', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
   }
 
   if (!opts.force) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
@@ -218,7 +218,7 @@ async function explainBase(question, answer, category, uid) {
     var struggled = !!(mem && Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0);
     var depth = (mem && mem.preferredDepth) || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper (was hardcoded 'standard')
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: 'standard', struggledBefore: struggled, examName: (mem && mem.examName) || '' });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: struggled, examName: (mem && mem.examName) || '' });
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
@@ -242,7 +242,7 @@ async function explainBase(question, answer, category, uid) {
     chipReply('Simpler', 'explain_simpler'),
     chipReply('Go deeper', 'explain_deeper'),
     chipReply('Another like this', 'explain_another'),
-    chipDeep('Drill this', 'focus', category, catLabel, '⚡')
+    chipDrill('Drill this', category, catLabel, '⚡')
   ], { promptId: promptId, topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
 }
 

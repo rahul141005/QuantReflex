@@ -23,7 +23,8 @@ if (!admin.apps.length) {
 }
 function db() { return admin.firestore(); }
 
-var COLD_START_ATTEMPTS = 20;
+var COLD_START_ATTEMPTS = 20;   // lifetime floor to unlock full personalization
+var COACH_MIN_TODAY = 8;        // …OR enough activity TODAY — a fresh grind is coached, never gated (ADR-045)
 var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 // Topic vocabulary is now defined ONCE in quantTopics.js (ADR-045) and shared with planLogic.js.
 var CATEGORY_LABELS = topics.CATEGORY_LABELS;
@@ -43,6 +44,20 @@ function _toMillis(v) {
   if (typeof v === 'number') return v;
   var t = new Date(v).getTime();
   return isNaN(t) ? 0 : t;
+}
+function _todayKey() { return new Date().toDateString(); }
+
+/** Live "today" signal (ADR-045) — date-keyed so it never bleeds across days. Reads the same goldmine
+ *  (stats.dailyHistory{toDateString → {attempted,correct,sumTimes,count}}) the practice path writes, with a
+ *  fallback to the running todayAttempted/todayCorrect counters. This is what lets QuanAI say "26 done today"
+ *  and what feeds the cold-start "coach, don't gate" unlock + the planner's pace forecast. */
+function _deriveToday(stats) {
+  var hist = stats.dailyHistory || {};
+  var e = hist[_todayKey()] || {};
+  var att = Number(e.attempted) || 0, cor = Number(e.correct) || 0;
+  if (!att) { att = Number(stats.todayAttempted) || 0; cor = Number(stats.todayCorrect) || 0; }
+  var avgMs = (e.count > 0 && e.sumTimes) ? Math.round(Number(e.sumTimes) / Number(e.count)) : null;
+  return { attempted: att, correct: cor, accuracy: att > 0 ? _round(cor / att, 2) : null, avgMsPerQ: avgMs };
 }
 
 /**
@@ -122,10 +137,13 @@ async function buildContext(uid, opts) {
 
   var totalAttempted = Number(stats.totalAttempted) || 0;
   var totalCorrect = Number(stats.totalCorrect) || 0;
+  var today = _deriveToday(stats);   // live session signal (ADR-045) — also drives the cold-start unlock below
 
-  // Cold-start: deterministic shape, NO downstream LLM call (AI_INTERACTION_SYSTEM §4).
-  if (totalAttempted < COLD_START_ATTEMPTS) {
-    var cold = _coldContext(uid, { name: name, memory: memory, totalAttempted: totalAttempted, plan: data.plan });
+  // Cold-start: deterministic shape, NO downstream LLM call (AI_INTERACTION_SYSTEM §4). A student is "cold" only
+  // if they have too little data BOTH lifetime AND today — so someone who grinds a session today is coached, not
+  // gated. The cold envelope still carries `today` so QuanAI can acknowledge the current session.
+  if (totalAttempted < COLD_START_ATTEMPTS && today.attempted < COACH_MIN_TODAY) {
+    var cold = _coldContext(uid, { name: name, memory: memory, totalAttempted: totalAttempted, plan: data.plan, today: today });
     _cache(cacheRef, cold);
     return cold;
   }
@@ -174,7 +192,7 @@ async function buildContext(uid, opts) {
     recentSessions: sessions.slice(0, 8).map(function (s) {
       return { mode: s.mode || 'practice', category: s.category || '', acc: (s.total ? _round((s.score || 0) / s.total, 2) : null), improvedPct: _round(s.sessionImprovementPct, 0) };
     }),
-    today: { cats: Object.keys(todayCats) },
+    today: { attempted: today.attempted, correct: today.correct, accuracy: today.accuracy, avgMsPerQ: today.avgMsPerQ, cats: Object.keys(todayCats) },
     weekCats: Object.keys(weekCats),
     memory: _publicMemory(memory)
   };
@@ -190,7 +208,10 @@ function _coldContext(uid, o) {
     dailyStreak: 0,
     trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
-    recentSessions: [], today: { cats: [] }, weekCats: [], memory: _publicMemory(o.memory)
+    recentSessions: [],
+    today: o.today ? { attempted: o.today.attempted, correct: o.today.correct, accuracy: o.today.accuracy, avgMsPerQ: o.today.avgMsPerQ, cats: [] }
+                   : { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null, cats: [] },
+    weekCats: [], memory: _publicMemory(o.memory)
   };
 }
 
@@ -311,7 +332,13 @@ function serialize(ctx, maxChars) {
   if (!ctx) return '';
   var L = [];
   if (ctx.name) L.push('Student first name: ' + String(ctx.name).split(' ')[0] + ' (greet warmly, use sparingly).');
-  L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs; streak ' + ctx.dailyStreak + 'd.');
+  // TODAY first — it is the live session and the highest-signal context (ADR-045).
+  var td = ctx.today;
+  if (td && td.attempted > 0) {
+    L.push('TODAY: ' + td.attempted + ' done' + (td.accuracy != null ? ' at ' + Math.round(td.accuracy * 100) + '%' : '') +
+      (td.avgMsPerQ != null ? ', ~' + (td.avgMsPerQ / 1000).toFixed(1) + 's/Q' : '') + '. Reference today before lifetime; never tell them to "go practice".');
+  }
+  L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs (lifetime); streak ' + ctx.dailyStreak + 'd.');
   var t = ctx.trends;
   if (t) {
     if (t.accuracy && t.accuracy.d7 != null) L.push('Accuracy 7d ' + Math.round(t.accuracy.d7 * 100) + '% vs 30d ' + Math.round((t.accuracy.d30 || 0) * 100) + '% (' + t.accuracy.direction + ').');
