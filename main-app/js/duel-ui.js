@@ -70,7 +70,7 @@ var DuelUI = (function () {
             '<label class="duel-field-label">Question Type</label>' +
             '<div class="timer-pill-selector" id="duType">' +
               '<button class="timer-pill active" data-type="quick" type="button">Quick Math</button>' +
-              '<button class="timer-pill is-soon" data-type="word" type="button" disabled>Word Problems · Soon</button>' +
+              '<button class="timer-pill" data-type="word" type="button">Word Problems · Soon</button>' +
             '</div>' +
           '</div>' +
 
@@ -144,9 +144,26 @@ var DuelUI = (function () {
 
     // Difficulty pills
     _pillGroup('duDiff', function (btn) { cfg.difficulty = btn.getAttribute('data-d'); });
-    // Type pills (Quick only; Word disabled)
+    // Type pills — Quick Math is the only live option. Word Problems is intentionally staged: tapping it animates an
+    // honest "selection" onto the pill, then slides/fades the selection back to Quick Math and opens the Coming Soon
+    // modal. Quick Math stays selected (and _collectConfig always emits questionMode:'quick'), so there is no dead UI.
+    var typeQuick = overlay.querySelector('#duType .timer-pill[data-type="quick"]');
     var typeWord = overlay.querySelector('#duType .timer-pill[data-type="word"]');
-    if (typeWord) typeWord.onclick = function () { if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problem Duels', blurb: 'Battle a friend with AI-crafted, exam-style word problems. Launching soon for Premium.' }); };
+    if (typeWord && typeQuick) {
+      var _wordReverting = false;
+      typeWord.onclick = function () {
+        if (_wordReverting) return;                 // guard against rapid re-taps mid-animation
+        _wordReverting = true;
+        typeQuick.classList.remove('active');        // animate selection onto Word Problems
+        typeWord.classList.add('active');
+        setTimeout(function () {
+          typeWord.classList.remove('active');       // slide/fade selection back to Quick Math
+          typeQuick.classList.add('active');
+          _wordReverting = false;
+          if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problem Duels', blurb: 'Battle a friend with AI-crafted, exam-style word problems. Launching soon for Premium.' });
+        }, 280);
+      };
+    }
 
     // Topics (toggle .selected, reusing Custom Training visuals)
     overlay.querySelectorAll('#duTopics .category-btn').forEach(function (b) {

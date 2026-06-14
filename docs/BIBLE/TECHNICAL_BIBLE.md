@@ -16,7 +16,7 @@ Companion documents (start at [README.md](README.md)):
 
 ## 1. What QuantReflex Is
 
-A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants (CAT, GMAT, Bank PO, SSC, CET). Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹299/6mo or ₹499/12mo — includes everything: all training features, the full AI suite, and Math Duel). One paid tier; trials are time-limited Premium grants.
+A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants (CAT, GMAT, Bank PO, SSC, CET). Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹349/6mo or ₹599/12mo — includes everything: all training features, the full AI suite, and Math Duel). One paid tier; trials are time-limited Premium grants.
 
 ## 2. Tech Stack (canonical)
 

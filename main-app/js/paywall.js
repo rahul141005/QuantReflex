@@ -1,7 +1,7 @@
 /**
  * paywall.js — Premium access control + paywall + Razorpay flow (v2)
  *
- * v2 monetization: a single Premium tier (₹299 / 6 months, ₹499 / 12 months).
+ * v2 monetization: a single Premium tier (₹349 / 6 months, ₹599 / 12 months).
  * Every gated feature resolves through `plan === 'premium'`. The legacy lifetime
  * and dual-tier products are gone. A trial is plan:'premium' with isTrial:true
  * (so it passes the same gate).
@@ -12,8 +12,8 @@ var RAZORPAY_LIVE_KEY = 'rzp_live_STanzIgCpSAfL7';
 
 /* Pricing (display only — server is source of truth via PLAN_CONFIG) */
 var PLANS = {
-  premium_6m:  { label: '6 Months',  price: 299, months: 6,  perMonth: 49, period: '6 months' },
-  premium_12m: { label: '12 Months', price: 499, months: 12, perMonth: 41, period: '12 months' }
+  premium_6m:  { label: '6 Months',  price: 349, months: 6,  perMonth: 58, period: '6 months' },
+  premium_12m: { label: '12 Months', price: 599, months: 12, perMonth: 50, period: '12 months' }
 };
 var DEFAULT_PLAN = 'premium_12m';
 
@@ -365,7 +365,7 @@ function _buildPlansHTML(selected) {
     var p = PLANS[key];
     var active = key === selected ? ' pw-plan--active' : '';
     var best = key === 'premium_12m' ? '<span class="pw-plan-badge">BEST VALUE</span>' : '';
-    var save = key === 'premium_12m' ? '<div class="pw-plan-save">Save 17% vs 6 months</div>' : '<div class="pw-plan-save">&nbsp;</div>';
+    var save = key === 'premium_12m' ? '<div class="pw-plan-save">Save 14% vs 6 months</div>' : '<div class="pw-plan-save">&nbsp;</div>';
     html +=
       '<button type="button" class="pw-plan' + active + '" data-plan="' + key + '" aria-pressed="' + (key === selected) + '">' +
         best +

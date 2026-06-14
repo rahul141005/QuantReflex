@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Premium pricing ₹349/₹599 + Word Problems "Coming Soon" polish (ADR-042)
+
+Pre-launch polish pass. Raised Premium pricing and restored the two staged Word Problems controls from dead UI to
+intentional "Coming Soon" experiences. Durations, plan keys, and entitlement gates unchanged. Bible 2.30→2.31. SW v102→v103.
+
+- **Pricing → ₹349/₹599** (paise 34900/59900), every current-state location, UI ↔ backend kept in sync:
+  - **Charge path** — `services/paymentService.js` `PLAN_CONFIG.amountPaise` 29900→34900, 49900→59900 (what Razorpay charges).
+  - **Constants** — `shared/constants/entitlements.js` `PRICING`; revenue maps `services/aiService.js` + `super-admin api/_lib/metrics.js` `PREMIUM_PRICE_PAISE` (no production data to preserve → updated for consistency).
+  - **Display** — `js/paywall.js` `PLANS` (₹349/₹599, ≈₹58/mo & ≈₹50/mo, "Save 14% vs 6 months"); `index.html` FAQ + About copy.
+  - Historical pricing in prior ADR/CHANGELOG/VERSIONS entries left intact (accurate ₹299/₹499-era record).
+- **Practice Word Problems card restored** — `index.html` removed `display:none`; card is always visible with its
+  "Coming soon" badge and taps into the shared `showComingSoon` modal (`practice-modes.js`, unchanged) — no dead control.
+- **Duel Word Problems pill** — `js/duel-ui.js`: removed `disabled`/`is-soon` (a disabled button never fired its
+  handler). Tapping now animates a brief selection onto Word Problems, slides/fades back to Quick Math, then opens the
+  Coming Soon modal; Quick Math stays the effective question type. `css/style.css`: pill transition extended for the
+  fade, dead `.timer-pill.is-soon` rule removed.
+- **Verify:** node --check on all edited JS; repo grep confirms no ₹299/₹499 or 29900/49900 outside historical docs;
+  paywall ₹ == `PLAN_CONFIG.amountPaise / 100`. Docs: ADR-042, VERSIONS.
+
 ## 2026-06-14 — Launch-readiness pass for the first 1–2k users (ADR-041)
 
 Post-audit launch hardening, scoped to correctness/UX/security/reliability (hyperscale deferred → ROADMAP §Scale-debt).

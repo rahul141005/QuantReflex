@@ -8,6 +8,31 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-042 — Premium pricing update ₹299/₹499 → ₹349/₹599 + Word Problems "Coming Soon" polish (2026-06-14)
+- **Context:** A pre-launch polish pass. Two staged Word Problems controls had regressed into dead UI (the Practice
+  card was fully hidden via `display:none`; the Duel "Word Problems" pill was a `disabled` button whose click handler
+  never fired), and Premium pricing was being raised ahead of launch. The repo has **zero live users** — all existing
+  payment/account data is internal test data slated for deletion before launch — so the codebase is optimized for
+  internal consistency over preserving test records.
+- **Decision (pricing):** Raise the single Premium tier from **₹299/6mo, ₹499/12mo** to **₹349 (34900 paise) / 6
+  months** (`premium_6m`) and **₹599 (59900 paise) / 12 months** (`premium_12m`), effective **2026-06-14**.
+  Plan keys, **durations (182 / 365 days)**, the single-tier model, and all entitlement gates (`plan === 'premium'`)
+  are **unchanged** — only the charged/displayed amounts move.
+- **Scope:** Updated every *current-state* reference so UI ↔ backend stay perfectly synced — the charge path
+  (`paymentService.PLAN_CONFIG.amountPaise`), the canonical price constant (`shared/constants/entitlements.js`),
+  the revenue-accounting maps (`aiService.PREMIUM_PRICE_PAISE`, `super-admin metrics.js` — updated to 34900/59900 as
+  there is no production historical data to preserve), the paywall display (`₹349`/`₹599`, ≈₹58/mo & ≈₹50/mo, "Save
+  14% vs 6 months"), the in-app FAQ/About copy, and the current-state docs. Razorpay orders charge `amountPaise`
+  directly; new payment docs persist the actual `amount`, so revenue analytics remain correct.
+- **Decision (Word Problems polish):** Word Problems stays intentionally staged, but as a *visible, premium "Coming
+  Soon" experience* rather than missing/dead UI. The Practice card is restored (always visible, "Coming soon" badge,
+  tap → shared `showComingSoon` modal). The Duel pill is now live: tapping it animates a brief selection onto Word
+  Problems, slides/fades back to Quick Math, then opens the same modal — Quick Math remains the selected, effective
+  question type.
+- **Consequences:** Historical pricing in prior ADRs / CHANGELOG / VERSIONS is left intact (accurate record of the
+  ₹299/₹499 era); this ADR is the authoritative record of the ₹349/₹599 change. No schema or entitlement migration
+  is required.
+
 ## ADR-041 — Launch-readiness pass for the first 1–2k users (2026-06-14)
 - **Context:** Following the zero-assumption monorepo audit, the owner scoped a launch pass to the first 1,000–2,000
   users: fix correctness/UX/security/reliability NOW; treat pure hyperscale (10k+) work as documented debt. The audit

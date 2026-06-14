@@ -11,7 +11,7 @@
 | Tier | Price | Duration | Features |
 |------|-------|----------|----------|
 | **Free** | ₹0 | Forever | 20 daily questions, 5 AI explanation credits |
-| **Premium** | ₹299 / ₹499 | 6 months / 12 months | Everything — unlimited practice, all modes, full AI suite, Math Duel |
+| **Premium** | ₹349 / ₹599 | 6 months / 12 months | Everything — unlimited practice, all modes, full AI suite, Math Duel |
 
 One paid tier. A **trial** is an admin-granted, custom-duration Premium (`isTrial:true`).
 
