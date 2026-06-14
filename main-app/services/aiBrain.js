@@ -14,6 +14,9 @@ const ctxEngine = require('./studentContext');
 const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
+const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
+const plannerEngine = require('./plannerEngine');    // deterministic 14-day scheduler
+const readinessLib = require('./readiness');         // readiness score + completion forecast
 
 function db() { return admin.firestore(); }
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
@@ -85,11 +88,22 @@ async function coachToday(uid, opts) {
 
   var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
-  // ADR-040: read today's mission so the Coach genuinely references the plan (a real cross-feature link, not just memory).
+  // ADR-040/046: read the active study plan so the Coach genuinely references it. Prefer the QuanAI Planner's
+  // tasks for TODAY; fall back to the legacy Mission weekFocus for users not yet migrated.
   var planNote = '';
   try {
-    var md = await db().collection('aiMissions').doc(uid).get();
-    if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
+    var pd = await db().collection('aiPlanner').doc(uid).get();
+    if (pd.exists) {
+      var pdoc = pd.data();
+      var todayKey = _todayIso();
+      var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
+      var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
+      if (labels) planNote = 'The student\'s study planner schedules today: ' + labels + '. Tie your advice to it.';
+    }
+    if (!planNote) {
+      var md = await db().collection('aiMissions').doc(uid).get();
+      if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
+    }
   } catch (_) {}
   var env;
   try {
@@ -353,6 +367,242 @@ function _missionEnvelope(ctx, plan) {
   ].concat(helpfulChips()), { promptId: 'plan.generate@3' }) };
 }
 
+/* ════════════════════════ QuanAI PLANNER — living, adaptive study planner (ADR-046) ════════════════════════
+   A deterministic engine (plannerEngine + readiness + signals) schedules the next 14 days day-by-day from the
+   real exam syllabus + the student's analytics; the LLM only narrates. Stored at aiPlanner/{uid} (v2). The old
+   one-shot Mission (aiMissions) remains for back-compat until P7. */
+function _todayIso() { return new Date().toISOString().slice(0, 10); }
+function _clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+function _daysRemaining(examDate) {
+  if (!examDate) return 90;
+  var t = Date.parse(examDate + 'T00:00:00Z');
+  return isNaN(t) ? 90 : Math.max(1, Math.ceil((t - Date.now()) / 86400000));
+}
+/** Estimate the student's real recent pace (min/day) so the forecast can project from behaviour, not just the plan. */
+function _recentDailyMinutes(ctx) {
+  var t = ctx && ctx.trends;
+  if (!t || !t.speed || t.speed.recentMsPerQ == null || !t.consistency) return null;
+  var active = Math.max(1, t.consistency.activeDaysLast14 || 0);
+  var q7 = (ctx.today && ctx.today.attempted) ? ctx.today.attempted * Math.min(active, 7) : null; // rough
+  if (!q7) return null;
+  return Math.round((q7 / 7) * (t.speed.recentMsPerQ / 60000));
+}
+function _mergeTopicState(base, patch) {
+  var out = Object.assign({}, base || {});
+  Object.keys(patch || {}).forEach(function (id) { out[id] = Object.assign({}, out[id] || {}, patch[id]); });
+  return out;
+}
+function _blockStats(doc) {
+  var scheduled = 0, completed = 0, revDue = 0, revOnTime = 0;
+  ((doc.block && doc.block.days) || []).forEach(function (d) {
+    (d.tasks || []).forEach(function (t) {
+      scheduled++; if (t.done) completed++;
+      if (t.kind === 'revise') { revDue++; if (t.done) revOnTime++; }
+    });
+  });
+  return { scheduledTasks: scheduled, completedTasks: completed, revisionsDue: revDue, revisionsOnTime: revOnTime,
+    adherencePct: scheduled ? Math.round(completed / scheduled * 100) : 0 };
+}
+
+async function plannerGetDoc(uid) {
+  try { var d = await db().collection('aiPlanner').doc(uid).get(); if (d.exists) return d.data(); }
+  catch (e) { console.warn('[aiBrain] plannerGetDoc failed:', e.message); }
+  return null;
+}
+
+async function plannerGet(uid) {
+  var doc = await plannerGetDoc(uid);
+  if (!doc) return { plan: null };
+  var ctx = await ctxEngine.buildContext(uid);
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null) };
+}
+
+/** Ask the LLM to narrate a block the engine already built. Cold-start / failure → deterministic copy. */
+async function _narratePlan(uid, ctx, seed) {
+  var fallback = {
+    rationale: 'This block focuses on ' + (seed.focusTopics || []).slice(0, 3).map(function (f) { return f.label; }).join(', ')
+      + ' — your highest-impact topics right now, ordered so each builds on the last.',
+    encouragement: seed.onTrack === false
+      ? "You're a little behind — I've added a recovery day so the plan still lands before your exam."
+      : 'Stay consistent and you\'re on track. Readiness ' + seed.readinessScore + '/100 and climbing.'
+  };
+  if (ctxEngine.isColdStart(ctx)) return fallback;
+  try {
+    var p = prompts.get('planner.narrate', { seed: llm.wrapData(JSON.stringify(seed), 700) });
+    var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
+    aiService.trackGptCost(uid, r.usage);
+    return { rationale: r.data.rationale || fallback.rationale, encouragement: r.data.encouragement || fallback.encouragement };
+  } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    return fallback;
+  }
+}
+
+/** Create (or re-configure) a plan from the setup answers and generate block 0. */
+async function plannerSetup(uid, params, opts) {
+  opts = opts || {};
+  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+
+  var examId = String(params.examId || 'other');
+  var exam = SYL.getExam(examId);
+  var syllabus = SYL.resolveSyllabus(examId);
+  var examName = (examId === 'other' && params.examName) ? String(params.examName).slice(0, 100) : (exam ? exam.name : 'Custom');
+  var examDate = /^\d{4}-\d{2}-\d{2}$/.test(params.examDate || '') ? params.examDate : '';
+  var dailyMinutes = _clamp(parseInt(params.dailyMinutes, 10) || 45, 15, 480);
+  var daysPerWeek = _clamp(parseInt(params.daysPerWeek, 10) || 6, 1, 7);
+  var prepLevel = ['scratch', 'revision', 'average', 'confident', 'ready'].indexOf(params.prepLevel) >= 0 ? params.prepLevel : 'average';
+  var preferredTime = ['morning', 'afternoon', 'evening', 'night'].indexOf(params.preferredTime) >= 0 ? params.preferredTime : null;
+  var goal = String(params.goal || '').slice(0, 160);
+
+  // keep prior coverage if re-configuring the SAME syllabus (don't throw away real progress)
+  var prev = await plannerGetDoc(uid);
+  var topicState = (prev && prev.syllabusId === syllabus.id && prev.topicState) ? prev.topicState : {};
+
+  var startDate = _todayIso();
+  var gen = plannerEngine.generateBlock({
+    syllabus: syllabus, ctx: ctx, topicState: topicState, prepLevel: prepLevel,
+    dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, preferredTime: preferredTime,
+    startDate: startDate, blockIndex: 0, examName: examName, examDate: examDate,
+    daysRemaining: _daysRemaining(examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+
+  var doc = {
+    v: 2, uid: uid, examId: examId, examName: examName, examLabel: examName, syllabusId: syllabus.id,
+    examDate: examDate, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, prepLevel: prepLevel,
+    preferredTime: preferredTime, goal: goal,
+    block: { index: 0, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
+      generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days },
+    topicState: _mergeTopicState(topicState, gen.topicStatePatch),
+    blockHistory: (prev && prev.blockHistory) || [],
+    readiness: gen.examReadiness, forecast: gen.forecast,
+    createdAt: (prev && prev.createdAt) || admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  db().collection('aiPlanner').doc(uid).set(doc, { merge: true }).catch(function (e) { console.warn('[aiBrain] planner write failed:', e.message); });
+  aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes,
+    timelineEntry: { feature: 'planner', summary: 'Started a study plan for ' + examName + '.' } }, 'interview');
+
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+}
+
+/** Toggle a task's completion → credit coverage, run Smart Catch-up, recompute readiness + forecast. */
+async function plannerToggle(uid, params, opts) {
+  opts = opts || {};
+  var doc = await plannerGetDoc(uid);
+  if (!doc || !doc.block) return { error: 'no_plan' };
+  var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+
+  var day = (doc.block.days || []).find(function (d) { return d.date === params.date; });
+  var task = day && (day.tasks || []).find(function (t) { return t.topicId === params.topicId; });
+  if (!task) return { error: 'no_task' };
+
+  var done = !!params.done;
+  task.done = done;
+  task.completedAt = done ? new Date().toISOString() : null;
+  if (done && params.result) task.result = params.result;
+
+  if (done && task.topicId !== 'mock') {
+    var comp = plannerEngine.applyCompletion(doc.topicState, syllabus, {
+      topicId: task.topicId, estMin: task.estMin, kind: task.kind, result: params.result, dateIso: params.date
+    });
+    doc.topicState = _mergeTopicState(doc.topicState, comp.patch);
+  }
+
+  doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, _todayIso(), doc.dailyMinutes);
+
+  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
+  doc.readiness = readinessLib.examReadinessScore(syllabus, ctx, doc.topicState, _blockStats(doc));
+  doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
+    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  db().collection('aiPlanner').doc(uid).set(
+    { block: doc.block, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
+    { merge: true }
+  ).catch(function (e) { console.warn('[aiBrain] planner toggle write failed:', e.message); });
+
+  return { plan: doc };
+}
+
+/** End-of-block (or on-demand) regeneration: archive the block, then build the next 14 days from fresh progress. */
+async function plannerRegenBlock(uid, opts) {
+  opts = opts || {};
+  var doc = await plannerGetDoc(uid);
+  if (!doc || !doc.block) return { error: 'no_plan' };
+  var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+
+  var stats = _blockStats(doc);
+  doc.blockHistory = (doc.blockHistory || []).concat([{
+    index: doc.block.index, startDate: doc.block.startDate, endDate: doc.block.endDate,
+    completedTasks: stats.completedTasks, scheduledTasks: stats.scheduledTasks,
+    adherencePct: stats.adherencePct, readiness: doc.readiness || null
+  }]).slice(-12);
+
+  var startDate = _todayIso();
+  var gen = plannerEngine.generateBlock({
+    syllabus: syllabus, ctx: ctx, topicState: doc.topicState, prepLevel: doc.prepLevel,
+    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, preferredTime: doc.preferredTime,
+    startDate: startDate, blockIndex: doc.block.index + 1, examName: doc.examName, examDate: doc.examDate,
+    daysRemaining: _daysRemaining(doc.examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+
+  doc.topicState = _mergeTopicState(doc.topicState, gen.topicStatePatch);
+  doc.block = { index: doc.block.index + 1, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
+    generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days };
+  doc.readiness = gen.examReadiness; doc.forecast = gen.forecast;
+  doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  db().collection('aiPlanner').doc(uid).set(
+    { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
+    { merge: true }
+  ).catch(function (e) { console.warn('[aiBrain] planner regen write failed:', e.message); });
+
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+}
+
+/** Build the companion envelope: today's tasks + readiness + forecast, linking out to the calendar view. */
+function _plannerEnvelope(ctx, doc, encouragement) {
+  var today = _todayIso();
+  var day = (doc.block && doc.block.days || []).find(function (d) { return d.date === today; });
+  var tasks = (day && day.tasks) || [];
+  var rd = doc.readiness || { score: 0, band: 'early' };
+  var fc = doc.forecast || {};
+
+  var blocks = [say(doc.block && doc.block.rationale || 'Your study planner adapts every two weeks from your real progress.')];
+  blocks.push(metric('Exam readiness', rd.score + '/100', rd.band === 'exam-ready' ? 'up' : 'flat', rd.score >= 35));
+
+  if (tasks.length) {
+    tasks.slice(0, 3).forEach(function (t) {
+      blocks.push(missionBlock(
+        (t.kind === 'revise' ? 'Revise: ' : t.kind === 'mock' ? 'Mock: ' : 'Study: ') + t.label,
+        t.reason, t.drillable ? 'focus' : 'practice', t.drillable || '', t.label, t.estMin));
+    });
+  } else if (day && day.kind === 'rest') {
+    blocks.push(callout('info', 'Rest day — recovery is part of the plan. Back at it tomorrow.'));
+  } else {
+    blocks.push(callout('info', 'No tasks scheduled today. Open the calendar to see what\'s ahead.'));
+  }
+
+  if (fc.daysToExam != null) {
+    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info',
+      fc.daysToExam + ' days to ' + (doc.examName || 'your exam') + (fc.bufferDays != null
+        ? (fc.onTrack ? ' — on track with ' + fc.bufferDays + ' days of buffer.' : ' — ' + Math.abs(fc.bufferDays) + ' days behind; I rebalanced your plan.') : '.')));
+  }
+  if (encouragement) blocks.push(say(encouragement));
+
+  var firstDrillable = tasks.find(function (t) { return t.drillable; });
+  var chips = [];
+  if (firstDrillable) chips.push(chipDeep('Start today\'s drill', 'focus', firstDrillable.drillable, firstDrillable.label, '⚡'));
+  chips.push(chipReply('Open calendar', 'planner_open_calendar', '🗓️'));
+  chips.push(chipReply('Adjust plan', 'planner_setup'));
+
+  return envelope('planner', blocks, chips, { promptId: 'planner.narrate@1', readiness: rd.score });
+}
+
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */
 async function wordProblem(uid, category, difficulty, isPremium) {
   var granted = await aiService.consumeWordProblemQuota(uid, isPremium, 1);
@@ -373,4 +623,5 @@ async function wordProblem(uid, category, difficulty, isPremium) {
   }
 }
 
-module.exports = { coachToday, insights, explainBase, chatTurn, missionGet, missionGenerate, missionToday, wordProblem };
+module.exports = { coachToday, insights, explainBase, chatTurn, missionGet, missionGenerate, missionToday, wordProblem,
+  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock };

@@ -54,15 +54,53 @@ function _deriveToday(stats) {
 }
 
 /**
+ * Merge a client-sent stats snapshot into the server stats as a FLOOR — every field only ever RISES, so a
+ * tampered client can't lower its own counts, and a stale server doc can't hide a live local session. Used
+ * only by the planner path (ADR-046); analytics shared elsewhere stay server-authoritative.
+ */
+function _floorStats(server, client) {
+  if (!client || typeof client !== 'object') return server;
+  var s = Object.assign({}, server);
+  if ((Number(client.totalAttempted) || 0) > (Number(server.totalAttempted) || 0)) {
+    s.totalAttempted = Number(client.totalAttempted) || 0;
+    s.totalCorrect = Math.max(Number(server.totalCorrect) || 0, Number(client.totalCorrect) || 0);
+  }
+  if ((Number(client.todayAttempted) || 0) > (Number(server.todayAttempted) || 0)) {
+    s.todayAttempted = Number(client.todayAttempted) || 0;
+    s.todayCorrect = Number(client.todayCorrect) || 0;
+  }
+  if ((Number(client.dailyStreak) || 0) > (Number(server.dailyStreak) || 0)) s.dailyStreak = Number(client.dailyStreak) || 0;
+
+  var cs = Object.assign({}, server.categoryStats || {}), ccs = client.categoryStats || {};
+  Object.keys(ccs).forEach(function (cat) {
+    var sv = cs[cat] || { attempted: 0, correct: 0 }, cv = ccs[cat] || {};
+    if ((Number(cv.attempted) || 0) > (Number(sv.attempted) || 0)) cs[cat] = { attempted: Number(cv.attempted) || 0, correct: Number(cv.correct) || 0 };
+  });
+  s.categoryStats = cs;
+
+  var dh = Object.assign({}, server.dailyHistory || {}), cdh = client.dailyHistory || {};
+  Object.keys(cdh).forEach(function (k) {
+    var sv = dh[k] || {}, cv = cdh[k] || {};
+    if ((Number(cv.attempted) || 0) > (Number(sv.attempted) || 0)) {
+      dh[k] = { attempted: Number(cv.attempted) || 0, correct: Number(cv.correct) || 0,
+        sumTimes: Number(cv.sumTimes) || Number(sv.sumTimes) || 0, count: Number(cv.count) || Number(sv.count) || 0 };
+    }
+  });
+  s.dailyHistory = dh;
+  return s;
+}
+
+/**
  * Build the student model. Returns a plain object (see AI_INTERACTION_SYSTEM §4 / the redesign plan).
  * @param {string} uid
- * @param {{force?:boolean}} [opts]
+ * @param {{force?:boolean, clientStats?:object}} [opts]
  */
 async function buildContext(uid, opts) {
   opts = opts || {};
   var cacheRef = db().collection('aiContext').doc(uid);
 
-  if (!opts.force) {
+  // A clientStats floor (ADR-046) bypasses the cache — it carries the live local session the planner needs.
+  if (!opts.force && !opts.clientStats) {
     try {
       var cached = await cacheRef.get();
       if (cached.exists) {
@@ -82,6 +120,11 @@ async function buildContext(uid, opts) {
   }
   var data = userDoc.exists ? (userDoc.data() || {}) : {};
   var stats = data.stats || {};
+  // ADR-046 accuracy-bug fix: the Firestore stats doc can lag the live local session (syncStats is debounced
+  // ~2s, and the doc is created with zeros at login). When the client passes its own stats, merge them as a
+  // NON-AUTHORITATIVE FLOOR (only ever raises a count) so the planner never sees a false zero and a real
+  // 26-questions-at-78% session isn't misread as cold-start. Validated/sanitized upstream in api/ai.js.
+  if (opts.clientStats) stats = _floorStats(stats, opts.clientStats);
   var memory = data.aiMemory || null;
   var name = (data.profile && data.profile.name) || '';
 

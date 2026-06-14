@@ -12,7 +12,8 @@
  *   POST ?action=coach                                                    → daily mentor
  *   POST ?action=insights                                                 → performance intelligence
  *   POST ?action=chat           { feature, topic, userTurn, history }     → conversational turn
- *   POST ?action=mission        { op:'get'|'today'|'generate'|'regen', ... } → living study plan
+ *   POST ?action=mission        { op:'get'|'today'|'generate'|'regen', ... } → living study plan (legacy)
+ *   POST ?action=planner        { op:'get'|'setup'|'toggle'|'regen', clientStats?, ... } → QuanAI Planner (ADR-046)
  *   POST ?action=wordproblems   { category, difficulty }                  → context-aware practice (future-ready)
  */
 
@@ -93,6 +94,75 @@ async function _mission(req, res) {
   return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Unknown mission op: ' + op, retryable: false } });
 }
 
+/* Sanitize a client-sent stats snapshot before it is used as a NON-AUTHORITATIVE floor (ADR-046). Caps counts
+   and object sizes so a malformed/oversized payload can't bloat reads or skew the model. Floors only ever raise. */
+var _MAX_CATS = 40, _MAX_DAYS = 90, _NUM_CAP = 1e7;
+function _num(x) { var n = Number(x); return (isFinite(n) && n >= 0) ? Math.min(n, _NUM_CAP) : 0; }
+function _sanitizeClientStats(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var out = {
+    totalAttempted: _num(raw.totalAttempted), totalCorrect: _num(raw.totalCorrect),
+    todayAttempted: _num(raw.todayAttempted), todayCorrect: _num(raw.todayCorrect),
+    dailyStreak: _num(raw.dailyStreak), categoryStats: {}, dailyHistory: {}
+  };
+  var cs = raw.categoryStats || {};
+  Object.keys(cs).slice(0, _MAX_CATS).forEach(function (k) {
+    if (typeof k === 'string' && k.length <= 40) out.categoryStats[k] = { attempted: _num(cs[k] && cs[k].attempted), correct: _num(cs[k] && cs[k].correct) };
+  });
+  var dh = raw.dailyHistory || {};
+  Object.keys(dh).slice(0, _MAX_DAYS).forEach(function (k) {
+    if (typeof k === 'string' && k.length <= 40) out.dailyHistory[k] = { attempted: _num(dh[k] && dh[k].attempted), correct: _num(dh[k] && dh[k].correct), sumTimes: _num(dh[k] && dh[k].sumTimes), count: _num(dh[k] && dh[k].count) };
+  });
+  return out;
+}
+
+async function _planner(req, res) {
+  var body = req.body || {};
+  var op = typeof body.op === 'string' ? body.op : 'get';
+  var clientStats = _sanitizeClientStats(body.clientStats);
+
+  if (op === 'get') {
+    var got = await aiBrain.plannerGet(req.userId);
+    return res.json({ plan: got.plan || null, response: got.envelope || null });
+  }
+  if (op === 'setup') {
+    var examDate = typeof body.examDate === 'string' ? body.examDate.trim() : '';
+    if (examDate && !/^\d{4}-\d{2}-\d{2}$/.test(examDate)) {
+      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'examDate must be YYYY-MM-DD.', retryable: false } });
+    }
+    var result = await aiBrain.plannerSetup(req.userId, {
+      examId: typeof body.examId === 'string' ? body.examId.slice(0, 40) : 'other',
+      examName: typeof body.examName === 'string' ? body.examName.slice(0, 100) : '',
+      examDate: examDate, dailyMinutes: body.dailyMinutes, daysPerWeek: body.daysPerWeek,
+      prepLevel: typeof body.prepLevel === 'string' ? body.prepLevel : 'average',
+      preferredTime: typeof body.preferredTime === 'string' ? body.preferredTime : '',
+      goal: typeof body.goal === 'string' ? body.goal : ''
+    }, { clientStats: clientStats });
+    aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
+    return res.json({ plan: result.plan || null, response: result.envelope || null });
+  }
+  if (op === 'toggle') {
+    var date = typeof body.date === 'string' ? body.date.trim() : '';
+    var topicId = typeof body.topicId === 'string' ? body.topicId.slice(0, 60) : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !topicId) {
+      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'toggle needs date (YYYY-MM-DD) and topicId.', retryable: false } });
+    }
+    var result2 = await aiBrain.plannerToggle(req.userId, {
+      date: date, topicId: topicId, done: !!body.done,
+      result: (body.result && typeof body.result === 'object') ? { accuracy: _num(body.result.accuracy) / (body.result.accuracy > 1 ? 100 : 1), attempted: _num(body.result.attempted), correct: _num(body.result.correct) } : null
+    }, { clientStats: clientStats });
+    if (result2.error) return res.status(404).json({ error: { code: result2.error.toUpperCase(), message: result2.error, retryable: false } });
+    return res.json({ plan: result2.plan || null });
+  }
+  if (op === 'regen') {
+    var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats });
+    if (r3.error) return res.status(404).json({ error: { code: r3.error.toUpperCase(), message: r3.error, retryable: false } });
+    aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
+    return res.json({ plan: r3.plan || null, response: r3.envelope || null });
+  }
+  return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Unknown planner op: ' + op, retryable: false } });
+}
+
 async function _wordProblems(req, res) {
   var body = req.body || {};
   var category = typeof body.category === 'string' ? body.category.slice(0, 50) : '';
@@ -133,6 +203,7 @@ module.exports = withAuth(async function (req, res) {
     if (action === 'insights') return await _insights(req, res);
     if (action === 'chat') return await _chat(req, res);
     if (action === 'mission') return await _mission(req, res);
+    if (action === 'planner') return await _planner(req, res);
     if (action === 'wordproblems') return await _wordProblems(req, res);
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown AI action: ' + action, retryable: false } });
   } catch (err) {

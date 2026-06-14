@@ -170,6 +170,27 @@ var REGISTRY = {
     }
   },
 
+  /* ---- QuanAI Planner narration (ADR-046): the model ONLY writes prose for a block the deterministic engine
+     already designed. It never schedules — it phrases the rationaleSeed (focus topics, readiness, on-track). ---- */
+  'planner.narrate': {
+    id: 'planner.narrate', version: 1, maxTokens: 320, temperature: 0.4,
+    build: function (v) {
+      return {
+        schemaName: 'planner_narrate',
+        schema: { type: 'object', additionalProperties: false,
+          required: ['rationale', 'encouragement'],
+          properties: { rationale: STR, encouragement: STR } },
+        system: sys('A deterministic engine has already built this student\'s next 14-day study block from their '
+          + 'real analytics, the exam syllabus, and topic dependencies. Explain WHY it is structured this way in '
+          + 'plain, motivating language. Do NOT invent topics, dates, or numbers beyond what is given — only phrase it.'),
+        user: 'Plan summary (already decided — do not change it):\n' + v.seed
+          + '\n\nWrite JSON: rationale (<=3 sentences on why these focus topics now, referencing their readiness '
+          + 'and how the plan builds on dependencies), encouragement (one short line about their forecast — on track, '
+          + 'buffer, or the payoff of staying consistent).'
+      };
+    }
+  },
+
   /* ---- Word Problems (future-ready): generate one exam-style problem targeting a weak concept. ---- */
   'wp.generate': {
     id: 'wp.generate', version: 2, maxTokens: 520, temperature: 0.5,
