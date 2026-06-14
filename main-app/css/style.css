@@ -10199,7 +10199,25 @@ body.dark-mode .cb-celebrate { color: #86efac; }
 .companion-chip:active { transform: scale(.96); }
 body.dark-mode .companion-chip { background: rgba(255, 255, 255, .06); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }
 .companion-chip.kind-deeplink { background: #2563eb; color: #fff; border-color: #2563eb; }
+.companion-chip.kind-drill { background: #2563eb; color: #fff; border-color: #2563eb; }
 .companion-chip.kind-dismiss { background: transparent; color: #64748b; border-color: transparent; }
+
+/* in-place micro-drill (ADR-045) — runs inside the AI modal, never navigates */
+.companion-quiz { border: 1px solid rgba(37, 99, 235, .22); background: rgba(37, 99, 235, .05); border-radius: 14px; padding: .9rem 1rem; }
+.cq-head { font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #2563eb; margin-bottom: .5rem; }
+.cq-q { font-size: 1.02rem; font-weight: 600; color: #0f172a; line-height: 1.4; margin-bottom: .7rem; }
+body.dark-mode .cq-q { color: #f1f5f9; }
+.cq-form { display: flex; gap: .5rem; }
+.cq-input { flex: 1; min-width: 0; padding: .6rem .8rem; border: 1px solid rgba(15, 23, 42, .18); border-radius: 10px; font-size: 1rem; font-weight: 600; background: #fff; color: #0f172a; }
+body.dark-mode .cq-input { background: rgba(255, 255, 255, .06); color: #f1f5f9; border-color: rgba(255, 255, 255, .16); }
+.cq-input:disabled { opacity: .7; }
+.cq-go { border: none; background: #2563eb; color: #fff; font-weight: 700; border-radius: 10px; padding: .6rem 1rem; cursor: pointer; }
+.cq-go:disabled { opacity: .5; }
+.cq-fb { min-height: 1.1rem; margin-top: .5rem; font-size: .85rem; font-weight: 700; }
+.cq-fb.good { color: #16a34a; }
+.cq-fb.bad { color: #dc2626; }
+.cq-result { font-size: 1rem; font-weight: 600; color: #0f172a; text-align: center; padding: .3rem 0; }
+body.dark-mode .cq-result { color: #f1f5f9; }
 
 /* staged loading skeleton */
 .companion-loading { padding: .5rem 0; }

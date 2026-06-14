@@ -146,8 +146,90 @@ var Companion = (function () {
     }, 60);
   }
 
+  /* ---------- in-place micro-drill (ADR-045): 5 adaptive questions INSIDE the modal, then back to the conversation.
+     "Drill this" must NEVER navigate to the Practice page or lose the explanation. Reuses the shared question
+     generator (global generateQuestions from questions.js); no Firestore session, no nav, no context loss. ---------- */
+  var _DIFFS = ['easy', 'medium', 'hard'];
+  function _bumpDiff(d, dir) { var i = _DIFFS.indexOf(d); if (i < 0) i = 1; return _DIFFS[Math.max(0, Math.min(2, i + dir))]; }
+  function _answerMatches(userVal, answer) {
+    if (userVal == null) return false;
+    var u = String(userVal).trim().toLowerCase(); if (!u) return false;
+    var a = String(answer).trim().toLowerCase();
+    if (u === a) return true;
+    var un = parseFloat(u.replace(/,/g, '')), an = parseFloat(a.replace(/,/g, ''));
+    return (!isNaN(un) && !isNaN(an) && Math.abs(un - an) < 1e-6);
+  }
+  function startMicroDrill(category, label) {
+    if (!_state) return;
+    var feature = _state.feature, body = _state.body;
+    // Generator missing? Fall back to the old navigation so the CTA is never dead.
+    if (typeof generateQuestions !== 'function') { deepLink('focus', category, label); return; }
+    log(feature, 'microdrill_start', { category: category });
+    var oldChips = body.querySelector('.companion-chips'); if (oldChips) oldChips.parentNode.removeChild(oldChips);
+    var wrap = el('<div class="companion-turn is-new"><div class="companion-quiz"></div></div>');
+    body.appendChild(wrap); body.scrollTop = body.scrollHeight;
+    var host = wrap.querySelector('.companion-quiz');
+    var total = 5, idx = 0, correct = 0, results = [];
+    var diff = (_state.explainCtx && _state.explainCtx.difficulty) || 'medium';
+
+    function renderQ() {
+      if (idx >= total) return finish();
+      var qs = generateQuestions(1, category || null, diff) || [];
+      var q = qs[0]; if (!q || q.question == null) { total = idx; return finish(); }
+      var startMs = Date.now();
+      host.innerHTML =
+        '<div class="cq-head">Quick drill · ' + (idx + 1) + '/' + total + ' · ' + esc(label || 'practice') + '</div>' +
+        '<div class="cq-q">' + esc(String(q.question)) + '</div>' +
+        '<form class="cq-form"><input class="cq-input" type="text" inputmode="decimal" autocomplete="off" placeholder="Your answer" /><button class="cq-go" type="submit">Check</button></form>' +
+        '<div class="cq-fb"></div>';
+      var form = host.querySelector('.cq-form'), input = host.querySelector('.cq-input'), fb = host.querySelector('.cq-fb');
+      try { input.focus(); } catch (_) {}
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        if (input.disabled) return;
+        var good = _answerMatches(input.value, q.answer), ms = Date.now() - startMs;
+        results.push({ correct: good, ms: ms }); if (good) correct++;
+        diff = _bumpDiff(diff, good ? 1 : -1);
+        input.disabled = true; var go = host.querySelector('.cq-go'); if (go) go.disabled = true;
+        fb.className = 'cq-fb ' + (good ? 'good' : 'bad');
+        fb.textContent = good ? ('Correct · ' + (ms / 1000).toFixed(1) + 's') : ('Answer: ' + q.answer);
+        idx++;
+        setTimeout(renderQ, good ? 700 : 1300);
+      };
+    }
+
+    function finish() {
+      var n = results.length || total;
+      var avgMs = results.length ? Math.round(results.reduce(function (s, r) { return s + r.ms; }, 0) / results.length) : 0;
+      host.innerHTML = '<div class="cq-result">Drill done · <strong>' + correct + '/' + n + '</strong>' + (avgMs ? (' · ~' + (avgMs / 1000).toFixed(1) + 's/Q') : '') + '</div>';
+      log(feature, 'microdrill_done', { score: correct, total: n });
+      var missed = results.map(function (r, i) { return r.correct ? null : ('Q' + (i + 1)); }).filter(Boolean);
+      var summary = 'The student just did a ' + n + '-question micro-drill on ' + (label || category) + ' and scored ' + correct + '/' + n
+        + (missed.length ? (', missing ' + missed.join(', ')) : '') + (avgMs ? (', averaging ' + (avgMs / 1000).toFixed(1) + 's per question') : '')
+        + '. React in ONE short, specific line and give the single best next step. Stay on THIS concept.';
+      var typing = el('<div class="companion-turn"><div class="companion-typing"><i></i><i></i><i></i></div></div>');
+      body.appendChild(typing); body.scrollTop = body.scrollHeight;
+      var payload = { feature: feature, topic: _state.topic, userTurn: 'drill_result', drill: summary, history: _state.history.slice(-4) };
+      if (_state.explainCtx) { payload.question = _state.explainCtx.question; payload.lastExplanation = _state.explainCtx.lastExplanation; }
+      api('chat', payload).then(function (res) {
+        if (typing.parentNode) typing.parentNode.removeChild(typing);
+        var env = res && res.ok && res.data ? res.data.response : null;
+        if (!env) { renderEnvelope(body, { blocks: [], chips: _explainChips(category, label) }, true); return; }
+        (env.blocks || []).forEach(function (b) { if (b.type === 'say') _state.history.push({ role: 'ai', content: b.text }); });
+        renderEnvelope(body, env, true);
+      });
+    }
+    renderQ();
+  }
+  /* Standard Explain chip row — used to restore the conversation if the post-drill reaction can't be fetched. */
+  function _explainChips(category, label) {
+    return [{ label: 'Got it ✓', value: 'helpful_yes', kind: 'reply' }, { label: 'Another like this', value: 'explain_another', kind: 'reply' },
+      { label: 'Drill this', kind: 'drill', icon: '⚡', drill: { category: category, label: label } }];
+  }
+
   function onChip(chip, env) {
     if (!chip) return;
+    if (chip.kind === 'drill' && chip.drill) { startMicroDrill(chip.drill.category, chip.drill.label); return; }   // in-place, never navigates (ADR-045)
     if (chip.kind === 'deeplink' && chip.deepLink) { deepLink(chip.deepLink.mode, chip.deepLink.category, chip.deepLink.label); return; }
     if (chip.kind === 'dismiss') { log(_state ? _state.feature : 'ai', 'dismiss', {}); if (_state && _state.modal) _state.modal.close(); return; }
     // reply → conversational turn

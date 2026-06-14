@@ -34,6 +34,9 @@ function missionBlock(title, why, mode, category, label, estMin) {
 }
 function chipReply(label, value, icon) { return { label: label, value: value, kind: 'reply', icon: icon || '' }; }
 function chipDeep(label, mode, category, catLabel, icon) { return { label: label, kind: 'deeplink', icon: icon || '', deepLink: { mode: mode, category: category, label: catLabel } }; }
+/* In-place micro-drill chip (ADR-045): runs 5 adaptive questions INSIDE the modal and returns to the
+   conversation — never navigates to the Practice page (vs chipDeep). Used by Explain so the learning flow is unbroken. */
+function chipDrill(label, category, catLabel, icon) { return { label: label, kind: 'drill', icon: icon || '', drill: { category: category, label: catLabel } }; }
 function chipDismiss(label) { return { label: label, value: 'dismiss', kind: 'dismiss' }; }
 function helpfulChips() { return [chipReply('👍 Helpful', 'helpful_yes'), chipReply('👎 Not really', 'helpful_no')]; }
 function envelope(feature, blocks, chips, meta) {
@@ -209,7 +212,7 @@ async function explainBase(question, answer, category, uid) {
     chipReply('Simpler', 'explain_simpler'),
     chipReply('Go deeper', 'explain_deeper'),
     chipReply('Another like this', 'explain_another'),
-    chipDeep('Drill this', 'focus', category, catLabel, '⚡')
+    chipDrill('Drill this', category, catLabel, '⚡')
   ], { promptId: 'explain.base@3', topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
 }
 
@@ -223,7 +226,8 @@ async function chatTurn(uid, body) {
   // depth nudges + helpful acks handled WITHOUT an LLM call
   if (userTurn === 'helpful_yes' || userTurn === 'helpful_no') {
     if (userTurn === 'helpful_no') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
-    return envelope(feature, [say(userTurn === 'helpful_yes' ? 'Great — keep that momentum.' : 'Got it, I\'ll go more thorough next time.')], [chipDeep('Drill ' + catLabel, 'focus', topic, catLabel, '⚡')], { ack: true });
+    var ackChip = feature === 'explain' ? chipDrill('Drill ' + catLabel, topic, catLabel, '⚡') : chipDeep('Drill ' + catLabel, 'focus', topic, catLabel, '⚡');
+    return envelope(feature, [say(userTurn === 'helpful_yes' ? 'Great — keep that momentum.' : 'Got it, I\'ll go more thorough next time.')], [ackChip], { ack: true });
   }
   if (userTurn === 'explain_simpler') aiService.updateMemory(uid, { preferredDepth: 'concise' }, 'feedback');
   if (userTurn === 'explain_deeper') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
@@ -231,6 +235,7 @@ async function chatTurn(uid, body) {
   var hint = userTurn === 'explain_simpler' ? 'Re-explain this SAME question much more simply, in 2-3 big steps.'
     : userTurn === 'explain_deeper' ? 'Explain this SAME question more deeply, with the reasoning behind each step.'
     : userTurn === 'explain_another' ? 'Give one fresh worked example of the SAME concept and difficulty as this question (new numbers, same idea — do NOT change the shape/topic).'
+    : userTurn === 'drill_result' ? (String(body.drill || '').slice(0, 400) || 'The student just finished a quick drill on this concept. React in one short, specific line and give the single best next step.')
     : userTurn.indexOf('coach_followup:') === 0 ? userTurn.slice(15)
     : userTurn.indexOf('insights_why') === 0 ? 'Explain in plain terms why this is the student\'s weakness and the single best fix.'
     : userTurn;
@@ -255,7 +260,7 @@ async function chatTurn(uid, body) {
       return envelope('explain', fb, [
         chipReply('Got it ✓', 'helpful_yes'), chipReply('Simpler', 'explain_simpler'),
         chipReply('Go deeper', 'explain_deeper'), chipReply('Another like this', 'explain_another'),
-        chipDeep('Drill this', 'focus', topic, catLabel, '⚡')
+        chipDrill('Drill this', topic, catLabel, '⚡')
       ], { promptId: 'explain.followup@1', topic: topic });
     } catch (e) {
       if (e && e.usage) aiService.trackGptCost(uid, e.usage);
@@ -272,7 +277,7 @@ async function chatTurn(uid, body) {
     var blocks = [say(d.say)];
     if (Array.isArray(d.steps) && d.steps.length) blocks.push(steps(d.steps));
     var chips = (feature === 'explain')
-      ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDeep('Drill this', 'focus', topic, catLabel, '⚡')]
+      ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDrill('Drill this', topic, catLabel, '⚡')]
       : [chipReply('Got it ✓', 'helpful_yes')];
     return envelope(feature, blocks, chips, { promptId: 'chat.turn@2', topic: topic });
   } catch (e) {

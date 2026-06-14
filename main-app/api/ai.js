@@ -57,7 +57,8 @@ async function _chat(req, res) {
     history: Array.isArray(body.history) ? body.history : [],
     // ADR-045: carry the Explain anchor so follow-ups deepen THIS question instead of drifting topics.
     question: typeof body.question === 'string' ? body.question.slice(0, 500) : '',
-    lastExplanation: typeof body.lastExplanation === 'string' ? body.lastExplanation.slice(0, 900) : ''
+    lastExplanation: typeof body.lastExplanation === 'string' ? body.lastExplanation.slice(0, 900) : '',
+    drill: typeof body.drill === 'string' ? body.drill.slice(0, 400) : ''
   });
   return res.json({ response: response });
 }
