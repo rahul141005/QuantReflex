@@ -16,6 +16,16 @@ var Companion = (function () {
   function esc(s) { if (typeof s !== 'string') return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   function el(html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
   function log(feature, type, meta) { try { if (window.AIAnalytics && AIAnalytics.log) AIAnalytics.log(feature, type, meta || {}); } catch (_) {} }
+  /* Flatten an explanation envelope (say + steps) to plain text, so Explain follow-ups can be ANCHORED to the
+     exact question + the last explanation the student is looking at (ADR-045 — kills the Trapezium→Rectangle drift). */
+  function explanationText(env) {
+    var parts = [];
+    (env && env.blocks || []).forEach(function (b) {
+      if (b.type === 'say' && b.text) parts.push(b.text);
+      else if (b.type === 'steps' && Array.isArray(b.items)) parts.push(b.items.join(' '));
+    });
+    return parts.join(' ').slice(0, 900);
+  }
 
   function _token() {
     return new Promise(function (resolve) {
@@ -160,11 +170,16 @@ var Companion = (function () {
     // ADR-040: capture history BEFORE recording the current turn, so it isn't double-counted (it's also sent as userTurn).
     var histPayload = _state.history.slice(-6);
     _state.history.push({ role: 'user', content: label || value });
-    api('chat', { feature: _state.feature, topic: _state.topic, userTurn: value, history: histPayload }).then(function (res) {
+    var payload = { feature: _state.feature, topic: _state.topic, userTurn: value, history: histPayload };
+    // Anchor Explain follow-ups to the original question + the explanation on screen (ADR-045).
+    if (_state.explainCtx) { payload.question = _state.explainCtx.question; payload.lastExplanation = _state.explainCtx.lastExplanation; }
+    api('chat', payload).then(function (res) {
       if (typing.parentNode) typing.parentNode.removeChild(typing);
       if (!res.ok) { renderError(body, res, function () { sendTurn(value, label); }); return; }
       var env = res.data.response;
       (env.blocks || []).forEach(function (b) { if (b.type === 'say') _state.history.push({ role: 'ai', content: b.text }); });
+      // Keep the anchor fresh: the latest reworked explanation becomes the basis for the next follow-up.
+      if (_state.explainCtx) { var t = explanationText(env); if (t) _state.explainCtx.lastExplanation = t; }
       renderEnvelope(body, env, true);
     });
   }
@@ -187,6 +202,8 @@ var Companion = (function () {
   function openFeature(o) {
     var m = openModal(o.title);
     _state = { feature: o.feature, topic: o.topic || '', history: [], body: m.body, modal: m };
+    // Explain anchor: remember the exact question so every follow-up turn deepens THIS problem (ADR-045).
+    if (o.feature === 'explain') _state.explainCtx = { question: (o.body && o.body.question) || '', lastExplanation: '' };
     log(o.feature, 'opened', {});
     var stop = showLoading(m.body, o.stages);
     // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
@@ -196,6 +213,7 @@ var Companion = (function () {
       if (!res.ok) { m.body.innerHTML = ''; renderError(m.body, res, reopen); return; }
       var env = res.data.response;
       if (!env) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); return; }
+      if (_state.explainCtx) _state.explainCtx.lastExplanation = explanationText(env);
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId });
       renderEnvelope(m.body, env, false);
     });
@@ -205,8 +223,10 @@ var Companion = (function () {
     openFeature({ feature: 'explain', title: 'Explain', topic: category, action: 'explain',
       body: { question: question, answer: answer, category: category }, stages: ['Working through it…', 'Finding the cleanest way…'] });
   }
-  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', stages: ['Reviewing your week…', 'Picking your next move…'] }); }
-  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
+  // force:true → rebuild the student model fresh on open, so QuanAI always sees the CURRENT session (never a stale
+  // gate after a grind). The per-day envelope cache still prevents repeat LLM calls (ADR-045).
+  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', body: { force: true }, stages: ['Reviewing your session…', 'Picking your next move…'] }); }
+  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', body: { force: true }, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
 
   /* Mission: get existing → render, else run a chip-driven interview, then generate. */
   function openMission(forceRegen) {

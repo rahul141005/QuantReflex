@@ -38,9 +38,10 @@ var REGISTRY = {
         schema: { type: 'object', additionalProperties: false,
           required: ['say', 'missionWhy', 'followup', 'celebrate'],
           properties: { say: STR, missionWhy: STR, followup: STR, celebrate: STR } },
-        system: sys('Give ONE grounded observation about today, then motivate briefly. You are prescriptive and '
-          + 'accountable, never generic. If there is a clear win in the data, celebrate it in one line (else return '
-          + 'an empty celebrate).'),
+        system: sys('Open with ONE specific thing you NOTICED in their numbers today (use the TODAY line — count, '
+          + 'accuracy, pace — when present; otherwise the most recent trend). Sound like a mentor who was watching, '
+          + 'not a dashboard. Never tell a student who has practiced to "go practice". Be prescriptive and accountable, '
+          + 'never generic. If there is a clear win in the data, celebrate it in one line (else return an empty celebrate).'),
         user: 'Student context:\n' + v.context + '\n\nToday you are prescribing this focus: ' + v.focusLabel + '.'
           + (v.planNote ? '\n' + v.planNote : '')
           + '\nWrite JSON: say (the grounded observation, <=2 sentences), missionWhy (one short line on why this '
@@ -59,8 +60,9 @@ var REGISTRY = {
         schema: { type: 'object', additionalProperties: false,
           required: ['headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
-        system: sys('You are a performance analyst. Surface the single biggest lever this student has right now '
-          + 'and explain their top weakness in plain terms. Be insightful, never restate the dashboard.'),
+        system: sys('Surface the single biggest lever this student has right now and explain their top weakness in '
+          + 'plain terms. Lead with what moved recently (today or this week) when the data shows it. Be insightful and '
+          + 'specific to their numbers, never restate the dashboard or speak in generalities.'),
         user: 'Student context:\n' + v.context + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: headline (the biggest lever, <=2 sentences), weaknessInsight (one short line on what is '
           + 'really going wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
@@ -115,6 +117,28 @@ var REGISTRY = {
         user: 'Topic: ' + v.topic + '\nStudent context:\n' + v.context + '\n\nConversation so far:\n' + v.history
           + '\n\nStudent just said: ' + v.userTurn + '\n\nWrite JSON: say (<=2 sentences), steps (short lines if '
           + 'helpful, else []).'
+      };
+    }
+  },
+
+  /* ---- Explain FOLLOW-UP: anchored to the EXACT question + the prior explanation (ADR-045). This is what keeps
+     "Simpler / Go deeper / Another like this" on THIS problem instead of drifting to the student's weak topic. ---- */
+  'explain.followup': {
+    id: 'explain.followup', version: 1, maxTokens: 360, temperature: 0.3,
+    build: function (v) {
+      return {
+        schemaName: 'explain_followup',
+        schema: { type: 'object', additionalProperties: false,
+          required: ['say', 'steps'],
+          properties: { say: STR, steps: { type: 'array', items: STR } } },
+        system: sys('The student is looking at ONE specific question and your previous explanation of it. Do exactly '
+          + 'what they ask — simplify, go deeper, or give another example — about THIS EXACT question and concept. '
+          + 'NEVER switch to a different problem, shape, number, or topic. Stay anchored to the question below.'),
+        user: 'The question (treat as the fixed subject — do not change it):\n' + v.question
+          + '\n\nYour previous explanation of it:\n' + v.lastExplanation
+          + '\n\nStudent just asked: ' + v.userTurn
+          + '\n\nWrite JSON: say (<=2 sentences, about THIS question), steps (the reworked/extended/new-example lines '
+          + 'for THIS same concept, max 5 short strings; [] if a sentence suffices).'
       };
     }
   },

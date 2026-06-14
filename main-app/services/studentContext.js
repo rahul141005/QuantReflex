@@ -9,8 +9,8 @@
  * hallucinate. The model only writes language; this module does the thinking.
  *
  * Reads: users/{uid} (stats + aiMemory, 1 doc) + last ~20 practiceSessions (1 query). All goldmine fields
- * live inside `stats`, so ~2 logical reads total. Result cached 6h in aiContext/{uid} (shared across
- * Coach / Insights / Today / Plan → three features = one build).
+ * live inside `stats`, so ~2 logical reads total. Result cached 90s in aiContext/{uid} (coalesces a burst of
+ * modal opens while staying live to the current session — ADR-045; pass {force:true} to bypass after a drill).
  */
 const admin = require('firebase-admin');
 
@@ -22,8 +22,9 @@ if (!admin.apps.length) {
 }
 function db() { return admin.firestore(); }
 
-var COLD_START_ATTEMPTS = 20;
-var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+var COLD_START_ATTEMPTS = 20;   // lifetime floor to unlock full personalization
+var COACH_MIN_TODAY = 8;        // …OR enough activity TODAY — so a fresh grind is coached, never gated (ADR-045)
+var CONTEXT_TTL_MS = 90 * 1000; // 90s — short enough to reflect the live session, long enough to coalesce a burst of modal opens (was 6h; that froze QuanAI to the current session — ADR-045)
 var CATEGORY_LABELS = {
   squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume',
   percentages: 'Percentages', multiplication: 'Multiplication', fractions: 'Fractions',
@@ -38,6 +39,19 @@ function _ms(dateKey) {
   return isNaN(t) ? 0 : t;
 }
 function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
+function _todayKey() { return new Date().toDateString(); }
+
+/** Live "today" signal (ADR-045) — date-keyed so it never bleeds across days. Reads the same goldmine
+ *  (stats.dailyHistory{toDateString → {attempted,correct,sumTimes,count}}) the practice path writes, with a
+ *  fallback to the running todayAttempted/todayCorrect counters. This is what lets QuanAI say "26 done today". */
+function _deriveToday(stats) {
+  var hist = stats.dailyHistory || {};
+  var e = hist[_todayKey()] || {};
+  var att = Number(e.attempted) || 0, cor = Number(e.correct) || 0;
+  if (!att) { att = Number(stats.todayAttempted) || 0; cor = Number(stats.todayCorrect) || 0; }
+  var avgMs = (e.count > 0 && e.sumTimes) ? Math.round(Number(e.sumTimes) / Number(e.count)) : null;
+  return { attempted: att, correct: cor, accuracy: att > 0 ? _round(cor / att, 2) : null, avgMsPerQ: avgMs };
+}
 
 /**
  * Build the student model. Returns a plain object (see AI_INTERACTION_SYSTEM §4 / the redesign plan).
@@ -73,10 +87,13 @@ async function buildContext(uid, opts) {
 
   var totalAttempted = Number(stats.totalAttempted) || 0;
   var totalCorrect = Number(stats.totalCorrect) || 0;
+  var today = _deriveToday(stats);   // live, always fresh (ADR-045)
 
-  // Cold-start: deterministic shape, NO downstream LLM call (AI_INTERACTION_SYSTEM §4).
-  if (totalAttempted < COLD_START_ATTEMPTS) {
-    var cold = _coldContext(uid, { name: name, memory: memory, totalAttempted: totalAttempted, plan: data.plan });
+  // Cold-start: deterministic shape, NO downstream LLM call (AI_INTERACTION_SYSTEM §4). A student is "cold" only
+  // if they have too little data BOTH lifetime AND today — so someone who grinds a session today is coached, not
+  // gated. The cold envelope still carries `today` so QuanAI can acknowledge the current session.
+  if (totalAttempted < COLD_START_ATTEMPTS && today.attempted < COACH_MIN_TODAY) {
+    var cold = _coldContext(uid, { name: name, memory: memory, totalAttempted: totalAttempted, plan: data.plan, today: today });
     _cache(cacheRef, cold);
     return cold;
   }
@@ -98,6 +115,19 @@ async function buildContext(uid, opts) {
   var errorPatterns = _deriveErrors(stats, mastery);
   var flags = _deriveFlags({ trends: trends, errorPatterns: errorPatterns, totalAttempted: totalAttempted });
 
+  // Last-session pacing — "you slowed in the back half" / "that was faster" (ADR-045).
+  var last = sessions[0] || null;
+  var lastSession = last ? {
+    category: last.category || '', acc: (last.total ? _round((last.score || 0) / last.total, 2) : null),
+    firstHalfMs: last.firstHalfAvg != null ? Math.round(last.firstHalfAvg) : null,
+    secondHalfMs: last.secondHalfAvg != null ? Math.round(last.secondHalfAvg) : null,
+    improvedPct: _round(last.sessionImprovementPct, 0),
+    pacing: (last.firstHalfAvg != null && last.secondHalfAvg != null)
+      ? (last.secondHalfAvg > last.firstHalfAvg * 1.15 ? 'slowed_back_half'
+        : (last.secondHalfAvg < last.firstHalfAvg * 0.85 ? 'sped_up' : 'steady'))
+      : null
+  } : null;
+
   var ctx = {
     v: 1,
     uid: uid,
@@ -106,6 +136,8 @@ async function buildContext(uid, opts) {
     coldStart: false,
     accuracy: _round(accuracy, 3),
     totalAttempted: totalAttempted,
+    today: today,              // live session signal (ADR-045)
+    lastSession: lastSession,
     dailyStreak: Number(stats.dailyStreak) || 0,
     trends: trends,
     mastery: mastery,          // sorted; top ~8
@@ -125,6 +157,7 @@ function _coldContext(uid, o) {
   return {
     v: 1, uid: uid, name: o.name || '', plan: o.plan === 'premium' ? 'premium' : 'free',
     coldStart: true, accuracy: 0, totalAttempted: o.totalAttempted || 0,
+    today: o.today || { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null }, lastSession: null,
     dailyStreak: 0,
     trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
@@ -249,7 +282,18 @@ function serialize(ctx, maxChars) {
   if (!ctx) return '';
   var L = [];
   if (ctx.name) L.push('Student first name: ' + String(ctx.name).split(' ')[0] + ' (greet warmly, use sparingly).');
-  L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs; streak ' + ctx.dailyStreak + 'd.');
+  // TODAY first — it is the live session and the highest-signal context (ADR-045).
+  var td = ctx.today;
+  if (td && td.attempted > 0) {
+    L.push('TODAY: ' + td.attempted + ' done' + (td.accuracy != null ? ' at ' + Math.round(td.accuracy * 100) + '%' : '') +
+      (td.avgMsPerQ != null ? ', ~' + (td.avgMsPerQ / 1000).toFixed(1) + 's/Q' : '') + '. Reference today before lifetime; never tell them to "go practice".');
+  }
+  var ls = ctx.lastSession;
+  if (ls && ls.pacing) {
+    L.push('Last session pacing: ' + (ls.pacing === 'slowed_back_half' ? 'slowed in the back half (fatigue/rushing late)'
+      : ls.pacing === 'sped_up' ? 'sped up through it (warmed up well)' : 'steady') + '.');
+  }
+  L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs (lifetime); streak ' + ctx.dailyStreak + 'd.');
   var t = ctx.trends;
   if (t) {
     if (t.accuracy && t.accuracy.d7 != null) L.push('Accuracy 7d ' + Math.round(t.accuracy.d7 * 100) + '% vs 30d ' + Math.round((t.accuracy.d30 || 0) * 100) + '% (' + t.accuracy.direction + ').');

@@ -39,6 +39,13 @@ function helpfulChips() { return [chipReply('👍 Helpful', 'helpful_yes'), chip
 function envelope(feature, blocks, chips, meta) {
   return { v: 1, feature: feature, blocks: (blocks || []).filter(Boolean), chips: (chips || []).filter(Boolean), meta: meta || {} };
 }
+/* A focus topic with a GUARANTEED non-empty category, so deep-link drills never silently no-op (ADR-045 bugfix:
+   topWeakCategory could return {cat:''} for cold/all-unknown students → startDrillFromPractice('focus','') was a no-op). */
+function _focus(ctx) {
+  var w = ctxEngine.topWeakCategory(ctx);
+  if (w && w.cat) return w;
+  return { cat: 'percentages', label: ctxEngine.label('percentages') };
+}
 
 /* ---- daily cache (consolidates the old aiCoachV2 / aiInsightsV2) ---- */
 async function _getDaily(uid, feature) {
@@ -60,15 +67,20 @@ async function coachToday(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid);
 
   if (ctxEngine.isColdStart(ctx)) {
+    // Coach, don't gate (ADR-045): acknowledge what they HAVE done today instead of telling them to "go practice".
+    var doneT = (ctx.today && ctx.today.attempted) || 0;
+    var coldMsg = doneT > 0
+      ? 'Nice — ' + doneT + ' done today. Push a little further and I\'ll start calling out your real patterns: your pace, your accuracy, the topics that slow you down.'
+      : 'I\'m ' + prompts.PERSONA + ', your coach. Run a quick set and I\'ll start reading your real patterns — pace, accuracy, and the topics that trip you up.';
     return envelope('coach', [
-      say('I\'m your coach, ' + prompts.PERSONA + '. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
-      missionBlock('Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
-    ], [chipDeep('Start warm-up', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
+      say(coldMsg),
+      missionBlock(doneT > 0 ? 'Keep going — 10 more' : 'Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
+    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Start a set', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
   }
 
   if (!opts.force) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
-  var focus = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
+  var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
   // ADR-040: read today's mission so the Coach genuinely references the plan (a real cross-feature link, not just memory).
   var planNote = '';
@@ -114,10 +126,14 @@ async function insights(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid);
 
   if (ctxEngine.isColdStart(ctx)) {
+    var doneT = (ctx.today && ctx.today.attempted) || 0;
+    var coldMsg = doneT > 0
+      ? 'You\'ve done ' + doneT + ' today — a little more and I\'ll surface real trends: accuracy, speed, and exactly which topics to fix first.'
+      : 'Run a set and I\'ll surface real trends — accuracy, speed, and exactly which topics to fix first.';
     return envelope('insights', [
-      say('Once you\'ve done ~20 questions I can show you real trends — accuracy, speed, and exactly which topics to fix first.'),
+      say(coldMsg),
       missionBlock('Practice to unlock insights', 'I need a bit more data to find your patterns.', 'practice', '', '', 5)
-    ], [chipDeep('Practice now', 'practice', '', '')], { coldStart: true });
+    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Practice now', 'practice', '', '')], { coldStart: true });
   }
 
   if (!opts.force) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
@@ -129,7 +145,7 @@ async function insights(uid, opts) {
   if (t.speed && t.speed.recentMsPerQ != null) blocks.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
   if (t.consistency) blocks.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
 
-  var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
+  var weak = _focus(ctx);
   var env;
   try {
     var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label });
@@ -142,7 +158,7 @@ async function insights(uid, opts) {
       [say(d.headline)].concat(blocks).concat([card('Your biggest weakness', d.weaknessInsight, 'rose', '🎯')]).concat(missions),
       weakCats.map(function (m) { return chipDeep('Fix ' + m.label, 'focus', m.cat, m.label, '⚡'); })
         .concat([chipReply(d.nextStepLabel || 'Ask why', 'insights_why')]).concat(helpfulChips()),
-      { promptId: 'insights.analyze@2' });
+      { promptId: 'insights.analyze@3' });
     aiService.updateMemory(uid, { addWeakConcepts: weakCats.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
@@ -168,8 +184,9 @@ async function explainBase(question, answer, category, uid) {
   if (!pieces) {
     var mem = await aiService.getMemory(uid);
     var struggled = !!(mem && Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0);
+    var depth = (mem && mem.preferredDepth) || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper (was hardcoded 'standard')
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: 'standard', struggledBefore: struggled });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: struggled });
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
       pieces = r.data;
@@ -193,7 +210,7 @@ async function explainBase(question, answer, category, uid) {
     chipReply('Go deeper', 'explain_deeper'),
     chipReply('Another like this', 'explain_another'),
     chipDeep('Drill this', 'focus', category, catLabel, '⚡')
-  ], { promptId: 'explain.base@2', topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
+  ], { promptId: 'explain.base@3', topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
 }
 
 /* ════════════════════════ Conversational turn (explain follow-ups + generic) ════════════════════════ */
@@ -211,14 +228,41 @@ async function chatTurn(uid, body) {
   if (userTurn === 'explain_simpler') aiService.updateMemory(uid, { preferredDepth: 'concise' }, 'feedback');
   if (userTurn === 'explain_deeper') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
 
-  var hint = userTurn === 'explain_simpler' ? 'Re-explain this much more simply, in 2-3 big steps.'
-    : userTurn === 'explain_deeper' ? 'Explain this more deeply, with the reasoning behind each step.'
-    : userTurn === 'explain_another' ? 'Give one fresh worked example of the same concept (different numbers).'
+  var hint = userTurn === 'explain_simpler' ? 'Re-explain this SAME question much more simply, in 2-3 big steps.'
+    : userTurn === 'explain_deeper' ? 'Explain this SAME question more deeply, with the reasoning behind each step.'
+    : userTurn === 'explain_another' ? 'Give one fresh worked example of the SAME concept and difficulty as this question (new numbers, same idea — do NOT change the shape/topic).'
     : userTurn.indexOf('coach_followup:') === 0 ? userTurn.slice(15)
     : userTurn.indexOf('insights_why') === 0 ? 'Explain in plain terms why this is the student\'s weakness and the single best fix.'
     : userTurn;
 
   var ctx = await ctxEngine.buildContext(uid);
+
+  // EXPLAIN FOLLOW-UPS (ADR-045): anchor to the EXACT question + the prior explanation the client carries forward,
+  // so "Simpler / Go deeper / Another" deepen THIS problem instead of drifting to the student's weak topic.
+  var anchorQ = String(body.question || '').slice(0, 500);
+  if (feature === 'explain' && anchorQ) {
+    try {
+      var pf = prompts.get('explain.followup', {
+        question: llm.wrapData(anchorQ, 500),
+        lastExplanation: llm.wrapData(String(body.lastExplanation || '').slice(0, 900), 900),
+        userTurn: llm.wrapData(hint, 400)
+      });
+      var rf = await llm.complete({ system: pf.system, user: pf.user, schema: pf.schema, schemaName: pf.schemaName, maxTokens: pf.maxTokens, temperature: pf.temperature });
+      aiService.trackGptCost(uid, rf.usage);
+      var df = rf.data;
+      var fb = [say(df.say)];
+      if (Array.isArray(df.steps) && df.steps.length) fb.push(steps(df.steps));
+      return envelope('explain', fb, [
+        chipReply('Got it ✓', 'helpful_yes'), chipReply('Simpler', 'explain_simpler'),
+        chipReply('Go deeper', 'explain_deeper'), chipReply('Another like this', 'explain_another'),
+        chipDeep('Drill this', 'focus', topic, catLabel, '⚡')
+      ], { promptId: 'explain.followup@1', topic: topic });
+    } catch (e) {
+      if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+      return envelope('explain', [callout('warn', 'I couldn\'t expand on that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
+    }
+  }
+
   var history = Array.isArray(body.history) ? body.history.slice(-6).map(function (h) { return (h.role === 'user' ? 'Student: ' : 'You: ') + String(h.content || '').slice(0, 200); }).join('\n') : '';
   try {
     var p = prompts.get('chat.turn', { topic: catLabel, context: ctxEngine.serialize(ctx, 700), history: llm.wrapData(history, 900), userTurn: llm.wrapData(hint, 400) });
@@ -230,7 +274,7 @@ async function chatTurn(uid, body) {
     var chips = (feature === 'explain')
       ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDeep('Drill this', 'focus', topic, catLabel, '⚡')]
       : [chipReply('Got it ✓', 'helpful_yes')];
-    return envelope(feature, blocks, chips, { promptId: 'chat.turn@1', topic: topic });
+    return envelope(feature, blocks, chips, { promptId: 'chat.turn@2', topic: topic });
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     return envelope(feature, [callout('warn', 'I couldn\'t answer that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
@@ -285,7 +329,7 @@ async function missionToday(uid) {
 }
 
 function _missionEnvelope(ctx, plan) {
-  var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
+  var weak = _focus(ctx);
   var focusList = (plan.weekFocus || []).map(function (w) { return w.topicLabel + (w.goal ? ' — ' + w.goal : ''); });
   var phaseDays = (plan.phases || []).map(function (ph, i) { return { day: i + 1, label: ph.name, items: [ph.durationDays + ' days'], done: false }; });
   var daysToExam = plan.examDate ? Math.max(0, Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / 86400000)) : null;
@@ -301,7 +345,7 @@ function _missionEnvelope(ctx, plan) {
   return { plan: plan, envelope: envelope('plan', blocks, [
     chipDeep('Start today\'s drill', 'focus', weak.cat, weak.label, '⚡'),
     chipReply('Adjust my plan', 'plan_regen')
-  ].concat(helpfulChips()), { promptId: 'plan.generate@2' }) };
+  ].concat(helpfulChips()), { promptId: 'plan.generate@3' }) };
 }
 
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */
