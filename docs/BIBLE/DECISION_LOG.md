@@ -8,6 +8,53 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-043 — AI persona rename "Reflex" → "QuanAI" (2026-06-14)
+- **Context:** Branding decision — the AI companion across the ecosystem is renamed from "Reflex" to **QuanAI**
+  so the assistant reads as one cohesive, premium learning mentor. The prior name collided conceptually with the
+  **QuantReflex** product brand and the **"Reflex Drill"** practice mode, which are unrelated and must stay.
+- **Decision:** A **display-name / branding migration only.** The ADR-039 architecture already centralized the
+  persona name into a single `PERSONA` constant, so the rename is surgical: flip `PERSONA = 'Reflex'` → `'QuanAI'`
+  in the server source-of-truth `services/aiPrompts.js` (injected into all five system prompts via `sys()`, e.g.
+  "You are QuanAI, …") and its client mirror `js/companion-ui.js` (modal badge + throttle copy). **Personality is
+  unchanged** — the existing shared `sys()` voice rules already define the intended mentor voice (calm, warm,
+  concise, data-grounded, never chatbot-y), and one shared helper guarantees an identical persona across Coach,
+  Insights, Explain, Chat, and Study-Plan. No voice rewrites, to avoid regressing the ADR-039/040-audited AI.
+- **Bug fixed alongside:** `services/aiBrain.js` cold-start coach welcome referenced `ctxEngine.PERSONA`, but
+  `studentContext` never exported `PERSONA` → it rendered "I'm your coach, **undefined**." Repointed to the
+  exported `prompts.PERSONA`, so onboarding now correctly reads "I'm your coach, QuanAI."
+- **Explicitly NOT renamed:** the **QuantReflex** brand (manifests/package/URLs/Firebase `quant-reflex-trainer`/
+  CORS/share-card), the **"Reflex Drill"/"Reflex Mode"** practice feature, `quant_reflex_*` storage keys, the
+  "Reflex Master" achievement label, and generic "train your reflexes" copy.
+- **Consequences:** Zero data/routing/analytics/cache impact — no Firestore field, `aiMemory`, `aiEvents` key,
+  cache key, or route ever embedded the persona name (verified). Stored conversations, prompt routing, and the
+  context engine are unaffected. `AI_INTERACTION_SYSTEM.md` (current-state) updated; the ADR-039 record below is
+  left intact as accurate history. SW cache v103→v104 so installed PWAs pick up the new badge string.
+
+## ADR-042 — Premium pricing update ₹299/₹499 → ₹349/₹599 + Word Problems "Coming Soon" polish (2026-06-14)
+- **Context:** A pre-launch polish pass. Two staged Word Problems controls had regressed into dead UI (the Practice
+  card was fully hidden via `display:none`; the Duel "Word Problems" pill was a `disabled` button whose click handler
+  never fired), and Premium pricing was being raised ahead of launch. The repo has **zero live users** — all existing
+  payment/account data is internal test data slated for deletion before launch — so the codebase is optimized for
+  internal consistency over preserving test records.
+- **Decision (pricing):** Raise the single Premium tier from **₹299/6mo, ₹499/12mo** to **₹349 (34900 paise) / 6
+  months** (`premium_6m`) and **₹599 (59900 paise) / 12 months** (`premium_12m`), effective **2026-06-14**.
+  Plan keys, **durations (182 / 365 days)**, the single-tier model, and all entitlement gates (`plan === 'premium'`)
+  are **unchanged** — only the charged/displayed amounts move.
+- **Scope:** Updated every *current-state* reference so UI ↔ backend stay perfectly synced — the charge path
+  (`paymentService.PLAN_CONFIG.amountPaise`), the canonical price constant (`shared/constants/entitlements.js`),
+  the revenue-accounting maps (`aiService.PREMIUM_PRICE_PAISE`, `super-admin metrics.js` — updated to 34900/59900 as
+  there is no production historical data to preserve), the paywall display (`₹349`/`₹599`, ≈₹58/mo & ≈₹50/mo, "Save
+  14% vs 6 months"), the in-app FAQ/About copy, and the current-state docs. Razorpay orders charge `amountPaise`
+  directly; new payment docs persist the actual `amount`, so revenue analytics remain correct.
+- **Decision (Word Problems polish):** Word Problems stays intentionally staged, but as a *visible, premium "Coming
+  Soon" experience* rather than missing/dead UI. The Practice card is restored (always visible, "Coming soon" badge,
+  tap → shared `showComingSoon` modal). The Duel pill is now live: tapping it animates a brief selection onto Word
+  Problems, slides/fades back to Quick Math, then opens the same modal — Quick Math remains the selected, effective
+  question type.
+- **Consequences:** Historical pricing in prior ADRs / CHANGELOG / VERSIONS is left intact (accurate record of the
+  ₹299/₹499 era); this ADR is the authoritative record of the ₹349/₹599 change. No schema or entitlement migration
+  is required.
+
 ## ADR-041 — Launch-readiness pass for the first 1–2k users (2026-06-14)
 - **Context:** Following the zero-assumption monorepo audit, the owner scoped a launch pass to the first 1,000–2,000
   users: fix correctness/UX/security/reliability NOW; treat pure hyperscale (10k+) work as documented debt. The audit

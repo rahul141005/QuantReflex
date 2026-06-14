@@ -16,12 +16,12 @@ Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) ·
 
 | Plan key | Price | Duration | Grants |
 |---|---|---|---|
-| `premium_6m` | ₹299 (29900 paise) | 182 days | `plan:'premium'` |
-| `premium_12m` | ₹499 (49900 paise) | 365 days | `plan:'premium'` |
+| `premium_6m` | ₹349 (34900 paise) | 182 days | `plan:'premium'` |
+| `premium_12m` | ₹599 (59900 paise) | 365 days | `plan:'premium'` |
 
 **One Premium tier, two durations.** There is no lifetime plan and no second "plus" tier — Premium
 includes everything (all training features + the full AI suite + Math Duel). 12-month is the default
-selection in the paywall and carries the **BEST VALUE** badge (≈₹41/mo vs ≈₹49/mo).
+selection in the paywall and carries the **BEST VALUE** badge (≈₹50/mo vs ≈₹58/mo).
 
 ## 2. Entitlement model (v2)
 
@@ -118,7 +118,7 @@ v1 had a ₹89 lifetime tier (`isPremium`) + a ₹299/₹499 "Premium+" tier (`i
 Every Premium grant writes `payments/{paymentId}` with `amount` (price in **paise**, int) and `status:'paid'`.
 The revenue rollup (the Vercel-Cron `daily-snapshot` + the admin dashboard) **sums `amount`**; for
 **historical** docs written before this change (no `amount`), it falls back to the canonical plan→price map —
-`premium_6m`=29900, `premium_12m`=49900 paise. Revenue is reported in **INR** (`paise / 100`). Refunds /
+`premium_6m`=34900, `premium_12m`=59900 paise. Revenue is reported in **INR** (`paise / 100`). Refunds /
 chargebacks are **not** tracked yet (no Razorpay refund webhook wired) — `status` is always `'paid'` today; a
 later phase adds refund reconciliation. There is no recurring billing (one-time Orders API), so "revenue" in a
 window = the sum of one-time captures in that window.

@@ -368,9 +368,10 @@
               <h3>🔄 Review Mistakes</h3>
               <p>Practice your previously wrong answers</p>
             </div>
-            <!-- Word Problems: hidden until the AI generation pipeline ships (ADR-041 — no placeholder experiences at
-                 launch). Server architecture is future-ready (aiBrain.wordProblem); re-enable by removing display:none. -->
-            <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative; display:none;">
+            <!-- Word Problems: intentionally staged as a "Coming Soon" feature card. Always visible; tapping opens the
+                 shared Coming Soon modal (practice-modes.js) — no session/nav/analytics. The AI generation pipeline is
+                 future-ready (aiBrain.wordProblem); when it ships, swap the Coming Soon intercept for the live setup. -->
+            <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative;">
               <span class="coming-soon-pill">Coming soon</span>
               <h3>🤖 Word Problems</h3>
               <p>AI-crafted exam-style word problems · comprehension + calculation</p>
@@ -1256,7 +1257,7 @@
         </div>
         <div class="info-block">
           <h4>What does Premium include?</h4>
-          <p>Premium unlocks everything: unlimited practice, all training modes, performance insights, and the full AI suite — mistake explainers, AI coaching, study plans, word problems, and Math Duel. ₹299 for 6 months or ₹499 for 12 months.</p>
+          <p>Premium unlocks everything: unlimited practice, all training modes, performance insights, and the full AI suite — mistake explainers, AI coaching, study plans, word problems, and Math Duel. ₹349 for 6 months or ₹599 for 12 months.</p>
         </div>
         <div class="info-block">
           <h4>Can I use this for coaching?</h4>
@@ -1356,7 +1357,7 @@
         <div class="info-block">
           <p><strong>Premium</strong> unlocks custom training, mistake review, hard mode, adaptive practice, advanced themes, performance insights, and unlimited daily questions.</p>
           <p>It also includes the full <strong>AI suite</strong>: mistake explainer with step-by-step reasoning, personalized AI coach insights, study plan generator, unlimited AI word problems, and Math Duel.</p>
-          <p class="secondary-text">One-time payment · ₹299 for 6 months or ₹499 for 12 months · No auto-renewal.</p>
+          <p class="secondary-text">One-time payment · ₹349 for 6 months or ₹599 for 12 months · No auto-renewal.</p>
         </div>
       </div>
 

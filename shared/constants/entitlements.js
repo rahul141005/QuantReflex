@@ -62,8 +62,8 @@ var ENTITLEMENT_FIELDS = {
 // ══════════════════════════════════════════════
 
 var PRICING = {
-  PREMIUM_6M: 29900,   // ₹299
-  PREMIUM_12M: 49900   // ₹499
+  PREMIUM_6M: 34900,   // ₹349
+  PREMIUM_12M: 59900   // ₹599
 };
 
 var DURATIONS_DAYS = {

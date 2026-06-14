@@ -13,7 +13,7 @@
  * truncation in aiBrain when assembling blocks. Versioning: bump an entry's `version` on any prompt/schema change.
  * All user-derived strings arrive pre-wrapped via llmProvider.wrapData (<<<DATA>>>…<<<END>>>).
  */
-var PERSONA = 'Reflex';
+var PERSONA = 'QuanAI';
 
 function sys(role) {
   return 'You are ' + PERSONA + ', a sharp, warm, and concise CAT speed-math coach who has watched this '

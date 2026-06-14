@@ -31,9 +31,11 @@ compensate with architecture. Seven levers, applied everywhere:
 
 ---
 
-## 1. Persona — "Reflex"
+## 1. Persona — "QuanAI"
 
-One personality across all five features. (Name is a constant `AI_PERSONA = 'Reflex'`; change in one place.)
+One personality across all five features. The name is the `PERSONA` constant, defined in two mirrored places:
+the server source-of-truth `services/aiPrompts.js` (injected into every system prompt + exported as `prompts.PERSONA`)
+and the client `js/companion-ui.js` (modal badge + throttle copy). Change both to re-brand.
 
 - **Role:** a sharp, encouraging CAT speed-math coach who has watched this student practice every day.
 - **Voice:** concise, warm, direct, data-grounded. Talks like a great human tutor, not a chatbot.
@@ -67,7 +69,7 @@ Each block has a `type`. The renderer has exactly one component per type. `addit
 
 | `type`       | Shape | Renders as |
 |--------------|-------|-----------|
-| `say`        | `{ text }` (≤2 sentences) | Streamed prose line (typewriter). The voice of Reflex. |
+| `say`        | `{ text }` (≤2 sentences) | Streamed prose line (typewriter). The voice of QuanAI. |
 | `card`       | `{ title, body, accent?: 'blue\|amber\|green\|rose\|slate', icon? }` | Titled insight card |
 | `metric`     | `{ label, value, trend?: 'up\|down\|flat', delta?, good?: bool }` | Stat tile w/ ↑↓ arrow + color |
 | `steps`      | `{ title?, items: string[], collapsible?: bool }` | Numbered, expandable explanation |
@@ -101,7 +103,7 @@ in one tap. A `mission` block or a `deeplink` chip with no valid category is inv
 - **Lead with the point.** Observation/answer first, then the action. No preamble ("Sure! Here's…").
 - **One idea per turn.** If there's more, offer it as a chip ("Go deeper"), don't dump it.
 - **Mini-challenges (ROADMAP — not yet shipped, see §10):** an in-conversation `quiz` block graded client-side
-  for the interaction only (reusing the numpad), result fed back as the next turn so Reflex adapts. The `quiz`
+  for the interaction only (reusing the numpad), result fed back as the next turn so QuanAI adapts. The `quiz`
   block + grading are deliberately NOT implemented yet (ADR-040 removed the unwired renderer); deep-linking a real
   drill via a `mission` block is the shipped "do it now" path.
 
@@ -132,7 +134,7 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
   progress-fill (ease-out), streamed-prose reveal. No animation exceeds 250ms; nothing blocks input.
 - **Error:** never show a raw error. Show a friendly `callout` (`warn`) + a **retry** chip. On hard model failure
   the server returns a **deterministic fallback** AIResponse (it never errors to the user). Rate-limit/throttle/
-  budget → a calm "Reflex is resting — try again shortly" with retry.
+  budget → a calm "QuanAI is resting — try again shortly" with retry.
 - **Empty/insufficient data:** the cold-start deterministic path (no LLM), with a clear unlock mission.
 - **Offline:** features that have a cached AIResponse render it (read-only, "offline" callout); others show the
   retry callout.

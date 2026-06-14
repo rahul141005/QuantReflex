@@ -1516,7 +1516,7 @@ body.dark-mode .timer-pill-selector { background: #1e293b; }
   font-weight: 600;
   cursor: pointer;
   text-align: center;
-  transition: background .15s, color .15s;
+  transition: background .18s ease, color .18s ease, transform .18s ease, opacity .18s ease;
 }
 .timer-pill.active {
   background: #ffffff;
@@ -9818,7 +9818,6 @@ body.dark-mode .duel-field-label { color: #e2e8f0; }
 .duel-field-hint { color: #64748b; font-weight: 400; font-size: .8rem; }
 .duel-skip-hint { margin: .45rem 0 0; color: #64748b; font-size: .8rem; }
 .duel-topic-grid { margin-top: .35rem; }
-.timer-pill.is-soon { opacity: .5; cursor: not-allowed; }
 
 .duel-join-help { text-align: center; margin: .5rem 0 1rem; }
 .duel-join-input {
