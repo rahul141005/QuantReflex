@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Final pre-production hardening of QuanAI (ADR-048)
+
+A full pre-launch architecture audit (dead-code/dependency graph, stale-data/freshness, prompts/personalization/
+UX) confirmed the system is clean — zero orphans/dead-helpers/dead-prompts, ADR-047 cleanup complete. Remaining
+verified fixes, no model change (gpt-4o-mini). SW v108→v109.
+
+- **Planner writes awaited (data integrity)**: setup/toggle/regen + auto-catch-up writes were fire-and-forget,
+  so the API reported success on a failed Firestore write → a checked task could silently revert. Now awaited
+  (`_writePlanner`); failures → `write_failed` → API 503 (retryable); the calendar rolls back the optimistic
+  checkbox + toasts.
+- **Coach/Insights clientStats floor**: extended the ADR-046 accuracy-floor (was planner-only) to Coach/Insights
+  so a drill finished moments ago isn't missed during the `syncStats` debounce.
+- **Uniform exam-awareness**: `planner.narrate` (@2) + `explain.followup` (@2) now inject the exam via
+  `sys(role, examName)`; narrate seed gains `daysToExam`; version-honest `promptId`s.
+- **UX**: `renderError` handles `NO_AUTH` (sign-in-again message, no retry loop).
+- **Dead code**: removed `aiService.generateWordProblems` + `_shuffleInPlace` (deprecated, zero callers) and the
+  unused `checkWordProblemQuota`.
+- **Verify**: `node --check`; `npm test` 209 + 23 (new Coach clientStats-floor assertion); zero refs to removed
+  exports. ADR-048. Bible 2.36→2.37, Arch 2.22→2.23. _Manual (browser, not run here): drill→Coach shows the just-
+  finished session; toggle on throttled network rolls back; planner narration names the exam; logged-out user
+  sees the re-login message._
+
 ## 2026-06-14 — Post-merge forensic remediation: one planner + restore dropped UX (ADR-047)
 
 A three-agent forensic audit of the merged `main` found the merge silently dropped a cluster of the Planner

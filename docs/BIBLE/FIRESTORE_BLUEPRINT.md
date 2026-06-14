@@ -200,8 +200,9 @@ completedAt, createdAt }`.
   readiness{score, band, parts{}}, forecast{...}, createdAt, updatedAt}`. Server-written; default-deny (client
   reads/writes via `api/ai?action=planner` ops get/setup/toggle/regen). **The exam syllabi themselves are NOT in
   Firestore** — they're bundled reference data in `main-app/data/syllabus.js` (`SYLLABUS_VERSION`), read by both
-  client and server. The planner accepts a NON-AUTHORITATIVE `clientStats` floor (raise-only, size-capped in
-  `api/ai.js`) so a stale `users.stats` doc can't show false-zero accuracy right after a live session.
+  client and server. The planner — and Coach/Insights (ADR-048) — accept a NON-AUTHORITATIVE `clientStats` floor
+  (raise-only, size-capped in `api/ai.js`) so a stale `users.stats` doc can't show false-zero accuracy right
+  after a live session (during the debounced `syncStats` write window).
 - `users/{uid}/aiEvents/{id}` — owner **create-only, immutable** AI interaction log `{feature, type, meta, plan,
   ts, createdAt}` (`shown|opened|chip_tap|deeplink|helpful_yes|helpful_no`). Excluded from the blanket subcollection
   write grant; rolled up daily by `services/aiCron.js`.

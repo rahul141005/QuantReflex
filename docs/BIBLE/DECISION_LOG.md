@@ -8,6 +8,36 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-048 — Final pre-production hardening of the QuanAI system (2026-06-14)
+- **Context:** A full pre-launch architecture audit (three forensic passes — dead-code/dependency graph,
+  stale-data/freshness, prompts/personalization/UX) confirmed the QuanAI system is architecturally clean and
+  largely launch-ready: one orchestrator, one context engine, one prompt registry, one planner; zero orphan
+  modules, zero dead helpers, zero dead prompts; the ADR-047 legacy-Mission removal complete; all "duplication"
+  intentional. The audit surfaced a small set of verified correctness/consistency/UX gaps to close before paid
+  launch.
+- **Decisions:**
+  - **Awaited planner writes (data integrity).** The planner's Firestore writes (setup/toggle/regen + the
+    `plannerGet` auto-catch-up) were fire-and-forget (`.set().catch(log)`), so the API returned success even
+    when the write failed → a checked task could silently revert on reload. Now AWAITED via a `_writePlanner`
+    helper; failures return `write_failed` → the API maps it to a **retryable 503**, and the calendar rolls back
+    the optimistic checkbox (with a toast) instead of showing a falsely-saved state.
+  - **Coach/Insights use the `clientStats` floor.** The ADR-046 accuracy-floor was applied to the planner path
+    only; Coach/Insights, in the few-second `syncStats` debounce window right after a drill, used `force` to
+    bypass the cache but then read still-unsynced Firestore stats → a stale `today`/accuracy. They now thread the
+    same `clientStats` floor (reusing `_floorStats` + `_sanitizeClientStats`) — the freshness fix is now uniform.
+  - **Uniform exam-awareness.** `planner.narrate` and `explain.followup` were the only prompts not injecting the
+    student's exam; both now use `sys(role, examName)` (versions bumped, version-honest `promptId`s). The
+    planner `rationaleSeed` gains `daysToExam` so encouragement matches exam proximity.
+  - **`NO_AUTH` UX.** `companion-ui.renderError` now handles the auth-failure code with a "sign in again"
+    message and no retry button (it isn't transient).
+  - **Dead-code removal.** Deleted `aiService.generateWordProblems` + `_shuffleInPlace` (a deprecated
+    Firestore-`questions` path with zero callers) and the unused `checkWordProblemQuota`; the live Word Problems
+    feature keeps its `wp.generate` LLM path.
+- **Consequences:** No model/schema/rules/index change. Verified by `node --check`, `npm test`
+  (planner-engine 209 + planner-brain 23, incl. a new Coach clientStats-floor assertion), and a zero-reference
+  grep for the removed exports. SW cache v108→v109. Remaining (manual, browser-only) verification noted in the
+  CHANGELOG.
+
 ## ADR-047 — Post-merge forensic remediation: one authoritative planner + restore dropped UX (2026-06-14)
 - **Context:** `main` was produced by merging two parallel QuanAI efforts — the pushed "production audit" (ADR-045:
   exam-aware persona, version-honesty, freshness, `quantTopics`/`planLogic`) and the ADR-046 Planner branch (which
