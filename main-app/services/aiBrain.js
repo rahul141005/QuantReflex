@@ -61,7 +61,7 @@ async function coachToday(uid, opts) {
 
   if (ctxEngine.isColdStart(ctx)) {
     return envelope('coach', [
-      say('I\'m your coach, ' + ctxEngine.PERSONA + '. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
+      say('I\'m your coach, ' + prompts.PERSONA + '. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
       missionBlock('Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
     ], [chipDeep('Start warm-up', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
   }

@@ -6,6 +6,24 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — AI persona rename "Reflex" → "QuanAI" (ADR-043)
+
+Branding migration: the AI companion is now **QuanAI** everywhere it surfaces. Display-name only — no personality,
+data, routing, analytics, or caching changes. Bible 2.31→2.32. SW v103→v104.
+
+- **Persona constant** — `services/aiPrompts.js` + `js/companion-ui.js`: `PERSONA` `'Reflex'`→`'QuanAI'`. This
+  single constant drives all five system prompts (`sys()` → "You are QuanAI, …"), the AI-modal badge, and the
+  throttle copy ("QuanAI is resting for a bit…"), so the whole AI surface re-brands from two lines.
+- **Bug fix** — `services/aiBrain.js` cold-start coach used `ctxEngine.PERSONA` (never exported by
+  `studentContext` → rendered "undefined"); repointed to `prompts.PERSONA` → "I'm your coach, QuanAI."
+- **Personality unchanged** — the shared `sys()` voice rules (calm, warm, concise, data-grounded, non-chatbot)
+  already define the intended mentor; not edited, to preserve the ADR-039/040-audited behavior.
+- **Preserved (not renamed):** the QuantReflex brand, the "Reflex Drill"/"Reflex Mode" practice feature,
+  `quant_reflex_*` storage keys, "Reflex Master" badge, generic "reflexes" copy. The ADR-039 DECISION_LOG record
+  naming the old persona stays as history; new ADR-043 documents the change.
+- **Verify:** node --check ×3; `grep -rn "Reflex" main-app` → only QuantReflex brand + Reflex-Drill feature copy
+  remain; both `PERSONA` constants read `'QuanAI'`; no `ctxEngine.PERSONA`. Docs: ADR-043, AI_INTERACTION_SYSTEM, VERSIONS.
+
 ## 2026-06-14 — Premium pricing ₹349/₹599 + Word Problems "Coming Soon" polish (ADR-042)
 
 Pre-launch polish pass. Raised Premium pricing and restored the two staged Word Problems controls from dead UI to

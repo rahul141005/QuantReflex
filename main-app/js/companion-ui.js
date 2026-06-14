@@ -9,7 +9,7 @@
  * Self-contained: own modal, own authenticated fetch, own state. Exposes window.Companion.
  */
 var Companion = (function () {
-  var PERSONA = 'Reflex';
+  var PERSONA = 'QuanAI';
   var _state = null; // { feature, topic, history:[], modal }
 
   /* ---------- utils ---------- */

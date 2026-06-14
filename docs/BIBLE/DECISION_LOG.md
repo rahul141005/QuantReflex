@@ -8,6 +8,28 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-043 — AI persona rename "Reflex" → "QuanAI" (2026-06-14)
+- **Context:** Branding decision — the AI companion across the ecosystem is renamed from "Reflex" to **QuanAI**
+  so the assistant reads as one cohesive, premium learning mentor. The prior name collided conceptually with the
+  **QuantReflex** product brand and the **"Reflex Drill"** practice mode, which are unrelated and must stay.
+- **Decision:** A **display-name / branding migration only.** The ADR-039 architecture already centralized the
+  persona name into a single `PERSONA` constant, so the rename is surgical: flip `PERSONA = 'Reflex'` → `'QuanAI'`
+  in the server source-of-truth `services/aiPrompts.js` (injected into all five system prompts via `sys()`, e.g.
+  "You are QuanAI, …") and its client mirror `js/companion-ui.js` (modal badge + throttle copy). **Personality is
+  unchanged** — the existing shared `sys()` voice rules already define the intended mentor voice (calm, warm,
+  concise, data-grounded, never chatbot-y), and one shared helper guarantees an identical persona across Coach,
+  Insights, Explain, Chat, and Study-Plan. No voice rewrites, to avoid regressing the ADR-039/040-audited AI.
+- **Bug fixed alongside:** `services/aiBrain.js` cold-start coach welcome referenced `ctxEngine.PERSONA`, but
+  `studentContext` never exported `PERSONA` → it rendered "I'm your coach, **undefined**." Repointed to the
+  exported `prompts.PERSONA`, so onboarding now correctly reads "I'm your coach, QuanAI."
+- **Explicitly NOT renamed:** the **QuantReflex** brand (manifests/package/URLs/Firebase `quant-reflex-trainer`/
+  CORS/share-card), the **"Reflex Drill"/"Reflex Mode"** practice feature, `quant_reflex_*` storage keys, the
+  "Reflex Master" achievement label, and generic "train your reflexes" copy.
+- **Consequences:** Zero data/routing/analytics/cache impact — no Firestore field, `aiMemory`, `aiEvents` key,
+  cache key, or route ever embedded the persona name (verified). Stored conversations, prompt routing, and the
+  context engine are unaffected. `AI_INTERACTION_SYSTEM.md` (current-state) updated; the ADR-039 record below is
+  left intact as accurate history. SW cache v103→v104 so installed PWAs pick up the new badge string.
+
 ## ADR-042 — Premium pricing update ₹299/₹499 → ₹349/₹599 + Word Problems "Coming Soon" polish (2026-06-14)
 - **Context:** A pre-launch polish pass. Two staged Word Problems controls had regressed into dead UI (the Practice
   card was fully hidden via `display:none`; the Duel "Word Problems" pill was a `disabled` button whose click handler
