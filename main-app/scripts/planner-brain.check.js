@@ -123,6 +123,10 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(freshCtx.today && freshCtx.today.accuracy != null, 'ctx.today.accuracy is populated from the live session');
   ok(freshCtx.coldStart === false, 'a fresh grind (5 lifetime, 26 today) is coached, not gated — two-gate cold-start');
 
+  /* ADR-048: Coach honors the clientStats floor end-to-end (no longer planner-only) */
+  var coachEnv = await aiBrain.coachToday('u-fresh2', { force: true, clientStats: freshGrind });
+  ok(coachEnv && coachEnv.meta && coachEnv.meta.coldStart !== true, 'coachToday honors the clientStats floor — a fresh grind is coached, not cold-gated');
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);

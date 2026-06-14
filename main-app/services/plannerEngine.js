@@ -269,7 +269,8 @@ function buildRationaleSeed(byScore, revisionQueue, examReadiness, forecast, exa
     if (m.cov < 0.95 && !seen[m.topic.id]) { focus.push({ label: m.topic.label, readinessPct: Math.round(m.ready * 100), reason: m.revDue ? 'revision-due' : 'high-priority' }); seen[m.topic.id] = true; }
   }
   return {
-    examName: examName, blockIndex: blockIndex || 0, daysRemaining: daysRemaining || null,
+    examName: examName, blockIndex: blockIndex || 0,
+    daysRemaining: daysRemaining || null, daysToExam: forecast.daysToExam != null ? forecast.daysToExam : (daysRemaining || null),
     focusTopics: focus,
     revisionCount: revisionQueue.length,
     readinessScore: examReadiness.score, readinessBand: examReadiness.band,

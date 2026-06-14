@@ -143,7 +143,7 @@ var REGISTRY = {
   /* ---- Explain FOLLOW-UP: anchored to the EXACT question + the prior explanation (ADR-045). This is what keeps
      "Simpler / Go deeper / Another like this" on THIS problem instead of drifting to the student's weak topic. ---- */
   'explain.followup': {
-    id: 'explain.followup', version: 1, maxTokens: 360, temperature: 0.3,
+    id: 'explain.followup', version: 2, maxTokens: 360, temperature: 0.3,
     build: function (v) {
       return {
         schemaName: 'explain_followup',
@@ -152,7 +152,7 @@ var REGISTRY = {
           properties: { say: STR, steps: { type: 'array', items: STR } } },
         system: sys('The student is looking at ONE specific question and your previous explanation of it. Do exactly '
           + 'what they ask — simplify, go deeper, or give another example — about THIS EXACT question and concept. '
-          + 'NEVER switch to a different problem, shape, number, or topic. Stay anchored to the question below.'),
+          + 'NEVER switch to a different problem, shape, number, or topic. Stay anchored to the question below.', v.examName),
         user: 'The question (treat as the fixed subject — do not change it):\n' + v.question
           + '\n\nYour previous explanation of it:\n' + v.lastExplanation
           + '\n\nStudent just asked: ' + v.userTurn
@@ -165,7 +165,7 @@ var REGISTRY = {
   /* ---- QuanAI Planner narration (ADR-046): the model ONLY writes prose for a block the deterministic engine
      already designed. It never schedules — it phrases the rationaleSeed (focus topics, readiness, on-track). ---- */
   'planner.narrate': {
-    id: 'planner.narrate', version: 1, maxTokens: 320, temperature: 0.4,
+    id: 'planner.narrate', version: 2, maxTokens: 320, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'planner_narrate',
@@ -174,11 +174,12 @@ var REGISTRY = {
           properties: { rationale: STR, encouragement: STR } },
         system: sys('A deterministic engine has already built this student\'s next 14-day study block from their '
           + 'real analytics, the exam syllabus, and topic dependencies. Explain WHY it is structured this way in '
-          + 'plain, motivating language. Do NOT invent topics, dates, or numbers beyond what is given — only phrase it.'),
+          + 'plain, motivating language, and match the urgency to how close the exam is (daysToExam in the summary). '
+          + 'Do NOT invent topics, dates, or numbers beyond what is given — only phrase it.', v.examName),
         user: 'Plan summary (already decided — do not change it):\n' + v.seed
           + '\n\nWrite JSON: rationale (<=3 sentences on why these focus topics now, referencing their readiness '
-          + 'and how the plan builds on dependencies), encouragement (one short line about their forecast — on track, '
-          + 'buffer, or the payoff of staying consistent).'
+          + 'and how the plan builds on dependencies), encouragement (one short line tuned to their forecast and '
+          + 'daysToExam — on track, buffer, or the payoff of staying consistent).'
       };
     }
   },

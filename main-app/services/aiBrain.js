@@ -73,7 +73,7 @@ function _putDaily(uid, feature, env) {
 /* ════════════════════════ AI COACH — daily mentor ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
+  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
 
   if (ctxEngine.isColdStart(ctx)) {
     // Coach, don't gate (ADR-045): acknowledge what they HAVE done today instead of telling them to "go practice".
@@ -140,7 +140,7 @@ function _coachFallback(ctx, focus) {
 /* ════════════════════════ AI INSIGHTS — performance intelligence → missions ════════════════════════ */
 async function insights(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
+  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
 
   if (ctxEngine.isColdStart(ctx)) {
     var doneT = (ctx.today && ctx.today.attempted) || 0;
@@ -271,7 +271,7 @@ async function chatTurn(uid, body) {
       var pf = prompts.get('explain.followup', {
         question: llm.wrapData(anchorQ, 500),
         lastExplanation: llm.wrapData(String(body.lastExplanation || '').slice(0, 900), 900),
-        userTurn: llm.wrapData(hint, 400)
+        userTurn: llm.wrapData(hint, 400), examName: _examOf(ctx)
       });
       var rf = await llm.complete({ system: pf.system, user: pf.user, schema: pf.schema, schemaName: pf.schemaName, maxTokens: pf.maxTokens, temperature: pf.temperature });
       aiService.trackGptCost(uid, rf.usage);
@@ -282,7 +282,7 @@ async function chatTurn(uid, body) {
         chipReply('Got it ✓', 'helpful_yes'), chipReply('Simpler', 'explain_simpler'),
         chipReply('Go deeper', 'explain_deeper'), chipReply('Another like this', 'explain_another'),
         chipDrill('Drill this', topic, catLabel, '⚡')
-      ], { promptId: 'explain.followup@1', topic: topic });
+      ], { promptId: _promptId(pf), topic: topic });
     } catch (e) {
       if (e && e.usage) aiService.trackGptCost(uid, e.usage);
       return envelope('explain', [callout('warn', 'I couldn\'t expand on that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
@@ -350,6 +350,13 @@ async function plannerGetDoc(uid) {
   return null;
 }
 
+/** Persist a planner update, AWAITING the write so the client is never told "saved" on a failed write
+ *  (ADR-048: prevents silent loss of a checked task on a flaky connection). Returns true on success. */
+async function _writePlanner(uid, data) {
+  try { await db().collection('aiPlanner').doc(uid).set(data, { merge: true }); return true; }
+  catch (e) { console.warn('[aiBrain] planner write failed:', e.message); return false; }
+}
+
 async function plannerGet(uid) {
   var doc = await plannerGetDoc(uid);
   if (!doc) return { plan: null };
@@ -369,8 +376,8 @@ async function plannerGet(uid) {
         dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
       });
       doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-      db().collection('aiPlanner').doc(uid).set({ block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt }, { merge: true })
-        .catch(function (e) { console.warn('[aiBrain] planner auto-catchup write failed:', e.message); });
+      // Await so a concurrent toggle can't clobber the rebalance with a stale pre-rebalance write.
+      await _writePlanner(uid, { block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt });
     }
   }
   return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null) };
@@ -387,7 +394,7 @@ async function _narratePlan(uid, ctx, seed) {
   };
   if (ctxEngine.isColdStart(ctx)) return fallback;
   try {
-    var p = prompts.get('planner.narrate', { seed: llm.wrapData(JSON.stringify(seed), 700) });
+    var p = prompts.get('planner.narrate', { seed: llm.wrapData(JSON.stringify(seed), 700), examName: seed.examName || _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     return { rationale: r.data.rationale || fallback.rationale, encouragement: r.data.encouragement || fallback.encouragement };
@@ -438,7 +445,8 @@ async function plannerSetup(uid, params, opts) {
     createdAt: (prev && prev.createdAt) || admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
-  db().collection('aiPlanner').doc(uid).set(doc, { merge: true }).catch(function (e) { console.warn('[aiBrain] planner write failed:', e.message); });
+  var ok = await _writePlanner(uid, doc);
+  if (!ok) return { error: 'write_failed' };
   aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes,
     timelineEntry: { feature: 'planner', summary: 'Started a study plan for ' + examName + '.' } }, 'interview');
 
@@ -477,10 +485,8 @@ async function plannerToggle(uid, params, opts) {
   });
   doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-  db().collection('aiPlanner').doc(uid).set(
-    { block: doc.block, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
-    { merge: true }
-  ).catch(function (e) { console.warn('[aiBrain] planner toggle write failed:', e.message); });
+  var okT = await _writePlanner(uid, { block: doc.block, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
+  if (!okT) return { error: 'write_failed' };
 
   return { plan: doc };
 }
@@ -515,10 +521,8 @@ async function plannerRegenBlock(uid, opts) {
   doc.readiness = gen.examReadiness; doc.forecast = gen.forecast;
   doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-  db().collection('aiPlanner').doc(uid).set(
-    { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
-    { merge: true }
-  ).catch(function (e) { console.warn('[aiBrain] planner regen write failed:', e.message); });
+  var okR = await _writePlanner(uid, { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
+  if (!okR) return { error: 'write_failed' };
 
   return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
 }
@@ -559,7 +563,7 @@ function _plannerEnvelope(ctx, doc, encouragement) {
   chips.push(chipReply('Open calendar', 'planner_open_calendar', '🗓️'));
   chips.push(chipReply('Adjust plan', 'planner_setup'));
 
-  return envelope('planner', blocks, chips, { promptId: 'planner.narrate@1', readiness: rd.score });
+  return envelope('planner', blocks, chips, { promptId: 'planner.narrate@' + prompts.REGISTRY['planner.narrate'].version, readiness: rd.score });
 }
 
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */

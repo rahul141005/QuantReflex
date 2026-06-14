@@ -169,11 +169,18 @@ var Planner = (function () {
     // optimistic local update
     var day = (_plan.block.days || []).find(function (d) { return d.date === date; });
     var task = day && (day.tasks || []).find(function (t) { return t.topicId === topicId; });
+    var prevDone = task ? task.done : !done, prevAt = task ? task.completedAt : null;
     if (task) { task.done = done; task.completedAt = done ? new Date().toISOString() : null; }
-    api('toggle', { date: date, topicId: topicId, done: done }).then(function (res) {
-      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; }
+    function rollback() {
+      if (task) { task.done = prevDone; task.completedAt = prevAt; }
       render();
-    }).catch(function () { render(); });
+      try { if (typeof showToast === 'function') showToast('Couldn\'t save that — check your connection.'); } catch (_) {}
+    }
+    api('toggle', { date: date, topicId: topicId, done: done }).then(function (res) {
+      // ADR-048: the server now AWAITS the write, so a non-ok response means it really didn't save → roll back.
+      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; render(); }
+      else rollback();
+    }).catch(rollback);
   }
 
   function startDrill(cat, label) {

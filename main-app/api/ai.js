@@ -37,13 +37,15 @@ async function _explain(req, res) {
 }
 
 async function _coach(req, res) {
-  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force) });
+  // ADR-048: pass the clientStats floor (like the planner) so a drill finished moments ago isn't missed while
+  // the debounced syncStats write is still in flight.
+  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats) });
   aiService.trackGlobalAIUsage('coach', 1).catch(function () {});
   return res.json({ response: response });
 }
 
 async function _insights(req, res) {
-  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force) });
+  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats) });
   aiService.trackInsightsUsage(req.userId).catch(function () {});
   return res.json({ response: response });
 }
@@ -85,6 +87,13 @@ function _sanitizeClientStats(raw) {
   return out;
 }
 
+/* Map a planner-op error to an HTTP response: a failed Firestore write is retryable (503) so the client can
+   roll back and re-try; a missing plan/task is a 404 (ADR-048). */
+function _plannerError(res, error) {
+  if (error === 'write_failed') return res.status(503).json({ error: { code: 'WRITE_FAILED', message: 'Couldn\'t save your plan just now — please try again.', retryable: true } });
+  return res.status(404).json({ error: { code: String(error).toUpperCase(), message: error, retryable: false } });
+}
+
 async function _planner(req, res) {
   var body = req.body || {};
   var op = typeof body.op === 'string' ? body.op : 'get';
@@ -107,6 +116,7 @@ async function _planner(req, res) {
       preferredTime: typeof body.preferredTime === 'string' ? body.preferredTime : '',
       goal: typeof body.goal === 'string' ? body.goal : ''
     }, { clientStats: clientStats });
+    if (result.error) return _plannerError(res, result.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: result.plan || null, response: result.envelope || null });
   }
@@ -120,12 +130,12 @@ async function _planner(req, res) {
       date: date, topicId: topicId, done: !!body.done,
       result: (body.result && typeof body.result === 'object') ? { accuracy: _num(body.result.accuracy) / (body.result.accuracy > 1 ? 100 : 1), attempted: _num(body.result.attempted), correct: _num(body.result.correct) } : null
     }, { clientStats: clientStats });
-    if (result2.error) return res.status(404).json({ error: { code: result2.error.toUpperCase(), message: result2.error, retryable: false } });
+    if (result2.error) return _plannerError(res, result2.error);
     return res.json({ plan: result2.plan || null });
   }
   if (op === 'regen') {
     var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats });
-    if (r3.error) return res.status(404).json({ error: { code: r3.error.toUpperCase(), message: r3.error, retryable: false } });
+    if (r3.error) return _plannerError(res, r3.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: r3.plan || null, response: r3.envelope || null });
   }

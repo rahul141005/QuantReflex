@@ -263,17 +263,6 @@ async function _saveUsage(uid) {
   }
 }
 
-async function checkWordProblemQuota(uid, isPremium) {
-  var entry = await _loadUsage(uid);
-  var today = new Date().toDateString();
-  if (isPremium) {
-    var lastDate = entry.wordProblemsLastDate ? new Date(entry.wordProblemsLastDate).toDateString() : null;
-    if (lastDate !== today) { entry.wordProblemsUsedToday = 0; }
-    return Math.max(0, WP_PREMIUM_DAILY - entry.wordProblemsUsedToday);
-  }
-  return Math.max(0, WP_FREE_LIMIT - entry.wordProblemsUsedLifetime);
-}
-
 async function trackGlobalAIUsage(metricName, count) {
   try {
     var today = new Date().toISOString().split('T')[0];
@@ -434,97 +423,6 @@ async function trackInsightsUsage(uid) {
   await trackGlobalAIUsage('insights', 1);
 }
 
-/**
- * DEPRECATED: No longer calls OpenAI for runtime generation.
- * Now reads from the centralized `questions` Firestore collection
- * (pre-generated, curated, and approved via the Super Admin pipeline).
- *
- * Includes intelligent difficulty fallback when insufficient questions
- * exist at the requested difficulty level.
- */
-async function generateWordProblems(category, difficulty, count) {
-  var questionsRef = db.collection('questions');
-
-  /* Map of difficulty → fallback difficulties to try */
-  var FALLBACK_MAP = {
-    easy:   ['medium'],
-    medium: ['easy', 'hard'],
-    hard:   ['medium']
-  };
-
-  /**
-   * Query questions for a specific difficulty.
-   * Returns an array of normalized question objects.
-   */
-  async function _fetchForDifficulty(diff, limit) {
-    var query = questionsRef
-      .where('approved', '==', true)
-      .where('status', '==', 'active')
-      .where('type', '==', 'word_problem')
-      .where('topic', '==', category)
-      .where('difficulty', '==', diff)
-      .limit(limit * 3);
-
-    var snapshot = await query.get();
-    var results = [];
-    snapshot.forEach(function (doc) {
-      var d = doc.data();
-      if (!d || typeof d.question !== 'string' || !d.question.trim()) return;
-      var answer = (typeof d.answer === 'number') ? d.answer : parseFloat(d.answer);
-      if (isNaN(answer)) return;
-
-      results.push({
-        question: d.question.trim(),
-        answer: answer,
-        steps: (typeof d.steps === 'string' && d.steps.trim()) ? d.steps.trim()
-             : (typeof d.explanation === 'string' && d.explanation.trim()) ? d.explanation.trim()
-             : '',
-        category: d.topic || category
-      });
-    });
-    return results;
-  }
-
-  /* Primary fetch at requested difficulty */
-  var pool = await _fetchForDifficulty(difficulty, count);
-
-  /* Intelligent fallback if insufficient questions */
-  if (pool.length < count) {
-    var fallbacks = FALLBACK_MAP[difficulty] || [];
-    for (var i = 0; i < fallbacks.length && pool.length < count; i++) {
-      var fbResults = await _fetchForDifficulty(fallbacks[i], count - pool.length);
-      /* De-duplicate by question prefix */
-      var existingPrefixes = {};
-      pool.forEach(function (q) { existingPrefixes[q.question.substring(0, 60).toLowerCase()] = true; });
-      for (var j = 0; j < fbResults.length && pool.length < count; j++) {
-        var prefix = fbResults[j].question.substring(0, 60).toLowerCase();
-        if (!existingPrefixes[prefix]) {
-          pool.push(fbResults[j]);
-          existingPrefixes[prefix] = true;
-        }
-      }
-    }
-  }
-
-  if (pool.length === 0) {
-    throw new AIServiceError('NO_QUESTIONS', 'No questions available for this category and difficulty', false);
-  }
-
-  /* Shuffle for variety */
-  _shuffleInPlace(pool);
-
-  return pool.slice(0, count);
-}
-
-function _shuffleInPlace(arr) {
-  for (var i = arr.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    var tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
-  }
-}
-
 /* ════════════════════════════════════════════════════════════════════════════════════════
    AI BRAIN INFRA (ADR-039) — durable per-student memory + enforced cost breaker.
    Memory is the cross-feature shared brain (AI_INTERACTION_SYSTEM §4); server-authoritative,
@@ -613,4 +511,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { generateWordProblems, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

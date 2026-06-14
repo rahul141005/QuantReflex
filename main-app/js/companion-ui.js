@@ -321,8 +321,10 @@ var Companion = (function () {
     var msg = res.code === 'AI_BUDGET_EXCEEDED' || res.code === 'AI_THROTTLED'
       ? PERSONA + ' is resting for a bit — please try again shortly.'
       : res.code === 'PREMIUM_REQUIRED' ? 'This is a Premium feature.'
+      : res.code === 'NO_AUTH' ? 'You\'ve been signed out — refresh the app and sign in again.'
       : 'I couldn\'t respond just now. Tap retry.';
-    var canRetry = res.code !== 'PREMIUM_REQUIRED' && typeof onRetry === 'function';
+    // Auth failure and premium gating aren't transient — don't offer a retry that will just loop.
+    var canRetry = res.code !== 'PREMIUM_REQUIRED' && res.code !== 'NO_AUTH' && typeof onRetry === 'function';
     var row = el('<div class="companion-turn"><div class="cb-callout tone-warn">' + esc(msg) + '</div>' +
       (canRetry ? '<div class="companion-chips"><button class="companion-chip kind-reply" type="button">Retry</button></div>' : '') + '</div>');
     bodyEl.appendChild(row);
@@ -341,8 +343,10 @@ var Companion = (function () {
     // Force a fresh context when the student practiced since this feature last refreshed, or tapped refresh.
     var force = !!o.force || (o.autoForce && shouldForce(o.feature));
     var stamp = dirtyAt();
-    var reqBody = o.body || {};
-    if (force) { reqBody = {}; for (var k in (o.body || {})) reqBody[k] = o.body[k]; reqBody.force = true; }
+    var reqBody = {}; for (var k in (o.body || {})) reqBody[k] = o.body[k];
+    if (force) reqBody.force = true;
+    // ADR-048: send the live local stats floor so Coach/Insights aren't stale during the syncStats debounce.
+    if (o.withClientStats) reqBody.clientStats = clientStats();
     if (o.autoForce) wireRefresh(m, function () { openFeature(_assign(o, { force: true })); });
     var stop = showLoading(m.body, o.stages);
     // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
@@ -364,8 +368,8 @@ var Companion = (function () {
     openFeature({ feature: 'explain', title: 'Explain', topic: category, action: 'explain',
       body: { question: question, answer: answer, category: category }, stages: ['Working through it…', 'Finding the cleanest way…'] });
   }
-  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
-  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
+  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, withClientStats: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
+  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, withClientStats: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
 
   /* ---------- QuanAI Planner (ADR-046): setup wizard → server builds the 14-day block → calendar/envelope ---------- */
   var PREP_LEVELS = [['scratch', 'Starting from scratch'], ['revision', 'Need revision'], ['average', 'Average'], ['confident', 'Fairly confident'], ['ready', 'Almost exam ready']];
