@@ -107,7 +107,6 @@ async function buildContext(uid, opts) {
     accuracy: _round(accuracy, 3),
     totalAttempted: totalAttempted,
     dailyStreak: Number(stats.dailyStreak) || 0,
-    bestStreak: Number(stats.bestDailyStreak) || 0,
     trends: trends,
     mastery: mastery,          // sorted; top ~8
     errorPatterns: errorPatterns,
@@ -126,8 +125,8 @@ function _coldContext(uid, o) {
   return {
     v: 1, uid: uid, name: o.name || '', plan: o.plan === 'premium' ? 'premium' : 'free',
     coldStart: true, accuracy: 0, totalAttempted: o.totalAttempted || 0,
-    dailyStreak: 0, bestStreak: 0,
-    trends: null, mastery: [], errorPatterns: { topWeakCats: [], recentMistakeCats: [], carelessSignal: false },
+    dailyStreak: 0,
+    trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
     recentSessions: [], memory: _publicMemory(o.memory)
   };
@@ -185,10 +184,9 @@ function _deriveTrends(stats) {
   };
 }
 
-/** Per-category current mastery (acc, n, tier) from categoryStats; trend hint from recent mistakes. */
+/** Per-category current mastery (acc, n, tier) from categoryStats. */
 function _deriveMastery(stats) {
   var cs = stats.categoryStats || {};
-  var recentMistakeCats = _recentMistakeCats(stats);
   var out = [];
   Object.keys(cs).forEach(function (cat) {
     var d = cs[cat] || {};
@@ -197,8 +195,7 @@ function _deriveMastery(stats) {
     var acc = cor / att;
     out.push({
       cat: cat, label: label(cat), acc: _round(acc, 2), n: att,
-      tier: acc < 0.6 ? 'weak' : (acc >= 0.8 ? 'strong' : 'developing'),
-      trend: recentMistakeCats[cat] ? 'down' : 'flat'
+      tier: acc < 0.6 ? 'weak' : (acc >= 0.8 ? 'strong' : 'developing')
     });
   });
   // weakest first (so prescriptions target them), then by sample size
@@ -216,11 +213,10 @@ function _recentMistakeCats(stats) {
 function _deriveErrors(stats, mastery) {
   var recent = _recentMistakeCats(stats);
   var recentCats = Object.keys(recent);
-  var topWeak = mastery.filter(function (m) { return m.tier === 'weak'; }).slice(0, 3).map(function (m) { return m.cat; });
   // careless = a STRONG category (acc>0.8) that nonetheless shows up in recent mistakes
   var strongSet = {}; mastery.forEach(function (m) { if (m.tier === 'strong') strongSet[m.cat] = true; });
   var careless = recentCats.some(function (c) { return strongSet[c]; });
-  return { topWeakCats: topWeak, recentMistakeCats: recentCats.slice(0, 6), carelessSignal: careless };
+  return { recentMistakeCats: recentCats.slice(0, 6), carelessSignal: careless };
 }
 
 function _deriveFlags(o) {
@@ -252,12 +248,18 @@ function serialize(ctx, maxChars) {
   maxChars = maxChars || 1400;
   if (!ctx) return '';
   var L = [];
+  if (ctx.name) L.push('Student first name: ' + String(ctx.name).split(' ')[0] + ' (greet warmly, use sparingly).');
   L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs; streak ' + ctx.dailyStreak + 'd.');
   var t = ctx.trends;
   if (t) {
     if (t.accuracy && t.accuracy.d7 != null) L.push('Accuracy 7d ' + Math.round(t.accuracy.d7 * 100) + '% vs 30d ' + Math.round((t.accuracy.d30 || 0) * 100) + '% (' + t.accuracy.direction + ').');
     if (t.speed && t.speed.recentMsPerQ != null) L.push('Speed ' + (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q (' + t.speed.direction + ').');
     if (t.consistency) L.push('Active ' + t.consistency.activeDaysLast14 + '/14 days; streak ' + t.consistency.streakHealth + '; last gap ' + t.consistency.gapDays + 'd.');
+    if (t.sessionImprovementPct) L.push('Within-session pace improves ~' + t.sessionImprovementPct + '% on average.');
+  }
+  if (ctx.recentSessions && ctx.recentSessions.length) {
+    var rs = ctx.recentSessions.slice(0, 3).map(function (s) { return s.acc != null ? Math.round(s.acc * 100) + '%' : '—'; });
+    L.push('Last sessions accuracy: ' + rs.join(', ') + '.');
   }
   var weak = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).map(function (m) { return m.label + ' ' + Math.round(m.acc * 100) + '%'; });
   var strong = (ctx.mastery || []).filter(function (m) { return m.tier === 'strong'; }).map(function (m) { return m.label; });

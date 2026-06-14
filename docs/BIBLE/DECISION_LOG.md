@@ -8,6 +8,37 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-040 — AI Ecosystem adversarial-audit remediation (2026-06-14)
+- **Context:** ADR-039 passed every static check (node --check, brace balance, unit tests) but a 3-agent adversarial
+  trace of the real execution path found **two production-blocking bugs neither catchable by static checks** — the AI
+  *looked* built but was non-functional — plus correctness defects and ~1,500 lines of dead code.
+- **P0 fixes (without these the AI never works):**
+  - **Strict-mode schema breach.** Every schema in `aiPrompts.js` used `maxLength`/`minItems`/`maxItems` — keywords
+    OpenAI Structured-Outputs `strict:true` **rejects with a 400**, so EVERY model call failed and silently fell
+    through to its deterministic fallback (no real model output, ever). Removed all unsupported keywords; brevity is
+    now enforced by prompt instructions + **server-side clipping** in `aiBrain` (`_clip`); the `validate` checks
+    (computedAnswer / 4-option) are unchanged.
+  - **Deep-link silent no-op.** `startDrillFromPractice` early-returns unless the Practice-view DOM is present; called
+    from a Home-tab AI modal it did nothing (the core advice→action loop was dead). `companion-ui.deepLink` now calls
+    `Router.showView('practice')` then launches on the next tick.
+- **P1 fixes:** every "calculated-but-ignored" context field resolved — `serialize()` now feeds the model the
+  `sessionImprovementPct` signal (the dormant metric the whole audit targeted), a recent-session snapshot, and the
+  student's first name; the unused `mastery[].trend`/`errorPatterns.topWeakCats`/`bestStreak` were deleted. Failed LLM
+  calls now bill their spent tokens (`if (e.usage) trackGptCost`). Initial-load Retry re-invokes the original feature
+  (not a generic chat turn). Chat history no longer double-counts the current turn. The dead `quiz`+`progress` block
+  renderers were removed (mini-challenge moved to a documented roadmap item, AI_INTERACTION_SYSTEM §10).
+- **P2 fixes:** Coach now reads `aiMissions` and injects today's plan focus (a real cross-feature link, not just
+  memory). Removed the broken/unwired `Companion.openWordProblem`. **Dead-code purge (~1,500 lines):** `aiService.js`
+  −511 (the 3 legacy generators + study-plan fns + their private helpers), `ai-features.js` −967 (the old one-shot
+  modal bodies, fetch/cache helpers, and the entire legacy study-plan wizard whose `_spPost` even called the removed
+  `?action=study-plan`). The kept future-ready Word-Problems bank path (`generateWordProblems` + `_shuffleInPlace`) is
+  retained deliberately.
+- **Verification:** node --check all 11 files; **schema grep → zero** unsupported keywords; zero remaining callers of
+  any removed function; `duel-sim` 47/47 (no regression from any edit); CSS 2454/2454; rules 58/58; deterministic core
+  re-tested (new signals present). SW v100→v101.
+- **Consequence:** the AI now actually produces model output and its prescriptions launch real drills — the two things
+  ADR-039 silently failed to do. Bible 2.28→2.29.
+
 ## ADR-039 — AI Ecosystem: one brain, five experiences, gpt-4o-mini only (2026-06-14)
 - **Context:** A grounded 3-agent audit found QuantReflex's AI loses to "paste it into ChatGPT" for one reason —
   it discards its only unfair advantage. Rich per-student signal (`dailyHistory` 90-day accuracy+speed,

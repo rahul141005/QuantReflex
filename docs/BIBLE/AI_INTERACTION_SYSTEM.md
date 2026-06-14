@@ -70,10 +70,8 @@ Each block has a `type`. The renderer has exactly one component per type. `addit
 | `say`        | `{ text }` (≤2 sentences) | Streamed prose line (typewriter). The voice of Reflex. |
 | `card`       | `{ title, body, accent?: 'blue\|amber\|green\|rose\|slate', icon? }` | Titled insight card |
 | `metric`     | `{ label, value, trend?: 'up\|down\|flat', delta?, good?: bool }` | Stat tile w/ ↑↓ arrow + color |
-| `progress`   | `{ label, pct, caption? }` | Progress bar / ring |
 | `steps`      | `{ title?, items: string[], collapsible?: bool }` | Numbered, expandable explanation |
 | `mission`    | `{ title, why, deepLink: {mode, category, count?}, estMin? }` | Action card → launches a real drill |
-| `quiz`       | `{ question, options?: (number\|string)[], answer }` | Inline mini-challenge (interaction-only grading) |
 | `timeline`   | `{ days: [{ day, label, items: string[], done?: bool }] }` | Vertical plan timeline |
 | `celebrate`  | `{ text }` | Win callback (confetti-lite) |
 | `callout`    | `{ tone: 'info\|warn\|success', text }` | Inline highlighted note |
@@ -102,9 +100,10 @@ in one tap. A `mission` block or a `deeplink` chip with no valid category is inv
   allowed but optional; chips keep cost and prompt-injection surface tiny and make the UX one-tap.
 - **Lead with the point.** Observation/answer first, then the action. No preamble ("Sure! Here's…").
 - **One idea per turn.** If there's more, offer it as a chip ("Go deeper"), don't dump it.
-- **Mini-challenges:** a `quiz` block is graded **client-side for the interaction only** (reuses the numpad);
-  the result (`correct: bool`) is sent back as the next turn so Reflex can adapt ("nice — let's go harder").
-  Challenge answers are NEVER trusted for real stats.
+- **Mini-challenges (ROADMAP — not yet shipped, see §10):** an in-conversation `quiz` block graded client-side
+  for the interaction only (reusing the numpad), result fed back as the next turn so Reflex adapts. The `quiz`
+  block + grading are deliberately NOT implemented yet (ADR-040 removed the unwired renderer); deep-linking a real
+  drill via a `mission` block is the shipped "do it now" path.
 
 ---
 
@@ -189,3 +188,10 @@ retention." No always-on infra (Spark-safe).
 We ship on `gpt-4o-mini` only. The `llmProvider` seam keeps a future model swap a one-file change. Candidates to
 re-evaluate later **per feature** (do not implement now): deeper multi-step Mission generation and long-context
 weekly review could benefit from a stronger reasoning model. Any such change is a separate ADR.
+
+**Roadmap (product, not model) — the top deferred items, in priority order:**
+1. **Interactive mini-challenge** — the `quiz` block + in-conversation numpad grading (the "feel alive" feature most
+   asked for; removed-as-unwired in ADR-040 to avoid dead code, to be built next as the flagship interactive touch).
+2. **SSE streaming** of the prose `say` field (perceived-latency polish; staged skeletons cover it today).
+3. **Automated weekly Mission review** as a per-user cron pass (today the Mission adapts via the 6h context rebuild
+   + a manual "Adjust my plan"; a scheduled LLM re-plan is deferred for cost/timeout reasons on the single cron).

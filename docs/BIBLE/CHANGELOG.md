@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — AI Ecosystem adversarial-audit remediation (ADR-040)
+
+A 3-agent adversarial trace of the ADR-039 AI found two production-blocking bugs (the AI *looked* built but was
+non-functional) + correctness defects + ~1,500 lines of dead code. All fixed. Bible 2.28→2.29.
+
+- **P0 — `services/aiPrompts.js`:** removed `maxLength`/`minItems`/`maxItems` from every schema (OpenAI
+  `strict:true` 400s on them → every model call was failing into the deterministic fallback). Brevity now enforced
+  by prompt text + server-side `_clip` in `services/aiBrain.js`.
+- **P0 — `js/companion-ui.js`:** `deepLink()` now `Router.showView('practice')` then launches `startDrillFromPractice`
+  on the next tick (it previously silently no-op'd from a Home-tab modal → advice→action loop was dead).
+- **P1 — `services/studentContext.js`:** `serialize()` now feeds the model `sessionImprovementPct`, a recent-session
+  snapshot, and the student's first name; deleted the unused `mastery[].trend`/`errorPatterns.topWeakCats`/`bestStreak`.
+- **P1 — `services/aiBrain.js`:** failed LLM calls now bill spent tokens (`trackGptCost(e.usage)`); Coach reads
+  `aiMissions` for a real cross-feature link. **`js/companion-ui.js`:** initial-load Retry re-runs the original
+  feature (not a chat turn); chat history no longer double-counts the turn; removed dead `quiz`/`progress` block
+  renderers + unwired `openWordProblem`.
+- **P2 — dead-code purge (~1,500 lines):** `services/aiService.js` −511 (3 legacy generators + study-plan fns +
+  private helpers), `js/ai-features.js` −967 (old modal bodies, fetch/cache helpers, entire legacy study-plan wizard).
+  Public wrappers are now clean Companion delegations.
+- **Bible:** ADR-040; AI_INTERACTION_SYSTEM §10 roadmap (mini-challenge = top deferred item). **SW v100→v101.**
+- **Verify:** node --check ×11; schema grep → 0 unsupported keywords; 0 callers of removed fns; duel-sim 47/47;
+  CSS 2454/2454; rules 58/58; deterministic core re-tested.
+
 ## 2026-06-14 — AI Ecosystem: one brain, five experiences, gpt-4o-mini only (ADR-039)
 
 A full redesign of every AI feature into one intelligent tutor that leverages the student data ChatGPT can't have

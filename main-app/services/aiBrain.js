@@ -19,15 +19,17 @@ function db() { return admin.firestore(); }
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; return h.toString(36); }
 
-/* ---- block + envelope builders (the design-system vocabulary) ---- */
-function say(text) { return { type: 'say', text: text }; }
-function card(title, body, accent, icon) { return { type: 'card', title: title, body: body, accent: accent || 'slate', icon: icon || '' }; }
+/* ---- block + envelope builders (the design-system vocabulary) ----
+   _clip enforces field length server-side (ADR-040: schema maxLength was removed — strict mode rejects it). */
+function _clip(s, n) { s = (s == null ? '' : String(s)); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+function say(text) { return { type: 'say', text: _clip(text, 240) }; }
+function card(title, body, accent, icon) { return { type: 'card', title: _clip(title, 80), body: _clip(body, 280), accent: accent || 'slate', icon: icon || '' }; }
 function metric(label, value, trend, good) { return { type: 'metric', label: label, value: value, trend: trend || 'flat', good: good !== false }; }
-function steps(items, title) { return { type: 'steps', title: title || '', items: items || [], collapsible: false }; }
-function callout(tone, text) { return { type: 'callout', tone: tone || 'info', text: text }; }
-function celebrate(text) { return { type: 'celebrate', text: text }; }
+function steps(items, title) { return { type: 'steps', title: title || '', items: (items || []).slice(0, 8).map(function (s) { return _clip(s, 220); }), collapsible: false }; }
+function callout(tone, text) { return { type: 'callout', tone: tone || 'info', text: _clip(text, 220) }; }
+function celebrate(text) { return { type: 'celebrate', text: _clip(text, 180) }; }
 function missionBlock(title, why, mode, category, label, estMin) {
-  return { type: 'mission', title: title, why: why || '', estMin: estMin || 5,
+  return { type: 'mission', title: _clip(title, 80), why: _clip(why, 200), estMin: estMin || 5,
     deepLink: { mode: mode || 'focus', category: category || '', label: label || '' } };
 }
 function chipReply(label, value, icon) { return { label: label, value: value, kind: 'reply', icon: icon || '' }; }
@@ -68,9 +70,15 @@ async function coachToday(uid, opts) {
 
   var focus = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
   var contextStr = ctxEngine.serialize(ctx);
+  // ADR-040: read today's mission so the Coach genuinely references the plan (a real cross-feature link, not just memory).
+  var planNote = '';
+  try {
+    var md = await db().collection('aiMissions').doc(uid).get();
+    if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
+  } catch (_) {}
   var env;
   try {
-    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label });
+    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: planNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     var d = r.data;
@@ -80,11 +88,12 @@ async function coachToday(uid, opts) {
       missionBlock('Drill ' + focus.label, d.missionWhy, 'focus', focus.cat, focus.label, 8)
     ], [
       chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'),
-      d.followup ? chipReply(d.followup.length > 40 ? 'Tell me more' : d.followup, 'coach_followup:' + d.followup) : chipReply('Tell me more', 'coach_followup:tell me more'),
+      chipReply('Tell me more', 'coach_followup:' + (d.followup || 'tell me more')),
       chipDismiss('Not today')
-    ].concat(helpfulChips()), { promptId: 'coach.daily@2', focus: focus.cat });
+    ].concat(helpfulChips()), { promptId: 'coach.daily@3', focus: focus.cat });
     aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + '.' } }, 'coach');
   } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     env = _coachFallback(ctx, focus);
   }
   _putDaily(uid, 'coach', env);
@@ -136,6 +145,7 @@ async function insights(uid, opts) {
       { promptId: 'insights.analyze@2' });
     aiService.updateMemory(uid, { addWeakConcepts: weakCats.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     env = envelope('insights', [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(blocks).concat([missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8)]),
       [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
   }
@@ -165,6 +175,7 @@ async function explainBase(question, answer, category, uid) {
       pieces = r.data;
       cacheRef.set({ questionId: hash, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistake: pieces.mistake, tip: pieces.tip, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
+      if (e && e.usage) aiService.trackGptCost(uid, e.usage);
       return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
         [chipReply('Retry', 'explain_retry'), chipDeep('Drill this topic', 'focus', category, catLabel, '⚡')], { fallback: true });
     }
@@ -221,6 +232,7 @@ async function chatTurn(uid, body) {
       : [chipReply('Got it ✓', 'helpful_yes')];
     return envelope(feature, blocks, chips, { promptId: 'chat.turn@1', topic: topic });
   } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     return envelope(feature, [callout('warn', 'I couldn\'t answer that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
   }
 }
@@ -252,6 +264,7 @@ async function missionGenerate(uid, params) {
     aiService.trackGptCost(uid, r.usage);
     plan = r.data;
   } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     var weakLabels = (ctx.mastery || []).filter(function (m) { return m.tier !== 'strong'; }).slice(0, 3).map(function (m) { return { topicLabel: m.label, goal: 'Lift accuracy above 70%' }; });
     plan = { rationale: 'A focused plan built around your weakest topics, with daily targeted practice.', weekFocus: weakLabels.length ? weakLabels : [{ topicLabel: 'Mixed practice', goal: 'Build consistency' }], phases: [{ name: 'Build accuracy', durationDays: Math.min(daysRemaining, 21) }, { name: 'Build speed', durationDays: Math.max(0, daysRemaining - 21) }] };
   }
@@ -306,6 +319,7 @@ async function wordProblem(uid, category, difficulty, isPremium) {
     aiService.trackGptCost(uid, r.usage);
     return { problem: { question: r.data.question, answer: r.data.answer, options: r.data.options, explanation: r.data.explanation, category: target } };
   } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     return { error: 'generation_failed' };
   }
 }

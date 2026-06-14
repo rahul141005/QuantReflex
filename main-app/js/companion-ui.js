@@ -80,15 +80,12 @@ var Companion = (function () {
         '<div class="cb-card-main"><div class="cb-card-title">' + esc(b.title) + '</div><div class="cb-card-body">' + esc(b.body).replace(/\n/g, '<br>') + '</div></div></div>';
       case 'metric': return '<div class="cb-metric ' + (b.good ? 'is-good' : 'is-bad') + '"><span class="cb-metric-label">' + esc(b.label) + '</span>' +
         '<span class="cb-metric-val">' + esc(b.value) + ' <span class="cb-metric-trend tr-' + esc(b.trend) + '">' + (b.trend === 'up' ? '▲' : b.trend === 'down' ? '▼' : '–') + '</span></span></div>';
-      case 'progress': return '<div class="cb-progress"><div class="cb-progress-top"><span>' + esc(b.label) + '</span><span>' + Math.round(b.pct || 0) + '%</span></div>' +
-        '<div class="cb-progress-bar"><i style="width:' + Math.max(0, Math.min(100, b.pct || 0)) + '%"></i></div>' + (b.caption ? '<div class="cb-progress-cap">' + esc(b.caption) + '</div>' : '') + '</div>';
       case 'steps':
         var items = (b.items || []).map(function (s, i) { return '<li><span class="cb-step-n">' + (i + 1) + '</span>' + esc(s) + '</li>'; }).join('');
         return '<div class="cb-steps">' + (b.title ? '<div class="cb-steps-title">' + esc(b.title) + '</div>' : '') + '<ol>' + items + '</ol></div>';
       case 'mission': return '<div class="cb-mission" data-mode="' + esc(b.deepLink.mode) + '" data-cat="' + esc(b.deepLink.category) + '" data-label="' + esc(b.deepLink.label) + '">' +
         '<div class="cb-mission-main"><div class="cb-mission-title">' + esc(b.title) + '</div>' + (b.why ? '<div class="cb-mission-why">' + esc(b.why) + '</div>' : '') + '</div>' +
         '<div class="cb-mission-go">▶</div></div>';
-      case 'quiz': return '<div class="cb-card accent-blue"><div class="cb-card-main"><div class="cb-card-title">Try it</div><div class="cb-card-body">' + esc(b.question) + '</div></div></div>';
       case 'timeline':
         var days = (b.days || []).map(function (d) { return '<li class="' + (d.done ? 'done' : '') + '"><span class="cb-tl-dot"></span><div><b>' + esc(d.label) + '</b>' + ((d.items || []).length ? '<span class="cb-tl-sub">' + esc((d.items || []).join(' · ')) + '</span>' : '') + '</div></li>'; }).join('');
         return '<ul class="cb-timeline">' + days + '</ul>';
@@ -130,8 +127,13 @@ var Companion = (function () {
   function deepLink(mode, category, label) {
     log(_state ? _state.feature : 'ai', 'deeplink', { mode: mode, category: category });
     if (_state && _state.modal) _state.modal.close();
-    try { if (typeof startDrillFromPractice === 'function') { startDrillFromPractice(mode, category || '', label || ''); return; } } catch (_) {}
+    // ADR-040 fix: switch to the Practice view FIRST so its DOM (#drillContainer/#modeSelect …) is present and
+    // VISIBLE, THEN launch on the next tick. Without the view switch, startDrillFromPractice early-returns or
+    // renders the drill into a hidden view — a silent no-op (the core advice→action loop was broken).
     try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('practice'); } catch (_) {}
+    setTimeout(function () {
+      try { if (typeof startDrillFromPractice === 'function') startDrillFromPractice(mode, category || '', label || ''); } catch (_) {}
+    }, 60);
   }
 
   function onChip(chip, env) {
@@ -155,26 +157,29 @@ var Companion = (function () {
     }
     var typing = el('<div class="companion-turn"><div class="companion-typing"><i></i><i></i><i></i></div></div>');
     body.appendChild(typing); body.scrollTop = body.scrollHeight;
+    // ADR-040: capture history BEFORE recording the current turn, so it isn't double-counted (it's also sent as userTurn).
+    var histPayload = _state.history.slice(-6);
     _state.history.push({ role: 'user', content: label || value });
-    api('chat', { feature: _state.feature, topic: _state.topic, userTurn: value, history: _state.history.slice(-6) }).then(function (res) {
+    api('chat', { feature: _state.feature, topic: _state.topic, userTurn: value, history: histPayload }).then(function (res) {
       if (typing.parentNode) typing.parentNode.removeChild(typing);
-      if (!res.ok) { renderError(body, res); return; }
+      if (!res.ok) { renderError(body, res, function () { sendTurn(value, label); }); return; }
       var env = res.data.response;
       (env.blocks || []).forEach(function (b) { if (b.type === 'say') _state.history.push({ role: 'ai', content: b.text }); });
       renderEnvelope(body, env, true);
     });
   }
 
-  function renderError(bodyEl, res) {
+  function renderError(bodyEl, res, onRetry) {
     var msg = res.code === 'AI_BUDGET_EXCEEDED' || res.code === 'AI_THROTTLED'
       ? PERSONA + ' is resting for a bit — please try again shortly.'
       : res.code === 'PREMIUM_REQUIRED' ? 'This is a Premium feature.'
       : 'I couldn\'t respond just now. Tap retry.';
+    var canRetry = res.code !== 'PREMIUM_REQUIRED' && typeof onRetry === 'function';
     var row = el('<div class="companion-turn"><div class="cb-callout tone-warn">' + esc(msg) + '</div>' +
-      '<div class="companion-chips"><button class="companion-chip kind-reply" type="button">Retry</button></div></div>');
+      (canRetry ? '<div class="companion-chips"><button class="companion-chip kind-reply" type="button">Retry</button></div>' : '') + '</div>');
     bodyEl.appendChild(row);
     var btn = row.querySelector('.companion-chip');
-    if (btn) btn.addEventListener('click', function () { if (_state) { sendTurn('retry', null); } });
+    if (btn) btn.addEventListener('click', function () { onRetry(); });
     if (res.code === 'PREMIUM_REQUIRED') { try { if (typeof showPaywall === 'function') showPaywall('ai_coach'); } catch (_) {} }
   }
 
@@ -184,11 +189,13 @@ var Companion = (function () {
     _state = { feature: o.feature, topic: o.topic || '', history: [], body: m.body, modal: m };
     log(o.feature, 'opened', {});
     var stop = showLoading(m.body, o.stages);
+    // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
+    var reopen = function () { openFeature(o); };
     api(o.action, o.body || {}).then(function (res) {
       stop();
-      if (!res.ok) { m.body.innerHTML = ''; renderError(m.body, res); return; }
+      if (!res.ok) { m.body.innerHTML = ''; renderError(m.body, res, reopen); return; }
       var env = res.data.response;
-      if (!env) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }); return; }
+      if (!env) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); return; }
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId });
       renderEnvelope(m.body, env, false);
     });
@@ -200,7 +207,6 @@ var Companion = (function () {
   }
   function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', stages: ['Reviewing your week…', 'Picking your next move…'] }); }
   function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
-  function openWordProblem(category, difficulty) { openFeature({ feature: 'wordproblems', title: 'Word Problem', topic: category, action: 'wordproblems', body: { category: category, difficulty: difficulty } }); }
 
   /* Mission: get existing → render, else run a chip-driven interview, then generate. */
   function openMission(forceRegen) {
@@ -250,6 +256,6 @@ var Companion = (function () {
     ask();
   }
 
-  return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights, openMission: openMission, openWordProblem: openWordProblem, renderEnvelope: renderEnvelope, _api: api };
+  return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights, openMission: openMission, renderEnvelope: renderEnvelope, _api: api };
 })();
 if (typeof window !== 'undefined') window.Companion = Companion;
