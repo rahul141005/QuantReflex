@@ -10227,6 +10227,40 @@ body.dark-mode .companion-skel { background: linear-gradient(90deg, rgba(255, 25
 @keyframes cpnShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 .companion-loadmsg { font-size: .85rem; color: #94a3b8; margin-top: .6rem; font-weight: 600; }
 
+/* ---- QuanAI Planner setup wizard (ADR-046) ---- */
+.ps-dots { display: flex; gap: .35rem; justify-content: center; margin: .2rem 0 1rem; }
+.ps-dots span { width: 7px; height: 7px; border-radius: 999px; background: rgba(15, 23, 42, .14); transition: background .2s ease, width .2s ease; }
+.ps-dots span.on { width: 20px; background: #2563eb; }
+.ps-dots span.done { background: #93c5fd; }
+body.dark-mode .ps-dots span { background: rgba(255, 255, 255, .16); }
+.ps-screen .cb-say { margin-bottom: .9rem; }
+.ps-sub { font-weight: 500; color: #94a3b8; font-size: .85rem; }
+.ps-search, .ps-custom, .ps-date { width: 100%; box-sizing: border-box; border: 1px solid rgba(15, 23, 42, .16); border-radius: 12px; padding: .7rem .85rem; font-size: 1rem; margin-bottom: .7rem; background: #fff; color: #0f172a; }
+body.dark-mode .ps-search, body.dark-mode .ps-custom, body.dark-mode .ps-date { background: rgba(255, 255, 255, .06); color: #e2e8f0; border-color: rgba(255, 255, 255, .16); }
+.ps-list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: .4rem; margin-bottom: .5rem; }
+.ps-opt { text-align: left; border: 1px solid rgba(15, 23, 42, .14); background: #fff; color: #1e293b; border-radius: 12px; padding: .7rem .85rem; font-size: .95rem; font-weight: 600; cursor: pointer; transition: border-color .12s ease, background .12s ease; }
+.ps-opt.big { padding: .85rem; }
+.ps-opt.sel { border-color: #2563eb; background: rgba(37, 99, 235, .08); color: #1d4ed8; }
+body.dark-mode .ps-opt { background: rgba(255, 255, 255, .05); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }
+body.dark-mode .ps-opt.sel { background: rgba(37, 99, 235, .22); color: #bfdbfe; border-color: #3b82f6; }
+.ps-stack { display: flex; flex-direction: column; gap: .5rem; }
+.ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.ps-hint { font-size: .88rem; color: #64748b; font-weight: 600; margin-top: .3rem; text-align: center; }
+.ps-bigval { text-align: center; font-size: 1.6rem; color: #2563eb; margin: .3rem 0 .7rem; }
+body.dark-mode .ps-bigval { color: #60a5fa; }
+.ps-range { width: 100%; margin: .3rem 0 .9rem; accent-color: #2563eb; }
+.ps-presets { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; }
+.ps-chip { border: 1px solid rgba(15, 23, 42, .14); background: #fff; color: #475569; border-radius: 999px; padding: .4rem .8rem; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.ps-chip.sel { background: #2563eb; color: #fff; border-color: #2563eb; }
+body.dark-mode .ps-chip { background: rgba(255, 255, 255, .06); color: #cbd5e1; border-color: rgba(255, 255, 255, .14); }
+.ps-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; margin-bottom: .4rem; }
+.ps-day { aspect-ratio: 1; border: 1px solid rgba(15, 23, 42, .14); background: #fff; color: #475569; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; }
+.ps-day.sel { background: #2563eb; color: #fff; border-color: #2563eb; }
+body.dark-mode .ps-day { background: rgba(255, 255, 255, .06); color: #cbd5e1; border-color: rgba(255, 255, 255, .14); }
+.ps-nav { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: 1.1rem; }
+.ps-nav .ps-next { min-width: 110px; }
+.ps-nav .companion-chip[disabled] { opacity: .4; cursor: not-allowed; }
+
 @media (prefers-reduced-motion: reduce) {
-  .companion-overlay, .companion-sheet, .companion-turn.is-new, .companion-typing i, .companion-skel, .cb-mission { animation: none !important; transition: none !important; }
+  .companion-overlay, .companion-sheet, .companion-turn.is-new, .companion-typing i, .companion-skel, .cb-mission, .ps-dots span { animation: none !important; transition: none !important; }
 }
