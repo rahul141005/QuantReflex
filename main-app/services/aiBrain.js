@@ -414,6 +414,25 @@ async function plannerGet(uid) {
   var doc = await plannerGetDoc(uid);
   if (!doc) return { plan: null };
   var ctx = await ctxEngine.buildContext(uid);
+
+  // Auto Smart Catch-up on load: if past study/buffer days were fully missed, rebalance their tasks into the
+  // remaining days and recompute the forecast — so a student who skipped never opens to a stale, broken plan.
+  if (doc.block && doc.block.days) {
+    var today = _todayIso();
+    var needsRebalance = doc.block.days.some(function (d) {
+      return d.date < today && (d.kind === 'study' || d.kind === 'buffer') && (d.tasks || []).length && (d.tasks || []).every(function (t) { return !t.done; });
+    });
+    if (needsRebalance) {
+      var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+      doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, today, doc.dailyMinutes);
+      doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
+        dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
+      });
+      doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      db().collection('aiPlanner').doc(uid).set({ block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt }, { merge: true })
+        .catch(function (e) { console.warn('[aiBrain] planner auto-catchup write failed:', e.message); });
+    }
+  }
   return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null) };
 }
 

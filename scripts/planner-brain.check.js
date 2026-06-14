@@ -105,6 +105,15 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var got = await aiBrain.plannerGet(UID);
   ok(got.plan && got.plan.block.index === oldIndex + 1, 'get returns the latest persisted plan');
 
+  /* auto Smart Catch-up on load: inject a fully-missed past day, then plannerGet should rebalance it */
+  var yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  store.aiPlanner[UID].block.days.unshift({ date: yesterday, dow: 1, kind: 'study', tasks: [{ topicId: 'percentages', label: 'Percentages', estMin: 30, done: false, kind: 'learn', drillable: 'percentages' }] });
+  var afterLoad = await aiBrain.plannerGet(UID);
+  var pastDay = afterLoad.plan.block.days.find(function (d) { return d.date === yesterday; });
+  ok(pastDay && pastDay.kind === 'missed' && pastDay.tasks.length === 0, 'plannerGet auto-marks a fully-missed past day');
+  var carried = afterLoad.plan.block.days.some(function (d) { return d.date >= todayKey && d.tasks.some(function (t) { return t.topicId === 'percentages'; }); });
+  ok(carried, 'plannerGet auto-carries the missed task into an upcoming day');
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);
