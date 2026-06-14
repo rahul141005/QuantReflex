@@ -70,7 +70,7 @@ var REGISTRY = {
 
   /* ---- AI Insights: model writes the "biggest lever" headline + why-this-weakness. Metrics are deterministic. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 4, maxTokens: 400, temperature: 0.4,
+    id: 'insights.analyze', version: 5, maxTokens: 400, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
@@ -80,7 +80,7 @@ var REGISTRY = {
         system: sys('You are a performance analyst. Surface the single biggest lever this student has right now and '
           + 'explain their top weakness in plain terms. Lead with what moved recently (today or this week) when the '
           + 'data shows it. Be insightful and specific to their numbers, never restate the dashboard.', v.examName),
-        user: 'Student context:\n' + v.context + '\n\nTop weakness to address: ' + v.weakLabel
+        user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: headline (the biggest lever, <=2 sentences), weaknessInsight (one short line on what is '
           + 'really going wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
       };

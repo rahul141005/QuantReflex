@@ -6,15 +6,24 @@
  * the Completion Forecast, the plan rationale, and per-task explainability. Checkboxes call the planner API
  * (op:toggle), which credits coverage, runs Smart Catch-up, and recomputes readiness/forecast server-side.
  *
- * Mounts a #view-planner .spa-view dynamically (Router toggles it active). Exposes window.Planner.
- * Depends on globals: Companion (_api, clientStats, openStudyPlanner), Router, startDrillFromPractice.
+ * Renders into the shared companion bottom-sheet (ADR-049) — `Planner.open()` opens the sheet and fetches the
+ * plan; `Planner.renderInto(modal, plan)` draws the calendar into an existing sheet (after setup). Exposes
+ * window.Planner. Depends on globals: Companion (openModal, _api, clientStats, localDate), Router,
+ * startDrillFromPractice.
  */
 var Planner = (function () {
   var _plan = null;
   var _sel = null; // selected day ISO
 
+  var _modal = null; // the companion bottom-sheet this planner renders into
+
   function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
-  function todayIso() { return new Date().toISOString().slice(0, 10); }
+  /* LOCAL date 'YYYY-MM-DD' (ADR-049) — never toISOString() (UTC). Shared with Companion so client + server agree. */
+  function todayIso() {
+    if (window.Companion && Companion.localDate) return Companion.localDate();
+    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
   function fmtMin(m) { m = Math.round(m || 0); return m >= 60 ? (m % 60 ? (Math.floor(m / 60) + 'h ' + (m % 60) + 'm') : (m / 60 + 'h')) : (m + 'm'); }
   function dow(iso) { return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
   function dnum(iso) { return new Date(iso + 'T00:00:00Z').getUTCDate(); }
@@ -26,34 +35,26 @@ var Planner = (function () {
   };
 
   function api(op, extra) {
-    var body = { op: op };
+    var body = { op: op, clientDate: todayIso() };   // ADR-049: LOCAL date so the server anchors "today" correctly
     try { if (window.Companion && Companion.clientStats) body.clientStats = Companion.clientStats(); } catch (_) {}
     if (extra) for (var k in extra) body[k] = extra[k];
     return (window.Companion && Companion._api) ? Companion._api('planner', body) : Promise.resolve({ ok: false });
   }
 
-  function ensureSection() {
-    var s = document.getElementById('view-planner');
-    if (s) return s;
-    s = document.createElement('div'); s.id = 'view-planner'; s.className = 'spa-view';
-    s.innerHTML = '<div class="container"><div id="plannerRoot" class="planner-wrap"></div></div>';
-    var ref = document.getElementById('view-home') || document.querySelector('.spa-view');
-    if (ref && ref.parentNode) ref.parentNode.appendChild(s); else document.body.appendChild(s);
-    return s;
-  }
-  function root() { ensureSection(); return document.getElementById('plannerRoot'); }
-  function activate() { try { if (window.Router && Router.showView) Router.showView('planner'); } catch (_) {} }
+  function root() { return _modal ? _modal.body : null; }
 
-  /* ---- entry points ---- */
+  /* ---- entry points (ADR-049: the planner is a premium bottom-sheet, not a full router view) ---- */
   function open() {
-    ensureSection(); activate();
+    if (!(window.Companion && Companion.openModal)) return;
+    _modal = Companion.openModal('Study Planner');
     var r = root(); if (r) r.innerHTML = '<div class="planner-loading">Loading your plan…</div>';
     api('get').then(function (res) {
       if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; render(); }
       else emptyState();
     }).catch(emptyState);
   }
-  function openCalendar(plan) { _plan = plan; _sel = null; ensureSection(); activate(); render(); }
+  /* Render the calendar into an EXISTING companion sheet (setup/get success) — seamless, no second sheet. */
+  function renderInto(modal, plan) { _modal = modal; _plan = plan; _sel = null; render(); }
 
   function emptyState() {
     var r = root(); if (!r) return;
@@ -111,8 +112,7 @@ var Planner = (function () {
 
     r.innerHTML =
       '<div class="planner-top">' +
-        '<button class="planner-back" type="button" aria-label="Back">←</button>' +
-        '<div class="planner-titles"><div class="planner-title">Study Planner</div><div class="planner-sub">' + esc(p.examName || '') + '</div></div>' +
+        '<div class="planner-titles"><div class="planner-title">' + esc(p.examName || 'Study Planner') + '</div><div class="planner-sub">' + esc(bandLabel || 'Your study plan') + '</div></div>' +
         '<button class="planner-adjust" type="button">Adjust</button>' +
       '</div>' +
       '<div class="planner-readiness">' + ring(rd.score) +
@@ -127,7 +127,6 @@ var Planner = (function () {
       '</div>';
 
     // wiring
-    var back = r.querySelector('.planner-back'); if (back) back.onclick = function () { if (window.Router) Router.showView('home'); };
     var adj = r.querySelector('.planner-adjust'); if (adj) adj.onclick = function () { if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true); };
     r.querySelectorAll('.pd-cell').forEach(function (c) { c.onclick = function () { _sel = c.getAttribute('data-date'); render(); }; });
     r.querySelectorAll('.pt-check').forEach(function (cb) {
@@ -184,6 +183,7 @@ var Planner = (function () {
   }
 
   function startDrill(cat, label) {
+    try { if (_modal && _modal.close) _modal.close(); } catch (_) {}   // close the sheet before navigating
     try { if (window.Router && Router.showView) Router.showView('practice'); } catch (_) {}
     setTimeout(function () { try { if (typeof startDrillFromPractice === 'function') startDrillFromPractice('focus', cat || '', label || ''); } catch (_) {} }, 60);
   }
@@ -196,6 +196,6 @@ var Planner = (function () {
     }).catch(render);
   }
 
-  return { open: open, openCalendar: openCalendar, render: render };
+  return { open: open, renderInto: renderInto };
 })();
 if (typeof window !== 'undefined') window.Planner = Planner;

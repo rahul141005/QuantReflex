@@ -127,6 +127,19 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var coachEnv = await aiBrain.coachToday('u-fresh2', { force: true, clientStats: freshGrind });
   ok(coachEnv && coachEnv.meta && coachEnv.meta.coldStart !== true, 'coachToday honors the clientStats floor — a fresh grind is coached, not cold-gated');
 
+  /* ADR-049: clientDate anchors the block to the student's LOCAL today (not UTC) */
+  var setupTz = await aiBrain.plannerSetup('u-tz', {
+    examId: 'cat', examDate: '2099-06-30', dailyMinutes: 60, daysPerWeek: 6, prepLevel: 'average'
+  }, { clientStats: clientStats, clientDate: '2099-01-15' });
+  ok(setupTz.plan && setupTz.plan.block.days[0].date === '2099-01-15', 'plannerSetup anchors day-0 to the passed clientDate (local today), not UTC');
+
+  /* ADR-049: Coach bypasses a stale cold aiDaily envelope when clientStats proves activity */
+  var coldEnv = { feature: 'coach', blocks: [], chips: [], meta: { coldStart: true } };
+  store.aiDaily = store.aiDaily || {};
+  store.aiDaily['u-fresh2_coach_' + (function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })()] = { envelope: coldEnv };
+  var coachEnv2 = await aiBrain.coachToday('u-fresh2', { clientStats: freshGrind });
+  ok(!(coachEnv2.meta && coachEnv2.meta.coldStart === true), 'coachToday bypasses a stale cold aiDaily envelope when clientStats is present');
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);

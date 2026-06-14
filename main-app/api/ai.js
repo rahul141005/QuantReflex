@@ -36,16 +36,22 @@ async function _explain(req, res) {
   return res.json({ response: response });
 }
 
+/* The student's LOCAL calendar date ('YYYY-MM-DD'), sent by the client so "today" is never UTC (ADR-049). */
+function _clientDate(body) {
+  var d = body && typeof body.clientDate === 'string' ? body.clientDate.trim() : '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
+}
+
 async function _coach(req, res) {
   // ADR-048: pass the clientStats floor (like the planner) so a drill finished moments ago isn't missed while
-  // the debounced syncStats write is still in flight.
-  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats) });
+  // the debounced syncStats write is still in flight. ADR-049: clientDate so Coach matches the right day's plan.
+  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body) });
   aiService.trackGlobalAIUsage('coach', 1).catch(function () {});
   return res.json({ response: response });
 }
 
 async function _insights(req, res) {
-  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats) });
+  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body) });
   aiService.trackInsightsUsage(req.userId).catch(function () {});
   return res.json({ response: response });
 }
@@ -98,9 +104,10 @@ async function _planner(req, res) {
   var body = req.body || {};
   var op = typeof body.op === 'string' ? body.op : 'get';
   var clientStats = _sanitizeClientStats(body.clientStats);
+  var clientDate = _clientDate(body);   // ADR-049: the student's LOCAL "today"
 
   if (op === 'get') {
-    var got = await aiBrain.plannerGet(req.userId);
+    var got = await aiBrain.plannerGet(req.userId, { clientDate: clientDate });
     return res.json({ plan: got.plan || null, response: got.envelope || null });
   }
   if (op === 'setup') {
@@ -115,7 +122,7 @@ async function _planner(req, res) {
       prepLevel: typeof body.prepLevel === 'string' ? body.prepLevel : 'average',
       preferredTime: typeof body.preferredTime === 'string' ? body.preferredTime : '',
       goal: typeof body.goal === 'string' ? body.goal : ''
-    }, { clientStats: clientStats });
+    }, { clientStats: clientStats, clientDate: clientDate });
     if (result.error) return _plannerError(res, result.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: result.plan || null, response: result.envelope || null });
@@ -129,12 +136,12 @@ async function _planner(req, res) {
     var result2 = await aiBrain.plannerToggle(req.userId, {
       date: date, topicId: topicId, done: !!body.done,
       result: (body.result && typeof body.result === 'object') ? { accuracy: _num(body.result.accuracy) / (body.result.accuracy > 1 ? 100 : 1), attempted: _num(body.result.attempted), correct: _num(body.result.correct) } : null
-    }, { clientStats: clientStats });
+    }, { clientStats: clientStats, clientDate: clientDate });
     if (result2.error) return _plannerError(res, result2.error);
     return res.json({ plan: result2.plan || null });
   }
   if (op === 'regen') {
-    var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats });
+    var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats, clientDate: clientDate });
     if (r3.error) return _plannerError(res, r3.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: r3.plan || null, response: r3.envelope || null });

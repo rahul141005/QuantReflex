@@ -317,7 +317,7 @@ function _contextAccent(featureType) {
     daily_goal_limit: '📈 Higher daily goals are a Premium feature.',
     ai_explain: '🧠 AI mistake explanations are a Premium feature.',
     ai_coach: '🤖 AI Coach insights are a Premium feature.',
-    ai_study_plan: '📅 AI Study Plans are a Premium feature.',
+    ai_study_plan: '📅 The AI Study Planner is a Premium feature.',
     math_duel: '⚔️ Math Duel — real-time challenges — is a Premium feature.'
   };
   return map[featureType] || '';
@@ -328,7 +328,7 @@ var _COMPARE_ROWS = [
   ['AI explanations', '5 total', 'Unlimited'],
   ['AI Word Problems', '5 lifetime', '30 / day'],
   ['AI Coach', '—', '✓'],
-  ['Study Plans', '—', '✓'],
+  ['Study Planner', '—', '✓'],
   ['Math Duel', '—', '✓'],
   ['Performance Insights', '—', '✓'],
   ['Category Accuracy', '—', '✓'],
@@ -347,7 +347,7 @@ var _VALUE_CARDS = [
   ['🧠', 'AI Word Problems'],
   ['📈', 'Advanced Analytics'],
   ['🏆', 'Math Duel'],
-  ['📅', 'Study Plans'],
+  ['📅', 'Study Planner'],
   ['🎯', 'Personalized Insights']
 ];
 

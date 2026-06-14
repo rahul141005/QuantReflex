@@ -64,6 +64,13 @@ var Companion = (function () {
   }
 
   /* ---------- planner helpers (ADR-046) ---------- */
+  /* The student's LOCAL calendar date as 'YYYY-MM-DD' (ADR-049). Built from local getters — NOT toISOString(),
+     which returns the UTC date and is a day behind in positive-offset zones in the early hours. Sent to the
+     server so "today" is always the user's real day. */
+  function localDate() {
+    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
   /* Snapshot the live local progress so the planner API can floor the (often stale) Firestore stats doc — this
      is what fixes the "no accuracy" bug right after a fresh session. Non-authoritative; the server only raises. */
   function clientStats() {
@@ -93,6 +100,7 @@ var Companion = (function () {
     var overlay = el(
       '<div id="companionOverlay" class="companion-overlay" role="dialog" aria-modal="true" aria-label="' + esc(title || PERSONA) + '">' +
         '<div class="companion-sheet">' +
+          '<div class="companion-grabber" aria-hidden="true"></div>' +
           '<div class="companion-head"><span class="companion-badge">' + esc(PERSONA) + '</span>' +
             '<span class="companion-title">' + esc(title || '') + '</span>' +
             '<button class="companion-refresh" type="button" aria-label="Refresh" title="Refresh" style="display:none">↻</button>' +
@@ -103,6 +111,32 @@ var Companion = (function () {
     function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); _state = null; }
     overlay.querySelector('.companion-close').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    // Drag-down-to-dismiss on the grabber/head — native bottom-sheet feel (ADR-049). Drag past 90px → close,
+    // else snap back. Only starts from the grabber or head so it never fights with body scrolling.
+    var sheet = overlay.querySelector('.companion-sheet');
+    var handle = overlay.querySelector('.companion-grabber');
+    var startY = 0, dy = 0, dragging = false;
+    function onStart(e) { dragging = true; dy = 0; startY = (e.touches ? e.touches[0].clientY : e.clientY); sheet.style.transition = 'none'; }
+    function onMove(e) {
+      if (!dragging) return;
+      dy = (e.touches ? e.touches[0].clientY : e.clientY) - startY;
+      if (dy < 0) dy = 0;
+      sheet.style.transform = 'translateY(' + dy + 'px)';
+    }
+    function onEnd() {
+      if (!dragging) return; dragging = false;
+      sheet.style.transition = 'transform .2s cubic-bezier(.2,.7,.3,1)';
+      if (dy > 90) { sheet.style.transform = 'translateY(100%)'; setTimeout(close, 180); }
+      else { sheet.style.transform = 'translateY(0)'; }
+    }
+    [handle, overlay.querySelector('.companion-head')].forEach(function (el2) {
+      if (!el2) return;
+      el2.addEventListener('touchstart', onStart, { passive: true });
+      el2.addEventListener('touchmove', onMove, { passive: true });
+      el2.addEventListener('touchend', onEnd);
+    });
+
     return { overlay: overlay, body: overlay.querySelector('.companion-scroll'), close: close,
       refreshBtn: overlay.querySelector('.companion-refresh') };
   }
@@ -346,7 +380,8 @@ var Companion = (function () {
     var reqBody = {}; for (var k in (o.body || {})) reqBody[k] = o.body[k];
     if (force) reqBody.force = true;
     // ADR-048: send the live local stats floor so Coach/Insights aren't stale during the syncStats debounce.
-    if (o.withClientStats) reqBody.clientStats = clientStats();
+    // ADR-049: send the LOCAL date so Coach matches the right day's planner tasks.
+    if (o.withClientStats) { reqBody.clientStats = clientStats(); reqBody.clientDate = localDate(); }
     if (o.autoForce) wireRefresh(m, function () { openFeature(_assign(o, { force: true })); });
     var stop = showLoading(m.body, o.stages);
     // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
@@ -381,12 +416,12 @@ var Companion = (function () {
     log('planner', 'opened', {});
     if (forceSetup) return runPlannerSetup(m);
     var stop = showLoading(m.body, ['Loading your plan…']);
-    api('planner', { op: 'get' }).then(function (res) {
+    api('planner', { op: 'get', clientStats: clientStats(), clientDate: localDate() }).then(function (res) {
       stop();
       if (res.ok && res.data && res.data.plan && res.data.response) {
         log('planner', 'shown', {});
-        // Prefer the full calendar view if it's loaded (P5); otherwise show the companion summary.
-        if (window.Planner && Planner.openCalendar) { m.close(); Planner.openCalendar(res.data.plan); return; }
+        // Render the full calendar into this same sheet; fall back to the companion summary if the view isn't loaded.
+        if (window.Planner && Planner.renderInto) { Planner.renderInto(m, res.data.plan); return; }
         renderEnvelope(m.body, res.data.response, false);
         return;
       }
@@ -473,11 +508,11 @@ var Companion = (function () {
     }
     function submit() {
       var stop = showLoading(body, ['Mapping the syllabus to your strengths…', 'Weighting by exam frequency…', 'Scheduling your next 14 days…']);
-      api('planner', { op: 'setup', examId: a.examId, examName: a.examName, examDate: a.examDate, dailyMinutes: a.dailyMinutes, daysPerWeek: a.daysPerWeek, prepLevel: a.prepLevel, preferredTime: a.preferredTime, clientStats: clientStats() }).then(function (res) {
+      api('planner', { op: 'setup', examId: a.examId, examName: a.examName, examDate: a.examDate, dailyMinutes: a.dailyMinutes, daysPerWeek: a.daysPerWeek, prepLevel: a.prepLevel, preferredTime: a.preferredTime, clientStats: clientStats(), clientDate: localDate() }).then(function (res) {
         stop();
         if (res.ok && res.data && res.data.response) {
           log('planner', 'setup_done', { examId: a.examId });
-          if (window.Planner && Planner.openCalendar && res.data.plan) { m.close(); Planner.openCalendar(res.data.plan); return; }
+          if (window.Planner && Planner.renderInto && res.data.plan) { Planner.renderInto(m, res.data.plan); return; }
           renderEnvelope(body, res.data.response, false);
         } else { renderError(body, res, function () { submit(); }); }
       });
@@ -486,6 +521,7 @@ var Companion = (function () {
   }
 
   return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights,
-    openStudyPlanner: openStudyPlanner, renderEnvelope: renderEnvelope, clientStats: clientStats, openModal: openModal, _api: api };
+    openStudyPlanner: openStudyPlanner, renderEnvelope: renderEnvelope,
+    clientStats: clientStats, localDate: localDate, openModal: openModal, _api: api };
 })();
 if (typeof window !== 'undefined') window.Companion = Companion;

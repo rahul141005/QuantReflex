@@ -70,6 +70,26 @@ function _putDaily(uid, feature, env) {
     .catch(function (e) { console.warn('[aiBrain] daily cache write failed:', e.message); });
 }
 
+/* Shared planner grounding for Coach + Insights (ADR-049 "one AI"): today's scheduled tasks + the live exam
+   readiness score + on-track status, so every feature speaks from the same plan. Returns '' if no plan. */
+async function _plannerNote(uid, clientDate) {
+  try {
+    var pd = await db().collection('aiPlanner').doc(uid).get();
+    if (!pd.exists) return '';
+    var pdoc = pd.data();
+    var todayKey = clientDate || _todayIso();
+    var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
+    var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
+    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {}, note = '';
+    if (labels) note += 'The student\'s study planner schedules today: ' + labels + '. ';
+    if (typeof rd.score === 'number') {
+      note += 'Their exam readiness is ' + rd.score + '/100' +
+        (fc.onTrack === false ? ' and they\'re behind pace' : (fc.daysToExam != null ? ', ' + fc.daysToExam + ' days out' : '')) + '. ';
+    }
+    return note ? note + 'Tie your advice to the plan.' : '';
+  } catch (_) { return ''; }
+}
+
 /* ════════════════════════ AI COACH — daily mentor ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
@@ -87,22 +107,15 @@ async function coachToday(uid, opts) {
     ], [chipDeep(doneT > 0 ? 'Keep going' : 'Start a set', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
   }
 
-  if (!opts.force) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
+  // ADR-049: also bypass the per-day envelope cache when clientStats is present (mirrors studentContext's
+  // own cache rule) — otherwise a cold-start envelope cached earlier today is served even after the student
+  // has accumulated real attempts, so Coach keeps saying "run a quick set".
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
   var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
-  // ADR-046/047: read the QuanAI Planner's tasks for TODAY so the Coach genuinely references the live plan.
-  var planNote = '';
-  try {
-    var pd = await db().collection('aiPlanner').doc(uid).get();
-    if (pd.exists) {
-      var pdoc = pd.data();
-      var todayKey = _todayIso();
-      var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
-      var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
-      if (labels) planNote = 'The student\'s study planner schedules today: ' + labels + '. Tie your advice to it.';
-    }
-  } catch (_) {}
+  // ADR-046/047/049: ground the Coach in the live planner (today's tasks + readiness).
+  var planNote = await _plannerNote(uid, opts.clientDate);
   var env;
   try {
     var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: planNote, examName: _examOf(ctx) });
@@ -153,7 +166,7 @@ async function insights(uid, opts) {
     ], [chipDeep(doneT > 0 ? 'Keep going' : 'Practice now', 'practice', '', '')], { coldStart: true });
   }
 
-  if (!opts.force) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
 
   var t = ctx.trends || {};
   var blocks = [];
@@ -164,9 +177,11 @@ async function insights(uid, opts) {
 
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
   if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
+  // ADR-049 "one AI": Insights references the same live planner as the Coach (today's focus + readiness).
+  var planNote = await _plannerNote(uid, opts.clientDate);
   var env;
   try {
-    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx) });
+    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: planNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     var d = r.data;
@@ -357,7 +372,8 @@ async function _writePlanner(uid, data) {
   catch (e) { console.warn('[aiBrain] planner write failed:', e.message); return false; }
 }
 
-async function plannerGet(uid) {
+async function plannerGet(uid, opts) {
+  opts = opts || {};
   var doc = await plannerGetDoc(uid);
   if (!doc) return { plan: null };
   var ctx = await ctxEngine.buildContext(uid);
@@ -365,7 +381,7 @@ async function plannerGet(uid) {
   // Auto Smart Catch-up on load: if past study/buffer days were fully missed, rebalance their tasks into the
   // remaining days and recompute the forecast — so a student who skipped never opens to a stale, broken plan.
   if (doc.block && doc.block.days) {
-    var today = _todayIso();
+    var today = opts.clientDate || _todayIso();   // ADR-049: LOCAL date
     var needsRebalance = doc.block.days.some(function (d) {
       return d.date < today && (d.kind === 'study' || d.kind === 'buffer') && (d.tasks || []).length && (d.tasks || []).every(function (t) { return !t.done; });
     });
@@ -380,7 +396,7 @@ async function plannerGet(uid) {
       await _writePlanner(uid, { block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt });
     }
   }
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null, opts.clientDate) };
 }
 
 /** Ask the LLM to narrate a block the engine already built. Cold-start / failure → deterministic copy. */
@@ -424,7 +440,7 @@ async function plannerSetup(uid, params, opts) {
   var prev = await plannerGetDoc(uid);
   var topicState = (prev && prev.syllabusId === syllabus.id && prev.topicState) ? prev.topicState : {};
 
-  var startDate = _todayIso();
+  var startDate = opts.clientDate || _todayIso();   // ADR-049: anchor the block to the student's LOCAL today
   var gen = plannerEngine.generateBlock({
     syllabus: syllabus, ctx: ctx, topicState: topicState, prepLevel: prepLevel,
     dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, preferredTime: preferredTime,
@@ -450,7 +466,7 @@ async function plannerSetup(uid, params, opts) {
   aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes,
     timelineEntry: { feature: 'planner', summary: 'Started a study plan for ' + examName + '.' } }, 'interview');
 
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate) };
 }
 
 /** Toggle a task's completion → credit coverage, run Smart Catch-up, recompute readiness + forecast. */
@@ -476,7 +492,7 @@ async function plannerToggle(uid, params, opts) {
     doc.topicState = _mergeTopicState(doc.topicState, comp.patch);
   }
 
-  doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, _todayIso(), doc.dailyMinutes);
+  doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, opts.clientDate || _todayIso(), doc.dailyMinutes);
 
   var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
   doc.readiness = readinessLib.examReadinessScore(syllabus, ctx, doc.topicState, _blockStats(doc));
@@ -506,7 +522,7 @@ async function plannerRegenBlock(uid, opts) {
     adherencePct: stats.adherencePct, readiness: doc.readiness || null
   }]).slice(-12);
 
-  var startDate = _todayIso();
+  var startDate = opts.clientDate || _todayIso();   // ADR-049: LOCAL today
   var gen = plannerEngine.generateBlock({
     syllabus: syllabus, ctx: ctx, topicState: doc.topicState, prepLevel: doc.prepLevel,
     dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, preferredTime: doc.preferredTime,
@@ -524,12 +540,12 @@ async function plannerRegenBlock(uid, opts) {
   var okR = await _writePlanner(uid, { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
   if (!okR) return { error: 'write_failed' };
 
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate) };
 }
 
 /** Build the companion envelope: today's tasks + readiness + forecast, linking out to the calendar view. */
-function _plannerEnvelope(ctx, doc, encouragement) {
-  var today = _todayIso();
+function _plannerEnvelope(ctx, doc, encouragement, clientDate) {
+  var today = clientDate || _todayIso();   // ADR-049: LOCAL today
   var day = (doc.block && doc.block.days || []).find(function (d) { return d.date === today; });
   var tasks = (day && day.tasks) || [];
   var rd = doc.readiness || { score: 0, band: 'early' };
