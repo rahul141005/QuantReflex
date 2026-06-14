@@ -11,7 +11,7 @@
  */
 'use strict';
 
-function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+var clamp = require('./aiMath').clamp;   // shared impl (ADR-047); re-exported below for readiness/plannerEngine
 
 /** Index ctx.mastery by cat for O(1) lookup. */
 function masteryMap(ctx) {

@@ -14,6 +14,7 @@
  */
 const admin = require('firebase-admin');
 const topics = require('./quantTopics');
+const aiMath = require('./aiMath');   // shared round/clamp/todayIso (ADR-047)
 
 if (!admin.apps.length) {
   var cfg = { projectId: 'quant-reflex-trainer' };
@@ -35,7 +36,7 @@ function _ms(dateKey) {
   var t = new Date(dateKey).getTime();
   return isNaN(t) ? 0 : t;
 }
-function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
+var _round = aiMath.round;
 function _todayKey() { return new Date().toDateString(); }
 
 /** Live "today" signal (ADR-045) — date-keyed so it never bleeds across days. Reads the same goldmine

@@ -17,6 +17,7 @@ const aiService = require('./aiService');
 const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
 const plannerEngine = require('./plannerEngine');    // deterministic 14-day scheduler
 const readinessLib = require('./readiness');         // readiness score + completion forecast
+const aiMath = require('./aiMath');                  // shared round/clamp/todayIso (ADR-047)
 
 function db() { return admin.firestore(); }
 function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
@@ -310,8 +311,8 @@ async function chatTurn(uid, body) {
    A deterministic engine (plannerEngine + readiness + signals) schedules the next 14 days day-by-day from the
    real exam syllabus + the student's analytics; the LLM only narrates. Stored at aiPlanner/{uid} (v2). This is
    the ONLY planner — the legacy one-shot Mission (aiMissions/planLogic) was removed in ADR-047. */
-function _todayIso() { return new Date().toISOString().slice(0, 10); }
-function _clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+var _todayIso = aiMath.todayIso;
+var _clamp = aiMath.clamp;
 function _daysRemaining(examDate) {
   if (!examDate) return 90;
   var t = Date.parse(examDate + 'T00:00:00Z');

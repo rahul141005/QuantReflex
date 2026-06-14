@@ -17,6 +17,7 @@
 
 var readiness = require('./readiness');
 var signalsLib = require('./signals');
+var aiMath = require('./aiMath');   // shared round/todayIso (ADR-047)
 var clamp = signalsLib.clamp;
 
 var WINDOW_DAYS = 14;
@@ -29,8 +30,8 @@ var DAY = 86400000;
 function _ms(iso) { var t = new Date(iso + 'T00:00:00Z').getTime(); return isNaN(t) ? Date.now() : t; }
 function addDays(iso, n) { return new Date(_ms(iso) + n * DAY).toISOString().slice(0, 10); }
 function dowOf(iso) { return new Date(iso + 'T00:00:00Z').getUTCDay(); }   // 0=Sun..6=Sat
-function _todayIso() { return new Date().toISOString().slice(0, 10); }
-function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
+var _todayIso = aiMath.todayIso;
+var _round = aiMath.round;
 
 /** Evenly-spread day offsets (0..6) to study, given days/week. dpw=5 → [0,1,3,4,6]; dpw=3 → [0,2,5]. */
 function weekStudyOffsets(daysPerWeek) {

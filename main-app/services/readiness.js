@@ -12,13 +12,14 @@
 'use strict';
 
 var signals = require('./signals');
+var aiMath = require('./aiMath');   // shared round/clamp/todayIso (ADR-047)
 var clamp = signals.clamp;
 
-/* ---- date helpers (operate on 'YYYY-MM-DD'; UTC-stable) ---- */
+/* ---- date helpers (operate on 'YYYY-MM-DD'; UTC-stable; _ms intentionally local — ISO-key parser) ---- */
 var DAY = 86400000;
 function _ms(iso) { var t = new Date(iso + 'T00:00:00Z').getTime(); return isNaN(t) ? Date.now() : t; }
-function _todayIso() { return new Date().toISOString().slice(0, 10); }
-function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
+var _todayIso = aiMath.todayIso;
+var _round = aiMath.round;
 
 /** The demonstrated-or-inferred skill estimate (0..1) for a topic, BEFORE folding in coverage. */
 function skillBase(topic, ctx) {
