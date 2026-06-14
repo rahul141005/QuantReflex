@@ -19,7 +19,7 @@ var AIAnalyticsView = (function () {
     if (!c) return;
     c.innerHTML =
       '<div class="view-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;">' +
-        '<div><h2 class="view-title">AI Cost Center</h2><p class="view-subtitle">GPT spend, feature economics, top consumers, and abuse — one command surface.</p></div>' +
+        '<div><h2 class="view-title">AI Cost Center</h2><p class="view-subtitle">GPT spend, feature economics, top consumers, and abuse. All $ figures are token-based <strong>estimates</strong> — reconcile against the OpenAI invoice.</p></div>' +
         '<button class="btn btn-sm btn-outline" id="aiRefresh">Refresh</button></div>' +
       '<div id="aiBody"><div class="loading">Calculating operational AI costs…</div></div>';
     var b = document.getElementById('aiRefresh'); if (b) b.onclick = _load;

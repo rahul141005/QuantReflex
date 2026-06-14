@@ -8,6 +8,25 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
+## 🛠 Scale-debt deferred at launch (ADR-041, 2026-06-14) — intentional, not forgotten
+
+Deferred during the first-1–2k-users launch pass because they only bite at 10k+ users or are non-blocking for the
+first cohort. Each is safe to defer; revisit at the trigger noted.
+
+| Item | Why deferred (safe at 1–2k) | Revisit trigger |
+|---|---|---|
+| **Failed-grants N+1 scan** (super-admin Revenue → every user's `entitlementLogs`, on-demand) | Rarely-opened admin tab; thousands of reads is trivially cheap at this scale | >5k users OR the tab feels slow → maintain a top-level `failedGrants` append collection |
+| **Coaching roster full-text search** (falls back to a ≤1000-doc fetch + client filter) | Coachings are small at launch; the fallback is correct, just not indexed | Any coaching >1k students → Algolia/Typesense or a prefix-index |
+| **Pre-aggregate coaching dashboard metrics** (activeToday/avgAccuracy via 5000-cap roster scan per refresh) | One bounded scan per refresh is cheap for small rosters | Coachings approaching the 5000 cap → write per-coaching daily rollups in the cron |
+| **Refund / chargeback webhook** (`payments.status` stays `paid`; premium not auto-reverted) | Zero payments yet; a refund is handled today by a manual super-admin **revoke** | First real refunds / before scaling paid marketing → Razorpay refund webhook + `status:'refunded'` + auto-revert |
+| **Field-mask the coaching detail read** (full user doc incl. 300-item `responseTimes`) | A few KB extra per profile open; negligible | If detail reads dominate cost |
+| **Startup skeleton-first render** (boot blocks on `loadFromFirestore`, 2–3s on slow nets) | Acceptable first-paint at launch | If onboarding drop-off correlates with load time |
+| **Display-name edit + results per-category breakdown** | Features, not blockers; current flows are coherent | Product polish sprint |
+| **App Check, shared-package extraction, design-token unification across the 3 apps** | Maintainability/brand, not user-facing; disjoint audiences | Pre-Series-A hardening / before a 4th app |
+| **DAU/newToday "as of 00:05 UTC" relabel + improver-list min-sample gate** | Coaching/admin-facing only; values are directionally correct and show sample size | When the metrics drive real decisions |
+
+---
+
 ## ⭐ Historical Analytics Foundation (milestone — established 2026-06-13, ADR-027)
 
 **The principle: measure real improvement, never invent it.** QuantReflex's central promise is not "students

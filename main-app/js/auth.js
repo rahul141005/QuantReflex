@@ -207,6 +207,22 @@ var Auth = (function () {
       });
   }
 
+  /**
+   * Send a password-reset email (ADR-041). To avoid account-enumeration, a non-existent address resolves the same
+   * as success ("if an account exists, we've emailed a reset link"). callback(err|null).
+   */
+  function resetPassword(email, callback) {
+    var cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || cleanEmail.indexOf('@') < 1) { callback('Enter a valid email address.'); return; }
+    if (!_auth) { callback('Authentication service not available.'); return; }
+    _auth.sendPasswordResetEmail(cleanEmail)
+      .then(function () { callback(null); })
+      .catch(function (err) {
+        if (err && err.code === 'auth/user-not-found') { callback(null); return; } /* don't leak existence */
+        callback(getReadableError(err));
+      });
+  }
+
   function logout(callback) {
     if (!_auth) {
       if (callback) callback('Authentication service not available.');
@@ -251,6 +267,7 @@ var Auth = (function () {
     onStateChange: onStateChange,
     signup: signup,
     login: login,
+    resetPassword: resetPassword,
     logout: logout,
     getCurrentUser: getCurrentUser,
     getUserId: getUserId,

@@ -445,14 +445,14 @@ var FirestoreSync = (function () {
     var keys = Object.keys(patch);
     if (keys.length === 0) return;
 
+    // ADR-041: entitlement fields (plan/planExpiry/planType/planSource/isTrial/trialEnd) are SERVER-AUTHORITATIVE.
+    // Normalize IN MEMORY only for this session's local view — NEVER write them back to Firestore. Writing a
+    // client-derived default here could clobber a fresh server grant in flight (the rules permit client downgrades
+    // to free/null, so a stale "fill" would silently drop the user's premium). The server (register/activatePremium)
+    // is the sole writer; aiService.resolvePlan self-heals expiry on read.
     for (var i = 0; i < keys.length; i++) {
       data[keys[i]] = patch[keys[i]];
     }
-    docRef.set(patch, { merge: true }).then(function () {
-
-    }).catch(function (err) {
-      console.warn('Failed to normalize monetization fields:', err);
-    });
   }
 
   var _defaultStats = {

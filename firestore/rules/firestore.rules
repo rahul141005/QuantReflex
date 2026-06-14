@@ -151,8 +151,13 @@ service cloud.firestore {
       // Create: denied — account creation is now server-side only via /api/auth/register
       allow create: if false;
 
-      // Update: owner only, entitlement fields protected
-      allow update: if isOwner(userId) && entitlementFieldsSafe();
+      // Update: owner only, entitlement fields protected, AND only while the account is active (ADR-041).
+      // A suspended/archived user must not be able to write stats/streak/settings from a still-valid token in the
+      // window before it expires — this closes the practice-after-suspend race server-side. Admin SDK (restore)
+      // bypasses rules, so restoring to 'active' re-enables writes. Missing field defaults to 'active' (new users).
+      allow update: if isOwner(userId)
+        && resource.data.get('accountStatus', 'active') == 'active'
+        && entitlementFieldsSafe();
 
       // Delete: denied — account deletion is server-side only
       allow delete: if false;

@@ -133,13 +133,20 @@ var CommandCenterView = (function () {
     });
   }
 
+  /* ENABLING a switch that halts a core user-facing system platform-wide requires a typed confirmation (ADR-041).
+     Disabling (restoring) and the lower-impact maintenance flag use the plain confirm. */
+  var EM_CONFIRM_WORD = { paymentKillSwitch: 'STOP PAYMENTS', aiKillSwitch: 'STOP AI' };
   function _toggleEmergency(key, enabled, inp) {
+    var typed = enabled ? EM_CONFIRM_WORD[key] : null;
+    var body = '<p class="text-sm text-secondary">' + (enabled ? 'This immediately affects the student app.' : 'This restores normal operation.') + ' The action is audited.</p>';
+    if (typed) body += '<p class="text-sm text-secondary">This halts a core system for ALL users. Type <strong>' + typed + '</strong> to confirm.</p><input type="text" class="modal-input" id="emConf" placeholder="' + typed + '" />';
     Modal.show({
       title: (enabled ? 'Enable ' : 'Disable ') + (EM_LABELS[key] || key),
-      body: '<p class="text-sm text-secondary">' + (enabled ? 'This will immediately affect the student app.' : 'This will restore normal operation.') + ' The action is audited.</p>',
+      body: body,
       actions: [
         { label: 'Cancel', onClick: function () { inp.checked = !enabled; } },
         { label: enabled ? 'Enable' : 'Disable', accent: !enabled, danger: enabled, autoClose: false, onClick: function () {
+          if (typed && (document.getElementById('emConf') || {}).value !== typed) { Toast.error('Type ' + typed); return; }
           API.setEmergencyConfig(key, enabled).then(function () { Toast.success((EM_LABELS[key] || key) + ' ' + (enabled ? 'ENABLED' : 'disabled')); Modal.close(); _loadData(); })
             .catch(function (e) { inp.checked = !enabled; Toast.error('Failed: ' + AdminUtils.getReadableError(e)); });
         } }

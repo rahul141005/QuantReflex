@@ -175,6 +175,7 @@ var EngagementView = (function () {
     if (bar) bar.querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-seg') === seg); });
   }
 
+  var _sendArmed = false, _armTimer = null;
   function send() {
     var title = (document.getElementById('engTitle') || {}).value || '';
     var body = (document.getElementById('engBody') || {}).value || '';
@@ -183,6 +184,16 @@ var EngagementView = (function () {
     if (!title.trim() || !body.trim()) { Toast.error('Add a title and a message.'); return; }
 
     var btn = document.getElementById('engSend');
+    // ADR-041: two-tap confirm — a broadcast reaches real students and can't be unsent; require a deliberate second tap.
+    if (!_sendArmed && !targetUid) {
+      _sendArmed = true;
+      var who = targetTopic ? 'students weak in this topic' : (_segment === 'premium' ? 'Premium students' : _segment === 'free' ? 'free students' : 'ALL students');
+      if (btn) btn.textContent = 'Tap again to send to ' + who + ' →';
+      if (_armTimer) clearTimeout(_armTimer);
+      _armTimer = setTimeout(function () { _sendArmed = false; if (btn && !btn.disabled) btn.textContent = 'Send now'; }, 4000);
+      return;
+    }
+    _sendArmed = false; if (_armTimer) clearTimeout(_armTimer);
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     CoachingAPI.sendNotice({
       title: title.trim(), body: body.trim(),

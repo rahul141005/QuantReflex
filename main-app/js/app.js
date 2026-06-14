@@ -746,19 +746,44 @@ document.addEventListener('DOMContentLoaded', function () {
       tab.classList.add('active');
 
       var mode = tab.getAttribute('data-mode');
+      var forgotRow = document.getElementById('forgotPasswordRow');
       if (mode === 'register') {
         _isSignupMode = true;
         if (registerFields) registerFields.style.display = 'block';
+        if (forgotRow) forgotRow.style.display = 'none';
         if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
       } else {
         _isSignupMode = false;
         if (registerFields) registerFields.style.display = 'none';
+        if (forgotRow) forgotRow.style.display = 'block';
         if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
       }
       hideError();
       _resetAllValidation();
       _setLoading(false);
     });
+
+    /* Forgot-password (ADR-041): emails a Firebase reset link. Enumeration-safe (success copy regardless). */
+    var forgotBtn = document.getElementById('forgotPasswordBtn');
+    if (forgotBtn) {
+      forgotBtn.addEventListener('click', function () {
+        var emailInput = document.getElementById('loginEmail');
+        var email = emailInput ? emailInput.value : '';
+        if (!email || email.indexOf('@') < 1) {
+          if (emailInput) emailInput.focus();
+          if (typeof showToast === 'function') showToast('Enter your email above first, then tap "Forgot password?".');
+          else if (loginError) { loginError.textContent = 'Enter your email above first.'; loginError.style.display = 'block'; }
+          return;
+        }
+        forgotBtn.disabled = true; var _orig = forgotBtn.textContent; forgotBtn.textContent = 'Sending…';
+        Auth.resetPassword(email, function (err) {
+          forgotBtn.disabled = false; forgotBtn.textContent = _orig;
+          var msg = err ? err : 'If an account exists for that email, we just sent a reset link. Check your inbox (and spam).';
+          if (typeof showToast === 'function') showToast(msg);
+          else if (loginError) { loginError.textContent = msg; loginError.style.display = 'block'; }
+        });
+      });
+    }
 
     /* ---- Realtime Validation System ---- */
     var _emailTouched = false;

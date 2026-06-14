@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Launch-readiness pass for the first 1–2k users (ADR-041)
+
+Post-audit launch hardening, scoped to correctness/UX/security/reliability (hyperscale deferred → ROADMAP §Scale-debt).
+Bible 2.29→2.30. SW v101→v102.
+
+- **Forgot-password** — `main-app/js/auth.js` `resetPassword` (enumeration-safe `sendPasswordResetEmail`) + login-screen
+  link (`app.js`, `index.html`, `css/style.css`). Closes the no-recovery dead-end.
+- **Plan server-authoritative on client** — `firestore-sync._normalizeMonetization` no longer writes entitlement
+  defaults to Firestore (in-memory only); stops a stale client normalization from clobbering a fresh server grant.
+- **Suspend write-guard** — `firestore.rules` user-update now requires `accountStatus=='active'`, closing
+  practice-after-suspend server-side.
+- **Destructive admin friction** — `super-admin users.js`: Suspend confirms; Archive + Reset-progress require typed
+  ARCHIVE/RESET; `command-center.js`: enabling payment/AI kill switch requires typing STOP PAYMENTS/STOP AI.
+- **Coaching broadcast** — two-tap confirm naming the audience (`engagement.js`).
+- **Metric honesty** — AI Cost Center subtitle marks $ as token-based estimates (`super-admin ai.js`); WP "Coming soon"
+  placeholder hidden (`index.html`).
+- **Verified already-correct (audit overclaims):** duel listener teardown, register error differentiation, premium-count
+  expired-exclusion, 2-player duels, debounced (not per-question) writes. **AI re-validated** (0 strict keywords, all
+  6 prompts used, full gate chain, injection hardening, deterministic fallbacks) — no new AI code needed.
+- **Verify:** node --check ×7; rules 58/58; CSS 2458/2458; duel-sim 47/47; AI invariant grep clean. Docs: ADR-041,
+  ROADMAP §Scale-debt, VERSIONS.
+
 ## 2026-06-14 — AI Ecosystem adversarial-audit remediation (ADR-040)
 
 A 3-agent adversarial trace of the ADR-039 AI found two production-blocking bugs (the AI *looked* built but was

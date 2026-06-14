@@ -61,6 +61,10 @@
           </div>
         </div>
 
+        <div id="forgotPasswordRow" style="text-align:right;margin:-.15rem 0 .35rem;">
+          <button type="button" id="forgotPasswordBtn" class="auth-forgot-btn">Forgot password?</button>
+        </div>
+
         <div id="loginError" class="auth-error" style="display:none;"></div>
         <button id="authSubmitBtn" class="auth-btn">Log In</button>
       </div>
@@ -364,7 +368,9 @@
               <h3>🔄 Review Mistakes</h3>
               <p>Practice your previously wrong answers</p>
             </div>
-            <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative;">
+            <!-- Word Problems: hidden until the AI generation pipeline ships (ADR-041 — no placeholder experiences at
+                 launch). Server architecture is future-ready (aiBrain.wordProblem); re-enable by removing display:none. -->
+            <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative; display:none;">
               <span class="coming-soon-pill">Coming soon</span>
               <h3>🤖 Word Problems</h3>
               <p>AI-crafted exam-style word problems · comprehension + calculation</p>

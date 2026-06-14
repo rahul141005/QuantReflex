@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-041 — Launch-readiness pass for the first 1–2k users (2026-06-14)
+- **Context:** Following the zero-assumption monorepo audit, the owner scoped a launch pass to the first 1,000–2,000
+  users: fix correctness/UX/security/reliability NOW; treat pure hyperscale (10k+) work as documented debt. The audit
+  surfaced real blockers AND several overclaims; both were reconciled against the code before acting.
+- **Fixed (launch blockers):**
+  - **Forgot-password** — `Auth.resetPassword` (Firebase `sendPasswordResetEmail`, account-enumeration-safe) + a
+    "Forgot password?" link on the login screen (`auth.js`, `app.js`, `index.html`, `style.css`). Previously a
+    locked-out user had no recovery path.
+  - **Plan is server-authoritative on the client** — `firestore-sync._normalizeMonetization` no longer WRITES its
+    in-memory entitlement defaults back to Firestore. The prior `docRef.set(patch)` could clobber a fresh server
+    grant (rules permit client downgrade-to-free), silently dropping a user's premium. Now normalize-in-memory only.
+  - **Practice-after-suspend closed server-side** — the `users/{userId}` update rule now also requires
+    `resource.data.get('accountStatus','active') == 'active'`, so a suspended/archived user's still-valid token can't
+    write stats/streak before it expires. Admin SDK (restore) bypasses; missing field defaults to active.
+  - **Dangerous admin actions gated** — super-admin Suspend now confirms; Archive (schedules a 30-day purge) and
+    Reset-progress (irreversible wipe) require a **typed** ARCHIVE / RESET confirmation; enabling the **payment** or
+    **AI** kill switch (halts a core system for ALL users) requires typing `STOP PAYMENTS` / `STOP AI`. (Hard-purge
+    already had type-DELETE.)
+  - **Coaching broadcast** — a two-tap confirm naming the audience ("Tap again to send to ALL students →") prevents
+    an accidental, un-sendable blast.
+  - **Metric honesty** — the AI Cost Center subtitle now states all $ figures are token-based **estimates**; the WP
+    "Coming soon" placeholder card is hidden (no placeholder experiences at launch).
+- **Verified already-correct (audit overclaims):** duel `onSnapshot` IS unsubscribed on teardown (`_resetState →
+  DuelCore.stopListening`); register DOES differentiate coaching-not-found (404) vs inactive (403); the displayed
+  active-premium metric ALREADY subtracts expired + trials (`premiumTotal − trials − expired`); duels are strictly
+  2-player (no hyperscale write risk); client writes are debounced/dirty-gated (NOT per-question).
+- **AI re-validated (gpt-4o-mini only):** 0 strict-mode schema keywords; all 6 registry prompts consumed; full gate
+  chain (kill-switch → premium → throttle → enforced budget); injection sanitize + delimiter-wrap on all user inputs;
+  deterministic fallbacks in every catch; daily-cache + cold-start-skip kill duplicate calls. No new AI code needed.
+- **Deferred as documented debt (see ROADMAP §Scale-debt) — WHY:** these only bite at 10k+ users or are non-blocking
+  for the first cohort: failed-grants N+1 scan (rare admin tab); coaching roster full-text search (1000-fallback fine
+  at this scale); pre-aggregating coaching dashboard metrics (5000-cap scan fine); refund webhook (zero payments yet;
+  manual admin revoke covers it); field-mask on the coaching detail read; startup skeleton-first render; display-name
+  edit + results per-category breakdown (features, not blockers); App Check + shared-package extraction + design-token
+  unification (maintainability, not user-facing).
+- **Verification:** node --check all 7 touched JS; rules 58/58; CSS 2458/2458; duel-sim 47/47; AI invariant grep clean.
+  SW v101→v102. Gate: owner two-device pass on the entitlement/suspend/forgot-password flows before relying on them.
+- **Consequence:** the realistic day-one blockers (recovery, entitlement authority, suspend integrity, destructive-
+  action safety, broadcast safety, metric honesty) are closed; hyperscale work is deferred with rationale. Bible 2.29→2.30.
+
 ## ADR-040 — AI Ecosystem adversarial-audit remediation (2026-06-14)
 - **Context:** ADR-039 passed every static check (node --check, brace balance, unit tests) but a 3-agent adversarial
   trace of the real execution path found **two production-blocking bugs neither catchable by static checks** — the AI

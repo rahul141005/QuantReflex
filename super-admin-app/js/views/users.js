@@ -220,10 +220,37 @@ var UsersView = (function () {
       b.onclick = function () {
         var lc = b.getAttribute('data-lc');
         if (lc === 'delete') { return _confirmDelete(uid); }
-        var fn = lc === 'suspend' ? API.suspendUser : lc === 'restore' ? API.restoreUser : lc === 'archive' ? function (u) { return API.archiveUser(u, 'admin'); } : API.resetUserProgress;
-        b.disabled = true;
-        fn(uid).then(function () { Toast.success(lc + ' done'); _split.select(uid); }).catch(function (e) { b.disabled = false; Toast.error(AdminUtils.getReadableError(e)); });
+        if (lc === 'restore') { _runLifecycle('restore', uid, b); return; } /* safe — no confirm */
+        if (lc === 'suspend') { _confirmLifecycle({ action: 'suspend', uid: uid, btn: b, title: 'Suspend account', body: '<p class="text-sm text-secondary">Locks the user out until restored. Reversible.</p>', label: 'Suspend' }); return; }
+        if (lc === 'archive') { _confirmLifecycle({ action: 'archive', uid: uid, btn: b, title: 'Archive account', body: '<p class="text-sm text-secondary">Schedules <strong>permanent deletion in 30 days</strong> (Restore reverses it until then). Type <strong>ARCHIVE</strong> to confirm.</p><input type="text" class="modal-input" id="uArchConf" placeholder="ARCHIVE" />', label: 'Archive', confirmWord: 'ARCHIVE', confirmInputId: 'uArchConf' }); return; }
+        if (lc === 'reset') { _confirmLifecycle({ action: 'reset', uid: uid, btn: b, title: 'Reset progress', body: '<p class="text-sm text-secondary"><strong>Permanently wipes</strong> the student\'s stats, streaks, history and mistakes. <strong>Irreversible.</strong> Type <strong>RESET</strong> to confirm.</p><input type="text" class="modal-input" id="uResetConf" placeholder="RESET" />', label: 'Reset', confirmWord: 'RESET', confirmInputId: 'uResetConf' }); return; }
       };
+    });
+  }
+  function _lifecycleApi(action) {
+    return action === 'suspend' ? API.suspendUser
+      : action === 'restore' ? API.restoreUser
+      : action === 'archive' ? function (u) { return API.archiveUser(u, 'admin'); }
+      : API.resetUserProgress;
+  }
+  function _runLifecycle(action, uid, btn) {
+    if (btn) btn.disabled = true;
+    _lifecycleApi(action)(uid).then(function () { Toast.success(action + ' done'); _split.select(uid); })
+      .catch(function (e) { if (btn) btn.disabled = false; Toast.error(AdminUtils.getReadableError(e)); });
+  }
+  function _confirmLifecycle(o) {
+    Modal.show({
+      title: o.title, body: o.body,
+      actions: [
+        { label: 'Cancel' },
+        { label: o.label, danger: true, autoClose: !o.confirmWord, onClick: function () {
+          if (o.confirmWord) {
+            if ((document.getElementById(o.confirmInputId) || {}).value !== o.confirmWord) { Toast.error('Type ' + o.confirmWord); return; }
+            Modal.close();
+          }
+          _runLifecycle(o.action, o.uid, o.btn);
+        } }
+      ]
     });
   }
   function _confirmDelete(uid) {
