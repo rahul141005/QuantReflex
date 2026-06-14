@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — QuanAI Planner: living, adaptive, syllabus-driven study planner (ADR-046)
+
+Adds a deterministic planning engine the LLM only narrates (§0 doctrine), alongside the audited Coach/Insights/
+Explain/Mission stack (ADR-045 below). No model change (still gpt-4o-mini). SW v106→v107.
+
+- **Syllabus DB** — new `main-app/data/syllabus.js` (bundled, dual-exported like `questions.js`; `SYLLABUS_VERSION`):
+  26 exams → 5 real syllabi (CAT/MBA, Banking/SSC, Defense, Foundation, Generic), 104 topics, each with importance/
+  frequency/difficulty/prereqs (acyclic) /revision-cadence/est-minutes, a `drillable` link to one of the 12 cats
+  (or null), and a weighted `signals[]` map. The 12 cats are **signals, not limits** — every topic is scheduled.
+- **Engine** — `services/signals.js` (infers readiness from in-app practice; never "no data"), `services/
+  readiness.js` (per-topic readiness, 0..100 Exam Readiness Score, Completion Forecast), `services/
+  plannerEngine.js` (14-day scheduler: priority, prereq cascade-unlock, revision interleaving, adaptive difficulty,
+  adaptive buffer/mock, `applyCompletion`, `rebalanceMissed` Smart Catch-up). Pure functions, no Firestore/LLM.
+- **Brain/API** — `aiBrain.js` plannerGet/Setup/Toggle/RegenBlock over `aiPlanner/{uid}` v2; `aiPrompts.js`
+  `planner.narrate@1` (narrative only); `api/ai.js` `action=planner` (get/setup/toggle/regen) with `clientStats`
+  sanitization.
+- **Accuracy fix** — `studentContext.buildContext` merges a NON-AUTHORITATIVE, raise-only `clientStats` floor
+  (fenced to the planner path) so a stale `users.stats` doc no longer reports false-zero accuracy after a live
+  session.
+- **Client** — `companion-ui.js` setup wizard (searchable exam selector, calendar date, study slider to 8h, days/
+  week, prep level, preferred time) + `js/views/planner-view.js` `#view-planner` calendar (readiness ring,
+  forecast, day cells by kind, task checkboxes, per-task explainability, drillable deep-links). Home card →
+  "Open your Study Planner ✨". `data/syllabus.js` + `planner-view.js` registered in `index.html` + service worker.
+- **Coexistence** — the audited one-shot Mission (`aiMissions` + `action=mission` + `planLogic`) stays; the Home
+  card now opens the new Planner. Coach/Insights keep ADR-045's exam-aware grounding.
+- **Verify** — `scripts/planner-engine.check.js` (209 invariant assertions) + `scripts/planner-brain.check.js`
+  (19 wiring assertions, mock Firestore/LLM); `node --check` on every changed file. No rules/index change (catch-all
+  default-deny covers `aiPlanner`).
+
 ## 2026-06-14 — QuanAI production audit: exam-aware persona, freshness, plan grounding, version-honesty (ADR-045)
 
 Deep production audit of the QuanAI ecosystem (Coach, Insights, Explain, Study Planner). The architecture was already

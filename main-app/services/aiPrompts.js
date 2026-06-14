@@ -55,9 +55,10 @@ var REGISTRY = {
         schema: { type: 'object', additionalProperties: false,
           required: ['say', 'missionWhy', 'followup', 'celebrate'],
           properties: { say: STR, missionWhy: STR, followup: STR, celebrate: STR } },
-        system: sys('Give ONE grounded observation about today, then motivate briefly. You are prescriptive and '
-          + 'accountable, never generic. If there is a clear win in the data, celebrate it in one line (else return '
-          + 'an empty celebrate).', v.examName),
+        system: sys('Open with ONE specific thing you NOTICED in their numbers today (use the TODAY line — count, '
+          + 'accuracy, pace — when present; otherwise the most recent trend). Sound like a mentor who was watching, '
+          + 'not a dashboard. Never tell a student who has practiced to "go practice". Be prescriptive and accountable, '
+          + 'never generic. If there is a clear win in the data, celebrate it in one line (else return an empty celebrate).', v.examName),
         user: 'Student context:\n' + v.context + '\n\nToday you are prescribing this focus: ' + v.focusLabel + '.'
           + (v.planNote ? '\n' + v.planNote : '')
           + '\nWrite JSON: say (the grounded observation, <=2 sentences), missionWhy (one short line on why this '
@@ -76,8 +77,9 @@ var REGISTRY = {
         schema: { type: 'object', additionalProperties: false,
           required: ['headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
-        system: sys('You are a performance analyst. Surface the single biggest lever this student has right now '
-          + 'and explain their top weakness in plain terms. Be insightful, never restate the dashboard.', v.examName),
+        system: sys('You are a performance analyst. Surface the single biggest lever this student has right now and '
+          + 'explain their top weakness in plain terms. Lead with what moved recently (today or this week) when the '
+          + 'data shows it. Be insightful and specific to their numbers, never restate the dashboard.', v.examName),
         user: 'Student context:\n' + v.context + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: headline (the biggest lever, <=2 sentences), weaknessInsight (one short line on what is '
           + 'really going wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
@@ -138,6 +140,28 @@ var REGISTRY = {
     }
   },
 
+  /* ---- Explain FOLLOW-UP: anchored to the EXACT question + the prior explanation (ADR-045). This is what keeps
+     "Simpler / Go deeper / Another like this" on THIS problem instead of drifting to the student's weak topic. ---- */
+  'explain.followup': {
+    id: 'explain.followup', version: 1, maxTokens: 360, temperature: 0.3,
+    build: function (v) {
+      return {
+        schemaName: 'explain_followup',
+        schema: { type: 'object', additionalProperties: false,
+          required: ['say', 'steps'],
+          properties: { say: STR, steps: { type: 'array', items: STR } } },
+        system: sys('The student is looking at ONE specific question and your previous explanation of it. Do exactly '
+          + 'what they ask — simplify, go deeper, or give another example — about THIS EXACT question and concept. '
+          + 'NEVER switch to a different problem, shape, number, or topic. Stay anchored to the question below.'),
+        user: 'The question (treat as the fixed subject — do not change it):\n' + v.question
+          + '\n\nYour previous explanation of it:\n' + v.lastExplanation
+          + '\n\nStudent just asked: ' + v.userTurn
+          + '\n\nWrite JSON: say (<=2 sentences, about THIS question), steps (the reworked/extended/new-example lines '
+          + 'for THIS same concept, max 5 short strings; [] if a sentence suffices).'
+      };
+    }
+  },
+
   /* ---- Living Mission: model writes phases + rationale + this-week focus. Daily action is deterministic. ---- */
   'plan.generate': {
     id: 'plan.generate', version: 4, maxTokens: 900, temperature: 0.3,
@@ -162,6 +186,27 @@ var REGISTRY = {
           + '\n\nWrite JSON: rationale (why this structure, <=3 sentences referencing their data), weekFocus (1-5 '
           + 'topics for THIS week from the allowed categories, each with a one-line goal), phases (1-4 phases '
           + 'covering the whole remaining time, each with name + durationDays summing to ' + v.daysRemaining + ').'
+      };
+    }
+  },
+
+  /* ---- QuanAI Planner narration (ADR-046): the model ONLY writes prose for a block the deterministic engine
+     already designed. It never schedules — it phrases the rationaleSeed (focus topics, readiness, on-track). ---- */
+  'planner.narrate': {
+    id: 'planner.narrate', version: 1, maxTokens: 320, temperature: 0.4,
+    build: function (v) {
+      return {
+        schemaName: 'planner_narrate',
+        schema: { type: 'object', additionalProperties: false,
+          required: ['rationale', 'encouragement'],
+          properties: { rationale: STR, encouragement: STR } },
+        system: sys('A deterministic engine has already built this student\'s next 14-day study block from their '
+          + 'real analytics, the exam syllabus, and topic dependencies. Explain WHY it is structured this way in '
+          + 'plain, motivating language. Do NOT invent topics, dates, or numbers beyond what is given — only phrase it.'),
+        user: 'Plan summary (already decided — do not change it):\n' + v.seed
+          + '\n\nWrite JSON: rationale (<=3 sentences on why these focus topics now, referencing their readiness '
+          + 'and how the plan builds on dependencies), encouragement (one short line about their forecast — on track, '
+          + 'buffer, or the payoff of staying consistent).'
       };
     }
   },

@@ -15,6 +15,9 @@ const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
 const planLogic = require('./planLogic');
+const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
+const plannerEngine = require('./plannerEngine');    // deterministic 14-day scheduler
+const readinessLib = require('./readiness');         // readiness score + completion forecast
 
 function db() { return admin.firestore(); }
 function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
@@ -41,10 +44,20 @@ function missionBlock(title, why, mode, category, label, estMin) {
 }
 function chipReply(label, value, icon) { return { label: label, value: value, kind: 'reply', icon: icon || '' }; }
 function chipDeep(label, mode, category, catLabel, icon) { return { label: label, kind: 'deeplink', icon: icon || '', deepLink: { mode: mode, category: category, label: catLabel } }; }
+/* In-place micro-drill chip (ADR-045): runs 5 adaptive questions INSIDE the modal and returns to the
+   conversation — never navigates to the Practice page (vs chipDeep). Used by Explain so the learning flow is unbroken. */
+function chipDrill(label, category, catLabel, icon) { return { label: label, kind: 'drill', icon: icon || '', drill: { category: category, label: catLabel } }; }
 function chipDismiss(label) { return { label: label, value: 'dismiss', kind: 'dismiss' }; }
 function helpfulChips() { return [chipReply('👍 Helpful', 'helpful_yes'), chipReply('👎 Not really', 'helpful_no')]; }
 function envelope(feature, blocks, chips, meta) {
   return { v: 1, feature: feature, blocks: (blocks || []).filter(Boolean), chips: (chips || []).filter(Boolean), meta: meta || {} };
+}
+/* A focus topic with a GUARANTEED non-empty category, so deep-link drills never silently no-op (ADR-045 bugfix:
+   topWeakCategory could return {cat:''} for cold/all-unknown students → startDrillFromPractice('focus','') was a no-op). */
+function _focus(ctx) {
+  var w = ctxEngine.topWeakCategory(ctx);
+  if (w && w.cat) return w;
+  return { cat: 'percentages', label: ctxEngine.label('percentages') };
 }
 
 /* ---- daily cache (consolidates the old aiCoachV2 / aiInsightsV2) ---- */
@@ -67,6 +80,11 @@ async function coachToday(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
 
   if (ctxEngine.isColdStart(ctx)) {
+    // Coach, don't gate (ADR-045): acknowledge what they HAVE done today instead of telling them to "go practice".
+    var doneT = (ctx.today && ctx.today.attempted) || 0;
+    var coldMsg = doneT > 0
+      ? 'Nice — ' + doneT + ' done today. Push a little further and I\'ll start calling out your real patterns: your pace, your accuracy, the topics that slow you down.'
+      : 'I\'m ' + prompts.PERSONA + ', your coach. Run a quick set and I\'ll start reading your real patterns — pace, accuracy, and the topics that trip you up.';
     return envelope('coach', [
       say('I\'m ' + prompts.PERSONA + ', your coach. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
       missionBlock('Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
@@ -75,13 +93,24 @@ async function coachToday(uid, opts) {
 
   if (!opts.force) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
-  var focus = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
+  var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
-  // ADR-040: read today's mission so the Coach genuinely references the plan (a real cross-feature link, not just memory).
+  // ADR-040/046: read the active study plan so the Coach genuinely references it. Prefer the QuanAI Planner's
+  // tasks for TODAY; fall back to the legacy Mission weekFocus for users not yet migrated.
   var planNote = '';
   try {
-    var md = await db().collection('aiMissions').doc(uid).get();
-    if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
+    var pd = await db().collection('aiPlanner').doc(uid).get();
+    if (pd.exists) {
+      var pdoc = pd.data();
+      var todayKey = _todayIso();
+      var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
+      var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
+      if (labels) planNote = 'The student\'s study planner schedules today: ' + labels + '. Tie your advice to it.';
+    }
+    if (!planNote) {
+      var md = await db().collection('aiMissions').doc(uid).get();
+      if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
+    }
   } catch (_) {}
   var env;
   try {
@@ -123,10 +152,14 @@ async function insights(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
 
   if (ctxEngine.isColdStart(ctx)) {
+    var doneT = (ctx.today && ctx.today.attempted) || 0;
+    var coldMsg = doneT > 0
+      ? 'You\'ve done ' + doneT + ' today — a little more and I\'ll surface real trends: accuracy, speed, and exactly which topics to fix first.'
+      : 'Run a set and I\'ll surface real trends — accuracy, speed, and exactly which topics to fix first.';
     return envelope('insights', [
-      say('Once you\'ve done ~20 questions I can show you real trends — accuracy, speed, and exactly which topics to fix first.'),
+      say(coldMsg),
       missionBlock('Practice to unlock insights', 'I need a bit more data to find your patterns.', 'practice', '', '', 5)
-    ], [chipDeep('Practice now', 'practice', '', '')], { coldStart: true });
+    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Practice now', 'practice', '', '')], { coldStart: true });
   }
 
   if (!opts.force) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
@@ -183,6 +216,7 @@ async function explainBase(question, answer, category, uid) {
   if (!pieces) {
     var mem = await aiService.getMemory(uid);
     var struggled = !!(mem && Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0);
+    var depth = (mem && mem.preferredDepth) || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper (was hardcoded 'standard')
     try {
       var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: 'standard', struggledBefore: struggled, examName: (mem && mem.examName) || '' });
       promptId = _promptId(p);
@@ -222,19 +256,48 @@ async function chatTurn(uid, body) {
   // depth nudges + helpful acks handled WITHOUT an LLM call
   if (userTurn === 'helpful_yes' || userTurn === 'helpful_no') {
     if (userTurn === 'helpful_no') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
-    return envelope(feature, [say(userTurn === 'helpful_yes' ? 'Great — keep that momentum.' : 'Got it, I\'ll go more thorough next time.')], [chipDeep('Drill ' + catLabel, 'focus', topic, catLabel, '⚡')], { ack: true });
+    var ackChip = feature === 'explain' ? chipDrill('Drill ' + catLabel, topic, catLabel, '⚡') : chipDeep('Drill ' + catLabel, 'focus', topic, catLabel, '⚡');
+    return envelope(feature, [say(userTurn === 'helpful_yes' ? 'Great — keep that momentum.' : 'Got it, I\'ll go more thorough next time.')], [ackChip], { ack: true });
   }
   if (userTurn === 'explain_simpler') aiService.updateMemory(uid, { preferredDepth: 'concise' }, 'feedback');
   if (userTurn === 'explain_deeper') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
 
-  var hint = userTurn === 'explain_simpler' ? 'Re-explain this much more simply, in 2-3 big steps.'
-    : userTurn === 'explain_deeper' ? 'Explain this more deeply, with the reasoning behind each step.'
-    : userTurn === 'explain_another' ? 'Give one fresh worked example of the same concept (different numbers).'
+  var hint = userTurn === 'explain_simpler' ? 'Re-explain this SAME question much more simply, in 2-3 big steps.'
+    : userTurn === 'explain_deeper' ? 'Explain this SAME question more deeply, with the reasoning behind each step.'
+    : userTurn === 'explain_another' ? 'Give one fresh worked example of the SAME concept and difficulty as this question (new numbers, same idea — do NOT change the shape/topic).'
+    : userTurn === 'drill_result' ? (String(body.drill || '').slice(0, 400) || 'The student just finished a quick drill on this concept. React in one short, specific line and give the single best next step.')
     : userTurn.indexOf('coach_followup:') === 0 ? userTurn.slice(15)
     : userTurn.indexOf('insights_why') === 0 ? 'Explain in plain terms why this is the student\'s weakness and the single best fix.'
     : userTurn;
 
   var ctx = await ctxEngine.buildContext(uid);
+
+  // EXPLAIN FOLLOW-UPS (ADR-045): anchor to the EXACT question + the prior explanation the client carries forward,
+  // so "Simpler / Go deeper / Another" deepen THIS problem instead of drifting to the student's weak topic.
+  var anchorQ = String(body.question || '').slice(0, 500);
+  if (feature === 'explain' && anchorQ) {
+    try {
+      var pf = prompts.get('explain.followup', {
+        question: llm.wrapData(anchorQ, 500),
+        lastExplanation: llm.wrapData(String(body.lastExplanation || '').slice(0, 900), 900),
+        userTurn: llm.wrapData(hint, 400)
+      });
+      var rf = await llm.complete({ system: pf.system, user: pf.user, schema: pf.schema, schemaName: pf.schemaName, maxTokens: pf.maxTokens, temperature: pf.temperature });
+      aiService.trackGptCost(uid, rf.usage);
+      var df = rf.data;
+      var fb = [say(df.say)];
+      if (Array.isArray(df.steps) && df.steps.length) fb.push(steps(df.steps));
+      return envelope('explain', fb, [
+        chipReply('Got it ✓', 'helpful_yes'), chipReply('Simpler', 'explain_simpler'),
+        chipReply('Go deeper', 'explain_deeper'), chipReply('Another like this', 'explain_another'),
+        chipDrill('Drill this', topic, catLabel, '⚡')
+      ], { promptId: 'explain.followup@1', topic: topic });
+    } catch (e) {
+      if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+      return envelope('explain', [callout('warn', 'I couldn\'t expand on that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
+    }
+  }
+
   var history = Array.isArray(body.history) ? body.history.slice(-6).map(function (h) { return (h.role === 'user' ? 'Student: ' : 'You: ') + String(h.content || '').slice(0, 200); }).join('\n') : '';
   try {
     var p = prompts.get('chat.turn', { topic: catLabel, context: ctxEngine.serialize(ctx, 700), history: llm.wrapData(history, 900), userTurn: llm.wrapData(hint, 400), examName: _examOf(ctx) });
@@ -244,7 +307,7 @@ async function chatTurn(uid, body) {
     var blocks = [say(d.say)];
     if (Array.isArray(d.steps) && d.steps.length) blocks.push(steps(d.steps));
     var chips = (feature === 'explain')
-      ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDeep('Drill this', 'focus', topic, catLabel, '⚡')]
+      ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDrill('Drill this', topic, catLabel, '⚡')]
       : [chipReply('Got it ✓', 'helpful_yes')];
     return envelope(feature, blocks, chips, { promptId: _promptId(p), topic: topic });
   } catch (e) {
@@ -354,6 +417,261 @@ function _missionEnvelope(ctx, plan) {
   ].concat(helpfulChips()), { promptId: 'plan.generate@' + prompts.REGISTRY['plan.generate'].version }) };
 }
 
+/* ════════════════════════ QuanAI PLANNER — living, adaptive study planner (ADR-046) ════════════════════════
+   A deterministic engine (plannerEngine + readiness + signals) schedules the next 14 days day-by-day from the
+   real exam syllabus + the student's analytics; the LLM only narrates. Stored at aiPlanner/{uid} (v2). The old
+   one-shot Mission (aiMissions) remains for back-compat until P7. */
+function _todayIso() { return new Date().toISOString().slice(0, 10); }
+function _clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+function _daysRemaining(examDate) {
+  if (!examDate) return 90;
+  var t = Date.parse(examDate + 'T00:00:00Z');
+  return isNaN(t) ? 90 : Math.max(1, Math.ceil((t - Date.now()) / 86400000));
+}
+/** Estimate the student's real recent pace (min/day) so the forecast can project from behaviour, not just the plan. */
+function _recentDailyMinutes(ctx) {
+  var t = ctx && ctx.trends;
+  if (!t || !t.speed || t.speed.recentMsPerQ == null || !t.consistency) return null;
+  var active = Math.max(1, t.consistency.activeDaysLast14 || 0);
+  var q7 = (ctx.today && ctx.today.attempted) ? ctx.today.attempted * Math.min(active, 7) : null; // rough
+  if (!q7) return null;
+  return Math.round((q7 / 7) * (t.speed.recentMsPerQ / 60000));
+}
+function _mergeTopicState(base, patch) {
+  var out = Object.assign({}, base || {});
+  Object.keys(patch || {}).forEach(function (id) { out[id] = Object.assign({}, out[id] || {}, patch[id]); });
+  return out;
+}
+function _blockStats(doc) {
+  var scheduled = 0, completed = 0, revDue = 0, revOnTime = 0;
+  ((doc.block && doc.block.days) || []).forEach(function (d) {
+    (d.tasks || []).forEach(function (t) {
+      scheduled++; if (t.done) completed++;
+      if (t.kind === 'revise') { revDue++; if (t.done) revOnTime++; }
+    });
+  });
+  return { scheduledTasks: scheduled, completedTasks: completed, revisionsDue: revDue, revisionsOnTime: revOnTime,
+    adherencePct: scheduled ? Math.round(completed / scheduled * 100) : 0 };
+}
+
+async function plannerGetDoc(uid) {
+  try { var d = await db().collection('aiPlanner').doc(uid).get(); if (d.exists) return d.data(); }
+  catch (e) { console.warn('[aiBrain] plannerGetDoc failed:', e.message); }
+  return null;
+}
+
+async function plannerGet(uid) {
+  var doc = await plannerGetDoc(uid);
+  if (!doc) return { plan: null };
+  var ctx = await ctxEngine.buildContext(uid);
+
+  // Auto Smart Catch-up on load: if past study/buffer days were fully missed, rebalance their tasks into the
+  // remaining days and recompute the forecast — so a student who skipped never opens to a stale, broken plan.
+  if (doc.block && doc.block.days) {
+    var today = _todayIso();
+    var needsRebalance = doc.block.days.some(function (d) {
+      return d.date < today && (d.kind === 'study' || d.kind === 'buffer') && (d.tasks || []).length && (d.tasks || []).every(function (t) { return !t.done; });
+    });
+    if (needsRebalance) {
+      var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+      doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, today, doc.dailyMinutes);
+      doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
+        dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
+      });
+      doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      db().collection('aiPlanner').doc(uid).set({ block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt }, { merge: true })
+        .catch(function (e) { console.warn('[aiBrain] planner auto-catchup write failed:', e.message); });
+    }
+  }
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null) };
+}
+
+/** Ask the LLM to narrate a block the engine already built. Cold-start / failure → deterministic copy. */
+async function _narratePlan(uid, ctx, seed) {
+  var fallback = {
+    rationale: 'This block focuses on ' + (seed.focusTopics || []).slice(0, 3).map(function (f) { return f.label; }).join(', ')
+      + ' — your highest-impact topics right now, ordered so each builds on the last.',
+    encouragement: seed.onTrack === false
+      ? "You're a little behind — I've added a recovery day so the plan still lands before your exam."
+      : 'Stay consistent and you\'re on track. Readiness ' + seed.readinessScore + '/100 and climbing.'
+  };
+  if (ctxEngine.isColdStart(ctx)) return fallback;
+  try {
+    var p = prompts.get('planner.narrate', { seed: llm.wrapData(JSON.stringify(seed), 700) });
+    var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
+    aiService.trackGptCost(uid, r.usage);
+    return { rationale: r.data.rationale || fallback.rationale, encouragement: r.data.encouragement || fallback.encouragement };
+  } catch (e) {
+    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    return fallback;
+  }
+}
+
+/** Create (or re-configure) a plan from the setup answers and generate block 0. */
+async function plannerSetup(uid, params, opts) {
+  opts = opts || {};
+  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+
+  var examId = String(params.examId || 'other');
+  var exam = SYL.getExam(examId);
+  var syllabus = SYL.resolveSyllabus(examId);
+  var examName = (examId === 'other' && params.examName) ? String(params.examName).slice(0, 100) : (exam ? exam.name : 'Custom');
+  var examDate = /^\d{4}-\d{2}-\d{2}$/.test(params.examDate || '') ? params.examDate : '';
+  var dailyMinutes = _clamp(parseInt(params.dailyMinutes, 10) || 45, 15, 480);
+  var daysPerWeek = _clamp(parseInt(params.daysPerWeek, 10) || 6, 1, 7);
+  var prepLevel = ['scratch', 'revision', 'average', 'confident', 'ready'].indexOf(params.prepLevel) >= 0 ? params.prepLevel : 'average';
+  var preferredTime = ['morning', 'afternoon', 'evening', 'night'].indexOf(params.preferredTime) >= 0 ? params.preferredTime : null;
+  var goal = String(params.goal || '').slice(0, 160);
+
+  // keep prior coverage if re-configuring the SAME syllabus (don't throw away real progress)
+  var prev = await plannerGetDoc(uid);
+  var topicState = (prev && prev.syllabusId === syllabus.id && prev.topicState) ? prev.topicState : {};
+
+  var startDate = _todayIso();
+  var gen = plannerEngine.generateBlock({
+    syllabus: syllabus, ctx: ctx, topicState: topicState, prepLevel: prepLevel,
+    dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, preferredTime: preferredTime,
+    startDate: startDate, blockIndex: 0, examName: examName, examDate: examDate,
+    daysRemaining: _daysRemaining(examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+
+  var doc = {
+    v: 2, uid: uid, examId: examId, examName: examName, examLabel: examName, syllabusId: syllabus.id,
+    examDate: examDate, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, prepLevel: prepLevel,
+    preferredTime: preferredTime, goal: goal,
+    block: { index: 0, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
+      generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days },
+    topicState: _mergeTopicState(topicState, gen.topicStatePatch),
+    blockHistory: (prev && prev.blockHistory) || [],
+    readiness: gen.examReadiness, forecast: gen.forecast,
+    createdAt: (prev && prev.createdAt) || admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  db().collection('aiPlanner').doc(uid).set(doc, { merge: true }).catch(function (e) { console.warn('[aiBrain] planner write failed:', e.message); });
+  aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes,
+    timelineEntry: { feature: 'planner', summary: 'Started a study plan for ' + examName + '.' } }, 'interview');
+
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+}
+
+/** Toggle a task's completion → credit coverage, run Smart Catch-up, recompute readiness + forecast. */
+async function plannerToggle(uid, params, opts) {
+  opts = opts || {};
+  var doc = await plannerGetDoc(uid);
+  if (!doc || !doc.block) return { error: 'no_plan' };
+  var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+
+  var day = (doc.block.days || []).find(function (d) { return d.date === params.date; });
+  var task = day && (day.tasks || []).find(function (t) { return t.topicId === params.topicId; });
+  if (!task) return { error: 'no_task' };
+
+  var done = !!params.done;
+  task.done = done;
+  task.completedAt = done ? new Date().toISOString() : null;
+  if (done && params.result) task.result = params.result;
+
+  if (done && task.topicId !== 'mock') {
+    var comp = plannerEngine.applyCompletion(doc.topicState, syllabus, {
+      topicId: task.topicId, estMin: task.estMin, kind: task.kind, result: params.result, dateIso: params.date
+    });
+    doc.topicState = _mergeTopicState(doc.topicState, comp.patch);
+  }
+
+  doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, _todayIso(), doc.dailyMinutes);
+
+  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
+  doc.readiness = readinessLib.examReadinessScore(syllabus, ctx, doc.topicState, _blockStats(doc));
+  doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
+    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  db().collection('aiPlanner').doc(uid).set(
+    { block: doc.block, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
+    { merge: true }
+  ).catch(function (e) { console.warn('[aiBrain] planner toggle write failed:', e.message); });
+
+  return { plan: doc };
+}
+
+/** End-of-block (or on-demand) regeneration: archive the block, then build the next 14 days from fresh progress. */
+async function plannerRegenBlock(uid, opts) {
+  opts = opts || {};
+  var doc = await plannerGetDoc(uid);
+  if (!doc || !doc.block) return { error: 'no_plan' };
+  var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
+  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+
+  var stats = _blockStats(doc);
+  doc.blockHistory = (doc.blockHistory || []).concat([{
+    index: doc.block.index, startDate: doc.block.startDate, endDate: doc.block.endDate,
+    completedTasks: stats.completedTasks, scheduledTasks: stats.scheduledTasks,
+    adherencePct: stats.adherencePct, readiness: doc.readiness || null
+  }]).slice(-12);
+
+  var startDate = _todayIso();
+  var gen = plannerEngine.generateBlock({
+    syllabus: syllabus, ctx: ctx, topicState: doc.topicState, prepLevel: doc.prepLevel,
+    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, preferredTime: doc.preferredTime,
+    startDate: startDate, blockIndex: doc.block.index + 1, examName: doc.examName, examDate: doc.examDate,
+    daysRemaining: _daysRemaining(doc.examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
+  });
+  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+
+  doc.topicState = _mergeTopicState(doc.topicState, gen.topicStatePatch);
+  doc.block = { index: doc.block.index + 1, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
+    generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days };
+  doc.readiness = gen.examReadiness; doc.forecast = gen.forecast;
+  doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  db().collection('aiPlanner').doc(uid).set(
+    { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt },
+    { merge: true }
+  ).catch(function (e) { console.warn('[aiBrain] planner regen write failed:', e.message); });
+
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement) };
+}
+
+/** Build the companion envelope: today's tasks + readiness + forecast, linking out to the calendar view. */
+function _plannerEnvelope(ctx, doc, encouragement) {
+  var today = _todayIso();
+  var day = (doc.block && doc.block.days || []).find(function (d) { return d.date === today; });
+  var tasks = (day && day.tasks) || [];
+  var rd = doc.readiness || { score: 0, band: 'early' };
+  var fc = doc.forecast || {};
+
+  var blocks = [say(doc.block && doc.block.rationale || 'Your study planner adapts every two weeks from your real progress.')];
+  blocks.push(metric('Exam readiness', rd.score + '/100', rd.band === 'exam-ready' ? 'up' : 'flat', rd.score >= 35));
+
+  if (tasks.length) {
+    tasks.slice(0, 3).forEach(function (t) {
+      blocks.push(missionBlock(
+        (t.kind === 'revise' ? 'Revise: ' : t.kind === 'mock' ? 'Mock: ' : 'Study: ') + t.label,
+        t.reason, t.drillable ? 'focus' : 'practice', t.drillable || '', t.label, t.estMin));
+    });
+  } else if (day && day.kind === 'rest') {
+    blocks.push(callout('info', 'Rest day — recovery is part of the plan. Back at it tomorrow.'));
+  } else {
+    blocks.push(callout('info', 'No tasks scheduled today. Open the calendar to see what\'s ahead.'));
+  }
+
+  if (fc.daysToExam != null) {
+    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info',
+      fc.daysToExam + ' days to ' + (doc.examName || 'your exam') + (fc.bufferDays != null
+        ? (fc.onTrack ? ' — on track with ' + fc.bufferDays + ' days of buffer.' : ' — ' + Math.abs(fc.bufferDays) + ' days behind; I rebalanced your plan.') : '.')));
+  }
+  if (encouragement) blocks.push(say(encouragement));
+
+  var firstDrillable = tasks.find(function (t) { return t.drillable; });
+  var chips = [];
+  if (firstDrillable) chips.push(chipDeep('Start today\'s drill', 'focus', firstDrillable.drillable, firstDrillable.label, '⚡'));
+  chips.push(chipReply('Open calendar', 'planner_open_calendar', '🗓️'));
+  chips.push(chipReply('Adjust plan', 'planner_setup'));
+
+  return envelope('planner', blocks, chips, { promptId: 'planner.narrate@1', readiness: rd.score });
+}
+
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */
 async function wordProblem(uid, category, difficulty, isPremium) {
   var granted = await aiService.consumeWordProblemQuota(uid, isPremium, 1);
@@ -374,4 +692,5 @@ async function wordProblem(uid, category, difficulty, isPremium) {
   }
 }
 
-module.exports = { coachToday, insights, explainBase, chatTurn, missionGet, missionGenerate, missionToday, wordProblem };
+module.exports = { coachToday, insights, explainBase, chatTurn, missionGet, missionGenerate, missionToday, wordProblem,
+  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock };

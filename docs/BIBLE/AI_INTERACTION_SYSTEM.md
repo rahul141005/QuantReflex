@@ -26,8 +26,9 @@ compensate with architecture. Seven levers, applied everywhere:
 5. **Remember.** Durable `aiMemory` gives continuity ("3rd time on ratios — let's nail it") → feels like it
    knows the student.
 6. **Interact.** Every response ends in an action (chips/follow-ups/missions). The AI *drives* the next step.
-7. **Cache + skip.** Reuse context (6h), shared explanations, daily caches; **cold-start users never hit the
-   model** (deterministic copy). Cheap and instant.
+7. **Cache + skip.** Reuse context (90s — short enough to stay live to the current session; `force` bypasses after a
+   drill), plus a fresh "today" layer read every call, shared explanations, daily caches; **cold-start users never
+   hit the model** (deterministic copy). Cheap and instant. (ADR-045 — was 6h, which froze QuanAI to the session.)
 
 ---
 
@@ -86,11 +87,15 @@ Each block has a `type`. The renderer has exactly one component per type. `addit
 ### Chip
 ```jsonc
 Chip = { "label": string, "value": string, "icon"?: string,
-         "kind": "reply" | "deeplink" | "dismiss",
-         "deepLink"?: { "mode": string, "category"?: string, "count"?: number } }  // when kind=deeplink
+         "kind": "reply" | "deeplink" | "drill" | "dismiss",
+         "deepLink"?: { "mode": string, "category"?: string, "count"?: number },  // when kind=deeplink
+         "drill"?:    { "category": string, "label": string } }                   // when kind=drill (ADR-045)
 ```
 - `reply` → sends `value` back as the next `chat` turn (continues the conversation).
 - `deeplink` → calls `startDrillFromPractice(mode, category, label)` (`practice-modes.js`) and logs `deeplink`.
+  Used for deliberate session starts (Coach/Insights/Mission "start a set").
+- `drill` → runs an **in-place** 5-question adaptive micro-drill INSIDE the AI modal (ADR-045), then feeds the
+  result back as a concept-anchored turn. Used by Explain so the learning flow is never broken. Never navigates.
 - `dismiss` → closes the surface, logs `dismiss`. (Coach "Not today", etc.)
 
 ### Deep-link contract
@@ -107,10 +112,11 @@ in one tap. A `mission` block or a `deeplink` chip with no valid category is inv
   allowed but optional; chips keep cost and prompt-injection surface tiny and make the UX one-tap.
 - **Lead with the point.** Observation/answer first, then the action. No preamble ("Sure! Here's…").
 - **One idea per turn.** If there's more, offer it as a chip ("Go deeper"), don't dump it.
-- **Mini-challenges (ROADMAP — not yet shipped, see §10):** an in-conversation `quiz` block graded client-side
-  for the interaction only (reusing the numpad), result fed back as the next turn so QuanAI adapts. The `quiz`
-  block + grading are deliberately NOT implemented yet (ADR-040 removed the unwired renderer); deep-linking a real
-  drill via a `mission` block is the shipped "do it now" path.
+- **Mini-challenges (SHIPPED — ADR-045):** the in-place micro-drill — a `drill` chip runs 5 adaptive questions
+  inside the modal (shared `generateQuestions`), graded client-side, with the result fed back as a concept-anchored
+  turn so QuanAI reacts ("3/5 — you slowed on the back two"). This is the "feel alive" loop: Explain → Drill this →
+  5 questions → back to the same conversation, never leaving QuanAI. Deliberate session starts still deep-link a full
+  drill via a `mission` block / `deeplink` chip.
 
 ---
 
@@ -153,11 +159,34 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 | **AI Explain** | Interactive concept learning + adaptive explanations (simpler/deeper/another/got-it) | Give study strategy or trends |
 | **AI Coach** | Daily mentor: accountability, motivation, ONE prescribed next action, remembers convos | Re-explain a question; build a multi-day plan |
 | **AI Insights** | Performance intelligence: weakness discovery + trends → **actionable missions, not reports** | Daily check-in chatter; teach a concept |
-| **AI Study Plan** | Living roadmap that adapts continuously to real progress (interview → daily action → weekly review) | One-off advice; per-question explanation |
+| **QuanAI Planner** | Living, syllabus-driven roadmap (ADR-046): schedules the next 14 days day-by-day from a real exam syllabus + analytics, replans each block, surfaces readiness/forecast/calendar | One-off advice; per-question explanation |
 | **Word Problems** | Context-aware practice generation targeting the student's weakest concepts (future-ready) | Coaching, planning |
 
 Every feature: consumes Context + Memory, renders via the block vocabulary, ends in chips, deep-links real drills,
 shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferredDepth`).
+
+### 6a. QuanAI Planner — a deterministic engine the model only narrates (ADR-046)
+
+The Planner is the strongest expression of §0's doctrine: **all scheduling is deterministic; the LLM only writes
+prose.** It supersedes the one-shot "Study Plan/Mission" (legacy `aiMissions` + `plan.generate`, kept dormant).
+
+- **Syllabus DB** (`main-app/data/syllabus.js`, bundled not Firestore): 26 exams → 5 real syllabi, 104 topics,
+  each with importance/frequency/difficulty/prereqs/revision-cadence/est-minutes, a `drillable` link to one of
+  the 12 cats (or null), and a weighted `signals[]` map. **The 12 drillable cats are SIGNALS, not limits** — every
+  syllabus topic is scheduled; non-drillable ones say "study from your resources". A new drillable cat plugs into
+  `signals[]` with no engine change.
+- **Engine** (`signals.js` → `readiness.js` → `plannerEngine.js`, pure): infers per-topic readiness from in-app
+  practice (**never "no data"** — lifetime accuracy, then neutral 0.5); a 0..100 Exam Readiness Score; a
+  Completion Forecast (buffer, pace, "+15 min/day"); and a 14-day scheduler (priority, prereq cascade-unlock,
+  revision interleaving, adaptive difficulty, adaptive buffer/mock, Smart Catch-up).
+- **LLM** (`planner.narrate@1`, ≤320 tok, one call per block): turns the engine's `rationaleSeed` into the
+  rationale + encouragement only. Cold-start / failure → deterministic copy. Never schedules, never required.
+- **Surfaces:** a companion setup wizard (searchable exam, calendar date, study slider to 8h, days/week, prep
+  level, preferred time) and the `#view-planner` calendar (readiness ring, forecast, day cells, task checkboxes,
+  per-task explainability). API `action=planner` ops get/setup/toggle/regen; doc `aiPlanner/{uid}` (see
+  FIRESTORE_BLUEPRINT). The Coach references today's planner tasks.
+- **Accuracy floor:** planner requests carry a `clientStats` snapshot merged by `studentContext` as a
+  raise-only, fenced floor — so a stale `users.stats` doc never shows false-zero accuracy after a live session.
 
 ---
 
@@ -203,8 +232,7 @@ re-evaluate later **per feature** (do not implement now): deeper multi-step Miss
 weekly review could benefit from a stronger reasoning model. Any such change is a separate ADR.
 
 **Roadmap (product, not model) — the top deferred items, in priority order:**
-1. **Interactive mini-challenge** — the `quiz` block + in-conversation numpad grading (the "feel alive" feature most
-   asked for; removed-as-unwired in ADR-040 to avoid dead code, to be built next as the flagship interactive touch).
+1. ~~**Interactive mini-challenge**~~ — **SHIPPED (ADR-045)** as the in-place `drill` chip / micro-drill.
 2. **SSE streaming** of the prose `say` field (perceived-latency polish; staged skeletons cover it today).
-3. **Automated weekly Mission review** as a per-user cron pass (today the Mission adapts via the 6h context rebuild
+3. **Automated weekly Mission review** as a per-user cron pass (today the Mission adapts via the live context rebuild
    + a manual "Adjust my plan"; a scheduled LLM re-plan is deferred for cost/timeout reasons on the single cron).

@@ -8,6 +8,72 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-046 — QuanAI Planner: a living, adaptive, syllabus-driven study planner (2026-06-14)
+- **Context:** The "Mission" (ADR-039) was a one-shot LLM blob (`{rationale, weekFocus[], phases[]}` in
+  `aiMissions/{uid}`) from a 4-pill interview. It had no day-by-day schedule, no checkboxes, no replanning, and
+  ignored real analytics — it even reported "no accuracy" for a student with 26 answers at 78%. The ask: a
+  premium, future-proof planner that schedules from a REAL per-exam syllabus, treats the app's 12 drillable
+  micro-topics as **signals not limits** (every syllabus topic is scheduled; drillable → in-app drill + real
+  analytics, others → "study from your resources"), generates only the next 14 days day-by-day, and replans
+  each block from measured progress — with readiness, forecast, revision, catch-up, adaptive difficulty,
+  adaptive buffers, a calendar, and explainability, as ONE engine.
+- **Root cause of the accuracy bug:** `studentContext.buildContext` read the Firestore `users/{uid}.stats`
+  doc, which lags the live local session (`syncStats` debounced ~2s; zero-initialised at login). A stale
+  `totalAttempted:0` tripped the cold-start gate, which hard-returned `accuracy:0`.
+- **Decision (deterministic engine; the LLM only narrates — same doctrine as `studentContext.js`):**
+  - **Bundled syllabus DB** `data/syllabus.js` (NOT Firestore): 26 exams → 5 real syllabi (CAT/MBA, Banking/
+    SSC, Defense, Foundation, Generic), 104 topics, each with importance/frequency/difficulty/prereqs/revision
+    cadence/est-minutes, a `drillable` link (one of 12 cats or null), and a weighted `signals[]` map. Read-heavy
+    reference data, shared by client + server, dual-exported like `questions.js`. The ONLY coupling to the
+    drillable universe is `signals[]`, so a 13th drillable cat plugs in with no engine change.
+  - **Engine** (`signals.js` → `readiness.js` → `plannerEngine.js`, pure functions): infers per-topic readiness
+    from in-app practice (never "no data" — falls back to lifetime accuracy, then neutral 0.5); a 0..100
+    multi-signal Exam Readiness Score; a dynamic Completion Forecast (buffer, pace projection, "+15 min/day");
+    and a 14-day scheduler with priority scoring, prereq cascade-unlock, revision interleaving, adaptive
+    difficulty, adaptive buffer/mock days, and Smart Catch-up. The LLM (`planner.narrate@1`) only phrases the
+    engine's `rationaleSeed`; it never schedules and is never required (deterministic fallback copy).
+  - **Doc** `aiPlanner/{uid}` v2 (replaces `aiMissions`): setup answers, current 14-day `block` (per-day tasks
+    with completion), persistent `topicState` (coverage/mastery/revision), `blockHistory`, readiness + forecast
+    snapshots. API `action=planner` (ops get/setup/toggle/regen).
+  - **Accuracy fix:** the planner request carries a `clientStats` snapshot; `studentContext` merges it as a
+    NON-AUTHORITATIVE FLOOR (only ever raises a count, bypasses the 90s cache, validated/size-capped in
+    `api/ai.js`), fenced to the planner path. Cold-start never blocks the planner — the engine runs on signals.
+  - **Front end:** a multi-screen setup wizard in the companion (searchable exam selector, calendar date, study
+    slider to 8h, days/week, prep level, preferred time) and a new `#view-planner` calendar (readiness ring,
+    forecast, day cells by kind, task checkboxes, per-task explainability, drillable deep-links). Home card →
+    "Open your Study Planner ✨". Coach plan-note reads `aiPlanner` (falls back to legacy `aiMissions`).
+- **Key decisions / trade-offs flagged:** (1) bundled syllabus vs Firestore — chose bundled (offline, no rules
+  surface, one source via `SYLLABUS_VERSION`); (2) calendar as a new router view vs the chat modal — chose the
+  view (the premium UX the brief needs); (3) the client-stats floor relaxes the "no client-sent stats" rule to a
+  fenced, raise-only floor for the planner path only.
+- **Consequences:** New `aiPlanner` collection (own-doc read/write, same ownership rules as `aiMissions`);
+  syllabus is bundled, not stored. Legacy `aiMissions` + `action=mission` kept dormant for back-compat (the Home
+  card no longer opens them). gpt-4o-mini unchanged; one short narrate call per block, behind the budget breaker.
+  Phased P1 (syllabus) → P2 (engine + 209-assert harness) → P3 (API/brain + accuracy fix + 19-assert harness) →
+  P4 (setup wizard) → P5 (calendar) → P6 (auto catch-up) → P7 (this record + docs). SW cache v106→v107.
+
+## ADR-045 — QuanAI production audit: exam-aware persona, freshness, plan grounding, version-honesty (2026-06-14)
+- **Context:** A deep production-readiness audit of the QuanAI ecosystem (Coach, Insights, Explain, Study Planner)
+  found the architecture sound but several **trust / one-mentor-identity / "feels-alive"** gaps a paying Premium
+  user notices. Full findings: [AUDIT-REPORT-QUANAI.md](../../AUDIT-REPORT-QUANAI.md).
+- **Decision (gpt-4o-mini unchanged — architecture, not model size):**
+  - **One universal exam-aware persona:** `aiPrompts.sys(role, examName)` drops the hardcoded "CAT speed-math
+    coach". QuanAI is a universal quantitative-aptitude mentor that adapts examples/priorities/pacing to the
+    student's actual exam (injected, wrapped as data, never trusted as instructions). The Study-Plan interview
+    gains a free-text "Other…" so any exam is honored by name, never coerced to CAT.
+  - **Version-honesty / trust:** `meta.promptId` is derived from the registry version (kills `@2/@3` drift); the
+    `explanations` cache is version-keyed so a prompt bump busts stale text; fallback envelopes are never cached.
+  - **Freshness:** `force` is threaded through `buildContext`; finishing a drill stamps `qr_ai_dirty_at` so each AI
+    surface force-refreshes once on next open (+ a manual "↻"), instead of repeating stale advice for the 6h cache.
+  - **Plan grounding:** model plans are deterministically grounded (free-text topics → real drillable categories via
+    the new `quantTopics.nearestCategory`) and feasibility-normalized (phase durations sum to days remaining); the
+    daily drill is driven by the plan's own weekly focus, so the stated plan and the launched drill never diverge.
+  - **One source of truth:** the topic vocabulary is extracted to `services/quantTopics.js` (shared by
+    `studentContext` and the new `services/planLogic.js`); a drifted `CATEGORY_LABELS` copy in `aiService.js` removed.
+- **Consequences:** No model/schema/rules change. New deterministic, unit-tested modules `quantTopics.js` +
+  `planLogic.js`; `scripts/test-ai.js` (16 tests, `npm test`). Superseded an earlier parallel "live-context" draft
+  that briefly also carried the ADR-045 label. The QuanAI Planner (ADR-046) layers on top of this audited base.
+
 ## ADR-044 — Eliminate stale-duel resurrection: export `ackResult` + durable acknowledgement ledger (2026-06-14)
 - **Symptom:** A duel finished long ago reappeared on Home as "Results ready → View Results" after every app
   restart/refresh/PWA-reopen. Pressing Finish Duel cleared it for the session, but it returned on the next launch —
