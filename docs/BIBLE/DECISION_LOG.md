@@ -8,6 +8,38 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-045 — QuanAI: live context, coach-not-gate, unbroken Explain flow (2026-06-14)
+- **Context:** An architecture audit (the AI is already ONE brain — `aiBrain` + `studentContext` + `aiPrompts` +
+  `llmProvider`) found it *behaved* like five disconnected features because the one brain was fed **stale, thin
+  context** and the UI **dropped context between turns**. Reported symptoms: Coach kept saying "complete the
+  warm-up" and Insights "need 20 questions" after the student had solved 26 today; Explain's "Go deeper / Simpler /
+  Another" drifted to a different topic (Trapezium → Rectangle); "Drill this" ejected the user to the Practice page.
+- **Root causes:** (1) `studentContext.buildContext` cached the whole model — including `coldStart` — for **6h with
+  no invalidation**, gated cold-start on **lifetime** `totalAttempted<20`, and **never read** the `today*`/
+  `dailyHistory` goldmine → QuanAI was frozen to the session and blind to "today". (2) Explain follow-ups posted
+  only `{feature,topic,userTurn,history}` — the **original question was dropped** and `chat.turn` had no question
+  slot → the model re-anchored on the student's weak topic. (3) "Drill this" was a navigating deep-link; no in-place
+  drill existed. Plus latent bugs: `preferredDepth` written-but-never-read, empty-category deep links that no-op,
+  wrong prompt-version metadata, dead `force` path.
+- **Decision / redesign (gpt-4o-mini unchanged — architecture, not model size):**
+  - **Live Student Context:** cache TTL 6h→90s; `force:true` wired (Coach/Insights rebuild on open); read a live
+    `today` signal (date-keyed `dailyHistory`) + last-session pacing into `ctx` and `serialize()`; cold-start
+    computed live from **today OR lifetime** so a fresh grind is coached, not gated. The cold envelope carries
+    `today` so QuanAI can acknowledge the current session.
+  - **Coach/Insights:** cold path acknowledges today's count instead of "go practice"; prompts lead with the live
+    TODAY signal and sound observational, not like a dashboard.
+  - **Explain continuity:** new `explain.followup` prompt anchored to the EXACT question + the prior explanation
+    (client carries `question`+`lastExplanation` through follow-ups). "Simpler/Deeper/Another" stay on THIS problem.
+    `preferredDepth` is now honored.
+  - **In-place micro-drill:** new `drill` chip kind runs 5 adaptive questions INSIDE the AI modal (shared
+    `generateQuestions`), scores locally, then asks QuanAI for one concept-anchored reaction — no navigation, no
+    context loss. Replaces Explain's navigating "Drill this".
+  - **Bug sweep:** correct prompt-version metadata; guaranteed non-empty deep-link category (`_focus`).
+- **Consequences:** No model change; per-day envelope cache + budget breaker still bound LLM cost. No Firestore
+  schema/rules/index change (reads existing goldmine fields). Phased P1 (context/Explain/bugs) → P2 (micro-drill) →
+  P3 (this record). Validated by a harness against the real `studentContext.js`/`aiBrain.js` (19 scenarios) +
+  answer-match/difficulty unit checks. SW cache v105→v106.
+
 ## ADR-044 — Eliminate stale-duel resurrection: export `ackResult` + durable acknowledgement ledger (2026-06-14)
 - **Symptom:** A duel finished long ago reappeared on Home as "Results ready → View Results" after every app
   restart/refresh/PWA-reopen. Pressing Finish Duel cleared it for the session, but it returned on the next launch —

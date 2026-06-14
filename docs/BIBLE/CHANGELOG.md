@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — QuanAI: live context, coach-not-gate, unbroken Explain flow (ADR-045)
+
+Audit + redesign so the one AI brain reacts to the live session and never breaks the learning flow. No model change
+(still gpt-4o-mini). Bible 2.33→2.34, Arch 2.19→2.20. SW v105→v106.
+
+- **Live context** — `studentContext.js`: aiContext cache 6h→90s (+ `force` wired on Coach/Insights open); reads the
+  live `today` goldmine (date-keyed `dailyHistory`) + last-session pacing into `ctx`/`serialize()`; cold-start
+  computed live from today OR lifetime. Fixes "complete the warm-up / need 20 questions" after a 26-question day —
+  QuanAI now sees the current session and coaches instead of gating.
+- **Explain continuity** — new `explain.followup` prompt anchored to the EXACT question + prior explanation; client
+  (`companion-ui.js`) carries `question`+`lastExplanation` through follow-ups (`api/ai.js` passthrough). Kills the
+  Trapezium→Rectangle drift on Simpler/Go deeper/Another. `preferredDepth` now honored (was written-but-unread).
+- **In-place micro-drill** — new `drill` chip kind: "Drill this" runs 5 adaptive questions INSIDE the modal
+  (`generateQuestions`), scores locally, then QuanAI reacts anchored to the concept (`drill_result` → explain.followup).
+  No navigation, no context loss. Replaces the old deep-link.
+- **Bug sweep** — correct prompt-version metadata (insights@3, explain@3, chat.turn@2, plan@3); non-empty deep-link
+  category (`_focus`); coach/insights prompts lead with the live TODAY signal.
+- **Verify:** node --check ×5; a 19-scenario harness against the real `studentContext.js`/`aiBrain.js` (today
+  awareness, live cold-start, Explain anchoring, in-place drill routing) + 12 answer-match/difficulty checks — all pass.
+
 ## 2026-06-14 — Fix stale-duel resurrection: export `ackResult` + durable ack ledger (ADR-044)
 
 A duel finished long ago kept reappearing as "Results ready" on Home after every restart. Root cause + permanent fix.
