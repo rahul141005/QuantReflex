@@ -43,7 +43,7 @@ class AIServiceError extends Error {
 }
 
 // (ADR-045) Removed an unused, drifted CATEGORY_LABELS copy here — the canonical topic map lives in
-// services/quantTopics.js and is the single source of truth shared by studentContext + planLogic.
+// services/quantTopics.js and is the single source of truth.
 
 async function verifyIdToken(idToken) {
   try {

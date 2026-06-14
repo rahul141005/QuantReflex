@@ -280,7 +280,6 @@ var Companion = (function () {
     // reply → conversational turn
     var value = chip.value || '';
     log(_state ? _state.feature : 'ai', value === 'helpful_yes' || value === 'helpful_no' ? value : 'chip_tap', { chip: chip.label });
-    if (value === 'plan_regen') { Companion.openMission(true); return; }
     // QuanAI Planner chips (ADR-046) — these don't go through a chat turn.
     if (value === 'planner_setup') { if (_state && _state.modal) _state.modal.close(); openStudyPlanner(true); return; }
     if (value === 'planner_open_calendar') {
@@ -367,76 +366,6 @@ var Companion = (function () {
   }
   function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
   function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
-
-  /* Mission: get existing → render, else run a chip-driven interview, then generate. */
-  function openMission(forceRegen, forceFresh) {
-    var m = openModal('Your Mission');
-    _state = { feature: 'plan', topic: '', history: [], body: m.body, modal: m };
-    log('plan', 'opened', {});
-    if (forceRegen) { return runInterview(m); }
-    // Recompute live progress from the freshest data if the student has practiced since last open / tapped refresh.
-    var force = !!forceFresh || shouldForce('plan');
-    var stamp = dirtyAt();
-    wireRefresh(m, function () { openMission(false, true); });
-    var stop = showLoading(m.body, ['Loading your plan…']);
-    api('mission', { op: 'get', force: force }).then(function (res) {
-      stop();
-      if (res.ok && res.data && res.data.plan && res.data.response) { if (force) markSeen('plan', stamp); log('plan', 'shown', { refreshed: force }); renderEnvelope(m.body, res.data.response, false); return; }
-      runInterview(m);
-    });
-  }
-
-  function runInterview(m) {
-    var answers = {};
-    // '__other__' opens a free-text field so QuanAI supports ANY quant exam (XAT, NMAT, SBI PO, RBI, NDA, a
-    // college placement test, …) by its real name — never silently coerced to CAT (ADR-045).
-    var steps = [
-      { q: 'Which exam are you preparing for?', opts: [['CAT', 'CAT'], ['GMAT', 'GMAT'], ['Bank PO', 'Bank PO'], ['SSC CGL', 'SSC CGL'], ['Other…', '__other__']], key: 'examName' },
-      { q: 'When\'s the exam?', opts: [['~1 month', 30], ['~2 months', 60], ['~3 months', 90], ['~6 months', 180]], key: 'days' },
-      { q: 'How long can you study daily?', opts: [['15 min', 15], ['30 min', 30], ['45 min', 45], ['60 min', 60]], key: 'dailyMinutes' },
-      { q: 'How confident do you feel right now?', opts: [['Low', 'low'], ['Okay', 'medium'], ['Strong', 'high']], key: 'confidence' }
-    ];
-    var idx = 0;
-    function ask() {
-      if (idx >= steps.length) return finish();
-      var s = steps[idx];
-      m.body.innerHTML = '<div class="companion-turn"><div class="cb-say">' + esc(s.q) + '</div>' +
-        '<div class="companion-chips">' + s.opts.map(function (o, i) { return '<button class="companion-chip kind-reply" data-i="' + i + '" type="button">' + esc(o[0]) + '</button>'; }).join('') + '</div></div>';
-      m.body.querySelectorAll('.companion-chip').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var o = s.opts[parseInt(btn.getAttribute('data-i'), 10)];
-          if (o[1] === '__other__') { return askExamText(s.key); }
-          answers[s.key] = o[1]; idx++; ask();
-        });
-      });
-    }
-    function askExamText(key) {
-      m.body.innerHTML = '<div class="companion-turn"><div class="cb-say">Which exam? Type its name.</div>' +
-        '<div class="companion-otherwrap"><input class="companion-otherinput" type="text" maxlength="60" ' +
-        'placeholder="e.g. XAT, SBI PO, NDA, campus placement" aria-label="Exam name" />' +
-        '<button class="companion-chip kind-reply companion-otherok" type="button">Continue</button></div></div>';
-      var input = m.body.querySelector('.companion-otherinput');
-      var ok = m.body.querySelector('.companion-otherok');
-      if (input) input.focus();
-      function commit() {
-        var v = input && input.value ? input.value.trim().slice(0, 60) : '';
-        answers[key] = v || 'my exam'; idx++; ask();
-      }
-      if (ok) ok.addEventListener('click', commit);
-      if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
-    }
-    function finish() {
-      var stop = showLoading(m.body, ['Designing your mission…', 'Weighting your weak topics…']);
-      var examDate = '';
-      if (answers.days) { var d = new Date(Date.now() + answers.days * 86400000); examDate = d.toISOString().slice(0, 10); }
-      api('mission', { op: 'generate', examName: answers.examName || 'CAT', examDate: examDate, dailyMinutes: answers.dailyMinutes || 45, confidence: answers.confidence || 'medium', goal: '' }).then(function (res) {
-        stop();
-        if (res.ok && res.data && res.data.response) { log('plan', 'generated', {}); renderEnvelope(m.body, res.data.response, false); }
-        else renderError(m.body, res);
-      });
-    }
-    ask();
-  }
 
   /* ---------- QuanAI Planner (ADR-046): setup wizard → server builds the 14-day block → calendar/envelope ---------- */
   var PREP_LEVELS = [['scratch', 'Starting from scratch'], ['revision', 'Need revision'], ['average', 'Average'], ['confident', 'Fairly confident'], ['ready', 'Almost exam ready']];
@@ -552,7 +481,7 @@ var Companion = (function () {
     render();
   }
 
-  return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights, openMission: openMission,
+  return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights,
     openStudyPlanner: openStudyPlanner, renderEnvelope: renderEnvelope, clientStats: clientStats, openModal: openModal, _api: api };
 })();
 if (typeof window !== 'undefined') window.Companion = Companion;

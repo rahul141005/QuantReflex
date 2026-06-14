@@ -14,7 +14,6 @@ const ctxEngine = require('./studentContext');
 const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
-const planLogic = require('./planLogic');
 const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
 const plannerEngine = require('./plannerEngine');    // deterministic 14-day scheduler
 const readinessLib = require('./readiness');         // readiness score + completion forecast
@@ -22,10 +21,6 @@ const readinessLib = require('./readiness');         // readiness score + comple
 function db() { return admin.firestore(); }
 function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
 function _promptId(p) { return p.id + '@' + p.version; }
-/** The drillable categories, as a prompt-friendly list (keeps the planner from inventing topics). */
-function _topicList() { return Object.keys(ctxEngine.CATEGORY_LABELS).map(function (k) { return ctxEngine.CATEGORY_LABELS[k]; }).join(', '); }
-/** Weak (non-strong) categories for plan backfill / grounding. */
-function _weakCats(ctx) { return (ctx.mastery || []).filter(function (m) { return m.tier !== 'strong'; }).map(function (m) { return { cat: m.cat, label: m.label }; }); }
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; return h.toString(36); }
 
@@ -95,8 +90,7 @@ async function coachToday(uid, opts) {
 
   var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
-  // ADR-040/046: read the active study plan so the Coach genuinely references it. Prefer the QuanAI Planner's
-  // tasks for TODAY; fall back to the legacy Mission weekFocus for users not yet migrated.
+  // ADR-046/047: read the QuanAI Planner's tasks for TODAY so the Coach genuinely references the live plan.
   var planNote = '';
   try {
     var pd = await db().collection('aiPlanner').doc(uid).get();
@@ -106,10 +100,6 @@ async function coachToday(uid, opts) {
       var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
       var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
       if (labels) planNote = 'The student\'s study planner schedules today: ' + labels + '. Tie your advice to it.';
-    }
-    if (!planNote) {
-      var md = await db().collection('aiMissions').doc(uid).get();
-      if (md.exists) { var wf = ((md.data().weekFocus) || []).map(function (w) { return w.topicLabel; }).filter(Boolean).slice(0, 3).join(', '); if (wf) planNote = 'The student\'s active study plan focuses this week on: ' + wf + '. Tie your advice to it.'; }
     }
   } catch (_) {}
   var env;
@@ -316,111 +306,10 @@ async function chatTurn(uid, body) {
   }
 }
 
-/* ════════════════════════ AI STUDY PLAN — living mission ════════════════════════ */
-async function missionGet(uid) {
-  try {
-    var d = await db().collection('aiMissions').doc(uid).get();
-    if (d.exists) return { plan: d.data() };
-  } catch (e) { console.warn('[aiBrain] missionGet failed:', e.message); }
-  return { plan: null };
-}
-
-async function missionGenerate(uid, params) {
-  var ctx = await ctxEngine.buildContext(uid, { force: true }); // a re-plan must use the freshest data
-  var examName = String(params.examName || 'CAT').slice(0, 60);
-  var examDate = String(params.examDate || '').slice(0, 10);
-  var dailyMinutes = Math.max(15, Math.min(360, parseInt(params.dailyMinutes) || 45));
-  var goal = String(params.goal || '').slice(0, 120);
-  var daysRemaining = examDate ? Math.max(1, Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000)) : 60;
-  var weakCats = _weakCats(ctx);
-
-  // memory write (interview → memory)
-  aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes, confidence: params.confidence, timelineEntry: { feature: 'plan', summary: 'Started a mission for ' + examName + '.' } }, 'interview');
-
-  var plan;
-  try {
-    var p = prompts.get('plan.generate', { examName: examName, daysRemaining: daysRemaining, dailyMinutes: dailyMinutes, goal: llm.wrapData(goal || 'improve overall', 120), context: ctxEngine.serialize(ctx), topicList: _topicList() });
-    var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
-    aiService.trackGptCost(uid, r.usage);
-    plan = r.data;
-  } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
-    var weakLabels = weakCats.slice(0, 3).map(function (m) { return { topicLabel: m.label, goal: 'Lift accuracy above 70%.' }; });
-    plan = { rationale: 'A focused plan built around your weakest topics, with daily targeted practice.', weekFocus: weakLabels, phases: [{ name: 'Build accuracy', durationDays: Math.min(daysRemaining, 21) }, { name: 'Build speed', durationDays: Math.max(1, daysRemaining - 21) }] };
-  }
-
-  // Ground topics to real categories + force a feasible timeline (deterministic — the model can't hallucinate a syllabus).
-  plan = planLogic.normalizePlan(plan, { daysRemaining: daysRemaining, weakCats: weakCats });
-
-  var doc = { uid: uid, examName: examName, examDate: examDate, dailyMinutes: dailyMinutes, goal: goal,
-    rationale: plan.rationale, weekFocus: plan.weekFocus, phases: plan.phases,
-    weekStartedAt: new Date().toISOString(), progress: {}, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-  db().collection('aiMissions').doc(uid).set(doc, { merge: true }).catch(function (e) { console.warn('[aiBrain] mission write failed:', e.message); });
-
-  return _missionEnvelope(ctx, doc);
-}
-
-async function missionToday(uid, opts) {
-  opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
-  var got = await missionGet(uid);
-  if (!got.plan) return { plan: null };
-  return _missionEnvelope(ctx, got.plan);
-}
-
-function _missionEnvelope(ctx, plan) {
-  // Live progress derived deterministically from real practice (no LLM) — this is what makes the plan feel alive.
-  var prog = planLogic.missionProgress(plan, {
-    mastery: ctx.mastery || [], weekCats: ctx.weekCats || [],
-    todayCats: (ctx.today && ctx.today.cats) || [], weekStartedAt: plan.weekStartedAt, now: Date.now()
-  });
-  var todaySet = {}; ((ctx.today && ctx.today.cats) || []).forEach(function (c) { todaySet[c] = true; });
-
-  // Drive "today's drill" from the plan's own weekly focus (first topic not yet done today) so the stated plan
-  // and the launched drill never diverge. Fall back to the top weak category for legacy/empty plans.
-  var dailyFocus = null, dailyDone = false;
-  for (var i = 0; i < prog.focus.length; i++) { if (prog.focus[i].cat && !todaySet[prog.focus[i].cat]) { dailyFocus = prog.focus[i]; break; } }
-  if (!dailyFocus && prog.focus.length) { dailyFocus = prog.focus[0]; dailyDone = true; }
-  var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
-  var driveCat = dailyFocus ? dailyFocus.cat : weak.cat;
-  var driveLabel = dailyFocus ? dailyFocus.label : weak.label;
-  var estMin = plan.dailyMinutes ? Math.min(plan.dailyMinutes, 15) : 10;
-
-  var daysToExam = plan.examDate ? Math.max(0, Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / 86400000)) : null;
-
-  var blocks = [
-    say(plan.rationale || 'Here\'s your living plan — it adapts every week from your real progress.'),
-    dailyDone
-      ? missionBlock('Done today ✓ — extra set: ' + driveLabel, 'You\'ve hit your focus today. One more set locks it in.', 'focus', driveCat, driveLabel, estMin)
-      : missionBlock('Today: drill ' + driveLabel, 'Your highest-impact topic this week.', 'focus', driveCat, driveLabel, estMin)
-  ];
-
-  // This week's focus — annotated with the student's REAL accuracy and what they've already practiced.
-  var focusLines = prog.focus.map(function (f) {
-    var accTxt = f.acc != null ? Math.round(f.acc * 100) + '%' : 'new';
-    return (f.practicedThisWeek ? '✓ ' : '') + f.label + ' (' + accTxt + ')' + (f.goal ? ' — ' + f.goal : '');
-  });
-  if (focusLines.length) blocks.push(card('This week\'s focus', focusLines.join('\n'), 'blue', '🎯'));
-
-  // Phase timeline with real done / in-progress state.
-  var phaseDays = prog.phases.map(function (ph, i) {
-    return { day: i + 1, label: ph.name, items: [ph.durationDays + ' days' + (ph.current ? ' · in progress' : '')], done: ph.done };
-  });
-  if (phaseDays.length) blocks.push({ type: 'timeline', days: phaseDays });
-
-  if (prog.weekStale) blocks.push(callout('warn', 'This week\'s plan is ' + prog.daysIntoWeek + ' days old — tap "Adjust my plan" to refresh it from your latest progress.'));
-  if (daysToExam != null) blocks.push(callout('info', daysToExam + ' days to ' + (plan.examName || 'your exam') + '.'));
-
-  return { plan: plan, envelope: envelope('plan', blocks, [
-    chipDeep(dailyDone ? 'Extra set' : 'Start today\'s drill', 'focus', driveCat, driveLabel, '⚡'),
-    chipReply('Adjust my plan', 'plan_regen')
-  ].concat(helpfulChips()), { promptId: 'plan.generate@' + prompts.REGISTRY['plan.generate'].version }) };
-}
-
-/* ════════════════════════ QuanAI PLANNER — living, adaptive study planner (ADR-046) ════════════════════════
+/* ════════════════════════ QuanAI STUDY PLANNER — the single authoritative planner (ADR-046/047) ════════════════════════
    A deterministic engine (plannerEngine + readiness + signals) schedules the next 14 days day-by-day from the
-   real exam syllabus + the student's analytics; the LLM only narrates. Stored at aiPlanner/{uid} (v2). The old
-   one-shot Mission (aiMissions) remains for back-compat until P7. */
+   real exam syllabus + the student's analytics; the LLM only narrates. Stored at aiPlanner/{uid} (v2). This is
+   the ONLY planner — the legacy one-shot Mission (aiMissions/planLogic) was removed in ADR-047. */
 function _todayIso() { return new Date().toISOString().slice(0, 10); }
 function _clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
 function _daysRemaining(examDate) {
@@ -692,5 +581,5 @@ async function wordProblem(uid, category, difficulty, isPremium) {
   }
 }
 
-module.exports = { coachToday, insights, explainBase, chatTurn, missionGet, missionGenerate, missionToday, wordProblem,
+module.exports = { coachToday, insights, explainBase, chatTurn, wordProblem,
   plannerGet, plannerSetup, plannerToggle, plannerRegenBlock };

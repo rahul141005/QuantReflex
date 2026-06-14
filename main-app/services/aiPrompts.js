@@ -162,34 +162,6 @@ var REGISTRY = {
     }
   },
 
-  /* ---- Living Mission: model writes phases + rationale + this-week focus. Daily action is deterministic. ---- */
-  'plan.generate': {
-    id: 'plan.generate', version: 4, maxTokens: 900, temperature: 0.3,
-    build: function (v) {
-      return {
-        schemaName: 'mission_plan',
-        schema: { type: 'object', additionalProperties: false,
-          required: ['rationale', 'weekFocus', 'phases'],
-          properties: {
-            rationale: STR,
-            weekFocus: { type: 'array', items: { type: 'object', additionalProperties: false,
-              required: ['topicLabel', 'goal'], properties: { topicLabel: STR, goal: STR } } },
-            phases: { type: 'array', items: { type: 'object', additionalProperties: false,
-              required: ['name', 'durationDays'], properties: { name: STR, durationDays: { type: 'number' } } } }
-          } },
-        system: sys('Design a living study mission, not a rigid 14-day wall. Output the high-level phases for the '
-          + 'time remaining and a focused plan for THIS WEEK only (we adapt weekly from real progress). Weight weak '
-          + 'topics heavily. Choose weekFocus topics ONLY from the categories the app actually drills: '
-          + v.topicList + '. Phase durationDays must sum to the days remaining.', v.examName),
-        user: 'Exam: ' + llm.wrapData(v.examName, 60) + ' in ' + v.daysRemaining + ' days. Daily time: ' + v.dailyMinutes
-          + ' min. Goal: ' + v.goal + '.\nStudent context:\n' + v.context
-          + '\n\nWrite JSON: rationale (why this structure, <=3 sentences referencing their data), weekFocus (1-5 '
-          + 'topics for THIS week from the allowed categories, each with a one-line goal), phases (1-4 phases '
-          + 'covering the whole remaining time, each with name + durationDays summing to ' + v.daysRemaining + ').'
-      };
-    }
-  },
-
   /* ---- QuanAI Planner narration (ADR-046): the model ONLY writes prose for a block the deterministic engine
      already designed. It never schedules — it phrases the rationaleSeed (focus topics, readiness, on-track). ---- */
   'planner.narrate': {

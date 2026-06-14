@@ -7,7 +7,7 @@
 'use strict';
 
 var path = require('path');
-var R = function (p) { return require(path.join(__dirname, '..', 'main-app', p)); };
+var R = function (p) { return require(path.join(__dirname, '..', p)); };
 var SYL = R('data/syllabus.js');
 var engine = R('services/plannerEngine.js');
 var readiness = R('services/readiness.js');

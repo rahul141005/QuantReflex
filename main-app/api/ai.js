@@ -12,8 +12,7 @@
  *   POST ?action=coach                                                    → daily mentor
  *   POST ?action=insights                                                 → performance intelligence
  *   POST ?action=chat           { feature, topic, userTurn, history }     → conversational turn
- *   POST ?action=mission        { op:'get'|'today'|'generate'|'regen', ... } → living study plan (legacy)
- *   POST ?action=planner        { op:'get'|'setup'|'toggle'|'regen', clientStats?, ... } → QuanAI Planner (ADR-046)
+ *   POST ?action=planner        { op:'get'|'setup'|'toggle'|'regen', clientStats?, ... } → QuanAI Planner (the study plan)
  *   POST ?action=wordproblems   { category, difficulty }                  → context-aware practice (future-ready)
  */
 
@@ -62,37 +61,6 @@ async function _chat(req, res) {
     drill: typeof body.drill === 'string' ? body.drill.slice(0, 400) : ''
   });
   return res.json({ response: response });
-}
-
-async function _mission(req, res) {
-  var body = req.body || {};
-  var op = typeof body.op === 'string' ? body.op : 'get';
-
-  var force = !!body.force;
-  if (op === 'get') {
-    var got = await aiBrain.missionGet(req.userId);
-    if (!got.plan) return res.json({ plan: null });
-    var todayEnv = await aiBrain.missionToday(req.userId, { force: force });
-    return res.json({ plan: got.plan, response: todayEnv.envelope || null });
-  }
-  if (op === 'today') {
-    var t = await aiBrain.missionToday(req.userId, { force: force });
-    return res.json({ plan: t.plan || null, response: t.envelope || null });
-  }
-  if (op === 'generate' || op === 'regen') {
-    var examName = typeof body.examName === 'string' ? body.examName.trim().substring(0, 100) : '';
-    var examDate = typeof body.examDate === 'string' ? body.examDate.trim() : '';
-    if (examDate && !/^\d{4}-\d{2}-\d{2}$/.test(examDate)) {
-      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'examDate must be YYYY-MM-DD.', retryable: false } });
-    }
-    var result = await aiBrain.missionGenerate(req.userId, {
-      examName: examName || 'CAT', examDate: examDate,
-      dailyMinutes: body.dailyMinutes, goal: typeof body.goal === 'string' ? body.goal : '',
-      confidence: typeof body.confidence === 'string' ? body.confidence : 'medium'
-    });
-    return res.json({ plan: result.plan || null, response: result.envelope || null });
-  }
-  return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Unknown mission op: ' + op, retryable: false } });
 }
 
 /* Sanitize a client-sent stats snapshot before it is used as a NON-AUTHORITATIVE floor (ADR-046). Caps counts
@@ -203,7 +171,6 @@ module.exports = withAuth(async function (req, res) {
     if (action === 'coach') return await _coach(req, res);
     if (action === 'insights') return await _insights(req, res);
     if (action === 'chat') return await _chat(req, res);
-    if (action === 'mission') return await _mission(req, res);
     if (action === 'planner') return await _planner(req, res);
     if (action === 'wordproblems') return await _wordProblems(req, res);
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown AI action: ' + action, retryable: false } });

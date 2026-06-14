@@ -9,7 +9,7 @@
  */
 'use strict';
 var path = require('path');
-function appPath(p) { return path.join(__dirname, '..', 'main-app', p); }
+function appPath(p) { return path.join(__dirname, '..', p); }
 
 /* ---- in-memory firestore stub ---- */
 var store = {};
@@ -113,6 +113,15 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(pastDay && pastDay.kind === 'missed' && pastDay.tasks.length === 0, 'plannerGet auto-marks a fully-missed past day');
   var carried = afterLoad.plan.block.days.some(function (d) { return d.date >= todayKey && d.tasks.some(function (t) { return t.topicId === 'percentages'; }); });
   ok(carried, 'plannerGet auto-carries the missed task into an upcoming day');
+
+  /* ADR-047 R1: the live 'today' count-signal + coach-don't-gate two-gate (regression the merge dropped) */
+  var ctxEngine = require(appPath('services/studentContext'));
+  var freshGrind = { totalAttempted: 5, totalCorrect: 4, todayAttempted: 26, todayCorrect: 20, dailyStreak: 1, categoryStats: {}, dailyHistory: {} };
+  freshGrind.dailyHistory[new Date().toDateString()] = { attempted: 26, correct: 20, sumTimes: 26 * 7000, count: 26 };
+  var freshCtx = await ctxEngine.buildContext('u-fresh', { force: true, clientStats: freshGrind });
+  ok(freshCtx.today && freshCtx.today.attempted === 26, 'ctx.today.attempted reflects the live 26-question session (was undefined after the merge)');
+  ok(freshCtx.today && freshCtx.today.accuracy != null, 'ctx.today.accuracy is populated from the live session');
+  ok(freshCtx.coldStart === false, 'a fresh grind (5 lifetime, 26 today) is coached, not gated — two-gate cold-start');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

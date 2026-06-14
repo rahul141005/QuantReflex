@@ -26,7 +26,7 @@ function db() { return admin.firestore(); }
 var COLD_START_ATTEMPTS = 20;   // lifetime floor to unlock full personalization
 var COACH_MIN_TODAY = 8;        // …OR enough activity TODAY — a fresh grind is coached, never gated (ADR-045)
 var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
-// Topic vocabulary is now defined ONCE in quantTopics.js (ADR-045) and shared with planLogic.js.
+// Topic vocabulary is defined ONCE in quantTopics.js (ADR-045) — the single source of truth.
 var CATEGORY_LABELS = topics.CATEGORY_LABELS;
 var label = topics.label;
 
@@ -36,15 +36,6 @@ function _ms(dateKey) {
   return isNaN(t) ? 0 : t;
 }
 function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
-/** Coerce a Firestore Timestamp | millis | ISO string to epoch millis (0 if unknown). */
-function _toMillis(v) {
-  if (!v) return 0;
-  if (typeof v.toMillis === 'function') return v.toMillis();
-  if (typeof v.seconds === 'number') return v.seconds * 1000;
-  if (typeof v === 'number') return v;
-  var t = new Date(v).getTime();
-  return isNaN(t) ? 0 : t;
-}
 function _todayKey() { return new Date().toDateString(); }
 
 /** Live "today" signal (ADR-045) — date-keyed so it never bleeds across days. Reads the same goldmine
@@ -160,17 +151,6 @@ async function buildContext(uid, opts) {
 
   var accuracy = totalAttempted > 0 ? totalCorrect / totalAttempted : 0;
 
-  // Practice recency by category (for the living Study Planner — which topics were touched today / this week).
-  var todayCats = {}, weekCats = {};
-  var nowMs = Date.now(), DAY = 86400000, startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-  sessions.forEach(function (s) {
-    if (!s.category) return;
-    var t = _toMillis(s.timestamp);
-    if (!t) return;
-    if (t >= startOfToday.getTime()) todayCats[s.category] = true;
-    if (nowMs - t <= 7 * DAY) weekCats[s.category] = true;
-  });
-
   var trends = _deriveTrends(stats);
   var mastery = _deriveMastery(stats);
   var errorPatterns = _deriveErrors(stats, mastery);
@@ -192,8 +172,7 @@ async function buildContext(uid, opts) {
     recentSessions: sessions.slice(0, 8).map(function (s) {
       return { mode: s.mode || 'practice', category: s.category || '', acc: (s.total ? _round((s.score || 0) / s.total, 2) : null), improvedPct: _round(s.sessionImprovementPct, 0) };
     }),
-    today: { attempted: today.attempted, correct: today.correct, accuracy: today.accuracy, avgMsPerQ: today.avgMsPerQ, cats: Object.keys(todayCats) },
-    weekCats: Object.keys(weekCats),
+    today: today,              // live session signal (ADR-045)
     memory: _publicMemory(memory)
   };
 
@@ -209,9 +188,8 @@ function _coldContext(uid, o) {
     trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
     recentSessions: [],
-    today: o.today ? { attempted: o.today.attempted, correct: o.today.correct, accuracy: o.today.accuracy, avgMsPerQ: o.today.avgMsPerQ, cats: [] }
-                   : { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null, cats: [] },
-    weekCats: [], memory: _publicMemory(o.memory)
+    today: o.today || { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null },
+    memory: _publicMemory(o.memory)
   };
 }
 
