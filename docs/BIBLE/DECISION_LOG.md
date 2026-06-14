@@ -8,6 +8,36 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-049 — QuanAI product polish: one premium AI, correct dates, modal planner (2026-06-14)
+- **Context:** Post-hardening, the features worked but didn't *feel* like one premium product. A 3-pass audit
+  root-caused a set of correctness + UX issues for the final polish before paid launch.
+- **Decisions:**
+  - **Coach/Insights freshness (cold-start despite data).** Root cause: the per-day `aiDaily` envelope cache was
+    bypassed only on `opts.force`, not `opts.clientStats` — so a cold-start envelope cached when the account was
+    new that morning was served all day even after the student accumulated attempts. Fixed to
+    `!opts.force && !opts.clientStats` (mirrors `studentContext`'s own cache rule). (The ADR-048 floor already
+    rebuilds a warm context; this stops the earlier short-circuit.)
+  - **Local-date anchor (timezone).** "Today" was computed in UTC on client + server (`toISOString().slice(0,10)`),
+    so at 3 AM in a positive-offset zone the planner anchored to *yesterday* (and the calendar's `is-today`
+    landed on the wrong cell, making selection feel broken). The client now sends its **local** `clientDate`
+    (`YYYY-MM-DD` from local getters); the server uses `clientDate || _todayIso()` at every anchor
+    (`plannerGet/Setup/Toggle/RegenBlock/_plannerEnvelope` + Coach/Insights today-match). Pure date-string math
+    is unchanged; only the anchor is local.
+  - **Planner as a bottom-sheet.** The full-page `#view-planner` router view became the existing premium
+    companion modal (`.companion-overlay`/`.companion-sheet`: backdrop blur, slide-up, rounded top, dismiss-on-
+    backdrop, desktop-centered) + a grabber and drag-down-to-dismiss. `Planner.renderInto(modal, plan)` draws the
+    calendar into the same sheet (seamless setup→calendar). This also fixed the broken scroll (one
+    `.companion-scroll` container vs the old nested `.spa-view`/`.container`/unstyled `.planner-detail`), added
+    safe-area + small-screen breakpoints, and calendar micro-polish.
+  - **One vocabulary + cleanup.** Standardized on "Study Planner"; removed the dead router mount
+    (`ensureSection`/`activate`/`root`/`openCalendar`/`Planner.render`) and orphaned `.planner-back` CSS.
+  - **One AI.** A shared `_plannerNote` grounds BOTH Coach and Insights in the live planner (today's tasks +
+    readiness/on-track); `insights.analyze@5`.
+- **Consequences:** No model/schema/rules change; the planner API gains an optional `clientDate`. Verified by
+  `node --check`, `npm test` (planner-engine 209 + planner-brain 25, incl. new clientDate-anchor + aiDaily-bypass
+  assertions), and grep gates (zero router refs, one vocabulary). SW v109→v110. Timezone/modal/scroll behaviors
+  still need a real-device pass.
+
 ## ADR-048 — Final pre-production hardening of the QuanAI system (2026-06-14)
 - **Context:** A full pre-launch architecture audit (three forensic passes — dead-code/dependency graph,
   stale-data/freshness, prompts/personalization/UX) confirmed the QuanAI system is architecturally clean and

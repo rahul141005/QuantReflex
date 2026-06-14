@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — QuanAI product polish: one premium AI, correct dates, modal planner (ADR-049)
+
+A 3-pass audit root-caused the remaining correctness/UX issues. No model change. SW v109→v110.
+
+- **Coach/Insights cold-start despite data**: the `aiDaily` envelope cache was bypassed only on `force`, not
+  `clientStats`, so a cold envelope cached when the account was new that morning was pinned all day. Now
+  `!force && !clientStats`.
+- **Timezone**: "today" was UTC on client+server → at 3am in a +offset zone the planner anchored to yesterday
+  (and made calendar selection feel stuck). The client now sends its LOCAL `clientDate`; the server anchors on
+  `clientDate || _todayIso()` everywhere.
+- **Premium modal**: the full-page `#view-planner` becomes the companion bottom-sheet (blur, slide-up, rounded
+  top, dismiss-on-backdrop, grabber + drag-to-dismiss) via `Planner.renderInto`; fixes the broken scroll (single
+  `.companion-scroll`), adds safe-area + small-screen breakpoints + calendar micro-polish.
+- **Consistency/cleanup**: one "Study Planner" vocabulary; removed the dead router mount + orphaned CSS.
+- **One AI**: shared `_plannerNote` grounds Coach AND Insights in the live planner (tasks + readiness);
+  `insights.analyze@5`.
+- **Verify**: `node --check`; `npm test` 209 + 25 (new clientDate-anchor + aiDaily-bypass assertions); gates
+  green. ADR-049. Bible 2.37→2.38, Arch 2.23→2.24.
+
 ## 2026-06-14 — Final pre-production hardening of QuanAI (ADR-048)
 
 A full pre-launch architecture audit (dead-code/dependency graph, stale-data/freshness, prompts/personalization/
