@@ -42,6 +42,7 @@ var ASSETS = [
   './js/views/home-view.js',
   './js/views/learn-view.js',
   './js/views/stats-view.js',
+  './js/views/planner-view.js',
   './js/duel-core.js',
   './js/duel-manager.js',
   './js/duel-ui.js',
