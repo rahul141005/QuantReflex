@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Post-merge forensic remediation: one planner + restore dropped UX (ADR-047)
+
+A three-agent forensic audit of the merged `main` found the merge silently dropped a cluster of the Planner
+branch's non-conflicting UX improvements and left two competing planners. No model change (gpt-4o-mini). SW v107→v108.
+
+- **R1 — restored 6 regressions** (best-combined on the audited base): live `today` count-signal (`_deriveToday`)
+  so Coach/Insights/Planner stop reading `undefined`/`NaN`; two-gate "coach-don't-gate" cold-start; `serialize()`
+  leads with TODAY again; cold coach uses its computed `coldMsg`; Explain "Drill this" → `chipDrill` (in-place
+  micro-drill reachable again); Explain honors `preferredDepth`.
+- **R2 — removed the legacy Mission entirely** (one authoritative planner): deleted `missionGet/Generate/Today`,
+  `_missionEnvelope`, `_topicList`/`_weakCats`, `plan.generate`, `action=mission`, `openMission`/`runInterview`,
+  the dead `plan_regen` chip, `services/planLogic.js`, and `quantTopics.nearestCategory`/`KEYWORDS`; Coach reads
+  only `aiPlanner`; dropped the now-dead `ctx.today.cats`/`weekCats` + `_toMillis`. Repo-wide grep proves zero
+  runtime references to any legacy-Mission symbol.
+- **R3 — consolidated identical helpers**: `round`/`clamp`/`todayIso` → one pure `services/aiMath.js`; kept the
+  intentionally-different `_ms` parsers and planner date helpers separate.
+- **Tests/docs**: all 16 `test-ai.js` assertions were legacy → `npm test` now runs `planner-engine.check` (209) +
+  `planner-brain.check` (22, incl. today-signal/two-gate assertions). Fixed an AI_INTERACTION_SYSTEM §0 "90s vs 6h"
+  merge artifact; FIRESTORE_BLUEPRINT marks `aiMissions` removed. ADR-047. Bible 2.35→2.36, Arch 2.21→2.22.
+
 ## 2026-06-14 — QuanAI Planner: living, adaptive, syllabus-driven study planner (ADR-046)
 
 Adds a deterministic planning engine the LLM only narrates (§0 doctrine), alongside the audited Coach/Insights/

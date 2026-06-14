@@ -186,10 +186,10 @@ completedAt, createdAt }`.
 - `aiContext/{uid}` — server-only 6h cache of the Student Context Engine output `{ctx, ttlExp, updatedAt}`. Default-deny.
 - `aiDaily/{uid}_{feature}_{YYYY-M-D}` — server-only daily cache of coach/insights block envelopes `{uid, feature,
   date, envelope, createdAt}` (consolidates `aiCoachV2`/`aiInsightsV2`). Default-deny.
-- `aiMissions/{uid}` — **DEPRECATED (ADR-046, superseded by `aiPlanner/{uid}`)** — the legacy one-shot study
-  Mission: `{uid, examName, examDate, dailyMinutes, goal, rationale, weekFocus[]{topicLabel,goal}, phases[]
-  {name,durationDays}, weekStartedAt, progress{}, createdAt, updatedAt}`. Kept dormant for back-compat (the Home
-  card no longer opens it); `action=mission` still serves it. Server-written; default-deny.
+- `aiMissions/{uid}` — **REMOVED (ADR-047)** — the legacy one-shot study Mission (superseded by `aiPlanner/{uid}`).
+  No longer written or read by any runtime path (`action=mission`, `missionGenerate`, `planLogic`, the mission
+  interview were all deleted). Any pre-existing docs are orphaned and harmless (default-deny); the Planner
+  regenerates from real analytics on first open. Do not use.
 - `aiPlanner/{uid}` — **the QuanAI Planner** (ADR-046, replaces `aiMissions`): a living, adaptive, syllabus-driven
   study plan. `{v:2, uid, examId, examName, examLabel, syllabusId, examDate, dailyMinutes, daysPerWeek,
   prepLevel, preferredTime, goal, block{index, startDate, endDate, generatedAt, rationale, days[]{date, dow,

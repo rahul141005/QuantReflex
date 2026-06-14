@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-047 — Post-merge forensic remediation: one authoritative planner + restore dropped UX (2026-06-14)
+- **Context:** `main` was produced by merging two parallel QuanAI efforts — the pushed "production audit" (ADR-045:
+  exam-aware persona, version-honesty, freshness, `quantTopics`/`planLogic`) and the ADR-046 Planner branch (which
+  also carried a parallel ADR-045 draft). The merge took the audit wholesale for shared AI logic and layered the
+  Planner additively, which **silently dropped a cluster of the Planner branch's non-conflicting UX improvements**
+  and left **two competing planners** in the tree. A three-agent forensic audit of the final `main` blobs (not git
+  metadata — the actual code) confirmed six regressions and the duplication.
+- **Regressions found & restored (R1):** (1) `ctx.today` had collapsed to `{cats}` (a planner-recency shape) so
+  Coach/Insights/Planner reads of `ctx.today.attempted` returned `undefined`/`NaN` — restored the live count-signal
+  (`_deriveToday → {attempted,correct,accuracy,avgMsPerQ}`); (2) the cold-start gate had regressed to lifetime-only —
+  restored the two-gate "coach, don't gate" unlock (`today.attempted < COACH_MIN_TODAY`); (3) `serialize()` had
+  stopped leading with the TODAY line; (4) the cold coach computed a personalized `coldMsg` then discarded it for a
+  hardcoded warm-up `say()`; (5) Explain's "Drill this" emitted a navigating `chipDeep` (the wired in-place
+  `startMicroDrill` was unreachable) — restored `chipDrill`; (6) `preferredDepth` was read then ignored
+  (`depth:'standard'`) — restored `depth: depth`.
+- **Decision — one authoritative planner (R2):** the ADR-046 Planner is the product; **the legacy Mission was
+  removed entirely**, no dormant code. Deleted `missionGet/Generate/Today`, `_missionEnvelope`, the mission-only
+  `_topicList`/`_weakCats`, `plan.generate`, `action=mission`, `openMission`/`runInterview`, the dead `plan_regen`
+  chip, `services/planLogic.js`, and `quantTopics.nearestCategory`/`KEYWORDS` (only `planLogic` used them). Coach
+  now reads only `aiPlanner`. Parity: nothing from `planLogic` needed migrating — the Planner already computes
+  progress/coverage/adherence deterministically. Removing the Mission also made `ctx.today.cats`/`weekCats` and
+  `studentContext._toMillis` dead → deleted. **Verification gate:** a repo-wide `git grep` for every legacy-Mission
+  symbol returns zero runtime references (comments/ADR history excepted).
+- **Decision — consolidate identical helpers (R3):** the byte-identical `round`/`clamp`/`todayIso` (duplicated
+  across studentContext/aiBrain/plannerEngine/readiness/signals) moved to one pure `services/aiMath.js`; importers
+  rebind to it (zero behavior change). Helpers that only *look* similar stay separate **by responsibility**: the two
+  `_ms` parse different key formats (toDateString vs ISO), `addDays`/`dowOf` are ISO-date-specific.
+- **Consequences:** smaller, single-planner codebase; no model/rules/index change. Tests repointed — all 16
+  `test-ai.js` assertions were legacy (nearestCategory + planLogic), so `npm test` now runs the authoritative
+  harnesses (`planner-engine.check` 209 + `planner-brain.check` 22, incl. new today-signal/two-gate regression
+  assertions). Also fixed a merge artifact: AI_INTERACTION_SYSTEM §0 said "90s cache" while the code/§7 use 6h.
+  SW cache v107→v108.
+
 ## ADR-046 — QuanAI Planner: a living, adaptive, syllabus-driven study planner (2026-06-14)
 - **Context:** The "Mission" (ADR-039) was a one-shot LLM blob (`{rationale, weekFocus[], phases[]}` in
   `aiMissions/{uid}`) from a 4-pill interview. It had no day-by-day schedule, no checkboxes, no replanning, and

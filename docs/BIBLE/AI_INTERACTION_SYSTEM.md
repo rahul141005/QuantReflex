@@ -26,9 +26,9 @@ compensate with architecture. Seven levers, applied everywhere:
 5. **Remember.** Durable `aiMemory` gives continuity ("3rd time on ratios — let's nail it") → feels like it
    knows the student.
 6. **Interact.** Every response ends in an action (chips/follow-ups/missions). The AI *drives* the next step.
-7. **Cache + skip.** Reuse context (90s — short enough to stay live to the current session; `force` bypasses after a
-   drill), plus a fresh "today" layer read every call, shared explanations, daily caches; **cold-start users never
-   hit the model** (deterministic copy). Cheap and instant. (ADR-045 — was 6h, which froze QuanAI to the session.)
+7. **Cache + skip.** Reuse context (`aiContext` 6h); a finished drill stamps `qr_ai_dirty_at` so each surface
+   force-refreshes once on its next open (ADR-045), plus a live **today** count-signal fed into the prompt, shared
+   explanations, daily caches; **cold-start users never hit the model** (deterministic copy). Cheap and instant.
 
 ---
 
@@ -93,7 +93,7 @@ Chip = { "label": string, "value": string, "icon"?: string,
 ```
 - `reply` → sends `value` back as the next `chat` turn (continues the conversation).
 - `deeplink` → calls `startDrillFromPractice(mode, category, label)` (`practice-modes.js`) and logs `deeplink`.
-  Used for deliberate session starts (Coach/Insights/Mission "start a set").
+  Used for deliberate session starts (Coach/Insights/Planner "start a set").
 - `drill` → runs an **in-place** 5-question adaptive micro-drill INSIDE the AI modal (ADR-045), then feeds the
   result back as a concept-anchored turn. Used by Explain so the learning flow is never broken. Never navigates.
 - `dismiss` → closes the surface, logs `dismiss`. (Coach "Not today", etc.)
@@ -168,7 +168,8 @@ shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferr
 ### 6a. QuanAI Planner — a deterministic engine the model only narrates (ADR-046)
 
 The Planner is the strongest expression of §0's doctrine: **all scheduling is deterministic; the LLM only writes
-prose.** It supersedes the one-shot "Study Plan/Mission" (legacy `aiMissions` + `plan.generate`, kept dormant).
+prose.** It is the ONE study planner — the legacy one-shot Mission (`aiMissions` + `plan.generate` + `planLogic`)
+was fully removed in ADR-047.
 
 - **Syllabus DB** (`main-app/data/syllabus.js`, bundled not Firestore): 26 exams → 5 real syllabi, 104 topics,
   each with importance/frequency/difficulty/prereqs/revision-cadence/est-minutes, a `drillable` link to one of
@@ -228,11 +229,11 @@ retention." No always-on infra (Spark-safe).
 ## 10. Future-model note (documented, NOT implemented)
 
 We ship on `gpt-4o-mini` only. The `llmProvider` seam keeps a future model swap a one-file change. Candidates to
-re-evaluate later **per feature** (do not implement now): deeper multi-step Mission generation and long-context
-weekly review could benefit from a stronger reasoning model. Any such change is a separate ADR.
+re-evaluate later **per feature** (do not implement now): richer Planner narration and long-context block review
+could benefit from a stronger reasoning model. Any such change is a separate ADR.
 
 **Roadmap (product, not model) — the top deferred items, in priority order:**
 1. ~~**Interactive mini-challenge**~~ — **SHIPPED (ADR-045)** as the in-place `drill` chip / micro-drill.
 2. **SSE streaming** of the prose `say` field (perceived-latency polish; staged skeletons cover it today).
-3. **Automated weekly Mission review** as a per-user cron pass (today the Mission adapts via the live context rebuild
-   + a manual "Adjust my plan"; a scheduled LLM re-plan is deferred for cost/timeout reasons on the single cron).
+3. **Automated end-of-block Planner regen** as a per-user cron pass (today the Planner regenerates on demand via
+   "Plan my next 2 weeks" + auto Smart Catch-up on open; a scheduled re-plan is deferred for cost/timeout reasons).
