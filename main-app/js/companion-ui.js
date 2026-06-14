@@ -17,6 +17,18 @@ var Companion = (function () {
   function el(html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
   function log(feature, type, meta) { try { if (window.AIAnalytics && AIAnalytics.log) AIAnalytics.log(feature, type, meta || {}); } catch (_) {} }
 
+  /* ---------- freshness signal (ADR-045) ----------
+     drill-engine stamps qr_ai_dirty_at = Date.now() whenever a practice session is recorded. Each AI surface
+     (coach / insights / plan) independently forces ONE fresh server context after a practice burst by comparing
+     that stamp to its own last-seen stamp — so all three reflect the practice the student just did, instead of
+     repeating advice from the 6h context cache / per-day envelope cache. Per-feature so refreshing one surface
+     doesn't rob the others; bounded (one forced rebuild per feature per practice burst). */
+  var DIRTY_KEY = 'qr_ai_dirty_at';
+  function dirtyAt() { try { return parseInt(localStorage.getItem(DIRTY_KEY), 10) || 0; } catch (_) { return 0; } }
+  function seenAt(feature) { try { return parseInt(localStorage.getItem('qr_ai_seen_' + feature), 10) || 0; } catch (_) { return 0; } }
+  function markSeen(feature, ts) { try { localStorage.setItem('qr_ai_seen_' + feature, String(ts || dirtyAt())); } catch (_) {} }
+  function shouldForce(feature) { return dirtyAt() > seenAt(feature); }
+
   function _token() {
     return new Promise(function (resolve) {
       try {
@@ -49,6 +61,7 @@ var Companion = (function () {
         '<div class="companion-sheet">' +
           '<div class="companion-head"><span class="companion-badge">' + esc(PERSONA) + '</span>' +
             '<span class="companion-title">' + esc(title || '') + '</span>' +
+            '<button class="companion-refresh" type="button" aria-label="Refresh" title="Refresh" style="display:none">↻</button>' +
             '<button class="companion-close" type="button" aria-label="Close">✕</button></div>' +
           '<div class="companion-scroll"></div>' +
         '</div></div>');
@@ -56,7 +69,15 @@ var Companion = (function () {
     function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); _state = null; }
     overlay.querySelector('.companion-close').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    return { overlay: overlay, body: overlay.querySelector('.companion-scroll'), close: close };
+    return { overlay: overlay, body: overlay.querySelector('.companion-scroll'), close: close,
+      refreshBtn: overlay.querySelector('.companion-refresh') };
+  }
+
+  /* Show the header refresh control and bind it to re-run the surface with a forced, fresh context. */
+  function wireRefresh(modal, fn) {
+    if (!modal || !modal.refreshBtn) return;
+    modal.refreshBtn.style.display = '';
+    modal.refreshBtn.addEventListener('click', function () { fn(); });
   }
 
   /* ---------- staged loading ---------- */
@@ -188,44 +209,58 @@ var Companion = (function () {
     var m = openModal(o.title);
     _state = { feature: o.feature, topic: o.topic || '', history: [], body: m.body, modal: m };
     log(o.feature, 'opened', {});
+    // Force a fresh context when the student practiced since this feature last refreshed, or tapped refresh.
+    var force = !!o.force || (o.autoForce && shouldForce(o.feature));
+    var stamp = dirtyAt();
+    var reqBody = o.body || {};
+    if (force) { reqBody = {}; for (var k in (o.body || {})) reqBody[k] = o.body[k]; reqBody.force = true; }
+    if (o.autoForce) wireRefresh(m, function () { openFeature(_assign(o, { force: true })); });
     var stop = showLoading(m.body, o.stages);
     // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
     var reopen = function () { openFeature(o); };
-    api(o.action, o.body || {}).then(function (res) {
+    api(o.action, reqBody).then(function (res) {
       stop();
       if (!res.ok) { m.body.innerHTML = ''; renderError(m.body, res, reopen); return; }
       var env = res.data.response;
       if (!env) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); return; }
-      log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId });
+      if (force) markSeen(o.feature, stamp);
+      log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId, refreshed: !!force });
       renderEnvelope(m.body, env, false);
     });
   }
+  function _assign(a, b) { var o = {}; var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 
   function openExplain(question, answer, category) {
     openFeature({ feature: 'explain', title: 'Explain', topic: category, action: 'explain',
       body: { question: question, answer: answer, category: category }, stages: ['Working through it…', 'Finding the cleanest way…'] });
   }
-  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', stages: ['Reviewing your week…', 'Picking your next move…'] }); }
-  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
+  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
+  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
 
   /* Mission: get existing → render, else run a chip-driven interview, then generate. */
-  function openMission(forceRegen) {
+  function openMission(forceRegen, forceFresh) {
     var m = openModal('Your Mission');
     _state = { feature: 'plan', topic: '', history: [], body: m.body, modal: m };
     log('plan', 'opened', {});
     if (forceRegen) { return runInterview(m); }
+    // Recompute live progress from the freshest data if the student has practiced since last open / tapped refresh.
+    var force = !!forceFresh || shouldForce('plan');
+    var stamp = dirtyAt();
+    wireRefresh(m, function () { openMission(false, true); });
     var stop = showLoading(m.body, ['Loading your plan…']);
-    api('mission', { op: 'get' }).then(function (res) {
+    api('mission', { op: 'get', force: force }).then(function (res) {
       stop();
-      if (res.ok && res.data && res.data.plan && res.data.response) { log('plan', 'shown', {}); renderEnvelope(m.body, res.data.response, false); return; }
+      if (res.ok && res.data && res.data.plan && res.data.response) { if (force) markSeen('plan', stamp); log('plan', 'shown', { refreshed: force }); renderEnvelope(m.body, res.data.response, false); return; }
       runInterview(m);
     });
   }
 
   function runInterview(m) {
     var answers = {};
+    // '__other__' opens a free-text field so QuanAI supports ANY quant exam (XAT, NMAT, SBI PO, RBI, NDA, a
+    // college placement test, …) by its real name — never silently coerced to CAT (ADR-045).
     var steps = [
-      { q: 'Which exam are you preparing for?', opts: [['CAT', 'CAT'], ['GMAT', 'GMAT'], ['Bank PO', 'Bank PO'], ['SSC', 'SSC'], ['Other', 'CAT']], key: 'examName' },
+      { q: 'Which exam are you preparing for?', opts: [['CAT', 'CAT'], ['GMAT', 'GMAT'], ['Bank PO', 'Bank PO'], ['SSC CGL', 'SSC CGL'], ['Other…', '__other__']], key: 'examName' },
       { q: 'When\'s the exam?', opts: [['~1 month', 30], ['~2 months', 60], ['~3 months', 90], ['~6 months', 180]], key: 'days' },
       { q: 'How long can you study daily?', opts: [['15 min', 15], ['30 min', 30], ['45 min', 45], ['60 min', 60]], key: 'dailyMinutes' },
       { q: 'How confident do you feel right now?', opts: [['Low', 'low'], ['Okay', 'medium'], ['Strong', 'high']], key: 'confidence' }
@@ -239,9 +274,25 @@ var Companion = (function () {
       m.body.querySelectorAll('.companion-chip').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var o = s.opts[parseInt(btn.getAttribute('data-i'), 10)];
+          if (o[1] === '__other__') { return askExamText(s.key); }
           answers[s.key] = o[1]; idx++; ask();
         });
       });
+    }
+    function askExamText(key) {
+      m.body.innerHTML = '<div class="companion-turn"><div class="cb-say">Which exam? Type its name.</div>' +
+        '<div class="companion-otherwrap"><input class="companion-otherinput" type="text" maxlength="60" ' +
+        'placeholder="e.g. XAT, SBI PO, NDA, campus placement" aria-label="Exam name" />' +
+        '<button class="companion-chip kind-reply companion-otherok" type="button">Continue</button></div></div>';
+      var input = m.body.querySelector('.companion-otherinput');
+      var ok = m.body.querySelector('.companion-otherok');
+      if (input) input.focus();
+      function commit() {
+        var v = input && input.value ? input.value.trim().slice(0, 60) : '';
+        answers[key] = v || 'my exam'; idx++; ask();
+      }
+      if (ok) ok.addEventListener('click', commit);
+      if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
     }
     function finish() {
       var stop = showLoading(m.body, ['Designing your mission…', 'Weighting your weak topics…']);

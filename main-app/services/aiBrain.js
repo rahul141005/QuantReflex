@@ -14,8 +14,15 @@ const ctxEngine = require('./studentContext');
 const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
+const planLogic = require('./planLogic');
 
 function db() { return admin.firestore(); }
+function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
+function _promptId(p) { return p.id + '@' + p.version; }
+/** The drillable categories, as a prompt-friendly list (keeps the planner from inventing topics). */
+function _topicList() { return Object.keys(ctxEngine.CATEGORY_LABELS).map(function (k) { return ctxEngine.CATEGORY_LABELS[k]; }).join(', '); }
+/** Weak (non-strong) categories for plan backfill / grounding. */
+function _weakCats(ctx) { return (ctx.mastery || []).filter(function (m) { return m.tier !== 'strong'; }).map(function (m) { return { cat: m.cat, label: m.label }; }); }
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; return h.toString(36); }
 
@@ -57,11 +64,11 @@ function _putDaily(uid, feature, env) {
 /* ════════════════════════ AI COACH — daily mentor ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid);
+  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
 
   if (ctxEngine.isColdStart(ctx)) {
     return envelope('coach', [
-      say('I\'m your coach, ' + prompts.PERSONA + '. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
+      say('I\'m ' + prompts.PERSONA + ', your coach. Do a quick 10-question set and I\'ll start coaching you on your real patterns — speed, accuracy, the topics that trip you up.'),
       missionBlock('Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
     ], [chipDeep('Start warm-up', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
   }
@@ -78,25 +85,27 @@ async function coachToday(uid, opts) {
   } catch (_) {}
   var env;
   try {
-    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: planNote });
+    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: planNote, examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     var d = r.data;
     env = envelope('coach', [
       say(d.say),
       d.celebrate ? celebrate(d.celebrate) : null,
-      missionBlock('Drill ' + focus.label, d.missionWhy, 'focus', focus.cat, focus.label, 8)
+      missionBlock('Drill ' + focus.label, d.missionWhy, 'focus', focus.cat, focus.label, 8),
+      opts.force ? callout('success', 'Updated from your latest practice.') : null
     ], [
       chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'),
       chipReply('Tell me more', 'coach_followup:' + (d.followup || 'tell me more')),
       chipDismiss('Not today')
-    ].concat(helpfulChips()), { promptId: 'coach.daily@3', focus: focus.cat });
+    ].concat(helpfulChips()), { promptId: _promptId(p), focus: focus.cat });
     aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + '.' } }, 'coach');
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     env = _coachFallback(ctx, focus);
   }
-  _putDaily(uid, 'coach', env);
+  // Never cache a degraded fallback — a transient model failure must not pin bad advice for the whole day.
+  if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'coach', env);
   return env;
 }
 function _coachFallback(ctx, focus) {
@@ -111,7 +120,7 @@ function _coachFallback(ctx, focus) {
 /* ════════════════════════ AI INSIGHTS — performance intelligence → missions ════════════════════════ */
 async function insights(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid);
+  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
 
   if (ctxEngine.isColdStart(ctx)) {
     return envelope('insights', [
@@ -130,9 +139,10 @@ async function insights(uid, opts) {
   if (t.consistency) blocks.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
 
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
+  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
   var env;
   try {
-    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label });
+    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     var d = r.data;
@@ -142,23 +152,28 @@ async function insights(uid, opts) {
       [say(d.headline)].concat(blocks).concat([card('Your biggest weakness', d.weaknessInsight, 'rose', '🎯')]).concat(missions),
       weakCats.map(function (m) { return chipDeep('Fix ' + m.label, 'focus', m.cat, m.label, '⚡'); })
         .concat([chipReply(d.nextStepLabel || 'Ask why', 'insights_why')]).concat(helpfulChips()),
-      { promptId: 'insights.analyze@2' });
+      { promptId: _promptId(p) });
     aiService.updateMemory(uid, { addWeakConcepts: weakCats.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     env = envelope('insights', [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(blocks).concat([missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8)]),
       [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
   }
-  _putDaily(uid, 'insights', env);
+  // Never cache a degraded fallback (transient model failure shouldn't pin a bad answer all day).
+  if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'insights', env);
   return env;
 }
 
 /* ════════════════════════ AI EXPLAIN — interactive concept learning ════════════════════════ */
 async function explainBase(question, answer, category, uid) {
   var catLabel = ctxEngine.label(category) || 'General Math';
+  // Cache key is namespaced by the prompt version so a prompt bump busts the shared cache instead of
+  // serving an explanation generated by an older, off-voice prompt forever (trust/consistency, ADR-045).
+  var explainVersion = prompts.REGISTRY['explain.base'].version;
   var hash = _hash(String(question) + ':' + String(answer));
-  var cacheRef = db().collection('explanations').doc(hash);
+  var cacheRef = db().collection('explanations').doc(hash + '_v' + explainVersion);
 
+  var promptId = 'explain.base@' + explainVersion;
   var pieces = null;
   try {
     var cached = await cacheRef.get();
@@ -169,11 +184,12 @@ async function explainBase(question, answer, category, uid) {
     var mem = await aiService.getMemory(uid);
     var struggled = !!(mem && Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0);
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: 'standard', struggledBefore: struggled });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: 'standard', struggledBefore: struggled, examName: (mem && mem.examName) || '' });
+      promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
       pieces = r.data;
-      cacheRef.set({ questionId: hash, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistake: pieces.mistake, tip: pieces.tip, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
+      cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistake: pieces.mistake, tip: pieces.tip, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
       if (e && e.usage) aiService.trackGptCost(uid, e.usage);
       return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
@@ -193,7 +209,7 @@ async function explainBase(question, answer, category, uid) {
     chipReply('Go deeper', 'explain_deeper'),
     chipReply('Another like this', 'explain_another'),
     chipDeep('Drill this', 'focus', category, catLabel, '⚡')
-  ], { promptId: 'explain.base@2', topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
+  ], { promptId: promptId, topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
 }
 
 /* ════════════════════════ Conversational turn (explain follow-ups + generic) ════════════════════════ */
@@ -221,7 +237,7 @@ async function chatTurn(uid, body) {
   var ctx = await ctxEngine.buildContext(uid);
   var history = Array.isArray(body.history) ? body.history.slice(-6).map(function (h) { return (h.role === 'user' ? 'Student: ' : 'You: ') + String(h.content || '').slice(0, 200); }).join('\n') : '';
   try {
-    var p = prompts.get('chat.turn', { topic: catLabel, context: ctxEngine.serialize(ctx, 700), history: llm.wrapData(history, 900), userTurn: llm.wrapData(hint, 400) });
+    var p = prompts.get('chat.turn', { topic: catLabel, context: ctxEngine.serialize(ctx, 700), history: llm.wrapData(history, 900), userTurn: llm.wrapData(hint, 400), examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     var d = r.data;
@@ -230,7 +246,7 @@ async function chatTurn(uid, body) {
     var chips = (feature === 'explain')
       ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDeep('Drill this', 'focus', topic, catLabel, '⚡')]
       : [chipReply('Got it ✓', 'helpful_yes')];
-    return envelope(feature, blocks, chips, { promptId: 'chat.turn@1', topic: topic });
+    return envelope(feature, blocks, chips, { promptId: _promptId(p), topic: topic });
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
     return envelope(feature, [callout('warn', 'I couldn\'t answer that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
@@ -247,27 +263,31 @@ async function missionGet(uid) {
 }
 
 async function missionGenerate(uid, params) {
-  var ctx = await ctxEngine.buildContext(uid);
+  var ctx = await ctxEngine.buildContext(uid, { force: true }); // a re-plan must use the freshest data
   var examName = String(params.examName || 'CAT').slice(0, 60);
   var examDate = String(params.examDate || '').slice(0, 10);
   var dailyMinutes = Math.max(15, Math.min(360, parseInt(params.dailyMinutes) || 45));
   var goal = String(params.goal || '').slice(0, 120);
   var daysRemaining = examDate ? Math.max(1, Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000)) : 60;
+  var weakCats = _weakCats(ctx);
 
   // memory write (interview → memory)
   aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes, confidence: params.confidence, timelineEntry: { feature: 'plan', summary: 'Started a mission for ' + examName + '.' } }, 'interview');
 
   var plan;
   try {
-    var p = prompts.get('plan.generate', { examName: llm.wrapData(examName, 60), daysRemaining: daysRemaining, dailyMinutes: dailyMinutes, goal: llm.wrapData(goal || 'improve overall', 120), context: ctxEngine.serialize(ctx) });
+    var p = prompts.get('plan.generate', { examName: examName, daysRemaining: daysRemaining, dailyMinutes: dailyMinutes, goal: llm.wrapData(goal || 'improve overall', 120), context: ctxEngine.serialize(ctx), topicList: _topicList() });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     plan = r.data;
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
-    var weakLabels = (ctx.mastery || []).filter(function (m) { return m.tier !== 'strong'; }).slice(0, 3).map(function (m) { return { topicLabel: m.label, goal: 'Lift accuracy above 70%' }; });
-    plan = { rationale: 'A focused plan built around your weakest topics, with daily targeted practice.', weekFocus: weakLabels.length ? weakLabels : [{ topicLabel: 'Mixed practice', goal: 'Build consistency' }], phases: [{ name: 'Build accuracy', durationDays: Math.min(daysRemaining, 21) }, { name: 'Build speed', durationDays: Math.max(0, daysRemaining - 21) }] };
+    var weakLabels = weakCats.slice(0, 3).map(function (m) { return { topicLabel: m.label, goal: 'Lift accuracy above 70%.' }; });
+    plan = { rationale: 'A focused plan built around your weakest topics, with daily targeted practice.', weekFocus: weakLabels, phases: [{ name: 'Build accuracy', durationDays: Math.min(daysRemaining, 21) }, { name: 'Build speed', durationDays: Math.max(1, daysRemaining - 21) }] };
   }
+
+  // Ground topics to real categories + force a feasible timeline (deterministic — the model can't hallucinate a syllabus).
+  plan = planLogic.normalizePlan(plan, { daysRemaining: daysRemaining, weakCats: weakCats });
 
   var doc = { uid: uid, examName: examName, examDate: examDate, dailyMinutes: dailyMinutes, goal: goal,
     rationale: plan.rationale, weekFocus: plan.weekFocus, phases: plan.phases,
@@ -277,31 +297,61 @@ async function missionGenerate(uid, params) {
   return _missionEnvelope(ctx, doc);
 }
 
-async function missionToday(uid) {
-  var ctx = await ctxEngine.buildContext(uid);
+async function missionToday(uid, opts) {
+  opts = opts || {};
+  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force });
   var got = await missionGet(uid);
   if (!got.plan) return { plan: null };
   return _missionEnvelope(ctx, got.plan);
 }
 
 function _missionEnvelope(ctx, plan) {
+  // Live progress derived deterministically from real practice (no LLM) — this is what makes the plan feel alive.
+  var prog = planLogic.missionProgress(plan, {
+    mastery: ctx.mastery || [], weekCats: ctx.weekCats || [],
+    todayCats: (ctx.today && ctx.today.cats) || [], weekStartedAt: plan.weekStartedAt, now: Date.now()
+  });
+  var todaySet = {}; ((ctx.today && ctx.today.cats) || []).forEach(function (c) { todaySet[c] = true; });
+
+  // Drive "today's drill" from the plan's own weekly focus (first topic not yet done today) so the stated plan
+  // and the launched drill never diverge. Fall back to the top weak category for legacy/empty plans.
+  var dailyFocus = null, dailyDone = false;
+  for (var i = 0; i < prog.focus.length; i++) { if (prog.focus[i].cat && !todaySet[prog.focus[i].cat]) { dailyFocus = prog.focus[i]; break; } }
+  if (!dailyFocus && prog.focus.length) { dailyFocus = prog.focus[0]; dailyDone = true; }
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
-  var focusList = (plan.weekFocus || []).map(function (w) { return w.topicLabel + (w.goal ? ' — ' + w.goal : ''); });
-  var phaseDays = (plan.phases || []).map(function (ph, i) { return { day: i + 1, label: ph.name, items: [ph.durationDays + ' days'], done: false }; });
+  var driveCat = dailyFocus ? dailyFocus.cat : weak.cat;
+  var driveLabel = dailyFocus ? dailyFocus.label : weak.label;
+  var estMin = plan.dailyMinutes ? Math.min(plan.dailyMinutes, 15) : 10;
+
   var daysToExam = plan.examDate ? Math.max(0, Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / 86400000)) : null;
 
   var blocks = [
     say(plan.rationale || 'Here\'s your living plan — it adapts every week from your real progress.'),
-    missionBlock('Today: drill ' + weak.label, 'Your highest-impact topic this week.', 'focus', weak.cat, weak.label, plan.dailyMinutes ? Math.min(plan.dailyMinutes, 15) : 10)
+    dailyDone
+      ? missionBlock('Done today ✓ — extra set: ' + driveLabel, 'You\'ve hit your focus today. One more set locks it in.', 'focus', driveCat, driveLabel, estMin)
+      : missionBlock('Today: drill ' + driveLabel, 'Your highest-impact topic this week.', 'focus', driveCat, driveLabel, estMin)
   ];
-  if (focusList.length) blocks.push(card('This week\'s focus', focusList.join('\n'), 'blue', '🎯'));
+
+  // This week's focus — annotated with the student's REAL accuracy and what they've already practiced.
+  var focusLines = prog.focus.map(function (f) {
+    var accTxt = f.acc != null ? Math.round(f.acc * 100) + '%' : 'new';
+    return (f.practicedThisWeek ? '✓ ' : '') + f.label + ' (' + accTxt + ')' + (f.goal ? ' — ' + f.goal : '');
+  });
+  if (focusLines.length) blocks.push(card('This week\'s focus', focusLines.join('\n'), 'blue', '🎯'));
+
+  // Phase timeline with real done / in-progress state.
+  var phaseDays = prog.phases.map(function (ph, i) {
+    return { day: i + 1, label: ph.name, items: [ph.durationDays + ' days' + (ph.current ? ' · in progress' : '')], done: ph.done };
+  });
   if (phaseDays.length) blocks.push({ type: 'timeline', days: phaseDays });
+
+  if (prog.weekStale) blocks.push(callout('warn', 'This week\'s plan is ' + prog.daysIntoWeek + ' days old — tap "Adjust my plan" to refresh it from your latest progress.'));
   if (daysToExam != null) blocks.push(callout('info', daysToExam + ' days to ' + (plan.examName || 'your exam') + '.'));
 
   return { plan: plan, envelope: envelope('plan', blocks, [
-    chipDeep('Start today\'s drill', 'focus', weak.cat, weak.label, '⚡'),
+    chipDeep(dailyDone ? 'Extra set' : 'Start today\'s drill', 'focus', driveCat, driveLabel, '⚡'),
     chipReply('Adjust my plan', 'plan_regen')
-  ].concat(helpfulChips()), { promptId: 'plan.generate@2' }) };
+  ].concat(helpfulChips()), { promptId: 'plan.generate@' + prompts.REGISTRY['plan.generate'].version }) };
 }
 
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */
@@ -314,7 +364,7 @@ async function wordProblem(uid, category, difficulty, isPremium) {
   var target = category || (ctxEngine.topWeakCategory(ctx) || {}).cat || 'percentages';
   var topicLabel = ctxEngine.label(target);
   try {
-    var p = prompts.get('wp.generate', { topicLabel: topicLabel, difficulty: difficulty || 'medium' });
+    var p = prompts.get('wp.generate', { topicLabel: topicLabel, difficulty: difficulty || 'medium', examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
     aiService.trackGptCost(uid, r.usage);
     return { problem: { question: r.data.question, answer: r.data.answer, options: r.data.options, explanation: r.data.explanation, category: target } };

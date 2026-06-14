@@ -6,6 +6,30 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — QuanAI production audit: exam-aware persona, freshness, plan grounding, version-honesty (ADR-045)
+
+Deep production audit of the QuanAI ecosystem (Coach, Insights, Explain, Study Planner). The architecture was already
+sound; this pass closes the trust / one-mentor-identity / "feels-alive" gaps a paying Premium user actually notices.
+New deliverable: [AUDIT-REPORT-QUANAI.md](../../AUDIT-REPORT-QUANAI.md). New deterministic + unit-tested modules:
+`services/quantTopics.js`, `services/planLogic.js`, `scripts/test-ai.js` (16 tests, `npm test`).
+
+- **One universal exam-aware persona** — `aiPrompts.sys()` no longer hardcodes "CAT speed-math coach"; QuanAI is a
+  universal quantitative-aptitude mentor that adapts examples/priorities/pacing to the student's actual exam (injected,
+  wrapped as data). Study-Plan interview gains a free-text **"Other…"** so ANY exam (XAT, SBI PO, NDA, campus tests, …)
+  is honored by name instead of being silently coerced to CAT.
+- **Trust / version-honesty** — `meta.promptId` is now derived from the registry version (killed `@2/@3` drift vs the
+  real versions); all six prompt entries bumped; `explanations` cache is **version-keyed** so a prompt bump busts stale
+  text; **fallback envelopes are no longer cached** for the day.
+- **Freshness ("watches you every day")** — `force` is now threaded into `buildContext` (it wasn't), so a refresh
+  actually refetches; finishing a drill stamps `qr_ai_dirty_at` and each AI surface force-refreshes once + a manual
+  "↻" control. No more repeating yesterday's advice after you practice.
+- **Living Study Planner** — model plans are deterministically **grounded** (free-text topics → real drillable
+  categories) and **feasibility-normalized** (phase durations sum to the days remaining); the daily drill is driven by
+  the plan's own weekly focus (no divergence); timeline phases show real done/in-progress state; weekly focus shows
+  real accuracy + ✓ practiced; a stale-week nudge appears after 7 days. Replaced hardcoded `done:false`.
+- **Cleanup** — removed an unused, drifted `CATEGORY_LABELS` copy in `aiService.js`; topic vocabulary now has one
+  source of truth (`quantTopics.js`). Cold-start Coach copy fixed ("I'm QuanAI, your coach.").
+
 ## 2026-06-14 — Fix stale-duel resurrection: export `ackResult` + durable ack ledger (ADR-044)
 
 A duel finished long ago kept reappearing as "Results ready" on Home after every restart. Root cause + permanent fix.

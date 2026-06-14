@@ -42,20 +42,8 @@ class AIServiceError extends Error {
   }
 }
 
-const CATEGORY_LABELS = {
-  squares: 'Squares & Square Roots',
-  cubes: 'Cubes & Cube Roots',
-  area: 'Area Calculations',
-  volume: 'Volume Calculations',
-  percentages: 'Percentages',
-  multiplication: 'Multiplication & Division',
-  fractions: 'Fractions',
-  averages: 'Averages',
-  ratios: 'Ratios & Proportions',
-  'profit-loss': 'Profit & Loss',
-  'time-speed-distance': 'Time, Speed & Distance',
-  'time-and-work': 'Time & Work'
-};
+// (ADR-045) Removed an unused, drifted CATEGORY_LABELS copy here — the canonical topic map lives in
+// services/quantTopics.js and is the single source of truth shared by studentContext + planLogic.
 
 async function verifyIdToken(idToken) {
   try {

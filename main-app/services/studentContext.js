@@ -13,6 +13,7 @@
  * Coach / Insights / Today / Plan → three features = one build).
  */
 const admin = require('firebase-admin');
+const topics = require('./quantTopics');
 
 if (!admin.apps.length) {
   var cfg = { projectId: 'quant-reflex-trainer' };
@@ -24,13 +25,9 @@ function db() { return admin.firestore(); }
 
 var COLD_START_ATTEMPTS = 20;
 var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
-var CATEGORY_LABELS = {
-  squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume',
-  percentages: 'Percentages', multiplication: 'Multiplication', fractions: 'Fractions',
-  averages: 'Averages', ratios: 'Ratios', 'profit-loss': 'Profit & Loss',
-  'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work'
-};
-function label(cat) { return CATEGORY_LABELS[cat] || cat; }
+// Topic vocabulary is now defined ONCE in quantTopics.js (ADR-045) and shared with planLogic.js.
+var CATEGORY_LABELS = topics.CATEGORY_LABELS;
+var label = topics.label;
 
 function _ms(dateKey) {
   if (!dateKey) return 0;
@@ -38,6 +35,15 @@ function _ms(dateKey) {
   return isNaN(t) ? 0 : t;
 }
 function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
+/** Coerce a Firestore Timestamp | millis | ISO string to epoch millis (0 if unknown). */
+function _toMillis(v) {
+  if (!v) return 0;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.seconds === 'number') return v.seconds * 1000;
+  if (typeof v === 'number') return v;
+  var t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
+}
 
 /**
  * Build the student model. Returns a plain object (see AI_INTERACTION_SYSTEM §4 / the redesign plan).
@@ -93,6 +99,17 @@ async function buildContext(uid, opts) {
 
   var accuracy = totalAttempted > 0 ? totalCorrect / totalAttempted : 0;
 
+  // Practice recency by category (for the living Study Planner — which topics were touched today / this week).
+  var todayCats = {}, weekCats = {};
+  var nowMs = Date.now(), DAY = 86400000, startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  sessions.forEach(function (s) {
+    if (!s.category) return;
+    var t = _toMillis(s.timestamp);
+    if (!t) return;
+    if (t >= startOfToday.getTime()) todayCats[s.category] = true;
+    if (nowMs - t <= 7 * DAY) weekCats[s.category] = true;
+  });
+
   var trends = _deriveTrends(stats);
   var mastery = _deriveMastery(stats);
   var errorPatterns = _deriveErrors(stats, mastery);
@@ -114,6 +131,8 @@ async function buildContext(uid, opts) {
     recentSessions: sessions.slice(0, 8).map(function (s) {
       return { mode: s.mode || 'practice', category: s.category || '', acc: (s.total ? _round((s.score || 0) / s.total, 2) : null), improvedPct: _round(s.sessionImprovementPct, 0) };
     }),
+    today: { cats: Object.keys(todayCats) },
+    weekCats: Object.keys(weekCats),
     memory: _publicMemory(memory)
   };
 
@@ -128,7 +147,7 @@ function _coldContext(uid, o) {
     dailyStreak: 0,
     trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
-    recentSessions: [], memory: _publicMemory(o.memory)
+    recentSessions: [], today: { cats: [] }, weekCats: [], memory: _publicMemory(o.memory)
   };
 }
 

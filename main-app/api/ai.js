@@ -63,14 +63,15 @@ async function _mission(req, res) {
   var body = req.body || {};
   var op = typeof body.op === 'string' ? body.op : 'get';
 
+  var force = !!body.force;
   if (op === 'get') {
     var got = await aiBrain.missionGet(req.userId);
     if (!got.plan) return res.json({ plan: null });
-    var todayEnv = await aiBrain.missionToday(req.userId);
+    var todayEnv = await aiBrain.missionToday(req.userId, { force: force });
     return res.json({ plan: got.plan, response: todayEnv.envelope || null });
   }
   if (op === 'today') {
-    var t = await aiBrain.missionToday(req.userId);
+    var t = await aiBrain.missionToday(req.userId, { force: force });
     return res.json({ plan: t.plan || null, response: t.envelope || null });
   }
   if (op === 'generate' || op === 'regen') {

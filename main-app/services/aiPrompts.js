@@ -13,11 +13,28 @@
  * truncation in aiBrain when assembling blocks. Versioning: bump an entry's `version` on any prompt/schema change.
  * All user-derived strings arrive pre-wrapped via llmProvider.wrapData (<<<DATA>>>…<<<END>>>).
  */
+var llm = require('./llmProvider');
 var PERSONA = 'QuanAI';
 
-function sys(role) {
-  return 'You are ' + PERSONA + ', a sharp, warm, and concise CAT speed-math coach who has watched this '
-    + 'student practice every day. ' + role + '\n'
+/**
+ * One universal persona for the whole ecosystem (ADR-045). QuanAI is a quantitative-aptitude mentor — NOT a
+ * "CAT" tool — so the identity is exam-agnostic while the COACHING is exam-aware: when the student's exam is
+ * known it is injected (wrapped as data, never trusted as instructions) so examples, topic priorities and
+ * pacing adapt, yet the voice stays one consistent QuanAI across Coach / Insights / Explain / Planner.
+ * @param {string} role        feature-specific job sentence
+ * @param {string} [examName]   the student's exam (raw, may be a custom name); wrapped internally for safety
+ */
+function sys(role, examName) {
+  var exam = examName && String(examName).trim() ? String(examName).trim() : '';
+  return 'You are ' + PERSONA + ', an expert quantitative-aptitude mentor who makes students faster and more '
+    + 'accurate at mental math, calculation, and logical problem-solving for their exam — and who has watched '
+    + 'this student practice every day. ' + role + '\n'
+    + (exam
+        ? 'EXAM FOCUS: this student is preparing for the exam named in ' + llm.wrapData(exam, 60) + '. Adapt your '
+          + 'examples, topic priorities, terminology and pacing to that exam while staying the one consistent '
+          + PERSONA + '. Never fabricate a syllabus you are unsure of — ground advice in the student\'s real data '
+          + 'and the topics they actually practice.\n'
+        : '')
     + 'VOICE RULES: Talk like a great human tutor, never like a chatbot. Be specific and ground every claim '
     + 'in the student\'s real numbers. Use second person. No motivational fluff, no emoji, no preamble. Keep '
     + 'EVERY text field to at most 2 short sentences (under ~30 words).\n'
@@ -31,7 +48,7 @@ var STR = { type: 'string' };
 var REGISTRY = {
   /* ---- AI Coach: daily mentor. Model writes the observation + encouragement + one follow-up question. ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 3, maxTokens: 400, temperature: 0.4,
+    id: 'coach.daily', version: 4, maxTokens: 400, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
@@ -40,7 +57,7 @@ var REGISTRY = {
           properties: { say: STR, missionWhy: STR, followup: STR, celebrate: STR } },
         system: sys('Give ONE grounded observation about today, then motivate briefly. You are prescriptive and '
           + 'accountable, never generic. If there is a clear win in the data, celebrate it in one line (else return '
-          + 'an empty celebrate).'),
+          + 'an empty celebrate).', v.examName),
         user: 'Student context:\n' + v.context + '\n\nToday you are prescribing this focus: ' + v.focusLabel + '.'
           + (v.planNote ? '\n' + v.planNote : '')
           + '\nWrite JSON: say (the grounded observation, <=2 sentences), missionWhy (one short line on why this '
@@ -52,7 +69,7 @@ var REGISTRY = {
 
   /* ---- AI Insights: model writes the "biggest lever" headline + why-this-weakness. Metrics are deterministic. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 3, maxTokens: 400, temperature: 0.4,
+    id: 'insights.analyze', version: 4, maxTokens: 400, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
@@ -60,7 +77,7 @@ var REGISTRY = {
           required: ['headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
         system: sys('You are a performance analyst. Surface the single biggest lever this student has right now '
-          + 'and explain their top weakness in plain terms. Be insightful, never restate the dashboard.'),
+          + 'and explain their top weakness in plain terms. Be insightful, never restate the dashboard.', v.examName),
         user: 'Student context:\n' + v.context + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: headline (the biggest lever, <=2 sentences), weaknessInsight (one short line on what is '
           + 'really going wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
@@ -70,7 +87,7 @@ var REGISTRY = {
 
   /* ---- AI Explain: adaptive explanation. Model writes concept + steps + mistake + tip, depth-aware. ---- */
   'explain.base': {
-    id: 'explain.base', version: 3, maxTokens: 520, temperature: 0.3,
+    id: 'explain.base', version: 4, maxTokens: 520, temperature: 0.3,
     build: function (v) {
       return {
         schemaName: 'explain_base',
@@ -83,7 +100,7 @@ var REGISTRY = {
           } },
         system: sys('Explain why the correct answer is correct, at ' + (v.depth || 'standard') + ' depth '
           + '(concise=fewer, bigger steps; deep=more granular). Use mental-math shortcuts. Your final step MUST '
-          + 'arrive at exactly ' + v.answer + '.'),
+          + 'arrive at exactly ' + v.answer + '.', v.examName),
         user: 'Question: ' + v.question + '\nCorrect answer: ' + v.answer + '\nTopic: ' + v.catLabel
           + (v.struggledBefore ? '\nNote: the student has struggled with this concept before — make it stick.' : '')
           + '\n\nWrite JSON: concept (one short line), steps (an array of 3-5 short strings, each 1-2 sentences, '
@@ -102,7 +119,7 @@ var REGISTRY = {
 
   /* ---- Explain follow-up / generic chat turn. Model adapts to the student's chip/quick-reply. ---- */
   'chat.turn': {
-    id: 'chat.turn', version: 2, maxTokens: 340, temperature: 0.4,
+    id: 'chat.turn', version: 3, maxTokens: 340, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'chat_turn',
@@ -110,8 +127,10 @@ var REGISTRY = {
           required: ['say', 'steps'],
           properties: { say: STR, steps: { type: 'array', items: STR } } },
         system: sys('Continue the tutoring conversation. Respond to exactly what the student asked with the '
-          + 'minimum that helps, then stop. If a worked example or simpler/deeper restatement is requested, put the '
-          + 'lines in steps (max 5 short strings); otherwise return an empty steps array.'),
+          + 'minimum that helps, then stop. RULES: a "simpler" request keeps the SAME concept but uses fewer, '
+          + 'bigger, plainer steps (never longer); a "deeper" request keeps the same concept but adds the reasoning '
+          + 'WHY behind each step; "another example" uses the SAME concept and SAME difficulty with DIFFERENT '
+          + 'numbers. Put worked lines in steps (max 5 short strings); otherwise return an empty steps array.', v.examName),
         user: 'Topic: ' + v.topic + '\nStudent context:\n' + v.context + '\n\nConversation so far:\n' + v.history
           + '\n\nStudent just said: ' + v.userTurn + '\n\nWrite JSON: say (<=2 sentences), steps (short lines if '
           + 'helpful, else []).'
@@ -121,7 +140,7 @@ var REGISTRY = {
 
   /* ---- Living Mission: model writes phases + rationale + this-week focus. Daily action is deterministic. ---- */
   'plan.generate': {
-    id: 'plan.generate', version: 3, maxTokens: 900, temperature: 0.3,
+    id: 'plan.generate', version: 4, maxTokens: 900, temperature: 0.3,
     build: function (v) {
       return {
         schemaName: 'mission_plan',
@@ -136,19 +155,20 @@ var REGISTRY = {
           } },
         system: sys('Design a living study mission, not a rigid 14-day wall. Output the high-level phases for the '
           + 'time remaining and a focused plan for THIS WEEK only (we adapt weekly from real progress). Weight weak '
-          + 'topics heavily.'),
-        user: 'Exam: ' + v.examName + ' in ' + v.daysRemaining + ' days. Daily time: ' + v.dailyMinutes
+          + 'topics heavily. Choose weekFocus topics ONLY from the categories the app actually drills: '
+          + v.topicList + '. Phase durationDays must sum to the days remaining.', v.examName),
+        user: 'Exam: ' + llm.wrapData(v.examName, 60) + ' in ' + v.daysRemaining + ' days. Daily time: ' + v.dailyMinutes
           + ' min. Goal: ' + v.goal + '.\nStudent context:\n' + v.context
           + '\n\nWrite JSON: rationale (why this structure, <=3 sentences referencing their data), weekFocus (1-5 '
-          + 'topics for THIS week, each with a one-line goal), phases (1-4 phases covering the whole remaining time, '
-          + 'each with name + durationDays).'
+          + 'topics for THIS week from the allowed categories, each with a one-line goal), phases (1-4 phases '
+          + 'covering the whole remaining time, each with name + durationDays summing to ' + v.daysRemaining + ').'
       };
     }
   },
 
   /* ---- Word Problems (future-ready): generate one exam-style problem targeting a weak concept. ---- */
   'wp.generate': {
-    id: 'wp.generate', version: 2, maxTokens: 520, temperature: 0.5,
+    id: 'wp.generate', version: 3, maxTokens: 520, temperature: 0.5,
     build: function (v) {
       return {
         schemaName: 'word_problem',
@@ -161,7 +181,7 @@ var REGISTRY = {
           } },
         system: sys('Write ONE original exam-style ' + (v.difficulty || 'medium') + ' word problem for the topic, '
           + 'with a single numeric answer, exactly four plausible numeric options (including the answer), and a '
-          + 'concise worked explanation. computedAnswer MUST equal answer.'),
+          + 'concise worked explanation. computedAnswer MUST equal answer.', v.examName),
         user: 'Topic: ' + v.topicLabel + '. Difficulty: ' + (v.difficulty || 'medium')
           + '.\n\nWrite JSON: question, answer (number), options (exactly 4 numbers including the answer), '
           + 'explanation (concise), computedAnswer (must equal answer).',

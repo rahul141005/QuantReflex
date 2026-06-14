@@ -10130,6 +10130,9 @@ body.dark-mode .companion-head { border-bottom-color: rgba(255, 255, 255, .07); 
 body.dark-mode .companion-title { color: #f1f5f9; }
 .companion-close { flex: 0 0 auto; width: 2rem; height: 2rem; border: none; background: rgba(15, 23, 42, .05); border-radius: 999px; color: #64748b; font-size: .9rem; cursor: pointer; }
 body.dark-mode .companion-close { background: rgba(255, 255, 255, .08); color: #cbd5e1; }
+.companion-refresh { flex: 0 0 auto; width: 2rem; height: 2rem; border: none; background: rgba(37, 99, 235, .08); border-radius: 999px; color: #2563eb; font-size: 1rem; line-height: 1; cursor: pointer; transition: transform .35s ease; }
+.companion-refresh:active { transform: rotate(180deg) scale(.95); }
+body.dark-mode .companion-refresh { background: rgba(96, 165, 250, .14); color: #93c5fd; }
 .companion-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 1rem 1.1rem 1.2rem; }
 
 /* turns + conversation */
@@ -10195,6 +10198,10 @@ body.dark-mode .cb-celebrate { color: #86efac; }
 
 /* chips */
 .companion-chips { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0 .3rem; }
+.companion-otherwrap { display: flex; gap: .45rem; margin: .7rem 0 .3rem; flex-wrap: wrap; }
+.companion-otherinput { flex: 1 1 60%; min-width: 12rem; border: 1px solid rgba(15, 23, 42, .16); border-radius: .8rem; padding: .55rem .8rem; font-size: .9rem; color: #0f172a; background: #fff; }
+.companion-otherinput:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+body.dark-mode .companion-otherinput { background: rgba(255, 255, 255, .06); color: #f1f5f9; border-color: rgba(255, 255, 255, .16); }
 .companion-chip { border: 1px solid rgba(15, 23, 42, .14); background: #fff; color: #1e293b; border-radius: 999px; padding: .5rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer; transition: transform .1s ease, background .1s ease, border-color .1s ease; min-height: 38px; }
 .companion-chip:active { transform: scale(.96); }
 body.dark-mode .companion-chip { background: rgba(255, 255, 255, .06); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }

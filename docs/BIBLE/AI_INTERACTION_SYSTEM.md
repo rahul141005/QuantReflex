@@ -37,7 +37,12 @@ One personality across all five features. The name is the `PERSONA` constant, de
 the server source-of-truth `services/aiPrompts.js` (injected into every system prompt + exported as `prompts.PERSONA`)
 and the client `js/companion-ui.js` (modal badge + throttle copy). Change both to re-brand.
 
-- **Role:** a sharp, encouraging CAT speed-math coach who has watched this student practice every day.
+- **Role:** a sharp, encouraging **quantitative-aptitude** speed-math coach who has watched this student
+  practice every day. Persona is **exam-agnostic**; coaching is **exam-aware** (ADR-045) — when the student's
+  exam is known (CAT, GMAT, XAT, SBI/Bank PO, SSC, NDA, a campus placement test, or any custom "Other" name),
+  it is injected (wrapped as data) so examples, topic priorities and pacing adapt, while the voice stays one
+  consistent QuanAI. Never fabricates a syllabus it doesn't have — it grounds advice in the student's real data
+  and the 12 categories the app actually drills (`services/quantTopics.js`, the single topic source of truth).
 - **Voice:** concise, warm, direct, data-grounded. Talks like a great human tutor, not a chatbot.
 - **Hard rules:**
   - **≤ 2 sentences** of prose (`say`) per turn. Then a component or an action. **Never** a wall of text.
@@ -160,8 +165,14 @@ shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferr
 
 - `max_tokens` ceilings per prompt: `chat` 256–384, `explain` 512, `coach` 768, `insights` 768, `plan` 2048.
 - Serialized student context capped (~1400 chars) by `studentContext.serialize()` (drops lowest-priority fields).
-- Caches: `aiContext/{uid}` 6h (shared); `explanations/{hash}` (shared base); `aiDaily/{uid}_{date}` (coach/insights/
-  today consolidated); chat turns uncached. Cold-start skips the model entirely.
+- Caches: `aiContext/{uid}` 6h (shared); `explanations/{hash}_v{promptVersion}` (shared base, **version-keyed** so a
+  prompt bump busts stale text — ADR-045); `aiDaily/{uid}_{date}` (coach/insights/today consolidated, **fallback
+  envelopes are never cached** so a transient model failure can't pin bad advice all day); chat turns uncached.
+  Cold-start skips the model entirely.
+- **Freshness on practice (ADR-045):** finishing a drill stamps `qr_ai_dirty_at`; each AI surface (coach/insights/
+  plan) then forces ONE fresh server context (threaded into `buildContext`) on its next open, so advice reflects the
+  practice the student just did instead of the 6h cache. Per-feature + a manual header "↻" refresh; bounded by the
+  enforced budget breaker.
 - **Enforced budget breaker** (`api/ai.js` → `enforceAiBudget`): over `config/aiBudget` daily cap → `503`.
 
 ---

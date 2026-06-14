@@ -673,6 +673,12 @@ function createDrillEngine(container, opts) {
       } catch (_) { /* ignore */ }
     }
 
+    /* Mark QuanAI's cached context stale (ADR-045): the student just practiced, so the next time they open
+       Coach / Insights / Study Plan each forces ONE fresh server-side context instead of repeating cached
+       advice. Timestamp lets each AI surface refresh independently (companion-ui compares against its own
+       last-seen stamp). Cheap, best-effort localStorage write. */
+    try { localStorage.setItem('qr_ai_dirty_at', String(Date.now())); } catch (_) { /* ignore */ }
+
     /* Roll the within-session improvement into the user's stats so the coaching roster scan reads it
        cheaply off the root doc (no per-student practiceSessions fan-out). Best-effort. recordSessionImprovement
        is a global from progress.js (same plain-<script> namespace as recordAnswer). */
