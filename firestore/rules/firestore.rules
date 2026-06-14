@@ -81,6 +81,9 @@ service cloud.firestore {
         (!changed.hasAny(['isTrial'])     || after.isTrial == false) &&
         (!changed.hasAny(['trialEnd'])    || after.trialEnd == null) &&
 
+        // AI memory (ADR-039): server-authoritative — client may NEVER write it.
+        (!changed.hasAny(['aiMemory'])) &&
+
         // Coaching + payment id: client can only clear to null.
         (!changed.hasAny(['coachingId'])     || after.coachingId == null) &&
         (!changed.hasAny(['lastPaymentId'])  || after.lastPaymentId == null);
@@ -162,11 +165,17 @@ service cloud.firestore {
       // this blanket grant because Firestore unions all matching rules (a later deny cannot revoke a grant).
       match /{subcollection}/{document} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && subcollection != 'duelHistory';
+        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'aiEvents';
       }
       // Explicit (read-only) duelHistory match for clarity; write stays denied (no allow write here).
       match /duelHistory/{duelId} {
         allow read: if isOwner(userId);
+      }
+      // aiEvents (ADR-039): the client APPENDS its own AI-interaction events; immutable (create-only, no
+      // update/delete — excluded from the blanket write above so it can't be edited). Admin SDK reads them
+      // for engagement rollups. Owner read is allowed via the blanket grant above (own data, benign).
+      match /aiEvents/{eventId} {
+        allow create: if isOwner(userId);
       }
     }
 

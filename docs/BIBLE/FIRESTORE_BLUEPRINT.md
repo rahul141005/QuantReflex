@@ -171,6 +171,23 @@ completedAt, createdAt }`.
 - `aiStudyPlans/{auto}` — `{userId, examName, status:'draft'|'active'|'archived', rationale, phases[], timetable[], progress{}, createdAt}`
 - `aiInsights/{id}`, `aiStudyPlans` legacy reads — owner-read, admin-write.
 
+### AI Ecosystem — one brain (ADR-039, see [AI_INTERACTION_SYSTEM.md](AI_INTERACTION_SYSTEM.md))
+- `users/{uid}.aiMemory` — **server-authoritative** durable memory map: `{v, goal, examName, examDate, confidence,
+  preferredDepth, preferredStyle, dailyMinutes, knownWeakConcepts[≤8], wins[≤5], recentTopicsExplained[≤8],
+  timeline[≤12]{at,feature,summary}, updatedBy, updatedAt}`. Field-capped by `aiService.updateMemory`. **Client
+  write DENIED** by rules (`entitlementFieldsSafe`); owner read allowed.
+- `aiContext/{uid}` — server-only 6h cache of the Student Context Engine output `{ctx, ttlExp, updatedAt}`. Default-deny.
+- `aiDaily/{uid}_{feature}_{YYYY-M-D}` — server-only daily cache of coach/insights block envelopes `{uid, feature,
+  date, envelope, createdAt}` (consolidates `aiCoachV2`/`aiInsightsV2`). Default-deny.
+- `aiMissions/{uid}` — the living study Mission (replaces static `aiStudyPlans`): `{uid, examName, examDate,
+  dailyMinutes, goal, rationale, weekFocus[]{topicLabel,goal}, phases[]{name,durationDays}, weekStartedAt,
+  progress{}, createdAt, updatedAt}`. Server-written; default-deny (client reads via `api/ai?action=mission`).
+- `users/{uid}/aiEvents/{id}` — owner **create-only, immutable** AI interaction log `{feature, type, meta, plan,
+  ts, createdAt}` (`shown|opened|chip_tap|deeplink|helpful_yes|helpful_no`). Excluded from the blanket subcollection
+  write grant; rolled up daily by `services/aiCron.js`.
+- `systemMetrics/ai_engagement_{YYYY-MM-DD}` — admin-only daily rollup `{date, totalEvents, features{<f>:{shown,
+  opened, deeplink, helpfulRate, deeplinkRate}}}` written by the shared cron (no LLM).
+
 ### System / admin-only
 - `systemMetrics/ai_daily_{YYYY-MM-DD}` — `{explanations, insights, wordProblems, totalTokensInput, totalTokensOutput, estimatedCostUSD, gptCalls, updatedAt}` (admin-only). All counters are `increment`-written at point of use (`aiService.trackGlobalAIUsage` + `trackGptCost`); the four token/cost fields were added 2026-06-11 (Super Admin Phase 1) so the GPT Cost Center reads pre-aggregated daily cost without scanning.
 - **`auditLogs/{auto}`** — **platform-wide immutable audit trail** (admin-only read; Admin-SDK write; client create/update/delete **denied** by rules). One doc **per admin action**: `{ts (serverTimestamp), actorUid, actorEmail, action, category ('entitlement'|'coaching'|'content'|'ai'|'user'|'system'), targetType, targetId, summary, before, after}`. Written by the shared `super-admin-app/api/_lib/audit.js#writeAuditLog` from every super-admin mutation endpoint. Append-only by design — see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) and [DECISION_LOG.md](DECISION_LOG.md) ADR-012.

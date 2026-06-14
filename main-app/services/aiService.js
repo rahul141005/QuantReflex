@@ -1048,4 +1048,92 @@ async function generateStudyPlan(params) {
   return planDoc;
 }
 
-module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, safeUserUpdate, AIServiceError };
+/* ════════════════════════════════════════════════════════════════════════════════════════
+   AI BRAIN INFRA (ADR-039) — durable per-student memory + enforced cost breaker.
+   Memory is the cross-feature shared brain (AI_INTERACTION_SYSTEM §4); server-authoritative,
+   field-capped, client writes denied by rules. The budget breaker makes the existing cost
+   telemetry load-bearing (mirrors config-flags.js: 30s-TTL, fail-open on read error).
+   ════════════════════════════════════════════════════════════════════════════════════════ */
+
+function _capStr(s, n) { return typeof s === 'string' ? s.slice(0, n) : ''; }
+
+/** Read the durable AI memory map for a user (or null). */
+async function getMemory(uid) {
+  try {
+    var d = await db.collection('users').doc(uid).select('aiMemory').get();
+    return (d.exists && d.data().aiMemory) || null;
+  } catch (e) { console.warn('[aiService:getMemory] failed (uid ' + uid + '):', e.message); return null; }
+}
+
+/**
+ * Merge-patch the AI memory (server-authoritative). Accepts targeted ops so callers never overwrite
+ * the whole object. All strings/arrays are capped server-side so memory can never bloat prompt cost.
+ * Never throws (memory updates are best-effort, like trackGptCost).
+ */
+async function updateMemory(uid, patch, source) {
+  if (!uid || !patch) return;
+  try {
+    var ref = db.collection('users').doc(uid);
+    await db.runTransaction(async function (tx) {
+      var doc = await tx.get(ref);
+      var mem = (doc.exists && doc.data().aiMemory) || { v: 1 };
+      if (patch.goal != null) mem.goal = _capStr(patch.goal, 120);
+      if (patch.examName != null) mem.examName = _capStr(patch.examName, 80);
+      if (patch.examDate != null) mem.examDate = _capStr(patch.examDate, 10);
+      if (patch.confidence != null) mem.confidence = _capStr(patch.confidence, 12);
+      if (patch.preferredDepth != null) mem.preferredDepth = _capStr(patch.preferredDepth, 12);
+      if (patch.preferredStyle != null) mem.preferredStyle = _capStr(patch.preferredStyle, 12);
+      if (patch.dailyMinutes != null) mem.dailyMinutes = Math.max(0, Math.min(600, parseInt(patch.dailyMinutes) || 0));
+      if (patch.addWeakConcepts) {
+        var set = {}; (mem.knownWeakConcepts || []).concat(patch.addWeakConcepts).forEach(function (c) { if (c) set[String(c).slice(0, 40)] = true; });
+        mem.knownWeakConcepts = Object.keys(set).slice(0, 8);
+      }
+      if (patch.addWin) { mem.wins = (mem.wins || []); mem.wins.push(_capStr(patch.addWin, 100)); mem.wins = mem.wins.slice(-5); }
+      if (patch.addExplainedTopic) {
+        var s2 = {}; (mem.recentTopicsExplained || []).concat([patch.addExplainedTopic]).forEach(function (c) { if (c) s2[String(c).slice(0, 40)] = true; });
+        mem.recentTopicsExplained = Object.keys(s2).slice(-8);
+      }
+      if (patch.timelineEntry) {
+        mem.timeline = (mem.timeline || []);
+        mem.timeline.push({ at: new Date().toISOString(), feature: _capStr(patch.timelineEntry.feature, 16), summary: _capStr(patch.timelineEntry.summary, 120) });
+        mem.timeline = mem.timeline.slice(-12);
+      }
+      mem.v = 1; mem.updatedBy = source || 'system'; mem.updatedAt = new Date().toISOString();
+      tx.set(ref, { aiMemory: mem }, { merge: true });
+    });
+  } catch (e) { console.warn('[aiService:updateMemory] failed (uid ' + uid + '):', e.message); }
+}
+
+var _budgetCache = { exp: 0, blocked: false };
+
+/**
+ * Enforced daily AI-cost breaker. config/aiBudget.monthlyBudgetUSD → a daily cap (monthly/30); compared to
+ * today's systemMetrics/ai_daily_{date}.estimatedCostUSD. Over cap → throws AI_BUDGET_EXCEEDED (retryable).
+ * 30s-TTL cache (≈0 cost). Fails OPEN on read error. No budget set → never blocks.
+ */
+async function enforceAiBudget() {
+  var now = Date.now();
+  if (_budgetCache.exp > now) {
+    if (_budgetCache.blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
+    return;
+  }
+  var blocked = false;
+  try {
+    var cfg = await db.collection('config').doc('aiBudget').get();
+    var monthly = cfg.exists ? (Number(cfg.data().monthlyBudgetUSD) || 0) : 0;
+    if (monthly > 0) {
+      var dailyCap = monthly / 30;
+      var today = new Date().toISOString().split('T')[0];
+      var m = await db.collection('systemMetrics').doc('ai_daily_' + today).get();
+      var spent = m.exists ? (Number(m.data().estimatedCostUSD) || 0) : 0;
+      if (spent >= dailyCap) blocked = true;
+    }
+  } catch (e) {
+    _budgetCache = { exp: now + 30000, blocked: false }; /* fail open */
+    return;
+  }
+  _budgetCache = { exp: now + 30000, blocked: blocked };
+  if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
+}
+
+module.exports = { generateWordProblems, generateExplanation, generateCoachV2, generateInsightsV2, generateStudyPlan, getActiveStudyPlan, finalizeStudyPlan, updateStudyPlanProgress, verifyIdToken, resolvePlan, isUserPremium, activatePremium, checkWordProblemQuota, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

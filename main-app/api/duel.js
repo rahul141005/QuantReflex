@@ -635,6 +635,9 @@ async function _cronSweep(req, res) {
         } catch (e) { /* skip */ }
       }
     }
+    // ADR-039: piggyback the AI daily batch on the single shared cron (Vercel Hobby = 1 cron). FULLY GUARDED —
+    // a failure here can NEVER affect the duel sweep (it has already done its work above).
+    try { result.ai = await require('../services/aiCron').runDailyBatch(); } catch (e) { console.warn('[cron] AI daily batch failed:', e.message); }
     return res.status(200).json(Object.assign({ success: true }, result));
   } catch (err) {
     console.error('[duel/cron-sweep] failed:', err);

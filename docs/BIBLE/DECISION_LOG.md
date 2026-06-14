@@ -8,6 +8,49 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-039 — AI Ecosystem: one brain, five experiences, gpt-4o-mini only (2026-06-14)
+- **Context:** A grounded 3-agent audit found QuantReflex's AI loses to "paste it into ChatGPT" for one reason —
+  it discards its only unfair advantage. Rich per-student signal (`dailyHistory` 90-day accuracy+speed,
+  `practiceSessions` first/second-half speed + `sessionImprovementPct`, `responseTimes[200]`, `mistakes[50]`,
+  `duelHistory`, per-mode splits) is stored but fed to NO prompt; every feature ran on shallow client-sent totals
+  (a trust hole), one-shot paragraph dumps, no memory, no interactivity, five isolated GPT prompts. Verdict: <20%
+  would return *because* of the AI. **Owner mandate:** stay 100% on **gpt-4o-mini**; make it feel far smarter via
+  architecture, not model size. Build the complete foundation AND redesign all five features in one cohesive pass.
+  Keep all five visible entry points (Explain/Coach/Insights/Study Plan/Word Problems) but unify into ONE brain.
+- **Decision (the doctrine — make gpt-4o-mini punch above its weight):** (1) **Move the analysis out of the model.**
+  A new server-authoritative **Student Context Engine** (`services/studentContext.js`) derives trends, mastery,
+  error patterns and behavioral flags (burnout/plateau/careless/speed-regression/cold-start) by pure arithmetic —
+  the model only writes language. (2) **The model returns small language objects; the server assembles the UI**
+  block envelopes (`services/aiBrain.js`) from real data — the key reliability lever. (3) **Durable AI memory**
+  (`users/{uid}.aiMemory`, server-authoritative, rules-protected) gives continuity + cross-feature awareness
+  ("one brain"). (4) **Versioned prompt registry** (`services/aiPrompts.js`) + a **single-model provider seam**
+  (`services/llmProvider.js`: injection sanitize + delimiter wrap, strict json_schema, retries, accumulated usage).
+  (5) **Interaction**: every response ends in chips; replies → `?action=chat` turns; missions deep-link real drills
+  via `startDrillFromPractice`. (6) **Cost made load-bearing**: ENFORCED daily budget breaker (`enforceAiBudget`,
+  503 over cap), per-feature token ceilings, consolidated `aiDaily` cache, shared `aiContext` (6h), **cold-start
+  users skip the LLM entirely**. (7) **AI Interaction Design System** (new Bible doc `AI_INTERACTION_SYSTEM.md`)
+  is the canonical contract: persona "Reflex", the block vocabulary (say/card/metric/progress/steps/mission/quiz/
+  timeline/celebrate/callout + chips), conversation patterns, states, personalization. One renderer
+  (`js/companion-ui.js`). (8) **Analytics**: owner-write immutable `aiEvents` (`js/services/ai-analytics.js`,
+  lazy-batched) rolled up by the **single shared cron** (`services/aiCron.js`, piggybacked on the duel sweep —
+  Vercel Hobby = 1 cron, fully guarded) into `systemMetrics/ai_engagement_{date}`.
+- **Feature roles (no overlap):** Explain = interactive concept learning; Coach = daily mentor / accountability
+  (flag-driven prescription + deep-link); Insights = weakness discovery → **actionable missions, not reports**;
+  Study Plan = **living Mission** (chip interview → analytics inference → daily action → weekly adaptation,
+  replaces the static `aiStudyPlans` timeline → `aiMissions`); Word Problems = context-aware generation targeting
+  `knownWeakConcepts` (future-ready, kept behind the coming-soon gate).
+- **Single model:** gpt-4o-mini only. A future stronger-model candidate (deep Mission generation / weekly review)
+  is documented in `AI_INTERACTION_SYSTEM.md §10` and is a separate future ADR — NOT implemented.
+- **Spark/Vercel:** all server logic in the existing `api/ai.js` (new modules live in `services/`, bundled — ZERO
+  new functions, still ≤12). New collections: `aiContext`, `aiDaily`, `aiMissions` (server-only, default-deny),
+  `users/{uid}.aiMemory` (client-write denied), `users/{uid}/aiEvents` (owner create-only, immutable).
+- **Verification:** `node --check` all 11 touched/new JS; deterministic core unit-tested (context serialize ≤1400
+  chars, weak-pick, prompt schemas valid); CSS balanced; rules balanced + aiMemory/aiEvents tested; function count
+  unchanged. Gate: owner on-device end-to-end (every feature interactive, personalized to real data, remembers,
+  deep-links a real drill) before push.
+- **Consequence:** Five features become one intelligent tutor that knows the student — a moat ChatGPT structurally
+  can't have — on the cheapest model, with hard cost ceilings and an engagement-attribution loop.
+
 ## ADR-038 — Math Duel production polish: PWA-only lock, premium result/share/answering, legacy-CSS purge (2026-06-14)
 - **Context:** With the lifecycle finally working (ADR-037), the owner asked for production-grade *feel* on par with
   Practice/Drill/Test: duels were to be **playable only inside the installed PWA** (browser play was both broken and

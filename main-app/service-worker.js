@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v99';
-const CACHE_NAME = 'qr-cache-v99';
+const APP_VERSION = 'v100';
+const CACHE_NAME = 'qr-cache-v100';
 
 var ASSETS = [
   './',
@@ -32,6 +32,8 @@ var ASSETS = [
   './js/services/adaptive-state.js',
   './js/services/scoring-service.js',
   './js/services/share-service.js',
+  './js/services/ai-analytics.js',
+  './js/companion-ui.js',
   './js/controllers/practice-config.js',
   './js/controllers/practice-modes.js',
   './js/ui/numpad.js',

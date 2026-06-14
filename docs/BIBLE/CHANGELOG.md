@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — AI Ecosystem: one brain, five experiences, gpt-4o-mini only (ADR-039)
+
+A full redesign of every AI feature into one intelligent tutor that leverages the student data ChatGPT can't have
+— on the single production model (gpt-4o-mini), intelligence coming from architecture not model size. New canonical
+Bible doc **[AI_INTERACTION_SYSTEM.md](AI_INTERACTION_SYSTEM.md)**. Bumps: Bible 2.27→2.28, Arch 2.17→2.18,
+Firestore 2.13→2.14, Security 2.11→2.12. Additive client + server modules (ZERO new serverless functions).
+
+- **Foundation (new `main-app/services/`):** `studentContext.js` (Student Context Engine — server-authoritative
+  trends/mastery/flags from the unused goldmine, pure arithmetic, 6h `aiContext` cache, ≤1400-char serialize,
+  cold-start), `llmProvider.js` (single-model gpt-4o-mini seam: injection sanitize + `<<<DATA>>>` wrap, strict
+  json_schema, retries, accumulated usage), `aiPrompts.js` (versioned registry — model writes only small language
+  objects), `aiBrain.js` (assembles AIResponse block envelopes from real data + memory; deterministic fallbacks).
+  `aiService.js` gains `getMemory`/`updateMemory` (server-authoritative `users.aiMemory`, field-capped) and the
+  **enforced** `enforceAiBudget` daily cost breaker (config/aiBudget → 503 over cap; 30s-TTL, fail-open).
+- **API (`api/ai.js` rewrite):** client sends action only (no more trusted `body.stats`); gate order adds
+  `enforceAiBudget`; actions `explain | coach | insights | chat | mission | wordproblems`, all returning a block
+  envelope under `response`.
+- **Client:** `js/companion-ui.js` (the one renderer + conversation engine + chip handling + deep-links + staged
+  loading + chip-driven Mission interview), `js/services/ai-analytics.js` (lazy-batched owner-write `aiEvents`).
+  `js/ai-features.js` re-points Explain/Coach/Insights/Study-Plan to Companion (signatures preserved). `index.html`
+  + `css/style.css` add the AI component system (bottom-sheet, blocks, chips, typing, reduced-motion).
+- **Five features, one brain:** Explain (interactive — Simpler/Deeper/Another/Drill), Coach (flag-driven daily
+  mentor + deep-link), Insights (weaknesses → actionable missions), Study Plan → **living Mission** (`aiMissions`,
+  interview + daily action + weekly adaptation; replaces static `aiStudyPlans`), Word Problems (context-aware
+  generation, future-ready behind the coming-soon gate). Cross-feature awareness via shared context + `aiMemory`.
+- **Spark/Vercel + rules:** AI daily batch (`services/aiCron.js`, `aiEvents`→`systemMetrics/ai_engagement_{date}`)
+  piggybacks the SINGLE existing cron inside the duel sweep — fully guarded, no 2nd cron, no `vercel.json` change.
+  Rules: `aiMemory` client-write denied (entitlement guard), `aiEvents` owner create-only + immutable,
+  `aiContext`/`aiDaily`/`aiMissions` server-only (default-deny).
+- **Verify:** `node --check` all 11 touched/new JS; deterministic core unit-tested; CSS 2454/2454; rules 58/58;
+  function count unchanged. Docs synced: ADR-039, AI_INTERACTION_SYSTEM.md, FIRESTORE_BLUEPRINT, SECURITY, VERSIONS.
+
 ## 2026-06-14 — Math Duel production polish: PWA-only lock, premium result/share/answering, legacy-CSS purge (ADR-038)
 
 Production-grade *feel* pass on the now-working duel lifecycle (Bible 2.26→2.27, Arch 2.16→2.17; additive client + CSS, no schema/rules/index change).

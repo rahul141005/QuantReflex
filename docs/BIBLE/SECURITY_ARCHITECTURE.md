@@ -96,6 +96,22 @@ cannot be set to `'solving'` while `status=='lobby'` (no pre-arming the answer-w
 residual risks (documented):** the per-question timer is a client convenience (the server `totalDeadline` is the
 authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvantages and cannot forge a result).
 
+### 4.3 AI Ecosystem (ADR-039)
+- **`users.aiMemory` is server-authoritative.** `entitlementFieldsSafe()` now also denies ANY client write that
+  touches `aiMemory` (`!changed.hasAny(['aiMemory'])`). Only `aiService.updateMemory` (Admin SDK) writes it, with
+  per-field length/array caps — so a user cannot inject memory to steer prompts or bloat token cost.
+- **Server-authoritative context.** `api/ai.js` no longer trusts client-sent `stats`; the Student Context Engine
+  reads authoritative Firestore. Closes the prior hole where the client fed the numbers driving a premium LLM call.
+- **Prompt-injection hardening.** All user-derived prompt inputs pass `llmProvider.sanitizeForPrompt` (strips code
+  fences / role markers / control chars / our delimiters, neutralizes common jailbreak lead-ins) AND are wrapped in
+  `<<<DATA>>>…<<<END>>>`; every system prompt instructs the model to treat delimited content as data, never
+  instructions. Strict `json_schema` + post-validation (e.g. answer-equality) bound the output shape.
+- **Enforced cost breaker.** `aiService.enforceAiBudget` (gate in `api/ai.js`, after the kill-switch + premium +
+  throttle) blocks generation with `503 AI_BUDGET_EXCEEDED` once today's `systemMetrics/ai_daily.estimatedCostUSD`
+  reaches `config/aiBudget.monthlyBudgetUSD/30` (30s-TTL cache, fail-open). The budget is now load-bearing, not advisory.
+- **`aiEvents` immutable.** `users/{uid}/aiEvents` is owner **create-only** (excluded from the blanket subcollection
+  write grant); no update/delete. `aiContext`/`aiDaily`/`aiMissions` are server-only (default-deny).
+
 ## 5. Serverless Authorization
 
 | Wrapper | File | Requires | Sets | Rate limit |

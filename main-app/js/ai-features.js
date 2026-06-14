@@ -505,20 +505,13 @@ var AIFeatures = (function () {
 
     container.innerHTML =
       '<div class="ai-coach-body">' +
-        '<button class="home-bento-action-btn ai-insights-btn" type="button">Get Coach Advice ✨</button>' +
+        '<button class="home-bento-action-btn ai-insights-btn" type="button">Talk to your coach ✨</button>' +
       '</div>';
 
     var insightsBtn = container.querySelector('.ai-insights-btn');
     insightsBtn.addEventListener('click', function () {
-      if (!stats || !stats.totalAttempted || stats.totalAttempted < 5) {
-        showInsufficientDataModal('AI Coach', 'coaching', [
-          'Weak area detection',
-          'Accuracy coaching',
-          'Study recommendations',
-          'Practice strategy'
-        ]);
-        return;
-      }
+      // The brain handles cold-start server-side (deterministic, no LLM) — always open the unified coach.
+      if (window.Companion) return Companion.openCoach();
       showCoachModal(stats);
     });
   }
@@ -1410,9 +1403,11 @@ var AIFeatures = (function () {
     }
 
     container.innerHTML =
-      '<button class="home-bento-action-btn sp-open-btn" type="button">Generate Plan ✨</button>';
+      '<button class="home-bento-action-btn sp-open-btn" type="button">Open your mission ✨</button>';
 
     container.querySelector('.sp-open-btn').addEventListener('click', function () {
+      // Living Mission (ADR-039) via the unified Companion; legacy wizard kept as fallback.
+      if (window.Companion) return Companion.openMission();
       _openStudyPlanModal(containerId);
     });
   }
@@ -1471,12 +1466,15 @@ var AIFeatures = (function () {
     _wpAdaptiveModeActive = false;
   }
 
+  /* AI brain (ADR-039): the LLM features now route through the unified Companion system (one brain, one design
+     language, interactive). The old one-shot modal bodies remain as a defensive fallback if Companion is absent. */
   return {
     fetchSpeedBenchmark: fetchSpeedBenchmark,
-    showExplanationModal: showExplanationModal,
-    showStatsInsightsModal: showStatsInsightsModal,
-    showCoachModal: showCoachModal,
-    showInsufficientDataModal: showInsufficientDataModal,
+    showExplanationModal: function (q, a, c) { if (window.Companion) return Companion.openExplain(q, a, c); return showExplanationModal(q, a, c); },
+    showStatsInsightsModal: function () { if (window.Companion) return Companion.openInsights(); return showStatsInsightsModal(); },
+    showCoachModal: function () { if (window.Companion) return Companion.openCoach(); return showCoachModal(); },
+    showInsufficientDataModal: function () { if (window.Companion) return Companion.openInsights(); },
+    openMission: function (regen) { if (window.Companion) return Companion.openMission(regen); },
     renderAICoachCard: renderAICoachCard,
     renderStudyPlanCard: renderStudyPlanCard,
     renderWordProblemsSetup: renderWordProblemsSetup,
