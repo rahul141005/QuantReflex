@@ -15,6 +15,25 @@ var DuelCore = (function () {
   var DUELS = 'duels';
   var _listener = null;
 
+  /* ── Durable acknowledgement ledger — the on-device "I've finished/dismissed this duel" record ──
+   * ROOT-CAUSE FIX (ADR-044): a finished duel must NEVER resurrect once the user taps Finish, even if the
+   * server mirror-clear (ackResult endpoint) never lands — offline, flaky network, or the app closed mid-request.
+   * users/{uid}.activeDuelId stays the cross-device source of truth; this localStorage tombstone is the on-device
+   * durability backstop that recovery consults. It survives refresh, PWA restart, browser/device restart, and SW
+   * updates (localStorage is independent of the SW cache). Bounded + FIFO so it can never grow unbounded. */
+  var ACK_KEY = 'qr_duel_acked';
+  var ACK_MAX = 30;
+  function _ackList() { try { var v = JSON.parse(localStorage.getItem(ACK_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
+  function _isAcked(code) { return !!code && _ackList().indexOf(String(code).toUpperCase()) >= 0; }
+  function _markAcked(code) {
+    if (!code) return; code = String(code).toUpperCase();
+    try { var l = _ackList().filter(function (c) { return c !== code; }); l.push(code); while (l.length > ACK_MAX) l.shift(); localStorage.setItem(ACK_KEY, JSON.stringify(l)); } catch (_) {}
+  }
+  function _unmarkAcked(code) {
+    if (!code) return; code = String(code).toUpperCase();
+    try { localStorage.setItem(ACK_KEY, JSON.stringify(_ackList().filter(function (c) { return c !== code; }))); } catch (_) {}
+  }
+
   function _db() { return firebase.firestore(); }
   function _uid() {
     if (typeof Auth !== 'undefined' && Auth.getUserId) return Auth.getUserId();
@@ -55,15 +74,18 @@ var DuelCore = (function () {
   }
 
   /* ── Endpoint actions (thin wrappers) ── */
-  function createDuel(config, name) { return api('create', { config: config, name: name }); }
-  function joinDuel(code, name) { return api('join', { code: code, name: name }); }
+  function createDuel(config, name) { return api('create', { config: config, name: name }).then(function (res) { if (res && res.code) _unmarkAcked(res.code); return res; }); }
+  function joinDuel(code, name) { return api('join', { code: code, name: name }).then(function (res) { _unmarkAcked(code); return res; }); }
   function editConfig(code, config) { return api('editConfig', { code: code, config: config }); }
   function startDuel(code) { return api('start', { code: code }); }
   function finishDuel(code, reason) { return api('finish', { code: code, finishReason: reason }); }
   function fetchState(code) { return api('state', { code: code }); }
   function ackResult(code) {
-    // Best-effort, but retry ONCE on failure so a dropped ack doesn't leave the Home "Results ready" card / mirror
-    // lingering on next launch (audit home-history-04 / arch-statemachine-07).
+    // Record the DURABLE on-device acknowledgement FIRST and synchronously (ADR-044): a finished duel can never
+    // resurrect even if the server mirror-clear below never lands (offline / flaky / app closed mid-request).
+    _markAcked(code);
+    // Then best-effort clear the server mirror (retry ONCE) so other devices + the authoritative state converge
+    // (audit home-history-04 / arch-statemachine-07).
     return api('ackResult', { code: code }).catch(function () {
       return new Promise(function (r) { setTimeout(r, 1200); }).then(function () { return api('ackResult', { code: code }); }).catch(function () {});
     });
@@ -123,12 +145,17 @@ var DuelCore = (function () {
   }
   function stopListening() { if (_listener) { try { _listener(); } catch (_) {} _listener = null; } }
 
-  /* ── Recovery from the server mirror (no localStorage dependency) ── */
+  /* ── Recovery from the server mirror, gated by the durable ack ledger ── */
 
   /**
    * Find the user's active duel for recovery. Primary: users/{uid}.activeDuelId. Fallback: a participant
    * query (the declared (participantUids array-contains, status) index). Returns the endpoint `state`
    * payload ({code, duel, my}) or null. Recovery only ever lands on waiting/results — never solving.
+   *
+   * RESURRECTION GUARD (ADR-044): a duel this device has already finished/dismissed (in the ack ledger) is
+   * TERMINAL and is never returned — so a finished duel can never reappear after restart, even if its server
+   * mirror-clear failed offline. Dead rooms (abandoned/expired) are likewise dropped. A 'complete' room that is
+   * NOT yet acked still surfaces (the opponent may not have viewed the result yet) — per-user, as designed.
    */
   function recover() {
     var uid = _uid();
@@ -145,8 +172,16 @@ var DuelCore = (function () {
       })
       .then(function (code) {
         if (!code) return null;
+        // Already acknowledged on this device → terminal. Never resurrect; self-heal the server mirror
+        // (its earlier clear may have failed offline) and forget.
+        if (_isAcked(code)) { ackResult(code); return null; }
         return fetchState(code)
-          .then(function (res) { return { code: code, duel: res.duel, my: res.my, serverNow: res.serverNow }; })
+          .then(function (res) {
+            var st = res && res.duel && res.duel.status;
+            // Dead rooms never resume: clear the stale mirror (also tombstones the code) and forget.
+            if (st === 'abandoned' || st === 'expired') { ackResult(code); return null; }
+            return { code: code, duel: res.duel, my: res.my, serverNow: res.serverNow };
+          })
           .catch(function () { return null; });   // stale/foreign/complete-and-gone → no recovery
       });
   }
@@ -161,6 +196,7 @@ var DuelCore = (function () {
     startDuel: startDuel,
     finishDuel: finishDuel,
     fetchState: fetchState,
+    ackResult: ackResult,
     abandonDuel: abandonDuel,
     leaveLobby: leaveLobby,
     setPresence: setPresence,

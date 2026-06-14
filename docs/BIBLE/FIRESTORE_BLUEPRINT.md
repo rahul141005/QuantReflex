@@ -151,6 +151,13 @@ completedAt, createdAt }`.
   or cron-expire**. A `complete` value never blocks a new create (the create-guard only blocks `lobby`/`active`).
   One O(1) read on app boot recovers an in-flight
   duel cross-device (reinstall/another device) and drives the **Active-Duel home card** (derived; no second flag).
+- **Durable per-device acknowledgement (ADR-044):** the server mirror is the cross-device truth, but its clear is a
+  best-effort network call that can fail offline/mid-close. So **Finish Duel** (`DuelCore.ackResult`) also records the
+  duel code in a bounded localStorage tombstone (`qr_duel_acked`, FIFO≤30) **synchronously**. Boot recovery
+  (`DuelCore.recover`) consults it: an acked code is terminal and is **never** resurfaced (it also self-heals the
+  stale mirror), and `abandoned`/`expired` rooms are likewise dropped. This guarantees a finished duel can never
+  resurrect after restart — even offline. (`ackResult` was historically absent from the `DuelCore` export, so the
+  mirror-clear silently threw and never ran — fixed in ADR-044; the tombstone is the durability backstop.)
   Recovery restores only the **waiting-for-results** or **results** screen — **never the solving screen** (no
   resume): if the app comes back off the solving screen mid-duel, the client `finish`es (finalizes) on the synced
   answers. Client-write denied (it's under `users/{uid}` but `entitlementFieldsSafe()` / server-only — written by

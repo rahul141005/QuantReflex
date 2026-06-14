@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-14 — Fix stale-duel resurrection: export `ackResult` + durable ack ledger (ADR-044)
+
+A duel finished long ago kept reappearing as "Results ready" on Home after every restart. Root cause + permanent fix.
+Bible 2.32→2.33, Arch 2.18→2.19. SW v104→v105.
+
+- **Primary bug** — `DuelCore.ackResult` was **never exported** from `duel-core.js`, so `duel-manager`'s Finish-Duel
+  call `DuelCore.ackResult(code)` threw a `TypeError` swallowed by its `try/catch`. The server recovery mirror
+  `users.activeDuelId` was therefore **never cleared on Finish** → boot recovery resurrected the completed duel every
+  launch. Fix: add `ackResult` to the `DuelCore` export.
+- **Durability** — `ackResult(code)` now records the code in a bounded localStorage tombstone (`qr_duel_acked`,
+  FIFO≤30) **synchronously**, before the best-effort server clear. Survives refresh/PWA/browser/device restart + SW
+  updates → a finished duel can't resurrect even if the network clear never lands (offline).
+- **Recovery guard** — `DuelCore.recover()` never returns a tombstoned code (self-heals the stale mirror) and drops
+  `abandoned`/`expired` rooms. An un-acked `complete` room still surfaces for the opponent who hasn't viewed it
+  (per-user, as designed). `_finishDuel` acks first, then resets+navigates; `create`/`join` clear stale tombstones.
+- **Verify:** node --check ×3; a deterministic harness loads real `duel-core.js` and passes all 16 lifecycle
+  scenarios (multi-device A/B, offline finish, lobby/active resume, abandoned/expired, code-reuse, bounded ledger).
+  SW already bypasses `/api/`+Firestore (no state cache). Docs: ADR-044, FIRESTORE_BLUEPRINT, VERSIONS.
+
 ## 2026-06-14 — AI persona rename "Reflex" → "QuanAI" (ADR-043)
 
 Branding migration: the AI companion is now **QuanAI** everywhere it surfaces. Display-name only — no personality,

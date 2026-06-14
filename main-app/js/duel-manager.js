@@ -447,12 +447,14 @@ var DuelManager = (function () {
 
   /* Finish Duel — the ONLY exit from results (Rematch removed). The user must ESCAPE INSTANTLY and can NEVER hang on
      "Finishing…": do local cleanup + navigation FIRST and SYNCHRONOUSLY (each guarded so one failure can't block the
-     others), then clear the server mirror in the BACKGROUND (best-effort, never awaited). Idempotent. */
+     others), then acknowledge. ackResult() records a DURABLE on-device tombstone SYNCHRONOUSLY (ADR-044) — so this
+     duel can never resurrect on the next launch even if the background server mirror-clear never lands — then clears
+     the server mirror best-effort in the background (never awaited). Idempotent. */
   function _finishDuel(code) {
     var theCode = code || _code;
+    try { DuelCore.ackResult(theCode); } catch (_) {}   // durable tombstone (sync) + background server mirror clear (retry); the tombstone is what makes Finish permanent
     try { _resetState(); } catch (_) {}   // stops listener, clears all timers/poll/recover, nulls state, _phase='idle'
     try { exitToHome(); } catch (_) {}     // hides duel containers + routes Home + refreshActiveCard() → card idle
-    try { DuelCore.ackResult(theCode); } catch (_) {}   // background mirror clear; its own retry; never blocks the exit
   }
   /* Hard escape hatch for the results-screen failsafe (and any "stuck" guard): nuke all duel state + go Home. */
   function forceReset() {

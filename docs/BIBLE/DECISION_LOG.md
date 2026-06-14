@@ -8,6 +8,45 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-044 — Eliminate stale-duel resurrection: export `ackResult` + durable acknowledgement ledger (2026-06-14)
+- **Symptom:** A duel finished long ago reappeared on Home as "Results ready → View Results" after every app
+  restart/refresh/PWA-reopen. Pressing Finish Duel cleared it for the session, but it returned on the next launch —
+  forever.
+- **Root cause (two layers):**
+  1. **Primary bug — `DuelCore.ackResult` was never exported.** `duel-manager._finishDuel` (and `suspend`) call
+     `DuelCore.ackResult(code)` to clear the server recovery mirror `users.activeDuelId`. But `ackResult` was missing
+     from the `DuelCore` return object, so `DuelCore.ackResult` was `undefined` and every call threw a `TypeError`
+     that `_finishDuel`'s `try/catch` **silently swallowed**. The mirror was therefore **never cleared on Finish**.
+     On boot, `DuelCore.recover()` reads the still-set `activeDuelId`, fetches the (still-`complete`) duel, and the
+     Home card renders "Results ready" — every launch, indefinitely.
+  2. **Design fragility — acknowledgement had no durable record.** Even with the export fixed, the mirror-clear is a
+     best-effort, non-awaited network call (`/api/duel?action=ackResult`) with no offline/crash-safe persistence, so a
+     finish performed offline or interrupted mid-request could still leak a stale pointer.
+- **Decision:** Make acknowledgement **terminal and durable**, and make recovery **incapable of resurrecting a
+  finished duel**, without breaking the legitimate per-user "opponent hasn't viewed the result yet" case.
+  1. **Export `ackResult`** from `DuelCore` (the one-line correctness fix).
+  2. **Durable acknowledgement ledger** (`duel-core.js`): `ackResult(code)` now **synchronously** records the code in
+     a bounded localStorage tombstone (`qr_duel_acked`, FIFO≤30) **before** firing the best-effort server clear. The
+     tombstone survives refresh, PWA restart, browser/device restart, and SW updates (it is independent of the SW
+     cache).
+  3. **Recovery guard** (`DuelCore.recover`): a candidate code that is in the tombstone is **never** returned (and the
+     stale server mirror is self-healed); `abandoned`/`expired` rooms are dropped too. An un-acked `complete` room
+     still surfaces the passive "Results ready" card — this is **per-user** (the opponent who hasn't acked still
+     sees it), exactly as the multi-device spec requires.
+  4. **Finish ordering:** `_finishDuel` now acks (writes the durable tombstone) **first**, then resets local state and
+     navigates — so the tombstone is guaranteed even if a later step throws. `createDuel`/`joinDuel` clear any stale
+     tombstone for the (re)entered code (defensive against the astronomically-rare code reuse).
+- **Why this class of bug can't recur:** the durable, on-device tombstone — not a fragile network round-trip — is the
+  authority for "this device has finished this duel," and `recover()` consults it before resuming anything. A finished
+  duel is now impossible to reopen after Finish, online or offline.
+- **Validated:** a deterministic harness loads the real `duel-core.js` against mocked Firestore/fetch/localStorage and
+  passes all 16 lifecycle scenarios (unacked-complete surfaces for opponent B; acked never resurrects; offline finish
+  never resurrects + self-heals; lobby/active still resume; abandoned/expired dropped; code-reuse re-enterable; ledger
+  bounded). The service worker already bypasses `/api/` + Firestore (never a state cache); cache bumped v104→v105.
+- **Scope:** `main-app/js/duel-core.js` (export + ledger + guard), `main-app/js/duel-manager.js` (finish ordering +
+  comment), `main-app/service-worker.js` (cache bump). No Firestore schema, rules, index, or server-endpoint change —
+  the server lifecycle was already correct; the client never durably acted on it.
+
 ## ADR-043 — AI persona rename "Reflex" → "QuanAI" (2026-06-14)
 - **Context:** Branding decision — the AI companion across the ecosystem is renamed from "Reflex" to **QuanAI**
   so the assistant reads as one cohesive, premium learning mentor. The prior name collided conceptually with the
