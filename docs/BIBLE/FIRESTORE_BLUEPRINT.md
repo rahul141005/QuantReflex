@@ -186,9 +186,22 @@ completedAt, createdAt }`.
 - `aiContext/{uid}` — server-only 6h cache of the Student Context Engine output `{ctx, ttlExp, updatedAt}`. Default-deny.
 - `aiDaily/{uid}_{feature}_{YYYY-M-D}` — server-only daily cache of coach/insights block envelopes `{uid, feature,
   date, envelope, createdAt}` (consolidates `aiCoachV2`/`aiInsightsV2`). Default-deny.
-- `aiMissions/{uid}` — the living study Mission (replaces static `aiStudyPlans`): `{uid, examName, examDate,
-  dailyMinutes, goal, rationale, weekFocus[]{topicLabel,goal}, phases[]{name,durationDays}, weekStartedAt,
-  progress{}, createdAt, updatedAt}`. Server-written; default-deny (client reads via `api/ai?action=mission`).
+- `aiMissions/{uid}` — **DEPRECATED (ADR-046, superseded by `aiPlanner/{uid}`)** — the legacy one-shot study
+  Mission: `{uid, examName, examDate, dailyMinutes, goal, rationale, weekFocus[]{topicLabel,goal}, phases[]
+  {name,durationDays}, weekStartedAt, progress{}, createdAt, updatedAt}`. Kept dormant for back-compat (the Home
+  card no longer opens it); `action=mission` still serves it. Server-written; default-deny.
+- `aiPlanner/{uid}` — **the QuanAI Planner** (ADR-046, replaces `aiMissions`): a living, adaptive, syllabus-driven
+  study plan. `{v:2, uid, examId, examName, examLabel, syllabusId, examDate, dailyMinutes, daysPerWeek,
+  prepLevel, preferredTime, goal, block{index, startDate, endDate, generatedAt, rationale, days[]{date, dow,
+  kind:'study'|'revision'|'mock'|'buffer'|'rest'|'missed', tasks[]{topicId, label, section, estMin, priority,
+  difficulty, drillable, reason, kind:'learn'|'revise'|'mock', done, completedAt, result}}}, topicState{<topicId>:
+  {coveragePct, masteryEst, firstStudiedAt, lastStudiedAt, lastRevisedAt, nextRevisionDue, timesScheduled}},
+  blockHistory[≤12]{index, startDate, endDate, completedTasks, scheduledTasks, adherencePct, readiness},
+  readiness{score, band, parts{}}, forecast{...}, createdAt, updatedAt}`. Server-written; default-deny (client
+  reads/writes via `api/ai?action=planner` ops get/setup/toggle/regen). **The exam syllabi themselves are NOT in
+  Firestore** — they're bundled reference data in `main-app/data/syllabus.js` (`SYLLABUS_VERSION`), read by both
+  client and server. The planner accepts a NON-AUTHORITATIVE `clientStats` floor (raise-only, size-capped in
+  `api/ai.js`) so a stale `users.stats` doc can't show false-zero accuracy right after a live session.
 - `users/{uid}/aiEvents/{id}` — owner **create-only, immutable** AI interaction log `{feature, type, meta, plan,
   ts, createdAt}` (`shown|opened|chip_tap|deeplink|helpful_yes|helpful_no`). Excluded from the blanket subcollection
   write grant; rolled up daily by `services/aiCron.js`.

@@ -154,11 +154,34 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 | **AI Explain** | Interactive concept learning + adaptive explanations (simpler/deeper/another/got-it) | Give study strategy or trends |
 | **AI Coach** | Daily mentor: accountability, motivation, ONE prescribed next action, remembers convos | Re-explain a question; build a multi-day plan |
 | **AI Insights** | Performance intelligence: weakness discovery + trends → **actionable missions, not reports** | Daily check-in chatter; teach a concept |
-| **AI Study Plan** | Living roadmap that adapts continuously to real progress (interview → daily action → weekly review) | One-off advice; per-question explanation |
+| **QuanAI Planner** | Living, syllabus-driven roadmap (ADR-046): schedules the next 14 days day-by-day from a real exam syllabus + analytics, replans each block, surfaces readiness/forecast/calendar | One-off advice; per-question explanation |
 | **Word Problems** | Context-aware practice generation targeting the student's weakest concepts (future-ready) | Coaching, planning |
 
 Every feature: consumes Context + Memory, renders via the block vocabulary, ends in chips, deep-links real drills,
 shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferredDepth`).
+
+### 6a. QuanAI Planner — a deterministic engine the model only narrates (ADR-046)
+
+The Planner is the strongest expression of §0's doctrine: **all scheduling is deterministic; the LLM only writes
+prose.** It supersedes the one-shot "Study Plan/Mission" (legacy `aiMissions` + `plan.generate`, kept dormant).
+
+- **Syllabus DB** (`main-app/data/syllabus.js`, bundled not Firestore): 26 exams → 5 real syllabi, 104 topics,
+  each with importance/frequency/difficulty/prereqs/revision-cadence/est-minutes, a `drillable` link to one of
+  the 12 cats (or null), and a weighted `signals[]` map. **The 12 drillable cats are SIGNALS, not limits** — every
+  syllabus topic is scheduled; non-drillable ones say "study from your resources". A new drillable cat plugs into
+  `signals[]` with no engine change.
+- **Engine** (`signals.js` → `readiness.js` → `plannerEngine.js`, pure): infers per-topic readiness from in-app
+  practice (**never "no data"** — lifetime accuracy, then neutral 0.5); a 0..100 Exam Readiness Score; a
+  Completion Forecast (buffer, pace, "+15 min/day"); and a 14-day scheduler (priority, prereq cascade-unlock,
+  revision interleaving, adaptive difficulty, adaptive buffer/mock, Smart Catch-up).
+- **LLM** (`planner.narrate@1`, ≤320 tok, one call per block): turns the engine's `rationaleSeed` into the
+  rationale + encouragement only. Cold-start / failure → deterministic copy. Never schedules, never required.
+- **Surfaces:** a companion setup wizard (searchable exam, calendar date, study slider to 8h, days/week, prep
+  level, preferred time) and the `#view-planner` calendar (readiness ring, forecast, day cells, task checkboxes,
+  per-task explainability). API `action=planner` ops get/setup/toggle/regen; doc `aiPlanner/{uid}` (see
+  FIRESTORE_BLUEPRINT). The Coach references today's planner tasks.
+- **Accuracy floor:** planner requests carry a `clientStats` snapshot merged by `studentContext` as a
+  raise-only, fenced floor — so a stale `users.stats` doc never shows false-zero accuracy after a live session.
 
 ---
 
