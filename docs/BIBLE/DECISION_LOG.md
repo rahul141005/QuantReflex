@@ -27,9 +27,17 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   `NOTIFY_INTERNAL_SECRET`). New `scripts/notifications.check.js` (16 assertions: Inbox-always even when push
   throws, push respects opt-out but Inbox doesn't, urgent overrides opt-out, stale cleanup, segment/coaching
   resolution, validation). `npm test` green (KB 4736 + engine 238 + brain 97 + consistency 79 + notifications 16).
-- **Next:** M2 route every source through the pipeline (duel, super-admin, coaching, premium expiry, app-update
-  removal) + the one server-side reminder producer (Vercel cron, Blaze-free: daily/streak/planner/billing) +
-  retire the client 7/1/7 timers; M3 premium Inbox UI + deep-link routing; M4 settings + server-write rules.
+- **M2 (done):** every source routes through the pipeline — duel finish, premium expiry (resolvePlan self-heal),
+  super-admin broadcast/bulk-remind/entitlement grant-revoke, coaching notices (≈150 dup lines → one call); the
+  admin apps are now **pure clients** of `/api/notify` (thin `notifyClient` HTTP helper). New `reminderCron.js`
+  (the one server-side producer, Vercel-cron, Blaze-free, idempotent/day: streak/daily/expiry). Client 7/1/7
+  timers + client `createSystemNotification` retired; app-update reload stays a local toast.
+- **M3/M4 (done):** Inbox UI renders category badges + pipeline icon + relative time + **tap → mark-read +
+  deep-link** (account.js + listener carry the enriched fields; archived hidden; openedAt stamped; archive
+  supported). **Rules: the Inbox is server-write-only** — clients read + delete (archive) only; create/update
+  denied (no forged notifications). 18 pipeline assertions. SW v124→v126.
+- **Deploy:** needs `NOTIFY_INTERNAL_SECRET` (main-app) + `NOTIFY_ENDPOINT_URL`/`MAIN_APP_URL` +
+  `NOTIFY_INTERNAL_SECRET` (both admin apps), and a `firestore:rules` deploy (server-write-only Inbox).
 
 ## ADR-065 — Duel system bug fixes (robustness/scale/cleanup) (2026-06-15)
 - **Context:** The deep Duel audit found the critical paths (grading/finalize/winner/security) bug-free, but four

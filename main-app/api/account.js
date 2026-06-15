@@ -143,12 +143,18 @@ async function _notificationsList(req, res, db) {
   let unreadCount = 0;
   snapshot.forEach(function (doc) {
     const d = doc.data();
+    if (d.archived) return;                       // archived notifications are hidden from the inbox list
     if (!d.isRead) unreadCount++;
     notifications.push({
       id: doc.id,
       title: d.title || '',
       body: d.body || '',
       type: d.type || 'announcement',
+      category: d.category || 'system',           // ADR-066: enriched fields the premium Inbox renders
+      priority: d.priority || 'normal',
+      icon: d.icon || null,
+      deepLink: d.deepLink || null,
+      sender: d.sender || null,
       coachingId: d.coachingId || null,
       isRead: !!d.isRead,
       timestamp: _safeTS(d.timestamp)
@@ -167,6 +173,7 @@ async function _notificationsMarkRead(req, res, db) {
   }
 
   const notifRef = db.collection('users').doc(userId).collection('notifications');
+  const TS = admin.firestore.FieldValue.serverTimestamp();
   if (notificationId === 'all') {
     const unreadSnap = await notifRef.where('isRead', '==', false).limit(500).get();
     if (!unreadSnap.empty) {
@@ -175,7 +182,9 @@ async function _notificationsMarkRead(req, res, db) {
       await batch.commit();
     }
   } else {
-    await notifRef.doc(notificationId).update({ isRead: true });
+    // ADR-066: opening a notification marks it read + stamps delivery.openedAt; `archive:true` hides it.
+    const upd = body.archive === true ? { isRead: true, archived: true, 'delivery.openedAt': TS } : { isRead: true, 'delivery.openedAt': TS };
+    await notifRef.doc(notificationId).update(upd);
   }
   return res.status(200).json({ success: true });
 }

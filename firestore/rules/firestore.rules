@@ -170,11 +170,19 @@ service cloud.firestore {
       // this blanket grant because Firestore unions all matching rules (a later deny cannot revoke a grant).
       match /{subcollection}/{document} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'aiEvents';
+        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'aiEvents' && subcollection != 'notifications';
       }
       // Explicit (read-only) duelHistory match for clarity; write stays denied (no allow write here).
       match /duelHistory/{duelId} {
         allow read: if isOwner(userId);
+      }
+      // ADR-066: the Inbox is a SERVER-WRITE-ONLY source of truth. The unified pipeline (Admin SDK) is the sole
+      // creator/updater of notifications — a client can never FORGE a notification by writing one directly. The
+      // owner may READ their inbox, and DELETE (archive) their own notifications; mark-read/openedAt go through
+      // the server (account.js, Admin SDK). Excluded from the blanket write above so create/update stay denied.
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow delete: if isOwner(userId);
       }
       // aiEvents (ADR-039): the client APPENDS its own AI-interaction events; immutable (create-only, no
       // update/delete — excluded from the blanket write above so it can't be edited). Admin SDK reads them

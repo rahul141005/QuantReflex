@@ -174,30 +174,50 @@ var InboxView = (function () {
       var bg = n.isRead ? 'var(--bg-surface)' : 'var(--bg-elevated)';
       var weight = n.isRead ? '500' : '700';
       var border = n.isRead ? '1px solid var(--border-color)' : '1px solid var(--accent-primary, #ef4444)';
-      
-      var icon = '🔔';
-      if (n.type === 'direct_message') icon = '💬';
-      if (n.type === 'topic_nudge') icon = '🎯';
 
-      html += '<div class="notification-card" data-id="' + n.id + '" style="background:' + bg + '; border:' + border + '; border-radius:var(--radius-lg); padding:1rem; cursor:pointer; transition:transform 0.2s, background 0.2s;">';
-      html += '  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem; gap:0.5rem;">';
-      html += '    <div style="font-weight:' + weight + '; color:var(--text-primary); font-size:0.9375rem; display:flex; align-items:center; gap:0.5rem;">' + icon + ' ' + _escapeHtml(n.title) + '</div>';
-      html += '    <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; flex-shrink:0;">' + timeAgo(n.timestamp) + '</div>';
+      // ADR-066: prefer the pipeline-provided icon; fall back to a type/category guess for older docs.
+      var icon = n.icon || ({ direct_message: '💬', topic_nudge: '🎯' })[n.type] || _catMeta(n.category).icon;
+      var cat = _catMeta(n.category);
+      var unreadDot = n.isRead ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent-primary,#ef4444);flex-shrink:0;"></span>';
+
+      html += '<div class="notification-card" data-id="' + n.id + '" data-link="' + _escapeHtml(n.deepLink || '') + '" style="background:' + bg + '; border:' + border + '; border-radius:var(--radius-lg); padding:1rem; cursor:pointer; transition:transform 0.15s, background 0.2s;">';
+      html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; gap:0.5rem;">';
+      html += '    <span style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:' + cat.color + '; background:' + cat.bg + '; padding:0.12rem 0.5rem; border-radius:999px;">' + cat.label + '</span>';
+      html += '    <span style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">' + timeAgo(n.timestamp) + '</span>' + unreadDot + '</span>';
       html += '  </div>';
+      html += '  <div style="font-weight:' + weight + '; color:var(--text-primary); font-size:0.9375rem; display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">' + icon + ' ' + _escapeHtml(n.title) + '</div>';
       html += '  <div style="font-size:0.875rem; color:var(--text-secondary); line-height:1.4;">' + _escapeHtml(n.body) + '</div>';
       html += '</div>';
     });
 
     listEl.innerHTML = html;
 
-    // Attach click listeners to cards
+    // Tap = mark read + deep-link to the relevant screen (ADR-066).
     var cards = listEl.querySelectorAll('.notification-card');
     for (var i = 0; i < cards.length; i++) {
       cards[i].addEventListener('click', function() {
         var id = this.getAttribute('data-id');
+        var link = this.getAttribute('data-link');
         markAsRead(id);
+        if (link) {
+          try { if (typeof close === 'function') close(); } catch (_) {}
+          try { location.hash = link.charAt(0) === '#' ? link : '#' + link; } catch (_) {}
+        }
       });
     }
+  }
+
+  // ADR-066: category → badge presentation (label + colour). Keeps the inbox scannable + premium.
+  function _catMeta(category) {
+    var m = {
+      system:   { label: 'System',   icon: '🔔', color: '#475569', bg: 'rgba(100,116,139,.14)' },
+      reminder: { label: 'Reminder', icon: '⏰', color: '#b45309', bg: 'rgba(217,119,6,.14)' },
+      coaching: { label: 'Coaching', icon: '🎓', color: '#7c3aed', bg: 'rgba(124,58,237,.14)' },
+      social:   { label: 'Duel',     icon: '⚔️', color: '#db2777', bg: 'rgba(219,39,119,.14)' },
+      billing:  { label: 'Billing',  icon: '💳', color: '#047857', bg: 'rgba(16,185,129,.14)' },
+      ai:       { label: 'Coach',    icon: '🧠', color: '#2563eb', bg: 'rgba(37,99,235,.14)' }
+    };
+    return m[category] || m.system;
   }
 
   function _escapeHtml(str) {

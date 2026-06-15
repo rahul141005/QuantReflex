@@ -1192,12 +1192,17 @@ var FirestoreSync = (function () {
           var unreadCount = 0;
           snapshot.forEach(function(doc) {
             var d = doc.data();
+            if (d.archived) return;                  // ADR-066: archived notifications are hidden from the inbox
             if (!d.isRead) unreadCount++;
             notifications.push({
               id: doc.id,
               title: d.title || '',
               body: d.body || '',
               type: d.type || 'announcement',
+              category: d.category || 'system',       // ADR-066: enriched fields for the premium inbox
+              priority: d.priority || 'normal',
+              icon: d.icon || null,
+              deepLink: d.deepLink || null,
               isRead: !!d.isRead,
               timestamp: d.timestamp ? (d.timestamp.toDate ? d.timestamp.toDate().toISOString() : d.timestamp) : null
             });
