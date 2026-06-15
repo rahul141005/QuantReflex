@@ -1,5 +1,6 @@
 const { withAdminAuth, methodGuard, parseBody, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
+const { sendNotification } = require('../_lib/notifyClient');   // ADR-066: the ONE pipeline (main-app /api/notify)
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -126,6 +127,23 @@ async function handler(req, res) {
 
       await batch.commit();
     }
+
+    // ADR-066: stop the SILENT grant/revoke — tell the affected users through the ONE pipeline (Inbox + push).
+    try {
+      const affectedUids = usersToUpdate.map(function (d) { return d.id; });
+      if (affectedUids.length) {
+        const billing = (action === 'revoke')
+          ? { title: 'Your Premium was removed', body: 'Your account is now on the Free plan. Reach out if this is unexpected.' }
+          : (action === 'trial')
+            ? { title: 'Your free trial has started 🎉', body: 'Enjoy full access to AI Coach, Planner, Insights and Math Duels.' }
+            : { title: 'Premium activated 🎉', body: 'Your QuantReflex Premium is now active — enjoy the full experience.' };
+        await sendNotification({
+          recipients: { uids: affectedUids },
+          notification: { title: billing.title, body: billing.body, type: action === 'revoke' ? 'premium' : 'premium', category: 'billing', priority: 'high', deepLink: '#settings', sender: { kind: 'admin', id: req.userId, name: 'QuantReflex' } },
+          adminUid: req.userId, logSegment: 'entitlement'
+        });
+      }
+    } catch (notifyErr) { console.warn('[entitlements] notification failed (entitlement still applied):', notifyErr.message); }
 
     await writeAuditLog(db, {
       actorUid: req.userId,

@@ -1,5 +1,6 @@
 const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
+const { sendNotification } = require('../_lib/notifyClient');   // ADR-066: the ONE pipeline (main-app /api/notify)
 const { purgeUser, resetProgress, HOLD_DAYS } = require('../_lib/user-lifecycle');
 const admin = require('firebase-admin');
 
@@ -269,20 +270,14 @@ async function handler(req, res) {
       if (!uids.length) return res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'uids[] is required.' } });
       const title = body.title || 'We miss you!';
       const msg = body.body || 'Come back and keep your streak alive on QuantReflex.';
-      const tokens = [];
-      for (let i = 0; i < uids.length; i += 100) {
-        const refs = uids.slice(i, i + 100).map(function (u) { return db.collection('users').doc(u); });
-        const snaps = await db.getAll.apply(db, refs);
-        snaps.forEach(function (s) { const d = s.data(); if (d && d.fcmToken) tokens.push(d.fcmToken); });
-      }
-      let sent = 0, failed = 0;
-      const messaging = admin.messaging();
-      for (let i = 0; i < tokens.length; i += 500) {
-        const r = await messaging.sendEachForMulticast({ notification: { title: title, body: msg }, data: { url: './index.html' }, tokens: tokens.slice(i, i + 500) });
-        sent += r.successCount; failed += r.failureCount;
-      }
-      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'bulk_remind_users', category: 'user', targetType: 'bulk', targetId: null, summary: 'sent re-engagement reminder to ' + sent + ' of ' + uids.length + ' inactive user(s)' });
-      return res.status(200).json({ success: true, sent: sent, failed: failed, targeted: uids.length });
+      // ADR-066: route through the ONE pipeline — Inbox first (previously push-only), then push.
+      const result = await sendNotification({
+        recipients: { uids },
+        notification: { title, body: msg, type: 'announcement', category: 'reminder', deepLink: '#practice', sender: { kind: 'admin', id: req.userId, name: 'QuantReflex' } },
+        adminUid: req.userId, logSegment: 'reengagement'
+      });
+      await writeAuditLog(db, { actorUid: req.userId, actorEmail: req.adminEmail, action: 'bulk_remind_users', category: 'user', targetType: 'bulk', targetId: null, summary: 'sent re-engagement reminder to ' + (result.reached || 0) + ' of ' + uids.length + ' user(s) (' + (result.pushed || 0) + ' pushed)' });
+      return res.status(200).json({ success: true, reached: result.reached || 0, sent: result.pushed || 0, failed: result.failed || 0, targeted: uids.length });
     }
 
     /* ── Lifecycle actions (POST) — ADR-014. Suspend/archive disable the Firebase Auth user. ── */

@@ -132,6 +132,15 @@ console.log('QuantReflex notification pipeline (ADR-066)\n');
   ok(r.reached === 1 && notifs('s1').length === 1 && notifs('s2').length === 0 && notifs('x').length === 0, 'T8 coaching+inactive resolves only inactive students of that coaching');
   ok(DB.logs[DB.logs.length - 1].segment === 'coaching' && DB.logs[DB.logs.length - 1].coachingId === 'C', 'T8 log records coaching segment + coachingId');
 
+  // T9b — coaching single-target stays scoped to the coaching (an admin can't reach a uid outside their roster).
+  reset(); MSG.mode = 'ok';
+  seedUser('mine', { coachingId: 'C', fcmToken: 'm' });
+  seedUser('theirs', { coachingId: 'OTHER', fcmToken: 't' });   // same uid value would be blocked by the coachingId query
+  r = await svc.notify(dbStub, messaging, { recipients: { coachingId: 'C', uid: 'mine' }, notification: { title: 'Hi', category: 'coaching' } });
+  ok(r.reached === 1 && notifs('mine').length === 1 && notifs('theirs').length === 0, 'T9b coaching+uid reaches only that student within the coaching');
+  r = await svc.notify(dbStub, messaging, { recipients: { coachingId: 'C', uid: 'theirs' }, notification: { title: 'Hi', category: 'coaching' } });
+  ok(r.reached === 0, 'T9b a uid outside the coaching roster is never reached');
+
   // T9 — validation: missing title throws.
   reset(); var bad = false;
   try { await svc.notify(dbStub, messaging, { recipients: { uids: ['a'] }, notification: { body: 'no title' } }); } catch (e) { bad = /title/.test(e.message); }

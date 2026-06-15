@@ -33,6 +33,9 @@ function _recip(doc) {
 
 /** Behavioural / segment filters (centralized from the coaching gold-standard so admin apps stay pure clients). */
 function _matches(uid, u, spec) {
+  // Single-target WITHIN a query scope (e.g. a coaching admin nudging ONE of their students — stays scoped to
+  // the coachingId query so an admin can never message a uid outside their roster).
+  if (spec.uid && uid !== spec.uid) return false;
   if (spec.segment === 'premium' && u.plan !== 'premium') return false;
   if (spec.segment === 'free' && u.plan === 'premium') return false;
   var st = u.stats || {};

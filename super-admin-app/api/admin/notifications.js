@@ -1,5 +1,6 @@
 const { withAdminAuth, methodGuard, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
+const { sendNotification } = require('../_lib/notifyClient');   // ADR-066: the ONE pipeline (main-app /api/notify)
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -38,108 +39,29 @@ async function handler(req, res) {
 
   try {
     const { title, body, segment, coachingId, targetUids } = req.body;
-    
+
     if (!title || !body) {
       return res.status(400).json({ error: 'Title and body are required' });
     }
 
     const db = admin.firestore();
-    const messaging = admin.messaging();
 
-    /* Segment → server-side query (ADR-023). The premium segment now filters by plan in the QUERY
-       (needs the (plan, fcmToken) composite index) instead of reading EVERY token-holder and
-       filtering in memory. Bounded to BROADCAST_CAP; a larger audience needs a queued job. */
-    const BROADCAST_CAP = 10000;
-    let query;
-    if (segment === 'premium') {
-      query = db.collection('users').where('plan', '==', 'premium').where('fcmToken', '!=', null);
-    } else if (segment === 'coaching' && coachingId) {
-      query = db.collection('users').where('coachingId', '==', coachingId).where('fcmToken', '!=', null);
-    } else if (segment === 'custom' && Array.isArray(targetUids)) {
+    // ADR-066: pure client of the ONE pipeline. Previously this was PUSH-ONLY and bypassed the Inbox — now the
+    // broadcast lands in every recipient's Inbox first, then pushes. Describe WHO + WHAT; the Inbox write, push,
+    // stale-token cleanup and notificationLogs all happen in main-app's notification service.
+    let recipients;
+    if (segment === 'premium') recipients = { segment: 'premium' };
+    else if (segment === 'coaching' && coachingId) recipients = { coachingId };
+    else if (segment === 'custom' && Array.isArray(targetUids)) {
       if (targetUids.length === 0) return res.status(400).json({ error: 'targetUids cannot be empty' });
-      query = db.collection('users').where(admin.firestore.FieldPath.documentId(), 'in', targetUids);
-    } else {
-      query = db.collection('users').where('fcmToken', '!=', null);
-    }
+      recipients = { uids: targetUids };
+    } else recipients = { all: true };
 
-    const snapshot = await query.limit(BROADCAST_CAP).get();
-    
-    const tokens = [];
-    const uidMap = {}; // mapping token -> uid for cleanup
-    
-    snapshot.forEach(doc => {
-      const u = doc.data();
-      if (!u.fcmToken) return;
-      tokens.push(u.fcmToken);
-      uidMap[u.fcmToken] = doc.id;
-    });
-
-    if (tokens.length === 0) {
-      return res.status(200).json({ success: true, sent: 0, message: 'No valid FCM tokens found for this segment.' });
-    }
-
-    // FCM sendMulticast supports up to 500 tokens per call.
-    // For God-tier architecture, we chunk them.
-    const chunks = [];
-    for (let i = 0; i < tokens.length; i += 500) {
-      chunks.push(tokens.slice(i, i + 500));
-    }
-
-    let successCount = 0;
-    let failureCount = 0;
-    const tokensToRemove = [];
-
-    const messagePayload = {
-      notification: { title, body },
-      data: { url: './index.html' }
-    };
-
-    for (const chunk of chunks) {
-      const response = await messaging.sendEachForMulticast({
-        ...messagePayload,
-        tokens: chunk
-      });
-      
-      successCount += response.successCount;
-      failureCount += response.failureCount;
-
-      if (response.failureCount > 0) {
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            const errCode = resp.error?.code;
-            // Detect stale tokens
-            if (errCode === 'messaging/invalid-registration-token' || errCode === 'messaging/registration-token-not-registered') {
-              const badToken = chunk[idx];
-              const uid = uidMap[badToken];
-              if (uid) tokensToRemove.push(uid);
-            }
-          }
-        });
-      }
-    }
-
-    // Token Cleanup: Remove stale tokens from Firestore
-    if (tokensToRemove.length > 0) {
-      const batch = db.batch();
-      tokensToRemove.forEach(uid => {
-        batch.update(db.collection('users').doc(uid), {
-          fcmToken: admin.firestore.FieldValue.delete(),
-          fcmTokenUpdatedAt: admin.firestore.FieldValue.delete()
-        });
-      });
-      await batch.commit();
-    }
-
-    // Log the broadcast in notificationLogs
-    await db.collection('notificationLogs').add({
-      title,
-      body,
-      segment: segment || 'unknown',
-      successCount,
-      failureCount,
-      staleTokensCleaned: tokensToRemove.length,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      adminUid: req.userId || 'unknown'
+    const result = await sendNotification({
+      recipients,
+      notification: { title, body, type: 'announcement', category: 'system', deepLink: '#home', sender: { kind: 'admin', id: req.userId, name: 'QuantReflex' } },
+      adminUid: req.userId,
+      logSegment: segment || 'all'
     });
 
     await writeAuditLog(db, {
@@ -149,14 +71,15 @@ async function handler(req, res) {
       category: 'system',
       targetType: 'segment',
       targetId: segment || 'all',
-      summary: 'broadcast "' + title + '" to ' + (segment || 'all') + ' (' + successCount + ' sent, ' + failureCount + ' failed)'
+      summary: 'broadcast "' + title + '" to ' + (segment || 'all') + ' (' + (result.reached || 0) + ' inbox, ' + (result.pushed || 0) + ' pushed)'
     });
 
     return res.status(200).json({
       success: true,
-      sent: successCount,
-      failed: failureCount,
-      cleaned: tokensToRemove.length
+      reached: result.reached || 0,
+      sent: result.pushed || 0,
+      failed: result.failed || 0,
+      cleaned: result.cleaned || 0
     });
 
   } catch (err) {
