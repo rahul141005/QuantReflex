@@ -1,0 +1,65 @@
+name: Firebase Deploy
+
+# Deploys Firestore indexes + rules and the duel cleanup Cloud Function (ADR-065).
+# Tablet-friendly: open the repo's Actions tab → "Firebase Deploy" → "Run workflow". Manual-only so it never
+# fires a failed run before the auth secret is set. (Add a `push:` trigger later if you want auto-deploy.)
+#
+# AUTH — add ONE of these repo secrets (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT  (recommended, no CLI needed): the JSON key from
+#       Firebase Console → Project Settings → Service accounts → "Generate new private key".
+#       The service account needs deploy permissions — simplest is the "Editor" role, or least-privilege:
+#       Firebase Admin + Cloud Functions Admin + Cloud Run Admin + Service Account User + Cloud Build Editor.
+#   FIREBASE_TOKEN            (alternative): output of `firebase login:ci` (run once in Google Cloud Shell).
+
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "firebase deploy --only <targets>"
+        required: true
+        default: "firestore,functions:cleanupExpiredDuels"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        run: npm --prefix functions ci || npm --prefix functions install
+
+      - name: Deploy to Firebase
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          TARGETS: ${{ github.event.inputs.targets || 'firestore,functions:cleanupExpiredDuels' }}
+        run: |
+          set -euo pipefail
+          if [ -n "${FIREBASE_SERVICE_ACCOUNT:-}" ]; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+            export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+            echo "Deploying with service-account credentials → $TARGETS"
+            firebase deploy --project quant-reflex-trainer --only "$TARGETS" --non-interactive --force
+          elif [ -n "${FIREBASE_TOKEN:-}" ]; then
+            echo "Deploying with FIREBASE_TOKEN → $TARGETS"
+            firebase deploy --project quant-reflex-trainer --only "$TARGETS" --token "$FIREBASE_TOKEN" --non-interactive --force
+          else
+            echo "::error::No credentials. Add a FIREBASE_SERVICE_ACCOUNT (recommended) or FIREBASE_TOKEN repo secret."
+            exit 1
+          fi
