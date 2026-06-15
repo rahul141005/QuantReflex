@@ -165,6 +165,8 @@ function _coachDashboard(ctx, focus, strategy, d, tier, opts, promptId) {
     var sub = (strategy.daysToExam != null ? strategy.daysToExam + ' days to ' + strategy.examName : _band(strategy.readinessScore));
     blocks.push(ring(strategy.readinessScore, 'Exam readiness', sub));
   }
+  // ADR-061: the long-form mentor note — the heart of the coaching (behaviour + analytics + plan, reasoned).
+  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 560), 'blue', '🧭'));
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
   if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
   if (tier >= 2) {
@@ -337,6 +339,15 @@ function _insightsDashboard(ctx, weak, strategy, d, tier, opts, promptId) {
       else if (fc.onTrack === false) blocks.push(callout('warn', 'You\'re ' + Math.abs(fc.bufferDays || 0) + ' days behind' + (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? ' — +15 min/day claws back ' + fc.ifPlusMinutes.daysSaved + '.' : '.')));
       else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner.'));
     }
+    // ADR-061 (M5): the analyst's evidence-backed reads — forecast confidence, opportunity cost, dependency
+    // bottleneck, revision debt. All deterministic numbers (the prose comes from the LLM; figures never hallucinated).
+    var conf = (ctx.evidence && ctx.evidence.confidence) || 'early';
+    if (strategy.projectedScore != null) blocks.push(callout('info', 'Forecast: on the optimal path you reach ~' + strategy.projectedScore + '/100 (target ' + strategy.targetScore + ') — ' + (strategy.achievable ? 'achievable' : 'short for now') + '. Confidence: ' + conf + '.'));
+    if (strategy.marksAtRisk > 0 && strategy.skip && strategy.skip.length) blocks.push(card('Opportunity cost', 'Parking ' + strategy.skip.slice(0, 2).map(function (t) { return t.label; }).join(' & ') + ' leaves about +' + strategy.marksAtRisk + ' readiness points unclaimed. If you free up time, ' + strategy.skip[0].label + ' is the highest-value add-back.', 'amber', '💰'));
+    var bottleneck = (strategy.topics || []).filter(function (t) { return t.readiness < 0.4 && (t.unlocks || []).length >= 2; }).sort(function (a, b) { return (b.unlocks.length) - (a.unlocks.length); })[0];
+    if (bottleneck) blocks.push(card('Dependency bottleneck', bottleneck.label + ' is weak but unlocks ' + bottleneck.unlocks.slice(0, 3).join(', ') + ' — clearing it lifts several downstream topics at once.', 'blue', '🔓'));
+    if (pr.revisionDue && pr.revisionDue.length >= 2) blocks.push(card('Revision debt', pr.revisionDue.length + ' topics are past their revision date — retention decays fastest right after you learn, so this is quietly costing you earned marks.', 'rose', '📉'));
+    if (strategy.behaviour && strategy.behaviour.stale && strategy.behaviour.stale.length) { var st = strategy.behaviour.stale[0]; blocks.push(card('Going stale', 'You haven\'t touched ' + st.label + ' in ' + st.days + ' days — a 15-minute brush-up now beats relearning it later.', 'slate', '🧊')); }
   }
   // every insight leads to an action
   var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);

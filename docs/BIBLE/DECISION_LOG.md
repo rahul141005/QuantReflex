@@ -8,6 +8,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-061 (V2 · Milestones 4–7) — Behaviour-aware Coach, analyst Insights, proven consistency (2026-06-15)
+- **Context:** Coach summarised instead of mentoring (no behaviour history); Insights motivated instead of
+  analysing; and nothing PROVED the three roles stay consistent. The user wants Coach = WHY/HOW (a real mentor
+  that notices habits), Insights = HOW-YOU'RE-DOING (an analyst), and a guarantee they never contradict.
+- **Decision (M4 — Coach):** `examStrategy` now derives `behaviour` signals from the planner doc with no extra
+  persistence — `postponed` (topics scheduled-but-skipped on past days), `neglectedSections` (a section the
+  student keeps avoiding), `stale` (strong topics not studied in 14+ days) — and serialises them ("postponed
+  Geometry 3×… marks at stake"). `coach.daily@8` becomes a long-form **mentor**: a `mentorNote` field (3–5
+  sentences of connected reasoning over behaviour + analytics + plan) that names avoidance patterns kindly,
+  ties them to marks, prescribes a small momentum step, and may point to external material (the app is the
+  planner+drills, not the content). Rendered as a "Your coach" card.
+- **Decision (M5 — Insights):** deterministic **analyst** blocks assembled from the strategy (figures never
+  hallucinated): a forecast WITH confidence, **opportunity cost** (marks left unclaimed by triaged topics), a
+  **dependency bottleneck** (a weak prereq capping several unlocks), **revision debt**, and a stale-topic read.
+  `insights.analyze@9` reasons in marks/ROI/leakage terms with stated prediction confidence.
+- **Decision (M6/M7 — shared intelligence + validation):** new `scripts/intelligence-consistency.check.js`
+  simulates beginner / advanced / last-minute / inconsistent / regressing / avoidant / no-exam profiles across
+  CAT/SNAP/IBPS/JEE/NDA/GMAT and asserts ONE source of truth: the path is real sections, the schedule is a pure
+  projection of the roadmap, **the topic Coach would prescribe == a topic the Planner scheduled**, recovery
+  overrides agree across roles, avoidance reaches the prompt, the forecast is bounded, the KB drives per-exam
+  behaviour, and no exam → null (graceful degradation).
+- **Consequences:** No model/schema-shape/rules change; one LLM call per feature. `npm test` green across **four**
+  harnesses (KB 4686 + planner-engine 238 + planner-brain 97 + consistency 61). No client assets changed (SW
+  unchanged). **QuantReflex V2 (ADR-059→061) complete: one researched knowledge base → one exam-agnostic engine
+  → Planner/Coach/Insights as three honest, consistent views.**
+
 ## ADR-060 (V2 · Milestones 2–3) — Real section path + session-typed study blocks (2026-06-15)
 - **Context:** The planner displayed fabricated phase names ("Build Arithmetic Foundation", "Complete High-ROI
   Arithmetic") and the timetable had Drill buttons (navigation, not planning). The user wants the path to be the

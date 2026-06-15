@@ -120,8 +120,39 @@ function assemble(profile, planDoc, opts) {
     forecast: forecast
   };
   strategy.signals = signals;
+  strategy.behaviour = _behaviour(planDoc, strategy, todayIso);   // ADR-061: avoidance/postponement/stale signals
   strategy.examDate = planDoc.examDate || null;
   return strategy;
+}
+
+/** ADR-061: behaviour signals a mentor would notice — postponed topics (scheduled-but-skipped on past days),
+ *  neglected sections, and strong topics gone stale. Derived from the doc (no extra persistence). */
+function _behaviour(doc, strategy, todayIso) {
+  var ts = doc.topicState || {}, days = (doc.block && doc.block.days) || [];
+  var labelOf = {}; (strategy.topics || []).forEach(function (t) { labelOf[t.topicId] = t.label; });
+  var sectionOf = {}; (strategy.topics || []).forEach(function (t) { sectionOf[t.topicId] = t.section; });
+  var postCount = {};
+  days.forEach(function (d) {
+    if (d.date >= todayIso || d.kind !== 'study') return;
+    (d.tasks || []).forEach(function (t) { if (!t.done) postCount[t.topicId] = (postCount[t.topicId] || 0) + 1; });
+  });
+  var postponed = Object.keys(postCount).map(function (id) { return { topicId: id, label: labelOf[id] || id, section: sectionOf[id] || '', count: postCount[id] }; })
+    .sort(function (a, b) { return b.count - a.count; });
+  // neglected sections: a section the student keeps skipping (postponed topics) while it's still pending.
+  var secSkip = {};
+  postponed.forEach(function (p) { if (p.section) secSkip[p.section] = (secSkip[p.section] || 0) + p.count; });
+  var neglectedSections = (strategy.sections || []).filter(function (s) { return s.status !== 'done' && (secSkip[s.name] || 0) >= 2; })
+    .map(function (s) { return { name: s.name, skips: secSkip[s.name], marks: s.marks }; }).sort(function (a, b) { return b.skips - a.skips; });
+  // stale strong: a covered topic not studied in 14+ days (retention risk on something they earned).
+  var stale = [];
+  Object.keys(ts).forEach(function (id) {
+    var s = ts[id]; if ((Number(s.coveragePct) || 0) >= 0.5 && s.lastStudiedAt) {
+      var gap = _daysBetween(s.lastStudiedAt, todayIso);
+      if (gap != null && gap >= 14) stale.push({ topicId: id, label: labelOf[id] || id, days: gap });
+    }
+  });
+  stale.sort(function (a, b) { return b.days - a.days; });
+  return { postponed: postponed.slice(0, 4), neglectedSections: neglectedSections.slice(0, 2), stale: stale.slice(0, 3) };
 }
 
 function _blockStats(doc) {
@@ -159,6 +190,15 @@ function serialize(strategy) {
   if (pr.adherencePct != null) L.push('You\'ve completed ' + pr.adherencePct + '% of planned work.' +
     (pr.onTrack === false ? ' You are BEHIND the plan — reinforce catching up.' : pr.bufferDays > 3 ? ' You are AHEAD — revision could start early.' : ''));
   if (pr.revisionDue && pr.revisionDue.length) L.push(pr.revisionDue.length + ' topic(s) are due for revision — a milestone you should not skip.');
+  // ADR-061: behaviour a mentor would call out — avoidance, neglected sections, stale-strong topics.
+  var bh = strategy.behaviour || {};
+  if (bh.postponed && bh.postponed.length) {
+    var top = bh.postponed[0];
+    L.push('BEHAVIOUR: the student has postponed ' + top.label + ' ' + top.count + ' time(s) on scheduled days' +
+      (bh.neglectedSections && bh.neglectedSections.length ? ' — they keep avoiding the ' + bh.neglectedSections[0].name + ' section, which carries real exam marks' : '') +
+      '. Name the pattern honestly and prescribe a small, low-pressure step to break it (momentum, not mastery).');
+  }
+  if (bh.stale && bh.stale.length) L.push('STALE STRONG: ' + bh.stale[0].label + ' was studied ' + bh.stale[0].days + ' days ago — a quick brush-up protects marks they already earned.');
   if (strategy.recovery) L.push('RECOVERY: recent analytics dropped on ' + strategy.recovery.topics.map(function (t) { return t.label; }).join(', ') +
     ' — recommend a short recovery session BEFORE the next planned topic, even though the plan order says otherwise.');
   if (strategy.skip && strategy.skip.length) L.push('Triaged out (too little time for the marks): ' + strategy.skip.slice(0, 3).map(function (t) { return t.label; }).join(', ') + '.');

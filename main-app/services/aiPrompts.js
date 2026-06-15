@@ -49,32 +49,37 @@ var REGISTRY = {
   /* ---- AI Coach: a living daily dashboard (ADR-050). One call writes ALL the prose lines; the server lays out
      the blocks (greeting → readiness → win → worry → metrics → plan → recommendation → motivation). ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 7, maxTokens: 460, temperature: 0.45,
+    id: 'coach.daily', version: 8, maxTokens: 620, temperature: 0.5,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
         schema: { type: 'object', additionalProperties: false,
-          required: ['greeting', 'biggestWin', 'oneWorry', 'todayRecommendation', 'motivation', 'missionWhy', 'celebrate'],
-          properties: { greeting: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, motivation: STR, missionWhy: STR, celebrate: STR } },
-        system: sys('You are writing a personal daily dashboard for a student who has been practising. DELIVER VALUE '
-          + 'FIRST, then the recommendation — never open by telling them to "go practice". Sound like a mentor who '
-          + 'watches them every day: specific, warm, grounded in their REAL numbers, never generic. '
+          required: ['greeting', 'mentorNote', 'biggestWin', 'oneWorry', 'todayRecommendation', 'motivation', 'missionWhy', 'celebrate'],
+          properties: { greeting: STR, mentorNote: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, motivation: STR, missionWhy: STR, celebrate: STR } },
+        system: sys('You are a PERSONAL MENTOR — like a top coaching-institute teacher who knows this student. Not a '
+          + 'notification generator: you reason, connect dots, and coach. DELIVER VALUE FIRST; never open with "go '
+          + 'practice". Be specific, warm, grounded in their REAL numbers. '
           + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim trends, history, "stuck", "for a month", '
           + 'or a "7-day" pattern the evidence does not support; with little data say "first read"/"early". When a '
-          + 'LAST SESSION line is present, REASON about what changed and WHY (harder topics? rushing? fatigue? warming '
-          + 'up?) — do not just restate numbers or swap a percentage. '
-          + (v.hasPlan ? 'An EXAM STRATEGY is present: reason WITH it — reference where they are in the plan, and if '
-              + 'recent analytics conflict with the plan order (e.g. a topic they were strong on just dropped), '
-              + 'recommend the recovery/adjustment and say why. '
-            : 'No exam plan exists yet: coach purely from their analytics — do NOT invent a study plan, schedule or '
-              + 'exam readiness, and never imply they need an exam to get value. ')
-          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), address the most important '
-          + 'one directly and kindly. Each field is at most 1-2 short sentences.', v.examName),
+          + 'LAST SESSION line is present, REASON about what changed and WHY (harder set? rushing? fatigue? warming up?). '
+          + 'BEHAVIOUR: if the context names postponed/avoided topics or a neglected section, NAME the pattern kindly and '
+          + 'honestly (e.g. "you\'ve put off Geometry three times") and tie it to MARKS AT STAKE, then prescribe one '
+          + 'small low-pressure step (momentum, not mastery). If a strong topic has gone stale, nudge a brush-up. '
+          + (v.hasPlan ? 'An EXAM STRATEGY is present: reason WITH it — reference where they are in the plan; if recent '
+              + 'analytics conflict with the plan order (a strong topic dropped), recommend the recovery/adjustment. You '
+              + 'MAY suggest external material (their books/coaching notes/lectures) since this app is the planner+drills, not the content. '
+            : 'No exam plan exists yet: coach purely from their analytics — do NOT invent a study plan, schedule or exam '
+              + 'readiness, and never imply they need an exam to get value. ')
+          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), address the most important one. '
+          + 'mentorNote is the heart: 3-5 sentences of genuine, connected reasoning. Other fields stay tight.', v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '')
           + '\n\nToday\'s prescribed focus: ' + v.focusLabel + '.'
           + '\nWrite JSON: greeting (warm, personal, reference a real recent change or win, <=14 words), '
+          + 'mentorNote (THE coaching — 3-5 sentences: read their situation, connect behaviour+analytics+plan into a '
+          + 'specific insight, name any avoidance/stale pattern with the marks at stake, and give one concrete next move '
+          + 'with the reasoning; sound human, like a mentor who genuinely knows them, <=85 words), '
           + 'biggestWin (their most impactful recent win from the data, or "" if none real), '
-          + 'oneWorry (the single biggest thing holding them back — address the active concern above if any, <=20 words), '
+          + 'oneWorry (the single biggest thing holding them back — the active concern above if any, <=20 words), '
           + 'todayRecommendation (the ONE specific thing to do today and why, <=22 words), '
           + 'motivation (a short, contextual line of encouragement, <=14 words), '
           + 'missionWhy (one line on why the focus topic, <=16 words), '
@@ -86,29 +91,33 @@ var REGISTRY = {
   /* ---- AI Insights: an analyst (ADR-050). The model writes the intro + biggest-lever headline + why-this-
      weakness; the server renders deterministic metric/pattern blocks so numbers are never hallucinated. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 8, maxTokens: 420, temperature: 0.4,
+    id: 'insights.analyze', version: 9, maxTokens: 460, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
         schema: { type: 'object', additionalProperties: false,
           required: ['patternsIntro', 'headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { patternsIntro: STR, headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
-        system: sys('You are a sharp performance analyst who makes the student feel SEEN. Surface the single biggest '
-          + 'lever they have right now and explain their top weakness in plain terms. '
+        system: sys('You are a sharp performance ANALYST — you explain WHY the numbers are what they are and where the '
+          + 'biggest return on effort is, making the student feel deeply SEEN. Think in terms of marks: ROI, opportunity '
+          + 'cost (marks left on the table), dependency bottlenecks (a weak prereq capping several topics), revision '
+          + 'debt (retention decaying on earned topics), momentum, and a forecast WITH its confidence. '
           + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — NEVER invent history or trends. With <2 active days '
           + '(first-session/early), do NOT say "stuck", "held flat", "over a month", "7-day", or describe any '
-          + 'multi-day trajectory; instead give an honest FIRST READ of today\'s numbers and name the first thing to '
-          + 'watch. Only describe trends when the evidence shows multiple active days. '
+          + 'multi-day trajectory; give an honest FIRST READ and name the first thing to watch. State predictions with '
+          + 'their confidence; never over-claim certainty the data does not support. '
           + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be specific to '
           + 'their REAL numbers, never restate the dashboard. Every line implies a clear action. '
-          + (v.hasPlan ? 'An EXAM STRATEGY is present: interpret their data AGAINST the plan — call out plan adherence, '
-              + 'a skipped revision milestone, or where recent analytics say the plan order should change (recommend it).'
+          + (v.hasPlan ? 'An EXAM STRATEGY is present: interpret their data AGAINST it — call out the highest-ROI move, '
+              + 'where marks are leaking (skipped/overdue/avoided topics), a bottleneck worth clearing, or where recent '
+              + 'analytics say the plan order should change (recommend it).'
             : 'No exam plan exists: analyse purely from their analytics — do NOT reference a study plan, schedule or '
               + 'exam readiness, and never imply they need an exam to get value.'), v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
-          + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "I found a few things worth your attention", <=12 words), '
-          + 'headline (the single biggest lever, <=2 sentences), weaknessInsight (one short line on what is really going '
-          + 'wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
+          + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "Here\'s what your data is really saying", <=12 words), '
+          + 'headline (the single biggest LEVER — the move with the highest return on marks, and why, <=2 sentences), '
+          + 'weaknessInsight (one sharp line on what is really going wrong in ' + v.weakLabel + ' — the cause, not the symptom), '
+          + 'nextStepLabel (a 2-4 word action label).'
       };
     }
   },
