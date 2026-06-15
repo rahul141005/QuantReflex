@@ -32,7 +32,7 @@ var warmCtx = {
   ],
   trends: {
     accuracy: { d7: 0.80, d30: 0.74, delta: 0.06, direction: 'improving' },
-    speed: { recentMsPerQ: 7000, direction: 'faster' },
+    speed: { recentSecPerQ: 7, direction: 'faster' },
     consistency: { activeDaysLast14: 9, gapDays: 1, streakHealth: 'strong' }
   }
 };

@@ -164,14 +164,17 @@ async function build(uid, opts) {
     errorPatterns: errorPatterns,
     flags: flags,
     recentSessions: sessions.slice(0, 8).map(function (s) {
-      return { mode: s.mode || 'practice', category: s.category || '', acc: (s.total ? _round((s.score || 0) / s.total, 2) : null), improvedPct: _round(s.sessionImprovementPct, 0) };
+      return { mode: s.mode || 'practice', category: s.category || '', n: Number(s.total) || 0,
+        acc: (s.total ? _round((s.score || 0) / s.total, 2) : null), improvedPct: _round(s.sessionImprovementPct, 0) };
     }),
     today: today,              // live session signal (ADR-045)
     memory: _publicMemory(memory)
   };
 
-  // ADR-053: materialize the WHOLE picture on the one profile so no feature re-assembles its own understanding.
+  // ADR-053/055: materialize the WHOLE picture on the one profile so no feature re-assembles its own understanding.
   ctx.tier = _tierOf(totalAttempted);                 // experience tier (gates richness, never access)
+  ctx.evidence = statMath.evidence(stats);            // ADR-055: how much the AI is ALLOWED to claim (anti-fabrication)
+  ctx.lastChange = _lastChange(ctx);                  // ADR-055: what actually changed last session (for real reasoning)
   ctx.recommendation = _recommendation(ctx);          // the single "what to work on next"
   ctx.masteryByCat = _masteryByCat(stats);            // any category's mastery (Explanation looks itself up here)
   ctx.planner = await _plannerData(uid, opts.clientDate);   // study-plan readiness/forecast/today's tasks (one read)
@@ -188,6 +191,20 @@ function _masteryByCat(stats) {
   var raw = statMath.masteryMap(stats), out = {};
   Object.keys(raw).forEach(function (cat) { var m = raw[cat]; out[cat] = { cat: cat, label: label(cat), acc: m.acc, n: m.n, tier: m.tier }; });
   return out;
+}
+
+/* ADR-055: what actually changed in the latest session vs the previous one — the basis for REAL coaching
+   ("more questions but accuracy dipped → harder set"), not template substitution. Null until there are 2 sessions. */
+function _lastChange(ctx) {
+  var rs = ctx.recentSessions || [];
+  if (rs.length < 2 || rs[0].acc == null || rs[1].acc == null) return null;
+  var a0 = rs[0], a1 = rs[1];
+  return {
+    accuracyDelta: Math.round((a0.acc - a1.acc) * 100),                 // latest vs previous, %-points
+    attemptsDelta: (a0.n && a1.n) ? (a0.n - a1.n) : null,               // more/fewer questions
+    latestAcc: Math.round(a0.acc * 100), latestN: a0.n || 0,
+    withinSessionImprovedPct: a0.improvedPct || 0                       // warmed up within the set?
+  };
 }
 
 /* The one "next recommendation": the weakest real topic, else a sensible foundation. */
@@ -312,23 +329,34 @@ function serialize(ctx, maxChars) {
   if (!ctx) return '';
   var L = [];
   if (ctx.name) L.push('Student first name: ' + String(ctx.name).split(' ')[0] + ' (greet warmly, use sparingly).');
+  // ADR-055: state the EVIDENCE level up front so the model never claims more history than exists.
+  var ev = ctx.evidence || { activeDays: 0, confidence: 'first-session', hasMultiDayHistory: false };
+  L.push('EVIDENCE: ' + ev.activeDays + ' active day(s), ' + ctx.totalAttempted + ' questions total, confidence=' + ev.confidence +
+    '. Only claim trends/history this supports. With <2 active days, call it a "first read" — NEVER say "stuck", "held flat", "7-day" or "over a month".');
   // TODAY first — it is the live session and the highest-signal context (ADR-045).
   var td = ctx.today;
   if (td && td.attempted > 0) {
     L.push('TODAY: ' + td.attempted + ' done' + (td.accuracy != null ? ' at ' + Math.round(td.accuracy * 100) + '%' : '') +
-      (td.avgMsPerQ != null ? ', ~' + (td.avgMsPerQ / 1000).toFixed(1) + 's/Q' : '') + '. Reference today before lifetime; never tell them to "go practice".');
+      (td.avgSecPerQ != null ? ', ~' + td.avgSecPerQ.toFixed(1) + 's/Q' : '') + '. Reference today before lifetime; never tell them to "go practice".');
   }
   L.push('Accuracy ' + Math.round((ctx.accuracy || 0) * 100) + '% over ' + ctx.totalAttempted + ' Qs (lifetime); streak ' + ctx.dailyStreak + 'd.');
   var t = ctx.trends;
-  if (t) {
-    if (t.accuracy && t.accuracy.d7 != null) L.push('Accuracy 7d ' + Math.round(t.accuracy.d7 * 100) + '% vs 30d ' + Math.round((t.accuracy.d30 || 0) * 100) + '% (' + t.accuracy.direction + ').');
-    if (t.speed && t.speed.recentMsPerQ != null) L.push('Speed ' + (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q (' + t.speed.direction + ').');
+  // Multi-day trends ONLY when there is real multi-day history (ADR-055) — otherwise the model fabricates a week.
+  if (t && ev.hasMultiDayHistory) {
+    if (t.accuracy && t.accuracy.d7 != null && t.accuracy.direction) L.push('Accuracy last 7d ' + Math.round(t.accuracy.d7 * 100) + '% vs 30d ' + Math.round((t.accuracy.d30 || 0) * 100) + '% (' + t.accuracy.direction + ').');
+    if (t.speed && t.speed.recentSecPerQ != null && t.speed.direction) L.push('Speed ' + t.speed.recentSecPerQ.toFixed(1) + 's/Q (' + t.speed.direction + ').');
     if (t.consistency) L.push('Active ' + t.consistency.activeDaysLast14 + '/14 days; streak ' + t.consistency.streakHealth + '; last gap ' + t.consistency.gapDays + 'd.');
     if (t.sessionImprovementPct) L.push('Within-session pace improves ~' + t.sessionImprovementPct + '% on average.');
   }
-  if (ctx.recentSessions && ctx.recentSessions.length) {
+  // What actually changed last session — the basis for real reasoning (ADR-055).
+  var lc = ctx.lastChange;
+  if (lc) {
+    L.push('LAST SESSION vs previous: accuracy ' + (lc.accuracyDelta >= 0 ? '+' : '') + lc.accuracyDelta + ' pts' +
+      (lc.attemptsDelta != null ? ', ' + (lc.attemptsDelta >= 0 ? 'attempted ' + lc.attemptsDelta + ' more' : 'attempted ' + Math.abs(lc.attemptsDelta) + ' fewer') : '') +
+      ' (latest set: ' + lc.latestN + ' Qs at ' + lc.latestAcc + '%). Reason about WHY this changed (harder topics? rushing? fatigue? warming up?), don\'t just restate the numbers.');
+  } else if (ctx.recentSessions && ctx.recentSessions.length) {
     var rs = ctx.recentSessions.slice(0, 3).map(function (s) { return s.acc != null ? Math.round(s.acc * 100) + '%' : '—'; });
-    L.push('Last sessions accuracy: ' + rs.join(', ') + '.');
+    L.push('Recent session accuracy: ' + rs.join(', ') + '.');
   }
   var weak = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).map(function (m) { return m.label + ' ' + Math.round(m.acc * 100) + '%'; });
   var strong = (ctx.mastery || []).filter(function (m) { return m.tier === 'strong'; }).map(function (m) { return m.label; });

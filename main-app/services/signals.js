@@ -26,9 +26,9 @@ function masteryMap(ctx) {
  * No speed data → neutral 0.6.
  */
 function speedScore(ctx) {
-  var ms = ctx && ctx.trends && ctx.trends.speed ? ctx.trends.speed.recentMsPerQ : null;
-  if (ms == null) return 0.6;
-  return clamp(1 - ((ms - 4000) / 12000) * 0.8, 0.2, 1);
+  var sec = ctx && ctx.trends && ctx.trends.speed ? ctx.trends.speed.recentSecPerQ : null;   // ADR-055: seconds/Q
+  if (sec == null) return 0.6;
+  return clamp(1 - ((sec - 4) / 12) * 0.8, 0.2, 1);
 }
 
 /** Consistency multiplier: steady practice → full confidence in the estimate; sporadic → discounted. */

@@ -49,7 +49,7 @@ var REGISTRY = {
   /* ---- AI Coach: a living daily dashboard (ADR-050). One call writes ALL the prose lines; the server lays out
      the blocks (greeting → readiness → win → worry → metrics → plan → recommendation → motivation). ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 5, maxTokens: 460, temperature: 0.45,
+    id: 'coach.daily', version: 6, maxTokens: 460, temperature: 0.45,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
@@ -58,9 +58,13 @@ var REGISTRY = {
           properties: { greeting: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, motivation: STR, missionWhy: STR, celebrate: STR } },
         system: sys('You are writing a personal daily dashboard for a student who has been practising. DELIVER VALUE '
           + 'FIRST, then the recommendation — never open by telling them to "go practice". Sound like a mentor who '
-          + 'watches them every day: specific, warm, grounded in their REAL numbers, never generic. If the context '
-          + 'names an active concern (' + (v.flagsNote || 'none') + '), address the most important one directly and '
-          + 'kindly. Each field is at most 1-2 short sentences.', v.examName),
+          + 'watches them every day: specific, warm, grounded in their REAL numbers, never generic. '
+          + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim trends, history, "stuck", "for a month", '
+          + 'or a "7-day" pattern the evidence does not support; with little data say "first read"/"early". When a '
+          + 'LAST SESSION line is present, REASON about what changed and WHY (harder topics? rushing? fatigue? warming '
+          + 'up?) — do not just restate numbers or swap a percentage. If the context names an active concern ('
+          + (v.flagsNote || 'none') + '), address the most important one directly and kindly. Each field is at most '
+          + '1-2 short sentences.', v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '')
           + '\n\nToday\'s prescribed focus: ' + v.focusLabel + '.'
           + '\nWrite JSON: greeting (warm, personal, reference a real recent change or win, <=14 words), '
@@ -77,7 +81,7 @@ var REGISTRY = {
   /* ---- AI Insights: an analyst (ADR-050). The model writes the intro + biggest-lever headline + why-this-
      weakness; the server renders deterministic metric/pattern blocks so numbers are never hallucinated. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 6, maxTokens: 420, temperature: 0.4,
+    id: 'insights.analyze', version: 7, maxTokens: 420, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
@@ -85,9 +89,13 @@ var REGISTRY = {
           required: ['patternsIntro', 'headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { patternsIntro: STR, headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
         system: sys('You are a sharp performance analyst who makes the student feel SEEN. Surface the single biggest '
-          + 'lever they have right now and explain their top weakness in plain terms. Lead with what moved recently. '
-          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be insightful and '
-          + 'specific to their numbers, never restate the dashboard. Every line implies a clear action.', v.examName),
+          + 'lever they have right now and explain their top weakness in plain terms. '
+          + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — NEVER invent history or trends. With <2 active days '
+          + '(first-session/early), do NOT say "stuck", "held flat", "over a month", "7-day", or describe any '
+          + 'multi-day trajectory; instead give an honest FIRST READ of today\'s numbers and name the first thing to '
+          + 'watch. Only describe trends when the evidence shows multiple active days. '
+          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be specific to '
+          + 'their REAL numbers, never restate the dashboard. Every line implies a clear action.', v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "I found a few things worth your attention", <=12 words), '
           + 'headline (the single biggest lever, <=2 sentences), weaknessInsight (one short line on what is really going '

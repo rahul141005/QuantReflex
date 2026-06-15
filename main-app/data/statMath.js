@@ -25,7 +25,7 @@
   var WEAK = 0.6, STRONG = 0.8;  // accuracy tier cut points
   var DAY = 86400000;
   var ACC_DELTA = 0.02;          // 7d-vs-30d accuracy move that counts as a real direction
-  var SPD_DELTA_MS = 300;        // ms/Q move that counts as faster/slower
+  var SPD_DELTA_SEC = 0.3;       // s/Q move that counts as faster/slower (ADR-055: seconds, not ms)
   var GAP_BROKEN = 3, ACTIVE_STRONG = 8; // streak-health day thresholds
 
   function _round(n, d) { var f = Math.pow(10, d || 0); return Math.round((Number(n) || 0) * f) / f; }
@@ -91,12 +91,16 @@
     });
     var d7 = w7.att > 0 ? w7.cor / w7.att : null;
     var d30 = w30.att > 0 ? w30.cor / w30.att : null;
-    var delta = (d7 != null && d30 != null) ? d7 - d30 : 0;
-    return { d7: _round(d7, 3), d30: _round(d30, 3), delta: _round(delta, 3),
-      direction: delta > ACC_DELTA ? 'improving' : (delta < -ACC_DELTA ? 'declining' : 'flat') };
+    // ADR-055: a trend needs >= 2 distinct active days. With one day d7===d30 — there is NO history to compare,
+    // so `direction` is null (not a fabricated "flat") and `multiDay` tells consumers to label it honestly.
+    var ad = activeDays(stats);
+    var multiDay = ad >= 2;
+    var delta = (multiDay && d7 != null && d30 != null) ? d7 - d30 : 0;
+    return { d7: _round(d7, 3), d30: _round(d30, 3), delta: _round(delta, 3), activeDays: ad, multiDay: multiDay,
+      direction: !multiDay ? null : (delta > ACC_DELTA ? 'improving' : (delta < -ACC_DELTA ? 'declining' : 'flat')) };
   }
 
-  /** Speed: recent (7d) vs baseline (8–30d) ms/Q + an overall ms/Q, from dailyHistory. */
+  /** Speed in SECONDS/Q (ADR-055 — sumTimes is seconds): recent (7d) vs baseline (8–30d) + overall, from dailyHistory. */
   function speed(stats) {
     var hist = (stats && stats.dailyHistory) || {}, now = Date.now();
     var recent = { sum: 0, cnt: 0 }, prior = { sum: 0, cnt: 0 }, all = { sum: 0, cnt: 0 };
@@ -107,13 +111,14 @@
       if (age <= 7) { recent.sum += sum; recent.cnt += cnt; }
       else if (age <= 30) { prior.sum += sum; prior.cnt += cnt; }
     });
-    var r = recent.cnt > 0 ? recent.sum / recent.cnt : null;
+    var r = recent.cnt > 0 ? recent.sum / recent.cnt : null;   // already SECONDS/Q
     var b = prior.cnt > 0 ? prior.sum / prior.cnt : null;
     var o = all.cnt > 0 ? all.sum / all.cnt : null;
-    var delta = (r != null && b != null) ? r - b : 0;
-    return { recentMsPerQ: r != null ? Math.round(r) : null, baselineMsPerQ: b != null ? Math.round(b) : null,
-      overallMsPerQ: o != null ? Math.round(o) : null, deltaMs: Math.round(delta),
-      direction: delta < -SPD_DELTA_MS ? 'faster' : (delta > SPD_DELTA_MS ? 'slower' : 'flat') };
+    var multiDay = activeDays(stats) >= 2;
+    var delta = (multiDay && r != null && b != null) ? r - b : 0;
+    return { recentSecPerQ: r != null ? _round(r, 1) : null, baselineSecPerQ: b != null ? _round(b, 1) : null,
+      overallSecPerQ: o != null ? _round(o, 1) : null, deltaSec: _round(delta, 1),
+      direction: (!multiDay || b == null) ? null : (delta < -SPD_DELTA_SEC ? 'faster' : (delta > SPD_DELTA_SEC ? 'slower' : 'flat')) };
   }
 
   /** Consistency: active days in the last 14, gap since last active, streak health. */
@@ -131,14 +136,28 @@
       streakHealth: gapDays >= GAP_BROKEN ? 'broken' : (activeDays14 >= ACTIVE_STRONG ? 'strong' : 'fragile') };
   }
 
-  /** Live "today" signal — date-keyed so it never bleeds across days, with a counter fallback. */
+  /** Live "today" signal — date-keyed so it never bleeds across days, with a counter fallback. avgSecPerQ in SECONDS. */
   function today(stats) {
     stats = stats || {};
     var e = ((stats.dailyHistory) || {})[_todayKey()] || {};
     var att = Number(e.attempted) || 0, cor = Number(e.correct) || 0;
     if (!att) { att = Number(stats.todayAttempted) || 0; cor = Number(stats.todayCorrect) || 0; }
-    var avgMs = (e.count > 0 && e.sumTimes) ? Math.round(Number(e.sumTimes) / Number(e.count)) : null;
-    return { attempted: att, correct: cor, accuracy: att > 0 ? _round(cor / att, 2) : null, avgMsPerQ: avgMs };
+    var avgSec = (e.count > 0 && e.sumTimes) ? _round(Number(e.sumTimes) / Number(e.count), 1) : null;
+    return { attempted: att, correct: cor, accuracy: att > 0 ? _round(cor / att, 2) : null, avgSecPerQ: avgSec };
+  }
+
+  /** Distinct days with any attempts — the real span of history (ADR-055: the anti-fabrication signal). */
+  function activeDays(stats) {
+    var hist = (stats && stats.dailyHistory) || {}, n = 0;
+    Object.keys(hist).forEach(function (k) { if (_ms(k) && (Number(hist[k] && hist[k].attempted) || 0) > 0) n++; });
+    return n;
+  }
+
+  /** Evidence/confidence the AI is allowed to claim — bounds every statement so nothing is fabricated. */
+  function evidence(stats) {
+    var n = Number(stats && stats.totalAttempted) || 0, ad = activeDays(stats);
+    var conf = ad <= 1 ? 'first-session' : ad <= 4 ? 'early' : (ad <= 13 && n < 500) ? 'established' : 'rich';
+    return { totalAttempted: n, activeDays: ad, hasMultiDayHistory: ad >= 2, confidence: conf };
   }
 
   var API = {
@@ -146,7 +165,8 @@
     masteryForCat: masteryForCat, masteryMap: masteryMap, deriveMastery: deriveMastery,
     weakest: weakest, strongest: strongest,
     overallAccuracy: overallAccuracy, accuracyWindows: accuracyWindows,
-    speed: speed, consistency: consistency, today: today
+    speed: speed, consistency: consistency, today: today,
+    activeDays: activeDays, evidence: evidence
   };
 
   // Dual-mode export (same pattern as syllabus.js): <script> on the client exposes window.QR_STATMATH;

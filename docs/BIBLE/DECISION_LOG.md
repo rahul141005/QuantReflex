@@ -8,6 +8,38 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-055 (Part 1) — Stop faking intelligence: an honest, evidence-bounded reasoning model (2026-06-15)
+- **Context:** After ADR-054 the AI sees real data but **fabricates** on top of it. Screenshots from a today-only
+  account: Insights claims *"Accuracy (7d): 64%"* and *"you've been stuck at 64%"* (a week/month of history that
+  doesn't exist), and *"Speed 0.0 s/Q"* (impossible). Coach swaps `64%→62%` and repeats itself (template
+  substitution, not reasoning). The user: *"Don't make the AI sound smarter — make it actually smarter… no
+  fabricated history, no fake trends, no template substitution."*
+- **Root causes (file:line):** (1) per-question time is recorded in **seconds** (`drill-engine.js:302`) so
+  `dailyHistory.sumTimes` is seconds, but `statMath.speed` mis-named it `recentMsPerQ` and every AI display
+  **divided by 1000** → `0.0 s/Q`. (2) `statMath.accuracyWindows` returns `d7===d30===today` for a 1-day account
+  and `serialize()` fed the model *"Accuracy 7d 64% vs 30d 64% (flat)"* with **no data-span note**, while
+  `insights.analyze` invited "find patterns" with **no honesty guard** → the model invented history. (3) Coach
+  got raw numbers but **no computed "what changed since last session and why."**
+- **Decisions:**
+  - **Evidence/confidence spine.** `statMath.evidence(stats)` → `{activeDays, totalAttempted, hasMultiDayHistory,
+    confidence: first-session|early|established|rich}` materialized as `profile.evidence`. Every claim is bounded
+    by it. `serialize()` leads with an EVIDENCE line instructing the model to never exceed it.
+  - **No invented windows.** `accuracyWindows`/`speed` return `direction: null` (not a fabricated "flat") and a
+    `multiDay` flag when there are <2 active days; `serialize()` emits 7d/30d trend lines and metric clusters
+    label them "(7d)" **only** with real multi-day history — otherwise honest "today" numbers. Both prompts get
+    an explicit honesty guard ("first read", never "stuck"/"held flat"/"7-day"/"over a month").
+  - **Speed fixed end-to-end (seconds).** `statMath.speed`/`today` return `recentSecPerQ`/`avgSecPerQ` (1-dp
+    seconds); removed the `/1000` at all display + serialize sites; `signals.speedScore` re-based to seconds.
+    Speed reads `4.9s/Q`, never `0.0`.
+  - **Real reasoning, not templates.** `profile.lastChange` = latest-vs-previous session diff (accuracy &
+    attempts Δ); `serialize()` feeds it with an instruction to reason about WHY it changed; `coach.daily@6` /
+    `insights.analyze@7` reason over it. All three features read the same `build()` profile (one understanding).
+- **Consequences:** No model/schema/rules change. Verified by `node --check`, `npm test` (planner-engine 209 +
+  planner-brain **89**, incl.: a today-only account is `first-session`, has `direction:null` (no fake trend), no
+  7d/30d data line in `serialize`, metrics labelled "today", speed in real seconds never `0.0`, `lastChange`
+  null with one session). SW v115→v116. **Part 2 (the mentor-grade Study Planner redesign — strategy/phases over
+  a canonical syllabus graph + new UI) is the next, larger step.**
+
 ## ADR-054 — The AI must never discard the student's real data on a Firestore read hiccup (2026-06-15)
 - **Context:** A user with Analytics showing 11 attempted / 63.6% / 1 drill session opened Coach and Insights,
   which said *"I don't know much about you yet"* / *"I haven't seen you solve yet"* and fell back to the

@@ -146,9 +146,8 @@ function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
   if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
   if (tier >= 2) {
-    var t = ctx.trends || {};
-    if (t.accuracy && t.accuracy.d7 != null) blocks.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
-    if (t.speed && t.speed.recentMsPerQ != null) blocks.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
+    // ADR-055: honest, evidence-aware metrics (windowed only with real multi-day history; speed in seconds).
+    blocks = blocks.concat(_metricCluster(ctx));
     if (ctx.dailyStreak) blocks.push(metric('Streak', ctx.dailyStreak + 'd', ctx.dailyStreak >= 3 ? 'up' : 'flat', ctx.dailyStreak >= 1));
   }
   if (pdata.adherencePct != null) blocks.push(progress('This week\'s plan', pdata.adherencePct, pdata.adherencePct >= 80 ? 'On track — keep it up' : 'Let\'s close the gap'));
@@ -234,7 +233,7 @@ function _maybeWriteWin(uid, ctx) {
 function _detectPatterns(ctx) {
   var f = ctx.flags || {}, t = ctx.trends || {}, out = [];
   if (f.careless) out.push({ title: 'Careless slips', body: 'You\'re missing questions in topics you\'ve already mastered — slow down on the ones you know.', accent: 'amber', icon: '⚠️' });
-  if (f.speedRegression && t.speed && t.speed.recentMsPerQ != null && t.speed.baselineMsPerQ != null) out.push({ title: 'You\'re slowing down', body: 'Your pace drifted to ' + (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q from ' + (t.speed.baselineMsPerQ / 1000).toFixed(1) + 's/Q — let\'s do speed reps.', accent: 'rose', icon: '🐢' });
+  if (f.speedRegression && t.speed && t.speed.recentSecPerQ != null && t.speed.baselineSecPerQ != null) out.push({ title: 'You\'re slowing down', body: 'Your pace drifted to ' + t.speed.recentSecPerQ.toFixed(1) + 's/Q from ' + t.speed.baselineSecPerQ.toFixed(1) + 's/Q — let\'s do speed reps.', accent: 'rose', icon: '🐢' });
   if (f.plateau) out.push({ title: 'You\'ve plateaued', body: 'Your accuracy has held flat for a month — time to raise the difficulty and break through.', accent: 'slate', icon: '➖' });
   if (f.inconsistent && t.consistency) out.push({ title: 'Practice is sporadic', body: 'Only ' + t.consistency.activeDaysLast14 + '/14 active days — you improve fastest with a steady streak.', accent: 'amber', icon: '📅' });
   if (f.burnout) out.push({ title: 'Rebuild your momentum', body: 'A break plus a dip in accuracy — ease back in on a topic you already know well.', accent: 'blue', icon: '🌱' });
@@ -275,11 +274,23 @@ async function insights(uid, opts) {
   return env;
 }
 
-function _metricCluster(t) {
-  var b = [];
-  if (t.accuracy && t.accuracy.d7 != null) b.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
-  if (t.speed && t.speed.recentMsPerQ != null) b.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
-  if (t.consistency) b.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
+/* ADR-055: honest metrics — windowed "7d" stats ONLY with real multi-day history; otherwise today's numbers,
+   labelled as today. Speed is SECONDS/Q (never /1000 → 0.0). Never fabricates a window that doesn't exist. */
+function _metricCluster(ctx) {
+  var t = ctx.trends || {}, td = ctx.today || {}, multi = !!(ctx.evidence && ctx.evidence.hasMultiDayHistory), b = [];
+  if (multi && t.accuracy && t.accuracy.d7 != null && t.accuracy.direction) {
+    b.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
+  } else if (td.accuracy != null) {
+    b.push(metric('Accuracy today', Math.round(td.accuracy * 100) + '%', 'flat', td.accuracy >= 0.6));
+  } else if (ctx.accuracy != null) {
+    b.push(metric('Accuracy', Math.round(ctx.accuracy * 100) + '%', 'flat', ctx.accuracy >= 0.6));
+  }
+  if (multi && t.speed && t.speed.recentSecPerQ != null && t.speed.direction) {
+    b.push(metric('Speed', t.speed.recentSecPerQ.toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
+  } else if (td.avgSecPerQ != null) {
+    b.push(metric('Speed today', td.avgSecPerQ.toFixed(1) + 's/Q', 'flat', true));
+  }
+  if (multi && t.consistency) b.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
   return b;
 }
 
@@ -290,7 +301,7 @@ function _insightsDashboard(ctx, weak, pdata, d, tier, opts, promptId) {
   var blocks = [];
   blocks.push(say(d.patternsIntro || (patterns.length ? ('I found ' + patterns.length + ' thing' + (patterns.length > 1 ? 's' : '') + ' worth your attention.') : (d.headline || 'Here\'s exactly where you stand.'))));
   if (d.headline) blocks.push(card('Your biggest lever', d.headline, 'blue', '📈'));
-  blocks = blocks.concat(_metricCluster(t));
+  blocks = blocks.concat(_metricCluster(ctx));
   if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
   patterns.forEach(function (pt) { blocks.push(card(pt.title, pt.body, pt.accent, pt.icon)); });
   blocks.push(card('Your biggest weakness', d.weaknessInsight || ('Tighten up ' + weak.label + ' — it\'s your highest-impact fix.'), 'rose', '🎯'));
@@ -340,7 +351,7 @@ function _insightsLowData(ctx) {
 }
 
 function _insightsFallback(ctx, weak) {
-  var blocks = [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(_metricCluster(ctx.trends || {}));
+  var blocks = [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(_metricCluster(ctx));
   blocks.push(missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8));
   return envelope('insights', blocks, [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
 }
@@ -523,11 +534,11 @@ function _daysRemaining(examDate) {
 /** Estimate the student's real recent pace (min/day) so the forecast can project from behaviour, not just the plan. */
 function _recentDailyMinutes(ctx) {
   var t = ctx && ctx.trends;
-  if (!t || !t.speed || t.speed.recentMsPerQ == null || !t.consistency) return null;
+  if (!t || !t.speed || t.speed.recentSecPerQ == null || !t.consistency) return null;
   var active = Math.max(1, t.consistency.activeDaysLast14 || 0);
   var q7 = (ctx.today && ctx.today.attempted) ? ctx.today.attempted * Math.min(active, 7) : null; // rough
   if (!q7) return null;
-  return Math.round((q7 / 7) * (t.speed.recentMsPerQ / 60000));
+  return Math.round((q7 / 7) * (t.speed.recentSecPerQ / 60));   // ADR-055: seconds → minutes
 }
 function _mergeTopicState(base, patch) {
   var out = Object.assign({}, base || {});
