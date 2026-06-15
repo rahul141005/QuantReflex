@@ -8,6 +8,30 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-056 (Planner v3, brain) — The canonical planning engine: maximize expected marks (2026-06-15)
+- **Context:** The Study Planner felt like a checklist (day→topic→drill). The user wants it rebuilt as the
+  **central intelligence** of QuantReflex — a reusable planning *service* (not a screen) that thinks like an
+  experienced mentor and optimizes ONE objective: **maximize expected marks before the exam** (not topic
+  completion). Built **brain-first, fully testable**, then the UI; consumed by every feature (Planner, Coach,
+  Insights, reminders, revision, mocks, adaptive practice, future web) so nobody invents their own plan.
+- **Decision:** New pure/deterministic `services/planningEngine.js` `buildStrategy(input)` → a marks-maximizing
+  `strategy`. Inputs: the resolved exam **syllabus graph** (canonical ~30–40 natural topics with importance/
+  frequency/difficulty/prereqs/estMinutes), `daysToExam`, study time, `targetScore`, and per-topic `readiness`
+  (reusing `readiness.readinessMap`). It computes each topic's **marks weight** (`importance×frequency`),
+  expected marks **gain** to target, **hours needed**, **marks-per-hour**, and **downstream unlock value**;
+  then greedily selects the path that maximizes expected marks **within the available study-hours budget,
+  prerequisites first** — topics that don't fit are **triaged to skip** (with the marks-at-risk quantified).
+  It generates **dynamic phases** (Foundations→Core→Advanced→Revision, + a Mock phase only under urgency — by
+  data, not hardcoded), an honest **projection** (projected score, achievable?, plain verdict), and per-topic
+  **rationale answering the five mentor questions** (why / why now / score impact / what it unlocks / what
+  skipping costs). The schedule is an OUTPUT of the strategy, not the UI.
+- **Consequences:** Pure (no Firestore/LLM/DOM) → fully testable and reusable. Verified by `npm test`
+  (planner-engine **225**, incl.: time-budget scales with days-to-exam; a tight deadline triages more topics and
+  reports marks-at-risk; the plan fits the hours; prereqs are never skipped before a LEARN; phases are dynamic
+  and the Mock phase appears only near the exam; every topic carries the five rationale fields; projection +
+  achievability are real numbers). **Next: wire the engine as the profile's `strategy` (Coach/Insights/Planner
+  all consume it), then build the strategy-dashboard UI that renders it.**
+
 ## ADR-055 (Part 1) — Stop faking intelligence: an honest, evidence-bounded reasoning model (2026-06-15)
 - **Context:** After ADR-054 the AI sees real data but **fabricates** on top of it. Screenshots from a today-only
   account: Insights claims *"Accuracy (7d): 64%"* and *"you've been stuck at 64%"* (a week/month of history that

@@ -163,6 +163,52 @@ ok(totalTasksAfter === 3, 'no work lost — all 3 tasks preserved after rebalanc
 var carriedIntoFuture = rebalanced.some(function (d) { return d.date >= TODAY && d.tasks.some(function (t) { return t.topicId === 'percentages'; }); });
 ok(carriedIntoFuture, 'the missed percentages task was relocated into a future day');
 
+/* ════════ 9. Planning engine (ADR-056) — the marks-maximizing strategy brain ════════ */
+section('9. Planning engine — marks-maximizing strategy');
+var PE = R('services/planningEngine.js');
+var psyl = SYL.resolveSyllabus('mbacet');
+ok(psyl && psyl.topics.length >= 25 && psyl.topics.length <= 50, 'MBA CET resolves to a canonical ~30-topic syllabus (got ' + psyl.topics.length + ')');
+var pctx = { accuracy: 0.5, totalAttempted: 40, trends: { speed: { recentSecPerQ: 8 }, consistency: { activeDaysLast14: 5 } }, mastery: [] };
+var prmap = readiness.readinessMap(psyl, pctx, {});
+
+var ample = PE.buildStrategy({ syllabus: psyl, examName: 'MBA CET', daysToExam: 120, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50 });
+var tight = PE.buildStrategy({ syllabus: psyl, examName: 'MBA CET', daysToExam: 12, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50 });
+
+ok(ample.totalHours > tight.totalHours, 'time budget scales with days-to-exam (' + ample.totalHours + 'h vs ' + tight.totalHours + 'h)');
+ok(tight.skip.length > ample.skip.length, 'URGENCY: a tight deadline triages — more topics skipped (' + tight.skip.length + ' vs ' + ample.skip.length + ')');
+ok(tight.marksAtRisk > 0, 'a tight deadline reports the marks-at-risk from skipping (' + tight.marksAtRisk + ')');
+ok(tight.plannedHours <= tight.totalHours + 0.1, 'the plan fits inside the available study hours');
+
+// MARKS-MAXIMIZATION (dependency-aware): under tight time the plan builds the UNLOCKING foundations first, and
+// with ample time it skips nothing low-value (a high-MPH topic is only skipped when its prereq chain won't fit).
+ok(tight.focus.some(function (t) { return t.unlocks.length > 0; }), 'under tight time the plan prioritises unlocking foundations (dependency-aware marks strategy)');
+ok(ample.skip.length === 0, 'with ample time nothing high-value is needlessly skipped');
+ok(tight.plannedHours > 0 && tight.focus.length > 0, 'even under severe time pressure the plan still commits to the highest-value reachable topics');
+
+// PHASES are dynamic + the Mock phase only appears under urgency.
+ok(ample.phases.length >= 2 && ample.phases[0].name === 'Foundations', 'phases are generated (Foundations first)');
+ok(!ample.phases.some(function (p) { return p.key === 'mock'; }), 'no Mock phase when the exam is far away');
+ok(tight.phases.some(function (p) { return p.key === 'mock'; }), 'a Mock phase appears when the exam is near (urgency-generated, not hardcoded)');
+ok(ample.phases.filter(function (p) { return p.status === 'active'; }).length === 1, 'exactly one phase is active');
+
+// PREREQS: a topic is never scheduled to LEARN before a weak prerequisite.
+var actionById = {}; ample.topics.forEach(function (t) { actionById[t.topicId] = t.action; });
+var prereqOk = psyl.topics.every(function (t) {
+  if (actionById[t.id] !== 'learn') return true;
+  return (t.prereqs || []).every(function (p) { var pr = prmap[p] || 0; return actionById[p] === 'learn' || actionById[p] === 'revise' || pr >= 0.6; });
+});
+ok(prereqOk, 'no topic is set to LEARN before its prerequisites are planned or already ready');
+
+// RATIONALE: every topic answers the five mentor questions.
+ok(ample.topics.every(function (t) { return t.why && t.whyNow && t.scoreImpact && Array.isArray(t.unlocks) && t.skipConsequence; }),
+  'every topic carries why / whyNow / scoreImpact / unlocks / skipConsequence');
+
+// PROJECTION + ACHIEVABILITY are honest numbers.
+ok(typeof ample.projectedScore === 'number' && typeof ample.achievable === 'boolean' && ample.verdict, 'strategy reports a projected score, achievability and a plain-language verdict');
+
+// OBJECTIVE = marks, not completion: with little time it plans FEWER topics but keeps the highest-value ones.
+ok(tight.focus.length <= ample.focus.length, 'a tight deadline narrows the focus to the few highest-value topics');
+
 /* ---- summary ---- */
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
