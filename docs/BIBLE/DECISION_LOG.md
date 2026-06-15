@@ -8,6 +8,25 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-063 — Duel header redesign + real player name (2026-06-15)
+- **Context:** The Math Duel solving screen showed a near full-width Exit button, no clear opponent identity, and
+  the player name as the email prefix ("itskrishnabajaj") instead of the onboarding name ("Krishna").
+- **Cause:** `_duelHeaderHTML()` gave Exit `class="btn btn-secondary btn-sm"` — `.btn` is 54px + `width:100%` and
+  `.btn-sm` is unstyled, so it ballooned. `_myName()` tried `FirestoreSync.getProfile()` (doesn't exist → throws)
+  then fell through to `email.split('@')[0]`. The canonical onboarding name (`users/{uid}.profile.name`) was
+  already cached at `FirestoreSync._getCache().profile.name` (used by home greeting + drill share card).
+- **Decision:** Redesigned the header (`js/duel-manager.js` + `css/style.css`) into a two-zone layout — opponent
+  identity LEFT (a structured avatar-slot + name + status that flexes & truncates), compact Exit button RIGHT
+  (own `.duel-exit-btn`, 36px, not the 54px `.btn`); kept `id="duExit"` so the `_promptExit` wiring is untouched.
+  `_updateOppChip()` now sets name via `textContent` (XSS-safe), an avatar initial, and the status dot. Fixed
+  `_myName()` to read the cached `profile.name` first (no new Firestore read), with fallback order display-name →
+  email-prefix (last resort) → 'Anonymous'. The left zone is future-proof for avatar/premium/league/streak badges
+  with no further refactor.
+- **Out of scope (untouched):** gameplay, timers, matchmaking, scoring, animations, question rendering,
+  networking, Firestore schema, lobby/results/waiting renderers, exit-confirmation modal.
+- **Consequences:** `node --check` clean; `npm test` green (4736 + 238 + 97 + 79 — no engine/test files touched).
+  SW v121→v122. Manual on-device pass recommended (header balance, long-name truncation, dark mode).
+
 ## ADR-062 (AI V2 POLISH) — Flagship polish of every AI feature, no rewrite (2026-06-15)
 - **Context:** The God-Mode audit scored Planner 8.5 / Explanation 7 / Coach 6.5 / Insights 5.5, with confirmed
   bugs and two UX trust problems. Mandate: polish EXISTING features to ~10/10 without changing the architecture

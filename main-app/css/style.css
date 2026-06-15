@@ -6726,12 +6726,24 @@ html.pwa-mode header {
 }
 
 /* ======== Math Duel V2 — solving header · presence chip · countdown · active card (ADR-033, §10A) ======== */
-/* Solving header: opponent name+status LEFT (~66%, flexes + truncates long names), Exit RIGHT (~33%, fixed). */
-.duel-solve-header { display: flex; align-items: center; gap: .6rem; max-width: 520px; margin: 0 auto .25rem; padding: .25rem .15rem; }
-.duel-opp-chip { display: inline-flex; align-items: center; gap: .4rem; color: #64748b; font-size: .9rem; flex: 1 1 auto; min-width: 0; justify-content: flex-start; }
-.duel-opp-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-body.dark-mode .duel-opp-chip { color: #94a3b8; }
-.duel-solve-header #duExit { flex: 0 0 auto; min-width: 4.5rem; }
+/* ADR-063: polished multiplayer header — opponent identity LEFT (~2/3, flexes + truncates), Exit compact RIGHT.
+   The left zone is a structured avatar+info slot so an avatar/premium/league/streak badge can drop in later. */
+.duel-solve-header { display: flex; align-items: center; gap: .6rem; max-width: 520px; margin: 0 auto .25rem; padding: .3rem .35rem; }
+.duel-opp { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .55rem; }
+.duel-opp-avatar { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #eef2f7; color: #475569; font-size: .9rem; font-weight: 800; line-height: 1; }
+.duel-opp-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.duel-opp-name { font-size: .95rem; font-weight: 700; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duel-opp-status { display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem; font-weight: 600; color: #64748b; }
+.duel-exit-btn { flex: 0 0 auto; min-height: 36px; padding: .45rem .95rem; border: none; border-radius: .7rem; cursor: pointer;
+  background: #f1f5f9; color: #334155; font-size: .9rem; font-weight: 700; box-shadow: inset 0 0 0 1px rgba(226,232,240,1);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: background .15s ease; }
+.duel-exit-btn:active { background: #e2e8f0; box-shadow: inset 0 0 0 1px rgba(203,213,225,1); }
+body.dark-mode .duel-opp-avatar { background: rgba(124,58,237,.18); color: #c4b5fd; }
+body.dark-mode .duel-opp-name { color: #e2e8f0; }
+body.dark-mode .duel-opp-status { color: #94a3b8; }
+body.dark-mode .duel-exit-btn { background: rgba(248,113,113,.12); color: #f87171; box-shadow: inset 0 0 0 1px rgba(248,113,113,.3); }
+body.dark-mode .duel-exit-btn:active { background: rgba(248,113,113,.2); }
 .duel-opp-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .duel-opp-dot.is-solving { background: #f59e0b; }   /* amber = solving */
 .duel-opp-dot.is-finished { background: #10b981; }  /* green = finished */

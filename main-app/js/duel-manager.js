@@ -52,13 +52,18 @@ var DuelManager = (function () {
   }
   function _myUid() { return DuelCore.getMyUid(); }
   function _myName() {
+    // ADR-063: use the canonical onboarding name (users/{uid}.profile.name), already cached in memory — the same
+    // source the home greeting + drill share-card use. Email prefix is a LAST resort, never the primary identity.
+    try {
+      var c = (typeof FirestoreSync !== 'undefined' && FirestoreSync._getCache) ? FirestoreSync._getCache() : null;
+      if (c && c.profile && c.profile.name && String(c.profile.name).trim()) return String(c.profile.name).trim();
+    } catch (_) {}
     try {
       var s = (typeof AppState !== 'undefined' && AppState.getSettings) ? AppState.getSettings() : null;
-      if (s && s.profile && s.profile.name) return s.profile.name;
+      if (s && s.profile && s.profile.name && String(s.profile.name).trim()) return String(s.profile.name).trim();
     } catch (_) {}
-    try { var p = (typeof FirestoreSync !== 'undefined' && FirestoreSync.getProfile) ? FirestoreSync.getProfile() : null; if (p && p.name) return p.name; } catch (_) {}
     try { var u = (typeof Auth !== 'undefined') ? Auth.getCurrentUser() : null; if (u && u.email) return u.email.split('@')[0]; } catch (_) {}
-    return 'Player';
+    return 'Anonymous';
   }
   function _toast(m) { if (typeof showToast === 'function') showToast(m); }
   function _paywall() { if (typeof showPaywall === 'function') showPaywall('math_duel'); else _toast('Premium is required for Math Duel'); }
@@ -300,9 +305,18 @@ var DuelManager = (function () {
   /* The multiplayer header injected above the Practice question card on every render. Static structure; the live
      opponent state + Exit binding are (re)applied by _onDuelRender after each render. */
   function _duelHeaderHTML() {
+    // ADR-063: a polished two-zone multiplayer header — opponent identity on the LEFT (~2/3), a compact Exit on
+    // the RIGHT (~1/3). The left zone is structured (avatar slot + name + status) so an avatar / premium / league /
+    // streak badge can slot in later WITHOUT another refactor. Live values are filled by _updateOppChip().
     return '<div class="duel-solve-header">' +
-      '<span id="duOppChip" class="duel-opp-chip"></span>' +
-      '<button id="duExit" class="btn btn-secondary btn-sm" type="button">Exit</button>' +
+      '<div class="duel-opp">' +
+        '<span id="duOppAvatar" class="duel-opp-avatar" aria-hidden="true">⚔</span>' +
+        '<div class="duel-opp-info">' +
+          '<span id="duOppName" class="duel-opp-name">Opponent</span>' +
+          '<span id="duOppStatus" class="duel-opp-status"><span class="duel-opp-dot is-solving"></span>Solving</span>' +
+        '</div>' +
+      '</div>' +
+      '<button id="duExit" class="duel-exit-btn" type="button">Exit</button>' +
     '</div>';
   }
   function _onDuelRender(container, index, total) {
@@ -311,18 +325,17 @@ var DuelManager = (function () {
     var ex = _el('duExit'); if (ex) ex.onclick = _promptExit;
   }
 
-  function _oppChipHtml(name, state) {
-    var cls = state === 'finished' ? 'is-finished' : 'is-solving';
-    var label = state === 'finished' ? 'Finished' : 'Solving';
-    return '<span class="duel-opp-dot ' + cls + '"></span><span>' + _escText(name) + ': ' + label + '</span>';
-  }
   function _updateOppChip() {
-    var el = _el('duOppChip'); if (!el || _phase !== 'solving') return;
+    if (_phase !== 'solving') return;
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
-    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'Opponent';
-    var oppState = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].state : 'solving';
-    el.innerHTML = _oppChipHtml(oppName, oppState);
+    var p = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp] : null;
+    var oppName = (p && p.name) ? p.name : 'Opponent';
+    var finished = !!(p && p.state === 'finished');
+    var nameEl = _el('duOppName'); if (nameEl) nameEl.textContent = oppName;            // textContent → XSS-safe
+    var avEl = _el('duOppAvatar'); if (avEl) avEl.textContent = (oppName.trim()[0] || '⚔').toUpperCase();
+    var stEl = _el('duOppStatus');
+    if (stEl) stEl.innerHTML = '<span class="duel-opp-dot ' + (finished ? 'is-finished' : 'is-solving') + '"></span>' + (finished ? 'Finished' : 'Solving');
   }
 
   function _promptExit() {
