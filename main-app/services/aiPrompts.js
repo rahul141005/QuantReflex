@@ -16,6 +16,12 @@
 var llm = require('./llmProvider');
 var PERSONA = 'QuanAI';
 
+// ADR-062: shared honesty rails (one constant, referenced by Coach + Insights) — kills the repeated boilerplate
+// that bloated both prompts, keeping token cost flat while the prose budget goes to real reasoning.
+var RAILS = 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim a trend, history, "stuck", "for a '
+  + 'month" or a "7-day" pattern the evidence does not support; with <2 active days give an honest "first read", '
+  + 'never a multi-day trajectory. Be specific to their REAL numbers; never restate the dashboard verbatim.';
+
 /**
  * One universal persona for the whole ecosystem (ADR-045). QuanAI is a quantitative-aptitude mentor — NOT a
  * "CAT" tool — so the identity is exam-agnostic while the COACHING is exam-aware: when the student's exam is
@@ -49,41 +55,39 @@ var REGISTRY = {
   /* ---- AI Coach: a living daily dashboard (ADR-050). One call writes ALL the prose lines; the server lays out
      the blocks (greeting → readiness → win → worry → metrics → plan → recommendation → motivation). ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 8, maxTokens: 620, temperature: 0.5,
+    id: 'coach.daily', version: 9, maxTokens: 640, temperature: 0.55,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
         schema: { type: 'object', additionalProperties: false,
-          required: ['greeting', 'mentorNote', 'biggestWin', 'oneWorry', 'todayRecommendation', 'motivation', 'missionWhy', 'celebrate'],
-          properties: { greeting: STR, mentorNote: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, motivation: STR, missionWhy: STR, celebrate: STR } },
-        system: sys('You are a PERSONAL MENTOR — like a top coaching-institute teacher who knows this student. Not a '
-          + 'notification generator: you reason, connect dots, and coach. DELIVER VALUE FIRST; never open with "go '
-          + 'practice". Be specific, warm, grounded in their REAL numbers. '
-          + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim trends, history, "stuck", "for a month", '
-          + 'or a "7-day" pattern the evidence does not support; with little data say "first read"/"early". When a '
-          + 'LAST SESSION line is present, REASON about what changed and WHY (harder set? rushing? fatigue? warming up?). '
-          + 'BEHAVIOUR: if the context names postponed/avoided topics or a neglected section, NAME the pattern kindly and '
-          + 'honestly (e.g. "you\'ve put off Geometry three times") and tie it to MARKS AT STAKE, then prescribe one '
-          + 'small low-pressure step (momentum, not mastery). If a strong topic has gone stale, nudge a brush-up. '
-          + (v.hasPlan ? 'An EXAM STRATEGY is present: reason WITH it — reference where they are in the plan; if recent '
-              + 'analytics conflict with the plan order (a strong topic dropped), recommend the recovery/adjustment. You '
-              + 'MAY suggest external material (their books/coaching notes/lectures) since this app is the planner+drills, not the content. '
-            : 'No exam plan exists yet: coach purely from their analytics — do NOT invent a study plan, schedule or exam '
-              + 'readiness, and never imply they need an exam to get value. ')
-          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), address the most important one. '
-          + 'mentorNote is the heart: 3-5 sentences of genuine, connected reasoning. Other fields stay tight.', v.examName),
-        user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '')
+          required: ['greeting', 'mentorNote', 'biggestWin', 'oneWorry', 'todayRecommendation', 'missionWhy', 'celebrate'],
+          properties: { greeting: STR, mentorNote: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, missionWhy: STR, celebrate: STR } },
+        system: sys('You are this student\'s PERSONAL MENTOR — a teacher who has coached thousands and reasons about '
+          + 'CAUSE, CONSEQUENCE and SEQUENCE. You never just summarise the dashboard; you explain WHY. ' + RAILS + ' '
+          + (v.hasPlan
+            ? 'Reason FROM the STRATEGY LEVERS provided: explain dependency compounding — a prerequisite they\'ve '
+              + 'already built makes the next topic the highest-RETURN move because of what it unlocks; tie every '
+              + 'recommendation to MARKS; say what to prioritise, what to ignore, and why TODAY not tomorrow. You MAY '
+              + 'point to external material (their books/coaching notes/lectures) since this app is the planner+drills, '
+              + 'not the content. '
+            : 'No exam plan exists: coach from their analytics ONLY — never invent a plan, schedule or exam readiness. ')
+          + 'BAN generic motivation ("you\'ve got this", "keep going", "stay consistent") — encouragement only when a '
+          + 'specific number earns it. Every sentence must teach something. '
+          + (v.flagsNote && v.flagsNote !== 'none' ? 'Active concern to address: ' + v.flagsNote + '. ' : '')
+          + 'mentorNote is the heart of the response.', v.examName),
+        user: 'Student data:\n' + v.context + (v.planNote ? '\nPLAN: ' + v.planNote : '')
+          + (v.brief ? '\n\nSTRATEGY LEVERS (reason from these — name the topics, unlocks and marks explicitly):\n' + v.brief : '')
           + '\n\nToday\'s prescribed focus: ' + v.focusLabel + '.'
-          + '\nWrite JSON: greeting (warm, personal, reference a real recent change or win, <=14 words), '
-          + 'mentorNote (THE coaching — 3-5 sentences: read their situation, connect behaviour+analytics+plan into a '
-          + 'specific insight, name any avoidance/stale pattern with the marks at stake, and give one concrete next move '
-          + 'with the reasoning; sound human, like a mentor who genuinely knows them, <=85 words), '
-          + 'biggestWin (their most impactful recent win from the data, or "" if none real), '
-          + 'oneWorry (the single biggest thing holding them back — the active concern above if any, <=20 words), '
-          + 'todayRecommendation (the ONE specific thing to do today and why, <=22 words), '
-          + 'motivation (a short, contextual line of encouragement, <=14 words), '
-          + 'missionWhy (one line on why the focus topic, <=16 words), '
-          + 'celebrate (a one-line celebration ONLY if there is a real win, else "").'
+          + '\nWrite JSON: greeting (warm, personal, anchored to one real recent number, <=14 words), '
+          + 'mentorNote (TWO short paragraphs, ~110-130 words total. Para 1: what they\'re doing right + the ONE '
+          + 'highest-return move now and WHY it compounds — name what it unlocks and the marks at stake. Para 2: what '
+          + 'is slowing them / what to safely ignore / why today not tomorrow, ending in one concrete next step. '
+          + 'Reason like a real coach, specific to THIS student — no filler, no repeated sentence openings), '
+          + 'biggestWin (their most impactful REAL recent win, or "" if none), '
+          + 'oneWorry (the single biggest thing holding them back, <=20 words), '
+          + 'todayRecommendation (the ONE thing to do today and why, <=22 words), '
+          + 'missionWhy (one line on why the focus topic matters now, <=16 words), '
+          + 'celebrate (one line ONLY if a real win exists, else "").'
       };
     }
   },

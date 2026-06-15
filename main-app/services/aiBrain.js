@@ -121,7 +121,7 @@ async function coachToday(uid, opts) {
   var env;
   try {
     var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label,
-      planNote: examStrategy.serialize(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
+      planNote: examStrategy.serialize(strategy), brief: examStrategy.coachBrief(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     env = _coachDashboard(ctx, focus, strategy, r.data, tier, opts, _promptId(p));
@@ -166,7 +166,7 @@ function _coachDashboard(ctx, focus, strategy, d, tier, opts, promptId) {
     blocks.push(ring(strategy.readinessScore, 'Exam readiness', sub));
   }
   // ADR-061: the long-form mentor note — the heart of the coaching (behaviour + analytics + plan, reasoned).
-  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 560), 'blue', '🧭'));
+  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 820), 'blue', '🧭'));
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
   if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
   if (tier >= 2) {

@@ -232,4 +232,30 @@ function serialize(strategy) {
   return L.join(' ');
 }
 
-module.exports = { assemble: assemble, build: build, serialize: serialize };
+/** ADR-062: a compact set of structured LEVERS the Coach reasons over — the top move + what it unlocks (the
+ *  dependency-compounding the mentor should explain), the strength to keep, what's slowing them, and the target
+ *  math. Built from the deterministic strategy so the Coach reasons, never invents. */
+function coachBrief(strategy) {
+  if (!strategy) return '';
+  var L = [];
+  var f = (strategy.focus || [])[0];
+  if (f) {
+    var line = 'TOP MOVE — ' + f.label + ' (ROI ' + (f.roi != null ? f.roi : '?') + '/10, ' + (f.weightage || 'medium') + ' weight, readiness ' + Math.round((f.readiness || 0) * 100) + '%).';
+    if (f.unlocks && f.unlocks.length) line += ' It unlocks ' + f.unlocks.slice(0, 3).join(', ') + ' — completing it now COMPOUNDS into those chapters.';
+    if (f.skipConsequence) line += ' ' + f.skipConsequence;
+    L.push(line);
+  }
+  var second = (strategy.focus || [])[1];
+  if (second) L.push('NEXT AFTER THAT — ' + second.label + ' (ROI ' + (second.roi != null ? second.roi : '?') + '/10).');
+  var strong = (strategy.sections || []).filter(function (s) { return s.progressPct >= 65; }).sort(function (a, b) { return b.progressPct - a.progressPct; })[0];
+  if (strong) L.push('STRENGTH TO KEEP — ' + strong.name + ' (' + strong.progressPct + '% ready): keep it warm with light revision, don\'t over-invest.');
+  var bh = strategy.behaviour || {}, pr = strategy.progress || {};
+  if (bh.postponed && bh.postponed.length) L.push('SLOWING THEM DOWN — ' + bh.postponed[0].label + ' postponed ' + bh.postponed[0].count + '× on scheduled days.');
+  else if (pr.adherencePct != null && pr.adherencePct < 60) L.push('SLOWING THEM DOWN — only ' + pr.adherencePct + '% of planned work done lately.');
+  if (bh.stale && bh.stale.length) L.push('GOING STALE — ' + bh.stale[0].label + ' not studied in ' + bh.stale[0].days + ' days.');
+  L.push('TARGET MATH — projected ' + strategy.projectedScore + ' vs target ' + strategy.targetScore + (strategy.achievable ? ' (on track)' : ' (short for now)') +
+    (strategy.marksAtRisk > 0 ? '; ~' + strategy.marksAtRisk + ' readiness points are parked in topics there isn\'t time for.' : '') + '.');
+  return L.join('\n');
+}
+
+module.exports = { assemble: assemble, build: build, serialize: serialize, coachBrief: coachBrief };
