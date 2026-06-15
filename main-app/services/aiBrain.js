@@ -145,12 +145,19 @@ async function coachToday(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = _tier(ctx);
 
-  if (ctxEngine.isColdStart(ctx)) return _coachOnboard(ctx, tier);   // curious onboarding, never "go practice"
-
   // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors studentContext's rule).
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
   var focus = _focus(ctx);
+
+  // ADR-052: NEVER lock the coach. With little data (tier 0 = 0–5 lifetime) render a deterministic, helpful read
+  // of whatever exists — no LLM (controlled copy avoids generic output near zero data), never "I don't know you".
+  if (tier === 0) {
+    var lowEnv = _coachLowData(ctx, focus, await _plannerData(uid, opts.clientDate));
+    _putDaily(uid, 'coach', lowEnv);
+    return lowEnv;
+  }
+
   var contextStr = ctxEngine.serialize(ctx);
   var pdata = await _plannerData(uid, opts.clientDate);   // one aiPlanner read → ring/forecast/tasks/adherence
   var flagsNote = _flagsNote(ctx);
@@ -216,19 +223,33 @@ function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
   return envelope('coach', blocks, chips, { promptId: promptId, focus: focus.cat, tier: tier });
 }
 
-/* Cold-start = curious onboarding (ADR-050), never "go practice / warm up". Make the student WANT to begin. */
-function _coachOnboard(ctx, tier) {
+/* ADR-052: low-data coach (tier 0 = 0–5 lifetime). Deterministic + genuinely helpful — reads whatever data
+   exists and frames it as growth. NEVER a lock: no "I don't know you", no "10 questions to unlock". */
+function _coachLowData(ctx, focus, pdata) {
   var name = (ctx.name || '').split(' ')[0];
-  var doneT = (ctx.today && ctx.today.attempted) || 0;
-  var hi = name ? 'Hey ' + name + ' 👋' : 'Hey there 👋';
-  var line = doneT > 0
-    ? hi + ' — ' + doneT + ' done already. A few more and I\'ll start reading your real patterns: your pace, your accuracy, the topics that slow you down.'
-    : hi + ' I\'m ' + prompts.PERSONA + ', your maths coach. I don\'t know you yet — give me about 10 questions and I\'ll build your learning profile.';
-  return envelope('coach', [
-    say(line),
-    card('What I\'ll unlock', 'Your pace & accuracy trends · your strongest and weakest topics · a readiness score · a personalised study plan.', 'blue', '✨'),
-    missionBlock(doneT > 0 ? 'Keep going — a few more' : 'Let\'s begin — first set', 'Ten questions is all I need to start personalising everything.', 'practice', '', '', 5)
-  ], [chipDeep(doneT > 0 ? 'Keep going' : 'Let\'s go', 'practice', '', ''), chipDismiss('Later')], { coldStart: true, tier: tier });
+  var n = (ctx && ctx.totalAttempted) || 0;
+  var hi = name ? 'Hey ' + name + ' 👋 ' : 'Hey there 👋 ';
+  var blocks = [];
+  blocks.push(say(n > 0
+    ? hi + 'I\'ve analysed your first ' + n + ' question' + (n === 1 ? '' : 's') + ' — here\'s the early read. The more you practise, the sharper my coaching gets.'
+    : hi + 'I don\'t know much about you yet, but that\'s the fun part — every set you do makes my coaching sharper. Here\'s where we\'ll start.'));
+  if (pdata && pdata.readiness) blocks.push(ring(pdata.readiness.score, 'Exam readiness', ''));
+  // any real signal we already have
+  if (ctx.today && ctx.today.attempted && ctx.today.accuracy != null) {
+    blocks.push(metric('Today', Math.round(ctx.today.accuracy * 100) + '% (' + ctx.today.attempted + ' done)', 'flat', ctx.today.accuracy >= 0.6));
+  } else if (ctx.accuracy != null && n > 0) {
+    blocks.push(metric('So far', Math.round(ctx.accuracy * 100) + '% (' + n + ' done)', 'flat', ctx.accuracy >= 0.6));
+  }
+  if (focus.cat) {
+    blocks.push(missionBlock('Sharpen ' + focus.label, 'Early signal says this is your highest-impact topic to nudge first.', 'focus', focus.cat, focus.label, 8));
+  } else {
+    blocks.push(missionBlock('Start a mixed set', 'A short, varied set lets me read your pace, accuracy, and first weak spots.', 'practice', '', '', 6));
+  }
+  blocks.push(say('Every question teaches me something about how you think — let\'s build the picture together.'));
+  var chips = [
+    focus.cat ? chipDeep('Practise ' + focus.label, 'focus', focus.cat, focus.label, '⚡') : chipDeep('Start a set', 'practice', '', '', '⚡')
+  ].concat(helpfulChips());
+  return envelope('coach', blocks, chips, { lowData: true, focus: focus.cat, tier: 0 });
 }
 
 function _coachFallback(ctx, focus, pdata) {
@@ -274,9 +295,14 @@ async function insights(uid, opts) {
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = _tier(ctx);
 
-  if (ctxEngine.isColdStart(ctx)) return _insightsOnboard(ctx, tier);
-
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
+
+  // ADR-052: never lock Insights. With little data render a deterministic early read (no LLM), never "practice to unlock".
+  if (tier === 0) {
+    var lowIns = _insightsLowData(ctx);
+    _putDaily(uid, 'insights', lowIns);
+    return lowIns;
+  }
 
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
   var pdata = await _plannerData(uid, opts.clientDate);
@@ -336,16 +362,29 @@ function _insightsDashboard(ctx, weak, pdata, d, tier, opts, promptId) {
   return envelope('insights', blocks, chips, { promptId: promptId, tier: tier });
 }
 
-function _insightsOnboard(ctx, tier) {
-  var doneT = (ctx.today && ctx.today.attempted) || 0;
-  var line = doneT > 0
-    ? 'You\'ve done ' + doneT + ' today — a few more and I\'ll surface your first real patterns: accuracy, speed, and exactly which topics to fix first.'
-    : 'Let\'s discover how you think. About 10 questions and I\'ll start spotting patterns — your pace, your accuracy, your hidden strengths.';
-  return envelope('insights', [
-    say(line),
-    card('What I\'ll find', 'Your accuracy & speed trends · the topics costing you the most · whether it\'s consistency or skill holding you back.', 'blue', '🔍'),
-    missionBlock(doneT > 0 ? 'Keep going' : 'Start exploring', 'A bit more data and the patterns appear.', 'practice', '', '', 5)
-  ], [chipDeep(doneT > 0 ? 'Keep going' : 'Let\'s go', 'practice', '', '')], { coldStart: true, tier: tier });
+/* ADR-052: low-data Insights (tier 0). A real early read from whatever exists — never "practice to unlock". */
+function _insightsLowData(ctx) {
+  var n = (ctx && ctx.totalAttempted) || 0;
+  var weak = ctxEngine.topWeakCategory(ctx);   // null until a category has ≥3 attempts
+  var blocks = [];
+  blocks.push(say(n > 0
+    ? 'Early read from your first ' + n + ' question' + (n === 1 ? '' : 's') + ': the picture sharpens with every set — here\'s what I can already see.'
+    : 'I haven\'t seen you solve yet, so here\'s how this works: every question feeds your accuracy, speed, and topic patterns — and I\'ll surface them the moment they appear.'));
+  if (ctx.today && ctx.today.attempted && ctx.today.accuracy != null) {
+    blocks.push(metric('Today', Math.round(ctx.today.accuracy * 100) + '% (' + ctx.today.attempted + ' done)', 'flat', ctx.today.accuracy >= 0.6));
+  } else if (ctx.accuracy != null && n > 0) {
+    blocks.push(metric('Accuracy so far', Math.round(ctx.accuracy * 100) + '% (' + n + ' done)', 'flat', ctx.accuracy >= 0.6));
+  }
+  if (weak && weak.cat) {
+    blocks.push(card('First pattern', 'Your early numbers point to ' + weak.label + ' as the topic to tighten first.', 'rose', '🎯'));
+    blocks.push(missionBlock('Fix ' + weak.label, 'Your highest-impact topic on the data so far.', 'focus', weak.cat, weak.label, 8));
+  } else {
+    blocks.push(missionBlock('Run a mixed set', 'A short, varied set is all I need to surface your first real patterns.', 'practice', '', '', 6));
+  }
+  var chips = [
+    (weak && weak.cat) ? chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡') : chipDeep('Start a set', 'practice', '', '', '⚡')
+  ].concat(helpfulChips());
+  return envelope('insights', blocks, chips, { lowData: true, tier: 0 });
 }
 
 function _insightsFallback(ctx, weak) {

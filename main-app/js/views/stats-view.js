@@ -250,18 +250,8 @@ function renderStatsView() {
       aiInsightsContainer.innerHTML =
         '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding: 1rem 2rem; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🧠 View AI Insights</button>';
       var _statsInsightsBtn = aiInsightsContainer.querySelector('.ai-insights-btn');
-      _statsInsightsBtn.addEventListener('click', function () {
-        if (p.totalAttempted < 5) {
-          AIFeatures.showInsufficientDataModal('AI Insights', 'performance', [
-            'Accuracy trends',
-            'Topic weaknesses',
-            'Speed patterns',
-            'Performance forecasting'
-          ]);
-        } else {
-          AIFeatures.showStatsInsightsModal(p);
-        }
-      });
+      // ADR-052: Insights is never locked — it always opens and degrades gracefully with the available data.
+      _statsInsightsBtn.addEventListener('click', function () { AIFeatures.showStatsInsightsModal(p); });
     }
   }
 }

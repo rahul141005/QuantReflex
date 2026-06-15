@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-15 — Remove the "I don't know you yet" cold-start gate (ADR-052)
+
+Analytics knew the student while Coach/Insights said "I don't know you yet — give me 10 questions." The data
+plumbing was already one fresh source of truth (audit-confirmed); the fault was a single hard gate. Removed it.
+No model/schema/rules change; one LLM call per feature preserved. SW v112→v113. Bible 2.40→2.41, Arch 2.26→2.27.
+
+- **No cold-start gate** (`studentContext.js`): deleted the `buildContext` early-return + the
+  `COLD_START_ATTEMPTS`/`COACH_MIN_TODAY` constants. `buildContext` always returns the real canonical profile
+  from whatever data exists; `accuracy` is `null` not `0` with no data; `coldStart` is now a framing flag only;
+  `_coldContext` survives only as the read-failure fallback.
+- **Coach/Insights always render, gracefully** (`aiBrain.js`): removed the `isColdStart` locks. Data richness
+  (`_tier`) decides how rich, never whether it works. `tier 0` (0–5 lifetime) → deterministic helpful early read
+  (`_coachLowData`/`_insightsLowData`: real accuracy/mastery/readiness + a mission, framed as growth — no LLM,
+  cost-flat); `tier ≥ 1` → the existing LLM living dashboard. A 6–19-question student now gets real coaching.
+- **One data-state rule**: aligned the client weak/strong floor (`progress.js`, was `≥10`) to the canonical
+  `≥3` (`MASTERY_MIN_ATTEMPTS`); removed the no-op `<5` lock in `stats-view.js` + the dead
+  `showInsufficientDataModal` shim in `ai-features.js`.
+- **Copy**: no more "I don't know you / 10 questions / unlock"; thin-data framing is growth-oriented.
+- **Out of scope**: the Premium paywall is monetization, not this bug — unchanged.
+- **Verify**: `node --check`; `npm test` 209 + 62 (5-question profile real-not-fake; zero-data profile
+  valid-not-locked; low-data Coach/Insights no banned phrasing + still a mission; tier-0 no LLM call); grep gate.
+
 ## 2026-06-15 — One source of truth + Explanation as a premium learning document (ADR-051)
 
 Final sign-off audit (4 from-first-principles investigations): the system is architecturally clean; two

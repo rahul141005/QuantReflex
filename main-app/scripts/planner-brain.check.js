@@ -30,8 +30,9 @@ adminStub.firestore.FieldValue = { serverTimestamp: function () { return 'TS'; }
 
 var llmStub = {
   wrapData: function (s) { return String(s); },
+  _calls: 0,   // ADR-052: count LLM calls so we can prove the tier-0 path stays deterministic (no LLM)
   // Superset of every prose field the prompts ask for, so each feature picks what it needs (ADR-050).
-  complete: function () { return Promise.resolve({ data: {
+  complete: function () { llmStub._calls++; return Promise.resolve({ data: {
     rationale: 'LLM rationale.', encouragement: 'LLM encouragement.',
     greeting: 'Welcome back, Sam.', biggestWin: 'You aced Percentages.', oneWorry: 'Speed is slipping on Geometry.',
     todayRecommendation: 'Drill Geometry for 8 minutes.', motivation: 'You\'re closer than you think.', missionWhy: 'Highest-impact topic.', celebrate: 'Nice streak!',
@@ -163,14 +164,14 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok((coachWarm.blocks || []).some(function (b) { return b.type === 'ring'; }), 'warm Coach includes a readiness ring when the planner has a readiness score');
   ok(!BANNED.test(envText(coachWarm)), 'warm Coach never says "go practice / warm up / unlock"');
 
-  /* (2) cold-start = curious onboarding, never "go practice / unlock" (Coach + Insights) */
+  /* (2) low-data = a helpful early read (ADR-052 reframed the old cold onboarding), never "go practice / unlock" */
   var coldStats = { totalAttempted: 0, totalCorrect: 0, todayAttempted: 0, todayCorrect: 0, dailyStreak: 0, categoryStats: {}, dailyHistory: {} };
   var coachCold = await aiBrain.coachToday('u-cold050', { force: true, clientStats: coldStats });
-  ok(coachCold.meta && coachCold.meta.coldStart === true, 'a no-data account gets the Coach onboarding (cold-start)');
-  ok(!BANNED.test(envText(coachCold)), 'cold Coach onboarding contains no "go practice / unlock" phrasing');
+  ok(coachCold.meta && coachCold.meta.lowData === true, 'a no-data account gets a helpful low-data Coach dashboard (not a lock)');
+  ok(!BANNED.test(envText(coachCold)), 'low-data Coach contains no "go practice / unlock" phrasing');
   var insCold = await aiBrain.insights('u-cold050b', { force: true, clientStats: coldStats });
-  ok(insCold.meta && insCold.meta.coldStart === true, 'a no-data account gets the Insights onboarding (cold-start)');
-  ok(!BANNED.test(envText(insCold)), 'cold Insights onboarding contains no "Practice to unlock insights" phrasing');
+  ok(insCold.meta && insCold.meta.lowData === true, 'a no-data account gets a helpful low-data Insights read (not a lock)');
+  ok(!BANNED.test(envText(insCold)), 'low-data Insights contains no "Practice to unlock insights" phrasing');
 
   /* (3) behavioural flags become pattern cards (the dead signals Insights now surfaces) */
   ok(aiBrain._detectPatterns({ flags: { careless: true } }).some(function (c) { return /careless|slip/i.test(c.title); }), 'a careless flag produces a "careless slips" pattern card');
@@ -215,6 +216,42 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(pgFloor && pgFloor.plan, 'plannerGet runs with a clientStats floor and returns the plan');
   var chatFloor = await aiBrain.chatTurn('u-fresh', { feature: 'coach', userTurn: 'coach_speed_accuracy', clientStats: freshGrind });
   ok(chatFloor && chatFloor.blocks && chatFloor.blocks.length, 'chatTurn runs with a clientStats floor and returns a conversational turn');
+
+  /* ════════ ADR-052: no "I don't know you" cold-start gate — graceful degradation, one canonical profile ════════ */
+  var COLD_BANNED = /i don'?t know you|10 questions|practice to unlock|go practice|practice first|to unlock|warm up\b/i;
+  var fiveQ = { totalAttempted: 5, totalCorrect: 4, todayAttempted: 5, todayCorrect: 4, dailyStreak: 1, categoryStats: { percentages: { attempted: 5, correct: 4 } }, dailyHistory: {} };
+  fiveQ.dailyHistory[todayKey] = { attempted: 5, correct: 4, sumTimes: 5 * 7000, count: 5 };
+  var zeroQ = { totalAttempted: 0, totalCorrect: 0, todayAttempted: 0, todayCorrect: 0, dailyStreak: 0, categoryStats: {}, dailyHistory: {} };
+
+  // (1) a 5-question user is a REAL profile, never the fake cold shape
+  var c5 = await ctxEngine.buildContext('u-5q', { force: true, clientStats: fiveQ });
+  ok(c5.coldStart === false, 'buildContext: a 5-question student is NOT cold-start (real profile, not a gate)');
+  ok(c5.mastery && c5.mastery.some(function (m) { return m.cat === 'percentages'; }), 'buildContext: a 5-question student gets real mastery (percentages), not an empty fake');
+  ok(c5.today && c5.today.attempted === 5, 'buildContext: today reflects the live 5-question session');
+
+  // (2) a 0-data user still returns a VALID canonical profile (accuracy null, not 0; mastery []), never a lock
+  var c0 = await ctxEngine.buildContext('u-0q', { force: true, clientStats: zeroQ });
+  ok(c0.coldStart === true, 'buildContext: a zero-data student is flagged coldStart (framing only)');
+  ok(c0.accuracy === null, 'buildContext: zero-data accuracy is null ("no data yet"), never 0 ("0%")');
+  ok(Array.isArray(c0.mastery) && c0.mastery.length === 0, 'buildContext: zero-data mastery is a valid empty list');
+
+  // (3) Coach with 5 questions is a helpful dashboard, never the "I don't know you / 10 questions" lock
+  var callsBefore = llmStub._calls;
+  var coach5 = await aiBrain.coachToday('u-5q-coach', { force: true, clientStats: fiveQ });
+  ok(coach5.blocks && coach5.blocks.length >= 2, 'Coach renders a real low-data dashboard for a 5-question student');
+  ok((coach5.blocks || []).some(function (b) { return b.type === 'mission'; }), 'low-data Coach still ends in an actionable mission (never a lock)');
+  ok(!COLD_BANNED.test(envText(coach5)), 'low-data Coach contains NONE of "I don\'t know you / 10 questions / unlock / practice first"');
+  ok(llmStub._calls === callsBefore, 'tier-0 Coach makes no LLM call (deterministic, cost-flat)');
+
+  // (4) brand-new (zero) Coach is helpful and non-locking
+  var coach0 = await aiBrain.coachToday('u-0q-coach', { force: true, clientStats: zeroQ });
+  ok(!COLD_BANNED.test(envText(coach0)), 'zero-data Coach onboarding is helpful, with no banned cold-lock phrasing');
+  ok((coach0.blocks || []).some(function (b) { return b.type === 'mission'; }), 'zero-data Coach still offers a way to start (a mission), not a wall');
+
+  // (5) Insights with little data is an early read, never "practice to unlock insights"
+  var ins5 = await aiBrain.insights('u-5q-ins', { force: true, clientStats: fiveQ });
+  ok(ins5.blocks && ins5.blocks.length >= 2, 'Insights renders a real low-data read for a 5-question student');
+  ok(!COLD_BANNED.test(envText(ins5)), 'low-data Insights contains no "practice to unlock" lock phrasing');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

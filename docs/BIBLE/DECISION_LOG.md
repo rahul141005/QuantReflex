@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-052 — Remove the "I don't know you yet" cold-start gate; one canonical profile, graceful degradation (2026-06-15)
+- **Context:** Analytics clearly knew the student (it reads live localStorage) while Coach/Insights said "I
+  don't know you yet — give me about 10 questions," breaking the one-tutor illusion. A 3-pass audit confirmed
+  the data plumbing is already one source of truth and already fresh (the `clientStats` floor + the
+  dirty-stamp `shouldForce` rebuild; no stale cache, no refresh/second session needed). The real fault was a
+  single **hard gate**: `studentContext.buildContext` early-returned a *fake* `_coldContext`
+  (`accuracy:0, mastery:[], trends:null`) when `totalAttempted < 20 && today.attempted < 8`, and
+  Coach/Insights branched on `isColdStart` to an onboarding **lock**. So a student with 5–19 lifetime questions
+  was refused coaching even though Analytics showed their session. (The only "secondary" client lock,
+  `showInsufficientDataModal`, was already a no-op that just opened Insights.)
+- **Decisions:**
+  - **No cold-start gate.** `buildContext` is the ONE canonical profile and ALWAYS returns the real student,
+    computed from whatever data exists (even zero) — deleted the early-return and the `COLD_START_ATTEMPTS`/
+    `COACH_MIN_TODAY` constants. `accuracy` is `null` ("no data yet"), never `0` ("0%"). `coldStart` is now a
+    *framing flag only* (`totalAttempted === 0 && today.attempted === 0`), never a gate; `_coldContext` survives
+    solely as the read-failure/empty fallback (same valid shape). A brand-new user skips the practiceSessions
+    read (nothing to fetch).
+  - **Coach/Insights always render, gracefully.** Removed the `isColdStart` locks. Data **richness** (`_tier`,
+    0–4) now decides how rich the answer is, never whether it works. `tier === 0` (0–5 lifetime) gets a
+    deterministic, genuinely-helpful early read (`_coachLowData`/`_insightsLowData`: real accuracy/mastery/
+    readiness it already has + an actionable mission, framed as "the more you practise, the sharper I get") —
+    no LLM (controlled copy avoids generic output near zero data; cost stays flat). `tier >= 1` is the existing
+    LLM living dashboard. A 6–19-question student now gets real LLM coaching where they used to be cold-locked.
+  - **One data-state rule.** Deleted the cold constants; the only richness thresholds left are `_tier`
+    (single def) and the mastery floor `<3` (`masteryForCat`/`_deriveMastery`, reused by `signals.js`). Aligned
+    the client analytics weak/strong floor (`progress.js`, was `>= 10`) to the same `>= 3` (`MASTERY_MIN_ATTEMPTS`)
+    so "weak topic" means one thing everywhere. Removed the no-op `<5` insufficient-data branch in `stats-view`
+    and the dead `showInsufficientDataModal` shim.
+  - **Copy.** No more "I don't know you / give me 10 questions / unlock." Thin-data framing is growth-oriented;
+    a zero-data user gets "I don't know much about you yet, but here's how we'll build your profile…" + a start.
+  - **Out of scope:** the Premium paywall (`ai_coach`/`ai_study_plan`/`ai_explain`) is monetization, not this
+    bug — unchanged.
+- **Consequences:** No model/schema/rules change; one LLM call per feature preserved (tier-0 is deterministic).
+  Verified by `node --check`, `npm test` (planner-engine 209 + planner-brain **62**, incl. 5-question profile is
+  real-not-fake, zero-data profile is valid-not-locked, low-data Coach/Insights have zero banned cold-lock
+  phrasing and still offer a mission, and tier-0 makes no LLM call), and a banned-phrasing grep gate. SW
+  v112→v113. The premium feel of the low-data dashboards still wants a real-device pass.
+
 ## ADR-051 — One source of truth (freshness + mastery) + Explanation as a premium learning document (2026-06-15)
 - **Context:** A from-first-principles sign-off audit (4 parallel investigations) confirmed QuanAI is
   architecturally clean (zero dead prompts/exports/files, zero duplicate calls/reads, zero legacy refs) but

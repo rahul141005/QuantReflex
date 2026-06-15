@@ -503,7 +503,6 @@ var AIFeatures = (function () {
     showExplanationModal: function (q, a, c) { if (window.Companion) return Companion.openExplain(q, a, c); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
     showStatsInsightsModal: function () { if (window.Companion) return Companion.openInsights(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
     showCoachModal: function () { if (window.Companion) return Companion.openCoach(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
-    showInsufficientDataModal: function () { if (window.Companion) return Companion.openInsights(); },
     openStudyPlanner: function (forceSetup) { if (window.Planner && Planner.open && !forceSetup) return Planner.open(); if (window.Companion && Companion.openStudyPlanner) return Companion.openStudyPlanner(forceSetup); },
     renderAICoachCard: renderAICoachCard,
     renderStudyPlanCard: renderStudyPlanCard,

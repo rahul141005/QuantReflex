@@ -24,8 +24,6 @@ if (!admin.apps.length) {
 }
 function db() { return admin.firestore(); }
 
-var COLD_START_ATTEMPTS = 20;   // lifetime floor to unlock full personalization
-var COACH_MIN_TODAY = 8;        // …OR enough activity TODAY — a fresh grind is coached, never gated (ADR-045)
 var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 // Topic vocabulary is defined ONCE in quantTopics.js (ADR-045) — the single source of truth.
 var CATEGORY_LABELS = topics.CATEGORY_LABELS;
@@ -129,28 +127,26 @@ async function buildContext(uid, opts) {
 
   var totalAttempted = Number(stats.totalAttempted) || 0;
   var totalCorrect = Number(stats.totalCorrect) || 0;
-  var today = _deriveToday(stats);   // live session signal (ADR-045) — also drives the cold-start unlock below
+  var today = _deriveToday(stats);   // live session signal (ADR-045)
 
-  // Cold-start: deterministic shape, NO downstream LLM call (AI_INTERACTION_SYSTEM §4). A student is "cold" only
-  // if they have too little data BOTH lifetime AND today — so someone who grinds a session today is coached, not
-  // gated. The cold envelope still carries `today` so QuanAI can acknowledge the current session.
-  if (totalAttempted < COLD_START_ATTEMPTS && today.attempted < COACH_MIN_TODAY) {
-    var cold = _coldContext(uid, { name: name, memory: memory, totalAttempted: totalAttempted, plan: data.plan, today: today });
-    _cache(cacheRef, cold);
-    return cold;
+  // ADR-052: NO cold-start gate. buildContext is the ONE canonical profile and ALWAYS returns the real student —
+  // computed from whatever data exists (even zero). Data richness (the `_tier` scale) decides how rich the AI
+  // response is, never whether a feature works; QuanAI never disowns a student Analytics can already see.
+  var noData = (totalAttempted === 0 && today.attempted === 0);
+
+  // ---- recent sessions (1 query; skipped for a brand-new user — nothing to read) ----
+  var sessions = [];
+  if (!noData) {
+    try {
+      var snap = await db().collection('users').doc(uid).collection('practiceSessions')
+        .orderBy('timestamp', 'desc').limit(20)
+        .select('mode', 'category', 'score', 'total', 'duration', 'sessionImprovementPct', 'firstHalfAvg', 'secondHalfAvg', 'timestamp')
+        .get();
+      snap.forEach(function (d) { sessions.push(d.data()); });
+    } catch (e) { console.warn('[studentContext] sessions read failed:', e.message); }
   }
 
-  // ---- recent sessions (1 query) ----
-  var sessions = [];
-  try {
-    var snap = await db().collection('users').doc(uid).collection('practiceSessions')
-      .orderBy('timestamp', 'desc').limit(20)
-      .select('mode', 'category', 'score', 'total', 'duration', 'sessionImprovementPct', 'firstHalfAvg', 'secondHalfAvg', 'timestamp')
-      .get();
-    snap.forEach(function (d) { sessions.push(d.data()); });
-  } catch (e) { console.warn('[studentContext] sessions read failed:', e.message); }
-
-  var accuracy = totalAttempted > 0 ? totalCorrect / totalAttempted : 0;
+  var accuracy = totalAttempted > 0 ? totalCorrect / totalAttempted : null;   // null (not 0) = "no data yet"
 
   var trends = _deriveTrends(stats);
   var mastery = _deriveMastery(stats);
@@ -162,8 +158,8 @@ async function buildContext(uid, opts) {
     uid: uid,
     name: name,
     plan: data.plan === 'premium' ? 'premium' : 'free',
-    coldStart: false,
-    accuracy: _round(accuracy, 3),
+    coldStart: noData,            // ADR-052: zero-data FRAMING flag only — never a feature gate
+    accuracy: accuracy == null ? null : _round(accuracy, 3),
     totalAttempted: totalAttempted,
     dailyStreak: Number(stats.dailyStreak) || 0,
     trends: trends,
@@ -181,10 +177,13 @@ async function buildContext(uid, opts) {
   return ctx;
 }
 
+/* ADR-052: the empty/zero-data profile — used ONLY when the user-doc read fails (an error fallback), NOT as a
+   cold-start gate. accuracy is null ("no data yet"), never 0 ("0%"); buildContext's normal path returns the same
+   valid shape for a brand-new user, so every consumer sees one canonical profile. */
 function _coldContext(uid, o) {
   return {
     v: 1, uid: uid, name: o.name || '', plan: o.plan === 'premium' ? 'premium' : 'free',
-    coldStart: true, accuracy: 0, totalAttempted: o.totalAttempted || 0,
+    coldStart: true, accuracy: null, totalAttempted: o.totalAttempted || 0,
     dailyStreak: 0,
     trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },

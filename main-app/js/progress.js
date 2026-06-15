@@ -251,12 +251,17 @@ function getAvgResponseTime() {
 /** Categories that are not valid for analytics (e.g. from legacy data) */
 var _INVALID_CATEGORIES = { onboarding: true };
 
+/* ADR-052: one definition of "enough data to call a topic weak/strong" — mirrors the server's canonical
+   mastery floor (studentContext.masteryForCat / _deriveMastery, signals.hasDirectData) so "weak topic"
+   means the same thing in local analytics and in every AI feature. */
+var MASTERY_MIN_ATTEMPTS = 3;
+
 /** Check if a category name is valid for analytics display */
 function isValidCategory(cat) {
   return !_INVALID_CATEGORIES[cat];
 }
 
-/** Get weakest category (lowest accuracy with at least 10 attempts) */
+/** Get weakest category (lowest accuracy with at least MASTERY_MIN_ATTEMPTS attempts) */
 function getWeakestCategory() {
   var p = loadProgress();
   var cats = p.categoryStats || {};
@@ -268,7 +273,7 @@ function getWeakestCategory() {
     var c = cats[keys[i]];
     var attempted = parseInt(c.attempted) || 0;
     var correct = parseInt(c.correct) || 0;
-    if (attempted >= 10) {
+    if (attempted >= MASTERY_MIN_ATTEMPTS) {
       var acc = (correct / attempted) * 100;
       if (!isNaN(acc) && acc < worstAcc) {
         worstAcc = acc;
@@ -279,7 +284,7 @@ function getWeakestCategory() {
   return worst;
 }
 
-/** Get strongest category (highest accuracy with at least 10 attempts) */
+/** Get strongest category (highest accuracy with at least MASTERY_MIN_ATTEMPTS attempts) */
 function getStrongestCategory() {
   var p = loadProgress();
   var cats = p.categoryStats || {};
@@ -291,7 +296,7 @@ function getStrongestCategory() {
     var c = cats[keys[i]];
     var attempted = parseInt(c.attempted) || 0;
     var correct = parseInt(c.correct) || 0;
-    if (attempted >= 10) {
+    if (attempted >= MASTERY_MIN_ATTEMPTS) {
       var acc = (correct / attempted) * 100;
       if (!isNaN(acc) && acc > bestAcc) {
         bestAcc = acc;

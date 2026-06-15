@@ -93,8 +93,8 @@ greeting → `ring` readiness → `celebrate` biggest win → `card` (amber) one
 `progress` plan adherence → `callout` days-to-exam → `mission` today's recommendation → `say` motivation → chips.
 Insights order: `say` "I found N patterns" → `card` biggest lever → `metric` cluster → `card` pattern×N (from the
 behavioural flags) → `card` weakness → `callout` planner prediction → `mission` action×N → chips. **Tiers**
-(`_tier(ctx)`, 0–4 by lifetime volume) gate WHICH sections show, never WHETHER they're computed. Cold start is a
-*curious onboarding* (never "go practice / unlock"). `renderEnvelope` staggers block children for a cascading
+(`_tier(ctx)`, 0–4 by lifetime volume) gate WHICH sections show, never WHETHER they're computed. Very-low data
+(`tier 0`) is a *helpful deterministic early read*, never a lock (ADR-052). `renderEnvelope` staggers block children for a cascading
 reveal (`--bi` → `animation-delay`; respects reduced-motion).
 
 ### Chip
@@ -143,9 +143,17 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 - **Weakness targeting:** prescriptions prefer `aiMemory.knownWeakConcepts` + context `errorPatterns`.
 - **Win callbacks:** when a tracked weakness improves, surface a `celebrate` ("ratios 52%→78% in two weeks").
 - **Continuity:** features reference `aiMemory.timeline[]` ("yesterday you committed to ratios — you did 2 sets").
-- **Cold-start** (no real data): a deterministic **curious onboarding** (ADR-050) — "I don't know you yet —
-  ~10 questions and I'll build your profile" + a preview of what unlocks + one warm "let's go" action; warmly
-  acknowledges any `today.attempted`. **Never** "go practice / warm up / practice to unlock." **No LLM call.**
+- **No cold-start gate (ADR-052).** `buildContext` is the ONE canonical profile and ALWAYS returns the real
+  student from whatever data exists (even zero) — there is no fake "cold" profile and no feature lock. Data
+  **richness** (`_tier`, 0–4 by lifetime volume) decides how *rich* a response is, never *whether* it works, so
+  Analytics, Coach, Insights, Planner, and Explanation always describe the same student. With very little data
+  (`tier 0`, 0–5 lifetime) Coach/Insights render a deterministic, genuinely-helpful early read
+  (`_coachLowData`/`_insightsLowData`: the real accuracy/mastery/readiness already known + an actionable
+  mission, framed as *"the more you practise, the sharper I get"*) — **no LLM call** (controlled copy avoids
+  generic output near zero data; cost stays flat). QuanAI **never** says "I don't know you / give me 10
+  questions / practice to unlock." A brand-new (zero-data) user gets *"I don't know much about you yet, but
+  here's how we'll build your profile…"* + one start action — help, never a wall. `accuracy` is `null` ("no
+  data yet"), never `0`.
 - **Cross-feature awareness (one brain):** Explain writes the struggled concept (`recentTopicsExplained`, now
   surfaced to Coach/Insights via `serialize()`); Insights writes discovered weaknesses; Coach reads today's plan +
   readiness + recent insights + explained concepts and writes `wins`; Study Plan & Word Problems target
@@ -162,7 +170,8 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 - **Error:** never show a raw error. Show a friendly `callout` (`warn`) + a **retry** chip. On hard model failure
   the server returns a **deterministic fallback** AIResponse (it never errors to the user). Rate-limit/throttle/
   budget → a calm "QuanAI is resting — try again shortly" with retry.
-- **Empty/insufficient data:** the cold-start deterministic path (no LLM), with a clear unlock mission.
+- **Empty/insufficient data:** the deterministic `tier 0` low-data path (no LLM) — a genuinely-helpful early
+  read of whatever exists + an actionable mission, never a lock or "unlock" wall (ADR-052).
 - **Offline:** features that have a cached AIResponse render it (read-only, "offline" callout); others show the
   retry callout.
 
