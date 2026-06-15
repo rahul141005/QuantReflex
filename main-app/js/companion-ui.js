@@ -162,9 +162,25 @@ var Companion = (function () {
   }
 
   /* ---------- block rendering ---------- */
+  /* Readiness ring SVG (ADR-050) — same geometry/classes as the planner ring, so the CSS is shared. */
+  function _ringSVG(score) {
+    var s = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+    var R = 30, C = 2 * Math.PI * R, off = C * (1 - s / 100);
+    return '<svg class="pr-ring" viewBox="0 0 72 72" width="64" height="64" aria-hidden="true">' +
+      '<circle cx="36" cy="36" r="' + R + '" class="pr-bg"></circle>' +
+      '<circle cx="36" cy="36" r="' + R + '" class="pr-fg" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"></circle>' +
+      '<text x="36" y="40" class="pr-num">' + s + '</text></svg>';
+  }
   function blockHTML(b) {
     switch (b.type) {
       case 'say': return '<div class="cb-say">' + esc(b.text) + '</div>';
+      case 'ring': return '<div class="cb-ring">' + _ringSVG(b.score) +
+        '<div class="cb-ring-meta"><div class="cb-ring-label">' + esc(b.label || '') + '</div>' +
+        (b.sub ? '<div class="cb-ring-sub">' + esc(b.sub) + '</div>' : '') + '</div></div>';
+      case 'progress': var pct = Math.max(0, Math.min(100, Math.round(Number(b.pct) || 0)));
+        return '<div class="cb-progress"><div class="cb-progress-top"><span>' + esc(b.label || '') + '</span><span>' + pct + '%</span></div>' +
+          '<div class="cb-progress-bar"><i style="width:' + pct + '%"></i></div>' +
+          (b.sub ? '<div class="cb-progress-cap">' + esc(b.sub) + '</div>' : '') + '</div>';
       case 'card': return '<div class="cb-card accent-' + esc(b.accent || 'slate') + '">' + (b.icon ? '<span class="cb-card-icon">' + esc(b.icon) + '</span>' : '') +
         '<div class="cb-card-main"><div class="cb-card-title">' + esc(b.title) + '</div><div class="cb-card-body">' + esc(b.body).replace(/\n/g, '<br>') + '</div></div></div>';
       case 'metric': return '<div class="cb-metric ' + (b.good ? 'is-good' : 'is-bad') + '"><span class="cb-metric-label">' + esc(b.label) + '</span>' +
@@ -193,6 +209,9 @@ var Companion = (function () {
     var blocksHTML = (env.blocks || []).map(blockHTML).join('');
     var turn = el('<div class="companion-turn' + (append ? ' is-new' : '') + '">' + blocksHTML + '</div>');
     if (!append) bodyEl.innerHTML = '';
+    // ADR-050: cascade the dashboard blocks in (each child gets a staggered animation-delay via --bi).
+    var kids = turn.children;
+    for (var bi = 0; bi < kids.length; bi++) { kids[bi].classList.add('cb-stagger'); kids[bi].style.setProperty('--bi', bi); }
     // remove any prior chip row
     var oldChips = bodyEl.querySelector('.companion-chips'); if (oldChips) oldChips.parentNode.removeChild(oldChips);
     bodyEl.appendChild(turn);

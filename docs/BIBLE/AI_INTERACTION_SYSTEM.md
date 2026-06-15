@@ -83,6 +83,19 @@ Each block has a `type`. The renderer has exactly one component per type. `addit
 | `timeline`   | `{ days: [{ day, label, items: string[], done?: bool }] }` | Vertical plan timeline |
 | `celebrate`  | `{ text }` | Win callback (confetti-lite) |
 | `callout`    | `{ tone: 'info\|warn\|success', text }` | Inline highlighted note |
+| `ring`       | `{ score: 0..100, label, sub? }` (ADR-050) | Exam-readiness ring (reuses the planner `.pr-ring` SVG) |
+| `progress`   | `{ label, pct: 0..100, sub? }` (ADR-050) | Horizontal progress bar (e.g. weekly plan adherence) |
+
+**Dashboard composition (ADR-050).** Coach and Insights compose these blocks into a multi-section, animated
+*living dashboard* — assembled **deterministically** by the server from `ctx` + the single `aiPlanner` read; the
+LLM writes only the prose fields (one call per feature). **Value first, then recommend.** Coach order: `say`
+greeting → `ring` readiness → `celebrate` biggest win → `card` (amber) one worry → `metric` cluster (tier ≥ 2) →
+`progress` plan adherence → `callout` days-to-exam → `mission` today's recommendation → `say` motivation → chips.
+Insights order: `say` "I found N patterns" → `card` biggest lever → `metric` cluster → `card` pattern×N (from the
+behavioural flags) → `card` weakness → `callout` planner prediction → `mission` action×N → chips. **Tiers**
+(`_tier(ctx)`, 0–4 by lifetime volume) gate WHICH sections show, never WHETHER they're computed. Cold start is a
+*curious onboarding* (never "go practice / unlock"). `renderEnvelope` staggers block children for a cascading
+reveal (`--bi` → `animation-delay`; respects reduced-motion).
 
 ### Chip
 ```jsonc
@@ -130,9 +143,12 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 - **Weakness targeting:** prescriptions prefer `aiMemory.knownWeakConcepts` + context `errorPatterns`.
 - **Win callbacks:** when a tracked weakness improves, surface a `celebrate` ("ratios 52%→78% in two weeks").
 - **Continuity:** features reference `aiMemory.timeline[]` ("yesterday you committed to ratios — you did 2 sets").
-- **Cold-start** (`totalAttempted < 20`): deterministic, friendly copy + a "do 10 to unlock" mission. **No LLM call.**
-- **Cross-feature awareness (one brain):** Explain writes the struggled concept; Insights writes discovered
-  weaknesses; Coach reads today's plan + recent insights + explained concepts; Study Plan & Word Problems target
+- **Cold-start** (no real data): a deterministic **curious onboarding** (ADR-050) — "I don't know you yet —
+  ~10 questions and I'll build your profile" + a preview of what unlocks + one warm "let's go" action; warmly
+  acknowledges any `today.attempted`. **Never** "go practice / warm up / practice to unlock." **No LLM call.**
+- **Cross-feature awareness (one brain):** Explain writes the struggled concept (`recentTopicsExplained`, now
+  surfaced to Coach/Insights via `serialize()`); Insights writes discovered weaknesses; Coach reads today's plan +
+  readiness + recent insights + explained concepts and writes `wins`; Study Plan & Word Problems target
   `knownWeakConcepts`. No feature is an island.
 
 ---

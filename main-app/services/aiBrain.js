@@ -34,6 +34,9 @@ function metric(label, value, trend, good) { return { type: 'metric', label: lab
 function steps(items, title) { return { type: 'steps', title: title || '', items: (items || []).slice(0, 8).map(function (s) { return _clip(s, 220); }), collapsible: false }; }
 function callout(tone, text) { return { type: 'callout', tone: tone || 'info', text: _clip(text, 220) }; }
 function celebrate(text) { return { type: 'celebrate', text: _clip(text, 180) }; }
+/* Dashboard blocks (ADR-050): a readiness ring (reuses the planner ring CSS) + a labelled progress bar. */
+function ring(score, label, sub) { return { type: 'ring', score: Math.max(0, Math.min(100, Math.round(Number(score) || 0))), label: _clip(label || '', 40), sub: _clip(sub || '', 60) }; }
+function progress(label, pct, sub) { return { type: 'progress', label: _clip(label || '', 40), pct: Math.max(0, Math.min(100, Math.round(Number(pct) || 0))), sub: _clip(sub || '', 60) }; }
 function missionBlock(title, why, mode, category, label, estMin) {
   return { type: 'mission', title: _clip(title, 80), why: _clip(why, 200), estMin: estMin || 5,
     deepLink: { mode: mode || 'focus', category: category || '', label: label || '' } };
@@ -56,6 +59,21 @@ function _focus(ctx) {
   return { cat: 'percentages', label: ctxEngine.label('percentages') };
 }
 
+/* Experience tier from lifetime volume (ADR-050) — gates how rich the dashboard is, never WHETHER data is read.
+   0 brand-new · 1 exploring · 2 active · 3 engaged · 4 veteran. */
+function _tier(ctx) {
+  var n = (ctx && ctx.totalAttempted) || 0;
+  return n >= 500 ? 4 : n >= 100 ? 3 : n >= 30 ? 2 : n >= 6 ? 1 : 0;
+}
+/* The dominant behavioural flag, as a one-word note the prompt is told to address (ADR-050) — burnout, careless,
+   plateau, speedRegression and inconsistent are computed in studentContext but were never acted on. */
+function _flagsNote(ctx) {
+  var f = (ctx && ctx.flags) || {};
+  var order = ['burnout', 'careless', 'speedRegression', 'plateau', 'inconsistent'];
+  var hit = order.filter(function (k) { return f[k]; });
+  return hit.length ? hit.join(', ') : '';
+}
+
 /* ---- daily cache (consolidates the old aiCoachV2 / aiInsightsV2) ---- */
 async function _getDaily(uid, feature) {
   try {
@@ -72,135 +90,250 @@ function _putDaily(uid, feature, env) {
 
 /* Shared planner grounding for Coach + Insights (ADR-049 "one AI"): today's scheduled tasks + the live exam
    readiness score + on-track status, so every feature speaks from the same plan. Returns '' if no plan. */
-async function _plannerNote(uid, clientDate) {
+async function _plannerData(uid, clientDate) {
+  var empty = { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null };
   try {
     var pd = await db().collection('aiPlanner').doc(uid).get();
-    if (!pd.exists) return '';
+    if (!pd.exists) return empty;
     var pdoc = pd.data();
     var todayKey = clientDate || _todayIso();
     var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
-    var labels = (td && (td.tasks || []).map(function (t) { return t.label; }).slice(0, 3).join(', ')) || '';
-    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {}, note = '';
+    var tasks = (td && td.tasks) || [];
+    var labels = tasks.map(function (t) { return t.label; }).slice(0, 3).join(', ');
+    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {};
+    // adherence: latest archived block, else live completion of the current block
+    var adh = null;
+    var bh = pdoc.blockHistory || [];
+    if (bh.length && typeof bh[bh.length - 1].adherencePct === 'number') adh = bh[bh.length - 1].adherencePct;
+    else if (pdoc.block) {
+      var sched = 0, done = 0;
+      ((pdoc.block.days) || []).forEach(function (d) { (d.tasks || []).forEach(function (x) { sched++; if (x.done) done++; }); });
+      if (sched) adh = Math.round(done / sched * 100);
+    }
+    var note = '';
     if (labels) note += 'The student\'s study planner schedules today: ' + labels + '. ';
     if (typeof rd.score === 'number') {
       note += 'Their exam readiness is ' + rd.score + '/100' +
         (fc.onTrack === false ? ' and they\'re behind pace' : (fc.daysToExam != null ? ', ' + fc.daysToExam + ' days out' : '')) + '. ';
     }
-    return note ? note + 'Tie your advice to the plan.' : '';
-  } catch (_) { return ''; }
+    return { has: true, note: note ? note + 'Tie your advice to the plan.' : '',
+      readiness: (typeof rd.score === 'number' ? rd : null), forecast: fc, todayTasks: tasks, adherencePct: adh };
+  } catch (_) { return empty; }
 }
 
-/* ════════════════════════ AI COACH — daily mentor ════════════════════════ */
+/* ════════════════════════ AI COACH — daily living dashboard (ADR-050) ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
+  var tier = _tier(ctx);
 
-  if (ctxEngine.isColdStart(ctx)) {
-    // Coach, don't gate (ADR-045): acknowledge what they HAVE done today instead of telling them to "go practice".
-    var doneT = (ctx.today && ctx.today.attempted) || 0;
-    var coldMsg = doneT > 0
-      ? 'Nice — ' + doneT + ' done today. Push a little further and I\'ll start calling out your real patterns: your pace, your accuracy, the topics that slow you down.'
-      : 'I\'m ' + prompts.PERSONA + ', your coach. Run a quick set and I\'ll start reading your real patterns — pace, accuracy, and the topics that trip you up.';
-    return envelope('coach', [
-      say(coldMsg),
-      missionBlock(doneT > 0 ? 'Keep going — 10 more' : 'Warm up — 10 questions', 'Gives me a baseline to coach from.', 'practice', '', '', 5)
-    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Start a set', 'practice', '', ''), chipDismiss('Later')], { coldStart: true });
-  }
+  if (ctxEngine.isColdStart(ctx)) return _coachOnboard(ctx, tier);   // curious onboarding, never "go practice"
 
-  // ADR-049: also bypass the per-day envelope cache when clientStats is present (mirrors studentContext's
-  // own cache rule) — otherwise a cold-start envelope cached earlier today is served even after the student
-  // has accumulated real attempts, so Coach keeps saying "run a quick set".
+  // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors studentContext's rule).
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
   var focus = _focus(ctx);
   var contextStr = ctxEngine.serialize(ctx);
-  // ADR-046/047/049: ground the Coach in the live planner (today's tasks + readiness).
-  var planNote = await _plannerNote(uid, opts.clientDate);
+  var pdata = await _plannerData(uid, opts.clientDate);   // one aiPlanner read → ring/forecast/tasks/adherence
+  var flagsNote = _flagsNote(ctx);
   var env;
   try {
-    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: planNote, examName: _examOf(ctx) });
+    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: pdata.note, examName: _examOf(ctx), flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
-    var d = r.data;
-    env = envelope('coach', [
-      say(d.say),
-      d.celebrate ? celebrate(d.celebrate) : null,
-      missionBlock('Drill ' + focus.label, d.missionWhy, 'focus', focus.cat, focus.label, 8),
-      opts.force ? callout('success', 'Updated from your latest practice.') : null
-    ], [
-      chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'),
-      chipReply('Tell me more', 'coach_followup:' + (d.followup || 'tell me more')),
-      chipDismiss('Not today')
-    ].concat(helpfulChips()), { promptId: _promptId(p), focus: focus.cat });
-    aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + '.' } }, 'coach');
+    env = _coachDashboard(ctx, focus, pdata, r.data, tier, opts, _promptId(p));
+    aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + (pdata.readiness ? ' (readiness ' + pdata.readiness.score + ')' : '') + '.' } }, 'coach');
+    _maybeWriteWin(uid, ctx);
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
-    env = _coachFallback(ctx, focus);
+    env = _coachFallback(ctx, focus, pdata);
   }
-  // Never cache a degraded fallback — a transient model failure must not pin bad advice for the whole day.
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'coach', env);
   return env;
 }
-function _coachFallback(ctx, focus) {
-  var line = 'You\'re ' + Math.round((ctx.accuracy || 0) * 100) + '% accurate over ' + ctx.totalAttempted + ' questions. ' +
-    (focus.cat ? 'Tighten up ' + focus.label + ' next — that\'s your biggest lever right now.' : 'Keep your streak alive with a focused set.');
-  return envelope('coach', [
-    say(line),
-    missionBlock('Drill ' + focus.label, 'Targeted practice on your weakest topic.', 'focus', focus.cat, focus.label, 8)
-  ], [chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'), chipDismiss('Not today')].concat(helpfulChips()), { fallback: true });
+
+/* The warm Coach dashboard: value first (greeting → readiness → win), then the concern, the numbers, the plan,
+   and finally ONE clear recommendation + conversational chips. Composed deterministically from ctx + the planner;
+   the LLM only writes the prose fields. Tier gates how much shows. */
+function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
+  d = d || {};
+  var name = (ctx.name || '').split(' ')[0];
+  var examName = (ctx.memory && ctx.memory.examName) || 'your exam';
+  var blocks = [];
+  blocks.push(say(d.greeting || ('Welcome back' + (name ? ', ' + name : '') + '.')));
+  if (pdata.readiness) {
+    var band = { 'exam-ready': 'Exam ready', 'on-track': 'On track', 'building': 'Building', 'early': 'Early days' }[pdata.readiness.band] || '';
+    var sub = (pdata.forecast && pdata.forecast.daysToExam != null) ? pdata.forecast.daysToExam + ' days to ' + examName : band;
+    blocks.push(ring(pdata.readiness.score, 'Exam readiness', sub));
+  }
+  if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
+  if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
+  if (tier >= 2) {
+    var t = ctx.trends || {};
+    if (t.accuracy && t.accuracy.d7 != null) blocks.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
+    if (t.speed && t.speed.recentMsPerQ != null) blocks.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
+    if (ctx.dailyStreak) blocks.push(metric('Streak', ctx.dailyStreak + 'd', ctx.dailyStreak >= 3 ? 'up' : 'flat', ctx.dailyStreak >= 1));
+  }
+  if (pdata.adherencePct != null) blocks.push(progress('This week\'s plan', pdata.adherencePct, pdata.adherencePct >= 80 ? 'On track — keep it up' : 'Let\'s close the gap'));
+  if (pdata.forecast && pdata.forecast.daysToExam != null) {
+    var fc = pdata.forecast;
+    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info', fc.daysToExam + ' days to ' + examName +
+      (fc.bufferDays != null ? (fc.onTrack ? ' — on track, ' + fc.bufferDays + 'd buffer' : ' — ' + Math.abs(fc.bufferDays) + 'd behind, plan rebalanced') : '.')));
+  }
+  var topTask = (pdata.todayTasks || []).find(function (x) { return !x.done; }) || (pdata.todayTasks || [])[0];
+  if (topTask && topTask.label) {
+    blocks.push(missionBlock((topTask.kind === 'revise' ? 'Revise: ' : 'Today: ') + topTask.label, d.todayRecommendation || topTask.reason || 'From your study plan.', topTask.drillable ? 'focus' : 'practice', topTask.drillable || '', topTask.label, topTask.estMin || 10));
+  } else {
+    blocks.push(missionBlock('Today: drill ' + focus.label, d.todayRecommendation || d.missionWhy || 'Your highest-impact topic right now.', 'focus', focus.cat, focus.label, 8));
+  }
+  if (d.motivation) blocks.push(say(d.motivation));
+  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
+
+  var drill = (topTask && topTask.drillable) ? { cat: topTask.drillable, label: topTask.label } : { cat: focus.cat, label: focus.label };
+  var chips = [
+    chipDeep('Start today\'s set', 'focus', drill.cat, drill.label, '⚡'),
+    chipReply('Speed or accuracy?', 'coach_speed_accuracy'),
+    chipReply('Open my planner', 'planner_open_calendar', '🗓️')
+  ].concat(helpfulChips());
+  return envelope('coach', blocks, chips, { promptId: promptId, focus: focus.cat, tier: tier });
 }
 
-/* ════════════════════════ AI INSIGHTS — performance intelligence → missions ════════════════════════ */
+/* Cold-start = curious onboarding (ADR-050), never "go practice / warm up". Make the student WANT to begin. */
+function _coachOnboard(ctx, tier) {
+  var name = (ctx.name || '').split(' ')[0];
+  var doneT = (ctx.today && ctx.today.attempted) || 0;
+  var hi = name ? 'Hey ' + name + ' 👋' : 'Hey there 👋';
+  var line = doneT > 0
+    ? hi + ' — ' + doneT + ' done already. A few more and I\'ll start reading your real patterns: your pace, your accuracy, the topics that slow you down.'
+    : hi + ' I\'m ' + prompts.PERSONA + ', your maths coach. I don\'t know you yet — give me about 10 questions and I\'ll build your learning profile.';
+  return envelope('coach', [
+    say(line),
+    card('What I\'ll unlock', 'Your pace & accuracy trends · your strongest and weakest topics · a readiness score · a personalised study plan.', 'blue', '✨'),
+    missionBlock(doneT > 0 ? 'Keep going — a few more' : 'Let\'s begin — first set', 'Ten questions is all I need to start personalising everything.', 'practice', '', '', 5)
+  ], [chipDeep(doneT > 0 ? 'Keep going' : 'Let\'s go', 'practice', '', ''), chipDismiss('Later')], { coldStart: true, tier: tier });
+}
+
+function _coachFallback(ctx, focus, pdata) {
+  var blocks = [say('You\'re ' + Math.round((ctx.accuracy || 0) * 100) + '% accurate over ' + ctx.totalAttempted + ' questions. ' +
+    (focus.cat ? 'Tighten up ' + focus.label + ' next — that\'s your biggest lever right now.' : 'Keep your streak alive with a focused set.'))];
+  if (pdata && pdata.readiness) blocks.push(ring(pdata.readiness.score, 'Exam readiness', ''));
+  blocks.push(missionBlock('Drill ' + focus.label, 'Targeted practice on your weakest topic.', 'focus', focus.cat, focus.label, 8));
+  return envelope('coach', blocks, [chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'), chipDismiss('Not today')].concat(helpfulChips()), { fallback: true });
+}
+
+/* Populate aiMemory.wins on a genuine improvement so the Coach can show continuity next time (ADR-050). */
+function _maybeWriteWin(uid, ctx) {
+  try {
+    var t = ctx.trends || {}, win = null;
+    if (ctx.today && ctx.today.accuracy != null && ctx.today.attempted >= 8 && ctx.today.accuracy >= 0.85) {
+      win = Math.round(ctx.today.accuracy * 100) + '% today over ' + ctx.today.attempted + ' questions';
+    } else if (t.accuracy && t.accuracy.direction === 'improving' && (t.accuracy.delta || 0) >= 0.05) {
+      win = 'Accuracy up ' + Math.round(t.accuracy.delta * 100) + '% this week';
+    } else {
+      var strong = (ctx.mastery || []).find(function (m) { return m.tier === 'strong'; });
+      if (strong && (ctx.dailyStreak || 0) >= 5) win = strong.label + ' is now a strong topic';
+    }
+    if (win) aiService.updateMemory(uid, { addWin: win }, 'coach');
+  } catch (_) {}
+}
+
+/* ════════════════════════ AI INSIGHTS — an analyst, not a report (ADR-050) ════════════════════════ */
+/* Deterministic pattern detection from the behavioural flags + error patterns + trends that ctx already
+   computes but were never surfaced. Each pattern is a card; the dashboard pairs them with an action. */
+function _detectPatterns(ctx) {
+  var f = ctx.flags || {}, t = ctx.trends || {}, out = [];
+  if (f.careless) out.push({ title: 'Careless slips', body: 'You\'re missing questions in topics you\'ve already mastered — slow down on the ones you know.', accent: 'amber', icon: '⚠️' });
+  if (f.speedRegression && t.speed && t.speed.recentMsPerQ != null && t.speed.baselineMsPerQ != null) out.push({ title: 'You\'re slowing down', body: 'Your pace drifted to ' + (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q from ' + (t.speed.baselineMsPerQ / 1000).toFixed(1) + 's/Q — let\'s do speed reps.', accent: 'rose', icon: '🐢' });
+  if (f.plateau) out.push({ title: 'You\'ve plateaued', body: 'Your accuracy has held flat for a month — time to raise the difficulty and break through.', accent: 'slate', icon: '➖' });
+  if (f.inconsistent && t.consistency) out.push({ title: 'Practice is sporadic', body: 'Only ' + t.consistency.activeDaysLast14 + '/14 active days — you improve fastest with a steady streak.', accent: 'amber', icon: '📅' });
+  if (f.burnout) out.push({ title: 'Rebuild your momentum', body: 'A break plus a dip in accuracy — ease back in on a topic you already know well.', accent: 'blue', icon: '🌱' });
+  if ((t.sessionImprovementPct || 0) >= 5) out.push({ title: 'You warm up well', body: 'You get ~' + Math.round(t.sessionImprovementPct) + '% faster within a session — longer sets really pay off for you.', accent: 'green', icon: '🔥' });
+  return out.slice(0, 3);
+}
+
 async function insights(uid, opts) {
   opts = opts || {};
   var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
+  var tier = _tier(ctx);
 
-  if (ctxEngine.isColdStart(ctx)) {
-    var doneT = (ctx.today && ctx.today.attempted) || 0;
-    var coldMsg = doneT > 0
-      ? 'You\'ve done ' + doneT + ' today — a little more and I\'ll surface real trends: accuracy, speed, and exactly which topics to fix first.'
-      : 'Run a set and I\'ll surface real trends — accuracy, speed, and exactly which topics to fix first.';
-    return envelope('insights', [
-      say(coldMsg),
-      missionBlock('Practice to unlock insights', 'I need a bit more data to find your patterns.', 'practice', '', '', 5)
-    ], [chipDeep(doneT > 0 ? 'Keep going' : 'Practice now', 'practice', '', '')], { coldStart: true });
-  }
+  if (ctxEngine.isColdStart(ctx)) return _insightsOnboard(ctx, tier);
 
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
 
-  var t = ctx.trends || {};
-  var blocks = [];
-  // deterministic, REAL metric blocks (no model)
-  if (t.accuracy && t.accuracy.d7 != null) blocks.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
-  if (t.speed && t.speed.recentMsPerQ != null) blocks.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
-  if (t.consistency) blocks.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
-
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
-  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
-  // ADR-049 "one AI": Insights references the same live planner as the Coach (today's focus + readiness).
-  var planNote = await _plannerNote(uid, opts.clientDate);
+  var pdata = await _plannerData(uid, opts.clientDate);
+  var flagsNote = _flagsNote(ctx);
   var env;
   try {
-    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: planNote });
+    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: pdata.note, flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
-    var d = r.data;
-    var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
-    var missions = weakCats.map(function (m) { return missionBlock('Fix ' + m.label, Math.round(m.acc * 100) + '% accuracy — high-impact to improve.', 'focus', m.cat, m.label, 8); });
-    env = envelope('insights',
-      [say(d.headline)].concat(blocks).concat([card('Your biggest weakness', d.weaknessInsight, 'rose', '🎯')]).concat(missions),
-      weakCats.map(function (m) { return chipDeep('Fix ' + m.label, 'focus', m.cat, m.label, '⚡'); })
-        .concat([chipReply(d.nextStepLabel || 'Ask why', 'insights_why')]).concat(helpfulChips()),
-      { promptId: _promptId(p) });
-    aiService.updateMemory(uid, { addWeakConcepts: weakCats.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
+    env = _insightsDashboard(ctx, weak, pdata, r.data, tier, opts, _promptId(p));
+    var weakCats0 = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
+    aiService.updateMemory(uid, { addWeakConcepts: weakCats0.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
-    env = envelope('insights', [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(blocks).concat([missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8)]),
-      [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
+    env = _insightsFallback(ctx, weak);
   }
-  // Never cache a degraded fallback (transient model failure shouldn't pin a bad answer all day).
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'insights', env);
   return env;
+}
+
+function _metricCluster(t) {
+  var b = [];
+  if (t.accuracy && t.accuracy.d7 != null) b.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
+  if (t.speed && t.speed.recentMsPerQ != null) b.push(metric('Speed', (t.speed.recentMsPerQ / 1000).toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
+  if (t.consistency) b.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
+  return b;
+}
+
+function _insightsDashboard(ctx, weak, pdata, d, tier, opts, promptId) {
+  d = d || {};
+  var t = ctx.trends || {};
+  var patterns = _detectPatterns(ctx);
+  var blocks = [];
+  blocks.push(say(d.patternsIntro || (patterns.length ? ('I found ' + patterns.length + ' thing' + (patterns.length > 1 ? 's' : '') + ' worth your attention.') : (d.headline || 'Here\'s exactly where you stand.'))));
+  if (d.headline) blocks.push(card('Your biggest lever', d.headline, 'blue', '📈'));
+  blocks = blocks.concat(_metricCluster(t));
+  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
+  patterns.forEach(function (pt) { blocks.push(card(pt.title, pt.body, pt.accent, pt.icon)); });
+  blocks.push(card('Your biggest weakness', d.weaknessInsight || ('Tighten up ' + weak.label + ' — it\'s your highest-impact fix.'), 'rose', '🎯'));
+  // planner prediction — the "so what" tied to the exam
+  var fc = pdata.forecast;
+  if (fc && fc.daysToExam != null) {
+    if (fc.onTrack !== false && (fc.bufferDays || 0) > 0) blocks.push(callout('success', 'At this pace you\'ll be exam-ready ' + fc.bufferDays + ' days early.'));
+    else if (fc.onTrack === false) blocks.push(callout('warn', 'You\'re ' + Math.abs(fc.bufferDays || 0) + ' days behind' + (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? ' — +15 min/day claws back ' + fc.ifPlusMinutes.daysSaved + '.' : '.')));
+    else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner.'));
+  }
+  // every insight leads to an action
+  var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
+  weakCats.forEach(function (m) { blocks.push(missionBlock('Fix ' + m.label, Math.round(m.acc * 100) + '% accuracy — high-impact to improve.', 'focus', m.cat, m.label, 8)); });
+  if (!weakCats.length && weak.cat) blocks.push(missionBlock('Sharpen ' + weak.label, 'Your highest-impact topic to push next.', 'focus', weak.cat, weak.label, 8));
+
+  var chips = weakCats.map(function (m) { return chipDeep('Fix ' + m.label, 'focus', m.cat, m.label, '⚡'); });
+  if (!chips.length && weak.cat) chips.push(chipDeep('Practice ' + weak.label, 'focus', weak.cat, weak.label, '⚡'));
+  chips.push(chipReply(d.nextStepLabel || 'What first?', 'insights_why'));
+  chips.push(chipReply('Open my planner', 'planner_open_calendar', '🗓️'));
+  chips = chips.concat(helpfulChips());
+  return envelope('insights', blocks, chips, { promptId: promptId, tier: tier });
+}
+
+function _insightsOnboard(ctx, tier) {
+  var doneT = (ctx.today && ctx.today.attempted) || 0;
+  var line = doneT > 0
+    ? 'You\'ve done ' + doneT + ' today — a few more and I\'ll surface your first real patterns: accuracy, speed, and exactly which topics to fix first.'
+    : 'Let\'s discover how you think. About 10 questions and I\'ll start spotting patterns — your pace, your accuracy, your hidden strengths.';
+  return envelope('insights', [
+    say(line),
+    card('What I\'ll find', 'Your accuracy & speed trends · the topics costing you the most · whether it\'s consistency or skill holding you back.', 'blue', '🔍'),
+    missionBlock(doneT > 0 ? 'Keep going' : 'Start exploring', 'A bit more data and the patterns appear.', 'practice', '', '', 5)
+  ], [chipDeep(doneT > 0 ? 'Keep going' : 'Let\'s go', 'practice', '', '')], { coldStart: true, tier: tier });
+}
+
+function _insightsFallback(ctx, weak) {
+  var blocks = [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(_metricCluster(ctx.trends || {}));
+  blocks.push(missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8));
+  return envelope('insights', blocks, [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
 }
 
 /* ════════════════════════ AI EXPLAIN — interactive concept learning ════════════════════════ */
@@ -273,6 +406,7 @@ async function chatTurn(uid, body) {
     : userTurn === 'explain_another' ? 'Give one fresh worked example of the SAME concept and difficulty as this question (new numbers, same idea — do NOT change the shape/topic).'
     : userTurn === 'drill_result' ? (String(body.drill || '').slice(0, 400) || 'The student just finished a quick drill on this concept. React in one short, specific line and give the single best next step.')
     : userTurn.indexOf('coach_followup:') === 0 ? userTurn.slice(15)
+    : userTurn === 'coach_speed_accuracy' ? 'Given this student\'s data, should they prioritise SPEED or ACCURACY today? Pick one, say why in one line, and name the single best drill to do it.'
     : userTurn.indexOf('insights_why') === 0 ? 'Explain in plain terms why this is the student\'s weakness and the single best fix.'
     : userTurn;
 
@@ -603,4 +737,5 @@ async function wordProblem(uid, category, difficulty, isPremium) {
 }
 
 module.exports = { coachToday, insights, explainBase, chatTurn, wordProblem,
-  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock };
+  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock,
+  _detectPatterns, _tier };   // pure helpers exposed for the brain harness (ADR-050)

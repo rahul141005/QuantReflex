@@ -30,7 +30,14 @@ adminStub.firestore.FieldValue = { serverTimestamp: function () { return 'TS'; }
 
 var llmStub = {
   wrapData: function (s) { return String(s); },
-  complete: function () { return Promise.resolve({ data: { rationale: 'LLM rationale.', encouragement: 'LLM encouragement.' }, usage: { total_tokens: 10 } }); }
+  // Superset of every prose field the prompts ask for, so each feature picks what it needs (ADR-050).
+  complete: function () { return Promise.resolve({ data: {
+    rationale: 'LLM rationale.', encouragement: 'LLM encouragement.',
+    greeting: 'Welcome back, Sam.', biggestWin: 'You aced Percentages.', oneWorry: 'Speed is slipping on Geometry.',
+    todayRecommendation: 'Drill Geometry for 8 minutes.', motivation: 'You\'re closer than you think.', missionWhy: 'Highest-impact topic.', celebrate: 'Nice streak!',
+    patternsIntro: 'I found a few things worth your attention.', headline: 'Geometry is your biggest lever.',
+    weaknessInsight: 'Geometry accuracy is dragging your score.', nextStepLabel: 'What first?'
+  }, usage: { total_tokens: 10 } }); }
 };
 var aiServiceStub = { updateMemory: function () {}, trackGptCost: function () {}, trackGlobalAIUsage: function () { return Promise.resolve(); } };
 
@@ -139,6 +146,43 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   store.aiDaily['u-fresh2_coach_' + (function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); })()] = { envelope: coldEnv };
   var coachEnv2 = await aiBrain.coachToday('u-fresh2', { clientStats: freshGrind });
   ok(!(coachEnv2.meta && coachEnv2.meta.coldStart === true), 'coachToday bypasses a stale cold aiDaily envelope when clientStats is present');
+
+  /* ════════ ADR-050: Coach + Insights as living dashboards ════════ */
+  function envText(env) {
+    var parts = [];
+    (env.blocks || []).forEach(function (b) { parts.push(b.text || '', b.title || '', b.body || '', b.why || ''); });
+    (env.chips || []).forEach(function (c) { parts.push(c.label || ''); });
+    return parts.join(' ');
+  }
+  var BANNED = /practice to unlock|go practice|run a quick set|warm up|unlock insights/i;
+
+  /* (1) a warm Coach with planner readiness is a multi-section dashboard incl. a ring block.
+     u1 has a persisted plan (with readiness) from the setup above; the clientStats floor keeps it warm. */
+  var coachWarm = await aiBrain.coachToday(UID, { force: true, clientStats: clientStats });
+  ok(coachWarm.blocks && coachWarm.blocks.length >= 6, 'warm Coach renders a multi-section dashboard (>=6 blocks, got ' + (coachWarm.blocks || []).length + ')');
+  ok((coachWarm.blocks || []).some(function (b) { return b.type === 'ring'; }), 'warm Coach includes a readiness ring when the planner has a readiness score');
+  ok(!BANNED.test(envText(coachWarm)), 'warm Coach never says "go practice / warm up / unlock"');
+
+  /* (2) cold-start = curious onboarding, never "go practice / unlock" (Coach + Insights) */
+  var coldStats = { totalAttempted: 0, totalCorrect: 0, todayAttempted: 0, todayCorrect: 0, dailyStreak: 0, categoryStats: {}, dailyHistory: {} };
+  var coachCold = await aiBrain.coachToday('u-cold050', { force: true, clientStats: coldStats });
+  ok(coachCold.meta && coachCold.meta.coldStart === true, 'a no-data account gets the Coach onboarding (cold-start)');
+  ok(!BANNED.test(envText(coachCold)), 'cold Coach onboarding contains no "go practice / unlock" phrasing');
+  var insCold = await aiBrain.insights('u-cold050b', { force: true, clientStats: coldStats });
+  ok(insCold.meta && insCold.meta.coldStart === true, 'a no-data account gets the Insights onboarding (cold-start)');
+  ok(!BANNED.test(envText(insCold)), 'cold Insights onboarding contains no "Practice to unlock insights" phrasing');
+
+  /* (3) behavioural flags become pattern cards (the dead signals Insights now surfaces) */
+  ok(aiBrain._detectPatterns({ flags: { careless: true } }).some(function (c) { return /careless|slip/i.test(c.title); }), 'a careless flag produces a "careless slips" pattern card');
+  ok(aiBrain._detectPatterns({ flags: { plateau: true } }).some(function (c) { return /plateau/i.test(c.title); }), 'a plateau flag produces a "plateaued" pattern card');
+  ok(aiBrain._detectPatterns({ flags: {} }).length === 0, 'no flags → no fabricated patterns');
+
+  /* (4) the Explain→Coach loop: recentTopicsExplained reaches serialize() */
+  ok(aiBrain._tier({ totalAttempted: 600 }) === 4 && aiBrain._tier({ totalAttempted: 0 }) === 0, '_tier maps lifetime volume to an experience tier (0..4)');
+  store.users = store.users || {};
+  store.users['u-mem050'] = { aiMemory: { recentTopicsExplained: ['percentages', 'geometry'], examName: 'CAT' }, stats: freshGrind, plan: 'free' };
+  var memCtx = await ctxEngine.buildContext('u-mem050', { force: true, clientStats: freshGrind });
+  ok(/Recently asked to explain/.test(ctxEngine.serialize(memCtx)), 'recentTopicsExplained reaches serialize() (Explain→Coach loop closed)');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

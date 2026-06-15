@@ -342,6 +342,8 @@ function serialize(ctx, maxChars) {
     if (m.goal) L.push('Goal: ' + m.goal + '.');
     if (m.examName) L.push('Exam: ' + m.examName + (m.examDate ? ' on ' + m.examDate : '') + '.');
     if (m.knownWeakConcepts && m.knownWeakConcepts.length) L.push('Known weak concepts: ' + m.knownWeakConcepts.slice(0, 5).join(', ') + '.');
+    // ADR-050: Explain writes recentTopicsExplained; surface it so Coach/Insights notice "keeps asking about X".
+    if (m.recentTopicsExplained && m.recentTopicsExplained.length) L.push('Recently asked to explain: ' + m.recentTopicsExplained.slice(-4).map(label).join(', ') + ' (a struggle signal).');
     if (m.wins && m.wins.length) L.push('Recent win: ' + m.wins[m.wins.length - 1] + '.');
     if (m.timeline && m.timeline.length) L.push('Last AI note: ' + (m.timeline[m.timeline.length - 1].summary || '') + '.');
     L.push('Preferred depth: ' + (m.preferredDepth || 'standard') + '; confidence: ' + (m.confidence || 'medium') + '.');

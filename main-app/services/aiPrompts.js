@@ -46,43 +46,52 @@ function sys(role, examName) {
 var STR = { type: 'string' };
 
 var REGISTRY = {
-  /* ---- AI Coach: daily mentor. Model writes the observation + encouragement + one follow-up question. ---- */
+  /* ---- AI Coach: a living daily dashboard (ADR-050). One call writes ALL the prose lines; the server lays out
+     the blocks (greeting → readiness → win → worry → metrics → plan → recommendation → motivation). ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 4, maxTokens: 400, temperature: 0.4,
+    id: 'coach.daily', version: 5, maxTokens: 460, temperature: 0.45,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
         schema: { type: 'object', additionalProperties: false,
-          required: ['say', 'missionWhy', 'followup', 'celebrate'],
-          properties: { say: STR, missionWhy: STR, followup: STR, celebrate: STR } },
-        system: sys('Open with ONE specific thing you NOTICED in their numbers today (use the TODAY line — count, '
-          + 'accuracy, pace — when present; otherwise the most recent trend). Sound like a mentor who was watching, '
-          + 'not a dashboard. Never tell a student who has practiced to "go practice". Be prescriptive and accountable, '
-          + 'never generic. If there is a clear win in the data, celebrate it in one line (else return an empty celebrate).', v.examName),
-        user: 'Student context:\n' + v.context + '\n\nToday you are prescribing this focus: ' + v.focusLabel + '.'
-          + (v.planNote ? '\n' + v.planNote : '')
-          + '\nWrite JSON: say (the grounded observation, <=2 sentences), missionWhy (one short line on why this '
-          + 'focus now), followup (one short question to keep them engaged, <=12 words), celebrate (one short line '
-          + 'ONLY if there is a real win in the data, else "").'
+          required: ['greeting', 'biggestWin', 'oneWorry', 'todayRecommendation', 'motivation', 'missionWhy', 'celebrate'],
+          properties: { greeting: STR, biggestWin: STR, oneWorry: STR, todayRecommendation: STR, motivation: STR, missionWhy: STR, celebrate: STR } },
+        system: sys('You are writing a personal daily dashboard for a student who has been practising. DELIVER VALUE '
+          + 'FIRST, then the recommendation — never open by telling them to "go practice". Sound like a mentor who '
+          + 'watches them every day: specific, warm, grounded in their REAL numbers, never generic. If the context '
+          + 'names an active concern (' + (v.flagsNote || 'none') + '), address the most important one directly and '
+          + 'kindly. Each field is at most 1-2 short sentences.', v.examName),
+        user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '')
+          + '\n\nToday\'s prescribed focus: ' + v.focusLabel + '.'
+          + '\nWrite JSON: greeting (warm, personal, reference a real recent change or win, <=14 words), '
+          + 'biggestWin (their most impactful recent win from the data, or "" if none real), '
+          + 'oneWorry (the single biggest thing holding them back — address the active concern above if any, <=20 words), '
+          + 'todayRecommendation (the ONE specific thing to do today and why, <=22 words), '
+          + 'motivation (a short, contextual line of encouragement, <=14 words), '
+          + 'missionWhy (one line on why the focus topic, <=16 words), '
+          + 'celebrate (a one-line celebration ONLY if there is a real win, else "").'
       };
     }
   },
 
-  /* ---- AI Insights: model writes the "biggest lever" headline + why-this-weakness. Metrics are deterministic. ---- */
+  /* ---- AI Insights: an analyst (ADR-050). The model writes the intro + biggest-lever headline + why-this-
+     weakness; the server renders deterministic metric/pattern blocks so numbers are never hallucinated. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 5, maxTokens: 400, temperature: 0.4,
+    id: 'insights.analyze', version: 6, maxTokens: 420, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
         schema: { type: 'object', additionalProperties: false,
-          required: ['headline', 'weaknessInsight', 'nextStepLabel'],
-          properties: { headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
-        system: sys('You are a performance analyst. Surface the single biggest lever this student has right now and '
-          + 'explain their top weakness in plain terms. Lead with what moved recently (today or this week) when the '
-          + 'data shows it. Be insightful and specific to their numbers, never restate the dashboard.', v.examName),
+          required: ['patternsIntro', 'headline', 'weaknessInsight', 'nextStepLabel'],
+          properties: { patternsIntro: STR, headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
+        system: sys('You are a sharp performance analyst who makes the student feel SEEN. Surface the single biggest '
+          + 'lever they have right now and explain their top weakness in plain terms. Lead with what moved recently. '
+          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be insightful and '
+          + 'specific to their numbers, never restate the dashboard. Every line implies a clear action.', v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
-          + '.\nWrite JSON: headline (the biggest lever, <=2 sentences), weaknessInsight (one short line on what is '
-          + 'really going wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
+          + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "I found a few things worth your attention", <=12 words), '
+          + 'headline (the single biggest lever, <=2 sentences), weaknessInsight (one short line on what is really going '
+          + 'wrong in ' + v.weakLabel + '), nextStepLabel (a 2-4 word action label).'
       };
     }
   },

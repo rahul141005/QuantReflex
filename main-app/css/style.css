@@ -10171,6 +10171,18 @@ body.dark-mode .cb-metric-val { color: #f1f5f9; }
 .cb-progress-bar { height: 8px; background: rgba(15, 23, 42, .08); border-radius: 999px; overflow: hidden; }
 .cb-progress-bar i { display: block; height: 100%; background: #2563eb; border-radius: 999px; transition: width .5s ease; }
 .cb-progress-cap { font-size: .76rem; color: #94a3b8; margin-top: .25rem; }
+body.dark-mode .cb-progress-bar { background: rgba(255, 255, 255, .08); }
+/* ADR-050: readiness ring block (reuses the planner .pr-ring SVG/CSS). */
+.cb-ring { display: flex; align-items: center; gap: 1rem; background: linear-gradient(135deg, rgba(37, 99, 235, .08), rgba(37, 99, 235, .02)); border: 1px solid rgba(37, 99, 235, .14); border-radius: 16px; padding: .85rem 1rem; margin: .5rem 0; }
+.cb-ring .pr-ring { flex: 0 0 auto; }
+.cb-ring-meta { min-width: 0; }
+.cb-ring-label { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: #64748b; font-weight: 700; }
+.cb-ring-sub { font-size: 1.02rem; font-weight: 800; color: #0f172a; margin-top: .15rem; line-height: 1.35; }
+body.dark-mode .cb-ring { background: linear-gradient(135deg, rgba(37, 99, 235, .16), rgba(37, 99, 235, .04)); border-color: rgba(59, 130, 246, .24); }
+body.dark-mode .cb-ring-sub { color: #e2e8f0; }
+/* ADR-050: cascade dashboard blocks in (--bi is the block index set in renderEnvelope). */
+.cb-stagger { animation: cbStagger .32s cubic-bezier(.2, .7, .3, 1) both; animation-delay: calc(var(--bi, 0) * 70ms); }
+@keyframes cbStagger { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
 .cb-steps { background: #fff; border: 1px solid rgba(15, 23, 42, .06); border-radius: .9rem; padding: .6rem .9rem; margin: .5rem 0; }
 body.dark-mode .cb-steps { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .07); }
 .cb-steps-title { font-weight: 700; font-size: .8rem; color: #64748b; text-transform: uppercase; letter-spacing: .03em; margin-bottom: .4rem; }
@@ -10370,5 +10382,6 @@ body.dark-mode .pd-cell.is-today .pd-num { color: #93c5fd; }
 
 @media (prefers-reduced-motion: reduce) {
   .companion-overlay, .companion-sheet, .companion-turn.is-new, .companion-typing i, .companion-skel, .cb-mission, .ps-dots span,
+  .cb-stagger, .cb-progress-bar i,
   .pd-cell, .pd-cell.is-complete, .pt-task, .pt-check, .pr-fg { animation: none !important; transition: none !important; }
 }

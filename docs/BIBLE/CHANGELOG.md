@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-15 — Coach + Insights as living dashboards (ADR-050)
+
+Turned Coach and Insights from "paragraph + button" into animated, multi-section dashboards from one AI brain.
+Reuse-not-rewrite: same `studentContext`, same one-LLM-call-per-feature, same caches, same `aiPlanner` read.
+No model/schema/rules change; cost unchanged. SW v110→v111. Bible 2.38→2.39, Architecture 2.24→2.25.
+
+- **Deterministic dashboard assembly** (`aiBrain.js`): `_plannerNote`→`_plannerData(uid, clientDate)` returns
+  `{note, readiness, forecast, todayTasks, adherencePct}` from the single existing `aiPlanner` read. `coachToday`
+  rebuilt as `_coachDashboard` (greeting → readiness ring → win → worry → metric cluster → plan progress →
+  days-to-exam callout → today's mission → motivation → conversational chips); `insights` rebuilt as
+  `_insightsDashboard` (patterns intro → biggest-lever card → metrics → pattern cards → weakness → planner
+  prediction → action missions). `_detectPatterns(ctx)` turns the previously-dead behavioural flags
+  (`careless`/`speedRegression`/`plateau`/`inconsistent`/`burnout`) + `sessionImprovementPct` into pattern cards.
+- **Tiers** (`_tier`, 0–4 from lifetime volume) gate WHICH sections show, never WHETHER they're computed.
+- **Cold start = curious onboarding** (`_coachOnboard`/`_insightsOnboard`): "I don't know you yet — ~10 questions
+  and I'll build your profile" + a preview of what unlocks; warmly acknowledges `today.attempted`. Zero
+  "practice to unlock / go practice / warm up" copy (grep-gated).
+- **Closed two dead loops**: `studentContext.serialize()` now surfaces `recentTopicsExplained` (Explain→Coach);
+  Coach writes `aiMemory.wins` via `updateMemory({addWin})` on a real improvement (continuity).
+- **New blocks** (`companion-ui.js`): `ring` (reuses planner `.pr-ring` SVG/CSS) + `progress` (wires the
+  already-defined `.cb-progress*` CSS). `renderEnvelope` staggers block children (`--bi`→`animation-delay`);
+  `.cb-ring`/`.cb-stagger` added, both in the reduced-motion guard.
+- **Prompts**: `coach.daily@5` (greeting/biggestWin/oneWorry/todayRecommendation/motivation, flag-reactive),
+  `insights.analyze@6` (patternsIntro, flag-reactive). One call each; deterministic fallback fills every field.
+- **Left as-is on purpose**: the duplicated client `fmtMin` emits different strings (`" min"` vs `"m"`/round) —
+  merging would change visible text, so kept separate per ADR-047's "don't merge helpers with different behavior".
+- **Verify**: `node --check`; `npm test` 209 + **37** (warm dashboard ≥6 blocks incl. ring; cold onboarding no
+  banned phrasing for Coach+Insights; flag→pattern; `recentTopicsExplained`→serialize; `_tier` mapping); the
+  banned-phrasing grep gate. Animated multi-section feel still needs a real-device pass.
+
 ## 2026-06-14 — QuanAI product polish: one premium AI, correct dates, modal planner (ADR-049)
 
 A 3-pass audit root-caused the remaining correctness/UX issues. No model change. SW v109→v110.

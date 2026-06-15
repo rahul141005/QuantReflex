@@ -8,6 +8,47 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-050 — Coach + Insights as living dashboards: one AI brain, no backend rewrite (2026-06-15)
+- **Context:** Coach and Insights worked but felt like "a paragraph + a button," and still opened by telling the
+  student to "go practice / warm up / unlock." A 3-pass audit found the backend *already computes* almost
+  everything a premium, living dashboard needs (`ctx` readiness signals, behavioural flags, trends, error
+  patterns; the planner's readiness/forecast/adherence; `aiMemory` wins + recentTopicsExplained) — it just never
+  surfaced it. So this is an **assembly + experience** redesign, not new analytics and not a backend rewrite.
+- **Decisions:**
+  - **Deterministic dashboard assembly, one LLM call each (unchanged cost).** Each feature still makes exactly one
+    LLM call (the prose lines only); the server assembles 8–12 deterministic blocks from `ctx` + the single
+    existing `aiPlanner` read. `_plannerNote` became `_plannerData(uid, clientDate)` returning a struct
+    `{note, readiness, forecast, todayTasks, adherencePct}` so Coach/Insights can emit ring/metric/callout/
+    progress/mission blocks — no new reads, no new endpoints, no extra model calls.
+  - **Value first, then recommend.** The warm Coach orders: greeting → readiness **ring** → biggest win →
+    one worry (driven by the dominant behavioural flag) → metric cluster (tier-gated) → this-week **progress**
+    (plan adherence) → days-to-exam callout → today's recommendation **mission** → motivation → conversational
+    chips. Insights reads like an analyst: "I found N patterns" → pattern cards from the previously-dead flags
+    (`careless`/`speedRegression`/`plateau`/`inconsistent`/`burnout`) + a planner prediction ("ready N days
+    early" / "+15 min/day → finish sooner") → every pattern ends in an action.
+  - **Experience tiers (0–4) gate WHICH blocks show, never WHETHER they're computed.** `_tier(ctx)` from lifetime
+    volume (0–5 / 6–29 / 30–99 / 100–499 / 500+). The metric cluster appears from tier 2; ring/mission/forecast
+    appear whenever the data exists.
+  - **Cold start = curious onboarding, never "go practice."** `_coachOnboard`/`_insightsOnboard` say "I don't know
+    you yet — ~10 questions and I'll build your profile," preview what unlocks, and warmly acknowledge any
+    `today.attempted`. No "practice to unlock / warm up" copy remains in either path (grep-gated).
+  - **Two new block types, reusing existing CSS.** `ring` reuses the planner `.pr-ring` SVG/CSS; `progress`
+    wires the already-defined-but-unused `.cb-progress*` CSS. `renderEnvelope` staggers each block child
+    (`--bi` → `animation-delay`) for a cascading reveal; both added to the reduced-motion guard.
+  - **Closed two dead loops.** `studentContext.serialize()` now surfaces `recentTopicsExplained` (Explain writes
+    it; Coach/Insights never saw it) so "you keep asking about X" is possible; Coach calls
+    `aiService.updateMemory(uid,{addWin})` on a genuine improvement so `aiMemory.wins` (previously never written)
+    gives continuity. `coach.daily@5`, `insights.analyze@6` (flag-reactive prose; deterministic fallback fills
+    every field so numbers are never hallucinated).
+  - **Scope guard.** The "make today easier/harder" ask stays **conversational/navigational** (a chat turn +
+    "open my planner" chip), NOT a new planner-mutation endpoint — keeping the backend reused, not redesigned.
+- **Consequences:** No model/schema/rules change; cost unchanged (one call per feature). The `fmtMin` client
+  helper was left duplicated on purpose — the two copies emit different strings (`" min"`/no-round vs `"m"`/round),
+  so merging would change user-visible text (ADR-047's "don't merge helpers with different behavior"). Verified by
+  `node --check`, `npm test` (planner-engine 209 + planner-brain **37**, incl. warm-dashboard ≥6 blocks + ring,
+  cold-onboarding no-banned-phrasing, flag→pattern, and recentTopicsExplained→serialize assertions), and the
+  banned-phrasing grep gate. SW v110→v111. The animated multi-section feel still needs a real-device pass.
+
 ## ADR-049 — QuanAI product polish: one premium AI, correct dates, modal planner (2026-06-14)
 - **Context:** Post-hardening, the features worked but didn't *feel* like one premium product. A 3-pass audit
   root-caused a set of correctness + UX issues for the final polish before paid launch.
