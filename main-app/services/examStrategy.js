@@ -79,7 +79,7 @@ function assemble(profile, planDoc, opts) {
   var targetScore = Number(planDoc.targetScore) || PREP_TARGET[planDoc.prepLevel] || 75;
 
   var rmap = readiness.readinessMap(syl, profile, topicState);
-  var readinessScore = readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc));
+  var readinessScore = (readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc)) || {}).score || 0;
 
   // Behavioural signals come from the canonical Profile (the Strategy reads the one evolving picture — it never
   // receives messages from Coach/Insights). Exam-progress signals come from the doc.
@@ -98,14 +98,12 @@ function assemble(profile, planDoc, opts) {
     readiness: rmap, readinessScore: readinessScore, signals: signals
   });
 
-  // The schedule is a pure PROJECTION of the strategy's roadmap. While the legacy planner endpoints still persist
-  // a `block` for the current Planner UI, surface THAT as the schedule so Coach/Insights and the Planner screen
-  // never diverge; once the Planner UI consumes the strategy, the persisted block IS this projection. The brain
-  // still drives the reasoning (milestones/readiness/recovery), and _nextTask applies recovery overrides on top.
-  var hasStoredBlock = planDoc.block && planDoc.block.days && planDoc.block.days.length;
-  strategy.schedule = hasStoredBlock
-    ? { startDate: planDoc.block.startDate, endDate: planDoc.block.endDate, days: planDoc.block.days, projected: false }
-    : projector.project(strategy.roadmap, { startDate: todayIso, horizonDays: 14, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, workload: strategy.workload });
+  // The schedule is a pure PROJECTION of the strategy's roadmap (no planning logic of its own). The planner
+  // endpoints persist this projection as the block (carrying completion state); the live strategy re-derives the
+  // reasoning (milestones/readiness/recovery) on every read, and _nextTask applies recovery overrides on top.
+  strategy.schedule = projector.project(strategy.roadmap, {
+    startDate: todayIso, horizonDays: 14, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, workload: strategy.workload
+  });
 
   // Exam-progress the roles reason WITH.
   var forecast = readiness.completionForecast(syl, topicState, { dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, examDate: planDoc.examDate, todayIso: todayIso });

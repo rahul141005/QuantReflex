@@ -79,24 +79,74 @@ var Planner = (function () {
   }
 
   function dayTasksDone(d) { var t = d.tasks || []; return { done: t.filter(function (x) { return x.done; }).length, total: t.length }; }
+  function bandLabel(score) { return score >= 80 ? 'Exam ready' : score >= 60 ? 'On track' : score >= 40 ? 'Building' : 'Early days'; }
+
+  /* ADR-057: the STRATEGY dashboard — readiness + verdict, the milestone path, focus-with-why, recovery, triage.
+     The strategy is the product; the schedule below is just its projection. Falls back to a basic readiness panel
+     for legacy docs without a strategy. */
+  function renderStrategy(s, p) {
+    var pr = s.progress || {};
+    var html = '<div class="planner-readiness">' + ring(s.readinessScore) +
+      '<div class="pr-meta">' +
+        '<div class="pr-band">' + esc(bandLabel(s.readinessScore)) + '</div>' +
+        '<div class="pr-label">Exam readiness</div>' +
+        '<div class="pr-projected">Projected ' + (s.projectedScore != null ? s.projectedScore : '—') + '/100 · target ' + (s.targetScore || '—') + (s.achievable ? ' ✓' : '') + '</div>' +
+        (s.daysToExam != null ? '<div class="pr-forecast ' + (pr.onTrack === false ? 'is-behind' : '') + '">' + s.daysToExam + ' days to ' + esc(s.examName || 'your exam') + (pr.adherencePct != null ? ' · ' + pr.adherencePct + '% done' : '') + '</div>' : '') +
+      '</div></div>';
+    if (s.verdict) html += '<div class="planner-verdict">' + esc(s.verdict) + '</div>';
+
+    if (s.recovery && s.recovery.topics && s.recovery.topics.length) {
+      var rt = s.recovery.topics[0];
+      html += '<div class="planner-recovery"><div class="prc-text">⚠ Recent accuracy slipped on <strong>' + esc(s.recovery.topics.map(function (t) { return t.label; }).join(', ')) + '</strong> — recover before new work.</div>' +
+        (rt.drillable ? '<button class="prc-drill" data-cat="' + esc(rt.drillable) + '" data-label="' + esc(rt.label) + '" type="button">⚡ Recover</button>' : '') + '</div>';
+    }
+
+    var doneTopics = {}; (p.block && p.block.days || []).forEach(function (d) { (d.tasks || []).forEach(function (t) { if (t.done) doneTopics[t.topicId] = 1; }); });
+    html += '<div class="planner-section-title">Your path to ' + esc(s.examName || 'the exam') + '</div><div class="planner-milestones">' +
+      (s.milestones || []).map(function (m) {
+        var tot = (m.topics || []).length, dn = (m.topics || []).filter(function (t) { return doneTopics[t.topicId]; }).length;
+        var pct = m.status === 'done' ? 100 : (tot ? Math.round(dn / tot * 100) : 0);
+        return '<div class="pm is-' + (m.status || 'upcoming') + '"><span class="pm-dot"></span><div class="pm-body">' +
+          '<div class="pm-name">' + esc(m.name) + (m.status === 'active' ? ' <span class="pm-now">now</span>' : '') + '</div>' +
+          (m.objective ? '<div class="pm-obj">' + esc(m.objective) + '</div>' : '') +
+          '<div class="pm-meta">' + (tot ? tot + ' topics' : 'timed practice') + (m.hours ? ' · ' + m.hours + 'h' : '') + (tot ? ' · ' + pct + '%' : '') + '</div>' +
+          (tot ? '<div class="pm-bar"><span style="width:' + pct + '%"></span></div>' : '') +
+        '</div></div>';
+      }).join('') + '</div>';
+
+    if (s.focus && s.focus.length) {
+      html += '<div class="planner-section-title">Focus next</div><div class="planner-focus">' +
+        s.focus.slice(0, 4).map(function (t) {
+          return '<div class="pf"><div class="pf-head"><div class="pf-label">' + esc(t.label) + '</div>' +
+            (t.drillable ? '<button class="pf-drill" data-cat="' + esc(t.drillable) + '" data-label="' + esc(t.label) + '" type="button">⚡ Drill</button>' : '<span class="pt-self">your resources</span>') + '</div>' +
+            (t.whyNow ? '<div class="pf-why">' + esc(t.whyNow) + '</div>' : '') +
+            (t.scoreImpact ? '<div class="pf-impact">' + esc(t.scoreImpact) + '</div>' : '') + '</div>';
+        }).join('') + '</div>';
+    }
+
+    if (s.skip && s.skip.length) {
+      html += '<div class="planner-triage"><strong>Parked for time:</strong> ' + esc(s.skip.slice(0, 4).map(function (t) { return t.label; }).join(', ')) +
+        (s.marksAtRisk ? ' · ~' + s.marksAtRisk + ' pts at risk' : '') + '</div>';
+    }
+    return html;
+  }
+
+  /* Legacy readiness panel for docs predating the strategy (ADR-057 graceful fallback). */
+  function legacyReadiness(p) {
+    var rd = p.readiness || { score: 0, band: 'early' }, fc = p.forecast || {};
+    var line = fc.daysToExam != null ? fc.daysToExam + ' days to ' + esc(p.examName || 'your exam') + (fc.onTrack === false ? ' · behind' : ' · on track') : '';
+    return '<div class="planner-readiness">' + ring(rd.score) + '<div class="pr-meta"><div class="pr-band">' + esc(bandLabel(rd.score)) +
+      '</div><div class="pr-label">Exam readiness</div>' + (line ? '<div class="pr-forecast">' + line + '</div>' : '') + '</div></div>';
+  }
 
   function render() {
     var r = root(); if (!r || !_plan || !_plan.block) { emptyState(); return; }
-    var p = _plan, b = p.block, rd = p.readiness || { score: 0, band: 'early' }, fc = p.forecast || {};
+    var p = _plan, b = p.block, s = p.strategy;
     var today = todayIso();
     if (!_sel) {
       var t = (b.days || []).find(function (d) { return d.date === today; });
       _sel = t ? t.date : ((b.days && b.days[0]) ? b.days[0].date : today);
     }
-
-    var bandLabel = { 'exam-ready': 'Exam ready', 'on-track': 'On track', 'building': 'Building', 'early': 'Early days' }[rd.band] || '';
-    var forecastLine = fc.daysToExam != null
-      ? (fc.onTrack !== false
-          ? fc.daysToExam + ' days to ' + esc(p.examName || 'your exam') + ' · on track' + (fc.bufferDays != null ? ' (' + fc.bufferDays + 'd buffer)' : '')
-          : fc.daysToExam + ' days to ' + esc(p.examName || 'your exam') + ' · ' + Math.abs(fc.bufferDays || 0) + 'd behind — plan rebalanced')
-      : (fc.sessionsRemaining != null ? '~' + fc.sessionsRemaining + ' sessions of study remaining' : '');
-    var plusLine = (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0)
-      ? '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner' : '';
 
     var cells = (b.days || []).map(function (d) {
       var k = KIND[d.kind] || KIND.study, dt = dayTasksDone(d);
@@ -112,18 +162,16 @@ var Planner = (function () {
 
     r.innerHTML =
       '<div class="planner-top">' +
-        '<div class="planner-titles"><div class="planner-title">' + esc(p.examName || 'Study Planner') + '</div><div class="planner-sub">' + esc(bandLabel || 'Your study plan') + '</div></div>' +
+        '<div class="planner-titles"><div class="planner-title">' + esc(p.examName || 'Study Planner') + '</div><div class="planner-sub">' + esc(s ? 'Your strategy to maximise marks' : 'Your study plan') + '</div></div>' +
         '<button class="planner-adjust" type="button">Adjust</button>' +
       '</div>' +
-      '<div class="planner-readiness">' + ring(rd.score) +
-        '<div class="pr-meta"><div class="pr-band">' + esc(bandLabel) + '</div><div class="pr-label">Exam readiness</div>' +
-        (forecastLine ? '<div class="pr-forecast ' + (fc.onTrack === false ? 'is-behind' : '') + '">' + forecastLine + '</div>' : '') +
-        (plusLine ? '<div class="pr-plus">' + plusLine + '</div>' : '') + '</div></div>' +
+      (s ? renderStrategy(s, p) : legacyReadiness(p)) +
+      '<div class="planner-section-title planner-sched-title">Your schedule</div>' +
       (b.rationale ? '<div class="planner-rationale">' + esc(b.rationale) + '</div>' : '') +
       '<div class="planner-grid">' + cells + '</div>' +
       '<div class="planner-detail">' + detail + '</div>' +
       '<div class="planner-foot">' +
-        (today >= b.endDate ? '<button class="planner-regen" type="button">Plan my next 2 weeks →</button>' : '') +
+        (today >= b.endDate ? '<button class="planner-regen" type="button">Rebuild my plan →</button>' : '') +
       '</div>';
 
     // wiring
@@ -132,7 +180,7 @@ var Planner = (function () {
     r.querySelectorAll('.pt-check').forEach(function (cb) {
       cb.onchange = function () { toggle(cb.getAttribute('data-date'), cb.getAttribute('data-topic'), cb.checked); };
     });
-    r.querySelectorAll('.pt-drill').forEach(function (d) {
+    r.querySelectorAll('.pt-drill, .pf-drill, .prc-drill').forEach(function (d) {
       d.onclick = function () { startDrill(d.getAttribute('data-cat'), d.getAttribute('data-label')); };
     });
     var rg = r.querySelector('.planner-regen'); if (rg) rg.onclick = regen;

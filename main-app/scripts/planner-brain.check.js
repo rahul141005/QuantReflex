@@ -81,7 +81,8 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
     dailyMinutes: 60, daysPerWeek: 6, prepLevel: 'average', preferredTime: 'evening', goal: '99 percentile'
   }, { clientStats: clientStats });
 
-  ok(setup.plan && setup.plan.v === 2, 'setup returns a v2 plan doc');
+  ok(setup.plan && setup.plan.v === 3, 'setup returns a v3 plan doc (ADR-057: carries the strategy)');
+  ok(setup.plan.strategy && setup.plan.strategy.milestones.length > 0, 'setup persists the strategy (milestones) on the plan doc');
   ok(setup.plan.syllabusId === 'cat_quant', 'setup resolves CAT → cat_quant syllabus');
   ok(setup.plan.block && setup.plan.block.days.length === 14, 'setup builds a 14-day block');
   ok(setup.plan.readiness && typeof setup.plan.readiness.score === 'number', 'setup carries a readiness score');

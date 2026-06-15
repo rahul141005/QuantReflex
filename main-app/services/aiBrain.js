@@ -622,6 +622,14 @@ async function plannerGet(uid, opts) {
       await _writePlanner(uid, { block: doc.block, forecast: doc.forecast, updatedAt: doc.updatedAt });
     }
   }
+  // ADR-057: re-derive the live strategy (milestones/readiness/projection/recovery) over current progress so the
+  // dashboard is always current. The persisted block (with completion state) remains the schedule.
+  var liveStrategy = examStrategy.assemble(ctx, doc, { clientDate: opts.clientDate });
+  if (liveStrategy) {
+    doc.strategy = _persistStrategy(liveStrategy);
+    doc.readiness = { score: liveStrategy.readinessScore, band: _bandKey(liveStrategy.readinessScore) };
+    doc.forecast = liveStrategy.progress.forecast;
+  }
   return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null, opts.clientDate) };
 }
 
@@ -646,7 +654,24 @@ async function _narratePlan(uid, ctx, seed) {
   }
 }
 
-/** Create (or re-configure) a plan from the setup answers and generate block 0. */
+/* ADR-057: readiness band from the 0..100 score (mirrors examStrategy._band). */
+function _bandKey(score) { return score >= 80 ? 'exam-ready' : score >= 60 ? 'on-track' : score >= 40 ? 'building' : 'early'; }
+/* A persistable, UI-ready subset of the strategy (the heavy roadmap lives in the block; topic detail in milestones). */
+function _persistStrategy(s) {
+  if (!s) return null;
+  return {
+    readinessScore: s.readinessScore, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
+    daysToExam: s.daysToExam, targetScore: s.targetScore, verdict: s.verdict, workload: s.workload,
+    examName: s.examName, examDate: s.examDate, totalHours: s.totalHours, plannedHours: s.plannedHours,
+    milestones: (s.milestones || []).map(function (m) {
+      return { id: m.id, name: m.name, kind: m.kind, status: m.status, objective: m.objective, why: m.why, hours: m.hours,
+        topics: (m.topics || []).map(function (t) { return { topicId: t.topicId, label: t.label, action: t.action, drillable: t.drillable }; }) };
+    }),
+    focus: s.focus, revise: s.revise, skip: s.skip, recovery: s.recovery, progress: s.progress
+  };
+}
+
+/** Create (or re-configure) a plan from the setup answers and build block 0 via the strategy engine (ADR-057). */
 async function plannerSetup(uid, params, opts) {
   opts = opts || {};
   var ctx = await ctxEngine.build(uid, { force: true, clientStats: opts.clientStats });
@@ -661,29 +686,29 @@ async function plannerSetup(uid, params, opts) {
   var prepLevel = ['scratch', 'revision', 'average', 'confident', 'ready'].indexOf(params.prepLevel) >= 0 ? params.prepLevel : 'average';
   var preferredTime = ['morning', 'afternoon', 'evening', 'night'].indexOf(params.preferredTime) >= 0 ? params.preferredTime : null;
   var goal = String(params.goal || '').slice(0, 160);
+  var targetScore = params.targetScore != null ? _clamp(parseInt(params.targetScore, 10) || 0, 1, 100) : null;
 
   // keep prior coverage if re-configuring the SAME syllabus (don't throw away real progress)
   var prev = await plannerGetDoc(uid);
   var topicState = (prev && prev.syllabusId === syllabus.id && prev.topicState) ? prev.topicState : {};
 
   var startDate = opts.clientDate || _todayIso();   // ADR-049: anchor the block to the student's LOCAL today
-  var gen = plannerEngine.generateBlock({
-    syllabus: syllabus, ctx: ctx, topicState: topicState, prepLevel: prepLevel,
-    dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, preferredTime: preferredTime,
-    startDate: startDate, blockIndex: 0, examName: examName, examDate: examDate,
-    daysRemaining: _daysRemaining(examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
-  });
-  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+  // The strategy engine is the SOLE planner; the block is a PROJECTION of its roadmap (ADR-057).
+  var draft = { examId: examId, examName: examName, examLabel: examName, syllabusId: syllabus.id, examDate: examDate,
+    dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, prepLevel: prepLevel, targetScore: targetScore, topicState: topicState, block: null };
+  var strategy = examStrategy.assemble(ctx, draft, { clientDate: startDate });
+  var narrated = await _narratePlan(uid, ctx, { focusTopics: strategy.focus, onTrack: strategy.progress.onTrack, readinessScore: strategy.readinessScore, examName: examName });
 
   var doc = {
-    v: 2, uid: uid, examId: examId, examName: examName, examLabel: examName, syllabusId: syllabus.id,
+    v: 3, uid: uid, examId: examId, examName: examName, examLabel: examName, syllabusId: syllabus.id,
     examDate: examDate, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, prepLevel: prepLevel,
-    preferredTime: preferredTime, goal: goal,
+    preferredTime: preferredTime, goal: goal, targetScore: strategy.targetScore,
     block: { index: 0, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
-      generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days },
-    topicState: _mergeTopicState(topicState, gen.topicStatePatch),
+      generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: strategy.schedule.days },
+    strategy: _persistStrategy(strategy),
+    topicState: topicState,
     blockHistory: (prev && prev.blockHistory) || [],
-    readiness: gen.examReadiness, forecast: gen.forecast,
+    readiness: { score: strategy.readinessScore, band: _bandKey(strategy.readinessScore) }, forecast: strategy.progress.forecast,
     createdAt: (prev && prev.createdAt) || admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
@@ -718,16 +743,18 @@ async function plannerToggle(uid, params, opts) {
     doc.topicState = _mergeTopicState(doc.topicState, comp.patch);
   }
 
+  // Smart Catch-up keeps the persisted schedule honest within the block; the strategy re-derives the reasoning.
   doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, opts.clientDate || _todayIso(), doc.dailyMinutes);
 
   var ctx = await ctxEngine.build(uid, { clientStats: opts.clientStats });
-  doc.readiness = readinessLib.examReadinessScore(syllabus, ctx, doc.topicState, _blockStats(doc));
-  doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
-    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
-  });
+  // ADR-057: re-run the SOLE planner over the updated coverage so milestones/readiness/projection reflect the tick.
+  var strategy = examStrategy.assemble(ctx, doc, { clientDate: opts.clientDate });
+  doc.strategy = _persistStrategy(strategy);
+  doc.readiness = { score: strategy.readinessScore, band: _bandKey(strategy.readinessScore) };
+  doc.forecast = strategy.progress.forecast;
   doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-  var okT = await _writePlanner(uid, { block: doc.block, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
+  var okT = await _writePlanner(uid, { block: doc.block, strategy: doc.strategy, topicState: doc.topicState, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
   if (!okT) return { error: 'write_failed' };
 
   return { plan: doc };
@@ -749,21 +776,18 @@ async function plannerRegenBlock(uid, opts) {
   }]).slice(-12);
 
   var startDate = opts.clientDate || _todayIso();   // ADR-049: LOCAL today
-  var gen = plannerEngine.generateBlock({
-    syllabus: syllabus, ctx: ctx, topicState: doc.topicState, prepLevel: doc.prepLevel,
-    dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, preferredTime: doc.preferredTime,
-    startDate: startDate, blockIndex: doc.block.index + 1, examName: doc.examName, examDate: doc.examDate,
-    daysRemaining: _daysRemaining(doc.examDate), recentDailyMinutes: _recentDailyMinutes(ctx)
-  });
-  var narrated = await _narratePlan(uid, ctx, gen.rationaleSeed);
+  // ADR-057: regenerate the next block as a fresh PROJECTION of the strategy over current progress.
+  var nextIndex = doc.block.index + 1;
+  var strategy = examStrategy.assemble(ctx, doc, { clientDate: startDate });
+  var narrated = await _narratePlan(uid, ctx, { focusTopics: strategy.focus, onTrack: strategy.progress.onTrack, readinessScore: strategy.readinessScore, examName: doc.examName });
 
-  doc.topicState = _mergeTopicState(doc.topicState, gen.topicStatePatch);
-  doc.block = { index: doc.block.index + 1, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
-    generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: gen.days };
-  doc.readiness = gen.examReadiness; doc.forecast = gen.forecast;
+  doc.block = { index: nextIndex, startDate: startDate, endDate: plannerEngine.addDays(startDate, 13),
+    generatedAt: new Date().toISOString(), rationale: narrated.rationale, days: strategy.schedule.days };
+  doc.strategy = _persistStrategy(strategy);
+  doc.readiness = { score: strategy.readinessScore, band: _bandKey(strategy.readinessScore) }; doc.forecast = strategy.progress.forecast;
   doc.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
-  var okR = await _writePlanner(uid, { block: doc.block, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
+  var okR = await _writePlanner(uid, { block: doc.block, strategy: doc.strategy, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
   if (!okR) return { error: 'write_failed' };
 
   return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate) };

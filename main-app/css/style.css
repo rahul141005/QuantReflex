@@ -10354,6 +10354,53 @@ body.dark-mode .pt-reason { color: #94a3b8; }
 .pt-self { align-self: center; font-size: .72rem; color: #94a3b8; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .planner-foot { margin-top: 1.2rem; }
 
+/* ---- ADR-057: the strategy dashboard (readiness → path → focus → triage) ---- */
+.pr-projected { font-size: .82rem; color: #475569; font-weight: 600; margin-top: .2rem; }
+body.dark-mode .pr-projected { color: #94a3b8; }
+.planner-verdict { font-size: .95rem; line-height: 1.5; color: #0f172a; font-weight: 600; background: rgba(37, 99, 235, .06); border-left: 3px solid #2563eb; border-radius: 0 12px 12px 0; padding: .7rem .85rem; margin-bottom: 1rem; }
+body.dark-mode .planner-verdict { color: #e2e8f0; background: rgba(96, 165, 250, .1); }
+.planner-recovery { display: flex; align-items: center; gap: .7rem; background: rgba(217, 119, 6, .1); border: 1px solid rgba(217, 119, 6, .28); border-radius: 12px; padding: .7rem .85rem; margin-bottom: 1rem; }
+.prc-text { flex: 1; font-size: .88rem; color: #92400e; line-height: 1.45; }
+body.dark-mode .prc-text { color: #fbbf24; }
+.prc-drill { background: #d97706; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.planner-section-title { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #64748b; margin: 1.1rem 0 .6rem; }
+.planner-sched-title { border-top: 1px solid rgba(15, 23, 42, .08); padding-top: 1rem; margin-top: 1.4rem; }
+body.dark-mode .planner-sched-title { border-color: rgba(255, 255, 255, .08); }
+.planner-milestones { display: flex; flex-direction: column; }
+.pm { display: flex; gap: .7rem; padding-bottom: .9rem; position: relative; }
+.pm::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: -2px; width: 2px; background: rgba(15, 23, 42, .1); }
+.pm:last-child::before { display: none; }
+body.dark-mode .pm::before { background: rgba(255, 255, 255, .12); }
+.pm-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; background: #cbd5e1; box-shadow: 0 0 0 3px rgba(203, 213, 225, .25); z-index: 1; }
+.pm.is-done .pm-dot { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .2); }
+.pm.is-active .pm-dot { background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .22); }
+.pm-body { flex: 1; min-width: 0; }
+.pm-name { font-weight: 800; color: #0f172a; font-size: .98rem; }
+body.dark-mode .pm-name { color: #e2e8f0; }
+.pm.is-upcoming .pm-name { color: #64748b; }
+.pm-now { font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; background: #2563eb; border-radius: 999px; padding: .1rem .4rem; vertical-align: middle; }
+.pm-obj { font-size: .85rem; color: #475569; line-height: 1.45; margin-top: .15rem; }
+body.dark-mode .pm-obj { color: #94a3b8; }
+.pm-meta { font-size: .76rem; color: #94a3b8; font-weight: 600; margin-top: .25rem; }
+.pm-bar { height: 5px; border-radius: 999px; background: rgba(15, 23, 42, .08); margin-top: .4rem; overflow: hidden; }
+.pm-bar span { display: block; height: 100%; background: #2563eb; border-radius: 999px; transition: width .4s ease; }
+.pm.is-done .pm-bar span { background: #16a34a; }
+body.dark-mode .pm-bar { background: rgba(255, 255, 255, .1); }
+.planner-focus { display: flex; flex-direction: column; gap: .55rem; }
+.pf { border: 1px solid rgba(15, 23, 42, .1); border-radius: 12px; padding: .75rem; background: #fff; }
+body.dark-mode .pf { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .1); }
+.pf-head { display: flex; align-items: center; gap: .7rem; }
+.pf-label { flex: 1; font-weight: 700; color: #0f172a; font-size: .98rem; min-width: 0; }
+body.dark-mode .pf-label { color: #e2e8f0; }
+.pf-drill { background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.pf-why { font-size: .84rem; color: #475569; line-height: 1.45; margin-top: .35rem; }
+body.dark-mode .pf-why { color: #94a3b8; }
+.pf-impact { font-size: .8rem; color: #16a34a; font-weight: 700; margin-top: .25rem; }
+.planner-triage { font-size: .85rem; color: #64748b; line-height: 1.5; background: rgba(15, 23, 42, .03); border-radius: 12px; padding: .7rem .85rem; margin-top: .9rem; }
+body.dark-mode .planner-triage { color: #94a3b8; background: rgba(255, 255, 255, .04); }
+.planner-triage strong { color: #475569; }
+body.dark-mode .planner-triage strong { color: #cbd5e1; }
+
 /* ---- ADR-049 micro-polish: premium calendar feel ---- */
 .pd-cell { transition: transform .12s cubic-bezier(.2,.7,.3,1), border-color .12s ease, box-shadow .12s ease, background .12s ease; }
 .pd-cell:active { transform: scale(.93); }
