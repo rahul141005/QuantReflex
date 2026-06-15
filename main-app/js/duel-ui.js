@@ -384,11 +384,12 @@ var DuelUI = (function () {
     var bannerCls = draw ? 'is-draw' : (iWon ? 'is-win' : 'is-loss');
     var icon = draw ? '🤝' : (iWon ? '🏆' : '⚔️');
 
+    var allowSkip = !!(d.config && d.config.allowSkip);   // ADR-064: show attempted/skipped only when Skip was on
     container.style.display = 'block';
     // CENTERED composition: every block aligns to one vertical axis. The VS row and the stats table are both
     // symmetric 3-column grids (1fr · auto · 1fr) — you on the left half, opponent on the right half, label centered.
     container.innerHTML =
-      '<div class="duel-screen"><div class="duel-card duel-result-card">' +
+      '<div class="duel-screen"><div class="duel-card duel-result-card duel-reveal">' +
         '<div class="duel-result-icon">' + icon + '</div>' +
         '<div class="duel-result-banner ' + bannerCls + '">' + _esc(banner) + '</div>' +
         '<div class="duel-result-vs">' +
@@ -398,16 +399,22 @@ var DuelUI = (function () {
         '</div>' +
         '<div class="duel-result-stats">' +
           _statRow('Correct', me.correctCount + ' / ' + n, op.correctCount + ' / ' + n) +
+          (allowSkip ? _statRow('Attempted', (me.answeredCount || 0) + ' / ' + n, (op.answeredCount || 0) + ' / ' + n) : '') +
+          (allowSkip ? _statRow('Skipped', String(n - (me.answeredCount || 0)), String(n - (op.answeredCount || 0))) : '') +
           _statRow('Accuracy', _acc(me) + '%', _acc(op) + '%') +
           _statRow('Speed', _spd(me), _spd(op)) +
         '</div>' +
         '<div class="duel-result-why">' + _esc(_why(draw, iWon, me, op, opName)) + '</div>' +
         '<div class="duel-result-actions">' +
-          '<button id="duShareRes" class="btn-secondary" type="button">Share</button>' +
-          '<button id="duFinish" class="btn-primary duel-finish-btn" type="button">Finish Duel</button>' +
+          '<button id="duReview" class="btn-secondary duel-review-btn" type="button">🔍 Review all questions</button>' +
+          '<div class="duel-actions-row">' +
+            '<button id="duShareRes" class="btn-secondary" type="button">Share</button>' +
+            '<button id="duFinish" class="btn-primary duel-finish-btn" type="button">Finish</button>' +
+          '</div>' +
         '</div>' +
       '</div></div>';
 
+    var rv = _el('duReview'); if (rv) rv.onclick = function () { try { if (opts.onReview) opts.onReview(); } catch (_) {} };
     var sh = _el('duShareRes'); if (sh) sh.onclick = function () {
       var data = { result: d.result, myName: myName, opName: opName, myScore: me.correctCount, opScore: op.correctCount, total: n, winner: d.winnerUid, myUid: myUid, myAccuracy: _acc(me), opAccuracy: _acc(op), myAttempted: (me.answeredCount != null ? me.answeredCount : me.correctCount), opAttempted: (op.answeredCount != null ? op.answeredCount : op.correctCount), mySpeed: _spd(me), opSpeed: _spd(op) };
       if (typeof ShareService !== 'undefined' && ShareService.shareDuelAsImage) ShareService.shareDuelAsImage(data);
@@ -457,6 +464,85 @@ var DuelUI = (function () {
     return wn + ' won on speed — same accuracy, faster solving.';
   }
 
+  /* ═════════════════ ADR-064: premium finish transition ═════════════════ */
+  function showCalculating(oppName) {
+    hideCalculating();
+    var ov = document.createElement('div');
+    ov.id = 'duelCalcOverlay'; ov.className = 'duel-calc-overlay';
+    ov.innerHTML = '<div class="duel-calc-card">' +
+      '<div class="duel-calc-spinner" aria-hidden="true"><span></span><span></span><span></span></div>' +
+      '<div class="duel-calc-text" id="duelCalcText">Submitting your answers…</div></div>';
+    document.body.appendChild(ov);
+    var steps = ['Submitting your answers…', 'Syncing with ' + (oppName || 'your opponent') + '…', 'Calculating results…'];
+    var i = 0;
+    ov._timer = setInterval(function () {
+      i = Math.min(i + 1, steps.length - 1);
+      var el = document.getElementById('duelCalcText');
+      if (el) { el.textContent = steps[i]; el.classList.remove('is-swap'); void el.offsetWidth; el.classList.add('is-swap'); }
+    }, 750);
+  }
+  function hideCalculating() {
+    var ov = document.getElementById('duelCalcOverlay');
+    if (!ov) return;
+    if (ov._timer) clearInterval(ov._timer);
+    ov.classList.add('is-out');
+    setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 200);
+  }
+
+  /* ═════════════════ ADR-064: post-match per-question review ═════════════════ */
+  function renderReviewLoading(container) {
+    container.style.display = 'block';
+    container.innerHTML = '<div class="duel-screen"><div class="duel-card duel-review-card">' +
+      '<div class="duel-review-loading"><div class="duel-calc-spinner"><span></span><span></span><span></span></div><div>Loading your review…</div></div></div></div>';
+  }
+  function renderReview(container, opts) {
+    var d = opts.duel || {}, prompts = d.prompts || [], review = opts.review || [], myAnswers = opts.myAnswers || {};
+    var byIndex = {}; review.forEach(function (r) { byIndex[r.i] = r; });
+    var rows = prompts.map(function (p) {
+      var r = byIndex[p.index];
+      var hasReview = !!r;                              // server graded data for THIS question
+      r = r || {};
+      var your = (r.y != null && r.y !== '') ? r.y : ((myAnswers[p.index] && myAnswers[p.index].value) || '');
+      var skipped = !String(your).trim();
+      var correct = !!r.c;
+      var correctAns = (r.a != null) ? String(r.a) : '';
+      // Only label right/wrong when we actually have the graded data; otherwise stay neutral (never mislabel).
+      var cls = !hasReview ? '' : (skipped ? 'is-skipped' : (correct ? 'is-correct' : 'is-wrong'));
+      var badge = !hasReview ? '' : (skipped ? '<span class="drv-badge is-skip">Skipped</span>'
+        : (correct ? '<span class="drv-badge is-ok">✓ Correct</span>' : '<span class="drv-badge is-no">✗ Wrong</span>'));
+      var showCorrect = hasReview && !correct && correctAns !== '';
+      return '<div class="duel-review-row ' + cls + '">' +
+        '<div class="drv-head"><span class="drv-qn">Q' + (p.index + 1) + '</span>' +
+          '<span class="drv-cat">' + _esc(_fmtCat(p.category)) + '</span>' + badge + '</div>' +
+        '<div class="drv-q">' + _esc(p.text) + '</div>' +
+        '<div class="drv-answers">' +
+          '<div class="drv-yours"><span class="drv-k">Your answer</span><span class="drv-v">' + (skipped ? '—' : _esc(your)) + '</span></div>' +
+          (showCorrect ? '<div class="drv-correct"><span class="drv-k">Correct answer</span><span class="drv-v">' + _esc(correctAns) + '</span></div>' : '') +
+        '</div>' +
+        (correctAns !== '' ? '<button class="drv-explain" data-i="' + p.index + '" type="button">🧠 Explain</button>' : '') +
+      '</div>';
+    }).join('');
+    var correctN = review.filter(function (r) { return r.c; }).length;
+    container.style.display = 'block';
+    container.innerHTML =
+      '<div class="duel-screen"><div class="duel-card duel-review-card">' +
+        '<div class="duel-review-head">' +
+          '<button class="duel-review-back" id="drvBack" type="button">‹ Back</button>' +
+          '<div class="duel-review-titlewrap"><div class="duel-review-title">Match Review</div>' +
+            '<div class="duel-review-sub">' + correctN + ' / ' + prompts.length + ' correct</div></div>' +
+        '</div>' +
+        '<div class="duel-review-list">' + (rows || '<div class="duel-review-empty">No questions to review.</div>') + '</div>' +
+      '</div></div>';
+    var back = _el('drvBack'); if (back) back.onclick = function () { try { if (opts.onBack) opts.onBack(); } catch (_) {} };
+    container.querySelectorAll('.drv-explain').forEach(function (btn) {
+      btn.onclick = function () {
+        var i = parseInt(btn.getAttribute('data-i'), 10);
+        var p = prompts.filter(function (x) { return x.index === i; })[0], r = byIndex[i] || {};
+        if (p && opts.onExplain) opts.onExplain(p.text, r.a, p.category);
+      };
+    });
+  }
+
   /* ═════════════════ Submit & Leave modal ═════════════════ */
   function showExitModal(opts) {
     var modal = _el('exitDuelModal'); if (!modal) { opts.onConfirm(); return; }
@@ -492,6 +578,8 @@ var DuelUI = (function () {
     renderInstallGate: renderInstallGate,
     renderSetup: renderSetup, renderJoin: renderJoin, renderLobby: renderLobby,
     renderWaiting: renderWaiting, renderResults: renderResults,
+    renderReview: renderReview, renderReviewLoading: renderReviewLoading,
+    showCalculating: showCalculating, hideCalculating: hideCalculating,
     showExitModal: showExitModal, hideExitModal: hideExitModal,
     inviteUrl: _inviteUrl
   };

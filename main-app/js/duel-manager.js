@@ -14,6 +14,8 @@ var DuelManager = (function () {
   var _code = null;
   var _duel = null;          // latest room view
   var _my = null;            // my graded result (when finished)
+  var _myAnswerCache = {};   // ADR-064: { idx: {value, ms} } captured during solving for the post-match review
+  var _myReview = null;      // ADR-064: [{i,a,y,c}] per-question review (correct answer + yours + right/wrong)
   var _serverOffset = 0;     // estimated (serverNow - clientNow) ms — anchors the countdown
   var _token = null;         // cached ID token for the finalize-on-leave keepalive beacon
   var _hbTimer = null, _deadlineTimer = null, _countTimer = null, _perqTimer = null;
@@ -286,6 +288,7 @@ var DuelManager = (function () {
       onDuelRender: _onDuelRender,
       onDuelAnswerSubmit: function (raw, ms, idx) {
         if (_runner) _runner.index = idx + 1;
+        _myAnswerCache[idx] = { value: raw == null ? '' : String(raw), ms: ms || 0 };   // ADR-064: for post-match review
         _lastAnswerWrite = DuelCore.writeAnswer(_code, idx, raw, ms);   // persist; track for the finalize flush
       },
       onFinish: function () { _finishMe('completed_all'); }
@@ -360,18 +363,38 @@ var DuelManager = (function () {
       new Promise(function (r) { setTimeout(r, 1500); })
     ]);
     _teardownSolving();
+    // ADR-064: a premium finish transition instead of a dead gap — branded "calculating" overlay held a minimum
+    // beat so the result reveal feels intentional, never like the app is hanging.
+    var oppName = _oppName();
+    DuelUI.showCalculating(oppName);
+    var minBeat = new Promise(function (r) { setTimeout(r, 900); });
     flush.then(function () { return DuelCore.finishDuel(code, reason); }).then(function (res) {
       _finalizing = false;
       _my = res.my || _my;
+      _myReview = res.myReview || _myReview;
       if (res.duel) _duel = res.duel;
-      if (res.complete) { _showResults(code, _duel); }
-      else { _enterWaiting(code, _duel); }
+      minBeat.then(function () {
+        if (res.complete) { DuelUI.hideCalculating(); _showResults(code, _duel); }
+        else { DuelUI.hideCalculating(); _enterWaiting(code, _duel); }
+      });
     }).catch(function (e) {
       _finalizing = false;
-      // Couldn't reach the server — go to waiting; the deadline/cron/opponent poll will finalize.
-      _enterWaiting(code, _duel || { participantUids: [], presence: {} });
-      _toast(_err(e));
+      minBeat.then(function () {
+        DuelUI.hideCalculating();
+        // Couldn't reach the server — go to waiting; the deadline/cron/opponent poll will finalize.
+        _enterWaiting(code, _duel || { participantUids: [], presence: {} });
+        _toast(_err(e));
+      });
     });
+  }
+
+  /** Opponent display name (for the transition overlay), best-effort. */
+  function _oppName() {
+    try {
+      var uid = _myUid();
+      var opp = ((_duel && _duel.participantUids) || []).find(function (u) { return u !== uid; });
+      return (opp && _duel.presence && _duel.presence[opp] && _duel.presence[opp].name) || 'your opponent';
+    } catch (_) { return 'your opponent'; }
   }
 
   function _teardownSolving() {
@@ -450,12 +473,37 @@ var DuelManager = (function () {
     DuelCore.stopListening();
     _showNav();
     _showContainer('duelResults');
-    DuelUI.renderResults(_el('duelResults'), {
-      duel: duel, myUid: _myUid(),
-      onShare: function () {},
-      onFinish: function () { _finishDuel(code); }
-    });
+    _renderResults();
     refreshActiveCard();
+  }
+
+  function _renderResults() {
+    DuelUI.renderResults(_el('duelResults'), {
+      duel: _duel, myUid: _myUid(),
+      onShare: function () {},
+      onReview: _openReview,                      // ADR-064: per-question match review
+      onFinish: function () { _finishDuel(_code); }
+    });
+  }
+
+  /* ADR-064: per-question review — merge prompts (text+category) + my cached answers + the server review
+     (correct answer + right/wrong). Lazy-loads the review for the player who reached results via the listener. */
+  function _openReview() {
+    var go = function () {
+      var dz = _duel || {};
+      if ((!dz.prompts || !dz.prompts.length) && _solvePrompts && _solvePrompts.length) dz = Object.assign({}, dz, { prompts: _solvePrompts });
+      DuelUI.renderReview(_el('duelResults'), {
+        duel: dz, review: _myReview || [], myAnswers: _myAnswerCache,
+        onBack: function () { _renderResults(); },
+        onExplain: function (question, answer, category) {
+          if (typeof canAccessFeature === 'function' && !canAccessFeature('ai_explain')) { if (typeof showPaywall === 'function') showPaywall('ai_explain'); return; }
+          if (typeof AIFeatures !== 'undefined' && AIFeatures.showExplanationModal) AIFeatures.showExplanationModal(question, answer, category);
+        }
+      });
+    };
+    if (_myReview && _myReview.length) { go(); return; }
+    DuelUI.renderReviewLoading(_el('duelResults'));   // brief loader while we fetch own result
+    DuelCore.fetchMyResult(_code).then(function (r) { _myReview = (r && r.review) || []; go(); }).catch(go);
   }
 
   /* Finish Duel — the ONLY exit from results (Rematch removed). The user must ESCAPE INSTANTLY and can NEVER hang on
@@ -610,6 +658,7 @@ var DuelManager = (function () {
     document.body.classList.remove('modal-open');
     _lobbySig = '';
     _code = null; _duel = null; _my = null; _solvePrompts = null; _phase = 'idle'; _finalizing = false;
+    _myAnswerCache = {}; _myReview = null;   // ADR-064: clear post-match review state
   }
 
   function isInDuel() { return _phase !== 'idle'; }

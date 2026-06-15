@@ -7182,8 +7182,79 @@ body.dark-mode .duel-sb-score { color: #f1f5f9; }
   justify-content: center;
   background: #f8fafc;
   padding: 1.5rem;
+  overflow-y: auto;                                  /* tall content (review list) scrolls instead of clipping */
+  padding-top: max(1.5rem, env(safe-area-inset-top, 0));
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0));
 }
 body.dark-mode #duelResults { background: #0f172a; }
+/* ADR-064: inside the centered results overlay the screen wrapper must NOT stretch full-height or carry the
+   bottom-nav padding — that pushed the card high on short devices. Let it size to content + center naturally. */
+#duelResults .duel-screen { min-height: 0; padding: 0; margin: auto; width: 100%; }
+
+/* ADR-064: premium finish transition overlay */
+.duel-calc-overlay { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center;
+  background: rgba(2, 6, 23, .92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: duelCalcIn .25s ease; }
+.duel-calc-overlay.is-out { animation: duelCalcOut .2s ease forwards; }
+@keyframes duelCalcIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes duelCalcOut { from { opacity: 1; } to { opacity: 0; } }
+.duel-calc-card { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; color: #fff; padding: 1.5rem; }
+.duel-calc-spinner { display: flex; gap: .5rem; }
+.duel-calc-spinner > span { width: 12px; height: 12px; border-radius: 50%; background: #60a5fa; animation: duelCalcBounce 1s infinite ease-in-out both; }
+.duel-calc-spinner > span:nth-child(1) { animation-delay: -.32s; }
+.duel-calc-spinner > span:nth-child(2) { animation-delay: -.16s; }
+@keyframes duelCalcBounce { 0%, 80%, 100% { transform: scale(.5); opacity: .5; } 40% { transform: scale(1); opacity: 1; } }
+.duel-calc-text { font-size: 1.05rem; font-weight: 700; letter-spacing: .01em; min-height: 1.4em; }
+.duel-calc-text.is-swap { animation: duelCalcSwap .35s ease; }
+@keyframes duelCalcSwap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ADR-064: results reveal entrance */
+.duel-reveal { animation: duelReveal .5s cubic-bezier(.17, .67, .35, 1.2) both; }
+@keyframes duelReveal { 0% { opacity: 0; transform: translateY(14px) scale(.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ADR-064: results actions — Review primary-width, Share/Finish in a row */
+.duel-result-actions { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.1rem; }
+.duel-review-btn { width: 100%; }
+.duel-actions-row { display: flex; gap: .6rem; }
+.duel-actions-row > button { flex: 1 1 0; }
+
+/* ADR-064: post-match review screen */
+.duel-review-card { padding: 1rem 1rem 1.3rem; text-align: left; width: 100%; max-width: 480px; }
+.duel-review-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .9rem; }
+.duel-review-back { flex: 0 0 auto; border: none; background: #f1f5f9; color: #334155; font-weight: 700; font-size: .9rem;
+  padding: .4rem .8rem; border-radius: .7rem; cursor: pointer; }
+body.dark-mode .duel-review-back { background: rgba(255, 255, 255, .08); color: #e2e8f0; }
+.duel-review-titlewrap { flex: 1 1 auto; }
+.duel-review-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; }
+body.dark-mode .duel-review-title { color: #f1f5f9; }
+.duel-review-sub { font-size: .8rem; color: #64748b; font-weight: 600; }
+.duel-review-list { display: flex; flex-direction: column; gap: .7rem; }
+.duel-review-row { border: 1px solid rgba(15, 23, 42, .08); border-left: 4px solid #cbd5e1; border-radius: .9rem; padding: .8rem .9rem; background: #fff; }
+body.dark-mode .duel-review-row { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .08); }
+.duel-review-row.is-correct { border-left-color: #10b981; }
+.duel-review-row.is-wrong { border-left-color: #ef4444; }
+.duel-review-row.is-skipped { border-left-color: #f59e0b; }
+.drv-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.drv-qn { font-weight: 800; font-size: .82rem; color: #475569; }
+.drv-cat { font-size: .72rem; color: #94a3b8; font-weight: 600; flex: 1 1 auto; }
+.drv-badge { font-size: .68rem; font-weight: 800; padding: .12rem .5rem; border-radius: 999px; white-space: nowrap; }
+.drv-badge.is-ok { color: #047857; background: rgba(16, 185, 129, .14); }
+.drv-badge.is-no { color: #b91c1c; background: rgba(239, 68, 68, .12); }
+.drv-badge.is-skip { color: #b45309; background: rgba(245, 158, 11, .14); }
+.drv-q { font-size: .95rem; color: #1e293b; font-weight: 600; margin-bottom: .55rem; }
+body.dark-mode .drv-q { color: #e2e8f0; }
+.drv-answers { display: flex; flex-wrap: wrap; gap: .4rem .9rem; margin-bottom: .5rem; }
+.drv-yours, .drv-correct { display: flex; flex-direction: column; }
+.drv-k { font-size: .68rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.drv-v { font-size: .95rem; font-weight: 800; color: #334155; }
+body.dark-mode .drv-v { color: #e2e8f0; }
+.drv-correct .drv-v { color: #047857; }
+body.dark-mode .drv-correct .drv-v { color: #34d399; }
+.drv-explain { border: none; background: rgba(37, 99, 235, .1); color: #2563eb; font-weight: 700; font-size: .85rem;
+  padding: .4rem .8rem; border-radius: .7rem; cursor: pointer; }
+body.dark-mode .drv-explain { background: rgba(96, 165, 250, .14); color: #93c5fd; }
+.duel-review-loading { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2.5rem 1rem; color: #64748b; }
+.duel-review-loading .duel-calc-spinner > span { background: #2563eb; }
+.duel-review-empty { color: #94a3b8; text-align: center; padding: 1.5rem; }
 /* Small phones: shrink the head-to-head score so it never overflows the card. */
 @media (max-width: 340px) {
   .duel-result-score { font-size: 1.6rem; }

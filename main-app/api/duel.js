@@ -117,6 +117,18 @@ function _grade(playerAnswers, keyAnswers, startedAt, finishedAt, budgetMs) {
   return { correctCount: correct, answeredCount: answered, totalSolveMs: totalSolveMs, speedBonus: speedBonus, duelScore: duelScore };
 }
 
+/** ADR-064: build the caller's OWN per-question review from the key + their answers — `{i, a:correctAnswer,
+ *  y:yourAnswer, c:correct}` for EVERY question (skipped ⇒ y:'' , c:false). Written only to the player's own
+ *  `players/{uid}` doc (opponent can't read it). Does NOT touch scoring (`_grade`) — a sibling computation. */
+function _buildReview(playerAnswers, keyAnswers) {
+  const ans = (playerAnswers && playerAnswers.answers) || {};
+  return (keyAnswers || []).map(function (k) {
+    const a = ans[String(k.index)] || ans[k.index];
+    const your = (a && a.value != null) ? String(a.value) : '';
+    return { i: k.index, a: String(k.answer), y: your, c: your !== '' && _isCorrect(your, k.answer) };
+  });
+}
+
 /** Decide the winner from two graded results. Accuracy dominates (1000 vs ≤300 bonus); exact tie ⇒ draw. */
 function _decideWinner(uidA, a, uidB, b) {
   // No contest (P0): if NEITHER player answered a single question, the duel never happened → no winner.
@@ -221,7 +233,7 @@ async function _finalizeTxn(code, finalizeSpec) {
       const graded = _grade(existing, keyAnswers, room.startedAt, now, budgetMs);
       playerResults[u] = graded;
       presence[u] = Object.assign({}, presence[u], { state: 'finished', finishReason: reason, finishedAt: now });
-      txn.set(roomRef.collection('players').doc(u), { result: graded, gradedAt: now }, { merge: true });
+      txn.set(roomRef.collection('players').doc(u), { result: graded, review: _buildReview(existing, keyAnswers), gradedAt: now }, { merge: true });
     }
 
     const allFinished = uids.length >= 2 && uids.every(function (u) { return presence[u] && presence[u].state === 'finished'; });
@@ -497,7 +509,7 @@ async function _finish(req, res) {
   const room = r.room || room0;
   // Return the caller's own stats always; opponent comparison only when complete (_viewRoom enforces this).
   const mine = await roomRef.collection('players').doc(uid).get();
-  return res.status(200).json({ complete: room.status === 'complete', duel: _viewRoom(room, uid), my: (mine.exists && mine.data().result) || null });
+  return res.status(200).json({ complete: room.status === 'complete', duel: _viewRoom(room, uid), my: (mine.exists && mine.data().result) || null, myReview: (mine.exists && mine.data().review) || null });
 }
 
 async function _state(req, res) {
@@ -520,7 +532,7 @@ async function _state(req, res) {
     if (Object.keys(spec).length) { const r = await _finalizeTxn(code, spec); if (r.room) room = r.room; }
   }
   const mine = await roomRef.collection('players').doc(uid).get();
-  return res.status(200).json({ duel: _viewRoom(room, uid), serverNow: _now(), my: (mine.exists && mine.data().result) || null });
+  return res.status(200).json({ duel: _viewRoom(room, uid), serverNow: _now(), my: (mine.exists && mine.data().result) || null, myReview: (mine.exists && mine.data().review) || null });
 }
 
 async function _ackResult(req, res) {

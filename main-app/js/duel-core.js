@@ -114,6 +114,15 @@ var DuelCore = (function () {
    *  Returns the write promise. On PERMISSION_DENIED (the presence='solving' precondition hadn't propagated yet,
    *  audit solving-exit-forfeit-03), re-assert presence and retry ONCE so a first-answer race self-heals instead
    *  of silently dropping the answer. */
+  /* ADR-064: read the caller's OWN graded result + per-question review post-match (one read; rules allow a player
+     to read their own players doc anytime). Used when results open via the waiting/listener path (no finish resp). */
+  function fetchMyResult(code) {
+    var uid = _uid(); if (!uid || !code) return Promise.resolve(null);
+    return _db().collection(DUELS).doc(code).collection('players').doc(uid).get()
+      .then(function (s) { return s.exists ? { result: s.data().result || null, review: s.data().review || null } : null; })
+      .catch(function () { return null; });
+  }
+
   function writeAnswer(code, index, value, clientMs) {
     var uid = _uid(); if (!uid || !code) return Promise.resolve();
     var answers = {}; answers[String(index)] = { value: value == null ? '' : String(value), clientMs: clientMs || 0 };
@@ -196,6 +205,7 @@ var DuelCore = (function () {
     startDuel: startDuel,
     finishDuel: finishDuel,
     fetchState: fetchState,
+    fetchMyResult: fetchMyResult,
     ackResult: ackResult,
     abandonDuel: abandonDuel,
     leaveLobby: leaveLobby,

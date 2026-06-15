@@ -8,6 +8,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-064 — Duel end-of-match UX: premium transition, skip-aware results, full match review (2026-06-15)
+- **Context:** After the final duel question the screen froze ~1–2s then snapped to a basic results card (too high
+  on short devices), and there was no way to review which questions you got right/wrong, the correct answer, or
+  why — gutting the educational value. Goal: make finishing a duel feel intentional + rewarding + educational,
+  without touching gameplay/matchmaking/scoring, reusing the existing AI Explanation.
+- **Data constraint:** `duels/{code}.prompts[]` (text+category) is client-readable, but the correct answers live
+  in a server-only `private/key` doc and a player's own answers aren't cached. So review needs (a) a client answer
+  cache during solving and (b) an additive server step returning each player THEIR OWN per-question review.
+- **Decision:**
+  - **M1 transition + centering** (`duel-manager.js`, `duel-ui.js showCalculating/hideCalculating`, css): a branded
+    "Submitting → Syncing with {opp} → Calculating results" overlay (held ~900ms min) replaces the dead gap; the
+    results card reveals with a spring entrance. Fixed `#duelResults` centering — neutralised `.duel-screen`'s
+    `min-height:100%` + nav-padding inside the overlay + made it scroll/safe-area aware.
+  - **M2 results** (`duel-ui.js renderResults`): skip-aware — shows Attempted + Skipped rows when
+    `config.allowSkip` (derived from `perPlayer.answeredCount` + `effectiveQuestionCount`), plus a prominent
+    "Review all questions" action.
+  - **M3 review** (additive `api/duel.js _buildReview` → persisted on the player's OWN `players/{uid}.review`,
+    returned via `finish`/`state` `myReview`; `duel-core.js fetchMyResult` for the listener path; client
+    `_myAnswerCache`; `duel-ui.js renderReview`): a per-question list — Q#, category, ✓/✗/Skipped, your answer,
+    correct answer, and a 🧠 Explain button that calls the EXISTING `AIFeatures.showExplanationModal(q, correct,
+    category)` (same path drill-engine uses). Scoring (`_grade`/winner) untouched; opponent per-question answers
+    stay private (own-doc only).
+- **Consequences:** `node --check` clean on all four duel files; `npm test` green (4736 + 238 + 97 + 79 — no
+  engine/test files). SW v122→v123. Out of scope honoured: no gameplay/matchmaking/scoring/networking change; only
+  additive Firestore field `players/{uid}.review`.
+
 ## ADR-063 — Duel header redesign + real player name (2026-06-15)
 - **Context:** The Math Duel solving screen showed a near full-width Exit button, no clear opponent identity, and
   the player name as the email prefix ("itskrishnabajaj") instead of the onboarding name ("Krishna").
