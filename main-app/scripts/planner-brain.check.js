@@ -261,14 +261,30 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   /* ════════ ADR-053: ONE canonical profile + ONE derivation layer ════════ */
   var statMath = require(appPath('data/statMath'));
 
-  // (1) the profile is ONE materialized object: planner + recommendation + tier + per-category mastery folded in
+  // (1) Layer separation (ADR-057): the profile is PURE Layer 1 (no embedded plan); examStrategy is Layer 2.
   store.aiPlanner = store.aiPlanner || {};
-  store.aiPlanner['u-prof'] = { block: { days: [] }, readiness: { score: 64, band: 'on-track' }, forecast: { daysToExam: 40, onTrack: true }, blockHistory: [] };
+  var examIso = (function () { var d = new Date(Date.now() + 45 * 86400000); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); })();
+  store.aiPlanner['u-prof'] = { examId: 'mbacet', examName: 'MBA CET', syllabusId: 'mbacet', examDate: examIso, dailyMinutes: 60, daysPerWeek: 6, prepLevel: 'scratch', block: { days: [] }, topicState: {}, blockHistory: [] };
   var prof = await ctxEngine.build('u-prof', { force: true, clientStats: fiveQ });
-  ok(prof.planner && prof.planner.readiness && prof.planner.readiness.score === 64, 'profile.planner folds the study plan in (no separate _plannerData read)');
+  ok(prof.planner === undefined, 'Layer 1: the profile carries NO embedded exam strategy (ctx.planner removed)');
+  var examStrategy = require(appPath('services/examStrategy'));
+  var strat = await examStrategy.build('u-prof', prof, {});
+  ok(strat && strat.milestones && strat.milestones.length > 0, 'Layer 2: examStrategy.build assembles the strategy (milestones) from the Profile + plan doc');
+  ok(strat.schedule && strat.schedule.days.length === 14, 'the schedule is an OUTPUT of the strategy (14-day projection)');
   ok(prof.recommendation && prof.recommendation.cat, 'profile.recommendation materializes the single "what next"');
   ok(typeof prof.tier === 'number', 'profile.tier materializes the experience tier');
   ok(prof.masteryByCat && prof.masteryByCat.percentages && prof.masteryByCat.percentages.tier === 'strong', 'profile.masteryByCat lets any feature look up a category\'s mastery');
+
+  // (1b) No-exam degradation (ADR-057): no plan → Layer 2 is null, serialize empty; roles reason from the Profile.
+  var noStrat = await examStrategy.build('u-noexam-xyz', prof, {});
+  ok(noStrat === null, 'no exam doc → examStrategy.build returns null (the roles get no plan, never feel "dumber")');
+  ok(examStrategy.serialize(null) === '', 'no strategy → empty plan text fed to the prompts');
+  ok(/EXAM STRATEGY|CURRENT OBJECTIVE/.test(examStrategy.serialize(strat)), 'with an exam, the strategy serializes the plan reasoning Coach/Insights consume');
+  // Coach renders the exam readiness ring FROM the strategy when an exam exists, and omits it when none does.
+  var coachExam = await aiBrain.coachToday('u-prof', { force: true, clientStats: realStats });
+  ok((coachExam.blocks || []).some(function (b) { return b.type === 'ring'; }), 'Coach renders the exam-readiness ring from Layer 2 when an exam exists');
+  var coachNo = await aiBrain.coachToday('u-noexam-zzz', { force: true, clientStats: realStats });
+  ok(!(coachNo.blocks || []).some(function (b) { return b.type === 'ring'; }) && !/days to .*exam|exam readiness/i.test(envText(coachNo)), 'no exam → Coach shows no plan/readiness language (Profile-only role)');
 
   // (2) ONE derivation layer: the server profile, the client wrapper, and statMath agree for the same stats
   ok(statMath.weakest(fiveQ) === 'percentages', 'statMath.weakest is the single weak-topic implementation');

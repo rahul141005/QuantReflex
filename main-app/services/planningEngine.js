@@ -48,6 +48,9 @@ function buildStrategy(input) {
   var daysPerWeek = _clamp(Number(input.daysPerWeek) || 5, 1, 7);
   var targetScore = _clamp(Number(input.targetScore) || TARGET_DEFAULT, 1, 100);
   var targetR = _targetReadiness(targetScore);
+  // ADR-057: behavioural signals canonicalized on the Profile (the Strategy never talks to Coach/Insights —
+  // it reads the one evolving picture of the student): { burnout, retentionRisk, recentRegressionTopics[], mockTrend }.
+  var signals = input.signals || {};
 
   // Available study HOURS before the exam (the budget the whole strategy must fit inside).
   var totalHours = daysToExam != null
@@ -135,8 +138,11 @@ function buildStrategy(input) {
   }
   rows.forEach(function (r) { r.action = status[r.id]; r.rationale = rationale(r); });
 
-  // ── dynamic phases (generated from dependency depth + readiness + time, NOT hardcoded membership) ──
-  var phases = _phases(rows, byId, daysToExam);
+  // ── milestones-first (the strategy thinks in objectives, then the projector lays them on days) ──
+  // Behavioural signals shape it: burnout → lighter near-term workload; recentRegressionTopics → a recovery
+  // objective BEFORE new work; retentionRisk → revision earlier; mockTrend → (narrated). All deterministic.
+  var workload = signals.burnout ? 'light' : 'normal';
+  var mb = _milestones(rows, byId, daysToExam, signals);     // { milestones, roadmap, recovery }
 
   // ── student-facing slices ──
   var learn = rows.filter(function (r) { return r.action === 'learn'; }).sort(function (a, b) { return b.priority - a.priority; });
@@ -146,13 +152,15 @@ function buildStrategy(input) {
   return {
     examName: examName, daysToExam: daysToExam, targetScore: targetScore,
     readinessScore: curScore, projectedScore: projectedScore, achievable: achievable, marksAtRisk: marksAtRisk,
-    totalHours: totalHours, plannedHours: includedHours,
+    totalHours: totalHours, plannedHours: includedHours, workload: workload,
     verdict: _verdict(curScore, projectedScore, targetScore, achievable, daysToExam, skip.length),
-    phases: phases,
+    milestones: mb.milestones,        // ordered objectives (the strategy's primary structure)
+    roadmap: mb.roadmap,              // ordered, calendar-agnostic task stream the SCHEDULE is projected from
+    recovery: mb.recovery,            // a recommended recovery session when recent analytics regressed
     focus: learn.slice(0, 5).map(_publicTopic),
     revise: revise.slice(0, 6).map(_publicTopic),
     skip: skip.slice(0, 6).map(_publicTopic),
-    topics: rows.map(_publicTopic)   // the full canonical list (every feature can consume this)
+    topics: rows.map(_publicTopic)    // the full canonical list (every feature can consume this)
   };
 }
 
@@ -169,34 +177,119 @@ function _publicTopic(r) {
     scoreImpact: r.rationale.scoreImpact, skipConsequence: r.rationale.skipConsequence };
 }
 
-/** Dynamic phases: Foundations (weak roots) → Core (high-marks mid) → Advanced (hard/deep) → Revision → Mock.
- *  Membership is data-driven (readiness, dependency depth, difficulty); the Mock phase only appears near the exam. */
-function _phases(rows, byId, daysToExam) {
+/** Hours a milestone of this kind costs for a topic row. */
+function _kindHours(r, kind) {
+  if (kind === 'recovery') return _round(r.estHours * 0.3, 1);
+  if (kind === 'firstRevision' || kind === 'finalRevision') return _round(r.estHours * REVISE_HOURS_FACTOR, 1);
+  return r.hoursNeeded;
+}
+/** A milestone's task view of a topic (its action follows the milestone's role, not the topic's base status). */
+function _milestoneTopic(r, kind) {
+  var t = _publicTopic(r);
+  t.action = kind === 'recovery' ? 'recovery' : (kind === 'firstRevision' || kind === 'finalRevision') ? 'revise' : 'learn';
+  t.milestoneHours = _kindHours(r, kind);
+  return t;
+}
+
+/**
+ * Milestones-first generation: the strategy thinks in named, subject-aware OBJECTIVES (ordered by dependency,
+ * marks and readiness), then flattens them into an ordered, calendar-agnostic ROADMAP that the schedule projects
+ * from. Membership is data-driven — never hardcoded phases. Behavioural signals reshape it (recovery first,
+ * revision earlier under retention risk, mock near the exam).
+ */
+function _milestones(rows, byId, daysToExam, signals) {
+  signals = signals || {};
+  var rowById = {}; rows.forEach(function (r) { rowById[r.id] = r; });
   function depth(id, seen) { seen = seen || {}; var t = byId[id]; if (!t || seen[id]) return 0; seen[id] = 1;
     var ps = (t.prereqs || []); if (!ps.length) return 0; return 1 + Math.max.apply(null, ps.map(function (p) { return depth(p, seen); })); }
-  var defs = [
-    { key: 'foundations', name: 'Foundations', test: function (r) { return r.action === 'learn' && r.cur < 0.45 && depth(r.id) <= 1; } },
-    { key: 'core', name: 'Core', test: function (r) { return r.action === 'learn' && r.marksWeight >= 0.5 && (r.t.difficulty || 0.5) < 0.65; } },
-    { key: 'advanced', name: 'Advanced', test: function (r) { return r.action === 'learn'; } }, // remaining learn
-    { key: 'revision', name: 'Revision', test: function (r) { return r.action === 'revise'; } }
-  ];
-  var assigned = {}, out = [];
-  defs.forEach(function (d) {
-    var mem = rows.filter(function (r) { return !assigned[r.id] && d.test(r); });
-    mem.forEach(function (r) { assigned[r.id] = 1; });
-    if (mem.length) out.push({ key: d.key, name: d.name, topics: mem.map(_publicTopic),
-      hours: _round(mem.reduce(function (s, r) { return s + (r.action === 'revise' ? r.estHours * REVISE_HOURS_FACTOR : r.hoursNeeded); }, 0), 1) });
+  function sectionName(r) { return r.section || 'General'; }
+  // sections ordered by the marks they carry (highest-value subjects first)
+  function orderedSections(members) {
+    var bySec = {}; members.forEach(function (r) { (bySec[sectionName(r)] = bySec[sectionName(r)] || []).push(r); });
+    return Object.keys(bySec).map(function (s) { return { section: s, rows: bySec[s],
+      marks: bySec[s].reduce(function (a, r) { return a + r.marksWeight; }, 0) }; })
+      .sort(function (a, b) { return b.marks - a.marks; });
+  }
+
+  var assigned = {}, milestones = [], seq = 0;
+  function add(key, name, kind, members, section, objective, why) {
+    members = members.filter(function (r) { return !assigned[r.id]; });
+    if (!members.length) return;
+    members.forEach(function (r) { assigned[r.id] = 1; });
+    milestones.push({ id: 'm' + (seq++), key: key, name: name, kind: kind, section: section || null,
+      objective: objective || '', why: why || '',
+      hours: _round(members.reduce(function (s, r) { return s + _kindHours(r, kind); }, 0), 1),
+      topics: members.map(function (r) { return _milestoneTopic(r, kind); }) });
+  }
+
+  var learnRows = rows.filter(function (r) { return r.action === 'learn'; });
+  var reviseRows = rows.filter(function (r) { return r.action === 'revise'; });
+
+  // 0 — RECOVERY first: strong/covered topics whose recent analytics regressed (the Profile's signal).
+  var regression = {};
+  (signals.recentRegressionTopics || []).forEach(function (k) { regression[k] = 1; });
+  var recoveryRows = rows.filter(function (r) { return regression[r.id] || (r.t.drillable && regression[r.t.drillable]); });
+  if (recoveryRows.length) add('recovery', 'Intensive Weak-Topic Recovery', 'recovery', recoveryRows, null,
+    'Rebuild the topics your recent accuracy slipped on before adding new work.',
+    'Recent practice shows a dip here — recover before moving on.');
+  var recovery = recoveryRows.length ? { topics: recoveryRows.map(function (r) { return _milestoneTopic(r, 'recovery'); }) } : null;
+
+  // 1 — FOUNDATIONS per section: weak, shallow-dependency learn topics that everything else stands on.
+  orderedSections(learnRows.filter(function (r) { return r.cur < 0.45 && depth(r.id) <= 1; })).forEach(function (g) {
+    add('foundation_' + g.section, 'Build ' + g.section + ' Foundation', 'foundation', g.rows, g.section,
+      'Reach a dependable base across ' + g.section + ' fundamentals.', 'High-leverage groundwork others build on.');
   });
-  // Mock phase only when the exam is near (a final-stretch milestone, generated by urgency, not hardcoded always-on).
-  if (daysToExam != null && daysToExam <= 21) out.push({ key: 'mock', name: 'Mock & timed practice', topics: [], hours: 0 });
-  // status: the first non-empty learn-bearing phase is active; earlier all-strong phases are done.
+
+  // First Revision — earlier when retention is at risk, otherwise after foundations.
+  function firstRevision() {
+    add('first_revision', 'First Revision', 'firstRevision', reviseRows, null,
+      'Lock in what you already know with a spaced pass.', 'Spaced revision protects retention.');
+  }
+  if (signals.retentionRisk) firstRevision();
+
+  // 2 — CORE / HIGH-ROI per section: the remaining learn topics, highest-marks subjects first.
+  orderedSections(learnRows.filter(function (r) { return !assigned[r.id]; })).forEach(function (g) {
+    var avgMarks = g.marks / g.rows.length;
+    var name = avgMarks >= 0.5 ? 'Complete High-ROI ' + g.section : 'Finish ' + g.section + ' Core';
+    add('core_' + g.section, name, 'core', g.rows, g.section,
+      'Convert ' + g.section + ' into reliable marks.', 'Where the most marks are still on the table.');
+  });
+
+  if (!signals.retentionRisk) firstRevision();
+
+  // 3 — MOCK READINESS near the exam (urgency-generated, not always-on).
+  if (daysToExam != null && daysToExam <= 21) milestones.push({ id: 'm' + (seq++), key: 'mock',
+    name: 'Mock Readiness', kind: 'mock', section: null, hours: 0, topics: [],
+    objective: 'Rehearse full timed sets so the score holds under exam pressure.', why: 'Timing and stamina decide the final marks.' });
+
+  // 4 — FINAL REVISION: a light last pass over the highest-marks covered topics (re-touch, not new learning).
+  if (daysToExam != null) {
+    var covered = rows.filter(function (r) { return r.action !== 'skip'; }).sort(function (a, b) { return b.marksWeight - a.marksWeight; }).slice(0, 5);
+    if (covered.length) milestones.push({ id: 'm' + (seq++), key: 'final_revision', name: 'Final Revision',
+      kind: 'finalRevision', section: null, objective: 'A final high-marks sweep right before the exam.', why: 'Peak recall on exam day.',
+      hours: _round(covered.reduce(function (s, r) { return s + _kindHours(r, 'finalRevision'); }, 0), 1),
+      topics: covered.map(function (r) { return _milestoneTopic(r, 'finalRevision'); }) });
+  }
+
+  // status: the first milestone that still has learnable/active work is active; all-strong ones before it are done.
   var activeMarked = false;
-  out.forEach(function (ph) {
-    var hasWork = ph.topics.some(function (t) { return t.action === 'learn'; }) || ph.key === 'mock';
-    if (!activeMarked && hasWork) { ph.status = 'active'; activeMarked = true; }
-    else ph.status = activeMarked ? 'upcoming' : 'done';
+  milestones.forEach(function (m) {
+    var hasWork = m.kind === 'mock' || m.topics.length;
+    if (!activeMarked && hasWork) { m.status = 'active'; activeMarked = true; }
+    else m.status = activeMarked ? 'upcoming' : 'done';
   });
-  return out;
+
+  // ROADMAP: flatten milestones (in order) into the calendar-agnostic task stream the projector consumes.
+  var roadmap = [], order = 0;
+  milestones.forEach(function (m) {
+    m.topics.forEach(function (t) {
+      roadmap.push({ topicId: t.topicId, label: t.label, section: t.section, action: t.action,
+        hours: t.milestoneHours, drillable: t.drillable, difficulty: (byId[t.topicId] && byId[t.topicId].difficulty) || 0.5,
+        milestoneId: m.id, milestoneName: m.name, order: order++, reason: t.whyNow });
+    });
+  });
+
+  return { milestones: milestones, roadmap: roadmap, recovery: recovery };
 }
 
 function _verdict(cur, projected, target, achievable, daysToExam, skipCount) {

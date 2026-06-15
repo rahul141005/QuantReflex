@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-057 — One intelligence, three roles: Profile → (optional) Exam Strategy → Coach/Insights/Planner (2026-06-15)
+- **Context:** The user specified a strict **layered decision model**, not one universal plan output: (1) a
+  permanent **Student Intelligence Profile** (Layer 1, every user); (2) an **optional Exam Strategy** (Layer 2,
+  only when an exam exists) that is the **sole planner** — it thinks in **milestones/objectives first**, then a
+  schedule is a pure **projection** with no planning logic of its own, rebuilt whenever state changes; (3)
+  **roles** (Layer 3) that reason over Profile (+ Strategy) and degrade gracefully with no exam. No feature
+  talks to another — every behavioural detection is **canonicalized as a signal on the Profile**, which the
+  Strategy consumes. Coach (mentor) / Insights (analyst) / Planner (optimizer) are three expressions of one mind.
+- **Decisions:**
+  - **Layer 1 pure.** Removed the embedded planner from the profile (`ctx.planner`/`_plannerData` deleted);
+    `studentProfile.build()` is now exam-agnostic and adds `ctx.recentRegressionTopics` (strong topics now in
+    recent mistakes) for the Strategy to consume.
+  - **Layer 2 sole planner.** New `services/examStrategy.js` (`assemble` is pure + unit-tested; `build` reads
+    `aiPlanner/{uid}`, returns **null when no exam**). It runs the upgraded `planningEngine.buildStrategy`, now
+    **milestone-first**: subject-aware objectives (*Build {Section} Foundation → High-ROI {Section} → … → Mock
+    Readiness → Final Revision*, dynamic — never hardcoded) → an ordered, calendar-agnostic **roadmap**. The new
+    pure `services/scheduleProjector.js` bin-packs that roadmap into the day schedule with **zero planning
+    logic** (proven: same roadmap → identical days regardless of marks).
+  - **Bidirectional via the Profile.** `buildStrategy` consumes Profile signals deterministically: `burnout` →
+    lighter workload; `retentionRisk` → revision earlier; `recentRegressionTopics` → a **Recovery objective
+    placed first**; `mockTrend` → re-rank. The Strategy reads the one evolving picture — features never message.
+  - **Layer 3 roles.** Coach/Insights build `examStrategy.build()` and **reason WITH** it (adherence, ahead/
+    behind, a recovery override when recent analytics conflict with the plan order), rendering readiness/plan
+    blocks from it; with **no exam** they render a rich Profile-only envelope and the prompts (`coach.daily@7`,
+    `insights.analyze@8`) are instructed to invent no plan. To avoid a Coach↔Planner-screen divergence before
+    the UI pass, the strategy surfaces the persisted `block` as its schedule while the brain drives the reasoning.
+- **Consequences:** No model/schema/rules change; one LLM call per feature. Verified by `npm test`
+  (planner-engine **235**, planner-brain **96**): Layer 1 has no `ctx.planner`; Layer 2 null with no exam +
+  empty plan text (degradation); milestones-first + ordered roadmap; projector deterministic/order-only; burnout/
+  retention/regression/mock signals reshape the plan; Coach renders the readiness ring only with an exam. **Next
+  pass: the strategy-dashboard Planner UI (milestones/readiness/triage/projection) — at which point
+  `plannerSetup`/`regen`/`toggle` generate the persisted block via the projector, retiring `generateBlock`.**
+
 ## ADR-056 (Planner v3, brain) — The canonical planning engine: maximize expected marks (2026-06-15)
 - **Context:** The Study Planner felt like a checklist (day→topic→drill). The user wants it rebuilt as the
   **central intelligence** of QuantReflex — a reusable planning *service* (not a screen) that thinks like an

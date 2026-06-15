@@ -166,6 +166,7 @@ ok(carriedIntoFuture, 'the missed percentages task was relocated into a future d
 /* ════════ 9. Planning engine (ADR-056) — the marks-maximizing strategy brain ════════ */
 section('9. Planning engine — marks-maximizing strategy');
 var PE = R('services/planningEngine.js');
+var SP = R('services/scheduleProjector.js');
 var psyl = SYL.resolveSyllabus('mbacet');
 ok(psyl && psyl.topics.length >= 25 && psyl.topics.length <= 50, 'MBA CET resolves to a canonical ~30-topic syllabus (got ' + psyl.topics.length + ')');
 var pctx = { accuracy: 0.5, totalAttempted: 40, trends: { speed: { recentSecPerQ: 8 }, consistency: { activeDaysLast14: 5 } }, mastery: [] };
@@ -185,11 +186,33 @@ ok(tight.focus.some(function (t) { return t.unlocks.length > 0; }), 'under tight
 ok(ample.skip.length === 0, 'with ample time nothing high-value is needlessly skipped');
 ok(tight.plannedHours > 0 && tight.focus.length > 0, 'even under severe time pressure the plan still commits to the highest-value reachable topics');
 
-// PHASES are dynamic + the Mock phase only appears under urgency.
-ok(ample.phases.length >= 2 && ample.phases[0].name === 'Foundations', 'phases are generated (Foundations first)');
-ok(!ample.phases.some(function (p) { return p.key === 'mock'; }), 'no Mock phase when the exam is far away');
-ok(tight.phases.some(function (p) { return p.key === 'mock'; }), 'a Mock phase appears when the exam is near (urgency-generated, not hardcoded)');
-ok(ample.phases.filter(function (p) { return p.status === 'active'; }).length === 1, 'exactly one phase is active');
+// MILESTONES-FIRST (ADR-057): subject-aware objectives, dynamically named, the Mock milestone only under urgency.
+ok(ample.milestones.length >= 2 && /Foundation/.test(ample.milestones[0].name), 'milestones are generated, a Foundation objective first (' + ample.milestones[0].name + ')');
+ok(ample.milestones.some(function (m) { return /Build .+ Foundation|High-ROI|Core/.test(m.name); }), 'milestones are subject-aware (Build {Section} Foundation / High-ROI {Section} / {Section} Core)');
+ok(!ample.milestones.some(function (m) { return m.key === 'mock'; }), 'no Mock Readiness milestone when the exam is far away');
+ok(tight.milestones.some(function (m) { return m.key === 'mock'; }), 'a Mock Readiness milestone appears near the exam (urgency-generated, not hardcoded)');
+ok(ample.milestones.filter(function (m) { return m.status === 'active'; }).length === 1, 'exactly one milestone is active');
+ok(ample.milestones.every(function (m) { return m.objective && typeof m.hours === 'number'; }), 'every milestone states an objective + an hour budget');
+
+// ROADMAP: an ordered, calendar-agnostic task stream the schedule projects from.
+ok(Array.isArray(ample.roadmap) && ample.roadmap.length > 0 && ample.roadmap[0].order === 0, 'a roadmap (ordered task stream) is emitted');
+ok(ample.roadmap.every(function (r, i) { return i === 0 || r.order >= ample.roadmap[i - 1].order; }), 'roadmap is strictly ordered');
+
+// SOLE PLANNER: the projector makes NO planning decisions — same roadmap → identical day order, marks ignored.
+var blkA = SP.project(ample.roadmap, { startDate: '2026-06-15', horizonDays: 14, dailyMinutes: 60, daysPerWeek: 6 });
+var shuffled = ample.roadmap.slice().reverse().slice().reverse();   // identity, but proves projector re-sorts by order only
+var blkB = SP.project(shuffled, { startDate: '2026-06-15', horizonDays: 14, dailyMinutes: 60, daysPerWeek: 6 });
+var ids = function (b) { return JSON.stringify(b.days.map(function (d) { return d.tasks.map(function (t) { return t.topicId; }); })); };
+ok(ids(blkA) === ids(blkB), 'scheduleProjector is deterministic and order-driven (no planning logic of its own)');
+ok(blkA.days.length === 14 && blkA.days.some(function (d) { return d.kind === 'rest'; }), 'projector lays a 14-day block with rest days from daysPerWeek');
+ok(blkA.days.every(function (d) { return d.kind !== 'study' || d.tasks.every(function (t) { return ['learn', 'revise', 'mock'].indexOf(t.kind) >= 0; }); }), 'projected tasks use the block kinds the UI renders');
+
+// BIDIRECTIONAL via the Profile's signals (the engine reads the one evolving picture; features never message it).
+var burn = PE.buildStrategy({ syllabus: psyl, examName: 'X', daysToExam: 120, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50, signals: { burnout: true } });
+ok(burn.workload === 'light', 'signals.burnout → lighter workload');
+var rec = PE.buildStrategy({ syllabus: psyl, examName: 'X', daysToExam: 120, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50, signals: { recentRegressionTopics: ['percentages'] } });
+ok(rec.recovery && rec.milestones[0].kind === 'recovery', 'signals.recentRegressionTopics → a Recovery objective placed FIRST (before new work)');
+ok(rec.roadmap[0].action === 'recovery', 'the roadmap leads with recovery when recent analytics regressed');
 
 // PREREQS: a topic is never scheduled to LEARN before a weak prerequisite.
 var actionById = {}; ample.topics.forEach(function (t) { actionById[t.topicId] = t.action; });

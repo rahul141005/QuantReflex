@@ -15,7 +15,10 @@ const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
 const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
-const plannerEngine = require('./plannerEngine');    // deterministic 14-day scheduler
+const plannerEngine = require('./plannerEngine');    // mechanical schedule helpers (applyCompletion/rebalance)
+const planningEngine = require('./planningEngine');  // ADR-056/057: the marks-maximizing strategy engine (sole planner)
+const projector = require('./scheduleProjector');    // ADR-057: pure roadmap→days projection
+const examStrategy = require('./examStrategy');       // ADR-057: Layer-2 exam strategy (null when no exam)
 const readinessLib = require('./readiness');         // readiness score + completion forecast
 const aiMath = require('./aiMath');                  // shared round/clamp/todayIso (ADR-047)
 
@@ -98,7 +101,9 @@ async function coachToday(uid, opts) {
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile (no re-derivation)
   var focus = ctx.recommendation;            // the single "what to work on next"
-  var pdata = ctx.planner;                   // study-plan readiness/forecast/tasks — already on the profile
+  // ADR-057: Layer 2 — the exam strategy, built FROM the Profile. null when no exam (Coach then reasons from
+  // the Profile alone and must never feel "dumber"). Coach is a ROLE reading the shared state, not a producer.
+  var strategy = await examStrategy.build(uid, ctx, { clientDate: opts.clientDate });
 
   // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors the profile's rule).
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
@@ -106,7 +111,7 @@ async function coachToday(uid, opts) {
   // ADR-052: NEVER lock the coach. With little data (tier 0 = 0–5 lifetime) render a deterministic, helpful read
   // of whatever exists — no LLM (controlled copy avoids generic output near zero data), never "I don't know you".
   if (tier === 0) {
-    var lowEnv = _coachLowData(ctx, focus, pdata);
+    var lowEnv = _coachLowData(ctx, focus, strategy);
     _putDaily(uid, 'coach', lowEnv);
     return lowEnv;
   }
@@ -115,33 +120,50 @@ async function coachToday(uid, opts) {
   var flagsNote = _flagsNote(ctx);
   var env;
   try {
-    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label, planNote: pdata.note, examName: _examOf(ctx), flagsNote: flagsNote });
+    var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label,
+      planNote: examStrategy.serialize(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
-    env = _coachDashboard(ctx, focus, pdata, r.data, tier, opts, _promptId(p));
-    aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + (pdata.readiness ? ' (readiness ' + pdata.readiness.score + ')' : '') + '.' } }, 'coach');
+    env = _coachDashboard(ctx, focus, strategy, r.data, tier, opts, _promptId(p));
+    aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + (strategy ? ' (readiness ' + strategy.readinessScore + ')' : '') + '.' } }, 'coach');
     _maybeWriteWin(uid, ctx);
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
-    env = _coachFallback(ctx, focus, pdata);
+    env = _coachFallback(ctx, focus, strategy);
   }
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'coach', env);
   return env;
 }
 
-/* The warm Coach dashboard: value first (greeting → readiness → win), then the concern, the numbers, the plan,
-   and finally ONE clear recommendation + conversational chips. Composed deterministically from ctx + the planner;
-   the LLM only writes the prose fields. Tier gates how much shows. */
-function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
+/* ADR-057 helpers shared by the roles. */
+function _band(score) { return score >= 80 ? 'Exam ready' : score >= 60 ? 'On track' : score >= 40 ? 'Building' : 'Early days'; }
+/* The next concrete task: a recovery override first (recent analytics conflict with the plan), else the first
+   undone task on the projected schedule. Returns null when there's no exam strategy. */
+function _nextTask(strategy) {
+  if (!strategy) return null;
+  if (strategy.recovery && strategy.recovery.topics[0]) {
+    var rt = strategy.recovery.topics[0];
+    return { label: rt.label, drillable: rt.drillable, kind: 'revise', estMin: 10, reason: 'Recent accuracy slipped here — a short recovery before new work.' };
+  }
+  var days = (strategy.schedule && strategy.schedule.days) || [];
+  for (var i = 0; i < days.length; i++) {
+    if (days[i].kind !== 'study') continue;
+    var t = (days[i].tasks || []).find(function (x) { return !x.done; });
+    if (t) return t;
+  }
+  return null;
+}
+
+/* The warm Coach dashboard. With an exam it renders the strategy (readiness → plan → next move) and REASONS with
+   it; without one it stays a rich Profile-only mentor (never "dumber"). The LLM writes only the prose fields. */
+function _coachDashboard(ctx, focus, strategy, d, tier, opts, promptId) {
   d = d || {};
   var name = (ctx.name || '').split(' ')[0];
-  var examName = (ctx.memory && ctx.memory.examName) || 'your exam';
   var blocks = [];
   blocks.push(say(d.greeting || ('Welcome back' + (name ? ', ' + name : '') + '.')));
-  if (pdata.readiness) {
-    var band = { 'exam-ready': 'Exam ready', 'on-track': 'On track', 'building': 'Building', 'early': 'Early days' }[pdata.readiness.band] || '';
-    var sub = (pdata.forecast && pdata.forecast.daysToExam != null) ? pdata.forecast.daysToExam + ' days to ' + examName : band;
-    blocks.push(ring(pdata.readiness.score, 'Exam readiness', sub));
+  if (strategy) {
+    var sub = (strategy.daysToExam != null ? strategy.daysToExam + ' days to ' + strategy.examName : _band(strategy.readinessScore));
+    blocks.push(ring(strategy.readinessScore, 'Exam readiness', sub));
   }
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
   if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
@@ -150,13 +172,14 @@ function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
     blocks = blocks.concat(_metricCluster(ctx));
     if (ctx.dailyStreak) blocks.push(metric('Streak', ctx.dailyStreak + 'd', ctx.dailyStreak >= 3 ? 'up' : 'flat', ctx.dailyStreak >= 1));
   }
-  if (pdata.adherencePct != null) blocks.push(progress('This week\'s plan', pdata.adherencePct, pdata.adherencePct >= 80 ? 'On track — keep it up' : 'Let\'s close the gap'));
-  if (pdata.forecast && pdata.forecast.daysToExam != null) {
-    var fc = pdata.forecast;
-    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info', fc.daysToExam + ' days to ' + examName +
-      (fc.bufferDays != null ? (fc.onTrack ? ' — on track, ' + fc.bufferDays + 'd buffer' : ' — ' + Math.abs(fc.bufferDays) + 'd behind, plan rebalanced') : '.')));
+  if (strategy) {
+    var pr = strategy.progress || {};
+    if (pr.adherencePct != null) blocks.push(progress('This week\'s plan', pr.adherencePct, pr.adherencePct >= 80 ? 'On track — keep it up' : 'Let\'s close the gap'));
+    if (strategy.daysToExam != null) blocks.push(callout(pr.onTrack === false ? 'warn' : 'info',
+      strategy.daysToExam + ' days to ' + strategy.examName +
+      (pr.bufferDays != null ? (pr.onTrack !== false ? ' — on track, ' + pr.bufferDays + 'd buffer' : ' — ' + Math.abs(pr.bufferDays) + 'd behind, plan rebalanced') : '.')));
   }
-  var topTask = (pdata.todayTasks || []).find(function (x) { return !x.done; }) || (pdata.todayTasks || [])[0];
+  var topTask = _nextTask(strategy);
   if (topTask && topTask.label) {
     blocks.push(missionBlock((topTask.kind === 'revise' ? 'Revise: ' : 'Today: ') + topTask.label, d.todayRecommendation || topTask.reason || 'From your study plan.', topTask.drillable ? 'focus' : 'practice', topTask.drillable || '', topTask.label, topTask.estMin || 10));
   } else {
@@ -169,14 +192,14 @@ function _coachDashboard(ctx, focus, pdata, d, tier, opts, promptId) {
   var chips = [
     chipDeep('Start today\'s set', 'focus', drill.cat, drill.label, '⚡'),
     chipReply('Speed or accuracy?', 'coach_speed_accuracy'),
-    chipReply('Open my planner', 'planner_open_calendar', '🗓️')
+    strategy ? chipReply('Open my planner', 'planner_open_calendar', '🗓️') : chipReply('Set an exam goal', 'planner_open_calendar', '🎯')
   ].concat(helpfulChips());
-  return envelope('coach', blocks, chips, { promptId: promptId, focus: focus.cat, tier: tier });
+  return envelope('coach', blocks, chips, { promptId: promptId, focus: focus.cat, tier: tier, hasPlan: !!strategy });
 }
 
 /* ADR-052: low-data coach (tier 0 = 0–5 lifetime). Deterministic + genuinely helpful — reads whatever data
    exists and frames it as growth. NEVER a lock: no "I don't know you", no "10 questions to unlock". */
-function _coachLowData(ctx, focus, pdata) {
+function _coachLowData(ctx, focus, strategy) {
   var name = (ctx.name || '').split(' ')[0];
   var n = (ctx && ctx.totalAttempted) || 0;
   var hi = name ? 'Hey ' + name + ' 👋 ' : 'Hey there 👋 ';
@@ -184,7 +207,7 @@ function _coachLowData(ctx, focus, pdata) {
   blocks.push(say(n > 0
     ? hi + 'I\'ve analysed your first ' + n + ' question' + (n === 1 ? '' : 's') + ' — here\'s the early read. The more you practise, the sharper my coaching gets.'
     : hi + 'I don\'t know much about you yet, but that\'s the fun part — every set you do makes my coaching sharper. Here\'s where we\'ll start.'));
-  if (pdata && pdata.readiness) blocks.push(ring(pdata.readiness.score, 'Exam readiness', ''));
+  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, 'Exam readiness', ''));
   // any real signal we already have
   if (ctx.today && ctx.today.attempted && ctx.today.accuracy != null) {
     blocks.push(metric('Today', Math.round(ctx.today.accuracy * 100) + '% (' + ctx.today.attempted + ' done)', 'flat', ctx.today.accuracy >= 0.6));
@@ -203,10 +226,10 @@ function _coachLowData(ctx, focus, pdata) {
   return envelope('coach', blocks, chips, { lowData: true, focus: focus.cat, tier: 0 });
 }
 
-function _coachFallback(ctx, focus, pdata) {
+function _coachFallback(ctx, focus, strategy) {
   var blocks = [say('You\'re ' + Math.round((ctx.accuracy || 0) * 100) + '% accurate over ' + ctx.totalAttempted + ' questions. ' +
     (focus.cat ? 'Tighten up ' + focus.label + ' next — that\'s your biggest lever right now.' : 'Keep your streak alive with a focused set.'))];
-  if (pdata && pdata.readiness) blocks.push(ring(pdata.readiness.score, 'Exam readiness', ''));
+  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, 'Exam readiness', ''));
   blocks.push(missionBlock('Drill ' + focus.label, 'Targeted practice on your weakest topic.', 'focus', focus.cat, focus.label, 8));
   return envelope('coach', blocks, [chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'), chipDismiss('Not today')].concat(helpfulChips()), { fallback: true });
 }
@@ -245,7 +268,7 @@ async function insights(uid, opts) {
   opts = opts || {};
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile
-  var pdata = ctx.planner;                   // study-plan grounding — already on the profile
+  var strategy = await examStrategy.build(uid, ctx, { clientDate: opts.clientDate });   // ADR-057: Layer 2 (null = no exam)
 
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
 
@@ -260,10 +283,10 @@ async function insights(uid, opts) {
   var flagsNote = _flagsNote(ctx);
   var env;
   try {
-    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: pdata.note, flagsNote: flagsNote });
+    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: examStrategy.serialize(strategy), hasPlan: !!strategy, flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
-    env = _insightsDashboard(ctx, weak, pdata, r.data, tier, opts, _promptId(p));
+    env = _insightsDashboard(ctx, weak, strategy, r.data, tier, opts, _promptId(p));
     var weakCats0 = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
     aiService.updateMemory(uid, { addWeakConcepts: weakCats0.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
@@ -294,9 +317,8 @@ function _metricCluster(ctx) {
   return b;
 }
 
-function _insightsDashboard(ctx, weak, pdata, d, tier, opts, promptId) {
+function _insightsDashboard(ctx, weak, strategy, d, tier, opts, promptId) {
   d = d || {};
-  var t = ctx.trends || {};
   var patterns = _detectPatterns(ctx);
   var blocks = [];
   blocks.push(say(d.patternsIntro || (patterns.length ? ('I found ' + patterns.length + ' thing' + (patterns.length > 1 ? 's' : '') + ' worth your attention.') : (d.headline || 'Here\'s exactly where you stand.'))));
@@ -305,12 +327,16 @@ function _insightsDashboard(ctx, weak, pdata, d, tier, opts, promptId) {
   if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
   patterns.forEach(function (pt) { blocks.push(card(pt.title, pt.body, pt.accent, pt.icon)); });
   blocks.push(card('Your biggest weakness', d.weaknessInsight || ('Tighten up ' + weak.label + ' — it\'s your highest-impact fix.'), 'rose', '🎯'));
-  // planner prediction — the "so what" tied to the exam
-  var fc = pdata.forecast;
-  if (fc && fc.daysToExam != null) {
-    if (fc.onTrack !== false && (fc.bufferDays || 0) > 0) blocks.push(callout('success', 'At this pace you\'ll be exam-ready ' + fc.bufferDays + ' days early.'));
-    else if (fc.onTrack === false) blocks.push(callout('warn', 'You\'re ' + Math.abs(fc.bufferDays || 0) + ' days behind' + (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? ' — +15 min/day claws back ' + fc.ifPlusMinutes.daysSaved + '.' : '.')));
-    else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner.'));
+  // ADR-057: Insights REASONS with the strategy (when an exam exists) — adherence, recovery override, forecast.
+  if (strategy) {
+    var pr = strategy.progress || {}, fc = pr.forecast;
+    if (pr.adherencePct != null && pr.adherencePct < 60) blocks.push(callout('warn', 'You\'ve done ' + pr.adherencePct + '% of your planned work lately — the plan only helps if you run it.'));
+    if (strategy.recovery) blocks.push(card('Plan vs. your data', 'Your plan moves on, but recent accuracy slipped on ' + strategy.recovery.topics.map(function (x) { return x.label; }).join(', ') + ' — do a short recovery set first.', 'amber', '🔁'));
+    if (fc && fc.daysToExam != null) {
+      if (fc.onTrack !== false && (fc.bufferDays || 0) > 0) blocks.push(callout('success', 'At this pace you\'ll be exam-ready ' + fc.bufferDays + ' days early.'));
+      else if (fc.onTrack === false) blocks.push(callout('warn', 'You\'re ' + Math.abs(fc.bufferDays || 0) + ' days behind' + (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? ' — +15 min/day claws back ' + fc.ifPlusMinutes.daysSaved + '.' : '.')));
+      else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner.'));
+    }
   }
   // every insight leads to an action
   var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);

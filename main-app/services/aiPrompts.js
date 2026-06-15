@@ -49,7 +49,7 @@ var REGISTRY = {
   /* ---- AI Coach: a living daily dashboard (ADR-050). One call writes ALL the prose lines; the server lays out
      the blocks (greeting → readiness → win → worry → metrics → plan → recommendation → motivation). ---- */
   'coach.daily': {
-    id: 'coach.daily', version: 6, maxTokens: 460, temperature: 0.45,
+    id: 'coach.daily', version: 7, maxTokens: 460, temperature: 0.45,
     build: function (v) {
       return {
         schemaName: 'coach_daily',
@@ -62,9 +62,14 @@ var REGISTRY = {
           + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim trends, history, "stuck", "for a month", '
           + 'or a "7-day" pattern the evidence does not support; with little data say "first read"/"early". When a '
           + 'LAST SESSION line is present, REASON about what changed and WHY (harder topics? rushing? fatigue? warming '
-          + 'up?) — do not just restate numbers or swap a percentage. If the context names an active concern ('
-          + (v.flagsNote || 'none') + '), address the most important one directly and kindly. Each field is at most '
-          + '1-2 short sentences.', v.examName),
+          + 'up?) — do not just restate numbers or swap a percentage. '
+          + (v.hasPlan ? 'An EXAM STRATEGY is present: reason WITH it — reference where they are in the plan, and if '
+              + 'recent analytics conflict with the plan order (e.g. a topic they were strong on just dropped), '
+              + 'recommend the recovery/adjustment and say why. '
+            : 'No exam plan exists yet: coach purely from their analytics — do NOT invent a study plan, schedule or '
+              + 'exam readiness, and never imply they need an exam to get value. ')
+          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), address the most important '
+          + 'one directly and kindly. Each field is at most 1-2 short sentences.', v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '')
           + '\n\nToday\'s prescribed focus: ' + v.focusLabel + '.'
           + '\nWrite JSON: greeting (warm, personal, reference a real recent change or win, <=14 words), '
@@ -81,7 +86,7 @@ var REGISTRY = {
   /* ---- AI Insights: an analyst (ADR-050). The model writes the intro + biggest-lever headline + why-this-
      weakness; the server renders deterministic metric/pattern blocks so numbers are never hallucinated. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 7, maxTokens: 420, temperature: 0.4,
+    id: 'insights.analyze', version: 8, maxTokens: 420, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
@@ -95,7 +100,11 @@ var REGISTRY = {
           + 'multi-day trajectory; instead give an honest FIRST READ of today\'s numbers and name the first thing to '
           + 'watch. Only describe trends when the evidence shows multiple active days. '
           + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be specific to '
-          + 'their REAL numbers, never restate the dashboard. Every line implies a clear action.', v.examName),
+          + 'their REAL numbers, never restate the dashboard. Every line implies a clear action. '
+          + (v.hasPlan ? 'An EXAM STRATEGY is present: interpret their data AGAINST the plan — call out plan adherence, '
+              + 'a skipped revision milestone, or where recent analytics say the plan order should change (recommend it).'
+            : 'No exam plan exists: analyse purely from their analytics — do NOT reference a study plan, schedule or '
+              + 'exam readiness, and never imply they need an exam to get value.'), v.examName),
         user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
           + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "I found a few things worth your attention", <=12 words), '
           + 'headline (the single biggest lever, <=2 sentences), weaknessInsight (one short line on what is really going '

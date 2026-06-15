@@ -1,12 +1,13 @@
 /**
  * studentProfile.js — the canonical Student Intelligence Profile (ADR-039, materialized in ADR-053).
  *
- * The keystone of the AI ecosystem. `build(uid, opts)` returns ONE object that IS the student's entire
- * learning state — identity, accuracy, today, trends, mastery, weak/strong, flags, memory, the study
- * planner (readiness/forecast/today's tasks/adherence), the next recommendation, and the experience tier.
- * EVERY AI feature (Coach, Insights, Explanation, Chat, Planner, and future features) consumes this same
- * object; no feature re-assembles its own understanding. The derived numbers come from ONE shared layer
- * (`data/statMath.js`), so Analytics and QuanAI can never disagree. Built with PURE ARITHMETIC — no LLM.
+ * Layer 1 of the decision model (ADR-057): the permanent, exam-AGNOSTIC source of truth. `build(uid, opts)`
+ * returns ONE object that IS the student's entire learning state — identity, accuracy, today, trends, mastery,
+ * weak/strong, behavioural flags + signals (burnout/regression), evidence, memory, the next recommendation, and
+ * the experience tier. EVERY AI feature (Coach, Insights, Explanation, Chat, and future features) consumes this
+ * same object; no feature re-assembles its own understanding. The OPTIONAL exam strategy lives in Layer 2
+ * (`examStrategy.js`) and is built FROM this profile, so the AI never feels "dumber" without an exam. The derived
+ * numbers come from ONE shared layer (`data/statMath.js`), so Analytics and QuanAI can never disagree. PURE — no LLM.
  *
  * Doctrine (AI_INTERACTION_SYSTEM §0): move the *analysis* out of the model. Deterministic math can't
  * hallucinate. The model only writes language; this module does the thinking.
@@ -34,7 +35,6 @@ var CATEGORY_LABELS = topics.CATEGORY_LABELS;
 var label = topics.label;
 
 var _round = aiMath.round;
-var _todayIso = aiMath.todayIso;   // ADR-053: local-date fallback for the folded-in planner read
 
 /**
  * Merge a client-sent stats snapshot into the server stats as a FLOOR — every field only ever RISES, so a
@@ -171,13 +171,16 @@ async function build(uid, opts) {
     memory: _publicMemory(memory)
   };
 
-  // ADR-053/055: materialize the WHOLE picture on the one profile so no feature re-assembles its own understanding.
+  // ADR-053/055/057: materialize the WHOLE picture on the one profile so no feature re-assembles its own
+  // understanding. This is Layer 1 — exam-AGNOSTIC; the optional exam strategy lives in examStrategy.js (Layer 2).
   ctx.tier = _tierOf(totalAttempted);                 // experience tier (gates richness, never access)
   ctx.evidence = statMath.evidence(stats);            // ADR-055: how much the AI is ALLOWED to claim (anti-fabrication)
   ctx.lastChange = _lastChange(ctx);                  // ADR-055: what actually changed last session (for real reasoning)
   ctx.recommendation = _recommendation(ctx);          // the single "what to work on next"
   ctx.masteryByCat = _masteryByCat(stats);            // any category's mastery (Explanation looks itself up here)
-  ctx.planner = await _plannerData(uid, opts.clientDate);   // study-plan readiness/forecast/today's tasks (one read)
+  // ADR-057: behavioural signals the Strategy consumes (the Profile is the one evolving picture; features never
+  // message each other). Strong topics now showing up in recent mistakes = a regression to recover before new work.
+  ctx.recentRegressionTopics = (errorPatterns && errorPatterns.regressedStrong) || [];
 
   _cache(cacheRef, ctx);
   return ctx;
@@ -214,37 +217,8 @@ function _recommendation(ctx) {
   return { cat: 'percentages', label: label('percentages'), why: 'high-impact foundation' };
 }
 
-/* The study planner grounding, folded into the profile (ADR-053; was aiBrain._plannerData). One aiPlanner read
-   yields today's tasks + the persisted exam readiness + forecast + adherence, so Coach/Insights/Explain/Chat all
-   speak from the same plan with no second read. Returns an empty shape when there's no plan. */
-async function _plannerData(uid, clientDate) {
-  var empty = { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null };
-  try {
-    var pd = await db().collection('aiPlanner').doc(uid).get();
-    if (!pd.exists) return empty;
-    var pdoc = pd.data();
-    var todayKey = clientDate || _todayIso();
-    var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
-    var tasks = (td && td.tasks) || [];
-    var labels = tasks.map(function (t) { return t.label; }).slice(0, 3).join(', ');
-    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {};
-    var adh = null, bh = pdoc.blockHistory || [];
-    if (bh.length && typeof bh[bh.length - 1].adherencePct === 'number') adh = bh[bh.length - 1].adherencePct;
-    else if (pdoc.block) {
-      var sched = 0, done = 0;
-      ((pdoc.block.days) || []).forEach(function (d) { (d.tasks || []).forEach(function (x) { sched++; if (x.done) done++; }); });
-      if (sched) adh = Math.round(done / sched * 100);
-    }
-    var note = '';
-    if (labels) note += 'The student\'s study planner schedules today: ' + labels + '. ';
-    if (typeof rd.score === 'number') {
-      note += 'Their exam readiness is ' + rd.score + '/100' +
-        (fc.onTrack === false ? ' and they\'re behind pace' : (fc.daysToExam != null ? ', ' + fc.daysToExam + ' days out' : '')) + '. ';
-    }
-    return { has: true, note: note ? note + 'Tie your advice to the plan.' : '',
-      readiness: (typeof rd.score === 'number' ? rd : null), forecast: fc, todayTasks: tasks, adherencePct: adh };
-  } catch (_) { return empty; }
-}
+/* ADR-057: the study-plan read moved OUT of the profile into examStrategy.js (Layer 2). The profile is now pure
+   Layer 1 (exam-agnostic) so Coach/Insights/Explain/Chat still work fully when no exam exists. */
 
 function _publicMemory(m) {
   if (!m || typeof m !== 'object') return null;
@@ -295,8 +269,8 @@ function _deriveErrors(stats, mastery) {
   var recentCats = Object.keys(recent);
   // careless = a STRONG category (acc>0.8) that nonetheless shows up in recent mistakes
   var strongSet = {}; mastery.forEach(function (m) { if (m.tier === 'strong') strongSet[m.cat] = true; });
-  var careless = recentCats.some(function (c) { return strongSet[c]; });
-  return { recentMistakeCats: recentCats.slice(0, 6), carelessSignal: careless };
+  var regressed = recentCats.filter(function (c) { return strongSet[c]; });   // ADR-057: strong topic slipping = regression
+  return { recentMistakeCats: recentCats.slice(0, 6), carelessSignal: regressed.length > 0, regressedStrong: regressed.slice(0, 4) };
 }
 
 function _deriveFlags(o) {
