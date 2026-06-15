@@ -42,13 +42,13 @@ var DuelCore = (function () {
     return u ? u.uid : null;
   }
 
-  /* ── Authenticated endpoint call ── */
-  function api(action, body) {
+  /* ── Authenticated endpoint call (one attempt) ── */
+  function _apiOnce(action, body) {
     return Promise.resolve()
       .then(function () {
         if (typeof Auth !== 'undefined' && Auth.getIdToken) return Auth.getIdToken();
         var u = firebase.auth().currentUser;
-        if (!u) throw new Error('Not signed in.');
+        if (!u) { var ae = new Error('Not signed in.'); ae.noRetry = true; throw ae; }
         return u.getIdToken();
       })
       .then(function (token) {
@@ -59,18 +59,36 @@ var DuelCore = (function () {
         });
       })
       .then(function (resp) {
-        return resp.json().catch(function () { throw new Error('Unexpected server response.'); })
+        return resp.json().catch(function () { var e = new Error('Unexpected server response.'); e.status = resp.status; throw e; })
           .then(function (data) {
             if (!resp.ok) {
               var msg = (data && data.error && data.error.message) || 'Request failed';
               var err = new Error(msg);
               err.code = (data && data.error && data.error.code) || null;
+              err.status = resp.status;
               err.payload = data;
               throw err;
             }
             return data;
           });
       });
+  }
+  /* ADR-065: bounded retry for TRANSIENT failures only — a dropped network call (no HTTP status) or an HTTP 5xx.
+     NEVER retries a 4xx (403 premium / 409 in-progress / 401 / 404) or an auth throw — those can't succeed on
+     retry. 2 attempts total, 600ms backoff. Mutations are server-idempotent (finalize/start CAS) so a retried
+     finish/start is safe. */
+  function api(action, body) {
+    function attempt(n) {
+      return _apiOnce(action, body).catch(function (err) {
+        var s = err && err.status;
+        var transient = !(err && err.noRetry) && (s == null || s >= 500);
+        if (n > 0 && transient) {
+          return new Promise(function (r) { setTimeout(r, 600); }).then(function () { return attempt(n - 1); });
+        }
+        throw err;
+      });
+    }
+    return attempt(1);   // 1 retry ⇒ up to 2 attempts
   }
 
   /* ── Endpoint actions (thin wrappers) ── */
@@ -106,8 +124,11 @@ var DuelCore = (function () {
   /** Heartbeat (lastSeenAt only) — used while solving so the opponent's "Reconnecting…" chip is accurate. */
   function heartbeat(code) {
     var uid = _uid(); if (!uid || !code) return Promise.resolve();
-    var upd = {}; upd['presence.' + uid + '.lastSeenAt'] = Date.now();
-    return _db().collection(DUELS).doc(code).update(upd).catch(function () { /* transient — ignore */ });
+    function beat() { var upd = {}; upd['presence.' + uid + '.lastSeenAt'] = Date.now(); return _db().collection(DUELS).doc(code).update(upd); }
+    // ADR-065: one delayed retry so a brief connectivity blip doesn't age lastSeenAt into a false "Reconnecting…".
+    return beat().catch(function () {
+      return new Promise(function (r) { setTimeout(r, 800); }).then(beat).catch(function () { /* give up silently */ });
+    });
   }
 
   /** Persist one answer to the player's own doc (merge → no clobber). Allowed only while solving (rules).

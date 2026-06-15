@@ -39,6 +39,7 @@ const MAX_MS_PER_Q = 90000;   // generous per-question hard cap → total deadli
 const GRACE_MS = 15000;       // buffer after the hard cap before the server force-finalizes
 const COUNTDOWN_MS = 3500;    // 3-2-1-GO, server-anchored
 const SPEED_BONUS_MAX = 300;  // < 1000 (one correct answer) ⇒ accuracy strictly dominates
+const DUEL_HISTORY_CAP = 50;  // ADR-065: keep only the newest N duelHistory entries per user (no unbounded growth)
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -297,7 +298,26 @@ async function _finalizeTxn(code, finalizeSpec) {
       _sendOpponentFinishedFcm(u, oppName, code);
     }
   }
+  // ADR-065: a finished duel just appended to each player's duelHistory — cap it (best-effort, post-commit) so it
+  // can't grow unbounded. Count-then-trim keeps the finalize transaction itself untouched.
+  if (result && result.completed) {
+    ((result.room && result.room.participantUids) || []).forEach(function (u) { _pruneDuelHistory(u); });
+  }
   return result || {};
+}
+
+/** ADR-065: keep only the newest DUEL_HISTORY_CAP entries in users/{uid}/duelHistory. Best-effort, never throws. */
+async function _pruneDuelHistory(uid) {
+  try {
+    const ref = db.collection(USERS).doc(uid).collection('duelHistory');
+    const agg = await ref.count().get();
+    const total = (agg.data() && agg.data().count) || 0;
+    if (total <= DUEL_HISTORY_CAP) return;
+    const old = await ref.orderBy('playedAt', 'asc').limit(total - DUEL_HISTORY_CAP).get();
+    const batch = db.batch();
+    old.forEach(function (d) { batch.delete(d.ref); });
+    await batch.commit();
+  } catch (_) { /* best-effort — retried on the next finish */ }
 }
 
 /* ───────────────────────── actions ───────────────────────── */
@@ -618,34 +638,55 @@ async function _cronSweep(req, res) {
   if (!_safeEqual(provided, secret)) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
 
   const now = _now();
-  const result = { finalized: 0, lobbiesExpired: 0 };
+  const result = { finalized: 0, lobbiesExpired: 0, roomsDeleted: 0 };
   try {
     // Finalize abandoned active duels past their deadline (lazy path missed them — both players gone).
-    const active = await db.collection(DUELS).where('status', '==', 'active').limit(300).get();
+    // ADR-065: order OLDEST-deadline-first + larger batch so a backlog drains deterministically and can't
+    // outpace the hourly sweep. Ordered ascending, so once we reach a not-yet-overdue duel, all the rest are
+    // in the future → stop early. (Needs the (status, totalDeadline) composite index.)
+    const active = await db.collection(DUELS).where('status', '==', 'active').orderBy('totalDeadline', 'asc').limit(1000).get();
     for (const doc of active.docs) {
       const d = doc.data();
-      if (d.totalDeadline && now > d.totalDeadline) {
-        const spec = {};
-        (d.participantUids || []).forEach(function (u) {
-          const st = d.presence && d.presence[u] && d.presence[u].state;
-          if (st !== 'finished') spec[u] = 'timed_out';
-        });
-        if (Object.keys(spec).length) { try { await _finalizeTxn(doc.id, spec); result.finalized++; } catch (e) { /* skip */ } }
-      }
+      if (!d.totalDeadline || now <= d.totalDeadline) break;   // ascending ⇒ nothing further is overdue
+      const spec = {};
+      (d.participantUids || []).forEach(function (u) {
+        const st = d.presence && d.presence[u] && d.presence[u].state;
+        if (st !== 'finished') spec[u] = 'timed_out';
+      });
+      if (Object.keys(spec).length) { try { await _finalizeTxn(doc.id, spec); result.finalized++; } catch (e) { /* skip */ } }
     }
-    // Expire stale lobbies (created >2h ago, never started).
+    // Expire stale lobbies (created >2h ago, never started) — oldest-first, larger batch.
     const staleBefore = admin.firestore.Timestamp.fromMillis(now - 2 * 60 * 60 * 1000);
-    const lobbies = await db.collection(DUELS).where('status', '==', 'lobby').limit(300).get();
+    const lobbies = await db.collection(DUELS).where('status', '==', 'lobby').orderBy('createdAt', 'asc').limit(1000).get();
     for (const doc of lobbies.docs) {
       const d = doc.data();
       const created = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0;
-      if (created && created < staleBefore.toMillis()) {
-        try {
-          await doc.ref.update({ status: 'expired' });
-          (d.participantUids || []).forEach(function (u) { db.collection(USERS).doc(u).set({ activeDuelId: null }, { merge: true }).catch(function () {}); });
-          result.lobbiesExpired++;
-        } catch (e) { /* skip */ }
-      }
+      if (created && created >= staleBefore.toMillis()) break;   // ascending ⇒ nothing further is stale
+      try {
+        await doc.ref.update({ status: 'expired' });
+        (d.participantUids || []).forEach(function (u) { db.collection(USERS).doc(u).set({ activeDuelId: null }, { merge: true }).catch(function () {}); });
+        result.lobbiesExpired++;
+      } catch (e) { /* skip */ }
+    }
+    // ADR-065: hard-delete terminal rooms (complete/abandoned/expired) older than 30 days so finished duels +
+    // their subdocs (players/*, private/key) can't accumulate forever. Oldest-first; bounded per run.
+    const purgeBefore = admin.firestore.Timestamp.fromMillis(now - 30 * 24 * 60 * 60 * 1000);
+    const terminal = await db.collection(DUELS)
+      .where('status', 'in', ['complete', 'abandoned', 'expired'])
+      .where('createdAt', '<', purgeBefore)
+      .orderBy('createdAt', 'asc')
+      .limit(200).get();
+    for (const doc of terminal.docs) {
+      try {
+        const sub = db.batch();
+        const players = await doc.ref.collection('players').get();
+        players.forEach(function (p) { sub.delete(p.ref); });
+        const priv = await doc.ref.collection('private').get();
+        priv.forEach(function (k) { sub.delete(k.ref); });
+        sub.delete(doc.ref);
+        await sub.commit();
+        result.roomsDeleted++;
+      } catch (e) { /* skip — retried next run */ }
     }
     // ADR-039: piggyback the AI daily batch on the single shared cron (Vercel Hobby = 1 cron). FULLY GUARDED —
     // a failure here can NEVER affect the duel sweep (it has already done its work above).

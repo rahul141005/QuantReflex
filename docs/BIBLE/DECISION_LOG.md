@@ -8,6 +8,29 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-065 — Duel system bug fixes (robustness/scale/cleanup) (2026-06-15)
+- **Context:** The deep Duel audit found the critical paths (grading/finalize/winner/security) bug-free, but four
+  concrete robustness/scale/cleanup defects. This change fixes ONLY those — no features, no rematch, no rules
+  change, no gameplay/scoring change.
+- **Bug 1 — dead Cloud Function:** `functions/index.js cleanupExpiredDuels` queried obsolete statuses
+  (`waiting/ready/...`) that Duel V2 never uses → it matched zero docs and silently did nothing. Repointed to the
+  real V2 condition (`status=='lobby' && createdAt < now-2h → 'expired'`, oldest-first, index-backed), so it works
+  as the scheduled backstop it claims to be.
+- **Bug 2 — cron scale:** `api/duel.js _cronSweep` used `limit(300)` with no ordering. Now orders each scan
+  oldest-first (`totalDeadline`/`createdAt ASC`) with early-break and a larger batch (1000); added the
+  `(status, totalDeadline)` composite index for the active-finalize scan.
+- **Bug 3 — unbounded growth:** (a) `cron-sweep` now hard-deletes terminal rooms (complete/abandoned/expired)
+  older than 30 days incl. `players/*` + `private/key` subdocs (oldest-first, ≤200/run); (b) post-finalize
+  best-effort `_pruneDuelHistory` caps `users/{uid}/duelHistory` to the newest 50 (count-then-trim — the finalize
+  transaction itself is untouched).
+- **Bug 4 — missing retries:** `duel-core.js api()` gained a bounded retry (2 attempts, 600ms) for TRANSIENT
+  failures only (network drop or HTTP 5xx; never 4xx/auth — server mutations are idempotent); `heartbeat` gained
+  one delayed retry so a brief blip doesn't age presence into a false "Reconnecting…".
+- **Consequences:** `node --check` clean (api/duel.js, functions/index.js, duel-core.js); indexes JSON valid;
+  `npm test` green (4736 + 238 + 97 + 79). New index + the repointed Cloud Function require a Firebase deploy
+  (`firestore:indexes` + functions). SW v123→v124 (duel-core is a client asset). No client-visible behaviour
+  change beyond fewer spurious errors/"Reconnecting…" flickers.
+
 ## ADR-064 — Duel end-of-match UX: premium transition, skip-aware results, full match review (2026-06-15)
 - **Context:** After the final duel question the screen froze ~1–2s then snapped to a basic results card (too high
   on short devices), and there was no way to review which questions you got right/wrong, the correct answer, or

@@ -70,18 +70,23 @@ exports.cleanupExpiredDuels = onSchedule(
   async (event) => {
 
     const now = Timestamp.now();
-    const thirtyMinutesAgo = new Date(now.toMillis() - 30 * 60 * 1000);
+    // ADR-065 fix: Duel V2 (ADR-031) uses status 'lobby' for un-started rooms (the old 'waiting'/'ready' statuses
+    // never existed in V2, so this sweep matched ZERO docs and silently did nothing). Expire lobbies that sat for
+    // >2h with nobody starting. Active-duel finalize/grading stays in the server cron-sweep, which holds the answer
+    // key + grading logic; the expired room's activeDuelId mirror self-heals on the user's next recover().
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const staleBefore = new Date(now.toMillis() - TWO_HOURS_MS);
 
     try {
-      /* Find stale rooms (waiting/ready for more than 30 min) */
       const staleRooms = await db.collection('duels')
-        .where('status', 'in', ['waiting', 'ready', 'waiting_for_acceptance', 'waiting_room'])
-        .where('createdAt', '<', thirtyMinutesAgo)
+        .where('status', '==', 'lobby')
+        .where('createdAt', '<', staleBefore)
+        .orderBy('createdAt', 'asc')   // oldest-first so a backlog drains deterministically
         .limit(400)
         .get();
 
       if (staleRooms.empty) {
-        logger.info('[cleanup] No stale duel rooms found.');
+        logger.info('[cleanup] No stale duel lobbies found.');
         return;
       }
 
@@ -90,8 +95,8 @@ exports.cleanupExpiredDuels = onSchedule(
 
       staleRooms.forEach((doc) => {
         const data = doc.data();
-        /* Safety check: never touch active or completed rooms */
-        if (data.status === 'active' || data.status === 'completed') {
+        /* Safety check: only ever expire a 'lobby' (never an active/complete room). */
+        if (data.status !== 'lobby') {
           logger.warn('[cleanup] SAFETY: skipping', doc.id, 'status:', data.status);
           return;
         }
@@ -105,7 +110,7 @@ exports.cleanupExpiredDuels = onSchedule(
 
       if (count > 0) {
         await batch.commit();
-        logger.info('[cleanup] Marked ' + count + ' rooms as expired.');
+        logger.info('[cleanup] Expired ' + count + ' stale duel lobbies.');
       } else {
         logger.info('[cleanup] All stale rooms were in protected states.');
       }
