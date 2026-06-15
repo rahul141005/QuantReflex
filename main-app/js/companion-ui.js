@@ -307,7 +307,7 @@ var Companion = (function () {
         + '. React in ONE short, specific line and give the single best next step. Stay on THIS concept.';
       var typing = el('<div class="companion-turn"><div class="companion-typing"><i></i><i></i><i></i></div></div>');
       body.appendChild(typing); body.scrollTop = body.scrollHeight;
-      var payload = { feature: feature, topic: _state.topic, userTurn: 'drill_result', drill: summary, history: _state.history.slice(-4) };
+      var payload = { feature: feature, topic: _state.topic, userTurn: 'drill_result', drill: summary, history: _state.history.slice(-4), clientStats: clientStats(), clientDate: localDate() };
       if (_state.explainCtx) { payload.question = _state.explainCtx.question; payload.lastExplanation = _state.explainCtx.lastExplanation; }
       api('chat', payload).then(function (res) {
         if (typing.parentNode) typing.parentNode.removeChild(typing);
@@ -356,7 +356,8 @@ var Companion = (function () {
     // ADR-040: capture history BEFORE recording the current turn, so it isn't double-counted (it's also sent as userTurn).
     var histPayload = _state.history.slice(-6);
     _state.history.push({ role: 'user', content: label || value });
-    var payload = { feature: _state.feature, topic: _state.topic, userTurn: value, history: histPayload };
+    // ADR-051: send the live local stats floor + local date so a chat turn reasons from the same fresh "today" as Coach.
+    var payload = { feature: _state.feature, topic: _state.topic, userTurn: value, history: histPayload, clientStats: clientStats(), clientDate: localDate() };
     // Anchor Explain follow-ups to the original question + the explanation on screen (ADR-045).
     if (_state.explainCtx) { payload.question = _state.explainCtx.question; payload.lastExplanation = _state.explainCtx.lastExplanation; }
     api('chat', payload).then(function (res) {

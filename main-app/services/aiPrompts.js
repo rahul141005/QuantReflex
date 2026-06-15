@@ -97,32 +97,38 @@ var REGISTRY = {
   },
 
   /* ---- AI Explain: adaptive explanation. Model writes concept + steps + mistake + tip, depth-aware. ---- */
+  /* ADR-051: a premium "learning document" — concept + steps + 2-3 common mistakes + a shortcut-with-when-to-use.
+     These four are question-properties (user/exam-agnostic), so they stay in the shared per-question cache; the
+     server layers the per-student sections (exam insight, mastery status, next step) deterministically on top. */
   'explain.base': {
-    id: 'explain.base', version: 4, maxTokens: 520, temperature: 0.3,
+    id: 'explain.base', version: 5, maxTokens: 560, temperature: 0.3,
     build: function (v) {
       return {
         schemaName: 'explain_base',
         schema: { type: 'object', additionalProperties: false,
-          required: ['concept', 'steps', 'mistake', 'tip', 'computedAnswer'],
+          required: ['concept', 'steps', 'mistakes', 'shortcut', 'computedAnswer'],
           properties: {
             concept: STR,
             steps: { type: 'array', items: STR },
-            mistake: STR, tip: STR, computedAnswer: { type: 'number' }
+            mistakes: { type: 'array', items: STR },
+            shortcut: STR, computedAnswer: { type: 'number' }
           } },
         system: sys('Explain why the correct answer is correct, at ' + (v.depth || 'standard') + ' depth '
           + '(concise=fewer, bigger steps; deep=more granular). Use mental-math shortcuts. Your final step MUST '
           + 'arrive at exactly ' + v.answer + '.', v.examName),
         user: 'Question: ' + v.question + '\nCorrect answer: ' + v.answer + '\nTopic: ' + v.catLabel
           + (v.struggledBefore ? '\nNote: the student has struggled with this concept before — make it stick.' : '')
-          + '\n\nWrite JSON: concept (one short line), steps (an array of 3-5 short strings, each 1-2 sentences, '
-          + 'final step states ' + v.answer + '), mistake (the most common error, one line), tip (a quick shortcut, '
-          + 'one line), computedAnswer (the number your steps reach).',
+          + '\n\nWrite JSON: concept (the key idea in one short line), steps (an array of 3-5 short strings, each '
+          + '1-2 sentences, final step states ' + v.answer + '), mistakes (an array of 2-3 SHORT common traps '
+          + 'students fall into on THIS type of question), shortcut (one faster method AND one phrase on when it '
+          + 'helps vs when to avoid it), computedAnswer (the number your steps reach).',
         validate: function (p) {
           if (!p || typeof p.concept !== 'string' || !Array.isArray(p.steps) || !p.steps.length) return null;
           var exp = parseFloat(v.answer), got = parseFloat(p.computedAnswer);
           if (isNaN(got) || (!isNaN(exp) && Math.abs(exp - got) > 0.01)) return null;
+          var ms = Array.isArray(p.mistakes) ? p.mistakes.filter(function (s) { return typeof s === 'string' && s; }).slice(0, 3) : [];
           return { concept: p.concept, steps: p.steps.filter(function (s) { return typeof s === 'string'; }),
-            mistake: p.mistake || '', tip: p.tip || '' };
+            mistakes: ms, shortcut: typeof p.shortcut === 'string' ? p.shortcut : '' };
         }
       };
     }

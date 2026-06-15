@@ -8,6 +8,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-051 — One source of truth (freshness + mastery) + Explanation as a premium learning document (2026-06-15)
+- **Context:** A from-first-principles sign-off audit (4 parallel investigations) confirmed QuanAI is
+  architecturally clean (zero dead prompts/exports/files, zero duplicate calls/reads, zero legacy refs) but
+  found two real "one brain" gaps. (1) The `clientStats` freshness floor — which lets a feature reflect a drill
+  finished during the debounced `syncStats` window — was applied to Coach/Insights/planner-setup/toggle/regen
+  but **dropped by `plannerGet`, `chatTurn`, and `wordProblem`**, so opening the Planner or the conversational
+  coach right after practice could disagree with the Coach dashboard. (2) Explanation was the only feature not
+  wired to the canonical mastery model and rendered only concept + steps + a one-line mistake/tip.
+- **Decisions:**
+  - **One freshness source, everywhere.** Thread the existing `_sanitizeClientStats` → `buildContext({clientStats})`
+    floor into `plannerGet` (server-only — the client already sent it at companion-ui.js:438, the server just
+    discarded it), `chatTurn` (client `sendTurn`/drill payloads now send `clientStats`+`clientDate`; `_chat`
+    sanitizes + passes), and `wordProblem` (plumbed server-side; the WP AI path is currently future-ready — the
+    live client uses the pre-generated question bank). Now every feature reads the same live "today."
+  - **One mastery source, no drift.** Exported `studentContext._deriveMastery` + a `masteryForCat(stats, cat)`
+    convenience as THE canonical weak/strong resolver. Explanation now reads its category's mastery from the
+    **same function** Coach/Insights/Planner feed from (computed live from `categoryStats`), retiring the ad-hoc
+    "have they asked to explain this before" heuristic as the tone driver. "If Coach says Percentages is a
+    weakness, Explanation agrees automatically."
+  - **Explanation = a premium learning document; chips extend, not reveal.** Per the product owner: every
+    explanation now renders always-visible sections — concept → step-by-step → **Common mistakes** (2–3, with a
+    personalized lead when it's a live weak spot) → **Faster method** → **Exam Insight** (deterministic from the
+    bundled syllabus: frequency/difficulty/time-target for the student's exam) → **Mastery Status** (the
+    canonical "{acc}% over {n}", never invented) → **Recommended next step** (mastery-tiered drill mission) —
+    then the Simpler/Go-deeper/Another/Drill chips *extend* it. `explain.base@4→5` (busts the shared
+    per-question cache; `mistake`→`mistakes[]`, `tip`→`shortcut` with when-to-use). One LLM call preserved; the
+    personalized sections are deterministic so numbers are never hallucinated and the shared cache stays
+    user/exam-agnostic.
+- **Consequences:** No model/schema/rules change; one LLM call per feature preserved. Explanation does one
+  `users/{uid}` read (same count as before — it yields both stats and memory) and no extra aiPlanner read on
+  that high-frequency path. The two canonical resolvers (the `clientStats` floor; `_deriveMastery`) are now the
+  single sources of truth for freshness and mastery. Verified by `node --check`, `npm test` (planner-engine 209
+  + planner-brain **48**, incl. masteryForCat≡_deriveMastery, the premium-document sections, no-invented-numbers
+  on low data, and plannerGet/chatTurn floor wiring), and a grep gate. SW v111→v112. Visual polish + animation
+  smoothness still need a real-device QA pass (can't run a browser here).
+
 ## ADR-050 — Coach + Insights as living dashboards: one AI brain, no backend rewrite (2026-06-15)
 - **Context:** Coach and Insights worked but felt like "a paragraph + a button," and still opened by telling the
   student to "go practice / warm up / unlock." A 3-pass audit found the backend *already computes* almost

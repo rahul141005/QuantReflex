@@ -66,7 +66,9 @@ async function _chat(req, res) {
     // ADR-045: carry the Explain anchor so follow-ups deepen THIS question instead of drifting topics.
     question: typeof body.question === 'string' ? body.question.slice(0, 500) : '',
     lastExplanation: typeof body.lastExplanation === 'string' ? body.lastExplanation.slice(0, 900) : '',
-    drill: typeof body.drill === 'string' ? body.drill.slice(0, 400) : ''
+    drill: typeof body.drill === 'string' ? body.drill.slice(0, 400) : '',
+    // ADR-051: floor the context so a conversational turn agrees with the Coach dashboard on "today".
+    clientStats: _sanitizeClientStats(body.clientStats), clientDate: _clientDate(body)
   });
   return res.json({ response: response });
 }
@@ -107,7 +109,8 @@ async function _planner(req, res) {
   var clientDate = _clientDate(body);   // ADR-049: the student's LOCAL "today"
 
   if (op === 'get') {
-    var got = await aiBrain.plannerGet(req.userId, { clientDate: clientDate });
+    // ADR-051: pass the floor (client already sends it) so the on-load forecast/readiness reflect a fresh session.
+    var got = await aiBrain.plannerGet(req.userId, { clientStats: clientStats, clientDate: clientDate });
     return res.json({ plan: got.plan || null, response: got.envelope || null });
   }
   if (op === 'setup') {
@@ -153,7 +156,7 @@ async function _wordProblems(req, res) {
   var body = req.body || {};
   var category = typeof body.category === 'string' ? body.category.slice(0, 50) : '';
   var difficulty = (body.difficulty === 'easy' || body.difficulty === 'hard') ? body.difficulty : 'medium';
-  var result = await aiBrain.wordProblem(req.userId, category, difficulty, req.userPremium);
+  var result = await aiBrain.wordProblem(req.userId, category, difficulty, req.userPremium, { clientStats: _sanitizeClientStats(body.clientStats) });
   if (result.error) {
     var map = { free_limit_reached: 403, daily_limit_reached: 429, generation_failed: 503 };
     return res.status(map[result.error] || 400).json({ error: { code: result.error.toUpperCase(), message: result.error, retryable: result.error === 'generation_failed' } });

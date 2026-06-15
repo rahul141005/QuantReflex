@@ -246,6 +246,18 @@ function _deriveTrends(stats) {
   };
 }
 
+/** The canonical mastery for ONE category (acc, n, tier) — same thresholds as _deriveMastery, but not sliced to
+ *  the top-8, so a feature (e.g. Explanation) can ask about any category. Returns null when too little data.
+ *  This is the SINGLE weak/strong resolver every feature shares (ADR-051) — no second computation, no drift. */
+function masteryForCat(stats, cat) {
+  var d = ((stats && stats.categoryStats) || {})[cat] || {};
+  var att = Number(d.attempted) || 0, cor = Number(d.correct) || 0;
+  if (att < 3) return null;
+  var acc = cor / att;
+  return { cat: cat, label: label(cat), acc: _round(acc, 2), n: att,
+    tier: acc < 0.6 ? 'weak' : (acc >= 0.8 ? 'strong' : 'developing') };
+}
+
 /** Per-category current mastery (acc, n, tier) from categoryStats. */
 function _deriveMastery(stats) {
   var cs = stats.categoryStats || {};
@@ -364,4 +376,6 @@ function topWeakCategory(ctx) {
   return weak.length ? weak[0] : ((ctx.mastery || [])[0] || null);
 }
 
-module.exports = { buildContext, serialize, isColdStart, topWeakCategory, label, CATEGORY_LABELS };
+module.exports = { buildContext, serialize, isColdStart, topWeakCategory, label, CATEGORY_LABELS,
+  // ADR-051: the canonical mastery resolvers, shared so every feature agrees on weak/strong (no drift).
+  masteryForCat: masteryForCat, _deriveMastery: _deriveMastery };

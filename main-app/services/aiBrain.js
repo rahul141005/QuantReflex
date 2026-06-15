@@ -21,6 +21,24 @@ const aiMath = require('./aiMath');                  // shared round/clamp/today
 
 function db() { return admin.firestore(); }
 function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
+/* ADR-051: deterministic "how this concept shows up in YOUR exam" — grounded in the bundled syllabus metadata
+   (frequency/difficulty), never invented by the LLM. examName → exam (in-memory) → matching drillable topics. */
+function _examInsight(category, examName) {
+  if (!category || !examName) return null;
+  try {
+    var exam = (SYL.searchExams(examName) || [])[0];
+    if (!exam) return null;
+    var syl = SYL.resolveSyllabus(exam.id);
+    var topics = ((syl && syl.topics) || []).filter(function (t) { return t.drillable === category; });
+    if (!topics.length) return null;
+    topics.sort(function (a, b) { return (b.importance || 0) - (a.importance || 0); });
+    var top = topics[0];
+    var freq = top.frequency || (top.importance >= 0.75 ? 'high' : top.importance >= 0.5 ? 'medium' : 'low');
+    var diff = top.difficulty >= 0.66 ? 'a tougher area' : top.difficulty >= 0.4 ? 'moderate' : 'one of the friendlier topics';
+    var target = top.difficulty >= 0.66 ? '~100s' : top.difficulty >= 0.4 ? '~75s' : '~45s';
+    return { examName: exam.name, text: top.label + ' is ' + freq + '-frequency in ' + exam.name + ' and ' + diff + '. Aim for about ' + target + ' a question.' };
+  } catch (_) { return null; }
+}
 function _promptId(p) { return p.id + '@' + p.version; }
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; return h.toString(36); }
@@ -336,7 +354,11 @@ function _insightsFallback(ctx, weak) {
   return envelope('insights', blocks, [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
 }
 
-/* ════════════════════════ AI EXPLAIN — interactive concept learning ════════════════════════ */
+/* ════════════════════════ AI EXPLAIN — a premium learning document (ADR-051) ════════════════════════ */
+/* Every explanation is a teaching document, not a one-liner: concept → solution → common mistakes → shortcut →
+   how it shows up in YOUR exam → your mastery here → the recommended next step. The question-specific prose
+   (concept/steps/mistakes/shortcut) is shared-cached per question; the per-student sections (exam insight,
+   mastery, next step) are layered on deterministically from the SAME canonical mastery the other features use. */
 async function explainBase(question, answer, category, uid) {
   var catLabel = ctxEngine.label(category) || 'General Math';
   // Cache key is namespaced by the prompt version so a prompt bump busts the shared cache instead of
@@ -345,24 +367,34 @@ async function explainBase(question, answer, category, uid) {
   var hash = _hash(String(question) + ':' + String(answer));
   var cacheRef = db().collection('explanations').doc(hash + '_v' + explainVersion);
 
+  // One users-doc read yields BOTH the canonical stats (for mastery) and memory — same read count as before.
+  var stats = {}, mem = {};
+  try {
+    var udoc = await db().collection('users').doc(uid).get();
+    if (udoc.exists) { var ud = udoc.data() || {}; stats = ud.stats || {}; mem = ud.aiMemory || {}; }
+  } catch (e) { console.warn('[aiBrain] explain user read failed:', e.message); }
+  // The SAME weak/strong resolver Coach/Insights/Planner use — Explanation can never disagree with them (ADR-051).
+  var mastery = ctxEngine.masteryForCat(stats, category);
+  var struggledHint = (Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0)
+    || (Array.isArray(mem.knownWeakConcepts) && mem.knownWeakConcepts.indexOf(category) >= 0)
+    || (mastery && mastery.tier === 'weak');
+
   var promptId = 'explain.base@' + explainVersion;
   var pieces = null;
   try {
     var cached = await cacheRef.get();
-    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistake: c.mistake, tip: c.tip }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); }
+    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); }
   } catch (e) { console.warn('[aiBrain] explain cache read failed:', e.message); }
 
   if (!pieces) {
-    var mem = await aiService.getMemory(uid);
-    var struggled = !!(mem && Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0);
-    var depth = (mem && mem.preferredDepth) || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper (was hardcoded 'standard')
+    var depth = mem.preferredDepth || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: struggled, examName: (mem && mem.examName) || '' });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '' });
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
       pieces = r.data;
-      cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistake: pieces.mistake, tip: pieces.tip, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
+      cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistakes: pieces.mistakes, shortcut: pieces.shortcut, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
       if (e && e.usage) aiService.trackGptCost(uid, e.usage);
       return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
@@ -372,9 +404,38 @@ async function explainBase(question, answer, category, uid) {
 
   aiService.updateMemory(uid, { addExplainedTopic: category, timelineEntry: { feature: 'explain', summary: 'Explained a ' + catLabel + ' question.' } }, 'explain');
 
-  var blocks = [say(pieces.concept), steps(pieces.steps, 'Solution')];
-  if (pieces.mistake) blocks.push(callout('warn', 'Common slip: ' + pieces.mistake));
-  if (pieces.tip) blocks.push(card('Shortcut', pieces.tip, 'blue', '💡'));
+  // ── assemble the learning document ──
+  var blocks = [say(pieces.concept), steps(pieces.steps, 'Step-by-step solution')];
+  // Common mistakes (always visible), personalized when this is a live weak spot.
+  var mistakes = Array.isArray(pieces.mistakes) ? pieces.mistakes.filter(Boolean) : (pieces.mistakes ? [String(pieces.mistakes)] : []);
+  if (mistakes.length) {
+    var lead = struggledHint ? 'You\'ve slipped here before — watch these:\n' : '';
+    blocks.push(card('Common mistakes', lead + '• ' + mistakes.slice(0, 3).join('\n• '), 'amber', '⚠️'));
+  }
+  // Faster method (always visible).
+  if (pieces.shortcut) blocks.push(card('Faster method', pieces.shortcut, 'blue', '⚡'));
+  // Exam insight (always visible when the exam is known) — deterministic from the syllabus.
+  var exam = _examInsight(category, mem.examName);
+  if (exam) blocks.push(card('In ' + exam.examName, exam.text, 'slate', '🎯'));
+  // Mastery status (always visible when there's real data) — the canonical number, never invented.
+  if (mastery) {
+    blocks.push(metric('Your ' + catLabel + ' accuracy', Math.round(mastery.acc * 100) + '% (' + mastery.n + ' done)',
+      mastery.tier === 'strong' ? 'up' : (mastery.tier === 'weak' ? 'down' : 'flat'), mastery.tier !== 'weak'));
+  }
+  // Recommended next step (always visible) — from the mastery tier; reuses the focus-drill deep link.
+  var nextNote, nextTitle, nextWhy, nextMin;
+  if (!mastery || mastery.tier === 'weak') {
+    nextNote = mastery ? 'This is one of your focus areas — let\'s turn it around.' : 'Let\'s build a base here.';
+    nextTitle = 'Drill ' + catLabel + ' now'; nextWhy = 'A focused set is the fastest way to fix this.'; nextMin = 8;
+  } else if (mastery.tier === 'strong') {
+    nextNote = struggledHint ? 'You\'re strong here — that looks like a slip, not a gap.' : 'You\'ve got this topic down.';
+    nextTitle = 'Quick 5 to keep it sharp'; nextWhy = 'A short set locks in a topic you already own.'; nextMin = 5;
+  } else {
+    nextNote = 'You\'re developing this well — keep the momentum.';
+    nextTitle = 'Add ' + catLabel + ' to today\'s practice'; nextWhy = 'A bit more reps moves this into a strength.'; nextMin = 6;
+  }
+  blocks.push(callout('info', nextNote));
+  blocks.push(missionBlock(nextTitle, nextWhy, 'focus', category, catLabel, nextMin));
 
   return envelope('explain', blocks, [
     chipReply('Got it ✓', 'helpful_yes'),
@@ -410,7 +471,9 @@ async function chatTurn(uid, body) {
     : userTurn.indexOf('insights_why') === 0 ? 'Explain in plain terms why this is the student\'s weakness and the single best fix.'
     : userTurn;
 
-  var ctx = await ctxEngine.buildContext(uid);
+  // ADR-051: floor with the live local stats so a conversational coach turn ("Speed or accuracy?") and chat
+  // reason from the SAME fresh "today" the Coach dashboard shows — never a staler number.
+  var ctx = await ctxEngine.buildContext(uid, { clientStats: body.clientStats });
 
   // EXPLAIN FOLLOW-UPS (ADR-045): anchor to the EXACT question + the prior explanation the client carries forward,
   // so "Simpler / Go deeper / Another" deepen THIS problem instead of drifting to the student's weak topic.
@@ -510,7 +573,9 @@ async function plannerGet(uid, opts) {
   opts = opts || {};
   var doc = await plannerGetDoc(uid);
   if (!doc) return { plan: null };
-  var ctx = await ctxEngine.buildContext(uid);
+  // ADR-051: floor the (debounced, stale) server stats with the live local snapshot — same as setup/toggle/regen —
+  // so the on-load forecast/readiness/Smart-Catch-up reflect a session finished moments ago (the client sends it).
+  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
 
   // Auto Smart Catch-up on load: if past study/buffer days were fully missed, rebalance their tasks into the
   // remaining days and recompute the forecast — so a student who skipped never opens to a stale, broken plan.
@@ -717,12 +782,13 @@ function _plannerEnvelope(ctx, doc, encouragement, clientDate) {
 }
 
 /* ════════════════════════ WORD PROBLEMS — context-aware generation (future-ready) ════════════════════════ */
-async function wordProblem(uid, category, difficulty, isPremium) {
+async function wordProblem(uid, category, difficulty, isPremium, opts) {
   var granted = await aiService.consumeWordProblemQuota(uid, isPremium, 1);
   if (granted <= 0) {
     return { error: isPremium ? 'daily_limit_reached' : 'free_limit_reached' };
   }
-  var ctx = await ctxEngine.buildContext(uid);
+  // ADR-051: floor with the live local stats so "your weakest topic" matches what Coach/Insights just showed.
+  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts && opts.clientStats });
   var target = category || (ctxEngine.topWeakCategory(ctx) || {}).cat || 'percentages';
   var topicLabel = ctxEngine.label(target);
   try {

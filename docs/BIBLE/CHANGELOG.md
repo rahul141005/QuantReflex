@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-15 — One source of truth + Explanation as a premium learning document (ADR-051)
+
+Final sign-off audit (4 from-first-principles investigations): the system is architecturally clean; two
+"one brain" gaps fixed. No model/schema/rules change; one LLM call per feature preserved. SW v111→v112.
+Bible 2.39→2.40, Architecture 2.25→2.26.
+
+- **One freshness source.** The `clientStats` floor was dropped by `plannerGet` (server discarded what the
+  client already sent), `chatTurn`, and `wordProblem` — so they could disagree with the Coach dashboard right
+  after a drill. Threaded the existing `_sanitizeClientStats`→`buildContext({clientStats})` floor into all
+  three (`api/ai.js` + `aiBrain.js`; client `sendTurn`/drill payloads now send `clientStats`+`clientDate`).
+- **One mastery source (no drift).** Exported `studentContext._deriveMastery` + `masteryForCat(stats, cat)` as
+  THE canonical weak/strong resolver; Explanation now reads its category's mastery from the same function
+  Coach/Insights/Planner use, replacing the ad-hoc "asked-to-explain-before" heuristic.
+- **Explanation = premium learning document.** Always-visible sections: concept → step-by-step → Common
+  mistakes (2–3, personalized when it's a live weak spot) → Faster method → Exam Insight (deterministic from
+  the bundled syllabus: frequency/difficulty/time-target for the student's exam) → Mastery Status (canonical
+  "{acc}% over {n}", never invented) → Recommended next step (mastery-tiered drill mission). The
+  Simpler/Go-deeper/Another/Drill chips now *extend* it rather than reveal missing content. `explain.base@5`
+  (`mistake`→`mistakes[]`, `tip`→`shortcut` with when-to-use; busts the shared per-question cache). All
+  sections render with existing block types (no new client blocks); the personalized layer is deterministic so
+  numbers are never hallucinated and the shared cache stays user/exam-agnostic.
+- **Verify:** `node --check`; `npm test` 209 + 48 (masteryForCat≡_deriveMastery single-source proof; premium
+  document sections present with data; no invented numbers on low data; plannerGet/chatTurn floor wiring); grep
+  gate. Visual polish + animation smoothness still need a real-device QA pass.
+
 ## 2026-06-15 — Coach + Insights as living dashboards (ADR-050)
 
 Turned Coach and Insights from "paragraph + button" into animated, multi-section dashboards from one AI brain.

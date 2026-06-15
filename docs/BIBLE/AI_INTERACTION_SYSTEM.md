@@ -181,6 +181,34 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 Every feature: consumes Context + Memory, renders via the block vocabulary, ends in chips, deep-links real drills,
 shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferredDepth`).
 
+### 6·SoT — Two canonical resolvers = one source of truth (ADR-051)
+
+So features never disagree, two facts are each computed in exactly ONE place and shared:
+
+- **Live "today" (freshness):** the `clientStats` floor — `_sanitizeClientStats` (api/ai.js) →
+  `studentContext.buildContext({clientStats})` (`_floorStats`) raises the debounced/stale Firestore stats with
+  the live local snapshot. **Every** AI path that builds context applies it (coach, insights, chat,
+  planner get/setup/toggle/regen, word-problems) — so the Planner and the conversational coach reflect a drill
+  finished seconds ago, exactly like the Coach dashboard.
+- **Weak/strong (mastery):** `studentContext._deriveMastery(stats)` / `masteryForCat(stats, cat)` (pure over
+  `categoryStats`) is the ONLY weak/strong computation. Coach (`_focus`), Insights (weak-cat filter), the
+  Planner's drillable-topic base, and Explanation's mastery status all derive from it. `aiMemory.knownWeakConcepts`
+  is a *derived cache* of this, never a competing calculation.
+
+### 6b. AI Explain — a premium learning document (ADR-051)
+
+Every explanation is a teaching document, not a one-liner. The question-specific prose
+(`concept`, `steps`, 2–3 `mistakes`, `shortcut`) is **shared-cached per question** (`explanations/{hash}_v{ver}`,
+user/exam-agnostic, one LLM call). The server then layers **deterministic per-student** sections on top — never
+in the cache, never LLM-invented:
+
+1. **Concept** (`say`) · 2. **Step-by-step** (`steps`) · 3. **Common mistakes** (`card`, personalized lead when
+this is a live weak spot) · 4. **Faster method** (`card`) · 5. **Exam Insight** (`card`, deterministic from the
+bundled syllabus: frequency/difficulty/time-target for the student's exam) · 6. **Mastery Status** (`metric`, the
+canonical "{acc}% over {n}", only when data exists) · 7. **Recommended next step** (`callout` + `mission`, by
+mastery tier). The Simpler/Go-deeper/Another-like-this/Drill chips then **extend** the document — they never
+reveal core value that should have been there from the start.
+
 ### 6a. QuanAI Planner — a deterministic engine the model only narrates (ADR-046)
 
 The Planner is the strongest expression of §0's doctrine: **all scheduling is deterministic; the LLM only writes

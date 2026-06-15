@@ -184,6 +184,38 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var memCtx = await ctxEngine.buildContext('u-mem050', { force: true, clientStats: freshGrind });
   ok(/Recently asked to explain/.test(ctxEngine.serialize(memCtx)), 'recentTopicsExplained reaches serialize() (Explain→Coach loop closed)');
 
+  /* ════════ ADR-051: one source of truth (freshness floor + canonical mastery) + premium Explanation ════════ */
+
+  /* (A) single-source mastery: masteryForCat agrees with _deriveMastery for the same stats */
+  var msStats = { categoryStats: { percentages: { attempted: 20, correct: 18 }, ratios: { attempted: 10, correct: 4 } } };
+  var mPct = ctxEngine.masteryForCat(msStats, 'percentages');
+  var fromList = ctxEngine._deriveMastery(msStats).find(function (m) { return m.cat === 'percentages'; });
+  ok(mPct && fromList && mPct.tier === fromList.tier && mPct.acc === fromList.acc, 'masteryForCat equals _deriveMastery for the same category (single source of truth)');
+  ok(ctxEngine.masteryForCat(msStats, 'percentages').tier === 'strong' && ctxEngine.masteryForCat(msStats, 'ratios').tier === 'weak', 'canonical mastery tiers a strong vs a weak category correctly');
+  ok(ctxEngine.masteryForCat({ categoryStats: { area: { attempted: 2, correct: 1 } } }, 'area') === null, 'masteryForCat returns null below the 3-attempt floor (never invents a number)');
+
+  /* (B) Explanation is a premium learning document: mastery + exam-insight + next-step sections when data exists */
+  store.users = store.users || {};
+  store.users['u-explain'] = { stats: { categoryStats: { percentages: { attempted: 20, correct: 18 } } }, aiMemory: { examName: 'CAT' }, plan: 'free' };
+  var exDoc = await aiBrain.explainBase('What is 20% of 210?', '42', 'percentages', 'u-explain');
+  var exTypes = (exDoc.blocks || []).map(function (b) { return b.type; });
+  ok(exTypes.indexOf('metric') >= 0, 'Explanation shows a Mastery-Status metric when the student has data here');
+  ok((exDoc.blocks || []).some(function (b) { return b.type === 'card' && /^In CAT/.test(b.title || ''); }), 'Explanation shows an Exam-Insight card grounded in the syllabus for the student\'s exam');
+  ok((exDoc.blocks || []).some(function (b) { return b.type === 'mission'; }), 'Explanation ends in a recommended next-step mission');
+  ok((exDoc.chips || []).some(function (c) { return c.value === 'explain_simpler'; }), 'Explanation chips (Simpler/Deeper/Another/Drill) still extend the document');
+
+  /* (C) low-data Explanation never invents a mastery number (omits the metric) and skips exam insight without an exam */
+  store.users['u-explain-cold'] = { stats: { categoryStats: { percentages: { attempted: 2, correct: 1 } } }, aiMemory: {}, plan: 'free' };
+  var exCold = await aiBrain.explainBase('What is 10% of 50?', '5', 'percentages', 'u-explain-cold');
+  ok(!(exCold.blocks || []).some(function (b) { return b.type === 'metric'; }), 'low-data Explanation omits Mastery Status (no invented statistics)');
+  ok(!(exCold.blocks || []).some(function (b) { return b.type === 'card' && /^In /.test(b.title || ''); }), 'Explanation omits Exam Insight when the exam is unknown');
+
+  /* (D) freshness floor is wired into plannerGet and chatTurn (the paths the audit found dropping it) */
+  var pgFloor = await aiBrain.plannerGet(UID, { clientStats: clientStats });
+  ok(pgFloor && pgFloor.plan, 'plannerGet runs with a clientStats floor and returns the plan');
+  var chatFloor = await aiBrain.chatTurn('u-fresh', { feature: 'coach', userTurn: 'coach_speed_accuracy', clientStats: freshGrind });
+  ok(chatFloor && chatFloor.blocks && chatFloor.blocks.length, 'chatTurn runs with a clientStats floor and returns a conversational turn');
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);
