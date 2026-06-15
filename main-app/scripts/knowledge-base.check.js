@@ -27,6 +27,7 @@ Object.keys(TOPICS).forEach(function (id) {
   var t = TOPICS[id];
   ok(t.label && t.section && t.difficulty != null && t.avgMinutes > 0, 'topic ' + id + ' has label/section/difficulty/avgMinutes');
   ok(!t.drillable || DRILL_CATS.indexOf(t.drillable) >= 0, 'topic ' + id + ' drillable maps to a real practice category (' + t.drillable + ')');
+  ok(!t.formulaSheet || SYL.FORMULA_SHEET_IDS.indexOf(t.formulaSheet) >= 0, 'topic ' + id + ' formulaSheet "' + t.formulaSheet + '" is a real js/formulas.js id (no dangling refs)');
   (t.prereqs || []).forEach(function (p) { ok(!!TOPICS[p], 'topic ' + id + ' prereq "' + p + '" exists in the library'); });
   (t.signals || []).forEach(function (s) { ok(DRILL_CATS.indexOf(s.cat) >= 0, 'topic ' + id + ' signal cat "' + s.cat + '" is a real practice category'); });
 });

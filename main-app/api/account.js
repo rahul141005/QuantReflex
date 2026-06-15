@@ -79,7 +79,7 @@ async function _delete(req, res, db) {
     try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (_) { /* ignore */ }
 
     /* Delete all subcollections in parallel. */
-    const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications'];
+    const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'aiEvents', 'duelHistory'];
     await Promise.all(subcollections.map(function (sub) {
       return _deleteSubcollection(db, userDocRef, sub)
         .then(function (count) { report.subcollections[sub] = count; return null; })
@@ -94,11 +94,18 @@ async function _delete(req, res, db) {
     const results = await Promise.all([
       _deleteByField(db, 'payments', 'uid', uid).catch(function (err) { console.warn('[account:delete] payments cleanup error:', err.message); return 0; }),
       _deleteByField(db, 'aiInsights', 'userId', uid).catch(function (err) { console.warn('[account:delete] aiInsights cleanup error:', err.message); return 0; }),
-      _deleteByField(db, 'aiStudyPlans', 'userId', uid).catch(function (err) { console.warn('[account:delete] aiStudyPlans cleanup error:', err.message); return 0; })
+      _deleteByField(db, 'aiStudyPlans', 'userId', uid).catch(function (err) { console.warn('[account:delete] aiStudyPlans cleanup error:', err.message); return 0; }),
+      // ADR-062: the per-user AI docs keyed by uid — previously orphaned on deletion (GDPR completeness).
+      db.collection('aiPlanner').doc(uid).delete().then(function () { return 1; }).catch(function (err) { console.warn('[account:delete] aiPlanner cleanup error:', err.message); return 0; }),
+      db.collection('aiContext').doc(uid).delete().then(function () { return 1; }).catch(function (err) { console.warn('[account:delete] aiContext cleanup error:', err.message); return 0; }),
+      _deleteByField(db, 'aiDaily', 'uid', uid).catch(function (err) { console.warn('[account:delete] aiDaily cleanup error:', err.message); return 0; })
     ]);
     report.payments = results[0];
     report.aiInsights = results[1];
     report.aiStudyPlans = results[2];
+    report.aiPlanner = results[3];
+    report.aiContext = results[4];
+    report.aiDaily = results[5];
 
     /* Delete the user document itself. */
     await userDocRef.delete();

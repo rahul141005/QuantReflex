@@ -860,6 +860,8 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
     return { problem: { question: r.data.question, answer: r.data.answer, options: r.data.options, explanation: r.data.explanation, category: target } };
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    // ADR-062: generation failed → refund the quota unit we consumed up-front so the student isn't charged.
+    try { await aiService.refundWordProblemQuota(uid, isPremium, 1); } catch (_) {}
     return { error: 'generation_failed' };
   }
 }

@@ -48,8 +48,13 @@ var Companion = (function () {
       resolve(null);
     });
   }
+  // ADR-062: collapse duplicate in-flight AI requests (double-taps, accidental re-fires) into ONE call —
+  // an identical {action,body} already pending returns the same promise instead of hitting the LLM twice.
+  var _inFlight = {};
   function api(action, body) {
-    return _token().then(function (token) {
+    var key = action + '|' + JSON.stringify(body || {});
+    if (_inFlight[key]) return _inFlight[key];
+    var pending = _token().then(function (token) {
       if (!token) return { ok: false, code: 'NO_AUTH' };
       return fetch('/api/ai?action=' + encodeURIComponent(action), {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -61,6 +66,8 @@ var Companion = (function () {
         }).catch(function () { return { ok: false, code: 'PARSE' }; });
       }).catch(function () { return { ok: false, code: 'NETWORK' }; });
     });
+    _inFlight[key] = pending;
+    return pending.then(function (res) { delete _inFlight[key]; return res; }, function (err) { delete _inFlight[key]; throw err; });
   }
 
   /* ---------- planner helpers (ADR-046) ---------- */
