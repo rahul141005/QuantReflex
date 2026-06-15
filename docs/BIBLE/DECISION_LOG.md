@@ -8,6 +8,29 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-066 — Universal Notification Inbox: one model · one pipeline (2026-06-15, in progress)
+- **Context:** Notifications were fragmented across 5+ paths; most bypassed the in-app Inbox, so on push failure
+  the notification was lost. FCM is unreliable on **Spark** (the scheduled Cloud Functions never run; web push is
+  inherently flaky). Mandate: ONE notification object that ALWAYS lands in the Inbox (source of truth) with push as
+  an optional channel; exactly one pipeline; no parallel/client-only notification logic; no special cases.
+- **Architecture (decided with user):** ONE canonical pipeline in main-app, exposed via an authenticated internal
+  endpoint. The 3 apps deploy separately and `shared/` is NOT bundled cross-app, so a `require`d shared file won't
+  work — instead Coaching Admin + Super Admin become **pure clients** that POST to `main-app /api/notify`
+  (server-to-server secret); main-app's own producers call the service in-process. One implementation; change it
+  once, not three times.
+- **M1 (done):** `services/notificationModel.js` (the one model: type/category/priority enums + per-category
+  icon/deepLink/push defaults + `buildNotification`; enriched doc — sender, deepLink, archived, pinned, expiresAt,
+  metadata, `delivery{inbox,pushAttempted,pushDelivered,pushFailed,openedAt}`); `services/notificationService.js`
+  (`notify(db,messaging,{recipients,notification,push})` — Inbox write to ALL recipients FIRST, best-effort
+  chunked FCM with stale-token cleanup, one `notificationLogs` entry; centralizes recipient resolution
+  uids/segment/coaching/audience and **replaces the 4 duplicated FCM blocks**); `api/notify.js` (Bearer
+  `NOTIFY_INTERNAL_SECRET`). New `scripts/notifications.check.js` (16 assertions: Inbox-always even when push
+  throws, push respects opt-out but Inbox doesn't, urgent overrides opt-out, stale cleanup, segment/coaching
+  resolution, validation). `npm test` green (KB 4736 + engine 238 + brain 97 + consistency 79 + notifications 16).
+- **Next:** M2 route every source through the pipeline (duel, super-admin, coaching, premium expiry, app-update
+  removal) + the one server-side reminder producer (Vercel cron, Blaze-free: daily/streak/planner/billing) +
+  retire the client 7/1/7 timers; M3 premium Inbox UI + deep-link routing; M4 settings + server-write rules.
+
 ## ADR-065 — Duel system bug fixes (robustness/scale/cleanup) (2026-06-15)
 - **Context:** The deep Duel audit found the critical paths (grading/finalize/winner/security) bug-free, but four
   concrete robustness/scale/cleanup defects. This change fixes ONLY those — no features, no rematch, no rules
