@@ -6,6 +6,32 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-15 — One canonical Student Intelligence Profile + one derivation layer (ADR-053)
+
+QuanAI felt like four features pretending to know the student. The audit found the persona/orchestrator/
+renderer/APIs/prompts/engines were already unified; the real fragmentation was no materialized profile + the
+client computing stats separately from the server. Surgical foundational redesign (no rewrite). No model/schema/
+rules change; one LLM call per feature. SW v113→v114. Bible 2.41→2.42, Arch 2.27→2.28.
+
+- **One derivation layer** (`data/statMath.js`, new): a pure, self-contained, dual-exported module
+  (client `<script>` + server `require`, like `syllabus.js`) holding the ONLY implementation of mastery/tiers,
+  weakest/strongest, accuracy (overall + 7d/30d), speed, today, and streak — thresholds defined once. The
+  server profile AND the client (`progress.js`, `stats-view.js`) both consume it, so Analytics and QuanAI can
+  never disagree for the same `stats`. Deleted the client's bespoke mastery loops + `MASTERY_MIN_ATTEMPTS`.
+- **One materialized profile**: `services/studentContext.js` → **`studentProfile.js`**, `buildContext` →
+  **`build`**. `build()` returns the whole picture as ONE object — folds the study planner in
+  (`profile.planner`, one `aiPlanner` read — `aiBrain._plannerData` deleted) and materializes
+  `profile.recommendation`, `profile.tier` (`aiBrain._tier` deleted), and `profile.masteryByCat`.
+- **Every feature on the profile**: Coach/Insights read `ctx.planner`/`ctx.tier`/`ctx.recommendation`;
+  **Explanation** now calls `build()` (cached) instead of its own `users/{uid}` read, so its mastery/recent
+  mistakes/exam/plan come from the same object. Planner mutations bump `qr_ai_dirty_at` so the folded-in plan
+  is never stale.
+- **Preserved** (already correct/tested): persona, `aiBrain` shape, `companion-ui` renderer, the six `/api/ai`
+  actions, prompts, `llmProvider`, `plannerEngine`/`readiness`/`signals`. `getAvgResponseTime` left as-is.
+- **Verify**: `node --check`; `npm test` 209 + 70 (profile folds planner/recommendation/tier/masteryByCat;
+  `statMath` is the single weak/mastery impl the profile derives from; Explanation reads mastery from the
+  profile); grep-gates (one derivation layer; every feature on `build()`; deleted helpers gone).
+
 ## 2026-06-15 — Remove the "I don't know you yet" cold-start gate (ADR-052)
 
 Analytics knew the student while Coach/Insights said "I don't know you yet — give me 10 questions." The data

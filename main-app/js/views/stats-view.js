@@ -20,39 +20,22 @@ function renderStatsView() {
   _lastStatsFingerprint = fingerprint;
   var canSeeInsights = canAccessFeature('performance_insights');
   var canSeeCategoryAccuracy = canAccessFeature('category_accuracy');
-  var accuracy = p.totalAttempted ? ((p.totalCorrect / p.totalAttempted) * 100).toFixed(1) : '0';
+  // ADR-053: accuracy + trend come from the ONE derivation layer (statMath) — the SAME numbers QuanAI reasons
+  // from, so Analytics and the Coach can never disagree. (statMath is the single source; no inline math here.)
+  var _sm = (typeof QR_STATMATH !== 'undefined') ? QR_STATMATH : null;
+  var _ov = _sm ? _sm.overallAccuracy(p) : (p.totalAttempted ? p.totalCorrect / p.totalAttempted : null);
+  var accuracy = _ov == null ? '0' : (_ov * 100).toFixed(1);
   var avgTime = getAvgResponseTime();
   var weakest = getWeakestCategory();
   var strongest = getStrongestCategory();
+  var history = p.dailyHistory || {};
 
   var trend = '-';
   var trendClass = '';
-  var history = p.dailyHistory || {};
-  var dates = Object.keys(history).sort();
-  if (dates.length >= 2) {
-    var recentDays = dates.slice(-7);
-    var olderDays = dates.slice(-14, -7);
-    if (olderDays.length > 0) {
-      var recentAcc = 0, recentTotal = 0;
-      for (var r = 0; r < recentDays.length; r++) {
-        var rd = history[recentDays[r]];
-        if (rd.attempted > 0) { recentAcc += rd.correct; recentTotal += rd.attempted; }
-      }
-      var olderAcc = 0, olderTotal = 0;
-      for (var o = 0; o < olderDays.length; o++) {
-        var od = history[olderDays[o]];
-        if (od.attempted > 0) { olderAcc += od.correct; olderTotal += od.attempted; }
-      }
-      if (recentTotal > 0 && olderTotal > 0) {
-        var recentPct = (recentAcc / recentTotal) * 100;
-        var olderPct = (olderAcc / olderTotal) * 100;
-        var diff = recentPct - olderPct;
-        if (diff > 2) { trend = '📈 Improving'; trendClass = ' stat-card-positive'; }
-        else if (diff < -2) { trend = '📉 Declining'; trendClass = ' stat-card-negative'; }
-        else { trend = '➡️ Steady'; }
-      }
-    }
-  }
+  var _dir = _sm ? _sm.accuracyWindows(p).direction : null;   // 7d-vs-30d direction — same as Coach/Insights
+  if (_dir === 'improving') { trend = '📈 Improving'; trendClass = ' stat-card-positive'; }
+  else if (_dir === 'declining') { trend = '📉 Declining'; trendClass = ' stat-card-negative'; }
+  else if (_dir === 'flat') { trend = '➡️ Steady'; }
 
   var overviewEl = document.getElementById('statsPracticeOverview');
   if (overviewEl) {

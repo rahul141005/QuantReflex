@@ -532,6 +532,8 @@ var Companion = (function () {
         stop();
         if (res.ok && res.data && res.data.response) {
           log('planner', 'setup_done', { examId: a.examId });
+          // ADR-053: a new plan is folded into the profile — force the next Coach/Insights/Explain build to refresh.
+          try { localStorage.setItem(DIRTY_KEY, String(Date.now())); } catch (_) {}
           if (window.Planner && Planner.renderInto && res.data.plan) { Planner.renderInto(m, res.data.plan); return; }
           renderEnvelope(body, res.data.response, false);
         } else { renderError(body, res, function () { submit(); }); }

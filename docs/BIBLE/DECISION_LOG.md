@@ -8,6 +8,48 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-053 — One canonical Student Intelligence Profile + one derivation layer (2026-06-15)
+- **Context:** QuanAI *felt* like four features pretending to know the student. A full 3-pass re-audit
+  confirmed the persona, orchestrator (`aiBrain`), renderer (`companion-ui`), `/api/ai` endpoint, prompts, LLM
+  seam, and the deterministic planner/readiness engines were **already unified and correct** — so a ground-up
+  rewrite would only regress a tested production system. The genuine fragmentation was two things: (1) the
+  canonical profile was never *materialized* as one object — the picture was scattered across `ctx` + a
+  separate per-call `aiPlanner` read (`aiBrain._plannerData`, run by both Coach and Insights) + `aiMemory` +
+  client `progress.js`, and Explanation bypassed the context engine entirely; (2) the **client** (`progress.js`,
+  `stats-view.js`) computed accuracy/weak-topic/speed/trend **independently** from the **server**
+  (`studentContext`), so Analytics and QuanAI could disagree (the root of "Analytics knows me but Coach
+  doesn't"). User decision: surgical foundational redesign — not a rewrite.
+- **Decisions:**
+  - **One derivation layer — `data/statMath.js`.** A pure, self-contained, dual-exported module (loaded as a
+    `<script>` on the client, `require()`'d on the server, like `syllabus.js`) holds the ONLY implementation of
+    every stat-derived signal: per-category mastery/tiers, weakest/strongest, overall accuracy, the 7d/30d
+    accuracy windows, speed (recent vs baseline), today, and streak/consistency — with the thresholds
+    (`MIN_ATTEMPTS=3`, weak `<0.6`/strong `≥0.8`, the window/direction cut-offs) defined once. The server
+    `studentProfile` and the client `progress.js`/`stats-view.js` both consume it, so for the same `stats` they
+    cannot disagree. (`dailyHistory` keys are `toDateString()` on both sides — no migration.)
+  - **One materialized profile — `studentContext.js` → `studentProfile.js`, `buildContext` → `build`.** `build()`
+    now returns the whole picture as ONE object: it folds the study planner in (`profile.planner` =
+    readiness/forecast/today's tasks/adherence, from one `aiPlanner` read — `aiBrain._plannerData` deleted) and
+    materializes `profile.recommendation` (the single "what next"), `profile.tier` (the single experience tier —
+    `aiBrain._tier` deleted), and `profile.masteryByCat` (any category's mastery). Every feature consumes
+    `profile.*`; none re-assembles its own understanding.
+  - **Every feature on the one profile.** Coach/Insights read `ctx.planner`/`ctx.tier`/`ctx.recommendation`
+    instead of re-reading/re-deriving. **Explanation** now calls `build()` (cached) instead of its bespoke
+    `users/{uid}` read, pulling mastery + recent mistakes + exam + plan from the same object — truly personal,
+    never divergent. Planner mutations (toggle/regen/setup) bump the `qr_ai_dirty_at` stamp so the folded-in
+    planner snapshot is never stale.
+  - **Preserved (already correct/tested):** the persona/voice layer, `aiBrain` orchestrator shape,
+    `companion-ui` renderer, the six `/api/ai` actions, the prompt registry, `llmProvider`, and the
+    `plannerEngine`/`readiness`/`signals` engines. `progress.getAvgResponseTime` is intentionally left on its
+    `responseTimes` source (a different metric with a latent seconds/ms naming quirk) — out of scope here.
+- **Consequences:** Fewer moving parts (two responsibilities consolidated into `statMath` + a fuller
+  `studentProfile`; `_plannerData`/`_focus`/`_tier` and the client mastery loops + `MASTERY_MIN_ATTEMPTS`
+  deleted). No model/schema/rules change; one LLM call per feature preserved. Verified by `node --check`,
+  `npm test` (planner-engine 209 + planner-brain **70**, incl. profile folds planner/recommendation/tier/
+  masteryByCat, `statMath` is the single weak/mastery implementation that the profile derives from, and
+  Explanation reads mastery from the profile), plus grep-gates (one derivation layer; every feature on
+  `build()`; deleted helpers gone). SW v113→v114. The felt "same tutor" continuity still wants a real-device pass.
+
 ## ADR-052 — Remove the "I don't know you yet" cold-start gate; one canonical profile, graceful degradation (2026-06-15)
 - **Context:** Analytics clearly knew the student (it reads live localStorage) while Coach/Insights said "I
   don't know you yet — give me about 10 questions," breaking the one-tutor illusion. A 3-pass audit confirmed

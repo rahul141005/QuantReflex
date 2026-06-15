@@ -177,10 +177,14 @@ var Planner = (function () {
     }
     api('toggle', { date: date, topicId: topicId, done: done }).then(function (res) {
       // ADR-048: the server now AWAITS the write, so a non-ok response means it really didn't save → roll back.
-      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; render(); }
+      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _markAiDirty(); render(); }
       else rollback();
     }).catch(rollback);
   }
+
+  /* ADR-053: the planner is folded into the canonical profile, so a plan change must force the next
+     Coach/Insights/Explanation build to rebuild (mirrors the practice dirty-stamp). */
+  function _markAiDirty() { try { localStorage.setItem('qr_ai_dirty_at', String(Date.now())); } catch (_) {} }
 
   function startDrill(cat, label) {
     try { if (_modal && _modal.close) _modal.close(); } catch (_) {}   // close the sheet before navigating
@@ -191,7 +195,7 @@ var Planner = (function () {
   function regen() {
     var r = root(); var foot = r && r.querySelector('.planner-foot'); if (foot) foot.innerHTML = '<div class="planner-loading">Planning your next two weeks…</div>';
     api('regen').then(function (res) {
-      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; render(); }
+      if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; _markAiDirty(); render(); }
       else render();
     }).catch(render);
   }

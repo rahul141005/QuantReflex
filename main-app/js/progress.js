@@ -251,61 +251,27 @@ function getAvgResponseTime() {
 /** Categories that are not valid for analytics (e.g. from legacy data) */
 var _INVALID_CATEGORIES = { onboarding: true };
 
-/* ADR-052: one definition of "enough data to call a topic weak/strong" — mirrors the server's canonical
-   mastery floor (studentContext.masteryForCat / _deriveMastery, signals.hasDirectData) so "weak topic"
-   means the same thing in local analytics and in every AI feature. */
-var MASTERY_MIN_ATTEMPTS = 3;
-
 /** Check if a category name is valid for analytics display */
 function isValidCategory(cat) {
   return !_INVALID_CATEGORIES[cat];
 }
 
-/** Get weakest category (lowest accuracy with at least MASTERY_MIN_ATTEMPTS attempts) */
-function getWeakestCategory() {
+/* ADR-053: weak/strong topic come from the ONE derivation layer (statMath) — the SAME implementation the
+   server profile uses — so Analytics and QuanAI can never name different weak/strong topics. `_mathStats()`
+   strips analytics-invalid categories before handing the stats to statMath. */
+function _mathStats() {
   var p = loadProgress();
-  var cats = p.categoryStats || {};
-  var keys = Object.keys(cats);
-  var worst = null;
-  var worstAcc = 101;
-  for (var i = 0; i < keys.length; i++) {
-    if (_INVALID_CATEGORIES[keys[i]]) continue;
-    var c = cats[keys[i]];
-    var attempted = parseInt(c.attempted) || 0;
-    var correct = parseInt(c.correct) || 0;
-    if (attempted >= MASTERY_MIN_ATTEMPTS) {
-      var acc = (correct / attempted) * 100;
-      if (!isNaN(acc) && acc < worstAcc) {
-        worstAcc = acc;
-        worst = keys[i];
-      }
-    }
-  }
-  return worst;
+  var cats = p.categoryStats || {}, clean = {};
+  Object.keys(cats).forEach(function (c) { if (!_INVALID_CATEGORIES[c]) clean[c] = cats[c]; });
+  return { totalAttempted: p.totalAttempted || 0, totalCorrect: p.totalCorrect || 0,
+    categoryStats: clean, dailyHistory: p.dailyHistory || {}, todayAttempted: p.todayAttempted || 0, todayCorrect: p.todayCorrect || 0 };
 }
 
-/** Get strongest category (highest accuracy with at least MASTERY_MIN_ATTEMPTS attempts) */
-function getStrongestCategory() {
-  var p = loadProgress();
-  var cats = p.categoryStats || {};
-  var keys = Object.keys(cats);
-  var best = null;
-  var bestAcc = -1;
-  for (var i = 0; i < keys.length; i++) {
-    if (_INVALID_CATEGORIES[keys[i]]) continue;
-    var c = cats[keys[i]];
-    var attempted = parseInt(c.attempted) || 0;
-    var correct = parseInt(c.correct) || 0;
-    if (attempted >= MASTERY_MIN_ATTEMPTS) {
-      var acc = (correct / attempted) * 100;
-      if (!isNaN(acc) && acc > bestAcc) {
-        bestAcc = acc;
-        best = keys[i];
-      }
-    }
-  }
-  return best;
-}
+/** Weakest category (lowest accuracy, ≥ MASTERY_MIN_ATTEMPTS) — via the shared derivation layer. */
+function getWeakestCategory() { return (typeof QR_STATMATH !== 'undefined') ? QR_STATMATH.weakest(_mathStats()) : null; }
+
+/** Strongest category (highest accuracy, ≥ MASTERY_MIN_ATTEMPTS) — via the shared derivation layer. */
+function getStrongestCategory() { return (typeof QR_STATMATH !== 'undefined') ? QR_STATMATH.strongest(_mathStats()) : null; }
 
 /** Reset all progress */
 function resetProgress() {

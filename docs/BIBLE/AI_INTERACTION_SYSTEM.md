@@ -190,19 +190,28 @@ See FIRESTORE_BLUEPRINT for schemas. Rules every feature obeys:
 Every feature: consumes Context + Memory, renders via the block vocabulary, ends in chips, deep-links real drills,
 shows a **"Was this helpful?"** chip pair (logs `helpful_yes/no`, feeds `preferredDepth`).
 
-### 6·SoT — Two canonical resolvers = one source of truth (ADR-051)
+### 6·SoT — One profile, one derivation layer (ADR-053)
 
-So features never disagree, two facts are each computed in exactly ONE place and shared:
+QuanAI is one brain because two things are each defined in exactly ONE place, and every feature reads them:
 
-- **Live "today" (freshness):** the `clientStats` floor — `_sanitizeClientStats` (api/ai.js) →
-  `studentContext.buildContext({clientStats})` (`_floorStats`) raises the debounced/stale Firestore stats with
-  the live local snapshot. **Every** AI path that builds context applies it (coach, insights, chat,
-  planner get/setup/toggle/regen, word-problems) — so the Planner and the conversational coach reflect a drill
-  finished seconds ago, exactly like the Coach dashboard.
-- **Weak/strong (mastery):** `studentContext._deriveMastery(stats)` / `masteryForCat(stats, cat)` (pure over
-  `categoryStats`) is the ONLY weak/strong computation. Coach (`_focus`), Insights (weak-cat filter), the
-  Planner's drillable-topic base, and Explanation's mastery status all derive from it. `aiMemory.knownWeakConcepts`
-  is a *derived cache* of this, never a competing calculation.
+- **One Student Intelligence Profile — `services/studentProfile.js` `build(uid, opts)`.** Returns ONE object
+  that IS the student's whole learning state: identity, accuracy, today, trends, mastery, weak/strong, flags,
+  memory, `planner` (readiness/forecast/today's tasks/adherence — folded in from one `aiPlanner` read),
+  `recommendation` (the single "what next"), `tier`, and `masteryByCat` (any category's mastery). **Every** AI
+  feature — Coach, Insights, Explanation, Chat, Planner, Word Problems, and any future feature — consumes this
+  same object; none re-assembles its own understanding. A new feature = `build()` + a prompt; it never creates a
+  second source of truth.
+- **One derivation layer — `data/statMath.js`.** A pure, self-contained, **dual-exported** module (client
+  `<script>` + server `require`, like `syllabus.js`) is the ONLY implementation of mastery/tiers,
+  weakest/strongest, overall + 7d/30d accuracy, speed, today, and streak — thresholds (`MIN_ATTEMPTS`,
+  weak `<0.6`/strong `≥0.8`, windows) defined once. The **server** profile and the **client** Analytics
+  (`progress.js`, `stats-view.js`) both consume it, so for the same `stats` they cannot disagree (the cure for
+  "Analytics knows me but Coach doesn't"). `aiMemory.knownWeakConcepts` is a *derived cache*, never a competing
+  calculation.
+- **Freshness:** the `clientStats` floor (`_sanitizeClientStats` → `studentProfile.build({clientStats})` →
+  `_floorStats`) raises the debounced/stale Firestore stats with the live local snapshot on **every** AI path,
+  and a `qr_ai_dirty_at` stamp (set on practice AND on planner mutations) forces the next `build()` to refresh —
+  so no surface is ever stale and no second session/refresh is needed.
 
 ### 6b. AI Explain — a premium learning document (ADR-051)
 

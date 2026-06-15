@@ -123,10 +123,10 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(carried, 'plannerGet auto-carries the missed task into an upcoming day');
 
   /* ADR-047 R1: the live 'today' count-signal + coach-don't-gate two-gate (regression the merge dropped) */
-  var ctxEngine = require(appPath('services/studentContext'));
+  var ctxEngine = require(appPath('services/studentProfile'));
   var freshGrind = { totalAttempted: 5, totalCorrect: 4, todayAttempted: 26, todayCorrect: 20, dailyStreak: 1, categoryStats: {}, dailyHistory: {} };
   freshGrind.dailyHistory[new Date().toDateString()] = { attempted: 26, correct: 20, sumTimes: 26 * 7000, count: 26 };
-  var freshCtx = await ctxEngine.buildContext('u-fresh', { force: true, clientStats: freshGrind });
+  var freshCtx = await ctxEngine.build('u-fresh', { force: true, clientStats: freshGrind });
   ok(freshCtx.today && freshCtx.today.attempted === 26, 'ctx.today.attempted reflects the live 26-question session (was undefined after the merge)');
   ok(freshCtx.today && freshCtx.today.accuracy != null, 'ctx.today.accuracy is populated from the live session');
   ok(freshCtx.coldStart === false, 'a fresh grind (5 lifetime, 26 today) is coached, not gated — two-gate cold-start');
@@ -179,10 +179,10 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(aiBrain._detectPatterns({ flags: {} }).length === 0, 'no flags → no fabricated patterns');
 
   /* (4) the Explain→Coach loop: recentTopicsExplained reaches serialize() */
-  ok(aiBrain._tier({ totalAttempted: 600 }) === 4 && aiBrain._tier({ totalAttempted: 0 }) === 0, '_tier maps lifetime volume to an experience tier (0..4)');
+  ok(ctxEngine._tierOf(600) === 4 && ctxEngine._tierOf(0) === 0, 'the single _tierOf maps lifetime volume to an experience tier (0..4)');
   store.users = store.users || {};
   store.users['u-mem050'] = { aiMemory: { recentTopicsExplained: ['percentages', 'geometry'], examName: 'CAT' }, stats: freshGrind, plan: 'free' };
-  var memCtx = await ctxEngine.buildContext('u-mem050', { force: true, clientStats: freshGrind });
+  var memCtx = await ctxEngine.build('u-mem050', { force: true, clientStats: freshGrind });
   ok(/Recently asked to explain/.test(ctxEngine.serialize(memCtx)), 'recentTopicsExplained reaches serialize() (Explain→Coach loop closed)');
 
   /* ════════ ADR-051: one source of truth (freshness floor + canonical mastery) + premium Explanation ════════ */
@@ -224,13 +224,13 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var zeroQ = { totalAttempted: 0, totalCorrect: 0, todayAttempted: 0, todayCorrect: 0, dailyStreak: 0, categoryStats: {}, dailyHistory: {} };
 
   // (1) a 5-question user is a REAL profile, never the fake cold shape
-  var c5 = await ctxEngine.buildContext('u-5q', { force: true, clientStats: fiveQ });
+  var c5 = await ctxEngine.build('u-5q', { force: true, clientStats: fiveQ });
   ok(c5.coldStart === false, 'buildContext: a 5-question student is NOT cold-start (real profile, not a gate)');
   ok(c5.mastery && c5.mastery.some(function (m) { return m.cat === 'percentages'; }), 'buildContext: a 5-question student gets real mastery (percentages), not an empty fake');
   ok(c5.today && c5.today.attempted === 5, 'buildContext: today reflects the live 5-question session');
 
   // (2) a 0-data user still returns a VALID canonical profile (accuracy null, not 0; mastery []), never a lock
-  var c0 = await ctxEngine.buildContext('u-0q', { force: true, clientStats: zeroQ });
+  var c0 = await ctxEngine.build('u-0q', { force: true, clientStats: zeroQ });
   ok(c0.coldStart === true, 'buildContext: a zero-data student is flagged coldStart (framing only)');
   ok(c0.accuracy === null, 'buildContext: zero-data accuracy is null ("no data yet"), never 0 ("0%")');
   ok(Array.isArray(c0.mastery) && c0.mastery.length === 0, 'buildContext: zero-data mastery is a valid empty list');
@@ -252,6 +252,30 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   var ins5 = await aiBrain.insights('u-5q-ins', { force: true, clientStats: fiveQ });
   ok(ins5.blocks && ins5.blocks.length >= 2, 'Insights renders a real low-data read for a 5-question student');
   ok(!COLD_BANNED.test(envText(ins5)), 'low-data Insights contains no "practice to unlock" lock phrasing');
+
+  /* ════════ ADR-053: ONE canonical profile + ONE derivation layer ════════ */
+  var statMath = require(appPath('data/statMath'));
+
+  // (1) the profile is ONE materialized object: planner + recommendation + tier + per-category mastery folded in
+  store.aiPlanner = store.aiPlanner || {};
+  store.aiPlanner['u-prof'] = { block: { days: [] }, readiness: { score: 64, band: 'on-track' }, forecast: { daysToExam: 40, onTrack: true }, blockHistory: [] };
+  var prof = await ctxEngine.build('u-prof', { force: true, clientStats: fiveQ });
+  ok(prof.planner && prof.planner.readiness && prof.planner.readiness.score === 64, 'profile.planner folds the study plan in (no separate _plannerData read)');
+  ok(prof.recommendation && prof.recommendation.cat, 'profile.recommendation materializes the single "what next"');
+  ok(typeof prof.tier === 'number', 'profile.tier materializes the experience tier');
+  ok(prof.masteryByCat && prof.masteryByCat.percentages && prof.masteryByCat.percentages.tier === 'strong', 'profile.masteryByCat lets any feature look up a category\'s mastery');
+
+  // (2) ONE derivation layer: the server profile, the client wrapper, and statMath agree for the same stats
+  ok(statMath.weakest(fiveQ) === 'percentages', 'statMath.weakest is the single weak-topic implementation');
+  ok(prof.recommendation.cat === statMath.weakest(fiveQ), 'the profile recommendation derives from the SAME statMath weak-topic (client + server cannot disagree)');
+  var sMastery = statMath.masteryForCat(fiveQ, 'percentages');
+  ok(sMastery && prof.masteryByCat.percentages.tier === sMastery.tier && prof.masteryByCat.percentages.acc === sMastery.acc, 'server profile mastery === statMath mastery for the same stats (one implementation)');
+
+  // (3) every feature consumes the profile — Explanation now too (mastery + exam pulled from the one object)
+  store.users = store.users || {};
+  store.users['u-exp053'] = { stats: { categoryStats: { ratios: { attempted: 5, correct: 2 } } }, aiMemory: { examName: 'CAT' }, plan: 'free' };
+  var exp = await aiBrain.explainBase('What is 3:5 of 40?', '15', 'ratios', 'u-exp053');
+  ok((exp.blocks || []).some(function (b) { return b.type === 'metric'; }), 'Explanation reads its mastery from the profile (shows the Mastery-Status metric)');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

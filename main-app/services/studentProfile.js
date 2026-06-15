@@ -1,9 +1,12 @@
 /**
- * studentContext.js — the Student Context Engine (ADR-039).
+ * studentProfile.js — the canonical Student Intelligence Profile (ADR-039, materialized in ADR-053).
  *
- * The keystone of the AI ecosystem. Builds ONE rich, server-authoritative "student model" from the
- * unused goldmine (dailyHistory, practiceSessions, responseTimes, mistakes, categoryStats) using PURE
- * ARITHMETIC — no LLM. Every AI feature consumes this instead of the shallow client-sent totals.
+ * The keystone of the AI ecosystem. `build(uid, opts)` returns ONE object that IS the student's entire
+ * learning state — identity, accuracy, today, trends, mastery, weak/strong, flags, memory, the study
+ * planner (readiness/forecast/today's tasks/adherence), the next recommendation, and the experience tier.
+ * EVERY AI feature (Coach, Insights, Explanation, Chat, Planner, and future features) consumes this same
+ * object; no feature re-assembles its own understanding. The derived numbers come from ONE shared layer
+ * (`data/statMath.js`), so Analytics and QuanAI can never disagree. Built with PURE ARITHMETIC — no LLM.
  *
  * Doctrine (AI_INTERACTION_SYSTEM §0): move the *analysis* out of the model. Deterministic math can't
  * hallucinate. The model only writes language; this module does the thinking.
@@ -15,11 +18,12 @@
 const admin = require('firebase-admin');
 const topics = require('./quantTopics');
 const aiMath = require('./aiMath');   // shared round/clamp/todayIso (ADR-047)
+const statMath = require('../data/statMath');   // ADR-053: the ONE derivation layer (shared client+server)
 
 if (!admin.apps.length) {
   var cfg = { projectId: 'quant-reflex-trainer' };
   var sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (sa) { try { cfg.credential = admin.credential.cert(JSON.parse(sa)); } catch (e) { console.error('[studentContext] bad FIREBASE_SERVICE_ACCOUNT:', e.message); } }
+  if (sa) { try { cfg.credential = admin.credential.cert(JSON.parse(sa)); } catch (e) { console.error('[studentProfile] bad FIREBASE_SERVICE_ACCOUNT:', e.message); } }
   admin.initializeApp(cfg);
 }
 function db() { return admin.firestore(); }
@@ -29,26 +33,8 @@ var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 var CATEGORY_LABELS = topics.CATEGORY_LABELS;
 var label = topics.label;
 
-function _ms(dateKey) {
-  if (!dateKey) return 0;
-  var t = new Date(dateKey).getTime();
-  return isNaN(t) ? 0 : t;
-}
 var _round = aiMath.round;
-function _todayKey() { return new Date().toDateString(); }
-
-/** Live "today" signal (ADR-045) — date-keyed so it never bleeds across days. Reads the same goldmine
- *  (stats.dailyHistory{toDateString → {attempted,correct,sumTimes,count}}) the practice path writes, with a
- *  fallback to the running todayAttempted/todayCorrect counters. This is what lets QuanAI say "26 done today"
- *  and what feeds the cold-start "coach, don't gate" unlock + the planner's pace forecast. */
-function _deriveToday(stats) {
-  var hist = stats.dailyHistory || {};
-  var e = hist[_todayKey()] || {};
-  var att = Number(e.attempted) || 0, cor = Number(e.correct) || 0;
-  if (!att) { att = Number(stats.todayAttempted) || 0; cor = Number(stats.todayCorrect) || 0; }
-  var avgMs = (e.count > 0 && e.sumTimes) ? Math.round(Number(e.sumTimes) / Number(e.count)) : null;
-  return { attempted: att, correct: cor, accuracy: att > 0 ? _round(cor / att, 2) : null, avgMsPerQ: avgMs };
-}
+var _todayIso = aiMath.todayIso;   // ADR-053: local-date fallback for the folded-in planner read
 
 /**
  * Merge a client-sent stats snapshot into the server stats as a FLOOR — every field only ever RISES, so a
@@ -94,7 +80,7 @@ function _floorStats(server, client) {
  * @param {string} uid
  * @param {{force?:boolean, clientStats?:object}} [opts]
  */
-async function buildContext(uid, opts) {
+async function build(uid, opts) {
   opts = opts || {};
   var cacheRef = db().collection('aiContext').doc(uid);
 
@@ -106,7 +92,7 @@ async function buildContext(uid, opts) {
         var c = cached.data();
         if (c.ttlExp && c.ttlExp > Date.now() && c.ctx) return c.ctx;
       }
-    } catch (e) { console.warn('[studentContext] cache read failed:', e.message); }
+    } catch (e) { console.warn('[studentProfile] cache read failed:', e.message); }
   }
 
   var userDoc;
@@ -114,7 +100,7 @@ async function buildContext(uid, opts) {
     userDoc = await db().collection('users').doc(uid)
       .select('stats', 'aiMemory', 'plan', 'profile').get();
   } catch (e) {
-    console.warn('[studentContext] user read failed (uid ' + uid + '):', e.message);
+    console.warn('[studentProfile] user read failed (uid ' + uid + '):', e.message);
     return _coldContext(uid, {});
   }
   var data = userDoc.exists ? (userDoc.data() || {}) : {};
@@ -127,7 +113,7 @@ async function buildContext(uid, opts) {
 
   var totalAttempted = Number(stats.totalAttempted) || 0;
   var totalCorrect = Number(stats.totalCorrect) || 0;
-  var today = _deriveToday(stats);   // live session signal (ADR-045)
+  var today = statMath.today(stats);   // live session signal (ADR-045) — from the one derivation layer
 
   // ADR-052: NO cold-start gate. buildContext is the ONE canonical profile and ALWAYS returns the real student —
   // computed from whatever data exists (even zero). Data richness (the `_tier` scale) decides how rich the AI
@@ -143,7 +129,7 @@ async function buildContext(uid, opts) {
         .select('mode', 'category', 'score', 'total', 'duration', 'sessionImprovementPct', 'firstHalfAvg', 'secondHalfAvg', 'timestamp')
         .get();
       snap.forEach(function (d) { sessions.push(d.data()); });
-    } catch (e) { console.warn('[studentContext] sessions read failed:', e.message); }
+    } catch (e) { console.warn('[studentProfile] sessions read failed:', e.message); }
   }
 
   var accuracy = totalAttempted > 0 ? totalCorrect / totalAttempted : null;   // null (not 0) = "no data yet"
@@ -173,8 +159,63 @@ async function buildContext(uid, opts) {
     memory: _publicMemory(memory)
   };
 
+  // ADR-053: materialize the WHOLE picture on the one profile so no feature re-assembles its own understanding.
+  ctx.tier = _tierOf(totalAttempted);                 // experience tier (gates richness, never access)
+  ctx.recommendation = _recommendation(ctx);          // the single "what to work on next"
+  ctx.masteryByCat = _masteryByCat(stats);            // any category's mastery (Explanation looks itself up here)
+  ctx.planner = await _plannerData(uid, opts.clientDate);   // study-plan readiness/forecast/today's tasks (one read)
+
   _cache(cacheRef, ctx);
   return ctx;
+}
+
+/* Experience tier from lifetime volume (ADR-050/053) — the single definition, consumed by every feature. */
+function _tierOf(n) { n = Number(n) || 0; return n >= 500 ? 4 : n >= 100 ? 3 : n >= 30 ? 2 : n >= 6 ? 1 : 0; }
+
+/* Labeled per-category mastery map (any category) — so Explanation gets its topic's mastery from the profile. */
+function _masteryByCat(stats) {
+  var raw = statMath.masteryMap(stats), out = {};
+  Object.keys(raw).forEach(function (cat) { var m = raw[cat]; out[cat] = { cat: cat, label: label(cat), acc: m.acc, n: m.n, tier: m.tier }; });
+  return out;
+}
+
+/* The one "next recommendation": the weakest real topic, else a sensible foundation. */
+function _recommendation(ctx) {
+  var w = topWeakCategory(ctx);
+  if (w && w.cat) return { cat: w.cat, label: w.label || label(w.cat), why: 'weakest by accuracy' };
+  return { cat: 'percentages', label: label('percentages'), why: 'high-impact foundation' };
+}
+
+/* The study planner grounding, folded into the profile (ADR-053; was aiBrain._plannerData). One aiPlanner read
+   yields today's tasks + the persisted exam readiness + forecast + adherence, so Coach/Insights/Explain/Chat all
+   speak from the same plan with no second read. Returns an empty shape when there's no plan. */
+async function _plannerData(uid, clientDate) {
+  var empty = { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null };
+  try {
+    var pd = await db().collection('aiPlanner').doc(uid).get();
+    if (!pd.exists) return empty;
+    var pdoc = pd.data();
+    var todayKey = clientDate || _todayIso();
+    var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
+    var tasks = (td && td.tasks) || [];
+    var labels = tasks.map(function (t) { return t.label; }).slice(0, 3).join(', ');
+    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {};
+    var adh = null, bh = pdoc.blockHistory || [];
+    if (bh.length && typeof bh[bh.length - 1].adherencePct === 'number') adh = bh[bh.length - 1].adherencePct;
+    else if (pdoc.block) {
+      var sched = 0, done = 0;
+      ((pdoc.block.days) || []).forEach(function (d) { (d.tasks || []).forEach(function (x) { sched++; if (x.done) done++; }); });
+      if (sched) adh = Math.round(done / sched * 100);
+    }
+    var note = '';
+    if (labels) note += 'The student\'s study planner schedules today: ' + labels + '. ';
+    if (typeof rd.score === 'number') {
+      note += 'Their exam readiness is ' + rd.score + '/100' +
+        (fc.onTrack === false ? ' and they\'re behind pace' : (fc.daysToExam != null ? ', ' + fc.daysToExam + ' days out' : '')) + '. ';
+    }
+    return { has: true, note: note ? note + 'Tie your advice to the plan.' : '',
+      readiness: (typeof rd.score === 'number' ? rd : null), forecast: fc, todayTasks: tasks, adherencePct: adh };
+  } catch (_) { return empty; }
 }
 
 /* ADR-052: the empty/zero-data profile — used ONLY when the user-doc read fails (an error fallback), NOT as a
@@ -189,7 +230,11 @@ function _coldContext(uid, o) {
     flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
     recentSessions: [],
     today: o.today || { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null },
-    memory: _publicMemory(o.memory)
+    memory: _publicMemory(o.memory),
+    tier: 0,
+    recommendation: { cat: 'percentages', label: label('percentages'), why: 'high-impact foundation' },
+    masteryByCat: {},
+    planner: { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null }
   };
 }
 
@@ -206,74 +251,28 @@ function _publicMemory(m) {
 }
 
 /** Accuracy 7d-vs-30d + speed trajectory + consistency, from stats.dailyHistory{dateKey:{attempted,correct,sumTimes,count}}. */
+/* ADR-053: trends are composed from the ONE derivation layer (statMath) — same numbers the client Analytics
+   shows, so QuanAI and Analytics can never disagree. This module only adds the server-only memory-backed field. */
 function _deriveTrends(stats) {
-  var hist = stats.dailyHistory || {};
-  var now = Date.now(), DAY = 86400000;
-  var w7 = { att: 0, cor: 0, sum: 0, cnt: 0 }, w30 = { att: 0, cor: 0, sum: 0, cnt: 0 }, prior = { att: 0, cor: 0, sum: 0, cnt: 0 };
-  var activeDays14 = 0, lastActiveMs = 0;
-
-  Object.keys(hist).forEach(function (k) {
-    var t = _ms(k); if (!t) return;
-    var e = hist[k] || {};
-    var att = Number(e.attempted) || 0, cor = Number(e.correct) || 0, sum = Number(e.sumTimes) || 0, cnt = Number(e.count) || 0;
-    var ageDays = (now - t) / DAY;
-    if (t > lastActiveMs) lastActiveMs = t;
-    if (ageDays <= 14 && att > 0) activeDays14++;
-    if (ageDays <= 7) { w7.att += att; w7.cor += cor; w7.sum += sum; w7.cnt += cnt; }
-    if (ageDays <= 30) { w30.att += att; w30.cor += cor; w30.sum += sum; w30.cnt += cnt; }
-    if (ageDays > 7 && ageDays <= 30) { prior.att += att; prior.cor += cor; prior.sum += sum; prior.cnt += cnt; }
-  });
-
-  var acc7 = w7.att > 0 ? w7.cor / w7.att : null;
-  var acc30 = w30.att > 0 ? w30.cor / w30.att : null;
-  var accDelta = (acc7 != null && acc30 != null) ? acc7 - acc30 : 0;
-
-  var spdRecent = w7.cnt > 0 ? w7.sum / w7.cnt : null;       // avg ms/q last 7d
-  var spdBaseline = prior.cnt > 0 ? prior.sum / prior.cnt : null;
-  var spdDelta = (spdRecent != null && spdBaseline != null) ? spdRecent - spdBaseline : 0;
-
-  var gapDays = lastActiveMs ? Math.floor((now - lastActiveMs) / DAY) : 99;
-
   return {
-    accuracy: { d7: _round(acc7, 3), d30: _round(acc30, 3), delta: _round(accDelta, 3),
-      direction: accDelta > 0.02 ? 'improving' : (accDelta < -0.02 ? 'declining' : 'flat') },
-    speed: { recentMsPerQ: spdRecent != null ? Math.round(spdRecent) : null, baselineMsPerQ: spdBaseline != null ? Math.round(spdBaseline) : null,
-      deltaMs: Math.round(spdDelta), direction: spdDelta < -300 ? 'faster' : (spdDelta > 300 ? 'slower' : 'flat') },
-    consistency: { activeDaysLast14: activeDays14, gapDays: gapDays,
-      streakHealth: gapDays >= 3 ? 'broken' : (activeDays14 >= 8 ? 'strong' : 'fragile') },
+    accuracy: statMath.accuracyWindows(stats),
+    speed: statMath.speed(stats),
+    consistency: statMath.consistency(stats),
     sessionImprovementPct: _round(stats.avgSessionImprovementPct, 1)
   };
 }
 
-/** The canonical mastery for ONE category (acc, n, tier) — same thresholds as _deriveMastery, but not sliced to
- *  the top-8, so a feature (e.g. Explanation) can ask about any category. Returns null when too little data.
- *  This is the SINGLE weak/strong resolver every feature shares (ADR-051) — no second computation, no drift. */
+/** Canonical mastery for ONE category, with the human label attached (the pure tiering lives in statMath). */
 function masteryForCat(stats, cat) {
-  var d = ((stats && stats.categoryStats) || {})[cat] || {};
-  var att = Number(d.attempted) || 0, cor = Number(d.correct) || 0;
-  if (att < 3) return null;
-  var acc = cor / att;
-  return { cat: cat, label: label(cat), acc: _round(acc, 2), n: att,
-    tier: acc < 0.6 ? 'weak' : (acc >= 0.8 ? 'strong' : 'developing') };
+  var m = statMath.masteryForCat(stats, cat);
+  return m ? { cat: m.cat, label: label(m.cat), acc: m.acc, n: m.n, tier: m.tier } : null;
 }
 
-/** Per-category current mastery (acc, n, tier) from categoryStats. */
+/** Per-category mastery list (weakest-first, top 8), labels attached. */
 function _deriveMastery(stats) {
-  var cs = stats.categoryStats || {};
-  var out = [];
-  Object.keys(cs).forEach(function (cat) {
-    var d = cs[cat] || {};
-    var att = Number(d.attempted) || 0, cor = Number(d.correct) || 0;
-    if (att < 3) return;
-    var acc = cor / att;
-    out.push({
-      cat: cat, label: label(cat), acc: _round(acc, 2), n: att,
-      tier: acc < 0.6 ? 'weak' : (acc >= 0.8 ? 'strong' : 'developing')
-    });
+  return statMath.deriveMastery(stats).map(function (m) {
+    return { cat: m.cat, label: label(m.cat), acc: m.acc, n: m.n, tier: m.tier };
   });
-  // weakest first (so prescriptions target them), then by sample size
-  out.sort(function (a, b) { return a.acc - b.acc || b.n - a.n; });
-  return out.slice(0, 8);
 }
 
 function _recentMistakeCats(stats) {
@@ -307,7 +306,7 @@ function _deriveFlags(o) {
 
 function _cache(ref, ctx) {
   ref.set({ ctx: ctx, ttlExp: Date.now() + CONTEXT_TTL_MS, updatedAt: admin.firestore.FieldValue.serverTimestamp() })
-    .catch(function (e) { console.warn('[studentContext] cache write failed:', e.message); });
+    .catch(function (e) { console.warn('[studentProfile] cache write failed:', e.message); });
 }
 
 /** True if the student has too little data to personalize — features must skip the LLM and use deterministic copy. */
@@ -375,6 +374,7 @@ function topWeakCategory(ctx) {
   return weak.length ? weak[0] : ((ctx.mastery || [])[0] || null);
 }
 
-module.exports = { buildContext, serialize, isColdStart, topWeakCategory, label, CATEGORY_LABELS,
+module.exports = { build, serialize, isColdStart, topWeakCategory, label, CATEGORY_LABELS,
   // ADR-051: the canonical mastery resolvers, shared so every feature agrees on weak/strong (no drift).
-  masteryForCat: masteryForCat, _deriveMastery: _deriveMastery };
+  masteryForCat: masteryForCat, _deriveMastery: _deriveMastery,
+  _tierOf: _tierOf };   // ADR-053: the single experience-tier definition (exposed for the harness)

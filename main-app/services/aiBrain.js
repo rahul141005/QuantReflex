@@ -1,7 +1,7 @@
 /**
  * aiBrain.js — the one AI brain (ADR-039).
  *
- * Orchestrates studentContext (analysis) + aiMemory (continuity) + aiPrompts (versioned language) +
+ * Orchestrates studentProfile (the one canonical profile) + aiMemory (continuity) + aiPrompts (language) +
  * llmProvider (the single gpt-4o-mini call) into AIResponse block envelopes (AI_INTERACTION_SYSTEM §2).
  * The model writes only small language objects; THIS module assembles the UI blocks + chips deterministically
  * from real data — the reliability lever that makes gpt-4o-mini punch above its weight.
@@ -10,7 +10,7 @@
  * user (hard model failure → a deterministic, still-useful fallback envelope). Cold-start users skip the LLM.
  */
 const admin = require('firebase-admin');
-const ctxEngine = require('./studentContext');
+const ctxEngine = require('./studentProfile');
 const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
 const aiService = require('./aiService');
@@ -69,20 +69,6 @@ function helpfulChips() { return [chipReply('👍 Helpful', 'helpful_yes'), chip
 function envelope(feature, blocks, chips, meta) {
   return { v: 1, feature: feature, blocks: (blocks || []).filter(Boolean), chips: (chips || []).filter(Boolean), meta: meta || {} };
 }
-/* A focus topic with a GUARANTEED non-empty category, so deep-link drills never silently no-op (ADR-045 bugfix:
-   topWeakCategory could return {cat:''} for cold/all-unknown students → startDrillFromPractice('focus','') was a no-op). */
-function _focus(ctx) {
-  var w = ctxEngine.topWeakCategory(ctx);
-  if (w && w.cat) return w;
-  return { cat: 'percentages', label: ctxEngine.label('percentages') };
-}
-
-/* Experience tier from lifetime volume (ADR-050) — gates how rich the dashboard is, never WHETHER data is read.
-   0 brand-new · 1 exploring · 2 active · 3 engaged · 4 veteran. */
-function _tier(ctx) {
-  var n = (ctx && ctx.totalAttempted) || 0;
-  return n >= 500 ? 4 : n >= 100 ? 3 : n >= 30 ? 2 : n >= 6 ? 1 : 0;
-}
 /* The dominant behavioural flag, as a one-word note the prompt is told to address (ADR-050) — burnout, careless,
    plateau, speedRegression and inconsistent are computed in studentContext but were never acted on. */
 function _flagsNote(ctx) {
@@ -106,60 +92,26 @@ function _putDaily(uid, feature, env) {
     .catch(function (e) { console.warn('[aiBrain] daily cache write failed:', e.message); });
 }
 
-/* Shared planner grounding for Coach + Insights (ADR-049 "one AI"): today's scheduled tasks + the live exam
-   readiness score + on-track status, so every feature speaks from the same plan. Returns '' if no plan. */
-async function _plannerData(uid, clientDate) {
-  var empty = { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null };
-  try {
-    var pd = await db().collection('aiPlanner').doc(uid).get();
-    if (!pd.exists) return empty;
-    var pdoc = pd.data();
-    var todayKey = clientDate || _todayIso();
-    var td = ((pdoc.block && pdoc.block.days) || []).find(function (d) { return d.date === todayKey; });
-    var tasks = (td && td.tasks) || [];
-    var labels = tasks.map(function (t) { return t.label; }).slice(0, 3).join(', ');
-    var rd = pdoc.readiness || {}, fc = pdoc.forecast || {};
-    // adherence: latest archived block, else live completion of the current block
-    var adh = null;
-    var bh = pdoc.blockHistory || [];
-    if (bh.length && typeof bh[bh.length - 1].adherencePct === 'number') adh = bh[bh.length - 1].adherencePct;
-    else if (pdoc.block) {
-      var sched = 0, done = 0;
-      ((pdoc.block.days) || []).forEach(function (d) { (d.tasks || []).forEach(function (x) { sched++; if (x.done) done++; }); });
-      if (sched) adh = Math.round(done / sched * 100);
-    }
-    var note = '';
-    if (labels) note += 'The student\'s study planner schedules today: ' + labels + '. ';
-    if (typeof rd.score === 'number') {
-      note += 'Their exam readiness is ' + rd.score + '/100' +
-        (fc.onTrack === false ? ' and they\'re behind pace' : (fc.daysToExam != null ? ', ' + fc.daysToExam + ' days out' : '')) + '. ';
-    }
-    return { has: true, note: note ? note + 'Tie your advice to the plan.' : '',
-      readiness: (typeof rd.score === 'number' ? rd : null), forecast: fc, todayTasks: tasks, adherencePct: adh };
-  } catch (_) { return empty; }
-}
-
 /* ════════════════════════ AI COACH — daily living dashboard (ADR-050) ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
-  var tier = _tier(ctx);
+  var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
+  var tier = ctx.tier;                       // ADR-053: from the one profile (no re-derivation)
+  var focus = ctx.recommendation;            // the single "what to work on next"
+  var pdata = ctx.planner;                   // study-plan readiness/forecast/tasks — already on the profile
 
-  // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors studentContext's rule).
+  // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors the profile's rule).
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
-
-  var focus = _focus(ctx);
 
   // ADR-052: NEVER lock the coach. With little data (tier 0 = 0–5 lifetime) render a deterministic, helpful read
   // of whatever exists — no LLM (controlled copy avoids generic output near zero data), never "I don't know you".
   if (tier === 0) {
-    var lowEnv = _coachLowData(ctx, focus, await _plannerData(uid, opts.clientDate));
+    var lowEnv = _coachLowData(ctx, focus, pdata);
     _putDaily(uid, 'coach', lowEnv);
     return lowEnv;
   }
 
   var contextStr = ctxEngine.serialize(ctx);
-  var pdata = await _plannerData(uid, opts.clientDate);   // one aiPlanner read → ring/forecast/tasks/adherence
   var flagsNote = _flagsNote(ctx);
   var env;
   try {
@@ -292,8 +244,9 @@ function _detectPatterns(ctx) {
 
 async function insights(uid, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: !!opts.force, clientStats: opts.clientStats });
-  var tier = _tier(ctx);
+  var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
+  var tier = ctx.tier;                       // ADR-053: from the one profile
+  var pdata = ctx.planner;                   // study-plan grounding — already on the profile
 
   if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
 
@@ -305,7 +258,6 @@ async function insights(uid, opts) {
   }
 
   var weak = ctxEngine.topWeakCategory(ctx) || { cat: '', label: 'mixed practice' };
-  var pdata = await _plannerData(uid, opts.clientDate);
   var flagsNote = _flagsNote(ctx);
   var env;
   try {
@@ -406,15 +358,14 @@ async function explainBase(question, answer, category, uid) {
   var hash = _hash(String(question) + ':' + String(answer));
   var cacheRef = db().collection('explanations').doc(hash + '_v' + explainVersion);
 
-  // One users-doc read yields BOTH the canonical stats (for mastery) and memory — same read count as before.
-  var stats = {}, mem = {};
-  try {
-    var udoc = await db().collection('users').doc(uid).get();
-    if (udoc.exists) { var ud = udoc.data() || {}; stats = ud.stats || {}; mem = ud.aiMemory || {}; }
-  } catch (e) { console.warn('[aiBrain] explain user read failed:', e.message); }
-  // The SAME weak/strong resolver Coach/Insights/Planner use — Explanation can never disagree with them (ADR-051).
-  var mastery = ctxEngine.masteryForCat(stats, category);
-  var struggledHint = (Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0)
+  // ADR-053: Explanation consumes the ONE canonical profile like every other feature (cached; no bespoke read),
+  // so its mastery + recent mistakes + exam + plan are the SAME the Coach sees — truly personal, never divergent.
+  var ctx = await ctxEngine.build(uid);
+  var mem = (ctx && ctx.memory) || {};
+  var mastery = (ctx.masteryByCat && ctx.masteryByCat[category]) || null;
+  var recentMistake = !!(ctx.errorPatterns && (ctx.errorPatterns.recentMistakeCats || []).indexOf(category) >= 0);
+  var struggledHint = recentMistake
+    || (Array.isArray(mem.recentTopicsExplained) && mem.recentTopicsExplained.indexOf(category) >= 0)
     || (Array.isArray(mem.knownWeakConcepts) && mem.knownWeakConcepts.indexOf(category) >= 0)
     || (mastery && mastery.tier === 'weak');
 
@@ -512,7 +463,7 @@ async function chatTurn(uid, body) {
 
   // ADR-051: floor with the live local stats so a conversational coach turn ("Speed or accuracy?") and chat
   // reason from the SAME fresh "today" the Coach dashboard shows — never a staler number.
-  var ctx = await ctxEngine.buildContext(uid, { clientStats: body.clientStats });
+  var ctx = await ctxEngine.build(uid, { clientStats: body.clientStats });
 
   // EXPLAIN FOLLOW-UPS (ADR-045): anchor to the EXACT question + the prior explanation the client carries forward,
   // so "Simpler / Go deeper / Another" deepen THIS problem instead of drifting to the student's weak topic.
@@ -614,7 +565,7 @@ async function plannerGet(uid, opts) {
   if (!doc) return { plan: null };
   // ADR-051: floor the (debounced, stale) server stats with the live local snapshot — same as setup/toggle/regen —
   // so the on-load forecast/readiness/Smart-Catch-up reflect a session finished moments ago (the client sends it).
-  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
+  var ctx = await ctxEngine.build(uid, { clientStats: opts.clientStats });
 
   // Auto Smart Catch-up on load: if past study/buffer days were fully missed, rebalance their tasks into the
   // remaining days and recompute the forecast — so a student who skipped never opens to a stale, broken plan.
@@ -661,7 +612,7 @@ async function _narratePlan(uid, ctx, seed) {
 /** Create (or re-configure) a plan from the setup answers and generate block 0. */
 async function plannerSetup(uid, params, opts) {
   opts = opts || {};
-  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+  var ctx = await ctxEngine.build(uid, { force: true, clientStats: opts.clientStats });
 
   var examId = String(params.examId || 'other');
   var exam = SYL.getExam(examId);
@@ -732,7 +683,7 @@ async function plannerToggle(uid, params, opts) {
 
   doc.block.days = plannerEngine.rebalanceMissed(doc.block.days, opts.clientDate || _todayIso(), doc.dailyMinutes);
 
-  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts.clientStats });
+  var ctx = await ctxEngine.build(uid, { clientStats: opts.clientStats });
   doc.readiness = readinessLib.examReadinessScore(syllabus, ctx, doc.topicState, _blockStats(doc));
   doc.forecast = readinessLib.completionForecast(syllabus, doc.topicState, {
     dailyMinutes: doc.dailyMinutes, daysPerWeek: doc.daysPerWeek, examDate: doc.examDate, recentDailyMinutes: _recentDailyMinutes(ctx)
@@ -751,7 +702,7 @@ async function plannerRegenBlock(uid, opts) {
   var doc = await plannerGetDoc(uid);
   if (!doc || !doc.block) return { error: 'no_plan' };
   var syllabus = SYL.getSyllabus(doc.syllabusId) || SYL.resolveSyllabus(doc.examId);
-  var ctx = await ctxEngine.buildContext(uid, { force: true, clientStats: opts.clientStats });
+  var ctx = await ctxEngine.build(uid, { force: true, clientStats: opts.clientStats });
 
   var stats = _blockStats(doc);
   doc.blockHistory = (doc.blockHistory || []).concat([{
@@ -827,7 +778,7 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
     return { error: isPremium ? 'daily_limit_reached' : 'free_limit_reached' };
   }
   // ADR-051: floor with the live local stats so "your weakest topic" matches what Coach/Insights just showed.
-  var ctx = await ctxEngine.buildContext(uid, { clientStats: opts && opts.clientStats });
+  var ctx = await ctxEngine.build(uid, { clientStats: opts && opts.clientStats });
   var target = category || (ctxEngine.topWeakCategory(ctx) || {}).cat || 'percentages';
   var topicLabel = ctxEngine.label(target);
   try {
@@ -843,4 +794,4 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
 
 module.exports = { coachToday, insights, explainBase, chatTurn, wordProblem,
   plannerGet, plannerSetup, plannerToggle, plannerRegenBlock,
-  _detectPatterns, _tier };   // pure helpers exposed for the brain harness (ADR-050)
+  _detectPatterns };   // pure helper exposed for the brain harness (ADR-050)
