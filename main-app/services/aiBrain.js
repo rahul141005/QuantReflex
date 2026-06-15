@@ -671,7 +671,7 @@ function _bandKey(score) { return score >= 80 ? 'exam-ready' : score >= 60 ? 'on
 function _persistStrategy(s) {
   if (!s) return null;
   return {
-    readinessScore: s.readinessScore, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
+    readinessScore: s.readinessScore, readinessBreakdown: s.readinessBreakdown, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
     daysToExam: s.daysToExam, targetScore: s.targetScore, verdict: s.verdict, workload: s.workload,
     examName: s.examName, examDate: s.examDate, totalHours: s.totalHours, plannedHours: s.plannedHours,
     sections: (s.sections || []).map(function (sec) {

@@ -80,7 +80,8 @@ function assemble(profile, planDoc, opts) {
   var targetScore = Number(planDoc.targetScore) || PREP_TARGET[planDoc.prepLevel] || 75;
 
   var rmap = readiness.readinessMap(syl, profile, topicState);
-  var readinessScore = (readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc)) || {}).score || 0;
+  var readinessFull = readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc)) || {};
+  var readinessScore = readinessFull.score || 0;
 
   // Behavioural signals come from the canonical Profile (the Strategy reads the one evolving picture — it never
   // receives messages from Coach/Insights). Exam-progress signals come from the doc.
@@ -121,8 +122,33 @@ function assemble(profile, planDoc, opts) {
   };
   strategy.signals = signals;
   strategy.behaviour = _behaviour(planDoc, strategy, todayIso);   // ADR-061: avoidance/postponement/stale signals
+  strategy.readinessBreakdown = _readinessBreakdown(readinessFull);  // ADR-062: make the score transparent (why 34?)
   strategy.examDate = planDoc.examDate || null;
   return strategy;
+}
+
+/** ADR-062: turn the opaque Exam Readiness number into a plain-language breakdown a student instantly gets —
+ *  the single limiting driver (biggest weighted deficit = fastest way up) + the top contributing factors. */
+var _READINESS_LABELS = {
+  coverage: 'Syllabus covered', accuracy: 'Answer accuracy', consistency: 'Practice consistency',
+  speed: 'Solving speed', improvement: 'Recent improvement', revision: 'Revision kept up', adherence: 'Plan adherence'
+};
+function _readinessBreakdown(full) {
+  if (!full || !full.parts) return null;
+  var W = readiness.WEIGHTS || {};
+  var rows = Object.keys(full.parts).map(function (k) {
+    var v = Number(full.parts[k]) || 0;
+    return { key: k, label: _READINESS_LABELS[k] || k, pct: Math.round(v * 100), deficit: (W[k] || 0) * (1 - v) };
+  });
+  var bySize = rows.slice().sort(function (a, b) { return b.deficit - a.deficit; });
+  var limit = bySize[0] || null;
+  var drivers = rows.slice().sort(function (a, b) { return b.pct - a.pct; });   // show what's actually built up
+  return {
+    score: full.score,
+    summary: limit ? 'Most limited by ' + limit.label.toLowerCase() + ' (' + (rows.filter(function (r) { return r.key === limit.key; })[0].pct) + '%). Lift that to move the number up fastest.' : '',
+    limitedBy: limit ? limit.label : null,
+    factors: drivers.map(function (r) { return { label: r.label, pct: r.pct }; })
+  };
 }
 
 /** ADR-061: behaviour signals a mentor would notice — postponed topics (scheduled-but-skipped on past days),

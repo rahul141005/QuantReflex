@@ -85,19 +85,40 @@ var Planner = (function () {
   function sessionLabel(st, kind) { return ({ 'first-learning': 'First Learning', 'practice': 'Practice', 'revision': 'Revision', 'mock': 'Mock' })[st] || (kind === 'revise' ? 'Revision' : 'First Learning'); }
   var DRILL_NAMES = { squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume', fractions: 'Fractions', percentages: 'Percentages', multiplication: 'Multiplication', ratios: 'Ratios', averages: 'Averages', 'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work' };
   function drillName(c) { return DRILL_NAMES[c] || c; }
+  // ADR-062: a human time estimate — "≈50 min" / "≈3.7 hours" (never a bare "3.7h").
+  function estLabel(mins) {
+    mins = Number(mins) || 0;
+    if (mins < 60) return '≈' + Math.round(mins) + ' min';
+    var h = mins / 60;
+    return '≈' + (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10) + (h < 1.05 ? ' hour' : ' hours');
+  }
 
   /* ADR-057: the STRATEGY dashboard — readiness + verdict, the milestone path, focus-with-why, recovery, triage.
      The strategy is the product; the schedule below is just its projection. Falls back to a basic readiness panel
      for legacy docs without a strategy. */
   function renderStrategy(s, p) {
     var pr = s.progress || {};
-    var html = '<div class="planner-readiness">' + ring(s.readinessScore) +
+    var bd = s.readinessBreakdown;
+    var html = '<div class="planner-readiness' + (bd ? ' is-tappable' : '') + '"' + (bd ? ' data-readiness="1" role="button" tabindex="0" aria-label="See how exam readiness is calculated"' : '') + '>' + ring(s.readinessScore) +
       '<div class="pr-meta">' +
         '<div class="pr-band">' + esc(bandLabel(s.readinessScore)) + '</div>' +
-        '<div class="pr-label">Exam readiness</div>' +
+        '<div class="pr-label">Exam readiness <span class="pr-sub">· coverage + accuracy + consistency</span></div>' +
         '<div class="pr-projected">Projected ' + (s.projectedScore != null ? s.projectedScore : '—') + '/100 · target ' + (s.targetScore || '—') + (s.achievable ? ' ✓' : '') + '</div>' +
         (s.daysToExam != null ? '<div class="pr-forecast ' + (pr.onTrack === false ? 'is-behind' : '') + '">' + s.daysToExam + ' days to ' + esc(s.examName || 'your exam') + (pr.adherencePct != null ? ' · ' + pr.adherencePct + '% done' : '') + '</div>' : '') +
+        (bd ? '<div class="pr-why">Tap to see why it\'s ' + s.readinessScore + '</div>' : '') +
       '</div></div>';
+    // ADR-062: the "why this number" breakdown — no black box. Hidden until tapped.
+    if (bd) {
+      html += '<div class="planner-readiness-detail" data-readiness-detail hidden>' +
+        (bd.summary ? '<div class="prd-summary">' + esc(bd.summary) + '</div>' : '') +
+        '<div class="prd-factors">' + (bd.factors || []).map(function (f) {
+          return '<div class="prd-row"><span class="prd-flabel">' + esc(f.label) + '</span>' +
+            '<span class="prd-bar"><span style="width:' + Math.max(0, Math.min(100, f.pct)) + '%"></span></span>' +
+            '<span class="prd-fpct">' + f.pct + '%</span></div>';
+        }).join('') + '</div>' +
+        '<div class="prd-note">Exam readiness is a weighted blend of these seven signals — coverage counts most, then accuracy and consistency.</div>' +
+      '</div>';
+    }
     if (s.verdict) html += '<div class="planner-verdict">' + esc(s.verdict) + '</div>';
 
     if (s.recovery && s.recovery.topics && s.recovery.topics.length) {
@@ -110,6 +131,7 @@ var Planner = (function () {
     html += '<div class="planner-section-title">Your path to ' + esc(s.examName || 'the exam') + '</div><div class="planner-sections">' +
       (s.sections || []).map(function (sec) {
         var pct = Math.max(0, Math.min(100, sec.progressPct || 0));
+        var mins = (sec.topics || []).reduce(function (a, t) { return a + (Number(t.durationMin) || 0); }, 0);
         var topicsHtml = (sec.topics || []).map(function (t) {
           return '<div class="psec-topic"><span class="psec-tlabel">' + esc(t.label) + '</span>' +
             '<span class="psec-tmeta">' + wbLabel(t.weightage) + (t.roi != null ? ' · ROI ' + t.roi : '') + '</span></div>';
@@ -117,8 +139,9 @@ var Planner = (function () {
         return '<div class="psec is-' + (sec.status || 'upcoming') + '">' +
           '<div class="psec-head" data-sec="' + esc(sec.name) + '">' +
             '<div class="psec-title">' + esc(sec.name) + (sec.status === 'active' ? ' <span class="pm-now">now</span>' : '') + '</div>' +
-            '<div class="psec-meta">' + sec.topicCount + ' topics · ' + wbLabel(sec.weightage) + ' · ' + pct + '%</div>' +
-            '<div class="pm-bar"><span style="width:' + pct + '%"></span></div>' +
+            '<div class="psec-meta">' + sec.topicCount + ' topics' + (mins > 0 ? ' · ' + estLabel(mins) + ' of study' : '') + ' · ' + wbLabel(sec.weightage) + ' weightage</div>' +
+            '<div class="pm-bar" title="How ready you are across this section"><span style="width:' + pct + '%"></span></div>' +
+            '<div class="psec-progresslabel">' + pct + '% ready</div>' +
           '</div>' +
           '<div class="psec-topics">' + topicsHtml + '</div>' +
         '</div>';
@@ -197,6 +220,13 @@ var Planner = (function () {
     });
     // ADR-059: sections expand to reveal their real topics (the path is the strategy; no drill navigation here).
     r.querySelectorAll('.psec-head').forEach(function (h) { h.onclick = function () { h.parentNode.classList.toggle('is-open'); }; });
+    // ADR-062: tap the readiness ring to reveal the plain-language "why this number" breakdown.
+    var rdy = r.querySelector('[data-readiness]'), rdyDetail = r.querySelector('[data-readiness-detail]');
+    if (rdy && rdyDetail) {
+      var toggleRdy = function () { var open = rdyDetail.hasAttribute('hidden'); if (open) rdyDetail.removeAttribute('hidden'); else rdyDetail.setAttribute('hidden', ''); rdy.classList.toggle('is-expanded', open); };
+      rdy.onclick = toggleRdy;
+      rdy.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRdy(); } };
+    }
     var rg = r.querySelector('.planner-regen'); if (rg) rg.onclick = regen;
   }
 
