@@ -16,7 +16,12 @@ var store = {};
 function emptyQuery() { return { orderBy: function () { return this; }, limit: function () { return this; }, select: function () { return this; }, get: function () { return Promise.resolve({ forEach: function () {} }); } }; }
 function docRef(col, id) {
   return {
-    get: function () { return Promise.resolve({ exists: !!(store[col] && store[col][id] !== undefined), data: function () { return store[col] && store[col][id]; } }); },
+    // ADR-054: a sentinel uid simulates a firebase-admin read failure (e.g. bad creds) so we can prove the
+    // client floor is still honored — the profile must NOT go cold when the read throws.
+    get: function () {
+      if (col === 'users' && /readfail/.test(String(id))) return Promise.reject(new Error('simulated admin read failure'));
+      return Promise.resolve({ exists: !!(store[col] && store[col][id] !== undefined), data: function () { return store[col] && store[col][id]; } });
+    },
     set: function (d, opts) { store[col] = store[col] || {}; store[col][id] = (opts && opts.merge) ? Object.assign({}, store[col][id], d) : d; return Promise.resolve(); },
     select: function () { return this; },
     collection: function () { return emptyQuery(); }
@@ -276,6 +281,26 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   store.users['u-exp053'] = { stats: { categoryStats: { ratios: { attempted: 5, correct: 2 } } }, aiMemory: { examName: 'CAT' }, plan: 'free' };
   var exp = await aiBrain.explainBase('What is 3:5 of 40?', '15', 'ratios', 'u-exp053');
   ok((exp.blocks || []).some(function (b) { return b.type === 'metric'; }), 'Explanation reads its mastery from the profile (shows the Mastery-Status metric)');
+
+  /* ════════ ADR-054: a Firestore read failure must NEVER discard the client's real data ════════ */
+  // A user with real data (mirrors the screenshot: ratios weak) whose server user-doc read THROWS.
+  var realStats = { totalAttempted: 11, totalCorrect: 7, todayAttempted: 11, todayCorrect: 7, dailyStreak: 1,
+    categoryStats: { ratios: { attempted: 6, correct: 2 }, percentages: { attempted: 5, correct: 5 } }, dailyHistory: {} };
+  realStats.dailyHistory[todayKey] = { attempted: 11, correct: 7, sumTimes: 11 * 4900, count: 11 };
+
+  var rf = await ctxEngine.build('u-readfail', { force: true, clientStats: realStats });
+  ok(rf.totalAttempted >= 11, 'INVARIANT: a read failure + client floor still yields the real total (' + rf.totalAttempted + '), not 0');
+  ok(rf.coldStart === false, 'INVARIANT: a read failure with client data is NEVER cold-start');
+  ok(rf.mastery && rf.mastery.some(function (m) { return m.cat === 'ratios'; }), 'a read failure still builds real mastery from the client floor (no empty fake)');
+  ok(rf.tier >= 1, 'a read failure with 11 questions is tier >= 1 (the LLM dashboard, not the zero-data path)');
+
+  // Coach + Insights over the read-failure path must be the WARM feature, not "I haven't seen you solve yet".
+  var coachRf = await aiBrain.coachToday('u-readfail-coach', { force: true, clientStats: realStats });
+  ok(!(coachRf.meta && coachRf.meta.lowData), 'Coach renders the warm dashboard despite a read failure (not the low-data lock)');
+  ok(!COLD_BANNED.test(envText(coachRf)), 'Coach over a read failure never says "I don\'t know you / haven\'t seen you solve"');
+  var insRf = await aiBrain.insights('u-readfail-ins', { force: true, clientStats: realStats });
+  ok(!(insRf.meta && insRf.meta.lowData), 'Insights renders the warm analyst despite a read failure (not the low-data lock)');
+  ok(!COLD_BANNED.test(envText(insRf)), 'Insights over a read failure never says "I haven\'t seen you solve yet"');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

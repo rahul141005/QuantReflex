@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-054 — The AI must never discard the student's real data on a Firestore read hiccup (2026-06-15)
+- **Context:** A user with Analytics showing 11 attempted / 63.6% / 1 drill session opened Coach and Insights,
+  which said *"I don't know much about you yet"* / *"I haven't seen you solve yet"* and fell back to the
+  hard-coded "Percentages" recommendation. So the server-built profile had `totalAttempted: 0` AND
+  `mastery: []` while the client demonstrably had data — a **data-sourcing** bug (changing the copy again would
+  not fix it).
+- **Root cause (traced, exact line):** the AI profile is built server-side from Firestore via `firebase-admin`
+  (`studentProfile.build()` → `users/{uid}` read). The client's authoritative live stats are passed as a
+  **floor** (`opts.clientStats` → `_floorStats`) — the only bridge between "what the student did" (client) and
+  "what the AI sees" (server). **That bridge was discarded on the read-failure path:** `studentProfile.js`'s
+  `catch` returned `_coldContext(uid, {})`, which hardcoded `totalAttempted: 0` and **ignored `opts.clientStats`**.
+  So whenever the `users/{uid}` read threw (most likely a missing/invalid `FIREBASE_SERVICE_ACCOUNT` in the
+  serverless env, or a transient/permission error), `build()` returned a zero profile regardless of the floor →
+  the "I haven't seen you solve yet" onboarding. (The LLM call succeeds separately, so the user still got a
+  rendered — but cold — envelope.) A second hole: `firestore-sync.js queueUpdate` **silently dropped** writes
+  when Firebase/auth wasn't ready yet, so a first session could never persist to `users/{uid}.stats`, leaving
+  the floor as the only safety net — which then had the first hole.
+- **Decisions:**
+  - **The client floor is honored on EVERY path (the architectural fix).** `studentProfile.build()` no longer
+    returns a cold profile on a read error — it degrades to empty server stats and **falls through to the same
+    `_floorStats(stats, opts.clientStats)` path**, rebuilding a real profile from the client's data + whatever
+    else is reachable. Invariant: *if `clientStats.totalAttempted > 0`, the built profile is never `coldStart`
+    and `totalAttempted ≥` the client value.* `_coldContext` is now unused and was deleted.
+  - **Tripwire instrumentation.** `build()` `console.warn`s a structured `INVARIANT VIOLATION` (uid, clientTotal,
+    serverTotal, flooredTotal, readOk) if a positive client floor ever yields a cold profile — so the exact
+    divergence is visible in server logs and any regression is caught. (With the fix it should never fire.)
+  - **Close the persistence hole.** `firestore-sync.js queueUpdate` now **buffers** the update instead of
+    dropping it when Firebase/auth isn't ready, and `_flushPending()` flushes the buffer once the user loads —
+    so a first session always reaches `users/{uid}.stats` and Firestore catches up (defense-in-depth; the AI is
+    already correct via the floor regardless).
+  - **Out of scope / not the bug:** the persona, LLM/prompts, renderer, `/api/ai` actions, and engines are
+    unchanged. The `FIREBASE_SERVICE_ACCOUNT` env value (if that's the trigger) is a deploy-config concern set
+    securely in the host's environment variables — the code is now resilient to it either way.
+- **Consequences:** A Firestore read failure can no longer make QuanAI disown a student who has data. No model/
+  schema/rules change. Verified by `node --check`, `npm test` (planner-engine 209 + planner-brain **78**, incl.
+  a simulated admin read-failure: `build`/`coachToday`/`insights` with a client floor stay warm — real total,
+  `coldStart:false`, real mastery, no "I haven't seen you solve" phrasing). SW v114→v115.
+
 ## ADR-053 — One canonical Student Intelligence Profile + one derivation layer (2026-06-15)
 - **Context:** QuanAI *felt* like four features pretending to know the student. A full 3-pass re-audit
   confirmed the persona, orchestrator (`aiBrain`), renderer (`companion-ui`), `/api/ai` endpoint, prompts, LLM

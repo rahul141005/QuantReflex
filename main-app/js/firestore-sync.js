@@ -289,6 +289,9 @@ var FirestoreSync = (function () {
         _createDefaultDocument();
         _loadedUserId = currentUserId;
       }
+      /* ADR-054: the user is now ready — flush any updates that were buffered before Firebase/auth came up
+         (e.g. questions answered during onboarding), so a first session always reaches users/{uid}.stats. */
+      _flushPending();
       if (callback) callback(true);
 
     }).catch(function (err) {
@@ -602,6 +605,14 @@ var FirestoreSync = (function () {
     }
   }
 
+  /* ADR-054: flush updates that were buffered before the user was ready (called once load completes). */
+  function _flushPending() {
+    if (FirebaseApp.isReady() && FirebaseApp.getUserId() && Object.keys(_pendingUpdates).length > 0) {
+      if (_syncTimer) clearTimeout(_syncTimer);
+      _syncTimer = setTimeout(_flushUpdates, 0);
+    }
+  }
+
   /**
    * Queue a field update for batched Firestore write.
    * Only changed fields are updated to minimize writes.
@@ -610,14 +621,17 @@ var FirestoreSync = (function () {
    * @param {*} value - Value to write
    */
   function queueUpdate(field, value) {
-    if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return;
-
     /* Update in-memory cache */
     if (_memoryCache) {
       _memoryCache[field] = value;
     }
 
+    /* ADR-054: ALWAYS buffer the update — never silently DROP it when Firebase/auth isn't ready yet (the old
+       early-return here meant a first-session write could be lost forever, so the server doc stayed at 0 while
+       localStorage had the real data). Buffered updates flush as soon as the user is ready (_flushPending). */
     _pendingUpdates[field] = value;
+
+    if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return;   // keep it buffered; flush on ready
 
     /* During drills, defer all syncing to reduce writes */
     if (_drillActive) return;

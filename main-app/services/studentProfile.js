@@ -95,15 +95,18 @@ async function build(uid, opts) {
     } catch (e) { console.warn('[studentProfile] cache read failed:', e.message); }
   }
 
-  var userDoc;
+  var userDoc, readOk = true;
   try {
     userDoc = await db().collection('users').doc(uid)
       .select('stats', 'aiMemory', 'plan', 'profile').get();
   } catch (e) {
+    // ADR-054: a Firestore read hiccup (e.g. admin creds) must NEVER discard the client's authoritative live
+    // data. Degrade to empty server stats and fall through — the clientStats floor below still rebuilds a real
+    // profile, so QuanAI can't disown a student who has data. (Was: `return _coldContext(uid, {})`, the bug.)
     console.warn('[studentProfile] user read failed (uid ' + uid + '):', e.message);
-    return _coldContext(uid, {});
+    userDoc = null; readOk = false;
   }
-  var data = userDoc.exists ? (userDoc.data() || {}) : {};
+  var data = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : {};
   var stats = data.stats || {};
   // ADR-046: raise (never lower) the server stats with the planner's live local snapshot, so a debounced/
   // zero-initialised Firestore doc can't misread a real session as cold-start.
@@ -119,6 +122,14 @@ async function build(uid, opts) {
   // computed from whatever data exists (even zero). Data richness (the `_tier` scale) decides how rich the AI
   // response is, never whether a feature works; QuanAI never disowns a student Analytics can already see.
   var noData = (totalAttempted === 0 && today.attempted === 0);
+
+  // ADR-054 tripwire: it is an INVARIANT that a positive client floor can never produce a zero/cold profile.
+  // If this ever fires, it names the exact divergence (read failure vs floor not applied) in the server logs.
+  var _cTotal = Number(opts.clientStats && opts.clientStats.totalAttempted) || 0;
+  if (_cTotal > 0 && noData) {
+    console.warn('[studentProfile] INVARIANT VIOLATION — client reported data but profile is cold:',
+      JSON.stringify({ uid: uid, clientTotal: _cTotal, serverTotal: Number((data.stats || {}).totalAttempted) || 0, flooredTotal: totalAttempted, readOk: readOk }));
+  }
 
   // ---- recent sessions (1 query; skipped for a brand-new user — nothing to read) ----
   var sessions = [];
@@ -216,26 +227,6 @@ async function _plannerData(uid, clientDate) {
     return { has: true, note: note ? note + 'Tie your advice to the plan.' : '',
       readiness: (typeof rd.score === 'number' ? rd : null), forecast: fc, todayTasks: tasks, adherencePct: adh };
   } catch (_) { return empty; }
-}
-
-/* ADR-052: the empty/zero-data profile — used ONLY when the user-doc read fails (an error fallback), NOT as a
-   cold-start gate. accuracy is null ("no data yet"), never 0 ("0%"); buildContext's normal path returns the same
-   valid shape for a brand-new user, so every consumer sees one canonical profile. */
-function _coldContext(uid, o) {
-  return {
-    v: 1, uid: uid, name: o.name || '', plan: o.plan === 'premium' ? 'premium' : 'free',
-    coldStart: true, accuracy: null, totalAttempted: o.totalAttempted || 0,
-    dailyStreak: 0,
-    trends: null, mastery: [], errorPatterns: { recentMistakeCats: [], carelessSignal: false },
-    flags: { burnout: false, plateau: false, inconsistent: false, speedRegression: false, careless: false, coldStart: true },
-    recentSessions: [],
-    today: o.today || { attempted: 0, correct: 0, accuracy: null, avgMsPerQ: null },
-    memory: _publicMemory(o.memory),
-    tier: 0,
-    recommendation: { cat: 'percentages', label: label('percentages'), why: 'high-impact foundation' },
-    masteryByCat: {},
-    planner: { has: false, note: '', readiness: null, forecast: null, todayTasks: [], adherencePct: null }
-  };
 }
 
 function _publicMemory(m) {

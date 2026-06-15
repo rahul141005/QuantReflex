@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-15 — AI never discards the student's real data on a Firestore read hiccup (ADR-054)
+
+Coach/Insights showed "I haven't seen you solve yet" for a user with 11 attempted / 63.6% in Analytics. Root
+cause: the server builds the profile from Firestore via firebase-admin, and the client's authoritative stats
+are passed as a floor — but the read-failure `catch` returned `_coldContext(uid, {})`, **discarding that
+floor** and hardcoding `totalAttempted: 0`. So a Firestore read error (e.g. bad `FIREBASE_SERVICE_ACCOUNT`)
+made the AI cold despite real data. No model/schema/rules change. SW v114→v115. Bible 2.42→2.43, Arch 2.28→2.29.
+
+- **`studentProfile.build()`**: on a `users/{uid}` read error, degrade to empty server stats and fall through
+  to the **same `_floorStats(opts.clientStats)` path** instead of returning a cold profile. Invariant: a
+  positive client floor can never yield a cold/zero profile. Deleted the now-unused `_coldContext`.
+- **Tripwire**: `build()` warns a structured `INVARIANT VIOLATION` if a positive client floor ever yields a
+  cold profile (server-log evidence + regression guard).
+- **`firestore-sync.js`**: `queueUpdate` now **buffers** instead of silently dropping a write when Firebase/auth
+  isn't ready, and `_flushPending()` flushes it once the user loads — so a first session reaches
+  `users/{uid}.stats` and Firestore catches up (defense-in-depth; the floor already makes the AI correct).
+- **Verify**: `node --check`; `npm test` 209 + 78 — a simulated admin read-failure with a client floor keeps
+  `build`/`coachToday`/`insights` warm (real total, `coldStart:false`, real mastery, no "I haven't seen you
+  solve" phrasing).
+
 ## 2026-06-15 — One canonical Student Intelligence Profile + one derivation layer (ADR-053)
 
 QuanAI felt like four features pretending to know the student. The audit found the persona/orchestrator/
