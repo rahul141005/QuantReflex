@@ -663,9 +663,9 @@ function _persistStrategy(s) {
     readinessScore: s.readinessScore, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
     daysToExam: s.daysToExam, targetScore: s.targetScore, verdict: s.verdict, workload: s.workload,
     examName: s.examName, examDate: s.examDate, totalHours: s.totalHours, plannedHours: s.plannedHours,
-    milestones: (s.milestones || []).map(function (m) {
-      return { id: m.id, name: m.name, kind: m.kind, status: m.status, objective: m.objective, why: m.why, hours: m.hours,
-        topics: (m.topics || []).map(function (t) { return { topicId: t.topicId, label: t.label, action: t.action, drillable: t.drillable }; }) };
+    sections: (s.sections || []).map(function (sec) {
+      return { name: sec.name, weightage: sec.weightage, status: sec.status, topicCount: sec.topicCount, progressPct: sec.progressPct, marks: sec.marks,
+        topics: (sec.topics || []).map(function (t) { return { topicId: t.topicId, label: t.label, sessionType: t.sessionType, readiness: t.readiness, weightage: t.weightage, roi: t.roi, drillable: t.drillable, durationMin: t.durationMin, action: t.action }; }) };
     }),
     focus: s.focus, revise: s.revise, skip: s.skip, recovery: s.recovery, progress: s.progress
   };

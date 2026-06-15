@@ -142,7 +142,7 @@ function buildStrategy(input) {
   // Behavioural signals shape it: burnout → lighter near-term workload; recentRegressionTopics → a recovery
   // objective BEFORE new work; retentionRisk → revision earlier; mockTrend → (narrated). All deterministic.
   var workload = signals.burnout ? 'light' : 'normal';
-  var mb = _milestones(rows, byId, daysToExam, signals);     // { milestones, roadmap, recovery }
+  var mb = _milestones(rows, byId, daysToExam, signals);     // internal phase ordering → { roadmap, recovery }
 
   // ── student-facing slices ──
   var learn = rows.filter(function (r) { return r.action === 'learn'; }).sort(function (a, b) { return b.priority - a.priority; });
@@ -154,7 +154,7 @@ function buildStrategy(input) {
     readinessScore: curScore, projectedScore: projectedScore, achievable: achievable, marksAtRisk: marksAtRisk,
     totalHours: totalHours, plannedHours: includedHours, workload: workload,
     verdict: _verdict(curScore, projectedScore, targetScore, achievable, daysToExam, skip.length),
-    milestones: mb.milestones,        // ordered objectives (the strategy's primary structure)
+    sections: _sections(rows),        // ADR-059: the PATH = real syllabus sections + progress (no fake phases)
     roadmap: mb.roadmap,              // ordered, calendar-agnostic task stream the SCHEDULE is projected from
     recovery: mb.recovery,            // a recommended recovery session when recent analytics regressed
     focus: learn.slice(0, 5).map(_publicTopic),
@@ -169,12 +169,46 @@ function _weightedReadiness(rows) {
   return w > 0 ? s / w : 0;
 }
 
+/** Session type the student does on a topic (ADR-059) — derived from how well they already know it.
+ *  first-learning = weak/unseen, practice = building, revision = already strong (keeping it warm). */
+function _sessionType(r) {
+  if (r.action === 'revise') return 'revision';
+  if (r.action === 'recovery') return 'practice';
+  return r.cur < 0.4 ? 'first-learning' : 'practice';
+}
+
 function _publicTopic(r) {
-  return { topicId: r.id, label: r.label, section: r.section, action: r.action,
-    drillable: r.t.drillable || null, readiness: _round(r.cur, 2), marksWeight: _round(r.marksWeight, 2),
-    expectedGain: r.expectedGain, marksPerHour: r.marksPerHour, hoursNeeded: r.hoursNeeded,
+  return { topicId: r.id, label: r.label, section: r.section, action: r.action, sessionType: _sessionType(r),
+    drillable: r.t.drillable || null, formulaSheet: r.t.formulaSheet || null, difficulty: r.t.difficulty,
+    weightage: r.t.weightage || null, roi: r.t.roi != null ? r.t.roi : null, pyqFreq: r.t.pyqFreq != null ? r.t.pyqFreq : null,
+    readiness: _round(r.cur, 2), marksWeight: _round(r.marksWeight, 2),
+    expectedGain: r.expectedGain, marksPerHour: r.marksPerHour, hoursNeeded: r.hoursNeeded, durationMin: Math.round(r.hoursNeeded * 60),
     unlocks: r.rationale.unlocks, why: r.rationale.why, whyNow: r.rationale.whyNow,
     scoreImpact: r.rationale.scoreImpact, skipConsequence: r.rationale.skipConsequence };
+}
+
+/** The PATH = real syllabus SECTIONS (Arithmetic, Number System, …) with progress — never fabricated phase
+ *  names (ADR-059). Ordered by marks/ROI; status from how much of the section is already covered. */
+var _WB_RANK = { 'very-high': 4, 'high': 3, 'medium': 2, 'low': 1 };
+function _sections(rows) {
+  var bySec = {};
+  rows.forEach(function (r) { if (r.action === 'skip') return; (bySec[r.section] = bySec[r.section] || []).push(r); });
+  var out = Object.keys(bySec).map(function (name) {
+    var rs = bySec[name].slice().sort(function (a, b) { return (b.t.roi || 0) - (a.t.roi || 0); });
+    var marks = rs.reduce(function (a, r) { return a + r.marksWeight; }, 0);
+    var prog = Math.round(rs.reduce(function (a, r) { return a + r.cur; }, 0) / rs.length * 100);
+    var band = rs.reduce(function (b, r) { return (_WB_RANK[r.t.weightage] || 0) > (_WB_RANK[b] || 0) ? r.t.weightage : b; }, 'low');
+    return { name: name, weightage: band, topicCount: rs.length, progressPct: prog, marks: _round(marks, 2),
+      topics: rs.map(_publicTopic) };
+  }).sort(function (a, b) { return b.marks - a.marks; });
+  // the first not-yet-mastered section is the active one; fully-strong sections before it are done.
+  var activeMarked = false;
+  out.forEach(function (s) {
+    if (s.progressPct >= 85) { s.status = activeMarked ? 'upcoming' : 'done'; }
+    else if (!activeMarked) { s.status = 'active'; activeMarked = true; }
+    else s.status = 'upcoming';
+  });
+  return out;
 }
 
 /** Hours a milestone of this kind costs for a topic row. */
@@ -187,6 +221,7 @@ function _kindHours(r, kind) {
 function _milestoneTopic(r, kind) {
   var t = _publicTopic(r);
   t.action = kind === 'recovery' ? 'recovery' : (kind === 'firstRevision' || kind === 'finalRevision') ? 'revise' : 'learn';
+  t.sessionType = kind === 'recovery' ? 'practice' : (kind === 'firstRevision' || kind === 'finalRevision') ? 'revision' : (r.cur < 0.4 ? 'first-learning' : 'practice');
   t.milestoneHours = _kindHours(r, kind);
   return t;
 }
@@ -279,17 +314,21 @@ function _milestones(rows, byId, daysToExam, signals) {
     else m.status = activeMarked ? 'upcoming' : 'done';
   });
 
-  // ROADMAP: flatten milestones (in order) into the calendar-agnostic task stream the projector consumes.
+  // ROADMAP: flatten the internal phase ordering into the calendar-agnostic study-block stream the projector
+  // consumes. Each block names a real topic + session type (ADR-059), never a fabricated phase, and carries the
+  // metadata the planner UI shows (duration, why, unlocks, formula sheet, drill SUGGESTION — not a button).
   var roadmap = [], order = 0;
   milestones.forEach(function (m) {
     m.topics.forEach(function (t) {
+      var bt = byId[t.topicId] || {};
       roadmap.push({ topicId: t.topicId, label: t.label, section: t.section, action: t.action,
-        hours: t.milestoneHours, drillable: t.drillable, difficulty: (byId[t.topicId] && byId[t.topicId].difficulty) || 0.5,
-        milestoneId: m.id, milestoneName: m.name, order: order++, reason: t.whyNow });
+        sessionType: t.sessionType, hours: t.milestoneHours, durationMin: Math.round(t.milestoneHours * 60),
+        drillable: t.drillable, formulaSheet: t.formulaSheet || null, difficulty: bt.difficulty || 0.5,
+        weightage: bt.weightage || null, unlocks: t.unlocks || [], order: order++, reason: t.whyNow });
     });
   });
 
-  return { milestones: milestones, roadmap: roadmap, recovery: recovery };
+  return { roadmap: roadmap, recovery: recovery };
 }
 
 function _verdict(cur, projected, target, achievable, daysToExam, skipCount) {

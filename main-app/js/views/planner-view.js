@@ -80,6 +80,11 @@ var Planner = (function () {
 
   function dayTasksDone(d) { var t = d.tasks || []; return { done: t.filter(function (x) { return x.done; }).length, total: t.length }; }
   function bandLabel(score) { return score >= 80 ? 'Exam ready' : score >= 60 ? 'On track' : score >= 40 ? 'Building' : 'Early days'; }
+  // ADR-059 display helpers — weightage band, session type, and the friendly drill-category name.
+  function wbLabel(w) { return ({ 'very-high': 'Very High', 'high': 'High', 'medium': 'Medium', 'low': 'Low' })[w] || 'Medium'; }
+  function sessionLabel(st, kind) { return ({ 'first-learning': 'First Learning', 'practice': 'Practice', 'revision': 'Revision', 'mock': 'Mock' })[st] || (kind === 'revise' ? 'Revision' : 'First Learning'); }
+  var DRILL_NAMES = { squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume', fractions: 'Fractions', percentages: 'Percentages', multiplication: 'Multiplication', ratios: 'Ratios', averages: 'Averages', 'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work' };
+  function drillName(c) { return DRILL_NAMES[c] || c; }
 
   /* ADR-057: the STRATEGY dashboard — readiness + verdict, the milestone path, focus-with-why, recovery, triage.
      The strategy is the product; the schedule below is just its projection. Falls back to a basic readiness panel
@@ -97,30 +102,40 @@ var Planner = (function () {
 
     if (s.recovery && s.recovery.topics && s.recovery.topics.length) {
       var rt = s.recovery.topics[0];
-      html += '<div class="planner-recovery"><div class="prc-text">⚠ Recent accuracy slipped on <strong>' + esc(s.recovery.topics.map(function (t) { return t.label; }).join(', ')) + '</strong> — recover before new work.</div>' +
-        (rt.drillable ? '<button class="prc-drill" data-cat="' + esc(rt.drillable) + '" data-label="' + esc(rt.label) + '" type="button">⚡ Recover</button>' : '') + '</div>';
+      html += '<div class="planner-recovery"><div class="prc-text">⚠ Recent accuracy slipped on <strong>' + esc(s.recovery.topics.map(function (t) { return t.label; }).join(', ')) + '</strong> — a short recovery session is scheduled before new work' +
+        (rt.drillable ? ' (Drills: ' + esc(drillName(rt.drillable)) + ')' : '') + '.</div></div>';
     }
 
-    var doneTopics = {}; (p.block && p.block.days || []).forEach(function (d) { (d.tasks || []).forEach(function (t) { if (t.done) doneTopics[t.topicId] = 1; }); });
-    html += '<div class="planner-section-title">Your path to ' + esc(s.examName || 'the exam') + '</div><div class="planner-milestones">' +
-      (s.milestones || []).map(function (m) {
-        var tot = (m.topics || []).length, dn = (m.topics || []).filter(function (t) { return doneTopics[t.topicId]; }).length;
-        var pct = m.status === 'done' ? 100 : (tot ? Math.round(dn / tot * 100) : 0);
-        return '<div class="pm is-' + (m.status || 'upcoming') + '"><span class="pm-dot"></span><div class="pm-body">' +
-          '<div class="pm-name">' + esc(m.name) + (m.status === 'active' ? ' <span class="pm-now">now</span>' : '') + '</div>' +
-          (m.objective ? '<div class="pm-obj">' + esc(m.objective) + '</div>' : '') +
-          '<div class="pm-meta">' + (tot ? tot + ' topics' : 'timed practice') + (m.hours ? ' · ' + m.hours + 'h' : '') + (tot ? ' · ' + pct + '%' : '') + '</div>' +
-          (tot ? '<div class="pm-bar"><span style="width:' + pct + '%"></span></div>' : '') +
-        '</div></div>';
+    // THE PATH = real syllabus SECTIONS with progress, expandable to their real topics (ADR-059).
+    html += '<div class="planner-section-title">Your path to ' + esc(s.examName || 'the exam') + '</div><div class="planner-sections">' +
+      (s.sections || []).map(function (sec) {
+        var pct = Math.max(0, Math.min(100, sec.progressPct || 0));
+        var topicsHtml = (sec.topics || []).map(function (t) {
+          return '<div class="psec-topic"><span class="psec-tlabel">' + esc(t.label) + '</span>' +
+            '<span class="psec-tmeta">' + wbLabel(t.weightage) + (t.roi != null ? ' · ROI ' + t.roi : '') + '</span></div>';
+        }).join('');
+        return '<div class="psec is-' + (sec.status || 'upcoming') + '">' +
+          '<div class="psec-head" data-sec="' + esc(sec.name) + '">' +
+            '<div class="psec-title">' + esc(sec.name) + (sec.status === 'active' ? ' <span class="pm-now">now</span>' : '') + '</div>' +
+            '<div class="psec-meta">' + sec.topicCount + ' topics · ' + wbLabel(sec.weightage) + ' · ' + pct + '%</div>' +
+            '<div class="pm-bar"><span style="width:' + pct + '%"></span></div>' +
+          '</div>' +
+          '<div class="psec-topics">' + topicsHtml + '</div>' +
+        '</div>';
       }).join('') + '</div>';
 
+    // FOCUS NEXT — what to do now, WHY, ROI + priority. Drills are surfaced as a suggestion, never a button here.
     if (s.focus && s.focus.length) {
       html += '<div class="planner-section-title">Focus next</div><div class="planner-focus">' +
         s.focus.slice(0, 4).map(function (t) {
+          var pri = t.roi != null ? Math.round(t.roi * 10) / 10 : null;
           return '<div class="pf"><div class="pf-head"><div class="pf-label">' + esc(t.label) + '</div>' +
-            (t.drillable ? '<button class="pf-drill" data-cat="' + esc(t.drillable) + '" data-label="' + esc(t.label) + '" type="button">⚡ Drill</button>' : '<span class="pt-self">your resources</span>') + '</div>' +
+            (pri != null ? '<span class="pf-pri">' + pri + '/10</span>' : '') + '</div>' +
+            '<div class="pf-tags">' + wbLabel(t.weightage) + (t.pyqFreq != null ? ' · appears ~' + Math.round(t.pyqFreq * 100) + '% of papers' : '') + (t.durationMin ? ' · ~' + t.durationMin + ' min' : '') + '</div>' +
             (t.whyNow ? '<div class="pf-why">' + esc(t.whyNow) + '</div>' : '') +
-            (t.scoreImpact ? '<div class="pf-impact">' + esc(t.scoreImpact) + '</div>' : '') + '</div>';
+            (t.unlocks && t.unlocks.length ? '<div class="pf-unlocks">Unlocks ' + esc(t.unlocks.slice(0, 3).join(', ')) + '</div>' : '') +
+            (t.scoreImpact ? '<div class="pf-impact">' + esc(t.scoreImpact) + '</div>' : '') +
+            (t.drillable ? '<div class="pf-suggest">💡 Practice available in Drills after you study this</div>' : '') + '</div>';
         }).join('') + '</div>';
     }
 
@@ -180,9 +195,8 @@ var Planner = (function () {
     r.querySelectorAll('.pt-check').forEach(function (cb) {
       cb.onchange = function () { toggle(cb.getAttribute('data-date'), cb.getAttribute('data-topic'), cb.checked); };
     });
-    r.querySelectorAll('.pt-drill, .pf-drill, .prc-drill').forEach(function (d) {
-      d.onclick = function () { startDrill(d.getAttribute('data-cat'), d.getAttribute('data-label')); };
-    });
+    // ADR-059: sections expand to reveal their real topics (the path is the strategy; no drill navigation here).
+    r.querySelectorAll('.psec-head').forEach(function (h) { h.onclick = function () { h.parentNode.classList.toggle('is-open'); }; });
     var rg = r.querySelector('.planner-regen'); if (rg) rg.onclick = regen;
   }
 
@@ -194,18 +208,24 @@ var Planner = (function () {
       var msg = d.kind === 'rest' ? 'Rest day — recovery is part of the plan.' : (d.kind === 'missed' ? 'Missed — its tasks were moved into upcoming days.' : 'Nothing scheduled.');
       return head + '<div class="pday-empty">' + msg + '</div>';
     }
+    // ADR-059: a real coaching study block — Topic — duration (Session Type) + reason. Drills are surfaced as a
+    // SUGGESTION, never a button (Planner plans; Drills execute). Completion is tracked with the checkbox.
     var rows = d.tasks.map(function (tk) {
       var diff = tk.difficulty || 'medium';
-      var drillBtn = tk.drillable
-        ? '<button class="pt-drill" data-cat="' + esc(tk.drillable) + '" data-label="' + esc(tk.label) + '" type="button">⚡ Drill</button>'
-        : '<span class="pt-self">your resources</span>';
+      var st = sessionLabel(tk.sessionType, tk.kind);
+      var suggest = tk.drillable
+        ? '<div class="pt-suggest">💡 Drill suggestion: <strong>' + esc(drillName(tk.drillable)) + '</strong> (practise after studying)</div>'
+        : '<div class="pt-suggest pt-ext">📖 Study from your books / notes — no in-app drill for this topic</div>';
       return '<div class="pt-task' + (tk.done ? ' is-done' : '') + '">' +
         '<input class="pt-check" type="checkbox" data-date="' + d.date + '" data-topic="' + esc(tk.topicId) + '"' + (tk.done ? ' checked' : '') + ' aria-label="Mark ' + esc(tk.label) + ' done" />' +
         '<div class="pt-main">' +
-          '<div class="pt-title">' + (tk.kind === 'revise' ? '<span class="pt-rev">↻</span> ' : '') + esc(tk.label) + '</div>' +
-          '<div class="pt-meta"><span class="pt-sec">' + esc(tk.section || '') + '</span><span class="pt-dot">·</span>' + fmtMin(tk.estMin) + '<span class="pt-dot">·</span><span class="pt-diff d-' + esc(diff) + '">' + esc(diff) + '</span></div>' +
+          '<div class="pt-title">' + esc(tk.label) + ' <span class="pt-st pt-st-' + (tk.sessionType || 'first-learning') + '">' + st + '</span></div>' +
+          '<div class="pt-meta"><span class="pt-sec">' + esc(tk.section || '') + '</span><span class="pt-dot">·</span>' + fmtMin(tk.estMin) +
+            (tk.weightage ? '<span class="pt-dot">·</span>' + wbLabel(tk.weightage) : '') + '<span class="pt-dot">·</span><span class="pt-diff d-' + esc(diff) + '">' + esc(diff) + '</span></div>' +
           (tk.reason ? '<div class="pt-reason">' + esc(tk.reason) + '</div>' : '') +
-        '</div>' + drillBtn +
+          (tk.unlocks && tk.unlocks.length ? '<div class="pt-unlocks">Unlocks ' + esc(tk.unlocks.slice(0, 3).join(', ')) + '</div>' : '') +
+          suggest +
+        '</div>' +
       '</div>';
     }).join('');
     return head + '<div class="pday-tasks">' + rows + '</div>';

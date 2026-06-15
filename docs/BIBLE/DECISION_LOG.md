@@ -8,6 +8,28 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-060 (V2 · Milestones 2–3) — Real section path + session-typed study blocks (2026-06-15)
+- **Context:** The planner displayed fabricated phase names ("Build Arithmetic Foundation", "Complete High-ROI
+  Arithmetic") and the timetable had Drill buttons (navigation, not planning). The user wants the path to be the
+  REAL syllabus sections + topics, and the schedule to say WHAT/WHEN with session types — drills are only a
+  suggestion (clean separation: Planner plans, Drills execute).
+- **Decision (engine, M2):** `planningEngine.buildStrategy` now emits `sections` (the real path: each syllabus
+  section with `weightage`, `topicCount`, `progressPct`, `marks`, `status`, and its real `topics` ordered by
+  ROI) instead of synthetic milestones — the foundation/core/revision phase logic stays INTERNAL to roadmap
+  ordering only. Every roadmap/schedule block now carries a `sessionType` (`first-learning`/`practice`/
+  `revision`/`mock`, derived from how well the student knows the topic) plus `durationMin`, `weightage`, `roi`,
+  `pyqFreq`, `formulaSheet`, `unlocks`, and a drill SUGGESTION (never an action). `examStrategy` persists
+  `sections`; `_nextObjective`/serialize use the active section.
+- **Decision (UI, M3):** `planner-view.js` renders the section path (expandable to real topics with weightage +
+  ROI), a Focus-Next card enhanced with priority `x/10`, PYQ %, effort, unlocks + why, and a real coaching
+  timetable — `Topic — Nmin (Session Type)` + reason + unlocks + drill *suggestion text*. **All Drill buttons
+  removed from the planner**; completion tracking kept. Never implies in-app content the app lacks ("study from
+  your books/notes" for study-only topics).
+- **Consequences:** Verified live — CAT path now reads *Arithmetic (11 topics, Very High, …) → Algebra →
+  Number System → Data Interpretation → Geometry*, with blocks like *Ratio & Proportion — 60m (First Learning),
+  drill suggestion: Ratios*. `npm test` green (KB 4686 + planner-engine 238 + planner-brain 97). SW v118→v119.
+  Milestones 4–7 (behaviour-aware Coach → analytical Insights → shared-intelligence audit → validation) follow.
+
 ## ADR-059 (V2 · Milestone 1) — The canonical Quant Knowledge Base (2026-06-15)
 - **Context:** The user's review (screenshots) showed the planner "path" displaying fabricated phase names
   ("Build Arithmetic Foundation") and `syllabus.js` carrying thin, per-FAMILY weightages (all 8 MBA exams

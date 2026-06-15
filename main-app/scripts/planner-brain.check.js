@@ -82,7 +82,7 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   }, { clientStats: clientStats });
 
   ok(setup.plan && setup.plan.v === 3, 'setup returns a v3 plan doc (ADR-057: carries the strategy)');
-  ok(setup.plan.strategy && setup.plan.strategy.milestones.length > 0, 'setup persists the strategy (milestones) on the plan doc');
+  ok(setup.plan.strategy && setup.plan.strategy.sections.length > 0, 'setup persists the strategy (section path) on the plan doc');
   ok(setup.plan.syllabusId === 'cat' && setup.plan.block.days.length === 14, 'setup resolves CAT → per-exam syllabus (ADR-059)');
   ok(setup.plan.block && setup.plan.block.days.length === 14, 'setup builds a 14-day block');
   ok(setup.plan.readiness && typeof setup.plan.readiness.score === 'number', 'setup carries a readiness score');
@@ -270,7 +270,7 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   ok(prof.planner === undefined, 'Layer 1: the profile carries NO embedded exam strategy (ctx.planner removed)');
   var examStrategy = require(appPath('services/examStrategy'));
   var strat = await examStrategy.build('u-prof', prof, {});
-  ok(strat && strat.milestones && strat.milestones.length > 0, 'Layer 2: examStrategy.build assembles the strategy (milestones) from the Profile + plan doc');
+  ok(strat && strat.sections && strat.sections.length > 0, 'Layer 2: examStrategy.build assembles the strategy (section path) from the Profile + plan doc');
   ok(strat.schedule && strat.schedule.days.length === 14, 'the schedule is an OUTPUT of the strategy (14-day projection)');
   ok(prof.recommendation && prof.recommendation.cat, 'profile.recommendation materializes the single "what next"');
   ok(typeof prof.tier === 'number', 'profile.tier materializes the experience tier');

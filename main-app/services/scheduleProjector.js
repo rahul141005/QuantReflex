@@ -33,7 +33,9 @@ function _task(item) {
   return { topicId: item.topicId, label: item.label, section: item.section || '',
     estMin: Math.max(5, Math.round((Number(item.hours) || 0.5) * 60)), priority: 1000 - (Number(item.order) || 0),
     difficulty: _difficultyLabel(item.difficulty), drillable: item.drillable || null,
-    kind: _blockKind(item.action), reason: item.reason || '', done: false, completedAt: null, result: null };
+    kind: _blockKind(item.action), sessionType: item.sessionType || (item.action === 'revise' ? 'revision' : 'first-learning'),
+    weightage: item.weightage || null, formulaSheet: item.formulaSheet || null, unlocks: item.unlocks || [],
+    reason: item.reason || '', done: false, completedAt: null, result: null };
 }
 
 function project(roadmap, opts) {

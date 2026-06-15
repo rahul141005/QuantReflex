@@ -186,13 +186,16 @@ ok(tight.focus.some(function (t) { return t.unlocks.length > 0; }), 'under tight
 ok(ample.skip.length === 0, 'with ample time nothing high-value is needlessly skipped');
 ok(tight.plannedHours > 0 && tight.focus.length > 0, 'even under severe time pressure the plan still commits to the highest-value reachable topics');
 
-// MILESTONES-FIRST (ADR-057): subject-aware objectives, dynamically named, the Mock milestone only under urgency.
-ok(ample.milestones.length >= 2 && /Foundation/.test(ample.milestones[0].name), 'milestones are generated, a Foundation objective first (' + ample.milestones[0].name + ')');
-ok(ample.milestones.some(function (m) { return /Build .+ Foundation|High-ROI|Core/.test(m.name); }), 'milestones are subject-aware (Build {Section} Foundation / High-ROI {Section} / {Section} Core)');
-ok(!ample.milestones.some(function (m) { return m.key === 'mock'; }), 'no Mock Readiness milestone when the exam is far away');
-ok(tight.milestones.some(function (m) { return m.key === 'mock'; }), 'a Mock Readiness milestone appears near the exam (urgency-generated, not hardcoded)');
-ok(ample.milestones.filter(function (m) { return m.status === 'active'; }).length === 1, 'exactly one milestone is active');
-ok(ample.milestones.every(function (m) { return m.objective && typeof m.hours === 'number'; }), 'every milestone states an objective + an hour budget');
+// SECTION PATH (ADR-059): the path is REAL syllabus sections (Arithmetic, Number System, …), never fabricated
+// phase names like "Build Arithmetic Foundation".
+ok(ample.sections.length >= 3, 'the path is built from real syllabus sections (' + ample.sections.length + ')');
+ok(ample.sections.every(function (s) { return !/Foundation|High-ROI|Core$/.test(s.name); }), 'no fabricated phase names — sections are real (' + ample.sections.map(function (s) { return s.name; }).join(', ') + ')');
+ok(ample.sections.some(function (s) { return s.name === 'Arithmetic'; }) && ample.sections.some(function (s) { return s.name === 'Number System'; }), 'sections include the real Arithmetic + Number System');
+ok(ample.sections.every(function (s) { return typeof s.progressPct === 'number' && s.topicCount > 0 && s.weightage && s.topics.length === s.topicCount; }), 'every section carries progress %, topic count, weightage + its real topics');
+ok(ample.sections.filter(function (s) { return s.status === 'active'; }).length <= 1, 'at most one section is active');
+ok(ample.sections[0].marks >= ample.sections[ample.sections.length - 1].marks, 'sections ordered by marks (highest-value first)');
+// session types tag what the student DOES (first-learning / practice / revision) — never a drill action.
+ok(ample.roadmap.every(function (r) { return ['first-learning', 'practice', 'revision', 'mock'].indexOf(r.sessionType) >= 0; }), 'every study block has a real session type');
 
 // ROADMAP: an ordered, calendar-agnostic task stream the schedule projects from.
 ok(Array.isArray(ample.roadmap) && ample.roadmap.length > 0 && ample.roadmap[0].order === 0, 'a roadmap (ordered task stream) is emitted');
@@ -211,7 +214,7 @@ ok(blkA.days.every(function (d) { return d.kind !== 'study' || d.tasks.every(fun
 var burn = PE.buildStrategy({ syllabus: psyl, examName: 'X', daysToExam: 120, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50, signals: { burnout: true } });
 ok(burn.workload === 'light', 'signals.burnout → lighter workload');
 var rec = PE.buildStrategy({ syllabus: psyl, examName: 'X', daysToExam: 120, dailyMinutes: 60, daysPerWeek: 6, targetScore: 80, readiness: prmap, readinessScore: 50, signals: { recentRegressionTopics: ['percentages'] } });
-ok(rec.recovery && rec.milestones[0].kind === 'recovery', 'signals.recentRegressionTopics → a Recovery objective placed FIRST (before new work)');
+ok(rec.recovery && rec.roadmap[0].action === 'recovery', 'signals.recentRegressionTopics → a Recovery block placed FIRST (before new work)');
 ok(rec.roadmap[0].action === 'recovery', 'the roadmap leads with recovery when recent analytics regressed');
 
 // PREREQS: a topic is never scheduled to LEARN before a weak prerequisite.

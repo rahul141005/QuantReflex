@@ -108,13 +108,13 @@ function assemble(profile, planDoc, opts) {
 
   // Exam-progress the roles reason WITH.
   var forecast = readiness.completionForecast(syl, topicState, { dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, examDate: planDoc.examDate, todayIso: todayIso });
-  var activeMilestone = (strategy.milestones || []).filter(function (m) { return m.status === 'active'; })[0] || null;
+  var activeSection = (strategy.sections || []).filter(function (s) { return s.status === 'active'; })[0] || null;
   strategy.progress = {
     adherencePct: _adherencePct(planDoc),
     completedTopics: _completedTopics(planDoc),
     revisionDue: revisionDue,
     mockTrend: signals.mockTrend,
-    nextObjective: activeMilestone ? activeMilestone.name : null,
+    nextObjective: activeSection ? activeSection.name : null,
     onTrack: forecast ? forecast.onTrack : null,
     bufferDays: forecast ? forecast.bufferDays : null,
     forecast: forecast
@@ -152,8 +152,8 @@ function serialize(strategy) {
     '): readiness ' + strategy.readinessScore + '/100, projected ' + strategy.projectedScore + '/100, target ' + strategy.targetScore +
     ' → ' + (strategy.achievable ? 'on track' : 'not yet on track') + '.');
   L.push('VERDICT: ' + strategy.verdict);
-  var active = (strategy.milestones || []).filter(function (m) { return m.status === 'active'; })[0];
-  if (active) L.push('CURRENT OBJECTIVE: ' + active.name + ' — ' + active.objective);
+  var active = (strategy.sections || []).filter(function (s) { return s.status === 'active'; })[0];
+  if (active) L.push('CURRENT FOCUS SECTION: ' + active.name + ' (' + active.progressPct + '% there, ' + active.topicCount + ' topics, ' + active.weightage + ' weightage).');
   L.push('PLAN ORDER (next): ' + (strategy.focus || []).slice(0, 3).map(function (t) { return t.label; }).join(' → ') + '.');
   var pr = strategy.progress || {};
   if (pr.adherencePct != null) L.push('You\'ve completed ' + pr.adherencePct + '% of planned work.' +
