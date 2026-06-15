@@ -68,7 +68,8 @@ function _mockTrend(doc) {
 function assemble(profile, planDoc, opts) {
   opts = opts || {};
   if (!planDoc || !(planDoc.examId || planDoc.examName) || !planDoc.syllabusId) return null;
-  var syl = SYL.resolveSyllabus(planDoc.syllabusId) || SYL.resolveSyllabus(planDoc.examId);
+  // ADR-059: resolve by examId (the per-exam researched syllabus); getSyllabus handles legacy/family ids.
+  var syl = (planDoc.examId && SYL.resolveSyllabus(planDoc.examId)) || SYL.getSyllabus(planDoc.syllabusId);
   if (!syl || !syl.topics || !syl.topics.length) return null;
 
   var todayIso = _todayIso(opts.clientDate);

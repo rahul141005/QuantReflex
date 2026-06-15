@@ -4,7 +4,7 @@
   "description": "A Progressive Web App (PWA) that trains mental math reflexes for competitive exams like CET, CAT, and GMAT. Built with vanilla HTML, CSS, and JavaScript — no frameworks.",
   "private": true,
   "scripts": {
-    "test": "node scripts/planner-engine.check.js && node scripts/planner-brain.check.js"
+    "test": "node scripts/knowledge-base.check.js && node scripts/planner-engine.check.js && node scripts/planner-brain.check.js"
   },
   "keywords": ["math", "pwa", "mental-math", "competitive-exam"],
   "author": "",
