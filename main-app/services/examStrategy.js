@@ -123,8 +123,51 @@ function assemble(profile, planDoc, opts) {
   strategy.signals = signals;
   strategy.behaviour = _behaviour(planDoc, strategy, todayIso);   // ADR-061: avoidance/postponement/stale signals
   strategy.readinessBreakdown = _readinessBreakdown(readinessFull);  // ADR-062: make the score transparent (why 34?)
+  strategy.discoveries = _discoveries(profile, strategy, planDoc, todayIso);  // ADR-062: Insights = discoveries, not observations
   strategy.examDate = planDoc.examDate || null;
   return strategy;
+}
+
+/** ADR-062: deterministic DISCOVERIES for Insights — relationships/trade-offs a student wouldn't spot themselves
+ *  (dependency leverage, marks concentration, effort misallocation, momentum split). All from existing data; the
+ *  LLM only phrases the top one. Each has an `impact` for ranking and a ready `text`. */
+function _discoveries(profile, strategy, planDoc, todayIso) {
+  var out = [], topics = strategy.topics || [], ts = (planDoc && planDoc.topicState) || {};
+  var byLabel = {}; topics.forEach(function (t) { byLabel[t.label] = t; });
+
+  // 1. Dependency leverage — one topic away from unlocking several (high-weight) chapters.
+  var lev = topics.filter(function (t) { return t.readiness < 0.6 && (t.unlocks || []).length >= 2; }).map(function (t) {
+    var us = (t.unlocks || []).map(function (n) { return byLabel[n]; }).filter(Boolean);
+    var heavy = us.filter(function (u) { return u.weightage === 'very-high' || u.weightage === 'high'; }).length;
+    return { t: t, count: (t.unlocks || []).length, heavy: heavy };
+  }).sort(function (a, b) { return (b.heavy - a.heavy) || (b.count - a.count); })[0];
+  if (lev && lev.count >= 2) out.push({ kind: 'leverage', impact: lev.heavy * 2 + lev.count + 4,
+    text: 'You\'re one focused topic from unlocking ' + lev.count + ' more chapters' + (lev.heavy ? ' (' + lev.heavy + ' high-weight)' : '') + ' — ' + lev.t.label + ' is the key that opens them.' });
+
+  // 2. Marks concentration — one chapter worth more than the next five combined.
+  var byMarks = topics.slice().sort(function (a, b) { return (b.marksWeight || 0) - (a.marksWeight || 0); });
+  if (byMarks.length >= 6) {
+    var top = byMarks[0], next5 = byMarks.slice(1, 6).reduce(function (s, t) { return s + (t.marksWeight || 0); }, 0);
+    if ((top.marksWeight || 0) > next5 * 0.85) out.push({ kind: 'concentration', impact: 8,
+      text: top.label + ' carries more exam marks than your next five topics combined — it deserves disproportionate attention.' });
+  }
+
+  // 3. Effort misallocation — most-practised topic already strong while a higher-weight topic is barely touched.
+  var mastery = (profile.mastery || []).slice().sort(function (a, b) { return (b.n || 0) - (a.n || 0); });
+  var most = mastery[0];
+  var neglected = topics.filter(function (t) { return (t.weightage === 'very-high' || t.weightage === 'high') && t.readiness < 0.45; })
+    .sort(function (a, b) { return (b.marksWeight || 0) - (a.marksWeight || 0); })[0];
+  if (most && most.tier === 'strong' && neglected) out.push({ kind: 'misallocation', impact: 7,
+    text: 'Your most-practised area (' + (most.label || most.cat) + ') is already strong, while ' + neglected.label + ' — worth more marks — has barely been touched. The return on shifting effort there is high.' });
+
+  // 4. Momentum split — a section untouched for ≥14 days while you've kept practising elsewhere.
+  var stale = (strategy.sections || []).map(function (sec) {
+    var gaps = (sec.topics || []).map(function (t) { var s = ts[t.topicId]; return s && s.lastStudiedAt ? _daysBetween(s.lastStudiedAt, todayIso) : null; }).filter(function (x) { return x != null; });
+    return gaps.length ? { name: sec.name, gap: Math.min.apply(null, gaps) } : null;
+  }).filter(function (x) { return x && x.gap >= 14; }).sort(function (a, b) { return b.gap - a.gap; })[0];
+  if (stale) out.push({ kind: 'momentum', impact: 6, text: stale.name + ' hasn\'t moved in ' + stale.gap + '+ days while you\'ve kept practising elsewhere — it\'s quietly slipping behind.' });
+
+  return out.sort(function (a, b) { return b.impact - a.impact; }).slice(0, 3);
 }
 
 /** ADR-062: turn the opaque Exam Readiness number into a plain-language breakdown a student instantly gets —

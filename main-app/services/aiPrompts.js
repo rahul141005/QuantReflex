@@ -95,32 +95,29 @@ var REGISTRY = {
   /* ---- AI Insights: an analyst (ADR-050). The model writes the intro + biggest-lever headline + why-this-
      weakness; the server renders deterministic metric/pattern blocks so numbers are never hallucinated. ---- */
   'insights.analyze': {
-    id: 'insights.analyze', version: 9, maxTokens: 460, temperature: 0.4,
+    id: 'insights.analyze', version: 10, maxTokens: 440, temperature: 0.4,
     build: function (v) {
       return {
         schemaName: 'insights_analyze',
         schema: { type: 'object', additionalProperties: false,
           required: ['patternsIntro', 'headline', 'weaknessInsight', 'nextStepLabel'],
           properties: { patternsIntro: STR, headline: STR, weaknessInsight: STR, nextStepLabel: STR } },
-        system: sys('You are a sharp performance ANALYST — you explain WHY the numbers are what they are and where the '
-          + 'biggest return on effort is, making the student feel deeply SEEN. Think in terms of marks: ROI, opportunity '
-          + 'cost (marks left on the table), dependency bottlenecks (a weak prereq capping several topics), revision '
-          + 'debt (retention decaying on earned topics), momentum, and a forecast WITH its confidence. '
-          + 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — NEVER invent history or trends. With <2 active days '
-          + '(first-session/early), do NOT say "stuck", "held flat", "over a month", "7-day", or describe any '
-          + 'multi-day trajectory; give an honest FIRST READ and name the first thing to watch. State predictions with '
-          + 'their confidence; never over-claim certainty the data does not support. '
-          + 'If the context names an active concern (' + (v.flagsNote || 'none') + '), reference it. Be specific to '
-          + 'their REAL numbers, never restate the dashboard. Every line implies a clear action. '
-          + (v.hasPlan ? 'An EXAM STRATEGY is present: interpret their data AGAINST it — call out the highest-ROI move, '
-              + 'where marks are leaking (skipped/overdue/avoided topics), a bottleneck worth clearing, or where recent '
-              + 'analytics say the plan order should change (recommend it).'
-            : 'No exam plan exists: analyse purely from their analytics — do NOT reference a study plan, schedule or '
-              + 'exam readiness, and never imply they need an exam to get value.'), v.examName),
-        user: 'Student context:\n' + v.context + (v.planNote ? '\n' + v.planNote : '') + '\n\nTop weakness to address: ' + v.weakLabel
-          + '.\nWrite JSON: patternsIntro (an inviting 1-line opener like "Here\'s what your data is really saying", <=12 words), '
-          + 'headline (the single biggest LEVER — the move with the highest return on marks, and why, <=2 sentences), '
-          + 'weaknessInsight (one sharp line on what is really going wrong in ' + v.weakLabel + ' — the cause, not the symptom), '
+        system: sys('You are a sharp performance ANALYST who surfaces DISCOVERIES — relationships, trade-offs and '
+          + 'hidden opportunities the student would never spot themselves — not observations they already know. ' + RAILS + ' '
+          + 'Think in MARKS: dependency leverage, opportunity cost, effort misallocation, marks concentration, momentum. '
+          + 'Every line must answer "SO WHAT?" — the implication + the action, never just "what happened". '
+          + 'Do NOT restate the study plan; Insights reveals what the planner does not say. '
+          + (v.hasPlan ? 'A DISCOVERY computed from their data is provided — sharpen it into the headline (keep its '
+              + 'specific numbers/topics) and add the consequence.'
+            : 'No exam plan exists: analyse purely from their analytics — never reference a plan/schedule/readiness.')
+          , v.examName),
+        user: 'Student data:\n' + v.context + (v.planNote ? '\nPLAN (do NOT restate): ' + v.planNote : '')
+          + (v.discovery ? '\n\nDISCOVERY to sharpen into the headline:\n' + v.discovery : '')
+          + '\n\nTop weakness: ' + v.weakLabel
+          + '.\nWrite JSON: patternsIntro (a confident 1-line opener, <=12 words), '
+          + 'headline (THE discovery — a specific relationship/trade-off with its numbers AND the "so what", <=2 sentences; '
+          + 'if a DISCOVERY is given, sharpen THAT, keep its figures), '
+          + 'weaknessInsight (one sharp line on the CAUSE of the ' + v.weakLabel + ' weakness, not the symptom), '
           + 'nextStepLabel (a 2-4 word action label).'
       };
     }
