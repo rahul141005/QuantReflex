@@ -39,14 +39,9 @@ var FirestoreSync = (function () {
   var _flushInFlight = false;
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
-  var _pendingSystemNotifications = [];
-  function _flushPendingSystemNotifications() {
-    if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return;
-    while (_pendingSystemNotifications.length > 0) {
-      var notif = _pendingSystemNotifications.shift();
-      FirestoreSync.createSystemNotification(notif);
-    }
-  }
+  // ADR-066: clients no longer CREATE notifications (the Inbox is server-write only). These remain as harmless
+  // no-ops so any stray caller/export keeps working; all notifications now originate from the server pipeline.
+  function _flushPendingSystemNotifications() { /* retired (ADR-066) */ }
   var SYNC_DEBOUNCE_MS = 2000; /* batch updates every 2 seconds */
   var FLUSH_RETRY_DELAY_MS = 5000;
   var FLUSH_MAX_RETRIES = 2;
@@ -1251,35 +1246,9 @@ var FirestoreSync = (function () {
       this.claimCoaching(coachingId);
     },
     setPendingCoachingId: setPendingCoachingId,
-    createSystemNotification: function (notif) {
-      if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) {
-        _pendingSystemNotifications.push(notif);
-        return;
-      }
-      var db = FirebaseApp.getDb();
-      var uid = FirebaseApp.getUserId();
-      if (!notif.id) {
-        console.warn('createSystemNotification requires an explicit id for deduplication');
-        return;
-      }
-      var docRef = db.collection('users').doc(uid).collection('notifications').doc(notif.id);
-      
-      docRef.get().then(function(doc) {
-        if (!doc.exists) {
-          docRef.set({
-            title: notif.title,
-            body: notif.body,
-            type: notif.type || 'system',
-            isRead: false,
-            timestamp: (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) 
-              ? firebase.firestore.FieldValue.serverTimestamp() 
-              : new Date()
-          }).catch(function(e) { console.warn('Failed to create system notification', e); });
-        }
-      }).catch(function(err) {
-        console.warn('Error checking system notification', err);
-      });
-    },
+    // ADR-066: RETIRED. Clients must never create notifications — the Inbox is server-write only (Firestore rules
+    // enforce this). All notifications originate from the unified server pipeline. Kept as a no-op for safety.
+    createSystemNotification: function () { /* retired (ADR-066): notifications are server-created only */ },
     flushPendingSystemNotifications: _flushPendingSystemNotifications
   };
 })();

@@ -16,6 +16,7 @@
 
 const { withAuth, parseBody, formatError } = require('./_lib/middleware');
 const QGen = require('../js/questions.js');   // unified generator — the SAME engine Practice uses (one generator, ADR)
+const notificationService = require('../services/notificationService');   // ADR-066: the ONE notification pipeline
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -175,15 +176,18 @@ function _viewRoom(data, viewerUid) {
   return out;
 }
 
+// ADR-066: route the duel-finished notification through the ONE pipeline → Inbox first, then best-effort push.
+// (Was push-only via admin.messaging().send → lost when push failed.)
 async function _sendOpponentFinishedFcm(toUid, opponentName, code) {
   try {
-    const snap = await db.collection(USERS).doc(toUid).get();
-    const token = snap.exists ? snap.data().fcmToken : null;
-    if (!token) return;
-    await admin.messaging().send({
-      token: token,
-      notification: { title: '⚔ Duel Finished', body: 'Your duel against ' + (opponentName || 'your opponent') + ' is ready.' },
-      data: { type: 'duel_complete', code: String(code) }
+    await notificationService.notify(db, admin.messaging(), {
+      recipients: { uids: [toUid] },
+      notification: {
+        title: 'Duel finished', body: 'Your duel against ' + (opponentName || 'your opponent') + ' is ready — see the result.',
+        type: 'duel', category: 'social', icon: '⚔️', deepLink: '#duel',
+        sender: { kind: 'system', name: 'Math Duel' }, metadata: { code: String(code) }
+      },
+      logSegment: 'duel'
     });
   } catch (e) { /* best-effort */ }
 }
@@ -691,6 +695,9 @@ async function _cronSweep(req, res) {
     // ADR-039: piggyback the AI daily batch on the single shared cron (Vercel Hobby = 1 cron). FULLY GUARDED —
     // a failure here can NEVER affect the duel sweep (it has already done its work above).
     try { result.ai = await require('../services/aiCron').runDailyBatch(); } catch (e) { console.warn('[cron] AI daily batch failed:', e.message); }
+    // ADR-066: the ONE server-side reminder producer (daily/streak/expiry → Inbox + push). Idempotent per day,
+    // fully guarded. Replaces the dead Cloud Function reminder + the retired client timers.
+    try { result.reminders = await require('../services/reminderCron').runDaily(db, admin.messaging()); } catch (e) { console.warn('[cron] reminder batch failed:', e.message); }
     return res.status(200).json(Object.assign({ success: true }, result));
   } catch (err) {
     console.error('[duel/cron-sweep] failed:', err);

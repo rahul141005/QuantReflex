@@ -200,15 +200,9 @@ function _showUpdateToast() {
     }
   } catch (_) {}
 
-  // Inbox Notification generation (idempotent via Firestore get() check)
-  if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.createSystemNotification === 'function' && _updateKey) {
-    FirestoreSync.createSystemNotification({
-      id: _updateKey,
-      title: '🚀 App Update Available',
-      body: 'A new version of QuantReflex is available. Update from Settings to access the latest features, improvements and fixes.',
-      type: 'app_update'
-    });
-  }
+  // ADR-066: the "update available → reload" prompt is a LOCAL UI affordance, NOT a notification — it stays a
+  // toast and is never written to the Inbox. Clients no longer create notifications; a real "new version" Inbox
+  // notification, when wanted, is sent through the server pipeline (super-admin broadcast, category system).
 
   // Toast Notification generation (deduplicated via localStorage)
   try {

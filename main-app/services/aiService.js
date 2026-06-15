@@ -77,6 +77,15 @@ async function resolvePlan(uid) {
           plan: 'free', planType: null, planExpiry: null, planSource: null,
           isTrial: false, trialEnd: null, planUpdatedAt: new Date().toISOString()
         }, 'resolvePlan:expiry');
+        // ADR-066: notify the user their Premium expired — through the ONE pipeline (Inbox + best-effort push).
+        // Fires exactly once, on the premium→free transition. Fire-and-forget so it never delays the entitlement check.
+        try {
+          require('./notificationService').notify(db, admin.messaging(), {
+            recipients: { uids: [uid] },
+            notification: { title: 'Your Premium has expired', body: 'Renew to keep your AI Coach, Planner, Insights and Math Duels.', type: 'premium', category: 'billing', deepLink: '#settings' },
+            logSegment: 'billing'
+          }).catch(function () {});
+        } catch (_) {}
       } catch (expiryErr) {
         console.error('[aiService:resolvePlan] expiry self-heal failed (uid: ' + uid + '):', expiryErr.message);
       }
