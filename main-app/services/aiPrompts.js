@@ -128,7 +128,7 @@ var REGISTRY = {
      These four are question-properties (user/exam-agnostic), so they stay in the shared per-question cache; the
      server layers the per-student sections (exam insight, mastery status, next step) deterministically on top. */
   'explain.base': {
-    id: 'explain.base', version: 5, maxTokens: 560, temperature: 0.3,
+    id: 'explain.base', version: 6, maxTokens: 560, temperature: 0.3,
     build: function (v) {
       return {
         schemaName: 'explain_base',
@@ -141,14 +141,17 @@ var REGISTRY = {
             shortcut: STR, computedAnswer: { type: 'number' }
           } },
         system: sys('Explain why the correct answer is correct, at ' + (v.depth || 'standard') + ' depth '
-          + '(concise=fewer, bigger steps; deep=more granular). Use mental-math shortcuts. Your final step MUST '
-          + 'arrive at exactly ' + v.answer + '.', v.examName),
+          + '(concise=fewer, bigger steps; deep=more granular). Use a sound, standard method and a genuine '
+          + 'mental-math shortcut. Your final step MUST arrive at exactly ' + v.answer + '.'
+          + (v.prereqLabel ? ' This builds on ' + v.prereqLabel + '; if a step relies on it, name that briefly.' : '')
+          + (v.heavyPractice ? ' This is a high-frequency pattern — the shortcut should be one worth drilling to reflex.' : ''), v.examName),
         user: 'Question: ' + v.question + '\nCorrect answer: ' + v.answer + '\nTopic: ' + v.catLabel
           + (v.struggledBefore ? '\nNote: the student has struggled with this concept before — make it stick.' : '')
+          + (v.knownMistakes ? '\nKnown common traps on this topic (ground the mistakes in these, phrased for THIS question): ' + v.knownMistakes : '')
           + '\n\nWrite JSON: concept (the key idea in one short line), steps (an array of 3-5 short strings, each '
-          + '1-2 sentences, final step states ' + v.answer + '), mistakes (an array of 2-3 SHORT common traps '
-          + 'students fall into on THIS type of question), shortcut (one faster method AND one phrase on when it '
-          + 'helps vs when to avoid it), computedAnswer (the number your steps reach).',
+          + '1-2 sentences, final step states ' + v.answer + '), mistakes (an array of 2-3 SHORT common traps for '
+          + 'THIS question — prefer the known traps above when they apply), shortcut (one faster method AND one '
+          + 'phrase on when it helps vs when to avoid it), computedAnswer (the number your steps reach).',
         validate: function (p) {
           if (!p || typeof p.concept !== 'string' || !Array.isArray(p.steps) || !p.steps.length) return null;
           var exp = parseFloat(v.answer), got = parseFloat(p.computedAnswer);

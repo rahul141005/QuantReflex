@@ -434,8 +434,15 @@ async function explainBase(question, answer, category, uid) {
 
   if (!pieces) {
     var depth = mem.preferredDepth || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper
+    // ADR-062: ground the explanation in the canonical KB topic — feed the REAL common mistakes (don't invent),
+    // the prerequisite it builds on, and whether the pattern rewards heavy drilling.
+    var kbTopic = SYL.getTopicForCat ? SYL.getTopicForCat(category) : null;
+    var knownMistakes = (kbTopic && (kbTopic.commonMistakes || []).slice(0, 3).join('; ')) || '';
+    var prereqLabel = '';
+    if (kbTopic && kbTopic.prereqs && kbTopic.prereqs.length) { var pq = SYL.getCanonicalTopic(kbTopic.prereqs[0]); prereqLabel = pq ? pq.label : ''; }
+    var heavyPractice = !!(kbTopic && kbTopic.practiceIntensity === 'high');
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '' });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '', knownMistakes: knownMistakes, prereqLabel: prereqLabel, heavyPractice: heavyPractice });
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
