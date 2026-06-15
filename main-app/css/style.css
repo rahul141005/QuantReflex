@@ -10401,6 +10401,32 @@ body.dark-mode .planner-triage { color: #94a3b8; background: rgba(255, 255, 255,
 .planner-triage strong { color: #475569; }
 body.dark-mode .planner-triage strong { color: #cbd5e1; }
 
+.cat-stats-caption { font-size: .8rem; color: #64748b; margin: 0 0 .6rem; }
+body.dark-mode .cat-stats-caption { color: #94a3b8; }
+.cat-stats-caption strong { color: #2563eb; }
+
+/* ---- ADR-062: transparent readiness + clearer labels ---- */
+.planner-readiness.is-tappable { cursor: pointer; border-radius: 14px; transition: background .15s; }
+.planner-readiness.is-tappable:hover, .planner-readiness.is-expanded { background: rgba(37, 99, 235, .06); }
+.pr-sub { font-weight: 600; color: #94a3b8; font-size: .72rem; }
+.pr-why { font-size: .74rem; color: #2563eb; font-weight: 700; margin-top: .25rem; }
+body.dark-mode .pr-why { color: #93c5fd; }
+.planner-readiness-detail { margin: .25rem 0 .6rem; padding: .7rem .85rem; border: 1px solid rgba(37, 99, 235, .2); border-radius: 12px; background: rgba(37, 99, 235, .04); }
+body.dark-mode .planner-readiness-detail { background: rgba(37, 99, 235, .08); border-color: rgba(37, 99, 235, .3); }
+.prd-summary { font-size: .9rem; font-weight: 700; color: #1e293b; margin-bottom: .5rem; }
+body.dark-mode .prd-summary { color: #e2e8f0; }
+.prd-row { display: flex; align-items: center; gap: .5rem; margin: .25rem 0; }
+.prd-flabel { flex: 0 0 9.5rem; font-size: .78rem; color: #475569; }
+body.dark-mode .prd-flabel { color: #cbd5e1; }
+.prd-bar { flex: 1; height: 7px; border-radius: 4px; background: rgba(15, 23, 42, .1); overflow: hidden; }
+body.dark-mode .prd-bar { background: rgba(255, 255, 255, .12); }
+.prd-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #2563eb, #60a5fa); }
+.prd-fpct { flex: 0 0 2.6rem; text-align: right; font-size: .76rem; font-weight: 700; color: #334155; }
+body.dark-mode .prd-fpct { color: #cbd5e1; }
+.prd-note { font-size: .74rem; color: #94a3b8; margin-top: .5rem; }
+.psec-progresslabel { font-size: .72rem; color: #64748b; font-weight: 600; margin-top: .25rem; }
+body.dark-mode .psec-progresslabel { color: #94a3b8; }
+
 /* ---- ADR-059: section path + session-typed study blocks ---- */
 .planner-sections { display: flex; flex-direction: column; gap: .5rem; }
 .psec { border: 1px solid rgba(15, 23, 42, .1); border-radius: 12px; overflow: hidden; background: #fff; }

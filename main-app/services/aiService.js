@@ -368,6 +368,28 @@ async function consumeWordProblemQuota(uid, isPremium, count) {
   return granted;
 }
 
+/* ADR-062: refund a previously-consumed word-problem unit when generation FAILS, so a failed call never burns
+   the student's quota. Transactional; clamps at 0; best-effort (never throws into the caller). */
+async function refundWordProblemQuota(uid, isPremium, count) {
+  count = count || 1;
+  var usageRef = db.collection('users').doc(uid).collection('usage').doc('ai');
+  try {
+    await db.runTransaction(async function (tx) {
+      var doc = await tx.get(usageRef);
+      if (!doc.exists) return;
+      var data = _normalizeUsageDoc(doc.data());
+      if (isPremium) data.wordProblemsUsedToday = Math.max(0, (data.wordProblemsUsedToday || 0) - count);
+      else data.wordProblemsUsedLifetime = Math.max(0, (data.wordProblemsUsedLifetime || 0) - count);
+      tx.set(usageRef, data, { merge: true });
+    });
+    if (usageCache[uid]) {
+      if (isPremium) usageCache[uid].wordProblemsUsedToday = Math.max(0, (usageCache[uid].wordProblemsUsedToday || 0) - count);
+      else usageCache[uid].wordProblemsUsedLifetime = Math.max(0, (usageCache[uid].wordProblemsUsedLifetime || 0) - count);
+    }
+    await trackGlobalAIUsage('wordProblems', -count);
+  } catch (e) { console.warn('[aiService] wordProblem refund failed:', e.message); }
+}
+
 /**
  * Enforce a per-user daily AI-request cap set by a super-admin (ADR-022).
  *
@@ -511,4 +533,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

@@ -80,6 +80,13 @@ scenarios.forEach(function (sc) {
   ok(s.projectedScore >= s.readinessScore - 1 && s.projectedScore <= 100 && typeof s.achievable === 'boolean' && s.verdict, sc.name + ': forecast bounded + achievability stated');
   // BEHAVIOUR signals exist (the mentor layer).
   ok(s.behaviour && Array.isArray(s.behaviour.postponed), sc.name + ': behaviour signals present');
+  // ADR-062: readiness is transparent (no black box) — a 7-factor breakdown a student can read.
+  ok(s.readinessBreakdown && s.readinessBreakdown.factors && s.readinessBreakdown.factors.length === 7 && s.readinessBreakdown.summary, sc.name + ': readiness breakdown explains the number (7 factors + summary)');
+  // ADR-062: the Coach reasons over structured levers naming the top move (one source of truth with the planner).
+  var brief = ES.coachBrief(s);
+  ok(brief && brief.indexOf('TOP MOVE') >= 0 && s.focus[0] && brief.indexOf(s.focus[0].label) >= 0, sc.name + ': coachBrief names the planner\'s top focus (Coach == Planner)');
+  // ADR-062: Insights surfaces deterministic discoveries (relationships), each impact-ranked + phraseable.
+  ok(Array.isArray(s.discoveries) && s.discoveries.every(function (d) { return d.kind && typeof d.impact === 'number' && d.text; }), sc.name + ': discoveries are well-formed');
 });
 
 /* ---- targeted invariants ---- */

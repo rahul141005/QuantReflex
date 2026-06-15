@@ -192,7 +192,7 @@ function renderStatsView() {
           var accB = cats[b].attempted ? (cats[b].correct / cats[b].attempted) : 0;
           return accA - accB;
         });
-        var html = '<div class="category-stats-list">';
+        var html = '<div class="cat-stats-caption">Your <strong>accuracy</strong> in each topic — the % of questions you answered correctly.</div><div class="category-stats-list">';
         for (var i = 0; i < keys.length; i++) {
           var cat = keys[i];
           var cs = cats[cat];
@@ -207,7 +207,7 @@ function renderStatsView() {
           html +=
             '<div class="category-stat-row">' +
               '<span class="cat-name">' + formatCategoryName(cat) + '</span>' +
-              '<div class="cat-bar-container">' +
+              '<div class="cat-bar-container" title="' + catAcc + '% accuracy">' +
                 '<div class="' + barClass + '" style="width:' + barWidth + '%"></div>' +
               '</div>' +
               strengthLabel +

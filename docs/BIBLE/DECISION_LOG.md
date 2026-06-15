@@ -8,6 +8,43 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-062 (AI V2 POLISH) — Flagship polish of every AI feature, no rewrite (2026-06-15)
+- **Context:** The God-Mode audit scored Planner 8.5 / Explanation 7 / Coach 6.5 / Insights 5.5, with confirmed
+  bugs and two UX trust problems. Mandate: polish EXISTING features to ~10/10 without changing the architecture
+  (deterministic brain + one gpt-4o-mini voice + KB); keep cost (~$0.05/user/mo) and performance flat. Future
+  research (BKT/IRT/forgetting-curves/spaced-rep/lessons/RAG/memory) explicitly OUT OF SCOPE.
+- **M1 — bugs + dead metadata:** fixed the `formulaSheet` key mismatches (now real `js/formulas.js` ids; nulled
+  the ones with no sheet) + a `knowledge-base.check` assertion that would have caught it; added `getTopicForCat`
+  + `FORMULA_SHEET_IDS`; account deletion now removes `aiPlanner`/`aiContext`/`aiDaily` + `aiEvents`/`duelHistory`
+  (GDPR); `refundWordProblemQuota` refunds a burned unit on generation failure; client `api()` de-dups in-flight
+  AI calls. **Honest:** the audit's "unbounded growth" and "duel not gated" findings were OUTDATED/false —
+  dailyHistory(90d)/blockHistory(12)/responseTimes(200) already capped; duel already premium-gated.
+- **M2 — Planner clarity/trust:** Exam Readiness is no longer a black box — `examStrategy` keeps the score's
+  `parts` and builds `readinessBreakdown {summary, factors}`; the ring is tappable ("Most limited by syllabus
+  covered (0%) — lift that to move up fastest") with labelled factor bars. Time reads "≈3.7 hours of study"; every
+  progress bar names ONE thing ("% ready"; stats bars captioned as accuracy).
+- **M3 — Coach → reasoning mentor:** `examStrategy.coachBrief` feeds structured LEVERS (top move + what it unlocks
+  = dependency compounding + skip cost, strength to keep, what's slowing them, target math); `coach.daily@9`
+  reasons WHY, answers the student's real questions, writes a 2-paragraph mentorNote where every line teaches,
+  and BANS generic motivation. Shared `RAILS` constant keeps cost flat.
+- **M4 — Insights → discoveries:** `examStrategy._discoveries` computes relationships a student wouldn't spot
+  (dependency leverage, marks concentration, effort misallocation, momentum split); `insights.analyze@10` leads
+  with the discovery + "so what" and is told NOT to restate the plan; dashboard de-dups discoveries vs the
+  ADR-061 cards.
+- **M5 — Explanation grounding:** seeds the `mistakes` from the KB's real `commonMistakes`, names the prereq, and
+  flags high-practice patterns (`explain.base@6`, cache-busting bump) — making `commonMistakes`/`formulaSheet`/
+  `practiceIntensity` live consumers.
+- **M6/M7 — hygiene + validation:** RAILS + tightened prompts (cost ~flat: removed the `motivation` field,
+  trimmed boilerplate); `intelligence-consistency.check` extended to 79 (readiness breakdown, coachBrief names the
+  planner's top focus = one source of truth, discoveries well-formed). `npm test` green (KB 4736 + engine 238 +
+  brain 97 + consistency 79). SW v119→v121.
+- **HONEST RE-SCORECARD (previous → new):** Planner **8.5→9.0** (transparent readiness + clear labels; IRT capped),
+  Coach **6.5→8.0** (reasons over levers/compounding; cross-session memory + style-adaptation need out-of-scope
+  longitudinal memory), Insights **5.5→8.0** (real discoveries, de-duped; "learned" pattern discovery still needs
+  a model), Explanation **7.0→8.0** (grounded in KB traps/prereq; true method validation needs a solver),
+  Prompt-engineering **7.5→8.5**, Trustworthiness **7.5→8.5**. **The realistic ceiling for polish is ~8–9; a true
+  10 on Coach/Insights/Explanation/Planner requires the out-of-scope learner model — stated plainly, not faked.**
+
 ## ADR-061 (V2 · Milestones 4–7) — Behaviour-aware Coach, analyst Insights, proven consistency (2026-06-15)
 - **Context:** Coach summarised instead of mentoring (no behaviour history); Insights motivated instead of
   analysing; and nothing PROVED the three roles stay consistent. The user wants Coach = WHY/HOW (a real mentor

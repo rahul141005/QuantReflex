@@ -121,7 +121,7 @@ async function coachToday(uid, opts) {
   var env;
   try {
     var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label,
-      planNote: examStrategy.serialize(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
+      planNote: examStrategy.serialize(strategy), brief: examStrategy.coachBrief(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     env = _coachDashboard(ctx, focus, strategy, r.data, tier, opts, _promptId(p));
@@ -166,7 +166,7 @@ function _coachDashboard(ctx, focus, strategy, d, tier, opts, promptId) {
     blocks.push(ring(strategy.readinessScore, 'Exam readiness', sub));
   }
   // ADR-061: the long-form mentor note — the heart of the coaching (behaviour + analytics + plan, reasoned).
-  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 560), 'blue', '🧭'));
+  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 820), 'blue', '🧭'));
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
   if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
   if (tier >= 2) {
@@ -285,7 +285,8 @@ async function insights(uid, opts) {
   var flagsNote = _flagsNote(ctx);
   var env;
   try {
-    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: examStrategy.serialize(strategy), hasPlan: !!strategy, flagsNote: flagsNote });
+    var topDiscovery = (strategy && strategy.discoveries && strategy.discoveries[0]) ? strategy.discoveries[0].text : '';
+    var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: examStrategy.serialize(strategy), discovery: topDiscovery, hasPlan: !!strategy, flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
     aiService.trackGptCost(uid, r.usage);
     env = _insightsDashboard(ctx, weak, strategy, r.data, tier, opts, _promptId(p));
@@ -323,8 +324,13 @@ function _insightsDashboard(ctx, weak, strategy, d, tier, opts, promptId) {
   d = d || {};
   var patterns = _detectPatterns(ctx);
   var blocks = [];
-  blocks.push(say(d.patternsIntro || (patterns.length ? ('I found ' + patterns.length + ' thing' + (patterns.length > 1 ? 's' : '') + ' worth your attention.') : (d.headline || 'Here\'s exactly where you stand.'))));
-  if (d.headline) blocks.push(card('Your biggest lever', d.headline, 'blue', '📈'));
+  blocks.push(say(d.patternsIntro || 'Here\'s what your data is really saying.'));
+  // ADR-062: lead with DISCOVERIES (relationships the student wouldn't spot). The LLM phrases the top one
+  // (headline); the rest render as deterministic supporting cards. Insights ≠ a restatement of the planner.
+  var discoveries = (strategy && strategy.discoveries) || [];
+  if (d.headline) blocks.push(card('The big discovery', d.headline, 'blue', '💡'));
+  else if (discoveries[0]) blocks.push(card('The big discovery', discoveries[0].text, 'blue', '💡'));
+  discoveries.slice(1).forEach(function (disc) { blocks.push(card('Worth knowing', disc.text, 'slate', '🔎')); });
   blocks = blocks.concat(_metricCluster(ctx));
   if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
   patterns.forEach(function (pt) { blocks.push(card(pt.title, pt.body, pt.accent, pt.icon)); });
@@ -344,10 +350,12 @@ function _insightsDashboard(ctx, weak, strategy, d, tier, opts, promptId) {
     var conf = (ctx.evidence && ctx.evidence.confidence) || 'early';
     if (strategy.projectedScore != null) blocks.push(callout('info', 'Forecast: on the optimal path you reach ~' + strategy.projectedScore + '/100 (target ' + strategy.targetScore + ') — ' + (strategy.achievable ? 'achievable' : 'short for now') + '. Confidence: ' + conf + '.'));
     if (strategy.marksAtRisk > 0 && strategy.skip && strategy.skip.length) blocks.push(card('Opportunity cost', 'Parking ' + strategy.skip.slice(0, 2).map(function (t) { return t.label; }).join(' & ') + ' leaves about +' + strategy.marksAtRisk + ' readiness points unclaimed. If you free up time, ' + strategy.skip[0].label + ' is the highest-value add-back.', 'amber', '💰'));
-    var bottleneck = (strategy.topics || []).filter(function (t) { return t.readiness < 0.4 && (t.unlocks || []).length >= 2; }).sort(function (a, b) { return (b.unlocks.length) - (a.unlocks.length); })[0];
+    // de-dup: suppress ADR-061 cards already covered by a discovery above (leverage↔bottleneck, momentum↔stale).
+    var dk = {}; ((strategy.discoveries) || []).forEach(function (x) { dk[x.kind] = 1; });
+    var bottleneck = dk.leverage ? null : (strategy.topics || []).filter(function (t) { return t.readiness < 0.4 && (t.unlocks || []).length >= 2; }).sort(function (a, b) { return (b.unlocks.length) - (a.unlocks.length); })[0];
     if (bottleneck) blocks.push(card('Dependency bottleneck', bottleneck.label + ' is weak but unlocks ' + bottleneck.unlocks.slice(0, 3).join(', ') + ' — clearing it lifts several downstream topics at once.', 'blue', '🔓'));
     if (pr.revisionDue && pr.revisionDue.length >= 2) blocks.push(card('Revision debt', pr.revisionDue.length + ' topics are past their revision date — retention decays fastest right after you learn, so this is quietly costing you earned marks.', 'rose', '📉'));
-    if (strategy.behaviour && strategy.behaviour.stale && strategy.behaviour.stale.length) { var st = strategy.behaviour.stale[0]; blocks.push(card('Going stale', 'You haven\'t touched ' + st.label + ' in ' + st.days + ' days — a 15-minute brush-up now beats relearning it later.', 'slate', '🧊')); }
+    if (!dk.momentum && strategy.behaviour && strategy.behaviour.stale && strategy.behaviour.stale.length) { var st = strategy.behaviour.stale[0]; blocks.push(card('Going stale', 'You haven\'t touched ' + st.label + ' in ' + st.days + ' days — a 15-minute brush-up now beats relearning it later.', 'slate', '🧊')); }
   }
   // every insight leads to an action
   var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
@@ -426,8 +434,15 @@ async function explainBase(question, answer, category, uid) {
 
   if (!pieces) {
     var depth = mem.preferredDepth || 'standard';   // ADR-045: honor the depth the student asked for via Simpler/Deeper
+    // ADR-062: ground the explanation in the canonical KB topic — feed the REAL common mistakes (don't invent),
+    // the prerequisite it builds on, and whether the pattern rewards heavy drilling.
+    var kbTopic = SYL.getTopicForCat ? SYL.getTopicForCat(category) : null;
+    var knownMistakes = (kbTopic && (kbTopic.commonMistakes || []).slice(0, 3).join('; ')) || '';
+    var prereqLabel = '';
+    if (kbTopic && kbTopic.prereqs && kbTopic.prereqs.length) { var pq = SYL.getCanonicalTopic(kbTopic.prereqs[0]); prereqLabel = pq ? pq.label : ''; }
+    var heavyPractice = !!(kbTopic && kbTopic.practiceIntensity === 'high');
     try {
-      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '' });
+      var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '', knownMistakes: knownMistakes, prereqLabel: prereqLabel, heavyPractice: heavyPractice });
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.trackGptCost(uid, r.usage);
@@ -671,7 +686,7 @@ function _bandKey(score) { return score >= 80 ? 'exam-ready' : score >= 60 ? 'on
 function _persistStrategy(s) {
   if (!s) return null;
   return {
-    readinessScore: s.readinessScore, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
+    readinessScore: s.readinessScore, readinessBreakdown: s.readinessBreakdown, projectedScore: s.projectedScore, achievable: s.achievable, marksAtRisk: s.marksAtRisk,
     daysToExam: s.daysToExam, targetScore: s.targetScore, verdict: s.verdict, workload: s.workload,
     examName: s.examName, examDate: s.examDate, totalHours: s.totalHours, plannedHours: s.plannedHours,
     sections: (s.sections || []).map(function (sec) {
@@ -860,6 +875,8 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
     return { problem: { question: r.data.question, answer: r.data.answer, options: r.data.options, explanation: r.data.explanation, category: target } };
   } catch (e) {
     if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    // ADR-062: generation failed → refund the quota unit we consumed up-front so the student isn't charged.
+    try { await aiService.refundWordProblemQuota(uid, isPremium, 1); } catch (_) {}
     return { error: 'generation_failed' };
   }
 }

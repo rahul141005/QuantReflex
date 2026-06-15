@@ -72,16 +72,16 @@
     T({ id: 'number_series', label: 'Number Series (Missing & Wrong)', synonyms: ['Series Completion'], section: 'Number System', difficulty: 0.50, avgMinutes: 110, revisionIntervalDays: 10, prereqs: ['multiplication_fluency'], signals: [{ cat: 'multiplication', w: 0.6 }, { cat: 'squares', w: 0.4 }], practiceIntensity: 'high' }),
 
     /* ---- Arithmetic ---- */
-    T({ id: 'percentages', label: 'Percentages', synonyms: ['Percentage'], section: 'Arithmetic', difficulty: 0.40, avgMinutes: 120, revisionIntervalDays: 9, prereqs: ['fractions_decimals'], drillable: 'percentages', formulaSheet: 'percentages', practiceIntensity: 'high', commonMistakes: ['Wrong base for % change', 'Successive % not multiplied'] }),
-    T({ id: 'ratio_proportion', label: 'Ratio, Proportion & Variation', synonyms: ['Ratios', 'Proportion'], section: 'Arithmetic', difficulty: 0.40, avgMinutes: 110, revisionIntervalDays: 10, prereqs: ['fractions_decimals'], drillable: 'ratios', formulaSheet: 'ratio-proportion', practiceIntensity: 'high', commonMistakes: ['Adding ratios instead of scaling', 'Direct vs inverse variation'] }),
+    T({ id: 'percentages', label: 'Percentages', synonyms: ['Percentage'], section: 'Arithmetic', difficulty: 0.40, avgMinutes: 120, revisionIntervalDays: 9, prereqs: ['fractions_decimals'], drillable: 'percentages', formulaSheet: 'percentageTricks', practiceIntensity: 'high', commonMistakes: ['Wrong base for % change', 'Successive % not multiplied'] }),
+    T({ id: 'ratio_proportion', label: 'Ratio, Proportion & Variation', synonyms: ['Ratios', 'Proportion'], section: 'Arithmetic', difficulty: 0.40, avgMinutes: 110, revisionIntervalDays: 10, prereqs: ['fractions_decimals'], drillable: 'ratios', formulaSheet: 'ratioAverage', practiceIntensity: 'high', commonMistakes: ['Adding ratios instead of scaling', 'Direct vs inverse variation'] }),
     T({ id: 'averages', label: 'Averages', synonyms: ['Mean'], section: 'Arithmetic', difficulty: 0.35, avgMinutes: 90, revisionIntervalDays: 11, drillable: 'averages', formulaSheet: 'averages', commonMistakes: ['Weighted vs simple average', 'Average of speeds = harmonic mean'] }),
     T({ id: 'partnership', label: 'Partnership & Share', synonyms: ['Partnerships'], section: 'Arithmetic', difficulty: 0.45, avgMinutes: 70, revisionIntervalDays: 12, prereqs: ['ratio_proportion'], signals: [{ cat: 'ratios', w: 0.7 }, { cat: 'percentages', w: 0.3 }] }),
     T({ id: 'mixtures', label: 'Mixtures & Alligations', synonyms: ['Alligation'], section: 'Arithmetic', difficulty: 0.60, avgMinutes: 120, revisionIntervalDays: 11, prereqs: ['ratio_proportion', 'averages'], signals: [{ cat: 'ratios', w: 0.5 }, { cat: 'averages', w: 0.3 }, { cat: 'percentages', w: 0.2 }], commonMistakes: ['Alligation cross wrong way', 'Repeated replacement formula'] }),
-    T({ id: 'profit_loss', label: 'Profit, Loss & Discount', synonyms: ['Profit and Loss'], section: 'Arithmetic', difficulty: 0.50, avgMinutes: 150, revisionIntervalDays: 10, prereqs: ['percentages', 'ratio_proportion'], drillable: 'profit-loss', formulaSheet: 'profit-loss', practiceIntensity: 'high', commonMistakes: ['CP vs SP base for %', 'Marked price/discount chains'] }),
+    T({ id: 'profit_loss', label: 'Profit, Loss & Discount', synonyms: ['Profit and Loss'], section: 'Arithmetic', difficulty: 0.50, avgMinutes: 150, revisionIntervalDays: 10, prereqs: ['percentages', 'ratio_proportion'], drillable: 'profit-loss', formulaSheet: 'profitLoss', practiceIntensity: 'high', commonMistakes: ['CP vs SP base for %', 'Marked price/discount chains'] }),
     T({ id: 'interest', label: 'Simple & Compound Interest', synonyms: ['SI CI'], section: 'Arithmetic', difficulty: 0.55, avgMinutes: 130, revisionIntervalDays: 10, prereqs: ['percentages'], signals: [{ cat: 'percentages', w: 0.6 }, { cat: 'multiplication', w: 0.4 }], commonMistakes: ['CI compounding frequency', 'SI vs CI difference formula'] }),
-    T({ id: 'tsd', label: 'Time, Speed & Distance', synonyms: ['TSD', 'Speed Distance'], section: 'Arithmetic', difficulty: 0.55, avgMinutes: 150, revisionIntervalDays: 10, prereqs: ['ratio_proportion'], drillable: 'time-speed-distance', formulaSheet: 'time-speed-distance', practiceIntensity: 'high', commonMistakes: ['Relative speed direction', 'Average speed = total/total'] }),
+    T({ id: 'tsd', label: 'Time, Speed & Distance', synonyms: ['TSD', 'Speed Distance'], section: 'Arithmetic', difficulty: 0.55, avgMinutes: 150, revisionIntervalDays: 10, prereqs: ['ratio_proportion'], drillable: 'time-speed-distance', formulaSheet: null, practiceIntensity: 'high', commonMistakes: ['Relative speed direction', 'Average speed = total/total'] }),
     T({ id: 'trains_boats', label: 'Trains, Boats & Streams', synonyms: ['Boats and Streams'], section: 'Arithmetic', difficulty: 0.50, avgMinutes: 90, revisionIntervalDays: 11, prereqs: ['tsd'], signals: [{ cat: 'time-speed-distance', w: 1 }], commonMistakes: ['Upstream/downstream sign', 'Train length included'] }),
-    T({ id: 'time_work', label: 'Time & Work', synonyms: ['Work Time'], section: 'Arithmetic', difficulty: 0.55, avgMinutes: 140, revisionIntervalDays: 10, prereqs: ['ratio_proportion'], drillable: 'time-and-work', formulaSheet: 'time-and-work', practiceIntensity: 'high', commonMistakes: ['LCM-of-work method', 'Efficiency ratios'] }),
+    T({ id: 'time_work', label: 'Time & Work', synonyms: ['Work Time'], section: 'Arithmetic', difficulty: 0.55, avgMinutes: 140, revisionIntervalDays: 10, prereqs: ['ratio_proportion'], drillable: 'time-and-work', formulaSheet: 'timeWork', practiceIntensity: 'high', commonMistakes: ['LCM-of-work method', 'Efficiency ratios'] }),
     T({ id: 'pipes_cisterns', label: 'Pipes & Cisterns', synonyms: ['Pipes Cisterns'], section: 'Arithmetic', difficulty: 0.50, avgMinutes: 70, revisionIntervalDays: 12, prereqs: ['time_work'], signals: [{ cat: 'time-and-work', w: 1 }] }),
     T({ id: 'ages', label: 'Problems on Ages', synonyms: ['Ages'], section: 'Arithmetic', difficulty: 0.45, avgMinutes: 70, revisionIntervalDays: 12, prereqs: ['ratio_proportion'], signals: [{ cat: 'ratios', w: 0.6 }, { cat: 'averages', w: 0.4 }] }),
 
@@ -126,6 +126,11 @@
   // unlocks = reverse of prereqs, derived ONCE (never hand-authored — guarantees consistency).
   Object.keys(TOPICS).forEach(function (id) { TOPICS[id].unlocks = []; });
   TOPIC_LIST.forEach(function (t) { (t.prereqs || []).forEach(function (p) { if (TOPICS[p]) TOPICS[p].unlocks.push(t.id); }); });
+  // drillable cat → canonical topic (reverse of `drillable`) — lets Explanation ground a drill in its KB topic.
+  var _topicByCat = {};
+  TOPIC_LIST.forEach(function (t) { if (t.drillable && !_topicByCat[t.drillable]) _topicByCat[t.drillable] = t; });
+  // The real formula-sheet ids that exist in js/formulas.js (kept in sync; asserted by knowledge-base.check).
+  var FORMULA_SHEET_IDS = ['percentageTricks', 'profitLoss', 'ratioAverage', 'averages', 'area', 'volume', 'timeWork'];
 
   /* ════════════════════════ 2. PER-FAMILY SYLLABUS PROFILES (researched weightages) ════════════════════════
    * w(topicId, band, pyqFreq, confidence, nuance) → a weighting entry. A family lists the topics it tests with
@@ -345,6 +350,9 @@
   /** The canonical topic library (rich, exam-independent metadata) — for any feature needing topic facts. */
   function getCanonicalTopic(topicId) { return TOPICS[topicId] || null; }
 
+  /** The canonical KB topic behind a drillable practice category (e.g. 'percentages' → the Percentages topic). */
+  function getTopicForCat(cat) { return _topicByCat[cat] || null; }
+
   /** Lightweight catalog for the searchable selector: matches name + aliases (case-insensitive). */
   function searchExams(query) {
     var q = String(query || '').trim().toLowerCase();
@@ -365,6 +373,8 @@
     getSyllabus: getSyllabus,
     getTopic: getTopic,
     getCanonicalTopic: getCanonicalTopic,
+    getTopicForCat: getTopicForCat,
+    FORMULA_SHEET_IDS: FORMULA_SHEET_IDS,
     searchExams: searchExams
   };
 

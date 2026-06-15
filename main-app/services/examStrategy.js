@@ -80,7 +80,8 @@ function assemble(profile, planDoc, opts) {
   var targetScore = Number(planDoc.targetScore) || PREP_TARGET[planDoc.prepLevel] || 75;
 
   var rmap = readiness.readinessMap(syl, profile, topicState);
-  var readinessScore = (readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc)) || {}).score || 0;
+  var readinessFull = readiness.examReadinessScore(syl, profile, topicState, _blockStats(planDoc)) || {};
+  var readinessScore = readinessFull.score || 0;
 
   // Behavioural signals come from the canonical Profile (the Strategy reads the one evolving picture — it never
   // receives messages from Coach/Insights). Exam-progress signals come from the doc.
@@ -121,8 +122,76 @@ function assemble(profile, planDoc, opts) {
   };
   strategy.signals = signals;
   strategy.behaviour = _behaviour(planDoc, strategy, todayIso);   // ADR-061: avoidance/postponement/stale signals
+  strategy.readinessBreakdown = _readinessBreakdown(readinessFull);  // ADR-062: make the score transparent (why 34?)
+  strategy.discoveries = _discoveries(profile, strategy, planDoc, todayIso);  // ADR-062: Insights = discoveries, not observations
   strategy.examDate = planDoc.examDate || null;
   return strategy;
+}
+
+/** ADR-062: deterministic DISCOVERIES for Insights — relationships/trade-offs a student wouldn't spot themselves
+ *  (dependency leverage, marks concentration, effort misallocation, momentum split). All from existing data; the
+ *  LLM only phrases the top one. Each has an `impact` for ranking and a ready `text`. */
+function _discoveries(profile, strategy, planDoc, todayIso) {
+  var out = [], topics = strategy.topics || [], ts = (planDoc && planDoc.topicState) || {};
+  var byLabel = {}; topics.forEach(function (t) { byLabel[t.label] = t; });
+
+  // 1. Dependency leverage — one topic away from unlocking several (high-weight) chapters.
+  var lev = topics.filter(function (t) { return t.readiness < 0.6 && (t.unlocks || []).length >= 2; }).map(function (t) {
+    var us = (t.unlocks || []).map(function (n) { return byLabel[n]; }).filter(Boolean);
+    var heavy = us.filter(function (u) { return u.weightage === 'very-high' || u.weightage === 'high'; }).length;
+    return { t: t, count: (t.unlocks || []).length, heavy: heavy };
+  }).sort(function (a, b) { return (b.heavy - a.heavy) || (b.count - a.count); })[0];
+  if (lev && lev.count >= 2) out.push({ kind: 'leverage', impact: lev.heavy * 2 + lev.count + 4,
+    text: 'You\'re one focused topic from unlocking ' + lev.count + ' more chapters' + (lev.heavy ? ' (' + lev.heavy + ' high-weight)' : '') + ' — ' + lev.t.label + ' is the key that opens them.' });
+
+  // 2. Marks concentration — one chapter worth more than the next five combined.
+  var byMarks = topics.slice().sort(function (a, b) { return (b.marksWeight || 0) - (a.marksWeight || 0); });
+  if (byMarks.length >= 6) {
+    var top = byMarks[0], next5 = byMarks.slice(1, 6).reduce(function (s, t) { return s + (t.marksWeight || 0); }, 0);
+    if ((top.marksWeight || 0) > next5 * 0.85) out.push({ kind: 'concentration', impact: 8,
+      text: top.label + ' carries more exam marks than your next five topics combined — it deserves disproportionate attention.' });
+  }
+
+  // 3. Effort misallocation — most-practised topic already strong while a higher-weight topic is barely touched.
+  var mastery = (profile.mastery || []).slice().sort(function (a, b) { return (b.n || 0) - (a.n || 0); });
+  var most = mastery[0];
+  var neglected = topics.filter(function (t) { return (t.weightage === 'very-high' || t.weightage === 'high') && t.readiness < 0.45; })
+    .sort(function (a, b) { return (b.marksWeight || 0) - (a.marksWeight || 0); })[0];
+  if (most && most.tier === 'strong' && neglected) out.push({ kind: 'misallocation', impact: 7,
+    text: 'Your most-practised area (' + (most.label || most.cat) + ') is already strong, while ' + neglected.label + ' — worth more marks — has barely been touched. The return on shifting effort there is high.' });
+
+  // 4. Momentum split — a section untouched for ≥14 days while you've kept practising elsewhere.
+  var stale = (strategy.sections || []).map(function (sec) {
+    var gaps = (sec.topics || []).map(function (t) { var s = ts[t.topicId]; return s && s.lastStudiedAt ? _daysBetween(s.lastStudiedAt, todayIso) : null; }).filter(function (x) { return x != null; });
+    return gaps.length ? { name: sec.name, gap: Math.min.apply(null, gaps) } : null;
+  }).filter(function (x) { return x && x.gap >= 14; }).sort(function (a, b) { return b.gap - a.gap; })[0];
+  if (stale) out.push({ kind: 'momentum', impact: 6, text: stale.name + ' hasn\'t moved in ' + stale.gap + '+ days while you\'ve kept practising elsewhere — it\'s quietly slipping behind.' });
+
+  return out.sort(function (a, b) { return b.impact - a.impact; }).slice(0, 3);
+}
+
+/** ADR-062: turn the opaque Exam Readiness number into a plain-language breakdown a student instantly gets —
+ *  the single limiting driver (biggest weighted deficit = fastest way up) + the top contributing factors. */
+var _READINESS_LABELS = {
+  coverage: 'Syllabus covered', accuracy: 'Answer accuracy', consistency: 'Practice consistency',
+  speed: 'Solving speed', improvement: 'Recent improvement', revision: 'Revision kept up', adherence: 'Plan adherence'
+};
+function _readinessBreakdown(full) {
+  if (!full || !full.parts) return null;
+  var W = readiness.WEIGHTS || {};
+  var rows = Object.keys(full.parts).map(function (k) {
+    var v = Number(full.parts[k]) || 0;
+    return { key: k, label: _READINESS_LABELS[k] || k, pct: Math.round(v * 100), deficit: (W[k] || 0) * (1 - v) };
+  });
+  var bySize = rows.slice().sort(function (a, b) { return b.deficit - a.deficit; });
+  var limit = bySize[0] || null;
+  var drivers = rows.slice().sort(function (a, b) { return b.pct - a.pct; });   // show what's actually built up
+  return {
+    score: full.score,
+    summary: limit ? 'Most limited by ' + limit.label.toLowerCase() + ' (' + (rows.filter(function (r) { return r.key === limit.key; })[0].pct) + '%). Lift that to move the number up fastest.' : '',
+    limitedBy: limit ? limit.label : null,
+    factors: drivers.map(function (r) { return { label: r.label, pct: r.pct }; })
+  };
 }
 
 /** ADR-061: behaviour signals a mentor would notice — postponed topics (scheduled-but-skipped on past days),
@@ -206,4 +275,30 @@ function serialize(strategy) {
   return L.join(' ');
 }
 
-module.exports = { assemble: assemble, build: build, serialize: serialize };
+/** ADR-062: a compact set of structured LEVERS the Coach reasons over — the top move + what it unlocks (the
+ *  dependency-compounding the mentor should explain), the strength to keep, what's slowing them, and the target
+ *  math. Built from the deterministic strategy so the Coach reasons, never invents. */
+function coachBrief(strategy) {
+  if (!strategy) return '';
+  var L = [];
+  var f = (strategy.focus || [])[0];
+  if (f) {
+    var line = 'TOP MOVE — ' + f.label + ' (ROI ' + (f.roi != null ? f.roi : '?') + '/10, ' + (f.weightage || 'medium') + ' weight, readiness ' + Math.round((f.readiness || 0) * 100) + '%).';
+    if (f.unlocks && f.unlocks.length) line += ' It unlocks ' + f.unlocks.slice(0, 3).join(', ') + ' — completing it now COMPOUNDS into those chapters.';
+    if (f.skipConsequence) line += ' ' + f.skipConsequence;
+    L.push(line);
+  }
+  var second = (strategy.focus || [])[1];
+  if (second) L.push('NEXT AFTER THAT — ' + second.label + ' (ROI ' + (second.roi != null ? second.roi : '?') + '/10).');
+  var strong = (strategy.sections || []).filter(function (s) { return s.progressPct >= 65; }).sort(function (a, b) { return b.progressPct - a.progressPct; })[0];
+  if (strong) L.push('STRENGTH TO KEEP — ' + strong.name + ' (' + strong.progressPct + '% ready): keep it warm with light revision, don\'t over-invest.');
+  var bh = strategy.behaviour || {}, pr = strategy.progress || {};
+  if (bh.postponed && bh.postponed.length) L.push('SLOWING THEM DOWN — ' + bh.postponed[0].label + ' postponed ' + bh.postponed[0].count + '× on scheduled days.');
+  else if (pr.adherencePct != null && pr.adherencePct < 60) L.push('SLOWING THEM DOWN — only ' + pr.adherencePct + '% of planned work done lately.');
+  if (bh.stale && bh.stale.length) L.push('GOING STALE — ' + bh.stale[0].label + ' not studied in ' + bh.stale[0].days + ' days.');
+  L.push('TARGET MATH — projected ' + strategy.projectedScore + ' vs target ' + strategy.targetScore + (strategy.achievable ? ' (on track)' : ' (short for now)') +
+    (strategy.marksAtRisk > 0 ? '; ~' + strategy.marksAtRisk + ' readiness points are parked in topics there isn\'t time for.' : '') + '.');
+  return L.join('\n');
+}
+
+module.exports = { assemble: assemble, build: build, serialize: serialize, coachBrief: coachBrief };
