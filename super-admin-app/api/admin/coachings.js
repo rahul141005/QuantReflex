@@ -174,9 +174,10 @@ async function handler(req, res) {
         const coachingName = cd.name || coachingId;
         const FieldPath = admin.firestore.FieldPath;
 
-        // 1) Convert students → normal users (strip ONLY coachingId; keep everything else incl. premium). Paged by
-        //    documentId so a huge roster can't exceed memory/the function window.
-        let convertedStudents = 0, last = null;
+        // 1) Convert students → normal users. Strip the coaching link, and revoke ONLY premium the coaching
+        //    itself sponsored (planSource === 'coaching'). Self-purchased ('purchase'), super-admin grants
+        //    ('admin'/'trial') and free users keep their plan untouched. Paged by documentId for scale.
+        let convertedStudents = 0, coachingPremiumRevoked = 0, last = null;
         for (;;) {
           let q = db.collection('users').where('coachingId', '==', coachingId).orderBy(FieldPath.documentId()).limit(400);
           if (last) q = q.startAfter(last);
@@ -184,7 +185,14 @@ async function handler(req, res) {
           if (page.empty) break;
           const batch = db.batch();
           page.forEach(function (uDoc) {
-            batch.update(uDoc.ref, { coachingId: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+            const ud = uDoc.data() || {};
+            const upd = { coachingId: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+            if (ud.plan === 'premium' && ud.planSource === 'coaching') {
+              upd.plan = 'free'; upd.planType = null; upd.planExpiry = null; upd.planSource = null;
+              upd.isTrial = false; upd.trialEnd = null; upd.planUpdatedAt = new Date().toISOString();
+              coachingPremiumRevoked++;
+            }
+            batch.update(uDoc.ref, upd);
           });
           await batch.commit();
           convertedStudents += page.size;
@@ -225,11 +233,11 @@ async function handler(req, res) {
         await writeAuditLog(db, {
           actorUid: req.userId, actorEmail: req.adminEmail, action: 'delete_coaching', category: 'coaching',
           targetType: 'coaching', targetId: coachingId,
-          summary: 'HARD-deleted coaching "' + coachingName + '" (' + coachingId + ') — ' + convertedStudents + ' student(s) converted to normal users; coaching data + admin account purged',
+          summary: 'HARD-deleted coaching "' + coachingName + '" (' + coachingId + ') — ' + convertedStudents + ' student(s) converted to normal users (' + coachingPremiumRevoked + ' coaching-sponsored premium revoked); coaching data + admin account purged',
           before: { name: coachingName, adminUid: adminUid },
-          after: { convertedStudents: convertedStudents, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted }
+          after: { convertedStudents: convertedStudents, coachingPremiumRevoked: coachingPremiumRevoked, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted }
         });
-        return res.status(200).json({ success: true, coachingId: coachingId, hardDeleted: true, convertedStudents: convertedStudents, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted });
+        return res.status(200).json({ success: true, coachingId: coachingId, hardDeleted: true, convertedStudents: convertedStudents, coachingPremiumRevoked: coachingPremiumRevoked, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted });
       }
 
       let beforeStatus = null;
