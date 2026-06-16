@@ -112,7 +112,7 @@ async function coachToday(uid, opts) {
   // ADR-049 + perf: serve the per-day envelope cache FIRST — BEFORE building the (expensive) profile + strategy —
   // so a normal re-open with no new activity returns in ~1 read, with no profile rebuild and no LLM call. The cache
   // is bypassed only when clientStats proves fresh activity (mirrors the profile's rule) or on an explicit refresh.
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) { aiService.recordAiRequest(uid, { feature: 'coach', status: 'cache_hit', cacheHit: true }); return cached; } }
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) { await aiService.recordAiRequest(uid, { feature: 'coach', status: 'cache_hit', cacheHit: true }); return cached; } }
 
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile (no re-derivation)
@@ -283,7 +283,7 @@ async function insights(uid, opts) {
   opts = opts || {};
   // ADR-049 + perf: serve the per-day envelope cache FIRST (see coachToday) — a re-open with no new activity is
   // ~1 read, no profile rebuild, no LLM. Bypassed only when clientStats proves activity or on an explicit refresh.
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) { aiService.recordAiRequest(uid, { feature: 'insights', status: 'cache_hit', cacheHit: true }); return cached; } }
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) { await aiService.recordAiRequest(uid, { feature: 'insights', status: 'cache_hit', cacheHit: true }); return cached; } }
 
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile
@@ -444,7 +444,7 @@ async function explainBase(question, answer, category, uid) {
   var pieces = null;
   try {
     var cached = await cacheRef.get();
-    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); aiService.recordAiRequest(uid, { feature: 'explain', status: 'cache_hit', cacheHit: true }); }
+    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); await aiService.recordAiRequest(uid, { feature: 'explain', status: 'cache_hit', cacheHit: true }); }
   } catch (e) { console.warn('[aiBrain] explain cache read failed:', e.message); }
 
   if (!pieces) {

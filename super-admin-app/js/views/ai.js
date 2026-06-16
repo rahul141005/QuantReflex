@@ -21,9 +21,18 @@ var AIAnalyticsView = (function () {
     c.innerHTML =
       '<div class="view-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;">' +
         '<div><h2 class="view-title">AI Command Center</h2><p class="view-subtitle">Live spend, tokens, latency, cache, feature &amp; model economics, top consumers, and abuse — from tracked telemetry. $ figures are token-based <strong>estimates</strong> (single pricing source: aiPricing). Reconcile against OpenAI.</p></div>' +
-        '<button class="btn btn-sm btn-outline" id="aiRefresh">Refresh</button></div>' +
+        '<div style="display:flex;align-items:center;gap:.5rem;">' +
+          '<select id="aiRange" class="modal-input" style="width:auto;padding:.3rem .5rem;" aria-label="Date range">' +
+            '<option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option>' +
+          '</select>' +
+          '<button class="btn btn-sm btn-outline" id="aiExport">Export CSV</button>' +
+          '<button class="btn btn-sm btn-outline" id="aiRefresh">Refresh</button></div></div>' +
       '<div id="aiBody"><div class="loading">Calculating operational AI costs…</div></div>';
     var b = document.getElementById('aiRefresh'); if (b) b.onclick = _load;
+    var ex = document.getElementById('aiExport');
+    if (ex) ex.onclick = function () { ex.disabled = true; API.exportData('ai-rollups').then(function (r) { AdminUtils.downloadCsv(r.filename, r.csv); ex.disabled = false; if (r.truncated) Toast.error('Export truncated to ' + r.rowCount + ' rows.'); }).catch(function (e) { ex.disabled = false; Toast.error(AdminUtils.getReadableError(e)); }); };
+    var sel = document.getElementById('aiRange');
+    if (sel) { sel.value = String(_days); sel.onchange = function () { _days = Math.min(90, Math.max(1, parseInt(sel.value, 10) || 30)); _load(); }; }
     _load();
   }
 
@@ -34,7 +43,6 @@ var AIAnalyticsView = (function () {
       API.getAiBudget().catch(function () { return null; }),
       API.getEmergencyConfig().catch(function () { return null; }),
       API.getAiCommand(_days).catch(function () { return null; }),
-      API.getAiCredits().catch(function () { return null; }),
       API.getOpenAiUsage(_days).catch(function () { return null; })
     ]).then(function (r) {
       _data = (r[0] && r[0].analytics) || [];
@@ -42,7 +50,8 @@ var AIAnalyticsView = (function () {
       _budget = r[1];
       _kill = (r[2] && r[2].config && r[2].config.aiKillSwitch) || null;
       _truncated = !!(r[0] && r[0].truncated);
-      _cmd = r[3]; _credits = r[4]; _openai = r[5];
+      _cmd = r[3]; _openai = r[4];
+      _credits = (_cmd && _cmd.credits) || null;   // folded into command → one ai_daily read, not two
       _mount();
     }).catch(function (e) {
       var body = document.getElementById('aiBody');
@@ -88,7 +97,8 @@ var AIAnalyticsView = (function () {
       return;
     }
     var k = _cmd.kpis;
-    var healthColor = k.healthScore >= 80 ? 'var(--success-primary)' : k.healthScore >= 55 ? 'var(--warn-primary)' : 'var(--danger-hover)';
+    var hasHealth = k.healthScore != null;
+    var healthColor = !hasHealth ? 'var(--text-secondary)' : k.healthScore >= 80 ? 'var(--success-primary)' : k.healthScore >= 55 ? 'var(--warn-primary)' : 'var(--danger-hover)';
 
     // ── KPI grid ──
     var html = '<div class="stat-grid" style="margin-bottom:1.1rem;">' +
@@ -96,8 +106,8 @@ var AIAnalyticsView = (function () {
       _tile('Spend 7d', _money(k.cost7d), 'burn ' + _money4(k.burnRatePerDayUSD) + '/day', 'var(--accent-ai)') +
       _tile('Spend 30d', _money(k.cost30d), 'projected ' + _money(k.projectedMonthlyUSD) + '/mo', 'var(--accent-ai)') +
       _tile('Lifetime spend', _money(k.lifetimeCost), _num(k.lifetimeRequests) + ' requests', 'var(--text-strong)') +
-      _tile('AI health', k.healthScore + '/100', 'success ' + k.successRate + '% · cache ' + k.cacheHitRate + '%', healthColor) +
-      _tile('Avg latency', _ms(k.avgLatencyMs), 'over ' + _num(k.totalRequests) + ' reqs (' + _cmd.days + 'd)', 'var(--accent-primary)') +
+      _tile('AI health', hasHealth ? k.healthScore + '/100' : '—', hasHealth ? 'success ' + k.successRate + '% · cache ' + k.cacheHitRate + '%' : 'no activity yet', healthColor) +
+      _tile('Avg latency', _ms(k.avgLatencyMs), 'wall-clock incl. retries · ' + _num(k.totalRequests) + ' reqs', 'var(--accent-primary)') +
       _tile('Avg cost / call', _money4(k.avgCostPerRequestUSD), _num(k.billableCalls) + ' billable calls', 'var(--text-strong)') +
       _tile('Tokens (' + _cmd.days + 'd)', _num(k.totalTokens), _num(k.inputTokens) + ' in · ' + _num(k.outputTokens) + ' out', 'var(--text-strong)') +
       _tile('Error rate', k.errorRate + '%', _num(k.errors) + ' errors', k.errorRate > 2 ? 'var(--danger-hover)' : 'var(--success-primary)') +

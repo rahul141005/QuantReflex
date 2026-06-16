@@ -193,7 +193,7 @@ async function _command(db, res, query) {
   const series = [];                       // [{date, cost, requests, errors, cacheHits, latAvg}]
   const range = { cost: 0, requests: 0, gptCalls: 0, errors: 0, cacheHits: 0, inTok: 0, outTok: 0, latSumMs: 0, latCount: 0 };
   const byFeature = {}, byModel = {};
-  let cost7 = 0, cost30 = 0, costToday = 0, costYesterday = 0;
+  let cost7 = 0, cost30 = 0, costToday = 0, costYesterday = 0, oldestAge = 0;
 
   const rangeStart = new Date(now.getTime() - (days - 1) * 86400000);
   Object.keys(byDate).forEach(function (date) {
@@ -202,6 +202,7 @@ async function _command(db, res, query) {
     lifetimeCost += cost; lifetimeRequests += Number(d.requests || d.gptCalls || 0);
     const dt = new Date(date + 'T00:00:00Z');
     const ageDays = Math.floor((now.getTime() - dt.getTime()) / 86400000);
+    if (ageDays >= 0 && ageDays > oldestAge) oldestAge = ageDays;   // for an honest early-life burn-rate divisor
     if (ageDays >= 0 && ageDays < 7) cost7 += cost;
     if (ageDays >= 0 && ageDays < 30) cost30 += cost;
     if (date === todayKey) costToday = cost;
@@ -224,13 +225,22 @@ async function _command(db, res, query) {
   const cacheHitRate = reqs > 0 ? (range.cacheHits / reqs) * 100 : 0;
   const avgLatencyMs = range.latCount > 0 ? Math.round(range.latSumMs / range.latCount) : 0;
   const avgCostPerReq = range.gptCalls > 0 ? range.cost / range.gptCalls : 0;
-  const avgCostPerDay = cost7 / 7;
+  // Burn rate = avg $/day over the trailing 7 days, divided by how many days the system has actually been
+  // collecting (capped at 7) — so a 2-day-old system isn't understated by dividing a 2-day total by 7.
+  const days7 = Math.max(1, Math.min(7, oldestAge + 1));
+  const avgCostPerDay = cost7 / days7;
   const projectedMonthly = avgCostPerDay * 30;
 
   // Budget + credits context.
   const cfgSnap = await db.collection('config').doc('aiBudget').get();
   const cfg = Object.assign({}, BUDGET_DEFAULTS, cfgSnap.exists ? cfgSnap.data() : {});
   const mtd = await _monthToDate(db, now);
+  // Credits, computed from the dailies ALREADY read here (so the dashboard needs ONE full ai_daily read, not two).
+  const creditSnap = await db.collection('config').doc('aiCredits').get();
+  const credit = creditSnap.exists ? creditSnap.data() : {};
+  const startingBal = Number(credit.startingBalanceUSD || 0);
+  let spentSince = 0;
+  if (credit.setAt) { const setDay = String(credit.setAt).split('T')[0]; Object.keys(byDate).forEach(function (date) { if (date >= setDay) spentSince += Number(byDate[date].estimatedCostUSD || 0); }); }
 
   // Most-expensive feature / most-used model (range).
   let topFeature = null, topModel = null;
@@ -240,7 +250,8 @@ async function _command(db, res, query) {
   // Health score (0–100, documented): success 40, latency 25 (<2s ideal, >8s = 0), cache 15, budget headroom 20.
   const latScore = avgLatencyMs <= 2000 ? 1 : avgLatencyMs >= 8000 ? 0 : (8000 - avgLatencyMs) / 6000;
   const budgetPct = cfg.monthlyBudgetUSD > 0 ? Math.min(1, mtd.cost / cfg.monthlyBudgetUSD) : 0;
-  const health = Math.round((successRate / 100) * 40 + latScore * 25 + (cacheHitRate / 100) * 15 + (1 - budgetPct) * 20);
+  // No activity in the window → don't score (a zero-data system must not look "85/100 healthy"). null → view shows "—".
+  const health = reqs > 0 ? Math.round((successRate / 100) * 40 + latScore * 25 + (cacheHitRate / 100) * 15 + (1 - budgetPct) * 20) : null;
 
   return res.status(200).json({
     days: days,
@@ -255,7 +266,13 @@ async function _command(db, res, query) {
       lifetimeRequests: lifetimeRequests, topFeature: topFeature, topModel: topModel, healthScore: health
     },
     byFeature: byFeature, byModel: byModel, series: series,
-    budget: { monthlyBudgetUSD: cfg.monthlyBudgetUSD || 0, mtdCostUSD: +mtd.cost.toFixed(4), warnPct: cfg.warnPct, critPct: cfg.critPct }
+    budget: { monthlyBudgetUSD: cfg.monthlyBudgetUSD || 0, mtdCostUSD: +mtd.cost.toFixed(4), warnPct: cfg.warnPct, critPct: cfg.critPct },
+    credits: {
+      startingBalanceUSD: startingBal, setAt: credit.setAt || null, setBy: credit.setBy || null,
+      spentSinceUSD: +spentSince.toFixed(4), estimatedRemainingUSD: +(startingBal - spentSince).toFixed(4),
+      note: 'Estimate: OpenAI exposes no credit-balance API. Remaining = Starting Balance − tracked spend since it was set.',
+      billingUrl: 'https://platform.openai.com/usage'
+    }
   });
 }
 
@@ -297,20 +314,34 @@ async function _openaiUsage(db, res, query) {
   if (!adminKey) return res.status(200).json({ configured: false, reason: 'OPENAI_ADMIN_KEY not set', billingUrl: 'https://platform.openai.com/usage' });
   const days = Math.min(90, Math.max(1, parseInt(query.days || '30', 10)));
   const startTime = Math.floor((Date.now() - days * 86400000) / 1000);
+  const baseUrl = 'https://api.openai.com/v1/organization/costs?start_time=' + startTime + '&bucket_width=1d&limit=180';
+  // Each request is time-boxed (AbortController ~6s) so a slow OpenAI call can't hang toward Vercel's 15s limit;
+  // follow next_page so multi-page cost histories aren't silently truncated/undercounted.
+  function _fetchPage(url) {
+    const ctrl = new AbortController();
+    const t = setTimeout(function () { ctrl.abort(); }, 6000);
+    return fetch(url, { headers: { 'Authorization': 'Bearer ' + adminKey }, signal: ctrl.signal })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, json: j }; }); })
+      .finally(function () { clearTimeout(t); });
+  }
   try {
-    const resp = await fetch('https://api.openai.com/v1/organization/costs?start_time=' + startTime + '&bucket_width=1d&limit=' + Math.min(180, days), {
-      headers: { 'Authorization': 'Bearer ' + adminKey }
-    });
-    const data = await resp.json();
-    if (!resp.ok) return res.status(200).json({ configured: true, ok: false, error: (data.error && data.error.message) || ('HTTP ' + resp.status), billingUrl: 'https://platform.openai.com/usage' });
-    const buckets = (data.data || []).map(function (b) {
-      let amt = 0; (b.results || []).forEach(function (r) { amt += (r.amount && r.amount.value) || 0; });
-      return { startTime: b.start_time, amountUSD: +amt.toFixed(4) };
-    });
+    const buckets = [];
+    let url = baseUrl, pages = 0;
+    while (url && pages < 12) {                 // hard cap: ≤12 pages (defensive against a runaway cursor)
+      const page = await _fetchPage(url);
+      if (!page.ok) return res.status(200).json({ configured: true, ok: false, error: (page.json.error && page.json.error.message) || ('HTTP ' + page.status), billingUrl: 'https://platform.openai.com/usage' });
+      (page.json.data || []).forEach(function (b) {
+        let amt = 0; (b.results || []).forEach(function (r) { amt += (r.amount && r.amount.value) || 0; });
+        buckets.push({ startTime: b.start_time, amountUSD: +amt.toFixed(4) });
+      });
+      pages++;
+      url = page.json.has_more && page.json.next_page ? (baseUrl + '&page=' + encodeURIComponent(page.json.next_page)) : null;
+    }
     const totalUSD = buckets.reduce(function (s, b) { return s + b.amountUSD; }, 0);
-    return res.status(200).json({ configured: true, ok: true, days: days, totalUSD: +totalUSD.toFixed(4), buckets: buckets, billingUrl: 'https://platform.openai.com/usage' });
+    return res.status(200).json({ configured: true, ok: true, days: days, totalUSD: +totalUSD.toFixed(4), buckets: buckets, truncated: pages >= 12, billingUrl: 'https://platform.openai.com/usage' });
   } catch (err) {
-    return res.status(200).json({ configured: true, ok: false, error: err.message, billingUrl: 'https://platform.openai.com/usage' });
+    const msg = err.name === 'AbortError' ? 'OpenAI usage request timed out' : err.message;
+    return res.status(200).json({ configured: true, ok: false, error: msg, billingUrl: 'https://platform.openai.com/usage' });
   }
 }
 

@@ -323,6 +323,25 @@ async function handler(req, res) {
         rows = [['uid', 'wordProblemsLifetime', 'explanationsUsed', 'gptCalls', 'gptTokensInput', 'gptTokensOutput', 'gptCostUSD']];
         snap.forEach(d => { const a = d.data(); const uid = d.ref.parent.parent.id; rows.push([uid, a.wordProblemsUsedLifetime || 0, a.explanationsUsed || 0, a.gptCalls || 0, a.gptTokensInput || 0, a.gptTokensOutput || 0, a.gptCostUSD || 0]); });
         filename = 'ai-usage.csv';
+      } else if (type === 'ai-rollups') {
+        /* AI Command Center daily rollups (per-day totals + per-feature breakdown). Bounded by #days the system
+           has run (small). Flattens byFeature into feature-keyed columns so the new metrics are exportable. */
+        cap = 1000;
+        const snap = await db.collection('systemMetrics')
+          .where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_')
+          .where(admin.firestore.FieldPath.documentId(), '<', 'ai_daily_' + '')
+          .limit(cap).get();
+        rows = [['date', 'requests', 'gptCalls', 'errors', 'cacheHits', 'inputTokens', 'outputTokens', 'estimatedCostUSD', 'avgLatencyMs', 'feature', 'feature_requests', 'feature_costUSD']];
+        snap.forEach(d => {
+          const id = d.id; if (id.indexOf('ai_daily_') !== 0 || id.length !== 19) return;
+          const a = d.data(); const date = id.slice(9);
+          const avgLat = a.latCount ? Math.round(a.latSumMs / a.latCount) : 0;
+          const bf = a.byFeature || {};
+          const fkeys = Object.keys(bf);
+          if (!fkeys.length) { rows.push([date, a.requests || 0, a.gptCalls || 0, a.errors || 0, a.cacheHits || 0, a.totalTokensInput || 0, a.totalTokensOutput || 0, a.estimatedCostUSD || 0, avgLat, '', '', '']); }
+          else fkeys.forEach(function (f) { const m = bf[f] || {}; rows.push([date, a.requests || 0, a.gptCalls || 0, a.errors || 0, a.cacheHits || 0, a.totalTokensInput || 0, a.totalTokensOutput || 0, a.estimatedCostUSD || 0, avgLat, f, m.requests || 0, m.costUSD || 0]); });
+        });
+        filename = 'ai-rollups.csv';
       } else {
         return res.status(400).json({ error: { code: 'INVALID_TYPE', message: 'Unknown export type: ' + type } });
       }

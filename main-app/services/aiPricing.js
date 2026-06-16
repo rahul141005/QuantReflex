@@ -17,17 +17,27 @@ var MODELS = {
 
 var DEFAULT_MODEL = 'gpt-4o-mini';
 
+// OpenAI prompt caching bills cached INPUT tokens at half the normal input rate (e.g. gpt-4o-mini $0.075 vs $0.15/1M).
+// `usage.prompt_tokens` INCLUDES the cached portion; `usage.prompt_tokens_details.cached_tokens` is that portion.
+var CACHED_INPUT_MULT = 0.5;
+
 /** Rates ({in,out} USD per 1M tokens) for a model, falling back to the default so callers never get undefined. */
 function ratesFor(model) {
   return MODELS[model] || MODELS[DEFAULT_MODEL];
 }
 
-/** Estimated USD cost of a call. inTokens = prompt tokens, outTokens = completion tokens. */
-function costOf(model, inTokens, outTokens) {
+/**
+ * Estimated USD cost of a call. inTokens = TOTAL prompt tokens (incl. cached), outTokens = completion tokens,
+ * cachedInTokens = the cached portion of the prompt (billed at half). Cached is clamped to [0, inTokens].
+ */
+function costOf(model, inTokens, outTokens, cachedInTokens) {
   var r = ratesFor(model);
   var i = Number(inTokens) || 0;
   var o = Number(outTokens) || 0;
-  return (i / 1000000) * r.in + (o / 1000000) * r.out;
+  var cached = Number(cachedInTokens) || 0;
+  if (cached < 0) cached = 0; if (cached > i) cached = i;
+  var inCost = ((i - cached) * r.in + cached * r.in * CACHED_INPUT_MULT) / 1000000;
+  return inCost + (o / 1000000) * r.out;
 }
 
-module.exports = { MODELS: MODELS, DEFAULT_MODEL: DEFAULT_MODEL, ratesFor: ratesFor, costOf: costOf };
+module.exports = { MODELS: MODELS, DEFAULT_MODEL: DEFAULT_MODEL, CACHED_INPUT_MULT: CACHED_INPUT_MULT, ratesFor: ratesFor, costOf: costOf };

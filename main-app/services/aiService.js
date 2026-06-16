@@ -319,7 +319,8 @@ async function recordAiRequest(uid, opts) {
     var usage = opts.usage || {};
     var inT = usage.prompt_tokens || 0;
     var outT = usage.completion_tokens || 0;
-    var cost = pricing.costOf(model, inT, outT);
+    var cachedT = usage.cached_tokens || 0;           // OpenAI prompt-cache hit portion (billed at half)
+    var cost = pricing.costOf(model, inT, outT, cachedT);
     var status = opts.status || 'ok';
     var cacheHit = !!opts.cacheHit;
     var isError = status === 'error';
@@ -355,7 +356,7 @@ async function recordAiRequest(uid, opts) {
         ts: admin.firestore.FieldValue.serverTimestamp(),
         uid: uid || null, feature: feature, model: model,
         promptId: opts.promptId || null, version: (opts.version != null ? opts.version : null),
-        inTokens: inT, outTokens: outT, costUSD: cost, latencyMs: lat,
+        inTokens: inT, outTokens: outT, cachedTokens: cachedT, costUSD: cost, latencyMs: lat,
         status: status, cacheHit: cacheHit, retries: Math.max(0, (Number(opts.attempts) || 1) - 1),
         errorCode: opts.errorCode || null,
         expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000

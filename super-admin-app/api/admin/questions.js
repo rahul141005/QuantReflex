@@ -4,6 +4,11 @@ const { writeAuditLog } = require('../_lib/audit');
 const _DIFFICULTIES = ['easy', 'medium', 'hard'];
 const _STATUSES = ['draft', 'active', 'archived'];
 
+// gpt-4o rates (USD per 1M tokens) for admin question generation. CANONICAL source is
+// main-app/services/aiPricing.js — this single named constant mirrors that 'gpt-4o' entry because Vercel apps
+// don't share server code cross-app. Keep in sync if OpenAI pricing changes.
+const GPT4O_RATES = { in: 2.50, out: 10.00 };
+
 /**
  * Validate + normalize a question body (shared by create + update — Phase 5, ADR-018).
  * `partial=true` (update): only the provided fields are validated/returned.
@@ -254,7 +259,7 @@ Example valid output:
           const inc = admin.firestore.FieldValue.increment;
           const inT = data.usage.prompt_tokens || 0;
           const outT = data.usage.completion_tokens || 0;
-          const cost = (inT / 1000000) * 2.50 + (outT / 1000000) * 10.00;   // gpt-4o: $2.50/1M in, $10.00/1M out
+          const cost = (inT / 1000000) * GPT4O_RATES.in + (outT / 1000000) * GPT4O_RATES.out;   // gpt-4o
           const dayKey = new Date().toISOString().split('T')[0];
           const byFeature = { admin_questiongen: { requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost), errors: inc(0), cacheHits: inc(0), latSumMs: inc(0), latCount: inc(0) } };
           const byModel = { 'gpt-4o': { requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost) } };
