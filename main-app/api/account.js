@@ -214,24 +214,22 @@ async function _claimCoaching(req, res, db) {
       }
 
       const userDoc = await transaction.get(userRef);
-      const oldCoachingId = userDoc.exists ? (userDoc.data().coachingId || null) : null;
-      if (oldCoachingId === cleanCoachingId) return;
+      const existingCoachingId = userDoc.exists ? (userDoc.data().coachingId || null) : null;
+      if (existingCoachingId === cleanCoachingId) return;   // already in it — idempotent no-op
 
-      /* studentCount maintenance in the request path (ADR-032) — the syncCoachingStudentCount trigger does NOT
-         run on Spark, so the counter is moved here, transactionally. Read the old coaching BEFORE any write
-         (Firestore txn ordering: all reads precede all writes) and decrement it only if it still exists. */
-      let oldExists = false;
-      if (oldCoachingId) {
-        const oldDoc = await transaction.get(db.collection('coachings').doc(oldCoachingId));
-        oldExists = oldDoc.exists;
-      }
-      const inc = admin.firestore.FieldValue.increment;
+      /* BIND-ONCE: a student's coaching is permanent once set. It may be bound exactly once (at signup, or a single
+         later join when they have none) and can NEVER be switched here. To move to a different coaching the student
+         must delete their account and sign up again. (Super-admin reassign remains as an admin-only override.) */
+      if (existingCoachingId) throw new Error('LOCKED: Coaching cannot be changed.');
+
+      /* studentCount maintenance in the request path (ADR-032) — the syncCoachingStudentCount trigger does NOT run
+         on Spark, so the counter is incremented here, transactionally. No old-coaching decrement: the only allowed
+         path is null → a coaching, so there is never a previous coaching to leave. */
       transaction.set(userRef, {
         coachingId: cleanCoachingId,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-      transaction.update(newCoachingRef, { studentCount: inc(1) });
-      if (oldExists) transaction.update(db.collection('coachings').doc(oldCoachingId), { studentCount: inc(-1) });
+      transaction.update(newCoachingRef, { studentCount: admin.firestore.FieldValue.increment(1) });
     });
 
     return res.status(200).json({ success: true, message: 'Coaching claimed successfully.' });
@@ -242,6 +240,9 @@ async function _claimCoaching(req, res, db) {
     }
     if (err.message && err.message.startsWith('INACTIVE:')) {
       return res.status(400).json({ error: { code: 'INACTIVE', message: 'Coaching ID is inactive or expired.' } });
+    }
+    if (err.message && err.message.startsWith('LOCKED:')) {
+      return res.status(409).json({ error: { code: 'COACHING_LOCKED', message: 'Your coaching can\'t be changed. To join a different coaching, delete your account and sign up again.' } });
     }
     return res.status(500).json({ error: formatError(err) });
   }

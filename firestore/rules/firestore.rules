@@ -45,12 +45,14 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // Check if the user is a member of or admin for a coaching institute
+    // Read access to a coaching doc = the coaching ADMIN of that coaching. Only coaching admins carry the
+    // coachingId custom claim (students store coaching as a plain users-doc field, never a claim), so the former
+    // standalone `token.coachingId == coachingId` clause could never match a student — it's folded into the
+    // admin check below. (Students get coaching name/logo via the server validate-coaching endpoint, not a read.)
     function isCoachingMember(coachingId) {
-      return request.auth != null && (
-        request.auth.token.coachingId == coachingId ||
-        (request.auth.token.coaching_admin == true && request.auth.token.coachingId == coachingId)
-      );
+      return request.auth != null
+        && request.auth.token.coaching_admin == true
+        && request.auth.token.coachingId == coachingId;
     }
 
     // ── Entitlement Protection (UPDATE) ──
@@ -84,8 +86,11 @@ service cloud.firestore {
         // AI memory (ADR-039): server-authoritative — client may NEVER write it.
         (!changed.hasAny(['aiMemory'])) &&
 
-        // Coaching + payment id: client can only clear to null.
-        (!changed.hasAny(['coachingId'])     || after.coachingId == null) &&
+        // Coaching: client can NEVER change coachingId (bind-once, server-owned). It is set only server-side
+        // (Admin SDK, which bypasses rules) — at registration, the one-time claim-coaching bind, or a super-admin
+        // reassign. Making it fully client-immutable closes the clear-to-null-then-rebind loophole so a student
+        // can't switch coaching; switching requires deleting the account. Payment id: client can only clear to null.
+        (!changed.hasAny(['coachingId'])) &&
         (!changed.hasAny(['lastPaymentId'])  || after.lastPaymentId == null);
     }
 

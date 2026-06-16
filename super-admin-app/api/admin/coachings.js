@@ -1,5 +1,6 @@
 const { withAdminAuth, parseBody, formatError } = require('../_lib/middleware');
 const { writeAuditLog } = require('../_lib/audit');
+const { purgeUser } = require('../_lib/user-lifecycle');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
@@ -97,8 +98,6 @@ async function handler(req, res) {
         ownerEmail: body.ownerEmail ? body.ownerEmail.trim() : null,
         entitlementPlan: body.entitlementPlan || 'standard',
         studentCount: 0,
-        activePremiumUsers: 0,
-        activePremiumPlusUsers: 0,
         registrationToken: registrationToken,
         expiryDate: expiryDate ? new Date(expiryDate).toISOString() : null,
         createdBy: req.userId,
@@ -157,7 +156,80 @@ async function handler(req, res) {
          enrolled student, so the server requires an explicit confirm token — mirrors users.js purge.
          activate is non-destructive and needs none. */
       if ((mutateAction === 'suspend' || mutateAction === 'delete') && body.confirm !== 'DELETE') {
-        return res.status(400).json({ error: { code: 'CONFIRM_REQUIRED', message: 'Pass confirm:"DELETE" to ' + mutateAction + ' this coaching (cascade-revokes premium from all students).' } });
+        return res.status(400).json({ error: { code: 'CONFIRM_REQUIRED', message: 'Pass confirm:"DELETE" to ' + mutateAction + ' this coaching.' } });
+      }
+
+      /* ── HARD DELETE (ADR-coaching-cleanup) ──────────────────────────────────────────────────────────────────
+         A true delete: every coaching-owned document is removed and each enrolled student is CONVERTED BACK into an
+         ordinary QuantReflex user — only the coaching link is stripped; practice, AI, stats, history, profile and
+         PREMIUM are all kept. Suspend stays the reversible soft path (handled below); delete is irreversible.
+         Steps are paged for scale and the coachings doc is deleted LAST, so a timed-out run is safely resumable
+         (already-converted students no longer match the query; re-deletes are no-ops). History survives in auditLogs. */
+      if (mutateAction === 'delete') {
+        const coachingRef = db.collection('coachings').doc(coachingId);
+        const snap = await coachingRef.get();
+        if (!snap.exists) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Coaching not found.' } });
+        const cd = snap.data() || {};
+        const adminUid = cd.adminUid || null;
+        const coachingName = cd.name || coachingId;
+        const FieldPath = admin.firestore.FieldPath;
+
+        // 1) Convert students → normal users (strip ONLY coachingId; keep everything else incl. premium). Paged by
+        //    documentId so a huge roster can't exceed memory/the function window.
+        let convertedStudents = 0, last = null;
+        for (;;) {
+          let q = db.collection('users').where('coachingId', '==', coachingId).orderBy(FieldPath.documentId()).limit(400);
+          if (last) q = q.startAfter(last);
+          const page = await q.get();
+          if (page.empty) break;
+          const batch = db.batch();
+          page.forEach(function (uDoc) {
+            batch.update(uDoc.ref, { coachingId: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+          });
+          await batch.commit();
+          convertedStudents += page.size;
+          last = page.docs[page.docs.length - 1];
+          if (page.size < 400) break;
+        }
+
+        // 2) Delete coaching-owned data: private per-student notes, the analytics rollup, and this coaching's
+        //    notification history.
+        async function _purgeQuery(queryRef) {
+          let removed = 0;
+          for (;;) {
+            const page = await queryRef.limit(300).get();
+            if (page.empty) break;
+            const batch = db.batch();
+            page.forEach(function (d) { batch.delete(d.ref); });
+            await batch.commit();
+            removed += page.size;
+            if (page.size < 300) break;
+          }
+          return removed;
+        }
+        const notesDeleted = await _purgeQuery(coachingRef.collection('notes'));
+        try { await db.collection('coachingMetrics').doc(coachingId).delete(); } catch (_) {}
+        const notificationLogsDeleted = await _purgeQuery(db.collection('notificationLogs').where('coachingId', '==', coachingId));
+
+        // 3) Remove the coaching ADMIN account entirely (claims + sessions + Auth user + any user doc/subcollections).
+        let adminDeleted = false;
+        if (adminUid) {
+          try { await admin.auth().setCustomUserClaims(adminUid, {}); } catch (_) {}
+          try { await admin.auth().revokeRefreshTokens(adminUid); } catch (_) {}
+          try { await purgeUser(db, adminUid); adminDeleted = true; } catch (_) {}
+        }
+
+        // 4) Delete the coaching document LAST (the registration token dies with it).
+        await coachingRef.delete();
+
+        await writeAuditLog(db, {
+          actorUid: req.userId, actorEmail: req.adminEmail, action: 'delete_coaching', category: 'coaching',
+          targetType: 'coaching', targetId: coachingId,
+          summary: 'HARD-deleted coaching "' + coachingName + '" (' + coachingId + ') — ' + convertedStudents + ' student(s) converted to normal users; coaching data + admin account purged',
+          before: { name: coachingName, adminUid: adminUid },
+          after: { convertedStudents: convertedStudents, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted }
+        });
+        return res.status(200).json({ success: true, coachingId: coachingId, hardDeleted: true, convertedStudents: convertedStudents, notesDeleted: notesDeleted, notificationLogsDeleted: notificationLogsDeleted, adminDeleted: adminDeleted });
       }
 
       let beforeStatus = null;
