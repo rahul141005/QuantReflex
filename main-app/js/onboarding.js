@@ -129,15 +129,20 @@ var Onboarding = (function () {
    */
   function _markCompleted() {
     try {
+      // Stamp the day the user started (ISO) once, so the Profile can say "started mathing on <date>" reliably —
+      // independent of the server account-creation timestamp. Set only if not already present (idempotent).
+      var startedAt = new Date().toISOString();
       var settings;
       if (typeof AppState !== 'undefined') {
         settings = AppState.getSettings();
         settings.onboardingCompleted = true;
+        if (!settings.onboardingCompletedAt) settings.onboardingCompletedAt = startedAt;
         settings.dailyGoal = _selectedGoal;
         AppState.setSettings(settings);
       } else {
         settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
         settings.onboardingCompleted = true;
+        if (!settings.onboardingCompletedAt) settings.onboardingCompletedAt = startedAt;
         settings.dailyGoal = _selectedGoal;
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
       }

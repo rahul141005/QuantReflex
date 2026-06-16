@@ -1211,6 +1211,7 @@ var FirestoreSync = (function () {
               priority: d.priority || 'normal',
               icon: d.icon || null,
               deepLink: d.deepLink || null,
+              metadata: d.metadata || null,            // seam: carries e.g. duel metadata.code for future routing
               isRead: !!d.isRead,
               timestamp: d.timestamp ? (d.timestamp.toDate ? d.timestamp.toDate().toISOString() : d.timestamp) : null
             });

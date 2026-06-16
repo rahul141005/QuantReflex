@@ -625,6 +625,26 @@ function openClearConfirmModal(type) {
 }
 
 /**
+ * Normalise any stored date (Firestore Timestamp | ISO string | epoch ms) to a valid Date, or null.
+ * Guards against Invalid Date so callers never render "Invalid Date"/null/undefined.
+ */
+function _toDate(v) {
+  if (v == null) return null;
+  var d = null;
+  try {
+    if (typeof v === 'object') {
+      if (typeof v.toDate === 'function') d = v.toDate();              // Firestore Timestamp (compat SDK)
+      else if (typeof v.seconds === 'number') d = new Date(v.seconds * 1000); // raw {seconds,nanoseconds}
+    } else if (typeof v === 'number') {
+      d = new Date(v);                                                 // epoch ms
+    } else if (typeof v === 'string') {
+      d = new Date(v);                                                 // ISO string
+    }
+  } catch (_) { return null; }
+  return (d && !isNaN(d.getTime())) ? d : null;
+}
+
+/**
  * Open the profile modal showing user details.
  */
 function openProfileModal() {
@@ -665,12 +685,22 @@ function openProfileModal() {
   var coachingIdInput = document.getElementById('profileCoachingId');
   if (coachingIdInput) coachingIdInput.value = coachingId || 'None';
 
-  /* Profile banner: "{Name} started mathing on {Date}" */
+  /* Profile banner: "{Name} started mathing on {Date}".
+     Resolve the start date robustly so it NEVER renders "unknown date": onboarding completion (the day the user
+     started here) → client profile.createdAt → server-side root createdAt (a Firestore Timestamp). Each source may
+     be a Firestore Timestamp, an ISO string, or epoch ms — _toDate() normalises all of them. */
   if (bannerEl) {
     var displayName = profile.name || 'You';
-    var joinedDate = profile.createdAt ? new Date(profile.createdAt) : null;
-    var dateStr = joinedDate ? joinedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'an unknown date';
-    bannerEl.textContent = displayName + ' started mathing on ' + dateStr + '.';
+    var startSettings = {};
+    try { if (typeof AppState !== 'undefined' && AppState.getSettings) startSettings = AppState.getSettings() || {}; } catch (_) {}
+    var joinedDate = _toDate(startSettings.onboardingCompletedAt) || _toDate(profile.createdAt) || _toDate(cache && cache.createdAt);
+    if (joinedDate) {
+      var dateStr = joinedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      bannerEl.textContent = displayName + ' started mathing on ' + dateStr + '.';
+    } else {
+      // No reliable date anywhere — use a graceful, dateless line rather than "an unknown date".
+      bannerEl.textContent = displayName + ' is sharpening their math reflexes.';
+    }
   }
 
   function closeModal() {

@@ -192,19 +192,33 @@ var InboxView = (function () {
 
     listEl.innerHTML = html;
 
-    // Tap = mark read + deep-link to the relevant screen (ADR-066).
+    // Tap = mark read + route via the ONE notification-routing seam (ADR-066).
     var cards = listEl.querySelectorAll('.notification-card');
     for (var i = 0; i < cards.length; i++) {
       cards[i].addEventListener('click', function() {
         var id = this.getAttribute('data-id');
-        var link = this.getAttribute('data-link');
         markAsRead(id);
-        if (link) {
-          try { if (typeof close === 'function') close(); } catch (_) {}
-          try { location.hash = link.charAt(0) === '#' ? link : '#' + link; } catch (_) {}
-        }
+        var n = null;
+        for (var j = 0; j < _notifications.length; j++) { if (_notifications[j].id === id) { n = _notifications[j]; break; } }
+        _routeNotification(n);
       });
     }
+  }
+
+  // The single place that decides what tapping a notification does. Keying on the notification's type/metadata
+  // (not just a raw hash) keeps routing future-proof: when Duel History ships, the `duel` branch becomes a
+  // navigation to '#duel-history' (using n.metadata.code) with NO other change.
+  function _routeNotification(n) {
+    if (!n) return;
+    try { if (typeof close === 'function') close(); } catch (_) {}
+    // Finished-duel notifications point at a duel session that no longer exists — never navigate to a dead/blank
+    // duel view. For now show a toast; the architecture (type 'duel' + metadata.code) is ready for Duel History.
+    if (n.type === 'duel') {
+      try { if (typeof showToast === 'function') showToast('Duel history will be available soon.'); } catch (_) {}
+      return;
+    }
+    var link = n.deepLink || '';
+    if (link) { try { location.hash = link.charAt(0) === '#' ? link : '#' + link; } catch (_) {} }
   }
 
   // ADR-066: category → badge presentation (label + colour). Keeps the inbox scannable + premium.

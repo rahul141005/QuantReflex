@@ -154,6 +154,7 @@ async function _notificationsList(req, res, db) {
       priority: d.priority || 'normal',
       icon: d.icon || null,
       deepLink: d.deepLink || null,
+      metadata: d.metadata || null,               // seam: future routing (e.g. duel metadata.code)
       sender: d.sender || null,
       coachingId: d.coachingId || null,
       isRead: !!d.isRead,

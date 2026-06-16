@@ -184,7 +184,10 @@ async function _sendOpponentFinishedFcm(toUid, opponentName, code) {
       recipients: { uids: [toUid] },
       notification: {
         title: 'Duel finished', body: 'Your duel against ' + (opponentName || 'your opponent') + ' is ready — see the result.',
-        type: 'duel', category: 'social', icon: '⚔️', deepLink: '#duel',
+        // deepLink → #home (the live duel-result card lives on Home): the finished duel session no longer exists,
+        // so routing to #duel would open a blank view. type 'duel' + metadata.code let the inbox route this
+        // specially (toast now; Duel History later) without depending on a dead duel session.
+        type: 'duel', category: 'social', icon: '⚔️', deepLink: '#home',
         sender: { kind: 'system', name: 'Math Duel' }, metadata: { code: String(code) }
       },
       logSegment: 'duel'
