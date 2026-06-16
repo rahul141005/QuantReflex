@@ -98,15 +98,17 @@ function _putDaily(uid, feature, env) {
 /* ════════════════════════ AI COACH — daily living dashboard (ADR-050) ════════════════════════ */
 async function coachToday(uid, opts) {
   opts = opts || {};
+  // ADR-049 + perf: serve the per-day envelope cache FIRST — BEFORE building the (expensive) profile + strategy —
+  // so a normal re-open with no new activity returns in ~1 read, with no profile rebuild and no LLM call. The cache
+  // is bypassed only when clientStats proves fresh activity (mirrors the profile's rule) or on an explicit refresh.
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
+
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile (no re-derivation)
   var focus = ctx.recommendation;            // the single "what to work on next"
   // ADR-057: Layer 2 — the exam strategy, built FROM the Profile. null when no exam (Coach then reasons from
   // the Profile alone and must never feel "dumber"). Coach is a ROLE reading the shared state, not a producer.
   var strategy = await examStrategy.build(uid, ctx, { clientDate: opts.clientDate });
-
-  // ADR-049: bypass the per-day envelope cache when clientStats proves activity (mirrors the profile's rule).
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
 
   // ADR-052: NEVER lock the coach. With little data (tier 0 = 0–5 lifetime) render a deterministic, helpful read
   // of whatever exists — no LLM (controlled copy avoids generic output near zero data), never "I don't know you".
@@ -268,11 +270,13 @@ function _detectPatterns(ctx) {
 
 async function insights(uid, opts) {
   opts = opts || {};
+  // ADR-049 + perf: serve the per-day envelope cache FIRST (see coachToday) — a re-open with no new activity is
+  // ~1 read, no profile rebuild, no LLM. Bypassed only when clientStats proves activity or on an explicit refresh.
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
+
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile
   var strategy = await examStrategy.build(uid, ctx, { clientDate: opts.clientDate });   // ADR-057: Layer 2 (null = no exam)
-
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
 
   // ADR-052: never lock Insights. With little data render a deterministic early read (no LLM), never "practice to unlock".
   if (tier === 0) {

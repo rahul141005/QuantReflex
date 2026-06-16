@@ -39,6 +39,7 @@ var FirestoreSync = (function () {
   var _flushInFlight = false;
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
+  var _notifUnsub = null;  /* the active notifications onSnapshot unsubscribe — torn down on re-listen + logout */
   // ADR-066: clients no longer CREATE notifications (the Inbox is server-write only). These remain as harmless
   // no-ops so any stray caller/export keeps working; all notifications now originate from the server pipeline.
   function _flushPendingSystemNotifications() { /* retired (ADR-066) */ }
@@ -183,6 +184,9 @@ var FirestoreSync = (function () {
     }
 
     _syncGeneration++;
+
+    // Tear down the notifications realtime listener so it never outlives the session (logout / user switch).
+    if (_notifUnsub) { try { _notifUnsub(); } catch (_) {} _notifUnsub = null; }
 
     _memoryCache = null;
     _dataLoaded = false;
@@ -1184,7 +1188,11 @@ var FirestoreSync = (function () {
     listenForNotifications: function (onData) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return null;
       var db = FirebaseApp.getDb();
-      return db.collection('users').doc(FirebaseApp.getUserId()).collection('notifications')
+      // Tear down any existing listener first so repeated refresh() calls (e.g. a markRead rollback) never stack
+      // duplicate onSnapshot subscriptions on the same collection. Ownership lives here so resetSyncState (logout)
+      // can also unsubscribe — preventing a listener for the previous user surviving a sign-out / user switch.
+      if (_notifUnsub) { try { _notifUnsub(); } catch (_) {} _notifUnsub = null; }
+      _notifUnsub = db.collection('users').doc(FirebaseApp.getUserId()).collection('notifications')
         .orderBy('timestamp', 'desc')
         .limit(50)
         .onSnapshot({ includeMetadataChanges: true }, function(snapshot) {
@@ -1211,6 +1219,7 @@ var FirestoreSync = (function () {
         }, function(err) {
           console.warn('Notifications snapshot error', err);
         });
+      return _notifUnsub;
     },
     getNotifications: function (callback) {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));

@@ -51,6 +51,9 @@ var Companion = (function () {
   // ADR-062: collapse duplicate in-flight AI requests (double-taps, accidental re-fires) into ONE call —
   // an identical {action,body} already pending returns the same promise instead of hitting the LLM twice.
   var _inFlight = {};
+  // Perf: last rendered envelope per feature for THIS session (coach/insights). Lets a re-open paint instantly
+  // while the (cache-backed) network call revalidates. Cleared on reload; never persisted (avoids cross-day stale).
+  var _envCache = {};
   function api(action, body) {
     var key = action + '|' + JSON.stringify(body || {});
     if (_inFlight[key]) return _inFlight[key];
@@ -406,19 +409,30 @@ var Companion = (function () {
     var stamp = dirtyAt();
     var reqBody = {}; for (var k in (o.body || {})) reqBody[k] = o.body[k];
     if (force) reqBody.force = true;
-    // ADR-048: send the live local stats floor so Coach/Insights aren't stale during the syncStats debounce.
-    // ADR-049: send the LOCAL date so Coach matches the right day's planner tasks.
-    if (o.withClientStats) { reqBody.clientStats = clientStats(); reqBody.clientDate = localDate(); }
+    // ADR-048/049: ALWAYS send the LOCAL date (so Coach matches the right day's planner tasks — this does NOT
+    // bypass the per-day cache). Send the live local stats floor ONLY when forcing a refresh (practiced since
+    // last seen, or tapped refresh): otherwise sending clientStats every open bypassed the server's daily
+    // envelope cache, regenerating (and re-calling the LLM) on every open — the cause of "cached AI feels slow".
+    if (o.withClientStats) { if (force) reqBody.clientStats = clientStats(); reqBody.clientDate = localDate(); }
     if (o.autoForce) wireRefresh(m, function () { openFeature(_assign(o, { force: true })); });
-    var stop = showLoading(m.body, o.stages);
+
+    // Perf: paint the last envelope from this session instantly (coach/insights only — explain is question-specific)
+    // when we're NOT forcing a refresh, then let the network call below revalidate. Makes re-opens feel instant.
+    var cacheable = o.feature === 'coach' || o.feature === 'insights';
+    var hadCache = !!(cacheable && !force && _envCache[o.feature]);
+    if (hadCache) renderEnvelope(m.body, _envCache[o.feature], false);
+
+    var stop = hadCache ? function () {} : showLoading(m.body, o.stages);
     // ADR-040: on initial-load failure, Retry re-invokes the ORIGINAL feature action (not a generic chat turn).
     var reopen = function () { openFeature(o); };
     api(o.action, reqBody).then(function (res) {
       stop();
-      if (!res.ok) { m.body.innerHTML = ''; renderError(m.body, res, reopen); return; }
+      // On revalidation failure, keep the instantly-painted cached envelope instead of replacing it with an error.
+      if (!res.ok) { if (!hadCache) { m.body.innerHTML = ''; renderError(m.body, res, reopen); } return; }
       var env = res.data.response;
-      if (!env) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); return; }
+      if (!env) { if (!hadCache) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); } return; }
       if (force) markSeen(o.feature, stamp);
+      if (cacheable) _envCache[o.feature] = env;
       if (_state.explainCtx) _state.explainCtx.lastExplanation = explanationText(env);
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId, refreshed: !!force });
       renderEnvelope(m.body, env, false);
