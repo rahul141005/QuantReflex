@@ -202,19 +202,13 @@ self.addEventListener('message', function (event) {
   }
 });
 
-/* Motivational messages for background push notifications */
-var PUSH_MESSAGES = [
-  { title: '🧮 Time to Practice!', body: 'A quick mental math session can sharpen your skills.' },
-  { title: '📐 Math Reflex Check', body: 'Keep your calculation speed sharp — practice now!' },
-  { title: '🔥 Streak Alert!', body: 'Don\'t break your streak! Solve a few questions today.' },
-  { title: '💪 You\'re Getting Better!', body: 'Consistent practice leads to exam success. Start now!' },
-  { title: '🎯 Daily Goal Reminder', body: 'Have you hit your daily question target yet?' },
-  { title: '🧠 Train Your Brain', body: 'Train your brain. 5 minutes of mental math now.' },
-  { title: '✨ Stay Consistent', body: 'Your quant reflex improves with daily practice.' },
-  { title: '📈 Build Your Percentile', body: 'Today\'s 5 drills build tomorrow\'s CAT percentile.' }
-];
+/* Fallback body if a push ever arrives without one. The unified pipeline (ADR-066) always supplies a
+   title + body, so this is only a defensive default — the per-app-open motivational bank was retired. */
+var FALLBACK_BODY = 'Time to practice mental math!';
 
-/* Handle push events (background notifications from FCM) */
+/* Handle push events (background notifications from FCM).
+   The unified pipeline sends { notification:{title,body}, data:{ url, type, category } } — we honour BOTH:
+   the deep-link (data.url) drives where a tap lands, and the type gives each notification a distinct tag. */
 self.addEventListener('push', function (event) {
   var data = {};
   if (event.data) {
@@ -226,22 +220,27 @@ self.addEventListener('push', function (event) {
   }
 
   var notif = data.notification || {};
+  var payload = data.data || {};
   var title = notif.title || 'QuantReflex';
-  var body = notif.body || (PUSH_MESSAGES.length > 0 ? PUSH_MESSAGES[Math.floor(Math.random() * PUSH_MESSAGES.length)].body : 'Time to practice mental math!');
+  var body = notif.body || FALLBACK_BODY;
 
   var options = {
     body: body,
     icon: './icons/icon-192.svg',
     badge: './icons/icon-192.svg',
-    tag: 'quant-motivation',
+    /* Unique per-notification tag so distinct notifications COEXIST in the tray. A shared static tag
+       (the old 'quant-motivation') made each new push REPLACE the previous one — users only ever saw the
+       latest. Keying on type + time keeps a duel push and a billing push both visible. */
+    tag: 'qr-' + (payload.type || 'general') + '-' + Date.now(),
     renotify: true,
-    data: { url: './index.html#home' }
+    /* Honour the deep-link the pipeline sent (e.g. ./index.html#duel); fall back to home. */
+    data: { url: payload.url || './index.html#home' }
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-/* Handle notification click — open app to Home tab */
+/* Handle notification click — open/focus the app AND route it to the notification's deep-link */
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
 
@@ -249,16 +248,26 @@ self.addEventListener('notificationclick', function (event) {
   if (event.notification.data && event.notification.data.url) {
     urlToOpen = event.notification.data.url;
   }
+  /* Derive the hash (e.g. #duel) so an already-open client can be routed to it without a full reload. */
+  var hashIndex = urlToOpen.indexOf('#');
+  var targetHash = hashIndex >= 0 ? urlToOpen.slice(hashIndex) : '';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
-      /* If app is already open, focus it and navigate */
       for (var i = 0; i < clients.length; i++) {
-        if (clients[i].url.indexOf('index.html') !== -1 || clients[i].url.endsWith('/')) {
-          return clients[i].focus();
+        var client = clients[i];
+        if (client.url.indexOf('index.html') !== -1 || client.url.endsWith('/')) {
+          /* App already open: navigate it to the deep-link (focus alone would ignore the target), then focus.
+             Falls back to a plain focus if navigate() is unsupported or rejects. */
+          if (targetHash && 'navigate' in client) {
+            return client.navigate(client.url.split('#')[0] + targetHash)
+              .then(function (navigated) { return (navigated || client).focus(); })
+              .catch(function () { return client.focus(); });
+          }
+          return client.focus();
         }
       }
-      /* Otherwise open a new window */
+      /* Otherwise open a new window at the deep-link */
       return self.clients.openWindow(urlToOpen);
     })
   );

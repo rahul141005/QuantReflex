@@ -225,18 +225,16 @@ exports.enforceEntitlementExpiry = onSchedule(
 
 
 // ════════════════════════════════════════════════════════════════
-// 3. DAILY PRACTICE REMINDER (PUSH NOTIFICATION)
+// 3. DAILY PRACTICE REMINDER (PUSH NOTIFICATION) — RETIRED (ADR-066)
 // ════════════════════════════════════════════════════════════════
 //
-// WHY: Push notifications dramatically improve user retention.
-// A daily reminder at 7 AM encourages users to practice.
+// RETIRED: daily reminders are now produced by the ONE unified pipeline
+// (main-app services/reminderCron.js → notificationService.notify), which
+// writes the Inbox first and then best-effort push. This push-only function
+// bypassed the Inbox and duplicated reminder logic; its handler now no-ops
+// (return null) so it can never double-send. Body kept for reference only.
 //
-// WHAT IT DOES:
-// - Finds all users who have an fcmToken saved in Firestore
-// - Sends a randomly selected motivational push notification
-// - Cleans up invalid tokens (uninstalled apps, expired tokens)
-//
-// SCHEDULE: Every day at 7:00 AM IST
+// SCHEDULE: Every day at 7:00 AM IST (inert — handler returns immediately)
 // ════════════════════════════════════════════════════════════════
 
 const REMINDER_MESSAGES = [
@@ -257,7 +255,16 @@ exports.dailyPracticeReminder = onSchedule(
     maxInstances: 1
   },
   async (event) => {
-
+    /* RETIRED (ADR-066): daily reminders now flow through the ONE unified pipeline
+       (main-app services/reminderCron.js → notificationService.notify), which writes the Inbox FIRST and then
+       best-effort push — so a reminder is never lost when push fails. This function was a SECOND, push-only
+       reminder system with its own message bank: it never wrote the Inbox, and (because scheduled functions do
+       not run on the Spark plan) it has not fired. This no-op early-return is the safety guard that mirrors
+       syncCoachingStudentCount below — it prevents DUPLICATE, Inbox-less 7 AM reminders if the project ever
+       moves to Blaze and a broad `firebase deploy --only functions` reactivates this trigger. The original
+       implementation is preserved below for reference (unreachable). */
+    return null;
+    /* eslint-disable no-unreachable */
     const msg = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
 
     try {
