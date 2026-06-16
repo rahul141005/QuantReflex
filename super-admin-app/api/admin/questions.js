@@ -245,16 +245,22 @@ Example valid output:
         throw new Error('Generated content did not match the required schema.');
       }
 
-      // GPT cost telemetry — admin question generation uses gpt-4o ($2.50/1M in, $10.00/1M out)
+      // GPT cost telemetry — admin question generation uses gpt-4o. Rates mirror main-app/services/aiPricing.js
+      // (the canonical pricing source); this is the one cross-app spot that can't import it. Writes the SAME
+      // ai_daily_{date} shape as recordAiRequest (top-level totals + nested byFeature/byModel) so the AI Command
+      // Center's feature/model breakdown includes admin generation.
       try {
         if (data.usage) {
           const inc = admin.firestore.FieldValue.increment;
           const inT = data.usage.prompt_tokens || 0;
           const outT = data.usage.completion_tokens || 0;
-          const cost = (inT / 1000000) * 2.50 + (outT / 1000000) * 10.00;
+          const cost = (inT / 1000000) * 2.50 + (outT / 1000000) * 10.00;   // gpt-4o: $2.50/1M in, $10.00/1M out
           const dayKey = new Date().toISOString().split('T')[0];
+          const byFeature = { admin_questiongen: { requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost), errors: inc(0), cacheHits: inc(0), latSumMs: inc(0), latCount: inc(0) } };
+          const byModel = { 'gpt-4o': { requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost) } };
           await db.collection('systemMetrics').doc('ai_daily_' + dayKey).set({
             totalTokensInput: inc(inT), totalTokensOutput: inc(outT), estimatedCostUSD: inc(cost), gptCalls: inc(1),
+            requests: inc(1), byFeature: byFeature, byModel: byModel,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
         }

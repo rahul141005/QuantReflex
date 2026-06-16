@@ -257,6 +257,29 @@ var AdminUtils = (function () {
       (sub ? '<div class="stat-sub">' + escapeHtml(sub) + '</div>' : '') + '</div>';
   }
 
+  /**
+   * Inline-SVG sparkline (no charting lib). values = number[]; returns a small area+line chart as an SVG string.
+   * Width/height/color are optional. Safe for innerHTML (only numbers are interpolated).
+   */
+  function sparkline(values, opts) {
+    opts = opts || {};
+    var w = opts.width || 240, h = opts.height || 48, pad = 3;
+    var vals = (values || []).map(function (v) { return Number(v) || 0; });
+    if (vals.length < 2) return '<svg width="' + w + '" height="' + h + '" role="img" aria-label="trend"></svg>';
+    var max = Math.max.apply(null, vals), min = Math.min.apply(null, vals);
+    var span = (max - min) || 1, stepX = (w - pad * 2) / (vals.length - 1);
+    var pts = vals.map(function (v, i) {
+      var x = pad + i * stepX, y = h - pad - ((v - min) / span) * (h - pad * 2);
+      return (Math.round(x * 100) / 100) + ',' + (Math.round(y * 100) / 100);
+    });
+    var color = opts.color || 'var(--accent-ai, #6366f1)';
+    var area = 'M' + pad + ',' + (h - pad) + ' L' + pts.join(' L') + ' L' + (pad + (vals.length - 1) * stepX) + ',' + (h - pad) + ' Z';
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img" aria-label="trend">' +
+      '<path d="' + area + '" fill="' + color + '" opacity="0.12"/>' +
+      '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '</svg>';
+  }
+
   return {
     normalizeFirestoreDate: normalizeFirestoreDate,
     toMillis: toMillis,
@@ -267,6 +290,7 @@ var AdminUtils = (function () {
     downloadCsv: downloadCsv,
     entitlementState: entitlementState,
     emptyState: emptyState,
-    statTile: statTile
+    statTile: statTile,
+    sparkline: sparkline
   };
 })();

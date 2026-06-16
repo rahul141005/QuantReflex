@@ -35,9 +35,28 @@ module.exports = async function (req, res) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
   }
 
-  const result = { snapshot: false, coachingRollups: 0, flagged: 0, purged: 0 };
+  const result = { snapshot: false, coachingRollups: 0, flagged: 0, purged: 0, aiRequestsPruned: 0 };
   try {
     const db = admin.firestore();
+
+    /* (0) Prune the AI Command Center per-request log past its 30-day retention (expiresAt is epoch ms set at
+       write time). Bounded pages of 300 so a backlog drains over successive daily runs without blowing the
+       function window. Non-fatal. */
+    try {
+      const nowMs = Date.now();
+      for (let page = 0; page < 10; page++) {   // ≤3000 deletions/day; the rest drains tomorrow
+        const stale = await db.collection('aiRequests').where('expiresAt', '<', nowMs).limit(300).get();
+        if (stale.empty) break;
+        const batch = db.batch();
+        stale.forEach(function (d) { batch.delete(d.ref); });
+        await batch.commit();
+        result.aiRequestsPruned += stale.size;
+        if (stale.size < 300) break;
+      }
+    } catch (e) {
+      console.error('[cron/sweep] aiRequests prune failed:', e);
+      result.aiRequestsPruneError = e.message;
+    }
 
     /* (1) Daily metrics snapshot (non-fatal — cleanup still runs if it fails). */
     try {

@@ -45,7 +45,7 @@ var llmStub = {
     weaknessInsight: 'Geometry accuracy is dragging your score.', nextStepLabel: 'What first?'
   }, usage: { total_tokens: 10 } }); }
 };
-var aiServiceStub = { updateMemory: function () {}, trackGptCost: function () {}, trackGlobalAIUsage: function () { return Promise.resolve(); } };
+var aiServiceStub = { updateMemory: function () {}, trackGptCost: function () {}, recordAiRequest: function () {}, trackGlobalAIUsage: function () { return Promise.resolve(); } };
 
 // Intercept module loading (firebase-admin isn't installed in this repo; the deps live under main-app).
 var Module = require('module');

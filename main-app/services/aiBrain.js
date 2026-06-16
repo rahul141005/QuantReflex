@@ -43,6 +43,17 @@ function _examInsight(category, examName) {
   } catch (_) { return null; }
 }
 function _promptId(p) { return p.id + '@' + p.version; }
+/* Map a prompt id (e.g. 'coach.daily', 'wp.generate') → the Command-Center feature bucket for AI telemetry. */
+function _featOf(promptId) {
+  var id = String(promptId || '');
+  if (id.indexOf('coach') === 0) return 'coach';
+  if (id.indexOf('insights') === 0) return 'insights';
+  if (id.indexOf('explain') === 0) return 'explain';
+  if (id.indexOf('chat') === 0) return 'chat';
+  if (id.indexOf('planner') === 0) return 'planner';
+  if (id.indexOf('wp') === 0) return 'wordproblems';
+  return 'unknown';
+}
 function _dateKey() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function _hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) & 0x7fffffff; return h.toString(36); }
 
@@ -101,7 +112,7 @@ async function coachToday(uid, opts) {
   // ADR-049 + perf: serve the per-day envelope cache FIRST — BEFORE building the (expensive) profile + strategy —
   // so a normal re-open with no new activity returns in ~1 read, with no profile rebuild and no LLM call. The cache
   // is bypassed only when clientStats proves fresh activity (mirrors the profile's rule) or on an explicit refresh.
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) return cached; }
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'coach'); if (cached) { aiService.recordAiRequest(uid, { feature: 'coach', status: 'cache_hit', cacheHit: true }); return cached; } }
 
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile (no re-derivation)
@@ -125,12 +136,12 @@ async function coachToday(uid, opts) {
     var p = prompts.get('coach.daily', { context: contextStr, focusLabel: focus.label,
       planNote: examStrategy.serialize(strategy), brief: examStrategy.coachBrief(strategy), hasPlan: !!strategy, examName: _examOf(ctx), flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
-    aiService.trackGptCost(uid, r.usage);
+    aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
     env = _coachDashboard(ctx, focus, strategy, r.data, tier, opts, _promptId(p));
     aiService.updateMemory(uid, { timelineEntry: { feature: 'coach', summary: 'Prescribed ' + focus.label + (strategy ? ' (readiness ' + strategy.readinessScore + ')' : '') + '.' } }, 'coach');
     _maybeWriteWin(uid, ctx);
   } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
     env = _coachFallback(ctx, focus, strategy);
   }
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'coach', env);
@@ -272,7 +283,7 @@ async function insights(uid, opts) {
   opts = opts || {};
   // ADR-049 + perf: serve the per-day envelope cache FIRST (see coachToday) — a re-open with no new activity is
   // ~1 read, no profile rebuild, no LLM. Bypassed only when clientStats proves activity or on an explicit refresh.
-  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) return cached; }
+  if (!opts.force && !opts.clientStats) { var cached = await _getDaily(uid, 'insights'); if (cached) { aiService.recordAiRequest(uid, { feature: 'insights', status: 'cache_hit', cacheHit: true }); return cached; } }
 
   var ctx = await ctxEngine.build(uid, { force: !!opts.force, clientStats: opts.clientStats });
   var tier = ctx.tier;                       // ADR-053: from the one profile
@@ -292,12 +303,12 @@ async function insights(uid, opts) {
     var topDiscovery = (strategy && strategy.discoveries && strategy.discoveries[0]) ? strategy.discoveries[0].text : '';
     var p = prompts.get('insights.analyze', { context: ctxEngine.serialize(ctx), weakLabel: weak.label, examName: _examOf(ctx), planNote: examStrategy.serialize(strategy), discovery: topDiscovery, hasPlan: !!strategy, flagsNote: flagsNote });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
-    aiService.trackGptCost(uid, r.usage);
+    aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
     env = _insightsDashboard(ctx, weak, strategy, r.data, tier, opts, _promptId(p));
     var weakCats0 = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
     aiService.updateMemory(uid, { addWeakConcepts: weakCats0.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
     env = _insightsFallback(ctx, weak);
   }
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'insights', env);
@@ -433,7 +444,7 @@ async function explainBase(question, answer, category, uid) {
   var pieces = null;
   try {
     var cached = await cacheRef.get();
-    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); }
+    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); aiService.recordAiRequest(uid, { feature: 'explain', status: 'cache_hit', cacheHit: true }); }
   } catch (e) { console.warn('[aiBrain] explain cache read failed:', e.message); }
 
   if (!pieces) {
@@ -449,11 +460,11 @@ async function explainBase(question, answer, category, uid) {
       var p = prompts.get('explain.base', { question: llm.wrapData(question, 400), answer: String(answer).slice(0, 50), catLabel: catLabel, depth: depth, struggledBefore: !!struggledHint, examName: mem.examName || '', knownMistakes: knownMistakes, prereqLabel: prereqLabel, heavyPractice: heavyPractice });
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
-      aiService.trackGptCost(uid, r.usage);
+      aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
       pieces = r.data;
       cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistakes: pieces.mistakes, shortcut: pieces.shortcut, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
-      if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+      if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
       return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
         [chipReply('Retry', 'explain_retry'), chipDeep('Drill this topic', 'focus', category, catLabel, '⚡')], { fallback: true });
     }
@@ -543,7 +554,7 @@ async function chatTurn(uid, body) {
         userTurn: llm.wrapData(hint, 400), examName: _examOf(ctx)
       });
       var rf = await llm.complete({ system: pf.system, user: pf.user, schema: pf.schema, schemaName: pf.schemaName, maxTokens: pf.maxTokens, temperature: pf.temperature });
-      aiService.trackGptCost(uid, rf.usage);
+      aiService.recordAiRequest(uid, { feature: 'explain', promptId: pf.id, version: pf.version, usage: rf.usage, latencyMs: rf.latencyMs, model: rf.model, attempts: rf.attempts });
       var df = rf.data;
       var fb = [say(df.say)];
       if (Array.isArray(df.steps) && df.steps.length) fb.push(steps(df.steps));
@@ -553,7 +564,7 @@ async function chatTurn(uid, body) {
         chipDrill('Drill this', topic, catLabel, '⚡')
       ], { promptId: _promptId(pf), topic: topic });
     } catch (e) {
-      if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+      if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
       return envelope('explain', [callout('warn', 'I couldn\'t expand on that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
     }
   }
@@ -562,7 +573,7 @@ async function chatTurn(uid, body) {
   try {
     var p = prompts.get('chat.turn', { topic: catLabel, context: ctxEngine.serialize(ctx, 700), history: llm.wrapData(history, 900), userTurn: llm.wrapData(hint, 400), examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
-    aiService.trackGptCost(uid, r.usage);
+    aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
     var d = r.data;
     var blocks = [say(d.say)];
     if (Array.isArray(d.steps) && d.steps.length) blocks.push(steps(d.steps));
@@ -571,7 +582,7 @@ async function chatTurn(uid, body) {
       : [chipReply('Got it ✓', 'helpful_yes')];
     return envelope(feature, blocks, chips, { promptId: _promptId(p), topic: topic });
   } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
     return envelope(feature, [callout('warn', 'I couldn\'t answer that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
   }
 }
@@ -676,10 +687,10 @@ async function _narratePlan(uid, ctx, seed) {
   try {
     var p = prompts.get('planner.narrate', { seed: llm.wrapData(JSON.stringify(seed), 700), examName: seed.examName || _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature });
-    aiService.trackGptCost(uid, r.usage);
+    aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
     return { rationale: r.data.rationale || fallback.rationale, encouragement: r.data.encouragement || fallback.encouragement };
   } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
     return fallback;
   }
 }
@@ -875,10 +886,10 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
   try {
     var p = prompts.get('wp.generate', { topicLabel: topicLabel, difficulty: difficulty || 'medium', examName: _examOf(ctx) });
     var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
-    aiService.trackGptCost(uid, r.usage);
+    aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
     return { problem: { question: r.data.question, answer: r.data.answer, options: r.data.options, explanation: r.data.explanation, category: target } };
   } catch (e) {
-    if (e && e.usage) aiService.trackGptCost(uid, e.usage);
+    if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
     // ADR-062: generation failed → refund the quota unit we consumed up-front so the student isn't charged.
     try { await aiService.refundWordProblemQuota(uid, isPremium, 1); } catch (_) {}
     return { error: 'generation_failed' };

@@ -205,6 +205,12 @@ var API = (function () {
   function getAiBudget() { return _fetch('/api/admin/ai?action=budget'); }
   function setAiBudget(cfg) { return _fetch('/api/admin/ai?action=budget', { method: 'POST', body: JSON.stringify(cfg) }); }
 
+  /* ---- AI Command Center (telemetry rollups, credits, OpenAI reconciliation) ---- */
+  function getAiCommand(days) { return _fetch('/api/admin/ai?action=command&days=' + (days || 30)); }
+  function getAiCredits() { return _fetch('/api/admin/ai?action=credits'); }
+  function setAiCredits(startingBalanceUSD) { return _fetch('/api/admin/ai?action=credits', { method: 'POST', body: JSON.stringify({ startingBalanceUSD: startingBalanceUSD }) }); }
+  function getOpenAiUsage(days) { return _fetch('/api/admin/ai?action=openai-usage&days=' + (days || 30)); }
+
   /* ---- Export + Alerts (Phase 4) ---- */
   function exportData(type, params) {
     var qs = '?action=export&type=' + encodeURIComponent(type);
@@ -261,6 +267,10 @@ var API = (function () {
     bulkArchiveInactive: function (uids) { return bulkInactive('bulk-archive', uids); },
     bulkRemindInactive: function (uids) { return bulkInactive('bulk-remind', uids); },
     getAiBudget: getAiBudget,
+    getAiCommand: getAiCommand,
+    getAiCredits: getAiCredits,
+    setAiCredits: setAiCredits,
+    getOpenAiUsage: getOpenAiUsage,
     setAiBudget: setAiBudget,
     exportData: exportData,
     getInactiveExport: getInactiveExport,

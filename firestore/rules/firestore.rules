@@ -391,6 +391,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // AI Command Center telemetry (Phase 1): per-request AI log + telemetry/credits config are server-only.
+    // Written by the Admin SDK (which bypasses rules); read only by the super-admin server endpoints (also Admin
+    // SDK). Clients can NEVER read or write them — they may carry per-user cost/usage. (config/aiTelemetry,
+    // config/aiCredits and config/aiBudget are already locked by default-deny since they have no client rule.)
+    match /aiRequests/{requestId} {
+      allow read, write: if false;
+    }
+
     // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════

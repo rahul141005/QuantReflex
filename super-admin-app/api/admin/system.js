@@ -161,6 +161,31 @@ async function handler(req, res) {
       if (usedPct >= 100) alerts.push({ severity: 'critical', type: 'ai_budget', message: 'AI budget EXCEEDED — $' + mtd.toFixed(2) + ' of $' + budget + ' (' + usedPct.toFixed(0) + '%).' });
       else if (usedPct >= cfg.critPct) alerts.push({ severity: 'critical', type: 'ai_budget', message: 'AI spend at ' + usedPct.toFixed(0) + '% of budget (critical ' + cfg.critPct + '%).' });
       else if (usedPct >= cfg.warnPct) alerts.push({ severity: 'warning', type: 'ai_budget', message: 'AI spend at ' + usedPct.toFixed(0) + '% of budget (warning ' + cfg.warnPct + '%).' });
+      /* AI Command Center telemetry alerts — today's health + estimated credit runway (best-effort). */
+      try {
+        const todayKey = nowD.toISOString().split('T')[0];
+        const tSnap = await db.collection('systemMetrics').doc('ai_daily_' + todayKey).get();
+        const t = tSnap.exists ? tSnap.data() : {};
+        const calls = Number(t.gptCalls || 0), errs = Number(t.errors || 0);
+        const errRate = calls > 0 ? (errs / calls) * 100 : 0;
+        if (calls >= 20 && errRate >= 10) alerts.push({ severity: 'critical', type: 'ai_errors', message: 'AI error rate ' + errRate.toFixed(0) + '% today (' + errs + '/' + calls + ' calls) — check OpenAI/model health.' });
+        const avgLat = t.latCount ? (t.latSumMs / t.latCount) : 0;
+        if (t.latCount >= 20 && avgLat >= 6000) alerts.push({ severity: 'warning', type: 'ai_latency', message: 'AI average latency ' + (avgLat / 1000).toFixed(1) + 's today — slower than usual.' });
+        if (budget > 0 && Number(t.estimatedCostUSD || 0) > (budget / 30) * 2) alerts.push({ severity: 'warning', type: 'ai_cost_spike', message: 'AI spend today ($' + Number(t.estimatedCostUSD).toFixed(2) + ') is >2× the daily budget pace.' });
+        const credSnap = await db.collection('config').doc('aiCredits').get();
+        if (credSnap.exists) {
+          const cr = credSnap.data() || {};
+          const starting = Number(cr.startingBalanceUSD || 0);
+          if (starting > 0 && cr.setAt) {
+            const setDay = String(cr.setAt).split('T')[0];
+            const spentSnap = await db.collection('systemMetrics').where(admin.firestore.FieldPath.documentId(), '>=', 'ai_daily_' + setDay).where(admin.firestore.FieldPath.documentId(), '<', 'ai_daily_').get();
+            let spent = 0; spentSnap.forEach(d => { if (d.id.indexOf('ai_daily_') === 0) spent += Number(d.data().estimatedCostUSD || 0); });
+            const remaining = starting - spent;
+            if (remaining <= 0) alerts.push({ severity: 'critical', type: 'ai_credits', message: 'Estimated OpenAI balance exhausted ($' + remaining.toFixed(2) + '). Top up and update the starting balance.' });
+            else if (remaining < starting * 0.1 || remaining < 5) alerts.push({ severity: 'warning', type: 'ai_credits', message: 'Estimated OpenAI balance low: $' + remaining.toFixed(2) + ' remaining.' });
+          }
+        }
+      } catch (_) { /* AI telemetry alerts are best-effort */ }
       /* Expired-but-unswept premium via count() aggregation (ADR-023) — accurate at any scale,
          needs the (plan, planExpiry) index; degrades to 0 if the index isn't live yet. */
       let expired = 0;

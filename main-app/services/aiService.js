@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const admin = require('firebase-admin');
+const pricing = require('./aiPricing');   // SINGLE source of truth for model pricing + cost math
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -285,41 +286,98 @@ async function trackGlobalAIUsage(metricName, count) {
   }
 }
 
+/* AI telemetry (Command Center, Phase 1) — config/aiTelemetry.logRequests gates the per-request log; 60s cache. */
+var _telemetryFlag = { exp: 0, logRequests: true };
+async function _shouldLogRequests() {
+  var now = Date.now();
+  if (_telemetryFlag.exp > now) return _telemetryFlag.logRequests;
+  var on = true;
+  try { var c = await db.collection('config').doc('aiTelemetry').get(); if (c.exists && c.data().logRequests === false) on = false; }
+  catch (_) { on = true; }
+  _telemetryFlag = { exp: now + 60000, logRequests: on };
+  return on;
+}
+
 /**
- * Persist real GPT token usage + estimated cost on every OpenAI call (Super Admin Phase 1).
- * Increments per-user `users/{uid}/usage/ai` (gpt*) and global `systemMetrics/ai_daily_{date}`.
- * Never throws — telemetry must never break generation.
- * @param {string|null} uid   end-user uid (null/omitted → global rollup only)
- * @param {{prompt_tokens:number, completion_tokens:number}} usage  the OpenAI `completion.usage`
- * @param {{in:number,out:number}} [rates]  USD per 1M tokens (default gpt-4o-mini 0.15/0.60)
+ * Record ONE AI request to the unified telemetry (AI Command Center). The single sink for cost/token/latency/cache/
+ * error accounting — every LLM call (and every cache hit) flows through here. Never throws; telemetry must never
+ * break generation. Cost is derived from aiPricing (the one pricing source).
+ *
+ * @param {string|null} uid
+ * @param {{feature, promptId?, version?, model?, usage?:{prompt_tokens,completion_tokens}, latencyMs?, attempts?,
+ *          status?:'ok'|'error'|'cache_hit', cacheHit?:boolean, errorCode?}} opts
+ *
+ * Writes: (a) global `systemMetrics/ai_daily_{date}` — legacy top-level totals (back-compat) PLUS nested
+ * byFeature/byModel + latency/error/cache counters (all via FieldValue.increment, deep-merged, no scans);
+ * (b) per-user `users/{uid}/usage/ai` (only on real billable token usage); (c) one bounded `aiRequests` doc.
  */
-async function trackGptCost(uid, usage, rates) {
+async function recordAiRequest(uid, opts) {
   try {
-    if (!usage) return;
-    rates = rates || { in: 0.15, out: 0.60 };
+    opts = opts || {};
+    var feature = String(opts.feature || 'unknown').slice(0, 24);
+    var model = opts.model || pricing.DEFAULT_MODEL;
+    var usage = opts.usage || {};
     var inT = usage.prompt_tokens || 0;
     var outT = usage.completion_tokens || 0;
-    var cost = (inT / 1000000) * rates.in + (outT / 1000000) * rates.out;
+    var cost = pricing.costOf(model, inT, outT);
+    var status = opts.status || 'ok';
+    var cacheHit = !!opts.cacheHit;
+    var isError = status === 'error';
+    var lat = Number(opts.latencyMs) || 0;
     var inc = admin.firestore.FieldValue.increment;
     var today = new Date().toISOString().split('T')[0];
+
+    // (a) GLOBAL daily rollup. gptCalls = billable LLM attempts (ok+error, NOT cache) — preserves legacy meaning;
+    //     requests = ALL telemetry events; nested byFeature/byModel use deep-merged nested increments.
+    var byFeature = {}; byFeature[feature] = {
+      requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost),
+      errors: inc(isError ? 1 : 0), cacheHits: inc(cacheHit ? 1 : 0), latSumMs: inc(lat), latCount: inc(lat > 0 ? 1 : 0)
+    };
+    var byModel = {}; byModel[model] = { requests: inc(1), inTok: inc(inT), outTok: inc(outT), costUSD: inc(cost) };
     await db.collection('systemMetrics').doc('ai_daily_' + today).set({
-      totalTokensInput: inc(inT),
-      totalTokensOutput: inc(outT),
-      estimatedCostUSD: inc(cost),
-      gptCalls: inc(1),
+      totalTokensInput: inc(inT), totalTokensOutput: inc(outT), estimatedCostUSD: inc(cost),
+      gptCalls: inc(cacheHit ? 0 : 1), requests: inc(1), errors: inc(isError ? 1 : 0), cacheHits: inc(cacheHit ? 1 : 0),
+      latSumMs: inc(lat), latCount: inc(lat > 0 ? 1 : 0),
+      byFeature: byFeature, byModel: byModel,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    if (uid) {
+
+    // (b) PER-USER counters — only on real billable token usage (cache hits carry 0 tokens → skip).
+    if (uid && (inT > 0 || outT > 0)) {
       await db.collection('users').doc(uid).collection('usage').doc('ai').set({
-        gptTokensInput: inc(inT),
-        gptTokensOutput: inc(outT),
-        gptCostUSD: inc(cost),
-        gptCalls: inc(1)
+        gptTokensInput: inc(inT), gptTokensOutput: inc(outT), gptCostUSD: inc(cost), gptCalls: inc(1)
       }, { merge: true });
     }
+
+    // (c) PER-REQUEST log (Phase-3 Explorer data, captured now) — bounded; the daily cron prunes >30d via expiresAt.
+    if (await _shouldLogRequests()) {
+      await db.collection('aiRequests').add({
+        ts: admin.firestore.FieldValue.serverTimestamp(),
+        uid: uid || null, feature: feature, model: model,
+        promptId: opts.promptId || null, version: (opts.version != null ? opts.version : null),
+        inTokens: inT, outTokens: outT, costUSD: cost, latencyMs: lat,
+        status: status, cacheHit: cacheHit, retries: Math.max(0, (Number(opts.attempts) || 1) - 1),
+        errorCode: opts.errorCode || null,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+      });
+    }
   } catch (err) {
-    console.warn('[aiService:trackGptCost] write failed:', err.message);
+    console.warn('[aiService:recordAiRequest] telemetry write failed:', err.message);
   }
+}
+
+/**
+ * Back-compat shim — prefer recordAiRequest(). Kept so any straggler caller keeps accounting correctly.
+ * `rates` is ignored: pricing is centralized in aiPricing. Records as feature 'unknown', default model.
+ */
+async function trackGptCost(uid, usage, opts) {
+  if (!usage) return;
+  var o = (opts && typeof opts === 'object' && (opts.feature || opts.model)) ? opts : {};
+  return recordAiRequest(uid, {
+    feature: o.feature || 'unknown', model: o.model || pricing.DEFAULT_MODEL, usage: usage,
+    latencyMs: o.latencyMs, attempts: o.attempts, status: o.status || 'ok',
+    cacheHit: o.cacheHit, promptId: o.promptId, version: o.version, errorCode: o.errorCode
+  });
 }
 
 /**
@@ -542,4 +600,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

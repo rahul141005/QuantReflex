@@ -10,6 +10,7 @@ var AIAnalyticsView = (function () {
   'use strict';
 
   var _data = [], _flagged = 0, _budget = null, _kill = null, _truncated = false;
+  var _cmd = null, _credits = null, _openai = null, _days = 30;
 
   function _esc(s) { return AdminUtils.escapeHtml(s); }
   function _cost(u) { return parseFloat(u.totalEstimatedCost) || 0; }
@@ -19,7 +20,7 @@ var AIAnalyticsView = (function () {
     if (!c) return;
     c.innerHTML =
       '<div class="view-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;">' +
-        '<div><h2 class="view-title">AI Cost Center</h2><p class="view-subtitle">GPT spend, feature economics, top consumers, and abuse. All $ figures are token-based <strong>estimates</strong> — reconcile against the OpenAI invoice.</p></div>' +
+        '<div><h2 class="view-title">AI Command Center</h2><p class="view-subtitle">Live spend, tokens, latency, cache, feature &amp; model economics, top consumers, and abuse — from tracked telemetry. $ figures are token-based <strong>estimates</strong> (single pricing source: aiPricing). Reconcile against OpenAI.</p></div>' +
         '<button class="btn btn-sm btn-outline" id="aiRefresh">Refresh</button></div>' +
       '<div id="aiBody"><div class="loading">Calculating operational AI costs…</div></div>';
     var b = document.getElementById('aiRefresh'); if (b) b.onclick = _load;
@@ -31,13 +32,17 @@ var AIAnalyticsView = (function () {
     Promise.all([
       API.getAIUsage(),
       API.getAiBudget().catch(function () { return null; }),
-      API.getEmergencyConfig().catch(function () { return null; })
+      API.getEmergencyConfig().catch(function () { return null; }),
+      API.getAiCommand(_days).catch(function () { return null; }),
+      API.getAiCredits().catch(function () { return null; }),
+      API.getOpenAiUsage(_days).catch(function () { return null; })
     ]).then(function (r) {
       _data = (r[0] && r[0].analytics) || [];
       _flagged = (r[0] && r[0].flaggedCount) || 0;
       _budget = r[1];
       _kill = (r[2] && r[2].config && r[2].config.aiKillSwitch) || null;
       _truncated = !!(r[0] && r[0].truncated);
+      _cmd = r[3]; _credits = r[4]; _openai = r[5];
       _mount();
     }).catch(function (e) {
       var body = document.getElementById('aiBody');
@@ -66,40 +71,126 @@ var AIAnalyticsView = (function () {
     return AdminUtils.statTile(label, value, sub, color);
   }
 
+  function _money(v) { return '$' + (Number(v) || 0).toFixed(2); }
+  function _money4(v) { return '$' + (Number(v) || 0).toFixed(4); }
+  function _num(v) { return (Number(v) || 0).toLocaleString(); }
+  function _ms(v) { v = Number(v) || 0; return v >= 1000 ? (v / 1000).toFixed(2) + 's' : Math.round(v) + 'ms'; }
+  var FEAT_LABEL = { coach: 'AI Coach', insights: 'Insights', explain: 'Explanations', chat: 'Chat', planner: 'Planner', wordproblems: 'Word Problems', admin_questiongen: 'Admin Q-Gen', unknown: 'Other' };
+
   function _tabOverview(el) {
-    var lifetimeCost = 0, lifetimeTokens = 0, totalWP = 0, totalExp = 0;
-    _data.forEach(function (u) { lifetimeCost += _cost(u); lifetimeTokens += (u.totalEstimatedTokens || 0); totalWP += (u.totalWP || 0); totalExp += (u.totalExp || 0); });
-    /* Feature economics — same heuristic the backend uses for fallback estimation (ADR-015). */
-    var COST_PER_TOKEN = 0.375 / 1000000;
-    var wpCost = totalWP * 1400 * COST_PER_TOKEN;
-    var expCost = totalExp * 700 * COST_PER_TOKEN;
-    var mtd = (_budget && _budget.monthToDate && _budget.monthToDate.costUSD) || 0;
+    if (!_cmd || !_cmd.kpis) {
+      // Telemetry rollups unavailable (e.g. before the first AI call after deploy) — show the legacy lifetime view.
+      var lc = 0; _data.forEach(function (u) { lc += _cost(u); });
+      el.innerHTML = '<div class="card" style="padding:1rem;margin-bottom:1rem;"><div class="cc-section-title">Overview</div>' +
+        '<div class="muted">Telemetry rollups are not available yet — they populate as AI requests flow through the new pipeline. Lifetime tracked spend so far: <strong>' + _money(lc) + '</strong> across ' + _data.length + ' consumers.</div></div>' +
+        '<div id="aiBudgetPanel"></div>';
+      _renderBudget(document.getElementById('aiBudgetPanel'), _budget);
+      return;
+    }
+    var k = _cmd.kpis;
+    var healthColor = k.healthScore >= 80 ? 'var(--success-primary)' : k.healthScore >= 55 ? 'var(--warn-primary)' : 'var(--danger-hover)';
 
-    var killBadge = _kill && _kill.enabled
-      ? '<span class="badge badge-archived">AI KILL-SWITCH ON</span>'
-      : '<span class="badge badge-active">AI online</span>';
-
-    var html = '<div class="stat-grid" style="margin-bottom:1.25rem;">' +
-      _tile('Spend (MTD)', '$' + Number(mtd).toFixed(2), (_budget && _budget.config ? 'of $' + _budget.config.monthlyBudgetUSD + ' budget' : 'budget n/a'), 'var(--accent-ai)') +
-      _tile('Lifetime spend', '$' + lifetimeCost.toFixed(2), lifetimeTokens.toLocaleString() + ' tokens', 'var(--text-strong)') +
-      _tile('AI consumers', _data.length, '', 'var(--accent-primary)') +
-      _tile('Flagged (abuse)', _flagged, '', _flagged > 0 ? 'var(--danger-hover)' : 'var(--success-primary)') +
+    // ── KPI grid ──
+    var html = '<div class="stat-grid" style="margin-bottom:1.1rem;">' +
+      _tile('Spend today', _money(k.costToday), 'yesterday ' + _money(k.costYesterday), 'var(--accent-ai)') +
+      _tile('Spend 7d', _money(k.cost7d), 'burn ' + _money4(k.burnRatePerDayUSD) + '/day', 'var(--accent-ai)') +
+      _tile('Spend 30d', _money(k.cost30d), 'projected ' + _money(k.projectedMonthlyUSD) + '/mo', 'var(--accent-ai)') +
+      _tile('Lifetime spend', _money(k.lifetimeCost), _num(k.lifetimeRequests) + ' requests', 'var(--text-strong)') +
+      _tile('AI health', k.healthScore + '/100', 'success ' + k.successRate + '% · cache ' + k.cacheHitRate + '%', healthColor) +
+      _tile('Avg latency', _ms(k.avgLatencyMs), 'over ' + _num(k.totalRequests) + ' reqs (' + _cmd.days + 'd)', 'var(--accent-primary)') +
+      _tile('Avg cost / call', _money4(k.avgCostPerRequestUSD), _num(k.billableCalls) + ' billable calls', 'var(--text-strong)') +
+      _tile('Tokens (' + _cmd.days + 'd)', _num(k.totalTokens), _num(k.inputTokens) + ' in · ' + _num(k.outputTokens) + ' out', 'var(--text-strong)') +
+      _tile('Error rate', k.errorRate + '%', _num(k.errors) + ' errors', k.errorRate > 2 ? 'var(--danger-hover)' : 'var(--success-primary)') +
+      _tile('Cache hit rate', k.cacheHitRate + '%', _num(k.cacheHits) + ' hits', 'var(--success-primary)') +
     '</div>';
 
-    /* Kill-switch visibility (toggle lives on the Command Center). */
-    html += '<div class="card" style="padding:1rem;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">' +
+    // ── Credits + spend trend (two columns) ──
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-bottom:1.1rem;">';
+    html += _creditsCard();
+    var series = (_cmd.series || []).map(function (p) { return p.cost; });
+    html += '<div class="card" style="padding:1rem;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;"><div class="cc-section-title" style="margin:0;">Daily spend (' + _cmd.days + 'd)</div><span class="muted" style="font-size:.78rem;">peak ' + _money(Math.max.apply(null, series.length ? series : [0])) + '</span></div>' +
+      (series.length > 1 ? AdminUtils.sparkline(series, { width: 320, height: 56, color: 'var(--accent-ai)' }) : '<div class="muted">Not enough days of data yet.</div>') + '</div>';
+    html += '</div>';
+
+    // ── Kill-switch + budget ──
+    var killBadge = _kill && _kill.enabled ? '<span class="badge badge-archived">AI KILL-SWITCH ON</span>' : '<span class="badge badge-active">AI online</span>';
+    html += '<div class="card" style="padding:1rem;margin-bottom:1.1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">' +
       '<div><strong>AI kill switch</strong> ' + killBadge + (_kill && _kill.updatedBy ? '<div class="muted" style="font-size:.78rem;">last by ' + _esc(_kill.updatedBy) + '</div>' : '') + '</div>' +
       '<button class="btn btn-sm btn-outline" onclick="window.location.hash=\'#command-center\';">Manage in Command Center</button></div>';
-
     html += '<div id="aiBudgetPanel"></div>';
 
-    html += '<div class="card" style="padding:1rem;"><div class="cc-section-title">Feature economics (estimated)</div>' +
-      '<div class="cc-feed-row"><span>Word Problems</span><span>' + totalWP + ' calls · $' + wpCost.toFixed(2) + '</span></div>' +
-      '<div class="cc-feed-row"><span>Explanations</span><span>' + totalExp + ' calls · $' + expCost.toFixed(2) + '</span></div>' +
-      '</div>';
+    // ── By feature ──
+    html += '<div class="card" style="padding:1rem;margin-bottom:1.1rem;"><div class="cc-section-title">By feature (' + _cmd.days + 'd)' +
+      (k.topFeature ? ' <span class="muted" style="font-weight:400;">· priciest: ' + _esc(FEAT_LABEL[k.topFeature] || k.topFeature) + '</span>' : '') + '</div>' + _breakdownTable(_cmd.byFeature, true) + '</div>';
+    // ── By model ──
+    html += '<div class="card" style="padding:1rem;margin-bottom:1.1rem;"><div class="cc-section-title">By model (' + _cmd.days + 'd)</div>' + _breakdownTable(_cmd.byModel, false) + '</div>';
+
+    // ── OpenAI reconciliation ──
+    html += _openaiCard(k);
 
     el.innerHTML = html;
     _renderBudget(document.getElementById('aiBudgetPanel'), _budget);
+    var setBtn = document.getElementById('aiCreditsBtn'); if (setBtn) setBtn.onclick = _showCreditsModal;
+  }
+
+  function _breakdownTable(map, isFeature) {
+    map = map || {};
+    var keys = Object.keys(map).sort(function (a, b) { return (map[b].costUSD || 0) - (map[a].costUSD || 0); });
+    if (!keys.length) return '<div class="muted">No usage in this window yet.</div>';
+    var rows = keys.map(function (key) {
+      var m = map[key], lat = m.latCount ? Math.round(m.latSumMs / m.latCount) : null;
+      var label = isFeature ? (FEAT_LABEL[key] || key) : key;
+      return '<tr><td>' + _esc(label) + '</td><td style="text-align:right;">' + _num(m.requests) + '</td>' +
+        '<td style="text-align:right;">' + _num((m.inTok || 0) + (m.outTok || 0)) + '</td>' +
+        '<td style="text-align:right;font-weight:700;color:var(--accent-ai);">' + _money4(m.costUSD) + '</td>' +
+        (isFeature ? '<td style="text-align:right;">' + (lat != null ? _ms(lat) : '—') + '</td><td style="text-align:right;">' + _num(m.cacheHits || 0) + '</td><td style="text-align:right;">' + _num(m.errors || 0) + '</td>' : '') + '</tr>';
+    }).join('');
+    var head = isFeature
+      ? '<tr><th>Feature</th><th style="text-align:right;">Requests</th><th style="text-align:right;">Tokens</th><th style="text-align:right;">Cost</th><th style="text-align:right;">Avg lat</th><th style="text-align:right;">Cache</th><th style="text-align:right;">Errors</th></tr>'
+      : '<tr><th>Model</th><th style="text-align:right;">Requests</th><th style="text-align:right;">Tokens</th><th style="text-align:right;">Cost</th></tr>';
+    return '<table class="data-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function _creditsCard() {
+    var c = _credits || {};
+    var rem = Number(c.estimatedRemainingUSD || 0);
+    var remColor = rem <= 0 ? 'var(--danger-hover)' : rem < 10 ? 'var(--warn-primary)' : 'var(--success-primary)';
+    return '<div class="card" style="padding:1rem;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;"><div class="cc-section-title" style="margin:0;">OpenAI credits</div>' +
+      '<button class="btn btn-sm btn-outline" id="aiCreditsBtn">Set balance</button></div>' +
+      '<div style="font-size:1.6rem;font-weight:800;color:' + remColor + ';">' + _money(rem) + '<span style="font-size:.8rem;font-weight:500;color:var(--text-secondary);"> est. remaining</span></div>' +
+      '<div class="muted" style="font-size:.8rem;margin-top:.25rem;">Starting ' + _money(c.startingBalanceUSD || 0) + (c.setAt ? ' (set ' + _esc(String(c.setAt).split('T')[0]) + ')' : '') + ' − tracked spend ' + _money(c.spentSinceUSD || 0) + '</div>' +
+      '<div class="muted" style="font-size:.72rem;margin-top:.35rem;">Estimate — OpenAI has no balance API. <a href="' + (c.billingUrl || 'https://platform.openai.com/usage') + '" target="_blank" rel="noopener">Verify on OpenAI ↗</a></div></div>';
+  }
+
+  function _openaiCard(k) {
+    var o = _openai || {};
+    var inner;
+    if (!o.configured) {
+      inner = '<div class="muted">Not connected. Set <code>OPENAI_ADMIN_KEY</code> (an OpenAI <em>org admin</em> key) to pull official usage/cost for reconciliation. Tracked estimates are shown above meanwhile.</div>';
+    } else if (o.ok === false) {
+      inner = '<div class="muted">Connected, but the OpenAI usage call failed: ' + _esc(o.error || 'unknown') + '.</div>';
+    } else {
+      var tracked = Number(k.cost30d || 0), actual = Number(o.totalUSD || 0);
+      var deltaPct = actual > 0 ? Math.round(((tracked - actual) / actual) * 100) : 0;
+      inner = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;">' +
+        '<div><div class="muted" style="font-size:.78rem;">OpenAI actual (' + (o.days || 30) + 'd)</div><strong style="font-size:1.1rem;">' + _money(actual) + '</strong></div>' +
+        '<div><div class="muted" style="font-size:.78rem;">Tracked estimate (30d)</div><strong style="font-size:1.1rem;">' + _money(tracked) + '</strong></div>' +
+        '<div><div class="muted" style="font-size:.78rem;">Delta</div><strong style="font-size:1.1rem;color:' + (Math.abs(deltaPct) <= 10 ? 'var(--success-primary)' : 'var(--warn-primary)') + ';">' + (deltaPct >= 0 ? '+' : '') + deltaPct + '%</strong></div></div>';
+    }
+    return '<div class="card" style="padding:1rem;margin-bottom:1.1rem;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;"><div class="cc-section-title" style="margin:0;">OpenAI reconciliation</div>' +
+      '<a class="btn btn-sm btn-outline" href="' + ((o && o.billingUrl) || 'https://platform.openai.com/usage') + '" target="_blank" rel="noopener">Open OpenAI usage ↗</a></div>' + inner + '</div>';
+  }
+
+  function _showCreditsModal() {
+    var cur = (_credits && _credits.startingBalanceUSD) || 0;
+    Modal.show({ title: 'Set OpenAI starting balance', body: '<div class="modal-field"><label class="modal-label">Current balance (USD) — enter this whenever you top up</label><input type="number" class="modal-input" id="aiCredBal" value="' + cur + '" min="0" step="0.01" /></div><div class="muted" style="font-size:.78rem;">Remaining is then estimated as this balance minus spend tracked from now on.</div>',
+      actions: [{ label: 'Cancel' }, { label: 'Save', accent: true, autoClose: false, onClick: function (btn) {
+        btn.disabled = true; btn.textContent = 'Saving…';
+        API.setAiCredits(parseFloat((document.getElementById('aiCredBal') || {}).value) || 0)
+          .then(function () { Toast.success('Starting balance set.'); Modal.close(); _load(); })
+          .catch(function (e) { btn.disabled = false; btn.textContent = 'Save'; Toast.error(AdminUtils.getReadableError(e)); });
+      } }] });
   }
 
   function _row(u) {
