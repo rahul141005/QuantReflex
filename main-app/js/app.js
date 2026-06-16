@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function () {
       _hideAppLoader();
       Onboarding.show(function () {
         setAppState('app');
-        if (typeof Router !== 'undefined') Router.showView('learn');
+        if (typeof Router !== 'undefined') Router.showView('home');
       });
     } else {
       setAppState('app');
