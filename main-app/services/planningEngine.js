@@ -250,6 +250,12 @@ function _milestones(rows, byId, daysToExam, signals) {
   function add(key, name, kind, members, section, objective, why) {
     members = members.filter(function (r) { return !assigned[r.id]; });
     if (!members.length) return;
+    // Book mode (ADR rebuild): within learning/revision milestones, sequence topics in the canonical book order
+    // (R.S. Aggarwal) so the plan tracks how students study offline. Recovery keeps its regression-driven order.
+    if (kind !== 'recovery') members = members.slice().sort(function (a, b) {
+      var ao = (a.t && a.t.bookOrder != null) ? a.t.bookOrder : 999, bo = (b.t && b.t.bookOrder != null) ? b.t.bookOrder : 999;
+      return ao - bo;
+    });
     members.forEach(function (r) { assigned[r.id] = 1; });
     milestones.push({ id: 'm' + (seq++), key: key, name: name, kind: kind, section: section || null,
       objective: objective || '', why: why || '',

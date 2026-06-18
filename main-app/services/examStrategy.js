@@ -178,7 +178,7 @@ var _READINESS_LABELS = {
 };
 function _readinessBreakdown(full) {
   if (!full || !full.parts) return null;
-  var W = readiness.WEIGHTS || {};
+  var W = (full && full.weights) || readiness.WEIGHTS || {};
   var rows = Object.keys(full.parts).map(function (k) {
     var v = Number(full.parts[k]) || 0;
     return { key: k, label: _READINESS_LABELS[k] || k, pct: Math.round(v * 100), deficit: (W[k] || 0) * (1 - v) };

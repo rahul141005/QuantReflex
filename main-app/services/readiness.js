@@ -50,8 +50,30 @@ function readinessMap(syllabus, ctx, topicState) {
  * or neutral fallback so the result is ALWAYS a real number (requirement: never expose "no data").
  * @param {object} blockStats optional {revisionsDue, revisionsOnTime, scheduledTasks, completedTasks}
  */
+// Default (balanced) factor weights — sum to 1.0 so the composite tops out at 100.
 var W = { coverage: 0.28, accuracy: 0.22, speed: 0.12, consistency: 0.14, improvement: 0.10, revision: 0.08, adherence: 0.06 };
+// Speed-critical exams (no calculator + very tight per-question time: Banking, SSC Tier-1, MAH CET, SNAP):
+// fast mental calculation genuinely decides rank, so speed is weighted far above the flat default.
+var W_SPEED = { coverage: 0.24, accuracy: 0.20, speed: 0.22, consistency: 0.14, improvement: 0.08, revision: 0.06, adherence: 0.06 };
+// Concept-leaning exams (on-screen calculator or generous pace: CAT, CMAT, XAT): coverage/accuracy matter more;
+// raw mental-calc speed is a minor signal.
+var W_CONCEPT = { coverage: 0.30, accuracy: 0.24, speed: 0.08, consistency: 0.14, improvement: 0.10, revision: 0.08, adherence: 0.06 };
+
+/** Pick the readiness weight profile from an exam's verified mechanics (ADR rebuild): speed weight is no longer a
+ *  flat 12% — it scales with how much fast, no-calculator calculation actually drives the exam. Falls back to the
+ *  balanced default when an exam has no pattern metadata (e.g. Foundation). */
+function weightsFor(syllabus) {
+  var p = syllabus && syllabus.pattern;
+  if (p && p.quantQ && p.quantMin) {
+    var secPerQ = (p.quantMin * 60) / p.quantQ;
+    if (p.calc !== 'onscreen' && secPerQ <= 65) return W_SPEED;       // Banking / SSC-T1 / MAH CET / SNAP
+    if (p.calc === 'onscreen' || secPerQ >= 100) return W_CONCEPT;     // CAT / CMAT (calculator or slow pace)
+  }
+  return W;                                                            // balanced default
+}
+
 function examReadinessScore(syllabus, ctx, topicState, blockStats) {
+  var W = weightsFor(syllabus);   // tier/mechanics-aware weights (shadows the module default intentionally)
   blockStats = blockStats || {};
   var impSum = 0, covAcc = 0, accAcc = 0;
   syllabus.topics.forEach(function (t) {
@@ -84,6 +106,7 @@ function examReadinessScore(syllabus, ctx, topicState, blockStats) {
   return {
     score: Math.round(clamp(score, 0, 100)),
     band: score >= 75 ? 'exam-ready' : score >= 55 ? 'on-track' : score >= 35 ? 'building' : 'early',
+    weights: W,   // the actual profile used (so the readiness breakdown stays honest about what mattered)
     parts: {
       coverage: _round(coverageScore, 3), accuracy: _round(accuracyScore, 3), speed: _round(speedScore, 3),
       consistency: _round(consistencyScore, 3), improvement: _round(improvementScore, 3),
@@ -160,6 +183,7 @@ module.exports = {
   readinessForTopic: readinessForTopic,
   readinessMap: readinessMap,
   examReadinessScore: examReadinessScore,
+  weightsFor: weightsFor,
   remainingMinutes: remainingMinutes,
   completionForecast: completionForecast,
   WEIGHTS: W
