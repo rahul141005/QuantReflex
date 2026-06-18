@@ -13,8 +13,12 @@
  *   2. EXAMS — each real exam selects its topics with a RESEARCHED weightage profile: a weightage band
  *      (very-high/high/medium/low), PYQ appearance frequency, and per-exam nuance + confidence. Weights live at
  *      the family level (the exams in a family share most of their syllabus) with per-exam OVERRIDES + nuances
- *      where an exam genuinely differs (e.g. SNAP/NMAT are speed-easy, XAT's QA is tricky, GMAT drops Geometry-
- *      heavy/DI-Indian patterns, CDS/NDA add Trigonometry/Statistics, JEE is advanced-school).
+ *      where an exam genuinely differs (e.g. SNAP/NMAT/MAH-CET are speed-easy, XAT's QA is tricky, CAT is the
+ *      hardest/concept-deep, Banking is Simplification+DI-heavy, SSC adds Geometry/Trig/Mensuration).
+ *
+ * FOCUS (2026 rebuild): the catalog is curated to the speed-maths audience — MBA entrance, Banking, Foundation
+ * and Government (SSC/Railways) aptitude — grouped into user-facing TIERS. Each exam also carries verified
+ * exam-mechanics metadata (`pattern`) so plans teach real strategy (timing, negative marking, calculator).
  *
  * resolveSyllabus(examId) MERGES library + per-exam weights into the legacy topic shape every consumer already
  * reads ({id,label,section,importance,frequency,difficulty,estMinutes,revisionIntervalDays,prereqs,drillable,
@@ -34,7 +38,7 @@
 (function (root) {
   'use strict';
 
-  var SYLLABUS_VERSION = 2;
+  var SYLLABUS_VERSION = 3;
 
   // weightage band → engine importance (0..1). Bands keep us honest: we claim "very-high", not "11.4%".
   var BAND = { 'very-high': 0.93, 'high': 0.78, 'medium': 0.58, 'low': 0.40 };
@@ -126,6 +130,24 @@
   // unlocks = reverse of prereqs, derived ONCE (never hand-authored — guarantees consistency).
   Object.keys(TOPICS).forEach(function (id) { TOPICS[id].unlocks = []; });
   TOPIC_LIST.forEach(function (t) { (t.prereqs || []).forEach(function (p) { if (TOPICS[p]) TOPICS[p].unlocks.push(t.id); }); });
+
+  // BOOK_ORDER — the canonical study sequence, mirroring R.S. Aggarwal's "Quantitative Aptitude for Competitive
+  // Examinations" (S. Chand) — the de-facto standard book across Banking, Government, Foundation and the easier
+  // MBA exams (a Marathi-medium edition exists, relevant to our Nagpur beachhead). The Planner's "book mode"
+  // sequences a student's topics in this order so the app mirrors how they already study offline. (CAT/XAT lean
+  // on Arun Sharma's LOD-1/2/3, which maps onto the app's easy/medium/hard difficulty instead.)
+  var BOOK_ORDER = [
+    'multiplication_fluency', 'number_series', 'lcm_hcf', 'divisibility', 'primes_factorisation', 'factors_divisors',
+    'remainders', 'cyclicity_units', 'base_systems', 'fractions_decimals', 'simplification', 'squares_roots',
+    'cubes_roots', 'surds_indices', 'averages', 'percentages', 'profit_loss', 'ratio_proportion', 'partnership',
+    'mixtures', 'time_work', 'pipes_cisterns', 'tsd', 'trains_boats', 'ages', 'interest', 'linear_equations',
+    'quadratic_equations', 'quadratic_comparison', 'inequalities_modulus', 'progressions', 'functions_graphs',
+    'logarithms', 'algebraic_identities', 'permutations_combinations', 'probability', 'set_theory', 'statistics',
+    'matrices_determinants', 'lines_angles', 'triangles', 'quadrilaterals_polygons', 'circles', 'coordinate_geometry',
+    'trigonometry', 'mensuration_2d', 'mensuration_3d', 'di_tables_charts', 'di_caselet', 'data_sufficiency'
+  ];
+  var _orderIndex = {}; BOOK_ORDER.forEach(function (id, i) { _orderIndex[id] = i; });
+  TOPIC_LIST.forEach(function (t) { t.bookOrder = _orderIndex[t.id] != null ? _orderIndex[t.id] : 999; });
   // drillable cat → canonical topic (reverse of `drillable`) — lets Explanation ground a drill in its KB topic.
   var _topicByCat = {};
   TOPIC_LIST.forEach(function (t) { if (t.drillable && !_topicByCat[t.drillable]) _topicByCat[t.drillable] = t; });
@@ -179,20 +201,7 @@
     w('di_tables_charts', 'high', 0.6), w('statistics', 'low', 0.3)
   ];
 
-  // Defense (NDA/CDS/AFCAT) — Algebra, Trig, Geometry, Calculus-adjacent; Matrices, Statistics.
-  var DEFENSE = [
-    w('multiplication_fluency', 'medium', 0.55), w('lcm_hcf', 'medium', 0.5), w('fractions_decimals', 'medium', 0.5),
-    w('percentages', 'high', 0.66), w('ratio_proportion', 'high', 0.62), w('averages', 'medium', 0.5), w('profit_loss', 'medium', 0.55),
-    w('interest', 'medium', 0.5), w('tsd', 'high', 0.6), w('time_work', 'medium', 0.5),
-    w('linear_equations', 'high', 0.66), w('quadratic_equations', 'high', 0.66), w('inequalities_modulus', 'medium', 0.5),
-    w('surds_indices', 'medium', 0.55), w('logarithms', 'medium', 0.5), w('progressions', 'medium', 0.5),
-    w('set_theory', 'medium', 0.5), w('matrices_determinants', 'high', 0.6, 'high', 'NDA/CDS test matrices & determinants directly.'),
-    w('trigonometry', 'very-high', 0.8, 'high', 'The heaviest defense topic.'), w('triangles', 'high', 0.62), w('lines_angles', 'medium', 0.5),
-    w('circles', 'medium', 0.5), w('coordinate_geometry', 'high', 0.6), w('mensuration_2d', 'high', 0.62), w('mensuration_3d', 'high', 0.6),
-    w('statistics', 'high', 0.6), w('probability', 'medium', 0.5)
-  ];
-
-  // School / Foundation (CUET/CLAT/NTSE/JEE/Olympiad) — broad school maths, gentle by default (JEE overrides up).
+  // School / Foundation — broad, gentle school maths; now used only by the Foundation on-ramp (its overrides trim the advanced topics).
   var SCHOOL = [
     w('multiplication_fluency', 'high', 0.7), w('fractions_decimals', 'high', 0.66), w('squares_roots', 'medium', 0.5),
     w('cubes_roots', 'low', 0.4), w('percentages', 'very-high', 0.78), w('ratio_proportion', 'high', 0.68), w('averages', 'high', 0.6),
@@ -212,73 +221,88 @@
     w('di_tables_charts', 'high', 0.66), w('simplification', 'high', 0.66), w('number_series', 'medium', 0.5)
   ];
 
-  var FAMILY = { mba: MBA, banking: BANKING, ssc: SSC, defense: DEFENSE, school: SCHOOL, generic: GENERIC };
+  var FAMILY = { mba: MBA, banking: BANKING, ssc: SSC, school: SCHOOL, generic: GENERIC };
 
   /* ════════════════════════ EXAM CATALOG + per-exam overrides ════════════════════════
-   * Each exam → its family profile, plus `nuance` (exam-specific note) and `overrides` (topicId → partial weight
-   * tweak) where the exam genuinely differs from its family. */
+   * Each exam → its family profile (quant weight source), a user-facing `tier` (drives categories-first
+   * selection — distinct from `family`), verified exam-mechanics `pattern`, plus `nuance` + `overrides`.
+   * `pattern`: { q, marks, dur(min), sectional, neg(per wrong; 0 = none), calc('none'|'onscreen'),
+   *   quantQ, quantMin } — null where the exam is not a single fixed paper. Curated (2026 rebuild) to the
+   * speed-maths audience; misfit exams (GMAT/JEE/CLAT/Olympiad/NDA/CDS/AFCAT/CUET/NTSE/IPMAT) were removed. */
   var EXAMS = [
-    // --- MBA / management ---
-    { id: 'cat', name: 'CAT', aliases: ['Common Admission Test', 'IIM'], family: 'mba', nuance: 'Hardest, concept-deep; rewards Number System + Algebra mastery and DI/Caselet speed.' },
-    { id: 'xat', name: 'XAT', aliases: ['Xavier Aptitude Test'], family: 'mba', nuance: 'Tricky, application-heavy QA; strong Arithmetic + Mensuration; trustworthy slow accuracy.',
+    // ===== Tier 1 — MBA Entrance =====
+    { id: 'cat', name: 'CAT', aliases: ['Common Admission Test', 'IIM'], family: 'mba', tier: 'mba',
+      pattern: { q: 68, marks: 204, dur: 120, sectional: true, neg: 1, calc: 'onscreen', quantQ: 22, quantMin: 40 },
+      nuance: 'Hardest, concept-deep; rewards Number System + Algebra mastery and DI/Caselet speed.' },
+    { id: 'xat', name: 'XAT', aliases: ['Xavier Aptitude Test'], family: 'mba', tier: 'mba',
+      pattern: { q: 95, marks: 95, dur: 180, sectional: false, neg: 0.25, calc: 'none', quantQ: 28, quantMin: 60 },
+      nuance: 'Tricky, application-heavy QA; strong Arithmetic + Mensuration; trustworthy slow accuracy.',
       overrides: { mensuration_2d: 'high', mensuration_3d: 'high', set_theory: 'high', di_caselet: 'medium' } },
-    { id: 'gmat', name: 'GMAT', aliases: ['Graduate Management Admission Test'], family: 'mba', nuance: 'Problem-Solving + Data Sufficiency; Arithmetic/Algebra/Number-properties; little heavy Geometry, no Indian-style DI.',
-      overrides: { data_sufficiency: 'very-high', di_tables_charts: 'low', di_caselet: 'low', trigonometry: null, coordinate_geometry: 'low', remainders: 'medium' } },
-    { id: 'snap', name: 'SNAP', aliases: ['Symbiosis'], family: 'mba', nuance: 'Easier & speed-driven; reward fast Arithmetic + basic Algebra; depth less rewarded than accuracy+pace.',
+    { id: 'snap', name: 'SNAP', aliases: ['Symbiosis'], family: 'mba', tier: 'mba',
+      pattern: { q: 60, marks: 60, dur: 60, sectional: false, neg: 0.25, calc: 'none', quantQ: 20, quantMin: 20 },
+      nuance: 'Easier & speed-driven; reward fast Arithmetic + basic Algebra; depth less rewarded than accuracy+pace.',
       overrides: { remainders: 'medium', functions_graphs: 'low', di_caselet: 'medium', permutations_combinations: 'medium' } },
-    { id: 'nmat', name: 'NMAT', aliases: ['NMIMS'], family: 'mba', nuance: 'Speed exam, no negative marking; broad-but-easy Arithmetic + DI; attempt everything fast.',
+    { id: 'nmat', name: 'NMAT', aliases: ['NMIMS'], family: 'mba', tier: 'mba',
+      pattern: { q: 108, marks: 108, dur: 120, sectional: true, neg: 0, calc: 'none', quantQ: 36, quantMin: 52 },
+      nuance: 'Speed exam, no negative marking; broad-but-easy Arithmetic + DI; attempt everything fast.',
       overrides: { remainders: 'medium', functions_graphs: 'low', inequalities_modulus: 'medium', di_tables_charts: 'high' } },
-    { id: 'cmat', name: 'CMAT', aliases: ['Common Management Admission Test'], family: 'mba', nuance: 'NTA exam, moderate difficulty; solid Arithmetic + DI core.',
+    { id: 'cmat', name: 'CMAT', aliases: ['Common Management Admission Test'], family: 'mba', tier: 'mba',
+      pattern: { q: 100, marks: 400, dur: 180, sectional: false, neg: 1, calc: 'onscreen', quantQ: 20, quantMin: 36 },
+      nuance: 'NTA exam, moderate difficulty; solid Arithmetic + DI core.',
       overrides: { remainders: 'medium', functions_graphs: 'low' } },
-    { id: 'mbacet', name: 'MBA CET', aliases: ['MAH CET', 'Maharashtra CET'], family: 'mba', nuance: 'High-volume, speed-and-accuracy; Arithmetic + DI heavy, conceptual depth lighter than CAT.',
+    { id: 'mbacet', name: 'MBA CET', aliases: ['MAH CET', 'MAH MBA CET', 'Maharashtra CET'], family: 'mba', tier: 'mba',
+      pattern: { q: 200, marks: 200, dur: 150, sectional: false, neg: 0, calc: 'none', quantQ: 50, quantMin: 38 },
+      nuance: 'High-volume, speed-and-accuracy; no negative marking (attempt everything); Arithmetic + DI heavy, depth lighter than CAT. The Maharashtra flagship.',
       overrides: { remainders: 'medium', base_systems: 'low', functions_graphs: 'low', logarithms: 'low', di_tables_charts: 'very-high' } },
-    { id: 'ipmat', name: 'IPMAT', aliases: ['IPM', 'Integrated Program in Management'], family: 'mba', nuance: 'After-class-12 entry; cleaner school-grade Algebra + Arithmetic; some short-answer.',
-      overrides: { progressions: 'high', logarithms: 'high', set_theory: 'high', di_caselet: 'medium' } },
 
-    // --- Banking ---
-    { id: 'bankpo', name: 'Bank PO', aliases: ['Probationary Officer'], family: 'banking', nuance: 'DI + Simplification + Arithmetic word problems; speed is everything.' },
-    { id: 'ibpspo', name: 'IBPS PO', aliases: ['IBPS Probationary Officer'], family: 'banking', nuance: 'DI-heavy with Caselet & quadratic comparison; Arithmetic word problems.' },
-    { id: 'ibpsclerk', name: 'IBPS Clerk', aliases: ['IBPS Clerical'], family: 'banking', nuance: 'Simpler than PO — Simplification + Number Series + basic Arithmetic dominate.',
+    // ===== Tier 2 — Banking =====
+    { id: 'ibpspo', name: 'IBPS PO', aliases: ['IBPS Probationary Officer'], family: 'banking', tier: 'banking',
+      pattern: { q: 100, marks: 100, dur: 60, sectional: true, neg: 0.25, calc: 'none', quantQ: 35, quantMin: 20 },
+      nuance: 'DI-heavy with Caselet & quadratic comparison; ~34s/question — speed is everything.' },
+    { id: 'ibpsclerk', name: 'IBPS Clerk', aliases: ['IBPS Clerical'], family: 'banking', tier: 'banking',
+      pattern: { q: 100, marks: 100, dur: 60, sectional: true, neg: 0.25, calc: 'none', quantQ: 35, quantMin: 20 },
+      nuance: 'Simpler than PO — Simplification + Number Series + basic Arithmetic dominate; the purest speed exam.',
       overrides: { di_caselet: 'medium', quadratic_comparison: 'medium', permutations_combinations: 'low', probability: 'low' } },
-    { id: 'sbipo', name: 'SBI PO', aliases: ['State Bank PO'], family: 'banking', nuance: 'Hardest banking QA — newest DI patterns + tougher word problems.',
+    { id: 'sbipo', name: 'SBI PO', aliases: ['State Bank PO'], family: 'banking', tier: 'banking',
+      pattern: { q: 100, marks: 100, dur: 60, sectional: true, neg: 0.25, calc: 'none', quantQ: 30, quantMin: 20 },
+      nuance: 'Hardest banking QA — newest DI patterns + tougher word problems.',
       overrides: { di_caselet: 'very-high', permutations_combinations: 'high', probability: 'medium' } },
-    { id: 'rrbntpc', name: 'RRB NTPC', aliases: ['Railway NTPC'], family: 'banking', nuance: 'Railway exam — broader basic Arithmetic + Mensuration; lighter DI than bank PO.',
-      overrides: { di_tables_charts: 'high', di_caselet: 'low', mensuration_2d: 'high', mensuration_3d: 'medium', simplification: 'high' } },
 
-    // --- SSC ---
-    { id: 'ssccgl', name: 'SSC CGL', aliases: ['Combined Graduate Level'], family: 'ssc', nuance: 'Advanced maths — Algebra identities, Geometry, Trig, Mensuration all heavy.' },
-    { id: 'sscchsl', name: 'SSC CHSL', aliases: ['Combined Higher Secondary'], family: 'ssc', nuance: 'Slightly easier than CGL; same topics, more Arithmetic weight.',
-      overrides: { trigonometry: 'medium', coordinate_geometry: null, statistics: null } },
-    { id: 'sscmts', name: 'SSC MTS', aliases: ['Multi Tasking Staff'], family: 'ssc', nuance: 'Basic arithmetic-led; light Algebra/Geometry.',
-      overrides: { trigonometry: 'low', algebraic_identities: 'medium', quadratic_equations: 'low', circles: 'medium', coordinate_geometry: null, statistics: null } },
-
-    // --- Defense ---
-    { id: 'nda', name: 'NDA', aliases: ['National Defence Academy'], family: 'defense', nuance: 'Maths is 300/900 marks — Trig, Algebra, Matrices, Calculus-adjacent, Statistics, Probability.' },
-    { id: 'cds', name: 'CDS', aliases: ['Combined Defence Services'], family: 'defense', nuance: 'Elementary-maths breadth — Arithmetic + Algebra + Geometry + Trig + Mensuration evenly.',
-      overrides: { matrices_determinants: 'medium', percentages: 'high', profit_loss: 'high', tsd: 'high' } },
-    { id: 'afcat', name: 'AFCAT', aliases: ['Air Force Common Admission Test'], family: 'defense', nuance: 'Lighter, speed-based numerical ability — Arithmetic core, less heavy Trig than NDA.',
-      overrides: { trigonometry: 'medium', matrices_determinants: null, statistics: 'medium', percentages: 'high', profit_loss: 'high', averages: 'high', tsd: 'high', time_work: 'high' } },
-
-    // --- School / foundation / aptitude ---
-    { id: 'cuet', name: 'CUET', aliases: ['Common University Entrance Test'], family: 'school', nuance: 'General Test quant — school Arithmetic + basic Algebra + DI; speed-and-accuracy.',
-      overrides: { trigonometry: 'low', coordinate_geometry: 'low', di_tables_charts: 'high' } },
-    { id: 'clat', name: 'CLAT', aliases: ['Common Law Admission Test'], family: 'school', nuance: 'Elementary maths from passages — Percentages, Ratio, Averages, basic DI only.',
-      overrides: { percentages: 'very-high', ratio_proportion: 'very-high', averages: 'very-high', profit_loss: 'high', interest: 'high', di_tables_charts: 'high',
-        quadratic_equations: null, progressions: null, surds_indices: null, trigonometry: null, coordinate_geometry: null, circles: null, mensuration_3d: 'low' } },
-    { id: 'ntse', name: 'NTSE', aliases: ['National Talent Search'], family: 'school', nuance: 'Class-10 MAT/SAT maths — strong school Algebra + Geometry + Arithmetic.',
-      overrides: { trigonometry: 'medium', coordinate_geometry: 'medium' } },
-    { id: 'jee', name: 'JEE (Quant)', aliases: ['JEE Main', 'JEE Mains'], family: 'school', nuance: 'Advanced 11–12 maths — Algebra, Coordinate Geometry, Trig, Functions, P&C, Probability heavy.',
-      overrides: { quadratic_equations: 'very-high', functions_graphs: 'very-high', progressions: 'high', logarithms: 'high', surds_indices: 'high',
-        coordinate_geometry: 'very-high', trigonometry: 'very-high', permutations_combinations: 'high', probability: 'high', matrices_determinants: 'high',
-        statistics: 'medium', profit_loss: null, interest: null, di_tables_charts: null } },
-    { id: 'olympiad', name: 'Olympiad', aliases: ['Math Olympiad', 'IMO'], family: 'school', nuance: 'Number theory + combinatorics + geometry proofs — depth over speed.',
-      overrides: { remainders: 'very-high', primes_factorisation: 'high', factors_divisors: 'high', permutations_combinations: 'very-high', probability: 'high',
-        triangles: 'high', circles: 'high', progressions: 'high', functions_graphs: 'high', di_tables_charts: null, profit_loss: null } },
-    { id: 'foundation', name: 'Foundation', aliases: ['Basics', 'Class 6-10'], family: 'school', nuance: 'Building the basics — calculation fluency, fractions, percentages, ratio, basic geometry.',
+    // ===== Tier 3 — Foundation =====
+    { id: 'foundation', name: 'Foundation', aliases: ['Basics', 'Class 6-10', 'General Aptitude'], family: 'school', tier: 'foundation',
+      pattern: null,
+      nuance: 'Building the basics — calculation fluency, fractions, percentages, ratio, basic geometry. The on-ramp into any target exam.',
       overrides: { remainders: null, functions_graphs: null, trigonometry: null, coordinate_geometry: null, probability: null, set_theory: 'low' } },
 
-    // --- fallback ---
-    { id: 'other', name: 'Other', aliases: ['Custom', 'General Aptitude'], family: 'generic', nuance: 'A balanced general quantitative-aptitude plan.' }
+    // ===== Tier 4 — Government Aptitude (SSC / Railways) =====
+    { id: 'ssccgl', name: 'SSC CGL', aliases: ['Combined Graduate Level'], family: 'ssc', tier: 'government',
+      pattern: { q: 100, marks: 200, dur: 60, sectional: false, neg: 0.5, calc: 'none', quantQ: 25, quantMin: 15 },
+      nuance: 'Tier-1 is a no-calculator speed sprint; Tier-2 adds heavy Algebra identities, Geometry, Trig, Mensuration.' },
+    { id: 'sscchsl', name: 'SSC CHSL', aliases: ['Combined Higher Secondary'], family: 'ssc', tier: 'government',
+      pattern: { q: 100, marks: 200, dur: 60, sectional: false, neg: 0.5, calc: 'none', quantQ: 25, quantMin: 15 },
+      nuance: 'Slightly easier than CGL; same topics, more Arithmetic weight.',
+      overrides: { trigonometry: 'medium', coordinate_geometry: null, statistics: null } },
+    { id: 'sscmts', name: 'SSC MTS', aliases: ['Multi Tasking Staff'], family: 'ssc', tier: 'government',
+      pattern: { q: 90, marks: 270, dur: 90, sectional: true, neg: 1, calc: 'none', quantQ: 20, quantMin: 22 },
+      nuance: 'Basic arithmetic-led; light Algebra/Geometry. No negative marking on the maths session — attempt everything.',
+      overrides: { trigonometry: 'low', algebraic_identities: 'medium', quadratic_equations: 'low', circles: 'medium', coordinate_geometry: null, statistics: null } },
+    { id: 'rrbntpc', name: 'RRB NTPC', aliases: ['Railway NTPC', 'RRB'], family: 'banking', tier: 'government',
+      pattern: { q: 100, marks: 100, dur: 90, sectional: false, neg: 0.333, calc: 'none', quantQ: 30, quantMin: 27 },
+      nuance: 'Railway exam — broader basic Arithmetic + Mensuration; lighter DI than bank PO; harsher 1/3 negative.',
+      overrides: { di_tables_charts: 'high', di_caselet: 'low', mensuration_2d: 'high', mensuration_3d: 'medium', simplification: 'high' } },
+
+    // ===== Hidden internal fallback (not user-selectable) =====
+    { id: 'other', name: 'Other', aliases: ['Custom', 'General Aptitude'], family: 'generic', tier: null, hidden: true,
+      pattern: null, nuance: 'A balanced general quantitative-aptitude plan.' }
+  ];
+
+  /* User-facing tiers for categories-first selection. `default` = the smart pre-selected exam per tier
+   * (Maharashtra-tuned). Foundation and Government are deliberately SEPARATE tiers. */
+  var TIERS = [
+    { id: 'mba', label: 'MBA Entrance', blurb: 'CAT, XAT, SNAP, NMAT, CMAT, MAH CET', def: 'mbacet' },
+    { id: 'banking', label: 'Banking', blurb: 'IBPS, SBI & more', def: 'ibpsclerk' },
+    { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' },
+    { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' }
   ];
 
   /* ════════════════════════ RESOLUTION (merge library + per-exam weights → engine shape) ════════════════════════ */
@@ -304,6 +328,7 @@
       difficulty: base.difficulty, estMinutes: base.avgMinutes, revisionIntervalDays: base.revisionIntervalDays,
       prereqs: base.prereqs, unlocks: base.unlocks, drillable: base.drillable, signals: base.signals,
       formulaSheet: base.formulaSheet, commonMistakes: base.commonMistakes, practiceIntensity: base.practiceIntensity,
+      bookOrder: base.bookOrder != null ? base.bookOrder : 999,
       roi: _roi(band, entry.pyq, base), confidence: entry.conf || base.confidence,
       nuance: entry.nuance || ''
     };
@@ -327,11 +352,11 @@
       t.prereqs = (t.prereqs || []).filter(function (p) { return present[p]; });
       t.unlocks = (t.unlocks || []).filter(function (u) { return present[u]; });
     });
-    return { id: ex.id, name: ex.name + ' Quant', examId: ex.id, family: ex.family, version: SYLLABUS_VERSION, nuance: ex.nuance || '', topics: topics };
+    return { id: ex.id, name: ex.name + ' Quant', examId: ex.id, family: ex.family, tier: ex.tier || null, pattern: ex.pattern || null, version: SYLLABUS_VERSION, nuance: ex.nuance || '', topics: topics };
   }
 
   /** getSyllabus accepts an exam id OR a legacy family key ('cat_quant'…) for backward-compatible doc reads. */
-  var LEGACY_KEY = { cat_quant: 'cat', bank_ssc_quant: 'bankpo', defense_quant: 'nda', foundation_quant: 'foundation', generic_quant: 'other' };
+  var LEGACY_KEY = { cat_quant: 'cat', bank_ssc_quant: 'ibpsclerk', foundation_quant: 'foundation', generic_quant: 'other' };
   function getSyllabus(syllabusId) {
     if (!syllabusId) return null;
     if (_examById[syllabusId]) return resolveSyllabus(syllabusId);
@@ -353,15 +378,22 @@
   /** The canonical KB topic behind a drillable practice category (e.g. 'percentages' → the Percentages topic). */
   function getTopicForCat(cat) { return _topicByCat[cat] || null; }
 
+  /** Selectable exams (excludes the hidden internal fallback). */
+  function _selectable() { return EXAMS.filter(function (e) { return !e.hidden; }); }
+
   /** Lightweight catalog for the searchable selector: matches name + aliases (case-insensitive). */
   function searchExams(query) {
     var q = String(query || '').trim().toLowerCase();
-    if (!q) return EXAMS.slice();
-    return EXAMS.filter(function (e) {
+    var list = _selectable();
+    if (!q) return list;
+    return list.filter(function (e) {
       if (e.name.toLowerCase().indexOf(q) >= 0) return true;
       return (e.aliases || []).some(function (a) { return a.toLowerCase().indexOf(q) >= 0; });
     });
   }
+
+  /** Exams within a user-facing tier (drives categories-first selection). */
+  function examsByTier(tierId) { return _selectable().filter(function (e) { return e.tier === tierId; }); }
 
   var API = {
     SYLLABUS_VERSION: SYLLABUS_VERSION,
@@ -375,6 +407,9 @@
     getCanonicalTopic: getCanonicalTopic,
     getTopicForCat: getTopicForCat,
     FORMULA_SHEET_IDS: FORMULA_SHEET_IDS,
+    BOOK_ORDER: BOOK_ORDER,
+    TIERS: TIERS,
+    examsByTier: examsByTier,
     searchExams: searchExams
   };
 

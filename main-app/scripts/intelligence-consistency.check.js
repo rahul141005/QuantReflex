@@ -51,8 +51,8 @@ var scenarios = [
   { name: 'advanced arithmetic / CAT', p: profile({ accuracy: 0.8, n: 420, mastery: [{ cat: 'percentages', acc: 0.9, n: 60, tier: 'strong' }, { cat: 'ratios', acc: 0.88, n: 55, tier: 'strong' }, { cat: 'averages', acc: 0.85, n: 40, tier: 'strong' }] }), d: planDoc('cat', { days: 90, prep: 'revision' }) },
   { name: 'last-minute / SNAP', p: profile({ accuracy: 0.5, n: 100 }), d: planDoc('snap', { days: 9, daily: 150 }) },
   { name: 'inconsistent / IBPS PO', p: profile({ accuracy: 0.55, n: 60, active: 2, flags: { inconsistent: true } }), d: planDoc('ibpspo', { days: 60 }) },
-  { name: 'regressing / JEE', p: profile({ accuracy: 0.7, n: 200, regressed: ['percentages'] }), d: planDoc('jee', { days: 100 }) },
-  { name: 'avoidant / NDA', p: profile({ accuracy: 0.6, n: 150 }), d: planDoc('nda', { days: 80, block: { days: [
+  { name: 'regressing / SSC CGL', p: profile({ accuracy: 0.7, n: 200, regressed: ['percentages'] }), d: planDoc('ssccgl', { days: 100 }) },
+  { name: 'avoidant / SSC CGL', p: profile({ accuracy: 0.6, n: 150 }), d: planDoc('ssccgl', { days: 80, block: { days: [
     { date: y(-3), kind: 'study', tasks: [{ topicId: 'trigonometry', label: 'Trigonometry & Heights/Distances', section: 'Geometry', done: false }] },
     { date: y(-2), kind: 'study', tasks: [{ topicId: 'trigonometry', label: 'Trigonometry & Heights/Distances', section: 'Geometry', done: false }] },
     { date: y(0), kind: 'study', tasks: [{ topicId: 'percentages', label: 'Percentages', section: 'Arithmetic', done: false }] }
@@ -94,7 +94,7 @@ scenarios.forEach(function (sc) {
 var lm = ES.assemble(profile({ accuracy: 0.4, n: 50 }), planDoc('cat', { days: 8, daily: 60 }), { clientDate: y(0) });
 ok(lm.marksAtRisk > 0 || lm.skip.length > 0, 'last-minute: triage drops low-value topics + reports marks at risk');
 
-// avoidance is detected and named (the NDA scenario postponed Trigonometry twice).
+// avoidance is detected and named (the SSC CGL scenario postponed Trigonometry twice).
 var av = ES.assemble(scenarios[5].p, scenarios[5].d, { clientDate: y(0) });
 ok(av.behaviour.postponed.length > 0 && av.behaviour.postponed[0].label.indexOf('Trig') >= 0, 'avoidance: postponed Trigonometry is surfaced to the Coach');
 ok(/BEHAVIOUR/.test(ES.serialize(av)), 'avoidance: the behaviour pattern reaches the prompt (serialize)');
@@ -106,9 +106,9 @@ ok(rg.recovery && nextTask(rg) === 'percentages', 'regression: recovery override
 // no exam → null (Coach/Insights then reason from the Profile alone; never "dumber").
 ok(ES.assemble(profile({}), null, {}) === null, 'no exam → strategy is null (graceful degradation)');
 
-// per-exam KB drives behaviour: NDA elevates Trigonometry; GMAT has no Indian DI.
-ok(ES.assemble(profile({}), planDoc('nda', {}), { clientDate: y(0) }).sections.some(function (x) { return x.name === 'Geometry'; }), 'NDA strategy includes Geometry/Trig (KB-driven)');
-ok(!ES.assemble(profile({}), planDoc('gmat', {}), { clientDate: y(0) }).topics.some(function (t) { return t.topicId === 'di_tables_charts' && t.weightage === 'very-high'; }), 'GMAT strategy de-emphasises Indian-style DI (KB-driven)');
+// per-exam KB drives behaviour: SSC CGL includes Geometry/Trig; MBA CET elevates Data Interpretation.
+ok(ES.assemble(profile({}), planDoc('ssccgl', {}), { clientDate: y(0) }).sections.some(function (x) { return x.name === 'Geometry'; }), 'SSC CGL strategy includes Geometry/Trig (KB-driven)');
+ok(ES.assemble(profile({}), planDoc('mbacet', {}), { clientDate: y(0) }).topics.some(function (t) { return t.topicId === 'di_tables_charts' && t.weightage === 'very-high'; }), 'MBA CET strategy elevates Data Interpretation (KB-driven)');
 
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

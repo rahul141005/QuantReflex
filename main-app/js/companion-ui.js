@@ -93,9 +93,10 @@ var Companion = (function () {
     } catch (_) { return null; }
   }
   function plannerExams() {
-    try { if (window.QR_SYLLABUS && QR_SYLLABUS.EXAMS) return QR_SYLLABUS.EXAMS; } catch (_) {}
-    return [{ id: 'cat', name: 'CAT', aliases: [] }, { id: 'gmat', name: 'GMAT', aliases: [] },
-      { id: 'bankpo', name: 'Bank PO', aliases: [] }, { id: 'ssccgl', name: 'SSC CGL', aliases: [] }, { id: 'other', name: 'Other', aliases: [] }];
+    try { if (window.QR_SYLLABUS && QR_SYLLABUS.EXAMS) return QR_SYLLABUS.EXAMS.filter(function (e) { return !e.hidden; }); } catch (_) {}
+    return [{ id: 'mbacet', name: 'MBA CET', aliases: [], tier: 'mba' }, { id: 'cat', name: 'CAT', aliases: [], tier: 'mba' },
+      { id: 'ibpsclerk', name: 'IBPS Clerk', aliases: [], tier: 'banking' }, { id: 'foundation', name: 'Foundation', aliases: [], tier: 'foundation' },
+      { id: 'ssccgl', name: 'SSC CGL', aliases: [], tier: 'government' }];
   }
   function searchExams(q) {
     q = (q || '').trim().toLowerCase();

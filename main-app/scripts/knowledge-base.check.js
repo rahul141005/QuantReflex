@@ -54,7 +54,7 @@ Object.keys(TOPICS).forEach(function (id) { if (color[id] !== BLACK) dfs(id); })
 ok(!cyclic, 'the canonical dependency graph is acyclic');
 
 /* ---- every exam resolves to a sound per-exam syllabus ---- */
-ok(SYL.EXAMS.length >= 20, 'the catalog covers the full exam roster (' + SYL.EXAMS.length + ')');
+ok(SYL.EXAMS.length >= 14, 'the catalog covers the curated exam roster (' + SYL.EXAMS.length + ')');
 SYL.EXAMS.forEach(function (e) {
   var s = SYL.resolveSyllabus(e.id);
   ok(s && s.topics && s.topics.length >= 8, e.id + ' resolves to a non-trivial syllabus (' + (s && s.topics ? s.topics.length : 0) + ' topics)');
@@ -75,12 +75,21 @@ SYL.EXAMS.forEach(function (e) {
 });
 
 /* ---- per-exam differentiation is real (not one shared profile) ---- */
-ok(SYL.resolveSyllabus('gmat').topics.some(function (t) { return t.id === 'data_sufficiency' && t.weightage === 'very-high'; }), 'GMAT elevates Data Sufficiency (per-exam research applied)');
-ok(!SYL.resolveSyllabus('gmat').topics.some(function (t) { return t.id === 'trigonometry'; }), 'GMAT drops Trigonometry');
-ok(SYL.resolveSyllabus('nda').topics.some(function (t) { return t.id === 'trigonometry' && t.weightage === 'very-high'; }), 'NDA elevates Trigonometry');
-ok(SYL.resolveSyllabus('jee').topics.some(function (t) { return t.id === 'coordinate_geometry' && t.weightage === 'very-high'; }), 'JEE elevates Coordinate Geometry');
-ok(SYL.resolveSyllabus('clat').topics.length < SYL.resolveSyllabus('cat').topics.length, 'CLAT is a lighter syllabus than CAT');
+ok(SYL.resolveSyllabus('mbacet').topics.some(function (t) { return t.id === 'di_tables_charts' && t.weightage === 'very-high'; }), 'MBA CET elevates Data Interpretation (per-exam research applied)');
+ok(SYL.resolveSyllabus('ssccgl').topics.some(function (t) { return t.id === 'trigonometry' && t.weightage === 'high'; }), 'SSC CGL elevates Trigonometry');
+ok(!SYL.resolveSyllabus('foundation').topics.some(function (t) { return t.id === 'trigonometry'; }), 'Foundation drops Trigonometry');
+ok(SYL.resolveSyllabus('foundation').topics.length < SYL.resolveSyllabus('cat').topics.length, 'Foundation is a lighter syllabus than CAT');
+ok(SYL.resolveSyllabus('sbipo').topics.some(function (t) { return t.id === 'di_caselet' && t.weightage === 'very-high'; }), 'SBI PO elevates Caselet DI');
 ok(SYL.resolveSyllabus('ibpspo').topics.some(function (t) { return t.id === 'simplification' && t.weightage === 'very-high'; }), 'IBPS PO elevates Simplification');
+
+/* ---- curated catalog: every selectable exam has a real tier; every tier has exams ---- */
+SYL.EXAMS.filter(function (e) { return !e.hidden; }).forEach(function (e) {
+  ok(e.tier && SYL.TIERS.some(function (t) { return t.id === e.tier; }), e.id + ' belongs to a real user-facing tier (' + e.tier + ')');
+});
+SYL.TIERS.forEach(function (t) { ok(SYL.examsByTier(t.id).length > 0, 'tier "' + t.id + '" has at least one exam'); });
+['gmat', 'clat', 'jee', 'olympiad', 'nda', 'cds', 'afcat', 'cuet', 'ntse', 'ipmat', 'bankpo'].forEach(function (id) {
+  ok(!SYL.getExam(id), 'removed exam "' + id + '" is gone from the catalog');
+});
 
 /* ---- legacy resolution still works (old docs stored family keys) ---- */
 ok(SYL.getSyllabus('cat_quant') && SYL.getSyllabus('cat_quant').topics.length > 0, 'legacy family key cat_quant still resolves');
