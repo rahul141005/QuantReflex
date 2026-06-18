@@ -103,6 +103,18 @@ var Companion = (function () {
     var list = plannerExams(); if (!q) return list;
     return list.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0 || (e.aliases || []).some(function (al) { return al.toLowerCase().indexOf(q) >= 0; }); });
   }
+  // Categories-first selection (ADR rebuild): tiers group the catalog so onboarding shows 4 cards, not a long list.
+  function plannerTiers() {
+    try { if (window.QR_SYLLABUS && QR_SYLLABUS.TIERS) return QR_SYLLABUS.TIERS; } catch (_) {}
+    return [{ id: 'mba', label: 'MBA Entrance', blurb: 'CAT, XAT, SNAP, NMAT, CMAT, MAH CET', def: 'mbacet' },
+      { id: 'banking', label: 'Banking', blurb: 'IBPS, SBI & more', def: 'ibpsclerk' },
+      { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' },
+      { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' }];
+  }
+  function examsForTier(tierId) {
+    try { if (window.QR_SYLLABUS && QR_SYLLABUS.examsByTier) return QR_SYLLABUS.examsByTier(tierId); } catch (_) {}
+    return plannerExams().filter(function (e) { return e.tier === tierId; });
+  }
   function fmtMin(m) { return m >= 60 ? (m % 60 ? (Math.floor(m / 60) + 'h ' + (m % 60) + 'm') : (m / 60 + 'h')) : (m + ' min'); }
 
   /* ---------- modal ---------- */
@@ -473,8 +485,8 @@ var Companion = (function () {
 
   function runPlannerSetup(m) {
     var body = m.body;
-    var a = { examId: '', examName: '', examDate: '', dailyMinutes: 45, daysPerWeek: 5, prepLevel: '', preferredTime: '', _examQ: '' };
-    var screens = ['exam', 'date', 'time', 'days', 'prep', 'pref'];
+    var a = { tier: '', examId: '', examName: '', examDate: '', dailyMinutes: 45, daysPerWeek: 5, prepLevel: '', preferredTime: '', _examQ: '' };
+    var screens = ['tier', 'exam', 'date', 'time', 'days', 'prep', 'pref'];
     var si = 0;
 
     function dots() { return '<div class="ps-dots">' + screens.map(function (_, i) { return '<span class="' + (i === si ? 'on' : (i < si ? 'done' : '')) + '"></span>'; }).join('') + '</div>'; }
@@ -488,16 +500,38 @@ var Companion = (function () {
       var next = body.querySelector('.ps-next'); if (next) next.onclick = function () { if (opts.onNext && opts.onNext() === false) return; si++; render(); };
     }
 
+    function screenTier() {
+      var tiers = plannerTiers();
+      var inner = '<div class="cb-say">What are you preparing for?</div>' +
+        '<div class="ps-stack">' + tiers.map(function (t) {
+          return '<button class="ps-opt big' + (a.tier === t.id ? ' sel' : '') + '" data-tier="' + esc(t.id) + '" type="button">' +
+            esc(t.label) + ' <span class="ps-sub">' + esc(t.blurb || '') + '</span></button>';
+        }).join('') + '</div>' +
+        '<div class="ps-hint">Not sure where to start? Pick <strong>Foundation</strong> to build speed from scratch.</div>';
+      frame(inner, { nextDisabled: !a.tier });
+      // Tapping a tier sets a smart default exam and jumps straight to the (short) exam list — one tap, no long scroll.
+      body.querySelectorAll('[data-tier]').forEach(function (b) {
+        b.onclick = function () {
+          var tid = b.getAttribute('data-tier'); a.tier = tid; a._examQ = '';
+          var t = plannerTiers().filter(function (x) { return x.id === tid; })[0] || {};
+          var list = examsForTier(tid);
+          var picked = list.filter(function (e) { return e.id === t.def; })[0] || list[0];
+          if (picked) { a.examId = picked.id; a.examName = picked.name; }
+          si++; render();
+        };
+      });
+    }
     function screenExam() {
-      var inner = '<div class="cb-say">Which exam are you preparing for?</div>' +
-        '<input class="ps-search" type="text" placeholder="Search exams…" value="' + esc(a._examQ) + '" />' +
-        '<div class="ps-list">' + searchExams(a._examQ).map(function (e) { return '<button class="ps-opt' + (a.examId === e.id ? ' sel' : '') + '" data-id="' + esc(e.id) + '" data-name="' + esc(e.name) + '" type="button">' + esc(e.name) + '</button>'; }).join('') + '</div>' +
-        (a.examId === 'other' ? '<input class="ps-custom" type="text" placeholder="Name your exam or goal" value="' + esc(a.examName || '') + '" />' : '');
-      frame(inner, { nextDisabled: !a.examId, onNext: function () { if (a.examId === 'other') { var c = body.querySelector('.ps-custom'); a.examName = (c && c.value.trim()) || 'Custom'; } } });
+      var q = (a._examQ || '').trim();
+      var list = q ? searchExams(q) : examsForTier(a.tier);
+      var t = plannerTiers().filter(function (x) { return x.id === a.tier; })[0];
+      var inner = '<div class="cb-say">' + (t ? esc(t.label) + ' — pick your exam' : 'Which exam are you preparing for?') + '</div>' +
+        '<input class="ps-search" type="text" placeholder="Search all exams…" value="' + esc(a._examQ) + '" />' +
+        '<div class="ps-list">' + list.map(function (e) { return '<button class="ps-opt' + (a.examId === e.id ? ' sel' : '') + '" data-id="' + esc(e.id) + '" data-name="' + esc(e.name) + '" data-tier="' + esc(e.tier || '') + '" type="button">' + esc(e.name) + '</button>'; }).join('') + '</div>';
+      frame(inner, { nextDisabled: !a.examId });
       var search = body.querySelector('.ps-search');
       if (search) search.oninput = function () { a._examQ = search.value; var pos = search.selectionStart; screenExam(); var s2 = body.querySelector('.ps-search'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (_) {} } };
-      body.querySelectorAll('.ps-opt').forEach(function (b) { b.onclick = function () { a.examId = b.getAttribute('data-id'); a.examName = b.getAttribute('data-name'); screenExam(); }; });
-      var custom = body.querySelector('.ps-custom'); if (custom) custom.oninput = function () { a.examName = custom.value; };
+      body.querySelectorAll('.ps-opt').forEach(function (b) { b.onclick = function () { a.examId = b.getAttribute('data-id'); a.examName = b.getAttribute('data-name'); if (b.getAttribute('data-tier')) a.tier = b.getAttribute('data-tier'); screenExam(); }; });
     }
     function screenDate() {
       var days = a.examDate ? Math.max(0, Math.ceil((Date.parse(a.examDate + 'T00:00:00Z') - Date.now()) / 86400000)) : null;
@@ -541,6 +575,7 @@ var Companion = (function () {
     function render() {
       if (si >= screens.length) return submit();
       var s = screens[si];
+      if (s === 'tier') return screenTier();
       if (s === 'exam') return screenExam();
       if (s === 'date') return screenDate();
       if (s === 'time') return screenTime();
