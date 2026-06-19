@@ -99,6 +99,10 @@ function assemble(profile, planDoc, opts) {
     daysToExam: daysToExam, dailyMinutes: dailyMinutes, daysPerWeek: daysPerWeek, targetScore: targetScore,
     readiness: rmap, readinessScore: readinessScore, signals: signals
   });
+  // Carry the exam's verified mechanics so every role can give tier-appropriate strategy (ADR rebuild).
+  strategy.examPattern = syl.pattern || null;
+  strategy.examTier = syl.tier || null;
+  strategy.examNuance = syl.nuance || '';
 
   // The schedule is a pure PROJECTION of the strategy's roadmap (no planning logic of its own). The planner
   // endpoints persist this projection as the block (carrying completion state); the live strategy re-derives the
@@ -245,12 +249,27 @@ async function build(uid, profile, opts) {
 }
 
 /** AI-facing strategy summary for the prompts — the roles reason WITH this, not just read it. */
+/** A tier/mechanics-aware coaching line so the LLM gives exam-appropriate strategy (attempt-all vs skip,
+ *  mental speed vs calculator method). Built from the exam's verified pattern — no invention. */
+function _examStrategyNote(strategy) {
+  var p = strategy.examPattern; if (!p) return '';
+  var parts = [];
+  if (p.quantQ && p.quantMin) parts.push('~' + Math.round(p.quantMin * 60 / p.quantQ) + 's per quant question');
+  if (p.neg === 0) parts.push('NO negative marking — push the student to attempt EVERY question, never leave blanks');
+  else if (p.neg) parts.push(p.neg + ' negative per wrong — coach accuracy and skip-discipline, no blind guessing');
+  if (p.calc === 'onscreen') parts.push('on-screen calculator provided — prioritise method, accuracy and question selection over raw mental speed');
+  else if (p.calc === 'none') parts.push('no calculator — fast mental calculation (simplification, tables, approximation) directly earns marks');
+  if (p.sectional) parts.push('sectional timing — pace each section; time cannot be banked across sections');
+  return parts.length ? ('EXAM MECHANICS: ' + parts.join('; ') + '.') : '';
+}
+
 function serialize(strategy) {
   if (!strategy) return '';
   var L = [];
   L.push('EXAM STRATEGY (' + strategy.examName + (strategy.daysToExam != null ? ', ' + strategy.daysToExam + ' days out' : '') +
     '): readiness ' + strategy.readinessScore + '/100, projected ' + strategy.projectedScore + '/100, target ' + strategy.targetScore +
     ' → ' + (strategy.achievable ? 'on track' : 'not yet on track') + '.');
+  var note = _examStrategyNote(strategy); if (note) L.push(note);
   L.push('VERDICT: ' + strategy.verdict);
   var active = (strategy.sections || []).filter(function (s) { return s.status === 'active'; })[0];
   if (active) L.push('CURRENT FOCUS SECTION: ' + active.name + ' (' + active.progressPct + '% there, ' + active.topicCount + ' topics, ' + active.weightage + ' weightage).');
