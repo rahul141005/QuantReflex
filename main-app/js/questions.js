@@ -3,7 +3,8 @@
  *
  * Categories:
  *   squares, cubes, fractions-to-percent, percentage-calculations,
- *   mental-multiplication, ratios, averages, area, volume, profit-loss, time-speed-distance
+ *   mental-multiplication, ratios, averages, area, volume, profit-loss, time-speed-distance,
+ *   time-and-work, simplification, number-series
  *
  * Each generator returns { question: string, answer: number|string, category: string }
  *
@@ -676,9 +677,46 @@ function genTimeWork() {
   }
 }
 
+/* Simplification (BODMAS) — the banking/SSC backbone; always resolves to a clean integer. */
+function genSimplification() {
+  var diff = _getDifficulty();
+  if (diff === 'easy') {
+    var a = randInt(2, 9), b = randInt(2, 9), c = randInt(2, 20);
+    return { question: a + ' × ' + b + ' + ' + c + ' = ?', answer: a * b + c, category: 'simplification' };
+  }
+  if (diff === 'hard') {
+    /* (p × q) ÷ r + s × t — q is a multiple of r so the division is exact */
+    var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9);
+    return { question: '(' + p + ' × ' + q + ') ÷ ' + r + ' + ' + s + ' × ' + t + ' = ?', answer: (p * q) / r + s * t, category: 'simplification' };
+  }
+  /* medium: num ÷ dv + add, num a multiple of dv */
+  var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40);
+  return { question: num + ' ÷ ' + dv + ' + ' + add + ' = ?', answer: num / dv + add, category: 'simplification' };
+}
+
+/* Number Series — find the next term (arithmetic / geometric / increasing-difference). Integer answers. */
+function genNumberSeries() {
+  var diff = _getDifficulty(), i, terms = [];
+  var type = randInt(0, diff === 'easy' ? 1 : 2);
+  if (type === 0) {                                   // arithmetic
+    var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]);
+    for (i = 0; i < 5; i++) terms.push(start + i * step);
+  } else if (type === 1) {                            // geometric
+    var s0 = randInt(2, 5), ratio = pick([2, 3]);
+    for (i = 0; i < 5; i++) terms.push(s0 * Math.pow(ratio, i));
+  } else {                                            // increasing differences (square-like)
+    var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base;
+    for (i = 0; i < 5; i++) { terms.push(cur); cur += d; d += base; }
+  }
+  var answer = terms.pop();
+  return { question: 'Next number: ' + terms.join(', ') + ', ?', answer: answer, category: 'number-series' };
+}
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
+  simplification: genSimplification,
+  'number-series': genNumberSeries,
   cubes: genCube,
   area: genArea,
   volume: genVolume,
@@ -742,7 +780,8 @@ function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
 /* ---- public API ---- */
 
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
-  genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork];
+  genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
+  genSimplification, genNumberSeries];
 
 /**
  * Generate a single random question.

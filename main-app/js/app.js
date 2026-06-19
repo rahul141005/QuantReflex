@@ -296,7 +296,9 @@ var _CATEGORY_LABELS = {
   'averages': 'Averages',
   'profit-loss': 'Profit & Loss',
   'time-speed-distance': 'Time, Speed & Distance',
-  'time-and-work': 'Time & Work'
+  'time-and-work': 'Time & Work',
+  'simplification': 'Simplification',
+  'number-series': 'Number Series'
 };
 
 /**

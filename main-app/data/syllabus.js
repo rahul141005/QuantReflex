@@ -62,7 +62,7 @@
   var TOPIC_LIST = [
     /* ---- Number System ---- */
     T({ id: 'multiplication_fluency', label: 'Multiplication & Calculation Speed', synonyms: ['Vedic Maths', 'Speed Maths'], section: 'Number System', difficulty: 0.25, avgMinutes: 90, revisionIntervalDays: 14, drillable: 'multiplication', formulaSheet: null, practiceIntensity: 'high', commonMistakes: ['Carry errors under time pressure', 'Not memorising tables to 30'] }),
-    T({ id: 'simplification', label: 'Simplification & Approximation', synonyms: ['BODMAS', 'Approximation'], section: 'Number System', difficulty: 0.30, avgMinutes: 100, revisionIntervalDays: 10, drillable: 'fractions', signals: [{ cat: 'fractions', w: 0.6 }, { cat: 'multiplication', w: 0.4 }], practiceIntensity: 'high', commonMistakes: ['BODMAS order slips', 'Over-precise where approximation suffices'] }),
+    T({ id: 'simplification', label: 'Simplification & Approximation', synonyms: ['BODMAS', 'Approximation'], section: 'Number System', difficulty: 0.30, avgMinutes: 100, revisionIntervalDays: 10, drillable: 'simplification', signals: [{ cat: 'simplification', w: 0.6 }, { cat: 'multiplication', w: 0.4 }], practiceIntensity: 'high', commonMistakes: ['BODMAS order slips', 'Over-precise where approximation suffices'] }),
     T({ id: 'fractions_decimals', label: 'Fractions, Decimals & Surds', synonyms: ['Fractions', 'Decimals'], section: 'Number System', difficulty: 0.30, avgMinutes: 100, revisionIntervalDays: 12, drillable: 'fractions', formulaSheet: null, commonMistakes: ['Comparing fractions by cross-multiplication errors'] }),
     T({ id: 'squares_roots', label: 'Squares & Square Roots', synonyms: ['Squares'], section: 'Number System', difficulty: 0.30, avgMinutes: 70, revisionIntervalDays: 14, drillable: 'squares', practiceIntensity: 'high' }),
     T({ id: 'cubes_roots', label: 'Cubes & Cube Roots', synonyms: ['Cubes'], section: 'Number System', difficulty: 0.35, avgMinutes: 60, revisionIntervalDays: 14, drillable: 'cubes', practiceIntensity: 'high' }),
@@ -73,7 +73,7 @@
     T({ id: 'primes_factorisation', label: 'Primes & Prime Factorisation', synonyms: ['Prime Numbers'], section: 'Number System', difficulty: 0.50, avgMinutes: 90, revisionIntervalDays: 12, prereqs: ['divisibility'], signals: [{ cat: 'multiplication', w: 0.7 }, { cat: 'fractions', w: 0.3 }] }),
     T({ id: 'cyclicity_units', label: 'Cyclicity & Units Digit', synonyms: ['Last Digit', 'Unit Digit'], section: 'Number System', difficulty: 0.55, avgMinutes: 90, revisionIntervalDays: 11, prereqs: ['remainders'], signals: [{ cat: 'multiplication', w: 0.8 }, { cat: 'fractions', w: 0.2 }], commonMistakes: ['Cycle length errors for 2,3,7,8'] }),
     T({ id: 'base_systems', label: 'Base Systems & Number Bases', synonyms: ['Binary', 'Number Bases'], section: 'Number System', difficulty: 0.65, avgMinutes: 90, revisionIntervalDays: 12, prereqs: ['divisibility'], signals: [{ cat: 'multiplication', w: 0.7 }, { cat: 'fractions', w: 0.3 }], confidence: 'med' }),
-    T({ id: 'number_series', label: 'Number Series (Missing & Wrong)', synonyms: ['Series Completion'], section: 'Number System', difficulty: 0.50, avgMinutes: 110, revisionIntervalDays: 10, prereqs: ['multiplication_fluency'], signals: [{ cat: 'multiplication', w: 0.6 }, { cat: 'squares', w: 0.4 }], practiceIntensity: 'high' }),
+    T({ id: 'number_series', label: 'Number Series (Missing & Wrong)', synonyms: ['Series Completion'], section: 'Number System', difficulty: 0.50, avgMinutes: 110, revisionIntervalDays: 10, prereqs: ['multiplication_fluency'], drillable: 'number-series', signals: [{ cat: 'number-series', w: 0.6 }, { cat: 'multiplication', w: 0.4 }], practiceIntensity: 'high' }),
 
     /* ---- Arithmetic ---- */
     T({ id: 'percentages', label: 'Percentages', synonyms: ['Percentage'], section: 'Arithmetic', difficulty: 0.40, avgMinutes: 120, revisionIntervalDays: 9, prereqs: ['fractions_decimals'], drillable: 'percentages', formulaSheet: 'percentageTricks', practiceIntensity: 'high', commonMistakes: ['Wrong base for % change', 'Successive % not multiplied'] }),
@@ -254,6 +254,14 @@
       pattern: { q: 200, marks: 200, dur: 150, sectional: false, neg: 0, calc: 'none', quantQ: 50, quantMin: 38 },
       nuance: 'High-volume, speed-and-accuracy; no negative marking (attempt everything); Arithmetic + DI heavy, depth lighter than CAT. The Maharashtra flagship.',
       overrides: { remainders: 'medium', base_systems: 'low', functions_graphs: 'low', logarithms: 'low', di_tables_charts: 'very-high' } },
+    { id: 'mat', name: 'MAT', aliases: ['Management Aptitude Test', 'AIMA MAT'], family: 'mba', tier: 'mba',
+      pattern: { q: 150, marks: 600, dur: 120, sectional: false, neg: 0.25, calc: 'none', quantQ: 30, quantMin: 35 },
+      nuance: 'AIMA exam, 4×/year; easier than CAT — arithmetic-heavy Mathematical Skills + a separate Data Analysis section; accuracy-first (−0.25).',
+      overrides: { remainders: 'medium', functions_graphs: 'low', logarithms: 'low', di_caselet: 'medium' } },
+    { id: 'atma', name: 'ATMA', aliases: ['AIMS Test for Management Admissions'], family: 'mba', tier: 'mba',
+      pattern: { q: 180, marks: 180, dur: 180, sectional: true, neg: 0.25, calc: 'none', quantQ: 60, quantMin: 60 },
+      nuance: 'AIMS exam; 30-minute hard-stop sections, no calculator, ~30s/question — speed and mental calculation are decisive; Arithmetic + DI heavy.',
+      overrides: { remainders: 'low', functions_graphs: 'low', di_tables_charts: 'very-high', di_caselet: 'medium' } },
 
     // ===== Tier 2 — Banking =====
     { id: 'ibpspo', name: 'IBPS PO', aliases: ['IBPS Probationary Officer'], family: 'banking', tier: 'banking',
@@ -267,6 +275,10 @@
       pattern: { q: 100, marks: 100, dur: 60, sectional: true, neg: 0.25, calc: 'none', quantQ: 30, quantMin: 20 },
       nuance: 'Hardest banking QA — newest DI patterns + tougher word problems.',
       overrides: { di_caselet: 'very-high', permutations_combinations: 'high', probability: 'medium' } },
+    { id: 'rbiassistant', name: 'RBI Assistant', aliases: ['Reserve Bank Assistant'], family: 'banking', tier: 'banking',
+      pattern: { q: 100, marks: 100, dur: 60, sectional: true, neg: 0.25, calc: 'none', quantQ: 35, quantMin: 20 },
+      nuance: 'RBI clerical cadre; near-identical to IBPS Clerk — Simplification + Number Series + basic Arithmetic at ~34s/question. The purest speed exam.',
+      overrides: { di_caselet: 'medium', quadratic_comparison: 'medium', permutations_combinations: 'low', probability: 'low' } },
 
     // ===== Tier 3 — Foundation =====
     { id: 'foundation', name: 'Foundation', aliases: ['Basics', 'Class 6-10', 'General Aptitude'], family: 'school', tier: 'foundation',

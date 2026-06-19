@@ -13,7 +13,7 @@ var SYL = require(path.join(__dirname, '..', 'data', 'syllabus.js'));
 var pass = 0, fail = 0;
 function ok(c, m) { if (c) pass++; else { fail++; console.log('  ✗ ' + m); } }
 
-var DRILL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios', 'averages', 'profit-loss', 'time-speed-distance', 'time-and-work'];
+var DRILL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios', 'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series'];
 var BANDS = ['very-high', 'high', 'medium', 'low'];
 var CONF = ['high', 'med', 'low'];
 
