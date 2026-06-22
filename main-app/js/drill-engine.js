@@ -103,6 +103,7 @@ function createDrillEngine(container, opts) {
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
   var _isFinished = false; /* prevents timer/checkAnswer race after finish() */
+  var _finishResults = null; /* session summary passed to onFinish (used by mock mode for exam-accurate scoring) */
   var reviewOriginalCount = 0; /* track original count for review mode cap */
   var ui = {
     globalTimerEl: null,
@@ -643,6 +644,8 @@ function createDrillEngine(container, opts) {
     var avg = avgRaw.toFixed(1);
     var accuracy = ((score / count) * 100).toFixed(0);
     var accNum = parseFloat(accuracy);
+    /* Session summary for onFinish consumers (mock mode re-scores with the exam's marking scheme). */
+    _finishResults = { correct: score, attempted: perQuestionTimes.length, total: count, totalTimeSec: parseFloat(totalTime) };
 
     /* Session Improvement (ADR-030) — honest within-session speed delta from the per-question times we
        already collected (skips are excluded, so these are genuine solves). First-half vs last-half mean
@@ -818,14 +821,14 @@ function createDrillEngine(container, opts) {
 
     container.querySelector('#tryAgainBtn').addEventListener('click', function () {
       if (onFinish) {
-        onFinish('practice');
+        onFinish('practice', _finishResults);
       } else {
         Router.showView('practice');
       }
     });
     container.querySelector('#homeBtn').addEventListener('click', function () {
       if (onFinish) {
-        onFinish('home');
+        onFinish('home', _finishResults);
       } else {
         Router.showView('home');
       }

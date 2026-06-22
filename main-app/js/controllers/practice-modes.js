@@ -112,6 +112,58 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
   _startPracticeEngine(drillContainer, config);
 }
 
+/* ---- Sectional-timer mock (Phase D): a timed quant-section simulation of the chosen exam ----
+ * Builds a weightage-true deck from the exam's drillable topics and runs it under the exam's real
+ * section clock + marking scheme. Reuses the proven drill engine via _preloadedQuestions. */
+function startMockFromPractice(examId) {
+  if (typeof QR_MOCK === 'undefined' || typeof generateQuestions !== 'function') return;
+  var built = QR_MOCK.buildMockDeck(examId, function (cat) { return generateQuestions(1, cat)[0]; });
+  if (!built || !built.deck || !built.deck.length) {
+    if (typeof showToast === 'function') showToast('A mock isn\'t available for this exam yet.');
+    return;
+  }
+  var mock = built.mock;
+  var drillContainer = document.getElementById('drillContainer');
+  var modeSelect = document.getElementById('modeSelect');
+  var categorySelect = document.getElementById('categorySelect');
+  var customPracticeConfig = document.getElementById('customPracticeConfig');
+  if (!drillContainer) return;
+
+  var config = {
+    count: mock.totalQuestions,
+    timeLimitSec: mock.durationSec,     // the single section clock — auto-submits on zero (engine behaviour)
+    perQuestionSec: null,
+    category: null,
+    mode: '📝 ' + mock.examName + ' Mock',
+    _preloadedQuestions: built.deck,
+    onFinish: function (view, results) {
+      // Re-score with the EXAM's marking scheme (engine tracks raw correct/attempted; we apply negative marking).
+      if (results && typeof QR_MOCK !== 'undefined') {
+        var scored = QR_MOCK.score(mock, { correct: results.correct, attempted: results.attempted }, { elapsedSec: results.totalTimeSec });
+        try {
+          if (typeof FirestoreSync !== 'undefined' && FirestoreSync.saveMockResult) {
+            FirestoreSync.saveMockResult(QR_MOCK.resultForPlanner(mock, scored));
+          }
+        } catch (_) {}
+      }
+      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
+      var _dc = document.getElementById('drillContainer');
+      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
+      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
+      _exitDrillSession();
+      if (view === 'practice') _resetPracticeUiToModes();
+      Router.showView(view);
+    }
+  };
+
+  if (modeSelect) modeSelect.style.display = 'none';
+  if (categorySelect) categorySelect.style.display = 'none';
+  if (customPracticeConfig) customPracticeConfig.style.display = 'none';
+  drillContainer.style.display = 'block';
+  if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  _startPracticeEngine(drillContainer, config);
+}
+
 function _startPracticeEngine(drillContainer, config) {
   if (_activeDrillEngine) {
     _activeDrillEngine.cleanup();
