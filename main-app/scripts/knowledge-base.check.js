@@ -87,6 +87,17 @@ SYL.EXAMS.filter(function (e) { return !e.hidden; }).forEach(function (e) {
   ok(e.tier && SYL.TIERS.some(function (t) { return t.id === e.tier; }), e.id + ' belongs to a real user-facing tier (' + e.tier + ')');
 });
 SYL.TIERS.forEach(function (t) { ok(SYL.examsByTier(t.id).length > 0, 'tier "' + t.id + '" has at least one exam'); });
+
+/* ---- per-exam book reference: MBA CET follows the Arihant MAH-CET guide, others default to R.S. Aggarwal ---- */
+ok(/Arihant/.test(SYL.resolveSyllabus('mbacet').book || ''), 'MBA CET references the Arihant MAH-CET book');
+ok(/Aggarwal/.test(SYL.resolveSyllabus('ibpsclerk').book || ''), 'IBPS Clerk defaults to R.S. Aggarwal');
+(function () {  // Arihant sequences Area & Volume BEFORE Quadratic Equations; R.S. Aggarwal places it after — so the
+  // two book orders genuinely differ for the same topics.
+  var cet = {}; SYL.resolveSyllabus('mbacet').topics.forEach(function (t) { cet[t.id] = t.bookOrder; });
+  var cmat = {}; SYL.resolveSyllabus('cmat').topics.forEach(function (t) { cmat[t.id] = t.bookOrder; });
+  ok(cet.mensuration_2d < cet.quadratic_equations, 'MBA CET (Arihant) sequences Area & Volume before Quadratic Equations');
+  ok(cmat.mensuration_2d > cmat.quadratic_equations, 'CMAT (R.S. Aggarwal default) sequences Area & Volume after Quadratic Equations');
+})();
 ['gmat', 'clat', 'jee', 'olympiad', 'nda', 'cds', 'afcat', 'cuet', 'ntse', 'ipmat', 'bankpo'].forEach(function (id) {
   ok(!SYL.getExam(id), 'removed exam "' + id + '" is gone from the catalog');
 });

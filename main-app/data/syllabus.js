@@ -131,11 +131,11 @@
   Object.keys(TOPICS).forEach(function (id) { TOPICS[id].unlocks = []; });
   TOPIC_LIST.forEach(function (t) { (t.prereqs || []).forEach(function (p) { if (TOPICS[p]) TOPICS[p].unlocks.push(t.id); }); });
 
-  // BOOK_ORDER — the canonical study sequence, mirroring R.S. Aggarwal's "Quantitative Aptitude for Competitive
-  // Examinations" (S. Chand) — the de-facto standard book across Banking, Government, Foundation and the easier
-  // MBA exams (a Marathi-medium edition exists, relevant to our Nagpur beachhead). The Planner's "book mode"
-  // sequences a student's topics in this order so the app mirrors how they already study offline. (CAT/XAT lean
-  // on Arun Sharma's LOD-1/2/3, which maps onto the app's easy/medium/hard difficulty instead.)
+  // BOOK_ORDER — the default study sequence, mirroring R.S. Aggarwal's "Quantitative Aptitude for Competitive
+  // Examinations" (S. Chand) — the de-facto standard book across Banking, Government, Foundation and most MBA
+  // exams (a Marathi-medium edition exists, relevant to our Nagpur beachhead). The Planner's "book mode" sequences
+  // a student's topics in their book's order so the app mirrors how they study offline. Exams can reference a
+  // DIFFERENT book via their `book` field (see BOOKS); MBA CET uses the Arihant MAH-CET guide below.
   var BOOK_ORDER = [
     'multiplication_fluency', 'number_series', 'lcm_hcf', 'divisibility', 'primes_factorisation', 'factors_divisors',
     'remainders', 'cyclicity_units', 'base_systems', 'fractions_decimals', 'simplification', 'squares_roots',
@@ -146,8 +146,46 @@
     'matrices_determinants', 'lines_angles', 'triangles', 'quadrilaterals_polygons', 'circles', 'coordinate_geometry',
     'trigonometry', 'mensuration_2d', 'mensuration_3d', 'di_tables_charts', 'di_caselet', 'data_sufficiency'
   ];
-  var _orderIndex = {}; BOOK_ORDER.forEach(function (id, i) { _orderIndex[id] = i; });
-  TOPIC_LIST.forEach(function (t) { t.bookOrder = _orderIndex[t.id] != null ? _orderIndex[t.id] : 999; });
+
+  // Arihant "Prep Guide MAH-CET MBA/MMS" (Quantitative Aptitude) chapter order — the book MBA CET aspirants
+  // actually use. Our granular topics are grouped under the book's chapters in the book's sequence.
+  var MAHCET_ORDER = [
+    // Number System
+    'multiplication_fluency', 'number_series', 'lcm_hcf', 'divisibility', 'primes_factorisation', 'factors_divisors',
+    'remainders', 'cyclicity_units', 'base_systems', 'fractions_decimals',
+    // Simplification (+ roots/surds)
+    'simplification', 'squares_roots', 'cubes_roots', 'surds_indices',
+    // Average → Percentage → Ratio
+    'averages', 'percentages', 'ratio_proportion',
+    // Profit & Loss → Partnership → Interest → Mixtures
+    'profit_loss', 'partnership', 'interest', 'mixtures',
+    // Time & Work → Time, Speed & Distance → Ages
+    'time_work', 'pipes_cisterns', 'tsd', 'trains_boats', 'ages',
+    // Area & Volume
+    'mensuration_2d', 'mensuration_3d',
+    // Linear & Quadratic Equations (+ comparison/inequalities/identities)
+    'linear_equations', 'quadratic_equations', 'quadratic_comparison', 'inequalities_modulus', 'algebraic_identities',
+    // Logarithms
+    'logarithms',
+    // Plane Geometry
+    'lines_angles', 'triangles', 'quadrilaterals_polygons', 'circles', 'coordinate_geometry', 'trigonometry',
+    // Sequence & Series
+    'progressions', 'functions_graphs',
+    // Set Theory → P&C → Probability (+ statistics/matrices)
+    'set_theory', 'permutations_combinations', 'probability', 'statistics', 'matrices_determinants',
+    // Data Interpretation → Data Sufficiency
+    'di_tables_charts', 'di_caselet', 'data_sufficiency'
+  ];
+
+  // Book registry: each exam's `book` key resolves to a display name + topic order (used by book mode).
+  var BOOKS = {
+    rs_aggarwal:    { id: 'rs_aggarwal',    name: 'R.S. Aggarwal — Quantitative Aptitude for Competitive Examinations', order: BOOK_ORDER },
+    arihant_mahcet: { id: 'arihant_mahcet', name: 'Arihant — Prep Guide MAH-CET MBA/MMS (Quantitative Aptitude)', order: MAHCET_ORDER }
+  };
+  var _bookIndex = {};
+  Object.keys(BOOKS).forEach(function (k) { var idx = {}; BOOKS[k].order.forEach(function (id, i) { idx[id] = i; }); _bookIndex[k] = idx; });
+  // Default per-topic bookOrder = R.S. Aggarwal; resolveSyllabus overrides it with the exam's own book.
+  TOPIC_LIST.forEach(function (t) { t.bookOrder = _bookIndex.rs_aggarwal[t.id] != null ? _bookIndex.rs_aggarwal[t.id] : 999; });
   // drillable cat → canonical topic (reverse of `drillable`) — lets Explanation ground a drill in its KB topic.
   var _topicByCat = {};
   TOPIC_LIST.forEach(function (t) { if (t.drillable && !_topicByCat[t.drillable]) _topicByCat[t.drillable] = t; });
@@ -250,7 +288,7 @@
       pattern: { q: 100, marks: 400, dur: 180, sectional: false, neg: 1, calc: 'onscreen', quantQ: 20, quantMin: 36 },
       nuance: 'NTA exam, moderate difficulty; solid Arithmetic + DI core.',
       overrides: { remainders: 'medium', functions_graphs: 'low' } },
-    { id: 'mbacet', name: 'MBA CET', aliases: ['MAH CET', 'MAH MBA CET', 'Maharashtra CET'], family: 'mba', tier: 'mba',
+    { id: 'mbacet', name: 'MBA CET', aliases: ['MAH CET', 'MAH MBA CET', 'Maharashtra CET'], family: 'mba', tier: 'mba', book: 'arihant_mahcet',
       pattern: { q: 200, marks: 200, dur: 150, sectional: false, neg: 0, calc: 'none', quantQ: 50, quantMin: 38 },
       nuance: 'High-volume, speed-and-accuracy; no negative marking (attempt everything); Arithmetic + DI heavy, depth lighter than CAT. The Maharashtra flagship.',
       overrides: { remainders: 'medium', base_systems: 'low', functions_graphs: 'low', logarithms: 'low', di_tables_charts: 'very-high' } },
@@ -364,7 +402,11 @@
       t.prereqs = (t.prereqs || []).filter(function (p) { return present[p]; });
       t.unlocks = (t.unlocks || []).filter(function (u) { return present[u]; });
     });
-    return { id: ex.id, name: ex.name + ' Quant', examId: ex.id, family: ex.family, tier: ex.tier || null, pattern: ex.pattern || null, version: SYLLABUS_VERSION, nuance: ex.nuance || '', topics: topics };
+    // Book mode: order topics by the book this exam references (default R.S. Aggarwal; MBA CET → Arihant MAH-CET).
+    var bookKey = BOOKS[ex.book] ? ex.book : 'rs_aggarwal';
+    var bidx = _bookIndex[bookKey];
+    topics.forEach(function (t) { t.bookOrder = bidx[t.id] != null ? bidx[t.id] : 999; });
+    return { id: ex.id, name: ex.name + ' Quant', examId: ex.id, family: ex.family, tier: ex.tier || null, pattern: ex.pattern || null, book: BOOKS[bookKey].name, version: SYLLABUS_VERSION, nuance: ex.nuance || '', topics: topics };
   }
 
   /** getSyllabus accepts an exam id OR a legacy family key ('cat_quant'…) for backward-compatible doc reads. */
@@ -420,6 +462,7 @@
     getTopicForCat: getTopicForCat,
     FORMULA_SHEET_IDS: FORMULA_SHEET_IDS,
     BOOK_ORDER: BOOK_ORDER,
+    BOOKS: BOOKS,
     TIERS: TIERS,
     examsByTier: examsByTier,
     searchExams: searchExams
