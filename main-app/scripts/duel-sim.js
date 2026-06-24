@@ -19,6 +19,7 @@ Module._load = function (request) {
 };
 const duel = require(path.join(__dirname, '..', 'api', 'duel.js'));
 const Q = require(path.join(__dirname, '..', 'js', 'questions.js'));
+const QT = require(path.join(__dirname, '..', 'services', 'quantTopics.js'));
 const I = duel._internals;
 if (!I) { console.error('FAIL: api/duel.js _internals not exported'); process.exit(1); }
 const _grade = I._grade, _decideWinner = I._decideWinner, _budgets = I._budgets, _isCorrect = I._isCorrect, _validConfig = I._validConfig;
@@ -109,12 +110,14 @@ eq('difficulty preserved', c.difficulty, 'hard');
 ok('topics preserved', c.topics.length === 2);
 eq('bad difficulty => medium', _validConfig({ difficulty: 'banana' }).difficulty, 'medium');
 
-// ───────── 7. generator parity (12 cats incl. string-answer) ─────────
+// ───────── 7. generator parity (all cats incl. string-answer) ─────────
 console.log('7. generator parity');
-var all12 = Object.keys(Q.categoryGenerators);
-eq('12 categories', all12.length, 12);
-var gm = Q.generateMultiTopic(12, all12, 'hard');
-eq('generateMultiTopic count', gm.length, 12);
+var allCats = Object.keys(Q.categoryGenerators);
+ok('at least the 12 base categories', allCats.length >= 12);
+// every generator must have a human label in the canonical map — guards against silent desync when cats are added
+eq('every generator has a CATEGORY_LABELS entry', allCats.filter(function (c) { return !QT.CATEGORY_LABELS[c]; }).length, 0);
+var gm = Q.generateMultiTopic(allCats.length, allCats, 'hard');
+eq('generateMultiTopic covers every category', gm.length, allCats.length);
 ok('every question well-formed', gm.every(function (q) { return typeof q.question === 'string' && q.answer != null && q.category; }));
 ok('string-answer cats produce answers', Q.generateMultiTopic(6, ['ratios', 'fractions'], 'hard').every(function (q) { return q.answer != null; }));
 

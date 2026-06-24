@@ -103,10 +103,11 @@
     if (!mock) return null;
     var deck = [];
     mock.blueprint.forEach(function (b) {
-      for (var i = 0; i < b.count; i++) {
-        var q = genFn(b.cat);
-        if (q) { q.mockTopicId = b.topicId; deck.push(q); }
-      }
+      // genFn(cat, count) returns an ARRAY of `count` questions — batch generation keeps the deck exactly the
+      // blueprint size even when per-question dedup would otherwise leave holes. Tolerates a single-question genFn.
+      var qs = genFn(b.cat, b.count) || [];
+      if (!Array.isArray(qs)) qs = [qs];
+      qs.slice(0, b.count).forEach(function (q) { if (q) { q.mockTopicId = b.topicId; deck.push(q); } });
     });
     var rng = (opts && opts.rng) || Math.random;
     for (var j = deck.length - 1; j > 0; j--) { var k = Math.floor(rng() * (j + 1)); var t = deck[j]; deck[j] = deck[k]; deck[k] = t; }

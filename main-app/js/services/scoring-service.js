@@ -174,7 +174,8 @@ var ScoringService = (function () {
       squares: 'squares', cubes: 'cubes', area: 'area', volume: 'volume',
       percentages: 'percentages', multiplication: 'multiplication', fractions: 'fractions',
       averages: 'averages', ratios: 'ratios', 'profit-loss': 'profit & loss',
-      'time-speed-distance': 'time-speed-distance', 'time-and-work': 'time & work'
+      'time-speed-distance': 'time-speed-distance', 'time-and-work': 'time & work',
+      simplification: 'simplification', 'number-series': 'number series'
     };
     var catLabel = topMissedCat ? (_catLabels[topMissedCat] || topMissedCat) : null;
 

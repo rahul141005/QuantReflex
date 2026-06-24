@@ -16,7 +16,8 @@ var DuelUI = (function () {
     var src = (typeof _CATEGORY_LABELS !== 'undefined' && _CATEGORY_LABELS) ? _CATEGORY_LABELS : {
       squares: 'Squares', cubes: 'Cubes', area: 'Area', volume: 'Volume', fractions: 'Fractions',
       percentages: 'Percentages', multiplication: 'Multiplication', ratios: 'Ratios', averages: 'Averages',
-      'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work'
+      'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
+      simplification: 'Simplification', 'number-series': 'Number Series'
     };
     return Object.keys(src).map(function (k) { return { key: k, label: src[k] }; });
   }

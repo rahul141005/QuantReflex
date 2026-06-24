@@ -40,6 +40,7 @@ function createDrillEngine(container, opts) {
   var mode = opts.mode || 'Drill';
   var reviewMode = opts.reviewMode || false;
   var onFinish = opts.onFinish || null;
+  var onResults = opts.onResults || null;   // optional: host hook to augment the results card (e.g. mock scoring)
   var preloadedQuestions = opts._preloadedQuestions || null;
   var adaptiveMode = opts.adaptive === true;
   
@@ -840,6 +841,10 @@ function createDrillEngine(container, opts) {
         _shareAsImage(_shareData);
       });
     }
+
+    /* Host hook: let the caller augment the results card once it's in the DOM (mock mode injects the
+       exam-accurate, negative-marking score here). Additive + guarded — never blocks the normal results. */
+    if (typeof onResults === 'function') { try { onResults(_finishResults, container); } catch (_e) { } }
 
     /* Speed Benchmark summary — generated locally, available to all users */
     var benchmarkPlaceholder = container.querySelector('#benchmarkAiPlaceholder');

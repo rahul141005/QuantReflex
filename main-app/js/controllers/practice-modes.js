@@ -117,7 +117,7 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
  * section clock + marking scheme. Reuses the proven drill engine via _preloadedQuestions. */
 function startMockFromPractice(examId) {
   if (typeof QR_MOCK === 'undefined' || typeof generateQuestions !== 'function') return;
-  var built = QR_MOCK.buildMockDeck(examId, function (cat) { return generateQuestions(1, cat)[0]; });
+  var built = QR_MOCK.buildMockDeck(examId, function (cat, n) { return generateQuestions(n || 1, cat); });
   if (!built || !built.deck || !built.deck.length) {
     if (typeof showToast === 'function') showToast('A mock isn\'t available for this exam yet.');
     return;
@@ -136,16 +136,24 @@ function startMockFromPractice(examId) {
     category: null,
     mode: '📝 ' + mock.examName + ' Mock',
     _preloadedQuestions: built.deck,
-    onFinish: function (view, results) {
-      // Re-score with the EXAM's marking scheme (engine tracks raw correct/attempted; we apply negative marking).
-      if (results && typeof QR_MOCK !== 'undefined') {
-        var scored = QR_MOCK.score(mock, { correct: results.correct, attempted: results.attempted }, { elapsedSec: results.totalTimeSec });
-        try {
-          if (typeof FirestoreSync !== 'undefined' && FirestoreSync.saveMockResult) {
-            FirestoreSync.saveMockResult(QR_MOCK.resultForPlanner(mock, scored));
-          }
-        } catch (_) {}
-      }
+    /* Inject the EXAM-ACCURATE score (its own marking scheme) into the results card when it renders — this is
+       what makes the mock a "real marking scheme" test rather than a plain drill. (Raw attempts are persisted
+       by the drill engine via savePracticeSession; feeding the planner's mock-trend is a server-side follow-up.) */
+    onResults: function (summary, container) {
+      if (!summary || typeof QR_MOCK === 'undefined' || !container) return;
+      var scored = QR_MOCK.score(mock, { correct: summary.correct, attempted: summary.attempted }, { elapsedSec: summary.totalTimeSec });
+      var negNote = mock.negPerWrong ? (' · −' + mock.negPerWrong + ' per wrong') : ' · no negative marking';
+      var el = document.createElement('div');
+      el.className = 'mock-score-summary';
+      el.setAttribute('style', 'margin:0 0 14px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,0.05);text-align:center;');
+      el.innerHTML = '<h3 style="margin:0 0 4px;">' + mock.examName + ' — exam score</h3>' +
+        '<p style="margin:0;font-size:1.4em;"><strong>' + scored.score + ' / ' + scored.maxScore + '</strong>' + negNote + '</p>' +
+        '<p style="margin:6px 0 0;opacity:0.8;">Attempted ' + scored.attempted + '/' + mock.totalQuestions + ' · Correct ' + scored.correct + ' · Wrong ' + scored.wrong + ' · Skipped ' + scored.skipped + '</p>' +
+        (scored.secPerQ ? '<p style="margin:4px 0 0;opacity:0.8;">Pace ' + scored.secPerQ + 's/Q (budget ' + mock.secondsPerQuestion + 's)</p>' : '');
+      var card = container.querySelector('.card');
+      if (card) card.insertBefore(el, card.firstChild); else container.appendChild(el);
+    },
+    onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
       if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }

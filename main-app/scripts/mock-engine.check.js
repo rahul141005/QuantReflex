@@ -66,7 +66,7 @@ ok(scArr.correct === 30 && scArr.wrong === 4 && scArr.skipped === 1, 'array-form
 /* ---- buildMockDeck produces an exact, category-tagged, shuffled deck ---- */
 (function () {
   var calls = [];
-  var stubGen = function (cat) { calls.push(cat); return { question: cat + ' q', answer: 1, category: cat }; };
+  var stubGen = function (cat, n) { calls.push(cat); var arr = []; for (var z = 0; z < (n || 1); z++) arr.push({ question: cat + ' q' + z, answer: 1, category: cat }); return arr; };
   var seed = 42, rng = function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   var built = MOCK.buildMockDeck('ibpsclerk', stubGen, { rng: rng });
   ok(built && built.deck.length === built.mock.totalQuestions, 'buildMockDeck: deck length === totalQuestions (' + built.deck.length + ')');
