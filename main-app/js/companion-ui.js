@@ -108,8 +108,8 @@ var Companion = (function () {
     try { if (window.QR_SYLLABUS && QR_SYLLABUS.TIERS) return QR_SYLLABUS.TIERS; } catch (_) {}
     return [{ id: 'mba', label: 'MBA Entrance', blurb: 'CAT, XAT, SNAP, NMAT, CMAT, MAH CET', def: 'mbacet' },
       { id: 'banking', label: 'Banking', blurb: 'IBPS, SBI & more', def: 'ibpsclerk' },
-      { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' },
-      { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' }];
+      { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' },
+      { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' }];
   }
   function examsForTier(tierId) {
     try { if (window.QR_SYLLABUS && QR_SYLLABUS.examsByTier) return QR_SYLLABUS.examsByTier(tierId); } catch (_) {}
@@ -474,6 +474,8 @@ var Companion = (function () {
       stop();
       if (res.ok && res.data && res.data.plan && res.data.response) {
         log('planner', 'shown', {});
+        // Cache the active exam so the practice view can launch a timed mock without a round-trip.
+        try { if (res.data.plan && res.data.plan.examId) localStorage.setItem('qr_active_exam', res.data.plan.examId); } catch (_) {}
         // Render the full calendar into this same sheet; fall back to the companion summary if the view isn't loaded.
         if (window.Planner && Planner.renderInto) { Planner.renderInto(m, res.data.plan); return; }
         renderEnvelope(m.body, res.data.response, false);
@@ -591,6 +593,8 @@ var Companion = (function () {
           log('planner', 'setup_done', { examId: a.examId });
           // ADR-053: a new plan is folded into the profile — force the next Coach/Insights/Explain build to refresh.
           try { localStorage.setItem(DIRTY_KEY, String(Date.now())); } catch (_) {}
+          // Cache the active exam for the practice-view timed mock.
+          try { localStorage.setItem('qr_active_exam', a.examId); } catch (_) {}
           if (window.Planner && Planner.renderInto && res.data.plan) { Planner.renderInto(m, res.data.plan); return; }
           renderEnvelope(body, res.data.response, false);
         } else { renderError(body, res, function () { submit(); }); }

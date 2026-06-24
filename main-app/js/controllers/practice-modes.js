@@ -280,6 +280,23 @@ function initPracticeView() {
           _syncCustomPracticeSelectionUi();
           return;
         }
+        if (modeKey === 'mock') {
+          /* Timed Mock is Premium-only (entitlement: timed_mocks), mirroring the custom/review gate. */
+          if (!canAccessFeature('timed_mocks')) { showPaywall('timed_mocks'); return; }
+          var _isPremMock = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+          if (!_isPremMock) { showPaywall('premium_required'); return; }
+          var _mockExam = '';
+          try { _mockExam = localStorage.getItem('qr_active_exam') || ''; } catch (_) {}
+          if (!_mockExam) {
+            if (typeof showToast === 'function') showToast('Set up your study plan first to take a mock.');
+            if (typeof Companion !== 'undefined' && Companion.openStudyPlanner) { try { Companion.openStudyPlanner(true); } catch (_) {} }
+            return;
+          }
+          _customPracticeActive = false;
+          _focusModeActive = false;
+          startMockFromPractice(_mockExam);
+          return;
+        }
         _customPracticeActive = false;
         if (modeKey === 'focus') {
           _focusModeActive = true;

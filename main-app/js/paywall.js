@@ -22,7 +22,7 @@ var _LOCKED_FEATURES = {
   custom_training: true, review_mistakes: true, add_formula: true, add_topic: true,
   performance_insights: true, category_accuracy: true, hard_mode: true, skip_question: true,
   advanced_theme: true, daily_goal_limit: true, focus_timer: true, table_modal: true,
-  adaptive_training: true, math_duel: true,
+  adaptive_training: true, math_duel: true, timed_mocks: true,
   ai_explain: true, ai_coach: true, ai_study_plan: true
 };
 
@@ -309,6 +309,7 @@ function _contextAccent(featureType) {
     performance_insights: '📊 Deep performance insights are a Premium feature.',
     category_accuracy: '🎯 Category accuracy tracking is a Premium feature.',
     adaptive_training: '🤖 Adaptive Training adjusts difficulty in real time. Premium only.',
+    timed_mocks: '📝 Full-length timed mocks of your target exam are a Premium feature.',
     focus_timer: '⏱ Focus Timer is a Premium feature.',
     table_modal: '📋 Full-screen table view is a Premium feature.',
     hard_mode: '🔥 Hard mode is a Premium feature.',

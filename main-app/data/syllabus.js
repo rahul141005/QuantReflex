@@ -351,8 +351,8 @@
   var TIERS = [
     { id: 'mba', label: 'MBA Entrance', blurb: 'CAT, XAT, SNAP, NMAT, CMAT, MAH CET', def: 'mbacet' },
     { id: 'banking', label: 'Banking', blurb: 'IBPS, SBI & more', def: 'ibpsclerk' },
-    { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' },
-    { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' }
+    { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' },
+    { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' }
   ];
 
   /* ════════════════════════ RESOLUTION (merge library + per-exam weights → engine shape) ════════════════════════ */
