@@ -6,7 +6,7 @@
 
 ## What is QuantReflex?
 
-QuantReflex is a premium, mobile-first educational SaaS platform focused on mental math and quantitative aptitude training for competitive exams (CAT, MBA CET, SSC, GMAT).
+QuantReflex is a premium, mobile-first educational SaaS platform focused on mental math and quantitative aptitude training — curated (ADR-067) to the exams where fast, no-calculator calculation decides rank: MBA entrances (CAT, XAT, SNAP, NMAT, CMAT, MAH CET, MAT, ATMA), Banking (IBPS, SBI, RBI Assistant), Foundation, and Government aptitude (SSC CGL/CHSL/MTS, RRB NTPC).
 
 ## Ecosystem Architecture
 

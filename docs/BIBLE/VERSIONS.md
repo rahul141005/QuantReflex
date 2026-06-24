@@ -9,11 +9,16 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.43 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.29 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.44 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.30 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.15 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.12 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.44 / Arch 2.30 (2026-06-24)** — Focused speed-maths catalog rebuild + Timed Mock (ADR-067): catalog
+> curated 26→17 exams in 4 tiers, per-exam `tier`/`pattern`/`book` metadata + BOOKS registry, tier-aware
+> readiness weighting, two new drill categories, and the Premium Timed Mock. `SYLLABUS_VERSION` 2→3 (bundled
+> data, not a Firestore-collection change, so Firestore track unchanged). Pre-launch, no migration.
 
 > **2.0 (2026-06-11)** — v2 monetization (ADR-009): single `plan` model, lifetime + Premium+ removed.
 > Breaking schema change (MAJOR) across every track. The 1.0 baseline (also 2026-06-11) incorporated

@@ -8,6 +8,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-067 — Focused speed-maths catalog rebuild + Timed Mock (2026-06-24)
+- **Context:** QuantReflex served 26 exams across every Indian exam family, diluting positioning and including
+  exams (JEE/Olympiad/GMAT/CLAT/NDA) where no-calculator mental-calculation speed is not the rank lever.
+  Pre-launch (zero users) — freedom to curate ruthlessly with no migration/back-compat.
+- **Decision:** Reposition as the best speed-maths trainer for a curated catalog, grounded in the books students
+  actually use.
+  - **Catalog:** 26 → 17 exams in 4 tiers (MBA, Banking, Foundation, Government); remove 11 misfits + the
+    `defense` family; add MAT, ATMA, RBI Assistant (per `docs/NEW_EXAM_CANDIDATE_AUDIT.md`; NABARD rejected —
+    its quant is qualifying-only). `other` retained as a hidden engine fallback.
+  - **Metadata:** per-exam `tier`, exam-mechanics `pattern`, and `book`; a BOOKS registry with R.S. Aggarwal as
+    default topic order and the Arihant MAH-CET guide for MBA CET. The planner sequences topics in book order.
+  - **Readiness:** replace the flat 12% speed weight with pattern-derived profiles (speed-critical/concept/
+    balanced), keeping the 7-factor breakdown honest by returning the weights used.
+  - **Coaching:** `examStrategy` emits an "EXAM MECHANICS" line so Coach/Planner/Insights give exam-true strategy.
+  - **Drills:** add Simplification + Number Series (the core of banking/SSC speed) as generators + drillable
+    topics. DI and Quadratic-Comparison deferred (need a relational/tabular answer format).
+  - **Timed Mock (Premium):** a pure `js/mock-engine.js` builds a weightage-true quant-section deck under the
+    exam's real clock + marking scheme, run via the existing drill engine; gated by a new `timed_mocks`
+    entitlement; the exam-accurate score is shown via a new additive drill-engine `onResults` hook.
+- **Consequences:** sharper positioning and far lower onboarding load (4 tiers vs a 26-item list); one engine,
+  data-differentiated per exam (no per-exam code forks). The server picks up the curated catalog via the same
+  `data/syllabus.js` (`aiBrain`, `examStrategy`). Strategy/audit docs added (`PRODUCT_STRATEGY.md`,
+  `EXAM_AUDIT.md`, `NEW_EXAM_CANDIDATE_AUDIT.md`). Verified by a post-implementation audit (3654 + 79 + 100
+  assertions). Follow-ups: feed standalone-mock results into the planner's `_mockTrend` (server write);
+  DI/Quadratic drills; a multi-section sectional mock. No migration (pre-launch, zero users).
+
 ## ADR-066 — Universal Notification Inbox: one model · one pipeline (2026-06-15, in progress)
 - **Context:** Notifications were fragmented across 5+ paths; most bypassed the in-app Inbox, so on push failure
   the notification was lost. FCM is unreliable on **Spark** (the scheduled Cloud Functions never run; web push is

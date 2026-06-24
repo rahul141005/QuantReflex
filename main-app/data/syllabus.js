@@ -33,7 +33,7 @@
  *
  * Drillable cats (must match services/quantTopics.js / questions.js):
  *   squares, cubes, area, volume, fractions, percentages, multiplication, ratios, averages,
- *   profit-loss, time-speed-distance, time-and-work
+ *   profit-loss, time-speed-distance, time-and-work, simplification, number-series
  */
 (function (root) {
   'use strict';

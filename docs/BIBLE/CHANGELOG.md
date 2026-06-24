@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-24 — Focused speed-maths catalog rebuild + Timed Mock (ADR-067)
+
+Repositioned QuantReflex from "every Indian exam" to the best **speed-maths** trainer for a curated catalog,
+and shipped the supporting engine + UX work (verified by a post-implementation audit). Highlights:
+- **Catalog curated 26 → 17 exams in 4 user-facing tiers** — MBA (CAT, XAT, SNAP, NMAT, CMAT, MAH CET, MAT,
+  ATMA), Banking (IBPS PO/Clerk, SBI PO, RBI Assistant), Foundation, Government (SSC CGL/CHSL/MTS, RRB NTPC);
+  `other` kept hidden as the engine fallback. Removed 11 misfits (GMAT, CLAT, JEE, Olympiad, NDA, CDS, AFCAT,
+  CUET, NTSE, IPMAT, generic Bank PO) and the unused `defense` family. Added MAT, ATMA, RBI Assistant.
+- **Per-exam metadata** in `data/syllabus.js`: `tier`, verified exam-mechanics `pattern`
+  {q,marks,dur,sectional,neg,calc,quantQ,quantMin}, and a `book` field + BOOKS registry — R.S. Aggarwal is the
+  default study order; **MBA CET follows the Arihant MAH-CET guide**. `SYLLABUS_VERSION` 2→3.
+- **Categories-first onboarding** (4 tier cards + smart defaults) replacing the flat exam list (`companion-ui.js`).
+- **Tier/mechanics-aware readiness** (`services/readiness.js`): the flat 12% speed weight is replaced by
+  profiles (speed-critical 0.22 / concept 0.08 / balanced 0.12) chosen from each exam's `pattern`; the readiness
+  breakdown reports the weights actually used. **Book-order plan sequencing** in `services/planningEngine.js`.
+- **Exam-mechanics coaching**: `services/examStrategy.js` emits an "EXAM MECHANICS" line (no-negative /
+  calculator / sectional / seconds-per-question) so the AI gives tier-appropriate strategy.
+- **Two new drill categories** — Simplification & Number Series (generators + drillable topics + UI buttons).
+- **Timed Mock (Premium)**: `js/mock-engine.js` (`buildMock`/`buildMockDeck`/`score`) runs a weightage-true
+  quant section under the exam's real clock + marking scheme and shows the exam-accurate score; gated by the
+  new `timed_mocks` entitlement; surfaced via an additive drill-engine `onResults` hook.
+- **Post-implementation audit fixes**: corrected a 12→14 category test assertion + added a generator/label
+  parity guard; filled three stale category label maps; made the mock deck exactly blueprint-sized; removed a
+  dead `saveMockResult` call.
+
+Pre-launch (zero users) → no migration. No Firestore collection/rules/payment-flow change (`timed_mocks` uses
+the existing single-premium entitlement). New check: `scripts/mock-engine.check.js`. SW v126→v127.
+Bible 2.43→2.44, Arch 2.29→2.30. See ADR-067.
+
 ## 2026-06-15 — AI never discards the student's real data on a Firestore read hiccup (ADR-054)
 
 Coach/Insights showed "I haven't seen you solve yet" for a user with 11 attempted / 63.6% in Analytics. Root

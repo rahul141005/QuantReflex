@@ -61,7 +61,10 @@ Client → FirestoreSync.activatePremium() → UI update
 Every gated feature requires `plan === 'premium'` (no AI-only sub-tier):
 `custom_training, review_mistakes, add_formula, add_topic, performance_insights, category_accuracy,
 hard_mode, skip_question, advanced_theme, daily_goal_limit, focus_timer, table_modal,
-adaptive_training, ai_explain, ai_coach, ai_study_plan, math_duel`.
+adaptive_training, math_duel, timed_mocks, ai_explain, ai_coach, ai_study_plan`.
+
+`timed_mocks` (ADR-067) gates the Timed Mock — a full quant-section simulation of the student's exam under its
+real clock + marking scheme.
 
 ## Admin Entitlement API
 
