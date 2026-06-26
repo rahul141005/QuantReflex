@@ -65,7 +65,7 @@ DOM components. Features never hand-build HTML for AI output.
 ```jsonc
 AIResponse = {
   "v": 1,
-  "feature": "explain" | "coach" | "insights" | "plan" | "wordproblems" | "chat",
+  "feature": "explain" | "coach" | "insights" | "planner" | "wordproblems" | "chat",  // "chat" echoes the caller's feature (a follow-up mode, not a standalone feature); "planner" is gated client-side as the ai_study_plan entitlement
   "blocks": Block[],          // ordered, rendered top → bottom
   "chips":  Chip[],           // next-action quick replies (≥1 unless terminal)
   "meta":   { "threadId"?: string, "cached"?: bool, "promptId"?: string, "personaLine"?: string }

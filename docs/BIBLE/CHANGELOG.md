@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-24 — Deep bible↔code drift reconciliation
+
+Doc-only governance pass: a 3-app drift audit (TECHNICAL_BIBLE vs all 3 apps; FIRESTORE+SECURITY vs
+rules/indexes/code; PAYMENT+AI vs services/api) re-synced the living bibles to the **actual code** where they had
+drifted from features added after the docs were last touched. **No app code / rules / indexes / data touched.**
+
+```
+### docs(reconcile-drift): sync living bibles to actual code across all 3 apps
+- Requested change: make the bibles reflect the whole repo, not just catalog numbers.
+- Impacted systems: docs only.
+- Fixed (doc vs code, file:line):
+  - TECHNICAL_BIBLE.md §3 main-app row — AI actions explain|coach|insights|chat|planner|wordproblems
+    (`api/ai.js:190-195`) + added the `duel` and `notify` (ADR-066) endpoints; coaching row — removed the
+    non-existent `leaderboard`; §3.1 counts main-app 6→8, coaching 6→5 (super-admin 8 unchanged), 6/12→8/12.
+  - SECURITY_ARCHITECTURE.md:121/133 — admin rate limit 30→300/hr (`super-admin-app/api/_lib/middleware.js:51`
+    `ADMIN_MAX_REQUESTS_PER_HOUR = 300`).
+  - FIRESTORE_BLUEPRINT.md §4 — added the two real `aiRequests` composite indexes (feature,ts / uid,ts).
+  - AI_INTERACTION_SYSTEM.md:68 — response-envelope feature `plan`→`planner` + a chat / `ai_study_plan` naming note.
+- Verified clean (no change): payment actions/prices(₹349/₹599)/durations(182/365)/entitlement fields; rules
+  table + custom claims; register 10/hr/IP + coaching 8/min limits; duel rules; entitlementLogs CG index;
+  model `gpt-4o-mini`; AI caches; `enforceAiBudget`; super-admin function count 8.
+- Schema delta: none (documented two already-deployed indexes). API delta: none.
+- Security review: doc-only correction of a stale rate-limit number; no rule/claim/secret change.
+- Cross-app compatibility: docs only.
+- Version bumps: Bible 2.45→2.46, Architecture 2.31→2.32, Firestore 2.16→2.17, Security 2.12→2.13; Payment 2.3 unchanged.
+- Migration: none (doc-only).
+- Verification: `cd main-app && npm test` (4098) + `node scripts/mock-engine.check.js` (100); re-grep confirms no
+  stale `study-plan` / `leaderboard` / `main-app **6` / `30/hr` in TECHNICAL_BIBLE / SECURITY.
+```
+
 ## 2026-06-24 — Documentation-consistency reconciliation (ADR-067 / ADR-032)
 
 Doc-only governance pass: the code had shipped the ADR-067 rebuild, but several **living** docs still described the

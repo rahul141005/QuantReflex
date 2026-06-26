@@ -37,5 +37,5 @@ synchronized with the code, and the version registry is updated.** See [GOVERNAN
 
 ---
 
-**Current versions** (see [VERSIONS.md](VERSIONS.md) for detail): Bible 2.45 · Architecture 2.31 ·
-Firestore 2.16 · Security 2.12 · Payment 2.3.
+**Current versions** (see [VERSIONS.md](VERSIONS.md) for detail): Bible 2.46 · Architecture 2.32 ·
+Firestore 2.17 · Security 2.13 · Payment 2.3.

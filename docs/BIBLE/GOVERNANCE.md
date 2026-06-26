@@ -98,7 +98,7 @@ The `super-admin-app` Control Center is the **single enforcement point** for all
 entitlement grants/revokes, coaching create/suspend/delete, content edits, and (Phase 2) user
 suspend/delete. These MUST be performed through the app's `api/admin/*` endpoints, **never** by editing
 Firestore directly in the Firebase console. Each endpoint enforces auth (`admin:true`), rate limiting
-(30/hr), validation, and — critically — an **immutable `auditLogs` entry** (who/when/what/before/after).
+(300/hr), validation, and — critically — an **immutable `auditLogs` entry** (who/when/what/before/after).
 Direct console edits bypass all of that and leave no trail. If an operation is needed that the Control
 Center doesn't yet support, the correct response is to **add the endpoint** (Bible-first), not to hand-edit
 data.

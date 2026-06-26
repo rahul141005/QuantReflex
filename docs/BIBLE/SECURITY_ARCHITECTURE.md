@@ -1,6 +1,6 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.6 · **Security Version:** 2.12 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.7 · **Security Version:** 2.13 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
 **Last updated:** 2026-06-24
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
@@ -118,7 +118,7 @@ authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvant
 |---|---|---|---|---|
 | `withAuth` | main-app `_lib/middleware.js` | valid ID token | `req.userId/userPremium` (v2: single flag) | 20/hr/user (per-instance, in-memory) |
 | `withAdminAuth` | main-app `_lib/middleware.js` | `admin:true` | `req.userId` | — |
-| `withAdminAuth` (super-admin) | super-admin `_lib/middleware.js` | `admin:true` | `req.userId` + `req.adminUid` | **30/hr/admin** (audit M5/M6 — now applied to ALL super-admin endpoints) |
+| `withAdminAuth` (super-admin) | super-admin `_lib/middleware.js` | `admin:true` | `req.userId` + `req.adminUid` | **300/hr/admin** (5/min sustained — raised 30→300 so normal User-360 sessions aren't throttled; audit M5/M6, applied to ALL super-admin endpoints) |
 | `withAdmin` (super-admin) | super-admin `_lib/firebase-admin.js` | — | — | thin re-export of `withAdminAuth` (audit M5) |
 | `withCoachingAuth` | coaching `_lib/middleware.js` | `coaching_admin:true` + `coachingId` | `req.userId/coachingId` | — |
 
@@ -130,7 +130,7 @@ authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvant
 
 ### 5.2 Admin Permissions & Audit Logging (Super Admin Control Center)
 Every privileged operation runs through a `super-admin-app/api/admin/*` endpoint wrapped by `withAdminAuth`
-(token + `admin:true` claim + 30/hr/admin). The `admin:true` claim is granted only via Firebase console /
+(token + `admin:true` claim + 300/hr/admin). The `admin:true` claim is granted only via Firebase console /
 admin tooling (never self-granted).
 
 > **Admin authentication = the server `admin:true` claim ONLY (ADR-023).** The super-admin client
@@ -205,7 +205,7 @@ Break-glass governance flags live in central Firestore config docs and are the s
   (`allow read: if request.auth != null`) since they gate authenticated operations. They are non-sensitive
   booleans. `config/aiBudget` (and any future non-flag config) has **no** client read rule — Admin-SDK only.
 - **Enforcement points (main-app):** `aiService` checks `config/aiKillSwitch` before any OpenAI call (covers
-  `api/ai.js` explain/insights/study-plan); `paymentService`/`api/payment.js` checks `config/paymentKillSwitch`
+  `api/ai.js` explain/coach/insights/chat/planner/wordproblems); `paymentService`/`api/payment.js` checks `config/paymentKillSwitch`
   before creating a Razorpay order; the client checks `config/maintenance` on boot and blocks core learning with
   a maintenance screen for non-admins. Flags are short-TTL cached. New protected operations MUST add the
   matching check (GOVERNANCE).

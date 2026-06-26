@@ -9,11 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.45 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.31 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.16 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.12 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.46 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.32 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.17 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.13 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.46 / Arch 2.32 / Firestore 2.17 / Security 2.13 (2026-06-24)** — Deep bible↔code drift reconciliation: a
+> 3-app audit synced the living bibles to the actual code where they'd drifted from features added after the docs
+> were last touched — TECHNICAL_BIBLE §3 main-app API row (real 6 AI actions + `duel`/`notify`) + §3.1 counts
+> (main-app 8, coaching 5; removed non-existent `leaderboard`); SECURITY admin rate limit 30→300/hr; FIRESTORE
+> `aiRequests` composite indexes added to §4; AI envelope feature `plan`→`planner`. Payment verified clean
+> (unchanged). Migration: none (doc-only).
 
 > **2.45 / Arch 2.31 / Firestore 2.16 (2026-06-24)** — Documentation-consistency reconciliation (ADR-067/ADR-032):
 > synced the living docs + every per-doc version header + the README footer to the as-built ADR-067 catalog
@@ -65,6 +72,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-24 | 2.46 | 2.32 | 2.17 | 2.13 | 2.3 | **Deep bible↔code drift reconciliation:** synced the living bibles to actual code (3-app audit). TECHNICAL_BIBLE §3 main-app API row → real AI actions (explain/coach/insights/chat/planner/wordproblems) + added `duel`/`notify`; §3.1 counts main-app 6→8, coaching 6→5 (removed non-existent `leaderboard`). SECURITY admin rate limit 30→**300/hr** (`middleware.js` `ADMIN_MAX_REQUESTS_PER_HOUR=300`). FIRESTORE §4 added the two `aiRequests` composite indexes. AI_INTERACTION envelope feature `plan`→`planner` (+ chat / ai_study_plan naming note). Payment verified clean. Doc-only; no code/rules/index/data change. `npm test` 4098 + mock-engine 100 green. Bible 2.45→2.46, Arch 2.31→2.32, Firestore 2.16→2.17, Security 2.12→2.13. |
 | 2026-06-24 | 2.45 | 2.31 | 2.16 | 2.12 | 2.3 | **Documentation-consistency reconciliation (ADR-067/ADR-032):** synced the living docs + every per-doc version header + the README footer to the as-built ADR-067 catalog (17 exams in 4 tiers, 14 drillable categories, 50 topics, `SYLLABUS_VERSION` 3) and to this registry. Fixed: `AI_INTERACTION_SYSTEM` §6 (26→17 exams, 104→50 topics, 12→14 cats — resolves the §1-vs-§6 contradiction); `FIRESTORE_BLUEPRINT` "12→14 authoritative categories" + the verified-absent `aiStudyPlans` composite note (legacy collection; live planner is `aiPlanner/{uid}`, doc-per-user); `TECHNICAL_BIBLE` §6 `syncCoachingStudentCount` (retired/no-op, request-path maintenance — ADR-032); `ROADMAP` TEST-1 ("no automated tests" → the real ~4,098-assertion suite, re-statused Partial). Operational items (ADR-023 admin password rotation/MFA, App Check/M7) surfaced only — already tracked. **Doc-only; no code/rules/index/data change.** Verified: `npm test` (4098) + `mock-engine.check` (100) green. Bible 2.44→2.45, Arch 2.30→2.31, Firestore 2.15→2.16. |
 | 2026-06-24 | 2.44 | 2.30 | 2.15 | 2.12 | 2.3 | **Focused speed-maths catalog rebuild + Timed Mock (ADR-067):** catalog curated 26→17 exams in 4 tiers (MBA/Banking/Foundation/Government), per-exam `tier`/`pattern`/`book` metadata + BOOKS registry (R.S. Aggarwal default; Arihant for MAH-CET), tier-aware readiness weighting, two new drill categories (Simplification, Number Series), categories-first onboarding, exam-mechanics coaching, and the Premium Timed Mock (`timed_mocks`). `SYLLABUS_VERSION` 2→3 (bundled data — Firestore track unchanged). New check `scripts/mock-engine.check.js`. SW v126→v127. Bible 2.43→2.44, Arch 2.29→2.30. |
 | 2026-06-15 | 2.43 | 2.29 | 2.15 | 2.12 | 2.3 | **AI never discards the student's real data on a Firestore read hiccup (ADR-054):** Coach/Insights said "I haven't seen you solve yet" for a user with 11 attempted/63.6% in Analytics. Root cause: the server builds the profile from Firestore via firebase-admin and the client's authoritative stats are a floor — but the read-failure `catch` returned `_coldContext(uid,{})`, **discarding the floor** and hardcoding `totalAttempted:0`, so a read error (e.g. bad `FIREBASE_SERVICE_ACCOUNT`) made the AI cold despite real data. Fix: `studentProfile.build()` degrades to empty server stats and falls through to the **same `_floorStats(clientStats)` path** on a read error (invariant: a positive client floor can never yield a cold profile); deleted the dead `_coldContext`; added a server tripwire log; and `firestore-sync.queueUpdate` now **buffers instead of dropping** pre-ready writes with a `_flushPending()` on load. No model/schema/rules change. `node --check`; `npm test` 209 + 78 (simulated admin read-failure stays warm). SW v114→v115. Arch 2.28→2.29, Bible 2.42→2.43. |

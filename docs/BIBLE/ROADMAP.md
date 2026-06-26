@@ -90,7 +90,7 @@ consider extending the same safe-area-top treatment to the other views for full 
 - **App code deploys via Vercel** (`main-app`, `super-admin-app`, `coaching-admin-app`) on push —
   Firebase deploy only covers rules + indexes.
 - **Vercel Free (Hobby) cap = 12 Serverless Functions/project** (ADR-017). Post-consolidation counts:
-  main-app **6**, super-admin **8**, coaching **6**. New features must fit an existing domain API (no new
+  main-app **8**, super-admin **8**, coaching **5**. New features must fit an existing domain API (no new
   `api/*.js` unless unavoidable) — see [TECHNICAL_BIBLE §3.1](TECHNICAL_BIBLE.md) + GOVERNANCE Infrastructure
   Governance. Cron ≤ once/day on Hobby. If a Razorpay webhook path ever changes, reconfigure the Razorpay
   dashboard.
@@ -99,7 +99,7 @@ consider extending the same safe-area-top treatment to the other views for full 
 
 ## Coaching Portal (`coaching-admin-app`)
 
-Functional API (`auth`, `students`, `dashboard`, `leaderboard`, `notices`, `insights`) with a lean
+Functional API (`auth`, `students`, `dashboard`, `notices`, `insights`) with a lean
 UI. Future build-out should follow the governance workflow and keep `coachingId`-claim scoping for
 all reads. Document any new collections/fields in [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md).
 

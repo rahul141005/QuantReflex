@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.9 · **Firestore Version:** 2.16 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.10 · **Firestore Version:** 2.17 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-24
@@ -238,6 +238,8 @@ completedAt, createdAt }`.
 | auditLogs | category (ASC), ts (DESC) | audit center filtered by category |
 | auditLogs | actorUid (ASC), ts (DESC) | "an admin's actions" newest-first |
 | auditLogs | targetId (ASC), ts (DESC) | all actions against one user/coaching |
+| aiRequests | feature (ASC), ts (DESC) | AI cost/usage analytics by feature, newest-first (`api/ai.js` request log). |
+| aiRequests | uid (ASC), ts (DESC) | per-user AI request history, newest-first. |
 | users | accountStatus (ASC), purgeAfter (ASC) | cleanup-sweep cron: archived users past their hold |
 | securityEvents | type (ASC), createdAt (DESC) | Security Center per-type 24h `count()` + payment-failure/login-failure spike alerts (Phase 5, ADR-018). The plain `orderBy(createdAt desc)` recent feed uses the single-field auto-index (no composite). |
 | users | plan (ASC), planExpiry (ASC) | **ADR-023** — accurate active-premium accounting via `count()` range aggregations: expired-unswept (`plan=='premium' && planExpiry<now`) and expiring (`planExpiry` in `(now, now+N]`) on the dashboard / alerts / security / revenue-intel. Replaces the old `.limit(1000)` + in-memory scans. |

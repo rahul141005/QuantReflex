@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.7 · **Architecture Version:** 2.31 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.8 · **Architecture Version:** 2.32 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -37,9 +37,9 @@ A mental-math / quantitative-aptitude training SaaS for competitive-exam aspiran
 
 | App | Deploy target | Audience | Auth gate | Server APIs |
 |---|---|---|---|---|
-| `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|insights\|study-plan), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `auth/register` (public), `validate-coaching` (public) |
+| `main-app/` | quantreflex.app | Students | Firebase user (no special claim) | `ai` (action=explain\|coach\|insights\|chat\|planner\|wordproblems), `payment` (action=create-order\|verify) + `payment/webhook` (HMAC, no JWT), `account` (action=delete\|notifications-list\|notifications-markRead\|claim-coaching), `duel` (action-routed duel lifecycle), `notify` (internal server-to-server, secret-gated — ADR-066), `auth/register` (public), `validate-coaching` (public) |
 | `super-admin-app/` | dev.quantreflex.app | Platform admins | `admin:true` claim | `admin/*` domain APIs: `system` (dashboard\|health\|alerts\|auditLogs\|payments-logs\|export\|aggregate-metrics\|duels-cleanup\|security\|firestore-ops\|search\|config-get\|config-set\|revenue-intel\|ack-alert\|revoke-tokens), `users` (list\|details\|lifecycle\|inactive-list\|inactive-export\|bulk-archive\|bulk-remind\|payment-history\|activity-timeline\|admin-history\|pending-purge-list\|throttle\|reassign-coaching), `ai` (usage\|budget), `entitlements`, `coachings` (list\|create\|mutate\|details\|students\|activity\|reset-token), `questions` (list\|create\|update\|archive\|delete\|generate\|import), `notifications` (broadcast POST \| history GET) + `cron/sweep` (Vercel Cron, `CRON_SECRET`-gated). **V2 UI (ADR-019)** is a tablet-first nav: **Command Center · Users · Coachings · Revenue · Content · AI · Operations · Settings** (Settings added in ADR-025; Global Search = Cmd+K shell affordance). **ADR-022** consolidated each domain into a first-class **entity-360 / Center** (User-360, Coaching-360, AI Cost Center, Revenue Center, Operations Center) — one owner per capability, no legacy/strangler view files remain. |
-| `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, leaderboard, notices, insights) |
+| `coaching-admin-app/` | admin.quantreflex.app | Coaching admins | `coaching_admin:true` + `coachingId` claims | `coaching/*` (auth, students, dashboard, notices, insights) |
 | `functions/` | Firebase | (scheduled/triggers) | n/a (Admin SDK) | `cleanupExpiredDuels`, `enforceEntitlementExpiry`, `dailyPracticeReminder`, ~~`syncCoachingStudentCount`~~ (**retired/no-op — ADR-032**; `studentCount` is maintained in the request path since triggers don't run on Spark). All four are **dormant on Spark** — not deployed; see §3.1/§6. |
 
 **Isolation rule:** apps deploy independently from their own root directory. There is **no bundler**, so runtime `import ../shared/` is impossible. Shared logic (`_toMillis`, `_escapeHtml`, Firebase config, entitlement constants) is **inline-copied** into each app; `shared/` is the canonical reference only. When you change a shared utility, update every inline copy and note it in the changelog.
@@ -60,7 +60,7 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
 - **One auth model per handler** (never mix in one file): admin → `withAdminAuth`; student → `withAuth`; crons →
   `CRON_SECRET`; the Razorpay webhook stays isolated (HMAC + `bodyParser:false`); public endpoints
   (`auth/register`, `validate-coaching`) stay isolated.
-- **Current counts (post-consolidation, ADR-017):** main-app **6**, super-admin **8**, coaching **6** — all under
+- **Current counts (post-consolidation, ADR-017):** main-app **8**, super-admin **8**, coaching **5** — all under
   the 12-function cap with headroom. **Super Admin V2 (ADR-019/020/021)** adds `search`, `config-get`,
   `config-set`, `revenue-intel`, `ack-alert` as new `?action=` branches on `system.js` — **no new function**
   (stays 8/12). Global Search and Emergency-Control config endpoints deliberately ride existing handlers.
@@ -69,7 +69,7 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
   extended), and AI by-coaching / top-consumer / by-feature aggregations are derived **client-side** from the
   existing `ai?action=usage` payload (no new AI actions). The per-user AI throttle (`users?action=throttle`) is
   honored by main-app **without a new function** — `api/ai.js` calls `aiService.enforceAiThrottle` inside the
-  existing AI handler (still main-app **6/12**).
+  existing AI handler (still main-app **8/12**).
 
 ## 4. main-app Client Architecture
 
@@ -104,7 +104,7 @@ Deferred           notifications.js, onboarding.js
 
 - **Trust boundary:** the Firebase **Admin SDK** bypasses Firestore rules. All entitlement grants, account creation, payment processing, and admin mutations run server-side with Admin SDK.
 - **Auth middleware (`main-app/api/_lib/middleware.js`):** `withAuth` verifies the Firebase ID token, resolves the single `req.userPremium` from Firestore (`aiService.isUserPremium`→`resolvePlan`), applies a per-instance in-memory rate limit (default **20/hr** AI bucket; callers may pass `{ rateLimitClass: 'duel' }` for a separate **120/hr** bucket so a live duel never 429s mid-finish or eats the AI budget — ADR-033/D1). `withAdminAuth` additionally requires `decoded.admin===true`.
-- **Admin middleware (`super-admin-app/api/_lib/`):** **canonical wrapper is `middleware.js#withAdminAuth`** (token + `admin:true` claim + per-admin rate limit 30/hr; sets both `req.userId` and `req.adminUid`). `firebase-admin.js#withAdmin` is now a thin re-export of it (audit M5, fixed 2026-06-11). All admin endpoints are rate-limited.
+- **Admin middleware (`super-admin-app/api/_lib/`):** **canonical wrapper is `middleware.js#withAdminAuth`** (token + `admin:true` claim + per-admin rate limit 300/hr; sets both `req.userId` and `req.adminUid`). `firebase-admin.js#withAdmin` is now a thin re-export of it (audit M5, fixed 2026-06-11). All admin endpoints are rate-limited.
 - **Coaching middleware (`coaching-admin-app/api/_lib/middleware.js`):** `withCoachingAuth` requires `coaching_admin===true` AND a `coachingId` claim, attaches `req.coachingId` for data scoping.
 
 ### 5.1 Services (`main-app/services/`)
@@ -117,7 +117,7 @@ The `super-admin-app` is the **operational control plane** for the platform — 
 content, and analytics operations flow through it, never direct Firestore-console edits (ADR-012). It is a
 vanilla-JS SPA (`js/views/*` over `js/ui/{modal,table,toast}.js`, `js/services/api.js` auto-JWT,
 `js/state/store.js`) calling `api/admin/*` endpoints, every one wrapped by `withAdminAuth`
-(token + `admin:true` + 30/hr).
+(token + `admin:true` + 300/hr).
 - **Immutable audit trail:** every mutation endpoint calls the shared `api/_lib/audit.js#writeAuditLog`,
   appending one `auditLogs` row (`{ts, actorUid, actorEmail, action, category, targetType, targetId, summary,
   before, after}`). Append-only; admin-read-only. See [SECURITY_ARCHITECTURE.md §5.2](SECURITY_ARCHITECTURE.md).
