@@ -82,7 +82,7 @@ consider extending the same safe-area-top treatment to the other views for full 
 | LOW-1 | Duel `waiting` room read scope | Security | Low | Any authed user can read a waiting duel doc (needed for join). Tighten only if duel content becomes sensitive. |
 | DEBT-1 | ~~Retire client read-time `premiumPlusPlan` normalization~~ | — | Done | Removed in the v2 monetization rewrite (ADR-009); `getAccessState` no longer normalizes legacy plan values. |
 | DEBT-2 | Reconciliation cadence for `coachings.studentCount` | Ops | Medium | The reconcile script is manual. Consider a scheduled function if drift recurs. |
-| TEST-1 | Automated test coverage | Quality | High | No automated tests exist. Start with the payment/entitlement critical cases (AUDIT §16). |
+| TEST-1 | Automated test coverage | Quality | Med | **Partial** — `main-app` `npm test` runs 6 deterministic validators (knowledge-base 3654, planner-engine 238, planner-brain 97, intelligence-consistency 79, notifications 18, ai-cost 12 ≈ **4,098 assertions**), plus `scripts/mock-engine.check.js` (100) and `scripts/duel-sim.js` (needs `firebase-admin`). **Gap:** payment/entitlement critical-path tests (AUDIT §16) + wire `mock-engine.check` into `npm test`. |
 | DEBT-3 | ~~`stats.lastActiveDate` is a non-sortable `toDateString`~~ | — | **Done (ADR-029)** | Fixed: `main-app/js/progress.js` now writes a sortable `stats.lastActiveMs`; the coaching roster order/cursor + the super-admin inactive sweep/list/export all query `lastActiveMs`; index `users(coachingId, stats.lastActiveMs DESC)` added; backfilled by `firestore/migrations/2026-06-13-add-lastActiveMs.js`. `lastActiveDate` retained for display only. |
 
 ## Deployment reminders (not code-resolvable here)

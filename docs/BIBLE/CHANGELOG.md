@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-24 — Documentation-consistency reconciliation (ADR-067 / ADR-032)
+
+Doc-only governance pass: the code had shipped the ADR-067 rebuild, but several **living** docs still described the
+pre-rebuild state and the per-doc version headers + README footer had drifted far behind the registry. Read-only
+code verification + doc edits only — **no app code / rules / indexes / data touched**.
+
+```
+### docs(reconcile-067): sync living docs + version stamps to as-built code
+- Requested change: reconcile docs to verified code (post-ADR-067 catalog) + re-stamp versions consistently.
+- Impacted systems: docs only — no Student App / Admin / Coaching / Firestore / Rules / Payments / AI / API change.
+- Verified ground truth: 17 user-facing exams + hidden `other`; `SYLLABUS_VERSION` 3; 14 drillable categories;
+  5 family syllabi; 50 canonical topics; serverless fns 8/8/5 (≤12, ADR-017); `aiStudyPlans` composite ABSENT
+  and not needed (live planner `aiPlanner/{uid}`, doc-per-user); test suite ≈4,098 assertions + mock-engine 100.
+- Bible docs updated:
+  - Version stamps → registry: README.md footer (1.0×5 → 2.45/2.31/2.16/2.12/2.3); TECHNICAL_BIBLE.md:3
+    (Arch 2.9→2.31, Doc 1.6→1.7); FIRESTORE_BLUEPRINT.md:3 (Firestore 2.12→2.16, Doc 1.8→1.9);
+    SECURITY_ARCHITECTURE.md:3 (Security 2.10→2.12, Doc 1.5→1.6); PAYMENT_ARCHITECTURE.md:3 (Payment 2.1→2.3,
+    Doc 2.1→2.2); `Last updated` → 2026-06-24 on each.
+  - ADR-067 catalog numbers: AI_INTERACTION_SYSTEM.md §6 (26→17 exams, 104→50 topics, 12→14 cats; fixes the
+    §1-vs-§6 contradiction); FIRESTORE_BLUEPRINT.md:129 (12→14 authoritative categories); PRODUCT_STRATEGY.md
+    dated note (no rewrite).
+  - TECHNICAL_BIBLE.md §6: `syncCoachingStudentCount` corrected to retired/no-op + request-path maintenance (ADR-032).
+  - FIRESTORE_BLUEPRINT.md §indexes: `aiStudyPlans` composite note resolved (verified absent; legacy; `aiPlanner/{uid}`).
+  - ROADMAP.md TEST-1: "no automated tests exist" → the real ~4,098-assertion suite; re-statused Partial.
+- Schema delta: none. API delta: none.
+- Security review: no change. Stale Security/Payment header stamps corrected to the current registry; the SEC1
+  App-Check/M7 hardening and ADR-023 admin password-rotation/MFA items remain tracked (not modified).
+- Cross-app compatibility: docs only; no reader/writer contract touched.
+- Version bumps: Bible 2.44→2.45, Architecture 2.30→2.31, Firestore 2.15→2.16; Security 2.12 + Payment 2.3 unchanged.
+- Migration: none (doc-only).
+- Verification: `cd main-app && npm test` (4098 passed) + `node scripts/mock-engine.check.js` (100); grep confirms
+  no living-doc "26 exam / 12 cat / 104 topic / 12 authoritative" hits remain (only append-only history).
+```
+
 ## 2026-06-24 — Focused speed-maths catalog rebuild + Timed Mock (ADR-067)
 
 Repositioned QuantReflex from "every Indian exam" to the best **speed-maths** trainer for a curated catalog,

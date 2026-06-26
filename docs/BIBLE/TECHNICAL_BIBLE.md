@@ -1,8 +1,8 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.6 · **Architecture Version:** 2.9 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.7 · **Architecture Version:** 2.31 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
 
 Companion documents (start at [README.md](README.md)):
@@ -137,9 +137,9 @@ vanilla-JS SPA (`js/views/*` over `js/ui/{modal,table,toast}.js`, `js/services/a
 | `cleanupExpiredDuels` | every 60 min | Soft-expire stale waiting/ready duels >30 min | `.limit(400)`, batch |
 | `enforceEntitlementExpiry` | every 6 h | Revert expired premium (`plan:'premium'` + `planExpiry`<now → `plan:'free'`) | paginate 200, stop >5000 |
 | `dailyPracticeReminder` | 07:00 IST | FCM reminder, prune invalid tokens | paginate 500, **caps 5000 tokens/run** |
-| `syncCoachingStudentCount` | onWrite `users/{uid}` | **Sole writer** of `coachings.studentCount` on `coachingId` change | increment/decrement |
+| `syncCoachingStudentCount` | onWrite `users/{uid}` | **Retired/no-op (ADR-032)** — dormant on Spark; `studentCount` is maintained in the request path instead | n/a |
 
-> `studentCount` is the **canonical** denormalized counter and is maintained **only** by `syncCoachingStudentCount`. No request handler may increment it directly (claim-coaching previously wrote a divergent `studentsCount` — removed, audit M8). Drift is repaired by `firestore/migrations/2026-06-11-reconcile-studentCount.js`.
+> `studentCount` is the **canonical** denormalized counter, maintained **in the request path** (register / claim-coaching / reassign-coaching / purge / delete — transactional ±1, decrement only when `coachingId` is actually removed) with live `count()` at detail surfaces. The `syncCoachingStudentCount` `onDocumentWritten` trigger is **retired/no-op (ADR-032)** because triggers don't run on Spark. Drift was repaired once by `firestore/migrations/2026-06-11-reconcile-studentCount.js` + `firestore/diagnostics/backfill-student-counts.js` (claim-coaching's divergent `studentsCount` was removed, audit M8).
 
 > Note: premium access is also reverted **live** on read (`resolvePlan` self-heals on access), so the 6-hour function only affects dashboard counts, not access correctness.
 

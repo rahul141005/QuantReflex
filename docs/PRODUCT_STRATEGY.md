@@ -6,6 +6,10 @@
 - **Companion docs:** `docs/EXAM_AUDIT.md` (26-exam baseline audit), `docs/NEW_EXAM_CANDIDATE_AUDIT.md` (5 candidate exams).
 - **Labels:** `[CODE]` codebase fact · `[FACT]` verified external fact · `[ASSESS]` reasoned recommendation.
 
+> **Note (2026-06-24):** This is a point-in-time proposal predating **ADR-067**. The **as-built** catalog is per
+> ADR-067 — **17 exams in 4 tiers** (MBA · Banking · Foundation · Government) and **14 drillable categories**.
+> Read the "14 launch + 3 pipeline" / "12 categories" framing below as historical, not current.
+
 ---
 
 ## 1. Strategic thesis

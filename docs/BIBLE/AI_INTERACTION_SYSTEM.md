@@ -235,9 +235,9 @@ The Planner is the strongest expression of §0's doctrine: **all scheduling is d
 prose.** It is the ONE study planner — the legacy one-shot Mission (`aiMissions` + `plan.generate` + `planLogic`)
 was fully removed in ADR-047.
 
-- **Syllabus DB** (`main-app/data/syllabus.js`, bundled not Firestore): 26 exams → 5 real syllabi, 104 topics,
+- **Syllabus DB** (`main-app/data/syllabus.js`, bundled not Firestore; ADR-067): 17 exams → 5 family syllabi, 50 topics,
   each with importance/frequency/difficulty/prereqs/revision-cadence/est-minutes, a `drillable` link to one of
-  the 12 cats (or null), and a weighted `signals[]` map. **The 12 drillable cats are SIGNALS, not limits** — every
+  the 14 cats (or null), and a weighted `signals[]` map. **The 14 drillable cats are SIGNALS, not limits** — every
   syllabus topic is scheduled; non-drillable ones say "study from your resources". A new drillable cat plugs into
   `signals[]` with no engine change.
 - **Engine** (`signals.js` → `readiness.js` → `plannerEngine.js`, pure): infers per-topic readiness from in-app

@@ -1,8 +1,8 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.5 · **Security Version:** 2.10 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.6 · **Security Version:** 2.12 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-24
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
 
 Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
