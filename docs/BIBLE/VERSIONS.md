@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.57 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.58 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.40 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.58 (2026-06-28)** — **Verification-pass copy-accuracy fixes (no pricing change).** Made the user-facing copy
+> tell the truth: **Word Problems** is now consistently presented as **"Coming soon"** wherever it appeared as a live
+> feature — About modal (Platform Features + Premium), App Guide (Practice Modes + Premium AI features + FAQ) — and
+> **removed from the paywall** (the "AI Word Problems · 5 lifetime / 30 per day" comparison row dropped; the value
+> card swapped to the live **Review Mistakes**) so the paywall only sells features that work today. Also softened the
+> **Speed Benchmark** copy in About + Guide: it's a per-session speed score that tracks your own improvement, not a
+> live ranking "against other users" (the percentile is computed locally), per "no exaggeration." SW v139→v140.
+> **Client copy only; no pricing/Firestore/Security change.** Bible 2.57→2.58.
 
 > **2.57 / Payment 2.4 (2026-06-28)** — **Pricing ₹599→₹499 (12-month) + About/Guide/ecosystem refresh.**
 > **Pricing:** the 12-month Premium drops **₹599 → ₹499** (6-month ₹349 unchanged) across every current-state
@@ -205,6 +214,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.58 | 2.40 | 2.19 | 2.14 | 2.4 | **Verification-pass copy fixes:** Word Problems now consistently "Coming soon" in About/Guide and **removed from the paywall** (compare row dropped; value card → live "Review Mistakes") so the paywall sells only live features; Speed Benchmark copy softened (per-session self-improvement score, not a live "against other users" ranking — percentile is computed locally). SW v139→v140. Client copy only; no pricing/Firestore/Security change. Bible 2.57→2.58. |
 | 2026-06-28 | 2.57 | 2.40 | 2.19 | 2.14 | 2.4 | **Pricing ₹599→₹499 (12mo) + About/Guide/ecosystem refresh:** 12-month Premium **₹599→₹499** (6mo ₹349 unchanged) synced UI↔server — charge path `paymentService.amountPaise` 59900→49900, `entitlements.PRICING`, revenue maps `aiService`/`metrics`, display `paywall.PLANS` (≈₹42/mo, "Save 28%"), `index.html` + payment/entitlement docs (zero `₹599`/59900 left in current-state files; no test asserts it). About modal rewritten to today's product (Learn Knowledge Engine, responsive+offline, the 3-app ecosystem, v2.0.0→2.1.0); App Guide Learn section fully rewritten (hub→topics/search/save/revision/practise; removed "Learn Vault"/"Jump Navigation") + gestures note. Light paywall AA-contrast polish. SW v138→v139. Client + pricing-config only; no Firestore/Security change; ~2–3k-user sizing (no new deps). Bible 2.56→2.57, Payment 2.3→2.4. |
 | 2026-06-28 | 2.56 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn content completion — 19/19 gold (ADR-069), NO AI:** authored the last 5 scaffolds (Number Series, Ages, Mixtures & Alligations, Partnership, Permutation & Combination) to gold-standard depth (10–11 sections each) and flipped to `published`; every formula/example hand- + agent-verified (zero math errors). No scaffolds/"coming soon" remain in the shipped 5-category scope. `number-series` gets a real Practise button; the other 4 keep `drillCategory:null` (no misleading practice). Content gate now validates 19 published (`learn-content.check` 161→196). Restrained premium touch: one-time reduced-motion-guarded `kx-rise` stagger on the ≤5 hub category sections. SW v137→v138. Content/client-only; Arch unchanged (same engine, more data); no Firestore/Security/Payment change. Bible 2.55→2.56. |
 | 2026-06-28 | 2.55 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn ship-readiness fixes (ADR-069), NO AI:** 5 real issues from a final adversarial audit (rest confirmed sound; several flagged items consciously rejected as non-issues). (1) route-change focus management → topic `<h1>` / `#learnHeading` (both `tabindex="-1"`, `focus({preventScroll:true})`) — WCAG 2.4.3; (2) `.kx-section-nav` `@supports` fallback to near-opaque where `backdrop-filter` unsupported (no content bleed); (3) faint `#64748b` labels (`.kx-cat-count/blurb`, `.kx-search-cat`, `.kx-status-scaffold`, `.kx-action-soon`) darkened to `#475569` for AA; (4) hub "Continue" excludes "Due" ids (no duplicate cards; Saved authoritative); (5) hub scroll position restored on Back from a topic. SW v136→v137. Client-only; no Firestore/Security/Payment change. Bible 2.54→2.55, Arch 2.39→2.40. |

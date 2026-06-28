@@ -327,7 +327,6 @@ function _contextAccent(featureType) {
 var _COMPARE_ROWS = [
   ['Daily practice questions', '20 / day', 'Unlimited'],
   ['AI explanations', '5 total', 'Unlimited'],
-  ['AI Word Problems', '5 lifetime', '30 / day'],
   ['AI Coach', '—', '✓'],
   ['Study Planner', '—', '✓'],
   ['Math Duel', '—', '✓'],
@@ -345,7 +344,7 @@ var _COMPARE_ROWS = [
 var _VALUE_CARDS = [
   ['⚡', 'Unlimited Practice'],
   ['🤖', 'AI Coach'],
-  ['🧠', 'AI Word Problems'],
+  ['🔁', 'Review Mistakes'],
   ['📈', 'Advanced Analytics'],
   ['🏆', 'Math Duel'],
   ['📅', 'Study Planner'],

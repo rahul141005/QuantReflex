@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Verification pass: Word Problems "Coming soon" consistency + honest Speed Benchmark copy
+
+Self-audit of the prior About/Guide/pricing pass surfaced two truthfulness issues (no pricing change). Client copy
+only; no schema/gate/architecture change.
+
+```
+### fix: present Word Problems as "Coming soon" everywhere; soften Speed Benchmark claim
+- Word Problems is intentionally staged (practice-modes.js opens showComingSoon; Practice card has a "Coming soon"
+  pill; Duel pill "· Soon"), but the refreshed copy presented it as live. Fixed:
+  - index.html About modal (Platform Features "🤖 AI Word Problems (coming soon)"; Premium "with AI Word Problems
+    coming soon"); App Guide (Practice Modes + Premium AI features now carry a "Coming soon" badge; FAQ says
+    "plus AI Word Problems, coming soon").
+  - js/paywall.js: removed the misleading "AI Word Problems · 5 lifetime / 30 per day" comparison row, and swapped
+    the "AI Word Problems" value card for the live "Review Mistakes" — the paywall now advertises only features that
+    work today. (Compare table 14→13 rows; 7 value cards unchanged in count.)
+- Speed Benchmark honesty: the percentile is computed locally per session (scoring-service.js), not a real
+  cross-user cohort. Softened About + Guide copy from "ranks/stacks up against other users" / "performance rankings"
+  to "a per-session speed score that tracks how your pace is improving."
+- Service worker v139 -> v140. Docs: VERSIONS (Bible 2.57->2.58).
+- Verified: node --check js/paywall.js; CSS braces balanced (3118/3118); npm test green; zero ₹599/59900 in
+  current-state files; no remaining "against other users" copy; no user-facing surface implies Word Problems is live.
+```
+
+---
+
 ## 2026-06-28 — Pricing ₹599→₹499 (12-month) + About/Guide/ecosystem refresh
 
 Product-consistency pass (no architecture change, no new deps; sized for ~2–3k users). The 12-month Premium price
