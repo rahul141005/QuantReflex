@@ -1382,6 +1382,7 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   min-height: 48px;
 }
 .collapsible-header:active { background: #f1f5f9; }
+.collapsible-header:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; border-radius: inherit; }
 .collapsible-header .section-title { margin: 0; }
 .collapse-icon {
   font-size: .75rem;
@@ -10782,7 +10783,7 @@ body.dark-mode .kx-tc-title { color: #f1f5f9; }
 
 /* difficulty + exam-frequency + status badges */
 .kx-badge { font-size: .62rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; padding: .14rem .4rem; border-radius: .4rem; }
-.kx-diff-foundation { background: rgba(22,163,74,.14); color: #16a34a; }
+.kx-diff-foundation { background: rgba(22,163,74,.14); color: #15803d; }
 .kx-diff-core { background: rgba(37,99,235,.14); color: #2563eb; }
 .kx-diff-advanced { background: rgba(217,119,6,.16); color: #d97706; }
 .kx-freq { background: rgba(100,116,139,.14); color: #475569; }

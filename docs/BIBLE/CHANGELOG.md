@@ -6,6 +6,30 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Phase 1–4 pre-Phase-5 verification audit hardening (ADR-069 follow-up)
+
+Independent multi-agent audit of Phases 1–4 against live code (foundation, content+math, full-app regressions,
+CSS/responsive/a11y, docs sync). **Content correctness re-verified: every formula + worked example across all 14
+published topics recomputed by hand — zero math errors.** Phases 1–3 and regressions/docs APPROVED; two real
+gating items fixed below + one cheap a11y/contrast win. No version bump (pre-Phase-5 polish to already-versioned
+work); no Firestore/rules/payment change; no AI.
+
+```
+### fix(ADR-069): pre-Phase-5 audit — collapsible a11y, badge contrast, doc freshness
+- A11y (real, gating): the preserved Quick-Reference "Multiplication Tables" collapsible header was a non-focusable
+  <div onclick> with no role/tabindex/aria-expanded/keyboard handler → unusable by keyboard + screen readers
+  (the brief required aria-expanded/controls on collapsibles). Now role="button" tabindex="0" aria-expanded +
+  aria-controls (index.html); toggleSection syncs aria-expanded on every collapsible-header; a document-level
+  delegated keydown makes Enter/Space activate ALL collapsible-headers (Learn + home), wired once
+  (js/views/learn-view.js); added a .collapsible-header:focus-visible ring (css/style.css).
+- Contrast (real, polish): .kx-diff-foundation badge text #16a34a → #15803d (lifts the .62rem badge to WCAG AA on
+  its light tint; dark-mode variant already AA).
+- Docs: main-app/ARCHITECTURE.md header "Phases 1–3, SW v132" → "Phases 1–4, SW v133" (the one stale doc artifact).
+- Verified: node --check; CSS braces balanced (3109/3109); npm test green (4360 assertions, 0 failed). NO AI.
+```
+
+---
+
 ## 2026-06-28 — Learn Knowledge Engine — Phase 4: integrations, NO AI (ADR-069)
 
 Phase 4 wires the knowledge engine into the rest of the app — progress, spaced revision, a topic action bar, a

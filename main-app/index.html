@@ -518,11 +518,11 @@
 
       <!-- Multiplication Tables (collapsible — large section with selector) -->
       <div class="card collapsible-card learn-searchable" id="tablesContainer">
-        <div class="collapsible-header" onclick="toggleSection(this)">
+        <div class="collapsible-header" onclick="toggleSection(this)" role="button" tabindex="0" aria-expanded="false" aria-controls="tablesContent">
           <h3 class="section-title">✖️ Multiplication Tables (1 – 30)</h3>
           <span class="collapse-icon">▼</span>
         </div>
-        <div class="collapsible-content" style="display:none;">
+        <div class="collapsible-content" id="tablesContent" style="display:none;">
           <div class="table-selector" id="tableSelector"></div>
           <div id="tableDisplay" class="tables-container"></div>
         </div>

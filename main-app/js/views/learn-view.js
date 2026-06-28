@@ -12,13 +12,31 @@
 function toggleSection(header) {
   var content = header.nextElementSibling;
   var icon = header.querySelector('.collapse-icon');
+  var open;
   if (content.style.display === 'none' || !content.style.display) {
     content.style.display = 'block';
     if (icon) icon.textContent = '▲';
+    open = true;
   } else {
     content.style.display = 'none';
     if (icon) icon.textContent = '▼';
+    open = false;
   }
+  /* a11y: keep the header's expanded state in sync for assistive tech (set on every collapsible-header). */
+  if (header.hasAttribute && header.hasAttribute('aria-expanded')) header.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+/* a11y: collapsible headers are role="button" tabindex="0" — make Enter/Space activate them like a real button.
+   Delegated once at the document level so every collapsible-header (Learn + home) is keyboard-operable. */
+if (typeof document !== 'undefined' && !window.__collapsibleKeydownWired) {
+  window.__collapsibleKeydownWired = true;
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    var h = e.target && e.target.closest && e.target.closest('.collapsible-header');
+    if (!h) return;
+    e.preventDefault();
+    toggleSection(h);
+  });
 }
 
 var LearnView = (function () {
