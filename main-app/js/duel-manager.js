@@ -475,6 +475,10 @@ var DuelManager = (function () {
     _showContainer('duelResults');
     _renderResults();
     refreshActiveCard();
+    // ADR-068: a duel just completed locally → invalidate the Battle Archive cache so it reflects this result the
+    // next time Home renders (or live, if the archive is currently expanded). Uses the existing completion moment —
+    // no new listener, no extra read on the hot path.
+    try { if (typeof DuelArchive !== 'undefined' && DuelArchive.onLocalDuelComplete) DuelArchive.onLocalDuelComplete(); } catch (_) {}
   }
 
   function _renderResults() {

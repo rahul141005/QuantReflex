@@ -17,6 +17,7 @@
 const { withAuth, parseBody, formatError } = require('./_lib/middleware');
 const QGen = require('../js/questions.js');   // unified generator — the SAME engine Practice uses (one generator, ADR)
 const notificationService = require('../services/notificationService');   // ADR-066: the ONE notification pipeline
+const duelStats = require('../services/duelStats');   // ADR-068: pure duel-aggregate math (Battle Archive)
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -40,7 +41,7 @@ const MAX_MS_PER_Q = 90000;   // generous per-question hard cap → total deadli
 const GRACE_MS = 15000;       // buffer after the hard cap before the server force-finalizes
 const COUNTDOWN_MS = 3500;    // 3-2-1-GO, server-anchored
 const SPEED_BONUS_MAX = 300;  // < 1000 (one correct answer) ⇒ accuracy strictly dominates
-const DUEL_HISTORY_CAP = 50;  // ADR-065: keep only the newest N duelHistory entries per user (no unbounded growth)
+// ADR-068: the ADR-065 DUEL_HISTORY_CAP was removed — Battle Archive makes duelHistory a complete, paginated feature.
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -221,6 +222,11 @@ async function _finalizeTxn(code, finalizeSpec) {
     const keyAnswers = keySnap.exists ? (keySnap.data().answers || []) : [];
     const playerSnaps = {};
     for (const u of uids) playerSnaps[u] = await txn.get(roomRef.collection('players').doc(u));
+    // ADR-068 (Battle Archive): read each player's duelStats summary NOW — Firestore requires all reads before any
+    // writes, and the grading loop below writes. Only the single status→complete branch consumes these (idempotent:
+    // a re-run after `complete` returned at the top), so the read is paid once per genuine finalize.
+    const statSnaps = {};
+    for (const u of uids) statSnaps[u] = await txn.get(db.collection(USERS).doc(u).collection('duelStats').doc('summary'));
 
     const presence = room.presence || {};
     const playerResults = {};   // uid -> graded result (from doc or freshly graded)
@@ -263,9 +269,14 @@ async function _finalizeTxn(code, finalizeSpec) {
       txn.update(roomRef, { status: 'abandoned', presence: presence, abandonedReason: 'no_contest', completedAt: completedAt });
       uids.forEach(function (u) { txn.set(db.collection(USERS).doc(u), { activeDuelId: null }, { merge: true }); });
       // History coverage: record a no_contest for both so the History view represents EVERY duel (home-history-08).
+      // ADR-068: carry the same denormalized fields; a no_contest does NOT touch duelStats (not a real battle).
       const ncA = (presence[a] && presence[a].name) || 'Player', ncB = (presence[b] && presence[b].name) || 'Player';
-      txn.set(db.collection(USERS).doc(a).collection('duelHistory').doc(code), { opponentName: ncB, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt }, { merge: true });
-      txn.set(db.collection(USERS).doc(b).collection('duelHistory').doc(code), { opponentName: ncA, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt }, { merge: true });
+      const ncDuration = (room.startedAt && completedAt) ? Math.max(0, completedAt - room.startedAt) : 0;
+      const ncDiff = (room.config && room.config.difficulty) || null;
+      const ncChallenger = room.createdBy || null;
+      const ncQ = room.effectiveQuestionCount || 0;
+      txn.set(db.collection(USERS).doc(a).collection('duelHistory').doc(code), { opponentName: ncB, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt, opponentUid: b, oppAccuracy: 0, challengerUid: ncChallenger, iChallenged: ncChallenger === a, difficulty: ncDiff, questionCount: ncQ, myAnswered: 0, durationMs: ncDuration }, { merge: true });
+      txn.set(db.collection(USERS).doc(b).collection('duelHistory').doc(code), { opponentName: ncA, outcome: 'no_contest', myScore: 0, oppScore: 0, mySpeed: 0, oppSpeed: 0, accuracy: 0, playedAt: completedAt, opponentUid: a, oppAccuracy: 0, challengerUid: ncChallenger, iChallenged: ncChallenger === b, difficulty: ncDiff, questionCount: ncQ, myAnswered: 0, durationMs: ncDuration }, { merge: true });
       return { completed: true, room: Object.assign({}, room, { status: 'abandoned', presence: presence }) };
     }
 
@@ -280,16 +291,42 @@ async function _finalizeTxn(code, finalizeSpec) {
     const nameB = (presence[b] && presence[b].name) || 'Player';
     function outcome(u) { return decided.winnerUid == null ? 'draw' : (decided.winnerUid === u ? 'win' : 'loss'); }
     function speed(r, count) { return (count > 0 && r.totalSolveMs > 0) ? parseFloat((r.totalSolveMs / 1000 / count).toFixed(1)) : 0; }
+    const qCount = room.effectiveQuestionCount || 0;
+    function acc(r) { return qCount ? Math.round((r.correctCount / qCount) * 100) : 0; }
+    const durationMs = (room.startedAt && completedAt) ? Math.max(0, completedAt - room.startedAt) : 0;
+    const challengerUid = room.createdBy || null;
+    const difficulty = (room.config && room.config.difficulty) || null;
+    // ADR-068: extend the duelHistory write with the denormalized facts the Battle Archive needs (room docs TTL at
+    // 30 days, so history must be self-contained). Additive only — existing readers ignore the new keys.
     txn.set(db.collection(USERS).doc(a).collection('duelHistory').doc(code), {
       opponentName: nameB, outcome: outcome(a), myScore: ra.correctCount, oppScore: rb.correctCount,
-      mySpeed: speed(ra, room.effectiveQuestionCount), oppSpeed: speed(rb, room.effectiveQuestionCount),
-      accuracy: room.effectiveQuestionCount ? Math.round((ra.correctCount / room.effectiveQuestionCount) * 100) : 0, playedAt: completedAt
+      mySpeed: speed(ra, qCount), oppSpeed: speed(rb, qCount), accuracy: acc(ra), playedAt: completedAt,
+      opponentUid: b, oppAccuracy: acc(rb), challengerUid: challengerUid, iChallenged: challengerUid === a,
+      difficulty: difficulty, questionCount: qCount, myAnswered: ra.answeredCount || 0, durationMs: durationMs
     }, { merge: true });
     txn.set(db.collection(USERS).doc(b).collection('duelHistory').doc(code), {
       opponentName: nameA, outcome: outcome(b), myScore: rb.correctCount, oppScore: ra.correctCount,
-      mySpeed: speed(rb, room.effectiveQuestionCount), oppSpeed: speed(ra, room.effectiveQuestionCount),
-      accuracy: room.effectiveQuestionCount ? Math.round((rb.correctCount / room.effectiveQuestionCount) * 100) : 0, playedAt: completedAt
+      mySpeed: speed(rb, qCount), oppSpeed: speed(ra, qCount), accuracy: acc(rb), playedAt: completedAt,
+      opponentUid: a, oppAccuracy: acc(ra), challengerUid: challengerUid, iChallenged: challengerUid === b,
+      difficulty: difficulty, questionCount: qCount, myAnswered: rb.answeredCount || 0, durationMs: durationMs
     }, { merge: true });
+
+    // ADR-068: maintain each player's duelStats/summary (personal aggregates + per-rival head-to-head +
+    // achievements) in THIS transaction → O(1) Battle-Archive reads, zero new writes/functions. Pure math lives in
+    // services/duelStats.js (shared with the check harness). merge:true keeps it forward-compatible.
+    const durationSec = Math.round(durationMs / 1000);
+    function statParams(me, opp, oppUid, oppName) {
+      return {
+        outcome: outcome(me === ra ? a : b), opponentUid: oppUid, opponentName: oppName,
+        myCorrect: me.correctCount, oppCorrect: opp.correctCount, myAnswered: me.answeredCount || 0, questionCount: qCount,
+        myAccuracy: acc(me), oppAccuracy: acc(opp), myAvgSolveSec: speed(me, qCount),
+        myScore: me.duelScore || 0, oppScore: opp.duelScore || 0, durationSec: durationSec, completedAt: completedAt
+      };
+    }
+    const prevA = statSnaps[a].exists ? statSnaps[a].data() : null;
+    const prevB = statSnaps[b].exists ? statSnaps[b].data() : null;
+    txn.set(db.collection(USERS).doc(a).collection('duelStats').doc('summary'), duelStats.applyDuelToSummary(prevA, statParams(ra, rb, b, nameB)), { merge: true });
+    txn.set(db.collection(USERS).doc(b).collection('duelStats').doc('summary'), duelStats.applyDuelToSummary(prevB, statParams(rb, ra, a, nameA)), { merge: true });
 
     fcmTargets = uids.slice();
     return { completed: true, room: Object.assign({}, room, { status: 'complete', presence: presence, winnerUid: decided.winnerUid, result: decided.result, perPlayer: perPlayer, completedAt: completedAt }) };
@@ -305,26 +342,10 @@ async function _finalizeTxn(code, finalizeSpec) {
       _sendOpponentFinishedFcm(u, oppName, code);
     }
   }
-  // ADR-065: a finished duel just appended to each player's duelHistory — cap it (best-effort, post-commit) so it
-  // can't grow unbounded. Count-then-trim keeps the finalize transaction itself untouched.
-  if (result && result.completed) {
-    ((result.room && result.room.participantUids) || []).forEach(function (u) { _pruneDuelHistory(u); });
-  }
+  // ADR-068 (Battle Archive): duelHistory is now a first-class, fully-paginated feature — the ADR-065 50-entry cap
+  // was removed so history is COMPLETE. Docs are tiny; the client never loads all of them (orderBy playedAt desc +
+  // limit + startAfter cursor), so unbounded-but-paginated growth is Spark-safe.
   return result || {};
-}
-
-/** ADR-065: keep only the newest DUEL_HISTORY_CAP entries in users/{uid}/duelHistory. Best-effort, never throws. */
-async function _pruneDuelHistory(uid) {
-  try {
-    const ref = db.collection(USERS).doc(uid).collection('duelHistory');
-    const agg = await ref.count().get();
-    const total = (agg.data() && agg.data().count) || 0;
-    if (total <= DUEL_HISTORY_CAP) return;
-    const old = await ref.orderBy('playedAt', 'asc').limit(total - DUEL_HISTORY_CAP).get();
-    const batch = db.batch();
-    old.forEach(function (d) { batch.delete(d.ref); });
-    await batch.commit();
-  } catch (_) { /* best-effort — retried on the next finish */ }
 }
 
 /* ───────────────────────── actions ───────────────────────── */

@@ -1,8 +1,8 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.7 · **Security Version:** 2.13 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.8 · **Security Version:** 2.14 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-28
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
 
 Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
@@ -43,8 +43,9 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | Collection | Read | Create | Update | Delete |
 |---|---|---|---|---|
 | `users/{uid}` | owner | denied (server-only) | owner + `entitlementFieldsSafe()` | denied |
-| `users/{uid}/{sub}/{doc}` | owner | owner | owner (**except `sub=='duelHistory'` → write denied**, ADR-031) | owner |
+| `users/{uid}/{sub}/{doc}` | owner | owner | owner (**except `sub` ∈ {`duelHistory`,`duelStats`,`aiEvents`,`notifications`} → write denied**, ADR-031/039/066/068) | owner |
 | `users/{uid}/duelHistory/{id}` (ADR-031) | owner | **denied** | **denied** | **denied** (server-written only; the deny is an explicit carve-out **overriding** the blanket `users/{uid}/{sub}` owner-write grant) |
+| `users/{uid}/duelStats/{doc}` (ADR-068) | owner | **denied** | **denied** | **denied** (Battle Archive aggregate `summary` — server-written inside `_finalizeTxn`; explicit carve-out overriding the blanket owner-write grant so a client can never forge stats/wins/achievements) |
 | `questions` | any authed | — | denied (admin) | denied |
 | `coachings/{id}` | coaching member (claim match) | — | denied (admin) | denied |
 | `coachings/{id}/notes/{studentUid}` (ADR-030) | **denied** (server-only — merged into `students?action=details` via Admin SDK) | **denied** | **denied** | **denied** (Admin-SDK-write only via `students?action=save-note`; client never touches the note) |
@@ -111,6 +112,11 @@ authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvant
   reaches `config/aiBudget.monthlyBudgetUSD/30` (30s-TTL cache, fail-open). The budget is now load-bearing, not advisory.
 - **`aiEvents` immutable.** `users/{uid}/aiEvents` is owner **create-only** (excluded from the blanket subcollection
   write grant); no update/delete. `aiContext`/`aiDaily`/`aiMissions` are server-only (default-deny).
+- **`duelStats` server-write-only (ADR-068).** `users/{uid}/duelStats/summary` (Battle Archive aggregates: personal
+  stats + per-rival head-to-head + achievements) is **owner-read, client-write-DENIED** — an explicit carve-out
+  (excluded from the blanket subcollection write grant) so a client can never forge wins/streaks/achievements; the
+  only writer is the duel endpoint's finalize transaction (Admin SDK). Mirrors the `duelHistory` deny. Removed on
+  account deletion (`account.js` subcollections list includes `duelStats`).
 
 ## 5. Serverless Authorization
 

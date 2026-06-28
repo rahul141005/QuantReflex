@@ -348,6 +348,9 @@ function initHomeView() {
     if (coachBadge) coachBadge.style.display = isPP ? 'none' : '';
     if (timetableBadge) timetableBadge.style.display = isPP ? 'none' : '';
 
+    /* ---- Battle Archive (ADR-068) — Premium-only; HIDDEN for free users (not greyed/blurred) ---- */
+    if (typeof DuelArchive !== 'undefined' && DuelArchive.render) DuelArchive.render(isDuelPP);
+
     /* ---- AI Coach card (inside bento) ---- */
     var coachContainer = document.getElementById('aiCoachContainer');
     if (coachContainer && typeof AIFeatures !== 'undefined') {

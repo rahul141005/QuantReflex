@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.46 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.32 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.17 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.13 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.47 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.33 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.18 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.47 / Arch 2.33 / Firestore 2.18 / Security 2.14 (2026-06-28)** — **Battle Archive (ADR-068):** a Premium-only,
+> expandable duel-history section below the Home Duel card — complete paginated history + head-to-head rivalry stats
+> + lifetime personal stats + auto achievements, as a read-only client layer over server-maintained truth. Schema:
+> extended `users/{uid}/duelHistory` (denormalized opponentUid/oppAccuracy/challengerUid/iChallenged/difficulty/
+> questionCount/myAnswered/durationMs; removed the ADR-065 50-cap) + a new server-only aggregate doc
+> `users/{uid}/duelStats/summary` (`duelAggregates`+`rivals{}`+`achievements{}`) maintained inside the existing
+> `_finalizeTxn` transaction (pure `services/duelStats.js`); +3 `duelHistory` composite indexes; new `duelStats`
+> deny rule + account-deletion. **Zero new serverless functions** (main-app 8/12). Premium-only & hidden for free.
+> Migration: none (pre-launch, zero users — forward-only).
 
 > **2.46 / Arch 2.32 / Firestore 2.17 / Security 2.13 (2026-06-24)** — Deep bible↔code drift reconciliation: a
 > 3-app audit synced the living bibles to the actual code where they'd drifted from features added after the docs
@@ -72,6 +82,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.47 | 2.33 | 2.18 | 2.14 | 2.3 | **Battle Archive — Premium duel history + rivalry/personal stats + achievements (ADR-068):** an expandable, Premium-only section below the Home Duel card (HIDDEN for free users, not greyed), built as a read-only client layer (`js/duel-archive.js`) over **server-maintained** truth — the client never computes outcomes/aggregates. **Schema:** `users/{uid}/duelHistory` extended with denormalized `opponentUid/oppAccuracy/challengerUid/iChallenged/difficulty/questionCount/myAnswered/durationMs` (room docs TTL at 30d) + the ADR-065 50-cap (`DUEL_HISTORY_CAP`/`_pruneDuelHistory`) **removed** → complete + paginated; new server-only aggregate `users/{uid}/duelStats/summary` (`duelAggregates`+`rivals{}`+`achievements{}`) maintained inside the existing `_finalizeTxn` transaction via the pure `services/duelStats.js`; +3 `duelHistory` composite indexes `(outcome|difficulty|opponentUid, playedAt desc)`. **Rules:** `duelStats` owner-read / client-write-DENIED (mirrors duelHistory) + `account.js` deletion includes `duelStats`. **Zero new serverless functions** (main-app stays 8/12) — the Archive is reads + the existing duel write path. SW v127→v128 (+`js/duel-archive.js` precache). New `scripts/duel-archive.check.js` (44 assertions) in `npm test`. Pre-launch, **no migration**. Firestore 2.17→2.18, Arch 2.32→2.33, Security 2.13→2.14, Bible 2.46→2.47. |
 | 2026-06-24 | 2.46 | 2.32 | 2.17 | 2.13 | 2.3 | **Deep bible↔code drift reconciliation:** synced the living bibles to actual code (3-app audit). TECHNICAL_BIBLE §3 main-app API row → real AI actions (explain/coach/insights/chat/planner/wordproblems) + added `duel`/`notify`; §3.1 counts main-app 6→8, coaching 6→5 (removed non-existent `leaderboard`). SECURITY admin rate limit 30→**300/hr** (`middleware.js` `ADMIN_MAX_REQUESTS_PER_HOUR=300`). FIRESTORE §4 added the two `aiRequests` composite indexes. AI_INTERACTION envelope feature `plan`→`planner` (+ chat / ai_study_plan naming note). Payment verified clean. Doc-only; no code/rules/index/data change. `npm test` 4098 + mock-engine 100 green. Bible 2.45→2.46, Arch 2.31→2.32, Firestore 2.16→2.17, Security 2.12→2.13. |
 | 2026-06-24 | 2.45 | 2.31 | 2.16 | 2.12 | 2.3 | **Documentation-consistency reconciliation (ADR-067/ADR-032):** synced the living docs + every per-doc version header + the README footer to the as-built ADR-067 catalog (17 exams in 4 tiers, 14 drillable categories, 50 topics, `SYLLABUS_VERSION` 3) and to this registry. Fixed: `AI_INTERACTION_SYSTEM` §6 (26→17 exams, 104→50 topics, 12→14 cats — resolves the §1-vs-§6 contradiction); `FIRESTORE_BLUEPRINT` "12→14 authoritative categories" + the verified-absent `aiStudyPlans` composite note (legacy collection; live planner is `aiPlanner/{uid}`, doc-per-user); `TECHNICAL_BIBLE` §6 `syncCoachingStudentCount` (retired/no-op, request-path maintenance — ADR-032); `ROADMAP` TEST-1 ("no automated tests" → the real ~4,098-assertion suite, re-statused Partial). Operational items (ADR-023 admin password rotation/MFA, App Check/M7) surfaced only — already tracked. **Doc-only; no code/rules/index/data change.** Verified: `npm test` (4098) + `mock-engine.check` (100) green. Bible 2.44→2.45, Arch 2.30→2.31, Firestore 2.15→2.16. |
 | 2026-06-24 | 2.44 | 2.30 | 2.15 | 2.12 | 2.3 | **Focused speed-maths catalog rebuild + Timed Mock (ADR-067):** catalog curated 26→17 exams in 4 tiers (MBA/Banking/Foundation/Government), per-exam `tier`/`pattern`/`book` metadata + BOOKS registry (R.S. Aggarwal default; Arihant for MAH-CET), tier-aware readiness weighting, two new drill categories (Simplification, Number Series), categories-first onboarding, exam-mechanics coaching, and the Premium Timed Mock (`timed_mocks`). `SYLLABUS_VERSION` 2→3 (bundled data — Firestore track unchanged). New check `scripts/mock-engine.check.js`. SW v126→v127. Bible 2.43→2.44, Arch 2.29→2.30. |
@@ -123,6 +134,26 @@ file and moves independently of the system-level tracks above.
 
 Migration notes are required for every MAJOR bump and for any change that requires a data
 migration script. Format: what changed, who is affected, the migration action, rollback.
+
+### 2026-06-28 — Battle Archive: duelHistory fields + duelStats/summary + indexes (non-breaking, MINOR, ADR-068)
+- **What changed:** additive `users/{uid}/duelHistory` fields (`opponentUid, oppAccuracy, challengerUid,
+  iChallenged, difficulty, questionCount, myAnswered, durationMs`); a new server-only aggregate doc
+  `users/{uid}/duelStats/summary` (`{duelAggregates, rivals{}, achievements{}}`) maintained inside the existing
+  `_finalizeTxn` transaction; +3 composite indexes on `duelHistory`; a new `duelStats` deny rule. The ADR-065
+  `duelHistory` 50-entry cap (`DUEL_HISTORY_CAP`/`_pruneDuelHistory`) was **removed** (history is now complete +
+  paginated).
+- **Who is affected:** additive only. Pre-ADR-068 history rows lack the new fields; the Archive defaults them
+  (`difficulty`/`opponentUid` absent → that row just doesn't match the difficulty/rivalry filters; `durationMs`/
+  `myAnswered` default to 0/—). `duelStats/summary` is absent until a user's first duel finishes; readers default
+  the whole view to zeros (empty state). No field renamed/removed; no reader breaks. **Zero users → nothing to
+  backfill.**
+- **Migration action:** **none — forward-only by design** (pre-launch, zero users). New duels write the extended
+  history + the summary. Deploy the 3 new indexes + the updated rules first:
+  `firebase deploy --only firestore:indexes,firestore:rules`. (Filtered Archive queries return nothing until the
+  indexes finish building.)
+- **Rollback:** all schema additions are additive and ignored by older readers; to revert, stop writing them and
+  restore the cap/prune (no data cleanup required). The `duelStats` subcollection is server-only, so removing the
+  feature leaves orphaned summary docs that are never read.
 
 ### 2026-06-13 — Duel V2: new schema, no data migration (ephemeral hard-cutover, ADR-031)
 - **What changed:** `duels/{code}` gets a new server-authoritative shape (`schemaVersion:2`, prompts text-only,

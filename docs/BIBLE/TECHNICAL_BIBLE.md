@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.8 · **Architecture Version:** 2.32 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.9 · **Architecture Version:** 2.33 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -203,6 +203,21 @@ AI Coach, Study Plan, and all future premium upsell widgets use the **same** car
 (`.home-bento-card`) — they are Math Duel's smaller siblings, not bespoke designs. No special purple
 border/glow. Implemented via `.home-twin-card` (icon → title → PRO badge → short description → CTA),
 height kept compact (feature card, not dashboard widget).
+
+### Battle Archive (ADR-068) — Premium duel history + rivalry/personal stats + achievements
+A **Premium-only**, expandable section appended *inside* `#homeDuelCard` (after `#homeDuelActions`) — it
+**extends** the Duel card, never redesigns the page. Rendered/hidden by `DuelArchive.render(isPremium)` from
+`home-view.js`: for free users the section is simply **not shown** (`display:none`, empty) — never greyed or
+blurred, and the card layout is intact without it. New client module **`js/duel-archive.js`** (read-only layer)
+reads the server-maintained truth — `users/{uid}/duelHistory` (paginated, newest-first) + the
+`users/{uid}/duelStats/summary` aggregate — and renders a rivalry banner, personal-stats strip, filter chips +
+search, a paginated battle list (each card **expands in place** — no navigation, architecture-ready for a future
+`#duel-replay`), and an achievements grid. Aggregates are maintained **server-side** in the duel endpoint's
+`_finalizeTxn` transaction via the pure `services/duelStats.js` (the client never computes outcomes/stats);
+auto-refresh rides the existing `DuelManager._showResults` completion moment (no new listener). **Zero new
+serverless functions** (main-app stays **8/12** — the Archive is reads + the existing `duel` write path). Spark
+profile: ≈2 reads on open (summary + page 1), +1 read/page on scroll, indexed filters (no scans). See
+[FIRESTORE_BLUEPRINT](FIRESTORE_BLUEPRINT.md) + [DECISION_LOG ADR-068](DECISION_LOG.md).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.

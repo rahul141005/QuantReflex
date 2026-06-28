@@ -79,7 +79,7 @@ async function _delete(req, res, db) {
     try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (_) { /* ignore */ }
 
     /* Delete all subcollections in parallel. */
-    const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'aiEvents', 'duelHistory'];
+    const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'aiEvents', 'duelHistory', 'duelStats'];
     await Promise.all(subcollections.map(function (sub) {
       return _deleteSubcollection(db, userDocRef, sub)
         .then(function (count) { report.subcollections[sub] = count; return null; })

@@ -1,9 +1,9 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.10 · **Firestore Version:** 2.17 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.11 · **Firestore Version:** 2.18 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-28
 **Change control:** Any schema change (new/renamed field, new collection, path change, index change) follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Firestore Version in [VERSIONS.md](VERSIONS.md) (with a migration note if data is affected).
 
 Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
@@ -162,11 +162,35 @@ completedAt, createdAt }`.
   resume): if the app comes back off the solving screen mid-duel, the client `finish`es (finalizes) on the synced
   answers. Client-write denied (it's under `users/{uid}` but `entitlementFieldsSafe()` / server-only — written by
   the endpoint).
-- **Subcollection `users/{uid}/duelHistory/{duelId}`** — `{opponentName, outcome('win'|'loss'|'draw'), myScore,
-  oppScore, mySpeed, oppSpeed, accuracy, playedAt}`. **Server-written** (Admin SDK, docId=duelId → idempotent) for
-  **both** players at completion. **Client read own; write DENIED** — note this requires an explicit deny
-  **overriding** the blanket `users/{uid}/{sub}/{doc}` owner-write grant (see SECURITY). Retained indefinitely
-  (small); independent of room-doc cleanup.
+- **Subcollection `users/{uid}/duelHistory/{duelId}`** — base `{opponentName, outcome('win'|'loss'|'draw'|
+  'no_contest'), myScore, oppScore, mySpeed, oppSpeed, accuracy, playedAt}` **plus (ADR-068, Battle Archive) the
+  denormalized facts** `{opponentUid, oppAccuracy, challengerUid, iChallenged(bool, host vs joiner), difficulty,
+  questionCount, myAnswered, durationMs}`. *(Denormalized because the room doc TTLs at 30 days — history must be
+  self-contained.)* **Server-written** (Admin SDK, docId=duelId → idempotent) for **both** players at completion.
+  **Client read own; write DENIED** — explicit deny **overriding** the blanket `users/{uid}/{sub}/{doc}` owner-write
+  grant (see SECURITY). Retained indefinitely (small); independent of room-doc cleanup. **ADR-068 removed the
+  ADR-065 50-entry cap** (`DUEL_HISTORY_CAP`/`_pruneDuelHistory`) so history is COMPLETE — the Battle Archive
+  paginates (`orderBy(playedAt desc).limit(15).startAfter(cursor)`) and never loads all. Indexes:
+  `(outcome, playedAt desc)`, `(difficulty, playedAt desc)`, `(opponentUid, playedAt desc)`; the All tab + time-range
+  use the single-field `playedAt` index.
+
+- **Subcollection `users/{uid}/duelStats/summary`** (ADR-068, Battle Archive) — **ONE server-only aggregate doc**
+  maintained **inside the same `_finalizeTxn` transaction** that writes history (pure math in
+  `services/duelStats.js`). Shape:
+  - `duelAggregates`: `{totalDuels, wins, losses, draws, currentStreak (win-streak; any non-win resets), bestStreak,
+    totalCorrect, totalQuestions, totalAnswered, totalSolveSec, solveSamples, fastestWinSec, highestScore,
+    lowestScore, lastPlayedAt, lastOutcome}` — exact avg accuracy = `totalCorrect/totalQuestions`, rolling avg solve
+    = `totalSolveSec/solveSamples`.
+  - `rivals{opponentUid: {name, count, wins, losses, draws, streak (signed: +n you won the last n, −n you lost the
+    last n, 0 after a draw), lastOutcome, fastestWinSec, closestMargin, totalMargin (signed, for avg), sumAccuracy,
+    sumSolveSec, lastPlayedAt}}` — powers the rivalry banner + most-played/most-defeated (derived). Bounded map
+    (≤ hundreds of opponents ≪ 1MB; future escape hatch = a `rivals` subcollection, no user impact).
+  - `achievements{name: unlockedAt}` (ms) — unlock-once: `firstBlood, firstWin, tenWins, fiftyWins, hundredWins,
+    streak5, streak10, perfectDuel, lightning, revenge`. (David-vs-Goliath / Comeback King deferred — need
+    unstored/future-ELO signals.)
+  A **no_contest** writes a history row but does NOT touch `duelStats` (not a real battle). **Client read own; write
+  DENIED** (explicit carve-out overriding the blanket owner-write grant — a client can never forge stats; see
+  SECURITY). Removed on account deletion (`account.js` subcollections list includes `duelStats`).
 
 ### `payments/{paymentId}`
 `{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=59900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
@@ -248,6 +272,9 @@ completedAt, createdAt }`.
 | users | coachingId (ASC), isTrial (ASC) | **ADR-027** — coaching-scoped trial `count()` (Growth/Adoption). |
 | users | coachingId (ASC), createdAt (ASC) | **ADR-027** — coaching-scoped "new students this week" via a `createdAt` range `count()`. |
 | duels | participantUids (ARRAY-CONTAINS), status (ASC) | **ADR-031** — Duel V2 reaper/sweep: find a user's in-flight rooms / abandoned-`active` rooms past deadline by a static-field composite (the per-uid `participants.<uid>` field-path query is **not** used; primary recovery is the `users.activeDuelId` mirror). |
+| duelHistory | outcome (ASC), playedAt (DESC) | **ADR-068** — Battle Archive Wins/Losses/Draws filter, newest-first (per-user subcollection query; time-range stacks as a `playedAt` inequality). |
+| duelHistory | difficulty (ASC), playedAt (DESC) | **ADR-068** — Battle Archive difficulty filter (Easy/Medium/Hard), newest-first. |
+| duelHistory | opponentUid (ASC), playedAt (DESC) | **ADR-068** — Battle Archive rivalry view: one opponent's head-to-head history, newest-first. |
 
 **Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). **Global Search (ADR-020)** prefix range queries on `users.email`, `users.profile.name`, `users.coachingId`, the user doc-id (`FieldPath.documentId()`), and `coachings.name` + doc-id also use single-field auto-indexes — **no new composite** is required unless a multi-field search variant is introduced. `aiStudyPlans (userId,status,createdAt)`: **verified ABSENT** in `firestore.indexes.json` (2026-06-24) and **not required** — `aiStudyPlans` is a legacy collection, superseded by `aiPlanner/{uid}` (one doc per user; the live planner needs no composite).
 

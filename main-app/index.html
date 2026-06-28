@@ -290,6 +290,9 @@
             <button class="home-duel-btn btn-secondary home-duel-create" id="homeDuelCreate" type="button">Create Duel</button>
             <button class="home-duel-btn btn-secondary home-duel-join" id="homeDuelJoin" type="button">Join Duel</button>
           </div>
+          <!-- Battle Archive (ADR-068) — Premium-only duel history + rivalry/personal stats + achievements.
+               Rendered/hidden by DuelArchive.render() based on premium access; never shown to free users. -->
+          <div class="ba-section" id="duelArchiveSection" style="display:none;"></div>
         </div>
 
         <!-- AI Coach Card (premium feature — Math Duel's sibling) -->
@@ -1564,6 +1567,7 @@
   <script defer src="js/duel-core.js"></script>
   <script defer src="js/duel-ui.js"></script>
   <script defer src="js/duel-manager.js"></script>
+  <script defer src="js/duel-archive.js"></script>
   <script defer src="js/session-manager.js"></script>
   <script defer src="js/controllers/practice-config.js"></script>
   <script defer src="js/controllers/practice-modes.js"></script>

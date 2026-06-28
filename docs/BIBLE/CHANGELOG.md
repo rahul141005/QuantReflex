@@ -6,6 +6,54 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (ADR-068)
+
+A Premium-only, expandable **Battle Archive** below the Home Duel card — complete paginated duel history,
+head-to-head **rivalry** stats, lifetime **personal** stats, and auto-unlocked **achievements** — built as a
+read-only client layer over **server-maintained** truth (the client never computes outcomes/aggregates). Premium-
+only and **HIDDEN** for free users (not greyed/blurred). Spark-cheap, no new serverless function (main-app stays
+8/12), no page redesign, no migration (pre-launch, zero users).
+
+```
+### feat(ADR-068): Battle Archive — premium duel history, rivalry/personal stats, achievements
+- Requested change: a premium expandable Battle Archive under the Duel card — full history (paginated, newest-
+  first, instant), rivalry head-to-head when viewing an opponent, personal lifetime stats, auto achievements,
+  filters (outcome/difficulty/time/search), expand-in-place (no nav), premium-only & hidden for free, auto-update
+  on duel finish, Spark-friendly (no scans, maintained aggregates), empty state with CTA.
+- Impacted systems: Student App | Firestore | Rules | (Entitlements: visibility only). No Payments/AI/Admin.
+- Bible docs updated: DECISION_LOG (ADR-068); FIRESTORE_BLUEPRINT (duelHistory new fields + duelStats/summary +
+  3 indexes, Doc 1.10→1.11, Firestore 2.17→2.18); SECURITY_ARCHITECTURE (duelStats deny rule + account-deletion,
+  Doc 1.7→1.8, Security 2.13→2.14); TECHNICAL_BIBLE (Battle Archive section, Doc 1.8→1.9, Arch 2.32→2.33).
+- Schema delta:
+  - users/{uid}/duelHistory/{code} — ADDED opponentUid, oppAccuracy, challengerUid, iChallenged, difficulty,
+    questionCount, myAnswered, durationMs (denormalized; room docs TTL at 30d). Additive — old readers ignore them.
+    REMOVED the ADR-065 50-cap (DUEL_HISTORY_CAP/_pruneDuelHistory) → history is complete + paginated.
+  - users/{uid}/duelStats/summary — NEW server-only aggregate doc {duelAggregates, rivals{}, achievements{}},
+    maintained inside the existing _finalizeTxn transaction via the pure services/duelStats.js (no new write/fn).
+  - +3 composite indexes on duelHistory: (outcome,playedAt desc) / (difficulty,playedAt desc) / (opponentUid,playedAt desc).
+- API delta: none (no new endpoint/function — the existing api/duel.js finalize path now also writes the aggregate;
+  the Archive is client reads). main-app stays 8/12.
+- Security review: duelStats/summary is owner-read, client-write-DENIED (explicit carve-out overriding the blanket
+  users/{uid}/{sub} owner-write grant — mirrors duelHistory; a client can never forge stats/wins/achievements).
+  account.js deletion subcollections now include duelStats. Premium gating is client-visibility only; data is
+  harmless if read (uid+name already present). No new secrets.
+- Cross-app compatibility: only main-app reads/writes duelHistory/duelStats. Super-admin User-360 already reads
+  duelHistory (recent duels) and ignores the new fields. No coaching-app impact.
+- Files: main-app/services/duelStats.js (new, pure); main-app/api/duel.js (_finalizeTxn: up-front summary reads +
+  extended history + applyDuelToSummary writes; removed cap/prune + DUEL_HISTORY_CAP); main-app/api/account.js
+  (+duelStats deletion); main-app/js/duel-archive.js (new client module); main-app/js/views/home-view.js
+  (DuelArchive.render gating); main-app/js/duel-manager.js (_showResults → DuelArchive.onLocalDuelComplete);
+  main-app/index.html (#duelArchiveSection + script tag); main-app/css/style.css (.ba-* styles, +dark/reduced-
+  motion); firestore/rules/firestore.rules (duelStats deny block); firestore/indexes/firestore.indexes.json (+3);
+  main-app/service-worker.js (v127→v128 + precache js/duel-archive.js).
+- Version bumps: Firestore 2.17→2.18, Architecture 2.32→2.33, Security 2.13→2.14, Bible 2.46→2.47 (Payment 2.3 unchanged).
+- Migration: none — pre-launch, zero users; forward-only (new duels write the extended history + summary). Deploy
+  rules + indexes: firebase deploy --only firestore:rules,firestore:indexes.
+- Verification: node --check on duel.js / duelStats.js / duel-archive.js; new scripts/duel-archive.check.js (44
+  pure-math assertions: aggregates, streaks, milestones, rivalry head-to-head, revenge, top rivals, avg accuracy/
+  solve, non-mutation) wired into `npm test` → full suite green; CSS braces balanced; indexes JSON valid.
+```
+
 ## 2026-06-24 — Deep bible↔code drift reconciliation
 
 Doc-only governance pass: a 3-app drift audit (TECHNICAL_BIBLE vs all 3 apps; FIRESTORE+SECURITY vs

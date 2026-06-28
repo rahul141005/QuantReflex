@@ -8,6 +8,60 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
+- **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel
+  (`opponentName, outcome, myScore, oppScore, mySpeed, oppSpeed, accuracy, playedAt`) and **no aggregates at all**.
+  The owner wants a Premium-only, expandable "Battle Archive" below the Home Duel card: complete paginated history,
+  head-to-head **rivalry** stats, **personal** lifetime stats, and auto-unlocked **achievements** — premium-game
+  polish, instant, Spark-cheap, with NO page redesign and NO future migrations as features (replay, ELO, seasons,
+  leaderboards) are added. Pre-launch (zero users → no backfill). A 3-agent read-only audit of the whole duel stack
+  preceded this.
+- **Decision:** Build the Archive as a **read-only client layer over server-maintained truth** — the client never
+  computes outcomes or aggregates.
+  - **List source = `users/{uid}/duelHistory`** (persists forever; self-contained), NOT the TTL'd `duels` rooms.
+    Paginated `orderBy(playedAt desc).limit(15).startAfter(cursor)` — never loads all.
+  - **Aggregates = one server-only doc `users/{uid}/duelStats/summary`** (`{duelAggregates, rivals{}, achievements{}}`),
+    maintained **inside the existing `_finalizeTxn` transaction** with the pure module `services/duelStats.js`
+    (`applyDuelToSummary` + derive views — shared with the `scripts/duel-archive.check.js` harness so server + UI
+    can't drift). O(1) reads for rivalry/personal/achievements; zero new writes (folded into the one finalize txn)
+    and **zero new serverless functions** (main-app stays 8/12).
+  - **Extend the `duelHistory` write** (normal + no_contest) with denormalized facts the room doc can't supply after
+    its 30-day TTL: `opponentUid, oppAccuracy, challengerUid, iChallenged, difficulty, questionCount, myAnswered,
+    durationMs`. Additive — existing readers ignore the new keys.
+  - **Remove the ADR-065 `DUEL_HISTORY_CAP` (50) + `_pruneDuelHistory`** so history is COMPLETE; pagination keeps it
+    Spark-safe (tiny docs, never all loaded).
+  - **3 composite indexes** on `duelHistory`: `(outcome, playedAt desc)`, `(difficulty, playedAt desc)`,
+    `(opponentUid, playedAt desc)`. The All tab + time-range ride the single-field `playedAt` index (range is an
+    inequality on the same orderBy field, compatible with every composite); name-search is client-side over loaded
+    pages. The query uses ONE indexed primary dimension (rival → outcome → difficulty) + the time inequality; the
+    non-primary dimension + search are residual client filters.
+  - **Security:** `duelStats/summary` is **server-write-only, owner-read** (new rule block mirroring the
+    `duelHistory` carve-out — a client can never forge stats/wins/achievements). Added `duelStats` to the
+    `account.js` deletion subcollections (GDPR completeness).
+  - **Premium gating = visibility only:** the section renders **only if `canAccessFeature('math_duel')`** — free
+    users never see it (not greyed/blurred); the `#homeDuelCard` layout is intact when it's absent. Data is harmless
+    if read (no PII beyond the uid+name already present).
+  - **Auto-update with no new listener:** `DuelManager._showResults` (the single local-completion convergence point
+    for both "I finished last" and "opponent finished last") invalidates the Archive cache → it reflects the new
+    result on next Home render or live if expanded.
+  - **Expand-in-place, never navigate:** the section and each battle card expand inline; the architecture is ready
+    for a future `#duel-replay` screen (history docs are self-contained).
+- **Achievements (from stored data only):** firstBlood, firstWin, ten/fifty/hundredWins, streak5/streak10,
+  perfectDuel (100% accuracy), lightning (a win averaging <5s/question), revenge (beat an opponent you were on a
+  losing run against). Stored as `name→unlockedAt` so the UI can date each badge. **Deferred** (need signals we
+  don't store / future ELO): David-vs-Goliath, Comeback King.
+- **Dropped, non-mapping requirements (surfaced honestly):** "Pending/Cancelled" filters and
+  "accepted-immediately-vs-later" don't exist in the *synchronous* lobby model (only completed/no_contest duels
+  enter history) → omitted. "Who challenged whom" IS kept (`iChallenged`, host vs joiner).
+- **Consequences:** Archive open ≈ 2 reads (summary + page 1); +1 read/page on scroll; filters are indexed (no
+  scans); duel-finish cost unchanged except one extra doc-set folded into the existing transaction. New client
+  module `js/duel-archive.js` (+SW v127→v128 precache). Risk concentrated on touching `_finalizeTxn` (duel
+  completion hot path) → mitigated by keeping the change purely additive (`txn.set(..., {merge:true})` behind the
+  existing winner/outcome logic) + a full duel regression pass. The `rivals{}` map is bounded (≤ hundreds of
+  opponents ≪ 1MB); if ever a concern it migrates to a `rivals` subcollection with no user impact. Verified by 44
+  new pure-math assertions (`scripts/duel-archive.check.js`, in `npm test`). No migration (pre-launch, zero users).
+  Firestore 2.17→2.18, Architecture 2.32→2.33, Security 2.13→2.14, Bible 2.46→2.47.
+
 ## ADR-067 — Focused speed-maths catalog rebuild + Timed Mock (2026-06-24)
 - **Context:** QuantReflex served 26 exams across every Indian exam family, diluting positioning and including
   exams (JEE/Olympiad/GMAT/CLAT/NDA) where no-calculator mental-calculation speed is not the rank lever.

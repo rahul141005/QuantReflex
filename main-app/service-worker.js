@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v127';
-const CACHE_NAME = 'qr-cache-v127';
+const APP_VERSION = 'v128';
+const CACHE_NAME = 'qr-cache-v128';
 
 var ASSETS = [
   './',
@@ -48,6 +48,7 @@ var ASSETS = [
   './js/duel-core.js',
   './js/duel-manager.js',
   './js/duel-ui.js',
+  './js/duel-archive.js',
   './js/utils/event-registry.js',
   './js/services/question-bank-service.js',
   './manifest.json',

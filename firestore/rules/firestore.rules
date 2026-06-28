@@ -175,10 +175,17 @@ service cloud.firestore {
       // this blanket grant because Firestore unions all matching rules (a later deny cannot revoke a grant).
       match /{subcollection}/{document} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'aiEvents' && subcollection != 'notifications';
+        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'duelStats' && subcollection != 'aiEvents' && subcollection != 'notifications';
       }
       // Explicit (read-only) duelHistory match for clarity; write stays denied (no allow write here).
       match /duelHistory/{duelId} {
+        allow read: if isOwner(userId);
+      }
+      // ADR-068 (Battle Archive): duelStats/summary is a SERVER-WRITE-ONLY aggregate (personal stats + per-rival
+      // head-to-head + achievements), maintained by the duel endpoint inside the finalize transaction. Mirrors the
+      // duelHistory carve-out — the owner may READ it, but a client can NEVER forge stats/wins/achievements by
+      // writing it. Excluded from the blanket sub-write above so write stays denied (no allow write here).
+      match /duelStats/{document} {
         allow read: if isOwner(userId);
       }
       // ADR-066: the Inbox is a SERVER-WRITE-ONLY source of truth. The unified pipeline (Admin SDK) is the sole
