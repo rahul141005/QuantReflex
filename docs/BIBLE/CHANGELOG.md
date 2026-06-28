@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Cross-app modal cohesion + grep-verified CSS cleanup (CSS + 1-line JS)
+
+A verification + consistency pass (no redesign, no new features, no new deps; ~2–3k-user sizing). Two read-only
+inventory agents confirmed the prior Battle Archive modal + Learn-hub hierarchy are present/correct, so this pass is
+small and high-signal: fix the one genuine "feels like a different app" outlier and do the requested dead-code cleanup.
+
+```
+### refactor: unify info-modal motion (center + scale-in); focus-ring consistency; remove grep-verified dead CSS
+- Info modal cohesion: the About / App-Guide info modal slid in from the RIGHT as a side panel while every other
+  modal (paywall, table, Battle Archive, coming-soon) centers + scale-ins — the #1 inconsistency a reviewer flags.
+  css/style.css: .info-modal-overlay now flex-centers (align/justify center + 1rem padding); .info-modal-content
+  converted from a right-anchored 480px panel to a CENTERED CARD — position:relative, width:min(560px,100%),
+  max-height:92vh, margin:auto, border-radius var(--qr-card-radius), reuses the shared paywallScaleIn keyframe
+  (not duplicated); inner .info-hero sticky + .info-modal-scroll unchanged (still fills the card + scrolls on small
+  phones). The .closing slide-out drops to animation:none (the overlay's infoModalFadeOut carries the exit). JS:
+  settings.js openInfoModal's one show line changes block->flex so the overlay actually flex-centers the card on open
+  (the inline display:none default + the .closing/Escape/sound close logic are unchanged).
+- Focus-ring consistency: .collapsible-header:focus-visible used outline-offset:-2px (inset) — the lone outlier
+  among ~30 rings at +2px. Now +2px so keyboard focus looks identical app-wide.
+- Repo cleanup (zero behavior change, grep-verified 0 var()/ref consumers): removed 4 unused custom properties
+  (--qr-accent-soft, --sp-xl, --sp-2xl, --qr-card-gap); removed the now-dead infoModalSlideIn/infoModalSlideOut
+  keyframes; removed the shadowed duplicate @keyframes duelPulse (6926, opacity-only) — the later opacity+scale
+  definition (9964) already won globally for all three consumers, so deletion is a pure no-op.
+- Verification: CSS braces balanced (3126/3126); npm test green (all suites); grep proves 0 infoModalSlideIn/Out
+  refs, 0 removed-token refs, single @keyframes duelPulse, paywallScaleIn present.
+- Docs synced: VERSIONS (Bible 2.59->2.60, Arch unchanged — UI/CSS-only), DECISION_LOG (consistency note),
+  service-worker.js SW v141->v142.
+```
+
+---
+
 ## 2026-06-28 — Premium UI polish: Battle Archive → centered modal + Learn hub hierarchy (reuse-only)
 
 A UI/UX refinement pass — no new features, no new deps (sized for ~2–3k users; "less UI, more quality"). Two named

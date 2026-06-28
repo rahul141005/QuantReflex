@@ -1,6 +1,6 @@
 # QuantReflex — Architecture Guide
 
-> Last updated: 2026-06-28 (Learn Knowledge Engine complete + Battle Archive modal & Learn hub polish, SW v141)
+> Last updated: 2026-06-28 (Learn Knowledge Engine complete + Battle Archive modal & Learn hub polish; info-modal cohesion + CSS cleanup, SW v142)
 
 ## Overview
 

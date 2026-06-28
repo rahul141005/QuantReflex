@@ -870,7 +870,7 @@ function openDeleteAccountModal() {
 function openInfoModal(modalId) {
   var modal = document.getElementById(modalId);
   if (!modal) return;
-  modal.style.display = 'block';
+  modal.style.display = 'flex';   /* overlay flex-centers the card (matches .info-modal-overlay) */
   modal.classList.remove('closing');
   document.body.classList.add('modal-open');
   SoundEngine.play('tableModal');

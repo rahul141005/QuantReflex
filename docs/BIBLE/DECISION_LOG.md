@@ -188,6 +188,17 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   → `_openModal`/`_closeModal`/`_loadAndPaint`; the Firestore read/cache/filter/pagination/aggregate-math layer and
   `scripts/duel-archive.check.js` (45 assertions) are **unchanged**. Free users still render nothing. Client UI only;
   Arch 2.40→2.41 (presentation topology), no Firestore/Security/Payment/gating change.
+- **Cohesion follow-up (2026-06-28, CSS-only): one modal-motion language app-wide.** With Battle Archive, paywall,
+  table, and coming-soon all centering + scale-ins, the **About / App-Guide info modal** was the last outlier — it
+  slid in from the right as a 480px side panel. It now **centers + scale-ins** too: `.info-modal-overlay` flex-
+  centers and `.info-modal-content` becomes a centered card (`min(560px,100%)`, 92vh + internal scroll,
+  `var(--qr-card-radius)`, reusing the shared `paywallScaleIn` keyframe); the right-slide `infoModalSlideIn`/`Out`
+  keyframes are removed and the `.closing` exit defers to the overlay fade. `settings.js` `openInfoModal` changes only
+  its one show line (`block`→`flex`) so the overlay flex-centers the card; the close logic is unchanged.
+  Same pass: the lone inset `.collapsible-header:focus-visible` ring (`-2px`) matches the ~30 others at `+2px`, and a
+  grep-verified dead-CSS sweep removed 4 unused custom properties (`--qr-accent-soft`, `--sp-xl`, `--sp-2xl`,
+  `--qr-card-gap`) + the shadowed duplicate `@keyframes duelPulse`. SW v141→v142. No JS logic, data, routing, or
+  gating change; reduced-motion + a11y preserved. Bible 2.59→2.60, no Arch bump (no topology/contract change).
 
 ## ADR-067 — Focused speed-maths catalog rebuild + Timed Mock (2026-06-24)
 - **Context:** QuantReflex served 26 exams across every Indian exam family, diluting positioning and including

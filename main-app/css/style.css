@@ -15,7 +15,6 @@
   --qr-card-radius-sm: 1.25rem;    /* 20px — small cards / tiles */
   --qr-btn-radius: 1.125rem;       /* 18px — buttons / CTAs */
   --qr-card-padding: 1.25rem;      /* 20px */
-  --qr-card-gap: 1rem;             /* 16px between cards */
   --qr-card-border-light: 1px solid rgba(15,23,42,0.06);
   --qr-card-border-dark: 1px solid rgba(255,255,255,0.08); /* soft hairline on navy */
   --qr-shadow-light: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.03);
@@ -24,15 +23,12 @@
   --sp-sm: 12px;
   --sp-md: 16px;
   --sp-lg: 24px;
-  --sp-xl: 32px;
-  --sp-2xl: 48px;
   --qr-nav-h: 3.75rem;             /* bottom-nav height — single source of truth (ADR-011) */
   --qr-practice-gap: .6rem;        /* Practice scroll-panel: equal top/bottom inset */
   --qr-bg: #f8fafc;                /* app background (light) — used by sticky surfaces e.g. Learn section nav */
   --qr-accent: #2563eb;            /* canonical brand blue (new code; existing hard-coded #2563eb left as-is) */
-  --qr-accent-soft: rgba(37,99,235,0.10);
 }
-body.dark-mode { --qr-bg: #0f172a; --qr-accent: #60a5fa; --qr-accent-soft: rgba(96,165,250,0.12); }
+body.dark-mode { --qr-bg: #0f172a; --qr-accent: #60a5fa; }
 
 /* ---- Reset & Base ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1345,7 +1341,7 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
   min-height: 48px;
 }
 .collapsible-header:active { background: #f1f5f9; }
-.collapsible-header:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; border-radius: inherit; }
+.collapsible-header:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: inherit; }
 .collapsible-header .section-title { margin: 0; }
 .collapse-icon {
   font-size: .75rem;
@@ -1832,6 +1828,7 @@ body.dark-mode .settings-chevron { color: #64748b; }
 .info-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
   background: rgba(0,0,0,.45);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -2076,29 +2073,22 @@ body.dark-mode .stats-insights-locked-cta {
   to   { opacity: 0; }
 }
 .info-modal-content {
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 100%;
-  max-width: 480px;
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 92vh;
+  margin: auto;
   background: #f8fafc;
+  border-radius: var(--qr-card-radius);
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 0;
-  box-shadow: -4px 0 24px rgba(0,0,0,.12);
-  animation: infoModalSlideIn .3s cubic-bezier(.16,1,.3,1);
+  box-shadow: 0 24px 60px rgba(2,6,23,.45);
+  animation: paywallScaleIn .3s cubic-bezier(.16,1,.3,1);
   display: flex;
   flex-direction: column;
 }
 .info-modal-overlay.closing .info-modal-content {
-  animation: infoModalSlideOut .2s ease forwards;
-}
-@keyframes infoModalSlideIn {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-@keyframes infoModalSlideOut {
-  from { transform: translateX(0); }
-  to   { transform: translateX(100%); }
+  animation: none;
 }
 .info-modal-header {
   display: flex;
@@ -2258,7 +2248,7 @@ body.dark-mode .info-modal-overlay {
 }
 body.dark-mode .info-modal-content {
   background: #0f172a;
-  box-shadow: -4px 0 24px rgba(0,0,0,.3);
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
 }
 body.dark-mode .info-hero {
   background: #0f172a;
@@ -4886,7 +4876,7 @@ body.theme-playful .feedback.wrong   { background: rgba(220,38,38,.08); }
 body.theme-playful .info-modal-overlay { background: rgba(26,26,46,.4); }
 body.theme-playful .info-modal-content {
   background: #faf9f7;
-  box-shadow: -4px 0 24px rgba(120,100,70,.12);
+  box-shadow: 0 24px 60px rgba(120,100,70,.30);
 }
 body.theme-playful .info-hero {
   background: #faf9f7;
@@ -5338,7 +5328,7 @@ body.theme-playful.dark-mode .feedback.wrong   { background: rgba(248,81,73,.12)
 body.theme-playful.dark-mode .info-modal-overlay { background: rgba(0,0,0,.6); }
 body.theme-playful.dark-mode .info-modal-content {
   background: #0d1117;
-  box-shadow: -4px 0 24px rgba(0,0,0,.4);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
 }
 body.theme-playful.dark-mode .info-hero {
   background: #0d1117;
@@ -6932,11 +6922,7 @@ body.dark-mode .duel-player-name { color: #e2e8f0; }
   margin-top: .15rem;
 }
 
-/* Waiting animation */
-@keyframes duelPulse {
-  0%, 100% { opacity: .4; }
-  50% { opacity: 1; }
-}
+/* Waiting animation (keyframes consolidated at the later duelPulse definition) */
 .duel-waiting-indicator {
   display: flex;
   align-items: center;

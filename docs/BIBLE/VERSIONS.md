@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.59 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.60 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.41 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.60 (2026-06-28)** — **Cross-app modal cohesion + grep-verified CSS cleanup (CSS-only, no new deps).** Unified
+> the last "feels like a different app" outlier: the **About / App-Guide info modal** stopped sliding in from the
+> right as a side panel and now **centers + scale-ins** like every other modal (paywall, table, Battle Archive,
+> coming-soon) — `.info-modal-overlay` flex-centers; `.info-modal-content` becomes a centered card
+> (`width:min(560px,100%)`, 92vh + internal scroll, `var(--qr-card-radius)`, reuses the shared `paywallScaleIn`
+> keyframe); the right-slide `infoModalSlideIn`/`infoModalSlideOut` keyframes are removed. `settings.js`
+> `openInfoModal`'s one show line changes `block`→`flex` so the overlay flex-centers the card on open (the inline
+> `display:none` default + the `.closing`/Escape/sound close logic are unchanged). **Focus-ring consistency:** the lone inset
+> `.collapsible-header:focus-visible` ring (`outline-offset:-2px`) matches the ~30 others at `+2px`. **Cleanup
+> (zero behavior change, grep-verified 0 consumers):** removed 4 unused custom properties (`--qr-accent-soft`,
+> `--sp-xl`, `--sp-2xl`, `--qr-card-gap`) and the shadowed duplicate `@keyframes duelPulse` (the later
+> opacity+scale definition already won globally for all three consumers). SW v141→v142. **Client UI only (CSS + a
+> one-line display-value change in `settings.js`); no control-flow/logic, Firestore/Security/Payment, routing, or
+> gating change; reduced-motion + a11y preserved.** Bible
+> 2.59→2.60 (Arch unchanged — no topology/contract change).
 
 > **2.59 / Arch 2.41 (2026-06-28)** — **Premium UI polish: Battle Archive → centered modal + Learn hub hierarchy
 > (reuse-only, no new deps).** **Battle Archive (ADR-068 follow-up):** the inline expandable section inside the Home
