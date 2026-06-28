@@ -12,7 +12,7 @@
  */
 const admin = require('firebase-admin');
 
-const PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 59900 };
+const PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 49900 };
 
 /* Normalize any stored timestamp (Firestore Timestamp | ISO/locale string | number | {_seconds}) to ms. */
 function _toMs(v) {

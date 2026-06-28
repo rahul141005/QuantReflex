@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.18 · **Architecture Version:** 2.40 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.19 · **Architecture Version:** 2.40 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -16,7 +16,7 @@ Companion documents (start at [README.md](README.md)):
 
 ## 1. What QuantReflex Is
 
-A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants. The catalog is curated (ADR-067) to **17 exams in 4 user-facing tiers** — **MBA** (CAT, XAT, SNAP, NMAT, CMAT, MAH CET, MAT, ATMA), **Banking** (IBPS PO/Clerk, SBI PO, RBI Assistant), **Foundation**, and **Government** (SSC CGL/CHSL/MTS, RRB NTPC) — the exams where fast, no-calculator calculation drives rank. The app drills **14 categories** (`services/quantTopics.js`). Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹349/6mo or ₹599/12mo — includes everything: all training features, the full AI suite, Math Duel, and Timed Mocks). One paid tier; trials are time-limited Premium grants.
+A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants. The catalog is curated (ADR-067) to **17 exams in 4 user-facing tiers** — **MBA** (CAT, XAT, SNAP, NMAT, CMAT, MAH CET, MAT, ATMA), **Banking** (IBPS PO/Clerk, SBI PO, RBI Assistant), **Foundation**, and **Government** (SSC CGL/CHSL/MTS, RRB NTPC) — the exams where fast, no-calculator calculation drives rank. The app drills **14 categories** (`services/quantTopics.js`). Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹349/6mo or ₹499/12mo — includes everything: all training features, the full AI suite, Math Duel, and Timed Mocks). One paid tier; trials are time-limited Premium grants.
 
 ## 2. Tech Stack (canonical)
 

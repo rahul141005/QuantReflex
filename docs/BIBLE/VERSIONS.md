@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.56 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.57 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.40 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.57 / Payment 2.4 (2026-06-28)** — **Pricing ₹599→₹499 (12-month) + About/Guide/ecosystem refresh.**
+> **Pricing:** the 12-month Premium drops **₹599 → ₹499** (6-month ₹349 unchanged) across every current-state
+> location, UI↔server synced: the **charge path** `paymentService.PLAN_CONFIG.premium_12m.amountPaise` 59900→**49900**,
+> the canonical `entitlements.PRICING.PREMIUM_12M`, the revenue maps `aiService`/`metrics.PREMIUM_PRICE_PAISE`, the
+> display `paywall.PLANS` (≈₹42/mo, **"Save 28%"**), `index.html` About/FAQ text, and the payment/entitlement docs.
+> No test asserts the amount; durations/plan-keys/gates/Razorpay-flow unchanged. **About modal** rewritten to today's
+> product — the Learn **Knowledge Engine** (19 topics / 5 categories, search, saved, revision, practise-this),
+> responsive + offline, and the **three-app ecosystem** (Student app ↔ coaching ID ↔ platform), version 2.0.0→2.1.0.
+> **App Guide** Learn section fully rewritten (hub→topic pages, search, save, continue/due, quick-revision, practise,
+> mark-complete) — removed the retired "Learn Vault"/"Jump Navigation" wording — plus a navigation/gestures note.
+> Light paywall polish (AA contrast on the save/per-month text). SW v138→v139. **Client + pricing-config only; no
+> Firestore/Security change; sized for ~2–3k users (no new deps).** Bible 2.56→2.57, Payment 2.3→2.4.
 
 > **2.56 / Arch 2.40 (2026-06-28)** — **Learn content completion — the curated scope is now 19/19 gold (ADR-069),
 > NO AI.** Authored the **last 5 scaffold topics to full gold-standard depth** and flipped them to `published`:
@@ -192,6 +205,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.57 | 2.40 | 2.19 | 2.14 | 2.4 | **Pricing ₹599→₹499 (12mo) + About/Guide/ecosystem refresh:** 12-month Premium **₹599→₹499** (6mo ₹349 unchanged) synced UI↔server — charge path `paymentService.amountPaise` 59900→49900, `entitlements.PRICING`, revenue maps `aiService`/`metrics`, display `paywall.PLANS` (≈₹42/mo, "Save 28%"), `index.html` + payment/entitlement docs (zero `₹599`/59900 left in current-state files; no test asserts it). About modal rewritten to today's product (Learn Knowledge Engine, responsive+offline, the 3-app ecosystem, v2.0.0→2.1.0); App Guide Learn section fully rewritten (hub→topics/search/save/revision/practise; removed "Learn Vault"/"Jump Navigation") + gestures note. Light paywall AA-contrast polish. SW v138→v139. Client + pricing-config only; no Firestore/Security change; ~2–3k-user sizing (no new deps). Bible 2.56→2.57, Payment 2.3→2.4. |
 | 2026-06-28 | 2.56 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn content completion — 19/19 gold (ADR-069), NO AI:** authored the last 5 scaffolds (Number Series, Ages, Mixtures & Alligations, Partnership, Permutation & Combination) to gold-standard depth (10–11 sections each) and flipped to `published`; every formula/example hand- + agent-verified (zero math errors). No scaffolds/"coming soon" remain in the shipped 5-category scope. `number-series` gets a real Practise button; the other 4 keep `drillCategory:null` (no misleading practice). Content gate now validates 19 published (`learn-content.check` 161→196). Restrained premium touch: one-time reduced-motion-guarded `kx-rise` stagger on the ≤5 hub category sections. SW v137→v138. Content/client-only; Arch unchanged (same engine, more data); no Firestore/Security/Payment change. Bible 2.55→2.56. |
 | 2026-06-28 | 2.55 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn ship-readiness fixes (ADR-069), NO AI:** 5 real issues from a final adversarial audit (rest confirmed sound; several flagged items consciously rejected as non-issues). (1) route-change focus management → topic `<h1>` / `#learnHeading` (both `tabindex="-1"`, `focus({preventScroll:true})`) — WCAG 2.4.3; (2) `.kx-section-nav` `@supports` fallback to near-opaque where `backdrop-filter` unsupported (no content bleed); (3) faint `#64748b` labels (`.kx-cat-count/blurb`, `.kx-search-cat`, `.kx-status-scaffold`, `.kx-action-soon`) darkened to `#475569` for AA; (4) hub "Continue" excludes "Due" ids (no duplicate cards; Saved authoritative); (5) hub scroll position restored on Back from a topic. SW v136→v137. Client-only; no Firestore/Security/Payment change. Bible 2.54→2.55, Arch 2.39→2.40. |
 | 2026-06-28 | 2.54 | 2.39 | 2.19 | 2.14 | 2.3 | **Learn premium UX polish + 4 bug fixes (ADR-069), NO AI:** (1) horizontal pill/strip swipe no longer switches the bottom-nav tab — `swipe-nav.js` denylist now exempts `[data-no-swipe], .kx-section-nav, .kx-resume-row, .kx-table-scroll`; (2) sticky section-nav is now subtle glass (blur + translucent page-bg) instead of a dark strip; (3) "Save" is real — hub shows a "★ Saved" strip from `LearnProgress.bookmarkedIds()` + save toast; (4) Pipes & Cisterns `drillCategory:null` + non-interactive "Practice coming soon" chip (`drillComingSoon`) instead of launching Time & Work questions. Scaffold "Coming soon" cards restyled (dashed/inviting, not dimmed); bounded token-based polish (card hover/press, resume edge-fade mask, glassy pills, search focus), all reduced-motion-guarded. SW v135→v136. Client-only; no Firestore/Security/Payment change. Bible 2.53→2.54, Arch 2.38→2.39. |

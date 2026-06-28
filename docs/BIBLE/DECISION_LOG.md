@@ -971,6 +971,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Consequences:** Historical pricing in prior ADRs / CHANGELOG / VERSIONS is left intact (accurate record of the
   ₹299/₹499 era); this ADR is the authoritative record of the ₹349/₹599 change. No schema or entitlement migration
   is required.
+- **Pricing follow-up (2026-06-28): 12-month ₹599 → ₹499** (6-month ₹349 unchanged). Same discipline as above — the
+  **server charge constant** moves, not just the display: `paymentService.PLAN_CONFIG.premium_12m.amountPaise`
+  59900→**49900**, plus `entitlements.PRICING.PREMIUM_12M`, `aiService`/`super-admin metrics` `PREMIUM_PRICE_PAISE`,
+  the paywall display (≈₹42/mo, **"Save 28%"**), the About/FAQ copy, and the current-state payment/entitlement docs.
+  Verified **zero `₹599`/59900 remain** in current-state files and **no test asserts the amount**. Plan keys,
+  durations, single-tier model and all gates unchanged; no migration (zero/near-zero live payment data). Payment
+  track 2.3→2.4.
 
 ## ADR-041 — Launch-readiness pass for the first 1–2k users (2026-06-14)
 - **Context:** Following the zero-assumption monorepo audit, the owner scoped a launch pass to the first 1,000–2,000

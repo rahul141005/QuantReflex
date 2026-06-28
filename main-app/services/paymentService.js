@@ -15,11 +15,11 @@ if (!RAZORPAY_KEY_SECRET) {
  * Single Premium tier, two durations.
  *
  * premium_6m:   ₹349 for 6 months
- * premium_12m:  ₹599 for 12 months
+ * premium_12m:  ₹499 for 12 months
  */
 var PLAN_CONFIG = {
   premium_6m: { amountPaise: 34900, label: 'Premium · 6 Months', durationDays: 182 },
-  premium_12m: { amountPaise: 59900, label: 'Premium · 12 Months', durationDays: 365 }
+  premium_12m: { amountPaise: 49900, label: 'Premium · 12 Months', durationDays: 365 }
 };
 
 var razorpayInstance = null;

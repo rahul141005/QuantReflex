@@ -196,7 +196,7 @@ completedAt, createdAt }`.
   SECURITY). Removed on account deletion (`account.js` subcollections list includes `duelStats`).
 
 ### `payments/{paymentId}`
-`{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=59900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
+`{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=49900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
 
 ### AI caches
 - `explanations/{contentHash}` — `{question, answer, category, concept, steps[], mistake, tip, usageCount, createdAt}`

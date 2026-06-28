@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Pricing ₹599→₹499 (12-month) + About/Guide/ecosystem refresh
+
+Product-consistency pass (no architecture change, no new deps; sized for ~2–3k users). The 12-month Premium price
+drops to ₹499 (synced across the server charge path, client display, and docs), and the About modal + App Guide are
+brought up to date with the shipped product, including the three-app ecosystem.
+
+```
+### feat: 12-month Premium ₹599 -> ₹499; rewrite About + App Guide; ecosystem wording; light paywall polish
+- Pricing (server is source of truth — charge constants updated, not just display):
+  - shared/constants/entitlements.js PRICING.PREMIUM_12M 59900 -> 49900 (paise).
+  - main-app/services/paymentService.js PLAN_CONFIG.premium_12m.amountPaise 59900 -> 49900 (the actual Razorpay
+    charge) + doc comment.
+  - main-app/services/aiService.js + super-admin-app/api/_lib/metrics.js PREMIUM_PRICE_PAISE.premium_12m -> 49900
+    (revenue accounting / fallback).
+  - main-app/js/paywall.js PLANS.premium_12m price 599->499, perMonth 50->42, "Save 14%"->"Save 28%", header comment.
+  - index.html About + Guide-FAQ price lines ₹599 -> ₹499.
+  - Docs: PAYMENT_ARCHITECTURE (table/derived/paise), FIRESTORE_BLUEPRINT (fallback map), ENTITLEMENT_SYSTEM,
+    TECHNICAL_BIBLE, super-admin ARCHITECTURE_MASTER_GUIDE. Verified zero ₹599/59900 remain in current-state files;
+    no test asserts the amount. Durations/plan-keys/gates/Razorpay-flow unchanged.
+- About modal (index.html) rewritten to today's product: Learn Knowledge Engine (19 topics / 5 categories, search,
+  saved topics, spaced revision, "Practise this"), responsive + offline PWA, and the three-app ecosystem (Student
+  app links to a coaching institute via coaching ID; managed by the QuantReflex platform). Version 2.0.0 -> 2.1.0.
+- App Guide (index.html): the Learn section fully rewritten to the hub->topic-pages model (search, ★ Save, Continue
+  / Due-for-revision, Quick revision cheat-sheet, Practise this, Mark complete, Quick Reference, custom topics);
+  removed the retired "Learn Vault" / "Quant Formulas list" / "Jump Navigation" wording. Added a "Getting around"
+  block (swipe between tabs; horizontal rows scroll without switching tabs; shareable Learn links).
+- Paywall polish: darkened the "Save 28%" and per-month text to WCAG AA (#15803d / #64748b) + dark-mode variants.
+- Service worker v138 -> v139. Governance: VERSIONS (Bible 2.56->2.57, Payment 2.3->2.4), DECISION_LOG (pricing note).
+- Verified: node --check the 5 changed JS files; CSS braces balanced (3118/3118); npm test green.
+```
+
+---
+
 ## 2026-06-28 — Learn content completion: last 5 topics → gold, scope now 19/19 (ADR-069)
 
 Content-completion phase: authored the final 5 scaffold topics to full gold-standard depth and published them, so the

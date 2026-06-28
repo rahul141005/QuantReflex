@@ -136,7 +136,7 @@ async function safeUserUpdate(uid, data, caller) {
 }
 
 var PREMIUM_DURATION_DAYS = { premium_6m: 182, premium_12m: 365 };
-var PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 59900 }; /* canonical plan→price (paise) — revenue accounting */
+var PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 49900 }; /* canonical plan→price (paise) — revenue accounting */
 
 /**
  * Activate the single Premium plan from a verified payment (v2).
