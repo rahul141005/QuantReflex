@@ -79,7 +79,7 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
 2 Infrastructure firebase.js → auth.js → firestore-sync.js
 3 Services        services/{adaptive-state,scoring-service,share-service,question-bank-service}.js
 4 Data            progress.js, questions.js
-5 References      tables.js, formulas.js, learn-manager.js
+5 References      tables.js, learn-manager.js, knowledge/{schema,registry,blocks}.js, learn/learn-search.js (ADR-069)
 6 Settings        settings.js  (provides showToast)
 7 Engine          drill-engine.js
 8 Navigation      router.js

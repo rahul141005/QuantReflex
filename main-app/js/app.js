@@ -1111,10 +1111,13 @@ document.addEventListener('DOMContentLoaded', function () {
       e.preventDefault();
       if (!_tryBeginNavTransition()) return;
       var view = this.getAttribute('data-view');
-      /* Skip if already on this tab and no drill is active and no stale results overlay */
+      /* Skip if already on this tab and no drill is active and no stale results overlay.
+         EXCEPTION (ADR-069): on a Learn topic sub-route (#learn/<id>) the Learn tab is "active" but tapping it must
+         return to the hub — otherwise the tab is a dead no-op on topic pages. */
       var _dc_check = document.getElementById('drillContainer');
       var _hasStaleResults = _dc_check && (_dc_check.classList.contains('drill-results-active') || _dc_check.style.display !== 'none');
-      if (this.classList.contains('active') && !_drillSessionActive && !_hasStaleResults) return;
+      var _onLearnSubRoute = (view === 'learn' && window.location.hash.indexOf('#learn/') === 0);
+      if (this.classList.contains('active') && !_drillSessionActive && !_hasStaleResults && !_onLearnSubRoute) return;
       /* Cleanup any active drill engine when navigating away */
       if (_activeDrillEngine) {
         _activeDrillEngine.cleanup();

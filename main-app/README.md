@@ -58,7 +58,9 @@ A Progressive Web App (PWA) that trains mental math reflexes for competitive exa
 ├── questions.js        Random question generator (12 categories)
 ├── progress.js         localStorage progress tracking (daily streak, category stats)
 ├── tables.js           Dynamic multiplication table renderer
-├── formulas.js         Formula sections data for Learn page
+├── knowledge/          Learn Knowledge Engine (ADR-069): schema.js, registry.js, blocks.js
+├── ../data/knowledge/  Knowledge objects per category (arithmetic.js, mensuration.js, categories.js)
+├── learn/learn-search.js  Registry-backed Learn search index
 ├── manifest.json       PWA manifest
 └── service-worker.js   Offline caching service worker
 ```

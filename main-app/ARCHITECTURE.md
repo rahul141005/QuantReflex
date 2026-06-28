@@ -54,7 +54,7 @@ Layer 1  — State:       store.js
 Layer 2  — Infra:       firebase.js → auth.js → firestore-sync.js
 Layer 3  — Services:    adaptive-state.js, scoring-service.js, share-service.js
 Layer 4  — Data:        progress.js, questions.js
-Layer 5  — Reference:   tables.js, formulas.js, learn-manager.js
+Layer 5  — Reference:   tables.js, learn-manager.js, knowledge/{schema,registry,blocks}.js, learn/learn-search.js (ADR-069)
 Layer 6  — Settings:    settings.js (provides showToast)
 Layer 7  — Engine:      drill-engine.js
 Layer 8  — Navigation:  router.js

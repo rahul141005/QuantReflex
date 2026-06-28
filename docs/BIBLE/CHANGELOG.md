@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Phase 1 & 2 audit hardening (ADR-069 follow-up)
+
+Independent pre-Phase-3 audit of Phases 1 & 2 (2 review agents + direct inspection). Server/data/engine/routing
+verified clean; **9 real issues fixed** (client + docs only). No version-track bump (pre-release fixes to Phase 2;
+no Firestore/rules/payment change; no AI).
+
+```
+### fix(ADR-069): Learn audit hardening — dark mode, a11y, responsive, nav, docs
+- DARK MODE (P0, real): the app has no base body-color flip, so un-coloured Learn topic text (callout/example/
+  revision lists + headings) inherited light-mode near-black → invisible in dark mode. Fixed with a light base
+  `body.dark-mode #learnTopic { color:#e2e8f0 }` (+ `.kx-table-caption` dark). css/style.css.
+- REDUCED MOTION (P0): section-nav pill smooth-scroll now respects prefers-reduced-motion (js/views/learn-view.js
+  _scrollBehavior); added `.kx-topic-card:active` to the reduced-motion guard.
+- READING WIDTH (P0): desktop topic grid capped to `minmax(0,720px) 280px` + `justify-content:center` (no 150-char
+  lines on wide monitors).
+- TOUCH TARGETS (P1): `.kx-sec-pill`/`.kx-chip`/`.kx-back` min-height 2.25rem; `.kx-pn`/`.kx-crumb` padding bumped.
+  The taller sticky nav (~3.35rem) now matches the section `scroll-margin-top:3.4rem`.
+- TOKEN (P1): defined `--qr-bg` (+ dark) used by the sticky section nav instead of a bare fallback.
+- NAV BUG (real, agents missed): tapping the Learn tab while on a topic page (#learn/<id>) was a no-op (tab already
+  "active"); now returns to the hub (js/app.js — `_onLearnSubRoute` exception in the nav skip guard).
+- LOAD ORDER: index.html loads js/views/learn-view.js (defines toggleSection) before home-view.js (uses it).
+- DOCS: removed the deleted formulas.js from main-app/README.md, main-app/ARCHITECTURE.md, and the TECHNICAL_BIBLE
+  script-load-order list (replaced with the knowledge engine modules).
+- Schema/API delta: none. Version bumps: none (client polish + doc sync). SW v130→v131 (re-cache fixed assets).
+- Verification: node --check all touched JS; npm test green (full suite + learn-content 35 + learn-render 13 +
+  learn-browser 10); CSS braces balanced.
+- Deferred to P5 polish (documented in ROADMAP): prune inert legacy Learn CSS (.learn-jump-*/.learn-group-*/
+  .search-highlight) + residual `learn-searchable` class on reference cards; collapsible aria-expanded.
+```
+
 ## 2026-06-28 — Learn Knowledge Engine — Phase 2: hub + topic pages + responsive design system (ADR-069)
 
 Cuts the Learn tab over to the knowledge engine: a deep-linkable **hub → topic-page** knowledge graph with a

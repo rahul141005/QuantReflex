@@ -36,6 +36,10 @@ var LearnView = (function () {
   function _KB() { return (typeof KnowledgeBase !== 'undefined') ? KnowledgeBase : null; }
   function _go(id) { if (typeof Router !== 'undefined') Router.showView('learn', id ? { path: id } : undefined); }
   function _scrollTop() { var c = document.querySelector('.container'); if (c) c.scrollTop = 0; }
+  function _scrollBehavior() {
+    try { return (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth'; }
+    catch (_) { return 'smooth'; }
+  }
 
   var DIFF_LABEL = { foundation: 'Foundation', core: 'Core', advanced: 'Advanced' };
   var FREQ_LABEL = { 'very-high': 'Very High', high: 'High', medium: 'Medium', low: 'Low' };
@@ -176,7 +180,7 @@ var LearnView = (function () {
         pill.textContent = (labels[b.type] || b.type);
         pill.addEventListener('click', function () {
           var el = document.getElementById('kx-sec-' + i);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (el) el.scrollIntoView({ behavior: _scrollBehavior(), block: 'start' });
         });
         nav.appendChild(pill);
       });
