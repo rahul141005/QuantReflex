@@ -79,6 +79,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   fields, exactly like customTopics/bookmarks). P5 is client-only cleanup/polish (no Firestore/Security/Payment
   change): Architecture 2.36→2.37, Bible 2.51→2.52. Future-proof: videos/flashcards/notes/diagrams are additive block
   types or hooks, no rewrite. AI intentionally excluded from Learn. **All five phases shipped — ADR-069 complete.**
+- **Final-review polish (2026-06-28, post-completion):** an independent multi-agent production review (clean — no dead
+  code, no broken refs, integrations/gating correct, no regressions, no AI) drove two client-only elevations in the
+  most-weighted areas: **(a) topic-page accessibility semantics** — `h1→h2→h3` heading outline (section labels `<h2>`,
+  block heads `<h3>`), `<nav>`/`<aside>` landmarks, `aria-current` on the active section pill, an `aria-live` search
+  results region (zero visual change; class-based styling); **(b) landscape-tablet layout** — the reading-column +
+  side-rail now activates at ≥960px (was ≥1100), so landscape iPads/foldables get a true two-column reading+rail.
+  SW v134→v135. No Firestore/Security/Payment change. Architecture 2.37→2.38, Bible 2.52→2.53.
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel

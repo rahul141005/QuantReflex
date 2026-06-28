@@ -9,11 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.52 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.37 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.53 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.38 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.53 / Arch 2.38 (2026-06-28)** — **Learn final-review polish (ADR-069), NO AI.** Two client-only elevations from
+> the final production review. **(1) Accessibility semantics on the topic page:** section labels now render as `<h2>`
+> and every block head (concept/formula/trick/trap/memory/example) as `<h3>` for a correct `h1→h2→h3` outline;
+> breadcrumb → `<nav aria-label="Breadcrumb">`, in-page section nav → `<nav aria-label="On this page">`, related/
+> prev-next/back → `<aside>`; the active scroll-spy pill gets `aria-current="true"`; `#learnSearchResults` is an
+> `aria-live="polite"` region so result counts announce. Zero visual change (all `.kx-*` styling is class-based; two
+> head classes gained a `margin-top:0` reset). **(2) Landscape-tablet layout:** the reading-column + sticky side-rail
+> now activates at **≥960px** (was ≥1100), with a new 900px container step and hub 3-col at ≥960 — landscape iPads /
+> large foldables get a true two-column reading+rail instead of a stacked single column; phones + portrait tablets
+> (<960) unchanged. SW v134→v135. **Client-only a11y + responsive polish; no Firestore/Security/Payment change; NO AI
+> in Learn.** Bible 2.52→2.53, Arch 2.37→2.38.
 
 > **2.52 / Arch 2.37 (2026-06-28)** — **Learn Knowledge Engine — Phase 5 (polish + cleanup, NO AI) — ADR-069
 > COMPLETE.** Pruned all now-inert legacy Learn CSS — `.learn-jump-*` (nav/btn/active + dark + theme-playful + both
@@ -139,6 +151,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.53 | 2.38 | 2.19 | 2.14 | 2.3 | **Learn final-review polish (ADR-069), NO AI:** client-only a11y + responsive elevations from the final production review. **A11y semantics:** topic-page section labels → `<h2>`, block heads (concept/formula/trick/trap/memory/example) → `<h3>` (clean `h1→h2→h3` outline); breadcrumb/section-nav → `<nav aria-label>`, related/prev-next/back → `<aside>`; active scroll-spy pill gets `aria-current`; `#learnSearchResults` is an `aria-live="polite"` region. Zero visual change (class-based styling; two head classes gained a `margin-top:0` reset). **Landscape-tablet layout:** reading-column + sticky side-rail now activates at **≥960px** (was 1100) via a new 900px container step + hub 3-col @960 — landscape iPads/foldables get a true two-column reading+rail; phones + portrait tablets (<960) unchanged. SW v134→v135. No Firestore/Security/Payment change. Bible 2.52→2.53, Arch 2.37→2.38. |
 | 2026-06-28 | 2.52 | 2.37 | 2.19 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 5 (polish + cleanup, NO AI) — ADR-069 COMPLETE:** pruned all now-inert legacy Learn CSS (`.learn-jump-*` nav/btn/active across base/dark/theme-playful/theme-playful.dark-mode + both tap-delay/ripple selector lists + `app.js` RIPPLE_SELECTORS; `.learn-group-*`; `mark.search-highlight`; residual `.learn-searchable` marker removed from 5 reference cards + `learn-manager.js`) — **21 dead rule-sets gone**, CSS 3109→3092 braces, zero remaining refs. Polish: badge .62→.66rem, `.kx-crumb` 2.25rem touch target, reduced-motion-guarded `kx-fade-in` topic entrance. Perf: lazy per-category load deliberately NOT added (render-on-route + once-built search index already minimal for 19 precached topics). SW v133→v134. Final independent production audit passed. **Client-only cleanup/polish; no Firestore/Security/Payment change; NO AI.** Bible 2.51→2.52, Arch 2.36→2.37. |
 | 2026-06-28 | 2.51 | 2.36 | 2.19 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 4 (integrations, NO AI) (ADR-069):** localStorage-primary progress module (`js/learn/learn-progress.js`, dual-exported; pure recency/spaced-due helpers under a new 32-assertion `learn-progress.check`) with best-effort Firestore mirror via the **existing** `FirestoreSync.queueUpdate` — two new owner-writable user-doc fields **`learnProgress`** (`{topicId:{viewedAt,completedAt}}`) + **`learnTopicBookmarks`** (`[topicId]`), same denylist-safe path as customTopics/bookmarks (**no new collection/rule**; hydrated on login, cleared on user switch). Topic **action bar** (Practise this → focus-drill via `drillCategory`; Quick-revision **cheat-sheet projection** = filtered view over authored revision/formula/trick/trap blocks; Mark-complete; Save); hub **Continue learning** + spaced **Due for revision** strips + live completion ticks. Every applicable topic gains a **validated `syllabusTopicId`** → `data/syllabus.js` (data-level Planner link; `learn-content.check` 144→162). SW v132→v133. **Security/Payment unchanged** (`entitlementFieldsSafe()` already permits owner non-entitlement writes). Bible 2.50→2.51, Arch 2.35→2.36, Firestore 2.18→2.19. |
 | 2026-06-28 | 2.50 | 2.35 | 2.18 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 3 (ADR-069):** authored **14 gold-standard topics** (overview/concepts/formulas/tricks/traps/worked-examples/memory/revision) across a **5-category taxonomy** (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) — Number System, Simplification, Percentages, Ratio, Averages, Time & Work, Pipes & Cisterns, TSD, Profit & Loss, Simple/Compound Interest, Probability, Area, Volume — + 5 honest scaffolds. Original exam-grade content (cheat sheets = organisation inspiration; every formula/example hand-verified). `data/knowledge/{numbers,commercial,modern}.js` added (+ arithmetic/mensuration enriched, categories.js expanded). Content-quality gate in `learn-content.check` (144) enforces gold-standard depth. SW v131→v132. **Content/client-only; topic ids preserved; no Firestore/Security/Payment change; NO AI.** Cheat-sheet projection view + formula explorer = P4. Bible 2.49→2.50 (Arch unchanged). |

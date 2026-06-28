@@ -10633,6 +10633,7 @@ body.dark-mode .ba-ach-name { color: #e2e8f0; }
 /* ---- responsive shell: lift the 480px cap ONLY for Learn ---- */
 body.view-learn-active .container { max-width: 560px; }
 @media (min-width: 768px)  { body.view-learn-active .container { max-width: 720px; } }
+@media (min-width: 960px)  { body.view-learn-active .container { max-width: 900px; } }   /* landscape tablets: room for reading column + side rail */
 @media (min-width: 1100px) { body.view-learn-active .container { max-width: 1040px; } }
 @media (min-width: 1400px) { body.view-learn-active .container { max-width: 1140px; } }
 
@@ -10659,7 +10660,7 @@ body.dark-mode .kx-cat-title { color: #f1f5f9; }
 body.dark-mode .kx-cat-count, body.dark-mode .kx-cat-blurb { color: #94a3b8; }
 .kx-topic-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
 @media (min-width: 560px)  { .kx-topic-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1100px) { .kx-topic-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 960px)  { .kx-topic-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1400px) { .kx-topic-grid { grid-template-columns: repeat(4, 1fr); } }
 
 .kx-topic-card { display: flex; flex-direction: column; gap: .4rem; text-align: left; width: 100%; padding: .9rem; border: 1px solid rgba(15,23,42,.07); border-radius: var(--qr-card-radius-sm); background: rgba(255,255,255,.85); box-shadow: var(--qr-shadow-light); cursor: pointer; font: inherit; color: inherit; transition: transform .12s ease, box-shadow .15s ease, border-color .15s; }
@@ -10714,12 +10715,16 @@ body.dark-mode .kx-section-nav { background: #0f172a; }
 body.dark-mode .kx-sec-pill { background: #1e293b; border-color: #334155; color: #94a3b8; }
 body.dark-mode .kx-sec-pill.is-active { background: #2563eb; border-color: #2563eb; color: #fff; }
 
-/* topic body: reading column + right rail (desktop) */
+/* topic body: reading column + right rail. Landscape tablets (≥960) get the side rail; desktop (≥1100) caps + centres
+   the reading column. Phones + portrait tablets (<960) stay single-column with a comfortable 720px measure. */
 .kx-topic-body { display: block; }
+@media (min-width: 960px) {
+  .kx-topic-body { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 1.5rem; align-items: start; }
+  .kx-aside { position: sticky; top: 3.4rem; }
+}
 @media (min-width: 1100px) {
   /* reading column capped to a comfortable measure + centred with the rail (no 150-char lines on wide monitors) */
-  .kx-topic-body { display: grid; grid-template-columns: minmax(0, 720px) 280px; gap: 1.5rem; align-items: start; justify-content: center; }
-  .kx-aside { position: sticky; top: 3.4rem; }
+  .kx-topic-body { grid-template-columns: minmax(0, 720px) 280px; justify-content: center; }
 }
 .kx-topic-main { min-width: 0; animation: kx-fade-in .26s ease both; }
 @keyframes kx-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -10745,7 +10750,7 @@ body.dark-mode .kx-label-warn { color: #fbbf24 !important; }
 body.dark-mode .kx-label-trap { color: #f87171 !important; }
 
 .kx-callout { border-radius: var(--qr-card-radius-sm); padding: .7rem .85rem; margin: 0 0 .6rem; border: 1px solid transparent; }
-.kx-callout-head { font-weight: 800; font-size: .86rem; margin-bottom: .3rem; }
+.kx-callout-head { font-weight: 800; font-size: .86rem; margin: 0 0 .3rem; }
 .kx-callout-list { margin: 0; padding-left: 1.1rem; }
 .kx-callout-list li { font-size: .9rem; line-height: 1.5; margin-bottom: .2rem; }
 .kx-callout-body { font-size: .9rem; line-height: 1.5; margin: 0; }
@@ -10758,7 +10763,7 @@ body.dark-mode .kx-memory { background: rgba(167,139,250,.12); border-color: rgb
 
 .kx-example { border: 1px solid rgba(15,23,42,.08); border-radius: var(--qr-card-radius-sm); padding: .75rem .85rem; margin: 0 0 .6rem; background: rgba(255,255,255,.6); }
 body.dark-mode .kx-example { background: rgba(30,41,59,.5); border-color: rgba(255,255,255,.08); }
-.kx-example-head { font-weight: 800; font-size: .86rem; margin-bottom: .35rem; color: #2563eb; }
+.kx-example-head { font-weight: 800; font-size: .86rem; margin: 0 0 .35rem; color: #2563eb; }
 body.dark-mode .kx-example-head { color: #60a5fa; }
 .kx-example-problem { font-size: .92rem; line-height: 1.55; margin: 0 0 .45rem; color: #0f172a; }
 body.dark-mode .kx-example-problem { color: #e2e8f0; }

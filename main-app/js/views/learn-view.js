@@ -89,7 +89,7 @@ var LearnView = (function () {
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.innerHTML = on ? '📖 Full notes' : '⚡ Quick revision';
     /* hidden sections can't intersect, so clear any now-stale scroll-spy highlight (re-applies on next scroll) */
-    host.querySelectorAll('.kx-sec-pill.is-active').forEach(function (p) { p.classList.remove('is-active'); });
+    host.querySelectorAll('.kx-sec-pill.is-active').forEach(function (p) { p.classList.remove('is-active'); p.removeAttribute('aria-current'); });
   }
 
   /* ───────────────────────── hub ───────────────────────── */
@@ -210,7 +210,7 @@ var LearnView = (function () {
     host.innerHTML = '';
 
     /* breadcrumb */
-    var crumbs = document.createElement('div'); crumbs.className = 'kx-crumbs';
+    var crumbs = document.createElement('nav'); crumbs.className = 'kx-crumbs'; crumbs.setAttribute('aria-label', 'Breadcrumb');
     crumbs.innerHTML = '<button class="kx-crumb" data-go="">Learn</button>' +
       '<span class="kx-crumb-sep">›</span><button class="kx-crumb" data-go="">' + _esc(cat.title) + '</button>' +
       '<span class="kx-crumb-sep">›</span><span class="kx-crumb-cur">' + _esc(topic.title) + '</span>';
@@ -237,7 +237,7 @@ var LearnView = (function () {
 
     /* sticky section nav (only when there is content to navigate) */
     if (sections.length > 1) {
-      var nav = document.createElement('div'); nav.className = 'kx-section-nav';
+      var nav = document.createElement('nav'); nav.className = 'kx-section-nav'; nav.setAttribute('aria-label', 'On this page');
       sections.forEach(function (b, i) {
         var pill = document.createElement('button');
         pill.className = 'kx-sec-pill' + (_isRevisionType(b.type) ? ' is-revision' : '');
@@ -263,7 +263,7 @@ var LearnView = (function () {
     }
     sections.forEach(function (b, i) {
       var sec = document.createElement('div'); sec.className = 'kx-section' + (_isRevisionType(b.type) ? ' is-revision' : ''); sec.id = 'kx-sec-' + i;
-      var lbl = document.createElement('div'); lbl.className = 'kx-section-label'; lbl.textContent = (labels[b.type] || b.type);
+      var lbl = document.createElement('h2'); lbl.className = 'kx-section-label'; lbl.textContent = (labels[b.type] || b.type);
       sec.appendChild(lbl);
       var node = (typeof BlockRenderers !== 'undefined') ? BlockRenderers.render(b) : null;
       if (node) sec.appendChild(node);
@@ -271,7 +271,7 @@ var LearnView = (function () {
     });
     body.appendChild(main);
 
-    var aside = document.createElement('div'); aside.className = 'kx-aside';
+    var aside = document.createElement('aside'); aside.className = 'kx-aside'; aside.setAttribute('aria-label', 'Related topics and navigation');
     var related = KB ? KB.related(topic.id) : [];
     if (related.length) {
       var rb = document.createElement('div'); rb.className = 'kx-aside-block';
@@ -321,7 +321,11 @@ var LearnView = (function () {
       entries.forEach(function (en) {
         if (!en.isIntersecting) return;
         var pills = nav.querySelectorAll('.kx-sec-pill');
-        for (var i = 0; i < pills.length; i++) pills[i].classList.toggle('is-active', pills[i].getAttribute('data-sec') === en.target.id);
+        for (var i = 0; i < pills.length; i++) {
+          var active = pills[i].getAttribute('data-sec') === en.target.id;
+          pills[i].classList.toggle('is-active', active);
+          if (active) pills[i].setAttribute('aria-current', 'true'); else pills[i].removeAttribute('aria-current');
+        }
       });
     }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
     for (var i = 0; i < count; i++) { var el = document.getElementById('kx-sec-' + i); if (el) _io.observe(el); }

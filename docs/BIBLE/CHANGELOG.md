@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn final-review polish: a11y semantics + landscape-tablet layout (ADR-069)
+
+Final production review of the (already-shipped, 96/100) Learn system. A fresh read-only multi-agent sweep found
+the codebase clean — zero dead code, zero broken refs, integrations/premium/gating all correct, no regressions, no
+AI — so nothing was broken. Two client-only quality elevations were made in the two areas the review weighted most:
+accessibility semantics and the tablet (landscape) experience. No architecture/data/routing/Firestore change.
+
+```
+### feat(ADR-069): topic-page a11y semantics + landscape-tablet two-column layout (NO AI)
+- A11y (js/views/learn-view.js, js/knowledge/blocks.js): section labels div -> <h2>; block heads
+  (concept/formula -> h3; trick/trap/memory/example callout heads div -> h3) give a correct h1->h2->h3 outline.
+  Breadcrumb -> <nav aria-label="Breadcrumb">; in-page section nav -> <nav aria-label="On this page">;
+  related/prev-next/back -> <aside aria-label>. Active scroll-spy pill now sets aria-current="true" (kept in sync
+  in _setupSectionSpy and the revision-mode reset). #learnSearchResults is now role="region" aria-live="polite"
+  so result counts / "No topics match" announce (index.html).
+- CSS: .kx-callout-head and .kx-example-head gained margin-top:0 so the new heading tags don't add top space
+  (visually identical; all .kx-* styling is class-based). No other visual change.
+- Responsive (css/style.css): landscape-tablet two-column reading+rail now activates at >=960px (was 1100) via a
+  new 900px container step; .kx-topic-body becomes minmax(0,1fr) 240px at >=960 and keeps the capped/centred
+  minmax(0,720px) 280px at >=1100; hub topic-grid 3-col moved to >=960. Phones + portrait tablets (<960) unchanged.
+- Service worker v134 -> v135.
+- Docs: VERSIONS (Bible 2.52->2.53, Arch 2.37->2.38), DECISION_LOG (ADR-069 final-review note), TECHNICAL_BIBLE
+  (Doc 1.15), main-app/ARCHITECTURE.md (SW v135).
+- Verified: node --check (learn-view.js, blocks.js); CSS braces balanced; npm test green (learn-render.check asserts
+  by class not tag, so the heading swaps stay green); zero AI refs in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn Knowledge Engine — Phase 5: polish + cleanup, NO AI (ADR-069 COMPLETE)
 
 Final phase of the Learn rebuild: remove all dead legacy CSS the engine replaced, apply the deferred micro-polish,

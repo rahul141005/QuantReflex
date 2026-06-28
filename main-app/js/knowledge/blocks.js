@@ -36,7 +36,7 @@ var BlockRenderers = (function () {
 
     concept: function (b) {
       var d = _el('div', 'kx-concept');
-      d.appendChild(_el('h4', 'kx-concept-title', _esc(b.title)));
+      d.appendChild(_el('h3', 'kx-concept-title', _esc(b.title)));
       d.appendChild(_el('p', 'kx-concept-body', _esc(b.body)));
       return d;
     },
@@ -45,7 +45,7 @@ var BlockRenderers = (function () {
       var wrap = _el('div', 'kx-formula-group');
       (b.items || []).forEach(function (it) {
         var blk = _el('div', 'formula-block');           // reuse the existing formula card identity
-        blk.appendChild(_el('h4', 'formula-block-title', _esc(it.name)));
+        blk.appendChild(_el('h3', 'formula-block-title', _esc(it.name)));
         blk.appendChild(_el('div', 'formula-label', 'Formula:'));
         blk.appendChild(_el('p', 'formula-text', _esc(it.expr)));
         if (it.when) { blk.appendChild(_el('div', 'formula-label', 'Use when:')); blk.appendChild(_el('p', 'formula-tip', _esc(it.when))); }
@@ -58,7 +58,7 @@ var BlockRenderers = (function () {
 
     trick: function (b) {
       var d = _el('div', 'kx-callout kx-trick');
-      d.appendChild(_el('div', 'kx-callout-head', '⚡ ' + _esc(b.title || 'Speed trick')));
+      d.appendChild(_el('h3', 'kx-callout-head', '⚡ ' + _esc(b.title || 'Speed trick')));
       var ul = _el('ul', 'kx-callout-list');
       (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
       d.appendChild(ul);
@@ -67,7 +67,7 @@ var BlockRenderers = (function () {
 
     trap: function (b) {
       var d = _el('div', 'kx-callout kx-trap');
-      d.appendChild(_el('div', 'kx-callout-head', '⚠️ ' + _esc(b.title || 'Common mistakes')));
+      d.appendChild(_el('h3', 'kx-callout-head', '⚠️ ' + _esc(b.title || 'Common mistakes')));
       var ul = _el('ul', 'kx-callout-list');
       (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
       d.appendChild(ul);
@@ -76,14 +76,14 @@ var BlockRenderers = (function () {
 
     memory: function (b) {
       var d = _el('div', 'kx-callout kx-memory');
-      d.appendChild(_el('div', 'kx-callout-head', '🧠 Memory hook'));
+      d.appendChild(_el('h3', 'kx-callout-head', '🧠 Memory hook'));
       d.appendChild(_el('p', 'kx-callout-body', _esc(b.text)));
       return d;
     },
 
     example: function (b) {
       var d = _el('div', 'kx-example');
-      d.appendChild(_el('div', 'kx-example-head', '📝 Solved example'));
+      d.appendChild(_el('h3', 'kx-example-head', '📝 Solved example'));
       d.appendChild(_el('p', 'kx-example-problem', _esc(b.problem)));
       var ol = _el('ol', 'kx-example-steps');
       (b.steps || []).forEach(function (s) { ol.appendChild(_el('li', null, _esc(s))); });
