@@ -10830,7 +10830,9 @@ body.dark-mode .kx-sec-pill.is-active { background: #2563eb; border-color: #2563
 /* Dark mode has no base body-color flip, so set a light base for the topic page — every un-coloured block (callout/
    example/revision list text + headings) inherits it instead of the light-mode near-black. ADR-069 P1/P2 audit. */
 body.dark-mode #learnTopic { color: #e2e8f0; }
-.kx-section { scroll-margin-top: 3.4rem; margin-bottom: 1.1rem; }
+.kx-section { scroll-margin-top: 3.4rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(15,23,42,.06); }
+.kx-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+body.dark-mode .kx-section { border-bottom-color: rgba(255,255,255,.06); }
 .kx-section-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: #64748b; font-weight: 800; margin: 0 0 .45rem; }
 body.dark-mode .kx-section-label { color: #94a3b8; }
 

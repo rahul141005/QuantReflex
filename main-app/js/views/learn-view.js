@@ -110,7 +110,17 @@ var LearnView = (function () {
         '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div></div>';
     }).join('');
     host.querySelectorAll('.kx-topic-card').forEach(function (card) {
-      card.addEventListener('click', function () { _go(card.getAttribute('data-topic')); });
+      card.addEventListener('click', function () {
+        var id = card.getAttribute('data-topic');
+        var KB = _KB(); var t = KB && KB.get(id);
+        /* A scaffold ("coming soon") topic has no content yet — don't strand the user on a near-empty page;
+           give clear feedback and stay on the hub. Direct deep links still render a graceful coming-soon page. */
+        if (t && t.status === 'scaffold') {
+          if (typeof showToast === 'function') showToast('“' + t.title + '” is coming soon — full notes are on the way.');
+          return;
+        }
+        _go(id);
+      });
     });
   }
 
@@ -258,7 +268,7 @@ var LearnView = (function () {
         var pills = nav.querySelectorAll('.kx-sec-pill');
         for (var i = 0; i < pills.length; i++) pills[i].classList.toggle('is-active', pills[i].getAttribute('data-sec') === en.target.id);
       });
-    }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+    }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
     for (var i = 0; i < count; i++) { var el = document.getElementById('kx-sec-' + i); if (el) _io.observe(el); }
   }
 

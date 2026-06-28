@@ -192,6 +192,8 @@
     {
       id: 'pipes-and-cisterns', title: 'Pipes & Cisterns', icon: '🚰', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
+      // Pipes & Cisterns ≡ Time & Work (tank = work, pipes = workers), so "Practise this" reuses the
+      // 'time-and-work' drill category — intentional, until a dedicated pipes drill exists.
       drillCategory: 'time-and-work', syllabusTopicId: null, revisionIntervalDays: 6,
       related: ['time-and-work'],
       searchTerms: ['pipe', 'cistern', 'tank', 'inlet', 'outlet', 'leak', 'fill', 'empty', 'drain'],

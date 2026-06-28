@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Phase 1–3 verification audit hardening (ADR-069 follow-up)
+
+Independent pre-Phase-4 audit (3 review agents + direct inspection). **Content correctness: all 14 topics' formulas
+and worked examples re-computed — zero math errors.** Code/regression/SW-parity/docs verified clean. Fixed 4 real
+UX/polish items + 3 doc-freshness items; dismissed false positives with evidence. No version bump (pre-release
+polish to Phase 3); no Firestore/rules/payment change; no AI.
+
+```
+### fix(ADR-069): Phase 1-3 audit hardening — scaffold UX, scroll-spy, section separation, doc freshness
+- Scaffold UX (real): scaffold ("coming soon") topic CARDS no longer strand the user on a near-empty page — they
+  now show a "coming soon" toast and stay on the hub (js/views/learn-view.js). Direct deep links still render a
+  graceful coming-soon page (header + related + back).
+- Scroll-spy (real): IntersectionObserver rootMargin widened -45%/-50% (a 5% band) → -15%/-75% so the sticky
+  section-nav pill reliably tracks the section being read on long (10+ section) pages.
+- Section separation (real, polish): .kx-section gains a subtle bottom divider + more spacing (1.1rem → 1.5rem +
+  1rem padding; last-child borderless; dark variant) so the 8-11 stacked sections read as distinct blocks.
+- Docs: main-app/ARCHITECTURE.md "last updated" 2026-05-07/SWv72 → 2026-06-28/SWv132; main-app/README.md Learn
+  section now describes the 5-category / 14-gold-topic Knowledge Engine; pipes-and-cisterns drillCategory gains an
+  inline comment explaining the intentional 'time-and-work' reuse.
+- Dismissed (evidence): "dark-mode text escape" — FALSE POSITIVE (the Phase-2-audit base `body.dark-mode
+  #learnTopic{color:#e2e8f0}` already lights all inherited callout/revision/example text). Touch targets kept at
+  2.25rem/36px (consistent with the app's existing pills; exceeds WCAG AA). Ultra-wide grid already centred by the
+  1140px container cap.
+- Verified clean: no regressions outside Learn; index.html↔SW v132 precache parity; all drillCategory refs valid;
+  no console/TODO/dead refs; 14 emitted renderer classes all styled.
+- Version bumps: none. Verification: node --check; npm test green (content 144 + render 13 + browser 10 + full
+  suite); CSS braces balanced.
+- Deferred to P5 polish (ROADMAP): inert legacy Learn CSS (.learn-jump-*/.learn-group-*/.search-highlight) +
+  learn-searchable class; optional section-nav scroll-fade hint + hub category jump-nav.
+```
+
 ## 2026-06-28 — Learn Knowledge Engine — Phase 3: gold-standard content (ADR-069)
 
 Authored premium, exam-grade study content for the core quantitative-aptitude topics and gave Learn a real

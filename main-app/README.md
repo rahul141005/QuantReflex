@@ -6,7 +6,7 @@ A Progressive Web App (PWA) that trains mental math reflexes for competitive exa
 
 - **Practice Modes** — Quick Drill (5 questions), Reflex Drill (10 questions, 15s per question), Timed Test (10 questions, 3-minute limit), Focus Training (category-specific)
 - **12 Question Categories** — Squares, Cubes, Area, Volume, Fractions, Percentages, Multiplication, Ratios, Averages, Profit & Loss, Time-Speed-Distance, Time & Work
-- **Learn Vault** — Fraction-to-percentage table, multiplication tables (1–30), squares (1–30), cubes (1–20), mental math tricks, and topic-wise structured formulas (including Area and Volume)
+- **Learn Knowledge Engine** (ADR-069) — a deep-linkable hub→topic knowledge graph: **14 gold-standard topics** (overview · concepts · formulas · tricks · traps · worked examples · memory · revision) across 5 categories (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration), built from reusable knowledge objects (`data/knowledge/*`), plus the preserved Quick-Reference tables (fraction→%, multiplication 1–30, squares, cubes, mental-math tricks) and user-created custom topics & bookmarks
 - **Progress Tracking** — Accuracy, streaks, daily streak, category-wise performance, all stored in localStorage
 - **Settings** — Dark mode, sound feedback, vibration feedback, difficulty levels, progress reset
 - **PWA** — Installable on mobile, works offline after first load

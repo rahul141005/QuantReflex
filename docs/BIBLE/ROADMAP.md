@@ -30,8 +30,10 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
 - **Phase 4 — Integrations (no AI):** Practice "Practise this", Planner topic links, progress (continue/recently/
   completion), revision mode (spaced via `revisionIntervalDays`) + **cheat-sheet projection view + formula explorer**,
   bookmarks/notes. Adds the first Learn server hooks.
-- **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, retire
-  `js/formulas.js`, final production audit.
+- **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, final
+  production audit. **Carry-over polish:** prune inert legacy Learn CSS (`.learn-jump-*`/`.learn-group-*`/
+  `.search-highlight`) + the residual `learn-searchable` class on reference cards; optional section-nav scroll-fade
+  hint + a hub category jump-nav if the 5-category hub feels long on phones. (`js/formulas.js` already retired in P2.)
 - **Designed-for, additive (no future rewrite):** videos, flashcards, diagrams, notes, offline content, learning
   analytics, topic streaks — each a new block `type` + renderer or a progress hook.
 
