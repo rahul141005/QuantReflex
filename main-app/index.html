@@ -1553,6 +1553,15 @@
   <script defer src="js/tables.js"></script>
   <script defer src="js/formulas.js"></script>
   <script defer src="js/learn-manager.js"></script>
+  <!-- Learn Knowledge Engine (ADR-069): schema → registry → renderers → data modules → search. Order matters:
+       the registry must exist before the data modules self-register. -->
+  <script defer src="js/knowledge/schema.js"></script>
+  <script defer src="js/knowledge/registry.js"></script>
+  <script defer src="js/knowledge/blocks.js"></script>
+  <script defer src="data/knowledge/categories.js"></script>
+  <script defer src="data/knowledge/arithmetic.js"></script>
+  <script defer src="data/knowledge/mensuration.js"></script>
+  <script defer src="js/learn/learn-search.js"></script>
   <script defer src="js/settings.js"></script>
   <script defer src="js/notifications.js"></script>
   <script defer src="js/soundEngine.js"></script>

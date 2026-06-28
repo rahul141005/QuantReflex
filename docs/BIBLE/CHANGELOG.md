@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Knowledge Engine — Phase 1: foundation (ADR-069)
+
+First phase of rebuilding the Learn tab into the **knowledge backbone** of QuantReflex: a reusable knowledge-object
+engine, deep-link routing, and a content validator. **Pure additive engine — the existing Learn page is untouched
+and fully working** (backwards compatible). No Firestore/rules/payment change. **No AI in Learn (by design).**
+
+```
+### feat(ADR-069): Learn Knowledge Engine — Phase 1 (engine, data model, deep links, validator)
+- Requested change: rebuild Learn as a deep-linkable hub→topic knowledge graph of reusable knowledge objects
+  (not static HTML), with a responsive design system, quality-first content, and no future rewrite — phased.
+- Impacted systems: Student App only (client). No Firestore / Rules / Payments / AI.
+- New (engine): js/knowledge/schema.js (pure, dual-exported topic/block schema + validators); js/knowledge/
+  registry.js (in-memory KnowledgeBase: categories/topics, get/all/categories/byCategory/related/siblings +
+  integrity validator); js/knowledge/blocks.js (one DOM renderer per block type — table→.math-table, formula→
+  .formula-block reused; richer blocks use .kx-*); js/learn/learn-search.js (weighted symbol/synonym index over the
+  registry, replacing the DOM text-scan — not yet wired to UI).
+- New (data): data/knowledge/categories.js (arithmetic, mensuration) + data/knowledge/arithmetic.js (6 topics) +
+  data/knowledge/mensuration.js (2 topics) — a faithful migration of the 8 legacy js/formulas.js topics into the
+  schema (each {title,formula,tip} → a formula item {name,expr,when}; concise factual overviews added). No filler.
+- Routing: js/router.js parses #learn/<topicId> deep links (new _parseHash; single-segment hashes unchanged →
+  backwards compatible) and toggles a view-learn-active body class (mirrors the view-practice-active hook) — inert
+  until Phase 2 CSS/markup consumes it.
+- Wiring: index.html script tags (schema→registry→blocks→data→search, order-correct); service-worker v128→v129 +
+  precache the 7 new modules (offline-first preserved).
+- Validation: new scripts/learn-content.check.js (34 assertions: schema validity, category/related/drill-reference
+  resolution, search ranking by word/symbol/synonym, registry helpers, schema negative tests) wired into npm test.
+- Not in this phase (per ADR-069): the hub/topic UI + responsive .kx-* CSS (Phase 2), gold-standard content
+  (Phase 3), Practice/Planner/progress/revision integrations (Phase 4). The old Learn page remains the live UI.
+- Schema/API delta: none (no Firestore/endpoint). Version bumps: Architecture 2.33→2.34, Bible 2.47→2.48
+  (Firestore/Security/Payment unchanged). Migration: none.
+- Verification: node --check all new JS + router; npm test green (full suite + learn-content.check 34); old Learn
+  page renders unchanged; #learn and #learn/<topic> both resolve to the Learn view (no home fallback).
+```
+
 ## 2026-06-28 — Battle Archive audit hardening (ADR-068 follow-up)
 
 Independent post-implementation production audit of the Battle Archive (architecture / Firestore / security / UI /

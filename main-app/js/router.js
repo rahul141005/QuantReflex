@@ -11,6 +11,16 @@ var Router = (function () {
   var afterShowCallbacks = {};
   var _navigatingFromPopstate = false;
 
+  /* Parse a location hash into a view id + optional sub-path (ADR-069, deep links like #learn/percentages).
+     Single-segment hashes (#home, #learn) are unchanged → fully backwards-compatible. */
+  function _parseHash(raw) {
+    var h = (raw || '').replace(/^#/, '');
+    if (!h) return { view: 'home', path: null };
+    var slash = h.indexOf('/');
+    if (slash === -1) return { view: h, path: null };
+    return { view: h.slice(0, slash), path: h.slice(slash + 1) || null };
+  }
+
   function onInit(viewId, callback) {
     viewInitCallbacks[viewId] = callback;
   }
@@ -88,6 +98,8 @@ var Router = (function () {
     /* Practice owns its own scroll shell — neutralize the app-level .container scroller so the
        fixed header and bottom nav never drift (ADR-011). */
     document.body.classList.toggle('view-practice-active', viewId === 'practice');
+    /* Learn opts into the wider responsive shell (ADR-069); scoped via this body class so no other view changes. */
+    document.body.classList.toggle('view-learn-active', viewId === 'learn');
 
     _cleanupOverlays(viewId);
     
@@ -124,11 +136,12 @@ var Router = (function () {
 
     currentView = viewId;
 
-    if (!_navigatingFromPopstate && window.location.hash !== '#' + viewId) {
+    var _targetHash = '#' + viewId + (params && params.path ? '/' + params.path : '');
+    if (!_navigatingFromPopstate && window.location.hash !== _targetHash) {
       try {
-        history.pushState({ view: viewId }, '', '#' + viewId);
+        history.pushState({ view: viewId, path: (params && params.path) || null }, '', _targetHash);
       } catch(e) {
-        window.location.hash = '#' + viewId;
+        window.location.hash = _targetHash;
       }
     }
 
@@ -145,16 +158,17 @@ var Router = (function () {
 
   function init() {
 
-    var hash = window.location.hash.replace('#', '') || 'home';
+    var parsed = _parseHash(window.location.hash);
+    var canonical = '#' + parsed.view + (parsed.path ? '/' + parsed.path : '');
     try {
-      history.replaceState({ view: hash }, '', '#' + hash);
+      history.replaceState({ view: parsed.view, path: parsed.path }, '', canonical);
     } catch (e) {
-      window.location.hash = '#' + hash;
+      window.location.hash = canonical;
     }
     _navigatingFromPopstate = true;
-    try { 
+    try {
 
-       showView(hash); 
+       showView(parsed.view, parsed.path ? { path: parsed.path } : undefined);
     } catch(e) {
        console.error('[ERRORS] Router initialization failed:', e);
     } finally { 
@@ -219,9 +233,9 @@ var Router = (function () {
       }
       if (typeof _exitDrillSession === 'function') _exitDrillSession();
 
-      var hash = window.location.hash.replace('#', '') || 'home';
+      var parsed = _parseHash(window.location.hash);
       _navigatingFromPopstate = true;
-      try { showView(hash); } finally { _navigatingFromPopstate = false; }
+      try { showView(parsed.view, parsed.path ? { path: parsed.path } : undefined); } finally { _navigatingFromPopstate = false; }
     });
   }
 

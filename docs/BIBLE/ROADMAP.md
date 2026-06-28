@@ -8,6 +8,25 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
+## 🚧 In progress — Learn Knowledge Engine (ADR-069)
+Rebuilding the Learn tab into the **knowledge backbone** of QuantReflex: a deep-linkable hub→topic knowledge graph
+built from reusable **knowledge objects** (not static HTML), a responsive design system reusable app-wide, and
+quality-first content. **No AI in Learn (by design).** Phased, each phase backwards-compatible + audit-gated.
+- **Phase 1 — Foundation ✅ (2026-06-28):** engine (`js/knowledge/schema|registry|blocks.js`), search
+  (`js/learn/learn-search.js`), data modules (`data/knowledge/*` — 8 legacy topics migrated), `#learn/<topic>`
+  deep-link routing + `view-learn-active` shell hook, validator (`scripts/learn-content.check.js`). Old Learn page
+  untouched.
+- **Phase 2 — Learn experience:** hub page + topic pages (breadcrumbs, sticky section nav, related, prev/next),
+  render-on-route, responsive `.kx-*` CSS primitives (phone/tablet/desktop), cut `#view-learn` over.
+- **Phase 3 — Premium content:** author ~10 gold-standard topics + cheat-sheet/revision projections + formula
+  explorer. Remaining categories as honest "coming soon" scaffolds (never filler).
+- **Phase 4 — Integrations (no AI):** Practice "Practise this", Planner topic links, progress (continue/recently/
+  completion), revision mode (spaced via `revisionIntervalDays`), bookmarks/notes. Adds the first Learn server hooks.
+- **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, retire
+  `js/formulas.js`, final production audit.
+- **Designed-for, additive (no future rewrite):** videos, flashcards, diagrams, notes, offline content, learning
+  analytics, topic streaks — each a new block `type` + renderer or a progress hook.
+
 ## 🛠 Scale-debt deferred at launch (ADR-041, 2026-06-14) — intentional, not forgotten
 
 Deferred during the first-1–2k-users launch pass because they only bite at 10k+ users or are non-blocking for the

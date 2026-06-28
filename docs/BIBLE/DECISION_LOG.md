@@ -8,6 +8,47 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-069 — Learn Knowledge Engine: knowledge objects, hub→topic graph, responsive design system (2026-06-28, phased)
+- **Context:** The Learn tab worked but was a single long scroll page of thin, flat content — `js/formulas.js`
+  built 8 topics × ~28 `{title, formula, tip}` items as pre-baked HTML strings, with the rest hard-coded in
+  `index.html`. The rich metadata in `data/syllabus.js` (50 topics: difficulty, commonMistakes, drillable,
+  revisionIntervalDays) was never surfaced. No topic pages, deep links, hierarchy, Practice/Planner reuse, or
+  progress; the global scroller is capped at 480px so tablet/desktop is a centred phone column. The owner wants
+  Learn rebuilt as the **knowledge backbone** of QuantReflex — a deep-linkable hub→topic knowledge graph built from
+  reusable **knowledge objects** (not static HTML), a true responsive design system reusable app-wide, quality-first
+  authored content, and zero new tech debt — engineered to last 5 years. **Hard constraint: NO AI in the Learn tab.**
+- **Decision:** Replace static HTML with a **knowledge-object engine** consumed by many features (Learn, Search,
+  Revision/cheat-sheets, Practice/Planner links) — never duplicated.
+  - **Knowledge object** (`js/knowledge/schema.js`, pure + dual-exported): a topic = `{id(slug), title, icon,
+    category, difficulty, examFrequency, status('published'|'scaffold'), drillCategory→quantTopics,
+    syllabusTopicId→syllabus, related[], revisionIntervalDays, searchTerms[], sections[]}` where `sections` are
+    ordered **typed blocks** (overview·concept·formula·trick·trap·example·table·memory·revision·related). A new
+    content kind = a new block `type` + a renderer — never a schema rewrite.
+  - **Registry** (`js/knowledge/registry.js`): in-memory KnowledgeBase (categories + topics) answering
+    get/all/categories/byCategory/related/siblings + a graph integrity validator. Data modules
+    (`data/knowledge/<category>.js`) self-register; idempotent.
+  - **Renderers** (`js/knowledge/blocks.js`): one DOM renderer per block type; `table` reuses the existing
+    `.math-table` and `formula` the existing `.formula-block` markup so QuantReflex's identity (and the loved
+    tables) is preserved exactly; richer blocks add `.kx-*` classes. **No AI surfaces.**
+  - **Search** (`js/learn/learn-search.js`): a real weighted in-memory index over the registry (title ≫ searchTerms/
+    aliases ≫ formula names ≫ concept text), symbol/synonym aware — replaces the old DOM text-scan.
+  - **Routing:** `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged — backwards
+    compatible) and toggles a `view-learn-active` body class (mirrors the existing `view-practice-active` hook) so
+    the 480px cap is overridden **only** for Learn via one reusable responsive shell.
+  - **Projections, not duplication:** cheat-sheet / one-page revision are filtered views over the same `sections`.
+  - **Validation:** `scripts/learn-content.check.js` (in `npm test`) asserts every object against the schema +
+    resolves related/drill references, so content can't ship broken or drift.
+- **Phased delivery (each phase backwards-compatible + audit-gated):** **P1 (shipped)** — engine (schema/registry/
+  renderers/search) + data model + first faithful migration of the 8 legacy formula topics + router deep-links +
+  validator; old Learn page untouched. **P2** — hub + topic pages + responsive CSS (`.kx-*` primitives) cut over.
+  **P3** — author ~10 gold-standard topics + cheat-sheet/revision projections. **P4** — Practice/Planner links,
+  progress, revision mode, bookmarks (NO AI). **P5** — performance, polish, retire `formulas.js`, final audit.
+- **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs
+  today's everything-at-once; the responsive primitives become an app-wide pattern. P1 is pure additive engine
+  (no Firestore/rules/payment change; old UI unchanged) — verified by 34 new pure assertions + the full suite green.
+  Architecture 2.33→2.34, Bible 2.47→2.48 (Firestore/Security/Payment unchanged). Future-proof: videos/flashcards/
+  notes/diagrams/progress are additive block types or hooks, no rewrite. AI intentionally excluded from Learn.
+
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel
   (`opponentName, outcome, myScore, oppScore, mySpeed, oppSpeed, accuracy, playedAt`) and **no aggregates at all**.

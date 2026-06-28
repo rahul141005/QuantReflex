@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.9 · **Architecture Version:** 2.33 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.10 · **Architecture Version:** 2.34 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -218,6 +218,26 @@ auto-refresh rides the existing `DuelManager._showResults` completion moment (no
 serverless functions** (main-app stays **8/12** — the Archive is reads + the existing `duel` write path). Spark
 profile: ≈2 reads on open (summary + page 1), +1 read/page on scroll, indexed filters (no scans). See
 [FIRESTORE_BLUEPRINT](FIRESTORE_BLUEPRINT.md) + [DECISION_LOG ADR-068](DECISION_LOG.md).
+
+### Learn Knowledge Engine (ADR-069) — knowledge objects, hub→topic graph
+The Learn tab is being rebuilt (phased) from a single static scroll page into a **knowledge-object engine**: every
+concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist in Learn** (deliberate).
+- **Schema** `js/knowledge/schema.js` (pure, dual-exported) — a topic = `{id(slug), title, icon, category,
+  difficulty, examFrequency, status, drillCategory, syllabusTopicId, related[], revisionIntervalDays, searchTerms[],
+  sections[]}`; `sections` are ordered **typed blocks** (overview·concept·formula·trick·trap·example·table·memory·
+  revision·related). New content kind = new block type + renderer, never a schema rewrite.
+- **Registry** `js/knowledge/registry.js` — in-memory KnowledgeBase (get/all/categories/byCategory/related/siblings
+  + integrity validator). **Data** `data/knowledge/<category>.js` self-registers (idempotent).
+- **Renderers** `js/knowledge/blocks.js` — one DOM renderer per block type; `table`→existing `.math-table`,
+  `formula`→existing `.formula-block` (identity + the loved tables preserved); richer blocks use `.kx-*`.
+- **Search** `js/learn/learn-search.js` — weighted in-memory index over the registry (symbol/synonym aware),
+  replacing the old DOM text-scan.
+- **Routing** — `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged; backwards
+  compatible) + toggles a `view-learn-active` body class so the 480px cap is lifted **only** for Learn (mirrors the
+  `view-practice-active` hook). **Validation** `scripts/learn-content.check.js` (in `npm test`).
+- **Reuse, not duplication:** cheat-sheet/revision are projections of the same `sections`; Practice links via
+  `drillCategory` (`services/quantTopics.js`), Planner via `syllabusTopicId` (`data/syllabus.js`). Phased per ADR-069
+  (P1 engine shipped; hub/topic UI + responsive `.kx-*` CSS land in P2). Function count unaffected (client-only).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.
