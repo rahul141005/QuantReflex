@@ -647,6 +647,9 @@ async function plannerReset(uid) {
   var ok = true;
   try { await db().collection('aiPlanner').doc(uid).delete(); }
   catch (e) { console.warn('[aiBrain] planner reset (delete) failed:', e.message); ok = false; }
+  // Fail fast: if the plan wasn't deleted, do NOT clear the exam-config mirror — that would leave Coach/Insights
+  // exam-blind while the plan still exists. Report failure so the client can cleanly retry (nothing changed).
+  if (!ok) return { ok: false };
   // Clear the exam-config mirror so QuanAI stops referencing the deleted plan; learning memory is untouched.
   try {
     await aiService.updateMemory(uid, { examName: '', examDate: '', goal: '', dailyMinutes: 0,

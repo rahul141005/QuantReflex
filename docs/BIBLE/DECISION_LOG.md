@@ -47,6 +47,19 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   deleted, `plannerGet` returns null, the exam-config memory mirror is cleared, and durable memory is preserved. No
   prompt or cache-architecture changes; no new dependencies; no Firestore schema/index change (an existing-collection
   delete). SW v142→v143. Bible 2.60→2.61, Architecture 2.41→2.42.
+- **Production-readiness hardening follow-up (2026-06-28, same ADR — a11y + robustness, no new contract):** a 13-phase
+  verification (three independent adversarial audits) confirmed the ecosystem production-ready (zero code defects, all
+  suites green, branding/docs accurate) and surfaced four polish-grade items, now fixed. (1) **Start-over confirm
+  a11y:** default focus moved from the destructive button to **Cancel** (a stray Enter can't fire the irreversible
+  reset), focus **returns to the opener** on close, `aria-describedby` announces the deleted/kept lists, and the
+  background is scroll-locked via the existing `body.modal-open` rule (no new CSS). (2) **`plannerReset` fail-fast:** a
+  failed plan delete now returns `{ok:false}` *before* clearing the exam-config memory mirror, so a transient Firestore
+  error can't leave Coach/Insights exam-blind while the plan persists (the client already retries on `ok:false`). (3) a
+  `planner-brain.check.js` assertion covering that delete-failure path (the stub `delete()` rejects for a sentinel uid;
+  103→107 assertions). (4) a stale TECHNICAL_BIBLE date. Two audit flags were verified **false positives** (the
+  `op:reset` doc entry already existed; reset already returned `ok:false` on delete failure). Client a11y + a one-line
+  server guard + test + docs; no prompt/cache/schema change, no new deps. SW v143→v144. Bible 2.61→2.62, Architecture
+  unchanged (2.42 — no new op/contract).
 
 ## ADR-069 — Learn Knowledge Engine: knowledge objects, hub→topic graph, responsive design system (2026-06-28, phased)
 - **Context:** The Learn tab worked but was a single long scroll page of thin, flat content — `js/formulas.js`

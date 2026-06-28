@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — QuanAI production-readiness hardening (ADR-070 follow-up)
+
+A 13-phase production-readiness verification (three independent adversarial audits — correctness/regressions,
+branding+UX+docs, code+repo health) found the QuanAI ecosystem production-ready: zero code defects, all 9 suites green,
+branding consistent, docs accurate, no regressions. This change implements ONLY the genuine hardening items surfaced;
+the optimized architecture is left intact. Two audit flags were verified false positives (the `op:reset` doc entry
+already exists; `plannerReset` already returns `ok:false` on delete failure).
+
+```
+### fix(ADR-070 follow-up): Start-over confirm a11y + plannerReset fail-fast + test + doc freshness
+- Confirm-dialog a11y (planner-view.js startOver): default focus moved from the destructive "Start over" button to
+  Cancel (a stray Enter/Space can no longer trigger the irreversible reset); focus RETURNS to the opener element on
+  close (Cancel/Escape/overlay-click/success all route through close()); added aria-describedby pointing at the body
+  so screen readers announce the deleted/kept lists; background scroll locked while open by reusing the existing
+  body.modal-open { overflow:hidden } rule (no new CSS). No visual redesign.
+- plannerReset fail-fast (aiBrain.js): on a real delete failure (permissions/network) the function now returns
+  { ok:false } BEFORE clearing the exam-config memory mirror — so a transient error can't leave Coach/Insights
+  exam-blind while the plan still exists. The client already shows retry on ok:false; nothing changed server-side, so
+  the retry is clean. Happy path unchanged.
+- Test (planner-brain.check.js): the firestore stub's delete() now rejects for a sentinel uid (/resetfail/); new
+  assertions prove a failed delete → { ok:false }, the aiPlanner doc stays intact, and updateMemory is NOT called to
+  clear the exam mirror (fail-fast held). 103→107 assertions, all green.
+- Doc freshness: TECHNICAL_BIBLE "Last updated" 2026-06-24 → 2026-06-28 (Arch 2.42 already correct).
+- Verify: npm test green (all suites); node --check on touched JS; CSS braces balanced. SW v143→v144.
+- Docs: DECISION_LOG (ADR-070 hardening addendum), VERSIONS (Bible 2.61→2.62, Arch unchanged 2.42). No prompt/cache/
+  schema change; no new deps.
+```
+
+---
+
 ## 2026-06-28 — QuanAI cohesion pass: Planner Start Over + perceived performance + natural branding (ADR-070)
 
 A focused pass after a full read-only audit of the QuanAI stack found it already mature/optimized (the owner chose

@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.61 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.62 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.42 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.62 (2026-06-28)** — **QuanAI production-readiness hardening (ADR-070 follow-up; no new feature/contract).** A
+> full 13-phase verification (three independent adversarial audits) found the QuanAI ecosystem production-ready — zero
+> code defects, all suites green, branding/docs accurate. This pass implements only the genuine hardening items it
+> surfaced: **(1) Start-over confirm-dialog a11y** — default focus moved from the destructive button to **Cancel** (a
+> stray Enter can't trigger the irreversible reset), focus **returns to the opener** on close, `aria-describedby`
+> announces the deleted/kept lists, and the background is scroll-locked via the existing `body.modal-open` rule;
+> **(2) `aiBrain.plannerReset` fail-fast** — a failed plan delete now returns `{ok:false}` *before* clearing the
+> exam-config memory mirror, so a transient Firestore error can't leave Coach/Insights exam-blind while the plan still
+> exists (clean client retry); **(3)** a `planner-brain.check.js` assertion covering that delete-failure path; **(4)**
+> a stale TECHNICAL_BIBLE "Last updated" date. Two audit flags were verified **false positives** (the `op:reset` doc
+> entry already exists; reset already returns `ok:false` on delete failure). SW v143→v144. **Client a11y + one-line
+> server guard + test + docs; no prompt/cache/schema change, no new deps.** Bible 2.61→2.62, Architecture unchanged
+> (2.42 — no new op/contract).
 
 > **2.61 / Arch 2.42 (2026-06-28)** — **QuanAI cohesion pass: Planner Start Over + perceived-performance + natural
 > branding (ADR-070; focused, no prompt/cache rewrites).** A full read-only audit confirmed the QuanAI stack is

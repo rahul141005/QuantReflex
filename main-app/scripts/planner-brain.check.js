@@ -23,7 +23,9 @@ function docRef(col, id) {
       return Promise.resolve({ exists: !!(store[col] && store[col][id] !== undefined), data: function () { return store[col] && store[col][id]; } });
     },
     set: function (d, opts) { store[col] = store[col] || {}; store[col][id] = (opts && opts.merge) ? Object.assign({}, store[col][id], d) : d; return Promise.resolve(); },
-    delete: function () { if (store[col]) delete store[col][id]; return Promise.resolve(); },
+    // a sentinel uid simulates a Firestore delete failure (permissions/network) so we can prove plannerReset fails
+    // fast — leaving the plan + exam memory intact (ADR-070 hardening).
+    delete: function () { if (col === 'aiPlanner' && /resetfail/.test(String(id))) return Promise.reject(new Error('simulated delete failure')); if (store[col]) delete store[col][id]; return Promise.resolve(); },
     select: function () { return this; },
     collection: function () { return emptyQuery(); }
   };
@@ -366,6 +368,16 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
     'plannerReset clears the mirrored exam-config aiMemory fields (examName/examDate/goal/dailyMinutes)');
   ok(aiServiceStub._lastMemory.patch.addWin === undefined && aiServiceStub._lastMemory.patch.knownWeakConcepts === undefined && aiServiceStub._lastMemory.patch.addWeakConcepts === undefined,
     'plannerReset preserves durable learning memory (only the exam-config mirror is cleared)');
+
+  // delete-failure path (ADR-070 hardening): a failed delete must fail fast — plan + exam memory left intact.
+  var rfUid = 'u-resetfail';
+  await aiBrain.plannerSetup(rfUid, { examId: 'cat', examDate: '2099-06-30', dailyMinutes: 60, daysPerWeek: 6, prepLevel: 'average', goal: '99 percentile' }, { clientStats: clientStats, clientDate: '2099-01-15' });
+  ok(store.aiPlanner[rfUid], 'reset-fail: a plan exists before the failing reset');
+  aiServiceStub._lastMemory = null;   // clear the capture so we can prove updateMemory is NOT called on failure
+  var rfRes = await aiBrain.plannerReset(rfUid);
+  ok(rfRes && rfRes.ok === false, 'plannerReset returns { ok:false } when the delete throws');
+  ok(store.aiPlanner[rfUid], 'a failed delete leaves the aiPlanner doc intact (no partial reset)');
+  ok(aiServiceStub._lastMemory === null, 'a failed delete does NOT clear the exam-config memory mirror (fail-fast)');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

@@ -307,12 +307,14 @@ var Planner = (function () {
      server deletes the plan and clears the exam mirror; we drop the active-exam cache, mark AI dirty (so Coach/
      Insights rebuild exam-agnostic), and reopen the setup wizard fresh. */
   function startOver() {
+    // Remember who opened the dialog so keyboard focus returns there on close (a11y).
+    var opener = (document.activeElement && document.activeElement.focus) ? document.activeElement : null;
     var overlay = document.createElement('div');
     overlay.className = 'qr-confirm-overlay';
     overlay.innerHTML =
-      '<div class="qr-confirm-card" role="dialog" aria-modal="true" aria-labelledby="qrConfirmTitle">' +
+      '<div class="qr-confirm-card" role="dialog" aria-modal="true" aria-labelledby="qrConfirmTitle" aria-describedby="qrConfirmBody">' +
         '<div class="qr-confirm-title" id="qrConfirmTitle">Start over?</div>' +
-        '<div class="qr-confirm-body">' +
+        '<div class="qr-confirm-body" id="qrConfirmBody">' +
           '<p class="qr-confirm-lead">This permanently clears your study plan and its setup. QuanAI will take you back to planner setup to build a fresh one.</p>' +
           '<div class="qr-confirm-list-label">This will be deleted</div>' +
           '<ul class="qr-confirm-list is-del">' +
@@ -333,8 +335,14 @@ var Planner = (function () {
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
+    document.body.classList.add('modal-open');   // lock background scroll while the confirm is open
     function onKey(e) { if (e.key === 'Escape') close(); }
-    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener('keydown', onKey); }
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      document.removeEventListener('keydown', onKey);
+      document.body.classList.remove('modal-open');
+      try { if (opener && opener.focus) opener.focus(); } catch (_) {}   // return focus to the opener (a11y)
+    }
     document.addEventListener('keydown', onKey);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     overlay.querySelector('.qr-confirm-cancel').onclick = close;
@@ -354,7 +362,8 @@ var Planner = (function () {
         } else fail();
       }).catch(fail);
     };
-    setTimeout(function () { try { danger.focus(); } catch (_) {} }, 30);
+    // Focus the SAFE action by default — never the destructive button — so a stray Enter can't trigger the reset.
+    setTimeout(function () { try { overlay.querySelector('.qr-confirm-cancel').focus(); } catch (_) {} }, 30);
   }
 
   return { open: open, renderInto: renderInto };
