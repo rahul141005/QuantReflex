@@ -180,6 +180,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   in the TTL'd room docs, not in `duelHistory`) — replay remains future work, additively via a `duelReplays/{code}`
   doc written at finalize; ELO/seasons/leaderboards are likewise additive (no migration). No version-track bump
   (client correctness + one stat-definition refinement; pre-launch, no data).
+- **UI follow-up (2026-06-28): inline expandable section → centered premium modal.** The archive cramped the Home
+  duel card and didn't read as "your competitive career." It's now a compact **"⚔️ Battle Archive · N" trigger** on
+  the duel card that opens a **centered modal** (reuses the paywall dim/scale/scroll shell + keyframes; `body.modal-
+  open` lock; Escape/overlay-click close; focus-to-title on open, return-to-trigger on close; `min(760px,100%)`/90vh,
+  sticky glass header — scales phone→desktop). **Presentation-only**: `js/duel-archive.js` `_toggle`/`_renderExpanded`
+  → `_openModal`/`_closeModal`/`_loadAndPaint`; the Firestore read/cache/filter/pagination/aggregate-math layer and
+  `scripts/duel-archive.check.js` (45 assertions) are **unchanged**. Free users still render nothing. Client UI only;
+  Arch 2.40→2.41 (presentation topology), no Firestore/Security/Payment/gating change.
 
 ## ADR-067 — Focused speed-maths catalog rebuild + Timed Mock (2026-06-24)
 - **Context:** QuantReflex served 26 exams across every Indian exam family, diluting positioning and including

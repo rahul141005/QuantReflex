@@ -23,7 +23,7 @@ var DuelArchive = (function () {
   var _cursor = null;             // Firestore startAfter cursor (last snapshot of the active query)
   var _morePages = true;          // could the active query have more docs?
   var _loading = false;
-  var _expanded = false;
+  var _escHandler = null;         // Escape-to-close handler for the modal (added on open, removed on close)
   var _premium = false;
   var _queryKey = '';             // identity of the active server query (filters) — changing it resets paging
   var _reqToken = 0;              // monotonic fetch token — a stale in-flight page response is ignored
@@ -185,57 +185,76 @@ var DuelArchive = (function () {
 
   /* ───────────────────────── rendering ───────────────────────── */
 
-  /** PUBLIC: called by home-view on every render. isPremium → show; else HIDE entirely (premium-only). */
+  /** PUBLIC: called by home-view on every render. isPremium → show the trigger; else HIDE entirely (premium-only). */
   function render(isPremium) {
     _premium = !!isPremium;
     var sec = _el(); if (!sec) return;
-    if (!_premium) { sec.style.display = 'none'; sec.innerHTML = ''; _expanded = false; return; }
+    if (!_premium) { sec.style.display = 'none'; sec.innerHTML = ''; _closeModal(); return; }
     sec.style.display = '';
-    if (_expanded) { _renderExpanded(); }
-    else { _renderHeader(); }
+    _renderTrigger();
   }
 
   function _battleCount() { var v = _aggView(); return v.totalDuels; }
+  function _isOpen() { return !!document.getElementById('baModalOverlay'); }
 
-  function _renderHeader() {
+  /* The duel card hosts only a compact trigger — the archive itself opens as a focused, centered modal (ADR-068). */
+  function _renderTrigger() {
     var sec = _el(); if (!sec) return;
     var have = _summary != null;
     var count = have ? _battleCount() : null;
     sec.innerHTML =
-      '<button class="ba-toggle" type="button" id="baToggle" aria-expanded="false" aria-controls="baBody">' +
-        '<span class="ba-toggle-icon">⚔️</span>' +
-        '<span class="ba-toggle-label">Battle Archive' + (count != null ? ' <span class="ba-count">' + count + '</span>' : '') + '</span>' +
-        '<span class="ba-toggle-chevron" aria-hidden="true">▾</span>' +
-      '</button>' +
-      '<div class="ba-body" id="baBody" hidden></div>';
-    var btn = document.getElementById('baToggle');
-    if (btn) btn.addEventListener('click', function () { _toggle(); });
-    // Lazily warm the count if we don't have the summary yet (1 cheap read), then refresh the header label.
-    if (!have) { _loadSummary().then(function () { if (!_expanded) _renderHeader(); }); }
+      '<button class="ba-open" type="button" id="baOpen" aria-haspopup="dialog">' +
+        '<span class="ba-open-icon">⚔️</span>' +
+        '<span class="ba-open-label">Battle Archive' + (count != null ? ' <span class="ba-count">' + count + '</span>' : '') + '</span>' +
+        '<span class="ba-open-chevron" aria-hidden="true">›</span>' +
+      '</button>';
+    var btn = document.getElementById('baOpen');
+    if (btn) btn.addEventListener('click', function () { _openModal(); });
+    // Lazily warm the count if we don't have the summary yet (1 cheap read), then refresh the trigger label.
+    if (!have) { _loadSummary().then(function () { if (!_isOpen()) _renderTrigger(); }); }
   }
 
-  function _toggle() {
-    _expanded = !_expanded;
-    var sec = _el(); if (sec) sec.classList.toggle('is-open', _expanded);
-    if (_expanded) {
-      _renderExpanded(true);
-      if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('settingsToggle'); } catch (_) {} }
-    } else {
-      if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }   // don't fire a pending search into a hidden body
-      _renderHeader();
-    }
+  /* Build the centered premium modal (reuses the paywall shell's dim/scale/scroll), append to <body>, then load. */
+  function _openModal() {
+    if (_isOpen()) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'ba-modal-overlay'; overlay.id = 'baModalOverlay';
+    overlay.innerHTML =
+      '<div class="ba-modal-card" role="dialog" aria-modal="true" aria-labelledby="baModalTitle">' +
+        '<div class="ba-modal-head">' +
+          '<h2 class="ba-modal-title" id="baModalTitle" tabindex="-1">⚔️ Battle Archive</h2>' +
+          '<button class="ba-modal-close" id="baModalClose" type="button" aria-label="Close">✕</button>' +
+        '</div>' +
+        '<div class="ba-modal-body ba-body" id="baBody"></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    document.body.classList.add('modal-open');
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) _closeModal(); });
+    var cls = document.getElementById('baModalClose'); if (cls) cls.addEventListener('click', _closeModal);
+    _escHandler = function (e) { if (e.key === 'Escape') { e.preventDefault(); _closeModal(); } };
+    document.addEventListener('keydown', _escHandler);
+    if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('settingsToggle'); } catch (_) {} }
+    _loadAndPaint();
+    var title = document.getElementById('baModalTitle');
+    if (title && title.focus) { try { title.focus({ preventScroll: true }); } catch (_) { title.focus(); } }
   }
 
-  function _renderExpanded(initialOpen) {
-    _renderHeader();
-    var sec = _el(); if (sec) sec.classList.add('is-open');
-    var btn = document.getElementById('baToggle');
-    if (btn) { btn.setAttribute('aria-expanded', 'true'); var ch = btn.querySelector('.ba-toggle-chevron'); if (ch) ch.textContent = '▴'; }
+  function _closeModal() {
+    var overlay = document.getElementById('baModalOverlay'); if (!overlay) return;
+    if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }   // don't fire a pending search into a torn-down body
+    if (_escHandler) { document.removeEventListener('keydown', _escHandler); _escHandler = null; }
+    overlay.classList.add('closing');
+    document.body.classList.remove('modal-open');
+    setTimeout(function () {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      var trigger = document.getElementById('baOpen'); if (trigger && trigger.focus) { try { trigger.focus({ preventScroll: true }); } catch (_) { trigger.focus(); } }
+    }, 200);
+  }
+
+  /* Paint the modal body: from the in-memory cache if still valid (same filter, page held — no refetch, keeps scroll),
+     else show the skeleton and load summary + page 1. onLocalDuelComplete() nulls the cache so a post-duel reopen refreshes. */
+  function _loadAndPaint() {
     var body = document.getElementById('baBody'); if (!body) return;
-    body.hidden = false;
-    // Re-expand on a Home revisit: if the cache is still valid (summary loaded + a page held + same filter), paint
-    // from memory — no refetch, and the user keeps the pages they'd scrolled. onLocalDuelComplete() nulls the cache,
-    // so a post-duel revisit still refreshes. Otherwise show the skeleton and load summary + page 1.
     if (_summary != null && _docs.length && _keyOf() === _queryKey) { _paintBody(); return; }
     body.innerHTML = '<div class="ba-skeleton"><div class="ba-skel-row"></div><div class="ba-skel-row"></div><div class="ba-skel-row"></div></div>';
     var needSummary = _summary == null;
@@ -464,7 +483,7 @@ var DuelArchive = (function () {
         var uid = b.getAttribute('data-rival'); if (!uid) return;
         _f.rivalUid = uid; _f.outcome = 'all'; _f.difficulty = 'all';
         _refreshList();
-        var sec = _el(); if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var mb = document.getElementById('baBody'); if (mb) mb.scrollTop = 0;   // scroll the modal body up to the new rivalry banner
       });
     });
     var more = document.getElementById('baLoadMore');
@@ -488,7 +507,7 @@ var DuelArchive = (function () {
   function onLocalDuelComplete() {
     _summary = null; _docs = []; _cursor = null; _morePages = true; _queryKey = '';
     if (!_premium) return;
-    if (_expanded) _renderExpanded(); else _renderHeader();
+    if (_isOpen()) _loadAndPaint(); else _renderTrigger();
   }
 
   return {

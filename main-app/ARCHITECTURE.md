@@ -1,6 +1,6 @@
 # QuantReflex — Architecture Guide
 
-> Last updated: 2026-06-28 (ADR-069 Learn Knowledge Engine complete — 19/19 gold topics + UX polish, bug fixes & ship-readiness a11y, SW v138)
+> Last updated: 2026-06-28 (Learn Knowledge Engine complete + Battle Archive modal & Learn hub polish, SW v141)
 
 ## Overview
 

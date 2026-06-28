@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.58 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.40 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.59 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.41 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.59 / Arch 2.41 (2026-06-28)** — **Premium UI polish: Battle Archive → centered modal + Learn hub hierarchy
+> (reuse-only, no new deps).** **Battle Archive (ADR-068 follow-up):** the inline expandable section inside the Home
+> duel card becomes a compact **"⚔️ Battle Archive · N" trigger** that opens a **centered premium modal** — a
+> presentation-only refactor of `js/duel-archive.js` (`_toggle`/`_renderExpanded` → `_openModal`/`_closeModal`/
+> `_loadAndPaint`; data/cache/filter/pagination layer + its 45-assertion math test untouched). The modal reuses the
+> proven paywall shell (dim+blur, `paywallScaleIn`/`paywallFadeIn`/`paywallFadeOut` keyframes — not duplicated),
+> `body.modal-open` scroll-lock, Escape/overlay-click close, focus-to-title on open + return-to-trigger on close;
+> `width:min(760px,100%)`, 90vh, sticky glass header — scales phone→desktop. **Learn hub hierarchy:** one calm header
+> language — a subtle blue accent bar on category titles + a new `.kx-hub-head` (Quick Reference / Your Topics) with
+> a single faint top hairline + breathing room, so the major groups read as distinct without dividers-everywhere.
+> **Shared cleanup:** canonical `--qr-accent` / `--qr-accent-soft` tokens (used by the new code; existing hard-coded
+> `#2563eb` left as-is). SW v140→v141. **Client UI only; no Firestore/Security/Payment/gating change; reduced-motion
+> + a11y preserved.** Bible 2.58→2.59, Arch 2.40→2.41.
 
 > **2.58 (2026-06-28)** — **Verification-pass copy-accuracy fixes (no pricing change).** Made the user-facing copy
 > tell the truth: **Word Problems** is now consistently presented as **"Coming soon"** wherever it appeared as a live
@@ -214,6 +228,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.59 | 2.41 | 2.19 | 2.14 | 2.4 | **Premium UI polish — Battle Archive modal + Learn hub hierarchy (reuse-only):** Battle Archive (ADR-068) inline expandable section → compact trigger that opens a **centered premium modal** (presentation-only refactor of duel-archive.js; reuses the paywall dim/scale/scroll shell + keyframes; data/cache/math layer + 45-assertion test untouched; Escape/overlay-click/focus). Learn hub: subtle blue accent-bar header language + new `.kx-hub-head` (Quick Reference / Your Topics) with one calm top hairline + breathing room so major groups read distinctly (no dividers-everywhere). Added `--qr-accent`/`--qr-accent-soft` tokens (new code only). SW v140→v141. Client UI only; no Firestore/Security/Payment/gating change; reduced-motion + a11y preserved. Bible 2.58→2.59, Arch 2.40→2.41. |
 | 2026-06-28 | 2.58 | 2.40 | 2.19 | 2.14 | 2.4 | **Verification-pass copy fixes:** Word Problems now consistently "Coming soon" in About/Guide and **removed from the paywall** (compare row dropped; value card → live "Review Mistakes") so the paywall sells only live features; Speed Benchmark copy softened (per-session self-improvement score, not a live "against other users" ranking — percentile is computed locally). SW v139→v140. Client copy only; no pricing/Firestore/Security change. Bible 2.57→2.58. |
 | 2026-06-28 | 2.57 | 2.40 | 2.19 | 2.14 | 2.4 | **Pricing ₹599→₹499 (12mo) + About/Guide/ecosystem refresh:** 12-month Premium **₹599→₹499** (6mo ₹349 unchanged) synced UI↔server — charge path `paymentService.amountPaise` 59900→49900, `entitlements.PRICING`, revenue maps `aiService`/`metrics`, display `paywall.PLANS` (≈₹42/mo, "Save 28%"), `index.html` + payment/entitlement docs (zero `₹599`/59900 left in current-state files; no test asserts it). About modal rewritten to today's product (Learn Knowledge Engine, responsive+offline, the 3-app ecosystem, v2.0.0→2.1.0); App Guide Learn section fully rewritten (hub→topics/search/save/revision/practise; removed "Learn Vault"/"Jump Navigation") + gestures note. Light paywall AA-contrast polish. SW v138→v139. Client + pricing-config only; no Firestore/Security change; ~2–3k-user sizing (no new deps). Bible 2.56→2.57, Payment 2.3→2.4. |
 | 2026-06-28 | 2.56 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn content completion — 19/19 gold (ADR-069), NO AI:** authored the last 5 scaffolds (Number Series, Ages, Mixtures & Alligations, Partnership, Permutation & Combination) to gold-standard depth (10–11 sections each) and flipped to `published`; every formula/example hand- + agent-verified (zero math errors). No scaffolds/"coming soon" remain in the shipped 5-category scope. `number-series` gets a real Practise button; the other 4 keep `drillCategory:null` (no misleading practice). Content gate now validates 19 published (`learn-content.check` 161→196). Restrained premium touch: one-time reduced-motion-guarded `kx-rise` stagger on the ≤5 hub category sections. SW v137→v138. Content/client-only; Arch unchanged (same engine, more data); no Firestore/Security/Payment change. Bible 2.55→2.56. |

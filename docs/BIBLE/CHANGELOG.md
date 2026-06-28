@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Premium UI polish: Battle Archive → centered modal + Learn hub hierarchy (reuse-only)
+
+A UI/UX refinement pass — no new features, no new deps (sized for ~2–3k users; "less UI, more quality"). Two named
+deliverables; the rest of the brief's app-wide aspiration was consciously scoped to reuse-only touches (the app
+already passed several premium audits — churning every screen adds risk for little gain).
+
+```
+### refactor(ADR-068)/feat: Battle Archive centered modal; Learn hub hierarchy + blue accent tokens
+- Battle Archive: was an inline expandable section inside the Home duel bento card (cramped). Now the duel card hosts
+  a compact "⚔️ Battle Archive · N" trigger that opens a CENTERED PREMIUM MODAL. Presentation-only refactor of
+  js/duel-archive.js: _toggle/_renderHeader/_renderExpanded -> _renderTrigger/_openModal/_closeModal/_loadAndPaint;
+  the data/cache/filter/pagination/aggregate-math layer (and scripts/duel-archive.check.js, 45 assertions) is
+  UNCHANGED. The modal REUSES the paywall shell language (rgba dim + backdrop blur, paywallScaleIn/FadeIn/FadeOut
+  keyframes — not duplicated), body.modal-open scroll-lock, Escape + overlay-click close, focus-to-title on open and
+  return-to-trigger on close; width min(760px,100%), max-height 90vh, sticky glass header — scales phone->desktop.
+  Free users unchanged (nothing rendered). css/style.css: .ba-toggle/.ba-section.is-open reveal removed; .ba-open
+  trigger + .ba-modal-* shell added; all other .ba-* (stats/rivalry/filters/cards/achievements) re-home into the
+  modal unchanged; stale reduced-motion selector updated to the modal.
+- Learn hub hierarchy: one calm header language — a subtle blue accent bar (::before) on .kx-cat-title and a new
+  .kx-hub-head used by the "Quick Reference" and "Your Topics" headings (index.html), each with a single faint top
+  hairline (--qr-card-border-light) + ~1.9rem breathing room, so the three major groups read as distinct WITHOUT
+  divider-lines-everywhere. No rainbow, no gradients.
+- Shared cleanup: canonical --qr-accent (#2563eb / dark #60a5fa) + --qr-accent-soft tokens in :root/body.dark-mode;
+  used by the new Battle-Archive + Learn accents. Existing hard-coded #2563eb usages left as-is (no churn).
+- Consciously out of scope (lightweight): no app-wide restyle of Home/Practice/Planner/Settings, no card-radius
+  unification, no modal-util abstraction, no skeletons where render is synchronous.
+- Service worker v140 -> v141. Docs: VERSIONS (Bible 2.58->2.59, Arch 2.40->2.41), DECISION_LOG (ADR-068 follow-up),
+  TECHNICAL_BIBLE arch header.
+- Verified: node --check duel-archive.js + learn-view.js; CSS braces balanced (3135/3135); npm test green
+  (duel-archive.check 45, learn checks unchanged); zero stale ba-toggle/_expanded refs.
+```
+
+---
+
 ## 2026-06-28 — Verification pass: Word Problems "Coming soon" consistency + honest Speed Benchmark copy
 
 Self-audit of the prior About/Guide/pricing pass surfaced two truthfulness issues (no pricing change). Client copy

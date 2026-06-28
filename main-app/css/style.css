@@ -29,8 +29,10 @@
   --qr-nav-h: 3.75rem;             /* bottom-nav height — single source of truth (ADR-011) */
   --qr-practice-gap: .6rem;        /* Practice scroll-panel: equal top/bottom inset */
   --qr-bg: #f8fafc;                /* app background (light) — used by sticky surfaces e.g. Learn section nav */
+  --qr-accent: #2563eb;            /* canonical brand blue (new code; existing hard-coded #2563eb left as-is) */
+  --qr-accent-soft: rgba(37,99,235,0.10);
 }
-body.dark-mode { --qr-bg: #0f172a; }
+body.dark-mode { --qr-bg: #0f172a; --qr-accent: #60a5fa; --qr-accent-soft: rgba(96,165,250,0.12); }
 
 /* ---- Reset & Base ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -10482,29 +10484,60 @@ body.dark-mode .pd-cell.is-today .pd-num { color: #93c5fd; }
 .ba-section { margin-top: .85rem; border-top: 1px solid rgba(15,23,42,0.07); padding-top: .75rem; }
 body.dark-mode .ba-section { border-top-color: rgba(255,255,255,0.08); }
 
-/* ---- collapsible header ---- */
-.ba-toggle {
+/* ---- trigger button on the duel card (opens the modal) ---- */
+.ba-open {
   display: flex; align-items: center; gap: .6rem; width: 100%;
   background: linear-gradient(135deg, rgba(217,119,6,0.10), rgba(245,158,11,0.04));
   border: 1px solid rgba(217,119,6,0.22); border-radius: var(--qr-btn-radius);
   padding: .7rem .85rem; cursor: pointer; font: inherit; color: inherit;
   transition: background .2s ease, border-color .2s ease, transform .12s ease;
 }
-.ba-toggle:hover { background: linear-gradient(135deg, rgba(217,119,6,0.16), rgba(245,158,11,0.07)); }
-.ba-toggle:active { transform: scale(.99); }
-.ba-toggle-icon { font-size: 1.1rem; }
-.ba-toggle-label { font-weight: 700; font-size: .95rem; flex: 1; text-align: left; letter-spacing: .01em; }
-.ba-toggle-chevron { font-size: .85rem; opacity: .6; transition: transform .2s ease; }
+.ba-open:hover { background: linear-gradient(135deg, rgba(217,119,6,0.16), rgba(245,158,11,0.07)); }
+.ba-open:active { transform: scale(.99); }
+.ba-open:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
+.ba-open-icon { font-size: 1.1rem; }
+.ba-open-label { font-weight: 700; font-size: .95rem; flex: 1; text-align: left; letter-spacing: .01em; }
+.ba-open-chevron { font-size: 1.15rem; opacity: .55; font-weight: 700; }
 .ba-count {
   display: inline-block; min-width: 1.3rem; text-align: center; padding: 0 .35rem; margin-left: .2rem;
   font-size: .72rem; font-weight: 800; line-height: 1.35rem; height: 1.35rem;
   background: #d97706; color: #fff; border-radius: .7rem; vertical-align: middle;
 }
-body.dark-mode .ba-toggle { border-color: rgba(245,158,11,0.28); }
+body.dark-mode .ba-open { border-color: rgba(245,158,11,0.28); }
 
-/* ---- body reveal ---- */
-.ba-body { overflow: hidden; }
-.ba-section.is-open .ba-body { animation: baReveal .32s cubic-bezier(.2,.7,.3,1); margin-top: .7rem; }
+/* ---- centered premium modal (reuses the paywall shell's dim / scale-in / fade keyframes) ---- */
+.ba-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  background: rgba(11,18,32,.62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  animation: paywallFadeIn .25s ease;
+}
+.ba-modal-overlay.closing { animation: paywallFadeOut .2s ease forwards; }
+.ba-modal-card {
+  position: relative; width: min(760px, 100%); max-height: 90vh; display: flex; flex-direction: column;
+  background: var(--qr-bg, #f8fafc); border-radius: var(--qr-card-radius);
+  box-shadow: 0 24px 60px rgba(2,6,23,.45); overflow: hidden;
+  animation: paywallScaleIn .3s cubic-bezier(.16,1,.3,1);
+}
+body.dark-mode .ba-modal-card { background: #0f172a; }
+.ba-modal-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: 1rem 1.1rem .85rem; border-bottom: var(--qr-card-border-light);
+  background: rgba(248,250,252,.82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+body.dark-mode .ba-modal-head { background: rgba(15,23,42,.82); border-bottom-color: rgba(255,255,255,.08); }
+.ba-modal-title { margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a; outline: none; }
+body.dark-mode .ba-modal-title { color: #f1f5f9; }
+.ba-modal-close {
+  flex: 0 0 auto; width: 2.1rem; height: 2.1rem; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(15,23,42,.06); color: inherit; font-size: .9rem; line-height: 1; transition: background .15s, transform .12s ease;
+}
+.ba-modal-close:hover { background: rgba(15,23,42,.12); }
+.ba-modal-close:active { transform: scale(.94); }
+.ba-modal-close:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
+body.dark-mode .ba-modal-close { background: rgba(255,255,255,.1); }
+body.dark-mode .ba-modal-close:hover { background: rgba(255,255,255,.16); }
+.ba-modal-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 1rem 1.1rem 1.2rem; }
 @keyframes baReveal { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .ba-skeleton { display: flex; flex-direction: column; gap: .5rem; }
@@ -10624,7 +10657,7 @@ body.dark-mode .ba-ach-name { color: #e2e8f0; }
 .ba-ach-locked { font-size: .56rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ba-section.is-open .ba-body, .ba-card-detail, .ba-empty-art, .ba-skel-row, .ba-ach.is-on:hover { animation: none !important; transition: none !important; }
+  .ba-modal-overlay, .ba-modal-card, .ba-card-detail, .ba-empty-art, .ba-skel-row, .ba-ach.is-on:hover { animation: none !important; transition: none !important; }
 }
 
 /* ═══════════════════════════ Learn Knowledge Engine (ADR-069) — hub, topic pages, responsive shell ═══════════════════════════ */
@@ -10666,6 +10699,16 @@ body.dark-mode .kx-search-cat, body.dark-mode .kx-search-empty { color: #94a3b8;
 .kx-cat-blurb { font-size: .85rem; color: #475569; margin: 0 0 .7rem; line-height: 1.45; }
 body.dark-mode .kx-cat-title { color: #f1f5f9; }
 body.dark-mode .kx-cat-count, body.dark-mode .kx-cat-blurb { color: #94a3b8; }
+
+/* One header language for the Learn hub: a subtle blue accent bar before category + major-section titles, and a calm
+   top hairline that lets the major groups (Knowledge categories → Quick Reference → Your Topics) breathe — hierarchy
+   through spacing + a single accent, not divider lines everywhere. */
+.kx-cat-title::before, .kx-hub-head::before {
+  content: ''; display: inline-block; width: 4px; height: .9em; margin-right: .55rem; vertical-align: -1px;
+  border-radius: 2px; background: var(--qr-accent);
+}
+.kx-hub-head { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 1.9rem 0 .15rem; padding-top: 1.4rem; border-top: var(--qr-card-border-light); }
+body.dark-mode .kx-hub-head { color: #f1f5f9; border-top-color: rgba(255,255,255,0.08); }
 .kx-topic-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
 @media (min-width: 560px)  { .kx-topic-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 960px)  { .kx-topic-grid { grid-template-columns: repeat(3, 1fr); } }
