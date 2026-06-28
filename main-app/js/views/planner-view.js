@@ -62,7 +62,7 @@ var Planner = (function () {
       '<div class="planner-empty">' +
         '<div class="pe-emoji">🗓️</div>' +
         '<h2>Build your study plan</h2>' +
-        '<p>Tell me your exam and how much time you have. I\'ll map the full syllabus to your strengths and schedule your next two weeks.</p>' +
+        '<p>Tell me your exam and how much time you have — QuanAI maps the full syllabus to your strengths and schedules your next two weeks.</p>' +
         '<button class="planner-cta" type="button">Create my plan ✨</button>' +
       '</div>';
     var btn = r.querySelector('.planner-cta');
@@ -210,7 +210,9 @@ var Planner = (function () {
       '<div class="planner-grid">' + cells + '</div>' +
       '<div class="planner-detail">' + detail + '</div>' +
       '<div class="planner-foot">' +
-        (today >= b.endDate ? '<button class="planner-regen" type="button">Rebuild my plan →</button>' : '') +
+        '<button class="planner-regen" type="button">Rebuild my plan</button>' +
+        (today >= b.endDate ? '<div class="planner-foot-hint">Your 14-day block is complete — rebuild for the next two weeks.</div>' : '') +
+        '<button class="planner-startover" type="button">Start over</button>' +
       '</div>';
 
     // wiring
@@ -229,6 +231,7 @@ var Planner = (function () {
       rdy.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRdy(); } };
     }
     var rg = r.querySelector('.planner-regen'); if (rg) rg.onclick = regen;
+    var so = r.querySelector('.planner-startover'); if (so) so.onclick = startOver;
   }
 
   function renderDay(d, today) {
@@ -292,11 +295,66 @@ var Planner = (function () {
   }
 
   function regen() {
-    var r = root(); var foot = r && r.querySelector('.planner-foot'); if (foot) foot.innerHTML = '<div class="planner-loading">Planning your next two weeks…</div>';
+    var r = root(); var foot = r && r.querySelector('.planner-foot'); if (foot) foot.innerHTML = '<div class="planner-loading">QuanAI is planning your next two weeks…</div>';
     api('regen').then(function (res) {
       if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; _markAiDirty(); render(); }
       else render();
     }).catch(render);
+  }
+
+  /* Start Over — a fully destructive reset. We make the consequences explicit BEFORE the user confirms (no silent
+     data loss): the plan + exam config + setup answers are deleted, while practice stats stay safe. On confirm the
+     server deletes the plan and clears the exam mirror; we drop the active-exam cache, mark AI dirty (so Coach/
+     Insights rebuild exam-agnostic), and reopen the setup wizard fresh. */
+  function startOver() {
+    var overlay = document.createElement('div');
+    overlay.className = 'qr-confirm-overlay';
+    overlay.innerHTML =
+      '<div class="qr-confirm-card" role="dialog" aria-modal="true" aria-labelledby="qrConfirmTitle">' +
+        '<div class="qr-confirm-title" id="qrConfirmTitle">Start over?</div>' +
+        '<div class="qr-confirm-body">' +
+          '<p class="qr-confirm-lead">This permanently clears your study plan and its setup. QuanAI will take you back to planner setup to build a fresh one.</p>' +
+          '<div class="qr-confirm-list-label">This will be deleted</div>' +
+          '<ul class="qr-confirm-list is-del">' +
+            '<li>Your generated study plan &amp; 14-day schedule</li>' +
+            '<li>Your exam &amp; target-date configuration</li>' +
+            '<li>Your planner setup answers</li>' +
+            '<li>Your planner task progress</li>' +
+          '</ul>' +
+          '<div class="qr-confirm-list-label">This stays safe</div>' +
+          '<ul class="qr-confirm-list is-keep">' +
+            '<li>Your practice history, accuracy, streaks &amp; drill stats</li>' +
+          '</ul>' +
+          '<p class="qr-confirm-note">Your exam goal is also removed from QuanAI Coach &amp; Insights — they\'ll keep coaching you from your practice data.</p>' +
+        '</div>' +
+        '<div class="qr-confirm-actions">' +
+          '<button class="qr-confirm-cancel" type="button">Cancel</button>' +
+          '<button class="qr-confirm-danger" type="button">Start over</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); document.removeEventListener('keydown', onKey); }
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    overlay.querySelector('.qr-confirm-cancel').onclick = close;
+    var danger = overlay.querySelector('.qr-confirm-danger');
+    function fail() {
+      danger.disabled = false; danger.textContent = 'Start over';
+      try { if (typeof showToast === 'function') showToast('Couldn\'t reset just now — check your connection.'); } catch (_) {}
+    }
+    danger.onclick = function () {
+      danger.disabled = true; danger.textContent = 'Starting over…';
+      api('reset').then(function (res) {
+        if (res.ok && res.data && res.data.ok) {
+          try { localStorage.removeItem('qr_active_exam'); } catch (_) {}
+          _markAiDirty(); _plan = null; _sel = null;
+          close();
+          if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true);
+        } else fail();
+      }).catch(fail);
+    };
+    setTimeout(function () { try { danger.focus(); } catch (_) {} }, 30);
   }
 
   return { open: open, renderInto: renderInto };

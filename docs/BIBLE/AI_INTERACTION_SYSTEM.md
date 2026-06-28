@@ -248,10 +248,21 @@ was fully removed in ADR-047.
   rationale + encouragement only. Cold-start / failure → deterministic copy. Never schedules, never required.
 - **Surfaces:** a companion setup wizard (searchable exam, calendar date, study slider to 8h, days/week, prep
   level, preferred time) and the `#view-planner` calendar (readiness ring, forecast, day cells, task checkboxes,
-  per-task explainability). API `action=planner` ops get/setup/toggle/regen; doc `aiPlanner/{uid}` (see
+  per-task explainability). API `action=planner` ops get/setup/toggle/regen/**reset**; doc `aiPlanner/{uid}` (see
   FIRESTORE_BLUEPRINT). The Coach references today's planner tasks.
-- **Accuracy floor:** planner requests carry a `clientStats` snapshot merged by `studentContext` as a
+- **Three clear, non-overlapping actions (ADR-070):** **Adjust** reopens the setup wizard, *preserving* the existing
+  plan/coverage; **Rebuild my plan** is the single regeneration workflow (`op:regen` — archives the current block and
+  re-derives a fresh 14-day projection from current progress, keeping exam config + coverage), now a persistent footer
+  action; **Start over** is a *fully destructive* reset (`op:reset` → `aiBrain.plannerReset`) behind an explicit
+  confirm that spells out exactly what is deleted (plan, exam config, setup answers, planner task progress) vs. kept
+  (practice history/accuracy/streaks and the durable learning memory). Reset deletes `aiPlanner/{uid}` and clears only
+  the mirrored exam-config fields from `aiMemory` (examName/examDate/goal/dailyMinutes), so Coach/Insights degrade to
+  exam-agnostic coaching (the "never dumber" invariant, ADR-057) rather than referencing a deleted exam.
+- **Accuracy floor:** planner requests carry a `clientStats` snapshot merged by `studentProfile` as a
   raise-only, fenced floor — so a stale `users.stats` doc never shows false-zero accuracy after a live session.
+- **Perceived performance (ADR-070):** every AI surface opens with a personalized "QuanAI is thinking" state built
+  from the student's real local numbers (accuracy + streak) the client already holds — no extra fetch, no logic
+  duplication — reinforcing that QuanAI is actively analysing *this* student while the (cache-backed) call resolves.
 
 ---
 

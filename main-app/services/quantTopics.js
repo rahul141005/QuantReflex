@@ -3,7 +3,7 @@
  *   simplification + number-series added in ADR-067).
  *
  * Pure module: NO firebase-admin, NO side effects, NO I/O → safe to require from unit tests and from the
- * analysis engine (studentContext.js). Keeps the drillable category vocabulary defined in exactly one place.
+ * analysis engine (studentProfile.js). Keeps the drillable category vocabulary defined in exactly one place.
  * (The free-text `nearestCategory` mapper was removed with the legacy Mission in ADR-047 — the QuanAI Planner
  * uses structured topic ids from data/syllabus.js, so no free-text→category guessing is needed.)
  */

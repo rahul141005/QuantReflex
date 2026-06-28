@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-070 — QuanAI cohesion pass: Planner Start Over, perceived-performance thinking states, natural branding (2026-06-28)
+- **Context:** A full read-only audit of the QuanAI stack (server flow, client UX, deterministic layer, docs) found the
+  AI ecosystem already mature and heavily optimized — deterministic-first (the LLM only writes short, schema-
+  constrained prose), one canonical profile (`studentProfile.js`, 6h `aiContext` cache) + one derivation layer, layered
+  caching (daily Coach/Insights, per-question Explain, client session env-cache), structured outputs + retries,
+  prompt-injection hardening, budget/throttle/quota, tier-0 deterministic skip, request dedup, staged loading, and the
+  `intelligence-consistency` proof. The owner asked for a **focused** pass (explicitly **no prompt/cache rewrites** —
+  intelligence & consistency over micro-latency), sized for ~2–3k users. The genuine gaps were: the Planner had
+  **Adjust** but no clean **reset**; the wait could *feel* more like QuanAI thinking; and the engine name barely
+  surfaced (a modal badge only), so users didn't recognize QuanAI as the intelligence behind the app.
+- **Decision:** Ship three things and consciously leave the optimized architecture intact.
+  - **Planner Start Over (the headline).** Three distinct, non-overlapping actions (no duplicate regen control):
+    **Adjust** reopens the setup wizard preserving the plan; **Rebuild my plan** is the single regeneration workflow
+    (`op:regen`, now a persistent footer action instead of only appearing at end-of-block); **Start over** is a fully
+    destructive reset (`op:reset` → `aiBrain.plannerReset`) behind an explicit confirm. New server op deletes
+    `aiPlanner/{uid}` and clears ONLY the mirrored exam-config fields from `aiMemory`
+    (examName/examDate/goal/dailyMinutes) — practice stats, `categoryStats`, mistakes, and the durable learning memory
+    (wins/timeline/preferredDepth/knownWeakConcepts/recentTopicsExplained) are deliberately preserved. With the exam
+    cleared, `examStrategy.assemble` returns null so Coach/Insights gracefully degrade to exam-agnostic coaching (the
+    ADR-057 "never dumber" invariant). The client confirm enumerates exactly what is deleted vs. what stays (no silent
+    loss); on confirm it clears `qr_active_exam`, stamps `qr_ai_dirty_at`, and reopens the setup wizard. Centered
+    confirm overlay reuses the shared modal motion (`paywallScaleIn`).
+  - **Perceived performance (reuse-only).** Every AI surface now opens with a personalized "QuanAI is thinking" state
+    built from the student's real local numbers (accuracy + streak) the client already holds — no extra fetch, no
+    logic duplication, falls back gracefully for brand-new users. No streaming/SSE (over-engineering at this scale);
+    instant-open env-cache and staggered block reveal already cover the "started immediately" feel; no prefetch (it
+    would spend API budget for users who never tap).
+  - **Natural QuanAI branding (understated).** Surface the engine where it builds trust, Apple-Intelligence-style, not
+    on every button: the App Guide AI section (engine intro), About modal (2 lines), the three AI paywall lock
+    messages, the planner empty/onboarding state, and the thinking states. Generic CTAs ("Talk to your coach",
+    "Generate Plan") stay for clarity. Established casing `QuanAI` kept (ADR-043); no third spelling introduced.
+- **Consequences:** New planner contract op (`reset`) — Architecture bump. CSS-only confirm dialog + footer actions
+  (reuses centered-modal language). Client copy/branding touches; one personalized loading helper. Conservative
+  cleanup: stale `studentContext.js` filename references in service comments corrected to `studentProfile.js` after
+  the earlier rename (the historical root `AUDIT-REPORT-QUANAI.md` and the staged Word-Problems server path were left
+  intact — neither is dead code). `planner-brain.check.js` extended with a `plannerReset` assertion proving the doc is
+  deleted, `plannerGet` returns null, the exam-config memory mirror is cleared, and durable memory is preserved. No
+  prompt or cache-architecture changes; no new dependencies; no Firestore schema/index change (an existing-collection
+  delete). SW v142→v143. Bible 2.60→2.61, Architecture 2.41→2.42.
+
 ## ADR-069 — Learn Knowledge Engine: knowledge objects, hub→topic graph, responsive design system (2026-06-28, phased)
 - **Context:** The Learn tab worked but was a single long scroll page of thin, flat content — `js/formulas.js`
   built 8 topics × ~28 `{title, formula, tip}` items as pre-baked HTML strings, with the rest hard-coded in

@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — QuanAI cohesion pass: Planner Start Over + perceived performance + natural branding (ADR-070)
+
+A focused pass after a full read-only audit of the QuanAI stack found it already mature/optimized (the owner chose
+"focused high-value", no prompt/cache rewrites; ~2–3k users). Three deliverables; the optimized architecture (caching,
+deterministic-first, structured outputs, dedup, tier-0 skip) is left intact.
+
+```
+### feat(ADR-070): Planner Start Over; perceived-performance thinking states; natural QuanAI branding
+- Planner Start Over (headline): three distinct, non-overlapping actions — Adjust (reopen setup wizard, PRESERVE the
+  plan), Rebuild my plan (the SINGLE regeneration workflow, op:regen — archive block + re-derive a fresh 14-day
+  projection from current progress; now a persistent footer action, not only end-of-block), and a NEW fully
+  destructive Start over (op:reset). Server: api/ai.js _planner gains op:'reset'; aiBrain.plannerReset(uid) deletes
+  aiPlanner/{uid} and clears ONLY the mirrored exam-config aiMemory fields (examName/examDate/goal/dailyMinutes) via
+  the existing updateMemory — practice stats, categoryStats, mistakes and durable learning memory (wins/timeline/
+  preferredDepth/knownWeakConcepts/recentTopicsExplained) are preserved. With the exam cleared, examStrategy.assemble
+  returns null so Coach/Insights degrade to exam-agnostic coaching (ADR-057 "never dumber"). Client (planner-view.js):
+  a de-emphasized, hairline-separated "Start over" link opens a centered confirm overlay (reuses the shared
+  paywallScaleIn modal motion; z above the companion sheet) that ENUMERATES exactly what is deleted vs. what stays
+  (no silent loss); on confirm → op:reset, clear localStorage.qr_active_exam, stamp qr_ai_dirty_at, reopen the setup
+  wizard. settings-style destructive-confirm precedent reused conceptually.
+- Perceived performance (reuse-only): companion-ui.js showLoading now leads with a personalized "QuanAI is reviewing
+  your 78% accuracy and 5-day streak…" line built from the real local stats the client already holds (no extra fetch,
+  no logic duplication), then rotates into the existing feature stages; falls back to generic copy for brand-new
+  users. No streaming/SSE, no prefetch (cost/quality balance) — instant-open env-cache + staggered reveal already
+  cover the "started immediately" feel.
+- Natural QuanAI branding (understated): App Guide AI section reframed as "Powered by QuanAI" (engine intro), About
+  modal AI lines name QuanAI, the three AI paywall lock messages name QuanAI, and the planner empty/onboarding state
+  introduces it once. Generic CTAs ("Talk to your coach", "Generate Plan") kept for clarity; QuanAI casing unchanged
+  (ADR-043) — no third spelling introduced.
+- Cleanup: stale studentContext.js filename references in 6 service-comment headers corrected to studentProfile.js
+  (post-rename). The historical root AUDIT-REPORT-QUANAI.md and the staged Word-Problems server path are left intact
+  (neither is dead code).
+- Tests/verify: planner-brain.check.js extended (+ firestore-stub delete(), updateMemory capture) with a plannerReset
+  assertion proving the doc is deleted, plannerGet → null, the exam-config memory mirror cleared, durable memory kept
+  (103 passed). Full npm test green; CSS braces balanced; node --check on every touched JS. SW v142→v143.
+- Docs: AI_INTERACTION_SYSTEM (three planner actions + reset op + thinking states), DECISION_LOG (ADR-070), VERSIONS
+  (Bible 2.60->2.61, Arch 2.41->2.42), main-app/ARCHITECTURE.md. No prompt/cache-architecture change; no new deps; no
+  Firestore schema/index change (existing-collection delete).
+```
+
+---
+
 ## 2026-06-28 — Cross-app modal cohesion + grep-verified CSS cleanup (CSS + 1-line JS)
 
 A verification + consistency pass (no redesign, no new features, no new deps; ~2–3k-user sizing). Two read-only

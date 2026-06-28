@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.60 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.41 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.61 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.42 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.61 / Arch 2.42 (2026-06-28)** — **QuanAI cohesion pass: Planner Start Over + perceived-performance + natural
+> branding (ADR-070; focused, no prompt/cache rewrites).** A full read-only audit confirmed the QuanAI stack is
+> already mature/optimized, so this is a focused pass on the real gaps. **Planner Start Over:** three distinct,
+> non-overlapping actions — **Adjust** (reopen wizard, preserve plan), **Rebuild my plan** (the single regen workflow,
+> `op:regen`, now a persistent footer action), and a NEW fully-destructive **Start over** (`op:reset` →
+> `aiBrain.plannerReset`) behind an explicit confirm that lists exactly what is deleted (plan, exam config, setup
+> answers, planner task progress) vs. kept (practice history/accuracy/streaks + durable learning memory). Reset
+> deletes `aiPlanner/{uid}` and clears only the mirrored exam-config `aiMemory` fields, so Coach/Insights degrade to
+> exam-agnostic coaching (ADR-057 "never dumber"). **Perceived performance:** every AI surface opens with a
+> personalized "QuanAI is thinking" state from the student's real local accuracy/streak (reuse-only — no fetch, no
+> logic duplication, no streaming/prefetch). **Branding:** QuanAI surfaced naturally (App Guide AI section, About,
+> three AI paywall lock messages, planner empty state, thinking states); generic CTAs kept; `QuanAI` casing unchanged
+> (ADR-043). **Cleanup:** stale `studentContext.js` comment refs → `studentProfile.js`. `planner-brain.check.js` +
+> a `plannerReset` assertion. SW v142→v143. **No prompt/cache-architecture change, no new deps, no Firestore schema
+> change.** Bible 2.60→2.61, Architecture 2.41→2.42 (new planner contract op).
 
 > **2.60 (2026-06-28)** — **Cross-app modal cohesion + grep-verified CSS cleanup (CSS-only, no new deps).** Unified
 > the last "feels like a different app" outlier: the **About / App-Guide info modal** stopped sliding in from the

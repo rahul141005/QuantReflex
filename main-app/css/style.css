@@ -10324,7 +10324,38 @@ body.dark-mode .pt-title { color: #e2e8f0; }
 body.dark-mode .pt-reason { color: #94a3b8; }
 .pt-drill { align-self: center; background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .pt-self { align-self: center; font-size: .72rem; color: #94a3b8; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
-.planner-foot { margin-top: 1.2rem; }
+/* Planner footer — three clear actions: Rebuild (primary), an optional end-of-block hint, and a de-emphasized,
+   hairline-separated destructive "Start over" (ADR-070). */
+.planner-foot { margin-top: 1.2rem; display: flex; flex-direction: column; align-items: stretch; gap: .45rem; }
+.planner-foot .planner-regen { margin-top: 0; }
+.planner-foot-hint { font-size: .8rem; color: #64748b; text-align: center; font-weight: 600; }
+body.dark-mode .planner-foot-hint { color: #94a3b8; }
+.planner-startover { margin-top: .25rem; padding-top: .75rem; border: none; border-top: 1px solid rgba(15, 23, 42, .08); background: none; color: #dc2626; font-weight: 700; font-size: .85rem; cursor: pointer; text-align: center; }
+body.dark-mode .planner-startover { border-top-color: rgba(255, 255, 255, .1); color: #f87171; }
+
+/* Destructive confirm dialog (Start over) — centered scale-in reusing the shared modal motion; sits ABOVE the
+   companion sheet (z 600). Spells out exactly what is deleted vs. kept before the user commits. */
+.qr-confirm-overlay { position: fixed; inset: 0; z-index: 700; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(2, 6, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: paywallFadeIn .2s ease; }
+.qr-confirm-card { width: min(420px, 100%); max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: var(--qr-card-radius); box-shadow: 0 24px 60px rgba(2, 6, 23, .45); padding: 1.4rem 1.3rem 1.2rem; animation: paywallScaleIn .25s cubic-bezier(.16, 1, .3, 1); }
+body.dark-mode .qr-confirm-card { background: #0f172a; }
+.qr-confirm-title { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin-bottom: .5rem; }
+body.dark-mode .qr-confirm-title { color: #e2e8f0; }
+.qr-confirm-lead { font-size: .9rem; color: #475569; line-height: 1.5; margin-bottom: .5rem; }
+body.dark-mode .qr-confirm-lead { color: #cbd5e1; }
+.qr-confirm-list-label { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #64748b; margin: .7rem 0 .3rem; }
+.qr-confirm-list { list-style: none; margin: 0 0 .3rem; padding: 0; }
+.qr-confirm-list li { font-size: .88rem; line-height: 1.45; padding: .15rem 0 .15rem 1.4rem; position: relative; color: #334155; }
+body.dark-mode .qr-confirm-list li { color: #cbd5e1; }
+.qr-confirm-list.is-del li::before { content: '\2715'; position: absolute; left: 0; color: #dc2626; font-weight: 800; }
+.qr-confirm-list.is-keep li::before { content: '\2713'; position: absolute; left: 0; color: #16a34a; font-weight: 800; }
+.qr-confirm-note { font-size: .82rem; color: #64748b; line-height: 1.45; margin: .6rem 0 0; }
+body.dark-mode .qr-confirm-note { color: #94a3b8; }
+.qr-confirm-actions { display: flex; gap: .6rem; margin-top: 1.2rem; }
+.qr-confirm-cancel, .qr-confirm-danger { flex: 1; border: none; border-radius: 12px; padding: .75rem 1rem; font-size: .95rem; font-weight: 700; cursor: pointer; }
+.qr-confirm-cancel { background: rgba(15, 23, 42, .06); color: #1e293b; }
+body.dark-mode .qr-confirm-cancel { background: rgba(255, 255, 255, .08); color: #e2e8f0; }
+.qr-confirm-danger { background: #dc2626; color: #fff; }
+.qr-confirm-danger:disabled { opacity: .6; cursor: default; }
 
 /* ---- ADR-057: the strategy dashboard (readiness → path → focus → triage) ---- */
 .pr-projected { font-size: .82rem; color: #475569; font-weight: 600; margin-top: .2rem; }

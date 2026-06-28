@@ -84,7 +84,7 @@ function envelope(feature, blocks, chips, meta) {
   return { v: 1, feature: feature, blocks: (blocks || []).filter(Boolean), chips: (chips || []).filter(Boolean), meta: meta || {} };
 }
 /* The dominant behavioural flag, as a one-word note the prompt is told to address (ADR-050) — burnout, careless,
-   plateau, speedRegression and inconsistent are computed in studentContext but were never acted on. */
+   plateau, speedRegression and inconsistent are computed in studentProfile but were never acted on. */
 function _flagsNote(ctx) {
   var f = (ctx && ctx.flags) || {};
   var order = ['burnout', 'careless', 'speedRegression', 'plateau', 'inconsistent'];
@@ -637,6 +637,24 @@ async function _writePlanner(uid, data) {
   catch (e) { console.warn('[aiBrain] planner write failed:', e.message); return false; }
 }
 
+/** Start Over: a fully destructive planner reset. Deletes the persisted plan (schedule, exam config, setup answers,
+ *  topic coverage, block history) and clears ONLY the mirrored exam-config fields from aiMemory (examName/examDate/
+ *  goal/dailyMinutes) so Coach/Insights stop reasoning about a now-deleted exam (they degrade to exam-agnostic by
+ *  design — ADR-057). Practice stats and the durable learning memory (wins/timeline/preferredDepth/knownWeakConcepts/
+ *  recentTopicsExplained) are deliberately preserved. Best-effort: never throws into the caller. */
+async function plannerReset(uid) {
+  if (!uid) return { ok: false };
+  var ok = true;
+  try { await db().collection('aiPlanner').doc(uid).delete(); }
+  catch (e) { console.warn('[aiBrain] planner reset (delete) failed:', e.message); ok = false; }
+  // Clear the exam-config mirror so QuanAI stops referencing the deleted plan; learning memory is untouched.
+  try {
+    await aiService.updateMemory(uid, { examName: '', examDate: '', goal: '', dailyMinutes: 0,
+      timelineEntry: { feature: 'planner', summary: 'Reset the study planner.' } }, 'system');
+  } catch (e) { console.warn('[aiBrain] planner reset (memory) failed:', e.message); }
+  return { ok: ok };
+}
+
 async function plannerGet(uid, opts) {
   opts = opts || {};
   var doc = await plannerGetDoc(uid);
@@ -897,5 +915,5 @@ async function wordProblem(uid, category, difficulty, isPremium, opts) {
 }
 
 module.exports = { coachToday, insights, explainBase, chatTurn, wordProblem,
-  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock,
+  plannerGet, plannerSetup, plannerToggle, plannerRegenBlock, plannerReset,
   _detectPatterns };   // pure helper exposed for the brain harness (ADR-050)

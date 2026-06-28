@@ -1,11 +1,11 @@
 /**
  * aiMath.js — shared, pure numeric/date micro-helpers for the AI + planner modules (ADR-047).
  *
- * Single source of truth for three helpers that were byte-identical across studentContext, aiBrain,
+ * Single source of truth for three helpers that were byte-identical across studentProfile, aiBrain,
  * plannerEngine, readiness and signals. No I/O, no side effects.
  *
  * Helpers with DIFFERENT behaviour are deliberately NOT here (keep one implementation PER RESPONSIBILITY,
- * not per name): studentContext `_ms` parses toDateString keys while the planner `_ms` parses ISO
+ * not per name): studentProfile `_ms` parses toDateString keys while the planner `_ms` parses ISO
  * 'YYYY-MM-DD' keys; plannerEngine `addDays`/`dowOf` are ISO-date-specific. Those stay local by design.
  */
 'use strict';

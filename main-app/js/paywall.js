@@ -316,9 +316,9 @@ function _contextAccent(featureType) {
     skip_question: '⏭ Skip question is a Premium feature.',
     advanced_theme: '🎨 Advanced themes are a Premium feature.',
     daily_goal_limit: '📈 Higher daily goals are a Premium feature.',
-    ai_explain: '🧠 AI mistake explanations are a Premium feature.',
-    ai_coach: '🤖 AI Coach insights are a Premium feature.',
-    ai_study_plan: '📅 The AI Study Planner is a Premium feature.',
+    ai_explain: '🧠 QuanAI mistake explanations are a Premium feature.',
+    ai_coach: '🤖 QuanAI Coach is a Premium feature.',
+    ai_study_plan: '📅 The QuanAI Study Planner is a Premium feature.',
     math_duel: '⚔️ Math Duel — real-time challenges — is a Premium feature.'
   };
   return map[featureType] || '';

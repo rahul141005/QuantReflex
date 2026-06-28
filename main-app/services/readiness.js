@@ -1,7 +1,7 @@
 /**
  * readiness.js — Readiness scoring + Completion Forecast for the QuanAI Planner (ADR-046).
  *
- * Pure deterministic math over: a syllabus (data/syllabus.js), the studentContext ctx, and per-topic
+ * Pure deterministic math over: a syllabus (data/syllabus.js), the studentProfile ctx, and per-topic
  * `topicState` (coverage/mastery accumulated across blocks). No Firestore, no LLM.
  *
  *  - readinessForTopic : blends demonstrated skill (real practice or inferred signals) with coverage.

@@ -1,6 +1,6 @@
 # QuantReflex — Architecture Guide
 
-> Last updated: 2026-06-28 (Learn Knowledge Engine complete + Battle Archive modal & Learn hub polish; info-modal cohesion + CSS cleanup, SW v142)
+> Last updated: 2026-06-28 (QuanAI cohesion pass — Planner Start Over + perceived-performance thinking states + natural branding, ADR-070; planner API gains op:reset, SW v143)
 
 ## Overview
 

@@ -172,15 +172,31 @@ var Companion = (function () {
   }
 
   /* ---------- staged loading ---------- */
+  /* A personalized opener so the wait reads as QuanAI actively analysing THIS student — built from the real local
+     stats the client already holds (no logic duplication, no extra fetch). Null for brand-new users (no data yet). */
+  function _thinkingLead() {
+    try {
+      var p = (typeof loadProgress === 'function') ? loadProgress() : null;
+      if (!p || !(p.totalAttempted > 0)) return null;
+      var acc = Math.round((p.totalCorrect || 0) / p.totalAttempted * 100);
+      var streak = p.dailyStreak || 0;
+      return streak >= 2
+        ? PERSONA + ' is reviewing your ' + acc + '% accuracy and ' + streak + '-day streak…'
+        : PERSONA + ' is reviewing your ' + acc + '% accuracy…';
+    } catch (_) { return null; }
+  }
   function showLoading(bodyEl, stages) {
     stages = stages || ['Reading your recent sessions…', 'Spotting patterns…'];
+    // Lead with a personalized QuanAI "thinking" line, then rotate into the feature's stages.
+    var lead = _thinkingLead();
+    var seq = lead ? [lead].concat(stages) : stages.slice();
     bodyEl.innerHTML =
       '<div class="companion-loading">' +
         '<div class="companion-skel sk1"></div><div class="companion-skel sk2"></div><div class="companion-skel sk3"></div>' +
-        '<div class="companion-loadmsg">' + esc(stages[0]) + '</div>' +
+        '<div class="companion-loadmsg">' + esc(seq[0]) + '</div>' +
       '</div>';
     var msg = bodyEl.querySelector('.companion-loadmsg'), i = 0;
-    var timer = setInterval(function () { i = (i + 1) % stages.length; if (msg) msg.textContent = stages[i]; else clearInterval(timer); }, 1100);
+    var timer = setInterval(function () { i = (i + 1) % seq.length; if (msg) msg.textContent = seq[i]; else clearInterval(timer); }, 1100);
     return function () { clearInterval(timer); };
   }
 

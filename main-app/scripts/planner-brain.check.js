@@ -23,6 +23,7 @@ function docRef(col, id) {
       return Promise.resolve({ exists: !!(store[col] && store[col][id] !== undefined), data: function () { return store[col] && store[col][id]; } });
     },
     set: function (d, opts) { store[col] = store[col] || {}; store[col][id] = (opts && opts.merge) ? Object.assign({}, store[col][id], d) : d; return Promise.resolve(); },
+    delete: function () { if (store[col]) delete store[col][id]; return Promise.resolve(); },
     select: function () { return this; },
     collection: function () { return emptyQuery(); }
   };
@@ -45,7 +46,7 @@ var llmStub = {
     weaknessInsight: 'Geometry accuracy is dragging your score.', nextStepLabel: 'What first?'
   }, usage: { total_tokens: 10 } }); }
 };
-var aiServiceStub = { updateMemory: function () {}, trackGptCost: function () {}, recordAiRequest: function () {}, trackGlobalAIUsage: function () { return Promise.resolve(); } };
+var aiServiceStub = { updateMemory: function (uid, patch) { aiServiceStub._lastMemory = { uid: uid, patch: patch || {} }; }, trackGptCost: function () {}, recordAiRequest: function () {}, trackGlobalAIUsage: function () { return Promise.resolve(); } };
 
 // Intercept module loading (firebase-admin isn't installed in this repo; the deps live under main-app).
 var Module = require('module');
@@ -349,6 +350,22 @@ clientStats.dailyHistory[todayKey] = { attempted: 26, correct: 20, sumTimes: 26 
   store.users['u-2sess'] = { stats: { totalAttempted: 30, totalCorrect: 20, categoryStats: { ratios: { attempted: 30, correct: 20 } }, dailyHistory: {} }, plan: 'free' };
   // two practiceSessions so lastChange can compare latest vs previous (stub returns these via the sessions query? no — provide via clientStats path is stats-only; assert the null-safe path instead)
   ok(ctxEngine.serialize(p1).indexOf('Reason about WHY') === -1 || p1.lastChange === null, 'no "what changed" reasoning is injected without a real prior session');
+
+  /* ════════ ADR-070: Planner Start Over (destructive reset) ════════ */
+  var rsUid = 'u-reset';
+  var rsSetup = await aiBrain.plannerSetup(rsUid, { examId: 'cat', examDate: '2099-06-30', dailyMinutes: 60, daysPerWeek: 6, prepLevel: 'average', goal: '99 percentile' }, { clientStats: clientStats, clientDate: '2099-01-15' });
+  ok(rsSetup.plan && store.aiPlanner[rsUid], 'reset: a plan exists before Start Over');
+  var rsRes = await aiBrain.plannerReset(rsUid);
+  ok(rsRes && rsRes.ok === true, 'plannerReset returns { ok:true }');
+  ok(!store.aiPlanner[rsUid], 'plannerReset deletes the aiPlanner doc');
+  var rsGet = await aiBrain.plannerGet(rsUid);
+  ok(rsGet && rsGet.plan === null, 'after Start Over, plannerGet returns no plan (back to setup)');
+  ok(aiServiceStub._lastMemory && aiServiceStub._lastMemory.uid === rsUid
+    && aiServiceStub._lastMemory.patch.examName === '' && aiServiceStub._lastMemory.patch.examDate === ''
+    && aiServiceStub._lastMemory.patch.goal === '' && aiServiceStub._lastMemory.patch.dailyMinutes === 0,
+    'plannerReset clears the mirrored exam-config aiMemory fields (examName/examDate/goal/dailyMinutes)');
+  ok(aiServiceStub._lastMemory.patch.addWin === undefined && aiServiceStub._lastMemory.patch.knownWeakConcepts === undefined && aiServiceStub._lastMemory.patch.addWeakConcepts === undefined,
+    'plannerReset preserves durable learning memory (only the exam-config mirror is cleared)');
 
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');

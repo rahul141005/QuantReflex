@@ -6,7 +6,7 @@
  * the app cannot drill. The guiding rule is "never say no data": when no mapped cat has enough practice,
  * we fall back to overall accuracy, and ultimately to a neutral 0.5 — never zero.
  *
- * Pure functions over the `studentContext` ctx object (no Firestore, no LLM) — deterministic and testable.
+ * Pure functions over the `studentProfile` ctx object (no Firestore, no LLM) — deterministic and testable.
  * Consumes: ctx.mastery [{cat,acc,n,tier}], ctx.accuracy, ctx.trends{speed,consistency,accuracy}.
  */
 'use strict';

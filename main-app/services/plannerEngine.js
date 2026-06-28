@@ -1,11 +1,11 @@
 /**
  * plannerEngine.js — the DETERMINISTIC scheduler of the QuanAI Planner (ADR-046).
  *
- * Doctrine (same as studentContext.js): move the analysis out of the model — deterministic math can't
+ * Doctrine (same as studentProfile.js): move the analysis out of the model — deterministic math can't
  * hallucinate. This module decides WHICH topics, on WHICH days, for HOW long, at WHAT difficulty, with
  * revision interleaving and adaptive buffer/mock days. The LLM only narrates the `rationaleSeed` it emits.
  *
- * Pure functions over: a syllabus (data/syllabus.js), the studentContext ctx, and prior `topicState`.
+ * Pure functions over: a syllabus (data/syllabus.js), the studentProfile ctx, and prior `topicState`.
  * No Firestore, no LLM, no Date.now() surprises (dates are explicit ISO 'YYYY-MM-DD').
  *
  * Public:

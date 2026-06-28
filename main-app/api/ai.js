@@ -149,6 +149,11 @@ async function _planner(req, res) {
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: r3.plan || null, response: r3.envelope || null });
   }
+  if (op === 'reset') {
+    // Start Over: fully destructive reset of the planner (deletes the plan + clears the exam-config memory mirror).
+    var r4 = await aiBrain.plannerReset(req.userId);
+    return res.json({ ok: !!(r4 && r4.ok) });
+  }
   return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Unknown planner op: ' + op, retryable: false } });
 }
 
