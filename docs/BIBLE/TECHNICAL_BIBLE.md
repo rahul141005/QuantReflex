@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.10 · **Architecture Version:** 2.34 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.11 · **Architecture Version:** 2.35 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -228,17 +228,24 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
   revision·related). New content kind = new block type + renderer, never a schema rewrite.
 - **Registry** `js/knowledge/registry.js` — in-memory KnowledgeBase (get/all/categories/byCategory/related/siblings
   + integrity validator). **Data** `data/knowledge/<category>.js` self-registers (idempotent).
-- **Renderers** (Phase 2) `js/knowledge/blocks.js` — one DOM renderer per block type; `table`→existing
-  `.math-table`, `formula`→existing `.formula-block` (identity + the loved tables preserved); richer blocks use
-  `.kx-*`. Ships with the topic-page UI/CSS that mount it.
-- **Search** `js/learn/learn-search.js` — weighted in-memory index over the registry (symbol/synonym aware); becomes
-  the Learn search when the UI is wired in P2 (the legacy `performLearnSearch` DOM-scan still drives the live page).
+- **Renderers** `js/knowledge/blocks.js` — one DOM renderer per block type; `table`→existing `.math-table`,
+  `formula`→existing `.formula-block` (identity + the loved tables preserved); richer blocks use `.kx-*`.
+  HTML-escaped. Tested via a DOM stub + browser-path harness.
+- **Search** `js/learn/learn-search.js` — weighted in-memory index over the registry (symbol/synonym aware); it is
+  the live Learn search (results deep-link to topic pages). The legacy `performLearnSearch` DOM-scan was removed.
+- **View** `js/views/learn-view.js` — render-on-route controller: `Router.onShow('learn', params)` →
+  `renderLearnRoute(params)`; no path → the **hub** (category → topic cards + preserved Quick-Reference tables +
+  bookmarks + custom topics), a path (`#learn/<id>`) → a **topic page** (breadcrumbs · sticky section nav with
+  IntersectionObserver scroll-spy · typed blocks · related chips · prev/next · back). In-Learn navigation routes
+  through `Router.showView('learn', {path})` for real back/forward. Responsive `.kx-*` design system
+  (phone/tablet/desktop) is scoped to `body.view-learn-active` and reusable by other sections. `formulas.js` retired.
 - **Routing** — `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged; backwards
   compatible) + toggles a `view-learn-active` body class so the 480px cap is lifted **only** for Learn (mirrors the
   `view-practice-active` hook). **Validation** `scripts/learn-content.check.js` (in `npm test`).
 - **Reuse, not duplication:** cheat-sheet/revision are projections of the same `sections`; Practice links via
   `drillCategory` (`services/quantTopics.js`), Planner via `syllabusTopicId` (`data/syllabus.js`). Phased per ADR-069
-  (P1 engine shipped; hub/topic UI + responsive `.kx-*` CSS land in P2). Function count unaffected (client-only).
+  (P1 engine + P2 hub/topic UI + responsive design system shipped; gold-standard content P3, Practice/Planner/
+  progress/revision P4 — **no AI in Learn**). Function count unaffected (client-only).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.

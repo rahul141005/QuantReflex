@@ -1157,13 +1157,10 @@ document.addEventListener('DOMContentLoaded', function () {
   /* Practice view: mode selection, drill launching */
   if (typeof initPracticeView === 'function') initPracticeView();
 
-  /* Learn view: lazy init on first show */
-  var _learnInitialized = false;
-  Router.onShow('learn', function () {
-    if (!_learnInitialized) {
-      initLearnView();
-      _learnInitialized = true;
-    }
+  /* Learn view (ADR-069): render-on-route every show — hub when no path, topic page on #learn/<topicId>.
+     The hub itself is built once internally (LearnView guards with _hubBuilt). */
+  Router.onShow('learn', function (params) {
+    if (typeof renderLearnRoute === 'function') renderLearnRoute(params);
   });
 
   /* Duel is now in its own dedicated view — no active duel check needed on practice */

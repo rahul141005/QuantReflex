@@ -16,9 +16,12 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   (`js/learn/learn-search.js`), data modules (`data/knowledge/*` — 8 legacy topics migrated), `#learn/<topic>`
   deep-link routing + `view-learn-active` shell hook, validator (`scripts/learn-content.check.js`). Old Learn page
   untouched.
-- **Phase 2 — Learn experience:** block renderers (`js/knowledge/blocks.js`), hub page + topic pages (breadcrumbs,
-  sticky section nav, related, prev/next), render-on-route, responsive `.kx-*` CSS primitives (phone/tablet/desktop),
-  cut `#view-learn` over.
+- **Phase 2 — Learn experience ✅ (2026-06-28):** block renderers (`js/knowledge/blocks.js`), hub page + topic pages
+  (breadcrumbs, sticky scroll-spy section nav, related, prev/next, back), render-on-route controller
+  (`js/views/learn-view.js`), registry-backed search, responsive `.kx-*` design system (phone/tablet/desktop). Cut
+  `#view-learn` over; retired `formulas.js` + legacy DOM-scan search/jump-nav. Tables/custom topics/bookmarks/premium
+  preserved. **Known follow-ups for P5 polish:** prune now-inert legacy Learn CSS (`.learn-jump-*`, `.learn-group-*`,
+  `.search-highlight`) + the residual `learn-searchable` class on reference cards.
 - **Phase 3 — Premium content:** author ~10 gold-standard topics + cheat-sheet/revision projections + formula
   explorer. Remaining categories as honest "coming soon" scaffolds (never filler).
 - **Phase 4 — Integrations (no AI):** Practice "Practise this", Planner topic links, progress (continue/recently/

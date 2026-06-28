@@ -6,6 +6,42 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Knowledge Engine — Phase 2: hub + topic pages + responsive design system (ADR-069)
+
+Cuts the Learn tab over to the knowledge engine: a deep-linkable **hub → topic-page** knowledge graph with a
+reusable responsive design system. Backwards-compatible (Quick-Reference tables, custom topics, bookmarks, premium
+gates all preserved). Client-only; no Firestore/rules/payment change. **No AI in Learn.**
+
+```
+### feat(ADR-069): Learn Phase 2 — hub, topic pages, renderers, responsive .kx-* system
+- Impacted systems: Student App only (client). No Firestore / Rules / Payments / AI.
+- Renderers: js/knowledge/blocks.js reintroduced (deferred in P1 until it had a caller + tests) — one DOM renderer
+  per block type; table→.math-table, formula→.formula-block reused (identity + loved tables preserved); HTML-escaped.
+- View: js/views/learn-view.js rewritten as a render-on-route controller — no path → HUB (KnowledgeBase categories →
+  topic cards w/ difficulty+exam-frequency+status badges; preserved Quick-Reference tables/squares/cubes/fraction/
+  mental; bookmarks; custom topics), #learn/<id> → TOPIC PAGE (breadcrumbs, sticky section nav w/ IntersectionObserver
+  scroll-spy, typed sections via BlockRenderers, related chips, prev/next, back). In-Learn nav routes through
+  Router.showView('learn',{path}) for real back/forward; app.js onShow('learn') now calls renderLearnRoute(params).
+- Search: wired learn-search.js to the search box (results deep-link to topics); removed the legacy DOM-scan
+  performLearnSearch/highlightText and the jump-nav (updateCustomTopicJumpNav).
+- Responsive: new .kx-* design system in css/style.css scoped to body.view-learn-active — lifts the 480px cap on
+  tablet/desktop (560/720/1040/1140), auto-fit topic grid, topic-page reading column + right rail on desktop,
+  sticky section pills, dark mode, focus-visible, reduced-motion. Reusable by other sections later.
+- index.html: #view-learn restructured into #learnHub + #learnTopic (reference cards/bookmarks/custom preserved);
+  retired #topicSections + jump-nav. service-worker v129→v130 (+blocks.js, −formulas.js precache).
+- Removed (superseded/dead): js/formulas.js (8 topics fully migrated to knowledge objects); performLearnSearch,
+  highlightText, updateCustomTopicJumpNav, orphaned initLearnView.
+- Tests: scripts/learn-render.check.js (13 — every renderer via a DOM stub, incl. XSS escaping) + scripts/
+  learn-browser.check.js (10 — the real modules run in a simulated browser context: global wiring, load order,
+  data self-registration, search, related-title resolution) wired into npm test.
+- Schema/API delta: none. Version bumps: Architecture 2.34→2.35, Bible 2.48→2.49 (Firestore/Security/Payment
+  unchanged). Migration: none (pre-launch; faithful content migration, no user-data change).
+- Verification: node --check all touched JS; npm test green (full suite + learn-content 35 + learn-render 13 +
+  learn-browser 10); CSS braces balanced; no dead refs (formulas.js/performLearnSearch/topicSections all gone);
+  deep-link #learn/<topic> + back/forward + breadcrumbs + related + prev/next + search all traced; old tables/
+  custom topics/bookmarks/premium gates intact.
+```
+
 ## 2026-06-28 — Learn Knowledge Engine — Phase 1: foundation (ADR-069)
 
 First phase of rebuilding the Learn tab into the **knowledge backbone** of QuantReflex: a reusable knowledge-object

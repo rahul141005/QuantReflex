@@ -41,8 +41,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
     resolves related/drill references, so content can't ship broken or drift.
 - **Phased delivery (each phase backwards-compatible + audit-gated):** **P1 (shipped)** — engine (schema/registry/
   search) + data model + first faithful migration of the 8 legacy formula topics + router deep-links + validator;
-  old Learn page untouched. **P2** — hub + topic pages + **block renderers** (`blocks.js`) + responsive CSS (`.kx-*`
-  primitives) cut over.
+  old Learn page untouched. **P2 (shipped)** — block renderers (`blocks.js`, now DOM-stub + browser-path tested) +
+  the hub (category → topic cards with difficulty/exam-frequency/status badges) + deep-linkable topic pages
+  (breadcrumbs · sticky section nav with scroll-spy · typed sections · related · prev/next) + registry-backed search
+  + the responsive `.kx-*` design system (phone/tablet/desktop via the `view-learn-active` shell). `#view-learn` cut
+  over; legacy `formulas.js` retired (content fully migrated), old DOM-scan search + jump-nav removed. Quick-Reference
+  tables, custom topics, bookmarks, and all premium gates preserved.
   **P3** — author ~10 gold-standard topics + cheat-sheet/revision projections. **P4** — Practice/Planner links,
   progress, revision mode, bookmarks (NO AI). **P5** — performance, polish, retire `formulas.js`, final audit.
 - **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs

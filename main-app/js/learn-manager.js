@@ -456,7 +456,6 @@ function renderCustomTopicSections() {
         showCustomConfirm('Delete topic "' + topic.name + '" and all its formulas?', function() {
           deleteCustomTopic(topic.id);
           renderCustomTopicSections();
-          updateCustomTopicJumpNav();
         });
       });
 
@@ -479,129 +478,9 @@ function refreshCustomTopicSections() {
   renderCustomTopicSections();
 }
 
-/**
- * Update the quick jump nav for custom topics.
- */
-function updateCustomTopicJumpNav() {
-  var nav = document.getElementById('customTopicJumpBtns');
-  if (!nav) return;
-  nav.innerHTML = '';
-  var topics = loadCustomTopics();
-  for (var i = 0; i < topics.length; i++) {
-    var btn = document.createElement('button');
-    btn.className = 'learn-jump-btn';
-    btn.setAttribute('data-jump', topics[i].id);
-    btn.textContent = '📝 ' + topics[i].name;
-    btn.addEventListener('click', function () {
-      var targetId = this.getAttribute('data-jump');
-      var target = document.getElementById(targetId);
-      if (target) target.scrollIntoView({ behavior: 'smooth' });
-    });
-    nav.appendChild(btn);
-  }
-}
-
 /* ---- HTML escaping ---- */
 function escapeHtml(str) {
   var div = document.createElement('div');
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
-}
-
-/* ---- Enhanced search with highlighting ---- */
-function performLearnSearch(query) {
-  var searchables = document.querySelectorAll('#view-learn .learn-searchable');
-  /* Remove existing highlights */
-  var existingMarks = document.querySelectorAll('#view-learn mark.search-highlight');
-  for (var m = 0; m < existingMarks.length; m++) {
-    var parent = existingMarks[m].parentNode;
-    parent.replaceChild(document.createTextNode(existingMarks[m].textContent), existingMarks[m]);
-    parent.normalize();
-  }
-
-  for (var k = 0; k < searchables.length; k++) {
-    var el = searchables[k];
-    if (!query) {
-      el.style.display = '';
-    } else {
-      var text = el.textContent.toLowerCase();
-      var match = text.indexOf(query) !== -1;
-      el.style.display = match ? '' : 'none';
-      if (match) {
-        highlightText(el, query);
-      }
-    }
-  }
-  /* Also search non-searchable cards in learn view */
-  var allCards = document.querySelectorAll('#view-learn .card:not(.learn-searchable)');
-  for (var l = 0; l < allCards.length; l++) {
-    var card = allCards[l];
-    if (!query) {
-      card.style.display = '';
-    } else {
-      var cardText = card.textContent.toLowerCase();
-      card.style.display = cardText.indexOf(query) !== -1 ? '' : 'none';
-    }
-  }
-  /* Hide group titles and descriptions when all children are filtered out */
-  var groupTitles = document.querySelectorAll('#view-learn .learn-group-title');
-  for (var g = 0; g < groupTitles.length; g++) {
-    var titleEl = groupTitles[g];
-    if (!query) {
-      titleEl.style.display = '';
-      if (titleEl.nextElementSibling && titleEl.nextElementSibling.classList.contains('secondary-text')) {
-        titleEl.nextElementSibling.style.display = '';
-      }
-      continue;
-    }
-    var hasVisible = false;
-    var sibling = titleEl.nextElementSibling;
-    while (sibling && !sibling.classList.contains('learn-group-title')) {
-      if (sibling.classList.contains('card') || sibling.classList.contains('learn-searchable') || sibling.id === 'topicSections' || sibling.id === 'customTopicSections') {
-        if (sibling.id === 'topicSections' || sibling.id === 'customTopicSections') {
-          var innerCards = sibling.querySelectorAll('.card');
-          for (var ic = 0; ic < innerCards.length; ic++) {
-            if (innerCards[ic].style.display !== 'none') { hasVisible = true; break; }
-          }
-        } else if (sibling.style.display !== 'none') {
-          hasVisible = true;
-        }
-      }
-      sibling = sibling.nextElementSibling;
-    }
-    titleEl.style.display = hasVisible ? '' : 'none';
-    if (titleEl.nextElementSibling && titleEl.nextElementSibling.classList.contains('secondary-text')) {
-      titleEl.nextElementSibling.style.display = hasVisible ? '' : 'none';
-    }
-  }
-
-  /* Restore bookmarks section visibility when search is cleared */
-  if (!query) {
-    renderBookmarksSection();
-  }
-}
-
-function highlightText(el, query) {
-  var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
-  var nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i];
-    var text = node.textContent;
-    var lower = text.toLowerCase();
-    var idx = lower.indexOf(query);
-    if (idx === -1) continue;
-    /* Only highlight first occurrence per text node */
-    var before = text.substring(0, idx);
-    var match = text.substring(idx, idx + query.length);
-    var after = text.substring(idx + query.length);
-    var span = document.createElement('mark');
-    span.className = 'search-highlight';
-    span.textContent = match;
-    var frag = document.createDocumentFragment();
-    if (before) frag.appendChild(document.createTextNode(before));
-    frag.appendChild(span);
-    if (after) frag.appendChild(document.createTextNode(after));
-    node.parentNode.replaceChild(frag, node);
-  }
 }

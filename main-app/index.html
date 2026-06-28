@@ -491,33 +491,27 @@
     <div id="view-learn" class="spa-view">
       <header><h1><img src="appicons/tab/learntab.svg" alt="Learn" class="header-icon" width="28" height="28" draggable="false"> Learn</h1></header>
 
-      <!-- Search -->
+      <!-- Search (registry-backed; results deep-link to topic pages) -->
       <div class="learn-search-container">
-        <input type="text" id="learnSearch" class="learn-search-input" placeholder="🔍 Search topics, formulas, tables..." />
+        <input type="text" id="learnSearch" class="learn-search-input" placeholder="🔍 Search topics, formulas, tricks..." aria-label="Search Learn" autocomplete="off" />
+        <div id="learnSearchResults" class="kx-search-results" hidden></div>
       </div>
 
-      <!-- Quick Jump Navigation -->
-      <div class="learn-jump-nav" id="learnJumpNav">
-        <button class="learn-jump-btn" data-jump="bookmarksSection">⭐ Starred</button>
-        <button class="learn-jump-btn" data-jump="generalMath">📚 General</button>
-        <button class="learn-jump-btn" data-jump="tablesContainer">✖️ Tables</button>
-        <button class="learn-jump-btn" data-jump="fractionTable">📐 Fractions</button>
-        <button class="learn-jump-btn" data-jump="squaresSection">🔢 Squares</button>
-        <button class="learn-jump-btn" data-jump="cubesSection">🧊 Cubes</button>
-        <button class="learn-jump-btn" data-jump="formulaSections">📝 Formulas</button>
-        <button class="learn-jump-btn" data-jump="mentalTricks">💡 Shortcuts</button>
-        <span id="customTopicJumpBtns"></span>
-      </div>
+      <!-- HUB: knowledge categories + quick reference + your topics (ADR-069) -->
+      <div id="learnHub">
+
+      <!-- Knowledge categories (rendered from the KnowledgeBase → deep-linkable topic pages) -->
+      <div id="learnCategories"></div>
 
       <!-- Bookmarked Formulas -->
-      <div class="card bookmarks-card learn-searchable" id="bookmarksSection" style="display:none;">
+      <div class="card bookmarks-card" id="bookmarksSection" style="display:none;">
         <h3 class="section-title">⭐ Starred Formulas</h3>
         <div class="bookmarks-content"></div>
       </div>
 
-      <!-- SECTION 1: General Maths -->
-      <h2 class="learn-group-title" id="generalMath">📚 General Maths</h2>
-      <p class="secondary-text learn-group-subtitle">Calculation foundations every student must memorize.</p>
+      <!-- Quick Reference (preserved calculation aids) -->
+      <h2 class="kx-cat-title" style="margin-top:.6rem;">📚 Quick Reference</h2>
+      <p class="kx-cat-blurb">Calculation foundations every student should memorize.</p>
 
       <!-- Multiplication Tables (collapsible — large section with selector) -->
       <div class="card collapsible-card learn-searchable" id="tablesContainer">
@@ -598,18 +592,16 @@
         </table>
       </div>
 
-      <!-- SECTION 2: Topic Wise Quant -->
-      <h2 class="learn-group-title" id="formulaSections">📝 Topic Wise Quant</h2>
-      <p class="secondary-text learn-group-subtitle">Formulas, shortcuts &amp; tricks organized by topic.</p>
-
-      <!-- Dynamic formula sections rendered by JS from formulas.js -->
-      <div id="topicSections"></div>
-
-      <!-- Custom Topics (user-created) -->
+      <!-- Your Topics (user-created — preserved) -->
+      <h2 class="kx-cat-title" style="margin-top:.6rem;">✏️ Your Topics</h2>
+      <p class="kx-cat-blurb">Create your own topics and star formulas you want to revisit.</p>
       <div id="customTopicSections"></div>
-
-      <!-- Add New Topic Button -->
       <button class="btn add-topic-btn" id="addTopicBtn">+ Add New Topic</button>
+
+      </div><!-- /#learnHub -->
+
+      <!-- TOPIC PAGE (rendered on #learn/&lt;topicId&gt;) -->
+      <div id="learnTopic" hidden></div>
     </div>
 
     <!-- ==================== STATS VIEW ==================== -->
@@ -1524,7 +1516,7 @@
     Layer 2 — Infra:       firebase.js → auth.js → firestore-sync.js
     Layer 3 — Services:    adaptive-state.js, scoring-service.js, share-service.js
     Layer 4 — Data:        progress.js, questions.js (read AppState + AdaptiveState)
-    Layer 5 — Reference:   tables.js, formulas.js, learn-manager.js
+    Layer 5 — Reference:   tables.js, learn-manager.js, knowledge/* (ADR-069 Learn engine), learn/learn-search.js
     Layer 6 — Settings:    settings.js (provides showToast global)
     Layer 7 — Engine:      drill-engine.js (reads questions, progress, AdaptiveState, ScoringService, ShareService)
     Layer 8 — Navigation:  router.js
@@ -1551,12 +1543,12 @@
   <script defer src="data/syllabus.js"></script>
   <script defer src="js/mock-engine.js"></script>
   <script defer src="js/tables.js"></script>
-  <script defer src="js/formulas.js"></script>
   <script defer src="js/learn-manager.js"></script>
-  <!-- Learn Knowledge Engine (ADR-069): schema → registry → data modules → search. Order matters:
-       the registry must exist before the data modules self-register. (Block renderers + UI land in Phase 2.) -->
+  <!-- Learn Knowledge Engine (ADR-069): schema → registry → renderers → data modules → search. Order matters:
+       the registry must exist before the data modules self-register. -->
   <script defer src="js/knowledge/schema.js"></script>
   <script defer src="js/knowledge/registry.js"></script>
+  <script defer src="js/knowledge/blocks.js"></script>
   <script defer src="data/knowledge/categories.js"></script>
   <script defer src="data/knowledge/arithmetic.js"></script>
   <script defer src="data/knowledge/mensuration.js"></script>
