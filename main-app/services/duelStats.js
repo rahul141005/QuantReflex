@@ -27,7 +27,9 @@ function _num(v, d) { return (typeof v === 'number' && isFinite(v)) ? v : (d || 
  *   outcome 'win'|'loss'|'draw', opponentUid, opponentName,
  *   myCorrect, oppCorrect, myAnswered, questionCount,
  *   myAccuracy (0..100 int), oppAccuracy, myAvgSolveSec (sec/question), myScore, oppScore (duelScore),
- *   durationSec (whole-duel wall time), completedAt (ms).
+ *   mySolveTotalSec (this player's OWN total solve time, sec — used for "fastest win"; falls back to
+ *   myAvgSolveSec×questionCount), completedAt (ms). (durationSec/whole-duel wall time is stored on the history row
+ *   for the card, not used here.)
  */
 function applyDuelToSummary(prev, p) {
   prev = prev || {};
@@ -43,9 +45,11 @@ function applyDuelToSummary(prev, p) {
   var ach = Object.assign({}, prev.achievements || {});
 
   var win = p.outcome === 'win', loss = p.outcome === 'loss';
-  var dur = _num(p.durationSec);
   var avgSolve = _num(p.myAvgSolveSec);
   var qCount = _num(p.questionCount);
+  // "fastest win" = the WINNER'S OWN total solve time, not the whole-duel wall clock (which is gated by the slower
+  // player). Prefer the explicit mySolveTotalSec; fall back to avg×count for older callers.
+  var mySolveTotalSec = _num(p.mySolveTotalSec) || (avgSolve * qCount);
 
   /* ---- rival BEFORE this duel (needed for the "Revenge" unlock) ---- */
   var rv = Object.assign({
@@ -64,7 +68,7 @@ function applyDuelToSummary(prev, p) {
   ag.totalQuestions += qCount;
   ag.totalAnswered += _num(p.myAnswered);
   ag.totalSolveSec += avgSolve; ag.solveSamples += 1;   // rolling avg-of-per-duel-averages
-  if (win && dur > 0) ag.fastestWinSec = ag.fastestWinSec > 0 ? Math.min(ag.fastestWinSec, dur) : dur;
+  if (win && mySolveTotalSec > 0) ag.fastestWinSec = ag.fastestWinSec > 0 ? Math.min(ag.fastestWinSec, mySolveTotalSec) : mySolveTotalSec;
   ag.highestScore = ag.totalDuels === 1 ? _num(p.myScore) : Math.max(ag.highestScore, _num(p.myScore));
   ag.lowestScore = ag.totalDuels === 1 ? _num(p.myScore) : Math.min(ag.lowestScore, _num(p.myScore));
   ag.lastPlayedAt = _num(p.completedAt); ag.lastOutcome = p.outcome;
@@ -75,7 +79,7 @@ function applyDuelToSummary(prev, p) {
   // signed streak vs this rival: +n = you won the last n, -n = you lost the last n, 0 after a draw
   rv.streak = win ? (rv.streak > 0 ? rv.streak + 1 : 1) : (loss ? (rv.streak < 0 ? rv.streak - 1 : -1) : 0);
   rv.lastOutcome = p.outcome;
-  if (win && dur > 0) rv.fastestWinSec = rv.fastestWinSec > 0 ? Math.min(rv.fastestWinSec, dur) : dur;
+  if (win && mySolveTotalSec > 0) rv.fastestWinSec = rv.fastestWinSec > 0 ? Math.min(rv.fastestWinSec, mySolveTotalSec) : mySolveTotalSec;
   var margin = Math.abs(_num(p.myScore) - _num(p.oppScore));
   rv.closestMargin = rv.closestMargin == null ? margin : Math.min(rv.closestMargin, margin);
   rv.totalMargin += (_num(p.myScore) - _num(p.oppScore));   // signed → avg margin can be negative

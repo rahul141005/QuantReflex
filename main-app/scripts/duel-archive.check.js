@@ -22,7 +22,7 @@ function duel(o) {
   return Object.assign({
     outcome: 'win', opponentUid: 'opp', opponentName: 'Rival', myCorrect: 8, oppCorrect: 4, myAnswered: 10,
     questionCount: 10, myAccuracy: 80, oppAccuracy: 40, myAvgSolveSec: 4, myScore: 8200, oppScore: 4150,
-    durationSec: 60, completedAt: 1000
+    mySolveTotalSec: 40, durationSec: 60, completedAt: 1000
   }, o);
 }
 function fold(seq) { var s = null; seq.forEach(function (d) { s = DS.applyDuelToSummary(s, d); }); return s; }
@@ -97,7 +97,7 @@ console.log('duel-archive.check — Battle Archive aggregate math (ADR-068)');
   var s = fold([
     duel({ opponentUid: 'A', opponentName: 'Ann', outcome: 'loss', myScore: 3000, oppScore: 9000, myAccuracy: 30 }),
     duel({ opponentUid: 'A', opponentName: 'Ann', outcome: 'loss', myScore: 4000, oppScore: 9000, myAccuracy: 40 }),
-    duel({ opponentUid: 'A', opponentName: 'Ann', outcome: 'win', myScore: 9000, oppScore: 8900, myAccuracy: 90, durationSec: 30 })
+    duel({ opponentUid: 'A', opponentName: 'Ann', outcome: 'win', myScore: 9000, oppScore: 8900, myAccuracy: 90, mySolveTotalSec: 25, durationSec: 99 })
   ]);
   var r = DS.deriveRivalView(s, 'A');
   eq('6 battles', r.battles, 3);
@@ -108,7 +108,18 @@ console.log('duel-archive.check — Battle Archive aggregate math (ADR-068)');
   eq('6 lastOutcome', r.lastOutcome, 'win');
   eq('6 closestMargin (|9000-8900|)', r.closestMargin, 100);
   ok('6 revenge unlocked', !!s.achievements.revenge);
-  ok('6 fastestWin set', r.fastestWinSec === 30);
+  eq('6 fastestWin = own solve time (25), NOT wall clock (99)', r.fastestWinSec, 25);
+})();
+
+/* ── 6b. fastestWin tracks the WINNER'S own solve time (min across wins), ignores durationSec ── */
+(function () {
+  var s = fold([
+    duel({ outcome: 'win', mySolveTotalSec: 50, durationSec: 10 }),
+    duel({ outcome: 'win', mySolveTotalSec: 18, durationSec: 80 }),
+    duel({ outcome: 'loss', mySolveTotalSec: 5, durationSec: 5 })   // a loss never counts toward fastest WIN
+  ]);
+  var v = DS.deriveAggregateView(s);
+  eq('6b fastestWinSec = min own win solve (18)', v.fastestWinSec, 18);
 })();
 
 /* ── 7. revenge NOT triggered when you were already winning the rivalry ── */

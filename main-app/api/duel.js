@@ -320,6 +320,8 @@ async function _finalizeTxn(code, finalizeSpec) {
         outcome: outcome(me === ra ? a : b), opponentUid: oppUid, opponentName: oppName,
         myCorrect: me.correctCount, oppCorrect: opp.correctCount, myAnswered: me.answeredCount || 0, questionCount: qCount,
         myAccuracy: acc(me), oppAccuracy: acc(opp), myAvgSolveSec: speed(me, qCount),
+        // "fastest win" uses the player's OWN total solve time (not the whole-duel wall clock gated by the slower player).
+        mySolveTotalSec: (me.totalSolveMs > 0) ? Math.round(me.totalSolveMs / 1000) : 0,
         myScore: me.duelScore || 0, oppScore: opp.duelScore || 0, durationSec: durationSec, completedAt: completedAt
       };
     }

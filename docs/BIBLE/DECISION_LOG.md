@@ -58,9 +58,24 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   module `js/duel-archive.js` (+SW v127→v128 precache). Risk concentrated on touching `_finalizeTxn` (duel
   completion hot path) → mitigated by keeping the change purely additive (`txn.set(..., {merge:true})` behind the
   existing winner/outcome logic) + a full duel regression pass. The `rivals{}` map is bounded (≤ hundreds of
-  opponents ≪ 1MB); if ever a concern it migrates to a `rivals` subcollection with no user impact. Verified by 44
+  opponents ≪ 1MB); if ever a concern it migrates to a `rivals` subcollection with no user impact. Verified by 45
   new pure-math assertions (`scripts/duel-archive.check.js`, in `npm test`). No migration (pre-launch, zero users).
   Firestore 2.17→2.18, Architecture 2.32→2.33, Security 2.13→2.14, Bible 2.46→2.47.
+- **Post-implementation audit hardening (2026-06-28, same ADR — client-only, no schema change):** an independent
+  production audit (architecture/Firestore/security/UI/UX/regression/dead-code) found the server/data/rules/indexes
+  correct and confirmed PASS on premium-gating, XSS, reads-before-writes, finalize call-frequency (≤2×/duel), no
+  listener leaks, and cross-app consistency. Five client refinements applied: (1) **filter model** — global `outcome`
+  and `difficulty` are now **mutually exclusive** (each resets the other) so every global filter is a clean indexed
+  server query with no residual-pagination empty-page gaps; residual filtering survives only in **rivalry mode**
+  (a single rival's set is small/bounded) + name-search, with honest "load more to search older battles" copy; (2) a
+  **request-token** in `_loadPage` so a stale in-flight page can't append under a newer filter's key; (3) **fastest
+  win** recomputed from the player's OWN total solve time, not the whole-duel wall clock (gated by the slower
+  player); (4) the search debounce timer is cleared on collapse; (5) re-expanding the Archive on a Home revisit
+  **paints from the in-memory cache** (no refetch, pages preserved) unless a local duel finish invalidated it.
+  **Acknowledged debt:** replaying duels older than the 30-day room TTL is not possible (per-question data lives only
+  in the TTL'd room docs, not in `duelHistory`) — replay remains future work, additively via a `duelReplays/{code}`
+  doc written at finalize; ELO/seasons/leaderboards are likewise additive (no migration). No version-track bump
+  (client correctness + one stat-definition refinement; pre-launch, no data).
 
 ## ADR-067 — Focused speed-maths catalog rebuild + Timed Mock (2026-06-24)
 - **Context:** QuantReflex served 26 exams across every Indian exam family, diluting positioning and including

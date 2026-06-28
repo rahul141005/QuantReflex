@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Battle Archive audit hardening (ADR-068 follow-up)
+
+Independent post-implementation production audit of the Battle Archive (architecture / Firestore / security / UI /
+UX / regression / dead-code). **Server, data, rules, and indexes audited correct** (premium-gating, XSS,
+reads-before-writes, finalize call-frequency ≤2×/duel, no listener leaks, cross-app consistency all PASS). Five
+**client-only** refinements + one stat-semantics fix; **no schema/rules/index change, no version-track bump.**
+
+```
+### fix(ADR-068): Battle Archive audit hardening — client correctness + fastest-win semantics
+- Impacted systems: Student App only. No Firestore schema / Rules / Indexes / Payments change.
+- Fixes (file):
+  - js/duel-archive.js — (1) FILTER MODEL: global outcome+difficulty are now mutually exclusive (each resets the
+    other) so every global filter is a clean indexed server query — no residual-pagination empty-page gaps; residual
+    filtering survives only in rivalry mode (small bounded set) + name-search, with honest "load more to search
+    older battles" copy. (2) PAGINATION: added a monotonic request token so a stale in-flight page response can't
+    append under a newer filter's query key (rapid chip switching). (3) SEARCH: debounce timer hoisted to module
+    scope + cleared on collapse (no fire into a hidden body). (4) RE-EXPAND: paints from the in-memory cache on a
+    Home revisit when the filter key is unchanged + cache valid (no refetch, scrolled pages preserved);
+    onLocalDuelComplete still invalidates so a post-duel revisit refreshes.
+  - services/duelStats.js + api/duel.js (_finalizeTxn statParams) — fastestWinSec now = the winner's OWN total
+    solve time (totalSolveMs/1000), not the whole-duel wall clock (gated by the slower player). New statParam
+    mySolveTotalSec; durationMs still stored on the history row for the card's "Duration".
+- Acknowledged debt (ROADMAP DEBT-4/5): replay of duels older than the 30-day room TTL needs a future
+  duelReplays/{code} doc (per-question data isn't in duelHistory); ELO/seasons/leaderboards are additive (no
+  migration).
+- Schema/API delta: none. Version bumps: none (client correctness + one stat-definition refinement; pre-launch, no data).
+- Verification: node --check (duel-archive.js / duelStats.js / api/duel.js); scripts/duel-archive.check.js now 45
+  assertions (added fastest-win-from-solve-time + ignores-wall-clock cases); full `npm test` green.
+```
+
 ## 2026-06-28 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (ADR-068)
 
 A Premium-only, expandable **Battle Archive** below the Home Duel card — complete paginated duel history,
@@ -49,9 +79,9 @@ only and **HIDDEN** for free users (not greyed/blurred). Spark-cheap, no new ser
 - Version bumps: Firestore 2.17→2.18, Architecture 2.32→2.33, Security 2.13→2.14, Bible 2.46→2.47 (Payment 2.3 unchanged).
 - Migration: none — pre-launch, zero users; forward-only (new duels write the extended history + summary). Deploy
   rules + indexes: firebase deploy --only firestore:rules,firestore:indexes.
-- Verification: node --check on duel.js / duelStats.js / duel-archive.js; new scripts/duel-archive.check.js (44
+- Verification: node --check on duel.js / duelStats.js / duel-archive.js; new scripts/duel-archive.check.js (45
   pure-math assertions: aggregates, streaks, milestones, rivalry head-to-head, revenge, top rivals, avg accuracy/
-  solve, non-mutation) wired into `npm test` → full suite green; CSS braces balanced; indexes JSON valid.
+  solve, fastest-win-from-solve-time, non-mutation) wired into `npm test` → full suite green; CSS braces balanced; indexes JSON valid.
 ```
 
 ## 2026-06-24 — Deep bible↔code drift reconciliation

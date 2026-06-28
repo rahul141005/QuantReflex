@@ -26,6 +26,8 @@ var DuelArchive = (function () {
   var _expanded = false;
   var _premium = false;
   var _queryKey = '';             // identity of the active server query (filters) — changing it resets paging
+  var _reqToken = 0;              // monotonic fetch token — a stale in-flight page response is ignored
+  var _searchTimer = null;        // debounce timer for the search box (cleared on collapse)
 
   /* ---- active filters ---- */
   var _f = { outcome: 'all', difficulty: 'all', range: 'all', search: '', rivalUid: null };
@@ -91,11 +93,15 @@ var DuelArchive = (function () {
     return 'all|' + _f.range;
   }
 
-  /** Residual client-side refinements the server query didn't apply (the non-primary dimension + name search). */
+  /** Residual client-side refinements the server query didn't apply.
+   * GLOBAL mode: outcome + difficulty are mutually exclusive (one is always the SERVER primary), so the only
+   * residual is name-search. RIVALRY mode: the server primary is opponentUid (a single rival's set is small —
+   * bounded, no empty-page risk), so outcome + difficulty + search refine it client-side. */
   function _residual(d) {
-    var diffIsPrimary = !_f.rivalUid && _f.outcome === 'all' && _f.difficulty !== 'all';
-    if (_f.difficulty !== 'all' && !diffIsPrimary && d.difficulty !== _f.difficulty) return false;
-    if (_f.rivalUid && _f.outcome !== 'all' && d.outcome !== _f.outcome) return false;
+    if (_f.rivalUid) {
+      if (_f.outcome !== 'all' && d.outcome !== _f.outcome) return false;
+      if (_f.difficulty !== 'all' && d.difficulty !== _f.difficulty) return false;
+    }
     if (_f.search) {
       var s = _f.search.toLowerCase();
       if (String(d.opponentName || '').toLowerCase().indexOf(s) === -1) return false;
@@ -110,22 +116,28 @@ var DuelArchive = (function () {
       .catch(function () { _summary = _summary || {}; return _summary; });
   }
 
-  /** Load the next page of the active query. Resets paging when the filter identity changed. */
+  /** Load the next page of the active query. Resets paging when the filter identity changed.
+   * A reset always supersedes any in-flight fetch (bumps _reqToken) so rapid filter switching can't append a stale
+   * page's docs under the new query key — the old fetch's response is dropped when its captured token is stale. */
   function _loadPage(reset) {
     var key = _keyOf();
-    if (reset || key !== _queryKey) { _queryKey = key; _docs = []; _cursor = null; _morePages = true; }
-    if (!_morePages || _loading) return Promise.resolve(_docs);
+    var changed = reset || key !== _queryKey;
+    if (changed) { _queryKey = key; _docs = []; _cursor = null; _morePages = true; _reqToken++; }
+    // A "load more" (not changed) must not run while a fetch is in flight; a reset already bumped the token above.
+    if (!_morePages || (_loading && !changed)) return Promise.resolve(_docs);
+    var token = changed ? _reqToken : ++_reqToken;
     var q = _buildQuery(); if (!q) return Promise.resolve(_docs);
     if (_cursor) q = q.startAfter(_cursor);
     q = q.limit(PAGE);
     _loading = true;
     return q.get().then(function (snap) {
+      if (token !== _reqToken) return _docs;   // a newer query superseded this one — drop the stale response
       _loading = false;
       snap.forEach(function (doc) { _docs.push(Object.assign({ _id: doc.id }, doc.data())); });
       _cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : _cursor;
       _morePages = snap.docs.length === PAGE;
       return _docs;
-    }).catch(function () { _loading = false; _morePages = false; return _docs; });
+    }).catch(function () { if (token === _reqToken) { _loading = false; _morePages = false; } return _docs; });
   }
 
   /* ───────────────────────── view-models (delegate to the shared pure math when available) ───────────────────────── */
@@ -209,6 +221,7 @@ var DuelArchive = (function () {
       _renderExpanded(true);
       if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('settingsToggle'); } catch (_) {} }
     } else {
+      if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }   // don't fire a pending search into a hidden body
       _renderHeader();
     }
   }
@@ -220,8 +233,11 @@ var DuelArchive = (function () {
     if (btn) { btn.setAttribute('aria-expanded', 'true'); var ch = btn.querySelector('.ba-toggle-chevron'); if (ch) ch.textContent = '▴'; }
     var body = document.getElementById('baBody'); if (!body) return;
     body.hidden = false;
+    // Re-expand on a Home revisit: if the cache is still valid (summary loaded + a page held + same filter), paint
+    // from memory — no refetch, and the user keeps the pages they'd scrolled. onLocalDuelComplete() nulls the cache,
+    // so a post-duel revisit still refreshes. Otherwise show the skeleton and load summary + page 1.
+    if (_summary != null && _docs.length && _keyOf() === _queryKey) { _paintBody(); return; }
     body.innerHTML = '<div class="ba-skeleton"><div class="ba-skel-row"></div><div class="ba-skel-row"></div><div class="ba-skel-row"></div></div>';
-    // Load summary (if needed) + first page, then paint.
     var needSummary = _summary == null;
     var jobs = [needSummary ? _loadSummary() : Promise.resolve(_summary), _loadPage(true)];
     Promise.all(jobs).then(function () { _paintBody(); });
@@ -333,7 +349,14 @@ var DuelArchive = (function () {
   function _listHtml() {
     var rows = _docs.filter(_residual);
     if (!rows.length) {
-      return '<div class="ba-noresults">No battles match these filters' + (_morePages ? ' yet.' : '.') + '</div>' + _loadMoreHtml();
+      // In global mode every filter is server-side, so an empty result is genuinely empty. The only client-side
+      // refinement is name-search (and outcome/difficulty within a small rivalry set) — there, "load more to search
+      // older battles" is the honest hint when more pages exist.
+      var clientRefined = !!_f.search || !!_f.rivalUid;
+      var msg = (clientRefined && _morePages)
+        ? 'No matches in the battles loaded so far — load more to search older battles.'
+        : 'No battles match these filters.';
+      return '<div class="ba-noresults">' + msg + '</div>' + _loadMoreHtml();
     }
     return rows.map(_cardHtml).join('') + _loadMoreHtml();
   }
@@ -401,14 +424,22 @@ var DuelArchive = (function () {
           var v = b.getAttribute('data-v');
           if (_f[group] === v) return;
           _f[group] = v;
+          // GLOBAL mode: outcome + difficulty are mutually exclusive so every filter stays a clean server query
+          // (no residual paging gaps). In RIVALRY mode they refine the small rival set together, so don't reset.
+          if (!_f.rivalUid) {
+            if (group === 'outcome' && v !== 'all') _f.difficulty = 'all';
+            else if (group === 'difficulty' && v !== 'all') _f.outcome = 'all';
+          }
           _refreshList();
         });
       });
     });
     var search = document.getElementById('baSearch');
     if (search) {
-      var t;
-      search.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { _f.search = search.value.trim(); _refreshListOnly(); }, 180); });
+      search.addEventListener('input', function () {
+        if (_searchTimer) clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(function () { _searchTimer = null; _f.search = search.value.trim(); _refreshListOnly(); }, 180);
+      });
     }
     var clr = document.getElementById('baRivalClear');
     if (clr) clr.addEventListener('click', function () { _f.rivalUid = null; _refreshList(); });

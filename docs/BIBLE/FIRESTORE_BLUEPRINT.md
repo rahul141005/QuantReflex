@@ -180,7 +180,8 @@ completedAt, createdAt }`.
   - `duelAggregates`: `{totalDuels, wins, losses, draws, currentStreak (win-streak; any non-win resets), bestStreak,
     totalCorrect, totalQuestions, totalAnswered, totalSolveSec, solveSamples, fastestWinSec, highestScore,
     lowestScore, lastPlayedAt, lastOutcome}` — exact avg accuracy = `totalCorrect/totalQuestions`, rolling avg solve
-    = `totalSolveSec/solveSamples`.
+    = `totalSolveSec/solveSamples`. **`fastestWinSec` = the winner's OWN total solve time** (`totalSolveMs/1000`),
+    not the whole-duel wall clock (which is gated by the slower player); `highestScore`/`lowestScore` are `duelScore`.
   - `rivals{opponentUid: {name, count, wins, losses, draws, streak (signed: +n you won the last n, −n you lost the
     last n, 0 after a draw), lastOutcome, fastestWinSec, closestMargin, totalMargin (signed, for avg), sumAccuracy,
     sumSolveSec, lastPlayedAt}}` — powers the rivalry banner + most-played/most-defeated (derived). Bounded map
