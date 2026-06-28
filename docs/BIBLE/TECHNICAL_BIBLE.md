@@ -228,10 +228,11 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
   revision·related). New content kind = new block type + renderer, never a schema rewrite.
 - **Registry** `js/knowledge/registry.js` — in-memory KnowledgeBase (get/all/categories/byCategory/related/siblings
   + integrity validator). **Data** `data/knowledge/<category>.js` self-registers (idempotent).
-- **Renderers** `js/knowledge/blocks.js` — one DOM renderer per block type; `table`→existing `.math-table`,
-  `formula`→existing `.formula-block` (identity + the loved tables preserved); richer blocks use `.kx-*`.
-- **Search** `js/learn/learn-search.js` — weighted in-memory index over the registry (symbol/synonym aware),
-  replacing the old DOM text-scan.
+- **Renderers** (Phase 2) `js/knowledge/blocks.js` — one DOM renderer per block type; `table`→existing
+  `.math-table`, `formula`→existing `.formula-block` (identity + the loved tables preserved); richer blocks use
+  `.kx-*`. Ships with the topic-page UI/CSS that mount it.
+- **Search** `js/learn/learn-search.js` — weighted in-memory index over the registry (symbol/synonym aware); becomes
+  the Learn search when the UI is wired in P2 (the legacy `performLearnSearch` DOM-scan still drives the live page).
 - **Routing** — `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged; backwards
   compatible) + toggles a `view-learn-active` body class so the 480px cap is lifted **only** for Learn (mirrors the
   `view-practice-active` hook). **Validation** `scripts/learn-content.check.js` (in `npm test`).

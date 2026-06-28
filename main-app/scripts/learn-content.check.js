@@ -92,5 +92,16 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   ok('6 valid block accepted', Schema.validateBlock({ type: 'table', headers: ['a'], rows: [['1']] }, 'w').length === 0);
 })();
 
+/* ── 7. registry surfaces duplicate topic ids instead of silently overwriting (run last — resets the registry) ── */
+(function () {
+  KB._reset();
+  KB.registerCategory({ id: 'tmp', title: 'Tmp' });
+  KB.registerAll('tmp', [
+    { id: 'dup', title: 'A', category: 'tmp', difficulty: 'core', examFrequency: 'high', status: 'scaffold', sections: [] },
+    { id: 'dup', title: 'B', category: 'tmp', difficulty: 'core', examFrequency: 'high', status: 'scaffold', sections: [] }
+  ]);
+  ok('7 duplicate id is reported by validateAll', KB.validateAll().some(function (e) { return e.indexOf('duplicate topic id "dup"') !== -1; }));
+})();
+
 console.log('\nlearn-content.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

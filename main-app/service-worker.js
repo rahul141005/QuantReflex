@@ -28,7 +28,6 @@ var ASSETS = [
   './js/learn-manager.js',
   './js/knowledge/schema.js',
   './js/knowledge/registry.js',
-  './js/knowledge/blocks.js',
   './data/knowledge/categories.js',
   './data/knowledge/arithmetic.js',
   './data/knowledge/mensuration.js',

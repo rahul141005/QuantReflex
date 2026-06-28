@@ -19,6 +19,7 @@
   var _order = [];       // topic ids in registration order
   var _cats = {};        // id -> category meta
   var _catOrder = [];    // category ids in registration order
+  var _dupes = [];       // ids registered more than once (a content bug to surface, not silently overwrite)
 
   function registerCategory(meta) {
     if (!meta || !meta.id) return;
@@ -33,6 +34,7 @@
     if (!topic || !topic.id) return;
     if (categoryId && !topic.category) topic.category = categoryId;
     if (!_topics[topic.id]) _order.push(topic.id);
+    else if (_dupes.indexOf(topic.id) === -1) _dupes.push(topic.id);   // re-registration = a duplicate-id bug
     _topics[topic.id] = topic;
   }
 
@@ -96,6 +98,7 @@
    */
   function validateAll() {
     var errs = [];
+    _dupes.forEach(function (id) { errs.push('duplicate topic id "' + id + '" registered more than once'); });
     all().forEach(function (t) {
       errs = errs.concat(Schema.validateTopic(t));
       if (t.category && !_cats[t.category]) errs.push(t.id + ': category "' + t.category + '" is not registered');
@@ -107,7 +110,7 @@
   }
 
   /** Test-only: wipe the registry (so the node harness can re-load deterministically). */
-  function _reset() { _topics = {}; _order = []; _cats = {}; _catOrder = []; }
+  function _reset() { _topics = {}; _order = []; _cats = {}; _catOrder = []; _dupes = []; }
 
   var KnowledgeBase = {
     registerCategory: registerCategory,

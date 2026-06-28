@@ -19,24 +19,25 @@ and fully working** (backwards compatible). No Firestore/rules/payment change. *
 - Impacted systems: Student App only (client). No Firestore / Rules / Payments / AI.
 - New (engine): js/knowledge/schema.js (pure, dual-exported topic/block schema + validators); js/knowledge/
   registry.js (in-memory KnowledgeBase: categories/topics, get/all/categories/byCategory/related/siblings +
-  integrity validator); js/knowledge/blocks.js (one DOM renderer per block type — table→.math-table, formula→
-  .formula-block reused; richer blocks use .kx-*); js/learn/learn-search.js (weighted symbol/synonym index over the
-  registry, replacing the DOM text-scan — not yet wired to UI).
+  integrity validator incl. duplicate-id detection); js/learn/learn-search.js (weighted symbol/synonym index over
+  the registry — becomes the Learn search when wired in Phase 2; the legacy performLearnSearch still drives the
+  live page).
 - New (data): data/knowledge/categories.js (arithmetic, mensuration) + data/knowledge/arithmetic.js (6 topics) +
   data/knowledge/mensuration.js (2 topics) — a faithful migration of the 8 legacy js/formulas.js topics into the
   schema (each {title,formula,tip} → a formula item {name,expr,when}; concise factual overviews added). No filler.
 - Routing: js/router.js parses #learn/<topicId> deep links (new _parseHash; single-segment hashes unchanged →
   backwards compatible) and toggles a view-learn-active body class (mirrors the view-practice-active hook) — inert
   until Phase 2 CSS/markup consumes it.
-- Wiring: index.html script tags (schema→registry→blocks→data→search, order-correct); service-worker v128→v129 +
-  precache the 7 new modules (offline-first preserved).
-- Validation: new scripts/learn-content.check.js (34 assertions: schema validity, category/related/drill-reference
+- Wiring: index.html script tags (schema→registry→data→search, order-correct); service-worker v128→v129 +
+  precache the 6 new modules (offline-first preserved).
+- Validation: new scripts/learn-content.check.js (35 assertions: schema validity, category/related/drill-reference
   resolution, search ranking by word/symbol/synonym, registry helpers, schema negative tests) wired into npm test.
-- Not in this phase (per ADR-069): the hub/topic UI + responsive .kx-* CSS (Phase 2), gold-standard content
-  (Phase 3), Practice/Planner/progress/revision integrations (Phase 4). The old Learn page remains the live UI.
+- Not in this phase (per ADR-069): the block renderers (js/knowledge/blocks.js) + hub/topic UI + responsive .kx-*
+  CSS (Phase 2 — a renderer with no caller/test doesn't ship early), gold-standard content (Phase 3),
+  Practice/Planner/progress/revision integrations (Phase 4). The old Learn page remains the live UI.
 - Schema/API delta: none (no Firestore/endpoint). Version bumps: Architecture 2.33→2.34, Bible 2.47→2.48
   (Firestore/Security/Payment unchanged). Migration: none.
-- Verification: node --check all new JS + router; npm test green (full suite + learn-content.check 34); old Learn
+- Verification: node --check all new JS + router; npm test green (full suite + learn-content.check 35); old Learn
   page renders unchanged; #learn and #learn/<topic> both resolve to the Learn view (no home fallback).
 ```
 

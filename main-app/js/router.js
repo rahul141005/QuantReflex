@@ -93,6 +93,7 @@ var Router = (function () {
     if (!target) {
       target = document.getElementById('view-home');
       viewId = 'home';
+      params = undefined;   // unknown view: drop any stale sub-path so the URL canonicalizes to #home, not #home/<garbage>
     }
     target.classList.add('spa-view-active');
     /* Practice owns its own scroll shell — neutralize the app-level .container scroller so the

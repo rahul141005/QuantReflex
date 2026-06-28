@@ -27,9 +27,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   - **Registry** (`js/knowledge/registry.js`): in-memory KnowledgeBase (categories + topics) answering
     get/all/categories/byCategory/related/siblings + a graph integrity validator. Data modules
     (`data/knowledge/<category>.js`) self-register; idempotent.
-  - **Renderers** (`js/knowledge/blocks.js`): one DOM renderer per block type; `table` reuses the existing
+  - **Renderers** (Phase 2, `js/knowledge/blocks.js`): one DOM renderer per block type; `table` reuses the existing
     `.math-table` and `formula` the existing `.formula-block` markup so QuantReflex's identity (and the loved
-    tables) is preserved exactly; richer blocks add `.kx-*` classes. **No AI surfaces.**
+    tables) is preserved exactly; richer blocks add `.kx-*` classes. Ships with the topic-page UI + CSS that mount
+    and style it (not in P1 — a renderer with no caller/test doesn't ship). **No AI surfaces.**
   - **Search** (`js/learn/learn-search.js`): a real weighted in-memory index over the registry (title ≫ searchTerms/
     aliases ≫ formula names ≫ concept text), symbol/synonym aware — replaces the old DOM text-scan.
   - **Routing:** `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged — backwards
@@ -39,13 +40,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   - **Validation:** `scripts/learn-content.check.js` (in `npm test`) asserts every object against the schema +
     resolves related/drill references, so content can't ship broken or drift.
 - **Phased delivery (each phase backwards-compatible + audit-gated):** **P1 (shipped)** — engine (schema/registry/
-  renderers/search) + data model + first faithful migration of the 8 legacy formula topics + router deep-links +
-  validator; old Learn page untouched. **P2** — hub + topic pages + responsive CSS (`.kx-*` primitives) cut over.
+  search) + data model + first faithful migration of the 8 legacy formula topics + router deep-links + validator;
+  old Learn page untouched. **P2** — hub + topic pages + **block renderers** (`blocks.js`) + responsive CSS (`.kx-*`
+  primitives) cut over.
   **P3** — author ~10 gold-standard topics + cheat-sheet/revision projections. **P4** — Practice/Planner links,
   progress, revision mode, bookmarks (NO AI). **P5** — performance, polish, retire `formulas.js`, final audit.
 - **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs
   today's everything-at-once; the responsive primitives become an app-wide pattern. P1 is pure additive engine
-  (no Firestore/rules/payment change; old UI unchanged) — verified by 34 new pure assertions + the full suite green.
+  (no Firestore/rules/payment change; old UI unchanged) — verified by 35 new pure assertions + the full suite green.
   Architecture 2.33→2.34, Bible 2.47→2.48 (Firestore/Security/Payment unchanged). Future-proof: videos/flashcards/
   notes/diagrams/progress are additive block types or hooks, no rewrite. AI intentionally excluded from Learn.
 
