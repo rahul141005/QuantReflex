@@ -61,7 +61,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3 commercial-math topicCount', byId['commercial-math'] && byId['commercial-math'].topicCount, 4);
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
-  eq('3 published gold-standard count = 14', KB.all().filter(function (t) { return t.status === 'published'; }).length, 14);
+  eq('3 published gold-standard count = 19', KB.all().filter(function (t) { return t.status === 'published'; }).length, 19);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order numbers<arithmetic<commercial<modern<mensuration',
     order.indexOf('numbers') < order.indexOf('arithmetic') && order.indexOf('arithmetic') < order.indexOf('commercial-math') &&

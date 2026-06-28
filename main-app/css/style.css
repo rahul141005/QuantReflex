@@ -10651,7 +10651,13 @@ body.dark-mode .kx-search-title { color: #e2e8f0; }
 body.dark-mode .kx-search-cat, body.dark-mode .kx-search-empty { color: #94a3b8; }
 
 /* ---- hub: category groups + topic cards ---- */
-.kx-cat { margin-bottom: 1.4rem; }
+/* one-time staggered entrance for the (≤5) hub category sections — feels alive on open, plays once per hub build */
+.kx-cat { margin-bottom: 1.4rem; animation: kx-rise .32s ease both; }
+.kx-cat:nth-child(2) { animation-delay: .045s; }
+.kx-cat:nth-child(3) { animation-delay: .09s; }
+.kx-cat:nth-child(4) { animation-delay: .135s; }
+.kx-cat:nth-child(5) { animation-delay: .18s; }
+@keyframes kx-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .kx-cat-head { display: flex; align-items: baseline; gap: .5rem; margin: 0 0 .15rem; }
 .kx-cat-title { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; }
 .kx-cat-count { font-size: .8rem; font-weight: 700; color: #475569; }
@@ -10819,7 +10825,7 @@ body.dark-mode .kx-back { color: #60a5fa; }
 @media (prefers-reduced-motion: reduce) {
   .kx-topic-card, .kx-sec-pill, .kx-chip, .kx-search-item, .kx-pn { transition: none !important; }
   .kx-topic-card:hover, .kx-topic-card:active, .kx-sec-pill:active { transform: none !important; }
-  .kx-topic-main { animation: none !important; }
+  .kx-topic-main, .kx-cat { animation: none !important; }
 }
 
 /* ───────── Phase 4 — integrations: action bar · resume strips · completion · cheat-sheet projection (NO AI) ───────── */

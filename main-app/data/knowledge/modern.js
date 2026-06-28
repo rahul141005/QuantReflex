@@ -57,10 +57,48 @@
     },
     {
       id: 'permutation-combination', title: 'Permutation & Combination', icon: '🔀', category: 'modern-math',
-      difficulty: 'advanced', examFrequency: 'medium', status: 'scaffold',
+      difficulty: 'advanced', examFrequency: 'medium', status: 'published',
       drillCategory: null, syllabusTopicId: 'permutations_combinations', revisionIntervalDays: 6,
-      related: ['probability'], searchTerms: ['permutation', 'combination', 'npr', 'ncr', 'arrangement', 'selection', 'factorial'],
-      sections: []
+      related: ['probability'],
+      searchTerms: ['permutation', 'combination', 'npr', 'ncr', 'arrangement', 'selection', 'factorial', 'counting', 'circular'],
+      sections: [
+        { type: 'overview', text: 'Counting without listing. Ask ONE question first: does ORDER matter? If yes it\'s a permutation (arrangement); if no it\'s a combination (selection). Most of the topic is recognising which one a problem wants, then plugging into nPr or nCr.' },
+        { type: 'concept', title: 'The fundamental counting principle', body: 'If a first task can be done in m ways and a second in n ways, together they can be done in m × n ways. Choices in sequence MULTIPLY. This single idea underlies every permutation and combination formula.' },
+        { type: 'concept', title: 'Order matters? Permutation. Order doesn\'t? Combination', body: 'Arranging 3 books on a shelf (ABC ≠ BCA) → permutation. Picking a 3-member committee (the group {A,B,C} is one committee regardless of order) → combination. "Arrange / rank / seat / form a number / password" → order matters. "Select / choose / committee / team / handshake" → order doesn\'t.' },
+        { type: 'concept', title: 'The bridge between them', body: 'A combination ignores the internal order that a permutation counts. Since r chosen items can be arranged in r! ways, nPr = nCr × r! — so nCr = nPr / r!. Selecting then arranging = choosing the set, then ordering it.' },
+        { type: 'formula', items: [
+          { name: 'Permutation (arrange r of n)', expr: 'nPr = n! / (n − r)!', when: 'Order matters: arrangements, rankings, forming numbers.' },
+          { name: 'Combination (choose r of n)', expr: 'nCr = n! / (r!·(n − r)!)', when: 'Order doesn\'t matter: committees, teams, handshakes.' },
+          { name: 'Arrangements with repeats', expr: 'word with letters = n! / (p!·q!·…)', when: 'Some items are identical (p alike of one kind, q of another).' },
+          { name: 'Circular arrangement', expr: '(n − 1)! around a round table', when: 'Seating in a circle (rotations are the same).' }
+        ] },
+        { type: 'trick', title: 'Speed technique', items: [
+          'nCr = nC(n−r): choosing 8 of 10 = leaving out 2 = 10C2 = 45. Always pick the smaller r to compute.',
+          'Expand nCr as a short product: nCr = (n·(n−1)·…·r terms) / r!. e.g. 10C3 = (10·9·8)/(3·2·1) = 120.',
+          'A handshake / line-joining between n people = nC2 = n(n−1)/2 (each pair once).'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Using a permutation when order is irrelevant (counting {A,B} and {B,A} as two committees) — overcounts by r!.',
+          'Forgetting to divide by the factorials of identical items in word-arrangement problems.',
+          'Using n! instead of (n − 1)! for circular seating.',
+          'Adding when you should multiply: independent sequential choices multiply.'
+        ] },
+        { type: 'example', problem: 'How many ways can the letters of the word "LEVEL" be arranged?', steps: [
+          'LEVEL has 5 letters with L repeated twice and E repeated twice.',
+          'Arrangements = 5! / (2!·2!) = 120 / 4.'
+        ], answer: '30' },
+        { type: 'example', problem: 'From 8 people, how many ways can a committee of 3 be selected?', steps: [
+          'Order does not matter → combination 8C3.',
+          '8C3 = (8·7·6)/(3·2·1) = 336/6.'
+        ], answer: '56' },
+        { type: 'memory', text: 'Order matters → nPr; order doesn\'t → nCr. nCr = nPr ÷ r!. Sequential choices multiply.' },
+        { type: 'revision', points: [
+          'Fundamental principle: choices in sequence multiply.',
+          'nPr = n!/(n−r)! (arrange); nCr = n!/(r!(n−r)!) (select).',
+          'nCr = nC(n−r); compute with the smaller r.',
+          'Identical items → divide by their factorials; circular → (n−1)!.'
+        ] }
+      ]
     }
   ];
 

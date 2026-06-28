@@ -283,17 +283,93 @@
     },
     {
       id: 'ages', title: 'Problems on Ages', icon: '🎂', category: 'arithmetic',
-      difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: null, syllabusTopicId: 'ages', revisionIntervalDays: 6,
-      related: ['ratio-proportion'], searchTerms: ['age', 'ages', 'years', 'present age'],
-      sections: []
+      related: ['ratio-proportion', 'averages'],
+      searchTerms: ['age', 'ages', 'years', 'present age', 'years ago', 'years hence', 'elder', 'younger'],
+      sections: [
+        { type: 'overview', text: 'Age problems are just linear equations dressed in words. Name ONE present age as a variable, write everyone else in terms of it, and apply the time shifts carefully. The one fact that breaks most questions open: the DIFFERENCE between two people\'s ages never changes.' },
+        { type: 'concept', title: 'Set the present age as the variable', body: 'Let the present age you know least about be x. Express the rest from the wording ("A is 4 years older than B" → A = B + 4). "n years ago" means subtract n from EVERY age; "n years hence/later" means add n to every age — including both people in the comparison.' },
+        { type: 'concept', title: 'The age difference is constant', body: 'If A is 6 years older than B today, A was 6 years older 10 years ago and will be 6 years older 20 years hence. Ratios change with time, but the difference is fixed — use it to pin one equation instantly.' },
+        { type: 'formula', items: [
+          { name: 'Time shift', expr: 'Age n years ago = present − n ; n years hence = present + n', when: 'Apply to BOTH people in any comparison.' },
+          { name: 'Ratio at a time point', expr: 'If ages are in ratio a : b, write them as ak and bk', when: 'A ratio is given — introduce one multiplier k, then use a second condition to find k.' },
+          { name: 'Constant difference', expr: '(elder age) − (younger age) = same at every time', when: 'Two people compared across different times.' }
+        ] },
+        { type: 'trick', title: 'Speed technique', items: [
+          'When a ratio is given at one time and another ratio at a different time, write both as multiples and use the constant difference to solve in one step.',
+          'Translate the sentence left to right into algebra immediately — don\'t hold the words in your head.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Shifting only ONE person\'s age for "n years ago/hence" — shift everyone in that comparison.',
+          'Applying a present-day ratio to a past or future age (the ratio holds only at the stated time).',
+          'Mixing "older/younger" direction — older means a LARGER number.',
+          'Forgetting to convert the final multiplier k back into an actual age.'
+        ] },
+        { type: 'example', problem: 'The ratio of A\'s to B\'s present age is 4 : 3. After 6 years it becomes 6 : 5. Find A\'s present age.', steps: [
+          'Let A = 4k, B = 3k.',
+          'After 6 years: (4k + 6)/(3k + 6) = 6/5.',
+          'Cross-multiply: 5(4k + 6) = 6(3k + 6) → 20k + 30 = 18k + 36 → 2k = 6 → k = 3.',
+          'A = 4k = 4 × 3.'
+        ], answer: '12 years' },
+        { type: 'example', problem: 'A father is 30 years older than his son. In 12 years he will be twice as old as the son. Find the son\'s present age.', steps: [
+          'Let son = x, father = x + 30 (constant difference 30).',
+          'In 12 years: (x + 30) + 12 = 2(x + 12) → x + 42 = 2x + 24.',
+          'So x = 18.'
+        ], answer: '18 years' },
+        { type: 'memory', text: 'One variable, shift everyone together, and lean on the difference that never moves.' },
+        { type: 'revision', points: [
+          'Pick one present age = x; write the rest from the words.',
+          '"Years ago" subtract from all; "years hence" add to all.',
+          'Age difference is constant — a free equation.',
+          'A given ratio holds only at its stated time point.'
+        ] }
+      ]
     },
     {
       id: 'mixtures-alligations', title: 'Mixtures & Alligations', icon: '🧪', category: 'arithmetic',
-      difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: null, syllabusTopicId: 'mixtures', revisionIntervalDays: 6,
-      related: ['ratio-proportion', 'averages'], searchTerms: ['mixture', 'alligation', 'replacement', 'milk water'],
-      sections: []
+      related: ['ratio-proportion', 'averages'],
+      searchTerms: ['mixture', 'alligation', 'replacement', 'milk water', 'dilution', 'cheaper dearer', 'blend', 'ratio'],
+      sections: [
+        { type: 'overview', text: 'Alligation is the fast way to mix two things to hit a target average — price, concentration, speed, anything. The rule gives you the RATIO in which to combine them. The second half of the topic is repeated replacement: drawing off and topping up a vessel, where the pure part decays by a fixed factor each round.' },
+        { type: 'concept', title: 'The alligation cross', body: 'To reach a mean value M by mixing a cheaper item (cost C) and a dearer item (cost D): the ratio of quantities (cheaper : dearer) = (D − M) : (M − C). Each part takes the DISTANCE from the OTHER item to the mean. Same idea works for concentration or any weighted average.' },
+        { type: 'concept', title: 'It is just a weighted average, rearranged', body: 'M sits between C and D, closer to whichever ingredient you use more of. So the quantity of each is proportional to how far the mean is from the OTHER ingredient — that\'s why the cross swaps the differences.' },
+        { type: 'concept', title: 'Repeated replacement', body: 'If a vessel holds V of pure liquid and you remove x and refill with water, then repeat n times, the pure liquid left is V·(1 − x/V)ⁿ. Each operation keeps the same FRACTION (1 − x/V) of whatever pure liquid remained.' },
+        { type: 'formula', items: [
+          { name: 'Alligation ratio', expr: 'cheaper : dearer = (D − M) : (M − C)', when: 'Mixing two grades/prices/strengths to a mean M.' },
+          { name: 'Repeated replacement', expr: 'pure left = V·(1 − x/V)ⁿ', when: 'Draw off x and top up with water, n times.' },
+          { name: 'Mean (check)', expr: 'M = (C·q₁ + D·q₂)/(q₁ + q₂)', when: 'Verifying a blend\'s average from known quantities.' }
+        ] },
+        { type: 'trick', title: 'Speed technique', items: [
+          'Put the mean in the middle, the two ingredients on the left; subtract diagonally; read the ratio across — quantity of each is the difference from the OTHER one.',
+          'For replacement, you only need the FRACTION (1 − x/V); raise it to the power n and multiply by V.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Reversing the cross — the cheaper quantity pairs with (D − M), the distance from the DEARER side.',
+          'Using (removed/total) wrong in replacement: the surviving fraction is (1 − x/V), not x/V.',
+          'Forgetting that after the first replacement the volume is back to V (you topped it up).',
+          'Mixing percentages and absolute amounts in the same cross — keep units consistent.'
+        ] },
+        { type: 'example', problem: 'In what ratio must rice at ₹30/kg be mixed with rice at ₹45/kg to get a mixture worth ₹40/kg?', steps: [
+          'C = 30, D = 45, M = 40.',
+          'cheaper : dearer = (D − M) : (M − C) = (45 − 40) : (40 − 30) = 5 : 10.',
+          'Simplify 5 : 10.'
+        ], answer: '1 : 2' },
+        { type: 'example', problem: 'A 40-litre vessel is full of milk. 8 litres are drawn off and replaced with water; this is done twice. How much milk remains?', steps: [
+          'Surviving fraction each time = 1 − 8/40 = 1 − 1/5 = 4/5.',
+          'After 2 operations: 40 × (4/5)² = 40 × 16/25.',
+          'Compute: 640/25 = 25.6.'
+        ], answer: '25.6 litres' },
+        { type: 'memory', text: 'Cross the differences, read across; for replacement, keep (1 − x/V) and raise to the power n.' },
+        { type: 'revision', points: [
+          'cheaper : dearer = (D − M) : (M − C) — each takes the distance from the OTHER.',
+          'Mean lies nearer the ingredient used in greater quantity.',
+          'Repeated replacement: pure left = V·(1 − x/V)ⁿ.',
+          'Volume resets to V after each top-up.'
+        ] }
+      ]
     }
   ];
 

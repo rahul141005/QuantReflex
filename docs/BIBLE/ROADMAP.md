@@ -27,6 +27,10 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   tricks/traps/examples/memory/revision); 5 honest scaffolds. Content-quality gate enforces depth on every published
   topic. (The cheat-sheet projection view + formula explorer moved to P4, alongside revision mode — the blocks are
   authored.)
+- **Content completion ✅ (2026-06-28):** authored the remaining **5 scaffolds to gold standard** (Number Series,
+  Ages, Mixtures & Alligations, Partnership, Permutation & Combination) and published them — the curated 5-category
+  scope is now **19/19 gold, zero scaffolds/placeholders** (every formula + example hand- + agent-verified, 0 errors;
+  content gate 196 assertions). Broader syllabus categories (algebra/geometry/DI) remain a future additive expansion.
 - **Phase 4 — Integrations (no AI) ✅ (2026-06-28):** progress module (`js/learn/learn-progress.js`, localStorage-
   primary + best-effort Firestore mirror; spaced-revision helpers under `learn-progress.check`, 32 assertions); topic
   **action bar** (Practise this → focus-drill via `drillCategory`; **Quick-revision cheat-sheet projection** = a

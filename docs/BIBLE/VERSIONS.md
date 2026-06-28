@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.55 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.56 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.40 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.56 / Arch 2.40 (2026-06-28)** — **Learn content completion — the curated scope is now 19/19 gold (ADR-069),
+> NO AI.** Authored the **last 5 scaffold topics to full gold-standard depth** and flipped them to `published`:
+> **Number Series, Problems on Ages, Mixtures & Alligations, Partnership, Permutation & Combination** (10–11 sections
+> each: overview · concepts · formulas · speed trick · traps · 2 worked examples · memory hook · revision). Every
+> formula + worked example hand-verified AND independently re-computed by a second agent — **zero math errors**. So
+> the shipped 5-category Learn scope has **no scaffolds / no "coming soon" left** (the scaffold capability stays in
+> code for future categories). `number-series` gets a real "Practise this" (it has a dedicated drill); the other 4
+> keep `drillCategory:null` (no misleading practice — same principle as the Pipes fix). Content-quality gate now
+> validates all 19 published (`learn-content.check` 161→196). Plus a restrained premium touch: a one-time
+> reduced-motion-guarded staggered entrance on the ≤5 hub category sections (`kx-rise`). SW v137→v138.
+> **Content/client-only; no Firestore/Security/Payment change; Arch unchanged (same engine, more data); NO AI.**
+> Bible 2.55→2.56.
 
 > **2.55 / Arch 2.40 (2026-06-28)** — **Learn ship-readiness fixes (ADR-069), NO AI** — 5 real issues from a final
 > adversarial production audit (the audit also confirmed the system otherwise sound, and several flagged items were
@@ -179,6 +192,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.56 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn content completion — 19/19 gold (ADR-069), NO AI:** authored the last 5 scaffolds (Number Series, Ages, Mixtures & Alligations, Partnership, Permutation & Combination) to gold-standard depth (10–11 sections each) and flipped to `published`; every formula/example hand- + agent-verified (zero math errors). No scaffolds/"coming soon" remain in the shipped 5-category scope. `number-series` gets a real Practise button; the other 4 keep `drillCategory:null` (no misleading practice). Content gate now validates 19 published (`learn-content.check` 161→196). Restrained premium touch: one-time reduced-motion-guarded `kx-rise` stagger on the ≤5 hub category sections. SW v137→v138. Content/client-only; Arch unchanged (same engine, more data); no Firestore/Security/Payment change. Bible 2.55→2.56. |
 | 2026-06-28 | 2.55 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn ship-readiness fixes (ADR-069), NO AI:** 5 real issues from a final adversarial audit (rest confirmed sound; several flagged items consciously rejected as non-issues). (1) route-change focus management → topic `<h1>` / `#learnHeading` (both `tabindex="-1"`, `focus({preventScroll:true})`) — WCAG 2.4.3; (2) `.kx-section-nav` `@supports` fallback to near-opaque where `backdrop-filter` unsupported (no content bleed); (3) faint `#64748b` labels (`.kx-cat-count/blurb`, `.kx-search-cat`, `.kx-status-scaffold`, `.kx-action-soon`) darkened to `#475569` for AA; (4) hub "Continue" excludes "Due" ids (no duplicate cards; Saved authoritative); (5) hub scroll position restored on Back from a topic. SW v136→v137. Client-only; no Firestore/Security/Payment change. Bible 2.54→2.55, Arch 2.39→2.40. |
 | 2026-06-28 | 2.54 | 2.39 | 2.19 | 2.14 | 2.3 | **Learn premium UX polish + 4 bug fixes (ADR-069), NO AI:** (1) horizontal pill/strip swipe no longer switches the bottom-nav tab — `swipe-nav.js` denylist now exempts `[data-no-swipe], .kx-section-nav, .kx-resume-row, .kx-table-scroll`; (2) sticky section-nav is now subtle glass (blur + translucent page-bg) instead of a dark strip; (3) "Save" is real — hub shows a "★ Saved" strip from `LearnProgress.bookmarkedIds()` + save toast; (4) Pipes & Cisterns `drillCategory:null` + non-interactive "Practice coming soon" chip (`drillComingSoon`) instead of launching Time & Work questions. Scaffold "Coming soon" cards restyled (dashed/inviting, not dimmed); bounded token-based polish (card hover/press, resume edge-fade mask, glassy pills, search focus), all reduced-motion-guarded. SW v135→v136. Client-only; no Firestore/Security/Payment change. Bible 2.53→2.54, Arch 2.38→2.39. |
 | 2026-06-28 | 2.53 | 2.38 | 2.19 | 2.14 | 2.3 | **Learn final-review polish (ADR-069), NO AI:** client-only a11y + responsive elevations from the final production review. **A11y semantics:** topic-page section labels → `<h2>`, block heads (concept/formula/trick/trap/memory/example) → `<h3>` (clean `h1→h2→h3` outline); breadcrumb/section-nav → `<nav aria-label>`, related/prev-next/back → `<aside>`; active scroll-spy pill gets `aria-current`; `#learnSearchResults` is an `aria-live="polite"` region. Zero visual change (class-based styling; two head classes gained a `margin-top:0` reset). **Landscape-tablet layout:** reading-column + sticky side-rail now activates at **≥960px** (was 1100) via a new 900px container step + hub 3-col @960 — landscape iPads/foldables get a true two-column reading+rail; phones + portrait tablets (<960) unchanged. SW v134→v135. No Firestore/Security/Payment change. Bible 2.52→2.53, Arch 2.37→2.38. |

@@ -139,10 +139,48 @@
     },
     {
       id: 'partnership', title: 'Partnership', icon: '🤝', category: 'commercial-math',
-      difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: null, syllabusTopicId: 'partnership', revisionIntervalDays: 6,
-      related: ['ratio-proportion'], searchTerms: ['partnership', 'investment', 'profit share', 'capital'],
-      sections: []
+      related: ['ratio-proportion', 'profit-loss'],
+      searchTerms: ['partnership', 'investment', 'profit share', 'capital', 'sleeping partner', 'working partner', 'capital months', 'ratio'],
+      sections: [
+        { type: 'overview', text: 'When people invest in a business together, profit is split in proportion to how much money each put in AND for how long. One product per partner — capital × time — and the profit ratio is just those products. Everything else (one invests later, someone withdraws) is handled by adjusting the months.' },
+        { type: 'concept', title: 'Capital × time is the only quantity that matters', body: 'A partner\'s claim on profit = (amount invested) × (number of months it stayed in). ₹100 for 12 months and ₹200 for 6 months both give 1200 "capital-months" → equal shares, even though the amounts differ.' },
+        { type: 'concept', title: 'Simple vs compound partnership', body: 'Simple: everyone invests for the SAME duration → profit ratio = ratio of capitals. Compound: durations differ → profit ratio = ratio of (capital × time). Always compound when months are unequal.' },
+        { type: 'concept', title: 'Working vs sleeping partner', body: 'A working (active) partner who manages the business may first take a salary or a fixed % of profit for the effort; the REMAINING profit is then divided by capital-months. Read whether a cut comes "off the top" before the ratio split.' },
+        { type: 'formula', items: [
+          { name: 'Profit share ratio', expr: 'P₁ : P₂ : P₃ = C₁T₁ : C₂T₂ : C₃T₃', when: 'General rule — capital × time for each partner.' },
+          { name: 'Simple partnership', expr: 'profit ratio = C₁ : C₂ (equal time)', when: 'All capitals stay for the same period.' },
+          { name: 'A partner\'s profit', expr: "partner's profit = total profit × (his C·T)/(sum of all C·T)", when: 'Finding one share from the total.' }
+        ] },
+        { type: 'trick', title: 'Speed technique', items: [
+          'Convert each partner to "capital-months" (amount × months); the profit ratio is read off directly — no need to find individual capitals.',
+          'If a partner joins late or leaves early, just use the months they were actually invested.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Splitting by capital alone when the durations differ — you must multiply by time.',
+          'Using years for one partner and months for another — keep the time unit identical.',
+          'Forgetting to remove a working partner\'s salary/commission before dividing the rest.',
+          'Counting the full period for someone who withdrew their money partway.'
+        ] },
+        { type: 'example', problem: 'A invests ₹8000 for 12 months and B invests ₹12000 for 6 months. They earn ₹4000 profit. Find each share.', steps: [
+          'Capital-months: A = 8000 × 12 = 96000; B = 12000 × 6 = 72000.',
+          'Ratio A : B = 96000 : 72000 = 4 : 3.',
+          'Total 7 parts = ₹4000 → 1 part = ₹571.43... so A = 4/7 × 4000, B = 3/7 × 4000.'
+        ], answer: 'A = ₹2285.71, B = ₹1714.29 (4 : 3)' },
+        { type: 'example', problem: 'A starts a business with ₹20000. After 4 months B joins with ₹30000. At year end the profit is ₹10000. Find B\'s share.', steps: [
+          'A is in for 12 months: 20000 × 12 = 240000. B joins after 4 months, so in for 8 months: 30000 × 8 = 240000.',
+          'Ratio A : B = 240000 : 240000 = 1 : 1.',
+          'B\'s share = 1/2 × 10000.'
+        ], answer: '₹5000' },
+        { type: 'memory', text: 'Money × months for everyone — that ratio IS the profit ratio.' },
+        { type: 'revision', points: [
+          'Profit ∝ capital × time (capital-months).',
+          'Equal time → split by capital; unequal time → split by capital × time.',
+          'Use only the months each partner was actually invested.',
+          'Remove a working partner\'s salary/commission before the ratio split.'
+        ] }
+      ]
     }
   ];
 

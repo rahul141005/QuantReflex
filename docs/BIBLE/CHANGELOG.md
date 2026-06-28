@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn content completion: last 5 topics → gold, scope now 19/19 (ADR-069)
+
+Content-completion phase: authored the final 5 scaffold topics to full gold-standard depth and published them, so the
+curated 5-category Learn scope has zero scaffolds / zero placeholder experiences. Reuses the knowledge-object schema,
+renderers, search, progress, practice and navigation — no architecture change, no duplicated data. NO AI.
+
+```
+### feat(ADR-069): author Number Series, Ages, Mixtures, Partnership, Permutation & Combination to gold standard
+- 5 topics flipped scaffold -> published with 10-11 sections each (overview, concepts, formula, speed trick, traps,
+  2 worked examples, memory hook, revision): data/knowledge/numbers.js (number-series),
+  data/knowledge/arithmetic.js (ages, mixtures-alligations), commercial.js (partnership),
+  modern.js (permutation-combination). Existing metadata kept; searchTerms enriched.
+- Math: every formula and worked example hand-verified AND independently re-computed by a second agent -> ZERO
+  errors (e.g. 4,9,19,39,79->159; LEVEL=5!/(2!2!)=30; 8C3=56; alligation 30/45->40 = 1:2; 40L replace 8L twice =
+  25.6L; partnership 8000x12:12000x6 = 4:3; ages 4:3 then 6:5 after 6y -> 12).
+- Drill honesty: number-series gets a real "Practise this" (dedicated drill category); ages/mixtures/partnership/
+  perm-comb keep drillCategory:null (no Practise button) rather than mapping to a related drill that would launch
+  the wrong questions (same principle as the Pipes & Cisterns fix).
+- Behaviour: former scaffold cards now navigate normally (no "Coming soon" toast/badge); topic pages render full
+  sections; search/bookmark/complete/progress + Continue/Due/Saved strips all work for the new topics.
+- Test: scripts/learn-content.check.js published-count assertion 14 -> 19; the gold-depth gate now validates all 19
+  published (learn-content.check 161 -> 196). KB.count()===19 unchanged (scaffolds were already counted).
+- Premium touch (restrained): one-time reduced-motion-guarded staggered entrance (kx-rise) on the <=5 hub category
+  sections. Consciously NOT added: skeleton loaders (engine is synchronous), heavy scroll-reveal (distracting).
+- Service worker v137 -> v138. Docs: VERSIONS (Bible 2.55->2.56, Arch unchanged), DECISION_LOG, ROADMAP,
+  TECHNICAL_BIBLE (now "19 gold", Doc 1.18), main-app/ARCHITECTURE.md (SW v138).
+- Verified: node --check the 4 data files; CSS braces balanced (3116/3116); npm test green; zero AI in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn ship-readiness fixes: focus, glass fallback, contrast, dedup, scroll (ADR-069)
 
 Final adversarial production audit (two read-only Explore agents acting as reviewers trying to reject the PR). The

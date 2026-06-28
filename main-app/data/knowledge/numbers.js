@@ -109,10 +109,48 @@
     },
     {
       id: 'number-series', title: 'Number Series', icon: '➿', category: 'numbers',
-      difficulty: 'core', examFrequency: 'high', status: 'scaffold',
+      difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'number-series', syllabusTopicId: 'number_series', revisionIntervalDays: 5,
-      related: ['number-system'], searchTerms: ['series', 'sequence', 'missing number', 'wrong term'],
-      sections: []
+      related: ['number-system', 'simplification'],
+      searchTerms: ['series', 'sequence', 'missing number', 'wrong term', 'pattern', 'next term', 'completion', 'analogy'],
+      sections: [
+        { type: 'overview', text: 'A number series is a hidden rule. Your only job is to find how each term becomes the next — then apply or reverse that rule. Don\'t stare at the numbers; look at the GAPS between them. 90% of series are cracked by checking the differences (and the differences of the differences).' },
+        { type: 'concept', title: 'The first thing to check: the differences', body: 'Write the gaps between consecutive terms. If the gaps are constant → it\'s arithmetic (add a fixed number). If the gaps grow by a constant → the differences are themselves arithmetic (think squares/cubes nearby). If the gaps multiply → it\'s geometric (a fixed ratio).' },
+        { type: 'concept', title: 'The pattern families', body: 'Almost every series is one of: +/− constant (AP); ×/÷ constant (GP); ×n then ±k (e.g. ×2+1); squares/cubes (±1 nearby, like n²+1); prime numbers; or an ALTERNATING series where two simple patterns are interleaved on odd and even positions.' },
+        { type: 'concept', title: 'Missing-term vs wrong-term', body: 'Missing-term: find the rule from the terms given, then fill the blank. Wrong-term (odd-one-out): EVERY term but one fits a clean rule — find the rule from the majority, then spot the single term that breaks it.' },
+        { type: 'formula', items: [
+          { name: 'Arithmetic (AP)', expr: 'aₙ = a + (n−1)d ; constant difference d', when: 'Gaps are equal: 3, 7, 11, 15 (d = 4).' },
+          { name: 'Geometric (GP)', expr: 'aₙ = a·rⁿ⁻¹ ; constant ratio r', when: 'Gaps multiply: 3, 6, 12, 24 (r = 2).' },
+          { name: '×n ± k chain', expr: 'next = term × n ± k', when: 'Growth faster than AP but not a clean GP: 2, 5, 11, 23 (×2+1).' },
+          { name: 'Square/cube based', expr: 'n², n²±1, n³, n³±n …', when: 'Terms sit near 1,4,9,16,25 or 1,8,27,64: 2, 5, 10, 17, 26 (n²+1).' }
+        ] },
+        { type: 'trick', title: 'Speed technique — second differences', items: [
+          'If first differences aren\'t constant, take the difference OF the differences. If THAT is constant, the series is quadratic (square-based) — the answer follows the same second difference.',
+          'If dividing consecutive terms gives a near-constant ratio, it\'s a GP — multiply to extend.',
+          'For a long, fast-growing series, test ×2/×3 first; the leftover (+1, −1, +2…) usually repeats.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Forcing one rule on an ALTERNATING series — split it into odd-position and even-position terms and read each separately.',
+          'Assuming AP when the gaps are actually a small GP or a square pattern.',
+          'On wrong-term questions, "fixing" the term that fits and changing the one that\'s actually correct — derive the rule from at least three clean terms first.',
+          'Ignoring sign: a series can decrease (negative d or r between 0 and 1).'
+        ] },
+        { type: 'example', problem: 'Find the next term: 4, 9, 19, 39, 79, ?', steps: [
+          'Check the rule: 4×2+1 = 9, 9×2+1 = 19, 19×2+1 = 39, 39×2+1 = 79 → the rule is ×2 + 1.',
+          'Apply once more: 79 × 2 + 1.'
+        ], answer: '159' },
+        { type: 'example', problem: 'Find the wrong term: 2, 5, 10, 17, 26, 37, 50, 64', steps: [
+          'These look like n² + 1: 1+1=2, 4+1=5, 9+1=10, 16+1=17, 25+1=26, 36+1=37, 49+1=50.',
+          'Next should be 8² + 1 = 65, but the series shows 64.'
+        ], answer: '64 is wrong (should be 65)' },
+        { type: 'memory', text: 'Differences first, ratios second, alternate third. If one term spoils a clean pattern, that term is the answer.' },
+        { type: 'revision', points: [
+          'Always inspect the gaps before guessing a rule.',
+          'Constant gap → AP; constant ratio → GP; growing gap → square/cube or ×n±k.',
+          'Two interleaved patterns = alternating series → split odd/even positions.',
+          'Wrong-term: derive the rule from the majority, then flag the single misfit.'
+        ] }
+      ]
     }
   ];
 

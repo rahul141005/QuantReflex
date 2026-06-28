@@ -104,6 +104,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   unsupported (no content bleed); (3) **AA contrast** — faint `#64748b` labels → `#475569`; (4) **hub strip de-dup**
   ("Continue" excludes "Due" ids; Saved authoritative); (5) **hub scroll restoration** on Back. SW v136→v137. No
   Firestore/Security/Payment change. Architecture 2.39→2.40, Bible 2.54→2.55.
+- **Content completion (2026-06-28):** authored the last **5 scaffolds → gold-standard published** (Number Series,
+  Ages, Mixtures & Alligations, Partnership, Permutation & Combination; 10–11 sections each), so the curated
+  5-category scope is **19/19 gold with zero placeholders** (the `scaffold` status stays in code for future
+  categories). Every formula/example hand- + independent-agent-verified (zero math errors). `number-series` gets a
+  real Practise button; the other 4 keep `drillCategory:null` (no misleading drill). `learn-content.check` 161→196
+  (gold-depth gate over all 19). One reduced-motion-guarded hub entrance animation. SW v137→v138. Content/client-only,
+  Arch unchanged (same engine, more data); Bible 2.55→2.56. **The Learn redesign is feature- AND content-complete.**
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel

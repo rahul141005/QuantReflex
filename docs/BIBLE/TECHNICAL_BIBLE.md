@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.17 · **Architecture Version:** 2.40 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.18 · **Architecture Version:** 2.40 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -243,9 +243,10 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
   compatible) + toggles a `view-learn-active` body class so the 480px cap is lifted **only** for Learn (mirrors the
   `view-practice-active` hook). **Validation** `scripts/learn-content.check.js` (in `npm test`).
 - **Content** `data/knowledge/{categories,numbers,arithmetic,commercial,modern,mensuration}.js` — a 5-category
-  taxonomy (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) with **14 gold-standard topics**
-  (overview · concepts · formulas · tricks · traps · examples · memory · revision) + 5 honest scaffolds. A
-  content-quality gate in `scripts/learn-content.check.js` enforces gold-standard depth on every published topic.
+  taxonomy (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) with **19 gold-standard topics, all
+  published** (overview · concepts · formulas · tricks · traps · examples · memory · revision); the curated scope has
+  **no scaffolds left** (the `scaffold` status remains a supported state for future categories). A content-quality
+  gate in `scripts/learn-content.check.js` enforces gold-standard depth on every published topic (196 assertions).
 - **Progress & integrations (P4)** `js/learn/learn-progress.js` (dual-exported) — localStorage-primary per-topic
   `{viewedAt, completedAt}` + topic bookmarks, best-effort mirrored to two owner-writable user-doc fields
   (`learnProgress`, `learnTopicBookmarks`) via the **existing** `FirestoreSync.queueUpdate` (same path as
