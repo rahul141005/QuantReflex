@@ -17,7 +17,10 @@ var quantTopics = require(p('services/quantTopics'));
 
 KB._reset();
 require(p('data/knowledge/categories'));
+require(p('data/knowledge/numbers'));
 require(p('data/knowledge/arithmetic'));
+require(p('data/knowledge/commercial'));
+require(p('data/knowledge/modern'));
 require(p('data/knowledge/mensuration'));
 
 var pass = 0, fail = 0;
@@ -34,7 +37,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 at least 8 topics registered', KB.count() >= 8);
+  ok('1 nineteen topics registered', KB.count() === 19);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
@@ -46,26 +49,33 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   });
 })();
 
-/* ── 3. categories(): arithmetic + mensuration with correct live counts ── */
+/* ── 3. categories(): all five with correct live counts + order ── */
 (function () {
   var cats = KB.categories();
   var byId = {}; cats.forEach(function (c) { byId[c.id] = c; });
-  ok('3 arithmetic registered', !!byId.arithmetic);
-  ok('3 mensuration registered', !!byId.mensuration);
-  eq('3 arithmetic topicCount', byId.arithmetic && byId.arithmetic.topicCount, 6);
+  ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration'].forEach(function (id) { ok('3 ' + id + ' registered', !!byId[id]); });
+  eq('3 numbers topicCount', byId.numbers && byId.numbers.topicCount, 3);
+  eq('3 arithmetic topicCount', byId.arithmetic && byId.arithmetic.topicCount, 8);
+  eq('3 commercial-math topicCount', byId['commercial-math'] && byId['commercial-math'].topicCount, 4);
+  eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
-  ok('3 arithmetic ordered before mensuration', cats.map(function (c) { return c.id; }).indexOf('arithmetic') < cats.map(function (c) { return c.id; }).indexOf('mensuration'));
+  eq('3 published gold-standard count = 14', KB.all().filter(function (t) { return t.status === 'published'; }).length, 14);
+  var order = cats.map(function (c) { return c.id; });
+  ok('3 category order numbers<arithmetic<commercial<modern<mensuration',
+    order.indexOf('numbers') < order.indexOf('arithmetic') && order.indexOf('arithmetic') < order.indexOf('commercial-math') &&
+    order.indexOf('commercial-math') < order.indexOf('modern-math') && order.indexOf('modern-math') < order.indexOf('mensuration'));
 })();
 
 /* ── 4. byCategory / related / siblings helpers ── */
 (function () {
   ok('4 byCategory(arithmetic) has percentages', KB.byCategory('arithmetic').some(function (t) { return t.id === 'percentages'; }));
   var rel = KB.related('percentages').map(function (t) { return t.id; });
-  ok('4 related(percentages) includes profit-loss', rel.indexOf('profit-loss') !== -1);
+  ok('4 related(percentages) includes profit-loss (cross-category)', rel.indexOf('profit-loss') !== -1);
   ok('4 related excludes self + dupes', rel.indexOf('percentages') === -1);
   var sib = KB.siblings('percentages');
-  ok('4 siblings(percentages).next exists', sib.next && sib.next.id === 'profit-loss');
+  ok('4 siblings(percentages).next = ratio-proportion', sib.next && sib.next.id === 'ratio-proportion');
   ok('4 siblings(first).prev is null', KB.siblings(KB.byCategory('arithmetic')[0].id).prev === null);
+  ok('4 commercial-math siblings chain (profit-loss → simple-interest)', KB.siblings('profit-loss').next && KB.siblings('profit-loss').next.id === 'simple-interest');
 })();
 
 /* ── 5. search: finds topics by word, symbol, and synonym; ranks the right topic first ── */
@@ -92,7 +102,21 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   ok('6 valid block accepted', Schema.validateBlock({ type: 'table', headers: ['a'], rows: [['1']] }, 'w').length === 0);
 })();
 
-/* ── 7. registry surfaces duplicate topic ids instead of silently overwriting (run last — resets the registry) ── */
+/* ── 7. gold-standard depth: every PUBLISHED topic is rich, not a thin stub (enforces "no filler") ── */
+(function () {
+  KB.all().filter(function (t) { return t.status === 'published'; }).forEach(function (t) {
+    var types = (t.sections || []).map(function (s) { return s.type; });
+    ok('7 ' + t.id + ' has ≥6 sections', (t.sections || []).length >= 6);
+    ok('7 ' + t.id + ' has an overview', types.indexOf('overview') !== -1);
+    ok('7 ' + t.id + ' has a formula block', types.indexOf('formula') !== -1);
+    ok('7 ' + t.id + ' has a worked example', types.indexOf('example') !== -1);
+    ok('7 ' + t.id + ' has a revision block', types.indexOf('revision') !== -1);
+    ok('7 ' + t.id + ' has traps and/or tricks', types.indexOf('trap') !== -1 || types.indexOf('trick') !== -1);
+    ok('7 ' + t.id + ' has searchTerms', (t.searchTerms || []).length >= 3);
+  });
+})();
+
+/* ── 8. registry surfaces duplicate topic ids instead of silently overwriting (run last — resets the registry) ── */
 (function () {
   KB._reset();
   KB.registerCategory({ id: 'tmp', title: 'Tmp' });
@@ -100,7 +124,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
     { id: 'dup', title: 'A', category: 'tmp', difficulty: 'core', examFrequency: 'high', status: 'scaffold', sections: [] },
     { id: 'dup', title: 'B', category: 'tmp', difficulty: 'core', examFrequency: 'high', status: 'scaffold', sections: [] }
   ]);
-  ok('7 duplicate id is reported by validateAll', KB.validateAll().some(function (e) { return e.indexOf('duplicate topic id "dup"') !== -1; }));
+  ok('8 duplicate id is reported by validateAll', KB.validateAll().some(function (e) { return e.indexOf('duplicate topic id "dup"') !== -1; }));
 })();
 
 console.log('\nlearn-content.check: ' + pass + ' passed, ' + fail + ' failed');

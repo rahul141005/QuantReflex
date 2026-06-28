@@ -33,7 +33,8 @@ var ctx = vm.createContext(sandbox);
 
 /* Load the Learn engine in index.html order (registry before data modules). */
 ['js/knowledge/schema.js', 'js/knowledge/registry.js', 'js/knowledge/blocks.js',
- 'data/knowledge/categories.js', 'data/knowledge/arithmetic.js', 'data/knowledge/mensuration.js',
+ 'data/knowledge/categories.js', 'data/knowledge/numbers.js', 'data/knowledge/arithmetic.js',
+ 'data/knowledge/commercial.js', 'data/knowledge/modern.js', 'data/knowledge/mensuration.js',
  'js/learn/learn-search.js'].forEach(function (rel) {
   var code = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
   vm.runInContext(code, ctx, { filename: rel });
@@ -49,10 +50,10 @@ ok('window.KnowledgeBase present', !!win.KnowledgeBase);
 ok('window.BlockRenderers present', !!win.BlockRenderers);
 ok('window.LearnSearch present', !!win.LearnSearch);
 
-ok('data modules self-registered (8 topics)', win.KnowledgeBase && win.KnowledgeBase.count() === 8);
-ok('categories resolved (arithmetic + mensuration)', (function () {
+ok('data modules self-registered (19 topics)', win.KnowledgeBase && win.KnowledgeBase.count() === 19);
+ok('all five categories resolved', (function () {
   var ids = (win.KnowledgeBase.categories() || []).map(function (c) { return c.id; });
-  return ids.indexOf('arithmetic') !== -1 && ids.indexOf('mensuration') !== -1;
+  return ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration'].every(function (c) { return ids.indexOf(c) !== -1; });
 })());
 ok('graph integrity clean in browser path', win.KnowledgeBase.validateAll().length === 0);
 

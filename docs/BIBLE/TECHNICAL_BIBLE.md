@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.11 · **Architecture Version:** 2.35 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.12 · **Architecture Version:** 2.35 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -242,10 +242,15 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
 - **Routing** — `router.js` parses `#learn/<topicId>` deep links (single-segment hashes unchanged; backwards
   compatible) + toggles a `view-learn-active` body class so the 480px cap is lifted **only** for Learn (mirrors the
   `view-practice-active` hook). **Validation** `scripts/learn-content.check.js` (in `npm test`).
+- **Content** `data/knowledge/{categories,numbers,arithmetic,commercial,modern,mensuration}.js` — a 5-category
+  taxonomy (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) with **14 gold-standard topics**
+  (overview · concepts · formulas · tricks · traps · examples · memory · revision) + 5 honest scaffolds. A
+  content-quality gate in `scripts/learn-content.check.js` enforces gold-standard depth on every published topic.
 - **Reuse, not duplication:** cheat-sheet/revision are projections of the same `sections`; Practice links via
   `drillCategory` (`services/quantTopics.js`), Planner via `syllabusTopicId` (`data/syllabus.js`). Phased per ADR-069
-  (P1 engine + P2 hub/topic UI + responsive design system shipped; gold-standard content P3, Practice/Planner/
-  progress/revision P4 — **no AI in Learn**). Function count unaffected (client-only).
+  (P1 engine + P2 hub/topic UI + responsive design system + P3 gold-standard content shipped; Practice/Planner/
+  progress/revision-mode + cheat-sheet/formula-explorer projection UI = P4 — **no AI in Learn**). Function count
+  unaffected (client-only).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.

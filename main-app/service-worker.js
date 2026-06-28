@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v131';
-const CACHE_NAME = 'qr-cache-v131';
+const APP_VERSION = 'v132';
+const CACHE_NAME = 'qr-cache-v132';
 
 var ASSETS = [
   './',
@@ -29,7 +29,10 @@ var ASSETS = [
   './js/knowledge/registry.js',
   './js/knowledge/blocks.js',
   './data/knowledge/categories.js',
+  './data/knowledge/numbers.js',
   './data/knowledge/arithmetic.js',
+  './data/knowledge/commercial.js',
+  './data/knowledge/modern.js',
   './data/knowledge/mensuration.js',
   './js/learn/learn-search.js',
   './js/settings.js',

@@ -22,10 +22,14 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   `#view-learn` over; retired `formulas.js` + legacy DOM-scan search/jump-nav. Tables/custom topics/bookmarks/premium
   preserved. **Known follow-ups for P5 polish:** prune now-inert legacy Learn CSS (`.learn-jump-*`, `.learn-group-*`,
   `.search-highlight`) + the residual `learn-searchable` class on reference cards.
-- **Phase 3 — Premium content:** author ~10 gold-standard topics + cheat-sheet/revision projections + formula
-  explorer. Remaining categories as honest "coming soon" scaffolds (never filler).
+- **Phase 3 — Premium content ✅ (2026-06-28):** authored **14 gold-standard topics** across a 5-category taxonomy
+  (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) — full depth (overview/concepts/formulas/
+  tricks/traps/examples/memory/revision); 5 honest scaffolds. Content-quality gate enforces depth on every published
+  topic. (The cheat-sheet projection view + formula explorer moved to P4, alongside revision mode — the blocks are
+  authored.)
 - **Phase 4 — Integrations (no AI):** Practice "Practise this", Planner topic links, progress (continue/recently/
-  completion), revision mode (spaced via `revisionIntervalDays`), bookmarks/notes. Adds the first Learn server hooks.
+  completion), revision mode (spaced via `revisionIntervalDays`) + **cheat-sheet projection view + formula explorer**,
+  bookmarks/notes. Adds the first Learn server hooks.
 - **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, retire
   `js/formulas.js`, final production audit.
 - **Designed-for, additive (no future rewrite):** videos, flashcards, diagrams, notes, offline content, learning

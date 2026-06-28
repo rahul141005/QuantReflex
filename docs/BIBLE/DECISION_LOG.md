@@ -47,8 +47,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   + the responsive `.kx-*` design system (phone/tablet/desktop via the `view-learn-active` shell). `#view-learn` cut
   over; legacy `formulas.js` retired (content fully migrated), old DOM-scan search + jump-nav removed. Quick-Reference
   tables, custom topics, bookmarks, and all premium gates preserved.
-  **P3** — author ~10 gold-standard topics + cheat-sheet/revision projections. **P4** — Practice/Planner links,
-  progress, revision mode, bookmarks (NO AI). **P5** — performance, polish, retire `formulas.js`, final audit.
+  **P3 (shipped)** — authored **14 gold-standard topics** (full depth: overview · concepts · formulas with
+  when/trap · tricks · traps · worked examples · memory · revision) across a **5-category taxonomy** (Numbers ·
+  Arithmetic · Commercial Math · Modern Math · Mensuration) — Number System, Simplification, Percentages, Ratio &
+  Proportion, Averages, Time & Work, Pipes & Cisterns, Time-Speed-Distance, Profit & Loss, Simple Interest, Compound
+  Interest, Probability, Area, Volume; 5 honest scaffolds (Number Series, Ages, Mixtures, Partnership, P&C). Original
+  exam-grade content (cheat sheets as *organisation* inspiration only); a content-quality gate in
+  `learn-content.check` enforces gold-standard depth on every published topic. **P4** — Practice/Planner links,
+  progress, **revision mode + cheat-sheet projection view + formula explorer** (the revision/formula/trap blocks are
+  already authored; P4 adds the projection UI), bookmarks (NO AI). **P5** — performance, polish, retire legacy Learn
+  CSS, final audit.
 - **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs
   today's everything-at-once; the responsive primitives become an app-wide pattern. P1 is pure additive engine
   (no Firestore/rules/payment change; old UI unchanged) — verified by 35 new pure assertions + the full suite green.

@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Knowledge Engine — Phase 3: gold-standard content (ADR-069)
+
+Authored premium, exam-grade study content for the core quantitative-aptitude topics and gave Learn a real
+category taxonomy. Content-only/client-only; no Firestore/rules/payment change; no AI. Backwards compatible (topic
+ids preserved → deep links + bookmarks intact).
+
+```
+### feat(ADR-069): Learn Phase 3 — 14 gold-standard topics across a 5-category taxonomy
+- Impacted systems: Student App only (client content). No Firestore / Rules / Payments / AI.
+- Taxonomy (data/knowledge/categories.js): Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration.
+- Gold-standard topics (full depth — overview/concepts/formulas-with-when&trap/tricks/traps/worked-examples/memory/
+  revision): Number System, Simplification (numbers.js); Percentages, Ratio & Proportion, Averages, Time & Work,
+  Pipes & Cisterns, Time-Speed-Distance (arithmetic.js); Profit & Loss, Simple Interest, Compound Interest
+  (commercial.js); Probability (modern.js); Area, Volume (mensuration.js) — 14 published.
+- Honest scaffolds (status:'scaffold', "coming soon", never filler): Number Series, Ages, Mixtures & Alligations,
+  Partnership, Permutation & Combination.
+- Original content; the provided cheat sheets informed ORGANISATION only. Every formula + worked example
+  hand-verified (e.g. 7¹⁰¹→7, CI−SI=P(R/100)², avg speed 2xy/(x+y), pipes net-rate LCM method).
+- profit-loss moved arithmetic→commercial-math; ID unchanged so #learn/profit-loss deep links + related edges still
+  resolve. Cross-category related links validated.
+- Wiring: index.html + service-worker (v131→v132) add numbers/commercial/modern data modules (html↔SW parity).
+- Tests: learn-content.check grew to 144 — incl. a CONTENT-QUALITY GATE asserting every published topic has ≥6
+  sections + overview/formula/example/revision + trap-or-trick + searchTerms (enforces "no filler"); registry
+  count/category/sibling/cross-category assertions updated. learn-browser.check updated (19 topics, 5 categories).
+- Schema/API delta: none. Version bumps: Bible 2.49→2.50 (content milestone; Arch/Firestore/Security/Payment
+  unchanged). Migration: none.
+- Deferred to P4 (revision mode): the cheat-sheet projection VIEW + cross-topic formula explorer — the underlying
+  revision/formula/trap blocks are authored now; P4 adds the projection UI alongside spaced revision.
+- Verification: node --check all data + harnesses; npm test green (content 144 + render 13 + browser 10 + full
+  suite); index↔SW precache parity; validateAll 0 errors (19 topics, all related/drill refs resolve).
+```
+
 ## 2026-06-28 — Learn Phase 1 & 2 audit hardening (ADR-069 follow-up)
 
 Independent pre-Phase-3 audit of Phases 1 & 2 (2 review agents + direct inspection). Server/data/engine/routing
