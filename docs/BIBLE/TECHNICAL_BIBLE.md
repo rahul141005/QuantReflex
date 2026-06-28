@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.15 · **Architecture Version:** 2.38 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.16 · **Architecture Version:** 2.39 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).

@@ -192,9 +192,10 @@
     {
       id: 'pipes-and-cisterns', title: 'Pipes & Cisterns', icon: '🚰', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      // Pipes & Cisterns ≡ Time & Work (tank = work, pipes = workers), so "Practise this" reuses the
-      // 'time-and-work' drill category — intentional, until a dedicated pipes drill exists.
-      drillCategory: 'time-and-work', syllabusTopicId: 'pipes_cisterns', revisionIntervalDays: 6,
+      // No dedicated Pipes & Cisterns drill exists yet, and reusing the 'time-and-work' bank would launch the WRONG
+      // questions — so Practice is intentionally pending (drillComingSoon) rather than misleading. Restore a real
+      // drillCategory once a dedicated pipes bank ships.
+      drillCategory: null, drillComingSoon: true, syllabusTopicId: 'pipes_cisterns', revisionIntervalDays: 6,
       related: ['time-and-work'],
       searchTerms: ['pipe', 'cistern', 'tank', 'inlet', 'outlet', 'leak', 'fill', 'empty', 'drain'],
       sections: [

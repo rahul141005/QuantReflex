@@ -86,6 +86,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   results region (zero visual change; class-based styling); **(b) landscape-tablet layout** — the reading-column +
   side-rail now activates at ≥960px (was ≥1100), so landscape iPads/foldables get a true two-column reading+rail.
   SW v134→v135. No Firestore/Security/Payment change. Architecture 2.37→2.38, Bible 2.52→2.53.
+- **Premium UX polish + 4 bug fixes (2026-06-28, post-completion):** (1) horizontal scroll of `.kx-section-nav` /
+  `.kx-resume-row` could trip the global tab-swipe (`swipe-nav.js` had no scroll-container awareness) → the
+  `touchstart` denylist now exempts `[data-no-swipe]` + those scrollers; (2) the opaque sticky section-nav "dark
+  strip" → subtle glass (`backdrop-filter` blur, the `.card` language) so it blends; (3) the topic **Save** persisted
+  but was never surfaced (dead UI) → a hub **"★ Saved"** strip from `LearnProgress.bookmarkedIds()` + save toast;
+  (4) **Pipes & Cisterns** `drillCategory:'time-and-work'` launched wrong questions → `drillCategory:null` +
+  `drillComingSoon` non-interactive "Practice coming soon" chip. Scaffold cards restyled to read as *planned*; bounded
+  token-based visual polish (card elevation/press, resume edge-fade, glassy pills, search focus), reduced-motion-
+  guarded. SW v135→v136. No Firestore/Security/Payment change. Architecture 2.38→2.39, Bible 2.53→2.54.
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel

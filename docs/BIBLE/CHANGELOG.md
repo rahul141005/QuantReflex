@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn premium UX polish + 4 critical bug fixes (ADR-069)
+
+Polish + bug-fix pass on the shipped Learn tab (no new features/widgets). Two Explore agents root-caused the four
+reported bugs; all fixed at the source. Plus a bounded, token-based visual-polish pass. Client-only; scoped to
+`.kx-*` / `body.view-learn-active`; no Firestore/Security/Payment/architecture change; NO AI.
+
+```
+### fix(ADR-069): swipe-vs-scroll, glass section-nav, real Save, Pipes practice; premium polish
+- Bug #1 (root cause): swipe-nav.js listened on document with exemptions only for modals/inputs, so horizontally
+  scrolling .kx-section-nav / .kx-resume-row cleared the 40px/0.25 swipe threshold and fired Router.showView()
+  (tab switch). Fix: the touchstart denylist now also exempts [data-no-swipe], .kx-section-nav, .kx-resume-row,
+  .kx-table-scroll (one line, established pattern). Resume rows also tagged data-no-swipe in learn-view.js.
+- Bug #2: the sticky .kx-section-nav painted an opaque band (var(--qr-bg)/hard #0f172a) that read as a disconnected
+  dark strip. Now subtle glass — translucent page-bg + backdrop-filter: blur(10px) (the same language as .card) —
+  so it blends into the page; pills got a glassy surface, active-pill shadow, and a press scale.
+- Bug #3: the topic "Save" toggled LearnProgress.toggleBookmark but nothing surfaced saved topics (dead UI). Now the
+  hub renders a "★ Saved" strip from LearnProgress.bookmarkedIds() (reusing _stripHtml), and saving toasts.
+- Bug #4: pipes-and-cisterns had drillCategory:'time-and-work', so "Practise this" launched the WRONG questions. Set
+  drillCategory:null + drillComingSoon:true (data/knowledge/arithmetic.js); _buildActionBar now shows a
+  non-interactive "Practice coming soon" chip instead. learn-content.check stays green (162->161; the drill
+  assertion only runs for non-null drillCategory).
+- "Soon" scaffold topics: dropped the muddy opacity:.72; now a softer dashed/inviting card surface + full-opacity
+  title + "Coming soon" badge so they read as planned, not broken.
+- Polish (token-based, reduced-motion-guarded): topic/resume card hover+press elevation; resume-strip right
+  edge-fade (mask-image); glassy section pills; search input focus ring/radius; warmer placeholder. New :active
+  transforms added to the reduced-motion guard lists.
+- Service worker v135 -> v136. Docs: VERSIONS (Bible 2.53->2.54, Arch 2.38->2.39), DECISION_LOG (ADR-069 polish
+  note), main-app/ARCHITECTURE.md (SW v136).
+- Verified: node --check (swipe-nav, learn-view, arithmetic, service-worker); CSS braces balanced (3105/3105);
+  npm test green; zero AI refs in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn final-review polish: a11y semantics + landscape-tablet layout (ADR-069)
 
 Final production review of the (already-shipped, 96/100) Learn system. A fresh read-only multi-agent sweep found

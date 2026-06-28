@@ -1,6 +1,6 @@
 # QuantReflex — Architecture Guide
 
-> Last updated: 2026-06-28 (ADR-069 Learn Knowledge Engine Phases 1–5 complete + final-review a11y/tablet polish, SW v135)
+> Last updated: 2026-06-28 (ADR-069 Learn Knowledge Engine Phases 1–5 complete + UX polish & bug fixes, SW v136)
 
 ## Overview
 

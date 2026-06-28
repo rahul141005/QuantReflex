@@ -140,7 +140,7 @@ var LearnView = (function () {
     return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +
       '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _freqBadge(t.examFrequency) +
-      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">soon</span>' : '') + '</div>' +
+      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') + '</div>' +
       '</button>';
   }
 
@@ -341,6 +341,11 @@ var LearnView = (function () {
       pb.innerHTML = '🎯 Practise this';
       pb.addEventListener('click', function () { _launchDrill(topic); });
       bar.appendChild(pb);
+    } else if (topic.drillComingSoon) {
+      /* Practice is intentionally pending (no dedicated bank yet) — a non-interactive cue, never wrong content. */
+      var soon = document.createElement('span'); soon.className = 'kx-action kx-action-soon';
+      soon.setAttribute('aria-disabled', 'true'); soon.textContent = '🎯 Practice coming soon';
+      bar.appendChild(soon);
     }
     if (_hasRevisionContent(topic)) {
       var qb = document.createElement('button'); qb.className = 'kx-action kx-action-revise'; qb.type = 'button';
@@ -367,6 +372,7 @@ var LearnView = (function () {
         var nowSaved = LP.toggleBookmark(topic.id);
         bb.classList.toggle('is-on', nowSaved); bb.setAttribute('aria-pressed', nowSaved ? 'true' : 'false');
         bb.innerHTML = nowSaved ? '★ Saved' : '☆ Save';
+        if (typeof showToast === 'function') showToast(nowSaved ? 'Saved “' + topic.title + '” — find it on the Learn home' : 'Removed from Saved.');
       });
       bar.appendChild(bb);
     }
@@ -385,7 +391,7 @@ var LearnView = (function () {
         '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
         (done ? '<span class="kx-rc-done" aria-label="completed">✓</span>' : '') + '</button>';
     }).join('');
-    return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row">' + cards + '</div></div>';
+    return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
   }
 
   function _renderResume() {
@@ -400,6 +406,9 @@ var LearnView = (function () {
 
     var recent = LP.recent(8).filter(function (id) { return KB.has(id); });
     if (recent.length) html += _stripHtml('⏱️ Continue learning', recent, KB);
+
+    var saved = LP.bookmarkedIds().filter(function (id) { return KB.has(id); }).slice(0, 8);
+    if (saved.length) html += _stripHtml('★ Saved', saved, KB);
 
     host.innerHTML = html;
     host.querySelectorAll('.kx-resume-card').forEach(function (c) {

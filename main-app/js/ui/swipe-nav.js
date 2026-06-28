@@ -26,6 +26,9 @@ function initSwipeNavigation() {
   document.addEventListener('touchstart', function (e) {
     /* Don't capture swipes on inputs or inside modals or onboarding */
     if (e.target.closest('.modal-overlay, .table-modal-overlay, .info-modal-overlay, .onboarding-overlay, input, textarea, select')) return;
+    /* Don't hijack a horizontal scroll that belongs to an inner scroller (Learn section-nav, resume strips, wide
+       tables). Without this, scrolling those rows would clear the swipe threshold and switch the bottom-nav tab. */
+    if (e.target.closest('[data-no-swipe], .kx-section-nav, .kx-resume-row, .kx-table-scroll')) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
