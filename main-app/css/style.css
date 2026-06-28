@@ -10906,3 +10906,53 @@ body.dark-mode .kx-back { color: #60a5fa; }
   .kx-topic-card, .kx-sec-pill, .kx-chip, .kx-search-item, .kx-pn { transition: none !important; }
   .kx-topic-card:hover, .kx-topic-card:active { transform: none !important; }
 }
+
+/* ───────── Phase 4 — integrations: action bar · resume strips · completion · cheat-sheet projection (NO AI) ───────── */
+
+/* topic action bar (Practise this · Quick revision · Mark complete · Save) */
+.kx-actionbar { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.kx-action { display: inline-flex; align-items: center; gap: .3rem; min-height: 2.5rem; padding: .5rem .9rem; border-radius: 2rem; border: 1.5px solid #e2e8f0; background: #fff; color: #334155; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.kx-action:hover { background: #f1f5f9; }
+.kx-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.kx-action-practise { background: #2563eb; border-color: #2563eb; color: #fff; }
+.kx-action-practise:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.kx-action-revise.is-on { background: rgba(124,58,237,.12); border-color: #7c3aed; color: #6d28d9; }
+.kx-action-complete.is-on { background: rgba(22,163,74,.12); border-color: #16a34a; color: #16a34a; }
+.kx-action-save.is-on { background: rgba(217,119,6,.12); border-color: #d97706; color: #b45309; }
+body.dark-mode .kx-action { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+body.dark-mode .kx-action:hover { background: #273449; }
+body.dark-mode .kx-action-practise { background: #2563eb; border-color: #2563eb; color: #fff; }
+body.dark-mode .kx-action-revise.is-on { background: rgba(167,139,250,.18); border-color: #a78bfa; color: #c4b5fd; }
+body.dark-mode .kx-action-complete.is-on { background: rgba(22,163,74,.2); border-color: #22c55e; color: #4ade80; }
+body.dark-mode .kx-action-save.is-on { background: rgba(217,119,6,.22); border-color: #d97706; color: #fbbf24; }
+
+/* cheat-sheet projection: in revision mode, only revision-type sections + their pills stay visible */
+#learnTopic.kx-revision-only .kx-section:not(.is-revision),
+#learnTopic.kx-revision-only .kx-sec-pill:not(.is-revision) { display: none; }
+
+/* hub resume strips (Continue learning + Due for revision) */
+.kx-resume { margin: 0 0 1.2rem; }
+.kx-resume-head { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #475569; margin: 0 0 .5rem; }
+body.dark-mode .kx-resume-head { color: #94a3b8; }
+.kx-resume-row { display: flex; gap: .55rem; overflow-x: auto; padding-bottom: .3rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.kx-resume-row::-webkit-scrollbar { display: none; }
+.kx-resume-card { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .45rem; max-width: 15rem; min-height: 2.6rem; padding: .55rem .8rem; border: 1px solid rgba(15,23,42,.08); border-radius: var(--qr-card-radius-sm); background: rgba(255,255,255,.85); box-shadow: var(--qr-shadow-light); cursor: pointer; font: inherit; color: inherit; transition: transform .12s ease, border-color .15s; }
+.kx-resume-card:hover { transform: translateY(-1px); border-color: #bfdbfe; }
+.kx-resume-card:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.kx-rc-ico { font-size: 1.2rem; line-height: 1; }
+.kx-rc-title { font-weight: 700; font-size: .88rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kx-rc-done { color: #16a34a; font-weight: 800; }
+body.dark-mode .kx-resume-card { background: rgba(30,41,59,.7); border-color: rgba(255,255,255,.08); box-shadow: var(--qr-shadow-dark); }
+body.dark-mode .kx-rc-title { color: #f1f5f9; }
+body.dark-mode .kx-rc-done { color: #4ade80; }
+
+/* completion tick on the category topic cards */
+.kx-topic-card.is-complete { border-color: rgba(22,163,74,.4); }
+.kx-topic-card.is-complete .kx-tc-title::after { content: " ✓"; color: #16a34a; font-weight: 900; }
+body.dark-mode .kx-topic-card.is-complete { border-color: rgba(34,197,94,.45); }
+body.dark-mode .kx-topic-card.is-complete .kx-tc-title::after { color: #4ade80; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kx-action, .kx-resume-card { transition: none !important; }
+  .kx-resume-card:hover { transform: none !important; }
+}

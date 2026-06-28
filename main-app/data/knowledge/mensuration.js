@@ -12,7 +12,7 @@
     {
       id: 'area', title: 'Area', icon: '📐', category: 'mensuration',
       difficulty: 'foundation', examFrequency: 'medium', status: 'published',
-      drillCategory: 'area', syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: 'area', syllabusTopicId: 'mensuration_2d', revisionIntervalDays: 6,
       related: ['volume'],
       searchTerms: ['area', 'square', 'rectangle', 'triangle', 'circle', 'parallelogram', 'trapezium', 'perimeter'],
       sections: [
@@ -50,7 +50,7 @@
     {
       id: 'volume', title: 'Volume', icon: '🧊', category: 'mensuration',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      drillCategory: 'volume', syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: 'volume', syllabusTopicId: 'mensuration_3d', revisionIntervalDays: 6,
       related: ['area'],
       searchTerms: ['volume', 'cube', 'cuboid', 'cylinder', 'sphere', 'cone', 'capacity', 'surface area'],
       sections: [

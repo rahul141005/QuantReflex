@@ -12,7 +12,7 @@
     {
       id: 'profit-loss', title: 'Profit & Loss', icon: '💰', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'very-high', status: 'published',
-      drillCategory: 'profit-loss', syllabusTopicId: null, revisionIntervalDays: 4,
+      drillCategory: 'profit-loss', syllabusTopicId: 'profit_loss', revisionIntervalDays: 4,
       related: ['percentages', 'simple-interest'],
       searchTerms: ['cp', 'sp', 'mp', 'cost price', 'selling price', 'marked price', 'discount', 'margin', 'false weight'],
       sections: [
@@ -55,7 +55,7 @@
     {
       id: 'simple-interest', title: 'Simple Interest', icon: '🏦', category: 'commercial-math',
       difficulty: 'foundation', examFrequency: 'high', status: 'published',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: null, syllabusTopicId: 'interest', revisionIntervalDays: 5,
       related: ['compound-interest', 'percentages'],
       searchTerms: ['si', 'simple interest', 'principal', 'rate', 'amount', 'double', 'p r t'],
       sections: [
@@ -97,7 +97,7 @@
     {
       id: 'compound-interest', title: 'Compound Interest', icon: '📈', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: null, syllabusTopicId: 'interest', revisionIntervalDays: 5,
       related: ['simple-interest', 'percentages'],
       searchTerms: ['ci', 'compound interest', 'half yearly', 'quarterly', 'compounding', 'amount', 'ci-si'],
       sections: [
@@ -140,7 +140,7 @@
     {
       id: 'partnership', title: 'Partnership', icon: '🤝', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: null, syllabusTopicId: 'partnership', revisionIntervalDays: 6,
       related: ['ratio-proportion'], searchTerms: ['partnership', 'investment', 'profit share', 'capital'],
       sections: []
     }

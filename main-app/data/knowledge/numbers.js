@@ -64,7 +64,7 @@
     {
       id: 'simplification', title: 'Simplification', icon: '🧩', category: 'numbers',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
-      drillCategory: 'simplification', syllabusTopicId: null, revisionIntervalDays: 3,
+      drillCategory: 'simplification', syllabusTopicId: 'simplification', revisionIntervalDays: 3,
       related: ['number-system', 'percentages', 'averages'],
       searchTerms: ['bodmas', 'vbodmas', 'order of operations', 'identities', 'approximation', 'fraction percent', 'a2-b2'],
       sections: [
@@ -110,7 +110,7 @@
     {
       id: 'number-series', title: 'Number Series', icon: '➿', category: 'numbers',
       difficulty: 'core', examFrequency: 'high', status: 'scaffold',
-      drillCategory: 'number-series', syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: 'number-series', syllabusTopicId: 'number_series', revisionIntervalDays: 5,
       related: ['number-system'], searchTerms: ['series', 'sequence', 'missing number', 'wrong term'],
       sections: []
     }

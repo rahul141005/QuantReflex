@@ -6,6 +6,43 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Knowledge Engine — Phase 4: integrations, NO AI (ADR-069)
+
+Phase 4 wires the knowledge engine into the rest of the app — progress, spaced revision, a topic action bar, a
+cheat-sheet projection, and the data-level Planner link — without any AI surface in Learn. Backwards-compatible
+(every new field is additive and degrades to localStorage-only with no DOM/Firestore). Firestore track bumped for
+two new owner-writable user-doc fields; Security/Payment unchanged (the existing `entitlementFieldsSafe()` denylist
+already permits owner writes to non-entitlement fields, exactly like `customTopics`/`bookmarks`).
+
+```
+### feat(ADR-069): Learn Phase 4 — progress, revision mode, action bar, Planner link (NO AI)
+- Progress module (new js/learn/learn-progress.js, dual-exported): localStorage-primary per-topic
+  {viewedAt, completedAt} + topic bookmarks, with best-effort FirestoreSync.queueUpdate mirror. Pure
+  computeRecent/computeDue helpers (spaced revision via revisionIntervalDays, oldest-first) unit-tested in a new
+  scripts/learn-progress.check.js (32 assertions, in npm test).
+- Topic action bar (js/views/learn-view.js): Practise this (→ existing startDrillFromPractice('focus', drillCategory)
+  via _tryPracticeAction guard) · Quick revision (cheat-sheet projection — a filtered VIEW that hides all but the
+  authored revision/formula/trick/trap sections, no duplicated content) · Mark complete (toggle) · Save (topic
+  bookmark toggle). markViewed fires on every published-topic open.
+- Hub strips: "Due for revision" (spaced) + "Continue learning" (recent), live completion ticks on topic cards;
+  refreshed on every hub show (#learnResume container added to index.html).
+- Planner link (data-level): every applicable knowledge topic now carries a validated syllabusTopicId referencing
+  data/syllabus.js (the knowledge graph formally references the planner's syllabus graph). learn-content.check now
+  asserts each syllabusTopicId resolves against syllabus.TOPICS (144→162 assertions). No AI-adjacent button added
+  inside Learn (the Planner is AI-driven; only the data link is established).
+- Firestore: two new owner-writable users/{uid} fields — learnProgress (map) + learnTopicBookmarks (array) —
+  documented in FIRESTORE_BLUEPRINT (Doc 1.11→1.12). Hydrated on login (firestore-sync loadFromFirestore) and
+  cleared on user switch (_USER_STORAGE_KEYS). No new collection, no rule change.
+- CSS: .kx-actionbar / .kx-action(+variants), .kx-resume strips, .kx-topic-card.is-complete tick, and the
+  #learnTopic.kx-revision-only cheat-sheet projection — all under body.view-learn-active, dark-mode + reduced-motion
+  variants included. Service worker v132→v133 (precache + new learn-progress.js asset).
+- Docs: DECISION_LOG ADR-069 (P4 shipped), FIRESTORE_BLUEPRINT, VERSIONS (Bible 2.50→2.51 / Arch 2.35→2.36 /
+  Firestore 2.18→2.19). Verified: node --check all touched JS; CSS braces balanced; npm test green (incl. the new
+  32-assertion progress check + 162-assertion content check); NO AI in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn Phase 1–3 verification audit hardening (ADR-069 follow-up)
 
 Independent pre-Phase-4 audit (3 review agents + direct inspection). **Content correctness: all 14 topics' formulas

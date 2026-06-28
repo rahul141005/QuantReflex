@@ -46,6 +46,34 @@ var LearnView = (function () {
   function _diffBadge(d) { return '<span class="kx-badge kx-diff-' + _esc(d) + '">' + _esc(DIFF_LABEL[d] || d) + '</span>'; }
   function _freqBadge(f) { return '<span class="kx-badge kx-freq">' + _esc(FREQ_LABEL[f] || f) + '</span>'; }
 
+  /* ---- Phase-4 integration helpers (progress / revision / practice — all local, NO AI) ---- */
+  function _LP() { return (typeof LearnProgress !== 'undefined') ? LearnProgress : null; }
+  function _revisionTypes() {
+    return (typeof KnowledgeSchema !== 'undefined' && KnowledgeSchema.REVISION_BLOCK_TYPES) || ['formula', 'trick', 'trap', 'revision'];
+  }
+  function _isRevisionType(t) { return _revisionTypes().indexOf(t) !== -1; }
+  function _hasRevisionContent(topic) {
+    return (topic.sections || []).some(function (b) { return b && _isRevisionType(b.type); });
+  }
+  /* Launch a focus drill for this topic's drill category — reuses the existing Practice entry point (ADR-045). */
+  function _launchDrill(topic) {
+    if (!topic || !topic.drillCategory) return;
+    if (typeof _tryPracticeAction === 'function' && !_tryPracticeAction()) return;
+    try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('practice'); } catch (_) {}
+    var cat = topic.drillCategory, label = topic.title;
+    setTimeout(function () { try { if (typeof startDrillFromPractice === 'function') startDrillFromPractice('focus', cat, label); } catch (_) {} }, 60);
+  }
+  /* Cheat-sheet projection: hide everything except revision-type sections (a filtered VIEW, not duplicated content). */
+  function _toggleRevision(btn) {
+    var host = document.getElementById('learnTopic'); if (!host) return;
+    var on = host.classList.toggle('kx-revision-only');
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.innerHTML = on ? '📖 Full notes' : '⚡ Quick revision';
+    /* hidden sections can't intersect, so clear any now-stale scroll-spy highlight (re-applies on next scroll) */
+    host.querySelectorAll('.kx-sec-pill.is-active').forEach(function (p) { p.classList.remove('is-active'); });
+  }
+
   /* ───────────────────────── hub ───────────────────────── */
 
   function _buildHub() {
@@ -160,6 +188,7 @@ var LearnView = (function () {
     if (_io) { try { _io.disconnect(); } catch (_) {} _io = null; }
     var KB = _KB();
     var cat = (KB && KB.categoryMeta(topic.category)) || { title: topic.category, icon: '📘' };
+    host.classList.remove('kx-revision-only');   // never carry the cheat-sheet projection across topics
     host.innerHTML = '';
 
     /* breadcrumb */
@@ -178,6 +207,13 @@ var LearnView = (function () {
       (topic.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '');
     host.appendChild(badges);
 
+    /* Record the visit (powers Continue / Due-for-revision) and surface the action bar — published topics only. */
+    if (topic.status !== 'scaffold') {
+      var LP = _LP(); if (LP) LP.markViewed(topic.id);
+      var bar = _buildActionBar(topic);
+      if (bar) host.appendChild(bar);
+    }
+
     var sections = (topic.sections || []).filter(function (b) { return b && b.type !== 'related'; });
     var labels = (typeof BlockRenderers !== 'undefined') ? BlockRenderers.SECTION_LABELS : {};
 
@@ -186,7 +222,8 @@ var LearnView = (function () {
       var nav = document.createElement('div'); nav.className = 'kx-section-nav';
       sections.forEach(function (b, i) {
         var pill = document.createElement('button');
-        pill.className = 'kx-sec-pill'; pill.type = 'button'; pill.setAttribute('data-sec', 'kx-sec-' + i);
+        pill.className = 'kx-sec-pill' + (_isRevisionType(b.type) ? ' is-revision' : '');
+        pill.type = 'button'; pill.setAttribute('data-sec', 'kx-sec-' + i);
         pill.textContent = (labels[b.type] || b.type);
         pill.addEventListener('click', function () {
           var el = document.getElementById('kx-sec-' + i);
@@ -207,7 +244,7 @@ var LearnView = (function () {
       main.appendChild(soon);
     }
     sections.forEach(function (b, i) {
-      var sec = document.createElement('div'); sec.className = 'kx-section'; sec.id = 'kx-sec-' + i;
+      var sec = document.createElement('div'); sec.className = 'kx-section' + (_isRevisionType(b.type) ? ' is-revision' : ''); sec.id = 'kx-sec-' + i;
       var lbl = document.createElement('div'); lbl.className = 'kx-section-label'; lbl.textContent = (labels[b.type] || b.type);
       sec.appendChild(lbl);
       var node = (typeof BlockRenderers !== 'undefined') ? BlockRenderers.render(b) : null;
@@ -272,6 +309,89 @@ var LearnView = (function () {
     for (var i = 0; i < count; i++) { var el = document.getElementById('kx-sec-' + i); if (el) _io.observe(el); }
   }
 
+  /* Topic action bar: Practise this · Quick revision (cheat-sheet) · Mark complete · Save. All local, NO AI. */
+  function _buildActionBar(topic) {
+    var bar = document.createElement('div'); bar.className = 'kx-actionbar';
+    var LP = _LP();
+
+    if (topic.drillCategory) {
+      var pb = document.createElement('button'); pb.className = 'kx-action kx-action-practise'; pb.type = 'button';
+      pb.innerHTML = '🎯 Practise this';
+      pb.addEventListener('click', function () { _launchDrill(topic); });
+      bar.appendChild(pb);
+    }
+    if (_hasRevisionContent(topic)) {
+      var qb = document.createElement('button'); qb.className = 'kx-action kx-action-revise'; qb.type = 'button';
+      qb.setAttribute('aria-pressed', 'false'); qb.innerHTML = '⚡ Quick revision';
+      qb.addEventListener('click', function () { _toggleRevision(qb); });
+      bar.appendChild(qb);
+    }
+    if (LP) {
+      var done = LP.isComplete(topic.id);
+      var cb = document.createElement('button'); cb.className = 'kx-action kx-action-complete' + (done ? ' is-on' : ''); cb.type = 'button';
+      cb.setAttribute('aria-pressed', done ? 'true' : 'false'); cb.innerHTML = done ? '✓ Completed' : '○ Mark complete';
+      cb.addEventListener('click', function () {
+        var nowDone = LP.toggleComplete(topic.id);
+        cb.classList.toggle('is-on', nowDone); cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
+        cb.innerHTML = nowDone ? '✓ Completed' : '○ Mark complete';
+        if (typeof showToast === 'function') showToast(nowDone ? 'Marked “' + topic.title + '” complete' : 'Marked as not complete.');
+      });
+      bar.appendChild(cb);
+
+      var saved = LP.isBookmarked(topic.id);
+      var bb = document.createElement('button'); bb.className = 'kx-action kx-action-save' + (saved ? ' is-on' : ''); bb.type = 'button';
+      bb.setAttribute('aria-pressed', saved ? 'true' : 'false'); bb.innerHTML = saved ? '★ Saved' : '☆ Save';
+      bb.addEventListener('click', function () {
+        var nowSaved = LP.toggleBookmark(topic.id);
+        bb.classList.toggle('is-on', nowSaved); bb.setAttribute('aria-pressed', nowSaved ? 'true' : 'false');
+        bb.innerHTML = nowSaved ? '★ Saved' : '☆ Save';
+      });
+      bar.appendChild(bb);
+    }
+    return bar;
+  }
+
+  /* ───────────────────────── hub resume strips (Continue + Due for revision) ───────────────────────── */
+
+  function _stripHtml(title, ids, KB) {
+    var LP = _LP();
+    var cards = ids.map(function (id) {
+      var t = KB.get(id); if (!t) return '';
+      var done = LP && LP.isComplete(id);
+      return '<button class="kx-resume-card" type="button" data-topic="' + _esc(id) + '">' +
+        '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
+        '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
+        (done ? '<span class="kx-rc-done" aria-label="completed">✓</span>' : '') + '</button>';
+    }).join('');
+    return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row">' + cards + '</div></div>';
+  }
+
+  function _renderResume() {
+    var host = document.getElementById('learnResume'); if (!host) return;
+    var LP = _LP(); var KB = _KB();
+    if (!LP || !KB) { host.innerHTML = ''; return; }
+    var html = '';
+
+    var dueInput = KB.all().map(function (t) { return { id: t.id, revisionIntervalDays: t.revisionIntervalDays }; });
+    var due = LP.due(dueInput).filter(function (id) { return KB.has(id); }).slice(0, 8);
+    if (due.length) html += _stripHtml('🔁 Due for revision', due, KB);
+
+    var recent = LP.recent(8).filter(function (id) { return KB.has(id); });
+    if (recent.length) html += _stripHtml('⏱️ Continue learning', recent, KB);
+
+    host.innerHTML = html;
+    host.querySelectorAll('.kx-resume-card').forEach(function (c) {
+      c.addEventListener('click', function () { _go(c.getAttribute('data-topic')); });
+    });
+  }
+
+  /* Reflect completion on the category topic cards (the grid is built once; ticks stay live). */
+  function _refreshCardTicks() {
+    var LP = _LP(); if (!LP) return;
+    var cards = document.querySelectorAll('#learnCategories .kx-topic-card');
+    for (var i = 0; i < cards.length; i++) cards[i].classList.toggle('is-complete', LP.isComplete(cards[i].getAttribute('data-topic')));
+  }
+
   /* ───────────────────────── route dispatch ───────────────────────── */
 
   function renderLearnRoute(params) {
@@ -292,6 +412,8 @@ var LearnView = (function () {
       if (_io) { try { _io.disconnect(); } catch (_) {} _io = null; }
       if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
       if (hub) hub.hidden = false;
+      _renderResume();      // refresh Continue / Due strips with any topics viewed this session
+      _refreshCardTicks();  // keep completion ticks live on the category cards
     }
   }
 

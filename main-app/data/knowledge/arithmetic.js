@@ -12,7 +12,7 @@
     {
       id: 'percentages', title: 'Percentages', icon: '📊', category: 'arithmetic',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
-      drillCategory: 'percentages', syllabusTopicId: null, revisionIntervalDays: 3,
+      drillCategory: 'percentages', syllabusTopicId: 'percentages', revisionIntervalDays: 3,
       related: ['profit-loss', 'ratio-proportion', 'averages'],
       searchTerms: ['%', 'percent', 'per cent', 'increase', 'decrease', 'change', 'successive', 'discount'],
       sections: [
@@ -60,7 +60,7 @@
     {
       id: 'ratio-proportion', title: 'Ratio & Proportion', icon: '⚖️', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: 'ratios', syllabusTopicId: null, revisionIntervalDays: 4,
+      drillCategory: 'ratios', syllabusTopicId: 'ratio_proportion', revisionIntervalDays: 4,
       related: ['percentages', 'averages', 'mixtures-alligations'],
       searchTerms: ['ratio', 'proportion', 'a:b', 'parts', 'alligation', 'mixture', 'compound ratio', 'variation'],
       sections: [
@@ -104,7 +104,7 @@
     {
       id: 'averages', title: 'Averages', icon: '📈', category: 'arithmetic',
       difficulty: 'foundation', examFrequency: 'high', status: 'published',
-      drillCategory: 'averages', syllabusTopicId: null, revisionIntervalDays: 4,
+      drillCategory: 'averages', syllabusTopicId: 'averages', revisionIntervalDays: 4,
       related: ['ratio-proportion', 'percentages'],
       searchTerms: ['average', 'mean', 'weighted', 'replacement', 'consecutive'],
       sections: [
@@ -148,7 +148,7 @@
     {
       id: 'time-and-work', title: 'Time & Work', icon: '🔧', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: 'time-and-work', syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: 'time-and-work', syllabusTopicId: 'time_work', revisionIntervalDays: 5,
       related: ['pipes-and-cisterns', 'time-speed-distance'],
       searchTerms: ['work', 'efficiency', 'man days', 'rate', 'together', 'lcm method', 'mdh'],
       sections: [
@@ -194,7 +194,7 @@
       difficulty: 'core', examFrequency: 'medium', status: 'published',
       // Pipes & Cisterns ≡ Time & Work (tank = work, pipes = workers), so "Practise this" reuses the
       // 'time-and-work' drill category — intentional, until a dedicated pipes drill exists.
-      drillCategory: 'time-and-work', syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: 'time-and-work', syllabusTopicId: 'pipes_cisterns', revisionIntervalDays: 6,
       related: ['time-and-work'],
       searchTerms: ['pipe', 'cistern', 'tank', 'inlet', 'outlet', 'leak', 'fill', 'empty', 'drain'],
       sections: [
@@ -238,7 +238,7 @@
     {
       id: 'time-speed-distance', title: 'Time, Speed & Distance', icon: '🚀', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: 'time-speed-distance', syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: 'time-speed-distance', syllabusTopicId: 'tsd', revisionIntervalDays: 5,
       related: ['time-and-work'],
       searchTerms: ['speed', 'distance', 'time', 'relative speed', 'trains', 'average speed', 'km/h', 'm/s'],
       sections: [
@@ -283,14 +283,14 @@
     {
       id: 'ages', title: 'Problems on Ages', icon: '🎂', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: null, syllabusTopicId: 'ages', revisionIntervalDays: 6,
       related: ['ratio-proportion'], searchTerms: ['age', 'ages', 'years', 'present age'],
       sections: []
     },
     {
       id: 'mixtures-alligations', title: 'Mixtures & Alligations', icon: '🧪', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'scaffold',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: null, syllabusTopicId: 'mixtures', revisionIntervalDays: 6,
       related: ['ratio-proportion', 'averages'], searchTerms: ['mixture', 'alligation', 'replacement', 'milk water'],
       sections: []
     }

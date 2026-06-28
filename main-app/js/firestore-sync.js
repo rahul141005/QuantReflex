@@ -56,6 +56,8 @@ var FirestoreSync = (function () {
     'quant_custom_topics',
     'quant_custom_formulas',
     'quant_bookmarks',
+    'quant_learn_progress',
+    'quant_learn_bookmarks',
     'quant_notifications_enabled'
   ];
 
@@ -282,6 +284,14 @@ var FirestoreSync = (function () {
         }
         if (data.bookmarks) {
           if (typeof AppState !== 'undefined') AppState.setBookmarks(data.bookmarks);
+        }
+        /* ADR-069 Phase 4: Learn progress & topic bookmarks are localStorage-primary (LearnProgress module),
+           so hydrate their keys directly — mirrors the customTopics/bookmarks path, no new collection/rule. */
+        if (data.learnProgress && typeof data.learnProgress === 'object') {
+          try { localStorage.setItem('quant_learn_progress', JSON.stringify(data.learnProgress)); } catch (_) {}
+        }
+        if (Array.isArray(data.learnTopicBookmarks)) {
+          try { localStorage.setItem('quant_learn_bookmarks', JSON.stringify(data.learnTopicBookmarks)); } catch (_) {}
         }
       } else {
         /* First time: create document with default data */

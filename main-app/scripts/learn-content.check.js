@@ -14,6 +14,8 @@ var KB = require(p('js/knowledge/registry'));
 var Schema = require(p('js/knowledge/schema'));
 var Search = require(p('js/learn/learn-search'));
 var quantTopics = require(p('services/quantTopics'));
+var syllabus = require(p('data/syllabus'));
+var SYLLABUS_IDS = Object.keys((syllabus && syllabus.TOPICS) || {});  // TOPICS is keyed by topic id
 
 KB._reset();
 require(p('data/knowledge/categories'));
@@ -45,7 +47,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var drillKeys = quantTopics.CATEGORY_LABELS;
   KB.all().forEach(function (t) {
     if (t.drillCategory != null) ok('2 ' + t.id + ' drillCategory "' + t.drillCategory + '" exists in quantTopics', !!drillKeys[t.drillCategory]);
-    if (t.syllabusTopicId != null) ok('2 ' + t.id + ' syllabusTopicId is a string', typeof t.syllabusTopicId === 'string');
+    if (t.syllabusTopicId != null) ok('2 ' + t.id + ' syllabusTopicId "' + t.syllabusTopicId + '" exists in data/syllabus', SYLLABUS_IDS.indexOf(t.syllabusTopicId) !== -1);
   });
 })();
 

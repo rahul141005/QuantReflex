@@ -12,7 +12,7 @@
     {
       id: 'probability', title: 'Probability', icon: '🎲', category: 'modern-math',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 5,
+      drillCategory: null, syllabusTopicId: 'probability', revisionIntervalDays: 5,
       related: ['permutation-combination'],
       searchTerms: ['probability', 'chance', 'dice', 'cards', 'coins', 'sample space', 'at least one', 'complement', 'independent'],
       sections: [
@@ -58,7 +58,7 @@
     {
       id: 'permutation-combination', title: 'Permutation & Combination', icon: '🔀', category: 'modern-math',
       difficulty: 'advanced', examFrequency: 'medium', status: 'scaffold',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 6,
+      drillCategory: null, syllabusTopicId: 'permutations_combinations', revisionIntervalDays: 6,
       related: ['probability'], searchTerms: ['permutation', 'combination', 'npr', 'ncr', 'arrangement', 'selection', 'factorial'],
       sections: []
     }

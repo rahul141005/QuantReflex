@@ -27,9 +27,15 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   tricks/traps/examples/memory/revision); 5 honest scaffolds. Content-quality gate enforces depth on every published
   topic. (The cheat-sheet projection view + formula explorer moved to P4, alongside revision mode — the blocks are
   authored.)
-- **Phase 4 — Integrations (no AI):** Practice "Practise this", Planner topic links, progress (continue/recently/
-  completion), revision mode (spaced via `revisionIntervalDays`) + **cheat-sheet projection view + formula explorer**,
-  bookmarks/notes. Adds the first Learn server hooks.
+- **Phase 4 — Integrations (no AI) ✅ (2026-06-28):** progress module (`js/learn/learn-progress.js`, localStorage-
+  primary + best-effort Firestore mirror; spaced-revision helpers under `learn-progress.check`, 32 assertions); topic
+  **action bar** (Practise this → focus-drill via `drillCategory`; **Quick-revision cheat-sheet projection** = a
+  filtered view over the authored revision/formula/trick/trap blocks; Mark-complete; Save); hub **Continue learning**
+  + spaced **Due for revision** strips + live completion ticks; **data-level Planner link** (every applicable topic
+  now carries a validated `syllabusTopicId` → `data/syllabus.js`; content-check 144→162). First Learn server hooks:
+  two owner-writable user-doc fields (`learnProgress`, `learnTopicBookmarks`) — same path as customTopics/bookmarks,
+  no new collection/rule. SW v132→v133. **No AI surface in Learn** (the Planner is AI-driven, so only the data link is
+  established — no AI-adjacent button is added inside Learn).
 - **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, final
   production audit. **Carry-over polish:** prune inert legacy Learn CSS (`.learn-jump-*`/`.learn-group-*`/
   `.search-highlight`) + the residual `learn-searchable` class on reference cards; optional section-nav scroll-fade

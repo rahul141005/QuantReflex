@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.11 · **Firestore Version:** 2.18 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.12 · **Firestore Version:** 2.19 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-28
@@ -32,6 +32,8 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `customTopics` | array | `[]` | client | |
 | `customFormulas` | map | `{}` | client | |
 | `bookmarks` | array | `[]` | client | |
+| `learnProgress` | map | `{}` (absent until first topic view) | client | **ADR-069 Phase 4** — Learn per-topic progress: `{ <topicId>: {viewedAt:ms, completedAt:ms\|null} }`. localStorage-primary (`quant_learn_progress`), best-effort mirrored here via `FirestoreSync.queueUpdate`. Powers Continue / spaced Due-for-revision / completion. Owner-writable (not an entitlement field). |
+| `learnTopicBookmarks` | array | `[]` (absent until first save) | client | **ADR-069 Phase 4** — saved Learn topic ids `[<topicId>]`. localStorage-primary (`quant_learn_bookmarks`), best-effort mirror. Distinct from `bookmarks` (legacy per-formula stars). Owner-writable. |
 | `plan` | `'free'`\|`'premium'` | `'free'` | admin/fn (grant/revoke) / client (→'free' only) | **v2 canonical tier. All gates resolve through this.** |
 | `planType` | `'premium_6m'`\|`'premium_12m'`\|null | `null` | admin / client(null) | purchased product; null for trial/admin grant |
 | `planExpiry` | ISO string \| null | `null` | admin/fn / client(null) | premium expiry; equals `trialEnd` during a trial; null=free |

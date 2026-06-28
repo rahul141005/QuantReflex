@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.12 · **Architecture Version:** 2.35 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.13 · **Architecture Version:** 2.36 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -79,7 +79,7 @@ QuantReflex deploys on the **Vercel Free (Hobby) plan**. This is an official arc
 2 Infrastructure firebase.js → auth.js → firestore-sync.js
 3 Services        services/{adaptive-state,scoring-service,share-service,question-bank-service}.js
 4 Data            progress.js, questions.js
-5 References      tables.js, learn-manager.js, knowledge/{schema,registry,blocks}.js, learn/learn-search.js (ADR-069)
+5 References      tables.js, learn-manager.js, knowledge/{schema,registry,blocks}.js, learn/{learn-search,learn-progress}.js (ADR-069)
 6 Settings        settings.js  (provides showToast)
 7 Engine          drill-engine.js
 8 Navigation      router.js
@@ -246,11 +246,19 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
   taxonomy (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) with **14 gold-standard topics**
   (overview · concepts · formulas · tricks · traps · examples · memory · revision) + 5 honest scaffolds. A
   content-quality gate in `scripts/learn-content.check.js` enforces gold-standard depth on every published topic.
+- **Progress & integrations (P4)** `js/learn/learn-progress.js` (dual-exported) — localStorage-primary per-topic
+  `{viewedAt, completedAt}` + topic bookmarks, best-effort mirrored to two owner-writable user-doc fields
+  (`learnProgress`, `learnTopicBookmarks`) via the **existing** `FirestoreSync.queueUpdate` (same path as
+  customTopics/bookmarks: no new collection/rule; hydrated on login, cleared on user switch). Pure
+  `computeRecent`/`computeDue` (spaced revision via `revisionIntervalDays`) unit-tested in `learn-progress.check`.
+  Drives the topic **action bar** (Practise this → focus-drill via `drillCategory`; Quick-revision **cheat-sheet
+  projection** = `#learnTopic.kx-revision-only` filtered view over the authored revision/formula/trick/trap blocks;
+  Mark-complete; Save) and the hub **Continue / Due-for-revision** strips + completion ticks.
 - **Reuse, not duplication:** cheat-sheet/revision are projections of the same `sections`; Practice links via
-  `drillCategory` (`services/quantTopics.js`), Planner via `syllabusTopicId` (`data/syllabus.js`). Phased per ADR-069
-  (P1 engine + P2 hub/topic UI + responsive design system + P3 gold-standard content shipped; Practice/Planner/
-  progress/revision-mode + cheat-sheet/formula-explorer projection UI = P4 — **no AI in Learn**). Function count
-  unaffected (client-only).
+  `drillCategory` (`services/quantTopics.js`), Planner via a validated `syllabusTopicId` (`data/syllabus.js`, the
+  data-level Planner link — the knowledge graph references the syllabus graph). Phased per ADR-069 (P1 engine + P2
+  hub/topic UI + responsive design system + P3 gold-standard content + P4 progress/revision/Practice/Planner-link
+  shipped; P5 = perf/polish/final audit — **no AI in Learn**). Function count unaffected (client-only).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.

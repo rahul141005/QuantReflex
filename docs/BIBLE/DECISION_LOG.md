@@ -53,15 +53,25 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   Proportion, Averages, Time & Work, Pipes & Cisterns, Time-Speed-Distance, Profit & Loss, Simple Interest, Compound
   Interest, Probability, Area, Volume; 5 honest scaffolds (Number Series, Ages, Mixtures, Partnership, P&C). Original
   exam-grade content (cheat sheets as *organisation* inspiration only); a content-quality gate in
-  `learn-content.check` enforces gold-standard depth on every published topic. **P4** — Practice/Planner links,
-  progress, **revision mode + cheat-sheet projection view + formula explorer** (the revision/formula/trap blocks are
-  already authored; P4 adds the projection UI), bookmarks (NO AI). **P5** — performance, polish, retire legacy Learn
-  CSS, final audit.
+  `learn-content.check` enforces gold-standard depth on every published topic. **P4 (shipped)** — integrations, NO AI:
+  a localStorage-primary **progress module** (`js/learn/learn-progress.js`, dual-exported, pure recency/spaced-due
+  helpers under unit test) with best-effort Firestore mirror via the EXISTING `FirestoreSync.queueUpdate` path (new
+  owner-writable user-doc fields `learnProgress` + `learnTopicBookmarks` — same denylist-safe path as
+  customTopics/bookmarks, **no new collection, no rule change**); a topic **action bar** (Practise this → existing
+  focus-drill entry via `drillCategory`; Quick-revision **cheat-sheet projection** = a filtered view over the
+  authored revision/formula/trick/trap blocks, no duplication; Mark-complete; Save); hub **Continue learning** +
+  spaced **Due for revision** strips (`revisionIntervalDays`) + live completion ticks on cards; and a **data-level
+  Planner link** — every applicable topic now carries a validated `syllabusTopicId` referencing `data/syllabus.js`
+  (the knowledge graph formally references the planner's syllabus graph; no AI-adjacent button added inside Learn).
+  **P5** — performance, polish, retire legacy Learn CSS, final audit.
 - **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs
   today's everything-at-once; the responsive primitives become an app-wide pattern. P1 is pure additive engine
   (no Firestore/rules/payment change; old UI unchanged) — verified by 35 new pure assertions + the full suite green.
-  Architecture 2.33→2.34, Bible 2.47→2.48 (Firestore/Security/Payment unchanged). Future-proof: videos/flashcards/
-  notes/diagrams/progress are additive block types or hooks, no rewrite. AI intentionally excluded from Learn.
+  Architecture 2.33→2.34, Bible 2.47→2.48 (Firestore/Security/Payment unchanged). P4 adds two owner-writable user-doc
+  fields (`learnProgress`, `learnTopicBookmarks`) documented in FIRESTORE_BLUEPRINT — Firestore track 2.18→2.19;
+  Security unchanged (existing `entitlementFieldsSafe()` denylist already permits owner writes to non-entitlement
+  fields, exactly like customTopics/bookmarks). Future-proof: videos/flashcards/notes/diagrams are additive block
+  types or hooks, no rewrite. AI intentionally excluded from Learn.
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel
