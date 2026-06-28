@@ -427,6 +427,11 @@ var LearnView = (function () {
       if (topicEl) topicEl.hidden = false;
       _scrollTop();
     } else {
+      /* An unknown/stale topic id (e.g. a shared link to a removed topic) falls back to the hub — canonicalize the
+         address bar from #learn/<bad-id> to #learn so a refresh/re-share doesn't keep the dead path. */
+      if (path && typeof location !== 'undefined' && location.hash !== '#learn' && window.history && window.history.replaceState) {
+        try { window.history.replaceState(null, '', '#learn'); } catch (_) {}
+      }
       if (_io) { try { _io.disconnect(); } catch (_) {} _io = null; }
       if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
       if (hub) hub.hidden = false;

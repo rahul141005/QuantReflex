@@ -8,8 +8,8 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
-## 🚧 In progress — Learn Knowledge Engine (ADR-069)
-Rebuilding the Learn tab into the **knowledge backbone** of QuantReflex: a deep-linkable hub→topic knowledge graph
+## ✅ Shipped — Learn Knowledge Engine (ADR-069, all 5 phases complete 2026-06-28)
+Rebuilt the Learn tab into the **knowledge backbone** of QuantReflex: a deep-linkable hub→topic knowledge graph
 built from reusable **knowledge objects** (not static HTML), a responsive design system reusable app-wide, and
 quality-first content. **No AI in Learn (by design).** Phased, each phase backwards-compatible + audit-gated.
 - **Phase 1 — Foundation ✅ (2026-06-28):** engine (`js/knowledge/schema.js`, `registry.js`), search
@@ -36,10 +36,15 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   two owner-writable user-doc fields (`learnProgress`, `learnTopicBookmarks`) — same path as customTopics/bookmarks,
   no new collection/rule. SW v132→v133. **No AI surface in Learn** (the Planner is AI-driven, so only the data link is
   established — no AI-adjacent button is added inside Learn).
-- **Phase 5 — Polish:** performance (lazy per-category load if warranted), animation/responsive tuning, final
-  production audit. **Carry-over polish:** prune inert legacy Learn CSS (`.learn-jump-*`/`.learn-group-*`/
-  `.search-highlight`) + the residual `learn-searchable` class on reference cards; optional section-nav scroll-fade
-  hint + a hub category jump-nav if the 5-category hub feels long on phones. (`js/formulas.js` already retired in P2.)
+- **Phase 5 — Polish ✅ (2026-06-28):** pruned all now-inert legacy Learn CSS — `.learn-jump-*` (nav + btn + active +
+  theme/dark variants, removed from both tap-delay/ripple selector lists + `app.js` RIPPLE_SELECTORS),
+  `.learn-group-*`, `mark.search-highlight`, and the residual `.learn-searchable` marker class (removed from the 5
+  reference cards + `learn-manager.js`) — 21 dead rule-sets gone, CSS 3109→3092 braces. Polish: badge type .62→.66rem,
+  `.kx-crumb` lifted to a 2.25rem touch target, a tasteful reduced-motion-guarded topic-page entrance animation
+  (`kx-fade-in`). Performance: render-on-route already mounts only the active topic and the search index builds once;
+  with 19 small precached topics, **lazy per-category loading was deliberately NOT added** (premature complexity for
+  the data size) — revisit only if the catalog grows past ~100 topics. SW v133→v134. Final end-to-end production audit
+  (independent multi-agent) passed. **`js/formulas.js` already retired in P2.**
 - **Designed-for, additive (no future rewrite):** videos, flashcards, diagrams, notes, offline content, learning
   analytics, topic streaks — each a new block `type` + renderer or a progress hook.
 

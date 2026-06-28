@@ -420,7 +420,7 @@ function renderCustomTopicSections() {
   for (var i = 0; i < topics.length; i++) {
     (function (topic) {
       var card = document.createElement('div');
-      card.className = 'card learn-searchable custom-topic-card';
+      card.className = 'card custom-topic-card';
       card.id = topic.id;
 
       var header = document.createElement('div');

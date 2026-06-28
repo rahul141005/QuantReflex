@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.13 · **Architecture Version:** 2.36 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.14 · **Architecture Version:** 2.37 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-24
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -256,9 +256,10 @@ concept is a reusable data object, not hard-coded HTML. **NO AI surfaces exist i
   Mark-complete; Save) and the hub **Continue / Due-for-revision** strips + completion ticks.
 - **Reuse, not duplication:** cheat-sheet/revision are projections of the same `sections`; Practice links via
   `drillCategory` (`services/quantTopics.js`), Planner via a validated `syllabusTopicId` (`data/syllabus.js`, the
-  data-level Planner link — the knowledge graph references the syllabus graph). Phased per ADR-069 (P1 engine + P2
-  hub/topic UI + responsive design system + P3 gold-standard content + P4 progress/revision/Practice/Planner-link
-  shipped; P5 = perf/polish/final audit — **no AI in Learn**). Function count unaffected (client-only).
+  data-level Planner link — the knowledge graph references the syllabus graph). Delivered per ADR-069 across 5 phases
+  (P1 engine + P2 hub/topic UI + responsive design system + P3 gold-standard content + P4 progress/revision/Practice/
+  Planner-link + P5 polish & legacy-CSS cleanup) — **all shipped, no AI in Learn**. Function count unaffected
+  (client-only).
 
 ### Typography hierarchy (never mix scales arbitrarily)
 1. **Section header** — `home-section-title` (uppercase-ish, 700, blue) — highest.

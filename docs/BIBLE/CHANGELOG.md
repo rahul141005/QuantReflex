@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn Knowledge Engine — Phase 5: polish + cleanup, NO AI (ADR-069 COMPLETE)
+
+Final phase of the Learn rebuild: remove all dead legacy CSS the engine replaced, apply the deferred micro-polish,
+add one tasteful entrance animation, and lock the performance posture. Client-only; no Firestore/Security/Payment
+change. ADR-069 is now complete (all 5 phases shipped).
+
+```
+### chore(ADR-069): Phase 5 — prune inert legacy Learn CSS, micro-polish, entrance animation
+- Dead-CSS prune (21 rule-sets, CSS 3109->3092 braces, zero remaining refs):
+  - .learn-jump-nav / .learn-jump-btn / :active / .active across base + body.dark-mode + body.theme-playful +
+    body.theme-playful.dark-mode (css/style.css); removed the .learn-jump-btn token from the tap-delay selector
+    list and the press-feedback selector list; removed it from RIPPLE_SELECTORS (js/app.js).
+  - .learn-group-title / .learn-group-subtitle across all four theme variants (css/style.css).
+  - mark.search-highlight across all four theme variants (css/style.css).
+  - .learn-searchable residual marker class removed from the 5 Quick-Reference cards (index.html) and the custom
+    topic card builder (js/learn-manager.js) — no JS ever read it.
+- Polish: .kx-badge .62rem->.66rem (+padding) for AA legibility/premium feel; .kx-crumb now a 2.25rem touch target;
+  new reduced-motion-guarded kx-fade-in entrance on .kx-topic-main (topic pages).
+- Performance: documented decision NOT to add lazy per-category loading — render-on-route mounts only the active
+  topic and the search index builds once; 19 small topics are all precached, so lazy-loading is premature complexity.
+- Service worker v133 -> v134.
+- Final-audit minors fixed: renderLearnRoute now canonicalizes the address bar (#learn/<bad-id> -> #learn) when a
+  stale/unknown topic id falls back to the hub (js/views/learn-view.js); corrected the stale "12 categories" header
+  in services/quantTopics.js to 14 (simplification + number-series, ADR-067).
+- Docs: DECISION_LOG (ADR-069 P5 shipped / complete), VERSIONS (Bible 2.51->2.52, Arch 2.36->2.37), ROADMAP
+  (ADR-069 shipped), TECHNICAL_BIBLE + main-app/ARCHITECTURE.md headers refreshed.
+- Verified: node --check (app.js, learn-manager.js, learn-view.js); CSS braces balanced (3092/3092); npm test green;
+  zero references to any pruned selector remain. NO AI in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn Phase 1–4 pre-Phase-5 verification audit hardening (ADR-069 follow-up)
 
 Independent multi-agent audit of Phases 1–4 against live code (foundation, content+math, full-app regressions,

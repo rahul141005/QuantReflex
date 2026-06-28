@@ -63,15 +63,22 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   spaced **Due for revision** strips (`revisionIntervalDays`) + live completion ticks on cards; and a **data-level
   Planner link** — every applicable topic now carries a validated `syllabusTopicId` referencing `data/syllabus.js`
   (the knowledge graph formally references the planner's syllabus graph; no AI-adjacent button added inside Learn).
-  **P5** — performance, polish, retire legacy Learn CSS, final audit.
+  **P5 (shipped)** — polish + cleanup, NO AI: pruned all now-inert legacy Learn CSS (`.learn-jump-*`, `.learn-group-*`,
+  `mark.search-highlight`, and the residual `.learn-searchable` marker — 21 dead rule-sets removed across base/dark/
+  theme-playful variants + both tap-delay/ripple selector lists + `app.js` RIPPLE_SELECTORS + `learn-manager.js`);
+  micro-polish (badge type .62→.66rem, `.kx-crumb` 2.25rem touch target, a reduced-motion-guarded `kx-fade-in` topic
+  entrance); a deliberate performance decision to NOT add lazy per-category loading (render-on-route + a once-built
+  search index already keep the DOM/work minimal for 19 small precached topics — premature complexity otherwise);
+  SW v133→v134. A final independent multi-agent production audit closed the initiative.
 - **Consequences:** content becomes reusable, pedagogical, and deep-linkable; render-on-route shrinks the DOM vs
   today's everything-at-once; the responsive primitives become an app-wide pattern. P1 is pure additive engine
   (no Firestore/rules/payment change; old UI unchanged) — verified by 35 new pure assertions + the full suite green.
   Architecture 2.33→2.34, Bible 2.47→2.48 (Firestore/Security/Payment unchanged). P4 adds two owner-writable user-doc
   fields (`learnProgress`, `learnTopicBookmarks`) documented in FIRESTORE_BLUEPRINT — Firestore track 2.18→2.19;
   Security unchanged (existing `entitlementFieldsSafe()` denylist already permits owner writes to non-entitlement
-  fields, exactly like customTopics/bookmarks). Future-proof: videos/flashcards/notes/diagrams are additive block
-  types or hooks, no rewrite. AI intentionally excluded from Learn.
+  fields, exactly like customTopics/bookmarks). P5 is client-only cleanup/polish (no Firestore/Security/Payment
+  change): Architecture 2.36→2.37, Bible 2.51→2.52. Future-proof: videos/flashcards/notes/diagrams are additive block
+  types or hooks, no rewrite. AI intentionally excluded from Learn. **All five phases shipped — ADR-069 complete.**
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel

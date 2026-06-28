@@ -92,7 +92,7 @@ document.addEventListener('dragstart', function (e) {
 
 /* ---- Ripple effect on interactive elements ---- */
 (function () {
-  var RIPPLE_SELECTORS = '.btn, .mode-card, .category-btn, .study-card, .learn-jump-btn, .table-select-btn, .clear-option-btn, .quick-link-option, .bottom-nav a';
+  var RIPPLE_SELECTORS = '.btn, .mode-card, .category-btn, .study-card, .table-select-btn, .clear-option-btn, .quick-link-option, .bottom-nav a';
 
   document.addEventListener('pointerdown', function (e) {
     var target = e.target.closest(RIPPLE_SELECTORS);

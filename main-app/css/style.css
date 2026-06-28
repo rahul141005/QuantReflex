@@ -417,7 +417,7 @@ body.dark-mode .quick-study-green {
 
 /* Prevent 300ms tap delay on interactive elements */
 a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
-.table-select-btn, .learn-jump-btn, .study-card, .quick-link-option,
+.table-select-btn, .study-card, .quick-link-option,
 .bottom-nav a, .collapsible-header {
   touch-action: manipulation;
 }
@@ -866,19 +866,11 @@ body.dark-mode .benchmark-unlock-btn {
 }
 
 /* ---- Learn Page ---- */
-.learn-group-title {
-  font-size: 1.2rem;
-  color: #0f172a;
-  margin: 1.5rem 0 .25rem;
-  font-weight: 700;
-}
-
 .section-title {
   font-size: 1.1rem;
   color: #2563eb;
   margin: 0 0 .75rem;
 }
-.learn-group-subtitle { margin-bottom: 1rem; }
 .category-select-title {
   margin-bottom: .5rem;
   text-align: center;
@@ -925,37 +917,6 @@ body.dark-mode .benchmark-unlock-btn {
   transition: border-color .2s, box-shadow .2s;
 }
 .learn-search-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
-
-/* Quick jump nav */
-.learn-jump-nav {
-  display: flex;
-  gap: .5rem;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 1rem;
-  overflow: hidden;
-}
-.learn-jump-btn {
-  padding: .5rem .85rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 2rem;
-  background: #ffffff;
-  color: #334155;
-  font-size: .78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s, border-color .15s, transform .15s;
-  white-space: nowrap;
-  min-height: 2.25rem;
-  display: inline-flex;
-  align-items: center;
-}
-.learn-jump-btn:active {
-  background: #eff6ff;
-  border-color: #2563eb;
-  color: #2563eb;
-  transform: scale(.95);
-}
 
 /* ---- Math Tables (monospace, aligned) ---- */
 .math-table {
@@ -2813,7 +2774,6 @@ body.dark-mode .section-title { color: #60a5fa; }
 body.dark-mode .category-stat-row { border-bottom-color: #334155; }
 body.dark-mode .cat-accuracy { color: #60a5fa; }
 body.dark-mode .cat-bar-container { background: #1e293b; }
-body.dark-mode .learn-group-title { color: #e2e8f0; }
 body.dark-mode .math-grid-item { background: #334155; }
 body.dark-mode .math-expr { color: #e2e8f0; }
 body.dark-mode .math-val { color: #60a5fa; }
@@ -2841,16 +2801,6 @@ body.dark-mode .goal-progress-bar { background: #334155; }
 body.dark-mode .drill-progress-bar { background: #334155; }
 body.dark-mode .feedback.correct { background: rgba(22,163,74,.15); }
 body.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
-body.dark-mode .learn-jump-btn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #94a3b8;
-}
-body.dark-mode .learn-jump-btn:active {
-  background: #334155;
-  border-color: #60a5fa;
-  color: #60a5fa;
-}
 
 /* ---- Custom Formulas & Topics ---- */
 .custom-formula-item {
@@ -3020,21 +2970,6 @@ textarea.modal-input { min-height: 4rem; resize: vertical; font-family: inherit;
 .modal-actions .btn { flex: 1; margin-top: 0; }
 .modal-cancel { background: #e2e8f0; }
 
-/* ---- Search Highlighting ---- */
-mark.search-highlight {
-  background: #fef08a;
-  color: #0f172a;
-  padding: 0 .1rem;
-  border-radius: .15rem;
-}
-
-/* ---- Quick Jump Active State ---- */
-.learn-jump-btn.active {
-  background: #eff6ff;
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
 /* ---- Category Strength ---- */
 .category-strength-label {
   font-size: .75rem;
@@ -3068,7 +3003,6 @@ body.dark-mode .modal-content::after {
 body.dark-mode .modal-input { background: #334155; border-color: #475569; color: #e2e8f0; }
 body.dark-mode .modal-title { color: #60a5fa; }
 body.dark-mode .modal-cancel { background: #334155; color: #e2e8f0; }
-body.dark-mode mark.search-highlight { background: #854d0e; color: #fef08a; }
 
 /* ---- Table Expansion Modal ---- */
 .table-modal-overlay {
@@ -4238,7 +4172,7 @@ body.dark-mode .ripple-effect {
 }
 
 /* Enhanced press feedback for buttons */
-.btn, .mode-card, .category-btn, .study-card, .learn-jump-btn,
+.btn, .mode-card, .category-btn, .study-card,
 .table-select-btn, .clear-option-btn, .quick-link-option,
 .numpad-btn, .formula-action-btn {
   -webkit-tap-highlight-color: transparent;
@@ -4918,7 +4852,6 @@ body.theme-playful .cat-accuracy { color: #4f8ff7; }
 body.theme-playful .cat-bar-container { background: #e8e6e1; }
 body.theme-playful .cat-name { color: #1a1a2e; }
 
-body.theme-playful .learn-group-title { color: #1a1a2e; }
 body.theme-playful .math-grid-item { background: #f5f4f1; }
 body.theme-playful .math-expr { color: #1a1a2e; }
 body.theme-playful .math-val { color: #4f8ff7; }
@@ -4947,22 +4880,6 @@ body.theme-playful .formula-tip { color: #4b5563; }
 
 body.theme-playful .feedback.correct { background: rgba(22,163,74,.08); }
 body.theme-playful .feedback.wrong   { background: rgba(220,38,38,.08); }
-
-body.theme-playful .learn-jump-btn {
-  background: #ffffff;
-  border-color: #e2ded6;
-  color: #5a6275;
-}
-body.theme-playful .learn-jump-btn:active {
-  background: rgba(79,143,247,.06);
-  border-color: #4f8ff7;
-  color: #4f8ff7;
-}
-body.theme-playful .learn-jump-btn.active {
-  background: rgba(79,143,247,.08);
-  border-color: #4f8ff7;
-  color: #4f8ff7;
-}
 
 body.theme-playful .info-modal-overlay { background: rgba(26,26,46,.4); }
 body.theme-playful .info-modal-content {
@@ -5034,11 +4951,6 @@ body.theme-playful .modal-input {
 body.theme-playful .modal-input:focus { border-color: #4f8ff7; }
 body.theme-playful .modal-title { color: #4f8ff7; }
 body.theme-playful .modal-cancel { background: #e8e6e1; }
-
-body.theme-playful mark.search-highlight {
-  background: #fef3c7;
-  color: #1a1a2e;
-}
 
 body.theme-playful .table-modal-overlay { background: rgba(26,26,46,.4); }
 body.theme-playful .table-modal-content {
@@ -5390,7 +5302,6 @@ body.theme-playful.dark-mode .category-stat-row { border-bottom-color: rgba(255,
 body.theme-playful.dark-mode .cat-accuracy { color: #58a6ff; }
 body.theme-playful.dark-mode .cat-bar-container { background: rgba(22,27,45,.7); }
 
-body.theme-playful.dark-mode .learn-group-title { color: #e6edf3; }
 body.theme-playful.dark-mode .math-grid-item {
   background: rgba(22,27,45,.7);
 }
@@ -5421,22 +5332,6 @@ body.theme-playful.dark-mode .formula-tip { color: #cbd5e1; }
 
 body.theme-playful.dark-mode .feedback.correct { background: rgba(63,185,80,.12); }
 body.theme-playful.dark-mode .feedback.wrong   { background: rgba(248,81,73,.12); }
-
-body.theme-playful.dark-mode .learn-jump-btn {
-  background: #161b2d;
-  border-color: rgba(255,255,255,.06);
-  color: #8b949e;
-}
-body.theme-playful.dark-mode .learn-jump-btn:active {
-  background: rgba(88,166,255,.10);
-  border-color: #58a6ff;
-  color: #58a6ff;
-}
-body.theme-playful.dark-mode .learn-jump-btn.active {
-  background: rgba(88,166,255,.12);
-  border-color: #58a6ff;
-  color: #58a6ff;
-}
 
 body.theme-playful.dark-mode .info-modal-overlay { background: rgba(0,0,0,.6); }
 body.theme-playful.dark-mode .info-modal-content {
@@ -5512,7 +5407,6 @@ body.theme-playful.dark-mode .modal-cancel {
   background: rgba(255,255,255,.06);
   color: #e6edf3;
 }
-body.theme-playful.dark-mode mark.search-highlight { background: #613a15; color: #fef3c7; }
 
 body.theme-playful.dark-mode .table-modal-overlay { background: rgba(0,0,0,.65); }
 body.theme-playful.dark-mode .table-modal-content {
@@ -10782,7 +10676,7 @@ body.dark-mode .kx-tc-title { color: #f1f5f9; }
 .kx-tc-badges { display: flex; flex-wrap: wrap; gap: .3rem; }
 
 /* difficulty + exam-frequency + status badges */
-.kx-badge { font-size: .62rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; padding: .14rem .4rem; border-radius: .4rem; }
+.kx-badge { font-size: .66rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; padding: .16rem .42rem; border-radius: .4rem; }
 .kx-diff-foundation { background: rgba(22,163,74,.14); color: #15803d; }
 .kx-diff-core { background: rgba(37,99,235,.14); color: #2563eb; }
 .kx-diff-advanced { background: rgba(217,119,6,.16); color: #d97706; }
@@ -10795,7 +10689,7 @@ body.dark-mode .kx-freq, body.dark-mode .kx-status-scaffold { background: rgba(1
 
 /* ---- topic page ---- */
 .kx-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; font-size: .8rem; color: #64748b; margin-bottom: .6rem; }
-.kx-crumb { background: none; border: none; padding: .25rem .2rem; font: inherit; color: #2563eb; cursor: pointer; }
+.kx-crumb { display: inline-flex; align-items: center; min-height: 2.25rem; background: none; border: none; padding: .25rem .2rem; font: inherit; color: #2563eb; cursor: pointer; }
 .kx-crumb:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 3px; }
 .kx-crumb-sep { opacity: .5; }
 .kx-crumb-cur { color: #0f172a; font-weight: 700; }
@@ -10827,7 +10721,8 @@ body.dark-mode .kx-sec-pill.is-active { background: #2563eb; border-color: #2563
   .kx-topic-body { display: grid; grid-template-columns: minmax(0, 720px) 280px; gap: 1.5rem; align-items: start; justify-content: center; }
   .kx-aside { position: sticky; top: 3.4rem; }
 }
-.kx-topic-main { min-width: 0; }
+.kx-topic-main { min-width: 0; animation: kx-fade-in .26s ease both; }
+@keyframes kx-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* Dark mode has no base body-color flip, so set a light base for the topic page — every un-coloured block (callout/
    example/revision list text + headings) inherits it instead of the light-mode near-black. ADR-069 P1/P2 audit. */
 body.dark-mode #learnTopic { color: #e2e8f0; }
@@ -10906,6 +10801,7 @@ body.dark-mode .kx-back { color: #60a5fa; }
 @media (prefers-reduced-motion: reduce) {
   .kx-topic-card, .kx-sec-pill, .kx-chip, .kx-search-item, .kx-pn { transition: none !important; }
   .kx-topic-card:hover, .kx-topic-card:active { transform: none !important; }
+  .kx-topic-main { animation: none !important; }
 }
 
 /* ───────── Phase 4 — integrations: action bar · resume strips · completion · cheat-sheet projection (NO AI) ───────── */

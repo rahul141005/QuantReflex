@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.51 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.36 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.52 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.37 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.52 / Arch 2.37 (2026-06-28)** — **Learn Knowledge Engine — Phase 5 (polish + cleanup, NO AI) — ADR-069
+> COMPLETE.** Pruned all now-inert legacy Learn CSS — `.learn-jump-*` (nav/btn/active + dark + theme-playful + both
+> theme-playful.dark-mode variants, plus its tokens in the two tap-delay/ripple selector lists and `app.js`
+> RIPPLE_SELECTORS), `.learn-group-*`, `mark.search-highlight`, and the residual `.learn-searchable` marker class
+> (removed from the 5 Quick-Reference reference cards + `learn-manager.js`) — **21 dead rule-sets removed**, CSS 3109→
+> 3092 braces, zero remaining references. Micro-polish: badge type .62→.66rem, `.kx-crumb` lifted to a 2.25rem touch
+> target, a reduced-motion-guarded `kx-fade-in` topic-page entrance. Performance: render-on-route + a once-built
+> search index already minimize DOM/work, so **lazy per-category loading was deliberately not added** (premature for
+> 19 small precached topics). SW v133→v134. Final independent multi-agent production audit passed. **Client-only
+> cleanup/polish; no Firestore/Security/Payment change; NO AI in Learn.** Bible 2.51→2.52, Arch 2.36→2.37.
 
 > **2.51 / Arch 2.36 / Firestore 2.19 (2026-06-28)** — **Learn Knowledge Engine — Phase 4 (integrations, NO AI)
 > (ADR-069):** adds a localStorage-primary progress module (`js/learn/learn-progress.js`, dual-exported; pure
@@ -128,6 +139,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.52 | 2.37 | 2.19 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 5 (polish + cleanup, NO AI) — ADR-069 COMPLETE:** pruned all now-inert legacy Learn CSS (`.learn-jump-*` nav/btn/active across base/dark/theme-playful/theme-playful.dark-mode + both tap-delay/ripple selector lists + `app.js` RIPPLE_SELECTORS; `.learn-group-*`; `mark.search-highlight`; residual `.learn-searchable` marker removed from 5 reference cards + `learn-manager.js`) — **21 dead rule-sets gone**, CSS 3109→3092 braces, zero remaining refs. Polish: badge .62→.66rem, `.kx-crumb` 2.25rem touch target, reduced-motion-guarded `kx-fade-in` topic entrance. Perf: lazy per-category load deliberately NOT added (render-on-route + once-built search index already minimal for 19 precached topics). SW v133→v134. Final independent production audit passed. **Client-only cleanup/polish; no Firestore/Security/Payment change; NO AI.** Bible 2.51→2.52, Arch 2.36→2.37. |
 | 2026-06-28 | 2.51 | 2.36 | 2.19 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 4 (integrations, NO AI) (ADR-069):** localStorage-primary progress module (`js/learn/learn-progress.js`, dual-exported; pure recency/spaced-due helpers under a new 32-assertion `learn-progress.check`) with best-effort Firestore mirror via the **existing** `FirestoreSync.queueUpdate` — two new owner-writable user-doc fields **`learnProgress`** (`{topicId:{viewedAt,completedAt}}`) + **`learnTopicBookmarks`** (`[topicId]`), same denylist-safe path as customTopics/bookmarks (**no new collection/rule**; hydrated on login, cleared on user switch). Topic **action bar** (Practise this → focus-drill via `drillCategory`; Quick-revision **cheat-sheet projection** = filtered view over authored revision/formula/trick/trap blocks; Mark-complete; Save); hub **Continue learning** + spaced **Due for revision** strips + live completion ticks. Every applicable topic gains a **validated `syllabusTopicId`** → `data/syllabus.js` (data-level Planner link; `learn-content.check` 144→162). SW v132→v133. **Security/Payment unchanged** (`entitlementFieldsSafe()` already permits owner non-entitlement writes). Bible 2.50→2.51, Arch 2.35→2.36, Firestore 2.18→2.19. |
 | 2026-06-28 | 2.50 | 2.35 | 2.18 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 3 (ADR-069):** authored **14 gold-standard topics** (overview/concepts/formulas/tricks/traps/worked-examples/memory/revision) across a **5-category taxonomy** (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration) — Number System, Simplification, Percentages, Ratio, Averages, Time & Work, Pipes & Cisterns, TSD, Profit & Loss, Simple/Compound Interest, Probability, Area, Volume — + 5 honest scaffolds. Original exam-grade content (cheat sheets = organisation inspiration; every formula/example hand-verified). `data/knowledge/{numbers,commercial,modern}.js` added (+ arithmetic/mensuration enriched, categories.js expanded). Content-quality gate in `learn-content.check` (144) enforces gold-standard depth. SW v131→v132. **Content/client-only; topic ids preserved; no Firestore/Security/Payment change; NO AI.** Cheat-sheet projection view + formula explorer = P4. Bible 2.49→2.50 (Arch unchanged). |
 | 2026-06-28 | 2.49 | 2.35 | 2.18 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 2 (ADR-069):** Learn cut over to a deep-linkable **hub → topic-page** knowledge graph + reusable responsive design system. Reintroduces tested block renderers (`js/knowledge/blocks.js`); `js/views/learn-view.js` rewritten as a render-on-route controller (hub: category→topic cards + preserved Quick-Reference tables/bookmarks/custom topics; `#learn/<id>` topic pages: breadcrumbs, sticky scroll-spy section nav, typed blocks, related, prev/next, back); `learn-search.js` wired to the box (deep-linking results). New `.kx-*` responsive system scoped to `body.view-learn-active` (lifts the 480px cap on tablet/desktop). Retires `js/formulas.js` (content migrated) + legacy DOM-scan search/jump-nav. New `learn-render.check` (13) + `learn-browser.check` (10) in `npm test`. SW v129→v130. **Client-only; no Firestore/Security/Payment change; backwards-compatible; NO AI in Learn.** Arch 2.34→2.35, Bible 2.48→2.49. |
