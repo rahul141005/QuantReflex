@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-28 — Learn ship-readiness fixes: focus, glass fallback, contrast, dedup, scroll (ADR-069)
+
+Final adversarial production audit (two read-only Explore agents acting as reviewers trying to reject the PR). The
+system was confirmed otherwise sound; 5 real low-risk issues fixed below, and ~6 flagged items were consciously
+rejected as non-issues/anti-patterns (loading spinner for synchronous render; `.kx-revision` harmless wrapper;
+intentional radius/shadow differentiation; gated/GC'd listeners; `.table-selector` is a grid not a scroller; app-wide
+`.card` @supports out of scope). Client-only; scoped to Learn; no Firestore/Security/Payment/architecture change; NO AI.
+
+```
+### fix(ADR-069): route-change focus, glass @supports fallback, AA contrast, strip dedup, hub scroll restore
+- Focus management (WCAG 2.4.3): renderLearnRoute now moves keyboard/SR focus to the topic <h1 class="kx-th-title">
+  (given tabindex="-1") on topic open, and to the Learn heading (#learnHeading, tabindex="-1" in index.html) on hub
+  return, via focus({preventScroll:true}). Mouse users get no ring (CSS :focus outline:none on those targets) and no
+  scroll jump. Previously focus was stranded on the hidden element.
+- Glass robustness: .kx-section-nav gained an @supports not (backdrop-filter) fallback to a near-opaque background
+  (rgba .97) in light + dark, so on browsers without backdrop-filter the page no longer bleeds through the sticky nav.
+- Contrast (AA): faint #64748b secondary labels — .kx-cat-count, .kx-cat-blurb, .kx-search-cat, .kx-status-scaffold,
+  .kx-action-soon — darkened to #475569 (light); dark .kx-action-soon text #94a3b8 -> #cbd5e1.
+- Hub strip de-duplication: _renderResume "Continue learning" now excludes ids already in "Due for revision" so the
+  same topic can't appear in two strips; "★ Saved" stays authoritative (every saved topic shows).
+- Hub scroll restoration: renderLearnRoute saves .container.scrollTop before opening a topic and restores it on hub
+  return (module var _hubScroll), so Back from a topic returns to the prior reading position; topic open still
+  starts at top.
+- Service worker v136 -> v137. Docs: VERSIONS (Bible 2.54->2.55, Arch 2.39->2.40), DECISION_LOG, TECHNICAL_BIBLE
+  (1.17), main-app/ARCHITECTURE.md (SW v137).
+- Verified: node --check (learn-view.js, service-worker.js); CSS braces balanced (3109/3109); npm test green;
+  zero AI refs in Learn.
+```
+
+---
+
 ## 2026-06-28 — Learn premium UX polish + 4 critical bug fixes (ADR-069)
 
 Polish + bug-fix pass on the shipped Learn tab (no new features/widgets). Two Explore agents root-caused the four

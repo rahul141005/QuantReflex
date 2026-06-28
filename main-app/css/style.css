@@ -10643,7 +10643,7 @@ body.view-learn-active .container { max-width: 560px; }
 .kx-search-item:hover, .kx-search-item:focus-visible { background: #eff6ff; border-color: #bfdbfe; outline: none; }
 .kx-search-ico { font-size: 1.15rem; }
 .kx-search-title { font-weight: 700; font-size: .92rem; color: #0f172a; }
-.kx-search-cat { margin-left: auto; font-size: .72rem; color: #64748b; text-transform: capitalize; }
+.kx-search-cat { margin-left: auto; font-size: .72rem; color: #475569; text-transform: capitalize; }
 .kx-search-empty { padding: .8rem .2rem; color: #64748b; font-size: .88rem; text-align: center; }
 body.dark-mode .kx-search-item { background: rgba(30,41,59,.6); border-color: rgba(255,255,255,.08); }
 body.dark-mode .kx-search-item:hover, body.dark-mode .kx-search-item:focus-visible { background: #1e293b; border-color: #334155; }
@@ -10654,8 +10654,8 @@ body.dark-mode .kx-search-cat, body.dark-mode .kx-search-empty { color: #94a3b8;
 .kx-cat { margin-bottom: 1.4rem; }
 .kx-cat-head { display: flex; align-items: baseline; gap: .5rem; margin: 0 0 .15rem; }
 .kx-cat-title { font-size: 1.2rem; font-weight: 800; color: #0f172a; margin: 0; }
-.kx-cat-count { font-size: .8rem; font-weight: 700; color: #64748b; }
-.kx-cat-blurb { font-size: .85rem; color: #64748b; margin: 0 0 .7rem; line-height: 1.45; }
+.kx-cat-count { font-size: .8rem; font-weight: 700; color: #475569; }
+.kx-cat-blurb { font-size: .85rem; color: #475569; margin: 0 0 .7rem; line-height: 1.45; }
 body.dark-mode .kx-cat-title { color: #f1f5f9; }
 body.dark-mode .kx-cat-count, body.dark-mode .kx-cat-blurb { color: #94a3b8; }
 .kx-topic-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
@@ -10686,7 +10686,7 @@ body.dark-mode .kx-tc-title { color: #f1f5f9; }
 .kx-diff-core { background: rgba(37,99,235,.14); color: #2563eb; }
 .kx-diff-advanced { background: rgba(217,119,6,.16); color: #d97706; }
 .kx-freq { background: rgba(100,116,139,.14); color: #475569; }
-.kx-status-scaffold { background: rgba(100,116,139,.14); color: #64748b; }
+.kx-status-scaffold { background: rgba(100,116,139,.14); color: #475569; }
 body.dark-mode .kx-diff-foundation { background: rgba(22,163,74,.2); color: #4ade80; }
 body.dark-mode .kx-diff-core { background: rgba(37,99,235,.22); color: #60a5fa; }
 body.dark-mode .kx-diff-advanced { background: rgba(217,119,6,.22); color: #fbbf24; }
@@ -10712,6 +10712,13 @@ body.dark-mode .kx-th-title { color: #f1f5f9; }
 .kx-section-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: .4rem; overflow-x: auto; padding: .5rem 0; margin-bottom: .4rem; background: rgba(248,250,252,.72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); -webkit-overflow-scrolling: touch; scrollbar-width: none; overscroll-behavior-x: contain; }
 .kx-section-nav::-webkit-scrollbar { display: none; }
 body.dark-mode .kx-section-nav { background: rgba(15,23,42,.72); }
+/* No backdrop-filter (older Safari/Android) → near-opaque mask so page content doesn't bleed through the sticky nav. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .kx-section-nav { background: rgba(248,250,252,.97); }
+  body.dark-mode .kx-section-nav { background: rgba(15,23,42,.97); }
+}
+/* Programmatic focus targets (route-change a11y) must not paint a ring for mouse users — they aren't controls. */
+.kx-th-title:focus, #learnHeading:focus { outline: none; }
 .kx-sec-pill { flex: 0 0 auto; min-height: 2.25rem; border: 1.5px solid #e2e8f0; background: rgba(255,255,255,.9); color: #475569; border-radius: 2rem; padding: .45rem .85rem; font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, color .15s, transform .12s ease; }
 .kx-sec-pill:hover { background: #eff6ff; border-color: #bfdbfe; }
 .kx-sec-pill:active { transform: scale(.96); }
@@ -10826,8 +10833,8 @@ body.dark-mode .kx-back { color: #60a5fa; }
 .kx-action-practise { background: #2563eb; border-color: #2563eb; color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.25); }
 .kx-action-practise:hover { background: #1d4ed8; border-color: #1d4ed8; }
 /* non-interactive "Practice coming soon" cue (Pipes & Cisterns, until a dedicated bank exists) */
-.kx-action-soon { background: rgba(100,116,139,.1); border-style: dashed; border-color: rgba(100,116,139,.35); color: #64748b; cursor: default; }
-body.dark-mode .kx-action-soon { background: rgba(148,163,184,.12); border-color: rgba(148,163,184,.35); color: #94a3b8; }
+.kx-action-soon { background: rgba(100,116,139,.1); border-style: dashed; border-color: rgba(100,116,139,.4); color: #475569; cursor: default; }
+body.dark-mode .kx-action-soon { background: rgba(148,163,184,.12); border-color: rgba(148,163,184,.4); color: #cbd5e1; }
 .kx-action-revise.is-on { background: rgba(124,58,237,.12); border-color: #7c3aed; color: #6d28d9; }
 .kx-action-complete.is-on { background: rgba(22,163,74,.12); border-color: #16a34a; color: #16a34a; }
 .kx-action-save.is-on { background: rgba(217,119,6,.12); border-color: #d97706; color: #b45309; }

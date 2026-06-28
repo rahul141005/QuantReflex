@@ -95,6 +95,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   `drillComingSoon` non-interactive "Practice coming soon" chip. Scaffold cards restyled to read as *planned*; bounded
   token-based visual polish (card elevation/press, resume edge-fade, glassy pills, search focus), reduced-motion-
   guarded. SW v135→v136. No Firestore/Security/Payment change. Architecture 2.38→2.39, Bible 2.53→2.54.
+- **Ship-readiness fixes (2026-06-28, final adversarial audit):** two read-only reviewer agents (trying to reject the
+  PR) confirmed the system otherwise sound; 5 real low-risk fixes, several other findings consciously rejected as
+  non-issues/anti-patterns (synchronous-render spinner, harmless `.kx-revision` wrapper, intentional token
+  differentiation, gated/GC'd listeners, grid-not-scroller, out-of-scope `.card` @supports). Fixed: (1) **focus
+  management** on route change → topic `<h1>` / `#learnHeading` (`tabindex="-1"`, `focus({preventScroll:true})`,
+  WCAG 2.4.3); (2) **glass `@supports` fallback** so `.kx-section-nav` is near-opaque where `backdrop-filter` is
+  unsupported (no content bleed); (3) **AA contrast** — faint `#64748b` labels → `#475569`; (4) **hub strip de-dup**
+  ("Continue" excludes "Due" ids; Saved authoritative); (5) **hub scroll restoration** on Back. SW v136→v137. No
+  Firestore/Security/Payment change. Architecture 2.39→2.40, Bible 2.54→2.55.
 
 ## ADR-068 — Battle Archive: Premium duel history + rivalry/personal stats + achievements (2026-06-28)
 - **Context:** The duel system stored only a capped (50), thin `users/{uid}/duelHistory` row per finished duel

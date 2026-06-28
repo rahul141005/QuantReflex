@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.54 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.39 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.55 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.40 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.3 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.55 / Arch 2.40 (2026-06-28)** — **Learn ship-readiness fixes (ADR-069), NO AI** — 5 real issues from a final
+> adversarial production audit (the audit also confirmed the system otherwise sound, and several flagged items were
+> consciously rejected as non-issues/anti-patterns). **(1) Focus management** — `renderLearnRoute` now moves
+> keyboard/SR focus to the topic `<h1>` (added `tabindex="-1"`) on topic open and to the Learn heading
+> (`#learnHeading`, `tabindex="-1"`) on hub return, via `.focus({preventScroll:true})` (WCAG 2.4.3; no mouse-user
+> ring/scroll-jump). **(2) Glass `@supports` fallback** — `.kx-section-nav` gets a near-opaque background where
+> `backdrop-filter` is unsupported, so page content no longer bleeds through the sticky nav. **(3) Contrast** — faint
+> `#64748b` secondary labels (`.kx-cat-count/blurb`, `.kx-search-cat`, `.kx-status-scaffold`, `.kx-action-soon`)
+> darkened to `#475569` for AA (dark `.kx-action-soon` → `#cbd5e1`). **(4) Hub strip de-dup** — "Continue learning"
+> now excludes ids already in "Due for revision" (Saved stays authoritative) so a topic never shows twice. **(5) Hub
+> scroll restoration** — returning from a topic restores the prior hub scroll position. SW v136→v137. **Client-only;
+> no Firestore/Security/Payment change; NO AI.** Bible 2.54→2.55, Arch 2.39→2.40.
 
 > **2.54 / Arch 2.39 (2026-06-28)** — **Learn premium UX polish + 4 critical bug fixes (ADR-069), NO AI.**
 > **(1) Horizontal pill swipe switched the bottom-nav tab** — `swipe-nav.js` listened globally with no scroll-
@@ -166,6 +179,7 @@ file and moves independently of the system-level tracks above.
 
 | Date | Bible | Arch | Firestore | Security | Payment | Summary |
 |---|---|---|---|---|---|---|
+| 2026-06-28 | 2.55 | 2.40 | 2.19 | 2.14 | 2.3 | **Learn ship-readiness fixes (ADR-069), NO AI:** 5 real issues from a final adversarial audit (rest confirmed sound; several flagged items consciously rejected as non-issues). (1) route-change focus management → topic `<h1>` / `#learnHeading` (both `tabindex="-1"`, `focus({preventScroll:true})`) — WCAG 2.4.3; (2) `.kx-section-nav` `@supports` fallback to near-opaque where `backdrop-filter` unsupported (no content bleed); (3) faint `#64748b` labels (`.kx-cat-count/blurb`, `.kx-search-cat`, `.kx-status-scaffold`, `.kx-action-soon`) darkened to `#475569` for AA; (4) hub "Continue" excludes "Due" ids (no duplicate cards; Saved authoritative); (5) hub scroll position restored on Back from a topic. SW v136→v137. Client-only; no Firestore/Security/Payment change. Bible 2.54→2.55, Arch 2.39→2.40. |
 | 2026-06-28 | 2.54 | 2.39 | 2.19 | 2.14 | 2.3 | **Learn premium UX polish + 4 bug fixes (ADR-069), NO AI:** (1) horizontal pill/strip swipe no longer switches the bottom-nav tab — `swipe-nav.js` denylist now exempts `[data-no-swipe], .kx-section-nav, .kx-resume-row, .kx-table-scroll`; (2) sticky section-nav is now subtle glass (blur + translucent page-bg) instead of a dark strip; (3) "Save" is real — hub shows a "★ Saved" strip from `LearnProgress.bookmarkedIds()` + save toast; (4) Pipes & Cisterns `drillCategory:null` + non-interactive "Practice coming soon" chip (`drillComingSoon`) instead of launching Time & Work questions. Scaffold "Coming soon" cards restyled (dashed/inviting, not dimmed); bounded token-based polish (card hover/press, resume edge-fade mask, glassy pills, search focus), all reduced-motion-guarded. SW v135→v136. Client-only; no Firestore/Security/Payment change. Bible 2.53→2.54, Arch 2.38→2.39. |
 | 2026-06-28 | 2.53 | 2.38 | 2.19 | 2.14 | 2.3 | **Learn final-review polish (ADR-069), NO AI:** client-only a11y + responsive elevations from the final production review. **A11y semantics:** topic-page section labels → `<h2>`, block heads (concept/formula/trick/trap/memory/example) → `<h3>` (clean `h1→h2→h3` outline); breadcrumb/section-nav → `<nav aria-label>`, related/prev-next/back → `<aside>`; active scroll-spy pill gets `aria-current`; `#learnSearchResults` is an `aria-live="polite"` region. Zero visual change (class-based styling; two head classes gained a `margin-top:0` reset). **Landscape-tablet layout:** reading-column + sticky side-rail now activates at **≥960px** (was 1100) via a new 900px container step + hub 3-col @960 — landscape iPads/foldables get a true two-column reading+rail; phones + portrait tablets (<960) unchanged. SW v134→v135. No Firestore/Security/Payment change. Bible 2.52→2.53, Arch 2.37→2.38. |
 | 2026-06-28 | 2.52 | 2.37 | 2.19 | 2.14 | 2.3 | **Learn Knowledge Engine — Phase 5 (polish + cleanup, NO AI) — ADR-069 COMPLETE:** pruned all now-inert legacy Learn CSS (`.learn-jump-*` nav/btn/active across base/dark/theme-playful/theme-playful.dark-mode + both tap-delay/ripple selector lists + `app.js` RIPPLE_SELECTORS; `.learn-group-*`; `mark.search-highlight`; residual `.learn-searchable` marker removed from 5 reference cards + `learn-manager.js`) — **21 dead rule-sets gone**, CSS 3109→3092 braces, zero remaining refs. Polish: badge .62→.66rem, `.kx-crumb` 2.25rem touch target, reduced-motion-guarded `kx-fade-in` topic entrance. Perf: lazy per-category load deliberately NOT added (render-on-route + once-built search index already minimal for 19 precached topics). SW v133→v134. Final independent production audit passed. **Client-only cleanup/polish; no Firestore/Security/Payment change; NO AI.** Bible 2.51→2.52, Arch 2.36→2.37. |

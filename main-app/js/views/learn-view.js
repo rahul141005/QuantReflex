@@ -45,6 +45,7 @@ var LearnView = (function () {
   var _hubBuilt = false;
   var _searchTimer = null;
   var _io = null;   // IntersectionObserver for sticky section-nav highlighting (torn down between topics)
+  var _hubScroll = 0;   // remembered hub scroll position, restored when returning from a topic page
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
@@ -218,7 +219,7 @@ var LearnView = (function () {
 
     /* header + badges */
     var header = document.createElement('div'); header.className = 'kx-topic-header';
-    header.innerHTML = '<span class="kx-th-ico">' + _esc(topic.icon || '📘') + '</span><h1 class="kx-th-title">' + _esc(topic.title) + '</h1>';
+    header.innerHTML = '<span class="kx-th-ico">' + _esc(topic.icon || '📘') + '</span><h1 class="kx-th-title" tabindex="-1">' + _esc(topic.title) + '</h1>';
     host.appendChild(header);
     var badges = document.createElement('div'); badges.className = 'kx-th-badges';
     badges.innerHTML = _diffBadge(topic.difficulty) + _freqBadge(topic.examFrequency) +
@@ -404,9 +405,11 @@ var LearnView = (function () {
     var due = LP.due(dueInput).filter(function (id) { return KB.has(id); }).slice(0, 8);
     if (due.length) html += _stripHtml('🔁 Due for revision', due, KB);
 
-    var recent = LP.recent(8).filter(function (id) { return KB.has(id); });
+    /* Continue excludes anything already shown under Due (the more urgent framing of the same topic) — no dup cards. */
+    var recent = LP.recent(8).filter(function (id) { return KB.has(id) && due.indexOf(id) === -1; });
     if (recent.length) html += _stripHtml('⏱️ Continue learning', recent, KB);
 
+    /* Saved stays authoritative (an explicit user list) — every saved topic shows, even if also Due/Continue. */
     var saved = LP.bookmarkedIds().filter(function (id) { return KB.has(id); }).slice(0, 8);
     if (saved.length) html += _stripHtml('★ Saved', saved, KB);
 
@@ -433,12 +436,17 @@ var LearnView = (function () {
     var path = params && params.path;
 
     if (path && KB && KB.has(path)) {
+      /* remember where the hub was scrolled to, so Back restores the reading position instead of jumping to top */
+      if (hub && !hub.hidden) { var hc = document.querySelector('.container'); _hubScroll = hc ? hc.scrollTop : 0; }
       var input = document.getElementById('learnSearch'); if (input) input.value = '';
       var box = document.getElementById('learnSearchResults'); if (box) { box.hidden = true; box.innerHTML = ''; }
       if (hub) hub.hidden = true;
       _buildTopicPage(KB.get(path));
       if (topicEl) topicEl.hidden = false;
       _scrollTop();
+      /* a11y: move focus to the new topic heading so keyboard/SR users land on the content (no scroll jump for mouse) */
+      var th = document.querySelector('#learnTopic .kx-th-title');
+      if (th && th.focus) { try { th.focus({ preventScroll: true }); } catch (_) { th.focus(); } }
     } else {
       /* An unknown/stale topic id (e.g. a shared link to a removed topic) falls back to the hub — canonicalize the
          address bar from #learn/<bad-id> to #learn so a refresh/re-share doesn't keep the dead path. */
@@ -450,6 +458,11 @@ var LearnView = (function () {
       if (hub) hub.hidden = false;
       _renderResume();      // refresh Continue / Due strips with any topics viewed this session
       _refreshCardTicks();  // keep completion ticks live on the category cards
+      /* restore the hub scroll position (set when we left for a topic) now that the hub layout is settled */
+      var hc2 = document.querySelector('.container'); if (hc2) hc2.scrollTop = _hubScroll;
+      /* a11y: return focus to the Learn heading so keyboard/SR users aren't stranded on the torn-down topic */
+      var lh = document.getElementById('learnHeading');
+      if (lh && lh.focus) { try { lh.focus({ preventScroll: true }); } catch (_) { lh.focus(); } }
     }
   }
 
