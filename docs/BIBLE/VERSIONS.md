@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.62 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.63 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.42 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.19 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.20 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.63 / Firestore 2.20 (2026-06-29)** — **Ecosystem Firestore audit + targeted hardening (ADR-071).** A full
+> senior-Firebase-architect audit of all three apps verified the architecture is production-grade (all 26 indexes
+> used, every collection ruled + default-deny, server-authoritative entitlements/duels/AI-memory, no leaked
+> listeners, intentional layered caches). Three small, verified improvements shipped: **(1) `aiDaily` TTL** — the
+> per-day Coach/Insights cache (`{uid}_{feature}_{date}`) now stamps `expiresAt: now+48h` and the super-admin
+> `cron/sweep` prunes expired docs (mirrors the `aiRequests` pattern), bounding the one unbounded accumulator; **(2)
+> removed the unread `users/{uid}/profile/data` dual-write** — a documented derived mirror with **zero readers** in
+> any of the three apps (every consumer reads the root `users.profile` map); the defensive account-deletion delete is
+> kept; **(3)** a dry-run-first, operator-run cleanup migration `firestore/migrations/2026-06-29-cleanup-legacy-
+> orphans.js` for the verified-orphaned legacy collections (`aiMissions`/`aiCoachV2`/`aiInsightsV2`/`duelInvitations`)
+> + stale `aiDaily` + legacy `profile/data`/`usage/wordProblems` docs. **Consciously declined** a permanent
+> Super-Admin orphan-scanner/collection-delete UI (the orphan set is fixed; ongoing cleanup is already automated; an
+> always-on delete surface is disproportionate risk at 2–3k users — ADR-071). No rules/index/schema-redesign change,
+> no UX-affecting read change, no new deps. SW v144→v145. Bible 2.62→2.63, Firestore 2.19→2.20, Architecture
+> unchanged (2.42).
 
 > **2.62 (2026-06-28)** — **QuanAI production-readiness hardening (ADR-070 follow-up; no new feature/contract).** A
 > full 13-phase verification (three independent adversarial audits) found the QuanAI ecosystem production-ready — zero

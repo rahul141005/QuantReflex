@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-071 — Ecosystem Firestore audit: aiDaily TTL, remove unread profile/data, one-time legacy-orphan cleanup, decline a permanent cleanup UI (2026-06-29)
+- **Context:** A senior-Firebase-architect audit of the entire 3-app ecosystem (Student `main-app`, `super-admin-app`,
+  `coaching-admin-app`, one shared Firestore project) mapped every read, write, listener, cache, rule, index, and the
+  documented schema vs. reality. **Verdict: production-grade and exceptionally well-governed** — all 26 composite
+  indexes used (100%, zero orphans), every collection has an explicit rule + default-deny, server-authoritative
+  entitlements/duels/AI-memory, `count()`-based metrics, field-masked + capped + paged admin scans, token-revocation
+  auth gates, exactly two owned realtime listeners (notifications, duel room — no leaks), and intentional layered
+  caches. No critical issues, no security gaps, no missing indexes, no broken ecosystem flows. Per the ≈2–3k-user
+  scale (no enterprise complexity; student responsiveness wins), the audit's job was to verify + report and fix only
+  genuinely-justified, low-risk debt.
+- **Decision:** Ship three small, verified improvements; change nothing else.
+  - **(1) Bound the `aiDaily` accumulator.** `aiDaily/{uid}_{feature}_{YYYY-M-D}` is written once per user/feature/day
+    and never read after its day, but (unlike `aiRequests`) had no TTL → unbounded growth. Mirror the proven
+    `aiRequests` pattern: `_putDaily` now stamps `expiresAt: Date.now()+2*86400000` and `super-admin cron/sweep` adds
+    a paged, non-fatal prune of `aiDaily where expiresAt < now` (single-field range → auto-indexed, no composite). A
+    48h buffer can't expire a still-readable same-day cache.
+  - **(2) Remove the unread `users/{uid}/profile/data` dual-write.** Verified (grep across all three apps) that
+    **nothing reads it** — every consumer reads the root `users.profile` map + root plan fields. Removed
+    `_syncProfileSubcollection` + its 3 low-frequency call sites + the seed (`firestore-sync.js`). The defensive
+    account-deletion/purge delete of the `profile` subcollection is **kept** (for any existing docs). Note:
+    `performance/overall` + `practice/data` were verified **actively read** by the coaching Student-360 detail
+    (`coaching-admin students.js`) and are untouched.
+  - **(3) One-time legacy-orphan cleanup script, not a permanent UI.** `firestore/migrations/2026-06-29-cleanup-
+    legacy-orphans.js` (dry-run by default; `--apply` to delete; paged/batched; idempotent) wipes the verified-
+    orphaned legacy collections `aiMissions`/`aiCoachV2`/`aiInsightsV2`/`duelInvitations`, stale `aiDaily` (missing/
+    past `expiresAt`), and legacy `profile/data` + `usage/wordProblems` per-user docs (strict id match never touches
+    the canonical `usage/ai`). Follows the established operator-run migration governance (6 prior scripts).
+- **Declined — permanent Super-Admin orphan-scanner / collection-delete UI:** (a) the orphan set is a known fixed list
+  from documented migrations — a one-time script fully solves it, not an open-ended discovery problem; (b) ongoing
+  lifecycle cleanup is already automated (cron: `aiRequests` prune, archived-user purge past 30-day hold, inactive
+  flagging; `user-lifecycle.purgeUser`); (c) an always-on "delete Firestore collections" admin surface is a
+  high-blast-radius capability (accidental data loss) that adds auth + maintenance burden disproportionate to a
+  one-time pre-launch cleanup at 2–3k users; (d) versioned, reviewable, dry-run-able migration scripts are the repo's
+  governance pattern. Adding `aiDaily` to the cron covers the only *ongoing* accumulation gap.
+- **Consequences:** Bounded `aiDaily`; one fewer write per profile/premium change + a dead subcollection gone; a safe
+  operator path to clear pre-existing legacy docs. No rules/index/schema-redesign change, no UX-affecting read change,
+  no new deps; admin/coaching read paths, listeners, and security model unchanged. The cleanup script is authored
+  only — the operator runs it against the live DB. SW v144→v145. Firestore 2.19→2.20, Bible 2.62→2.63, Architecture
+  unchanged (2.42 — no topology/contract change). FIRESTORE_BLUEPRINT 1.12→1.13.
+
 ## ADR-070 — QuanAI cohesion pass: Planner Start Over, perceived-performance thinking states, natural branding (2026-06-28)
 - **Context:** A full read-only audit of the QuanAI stack (server flow, client UX, deterministic layer, docs) found the
   AI ecosystem already mature and heavily optimized — deterministic-first (the LLM only writes short, schema-

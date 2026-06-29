@@ -16,10 +16,11 @@
  *
  *   users/{userId}/practiceSessions/{sessionId}  (subcollection — drill history)
  *
- *   Structured subcollections (dual-written alongside root doc, read-only for now):
- *   users/{userId}/profile/data                  (name, premium flags)
+ *   Structured subcollections (dual-written alongside root doc; read by the coaching student-detail view):
  *   users/{userId}/performance/overall           (derived accuracy, avgTime, streaks)
  *   users/{userId}/practice/data                 (mistakes, savedQuestions)
+ *   NOTE (ADR-071): the former profile/data mirror was removed — nothing read it (every consumer reads the root
+ *   users.profile map + root plan fields), so it was pure write-amplification.
  *   users/{userId}/ai/benchmarks/{fingerprint}   (speed benchmark results — server-written)
  *
  *   AI usage quota lives at users/{userId}/usage/ai (server source of truth).
@@ -150,26 +151,6 @@ var FirestoreSync = (function () {
     if (Array.isArray(bookmarks)) payload.savedQuestions = bookmarks;
     if (!payload.mistakes && !payload.savedQuestions) return;
     _subcollectionWrite('practice', 'data', payload, 'Practice');
-  }
-
-  function _syncProfileSubcollection(profile, premiumFlags) {
-    var payload = { updatedAt: new Date().toISOString() };
-    try {
-      var currentUser = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
-      if (currentUser && currentUser.email) payload.email = currentUser.email;
-    } catch (_) {}
-    if (profile) {
-      if (profile.name !== undefined) payload.name = profile.name || '';
-
-    }
-    if (premiumFlags) {
-      if (premiumFlags.plan !== undefined) payload.plan = premiumFlags.plan === 'premium' ? 'premium' : 'free';
-      if (premiumFlags.planType !== undefined) payload.planType = premiumFlags.planType || null;
-      if (premiumFlags.planExpiry !== undefined) payload.planExpiry = premiumFlags.planExpiry || null;
-      if (premiumFlags.isTrial !== undefined) payload.isTrial = !!premiumFlags.isTrial;
-      if (premiumFlags.trialEnd !== undefined) payload.trialEnd = premiumFlags.trialEnd || null;
-    }
-    _subcollectionWrite('profile', 'data', payload, 'Profile');
   }
 
   /* ---- End subcollection helpers ---- */
@@ -391,10 +372,6 @@ var FirestoreSync = (function () {
         /* Non-blocking: eagerly seed all structured subcollections for new user */
         var mc = _memoryCache || fallbackDefaults;
         var seedDocRef = _getUserDocRef();
-        _syncProfileSubcollection(
-          { name: (mc.profile && mc.profile.name) || '' },
-          { plan: 'free', planType: null, planExpiry: null, isTrial: false, trialEnd: null }
-        );
         _syncPerformanceSubcollection(mc.stats || fallbackDefaults.stats);
         /* Eagerly create practice/data so the subcollection exists from day 0.
            NOTE (audit M1): AI usage is owned server-side at users/{uid}/usage/ai
@@ -1061,7 +1038,6 @@ var FirestoreSync = (function () {
           });
         }
       }
-      _syncProfileSubcollection({ name: name }, null);
     },
     /**
      * Update the user's coaching ID in Firestore.
@@ -1137,7 +1113,6 @@ var FirestoreSync = (function () {
         _memoryCache.trialEnd = null;
         if (paymentId) _memoryCache.lastPaymentId = String(paymentId);
       }
-      _syncProfileSubcollection(null, { plan: 'premium', planType: planType || null, planExpiry: expiry || null, isTrial: false, trialEnd: null });
       if (callback) callback(null);
     },
     /**

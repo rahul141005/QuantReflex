@@ -35,7 +35,7 @@ module.exports = async function (req, res) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret.' } });
   }
 
-  const result = { snapshot: false, coachingRollups: 0, flagged: 0, purged: 0, aiRequestsPruned: 0 };
+  const result = { snapshot: false, coachingRollups: 0, flagged: 0, purged: 0, aiRequestsPruned: 0, aiDailyPruned: 0 };
   try {
     const db = admin.firestore();
 
@@ -56,6 +56,25 @@ module.exports = async function (req, res) {
     } catch (e) {
       console.error('[cron/sweep] aiRequests prune failed:', e);
       result.aiRequestsPruneError = e.message;
+    }
+
+    /* (0b) Prune expired aiDaily per-day Coach/Insights caches (expiresAt is epoch ms set at write time, ADR-071).
+       Same bounded-page pattern as aiRequests — the doc is only ever read by its same-day key, so anything expired
+       is dead weight. Single-field expiresAt range → auto-indexed (no composite). Non-fatal. */
+    try {
+      const nowMs = Date.now();
+      for (let page = 0; page < 10; page++) {   // ≤3000 deletions/day; the rest drains tomorrow
+        const stale = await db.collection('aiDaily').where('expiresAt', '<', nowMs).limit(300).get();
+        if (stale.empty) break;
+        const batch = db.batch();
+        stale.forEach(function (d) { batch.delete(d.ref); });
+        await batch.commit();
+        result.aiDailyPruned += stale.size;
+        if (stale.size < 300) break;
+      }
+    } catch (e) {
+      console.error('[cron/sweep] aiDaily prune failed:', e);
+      result.aiDailyPruneError = e.message;
     }
 
     /* (1) Daily metrics snapshot (non-fatal — cleanup still runs if it fails). */

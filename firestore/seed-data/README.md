@@ -9,7 +9,7 @@ New users are automatically seeded by the Main App's `FirestoreSync._createDefau
 - Free tier (isPremium: false, isTrial: false)
 - Default settings (sound: on, difficulty: medium, dailyGoal: 20)
 - Empty stats, bookmarks, custom data
-- Subcollections eagerly created: performance/overall, practice/data, ai/usage
+- Subcollections eagerly created: performance/overall, practice/data (AI usage is seeded server-side at usage/ai)
 
 ## Question Bank Seeding
 

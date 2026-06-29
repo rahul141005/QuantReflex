@@ -1,9 +1,9 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.12 · **Firestore Version:** 2.19 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.13 · **Firestore Version:** 2.20 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-29
 **Change control:** Any schema change (new/renamed field, new collection, path change, index change) follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Firestore Version in [VERSIONS.md](VERSIONS.md) (with a migration note if data is affected).
 
 Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
@@ -71,9 +71,9 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | Path | Authority | Writer | Shape |
 |---|---|---|---|
 | `practiceSessions/{auto}` | append log | client | `{mode, category, score, total, duration, date, timestamp}` + **(ADR-030)** optional `{firstHalfAvg, secondHalfAvg, sessionImprovementPct, timedCount}` — **now actually populated (ADR-027):** the `firestore-sync.savePracticeSession()` writer was exported but had **zero call sites**, so this subcollection was effectively empty. It is now called from the drill/timed-test completion flow, giving per-session `duration` (speed) + `date` for the Coaching App's session list and "sessions today" count. **Session Improvement (ADR-030):** when the session had ≥6 timed questions, `firstHalfAvg`/`secondHalfAvg` (seconds) record the mean solve time of the first vs last half of `perQuestionTimes` and `sessionImprovementPct` the signed within-session delta — surfaced per-session on the coaching Student-360 profile, never mixed with the calendar speed trend. Absent on sessions with <6 timed questions (and on all pre-ADR-030 docs). |
-| `performance/overall` | derived mirror | client | `{totalAttempted, totalCorrect, accuracy, avgTime, bestStreak, currentStreak, dailyStreak, ...}` |
-| `practice/data` | derived mirror | client | `{mistakes[], savedQuestions[], updatedAt}` |
-| `profile/data` | derived mirror | client | `{name, email, premium mirror flags, updatedAt}` |
+| `performance/overall` | derived mirror | client | `{totalAttempted, totalCorrect, accuracy, avgTime, bestStreak, currentStreak, dailyStreak, ...}` — **read by the coaching Student-360 detail** (`coaching-admin students.js`). |
+| `practice/data` | derived mirror | client | `{mistakes[], savedQuestions[], updatedAt}` — **read by the coaching Student-360 detail** (mistakes list). |
+| `profile/data` | **removed (ADR-071, 2026-06-29)** | — | legacy derived mirror; **nothing read it** (consumers read the root `users.profile` map + root plan fields). Client dual-write deleted; legacy docs cleared by `firestore/migrations/2026-06-29-cleanup-legacy-orphans.js`. Do not recreate. |
 | **`usage/ai`** | **AI quota + cost — SOURCE OF TRUTH** | admin (register, aiService) | `{wordProblemsUsedLifetime, wordProblemsUsedToday, wordProblemsLastDate, explanationsUsed, lastUsageDate, insightsGeneratedDate, gptTokensInput, gptTokensOutput, gptCostUSD, gptCalls, gptThrottleDate, gptThrottleCount}` — the four `gpt*` counters (`increment`-written by `aiService.trackGptCost` on every OpenAI call) are per-user token/cost telemetry (added 2026-06-11, Super Admin Phase 1). `gptThrottleDate` (UTC `YYYY-MM-DD`) + `gptThrottleCount` are the **per-user daily throttle counter** (ADR-022) — written transactionally by `aiService.enforceAiThrottle` only when the parent `users/{uid}.aiThrottle.cap` is set, and reset each UTC day. |
 | `ai/usage` | **removed (audit M1, 2026-06-11)** | — | legacy orphaned client mirror; client seed deleted. Do not recreate. |
 | `notifications/{id}` | per-user notices | admin/client(read) | `{title, body, type, isRead, timestamp}` |
@@ -212,7 +212,10 @@ completedAt, createdAt }`.
   write DENIED** by rules (`entitlementFieldsSafe`); owner read allowed.
 - `aiContext/{uid}` — server-only 6h cache of the Student Context Engine output `{ctx, ttlExp, updatedAt}`. Default-deny.
 - `aiDaily/{uid}_{feature}_{YYYY-M-D}` — server-only daily cache of coach/insights block envelopes `{uid, feature,
-  date, envelope, createdAt}` (consolidates `aiCoachV2`/`aiInsightsV2`). Default-deny.
+  date, envelope, createdAt, expiresAt}` (consolidates `aiCoachV2`/`aiInsightsV2`). Default-deny. **(ADR-071)**
+  `expiresAt` (epoch ms, `now+48h`) bounds the cache — the doc is only ever read by its exact same-day key, so the
+  super-admin `cron/sweep` prunes expired docs (mirrors the `aiRequests` retention pattern). Single-field range →
+  auto-indexed (no composite). Legacy pre-`expiresAt` docs are swept once by the 2026-06-29 cleanup migration.
 - `aiMissions/{uid}` — **REMOVED (ADR-047)** — the legacy one-shot study Mission (superseded by `aiPlanner/{uid}`).
   No longer written or read by any runtime path (`action=mission`, `missionGenerate`, `planLogic`, the mission
   interview were all deleted). Any pre-existing docs are orphaned and harmless (default-deny); the Planner

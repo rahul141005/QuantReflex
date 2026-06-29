@@ -116,19 +116,6 @@
         "explanationsUsed": { "type": "integer" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
-    },
-    "profile/data": {
-      "description": "Structured profile subcollection (dual-write)",
-      "documentSchema": {
-        "name": { "type": "string" },
-        "email": { "type": "string" },
-        "plan": { "type": "string", "enum": ["free", "premium"] },
-        "planType": { "type": ["string", "null"] },
-        "planExpiry": { "type": ["string", "null"] },
-        "isTrial": { "type": "boolean" },
-        "trialEnd": { "type": ["string", "null"] },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
     }
   }
 }

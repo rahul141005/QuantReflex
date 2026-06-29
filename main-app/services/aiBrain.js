@@ -101,8 +101,12 @@ async function _getDaily(uid, feature) {
   return null;
 }
 function _putDaily(uid, feature, env) {
+  // expiresAt (epoch ms) bounds the per-day cache so it can't accumulate forever — the doc is only ever read by its
+  // exact same-day key, so a 48h buffer comfortably covers same-day reads across timezones. The super-admin cron
+  // sweep prunes expired aiDaily docs (mirrors the aiRequests retention pattern; ADR-071).
   db().collection('aiDaily').doc(uid + '_' + feature + '_' + _dateKey())
-    .set({ uid: uid, feature: feature, date: _dateKey(), envelope: env, createdAt: admin.firestore.FieldValue.serverTimestamp() })
+    .set({ uid: uid, feature: feature, date: _dateKey(), envelope: env, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: Date.now() + 2 * 86400000 })
     .catch(function (e) { console.warn('[aiBrain] daily cache write failed:', e.message); });
 }
 

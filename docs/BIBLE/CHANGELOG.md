@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-29 — Ecosystem Firestore audit + targeted hardening (ADR-071)
+
+A full senior-Firebase-architect audit of all three apps (one shared Firestore project) verified the architecture is
+production-grade — all 26 composite indexes used, every collection ruled + default-deny, server-authoritative
+entitlements/duels/AI-memory, no leaked listeners, intentional layered caches, schema doc matches reality. Only three
+small, verified improvements were warranted (≈2–3k-user scale; student responsiveness wins).
+
+```
+### perf/cleanup(ADR-071): aiDaily TTL + prune; remove unread profile/data dual-write; legacy-orphan cleanup script
+- aiDaily TTL: aiBrain._putDaily now stamps expiresAt (now+48h) on the per-day Coach/Insights cache; super-admin
+  cron/sweep.js gains a paged, non-fatal prune of aiDaily where expiresAt < now (mirrors the aiRequests pattern;
+  single-field range → auto-indexed, no composite). Bounds the one unbounded accumulator. A 48h buffer can't expire a
+  still-readable same-day cache.
+- Removed users/{uid}/profile/data dual-write: verified zero readers across all three apps (every consumer reads the
+  root users.profile map + root plan fields). Deleted firestore-sync.js _syncProfileSubcollection + its 3 call sites
+  + the seed write + header comment. KEPT the defensive account-deletion delete of the profile subcollection.
+  performance/overall + practice/data were verified ACTIVELY read by the coaching Student-360 detail and are untouched.
+- New firestore/migrations/2026-06-29-cleanup-legacy-orphans.js: dry-run-by-default, --apply to delete, paged/batched,
+  idempotent. Wipes verified-orphaned legacy collections (aiMissions, aiCoachV2, aiInsightsV2, duelInvitations), stale
+  aiDaily (missing/past expiresAt), and legacy profile/data + usage/wordProblems per-user docs (strict id match never
+  touches canonical usage/ai). Operator-run (no live Firestore change made by this commit).
+- DECLINED a permanent Super-Admin orphan-scanner / collection-delete UI (fixed orphan set; ongoing cleanup already
+  automated; always-on delete surface is disproportionate risk at this scale — ADR-071).
+- Verify: cd main-app && npm test green; node --check on every touched/new JS; user-schema.json valid; re-grep proves
+  zero profile/data readers + zero runtime refs to the legacy collections. SW v144→v145.
+- Docs: DECISION_LOG (ADR-071), FIRESTORE_BLUEPRINT 1.12→1.13 (profile/data removed, aiDaily.expiresAt + prune),
+  VERSIONS (Firestore 2.19→2.20, Bible 2.62→2.63), ROADMAP, schema-docs, seed README, shared/schemas/user-schema.json.
+  No rules/index/schema-redesign change; no UX-affecting read change; no new deps; Architecture unchanged (2.42).
+```
+
+---
+
 ## 2026-06-28 — QuanAI production-readiness hardening (ADR-070 follow-up)
 
 A 13-phase production-readiness verification (three independent adversarial audits — correctness/regressions,

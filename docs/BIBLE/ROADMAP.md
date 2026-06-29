@@ -71,6 +71,20 @@ first cohort. Each is safe to defer; revisit at the trigger noted.
 
 ---
 
+## 🧹 Firestore maintenance (ADR-071, 2026-06-29)
+
+The 3-app Firestore audit found the architecture production-grade. Two operational follow-ups (no app code blocked):
+
+- **Run the one-time legacy-orphan cleanup** when convenient: `firestore/migrations/2026-06-29-cleanup-legacy-orphans.js`
+  (dry-run first, then `--apply`). Clears any pre-existing `aiMissions`/`aiCoachV2`/`aiInsightsV2`/`duelInvitations`,
+  stale `aiDaily`, and legacy `profile/data` + `usage/wordProblems` docs. Going forward, `aiDaily` is self-bounding
+  (ADR-071 TTL + cron prune). **Decision: no permanent Super-Admin cleanup UI** — the orphan set is fixed and an
+  always-on collection-delete surface is disproportionate risk at this scale (see ADR-071).
+- **Optional:** add the 3-field `users(plan, planExpiry range)` composite index if full expiring-premium metrics are
+  wanted. The super-admin query already degrades gracefully (try/catch → null) without it; low value, deploy-gated.
+
+---
+
 ## ⭐ Historical Analytics Foundation (milestone — established 2026-06-13, ADR-027)
 
 **The principle: measure real improvement, never invent it.** QuantReflex's central promise is not "students

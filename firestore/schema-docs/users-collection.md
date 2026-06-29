@@ -86,18 +86,9 @@ AI feature usage tracking.
 | `explanationsUsed` | integer | AI explanation credits used |
 | `updatedAt` | string | ISO 8601 |
 
-### `users/{uid}/profile/data`
-Structured profile (dual-write for admin queries).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Display name |
-| `email` | string | Account email |
-| `plan` | string | `'free'` \| `'premium'` |
-| `planType` | string\|null | `'premium_6m'` \| `'premium_12m'` \| null |
-| `planExpiry` | string\|null | ISO 8601 |
-| `isTrial` | boolean | Trial status |
-| `updatedAt` | string | ISO 8601 |
+### `users/{uid}/profile/data` — **REMOVED (ADR-071)**
+This dual-write mirror was removed: nothing read it (every consumer reads the root `users.profile` map + root plan
+fields). New users no longer get it; legacy docs are cleared by `firestore/migrations/2026-06-29-cleanup-legacy-orphans.js`.
 
 ## Security Rules
 
