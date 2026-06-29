@@ -19,13 +19,15 @@
  *       only ever read by its same-day key; going forward _putDaily stamps expiresAt and the cron prunes — ADR-071).
  *   - Per-user legacy mirror docs (via collectionGroup):
  *       users/{uid}/profile/data      — removed; nothing read it (consumers read the root users.profile map)
- *       users/{uid}/usage/wordProblems — legacy quota doc; canonical is users/{uid}/usage/ai (kept, NEVER deleted)
+ *   NOTE: `users/{uid}/usage/wordProblems` is intentionally NOT targeted — it still has a live reader
+ *   (`aiService._loadUsage` lazily migrates it into the canonical `usage/ai` on next AI use), so deleting it could
+ *   zero a legacy user's quota counters before that migration fires. It is tiny/harmless and self-resolves; leave it.
  *
  * SAFETY:
  *   - Dry-run by DEFAULT. Prints counts + sample doc paths per target. Pass `--apply` to actually delete.
  *   - Idempotent + re-runnable. Batched (<=400 deletes/commit), paginated (500/page). Non-destructive to anything in
- *     use: the only same-day aiDaily docs (still readable) carry a future expiresAt and are skipped; usage/ai is never
- *     touched (strict id match on 'wordProblems').
+ *     use: the only same-day aiDaily docs (still readable) carry a future expiresAt and are skipped; the canonical
+ *     `usage/ai` and the self-migrating `usage/wordProblems` are never touched.
  *
  * USAGE:
  *   FIREBASE_SERVICE_ACCOUNT='<json>' node 2026-06-29-cleanup-legacy-orphans.js          # dry run (default)
@@ -111,13 +113,10 @@ async function wipe(label, baseQuery, predicate) {
     totalToDelete += r.matched;
   }
 
-  // 3) Per-user legacy mirror docs via collectionGroup. STRICT id match so the canonical usage/ai is never touched.
+  // 3) Per-user legacy mirror docs via collectionGroup. STRICT id match. (usage/wordProblems is intentionally NOT
+  //    swept — it has a live lazy-migration reader in aiService._loadUsage; see the header note.)
   {
     const r = await wipe('profile/data (legacy mirror)', db.collectionGroup('profile'), (doc) => doc.id === 'data');
-    totalToDelete += r.matched;
-  }
-  {
-    const r = await wipe('usage/wordProblems (legacy quota)', db.collectionGroup('usage'), (doc) => doc.id === 'wordProblems');
     totalToDelete += r.matched;
   }
 

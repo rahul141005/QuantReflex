@@ -33,8 +33,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   - **(3) One-time legacy-orphan cleanup script, not a permanent UI.** `firestore/migrations/2026-06-29-cleanup-
     legacy-orphans.js` (dry-run by default; `--apply` to delete; paged/batched; idempotent) wipes the verified-
     orphaned legacy collections `aiMissions`/`aiCoachV2`/`aiInsightsV2`/`duelInvitations`, stale `aiDaily` (missing/
-    past `expiresAt`), and legacy `profile/data` + `usage/wordProblems` per-user docs (strict id match never touches
-    the canonical `usage/ai`). Follows the established operator-run migration governance (6 prior scripts).
+    past `expiresAt`), and legacy `profile/data` per-user docs (strict id match). `usage/wordProblems` is intentionally
+    **not** targeted — it still has a live lazy-migration reader (`aiService._loadUsage` folds it into the canonical
+    `usage/ai` on next AI use), so it self-resolves and deleting it could zero a legacy user's quota counters. Follows
+    the established operator-run migration governance (6 prior scripts).
 - **Declined — permanent Super-Admin orphan-scanner / collection-delete UI:** (a) the orphan set is a known fixed list
   from documented migrations — a one-time script fully solves it, not an open-ended discovery problem; (b) ongoing
   lifecycle cleanup is already automated (cron: `aiRequests` prune, archived-user purge past 30-day hold, inactive

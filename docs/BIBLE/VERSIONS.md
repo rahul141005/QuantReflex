@@ -25,7 +25,8 @@ Every governed change updates the relevant version number here and records a mig
 > any of the three apps (every consumer reads the root `users.profile` map); the defensive account-deletion delete is
 > kept; **(3)** a dry-run-first, operator-run cleanup migration `firestore/migrations/2026-06-29-cleanup-legacy-
 > orphans.js` for the verified-orphaned legacy collections (`aiMissions`/`aiCoachV2`/`aiInsightsV2`/`duelInvitations`)
-> + stale `aiDaily` + legacy `profile/data`/`usage/wordProblems` docs. **Consciously declined** a permanent
+> + stale `aiDaily` + legacy `profile/data` docs (`usage/wordProblems` is intentionally left — it self-migrates via
+> `aiService._loadUsage`). **Consciously declined** a permanent
 > Super-Admin orphan-scanner/collection-delete UI (the orphan set is fixed; ongoing cleanup is already automated; an
 > always-on delete surface is disproportionate risk at 2–3k users — ADR-071). No rules/index/schema-redesign change,
 > no UX-affecting read change, no new deps. SW v144→v145. Bible 2.62→2.63, Firestore 2.19→2.20, Architecture

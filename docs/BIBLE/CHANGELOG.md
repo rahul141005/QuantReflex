@@ -25,8 +25,10 @@ small, verified improvements were warranted (≈2–3k-user scale; student respo
   performance/overall + practice/data were verified ACTIVELY read by the coaching Student-360 detail and are untouched.
 - New firestore/migrations/2026-06-29-cleanup-legacy-orphans.js: dry-run-by-default, --apply to delete, paged/batched,
   idempotent. Wipes verified-orphaned legacy collections (aiMissions, aiCoachV2, aiInsightsV2, duelInvitations), stale
-  aiDaily (missing/past expiresAt), and legacy profile/data + usage/wordProblems per-user docs (strict id match never
-  touches canonical usage/ai). Operator-run (no live Firestore change made by this commit).
+  aiDaily (missing/past expiresAt), and legacy profile/data per-user docs (strict id match). usage/wordProblems is
+  intentionally NOT targeted — it has a live lazy-migration reader (aiService._loadUsage folds it into the canonical
+  usage/ai), so it self-resolves and deleting it could zero a legacy user's quota counters. Operator-run (no live
+  Firestore change made by this commit).
 - DECLINED a permanent Super-Admin orphan-scanner / collection-delete UI (fixed orphan set; ongoing cleanup already
   automated; always-on delete surface is disproportionate risk at this scale — ADR-071).
 - Verify: cd main-app && npm test green; node --check on every touched/new JS; user-schema.json valid; re-grep proves
