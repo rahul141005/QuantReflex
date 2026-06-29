@@ -48,7 +48,9 @@ class AIServiceError extends Error {
 
 async function verifyIdToken(idToken) {
   try {
-    var decoded = await admin.auth().verifyIdToken(idToken);
+    // checkRevoked=true (ADR-072): a revoked/disabled/deleted account is rejected immediately rather than staying
+    // valid until the ~1h ID-token expiry. Matches the coaching-admin pattern.
+    var decoded = await admin.auth().verifyIdToken(idToken, true);
     return decoded;
   } catch (err) {
     return null;
@@ -65,12 +67,19 @@ async function verifyIdToken(idToken) {
  *
  * @returns {'free'|'premium'}
  */
-async function resolvePlan(uid) {
+/**
+ * Resolve a user's entitlement + active session in ONE Firestore read (ADR-072). Returns
+ *   { plan:'free'|'premium', premium:boolean, activeSessionId:string|null }.
+ * Self-heals an expired premium/trial to 'free' on read (same as before). `resolvePlan`/`isUserPremium` are thin
+ * wrappers so existing callers are unchanged; the auth middleware uses this one to also enforce single-device.
+ */
+async function resolveUserAuth(uid) {
   try {
     var doc = await db.collection('users').doc(uid).get();
-    if (!doc.exists) return 'free';
+    if (!doc.exists) return { plan: 'free', premium: false, activeSessionId: null };
     var data = doc.data();
-    if (data.plan !== 'premium') return 'free';
+    var activeSessionId = (typeof data.activeSessionId === 'string' && data.activeSessionId) ? data.activeSessionId : null;
+    if (data.plan !== 'premium') return { plan: 'free', premium: false, activeSessionId: activeSessionId };
     var expiryMs = _toExpiryMillis(data.planExpiry);
     if (expiryMs > 0 && expiryMs < Date.now()) {
       try {
@@ -88,19 +97,37 @@ async function resolvePlan(uid) {
           }).catch(function () {});
         } catch (_) {}
       } catch (expiryErr) {
-        console.error('[aiService:resolvePlan] expiry self-heal failed (uid: ' + uid + '):', expiryErr.message);
+        console.error('[aiService:resolveUserAuth] expiry self-heal failed (uid: ' + uid + '):', expiryErr.message);
       }
-      return 'free';
+      return { plan: 'free', premium: false, activeSessionId: activeSessionId };
     }
-    return 'premium';
+    return { plan: 'premium', premium: true, activeSessionId: activeSessionId };
   } catch (err) {
-    console.error('[aiService:resolvePlan] lookup failed (uid: ' + uid + '):', err.message);
+    console.error('[aiService:resolveUserAuth] lookup failed (uid: ' + uid + '):', err.message);
     throw new AIServiceError('ENTITLEMENT_ERROR', 'Unable to verify access status. Please try again.', true);
   }
 }
 
+async function resolvePlan(uid) {
+  return (await resolveUserAuth(uid)).plan;
+}
+
 async function isUserPremium(uid) {
-  return (await resolvePlan(uid)) === 'premium';
+  return (await resolveUserAuth(uid)).premium;
+}
+
+/**
+ * Claim the single active session for a user (ADR-072). Server-only (Admin SDK) write of `activeSessionId` — a
+ * client can never write this field (Firestore rules deny it), so it can't forge or steal another device's session.
+ */
+async function claimSession(uid, sessionId) {
+  var sid = (typeof sessionId === 'string') ? sessionId.trim().slice(0, 64) : '';
+  if (!uid || !sid) throw new AIServiceError('BAD_SESSION', 'A valid session id is required.', false);
+  await db.collection('users').doc(uid).set({
+    activeSessionId: sid,
+    activeSessionAt: new Date().toISOString()
+  }, { merge: true });
+  return sid;
 }
 
 function _toExpiryMillis(value) {
@@ -601,4 +628,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, isUserPremium, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

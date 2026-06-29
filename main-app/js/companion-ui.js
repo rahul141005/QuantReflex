@@ -60,12 +60,15 @@ var Companion = (function () {
     var pending = _token().then(function (token) {
       if (!token) return { ok: false, code: 'NO_AUTH' };
       return fetch('/api/ai?action=' + encodeURIComponent(action), {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Session-Id': (window.Session ? Session.id() : '') },
         body: JSON.stringify(body || {})
       }).then(function (r) {
         return r.json().then(function (j) {
           if (r.ok) return { ok: true, data: j };
-          return { ok: false, code: (j.error && j.error.code) || 'ERR', message: (j.error && j.error.message) || '', status: r.status };
+          var code = (j.error && j.error.code) || 'ERR';
+          // ADR-072: this device was displaced by a newer login — sign out gracefully (the listener also catches it).
+          if (code === 'SESSION_REPLACED') { try { if (window.Session) Session.onReplaced(); } catch (_) {} }
+          return { ok: false, code: code, message: (j.error && j.error.message) || '', status: r.status };
         }).catch(function () { return { ok: false, code: 'PARSE' }; });
       }).catch(function () { return { ok: false, code: 'NETWORK' }; });
     });

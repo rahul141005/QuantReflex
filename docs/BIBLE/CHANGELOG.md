@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-29 — Final security lockdown: single-active-device sessions + auth hardening (ADR-072)
+
+Final pre-launch security audit (3 adversarial agents). Verified already-solid: Premium cannot be forged
+(server-authoritative entitlement + HMAC-verified payments + downgrade-only rules + admin-only grant) and no secret is
+client-reachable (server-only env, no git leak, no source maps, SW caches static only). Closed the genuine gaps.
+
+```
+### feat/security(ADR-072): single active device + token-revocation + input cap
+- Single active device (newest-login-wins): server-written users/{uid}.activeSessionId (Admin-SDK only; firestore
+  rules entitlementFieldsSafe() now deny client writes to activeSessionId/activeSessionAt). New js/session.js owns a
+  stable per-device id (localStorage qr_session_id, shared across tabs) sent as X-Session-Id on EVERY authed request
+  (all 9 fetch sites updated — a missing header would 409 the legit active user). aiService.resolveUserAuth does the
+  SINGLE user-doc read withAuth already did and returns {premium, activeSessionId} → middleware 409s SESSION_REPLACED
+  on mismatch (no extra Firestore read). New api/session.js?action=claim (withAuth skipSession) lets a fresh device
+  claim + displace others; claim runs BEFORE the firestore-sync root-doc listener starts (no self-eviction). Client:
+  listener + 409 handler route a displaced device to one graceful sign-out (app.js shows a "opened on another device"
+  toast). Lockout-safe: enforce only once a session is claimed (no deploy-time mass logout).
+- Token revocation: admin.auth().verifyIdToken(idToken, true) in main-app aiService + super-admin middleware (was
+  missing; coaching-admin already did it) — disable/delete propagates immediately, not after ~1h.
+- Input cap: ai.js _chat userTurn capped to 400 chars (was uncapped).
+- Declined (recommendations): Firebase App Check; refund/chargeback auto-revoke webhook (manual super-admin revoke
+  exists). Client-only cosmetic gates left (no money/secret).
+- Verify: cd main-app && npm test green; node --check all touched/new JS; independent reject-it security audit: NO
+  DEFECTS (lockout-safety, can't-forge-session, header-omission-still-409, no extra read, no listener leak). SW
+  v145→v146.
+- Docs: DECISION_LOG (ADR-072), FIRESTORE_BLUEPRINT 1.13→1.14 (activeSessionId/activeSessionAt fields),
+  SECURITY_ARCHITECTURE, VERSIONS (Bible 2.63→2.64, Arch 2.42→2.43, Firestore 2.20→2.21, Security 2.14→2.15), ROADMAP.
+```
+
+---
+
 ## 2026-06-29 — Ecosystem Firestore audit + targeted hardening (ADR-071)
 
 A full senior-Firebase-architect audit of all three apps (one shared Firestore project) verified the architecture is

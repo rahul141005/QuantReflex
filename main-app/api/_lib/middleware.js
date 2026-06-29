@@ -147,7 +147,7 @@ function withAuth(handler, opts) {
     if (req.method === 'OPTIONS') {
       _setCorsHeaders(req, res);
       res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Id');
       res.setHeader('Access-Control-Max-Age', '86400');
       return res.status(200).end();
     }
@@ -187,12 +187,29 @@ function withAuth(handler, opts) {
     }
 
     req.userId = decoded.uid;
+    var authState;
     try {
-      /* v2: single entitlement — req.userPremium is true iff plan==='premium'
-         (and not expired). resolvePlan self-heals expired premium/trials. */
-      req.userPremium = await aiService.isUserPremium(decoded.uid);
+      /* v2: single entitlement read — req.userPremium is true iff plan==='premium' (and not expired).
+         resolveUserAuth self-heals expired premium/trials AND returns the active session id in the SAME read,
+         so the single-device check below costs no extra Firestore read (ADR-072). */
+      authState = await aiService.resolveUserAuth(decoded.uid);
+      req.userPremium = authState.premium;
     } catch (entitlementErr) {
       return res.status(503).json({ error: formatError(entitlementErr) });
+    }
+
+    /* Single-active-device enforcement (ADR-072, newest-login-wins). Once a session has been claimed
+       (activeSessionId set), every authed request must carry the matching X-Session-Id; a stale device (displaced by
+       a newer login) gets 409 SESSION_REPLACED and signs out. Before any claim (activeSessionId null) we don't
+       enforce — so nothing locks out on first deploy / before the updated client claims. The session-claim endpoint
+       passes { skipSession:true } so a NEW device (which can't yet hold the active id) is able to claim. */
+    if (!opts.skipSession && authState.activeSessionId) {
+      var sentSession = req.headers['x-session-id'];
+      if (sentSession !== authState.activeSessionId) {
+        return res.status(409).json({
+          error: { code: 'SESSION_REPLACED', message: 'Your account was opened on another device.', retryable: false }
+        });
+      }
     }
 
     return handler(req, res);
@@ -210,7 +227,7 @@ function withAdminAuth(handler) {
     if (req.method === 'OPTIONS') {
       _setCorsHeaders(req, res);
       res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, DELETE, PUT');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Id');
       res.setHeader('Access-Control-Max-Age', '86400');
       return res.status(200).end();
     }

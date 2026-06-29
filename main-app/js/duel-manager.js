@@ -417,7 +417,7 @@ var DuelManager = (function () {
     try {
       fetch('/api/duel?action=finish', {
         method: 'POST', keepalive: true,
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_token || '') },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_token || ''), 'X-Session-Id': (window.Session ? Session.id() : '') },
         body: JSON.stringify({ code: _code, finishReason: 'submitted_early' })
       });
     } catch (_) {}

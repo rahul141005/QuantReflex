@@ -657,6 +657,12 @@ document.addEventListener('DOMContentLoaded', function () {
         startHydrationAndShowApp();
       } else {
         setAppState('unauthenticated');
+        /* ADR-072: if this sign-out was caused by the account being opened on another device, explain it once. */
+        try {
+          if (window.Session && Session.consumeReplacedFlag() && typeof showToast === 'function') {
+            showToast('Signed out — your account was opened on another device.');
+          }
+        } catch (_) {}
       }
     });
 

@@ -815,7 +815,8 @@ function openDeleteAccountModal() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + idToken
+          'Authorization': 'Bearer ' + idToken,
+          'X-Session-Id': (window.Session ? Session.id() : '')
         }
       });
     }).then(function (resp) {

@@ -86,6 +86,11 @@ service cloud.firestore {
         // AI memory (ADR-039): server-authoritative — client may NEVER write it.
         (!changed.hasAny(['aiMemory'])) &&
 
+        // Single active session (ADR-072): server-authoritative — client may NEVER write activeSessionId/
+        // activeSessionAt. They are set only via the Admin-SDK session-claim path, so a client can't forge,
+        // steal, or clear another device's session.
+        (!changed.hasAny(['activeSessionId', 'activeSessionAt'])) &&
+
         // Coaching: client can NEVER change coachingId (bind-once, server-owned). It is set only server-side
         // (Admin SDK, which bypasses rules) — at registration, the one-time claim-coaching bind, or a super-admin
         // reassign. Making it fully client-immutable closes the clear-to-null-then-rebind loophole so a student

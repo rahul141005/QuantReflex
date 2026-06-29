@@ -41,6 +41,7 @@ var FirestoreSync = (function () {
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
   var _notifUnsub = null;  /* the active notifications onSnapshot unsubscribe — torn down on re-listen + logout */
+  var _sessionUnsub = null;  /* ADR-072: root user-doc listener for single-device enforcement — torn down on logout */
   // ADR-066: clients no longer CREATE notifications (the Inbox is server-write only). These remain as harmless
   // no-ops so any stray caller/export keeps working; all notifications now originate from the server pipeline.
   function _flushPendingSystemNotifications() { /* retired (ADR-066) */ }
@@ -170,6 +171,8 @@ var FirestoreSync = (function () {
 
     // Tear down the notifications realtime listener so it never outlives the session (logout / user switch).
     if (_notifUnsub) { try { _notifUnsub(); } catch (_) {} _notifUnsub = null; }
+    // ADR-072: tear down the single-device session listener too.
+    if (_sessionUnsub) { try { _sessionUnsub(); } catch (_) {} _sessionUnsub = null; }
 
     _memoryCache = null;
     _dataLoaded = false;
@@ -204,6 +207,23 @@ var FirestoreSync = (function () {
    * Clears stale localStorage data before loading to prevent cross-user leakage.
    * @param {function} [callback] - Optional callback when done
    */
+  /* ADR-072: single-device enforcement. Watch the root user doc; if activeSessionId is set to anything other than
+     THIS device's session id, another device has claimed the active session → sign out gracefully. Idempotent
+     (tears down any prior listener); torn down on logout via resetSyncState. */
+  function _listenForSession(uid) {
+    if (!window.Session || !uid) return;
+    var db = FirebaseApp.getDb();
+    if (!db) return;
+    if (_sessionUnsub) { try { _sessionUnsub(); } catch (_) {} _sessionUnsub = null; }
+    _sessionUnsub = db.collection('users').doc(uid).onSnapshot(function (snap) {
+      if (!snap || !snap.exists) return;
+      var active = snap.data().activeSessionId;
+      if (active && active !== Session.id()) {
+        try { Session.onReplaced(); } catch (_) {}
+      }
+    }, function (err) { console.warn('[FirestoreSync] session listener error', err); });
+  }
+
   function loadFromFirestore(callback) {
     var currentUserId = FirebaseApp.getUserId();
     _flushPendingSystemNotifications();
@@ -279,6 +299,9 @@ var FirestoreSync = (function () {
         _createDefaultDocument();
         _loadedUserId = currentUserId;
       }
+      /* ADR-072: start the single-device session listener — if another device claims the active session, this
+         device is signed out within ~1-3s (the server also hard-rejects its requests with 409). */
+      _listenForSession(currentUserId);
       /* ADR-054: the user is now ready — flush any updates that were buffered before Firebase/auth came up
          (e.g. questions answered during onboarding), so a first session always reaches users/{uid}.stats. */
       _flushPending();
@@ -1153,7 +1176,8 @@ var FirestoreSync = (function () {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + token,
+            'X-Session-Id': (window.Session ? Session.id() : '')
           },
           body: JSON.stringify({ coachingId: coachingId })
         });
@@ -1211,7 +1235,7 @@ var FirestoreSync = (function () {
       if (!FirebaseApp.isReady() || !FirebaseApp.getUserId()) return callback(new Error('Unauthenticated'));
       Auth.getCurrentUser().getIdToken().then(function (token) {
         return fetch('/api/account?action=notifications-list', {
-          headers: { 'Authorization': 'Bearer ' + token }
+          headers: { 'Authorization': 'Bearer ' + token, 'X-Session-Id': (window.Session ? Session.id() : '') }
         });
       })
       .then(function (res) { return res.json(); })
@@ -1228,7 +1252,7 @@ var FirestoreSync = (function () {
       Auth.getCurrentUser().getIdToken().then(function (token) {
         return fetch('/api/account?action=notifications-markRead', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Session-Id': (window.Session ? Session.id() : '') },
           body: JSON.stringify({ id: id })
         });
       })

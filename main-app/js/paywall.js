@@ -179,7 +179,7 @@ function openPremiumPayment(planType, userId) {
 
       fetch('/api/payment?action=create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken, 'X-Session-Id': (window.Session ? Session.id() : '') },
         body: JSON.stringify({ plan: planType })
       })
         .then(function (resp) {
@@ -222,7 +222,7 @@ function openPremiumPayment(planType, userId) {
               _getIdToken(function (freshToken) {
                 fetch('/api/payment?action=verify', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (freshToken || idToken) },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (freshToken || idToken), 'X-Session-Id': (window.Session ? Session.id() : '') },
                   body: JSON.stringify({ orderId: rzpOrderId, paymentId: paymentId, signature: signature })
                 })
                   .then(function (r) {

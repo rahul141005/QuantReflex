@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.63 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.42 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.20 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.14 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.64 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.43 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.64 / Arch 2.43 / Firestore 2.21 / Security 2.15 (2026-06-29)** — **Final security lockdown: single-active-device
+> sessions + auth hardening (ADR-072).** A final pre-launch security audit (3 adversarial agents) verified the two
+> hard goals already hold — **Premium cannot be forged** (server-authoritative entitlement + HMAC-verified payments +
+> downgrade-only rules + admin-only grant) and **no secret is client-reachable** (all server-only `env`, no git leak,
+> no source maps, SW caches static only). The genuine gaps are closed: **(1) single active device (newest-login-wins)**
+> — a server-written `users/{uid}.activeSessionId` (Admin-SDK only; rules deny client writes), a per-device
+> `X-Session-Id` sent on every authed request, `withAuth` 409s `SESSION_REPLACED` on mismatch (folded into the
+> existing entitlement read → no extra Firestore read), plus a client root-doc listener + 409 handler that sign the
+> displaced device out gracefully; a new `api/session.js?action=claim` (skipSession) lets a fresh device claim. **(2)
+> token revocation** — `verifyIdToken(token, true)` in main-app + super-admin (was missing; coaching-admin already
+> did it) so disable/delete propagates immediately. **(3)** capped the one uncapped chat input. **Declined** (noted as
+> recommendations): Firebase App Check + refund-webhook auto-revoke. SW v145→v146. Bible 2.63→2.64, Arch 2.42→2.43,
+> Firestore 2.20→2.21, Security 2.14→2.15.
 
 > **2.63 / Firestore 2.20 (2026-06-29)** — **Ecosystem Firestore audit + targeted hardening (ADR-071).** A full
 > senior-Firebase-architect audit of all three apps verified the architecture is production-grade (all 26 indexes

@@ -8,6 +8,44 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-072 — Final security lockdown: single-active-device sessions + token-revocation hardening (2026-06-29)
+- **Context:** Final pre-launch security audit (Premium-protection + secret-protection) by three independent
+  adversarial agents reading the repo directly. **Verified already-solid:** Premium cannot be forged — entitlement is
+  server-authoritative (`aiService.resolvePlan` via Admin SDK, self-heals expiry), payments are HMAC-verified
+  server-side with payment-owner binding + a transactional `payments/{id}` replay lock, Firestore rules
+  `entitlementFieldsSafe()` make client plan/trial writes downgrade-only, and every AI endpoint gates on the
+  server-resolved `req.userPremium`; and no secret is client-reachable (OpenAI/service-account/Razorpay all server-only
+  `env`, no git-history leak, `.gitignore` covers them, no source maps, the SW caches only static assets, errors don't
+  leak). The genuine gaps: **no single-active-device enforcement existed** (the new explicit requirement), **token
+  revocation was not checked** in main-app + super-admin (coaching-admin already did), and one uncapped chat input.
+- **Decision:** Close the gaps without weakening the verified posture.
+  - **Single active device (newest-login-wins).** A server-written `users/{uid}.activeSessionId` is the single source
+    of truth for which device is active. Enforced two ways: a **client listener** on the root user doc (instant,
+    graceful UX logout when displaced) and a **server hard-check** in `withAuth` — folded into the existing
+    `resolveUserAuth` single user-doc read (no extra Firestore read) — that returns **409 `SESSION_REPLACED`** when a
+    request's `X-Session-Id` header ≠ the stored id. The client owns a stable per-device id (`session.js`, localStorage
+    `qr_session_id`, shared across tabs) sent on **every** authed request (a missing header would 409 the legit active
+    user, so all 9 authed fetch sites attach it). A genuine login claims the session via `api/session.js?action=claim`
+    (wrapped `withAuth({skipSession:true})` so a new device — which can't yet hold the active id — can claim);
+    `activeSessionId` is **Admin-SDK-write-only** and Firestore rules deny any client write, so it can't be forged,
+    stolen, or cleared. Lockout-safety invariants: enforce only once a session is claimed (no deploy-time mass logout);
+    claim before the listener starts (no self-eviction on fresh login); multi-tab shares one id; a 409 or
+    listener-mismatch routes to the SAME graceful sign-out (no loop).
+  - **Token revocation.** `admin.auth().verifyIdToken(token, true)` in `aiService.verifyIdToken` (main-app) and the
+    super-admin middleware, matching coaching-admin — a disabled/deleted/revoked account is rejected immediately
+    instead of staying valid until the ~1h token expiry.
+  - **Input cap.** `_chat` `userTurn` is capped (`.slice(0,400)`) like the sibling chat fields.
+- **Declined (recommendations, not implemented):** **Firebase App Check** (adds a build/config moving part + failure
+  mode; endpoints are already auth + rate-limited, the key is server-side, premium can't be forged — not required at
+  2–3k users) and a **refund/chargeback auto-revoke webhook** (`payment.refunded`/`reversed`; today a refund is a
+  manual super-admin revoke, which works). Client-only cosmetic gates (hard mode, themes) are left — bypassing them
+  unlocks only a local UX toggle, costs no money and exposes no secret.
+- **Consequences:** New `users` fields `activeSessionId`/`activeSessionAt` (server-only); new endpoint
+  `main-app/api/session.js`; `resolveUserAuth` replaces the `resolvePlan` read in middleware (same single read, now
+  also returns the session id); one persistent root-user-doc listener per active client (torn down on logout). No
+  change to the premium or secret posture. Independent reject-it audit: NO DEFECTS. SW v145→v146. Bible 2.63→2.64,
+  Architecture 2.42→2.43, Firestore 2.20→2.21, Security 2.14→2.15.
+
 ## ADR-071 — Ecosystem Firestore audit: aiDaily TTL, remove unread profile/data, one-time legacy-orphan cleanup, decline a permanent cleanup UI (2026-06-29)
 - **Context:** A senior-Firebase-architect audit of the entire 3-app ecosystem (Student `main-app`, `super-admin-app`,
   `coaching-admin-app`, one shared Firestore project) mapped every read, write, listener, cache, rule, index, and the

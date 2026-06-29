@@ -54,7 +54,7 @@ var DuelCore = (function () {
       .then(function (token) {
         return fetch('/api/duel?action=' + encodeURIComponent(action), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Session-Id': (window.Session ? Session.id() : '') },
           body: JSON.stringify(body || {})
         });
       })

@@ -61,7 +61,7 @@ async function _chat(req, res) {
   var response = await aiBrain.chatTurn(req.userId, {
     feature: typeof body.feature === 'string' ? body.feature.slice(0, 16) : 'chat',
     topic: typeof body.topic === 'string' ? body.topic.slice(0, 50) : '',
-    userTurn: typeof body.userTurn === 'string' ? body.userTurn : '',
+    userTurn: typeof body.userTurn === 'string' ? body.userTurn.slice(0, 400) : '',
     history: Array.isArray(body.history) ? body.history : [],
     // ADR-045: carry the Explain anchor so follow-ups deepen THIS question instead of drifting topics.
     question: typeof body.question === 'string' ? body.question.slice(0, 500) : '',

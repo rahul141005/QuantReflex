@@ -91,7 +91,9 @@ function withAdminAuth(handler) {
     var idToken = authHeader.substring(7);
     var decoded;
     try {
-      decoded = await admin.auth().verifyIdToken(idToken);
+      // checkRevoked=true (ADR-072): admin tokens are high-value — a revoked/disabled admin is cut off immediately
+      // rather than staying valid until the ~1h token expiry. Matches the coaching-admin pattern.
+      decoded = await admin.auth().verifyIdToken(idToken, true);
     } catch (tokenErr) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication failed.' } });
     }

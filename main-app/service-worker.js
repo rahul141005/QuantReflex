@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v145';
-const CACHE_NAME = 'qr-cache-v145';
+const APP_VERSION = 'v146';
+const CACHE_NAME = 'qr-cache-v146';
 
 var ASSETS = [
   './',
@@ -12,6 +12,7 @@ var ASSETS = [
   './css/style.css',
   './js/state/store.js',
   './js/firebase.js',
+  './js/session.js',
   './js/auth.js',
   './js/firestore-sync.js',
   './js/app.js',

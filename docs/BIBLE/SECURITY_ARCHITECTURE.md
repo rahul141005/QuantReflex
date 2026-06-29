@@ -1,8 +1,8 @@
 # QuantReflex Security Architecture
 
-**Doc Version:** 1.8 · **Security Version:** 2.14 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.9 · **Security Version:** 2.15 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for authentication, authorization, Firestore rules, secrets, and abuse controls.
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-29
 **Change control:** Any change to rules, auth middleware, claims, CORS, rate limiting, or secret handling follows [GOVERNANCE.md](GOVERNANCE.md), updates this document + [CHANGELOG.md](CHANGELOG.md), and bumps the Security Version in [VERSIONS.md](VERSIONS.md).
 
 Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) · [PAYMENT_ARCHITECTURE.md](PAYMENT_ARCHITECTURE.md)
@@ -32,8 +32,21 @@ The single entitlement claim `premium` is set server-side after payment (`claims
 ## 3. Authentication Flows
 
 - **Signup:** server-only via `POST /api/auth/register` (Admin `createUser` + atomic batch + custom token). Client `create` on `users/{uid}` is denied by rules. Password ≥ 8 chars, email regex.
-- **Login / reset / multi-device:** Firebase Auth defaults (no custom code).
-- **Logout / user switch:** `resetSyncState()` purges in-memory + localStorage and guards against cross-user write leakage (`_syncGeneration`, `qr_last_uid`).
+- **Login / reset:** Firebase Auth defaults.
+- **Single active device (ADR-072, newest-login-wins):** one device may use an account at a time. The server writes
+  `users/{uid}.activeSessionId` (Admin-SDK only; rules deny any client write) on each genuine login via
+  `POST /api/session?action=claim` (wrapped `withAuth({skipSession:true})` so a new device can claim before it holds
+  the id). Every authed request carries an `X-Session-Id` header (the device's stable `qr_session_id`); `withAuth`
+  returns **409 `SESSION_REPLACED`** when it ≠ the stored id — the check folds into the existing single user-doc
+  entitlement read (`aiService.resolveUserAuth`), so no extra Firestore read. The client also runs a root-user-doc
+  listener that signs a displaced device out within ~1–3s. Enforcement is active only once a session is claimed (so a
+  deploy never mass-logs-out existing sessions); multiple tabs on one device share one id.
+- **Token revocation (ADR-072):** main-app `aiService.verifyIdToken` and the super-admin middleware now verify with
+  **`checkRevoked=true`** (matching coaching-admin) — a disabled/deleted/revoked account is rejected immediately
+  rather than remaining valid until the ~1h ID-token expiry.
+- **Logout / user switch:** `resetSyncState()` purges in-memory + localStorage (incl. the session listener) and guards
+  against cross-user write leakage (`_syncGeneration`, `qr_last_uid`); logout clears the session claim so the next
+  login re-claims.
 - **Coaching active-state gate (audit M4, fixed 2026-06-11):** signup, claim-coaching, and validate-coaching all gate on the canonical `isCoachingActive()` helper (`status==='active'`, else `isActive!==false`). Previously claim/validate only rejected `status==='expired'` (never written), so a `suspended`/`deleted` coaching could be claimed. Now uniformly rejected.
 
 ## 4. Firestore Rules (`firestore/rules/firestore.rules`)

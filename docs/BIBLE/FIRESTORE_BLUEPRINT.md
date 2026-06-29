@@ -1,6 +1,6 @@
 # QuantReflex Firestore Blueprint
 
-**Doc Version:** 1.13 · **Firestore Version:** 2.20 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.14 · **Firestore Version:** 2.21 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth for all Firestore collections, fields, paths, and indexes.
 **Firebase project:** `quant-reflex-trainer`
 **Last updated:** 2026-06-29
@@ -53,6 +53,8 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `inactiveFlaggedAt` | ISO \| absent | — | fn (cron) | set when a still-active user has been inactive >180d (flagged for admin review) |
 | `statusUpdatedAt` | ISO | — | admin | last lifecycle change |
 | `aiThrottle` | map `{cap, setBy, setAt}` \| absent | — | admin (User-360 throttle) | **per-user AI daily cap (ADR-022)** — honored by main-app `aiService`: AI is blocked when the user's daily AI count exceeds `cap`. Absent = no throttle. Set/cleared via `users?action=throttle`. |
+| `activeSessionId` | string \| absent | — | **server only** (`session?action=claim`, Admin SDK) | **single active device (ADR-072).** The session id of the one device allowed to use the account. Set on each genuine login (newest wins). `withAuth` 409s `SESSION_REPLACED` when a request's `X-Session-Id` ≠ this value. **Client-write DENIED** by rules (can't forge/steal/clear a session). |
+| `activeSessionAt` | ISO string \| absent | — | **server only** (Admin SDK) | timestamp of the last session claim (audit). Client-write denied. |
 
 **Removed in v2** (do not reintroduce): `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan, premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`.
 

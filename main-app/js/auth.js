@@ -36,34 +36,49 @@ var Auth = (function () {
       }
 
       if (user) {
-        var claimsPromise = user.getIdTokenResult(false).then(function (result) {
-          if (result && result.claims) {
-            var claims = result.claims;
-            if (typeof AppState !== 'undefined') {
-              AppState.setPremiumStatus(!!claims.premium);
-            } else {
-              localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
+        var _afterSession = function () {
+          var claimsPromise = user.getIdTokenResult(false).then(function (result) {
+            if (result && result.claims) {
+              var claims = result.claims;
+              if (typeof AppState !== 'undefined') {
+                AppState.setPremiumStatus(!!claims.premium);
+              } else {
+                localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
+              }
             }
-          }
-          return result;
-        }).catch(function (err) {
-          console.warn('[Auth] Error fetching token claims:', err);
-          return null;
-        });
+            return result;
+          }).catch(function (err) {
+            console.warn('[Auth] Error fetching token claims:', err);
+            return null;
+          });
 
-        var firestorePromise = new Promise(function(resolve) {
-          if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.loadFromFirestore === 'function') {
-            FirestoreSync.loadFromFirestore(function(success) { resolve(success); });
-          } else {
-            resolve(false);
-          }
-        });
+          var firestorePromise = new Promise(function(resolve) {
+            if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.loadFromFirestore === 'function') {
+              FirestoreSync.loadFromFirestore(function(success) { resolve(success); });
+            } else {
+              resolve(false);
+            }
+          });
 
-        Promise.all([claimsPromise, firestorePromise]).then(function(results) {
-          var result = results[0];
-          _notifyListeners(user, result);
-          _finishAuthReady(user);
-        });
+          Promise.all([claimsPromise, firestorePromise]).then(function(results) {
+            var result = results[0];
+            _notifyListeners(user, result);
+            _finishAuthReady(user);
+          });
+        };
+
+        /* ADR-072 (single active device): on a GENUINE new login (this device hasn't yet claimed a session for this
+           uid), claim the single active session — which displaces any other device — BEFORE loading Firestore, so the
+           firestore-sync session listener doesn't race our own claim. On resume (already claimed) we skip claiming;
+           re-claiming would wrongly displace whoever logged in most recently, and the listener still enforces. */
+        if (window.Session && typeof Session.claim === 'function' && !Session.hasClaimed(user.uid)) {
+          Session.claim(function () { return user.getIdToken(); }).then(function (ok) {
+            if (ok) Session.markClaimed(user.uid);
+            _afterSession();
+          });
+        } else {
+          _afterSession();
+        }
       } else {
         _notifyListeners(null, null);
         _finishAuthReady(null);
@@ -233,6 +248,8 @@ var Auth = (function () {
     if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
       DuelCore.stopListening();
     }
+    /* ADR-072: drop the single-device claim so the NEXT login on this device re-claims (and displaces others). */
+    try { if (window.Session && Session.clearClaim) Session.clearClaim(); } catch (_) {}
 
     _auth.signOut()
       .then(function() {

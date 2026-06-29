@@ -71,6 +71,20 @@ first cohort. Each is safe to defer; revisit at the trigger noted.
 
 ---
 
+## 🔐 Security recommendations (ADR-072, 2026-06-29 — deferred, not blockers)
+
+The final security audit confirmed Premium can't be forged and no secret is client-reachable, and shipped
+single-active-device + token-revocation hardening. Two enhancements were consciously deferred:
+
+- **Firebase App Check** — attests requests come from the genuine app (raises the bar against scripted endpoint abuse).
+  Not required at 2–3k users (endpoints are auth + rate-limited, the key is server-side, premium can't be forged) and
+  it adds a build/config moving part + a new failure mode. Revisit if endpoint abuse/scraping appears.
+- **Refund/chargeback auto-revoke webhook** (`payment.refunded` / `payment.reversed`) — today a refund is reversed by a
+  manual super-admin **revoke** (works, zero payments at launch). Add the webhook + auto-revert before scaling paid
+  marketing.
+
+---
+
 ## 🧹 Firestore maintenance (ADR-071, 2026-06-29)
 
 The 3-app Firestore audit found the architecture production-grade. Two operational follow-ups (no app code blocked):
