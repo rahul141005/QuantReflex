@@ -36,6 +36,10 @@ small, verified improvements were warranted (≈2–3k-user scale; student respo
 - Docs: DECISION_LOG (ADR-071), FIRESTORE_BLUEPRINT 1.12→1.13 (profile/data removed, aiDaily.expiresAt + prune),
   VERSIONS (Firestore 2.19→2.20, Bible 2.62→2.63), ROADMAP, schema-docs, seed README, shared/schemas/user-schema.json.
   No rules/index/schema-redesign change; no UX-affecting read change; no new deps; Architecture unchanged (2.42).
+- Final release audit (2 independent adversarial agents): verified the changeset production-safe (profile/data removal
+  complete, aiDaily TTL sound, no missed accumulator, cleanup script safe, rules coherent, indexes/docs consistent).
+  One nit fixed: a stale comment in firestore.rules still listed the removed `profile` subcollection (rule logic was
+  already correct). No version/SW bump (comment-only).
 ```
 
 ---

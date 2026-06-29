@@ -49,6 +49,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   no new deps; admin/coaching read paths, listeners, and security model unchanged. The cleanup script is authored
   only — the operator runs it against the live DB. SW v144→v145. Firestore 2.19→2.20, Bible 2.62→2.63, Architecture
   unchanged (2.42 — no topology/contract change). FIRESTORE_BLUEPRINT 1.12→1.13.
+- **Final release audit (2026-06-29):** two independent adversarial agents re-verified the whole changeset from the
+  repo — `profile/data` removal complete (zero readers; defensive deletes retained), `aiDaily` TTL sound (sole writer;
+  same-day reads can't expire), no other unbounded accumulator missed, cleanup script safe/idempotent, security rules
+  coherent (no new gap), all 26 indexes still used, docs consistent. **Verdict: production-safe.** Only one nit found
+  and fixed: a stale comment in `firestore/rules/firestore.rules` still listed the removed `profile` subcollection
+  (rule logic was already correct) — comment corrected. The no-op `_flushPendingSystemNotifications` shim and the
+  dated root `AUDIT-REPORT.md` were consciously left. No version/SW bump (comment-only).
 
 ## ADR-070 — QuanAI cohesion pass: Planner Start Over, perceived-performance thinking states, natural branding (2026-06-28)
 - **Context:** A full read-only audit of the QuanAI stack (server flow, client UX, deterministic layer, docs) found the

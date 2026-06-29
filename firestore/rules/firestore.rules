@@ -167,7 +167,7 @@ service cloud.firestore {
       // Delete: denied — account deletion is server-side only
       allow delete: if false;
 
-      // Subcollections: practiceSessions, performance, practice, ai, profile
+      // Subcollections: practiceSessions, performance, practice, ai
       // Owner-only read/write. No field-level restrictions on subcollections
       // because they are mirrors of the root document, not sources of truth.
       // EXCEPTION (ADR-031): duelHistory is server-written (authoritative duel results) — the client may
