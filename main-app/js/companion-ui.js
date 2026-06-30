@@ -203,7 +203,10 @@ var Companion = (function () {
         '<div class="companion-loadmsg">' + esc(seq[0]) + '</div>' +
       '</div>';
     var msg = bodyEl.querySelector('.companion-loadmsg'), i = 0;
-    var timer = setInterval(function () { i = (i + 1) % seq.length; if (msg) msg.textContent = seq[i]; else clearInterval(timer); }, 1100);
+    /* Self-terminate once the loading node leaves the document (sheet closed mid-load via X / backdrop / Escape /
+       drag) — otherwise the rotation keeps writing to a detached node until the caller's stop() fires. The
+       document.body.contains guard clears it within one tick of any close, for every showLoading caller. */
+    var timer = setInterval(function () { i = (i + 1) % seq.length; if (msg && document.body.contains(msg)) msg.textContent = seq[i]; else clearInterval(timer); }, 1100);
     return function () { clearInterval(timer); };
   }
 

@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — ADR-077 craftsmanship verification & production sign-off
+
+Independent re-audit of the polish commit (`5e8b2e8`) treated as someone else's work. Three read-only audits
+(polish-change verification · docs/versions/dead-code/Firestore · adversarial bug-hunt), each finding re-verified
+against the live code. Result: all 8 ADR-077 changes correct; version coherence, precache, dead-code, Firestore and
+the ~38k-assertion suite clean. Two minor fixes; one bug-hunt finding rejected with proof.
+
+```
+### fix/verify(ADR-077): showLoading interval self-termination + TECHNICAL_BIBLE header sync
+- companion-ui.js showLoading(): the rotation setInterval now guards `document.body.contains(msg)` so it self-clears
+  within one tick when the sheet is closed mid-load (X / backdrop / Escape / drag) instead of writing to a detached
+  node until the caller's stop() fires. Source-level fix → benefits all callers (Coach/Insights/Planner); zero
+  behavioural change while the sheet is open.
+- TECHNICAL_BIBLE.md header synced (Doc 1.23→1.24, Arch 2.47→2.49, date 2026-06-30) — missed by the ADR-077 commit.
+- REJECTED with proof: the bug-hunt's "stale MCQ .pressed leak". numpad.js _releaseOpts queries the LIVE DOM on the
+  document-level pointerup/pointercancel (always fire on release) and clears every visible .pressed; the stale
+  _activeOpt is a detached node used only for an identity check + no-op removeClass. .pressed cannot stick to a
+  visible option. No change made.
+- SW v155→v156 (companion-ui.js is a precached asset). Full npm test suite green. Bible 2.70→2.71, Arch 2.49→2.50.
+```
+
+---
+
 ## 2026-06-30 — QuantReflex V2 Final Craftsmanship Pass (ADR-077)
 
 Premium polish, not redesign: identity + architecture preserved, no new features. Grounded in three read-only

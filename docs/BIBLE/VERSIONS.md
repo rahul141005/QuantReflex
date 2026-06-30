@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.70 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.49 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.71 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.50 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.71 / Arch 2.50 (2026-06-30)** — **ADR-077 craftsmanship verification & production sign-off.** Independent
+> re-audit of the polish commit (assume-it's-wrong): all 8 changes verified correct against the live code; version
+> coherence, precache, dead-code, Firestore/listeners/deps and the ~38k-assertion suite all clean. Two minor fixes
+> applied: (1) `Companion.showLoading`'s rotation interval now self-terminates via a `document.body.contains` guard
+> when its node leaves the DOM (sheet closed mid-load) — fixes a self-bounding detached-node write at the source for
+> all callers (Coach/Insights/Planner), zero behavioural change while open; (2) synced the stale `TECHNICAL_BIBLE.md`
+> header (Arch 2.47→2.49, date). One bug-hunt "finding" (a stale MCQ `.pressed` leak) was investigated and **rejected
+> with proof** — the document-level `pointerup`/`pointercancel` release always clears live `.pressed`, so it cannot
+> stick. SW v155→v156. Bible 2.70→2.71, Arch 2.49→2.50.
 
 > **2.70 / Arch 2.49 (2026-06-30)** — **QuantReflex V2 Final Craftsmanship Pass (ADR-077): refinement, not redesign.**
 > A focused premium-polish pass grounded in three read-only craftsmanship audits (design-system · interactions/motion ·
