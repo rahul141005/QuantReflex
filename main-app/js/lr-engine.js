@@ -332,14 +332,117 @@
     return { question: 'Statements: ' + prem + ' Conclusion: ' + concl + ' Does the conclusion logically follow?', answer: spec.f, options: _shuffle(['Follows', 'Does not follow']), subtype: diff + ':syllogism' };
   }
 
+  /* ───────────────────────── 8. SERIES (letter / alphanumeric / interleaved) — MCQ ───────────────────────── */
+  function _letW(n) { return String.fromCharCode(65 + ((n - 1) % 26 + 26) % 26); } // wrap into A..Z (for distractors)
+  function _genSeries(diff) {
+    return _tier(diff, {
+      easy: [
+        function () { var step = _ri(1, 5), s = _ri(1, 26 - 4 * step); var seq = [0, 1, 2, 3].map(function (i) { return _let(s + i * step); }); var ans = _let(s + 4 * step); var d = [_letW(s + 5 * step), _letW(s + 4 * step + 1), _letW(s + 4 * step - 1), _letW(s + 3 * step)]; var m = _mcq(ans, d, 4); return { question: 'Find the next term in the series:  ' + seq.join(', ') + ', ?', answer: m.answer, options: m.options, subtype: 'easy:letterstep' }; }
+      ],
+      medium: [
+        function () { var a = _ri(1, 4), b = _ri(1, 5), s = _ri(1, 26 - 4 * a), n0 = _ri(1, 9); var seq = [0, 1, 2, 3].map(function (i) { return _let(s + i * a) + (n0 + i * b); }); var ans = _let(s + 4 * a) + (n0 + 4 * b); var d = [_let(s + 4 * a) + (n0 + 3 * b), _letW(s + 3 * a) + (n0 + 4 * b), _letW(s + 4 * a + 1) + (n0 + 4 * b), _let(s + 4 * a) + (n0 + 4 * b + 1)]; var m = _mcq(ans, d, 4); return { question: 'Find the next term in the series:  ' + seq.join(', ') + ', ?', answer: m.answer, options: m.options, subtype: 'medium:alphanum' }; }
+      ],
+      hard: [
+        /* two interleaved letter series: positions 0,2,4 advance by +a from p; positions 1,3,5 advance by -c from q */
+        function () { var a = _ri(1, 3), c = _ri(1, 3), p = _ri(1, 26 - 2 * a), q = _ri(1 + 2 * c, 26); var seq = [_let(p), _let(q), _let(p + a), _let(q - c), _let(p + 2 * a)]; var ans = _let(q - 2 * c); var d = [_letW(p + 3 * a), _letW(q - 3 * c), _let(q - c), _let(p + 2 * a)]; var m = _mcq(ans, d, 4); return { question: 'Find the next term in the series:  ' + seq.join(', ') + ', ?', answer: m.answer, options: m.options, subtype: 'hard:interleave' }; }
+      ]
+    });
+  }
+
+  /* ───────────────────────── 9. CODED INEQUALITIES (MCQ) — transitive-closure verdict ───────────────────── */
+  var INEQ_LEGEND = [{ s: '@', r: '>' }, { s: '#', r: '≥' }, { s: '&', r: '<' }, { s: '%', r: '≤' }, { s: '$', r: '=' }];
+  function _ineqSym(r) { for (var i = 0; i < INEQ_LEGEND.length; i++) if (INEQ_LEGEND[i].r === r) return INEQ_LEGEND[i].s; return '$'; }
+  /* combine consecutive relations along a path → the guaranteed relation, or '?' if direction is mixed */
+  function _ineqDerive(ops) {
+    var hasGt = false, hasLt = false, strictGt = false, strictLt = false, allEq = true;
+    ops.forEach(function (o) { if (o !== '=') allEq = false; if (o === '>') { hasGt = true; strictGt = true; } else if (o === '≥') hasGt = true; else if (o === '<') { hasLt = true; strictLt = true; } else if (o === '≤') hasLt = true; });
+    if (hasGt && hasLt) return '?';
+    if (allEq) return '=';
+    if (hasGt) return strictGt ? '>' : '≥';
+    if (hasLt) return strictLt ? '<' : '≤';
+    return '=';
+  }
+  function _ineqHolds(concl, basic) { // does conclusion relation hold under a concrete basic relation (>,=,<)
+    switch (concl) { case '>': return basic === '>'; case '≥': return basic === '>' || basic === '='; case '=': return basic === '='; case '≤': return basic === '<' || basic === '='; case '<': return basic === '<'; } return false;
+  }
+  function _ineqPermits(D) { if (D === '>') return ['>']; if (D === '≥') return ['>', '=']; if (D === '=') return ['=']; if (D === '≤') return ['<', '=']; if (D === '<') return ['<']; return ['>', '=', '<']; }
+  function _ineqDefinite(concl, D) { return _ineqPermits(D).every(function (b) { return _ineqHolds(concl, b); }); }
+  function _ineqVerdict(rI, rII, D) {
+    var iDef = _ineqDefinite(rI, D), iiDef = _ineqDefinite(rII, D);
+    if (iDef && iiDef) return 'Both I and II are true';
+    if (iDef) return 'Only I is true';
+    if (iiDef) return 'Only II is true';
+    if (_ineqPermits(D).every(function (b) { return _ineqHolds(rI, b) || _ineqHolds(rII, b); })) return 'Either I or II is true';
+    return 'Neither I nor II is true';
+  }
+  var INEQ_VERDICTS = ['Only I is true', 'Only II is true', 'Both I and II are true', 'Either I or II is true', 'Neither I nor II is true'];
+  function _genInequality(diff) {
+    var SAME_UP = ['>', '≥', '='], SAME_DN = ['<', '≤', '='], ALL = ['>', '≥', '<', '≤', '='];
+    var vars = _pickN(['A', 'B', 'C', 'D', 'E', 'P', 'Q', 'R'], diff === 'easy' ? 3 : 4);
+    var ops = [], pool;
+    if (diff === 'easy') { pool = Math.random() < 0.5 ? SAME_UP : SAME_DN; }
+    else if (diff === 'medium') { pool = Math.random() < 0.5 ? SAME_UP : SAME_DN; }
+    for (var k = 0; k < vars.length - 1; k++) { ops.push(diff === 'hard' ? _pick(ALL) : _pick(pool)); }
+    /* choose a pair i<j and derive */
+    var i = 0, j = vars.length - 1; if (diff === 'hard' && Math.random() < 0.5) { i = _ri(0, vars.length - 2); j = _ri(i + 1, vars.length - 1); }
+    var D = _ineqDerive(ops.slice(i, j));
+    var rI = _pick(ALL), rII = _pick(ALL.filter(function (x) { return x !== rI; }));
+    var ans = _ineqVerdict(rI, rII, D);
+    var stmt = vars[0]; for (var s = 1; s < vars.length; s++) stmt += ' ' + _ineqSym(ops[s - 1]) + ' ' + vars[s];
+    var legend = INEQ_LEGEND.map(function (l) { return "'" + l.s + "' means '" + l.r + "'"; }).join(', ');
+    var q = 'In a certain code, ' + legend + '.\nStatements: ' + stmt + '.\nConclusions:  I. ' + vars[i] + ' ' + rI + ' ' + vars[j] + '   II. ' + vars[i] + ' ' + rII + ' ' + vars[j] + '.\nWhich conclusion is definitely true?';
+    var m = _mcq(ans, INEQ_VERDICTS, 5);
+    return { question: q, answer: m.answer, options: m.options, subtype: diff + ':ineq' };
+  }
+
+  /* ───────────────────────── 10. CALENDARS (MCQ) ───────────────────────── */
+  var WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function _leap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+  function _dim(m, y) { return [31, _leap(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]; }
+  function _randDate(y) { var m = _ri(1, 12); return { m: m, d: _ri(1, _dim(m, y)) }; }
+  function _fmtDate(dt) { return dt.d + ' ' + MONTHS[dt.m - 1]; }
+  /* Zeller's congruence → 0=Sunday … 6=Saturday (independent of JS Date; the harness cross-checks via Date) */
+  function _dow(y, m, d) { if (m < 3) { m += 12; y -= 1; } var K = y % 100, J = Math.floor(y / 100); var h = (d + Math.floor(13 * (m + 1) / 5) + K + Math.floor(K / 4) + Math.floor(J / 4) + 5 * J) % 7; return [6, 0, 1, 2, 3, 4, 5][h]; }
+  function _genCalendar(diff) {
+    if (diff === 'easy') { var start = _ri(0, 6), off = _ri(2, 75); var ans = WD[(start + off) % 7]; var m = _mcq(ans, WD, 4); return { question: 'If today is ' + WD[start] + ', what day of the week will it be after ' + off + ' days?', answer: m.answer, options: m.options, subtype: 'easy:dayafter' }; }
+    if (diff === 'medium') { var y = _ri(2016, 2027), d1 = _randDate(y), d2 = _randDate(y); var wd1 = _dow(y, d1.m, d1.d), wd2 = _dow(y, d2.m, d2.d); var mm = _mcq(WD[wd2], WD, 4); return { question: 'In the year ' + y + ', ' + _fmtDate(d1) + ' falls on a ' + WD[wd1] + '. What day of the week is ' + _fmtDate(d2) + ' in the same year?', answer: mm.answer, options: mm.options, subtype: 'medium:datediff' }; }
+    var yy = _ri(1950, 2050), dd = _randDate(yy); var a2 = _mcq(WD[_dow(yy, dd.m, dd.d)], WD, 4); return { question: 'What day of the week was ' + _fmtDate(dd) + ', ' + yy + '?', answer: a2.answer, options: a2.options, subtype: 'hard:dow' };
+  }
+
+  /* ───────────────────────── 11. CLOCKS ───────────────────────── */
+  function _clk(h, m) { return h + ':' + (m < 10 ? '0' + m : m); }
+  function _genClock(diff) {
+    if (diff === 'easy') { var h = _ri(1, 11); var ang = Math.min(30 * h, 360 - 30 * h); return { question: 'What is the angle (in degrees) between the hour and minute hands of a clock at ' + h + ":00?", answer: ang, subtype: 'easy:angle0' }; }
+    if (diff === 'medium') { var h2 = _ri(1, 12), mm = 2 * _ri(0, 29); var raw = Math.abs(30 * h2 - 5.5 * mm); var ang2 = Math.min(raw, 360 - raw); return { question: 'What is the smaller angle (in degrees) between the hour and minute hands at ' + _clk(h2 === 12 ? 12 : h2, mm) + '?', answer: ang2, subtype: 'medium:angle' }; }
+    /* hard: mirror-image time (as seen in a mirror) */
+    var h3 = _ri(1, 11), m3 = _ri(1, 59), tot = 60 * h3 + m3, mir = 720 - tot; var mh = Math.floor(mir / 60), ml = mir % 60; if (mh === 0) mh = 12; var ans = _clk(mh, ml);
+    var d = [_clk(((h3 % 12) + 1), m3), _clk(mh, (ml + 5) % 60), _clk((12 - h3) || 12, (60 - m3) % 60)]; var mm2 = _mcq(ans, d, 4);
+    return { question: 'A clock shows ' + _clk(h3, m3) + '. What time does its mirror image show?', answer: mm2.answer, options: mm2.options, subtype: 'hard:mirror' };
+  }
+
+  /* ───────────────────────── 12. INPUT-OUTPUT (machine, numeric) ───────────────────────── */
+  var IO_NUMS = [12, 17, 23, 31, 45, 58, 64, 72, 89, 93, 15, 28, 36, 49, 53, 67, 74, 81, 19, 42];
+  function _ioStep(arr, s) { var a = arr.slice(); for (var i = 0; i < s; i++) { var mi = i; for (var j = i + 1; j < a.length; j++) if (a[j] < a[mi]) mi = j; var t = a[i]; a[i] = a[mi]; a[mi] = t; } return a; }
+  function _genIO(diff) {
+    var len = diff === 'easy' ? 5 : 6, S = diff === 'easy' ? 1 : diff === 'medium' ? 2 : 3;
+    var nums = _pickN(IO_NUMS, len), P = _ri(1, diff === 'easy' ? 3 : diff === 'medium' ? 5 : 6);
+    var after = _ioStep(nums, S);
+    return { question: 'A number-arranging machine rearranges a line step by step: in each step it moves the smallest of the not-yet-arranged numbers to the left end of the unarranged part. Input line: ' + nums.join(', ') + '. Which number is in the ' + _ord(P) + ' position from the left after Step ' + S + '?', answer: after[P - 1], subtype: diff + ':io' };
+  }
+
   /* ── dispatch ── */
   var CATEGORY_LABELS = {
     'lr-coding': 'Coding-Decoding', 'lr-blood': 'Blood Relations', 'lr-direction': 'Direction Sense',
-    'lr-ranking': 'Ranking & Ordering', 'lr-odd': 'Odd One Out', 'lr-analogy': 'Analogies', 'lr-syllogism': 'Syllogisms'
+    'lr-ranking': 'Ranking & Ordering', 'lr-odd': 'Odd One Out', 'lr-analogy': 'Analogies', 'lr-syllogism': 'Syllogisms',
+    'lr-series': 'Letter & Number Series', 'lr-inequality': 'Coded Inequalities', 'lr-calendar': 'Calendars',
+    'lr-clock': 'Clocks', 'lr-io': 'Input-Output'
   };
   var GEN = {
     'lr-coding': _genCoding, 'lr-blood': _genBlood, 'lr-direction': _genDirection,
-    'lr-ranking': _genRanking, 'lr-odd': _genOdd, 'lr-analogy': _genAnalogy, 'lr-syllogism': _genSyllogism
+    'lr-ranking': _genRanking, 'lr-odd': _genOdd, 'lr-analogy': _genAnalogy, 'lr-syllogism': _genSyllogism,
+    'lr-series': _genSeries, 'lr-inequality': _genInequality, 'lr-calendar': _genCalendar,
+    'lr-clock': _genClock, 'lr-io': _genIO
   };
 
   function generate(category, difficulty) {

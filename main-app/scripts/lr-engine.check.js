@@ -108,9 +108,21 @@ function parseStmt(s) {
   return { q: m[3] ? 'Some-not' : m[1], x: m[2], y: m[4] };
 }
 
+/* ── independent re-derivations for the ADR-079 generatable topics ── */
+var WDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+var MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function dowDate(y, m, d) { return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); } // independent of Zeller
+var IL = { '@': '>', '#': '≥', '&': '<', '%': '≤', '$': '=' };
+function ineqDerive(ops) { var hasGt = false, hasLt = false, sGt = false, sLt = false, allEq = true; ops.forEach(function (o) { if (o !== '=') allEq = false; if (o === '>') { hasGt = true; sGt = true; } else if (o === '≥') hasGt = true; else if (o === '<') { hasLt = true; sLt = true; } else if (o === '≤') hasLt = true; }); if (hasGt && hasLt) return '?'; if (allEq) return '='; if (hasGt) return sGt ? '>' : '≥'; if (hasLt) return sLt ? '<' : '≤'; return '='; }
+function ineqHolds(c, b) { switch (c) { case '>': return b === '>'; case '≥': return b === '>' || b === '='; case '=': return b === '='; case '≤': return b === '<' || b === '='; case '<': return b === '<'; } return false; }
+function ineqPermits(D) { if (D === '>') return ['>']; if (D === '≥') return ['>', '=']; if (D === '=') return ['=']; if (D === '≤') return ['<', '=']; if (D === '<') return ['<']; return ['>', '=', '<']; }
+function ineqDef(c, D) { return ineqPermits(D).every(function (b) { return ineqHolds(c, b); }); }
+function ineqVerdict(r1, r2, D) { var a = ineqDef(r1, D), b = ineqDef(r2, D); if (a && b) return 'Both I and II are true'; if (a) return 'Only I is true'; if (b) return 'Only II is true'; if (ineqPermits(D).every(function (x) { return ineqHolds(r1, x) || ineqHolds(r2, x); })) return 'Either I or II is true'; return 'Neither I nor II is true'; }
+function ioStep(arr, s) { var a = arr.slice(); for (var i = 0; i < s; i++) { var mi = i; for (var j = i + 1; j < a.length; j++) if (a[j] < a[mi]) mi = j; var t = a[i]; a[i] = a[mi]; a[mi] = t; } return a; }
+
 console.log('lr-engine.check — Logical Reasoning generator (ADR-075 / ADR-079)');
 
-ok('0 seven LR categories', LR.categories().length === 7 && LR.categories().indexOf('lr-syllogism') !== -1);
+ok('0 twelve LR categories', LR.categories().length === 12 && LR.categories().indexOf('lr-syllogism') !== -1 && LR.categories().indexOf('lr-inequality') !== -1);
 
 (function () {
   var cats = LR.categories(), diffs = ['easy', 'medium', 'hard'], total = 0, recomputed = 0;
@@ -158,6 +170,17 @@ ok('0 seven LR categories', LR.categories().length === 7 && LR.categories().inde
           ok('oddletter unique odd pair', oddCnt === 1 && oddPair === String(q.answer)); did = false;
         }
         else if (key === 'oddword') { ok('oddword structural', q.options.indexOf(String(q.answer)) !== -1 && q.options.length === 4); did = false; }
+        else if (key === 'letterstep') { var L = t.match(/series:\s+(.*), \?/)[1].split(', '); e = lett(pos(L[L.length - 1]) + (pos(L[1]) - pos(L[0]))); }
+        else if (key === 'alphanum') { var L2 = t.match(/series:\s+(.*), \?/)[1].split(', '); function _pt(x) { var z = x.match(/^([A-Z])(\d+)$/); return { l: pos(z[1]), n: +z[2] }; } var p0 = _pt(L2[0]), p1 = _pt(L2[1]), pl = _pt(L2[L2.length - 1]); e = lett(pl.l + (p1.l - p0.l)) + (pl.n + (p1.n - p0.n)); }
+        else if (key === 'interleave') { var L3 = t.match(/series:\s+(.*), \?/)[1].split(', '); var cc = pos(L3[1]) - pos(L3[3]); e = lett(pos(L3[1]) - 2 * cc); }
+        else if (key === 'ineq') { var sm = t.match(/Statements: (.+?)\.\nConclusions/); var toks = sm[1].split(' '), vrs = [], ops = []; for (var ti = 0; ti < toks.length; ti++) { if (ti % 2 === 0) vrs.push(toks[ti]); else ops.push(IL[toks[ti]]); } var cm = t.match(/I\. (\w) (\S+) (\w)\s+II\. (\w) (\S+) (\w)/); var D = ineqDerive(ops.slice(vrs.indexOf(cm[1]), vrs.indexOf(cm[3]))); e = ineqVerdict(cm[2], cm[5], D); }
+        else if (key === 'dayafter') { var sd = t.match(/today is (\w+), what day .* after (\d+) days/); e = WDAYS[(WDAYS.indexOf(sd[1]) + (+sd[2])) % 7]; }
+        else if (key === 'datediff') { var yy = +t.match(/In the year (\d+)/)[1], dm = t.match(/What day of the week is (\d+) (\w+) in the same year/); e = WDAYS[dowDate(yy, MON.indexOf(dm[2]) + 1, +dm[1])]; }
+        else if (key === 'dow') { var hd = t.match(/was (\d+) (\w+), (\d+)\?/); e = WDAYS[dowDate(+hd[3], MON.indexOf(hd[2]) + 1, +hd[1])]; }
+        else if (key === 'angle0') { e = (function () { var h = +t.match(/at (\d+):00/)[1]; return Math.min(30 * h, 360 - 30 * h); })(); }
+        else if (key === 'angle') { var hm = t.match(/at (\d+):(\d+)\?/), raw = Math.abs(30 * (+hm[1]) - 5.5 * (+hm[2])); e = Math.min(raw, 360 - raw); }
+        else if (key === 'mirror') { var c2 = t.match(/clock shows (\d+):(\d+)\./), mir = 720 - (60 * (+c2[1]) + (+c2[2])), mh = Math.floor(mir / 60), ml = mir % 60; if (mh === 0) mh = 12; e = mh + ':' + (ml < 10 ? '0' + ml : ml); }
+        else if (key === 'io') { var im = t.match(/Input line: (.+?)\. Which number is in the (\d+)\w\w position from the left after Step (\d+)/); e = ioStep(im[1].split(', ').map(Number), +im[3])[(+im[2]) - 1]; }
         else if (key === 'syllogism') {
           var seg = t.match(/Statements: (.*) Conclusion: (.*) Does/);
           var prem = seg[1].split('. ').filter(Boolean).map(function (s) { return parseStmt(s.replace(/\.$/, '')); });
