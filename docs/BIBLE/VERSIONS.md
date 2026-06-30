@@ -9,12 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.76 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.77 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.77 / Arch 2.53 (2026-06-30)** — **Practice · Learn · Stats UX craftsmanship pass (ADR-080).** Make the three
+> tabs feel like one premium platform, not modules — same blue identity, no new colors/animations, no gamification.
+> (1) **Data foundation:** recorder enriched with per-category time/last-practiced + difficulty mix + a day-reset
+> today tally (additive, no migration); a new **exam-relevance metadata layer** (`QR_EXAMREL`, all 45 topics) +
+> six pure `statMath` derivations (time invested, mastery detail, comparative insights, per-exam readiness, weakest
+> topics, next recommendation) — confidence-damped, with a 537-assertion check in `npm test`. (2) **Practice:**
+> re-sectioned (Quick Start / Subject Sets / Advanced), a Battle-Archives-style **subject picker** before quick
+> sessions (remembered + "don't ask again"), dead top-space removed. (3) **Learn:** subject sections that breathe,
+> LR/DI presentational sub-groups, ONE contextual badge per card ("⭐ For <exam>" / "🔥 Most Asked"). (4) **Stats:**
+> rebuilt to answer "Am I becoming better at aptitude?" — Today · Momentum · Subject Mastery · Performance Insights ·
+> Exam Readiness · Time Invested · Study Next · QuanAI Recommends; honest empty states, never fabricated. No new deps,
+> no new Firestore I/O. SW v161→v162.
+>
 > **2.76 / Arch 2.53 (2026-06-30)** — **LR content-excellence pass (ADR-079 follow-up).** Quality-over-quantity on the
 > content itself, not the engine ("300 outstanding questions over 3000 generic ones"). (1) **Validator hardening** —
 > `lr-authored.check` now gates duplicate stems, duplicate stem+option sets, and *exploitable-length give-aways* (the

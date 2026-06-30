@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-080 — Practice · Learn · Stats UX craftsmanship pass (one cohesive premium platform) (2026-06-30)
+- **Context:** QuantReflex grew tab-by-tab (Quant → DI → LR), so Practice, Learn and Stats read as three modules
+  bolted onto a shared shell. A craftsmanship pass (not a redesign) to make them feel like one designed product —
+  keeping the premium-blue identity, the Battle-Archives modal, and the existing motion vocabulary; **no** new colors/
+  gradients/animation libraries, **no** gamification (the user was explicit: a premium productivity tool, not a game —
+  no XP/coins/levels/badge-walls/daily rewards).
+- **Decision (5 phases, each independently green):**
+  - **Data foundation.** Enriched the per-answer recorder (`js/progress.js`) with per-category solving time + last-
+    practiced + a difficulty-mix counter + a day-reset `todayCats` tally — all additive/guarded, flowing through the
+    existing save/sync (**no new Firestore collection, no migration**). New **exam-relevance metadata layer**
+    (`data/knowledge/exam-relevance.js`, `QR_EXAMREL`) keyed by topic id: per-track importance (CAT · SNAP/NMAT ·
+    Banking · SSC), overall priority, recommended study order, most-asked flag — authored for all 45 topics. It lives
+    UNDER the hood (drives readiness, recommendations, ordering, contextual badges, future exam filters), never a badge
+    wall. Six new **pure** `statMath` derivations (timeInvested · masteryDetail · comparativeInsights · examReadiness ·
+    weakestTopics · nextRecommendation), all confidence-damped so thin data can't read "90% ready". New
+    `scripts/statmath.check.js` (537 assertions) wired into `npm test`.
+  - **Practice.** Re-sectioned into Quick Start / **Subject Sets** (the premium exam-style DI/Reasoning sets, given
+    hero emphasis) / Advanced; killed the dead band above "Quick Start". Quick/Reflex/Timed now open a **subject
+    picker** (`js/ui/practice-subject-modal.js`, reusing the Battle-Archives shell) so a session is scoped to Quant/DI/
+    LR/Mixed — remembered, with a "Don't ask again" option (a Settings toggle, default on).
+  - **Learn.** Subject sections now breathe (blurb + count + difficulty coverage + divider); LR's 20-topic wall (and
+    DI) split into pedagogical **render-time sub-groups** (no drill/analytics/subjects change); single high-value
+    **contextual badge** per card only — "⭐ For <exam>" when a target exam is set, else "🔥 Most Asked".
+  - **Stats.** Rebuilt to answer **"Am I becoming better at aptitude?"**: Today · Momentum · Subject Mastery ·
+    Performance Insights (QuanAI-style comparative lines) · Exam Readiness (per-exam scores, target pinned first) ·
+    Time Invested · Study Next (ranked weakest, deep-linking to drills) · QuanAI Recommends (one decisive step). Honest
+    throughout — empty states + confidence damping, never fabricated numbers.
+  - **Cross-cutting.** Unified the Practice/Stats section-title styling; fixed `value-sm` mid-word wrapping; everything
+    else reuses the shared card/bar/badge/motion tokens.
+- **Alternatives rejected:** gamification (forbidden — premium-tool feel); permanent per-exam badges on every card
+  (metadata stays under the hood; surface only contextual indicators); a Stats heatmap + achievements persistence layer
+  (new stored state for little gain at ~2-3k users — readiness + time-invested + weakest-topics deliver the motivation
+  honestly); splitting `lr-reasoning` into real categories (would ripple into subjects/drill/analytics for zero gain
+  over a presentational `group`); per-category weekly insight claims (no per-category daily history is stored — we don't
+  fabricate them, only the comparisons the stored data supports).
+- **Consequences:** No new deps, no new Firestore I/O, no migration. Readiness/insights are O(cats) pure functions. Two
+  new client files precached; SW v161→v162; Bible 2.76→2.77 (Arch unchanged 2.53). Verified with seeded render
+  harnesses (Practice + subject modal, Learn hub, Stats premium + free) at 360/768 × light/dark — no overflow/clip, no
+  JS errors; `npm test` green incl. the new statmath check.
+
 ## ADR-079 — Logical Reasoning Excellence: hybrid generative + authored + visual (2026-06-30)
 - **Context:** LR (ADR-075) was correctness-bulletproof but pedagogically v1: 7 generators with FLAT difficulty (a
   tier just picked a random pattern — difficulty was not *earned* by reasoning depth like DI's ADR-078 archetypes),

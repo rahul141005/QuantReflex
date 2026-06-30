@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Practice · Learn · Stats UX craftsmanship pass (ADR-080)
+
+One cohesive premium platform, not three modules. Same blue identity, no new colors/animations, **no gamification**.
+Shipped as five independently-green commits (data foundation → Practice → Learn → Stats → cross-cutting).
+
+```
+### feat/data(ADR-080): foundation — recorder enrichment + exam-relevance + statMath derivations
+- progress.js: categoryStats gains sumTime/timedCount/lastTs; new global byDifficulty; day-reset todayCats. Additive,
+  guarded, flows through the existing save/sync — NO new Firestore collection, NO migration.
+- data/knowledge/exam-relevance.js (NEW, QR_EXAMREL): per-topic importance for CAT/SNAP-NMAT/Banking/SSC + priority +
+  recommendedOrder + mostAsked, for all 45 topics. Powers readiness, recommendations, ordering, contextual badges,
+  future exam filters — under the hood, not a badge wall.
+- data/statMath.js: timeInvested · masteryDetail · comparativeInsights · examReadiness · weakestTopics ·
+  nextRecommendation (all pure, dual-export, confidence-damped). scripts/statmath.check.js (NEW, 537 assertions) in npm test.
+
+### feat/practice(ADR-080): subject picker + Subject Sets section + spacing/hierarchy
+- index.html: Quick Start / Subject Sets (hero DI+Reasoning) / Advanced; dead band above "Quick Start" removed.
+- js/ui/practice-subject-modal.js (NEW): Quant/DI/LR/Mixed picker before quick/reflex/timed, reusing the
+  Battle-Archives modal shell; remembered + "Don't ask again" (Settings toggle, default on).
+- practice-modes.js: quick/reflex/timed route through the picker and launch scoped to the chosen subject.
+
+### feat/learn(ADR-080): subjects that breathe + LR/DI sub-groups + contextual badges
+- learn-view.js: richer subject headers (blurb + count + difficulty coverage + divider); presentational sub-groups for
+  LR (Foundations/Analytical&Puzzles/Critical/Visual) and DI; ONE contextual badge per card ("⭐ For <exam>" / "🔥 Most
+  Asked"). No drill/analytics/subjects change.
+
+### feat/stats(ADR-080): rebuilt to "Am I becoming better at aptitude?"
+- stats-view.js + index.html: Today · Momentum · Subject Mastery · Performance Insights · Exam Readiness · Time
+  Invested · Study Next · QuanAI Recommends. Honest empty states + confidence damping; premium gating preserved.
+
+### polish/ui(ADR-080): section-title parity (Practice == Stats) + value-sm wrapping fix
+```
+
+**Docs:** DECISION_LOG (ADR-080), VERSIONS (Bible 2.76→2.77), ROADMAP. **Verification:** full `npm test` green
+(incl. statmath.check); seeded render harnesses for all three tabs + the modal at 360/768 × light/dark — no
+overflow/clip, no JS errors; premium + free Stats paths. No new deps, no new Firestore I/O. **SW v161→v162.**
+
+---
+
 ## 2026-06-30 — LR content-excellence pass (ADR-079 follow-up)
 
 Quality-over-quantity pass on LR *content* (not the engine): research-grounded, original-but-exam-faithful questions,
