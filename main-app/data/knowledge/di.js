@@ -16,7 +16,7 @@
 
   var TOPICS = [
     {
-      id: 'di-foundations', title: 'DI Foundations', category: 'di-charts',
+      id: 'di-foundations', title: 'DI Foundations', icon: '🧱', category: 'di-charts',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-bar',
       searchTerms: ['data interpretation', 'di', 'charts', 'graphs', 'reading data', 'caselet'],
@@ -37,7 +37,7 @@
       ]
     },
     {
-      id: 'di-bar-line', title: 'Bar & Line Graphs', category: 'di-charts',
+      id: 'di-bar-line', title: 'Bar & Line Graphs', icon: '📊', category: 'di-charts',
       difficulty: 'core', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-line',
       searchTerms: ['bar graph', 'line graph', 'trend', 'year on year', 'growth', 'di'],
@@ -57,7 +57,7 @@
       ]
     },
     {
-      id: 'di-pie-charts', title: 'Pie Charts', category: 'di-charts',
+      id: 'di-pie-charts', title: 'Pie Charts', icon: '🥧', category: 'di-charts',
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'di-pie',
       searchTerms: ['pie chart', 'central angle', 'degrees', 'share', 'percentage', 'di'],
@@ -77,7 +77,7 @@
       ]
     },
     {
-      id: 'di-tables-caselets', title: 'Tables & Caselets', category: 'di-charts',
+      id: 'di-tables-caselets', title: 'Tables & Caselets', icon: '📋', category: 'di-charts',
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'di-table',
       searchTerms: ['table', 'caselet', 'data table', 'rows', 'columns', 'di'],
@@ -97,7 +97,7 @@
       ]
     },
     {
-      id: 'di-speed-math', title: 'DI Calculation Shortcuts', category: 'di-charts',
+      id: 'di-speed-math', title: 'DI Calculation Shortcuts', icon: '⚡', category: 'di-charts',
       difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-caselet',
       searchTerms: ['approximation', 'shortcuts', 'percentage to fraction', 'speed', 'estimation', 'di'],
@@ -117,7 +117,7 @@
       ]
     },
     {
-      id: 'di-sets', title: 'DI Sets & Multi-Series Charts', category: 'di-charts',
+      id: 'di-sets', title: 'DI Sets & Multi-Series Charts', icon: '🗂️', category: 'di-charts',
       difficulty: 'advanced', examFrequency: 'high', status: 'published',
       drillCategory: 'di-bar',
       searchTerms: ['di set', 'caselet set', 'grouped bar', 'stacked bar', 'multiple line', 'multi series', 'missing data', 'set selection', 'di'],

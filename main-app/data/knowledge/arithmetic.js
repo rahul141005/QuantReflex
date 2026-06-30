@@ -10,7 +10,7 @@
 
   var TOPICS = [
     {
-      id: 'percentages', title: 'Percentages', icon: '📊', category: 'arithmetic',
+      id: 'percentages', title: 'Percentages', icon: '💯', category: 'arithmetic',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'percentages', syllabusTopicId: 'percentages', revisionIntervalDays: 3,
       related: ['profit-loss', 'ratio-proportion', 'averages'],

@@ -62,7 +62,7 @@
       ]
     },
     {
-      id: 'simplification', title: 'Simplification', icon: '🧩', category: 'numbers',
+      id: 'simplification', title: 'Simplification', icon: '🧮', category: 'numbers',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'simplification', syllabusTopicId: 'simplification', revisionIntervalDays: 3,
       related: ['number-system', 'percentages', 'averages'],

@@ -95,7 +95,7 @@
       ]
     },
     {
-      id: 'compound-interest', title: 'Compound Interest', icon: '📈', category: 'commercial-math',
+      id: 'compound-interest', title: 'Compound Interest', icon: '💹', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: null, syllabusTopicId: 'interest', revisionIntervalDays: 5,
       related: ['simple-interest', 'percentages'],
