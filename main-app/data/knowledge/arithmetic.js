@@ -67,7 +67,7 @@
       sections: [
         { type: 'overview', text: 'A ratio compares two quantities of the same kind; a proportion says two ratios are equal. The whole topic reduces to one habit: convert the ratio into "parts", find the value of one part, then scale.' },
         { type: 'concept', title: 'Ratio as parts', body: 'If A : B = x : y, then A and B are x parts and y parts of a total of (x + y) parts. So A = x/(x+y) × Total. This single idea solves "divide ₹300 in 2 : 3" and most word problems.' },
-        { type: 'concept', title: 'Proportion & alligation', body: 'a : b = c : d means the cross-products are equal: a·d = b·c. Alligation is the proportion form of weighted average — it gives the ratio in which two ingredients (or rates) must be mixed to hit a target mean.' },
+        { type: 'concept', title: 'Proportion & alligation', body: 'a : b = c : d means the cross-products match: a·d = b·c. Alligation applies this to mixing — it gives the ratio in which two ingredients must be combined to hit a target average.' },
         { type: 'formula', items: [
           { name: 'Part from a ratio', expr: 'If A : B = x : y, A = x/(x+y) × Total', when: 'Splitting a total in a given ratio (works for 3+ parts too).' },
           { name: 'Proportion (cross-multiply)', expr: 'a : b = c : d ⇔ a·d = b·c', when: 'Checking or completing a proportion.' },

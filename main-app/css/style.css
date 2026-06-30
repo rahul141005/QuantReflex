@@ -2750,8 +2750,6 @@ body.dark-mode .formula-block-title { color: #f8fafc; }
 body.dark-mode .formula-label { color: #94a3b8; }
 body.dark-mode .formula-tip { color: #cbd5e1; }
 body.dark-mode .section-title { color: #60a5fa; }
-body.dark-mode .category-stat-row { border-bottom-color: #334155; }
-body.dark-mode .cat-accuracy { color: #60a5fa; }
 body.dark-mode .cat-bar-container { background: #1e293b; }
 body.dark-mode .math-grid-item { background: #334155; }
 body.dark-mode .math-expr { color: #e2e8f0; }
@@ -4830,8 +4828,6 @@ body.theme-playful .math-table td {
 body.theme-playful .shortcut-table th,
 body.theme-playful .math-table th { color: #5a6275; }
 
-body.theme-playful .category-stat-row { border-bottom-color: #f0efec; }
-body.theme-playful .cat-accuracy { color: #4f8ff7; }
 body.theme-playful .cat-bar-container { background: #e8e6e1; }
 body.theme-playful .cat-name { color: #1a1a2e; }
 
@@ -5281,8 +5277,6 @@ body.theme-playful.dark-mode .timer-select-section {
   border-color: rgba(255,255,255,.08);
 }
 
-body.theme-playful.dark-mode .category-stat-row { border-bottom-color: rgba(255,255,255,.06); }
-body.theme-playful.dark-mode .cat-accuracy { color: #58a6ff; }
 body.theme-playful.dark-mode .cat-bar-container { background: rgba(22,27,45,.7); }
 
 body.theme-playful.dark-mode .math-grid-item {

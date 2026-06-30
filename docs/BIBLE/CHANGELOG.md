@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Final craftsmanship verification pass (ADR-081 addendum)
+
+A 3-agent read-only audit of the ADR-080/081 work ("assume bugs, prove it"). The bulk verified correct; these are the
+real fixes it surfaced. No new colours/deps/Firestore; full check suite green.
+
+```
+### fix/learn(ADR-081): icon distinctness — topic vs category collisions
+- The earlier "45/45 unique" check compared topics only to each other, missing six topic icons that duplicated their
+  PARENT CATEGORY glyph (visible side-by-side in the hub head + topic breadcrumb).
+- data/knowledge/categories.js: broaden the 5 Quant category icons so each flagship topic keeps its exact glyph —
+  Numbers 🔢→🔟, Arithmetic 🧮→➗, Commercial 💰→🏷️, Modern 🎲→🃏, Mensuration 📐→📏.
+- data/knowledge/di.js: di-bar-line topic 📊→📉 (di-charts category keeps 📊). All 52 topic+category glyphs now unique.
+
+### polish/learn(ADR-081): tighten the two longest concept bodies
+- data/knowledge/arithmetic.js (ratio-proportion) + di.js (di-bar-line): crisper leads; no block add/remove.
+
+### fix/infra(ADR-081): script order + offline precache + dead CSS
+- index.html: load js/ui/practice-subject-modal.js BEFORE its caller practice-modes.js (was typeof-guarded; now clean).
+- service-worker.js: precache four scripts index.html loads but the list was missing — js/security-events.js,
+  js/maintenance-gate.js, js/ui/coming-soon.js, js/views/inbox-view.js (offline-robustness; ../shared/auth-validators.js
+  is out of SW scope, left as-is).
+- css/style.css: delete dead .category-stat-row / .cat-accuracy theme-override rules (orphaned after the Stats rebuild;
+  kept the still-shared .cat-name rule). Braces balanced.
+```
+
+Verification: `npm test` exit 0 (learn-content 421/0, learn-render 15/0, statmath 537/0, +17 suites); icon-uniqueness
+script over the live KB → 52/52 distinct, 0 collisions; Playwright render (real CSS + KB, light + dark, 360/768) →
+distinct hub/breadcrumb icons, di-bar-line table no overflow, tightened concepts render as chapter sections, 0 page
+errors. **Docs:** DECISION_LOG ADR-081 addendum, VERSIONS 2.78→2.79, this entry. **SW** v164→v165.
+
+---
+
 ## 2026-06-30 — Learn experience & UI refinement: premium textbook (ADR-081)
 
 Make the Learn tab read like a premium textbook and unify Quant/DI/LR. No new colours/animations/deps, no Firestore.

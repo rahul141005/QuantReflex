@@ -34,6 +34,20 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   blocks) and `learn-render` (every renderer incl. `exam` + `sectionLabel`; XSS escape) checks stay green. Verified by
   rendering Quant/DI/LR topic pages (light + dark) — chapter-style named sections, tables fit, distinct icons, no
   overflow. SW v163→v164, Bible 2.77→2.78 (Arch unchanged 2.53).
+- **Addendum — final craftsmanship verification pass (2026-06-30):** a 3-agent read-only audit ("assume bugs, prove
+  it") of the ADR-080/081 work found the bulk correct (named sections, the `exam` block, tables, callout parity, the
+  Stats hierarchy + no gamification, `statMath`/`QR_EXAMREL`, tests/docs/counts all verified green). It surfaced a
+  real **icon-distinctness** miss: the earlier "45/45 unique" self-check compared topics only against each other, so
+  six topic icons that duplicated their **parent category** glyph slipped through (`di-bar-line`=`di-charts` 📊,
+  `number-system`=`numbers` 🔢, `simplification`=`arithmetic` 🧮, `area`=`mensuration` 📐, `probability`=`modern-math`
+  🎲, `profit-loss`=`commercial-math` 💰) — visible side-by-side in the hub head + topic breadcrumb. **Fix:** keep the
+  precise topic icons; broaden the 5 Quant **category** glyphs (🔟 ➗ 🏷️ 🃏 📏) and give the one outlier DI topic a
+  distinct icon (`di-bar-line` 📊→📉). The full 45-topic + 7-category set (52 glyphs) is now verified unique. Also:
+  tightened the two longest concept bodies (`ratio-proportion`, `di-bar-line`) to crisper leads; reordered the
+  `practice-subject-modal.js` script before its caller; deleted dead `.category-stat-row`/`.cat-accuracy` theme CSS;
+  and **added four scripts the precache list was missing** (`security-events`, `maintenance-gate`, `ui/coming-soon`,
+  `views/inbox-view` — an offline-robustness gap; the `../shared/auth-validators.js` one is out of SW scope, so left).
+  SW v164→v165, Bible 2.78→2.79.
 
 ## ADR-080 — Practice · Learn · Stats UX craftsmanship pass (one cohesive premium platform) (2026-06-30)
 - **Context:** QuantReflex grew tab-by-tab (Quant → DI → LR), so Practice, Learn and Stats read as three modules

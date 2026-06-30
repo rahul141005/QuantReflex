@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v164';
-const CACHE_NAME = 'qr-cache-v164';
+const APP_VERSION = 'v165';
+const CACHE_NAME = 'qr-cache-v165';
 
 var ASSETS = [
   './',
@@ -13,6 +13,8 @@ var ASSETS = [
   './js/state/store.js',
   './js/firebase.js',
   './js/session.js',
+  './js/security-events.js',
+  './js/maintenance-gate.js',
   './js/auth.js',
   './js/firestore-sync.js',
   './js/app.js',
@@ -71,10 +73,12 @@ var ASSETS = [
   './js/controllers/practice-modes.js',
   './js/ui/practice-subject-modal.js',
   './js/ui/numpad.js',
+  './js/ui/coming-soon.js',
   './js/ui/swipe-nav.js',
   './js/views/home-view.js',
   './js/views/learn-view.js',
   './js/views/stats-view.js',
+  './js/views/inbox-view.js',
   './js/views/planner-view.js',
   './js/duel-core.js',
   './js/duel-manager.js',

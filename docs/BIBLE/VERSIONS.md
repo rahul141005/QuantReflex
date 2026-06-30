@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.78 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.79 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.79 / Arch 2.53 (2026-06-30)** — **Final craftsmanship verification pass (ADR-081 addendum).** A 3-agent read-only
+> audit found the ADR-080/081 work mostly correct, then fixed the real misses: an **icon-distinctness** bug (six topic
+> icons duplicated their parent **category** glyph — the earlier check only compared topics to topics) resolved by
+> broadening the 5 Quant category icons (🔟 ➗ 🏷️ 🃏 📏) and giving `di-bar-line` 📊→📉, so all 52 topic+category glyphs
+> are now unique; tightened the two longest concept bodies; reordered the `practice-subject-modal.js` script before its
+> caller; deleted dead `.category-stat-row`/`.cat-accuracy` CSS; and added four scripts missing from the SW precache
+> (offline-robustness). No new colours/deps/Firestore; full suite green. SW v164→v165.
+>
 > **2.78 / Arch 2.53 (2026-06-30)** — **Learn experience & UI refinement (ADR-081).** Make the Learn tab read like a
 > premium textbook and unify Quant/DI/LR. (1) **Reading experience** (one renderer change, all 45 pages): every section
 > is headed by its real name — a concept by its own title, a table by its caption, others by richer labels (Key

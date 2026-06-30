@@ -37,14 +37,14 @@
       ]
     },
     {
-      id: 'di-bar-line', title: 'Bar & Line Graphs', icon: '📊', category: 'di-charts',
+      id: 'di-bar-line', title: 'Bar & Line Graphs', icon: '📉', category: 'di-charts',
       difficulty: 'core', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-line',
       searchTerms: ['bar graph', 'line graph', 'trend', 'year on year', 'growth', 'di'],
       related: ['di-foundations', 'di-speed-math'],
       sections: [
         { type: 'overview', text: 'Bar graphs compare separate quantities; line graphs show how ONE quantity moves over time. Both are read the same way — pick the bars/points the question names, read their heights off the axis, then calculate.' },
-        { type: 'concept', title: 'Bars compare, lines trend', body: 'A bar graph answers "which is bigger / by how much / what is the total". A line graph adds the idea of CHANGE: rises, falls, and the steepest segment. The steepest segment of a line = the biggest year-on-year change.' },
+        { type: 'concept', title: 'Bars compare, lines trend', body: 'A bar graph answers "which is bigger, by how much, what is the total". A line graph adds CHANGE — and its steepest segment is the biggest year-on-year jump.' },
         { type: 'concept', title: 'Find the biggest jump by eye', body: 'On a line graph you usually do not need to compute every change. The visually steepest segment is almost always the largest change — verify just that one with arithmetic.' },
         { type: 'trick', title: 'Speed reading', items: ['For "highest/lowest", scan — do not calculate.', 'For a total over years, add in pairs that make round numbers.', 'For year-on-year %, change/old — keep the OLD year on the bottom.'] },
         { type: 'formula', items: [
