@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.66 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.45 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.67 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.46 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.67 / Arch 2.46 (2026-06-30)** — **QuantReflex V2 Phase 3: generative Logical Reasoning engine + MCQ (ADR-075).**
+> Completes the Quant → DI → LR spine. `js/lr-engine.js` procedurally generates 7 topics (Coding-Decoding, Blood
+> Relations, Direction Sense, Ranking, Odd One Out, Analogies, Syllogisms) with genuine easy/medium/hard — numeric
+> (numpad) where natural, multiple-choice otherwise. The only new infra is **MCQ input** in the drill engine
+> (conditional on `q.options`; numeric Quant/DI untouched). Syllogism correctness is re-verified by an independent
+> 256-region set-logic model-checker. LR self-registers into the Practice pipeline (out of the random pool + duels),
+> joins the `lr` subject, the grouped picker, and Learn (`data/knowledge/lr.js`, 7 gold-standard topics). QuanAI/Stats
+> label LR via the engine; LR rides `categoryStats` → **no Firestore migration** (stays 2.21). New `lr-engine.check`
+> (15512 assertions); Learn 24→31 topics. SW v149→v150. Bible 2.66→2.67, Arch 2.45→2.46.
 
 > **2.66 / Arch 2.45 (2026-06-30)** — **QuantReflex V2 Phase 2: Data Interpretation engine (ADR-074).** The first new
 > Speed-Aptitude subject, filling the Phase-1 seam. DI is **generative** (no static banks): `js/di-engine.js`

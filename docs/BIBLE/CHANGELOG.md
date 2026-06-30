@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Phase 3: generative Logical Reasoning engine + MCQ support (ADR-075)
+
+LR completes the Speed-Aptitude spine. 7 procedurally-generated topics reusing the whole pipeline; the only new
+capability is multiple-choice input (conditional). No new deps, **no Firestore migration**.
+
+```
+### feat/lr(ADR-075): generative Logical Reasoning + MCQ (V2 Phase 3)
+- NEW js/lr-engine.js: 7 generators — Coding-Decoding, Blood Relations, Direction Sense, Ranking & Ordering, Odd One
+  Out, Analogies, Syllogisms. Numeric (numpad) where natural; MCQ otherwise. Genuine easy/medium/hard. Syllogisms use
+  curated convention-independent logic, re-verified by an independent 256-region set-logic model-checker. Self-
+  registers into questions.js categoryGenerators; OUT of the random Quant pool + OUT of duels.
+- js/drill-engine.js: MCQ support — q.options[] ⇒ option buttons replace the numeric input, numpad suppressed, Submit
+  hidden (tap=submit); reuses the EXACT grader/feedback/recordAnswer/Next; marks correct/wrong on answer. Numeric
+  Quant/DI untouched. js/questions.js: LR excluded from Review Mistakes.
+- data/subjects.js: register the 'lr' subject (categories lazy from lr-engine — no duplicated list).
+- Practice picker (index.html): third grouped section "Logical Reasoning" (7 buttons), no new tab.
+- Learn: NEW data/knowledge/lr.js (LR category + 7 gold-standard topics, deep-linking to LR drills); hub groups by subject.
+- QuanAI/analytics: studentProfile.label (server) + formatCategoryName (client) fall back to LR labels; LR rides
+  categoryStats. Duels: LR fenced out this phase (numeric LR is duel-ready in principle; MCQ needs a schema change).
+- CSS: .mcq-options grid + states (light+dark, reduced-motion safe). SW v149→v150 (+ precache lr-engine.js, lr.js).
+- TESTS: NEW scripts/lr-engine.check.js (15512 assertions); extended subjects/learn-content/learn-browser (Learn
+  24→31 topics, 7th category). Full suite green.
+```
+
+Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-075), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md), [ROADMAP.md](ROADMAP.md)
+(Phase 3 shipped), [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) (categoryStats gains lr-* keys; still derived),
+[VERSIONS.md](VERSIONS.md) (Bible 2.66→2.67, Arch 2.45→2.46), [README.md](README.md).
+
 ## 2026-06-30 — QuantReflex V2 Phase 2: Data Interpretation engine (generative) + Practice/Learn/AI (ADR-074)
 
 DI as a first-class, generative Speed-Aptitude subject — reusing the whole existing pipeline. No static banks, numeric

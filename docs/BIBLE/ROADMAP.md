@@ -27,9 +27,14 @@ admission rules define the boundary (and keep the product from regressing into a
   picker (no new tab), and Learn (5 gold-standard topics; hub groups by subject). QuanAI/Stats label DI + ground Explain
   with chart data; DI rides `categoryStats` (no Firestore migration). **Deferred:** DI in duels + Review-Mistakes
   replay (need chart-spec persistence); Planner→DI-drill linkage; per-category par-time tuning.
-- **Phase 3 — Generatable Logical Reasoning (V2.5) ⏳:** the generatable slice only (coding-decoding, analogies,
-  directions, blood-relations, simple syllogisms, clocks/calendars, series+) + a single-pool **"Mixed Aptitude"** duel
-  mode. **Excludes** large seating arrangements, complex puzzles, reading-heavy logic (fail the Generation Test).
+- **Phase 3 — Generative Logical Reasoning (V2.5) ✅ (2026-06-30, ADR-075):** `js/lr-engine.js` — 7 generative topics
+  (Coding-Decoding, Blood Relations, Direction Sense, Ranking & Ordering, Odd One Out, Analogies, Syllogisms) with
+  genuine easy/medium/hard; numeric (numpad) where natural, **multiple-choice** otherwise (the one new drill-engine
+  capability, conditional on `q.options`). Syllogisms verified by an independent set-logic model-checker. LR joins the
+  `lr` subject, the grouped Practice picker, and Learn (7 gold-standard topics). Rides `categoryStats` (no migration).
+  **Excluded** (per philosophy): seating/floor/analytical puzzles, reading-heavy LR, statement-conclusion/assumption,
+  cause-effect. **Deferred:** LR in duels (numeric LR is duel-ready in principle; MCQ needs a duel-schema change) and
+  Review-Mistakes replay; a single-pool "Mixed Aptitude" duel mode.
 - **Phase 4 — AI / analytics / duels / polish ⏳:** `statMath` per-subject rollup (the deferred derivation helper),
   subject-aware QuanAI context (one intelligence, not duplicated prompts), the subject lens in Practice/Stats, coaching
   per-subject views.

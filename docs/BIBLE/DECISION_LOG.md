@@ -8,6 +8,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-075 — Generative Logical Reasoning engine + MCQ drill support (V2 Phase 3) (2026-06-30)
+- **Context:** Phase 3 completes the Speed-Aptitude spine (Quant → DI → **LR**). The mandate: "Speed LR", not generic
+  LR — only topics that are **procedurally generatable**, produce many variations, reward fast reasoning, and fit the
+  AI/analytics ecosystem. Topics needing handcrafted content (large seating arrangements, floor puzzles, reading-heavy
+  / analytical puzzles, statement-conclusion/assumption, cause-effect) are **excluded** (they fail the Generation Test
+  and edge into the authored-content/VARC zone ADR-067 deliberately avoids).
+- **Decision:** A generative LR engine + the one piece of new infrastructure it needs (MCQ input), both reusing the
+  existing pipeline.
+  - **Engine (`js/lr-engine.js`), 7 topics:** Coding-Decoding, Blood Relations, Direction Sense, Ranking & Ordering,
+    Odd One Out, Analogies, Syllogisms. Each is procedurally generated with genuine easy/medium/hard (direct →
+    multi-step → multi-condition/inference). **Numeric** answers where natural (coding-sum, direction-distance,
+    ranking, analogies → numpad, duel-grade-able) and **multiple-choice** otherwise (blood, odd-one-out, syllogisms,
+    coding-cipher, direction-MCQ). Self-registers into `questions.js`'s `categoryGenerators` (same dedup/difficulty/
+    focus/custom/timed/adaptive pipeline); kept OUT of the random Quant pool (`generators[]`) and OUT of duels (server
+    never `require`s it). MCQ stems embed their data (e.g. odd-one-out lists the numbers) so the engine's text-dedup
+    still varies. **Syllogisms** use a curated, convention-independent (Boolean-logic) template set; their correctness
+    is re-verified in tests by an **independent 256-region set-logic model-checker** — no debatable answers ship.
+  - **MCQ drill support (the only new infra):** when a question carries `options[]`, the drill engine renders option
+    buttons in place of the numeric input, suppresses the numpad, and hides Submit (a tap IS the submit) — then reuses
+    the **exact** string grader, feedback, `recordAnswer`, and "Next →" flow, and reveals the correct option / marks
+    the wrong pick. **Numeric Quant/DI is completely untouched** (guarded on `q.options`).
+  - **Reuse everywhere else:** `data/subjects.js` registers the `lr` subject (categories lazy-sourced from the engine —
+    no duplicated list); the Practice picker gains a third grouped section (no new tab); Learn gets `data/knowledge/
+    lr.js` (7 gold-standard topics, hub groups by subject); QuanAI/Stats label LR via the engine and LR rides
+    `stats.categoryStats`, so Coach/Insights/`topWeakCategory`/analytics work with no redesign.
+  - **Duel assessment:** the numeric LR topics (coding-sum, direction-distance, ranking, analogies) are *duel-ready in
+    principle* (numpad + string/number grading), but enabling LR in duels needs the server to load the engine and the
+    duel prompt schema to carry MCQ options — so, like DI, **LR is fenced out of duels this phase** (a documented later
+    step). MCQ-in-duels specifically would require a schema change; deferred to preserve duel fairness/flow.
+- **Excluded (per philosophy, not stubbed):** seating arrangements, floor/analytical puzzles, reading-heavy LR,
+  statement-conclusion/assumption, cause-effect, input-output — none are cleanly generatable at quality.
+- **Consequences:** New `js/lr-engine.js`, `data/knowledge/lr.js`; one conditional MCQ branch in the drill engine;
+  subject/labeler/picker/Learn touch-ups. **No Firestore migration** — `categoryStats` gains `lr-*` keys, subject still
+  derived. No new dependencies, no new functions, no security/payment change. New `scripts/lr-engine.check.js` (incl.
+  the model-checker); Learn 24→31 topics. SW v149→v150. Bible 2.66→2.67, Architecture 2.45→2.46.
+
 ## ADR-074 — Data Interpretation engine: a generative, chart-based Speed-Aptitude subject (V2 Phase 2) (2026-06-30)
 - **Context:** Phase 1 (ADR-073) opened the derived subject seam. Phase 2 fills it with the first new subject, **Data
   Interpretation (DI)** — the strongest fit for the moat (DI *is* calculation on charts; it generates; speed still
