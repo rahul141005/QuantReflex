@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.69 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.48 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.70 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.49 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.70 / Arch 2.49 (2026-06-30)** — **QuantReflex V2 Final Craftsmanship Pass (ADR-077): refinement, not redesign.**
+> A focused premium-polish pass grounded in three read-only craftsmanship audits (design-system · interactions/motion ·
+> Learn/QuanAI/IA/a11y) — identity and architecture preserved, no new features, no new design language. (1) **MCQ feel**:
+> press-down `.pressed` parity with the numpad (delegated pointer listeners that toggle a visual class only — never
+> grade), plus token-aligned generous sizing (`var(--qr-btn-radius)`, `.6rem` gap, 1rem text, taller targets) + a
+> tablet max-width so options read as a tidy pair. (2) **Accessibility**: QuanAI bottom-sheet gains Escape-to-close +
+> focus-into-dialog + focus-restore on each new turn; the Practice category picker wraps each subject in a labelled
+> `role="group"`; onboarding goal buttons expose `aria-pressed`; the Stats sparkline gains `role="img"`. (3) **QuanAI**:
+> consistent multi-line rendering (`\n`→`<br>`) across `say`/`callout` blocks; Planner open now uses the same staged
+> shimmer the Coach/Insights use (perceived-performance parity) via a newly-exported `Companion.showLoading`. (4)
+> **Copy**: one "Speed Aptitude powered by QuanAI" voice — onboarding intro/Learn lines and the About mission evolved
+> from Quant-only to the three-subject spine, keeping the QuantReflex name and Quant as the strongest pillar. Audit
+> items that conflicted with project constraints were deliberately declined (no ~2,260-color tokenisation; no rewrite
+> of the V1 category-grid spacing). SW v154→v155. Bible 2.69→2.70, Arch 2.48→2.49.
 
 > **2.69 / Arch 2.48 (2026-06-30)** — **QuantReflex V2 Phase 4.5: integration verification & stabilization audit.**
 > A whole-repo, cross-subject re-read of Phases 1–4 as if written by someone else (3 read-only audit agents + direct

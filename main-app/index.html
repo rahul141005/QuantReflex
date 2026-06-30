@@ -398,7 +398,8 @@
           <div class="training-card-body">
             <!-- Speed-Aptitude subjects (ADR-073/074): the 14-category picker is the "Quant" group; Data
                  Interpretation is its sibling. One picker, grouped — no new tab/navigation. -->
-            <p class="category-subject-label">Quantitative Aptitude</p>
+            <div class="category-group" role="group" aria-labelledby="catGroupQuant">
+            <p class="category-subject-label" id="catGroupQuant">Quantitative Aptitude</p>
             <div class="category-grid">
               <button class="category-btn category-card" type="button" data-cat="squares">Squares</button>
               <button class="category-btn category-card" type="button" data-cat="cubes">Cubes</button>
@@ -415,7 +416,9 @@
               <button class="category-btn category-card" type="button" data-cat="simplification">Simplification</button>
               <button class="category-btn category-card" type="button" data-cat="number-series">Number Series</button>
             </div>
-            <p class="category-subject-label">Data Interpretation <span class="category-subject-hint">read charts &amp; tables, fast</span></p>
+            </div>
+            <div class="category-group" role="group" aria-labelledby="catGroupDI">
+            <p class="category-subject-label" id="catGroupDI">Data Interpretation <span class="category-subject-hint">read charts &amp; tables, fast</span></p>
             <div class="category-grid">
               <button class="category-btn category-card" type="button" data-cat="di-bar">Bar Graphs</button>
               <button class="category-btn category-card" type="button" data-cat="di-line">Line Graphs</button>
@@ -423,7 +426,9 @@
               <button class="category-btn category-card" type="button" data-cat="di-table">Data Tables</button>
               <button class="category-btn category-card" type="button" data-cat="di-caselet">Caselets</button>
             </div>
-            <p class="category-subject-label">Logical Reasoning <span class="category-subject-hint">reasoning reflexes</span></p>
+            </div>
+            <div class="category-group" role="group" aria-labelledby="catGroupLR">
+            <p class="category-subject-label" id="catGroupLR">Logical Reasoning <span class="category-subject-hint">reason under time pressure</span></p>
             <div class="category-grid">
               <button class="category-btn category-card" type="button" data-cat="lr-coding">Coding-Decoding</button>
               <button class="category-btn category-card" type="button" data-cat="lr-blood">Blood Relations</button>
@@ -432,6 +437,7 @@
               <button class="category-btn category-card" type="button" data-cat="lr-odd">Odd One Out</button>
               <button class="category-btn category-card" type="button" data-cat="lr-analogy">Analogies</button>
               <button class="category-btn category-card" type="button" data-cat="lr-syllogism">Syllogisms</button>
+            </div>
             </div>
 
             <!-- Adaptive Training Toggle -->
@@ -1444,7 +1450,7 @@
         <h3 class="info-section-title">👨‍💻 Developer</h3>
         <div class="info-block">
           <h4>Built by KrisVeltrix (KVt)</h4>
-          <p>QuantReflex was built with a single conviction: speed in quantitative reasoning isn't talent — it's trained reflex. This platform exists to make that training structured, measurable, and accessible to every serious exam aspirant.</p>
+          <p>QuantReflex was built with a single conviction: speed aptitude — quant, data interpretation, and logical reasoning — isn't talent, it's trained reflex. This platform exists to make that training structured, measurable, and accessible to every serious exam aspirant.</p>
         </div>
       </div>
 

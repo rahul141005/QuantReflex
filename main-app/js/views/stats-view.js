@@ -132,7 +132,7 @@ function renderStatsView() {
 
       sparklineEl.innerHTML =
         '<div class="sparkline-chart-wrap">' +
-          '<svg class="stats-sparkline" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" preserveAspectRatio="xMidYMid meet" aria-label="7-day accuracy chart">' +
+          '<svg class="stats-sparkline" role="img" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" preserveAspectRatio="xMidYMid meet" aria-label="7-day accuracy chart">' +
             _defs + _baseline + _bars +
           '</svg>' +
         '</div>' +

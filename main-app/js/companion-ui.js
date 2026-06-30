@@ -124,7 +124,7 @@ var Companion = (function () {
   function openModal(title) {
     var prior = document.getElementById('companionOverlay'); if (prior && prior.parentNode) prior.parentNode.removeChild(prior);
     var overlay = el(
-      '<div id="companionOverlay" class="companion-overlay" role="dialog" aria-modal="true" aria-label="' + esc(title || PERSONA) + '">' +
+      '<div id="companionOverlay" class="companion-overlay" role="dialog" aria-modal="true" tabindex="-1" aria-label="' + esc(title || PERSONA) + '">' +
         '<div class="companion-sheet">' +
           '<div class="companion-grabber" aria-hidden="true"></div>' +
           '<div class="companion-head"><span class="companion-badge">' + esc(PERSONA) + '</span>' +
@@ -137,6 +137,10 @@ var Companion = (function () {
     function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); _state = null; }
     overlay.querySelector('.companion-close').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    /* Keyboard parity with touch's drag-to-dismiss: Escape closes the sheet (standard dialog expectation). */
+    overlay.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); close(); } });
+    /* Move focus into the sheet so keyboard/screen-reader users land inside the dialog (and Escape is heard). */
+    try { overlay.querySelector('.companion-close').focus(); } catch (_) {}
 
     // Drag-down-to-dismiss on the grabber/head — native bottom-sheet feel (ADR-049). Drag past 90px → close,
     // else snap back. Only starts from the grabber or head so it never fights with body scrolling.
@@ -215,7 +219,7 @@ var Companion = (function () {
   }
   function blockHTML(b) {
     switch (b.type) {
-      case 'say': return '<div class="cb-say">' + esc(b.text) + '</div>';
+      case 'say': return '<div class="cb-say">' + esc(b.text).replace(/\n/g, '<br>') + '</div>';
       case 'ring': return '<div class="cb-ring">' + _ringSVG(b.score) +
         '<div class="cb-ring-meta"><div class="cb-ring-label">' + esc(b.label || '') + '</div>' +
         (b.sub ? '<div class="cb-ring-sub">' + esc(b.sub) + '</div>' : '') + '</div></div>';
@@ -237,7 +241,7 @@ var Companion = (function () {
         var days = (b.days || []).map(function (d) { return '<li class="' + (d.done ? 'done' : '') + '"><span class="cb-tl-dot"></span><div><b>' + esc(d.label) + '</b>' + ((d.items || []).length ? '<span class="cb-tl-sub">' + esc((d.items || []).join(' · ')) + '</span>' : '') + '</div></li>'; }).join('');
         return '<ul class="cb-timeline">' + days + '</ul>';
       case 'celebrate': return '<div class="cb-celebrate">🎉 ' + esc(b.text) + '</div>';
-      case 'callout': return '<div class="cb-callout tone-' + esc(b.tone || 'info') + '">' + esc(b.text) + '</div>';
+      case 'callout': return '<div class="cb-callout tone-' + esc(b.tone || 'info') + '">' + esc(b.text).replace(/\n/g, '<br>') + '</div>';
       default: return '';
     }
   }
@@ -265,6 +269,9 @@ var Companion = (function () {
       row.querySelectorAll('.companion-chip').forEach(function (btn) {
         btn.addEventListener('click', function () { onChip(chips[parseInt(btn.getAttribute('data-idx'), 10)], env); });
       });
+      /* On a follow-up turn (chip → new envelope), move focus to the first new choice so keyboard/SR users keep their
+         place instead of being dropped back to the top. Initial render leaves focus on the header close button. */
+      if (append) { var _firstChip = row.querySelector('.companion-chip'); if (_firstChip) { try { _firstChip.focus(); } catch (_) {} } }
     }
     // wire mission blocks (tap whole card = deeplink)
     turn.querySelectorAll('.cb-mission').forEach(function (m) {
@@ -624,6 +631,7 @@ var Companion = (function () {
 
   return { openExplain: openExplain, openCoach: openCoach, openInsights: openInsights,
     openStudyPlanner: openStudyPlanner, renderEnvelope: renderEnvelope,
-    clientStats: clientStats, localDate: localDate, openModal: openModal, _api: api };
+    clientStats: clientStats, localDate: localDate, openModal: openModal,
+    showLoading: showLoading, _api: api };
 })();
 if (typeof window !== 'undefined') window.Companion = Companion;

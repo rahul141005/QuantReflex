@@ -8,6 +8,37 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-077 — Final Craftsmanship Pass: premium refinement, not redesign (2026-06-30)
+- **Context:** With the three-subject Speed-Aptitude spine complete and stabilized (Phase 4.5: no functional
+  regressions), the remaining gap was *craftsmanship* — making every screen feel noticeably more premium without a
+  redesign. The user's guardrails were explicit: preserve QuantReflex's identity (Quant stays the strongest pillar),
+  no new design language, no new features, and **"if a change doesn't meaningfully improve the student experience,
+  don't make it."** Three read-only audits (design-system · interactions/motion · Learn/QuanAI/IA/a11y) converged that
+  the product is already premium and surfaced a small set of real, low-risk refinements — plus a few "findings" that
+  conflicted with the project's own constraints.
+- **Decision:** Ship only the high-leverage, low-risk refinements; decline the rest, and record why.
+  - **MCQ feel (the newest surface):** align `.mcq-option` to the app's button system (token radius, `.6rem` gap, 1rem
+    text, more generous tap targets) + a tablet/desktop `max-width` so the two columns read as a tidy pair; add a
+    press-down `.pressed` state with **parity to the numpad** — wired by a *delegated* pointer listener in `numpad.js`
+    that toggles only a visual class and **never grades or advances**, so the three subjects feel like one input
+    surface with zero risk to answer state.
+  - **Accessibility hardening (additive only):** the QuanAI bottom-sheet gains Escape-to-close, focus-into-dialog on
+    open, and focus-restore on each new turn; the Practice category picker wraps each subject in a labelled
+    `role="group"` (with a `.category-group` spacing rule to preserve the inter-group rhythm the old sibling selector
+    provided); onboarding goal buttons expose `aria-pressed`; the Stats 7-day sparkline gains `role="img"`.
+  - **QuanAI parity:** `blockHTML` applies `\n`→`<br>` consistently across the free-text `say`/`callout` blocks (was
+    only `card`); `Companion.showLoading` is exported and reused by `planner-view.open()` so opening an existing plan
+    shows the **same staged shimmer** the Coach/Insights use (perceived-performance parity), not a flat line.
+  - **One copy voice — evolve, don't replace:** onboarding intro/Learn copy and the About mission move from Quant-only
+    phrasing to the Quant/DI/LR spine and name QuanAI, while keeping the QuantReflex name and Quant-as-strongest-pillar.
+    Already-correct identity surfaces (hero, "What is QuantReflex?", meta, manifest) were left as-is.
+- **Explicitly declined (with reasons):** (1) tokenising the ~2,260 hardcoded hex colors — large, risky, and contrary
+  to "no over-engineering for ~2-3k users"; (2) rewriting the V1 category-grid spacing — pre-V2 critical-path code,
+  imperceptible benefit, real regression risk. Both recorded as future recommendations, not done now. The Learn
+  "empty subject header" finding was a non-issue (the renderer already derives groups from real category presence).
+- **Consequences:** Pure client polish — **no logic, schema, or AI-contract change**; the ~38k-assertion suite stays
+  green. SW v154→v155. Bible 2.69→2.70, Arch 2.48→2.49.
+
 ## ADR-076 — Unified Aptitude Intelligence: one cross-subject platform (V2 Phase 4) (2026-06-30)
 - **Context:** Phases 1-3 shipped three Speed-Aptitude subjects (Quant, DI, LR) that already reuse the pipeline, but
   the *intelligence* and *analytics* were still per-category and the identity still read "mental math". Phase 4 is the

@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Final Craftsmanship Pass (ADR-077)
+
+Premium polish, not redesign: identity + architecture preserved, no new features. Grounded in three read-only
+craftsmanship audits (design-system · interactions/motion · Learn/QuanAI/IA/a11y) which converged that the product is
+already premium; this ships only the focused, low-risk refinements they surfaced.
+
+```
+### polish(ADR-077): MCQ feel + a11y hardening + QuanAI parity + unified Speed-Aptitude copy voice
+- MCQ (drill UX): css/style.css mcq-option → token-aligned & generous (padding .8/.7→.95/.9rem, radius 12px→
+  var(--qr-btn-radius), gap .55→.6rem, font .98→1rem) + 640px max-width so options read as a tidy pair on tablet/
+  desktop. New .mcq-option.pressed press-state (+ dark + reduced-motion); wired by a DELEGATED pointer listener in
+  js/ui/numpad.js that toggles only the visual class (never grades/advances) → parity with the numpad key feel.
+- A11y: companion-ui.js modal gains Escape-to-close + tabindex + focus-into-dialog + focus-restore on each new turn;
+  index.html category picker wraps each subject in <div role="group" aria-labelledby> (+ .category-group spacing rule
+  to preserve the inter-group rhythm the old sibling selector gave); onboarding.js goal buttons expose aria-pressed;
+  stats-view.js 7-day sparkline gains role="img".
+- QuanAI: companion-ui blockHTML now applies \n→<br> to 'say'/'callout' (parity with 'card'); Companion.showLoading
+  exported and reused by planner-view.js open() so opening an existing plan shows the same staged shimmer as Coach/
+  Insights (perceived-performance parity) instead of a flat "Loading…" line.
+- Copy (one voice, evolve not replace): onboarding intro + Learn line + About mission moved from Quant-only to the
+  Quant/DI/LR spine, naming QuanAI, keeping the QuantReflex identity and Quant as the strongest pillar; LR picker hint
+  aligned to DI's action tone.
+- Declined (project constraints): no tokenisation of ~2,260 hardcoded colors; no rewrite of the V1 category-grid
+  spacing (pre-V2 critical path, imperceptible gain). Documented as future recommendations only.
+- SW v154→v155. Full npm test suite green (~38k assertions; no generator/derivation logic touched). Bible 2.69→2.70,
+  Arch 2.48→2.49.
+```
+
+---
+
 ## 2026-06-30 — QuantReflex V2 Phase 4.5: integration verification & stabilization audit
 
 Whole-repo, cross-subject re-read of Phases 1–4 treated as someone else's code (assume mistakes exist, try to break it).

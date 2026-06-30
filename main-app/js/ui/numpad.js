@@ -62,6 +62,33 @@ function hideCustomNumpad() {
   document.addEventListener('pointercancel', _releaseAll);
 })();
 
+/* ---- MCQ option press feedback (LR, ADR-075) — parity with the numpad above ----
+   The drill engine rebuilds the question container each turn, so a delegated document-level listener (like the
+   numpad's) is the right home: it needs no per-render rewiring and toggles ONLY the visual `.pressed` class — it
+   never grades or advances, so it cannot affect answer state. Gives a tapped option the same on-contact feedback a
+   numpad key gets, so the three subjects feel like one input surface. */
+(function () {
+  var _activeOpt = null;
+
+  document.addEventListener('pointerdown', function (e) {
+    var opt = e.target.closest && e.target.closest('.mcq-option');
+    if (!opt || opt.disabled) return;
+    if (_activeOpt && _activeOpt !== opt) _activeOpt.classList.remove('pressed');
+    _activeOpt = opt;
+    opt.classList.add('pressed');
+    if (typeof triggerHaptic === 'function') triggerHaptic(8);
+  });
+
+  function _releaseOpts() {
+    var pressed = document.querySelectorAll('.mcq-option.pressed');
+    for (var i = 0; i < pressed.length; i++) pressed[i].classList.remove('pressed');
+    _activeOpt = null;
+  }
+
+  document.addEventListener('pointerup', _releaseOpts);
+  document.addEventListener('pointercancel', _releaseOpts);
+})();
+
 /* ---- Numpad key click handler ---- */
 (function initNumpad() {
   var _lastNumpadClick = 0;

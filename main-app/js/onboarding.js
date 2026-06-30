@@ -333,8 +333,8 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-1">⚡</span>' +
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">✨</span>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Sharpen Your Edge. Master Every Number.</h2>' +
-      '<p class="onboarding-desc">Build elite quantitative reflexes through precision drills, AI coaching, and competitive challenges.</p>' +
+      '<h2 class="onboarding-title">Sharpen Your Edge. Master Speed Aptitude.</h2>' +
+      '<p class="onboarding-desc">Build elite reflexes across quant, data interpretation, and logical reasoning — through precision drills, QuanAI coaching, and competitive challenges.</p>' +
       '<div class="onboarding-name-field">' +
       '<label class="onboarding-name-label">What\'s your name?</label>' +
       '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_displayName) + '" />' +
@@ -352,7 +352,7 @@ var Onboarding = (function () {
       '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">Drill</span></div>' +
       '</div></div>' +
       '<h2 class="onboarding-title">Learn Smarter. Practice Faster.</h2>' +
-      '<p class="onboarding-desc">Use the Learn tab to revise multiplication tables, formulas, and shortcuts. Then jump into drills to train your calculation speed.</p>' +
+      '<p class="onboarding-desc">Use the Learn tab to master tables, formulas, charts, and reasoning shortcuts. Then jump into drills to train your speed.</p>' +
       '<p class="onboarding-hint">💡 Triple tap any table to open a larger full-screen view.</p>' +
       '<div class="onboarding-actions">' +
       '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
@@ -382,8 +382,8 @@ var Onboarding = (function () {
       '</div>' +
       '<h2 class="onboarding-title">Set Your Daily Training Goal</h2>' +
       '<div class="onboarding-goal-options">' +
-      '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10">10 questions</button>' +
-      '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20">20 questions</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10" aria-pressed="' + (_selectedGoal === 10 ? 'true' : 'false') + '">10 questions</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20" aria-pressed="' + (_selectedGoal === 20 ? 'true' : 'false') + '">20 questions</button>' +
       '</div>' +
       '<p class="onboarding-note">You can change this anytime from the Settings tab.<br>Goals above 20 require Premium.</p>' +
       '<div class="onboarding-actions">' +
@@ -494,8 +494,10 @@ var Onboarding = (function () {
         /* Deselect all */
         for (var j = 0; j < goalBtns.length; j++) {
           goalBtns[j].classList.remove('onboarding-goal-active');
+          goalBtns[j].setAttribute('aria-pressed', 'false');
         }
         this.classList.add('onboarding-goal-active');
+        this.setAttribute('aria-pressed', 'true');
         _selectedGoal = parseInt(this.getAttribute('data-goal'), 10);
       });
     }

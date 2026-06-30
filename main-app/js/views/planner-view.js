@@ -47,11 +47,17 @@ var Planner = (function () {
   function open() {
     if (!(window.Companion && Companion.openModal)) return;
     _modal = Companion.openModal('Study Planner');
-    var r = root(); if (r) r.innerHTML = '<div class="planner-loading">Loading your plan…</div>';
+    var r = root();
+    /* Reuse QuanAI's staged shimmer (personalized "reviewing your…" lead + rotating stages) so opening the plan reads
+       as the mentor actively rebuilding it — same premium loading the Coach/Insights surfaces use, not a flat line. */
+    var stop = (r && Companion.showLoading)
+      ? Companion.showLoading(r, ['Reading your strengths…', 'Weighting topics by exam frequency…', 'Scheduling your next 14 days…'])
+      : (function () { if (r) r.innerHTML = '<div class="planner-loading">Loading your plan…</div>'; return function () {}; })();
     api('get').then(function (res) {
+      stop();
       if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; render(); }
       else emptyState();
-    }).catch(emptyState);
+    }).catch(function () { stop(); emptyState(); });
   }
   /* Render the calendar into an EXISTING companion sheet (setup/get success) — seamless, no second sheet. */
   function renderInto(modal, plan) { _modal = modal; _plan = plan; _sel = null; render(); }
