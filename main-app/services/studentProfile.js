@@ -32,7 +32,11 @@ function db() { return admin.firestore(); }
 var CONTEXT_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 // Topic vocabulary is defined ONCE in quantTopics.js (ADR-045) — the single source of truth.
 var CATEGORY_LABELS = topics.CATEGORY_LABELS;
-var label = topics.label;
+// DI categories (ADR-074) are labelled by the DI engine so QuanAI (Coach/Insights/Explain) names them properly —
+// e.g. a weak "di-line" surfaces as "Line Graphs", not "General Math". Required in node only; safe (no side effects).
+var _diLabels = {};
+try { _diLabels = require('../js/di-engine').CATEGORY_LABELS || {}; } catch (_) {}
+function label(cat) { return CATEGORY_LABELS[cat] || _diLabels[cat] || (topics.label ? topics.label(cat) : cat); }
 
 var _round = aiMath.round;
 

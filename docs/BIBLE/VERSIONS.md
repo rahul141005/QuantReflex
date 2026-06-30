@@ -9,11 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.65 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.44 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.66 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.45 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.66 / Arch 2.45 (2026-06-30)** — **QuantReflex V2 Phase 2: Data Interpretation engine (ADR-074).** The first new
+> Speed-Aptitude subject, filling the Phase-1 seam. DI is **generative** (no static banks): `js/di-engine.js`
+> synthesizes a dataset and asks a calculation for 5 families (bar/line/pie/table/caselet), with genuine easy/medium/
+> hard and **always-numeric, always-clean** answers, so the existing numpad + grader work unchanged. It self-registers
+> into `questions.js` (same Practice pipeline; out of the random Quant pool + out of duels). A dependency-free SVG/HTML
+> renderer (`js/ui/di-charts.js`) draws the chart above the stem (one drill-engine hook). DI joins the `di` subject
+> (`data/subjects.js`), the Practice picker (grouped, no new tab), and Learn (`data/knowledge/di.js` — 5 gold-standard
+> topics; the hub now groups by subject). QuanAI/Stats label DI categories via the engine and ground Explain with the
+> chart data; DI flows through `categoryStats` so analytics need no redesign. **No Firestore migration** (categoryStats
+> just gains `di-*` keys; subject still derived → Firestore stays 2.21). New `di-engine`/`di-charts` checks; Learn
+> 19→24 topics. SW v147→v148. Bible 2.65→2.66, Arch 2.44→2.45.
 
 > **2.65 / Arch 2.44 (2026-06-30)** — **QuantReflex V2 Phase 1: derived Speed-Aptitude subject layer + Learn
 > integration (ADR-073).** Foundation for the Quant → Data Interpretation → generatable Logical Reasoning spine. Makes

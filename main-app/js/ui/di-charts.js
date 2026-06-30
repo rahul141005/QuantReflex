@@ -139,7 +139,20 @@
     }
   }
 
-  var DICharts = { render: render };
+  /* A compact TEXT summary of a chart's data — prepended to the question when opening AI Explain, so the model can
+     ground a DI explanation (the chart pixels aren't sent to the server; these numbers are). (ADR-074) */
+  function describe(spec) {
+    if (!spec || !spec.kind) return '';
+    if (spec.kind === 'table') {
+      var head = (spec.columns || []).join(' | ');
+      var body = (spec.rows || []).map(function (r) { return r.join(' = '); }).join('; ');
+      return 'Data table — ' + (spec.title || '') + ' [' + head + ']: ' + body + '.';
+    }
+    var pairs = (spec.labels || []).map(function (l, i) { return l + ' = ' + _fmt(spec.values[i]); }).join(', ');
+    return 'Data (' + spec.kind + ' chart' + (spec.title ? ', ' + spec.title : '') + (spec.unit ? ', in ' + spec.unit : '') + '): ' + pairs + '.';
+  }
+
+  var DICharts = { render: render, describe: describe };
   if (typeof module !== 'undefined' && module.exports) module.exports = DICharts;
   if (typeof window !== 'undefined') window.DICharts = DICharts;
   else root.DICharts = DICharts;

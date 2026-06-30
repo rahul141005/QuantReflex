@@ -21,9 +21,12 @@ admission rules define the boundary (and keep the product from regressing into a
   dual-export so the browser derives Quant's categories; Learn registry gains `subject` + `bySubject`/
   `categoriesBySubject`; all 5 Learn categories tagged `subject:'quant'`; `scripts/subjects.check.js` + extended
   `learn-content.check.js`. **Zero user-visible change** (only Quant has content).
-- **Phase 2 — Data Interpretation (V2.0) ⏳:** DI dataset/chart **generators** + a chart practice surface; register DI
-  Learn content + the `di` subject; surface the subject lens in the Learn hub (now that a 2nd subject has content).
-  Reuses scoring/duel/AI unchanged in spirit.
+- **Phase 2 — Data Interpretation (V2.0) ✅ (2026-06-30, ADR-074):** generative DI engine (`js/di-engine.js`) for 5
+  families (bar/line/pie/table/caselet) with genuine easy/medium/hard + always-clean numeric answers; dependency-free
+  SVG/table renderer (`js/ui/di-charts.js`); one drill-engine hook. DI joins the `di` subject, the grouped Practice
+  picker (no new tab), and Learn (5 gold-standard topics; hub groups by subject). QuanAI/Stats label DI + ground Explain
+  with chart data; DI rides `categoryStats` (no Firestore migration). **Deferred:** DI in duels + Review-Mistakes
+  replay (need chart-spec persistence); Planner→DI-drill linkage; per-category par-time tuning.
 - **Phase 3 — Generatable Logical Reasoning (V2.5) ⏳:** the generatable slice only (coding-decoding, analogies,
   directions, blood-relations, simple syllogisms, clocks/calendars, series+) + a single-pool **"Mixed Aptitude"** duel
   mode. **Excludes** large seating arrangements, complex puzzles, reading-heavy logic (fail the Generation Test).

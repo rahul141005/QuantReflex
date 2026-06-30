@@ -73,5 +73,15 @@ console.log('di-charts.check — DI chart renderer (ADR-074)');
   ok('6 unknown kind → empty', DC.render({ kind: 'radar', labels: [], values: [] }) === '');
 })();
 
+/* ── 7. describe(): a text summary carrying the data (used to ground AI Explain) ── */
+(function () {
+  var d = DC.describe({ kind: 'bar', title: 'Sales', unit: '₹ crore', labels: ['A', 'B', 'C', 'D'], values: [120, 80, 150, 90] });
+  ok('7 describe carries every value', ['120', '80', '150', '90'].every(function (v) { return d.indexOf(v) !== -1; }));
+  ok('7 describe carries labels', d.indexOf('A = 120') !== -1);
+  var dt = DC.describe({ kind: 'table', title: 'Loans', columns: ['Branch', 'Loans'], rows: [['Delhi', '120'], ['Pune', '90']] });
+  ok('7 describe table lists rows', dt.indexOf('Delhi = 120') !== -1 && dt.indexOf('Pune = 90') !== -1);
+  ok('7 describe null → empty', DC.describe(null) === '');
+})();
+
 console.log('\ndi-charts.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

@@ -446,7 +446,11 @@ function createDrillEngine(container, opts) {
           if (typeof showPaywall === 'function') showPaywall('ai_explain');
           return;
         }
-        AIFeatures.showExplanationModal(q.question, expected, q.category);
+        /* DI (ADR-074): the chart pixels aren't sent to the AI, so prepend a compact text summary of the data to
+           the question — the explanation is then grounded in the actual numbers, not just "the chart above". */
+        var _explainQ = q.question;
+        try { if (q.chart && typeof DICharts !== 'undefined' && DICharts.describe) { var _d = DICharts.describe(q.chart); if (_d) _explainQ = _d + ' ' + q.question; } } catch (_) {}
+        AIFeatures.showExplanationModal(_explainQ, expected, q.category);
       });
       feedback.parentNode.insertBefore(explainBtn, feedback.nextSibling);
     }

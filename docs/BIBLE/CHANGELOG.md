@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Phase 2: Data Interpretation engine (generative) + Practice/Learn/AI (ADR-074)
+
+DI as a first-class, generative Speed-Aptitude subject — reusing the whole existing pipeline. No static banks, numeric
+clean answers, lightweight SVG charts, no new dependencies, no new navigation, **no Firestore migration**.
+
+```
+### feat/di(ADR-074): Data Interpretation engine + Practice + Learn + QuanAI (V2 Phase 2)
+- NEW js/di-engine.js: generators for 5 DI families (bar/line/pie/table/caselet); genuine easy(lookup)/medium(2-step)/
+  hard(interpretation); answers ALWAYS numeric + clean (retry-until-clean). Self-registers into questions.js
+  categoryGenerators (same dedup/difficulty/focus/custom/timed/adaptive pipeline). Kept OUT of the random Quant pool
+  and OUT of duels (server never requires it). 1800 questions independently recomputed in tests.
+- NEW js/ui/di-charts.js: dependency-free responsive SVG (bar/line/pie) + HTML table; on-chart value labels; role=img
+  + data-rich aria-label; XSS-escaped. Plus describe() → text summary used to ground AI Explain.
+- js/drill-engine.js: ONE hook renders q.chart above the stem (grading/numpad/feedback reused); DI Explain prepends
+  the chart data. js/questions.js: DI excluded from Review Mistakes (no stored chart to replay).
+- data/subjects.js: register 'di' subject (categories sourced lazily from di-engine — no duplicated list).
+- Practice picker (index.html): grouped into "Quantitative Aptitude" + "Data Interpretation" — one picker, no new tab.
+- Learn: NEW data/knowledge/di.js (DI category + 5 gold-standard topics, deep-linking to DI drills); learn-view hub now
+  GROUPS categories by subject (activates the Phase-1 seam).
+- QuanAI/analytics: studentProfile.label (server) + formatCategoryName (client) fall back to DI labels so Coach/
+  Insights/Stats name DI categories ("Bar Graphs"); DI per-category mastery flows through categoryStats automatically.
+- CSS: DI chart/table + subject-group/label styles (light+dark, reduced-motion safe).
+- index.html + service-worker.js (v147→v148): load/precache di-engine, di-charts, di.js.
+- TESTS: NEW scripts/di-engine.check.js (full answer recompute) + scripts/di-charts.check.js; extended subjects/
+  learn-content/learn-browser checks (Learn 19→24 topics, 6th category). Full suite green.
+```
+
+Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-074), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md),
+[ROADMAP.md](ROADMAP.md) (Phase 2 shipped), [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) (categoryStats gains di-*
+keys; still derived), [VERSIONS.md](VERSIONS.md) (Bible 2.65→2.66, Arch 2.44→2.45), [README.md](README.md).
+
 ## 2026-06-30 — QuantReflex V2 Phase 1: Speed-Aptitude subject layer (derived) + Learn integration (ADR-073)
 
 Foundation for the Quant → Data Interpretation → generatable Logical Reasoning spine. Makes the architecture

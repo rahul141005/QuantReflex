@@ -309,6 +309,8 @@ var _CATEGORY_LABELS = {
 function formatCategoryName(key) {
   if (!key) return '-';
   if (_CATEGORY_LABELS[key]) return _CATEGORY_LABELS[key];
+  /* DI categories (ADR-074) are labelled by the DI engine — keeps Stats / post-session reading "Bar Graphs", not "Di Bar". */
+  try { if (typeof DIEngine !== 'undefined' && DIEngine.CATEGORY_LABELS && DIEngine.CATEGORY_LABELS[key]) return DIEngine.CATEGORY_LABELS[key]; } catch (_) {}
   /* Fallback: capitalize and replace hyphens with spaces */
   return key.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
