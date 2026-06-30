@@ -1610,6 +1610,8 @@
   <!-- Logical Reasoning engine (ADR-075): like di-engine, MUST load after questions.js (self-registers its
        generators into categoryGenerators). MCQ rendering is built into the drill engine; no extra renderer file. -->
   <script defer src="js/lr-engine.js"></script>
+  <!-- LR puzzle SET engine (ADR-079): generates seating/floor sets; presentation reuses the drill set-mode. -->
+  <script defer src="js/lr-set-engine.js"></script>
   <script defer src="data/syllabus.js"></script>
   <script defer src="js/mock-engine.js"></script>
   <script defer src="js/tables.js"></script>

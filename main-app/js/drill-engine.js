@@ -189,11 +189,18 @@ function createDrillEngine(container, opts) {
     }
     var host = container.querySelector('#diSetQHost');
     var progressPct = count > 0 ? Math.round((current / count) * 100) : 0;
+    /* a set question may be numeric (DI) OR multiple-choice (LR puzzle sets, ADR-079) — render the matching input */
+    var isMCQ = !!(q.options && q.options.length);
+    var setBadge = (diSet.category && String(diSet.category).indexOf('lr-') === 0) ? 'LR SET' : 'DI SET';
     host.innerHTML =
-      '<p class="drill-progress">Question ' + (current + 1) + ' / ' + count + ' <span class="di-set-badge">DI SET</span></p>' +
+      '<p class="drill-progress">Question ' + (current + 1) + ' / ' + count + ' <span class="di-set-badge">' + setBadge + '</span></p>' +
       '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
       '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
-      '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
+      (isMCQ
+        ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
+            q.options.map(function (o) { var s = _escHtml(String(o)); var wide = String(o).length > 14 ? ' mcq-wide' : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>'; }).join('') +
+          '</div>'
+        : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />') +
       '<div id="feedback" class="feedback" aria-live="polite"></div>';
     /* fresh actions each question (checkAnswer mutates them into Next / disables skip). */
     var actions = container.querySelector('.drill-actions');
@@ -204,10 +211,21 @@ function createDrillEngine(container, opts) {
     ui.submitBtnEl = container.querySelector('#submitBtn');
     ui.feedbackEl = host.querySelector('#feedback');
     ui.cardEl = container.querySelector('.card');
-    var input = ui.answerInputEl, submitBtn = ui.submitBtnEl;
-    function submit() { if (answered) return; checkAnswer(input.value.trim()); }
-    submitBtn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    var submitBtn = ui.submitBtnEl;
+    if (isMCQ) {
+      /* tap-to-answer (no numpad, no Submit) — same as the single-question LR path */
+      if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+      if (submitBtn) submitBtn.style.display = 'none';
+      var _mh = host.querySelector('#mcqOptions'), _os = _mh ? _mh.querySelectorAll('.mcq-option') : [];
+      for (var _oi = 0; _oi < _os.length; _oi++) {
+        _os[_oi].addEventListener('click', function () { if (answered) return; this.classList.add('selected'); checkAnswer(this.getAttribute('data-opt')); });
+      }
+    } else {
+      var input = ui.answerInputEl;
+      var submit = function () { if (answered) return; checkAnswer(input.value.trim()); };
+      submitBtn.addEventListener('click', submit);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    }
     var _sk = typeof loadSettings === 'function' ? loadSettings() : {};
     var _ska = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
     if (_ska && _sk.skipEnabled && _sk.difficulty !== 'hard') {
@@ -216,7 +234,7 @@ function createDrillEngine(container, opts) {
       actions.classList.add('has-skip'); actions.insertBefore(skipBtn, submitBtn);
     }
     qStart = performance.now();
-    if (typeof showCustomNumpad === 'function') showCustomNumpad(input, function () { submit(); });
+    if (!isMCQ && typeof showCustomNumpad === 'function') showCustomNumpad(ui.answerInputEl, function () { if (!answered) checkAnswer(ui.answerInputEl.value.trim()); });
   }
 
   function renderQuestion() {
