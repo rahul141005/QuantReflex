@@ -37,27 +37,56 @@
 
   /* asymmetric glyphs only — so none / mirror / water / 180° are four VISUALLY DISTINCT figures (no symmetry trap) */
   var GLYPHS = { easy: ['F', 'G', 'P', 'R'], medium: ['J', 'L', 'Q'], hard: ['4', '7'] };
+  var GLYPH_POOL = ['F', 'G', 'P', 'R', 'J', 'L', 'Q', '4', '7'];
+  function _glyph(c, t) { return t === 'h' ? { kind: 'glyph', text: c, flip: 'h' } : t === 'v' ? { kind: 'glyph', text: c, flip: 'v' } : t === 'r' ? { kind: 'glyph', text: c, rot: 180 } : { kind: 'glyph', text: c, flip: 'none' }; }
 
+  /* Difficulty is EARNED by reasoning, not by a trickier glyph: easy is a single character (orientation only); medium
+     (2) and hard (3) are STRINGS — a real mirror reverses glyph ORDER and flips each glyph; a water image flips each
+     glyph but keeps the order. The order-reversal step is the added reasoning, and it is the classic exam trap. */
   function _mirrorLike(diff, axis, key) {
-    var g = _pick(GLYPHS[diff] || GLYPHS.medium);
-    var figs = [
-      { kind: 'glyph', text: g, flip: axis },                 // [0] correct
-      { kind: 'glyph', text: g, flip: 'none' },
-      { kind: 'glyph', text: g, flip: axis === 'h' ? 'v' : 'h' },
-      { kind: 'glyph', text: g, rot: 180 }
-    ];
-    var o = _figOptions(figs);
     var what = axis === 'h' ? 'mirror image (as seen in a vertical mirror, left ↔ right)' : 'water image (as seen reflected in water, top ↔ bottom)';
-    return { question: 'The figure at the top shows a character. Choose its correct ' + what + '.', figure: { kind: 'glyph', text: g, flip: 'none' }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':' + key };
+    if (diff === 'easy') {
+      var g = _pick(GLYPHS.easy);
+      var figs1 = [_glyph(g, axis), _glyph(g, 'none'), _glyph(g, axis === 'h' ? 'v' : 'h'), _glyph(g, 'r')];
+      var o1 = _figOptions(figs1);
+      return { question: 'The figure at the top shows a character. Choose its correct ' + what + '.', figure: _glyph(g, 'none'), options: o1.options, optionFigures: o1.optionFigures, answer: o1.answer, subtype: 'easy:' + key };
+    }
+    var n = diff === 'medium' ? 2 : 3, gs = _pickN(GLYPH_POOL, n);
+    var plain = gs.map(function (c) { return _glyph(c, 'none'); });
+    var correct, dA, dB;
+    if (axis === 'h') {                                            // mirror: reverse order + flip each
+      correct = gs.slice().reverse().map(function (c) { return _glyph(c, 'h'); });
+      dA = gs.map(function (c) { return _glyph(c, 'h'); });        // flipped but NOT reversed (the trap)
+      dB = gs.slice().reverse().map(function (c) { return _glyph(c, 'none'); }); // reversed but not flipped
+    } else {                                                       // water: flip each, keep order
+      correct = gs.map(function (c) { return _glyph(c, 'v'); });
+      dA = gs.slice().reverse().map(function (c) { return _glyph(c, 'v'); });   // flipped AND wrongly reversed
+      dB = gs.map(function (c) { return _glyph(c, 'h'); });        // wrong axis
+    }
+    var figs = [{ kind: 'row', items: correct }, { kind: 'row', items: dA }, { kind: 'row', items: dB }, { kind: 'row', items: plain.slice() }];
+    var o = _figOptions(figs);
+    return { question: 'The figures at the top spell a short string. Choose its correct ' + what + '.', figure: { kind: 'row', items: plain }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':' + key };
   }
 
   function _genMirror(diff) { return _mirrorLike(diff, 'h', 'mirror'); }
   function _genWater(diff) { return _mirrorLike(diff, 'v', 'water'); }
 
+  /* Difficulty is EARNED by the reasoning step, not the figure: easy = opposite face (one complement); medium = sum of
+     the five hidden faces (uses "1..6 total 21"); hard = two dice, sum of both bottom faces (two complements). */
   function _genDice(diff) {
-    var top = _ri(1, 6), bottom = 7 - top;
-    var m = _mcq(bottom, ['1', '2', '3', '4', '5', '6'], 4);
-    return { question: 'A standard die is shown (the numbers on opposite faces always add up to 7). Which number lies on the face OPPOSITE to the one shown on top?', figure: { kind: 'die', value: top }, options: m.options, answer: m.answer, subtype: diff + ':dice' };
+    if (diff === 'easy') {
+      var top = _ri(1, 6);
+      var m = _mcq(7 - top, ['1', '2', '3', '4', '5', '6'], 4);
+      return { question: 'A standard die is shown (numbers on opposite faces always add up to 7). Which number lies on the face OPPOSITE the one shown on top?', figure: { kind: 'die', value: top }, options: m.options, answer: m.answer, subtype: 'easy:dice' };
+    }
+    if (diff === 'medium') {
+      var t2 = _ri(1, 6);
+      var m2 = _mcq(21 - t2, ['15', '16', '17', '18', '19', '20'], 4);
+      return { question: 'A standard die shows ' + t2 + ' on top (its six faces are numbered 1 to 6). What is the SUM of the numbers on the other five faces?', figure: { kind: 'die', value: t2 }, options: m2.options, answer: m2.answer, subtype: 'medium:dice' };
+    }
+    var a = _ri(1, 6), b = _ri(1, 6), pool = []; for (var x = 2; x <= 12; x++) pool.push(String(x));
+    var m3 = _mcq((7 - a) + (7 - b), pool, 4);
+    return { question: 'Two standard dice are shown. They show ' + a + ' and ' + b + ' on their top faces. What is the SUM of the numbers on their two BOTTOM faces?', figure: { kind: 'row', items: [{ kind: 'die', value: a }, { kind: 'die', value: b }] }, options: m3.options, answer: m3.answer, subtype: 'hard:dice' };
   }
 
   function _genCube(diff) {
@@ -82,22 +111,40 @@
     return _figOptions(figs);
   }
 
+  /* easy/medium = a CONSTANT turn; hard = an ALTERNATING two-step turn (a genuinely harder pattern to spot — not just
+     a wider angle). Both stay deterministic and single-answer. */
   function _genFSeries(diff) {
-    var step = _pick(diff === 'easy' ? [90] : diff === 'medium' ? [45, 90] : [45, 135]);
     var base = _ri(0, 7) * 45;
+    if (diff === 'hard') {
+      var s1 = _pick([45, 90, 135]), s2 = _pick([45, 90, 135].filter(function (v) { return v !== s1; }));
+      var rots = [base, base + s1, base + s1 + s2, base + 2 * s1 + s2];   // steps between: s1, s2, s1 → next step s2
+      var next = base + 2 * s1 + 2 * s2;
+      var seqH = rots.map(function (r) { return { kind: 'arrow', rot: ((r % 360) + 360) % 360 }; });
+      var oH = _arrowFigOptions(((next % 360) + 360) % 360);
+      return { question: 'The figures turn by ALTERNATING angles. Find the figure that comes next in place of the question mark.', figure: { kind: 'row', items: seqH.concat([{ kind: 'qmark' }]) }, options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:fseries' };
+    }
+    var step = _pick(diff === 'easy' ? [90] : [45, 90, 135]);
     var seq = [0, 1, 2, 3].map(function (i) { return { kind: 'arrow', rot: (base + i * step) % 360 }; });
-    var nextRot = (base + 4 * step) % 360;
-    var o = _arrowFigOptions(nextRot);
+    var o = _arrowFigOptions((base + 4 * step) % 360);
     return { question: 'Each figure in the series turns by the same angle. Find the figure that comes next in place of the question mark.', figure: { kind: 'row', items: seq.concat([{ kind: 'qmark' }]) }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':fseries' };
   }
 
+  /* easy/medium = a rotation analogy (single, unambiguous turn). hard = a REFLECTION analogy on an asymmetric glyph,
+     where the transformation TYPE (mirror vs rotation) must be read — and the answer map is unique (a single example
+     pins the result even though the verbal description could vary). Deliberately NOT a rotation-vs-reflection arrow
+     analogy, which would be ambiguous from one example. */
   function _genFAnalogy(diff) {
+    if (diff === 'hard') {
+      var g1 = _pick(GLYPH_POOL), g2 = _pick(GLYPH_POOL.filter(function (x) { return x !== g1; })), axis = _pick(['h', 'v']);
+      var figsG = [_glyph(g2, axis), _glyph(g2, axis === 'h' ? 'v' : 'h'), _glyph(g2, 'r'), _glyph(g2, 'none')];
+      var oG = _figOptions(figsG);
+      return { question: 'In the first pair the figure is transformed to get the second. Apply the SAME transformation to the third figure (A : B :: C : ?).', figure: { kind: 'row', items: [_glyph(g1, 'none'), _glyph(g1, axis), _glyph(g2, 'none'), { kind: 'qmark' }] }, options: oG.options, optionFigures: oG.optionFigures, answer: oG.answer, subtype: 'hard:fanalogy' };
+    }
     var k = _pick(diff === 'easy' ? [90, 180] : [45, 90, 135, 270]);
     var a = _ri(0, 7) * 45, c = _ri(0, 7) * 45;
     var A = { kind: 'arrow', rot: a }, B = { kind: 'arrow', rot: (a + k) % 360 }, C = { kind: 'arrow', rot: c };
-    var ansRot = (c + k) % 360;
-    var o = _arrowFigOptions(ansRot);
-    return { question: 'In the first pair, the figure is turned by a fixed angle to get the second. Apply the SAME change to the third figure and choose the result (A : B :: C : ?).', figure: { kind: 'row', items: [A, B, C, { kind: 'qmark' }] }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':fanalogy' };
+    var o = _arrowFigOptions((c + k) % 360);
+    return { question: 'In the first pair, the figure is turned by a fixed angle to get the second. Apply the SAME change to the third figure (A : B :: C : ?).', figure: { kind: 'row', items: [A, B, C, { kind: 'qmark' }] }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':fanalogy' };
   }
 
   var CATEGORY_LABELS = {

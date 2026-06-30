@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — LR final production audit & stabilization (ADR-079 hardening)
+
+Trust-nothing audit of the shipped LR overhaul (3 adversarial agents: integration-completeness · dead-code/
+architecture · difficulty/authored-quality/docs), every claim re-verified against source. Verdict: production-grade
+(green tests, 0 new Firestore I/O, all 25 categories integrated, docs counts exact, all 57 authored items defensible).
+Targeted fixes only — no rebuild.
+
+```
+### fix/lr(ADR-079 hardening): visual difficulty now earned by reasoning
+- lr-visual-engine.js: lr-dice was FLAT (ignored difficulty) → easy=opposite(7−top), medium=five hidden faces
+  (21−top), hard=two dice bottoms (14−a−b). lr-mirror/lr-water cosmetic → easy 1 glyph, medium/hard 2/3-glyph STRINGS
+  (a real mirror reverses glyph order AND flips each; water flips each, keeps order). lr-fseries → hard is an
+  ALTERNATING two-step turn (not just a wider angle). lr-fanalogy hard → an unambiguous glyph reflection (a
+  rotation-vs-reflection arrow analogy was rejected: ambiguous from one example — correctness > difficulty label).
+- lr-engine.js: lr-io easy now queries position 2–3 (tests the swap, not just "find the smallest").
+- scripts/lr-figures.check.js: independent recompute branches added for string-mirror order+flip, dice
+  hidden-sum/two-dice, alternating series, glyph-reflection analogy.
+
+### feat/lr(ADR-079 hardening): close the Learn teaching gap + balance authored tiers
+- data/knowledge/lr.js: +3 gold-standard topics (Input-Output, Cause & Effect, Course of Action) so every drillable
+  single-question LR category has teaching (42 → 45 published); learn-content/learn-browser counts updated.
+- data/lr-authored/*: +7 easy items across cause/course/decision/statement/critical (57 → 64); easy/medium/hard less
+  lopsided. Validator-gated.
+
+### chore/lr(ADR-079 hardening): dead-code + SW
+- Removed 4 unused public exports: LREngine._compose2/_codeOps, LRSetEngine._buildRaw/_perms (functions stay, used
+  internally; the check harnesses are fully independent). SW v159→v160. Bible 2.74→2.75 (Arch unchanged).
+- npm test green (19 suites); stress 51,004 questions + 39,600 figures, 0 defects.
+```
+
 ## 2026-06-30 — Logical Reasoning Excellence: hybrid generative + authored + visual (ADR-079)
 
 LR went from 7 flat-difficulty generators (~60–70% production-ready) to a 25-category hybrid platform across a

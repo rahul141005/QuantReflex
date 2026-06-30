@@ -60,6 +60,19 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   `subjects.js#_lrCats()` → `LREngine.categories()`. Each category validated in `npm test`
   (lr-engine/lr-set-engine/lr-authored/lr-figures checks — independent recompute, model-checking, unique-solution,
   schema validation). SW bumped, Bible/Arch versioned. (Counts/versions finalized at ship.)
+- **Hardening (2026-06-30, ADR-079 follow-up):** a trust-nothing re-audit (3 adversarial agents — integration-
+  completeness, dead-code/architecture, difficulty/authored-quality/docs) confirmed the engine sound (green tests, 0
+  Firestore I/O, all 25 categories integrated, docs counts exact, 57 authored items all defensible) and drove targeted
+  fixes: (a) **visual difficulty calibration** — `lr-dice` was FLAT (ignored difficulty) and mirror/water/figure-series
+  tiered cosmetically; now each escalates by REASONING (dice: opposite → five-hidden-sum (21−top) → two-dice bottoms;
+  mirror/water: 1→2→3-glyph strings where a real mirror reverses glyph order; figure-series: constant → alternating
+  two-step; figure-analogy hard = an unambiguous glyph reflection — deliberately NOT a rotation-vs-reflection arrow
+  analogy, which is ambiguous from one example, because correctness outranks a difficulty label); (b) **Learn gap** —
+  added 3 missing topics (Input-Output, Cause & Effect, Course of Action) so every drillable single-question LR
+  category has teaching (42 → 45 published); (c) **authored easy-tier balance** — +7 easy items (57 → 64); (d) **dead
+  code** — removed 4 unused public exports (`_compose2`/`_codeOps`, `_buildRaw`/`_perms`; functions stay, used
+  internally). Still derived-only, no migration, no deps. `lr-figures.check` recompute branches updated for every new
+  visual form; stress 51,004 questions + 39,600 figures, 0 defects. SW v159→v160, Bible 2.74→2.75 (Arch unchanged 2.53).
 
 ## ADR-078 — Data Interpretation Engine v2: earned difficulty, multi-series renderer, DI sets (2026-06-30)
 - **Context:** DI (ADR-074) was architecturally clean but pedagogically v1: difficulty was reasoning-based yet had a

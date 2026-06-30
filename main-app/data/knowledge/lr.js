@@ -310,6 +310,57 @@
         { type: 'example', problem: 'An arrow points up, then right, then down. What comes next?', steps: ['Each step is a 90° clockwise turn', 'After down, a 90° clockwise turn points left'], answer: 'An arrow pointing left.' },
         { type: 'revision', points: ['Describe the transformation in words.', 'Series: apply the change once more.', 'Analogy: apply A→B\'s rule to C.', 'Test a fixed rotation first; reflections reverse orientation.'] }
       ]
+    },
+    {
+      id: 'lr-input-output', title: 'Input-Output (Machine)', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'medium', status: 'published',
+      drillCategory: 'lr-io', searchTerms: ['input output', 'machine input', 'word arrangement', 'shifting', 'banking reasoning'], related: ['lr-series'],
+      sections: [
+        { type: 'overview', text: 'An input-output "machine" rearranges a line of words or numbers by a FIXED rule, one step at a time, until it is fully arranged. Your job is to apply the rule mechanically and report the line (or a position) after a given step.' },
+        { type: 'concept', title: 'Find the rule, then march', body: 'Compare the input to step 1 to see what moved — usually the smallest (or alphabetically first) item shifts to one end. The same operation repeats every step. Do not jump ahead; rewrite the WHOLE line each step.' },
+        { type: 'concept', title: 'Track only what you need', body: 'If the question asks for the item at a particular position after step N, you only need to simulate up to step N. Each step fixes one more item at the arranged end.' },
+        { type: 'formula', items: [
+          { name: 'Per step', expr: 'move the next-in-order item to the arranged end' },
+          { name: 'Steps to finish', expr: 'an n-item line is fully arranged in n−1 steps' },
+          { name: 'Position after step N', expr: 'simulate N steps, then read the asked slot' }
+        ] },
+        { type: 'trick', title: 'Rewrite, don\'t imagine', items: ['Physically rewrite the line each step — mental tracking is where errors creep in.', 'After step k, the first k positions (or last k) are already in final order; ignore them.'] },
+        { type: 'example', problem: 'Rule: each step moves the smallest remaining number to the left end. Input: 23, 12, 45, 31. What is the 2nd number from the left after Step 2?', steps: ['Step 1 → 12, 23, 45, 31 (smallest 12 to front)', 'Step 2 → 12, 23, 45, 31 (next smallest 23 already in place)', '2nd from left = 23'], answer: '23' },
+        { type: 'revision', points: ['Find the rule from input → step 1.', 'Apply it one step at a time; rewrite the whole line.', 'n items finish in n−1 steps.', 'Simulate only up to the asked step.'] }
+      ]
+    },
+    {
+      id: 'lr-cause-effect', title: 'Cause & Effect', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'lr-cause', searchTerms: ['cause and effect', 'causal', 'common cause', 'reason', 'banking reasoning'], related: ['lr-critical-reasoning'],
+      sections: [
+        { type: 'overview', text: 'Cause-and-effect questions give two statements and ask how they are related: does one cause the other, are both effects of a single common cause, or are they unrelated? The trap is mistaking things that merely happen together for cause and effect.' },
+        { type: 'concept', title: 'Order and mechanism', body: 'A cause comes BEFORE its effect and plausibly produces it. Ask: which event happened first, and does it explain the other? If yes, you have a cause→effect pair.' },
+        { type: 'concept', title: 'The common-cause trap', body: 'Two events that rise together need not cause each other — both may be effects of a third, common cause (e.g. umbrella sales and raincoat sales both rise because of rain). Always check for a hidden shared cause.' },
+        { type: 'formula', items: [
+          { name: 'I causes II', expr: 'I happens first and explains II' },
+          { name: 'Common cause', expr: 'neither causes the other; a third factor causes both' },
+          { name: 'Unrelated', expr: 'no plausible link and no shared cause' }
+        ] },
+        { type: 'trap', items: ['Treating correlation (they occur together) as causation.', 'Ignoring a third factor that drives both statements.', 'Reversing the direction — checking which event truly came first.'] },
+        { type: 'example', problem: 'I: Ice-cream sales peaked in May. II: Cases of sunburn peaked in May. Relationship?', steps: ['Ice-cream does not cause sunburn, nor the reverse', 'Both peak because of hot, sunny weather', 'They are independent effects of a common cause'], answer: 'Common cause (summer weather)' },
+        { type: 'revision', points: ['Cause precedes and explains the effect.', 'Co-occurrence ≠ causation.', 'Check for a hidden common cause.', 'If no link and no shared cause → unrelated.'] }
+      ]
+    },
+    {
+      id: 'lr-course-of-action', title: 'Course of Action', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'lr-course', searchTerms: ['course of action', 'follows', 'problem solving', 'decision', 'banking reasoning'], related: ['lr-statement-argument'],
+      sections: [
+        { type: 'overview', text: 'A course-of-action question states a problem and proposes one or more actions; you decide which actions logically "follow". An action follows only if it directly addresses the problem AND is practical and proportionate.' },
+        { type: 'concept', title: 'Two tests for "follows"', body: 'A valid course of action must (1) be RELEVANT — it tackles the actual cause of the problem, and (2) be REASONABLE — practical, proportionate, and not an over-reaction. An action failing either test does not follow.' },
+        { type: 'concept', title: 'Reject the extremes', body: 'Drastic actions (ban everything, shut it down permanently, fire everyone) almost never follow — they are disproportionate. Vague or do-nothing actions also fail. Favour the measured, cause-addressing step.' },
+        { type: 'formula', items: [
+          { name: 'Follows', expr: 'relevant to the cause AND practical/proportionate' },
+          { name: 'Does not follow', expr: 'irrelevant, extreme, vague, or impractical' },
+          { name: 'Both / Either', expr: 'apply the two tests to each action independently' }
+        ] },
+        { type: 'trap', items: ['Accepting an extreme action (permanent ban/shutdown) as a valid course.', 'Accepting an action that does not address the actual cause.', 'Rejecting a sensible action because it is not a complete cure.'] },
+        { type: 'example', problem: 'Problem: students fell ill after eating at the canteen. Action I: inspect the canteen\'s food and hygiene. Action II: shut the canteen permanently. Which follows?', steps: ['I investigates the actual cause — relevant and practical → follows', 'II is disproportionate before the cause is even known → does not follow'], answer: 'Only I follows' },
+        { type: 'revision', points: ['An action follows only if relevant AND reasonable.', 'Reject extreme or disproportionate steps.', 'Reject vague or do-nothing actions.', 'Test each action independently.'] }
+      ]
     }
   ];
 

@@ -37,8 +37,10 @@ console.log('lr-figures.check — visual reasoning (ADR-079)');
 
 /* 2. engine: independent recompute per category */
 function sigGlyph(f) { return f.text + '|' + (f.flip || 'none') + '|' + (f.rot || 0); }
+function sigFig(f) { return f.kind === 'row' ? 'row[' + (f.items || []).map(sigFig).join(',') + ']' : f.kind === 'arrow' ? 'arrow|' + (f.rot || 0) : f.kind === 'die' ? 'die|' + f.value : sigGlyph(f); }
 function distinct(figs, sigFn) { var s = {}; figs.forEach(function (f) { s[sigFn(f)] = 1; }); return Object.keys(s).length === figs.length; }
 function tokenOf(q, predicate) { for (var i = 0; i < q.optionFigures.length; i++) if (predicate(q.optionFigures[i])) return { token: q.options[i], n: 1 }; return { token: null, n: 0 }; }
+function rowSig(items) { return items.map(sigGlyph).join(','); }
 
 VE.categories().forEach(function (cat) {
   ['easy', 'medium', 'hard'].forEach(function (diff) {
@@ -49,35 +51,57 @@ VE.categories().forEach(function (cat) {
       ok(cat + ' answer in options', q.options.indexOf(String(q.answer)) !== -1);
 
       if (cat === 'lr-mirror' || cat === 'lr-water') {
-        var axis = cat === 'lr-mirror' ? 'h' : 'v', g = q.figure.text;
-        ok(cat + ' four distinct figures', q.optionFigures.length === 4 && distinct(q.optionFigures, sigGlyph));
-        var corr = q.optionFigures.filter(function (f) { return f.text === g && f.flip === axis && !f.rot; });
-        ok(cat + ' exactly one correct flip', corr.length === 1);
-        var t = tokenOf(q, function (f) { return f.text === g && f.flip === axis && !f.rot; });
-        ok(cat + ' answer points to the flip', String(t.token) === String(q.answer));
+        var axis = cat === 'lr-mirror' ? 'h' : 'v';
+        ok(cat + ' four distinct figures', q.optionFigures.length === 4 && distinct(q.optionFigures, sigFig));
+        if (q.figure.kind === 'glyph') {                       // easy: single character, orientation-only
+          var g = q.figure.text;
+          var t = tokenOf(q, function (f) { return f.kind === 'glyph' && f.text === g && f.flip === axis && !f.rot; });
+          ok(cat + ' easy: answer is the axis flip', t.n === 1 && String(t.token) === String(q.answer));
+          ok(cat + ' easy: every option is the same glyph', q.optionFigures.every(function (f) { return f.text === g; }));
+        } else {                                               // medium/hard: string — mirror reverses order, water keeps it
+          var gs = q.figure.items.map(function (f) { return f.text; });
+          var exp = (axis === 'h')
+            ? gs.slice().reverse().map(function (c) { return c + '|h|0'; }).join(',')
+            : gs.map(function (c) { return c + '|v|0'; }).join(',');
+          ok(cat + ' string length ' + gs.length, gs.length === (diff === 'medium' ? 2 : 3));
+          var t2 = tokenOf(q, function (f) { return f.kind === 'row' && rowSig(f.items) === exp; });
+          ok(cat + ' answer = order-reversal+flip (mirror) / flip (water)', t2.n === 1 && String(t2.token) === String(q.answer));
+        }
       } else if (cat === 'lr-dice') {
-        ok('dice answer = 7 − top', String(7 - q.figure.value) === String(q.answer));
+        var dexp;
+        if (q.figure.kind === 'die') dexp = /OPPOSITE/.test(q.question) ? (7 - q.figure.value) : (21 - q.figure.value);
+        else { var dd = q.figure.items; dexp = (7 - dd[0].value) + (7 - dd[1].value); }
+        ok('dice tier formula (' + diff + ')', String(dexp) === String(q.answer));
       } else if (cat === 'lr-cube') {
-        var nn = q.figure.n, exp;
-        if (/TWO faces/.test(q.question)) exp = 12 * (nn - 2);
-        else if (/ONE face/.test(q.question)) exp = 6 * (nn - 2) * (nn - 2);
-        else if (/NO face/.test(q.question)) exp = (nn - 2) * (nn - 2) * (nn - 2);
-        else exp = 8;
-        ok('cube formula', String(exp) === String(q.answer));
+        var nn = q.figure.n, exp2;
+        if (/TWO faces/.test(q.question)) exp2 = 12 * (nn - 2);
+        else if (/ONE face/.test(q.question)) exp2 = 6 * (nn - 2) * (nn - 2);
+        else if (/NO face/.test(q.question)) exp2 = (nn - 2) * (nn - 2) * (nn - 2);
+        else exp2 = 8;
+        ok('cube formula', String(exp2) === String(q.answer));
       } else if (cat === 'lr-fseries') {
         var items = q.figure.items, rots = [items[0].rot, items[1].rot, items[2].rot, items[3].rot];
-        var step = ((rots[1] - rots[0]) % 360 + 360) % 360;
-        var consistent = ((rots[2] - rots[1] + 360) % 360) === step && ((rots[3] - rots[2] + 360) % 360) === step;
-        ok('fseries constant step', consistent);
-        var next = (rots[3] + step) % 360;
+        function d(i) { return ((rots[i + 1] - rots[i]) % 360 + 360) % 360; }
+        var next, kind;
+        if (d(0) === d(1) && d(1) === d(2)) { kind = 'constant'; next = (rots[3] + d(0)) % 360; }
+        else if (d(0) === d(2) && d(0) !== d(1)) { kind = 'alternating'; next = (rots[3] + d(1)) % 360; }
+        else { kind = 'unknown'; next = -1; }
+        ok('fseries pattern recognized (' + diff + ')', kind !== 'unknown' && (diff !== 'hard' ? kind === 'constant' : kind === 'alternating'));
         ok('fseries four distinct arrows', distinct(q.optionFigures, function (f) { return f.rot; }));
-        var t2 = tokenOf(q, function (f) { return f.rot === next; });
-        ok('fseries answer = next rotation', t2.n === 1 && String(t2.token) === String(q.answer));
+        var t3 = tokenOf(q, function (f) { return f.rot === next; });
+        ok('fseries answer = next in pattern', t3.n === 1 && String(t3.token) === String(q.answer));
       } else if (cat === 'lr-fanalogy') {
-        var it = q.figure.items, k = ((it[1].rot - it[0].rot) % 360 + 360) % 360, ansRot = (it[2].rot + k) % 360;
-        ok('fanalogy four distinct arrows', distinct(q.optionFigures, function (f) { return f.rot; }));
-        var t3 = tokenOf(q, function (f) { return f.rot === ansRot; });
-        ok('fanalogy applies same turn', t3.n === 1 && String(t3.token) === String(q.answer));
+        var it = q.figure.items;
+        ok('fanalogy four distinct figures', distinct(q.optionFigures, sigFig));
+        if (it[0].kind === 'arrow') {                          // easy/medium: rotation
+          var k = ((it[1].rot - it[0].rot) % 360 + 360) % 360, ansRot = (it[2].rot + k) % 360;
+          var t4 = tokenOf(q, function (f) { return f.rot === ansRot; });
+          ok('fanalogy applies same turn', t4.n === 1 && String(t4.token) === String(q.answer));
+        } else {                                               // hard: reflection on a glyph
+          var ax = it[1].flip, gc = it[2].text;
+          var t5 = tokenOf(q, function (f) { return f.kind === 'glyph' && f.text === gc && f.flip === ax && !f.rot; });
+          ok('fanalogy applies same reflection', t5.n === 1 && String(t5.token) === String(q.answer));
+        }
       }
     }
   });

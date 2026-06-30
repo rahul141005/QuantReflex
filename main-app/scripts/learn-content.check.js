@@ -44,7 +44,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 forty-two topics registered (19 Quant + 6 DI + 17 LR)', KB.count() === 42);
+  ok('1 forty-five topics registered (19 Quant + 6 DI + 20 LR)', KB.count() === 45);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
@@ -70,8 +70,8 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
   eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 6);
-  eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 17);
-  eq('3 published gold-standard count = 42', KB.all().filter(function (t) { return t.status === 'published'; }).length, 42);
+  eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 20);
+  eq('3 published gold-standard count = 45', KB.all().filter(function (t) { return t.status === 'published'; }).length, 45);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order quant…<di-charts<lr-reasoning',
     order.indexOf('mensuration') < order.indexOf('di-charts') && order.indexOf('di-charts') < order.indexOf('lr-reasoning'));
@@ -87,7 +87,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
   eq('3b bySubject(di) covers all 6 DI topics', KB.bySubject('di').length, 6);
   eq('3b categoriesBySubject(lr) = [lr-reasoning]', KB.categoriesBySubject('lr'), ['lr-reasoning']);
-  eq('3b bySubject(lr) covers all 17 LR topics', KB.bySubject('lr').length, 17);
+  eq('3b bySubject(lr) covers all 20 LR topics', KB.bySubject('lr').length, 20);
 })();
 
 /* ── 4. byCategory / related / siblings helpers ── */

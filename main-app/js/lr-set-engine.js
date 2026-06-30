@@ -144,8 +144,7 @@
 
   var LRSetEngine = {
     generateSet: generateSet,
-    categories: function () { return ['lr-seating', 'lr-puzzle']; },
-    _buildRaw: _buildRaw, _perms: _perms          // exposed for the check harness
+    categories: function () { return ['lr-seating', 'lr-puzzle']; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = LRSetEngine;
   if (typeof window !== 'undefined') window.LRSetEngine = LRSetEngine;

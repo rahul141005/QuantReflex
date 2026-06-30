@@ -94,6 +94,14 @@
       answer: 'Both I and II are implicit',
       explanation: 'Setting a 2 p.m. cut-off for same-day clearing implies cheques after that time may not clear the same day — I is implicit. The notice is useful only because customers value quick clearing — II is implicit. Both underlie the message.',
       explanationVersion: V, tags: ['statement-assumption', 'banking'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'st-con-004', topic: 'lr-statement', subtype: 'conclusion', difficulty: 'easy', exams: ['SSC CHSL', 'RRB', 'IBPS Clerk'],
+      stem: 'Statement: "All the trains on this route were delayed today because of dense fog in the morning." Conclusions: I. Fog can disrupt train timings. II. Trains on this route are never on time.',
+      options: ['Only I follows', 'Only II follows', 'Both follow', 'Neither follows', 'Either I or II follows'],
+      answer: 'Only I follows',
+      explanation: 'The statement directly shows fog delaying the trains, so "fog can disrupt train timings" follows. "Never on time" is an extreme generalisation from a single foggy day and does not follow. Only I.',
+      explanationVersion: V, tags: ['statement-conclusion'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;

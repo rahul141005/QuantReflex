@@ -137,6 +137,19 @@
       answer: 'Politely decline the gift and disclose the offer, then evaluate suppliers purely on merit.',
       explanation: 'Accepting a valuable gift during a decision creates a conflict of interest, even if one intends to stay objective. Declining and disclosing keeps the process fair and transparent, and the decision must rest on merit. The other options accept the conflict to varying degrees, compromising integrity.',
       explanationVersion: V, tags: ['ethics', 'conflict-of-interest'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'dm-da-003', topic: 'lr-decision', subtype: 'data-adequacy', difficulty: 'easy', exams: ['NMAT', 'SNAP'],
+      stem: 'A student is deciding which elective subject to take for higher studies. Which single piece of information is MOST useful for the decision?',
+      options: [
+        'The student\'s own interest and aptitude in the subject and how it fits their career goal.',
+        'The colour of the textbook cover.',
+        'Which classroom the elective is taught in.',
+        'The day of the week the class is scheduled.'
+      ],
+      answer: 'The student\'s own interest and aptitude in the subject and how it fits their career goal.',
+      explanation: 'A sound subject choice depends on the student\'s interest, aptitude and career fit — that information is decisive. The textbook cover, classroom, and class day carry no real bearing on whether the elective is the right choice.',
+      explanationVersion: V, tags: ['relevance', 'data-adequacy'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;

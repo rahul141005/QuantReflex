@@ -9,12 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.74 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.75 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.75 / Arch 2.53 (2026-06-30)** — **LR final production audit & stabilization (ADR-079 hardening).** A
+> trust-nothing audit (3 adversarial agents) confirmed the LR overhaul production-grade — green tests, 0 new Firestore
+> I/O, all 25 categories integrated/labelled/tipped/gated, docs counts exact, all 57 authored items defensible — and
+> drove targeted fixes: (1) **visual difficulty now earned by reasoning** — `lr-dice` (was flat) → opposite /
+> five-hidden-sum / two-dice tiers; `lr-mirror`/`lr-water` → 1→2→3-glyph strings (a real mirror reverses glyph order);
+> `lr-fseries` → constant→alternating; `lr-fanalogy` hard → an unambiguous glyph reflection (rotation-vs-reflection
+> arrow analogy rejected as ambiguous — correctness outranks a difficulty label). (2) **Learn gap closed** — +3 topics
+> (Input-Output, Cause & Effect, Course of Action) so every drillable single-question LR category has teaching
+> (42 → 45 published). (3) **Authored easy-tier balance** — +7 easy items (57 → 64). (4) **Dead code** — 4 unused
+> public exports removed. Derived-only, no migration, no deps. `lr-figures.check` recompute updated for every new visual
+> form; stress 51,004 questions + 39,600 figures, 0 defects. SW v159→v160.
+>
 > **2.74 / Arch 2.53 (2026-06-30)** — **Logical Reasoning Excellence: hybrid generative + authored + visual
 > (ADR-079).** LR grew from 7 flat-difficulty generators to a **25-category hybrid platform** across a Foundation →
 > Core → Advanced → Verbal/Critical → Visual syllabus. (1) **Generative core** rebuilt around earned-difficulty

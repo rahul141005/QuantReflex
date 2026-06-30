@@ -215,6 +215,19 @@
       answer: 'It is possible that some car-owning households do not own a television.',
       explanation: 'Car owners are a subset of refrigerator owners, and some refrigerator owners lack a television — those TV-less households could include car owners, so it is POSSIBLE that some car owners lack a television (the answer is a possibility claim, which holds). The other options reverse the subset relation, assert an impossibility, or overgeneralise — none is forced by the premises.',
       explanationVersion: V, tags: ['deduction', 'possibility'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-wkn-easy-001', topic: 'lr-critical', subtype: 'weaken', difficulty: 'easy', exams: ['SNAP', 'NMAT', 'RRB'],
+      stem: 'A shopkeeper claims that placing a product on the top shelf increases its sales, because the product on his top shelf sells the most. Which of the following, if true, most weakens his claim?',
+      options: [
+        'The product on his top shelf is also the cheapest and most popular brand in the shop.',
+        'The top shelf is painted a bright colour.',
+        'The shop has five shelves in total.',
+        'The shopkeeper restocks the top shelf every morning.'
+      ],
+      answer: 'The product on his top shelf is also the cheapest and most popular brand in the shop.',
+      explanation: 'The claim assumes the shelf position drives the sales. If the top-shelf product is independently the cheapest and most popular brand, its sales are explained by price/popularity, not the shelf — which weakens the claim. The other options do not offer an alternative cause for the high sales.',
+      explanationVersion: V, tags: ['alternative-cause'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;

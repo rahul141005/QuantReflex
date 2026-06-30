@@ -65,7 +65,17 @@
       'One factory in the area cut its workforce due to falling orders.',
       'A different factory in another industry expanded its workforce due to rising orders.',
       'Both statements are effects of independent causes',
-      'One factory shrinks because ITS orders fell; the other grows because ITS (different) orders rose. The two changes arise from separate, independent causes in different industries — not from each other or a single common cause.')
+      'One factory shrinks because ITS orders fell; the other grows because ITS (different) orders rose. The two changes arise from separate, independent causes in different industries — not from each other or a single common cause.'),
+    it('ce-011', 'easy', ['SSC CHSL', 'RRB', 'IBPS Clerk'],
+      'A heavy storm hit the town overnight.',
+      'Several trees were found uprooted along the main road the next morning.',
+      'Statement I is the cause and Statement II is its effect',
+      'The overnight storm (I) came first and plausibly produced the uprooted trees (II) seen the next morning. Cause precedes and explains effect, so I is the cause and II its effect.'),
+    it('ce-012', 'easy', ['SSC CGL', 'IBPS Clerk'],
+      'The shopkeeper raised the price of notebooks this week.',
+      'The wholesale cost of paper rose sharply last week.',
+      'Statement II is the cause and Statement I is its effect',
+      'The wholesale paper-cost rise (II) happened first and forces the retailer to charge more, so the notebook price went up (I). II is the cause and I its effect.')
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
   var W = (typeof window !== 'undefined') ? window : root;

@@ -426,7 +426,8 @@
   function _ioStep(arr, s) { var a = arr.slice(); for (var i = 0; i < s; i++) { var mi = i; for (var j = i + 1; j < a.length; j++) if (a[j] < a[mi]) mi = j; var t = a[i]; a[i] = a[mi]; a[mi] = t; } return a; }
   function _genIO(diff) {
     var len = diff === 'easy' ? 5 : 6, S = diff === 'easy' ? 1 : diff === 'medium' ? 2 : 3;
-    var nums = _pickN(IO_NUMS, len), P = _ri(1, diff === 'easy' ? 3 : diff === 'medium' ? 5 : 6);
+    /* easy queries position 2–3 (not 1) so it tests the SWAP, not just "find the smallest" */
+    var nums = _pickN(IO_NUMS, len), P = diff === 'easy' ? _ri(2, 3) : _ri(1, diff === 'medium' ? 5 : 6);
     var after = _ioStep(nums, S);
     return { question: 'A number-arranging machine rearranges a line step by step: in each step it moves the smallest of the not-yet-arranged numbers to the left end of the unarranged part. Input line: ' + nums.join(', ') + '. Which number is in the ' + _ord(P) + ' position from the left after Step ' + S + '?', answer: after[P - 1], subtype: diff + ':io' };
   }
@@ -463,9 +464,7 @@
     CATEGORY_LABELS: CATEGORY_LABELS,
     categories: function () { return Object.keys(CATEGORY_LABELS); },
     label: function (c) { return CATEGORY_LABELS[c] || c; },
-    generate: generate, generators: generators, registerInto: registerInto,
-    /* exposed for the independent check harness (kinship algebra) */
-    _compose2: _compose2, _codeOps: CODE_OPS
+    generate: generate, generators: generators, registerInto: registerInto
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = LREngine;

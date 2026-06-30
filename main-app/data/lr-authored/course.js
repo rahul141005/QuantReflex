@@ -70,7 +70,19 @@
       'The bank should strengthen the app\'s security and alert customers about safe practices.',
       'The bank should shut down its mobile app service.',
       'Only I follows',
-      'Strengthening security and educating customers (I) directly tackles the fraud while preserving a valued service. Shutting the app entirely (II) is disproportionate and penalises all honest users, so it does not follow. Only I.')
+      'Strengthening security and educating customers (I) directly tackles the fraud while preserving a valued service. Shutting the app entirely (II) is disproportionate and penalises all honest users, so it does not follow. Only I.'),
+    it('coa-011', 'easy', ['SSC CHSL', 'IBPS Clerk'],
+      'A classroom\'s only ceiling fan stopped working during the summer.',
+      'The school should get the fan repaired or replaced promptly.',
+      'The school should cancel all classes for the rest of the term.',
+      'Only I follows',
+      'Repairing or replacing the fan (I) directly and practically solves the problem. Cancelling the whole term (II) is a wildly disproportionate over-reaction, so it does not follow. Only I.'),
+    it('coa-012', 'easy', ['SSC CGL', 'RRB'],
+      'A street light on a busy lane has been broken for several days, making the lane dark at night.',
+      'The municipal authority should repair the street light.',
+      'The authority should close the lane to the public at night.',
+      'Only I follows',
+      'Repairing the broken light (I) addresses the actual problem and is practical. Closing a busy lane at night (II) is disproportionate and merely shifts the inconvenience, so it does not follow. Only I.')
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
   var W = (typeof window !== 'undefined') ? window : root;
