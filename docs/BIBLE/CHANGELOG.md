@@ -6,6 +6,55 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Logical Reasoning Excellence: hybrid generative + authored + visual (ADR-079)
+
+LR went from 7 flat-difficulty generators (~60–70% production-ready) to a 25-category hybrid platform across a
+Foundation → Core → Advanced → Verbal/Critical → Visual syllabus, after a sourced study of the MBA/Banking/SSC LR
+syllabus established that ~65% of high-frequency LR is procedurally generatable, ~25% needs authored content, ~10% is
+visual. Generative stays the default; authored content is sanctioned where exam quality requires it (the deliberate
+moat relaxation recorded in ADR-079). No Firestore migration, no new deps.
+
+```
+### feat/lr(ADR-079 P1): earned-difficulty generative core
+- lr-engine.js restructured around per-tier archetype POOLS (difficulty from reasoning depth, not longer reading)
+- blood: generative kinship via a verified _compose2 algebra (replaces 6 hard-coded compositions) + coded relations
+- coding: + number-code, position-shift & reverse-shift ciphers; direction: + turn simulation; ranking: + interchange
+- odd-one-out: + letter-pair (gap) + curated word-category; analogy: + letter + curated verbal; faculty-grade ordinals
+- syllogism: + 3-statement / 4-term cases (Boolean-valid only); lr-engine.check: N-term model-checker + recompute
+
+### feat/lr(ADR-079 P2): five new generatable topics
+- lr-series (letter/alphanumeric/interleaved), lr-inequality (coded; transitive-closure verdict incl. Either-Or),
+  lr-calendar (Zeller, leap years), lr-clock (angle + mirror time), lr-io (machine input selection-sort)
+- all auto-roll-up under subject 'lr'; every subtype independently recomputed (calendar cross-checked vs JS Date)
+
+### feat/lr(ADR-079 P3): puzzle SET engine
+- js/lr-set-engine.js: constraint generator + brute-force solver → UNIQUE arrangement → 3–6 linked distinct-skill MCQs
+  (seating row + floor stack via a vocab map). drill-engine set-mode extended to render MCQ options (LR sets are MCQ)
+- scripts/lr-set-engine.check.js re-solves the human-facing clue TEXT over all N! arrangements → exactly 1 == solution
+
+### feat/lr(ADR-079 P4): authored hybrid content subsystem
+- data/lr-authored/schema.js (item schema + pure validateItem/validateBank) + 5 family banks = 57 premium items
+  (Critical Reasoning, Statement, Cause-Effect, Course-of-Action, Decision Making) with teaching explanations
+- js/lr-authored-engine.js self-registers authored categories into categoryGenerators (recent-id ring, searchable)
+- drill-engine: explanation-display seam (shows 'Why this answer' on reveal); progress/questions: LR text-MCQ +
+  authored items now bookmarkable in Review (DI/sets/visual still need context → excluded)
+
+### feat/lr(ADR-079 P5): generative visual engine
+- js/ui/lr-figures.js: reusable pure SVG render/describe (viewBox vector, dark-mode classes, role=img+aria)
+- js/lr-visual-engine.js: deterministic mirror/water/dice/cube/figure-series/figure-analogy generators
+- drill-engine: render q.figure above stem + figures inside MCQ option buttons; scripts/lr-figures.check.js
+
+### feat/lr(ADR-079 P6): one-engine integration
+- index.html: tiered LR Practice picker (Foundation&Core / Verbal&Critical / Visual) + 'Reasoning Set' card
+- practice-modes.js startLrSet; app.js formatCategoryName resolves set/authored/visual labels
+- scoring-service getAutoTip: teaching tips for all 25 LR categories + reasoning sub-skill key tips
+- data/knowledge/lr.js: 10 new gold-standard Learn topics (32 → 42 published)
+- subjects.js: subject 'lr' = union of core + set + authored + visual engine categories (derived-only)
+
+### chore/docs+sw(ADR-079): SW v158→v159 (+9 LR assets precached); Bible 2.74 / Arch 2.53
+- npm test green (lr-set-engine / lr-authored / lr-figures checks added); stress 51,002 questions + 39,600 figures, 0 defects
+```
+
 ## 2026-06-30 — DI Engine validation & excellence pass (ADR-078 hardening)
 
 Senior-architect verification + completion pass on the shipped DI overhaul: three adversarial audits (engine/datasets/

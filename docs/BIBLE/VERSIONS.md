@@ -9,12 +9,30 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.73 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.52 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.74 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.74 / Arch 2.53 (2026-06-30)** — **Logical Reasoning Excellence: hybrid generative + authored + visual
+> (ADR-079).** LR grew from 7 flat-difficulty generators to a **25-category hybrid platform** across a Foundation →
+> Core → Advanced → Verbal/Critical → Visual syllabus. (1) **Generative core** rebuilt around earned-difficulty
+> archetype pools — a generative blood-relation kinship solver + coded relations, position/reverse ciphers, direction
+> turns, ranking interchange, verbal/letter odd-one-out & analogy, extended-Boolean syllogisms; **new generatable
+> topics**: letter/alphanumeric series, coded inequalities (transitive-closure verdict incl. Either-Or), calendars
+> (Zeller), clocks (angle/mirror), machine input-output. (2) **LR puzzle SET engine** (`js/lr-set-engine.js`) — a
+> constraint generator + brute-force solver guarantees a UNIQUE arrangement, then asks 3–6 linked MCQs; reuses the
+> drill set-mode (now MCQ-capable). (3) **Authored hybrid subsystem** (`data/lr-authored/*` + `js/lr-authored-engine.js`)
+> — a real schema/validator + 57 premium Critical-Reasoning / Statement / Cause-Effect / Course-of-Action / Decision
+> items with teaching explanations, served through the same pipeline; a new drill explanation-display seam; LR/authored
+> questions now bookmarkable in Review. (4) **Generative visual engine** (`js/ui/lr-figures.js` + `js/lr-visual-engine.js`)
+> — DPI-independent SVG figures for mirror/water/dice/cube/figure-series/figure-analogy, with picture-answer options.
+> All categories auto-roll-up under subject `lr`; teaching tips for every LR category; 10 new Learn topics (32 → 42).
+> **No Firestore migration, no new deps.** New check harnesses (lr-set-engine / lr-authored / lr-figures) + the existing
+> lr-engine check independently recompute/model-check/validate; stress 51,002 questions + 39,600 figures, **0 defects**.
+> SW v158→v159.
+>
 > **2.73 / Arch 2.52 (2026-06-30)** — **DI Engine validation & excellence pass (ADR-078 hardening).** A
 > trust-nothing re-audit (3 adversarial agents) confirmed the engine sound (0 correctness/edge/dead-code defects, set-
 > mode DOM path traced and verified, docs/Learn/tips/Firestore all clean) and drove targeted improvements: (1)

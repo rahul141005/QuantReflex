@@ -53,8 +53,23 @@ admission rules define the boundary (and keep the product from regressing into a
   **Deferred (future):** mixed table+chart & linked-chart / LR-DI hybrid sets (the renderer + set architecture already
   support new `build` functions); cross-app-restart set resume (needs set-state storage — declined under the
   no-migration rule); per-difficulty/calc-type mastery analytics (needs a Firestore field).
-- **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, puzzle-LR, GK/Current-Affairs, any authored-content
-  pipeline. (Verbal demand is addressed via positioning + a future coaching-supplied-content rail, not native build.)
+- **LR Engine Excellence — hybrid generative + authored + visual ✅ (2026-06-30, ADR-079):** LR grew from 7 flat
+  generators to a **25-category hybrid platform** (Foundation→Core→Advanced→Verbal/Critical→Visual). **Generative core**
+  rebuilt around earned-difficulty archetype pools (kinship solver + coded blood, position/reverse ciphers, direction
+  turns, ranking interchange, verbal/letter odd & analogy, extended-Boolean syllogisms) + **new generatable topics**
+  (letter/alphanumeric series, coded inequalities with an Either-Or verdict solver, calendars, clocks, input-output).
+  **Puzzle SET engine** (`js/lr-set-engine.js`) — unique-solution seating/floor sets via the drill set-mode (now
+  MCQ-capable). **Authored hybrid subsystem** (`data/lr-authored/*`) — schema/validator + 57 premium CR/Statement/
+  Cause-Effect/Course-of-Action/Decision items with explanations, served through the same pipeline; new explanation
+  seam + LR/authored bookmarking. **Generative visual engine** (`js/ui/lr-figures.js` + `js/lr-visual-engine.js`) —
+  SVG mirror/water/dice/cube/figure-series/analogy. Tips for all 25 categories; 10 new Learn topics (32 → 42). This
+  **supersedes the ADR-075 "Excluded" list** (seating-puzzles, statement/assumption/conclusion, cause-effect are now
+  shipped — generatable ones procedurally, verbal ones via the sanctioned authored rail). Derived-only, no migration,
+  no deps; lr-set-engine / lr-authored / lr-figures checks + stress (51,002 Qs + 39,600 figures, 0 defects). SW v159.
+  **Deferred (architected to add later):** paper folding/cutting & complex embedded figures (authored-art pipeline);
+  tournaments/games sets; LR in duels (MCQ duel-schema change).
+- **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, GK/Current-Affairs. (Authored verbal-reasoning
+  content is now in scope for LR via ADR-079's hybrid subsystem; broad VARC/RC remains out.)
 
 ## ✅ Shipped — Learn Knowledge Engine (ADR-069, all 5 phases complete 2026-06-28)
 Rebuilt the Learn tab into the **knowledge backbone** of QuantReflex: a deep-linkable hub→topic knowledge graph
