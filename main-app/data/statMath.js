@@ -153,6 +153,37 @@
     return n;
   }
 
+  /**
+   * Per-SUBJECT rollup (ADR-076, V2 Phase 4) — the ONE derived view of "how am I doing per subject", so Analytics
+   * and QuanAI agree. DERIVED on read from categoryStats; nothing stored (no migration). To keep statMath
+   * dependency-free, the caller PASSES the subject→categories map in (client/server both source it from subjects.js):
+   *   subjectCats = { quant:[...14], di:[...5], lr:[...7] }
+   * Returns { subjectId: {subject, attempted, correct, acc(0..1), n, tier|null} } for subjects with any attempts.
+   * tier is null below MIN_ATTEMPTS (honest — never tier on thin data).
+   */
+  function subjectRollup(stats, subjectCats) {
+    var cs = (stats && stats.categoryStats) || {}, out = {};
+    Object.keys(subjectCats || {}).forEach(function (sid) {
+      var cats = subjectCats[sid] || [], att = 0, cor = 0;
+      cats.forEach(function (cat) { var d = cs[cat] || {}; att += Number(d.attempted) || 0; cor += Number(d.correct) || 0; });
+      if (att > 0) {
+        var acc = cor / att;
+        out[sid] = { subject: sid, attempted: att, correct: cor, acc: _round(acc, 2), n: att, tier: att >= MIN_ATTEMPTS ? _tierOf(acc) : null };
+      }
+    });
+    return out;
+  }
+
+  /** The weakest subject with enough data (or null) — the basis for a cross-subject "focus here next" nudge. */
+  function weakestSubject(stats, subjectCats) {
+    var roll = subjectRollup(stats, subjectCats), best = null;
+    Object.keys(roll).forEach(function (sid) {
+      var r = roll[sid]; if (r.tier == null) return;
+      if (!best || r.acc < best.acc || (r.acc === best.acc && r.n > best.n)) best = r;
+    });
+    return best ? best.subject : null;
+  }
+
   /** Evidence/confidence the AI is allowed to claim — bounds every statement so nothing is fabricated. */
   function evidence(stats) {
     var n = Number(stats && stats.totalAttempted) || 0, ad = activeDays(stats);
@@ -164,6 +195,7 @@
     MIN_ATTEMPTS: MIN_ATTEMPTS,
     masteryForCat: masteryForCat, masteryMap: masteryMap, deriveMastery: deriveMastery,
     weakest: weakest, strongest: strongest,
+    subjectRollup: subjectRollup, weakestSubject: weakestSubject,
     overallAccuracy: overallAccuracy, accuracyWindows: accuracyWindows,
     speed: speed, consistency: consistency, today: today,
     activeDays: activeDays, evidence: evidence

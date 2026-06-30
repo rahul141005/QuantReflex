@@ -15,6 +15,7 @@ var SUB = require(p('data/subjects'));
 var quantTopics = require(p('services/quantTopics'));
 var DIEngine = require(p('js/di-engine'));
 var LREngine = require(p('js/lr-engine'));
+var statMath = require(p('data/statMath'));
 
 var pass = 0, fail = 0;
 function ok(label, cond) { if (cond) pass++; else { fail++; console.error('  ✗ ' + label); } }
@@ -83,6 +84,28 @@ console.log('subjects.check — Subject layer (ADR-073)');
   lrCats.forEach(function (c) { ok('7 ' + c + ' → lr', SUB.categoryToSubject(c) === 'lr'); });
   ok('7 lr disjoint from quant', lrCats.filter(function (c) { return qCats.indexOf(c) !== -1; }).length === 0);
   ok('7 lr disjoint from di', lrCats.filter(function (c) { return diCats.indexOf(c) !== -1; }).length === 0);
+})();
+
+/* ── 8. statMath subject rollup (ADR-076, Phase 4): derived per-subject mastery + weakest subject ── */
+(function () {
+  var subjectCats = {}; SUB.subjects().forEach(function (s) { subjectCats[s.id] = SUB.subjectToCategories(s.id); });
+  var stats = { categoryStats: {
+    percentages: { attempted: 10, correct: 9 },   // quant → 90%
+    'di-bar': { attempted: 8, correct: 3 },        // di → 37.5%
+    'lr-syllogism': { attempted: 6, correct: 5 }   // lr → 83%
+  } };
+  var roll = statMath.subjectRollup(stats, subjectCats);
+  ok('8 quant rollup acc', roll.quant && roll.quant.acc === 0.9 && roll.quant.tier === 'strong' && roll.quant.n === 10);
+  ok('8 di rollup acc', roll.di && roll.di.acc === 0.38 && roll.di.tier === 'weak' && roll.di.attempted === 8);
+  ok('8 lr rollup acc', roll.lr && roll.lr.tier === 'strong');
+  ok('8 weakestSubject = di', statMath.weakestSubject(stats, subjectCats) === 'di');
+  // thin data (<MIN_ATTEMPTS) → tier null, never a fabricated tier; weakestSubject ignores it
+  var thin = { categoryStats: { 'di-pie': { attempted: 2, correct: 0 } } };
+  ok('8 thin-data tier is null', statMath.subjectRollup(thin, subjectCats).di.tier === null);
+  ok('8 weakestSubject null when no subject has enough data', statMath.weakestSubject(thin, subjectCats) === null);
+  // multi-category rollup sums across a subject's categories
+  var multi = { categoryStats: { percentages: { attempted: 4, correct: 2 }, ratios: { attempted: 6, correct: 6 } } };
+  ok('8 quant sums categories (8/10)', statMath.subjectRollup(multi, subjectCats).quant.attempted === 10 && statMath.subjectRollup(multi, subjectCats).quant.correct === 8);
 })();
 
 console.log('\nsubjects.check: ' + pass + ' passed, ' + fail + ' failed');
