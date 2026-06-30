@@ -25,7 +25,7 @@ Every governed change updates the relevant version number here and records a mig
 > topics; the hub now groups by subject). QuanAI/Stats label DI categories via the engine and ground Explain with the
 > chart data; DI flows through `categoryStats` so analytics need no redesign. **No Firestore migration** (categoryStats
 > just gains `di-*` keys; subject still derived → Firestore stays 2.21). New `di-engine`/`di-charts` checks; Learn
-> 19→24 topics. SW v147→v148. Bible 2.65→2.66, Arch 2.44→2.45.
+> 19→24 topics. SW v147→v149. Bible 2.65→2.66, Arch 2.44→2.45.
 
 > **2.65 / Arch 2.44 (2026-06-30)** — **QuantReflex V2 Phase 1: derived Speed-Aptitude subject layer + Learn
 > integration (ADR-073).** Foundation for the Quant → Data Interpretation → generatable Logical Reasoning spine. Makes

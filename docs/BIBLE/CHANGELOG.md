@@ -28,7 +28,8 @@ clean answers, lightweight SVG charts, no new dependencies, no new navigation, *
 - QuanAI/analytics: studentProfile.label (server) + formatCategoryName (client) fall back to DI labels so Coach/
   Insights/Stats name DI categories ("Bar Graphs"); DI per-category mastery flows through categoryStats automatically.
 - CSS: DI chart/table + subject-group/label styles (light+dark, reduced-motion safe).
-- index.html + service-worker.js (v147→v148): load/precache di-engine, di-charts, di.js.
+- index.html + service-worker.js (v147→v149): load/precache di-engine, di-charts, di.js (v149 = pie-label
+  contrast + biggestJump wording polish from the independent audit).
 - TESTS: NEW scripts/di-engine.check.js (full answer recompute) + scripts/di-charts.check.js; extended subjects/
   learn-content/learn-browser checks (Learn 19→24 topics, 6th category). Full suite green.
 ```

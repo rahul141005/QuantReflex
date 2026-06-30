@@ -10988,7 +10988,9 @@ body.dark-mode .di-chart-title { color: #e2e8f0; }
 /* SVG text/lines (fill for text, stroke for axes) */
 .di-chart-svg .di-val { font-size: 8.5px; font-weight: 700; fill: #1e293b; }
 .di-chart-svg .di-axis-lbl { font-size: 8px; fill: #64748b; }
-.di-chart-svg .di-pie-pct { font-size: 8.5px; font-weight: 700; fill: #fff; }
+/* White on-slice % labels get a dark outline (paint-order: stroke) so they stay legible on ANY slice colour
+   — incl. light amber/green — without depending on the slice fill (a11y contrast, ADR-074 audit). */
+.di-chart-svg .di-pie-pct { font-size: 8.5px; font-weight: 700; fill: #fff; paint-order: stroke; stroke: rgba(15, 23, 42, .55); stroke-width: 2.4px; stroke-linejoin: round; }
 .di-chart-svg .di-axis { stroke: #cbd5e1; stroke-width: 1; }
 body.dark-mode .di-chart-svg .di-val { fill: #f1f5f9; }
 body.dark-mode .di-chart-svg .di-axis-lbl { fill: #94a3b8; }

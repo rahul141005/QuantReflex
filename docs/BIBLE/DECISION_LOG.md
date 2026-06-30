@@ -47,7 +47,7 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   subject/labeler/Learn-hub touch-ups. **No Firestore migration, no new collections** — `categoryStats` simply gains
   `di-*` keys (subject still derived). No new dependencies, no new serverless functions, no security/payment change.
   New tests `scripts/di-engine.check.js` (1800 questions independently recomputed) + `scripts/di-charts.check.js`;
-  Learn counts 19→24. SW v147→v148. Bible 2.65→2.66, Architecture 2.44→2.45.
+  Learn counts 19→24. SW v147→v149. Bible 2.65→2.66, Architecture 2.44→2.45.
 
 ## ADR-073 — Subject abstraction: the Speed-Aptitude spine as a derived lens (V2 Phase 1) (2026-06-30)
 - **Context:** QuantReflex is evolving from **Quant-first** to **Speed Aptitude-first** (the strategy of the V2

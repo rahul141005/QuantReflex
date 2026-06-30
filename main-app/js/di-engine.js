@@ -137,7 +137,7 @@
     /* hard: year-on-year % change + biggest jump */
     var t3 = _pick(['yoy', 'biggestJump', 'cumulativeShare']);
     if (t3 === 'yoy') { var y = _ri(1, L.length - 1); if (V[y - 1] === 0) return null; var ch = (V[y] - V[y - 1]) / V[y - 1] * 100; if (!_isClean(ch)) return null; return { q: 'What was the percent change in ' + d.metric + ' from ' + L[y - 1] + ' to ' + L[y] + '? (1 decimal, ignore sign)', a: _round1(Math.abs(ch)), k: 'yoy' }; }
-    if (t3 === 'biggestJump') { var best = 0, bi = 1; for (var z = 1; z < V.length; z++) { if (Math.abs(V[z] - V[z - 1]) > best) { best = Math.abs(V[z] - V[z - 1]); bi = z; } } return { q: 'Between which two consecutive years did ' + d.metric + ' change the most? Enter the size of that change.', a: best, k: 'biggestJump' }; }
+    if (t3 === 'biggestJump') { var best = 0; for (var z = 1; z < V.length; z++) { if (Math.abs(V[z] - V[z - 1]) > best) best = Math.abs(V[z] - V[z - 1]); } return { q: 'What is the largest change in ' + d.metric + ' between any two consecutive years?', a: best, k: 'biggestJump' }; }
     var half = Math.floor(L.length / 2); var firstHalf = _sum(V.slice(0, half)); var cs = firstHalf / total * 100; if (!_isClean(cs)) return null; return { q: 'The first ' + half + ' years contributed what percent of the total ' + d.metric + '? (1 decimal)', a: _round1(cs), k: 'cumulativeShare' };
   }
 
