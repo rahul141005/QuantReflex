@@ -57,10 +57,10 @@ function recompute(q) {
   if (d.multi) {
     var S = d.series, yi = refIdx(d.labels, text);
     switch (key) {
-      case 'm_combined': return yi.length >= 1 ? S[0].values[yi[0]] + S[1].values[yi[0]] : null;
-      case 'm_crossDiff': return yi.length >= 1 ? Math.abs(S[0].values[yi[0]] - S[1].values[yi[0]]) : null;
+      case 'm_pctDiff': return yi.length >= 1 && S[1].values[yi[0]] ? r1(Math.abs((S[0].values[yi[0]] - S[1].values[yi[0]]) / S[1].values[yi[0]] * 100)) : null;
       case 'm_seriesShare': { if (yi.length < 1) return null; var t = 0; for (var i = 0; i < S.length; i++) t += S[i].values[yi[0]]; return r1(S[0].values[yi[0]] / t * 100); }
       case 'm_ratioYear': { if (yi.length < 1) return null; var g = gcd(S[0].values[yi[0]], S[1].values[yi[0]]); return S[0].values[yi[0]] / g; }
+      case 'm_combinedShare': { if (yi.length < 1) return null; var grand = 0; for (var s2 = 0; s2 < S.length; s2++) for (var e = 0; e < d.labels.length; e++) grand += S[s2].values[e]; return r1((S[0].values[yi[0]] + S[1].values[yi[0]]) / grand * 100); }
       case 'm_trendCompare': { var d1 = S[0].values[S[0].values.length - 1] - S[0].values[0], d2 = S[1].values[S[1].values.length - 1] - S[1].values[0]; return Math.abs(Math.abs(d1) - Math.abs(d2)); }
       default: return null;
     }
@@ -90,7 +90,7 @@ function recompute(q) {
 var EASY = { read: 1, max: 1, min: 1, rank: 1, peak: 1, trough: 1, caseRead: 1 };
 var MED = { total: 1, diff: 1, avg: 1, share: 1, missing: 1, biggestJump: 1, caseTotal: 1, caseMissing: 1 };
 var HARD = { pctMore: 1, deviation: 1, combinedShare: 1, ratio: 1, yoy: 1, cumulativeShare: 1, overallGrowth: 1, caseShare: 1,
-  m_combined: 1, m_crossDiff: 1, m_ratioYear: 1, m_trendCompare: 1, m_seriesShare: 1 };
+  m_pctDiff: 1, m_ratioYear: 1, m_combinedShare: 1, m_trendCompare: 1, m_seriesShare: 1 };
 
 console.log('di-engine.check — Data Interpretation generator (ADR-078)');
 

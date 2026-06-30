@@ -48,6 +48,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   independently recomputed, earned-tier + no-`hard:read` assertions), di-set-engine.check (4403 set questions, 100%
   recomputed, progressive + distinct-skill), di-charts.check (multi-series), plus a stress pass (6400 charts + 8771 set
   questions, 0 render defects). DI 5→6 Learn topics (31→32). SW v156→v157. Bible 2.71→2.72, Arch 2.50→2.51.
+- **Hardening (2026-06-30, ADR-078 follow-up):** a trust-nothing re-audit (3 adversarial agents) confirmed the engine
+  sound and drove: (a) **calibration** — the single-question multi-series HARD pool dropped bare cross-series add/
+  subtract (genuinely medium; the Sets engine already tiered them right) for earned cross-series reasoning (percent-
+  difference, ratio, contribution, grand-total share, trend comparison); (b) **realism** — theme pools ~12 → ~40
+  domains with per-theme value ranges, caselet contexts 6 → 16 (banking/government narratives, explicit second group);
+  (c) **horizontal bar charts** — a back-compatible single-series `_hbar` path (common in Banking/SSC), renderer
+  architecture preserved; (d) faculty-grade wording; (e) fixed the DI-set session-summary category (was 'mixed').
+  Still derived-only, no migration, no deps. SW v157→v158, Bible/Arch 2.73/2.52.
 
 ## ADR-077 — Final Craftsmanship Pass: premium refinement, not redesign (2026-06-30)
 - **Context:** With the three-subject Speed-Aptitude spine complete and stabilized (Phase 4.5: no functional

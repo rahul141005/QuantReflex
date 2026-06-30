@@ -83,9 +83,31 @@
       inner + '</figure>';
   }
 
+  /* ── HORIZONTAL BAR (single-series; common in Banking/SSC DI) ── */
+  function _hbar(spec) {
+    var L = spec.labels, V = spec.values || (spec.series && spec.series[0] && spec.series[0].values) || [], n = L.length;
+    var W = 320, H = 210, padL = 70, padR = 26, padT = 14, padB = 14;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var max = _niceMax(Math.max.apply(null, V));
+    var s = '<svg class="di-chart-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true">';
+    s += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT + plotH) + '" class="di-axis"/>';
+    for (var i = 0; i < n; i++) {
+      var slot = plotH / n, bh = Math.min(22, slot * 0.6);
+      var cy = padT + slot * (i + 0.5);
+      var bw = max ? (V[i] / max) * plotW : 0;
+      var fill = PALETTE[i % PALETTE.length];
+      s += '<rect x="' + padL + '" y="' + (cy - bh / 2).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="2" fill="' + fill + '"/>';
+      s += '<text x="' + (padL + bw + 3).toFixed(1) + '" y="' + (cy + 3).toFixed(1) + '" class="di-val" text-anchor="start">' + _fmt(V[i]) + '</text>';
+      s += '<text x="' + (padL - 4) + '" y="' + (cy + 3).toFixed(1) + '" class="di-axis-lbl" text-anchor="end">' + _esc(L[i]) + '</text>';
+    }
+    s += '</svg>';
+    return _figure(spec.title, s, _ariaSummary(spec));
+  }
+
   /* ── BAR (single-series — unchanged legacy path) ── */
   function _bar(spec) {
     if (_isMulti(spec)) return _barMulti(spec);
+    if (spec.horizontal) return _hbar(spec);
     var L = spec.labels, V = spec.values || (spec.series && spec.series[0] && spec.series[0].values) || [], n = L.length;
     var W = 320, H = 210, padL = 30, padR = 8, padT = 22, padB = 34;
     var plotW = W - padL - padR, plotH = H - padT - padB, baseY = padT + plotH;

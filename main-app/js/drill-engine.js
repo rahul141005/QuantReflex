@@ -774,7 +774,7 @@ function createDrillEngine(container, opts) {
       try {
         FirestoreSync.savePracticeSession({
           mode: timeLimit ? 'timed' : 'drill',
-          category: category || (topics && topics.length ? (topics.length > 1 ? 'mixed' : topics[0]) : 'mixed'),
+          category: (diSet ? diSet.category : category) || (topics && topics.length ? (topics.length > 1 ? 'mixed' : topics[0]) : 'mixed'),
           score: score,
           total: count,
           duration: parseFloat(totalTime),

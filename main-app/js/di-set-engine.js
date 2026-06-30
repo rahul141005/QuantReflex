@@ -94,20 +94,26 @@
         { whole: 'people surveyed', g1: 'men', g2: 'women', act: 'preferred online shopping' },
         { whole: 'students in a class', g1: 'boys', g2: 'girls', act: 'passed the exam' },
         { whole: 'employees in a firm', g1: 'managers', g2: 'staff', act: 'opted for the new policy' },
-        { whole: 'commuters polled', g1: 'car users', g2: 'bus users', act: 'support the new metro line' }
+        { whole: 'commuters polled', g1: 'car users', g2: 'bus users', act: 'support the new metro line' },
+        { whole: 'loan applicants', g1: 'salaried applicants', g2: 'self-employed applicants', act: 'were approved' },
+        { whole: 'account holders', g1: 'savings-account holders', g2: 'current-account holders', act: 'use mobile banking' },
+        { whole: 'candidates who appeared', g1: 'male candidates', g2: 'female candidates', act: 'cleared the cut-off' },
+        { whole: 'registered voters', g1: 'first-time voters', g2: 'repeat voters', act: 'cast their vote' },
+        { whole: 'policyholders', g1: 'term-plan holders', g2: 'endowment-plan holders', act: 'renewed their policy' },
+        { whole: 'households surveyed', g1: 'urban households', g2: 'rural households', act: 'own a smartphone' }
       ]);
       var total = _ri(4, 12) * 100, g1 = Math.round(total * _pick([0.4, 0.45, 0.5, 0.55, 0.6])), g2 = total - g1;
       var p1 = _pick([20, 25, 40, 50, 60, 75]), p2 = _pick([20, 25, 40, 50, 60, 75]);
       var a1 = g1 * p1 / 100, a2 = g2 * p2 / 100, done = a1 + a2;
       var sh = done ? a1 / done * 100 : 0;
       if (!_isClean(a1) || !_isClean(a2) || !_isClean(sh)) continue;
-      var context = 'Out of ' + total + ' ' + ctx.whole + ', ' + g1 + ' are ' + ctx.g1 + ' and the rest are ' + ctx.g2
+      var context = 'Out of ' + total + ' ' + ctx.whole + ', ' + g1 + ' are ' + ctx.g1 + ' and ' + g2 + ' are ' + ctx.g2
         + '. ' + p1 + '% of the ' + ctx.g1 + ' and ' + p2 + '% of the ' + ctx.g2 + ' ' + ctx.act + '.';
       var bank = [
         { difficulty: 'easy', skill: 'observation', k: 'set_caseRead', q: 'How many ' + ctx.g1 + ' ' + ctx.act + '?', a: a1 },
         { difficulty: 'medium', skill: 'aggregation', k: 'set_caseTotal', q: 'In total, how many people ' + ctx.act + '?', a: done },
         { difficulty: 'medium', skill: 'inference', k: 'set_caseMissing', q: 'Given that ' + done + ' people in all ' + ctx.act + ', how many of them are ' + ctx.g2 + '?', a: a2 },
-        { difficulty: 'hard', skill: 'contribution', k: 'set_caseShare', q: 'Of all the people who ' + ctx.act + ', what percent are ' + ctx.g1 + '? (1 decimal)', a: _round1(sh) }
+        { difficulty: 'hard', skill: 'contribution', k: 'set_caseShare', q: 'Of all the people who ' + ctx.act + ', what percent are ' + ctx.g1 + '? (to 1 decimal place)', a: _round1(sh) }
       ];
       var qs = bank.slice(0, Math.min(count, bank.length)).map(function (b) { return { question: b.q, answer: b.a, subtype: b.difficulty + ':' + b.k, skill: b.skill, difficulty: b.difficulty }; });
       return { category: 'di-caselet', chart: null, context: context, dataset: { total: total, g1: g1, g2: g2, p1: p1, p2: p2 }, questions: qs, meta: { count: qs.length, kind: 'caselet' } };

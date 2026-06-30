@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.72 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.51 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.73 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.52 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.73 / Arch 2.52 (2026-06-30)** — **DI Engine validation & excellence pass (ADR-078 hardening).** A
+> trust-nothing re-audit (3 adversarial agents) confirmed the engine sound (0 correctness/edge/dead-code defects, set-
+> mode DOM path traced and verified, docs/Learn/tips/Firestore all clean) and drove targeted improvements: (1)
+> **Difficulty calibration** — the single-question multi-series hard pool no longer emits bare cross-series add/subtract
+> (genuinely medium); it now emits only earned cross-series reasoning (percent-difference, ratio, series contribution,
+> grand-total share, trend comparison). (2) **Dataset realism** — theme pools expanded ~12 → ~40 domains (agriculture,
+> telecom, energy, healthcare, trade, tourism, census, e-commerce, rainfall, railways, banking, insurance, funds…) with
+> optional per-theme realistic value ranges, and caselet contexts 6 → 16 with banking/government narratives. (3)
+> **Horizontal bar charts** — a back-compatible single-series `_hbar` render path (common in Banking/SSC), emitted on a
+> fraction of `di-bar` charts; renderer architecture preserved. (4) **Wording** — exam-faculty phrasing (diff/ratio/
+> pctMore, explicit caselet second group, crisper cross-series questions, "to 1 decimal place"). (5) **Fixed** the
+> session-summary category for DI sets (was 'mixed'). Derived-only analytics, **no Firestore migration, no new deps**.
+> di-engine.check 2400 samples + di-set 4337 set-questions 100% recomputed (0 mismatches); stress 8000 charts (489
+> horizontal) + 158 distinct titles, 0 defects. SW v157→v158. Bible 2.72→2.73, Arch 2.51→2.52.
 
 > **2.72 / Arch 2.51 (2026-06-30)** — **DI Engine Overhaul: exam-accurate, multi-series, set-based (ADR-078).**
 > Grounded in a sourced exam-syllabus study (CAT/XAT, IBPS/SBI/RRB, SSC, Insurance). Four pillars: (1) **Earned

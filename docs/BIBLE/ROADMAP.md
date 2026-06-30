@@ -47,9 +47,12 @@ admission rules define the boundary (and keep the product from regressing into a
   renderer (`series[]`/`stacked` → grouped/stacked bars, multi-line, multi-column tables; single-series byte-identical);
   a **DI Sets** engine (`js/di-set-engine.js`) served through a guarded drill-engine `diSet` set-mode (📊 DI Set mode);
   fixed DI auto-tips + a "DI Sets & Multi-Series Charts" Learn topic. Derived-only analytics (no migration, no deps).
-  **Deferred (future):** linked-chart / table+graph / LR-DI hybrid sets (the set architecture already supports new
-  `build` functions); cross-app-restart set resume (needs set-state storage — declined under the no-migration rule);
-  per-difficulty/calc-type mastery analytics (needs a Firestore field).
+  **Hardening pass (2026-06-30):** re-audited; recalibrated the single-question hard cross-series pool (dropped bare
+  add/subtract); expanded datasets to **~40 realistic domains** + 16 caselet contexts; added **horizontal bar charts**;
+  faculty-grade wording; fixed the DI-set session-summary category.
+  **Deferred (future):** mixed table+chart & linked-chart / LR-DI hybrid sets (the renderer + set architecture already
+  support new `build` functions); cross-app-restart set resume (needs set-state storage — declined under the
+  no-migration rule); per-difficulty/calc-type mastery analytics (needs a Firestore field).
 - **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, puzzle-LR, GK/Current-Affairs, any authored-content
   pipeline. (Verbal demand is addressed via positioning + a future coaching-supplied-content rail, not native build.)
 

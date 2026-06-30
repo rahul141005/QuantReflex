@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — DI Engine validation & excellence pass (ADR-078 hardening)
+
+Senior-architect verification + completion pass on the shipped DI overhaul: three adversarial audits (engine/datasets/
+difficulty · set-mode DOM bug-hunt · Learn/docs/dead-code), findings triaged against the code, then targeted fixes +
+the user-requested dataset-realism investment. Engine confirmed sound; no redesign.
+
+```
+### fix+feat/di(ADR-078 hardening): earned hard cross-series + ~40 realistic domains + horizontal bars
+- di-engine.js difficulty: _multiQuestion no longer emits bare cross-series add (m_combined) / subtract (m_crossDiff)
+  as "hard" (they are medium — the Sets engine already tiers them right). Hard now = m_pctDiff, m_ratioYear,
+  m_seriesShare, m_combinedShare (grand-total share), m_trendCompare only. If none is clean the multi loop already
+  falls back to the single-series hard primary, so the tier is never downgraded.
+- di-engine.js datasets: ENTITY_THEMES 7→23 and TIME_THEMES 5→14 across ~40 realistic domains (states/population &
+  crop, countries/exports, hospitals, e-commerce, telecom, power, tourism, railways, airports, insurers, funds,
+  rainfall, factories, GDP, imports, digital payments…), with an optional per-theme range:[min,max,step] honoured by
+  the dataset builders so numbers are domain-realistic. Caselet contexts 6→16 (banking/government/CAT narratives);
+  the second group is now stated explicitly (no "the rest are" inference).
+- di-charts.js: new _hbar single-series horizontal-bar path (spec.horizontal), back-compatible (specs without the flag
+  render byte-identically); di-engine emits horizontal on ~40% of single-series di-bar charts. Renderer architecture
+  (series model + shared helpers) untouched.
+- Wording (faculty-grade): entity diff "exceed or trail"→"differ from"; ratio "express in simplest form a:b and enter
+  a"; pctMore "differs … by what percent? (absolute value)"; reworded m_ratioYear / m_seriesShare / m_trendCompare;
+  standardized "(to 1 decimal place)".
+- drill-engine.js: savePracticeSession now records a DI set's real category (was 'mixed'). Per-question stats were
+  already correct.
+- scoring-service.js: tips for m_pctDiff / m_combinedShare / m_trendCompare.
+- Tests: di-engine.check (new keys + recompute, 2400 samples 100% recomputed, earned-tier + no-easy-key-at-hard),
+  di-charts.check (horizontal + back-compat), di-set unaffected. Stress: 8000 charts (489 horizontal) + 158 distinct
+  titles, 0 defects. Full suite green. Zero new Firestore I/O / deps. SW v157→v158. Bible 2.72→2.73, Arch 2.51→2.52.
+```
+
+---
+
 ## 2026-06-30 — Data Interpretation Engine Overhaul: exam-accurate, multi-series, set-based (ADR-078)
 
 A complete quality overhaul of the DI engine, grounded in a sourced exam-syllabus study. Goal: better questions, not

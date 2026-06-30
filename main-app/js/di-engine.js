@@ -45,53 +45,82 @@
     return 'medium';
   }
 
-  /* ── realistic, exam-flavoured themes (CAT / Banking / SSC DI vocabulary) ── */
+  /* ── realistic, exam-flavoured themes (CAT / Banking / SSC / Government DI vocabulary). Optional per-theme
+        `range:[min,max,step]` makes the numbers domain-realistic (rainfall in the hundreds, subscribers in the tens,
+        production in the hundreds…) without changing any math — the archetypes still construct clean answers. ── */
   var ENTITY_THEMES = [
     { entity: 'Company', items: ['A', 'B', 'C', 'D', 'E', 'F'], pre: 'Company ', metric: 'Sales', unit: '₹ crore', series: ['2022', '2023', '2024'] },
-    { entity: 'Branch', items: ['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Pune', 'Jaipur'], pre: '', metric: 'Loans Disbursed', unit: '₹ lakh', series: ['2023', '2024'] },
+    { entity: 'Bank Branch', items: ['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Pune', 'Jaipur'], pre: '', metric: 'Loans Disbursed', unit: '₹ lakh', series: ['2023', '2024'], range: [120, 720, 5] },
     { entity: 'Product', items: ['P', 'Q', 'R', 'S', 'T', 'U'], pre: 'Product ', metric: 'Units Sold', unit: "'000 units", series: ['Online', 'Retail'] },
-    { entity: 'School', items: ['Rosewood', 'Hilltop', 'Greenfield', 'Lakeside', 'Oakridge', 'Sunrise'], pre: '', metric: 'Students Enrolled', unit: '', series: ['Boys', 'Girls'] },
-    { entity: 'Department', items: ['HR', 'Sales', 'IT', 'Finance', 'Ops', 'Legal'], pre: '', metric: 'Employees', unit: '', series: ['2023', '2024'] },
-    { entity: 'City', items: ['Indore', 'Surat', 'Nagpur', 'Kochi', 'Patna', 'Bhopal'], pre: '', metric: 'Tickets Booked', unit: '', series: ['Q1', 'Q2'] },
-    { entity: 'Store', items: ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Foxtrot'], pre: '', metric: 'Revenue', unit: '₹ lakh', series: ['2023', '2024'] }
+    { entity: 'School', items: ['Rosewood', 'Hilltop', 'Greenfield', 'Lakeside', 'Oakridge', 'Sunrise'], pre: '', metric: 'Students Enrolled', unit: '', series: ['Boys', 'Girls'], range: [240, 1200, 4] },
+    { entity: 'Department', items: ['HR', 'Sales', 'IT', 'Finance', 'Operations', 'Legal'], pre: '', metric: 'Employees', unit: '', series: ['2023', '2024'] },
+    { entity: 'City', items: ['Indore', 'Surat', 'Nagpur', 'Kochi', 'Patna', 'Bhopal'], pre: '', metric: 'Tickets Booked', unit: '', series: ['Q1', 'Q2'], range: [200, 900, 5] },
+    { entity: 'Store', items: ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Foxtrot'], pre: '', metric: 'Revenue', unit: '₹ lakh', series: ['2023', '2024'] },
+    { entity: 'State', items: ['Punjab', 'Haryana', 'Gujarat', 'Kerala', 'Assam', 'Odisha'], pre: '', metric: 'Wheat Production', unit: "'000 tonnes", series: ['Kharif', 'Rabi'], range: [150, 900, 5] },
+    { entity: 'State', items: ['Maharashtra', 'Bihar', 'Rajasthan', 'Karnataka', 'Telangana', 'Goa'], pre: '', metric: 'Population', unit: 'lakh', series: ['Urban', 'Rural'], range: [40, 360, 2] },
+    { entity: 'Country', items: ['India', 'China', 'Brazil', 'Germany', 'Kenya', 'Vietnam'], pre: '', metric: 'Exports', unit: '₹ crore', series: ['2023', '2024'], range: [200, 1200, 5] },
+    { entity: 'Hospital', items: ['Civil', 'Apollo', 'Fortis', 'Manipal', 'Medanta', 'KIMS'], pre: '', metric: 'Patients Admitted', unit: '', series: ['General', 'ICU'], range: [120, 720, 4] },
+    { entity: 'Platform', items: ['Flipkart', 'Amazon', 'Meesho', 'Nykaa', 'Ajio', 'Tata Neu'], pre: '', metric: 'Orders', unit: "'000", series: ['Fashion', 'Electronics'], range: [60, 480, 3] },
+    { entity: 'Operator', items: ['Jio', 'Airtel', 'Vodafone', 'BSNL', 'MTNL', 'ACT'], pre: '', metric: 'Subscribers', unit: 'lakh', series: ['Prepaid', 'Postpaid'], range: [40, 360, 2] },
+    { entity: 'Power Plant', items: ['Korba', 'Singrauli', 'Vindhya', 'Talcher', 'Ramagundam', 'Sipat'], pre: '', metric: 'Electricity Generated', unit: 'MW', series: ['Thermal', 'Solar'], range: [150, 900, 5] },
+    { entity: 'Destination', items: ['Agra', 'Jaipur', 'Goa', 'Munnar', 'Shimla', 'Hampi'], pre: '', metric: 'Tourist Arrivals', unit: "'000", series: ['Domestic', 'Foreign'], range: [60, 540, 3] },
+    { entity: 'Railway Zone', items: ['Northern', 'Western', 'Central', 'Southern', 'Eastern', 'North-East'], pre: '', metric: 'Passengers Carried', unit: 'lakh', series: ['AC', 'Non-AC'], range: [80, 600, 4] },
+    { entity: 'Airport', items: ['Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Kolkata', 'Kochi'], pre: '', metric: 'Flights Handled', unit: "'00", series: ['Domestic', 'International'], range: [40, 320, 2] },
+    { entity: 'Insurer', items: ['LIC', 'HDFC Life', 'SBI Life', 'ICICI Pru', 'Max Life', 'Bajaj Allianz'], pre: '', metric: 'Premiums Collected', unit: '₹ crore', series: ['2023', '2024'], range: [120, 720, 5] },
+    { entity: 'Fund', items: ['Bluechip', 'Midcap', 'Smallcap', 'Flexicap', 'Index', 'ELSS'], pre: '', metric: 'Assets Managed', unit: '₹ crore', series: ['Equity', 'Debt'], range: [150, 900, 5] },
+    { entity: 'District', items: ['Cherrapunji', 'Mawsynram', 'Pasighat', 'Agumbe', 'Amboli', 'Gangtok'], pre: '', metric: 'Rainfall', unit: 'mm', series: ['2023', '2024'], range: [400, 1600, 5] },
+    { entity: 'Factory', items: ['Unit 1', 'Unit 2', 'Unit 3', 'Unit 4', 'Unit 5', 'Unit 6'], pre: '', metric: 'Output', unit: "'000 units", series: ['Shift A', 'Shift B'], range: [80, 480, 4] },
+    { entity: 'Team', items: ['Falcons', 'Tigers', 'Strikers', 'Warriors', 'Royals', 'Titans'], pre: '', metric: 'Goals Scored', unit: '', series: ['Home', 'Away'], range: [12, 90, 1] },
+    { entity: 'Mall', items: ['Phoenix', 'Orion', 'Forum', 'Select', 'Lulu', 'Inorbit'], pre: '', metric: 'Footfall', unit: "'000", series: ['Weekday', 'Weekend'], range: [60, 480, 3] }
   ];
   var TIME_THEMES = [
     { metric: 'Revenue', unit: '₹ crore', series: ['Plant X', 'Plant Y'] },
     { metric: 'Production', unit: "'000 units", series: ['Unit A', 'Unit B'] },
     { metric: 'Profit', unit: '₹ lakh', series: ['Division 1', 'Division 2'] },
     { metric: 'Website Visitors', unit: "'000", series: ['Mobile', 'Desktop'] },
-    { metric: 'Exports', unit: '₹ crore', series: ['Region East', 'Region West'] }
+    { metric: 'Exports', unit: '₹ crore', series: ['Region East', 'Region West'] },
+    { metric: 'Imports', unit: '₹ crore', series: ['Crude', 'Machinery'] },
+    { metric: 'GDP', unit: "₹ '000 crore", series: ['Services', 'Industry'] },
+    { metric: 'Rainfall', unit: 'mm', series: ['Coastal', 'Inland'], range: [60, 320] },
+    { metric: 'Tourist Arrivals', unit: "'000", series: ['Domestic', 'Foreign'] },
+    { metric: 'Car Sales', unit: "'000 units", series: ['Petrol', 'EV'] },
+    { metric: 'Mobile Subscribers', unit: 'lakh', series: ['Prepaid', 'Postpaid'] },
+    { metric: 'Power Generation', unit: 'million units', series: ['Thermal', 'Renewable'] },
+    { metric: 'Digital Payments', unit: '₹ crore', series: ['UPI', 'Cards'] },
+    { metric: 'Sugar Output', unit: "'000 tonnes", series: ['Mill A', 'Mill B'] }
   ];
 
   /* Varied (NOT all-multiples-of-10) integers — realistic data. step lets a builder bias toward clean derived values. */
   function _values(n, min, max, step) { step = step || 1; var lo = Math.ceil(min / step), hi = Math.floor(max / step), out = []; for (var i = 0; i < n; i++) out.push(_ri(lo, hi) * step); return out; }
   function _metricUnit(d) { return d.metric + (d.unit ? ' (in ' + d.unit + ')' : ''); }
 
-  /* ── datasets ── */
+  /* ── datasets ── (each honours an optional theme `range:[min,max,step]`; defaults keep the original realistic band) */
   function _entityDataset() {
-    var th = _pick(ENTITY_THEMES), n = _ri(4, 5);
+    var th = _pick(ENTITY_THEMES), n = _ri(4, 5), r = th.range || [35, 240, 0];
     var items = _pickN(th.items, n).map(function (x) { return th.pre + x; });
-    return { theme: th, labels: items, values: _values(n, 35, 240, _pick([1, 1, 5])), unit: th.unit, metric: th.metric, entity: th.entity };
+    return { theme: th, labels: items, values: _values(n, r[0], r[1], r[2] || _pick([1, 1, 5])), unit: th.unit, metric: th.metric, entity: th.entity };
   }
   /* a time series with bounded year-on-year continuity → looks like a real trend, not a random walk. */
   function _timeDataset() {
     var tm = _pick(TIME_THEMES), start = _pick([2017, 2018, 2019, 2020]), n = _ri(5, 6);
     var labels = []; for (var i = 0; i < n; i++) labels.push(String(start + i));
-    var v = [_ri(60, 160)]; for (var j = 1; j < n; j++) { var step = _ri(-30, 45); v.push(Math.max(20, v[j - 1] + step)); }
-    var subject = _pick(['Company XYZ', 'the firm', 'the plant', 'the portal', 'the brand']);
+    var r = tm.range, lo = r ? r[0] : 60, hi = r ? r[1] : 160, sp = hi - lo;
+    var v = [_ri(lo, hi)]; for (var j = 1; j < n; j++) { var step = _ri(-Math.round(sp * 0.28), Math.round(sp * 0.4)); v.push(Math.max(10, v[j - 1] + step)); }
+    var subject = _pick(['Company XYZ', 'the firm', 'the plant', 'the portal', 'the brand', 'the network', 'the chain']);
     return { theme: tm, labels: labels, values: v, unit: tm.unit, metric: tm.metric, subject: subject };
   }
   /* multi-series entity dataset (grouped/stacked bar, multi-column table). */
   function _entityMultiDataset(nSeries) {
-    var th = _pick(ENTITY_THEMES), n = _ri(3, 4), names = th.series.slice(0, nSeries || 2);
+    var th = _pick(ENTITY_THEMES), n = _ri(3, 4), names = th.series.slice(0, nSeries || 2), r = th.range || [40, 200, 0];
     var items = _pickN(th.items, n).map(function (x) { return th.pre + x; });
-    var series = names.map(function (nm) { return { name: nm, values: _values(n, 40, 200, _pick([1, 5])) }; });
+    var series = names.map(function (nm) { return { name: nm, values: _values(n, r[0], r[1], r[2] || _pick([1, 5])) }; });
     return { theme: th, labels: items, series: series, unit: th.unit, metric: th.metric, entity: th.entity };
   }
   function _timeMultiDataset(nSeries) {
     var tm = _pick(TIME_THEMES), start = _pick([2019, 2020, 2021]), n = _ri(4, 5), names = tm.series.slice(0, nSeries || 2);
     var labels = []; for (var i = 0; i < n; i++) labels.push(String(start + i));
-    var series = names.map(function (nm) { var v = [_ri(50, 140)]; for (var j = 1; j < n; j++) v.push(Math.max(20, v[j - 1] + _ri(-25, 40))); return { name: nm, values: v }; });
+    var r = tm.range, lo = r ? r[0] : 50, hi = r ? r[1] : 140, sp = hi - lo;
+    var series = names.map(function (nm) { var v = [_ri(lo, hi)]; for (var j = 1; j < n; j++) v.push(Math.max(10, v[j - 1] + _ri(-Math.round(sp * 0.25), Math.round(sp * 0.36)))); return { name: nm, values: v }; });
     return { theme: tm, labels: labels, series: series, unit: tm.unit, metric: tm.metric };
   }
 
@@ -112,23 +141,23 @@
     ],
     medium: [
       { k: 'total', skill: 'aggregation', build: function (d) { return { q: 'What is the total ' + d.metric + ' of all ' + d.labels.length + ' ' + d.entity.toLowerCase() + 's shown?', a: _sum(d.values), k: 'total' }; } },
-      { k: 'diff', skill: 'comparison', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1 + _ri(0, d.labels.length - 2)) % d.labels.length; var dv = Math.abs(d.values[i] - d.values[j]); if (!dv) return null; return { q: 'By how much does the ' + d.metric + ' of ' + d.labels[i] + ' exceed or trail that of ' + d.labels[j] + '? (enter the difference)', a: dv, k: 'diff' }; } },
+      { k: 'diff', skill: 'comparison', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1 + _ri(0, d.labels.length - 2)) % d.labels.length; var dv = Math.abs(d.values[i] - d.values[j]); if (!dv) return null; return { q: 'By how much does the ' + d.metric + ' of ' + d.labels[i] + ' differ from that of ' + d.labels[j] + '? (enter the difference)', a: dv, k: 'diff' }; } },
       { k: 'avg', skill: 'average', build: function (d) { var av = _sum(d.values) / d.labels.length; if (!_isClean(av)) return null; return { q: 'What is the average ' + d.metric + ' across all ' + d.labels.length + ' ' + d.entity.toLowerCase() + 's?', a: _round1(av), k: 'avg' }; } },
-      { k: 'share', skill: 'percentage', build: function (d) { var i = _ri(0, d.labels.length - 1), sh = d.values[i] / _sum(d.values) * 100; if (!_isClean(sh)) return null; return { q: d.labels[i] + ' accounts for what percent of the total ' + d.metric + '? (1 decimal)', a: _round1(sh), k: 'share' }; } },
+      { k: 'share', skill: 'percentage', build: function (d) { var i = _ri(0, d.labels.length - 1), sh = d.values[i] / _sum(d.values) * 100; if (!_isClean(sh)) return null; return { q: d.labels[i] + ' accounts for what percent of the total ' + d.metric + '? (to 1 decimal place)', a: _round1(sh), k: 'share' }; } },
       { k: 'missing', skill: 'inference', build: function (d) { var i = _ri(0, d.labels.length - 1), known = _sum(d.values) - d.values[i]; return { q: 'The total ' + d.metric + ' of all ' + d.labels.length + ' ' + d.entity.toLowerCase() + 's is ' + _sum(d.values) + '. If every value except ' + d.labels[i] + ' is as shown, what is ' + d.labels[i] + "'s " + d.metric + '?', a: d.values[i], k: 'missing' }; } }
     ],
     hard: [
-      { k: 'pctMore', skill: 'percentage', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; if (!d.values[j]) return null; var pm = (d.values[i] - d.values[j]) / d.values[j] * 100; if (!_isClean(pm) || !pm) return null; return { q: d.labels[i] + "'s " + d.metric + ' is what percent more or less than that of ' + d.labels[j] + '? (1 decimal, ignore sign)', a: _round1(Math.abs(pm)), k: 'pctMore' }; } },
-      { k: 'deviation', skill: 'percentage', build: function (d) { var av = _sum(d.values) / d.labels.length; if (!_isClean(av)) return null; var i = _ri(0, d.labels.length - 1), dev = (d.values[i] - av) / av * 100; if (!_isClean(dev) || !dev) return null; return { q: "By what percent does " + d.labels[i] + "'s " + d.metric + ' differ from the average of all ' + d.labels.length + '? (1 decimal, ignore sign)', a: _round1(Math.abs(dev)), k: 'deviation' }; } },
-      { k: 'combinedShare', skill: 'contribution', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length, cs = (d.values[i] + d.values[j]) / _sum(d.values) * 100; if (!_isClean(cs)) return null; return { q: 'Together, ' + d.labels[i] + ' and ' + d.labels[j] + ' contribute what percent of the total ' + d.metric + '? (1 decimal)', a: _round1(cs), k: 'combinedShare' }; } },
-      { k: 'ratio', skill: 'ratio', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; if (!d.values[j]) return null; var g = _gcd(d.values[i], d.values[j]); var r = d.values[i] / d.values[j]; if (!_isClean(r)) { if ((d.values[i] / g) > 30 || (d.values[j] / g) > 30) return null; return { q: 'What is the ratio of ' + d.labels[i] + "'s " + d.metric + ' to that of ' + d.labels[j] + '? Enter as the first number when written in simplest form a:b.', a: d.values[i] / g, k: 'ratio' }; } return { q: d.labels[i] + "'s " + d.metric + ' is how many times that of ' + d.labels[j] + '? (1 decimal)', a: _round1(r), k: 'ratio' }; } }
+      { k: 'pctMore', skill: 'percentage', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; if (!d.values[j]) return null; var pm = (d.values[i] - d.values[j]) / d.values[j] * 100; if (!_isClean(pm) || !pm) return null; return { q: d.labels[i] + "'s " + d.metric + ' differs from that of ' + d.labels[j] + ' by what percent? (to 1 decimal place, absolute value)', a: _round1(Math.abs(pm)), k: 'pctMore' }; } },
+      { k: 'deviation', skill: 'percentage', build: function (d) { var av = _sum(d.values) / d.labels.length; if (!_isClean(av)) return null; var i = _ri(0, d.labels.length - 1), dev = (d.values[i] - av) / av * 100; if (!_isClean(dev) || !dev) return null; return { q: "By what percent does " + d.labels[i] + "'s " + d.metric + ' differ from the average of all ' + d.labels.length + '? (to 1 decimal place, absolute value)', a: _round1(Math.abs(dev)), k: 'deviation' }; } },
+      { k: 'combinedShare', skill: 'contribution', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length, cs = (d.values[i] + d.values[j]) / _sum(d.values) * 100; if (!_isClean(cs)) return null; return { q: 'Together, ' + d.labels[i] + ' and ' + d.labels[j] + ' contribute what percent of the total ' + d.metric + '? (to 1 decimal place)', a: _round1(cs), k: 'combinedShare' }; } },
+      { k: 'ratio', skill: 'ratio', build: function (d) { var i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; if (!d.values[j]) return null; var g = _gcd(d.values[i], d.values[j]); var r = d.values[i] / d.values[j]; if (!_isClean(r)) { if ((d.values[i] / g) > 30 || (d.values[j] / g) > 30) return null; return { q: 'What is the ratio of ' + d.labels[i] + "'s " + d.metric + ' to that of ' + d.labels[j] + '? Express it in simplest form a:b and enter a.', a: d.values[i] / g, k: 'ratio' }; } return { q: d.labels[i] + "'s " + d.metric + ' is how many times that of ' + d.labels[j] + '? (to 1 decimal place)', a: _round1(r), k: 'ratio' }; } }
     ]
   };
   /* per-tier guaranteed-clean constructor (mutates d so chart ↔ question stay consistent). */
   var ENTITY_PRIMARY = {
     easy: function (d) { var i = _ri(0, d.labels.length - 1); return { q: 'What is the ' + d.metric + ' of ' + d.labels[i] + '?', a: d.values[i], k: 'read' }; },
     medium: function (d) { return { q: 'What is the total ' + d.metric + ' of all ' + d.labels.length + ' ' + d.entity.toLowerCase() + 's shown?', a: _sum(d.values), k: 'total' }; },
-    hard: function (d) { var pr = _cleanPctPair(), i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; d.values[i] = pr.nw; d.values[j] = pr.old; return { q: d.labels[i] + "'s " + d.metric + ' is what percent more than ' + d.labels[j] + "'s? (1 decimal, ignore sign)", a: _round1(pr.p), k: 'pctMore' }; }
+    hard: function (d) { var pr = _cleanPctPair(), i = _ri(0, d.labels.length - 1), j = (i + 1) % d.labels.length; d.values[i] = pr.nw; d.values[j] = pr.old; return { q: d.labels[i] + "'s " + d.metric + ' is what percent more than ' + d.labels[j] + "'s? (to 1 decimal place, absolute value)", a: _round1(pr.p), k: 'pctMore' }; }
   };
 
   /* ════════════════════════ TIME archetypes (line) ════════════════════════ */
@@ -145,33 +174,35 @@
       { k: 'biggestJump', skill: 'comparison', build: function (d) { var best = 0; for (var z = 1; z < d.values.length; z++) best = Math.max(best, Math.abs(d.values[z] - d.values[z - 1])); return { q: 'What is the largest change in ' + d.metric + ' between any two consecutive years?', a: best, k: 'biggestJump' }; } }
     ],
     hard: [
-      { k: 'yoy', skill: 'percentage', build: function (d) { var y = _ri(1, d.labels.length - 1); if (!d.values[y - 1]) return null; var ch = (d.values[y] - d.values[y - 1]) / d.values[y - 1] * 100; if (!_isClean(ch)) return null; return { q: 'What was the percent change in ' + d.metric + ' from ' + d.labels[y - 1] + ' to ' + d.labels[y] + '? (1 decimal, ignore sign)', a: _round1(Math.abs(ch)), k: 'yoy' }; } },
-      { k: 'cumulativeShare', skill: 'contribution', build: function (d) { var half = Math.floor(d.labels.length / 2), cs = _sum(d.values.slice(0, half)) / _sum(d.values) * 100; if (!_isClean(cs)) return null; return { q: 'The first ' + half + ' years contributed what percent of the total ' + d.metric + '? (1 decimal)', a: _round1(cs), k: 'cumulativeShare' }; } },
-      { k: 'overallGrowth', skill: 'percentage', build: function (d) { if (!d.values[0]) return null; var g = (d.values[d.values.length - 1] - d.values[0]) / d.values[0] * 100; if (!_isClean(g)) return null; return { q: 'By what percent did the ' + d.metric + ' change over the whole period (' + d.labels[0] + ' to ' + d.labels[d.labels.length - 1] + ')? (1 decimal, ignore sign)', a: _round1(Math.abs(g)), k: 'overallGrowth' }; } }
+      { k: 'yoy', skill: 'percentage', build: function (d) { var y = _ri(1, d.labels.length - 1); if (!d.values[y - 1]) return null; var ch = (d.values[y] - d.values[y - 1]) / d.values[y - 1] * 100; if (!_isClean(ch)) return null; return { q: 'What was the percent change in ' + d.metric + ' from ' + d.labels[y - 1] + ' to ' + d.labels[y] + '? (to 1 decimal place, absolute value)', a: _round1(Math.abs(ch)), k: 'yoy' }; } },
+      { k: 'cumulativeShare', skill: 'contribution', build: function (d) { var half = Math.floor(d.labels.length / 2), cs = _sum(d.values.slice(0, half)) / _sum(d.values) * 100; if (!_isClean(cs)) return null; return { q: 'The first ' + half + ' years contributed what percent of the total ' + d.metric + '? (to 1 decimal place)', a: _round1(cs), k: 'cumulativeShare' }; } },
+      { k: 'overallGrowth', skill: 'percentage', build: function (d) { if (!d.values[0]) return null; var g = (d.values[d.values.length - 1] - d.values[0]) / d.values[0] * 100; if (!_isClean(g)) return null; return { q: 'By what percent did the ' + d.metric + ' change over the whole period (' + d.labels[0] + ' to ' + d.labels[d.labels.length - 1] + ')? (to 1 decimal place, absolute value)', a: _round1(Math.abs(g)), k: 'overallGrowth' }; } }
     ]
   };
   var TIME_PRIMARY = {
     easy: function (d) { var i = _ri(0, d.labels.length - 1); return { q: 'What was the ' + d.metric + ' in ' + d.labels[i] + '?', a: d.values[i], k: 'read' }; },
     medium: function (d) { return { q: 'What is the total ' + d.metric + ' over all ' + d.labels.length + ' years?', a: _sum(d.values), k: 'total' }; },
-    hard: function (d) { var pr = _cleanPctPair(), y = _ri(1, d.labels.length - 1); d.values[y - 1] = pr.old; d.values[y] = pr.nw; return { q: 'What was the percent change in ' + d.metric + ' from ' + d.labels[y - 1] + ' to ' + d.labels[y] + '? (1 decimal, ignore sign)', a: _round1(pr.p), k: 'yoy' }; }
+    hard: function (d) { var pr = _cleanPctPair(), y = _ri(1, d.labels.length - 1); d.values[y - 1] = pr.old; d.values[y] = pr.nw; return { q: 'What was the percent change in ' + d.metric + ' from ' + d.labels[y - 1] + ' to ' + d.labels[y] + '? (to 1 decimal place, absolute value)', a: _round1(pr.p), k: 'yoy' }; }
   };
 
   /* ════════════════════════ MULTI-SERIES archetypes (grouped bar / multi-line / multi-col table) ════════════════════════
-     Authentic cross-series exam DI. Only used at HARD (genuine cross-series reasoning). Always clean (read+integer ops),
-     so they double as the guaranteed-clean hard path for multi-series categories. */
+     Authentic cross-series exam DI, used at HARD only — and EARNED: every archetype here is genuine cross-series
+     reasoning (percent difference, ratio, series contribution, grand-total share, trend comparison). Bare cross-series
+     add/subtract were removed (they are medium-level — the Sets engine uses them at their correct tiers). If none is
+     clean, the caller falls back to the single-series hard primary, so the tier is never downgraded. */
   function _multiQuestion(d) {
-    var L = d.labels, S = d.series, n = L.length;
-    var t = _pick(['combined', 'crossDiff', 'ratioYear', 'trendCompare', 'seriesShare']);
-    var a = S[0], b = S[1] || S[0];
-    if (t === 'combined') { var yi = _ri(0, n - 1); return { q: 'In ' + L[yi] + ', what is the combined ' + d.metric + ' of ' + a.name + ' and ' + b.name + '?', a: a.values[yi] + b.values[yi], k: 'm_combined', skill: 'aggregation' }; }
-    if (t === 'crossDiff') { var yj = _ri(0, n - 1), dv = Math.abs(a.values[yj] - b.values[yj]); if (!dv) return null; return { q: 'In ' + L[yj] + ', by how much does ' + a.name + "'s " + d.metric + ' differ from ' + b.name + "'s? (enter the difference)", a: dv, k: 'm_crossDiff', skill: 'comparison' }; }
-    if (t === 'ratioYear') { var yk = _ri(0, n - 1); if (!b.values[yk]) return null; var g = _gcd(a.values[yk], b.values[yk]); if ((a.values[yk] / g) > 30) return null; return { q: 'In ' + L[yk] + ', what is the ratio of ' + a.name + "'s " + d.metric + ' to ' + b.name + "'s, in simplest form a:b? Enter a.", a: a.values[yk] / g, k: 'm_ratioYear', skill: 'ratio' }; }
-    if (t === 'trendCompare') { var d1 = a.values[n - 1] - a.values[0], d2 = b.values[n - 1] - b.values[0]; return { q: 'Over the whole period, which had the larger absolute change in ' + d.metric + ' — and by how many units more? (enter the gap between the two changes)', a: Math.abs(Math.abs(d1) - Math.abs(d2)), k: 'm_trendCompare', skill: 'trend' }; }
-    var yl = _ri(0, n - 1), tot = 0; for (var i = 0; i < S.length; i++) tot += S[i].values[yl]; if (!tot) return null; var sh = a.values[yl] / tot * 100; if (!_isClean(sh)) return null; return { q: 'In ' + L[yl] + ', ' + a.name + ' accounts for what percent of the combined ' + d.metric + ' of all series? (1 decimal)', a: _round1(sh), k: 'm_seriesShare', skill: 'contribution' };
+    var L = d.labels, S = d.series, n = L.length, a = S[0], b = S[1] || S[0];
+    var t = _pick(['pctDiff', 'ratioYear', 'seriesShare', 'combinedShare', 'trendCompare']);
+    if (t === 'pctDiff') { var yi = _ri(0, n - 1); if (!b.values[yi] || a.values[yi] === b.values[yi]) return null; var pd = (a.values[yi] - b.values[yi]) / b.values[yi] * 100; if (!_isClean(pd)) return null; return { q: 'In ' + L[yi] + ', ' + a.name + "'s " + d.metric + ' differs from ' + b.name + "'s by what percent? (to 1 decimal place, absolute value)", a: _round1(Math.abs(pd)), k: 'm_pctDiff', skill: 'percentage' }; }
+    if (t === 'ratioYear') { var yk = _ri(0, n - 1); if (!b.values[yk]) return null; var g = _gcd(a.values[yk], b.values[yk]); if ((a.values[yk] / g) > 30 || (b.values[yk] / g) > 30) return null; return { q: 'In ' + L[yk] + ', what is the ratio of ' + a.name + ' to ' + b.name + ' (' + d.metric + ')? Express in simplest form a:b and enter a.', a: a.values[yk] / g, k: 'm_ratioYear', skill: 'ratio' }; }
+    if (t === 'seriesShare') { var yl = _ri(0, n - 1), tot = 0; for (var i = 0; i < S.length; i++) tot += S[i].values[yl]; if (!tot) return null; var sh = a.values[yl] / tot * 100; if (!_isClean(sh)) return null; return { q: 'In ' + L[yl] + ', ' + a.name + " accounts for what percent of that entry's combined " + d.metric + ' across all series? (to 1 decimal place)', a: _round1(sh), k: 'm_seriesShare', skill: 'contribution' }; }
+    if (t === 'combinedShare') { var ym = _ri(0, n - 1), grand = 0; for (var s = 0; s < S.length; s++) for (var e = 0; e < n; e++) grand += S[s].values[e]; if (!grand) return null; var pair = a.values[ym] + b.values[ym], cs = pair / grand * 100; if (!_isClean(cs)) return null; return { q: 'Across every series and entry shown, ' + a.name + ' and ' + b.name + ' in ' + L[ym] + ' together make up what percent of the grand total ' + d.metric + '? (to 1 decimal place)', a: _round1(cs), k: 'm_combinedShare', skill: 'contribution' }; }
+    var d1 = a.values[n - 1] - a.values[0], d2 = b.values[n - 1] - b.values[0];
+    return { q: 'From ' + L[0] + ' to ' + L[n - 1] + ', by how many units did the larger change in ' + d.metric + ' exceed the smaller? (comparing ' + a.name + ' and ' + b.name + ')', a: Math.abs(Math.abs(d1) - Math.abs(d2)), k: 'm_trendCompare', skill: 'trend' };
   }
 
   /* ── chart spec builders (consumed by di-charts.js) ── */
-  function _barChart(d) { return d.series ? { kind: 'bar', title: _metricUnit(d) + ' by ' + d.entity, unit: d.unit, yLabel: d.metric, labels: d.labels.slice(), series: d.series.map(function (s) { return { name: s.name, values: s.values.slice() }; }), stacked: !!d._stacked } : { kind: 'bar', title: _metricUnit(d) + ' by ' + d.entity, unit: d.unit, yLabel: d.metric, labels: d.labels.slice(), values: d.values.slice() }; }
+  function _barChart(d) { return d.series ? { kind: 'bar', title: _metricUnit(d) + ' by ' + d.entity, unit: d.unit, yLabel: d.metric, labels: d.labels.slice(), series: d.series.map(function (s) { return { name: s.name, values: s.values.slice() }; }), stacked: !!d._stacked } : { kind: 'bar', title: _metricUnit(d) + ' by ' + d.entity, unit: d.unit, yLabel: d.metric, labels: d.labels.slice(), values: d.values.slice(), horizontal: Math.random() < 0.4 }; }
   function _pieChart(d) { return { kind: 'pie', title: 'Share of ' + _metricUnit(d), unit: d.unit, labels: d.labels.slice(), values: d.values.slice() }; }
   function _lineChart(d) { return d.series ? { kind: 'line', title: _metricUnit(d) + ' over the years', unit: d.unit, xLabel: 'Year', yLabel: d.metric, labels: d.labels.slice(), series: d.series.map(function (s) { return { name: s.name, values: s.values.slice() }; }) } : { kind: 'line', title: _metricUnit(d) + ' of ' + d.subject + ' over the years', unit: d.unit, xLabel: 'Year', yLabel: d.metric, labels: d.labels.slice(), values: d.values.slice() }; }
   function _tableChart(d) {
@@ -187,17 +218,27 @@
       { whole: 'employees in a firm', g1: 'managers', g2: 'staff', act: 'opted for the new policy' },
       { whole: 'visitors to a fair', g1: 'adults', g2: 'children', act: 'bought a ticket online' },
       { whole: 'commuters polled', g1: 'car users', g2: 'bus users', act: 'support the new metro line' },
-      { whole: 'subscribers', g1: 'annual members', g2: 'monthly members', act: 'renewed this year' }
+      { whole: 'subscribers', g1: 'annual members', g2: 'monthly members', act: 'renewed this year' },
+      { whole: 'loan applicants', g1: 'salaried applicants', g2: 'self-employed applicants', act: 'were approved' },
+      { whole: 'account holders', g1: 'savings-account holders', g2: 'current-account holders', act: 'use mobile banking' },
+      { whole: 'candidates who appeared', g1: 'male candidates', g2: 'female candidates', act: 'cleared the cut-off' },
+      { whole: 'registered voters', g1: 'first-time voters', g2: 'repeat voters', act: 'cast their vote' },
+      { whole: 'policyholders', g1: 'term-plan holders', g2: 'endowment-plan holders', act: 'renewed their policy' },
+      { whole: 'households surveyed', g1: 'urban households', g2: 'rural households', act: 'own a smartphone' },
+      { whole: 'farmers in a district', g1: 'small farmers', g2: 'large farmers', act: 'adopted the new seed' },
+      { whole: 'patients admitted', g1: 'insured patients', g2: 'uninsured patients', act: 'were discharged within a week' },
+      { whole: 'travellers polled', g1: 'business travellers', g2: 'leisure travellers', act: 'booked through the app' },
+      { whole: 'employees in a company', g1: 'on-site staff', g2: 'remote staff', act: 'enrolled in the training' }
     ]);
     var totalPeople = _ri(4, 12) * 100;
     var g1 = Math.round(totalPeople * _pick([0.4, 0.45, 0.5, 0.55, 0.6])), g2 = totalPeople - g1;
     var p1 = _pick([20, 25, 40, 50, 60, 75]), p2 = _pick([20, 25, 40, 50, 60, 75]);
     var a1 = g1 * p1 / 100, a2 = g2 * p2 / 100;
     if (!_isClean(a1) || !_isClean(a2)) return null;
-    var stem = 'Out of ' + totalPeople + ' ' + ctx.whole + ', ' + g1 + ' are ' + ctx.g1 + ' and the rest are ' + ctx.g2 + '. ' + p1 + '% of the ' + ctx.g1 + ' and ' + p2 + '% of the ' + ctx.g2 + ' ' + ctx.act + '. ';
+    var stem = 'Out of ' + totalPeople + ' ' + ctx.whole + ', ' + g1 + ' are ' + ctx.g1 + ' and ' + g2 + ' are ' + ctx.g2 + '. ' + p1 + '% of the ' + ctx.g1 + ' and ' + p2 + '% of the ' + ctx.g2 + ' ' + ctx.act + '. ';
     if (diff === 'easy') return { q: stem + 'How many ' + ctx.g1 + ' ' + ctx.act + '?', a: a1, k: 'caseRead', skill: 'observation' };
     if (diff === 'medium') { var t = _pick(['total', 'missing']); if (t === 'total') return { q: stem + 'In total, how many people ' + ctx.act + '?', a: a1 + a2, k: 'caseTotal', skill: 'aggregation' }; return { q: stem + 'If ' + (a1 + a2) + ' people in all ' + ctx.act + ', and ' + a1 + ' of them are ' + ctx.g1 + ', how many ' + ctx.g2 + ' ' + ctx.act + '?', a: a2, k: 'caseMissing', skill: 'inference' }; }
-    var tot = a1 + a2; if (!tot) return null; var sh = a1 / tot * 100; if (!_isClean(sh)) return null; return { q: stem + 'Of all the people who ' + ctx.act + ', what percent are ' + ctx.g1 + '? (1 decimal)', a: _round1(sh), k: 'caseShare', skill: 'contribution' };
+    var tot = a1 + a2; if (!tot) return null; var sh = a1 / tot * 100; if (!_isClean(sh)) return null; return { q: stem + 'Of all the people who ' + ctx.act + ', what percent are ' + ctx.g1 + '? (to 1 decimal place)', a: _round1(sh), k: 'caseShare', skill: 'contribution' };
   }
 
   /* ── the per-category generators: pick an in-tier archetype, build a clean question, attach chart ── */

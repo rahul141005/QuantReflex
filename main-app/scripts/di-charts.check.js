@@ -124,5 +124,19 @@ console.log('di-charts.check — DI chart renderer (ADR-074)');
   ok('11 single-element series values shown', ['10', '20', '30', '40'].every(function (v) { return h.indexOf('>' + v + '<') !== -1; }));
 })();
 
+/* ── 12. horizontal bar (single-series; common in Banking/SSC) ── */
+(function () {
+  var spec = { kind: 'bar', horizontal: true, title: 'Loans by Branch', unit: '₹ lakh', labels: ['Delhi', 'Mumbai', 'Pune', 'Kochi'], values: [120, 240, 90, 180] };
+  var h = DC.render(spec);
+  ok('12 horizontal: one rect per bar', count(h, '<rect') === 4);
+  ok('12 horizontal: every value drawn', ['120', '240', '90', '180'].every(function (v) { return h.indexOf('>' + v + '<') !== -1; }));
+  ok('12 horizontal: every category label', spec.labels.every(function (l) { return h.indexOf(l) !== -1; }));
+  ok('12 horizontal: aria carries data', /aria-label="[^"]*120[^"]*240/.test(h));
+  ok('12 horizontal: no NaN/undefined', h.indexOf('NaN') === -1 && h.indexOf('undefined') === -1);
+  /* back-compat: same spec WITHOUT horizontal still renders the vertical bar (value labels present either way) */
+  var v = DC.render({ kind: 'bar', title: 'Loans by Branch', labels: ['Delhi', 'Mumbai', 'Pune', 'Kochi'], values: [120, 240, 90, 180] });
+  ok('12 vertical back-compat intact', count(v, '<rect') === 4 && v.indexOf('NaN') === -1);
+})();
+
 console.log('\ndi-charts.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

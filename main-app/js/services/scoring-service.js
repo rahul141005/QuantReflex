@@ -146,7 +146,10 @@ var ScoringService = (function () {
       ratio: 'Tip: Divide both quantities by their HCF for the simplest ratio a:b. Check: a×(other) = b×(one).',
       m_ratioYear: 'Tip: Divide both series by their HCF for the simplest ratio. Keep the order the question asks (a:b).',
       m_crossDiff: 'Tip: Line the two series up at the SAME point, then subtract — mind which one is larger.',
-      m_combined: 'Tip: Read both series at that point and add — don\'t double-count or miss a series.'
+      m_combined: 'Tip: Read both series at that point and add — don\'t double-count or miss a series.',
+      m_pctDiff: 'Tip: Cross-series % difference = (A − B) ÷ B × 100 — divide by the series you compare AGAINST.',
+      m_combinedShare: 'Tip: Add EVERY series and every entry for the grand total, then the pair ÷ that grand total × 100.',
+      m_trendCompare: 'Tip: Compute each series\' first-to-last change separately, then subtract the two changes.'
     };
     if (subtype && subtypeTips[subtype]) return subtypeTips[subtype];
     if (subtype && subtype.indexOf(':') !== -1) { var _dk = subtype.split(':')[1]; if (diKeyTips[_dk]) return diKeyTips[_dk]; }

@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.25 · **Architecture Version:** 2.51 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.26 · **Architecture Version:** 2.52 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-30
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -38,7 +38,9 @@ Insurance). **Verified topic relevance** (drives what the engine emphasizes):
   time-series). Archetypes span read/rank/total/diff/avg/share/missing/ratio/contribution/%-change plus **cross-series**
   (combined, cross-diff, ratio-across-series, trend-compare, series-share).
 - **Multi-series renderer** — `di-charts.js` adds a back-compatible `series[]`/`stacked` model (grouped & stacked bars,
-  multi-line, multi-column tables) via shared SVG helpers; single-series specs render byte-identically.
+  multi-line, multi-column tables) plus a single-series **horizontal bar** (`spec.horizontal` → `_hbar`) via shared SVG
+  helpers; single-series specs render byte-identically. ~40 realistic dataset domains (with per-theme value ranges)
+  keep questions feeling faculty-written, not templated.
 - **DI sets** — `di-set-engine.js` produces one shared dataset/chart + 3–6 progressive, distinct-skill questions;
   presentation reuses the drill engine through a guarded `diSet` set-mode (shared context rendered once, per-question
   swap, cached dataset). Surfaced as the **📊 DI Set** practice mode.
