@@ -18,7 +18,7 @@
 
   /* the five authored categories (mirrored in the engine's CATEGORY_LABELS) */
   var CATEGORIES = {
-    'lr-critical': { label: 'Critical Reasoning', subtypes: ['assumption', 'strengthen', 'weaken', 'inference', 'conclusion', 'flaw', 'paradox'] },
+    'lr-critical': { label: 'Critical Reasoning', subtypes: ['assumption', 'strengthen', 'weaken', 'inference', 'conclusion', 'flaw', 'paradox', 'evaluate', 'complete', 'method', 'parallel'] },
     'lr-statement': { label: 'Statement & Argument', subtypes: ['assumption', 'conclusion', 'argument', 'inference'] },
     'lr-cause': { label: 'Cause & Effect', subtypes: ['cause-effect'] },
     'lr-course': { label: 'Course of Action', subtypes: ['course-of-action'] },
@@ -62,6 +62,9 @@
     if (it.explanation && PLACEHOLDERS.test(it.explanation)) e.push(who + ': explanation has placeholder text');
     if (typeof it.explanationVersion !== 'number' || it.explanationVersion < 1 || it.explanationVersion % 1 !== 0) e.push(who + ': explanationVersion must be a positive integer');
     if (!_isArr(it.tags)) e.push(who + ': tags must be an array');
+    /* OPTIONAL `inspiredBy`: a transparent exam-pattern descriptor (e.g. "CAT-style critical reasoning"). Items are
+       ORIGINAL — this never claims to be an official PYQ, only that the structure/difficulty mirrors that exam's style. */
+    if (it.inspiredBy != null && (!_isStr(it.inspiredBy) || it.inspiredBy.length > 80)) e.push(who + ': inspiredBy must be a short string when present');
     if (REVIEW.indexOf(it.reviewStatus) === -1) e.push(who + ': reviewStatus must be approved|draft');
     if (!it.meta || typeof it.meta !== 'object') e.push(who + ': meta must be an object');
     return e;

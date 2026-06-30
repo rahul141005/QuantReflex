@@ -15,7 +15,7 @@
         'Document the error and raise it through the proper channel, even though it is small, because accuracy and integrity of the accounts come first.',
         'Ignore it, since her manager has more experience and the amount is small.',
         'Quietly correct it herself without telling anyone, to avoid conflict.',
-        'Resign from the company in protest.'
+        'Report the error directly to senior management above her manager, bypassing her manager entirely so that she cannot be blamed for it.'
       ],
       answer: 'Document the error and raise it through the proper channel, even though it is small, because accuracy and integrity of the accounts come first.',
       explanation: 'A clear error that misstates profit must be addressed regardless of size — integrity of financial reporting is non-negotiable. Raising it through the proper channel is both ethical and procedurally correct. Ignoring it abdicates responsibility; correcting it silently bypasses controls and could look like tampering; resigning is a disproportionate over-reaction that solves nothing.',
@@ -28,7 +28,7 @@
         'Talk to the client honestly about realistic options — a short extension or a reduced initial scope — while protecting the team from burnout.',
         'Force the team to work even longer hours to meet the deadline at any cost.',
         'Quietly miss the deadline and hope the client does not notice.',
-        'Blame the team publicly for the delay.'
+        'Quietly absorb the slippage by asking the team to put in extra unpaid hours over the next few weekends so the original deadline can still be met.'
       ],
       answer: 'Talk to the client honestly about realistic options — a short extension or a reduced initial scope — while protecting the team from burnout.',
       explanation: 'Good management balances client needs with team sustainability and uses honest communication. Renegotiating scope or timeline transparently addresses the real constraint. Pushing an exhausted team risks quality and attrition; hiding a likely miss destroys trust; blaming the team is both unfair and counter-productive.',
@@ -41,7 +41,7 @@
         'Promote the candidate with the outstanding recent performance, in line with the company\'s stated performance-based policy, and explain the basis to both.',
         'Promote the longer-serving candidate purely because of seniority.',
         'Promote neither and leave the role vacant to avoid a difficult choice.',
-        'Toss a coin to decide between them.'
+        'Promote the longer-serving candidate this time and privately promise the other that they will be first in line at the next promotion.'
       ],
       answer: 'Promote the candidate with the outstanding recent performance, in line with the company\'s stated performance-based policy, and explain the basis to both.',
       explanation: 'When a clear policy exists (performance-based promotion), the fair and consistent decision applies it, and transparency with both candidates preserves morale. Defaulting to seniority contradicts the policy; leaving the role vacant avoids the manager\'s duty; a coin toss abandons judgment entirely.',
@@ -92,7 +92,7 @@
       options: [
         'Speak to both privately to understand the issue, then facilitate a fair resolution focused on professional conduct.',
         'Ignore the conflict and hope it resolves itself over time.',
-        'Immediately transfer one of them to another team.',
+        'Call a full team meeting and have the two of them settle their differences openly in front of everyone, so the matter is dealt with in one sitting.',
         'Take the side of whichever member you personally like more.'
       ],
       answer: 'Speak to both privately to understand the issue, then facilitate a fair resolution focused on professional conduct.',

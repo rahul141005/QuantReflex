@@ -14,7 +14,7 @@
       options: [
         'A significant number of people currently drive downtown partly because parking there is affordable.',
         'Public transport into downtown is faster than driving.',
-        'Most downtown shops support the higher fees.',
+        'The extra revenue the city collects from the higher parking fees will be enough to cover the cost of running the new pricing system.',
         'The city owns the majority of downtown parking lots.'
       ],
       answer: 'A significant number of people currently drive downtown partly because parking there is affordable.',
@@ -78,7 +78,7 @@
       stem: 'A manager argues that switching to remote work hurt the team because output dropped 10% in the quarter after the switch. Which of the following, if true, most weakens this argument?',
       options: [
         'The quarter after the switch coincided with the loss of the team\'s two largest clients for unrelated reasons.',
-        'Some team members preferred working in the office.',
+        'After the switch to remote work, the team continued to use exactly the same software and project-tracking tools that it had used in the office.',
         'Remote work reduced the company\'s office rental costs.',
         'Output is measured the same way before and after the switch.'
       ],
@@ -132,7 +132,7 @@
         'It ignores that the best-selling phone is bought by far more people, so it would naturally collect more reviews of every kind.',
         'It assumes that reliability matters to customers.',
         'It fails to define what counts as a five-star review.',
-        'It does not say how the phone is priced.'
+        'It assumes that every customer who is happy with a phone will take the trouble to leave a five-star review for it.'
       ],
       answer: 'It ignores that the best-selling phone is bought by far more people, so it would naturally collect more reviews of every kind.',
       explanation: 'The flaw is comparing raw counts instead of rates. A phone sold to far more people will accumulate more five-star reviews simply due to volume, not superior reliability — the proportion of five-star (or one-star) reviews is what matters. The other options raise side issues that do not expose the count-vs-rate error.',
@@ -145,7 +145,7 @@
         'It treats a trait shared by successful people as the cause of their success, ignoring that many unsuccessful people may share it too.',
         'It assumes all entrepreneurs read about themselves.',
         'It relies on too small a sample of biographies.',
-        'It does not define "successful".'
+        'It overlooks that the early-rising entrepreneurs it cites may have had wealth or family support that allowed them both to wake early and to succeed.'
       ],
       answer: 'It treats a trait shared by successful people as the cause of their success, ignoring that many unsuccessful people may share it too.',
       explanation: 'This is the classic "survivorship/common-trait" causal flaw: observing that successful people share a habit does not show the habit causes success, especially when countless unsuccessful people may also wake early. Sample size is a weaker objection and definition is a side issue; the core error is mistaking a shared trait for a cause.',
@@ -158,7 +158,7 @@
         'The price rise coincided with the release of a hit film based on the novel, sharply increasing demand.',
         'The bookstore reduced the prices of several other novels.',
         'The novel had been the store\'s best-seller for a year.',
-        'The store\'s overall revenue fell that month.'
+        'The bookstore had kept the novel on display in its front window for several weeks before it decided to raise the price.'
       ],
       answer: 'The price rise coincided with the release of a hit film based on the novel, sharply increasing demand.',
       explanation: 'To resolve a paradox, find a fact that lets both surprising facts be true together. A film adaptation raising demand explains why sales rose despite the higher price — demand shifted up enough to outweigh the price effect. The other options do not connect the price rise to higher sales of THIS novel.',
@@ -169,7 +169,7 @@
       stem: 'A hospital introduced a strict hand-washing policy, yet the recorded rate of infections rose in the following months. Which of the following, if true, best explains this surprising result?',
       options: [
         'Along with the policy, the hospital began testing far more patients for infections, detecting cases that previously went unrecorded.',
-        'The hand-washing policy applied to all staff.',
+        'The hospital also asked all visitors, not only the medical staff, to wash their hands at the entrance during the same period.',
         'Hand-washing is widely known to reduce infections.',
         'The hospital admitted fewer patients overall that period.',
       ],
@@ -197,7 +197,7 @@
         'The top-ranked school also admits only students who score highly on a competitive entrance test.',
         'The top-ranked school has a well-equipped library.',
         'Some parents at the school prefer shorter days.',
-        'The district has twenty schools in total.'
+        'The top-ranked school has recently renovated its classrooms and installed air-conditioning in every room.'
       ],
       answer: 'The top-ranked school also admits only students who score highly on a competitive entrance test.',
       explanation: 'The argument attributes the school\'s results to its long day. Selective admission supplies a powerful alternative cause: the school\'s results may reflect the high-scoring students it admits, not the length of its day. The library is too vague to weaken, parents\' preferences are irrelevant to results, and the number of schools does not address causation.',
@@ -228,6 +228,123 @@
       answer: 'The product on his top shelf is also the cheapest and most popular brand in the shop.',
       explanation: 'The claim assumes the shelf position drives the sales. If the top-shelf product is independently the cheapest and most popular brand, its sales are explained by price/popularity, not the shelf — which weakens the claim. The other options do not offer an alternative cause for the high sales.',
       explanationVersion: V, tags: ['alternative-cause'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-eval-001', topic: 'lr-critical', subtype: 'evaluate', difficulty: 'medium', exams: ['CAT', 'NMAT'], inspiredBy: 'CAT-style evaluate-the-argument',
+      stem: 'A logistics firm replaced half its diesel vans with electric ones and reports that its monthly fuel bill fell by 30%. It concludes that electrifying the rest of the fleet will cut the remaining fuel bill by a further 30%. Answering which of the following would be MOST useful in evaluating this conclusion?',
+      options: [
+        'Whether the diesel vans that were replaced were the ones that had been driven the most kilometres each month',
+        'Whether the firm received a government subsidy when it purchased its first batch of electric vans',
+        'Whether the drivers preferred operating the electric vans over the older diesel vans',
+        'Whether the electric vans were manufactured within the same country as the diesel vans'
+      ],
+      answer: 'Whether the diesel vans that were replaced were the ones that had been driven the most kilometres each month',
+      explanation: 'The forecast assumes the remaining vans are like the ones already replaced. If the firm first swapped its highest-mileage vans, the easy savings are already taken and the rest will save far less than 30% — so this question is decisive for the conclusion. Subsidies, driver preference and country of manufacture do not bear on how much fuel the remaining vans will save.',
+      explanationVersion: V, tags: ['evaluate', 'representativeness'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-eval-002', topic: 'lr-critical', subtype: 'evaluate', difficulty: 'hard', exams: ['XAT', 'CAT'], inspiredBy: 'XAT-style evaluate',
+      stem: 'A hospital introduced a wellness programme and found that employees who enrolled took 20% fewer sick days than those who did not. It plans to make the programme compulsory for everyone, expecting the same drop across the whole workforce. Which question is MOST useful to evaluate this plan?',
+      options: [
+        'Were the employees who chose to enrol already healthier or more health-conscious than those who did not enrol?',
+        'Did the wellness programme cost the hospital more to run than it had originally budgeted for?',
+        'Were the sick days counted in calendar days or only in scheduled working days?',
+        'Did the employees who enrolled also tend to work in the same departments?'
+      ],
+      answer: 'Were the employees who chose to enrol already healthier or more health-conscious than those who did not enrol?',
+      explanation: 'The plan generalises from volunteers to everyone. If enrollees were already healthier, their fewer sick days reflect self-selection, not the programme, and compulsion would not reproduce the drop — so this is the decisive question. Cost, how days are counted, and departments do not test whether the programme itself caused the improvement.',
+      explanationVersion: V, tags: ['evaluate', 'self-selection'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-comp-001', topic: 'lr-critical', subtype: 'complete', difficulty: 'medium', exams: ['CAT', 'SNAP'], inspiredBy: 'CAT-style complete-the-argument',
+      stem: 'A bookstore noticed that the months in which it hosted author events were also its highest-revenue months, and it almost decided to host an event every week. It held back, however, because it realised that ____',
+      options: [
+        'the author events had so far been scheduled mainly in the festive season, when book-buying is high anyway',
+        'the authors who visited the store were generally popular with the store\'s regular customers',
+        'hosting an author event requires the store to rearrange its shelves for the evening',
+        'some customers who attended the events did not buy any book on the day'
+      ],
+      answer: 'the author events had so far been scheduled mainly in the festive season, when book-buying is high anyway',
+      explanation: 'The argument treats the events as the cause of high revenue. The completion must give a reason to doubt that — and a confound (events were held in the already-high-revenue festive season) does exactly that, justifying the hesitation. The other choices are true-but-irrelevant details that do not undercut the events→revenue inference.',
+      explanationVersion: V, tags: ['complete', 'confound'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-comp-002', topic: 'lr-critical', subtype: 'complete', difficulty: 'hard', exams: ['XAT', 'CAT'], inspiredBy: 'XAT-style complete',
+      stem: 'A city argued that its new cycle lanes had improved road safety, pointing out that accidents on those roads fell in the year after the lanes opened. This reasoning would be most seriously undermined if it were shown that ____',
+      options: [
+        'in the same year, the city also lowered the speed limit on exactly those roads and added speed cameras',
+        'the cycle lanes were used by fewer cyclists than the planners had initially hoped for',
+        'building the cycle lanes cost more than the amount the city had set aside for them',
+        'a few drivers complained that the cycle lanes had made the roads narrower'
+      ],
+      answer: 'in the same year, the city also lowered the speed limit on exactly those roads and added speed cameras',
+      explanation: 'The claim credits the cycle lanes for the fall in accidents. A simultaneous, road-specific change (lower speed limit + cameras) is an alternative cause that could fully explain the drop, undermining the inference. Low usage, cost and driver complaints do not provide a competing cause for the fewer accidents.',
+      explanationVersion: V, tags: ['complete', 'alternative-cause'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-meth-001', topic: 'lr-critical', subtype: 'method', difficulty: 'hard', exams: ['XAT', 'CAT'], inspiredBy: 'CAT-style method-of-reasoning',
+      stem: 'Critic: "The minister claims the new tax helped the poor because poverty fell after it was introduced. But poverty had been falling steadily for a decade before the tax, at the very same rate. So the tax deserves no special credit." How does the critic counter the minister\'s argument?',
+      options: [
+        'By showing that the effect the minister attributes to the tax was already occurring for other reasons',
+        'By arguing that the minister has misunderstood what the official poverty figures actually measure',
+        'By presenting expert testimony that directly contradicts the minister\'s central claim',
+        'By pointing out that the minister has a personal interest in defending the tax'
+      ],
+      answer: 'By showing that the effect the minister attributes to the tax was already occurring for other reasons',
+      explanation: 'The critic does not dispute the figures or attack the minister; he shows the trend predated the tax and continued at the same rate, so the tax adds nothing — undermining the causal claim by revealing a pre-existing trend. The other options describe tactics (redefining the measure, expert testimony, ad hominem) the critic does not use.',
+      explanationVersion: V, tags: ['method', 'pre-existing-trend'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-parallel-001', topic: 'lr-critical', subtype: 'parallel', difficulty: 'hard', exams: ['CAT', 'XAT'], inspiredBy: 'CAT-style parallel-reasoning',
+      stem: 'Argument: "Every employee who was promoted last year had completed the leadership course. Meera completed the leadership course. So Meera will be promoted." Which of the following arguments is most similar in its reasoning to the one above?',
+      options: [
+        'All the students who won the scholarship had scored above 90%. Rohan scored above 90%. So Rohan will win the scholarship.',
+        'All the cats in the shelter are vaccinated. This animal is vaccinated. So it must be a cat from the shelter.',
+        'No player on the team is under 18. Sara is 20. So Sara could be on the team.',
+        'Most people who exercise daily are healthy. Tarun is healthy. So Tarun probably exercises daily.'
+      ],
+      answer: 'All the students who won the scholarship had scored above 90%. Rohan scored above 90%. So Rohan will win the scholarship.',
+      explanation: 'The original commits the flaw of treating a necessary condition (the course) as sufficient for promotion. The scholarship argument has the identical structure — a necessary condition (scoring above 90%) wrongly treated as guaranteeing the result. The others differ: the cat argument reverses the conditional, and the remaining two use "no"/"most" rather than the all→therefore-certain pattern.',
+      explanationVersion: V, tags: ['parallel', 'necessary-vs-sufficient'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-str-rich-001', topic: 'lr-critical', subtype: 'strengthen', difficulty: 'medium', exams: ['CAT', 'NMAT', 'SNAP'], inspiredBy: 'CAT-style strengthen',
+      stem: 'A school principal believes that serving a free breakfast improved her students\' test scores, since scores rose the year the breakfast began. Which of the following, if true, most strengthens her belief?',
+      options: [
+        'In a neighbouring school that introduced the same breakfast a year later, test scores rose only after the breakfast began and not before',
+        'The students at the principal\'s school generally said they enjoyed the taste of the free breakfast',
+        'The free breakfast was funded by a grant that the school had applied for two years earlier',
+        'Parents of the students were pleased that the school had taken an interest in nutrition'
+      ],
+      answer: 'In a neighbouring school that introduced the same breakfast a year later, test scores rose only after the breakfast began and not before',
+      explanation: 'A parallel case where the same cause was introduced at a different time, and the effect followed only then, is strong evidence that the breakfast — not some coincident factor — drove the rise. Enjoyment, grant timing and parental approval say nothing about whether the breakfast caused the score increase.',
+      explanationVersion: V, tags: ['strengthen', 'parallel-case'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-assum-rich-001', topic: 'lr-critical', subtype: 'assumption', difficulty: 'hard', exams: ['XAT', 'CAT'], inspiredBy: 'XAT-style assumption',
+      stem: 'A streaming service plans to reduce customer cancellations by adding more regional-language films, reasoning that subscribers who cancel do so because they run out of things to watch. Which of the following is an assumption the plan depends on?',
+      options: [
+        'At least a meaningful share of the subscribers who cancel would stay if more regional-language films were available to them',
+        'Regional-language films are cheaper for the streaming service to license than films in other languages',
+        'The subscribers who cancel watch more hours of content each week than those who renew',
+        'Competing streaming services do not already offer a larger regional-language catalogue'
+      ],
+      answer: 'At least a meaningful share of the subscribers who cancel would stay if more regional-language films were available to them',
+      explanation: 'The plan works only if "running out of things to watch" is actually why people cancel and more films would retain them. Negate the answer — almost no cancellers would stay for more regional films — and the plan collapses, so it is a required assumption. Licensing cost, viewing hours, and competitors\' catalogues are not needed for the plan to succeed.',
+      explanationVersion: V, tags: ['assumption', 'negation-test'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'cr-flaw-rich-001', topic: 'lr-critical', subtype: 'flaw', difficulty: 'medium', exams: ['CAT', 'SNAP'], inspiredBy: 'CAT-style flaw',
+      stem: 'A columnist writes: "The new airport is clearly a success. In its first month it handled more passengers than the old airport handled in its final month, so the city was obviously right to build it." The reasoning is most vulnerable to the criticism that it ____',
+      options: [
+        'judges the project a success on passenger numbers alone, ignoring whether the benefit was worth the cost of building it',
+        'assumes without evidence that the old airport was incapable of handling any more passengers',
+        'fails to specify exactly how many passengers each of the two airports handled',
+        'does not consider the opinions of the passengers who used the new airport'
+      ],
+      answer: 'judges the project a success on passenger numbers alone, ignoring whether the benefit was worth the cost of building it',
+      explanation: 'Higher passenger numbers show the airport is used, not that building it was the right decision — that requires weighing the benefit against the cost, which the argument never does. The flaw is equating "more passengers" with "success". The other options raise side issues that do not capture this leap.',
+      explanationVersion: V, tags: ['flaw', 'cost-benefit'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
