@@ -36,7 +36,10 @@ var CATEGORY_LABELS = topics.CATEGORY_LABELS;
 // e.g. a weak "di-line" surfaces as "Line Graphs", not "General Math". Required in node only; safe (no side effects).
 var _diLabels = {};
 try { _diLabels = require('../js/di-engine').CATEGORY_LABELS || {}; } catch (_) {}
-function label(cat) { return CATEGORY_LABELS[cat] || _diLabels[cat] || (topics.label ? topics.label(cat) : cat); }
+// LR categories (ADR-075) labelled by the LR engine, same pattern — so QuanAI names "Syllogisms", not "Lr Syllogism".
+var _lrLabels = {};
+try { _lrLabels = require('../js/lr-engine').CATEGORY_LABELS || {}; } catch (_) {}
+function label(cat) { return CATEGORY_LABELS[cat] || _diLabels[cat] || _lrLabels[cat] || (topics.label ? topics.label(cat) : cat); }
 
 var _round = aiMath.round;
 

@@ -10962,6 +10962,30 @@ body.dark-mode .kx-topic-card.is-complete .kx-tc-title::after { color: #4ade80; 
 body.dark-mode .category-subject-label { color: #cbd5e1; }
 body.dark-mode .category-subject-hint { color: #64748b; }
 
+/* ============================================================================
+   Multiple-choice answers — Logical Reasoning (ADR-075, V2 Phase 3)
+   Rendered in place of the numeric input when a question carries options[].
+   ========================================================================== */
+.mcq-options { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; margin: .2rem 0 .3rem; width: 100%; }
+.mcq-option {
+  appearance: none; -webkit-appearance: none; text-align: center; cursor: pointer;
+  padding: .8rem .7rem; font-size: .98rem; font-weight: 600; line-height: 1.25;
+  color: #1e293b; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.mcq-option:active { transform: scale(.97); }
+.mcq-option.selected { border-color: var(--qr-accent); }
+.mcq-option:disabled { cursor: default; opacity: 1; }
+/* single long option (e.g. "Cannot be determined") spans the row */
+.mcq-option.mcq-wide { grid-column: 1 / -1; }
+.mcq-option.mcq-correct { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.mcq-option.mcq-wrong { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+body.dark-mode .mcq-option { color: #e2e8f0; background: #1e293b; border-color: #334155; }
+body.dark-mode .mcq-option.selected { border-color: var(--qr-accent); }
+body.dark-mode .mcq-option.mcq-correct { background: rgba(34,197,94,.18); border-color: #22c55e; color: #86efac; }
+body.dark-mode .mcq-option.mcq-wrong { background: rgba(239,68,68,.18); border-color: #ef4444; color: #fca5a5; }
+@media (prefers-reduced-motion: reduce) { .mcq-option { transition: none; } .mcq-option:active { transform: none; } }
+
 /* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
 .kx-subject-group { margin-bottom: .4rem; }
 .kx-subject-group + .kx-subject-group { margin-top: 1.6rem; }

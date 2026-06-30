@@ -14,6 +14,7 @@ function p(rel) { return path.join(__dirname, '..', rel); }
 var SUB = require(p('data/subjects'));
 var quantTopics = require(p('services/quantTopics'));
 var DIEngine = require(p('js/di-engine'));
+var LREngine = require(p('js/lr-engine'));
 
 var pass = 0, fail = 0;
 function ok(label, cond) { if (cond) pass++; else { fail++; console.error('  ✗ ' + label); } }
@@ -24,13 +25,15 @@ function eq(label, got, want) {
 
 console.log('subjects.check — Subject layer (ADR-073)');
 
-/* ── 1. registry: the subjects that have content today (Quant + DI), ordered, with labels ── */
+/* ── 1. registry: the subjects that have content today (Quant + DI + LR), ordered, with labels ── */
 (function () {
-  eq('1 subjects registered in order', SUB.subjects().map(function (s) { return s.id; }), ['quant', 'di']);
+  eq('1 subjects registered in order', SUB.subjects().map(function (s) { return s.id; }), ['quant', 'di', 'lr']);
   ok('1 quant has order 1', SUB.subject('quant').order === 1);
   ok('1 di has order 2', SUB.subject('di').order === 2);
+  ok('1 lr has order 3', SUB.subject('lr').order === 3);
   ok('1 quant label', SUB.label('quant') === 'Quantitative Aptitude');
   ok('1 di label', SUB.label('di') === 'Data Interpretation');
+  ok('1 lr label', SUB.label('lr') === 'Logical Reasoning');
   ok('1 unknown subject label falls back to id', SUB.label('zzz') === 'zzz');
 })();
 
@@ -70,6 +73,16 @@ console.log('subjects.check — Subject layer (ADR-073)');
   diCats.forEach(function (c) { ok('6 ' + c + ' → di', SUB.categoryToSubject(c) === 'di'); });
   ok('6 quant and di category sets are disjoint',
     SUB.subjectToCategories('quant').filter(function (c) { return diCats.indexOf(c) !== -1; }).length === 0);
+})();
+
+/* ── 7. LR subject (ADR-075): categories from lr-engine, every LR cat → 'lr', disjoint from quant + di ── */
+(function () {
+  var lrCats = LREngine.categories(), diCats = DIEngine.categories(), qCats = SUB.subjectToCategories('quant');
+  ok('7 LR has 7 categories', lrCats.length === 7);
+  eq('7 subjectToCategories(lr) = lr-engine categories', SUB.subjectToCategories('lr'), lrCats);
+  lrCats.forEach(function (c) { ok('7 ' + c + ' → lr', SUB.categoryToSubject(c) === 'lr'); });
+  ok('7 lr disjoint from quant', lrCats.filter(function (c) { return qCats.indexOf(c) !== -1; }).length === 0);
+  ok('7 lr disjoint from di', lrCats.filter(function (c) { return diCats.indexOf(c) !== -1; }).length === 0);
 })();
 
 console.log('\nsubjects.check: ' + pass + ' passed, ' + fail + ' failed');

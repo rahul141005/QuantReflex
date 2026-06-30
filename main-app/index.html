@@ -419,6 +419,16 @@
               <button class="category-btn category-card" type="button" data-cat="di-table">Data Tables</button>
               <button class="category-btn category-card" type="button" data-cat="di-caselet">Caselets</button>
             </div>
+            <p class="category-subject-label">Logical Reasoning <span class="category-subject-hint">reasoning reflexes</span></p>
+            <div class="category-grid">
+              <button class="category-btn category-card" type="button" data-cat="lr-coding">Coding-Decoding</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-blood">Blood Relations</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-direction">Direction Sense</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-ranking">Ranking &amp; Order</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-odd">Odd One Out</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-analogy">Analogies</button>
+              <button class="category-btn category-card" type="button" data-cat="lr-syllogism">Syllogisms</button>
+            </div>
 
             <!-- Adaptive Training Toggle -->
             <div class="timer-select-section adaptive-toggle-section" id="adaptiveTrainingSection">
@@ -1582,6 +1592,9 @@
        into questions.js's categoryGenerators so Practice reuses the same pipeline; di-charts renders the chart block. -->
   <script defer src="js/di-engine.js"></script>
   <script defer src="js/ui/di-charts.js"></script>
+  <!-- Logical Reasoning engine (ADR-075): like di-engine, MUST load after questions.js (self-registers its
+       generators into categoryGenerators). MCQ rendering is built into the drill engine; no extra renderer file. -->
+  <script defer src="js/lr-engine.js"></script>
   <script defer src="data/syllabus.js"></script>
   <script defer src="js/mock-engine.js"></script>
   <script defer src="js/tables.js"></script>
@@ -1598,6 +1611,7 @@
   <script defer src="data/knowledge/modern.js"></script>
   <script defer src="data/knowledge/mensuration.js"></script>
   <script defer src="data/knowledge/di.js"></script>
+  <script defer src="data/knowledge/lr.js"></script>
   <script defer src="js/learn/learn-search.js"></script>
   <script defer src="js/learn/learn-progress.js"></script>
   <script defer src="js/settings.js"></script>

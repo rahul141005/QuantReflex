@@ -31,22 +31,30 @@
   /* DI categories live in js/di-engine.js, which (in the browser) loads AFTER this file — so resolve it LAZILY
      (on first lookup), never at load. In node the check harness require()s it directly. This keeps "no duplicated
      category list": each subject's categories come from that subject's own authoritative source. */
-  var _DI = null;
+  var _DI = null, _LR = null;
   function _di() {
     if (_DI) return _DI;
     try { _DI = (typeof require !== 'undefined') ? require('../js/di-engine')
       : (typeof window !== 'undefined' ? window.DIEngine : root.DIEngine); } catch (_) {}
     return _DI;
   }
+  function _lr() {
+    if (_LR) return _LR;
+    try { _LR = (typeof require !== 'undefined') ? require('../js/lr-engine')
+      : (typeof window !== 'undefined' ? window.LREngine : root.LREngine); } catch (_) {}
+    return _LR;
+  }
   function _quantCats() { return Object.keys((QuantTopics && QuantTopics.CATEGORY_LABELS) || {}); }
   function _diCats() { var d = _di(); return (d && typeof d.categories === 'function') ? d.categories() : []; }
+  function _lrCats() { var l = _lr(); return (l && typeof l.categories === 'function') ? l.categories() : []; }
 
-  /* The subject registry. Quant ships today; Data Interpretation joins in V2 Phase 2 WITH its generators (ADR-074).
-     generatable Logical Reasoning joins in V2.5. `cats` is a resolver (lazy) so DI's categories come from di-engine.
-     `order` drives display sequencing. (LR is documented in ROADMAP/DECISION_LOG, not stubbed here.) */
+  /* The subject registry — the Speed-Aptitude spine. Each subject ships WITH its generators: Quant (ADR-045),
+     Data Interpretation (ADR-074, Phase 2), Logical Reasoning (ADR-075, Phase 3). `cats` is a lazy resolver so
+     each subject's categories come from that subject's own authoritative engine (no duplicated list). */
   var SUBJECTS = [
     { id: 'quant', label: 'Quantitative Aptitude', short: 'Quant', order: 1, cats: _quantCats },
-    { id: 'di', label: 'Data Interpretation', short: 'DI', order: 2, cats: _diCats }
+    { id: 'di', label: 'Data Interpretation', short: 'DI', order: 2, cats: _diCats },
+    { id: 'lr', label: 'Logical Reasoning', short: 'LR', order: 3, cats: _lrCats }
   ];
 
   var _byId = {};

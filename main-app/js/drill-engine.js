@@ -160,6 +160,7 @@ function createDrillEngine(container, opts) {
     answered = false;
     _nextReady = true; /* reset debounce for each new question */
     var q = questions[current];
+    var isMCQ = !!(q.options && q.options.length);   /* LR (ADR-075): a question may be multiple-choice */
     /* Use original count for progress display in review mode to avoid
        confusing jumps when wrong answers add questions to the queue.
        If current question exceeds original count (re-queued mistakes),
@@ -182,7 +183,14 @@ function createDrillEngine(container, opts) {
              numpad, grading + feedback as Quant — the only DI-specific surface is this one chart block. */
           (q.chart && typeof DICharts !== 'undefined' ? DICharts.render(q.chart) : '') +
           '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
-          '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
+          /* LR (ADR-075): multiple-choice questions render option buttons instead of the numeric input; everything
+             else (grading, feedback, recordAnswer, Next) is reused. Quant/DI stay on the numpad path unchanged. */
+          (isMCQ
+            ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
+                q.options.map(function (o) { var s = _escHtml(String(o)); var wide = String(o).length > 14 ? ' mcq-wide' : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s + '">' + s + '</button>'; }).join('') +
+              '</div>'
+            : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />'
+          ) +
           '<div id="feedback" class="feedback"></div>' +
         '</div>' +
       '</div>' +
@@ -236,13 +244,15 @@ function createDrillEngine(container, opts) {
       if (isDuel) captureDuelAnswer(input.value.trim());   /* capture-only: no client grading (ADR-033) */
       else checkAnswer(input.value.trim());
     }
-    submitBtn.addEventListener('click', submit);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        submit();
-      }
-    });
+    if (!isMCQ) {
+      submitBtn.addEventListener('click', submit);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submit();
+        }
+      });
+    }
 
     /* Skip button (same `.btn.skip-btn` styling either way — true reuse).
        Duel: ALWAYS available (a skip = blank wrong answer that advances) via the capture-only path.
@@ -283,8 +293,24 @@ function createDrillEngine(container, opts) {
 
     qStart = performance.now();
 
-    /* Show custom numpad (the SAME component as Practice — true reuse, ADR-033) */
-    showCustomNumpad(input, function() { submit(); });
+    if (isMCQ) {
+      /* LR (ADR-075): answer via option buttons — suppress the numpad and hide Submit (a tap IS the submit). */
+      if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
+      if (ui.submitBtnEl) ui.submitBtnEl.style.display = 'none';
+      var _mcqHost = container.querySelector('#mcqOptions');
+      var _opts = _mcqHost ? _mcqHost.querySelectorAll('.mcq-option') : [];
+      for (var _oi = 0; _oi < _opts.length; _oi++) {
+        _opts[_oi].addEventListener('click', function () {
+          if (answered) return;
+          this.classList.add('selected');
+          var _v = this.getAttribute('data-opt');
+          if (isDuel) captureDuelAnswer(_v); else checkAnswer(_v);
+        });
+      }
+    } else {
+      /* Show custom numpad (the SAME component as Practice — true reuse, ADR-033) */
+      showCustomNumpad(input, function() { submit(); });
+    }
 
     /* Per-question timer */
     if (perQLimit) {
@@ -334,6 +360,18 @@ function createDrillEngine(container, opts) {
         if (Math.abs(rawNum - expNum) <= tolerance) {
           correct = true;
         }
+      }
+    }
+
+    /* LR MCQ (ADR-075): reveal the correct option + mark the wrong pick, lock further taps. */
+    var _mcqHost = container.querySelector('#mcqOptions');
+    if (_mcqHost) {
+      var _o = _mcqHost.querySelectorAll('.mcq-option');
+      for (var _k = 0; _k < _o.length; _k++) {
+        _o[_k].disabled = true;
+        var _ov = _o[_k].getAttribute('data-opt');
+        if (_ov === expected) _o[_k].classList.add('mcq-correct');
+        else if (_o[_k].classList.contains('selected')) _o[_k].classList.add('mcq-wrong');
       }
     }
 
@@ -471,6 +509,7 @@ function createDrillEngine(container, opts) {
 
     /* Replace submit with next */
     var submitBtn = ui.submitBtnEl;
+    submitBtn.style.display = '';   /* MCQ hid it pre-answer; reveal it now as the Next button (no-op for numeric) */
     submitBtn.textContent = current + 1 < count ? 'Next →' : 'View Results';
     /* Block next-question for 350ms to prevent carry-over numpad taps */
     _nextReady = false;
