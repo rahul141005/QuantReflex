@@ -11081,3 +11081,6 @@ body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
 .authored-explanation { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; background: #f1f5f9; border-left: 3px solid var(--qr-accent, #2563eb); font-size: .9rem; line-height: 1.5; color: #1e293b; text-align: left; }
 .authored-explanation-head { font-weight: 800; color: var(--qr-accent, #2563eb); }
 body.dark-mode .authored-explanation { background: #1e293b; color: #e2e8f0; }
+/* LR syllabus tier sub-headings inside the Logical Reasoning category group */
+.category-tier-label { margin: .55rem 0 .3rem; font-size: .66rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #64748b; }
+body.dark-mode .category-tier-label { color: #94a3b8; }

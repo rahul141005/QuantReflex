@@ -313,6 +313,11 @@ function formatCategoryName(key) {
      "Syllogisms", not "Di Bar" / "Lr Syllogism". */
   try { if (typeof DIEngine !== 'undefined' && DIEngine.CATEGORY_LABELS && DIEngine.CATEGORY_LABELS[key]) return DIEngine.CATEGORY_LABELS[key]; } catch (_) {}
   try { if (typeof LREngine !== 'undefined' && LREngine.CATEGORY_LABELS && LREngine.CATEGORY_LABELS[key]) return LREngine.CATEGORY_LABELS[key]; } catch (_) {}
+  /* ADR-079: LR is also served by the set, authored-content and visual engines — each owns its category labels. */
+  try { if (typeof LRSetEngine !== 'undefined' && key === 'lr-seating') return 'Seating Arrangement'; } catch (_) {}
+  try { if (typeof LRSetEngine !== 'undefined' && key === 'lr-puzzle') return 'Puzzles'; } catch (_) {}
+  try { if (typeof LRAuthoredEngine !== 'undefined' && LRAuthoredEngine.CATEGORY_LABELS && LRAuthoredEngine.CATEGORY_LABELS[key]) return LRAuthoredEngine.CATEGORY_LABELS[key]; } catch (_) {}
+  try { if (typeof LRVisualEngine !== 'undefined' && LRVisualEngine.CATEGORY_LABELS && LRVisualEngine.CATEGORY_LABELS[key]) return LRVisualEngine.CATEGORY_LABELS[key]; } catch (_) {}
   /* Fallback: capitalize and replace hyphens with spaces */
   return key.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }

@@ -138,6 +138,178 @@
         { type: 'example', problem: 'All cats are dogs. No dogs are birds. Does "No cats are birds" follow?', steps: ['All cats sit inside dogs', 'Dogs and birds are completely separate', 'So cats (inside dogs) are separate from birds → it follows'], answer: 'Follows' },
         { type: 'revision', points: ['All = inside, No = apart, Some = overlap exists.', 'A conclusion follows only if true in EVERY diagram.', 'Some + Some ⇒ nothing certain.', 'Look for a single counter-example to reject it.'] }
       ]
+    },
+    {
+      id: 'lr-series', title: 'Letter & Number Series', category: 'lr-reasoning', difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'lr-series', searchTerms: ['series', 'letter series', 'alphanumeric', 'next term', 'pattern'], related: ['lr-analogies', 'lr-coding-decoding'],
+      sections: [
+        { type: 'overview', text: 'A series is a sequence built on a hidden rule; you find the rule and extend it. The rule may act on numbers, on letter POSITIONS, or on both at once (alphanumeric). Speed comes from checking differences first.' },
+        { type: 'concept', title: 'Differences and steps', body: 'Write the gaps between consecutive terms. A constant gap is an arithmetic step; a growing gap may be ×k, squares, or added increments. For letters, convert to positions (A=1…Z=26) and treat them like numbers.' },
+        { type: 'concept', title: 'Interleaved (alternate) series', body: 'Some series hide TWO patterns on alternate positions — one rising, one falling. Split the odd-position terms from the even-position terms and solve each separately.' },
+        { type: 'formula', items: [
+          { name: 'Constant letter step', expr: 'next = letter at (position of last + k)' },
+          { name: 'Alphanumeric term', expr: 'advance the letter by a, the number by b, each step' },
+          { name: 'Interleaved', expr: 'positions 1,3,5… form one series; 2,4,6… another' }
+        ] },
+        { type: 'trick', title: 'Check gaps first', items: ['Always compute first differences before guessing — most series are arithmetic or a simple ×/+.', 'For letters, EJOTY (E5, J10, O15, T20, Y25) places any letter fast.'] },
+        { type: 'example', problem: 'Find the next term: C, F, I, L, ?', steps: ['Positions: 3, 6, 9, 12 — a constant +3', 'Next position = 12 + 3 = 15', '15 → O'], answer: 'O' },
+        { type: 'revision', points: ['First differences reveal arithmetic steps.', 'Convert letters to positions (A=1…Z=26).', 'Split alternate terms for interleaved series.', 'Wrap letters past Z back to A.'] }
+      ]
+    },
+    {
+      id: 'lr-coded-inequalities', title: 'Coded Inequalities', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'lr-inequality', searchTerms: ['inequalities', 'coded inequality', 'definitely true', 'either or', 'banking reasoning'], related: ['lr-syllogisms'],
+      sections: [
+        { type: 'overview', text: 'Coded inequalities replace the signs >, ≥, <, ≤, = with symbols, then ask which conclusion is definitely true. Decode the chain, then combine the signs between the two terms in the conclusion.' },
+        { type: 'concept', title: 'Combining a chain', body: 'Along a path, signs combine only if they point the SAME way. A > B ≥ C gives A > C (any strict > makes the result strict). If the path mixes a > and a <, the relation between the ends is undecided.' },
+        { type: 'concept', title: 'The "Either–Or" case', body: 'When the derived relation is ≥ (or ≤) and the two conclusions are the complementary pair "X > Y" and "X = Y", neither is individually certain, but one MUST hold — so the answer is "Either I or II is true".' },
+        { type: 'formula', items: [
+          { name: 'Same-direction chain', expr: '> with ≥/= ⇒ > ; only ≥/= ⇒ ≥ ; only = ⇒ =' },
+          { name: 'Mixed direction', expr: '> combined with < between the ends ⇒ cannot be determined' },
+          { name: 'Either–Or test', expr: 'derived ≥ , conclusions (X>Y, X=Y) ⇒ Either I or II' }
+        ] },
+        { type: 'trap', items: ['≥ does NOT prove > (it allows equality) — and does not prove = either.', 'A single < anywhere among > signs breaks the chain to "undetermined".', 'Read the conclusion\'s direction carefully; the pair X>Y and X≤Y are complementary, X>Y and X<Y are not.'] },
+        { type: 'example', problem: "Statements: A > B ≥ C. Conclusions: I. A > C  II. A = C.", steps: ['A > B and B ≥ C ⇒ A > C (the > dominates)', 'So I is definitely true', 'A = C is impossible since A > C ⇒ II is false'], answer: 'Only I is true' },
+        { type: 'revision', points: ['Decode symbols to >, ≥, <, ≤, =.', 'Combine only the signs between the two terms.', 'Any strict > (or <) makes the result strict.', 'Mixed > and < ⇒ undetermined; ≥ with the complementary pair ⇒ Either–Or.'] }
+      ]
+    },
+    {
+      id: 'lr-calendars', title: 'Calendars', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'lr-calendar', searchTerms: ['calendar', 'day of week', 'odd days', 'leap year'], related: ['lr-clocks'],
+      sections: [
+        { type: 'overview', text: 'Calendar questions ask the day of the week for a date, or the day after a gap. Everything reduces to counting "odd days" — the remainder of a day-count divided by 7.' },
+        { type: 'concept', title: 'Odd days', body: 'Days of the week repeat every 7. So only the remainder when the number of days is divided by 7 matters. Add that remainder to the known weekday and wrap around.' },
+        { type: 'concept', title: 'Leap years', body: 'A year is a leap year if divisible by 4, except centuries which must be divisible by 400. A leap year has 366 days (Feb = 29); it contributes 2 odd days, an ordinary year 1.' },
+        { type: 'formula', items: [
+          { name: 'Day after a gap', expr: 'new weekday = (start weekday + gap) mod 7' },
+          { name: 'Odd days in a year', expr: 'ordinary year = 1, leap year = 2' },
+          { name: 'Leap-year test', expr: 'div by 4 (and by 400 if a century)' }
+        ] },
+        { type: 'trick', title: 'Count month lengths', items: ['Within a year, add the days from a known date to the target date, then take mod 7.', 'Remember 30-day months (Apr, Jun, Sep, Nov); the rest are 31, except February.'] },
+        { type: 'example', problem: 'If 1 March is a Monday, what day is 20 March (same year)?', steps: ['Gap = 20 − 1 = 19 days', '19 mod 7 = 5 odd days', 'Monday + 5 = Saturday'], answer: 'Saturday' },
+        { type: 'revision', points: ['Only odd days (mod 7) matter.', 'Ordinary year = 1 odd day, leap = 2.', 'Leap: ÷4 (and ÷400 for centuries).', 'Add the gap to the known weekday and wrap.'] }
+      ]
+    },
+    {
+      id: 'lr-clocks', title: 'Clocks', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'lr-clock', searchTerms: ['clock', 'angle between hands', 'mirror time', 'hour hand'], related: ['lr-calendars'],
+      sections: [
+        { type: 'overview', text: 'Clock problems are about the angles of the hour and minute hands. The hour hand moves 0.5° per minute, the minute hand 6° per minute — every angle follows from that.' },
+        { type: 'concept', title: 'Hand speeds', body: 'In 60 minutes the minute hand sweeps 360° (6°/min) and the hour hand 30° (0.5°/min). At H hours M minutes the hour hand is at 30H + 0.5M degrees and the minute hand at 6M degrees.' },
+        { type: 'concept', title: 'Mirror image of a time', body: 'The mirror (left–right) image of a clock time T equals 11:60 − T. Subtract the time from 11 hours 60 minutes to read the reflected time.' },
+        { type: 'formula', items: [
+          { name: 'Angle between hands', expr: '|30H − 5.5M| , then take the smaller of that and 360 − it' },
+          { name: 'Hour-hand position', expr: '30H + 0.5M degrees from 12' },
+          { name: 'Mirror time', expr: '(11:60) − given time' }
+        ] },
+        { type: 'trick', title: 'Anchor on the hours', items: ['Each hour mark is 30° apart, so 3:00 = 90°, 6:00 = 180°.', 'The hands coincide 11 times in 12 hours, not 12.'] },
+        { type: 'example', problem: 'What is the angle between the hands at 3:00?', steps: ['H = 3, M = 0', '|30×3 − 5.5×0| = 90°', 'Smaller of 90 and 270 = 90°'], answer: '90°' },
+        { type: 'revision', points: ['Minute hand 6°/min, hour hand 0.5°/min.', 'Angle = |30H − 5.5M|, then the smaller side.', 'Mirror time = 11:60 − time.', 'Hands overlap 11 times in 12 hours.'] }
+      ]
+    },
+    {
+      id: 'lr-critical-reasoning', title: 'Critical Reasoning', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'lr-critical', searchTerms: ['critical reasoning', 'assumption', 'strengthen', 'weaken', 'inference', 'cat verbal'], related: ['lr-statement-argument'],
+      sections: [
+        { type: 'overview', text: 'Critical Reasoning tests how an argument is built — its evidence, its conclusion, and the gap between them. You will be asked to find an assumption, or to strengthen, weaken or draw a valid inference. It rewards careful reading, not vocabulary.' },
+        { type: 'concept', title: 'Argument anatomy', body: 'Separate the CONCLUSION (the claim) from the EVIDENCE (the support). The unstated link between them is the assumption — the soft target most questions attack or defend.' },
+        { type: 'concept', title: 'Causal traps', body: 'Many arguments leap from a correlation to a cause. To weaken, supply an ALTERNATIVE cause; to strengthen, rule one out. Watch for self-selection and confounding variables.' },
+        { type: 'formula', items: [
+          { name: 'Assumption', expr: 'Negation test: negate it → the argument collapses ⇒ it was required' },
+          { name: 'Weaken', expr: 'introduce an alternative cause or a counter-example' },
+          { name: 'Strengthen', expr: 'confirm the cause→effect link or eliminate an alternative' },
+          { name: 'Inference', expr: 'must be true from the stated facts — never goes beyond them' }
+        ] },
+        { type: 'trap', items: ['Picking an option that is true but OUT OF SCOPE — it must affect THIS argument.', 'Confusing a strengthener with a restatement of the conclusion.', 'Treating an inference as "likely" — it must be necessarily true.'] },
+        { type: 'example', problem: 'Claim: raising parking fees will cut downtown traffic. Find the assumption.', steps: ['Conclusion: higher fees → less traffic', 'It assumes people currently drive in BECAUSE parking is affordable', 'Negate it (fees don\'t affect the choice) and the plan fails ⇒ required assumption'], answer: 'People drive in partly because parking is affordable.' },
+        { type: 'revision', points: ['Split conclusion from evidence; the gap is the assumption.', 'Negation test confirms a required assumption.', 'Weaken = alternative cause; Strengthen = rule one out.', 'An inference must be necessarily true and within scope.'] }
+      ]
+    },
+    {
+      id: 'lr-statement-argument', title: 'Statement & Argument', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
+      drillCategory: 'lr-statement', searchTerms: ['statement assumption', 'statement conclusion', 'strong argument', 'implicit'], related: ['lr-critical-reasoning'],
+      sections: [
+        { type: 'overview', text: 'This family gives a statement and asks what is implicit (assumption), what follows (conclusion), or which argument is strong. The verdict-style options (Only I, Only II, Both, Neither, Either) demand precise reasoning.' },
+        { type: 'concept', title: 'Assumption vs conclusion', body: 'An assumption is taken for granted BEHIND the statement; a conclusion is drawn FROM it. An assumption must be necessary, not merely plausible; a conclusion must follow with certainty.' },
+        { type: 'concept', title: 'Strong vs weak arguments', body: 'A strong argument is both RELEVANT to the question and SUBSTANTIAL (addresses a real consequence). Vague fears, mere opinions and tiny side-effects are weak.' },
+        { type: 'formula', items: [
+          { name: 'Implicit assumption', expr: 'something the statement must take for granted to make sense' },
+          { name: 'Valid conclusion', expr: 'must follow necessarily from the statement' },
+          { name: 'Strong argument', expr: 'relevant + substantial (not an opinion or a remote effect)' }
+        ] },
+        { type: 'trap', items: ['Marking an over-strong assumption ("meets EVERY qualification") as implicit.', 'Accepting a conclusion that is only "possible", not certain.', 'Rating an emotional or trivial argument as strong.'] },
+        { type: 'example', problem: 'Statement: "Send your résumé for the analyst role." Is "the sender is applying for the role" implicit?', steps: ['Sending a résumé "for the role" presupposes applying', 'It does NOT presuppose meeting every qualification', 'So only that first assumption is implicit'], answer: 'Yes — only that assumption is implicit.' },
+        { type: 'revision', points: ['Assumption = taken for granted, and necessary.', 'Conclusion = follows with certainty.', 'Strong argument = relevant AND substantial.', 'Reject over-strong or merely possible options.'] }
+      ]
+    },
+    {
+      id: 'lr-decision-making', title: 'Decision Making', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'high', status: 'published',
+      drillCategory: 'lr-decision', searchTerms: ['decision making', 'xat', 'ethical', 'managerial', 'best course'], related: ['lr-critical-reasoning'],
+      sections: [
+        { type: 'overview', text: 'Decision Making (the hallmark of XAT) places you in a managerial or ethical situation and asks for the best action. The winning choice is balanced, ethical and practical — not extreme, not self-serving.' },
+        { type: 'concept', title: 'Weigh all stakeholders', body: 'Identify everyone affected — customers, employees, the organisation, the public — and look for the option that protects the most important interests (safety, integrity) while remaining workable.' },
+        { type: 'concept', title: 'Priorities and ethics', body: 'Safety and integrity outrank deadlines and short-term profit. When facts are missing, the most useful information is whatever is decisive for the outcome (e.g. ability to repay for a loan).' },
+        { type: 'formula', items: [
+          { name: 'Best option', expr: 'balanced + ethical + practical' },
+          { name: 'Priority order', expr: 'safety / integrity > deadlines > convenience > profit' },
+          { name: 'Avoid', expr: 'extreme over-reactions and self-interested or dishonest choices' }
+        ] },
+        { type: 'trap', items: ['Choosing a drastic action (shut it down, fire everyone) when a measured fix exists.', 'Prioritising the deadline or profit over safety or honesty.', 'Picking an option that solves nothing (ignore it / hope it resolves).'] },
+        { type: 'example', problem: 'A junior auditor finds a small but clear error overstating profit; the manager says ignore it. What should she do?', steps: ['Accuracy and integrity of the accounts come first, regardless of size', 'Raise it through the proper channel', 'Ignoring, hiding or resigning are all worse'], answer: 'Document and raise it through the proper channel.' },
+        { type: 'revision', points: ['Pick the balanced, ethical, practical option.', 'Safety and integrity beat deadlines and profit.', 'Reject extremes and self-serving choices.', 'When data is missing, find the decisive fact.'] }
+      ]
+    },
+    {
+      id: 'lr-seating-puzzles', title: 'Seating Arrangement & Puzzles', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'lr-seating', searchTerms: ['seating arrangement', 'puzzle', 'linear', 'floor puzzle', 'banking puzzle'], related: ['lr-ranking'],
+      sections: [
+        { type: 'overview', text: 'A puzzle gives one scenario (a row, a circle, or floors) and a set of clues that together pin down a single arrangement. Several questions then read off that arrangement. The skill is building the diagram efficiently.' },
+        { type: 'concept', title: 'Start from fixed clues', body: 'Begin with the most restrictive, definite clues — who is at an end, an exact position, or "exactly between". Pencil those in first; they anchor everything else.' },
+        { type: 'concept', title: 'Use elimination', body: 'Apply the remaining clues to narrow the open spots. A clue like "exactly 2 between A and B" or "immediately to the left of C" usually leaves only one consistent placement.' },
+        { type: 'formula', items: [
+          { name: 'Persons between', expr: '|position difference| − 1' },
+          { name: 'Total from both ends', expr: 'left rank + right rank − 1' },
+          { name: 'Order of work', expr: 'fixed/end clues → adjacency clues → leftover gaps' }
+        ] },
+        { type: 'trick', title: 'Draw it', items: ['Always draw the slots and fill in pencil; never solve a puzzle in your head.', 'For circles, fix one person and note whether they face the centre.'] },
+        { type: 'example', problem: 'Five sit in a row. C is at the right end. A is exactly between B and D. E is at the left end. Who can be 2nd from left?', steps: ['Fix E (left end) and C (right end): E _ _ _ C', 'A between B and D means B A D consecutive in the middle three', 'So E B A D C ⇒ 2nd from left is B'], answer: 'B' },
+        { type: 'revision', points: ['Anchor on fixed/end clues first.', 'Persons between = |difference| − 1.', 'Apply adjacency clues to fill gaps.', 'Always draw the arrangement.'] }
+      ]
+    },
+    {
+      id: 'lr-nonverbal-images', title: 'Mirror, Water, Dice & Cubes', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
+      drillCategory: 'lr-mirror', searchTerms: ['mirror image', 'water image', 'dice', 'cube', 'non-verbal', 'ssc reasoning'], related: ['lr-figure-series'],
+      sections: [
+        { type: 'overview', text: 'Non-verbal questions test spatial sense: how a figure looks reflected (mirror/water), or how a 3-D die or painted cube behaves. A few fixed rules cover most of them.' },
+        { type: 'concept', title: 'Mirror vs water', body: 'A mirror image flips LEFT ↔ RIGHT (top and bottom stay put). A water image flips TOP ↔ BOTTOM (left and right stay put). Symmetric shapes look unchanged along their axis of symmetry.' },
+        { type: 'concept', title: 'Dice and painted cubes', body: 'On a standard die, opposite faces sum to 7. When a cube is painted and cut into n×n×n pieces, the position (corner/edge/face/interior) decides how many faces are painted.' },
+        { type: 'formula', items: [
+          { name: 'Mirror image', expr: 'left ↔ right (vertical mirror)' },
+          { name: 'Water image', expr: 'top ↔ bottom (horizontal reflection)' },
+          { name: 'Opposite die face', expr: '7 − the shown face' },
+          { name: 'Painted cube (n³)', expr: '3 faces = 8 ; 2 = 12(n−2) ; 1 = 6(n−2)² ; 0 = (n−2)³' }
+        ] },
+        { type: 'trap', items: ['Swapping mirror and water (left-right vs top-bottom).', 'Assuming two faces touching in a view are opposite — touching faces are ADJACENT.', 'Forgetting corner cubes always have exactly 3 painted faces.'] },
+        { type: 'example', problem: 'A cube is painted and cut into 3×3×3 = 27 cubes. How many have exactly two faces painted?', steps: ['Two-faces = edge cubes = 12(n−2)', 'n = 3 ⇒ 12 × 1 = 12'], answer: '12' },
+        { type: 'revision', points: ['Mirror = left↔right; water = top↔bottom.', 'Opposite die face = 7 − shown.', 'Painted cube: 8 / 12(n−2) / 6(n−2)² / (n−2)³.', 'Touching faces are adjacent, not opposite.'] }
+      ]
+    },
+    {
+      id: 'lr-figure-series', title: 'Figure Series & Analogy', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
+      drillCategory: 'lr-fseries', searchTerms: ['figure series', 'figure analogy', 'rotation', 'pattern', 'non-verbal'], related: ['lr-nonverbal-images', 'lr-analogies'],
+      sections: [
+        { type: 'overview', text: 'Figure series and analogy test how a picture TRANSFORMS — usually a rotation, a reflection, or a change of shading/elements. Spot the single consistent change and apply it.' },
+        { type: 'concept', title: 'Name the transformation', body: 'Compare consecutive figures (series) or the first pair (analogy) and describe the change in words: "rotates 90° clockwise", "reflects", "one element added". One clean rule explains the whole set.' },
+        { type: 'concept', title: 'Track each element', body: 'When a figure has several parts, follow each part separately — a marker may rotate while the outer shape stays, or shading may move one step each frame.' },
+        { type: 'formula', items: [
+          { name: 'Series', expr: 'apply the constant change once more for the next figure' },
+          { name: 'Analogy', expr: 'A→B reveals the rule; apply the SAME rule to C' },
+          { name: 'Rotation', expr: 'a fixed angle each step (e.g. +90°)' }
+        ] },
+        { type: 'trick', title: 'Check the simplest rule first', items: ['Most figure series are a fixed rotation — test that before anything elaborate.', 'A reflection reverses orientation; a rotation preserves it.'] },
+        { type: 'example', problem: 'An arrow points up, then right, then down. What comes next?', steps: ['Each step is a 90° clockwise turn', 'After down, a 90° clockwise turn points left'], answer: 'An arrow pointing left.' },
+        { type: 'revision', points: ['Describe the transformation in words.', 'Series: apply the change once more.', 'Analogy: apply A→B\'s rule to C.', 'Test a fixed rotation first; reflections reverse orientation.'] }
+      ]
     }
   ];
 

@@ -131,7 +131,33 @@ var ScoringService = (function () {
       'di-line':           'Tip: The STEEPEST segment is the biggest change — but verify with arithmetic on just that segment. A high point ≠ a big jump.',
       'di-pie':            'Tip: 100% = 360°, so 1% = 3.6°. Anchor on 25%=90°, 50%=180°. Share = slice ÷ total × 100.',
       'di-table':          'Tip: Decide row-total vs column-total before adding, and read the EXACT row/column named — wrong year/category is the top table error.',
-      'di-caselet':        'Tip: Write the TOTAL first, then each group, then the "doers" (group × %). Keep percentages as fractions (25% = ÷4) for speed.'
+      'di-caselet':        'Tip: Write the TOTAL first, then each group, then the "doers" (group × %). Keep percentages as fractions (25% = ÷4) for speed.',
+      /* Logical Reasoning (ADR-079): the method + the trap that costs that topic its marks. */
+      'lr-coding':         'Tip: Find the RULE from the example first (letter↔number, a fixed shift, or shift-by-position), then apply it to the target. Write A=1…Z=26 across the top.',
+      'lr-blood':          'Tip: Read each link as a generation step — up (parent), down (child) or sideways (sibling) — and track gender. Draw a tiny family tree instead of guessing.',
+      'lr-direction':      'Tip: Sketch axes. North/South cancel and East/West cancel; the leftover legs form a right triangle (use 3-4-5 etc.). For turns, right = clockwise.',
+      'lr-ranking':        'Tip: Total from both ends = (left) + (right) − 1 (the person is counted twice). Persons between two positions = |difference| − 1.',
+      'lr-odd':            'Tip: Look for the shared rule among the OTHER three (all squares / all primes / a common factor / equal letter-gaps) — the one that breaks it is the answer.',
+      'lr-analogy':        'Tip: Find the exact relation in the first pair (×k, n², +d, or a fixed letter-shift) and apply the SAME relation to the second pair.',
+      'lr-syllogism':      'Tip: Only what MUST be true follows. Draw the sets; if any valid diagram makes the conclusion false, it does not follow. "Some A are B" never forces "all".',
+      'lr-series':         'Tip: Take differences between consecutive terms. For letter series, convert to position numbers; for two interleaved series, split alternate terms.',
+      'lr-inequality':     'Tip: A chain of same-direction signs combines: any > makes the result strict (>); all ≥/= give ≥. A mix of > and < between the two terms ⇒ "cannot be determined".',
+      'lr-calendar':       'Tip: Use odd days (remainder when day-count ÷ 7). Add the day-gap to the known weekday and take mod 7. Remember Feb has 29 days in a leap year.',
+      'lr-clock':          'Tip: Angle = |30×H − 5.5×M|, then take the smaller of that and 360−that. Mirror time = 11:60 − the given time.',
+      'lr-io':             'Tip: Apply the stated rule ONE step at a time and rewrite the whole line each step. Track only the position the question asks about.',
+      'lr-critical':       'Tip: For ASSUMPTION use the negation test (if it were false, the argument collapses). To WEAKEN, find an alternative cause; to STRENGTHEN, rule one out. Stay within the scope.',
+      'lr-statement':      'Tip: An assumption is something taken for granted (not merely possible). A conclusion must FOLLOW from the statement. A strong argument is relevant and substantial, not a mere opinion.',
+      'lr-cause':          'Tip: Ask which event came first and whether it explains the other. If neither causes the other but both rise together, look for a single COMMON cause.',
+      'lr-course':         'Tip: An action "follows" only if it directly addresses the problem AND is practical. Reject extreme, vague, or disproportionate steps.',
+      'lr-decision':       'Tip: Pick the most balanced, ethical and practical option. Safety and integrity outrank deadlines and short-term gain; avoid extreme over-reactions.',
+      'lr-mirror':         'Tip: A mirror image flips LEFT ↔ RIGHT only (top and bottom stay). Letters with vertical symmetry (A, H, M) look unchanged.',
+      'lr-water':          'Tip: A water image flips TOP ↔ BOTTOM only (left and right stay). Letters with horizontal symmetry (B, C, D, E) look unchanged.',
+      'lr-dice':           'Tip: On a standard die opposite faces sum to 7, so the face opposite N is 7 − N. For two views, the faces that move are adjacent — never opposite.',
+      'lr-cube':           'Tip: For an n×n×n painted cube — corners (3 faces) = 8; edges (2) = 12(n−2); faces (1) = 6(n−2)²; inside (0) = (n−2)³.',
+      'lr-fseries':        'Tip: Find the constant turn between consecutive figures (e.g. +90° each), then apply it once more for the next figure.',
+      'lr-fanalogy':       'Tip: Work out exactly how the first figure becomes the second (rotate by a fixed angle / reflect), then apply the SAME change to the third.',
+      'lr-seating':        'Tip: Start from the FIXED clues (ends, "exactly between"), pencil those in, then place the rest. Test each remaining clue against your diagram.',
+      'lr-puzzle':         'Tip: Begin with the most restrictive clue (a fixed floor or an exact gap). Build the arrangement step by step and verify every clue before answering.'
     };
     /* DI archetype-keyed tips (ADR-078): subtype is "<difficulty>:<key>"; teach the method behind the specific key. */
     var diKeyTips = {
@@ -149,7 +175,16 @@ var ScoringService = (function () {
       m_combined: 'Tip: Read both series at that point and add — don\'t double-count or miss a series.',
       m_pctDiff: 'Tip: Cross-series % difference = (A − B) ÷ B × 100 — divide by the series you compare AGAINST.',
       m_combinedShare: 'Tip: Add EVERY series and every entry for the grand total, then the pair ÷ that grand total × 100.',
-      m_trendCompare: 'Tip: Compute each series\' first-to-last change separately, then subtract the two changes.'
+      m_trendCompare: 'Tip: Compute each series\' first-to-last change separately, then subtract the two changes.',
+      /* LR reasoning sub-skills (ADR-079) — sharper than the category tip for the specific question type. */
+      assumption: 'Tip: Negation test — negate the option; if the argument falls apart, it is a required assumption. If the argument survives, it is not.',
+      strengthen: 'Tip: The best strengthener supports the cause→effect link or rules out an alternative explanation. Extra unrelated benefits do not strengthen.',
+      weaken: 'Tip: The best weakener supplies an ALTERNATIVE cause or a counter-example. Attack the link between evidence and conclusion, not a side detail.',
+      flaw: 'Tip: Name the reasoning error — correlation treated as cause, comparing counts not rates, or a small/biased sample.',
+      paradox: 'Tip: Find the fact that lets BOTH surprising statements be true at once (often a hidden change in what is measured or in demand).',
+      cipher: 'Tip: Compare the example word to its code letter-by-letter to find the shift, then apply that exact shift to the target.',
+      posshift: 'Tip: Each letter moves forward by its POSITION (1st +1, 2nd +2, …). Number the letters before shifting.',
+      ineq: 'Tip: Combine the signs only between the two terms asked about. Same direction ⇒ a definite result; a > mixed with a < ⇒ "either/neither".'
     };
     if (subtype && subtypeTips[subtype]) return subtypeTips[subtype];
     if (subtype && subtype.indexOf(':') !== -1) { var _dk = subtype.split(':')[1]; if (diKeyTips[_dk]) return diKeyTips[_dk]; }

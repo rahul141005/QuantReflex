@@ -44,14 +44,15 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 thirty-two topics registered (19 Quant + 6 DI + 7 LR)', KB.count() === 32);
+  ok('1 forty-two topics registered (19 Quant + 6 DI + 17 LR)', KB.count() === 42);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
 (function () {
   var drillKeys = quantTopics.CATEGORY_LABELS;            // Quant drill categories
   var diKeys = {}; DIEngine.categories().forEach(function (c) { diKeys[c] = 1; });  // ADR-074: DI drill categories
-  var lrKeys = {}; LREngine.categories().forEach(function (c) { lrKeys[c] = 1; });  // ADR-075: LR drill categories
+  /* ADR-079: LR drill categories come from ALL LR-providing engines — core + sets + authored + visual. */
+  var lrKeys = {}; require(p('data/subjects')).subjectToCategories('lr').forEach(function (c) { lrKeys[c] = 1; });
   KB.all().forEach(function (t) {
     if (t.drillCategory != null) ok('2 ' + t.id + ' drillCategory "' + t.drillCategory + '" is a known drill category', !!drillKeys[t.drillCategory] || !!diKeys[t.drillCategory] || !!lrKeys[t.drillCategory]);
     if (t.syllabusTopicId != null) ok('2 ' + t.id + ' syllabusTopicId "' + t.syllabusTopicId + '" exists in data/syllabus', SYLLABUS_IDS.indexOf(t.syllabusTopicId) !== -1);
@@ -69,8 +70,8 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
   eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 6);
-  eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 7);
-  eq('3 published gold-standard count = 32', KB.all().filter(function (t) { return t.status === 'published'; }).length, 32);
+  eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 17);
+  eq('3 published gold-standard count = 42', KB.all().filter(function (t) { return t.status === 'published'; }).length, 42);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order quant…<di-charts<lr-reasoning',
     order.indexOf('mensuration') < order.indexOf('di-charts') && order.indexOf('di-charts') < order.indexOf('lr-reasoning'));
@@ -86,7 +87,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
   eq('3b bySubject(di) covers all 6 DI topics', KB.bySubject('di').length, 6);
   eq('3b categoriesBySubject(lr) = [lr-reasoning]', KB.categoriesBySubject('lr'), ['lr-reasoning']);
-  eq('3b bySubject(lr) covers all 7 LR topics', KB.bySubject('lr').length, 7);
+  eq('3b bySubject(lr) covers all 17 LR topics', KB.bySubject('lr').length, 17);
 })();
 
 /* ── 4. byCategory / related / siblings helpers ── */

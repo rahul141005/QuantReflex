@@ -227,6 +227,48 @@ function startDiSet(category) {
   _startPracticeEngine(drillContainer, config);
 }
 
+/* ---- LR Set launcher (ADR-079): one shared seating/floor scenario + linked MCQs, served by the same set-mode ---- */
+function startLrSet(category) {
+  if (typeof LRSetEngine === 'undefined' || !LRSetEngine.generateSet) {
+    return startDrillFromPractice('focus', category || 'lr-syllogism', 'Logical Reasoning');
+  }
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  var cats = ['lr-seating', 'lr-puzzle'];
+  var cat = category || cats[Math.floor(Math.random() * cats.length)];
+  var set = LRSetEngine.generateSet(cat);
+  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast('Could not build an LR set — try again.'); return; }
+
+  var modeSelect = document.getElementById('modeSelect');
+  var categorySelect = document.getElementById('categorySelect');
+  var customPracticeConfig = document.getElementById('customPracticeConfig');
+  var drillContainer = document.getElementById('drillContainer');
+  if (!drillContainer) return;
+
+  var label = (cat === 'lr-puzzle') ? 'Puzzle' : 'Seating';
+  var config = {
+    count: set.questions.length,
+    timeLimitSec: null, perQuestionSec: null, category: null,
+    diSet: set,
+    mode: '🧩 ' + label + ' Set',
+    onFinish: function (view) {
+      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
+      var _dc = document.getElementById('drillContainer');
+      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
+      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
+      _exitDrillSession();
+      if (view === 'practice') _resetPracticeUiToModes();
+      Router.showView(view);
+    }
+  };
+
+  if (modeSelect) modeSelect.style.display = 'none';
+  if (categorySelect) categorySelect.style.display = 'none';
+  if (customPracticeConfig) customPracticeConfig.style.display = 'none';
+  drillContainer.style.display = 'block';
+  if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  _startPracticeEngine(drillContainer, config);
+}
+
 function _startPracticeEngine(drillContainer, config) {
   if (_activeDrillEngine) {
     _activeDrillEngine.cleanup();
@@ -364,6 +406,12 @@ function initPracticeView() {
           _customPracticeActive = false;
           _focusModeActive = false;
           startDiSet();
+          return;
+        }
+        if (modeKey === 'lrset') {
+          _customPracticeActive = false;
+          _focusModeActive = false;
+          startLrSet();
           return;
         }
         _customPracticeActive = false;
