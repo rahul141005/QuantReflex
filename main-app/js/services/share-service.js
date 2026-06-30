@@ -37,7 +37,7 @@ var ShareService = (function () {
     'Speed is a skill. Sharpen it daily.',
     'From practice to percentile.',
     'Every session builds your edge.',
-    'Mental math mastery, one drill at a time.',
+    'Speed Aptitude mastery, one drill at a time.',
     'Precision under pressure.',
     'Challenge accepted. Challenge conquered.',
     'Your brain is your greatest weapon.'
@@ -744,7 +744,7 @@ var ShareService = (function () {
    * @param {number} percentile - speed percentile, e.g. 72
    */
   function shareTextFallback(accuracy, percentile) {
-    var shareText = 'I scored ' + accuracy + '% accuracy on QuantReflex \uD83D\uDD25 — faster than ' + percentile + '% of users! Train your mental math: https://www.quantreflex.app';
+    var shareText = 'I scored ' + accuracy + '% accuracy on QuantReflex \uD83D\uDD25 — faster than ' + percentile + '% of users! Train your Speed Aptitude: https://www.quantreflex.app';
     if (navigator.share) {
       navigator.share({ text: shareText }).catch(function () {});
     } else if (navigator.clipboard && navigator.clipboard.writeText) {

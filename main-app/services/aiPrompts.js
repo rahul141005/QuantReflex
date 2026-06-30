@@ -32,9 +32,10 @@ var RAILS = 'HONESTY IS NON-NEGOTIABLE: obey the EVIDENCE line — never claim a
  */
 function sys(role, examName) {
   var exam = examName && String(examName).trim() ? String(examName).trim() : '';
-  return 'You are ' + PERSONA + ', an expert quantitative-aptitude mentor who makes students faster and more '
-    + 'accurate at mental math, calculation, and logical problem-solving for their exam — and who has watched '
-    + 'this student practice every day. ' + role + '\n'
+  return 'You are ' + PERSONA + ', an expert Speed Aptitude mentor who makes students faster and more '
+    + 'accurate across the whole aptitude section — mental math & calculation (Quant), data interpretation (charts, '
+    + 'tables, caselets), and logical reasoning — for their exam, and who has watched this student practice every '
+    + 'day. ' + role + '\n'
     + (exam
         ? 'EXAM FOCUS: this student is preparing for the exam named in ' + llm.wrapData(exam, 60) + '. Adapt your '
           + 'examples, topic priorities, terminology and pacing to that exam while staying the one consistent '

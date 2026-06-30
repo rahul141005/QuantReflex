@@ -170,14 +170,11 @@ var ScoringService = (function () {
         topMissedCat = _catKeys[_ci];
       }
     }
-    var _catLabels = {
-      squares: 'squares', cubes: 'cubes', area: 'area', volume: 'volume',
-      percentages: 'percentages', multiplication: 'multiplication', fractions: 'fractions',
-      averages: 'averages', ratios: 'ratios', 'profit-loss': 'profit & loss',
-      'time-speed-distance': 'time-speed-distance', 'time-and-work': 'time & work',
-      simplification: 'simplification', 'number-series': 'number series'
-    };
-    var catLabel = topMissedCat ? (_catLabels[topMissedCat] || topMissedCat) : null;
+    /* Label via the ONE engine-aware client labeller (app.js#formatCategoryName) so DI/LR read "Bar Graphs" /
+       "Syllogisms" in the post-session insight, never raw "di-bar"/"lr-syllogism" (ADR-076, Phase 4 unification). */
+    var catLabel = topMissedCat
+      ? (typeof formatCategoryName === 'function' ? String(formatCategoryName(topMissedCat)).toLowerCase() : topMissedCat)
+      : null;
 
     /* Streak from progress */
     var streak = 0;

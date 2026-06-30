@@ -1,10 +1,11 @@
 # Quant Reflex Trainer
 
-A Progressive Web App (PWA) that trains mental math reflexes for competitive exams like CET, CAT, and GMAT. Built with vanilla HTML, CSS, and JavaScript — no frameworks.
+A Progressive Web App (PWA) — the **Speed Aptitude** trainer for competitive exams like CAT, CET, and GMAT: Quant, Data Interpretation and Logical Reasoning in one platform, with QuanAI coaching across all three. Built with vanilla HTML, CSS, and JavaScript — no frameworks.
 
 ## Features
 
-- **Practice Modes** — Quick Drill (5 questions), Reflex Drill (10 questions, 15s per question), Timed Test (10 questions, 3-minute limit), Focus Training (category-specific)
+- **Practice Modes** — Quick Drill (5 questions), Reflex Drill (10 questions, 15s per question), Timed Test (10 questions, 3-minute limit), Focus Training (category-specific), Custom (multi-topic), and **Mixed Aptitude** (a one-tap balanced cross-subject sprint across Quant, DI & Reasoning)
+- **QuanAI — cross-subject intelligence** (ADR-076): Coach, Insights, Planner and Explanations read one per-subject rollup (`statMath.subjectRollup`, derived on read) so coaching connects subjects — a percentages gap is named as the cause of slow Data Interpretation. Stats shows an "aptitude by subject" breakdown (overall → subject → category)
 - **Speed-Aptitude subjects** (ADR-073/074/075) — **Quantitative Aptitude** (14 categories) + **Data Interpretation** (5 generative chart/table families: Bar, Line, Pie, Tables, Caselets — `js/di-engine.js`, lightweight SVG, numeric answers) + **Logical Reasoning** (7 generative families: Coding-Decoding, Blood Relations, Direction Sense, Ranking & Ordering, Odd One Out, Analogies, Syllogisms — `js/lr-engine.js`, numpad + multiple-choice). One grouped Practice picker, no separate tab; subject is a derived lens (no Firestore migration).
 - **Learn Knowledge Engine** (ADR-069) — a deep-linkable hub→topic knowledge graph: **31 gold-standard topics** (overview · concepts · formulas · tricks · traps · worked examples · memory · revision) across 7 categories (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration · Data Interpretation · Logical Reasoning), built from reusable knowledge objects (`data/knowledge/*`), grouped by subject; plus the preserved Quick-Reference tables and user-created custom topics & bookmarks
 - **Progress Tracking** — Accuracy, streaks, daily streak, category-wise performance, all stored in localStorage

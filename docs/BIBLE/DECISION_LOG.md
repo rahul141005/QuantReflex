@@ -8,6 +8,39 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-076 — Unified Aptitude Intelligence: one cross-subject platform (V2 Phase 4) (2026-06-30)
+- **Context:** Phases 1-3 shipped three Speed-Aptitude subjects (Quant, DI, LR) that already reuse the pipeline, but
+  the *intelligence* and *analytics* were still per-category and the identity still read "mental math". Phase 4 is the
+  FINAL V2 phase — **integration & polish, not expansion** (no new subjects, no syllabus growth): make the app feel
+  like one platform with QuanAI at its core. A pre-flight regression audit confirmed the foundation was stable; its one
+  live finding — `computeSessionInsight` leaking raw `di-bar`/`lr-syllogism` ids in the post-session line — was fixed
+  by routing through the engine-aware `formatCategoryName`.
+- **Decision:** Build the cross-subject view ONCE in the existing derivation layer and let every consumer read it.
+  - **The rollup (the keystone):** `statMath.subjectRollup(stats, subjectCats)` + `weakestSubject(...)` added to the ONE
+    derivation layer (ADR-053). Pure and dependency-free — the subject→categories map is **passed in** (callers source
+    it from `subjects.js`), so client Analytics and server QuanAI compute the identical per-subject picture and **can
+    never disagree**. DERIVED on read from `categoryStats`; **no `subjectStats`, no Firestore migration.**
+  - **QuanAI is now cross-subject (one intelligence, no duplicate prompts):** `studentProfile.build` adds
+    `ctx.masteryBySubject` + `ctx.weakestSubject`; `serialize()` emits one `SUBJECTS: Quant X% · DI Y% · LR Z%` line
+    with a single instruction to *coach across subjects* (a percentages gap slows DI; weak pattern-spotting hurts LR) —
+    so Coach, Insights, Planner and Chat (all read the same `serialize`) connect subjects naturally. The QuanAI persona
+    was unified from "quantitative-aptitude mentor" to "Speed Aptitude mentor" spanning Quant/DI/LR.
+  - **Unified analytics:** the Stats view renders an "aptitude by subject" breakdown (Quant/DI/LR accuracy + tier)
+    above the per-category list — derived from the SAME rollup, reusing the category bar/strength styling (one design),
+    shown only once a 2nd subject has data. Overall → subject → category, no new screen, no clutter.
+  - **Mixed Aptitude practice:** a new one-tap mode draws a fresh balanced cross-subject spread (Quant-heavy, mirroring
+    a sectional test) via the existing `generateMultiTopic` — the clearest "one platform" practice surface. Custom
+    Training already enabled cross-subject sessions; this makes it a single tap.
+  - **Identity:** user-facing copy moved from "mental math / quantitative aptitude" to **"Speed Aptitude"** (meta,
+    hero, About, manifest, share) now that three subjects ship; feature-specific "Mental Math Tricks" copy kept.
+- **Deliberately deferred (documented, not built):** full DI/LR **in duels** (the duel prompt schema is text-only —
+  needs to carry chart specs / MCQ options) and Planner **DI/LR drill scheduling** (needs syllabus topic changes,
+  out of scope). The cross-subject AI context delivers the intelligence without those.
+- **Consequences:** statMath +2 pure functions; studentProfile/aiPrompts/stats-view/practice-modes/scoring-service +
+  identity copy. One duplicated Quant label map removed (scoring-service). No Firestore/security/payment change, no new
+  collection/field, no new dependency. subjects.check +7 rollup assertions; full suite green. SW v152→v153. Bible
+  2.67→2.68, Architecture 2.46→2.47.
+
 ## ADR-075 — Generative Logical Reasoning engine + MCQ drill support (V2 Phase 3) (2026-06-30)
 - **Context:** Phase 3 completes the Speed-Aptitude spine (Quant → DI → **LR**). The mandate: "Speed LR", not generic
   LR — only topics that are **procedurally generatable**, produce many variations, reward fast reasoning, and fit the

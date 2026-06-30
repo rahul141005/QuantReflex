@@ -192,7 +192,33 @@ function renderStatsView() {
           var accB = cats[b].attempted ? (cats[b].correct / cats[b].attempted) : 0;
           return accA - accB;
         });
-        var html = '<div class="cat-stats-caption">Your <strong>accuracy</strong> in each topic — the % of questions you answered correctly.</div><div class="category-stats-list">';
+        /* ADR-076 (Phase 4): a per-SUBJECT breakdown above the per-category list — the unified "aptitude by subject"
+           view (Quant/DI/LR), derived on read from the SAME statMath layer the Coach reads. Shown only once a 2nd
+           subject has data; reuses the category bar/strength styling so it's one consistent design. */
+        var subjectHtml = '';
+        try {
+          if (typeof QR_STATMATH !== 'undefined' && QR_STATMATH.subjectRollup && typeof QR_SUBJECTS !== 'undefined') {
+            var _scMap = {}; QR_SUBJECTS.subjects().forEach(function (s) { _scMap[s.id] = QR_SUBJECTS.subjectToCategories(s.id); });
+            var _roll = QR_STATMATH.subjectRollup(p, _scMap);
+            var _sids = QR_SUBJECTS.subjects().map(function (s) { return s.id; }).filter(function (id) { return _roll[id]; });
+            if (_sids.length >= 2) {
+              var _rows = '';
+              _sids.forEach(function (id) {
+                var r = _roll[id], pct = Math.round(r.acc * 100);
+                var _bc = pct >= 85 ? 'cat-bar-high' : pct >= 65 ? 'cat-bar-mid' : pct >= 40 ? 'cat-bar-low' : 'cat-bar-weak';
+                var _sc = r.tier === 'strong' ? 'strong' : r.tier === 'developing' ? 'moderate' : 'weak';
+                var _sl = r.tier === 'strong' ? 'Strong' : r.tier === 'developing' ? 'Moderate' : (r.tier === 'weak' ? 'Weak' : '');
+                _rows += '<div class="category-stat-row">' +
+                  '<span class="cat-name">' + QR_SUBJECTS.label(id) + '</span>' +
+                  '<div class="cat-bar-container" title="' + pct + '% accuracy"><div class="cat-bar ' + _bc + '" style="width:' + pct + '%"></div></div>' +
+                  (_sl ? '<span class="category-strength-label strength-' + _sc + '">' + _sl + '</span>' : '') +
+                  '<span class="cat-accuracy">' + pct + '%</span></div>';
+              });
+              subjectHtml = '<div class="cat-stats-caption">Your <strong>aptitude by subject</strong> — accuracy across Quant, Data Interpretation and Logical Reasoning.</div><div class="category-stats-list subject-breakdown-list">' + _rows + '</div>';
+            }
+          }
+        } catch (_) {}
+        var html = subjectHtml + '<div class="cat-stats-caption">Your <strong>accuracy</strong> in each topic — the % of questions you answered correctly.</div><div class="category-stats-list">';
         for (var i = 0; i < keys.length; i++) {
           var cat = keys[i];
           var cs = cats[cat];

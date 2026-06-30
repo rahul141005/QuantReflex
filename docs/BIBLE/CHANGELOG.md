@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Phase 4: Unified Aptitude Intelligence (ADR-076)
+
+The final V2 phase — integration & polish (no new subjects). Make Quant/DI/LR feel like one platform with QuanAI at the
+core, built on ONE cross-subject derivation. No Firestore migration, no new dependency.
+
+```
+### feat/unify(ADR-076): cross-subject rollup + QuanAI + analytics + Mixed mode + identity (V2 Phase 4)
+- data/statMath.js: NEW subjectRollup(stats, subjectCats) + weakestSubject(...) in the ONE derivation layer. Pure
+  (subject→categories map PASSED IN → stays dependency-free); derived on read from categoryStats, no subjectStats.
+- QuanAI cross-subject: studentProfile.build adds ctx.masteryBySubject + ctx.weakestSubject; serialize() emits a
+  "SUBJECTS: Quant·DI·LR" line + one "coach across subjects" instruction → Coach/Insights/Planner/Chat (all read the
+  same serialize) connect subjects with no duplicate prompts. aiPrompts persona unified to "Speed Aptitude mentor".
+- Unified analytics: stats-view renders an "aptitude by subject" breakdown above the per-category list (same rollup,
+  reuses cat-bar/strength styling, shown once a 2nd subject has data) — overall→subject→category, no new screen.
+- Mixed Aptitude: new one-tap practice mode (12 Qs, balanced cross-subject spread via generateMultiTopic).
+- Identity: meta/hero/About/manifest/share copy → "Speed Aptitude" (kept feature-specific "Mental Math Tricks").
+- Regression-audit fix: computeSessionInsight now labels via formatCategoryName (was a Quant-only map leaking raw
+  di-bar/lr-syllogism ids post-session); removed that duplicated label map. Button label "Ranking & Order"→"Ordering".
+- SW v152→v153. subjects.check +7 rollup assertions. Full suite green.
+```
+
+Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-076), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md), [ROADMAP.md](ROADMAP.md)
+(Phase 4 shipped — V2 complete), [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) (subject rollup derived, no schema change),
+[VERSIONS.md](VERSIONS.md) (Bible 2.67→2.68, Arch 2.46→2.47), [README.md](README.md).
+
 ## 2026-06-30 — QuantReflex V2 Phase 3: generative Logical Reasoning engine + MCQ support (ADR-075)
 
 LR completes the Speed-Aptitude spine. 7 procedurally-generated topics reusing the whole pipeline; the only new

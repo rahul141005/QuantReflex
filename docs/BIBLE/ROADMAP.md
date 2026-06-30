@@ -35,9 +35,12 @@ admission rules define the boundary (and keep the product from regressing into a
   **Excluded** (per philosophy): seating/floor/analytical puzzles, reading-heavy LR, statement-conclusion/assumption,
   cause-effect. **Deferred:** LR in duels (numeric LR is duel-ready in principle; MCQ needs a duel-schema change) and
   Review-Mistakes replay; a single-pool "Mixed Aptitude" duel mode.
-- **Phase 4 — AI / analytics / duels / polish ⏳:** `statMath` per-subject rollup (the deferred derivation helper),
-  subject-aware QuanAI context (one intelligence, not duplicated prompts), the subject lens in Practice/Stats, coaching
-  per-subject views.
+- **Phase 4 — Unified Aptitude Intelligence ✅ (2026-06-30, ADR-076):** `statMath.subjectRollup` (the keystone — one
+  per-subject derivation, map passed in, no storage) consumed by BOTH Stats and QuanAI; cross-subject QuanAI context
+  (`SUBJECTS:` line + "coach across subjects" instruction in the one shared `serialize`, persona unified to "Speed
+  Aptitude mentor"); "aptitude by subject" Stats breakdown; one-tap **Mixed Aptitude** practice; identity copy →
+  "Speed Aptitude". **Deferred:** DI/LR-in-duels (text-only prompt schema) + Planner DI/LR drill scheduling (syllabus
+  changes, out of scope). **The Speed-Aptitude V2 expansion (Phases 1-4) is complete.**
 - **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, puzzle-LR, GK/Current-Affairs, any authored-content
   pipeline. (Verbal demand is addressed via positioning + a future coaching-supplied-content rail, not native build.)
 

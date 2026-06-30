@@ -10989,6 +10989,9 @@ body.dark-mode .mcq-option.mcq-correct { background: rgba(34,197,94,.18); border
 body.dark-mode .mcq-option.mcq-wrong { background: rgba(239,68,68,.18); border-color: #ef4444; color: #fca5a5; }
 @media (prefers-reduced-motion: reduce) { .mcq-option { transition: none; } .mcq-option:active { transform: none; } }
 
+/* Stats: the per-subject breakdown sits above the per-category list with a little breathing room (ADR-076) */
+.subject-breakdown-list { margin-bottom: 1.15rem; }
+
 /* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
 .kx-subject-group { margin-bottom: .4rem; }
 .kx-subject-group + .kx-subject-group { margin-top: 1.6rem; }

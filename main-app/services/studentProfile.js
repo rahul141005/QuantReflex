@@ -20,6 +20,7 @@ const admin = require('firebase-admin');
 const topics = require('./quantTopics');
 const aiMath = require('./aiMath');   // shared round/clamp/todayIso (ADR-047)
 const statMath = require('../data/statMath');   // ADR-053: the ONE derivation layer (shared client+server)
+const SUBJECTS = require('../data/subjects');    // ADR-076: subject↔category map for the per-subject rollup
 
 if (!admin.apps.length) {
   var cfg = { projectId: 'quant-reflex-trainer' };
@@ -185,6 +186,8 @@ async function build(uid, opts) {
   ctx.lastChange = _lastChange(ctx);                  // ADR-055: what actually changed last session (for real reasoning)
   ctx.recommendation = _recommendation(ctx);          // the single "what to work on next"
   ctx.masteryByCat = _masteryByCat(stats);            // any category's mastery (Explanation looks itself up here)
+  ctx.masteryBySubject = _masteryBySubject(stats);    // ADR-076: per-subject rollup (Quant/DI/LR) — cross-subject coaching
+  ctx.weakestSubject = statMath.weakestSubject(stats, _subjectCatsMap());
   // ADR-057: behavioural signals the Strategy consumes (the Profile is the one evolving picture; features never
   // message each other). Strong topics now showing up in recent mistakes = a regression to recover before new work.
   ctx.recentRegressionTopics = (errorPatterns && errorPatterns.regressedStrong) || [];
@@ -202,6 +205,17 @@ function _masteryByCat(stats) {
   Object.keys(raw).forEach(function (cat) { var m = raw[cat]; out[cat] = { cat: cat, label: label(cat), acc: m.acc, n: m.n, tier: m.tier }; });
   return out;
 }
+
+/* ADR-076 (Phase 4): the subject→categories map (built once) feeding statMath's per-subject rollup. Sourced from
+   subjects.js so Coach/Insights/Planner see ONE cross-subject picture (Quant/DI/LR), derived on read — no storage. */
+var _subjectCats = null;
+function _subjectCatsMap() {
+  if (_subjectCats) return _subjectCats;
+  _subjectCats = {};
+  try { SUBJECTS.subjects().forEach(function (s) { _subjectCats[s.id] = SUBJECTS.subjectToCategories(s.id); }); } catch (_) {}
+  return _subjectCats;
+}
+function _masteryBySubject(stats) { return statMath.subjectRollup(stats, _subjectCatsMap()); }
 
 /* ADR-055: what actually changed in the latest session vs the previous one — the basis for REAL coaching
    ("more questions but accuracy dipped → harder set"), not template substitution. Null until there are 2 sessions. */
@@ -343,6 +357,12 @@ function serialize(ctx, maxChars) {
   var strong = (ctx.mastery || []).filter(function (m) { return m.tier === 'strong'; }).map(function (m) { return m.label; });
   if (weak.length) L.push('Weak: ' + weak.slice(0, 4).join(', ') + '.');
   if (strong.length) L.push('Strong: ' + strong.slice(0, 4).join(', ') + '.');
+  // ADR-076 (Phase 4): the per-SUBJECT picture so QuanAI coaches across Quant/DI/LR as ONE intelligence, not in silos.
+  var bySub = ctx.masteryBySubject || {};
+  var subRows = Object.keys(bySub).map(function (sid) { var r = bySub[sid]; return SUBJECTS.label(sid) + ' ' + Math.round(r.acc * 100) + '%' + (r.tier ? ' (' + r.tier + ')' : ''); });
+  if (subRows.length >= 2) {
+    L.push('SUBJECTS: ' + subRows.join(' · ') + '. Coach ACROSS subjects — the same underlying skill drives several: weak percentages/ratios slows Data Interpretation; weak pattern-spotting hurts Logical Reasoning. When you prescribe, connect them (e.g. "your percentages gap is why DI feels slow — fixing it lifts both"). One aptitude, not three silos.');
+  }
   var f = ctx.flags || {};
   var flagList = Object.keys(f).filter(function (k) { return f[k] && k !== 'coldStart'; });
   if (flagList.length) L.push('Flags: ' + flagList.join(', ') + '.');

@@ -20,6 +20,17 @@
  */
 
 /* ---- Practice drill starter ---- */
+/* Mixed Aptitude (ADR-076, Phase 4): a balanced cross-subject sprint — the clearest "one platform" practice. Picks a
+   fresh random spread each launch (Quant-heavy, mirroring a real sectional test). Falls back to null (→ Quant random)
+   if the subject layer isn't present. */
+function _mixedAptitudeTopics() {
+  if (typeof QR_SUBJECTS === 'undefined') return null;
+  function _shuf(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function _take(sid, n) { try { return _shuf(QR_SUBJECTS.subjectToCategories(sid)).slice(0, n); } catch (_) { return []; } }
+  var t = [].concat(_take('quant', 4), _take('di', 2), _take('lr', 2));
+  return t.length ? t : null;
+}
+
 function startDrillFromPractice(modeKey, category, categoryLabel) {
   if (modeKey !== 'custom') _customPracticeActive = false;
   if (modeKey === 'custom' && !canAccessFeature('custom_training')) {
@@ -69,7 +80,8 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
     timed:  { count: 10, timeLimitSec: 180,  perQuestionSec: null, category: null, mode: '⏱ Timed Test' },
     focus:  { count: 10, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, mode: _useAdaptive ? '🎯 Focus Training (Adaptive)' : '🎯 Focus Training', adaptive: _useAdaptive },
     custom: { count: _customPracticeState.totalQuestions, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, topics: selectedTopics.slice(), mode: _useAdaptive ? '📑 Custom Training (Adaptive)' : '📑 Custom Training', adaptive: _useAdaptive },
-    review: { count: 10, timeLimitSec: null, perQuestionSec: null, category: null, mode: '🔄 Review Mistakes', reviewMode: true }
+    review: { count: 10, timeLimitSec: null, perQuestionSec: null, category: null, mode: '🔄 Review Mistakes', reviewMode: true },
+    mixed:  { count: 12, timeLimitSec: null, perQuestionSec: null, category: null, topics: _mixedAptitudeTopics(), mode: '🎨 Mixed Aptitude' }
   };
 
   var config = Object.assign({}, modes[modeKey] || modes.quick);

@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.67 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.46 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.68 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.47 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.68 / Arch 2.47 (2026-06-30)** — **QuantReflex V2 Phase 4: Unified Aptitude Intelligence (ADR-076).** The final
+> V2 phase — integration & polish, no new subjects. The keystone is `statMath.subjectRollup(stats, subjectCats)` (+
+> `weakestSubject`) in the ONE derivation layer (pure, map passed in) so client Analytics and server QuanAI compute the
+> identical per-subject picture and can never disagree — **derived on read, no Firestore migration**. QuanAI is now
+> cross-subject: `studentProfile.serialize` emits a `SUBJECTS: Quant·DI·LR` line + a "coach across subjects"
+> instruction (one shared context → Coach/Insights/Planner/Chat connect subjects), and the persona is unified to "Speed
+> Aptitude mentor". Stats gains an "aptitude by subject" breakdown (overall→subject→category, reusing the category bar
+> styling). New one-tap **Mixed Aptitude** practice mode (balanced cross-subject sprint via generateMultiTopic).
+> Identity copy moved to "Speed Aptitude". A pre-flight regression audit fixed one live id-leak (post-session insight).
+> SW v152→v153. Bible 2.67→2.68, Arch 2.46→2.47.
 
 > **2.67 / Arch 2.46 (2026-06-30)** — **QuantReflex V2 Phase 3: generative Logical Reasoning engine + MCQ (ADR-075).**
 > Completes the Quant → DI → LR spine. `js/lr-engine.js` procedurally generates 7 topics (Coding-Decoding, Blood
