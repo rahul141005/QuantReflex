@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.64 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.43 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.65 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.44 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.65 / Arch 2.44 (2026-06-30)** — **QuantReflex V2 Phase 1: derived Speed-Aptitude subject layer + Learn
+> integration (ADR-073).** Foundation for the Quant → Data Interpretation → generatable Logical Reasoning spine. Makes
+> the architecture subject-first **internally** with **zero user-visible change** (only Quant has content today).
+> New `data/subjects.js` is the ONE subject registry + derived subject↔category map; **subject is DERIVED on read from
+> `categoryStats`** — no `subjectStats` field, **no Firestore migration** (hence Firestore stays 2.21). Quant's category
+> set is resolved from `quantTopics.CATEGORY_LABELS` (no duplicated list); `quantTopics.js` became dual-export so the
+> browser can derive it too. The Learn registry gained `subject` + `bySubject`/`categoriesBySubject`; all 5 Learn
+> categories tag `subject:'quant'`. Only Quant is declared — DI/LR join with their generators in Phases 2-3 (no
+> placeholder code). New `scripts/subjects.check.js` + extended `learn-content.check.js`; full suite green. SW v146→v147.
+> Bible 2.64→2.65, Arch 2.43→2.44.
 
 > **2.64 / Arch 2.43 / Firestore 2.21 / Security 2.15 (2026-06-29)** — **Final security lockdown: single-active-device
 > sessions + auth hardening (ADR-072).** A final pre-launch security audit (3 adversarial agents) verified the two

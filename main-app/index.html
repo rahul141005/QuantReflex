@@ -1561,6 +1561,10 @@
   <script defer src="js/services/scoring-service.js"></script>
   <script defer src="js/services/share-service.js"></script>
   <script defer src="data/statMath.js"></script>
+  <!-- Subject layer (ADR-073): quantTopics (the 14-category source of truth) must load before subjects.js,
+       which derives Quant's category set from it. Subject is a derived lens — no Firestore, no stored rollup. -->
+  <script defer src="services/quantTopics.js"></script>
+  <script defer src="data/subjects.js"></script>
   <script defer src="js/progress.js"></script>
   <script defer src="js/questions.js"></script>
   <script defer src="data/syllabus.js"></script>

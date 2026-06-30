@@ -14,6 +14,7 @@ var KB = require(p('js/knowledge/registry'));
 var Schema = require(p('js/knowledge/schema'));
 var Search = require(p('js/learn/learn-search'));
 var quantTopics = require(p('services/quantTopics'));
+var SUB = require(p('data/subjects'));
 var syllabus = require(p('data/syllabus'));
 var SYLLABUS_IDS = Object.keys((syllabus && syllabus.TOPICS) || {});  // TOPICS is keyed by topic id
 
@@ -66,6 +67,16 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   ok('3 category order numbers<arithmetic<commercial<modern<mensuration',
     order.indexOf('numbers') < order.indexOf('arithmetic') && order.indexOf('arithmetic') < order.indexOf('commercial-math') &&
     order.indexOf('commercial-math') < order.indexOf('modern-math') && order.indexOf('modern-math') < order.indexOf('mensuration'));
+})();
+
+/* ── 3b. every Learn category declares a known subject; subject helpers roll up correctly (ADR-073) ── */
+(function () {
+  var known = {}; SUB.subjects().forEach(function (s) { known[s.id] = 1; });
+  KB.categories().forEach(function (c) { ok('3b ' + c.id + ' declares a known subject', !!c.subject && !!known[c.subject]); });
+  eq('3b categoriesBySubject(quant) = all five in order', KB.categoriesBySubject('quant'),
+    ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration']);
+  eq('3b bySubject(quant) covers all 19 topics', KB.bySubject('quant').length, 19);
+  eq('3b bySubject(di) is empty (no DI content yet)', KB.bySubject('di').length, 0);
 })();
 
 /* ── 4. byCategory / related / siblings helpers ── */

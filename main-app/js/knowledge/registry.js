@@ -26,7 +26,8 @@
     if (!_cats[meta.id]) _catOrder.push(meta.id);
     _cats[meta.id] = {
       id: meta.id, title: meta.title || meta.id, icon: meta.icon || '📘',
-      order: typeof meta.order === 'number' ? meta.order : 999, blurb: meta.blurb || ''
+      order: typeof meta.order === 'number' ? meta.order : 999, blurb: meta.blurb || '',
+      subject: meta.subject || null   // ADR-073: the Speed-Aptitude subject this category rolls up into (derived lens)
     };
   }
 
@@ -56,7 +57,7 @@
     return list.map(function (c) {
       var topics = byCategory(c.id);
       return {
-        id: c.id, title: c.title, icon: c.icon, blurb: c.blurb, order: c.order,
+        id: c.id, title: c.title, icon: c.icon, blurb: c.blurb, order: c.order, subject: c.subject || null,
         topicCount: topics.length,
         publishedCount: topics.filter(function (t) { return t.status === 'published'; }).length
       };
@@ -68,6 +69,19 @@
   /** Topics in a category, in registration order. */
   function byCategory(catId) {
     return all().filter(function (t) { return t.category === catId; });
+  }
+
+  /** Category ids belonging to a subject, in declared order (ADR-073; subject is a derived lens above category). */
+  function categoriesBySubject(subjectId) {
+    return categories().filter(function (c) { return c.subject === subjectId; }).map(function (c) { return c.id; });
+  }
+
+  /** Topics belonging to a subject (a topic inherits its category's subject), in registration order. */
+  function bySubject(subjectId) {
+    return all().filter(function (t) {
+      var meta = _cats[t.category];
+      return meta && meta.subject === subjectId;
+    });
   }
 
   /** Resolve a topic's `related` ids (plus any `related` block ids) to existing topic objects, de-duped. */
@@ -117,6 +131,7 @@
     registerAll: registerAll,
     get: get, has: has, count: count, all: all,
     categories: categories, categoryMeta: categoryMeta, byCategory: byCategory,
+    categoriesBySubject: categoriesBySubject, bySubject: bySubject,
     related: related, siblings: siblings,
     validateAll: validateAll, _reset: _reset
   };

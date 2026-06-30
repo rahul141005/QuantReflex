@@ -6,17 +6,28 @@
  * analysis engine (studentProfile.js). Keeps the drillable category vocabulary defined in exactly one place.
  * (The free-text `nearestCategory` mapper was removed with the legacy Mission in ADR-047 — the QuanAI Planner
  * uses structured topic ids from data/syllabus.js, so no free-text→category guessing is needed.)
+ *
+ * Dual-exported (ADR-073): `require()` on the server, `window.QuantTopics` in the browser — so the derived
+ * subject layer (data/subjects.js) can resolve Quant's category set from this one source in BOTH runtimes
+ * instead of re-typing the list.
  */
+(function (root) {
+  'use strict';
 
-/* The 14 canonical drillable categories. Key = drill-engine category; value = human label. */
-var CATEGORY_LABELS = {
-  squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume',
-  percentages: 'Percentages', multiplication: 'Multiplication', fractions: 'Fractions',
-  averages: 'Averages', ratios: 'Ratios', 'profit-loss': 'Profit & Loss',
-  'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
-  simplification: 'Simplification', 'number-series': 'Number Series'
-};
+  /* The 14 canonical drillable categories. Key = drill-engine category; value = human label. */
+  var CATEGORY_LABELS = {
+    squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume',
+    percentages: 'Percentages', multiplication: 'Multiplication', fractions: 'Fractions',
+    averages: 'Averages', ratios: 'Ratios', 'profit-loss': 'Profit & Loss',
+    'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
+    simplification: 'Simplification', 'number-series': 'Number Series'
+  };
 
-function label(cat) { return CATEGORY_LABELS[cat] || cat; }
+  function label(cat) { return CATEGORY_LABELS[cat] || cat; }
 
-module.exports = { CATEGORY_LABELS: CATEGORY_LABELS, label: label };
+  var QuantTopics = { CATEGORY_LABELS: CATEGORY_LABELS, label: label };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = QuantTopics;
+  if (typeof window !== 'undefined') window.QuantTopics = QuantTopics;
+  else root.QuantTopics = QuantTopics;
+})(this);

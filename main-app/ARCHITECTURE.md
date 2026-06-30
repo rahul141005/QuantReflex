@@ -53,7 +53,8 @@ Scripts load synchronously in strict dependency order (documented in index.html)
 Layer 1  — State:       store.js
 Layer 2  — Infra:       firebase.js → auth.js → firestore-sync.js
 Layer 3  — Services:    adaptive-state.js, scoring-service.js, share-service.js
-Layer 4  — Data:        progress.js, questions.js
+Layer 4  — Data:        statMath.js, services/quantTopics.js → data/subjects.js (ADR-073: derived subject lens;
+                        quantTopics must precede subjects), progress.js, questions.js, syllabus.js
 Layer 5  — Reference:   tables.js, learn-manager.js, knowledge/{schema,registry,blocks}.js, learn/learn-search.js (ADR-069)
 Layer 6  — Settings:    settings.js (provides showToast)
 Layer 7  — Engine:      drill-engine.js

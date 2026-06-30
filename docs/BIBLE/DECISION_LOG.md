@@ -8,6 +8,41 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-073 — Subject abstraction: the Speed-Aptitude spine as a derived lens (V2 Phase 1) (2026-06-30)
+- **Context:** QuantReflex is evolving from **Quant-first** to **Speed Aptitude-first** (the strategy of the V2
+  Expansion Study): expand only along the **generative-speed axis** — Quant → Data Interpretation → *generatable*
+  Logical Reasoning — and never into VARC/RC, puzzle-LR, or GK (they fail the **Generation Test** — questions must be
+  generated, not authored at scale — and the **Speed Test** — a speed score only where speed is the skill). Today there
+  is **no "subject" concept**: everything is implicitly Quant. The taxonomy is a flat set of **14 drill categories**
+  (`services/quantTopics.js`), and `stats.categoryStats` (14 keys) is the single source of truth for progress. This is
+  **Phase 1 of 4** (foundation + subject layer + Learn integration); DI (Phase 2), generatable LR (Phase 3), and the
+  AI/analytics/duel subject polish (Phase 4) build on the seam this opens.
+- **Decision:** Introduce a **lightweight, derived subject layer** — the cheapest change that makes the architecture
+  subject-first without touching what users see.
+  - **Subject is DERIVED, never stored.** New `data/subjects.js` is the ONE place that knows which categories belong to
+    which subject. Analytics/AI roll subjects up **on read** from the existing `categoryStats` via
+    `subjectToCategories()`. There is **no `subjectStats` field, no Firestore migration, no dual-write** (both research
+    agents proposed a stored rollup — rejected as a "prefer derived / no duplicated storage" violation).
+  - **No duplicated category list.** Quant's category set is resolved from `quantTopics.CATEGORY_LABELS` (the single
+    source of truth), not re-typed. To make that work in the browser too, `quantTopics.js` was converted to the same
+    dual-export IIFE pattern as `statMath.js`/`syllabus.js` (it was node-only `module.exports`, which would crash in a
+    browser) and is now loaded client-side before `subjects.js`.
+  - **No placeholder DI/LR in code.** `subjects.js` declares **only Quant** — the one subject with content. DI and LR
+    join the registry *with their generators/content* in Phases 2–3; the Quant→DI→LR spine is documented here and in
+    the ROADMAP, not stubbed as empty objects (honors "no placeholder architecture / no dead code").
+  - **Learn is the first beneficiary.** Each Learn category declares its `subject` (`data/knowledge/categories.js`,
+    all 5 → `quant`); the registry stores/projects it and gains `bySubject(id)` + `categoriesBySubject(id)` (mirroring
+    `byCategory`). `statMath` stays the **ONE derivation layer** (ADR-053) so Analytics and the Coach can never disagree
+    — its per-subject rollup helper is **deferred to Phase 4**, where it has a real consumer (no dead code now).
+  - **Zero user-visible change this phase.** With a single subject, nothing in the UI groups or renames. The visible
+    "Speed Aptitude" language and the Learn-hub subject grouping land with DI in Phase 2, when the breadth is *true* —
+    so existing users do not feel the product became something else.
+- **Consequences:** New `data/subjects.js` (+ a browser global for `quantTopics`); registry gains subject-awareness;
+  new `scripts/subjects.check.js` (drill categories → exactly one known subject; Quant set = quantTopics keys; helpers
+  pure/total) + extended `learn-content.check.js` (every Learn category declares a known subject; `bySubject`/
+  `categoriesBySubject` verified). No Firestore, security, payment, or AI-cost surface change. SW v146→v147. Bible
+  2.64→2.65, Architecture 2.43→2.44.
+
 ## ADR-072 — Final security lockdown: single-active-device sessions + token-revocation hardening (2026-06-29)
 - **Context:** Final pre-launch security audit (Premium-protection + secret-protection) by three independent
   adversarial agents reading the repo directly. **Verified already-solid:** Premium cannot be forged — entitlement is

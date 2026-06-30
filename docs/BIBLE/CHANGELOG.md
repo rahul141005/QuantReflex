@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Phase 1: Speed-Aptitude subject layer (derived) + Learn integration (ADR-073)
+
+Foundation for the Quant → Data Interpretation → generatable Logical Reasoning spine. Makes the architecture
+subject-first **internally** with **zero user-visible change** (only Quant has content). Subject is a derived lens over
+the existing 14 categories — **no Firestore migration, no stored `subjectStats`.**
+
+```
+### feat/architecture(ADR-073): derived subject layer + Learn integration (V2 Phase 1)
+- NEW data/subjects.js: the ONE subject registry + derived subject↔category map. Declares only Quant (the subject with
+  content); DI/LR join with their generators in Phases 2-3. Subject is DERIVED on read from categoryStats — no
+  subjectStats field, no migration. Quant's category set is resolved from quantTopics.CATEGORY_LABELS (no duplicated
+  list). Helpers: subjects(), subject(id), label(id), categoryToSubject(cat), subjectToCategories(id); pure + total
+  (unknown → null/[]) + defensive copies.
+- services/quantTopics.js: converted node-only module.exports → dual-export IIFE (window.QuantTopics) so subjects.js can
+  derive Quant's categories in the browser too. Server require() shape unchanged.
+- js/knowledge/registry.js: registerCategory stores meta.subject; categories() projects it; new bySubject(id) +
+  categoriesBySubject(id) (mirror byCategory). data/knowledge/categories.js: all 5 Learn categories tagged subject:'quant'.
+- Learn hub rendering UNCHANGED this phase (single subject ⇒ identical output); subject grouping UI lands in Phase 2
+  with DI, where it both renders and is testable (avoids a dormant/untested branch).
+- index.html: load services/quantTopics.js then data/subjects.js in the data layer. SW v146→v147 (+ precache both).
+- TESTS: NEW scripts/subjects.check.js (26 assertions: 14 categories → exactly one known subject; subjectToCategories
+  (quant) = quantTopics keys; helpers pure/total/copy-safe). Extended learn-content.check.js (every Learn category
+  declares a known subject; bySubject/categoriesBySubject verified). Full suite green.
+```
+
+Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-073), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) (14 categories
+reframed as the Quant subject), [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md) (subject is derived, never stored),
+[ROADMAP.md](ROADMAP.md) (V2 Phases 2-4), [VERSIONS.md](VERSIONS.md) (Bible 2.64→2.65, Arch 2.43→2.44).
+
 ## 2026-06-29 — Final security lockdown: single-active-device sessions + auth hardening (ADR-072)
 
 Final pre-launch security audit (3 adversarial agents). Verified already-solid: Premium cannot be forged

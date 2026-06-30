@@ -8,6 +8,31 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 
 ---
 
+## 🚧 QuantReflex V2 — The Speed-Aptitude Engine (ADR-073)
+
+Evolve from **Quant-first** to **Speed Aptitude-first**, expanding **only** along the generative-speed axis. Two hard
+admission rules define the boundary (and keep the product from regressing into a generic exam app — ADR-067):
+- **The Generation Test:** a subject may enter only if its questions can be **programmatically generated** (not authored
+  at scale). Admits DI + generatable-LR; automatically excludes VARC/RC, puzzle-LR, GK.
+- **The Speed Test:** a feature ships a speed score only where speed is genuinely the skill.
+
+- **Phase 1 — Foundation + subject layer + Learn integration ✅ (2026-06-30, ADR-073):** `data/subjects.js` (the ONE
+  subject registry + **derived** subject↔category map — no stored `subjectStats`, no migration); `quantTopics.js`
+  dual-export so the browser derives Quant's categories; Learn registry gains `subject` + `bySubject`/
+  `categoriesBySubject`; all 5 Learn categories tagged `subject:'quant'`; `scripts/subjects.check.js` + extended
+  `learn-content.check.js`. **Zero user-visible change** (only Quant has content).
+- **Phase 2 — Data Interpretation (V2.0) ⏳:** DI dataset/chart **generators** + a chart practice surface; register DI
+  Learn content + the `di` subject; surface the subject lens in the Learn hub (now that a 2nd subject has content).
+  Reuses scoring/duel/AI unchanged in spirit.
+- **Phase 3 — Generatable Logical Reasoning (V2.5) ⏳:** the generatable slice only (coding-decoding, analogies,
+  directions, blood-relations, simple syllogisms, clocks/calendars, series+) + a single-pool **"Mixed Aptitude"** duel
+  mode. **Excludes** large seating arrangements, complex puzzles, reading-heavy logic (fail the Generation Test).
+- **Phase 4 — AI / analytics / duels / polish ⏳:** `statMath` per-subject rollup (the deferred derivation helper),
+  subject-aware QuanAI context (one intelligence, not duplicated prompts), the subject lens in Practice/Stats, coaching
+  per-subject views.
+- **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, puzzle-LR, GK/Current-Affairs, any authored-content
+  pipeline. (Verbal demand is addressed via positioning + a future coaching-supplied-content rail, not native build.)
+
 ## ✅ Shipped — Learn Knowledge Engine (ADR-069, all 5 phases complete 2026-06-28)
 Rebuilt the Learn tab into the **knowledge backbone** of QuantReflex: a deep-linkable hub→topic knowledge graph
 built from reusable **knowledge objects** (not static HTML), a responsive design system reusable app-wide, and
