@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.80 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.81 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.81 / Arch 2.53 (2026-06-30)** — **Final verification & excellence pass (ADR-082 addendum).** A 3-agent audit
+> confirmed ADR-082 fully correct with zero regressions and the 45-topic library 100% spine-consistent (an audit
+> agent's "missing formula/trick" claims were false on inspection). Real fixes: `tables.js` guards all 5
+> `SoundEngine.play()` calls via `_sfx()` and drops the dead `renderMultiplicationTables()`. Surgical content (additive
+> optional blocks): a base-comparison table on profit-loss, exam-strategy blocks on time-and-work + blood-relations.
+> No new chapters/colours/deps/Firestore/gamification. learn-content 425 green; verified light+dark via Playwright.
+> SW v166→v167.
+>
 > **2.80 / Arch 2.53 (2026-06-30)** — **Learn UX polish (ADR-082).** (1) **Settings fix:** the "Ask Subject Before
 > Quick Start" row no longer clips its toggle on narrow phones (`.settings-label{min-width:0}` — the flexbox-overflow
 > fix; subtitle wraps in-column). (2) **Squares 1²–50² / Cubes 1³–30³** reference grids extended. (3) **Learn subject

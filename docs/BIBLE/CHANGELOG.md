@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Final verification & excellence pass (ADR-082 addendum)
+
+A 3-agent read-only audit (independently re-verified) confirmed ADR-082 fully correct, zero regressions, and the
+45-topic library 100% spine-consistent — one agent's "missing formula/trick" outliers were false on inspection. Only
+real fixes + a tight content increment shipped. Full suite green (learn-content 425/0, learn-render 15/0).
+
+```
+### fix/tables(ADR-082): guard SoundEngine + drop dead code
+- js/tables.js: route all 5 SoundEngine.play() calls through a guarded _sfx() helper (typeof check — mirrors the
+  rest of the app; the table-modal path was unguarded). Remove the unused renderMultiplicationTables() (zero callers).
+
+### content/learn(ADR-082): surgical exam-value blocks (Phase 6 — additive, counts unchanged)
+- data/knowledge/commercial.js profit-loss: a "which % sits on which base" comparison table (CP vs MP bases).
+- data/knowledge/arithmetic.js time-and-work: an exam-strategy block (LCM-units default; mid-way join/leave; invert
+  efficiency for time).
+- data/knowledge/lr.js lr-blood-relations: an exam-strategy block (always sketch; collapse self-references; decode
+  coded-relation symbols into the same tree).
+```
+
+Deliberately NOT changed (intentional design, verified): the subtle Learn dividers vs heavier Settings dividers, the
+subject(1.35rem) > category(1.2rem) font hierarchy, and the 38px filter-pill (≈48px effective tap target). No new
+chapters/colours/deps/Firestore/gamification. Verification: `npm test` exit 0; Playwright (light+dark) — the new
+table/exam blocks render with no overflow, settings toggle un-clipped, squares=50/cubes=30, filter persists, 0 page
+errors. **Docs:** DECISION_LOG ADR-082 addendum, VERSIONS 2.80→2.81, this entry. **SW** v166→v167.
+
+---
+
 ## 2026-06-30 — Learn UX polish: subject filter, squares/cubes, settings fix (ADR-082)
 
 A craftsmanship pass on Learn + a Settings layout regression. No new Learn chapters (user-confirmed; library stays

@@ -38,6 +38,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Consequences:** No engine/Firestore/dependency change; library stays 45 (`learn-content` counts unchanged, now 425
   with the alias asserts). Verified via Playwright (real CSS + KB): settings toggle un-clipped light+dark, squares=50 /
   cubes=30, filter switches instantly + persists, 0 page errors. SW v165→v166, Bible 2.79→2.80 (Arch unchanged 2.53).
+- **Addendum — final verification & excellence pass (2026-06-30):** a 3-agent read-only audit (independently
+  re-verified) confirmed ADR-082 **Fully implemented, zero regressions**, and the 45-topic library **100% spine-
+  consistent** — one audit agent's "lr-cause-effect / lr-course-of-action missing formula" and "lr-coded-inequalities
+  missing trick" claims were **false on inspection** (all three carry the full spine). Real fixes applied: (a)
+  `js/tables.js` — all 5 `SoundEngine.play()` calls routed through a guarded `_sfx()` helper (the rest of the app
+  already guards with `typeof`), and the dead `renderMultiplicationTables()` (zero callers) removed. Surgical content
+  enrichment (Phase 6 — additive optional blocks, counts unchanged): a "which % sits on which base" comparison **table**
+  on `profit-loss`, and **exam-strategy** blocks on `time-and-work` and `lr-blood-relations` (both very-high frequency).
+  Deliberately left: subtle-Learn-divider vs Settings-divider and subject>category font hierarchy (intentional), filter
+  pill 38px (adequate tap target). SW v166→v167, Bible 2.80→2.81.
 
 ## ADR-081 — Learn experience & UI refinement: premium textbook, unified across subjects (2026-06-30)
 - **Context:** The Learn tab was content-complete (45 gold-standard topics) but read like a stack of expandable cards,

@@ -48,6 +48,7 @@
         ] },
         { type: 'trick', title: 'Draw, don\'t hold', items: ['Sketch a quick tree; mark male (△) and female (○) and draw a line per stated link.', 'Replace long phrases ("the only daughter of my mother") with the simplest equivalent ("myself / my sister") first.'] },
         { type: 'trap', items: ['Reading the "of" backwards — "A is the father of B" means A is above B, not below.', 'Assuming gender from a name; rely only on the stated relations.', 'Confusing maternal vs paternal — for the basic relation (grandfather) it usually doesn\'t change the answer.'] },
+        { type: 'exam', title: 'In the exam', items: ['Always sketch the tree — symbols (△ male, ○ female) beat holding four links in your head under time pressure.', 'Collapse wordy self-references first: "the only daughter of my grandfather\'s only son" → "my sister / myself".', 'For coded blood relations, decode each symbol (+, −, ×, ÷) into an "of"-link and build the very same tree.'] },
         { type: 'example', problem: 'Pooja is the daughter of Sneha. Sneha is the sister of Kavya. How is Pooja related to Kavya?', steps: ['Pooja is Sneha\'s daughter; Sneha is Kavya\'s sister', 'So Pooja is the daughter of Kavya\'s sister', "A sister's daughter is a niece"], answer: 'Niece' },
         { type: 'revision', points: ['Build a generation tree.', 'Parent\'s parent = grandparent; parent\'s sibling = uncle/aunt.', 'Sibling\'s child = nephew/niece; child\'s child = grandchild.', 'Mind the direction of "of".'] }
       ]

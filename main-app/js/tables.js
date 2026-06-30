@@ -7,6 +7,9 @@
  * Supports triple-tap to open expanded modal view.
  */
 
+/* Guarded sound — SoundEngine may not be loaded yet when a table is tapped; mirror the app-wide typeof guard. */
+function _sfx(key) { if (typeof SoundEngine !== 'undefined' && SoundEngine.play) SoundEngine.play(key); }
+
 /**
  * Render a table selector and display area.
  * Users can tap number buttons to show/hide individual tables.
@@ -25,7 +28,7 @@ function renderTableSelector(selectorContainer, displayContainer, maxNum) {
     btn.setAttribute('data-table', n);
     btn.addEventListener('click', (function (num) {
       return function () {
-        SoundEngine.play('settingsToggle');
+        _sfx('settingsToggle');
         this.classList.toggle('active');
         toggleTableDisplay(displayContainer, num);
       };
@@ -42,7 +45,7 @@ function renderTableSelector(selectorContainer, displayContainer, maxNum) {
   selectorContainer.appendChild(controls);
 
   controls.querySelector('#showAllTables').addEventListener('click', function () {
-    SoundEngine.play('settingsToggle');
+    _sfx('settingsToggle');
     var btns = selectorContainer.querySelectorAll('.table-select-btn');
     displayContainer.innerHTML = '';
     for (var i = 0; i < btns.length; i++) {
@@ -52,7 +55,7 @@ function renderTableSelector(selectorContainer, displayContainer, maxNum) {
   });
 
   controls.querySelector('#clearAllTables').addEventListener('click', function () {
-    SoundEngine.play('settingsToggle');
+    _sfx('settingsToggle');
     var btns = selectorContainer.querySelectorAll('.table-select-btn');
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
     displayContainer.innerHTML = '';
@@ -167,7 +170,7 @@ function _openTableModal(n) {
     if (typeof showPaywall === 'function') showPaywall('table_modal');
     return;
   }
-  SoundEngine.play('tableModal');
+  _sfx('tableModal');
 
   var overlay = document.createElement('div');
   overlay.className = 'table-modal-overlay';
@@ -198,7 +201,7 @@ function _openTableModal(n) {
   document.body.appendChild(overlay);
 
   function closeModal() {
-    SoundEngine.play('tableModal');
+    _sfx('tableModal');
     overlay.classList.add('closing');
     document.removeEventListener('keydown', handleEscape);
     setTimeout(function () {
@@ -215,16 +218,4 @@ function _openTableModal(n) {
     if (e.target === overlay) closeModal();
   });
   document.addEventListener('keydown', handleEscape);
-}
-
-/**
- * Legacy function: Render all multiplication tables at once.
- * @param {HTMLElement} container - Element to render tables into
- * @param {number}      maxNum   - Highest table to generate (default 30)
- */
-function renderMultiplicationTables(container, maxNum) {
-  maxNum = maxNum || 30;
-  for (var n = 1; n <= maxNum; n++) {
-    renderSingleTable(container, n);
-  }
 }

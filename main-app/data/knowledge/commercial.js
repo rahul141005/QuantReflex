@@ -25,6 +25,12 @@
           { name: 'Discount', expr: 'Discount% = (MP − SP)/MP × 100;  SP = MP × (1 − d/100)', when: 'Discount is on the MARKED price, not CP.' },
           { name: 'Successive discounts', expr: 'Equivalent = d₁ + d₂ − (d₁·d₂)/100', when: 'Two discounts one after another.' }
         ] },
+        { type: 'table', caption: 'Which % sits on which base', headers: ['Percentage', 'Formula', 'Base'], rows: [
+          ['Profit %', '(SP − CP)/CP × 100', 'CP'],
+          ['Loss %', '(CP − SP)/CP × 100', 'CP'],
+          ['Markup %', '(MP − CP)/CP × 100', 'CP'],
+          ['Discount %', '(MP − SP)/MP × 100', 'MP']
+        ] },
         { type: 'trick', title: 'Two classic results', items: [
           'Same SP, +x% on one article and −x% on another → always an overall LOSS of x²/100 %.',
           'False weight: selling at "cost price" but giving W grams for 1000 → Gain% = (1000 − W)/W × 100.'

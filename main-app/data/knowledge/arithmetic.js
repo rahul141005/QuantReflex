@@ -181,6 +181,11 @@
           'Forgetting the hours/day factor in man-day-hour problems.',
           'Splitting wages by time taken rather than by work done.'
         ] },
+        { type: 'exam', title: 'How toppers attack it', items: [
+          'Default to the LCM-units method — it kills fractions and the answer usually falls out in one line.',
+          'When workers join or leave midway, track units completed so far, then divide the remaining units by the new combined rate.',
+          'Read "x% more efficient" as an efficiency ratio and invert it for time — don\'t apply the % to the days.'
+        ] },
         { type: 'memory', text: 'Make the work the LCM of the days → everyone gets whole units/day → just add or subtract rates.' },
         { type: 'revision', points: [
           'LCM method: total work = LCM(days); rate = total/days.',
