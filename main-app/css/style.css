@@ -10978,7 +10978,11 @@ body.dark-mode .category-subject-hint { color: #64748b; }
   padding: .95rem .9rem; font-size: 1rem; font-weight: 600; line-height: 1.25;
   color: #1e293b; background: #fff; border: 1.5px solid #e2e8f0; border-radius: var(--qr-btn-radius);
   transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  overflow-wrap: break-word; word-break: break-word; /* long LR statement options never overflow their button */
 }
+/* paragraph-length options (LR statement/decision distractors) read as prose, not centred labels — left-align and
+   relax line-height so a 3–4 line option stays legible. Always full-width (mcq-wide is applied alongside). */
+.mcq-option.mcq-para { text-align: left; line-height: 1.4; font-weight: 500; }
 .mcq-option:active { transform: scale(.97); }
 /* Press-down feedback (parity with the numpad's .pressed key): a tap reads on contact, not just on result. Wired by
    the drill engine on pointerdown/up; toggles only this class — never grades, so it can't affect answer state. */

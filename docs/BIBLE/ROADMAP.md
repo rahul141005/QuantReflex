@@ -59,13 +59,15 @@ admission rules define the boundary (and keep the product from regressing into a
   turns, ranking interchange, verbal/letter odd & analogy, extended-Boolean syllogisms) + **new generatable topics**
   (letter/alphanumeric series, coded inequalities with an Either-Or verdict solver, calendars, clocks, input-output).
   **Puzzle SET engine** (`js/lr-set-engine.js`) — unique-solution seating/floor sets via the drill set-mode (now
-  MCQ-capable). **Authored hybrid subsystem** (`data/lr-authored/*`) — schema/validator + 57 premium CR/Statement/
-  Cause-Effect/Course-of-Action/Decision items with explanations, served through the same pipeline; new explanation
-  seam + LR/authored bookmarking. **Generative visual engine** (`js/ui/lr-figures.js` + `js/lr-visual-engine.js`) —
-  SVG mirror/water/dice/cube/figure-series/analogy. Tips for all 25 categories; 10 new Learn topics (32 → 42). This
-  **supersedes the ADR-075 "Excluded" list** (seating-puzzles, statement/assumption/conclusion, cause-effect are now
-  shipped — generatable ones procedurally, verbal ones via the sanctioned authored rail). Derived-only, no migration,
-  no deps; lr-set-engine / lr-authored / lr-figures checks + stress (51,002 Qs + 39,600 figures, 0 defects). SW v159.
+  MCQ-capable). **Authored hybrid subsystem** (`data/lr-authored/*`) — schema/validator + 77 premium CR/Statement/
+  Cause-Effect/Course-of-Action/Decision items with explanations (research-grounded, original-but-exam-faithful, with
+  an `inspiredBy` exam-pattern tag — never mislabelled as official PYQs), served through the same pipeline; new
+  explanation seam + LR/authored bookmarking. **Generative visual engine** (`js/ui/lr-figures.js` +
+  `js/lr-visual-engine.js`) — SVG mirror/water/dice/cube/figure-series/analogy. Tips for all 25 categories; 13 new Learn
+  topics (32 → 45). This **supersedes the ADR-075 "Excluded" list** (seating-puzzles, statement/assumption/conclusion,
+  cause-effect are now shipped — generatable ones procedurally, verbal ones via the sanctioned authored rail).
+  Derived-only, no migration, no deps; lr-set-engine / lr-authored / lr-figures checks + a near-term variety metric +
+  stress (51,003 Qs + 39,600 figures, 0 defects / 0 low-variety tiers / 0 ring failures). SW v161.
   **Deferred (architected to add later):** paper folding/cutting & complex embedded figures (authored-art pipeline);
   tournaments/games sets; LR in duels (MCQ duel-schema change).
 - **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, GK/Current-Affairs. (Authored verbal-reasoning

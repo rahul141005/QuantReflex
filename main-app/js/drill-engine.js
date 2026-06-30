@@ -198,7 +198,7 @@ function createDrillEngine(container, opts) {
       '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
       (isMCQ
         ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
-            q.options.map(function (o) { var s = _escHtml(String(o)); var wide = String(o).length > 14 ? ' mcq-wide' : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>'; }).join('') +
+            q.options.map(function (o) { var s = _escHtml(String(o)); var len = String(o).length; var wide = len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>'; }).join('') +
           '</div>'
         : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />') +
       '<div id="feedback" class="feedback" aria-live="polite"></div>';
@@ -273,7 +273,7 @@ function createDrillEngine(container, opts) {
              data-opt is still what the grader compares). */
           (isMCQ
             ? '<div id="mcqOptions" class="mcq-options' + (q.optionFigures ? ' mcq-options-figures' : '') + '" role="group" aria-label="Answer options">' +
-                q.options.map(function (o, _i) { var s = _escHtml(String(o)); var fig = (q.optionFigures && q.optionFigures[_i] && typeof LRFigures !== 'undefined') ? LRFigures.render(q.optionFigures[_i]) : ''; var cls = fig ? 'mcq-option mcq-figure-option' : ('mcq-option' + (String(o).length > 14 ? ' mcq-wide' : '')); return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="Option ' + s + '">' + (fig || s) + '</button>'; }).join('') +
+                q.options.map(function (o, _i) { var s = _escHtml(String(o)); var fig = (q.optionFigures && q.optionFigures[_i] && typeof LRFigures !== 'undefined') ? LRFigures.render(q.optionFigures[_i]) : ''; var len = String(o).length; var cls = fig ? 'mcq-option mcq-figure-option' : ('mcq-option' + (len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : '')); return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="Option ' + s + '">' + (fig || s) + '</button>'; }).join('') +
               '</div>'
             : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />'
           ) +

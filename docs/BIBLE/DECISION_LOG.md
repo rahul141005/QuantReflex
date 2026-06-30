@@ -73,6 +73,31 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   code** — removed 4 unused public exports (`_compose2`/`_codeOps`, `_buildRaw`/`_perms`; functions stay, used
   internally). Still derived-only, no migration, no deps. `lr-figures.check` recompute branches updated for every new
   visual form; stress 51,004 questions + 39,600 figures, 0 defects. SW v159→v160, Bible 2.74→2.75 (Arch unchanged 2.53).
+- **Content-excellence pass (2026-06-30, ADR-079 follow-up):** a quality-over-quantity pass on the *content itself*
+  (not the engine), driven by "I'd rather have 300 outstanding questions than 3000 generic ones." Research re-confirmed
+  the real LR question forms across CAT/XAT/CMAT/NMAT/SNAP and IBPS/SBI/RRB/SSC; no questions copied verbatim — premium
+  items are original but carry an `inspiredBy` exam-pattern tag for transparency (never mislabelled as official PYQs).
+  Changes: (a) **validator hardening** (`lr-authored.check.js`) — added duplicate-stem, duplicate stem+options, and an
+  *exploitable-length give-away* gate (correct answer must not be >35% longer than every distractor — a "pick the
+  longest" tell), excluding verdict and data-adequacy banks where short options are authentic; this caught and forced
+  the rewrite of ~11 lazy dismissive distractors into believable full statements arising from real reasoning mistakes.
+  (b) **authored expansion by genuine value** — premium CR items (evaluate/complete/method/parallel subtypes added to
+  the schema) and +4 medium decision dilemmas (hospital conduct, disaster-relief priority, hiring conflict-of-interest,
+  retail mis-selling); bank 64 → **77 items**, lifting the thin medium-decision pool 6 → 10. (c) **generative
+  authenticity** — wider real-word/name/noun pools (coding 20→62, names 12→32, syllogism nouns 16→40), six more
+  odd-one-out groups, eight more verbal analogies, and human scene-setting on direction/ranking stems so generated
+  questions stop reading as templated ("A person…" → varied actors/openers). All correctness-safe: every code/relation/
+  syllogism is recomputed from its token, so the harness still re-derives all of them. (d) **clock easy variety** — was
+  one question form (angle at H:00, 6 possible answers → felt repetitive); now five genuine exam forms (H:00 / H:30
+  angle, minute-hand and hour-hand degrees), lifting a 40-draw variety probe 11/40 → ~32/40. (e) **ring safeguard**
+  (`lr-authored-engine.js`) — on a pool smaller than the recent-id ring, never re-serve the immediately-previous item
+  (a back-to-back repeat is the one thing a user always notices). (f) **UI robustness** — `.mcq-option` now wraps long
+  text defensively and paragraph-length options (>48 chars, the new statement/decision distractors) left-align as prose
+  via a `mcq-para` modifier instead of centred labels. A near-term **variety metric** was added to the stress harness
+  (40-draw window, full stem+options+figure signature; ≥0.70 for generative/visual; authored asserted against the real
+  engine ring window) — it flags genuine small-pool weaknesses, not natural bounded-pool collision. Still derived-only,
+  no migration, no deps. Full `npm test` green; stress 51,003 questions + 39,600 figures, 0 defects, 0 low-variety
+  tiers, 0 ring failures. SW v160→v161, Bible 2.75→2.76 (Arch unchanged 2.53).
 
 ## ADR-078 — Data Interpretation Engine v2: earned difficulty, multi-series renderer, DI sets (2026-06-30)
 - **Context:** DI (ADR-074) was architecturally clean but pedagogically v1: difficulty was reasoning-based yet had a

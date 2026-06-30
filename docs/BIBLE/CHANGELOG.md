@@ -6,6 +6,44 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — LR content-excellence pass (ADR-079 follow-up)
+
+Quality-over-quantity pass on LR *content* (not the engine): research-grounded, original-but-exam-faithful questions,
+believable distractors, earned variety. No questions copied verbatim; premium items carry an `inspiredBy` tag and are
+never mislabelled as official PYQs.
+
+```
+### test/lr(ADR-079): authored validator hardening
+- scripts/lr-authored.check.js: gate duplicate stems, duplicate stem+option sets, and EXPLOITABLE-LENGTH give-aways
+  (correct answer must not be >35% longer than every distractor — a "pick the longest" tell; verdict + data-adequacy
+  banks excluded where short options are authentic). Reports inspiredBy coverage.
+
+### feat/lr(ADR-079): authored expansion by genuine value (64 -> 77 items)
+- data/lr-authored/schema.js: optional inspiredBy field; +4 CR subtypes (evaluate/complete/method/parallel).
+- data/lr-authored/critical.js: +9 premium CR items; ~11 weak dismissive distractors rewritten into believable full
+  statements that arise from real reasoning mistakes (no second-valid-answer introduced).
+- data/lr-authored/decision.js: +4 medium dilemmas (hospital conduct, disaster-relief priority, hiring
+  conflict-of-interest, retail mis-selling); medium-decision pool 6 -> 10.
+
+### feat/lr(ADR-079): generative authenticity (stop reading as templated)
+- lr-engine.js: coding words 20->62 (3-7 letters), names 12->32, syllogism nouns 16->40, +6 odd-one-out groups,
+  +8 verbal analogies; human scene-setting (_actor/_rowOpen/_qOpen) on direction/ranking stems. Locked tokens the
+  harness parses are preserved; every code/relation/syllogism is recomputed from its token (correctness-safe).
+- lr-engine.js + scripts/lr-engine.check.js: clock easy was ONE form (angle at H:00) -> five exam forms (H:00/H:30
+  angle, minute-hand and hour-hand degrees); independent-recompute branches added. 40-draw variety probe 11/40 -> ~32/40.
+
+### fix/lr(ADR-079): authored ring + long-option UI
+- lr-authored-engine.js: on a pool smaller than the recent-id ring, never re-serve the immediately-previous item.
+- drill-engine.js + css/style.css: .mcq-option wraps long text defensively; paragraph-length options (>48 chars, the
+  new statement/decision distractors) left-align as prose via a .mcq-para modifier instead of centred labels.
+```
+
+**Docs:** DECISION_LOG (ADR-079 content-excellence note), VERSIONS (Bible 2.75→2.76), ROADMAP, README authored count.
+**Verification:** full `npm test` green; stress harness 51,003 questions + 39,600 figures, **0 defects, 0 low-variety
+tiers, 0 ring failures**. No new Firestore I/O, no new deps. **SW v160→v161.**
+
+---
+
 ## 2026-06-30 — LR final production audit & stabilization (ADR-079 hardening)
 
 Trust-nothing audit of the shipped LR overhaul (3 adversarial agents: integration-completeness · dead-code/

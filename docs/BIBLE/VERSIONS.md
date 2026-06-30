@@ -9,12 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.75 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.76 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.76 / Arch 2.53 (2026-06-30)** — **LR content-excellence pass (ADR-079 follow-up).** Quality-over-quantity on the
+> content itself, not the engine ("300 outstanding questions over 3000 generic ones"). (1) **Validator hardening** —
+> `lr-authored.check` now gates duplicate stems, duplicate stem+option sets, and *exploitable-length give-aways* (the
+> correct answer must not be >35% longer than every distractor); this caught ~11 lazy dismissive distractors, rewritten
+> into believable full statements arising from real reasoning mistakes. (2) **Authored expansion by value** — premium CR
+> subtypes (evaluate/complete/method/parallel) + 4 medium decision dilemmas; bank **64 → 77 items** (medium-decision
+> pool 6 → 10). Premium items carry an `inspiredBy` exam-pattern tag — original, never mislabelled as official PYQs.
+> (3) **Generative authenticity** — wider word/name/noun pools (coding 20→62, names 12→32, nouns 16→40), more
+> odd-one-out groups & verbal analogies, varied human scene-setting on direction/ranking stems (all correctness-safe;
+> the harness recomputes every token). (4) **Clock easy variety** — one form (angle at H:00) → five exam forms; a
+> 40-draw variety probe 11/40 → ~32/40. (5) **Ring safeguard** — never re-serve the immediately-previous authored item.
+> (6) **UI** — long statement options wrap defensively and left-align as prose (`mcq-para`). A near-term variety metric
+> was added to the stress harness. Derived-only, no migration, no deps. Full `npm test` green; stress 51,003 Qs + 39,600
+> figures, 0 defects / 0 low-variety tiers / 0 ring failures. SW v160→v161.
+>
 > **2.75 / Arch 2.53 (2026-06-30)** — **LR final production audit & stabilization (ADR-079 hardening).** A
 > trust-nothing audit (3 adversarial agents) confirmed the LR overhaul production-grade — green tests, 0 new Firestore
 > I/O, all 25 categories integrated/labelled/tipped/gated, docs counts exact, all 57 authored items defensible — and
