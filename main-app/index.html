@@ -682,66 +682,74 @@
     <div id="view-stats" class="spa-view">
       <header><h1><img src="appicons/tab/statstab.svg" alt="Stats" class="header-icon" width="28" height="28" draggable="false"> Analytics</h1></header>
 
-      <!-- Section 1 — Practice Overview -->
+      <!-- TODAY — the live snapshot: am I moving today? -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Practice Overview</h3>
+        <h3 class="analytics-section-title">Today</h3>
         <div class="analytics-card">
-          <div class="stat-grid stat-grid-3" id="statsPracticeOverview"></div>
+          <div class="stat-grid stat-grid-2" id="statsToday"></div>
+          <div id="statsTodaySplit"></div>
         </div>
       </div>
 
-      <!-- Section 2 — Speed & Efficiency -->
+      <!-- MOMENTUM — am I getting better over time? -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Speed &amp; Efficiency</h3>
-        <div class="analytics-card">
-          <div class="stat-grid stat-grid-2" id="statsSpeed"></div>
-        </div>
-      </div>
-
-      <!-- Section 3 — Activity Stats -->
-      <div class="analytics-section">
-        <h3 class="analytics-section-title">Activity Stats</h3>
-        <div class="analytics-card">
-          <div class="stat-grid stat-grid-2" id="statsActivity"></div>
-        </div>
-      </div>
-
-      <!-- Section 4 — Consistency -->
-      <div class="analytics-section">
-        <h3 class="analytics-section-title">Consistency</h3>
-        <div class="analytics-card">
-          <div class="stat-grid stat-grid-2" id="statsConsistency"></div>
-        </div>
-      </div>
-
-      <!-- Section 4b — 7-Day Accuracy Trend -->
-      <div class="analytics-section" id="sparklineSection">
-        <h3 class="analytics-section-title">7-Day Accuracy Trend</h3>
+        <h3 class="analytics-section-title">Momentum</h3>
         <div class="analytics-card">
           <div id="statsSparkline"></div>
+          <div class="stat-grid stat-grid-3" id="statsMomentum"></div>
         </div>
       </div>
 
-      <!-- Section 5 — Performance Insights -->
-      <div class="analytics-section" id="performanceInsightsSection">
+      <!-- SUBJECT MASTERY -->
+      <div class="analytics-section" id="masterySection">
+        <h3 class="analytics-section-title">Subject Mastery</h3>
+        <div class="analytics-card">
+          <div id="statsMastery"></div>
+        </div>
+      </div>
+
+      <!-- PERFORMANCE INSIGHTS (QuanAI comparative) -->
+      <div class="analytics-section" id="insightsSection">
         <h3 class="analytics-section-title">Performance Insights</h3>
         <div class="analytics-card">
-          <div class="stat-grid stat-grid-3" id="statsInsights"></div>
+          <div id="statsInsights"></div>
         </div>
       </div>
 
-      <!-- Category Performance -->
-      <div class="analytics-section" id="categoryAccuracySection">
-        <h3 class="analytics-section-title">Category Accuracy</h3>
+      <!-- EXAM READINESS -->
+      <div class="analytics-section" id="readinessSection">
+        <h3 class="analytics-section-title">Exam Readiness</h3>
         <div class="analytics-card">
-          <div id="categoryStats">
-            <p class="secondary-text">Start practicing to see category-wise performance.</p>
-          </div>
+          <div id="statsReadiness"></div>
         </div>
       </div>
 
-      <!-- AI Insights (always last) -->
-      <div class="analytics-section" id="aiInsightsSection" style="text-align:center; padding: 2rem 0;">
+      <!-- TIME INVESTED -->
+      <div class="analytics-section" id="timeSection">
+        <h3 class="analytics-section-title">Time Invested</h3>
+        <div class="analytics-card">
+          <div id="statsTime"></div>
+        </div>
+      </div>
+
+      <!-- STUDY NEXT — auto-ranked weakest topics -->
+      <div class="analytics-section" id="weakestSection">
+        <h3 class="analytics-section-title">Study Next</h3>
+        <div class="analytics-card">
+          <div id="statsWeakest"></div>
+        </div>
+      </div>
+
+      <!-- QUANAI RECOMMENDS — one decisive next step -->
+      <div class="analytics-section" id="recommendationSection">
+        <h3 class="analytics-section-title">QuanAI Recommends</h3>
+        <div class="analytics-card">
+          <div id="statsRecommendation"></div>
+        </div>
+      </div>
+
+      <!-- AI Insights deep-dive (premium modal entry) -->
+      <div class="analytics-section" id="aiInsightsSection" style="text-align:center; padding: 1.5rem 0 2rem;">
         <div id="aiInsightsContainer">
           <p class="secondary-text">AI-powered performance analysis.</p>
         </div>

@@ -44,6 +44,7 @@ function loadProgress() {
         }
         data.todayAttempted = 0;
         data.todayCorrect = 0;
+        data.todayCats = {};   /* ADR-080: per-category counts for TODAY's subject split — reset with the day counters */
         data.lastActiveDate = today;
         data.lastActiveMs = Date.now();   /* sortable last-active (ADR-029) — toDateString isn't query-safe */
         saveProgress(data);
@@ -194,6 +195,9 @@ function recordAnswer(correct, category, questionData, responseTime) {
       _cs.timedCount = (_cs.timedCount || 0) + 1;
     }
     _cs.lastTs = Date.now();
+    /* today-only per-category tally (reset on day change in loadProgress) → today's subject split on Stats */
+    if (!p.todayCats) p.todayCats = {};
+    p.todayCats[category] = (p.todayCats[category] || 0) + 1;
   }
 
   /* Difficulty mix (ADR-080): how many questions the user has actually solved at each tier — a real input to

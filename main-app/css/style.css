@@ -10434,6 +10434,80 @@ body.dark-mode .planner-triage strong { color: #cbd5e1; }
 body.dark-mode .cat-stats-caption { color: #94a3b8; }
 .cat-stats-caption strong { color: #2563eb; }
 
+/* ───────── Stats rebuild (ADR-080) — "Am I getting better?" sections. Reuses cat-bar / strength-label / stat-card. ───────── */
+.stats-block-cap { font-size: .76rem; color: #64748b; margin: 0 0 .6rem; line-height: 1.4; }
+body.dark-mode .stats-block-cap { color: #94a3b8; }
+.stats-block-cap strong { color: #2563eb; }
+
+/* subject split (today + time invested) */
+.stats-split { margin-top: .9rem; }
+.stats-split-row { display: flex; align-items: center; gap: .55rem; padding: .3rem 0; }
+.stats-split-name { flex: 0 0 5.2rem; font-size: .82rem; font-weight: 600; color: #334155; }
+.stats-split-bar { flex: 1; height: .5rem; background: #e2e8f0; border-radius: .3rem; overflow: hidden; }
+.stats-split-fill { height: 100%; border-radius: .3rem; background: linear-gradient(90deg, #2563eb, #3b82f6); }
+.stats-split-val { flex: 0 0 auto; min-width: 2.4rem; text-align: right; font-size: .8rem; font-weight: 700; color: #2563eb; }
+body.dark-mode .stats-split-name { color: #cbd5e1; }
+body.dark-mode .stats-split-bar { background: #334155; }
+body.dark-mode .stats-split-val { color: #93c5fd; }
+
+/* subject mastery rows */
+.stats-mastery-row { padding: .65rem 0; border-bottom: 1px solid #f1f5f9; }
+.stats-mastery-row:last-child { border-bottom: none; }
+body.dark-mode .stats-mastery-row { border-bottom-color: #334155; }
+.stats-mastery-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .35rem; }
+.stats-mastery-name { font-size: .95rem; font-weight: 700; color: #0f172a; }
+.stats-mastery-pct { font-size: 1.05rem; font-weight: 800; color: #2563eb; }
+body.dark-mode .stats-mastery-name { color: #f1f5f9; }
+body.dark-mode .stats-mastery-pct { color: #93c5fd; }
+.stats-mastery-meta { display: flex; align-items: center; gap: .5rem; margin-top: .4rem; flex-wrap: wrap; }
+.stats-mastery-sub { font-size: .74rem; color: #94a3b8; }
+.stats-mastery-weak { font-size: .76rem; color: #b45309; margin-top: .3rem; }
+body.dark-mode .stats-mastery-weak { color: #fcd34d; }
+
+/* comparative insights */
+.stats-insight-row { display: flex; gap: .6rem; align-items: flex-start; padding: .55rem 0; border-bottom: 1px solid #f1f5f9; }
+.stats-insight-row:last-child { border-bottom: none; }
+body.dark-mode .stats-insight-row { border-bottom-color: #334155; }
+.stats-insight-ico { flex: 0 0 auto; font-size: 1rem; line-height: 1.5; }
+.stats-insight-row p { margin: 0; font-size: .88rem; line-height: 1.5; color: #334155; }
+body.dark-mode .stats-insight-row p { color: #cbd5e1; }
+.stats-insight-row strong { color: #0f172a; font-weight: 700; }
+body.dark-mode .stats-insight-row strong { color: #f1f5f9; }
+
+/* exam readiness */
+.stats-ready-row { display: grid; grid-template-columns: minmax(5.5rem,auto) 1fr auto; grid-template-areas: 'name bar score' 'lvl bar score'; align-items: center; gap: .15rem .55rem; padding: .5rem 0; }
+.stats-ready-name { grid-area: name; font-size: .86rem; font-weight: 700; color: #0f172a; }
+body.dark-mode .stats-ready-name { color: #f1f5f9; }
+.stats-ready-row .cat-bar-container { grid-area: bar; }
+.stats-ready-score { grid-area: score; font-size: 1rem; font-weight: 800; color: #2563eb; min-width: 2.6rem; text-align: right; }
+body.dark-mode .stats-ready-score { color: #93c5fd; }
+.stats-ready-lvl { grid-area: lvl; font-size: .72rem; color: #94a3b8; }
+.stats-ready-row.is-target { background: rgba(37,99,235,.05); border-radius: .6rem; padding: .55rem .6rem; margin: 0 -.35rem; }
+body.dark-mode .stats-ready-row.is-target { background: rgba(37,99,235,.14); }
+.stats-ready-tag { font-size: .58rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #2563eb; background: rgba(37,99,235,.12); padding: .05rem .35rem; border-radius: .3rem; }
+body.dark-mode .stats-ready-tag { color: #bfdbfe; background: rgba(37,99,235,.26); }
+
+/* study next */
+.stats-weak-row { display: flex; align-items: center; gap: .55rem; width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: .55rem 0; border-bottom: 1px solid #f1f5f9; transition: background .12s ease; }
+.stats-weak-row:last-child { border-bottom: none; }
+.stats-weak-row:active { background: rgba(37,99,235,.05); }
+body.dark-mode .stats-weak-row { border-bottom-color: #334155; }
+.stats-weak-name { flex: 0 0 7rem; font-size: .86rem; font-weight: 600; color: #0f172a; }
+body.dark-mode .stats-weak-name { color: #e2e8f0; }
+.stats-weak-row .cat-bar-container { flex: 1; }
+.stats-weak-go { flex: 0 0 auto; font-size: .76rem; font-weight: 700; color: #2563eb; }
+
+/* QuanAI recommendation card */
+.stats-rec-card { padding: .2rem 0; }
+.stats-rec-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; }
+.stats-rec-ico { font-size: 1.1rem; }
+.stats-rec-by { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #2563eb; }
+.stats-rec-text { margin: 0 0 .9rem; font-size: .95rem; line-height: 1.5; color: #334155; }
+body.dark-mode .stats-rec-text { color: #cbd5e1; }
+.stats-rec-text strong { color: #0f172a; font-weight: 800; }
+body.dark-mode .stats-rec-text strong { color: #f1f5f9; }
+.stats-rec-btn { min-height: 46px; font-size: .95rem; }
+
 /* ---- ADR-062: transparent readiness + clearer labels ---- */
 .planner-readiness.is-tappable { cursor: pointer; border-radius: 14px; transition: background .15s; }
 .planner-readiness.is-tappable:hover, .planner-readiness.is-expanded { background: rgba(37, 99, 235, .06); }
