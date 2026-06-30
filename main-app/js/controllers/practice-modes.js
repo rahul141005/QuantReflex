@@ -49,6 +49,9 @@ function _startQuickWithSubject(modeKey, subjectId) {
 }
 
 function _launchQuickStart(modeKey) {
+  /* If the user can't practise right now (free daily limit reached), don't tease the subject picker — go straight to
+     startDrillFromPractice, which surfaces the limit banner + paywall. */
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { startDrillFromPractice(modeKey); return; }
   /* Honour the saved preference: if the user turned the prompt off, launch straight into the remembered subject. */
   if (typeof PracticeSubjectModal !== 'undefined' && PracticeSubjectModal.shouldAsk && PracticeSubjectModal.shouldAsk()) {
     PracticeSubjectModal.open(function (subjectId) { _startQuickWithSubject(modeKey, subjectId); });

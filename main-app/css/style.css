@@ -2564,21 +2564,8 @@ body.theme-playful.dark-mode .guide-tier-cta-note {
 }
 
 /* ---- Category Stats (Stats page) ---- */
-.category-stats-list { margin-top: .5rem; }
-.category-stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: .65rem 0;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: .9rem;
-  gap: .5rem;
-}
-.category-stat-row:last-child { border-bottom: none; }
-.cat-name { color: #0f172a; font-weight: 500; text-transform: capitalize; min-width: 5rem; max-width: 9rem; font-size: .85rem; }
-.cat-accuracy { color: #2563eb; font-weight: 700; white-space: nowrap; font-size: .85rem; }
-
-/* Category accuracy bar */
+/* Accuracy bar + strength labels — reused across Stats (subject mastery, exam readiness, study-next) as the ONE
+   accuracy-bar language (ADR-080). The old flat category-accuracy LIST rows were removed with the Stats rebuild. */
 .cat-bar-container {
   flex: 1;
   height: .45rem;
@@ -10434,9 +10421,6 @@ body.dark-mode .planner-triage { color: #94a3b8; background: rgba(255, 255, 255,
 .planner-triage strong { color: #475569; }
 body.dark-mode .planner-triage strong { color: #cbd5e1; }
 
-.cat-stats-caption { font-size: .8rem; color: #64748b; margin: 0 0 .6rem; }
-body.dark-mode .cat-stats-caption { color: #94a3b8; }
-.cat-stats-caption strong { color: #2563eb; }
 
 /* ───────── Stats rebuild (ADR-080) — "Am I getting better?" sections. Reuses cat-bar / strength-label / stat-card. ───────── */
 .stats-block-cap { font-size: .76rem; color: #64748b; margin: 0 0 .6rem; line-height: 1.4; }
@@ -11137,7 +11121,6 @@ body.dark-mode .mcq-option.mcq-wrong { background: rgba(239,68,68,.18); border-c
 @media (prefers-reduced-motion: reduce) { .mcq-option { transition: none; } .mcq-option:active, .mcq-option.pressed { transform: none; } }
 
 /* Stats: the per-subject breakdown sits above the per-category list with a little breathing room (ADR-076) */
-.subject-breakdown-list { margin-bottom: 1.15rem; }
 
 /* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
 .kx-subject-group { margin-bottom: .4rem; }

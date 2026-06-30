@@ -78,8 +78,11 @@ function _fmtAgo(ts) {
 /* the shared accuracy→bar/strength language (same cuts as the category bars, so everything reads identically) */
 function _barClass(pct) { return pct >= 85 ? 'cat-bar-high' : pct >= 65 ? 'cat-bar-mid' : pct >= 40 ? 'cat-bar-low' : 'cat-bar-weak'; }
 function _strength(pct) { return pct >= 85 ? ['strong', 'Strong'] : pct >= 65 ? ['moderate', 'Moderate'] : ['weak', 'Weak']; }
-function _statCard(value, label, mod, hint) {
-  return '<div class="stat-card' + (mod || '') + '"><div class="value value-sm">' + value + '</div><div class="label">' + label + '</div>' +
+/* vcls: 'value-sm' keeps the wrap-friendly small treatment (momentum trend words like "Building"); '' uses the big
+   prominent .value (Today's headline numbers — these must read as the hero metric, not shrink to 13px). */
+function _statCard(value, label, mod, hint, vcls) {
+  if (vcls == null) vcls = 'value-sm';
+  return '<div class="stat-card' + (mod || '') + '"><div class="value ' + vcls + '">' + value + '</div><div class="label">' + label + '</div>' +
     (hint ? '<div class="stat-hint">' + hint + '</div>' : '') + '</div>';
 }
 
@@ -93,10 +96,10 @@ function _renderToday(p, SM, SUB, subjectCats) {
   var study = ti ? _fmtClock(ti.todaySec) : '—';
   el.className = 'stat-grid stat-grid-2';
   el.innerHTML =
-    _statCard((t.attempted || 0), 'Solved today') +
-    _statCard(accDisp, 'Accuracy', t.accuracy != null ? (t.accuracy >= 0.7 ? ' stat-card-positive' : '') : '') +
-    _statCard(spd, 'Avg time / question') +
-    _statCard(study, 'Study time');
+    _statCard((t.attempted || 0), 'Solved today', '', '', '') +
+    _statCard(accDisp, 'Accuracy', t.accuracy != null ? (t.accuracy >= 0.7 ? ' stat-card-positive' : '') : '', '', '') +
+    _statCard(spd, 'Avg time / question', '', '', '') +
+    _statCard(study, 'Study time', '', '', '');
 
   /* today's subject split (from the day-reset todayCats tally) */
   var split = _statsEl('statsTodaySplit'); if (!split) return;
@@ -349,11 +352,11 @@ function _renderRecommendation(p, SM, ER, weightedCats) {
 function _renderAiDeepDive(p) {
   var c = _statsEl('aiInsightsContainer'); if (!c || typeof AIFeatures === 'undefined') return;
   if (!AIFeatures.isPremium()) {
-    c.innerHTML = '<p class="secondary-text stats-premium-note">🔒 A full AI breakdown of your performance is a Premium feature.</p>' +
+    c.innerHTML = '<p class="secondary-text stats-premium-note">🔒 A full QuanAI breakdown of your performance is a Premium feature.</p>' +
       '<button class="btn-primary ai-coach-unlock-btn stats-premium-cta" type="button">Unlock with Premium</button>';
     var u = c.querySelector('.ai-coach-unlock-btn'); if (u) u.addEventListener('click', function () { showPaywall('ai_coach'); });
   } else {
-    c.innerHTML = '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding:1rem 2rem;border-radius:12px;font-size:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);">🧠 Full AI breakdown</button>';
+    c.innerHTML = '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding:1rem 2rem;border-radius:12px;font-size:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);">🧠 Full QuanAI breakdown</button>';
     var b = c.querySelector('.ai-insights-btn');
     if (b) b.addEventListener('click', function () { AIFeatures.showStatsInsightsModal(p); });
   }

@@ -184,7 +184,17 @@ var LearnView = (function () {
       '</button>';
   }
 
-  function _gridHtml(topics) { return '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div>'; }
+  /* Order topics by the exam-relevance recommendedOrder (learning progression — "where to start" first), stably
+     falling back to the registration order when no metadata exists. Drives every Learn grid so the sequence is
+     consistent with the planner/recommendations. */
+  function _byOrder(topics) {
+    var ER = _examRel();
+    if (!ER) return topics;
+    return topics.map(function (t, i) { return { t: t, i: i, o: ER.order ? ER.order(t.id) : 999 }; })
+      .sort(function (a, b) { return a.o - b.o || a.i - b.i; })
+      .map(function (x) { return x.t; });
+  }
+  function _gridHtml(topics) { return '<div class="kx-topic-grid">' + _byOrder(topics).map(_topicCardHtml).join('') + '</div>'; }
 
   function _catHtml(c, hideHead) {
     var KB = _KB(); var topics = KB.byCategory(c.id);
