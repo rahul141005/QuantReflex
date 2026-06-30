@@ -18,7 +18,7 @@ function loadSettings() {
   return {
     darkMode: false, sound: true, vibration: true, difficulty: 'medium',
     dailyGoal: 20, reducedMotion: false, skipEnabled: false, notificationsEnabled: false,
-    theme: 'classic'
+    theme: 'classic', practiceAskSubject: true, practiceLastSubject: 'quant'
   };
 }
 
@@ -194,6 +194,18 @@ function initSettingsView() {
       SoundEngine.play('settingsToggle');
     });
     skipToggle.checked = !!(settings.skipEnabled && settings.difficulty !== 'hard');
+  }
+
+  /* ADR-080: ask which subject before a Quick-Start session. Default ON (practiceAskSubject !== false). */
+  var askSubjectToggle = document.getElementById('askSubjectToggle');
+  if (askSubjectToggle) {
+    askSubjectToggle = rebind(askSubjectToggle, 'change', function () {
+      settings.practiceAskSubject = this.checked;
+      saveSettings(settings);
+      SoundEngine.play('settingsToggle');
+      if (typeof triggerHaptic === 'function') triggerHaptic(15);
+    });
+    askSubjectToggle.checked = settings.practiceAskSubject !== false;
   }
 
   difficultySelect = rebind(difficultySelect, 'change', function () {

@@ -69,6 +69,7 @@ var ASSETS = [
   './js/companion-ui.js',
   './js/controllers/practice-config.js',
   './js/controllers/practice-modes.js',
+  './js/ui/practice-subject-modal.js',
   './js/ui/numpad.js',
   './js/ui/swipe-nav.js',
   './js/views/home-view.js',

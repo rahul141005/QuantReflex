@@ -31,7 +31,35 @@ function _mixedAptitudeTopics() {
   return t.length ? t : null;
 }
 
-function startDrillFromPractice(modeKey, category, categoryLabel) {
+/* ADR-080: resolve a chosen subject id to a topic pool + human label, then launch the Quick-Start session scoped to
+   it. 'mixed' reuses the balanced cross-subject pool; a missing/unknown subject (or absent subject layer) falls back
+   to Quant-default behaviour (no topics → the engine's Quant random), so nothing breaks. */
+function _subjectScope(subjectId) {
+  if (typeof QR_SUBJECTS === 'undefined') return { topics: null, label: null };
+  if (subjectId === 'mixed') return { topics: _mixedAptitudeTopics(), label: 'Mixed' };
+  try {
+    var cats = QR_SUBJECTS.subjectToCategories(subjectId) || [];
+    return { topics: cats.length ? cats : null, label: QR_SUBJECTS.label(subjectId) || null };
+  } catch (_) { return { topics: null, label: null }; }
+}
+
+function _startQuickWithSubject(modeKey, subjectId) {
+  var s = _subjectScope(subjectId);
+  startDrillFromPractice(modeKey, null, null, { topics: s.topics, subjectLabel: s.label });
+}
+
+function _launchQuickStart(modeKey) {
+  /* Honour the saved preference: if the user turned the prompt off, launch straight into the remembered subject. */
+  if (typeof PracticeSubjectModal !== 'undefined' && PracticeSubjectModal.shouldAsk && PracticeSubjectModal.shouldAsk()) {
+    PracticeSubjectModal.open(function (subjectId) { _startQuickWithSubject(modeKey, subjectId); });
+  } else {
+    var last = (typeof PracticeSubjectModal !== 'undefined' && PracticeSubjectModal.lastSubject) ? PracticeSubjectModal.lastSubject() : 'quant';
+    _startQuickWithSubject(modeKey, last || 'quant');
+  }
+}
+
+function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
+  opts = opts || {};
   if (modeKey !== 'custom') _customPracticeActive = false;
   if (modeKey === 'custom' && !canAccessFeature('custom_training')) {
     showPaywall('custom_training');
@@ -88,6 +116,13 @@ function startDrillFromPractice(modeKey, category, categoryLabel) {
   if (category) {
     config.category = category;
     config.mode = '🎯 ' + (categoryLabel || category);
+  }
+  /* ADR-080: a Quick-Start session can be scoped to a chosen SUBJECT (Quant / DI / LR / Mixed) via the
+     subject-selection modal — pass its categories as `topics` so the quick/reflex/timed pool draws from that subject
+     instead of defaulting to Quant. The mode label gets a subject suffix so the drill header reads honestly. */
+  if (opts.topics && opts.topics.length && !category) {
+    config.topics = opts.topics.slice();
+    if (opts.subjectLabel) config.mode = config.mode + ' · ' + opts.subjectLabel;
   }
 
   config.onFinish = function (view) {
@@ -431,6 +466,9 @@ function initPracticeView() {
         } else if (modeKey === 'review') {
           if (!canAccessFeature('review_mistakes')) { showPaywall('review_mistakes'); return; }
           startDrillFromPractice('review');
+        } else if (modeKey === 'quick' || modeKey === 'reflex' || modeKey === 'timed') {
+          /* ADR-080: ask which subject first (unless the user opted out) — then launch the session scoped to it. */
+          _launchQuickStart(modeKey);
         } else {
           startDrillFromPractice(modeKey);
         }

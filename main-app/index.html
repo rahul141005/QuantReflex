@@ -336,7 +336,7 @@
         <!-- Free-tier daily quota (functional limit; shown for free users only) -->
         <div id="dailyQuotaIndicator" style="display:none"></div>
 
-        <!-- Quick Start -->
+        <!-- Quick Start — session styles. Tapping one opens the subject picker (Quant/DI/LR/Mixed) before starting. -->
         <section class="practice-section">
           <div class="home-section-header"><h3 class="home-section-title">Quick Start</h3></div>
           <div class="practice-mode-group">
@@ -355,9 +355,26 @@
           </div>
         </section>
 
-        <!-- Advanced Modes -->
+        <!-- Subject Sets — the premium exam-style modes: one stimulus, a linked set of questions. -->
         <section class="practice-section">
-          <div class="home-section-header"><h3 class="home-section-title">Advanced Modes</h3></div>
+          <div class="home-section-header"><h3 class="home-section-title">Subject Sets</h3></div>
+          <div class="practice-mode-group">
+            <div class="mode-card mode-card-set" data-mode="diset">
+              <span class="mode-card-eyebrow">Exam-style</span>
+              <h3>📊 DI Set</h3>
+              <p>One chart, a linked set of questions · real Data Interpretation practice</p>
+            </div>
+            <div class="mode-card mode-card-set" data-mode="lrset">
+              <span class="mode-card-eyebrow">Exam-style</span>
+              <h3>🧩 Reasoning Set</h3>
+              <p>One seating/floor scenario, a linked set of clues &amp; questions · exam-style puzzles</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Advanced -->
+        <section class="practice-section">
+          <div class="home-section-header"><h3 class="home-section-title">Advanced</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="focus">
               <h3>🎯 Focus Training</h3>
@@ -370,14 +387,6 @@
             <div class="mode-card" data-mode="mixed">
               <h3>🎨 Mixed Aptitude</h3>
               <p>12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
-            </div>
-            <div class="mode-card" data-mode="diset">
-              <h3>📊 DI Set</h3>
-              <p>One chart, a linked set of questions · exam-style Data Interpretation</p>
-            </div>
-            <div class="mode-card" data-mode="lrset">
-              <h3>🧩 Reasoning Set</h3>
-              <p>One seating/floor scenario, a linked set of clues &amp; questions · exam-style puzzles</p>
             </div>
             <div class="mode-card" data-mode="review">
               <h3>🔄 Review Mistakes</h3>
@@ -825,6 +834,17 @@
             </div>
             <label class="toggle">
               <input type="checkbox" id="skipToggle" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-row-divider"></div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <h3>🎚️ Ask subject before Quick Start</h3>
+              <p>Choose Quant / DI / Reasoning / Mixed each time you start a Quick Drill, Reflex Drill or Timed Test</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="askSubjectToggle" />
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -1692,6 +1712,7 @@
   <script defer src="js/controllers/practice-modes.js"></script>
   <script defer src="js/ui/numpad.js"></script>
   <script defer src="js/ui/coming-soon.js"></script>
+  <script defer src="js/ui/practice-subject-modal.js"></script>
   <script defer src="js/ui/swipe-nav.js"></script>
   <script defer src="js/views/learn-view.js"></script>
   <script defer src="js/views/home-view.js"></script>
