@@ -72,11 +72,20 @@
 
   /* ordinal suffix: 1→1st, 2→2nd, 3→3rd, 11/12/13→th, else th — so stems read like faculty wrote them */
   function _ord(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  /* light, realistic scene-setting so stems don't all open with the same robotic phrase (locked tokens preserved). */
+  function _actor() { return _pick(['A person', 'A man', 'A woman', 'A jogger', 'A hiker', 'A tourist', 'A morning walker', 'Ravi', 'Priya', 'Arjun', 'Meera', 'Kabir']); }
+  function _rowOpen() { return _pick(['In a row of people', 'In a straight line', 'In a row of children', 'Standing in a single row', 'In a line at the assembly', 'Among friends standing in a row']); }
+  function _qOpen() { return _pick(['In a queue', 'In a line at the ticket counter', 'Waiting in a queue', 'In a line at the bus stop', 'Standing in a queue']); }
 
   function _wrap(label, qa) { qa.category = label; return qa; }
 
   /* ───────────────────────── 1. CODING-DECODING ───────────────────────── */
-  var WORDS3 = ['CAT', 'DOG', 'SUN', 'BAT', 'CAR', 'PEN', 'BOX', 'CUP', 'FAN', 'JAR', 'KEY', 'MAP', 'RAT', 'BUS', 'EGG', 'ICE', 'OWL', 'TOY', 'BAG', 'HAT'];
+  /* mixed-length real words (3–7 letters) so coding questions rarely repeat the same token (every code is recomputed
+     from the word, so any length is safe). */
+  var WORDS3 = ['CAT', 'DOG', 'SUN', 'BAT', 'CAR', 'PEN', 'BOX', 'CUP', 'FAN', 'JAR', 'KEY', 'MAP', 'RAT', 'BUS', 'EGG', 'ICE', 'OWL', 'TOY', 'BAG', 'HAT',
+    'LAMP', 'BOAT', 'STAR', 'MOON', 'TREE', 'FISH', 'BIRD', 'RING', 'DESK', 'COIN', 'WIND', 'GOLD', 'KING', 'LION', 'ROSE',
+    'APPLE', 'MANGO', 'TRAIN', 'CLOCK', 'RIVER', 'CHAIR', 'GLASS', 'BREAD', 'CLOUD', 'STONE', 'PLANE', 'HORSE',
+    'PLANET', 'GARDEN', 'BRIDGE', 'CANDLE', 'ORANGE', 'PENCIL', 'ROCKET', 'SILVER', 'WINDOW', 'FLOWER', 'JUNGLE', 'CASTLE'];
   function _pos(ch) { return ch.charCodeAt(0) - 64; }                 // A=1
   function _let(n) { return String.fromCharCode(64 + n); }            // 1=A
   function _sumWord(w) { var s = 0; for (var i = 0; i < w.length; i++) s += _pos(w[i]); return s; }
@@ -104,7 +113,9 @@
   }
 
   /* ───────────────────────── 2. BLOOD RELATIONS (MCQ) — generative kinship via verified composition ───────────── */
-  var NAMES = ['Rahul', 'Priya', 'Amit', 'Sneha', 'Vikram', 'Neha', 'Arjun', 'Kavya', 'Rohan', 'Pooja', 'Karan', 'Divya'];
+  var NAMES = ['Rahul', 'Priya', 'Amit', 'Sneha', 'Vikram', 'Neha', 'Arjun', 'Kavya', 'Rohan', 'Pooja', 'Karan', 'Divya',
+    'Aditya', 'Meera', 'Farhan', 'Ananya', 'Ishaan', 'Riya', 'Kabir', 'Tara', 'Nikhil', 'Sara', 'Vivek', 'Gauri',
+    'Manish', 'Ritu', 'Aryan', 'Diya', 'Rohit', 'Anjali', 'Saurabh', 'Kiran'];
   var REL_POOL = ['Grandfather', 'Grandmother', 'Uncle', 'Aunt', 'Grandson', 'Granddaughter', 'Nephew', 'Niece', 'Father', 'Mother', 'Brother', 'Sister', 'Son', 'Daughter', 'Cousin'];
   /* atomic relation primitives: t = lineage step (up=parent, down=child, sib=sibling), g = gender of the SUBJECT */
   var PRIM = {
@@ -173,16 +184,16 @@
   function _genDirection(diff) {
     return _tier(diff, {
       easy: [
-        function () { var t = _pick(TRIPLES), a = t[0], b = t[1], h = t[2]; var nWord = _pick(['North', 'South']), eWord = _pick(['East', 'West']); return { question: 'A person walks ' + a + ' km ' + nWord + ', then turns and walks ' + b + ' km ' + eWord + '. How far (in km) is the person from the starting point?', answer: h, subtype: 'easy:distance' }; }
+        function () { var t = _pick(TRIPLES), a = t[0], b = t[1], h = t[2]; var nWord = _pick(['North', 'South']), eWord = _pick(['East', 'West']); return { question: _actor() + ' walks ' + a + ' km ' + nWord + ', then turns and walks ' + b + ' km ' + eWord + '. How far (in km) is the person now from the starting point?', answer: h, subtype: 'easy:distance' }; }
       ],
       medium: [
-        function () { var t = _pick(TRIPLES), a = t[0], b = t[1], h = t[2]; var nWord = _pick(['North', 'South']), eWord = _pick(['East', 'West']); var extra = _ri(1, 4), p1 = a + extra, opp = nWord === 'North' ? 'South' : 'North'; return { question: 'A person walks ' + p1 + ' km ' + nWord + ', then ' + extra + ' km ' + opp + ', then ' + b + ' km ' + eWord + '. How far (in km) is the person from the start?', answer: h, subtype: 'medium:distance' }; },
+        function () { var t = _pick(TRIPLES), a = t[0], b = t[1], h = t[2]; var nWord = _pick(['North', 'South']), eWord = _pick(['East', 'West']); var extra = _ri(1, 4), p1 = a + extra, opp = nWord === 'North' ? 'South' : 'North'; return { question: _actor() + ' walks ' + p1 + ' km ' + nWord + ', then ' + extra + ' km ' + opp + ', then ' + b + ' km ' + eWord + '. How far (in km) is the person from the start?', answer: h, subtype: 'medium:distance' }; },
         /* turn simulation → final facing (MCQ over the 4 cardinals) */
-        function () { var start = _pick(DIR4), turns = []; var n = _ri(2, 4); for (var i = 0; i < n; i++) turns.push(_pick(['left', 'right', 'right', 'left', 'about'])); var idx = DIR4.indexOf(start); turns.forEach(function (tn) { idx = (idx + (tn === 'right' ? 1 : tn === 'left' ? 3 : 2)) % 4; }); var face = DIR4[idx]; var seq = turns.map(function (tn) { return tn === 'about' ? 'turns around (180°)' : 'turns ' + tn; }).join(', then '); var m = _mcq(face, DIR4, 4); return { question: 'A person is facing ' + start + '. The person ' + seq + '. Which direction is the person facing now?', answer: m.answer, options: m.options, subtype: 'medium:turns' }; }
+        function () { var start = _pick(DIR4), turns = []; var n = _ri(2, 4); for (var i = 0; i < n; i++) turns.push(_pick(['left', 'right', 'right', 'left', 'about'])); var idx = DIR4.indexOf(start); turns.forEach(function (tn) { idx = (idx + (tn === 'right' ? 1 : tn === 'left' ? 3 : 2)) % 4; }); var face = DIR4[idx]; var seq = turns.map(function (tn) { return tn === 'about' ? 'turns around (180°)' : 'turns ' + tn; }).join(', then '); var m = _mcq(face, DIR4, 4); var who = _actor(); return { question: who + ' is facing ' + start + '. ' + who + ' ' + seq + '. Which direction is ' + (who.indexOf('A ') === 0 ? 'the person' : who) + ' facing now?', answer: m.answer, options: m.options, subtype: 'medium:turns' }; }
       ],
       hard: [
         /* net displacement → which diagonal direction (MCQ) */
-        function () { var dyPos = _pick([true, false]), dxPos = _pick([true, false]); var qv = _ri(1, 4), pv = qv + _pick([2, 3, 4, 5]); var north = dyPos ? pv : qv, south = dyPos ? qv : pv; var qh = _ri(1, 4), ph = qh + _pick([2, 3, 4, 5]); var east = dxPos ? ph : qh, west = dxPos ? qh : ph; var dir = (dyPos ? 'North' : 'South') + '-' + (dxPos ? 'East' : 'West'); var q = 'A person walks ' + north + ' km North, ' + south + ' km South, ' + east + ' km East and ' + west + ' km West. In which direction is the person now from the starting point?'; var m = _mcq(dir, DIR8, 4); return { question: q, answer: m.answer, options: m.options, subtype: 'hard:direction' }; }
+        function () { var dyPos = _pick([true, false]), dxPos = _pick([true, false]); var qv = _ri(1, 4), pv = qv + _pick([2, 3, 4, 5]); var north = dyPos ? pv : qv, south = dyPos ? qv : pv; var qh = _ri(1, 4), ph = qh + _pick([2, 3, 4, 5]); var east = dxPos ? ph : qh, west = dxPos ? qh : ph; var dir = (dyPos ? 'North' : 'South') + '-' + (dxPos ? 'East' : 'West'); var q = _actor() + ' walks ' + north + ' km North, ' + south + ' km South, ' + east + ' km East and ' + west + ' km West. In which direction is the person now from the starting point?'; var m = _mcq(dir, DIR8, 4); return { question: q, answer: m.answer, options: m.options, subtype: 'hard:direction' }; }
       ]
     });
   }
@@ -191,11 +202,11 @@
   function _genRanking(diff) {
     return _tier(diff, {
       easy: [
-        function () { var nm = _pick(NAMES); var L = _ri(3, 12), R = _ri(3, 12); return { question: 'In a row of people, ' + nm + ' is ' + _ord(L) + ' from the left and ' + _ord(R) + ' from the right. How many people are there in the row?', answer: L + R - 1, subtype: 'easy:total' }; }
+        function () { var nm = _pick(NAMES); var L = _ri(3, 12), R = _ri(3, 12); var tail = _pick(['How many people are there in the row?', 'What is the total number of people in the row?', 'How many people are standing in the row?']); return { question: _rowOpen() + ', ' + nm + ' is ' + _ord(L) + ' from the left and ' + _ord(R) + ' from the right. ' + tail, answer: L + R - 1, subtype: 'easy:total' }; }
       ],
       medium: [
         function () { var nm = _pick(NAMES); var N = _ri(15, 35), k = _ri(3, 12); return { question: 'In a class of ' + N + ' students, ' + nm + ' ranks ' + _ord(k) + ' from the top. What is ' + nm + "'s rank from the bottom?", answer: N - k + 1, subtype: 'medium:otherend' }; },
-        function () { var nm = _pick(NAMES); var nm2 = _pick(NAMES.filter(function (x) { return x !== nm; })), a = _ri(3, 8), b = _ri(a + 2, 16); return { question: 'In a queue, ' + nm + ' is ' + _ord(a) + ' from the front and ' + nm2 + ' is ' + _ord(b) + ' from the front. How many people stand between them?', answer: b - a - 1, subtype: 'medium:between' }; }
+        function () { var nm = _pick(NAMES); var nm2 = _pick(NAMES.filter(function (x) { return x !== nm; })), a = _ri(3, 8), b = _ri(a + 2, 16); return { question: _qOpen() + ', ' + nm + ' is ' + _ord(a) + ' from the front and ' + nm2 + ' is ' + _ord(b) + ' from the front. How many people stand between them?', answer: b - a - 1, subtype: 'medium:between' }; }
       ],
       hard: [
         function () { var nm = _pick(NAMES); var Lh = _ri(4, 10), Rh = _ri(4, 10), Nh = Lh + Rh - 1, p = _ri(2, Lh); return { question: nm + ' is ' + _ord(Lh) + ' from the left and ' + _ord(Rh) + ' from the right in a row. How many people are to the RIGHT of the person standing ' + _ord(p) + ' from the left?', answer: Nh - p, subtype: 'hard:multistep' }; },
@@ -256,7 +267,12 @@
     { in: ['Copper', 'Iron', 'Gold', 'Silver', 'Zinc'], out: ['Oxygen', 'Plastic', 'Wood', 'Glass', 'Rubber'], theme: 'metal' },
     { in: ['Sparrow', 'Eagle', 'Parrot', 'Crow', 'Pigeon'], out: ['Shark', 'Whale', 'Cobra', 'Frog', 'Rat'], theme: 'bird' },
     { in: ['Triangle', 'Square', 'Hexagon', 'Pentagon', 'Octagon'], out: ['Circle', 'Sphere', 'Cube', 'Line', 'Point'], theme: 'polygon' },
-    { in: ['India', 'Nepal', 'Japan', 'Brazil', 'Kenya'], out: ['Asia', 'Europe', 'Delhi', 'Paris', 'Nile'], theme: 'country' }
+    { in: ['India', 'Nepal', 'Japan', 'Brazil', 'Kenya'], out: ['Asia', 'Europe', 'Delhi', 'Paris', 'Nile'], theme: 'country' },
+    { in: ['Carrot', 'Potato', 'Onion', 'Radish', 'Beetroot'], out: ['Apple', 'Mango', 'Rose', 'Wheat', 'Lotus'], theme: 'vegetable' },
+    { in: ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'], out: ['Moon', 'Sun', 'Comet', 'Asteroid', 'Star'], theme: 'planet' },
+    { in: ['Flute', 'Trumpet', 'Saxophone', 'Clarinet', 'Harmonica'], out: ['Guitar', 'Drum', 'Piano', 'Violin', 'Tabla'], theme: 'wind instrument' },
+    { in: ['Hammer', 'Saw', 'Drill', 'Screwdriver', 'Wrench'], out: ['Nail', 'Screw', 'Plank', 'Glue', 'Paint'], theme: 'tool' },
+    { in: ['Doctor', 'Engineer', 'Lawyer', 'Teacher', 'Architect'], out: ['Hospital', 'Bridge', 'Court', 'School', 'Building'], theme: 'profession' }
   ];
   function _oddWord(diff) {
     var g = _pick(WORD_GROUPS), conf = _pickN(g.in, 3), odd = _pick(g.out);
@@ -279,7 +295,15 @@
     { a: 'Day', b: 'Night', c: 'Summer', ans: 'Winter', pool: ['Winter', 'Season', 'Rain', 'Hot', 'Sun'] },
     { a: 'Car', b: 'Garage', c: 'Aeroplane', ans: 'Hangar', pool: ['Hangar', 'Airport', 'Runway', 'Sky', 'Pilot'] },
     { a: 'Author', b: 'Book', c: 'Composer', ans: 'Music', pool: ['Music', 'Piano', 'Song', 'Note', 'Band'] },
-    { a: 'Cow', b: 'Calf', c: 'Dog', ans: 'Puppy', pool: ['Puppy', 'Kitten', 'Cub', 'Foal', 'Kid'] }
+    { a: 'Cow', b: 'Calf', c: 'Dog', ans: 'Puppy', pool: ['Puppy', 'Kitten', 'Cub', 'Foal', 'Kid'] },
+    { a: 'Wheel', b: 'Car', c: 'Petal', ans: 'Flower', pool: ['Flower', 'Garden', 'Stem', 'Leaf', 'Seed'] },
+    { a: 'Hunger', b: 'Food', c: 'Thirst', ans: 'Water', pool: ['Water', 'Drink', 'Glass', 'Juice', 'Rain'] },
+    { a: 'Captain', b: 'Team', c: 'Principal', ans: 'School', pool: ['School', 'Class', 'Teacher', 'Student', 'Office'] },
+    { a: 'Painter', b: 'Brush', c: 'Writer', ans: 'Pen', pool: ['Pen', 'Paper', 'Book', 'Ink', 'Word'] },
+    { a: 'Thermometer', b: 'Temperature', c: 'Clock', ans: 'Time', pool: ['Time', 'Hour', 'Minute', 'Watch', 'Alarm'] },
+    { a: 'Library', b: 'Books', c: 'Arsenal', ans: 'Weapons', pool: ['Weapons', 'Soldiers', 'War', 'Guards', 'Fort'] },
+    { a: 'Caterpillar', b: 'Butterfly', c: 'Tadpole', ans: 'Frog', pool: ['Frog', 'Fish', 'Snake', 'Lizard', 'Toad'] },
+    { a: 'Drizzle', b: 'Downpour', c: 'Breeze', ans: 'Gale', pool: ['Gale', 'Storm', 'Wind', 'Cyclone', 'Air'] }
   ];
   function _genAnalogy(diff) {
     return _tier(diff, {
@@ -299,7 +323,11 @@
   }
 
   /* ───────────────────────── 7. SYLLOGISMS (MCQ) ───────────────────────── */
-  var NOUNS = ['cats', 'dogs', 'birds', 'pens', 'books', 'cars', 'trees', 'flowers', 'tables', 'chairs', 'apples', 'mangoes', 'doctors', 'teachers', 'singers', 'players'];
+  /* the model-checker re-labels these to A/B/C, so any nouns are correctness-safe; a wider, more realistic pool just
+     reduces the sense of repetition. */
+  var NOUNS = ['cats', 'dogs', 'birds', 'pens', 'books', 'cars', 'trees', 'flowers', 'tables', 'chairs', 'apples', 'mangoes', 'doctors', 'teachers', 'singers', 'players',
+    'lawyers', 'engineers', 'nurses', 'farmers', 'painters', 'dancers', 'soldiers', 'pilots', 'bottles', 'phones', 'laptops', 'mirrors',
+    'roses', 'lilies', 'oranges', 'lemons', 'lions', 'tigers', 'rivers', 'mountains', 'cities', 'villages', 'islands', 'bridges'];
   /* Curated, convention-independent (Boolean-logic) syllogisms — every case re-checked by the harness model-checker. */
   var SYLLO = {
     easy: [
@@ -413,7 +441,14 @@
   /* ───────────────────────── 11. CLOCKS ───────────────────────── */
   function _clk(h, m) { return h + ':' + (m < 10 ? '0' + m : m); }
   function _genClock(diff) {
-    if (diff === 'easy') { var h = _ri(1, 11); var ang = Math.min(30 * h, 360 - 30 * h); return { question: 'What is the angle (in degrees) between the hour and minute hands of a clock at ' + h + ":00?", answer: ang, subtype: 'easy:angle0' }; }
+    if (diff === 'easy') {
+      var form = _ri(0, 4);
+      if (form === 0) { var h = _ri(1, 11); var ang = Math.min(30 * h, 360 - 30 * h); return { question: 'What is the angle (in degrees) between the hour and minute hands of a clock at ' + h + ":00?", answer: ang, subtype: 'easy:angle0' }; }
+      if (form === 1) { var he = _ri(1, 12); var raw0 = Math.abs(30 * he - 165); var ange = Math.min(raw0, 360 - raw0); return { question: 'What is the angle (in degrees) between the hour and minute hands of a clock at ' + he + ":30?", answer: ange, subtype: 'easy:angle30' }; }
+      if (form === 2) { var mn = _ri(2, 58); return { question: 'Through how many degrees does the minute hand of a clock turn in ' + mn + ' minutes?', answer: 6 * mn, subtype: 'easy:minmove' }; }
+      if (form === 3) { var em = 2 * _ri(1, 29); return { question: 'Through how many degrees does the hour hand of a clock turn in ' + em + ' minutes?', answer: em / 2, subtype: 'easy:hourmin' }; }
+      var hr = _ri(1, 11); return { question: 'Through how many degrees does the hour hand of a clock turn in ' + hr + ' hours?', answer: 30 * hr, subtype: 'easy:hourmove' };
+    }
     if (diff === 'medium') { var h2 = _ri(1, 12), mm = 2 * _ri(0, 29); var raw = Math.abs(30 * h2 - 5.5 * mm); var ang2 = Math.min(raw, 360 - raw); return { question: 'What is the smaller angle (in degrees) between the hour and minute hands at ' + _clk(h2 === 12 ? 12 : h2, mm) + '?', answer: ang2, subtype: 'medium:angle' }; }
     /* hard: mirror-image time (as seen in a mirror) */
     var h3 = _ri(1, 11), m3 = _ri(1, 59), tot = 60 * h3 + m3, mir = 720 - tot; var mh = Math.floor(mir / 60), ml = mir % 60; if (mh === 0) mh = 12; var ans = _clk(mh, ml);
@@ -429,7 +464,7 @@
     /* easy queries position 2–3 (not 1) so it tests the SWAP, not just "find the smallest" */
     var nums = _pickN(IO_NUMS, len), P = diff === 'easy' ? _ri(2, 3) : _ri(1, diff === 'medium' ? 5 : 6);
     var after = _ioStep(nums, S);
-    return { question: 'A number-arranging machine rearranges a line step by step: in each step it moves the smallest of the not-yet-arranged numbers to the left end of the unarranged part. Input line: ' + nums.join(', ') + '. Which number is in the ' + _ord(P) + ' position from the left after Step ' + S + '?', answer: after[P - 1], subtype: diff + ':io' };
+    return { question: 'A sorting machine works one step at a time: each step moves the smallest not-yet-arranged number to the front of the unarranged part. Input line: ' + nums.join(', ') + '. Which number is in the ' + _ord(P) + ' position from the left after Step ' + S + '?', answer: after[P - 1], subtype: diff + ':io' };
   }
 
   /* ── dispatch ── */

@@ -55,8 +55,13 @@
   var _recent = {};
   function _ringPick(topic, pool) {
     var ring = _recent[topic] || (_recent[topic] = []);
+    var last = ring.length ? ring[ring.length - 1] : null;
     var fresh = pool.filter(function (it) { return ring.indexOf(it.id) === -1; });
-    var item = (fresh.length ? _shuffle(fresh) : _shuffle(pool))[0];
+    /* on a pool smaller than the ring, fresh can empty; fall back to the full pool but, when more than one item
+       exists, never re-serve the immediately-previous one — a back-to-back repeat is the one thing a user always
+       notices, even on a small bank. */
+    var candidates = fresh.length ? fresh : (pool.length > 1 ? pool.filter(function (it) { return it.id !== last; }) : pool);
+    var item = _shuffle(candidates)[0];
     if (item) { ring.push(item.id); if (ring.length > Math.max(6, Math.floor(pool.length * 0.6))) ring.shift(); }
     return item;
   }

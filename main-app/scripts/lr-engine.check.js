@@ -178,6 +178,10 @@ ok('0 twelve LR categories', LR.categories().length === 12 && LR.categories().in
         else if (key === 'datediff') { var yy = +t.match(/In the year (\d+)/)[1], dm = t.match(/What day of the week is (\d+) (\w+) in the same year/); e = WDAYS[dowDate(yy, MON.indexOf(dm[2]) + 1, +dm[1])]; }
         else if (key === 'dow') { var hd = t.match(/was (\d+) (\w+), (\d+)\?/); e = WDAYS[dowDate(+hd[3], MON.indexOf(hd[2]) + 1, +hd[1])]; }
         else if (key === 'angle0') { e = (function () { var h = +t.match(/at (\d+):00/)[1]; return Math.min(30 * h, 360 - 30 * h); })(); }
+        else if (key === 'angle30') { e = (function () { var h = +t.match(/at (\d+):30/)[1], raw = Math.abs(30 * h - 165); return Math.min(raw, 360 - raw); })(); }
+        else if (key === 'minmove') { e = 6 * (+t.match(/minute hand of a clock turn in (\d+) minutes/)[1]); }
+        else if (key === 'hourmin') { e = (+t.match(/hour hand of a clock turn in (\d+) minutes/)[1]) / 2; }
+        else if (key === 'hourmove') { e = 30 * (+t.match(/turn in (\d+) hours/)[1]); }
         else if (key === 'angle') { var hm = t.match(/at (\d+):(\d+)\?/), raw = Math.abs(30 * (+hm[1]) - 5.5 * (+hm[2])); e = Math.min(raw, 360 - raw); }
         else if (key === 'mirror') { var c2 = t.match(/clock shows (\d+):(\d+)\./), mir = 720 - (60 * (+c2[1]) + (+c2[2])), mh = Math.floor(mir / 60), ml = mir % 60; if (mh === 0) mh = 12; e = mh + ':' + (ml < 10 ? '0' + ml : ml); }
         else if (key === 'io') { var im = t.match(/Input line: (.+?)\. Which number is in the (\d+)\w\w position from the left after Step (\d+)/); e = ioStep(im[1].split(', ').map(Number), +im[3])[(+im[2]) - 1]; }

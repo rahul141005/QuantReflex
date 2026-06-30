@@ -139,6 +139,58 @@
       explanationVersion: V, tags: ['ethics', 'conflict-of-interest'], reviewStatus: A, meta: M
     },
     {
+      id: 'dm-mgr-004', topic: 'lr-decision', subtype: 'managerial', difficulty: 'medium', exams: ['XAT', 'NMAT'],
+      stem: 'A hospital administrator finds that one highly skilled surgeon is consistently rude to nursing staff, and two experienced nurses have quietly asked to be moved off his team. His clinical results, however, are excellent. What is the best first step?',
+      options: [
+        'Speak to the surgeon directly about the specific behaviour and its effect on the team, making clear that clinical skill does not excuse how colleagues are treated.',
+        'Take no action while his clinical results stay strong, since patient outcomes are what matter most.',
+        'Quietly move the two nurses off his team as they requested and say nothing to the surgeon, to keep the peace.',
+        'Issue a formal written warning to the surgeon immediately and place it on his permanent record before speaking to him.'
+      ],
+      answer: 'Speak to the surgeon directly about the specific behaviour and its effect on the team, making clear that clinical skill does not excuse how colleagues are treated.',
+      explanation: 'A first response to a conduct problem should be a direct, specific conversation that names the behaviour and its impact — this respects the individual while protecting the team. Tolerating it because results are good signals that talent buys a pass on conduct; silently reshuffling nurses hides the problem and lets it recur; jumping straight to a permanent formal warning skips the proportionate first step of an honest conversation.',
+      explanationVersion: V, tags: ['management', 'conduct'], reviewStatus: A, meta: M, inspiredBy: 'XAT decision-making (people-management dilemma)'
+    },
+    {
+      id: 'dm-pri-003', topic: 'lr-decision', subtype: 'priority', difficulty: 'medium', exams: ['XAT', 'SNAP'],
+      stem: 'A city\'s disaster-relief team has a limited budget and must respond to a flood. They can fund clean drinking water, temporary shelter, or a publicity campaign thanking donors. People in the relief camps are already falling ill from contaminated water. What should the team fund first?',
+      options: [
+        'Clean drinking water, because preventing a worsening health crisis among people already falling ill is the most urgent need.',
+        'Temporary shelter, since a roof over people\'s heads is the most visible sign that relief has arrived.',
+        'The publicity campaign, because thanking donors now will bring in more money to fund everything else later.',
+        'Split the budget equally across all three so that no group of stakeholders feels their priority was ignored.'
+      ],
+      answer: 'Clean drinking water, because preventing a worsening health crisis among people already falling ill is the most urgent need.',
+      explanation: 'With people already falling ill from contaminated water, safe water directly prevents an escalating, possibly fatal, health crisis and is the clear priority. Shelter matters but is less immediately life-threatening; donor publicity serves the organisation, not the victims; splitting a limited budget equally ignores that the needs are not equally urgent and dilutes the most critical response.',
+      explanationVersion: V, tags: ['priority', 'public-welfare'], reviewStatus: A, meta: M, inspiredBy: 'XAT/SNAP situational-priority decision'
+    },
+    {
+      id: 'dm-eth-004', topic: 'lr-decision', subtype: 'ethical', difficulty: 'medium', exams: ['XAT', 'NMAT'],
+      stem: 'A hiring manager notices that the strongest candidate for a role is a close friend\'s younger sibling. The candidate genuinely scored highest in every stage of a blind assessment that other panel members also marked. What is the most appropriate thing to do?',
+      options: [
+        'Disclose the personal connection to the panel and let the others confirm the decision on the documented merits, so the outcome is both fair and seen to be fair.',
+        'Recuse herself entirely and ask that the candidate be rejected, to remove any possible appearance of favouritism.',
+        'Say nothing about the connection, since the assessment was blind and the scores speak for themselves.',
+        'Proceed to hire the candidate herself without comment but keep detailed notes in case anyone later questions the decision.'
+      ],
+      answer: 'Disclose the personal connection to the panel and let the others confirm the decision on the documented merits, so the outcome is both fair and seen to be fair.',
+      explanation: 'Transparency resolves the conflict of interest: disclosing the relationship and letting an independent panel confirm a merit-based result keeps the process fair and defensible. Rejecting the best candidate to look impartial is itself unfair to the candidate; staying silent hides a real conflict even if the scores are honest; quietly hiring while keeping private notes manages personal risk rather than the integrity of the process.',
+      explanationVersion: V, tags: ['ethics', 'conflict-of-interest'], reviewStatus: A, meta: M, inspiredBy: 'XAT ethics (conflict-of-interest disclosure)'
+    },
+    {
+      id: 'dm-mgr-005', topic: 'lr-decision', subtype: 'managerial', difficulty: 'medium', exams: ['NMAT', 'SNAP'],
+      stem: 'A retail chain\'s regional head learns that one store is hitting its sales targets by aggressively pushing customers into add-ons they do not need, generating complaints but strong numbers. The store manager argues the results justify the method. How should the regional head respond?',
+      options: [
+        'Make clear that targets must be met through practices that keep customer trust, and work with the manager to fix the selling approach even if short-term numbers dip.',
+        'Leave the approach in place while the numbers are strong, and revisit it only if complaints start to hurt the regional total.',
+        'Replace the store manager at once and install someone new, since the complaints show the manager cannot be trusted to run the store.',
+        'Raise the store\'s sales target further, on the reasoning that a manager who can push this hard should be able to deliver even more.'
+      ],
+      answer: 'Make clear that targets must be met through practices that keep customer trust, and work with the manager to fix the selling approach even if short-term numbers dip.',
+      explanation: 'Short-term numbers built on misleading customers erode the trust the business depends on, so the right response sets the standard and coaches the manager toward sustainable selling. Letting it ride trades long-term reputation for this quarter\'s figures; firing the manager outright skips the chance to correct behaviour; pushing the target even higher rewards and entrenches exactly the practice causing the complaints.',
+      explanationVersion: V, tags: ['management', 'ethics'], reviewStatus: A, meta: M, inspiredBy: 'NMAT/SNAP managerial-judgement case'
+    },
+    {
       id: 'dm-da-003', topic: 'lr-decision', subtype: 'data-adequacy', difficulty: 'easy', exams: ['NMAT', 'SNAP'],
       stem: 'A student is deciding which elective subject to take for higher studies. Which single piece of information is MOST useful for the decision?',
       options: [
