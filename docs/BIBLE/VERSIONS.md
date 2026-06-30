@@ -23,8 +23,9 @@ Every governed change updates the relevant version number here and records a mig
 > instruction (one shared context → Coach/Insights/Planner/Chat connect subjects), and the persona is unified to "Speed
 > Aptitude mentor". Stats gains an "aptitude by subject" breakdown (overall→subject→category, reusing the category bar
 > styling). New one-tap **Mixed Aptitude** practice mode (balanced cross-subject sprint via generateMultiTopic).
-> Identity copy moved to "Speed Aptitude". A pre-flight regression audit fixed one live id-leak (post-session insight).
-> SW v152→v153. Bible 2.67→2.68, Arch 2.46→2.47.
+> Identity copy moved to "Speed Aptitude". Pre-flight + final regression audits fixed one live id-leak (post-session
+> insight) and aligned the Stats subject-breakdown thresholds with the category list. SW v152→v154. Bible 2.67→2.68,
+> Arch 2.46→2.47.
 
 > **2.67 / Arch 2.46 (2026-06-30)** — **QuantReflex V2 Phase 3: generative Logical Reasoning engine + MCQ (ADR-075).**
 > Completes the Quant → DI → LR spine. `js/lr-engine.js` procedurally generates 7 topics (Coding-Decoding, Blood

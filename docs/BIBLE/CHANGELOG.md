@@ -24,7 +24,8 @@ core, built on ONE cross-subject derivation. No Firestore migration, no new depe
 - Identity: meta/hero/About/manifest/share copy → "Speed Aptitude" (kept feature-specific "Mental Math Tricks").
 - Regression-audit fix: computeSessionInsight now labels via formatCategoryName (was a Quant-only map leaking raw
   di-bar/lr-syllogism ids post-session); removed that duplicated label map. Button label "Ranking & Order"→"Ordering".
-- SW v152→v153. subjects.check +7 rollup assertions. Full suite green.
+- SW v152→v154 (v154 = final-audit polish: Stats subject-breakdown bar colour + label now use the same pct cuts as
+  the category list, so the two adjacent lists read identically). subjects.check +7 rollup assertions. Full suite green.
 ```
 
 Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-076), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md), [ROADMAP.md](ROADMAP.md)

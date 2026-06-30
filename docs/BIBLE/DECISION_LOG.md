@@ -38,8 +38,9 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   out of scope). The cross-subject AI context delivers the intelligence without those.
 - **Consequences:** statMath +2 pure functions; studentProfile/aiPrompts/stats-view/practice-modes/scoring-service +
   identity copy. One duplicated Quant label map removed (scoring-service). No Firestore/security/payment change, no new
-  collection/field, no new dependency. subjects.check +7 rollup assertions; full suite green. SW v152→v153. Bible
-  2.67→2.68, Architecture 2.46→2.47.
+  collection/field, no new dependency. subjects.check +7 rollup assertions; full suite green. SW v152→v154 (v154 =
+  final-audit polish: the Stats subject-breakdown bar colour + label now use the same pct cuts as the category list).
+  Bible 2.67→2.68, Architecture 2.46→2.47.
 
 ## ADR-075 — Generative Logical Reasoning engine + MCQ drill support (V2 Phase 3) (2026-06-30)
 - **Context:** Phase 3 completes the Speed-Aptitude spine (Quant → DI → **LR**). The mandate: "Speed LR", not generic

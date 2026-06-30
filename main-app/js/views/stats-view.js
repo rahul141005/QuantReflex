@@ -205,9 +205,11 @@ function renderStatsView() {
               var _rows = '';
               _sids.forEach(function (id) {
                 var r = _roll[id], pct = Math.round(r.acc * 100);
+                /* Use the SAME pct cuts as the per-category list below for both bar colour AND label, so the two
+                   adjacent lists read identically (one design, no 62%="low bar + Moderate label" mismatch). */
                 var _bc = pct >= 85 ? 'cat-bar-high' : pct >= 65 ? 'cat-bar-mid' : pct >= 40 ? 'cat-bar-low' : 'cat-bar-weak';
-                var _sc = r.tier === 'strong' ? 'strong' : r.tier === 'developing' ? 'moderate' : 'weak';
-                var _sl = r.tier === 'strong' ? 'Strong' : r.tier === 'developing' ? 'Moderate' : (r.tier === 'weak' ? 'Weak' : '');
+                var _sc = pct >= 85 ? 'strong' : pct >= 65 ? 'moderate' : 'weak';
+                var _sl = pct >= 85 ? 'Strong' : pct >= 65 ? 'Moderate' : 'Weak';
                 _rows += '<div class="category-stat-row">' +
                   '<span class="cat-name">' + QR_SUBJECTS.label(id) + '</span>' +
                   '<div class="cat-bar-container" title="' + pct + '% accuracy"><div class="cat-bar ' + _bc + '" style="width:' + pct + '%"></div></div>' +
