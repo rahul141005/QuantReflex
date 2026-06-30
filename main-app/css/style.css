@@ -11052,3 +11052,32 @@ body.dark-mode .di-set-badge { background: rgba(37,99,235,.22); }
 .di-table td.row-h { font-weight: 600; }
 body.dark-mode .di-table th { color: #cbd5e1; background: #0f172a; }
 body.dark-mode .di-table th, body.dark-mode .di-table td { border-color: #334155; }
+
+/* ── LR visual figures (ADR-079): viewBox-vector, DPI-independent, themed via these classes ── */
+.lr-figure { margin: 0 auto .6rem; max-width: 130px; width: 100%; }
+.lr-figure-svg { width: 100%; height: auto; display: block; }
+.lr-fig-glyph { font-size: 56px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
+.lr-fig-qmark { fill: #94a3b8; }
+.lr-fig-stroke { stroke: #1e293b; stroke-width: 6; stroke-linecap: round; fill: none; }
+.lr-fig-fill { fill: #1e293b; stroke: none; }
+.lr-fig-die { fill: #f8fafc; stroke: #1e293b; stroke-width: 3; }
+.lr-fig-cubeface { fill: #dbeafe; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-cubeface2 { fill: #eff6ff; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-cubeface3 { fill: #bfdbfe; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-cubeline { stroke: #64748b; stroke-width: 1; }
+body.dark-mode .lr-fig-glyph { fill: #f1f5f9; }
+body.dark-mode .lr-fig-stroke { stroke: #f1f5f9; }
+body.dark-mode .lr-fig-fill { fill: #f1f5f9; }
+body.dark-mode .lr-fig-die { fill: #0f172a; stroke: #f1f5f9; }
+body.dark-mode .lr-fig-cubeface { fill: #1e3a5f; stroke: #cbd5e1; }
+body.dark-mode .lr-fig-cubeface2 { fill: #25456b; stroke: #cbd5e1; }
+body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
+/* picture-answer grid: each option button shows a figure */
+.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; }
+.mcq-figure-option { display: flex; align-items: center; justify-content: center; padding: .5rem; min-height: 84px; }
+.mcq-figure-option .lr-figure { margin: 0; max-width: 92px; }
+
+/* ── authored teaching explanation (ADR-079): shown on reveal under the feedback ── */
+.authored-explanation { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; background: #f1f5f9; border-left: 3px solid var(--qr-accent, #2563eb); font-size: .9rem; line-height: 1.5; color: #1e293b; text-align: left; }
+.authored-explanation-head { font-weight: 800; color: var(--qr-accent, #2563eb); }
+body.dark-mode .authored-explanation { background: #1e293b; color: #e2e8f0; }

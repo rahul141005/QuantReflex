@@ -80,11 +80,11 @@ console.log('subjects.check — Subject layer (ADR-073)');
 (function () {
   /* ADR-079: LR is served by several engines — generative core (12) + puzzle sets (2) + authored content (5). The
      subject's category set is their union, resolved by data/subjects.js. */
-  var LRSet = require(p('js/lr-set-engine')), LRAuth = require(p('js/lr-authored-engine'));
+  var LRSet = require(p('js/lr-set-engine')), LRAuth = require(p('js/lr-authored-engine')), LRVis = require(p('js/lr-visual-engine'));
   var lrCats = SUB.subjectToCategories('lr'), diCats = DIEngine.categories(), qCats = SUB.subjectToCategories('quant');
   ok('7 LR core has 12 generative categories', LREngine.categories().length === 12);
-  ok('7 LR union = core + sets + authored (19)', lrCats.length === LREngine.categories().length + LRSet.categories().length + LRAuth.categories().length);
-  LREngine.categories().concat(LRSet.categories()).concat(LRAuth.categories()).forEach(function (c) { ok('7 ' + c + ' in lr union', lrCats.indexOf(c) !== -1); });
+  ok('7 LR union = core + sets + authored + visual (25)', lrCats.length === LREngine.categories().length + LRSet.categories().length + LRAuth.categories().length + LRVis.categories().length);
+  LREngine.categories().concat(LRSet.categories()).concat(LRAuth.categories()).concat(LRVis.categories()).forEach(function (c) { ok('7 ' + c + ' in lr union', lrCats.indexOf(c) !== -1); });
   lrCats.forEach(function (c) { ok('7 ' + c + ' → lr', SUB.categoryToSubject(c) === 'lr'); });
   ok('7 lr disjoint from quant', lrCats.filter(function (c) { return qCats.indexOf(c) !== -1; }).length === 0);
   ok('7 lr disjoint from di', lrCats.filter(function (c) { return diCats.indexOf(c) !== -1; }).length === 0);
