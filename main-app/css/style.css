@@ -9719,21 +9719,8 @@ body.dark-mode .pw-footer { border-top-color: #1e293b; }
 .practice-container .mode-card p { color: #475569; }
 body.dark-mode .practice-container .mode-card p { color: #94a3b8; }
 
-/* ADR-080 — Subject Sets are the premium, exam-style hero modes: a touch more elevation + a blue accent rail + an
-   "Exam-style" eyebrow, so they read as more important than a warmup without shouting. Reuses the brand blue only. */
-.mode-card-set {
-  position: relative; overflow: hidden;
-  border-color: rgba(37,99,235,.22);
-  box-shadow: 0 10px 26px rgba(37,99,235,.12), var(--qr-shadow-light);
-}
-.mode-card-set::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, #2563eb, #1d4ed8); }
-.mode-card-set:active { box-shadow: 0 4px 14px rgba(37,99,235,.16); }
-.mode-card-eyebrow {
-  display: inline-block; font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-  color: #2563eb; background: rgba(37,99,235,.1); padding: .12rem .5rem; border-radius: .4rem; margin-bottom: .45rem;
-}
-body.dark-mode .mode-card-set { border-color: rgba(96,165,250,.28); }
-body.dark-mode .mode-card-eyebrow { color: #93c5fd; background: rgba(37,99,235,.2); }
+/* ADR-081: Subject Sets are grouped by the "Subject Sets" section header + typography — no decorative rail/eyebrow
+   (removed as visual clutter). The cards are plain .mode-card so every Practice card reads identically. */
 
 /* ── Coming-soon staged feature (Word Problems, ADR-031 release scope) ──────────────────
    Kept visible + inviting (an UPCOMING premium feature, not a disabled one). The card stays
