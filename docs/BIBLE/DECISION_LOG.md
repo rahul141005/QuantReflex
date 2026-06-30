@@ -42,7 +42,8 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Consequences:** New `js/lr-engine.js`, `data/knowledge/lr.js`; one conditional MCQ branch in the drill engine;
   subject/labeler/picker/Learn touch-ups. **No Firestore migration** — `categoryStats` gains `lr-*` keys, subject still
   derived. No new dependencies, no new functions, no security/payment change. New `scripts/lr-engine.check.js` (incl.
-  the model-checker); Learn 24→31 topics. SW v149→v150. Bible 2.66→2.67, Architecture 2.45→2.46.
+  the model-checker); Learn 24→31 topics. SW v149→v152 (v151 colour-blind ✓/✗ on MCQ; v152 = independent-audit fixes:
+  odd-one-out single-misfit uniqueness + an MCQ null-guard). Bible 2.66→2.67, Architecture 2.45→2.46.
 
 ## ADR-074 — Data Interpretation engine: a generative, chart-based Speed-Aptitude subject (V2 Phase 2) (2026-06-30)
 - **Context:** Phase 1 (ADR-073) opened the derived subject seam. Phase 2 fills it with the first new subject, **Data

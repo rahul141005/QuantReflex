@@ -43,6 +43,27 @@
   function _isCube(n) { var r = Math.round(Math.cbrt(n)); return r * r * r === n; }
   function _isPrime(n) { if (n < 2) return false; for (var i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; }
   function _special(n) { return _isSquare(n) || _isCube(n) || _isPrime(n); }
+  function _gcd(a, b) { return b ? _gcd(b, a % b) : a; }
+
+  /* Is `c` a DEFENSIBLE "odd one" within `all` — do the OTHER three share a common rule that c breaks?
+     (square / cube / prime / parity / multiple-of-k / common-factor). Used to guarantee a generated set has
+     EXACTLY ONE valid answer, so the grader never marks a logically-correct pick wrong (audit, ADR-075). */
+  function _validOddOne(all, c) {
+    var others = all.filter(function (x) { return x !== c; });
+    if (others.length !== 3) return false;
+    if (others.every(_isSquare) && !_isSquare(c)) return true;
+    if (others.every(_isCube) && !_isCube(c)) return true;
+    if (others.every(_isPrime) && !_isPrime(c)) return true;
+    if (others.every(function (x) { return x % 2 === 0; }) && c % 2 !== 0) return true;   // all even, c odd
+    if (others.every(function (x) { return x % 2 !== 0; }) && c % 2 === 0) return true;   // all odd, c even
+    for (var k = 2; k <= 9; k++) { if (others.every(function (x) { return x % k === 0; }) && c % k !== 0) return true; }
+    var g = others.reduce(function (a, b) { return _gcd(a, b); }); if (g >= 2 && c % g !== 0) return true;
+    return false;
+  }
+  function _oddUnambiguous(all, answer) {
+    var valid = all.filter(function (c) { return _validOddOne(all, c); });
+    return valid.length === 1 && String(valid[0]) === String(answer);
+  }
 
   function _wrap(label, qa) { qa.category = label; return qa; }
 
@@ -158,8 +179,16 @@
     return { conformers: conformers, odd: odd };
   }
   function _genOdd(diff) {
-    var s = _oddSet(diff), all = _shuffle(s.conformers.concat([s.odd]));
-    return { question: 'Which one does NOT belong with the others: ' + all.join(', ') + '?', answer: String(s.odd), options: all.map(String), subtype: diff + ':oddout' };
+    /* Retry until the set has a UNIQUE odd one (no second element that also breaks a common rule). */
+    for (var attempt = 0; attempt < 80; attempt++) {
+      var s = _oddSet(diff), all = _shuffle(s.conformers.concat([s.odd]));
+      if (_oddUnambiguous(all, s.odd)) return { question: 'Which one does NOT belong with the others: ' + all.join(', ') + '?', answer: String(s.odd), options: all.map(String), subtype: diff + ':oddout' };
+    }
+    /* guaranteed-unambiguous fallback: 3 odd primes + one even composite (the lone misfit under both parity AND
+       primality, and the only valid odd-one in the set). */
+    var primes = _pickN([3, 5, 7, 11, 13, 17, 19, 23, 29, 31], 3), evenComp = _pick([10, 14, 22, 26, 34, 38, 46, 58, 62, 74, 82, 86]);
+    var fall = _shuffle(primes.concat([evenComp]));
+    return { question: 'Which one does NOT belong with the others: ' + fall.join(', ') + '?', answer: String(evenComp), options: fall.map(String), subtype: diff + ':oddout' };
   }
 
   /* ───────────────────────── 6. ANALOGIES (numeric) ───────────────────────── */

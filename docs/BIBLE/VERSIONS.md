@@ -23,7 +23,8 @@ Every governed change updates the relevant version number here and records a mig
 > 256-region set-logic model-checker. LR self-registers into the Practice pipeline (out of the random pool + duels),
 > joins the `lr` subject, the grouped picker, and Learn (`data/knowledge/lr.js`, 7 gold-standard topics). QuanAI/Stats
 > label LR via the engine; LR rides `categoryStats` → **no Firestore migration** (stays 2.21). New `lr-engine.check`
-> (15512 assertions); Learn 24→31 topics. SW v149→v150. Bible 2.66→2.67, Arch 2.45→2.46.
+> (15512 assertions, incl. odd-one-out uniqueness); Learn 24→31 topics. SW v149→v152 (v151 colour-blind MCQ ✓/✗;
+> v152 independent-audit fixes — odd-one-out single-misfit uniqueness + MCQ null-guard). Bible 2.66→2.67, Arch 2.45→2.46.
 
 > **2.66 / Arch 2.45 (2026-06-30)** — **QuantReflex V2 Phase 2: Data Interpretation engine (ADR-074).** The first new
 > Speed-Aptitude subject, filling the Phase-1 seam. DI is **generative** (no static banks): `js/di-engine.js`

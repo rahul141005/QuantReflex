@@ -187,11 +187,11 @@ function createDrillEngine(container, opts) {
              else (grading, feedback, recordAnswer, Next) is reused. Quant/DI stay on the numpad path unchanged. */
           (isMCQ
             ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
-                q.options.map(function (o) { var s = _escHtml(String(o)); var wide = String(o).length > 14 ? ' mcq-wide' : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s + '">' + s + '</button>'; }).join('') +
+                q.options.map(function (o) { var s = _escHtml(String(o)); var wide = String(o).length > 14 ? ' mcq-wide' : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>'; }).join('') +
               '</div>'
             : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />'
           ) +
-          '<div id="feedback" class="feedback"></div>' +
+          '<div id="feedback" class="feedback" aria-live="polite"></div>' +
         '</div>' +
       '</div>' +
       '<div class="drill-actions">' +
@@ -534,7 +534,8 @@ function createDrillEngine(container, opts) {
     /* Focus next button for keyboard navigation */
     submitBtn.focus();
 
-    ui.answerInputEl.disabled = true;
+    /* MCQ (ADR-075) has no #answerInput — guard the disable so it doesn't throw on every option answer. */
+    if (ui.answerInputEl) ui.answerInputEl.disabled = true;
 
     /* Correct-answer micro-interaction: flash card green */
     if (correct) {

@@ -41,16 +41,24 @@ function analogyConsistent(a, fa, c, ans) {
   return fns.some(function (f) { return f(a) === fa && f(c) === ans; });
 }
 
-/* odd-one-out: the 3 non-answer numbers share a rule the answer breaks */
-function oddValid(opts, ans) {
-  var nums = opts.map(Number), a = Number(ans), others = nums.filter(function (x) { return x !== a; });
+/* odd-one-out: independently confirm EXACTLY ONE element is a defensible odd-one, and it's the engine's answer
+   (uniqueness — a second valid answer would mean the grader marks a correct pick wrong). Checklist authored
+   separately from the engine so a divergence is caught. */
+function validOdd(all, c) {
+  var others = all.filter(function (x) { return x !== c; });
   if (others.length !== 3) return false;
-  if (others.every(isSquare) && !isSquare(a)) return true;
-  if (others.every(isCube) && !isCube(a)) return true;
-  if (others.every(isPrime) && !isPrime(a)) return true;
-  for (var k = 3; k <= 12; k++) if (others.every(function (x) { return x % k === 0; }) && a % k !== 0) return true;
-  var g = others.reduce(function (x, y) { return gcd(x, y); }); if (g >= 2 && a % g !== 0) return true;
+  if (others.every(isSquare) && !isSquare(c)) return true;
+  if (others.every(isCube) && !isCube(c)) return true;
+  if (others.every(isPrime) && !isPrime(c)) return true;
+  if (others.every(function (x) { return x % 2 === 0; }) && c % 2 !== 0) return true;
+  if (others.every(function (x) { return x % 2 !== 0; }) && c % 2 === 0) return true;
+  for (var k = 2; k <= 9; k++) if (others.every(function (x) { return x % k === 0; }) && c % k !== 0) return true;
+  var g = others.reduce(function (x, y) { return gcd(x, y); }); if (g >= 2 && c % g !== 0) return true;
   return false;
+}
+function oddUnique(opts, ans) {
+  var nums = opts.map(Number), valid = nums.filter(function (c) { return validOdd(nums, c); });
+  return valid.length === 1 && String(valid[0]) === String(ans);
 }
 
 /* syllogism validity: enumerate the 8 A/B/C regions; a model = which regions are non-empty. */
@@ -109,7 +117,7 @@ ok('0 seven LR categories', LR.categories().length === 7 && LR.categories().inde
         else if (key === 'between') { var bt = t.match(/(\d+)th from the front and \w+ is (\d+)th from the front/); e = (+bt[2]) - (+bt[1]) - 1; }
         else if (key === 'multistep') { var ms = t.match(/(\d+)th from the left and (\d+)th from the right.*?(\d+)th from the left\?/); e = ((+ms[1]) + (+ms[2]) - 1) - (+ms[3]); }
         else if (key === 'analogy') { var an = t.match(/(\d+) : (\d+) :: (\d+) :/); ok('analogy ' + cat + ' consistent rule', analogyConsistent(+an[1], +an[2], +an[3], q.answer)); did = false; }
-        else if (key === 'oddout') { ok('oddout has a real odd one', oddValid(q.options, q.answer)); did = false; }
+        else if (key === 'oddout') { ok('oddout has a UNIQUE odd one (no second valid answer)', oddUnique(q.options, q.answer)); did = false; }
         else if (key.indexOf('syllogism') !== -1 || key === 'syllogism') {
           var seg = t.match(/Statements: (.*) Conclusion: (.*) Does/);
           var prem = seg[1].split('. ').filter(Boolean).map(function (s) { return parseStmt(s.replace(/\.$/, '')); });

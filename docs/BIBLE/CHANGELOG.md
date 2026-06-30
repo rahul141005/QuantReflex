@@ -25,9 +25,14 @@ capability is multiple-choice input (conditional). No new deps, **no Firestore m
 - Learn: NEW data/knowledge/lr.js (LR category + 7 gold-standard topics, deep-linking to LR drills); hub groups by subject.
 - QuanAI/analytics: studentProfile.label (server) + formatCategoryName (client) fall back to LR labels; LR rides
   categoryStats. Duels: LR fenced out this phase (numeric LR is duel-ready in principle; MCQ needs a schema change).
-- CSS: .mcq-options grid + states (light+dark, reduced-motion safe). SW v149→v150 (+ precache lr-engine.js, lr.js).
-- TESTS: NEW scripts/lr-engine.check.js (15512 assertions); extended subjects/learn-content/learn-browser (Learn
-  24→31 topics, 7th category). Full suite green.
+- CSS: .mcq-options grid + states (light+dark, reduced-motion safe; colour-blind ✓/✗ indicator). SW v149→v152
+  (+ precache lr-engine.js, lr.js).
+- TESTS: NEW scripts/lr-engine.check.js (15512 assertions, incl. odd-one-out uniqueness); extended subjects/learn-
+  content/learn-browser (Learn 24→31 topics, 7th category). Full suite green.
+- Independent-audit fixes (post-ship): odd-one-out now enforces a SINGLE valid misfit at generation (was: ~50% of
+  sets had a second defensible answer → grader could mark a correct pick wrong); guarded an MCQ null-deref
+  (`ui.answerInputEl.disabled` threw on every option answer — core flow survived but it was an uncaught exception);
+  MCQ feedback is now an aria-live region + the option `data-opt` escapes quotes (latent hardening).
 ```
 
 Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) (ADR-075), [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md), [ROADMAP.md](ROADMAP.md)
