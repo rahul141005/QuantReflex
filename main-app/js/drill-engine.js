@@ -43,6 +43,8 @@ function createDrillEngine(container, opts) {
   var onResults = opts.onResults || null;   // optional: host hook to augment the results card (e.g. mock scoring)
   var preloadedQuestions = opts._preloadedQuestions || null;
   var adaptiveMode = opts.adaptive === true;
+  var diSet = opts.diSet || null;            /* DI Sets (ADR-078): one shared chart/context + N linked questions */
+  var _setShellBuilt = false;                /* set mode renders the shared context ONCE, then swaps only the Q block */
   
   /* ---- Duel Context Extensions (ADR-033: true component reuse, capture-only) ---- */
   var isDuel = opts.isDuel === true;
@@ -156,7 +158,69 @@ function createDrillEngine(container, opts) {
     return '<span class="adaptive-mode-pill adaptive-pill-medium">Medium ●</span>';
   }
 
+  /* DI Sets (ADR-078): the shared chart/caselet context is rendered ONCE in a persistent region; each question swaps
+     only the stem/input/feedback below it. Fully isolated from the single-question path below (guarded in
+     renderQuestion), and it REUSES the shared checkAnswer / nextQuestion / recordAnswer / numpad / results / exit — so
+     scoring, feedback, analytics and exit behave identically. The dataset/chart live on `diSet` (cached, never
+     regenerated mid-set). */
+  function _renderSetQuestion() {
+    answered = false;
+    _nextReady = true;
+    var q = questions[current];
+    if (!_setShellBuilt) {
+      var ctxHTML = (diSet.chart && typeof DICharts !== 'undefined')
+        ? DICharts.render(diSet.chart)
+        : (diSet.context ? '<div class="di-caselet-context">' + _escHtml(diSet.context) + '</div>' : '');
+      container.innerHTML =
+        '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
+        '<div class="card center-content fade-in question-card-transition">' +
+          '<div class="drill-question-scroll">' +
+            '<div class="di-set-context">' + ctxHTML + '</div>' +
+            '<div id="diSetQHost"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="drill-actions"><button id="submitBtn" class="btn-primary">Submit</button></div>';
+      _setShellBuilt = true;
+      var _x = container.querySelector('#drillExitBtn');
+      if (_x) _x.addEventListener('click', function () {
+        function performExit() { cleanup(); _exitDrillSession(); if (typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch(); if (onFinish) onFinish('practice'); else Router.showView('practice'); }
+        if (typeof showExitSessionDialog === 'function') showExitSessionDialog(performExit); else performExit();
+      });
+    }
+    var host = container.querySelector('#diSetQHost');
+    var progressPct = count > 0 ? Math.round((current / count) * 100) : 0;
+    host.innerHTML =
+      '<p class="drill-progress">Question ' + (current + 1) + ' / ' + count + ' <span class="di-set-badge">DI SET</span></p>' +
+      '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+      '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
+      '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
+      '<div id="feedback" class="feedback" aria-live="polite"></div>';
+    /* fresh actions each question (checkAnswer mutates them into Next / disables skip). */
+    var actions = container.querySelector('.drill-actions');
+    actions.className = 'drill-actions';
+    actions.innerHTML = '<button id="submitBtn" class="btn-primary">Submit</button>';
+    ui.globalTimerEl = null; ui.perQTimerEl = null;
+    ui.answerInputEl = host.querySelector('#answerInput');
+    ui.submitBtnEl = container.querySelector('#submitBtn');
+    ui.feedbackEl = host.querySelector('#feedback');
+    ui.cardEl = container.querySelector('.card');
+    var input = ui.answerInputEl, submitBtn = ui.submitBtnEl;
+    function submit() { if (answered) return; checkAnswer(input.value.trim()); }
+    submitBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    var _sk = typeof loadSettings === 'function' ? loadSettings() : {};
+    var _ska = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
+    if (_ska && _sk.skipEnabled && _sk.difficulty !== 'hard') {
+      var skipBtn = document.createElement('button'); skipBtn.className = 'btn skip-btn'; skipBtn.textContent = 'Skip →';
+      skipBtn.addEventListener('click', function () { if (answered) return; answered = true; recordAnswer(false, q.category, q, null); nextQuestion(); });
+      actions.classList.add('has-skip'); actions.insertBefore(skipBtn, submitBtn);
+    }
+    qStart = performance.now();
+    if (typeof showCustomNumpad === 'function') showCustomNumpad(input, function () { submit(); });
+  }
+
   function renderQuestion() {
+    if (diSet) { _renderSetQuestion(); return; }
     answered = false;
     _nextReady = true; /* reset debounce for each new question */
     var q = questions[current];
@@ -486,7 +550,7 @@ function createDrillEngine(container, opts) {
         }
         /* DI (ADR-074): the chart pixels aren't sent to the AI, so prepend a compact text summary of the data to
            the question — the explanation is then grounded in the actual numbers, not just "the chart above". */
-        var _explainQ = q.question;
+        var _explainQ = (q.aiContext ? q.aiContext + ' ' : '') + q.question;
         try { if (q.chart && typeof DICharts !== 'undefined' && DICharts.describe) { var _d = DICharts.describe(q.chart); if (_d) _explainQ = _d + ' ' + q.question; } } catch (_) {}
         AIFeatures.showExplanationModal(_explainQ, expected, q.category);
       });
@@ -1029,7 +1093,15 @@ function createDrillEngine(container, opts) {
       } catch (_) { _setAdaptiveOverride('medium'); }
     }
 
-    if (preloadedQuestions && preloadedQuestions.length > 0) {
+    if (diSet) {
+      /* DI Set: map the shared-context set into the drill question shape. Each question carries the SET's category
+         (so analytics attribute to di-bar/di-line/… exactly like single questions) and the shared chart (so AI
+         Explain grounds on the same data); caselet sets carry the worded context for grounding. */
+      questions = diSet.questions.map(function (sq) {
+        return { question: sq.question, answer: sq.answer, category: diSet.category, subtype: sq.subtype, chart: diSet.chart || null, aiContext: diSet.context || null };
+      });
+      count = questions.length;
+    } else if (preloadedQuestions && preloadedQuestions.length > 0) {
       questions = preloadedQuestions;
       count = questions.length;
     } else if (reviewMode) {

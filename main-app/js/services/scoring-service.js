@@ -125,9 +125,31 @@ var ScoringService = (function () {
       ratios:              'Tip: Cross-multiply to solve proportions: a/b = c/d → ad = bc.',
       'profit-loss':       'Tip: Profit % = (Profit ÷ Cost Price) × 100, not Selling Price.',
       'time-speed-distance': 'Tip: D = S × T. Write it down and substitute known values first.',
-      'time-and-work':     'Tip: If A does work in N days, rate = 1/N. Add rates for combined work.'
+      'time-and-work':     'Tip: If A does work in N days, rate = 1/N. Add rates for combined work.',
+      /* Data Interpretation (ADR-078): per-chart-type reading + the trap that costs that chart its marks. */
+      'di-bar':            'Tip: Read the TITLE and UNIT first (₹ lakh vs ₹ crore is the #1 DI slip). Compare bar heights, then confirm with the printed values.',
+      'di-line':           'Tip: The STEEPEST segment is the biggest change — but verify with arithmetic on just that segment. A high point ≠ a big jump.',
+      'di-pie':            'Tip: 100% = 360°, so 1% = 3.6°. Anchor on 25%=90°, 50%=180°. Share = slice ÷ total × 100.',
+      'di-table':          'Tip: Decide row-total vs column-total before adding, and read the EXACT row/column named — wrong year/category is the top table error.',
+      'di-caselet':        'Tip: Write the TOTAL first, then each group, then the "doers" (group × %). Keep percentages as fractions (25% = ÷4) for speed.'
+    };
+    /* DI archetype-keyed tips (ADR-078): subtype is "<difficulty>:<key>"; teach the method behind the specific key. */
+    var diKeyTips = {
+      pctMore: 'Tip: % change = (new − old) ÷ OLD × 100 — always divide by the ORIGINAL value, not the new one.',
+      yoy: 'Tip: % change = (new − old) ÷ OLD × 100 — divide by the earlier year, ignore the sign if asked for magnitude.',
+      overallGrowth: 'Tip: Growth over a period = (last − first) ÷ FIRST × 100. Use the starting value as the base.',
+      deviation: 'Tip: Find the average first, then (value − average) ÷ average × 100. The base is the average, not the value.',
+      share: 'Tip: Share = part ÷ TOTAL × 100. The base is the whole total, never a neighbouring value.',
+      combinedShare: 'Tip: Add the two parts first, THEN divide by the grand total × 100.',
+      cumulativeShare: 'Tip: Sum the years asked for, then divide by the total of ALL years × 100.',
+      m_seriesShare: 'Tip: Add every series at that point to get the base, then part ÷ that base × 100.',
+      ratio: 'Tip: Divide both quantities by their HCF for the simplest ratio a:b. Check: a×(other) = b×(one).',
+      m_ratioYear: 'Tip: Divide both series by their HCF for the simplest ratio. Keep the order the question asks (a:b).',
+      m_crossDiff: 'Tip: Line the two series up at the SAME point, then subtract — mind which one is larger.',
+      m_combined: 'Tip: Read both series at that point and add — don\'t double-count or miss a series.'
     };
     if (subtype && subtypeTips[subtype]) return subtypeTips[subtype];
+    if (subtype && subtype.indexOf(':') !== -1) { var _dk = subtype.split(':')[1]; if (diKeyTips[_dk]) return diKeyTips[_dk]; }
     return categoryTips[cat] || 'Tip: Review the formula used for this type of question.';
   }
 

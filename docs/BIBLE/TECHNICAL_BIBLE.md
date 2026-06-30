@@ -1,6 +1,6 @@
 # QuantReflex Technical Bible
 
-**Doc Version:** 1.24 · **Architecture Version:** 2.49 (see [VERSIONS.md](VERSIONS.md))
+**Doc Version:** 1.25 · **Architecture Version:** 2.51 (see [VERSIONS.md](VERSIONS.md))
 **Status:** Source of Truth — authoritative. Code and this document must remain synchronized.
 **Last updated:** 2026-06-30
 **Change control:** Every change follows the mandatory workflow in [GOVERNANCE.md](GOVERNANCE.md) — Bible-first, impact report, implement, verify, changelog, version bump. See also [§13 Change Control](#13-change-control).
@@ -17,6 +17,33 @@ Companion documents (start at [README.md](README.md)):
 ## 1. What QuantReflex Is
 
 A mental-math / quantitative-aptitude training SaaS for competitive-exam aspirants. The catalog is curated (ADR-067) to **17 exams in 4 user-facing tiers** — **MBA** (CAT, XAT, SNAP, NMAT, CMAT, MAH CET, MAT, ATMA), **Banking** (IBPS PO/Clerk, SBI PO, RBI Assistant), **Foundation**, and **Government** (SSC CGL/CHSL/MTS, RRB NTPC) — the exams where fast, no-calculator calculation drives rank. The app drills **14 categories** (`services/quantTopics.js`) — these constitute the **Quant** subject of a **Speed-Aptitude subject layer** (ADR-073/074, V2): a derived lens above category that lets the product grow along the generative-speed spine **Quant → Data Interpretation → generatable Logical Reasoning** without bolting subjects on later. Subject is **derived on read** from `categoryStats` (no stored rollup, no migration). **Quant, Data Interpretation and Logical Reasoning all ship today** — DI (ADR-074) is a generative subject of 5 chart/table families (`di-*`, `js/di-engine.js`); LR (ADR-075) is a generative subject of 7 reasoning families (`lr-coding`/`lr-blood`/`lr-direction`/`lr-ranking`/`lr-odd`/`lr-analogy`/`lr-syllogism`, `js/lr-engine.js`) answered on the numpad or via a new **multiple-choice** drill input. All three reuse the same drill engine, scoring, analytics, Learn and QuanAI; LR's Syllogisms are verified by an independent set-logic model-checker. **Cross-subject intelligence (ADR-076, Phase 4):** `statMath.subjectRollup` derives one per-subject view from `categoryStats` (no storage) that BOTH the Stats "aptitude by subject" breakdown and QuanAI's coaching read — so the platform coaches Quant/DI/LR as one (a percentages gap is named as the cause of slow DI). One-tap **Mixed Aptitude** practice draws a balanced cross-subject sprint. Monetized (v2) as **Free** (20 questions/day) → **Premium** (₹349/6mo or ₹499/12mo — includes everything: all training features, the full AI suite, Math Duel, and Timed Mocks). One paid tier; trials are time-limited Premium grants.
+
+### 1A. Data Interpretation engine v2 (ADR-078) — exam-accurate, multi-series, set-based
+
+The DI subject was overhauled to exam-grade depth, grounded in a sourced syllabus study (CAT/XAT, IBPS/SBI/RRB, SSC,
+Insurance). **Verified topic relevance** (drives what the engine emphasizes):
+
+| Chart / form | CAT·XAT | Banking | SSC·Railways | Insurance |
+|---|---|---|---|---|
+| Tables · simple bar · single pie | Very High | Very High | Very High | Very High |
+| Line graph | High | High | Medium | High |
+| Grouped / stacked bar · multi-line | High | High | Low–Med | High |
+| Caselet · missing-data | Med–High | High | Low | Medium |
+| Cross-chart / multi-set | Very High | Medium | Low | Low |
+| Radar · bubble · area | Low → **out of scope** | Low | Low | Low |
+
+**Engine architecture (`js/di-engine.js`, `js/ui/di-charts.js`, `js/di-set-engine.js`):**
+- **Earned difficulty** — an explicit archetype→tier table; a tier constructs a clean in-tier question by design (the
+  old `hard:read` fallback is impossible), so every difficulty label is earned. Realistic data (not all ×10; trended
+  time-series). Archetypes span read/rank/total/diff/avg/share/missing/ratio/contribution/%-change plus **cross-series**
+  (combined, cross-diff, ratio-across-series, trend-compare, series-share).
+- **Multi-series renderer** — `di-charts.js` adds a back-compatible `series[]`/`stacked` model (grouped & stacked bars,
+  multi-line, multi-column tables) via shared SVG helpers; single-series specs render byte-identically.
+- **DI sets** — `di-set-engine.js` produces one shared dataset/chart + 3–6 progressive, distinct-skill questions;
+  presentation reuses the drill engine through a guarded `diSet` set-mode (shared context rendered once, per-question
+  swap, cached dataset). Surfaced as the **📊 DI Set** practice mode.
+- **Teaching** — per-chart + per-archetype DI auto-tips (`scoring-service.getAutoTip`); Learn topic "DI Sets &
+  Multi-Series Charts". **Analytics stay derived** (set answers ride `categoryStats` di-* keys; no migration).
 
 ## 2. Tech Stack (canonical)
 

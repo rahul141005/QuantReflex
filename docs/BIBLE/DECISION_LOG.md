@@ -8,6 +8,47 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-078 — Data Interpretation Engine v2: earned difficulty, multi-series renderer, DI sets (2026-06-30)
+- **Context:** DI (ADR-074) was architecturally clean but pedagogically v1: difficulty was reasoning-based yet had a
+  dishonest fallback (a "hard" question whose data wouldn't compute cleanly silently emitted `hard:read`) and a
+  mislabeled single-% "project" archetype; data was unrealistic (every value a multiple of 10); charts were
+  single-series only (no authentic cross-series DI); the free-tier wrong-answer tip had no DI keys (generic fallback);
+  and real exams test SETS (one chart, 3–6 linked questions) which the app couldn't do. A sourced exam-syllabus study
+  (CAT/XAT, IBPS/SBI/RRB, SSC, Insurance) grounded the priorities: tables/bar/pie/line + %/ratio/avg/share = Very High;
+  grouped/stacked bars, multi-line, missing-data, caselets, cross-series = High→Very High; radar/bubble/area = Low
+  (out of scope).
+- **Decision:** Overhaul DI in-place along four axes, reusing everything and adding no Firestore footprint.
+  - **Earned difficulty:** `di-engine.js` is rebuilt around an explicit `ARCHETYPES` table `{key, tier, skill, build}`.
+    A tier picks an in-tier archetype and constructs data so the answer is clean BY DESIGN; if a random build can't be
+    clean it retries within the SAME tier, and each tier has a guaranteed-clean primary — so a label is never unearned
+    (the `hard:read` bug is impossible). `project` retired. Data is realistic (varied integers; time-series trends with
+    bounded continuity). New archetypes: rank, missing-value/reverse, ratio, contribution, weighted/overall growth,
+    "by how much".
+  - **Multi-series renderer:** `di-charts.js` gains an optional `series:[{name,values}]` + `stacked` model rendered by
+    shared lean SVG helpers (grouped/stacked bars, multi-line; tables already multi-column). **Back-compat is a test:**
+    a spec with `values` (no `series`) renders byte-identically. This is the seam future chart kinds plug into. Enables
+    authentic cross-series archetypes (combined, cross-diff, ratio-across-series, trend-compare, series-share).
+  - **DI sets (the second engine):** NEW `js/di-set-engine.js` `generateSet()` returns one shared dataset + chart (or
+    caselet context) + 3–6 progressive, distinct-skill questions, each independently validated. It REUSES
+    `DIEngine._datasets/_charts/_arch` (no parallel data model). **Presentation reuses the drill engine**, not a second
+    runner: a guarded `opts.diSet` set-mode renders the shared context ONCE in a persistent region and swaps only the
+    question block per question (dataset cached, never regenerated), reusing scoring/feedback/recordAnswer/timers/
+    results/exit. The single-question and Quant render paths are bypassed by an early-return guard (zero regression).
+  - **Teaching + Learn:** `scoring-service.getAutoTip` gains per-chart-type + per-archetype-key DI tips (reasoning +
+    shortcut + the specific trap: %-point vs %, unit, total-vs-avg). New Learn topic "DI Sets & Multi-Series Charts".
+  - **Analytics derived-only:** set answers ride existing `categoryStats` di-* keys via `recordAnswer` exactly like
+    single questions; `subjectRollup` unchanged. Per-difficulty/calc-type mastery storage is **declined** (it needs a
+    Firestore migration the project forbids) — documented as a future recommendation; chart-type mastery already shows
+    in Stats.
+- **Alternatives rejected:** a stored `subjectStats`/difficulty-breakdown (Firestore migration — forbidden); a second
+  parallel set-runner UI (would duplicate and risk the proven drill engine); persistent-DOM via re-architecting
+  `renderQuestion` for all modes (chose an isolated set-mode branch instead — protects the existing path); radar/
+  bubble/area charts (Low exam relevance).
+- **Consequences:** No schema/AI-contract change, no new deps. Validated hard: di-engine.check (2400 samples, 100%
+  independently recomputed, earned-tier + no-`hard:read` assertions), di-set-engine.check (4403 set questions, 100%
+  recomputed, progressive + distinct-skill), di-charts.check (multi-series), plus a stress pass (6400 charts + 8771 set
+  questions, 0 render defects). DI 5→6 Learn topics (31→32). SW v156→v157. Bible 2.71→2.72, Arch 2.50→2.51.
+
 ## ADR-077 — Final Craftsmanship Pass: premium refinement, not redesign (2026-06-30)
 - **Context:** With the three-subject Speed-Aptitude spine complete and stabilized (Phase 4.5: no functional
   regressions), the remaining gap was *craftsmanship* — making every screen feel noticeably more premium without a

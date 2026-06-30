@@ -83,5 +83,46 @@ console.log('di-charts.check — DI chart renderer (ADR-074)');
   ok('7 describe null → empty', DC.describe(null) === '');
 })();
 
+/* ── 8. multi-series GROUPED bar: one rect per (series × category), legend, every value, no NaN ── */
+(function () {
+  var spec = { kind: 'bar', title: 'Sales by Company', unit: '₹ crore', labels: ['A', 'B', 'C'],
+    series: [{ name: '2022', values: [120, 80, 150] }, { name: '2023', values: [140, 90, 130] }] };
+  var h = DC.render(spec);
+  ok('8 grouped: rect per series×cat + 2 legend swatches', count(h, '<rect') === (3 * 2 + 2));
+  ok('8 grouped: both series names in legend', h.indexOf('2022') !== -1 && h.indexOf('2023') !== -1);
+  ok('8 grouped: every value drawn', ['120', '80', '150', '140', '90', '130'].every(function (v) { return h.indexOf('>' + v + '<') !== -1; }));
+  ok('8 grouped: aria carries both series', /aria-label="[^"]*2022[^"]*2023/.test(h));
+  ok('8 grouped: no NaN/undefined', h.indexOf('NaN') === -1 && h.indexOf('undefined') === -1);
+})();
+
+/* ── 9. STACKED bar: still one rect per segment + legend; no NaN ── */
+(function () {
+  var spec = { kind: 'bar', title: 'Composition', labels: ['Q1', 'Q2'], stacked: true,
+    series: [{ name: 'Online', values: [30, 50] }, { name: 'Retail', values: [70, 50] }] };
+  var h = DC.render(spec);
+  ok('9 stacked: rect per segment + 2 legend', count(h, '<rect') === (2 * 2 + 2));
+  ok('9 stacked: legend names present', h.indexOf('Online') !== -1 && h.indexOf('Retail') !== -1);
+  ok('9 stacked: no NaN', h.indexOf('NaN') === -1);
+})();
+
+/* ── 10. multi-line: one polyline per series + legend + describe carries every series ── */
+(function () {
+  var spec = { kind: 'line', title: 'Trend', labels: ['2019', '2020', '2021'],
+    series: [{ name: 'Plant X', values: [100, 140, 120] }, { name: 'Plant Y', values: [80, 90, 160] }] };
+  var h = DC.render(spec);
+  ok('10 multi-line: 2 polylines', count(h, '<polyline') === 2);
+  ok('10 multi-line: legend names', h.indexOf('Plant X') !== -1 && h.indexOf('Plant Y') !== -1);
+  ok('10 multi-line: no NaN', h.indexOf('NaN') === -1);
+  var d = DC.describe(spec);
+  ok('10 describe carries both series + values', d.indexOf('Plant X') !== -1 && d.indexOf('Plant Y') !== -1 && d.indexOf('2021 = 160') !== -1);
+})();
+
+/* ── 11. back-compat: a single-element series[] renders like the legacy single-series path ── */
+(function () {
+  var h = DC.render({ kind: 'bar', title: 'Solo', labels: ['A', 'B', 'C', 'D'], series: [{ name: 'X', values: [10, 20, 30, 40] }] });
+  ok('11 single-element series → legacy bar (4 rects, no legend strip)', count(h, '<rect') === 4);
+  ok('11 single-element series values shown', ['10', '20', '30', '40'].every(function (v) { return h.indexOf('>' + v + '<') !== -1; }));
+})();
+
 console.log('\ndi-charts.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

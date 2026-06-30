@@ -115,6 +115,30 @@
         { type: 'example', problem: 'A value rises by 10% one year and by 20% the next. By what percent has it risen overall?', steps: ['Overall multiplier = 1.10 × 1.20 = 1.32', 'That is a rise of 0.32 = 32%', '(Not 30% — successive percents multiply, they do not add.)'], answer: '32%' },
         { type: 'revision', points: ['Swap percents for fractions (25% = 1/4).', '+x% = ×(1+x/100); successive changes MULTIPLY.', 'Estimate magnitude before computing.', 'Approximate only when allowed.'] }
       ]
+    },
+    {
+      id: 'di-sets', title: 'DI Sets & Multi-Series Charts', category: 'di-charts',
+      difficulty: 'advanced', examFrequency: 'high', status: 'published',
+      drillCategory: 'di-bar',
+      searchTerms: ['di set', 'caselet set', 'grouped bar', 'stacked bar', 'multiple line', 'multi series', 'missing data', 'set selection', 'di'],
+      related: ['di-foundations', 'di-bar-line'],
+      sections: [
+        { type: 'overview', text: 'Real exam DI almost never asks one question on a chart — it gives you a SET: one chart/table/caselet with 3–6 linked questions of rising difficulty. And the charts often carry MULTIPLE series (two or more bars per group, several lines). This topic is how you read both efficiently, because the marks are won by reading once and reusing.' },
+        { type: 'concept', title: 'Grouped vs stacked bars', body: 'A grouped bar puts each series side-by-side within a category — use it to COMPARE series (A vs B in each year). A stacked bar puts the series on top of one another — each segment is a COMPONENT, and the full bar height is the TOTAL of all segments. Read a stacked segment as its own value, not the total.' },
+        { type: 'concept', title: 'Multi-line graphs', body: 'Each line is one series over time. The questions that matter: where do two lines CROSS (the year they became equal), the GAP between them at a point (a subtraction), and which line GREW more over the period (compare first-to-last change). Trace one line at a time.' },
+        { type: 'concept', title: 'Read the set once, then attack', body: 'In a set the early questions are simple reads and the later ones combine values you already located. So invest 10–15 seconds reading the whole chart first — title, units, every series, the obvious totals — then the late, "hard" questions are mostly lookups you have already done.' },
+        { type: 'concept', title: 'Missing data', body: 'When a cell or bar is blank, you are meant to deduce it: missing value = given total − sum of the others, or use a stated ratio/percentage to back it out. Never skip a set just because one number is hidden — that hidden number is usually one subtraction away.' },
+        { type: 'formula', items: [
+          { name: 'Stacked bar total', expr: 'Total = sum of all the segment values' },
+          { name: 'Missing value', expr: 'Missing = Given total − sum of the others' },
+          { name: 'Ratio of two series', expr: 'A : B (divide both by their HCF)' },
+          { name: 'Series share', expr: 'Series ÷ combined total of all series × 100' }
+        ] },
+        { type: 'trick', title: 'Set strategy & time budget', items: ['Bank the easy reads first, then the multi-step ones — partial marks beat a perfect-but-unfinished set.', 'Rough budget: easy read ~25s, two-step ~60s, cross-series/percent ~90s.', 'In a real paper, SCAN every set before solving and start with the friendliest data (clean totals, fewer series).'] },
+        { type: 'trap', items: ['Percentage POINT vs percent: a rate moving 24% → 26% is +2 percentage points, NOT a 2% rise.', 'Reading a stacked SEGMENT as if it were the whole bar.', 'Comparing the wrong pair of grouped bars (mind which category you are in).', 'Re-reading the chart for every question instead of reusing values you already found.'] },
+        { type: 'example', problem: 'A grouped bar shows units sold by Store A and Store B across 2023 and 2024. In 2024, A = 240 and B = 160. What is the ratio of A to B, and A as a percent of their combined total?', steps: ['Ratio A:B = 240:160 = 3:2 (divide both by HCF 80)', 'Combined = 240 + 160 = 400', 'A’s share = 240 / 400 × 100 = 60%'], answer: '3:2 and 60%' },
+        { type: 'revision', points: ['DI is a SET — read the whole chart once, reuse values.', 'Grouped = compare series; stacked segment = component, full bar = total.', 'Missing value = total − sum of others.', 'Percentage points ≠ percent. Bank easy marks first.'] }
+      ]
     }
   ];
 

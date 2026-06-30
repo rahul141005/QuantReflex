@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v156';
-const CACHE_NAME = 'qr-cache-v156';
+const APP_VERSION = 'v157';
+const CACHE_NAME = 'qr-cache-v157';
 
 var ASSETS = [
   './',
@@ -22,6 +22,7 @@ var ASSETS = [
   './js/questions.js',
   './js/di-engine.js',
   './js/ui/di-charts.js',
+  './js/di-set-engine.js',
   './js/lr-engine.js',
   './data/syllabus.js',
   './js/mock-engine.js',

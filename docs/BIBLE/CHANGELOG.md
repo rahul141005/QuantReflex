@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Data Interpretation Engine Overhaul: exam-accurate, multi-series, set-based (ADR-078)
+
+A complete quality overhaul of the DI engine, grounded in a sourced exam-syllabus study. Goal: better questions, not
+more — earned difficulty, authentic diversity, multi-series charts, and real exam-style SETS. No new subjects, no
+Firestore migration, no new dependencies.
+
+```
+### feat/di(ADR-078): earned difficulty + archetypes + multi-series renderer + DI sets
+- di-engine.js REBUILT around an explicit ARCHETYPES→tier table. Killed the dishonest hard:read fallback (a tier now
+  constructs a clean in-tier question by design); retired the mislabeled single-% "project"; realistic data (dropped
+  all-×10; time-series now trends with bounded continuity). New archetypes: rank, missing-value, ratio, contribution,
+  weighted/overall growth, "by how much"; cross-series: m_combined/m_crossDiff/m_ratioYear/m_trendCompare/m_seriesShare.
+- di-charts.js: back-compatible series[] + stacked model → grouped/stacked bars, multi-line, multi-column tables via
+  shared SVG helpers (_legend/_seriesOf/_stackMax). Single-series specs render byte-identically. describe()/aria carry
+  every series for AI-Explain grounding + screen readers.
+- NEW di-set-engine.js: generateSet() → one shared dataset + chart + 3–6 progressive, distinct-skill questions,
+  independent validation. Reuses DIEngine._datasets/_charts/_arch (no parallel data model).
+- drill-engine.js: guarded diSet set-mode renders the shared context ONCE (persistent) and swaps only the question
+  block per question, REUSING checkAnswer/recordAnswer/timers/results/exit. Single-question + Quant paths untouched
+  (early-return guard). AI-Explain prepends caselet context for grounding. New 📊 DI Set practice mode (practice-modes.js
+  startDiSet + index.html mode card). di-set-engine.js precached; loaded after di-charts.js.
+- scoring-service.js getAutoTip: per-chart-type DI tips + per-archetype-key tips (reasoning + shortcut + the specific
+  trap) — fixes the broken generic fallback for every wrong DI answer.
+- data/knowledge/di.js: new "DI Sets & Multi-Series Charts" topic (grouped/stacked reading, set strategy, missing data,
+  %-point trap). DI 5→6 topics, total 31→32.
+- Analytics: derived-only — set answers ride existing categoryStats di-* keys (subjectRollup unchanged). No schema
+  change, no new reads/writes/listeners, no new deps.
+- Tests: NEW di-set-engine.check (4403 set questions, 100% recomputed, progressive+distinct-skill); di-engine.check
+  rewritten (2400 samples, 100% recomputed, earned-tier + no-hard:read assertions, multi-series); di-charts.check
+  multi-series. Stress: 6400 charts + 8771 set questions, 0 render defects. learn-content/browser counts → 32.
+- SW v156→v157. Full suite green. Bible 2.71→2.72, Arch 2.50→2.51.
+```
+
+---
+
 ## 2026-06-30 — ADR-077 craftsmanship verification & production sign-off
 
 Independent re-audit of the polish commit (`5e8b2e8`) treated as someone else's work. Three read-only audits

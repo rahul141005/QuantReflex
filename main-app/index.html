@@ -371,6 +371,10 @@
               <h3>🎨 Mixed Aptitude</h3>
               <p>12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
             </div>
+            <div class="mode-card" data-mode="diset">
+              <h3>📊 DI Set</h3>
+              <p>One chart, a linked set of questions · exam-style Data Interpretation</p>
+            </div>
             <div class="mode-card" data-mode="review">
               <h3>🔄 Review Mistakes</h3>
               <p>Practice your previously wrong answers</p>
@@ -1602,6 +1606,7 @@
        into questions.js's categoryGenerators so Practice reuses the same pipeline; di-charts renders the chart block. -->
   <script defer src="js/di-engine.js"></script>
   <script defer src="js/ui/di-charts.js"></script>
+  <script defer src="js/di-set-engine.js"></script>
   <!-- Logical Reasoning engine (ADR-075): like di-engine, MUST load after questions.js (self-registers its
        generators into categoryGenerators). MCQ rendering is built into the drill engine; no extra renderer file. -->
   <script defer src="js/lr-engine.js"></script>

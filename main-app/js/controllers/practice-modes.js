@@ -184,6 +184,49 @@ function startMockFromPractice(examId) {
   _startPracticeEngine(drillContainer, config);
 }
 
+/* ---- DI Set launcher (ADR-078): one shared chart + linked questions, served by the same drill engine ---- */
+function startDiSet(category) {
+  if (typeof DISetEngine === 'undefined' || !DISetEngine.generateSet) {
+    /* engine not loaded → degrade gracefully to a normal DI focus drill */
+    return startDrillFromPractice('focus', category || 'di-bar', 'Data Interpretation');
+  }
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  var cats = ['di-bar', 'di-line', 'di-pie', 'di-table', 'di-caselet'];
+  var cat = category || cats[Math.floor(Math.random() * cats.length)];
+  var set = DISetEngine.generateSet(cat);
+  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast('Could not build a DI set — try again.'); return; }
+
+  var modeSelect = document.getElementById('modeSelect');
+  var categorySelect = document.getElementById('categorySelect');
+  var customPracticeConfig = document.getElementById('customPracticeConfig');
+  var drillContainer = document.getElementById('drillContainer');
+  if (!drillContainer) return;
+
+  var label = (typeof DIEngine !== 'undefined' && DIEngine.label) ? DIEngine.label(set.category) : 'DI';
+  var config = {
+    count: set.questions.length,
+    timeLimitSec: null, perQuestionSec: null, category: null,
+    diSet: set,
+    mode: '📊 ' + label + ' Set',
+    onFinish: function (view) {
+      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
+      var _dc = document.getElementById('drillContainer');
+      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
+      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
+      _exitDrillSession();
+      if (view === 'practice') _resetPracticeUiToModes();
+      Router.showView(view);
+    }
+  };
+
+  if (modeSelect) modeSelect.style.display = 'none';
+  if (categorySelect) categorySelect.style.display = 'none';
+  if (customPracticeConfig) customPracticeConfig.style.display = 'none';
+  drillContainer.style.display = 'block';
+  if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  _startPracticeEngine(drillContainer, config);
+}
+
 function _startPracticeEngine(drillContainer, config) {
   if (_activeDrillEngine) {
     _activeDrillEngine.cleanup();
@@ -315,6 +358,12 @@ function initPracticeView() {
           _customPracticeActive = false;
           _focusModeActive = false;
           startMockFromPractice(_mockExam);
+          return;
+        }
+        if (modeKey === 'diset') {
+          _customPracticeActive = false;
+          _focusModeActive = false;
+          startDiSet();
           return;
         }
         _customPracticeActive = false;

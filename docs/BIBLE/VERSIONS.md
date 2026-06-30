@@ -9,11 +9,29 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.71 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.50 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.72 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.51 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.72 / Arch 2.51 (2026-06-30)** — **DI Engine Overhaul: exam-accurate, multi-series, set-based (ADR-078).**
+> Grounded in a sourced exam-syllabus study (CAT/XAT, IBPS/SBI/RRB, SSC, Insurance). Four pillars: (1) **Earned
+> difficulty** — `di-engine.js` is rebuilt around an explicit archetype→tier table; the dishonest `hard:read`
+> fallback is gone (a tier now constructs a clean in-tier question by design), the mislabeled single-% `project` is
+> retired, and data is realistic (no longer all multiples of 10; time-series trend with continuity). (2) **Diversity**
+> — new archetypes (rank, missing-value/reverse, ratio, contribution, weighted average, growth/overall %, "by how
+> much") plus authentic **cross-series** questions (combined, cross-diff, ratio-across-series, trend-compare,
+> series-share). (3) **Multi-series renderer** — `di-charts.js` gains a back-compatible `series[]`/`stacked` model
+> (grouped & stacked bars, multi-line, multi-column tables) via shared lean SVG helpers; single-series specs render
+> byte-identically. (4) **DI Sets** — NEW `di-set-engine.js` generates one shared dataset/chart with 3–6 progressive,
+> distinct-skill questions; presentation REUSES the drill engine via a guarded `diSet` set-mode (persistent shared
+> context, per-question swap, cached dataset) with zero change to the single-question path; new **📊 DI Set** practice
+> mode. DI wrong-answer auto-tip is fixed (was a generic fallback) with per-chart + per-archetype teaching tips; new
+> Learn topic "DI Sets & Multi-Series Charts" (DI 5→6 topics, total 31→32). Analytics stay **derived-only** (set
+> answers ride existing `categoryStats` di-* keys) — **no Firestore migration, no new deps**. New `di-set-engine.check`
+> + extended `di-engine.check` (2400 samples, 100% independently recomputed) + `di-charts.check` (multi-series);
+> stress: 6400 charts + 8771 set questions rendered, 0 defects. SW v156→v157. Bible 2.71→2.72, Arch 2.50→2.51.
 
 > **2.71 / Arch 2.50 (2026-06-30)** — **ADR-077 craftsmanship verification & production sign-off.** Independent
 > re-audit of the polish commit (assume-it's-wrong): all 8 changes verified correct against the live code; version

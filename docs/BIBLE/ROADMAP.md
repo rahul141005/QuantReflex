@@ -41,6 +41,15 @@ admission rules define the boundary (and keep the product from regressing into a
   Aptitude mentor"); "aptitude by subject" Stats breakdown; one-tap **Mixed Aptitude** practice; identity copy →
   "Speed Aptitude". **Deferred:** DI/LR-in-duels (text-only prompt schema) + Planner DI/LR drill scheduling (syllabus
   changes, out of scope). **The Speed-Aptitude V2 expansion (Phases 1-4) is complete.**
+- **DI Engine v2 — exam-accurate, multi-series, set-based ✅ (2026-06-30, ADR-078):** earned difficulty (explicit
+  archetype→tier table; the `hard:read` fallback removed; realistic data); ~12 new archetypes incl. missing-value,
+  ratio, contribution, weighted/overall growth, and authentic **cross-series** questions; an extensible multi-series
+  renderer (`series[]`/`stacked` → grouped/stacked bars, multi-line, multi-column tables; single-series byte-identical);
+  a **DI Sets** engine (`js/di-set-engine.js`) served through a guarded drill-engine `diSet` set-mode (📊 DI Set mode);
+  fixed DI auto-tips + a "DI Sets & Multi-Series Charts" Learn topic. Derived-only analytics (no migration, no deps).
+  **Deferred (future):** linked-chart / table+graph / LR-DI hybrid sets (the set architecture already supports new
+  `build` functions); cross-app-restart set resume (needs set-state storage — declined under the no-migration rule);
+  per-difficulty/calc-type mastery analytics (needs a Firestore field).
 - **Explicitly NOT on the V2 roadmap:** native VARC/RC authoring, puzzle-LR, GK/Current-Affairs, any authored-content
   pipeline. (Verbal demand is addressed via positioning + a future coaching-supplied-content rail, not native build.)
 

@@ -44,7 +44,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 thirty-one topics registered (19 Quant + 5 DI + 7 LR)', KB.count() === 31);
+  ok('1 thirty-two topics registered (19 Quant + 6 DI + 7 LR)', KB.count() === 32);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
@@ -68,9 +68,9 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3 commercial-math topicCount', byId['commercial-math'] && byId['commercial-math'].topicCount, 4);
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
-  eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 5);
+  eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 6);
   eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 7);
-  eq('3 published gold-standard count = 31', KB.all().filter(function (t) { return t.status === 'published'; }).length, 31);
+  eq('3 published gold-standard count = 32', KB.all().filter(function (t) { return t.status === 'published'; }).length, 32);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order quant…<di-charts<lr-reasoning',
     order.indexOf('mensuration') < order.indexOf('di-charts') && order.indexOf('di-charts') < order.indexOf('lr-reasoning'));
@@ -84,7 +84,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
     ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration']);
   eq('3b bySubject(quant) covers all 19 Quant topics', KB.bySubject('quant').length, 19);
   eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
-  eq('3b bySubject(di) covers all 5 DI topics', KB.bySubject('di').length, 5);
+  eq('3b bySubject(di) covers all 6 DI topics', KB.bySubject('di').length, 6);
   eq('3b categoriesBySubject(lr) = [lr-reasoning]', KB.categoriesBySubject('lr'), ['lr-reasoning']);
   eq('3b bySubject(lr) covers all 7 LR topics', KB.bySubject('lr').length, 7);
 })();
