@@ -9,11 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.68 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.47 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.69 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.48 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.69 / Arch 2.48 (2026-06-30)** — **QuantReflex V2 Phase 4.5: integration verification & stabilization audit.**
+> A whole-repo, cross-subject re-read of Phases 1–4 as if written by someone else (3 read-only audit agents + direct
+> re-reads of `drill-engine.js`, `di-charts.js`, `practice-modes.js`, the MCQ/DI CSS, `app.js` label resolver, and
+> every `data/knowledge/*` `drillCategory`). **No functional regressions found.** The audit's "MAJOR" candidates
+> (MCQ→numeric numpad loss, input/skip stuck disabled, DI chart overflow, Mixed-mode quant-only fallback, double-tap
+> race, narrow Learn drillCategory) were all **false positives** — artefacts of not realising `renderQuestion()`
+> rebuilds the entire container per question and that engines load synchronously before any click-time path runs.
+> Verified one shared seam carries every cross-subject path (drill render, label resolution, `subjectRollup`
+> analytics, serialized QuanAI context, grouped Learn hub, Mixed Aptitude). The only real defect was a stale
+> `ARCHITECTURE.md` header (ADR-070/SW v143 → refreshed to ADR-076/SW v154). Docs-only change — **no client code
+> touched, so no SW bump**. Bible 2.68→2.69, Arch 2.47→2.48.
 
 > **2.68 / Arch 2.47 (2026-06-30)** — **QuantReflex V2 Phase 4: Unified Aptitude Intelligence (ADR-076).** The final
 > V2 phase — integration & polish, no new subjects. The keystone is `statMath.subjectRollup(stats, subjectCats)` (+

@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — QuantReflex V2 Phase 4.5: integration verification & stabilization audit
+
+Whole-repo, cross-subject re-read of Phases 1–4 treated as someone else's code (assume mistakes exist, try to break it).
+Three read-only audit agents (dead-code/duplication, cross-subject consistency, QuanAI/analytics/Firestore/perf/docs)
+plus direct re-reads of the hot paths. **No functional regressions found** — every cross-subject path flows through one
+shared seam, and the audit's "MAJOR" candidates were all false positives, verified against the code.
+
+```
+### chore/audit: Phase 4.5 stabilization — false-positive triage + stale-doc fix (no client code touched)
+- Verified renderQuestion() (drill-engine.js:159) rebuilds the WHOLE container per question → findings 1.1 (MCQ→numeric
+  numpad loss), 3.1 (input stays disabled), 8.1 (skip stuck disabled), 1.2 (double-tap race) are all FALSE.
+- Verified .di-chart-svg{width:100%;height:auto} + viewBox/preserveAspectRatio (style.css:11016) → 2.1 chart overflow
+  FALSE; chart text uses CSS classes with body.dark-mode overrides (11025-27) → 2.2 dark-repaint FALSE.
+- Verified _mixedAptitudeTopics() runs at click time after engines load (practice-modes.js:84) → 5.1 quant-only
+  fallback FALSE; Mixed is non-adaptive (75) → 10.1 FALSE; formatCategoryName cascades quant→DI→LR (app.js:311) → 6.1
+  FALSE; long MCQ options get mcq-wide→grid-column:1/-1 (190/10980) → 7.1 already handled.
+- Every data/knowledge/* topic maps to ONE specific drillCategory across all 3 subjects (Quant percentages, DI di-bar,
+  LR lr-coding) → 4.1/4.2 "too narrow" is consistent-by-design, not a bug. Kept test-only subject/registry exports
+  (deleting them would gut coverage) and app.js short labels (consolidating changes labels app-wide = regression risk).
+- ONLY real defect: ARCHITECTURE.md header was stale (ADR-070/SW v143) → refreshed to the 3-subject spine, ADR-076,
+  SW v154. Docs-only → no SW bump. Full npm test suite green (~38k assertions). Bible 2.68→2.69, Arch 2.47→2.48.
+```
+
+---
+
 ## 2026-06-30 — QuantReflex V2 Phase 4: Unified Aptitude Intelligence (ADR-076)
 
 The final V2 phase — integration & polish (no new subjects). Make Quant/DI/LR feel like one platform with QuanAI at the

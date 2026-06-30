@@ -1,6 +1,10 @@
 # QuantReflex — Architecture Guide
 
-> Last updated: 2026-06-28 (QuanAI cohesion pass — Planner Start Over + perceived-performance thinking states + natural branding, ADR-070; planner API gains op:reset, SW v143)
+> Last updated: 2026-06-30 (QuantReflex V2 — Speed-Aptitude spine complete: Quant → Data Interpretation → Logical
+> Reasoning across one shared architecture, ADR-073→076. Subject is **derived on read** from `categoryStats` (no
+> Firestore migration); `statMath.subjectRollup` is the single per-subject derivation; QuanAI coaches cross-subject
+> from one serialized context; the drill engine renders numpad / DI-chart / LR-MCQ from one path; new Mixed Aptitude
+> practice mode. Phase 4.5 integration & stabilization audit: no functional regressions found. SW v154.)
 
 ## Overview
 
