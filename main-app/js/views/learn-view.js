@@ -339,6 +339,13 @@ var LearnView = (function () {
 
     var sections = (topic.sections || []).filter(function (b) { return b && b.type !== 'related'; });
     var labels = (typeof BlockRenderers !== 'undefined') ? BlockRenderers.SECTION_LABELS : {};
+    /* Textbook chapter headings (ADR-081): a concept names itself, a table uses its caption — so the page + sticky TOC
+       read like real section titles, not "Concept · Concept · Table". Pills truncate to keep the nav tidy. */
+    function _secLabel(b) {
+      if (typeof BlockRenderers !== 'undefined' && BlockRenderers.sectionLabel) return BlockRenderers.sectionLabel(b);
+      return (labels[b.type] || b.type);
+    }
+    function _pillLabel(b) { var s = _secLabel(b); return s.length > 22 ? s.slice(0, 21) + '…' : s; }
 
     /* sticky section nav (only when there is content to navigate) */
     if (sections.length > 1) {
@@ -347,7 +354,7 @@ var LearnView = (function () {
         var pill = document.createElement('button');
         pill.className = 'kx-sec-pill' + (_isRevisionType(b.type) ? ' is-revision' : '');
         pill.type = 'button'; pill.setAttribute('data-sec', 'kx-sec-' + i);
-        pill.textContent = (labels[b.type] || b.type);
+        pill.textContent = _pillLabel(b);
         pill.addEventListener('click', function () {
           var el = document.getElementById('kx-sec-' + i);
           if (el) el.scrollIntoView({ behavior: _scrollBehavior(), block: 'start' });
@@ -368,8 +375,14 @@ var LearnView = (function () {
     }
     sections.forEach(function (b, i) {
       var sec = document.createElement('div'); sec.className = 'kx-section' + (_isRevisionType(b.type) ? ' is-revision' : ''); sec.id = 'kx-sec-' + i;
-      var lbl = document.createElement('h2'); lbl.className = 'kx-section-label'; lbl.textContent = (labels[b.type] || b.type);
-      sec.appendChild(lbl);
+      /* Self-headed blocks already render a prominent heading — a concept's title, a callout's "⚡/⚠️/📌/🧠" head, the
+         example's "📝 Solved example", or a captioned table — so adding the eyebrow would just repeat it. We show the
+         eyebrow only where it genuinely names the section (overview, key formulae, an uncaptioned table, key takeaways). */
+      var _selfHeaded = (b.type === 'concept' || b.type === 'trick' || b.type === 'trap' || b.type === 'exam' || b.type === 'memory' || b.type === 'example' || (b.type === 'table' && b.caption));
+      if (!_selfHeaded) {
+        var lbl = document.createElement('h2'); lbl.className = 'kx-section-label'; lbl.textContent = _secLabel(b);
+        sec.appendChild(lbl);
+      }
       var node = (typeof BlockRenderers !== 'undefined') ? BlockRenderers.render(b) : null;
       if (node) sec.appendChild(node);
       main.appendChild(sec);

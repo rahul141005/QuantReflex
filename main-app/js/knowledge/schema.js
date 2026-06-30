@@ -24,6 +24,7 @@
     'formula',    // { items:[{ name, expr, when?, whenNot?, trap? }] }
     'trick',      // { title?, items:[string|{text}] }     — speed / mental-math / shortcut
     'trap',       // { items:[string|{text}] }             — common mistakes & confusions
+    'exam',       // { title?, items:[string|{text}] }     — exam strategy / how toppers approach it (ADR-081)
     'example',    // { problem, steps:[string], answer }   — fully solved
     'table',      // { caption?, headers:[string], rows:[[string]] }  — renders into the loved .math-table
     'memory',     // { text }                              — mnemonic / memory hook
@@ -60,6 +61,7 @@
         break;
       case 'trick':
       case 'trap':
+      case 'exam':
         if (!_isArr(block.items) || !block.items.length) errs.push(where + ' (' + block.type + '): non-empty "items" required');
         break;
       case 'example':

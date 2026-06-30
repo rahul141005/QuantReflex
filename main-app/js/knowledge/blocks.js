@@ -74,6 +74,15 @@ var BlockRenderers = (function () {
       return d;
     },
 
+    exam: function (b) {
+      var d = _el('div', 'kx-callout kx-exam');
+      d.appendChild(_el('h3', 'kx-callout-head', '📌 ' + _esc(b.title || 'Exam strategy')));
+      var ul = _el('ul', 'kx-callout-list');
+      (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
+      d.appendChild(ul);
+      return d;
+    },
+
     memory: function (b) {
       var d = _el('div', 'kx-callout kx-memory');
       d.appendChild(_el('h3', 'kx-callout-head', '🧠 Memory hook'));
@@ -137,13 +146,24 @@ var BlockRenderers = (function () {
     return R[block.type](block);
   }
 
-  /** Section-nav labels for the in-page topic navigation. */
+  /** Section-nav labels for the in-page topic navigation. Richer, textbook-style headings (ADR-081). */
   var SECTION_LABELS = {
-    overview: 'Overview', concept: 'Concept', formula: 'Formulae', trick: 'Tricks', trap: 'Traps',
-    example: 'Example', table: 'Table', memory: 'Memory', revision: 'Revision', related: 'Related'
+    overview: 'Overview', concept: 'Concept', formula: 'Key Formulae', trick: 'Shortcuts & Tricks',
+    trap: 'Common Mistakes', exam: 'Exam Strategy', example: 'Solved Example', table: 'At a Glance',
+    memory: 'Memory Hook', revision: 'Key Takeaways', related: 'Related'
   };
 
-  return { render: render, renderers: R, SECTION_LABELS: SECTION_LABELS };
+  /* The heading shown above a section + on its nav pill. A concept names itself (its own title) and a table prefers
+     its caption — so a chapter reads as a real table of contents ("The overlap of +1", "Mirror vs Water") instead of
+     "Concept · Concept · Table". Falls back to the generic label. */
+  function sectionLabel(block) {
+    if (!block) return '';
+    if (block.type === 'concept' && block.title) return String(block.title);
+    if (block.type === 'table' && block.caption) return String(block.caption);
+    return SECTION_LABELS[block.type] || block.type;
+  }
+
+  return { render: render, renderers: R, SECTION_LABELS: SECTION_LABELS, sectionLabel: sectionLabel };
 })();
 
 if (typeof window !== 'undefined') window.BlockRenderers = BlockRenderers;
