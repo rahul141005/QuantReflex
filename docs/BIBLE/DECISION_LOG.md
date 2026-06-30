@@ -8,6 +8,59 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-079 — Logical Reasoning Excellence: hybrid generative + authored + visual (2026-06-30)
+- **Context:** LR (ADR-075) was correctness-bulletproof but pedagogically v1: 7 generators with FLAT difficulty (a
+  tier just picked a random pattern — difficulty was not *earned* by reasoning depth like DI's ADR-078 archetypes),
+  thin scenarios, numeric-only odd-one-out and analogy, 6 hard-coded blood-relation compositions, no per-category
+  teaching tips (LR fell through `getAutoTip`'s generic fallback), and no puzzle SETS. A sourced syllabus study across
+  MBA (CAT/XAT/SNAP/NMAT/CMAT/MAH CET), Banking/Insurance (IBPS/SBI/RBI/NABARD/LIC) and SSC/RRB established the LR
+  topic universe and a hard truth: **only ~65% of high-frequency LR is procedurally generatable** with a unique
+  machine-checkable answer (coding, blood, directions, ranking, syllogisms, coded inequalities, series, calendars,
+  clocks, input-output, seating/scheduling via a solver). **~25% requires authored natural-language content**
+  (critical reasoning, statement-assumption/conclusion/argument, cause-effect, course-of-action, decision making —
+  CAT/XAT-critical, cannot be generated at exam quality). **~10% is visual/figure** (mirror/water/dice/cube/figure
+  series-analogy generatable; paper folding/cutting and complex embedded figures need authored art).
+- **Decision:** Evolve LR into a **hybrid platform** — generative where it genuinely works, authored where educational
+  quality demands it, deterministic-visual where figures can be generated and auto-validated — all riding the SAME
+  drill/test/stats/planner/QuanAI/bookmark pipeline so students never feel two engines. **This intentionally relaxes
+  the ADR-075 "generative-only / no-authored-content" moat** for verbal/critical reasoning, a deliberate choice that
+  correctness of education outranks ideological purity (user-sanctioned). Three pillars:
+  - **Generative core (Pillars stay the default):** `lr-engine.js` rebuilt around earned-difficulty archetype tables
+    per topic (difficulty from logical steps, never longer reading); deepened coding (letter/number/symbol/new-pattern
+    subtypes), generative blood-relation solver + coded blood relations, direction turns/bearings, multistep & circular
+    ranking, verbal/letter odd-one-out and analogy, syllogism possibility/either-or/3-statement (Boolean model-checker
+    extended). New generatable topics: coded inequalities (transitive-closure solver), letter/alphanumeric series,
+    calendars, clocks, machine input-output.
+  - **LR puzzle SET engine:** NEW `js/lr-set-engine.js` — a constraint generator + brute-force solver builds a valid
+    seating/floor/scheduling arrangement, derives a clue subset, **verifies the clues admit exactly one solution**,
+    and emits a shared text `context` + 3–6 progressive distinct-skill linked MCQs. REUSES the drill `opts.diSet`
+    set-mode wholesale (no second runner).
+  - **Authored hybrid subsystem:** NEW `data/lr-authored/*` content banks behind a real schema (id, topic, subtype,
+    difficulty, exam map, explanation + version, tags, review status, metadata) + a pure `validateItem()`; NEW
+    `js/lr-authored-engine.js` registers authored categories into `categoryGenerators`, samples unseen items (no
+    in-session repetition), is searchable for Learn, and maps to the drill schema with a rich teaching `explanation`.
+    A new drill **explanation-display seam** shows authored explanations on reveal; **bookmark/review** now stores the
+    full question object so authored + generated LR are reviewable (was filtered out). Every item is gated by
+    `scripts/lr-authored.check.js` (answer∈options, distinct options, no placeholder/dup-id, length sanity, valid
+    exams). Quality over quantity — the validator is the gate, not a target count.
+  - **Generative visual engine:** NEW `js/ui/lr-figures.js` (pure SVG `render(spec)`/`describe(spec)` mirroring
+    `di-charts.js`: viewBox vector = DPI-independent, dark-mode CSS overrides, `role="img"`+aria, XSS-safe) + NEW
+    `js/lr-visual-engine.js` deterministic generators (mirror/water/dice/cube/figure-series/figure-analogy via
+    rotation/reflection/translation/shading transforms). A drill **figure-option seam** renders SVG inside option
+    buttons. Every visual question has a single deterministic answer, no ambiguity.
+- **Syllabus hierarchy (the finalized map):** Foundation (coding, blood, direction, series, analogy, odd-one-out) ·
+  Core (ranking, syllogisms, coded inequalities, calendars, clocks) · Advanced (seating set, puzzle set, input-output)
+  · Verbal/Critical authored (critical reasoning, statement-X, cause-effect, course-of-action, decision making) ·
+  Visual (mirror, water, dice, cube, figure series, figure analogy). Practice groups buttons by these tiers.
+- **Alternatives rejected:** stay strictly generative (leaves a real CAT/XAT gap; user chose educational quality);
+  a full non-verbal art subsystem now (paper folding/cutting, complex embedded — need an authored-art pipeline;
+  deferred but architected to plug into `lr-figures.js`); Tournaments/Games sets (CAT-only, large bespoke solver, low
+  ROI for ~2–3k users); stored per-archetype mastery (Firestore migration — forbidden; analytics stay derived-on-read).
+- **Consequences:** No Firestore footprint, no new deps. New categories auto-roll-up under subject `lr` via
+  `subjects.js#_lrCats()` → `LREngine.categories()`. Each category validated in `npm test`
+  (lr-engine/lr-set-engine/lr-authored/lr-figures checks — independent recompute, model-checking, unique-solution,
+  schema validation). SW bumped, Bible/Arch versioned. (Counts/versions finalized at ship.)
+
 ## ADR-078 — Data Interpretation Engine v2: earned difficulty, multi-series renderer, DI sets (2026-06-30)
 - **Context:** DI (ADR-074) was architecturally clean but pedagogically v1: difficulty was reasoning-based yet had a
   dishonest fallback (a "hard" question whose data wouldn't compute cleanly silently emitted `hard:read`) and a
