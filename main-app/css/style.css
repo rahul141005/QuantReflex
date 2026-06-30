@@ -3321,9 +3321,12 @@ body.web-mode #wordProblemsSetup {
 }
 .stat-card .value-sm {
   font-size: .82rem;
-  word-break: break-word;
+  /* break only when a token genuinely can't fit (long category names), never mid-word on short labels like
+     "Strong"/"Faster" — word-break:break-word was splitting those into "Stro ng" (ADR-080). */
   overflow-wrap: break-word;
+  hyphens: none;
   max-width: 100%;
+  line-height: 1.2;
 }
 .stat-card.highlight { border-left: 3px solid #2563eb; }
 .stat-card-positive { border-left: 3px solid #16a34a; }
@@ -3346,9 +3349,10 @@ body.web-mode #wordProblemsSetup {
   margin-bottom: 1rem;
 }
 .analytics-section-title {
-  font-size: .8rem;
+  /* ADR-080: identical to .home-section-title (Practice) so Stats and Practice section eyebrows read as one design. */
+  font-size: .88rem;
   font-weight: 700;
-  color: #64748b;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: .06em;
   margin-bottom: .6rem;
