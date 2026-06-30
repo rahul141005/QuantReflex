@@ -114,6 +114,7 @@
           'For 2 years, CI% on the principal = 2R + R²/100 (e.g. 10% → 21%).',
           'So A after 2 years at 10% = 1.21 × P; at 20% = 1.44 × P.'
         ] },
+        { type: 'table', caption: 'Simple vs Compound Interest', headers: ['', 'Simple', 'Compound'], rows: [['Interest on', 'principal only', 'principal + interest so far'], ['Growth', 'straight line', 'accelerating'], ['Each year', 'same interest', 'more each year'], ['2-year gap', '—', 'CI − SI = P(r/100)²']] },
         { type: 'example', problem: 'Find the compound interest on ₹1000 at 10% per annum for 2 years.', steps: [
           'A = P(1 + R/100)^T = 1000 × (1.1)² = 1000 × 1.21 = 1210.',
           'CI = A − P = 1210 − 1000.'

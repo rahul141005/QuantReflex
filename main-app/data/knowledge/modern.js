@@ -83,6 +83,7 @@
           'Using n! instead of (n − 1)! for circular seating.',
           'Adding when you should multiply: independent sequential choices multiply.'
         ] },
+        { type: 'table', caption: 'Permutation vs Combination', headers: ['', 'Permutation', 'Combination'], rows: [['Order', 'matters', 'does not matter'], ['Cue words', 'arrange, rank, sequence', 'select, choose, group'], ['Formula', 'n! / (n−r)!', 'n! / [r!(n−r)!]'], ['Picks 3 of 5', '60', '10']] },
         { type: 'example', problem: 'How many ways can the letters of the word "LEVEL" be arranged?', steps: [
           'LEVEL has 5 letters with L repeated twice and E repeated twice.',
           'Arrangements = 5! / (2!·2!) = 120 / 4.'

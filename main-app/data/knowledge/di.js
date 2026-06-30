@@ -52,6 +52,7 @@
           { name: 'Total over a period', expr: 'Sum of all the points in that period' }
         ] },
         { type: 'trap', items: ['Reading between gridlines carelessly — note the scale step.', 'Confusing the steepest line with the highest point.', 'Computing change on the new value instead of the old.'] },
+        { type: 'table', caption: 'Which chart answers what', headers: ['Chart', 'Best for', 'You read'], rows: [['Bar', 'comparing quantities', 'bar height'], ['Line', 'change / trend over time', 'point height & slope'], ['Pie', 'share of one whole', 'slice angle or %'], ['Table', 'exact multi-variable values', 'the cell directly']] },
         { type: 'example', problem: 'A line graph of revenue (₹ crore): 2020 = 120, 2021 = 60. What is the percent change from 2020 to 2021?', steps: ['Change = 60 − 120 = −60', '% = −60 / 120 × 100 = −50%', 'Magnitude (ignore sign) = 50%'], answer: '50%' },
         { type: 'revision', points: ['Bars compare; lines trend.', 'Steepest segment = biggest change.', '% change keeps the OLD value on the bottom.', 'Mind the axis scale step.'] }
       ]
@@ -136,6 +137,7 @@
         ] },
         { type: 'trick', title: 'Set strategy & time budget', items: ['Bank the easy reads first, then the multi-step ones — partial marks beat a perfect-but-unfinished set.', 'Rough budget: easy read ~25s, two-step ~60s, cross-series/percent ~90s.', 'In a real paper, SCAN every set before solving and start with the friendliest data (clean totals, fewer series).'] },
         { type: 'trap', items: ['Percentage POINT vs percent: a rate moving 24% → 26% is +2 percentage points, NOT a 2% rise.', 'Reading a stacked SEGMENT as if it were the whole bar.', 'Comparing the wrong pair of grouped bars (mind which category you are in).', 'Re-reading the chart for every question instead of reusing values you already found.'] },
+        { type: 'exam', items: ['Read the caption, axes and units once — carefully — before touching any question.', 'Do the quick retrieval questions first; leave heavy multi-series calculations for last.'] },
         { type: 'example', problem: 'A grouped bar shows units sold by Store A and Store B across 2023 and 2024. In 2024, A = 240 and B = 160. What is the ratio of A to B, and A as a percent of their combined total?', steps: ['Ratio A:B = 240:160 = 3:2 (divide both by HCF 80)', 'Combined = 240 + 160 = 400', 'A’s share = 240 / 400 × 100 = 60%'], answer: '3:2 and 60%' },
         { type: 'revision', points: ['DI is a SET — read the whole chart once, reuse values.', 'Grouped = compare series; stacked segment = component, full bar = total.', 'Missing value = total − sum of others.', 'Percentage points ≠ percent. Bank easy marks first.'] }
       ]

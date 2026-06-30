@@ -135,6 +135,8 @@
         ] },
         { type: 'trick', title: 'Hunt the counter-example', items: ['Try to DISPROVE the conclusion by drawing one diagram where it fails — if you can, it does not follow.', 'Two "Some" statements almost never yield a definite conclusion.'] },
         { type: 'trap', items: ['Reading "Some A are B" as "Some A are not B" — it does not.', 'Converting "All A are B" into "All B are A".', 'Assuming existence from "All" alone.'] },
+        { type: 'table', caption: 'Which conclusion is guaranteed', headers: ['Premise 1', 'Premise 2', 'Follows'], rows: [['All A are B', 'All B are C', 'All A are C'], ['All A are B', 'No B are C', 'No A are C'], ['Some A are B', 'All B are C', 'Some A are C'], ['Some A are B', 'No B are C', 'Some A are not C'], ['Some A are B', 'Some B are C', 'Nothing certain']] },
+        { type: 'exam', items: ['Banking & CAT love "possibility" cases — practise drawing the least-overlap diagram.', 'If options include "Either I or II", check for the complementary ≥ / ≤ pair first.'] },
         { type: 'example', problem: 'All cats are dogs. No dogs are birds. Does "No cats are birds" follow?', steps: ['All cats sit inside dogs', 'Dogs and birds are completely separate', 'So cats (inside dogs) are separate from birds → it follows'], answer: 'Follows' },
         { type: 'revision', points: ['All = inside, No = apart, Some = overlap exists.', 'A conclusion follows only if true in EVERY diagram.', 'Some + Some ⇒ nothing certain.', 'Look for a single counter-example to reject it.'] }
       ]
@@ -152,6 +154,7 @@
           { name: 'Interleaved', expr: 'positions 1,3,5… form one series; 2,4,6… another' }
         ] },
         { type: 'trick', title: 'Check gaps first', items: ['Always compute first differences before guessing — most series are arithmetic or a simple ×/+.', 'For letters, EJOTY (E5, J10, O15, T20, Y25) places any letter fast.'] },
+        { type: 'trap', items: ['Guessing an elaborate rule before checking the simple first differences.', 'Forgetting to wrap a letter past Z back to A.', 'Solving an interleaved series as one sequence instead of splitting alternate terms.'] },
         { type: 'example', problem: 'Find the next term: C, F, I, L, ?', steps: ['Positions: 3, 6, 9, 12 — a constant +3', 'Next position = 12 + 3 = 15', '15 → O'], answer: 'O' },
         { type: 'revision', points: ['First differences reveal arithmetic steps.', 'Convert letters to positions (A=1…Z=26).', 'Split alternate terms for interleaved series.', 'Wrap letters past Z back to A.'] }
       ]
@@ -169,6 +172,7 @@
           { name: 'Either–Or test', expr: 'derived ≥ , conclusions (X>Y, X=Y) ⇒ Either I or II' }
         ] },
         { type: 'trap', items: ['≥ does NOT prove > (it allows equality) — and does not prove = either.', 'A single < anywhere among > signs breaks the chain to "undetermined".', 'Read the conclusion\'s direction carefully; the pair X>Y and X≤Y are complementary, X>Y and X<Y are not.'] },
+        { type: 'trick', title: 'Read the path, not the middle', items: ['Only the signs on the path BETWEEN the two conclusion variables matter — ignore the rest.', 'Any single strict > or < on a same-direction path makes the whole result strict.'] },
         { type: 'example', problem: "Statements: A > B ≥ C. Conclusions: I. A > C  II. A = C.", steps: ['A > B and B ≥ C ⇒ A > C (the > dominates)', 'So I is definitely true', 'A = C is impossible since A > C ⇒ II is false'], answer: 'Only I is true' },
         { type: 'revision', points: ['Decode symbols to >, ≥, <, ≤, =.', 'Combine only the signs between the two terms.', 'Any strict > (or <) makes the result strict.', 'Mixed > and < ⇒ undetermined; ≥ with the complementary pair ⇒ Either–Or.'] }
       ]
@@ -186,6 +190,7 @@
           { name: 'Leap-year test', expr: 'div by 4 (and by 400 if a century)' }
         ] },
         { type: 'trick', title: 'Count month lengths', items: ['Within a year, add the days from a known date to the target date, then take mod 7.', 'Remember 30-day months (Apr, Jun, Sep, Nov); the rest are 31, except February.'] },
+        { type: 'trap', items: ['Treating a century as a leap year without the ÷400 test (1900 was NOT, 2000 was).', 'Counting the start date itself when measuring a gap.', 'Forgetting a leap year adds 2 odd days, not 1.'] },
         { type: 'example', problem: 'If 1 March is a Monday, what day is 20 March (same year)?', steps: ['Gap = 20 − 1 = 19 days', '19 mod 7 = 5 odd days', 'Monday + 5 = Saturday'], answer: 'Saturday' },
         { type: 'revision', points: ['Only odd days (mod 7) matter.', 'Ordinary year = 1 odd day, leap = 2.', 'Leap: ÷4 (and ÷400 for centuries).', 'Add the gap to the known weekday and wrap.'] }
       ]
@@ -203,6 +208,7 @@
           { name: 'Mirror time', expr: '(11:60) − given time' }
         ] },
         { type: 'trick', title: 'Anchor on the hours', items: ['Each hour mark is 30° apart, so 3:00 = 90°, 6:00 = 180°.', 'The hands coincide 11 times in 12 hours, not 12.'] },
+        { type: 'trap', items: ['Forgetting the hour hand drifts with the minutes — it is not parked on the hour.', 'Giving the reflex angle when the smaller angle was asked.', 'Assuming the hands meet exactly on the hour mark.'] },
         { type: 'example', problem: 'What is the angle between the hands at 3:00?', steps: ['H = 3, M = 0', '|30×3 − 5.5×0| = 90°', 'Smaller of 90 and 270 = 90°'], answer: '90°' },
         { type: 'revision', points: ['Minute hand 6°/min, hour hand 0.5°/min.', 'Angle = |30H − 5.5M|, then the smaller side.', 'Mirror time = 11:60 − time.', 'Hands overlap 11 times in 12 hours.'] }
       ]
@@ -221,6 +227,7 @@
           { name: 'Inference', expr: 'must be true from the stated facts — never goes beyond them' }
         ] },
         { type: 'trap', items: ['Picking an option that is true but OUT OF SCOPE — it must affect THIS argument.', 'Confusing a strengthener with a restatement of the conclusion.', 'Treating an inference as "likely" — it must be necessarily true.'] },
+        { type: 'trick', title: 'Negate to test it', items: ['Negate a candidate assumption; if the argument collapses, it was required.', 'To weaken or strengthen, attack or defend the cause→effect link — not the conclusion itself.'] },
         { type: 'example', problem: 'Claim: raising parking fees will cut downtown traffic. Find the assumption.', steps: ['Conclusion: higher fees → less traffic', 'It assumes people currently drive in BECAUSE parking is affordable', 'Negate it (fees don\'t affect the choice) and the plan fails ⇒ required assumption'], answer: 'People drive in partly because parking is affordable.' },
         { type: 'revision', points: ['Split conclusion from evidence; the gap is the assumption.', 'Negation test confirms a required assumption.', 'Weaken = alternative cause; Strengthen = rule one out.', 'An inference must be necessarily true and within scope.'] }
       ]
@@ -238,6 +245,7 @@
           { name: 'Strong argument', expr: 'relevant + substantial (not an opinion or a remote effect)' }
         ] },
         { type: 'trap', items: ['Marking an over-strong assumption ("meets EVERY qualification") as implicit.', 'Accepting a conclusion that is only "possible", not certain.', 'Rating an emotional or trivial argument as strong.'] },
+        { type: 'trick', title: 'Necessary, not merely nice', items: ['Keep an assumption only if the statement cannot stand without it.', 'A strong argument is both relevant AND substantial — drop opinions and remote effects.'] },
         { type: 'example', problem: 'Statement: "Send your résumé for the analyst role." Is "the sender is applying for the role" implicit?', steps: ['Sending a résumé "for the role" presupposes applying', 'It does NOT presuppose meeting every qualification', 'So only that first assumption is implicit'], answer: 'Yes — only that assumption is implicit.' },
         { type: 'revision', points: ['Assumption = taken for granted, and necessary.', 'Conclusion = follows with certainty.', 'Strong argument = relevant AND substantial.', 'Reject over-strong or merely possible options.'] }
       ]
@@ -255,6 +263,7 @@
           { name: 'Avoid', expr: 'extreme over-reactions and self-interested or dishonest choices' }
         ] },
         { type: 'trap', items: ['Choosing a drastic action (shut it down, fire everyone) when a measured fix exists.', 'Prioritising the deadline or profit over safety or honesty.', 'Picking an option that solves nothing (ignore it / hope it resolves).'] },
+        { type: 'trick', title: 'Eliminate the extremes', items: ['Strike out the do-nothing and the drastic options first — the answer is usually the measured one.', 'Prefer the choice that protects safety and integrity and still works in practice.'] },
         { type: 'example', problem: 'A junior auditor finds a small but clear error overstating profit; the manager says ignore it. What should she do?', steps: ['Accuracy and integrity of the accounts come first, regardless of size', 'Raise it through the proper channel', 'Ignoring, hiding or resigning are all worse'], answer: 'Document and raise it through the proper channel.' },
         { type: 'revision', points: ['Pick the balanced, ethical, practical option.', 'Safety and integrity beat deadlines and profit.', 'Reject extremes and self-serving choices.', 'When data is missing, find the decisive fact.'] }
       ]
@@ -272,6 +281,8 @@
           { name: 'Order of work', expr: 'fixed/end clues → adjacency clues → leftover gaps' }
         ] },
         { type: 'trick', title: 'Draw it', items: ['Always draw the slots and fill in pencil; never solve a puzzle in your head.', 'For circles, fix one person and note whether they face the centre.'] },
+        { type: 'trap', items: ['Starting from a vague clue instead of a fixed or end clue — you end up with many cases.', 'In a circle, ignoring whether people face the centre (it flips left and right).', 'Reading "between A and B" as immediately between unless it says "exactly".'] },
+        { type: 'exam', items: ['Skim every clue first, then start with the most restrictive one — a wrong start wastes the whole set.', 'One fully-fixed diagram answers all 4–5 linked questions, so invest the time to pin it down.'] },
         { type: 'example', problem: 'Five sit in a row. C is at the right end. A is exactly between B and D. E is at the left end. Who can be 2nd from left?', steps: ['Fix E (left end) and C (right end): E _ _ _ C', 'A between B and D means B A D consecutive in the middle three', 'So E B A D C ⇒ 2nd from left is B'], answer: 'B' },
         { type: 'revision', points: ['Anchor on fixed/end clues first.', 'Persons between = |difference| − 1.', 'Apply adjacency clues to fill gaps.', 'Always draw the arrangement.'] }
       ]
@@ -290,6 +301,8 @@
           { name: 'Painted cube (n³)', expr: '3 faces = 8 ; 2 = 12(n−2) ; 1 = 6(n−2)² ; 0 = (n−2)³' }
         ] },
         { type: 'trap', items: ['Swapping mirror and water (left-right vs top-bottom).', 'Assuming two faces touching in a view are opposite — touching faces are ADJACENT.', 'Forgetting corner cubes always have exactly 3 painted faces.'] },
+        { type: 'trick', title: 'Anchor the rules', items: ['Say it aloud: mirror = left↔right, water = top↔bottom.', 'Opposite die faces sum to 7; a painted cube\'s corners always have 3 faces.'] },
+        { type: 'table', caption: 'Mirror vs Water vs Dice', headers: ['Transformation', 'Rule'], rows: [['Mirror image', 'left ↔ right (top & bottom unchanged)'], ['Water image', 'top ↔ bottom (left & right unchanged)'], ['Opposite die faces', 'always sum to 7'], ['Painted-cube corners', 'always 3 faces painted']] },
         { type: 'example', problem: 'A cube is painted and cut into 3×3×3 = 27 cubes. How many have exactly two faces painted?', steps: ['Two-faces = edge cubes = 12(n−2)', 'n = 3 ⇒ 12 × 1 = 12'], answer: '12' },
         { type: 'revision', points: ['Mirror = left↔right; water = top↔bottom.', 'Opposite die face = 7 − shown.', 'Painted cube: 8 / 12(n−2) / 6(n−2)² / (n−2)³.', 'Touching faces are adjacent, not opposite.'] }
       ]
@@ -307,6 +320,7 @@
           { name: 'Rotation', expr: 'a fixed angle each step (e.g. +90°)' }
         ] },
         { type: 'trick', title: 'Check the simplest rule first', items: ['Most figure series are a fixed rotation — test that before anything elaborate.', 'A reflection reverses orientation; a rotation preserves it.'] },
+        { type: 'trap', items: ['Confusing a rotation (orientation kept) with a reflection (orientation reversed).', 'Tracking only the outer shape and missing an inner element that also moves.', 'Forcing a complex rule when a constant rotation already fits every figure.'] },
         { type: 'example', problem: 'An arrow points up, then right, then down. What comes next?', steps: ['Each step is a 90° clockwise turn', 'After down, a 90° clockwise turn points left'], answer: 'An arrow pointing left.' },
         { type: 'revision', points: ['Describe the transformation in words.', 'Series: apply the change once more.', 'Analogy: apply A→B\'s rule to C.', 'Test a fixed rotation first; reflections reverse orientation.'] }
       ]
@@ -324,6 +338,7 @@
           { name: 'Position after step N', expr: 'simulate N steps, then read the asked slot' }
         ] },
         { type: 'trick', title: 'Rewrite, don\'t imagine', items: ['Physically rewrite the line each step — mental tracking is where errors creep in.', 'After step k, the first k positions (or last k) are already in final order; ignore them.'] },
+        { type: 'trap', items: ['Jumping ahead instead of rewriting the whole line each step.', 'Assuming the machine arranges both ends when it fixes only one.', 'Re-moving an item that is already locked in the arranged part.'] },
         { type: 'example', problem: 'Rule: each step moves the smallest remaining number to the left end. Input: 23, 12, 45, 31. What is the 2nd number from the left after Step 2?', steps: ['Step 1 → 12, 23, 45, 31 (smallest 12 to front)', 'Step 2 → 12, 23, 45, 31 (next smallest 23 already in place)', '2nd from left = 23'], answer: '23' },
         { type: 'revision', points: ['Find the rule from input → step 1.', 'Apply it one step at a time; rewrite the whole line.', 'n items finish in n−1 steps.', 'Simulate only up to the asked step.'] }
       ]
@@ -341,6 +356,7 @@
           { name: 'Unrelated', expr: 'no plausible link and no shared cause' }
         ] },
         { type: 'trap', items: ['Treating correlation (they occur together) as causation.', 'Ignoring a third factor that drives both statements.', 'Reversing the direction — checking which event truly came first.'] },
+        { type: 'trick', title: 'Ask "what came first?"', items: ['Order the two events in time — a cause must come before its effect.', 'If both rise together, hunt for a third common cause before claiming one causes the other.'] },
         { type: 'example', problem: 'I: Ice-cream sales peaked in May. II: Cases of sunburn peaked in May. Relationship?', steps: ['Ice-cream does not cause sunburn, nor the reverse', 'Both peak because of hot, sunny weather', 'They are independent effects of a common cause'], answer: 'Common cause (summer weather)' },
         { type: 'revision', points: ['Cause precedes and explains the effect.', 'Co-occurrence ≠ causation.', 'Check for a hidden common cause.', 'If no link and no shared cause → unrelated.'] }
       ]
@@ -358,6 +374,7 @@
           { name: 'Both / Either', expr: 'apply the two tests to each action independently' }
         ] },
         { type: 'trap', items: ['Accepting an extreme action (permanent ban/shutdown) as a valid course.', 'Accepting an action that does not address the actual cause.', 'Rejecting a sensible action because it is not a complete cure.'] },
+        { type: 'trick', title: 'Two quick filters', items: ['Drop any action that is extreme or vague — it fails the "reasonable" test.', 'Keep an action only if it tackles the actual CAUSE of the problem.'] },
         { type: 'example', problem: 'Problem: students fell ill after eating at the canteen. Action I: inspect the canteen\'s food and hygiene. Action II: shut the canteen permanently. Which follows?', steps: ['I investigates the actual cause — relevant and practical → follows', 'II is disproportionate before the cause is even known → does not follow'], answer: 'Only I follows' },
         { type: 'revision', points: ['An action follows only if relevant AND reasonable.', 'Reject extreme or disproportionate steps.', 'Reject vague or do-nothing actions.', 'Test each action independently.'] }
       ]

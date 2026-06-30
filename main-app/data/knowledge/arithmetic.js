@@ -34,6 +34,7 @@
           'Raising then lowering by the SAME percent never returns to the start.',
           'Net change = −x²/100 (always a small LOSS). +20% then −20% → −400/100 = −4%.'
         ] },
+        { type: 'exam', items: ['Convert every percentage to a fraction (25% = 1/4, 12.5% = 1/8) to kill the decimal arithmetic.', 'In DI, reason with the percentage CHANGE and the base, not the raw numbers.'] },
         { type: 'example', problem: 'A salary is increased by 20% and then decreased by 20%. What is the net change?', steps: [
           'Net % = a + b + ab/100 with a = +20, b = −20.',
           '= 20 − 20 + (20·−20)/100 = 0 − 4.'
