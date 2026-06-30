@@ -10980,6 +10980,9 @@ body.dark-mode .category-subject-hint { color: #64748b; }
 .mcq-option.mcq-wide { grid-column: 1 / -1; }
 .mcq-option.mcq-correct { background: #dcfce7; border-color: #22c55e; color: #166534; }
 .mcq-option.mcq-wrong { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+/* non-colour indicator too (colour-blind a11y) — the result is never signalled by colour alone */
+.mcq-option.mcq-correct::after { content: ' ✓'; font-weight: 900; }
+.mcq-option.mcq-wrong::after { content: ' ✗'; font-weight: 900; }
 body.dark-mode .mcq-option { color: #e2e8f0; background: #1e293b; border-color: #334155; }
 body.dark-mode .mcq-option.selected { border-color: var(--qr-accent); }
 body.dark-mode .mcq-option.mcq-correct { background: rgba(34,197,94,.18); border-color: #22c55e; color: #86efac; }
