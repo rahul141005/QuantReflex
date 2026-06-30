@@ -145,17 +145,35 @@ var LearnView = (function () {
       '</button>';
   }
 
+  function _catHtml(c) {
+    var KB = _KB(); var topics = KB.byCategory(c.id);
+    return '<div class="kx-cat">' +
+      '<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
+      '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') + '</span></div>' +
+      (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : '') +
+      '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div></div>';
+  }
+
   function _renderCategories() {
     var host = document.getElementById('learnCategories'); if (!host) return;
     var KB = _KB(); if (!KB) { host.innerHTML = ''; return; }
-    host.innerHTML = KB.categories().map(function (c) {
-      var topics = KB.byCategory(c.id);
-      return '<div class="kx-cat">' +
-        '<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
-        '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') + '</span></div>' +
-        (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : '') +
-        '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div></div>';
-    }).join('');
+    var cats = KB.categories();
+    /* Group categories under their Speed-Aptitude subject (ADR-073/074), in subject-registry order. With a single
+       subject this is byte-identical to the old flat hub; once a 2nd subject (DI) has content the headers appear. */
+    var label = {}, ord = [];
+    try { if (typeof window !== 'undefined' && window.QR_SUBJECTS) window.QR_SUBJECTS.subjects().forEach(function (s) { ord.push(s.id); label[s.id] = s.label; }); } catch (_) {}
+    var groups = {}, seen = [];
+    cats.forEach(function (c) { var sid = c.subject || '_'; if (!groups[sid]) { groups[sid] = []; seen.push(sid); } groups[sid].push(c); });
+    var ordered = ord.filter(function (id) { return groups[id]; });
+    seen.forEach(function (id) { if (ordered.indexOf(id) === -1) ordered.push(id); });
+    if (ordered.length <= 1) {
+      host.innerHTML = cats.map(_catHtml).join('');
+    } else {
+      host.innerHTML = ordered.map(function (sid) {
+        var head = label[sid] ? '<h2 class="kx-subject-head">' + _esc(label[sid]) + '</h2>' : '';
+        return '<section class="kx-subject-group">' + head + groups[sid].map(_catHtml).join('') + '</section>';
+      }).join('');
+    }
     host.querySelectorAll('.kx-topic-card').forEach(function (card) {
       card.addEventListener('click', function () {
         var id = card.getAttribute('data-topic');

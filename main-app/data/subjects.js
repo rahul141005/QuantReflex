@@ -3,7 +3,15 @@
  *
  * QuantReflex is evolving from "Quant-first" to "Speed Aptitude-first": the generative-speed spine is
  * Quant → Data Interpretation → generatable Logical Reasoning. A "subject" is the lens one notch above the
- * 14 drillable categories. This module is the ONE place that knows which categories belong to which subject.
+ * categories. This module is the source of truth for the SUBJECT registry (ids/labels/order) and for the
+ * **drill-category → subject** map (the 14 quant drill categories, the DI categories, …) used by Practice/Stats/
+ * analytics — `stats.categoryStats` is keyed by these drill categories, so subject roll-ups derive from here.
+ *
+ * NOTE — two category namespaces, one subject vocabulary: the **Learn** hub has its OWN category ids (numbers,
+ * arithmetic, di-charts, …) that are a different set from the drill categories; each Learn category carries its
+ * `subject` tag in data/knowledge/*, referencing the SAME subject ids defined here (validated by
+ * learn-content.check). So `categoryToSubject()` here answers for *drill* categories; the Learn registry's
+ * `categoriesBySubject()` answers for *Learn* categories — both keyed by the subject ids this file owns.
  *
  * DESIGN (why this stays cheap and reversible):
  *   - Subject is DERIVED, never stored. There is no `subjectStats` in Firestore — analytics roll subjects up on
@@ -20,21 +28,29 @@
   var QuantTopics = (typeof require !== 'undefined') ? require('../services/quantTopics')
     : (typeof window !== 'undefined' ? window.QuantTopics : root.QuantTopics);
 
-  var _quantCats = Object.keys((QuantTopics && QuantTopics.CATEGORY_LABELS) || {});
+  /* DI categories live in js/di-engine.js, which (in the browser) loads AFTER this file — so resolve it LAZILY
+     (on first lookup), never at load. In node the check harness require()s it directly. This keeps "no duplicated
+     category list": each subject's categories come from that subject's own authoritative source. */
+  var _DI = null;
+  function _di() {
+    if (_DI) return _DI;
+    try { _DI = (typeof require !== 'undefined') ? require('../js/di-engine')
+      : (typeof window !== 'undefined' ? window.DIEngine : root.DIEngine); } catch (_) {}
+    return _DI;
+  }
+  function _quantCats() { return Object.keys((QuantTopics && QuantTopics.CATEGORY_LABELS) || {}); }
+  function _diCats() { var d = _di(); return (d && typeof d.categories === 'function') ? d.categories() : []; }
 
-  /* The subject registry. Today QuantReflex ships exactly ONE subject with content — Quant. Data Interpretation
-     and generatable Logical Reasoning join here in V2.0 / V2.5 alongside their generators (the Quant→DI→LR spine
-     is documented in ROADMAP/DECISION_LOG, not stubbed as empty objects). `order` drives display sequencing. */
+  /* The subject registry. Quant ships today; Data Interpretation joins in V2 Phase 2 WITH its generators (ADR-074).
+     generatable Logical Reasoning joins in V2.5. `cats` is a resolver (lazy) so DI's categories come from di-engine.
+     `order` drives display sequencing. (LR is documented in ROADMAP/DECISION_LOG, not stubbed here.) */
   var SUBJECTS = [
-    { id: 'quant', label: 'Quantitative Aptitude', short: 'Quant', order: 1, categories: _quantCats }
+    { id: 'quant', label: 'Quantitative Aptitude', short: 'Quant', order: 1, cats: _quantCats },
+    { id: 'di', label: 'Data Interpretation', short: 'DI', order: 2, cats: _diCats }
   ];
 
   var _byId = {};
-  var _catToSubject = {};
-  SUBJECTS.forEach(function (s) {
-    _byId[s.id] = s;
-    (s.categories || []).forEach(function (cat) { _catToSubject[cat] = s.id; });
-  });
+  SUBJECTS.forEach(function (s) { _byId[s.id] = s; });
 
   /** All subjects, ordered (defensive copy of the meta — callers must not mutate the registry). */
   function subjects() {
@@ -51,13 +67,18 @@
   /** Human label for a subject id (falls back to the id). */
   function label(id) { var s = _byId[id]; return s ? s.label : id; }
 
-  /** The subject a drill category belongs to (or null if unknown). */
-  function categoryToSubject(cat) { return _catToSubject[cat] || null; }
+  /** The subject a drill category belongs to (or null if unknown). Resolved across all subjects' category sets. */
+  function categoryToSubject(cat) {
+    for (var i = 0; i < SUBJECTS.length; i++) {
+      if (SUBJECTS[i].cats().indexOf(cat) !== -1) return SUBJECTS[i].id;
+    }
+    return null;
+  }
 
   /** The drill categories that make up a subject (empty array for unknown ids). */
   function subjectToCategories(id) {
     var s = _byId[id];
-    return s && s.categories ? s.categories.slice() : [];
+    return s ? s.cats().slice() : [];
   }
 
   var QR_SUBJECTS = {

@@ -902,6 +902,10 @@ function generateMultiTopic(n, topicKeys, difficulty) {
  */
 function generateMistakeReviewQuestions(n) {
   var mistakes = getMistakes();
+  /* DI questions (ADR-074) can't be re-served in Review: a stored mistake keeps {question, answer, category}
+     but NOT its chart dataset, so the chart would be missing and the question unanswerable. DI still counts in
+     stats/analytics — it's just excluded from chart-less replay. (Re-serving DI is a documented later step.) */
+  mistakes = mistakes.filter(function (m) { return String(m && m.category).indexOf('di-') !== 0; });
   if (mistakes.length === 0) return [];
 
   /* Shuffle and take up to n */

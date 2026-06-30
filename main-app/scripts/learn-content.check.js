@@ -14,6 +14,7 @@ var KB = require(p('js/knowledge/registry'));
 var Schema = require(p('js/knowledge/schema'));
 var Search = require(p('js/learn/learn-search'));
 var quantTopics = require(p('services/quantTopics'));
+var DIEngine = require(p('js/di-engine'));
 var SUB = require(p('data/subjects'));
 var syllabus = require(p('data/syllabus'));
 var SYLLABUS_IDS = Object.keys((syllabus && syllabus.TOPICS) || {});  // TOPICS is keyed by topic id
@@ -25,6 +26,7 @@ require(p('data/knowledge/arithmetic'));
 require(p('data/knowledge/commercial'));
 require(p('data/knowledge/modern'));
 require(p('data/knowledge/mensuration'));
+require(p('data/knowledge/di'));   // ADR-074: Data Interpretation Learn content
 
 var pass = 0, fail = 0;
 function ok(label, cond) { if (cond) pass++; else { fail++; console.error('  ✗ ' + label); } }
@@ -40,43 +42,47 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 nineteen topics registered', KB.count() === 19);
+  ok('1 twenty-four topics registered (19 Quant + 5 DI)', KB.count() === 24);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
 (function () {
-  var drillKeys = quantTopics.CATEGORY_LABELS;
+  var drillKeys = quantTopics.CATEGORY_LABELS;            // Quant drill categories
+  var diKeys = {}; DIEngine.categories().forEach(function (c) { diKeys[c] = 1; });  // ADR-074: DI drill categories
   KB.all().forEach(function (t) {
-    if (t.drillCategory != null) ok('2 ' + t.id + ' drillCategory "' + t.drillCategory + '" exists in quantTopics', !!drillKeys[t.drillCategory]);
+    if (t.drillCategory != null) ok('2 ' + t.id + ' drillCategory "' + t.drillCategory + '" is a known drill category', !!drillKeys[t.drillCategory] || !!diKeys[t.drillCategory]);
     if (t.syllabusTopicId != null) ok('2 ' + t.id + ' syllabusTopicId "' + t.syllabusTopicId + '" exists in data/syllabus', SYLLABUS_IDS.indexOf(t.syllabusTopicId) !== -1);
   });
 })();
 
-/* ── 3. categories(): all five with correct live counts + order ── */
+/* ── 3. categories(): all six with correct live counts + order (5 Quant + DI) ── */
 (function () {
   var cats = KB.categories();
   var byId = {}; cats.forEach(function (c) { byId[c.id] = c; });
-  ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration'].forEach(function (id) { ok('3 ' + id + ' registered', !!byId[id]); });
+  ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration', 'di-charts'].forEach(function (id) { ok('3 ' + id + ' registered', !!byId[id]); });
   eq('3 numbers topicCount', byId.numbers && byId.numbers.topicCount, 3);
   eq('3 arithmetic topicCount', byId.arithmetic && byId.arithmetic.topicCount, 8);
   eq('3 commercial-math topicCount', byId['commercial-math'] && byId['commercial-math'].topicCount, 4);
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 2);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
-  eq('3 published gold-standard count = 19', KB.all().filter(function (t) { return t.status === 'published'; }).length, 19);
+  eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 5);
+  eq('3 published gold-standard count = 24', KB.all().filter(function (t) { return t.status === 'published'; }).length, 24);
   var order = cats.map(function (c) { return c.id; });
-  ok('3 category order numbers<arithmetic<commercial<modern<mensuration',
+  ok('3 category order numbers<arithmetic<commercial<modern<mensuration<di-charts',
     order.indexOf('numbers') < order.indexOf('arithmetic') && order.indexOf('arithmetic') < order.indexOf('commercial-math') &&
-    order.indexOf('commercial-math') < order.indexOf('modern-math') && order.indexOf('modern-math') < order.indexOf('mensuration'));
+    order.indexOf('commercial-math') < order.indexOf('modern-math') && order.indexOf('modern-math') < order.indexOf('mensuration') &&
+    order.indexOf('mensuration') < order.indexOf('di-charts'));
 })();
 
-/* ── 3b. every Learn category declares a known subject; subject helpers roll up correctly (ADR-073) ── */
+/* ── 3b. every Learn category declares a known subject; subject helpers roll up correctly (ADR-073/074) ── */
 (function () {
   var known = {}; SUB.subjects().forEach(function (s) { known[s.id] = 1; });
   KB.categories().forEach(function (c) { ok('3b ' + c.id + ' declares a known subject', !!c.subject && !!known[c.subject]); });
-  eq('3b categoriesBySubject(quant) = all five in order', KB.categoriesBySubject('quant'),
+  eq('3b categoriesBySubject(quant) = the five Quant categories in order', KB.categoriesBySubject('quant'),
     ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration']);
-  eq('3b bySubject(quant) covers all 19 topics', KB.bySubject('quant').length, 19);
-  eq('3b bySubject(di) is empty (no DI content yet)', KB.bySubject('di').length, 0);
+  eq('3b bySubject(quant) covers all 19 Quant topics', KB.bySubject('quant').length, 19);
+  eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
+  eq('3b bySubject(di) covers all 5 DI topics', KB.bySubject('di').length, 5);
 })();
 
 /* ── 4. byCategory / related / siblings helpers ── */

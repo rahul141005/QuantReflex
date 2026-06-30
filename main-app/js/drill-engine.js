@@ -178,6 +178,9 @@ function createDrillEngine(container, opts) {
           '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
           (timeLimit ? '<p id="globalTimer" class="timer"></p>' : '') +
           (perQLimit ? '<p id="perQTimer" class="timer"></p>' : '') +
+          /* DI (ADR-074): a question may carry a `chart` spec rendered ABOVE the stem. Reuses the same engine,
+             numpad, grading + feedback as Quant — the only DI-specific surface is this one chart block. */
+          (q.chart && typeof DICharts !== 'undefined' ? DICharts.render(q.chart) : '') +
           '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
           '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />' +
           '<div id="feedback" class="feedback"></div>' +

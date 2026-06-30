@@ -392,6 +392,9 @@
         <div class="training-card">
           <h3 class="category-select-title" id="categorySelectTitle">Choose Category</h3>
           <div class="training-card-body">
+            <!-- Speed-Aptitude subjects (ADR-073/074): the 14-category picker is the "Quant" group; Data
+                 Interpretation is its sibling. One picker, grouped — no new tab/navigation. -->
+            <p class="category-subject-label">Quantitative Aptitude</p>
             <div class="category-grid">
               <button class="category-btn category-card" type="button" data-cat="squares">Squares</button>
               <button class="category-btn category-card" type="button" data-cat="cubes">Cubes</button>
@@ -407,6 +410,14 @@
               <button class="category-btn category-card" type="button" data-cat="time-and-work">Time &amp; Work</button>
               <button class="category-btn category-card" type="button" data-cat="simplification">Simplification</button>
               <button class="category-btn category-card" type="button" data-cat="number-series">Number Series</button>
+            </div>
+            <p class="category-subject-label">Data Interpretation <span class="category-subject-hint">read charts &amp; tables, fast</span></p>
+            <div class="category-grid">
+              <button class="category-btn category-card" type="button" data-cat="di-bar">Bar Graphs</button>
+              <button class="category-btn category-card" type="button" data-cat="di-line">Line Graphs</button>
+              <button class="category-btn category-card" type="button" data-cat="di-pie">Pie Charts</button>
+              <button class="category-btn category-card" type="button" data-cat="di-table">Data Tables</button>
+              <button class="category-btn category-card" type="button" data-cat="di-caselet">Caselets</button>
             </div>
 
             <!-- Adaptive Training Toggle -->
@@ -1567,6 +1578,10 @@
   <script defer src="data/subjects.js"></script>
   <script defer src="js/progress.js"></script>
   <script defer src="js/questions.js"></script>
+  <!-- Data Interpretation engine (ADR-074): MUST load after questions.js — di-engine self-registers its generators
+       into questions.js's categoryGenerators so Practice reuses the same pipeline; di-charts renders the chart block. -->
+  <script defer src="js/di-engine.js"></script>
+  <script defer src="js/ui/di-charts.js"></script>
   <script defer src="data/syllabus.js"></script>
   <script defer src="js/mock-engine.js"></script>
   <script defer src="js/tables.js"></script>
@@ -1582,6 +1597,7 @@
   <script defer src="data/knowledge/commercial.js"></script>
   <script defer src="data/knowledge/modern.js"></script>
   <script defer src="data/knowledge/mensuration.js"></script>
+  <script defer src="data/knowledge/di.js"></script>
   <script defer src="js/learn/learn-search.js"></script>
   <script defer src="js/learn/learn-progress.js"></script>
   <script defer src="js/settings.js"></script>

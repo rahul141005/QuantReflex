@@ -10945,3 +10945,61 @@ body.dark-mode .kx-topic-card.is-complete .kx-tc-title::after { color: #4ade80; 
   .kx-action, .kx-resume-card { transition: none !important; }
   .kx-resume-card:hover, .kx-resume-card:active, .kx-action:active { transform: none !important; }
 }
+
+/* ============================================================================
+   Data Interpretation — Speed-Aptitude subject (ADR-074, V2 Phase 2)
+   Subject group labels in the Practice category picker + the lightweight DI
+   chart/table block rendered above the question stem (js/ui/di-charts.js).
+   ========================================================================== */
+
+/* Subject group headings in the category picker (Quant / Data Interpretation) */
+.category-subject-label {
+  margin: .9rem .15rem .45rem; font-size: .8rem; font-weight: 700; letter-spacing: .02em;
+  color: #475569; text-transform: uppercase;
+}
+.category-grid + .category-subject-label { margin-top: 1.1rem; }
+.category-subject-hint { text-transform: none; font-weight: 500; color: #94a3b8; font-size: .72rem; letter-spacing: 0; }
+body.dark-mode .category-subject-label { color: #cbd5e1; }
+body.dark-mode .category-subject-hint { color: #64748b; }
+
+/* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
+.kx-subject-group { margin-bottom: .4rem; }
+.kx-subject-group + .kx-subject-group { margin-top: 1.6rem; }
+.kx-subject-head {
+  font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--qr-accent); margin: 0 .15rem .7rem; padding-bottom: .35rem;
+  border-bottom: 1px solid rgba(37, 99, 235, .15);
+}
+body.dark-mode .kx-subject-head { border-bottom-color: rgba(96, 165, 250, .22); }
+
+/* DI chart block — sits inside .drill-question-scroll, above .question-text */
+.di-chart {
+  margin: 0 auto .9rem; max-width: 420px; width: 100%;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: .7rem .6rem .55rem;
+}
+body.dark-mode .di-chart { background: #1e293b; border-color: #334155; }
+.di-chart-title {
+  font-size: .82rem; font-weight: 700; color: #334155; text-align: center;
+  margin-bottom: .45rem; line-height: 1.25;
+}
+body.dark-mode .di-chart-title { color: #e2e8f0; }
+.di-chart-svg { display: block; width: 100%; height: auto; }
+
+/* SVG text/lines (fill for text, stroke for axes) */
+.di-chart-svg .di-val { font-size: 8.5px; font-weight: 700; fill: #1e293b; }
+.di-chart-svg .di-axis-lbl { font-size: 8px; fill: #64748b; }
+.di-chart-svg .di-pie-pct { font-size: 8.5px; font-weight: 700; fill: #fff; }
+.di-chart-svg .di-axis { stroke: #cbd5e1; stroke-width: 1; }
+body.dark-mode .di-chart-svg .di-val { fill: #f1f5f9; }
+body.dark-mode .di-chart-svg .di-axis-lbl { fill: #94a3b8; }
+body.dark-mode .di-chart-svg .di-axis { stroke: #475569; }
+
+/* DI data table */
+.di-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.di-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.di-table th, .di-table td { padding: .4rem .55rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.di-table th { color: #475569; font-weight: 700; background: #f8fafc; }
+.di-table td.num, .di-table th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Consolas', monospace; }
+.di-table td.row-h { font-weight: 600; }
+body.dark-mode .di-table th { color: #cbd5e1; background: #0f172a; }
+body.dark-mode .di-table th, body.dark-mode .di-table td { border-color: #334155; }
