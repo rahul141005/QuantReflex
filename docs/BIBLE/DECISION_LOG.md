@@ -8,6 +8,37 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
+- **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the
+  squares/cubes quick-reference grids. On a narrow phone the "Ask Subject Before Quick Start" settings row clipped its
+  toggle (the text column wouldn't shrink, shoving the fixed-width toggle past the card padding). The Learn hub had no
+  way to focus one subject. The user clarified the squares/cubes ask is the **reference grids**, not Learn chapters,
+  and confirmed **no new Learn chapters** this pass (library stays 45). Constraints: no new colours/animation libs,
+  no new deps, no Firestore, no gamification, don't over-engineer for 2–3k users.
+- **Decision:**
+  - **Settings overflow fix** (`css/style.css` `.settings-label`): add `min-width:0` — the canonical flexbox fix so
+    the text column shrinks and a long subtitle wraps *inside* its own column instead of pushing the toggle off-card;
+    `.goal-input` gets `flex-shrink:0` for the same robustness. Shared rule → every settings row benefits; verified no
+    clipping at 360 light+dark, toggle stays centered.
+  - **Squares 1²–30² → 1²–50², Cubes 1³–20³ → 1³–30³** (`learn-view.js` grid loops + value pad widths 3→4 / 4→5;
+    `index.html` headers). Pure reference-grid extension, no new topics.
+  - **Subject filter** (`learn-view.js` + `.kx-filter*` CSS): a sticky pill row (All · Quant · DI · LR) above the
+    category list; pills toggle a `.is-hidden` class on `data-subject` groups (instant swap, animated active-state — no
+    re-render/reload). Last choice persists in `localStorage['qr_learn_filter']`, mirroring `qr_active_exam`; clamped
+    to a subject that still has content; an override stops the inter-subject divider painting on a now-leading group.
+  - **Subtle progress** (`_subjectHeaderHtml`): a quiet "x read" using the completion the app already tracks — reusing
+    the existing resume strips + card ticks; no XP/levels/badges.
+  - **Search aliases** (`searchTerms`, additive): `ap/gp/hp/progression` → number-series, `p&c` → permutation-
+    combination, `tsd` → time-speed-distance, `family tree/genealogy/kinship` → blood-relations; +4 search asserts.
+- **Alternatives rejected:** authoring ~50 squares / ~30 cubes Learn chapters (the literal first reading — user
+  clarified it meant the grids; would have violated the brief's own "no filler / no tiny topics" rules); shrinking the
+  settings fonts (treats the symptom, not the flexbox cause); virtualizing the hub (~45 cards render instantly);
+  building new exam chapters (surds/logs/progressions/quadratics/set-theory/data-sufficiency) — noted as a *future*
+  option, not in scope.
+- **Consequences:** No engine/Firestore/dependency change; library stays 45 (`learn-content` counts unchanged, now 425
+  with the alias asserts). Verified via Playwright (real CSS + KB): settings toggle un-clipped light+dark, squares=50 /
+  cubes=30, filter switches instantly + persists, 0 page errors. SW v165→v166, Bible 2.79→2.80 (Arch unchanged 2.53).
+
 ## ADR-081 — Learn experience & UI refinement: premium textbook, unified across subjects (2026-06-30)
 - **Context:** The Learn tab was content-complete (45 gold-standard topics) but read like a stack of expandable cards,
   and the three subjects (authored at different times) diverged in structure, icons and richness. Every section showed

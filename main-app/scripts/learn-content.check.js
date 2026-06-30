@@ -110,6 +110,11 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('5 symbol "%" → percentages', top('%'), 'percentages');
   eq('5 "discount" (synonym) → profit-loss', top('discount'), 'profit-loss');
   eq('5 "relative speed" → time-speed-distance', top('relative speed'), 'time-speed-distance');
+  /* ADR-082: common exam abbreviations / aliases resolve to the right chapter */
+  eq('5 abbr "p&c" → permutation-combination', top('p&c'), 'permutation-combination');
+  eq('5 abbr "tsd" → time-speed-distance', top('tsd'), 'time-speed-distance');
+  ok('5 "family tree" finds lr-blood-relations', Search.query('family tree').some(function (r) { return r.id === 'lr-blood-relations'; }));
+  ok('5 "progression" finds number-series', Search.query('progression').some(function (r) { return r.id === 'number-series'; }));
   ok('5 "cone" finds volume', Search.query('cone').some(function (r) { return r.id === 'volume'; }));
   eq('5 empty query → no results', Search.query('   ').length, 0);
   eq('5 nonsense → no results', Search.query('zzxqq').length, 0);

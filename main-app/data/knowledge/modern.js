@@ -60,7 +60,7 @@
       difficulty: 'advanced', examFrequency: 'medium', status: 'published',
       drillCategory: null, syllabusTopicId: 'permutations_combinations', revisionIntervalDays: 6,
       related: ['probability'],
-      searchTerms: ['permutation', 'combination', 'npr', 'ncr', 'arrangement', 'selection', 'factorial', 'counting', 'circular'],
+      searchTerms: ['permutation', 'combination', 'npr', 'ncr', 'arrangement', 'selection', 'factorial', 'counting', 'circular', 'p&c', 'pnc'],
       sections: [
         { type: 'overview', text: 'Counting without listing. Ask ONE question first: does ORDER matter? If yes it\'s a permutation (arrangement); if no it\'s a combination (selection). Most of the topic is recognising which one a problem wants, then plugging into nPr or nCr.' },
         { type: 'concept', title: 'The fundamental counting principle', body: 'If a first task can be done in m ways and a second in n ways, together they can be done in m × n ways. Choices in sequence MULTIPLY. This single idea underlies every permutation and combination formula.' },

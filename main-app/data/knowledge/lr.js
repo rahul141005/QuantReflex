@@ -35,7 +35,7 @@
     },
     {
       id: 'lr-blood-relations', title: 'Blood Relations', icon: '👪', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'very-high', status: 'published',
-      drillCategory: 'lr-blood', searchTerms: ['blood relations', 'family', 'relationship', 'generations'], related: ['lr-direction-sense'],
+      drillCategory: 'lr-blood', searchTerms: ['blood relations', 'family', 'relationship', 'generations', 'family tree', 'genealogy', 'kinship'], related: ['lr-direction-sense'],
       sections: [
         { type: 'overview', text: 'Blood-relation questions give a chain of family links and ask how two people are related. The reliable method is to turn the words into a small family TREE and read the answer off it.' },
         { type: 'concept', title: 'Think in generations', body: 'Place people on levels: grandparents on top, parents in the middle, children below. Most answers are just "one or two levels up/down, same or sideways".' },

@@ -142,17 +142,17 @@ var LearnView = (function () {
 
     var sqGrid = document.getElementById('squaresGrid');
     if (sqGrid && !sqGrid.childNodes.length) {
-      for (var n = 1; n <= 30; n++) {
+      for (var n = 1; n <= 50; n++) {
         var s = document.createElement('div'); s.className = 'math-grid-item';
-        s.innerHTML = '<span class="math-expr">' + padTableNum(n, 2) + '²</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(n * n, 3) + '</span>';
+        s.innerHTML = '<span class="math-expr">' + padTableNum(n, 2) + '²</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(n * n, 4) + '</span>';
         sqGrid.appendChild(s);
       }
     }
     var cuGrid = document.getElementById('cubesGrid');
     if (cuGrid && !cuGrid.childNodes.length) {
-      for (var m = 1; m <= 20; m++) {
+      for (var m = 1; m <= 30; m++) {
         var c = document.createElement('div'); c.className = 'math-grid-item';
-        c.innerHTML = '<span class="math-expr">' + padTableNum(m, 2) + '³</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(m * m * m, 4) + '</span>';
+        c.innerHTML = '<span class="math-expr">' + padTableNum(m, 2) + '³</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(m * m * m, 5) + '</span>';
         cuGrid.appendChild(c);
       }
     }
@@ -231,11 +231,53 @@ var LearnView = (function () {
     var order = ['foundation', 'core', 'advanced'], present = order.filter(function (d) { return diffs[d]; });
     var coverage = present.length ? (DIFF_LABEL[present[0]] + (present.length > 1 ? ' → ' + DIFF_LABEL[present[present.length - 1]] : '')) : '';
     var blurb = SUBJECT_BLURB[sid] || '';
+    /* subtle progress — a quiet "x read" using the completion the app already tracks (no gamification). */
+    var LP = _LP(), done = 0;
+    if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
+    var read = done > 0 ? ' · ' + done + ' read' : '';
     return '<div class="kx-subject-head-wrap">' +
       '<h2 class="kx-subject-head">' + _esc(label) + '</h2>' +
       (blurb ? '<p class="kx-subject-blurb">' + _esc(blurb) + '</p>' : '') +
-      '<div class="kx-subject-meta">' + n + (n === 1 ? ' topic' : ' topics') + (coverage ? ' · ' + _esc(coverage) : '') + '</div>' +
+      '<div class="kx-subject-meta">' + n + (n === 1 ? ' topic' : ' topics') + (coverage ? ' · ' + _esc(coverage) : '') + read + '</div>' +
       '</div>';
+  }
+
+  /* ─────────────────── subject filter (ADR-082) ─────────────────── */
+  /* Remembered choice — a plain localStorage key, mirroring qr_active_exam. 'all' or a subject id. */
+  function _loadFilter() { try { return localStorage.getItem('qr_learn_filter') || 'all'; } catch (_) { return 'all'; } }
+  function _saveFilter(v) { try { localStorage.setItem('qr_learn_filter', v); } catch (_) {} }
+
+  function _subjectFilterHtml(ordered, label, sel) {
+    var pill = function (id, text) {
+      return '<button class="kx-filter-pill' + (sel === id ? ' is-active' : '') + '" type="button" role="tab"' +
+        ' aria-selected="' + (sel === id ? 'true' : 'false') + '" data-filter="' + _esc(id) + '">' + _esc(text) + '</button>';
+    };
+    var pills = pill('all', 'All');
+    ordered.forEach(function (sid) { pills += pill(sid, label[sid] || sid); });
+    return '<div class="kx-filter" role="tablist" aria-label="Filter Learn by subject">' + pills + '</div>';
+  }
+
+  function _applyFilter(host, sel) {
+    host.querySelectorAll('.kx-subject-group').forEach(function (sec) {
+      var sid = sec.getAttribute('data-subject');
+      sec.classList.toggle('is-hidden', sel !== 'all' && sid !== sel);
+    });
+    host.querySelectorAll('.kx-filter-pill').forEach(function (p) {
+      var on = p.getAttribute('data-filter') === sel;
+      p.classList.toggle('is-active', on);
+      p.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  function _wireFilter(host) {
+    host.querySelectorAll('.kx-filter-pill').forEach(function (p) {
+      p.addEventListener('click', function () {
+        var sel = p.getAttribute('data-filter');
+        _saveFilter(sel);
+        _applyFilter(host, sel);
+        if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('tabSwitch'); } catch (_) {} }
+      });
+    });
   }
 
   function _renderCategories() {
@@ -253,12 +295,17 @@ var LearnView = (function () {
     if (ordered.length <= 1) {
       host.innerHTML = cats.map(_catHtml).join('');
     } else {
-      host.innerHTML = ordered.map(function (sid) {
+      /* Saved subject filter, clamped to a subject that still has content (ADR-082). */
+      var sel = _loadFilter();
+      if (sel !== 'all' && ordered.indexOf(sel) === -1) sel = 'all';
+      host.innerHTML = _subjectFilterHtml(ordered, label, sel) + ordered.map(function (sid) {
         var head = label[sid] ? _subjectHeaderHtml(sid, label[sid], groups[sid]) : '';
         /* single-category subject → suppress the (redundant) per-category head */
         var single = groups[sid].length === 1;
-        return '<section class="kx-subject-group">' + head + groups[sid].map(function (c) { return _catHtml(c, single); }).join('') + '</section>';
+        return '<section class="kx-subject-group" data-subject="' + _esc(sid) + '">' + head + groups[sid].map(function (c) { return _catHtml(c, single); }).join('') + '</section>';
       }).join('');
+      _wireFilter(host);
+      _applyFilter(host, sel);
     }
     host.querySelectorAll('.kx-topic-card').forEach(function (card) {
       card.addEventListener('click', function () {

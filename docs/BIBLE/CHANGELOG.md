@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Learn UX polish: subject filter, squares/cubes, settings fix (ADR-082)
+
+A craftsmanship pass on Learn + a Settings layout regression. No new Learn chapters (user-confirmed; library stays
+45), no new colours/deps/Firestore, no gamification. Full check suite green (learn-content 421→425 with alias asserts).
+
+```
+### fix/settings(ADR-082): "Ask Subject" row clipped its toggle on narrow phones
+- css/style.css .settings-label: add min-width:0 so the text column shrinks and a long subtitle wraps INSIDE its
+  column instead of pushing the fixed-width toggle past the card padding (the flexbox-overflow fix). .goal-input gets
+  flex-shrink:0. Shared rule → every settings row benefits; toggle stays centered, no clip (360 light+dark verified).
+
+### feat/learn(ADR-082): squares/cubes reference grids extended
+- js/views/learn-view.js + index.html: Squares 1²–30² → 1²–50² (value pad 3→4), Cubes 1³–20³ → 1³–30³ (pad 4→5).
+
+### feat/learn(ADR-082): subject filter + subtle progress
+- js/views/learn-view.js + css .kx-filter*: a sticky All · Quant · DI · LR pill row above the category list; pills
+  toggle .is-hidden on data-subject groups (instant, animated active-state, no re-render). Last choice persists in
+  localStorage qr_learn_filter (clamped to a subject with content); divider-override stops a stray top border on the
+  leading visible group. _subjectHeaderHtml shows a quiet "x read" from existing completion tracking (no gamification).
+
+### feat/search(ADR-082): exam abbreviation aliases
+- data/knowledge/{numbers,modern,arithmetic,lr}.js searchTerms += ap/gp/hp/progression (number-series), p&c
+  (permutation-combination), tsd (time-speed-distance), family tree/genealogy/kinship (blood-relations).
+- scripts/learn-content.check.js: +4 alias search asserts.
+```
+
+Verification: `npm test` exit 0 (learn-content 425/0, +18 suites). Playwright (real CSS + KB, light+dark): settings
+toggle un-clipped (toggleRight ≤ card inner edge), squares grid = 50 / cubes = 30, filter switches subjects instantly
++ persists (`qr_learn_filter='di'`), 0 page errors. **Docs:** DECISION_LOG ADR-082, VERSIONS 2.79→2.80, this entry.
+**SW** v165→v166.
+
+---
+
 ## 2026-06-30 — Final craftsmanship verification pass (ADR-081 addendum)
 
 A 3-agent read-only audit of the ADR-080/081 work ("assume bugs, prove it"). The bulk verified correct; these are the

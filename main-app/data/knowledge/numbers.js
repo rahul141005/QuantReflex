@@ -112,7 +112,7 @@
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'number-series', syllabusTopicId: 'number_series', revisionIntervalDays: 5,
       related: ['number-system', 'simplification'],
-      searchTerms: ['series', 'sequence', 'missing number', 'wrong term', 'pattern', 'next term', 'completion', 'analogy'],
+      searchTerms: ['series', 'sequence', 'missing number', 'wrong term', 'pattern', 'next term', 'completion', 'analogy', 'ap', 'gp', 'hp', 'progression', 'arithmetic progression', 'geometric progression'],
       sections: [
         { type: 'overview', text: 'A number series is a hidden rule. Your only job is to find how each term becomes the next — then apply or reverse that rule. Don\'t stare at the numbers; look at the GAPS between them. 90% of series are cracked by checking the differences (and the differences of the differences).' },
         { type: 'concept', title: 'The first thing to check: the differences', body: 'Write the gaps between consecutive terms. If the gaps are constant → it\'s arithmetic (add a fixed number). If the gaps grow by a constant → the differences are themselves arithmetic (think squares/cubes nearby). If the gaps multiply → it\'s geometric (a fixed ratio).' },

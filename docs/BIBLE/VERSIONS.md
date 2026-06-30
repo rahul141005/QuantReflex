@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.79 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.80 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.80 / Arch 2.53 (2026-06-30)** — **Learn UX polish (ADR-082).** (1) **Settings fix:** the "Ask Subject Before
+> Quick Start" row no longer clips its toggle on narrow phones (`.settings-label{min-width:0}` — the flexbox-overflow
+> fix; subtitle wraps in-column). (2) **Squares 1²–50² / Cubes 1³–30³** reference grids extended. (3) **Learn subject
+> filter:** a sticky All · Quant · DI · LR pill row that switches subjects instantly and remembers the last choice
+> (`qr_learn_filter`); subtle "x read" progress on each subject header. (4) **Search aliases:** ap/gp/progression,
+> p&c, tsd, family tree now resolve. No new Learn chapters (library stays 45), no new colours/deps/Firestore, no
+> gamification. learn-content 425 green; verified light+dark via Playwright. SW v165→v166.
+>
 > **2.79 / Arch 2.53 (2026-06-30)** — **Final craftsmanship verification pass (ADR-081 addendum).** A 3-agent read-only
 > audit found the ADR-080/081 work mostly correct, then fixed the real misses: an **icon-distinctness** bug (six topic
 > icons duplicated their parent **category** glyph — the earlier check only compared topics to topics) resolved by

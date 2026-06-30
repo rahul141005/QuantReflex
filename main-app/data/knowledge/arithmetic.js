@@ -242,7 +242,7 @@
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'time-speed-distance', syllabusTopicId: 'tsd', revisionIntervalDays: 5,
       related: ['time-and-work'],
-      searchTerms: ['speed', 'distance', 'time', 'relative speed', 'trains', 'average speed', 'km/h', 'm/s'],
+      searchTerms: ['speed', 'distance', 'time', 'relative speed', 'trains', 'average speed', 'km/h', 'm/s', 'tsd'],
       sections: [
         { type: 'overview', text: 'One relation — Speed = Distance ÷ Time — drives trains, boats and races. The marks are won on two sub-skills: relative speed (objects moving together/apart) and the correct average-speed formula for equal distances.' },
         { type: 'concept', title: 'Proportionality shortcuts', body: 'For a fixed distance, time is inversely proportional to speed (speed ↑ ⇒ time ↓). For a fixed time, distance ∝ speed. Spotting which quantity is constant turns most problems into a one-step ratio.' },
