@@ -1612,6 +1612,15 @@
   <script defer src="js/lr-engine.js"></script>
   <!-- LR puzzle SET engine (ADR-079): generates seating/floor sets; presentation reuses the drill set-mode. -->
   <script defer src="js/lr-set-engine.js"></script>
+  <!-- LR authored-content subsystem (ADR-079): schema + family banks + engine (self-registers authored categories
+       into categoryGenerators, MUST load after questions.js). Critical Reasoning, Statement, Cause-Effect, etc. -->
+  <script defer src="data/lr-authored/schema.js"></script>
+  <script defer src="data/lr-authored/critical.js"></script>
+  <script defer src="data/lr-authored/statement.js"></script>
+  <script defer src="data/lr-authored/cause.js"></script>
+  <script defer src="data/lr-authored/course.js"></script>
+  <script defer src="data/lr-authored/decision.js"></script>
+  <script defer src="js/lr-authored-engine.js"></script>
   <script defer src="data/syllabus.js"></script>
   <script defer src="js/mock-engine.js"></script>
   <script defer src="js/tables.js"></script>

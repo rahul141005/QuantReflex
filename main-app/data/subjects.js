@@ -31,22 +31,30 @@
   /* DI categories live in js/di-engine.js, which (in the browser) loads AFTER this file — so resolve it LAZILY
      (on first lookup), never at load. In node the check harness require()s it directly. This keeps "no duplicated
      category list": each subject's categories come from that subject's own authoritative source. */
-  var _DI = null, _LR = null;
+  var _DI = null;
   function _di() {
     if (_DI) return _DI;
     try { _DI = (typeof require !== 'undefined') ? require('../js/di-engine')
       : (typeof window !== 'undefined' ? window.DIEngine : root.DIEngine); } catch (_) {}
     return _DI;
   }
-  function _lr() {
-    if (_LR) return _LR;
-    try { _LR = (typeof require !== 'undefined') ? require('../js/lr-engine')
-      : (typeof window !== 'undefined' ? window.LREngine : root.LREngine); } catch (_) {}
-    return _LR;
+  /* LR is now served by SEVERAL engines (ADR-079): the generative core, the puzzle-SET engine, the authored-content
+     engine and the visual engine. The subject's category set is the union of every LR-providing engine's categories —
+     so every LR category (generated, set, authored, visual) rolls up under subject 'lr' with no per-category wiring. */
+  var _LRENG = {};
+  function _lrEngine(globalName, modPath) {
+    if (_LRENG[globalName] !== undefined) return _LRENG[globalName];
+    var e = null;
+    try { e = (typeof require !== 'undefined') ? require(modPath) : (typeof window !== 'undefined' ? window[globalName] : root[globalName]); } catch (_) {}
+    _LRENG[globalName] = e; return e;
   }
   function _quantCats() { return Object.keys((QuantTopics && QuantTopics.CATEGORY_LABELS) || {}); }
   function _diCats() { var d = _di(); return (d && typeof d.categories === 'function') ? d.categories() : []; }
-  function _lrCats() { var l = _lr(); return (l && typeof l.categories === 'function') ? l.categories() : []; }
+  function _lrCats() {
+    var out = [], srcs = [['LREngine', '../js/lr-engine'], ['LRSetEngine', '../js/lr-set-engine'], ['LRAuthoredEngine', '../js/lr-authored-engine'], ['LRVisualEngine', '../js/lr-visual-engine']];
+    srcs.forEach(function (s) { var e = _lrEngine(s[0], s[1]); if (e && typeof e.categories === 'function') e.categories().forEach(function (c) { if (out.indexOf(c) === -1) out.push(c); }); });
+    return out;
+  }
 
   /* The subject registry — the Speed-Aptitude spine. Each subject ships WITH its generators: Quant (ADR-045),
      Data Interpretation (ADR-074, Phase 2), Logical Reasoning (ADR-075, Phase 3). `cats` is a lazy resolver so

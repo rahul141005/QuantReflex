@@ -142,10 +142,16 @@ function recordAnswer(correct, category, questionData, responseTime) {
       if (!p.mistakes) p.mistakes = [];
       /* Keep max 100 mistakes to avoid localStorage bloat */
       if (p.mistakes.length >= 100) p.mistakes.shift();
+      /* Store the FULL question (ADR-079) so self-contained MCQ items — generated LR + authored CR — are reviewable.
+         options/explanation are kept only for clean text MCQs (no chart/figure), so Review can re-render them. */
+      var _reviewable = questionData.options && questionData.options.length && !questionData.chart && !questionData.figure;
       p.mistakes.push({
         question: questionData.question,
         answer: String(questionData.answer),
         category: questionData.category || category,
+        options: _reviewable ? questionData.options.slice() : null,
+        explanation: questionData.explanation || null,
+        subtype: questionData.subtype || null,
         date: today
       });
     }

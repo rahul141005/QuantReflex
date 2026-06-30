@@ -556,6 +556,19 @@ function createDrillEngine(container, opts) {
       setTimeout(function () { if (card) card.classList.remove('feedback-shake'); }, 400);
     }
 
+    /* Authored items (ADR-079) ship with a written teaching explanation — reveal it on every answer (correct or
+       wrong) so the reasoning is taught, not just the verdict. Reuses the feedback region; no AI call, no gating. */
+    if (q.explanation) {
+      var _expEl = document.createElement('div');
+      _expEl.className = 'authored-explanation';
+      var _expHead = document.createElement('span');
+      _expHead.className = 'authored-explanation-head';
+      _expHead.textContent = 'Why this answer: ';
+      _expEl.appendChild(_expHead);
+      _expEl.appendChild(document.createTextNode(q.explanation));
+      feedback.appendChild(_expEl);
+    }
+
     if (typeof AIFeatures !== 'undefined' && (!correct || reviewMode)) {
       var explainBtn = document.createElement('button');
       explainBtn.className = 'drill-explain-btn';

@@ -1,0 +1,78 @@
+/**
+ * data/lr-authored/course.js — authored Course of Action bank (ADR-079). Banking/SSC-style.
+ * A problem statement + proposed actions; decide which action(s) logically follow. A course of action "follows" only
+ * if it directly addresses the problem and is practical/reasonable. Validated by schema.js.
+ */
+(function (root) {
+  'use strict';
+  var V = 1, A = 'approved', M = { addedVersion: 'ADR-079' };
+  var OPTS = ['Only I follows', 'Only II follows', 'Both I and II follow', 'Neither follows', 'Either I or II follows'];
+  function it(id, difficulty, exams, problem, a1, a2, ans, explanation) {
+    return { id: id, topic: 'lr-course', subtype: 'course-of-action', difficulty: difficulty, exams: exams, stem: 'Problem: ' + problem + ' Courses of action: I. ' + a1 + ' II. ' + a2 + ' Which course(s) of action logically follow?', options: OPTS.slice(), answer: ans, explanation: explanation, explanationVersion: V, tags: ['course-of-action'], reviewStatus: A, meta: M };
+  }
+  var ITEMS = [
+    it('coa-001', 'medium', ['IBPS PO', 'SSC CGL'],
+      'Several students fell ill after eating at the school canteen.',
+      'The school should immediately inspect the canteen\'s food and hygiene practices.',
+      'The school should permanently shut down the canteen.',
+      'Only I follows',
+      'The sensible first step is to investigate the cause — inspect the food and hygiene (I follows). Permanently shutting the canteen (II) is a drastic, disproportionate action before the cause is even known, so it does not follow. Only I.'),
+    it('coa-002', 'medium', ['IBPS PO', 'RBI'],
+      'A bank branch is receiving frequent complaints about long waiting times at its counters.',
+      'The branch should study peak hours and add counters or staff during those hours.',
+      'The branch should ask customers to visit only on weekdays.',
+      'Only I follows',
+      'Addressing the actual cause — too few counters at busy times — by analysing peak hours and adding capacity (I) follows. Forcing customers to a weekday-only schedule (II) shifts the burden onto customers and is impractical, so it does not follow. Only I.'),
+    it('coa-003', 'hard', ['SBI PO', 'IBPS PO'],
+      'A city\'s air quality has worsened sharply due to vehicle emissions and construction dust.',
+      'The city should expand public transport and enforce dust-control rules at construction sites.',
+      'The city should ban all private vehicles permanently.',
+      'Only I follows',
+      'A balanced, practical response targets both causes — better public transport plus dust control (I) follows. A permanent total ban on private vehicles (II) is extreme and unworkable for a whole city, so it does not follow. Only I.'),
+    it('coa-004', 'medium', ['SSC CGL', 'RRB'],
+      'Many citizens are unaware of a new government health-insurance scheme they are eligible for.',
+      'The government should run an awareness campaign through local media and community centres.',
+      'The government should cancel the scheme.',
+      'Only I follows',
+      'The problem is lack of awareness, so spreading information through media and community centres (I) directly addresses it and follows. Cancelling a useful scheme (II) abandons the goal rather than solving the problem, so it does not follow. Only I.'),
+    it('coa-005', 'medium', ['IBPS Clerk', 'SSC CHSL'],
+      'A company finds that many of its employees lack the latest technical skills needed for new projects.',
+      'The company should organise training programs to upskill its employees.',
+      'The company should fire all its current employees and hire new ones.',
+      'Only I follows',
+      'Upskilling existing staff through training (I) directly fixes the skill gap and is reasonable. Firing everyone and rehiring (II) is disproportionate, costly, and unjust, so it does not follow. Only I.'),
+    it('coa-006', 'hard', ['SBI PO', 'RBI'],
+      'A river that supplies drinking water to a town has been found to be polluted by untreated factory waste.',
+      'The authorities should require factories to treat their waste before discharge and penalise violators.',
+      'The authorities should tell residents to stop using the river water entirely.',
+      'Both I and II follow',
+      'Action I tackles the cause — enforce waste treatment and penalise polluters. Action II is a sensible immediate safeguard for public health while the river is unsafe (advising residents not to use the contaminated water until it is cleaned). Both are reasonable and follow.'),
+    it('coa-007', 'medium', ['IBPS PO', 'SSC CGL'],
+      'A popular tourist beach is being littered with plastic waste left by visitors.',
+      'The authorities should place more bins and run a clean-up and awareness drive at the beach.',
+      'The authorities should close the beach to all visitors forever.',
+      'Only I follows',
+      'Providing bins and running awareness and clean-up drives (I) addresses the littering practically. Closing the beach permanently (II) is an over-reaction that destroys the beach\'s value, so it does not follow. Only I.'),
+    it('coa-008', 'medium', ['SSC CGL', 'IBPS Clerk'],
+      'Road accidents at a particular junction have increased because there is no traffic signal.',
+      'A traffic signal should be installed at the junction.',
+      'Vehicles should be banned from the junction.',
+      'Only I follows',
+      'The cause is the missing signal, so installing one (I) directly addresses it and follows. Banning vehicles from a needed junction (II) is impractical and merely shifts the problem, so it does not follow. Only I.'),
+    it('coa-009', 'hard', ['SBI PO', 'CAT'],
+      'A growing number of young employees are leaving a firm within a year of joining.',
+      'The firm should conduct exit interviews to understand why employees leave and address the common reasons.',
+      'The firm should stop hiring young employees.',
+      'Only I follows',
+      'Understanding the causes through exit interviews and fixing them (I) is a constructive, evidence-led response. Refusing to hire young employees (II) avoids rather than solves the retention problem and harms the firm, so it does not follow. Only I.'),
+    it('coa-010', 'medium', ['IBPS PO', 'RBI'],
+      'A bank notices a sharp rise in fraudulent transactions on its mobile app.',
+      'The bank should strengthen the app\'s security and alert customers about safe practices.',
+      'The bank should shut down its mobile app service.',
+      'Only I follows',
+      'Strengthening security and educating customers (I) directly tackles the fraud while preserving a valued service. Shutting the app entirely (II) is disproportionate and penalises all honest users, so it does not follow. Only I.')
+  ];
+  if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
+  var W = (typeof window !== 'undefined') ? window : root;
+  (W.LRAuthoredBanks = W.LRAuthoredBanks || {}).course = ITEMS;
+})(this);

@@ -902,10 +902,17 @@ function generateMultiTopic(n, topicKeys, difficulty) {
  */
 function generateMistakeReviewQuestions(n) {
   var mistakes = getMistakes();
-  /* DI (ADR-074) and LR-MCQ (ADR-075) questions can't be re-served in Review: a stored mistake keeps
-     {question, answer, category} but NOT the chart dataset / MCQ options, so the question would be unanswerable.
-     They still count in stats/analytics — just excluded from this chart/option-less replay. (A documented later step.) */
-  mistakes = mistakes.filter(function (m) { var c = String(m && m.category); return c.indexOf('di-') !== 0 && c.indexOf('lr-') !== 0; });
+  /* What can be re-served (ADR-079): Quant numeric, and any self-contained text-MCQ LR item whose options were
+     stored (generated LR + authored CR). Still EXCLUDED — DI (needs the chart dataset), LR puzzle SETS (need the
+     shared scenario) and LR visual items (need the figure): a stored mistake can't reconstruct that context. */
+  var NEEDS_CONTEXT = { 'lr-seating': 1, 'lr-puzzle': 1, 'lr-mirror': 1, 'lr-water': 1, 'lr-dice': 1, 'lr-cube': 1, 'lr-fseries': 1, 'lr-fanalogy': 1 };
+  mistakes = mistakes.filter(function (m) {
+    var c = String(m && m.category);
+    if (c.indexOf('di-') === 0) return false;
+    if (NEEDS_CONTEXT[c]) return false;
+    if (c.indexOf('lr-') === 0) return !!(m.options && m.options.length);   // re-serve only if options were stored
+    return true;
+  });
   if (mistakes.length === 0) return [];
 
   /* Shuffle and take up to n */
@@ -918,7 +925,7 @@ function generateMistakeReviewQuestions(n) {
   }
 
   return shuffled.slice(0, n).map(function (m) {
-    return { question: m.question, answer: m.answer, category: m.category };
+    return { question: m.question, answer: m.answer, category: m.category, options: m.options || undefined, explanation: m.explanation || undefined, subtype: m.subtype || undefined };
   });
 }
 
