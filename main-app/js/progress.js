@@ -111,6 +111,18 @@ function saveProgress(data) {
  * @param {object}  [questionData] - optional {question, answer, category} for mistake tracking
  * @param {number}  [responseTime] - optional response time in seconds
  */
+/* Resolve a question's difficulty tier ('easy'|'medium'|'hard') for the difficulty-mix counter. Prefer an explicit
+   field, then a leading tier on the subtype (LR/DI use "easy:variant"), then the active difficulty setting. Returns
+   null only if nothing is resolvable, so the counter never invents a tier. */
+function _answerDifficulty(questionData) {
+  var d = questionData && questionData.difficulty;
+  if (d === 'easy' || d === 'medium' || d === 'hard') return d;
+  var st = questionData && questionData.subtype;
+  if (typeof st === 'string') { var m = st.match(/^(easy|medium|hard)\b/); if (m) return m[1]; }
+  try { if (typeof window !== 'undefined' && typeof window._getDifficulty === 'function') { var g = window._getDifficulty(); if (g === 'easy' || g === 'medium' || g === 'hard') return g; } } catch (_) {}
+  return 'medium';
+}
+
 function recordAnswer(correct, category, questionData, responseTime) {
   var p = loadProgress();
   var today = new Date().toDateString();
@@ -165,15 +177,36 @@ function recordAnswer(correct, category, questionData, responseTime) {
     p.responseTimes.push(responseTime);
   }
 
-  /* Category tracking */
+  /* Category tracking. Beyond attempted/correct we also accumulate per-category SOLVING TIME and the last-practiced
+     timestamp (ADR-080) — these power the "X is 40% slower than Y" comparative insights, per-subject "last practiced",
+     and the speed term of exam-readiness. All additive + guarded, so pre-ADR-080 saves (which lack the keys) upgrade
+     transparently. */
   if (category) {
     if (!p.categoryStats) p.categoryStats = {};
     if (!p.categoryStats[category]) {
       p.categoryStats[category] = { attempted: 0, correct: 0 };
     }
-    p.categoryStats[category].attempted++;
-    if (correct) p.categoryStats[category].correct++;
+    var _cs = p.categoryStats[category];
+    _cs.attempted++;
+    if (correct) _cs.correct++;
+    if (typeof responseTime === 'number' && isFinite(responseTime)) {
+      _cs.sumTime = (_cs.sumTime || 0) + responseTime;
+      _cs.timedCount = (_cs.timedCount || 0) + 1;
+    }
+    _cs.lastTs = Date.now();
   }
+
+  /* Difficulty mix (ADR-080): how many questions the user has actually solved at each tier — a real input to
+     exam-readiness (a wall of "easy" correct answers should not read as exam-ready). Difficulty is taken from the
+     question's own subtype/difficulty, falling back to the active difficulty setting. */
+  (function () {
+    var d = _answerDifficulty(questionData);
+    if (!d) return;
+    if (!p.byDifficulty) p.byDifficulty = {};
+    if (!p.byDifficulty[d]) p.byDifficulty[d] = { attempted: 0, correct: 0 };
+    p.byDifficulty[d].attempted++;
+    if (correct) p.byDifficulty[d].correct++;
+  })();
 
   /* Daily history tracking */
   if (!p.dailyHistory) p.dailyHistory = {};
@@ -270,7 +303,8 @@ function _mathStats() {
   var cats = p.categoryStats || {}, clean = {};
   Object.keys(cats).forEach(function (c) { if (!_INVALID_CATEGORIES[c]) clean[c] = cats[c]; });
   return { totalAttempted: p.totalAttempted || 0, totalCorrect: p.totalCorrect || 0,
-    categoryStats: clean, dailyHistory: p.dailyHistory || {}, todayAttempted: p.todayAttempted || 0, todayCorrect: p.todayCorrect || 0 };
+    categoryStats: clean, dailyHistory: p.dailyHistory || {}, todayAttempted: p.todayAttempted || 0, todayCorrect: p.todayCorrect || 0,
+    byDifficulty: p.byDifficulty || {}, responseTimes: p.responseTimes || [] };
 }
 
 /** Weakest category (lowest accuracy, ≥ MASTERY_MIN_ATTEMPTS) — via the shared derivation layer. */

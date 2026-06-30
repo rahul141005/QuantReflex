@@ -53,6 +53,7 @@ var ASSETS = [
   './data/knowledge/mensuration.js',
   './data/knowledge/di.js',
   './data/knowledge/lr.js',
+  './data/knowledge/exam-relevance.js',
   './js/learn/learn-search.js',
   './js/learn/learn-progress.js',
   './js/settings.js',
