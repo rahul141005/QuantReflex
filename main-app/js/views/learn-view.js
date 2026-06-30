@@ -65,6 +65,45 @@ var LearnView = (function () {
   function _diffBadge(d) { return '<span class="kx-badge kx-diff-' + _esc(d) + '">' + _esc(DIFF_LABEL[d] || d) + '</span>'; }
   function _freqBadge(f) { return '<span class="kx-badge kx-freq">' + _esc(FREQ_LABEL[f] || f) + '</span>'; }
 
+  /* ADR-080 — exam-relevance metadata drives ONE subtle, high-value contextual badge per card (never a wall of
+     labels). With a target exam set: "⭐ For <exam>" on that exam's top-focus topics. Otherwise: "🔥 Most Asked" on
+     perennial topics. Everything else stays clean. */
+  function _examRel() { return (typeof QR_EXAMREL !== 'undefined') ? QR_EXAMREL : (typeof window !== 'undefined' ? window.QR_EXAMREL : null); }
+  function _targetExam() { try { return localStorage.getItem('qr_active_exam') || ''; } catch (_) { return ''; } }
+  function _ctxBadge(t) {
+    var ER = _examRel(); if (!ER || !t || !t.id) return '';
+    var exam = _targetExam();
+    if (exam) {
+      var track = ER.trackForExam(exam);
+      if (track && ER.weight(t.id, track) >= 3) return '<span class="kx-badge kx-badge-rec">⭐ For ' + _esc(ER.trackLabel(track)) + '</span>';
+      return '';   // exam set but not a top focus → stay clean (no most-asked noise on top)
+    }
+    if (ER.isMostAsked(t.id)) return '<span class="kx-badge kx-badge-asked">🔥 Most Asked</span>';
+    return '';
+  }
+
+  /* Presentation-only sub-grouping (ADR-080): Logical Reasoning is 20 topics under one category — too flat. We render
+     pedagogical sub-groups WITHIN the category (no change to drillCategory / subjects / analytics). Topics list in a
+     sensible learning order. */
+  var SUBGROUPS = {
+    'lr-reasoning': [
+      { title: 'Foundations', ids: ['lr-coding-decoding', 'lr-series', 'lr-analogies', 'lr-odd-one-out', 'lr-ranking', 'lr-direction-sense', 'lr-blood-relations'] },
+      { title: 'Analytical & Puzzles', ids: ['lr-seating-puzzles', 'lr-syllogisms', 'lr-coded-inequalities', 'lr-input-output', 'lr-calendars', 'lr-clocks'] },
+      { title: 'Critical Reasoning', ids: ['lr-critical-reasoning', 'lr-statement-argument', 'lr-decision-making', 'lr-cause-effect', 'lr-course-of-action'] },
+      { title: 'Visual Reasoning', ids: ['lr-nonverbal-images', 'lr-figure-series'] }
+    ],
+    'di-charts': [
+      { title: 'Foundations', ids: ['di-foundations', 'di-speed-math'] },
+      { title: 'Charts & Graphs', ids: ['di-bar-line', 'di-pie-charts'] },
+      { title: 'Tables & Sets', ids: ['di-tables-caselets', 'di-sets'] }
+    ]
+  };
+  var SUBJECT_BLURB = {
+    quant: 'Speed arithmetic and number sense — the backbone of every aptitude section.',
+    di: 'Read and reason over charts, tables and caselets under time pressure.',
+    lr: 'Puzzles, arrangements, verbal logic and visual reasoning, end to end.'
+  };
+
   /* ---- Phase-4 integration helpers (progress / revision / practice — all local, NO AI) ---- */
   function _LP() { return (typeof LearnProgress !== 'undefined') ? LearnProgress : null; }
   function _revisionTypes() {
@@ -140,18 +179,53 @@ var LearnView = (function () {
   function _topicCardHtml(t) {
     return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +
-      '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _freqBadge(t.examFrequency) +
+      '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _freqBadge(t.examFrequency) + _ctxBadge(t) +
       (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') + '</div>' +
       '</button>';
   }
 
-  function _catHtml(c) {
+  function _gridHtml(topics) { return '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div>'; }
+
+  function _catHtml(c, hideHead) {
     var KB = _KB(); var topics = KB.byCategory(c.id);
-    return '<div class="kx-cat">' +
-      '<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
+    /* hideHead: when a subject has a single category, its rich subject header already names it — repeating the
+       category title right below would be redundant, so we drop it and let the sub-groups carry the structure. */
+    var head = hideHead ? '' : ('<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
       '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') + '</span></div>' +
-      (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : '') +
-      '<div class="kx-topic-grid">' + topics.map(_topicCardHtml).join('') + '</div></div>';
+      (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : ''));
+    var groups = SUBGROUPS[c.id], body;
+    if (groups) {
+      var byId = {}; topics.forEach(function (t) { byId[t.id] = t; });
+      var used = {};
+      body = groups.map(function (g) {
+        var gt = g.ids.map(function (id) { return byId[id]; }).filter(Boolean);
+        gt.forEach(function (t) { used[t.id] = 1; });
+        if (!gt.length) return '';
+        return '<div class="kx-subgroup"><h3 class="kx-subgroup-head">' + _esc(g.title) +
+          '<span class="kx-subgroup-count">' + gt.length + '</span></h3>' + _gridHtml(gt) + '</div>';
+      }).join('');
+      var rest = topics.filter(function (t) { return !used[t.id]; });
+      if (rest.length) body += '<div class="kx-subgroup">' + _gridHtml(rest) + '</div>';
+    } else {
+      body = _gridHtml(topics);
+    }
+    return '<div class="kx-cat">' + head + body + '</div>';
+  }
+
+  /* A subject section header that breathes: title + short blurb + topic count + difficulty coverage. */
+  function _subjectHeaderHtml(sid, label, cats) {
+    var KB = _KB(); var topics = [];
+    cats.forEach(function (c) { topics = topics.concat(KB.byCategory(c.id)); });
+    var n = topics.length, diffs = {};
+    topics.forEach(function (t) { diffs[t.difficulty] = 1; });
+    var order = ['foundation', 'core', 'advanced'], present = order.filter(function (d) { return diffs[d]; });
+    var coverage = present.length ? (DIFF_LABEL[present[0]] + (present.length > 1 ? ' → ' + DIFF_LABEL[present[present.length - 1]] : '')) : '';
+    var blurb = SUBJECT_BLURB[sid] || '';
+    return '<div class="kx-subject-head-wrap">' +
+      '<h2 class="kx-subject-head">' + _esc(label) + '</h2>' +
+      (blurb ? '<p class="kx-subject-blurb">' + _esc(blurb) + '</p>' : '') +
+      '<div class="kx-subject-meta">' + n + (n === 1 ? ' topic' : ' topics') + (coverage ? ' · ' + _esc(coverage) : '') + '</div>' +
+      '</div>';
   }
 
   function _renderCategories() {
@@ -170,8 +244,10 @@ var LearnView = (function () {
       host.innerHTML = cats.map(_catHtml).join('');
     } else {
       host.innerHTML = ordered.map(function (sid) {
-        var head = label[sid] ? '<h2 class="kx-subject-head">' + _esc(label[sid]) + '</h2>' : '';
-        return '<section class="kx-subject-group">' + head + groups[sid].map(_catHtml).join('') + '</section>';
+        var head = label[sid] ? _subjectHeaderHtml(sid, label[sid], groups[sid]) : '';
+        /* single-category subject → suppress the (redundant) per-category head */
+        var single = groups[sid].length === 1;
+        return '<section class="kx-subject-group">' + head + groups[sid].map(function (c) { return _catHtml(c, single); }).join('') + '</section>';
       }).join('');
     }
     host.querySelectorAll('.kx-topic-card').forEach(function (card) {

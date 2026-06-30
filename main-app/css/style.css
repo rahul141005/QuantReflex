@@ -11063,13 +11063,37 @@ body.dark-mode .mcq-option.mcq-wrong { background: rgba(239,68,68,.18); border-c
 
 /* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
 .kx-subject-group { margin-bottom: .4rem; }
-.kx-subject-group + .kx-subject-group { margin-top: 1.6rem; }
+/* ADR-080: let subjects breathe — a generous gap + a soft divider between sections, and a header that carries a blurb
+   + topic count + difficulty coverage instead of a bare label. */
+.kx-subject-group + .kx-subject-group { margin-top: 2.4rem; padding-top: 1.8rem; border-top: 1px solid rgba(15,23,42,.08); }
+body.dark-mode .kx-subject-group + .kx-subject-group { border-top-color: rgba(255,255,255,.08); }
+.kx-subject-head-wrap { margin: 0 .15rem 1rem; }
 .kx-subject-head {
-  font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--qr-accent); margin: 0 .15rem .7rem; padding-bottom: .35rem;
-  border-bottom: 1px solid rgba(37, 99, 235, .15);
+  font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; text-transform: none;
+  color: #0f172a; margin: 0;
 }
-body.dark-mode .kx-subject-head { border-bottom-color: rgba(96, 165, 250, .22); }
+body.dark-mode .kx-subject-head { color: #f1f5f9; }
+.kx-subject-blurb { font-size: .86rem; color: #475569; margin: .25rem 0 0; line-height: 1.45; max-width: 42rem; }
+body.dark-mode .kx-subject-blurb { color: #94a3b8; }
+.kx-subject-meta { font-size: .74rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--qr-accent); margin-top: .4rem; }
+body.dark-mode .kx-subject-meta { color: #93c5fd; }
+
+/* sub-groups within a category (LR) */
+.kx-subgroup { margin-bottom: 1rem; }
+.kx-subgroup-head {
+  display: flex; align-items: center; gap: .45rem;
+  font-size: .82rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: #475569;
+  margin: 0 .1rem .5rem;
+}
+body.dark-mode .kx-subgroup-head { color: #94a3b8; }
+.kx-subgroup-count { font-size: .68rem; font-weight: 800; color: #64748b; background: rgba(15,23,42,.06); padding: .08rem .4rem; border-radius: .35rem; }
+body.dark-mode .kx-subgroup-count { color: #cbd5e1; background: rgba(255,255,255,.08); }
+
+/* contextual topic badges (subtle, scarce) */
+.kx-badge-rec { background: rgba(37,99,235,.12); color: #1d4ed8; }
+.kx-badge-asked { background: rgba(217,119,6,.14); color: #b45309; }
+body.dark-mode .kx-badge-rec { background: rgba(37,99,235,.24); color: #bfdbfe; }
+body.dark-mode .kx-badge-asked { background: rgba(217,119,6,.24); color: #fcd34d; }
 
 /* DI chart block — sits inside .drill-question-scroll, above .question-text */
 .di-chart {
