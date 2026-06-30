@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-06-30 — Learn experience & UI refinement: premium textbook (ADR-081)
+
+Make the Learn tab read like a premium textbook and unify Quant/DI/LR. No new colours/animations/deps, no Firestore.
+Shipped as independently-green commits.
+
+```
+### feat/learn(ADR-081): topic pages read as textbook chapters
+- js/knowledge/blocks.js + js/views/learn-view.js: section headings are real names — a concept by its own title, a
+  table by its caption, others by richer labels (Key Formulae · Common Mistakes · Exam Strategy · Key Takeaways…);
+  sticky pills become a true TOC; self-headed blocks drop the duplicate eyebrow.
+- js/knowledge/schema.js + blocks.js + css: new OPTIONAL `exam` block (📌 callout) = exam strategy; + learn-render case.
+- css/style.css: more chapter rhythm (section spacing, concept-title as a heading).
+
+### feat/learn(ADR-081): a distinct, meaningful icon for every topic
+- data/knowledge/{lr,di,*}.js: 20 LR + 6 DI topics given unique on-theme emoji (were all 📘 / none); Quant 📈 collision
+  fixed (compound-interest 💹), simplification 🧮, percentages 💯. Verified 45/45 unique.
+
+### feat/learn(ADR-081): comparison tables + callout parity + exam strategy
+- Tables (.math-table): syllogisms (premise→conclusion), mirror/water/dice, perm-vs-comb, SI-vs-CI, bar/line/pie guide.
+- Every LR topic now has BOTH a Shortcuts and a Common-Mistakes callout (added the missing one to 13).
+- Exam-strategy callouts on syllogisms, seating, percentages, DI sets.
+
+### chore/ui(ADR-081): Practice + Settings clutter removed
+- index.html + css: dropped the Subject-Set blue accent rail + "EXAM-STYLE" eyebrow (cards are plain .mode-card);
+  shortened the Settings "Ask subject before Quick Start" row to a concise title + one-line subtitle.
+```
+
+**Verification:** `learn-content.check` (45 / per-category counts, required blocks) + `learn-render.check` (every
+renderer incl. `exam` + `sectionLabel`; XSS escape) green; full npm test green; rendered Quant/DI/LR pages light + dark
+with no overflow. **SW v163→v164, Bible 2.77→2.78.**
+
+---
+
 ## 2026-06-30 — Practice · Learn · Stats UX craftsmanship pass (ADR-080)
 
 One cohesive premium platform, not three modules. Same blue identity, no new colors/animations, **no gamification**.

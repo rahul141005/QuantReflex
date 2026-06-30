@@ -8,6 +8,33 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-081 — Learn experience & UI refinement: premium textbook, unified across subjects (2026-06-30)
+- **Context:** The Learn tab was content-complete (45 gold-standard topics) but read like a stack of expandable cards,
+  and the three subjects (authored at different times) diverged in structure, icons and richness. Every section showed
+  a generic repeated heading ("Concept · Concept · Table"); all 20 LR topics shared the default 📘 icon and all 6 DI
+  topics had none; 13 LR topics carried only one of the trick/trap callouts; comparisons (perm vs comb, SI vs CI, bar
+  vs line, mirror vs water, syllogism all/some/no) lived as prose, not tables. Two just-added decorations (the Practice
+  "EXAM-STYLE" rail/eyebrow and an over-long Settings row) added clutter.
+- **Decision:** A craftsmanship pass — no new colours/animations/deps, no Firestore — using the existing block system.
+  (1) **Reading experience (transforms all 45 pages at once):** each section is now headed by its real name — a concept
+  by its own title, a table by its caption, others by richer labels (Overview · Key Formulae · At a Glance · Shortcuts
+  & Tricks · Common Mistakes · Exam Strategy · Solved Example · Memory Hook · Key Takeaways); the sticky pills are a true
+  table of contents; self-headed blocks no longer get a duplicate eyebrow; more chapter rhythm in the CSS. A new OPTIONAL
+  `exam` block (📌 indigo callout) carries "how toppers approach it" — added to the schema/validator/renderer/CSS/check,
+  used where it adds value (not forced on every topic). (2) **Icons:** a distinct, meaningful emoji for every one of the
+  45 topics (verified unique). (3) **Tables:** comparison tables (reusing `.math-table`) on syllogisms, mirror/water/
+  dice, permutation-vs-combination, SI-vs-CI, and a bar/line/pie chart guide. (4) **Callout parity:** every LR topic now
+  has BOTH a Shortcuts and a Common-Mistakes callout (added to 13). (5) **Cleanups:** removed the Practice rail/eyebrow
+  (Subject-Set cards are plain `.mode-card`s grouped by their header) and made the Settings row concise.
+- **Alternatives rejected:** a literal 12-section rewrite of all 45 topics (the brief's hierarchy is illustrative —
+  forcing When-to-use/Difficulty-progression/Practice-tips everywhere would bloat content and risk errors; the spirit is
+  delivered via named sections + tables + both callouts + exam-strategy on a unified spine); converting tab SVG icons to
+  emoji (different surface); forcing `memory` mnemonics onto LR/DI (kept optional — no fake mnemonics).
+- **Consequences:** No engine/Firestore/dependency change; the `learn-content` (45 / per-category counts, required
+  blocks) and `learn-render` (every renderer incl. `exam` + `sectionLabel`; XSS escape) checks stay green. Verified by
+  rendering Quant/DI/LR topic pages (light + dark) — chapter-style named sections, tables fit, distinct icons, no
+  overflow. SW v163→v164, Bible 2.77→2.78 (Arch unchanged 2.53).
+
 ## ADR-080 — Practice · Learn · Stats UX craftsmanship pass (one cohesive premium platform) (2026-06-30)
 - **Context:** QuantReflex grew tab-by-tab (Quant → DI → LR), so Practice, Learn and Stats read as three modules
   bolted onto a shared shell. A craftsmanship pass (not a redesign) to make them feel like one designed product —

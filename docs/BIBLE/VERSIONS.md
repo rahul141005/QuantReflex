@@ -9,12 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.77 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.78 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.78 / Arch 2.53 (2026-06-30)** — **Learn experience & UI refinement (ADR-081).** Make the Learn tab read like a
+> premium textbook and unify Quant/DI/LR. (1) **Reading experience** (one renderer change, all 45 pages): every section
+> is headed by its real name — a concept by its own title, a table by its caption, others by richer labels (Key
+> Formulae · Common Mistakes · Exam Strategy · Key Takeaways…); the sticky pills are a true table of contents; a new
+> optional `exam` 📌 callout carries exam strategy. (2) **Icons:** a distinct, meaningful emoji for every one of the 45
+> topics (LR was all 📘, DI had none). (3) **Comparison tables** on syllogisms, mirror/water/dice, perm-vs-comb,
+> SI-vs-CI, bar/line/pie. (4) **Callout parity:** every LR topic now has both Shortcuts + Common-Mistakes. (5) **Cleanups:**
+> removed the Practice "EXAM-STYLE" rail/eyebrow and shortened the Settings ask-subject row. No new colours/deps/Firestore;
+> learn-content + learn-render checks green; rendered light + dark with no overflow. SW v163→v164.
+>
 > **2.77 / Arch 2.53 (2026-06-30)** — **Practice · Learn · Stats UX craftsmanship pass (ADR-080).** Make the three
 > tabs feel like one premium platform, not modules — same blue identity, no new colors/animations, no gamification.
 > (1) **Data foundation:** recorder enriched with per-category time/last-practiced + difficulty mix + a day-reset
