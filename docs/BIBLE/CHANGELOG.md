@@ -6,6 +6,24 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch G-a: close the last drill-only orphans (ADR-083)
+
+Learn chapters for the 4 foundational speed-calc drills → zero orphan content. Full suite green.
+
+```
+### feat/learn(ADR-083): Learn chapters for multiplication, fractions, squares, cubes
+- data/knowledge/numbers.js: 4 gold-standard chapters (speed-calc tricks, ends-in-5 squaring, cube-root last-digit
+  map, fraction⇄percent table). drillCategory points at the existing drills; cross-linked via related.
+- data/knowledge/exam-relevance.js: metadata (orders 32–35). numbers category topicCount 3→7.
+- Verified: every Quant drill has a Learn chapter and every Quant Learn chapter has a drill (zero orphans).
+- learn-content 57→61 topics; learn-browser 57→61; statmath metadata 61/61.
+```
+
+Verification: `npm test` exit 0 (learn-content 61 topics; statmath 61/61; zero-orphan check clean). **Docs:**
+DECISION_LOG ADR-083 (Phase 3G-a), VERSIONS 2.92→2.93, this entry. **SW** v178→v179.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch F-b: set-theory + statistics-basics (ADR-083)
 
 Complete Modern-Math with two new topics. Full suite green.

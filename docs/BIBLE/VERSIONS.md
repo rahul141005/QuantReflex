@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.92 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.93 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.93 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch G-a): close the last drill-only orphans
+> (ADR-083).** Gold-standard Learn chapters for the four foundational speed-calc drills that had no Learn content —
+> **multiplication**, **fractions**, **squares**, **cubes** (mental-math tricks, ends-in-5 squaring, cube-root last-digit
+> map, fraction⇄percent table). With these, **every Quant drill now has a Learn chapter and every Quant Learn chapter
+> has a drill — zero orphan content** (verified programmatically). exam-relevance metadata added (orders 32–35); numbers
+> category 3→7 topics; Learn graph 57→61 topics. SW v178→v179.
+>
 > **2.92 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch F-b): complete Modern-Math (ADR-083).**
 > Two NEW topics finish the Modern-Math category (now 4) — **set-theory** (two-set union/only/neither/both + three-set
 > inclusion–exclusion) and **statistics-basics** (median / mode / range / mean of a data set) — each with an archetype

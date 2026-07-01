@@ -151,6 +151,163 @@
           'Wrong-term: derive the rule from the majority, then flag the single misfit.'
         ] }
       ]
+    },
+    {
+      id: 'multiplication', title: 'Multiplication & Speed Calculation', icon: '✖️', category: 'numbers',
+      difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'multiplication', syllabusTopicId: 'multiplication_fluency', revisionIntervalDays: 5,
+      related: ['squares', 'simplification', 'fractions'],
+      searchTerms: ['multiplication', 'multiply', 'tables', 'vedic maths', 'speed maths', 'mental math', 'calculation'],
+      sections: [
+        { type: 'overview', text: 'Fast, accurate multiplication is the engine under every quant and DI question. A handful of mental tricks — splitting, rounding-and-adjusting, and multiplying by 11/5/25 — turn multi-digit products into one-line calculations.' },
+        { type: 'concept', title: 'Split and distribute', body: 'Break one factor into friendly parts: 34 × 6 = (30 × 6) + (4 × 6) = 180 + 24 = 204. Or round and adjust: 98 × 7 = (100 × 7) − (2 × 7) = 700 − 14 = 686. The distributive law a(b + c) = ab + ac is the whole idea.' },
+        { type: 'concept', title: 'Special multipliers', body: '×11: add each adjacent pair of digits inward (35 × 11 → 3, 3+5, 5 → 385). ×5: halve, then ×10 (86 × 5 = 860/2 = 430). ×25: ×100 then ÷4 (36 × 25 = 3600/4 = 900). ×9: ×10 then subtract the number (47 × 9 = 470 − 47 = 423).' },
+        { type: 'formula', items: [
+          { name: 'Distributive split', expr: 'a × (b + c) = a·b + a·c', when: 'Break an awkward factor into round parts.' },
+          { name: 'Round & adjust', expr: 'a × 98 = a×100 − a×2', when: 'A factor just below/above a round number.' },
+          { name: '×5 / ×25 / ×50', expr: '×5 = ×10 ÷ 2,  ×25 = ×100 ÷ 4,  ×50 = ×100 ÷ 2', when: 'Common in DI and percentages.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Memorise tables to 20 and the squares to 30 — they surface constantly.',
+          'a × 11: write the first and last digits, fill the gaps with running sums.',
+          'For two numbers near 100, use base-100: (100−a)(100−b) style adjustments.'
+        ] },
+        { type: 'example', problem: 'Compute 45 × 12 mentally.', steps: [
+          '45 × 12 = 45 × 10 + 45 × 2.',
+          '= 450 + 90 = 540.'
+        ], answer: '540' },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Carry slips under time pressure — jot the carry.',
+          'Rounding one factor but forgetting to adjust for the difference.',
+          'Misplacing a zero when using ×10/×100 shortcuts.'
+        ] },
+        { type: 'memory', text: '×5 → halve-then-×10; ×25 → ×100-then-÷4; ×9 → ×10-then-subtract.' },
+        { type: 'revision', points: [
+          'Split awkward factors: 34 × 6 = 30×6 + 4×6.',
+          'Round & adjust for factors near 100.',
+          '×5 = ×10÷2, ×25 = ×100÷4, ×9 = ×10 − n.',
+          'Tables to 20, squares to 30 — memorise.'
+        ] }
+      ]
+    },
+    {
+      id: 'fractions', title: 'Fractions, Decimals & Percentages', icon: '🍕', category: 'numbers',
+      difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
+      drillCategory: 'fractions', syllabusTopicId: 'fractions_decimals', revisionIntervalDays: 5,
+      related: ['percentages', 'simplification', 'ratio-proportion'],
+      searchTerms: ['fractions', 'decimals', 'percentage', 'fraction to percent', 'conversion', 'comparing fractions'],
+      sections: [
+        { type: 'overview', text: 'Fractions, decimals and percentages are three views of the same number. Fluent conversion between them — and knowing the common fraction⇄percent values by heart — is one of the biggest time-savers in the whole exam.' },
+        { type: 'concept', title: 'Convert freely', body: 'Fraction → decimal: divide. Decimal → percent: ×100. Fraction → percent: (numerator/denominator) × 100. Percent → fraction: put over 100 and simplify. The fastest solvers recall the staple values (1/8 = 12.5%, 1/3 = 33⅓%, 3/8 = 37.5%) instantly instead of dividing.' },
+        { type: 'concept', title: 'Comparing & operating', body: 'To compare fractions, cross-multiply (a/b vs c/d → compare a·d with b·c) or convert to a common denominator. To add/subtract, use a common denominator; to multiply, multiply across and simplify; to divide, multiply by the reciprocal.' },
+        { type: 'table', caption: 'Must-know fraction ⇄ percent values', headers: ['Fraction', 'Percent'], rows: [
+          ['1/2', '50%'], ['1/3', '33⅓%'], ['1/4', '25%'], ['1/5', '20%'],
+          ['1/6', '16⅔%'], ['1/8', '12.5%'], ['3/8', '37.5%'], ['1/9', '11⅑%']
+        ] },
+        { type: 'formula', items: [
+          { name: 'Fraction → percent', expr: '(n / d) × 100 %', when: 'Any fraction-to-percent conversion.' },
+          { name: 'Compare fractions', expr: 'a/b > c/d ⟺ a·d > b·c', when: 'Ordering fractions without a common denominator.', trap: 'Only valid for positive denominators.' },
+          { name: 'Divide by a fraction', expr: 'a/b ÷ c/d = a/b × d/c', when: 'Multiply by the reciprocal.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Learn the fraction⇄percent table cold — it removes most division from percentage questions.',
+          'To compare, cross-multiply and compare the products.',
+          'Simplify BEFORE multiplying to keep the numbers small.'
+        ] },
+        { type: 'example', problem: 'Convert 5/8 to a percentage.', steps: [
+          '5/8 = 0.625.',
+          '× 100 = 62.5%.'
+        ], answer: '62.5%' },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Cross-multiplication direction errors when comparing.',
+          'Adding fractions without a common denominator.',
+          'Forgetting to take the reciprocal when dividing.',
+          'Rounding a repeating decimal too early (1/3 ≠ 0.33 exactly).'
+        ] },
+        { type: 'memory', text: 'Fraction → percent: divide then ×100. Divide by a fraction → flip and multiply.' },
+        { type: 'revision', points: [
+          'Fraction → percent = (n/d) × 100.',
+          'Compare via cross-multiplication: a·d vs b·c.',
+          '÷ a fraction = × its reciprocal.',
+          'Memorise 1/2…1/9 as percentages.'
+        ] }
+      ]
+    },
+    {
+      id: 'squares', title: 'Squares & Square Roots', icon: '🔲', category: 'numbers',
+      difficulty: 'foundation', examFrequency: 'high', status: 'published',
+      drillCategory: 'squares', syllabusTopicId: 'squares_roots', revisionIntervalDays: 6,
+      related: ['cubes', 'multiplication', 'surds-indices'],
+      searchTerms: ['squares', 'square root', 'perfect square', 'squaring', 'mental squaring'],
+      sections: [
+        { type: 'overview', text: 'Squares and square roots appear everywhere — Pythagoras, areas, standard deviation, quadratics. Knowing the squares to 30 by heart and two mental-squaring tricks lets you square any two-digit number in seconds.' },
+        { type: 'concept', title: 'Mental squaring', body: 'Use (a ± b)² = a² ± 2ab + b² with a round a: 43² = (40 + 3)² = 1600 + 240 + 9 = 1849. Numbers ending in 5 are instant: (n5)² = n(n+1) followed by 25 — 35² = (3×4)｜25 = 1225, 85² = (8×9)｜25 = 7225.' },
+        { type: 'concept', title: 'Square roots', body: 'A perfect-square root is found from the last digit and size: √1849 ends in 3 or 7 (since 3² and 7² end in 9) and lies between 40² and 50², so it is 43. For non-perfect squares, estimate between the two nearest known squares.' },
+        { type: 'formula', items: [
+          { name: 'Expansion identity', expr: '(a ± b)² = a² ± 2ab + b²', when: 'Square any number by splitting off a round part.' },
+          { name: 'Ends-in-5 rule', expr: '(n5)² = [n·(n+1)] followed by 25', when: '15², 25², … 95² instantly.' },
+          { name: 'Difference of squares', expr: 'a² − b² = (a + b)(a − b)', when: 'Factor or compute a gap of squares fast.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Memorise squares 1–30 (and cubes 1–15) — the single highest-yield table in quant.',
+          'For numbers ending in 5, use the n(n+1)｜25 rule.',
+          'Estimate a root by bracketing between the two nearest perfect squares.'
+        ] },
+        { type: 'example', problem: 'Find 65².', steps: [
+          'Ends in 5: n = 6, so n(n+1) = 6 × 7 = 42.',
+          'Append 25 → 4225.'
+        ], answer: '4225' },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Dropping the 2ab middle term in (a + b)².',
+          'Assuming every number has an integer square root.',
+          'Sign confusion in a² − b² factoring.'
+        ] },
+        { type: 'memory', text: 'Ends-in-5: n(n+1) then 25. (a+b)² = a² + 2ab + b² — never forget the middle term.' },
+        { type: 'revision', points: [
+          '(a ± b)² = a² ± 2ab + b².',
+          '(n5)² = n(n+1)｜25.',
+          'a² − b² = (a+b)(a−b).',
+          'Know squares to 30 by heart.'
+        ] }
+      ]
+    },
+    {
+      id: 'cubes', title: 'Cubes & Cube Roots', icon: '🔳', category: 'numbers',
+      difficulty: 'foundation', examFrequency: 'medium', status: 'published',
+      drillCategory: 'cubes', syllabusTopicId: 'cubes_roots', revisionIntervalDays: 7,
+      related: ['squares', 'multiplication', 'surds-indices'],
+      searchTerms: ['cubes', 'cube root', 'perfect cube', 'cubing'],
+      sections: [
+        { type: 'overview', text: 'Cubes and cube roots turn up in volume, algebraic identities and number-system questions. The cubes to 15 are worth memorising, and a neat last-digit trick recovers the cube root of any perfect cube instantly.' },
+        { type: 'concept', title: 'The cube table & last digits', body: 'Learn 1³…15³. The last digit of a cube uniquely identifies the last digit of its root: 1→1, 8→2, 7→3, 4→4, 5→5, 6→6, 3→7, 2→8, 9→9, 0→0 (note the 2↔8 and 3↔7 swaps). So a cube ending in 7 has a root ending in 3.' },
+        { type: 'concept', title: 'Cube root of a perfect cube', body: 'For a 4–6 digit perfect cube: the last digit gives the root\'s last digit; strip the last three digits and find the largest cube ≤ what remains for the leading digit. e.g. 19683 → last digit 3 → root ends in 7; 19 (remaining) sits between 2³=8 and 3³=27 → leading digit 2 → 27.' },
+        { type: 'formula', items: [
+          { name: 'Sum/Difference of cubes', expr: 'a³ ± b³ = (a ± b)(a² ∓ ab + b²)', when: 'Factorising cubic expressions.' },
+          { name: 'Cube of a binomial', expr: '(a + b)³ = a³ + 3a²b + 3ab² + b³', when: 'Expanding or mental cubing.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Memorise 1³ to 15³ — small set, high return.',
+          'Cube-root last digit: use the map (8→2, 7→3, 2→8, 3→7; the rest map to themselves).',
+          'Split the number at the thousands to get the leading digit of the root.'
+        ] },
+        { type: 'example', problem: 'Find the cube root of 4913.', steps: [
+          'Last digit 3 → root ends in 7.',
+          'Remaining "4" lies between 1³=1 and 2³=8 → leading digit 1.',
+          'Cube root = 17.'
+        ], answer: '17' },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Forgetting the 2↔8 and 3↔7 last-digit swaps for cube roots.',
+          'Dropping the 3a²b or 3ab² terms in (a + b)³.',
+          'Assuming a number is a perfect cube without checking.'
+        ] },
+        { type: 'memory', text: 'Cube-root last digit: 8↔2, 7↔3 swap; everything else stays. Know cubes to 15.' },
+        { type: 'revision', points: [
+          'a³ ± b³ = (a ± b)(a² ∓ ab + b²).',
+          '(a + b)³ = a³ + 3a²b + 3ab² + b³.',
+          'Cube root by last digit + thousands split.',
+          'Memorise cubes 1–15.'
+        ] }
+      ]
     }
   ];
 

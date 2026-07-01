@@ -46,7 +46,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 fifty-seven topics registered (31 Quant + 6 DI + 20 LR)', KB.count() === 57);
+  ok('1 sixty-one topics registered (35 Quant + 6 DI + 20 LR)', KB.count() === 61);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
@@ -66,14 +66,14 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var cats = KB.categories();
   var byId = {}; cats.forEach(function (c) { byId[c.id] = c; });
   ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration', 'di-charts', 'lr-reasoning'].forEach(function (id) { ok('3 ' + id + ' registered', !!byId[id]); });
-  eq('3 numbers topicCount', byId.numbers && byId.numbers.topicCount, 3);
+  eq('3 numbers topicCount', byId.numbers && byId.numbers.topicCount, 7);
   eq('3 arithmetic topicCount', byId.arithmetic && byId.arithmetic.topicCount, 8);
   eq('3 commercial-math topicCount', byId['commercial-math'] && byId['commercial-math'].topicCount, 4);
   eq('3 modern-math topicCount', byId['modern-math'] && byId['modern-math'].topicCount, 4);
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 3);
   eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 6);
   eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 20);
-  eq('3 published gold-standard count = 57', KB.all().filter(function (t) { return t.status === 'published'; }).length, 57);
+  eq('3 published gold-standard count = 61', KB.all().filter(function (t) { return t.status === 'published'; }).length, 61);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order quant…<di-charts<lr-reasoning',
     order.indexOf('mensuration') < order.indexOf('di-charts') && order.indexOf('di-charts') < order.indexOf('lr-reasoning'));
@@ -85,7 +85,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   KB.categories().forEach(function (c) { ok('3b ' + c.id + ' declares a known subject', !!c.subject && !!known[c.subject]); });
   eq('3b categoriesBySubject(quant) = the seven Quant categories in order', KB.categoriesBySubject('quant'),
     ['numbers', 'arithmetic', 'commercial-math', 'algebra', 'modern-math', 'geometry', 'mensuration']);
-  eq('3b bySubject(quant) covers all 31 Quant topics', KB.bySubject('quant').length, 31);
+  eq('3b bySubject(quant) covers all 35 Quant topics', KB.bySubject('quant').length, 35);
   eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
   eq('3b bySubject(di) covers all 6 DI topics', KB.bySubject('di').length, 6);
   eq('3b categoriesBySubject(lr) = [lr-reasoning]', KB.categoriesBySubject('lr'), ['lr-reasoning']);

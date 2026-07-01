@@ -69,6 +69,11 @@
     'surface-area':            { priority: 'medium', order: 29, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
     'set-theory':              { priority: 'medium', order: 30, mostAsked: false, exams: { CAT: 'medium', SNAP_NMAT: 'medium', SSC: 'medium' } },
     'statistics-basics':       { priority: 'low',    order: 31, mostAsked: false, exams: { SNAP_NMAT: 'medium', SSC: 'medium' } },
+    /* ADR-083 Phase 3G — the foundational speed-calc chapters (drills already existed; Learn added last) */
+    'multiplication':          { priority: 'high',   order: 32, mostAsked: true,  exams: { Banking: 'very-high', SSC: 'very-high' } },
+    'fractions':               { priority: 'high',   order: 33, mostAsked: true,  exams: { CAT: 'medium', Banking: 'high', SSC: 'high' } },
+    'squares':                 { priority: 'medium', order: 34, mostAsked: false, exams: { Banking: 'medium', SSC: 'high' } },
+    'cubes':                   { priority: 'low',    order: 35, mostAsked: false, exams: { SSC: 'medium' } },
 
     /* ── Data Interpretation ── */
     'di-foundations':          { priority: 'high',   order: 1,  mostAsked: true,  exams: { CAT: 'very-high', SNAP_NMAT: 'high', Banking: 'very-high', SSC: 'high' } },

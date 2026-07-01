@@ -56,6 +56,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch G-a) — close the last drill-only orphans:** gold-standard Learn chapters for **multiplication**,
+  **fractions**, **squares** and **cubes** — the four foundational speed-calc drills that had a bank but no Learn
+  content. With these, **every Quant drill has a Learn chapter and every Quant Learn chapter has a drill — zero orphan
+  content** (verified in a script). exam-relevance metadata added (orders 32–35); numbers category 3→7 topics; Learn
+  graph 57→61. SW v178→v179, Bible 2.92→2.93.
 - **Phase 3 (batch F-b) — complete Modern-Math:** two NEW topics — **set-theory** (two-set union/only/neither/both +
   three-set inclusion–exclusion, built from disjoint Venn regions so every count is consistent) and **statistics-basics**
   (median / mode / range / mean). Generator + Learn chapter + harness + exam-relevance each. Modern-Math is now complete
