@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch E-b: trigonometry + surface-area (ADR-083)
+
+Add trigonometry and surface-area; backfill exam-relevance for all new algebra/geometry topics. Full suite green.
+
+```
+### feat/quant(ADR-083): trigonometry + surface-area generators + Learn; exam-relevance backfill
+- js/questions.js: genTrigonometry (standardEval {0,½,1} / complementary / identity / 45° heightElev — native-Math
+  recompute), genSurfaceArea (cube TSA·LSA / cuboid TSA / cylinder CSA·TSA / sphere SA, π = 3.14).
+- data/knowledge/geometry.js: + trigonometry chapter (incl. standard-angle table + heights-and-distances).
+  data/knowledge/mensuration.js: + surface-area chapter.
+- data/knowledge/exam-relevance.js: metadata for all 10 new ADR-083 algebra/geometry topics (orders 20–29).
+  scripts/statmath.check.js + learn-browser.check.js now load algebra + geometry knowledge files.
+- quantTopics: 2 new labels. quant-engine.check: TIER_KEYS + recompute — 96,837 assertions, 0 mismatches.
+  subjects.check 29→31; learn-content 53→55 topics, mensuration topicCount 2→3.
+```
+
+Verification: `npm test` exit 0 (quant-engine 96,837/0; learn-content 55 topics; statmath metadata 55/55; subjects 31).
+Samples spot-checked correct + clean. **Docs:** DECISION_LOG ADR-083 (Phase 3E-b), VERSIONS 2.89→2.90, this entry.
+**SW** v175→v176.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch E-a: Geometry category (ADR-083)
 
 Open the Geometry category with two diagram-free topics (generator + Learn + harness). Full suite green.

@@ -56,6 +56,17 @@
     'permutation-combination': { priority: 'medium', order: 17, mostAsked: false, exams: { CAT: 'high', SNAP_NMAT: 'high' } },
     'area':                    { priority: 'medium', order: 18, mostAsked: false, exams: { CAT: 'medium', Banking: 'medium', SSC: 'very-high' } },
     'volume':                  { priority: 'medium', order: 19, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
+    /* ADR-083 Phase 3D/3E — Algebra + Geometry */
+    'linear-equations':        { priority: 'high',   order: 20, mostAsked: true,  exams: { CAT: 'high', SNAP_NMAT: 'high', Banking: 'medium', SSC: 'high' } },
+    'quadratic-equations':     { priority: 'high',   order: 21, mostAsked: true,  exams: { CAT: 'high', SNAP_NMAT: 'medium', Banking: 'very-high', SSC: 'medium' } },
+    'surds-indices':           { priority: 'medium', order: 22, mostAsked: false, exams: { CAT: 'medium', Banking: 'medium', SSC: 'high' } },
+    'logarithms':              { priority: 'low',    order: 23, mostAsked: false, exams: { CAT: 'medium', SSC: 'medium' } },
+    'progressions':            { priority: 'medium', order: 24, mostAsked: false, exams: { CAT: 'high', SNAP_NMAT: 'medium', SSC: 'medium' } },
+    'inequalities-modulus':    { priority: 'low',    order: 25, mostAsked: false, exams: { CAT: 'medium', SNAP_NMAT: 'medium' } },
+    'geometry-basics':         { priority: 'medium', order: 26, mostAsked: false, exams: { CAT: 'medium', SNAP_NMAT: 'medium', SSC: 'very-high' } },
+    'coordinate-geometry-basics': { priority: 'low', order: 27, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
+    'trigonometry':            { priority: 'medium', order: 28, mostAsked: false, exams: { SSC: 'very-high' } },
+    'surface-area':            { priority: 'medium', order: 29, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
 
     /* ── Data Interpretation ── */
     'di-foundations':          { priority: 'high',   order: 1,  mostAsked: true,  exams: { CAT: 'very-high', SNAP_NMAT: 'high', Banking: 'very-high', SSC: 'high' } },

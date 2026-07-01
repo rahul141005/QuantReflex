@@ -56,6 +56,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch E-b) — trigonometry + surface-area:** **trigonometry** (standard-angle eval, complementary angles,
+  Pythagorean identities, 45° heights-and-distances) with answers restricted to {0, ½, 1}/integer angles/heights so
+  numeric entry stays exact and recompute is independent (native `Math.sin/cos/tan`); **surface-area** (cube/cuboid/
+  cylinder/sphere, under Mensuration). Heights-and-distances is folded into the trigonometry drill+chapter rather than
+  a thin standalone (per "fewer excellent generators"). **Backfilled exam-relevance metadata for all 10 new algebra +
+  geometry topics** and pointed statmath.check at the algebra/geometry knowledge files, so every published Learn topic
+  is exam-weighted for readiness/planner. Harness **96,837 assertions, 0 mismatches**; Learn graph 53→55; subjects
+  roster 29→31. SW v175→v176, Bible 2.89→2.90.
 - **Phase 3 (batch E-a) — open the Geometry category:** a NEW `geometry` Learn category (subject: quant, order 45)
   plus two diagram-free topics — **geometry-basics** (angles, triangle angle-sum, Pythagoras via triples, polygon
   angles) and **coordinate-geometry-basics** (distance, midpoint, slope, section). Generator + Learn chapter + harness

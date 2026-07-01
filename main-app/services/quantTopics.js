@@ -27,7 +27,8 @@
     'linear-equations': 'Linear Equations', 'quadratic-equations': 'Quadratic Equations',
     'surds-indices': 'Surds & Indices', logarithms: 'Logarithms', progressions: 'Progressions (AP & GP)',
     'inequalities-modulus': 'Inequalities & Modulus',
-    'geometry-basics': 'Geometry Basics', 'coordinate-geometry-basics': 'Coordinate Geometry'
+    'geometry-basics': 'Geometry Basics', 'coordinate-geometry-basics': 'Coordinate Geometry',
+    trigonometry: 'Trigonometry', 'surface-area': 'Surface Area'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

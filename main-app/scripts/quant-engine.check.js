@@ -22,7 +22,7 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
   'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties',
   'linear-equations', 'quadratic-equations', 'surds-indices',
   'logarithms', 'progressions', 'inequalities-modulus',
-  'geometry-basics', 'coordinate-geometry-basics'];
+  'geometry-basics', 'coordinate-geometry-basics', 'trigonometry', 'surface-area'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -54,7 +54,9 @@ var TIER_KEYS = {
   progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum', 'apSum'] },
   'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] },
   'geometry-basics': { easy: ['complement', 'supplement', 'triangleThird'], medium: ['triangleThird', 'pythHyp', 'isosceles'], hard: ['pythLeg', 'polygonSum', 'polygonEach'] },
-  'coordinate-geometry-basics': { easy: ['distance', 'midpointX'], medium: ['distance', 'slope', 'midpointX'], hard: ['slope', 'distance', 'sectionX'] }
+  'coordinate-geometry-basics': { easy: ['distance', 'midpointX'], medium: ['distance', 'slope', 'midpointX'], hard: ['slope', 'distance', 'sectionX'] },
+  trigonometry: { easy: ['standardEval', 'complementary'], medium: ['standardEval', 'complementary', 'identity'], hard: ['identity', 'heightElev', 'complementary'] },
+  'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA', 'cuboidTSA'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -197,6 +199,20 @@ function recompute(cat, key, text) {
     if (key === 'midpointX') return (n[0] + n[2]) / 2;
     if (key === 'slope') return (n[3] - n[1]) / (n[2] - n[0]);
     if (key === 'sectionX') return (n[4] * n[2] + n[5] * n[0]) / (n[4] + n[5]);   /* nums: x1,y1,x2,y2,m,n */
+  }
+  if (cat === 'trigonometry') {
+    if (key === 'standardEval') { var fn = /sin/.test(text) ? Math.sin : (/cos/.test(text) ? Math.cos : Math.tan); return r2(fn(n[0] * Math.PI / 180)); }
+    if (key === 'complementary') return 90 - n[0];                    /* sin θ = cos(90−θ) etc. */
+    if (key === 'identity') return 1;                                 /* sin²+cos², sec²−tan², cosec²−cot² all = 1 */
+    if (key === 'heightElev') return Math.round(n[0] * Math.tan(n[1] * Math.PI / 180));  /* height = base·tan(45°) */
+  }
+  if (cat === 'surface-area') {
+    if (key === 'cubeTSA') return 6 * n[0] * n[0];
+    if (key === 'cubeLSA') return 4 * n[0] * n[0];
+    if (key === 'cuboidTSA') return 2 * (n[0] * n[1] + n[1] * n[2] + n[0] * n[2]);
+    if (key === 'cylCSA') return r2(2 * 3.14 * n[0] * n[1]);
+    if (key === 'cylTSA') return r2(2 * 3.14 * n[0] * (n[0] + n[1]));
+    if (key === 'sphereSA') return r2(4 * 3.14 * n[0] * n[0]);
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

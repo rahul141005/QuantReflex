@@ -107,6 +107,61 @@
           'Vertical line ⟹ slope undefined, horizontal ⟹ slope 0.'
         ] }
       ]
+    },
+    {
+      id: 'trigonometry', title: 'Trigonometry', icon: '🔻', category: 'geometry',
+      difficulty: 'advanced', examFrequency: 'medium', status: 'published',
+      drillCategory: 'trigonometry', syllabusTopicId: 'trigonometry', revisionIntervalDays: 8,
+      related: ['geometry-basics', 'area', 'number-system'],
+      searchTerms: ['trigonometry', 'trig', 'sin', 'cos', 'tan', 'sohcahtoa', 'standard angles', 'identity', 'heights and distances', 'angle of elevation', 'complementary angles'],
+      sections: [
+        { type: 'overview', text: 'Trigonometry links the angles of a right triangle to the ratios of its sides. Three ratios (sin, cos, tan), one table of standard angles, one Pythagorean identity, and the complementary-angle rule cover the bulk of SSC/Banking trig and every heights-and-distances question.' },
+        { type: 'concept', title: 'The three ratios — SOH-CAH-TOA', body: 'In a right triangle, for an acute angle θ: sin θ = Opposite/Hypotenuse, cos θ = Adjacent/Hypotenuse, tan θ = Opposite/Adjacent = sin θ/cos θ. Their reciprocals are cosec, sec and cot. Remember the mnemonic SOH-CAH-TOA.' },
+        { type: 'concept', title: 'Standard-angle values & complementary angles', body: 'Learn the table for 0°, 30°, 45°, 60°, 90° cold. Key clean ones: sin 30° = cos 60° = ½, sin 90° = cos 0° = 1, tan 45° = 1, sin 0° = cos 90° = 0. Complementary rule: sin θ = cos(90° − θ), tan θ = cot(90° − θ), sec θ = cosec(90° − θ). So "sin θ = cos 40°" gives θ = 50°.' },
+        { type: 'table', caption: 'Standard-angle values', headers: ['θ', 'sin', 'cos', 'tan'], rows: [
+          ['0°', '0', '1', '0'],
+          ['30°', '½', '√3/2', '1/√3'],
+          ['45°', '√2/2', '√2/2', '1'],
+          ['60°', '√3/2', '½', '√3'],
+          ['90°', '1', '0', '∞']
+        ] },
+        { type: 'formula', items: [
+          { name: 'Pythagorean identities', expr: 'sin²θ + cos²θ = 1;  sec²θ − tan²θ = 1;  cosec²θ − cot²θ = 1', when: 'Simplify or evaluate ratio expressions — each equals 1 for every θ.' },
+          { name: 'Complementary angles', expr: 'sin θ = cos(90° − θ),  tan θ = cot(90° − θ)', when: 'Convert between co-ratios; solve "sin θ = cos X°".' },
+          { name: 'Heights & distances', expr: 'tan(angle of elevation) = height / horizontal distance', when: 'Tower/pole problems. At 45°, height = distance.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Any expression of the form sin²θ + cos²θ (or sec²−tan², cosec²−cot²) is just 1 — no angle needed.',
+          'sin θ = cos(90° − θ): if the two co-ratios are equal, the angles are complementary (add to 90°).',
+          'At an elevation of 45°, tan = 1, so the height equals the horizontal distance — the fastest H&D case.'
+        ] },
+        { type: 'example', problem: 'If sin θ = cos 35°, find the acute angle θ.', steps: [
+          'sin θ = cos(90° − θ), so cos(90° − θ) = cos 35°.',
+          '90° − θ = 35° ⟹ θ = 55°.'
+        ], answer: '55°' },
+        { type: 'example', problem: 'The angle of elevation of a tower-top from a point 30 m away is 45°. Find its height.', steps: [
+          'tan 45° = height / 30.',
+          'tan 45° = 1, so height = 30 m.'
+        ], answer: '30 m' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Commit the standard-angle table to memory — it is assumed, never given.',
+          'Spot identity patterns (sin²+cos²) and collapse them to 1 before doing any arithmetic.',
+          'For heights & distances, draw the right triangle and label opposite/adjacent before choosing the ratio.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Mixing up which ratio is opposite/hypotenuse vs adjacent/hypotenuse — keep SOH-CAH-TOA handy.',
+          'Writing sin(90° − θ) = sin θ (it equals cos θ).',
+          'Forgetting tan 90° is undefined (division by cos 90° = 0).',
+          'Setting up an elevation problem with the height and distance swapped in tan.'
+        ] },
+        { type: 'memory', text: 'SOH-CAH-TOA for the ratios; "co-ratios ⟹ complementary angles"; sin²θ + cos²θ = 1 always.' },
+        { type: 'revision', points: [
+          'sin = O/H, cos = A/H, tan = O/A.',
+          'Standard angles 0/30/45/60/90 — memorise the table.',
+          'sin²θ + cos²θ = 1; sin θ = cos(90° − θ).',
+          'Heights & distances: tan(elevation) = height/distance; 45° ⟹ equal.'
+        ] }
+      ]
     }
   ];
 

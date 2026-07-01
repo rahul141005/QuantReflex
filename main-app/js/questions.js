@@ -573,6 +573,37 @@ var _CG_ARCH = {
 var _CG_PRIMARY = { easy: function () { return _cgMidpoint(); }, medium: function () { return _cgDistance(); }, hard: function () { return _cgSlope(); } };
 function genCoordinateGeometry() { return _genArch('coordinate-geometry-basics', _CG_ARCH, _CG_PRIMARY); }
 
+/** Trigonometry (archetypes: standard-angle ratio · complementary angle · Pythagorean identity · 45° height-and-distance).
+ *  Answers restricted to the clean values {0, 0.5, 1}, integer angles, or integer heights so numeric entry stays exact. */
+var _DEG = Math.PI / 180;
+var _TRIG_STD = [['sin', 0, 0], ['sin', 30, 0.5], ['sin', 90, 1], ['cos', 0, 1], ['cos', 60, 0.5], ['cos', 90, 0], ['tan', 0, 0], ['tan', 45, 1]];
+function _trigStd() { var t = pick(_TRIG_STD); return { q: t[0] + ' ' + t[1] + '° = ?', a: t[2], k: 'standardEval', explain: 'From the standard-angle table, ' + t[0] + ' ' + t[1] + '° = ' + t[2] + '.' }; }
+function _trigComp() { var x = randInt(10, 80), pair = pick([['sin', 'cos'], ['tan', 'cot'], ['cos', 'sin'], ['sec', 'cosec']]); return { q: 'If ' + pair[0] + ' θ = ' + pair[1] + ' ' + x + '°, find the acute angle θ (in degrees).', a: 90 - x, k: 'complementary', explain: pair[0] + ' θ = ' + pair[1] + '(90° − θ), so θ = 90° − ' + x + '° = ' + (90 - x) + '°.' }; }
+function _trigIdentity() { var t = pick([['sin²θ + cos²θ', 'the Pythagorean identity sin²θ + cos²θ = 1'], ['sec²θ − tan²θ', 'the identity sec²θ − tan²θ = 1'], ['cosec²θ − cot²θ', 'the identity cosec²θ − cot²θ = 1']]); return { q: 'Evaluate ' + t[0] + '.', a: 1, k: 'identity', explain: 'By ' + t[1] + ', the value is 1 for every angle θ.' }; }
+function _trigHeight(diff) { var base = randInt(5, diff === 'hard' ? 80 : 40); return { q: 'The angle of elevation of the top of a tower from a point ' + base + ' m from its base is 45°. Find the height of the tower (in metres).', a: base, k: 'heightElev', explain: 'tan(45°) = height / base = 1, so height = base = ' + base + ' m.' }; }
+var _TRIG_ARCH = {
+  easy: [{ k: 'standardEval', skill: 'direct', build: function () { return _trigStd(); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }],
+  medium: [{ k: 'standardEval', skill: 'direct', build: function () { return _trigStd(); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }, { k: 'identity', skill: 'formula', build: function () { return _trigIdentity(); } }],
+  hard: [{ k: 'identity', skill: 'formula', build: function () { return _trigIdentity(); } }, { k: 'heightElev', skill: 'multi-step', build: function (d) { return _trigHeight(d); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }]
+};
+var _TRIG_PRIMARY = { easy: function () { return _trigStd(); }, medium: function () { return _trigComp(); }, hard: function () { return _trigIdentity(); } };
+function genTrigonometry() { return _genArch('trigonometry', _TRIG_ARCH, _TRIG_PRIMARY); }
+
+/** Surface Area (archetypes: cube TSA/LSA · cuboid TSA · cylinder CSA/TSA · sphere SA). Uses π = 3.14 like area/volume. */
+function _saCubeTSA() { var a = randInt(2, 20); return { q: 'Find the total surface area of a cube of side ' + a + ' cm (in cm²).', a: 6 * a * a, k: 'cubeTSA', explain: 'TSA of a cube = 6a² = 6 × ' + a + '² = 6 × ' + (a * a) + ' = ' + (6 * a * a) + ' cm².' }; }
+function _saCubeLSA() { var a = randInt(2, 20); return { q: 'Find the lateral (side) surface area of a cube of side ' + a + ' cm (in cm²).', a: 4 * a * a, k: 'cubeLSA', explain: 'LSA of a cube = 4a² (the four side faces) = 4 × ' + (a * a) + ' = ' + (4 * a * a) + ' cm².' }; }
+function _saCuboidTSA() { var l = randInt(2, 15), b = randInt(2, 15), h = randInt(2, 15); return { q: 'Find the total surface area of a cuboid ' + l + ' × ' + b + ' × ' + h + ' cm (in cm²).', a: 2 * (l * b + b * h + l * h), k: 'cuboidTSA', explain: 'TSA = 2(lb + bh + hl) = 2(' + (l * b) + ' + ' + (b * h) + ' + ' + (l * h) + ') = ' + (2 * (l * b + b * h + l * h)) + ' cm².' }; }
+function _saCylCSA() { var r = randInt(2, 14), h = randInt(3, 20); return { q: 'Find the curved surface area of a cylinder of radius ' + r + ' cm and height ' + h + ' cm (use π = 3.14).', a: _round2(2 * 3.14 * r * h), k: 'cylCSA', explain: 'CSA = 2πrh = 2 × 3.14 × ' + r + ' × ' + h + ' = ' + _round2(2 * 3.14 * r * h) + ' cm².' }; }
+function _saCylTSA() { var r = randInt(2, 12), h = randInt(3, 18); return { q: 'Find the total surface area of a cylinder of radius ' + r + ' cm and height ' + h + ' cm (use π = 3.14).', a: _round2(2 * 3.14 * r * (r + h)), k: 'cylTSA', explain: 'TSA = 2πr(r + h) = 2 × 3.14 × ' + r + ' × (' + r + ' + ' + h + ') = ' + _round2(2 * 3.14 * r * (r + h)) + ' cm².' }; }
+function _saSphere() { var r = randInt(2, 14); return { q: 'Find the surface area of a sphere of radius ' + r + ' cm (use π = 3.14).', a: _round2(4 * 3.14 * r * r), k: 'sphereSA', explain: 'Surface area = 4πr² = 4 × 3.14 × ' + r + '² = ' + _round2(4 * 3.14 * r * r) + ' cm².' }; }
+var _SA_ARCH = {
+  easy: [{ k: 'cubeTSA', skill: 'formula', build: function () { return _saCubeTSA(); } }, { k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }],
+  medium: [{ k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }, { k: 'cylCSA', skill: 'multi-step', build: function () { return _saCylCSA(); } }, { k: 'cubeLSA', skill: 'formula', build: function () { return _saCubeLSA(); } }],
+  hard: [{ k: 'cylTSA', skill: 'multi-step', build: function () { return _saCylTSA(); } }, { k: 'sphereSA', skill: 'multi-step', build: function () { return _saSphere(); } }, { k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }]
+};
+var _SA_PRIMARY = { easy: function () { return _saCubeTSA(); }, medium: function () { return _saCuboidTSA(); }, hard: function () { return _saSphere(); } };
+function genSurfaceArea() { return _genArch('surface-area', _SA_ARCH, _SA_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -603,7 +634,9 @@ var categoryGenerators = {
   progressions: genProgressions,
   'inequalities-modulus': genInequalities,
   'geometry-basics': genGeometryBasics,
-  'coordinate-geometry-basics': genCoordinateGeometry
+  'coordinate-geometry-basics': genCoordinateGeometry,
+  trigonometry: genTrigonometry,
+  'surface-area': genSurfaceArea
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -661,7 +694,7 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genAges, genMixtures, genPipes, genNumberProperties,
   genLinearEquations, genQuadraticEquations, genSurdsIndices,
   genLogarithms, genProgressions, genInequalities,
-  genGeometryBasics, genCoordinateGeometry];
+  genGeometryBasics, genCoordinateGeometry, genTrigonometry, genSurfaceArea];
 
 /**
  * Generate a single random question.

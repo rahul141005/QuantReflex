@@ -9,12 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.89 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.90 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.90 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch E-b): trigonometry + surface-area
+> (ADR-083).** Two more topics — **trigonometry** (standard-angle evaluation / complementary angles / Pythagorean
+> identities / 45° heights-and-distances — answers kept to the clean set {0, ½, 1} or integer angles/heights) and
+> **surface-area** (cube TSA·LSA / cuboid TSA / cylinder CSA·TSA / sphere SA, under Mensuration) — generator + Learn
+> chapter + harness each. **Also backfilled exam-relevance metadata for all 10 new ADR-083 algebra/geometry topics**
+> (statmath.check now loads the algebra + geometry knowledge files, so every published topic is exam-weighted). Harness
+> **96,837 assertions, 0 mismatches**; Learn graph 53→55 topics; subjects roster 29→31. Geometry now covers ratios &
+> mensuration surface-area; heights-and-distances ships inside the trigonometry drill/chapter rather than as a thin
+> standalone. SW v175→v176.
+>
 > **2.89 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch E-a): open the Geometry category
 > (ADR-083).** New `geometry` Learn category (order 45) plus two gold-standard, diagram-free topics — **geometry-basics**
 > (angle relations / triangle angle-sum & isosceles / Pythagoras via triples / polygon angles) and

@@ -84,6 +84,57 @@
           'Scale length by k ⇒ volume by k³.'
         ] }
       ]
+    },
+    {
+      id: 'surface-area', title: 'Surface Area', icon: '📦', category: 'mensuration',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'surface-area', syllabusTopicId: 'mensuration_3d', revisionIntervalDays: 8,
+      related: ['volume', 'area'],
+      searchTerms: ['surface area', 'tsa', 'csa', 'lsa', 'cube', 'cuboid', 'cylinder', 'sphere', 'cone', 'total surface area', 'curved surface area'],
+      sections: [
+        { type: 'overview', text: 'Surface area is the total area of a solid\'s outer faces — the paint or wrapping needed. The exam distinction that trips people is CSA/LSA (the curved or side surface only) versus TSA (everything, including the flat top and bottom). Learn each solid\'s pair of formulas and keep π = 22/7 or 3.14 consistent.' },
+        { type: 'concept', title: 'Prisms — cube & cuboid', body: 'A cube of side a has 6 identical square faces: TSA = 6a². Its lateral surface (the 4 side faces, excluding top & bottom) is LSA = 4a². A cuboid l × b × h has TSA = 2(lb + bh + hl) and LSA = 2h(l + b) — the four walls.' },
+        { type: 'concept', title: 'Round solids — cylinder, sphere, cone', body: 'Cylinder (radius r, height h): CSA = 2πrh (the label around a tin), TSA = 2πr(r + h) (add the two circular ends). Sphere: SA = 4πr² (a sphere has no "flat" part, so there is only one surface area). Cone (radius r, slant height l): CSA = πrl, TSA = πr(r + l); the slant height l = √(r² + h²).' },
+        { type: 'formula', items: [
+          { name: 'Cube', expr: 'TSA = 6a²,  LSA = 4a²', when: 'All six faces vs the four sides.' },
+          { name: 'Cuboid', expr: 'TSA = 2(lb + bh + hl),  LSA = 2h(l + b)', when: 'Boxes; LSA is the four walls only.' },
+          { name: 'Cylinder', expr: 'CSA = 2πrh,  TSA = 2πr(r + h)', when: 'Tins/pipes. CSA excludes the circular ends.' },
+          { name: 'Sphere & cone', expr: 'Sphere SA = 4πr²;  Cone CSA = πrl, TSA = πr(r + l)', when: 'Cone slant l = √(r² + h²), not the vertical height.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Read the question for "curved/lateral" (CSA/LSA) vs "total" (TSA) before picking the formula — it is the #1 marks-loser.',
+          'For a cone always convert vertical height to slant height l = √(r² + h²) first.',
+          'Pick π = 22/7 when the radius is a multiple of 7, else 3.14 — it keeps the arithmetic clean.'
+        ] },
+        { type: 'example', problem: 'Find the total surface area of a cuboid 5 × 4 × 3 cm.', steps: [
+          'TSA = 2(lb + bh + hl) = 2(5·4 + 4·3 + 5·3).',
+          '= 2(20 + 12 + 15) = 2 × 47.',
+          '= 94 cm².'
+        ], answer: '94 cm²' },
+        { type: 'example', problem: 'Find the curved surface area of a cylinder with r = 7 cm, h = 10 cm (π = 22/7).', steps: [
+          'CSA = 2πrh = 2 × 22/7 × 7 × 10.',
+          'The 7 cancels: 2 × 22 × 10 = 440.',
+          '= 440 cm².'
+        ], answer: '440 cm²' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Underline "curved", "lateral" or "total" in the stem before writing anything.',
+          'Choose the π form (22/7 vs 3.14) that cancels with the given radius.',
+          'For cones, never plug the vertical height into a CSA/TSA formula — convert to slant height first.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Using TSA where CSA/LSA is asked (or vice-versa).',
+          'Cube LSA is 4a², not 6a² — the top and bottom are excluded.',
+          'Using the cone\'s vertical height instead of its slant height in πrl.',
+          'Forgetting the sphere has a single surface area (4πr²) with no separate "total".'
+        ] },
+        { type: 'memory', text: 'CSA/LSA = the sides only; TSA = sides + ends. Cube: 6a² total, 4a² lateral.' },
+        { type: 'revision', points: [
+          'Cube: TSA 6a², LSA 4a². Cuboid: TSA 2(lb+bh+hl).',
+          'Cylinder: CSA 2πrh, TSA 2πr(r+h).',
+          'Sphere: 4πr². Cone: CSA πrl, TSA πr(r+l), l = √(r²+h²).',
+          'Always separate "curved/lateral" from "total".'
+        ] }
+      ]
     }
   ];
 

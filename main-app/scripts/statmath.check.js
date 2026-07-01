@@ -17,7 +17,7 @@ var KB = require(p('js/knowledge/registry'));
 var SUB = require(p('data/subjects'));
 
 KB._reset();
-['categories', 'numbers', 'arithmetic', 'commercial', 'modern', 'mensuration', 'di', 'lr'].forEach(function (m) { require(p('data/knowledge/' + m)); });
+['categories', 'numbers', 'arithmetic', 'commercial', 'algebra', 'modern', 'geometry', 'mensuration', 'di', 'lr'].forEach(function (m) { require(p('data/knowledge/' + m)); });
 
 var pass = 0, fail = 0, shown = 0;
 function ok(label, cond) { if (cond) pass++; else { fail++; if (++shown <= 30) console.error('  ✗ ' + label); } }
