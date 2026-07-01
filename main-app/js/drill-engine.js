@@ -528,8 +528,11 @@ function createDrillEngine(container, opts) {
       feedback.appendChild(wrongLabel);
       feedback.appendChild(correctLabel);
 
-      /* Auto-explain: show a rule-based tip immediately, no button press needed.
-         Premium users always see the tip. Free users get 5 lifetime credits. */
+      /* Auto-explain: a rule-based tip on a wrong answer — but ONLY when the question ships no written explanation.
+         Generated Quant (ADR-083) + authored LR now carry a full teaching explanation, rendered free to everyone just
+         below; showing the generic tip (or, worse, its paywall lock) alongside a free explanation would be redundant
+         and contradictory for out-of-credit free users. So the rich explanation supersedes the generic tip. */
+      if (!q.explanation) {
       var autoTipEl = document.createElement('div');
       var _isPremium = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
       if (_isPremium) {
@@ -554,6 +557,7 @@ function createDrillEngine(container, opts) {
         }
       }
       feedback.appendChild(autoTipEl);
+      }
 
       var card = ui.cardEl;
       if (card) card.classList.add('feedback-shake');

@@ -21,8 +21,6 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-var PI = 3.14;
-
 /* Server-safe difficulty override. When set (by generateQuestions/generateMultiTopic) _getDifficulty returns it
    directly — no DOM/AppState/AdaptiveState reads — so api/duel.js can require this module and generate at a chosen
    difficulty server-side. Stays null on the client except while an explicit-difficulty call is in flight. */
