@@ -31,6 +31,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   mismatches**; full suite green; Node duel path intact; browser boot clean (0 page errors, `QRGen` loaded). No new
   colours/deps/Firestore, no gamification. Phases 2–5 (overhaul remaining 9 generators; add the full missing-topic roster
   with Learn + drill + harness; calibration; global validation) follow under this ADR. SW v167→v168, Bible 2.81→2.82.
+- **Phase 2 — overhaul the remaining 9 generators:** brought fractions, multiplication, ratios, averages, profit-loss,
+  time-speed-distance, time-and-work, simplification and number-series to the same bar — per-tier archetype pools
+  (e.g. TSD = distance/time/speed/avg-speed; averages = mean/missing/weighted/new-member; profit-loss = SP-from-profit/
+  loss/profit%/find-CP/successive; number-series = arithmetic/geometric/growing-gap), earned difficulty that never
+  downgrades, premium explanations, and exam-authentic wording (word problems, ₹, real scenarios) replacing the old
+  robotic "CP = 200, Profit = 25%. SP = ?" stems. Extended `quant-engine.check.js` to recompute **all 14** categories
+  (arithmetic stems re-evaluated independently; series next-term re-detected; keyed recompute elsewhere). Result:
+  **43,503 assertions, 5,638 answers independently recomputed, 0 mismatches**; full suite + Node duel path green. SW
+  v168→v169, Bible 2.82→2.83.
 
 ## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
 - **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the

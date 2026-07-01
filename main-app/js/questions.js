@@ -187,76 +187,27 @@ var _VOLUME_ARCH = {
 var _VOLUME_PRIMARY = { easy: function () { return _volCube('easy'); }, medium: function () { return _volCuboid('medium'); }, hard: function () { return _volCyl('hard'); } };
 function genVolume() { return _genArch('volume', _VOLUME_ARCH, _VOLUME_PRIMARY); }
 
-/** Fractions → percentage with wording variety + reverse direction */
-function genFraction() {
-  var table = [
-    { frac: '1/2', pct: '50' },
-    { frac: '1/3', pct: '33.33' },
-    { frac: '2/3', pct: '66.66' },
-    { frac: '1/4', pct: '25' },
-    { frac: '3/4', pct: '75' },
-    { frac: '1/5', pct: '20' },
-    { frac: '2/5', pct: '40' },
-    { frac: '3/5', pct: '60' },
-    { frac: '4/5', pct: '80' },
-    { frac: '1/6', pct: '16.66' },
-    { frac: '5/6', pct: '83.33' },
-    { frac: '1/8', pct: '12.5' },
-    { frac: '3/8', pct: '37.5' },
-    { frac: '5/8', pct: '62.5' },
-    { frac: '7/8', pct: '87.5' },
-    { frac: '1/9', pct: '11.11' },
-    { frac: '2/9', pct: '22.22' },
-    { frac: '4/9', pct: '44.44' },
-    { frac: '5/9', pct: '55.55' },
-    { frac: '7/9', pct: '77.77' },
-    { frac: '8/9', pct: '88.88' },
-    { frac: '1/10', pct: '10' },
-    { frac: '1/11', pct: '9.09' },
-    { frac: '2/11', pct: '18.18' },
-    { frac: '3/11', pct: '27.27' },
-    { frac: '5/11', pct: '45.45' },
-    { frac: '9/11', pct: '81.81' },
-    { frac: '1/12', pct: '8.33' },
-    { frac: '1/15', pct: '6.66' },
-    { frac: '1/20', pct: '5' },
-    { frac: '1/25', pct: '4' },
-    { frac: '1/40', pct: '2.5' },
-    { frac: '1/50', pct: '2' },
-    { frac: '3/10', pct: '30' },
-    { frac: '7/10', pct: '70' },
-    { frac: '9/10', pct: '90' }
-  ];
-  var diff = _getDifficulty();
-  var subset = diff === 'easy' ? table.slice(0, 15) : table;
-  var item = pick(subset);
-
-  /* Reverse direction: percentage → fraction (medium/hard, 30% chance) */
-  if (diff !== 'easy' && randInt(0, 2) === 0) {
-    /* Only use clean percentage values for reverse questions */
-    var reversePool = subset.filter(function (e) {
-      return e.pct.indexOf('.') === -1 || e.pct === '12.5' || e.pct === '37.5' || e.pct === '62.5' || e.pct === '87.5' || e.pct === '2.5';
-    });
-    if (reversePool.length > 0) {
-      var rItem = pick(reversePool);
-      var revPhrasings = [
-        rItem.pct + '% as a fraction = ?',
-        'Express ' + rItem.pct + '% as a fraction = ?',
-        rItem.pct + '% = ? (fraction)'
-      ];
-      return { question: pick(revPhrasings), answer: rItem.frac, category: 'fractions', subtype: 'reverse' };
-    }
-  }
-
-  /* Vary question phrasing so the session doesn't feel templated */
-  var phrasings = [
-    item.frac + ' expressed as a percentage = ?',
-    'Convert ' + item.frac + ' to % = ?',
-    item.frac + ' = ?%',
-    'What is ' + item.frac + ' as a percentage?'
-  ];
-  return { question: pick(phrasings), answer: item.pct, category: 'fractions' };
-}
+/** Fraction ↔ percentage conversions (ADR-083 archetypes: fraction→% · %→fraction). String answers. */
+var _FRAC_TABLE = [
+  { frac: '1/2', pct: '50' }, { frac: '1/3', pct: '33.33' }, { frac: '2/3', pct: '66.66' }, { frac: '1/4', pct: '25' },
+  { frac: '3/4', pct: '75' }, { frac: '1/5', pct: '20' }, { frac: '2/5', pct: '40' }, { frac: '3/5', pct: '60' },
+  { frac: '4/5', pct: '80' }, { frac: '1/6', pct: '16.66' }, { frac: '5/6', pct: '83.33' }, { frac: '1/8', pct: '12.5' },
+  { frac: '3/8', pct: '37.5' }, { frac: '5/8', pct: '62.5' }, { frac: '7/8', pct: '87.5' }, { frac: '1/9', pct: '11.11' },
+  { frac: '2/9', pct: '22.22' }, { frac: '4/9', pct: '44.44' }, { frac: '5/9', pct: '55.55' }, { frac: '7/9', pct: '77.77' },
+  { frac: '8/9', pct: '88.88' }, { frac: '1/10', pct: '10' }, { frac: '1/11', pct: '9.09' }, { frac: '2/11', pct: '18.18' },
+  { frac: '3/11', pct: '27.27' }, { frac: '5/11', pct: '45.45' }, { frac: '9/11', pct: '81.81' }, { frac: '1/12', pct: '8.33' },
+  { frac: '1/15', pct: '6.66' }, { frac: '1/20', pct: '5' }, { frac: '1/25', pct: '4' }, { frac: '1/40', pct: '2.5' },
+  { frac: '1/50', pct: '2' }, { frac: '3/10', pct: '30' }, { frac: '7/10', pct: '70' }, { frac: '9/10', pct: '90' }
+];
+function _fracToPct(diff) { var it = pick(diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE); return { q: pick([it.frac + ' expressed as a percentage = ? %', 'Convert ' + it.frac + ' to a percentage.', it.frac + ' = ? %', 'What is ' + it.frac + ' as a percentage?']), a: it.pct, k: 'fracToPct', explain: it.frac + ' = ' + it.pct + '% (divide and ×100; memorising the common ones saves seconds).' }; }
+function _pctToFrac(diff) { var pool = (diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE).filter(function (e) { return e.pct.indexOf('.') === -1 || ['12.5', '37.5', '62.5', '87.5', '2.5'].indexOf(e.pct) !== -1; }); if (!pool.length) return null; var it = pick(pool); return { q: pick([it.pct + '% as a fraction = ?', 'Express ' + it.pct + '% as a fraction.', it.pct + '% = ? (in lowest terms)']), a: it.frac, k: 'pctToFrac', explain: it.pct + '% = ' + it.pct + '/100 = ' + it.frac + ' in lowest terms.' }; }
+var _FRAC_ARCH = {
+  easy: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }],
+  medium: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }, { k: 'pctToFrac', skill: 'inverse', build: function (d) { return _pctToFrac(d); } }],
+  hard: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }, { k: 'pctToFrac', skill: 'inverse', build: function (d) { return _pctToFrac(d); } }]
+};
+var _FRAC_PRIMARY = { easy: function () { return _fracToPct('easy'); }, medium: function () { return _fracToPct('medium'); }, hard: function () { return _fracToPct('hard'); } };
+function genFraction() { return _genArch('fractions', _FRAC_ARCH, _FRAC_PRIMARY); }
 
 /** Percentages (ADR-083 archetypes: direct-of · reverse-base · what-percent · percent-change · successive-discount ·
  *  equal-±x trap). Every build guarantees a clean answer or returns null so the tier retries. */
@@ -278,409 +229,123 @@ var _PCT_PRIMARY = { easy: function () { return _pctSafe('easy'); }, medium: fun
 function genPercentage() { return _genArch('percentages', _PCT_ARCH, _PCT_PRIMARY); }
 
 /** Mental multiplication: varied sub-types including 3-factor and squaring */
-function genMultiplication() {
-  var diff = _getDifficulty();
-  var hint = _getAdaptiveHint();
-  var subtype = diff === 'easy' ? 0 : randInt(0, 4);
+/** Mental multiplication (ADR-083 archetypes: multiply · divide-inverse · 3-factor · mental-square). */
+function _mulTwo(diff) { var x, y; if (diff === 'easy') { x = randInt(2, 20); y = randInt(2, 12); } else if (diff === 'hard') { x = randInt(12, 50); y = randInt(6, 25); } else { x = randInt(6, 30); y = randInt(4, 20); } var tens = 10 * Math.floor(y / 10), un = y % 10; return { q: x + ' × ' + y + ' = ?', a: x * y, k: 'multiply', explain: x + ' × ' + y + ' = ' + (x * y) + '. Split the second number: ' + x + ' × ' + tens + ' + ' + x + ' × ' + un + ' = ' + (x * tens) + ' + ' + (x * un) + '.' }; }
+function _mulDiv(diff) { var x, y; if (diff === 'hard') { x = randInt(6, 25); y = randInt(4, 20); } else { x = randInt(3, 15); y = randInt(3, 15); } var p = x * y; return { q: p + ' ÷ ' + x + ' = ?', a: y, k: 'divide', explain: p + ' ÷ ' + x + ' = ' + y + ', since ' + x + ' × ' + y + ' = ' + p + '. Division undoes the product.' }; }
+function _mul3(diff) { var a, b, c; if (diff === 'hard') { a = randInt(4, 12); b = randInt(3, 8); c = randInt(2, 6); } else { a = randInt(2, 8); b = randInt(2, 6); c = randInt(2, 5); } if (a * b * c > 1200) c = Math.max(2, Math.floor(1000 / (a * b))); return { q: a + ' × ' + b + ' × ' + c + ' = ?', a: a * b * c, k: 'threeFactor', explain: 'Left to right: ' + a + ' × ' + b + ' = ' + (a * b) + ', then × ' + c + ' = ' + (a * b * c) + '. Regroup to make a round number when possible.' }; }
+function _mulSquare() { var n = pick([11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25]); var r = Math.round(n / 10) * 10, d = n - r; return { q: n + ' × ' + n + ' = ?', a: n * n, k: 'mentalSquare', explain: n + '² = (' + r + (d < 0 ? '' : '+') + d + ')² = ' + (n * n) + ' — a fast mental square.' }; }
+var _MUL_ARCH = {
+  easy: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }],
+  medium: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }],
+  hard: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }, { k: 'mentalSquare', skill: 'multi-step', build: function () { return _mulSquare(); } }]
+};
+var _MUL_PRIMARY = { easy: function () { return _mulTwo('easy'); }, medium: function () { return _mulTwo('medium'); }, hard: function () { return _mulTwo('hard'); } };
+function genMultiplication() { return _genArch('multiplication', _MUL_ARCH, _MUL_PRIMARY); }
 
-  /* 3-factor multiplication (medium/hard) — dynamically generated */
-  if (subtype === 3 && diff !== 'easy') {
-    var _3a, _3b, _3c;
-    if (diff === 'hard') {
-      _3a = randInt(4, 12); _3b = randInt(3, 8); _3c = randInt(2, 6);
-    } else {
-      _3a = randInt(2, 8); _3b = randInt(2, 6); _3c = randInt(2, 5);
-    }
-    /* Ensure the product is reasonable (≤ 1000 for mental math) */
-    if (_3a * _3b * _3c > 1000) _3c = Math.max(2, Math.floor(1000 / (_3a * _3b)));
-    return { question: _3a + ' × ' + _3b + ' × ' + _3c + ' = ?', answer: _3a*_3b*_3c, category: 'multiplication', subtype: '3-factor' };
-  }
-  /* Squaring-by-formula: (a+b)² or (a-b)² hint */
-  if (subtype === 4 && diff === 'hard') {
-    var sq = pick([11,12,13,14,15,16,17,18,19,21,22,23,24,25]);
-    return { question: sq + '² = ?', answer: sq * sq, category: 'multiplication', subtype: 'square-mental' };
-  }
+/** Ratio & proportion (ADR-083 archetypes: divide-in-ratio · find-term · combine A:B:C · percent↔ratio). */
+function _ratDivide(diff) { var pr = pick(diff === 'hard' ? [[2, 3], [3, 4], [3, 5], [4, 7], [5, 8], [2, 7], [3, 8], [5, 9]] : [[2, 3], [3, 4], [3, 5], [4, 5], [1, 2]]); var parts = pr[0] + pr[1]; var total = parts * pick([20, 25, 30, 40, 50, 60, 80, 100]); var a = total * pr[0] / parts; return { q: '₹' + total + ' is divided between A and B in the ratio ' + pr[0] + ' : ' + pr[1] + '. A gets ₹?', a: a, k: 'divide', explain: 'Total parts = ' + pr[0] + ' + ' + pr[1] + ' = ' + parts + '. One part = ' + total + ' ÷ ' + parts + ' = ' + (total / parts) + '. A = ' + pr[0] + ' × ' + (total / parts) + ' = ' + a + '.' }; }
+function _ratTerm(diff) { var pr = pick(diff === 'hard' ? [[2, 3], [3, 4], [3, 5], [4, 7], [5, 8]] : [[2, 3], [3, 4], [3, 5], [4, 5]]); var one = pick([20, 25, 30, 40, 50, 60]); var aVal = pr[0] * one, bVal = pr[1] * one; return { q: 'A : B = ' + pr[0] + ' : ' + pr[1] + ' and A = ' + aVal + '. B = ?', a: bVal, k: 'findTerm', explain: 'One part = A ÷ ' + pr[0] + ' = ' + aVal + ' ÷ ' + pr[0] + ' = ' + one + '. B = ' + pr[1] + ' × ' + one + ' = ' + bVal + '.' }; }
+function _ratCombine() { var abList = [[2, 3], [3, 4], [3, 5], [4, 5], [2, 5], [5, 6], [3, 7]]; var ab = pick(abList); var bcList = [[3, 4], [4, 5], [5, 6], [5, 3], [7, 3], [6, 5], [7, 4]].filter(function (x) { return x[0] === ab[1]; }); if (!bcList.length) return null; var bc = pick(bcList); var g = _gcd(ab[0], bc[1]); return { q: 'A : B = ' + ab[0] + ' : ' + ab[1] + ' and B : C = ' + bc[0] + ' : ' + bc[1] + '. A : C = ?', a: (ab[0] / g) + ':' + (bc[1] / g), k: 'combine', explain: 'B is common (' + ab[1] + '=' + bc[0] + '), so A : C = ' + ab[0] + ' : ' + bc[1] + ' = ' + (ab[0] / g) + ' : ' + (bc[1] / g) + ' after dividing by ' + g + '.' }; }
+var _RAT_PCT = { easy: [['25% more', '5:4'], ['20% less', '4:5'], ['50% more', '3:2'], ['20% more', '6:5'], ['25% less', '3:4'], ['10% less', '9:10']], hard: [['12.5% more', '9:8'], ['16.66% less', '5:6'], ['37.5% more', '11:8'], ['11.11% less', '8:9'], ['66.66% more', '5:3'], ['150% more', '5:2'], ['40% more', '7:5'], ['75% more', '7:4']] };
+function _ratPct(diff) { var s = pick(diff === 'hard' ? _RAT_PCT.hard.concat(_RAT_PCT.easy) : _RAT_PCT.easy); return { q: 'A is ' + s[0] + ' than B. A : B = ?', a: s[1], k: 'pctRatio', explain: 'Write A as a fraction of B: "' + s[0] + '" → A/B = ' + s[1].replace(':', '/') + ', so A : B = ' + s[1] + ' in lowest terms.' }; }
+var _RATIO_ARCH = {
+  easy: [{ k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }, { k: 'pctRatio', skill: 'direct', build: function (d) { return _ratPct(d); } }],
+  medium: [{ k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }, { k: 'findTerm', skill: 'inverse', build: function (d) { return _ratTerm(d); } }, { k: 'pctRatio', skill: 'formula', build: function (d) { return _ratPct(d); } }],
+  hard: [{ k: 'findTerm', skill: 'inverse', build: function (d) { return _ratTerm(d); } }, { k: 'combine', skill: 'multi-step', build: function () { return _ratCombine(); } }, { k: 'pctRatio', skill: 'formula', build: function (d) { return _ratPct(d); } }, { k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }]
+};
+var _RATIO_PRIMARY = { easy: function () { return _ratDivide('easy'); }, medium: function () { return _ratDivide('medium'); }, hard: function () { return _ratTerm('hard'); } };
+function genRatio() { return _genArch('ratios', _RATIO_ARCH, _RATIO_PRIMARY); }
 
-  var x, y;
-  if (diff === 'easy') { x = randInt(2, 20); y = randInt(2, 12); }
-  else if (diff === 'hard') { x = randInt(11, 50); y = randInt(2, 25); }
-  else { x = randInt(2, 30); y = randInt(2, 20); }
+/** Averages (ADR-083 archetypes: mean · missing-term · weighted-two-group · new-member). */
+function _avgList(count, avg, spread) { var nums = [], s = 0; for (var i = 0; i < count - 1; i++) { var v = Math.max(1, avg + randInt(-spread, spread)); nums.push(v); s += v; } var last = avg * count - s; if (last < 1) return null; nums.push(last); return nums; }
+function _avgMean(diff) { var count = diff === 'easy' ? randInt(3, 4) : (diff === 'hard' ? randInt(4, 6) : randInt(3, 5)); var avg = diff === 'easy' ? randInt(15, 45) : (diff === 'hard' ? randInt(30, 90) : randInt(20, 70)); var nums = _avgList(count, avg, diff === 'easy' ? 8 : (diff === 'hard' ? 25 : 15)); if (!nums) return null; return { q: pick(['The average of ' + nums.join(', ') + ' = ?', 'Find the mean of ' + nums.join(', ') + '.', 'What is the average of ' + nums.join(', ') + '?']), a: avg, k: 'mean', explain: 'Average = sum ÷ count = ' + nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + count + ' = ' + avg + '.' }; }
+function _avgMissing(diff) { var count = diff === 'hard' ? randInt(4, 6) : randInt(3, 5); var avg = randInt(20, 80); var known = [], s = 0; for (var i = 0; i < count - 1; i++) { var v = Math.max(1, avg + randInt(-25, 25)); known.push(v); s += v; } var x = avg * count - s; if (x < 1 || x > 250) return null; return { q: 'The average of ' + known.join(', ') + ' and x is ' + avg + '. x = ?', a: x, k: 'missing', explain: 'Total needed = average × count = ' + avg + ' × ' + count + ' = ' + (avg * count) + '. x = ' + (avg * count) + ' − ' + s + ' = ' + x + '.' }; }
+function _avgWeighted() { for (var i = 0; i < 40; i++) { var m = pick([2, 3, 4, 5, 6, 8, 10]), n = pick([2, 3, 4, 5, 6, 8, 10]); var a = pick([20, 30, 40, 50, 60]), b = pick([20, 30, 40, 50, 60, 70, 80]); var ov = (m * a + n * b) / (m + n); if (ov === Math.floor(ov) && a !== b) return { q: 'The average weight of ' + m + ' boys is ' + a + ' kg and of ' + n + ' girls is ' + b + ' kg. The average weight of the whole group = ? kg', a: ov, k: 'weighted', explain: 'Weighted mean = (total of both groups) ÷ (total count) = (' + m + '×' + a + ' + ' + n + '×' + b + ') ÷ (' + m + '+' + n + ') = ' + (m * a + n * b) + ' ÷ ' + (m + n) + ' = ' + ov + '.' }; } return null; }
+function _avgNewMember() { for (var i = 0; i < 40; i++) { var n = pick([4, 5, 6, 8, 10]); var A = pick([20, 30, 40, 50, 60]); var B = A + pick([1, 2, 3, 4, 5]); var x = B * (n + 1) - A * n; if (x > 0 && x < 300) return { q: 'The average of ' + n + ' numbers is ' + A + '. When one more number is added the average becomes ' + B + '. The new number = ?', a: x, k: 'newMember', explain: 'New number = new total − old total = ' + B + '×' + (n + 1) + ' − ' + A + '×' + n + ' = ' + (B * (n + 1)) + ' − ' + (A * n) + ' = ' + x + '.' }; } return null; }
+var _AVG_ARCH = {
+  easy: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }],
+  medium: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }, { k: 'missing', skill: 'inverse', build: function (d) { return _avgMissing(d); } }],
+  hard: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }, { k: 'missing', skill: 'inverse', build: function (d) { return _avgMissing(d); } }, { k: 'weighted', skill: 'multi-step', build: function () { return _avgWeighted(); } }, { k: 'newMember', skill: 'multi-step', build: function () { return _avgNewMember(); } }]
+};
+var _AVG_PRIMARY = {
+  easy: function () { var a = randInt(15, 45); return { q: 'The average of ' + [a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All three equal ' + a + ', so the average is ' + a + '.' }; },
+  medium: function () { var a = randInt(20, 60); return { q: 'The average of ' + [a, a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All four equal ' + a + ' → average ' + a + '.' }; },
+  hard: function () { var a = randInt(30, 80); return { q: 'The average of ' + [a, a, a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All five equal ' + a + ' → average ' + a + '.' }; }
+};
+function genAverage() { return _genArch('averages', _AVG_ARCH, _AVG_PRIMARY); }
 
-  var hintLogic = hint ? hint.logic : [];
-  var biasInverse = hint && (hint.type === 'inverse' || hintLogic.indexOf('division') !== -1);
-  if (biasInverse || (diff !== 'easy' && randInt(0, 3) === 0)) {
-    var product = x * y;
-    return { question: product + ' ÷ ' + x + ' = ?', answer: y, category: 'multiplication', subtype: 'division' };
-  }
-  return { question: x + ' × ' + y + ' = ?', answer: x * y, category: 'multiplication', subtype: 'multiplication' };
-}
-
-/** Ratio: % change, computation, and combination sub-types */
-function genRatio() {
-  var diff = _getDifficulty();
-  var subtype = diff === 'easy' ? 0 : randInt(0, 2);
-
-  /* Computation: A:B = p:q and A = n, find B */
-  if (subtype === 1 && diff !== 'easy') {
-    var pairs = diff === 'hard'
-      ? [[2,3],[3,4],[3,5],[4,7],[5,8],[2,7],[3,8]]
-      : [[2,3],[3,4],[3,5],[4,5],[1,2]];
-    var pr = pick(pairs);
-    var multiples = [50,60,80,100,120,150,160,180,200];
-    var aVal = pr[0] * pick(multiples.filter(function(m){ return m > 10; }));
-    var bVal = Math.round(aVal * pr[1] / pr[0]);
-    if (Number.isInteger(bVal))
-      return { question: 'A:B = ' + pr[0] + ':' + pr[1] + ' and A = ' + aVal + '. B = ?', answer: bVal, category: 'ratios', subtype: 'computation' };
-  }
-  /* Combination: A:B and B:C, find A:C — dynamically generated */
-  if (subtype === 2 && diff === 'hard') {
-    /* Generate pairs where B cancels out cleanly */
-    var _abPairs = [[2,3],[3,4],[3,5],[4,5],[2,5],[4,7],[5,6],[3,7],[5,8],[2,7]];
-    var _bcPairs = [[3,4],[4,5],[5,3],[5,6],[3,2],[7,3],[6,5],[7,4],[8,3],[7,5]];
-    var _pIdx = randInt(0, _abPairs.length - 1);
-    var _ab = _abPairs[_pIdx];
-    /* Pick a B:C pair where B matches _ab[1] to allow clean cancellation */
-    var _matchingBc = [];
-    for (var _bi = 0; _bi < _bcPairs.length; _bi++) {
-      if (_bcPairs[_bi][0] === _ab[1]) _matchingBc.push(_bcPairs[_bi]);
-    }
-    if (_matchingBc.length > 0) {
-      var _bc = pick(_matchingBc);
-      /* A:C = _ab[0] : _bc[1] — simplify by GCD */
-      var _gcdVal = _gcd(_ab[0], _bc[1]);
-      var _ansA = _ab[0] / _gcdVal, _ansC = _bc[1] / _gcdVal;
-      return { question: 'A:B = ' + _ab[0] + ':' + _ab[1] + ', B:C = ' + _bc[0] + ':' + _bc[1] + '. A:C = ?', answer: _ansA + ':' + _ansC, category: 'ratios', subtype: 'combination' };
-    }
-    /* Fallback to a known-good combo */
-    return { question: 'A:B = 2:3, B:C = 3:4. A:C = ?', answer: '1:2', category: 'ratios', subtype: 'combination' };
-  }
-
-  var scenarios = [
-    { q: 'A is 25% more than B. A:B = ?', a: '5:4' },
-    { q: 'A is 20% less than B. A:B = ?', a: '4:5' },
-    { q: 'A is 50% more than B. A:B = ?', a: '3:2' },
-    { q: 'A is 33.33% more than B. A:B = ?', a: '4:3' },
-    { q: 'A is 20% more than B. A:B = ?', a: '6:5' },
-    { q: 'A is 25% less than B. A:B = ?', a: '3:4' },
-    { q: 'A is 40% more than B. A:B = ?', a: '7:5' },
-    { q: 'A is 10% less than B. A:B = ?', a: '9:10' },
-    { q: 'A is 60% more than B. A:B = ?', a: '8:5' },
-    { q: 'A is 75% more than B. A:B = ?', a: '7:4' }
-  ];
-  if (diff === 'hard') {
-    scenarios = scenarios.concat([
-      { q: 'A is 12.5% more than B. A:B = ?', a: '9:8' },
-      { q: 'A is 16.66% less than B. A:B = ?', a: '5:6' },
-      { q: 'A is 37.5% more than B. A:B = ?', a: '11:8' },
-      { q: 'A is 11.11% less than B. A:B = ?', a: '8:9' },
-      { q: 'A is 66.66% more than B. A:B = ?', a: '5:3' },
-      { q: 'A is 150% more than B. A:B = ?', a: '5:2' }
-    ]);
-  } else if (diff === 'easy') { scenarios = scenarios.slice(0, 6); }
-  var s = pick(scenarios);
-  return { question: s.q, answer: s.a, category: 'ratios' };
-}
-
-/** Average calculations */
-function genAverage() {
-  var diff = _getDifficulty();
-  var count, minVal, maxVal;
-
-  if (diff === 'easy') {
-    count = randInt(3, 4);
-    minVal = 10; maxVal = 50;
-  } else if (diff === 'hard') {
-    /* Include missing number problems */
-    if (randInt(0, 1) === 0) {
-      return genAverageMissing();
-    }
-    count = randInt(4, 5);
-    minVal = 10; maxVal = 100;
-  } else {
-    count = randInt(3, 5);
-    minVal = 10; maxVal = 80;
-  }
-
-  var nums = [];
-  for (var i = 0; i < count; i++) nums.push(randInt(minVal, maxVal));
-  var sum = nums.reduce(function (a, b) { return a + b; }, 0);
-  var avg = sum / count;
-  /* Use whole-number averages only */
-  if (avg !== Math.floor(avg)) {
-    var adjustment = (Math.ceil(avg) * count) - sum;
-    nums[0] += adjustment;
-    /* Ensure no negative numbers after adjustment */
-    if (nums[0] <= 0) {
-      nums[0] = minVal;
-      sum = nums.reduce(function (a, b) { return a + b; }, 0);
-      avg = Math.round(sum / count);
-      /* Force the sum to be divisible by count */
-      nums[0] += (avg * count) - sum;
-    }
-    sum = nums.reduce(function (a, b) { return a + b; }, 0);
-    avg = sum / count;
-  }
-  /* Final safety: ensure all numbers are positive and average is integer */
-  var allPositive = true;
-  for (var j = 0; j < nums.length; j++) {
-    if (nums[j] <= 0) { allPositive = false; break; }
-  }
-  if (!allPositive || avg !== Math.floor(avg)) {
-    avg = randInt(15, 60);
-    nums = [];
-    for (var s = 0; s < count; s++) nums.push(avg);
-    sum = avg * count;
-  }
-  var avgPhrasings = [
-    'Average of ' + nums.join(', ') + ' = ?',
-    'Mean of ' + nums.join(', ') + ' = ?',
-    'Find the average: ' + nums.join(', ') + ' = ?'
-  ];
-  return {
-    question: pick(avgPhrasings),
-    answer: avg,
-    category: 'averages',
-    subtype: 'average'
-  };
-}
-
-/** Average - find missing number (hard mode) */
-function genAverageMissing() {
-  var count = randInt(4, 6);
-  var avg = randInt(20, 80);
-  var totalSum = avg * count;
-  var nums = [];
-  var partialSum = 0;
-  /* Generate numbers close to the average to keep the missing value reasonable */
-  for (var i = 0; i < count - 1; i++) {
-    var n = randInt(Math.max(1, avg - 30), avg + 30);
-    nums.push(n);
-    partialSum += n;
-  }
-  var missing = totalSum - partialSum;
-  /* Regenerate if missing value is negative or unreasonably large */
-  if (missing <= 0 || missing > 200) {
-    /* Fallback: adjust last known number to make missing value reasonable */
-    var target = randInt(Math.max(1, avg - 20), avg + 20);
-    var newLast = totalSum - (partialSum - nums[nums.length - 1]) - target;
-    /* Ensure the adjusted number stays positive */
-    if (newLast <= 0) return genAverage();
-    nums[nums.length - 1] = newLast;
-    partialSum = nums.reduce(function (a, b) { return a + b; }, 0);
-    missing = totalSum - partialSum;
-    /* Final fallback */
-    if (missing <= 0 || missing > 200) {
-      return genAverage();
-    }
-  }
-  /* Safety: ensure all displayed numbers are positive */
-  for (var c = 0; c < nums.length; c++) {
-    if (nums[c] <= 0) return genAverage();
-  }
-  return {
-    question: 'Average of ' + nums.join(', ') + ', x is ' + avg + '. x = ?',
-    answer: missing,
-    category: 'averages',
-    subtype: 'average-missing'
-  };
-}
-
-/** Profit and Loss calculations — 4 sub-types */
-function genProfitLoss() {
-  var diff = _getDifficulty();
-  var type = diff === 'hard' ? randInt(0, 3) : randInt(0, 2);
-
-  /* Varied CP pools — avoid all-round-100 figures */
-  var cpEasy   = [100, 120, 150, 200, 250, 300, 400, 500];
-  var cpMedium = [120, 125, 144, 150, 160, 175, 200, 225, 240, 250, 288, 300, 360, 400, 450, 480, 500];
-  var cpHard   = [125, 144, 160, 175, 200, 225, 240, 250, 280, 288, 300, 320, 360, 375, 400, 432, 450, 480, 500, 560, 600];
-  var cpPool   = diff === 'easy' ? cpEasy : (diff === 'hard' ? cpHard : cpMedium);
-
-  if (type === 0) {
-    /* Find SP given CP and profit% — ensure whole-number result */
-    var profitOpts = diff === 'easy' ? [10, 20, 25, 50] : (diff === 'hard' ? [5, 8, 10, 12, 15, 20, 25, 30, 40, 50] : [5, 10, 15, 20, 25, 30, 40, 50]);
-    var profitPct = pick(profitOpts);
-    var cp, sp;
-    var plAttempts = 0;
-    do {
-      cp = pick(cpPool);
-      sp = cp * (1 + profitPct / 100);
-      plAttempts++;
-    } while (sp !== Math.floor(sp) && plAttempts < 40);
-    if (sp !== Math.floor(sp)) { cp = 200; profitPct = 25; sp = 250; }
-    return { question: 'CP = ' + cp + ', Profit = ' + profitPct + '%. SP = ?', answer: sp, category: 'profit-loss' };
-  } else if (type === 1) {
-    /* Find SP given CP and loss% — ensure whole-number result */
-    var lossOpts = diff === 'easy' ? [10, 20, 25] : [5, 10, 15, 20, 25];
-    var lossPct = pick(lossOpts);
-    var cp2, sp2;
-    var plAttempts2 = 0;
-    do {
-      cp2 = pick(cpPool);
-      sp2 = cp2 * (1 - lossPct / 100);
-      plAttempts2++;
-    } while (sp2 !== Math.floor(sp2) && plAttempts2 < 40);
-    if (sp2 !== Math.floor(sp2)) { cp2 = 200; lossPct = 20; sp2 = 160; }
-    return { question: 'CP = ' + cp2 + ', Loss = ' + lossPct + '%. SP = ?', answer: sp2, category: 'profit-loss' };
-  } else if (type === 2) {
-    /* Find profit% given CP and SP */
-    var profitPct2 = pick([10, 15, 20, 25, 30, 50]);
-    var cp3 = pick(cpPool);
-    var sp3;
-    var p3Attempts = 0;
-    do {
-      sp3 = cp3 * (1 + profitPct2 / 100);
-      if (sp3 === Math.floor(sp3)) break;
-      cp3 = pick(cpPool);
-      p3Attempts++;
-    } while (p3Attempts < 20);
-    if (!sp3 || sp3 !== Math.floor(sp3)) { cp3 = 200; profitPct2 = 25; sp3 = 250; }
-    return { question: 'CP = ' + cp3 + ', SP = ' + sp3 + '. Profit% = ?', answer: profitPct2, category: 'profit-loss' };
-  } else if (type === 3) {
-    /* Successive profit/loss */
-    var plSucc = [[10,10],[20,10],[10,20],[25,20],[15,10]];
-    var plS = pick(plSucc);
-    var cpS = pick([100, 200, 250, 400, 500]);
-    var spS = Math.round(cpS * (1 + plS[0]/100) * (1 + plS[1]/100));
-    return { question: 'CP = ' + cpS + ', sold at ' + plS[0] + '% profit then ' + plS[1] + '% profit. Final SP = ?', answer: spS, category: 'profit-loss', subtype: 'successive' };
-  }
-  /* Defensive fallback — should be unreachable but prevents undefined return */
-  return { question: 'CP = 200, Profit = 25%. SP = ?', answer: 250, category: 'profit-loss' };
-}
+/** Profit & Loss (ADR-083 archetypes: SP-from-profit · SP-from-loss · profit% · find-CP (reverse) · successive). CP is
+ *  always the base for profit/loss %. */
+var _CP = { easy: [100, 120, 150, 200, 250, 300, 400, 500], medium: [120, 125, 144, 150, 160, 175, 200, 225, 240, 250, 288, 300, 360, 400, 450, 480, 500], hard: [125, 144, 160, 175, 200, 225, 240, 250, 280, 288, 300, 320, 360, 375, 400, 432, 450, 480, 500, 560, 600] };
+function _plSPprofit(diff) { for (var i = 0; i < 40; i++) { var pr = pick(diff === 'easy' ? [10, 20, 25, 50] : (diff === 'hard' ? [5, 8, 10, 12, 15, 20, 25, 30, 40, 50] : [5, 10, 15, 20, 25, 30, 40, 50])); var cp = pick(_CP[diff]); var sp = cp * (1 + pr / 100); if (sp === Math.floor(sp)) return { q: 'The cost price is ₹' + cp + ' and the profit is ' + pr + '%. The selling price = ₹?', a: sp, k: 'spProfit', explain: 'SP = CP × (1 + profit%) = ' + cp + ' × ' + (1 + pr / 100) + ' = ₹' + sp + '.' }; } return null; }
+function _plSPloss(diff) { for (var i = 0; i < 40; i++) { var lr = pick(diff === 'easy' ? [10, 20, 25] : [5, 10, 15, 20, 25]); var cp = pick(_CP[diff]); var sp = cp * (1 - lr / 100); if (sp === Math.floor(sp)) return { q: 'The cost price is ₹' + cp + ' and the loss is ' + lr + '%. The selling price = ₹?', a: sp, k: 'spLoss', explain: 'SP = CP × (1 − loss%) = ' + cp + ' × ' + (1 - lr / 100) + ' = ₹' + sp + '.' }; } return null; }
+function _plProfitPct(diff) { for (var i = 0; i < 40; i++) { var pr = pick([10, 15, 20, 25, 30, 50]); var cp = pick(_CP[diff]); var sp = cp * (1 + pr / 100); if (sp === Math.floor(sp)) return { q: 'An article bought for ₹' + cp + ' is sold for ₹' + sp + '. The profit percent = ?', a: pr, k: 'profitPct', explain: 'Profit% = (SP − CP)/CP × 100 = (' + sp + ' − ' + cp + ')/' + cp + ' × 100 = ' + pr + '%. The base is always the cost price.' }; } return null; }
+function _plFindCP(diff) { for (var i = 0; i < 40; i++) { var pr = pick([10, 20, 25, 50]); var cp = pick(_CP[diff]); var sp = cp * (1 + pr / 100); if (sp === Math.floor(sp)) return { q: 'By selling an article for ₹' + sp + ', a shopkeeper gains ' + pr + '%. The cost price = ₹?', a: cp, k: 'findCP', explain: 'CP = SP ÷ (1 + profit%) = ' + sp + ' ÷ ' + (1 + pr / 100) + ' = ₹' + cp + '.' }; } return null; }
+function _plSuccessive() { for (var i = 0; i < 40; i++) { var pl = pick([[10, 10], [20, 10], [10, 20], [25, 20], [15, 10]]); var cp = pick([100, 200, 250, 400, 500, 800]); var sp = cp * (1 + pl[0] / 100) * (1 + pl[1] / 100); if (sp === Math.floor(sp)) return { q: 'An article costing ₹' + cp + ' is sold at a ' + pl[0] + '% profit, and that price is then raised by a further ' + pl[1] + '%. The final selling price = ₹?', a: sp, k: 'successive', explain: 'Chain the multipliers: ' + cp + ' × ' + (1 + pl[0] / 100) + ' × ' + (1 + pl[1] / 100) + ' = ₹' + sp + '.' }; } return null; }
+var _PL_ARCH = {
+  easy: [{ k: 'spProfit', skill: 'direct', build: function (d) { return _plSPprofit(d); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }],
+  medium: [{ k: 'spProfit', skill: 'direct', build: function (d) { return _plSPprofit(d); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }, { k: 'profitPct', skill: 'inverse', build: function (d) { return _plProfitPct(d); } }],
+  hard: [{ k: 'profitPct', skill: 'inverse', build: function (d) { return _plProfitPct(d); } }, { k: 'findCP', skill: 'inverse', build: function (d) { return _plFindCP(d); } }, { k: 'successive', skill: 'multi-step', build: function () { return _plSuccessive(); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }]
+};
+var _PL_PRIMARY = {
+  easy: function () { return { q: 'The cost price is ₹200 and the profit is 25%. The selling price = ₹?', a: 250, k: 'spProfit', explain: 'SP = 200 × 1.25 = ₹250.' }; },
+  medium: function () { return { q: 'An article bought for ₹200 is sold for ₹250. The profit percent = ?', a: 25, k: 'profitPct', explain: 'Profit% = (250 − 200)/200 × 100 = 25%.' }; },
+  hard: function () { return { q: 'By selling an article for ₹250, a shopkeeper gains 25%. The cost price = ₹?', a: 200, k: 'findCP', explain: 'CP = 250 ÷ 1.25 = ₹200.' }; }
+};
+function genProfitLoss() { return _genArch('profit-loss', _PL_ARCH, _PL_PRIMARY); }
 
 /** Time, Speed, Distance — 4 sub-types with wording variety */
-function genTSD() {
-  var diff = _getDifficulty();
-  var type = diff === 'easy' ? randInt(0, 2) : randInt(0, 3);
+/** Time, Speed & Distance (ADR-083 archetypes: distance · time · speed · average-speed). Stems keep speed × time in
+ *  order for distance, and use magnitudes that recompute unambiguously (distance ≥ 2× speed). */
+var _SPD = { easy: [30, 40, 45, 50, 60, 75, 80, 90, 100], medium: [25, 30, 35, 36, 40, 45, 48, 50, 54, 56, 60, 70, 72, 75, 80, 90, 96], hard: [36, 40, 45, 48, 50, 54, 56, 60, 64, 72, 75, 80, 90, 96, 100, 108, 112, 120] };
+function _tsdDist(diff) { var s = pick(_SPD[diff]); var t = randInt(2, diff === 'easy' ? 5 : (diff === 'hard' ? 10 : 8)); return { q: pick(['A car travels at ' + s + ' km/h for ' + t + ' hours. The distance covered = ? km', 'Moving at ' + s + ' km/h for ' + t + ' hours, a train covers ? km', 'At a steady ' + s + ' km/h for ' + t + ' hours, the distance = ? km']), a: s * t, k: 'distance', explain: 'Distance = speed × time = ' + s + ' × ' + t + ' = ' + (s * t) + ' km.' }; }
+function _tsdTime(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A car covers ' + d + ' km at ' + s + ' km/h. The time taken = ? hours', 'At ' + s + ' km/h, the time to cover ' + d + ' km = ? hours', 'Travelling ' + d + ' km at ' + s + ' km/h takes ? hours']), a: t, k: 'time', explain: 'Time = distance ÷ speed = ' + d + ' ÷ ' + s + ' = ' + t + ' hours.' }; }
+function _tsdSpeed(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A train covers ' + d + ' km in ' + t + ' hours. Its speed = ? km/h', 'Covering ' + d + ' km in ' + t + ' hours, the speed = ? km/h', 'A bus runs ' + d + ' km in ' + t + ' hours. Average speed = ? km/h']), a: s, k: 'speed', explain: 'Speed = distance ÷ time = ' + d + ' ÷ ' + t + ' = ' + s + ' km/h.' }; }
+function _tsdAvg(diff) { for (var i = 0; i < 30; i++) { var pr = pick(diff === 'hard' ? [[60, 80], [40, 60], [50, 70], [72, 48], [90, 60], [45, 55]] : [[30, 60], [40, 80], [50, 100], [60, 90]]); var ans = (2 * pr[0] * pr[1]) / (pr[0] + pr[1]); if (ans === Math.floor(ans)) return { q: 'A person covers equal distances at ' + pr[0] + ' km/h and ' + pr[1] + ' km/h. The average speed for the whole journey = ? km/h', a: ans, k: 'avgSpeed', explain: 'For equal distances, average speed = 2·s₁·s₂/(s₁+s₂) = 2×' + pr[0] + '×' + pr[1] + '/(' + pr[0] + '+' + pr[1] + ') = ' + ans + ' km/h — the harmonic mean, never the simple average.' }; } return null; }
+var _TSD_ARCH = {
+  easy: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }],
+  medium: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }],
+  hard: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }, { k: 'avgSpeed', skill: 'multi-step', build: function (d) { return _tsdAvg(d); } }]
+};
+var _TSD_PRIMARY = { easy: function () { return _tsdDist('easy'); }, medium: function () { return _tsdDist('medium'); }, hard: function () { return _tsdDist('hard'); } };
+function genTSD() { return _genArch('time-speed-distance', _TSD_ARCH, _TSD_PRIMARY); }
 
-  var speedEasy   = [30, 40, 45, 50, 60, 75, 80, 90, 100];
-  var speedMedium = [25, 30, 35, 36, 40, 45, 48, 50, 54, 56, 60, 70, 72, 75, 80, 90, 96];
-  var speedHard   = [36, 40, 45, 48, 50, 54, 56, 60, 64, 72, 75, 80, 90, 96, 100, 108, 112, 120];
-  var speedPool   = diff === 'easy' ? speedEasy : (diff === 'hard' ? speedHard : speedMedium);
-  var tMax = diff === 'easy' ? 5 : (diff === 'hard' ? 10 : 8);
+/** Time & Work (ADR-083 archetypes: together · work-done-% · workers↔days scaling). LCM/units thinking. */
+function _twTogether(diff) { for (var i = 0; i < 40; i++) { var a = pick(diff === 'easy' ? [2, 3, 4, 6] : (diff === 'hard' ? [5, 6, 8, 10, 12, 15] : [3, 4, 5, 6, 10])); var b = pick(diff === 'easy' ? [3, 4, 6] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [4, 5, 6, 10, 12])); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'A can do a piece of work in ' + a + ' days and B in ' + b + ' days. Working together, they finish it in ? days', a: (a * b) / (a + b), k: 'together', explain: 'Together time = (a × b)/(a + b) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + (a * b) + '/' + (a + b) + ' = ' + ((a * b) / (a + b)) + ' days. Add the RATES (1/a + 1/b), never the days.' }; } return null; }
+function _twWorkDone(diff) { var days = pick(diff === 'easy' ? [2, 4, 5, 10] : (diff === 'hard' ? [5, 8, 10, 20, 25] : [4, 5, 8, 10])); var wd = 0; for (var i = 0; i < 20; i++) { wd = randInt(1, days - 1); if ((wd * 100) % days === 0) break; } if ((wd * 100) % days !== 0) return null; return { q: 'A can finish a job in ' + days + ' days. In ' + wd + ' days he completes ? % of the work.', a: wd * 100 / days, k: 'workDone', explain: 'Fraction done = ' + wd + '/' + days + ', so ' + wd + '/' + days + ' × 100 = ' + (wd * 100 / days) + '%.' }; }
+function _twScale(diff) { for (var i = 0; i < 40; i++) { var w1 = pick(diff === 'easy' ? [2, 3, 4, 5] : (diff === 'hard' ? [4, 5, 6, 8, 10] : [3, 4, 5, 6])); var dp = pick(diff === 'easy' ? [4, 6, 8, 10, 12] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [6, 8, 10, 12])); var tot = w1 * dp, opts = []; for (var w = 2; w <= 20; w++) { if (w !== w1 && tot % w === 0) opts.push(w); } if (!opts.length) continue; var w2 = pick(opts); return { q: 'If ' + w1 + ' workers finish a task in ' + dp + ' days, then ' + w2 + ' workers finish the same task in ? days', a: tot / w2, k: 'workersScale', explain: 'Total work = ' + w1 + ' × ' + dp + ' = ' + tot + ' worker-days. Time for ' + w2 + ' workers = ' + tot + ' ÷ ' + w2 + ' = ' + (tot / w2) + ' days (workers and days are inversely proportional).' }; } return null; }
+var _TW_ARCH = {
+  easy: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }],
+  medium: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }],
+  hard: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }]
+};
+var _TW_PRIMARY = {
+  easy: function () { return { q: 'A can do a piece of work in 6 days and B in 3 days. Working together, they finish it in ? days', a: 2, k: 'together', explain: '(6 × 3)/(6 + 3) = 18/9 = 2 days.' }; },
+  medium: function () { return { q: 'If 4 workers finish a task in 6 days, then 8 workers finish the same task in ? days', a: 3, k: 'workersScale', explain: '24 worker-days ÷ 8 = 3 days.' }; },
+  hard: function () { return { q: 'A can do a piece of work in 10 days and B in 15 days. Working together, they finish it in ? days', a: 6, k: 'together', explain: '(10 × 15)/(10 + 15) = 150/25 = 6 days.' }; }
+};
+function genTimeWork() { return _genArch('time-and-work', _TW_ARCH, _TW_PRIMARY); }
 
-  if (type === 0) {
-    var speed = pick(speedPool);
-    var time = randInt(2, tMax);
-    var distPhrasings = [
-      'Speed = ' + speed + ' km/h, Time = ' + time + ' hrs. Distance = ?',
-      'A car travels at ' + speed + ' km/h for ' + time + ' hrs. Distance covered = ?',
-      'At ' + speed + ' km/h for ' + time + ' hours, distance = ?'
-    ];
-    return { question: pick(distPhrasings), answer: speed * time, category: 'time-speed-distance' };
-  } else if (type === 1) {
-    var speed2 = pick(speedPool);
-    var time2 = randInt(2, 6);
-    var dist = speed2 * time2;
-    var timePhrasings = [
-      'Speed = ' + speed2 + ' km/h, Distance = ' + dist + ' km. Time = ?',
-      'At ' + speed2 + ' km/h, time to cover ' + dist + ' km = ?',
-      dist + ' km at ' + speed2 + ' km/h. Time taken = ?'
-    ];
-    return { question: pick(timePhrasings), answer: time2, category: 'time-speed-distance' };
-  } else if (type === 2) {
-    var speed3 = pick(speedPool);
-    var time3 = randInt(2, 6);
-    var dist2 = speed3 * time3;
-    var speedPhrasings = [
-      'Distance = ' + dist2 + ' km, Time = ' + time3 + ' hrs. Speed = ?',
-      dist2 + ' km in ' + time3 + ' hrs. Speed = ?',
-      'Covers ' + dist2 + ' km in ' + time3 + ' hours. Speed = ?'
-    ];
-    return { question: pick(speedPhrasings), answer: speed3, category: 'time-speed-distance' };
-  } else {
-    /* Average speed: two equal-distance legs */
-    var avgSpeeds = diff === 'hard'
-      ? [[60,80],[40,60],[50,70],[72,48],[90,60]]
-      : [[30,60],[40,80],[50,100],[60,90]];
-    var avgS = pick(avgSpeeds);
-    var avgAns = (2 * avgS[0] * avgS[1]) / (avgS[0] + avgS[1]);
-    if (avgAns === Math.floor(avgAns))
-      return { question: 'Equal distance at ' + avgS[0] + ' km/h then ' + avgS[1] + ' km/h. Avg speed = ?', answer: avgAns, category: 'time-speed-distance', subtype: 'avg-speed' };
-    var spFb = pick([[30,60],[40,80],[50,100]]);
-    return { question: 'Equal distance at ' + spFb[0] + ' km/h then ' + spFb[1] + ' km/h. Avg speed = ?', answer: (2*spFb[0]*spFb[1])/(spFb[0]+spFb[1]), category: 'time-speed-distance', subtype: 'avg-speed' };
-  }
-}
+/** Simplification / BODMAS (ADR-083 archetypes: multiply-add · divide-add · full-BODMAS). Clean integers; the stem is a
+ *  pure arithmetic expression so the harness re-evaluates it independently. */
+function _simEasy() { var a = randInt(2, 12), b = randInt(2, 12), c = randInt(2, 30); return { q: a + ' × ' + b + ' + ' + c + ' = ?', a: a * b + c, k: 'multiplyAdd', explain: 'BODMAS — multiply first: ' + a + ' × ' + b + ' = ' + (a * b) + ', then + ' + c + ' = ' + (a * b + c) + '.' }; }
+function _simMed() { var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40); return { q: num + ' ÷ ' + dv + ' + ' + add + ' = ?', a: num / dv + add, k: 'divideAdd', explain: 'Divide first: ' + num + ' ÷ ' + dv + ' = ' + (num / dv) + ', then + ' + add + ' = ' + (num / dv + add) + '.' }; }
+function _simHard() { var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9); return { q: '(' + p + ' × ' + q + ') ÷ ' + r + ' + ' + s + ' × ' + t + ' = ?', a: (p * q) / r + s * t, k: 'fullBodmas', explain: 'Brackets → (' + p + ' × ' + q + ') = ' + (p * q) + '; ÷ ' + r + ' = ' + ((p * q) / r) + '; and ' + s + ' × ' + t + ' = ' + (s * t) + '; sum = ' + ((p * q) / r + s * t) + '.' }; }
+var _SIM_ARCH = { easy: [{ k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], medium: [{ k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }, { k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], hard: [{ k: 'fullBodmas', skill: 'multi-step', build: function () { return _simHard(); } }, { k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }] };
+var _SIM_PRIMARY = { easy: function () { return _simEasy(); }, medium: function () { return _simMed(); }, hard: function () { return _simHard(); } };
+function genSimplification() { return _genArch('simplification', _SIM_ARCH, _SIM_PRIMARY); }
 
-/** Time and Work calculations with simple, clean problems */
-function genTimeWork() {
-  var diff = _getDifficulty();
-  var type = randInt(0, 2);
-
-  if (type === 0) {
-    /* A can do a job in X days, B in Y days. Together in how many days?
-       Pick values that produce clean combined rates. */
-    var a = diff === 'easy' ? pick([2, 3, 4, 6]) : (diff === 'hard' ? pick([5, 6, 8, 10, 12, 15]) : pick([3, 4, 5, 6, 10]));
-    var b = diff === 'easy' ? pick([3, 4, 6]) : (diff === 'hard' ? pick([6, 8, 10, 12, 15, 20]) : pick([4, 5, 6, 10, 12]));
-    if (a === b) b = a + pick([1, 2, 3]);
-    /* Combined rate = 1/a + 1/b = (a+b)/(a*b) → together = (a*b)/(a+b) */
-    var product = a * b;
-    var sum = a + b;
-    /* Only use questions with clean integer answers */
-    if (product % sum !== 0) {
-      /* Fall back to a known-good pair: 6 and 3 → (6×3)/(6+3) = 18/9 = 2 days */
-      a = 6; b = 3;
-      product = 18; sum = 9;
-    }
-    var together = product / sum;
-    return { question: 'A does a job in ' + a + ' days, B in ' + b + ' days. Together = ? days', answer: together, category: 'time-and-work' };
-  } else if (type === 1) {
-    /* A can do a job in X days. How much work in Y days? (fraction as percentage) */
-    var days = diff === 'easy' ? pick([2, 4, 5, 10]) : (diff === 'hard' ? pick([5, 8, 10, 20, 25]) : pick([4, 5, 8, 10]));
-    var workDays = randInt(1, Math.min(days - 1, 4));
-    var pct = Math.round((workDays / days) * 100);
-    return { question: 'A does a job in ' + days + ' days. Work done in ' + workDays + ' days = ?%', answer: pct, category: 'time-and-work' };
-  } else {
-    /* If 5 workers do a job in X days, how many days for Y workers? */
-    var workers1 = diff === 'easy' ? pick([2, 3, 4, 5]) : (diff === 'hard' ? pick([4, 5, 6, 8, 10]) : pick([3, 4, 5, 6]));
-    var daysPer = diff === 'easy' ? pick([4, 6, 8, 10, 12]) : (diff === 'hard' ? pick([6, 8, 10, 12, 15, 20]) : pick([6, 8, 10, 12]));
-    /* Total work units = workers1 × daysPer; pick workers2 that divides evenly */
-    var totalWork = workers1 * daysPer;
-    var possibleWorkers = [];
-    for (var w = 2; w <= 20; w++) {
-      if (totalWork % w === 0 && w !== workers1) possibleWorkers.push(w);
-    }
-    if (possibleWorkers.length === 0) possibleWorkers.push(workers1 * 2);
-    var workers2 = pick(possibleWorkers);
-    var answer = totalWork / workers2;
-    return { question: workers1 + ' workers finish in ' + daysPer + ' days. ' + workers2 + ' workers finish in ? days', answer: answer, category: 'time-and-work' };
-  }
-}
-
-/* Simplification (BODMAS) — the banking/SSC backbone; always resolves to a clean integer. */
-function genSimplification() {
-  var diff = _getDifficulty();
-  if (diff === 'easy') {
-    var a = randInt(2, 9), b = randInt(2, 9), c = randInt(2, 20);
-    return { question: a + ' × ' + b + ' + ' + c + ' = ?', answer: a * b + c, category: 'simplification' };
-  }
-  if (diff === 'hard') {
-    /* (p × q) ÷ r + s × t — q is a multiple of r so the division is exact */
-    var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9);
-    return { question: '(' + p + ' × ' + q + ') ÷ ' + r + ' + ' + s + ' × ' + t + ' = ?', answer: (p * q) / r + s * t, category: 'simplification' };
-  }
-  /* medium: num ÷ dv + add, num a multiple of dv */
-  var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40);
-  return { question: num + ' ÷ ' + dv + ' + ' + add + ' = ?', answer: num / dv + add, category: 'simplification' };
-}
-
-/* Number Series — find the next term (arithmetic / geometric / increasing-difference). Integer answers. */
-function genNumberSeries() {
-  var diff = _getDifficulty(), i, terms = [];
-  var type = randInt(0, diff === 'easy' ? 1 : 2);
-  if (type === 0) {                                   // arithmetic
-    var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]);
-    for (i = 0; i < 5; i++) terms.push(start + i * step);
-  } else if (type === 1) {                            // geometric
-    var s0 = randInt(2, 5), ratio = pick([2, 3]);
-    for (i = 0; i < 5; i++) terms.push(s0 * Math.pow(ratio, i));
-  } else {                                            // increasing differences (square-like)
-    var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base;
-    for (i = 0; i < 5; i++) { terms.push(cur); cur += d; d += base; }
-  }
-  var answer = terms.pop();
-  return { question: 'Next number: ' + terms.join(', ') + ', ?', answer: answer, category: 'number-series' };
-}
+/** Number Series — next term (ADR-083 archetypes: arithmetic · geometric · growing-gap). Integer answers. */
+function _nsArith(diff) { var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]); var t = []; for (var i = 0; i < 5; i++) t.push(start + i * step); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'arithmetic', explain: 'A constant difference of ' + step + ' (arithmetic progression): ' + t[t.length - 1] + ' + ' + step + ' = ' + ans + '.' }; }
+function _nsGeo(diff) { var s0 = randInt(2, 5), r = pick([2, 3]); var t = []; for (var i = 0; i < 5; i++) t.push(s0 * Math.pow(r, i)); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'geometric', explain: 'Each term is × ' + r + ' (geometric progression): ' + t[t.length - 1] + ' × ' + r + ' = ' + ans + '.' }; }
+function _nsInc(diff) { var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base; var t = []; for (var i = 0; i < 5; i++) { t.push(cur); cur += d; d += base; } var ans = t.pop(); var gap = t[t.length - 1] - t[t.length - 2] + base; return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'growingGap', explain: 'The gaps grow by ' + base + ' each step (constant second difference): the next gap is ' + gap + ', so ' + t[t.length - 1] + ' + ' + gap + ' = ' + ans + '.' }; }
+var _NS_ARCH = {
+  easy: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }],
+  medium: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }, { k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }],
+  hard: [{ k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }, { k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }, { k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }]
+};
+var _NS_PRIMARY = { easy: function () { return _nsArith('easy'); }, medium: function () { return _nsArith('medium'); }, hard: function () { return _nsGeo('hard'); } };
+function genNumberSeries() { return _genArch('number-series', _NS_ARCH, _NS_PRIMARY); }
 
 /* ---- category map for focus training ---- */
 var categoryGenerators = {

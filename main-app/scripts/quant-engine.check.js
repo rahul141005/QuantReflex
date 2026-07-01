@@ -20,57 +20,73 @@ var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series'];
 
-/* categories brought to the archetype/earned-difficulty bar in ADR-083 Phase 1 — these get full recompute + tier checks. */
+/* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
   squares: { easy: ['direct'], medium: ['direct', 'inverse'], hard: ['direct', 'inverse', 'diffSquares'] },
   cubes: { easy: ['direct'], medium: ['direct', 'inverse'], hard: ['direct', 'inverse'] },
   area: { easy: ['square', 'rectangle'], medium: ['rectangle', 'triangle', 'parallelogram', 'circle'], hard: ['triangle', 'circle', 'trapezium', 'border'] },
   volume: { easy: ['cube', 'cuboid'], medium: ['cuboid', 'cylinder'], hard: ['cylinder', 'sphere', 'cone'] },
-  percentages: { easy: ['directOf'], medium: ['directOf', 'reverse', 'whatPct'], hard: ['directOf', 'reverse', 'whatPct', 'pctChange', 'successive', 'netTrap'] }
+  percentages: { easy: ['directOf'], medium: ['directOf', 'reverse', 'whatPct'], hard: ['directOf', 'reverse', 'whatPct', 'pctChange', 'successive', 'netTrap'] },
+  multiplication: { easy: ['multiply'], medium: ['multiply', 'divide', 'threeFactor'], hard: ['multiply', 'divide', 'threeFactor', 'mentalSquare'] },
+  ratios: { easy: ['divide', 'pctRatio'], medium: ['divide', 'findTerm', 'pctRatio'], hard: ['findTerm', 'combine', 'pctRatio', 'divide'] },
+  averages: { easy: ['mean'], medium: ['mean', 'missing'], hard: ['mean', 'missing', 'weighted', 'newMember'] },
+  'profit-loss': { easy: ['spProfit', 'spLoss'], medium: ['spProfit', 'spLoss', 'profitPct'], hard: ['profitPct', 'findCP', 'successive', 'spLoss'] },
+  'time-speed-distance': { easy: ['distance', 'time', 'speed'], medium: ['distance', 'time', 'speed'], hard: ['distance', 'time', 'speed', 'avgSpeed'] },
+  'time-and-work': { easy: ['together', 'workDone'], medium: ['together', 'workDone', 'workersScale'], hard: ['together', 'workersScale', 'workDone'] },
+  simplification: { easy: ['multiplyAdd'], medium: ['divideAdd', 'multiplyAdd'], hard: ['fullBodmas', 'divideAdd'] },
+  'number-series': { easy: ['arithmetic', 'geometric'], medium: ['arithmetic', 'geometric', 'growingGap'], hard: ['geometric', 'growingGap', 'arithmetic'] },
+  fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracToPct', 'pctToFrac'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
 function nums(s) { return (String(s).match(/\d+/g) || []).map(Number); }
 function approxEq(a, b) { return Math.abs(a - b) < 0.02; }
 function r2(x) { return Math.round(x * 100) / 100; }
+/* Independent re-evaluation of a pure arithmetic stem (multiplication / simplification) via a different code path. */
+function evalExpr(text) { var lhs = String(text).split('=')[0].replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/[^0-9+\-*/(). ]/g, ''); try { return Function('"use strict";return (' + lhs + ')')(); } catch (e) { return null; } }
+/* Independent next-term detector for number series (arithmetic / geometric / constant 2nd difference). */
+function seriesNext(n) { if (n.length < 4) return null; var d = [n[1] - n[0], n[2] - n[1], n[3] - n[2]]; if (d[0] === d[1] && d[1] === d[2]) return n[3] + d[0]; if (n[0] && n[1] / n[0] === n[2] / n[1] && n[2] / n[1] === n[3] / n[2]) return n[3] * (n[1] / n[0]); if (d[1] - d[0] === d[2] - d[1]) return n[3] + d[2] + (d[1] - d[0]); return null; }
 
-/* Independently recompute the expected answer from the stem for the refactored categories. Returns a number or null. */
+/* Independently recompute the expected answer from the stem. Returns a number, or null (string answers / not recomputed here). */
 function recompute(cat, key, text) {
   var n = nums(text);
-  if (cat === 'squares') {
-    if (key === 'direct') return n[0] * n[0];
-    if (key === 'inverse') return Math.sqrt(n[0]);
-    if (key === 'diffSquares') return n[0] * n[0] - n[1] * n[1];
-  }
-  if (cat === 'cubes') {
-    if (key === 'direct') return n[0] * n[0] * n[0];
-    if (key === 'inverse') return Math.round(Math.cbrt(n[0]));
-  }
+  if (cat === 'squares') { if (key === 'direct') return n[0] * n[0]; if (key === 'inverse') return Math.sqrt(n[0]); if (key === 'diffSquares') return n[0] * n[0] - n[1] * n[1]; }
+  if (cat === 'cubes') { if (key === 'direct') return n[0] * n[0] * n[0]; if (key === 'inverse') return Math.round(Math.cbrt(n[0])); }
   if (cat === 'area') {
-    if (key === 'square') return n[0] * n[0];
-    if (key === 'rectangle') return n[0] * n[1];
-    if (key === 'triangle') return n[0] * n[1] / 2;
-    if (key === 'parallelogram') return n[0] * n[1];
-    if (key === 'circle') return r2(3.14 * n[0] * n[0]);
-    if (key === 'trapezium') return (n[0] + n[1]) * n[2] / 2;
-    if (key === 'border') { var L = n[0], B = n[1], w = n[2]; return L * B - (L - 2 * w) * (B - 2 * w); }
+    if (key === 'square') return n[0] * n[0]; if (key === 'rectangle' || key === 'parallelogram') return n[0] * n[1];
+    if (key === 'triangle') return n[0] * n[1] / 2; if (key === 'circle') return r2(3.14 * n[0] * n[0]);
+    if (key === 'trapezium') return (n[0] + n[1]) * n[2] / 2; if (key === 'border') return n[0] * n[1] - (n[0] - 2 * n[2]) * (n[1] - 2 * n[2]);
   }
   if (cat === 'volume') {
-    if (key === 'cube') return n[0] * n[0] * n[0];
-    if (key === 'cuboid') return n[0] * n[1] * n[2];
-    if (key === 'cylinder') return r2(3.14 * n[0] * n[0] * n[1]);
-    if (key === 'sphere') return r2((4 / 3) * 3.14 * n[0] * n[0] * n[0]);
-    if (key === 'cone') return r2((1 / 3) * 3.14 * n[0] * n[0] * n[1]);
+    if (key === 'cube') return n[0] * n[0] * n[0]; if (key === 'cuboid') return n[0] * n[1] * n[2];
+    if (key === 'cylinder') return r2(3.14 * n[0] * n[0] * n[1]); if (key === 'sphere') return r2((4 / 3) * 3.14 * n[0] * n[0] * n[0]); if (key === 'cone') return r2((1 / 3) * 3.14 * n[0] * n[0] * n[1]);
   }
   if (cat === 'percentages') {
-    if (key === 'directOf') return n[0] * n[1] / 100;
-    if (key === 'reverse') return n[1] * 100 / n[0];          /* "p% of what number is r?" → r*100/p */
-    if (key === 'whatPct') return n[1] * 100 / n[0];          /* "What percent of b is y?" → y*100/b */
-    if (key === 'pctChange') return (n[1] - n[0]) * 100 / n[0];
-    if (key === 'successive') return n[0] * (1 - n[1] / 100) * (1 - n[2] / 100);
-    if (key === 'netTrap') return n[0] * n[0] / 100;
+    if (key === 'directOf') return n[0] * n[1] / 100; if (key === 'reverse') return n[1] * 100 / n[0]; if (key === 'whatPct') return n[1] * 100 / n[0];
+    if (key === 'pctChange') return (n[1] - n[0]) * 100 / n[0]; if (key === 'successive') return n[0] * (1 - n[1] / 100) * (1 - n[2] / 100); if (key === 'netTrap') return n[0] * n[0] / 100;
   }
-  return null;
+  if (cat === 'multiplication' || cat === 'simplification') return evalExpr(text);
+  if (cat === 'ratios') { if (key === 'divide') return n[0] * n[1] / (n[1] + n[2]); if (key === 'findTerm') return n[2] * n[1] / n[0]; return null; }
+  if (cat === 'averages') {
+    if (key === 'mean') return n.reduce(function (s, v) { return s + v; }, 0) / n.length;
+    if (key === 'missing') { var k = n.slice(0, -1), avg = n[n.length - 1]; return avg * (k.length + 1) - k.reduce(function (s, v) { return s + v; }, 0); }
+    if (key === 'weighted') return (n[0] * n[1] + n[2] * n[3]) / (n[0] + n[2]);
+    if (key === 'newMember') return n[2] * (n[0] + 1) - n[1] * n[0];
+  }
+  if (cat === 'profit-loss') {
+    if (key === 'spProfit') return n[0] * (1 + n[1] / 100); if (key === 'spLoss') return n[0] * (1 - n[1] / 100);
+    if (key === 'profitPct') return (n[1] - n[0]) * 100 / n[0]; if (key === 'findCP') return n[0] / (1 + n[1] / 100);
+    if (key === 'successive') return n[0] * (1 + n[1] / 100) * (1 + n[2] / 100);
+  }
+  if (cat === 'time-speed-distance') {
+    if (key === 'distance') return n[0] * n[1]; if (key === 'time' || key === 'speed') return Math.max.apply(null, n) / Math.min.apply(null, n);
+    if (key === 'avgSpeed') return 2 * n[0] * n[1] / (n[0] + n[1]);
+  }
+  if (cat === 'time-and-work') {
+    if (key === 'together') return n[0] * n[1] / (n[0] + n[1]); if (key === 'workDone') return n[1] * 100 / n[0]; if (key === 'workersScale') return n[0] * n[1] / n[2];
+  }
+  if (cat === 'number-series') return seriesNext(n.slice(0, 4));
+  return null;   /* fractions (string), ratios pctRatio/combine (string) */
 }
 
 /* ── 1. structural sweep over all 14 categories × 3 difficulties ── */

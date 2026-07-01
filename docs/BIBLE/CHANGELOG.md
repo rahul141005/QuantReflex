@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Engine Master Overhaul, Phase 2: overhaul the remaining 9 generators (ADR-083)
+
+Bring every existing Quant generator to the DI/LR bar (Phase-1 refactored 5; this phase does the other 9). No new
+colours/deps/Firestore/gamification; Node duel path preserved.
+
+```
+### feat/quant(ADR-083): archetype-refactor the remaining generators
+- js/questions.js: fractions (frac↔%), multiplication (multiply/divide/3-factor/mental-square),
+  ratios (divide-in-ratio/find-term/combine A:B:C/percent↔ratio), averages (mean/missing/weighted/new-member),
+  profit-loss (SP-from-profit/loss, profit%, find-CP reverse, successive), time-speed-distance (distance/time/speed/
+  avg-speed), time-and-work (together/work-done-%/workers-scale), simplification (BODMAS tiers), number-series
+  (arithmetic/geometric/growing-gap). Each: per-tier {k,skill,build} pools + clean PRIMARY fallback, earned difficulty
+  (never downgrades), premium explanations (method → working → shortcut/trap), and exam-authentic word-problem wording
+  replacing robotic "CP = 200, Profit = 25%. SP = ?" stems.
+
+### test/quant(ADR-083): recompute all 14 categories
+- scripts/quant-engine.check.js: TIER_KEYS + recompute extended to all 14 — pure arithmetic stems (multiplication,
+  simplification) re-evaluated via an independent expression evaluator; number-series next-term re-detected
+  independently; keyed recompute for the rest. 43,503 passed, 5,638 recomputed, 0 mismatches.
+```
+
+Verification: `npm test` exit 0 (quant-engine 43,503/0, 0 recompute mismatches; all 20 other suites unchanged); Node
+`require('js/questions.js')` duel path green; sampled hard questions across categories show authentic wording + honest
+archetypes + teaching explanations. **Docs:** DECISION_LOG ADR-083 (Phase 2), VERSIONS 2.82→2.83, this entry. **SW** v168→v169.
+
+---
+
 ## 2026-07-01 — Quant Engine Master Overhaul, Phase 1: foundation (ADR-083)
 
 Bring the original Quant engine up to the DI/LR generative bar. Phase 1 of a phased, single-ADR overhaul (Foundation →
