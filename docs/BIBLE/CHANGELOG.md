@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch F-b: set-theory + statistics-basics (ADR-083)
+
+Complete Modern-Math with two new topics. Full suite green.
+
+```
+### feat/quant(ADR-083): set-theory + statistics-basics generators + Learn
+- js/questions.js: genSetTheory (union/onlyA/neither/both/threeUnion via inclusion–exclusion, three-set built from
+  disjoint Venn regions for consistency), genStatistics (median/mode/range/mean — integer answers).
+- data/knowledge/modern.js: + set-theory + statistics-basics Learn chapters (Modern-Math now 4 topics, zero orphans).
+- data/knowledge/exam-relevance.js: metadata for both (orders 30–31).
+- quantTopics: 2 new labels. quant-engine.check: TIER_KEYS + recompute (inclusion–exclusion, sort-and-pick) —
+  109,447 assertions, 0 mismatches. subjects 33→35; learn-content 55→57 topics, modern-math topicCount 2→4.
+```
+
+Verification: `npm test` exit 0 (quant-engine 109,447/0; learn-content 57 topics; statmath 57/57; subjects 35).
+Samples spot-checked correct + clean. **Docs:** DECISION_LOG ADR-083 (Phase 3F-b), VERSIONS 2.91→2.92, this entry.
+**SW** v177→v178.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch F-a: modern-math practice orphans (ADR-083)
 
 Close the two drill-less Modern-Math Learn chapters with production-grade generators. Full suite green.

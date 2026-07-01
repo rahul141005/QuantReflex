@@ -53,7 +53,7 @@ ok('window.KnowledgeBase present', !!win.KnowledgeBase);
 ok('window.BlockRenderers present', !!win.BlockRenderers);
 ok('window.LearnSearch present', !!win.LearnSearch);
 
-ok('data modules self-registered (55 topics: 29 Quant + 6 DI + 20 LR)', win.KnowledgeBase && win.KnowledgeBase.count() === 55);
+ok('data modules self-registered (57 topics: 31 Quant + 6 DI + 20 LR)', win.KnowledgeBase && win.KnowledgeBase.count() === 57);
 ok('all seven categories resolved (incl. DI + LR)', (function () {
   var ids = (win.KnowledgeBase.categories() || []).map(function (c) { return c.id; });
   return ['numbers', 'arithmetic', 'commercial-math', 'modern-math', 'mensuration', 'di-charts', 'lr-reasoning'].every(function (c) { return ids.indexOf(c) !== -1; });

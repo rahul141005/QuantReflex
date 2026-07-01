@@ -23,7 +23,7 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
   'linear-equations', 'quadratic-equations', 'surds-indices',
   'logarithms', 'progressions', 'inequalities-modulus',
   'geometry-basics', 'coordinate-geometry-basics', 'trigonometry', 'surface-area',
-  'permutation-combination', 'probability'];
+  'permutation-combination', 'probability', 'set-theory', 'statistics-basics'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -59,7 +59,9 @@ var TIER_KEYS = {
   trigonometry: { easy: ['standardEval', 'complementary'], medium: ['standardEval', 'complementary', 'identity'], hard: ['identity', 'heightElev', 'complementary'] },
   'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA', 'cuboidTSA'] },
   'permutation-combination': { easy: ['factorial', 'arrange'], medium: ['nCr', 'nPr', 'arrange'], hard: ['committee', 'handshakes', 'nCr'] },
-  probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb', 'allHeads'] }
+  probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb', 'allHeads'] },
+  'set-theory': { easy: ['union', 'onlyA'], medium: ['neither', 'both', 'union'], hard: ['threeUnion', 'neither', 'both'] },
+  'statistics-basics': { easy: ['median', 'range'], medium: ['median', 'mode', 'range'], hard: ['mode', 'median', 'mean'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -232,6 +234,20 @@ function recompute(cat, key, text) {
     if (key === 'complement') return r2(1 - n[0] / (n[0] + n[1]));
     if (key === 'allHeads') return r2(Math.pow(0.5, n[0]));
     if (key === 'multipleProb') return r2(Math.floor(n[1] / n[2]) / n[1]);   /* nums: 1, T, d */
+  }
+  if (cat === 'set-theory') {
+    if (key === 'union') return n[0] + n[1] - n[2];                  /* |A∪B| = a+b−both */
+    if (key === 'onlyA') return n[0] - n[1];                         /* a − both */
+    if (key === 'neither') return n[0] - (n[1] + n[2] - n[3]);       /* total − (a+b−both) */
+    if (key === 'both') return (n[1] + n[2]) - (n[0] - n[3]);        /* a+b − (total−neither) */
+    if (key === 'threeUnion') return n[0] + n[1] + n[2] - n[3] - n[4] - n[5] + n[6];  /* inclusion–exclusion */
+  }
+  if (cat === 'statistics-basics') {
+    var sorted = n.slice().sort(function (p, q) { return p - q; });
+    if (key === 'median') return sorted[(n.length - 1) / 2];         /* odd-length list */
+    if (key === 'range') return sorted[n.length - 1] - sorted[0];
+    if (key === 'mean') return n.reduce(function (s, v) { return s + v; }, 0) / n.length;
+    if (key === 'mode') { var c = {}, best = null, bc = 0; n.forEach(function (v) { c[v] = (c[v] || 0) + 1; if (c[v] > bc) { bc = c[v]; best = v; } }); return best; }
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

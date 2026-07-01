@@ -42,7 +42,7 @@ console.log('subjects.check — Subject layer (ADR-073)');
    topics — assert the current roster size + that all resolve to quant. ── */
 (function () {
   var cats = Object.keys(quantTopics.CATEGORY_LABELS);
-  eq('2 quant drill categories', cats.length, 33);
+  eq('2 quant drill categories', cats.length, 35);
   cats.forEach(function (c) { ok('2 ' + c + ' → quant', SUB.categoryToSubject(c) === 'quant'); });
 })();
 

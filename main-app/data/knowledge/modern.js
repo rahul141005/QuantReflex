@@ -100,6 +100,104 @@
           'Identical items → divide by their factorials; circular → (n−1)!.'
         ] }
       ]
+    },
+    {
+      id: 'set-theory', title: 'Set Theory & Venn Diagrams', icon: '🔵', category: 'modern-math',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'set-theory', syllabusTopicId: 'set_theory', revisionIntervalDays: 8,
+      related: ['permutation-combination', 'probability', 'percentages'],
+      searchTerms: ['set theory', 'sets', 'venn diagram', 'union', 'intersection', 'inclusion exclusion', 'neither', 'only', 'at least one'],
+      sections: [
+        { type: 'overview', text: 'Set-theory word problems are really counting problems solved with one formula — inclusion–exclusion — or a Venn diagram. The whole topic is knowing how the "both", "only", "neither" and "at least one" regions relate.' },
+        { type: 'concept', title: 'Two sets — inclusion–exclusion', body: 'For two overlapping groups A and B: |A ∪ B| = |A| + |B| − |A ∩ B| (subtract the overlap, which was counted twice). "Only A" = |A| − |A ∩ B|. "Neither" = Total − |A ∪ B|. If some belong to neither, Total = (only A) + (only B) + (both) + (neither).' },
+        { type: 'concept', title: 'Three sets', body: 'The pattern extends: |A ∪ B ∪ C| = |A| + |B| + |C| − |A∩B| − |B∩C| − |C∩A| + |A∩B∩C|. Add the singles, subtract the pairs, add back the triple. Draw three overlapping circles and fill the innermost (all three) region first, then work outward.' },
+        { type: 'formula', items: [
+          { name: 'Two-set union', expr: '|A ∪ B| = |A| + |B| − |A ∩ B|', when: 'At-least-one counts; rearrange to find any one unknown.' },
+          { name: 'Neither', expr: 'Neither = Total − |A ∪ B|', when: 'When a total and a "neither/both" count are given.' },
+          { name: 'Only A', expr: 'Only A = |A| − |A ∩ B|', when: 'Exclusive region of one set.' },
+          { name: 'Three-set union', expr: '|A∪B∪C| = Σsingles − Σpairs + triple', when: 'Three overlapping groups.', trap: '"Exactly two" ≠ "at least two" — subtract 3× the triple for exactly-two.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Draw the Venn diagram and fill the CENTRE (all-three) region first, then the pairwise, then the singles.',
+          'For two sets, memorise Total = onlyA + onlyB + both + neither and solve for the unknown.',
+          'Watch the wording: "at least one" = union; "only/exactly" excludes the overlaps.'
+        ] },
+        { type: 'example', problem: 'In a class of 40, 25 like tea, 20 like coffee, 10 like both. How many like neither?', steps: [
+          'At least one = 25 + 20 − 10 = 35.',
+          'Neither = 40 − 35 = 5.'
+        ], answer: '5' },
+        { type: 'example', problem: '30 read A, 25 read B, 20 read C; 10 read A&B, 8 read B&C, 6 read A&C, 4 read all three. How many read at least one?', steps: [
+          'Singles: 30 + 25 + 20 = 75.',
+          'Subtract pairs: 75 − (10 + 8 + 6) = 51. Add triple: 51 + 4 = 55.'
+        ], answer: '55' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Translate the words to the four regions (only-A, only-B, both, neither) before touching numbers.',
+          'For three sets, always add the triple back — the classic sign slip.',
+          'Distinguish "exactly two" from "at least two"; the exam loves that trap.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Forgetting to subtract the overlap (double-counting the "both").',
+          'Dropping the +triple term in the three-set formula.',
+          'Confusing "only A" (excludes the overlap) with |A| (includes it).',
+          'Reading "at least one" as "exactly one".'
+        ] },
+        { type: 'memory', text: 'Two sets: add, subtract the overlap. Three sets: singles − pairs + triple.' },
+        { type: 'revision', points: [
+          '|A ∪ B| = |A| + |B| − |A ∩ B|.',
+          'Neither = Total − |A ∪ B|; only A = |A| − both.',
+          '|A∪B∪C| = singles − pairs + triple.',
+          'Fill the Venn centre first; mind "exactly" vs "at least".'
+        ] }
+      ]
+    },
+    {
+      id: 'statistics-basics', title: 'Statistics Basics', icon: '📇', category: 'modern-math',
+      difficulty: 'foundation', examFrequency: 'medium', status: 'published',
+      drillCategory: 'statistics-basics', syllabusTopicId: 'statistics', revisionIntervalDays: 8,
+      related: ['averages', 'probability', 'number-series'],
+      searchTerms: ['statistics', 'mean', 'median', 'mode', 'range', 'average', 'central tendency', 'data set'],
+      sections: [
+        { type: 'overview', text: 'Descriptive statistics summarise a data set with a single number. The exam staples are the three "averages" (mean, median, mode) and the range. Each answers a slightly different question about the middle or spread of the data.' },
+        { type: 'concept', title: 'Mean, median, mode', body: 'MEAN = sum ÷ count (the balancing point). MEDIAN = the middle value once the data is SORTED (for an even count, the average of the two middle values). MODE = the value that occurs most often (a data set can have no mode or several). Sorting first is essential for the median.' },
+        { type: 'concept', title: 'Range & when to use which', body: 'RANGE = largest − smallest — a quick measure of spread. The MEAN is sensitive to outliers (one huge value drags it up); the MEDIAN is robust to them, which is why "typical" incomes use the median. The MODE is the only average that works for non-numeric categories.' },
+        { type: 'formula', items: [
+          { name: 'Mean', expr: 'Mean = (sum of values) ÷ (number of values)', when: 'Overall average; affected by outliers.' },
+          { name: 'Median', expr: 'Middle of the SORTED list (avg of two middles if even count)', when: 'Typical value; ignores outliers.' },
+          { name: 'Mode', expr: 'The most frequently occurring value', when: 'Most common item; works for categories.' },
+          { name: 'Range', expr: 'Range = maximum − minimum', when: 'Spread of the data.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'ALWAYS sort the data before reading off the median — the #1 cause of wrong answers.',
+          'For an odd count of n values, the median sits at position (n + 1)/2.',
+          'Spot the mode by scanning for the repeated value — no arithmetic needed.'
+        ] },
+        { type: 'example', problem: 'Find the median of 7, 3, 9, 4, 8.', steps: [
+          'Sort: 3, 4, 7, 8, 9.',
+          'Middle of 5 values is the 3rd: 7.'
+        ], answer: '7' },
+        { type: 'example', problem: 'Find the range of 12, 5, 20, 8, 3.', steps: [
+          'Largest = 20, smallest = 3.',
+          'Range = 20 − 3 = 17.'
+        ], answer: '17' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Sort once, then read median, range and (by eye) the mode in a single pass.',
+          'Remember the mean uses every value — recompute it fully rather than guessing.',
+          'For even-length lists, average the two middle numbers for the median.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Taking the median without sorting first.',
+          'Confusing mean (arithmetic average) with median (positional middle).',
+          'Assuming every data set has exactly one mode.',
+          'Off-by-one when locating the middle position.'
+        ] },
+        { type: 'memory', text: 'Mean = add-and-divide; Median = middle after sorting; Mode = most; Range = max − min.' },
+        { type: 'revision', points: [
+          'Mean = sum ÷ count; sensitive to outliers.',
+          'Median = middle of the sorted list; robust to outliers.',
+          'Mode = most frequent value.',
+          'Range = max − min.'
+        ] }
+      ]
     }
   ];
 

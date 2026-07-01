@@ -56,6 +56,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch F-b) — complete Modern-Math:** two NEW topics — **set-theory** (two-set union/only/neither/both +
+  three-set inclusion–exclusion, built from disjoint Venn regions so every count is consistent) and **statistics-basics**
+  (median / mode / range / mean). Generator + Learn chapter + harness + exam-relevance each. Modern-Math is now complete
+  at 4 topics with zero orphans. Harness **109,447 assertions, 0 mismatches**; Learn graph 55→57; subjects roster 33→35.
+  SW v177→v178, Bible 2.91→2.92.
 - **Phase 3 (batch F-a) — close the Modern-Math practice orphans:** drill generators for the two drill-less Modern-Math
   Learn chapters — **permutation-combination** (factorial / arrangement / nPr / nCr / committee / handshakes, ASCII
   "7P3"/"8C3" notation so the harness parses it) and **probability** (single-draw / complement / all-heads / multiples,

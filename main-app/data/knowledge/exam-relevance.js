@@ -67,6 +67,8 @@
     'coordinate-geometry-basics': { priority: 'low', order: 27, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
     'trigonometry':            { priority: 'medium', order: 28, mostAsked: false, exams: { SSC: 'very-high' } },
     'surface-area':            { priority: 'medium', order: 29, mostAsked: false, exams: { CAT: 'medium', SSC: 'high' } },
+    'set-theory':              { priority: 'medium', order: 30, mostAsked: false, exams: { CAT: 'medium', SNAP_NMAT: 'medium', SSC: 'medium' } },
+    'statistics-basics':       { priority: 'low',    order: 31, mostAsked: false, exams: { SNAP_NMAT: 'medium', SSC: 'medium' } },
 
     /* ── Data Interpretation ── */
     'di-foundations':          { priority: 'high',   order: 1,  mostAsked: true,  exams: { CAT: 'very-high', SNAP_NMAT: 'high', Banking: 'very-high', SSC: 'high' } },

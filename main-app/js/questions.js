@@ -639,6 +639,35 @@ var _PROB_ARCH = {
 var _PROB_PRIMARY = { easy: function () { return _probBag(); }, medium: function () { return _probComplement(); }, hard: function () { return _probMultiple() || _probComplement(); } };
 function genProbability() { return _genArch('probability', _PROB_ARCH, _PROB_PRIMARY); }
 
+/** Set Theory (archetypes: union · only-A · neither · both · three-set union — all via inclusion–exclusion). Integers. */
+var _SET_CTX = [['tea', 'coffee'], ['football', 'cricket'], ['Maths', 'Science'], ['Hindi', 'English'], ['apples', 'oranges']];
+function _setUnion() { var c = pick(_SET_CTX), both = randInt(4, 12), a = both + randInt(4, 20), b = both + randInt(4, 20); return { q: 'In a group, ' + a + ' like ' + c[0] + ', ' + b + ' like ' + c[1] + ', and ' + both + ' like both. How many like at least one of the two?', a: a + b - both, k: 'union', explain: '|A∪B| = |A| + |B| − |A∩B| = ' + a + ' + ' + b + ' − ' + both + ' = ' + (a + b - both) + '.' }; }
+function _setOnly() { var c = pick(_SET_CTX), both = randInt(4, 12), a = both + randInt(5, 20); return { q: 'In a group, ' + a + ' people like ' + c[0] + ' and ' + both + ' of them also like ' + c[1] + '. How many like ONLY ' + c[0] + '?', a: a - both, k: 'onlyA', explain: 'Only ' + c[0] + ' = |A| − |A∩B| = ' + a + ' − ' + both + ' = ' + (a - both) + '.' }; }
+function _setNeither() { var c = pick(_SET_CTX), both = randInt(4, 12), a = both + randInt(4, 18), b = both + randInt(4, 18), union = a + b - both, neither = randInt(2, 12), total = union + neither; return { q: 'In a class of ' + total + ' students, ' + a + ' like ' + c[0] + ', ' + b + ' like ' + c[1] + ' and ' + both + ' like both. How many like neither?', a: neither, k: 'neither', explain: 'Like at least one = ' + a + ' + ' + b + ' − ' + both + ' = ' + union + '. Neither = ' + total + ' − ' + union + ' = ' + neither + '.' }; }
+function _setBoth() { var c = pick(_SET_CTX), both = randInt(4, 14), a = both + randInt(4, 16), b = both + randInt(4, 16), union = a + b - both, neither = randInt(2, 10), total = union + neither; return { q: 'In a class of ' + total + ' students, ' + a + ' like ' + c[0] + ', ' + b + ' like ' + c[1] + ' and ' + neither + ' like neither. How many like both?', a: both, k: 'both', explain: 'Like at least one = ' + total + ' − ' + neither + ' = ' + union + '. Both = |A| + |B| − union = ' + a + ' + ' + b + ' − ' + union + ' = ' + both + '.' }; }
+function _setThree() { var x = []; for (var i = 0; i < 7; i++) x.push(randInt(1, 9)); var a = x[0] + x[3] + x[5] + x[6], b = x[1] + x[3] + x[4] + x[6], cc = x[2] + x[4] + x[5] + x[6], ab = x[3] + x[6], bc = x[4] + x[6], ca = x[5] + x[6], abc = x[6], union = x[0] + x[1] + x[2] + x[3] + x[4] + x[5] + x[6]; return { q: 'In a survey, ' + a + ' read A, ' + b + ' read B, ' + cc + ' read C; ' + ab + ' read A and B, ' + bc + ' read B and C, ' + ca + ' read A and C, and ' + abc + ' read all three. How many read at least one?', a: union, k: 'threeUnion', explain: '|A∪B∪C| = (' + a + '+' + b + '+' + cc + ') − (' + ab + '+' + bc + '+' + ca + ') + ' + abc + ' = ' + union + '.' }; }
+var _SET_ARCH = {
+  easy: [{ k: 'union', skill: 'formula', build: function () { return _setUnion(); } }, { k: 'onlyA', skill: 'direct', build: function () { return _setOnly(); } }],
+  medium: [{ k: 'neither', skill: 'multi-step', build: function () { return _setNeither(); } }, { k: 'both', skill: 'multi-step', build: function () { return _setBoth(); } }, { k: 'union', skill: 'formula', build: function () { return _setUnion(); } }],
+  hard: [{ k: 'threeUnion', skill: 'multi-step', build: function () { return _setThree(); } }, { k: 'neither', skill: 'multi-step', build: function () { return _setNeither(); } }, { k: 'both', skill: 'multi-step', build: function () { return _setBoth(); } }]
+};
+var _SET_PRIMARY = { easy: function () { return _setUnion(); }, medium: function () { return _setNeither(); }, hard: function () { return _setThree(); } };
+function genSetTheory() { return _genArch('set-theory', _SET_ARCH, _SET_PRIMARY); }
+
+/** Statistics Basics (archetypes: median · mode · range · mean of a small data set). Answers integer or ≤1-dp. */
+function _statList(k, lo, hi) { var a = []; for (var i = 0; i < k; i++) a.push(randInt(lo, hi)); return a; }
+function _stMedian(diff) { var k = diff === 'hard' ? 7 : 5, a = _statList(k, 2, 60), s = a.slice().sort(function (p, q) { return p - q; }); return { q: 'Find the median of ' + a.join(', ') + '.', a: s[(k - 1) / 2], k: 'median', explain: 'Sort: ' + s.join(', ') + '. With ' + k + ' values the median is the middle one = ' + s[(k - 1) / 2] + '.' }; }
+function _stMode() { for (var t = 0; t < 30; t++) { var m = randInt(2, 20), a = [m, m, m], extra = _statList(randInt(2, 3), 21, 50); a = a.concat(extra); var ok = true; var cnt = {}; a.forEach(function (v) { cnt[v] = (cnt[v] || 0) + 1; }); for (var kk in cnt) { if (kk != m && cnt[kk] >= 3) ok = false; } if (ok) { for (var i = a.length - 1; i > 0; i--) { var j = randInt(0, i), tmp = a[i]; a[i] = a[j]; a[j] = tmp; } return { q: 'Find the mode of ' + a.join(', ') + '.', a: m, k: 'mode', explain: 'The mode is the most frequent value. ' + m + ' appears 3 times — more than any other — so the mode is ' + m + '.' }; } } return null; }
+function _stRange(diff) { var k = diff === 'hard' ? 6 : 5, a = _statList(k, 3, 90), mx = Math.max.apply(null, a), mn = Math.min.apply(null, a); return { q: 'Find the range of ' + a.join(', ') + '.', a: mx - mn, k: 'range', explain: 'Range = largest − smallest = ' + mx + ' − ' + mn + ' = ' + (mx - mn) + '.' }; }
+function _stMean() { for (var t = 0; t < 30; t++) { var k = 5, M = randInt(6, 30), a = _statList(k - 1, 2, 50), s = a.reduce(function (p, q) { return p + q; }, 0), last = k * M - s; if (last >= 1 && last <= 60) { a.push(last); return { q: 'Find the mean (average) of ' + a.join(', ') + '.', a: M, k: 'mean', explain: 'Mean = sum ÷ count = ' + (s + last) + ' ÷ ' + k + ' = ' + M + '.' }; } } return null; }
+var _STAT_ARCH = {
+  easy: [{ k: 'median', skill: 'multi-step', build: function (d) { return _stMedian(d); } }, { k: 'range', skill: 'direct', build: function (d) { return _stRange(d); } }],
+  medium: [{ k: 'median', skill: 'multi-step', build: function (d) { return _stMedian(d); } }, { k: 'mode', skill: 'direct', build: function () { return _stMode(); } }, { k: 'range', skill: 'direct', build: function (d) { return _stRange(d); } }],
+  hard: [{ k: 'mode', skill: 'direct', build: function () { return _stMode(); } }, { k: 'median', skill: 'multi-step', build: function (d) { return _stMedian(d); } }, { k: 'mean', skill: 'multi-step', build: function () { return _stMean(); } }]
+};
+var _STAT_PRIMARY = { easy: function () { return _stRange('easy'); }, medium: function () { return _stMedian('medium'); }, hard: function () { return _stMode() || _stRange('hard'); } };
+function genStatistics() { return _genArch('statistics-basics', _STAT_ARCH, _STAT_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -673,7 +702,9 @@ var categoryGenerators = {
   trigonometry: genTrigonometry,
   'surface-area': genSurfaceArea,
   'permutation-combination': genPermutationCombination,
-  probability: genProbability
+  probability: genProbability,
+  'set-theory': genSetTheory,
+  'statistics-basics': genStatistics
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -732,7 +763,7 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genLinearEquations, genQuadraticEquations, genSurdsIndices,
   genLogarithms, genProgressions, genInequalities,
   genGeometryBasics, genCoordinateGeometry, genTrigonometry, genSurfaceArea,
-  genPermutationCombination, genProbability];
+  genPermutationCombination, genProbability, genSetTheory, genStatistics];
 
 /**
  * Generate a single random question.
