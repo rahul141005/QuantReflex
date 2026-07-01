@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.94 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.95 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.95 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phases 4 & 5: calibration + global validation
+> (ADR-083 COMPLETE).** Whole-engine acceptance sweep: **36 Quant drill categories**, each with a generator AND a Learn
+> chapter, **zero orphan content** (script-verified). Recompute harness **113,039 assertions / 0 mismatches** across all
+> categories × 3 tiers; a 4,320-question cross-topic stress run found 0 dirty answers, longest stem 146 chars. Real
+> browser boots clean and the longest stem + quantity-comparison MCQ render with no overflow at 360px. exam-relevance
+> covers all 62 published Learn topics; full `npm test` green. The Quant engine now matches the DI/LR production bar.
+>
 > **2.94 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 COMPLETE (batch G-b): quantity-comparison
 > (ADR-083).** The final new topic — **quantity-comparison**, the one genuinely-MCQ Quant format (Banking/CET). The
 > generator computes two Quantities from varied sub-problems (%, product, linear solve, average, square) and returns the

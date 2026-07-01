@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phases 4 & 5: calibration + global validation (ADR-083 COMPLETE)
+
+Whole-engine acceptance sweep — no code changes, validation + docs only.
+
+```
+### chore/quant(ADR-083): final calibration + global validation
+- Zero-orphan verified programmatically: 36 Quant drill categories, 36 Learn chapters, 0 drills without Learn,
+  0 Learn without a drill.
+- Recompute harness: 113,039 assertions, ~14,800 answers independently recomputed, 0 mismatches (36 cats × 3 tiers).
+- Cross-topic stress (4,320 questions): 0 dirty answers, longest stem 146 chars, longest explanation 128 chars.
+- Real-browser boot: KB 62 topics, all 15 new categories generate client-side, no JS errors. Longest set-theory stem +
+  quantity-comparison MCQ render with no horizontal overflow at 360px; MCQ options full-width.
+- exam-relevance covers all 62 published topics (statmath 62/62); subtype 'diff:key' consistent; full npm test green.
+```
+
+Verification: `npm test` exit 0; zero-orphan + stress + browser-boot + 360px-render checks all clean. **Docs:**
+DECISION_LOG ADR-083 (Phases 4 & 5, acceptance verdict), VERSIONS 2.94→2.95, this entry. No SW change (validation only).
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch G-b: quantity-comparison (Phase 3 COMPLETE) (ADR-083)
 
 The one genuinely-MCQ Quant format finishes complete coverage. Full suite green.

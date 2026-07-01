@@ -56,6 +56,20 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 4 & 5 — final calibration + global validation (ADR-083 COMPLETE):** a whole-engine sweep confirmed the
+  acceptance criteria. **Coverage:** 36 Quant drill categories, each with an archetype generator (earned difficulty,
+  premium explanations, exam-authentic wording) AND a gold-standard Learn chapter, cross-linked both ways — **zero
+  orphan content** (verified in a script: 0 drills without Learn, 0 Learn without a drill). **Correctness:** the
+  recompute harness independently re-derives every numeric archetype across all 36 categories × 3 tiers — **113,039
+  assertions, ~14,800 answers recomputed, 0 mismatches**; earned-tier / no-downgrade / archetype-diversity all pass.
+  **Number realism:** a 4,320-question cross-topic stress run found 0 dirty answers (all integer or ≤2-dp or valid
+  MCQ string), longest stem 146 chars, longest explanation 128 chars. **UI:** real-browser boot clean (KB 62 topics,
+  all 15 new categories generate client-side, no JS errors); the longest set-theory stem + the quantity-comparison MCQ
+  render with **no horizontal overflow at 360px** and full-width MCQ options. **Metadata/analytics:** every published
+  topic carries exam-relevance (statmath 62/62); `subtype:'diff:key'` is consistent for scoring/auto-tips; the whole
+  `npm test` suite is green. **Excluded (documented, unchanged):** Races, Data Sufficiency, full plane-geometry proofs/
+  constructions/graph-plotting, matrices & determinants, base systems, functions-graphs, algebraic-identities (folded),
+  Clocks & Calendars (live under LR). The Quant engine now matches the DI/LR production bar end-to-end. Bible 2.94→2.95.
 - **Phase 3 (batch G-b) — quantity-comparison (Phase 3 COMPLETE):** the final new topic — **quantity-comparison**, the
   one genuinely-MCQ Quant format (Banking/CET). The generator computes Quantity I and Quantity II from varied
   sub-problems (percentage / product / linear-solve / average / square) and returns the correct relation
