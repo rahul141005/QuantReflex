@@ -74,6 +74,7 @@
     'fractions':               { priority: 'high',   order: 33, mostAsked: true,  exams: { CAT: 'medium', Banking: 'high', SSC: 'high' } },
     'squares':                 { priority: 'medium', order: 34, mostAsked: false, exams: { Banking: 'medium', SSC: 'high' } },
     'cubes':                   { priority: 'low',    order: 35, mostAsked: false, exams: { SSC: 'medium' } },
+    'quantity-comparison':     { priority: 'high',   order: 36, mostAsked: true,  exams: { Banking: 'very-high', SNAP_NMAT: 'medium' } },
 
     /* ── Data Interpretation ── */
     'di-foundations':          { priority: 'high',   order: 1,  mostAsked: true,  exams: { CAT: 'very-high', SNAP_NMAT: 'high', Banking: 'very-high', SSC: 'high' } },

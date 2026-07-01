@@ -668,6 +668,27 @@ var _STAT_ARCH = {
 var _STAT_PRIMARY = { easy: function () { return _stRange('easy'); }, medium: function () { return _stMedian('medium'); }, hard: function () { return _stMode() || _stRange('hard'); } };
 function genStatistics() { return _genArch('statistics-basics', _STAT_ARCH, _STAT_PRIMARY); }
 
+/** Quantity Comparison (Banking/CET) — the one genuinely-MCQ Quant format. Computes two quantities and picks the
+ *  correct relation. Reuses the drill engine's q.options MCQ path (no UI work). Answers are the relation strings. */
+var _QC_GT = 'Quantity I > Quantity II', _QC_LT = 'Quantity I < Quantity II', _QC_EQ = 'Quantity I = Quantity II';
+var _QC_OPTS = [_QC_GT, _QC_LT, _QC_EQ];
+function _qcWrap(q1, q2, desc1, desc2, work, k) {
+  var rel = q1 > q2 ? _QC_GT : (q1 < q2 ? _QC_LT : _QC_EQ);
+  return { q: 'Compare the two quantities.  Quantity I: ' + desc1 + '.  Quantity II: ' + desc2 + '.', a: rel, options: QRGen.shuffle(_QC_OPTS.slice()), k: k, explain: work + ' So Quantity I = ' + q1 + ' and Quantity II = ' + q2 + ', giving “' + rel + '”.' };
+}
+function _qcPct() { var b = pick([200, 250, 300, 400, 500, 600, 800]), a = pick([10, 15, 20, 25, 30, 40]), q1 = a * b / 100, d = pick([10, 20, 30]), q2 = pick([q1 - d, q1 + d, q1]); if (q2 < 0) q2 = q1 + d; return _qcWrap(q1, q2, a + '% of ' + b, '' + q2, a + '% of ' + b + ' = ' + q1 + '.', 'pct'); }
+function _qcProduct() { var a = randInt(6, 18), b = randInt(6, 18), c = randInt(6, 18), d = randInt(6, 18), q1 = a * b, q2 = c * d; return _qcWrap(q1, q2, a + ' × ' + b, c + ' × ' + d, a + ' × ' + b + ' = ' + q1 + '; ' + c + ' × ' + d + ' = ' + q2 + '.', 'product'); }
+function _qcSolve() { var m = randInt(2, 9), x = randInt(3, 20), n = randInt(1, 30), c = m * x + n, q2 = pick([x - 2, x - 1, x, x + 1, x + 2]); return _qcWrap(x, q2, 'the value of x, where ' + m + 'x + ' + n + ' = ' + c, '' + q2, m + 'x + ' + n + ' = ' + c + ' → x = ' + x + '.', 'solve'); }
+function _qcAverage() { var list = [randInt(10, 40), randInt(10, 40), randInt(10, 40)], s = list[0] + list[1] + list[2]; if (s % 3 !== 0) { list[2] += (3 - s % 3); s = list[0] + list[1] + list[2]; } var q1 = s / 3, q2 = pick([q1 - pick([2, 5, 8]), q1 + pick([2, 5, 8]), q1]); return _qcWrap(q1, q2, 'the average of ' + list.join(', '), '' + q2, 'Average = (' + list.join(' + ') + ')/3 = ' + q1 + '.', 'average'); }
+function _qcSquare() { var a = randInt(6, 20), q1 = a * a, q2 = pick([a * a - pick([1, 5, 11]), a * a + pick([1, 5, 11]), a * a]); return _qcWrap(q1, q2, a + '²', '' + q2, a + '² = ' + q1 + '.', 'square'); }
+var _QC_ARCH = {
+  easy: [{ k: 'pct', skill: 'compare', build: function () { return _qcPct(); } }, { k: 'product', skill: 'compare', build: function () { return _qcProduct(); } }],
+  medium: [{ k: 'solve', skill: 'compare', build: function () { return _qcSolve(); } }, { k: 'average', skill: 'compare', build: function () { return _qcAverage(); } }, { k: 'pct', skill: 'compare', build: function () { return _qcPct(); } }],
+  hard: [{ k: 'solve', skill: 'compare', build: function () { return _qcSolve(); } }, { k: 'square', skill: 'compare', build: function () { return _qcSquare(); } }, { k: 'average', skill: 'compare', build: function () { return _qcAverage(); } }]
+};
+var _QC_PRIMARY = { easy: function () { return _qcProduct(); }, medium: function () { return _qcSolve(); }, hard: function () { return _qcSquare(); } };
+function genQuantityComparison() { return _genArch('quantity-comparison', _QC_ARCH, _QC_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -704,7 +725,8 @@ var categoryGenerators = {
   'permutation-combination': genPermutationCombination,
   probability: genProbability,
   'set-theory': genSetTheory,
-  'statistics-basics': genStatistics
+  'statistics-basics': genStatistics,
+  'quantity-comparison': genQuantityComparison
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -763,7 +785,8 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genLinearEquations, genQuadraticEquations, genSurdsIndices,
   genLogarithms, genProgressions, genInequalities,
   genGeometryBasics, genCoordinateGeometry, genTrigonometry, genSurfaceArea,
-  genPermutationCombination, genProbability, genSetTheory, genStatistics];
+  genPermutationCombination, genProbability, genSetTheory, genStatistics,
+  genQuantityComparison];
 
 /**
  * Generate a single random question.

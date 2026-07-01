@@ -6,6 +6,27 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch G-b: quantity-comparison (Phase 3 COMPLETE) (ADR-083)
+
+The one genuinely-MCQ Quant format finishes complete coverage. Full suite green.
+
+```
+### feat/quant(ADR-083): quantity-comparison MCQ (Banking/CET)
+- js/questions.js: genQuantityComparison — computes Quantity I and II from 5 sub-problem archetypes (pct/product/
+  solve/average/square) and returns the relation (I>II / I<II / I=II) as a shuffled q.options MCQ. Reuses the drill
+  engine's existing MCQ path; Quant stays numeric-entry everywhere else.
+- data/knowledge/arithmetic.js: + quantity-comparison Learn chapter (arithmetic topicCount 8→9).
+  exam-relevance.js: metadata (order 36).
+- quantTopics: 1 new label. quant-engine.check: TIER_KEYS (string-answer → structural + diversity only) — 113,039
+  assertions, 0 mismatches. subjects 35→36; learn-content 61→62 topics.
+- Phase 3 complete: 36 Quant drill categories, 36 Quant Learn chapters, zero orphan content (verified).
+```
+
+Verification: `npm test` exit 0 (quant-engine 113,039/0; learn-content 62 topics; statmath 62/62; subjects 36;
+zero-orphan check clean). **Docs:** DECISION_LOG ADR-083 (Phase 3G-b), VERSIONS 2.93→2.94, this entry. **SW** v179→v180.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch G-a: close the last drill-only orphans (ADR-083)
 
 Learn chapters for the 4 foundational speed-calc drills → zero orphan content. Full suite green.

@@ -56,6 +56,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch G-b) — quantity-comparison (Phase 3 COMPLETE):** the final new topic — **quantity-comparison**, the
+  one genuinely-MCQ Quant format (Banking/CET). The generator computes Quantity I and Quantity II from varied
+  sub-problems (percentage / product / linear-solve / average / square) and returns the correct relation
+  (I > II · I < II · I = II) via the drill engine's existing `q.options` MCQ path — zero UI work, and Quant stays
+  numeric-entry for every other category. Learn chapter (arithmetic) + exam-relevance (order 36) added. **This completes
+  Phase 3: 36 Quant drill categories, 36 Quant Learn chapters, zero orphan content, harness 113,039 assertions /
+  0 mismatches.** Learn graph 61→62; subjects roster 35→36. SW v179→v180, Bible 2.93→2.94.
 - **Phase 3 (batch G-a) — close the last drill-only orphans:** gold-standard Learn chapters for **multiplication**,
   **fractions**, **squares** and **cubes** — the four foundational speed-calc drills that had a bank but no Learn
   content. With these, **every Quant drill has a Learn chapter and every Quant Learn chapter has a drill — zero orphan

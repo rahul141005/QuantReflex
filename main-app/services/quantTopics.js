@@ -30,7 +30,8 @@
     'geometry-basics': 'Geometry Basics', 'coordinate-geometry-basics': 'Coordinate Geometry',
     trigonometry: 'Trigonometry', 'surface-area': 'Surface Area',
     'permutation-combination': 'Permutation & Combination', probability: 'Probability',
-    'set-theory': 'Set Theory', 'statistics-basics': 'Statistics Basics'
+    'set-theory': 'Set Theory', 'statistics-basics': 'Statistics Basics',
+    'quantity-comparison': 'Quantity Comparison'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

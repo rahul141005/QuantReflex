@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.93 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.94 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.94 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 COMPLETE (batch G-b): quantity-comparison
+> (ADR-083).** The final new topic — **quantity-comparison**, the one genuinely-MCQ Quant format (Banking/CET). The
+> generator computes two Quantities from varied sub-problems (%, product, linear solve, average, square) and returns the
+> correct relation (I > II / I < II / I = II) via the drill engine's existing `q.options` MCQ path — no UI work; Quant
+> stays numeric-entry everywhere else. Learn chapter + exam-relevance added. **Phase 3 (complete coverage) is now done:
+> 36 Quant drill categories, 36 Quant Learn chapters, zero orphan content, 113,039 harness assertions / 0 mismatches.**
+> Learn graph 61→62 topics; subjects roster 35→36. SW v179→v180.
+>
 > **2.93 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch G-a): close the last drill-only orphans
 > (ADR-083).** Gold-standard Learn chapters for the four foundational speed-calc drills that had no Learn content —
 > **multiplication**, **fractions**, **squares**, **cubes** (mental-math tricks, ends-in-5 squaring, cube-root last-digit

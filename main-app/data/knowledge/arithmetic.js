@@ -375,6 +375,55 @@
           'Volume resets to V after each top-up.'
         ] }
       ]
+    },
+    {
+      id: 'quantity-comparison', title: 'Quantity Comparison', icon: '↔️', category: 'arithmetic',
+      difficulty: 'core', examFrequency: 'high', status: 'published',
+      drillCategory: 'quantity-comparison', syllabusTopicId: null, revisionIntervalDays: 7,
+      related: ['percentages', 'averages', 'linear-equations'],
+      searchTerms: ['quantity comparison', 'quantity i', 'quantity ii', 'banking', 'compare', 'greater', 'relation', 'ibps'],
+      sections: [
+        { type: 'overview', text: 'Quantity Comparison is the signature Banking/CET question format: you are given two Quantities (I and II), you evaluate each, and you pick the relation between them. It is the one Quant format that is genuinely multiple-choice — the skill is fast, accurate evaluation, not the comparison itself.' },
+        { type: 'concept', title: 'The format & the options', body: 'Compute Quantity I and Quantity II independently, then choose: Quantity I > Quantity II, Quantity I < Quantity II, or Quantity I = Quantity II. (Full banking papers add "≥", "≤" and "cannot be determined" for questions whose quantities are ranges — e.g. the roots of a quadratic — but for two concrete values the answer is simply >, < or =.)' },
+        { type: 'concept', title: 'Work smart, not fully', body: 'You often do NOT need exact values — just enough to decide the relation. Compare orders of magnitude, use approximation, or compare like-with-like (both as percentages of the same base). Only compute precisely when the two are close.' },
+        { type: 'formula', items: [
+          { name: 'Decision rule', expr: 'Evaluate QI and QII → compare: QI > QII, QI < QII, or QI = QII', when: 'Every quantity-comparison question.' },
+          { name: 'Estimate-first', expr: 'Round both quantities; compute exactly only if the rounded values are close', when: 'Saving time when the gap is obviously large.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Scan for an obvious winner before calculating — a big magnitude gap needs no arithmetic.',
+          'Put both quantities in the same form (both raw numbers, or both %) before comparing.',
+          'Watch for the "equal" case — exam setters love a QI = QII trap where a quick glance suggests otherwise.'
+        ] },
+        { type: 'example', problem: 'Quantity I: 20% of 300. Quantity II: 45. Compare.', steps: [
+          'Quantity I = 20% of 300 = 60.',
+          'Quantity II = 45.',
+          '60 > 45 → Quantity I > Quantity II.'
+        ], answer: 'Quantity I > Quantity II' },
+        { type: 'example', problem: 'Quantity I: x where 4x + 8 = 60. Quantity II: 13. Compare.', steps: [
+          '4x = 52 → x = 13.',
+          'Quantity II = 13.',
+          'x = 13 → Quantity I = Quantity II.'
+        ], answer: 'Quantity I = Quantity II' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Evaluate the harder quantity first — if it settles the relation, skip the easier one.',
+          'Never over-compute: approximate until the two values are clearly close.',
+          'Double-check borderline/equal cases; that is where the marks are lost.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Comparing before both quantities are in the same units/form.',
+          'Assuming a relation from a rough glance when the values are close — compute those.',
+          'Missing the "equal" answer.',
+          'Spending full calculation time when an estimate would decide it.'
+        ] },
+        { type: 'memory', text: 'Evaluate each quantity, then compare: >, < or =. Estimate first, compute only when close.' },
+        { type: 'revision', points: [
+          'Compute QI and QII independently, then pick the relation.',
+          'Options: QI > QII, QI < QII, QI = QII.',
+          'Approximate first; compute exactly only for close calls.',
+          'Put both in the same form before comparing.'
+        ] }
+      ]
     }
   ];
 

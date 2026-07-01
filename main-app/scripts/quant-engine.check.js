@@ -23,7 +23,7 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
   'linear-equations', 'quadratic-equations', 'surds-indices',
   'logarithms', 'progressions', 'inequalities-modulus',
   'geometry-basics', 'coordinate-geometry-basics', 'trigonometry', 'surface-area',
-  'permutation-combination', 'probability', 'set-theory', 'statistics-basics'];
+  'permutation-combination', 'probability', 'set-theory', 'statistics-basics', 'quantity-comparison'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -61,7 +61,8 @@ var TIER_KEYS = {
   'permutation-combination': { easy: ['factorial', 'arrange'], medium: ['nCr', 'nPr', 'arrange'], hard: ['committee', 'handshakes', 'nCr'] },
   probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb', 'allHeads'] },
   'set-theory': { easy: ['union', 'onlyA'], medium: ['neither', 'both', 'union'], hard: ['threeUnion', 'neither', 'both'] },
-  'statistics-basics': { easy: ['median', 'range'], medium: ['median', 'mode', 'range'], hard: ['mode', 'median', 'mean'] }
+  'statistics-basics': { easy: ['median', 'range'], medium: ['median', 'mode', 'range'], hard: ['mode', 'median', 'mean'] },
+  'quantity-comparison': { easy: ['pct', 'product'], medium: ['solve', 'average', 'pct'], hard: ['solve', 'square', 'average'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
