@@ -147,6 +147,8 @@ var AIFeatures = (function () {
     });
   }
 
+  /* INTENTIONAL narrowed subset (ADR-084): the AI word-problem generator only covers these arithmetic categories —
+     deliberately NOT the full Quant category set in services/quantTopics.js. Not a stale list. */
   var WP_CATEGORIES = [
     { key: 'percentages', label: 'Percentages' },
     { key: 'profit-loss', label: 'Profit & Loss' },

@@ -284,23 +284,6 @@ window.addEventListener('beforeinstallprompt', function (e) {
 });
 
 /* ---- Category name formatting for display ---- */
-var _CATEGORY_LABELS = {
-  'squares': 'Squares',
-  'cubes': 'Cubes',
-  'area': 'Area',
-  'volume': 'Volume',
-  'fractions': 'Fractions',
-  'percentages': 'Percentages',
-  'multiplication': 'Multiplication',
-  'ratios': 'Ratios',
-  'averages': 'Averages',
-  'profit-loss': 'Profit & Loss',
-  'time-speed-distance': 'Time, Speed & Distance',
-  'time-and-work': 'Time & Work',
-  'simplification': 'Simplification',
-  'number-series': 'Number Series'
-};
-
 /**
  * Format a raw category key into a human-readable label.
  * @param {string} key - raw category key (e.g. 'time-and-work')
@@ -308,7 +291,9 @@ var _CATEGORY_LABELS = {
  */
 function formatCategoryName(key) {
   if (!key) return '-';
-  if (_CATEGORY_LABELS[key]) return _CATEGORY_LABELS[key];
+  /* Quant labels come from the SINGLE source of truth (services/quantTopics.js CATEGORY_LABELS) so every drill
+     category — including ones added later — renders its real name, never a raw key (ADR-084). */
+  try { if (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS && QuantTopics.CATEGORY_LABELS[key]) return QuantTopics.CATEGORY_LABELS[key]; } catch (_) {}
   /* DI (ADR-074) + LR (ADR-075) categories are labelled by their engines — Stats / post-session read "Bar Graphs" /
      "Syllogisms", not "Di Bar" / "Lr Syllogism". */
   try { if (typeof DIEngine !== 'undefined' && DIEngine.CATEGORY_LABELS && DIEngine.CATEGORY_LABELS[key]) return DIEngine.CATEGORY_LABELS[key]; } catch (_) {}

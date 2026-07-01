@@ -13,13 +13,10 @@ var DuelUI = (function () {
   function _el(id) { return document.getElementById(id); }
   function _fmtCat(k) { return (typeof formatCategoryName === 'function') ? formatCategoryName(k) : String(k); }
   function _categoryEntries() {
-    var src = (typeof _CATEGORY_LABELS !== 'undefined' && _CATEGORY_LABELS) ? _CATEGORY_LABELS : {
-      squares: 'Squares', cubes: 'Cubes', area: 'Area', volume: 'Volume', fractions: 'Fractions',
-      percentages: 'Percentages', multiplication: 'Multiplication', ratios: 'Ratios', averages: 'Averages',
-      'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
-      simplification: 'Simplification', 'number-series': 'Number Series'
-    };
-    return Object.keys(src).map(function (k) { return { key: k, label: src[k] }; });
+    /* Derive the duel category list from the SINGLE source of truth (services/quantTopics.js) so every Quant drill
+       category is duel-able and no stale snapshot can drift (ADR-084). */
+    var labels = (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS) ? QuantTopics.CATEGORY_LABELS : {};
+    return Object.keys(labels).map(function (k) { return { key: k, label: _fmtCat(k) }; });
   }
   function _initial(name) { var n = String(name || '?').trim(); return n ? n.charAt(0).toUpperCase() : '?'; }
   function _configSummary(cfg) {

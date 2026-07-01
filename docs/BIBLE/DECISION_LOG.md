@@ -8,6 +8,24 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-084 — Quant Gold Audit + Excellence Pass (premium discoverability, Quick-Reference, generator craft) (2026-07-01)
+- **Context:** ADR-083 shipped complete Quant coverage (36 drill categories + Learn chapters, zero orphans, harness
+  113k/0). A production-readiness audit (4 independent Explore passes, each finding re-verified) found the coverage was
+  real but **not fully discoverable**: the Practice "Choose Category" picker + several display surfaces held frozen
+  14-item snapshots, so the 22 newer categories were invisible there and rendered as raw keys in Stats/Planner/Duel.
+  Plus generator scenario-diversity, explanation, Learn-consistency and dead-code polish opportunities.
+- **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
+  the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
+  library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 1 (this entry) — zero stale category lists:** `js/app.js` `formatCategoryName` now resolves Quant labels from
+  the single source of truth (`services/quantTopics.js` `CATEGORY_LABELS`) instead of a frozen 14-item map; the same
+  derivation replaces the stale snapshots in `js/views/planner-view.js` (`drillName` → `formatCategoryName`) and
+  `js/duel-ui.js` (`_categoryEntries` → `QuantTopics.CATEGORY_LABELS`). New categories now render their real names in
+  results/stats/history/planner/duel. Intentional narrowed subsets (`ai-features.js WP_CATEGORIES`, `onboarding.js
+  EASY_QUESTIONS`) annotated. New `scripts/category-source.check.js` (into `npm test`) asserts
+  `categoryGenerators` keys == `CATEGORY_LABELS` keys, every label is real (non-key), and the subject layer derives the
+  exact set — so a stale hardcoded list can never ship again. SW v180→v181.
+
 ## ADR-083 — Quant Engine Master Overhaul (evolution to the DI/LR bar, complete coverage) (2026-07-01)
 - **Context:** Quant is the flagship subject but its engine is the *original* one — DI (ADR-078) and LR (ADR-079) were
   later rebuilt far past it. A 3-agent audit found Quant at ~60% of that bar: 14 numeric generators in `js/questions.js`

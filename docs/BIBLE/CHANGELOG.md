@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 1: zero stale category lists
+
+Make every category-display surface derive from the single source of truth so new categories never render as raw keys.
+
+```
+### fix/quant(ADR-084): derive category surfaces from services/quantTopics.js
+- js/app.js: formatCategoryName resolves Quant labels via QuantTopics.CATEGORY_LABELS (removed frozen 14-item map).
+- js/views/planner-view.js: drillName → formatCategoryName (removed stale DRILL_NAMES snapshot).
+- js/duel-ui.js: _categoryEntries derives from QuantTopics.CATEGORY_LABELS (all 36 duel-able), labels via formatCategoryName.
+- js/ai-features.js WP_CATEGORIES + js/onboarding.js EASY_QUESTIONS annotated as intentional feature subsets.
+- scripts/category-source.check.js (NEW, into npm test): asserts categoryGenerators keys == CATEGORY_LABELS keys,
+  every label is real (non-key), and subjectToCategories('quant') == the label set. 110 passed.
+```
+
+Verification: `npm test` exit 0 (category-source 110/0; full suite green); real-browser boot clean — formatCategoryName
+now returns real labels for all new categories (linear-equations→"Linear Equations", etc.), 0 page errors. **Docs:**
+DECISION_LOG ADR-084 (Batch 1), VERSIONS 2.95→2.96, this entry. **SW** v180→v181.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phases 4 & 5: calibration + global validation (ADR-083 COMPLETE)
 
 Whole-engine acceptance sweep — no code changes, validation + docs only.

@@ -9,12 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.95 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.96 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.96 / Arch 2.53 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 1: zero stale category lists.** Category
+> display now derives from the single source of truth (`services/quantTopics.js`): `formatCategoryName` (app.js),
+> planner `drillName`, and duel `_categoryEntries` no longer hold frozen 14-item snapshots, so all 36 categories render
+> real names in results/stats/planner/duel. New `scripts/category-source.check.js` enforces generator↔label parity.
+> SW v180→v181.
+>
 > **2.95 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phases 4 & 5: calibration + global validation
 > (ADR-083 COMPLETE).** Whole-engine acceptance sweep: **36 Quant drill categories**, each with a generator AND a Learn
 > chapter, **zero orphan content** (script-verified). Recompute harness **113,039 assertions / 0 mismatches** across all

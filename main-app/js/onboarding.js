@@ -52,7 +52,9 @@ var Onboarding = (function () {
 
   /* Simple easy questions for the first question screen — very easy only.
      Each question has a real category so analytics are accurate.
-     No addition or subtraction — only question types users will practice. */
+     No addition or subtraction — only question types users will practice.
+     INTENTIONAL narrowed subset (ADR-084): onboarding shows only trivial mental-math categories, deliberately NOT the
+     full Quant set in services/quantTopics.js. Not a stale list. */
   var EASY_QUESTIONS = [
     { text: '12 × 5 = ?', answer: 60, category: 'multiplication' },
     { text: '8 × 7 = ?', answer: 56, category: 'multiplication' },

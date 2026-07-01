@@ -89,9 +89,9 @@ var Planner = (function () {
   // ADR-059 display helpers — weightage band, session type, and the friendly drill-category name.
   function wbLabel(w) { return ({ 'very-high': 'Very High', 'high': 'High', 'medium': 'Medium', 'low': 'Low' })[w] || 'Medium'; }
   function sessionLabel(st, kind) { return ({ 'first-learning': 'First Learning', 'practice': 'Practice', 'revision': 'Revision', 'mock': 'Mock' })[st] || (kind === 'revise' ? 'Revision' : 'First Learning'); }
-  // Canonical labels live in services/quantTopics.js CATEGORY_LABELS — keep new categories in sync here too.
-  var DRILL_NAMES = { squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume', fractions: 'Fractions', percentages: 'Percentages', multiplication: 'Multiplication', ratios: 'Ratios', averages: 'Averages', 'profit-loss': 'Profit & Loss', 'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work', simplification: 'Simplification', 'number-series': 'Number Series' };
-  function drillName(c) { return DRILL_NAMES[c] || c; }
+  // Category labels come from the SINGLE source of truth via formatCategoryName (services/quantTopics.js +
+  // DI/LR engines), so new drill categories never render as a raw key here (ADR-084).
+  function drillName(c) { return (typeof formatCategoryName === 'function') ? formatCategoryName(c) : c; }
   // ADR-062: a human time estimate — "≈50 min" / "≈3.7 hours" (never a bare "3.7h").
   function estLabel(mins) {
     mins = Number(mins) || 0;
