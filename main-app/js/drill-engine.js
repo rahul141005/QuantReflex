@@ -110,6 +110,7 @@ function createDrillEngine(container, opts) {
      finish into a torn-down engine if the user exits within the window (stray session-record on a hidden view). */
   var _nextGuardTimer = null;
   var _autoAdvanceTimer = null;
+  var _loadingTimer = null; /* ADR-086 P5: defer-to-next-frame handle for the honest loading state (cancelled on teardown) */
   var answered = false; /* prevents double-counting */
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
@@ -127,19 +128,87 @@ function createDrillEngine(container, opts) {
 
   /* ---- render helpers ---- */
 
+  /* ADR-086 P5 — split a display mode label ('⚡ Quick Drill · Mixed') into a leading emoji badge + a clean title,
+     so the start screen can present them separately. A leading token with no ASCII letter/digit is treated as the icon;
+     otherwise a mode-appropriate default is used. Presentation only — `mode` itself is never mutated. */
+  function _startBadge() {
+    var parts = String(mode).trim().split(/\s+/);
+    if (parts.length > 1 && !/[a-z0-9]/i.test(parts[0])) {
+      return { icon: parts[0], title: parts.slice(1).join(' ') };
+    }
+    return { icon: reviewMode ? '🔄' : diSet ? '📊' : '🎯', title: mode };
+  }
+
+  function _startTitleCase(s) { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+  /* Read the persisted difficulty preference through whichever settings accessor is present (mirrors begin()'s
+     guarded lookup). Adaptive sessions report 'Adaptive' since the level moves in-session. */
+  function _startDifficulty() {
+    if (adaptiveMode) return 'Adaptive';
+    var s = {};
+    try {
+      if (typeof AppState !== 'undefined' && AppState.getSettings) s = AppState.getSettings() || {};
+      else if (typeof loadSettings === 'function') s = loadSettings() || {};
+      else s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+    } catch (_) { s = {}; }
+    return _startTitleCase(s.difficulty || 'medium');
+  }
+
+  function _fmtDurLabel(sec) {
+    if (!sec || sec < 60) return Math.max(1, Math.round(sec || 0)) + 's';
+    var m = sec / 60;
+    return (m < 10 ? (Math.round(m * 10) / 10) : Math.round(m)) + ' min';
+  }
+
+  /* Honest estimate: a hard overall limit is the cap; a per-question limit bounds it; otherwise ~22s/question is a
+     realistic typical pace (used only for a soft "≈" estimate, never a countdown). */
+  function _estDurationSec() {
+    if (timeLimit) return timeLimit;
+    if (perQLimit) return count * perQLimit;
+    return count * 22;
+  }
+
+  function _startStats() {
+    var est = _estDurationSec();
+    var timer;
+    if (timeLimit) timer = { icon: '⏱', val: _fmtDurLabel(timeLimit), lbl: 'Total limit' };
+    else if (perQLimit) timer = { icon: '⚡', val: perQLimit + 's', lbl: 'Per question' };
+    else timer = { icon: '🕊️', val: 'Relaxed', lbl: 'No timer' };
+    return [
+      { icon: '📝', val: String(count), lbl: count === 1 ? 'Question' : 'Questions' },
+      { icon: '⏳', val: (timeLimit ? '≤ ' : '≈ ') + _fmtDurLabel(est), lbl: 'Est. time' },
+      { icon: '📊', val: _startDifficulty(), lbl: 'Difficulty' },
+      timer
+    ];
+  }
+
+  function _startContext() {
+    if (reviewMode) return 'A focused pass over questions you\'ve missed before.';
+    if (diSet) return 'One shared context · linked questions — read once, answer all.';
+    if (topics && topics.length > 1) return 'Spanning ' + topics.length + ' topics for a mixed workout.';
+    if (adaptiveMode) return 'Difficulty adapts to you as you go — stay sharp.';
+    return 'Ranked on accuracy and speed. Answer at your own pace.';
+  }
+
   function renderStart() {
-    var subtitle = count + ' questions';
-    if (timeLimit) subtitle += ' · ' + timeLimit + 's time limit';
-    if (perQLimit) subtitle += ' · ' + perQLimit + 's per question';
-    if (category) subtitle += ' · ' + category;
-    if (topics && topics.length) subtitle += ' · ' + topics.length + ' topics';
+    var badge = _startBadge();
+    var stats = _startStats();
+    var statHTML = stats.map(function (s) {
+      return '<div class="drill-start-stat">' +
+        '<span class="ds-ico" aria-hidden="true">' + s.icon + '</span>' +
+        '<span class="ds-val">' + _escHtml(s.val) + '</span>' +
+        '<span class="ds-lbl">' + _escHtml(s.lbl) + '</span>' +
+      '</div>';
+    }).join('');
 
     container.innerHTML =
-      '<div class="card center-content">' +
-        '<h2>' + mode + '</h2>' +
-        '<p>' + subtitle + '</p>' +
-        '<button id="startBtn" class="btn-primary">Begin Challenge</button>' +
-        '<button id="startBackBtn" class="btn-secondary">← Back to Modes</button>' +
+      '<div class="card center-content drill-start">' +
+        '<div class="drill-start-badge" aria-hidden="true">' + badge.icon + '</div>' +
+        '<h2 class="drill-start-title">' + _escHtml(badge.title) + '</h2>' +
+        '<p class="drill-start-sub">' + _escHtml(_startContext()) + '</p>' +
+        '<div class="drill-start-stats">' + statHTML + '</div>' +
+        '<button id="startBtn" class="btn-primary drill-start-cta">Begin Challenge</button>' +
+        '<button id="startBackBtn" class="btn-secondary drill-start-back">← Back to Modes</button>' +
       '</div>';
     hideCustomNumpad();
     _exitDrillSession();
@@ -1174,6 +1243,7 @@ function createDrillEngine(container, opts) {
     /* Cancel any pending post-answer transition timers so they can't fire nextQuestion/finish after teardown. */
     if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; }
     if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
+    if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
     _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;
     if (adaptiveMode) _clearAdaptiveOverride();
@@ -1216,6 +1286,40 @@ function createDrillEngine(container, opts) {
       } catch (_) { _setAdaptiveOverride('medium'); }
     }
 
+    /* Honest loading state (ADR-086 P5): pre-built decks (DI/LR sets, mock/word-problem preloads, duel) are already in
+       memory — build synchronously, no loader flash. Client-side generation of a full deck (Reflex/Timed/Focus/Custom/
+       Mixed/Review) is fast but not free; render an elegant loader into the immersive shell FIRST so the tap feels
+       instant and the session UI appears, then yield one frame and build. No fake progress — the loader shows only
+       while real work is pending, then Q1 replaces it. */
+    var _heavyGen = !isDuel && !diSet && !(preloadedQuestions && preloadedQuestions.length > 0) &&
+      (count >= 8 || (topics && topics.length >= 3) || reviewMode);
+    if (_heavyGen) {
+      _renderLoading();
+      _loadingTimer = setTimeout(function () {
+        _loadingTimer = null;
+        if (_isFinished) return; /* torn down during the yield */
+        _beginBuild();
+      }, 0);
+    } else {
+      _beginBuild();
+    }
+  }
+
+  /* Elegant, honest loading state shown between Begin and Q1 while a deck is generated. Subtle animation, no fake
+     progress bar. Rendered inside the active immersive session shell (begin() has already called _enterDrillSession). */
+  function _renderLoading() {
+    var badge = _startBadge();
+    container.innerHTML =
+      '<div class="card center-content drill-loading" role="status" aria-live="polite">' +
+        '<div class="drill-loading-orb" aria-hidden="true"><span></span><span></span><span></span></div>' +
+        '<h2 class="drill-loading-title">' + _escHtml(badge.title) + '</h2>' +
+        '<p class="drill-loading-sub">Preparing your questions…</p>' +
+      '</div>';
+  }
+
+  /* The actual deck build + session-counter reset + first render. Split out of begin() so it can run either
+     synchronously (pre-built/light) or deferred one frame behind the loader (heavy generation). */
+  function _beginBuild() {
     if (diSet) {
       /* DI Set: map the shared-context set into the drill question shape. Each question carries the SET's category
          (so analytics attribute to di-bar/di-line/… exactly like single questions) and the shared chart (so AI
