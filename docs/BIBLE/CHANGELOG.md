@@ -6,6 +6,27 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 2b: picker personalization + favourites
+
+Add a "For You" strip and per-row favourites to the category picker, from existing signals only.
+
+```
+### feat/practice(ADR-084): For-You strip + pin favourites
+- js/ui/category-picker.js: "For You" strip — Recommended (exam-relevance weightedCategories + active exam / priority),
+  Continue (LearnProgress.recent → drillCategory), Recently practised (localStorage qr_recent_cats via
+  CategoryPicker.noteRecent, written on focus-drill start), Pinned (localStorage qr_pinned_cats via a per-row ☆/★
+  star). Subtle 🔥 marks most-asked categories. Pin toggle rebuilds only the strip (preserves expand/search state).
+- js/controllers/practice-modes.js: focus-select reads data-label (not textContent) so the star/🔥 never leak into
+  the drill label; calls CategoryPicker.noteRecent on drill start.
+- css/style.css: .cat-star + .category-foryou-row (light + dark).
+```
+
+Verification: `npm test` exit 0; real-browser — strip rows populate from seeded signals (Pinned/Recommended/Recently),
+pinning a section star updates the Pinned row live, 64 stars across rows, 0 errors, no overflow at 390px. **Docs:**
+DECISION_LOG ADR-084 (Batch 2b), VERSIONS 2.97→2.98, this entry. **SW** v182→v183.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 2a: dynamic category picker
 
 Render the Practice "Choose Category" grid from the source of truth so all 36 Quant categories are discoverable.

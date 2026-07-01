@@ -500,12 +500,16 @@ function initPracticeView() {
         for (var cb = 0; cb < allCatBtns.length; cb++) allCatBtns[cb].classList.remove('selected');
         target.classList.add('selected');
         _focusSelectedCategory = cat;
-        _focusSelectedCategoryLabel = target.textContent;
+        /* Prefer the explicit data-label (ADR-084) so decorations inside the button — e.g. a pin star — never leak
+           into the drill's category label. */
+        _focusSelectedCategoryLabel = target.getAttribute('data-label') || target.textContent;
         var focusStartSec = document.getElementById('focusStartSection');
         if (focusStartSec) focusStartSec.style.display = 'block';
+        if (typeof CategoryPicker !== 'undefined' && CategoryPicker.noteRecent) CategoryPicker.noteRecent(cat);
         return;
       }
-      startDrillFromPractice('focus', cat, target.textContent);
+      if (typeof CategoryPicker !== 'undefined' && CategoryPicker.noteRecent) CategoryPicker.noteRecent(cat);
+      startDrillFromPractice('focus', cat, target.getAttribute('data-label') || target.textContent);
     });
 
     var focusStartBtn = document.getElementById('startFocusSessionBtn');

@@ -15,12 +15,74 @@
 (function (root) {
   'use strict';
 
-  var OPEN_KEY = 'qr_catpicker_open';   // session memory of expanded sections
+  var OPEN_KEY = 'qr_catpicker_open';     // session memory of expanded sections
+  var PIN_KEY = 'qr_pinned_cats';         // user-pinned categories (favourites)
+  var RECENT_KEY = 'qr_recent_cats';      // most-recently focus-practised categories
 
-  function _openSet() {
-    try { return JSON.parse(localStorage.getItem(OPEN_KEY) || '[]') || []; } catch (e) { return []; }
+  function _read(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') || []; } catch (e) { return []; } }
+  function _write(key, arr) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {} }
+  function _openSet() { return _read(OPEN_KEY); }
+  function _saveOpen(ids) { _write(OPEN_KEY, ids); }
+  function _pinned() { return _read(PIN_KEY); }
+  function _isPinned(k) { return _pinned().indexOf(k) !== -1; }
+  function _togglePin(k) { var a = _pinned(), i = a.indexOf(k); if (i === -1) a.unshift(k); else a.splice(i, 1); _write(PIN_KEY, a.slice(0, 24)); }
+  function _recent() { return _read(RECENT_KEY); }
+  /** Record a category the user just started a focus drill on (for the "Recently practised" strip). */
+  function noteRecent(k) { if (!k) return; var a = _recent().filter(function (x) { return x !== k; }); a.unshift(k); _write(RECENT_KEY, a.slice(0, 12)); }
+
+  /* The set of drill categories that actually exist right now (so a stale pin/recent for a removed category is ignored). */
+  function _validCats() {
+    var v = {};
+    if (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS) Object.keys(QuantTopics.CATEGORY_LABELS).forEach(function (k) { v[k] = 1; });
+    var SUB = root.QR_SUBJECTS;
+    if (SUB && SUB.subjectToCategories) ['di', 'lr'].forEach(function (s) { (SUB.subjectToCategories(s) || []).forEach(function (k) { v[k] = 1; }); });
+    return v;
   }
-  function _saveOpen(ids) { try { localStorage.setItem(OPEN_KEY, JSON.stringify(ids)); } catch (e) {} }
+
+  /* Recommended Quant categories for the user's active exam (from exam-relevance weighting); falls back to overall
+     priority when no exam is set. Returns up to `n` drill-category keys. */
+  function _recommended(n) {
+    var EX = root.QR_EXAMREL, KB = root.KnowledgeBase;
+    if (!EX || !EX.weightedCategories || !KB) return [];
+    var exam = ''; try { exam = localStorage.getItem('qr_active_exam') || ''; } catch (e) {}
+    var track = EX.trackForExam ? EX.trackForExam(exam) : null;
+    var rows = EX.weightedCategories(KB.bySubject ? KB.bySubject('quant') : []);
+    rows = rows.filter(function (r) { return r && r.cat; });
+    rows.sort(function (a, b) {
+      var wa = track && a.weights ? (a.weights[track] || 0) : (EX.priorityRank ? EX.priorityRank(a.priority) : 0);
+      var wb = track && b.weights ? (b.weights[track] || 0) : (EX.priorityRank ? EX.priorityRank(b.priority) : 0);
+      if (wb !== wa) return wb - wa;
+      return (a.order || 999) - (b.order || 999);
+    });
+    return rows.map(function (r) { return r.cat; }).slice(0, n || 6);
+  }
+
+  /* "Continue" = the drill categories behind the most-recently-opened Learn chapters. */
+  function _continueCats(n) {
+    var LP = root.LearnProgress, KB = root.KnowledgeBase;
+    if (!LP || !LP.recent || !KB || !KB.get) return [];
+    var out = [];
+    (LP.recent(n * 2 || 8) || []).forEach(function (id) {
+      var t = KB.get(id);
+      if (t && t.drillCategory && out.indexOf(t.drillCategory) === -1) out.push(t.drillCategory);
+    });
+    return out.slice(0, n || 5);
+  }
+
+  /* Drill categories flagged "most asked" (for the subtle 🔥 marker). exam-relevance meta is keyed by Learn topic id,
+     so map through the registry (topic.drillCategory) once. */
+  var _mostAsked = null;
+  function _mostAskedSet() {
+    if (_mostAsked) return _mostAsked;
+    _mostAsked = {};
+    var EX = root.QR_EXAMREL, KB = root.KnowledgeBase;
+    if (EX && EX._meta && KB && KB.get) {
+      Object.keys(EX._meta).forEach(function (id) {
+        if (EX._meta[id] && EX._meta[id].mostAsked) { var t = KB.get(id); if (t && t.drillCategory) _mostAsked[t.drillCategory] = 1; }
+      });
+    }
+    return _mostAsked;
+  }
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
@@ -95,10 +157,19 @@
 
   /* ---- render ---- */
 
+  /* One category button. Label is a direct text node (so a click anywhere selects it via the practice delegation);
+     the pin star is the only child element, so clicking it is handled separately and never selects the category. */
+  function _catBtn(c, opts) {
+    opts = opts || {};
+    var hot = opts.hot && _mostAskedSet()[c.key] ? ' 🔥' : '';
+    var pinned = _isPinned(c.key);
+    var star = opts.star === false ? '' :
+      '<span class="cat-star' + (pinned ? ' is-pinned' : '') + '" data-star="' + _esc(c.key) + '" aria-label="' + (pinned ? 'Unpin ' : 'Pin ') + _esc(c.label) + '">' + (pinned ? '★' : '☆') + '</span>';
+    return '<button class="category-btn category-card" type="button" data-cat="' + _esc(c.key) + '" data-label="' + _esc(c.label) + '">' + _esc(c.label) + hot + star + '</button>';
+  }
+
   function _sectionHtml(sec, open) {
-    var btns = sec.cats.map(function (c) {
-      return '<button class="category-btn category-card" type="button" data-cat="' + _esc(c.key) + '" data-label="' + _esc(c.label) + '">' + _esc(c.label) + '</button>';
-    }).join('');
+    var btns = sec.cats.map(function (c) { return _catBtn(c, { star: true, hot: true }); }).join('');
     var n = sec.cats.length;
     return '<div class="category-section" data-section="' + _esc(sec.id) + '">' +
       '<button class="category-section-header" type="button" aria-expanded="' + (open ? 'true' : 'false') + '" data-toggle="' + _esc(sec.id) + '">' +
@@ -110,13 +181,33 @@
     '</div>';
   }
 
+  /* "For You" strip — up to a few chip rows from EXISTING signals (no new persistence beyond localStorage). Each chip
+     is a plain-label .category-btn so the normal practice click-delegation selects/launches it. */
+  function _chipRow(title, keys, valid) {
+    keys = keys.filter(function (k, i) { return valid[k] && keys.indexOf(k) === i; }).slice(0, 8);
+    if (!keys.length) return '';
+    var chips = keys.map(function (k) { return _catBtn({ key: k, label: _catLabel(k) }, { star: false }); }).join('');
+    return '<p class="category-tier-label">' + _esc(title) + '</p><div class="category-grid category-foryou-row">' + chips + '</div>';
+  }
+  function _stripHtml() {
+    var valid = _validCats();
+    var pinned = _pinned(), recommended = _recommended(6), cont = _continueCats(5), recent = _recent();
+    var rows = _chipRow('★ Pinned', pinned, valid) +
+      _chipRow('⭐ Recommended for you', recommended, valid) +
+      _chipRow('↩ Continue', cont, valid) +
+      _chipRow('🕒 Recently practised', recent, valid);
+    if (!rows) return '';
+    return '<div class="category-group category-foryou" role="group" aria-label="For you">' +
+      '<p class="category-subject-label">For You</p>' + rows + '</div>';
+  }
+
   function render() {
     var host = document.getElementById('categoryGroups');
     if (!host) return;
     var groups = _allSections();
     if (!groups.length) return;   // registry not ready yet — try again on next show
     var open = _openSet();
-    var html = groups.map(function (g) {
+    var html = _stripHtml() + groups.map(function (g) {
       var secHtml = g.sections.map(function (s) { return _sectionHtml(s, open.indexOf(s.id) !== -1); }).join('');
       return '<div class="category-group" role="group" aria-label="' + _esc(g.subject) + '">' +
         '<p class="category-subject-label">' + _esc(g.subject) + '</p>' + secHtml + '</div>';
@@ -132,8 +223,22 @@
   function _wire(host) {
     if (host._catPickerWired) return;
     host._catPickerWired = true;
-    /* Section collapse/expand (own handler — the practice click-delegation ignores non-.category-btn). */
     host.addEventListener('click', function (e) {
+      /* Pin/unpin star (a child of the .category-btn, so the practice delegation ignores it). Update in place +
+         rebuild only the "For You" strip so the user's expand/search state is preserved. */
+      var star = e.target.closest && e.target.closest('.cat-star');
+      if (star) {
+        e.preventDefault();
+        var key = star.getAttribute('data-star'); _togglePin(key);
+        var now = _isPinned(key);
+        star.classList.toggle('is-pinned', now); star.textContent = now ? '★' : '☆';
+        star.setAttribute('aria-label', (now ? 'Unpin ' : 'Pin ') + (star.getAttribute('data-star') || ''));
+        var oldStrip = host.querySelector('.category-foryou'), newStrip = _stripHtml();
+        if (oldStrip) { if (newStrip) { oldStrip.outerHTML = newStrip; } else { oldStrip.parentNode.removeChild(oldStrip); } }
+        else if (newStrip) { host.insertAdjacentHTML('afterbegin', newStrip); }
+        return;
+      }
+      /* Section collapse/expand (own handler — the practice click-delegation ignores non-.category-btn). */
       var hdr = e.target.closest && e.target.closest('.category-section-header');
       if (!hdr) return;
       var body = hdr.nextElementSibling, icon = hdr.querySelector('.collapse-icon'), id = hdr.getAttribute('data-toggle');
@@ -178,7 +283,7 @@
     if (empty) empty.style.display = (q && !anyMatch) ? 'block' : 'none';
   }
 
-  var CategoryPicker = { render: render, filter: filter };
+  var CategoryPicker = { render: render, filter: filter, noteRecent: noteRecent };
   if (typeof module !== 'undefined' && module.exports) module.exports = CategoryPicker;
   if (typeof window !== 'undefined') window.CategoryPicker = CategoryPicker;
   else root.CategoryPicker = CategoryPicker;

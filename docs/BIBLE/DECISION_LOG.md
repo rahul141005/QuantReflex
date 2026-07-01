@@ -17,6 +17,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 2b — personalization + favourites:** the picker gained a **"For You" strip** built entirely from existing
+  signals (no new Firestore): **Recommended** (exam-relevance `weightedCategories` for the active exam / overall
+  priority), **Continue** (`LearnProgress.recent()` → drillCategory), **Recently practised** (a small localStorage list
+  written on focus-drill start via `CategoryPicker.noteRecent`), and **Pinned/Favourites** (localStorage
+  `qr_pinned_cats`, a per-row ☆/★ star toggle). Most-asked categories carry a subtle 🔥. The star is a child of the
+  `.category-btn`, so the practice click-delegation ignores it; `practice-modes` now reads `data-label` (not
+  `textContent`) so button decorations never leak into the drill label. Verified in-browser: strip rows populate from
+  seeded signals, pinning updates the strip live, 0 errors, no overflow at 390px. SW v182→v183.
 - **Batch 2a — dynamic, discoverable category picker:** the Practice "Choose Category" grid was static HTML frozen at
   the original 14 Quant categories (DI/LR listed in full) — so 22 ADR-083 categories were unreachable there. New
   `js/ui/category-picker.js` renders `#categorySelect` at runtime from the source of truth (registry section grouping +

@@ -9,12 +9,17 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.97 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.98 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.98 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 2b: picker personalization + favourites.**
+> A "For You" strip (Recommended · Continue · Recently practised · Pinned) built from existing signals (exam-relevance,
+> LearnProgress, localStorage — no new Firestore), a per-row ☆/★ pin toggle, and a subtle 🔥 on most-asked topics.
+> `practice-modes` reads `data-label` so button decorations never leak into the drill label. SW v182→v183.
+>
 > **2.97 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 2a: dynamic category picker.** The Practice
 > "Choose Category" grid now renders from the single source of truth (`js/ui/category-picker.js`) instead of static
 > HTML frozen at 14 Quant categories — all 36 appear, grouped into collapsible sections with topic counts and a live
