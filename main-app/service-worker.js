@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v167';
-const CACHE_NAME = 'qr-cache-v167';
+const APP_VERSION = 'v168';
+const CACHE_NAME = 'qr-cache-v168';
 
 var ASSETS = [
   './',
@@ -21,6 +21,7 @@ var ASSETS = [
   './js/router.js',
   './js/drill-engine.js',
   './js/onboarding.js',
+  './js/utils/generative-helpers.js',
   './js/questions.js',
   './js/di-engine.js',
   './js/ui/di-charts.js',

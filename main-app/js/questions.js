@@ -63,126 +63,129 @@ function _getAdaptiveHint() {
   } catch (_) { return null; }
 }
 
+/* ============================================================================
+ * ADR-083 — archetype framework (brings Quant to the DI/LR "earned difficulty" bar).
+ * A topic supplies ARCH = { easy:[a], medium:[a], hard:[a] } where each archetype
+ *   a = { k:'key', skill:'cognitiveSkill', build:function(diff){ return {q,a,k?,explain,options?} | null } }
+ * (build returns null when it couldn't make CLEAN numbers this attempt) and PRIMARY = { easy,medium,hard } —
+ * guaranteed-clean builders used as an in-tier fallback so a hard question is NEVER silently downgraded to an easy one.
+ * _genArch picks an in-tier archetype, retries within the tier, then falls back to PRIMARY, and wraps the result into
+ * the { question, answer, category, subtype:'diff:key', explanation } shape the drill engine already consumes.
+ * ============================================================================ */
+var QRGen = (typeof module !== 'undefined' && module.exports && typeof require !== 'undefined')
+  ? require('./utils/generative-helpers.js')
+  : (typeof window !== 'undefined' && window.QRGen ? window.QRGen
+    : (typeof globalThis !== 'undefined' && globalThis.QRGen ? globalThis.QRGen : null));
+
+function _round1(x) { return Math.round(x * 10) / 10; }
+function _round2(x) { return Math.round(x * 100) / 100; }
+
+function _genArch(category, arch, primary) {
+  var diff = _getDifficulty();
+  var pool = arch[diff] || arch.medium;
+  var hint = _getAdaptiveHint();
+  if (hint && hint.type) {                       /* light adaptive bias toward the AI-flagged reasoning type */
+    var pref = pool.filter(function (a) { return a.k === hint.type || a.skill === hint.type; });
+    if (pref.length) pool = pref;
+  }
+  for (var i = 0; i < 50; i++) {
+    var a = pool[randInt(0, pool.length - 1)];
+    var qa = a.build(diff);
+    if (qa && qa.a !== undefined && qa.a !== null && qa.a !== '') { qa.k = qa.k || a.k; return _wrapArch(category, diff, qa); }
+  }
+  var qp = primary[diff]();
+  return _wrapArch(category, diff, qp);
+}
+
+function _wrapArch(category, diff, qa) {
+  return {
+    question: qa.q,
+    answer: qa.a,
+    category: category,
+    subtype: diff + ':' + (qa.k || 'q'),
+    explanation: qa.explain || undefined,
+    options: qa.options || undefined
+  };
+}
+
 /* ---- category generators ---- */
 
-/** Squares: n² with wording variety */
-function genSquare() {
-  var diff = _getDifficulty();
-  var hint = _getAdaptiveHint();
-  var n;
-  if (diff === 'easy') {
-    n = randInt(2, 10);
-  } else if (diff === 'hard') {
-    n = randInt(26, 50);
-  } else {
-    n = randInt(11, 25);
-  }
-  /* Bias toward inverse variant when adaptive hint type is 'inverse' */
-  var forceInverse = hint && hint.type === 'inverse';
-  if (forceInverse || (diff !== 'easy' && randInt(0, 4) === 0)) {
-    var sq = n * n;
-    var sqPhrasings = [
-      '√' + sq + ' = ?',
-      'Square root of ' + sq + ' = ?',
-      'If x² = ' + sq + ', x = ?'
-    ];
-    return { question: pick(sqPhrasings), answer: n, category: 'squares' };
-  }
-  var sqPhrasings2 = [
-    n + '² = ?',
-    'Square of ' + n + ' = ?',
-    n + ' squared = ?'
-  ];
-  return { question: pick(sqPhrasings2), answer: n * n, category: 'squares' };
+/** Squares & roots (ADR-083 archetypes: direct · inverse · difference-of-squares). */
+function _sqIdentity(n) {
+  var r = Math.round(n / 10) * 10; if (r === 0) r = 10; var d = n - r, sgn = d < 0 ? '−' : '+';
+  return n + '² = (' + r + sgn + Math.abs(d) + ')² = ' + r + '² ' + sgn + ' 2·' + r + '·' + Math.abs(d) + ' + ' + Math.abs(d) + '² = ' + (r * r) + ' ' + sgn + ' ' + (2 * r * Math.abs(d)) + ' + ' + (d * d) + ' = ' + (n * n) + '.';
 }
+var _SQUARES_ARCH = {
+  easy: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(2, 12); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?', n + ' squared = ?']), a: n * n, explain: n + '² = ' + n + ' × ' + n + ' = ' + (n * n) + '.' }; } }
+  ],
+  medium: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(13, 30); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?']), a: n * n, explain: _sqIdentity(n) }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(4, 25), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'Square root of ' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: 'Find x with x² = ' + sq + '. Since ' + n + '² = ' + sq + ', √' + sq + ' = ' + n + '.' }; } }
+  ],
+  hard: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(31, 60); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?']), a: n * n, explain: _sqIdentity(n) }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(20, 45), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: n + '² = ' + sq + ', so √' + sq + ' = ' + n + '. It sits just above ' + (Math.floor(n / 10) * 10) + '² = ' + (Math.floor(n / 10) * 10) * (Math.floor(n / 10) * 10) + '.' }; } },
+    { k: 'diffSquares', skill: 'multi-step', build: function () { var a = randInt(12, 40), b = randInt(2, a - 1); return { q: a + '² − ' + b + '² = ?', a: a * a - b * b, explain: 'a² − b² = (a+b)(a−b) = (' + (a + b) + ')(' + (a - b) + ') = ' + (a * a - b * b) + '. Factor instead of squaring both — far faster.' }; } }
+  ]
+};
+var _SQUARES_PRIMARY = {
+  easy: function () { var n = randInt(2, 12); return { q: n + '² = ?', a: n * n, k: 'direct', explain: n + '² = ' + (n * n) + '.' }; },
+  medium: function () { var n = randInt(13, 30); return { q: n + '² = ?', a: n * n, k: 'direct', explain: _sqIdentity(n) }; },
+  hard: function () { var n = randInt(31, 60); return { q: n + '² = ?', a: n * n, k: 'direct', explain: _sqIdentity(n) }; }
+};
+function genSquare() { return _genArch('squares', _SQUARES_ARCH, _SQUARES_PRIMARY); }
 
-/** Cubes: n³ with wording variety */
-function genCube() {
-  var diff = _getDifficulty();
-  var n;
-  if (diff === 'easy') {
-    n = randInt(1, 5);
-  } else if (diff === 'hard') {
-    n = randInt(11, 15);
-  } else {
-    n = randInt(6, 10);
-  }
-  if (diff !== 'easy' && randInt(0, 4) === 0) {
-    var cube = n * n * n;
-    var cbPhrasings = ['∛' + cube + ' = ?', 'Cube root of ' + cube + ' = ?'];
-    return { question: pick(cbPhrasings), answer: n, category: 'cubes' };
-  }
-  var cubePhrasings = [n + '³ = ?', 'Cube of ' + n + ' = ?'];
-  return { question: pick(cubePhrasings), answer: n * n * n, category: 'cubes' };
-}
+/** Cubes & cube-roots (ADR-083 archetypes: direct · inverse). */
+var _CUBES_ARCH = {
+  easy: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(1, 6); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + n + ' × ' + n + ' × ' + n + ' = ' + (n * n * n) + '.' }; } }
+  ],
+  medium: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(7, 13); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + n + '² × ' + n + ' = ' + (n * n) + ' × ' + n + ' = ' + (n * n * n) + '.' }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(2, 10), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: n + '³ = ' + c + ', so ∛' + c + ' = ' + n + '. Tip: the unit digit ' + (c % 10) + ' of the cube fixes the unit digit of the root.' }; } }
+  ],
+  hard: [
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(14, 20); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + (n * n) + ' × ' + n + ' = ' + (n * n * n) + '.' }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(6, 20), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: '∛' + c + ' = ' + n + '. Unit digit ' + (c % 10) + ' → the root ends in ' + (n % 10) + '; the leading part places it near ' + n + '.' }; } }
+  ]
+};
+var _CUBES_PRIMARY = {
+  easy: function () { var n = randInt(1, 6); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; },
+  medium: function () { var n = randInt(7, 13); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; },
+  hard: function () { var n = randInt(14, 20); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; }
+};
+function genCube() { return _genArch('cubes', _CUBES_ARCH, _CUBES_PRIMARY); }
 
-/** Area calculations */
-function genArea() {
-  var diff = _getDifficulty();
-  var type = randInt(0, 5);
+/** Area (ADR-083 archetypes by tier: square/rectangle → triangle/parallelogram/circle → trapezium/border). π = 3.14. */
+function _areaSquare(diff) { var s = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(21, 45) : randInt(12, 25)); return { q: 'The area of a square of side ' + s + ' cm = ? cm².', a: s * s, k: 'square', explain: 'Area of a square = side² = ' + s + '² = ' + (s * s) + ' cm².' }; }
+function _areaRect(diff) { var l = diff === 'easy' ? randInt(4, 12) : (diff === 'hard' ? randInt(22, 48) : randInt(12, 25)); var b = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: 'A rectangle is ' + l + ' cm long and ' + b + ' cm wide. Its area = ? cm².', a: l * b, k: 'rectangle', explain: 'Area = length × breadth = ' + l + ' × ' + b + ' = ' + (l * b) + ' cm².' }; }
+function _areaTri(diff) { var base = 2 * (diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(11, 24) : randInt(6, 12))); var h = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: 'A triangle has base ' + base + ' cm and height ' + h + ' cm. Its area = ? cm².', a: base * h / 2, k: 'triangle', explain: 'Area = ½ × base × height = ½ × ' + base + ' × ' + h + ' = ' + (base * h / 2) + ' cm². Halve the even side first to avoid fractions.' }; }
+function _areaPara(diff) { var b = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 40) : randInt(11, 20)); var h = diff === 'easy' ? randInt(3, 8) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); return { q: 'A parallelogram has base ' + b + ' cm and height ' + h + ' cm. Its area = ? cm².', a: b * h, k: 'parallelogram', explain: 'Area = base × height = ' + b + ' × ' + h + ' = ' + (b * h) + ' cm². Use the perpendicular height, not the slant side.' }; }
+function _areaCircle(diff) { var r = diff === 'hard' ? randInt(12, 20) : randInt(6, 12); var a = _round2(3.14 * r * r); return { q: 'The area of a circle of radius ' + r + ' cm = ? cm². (use π = 3.14)', a: a, k: 'circle', explain: 'Area = πr² = 3.14 × ' + r + '² = 3.14 × ' + (r * r) + ' = ' + a + ' cm².' }; }
+function _areaTrap(diff) { var a1, b1; do { a1 = diff === 'hard' ? randInt(12, 28) : randInt(6, 16); b1 = diff === 'hard' ? randInt(10, 24) : randInt(5, 14); } while ((a1 + b1) % 2 !== 0); var h = diff === 'hard' ? randInt(8, 20) : randInt(6, 12); return { q: 'A trapezium has parallel sides ' + a1 + ' cm and ' + b1 + ' cm, and height ' + h + ' cm. Its area = ? cm².', a: (a1 + b1) * h / 2, k: 'trapezium', explain: 'Area = ½ × (sum of parallel sides) × height = ½ × ' + (a1 + b1) + ' × ' + h + ' = ' + ((a1 + b1) * h / 2) + ' cm².' }; }
+function _areaBorder() { var L = randInt(18, 40), B = randInt(12, 30), w = pick([1, 2, 3]); var inner = (L - 2 * w) * (B - 2 * w); return { q: 'A ' + L + ' cm × ' + B + ' cm sheet has a uniform border of width ' + w + ' cm. The area of the border = ? cm².', a: L * B - inner, k: 'border', explain: 'Border = outer − inner = ' + L + '×' + B + ' − ' + (L - 2 * w) + '×' + (B - 2 * w) + ' = ' + (L * B) + ' − ' + inner + ' = ' + (L * B - inner) + ' cm².' }; }
+var _AREA_ARCH = {
+  easy: [{ k: 'square', skill: 'direct', build: function () { return _areaSquare('easy'); } }, { k: 'rectangle', skill: 'direct', build: function () { return _areaRect('easy'); } }],
+  medium: [{ k: 'rectangle', skill: 'direct', build: function () { return _areaRect('medium'); } }, { k: 'triangle', skill: 'formula', build: function () { return _areaTri('medium'); } }, { k: 'parallelogram', skill: 'formula', build: function () { return _areaPara('medium'); } }, { k: 'circle', skill: 'formula', build: function () { return _areaCircle('medium'); } }],
+  hard: [{ k: 'triangle', skill: 'formula', build: function () { return _areaTri('hard'); } }, { k: 'circle', skill: 'formula', build: function () { return _areaCircle('hard'); } }, { k: 'trapezium', skill: 'multi-step', build: function () { return _areaTrap('hard'); } }, { k: 'border', skill: 'multi-step', build: function () { return _areaBorder(); } }]
+};
+var _AREA_PRIMARY = { easy: function () { return _areaSquare('easy'); }, medium: function () { return _areaRect('medium'); }, hard: function () { return _areaTrap('hard'); } };
+function genArea() { return _genArch('area', _AREA_ARCH, _AREA_PRIMARY); }
 
-  if (type === 0) {
-    var a = diff === 'easy' ? randInt(2, 9) : (diff === 'hard' ? randInt(21, 40) : randInt(10, 20));
-    return { question: 'Area of a square with side ' + a + ' cm = ? cm²', answer: a * a, category: 'area', subtype: 'square' };
-  } else if (type === 1) {
-    var l = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 45) : randInt(11, 20));
-    var b = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 35) : randInt(9, 15));
-    return { question: 'Area of a rectangle with length ' + l + ' cm and breadth ' + b + ' cm = ? cm²', answer: l * b, category: 'area', subtype: 'rectangle' };
-  } else if (type === 2) {
-    var base = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 50) : randInt(11, 20));
-    var height = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 36) : randInt(9, 15));
-    var tri = (base * height) / 2;
-    if (tri !== Math.floor(tri)) {
-      if (base % 2 === 1) base++;
-      tri = (base * height) / 2;
-    }
-    return { question: 'Area of a triangle with base ' + base + ' cm and height ' + height + ' cm = ? cm²', answer: tri, category: 'area', subtype: 'triangle' };
-  } else if (type === 3) {
-    var r = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(13, 20) : randInt(7, 12));
-    return { question: 'Area of a circle (use π = 3.14) with radius ' + r + ' cm = ?', answer: parseFloat((PI * r * r).toFixed(2)), category: 'area', subtype: 'circle' };
-  } else if (type === 4) {
-    var pb = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 40) : randInt(11, 20));
-    var ph = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(16, 30) : randInt(9, 15));
-    return { question: 'Area of a parallelogram with base ' + pb + ' cm and height ' + ph + ' cm = ? cm²', answer: pb * ph, category: 'area', subtype: 'parallelogram' };
-  }
-
-  var ta = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(19, 26) : randInt(11, 18));
-  var tb = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(17, 22) : randInt(9, 16));
-  var th = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(15, 20) : randInt(7, 14));
-  var trap = ((ta + tb) * th) / 2;
-  if (trap !== Math.floor(trap)) {
-    if ((ta + tb) % 2 === 1) ta++;
-    trap = ((ta + tb) * th) / 2;
-  }
-  return { question: 'Area of a trapezium with parallel sides ' + ta + ' cm, ' + tb + ' cm and height ' + th + ' cm = ? cm²', answer: trap, category: 'area', subtype: 'trapezium' };
-}
-
-/** Volume calculations */
-function genVolume() {
-  var diff = _getDifficulty();
-  var type = randInt(0, 4);
-
-  if (type === 0) {
-    var a = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(15, 25) : randInt(8, 14));
-    return { question: 'Volume of a cube with side ' + a + ' cm = ? cm³', answer: a * a * a, category: 'volume', subtype: 'cube' };
-  } else if (type === 1) {
-    var l = diff === 'easy' ? randInt(3, 8) : (diff === 'hard' ? randInt(17, 28) : randInt(9, 16));
-    var b = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(14, 22) : randInt(7, 13));
-    var h = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(12, 18) : randInt(6, 11));
-    return { question: 'Volume of a cuboid with dimensions ' + l + ' cm × ' + b + ' cm × ' + h + ' cm = ? cm³', answer: l * b * h, category: 'volume', subtype: 'cuboid' };
-  } else if (type === 2) {
-    var r = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(11, 14) : randInt(6, 10));
-    var ch = diff === 'easy' ? randInt(3, 7) : (diff === 'hard' ? randInt(14, 20) : randInt(8, 13));
-    return { question: 'Volume of a cylinder (use π = 3.14) with radius ' + r + ' cm and height ' + ch + ' cm = ?', answer: parseFloat((PI * r * r * ch).toFixed(2)), category: 'volume', subtype: 'cylinder' };
-  } else if (type === 3) {
-    var sr = diff === 'easy' ? randInt(2, 4) : (diff === 'hard' ? randInt(9, 12) : randInt(5, 8));
-    return { question: 'Volume of a sphere (use π = 3.14) with radius ' + sr + ' cm = ?', answer: parseFloat(((4 / 3) * PI * sr * sr * sr).toFixed(2)), category: 'volume', subtype: 'sphere' };
-  }
-
-  var cr = diff === 'easy' ? randInt(2, 5) : (diff === 'hard' ? randInt(11, 12) : randInt(6, 10));
-  var coneH = diff === 'easy' ? randInt(3, 7) : (diff === 'hard' ? randInt(14, 18) : randInt(8, 13));
-  return { question: 'Volume of a cone (use π = 3.14) with radius ' + cr + ' cm and height ' + coneH + ' cm = ?', answer: parseFloat(((1 / 3) * PI * cr * cr * coneH).toFixed(2)), category: 'volume', subtype: 'cone' };
-}
+/** Volume (ADR-083 archetypes by tier: cube/cuboid → cuboid/cylinder → cylinder/sphere/cone). π = 3.14. */
+function _volCube(diff) { var s = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(15, 25) : randInt(8, 15)); return { q: 'The volume of a cube of side ' + s + ' cm = ? cm³.', a: s * s * s, k: 'cube', explain: 'Volume of a cube = side³ = ' + s + '³ = ' + (s * s * s) + ' cm³.' }; }
+function _volCuboid(diff) { var l = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); var b = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(10, 20) : randInt(6, 12)); var h = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(8, 16) : randInt(5, 10)); return { q: 'A cuboid measures ' + l + ' cm × ' + b + ' cm × ' + h + ' cm. Its volume = ? cm³.', a: l * b * h, k: 'cuboid', explain: 'Volume = l × b × h = ' + l + ' × ' + b + ' × ' + h + ' = ' + (l * b * h) + ' cm³.' }; }
+function _volCyl(diff) { var r = diff === 'hard' ? randInt(7, 14) : randInt(4, 10); var h = diff === 'hard' ? randInt(10, 20) : randInt(6, 14); var a = _round2(3.14 * r * r * h); return { q: 'A cylinder has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'cylinder', explain: 'Volume = πr²h = 3.14 × ' + r + '² × ' + h + ' = 3.14 × ' + (r * r * h) + ' = ' + a + ' cm³.' }; }
+function _volSphere(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 7); var a = _round2((4 / 3) * 3.14 * r * r * r); return { q: 'A sphere has radius ' + r + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'sphere', explain: 'Volume = (4/3)πr³ = (4/3) × 3.14 × ' + r + '³ = ' + a + ' cm³.' }; }
+function _volCone(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 8); var h = diff === 'hard' ? randInt(9, 18) : randInt(6, 12); var a = _round2((1 / 3) * 3.14 * r * r * h); return { q: 'A cone has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'cone', explain: 'Volume = (1/3)πr²h = (1/3) × 3.14 × ' + (r * r) + ' × ' + h + ' = ' + a + ' cm³.' }; }
+var _VOLUME_ARCH = {
+  easy: [{ k: 'cube', skill: 'direct', build: function () { return _volCube('easy'); } }, { k: 'cuboid', skill: 'direct', build: function () { return _volCuboid('easy'); } }],
+  medium: [{ k: 'cuboid', skill: 'direct', build: function () { return _volCuboid('medium'); } }, { k: 'cylinder', skill: 'formula', build: function () { return _volCyl('medium'); } }],
+  hard: [{ k: 'cylinder', skill: 'formula', build: function () { return _volCyl('hard'); } }, { k: 'sphere', skill: 'formula', build: function () { return _volSphere('hard'); } }, { k: 'cone', skill: 'formula', build: function () { return _volCone('hard'); } }]
+};
+var _VOLUME_PRIMARY = { easy: function () { return _volCube('easy'); }, medium: function () { return _volCuboid('medium'); }, hard: function () { return _volCyl('hard'); } };
+function genVolume() { return _genArch('volume', _VOLUME_ARCH, _VOLUME_PRIMARY); }
 
 /** Fractions → percentage with wording variety + reverse direction */
 function genFraction() {
@@ -255,57 +258,24 @@ function genFraction() {
   return { question: pick(phrasings), answer: item.pct, category: 'fractions' };
 }
 
-/** Percentage calculations: varied sub-types */
-function genPercentage() {
-  var diff = _getDifficulty();
-  var subtype = diff === 'easy' ? 0 : randInt(0, 3);
-
-  if (subtype === 1 && diff !== 'easy') {
-    /* Reverse: p% of ? = result */
-    var knownPcts = diff === 'hard' ? [12, 15, 20, 25, 30, 40] : [10, 20, 25, 50];
-    var knownBases = diff === 'hard' ? [120, 150, 180, 200, 240, 300, 360] : [80, 100, 120, 160, 200];
-    var rp = pick(knownPcts), rb = pick(knownBases);
-    var rResult = (rp / 100) * rb;
-    if (rResult === Math.floor(rResult))
-      return { question: rp + '% of what number is ' + rResult + '?', answer: rb, category: 'percentages', subtype: 'reverse' };
-  }
-  if (subtype === 2 && diff !== 'easy') {
-    /* What % of X is Y */
-    var pctPools = diff === 'hard' ? [8, 12, 15, 20, 25, 30, 40] : [10, 20, 25, 50];
-    var basePools = diff === 'hard' ? [120, 150, 200, 240, 300, 360, 400] : [80, 100, 120, 200];
-    var wp = pick(pctPools), wb = pick(basePools);
-    var wy = (wp / 100) * wb;
-    if (wy === Math.floor(wy))
-      return { question: 'What % of ' + wb + ' is ' + wy + '?', answer: wp, category: 'percentages', subtype: 'what-pct' };
-  }
-  if (subtype === 3 && diff === 'hard') {
-    /* Successive discounts: d1% then d2% on base */
-    var d1 = pick([10, 15, 20, 25]), d2 = pick([5, 10, 15, 20]);
-    var sdBase = pick([200, 250, 300, 400, 500]);
-    var sdResult = Math.round(sdBase * (1 - d1 / 100) * (1 - d2 / 100));
-    return { question: 'Price ' + sdBase + ', discounts ' + d1 + '% then ' + d2 + '%. Final price = ?', answer: sdResult, category: 'percentages', subtype: 'successive-discount' };
-  }
-
-  /* Default: p% of b */
-  var percentages, bases;
-  if (diff === 'easy') {
-    percentages = [5, 10, 20, 25, 50];
-    bases = [80, 120, 160, 200, 240, 400, 500, 600, 800];
-  } else if (diff === 'hard') {
-    percentages = [5, 8, 12, 15, 18, 20, 25, 30, 37, 40, 50, 60, 75];
-    bases = [120, 144, 160, 175, 200, 225, 240, 288, 300, 360, 400, 432, 480, 500, 576, 600, 720, 840, 960, 1200];
-  } else {
-    percentages = [5, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75];
-    bases = [60, 80, 120, 125, 150, 160, 175, 200, 225, 240, 250, 280, 320, 360, 400, 450, 480, 500, 560, 600, 720];
-  }
-  var p, b, result, maxAttempts = 60;
-  do {
-    p = pick(percentages); b = pick(bases);
-    result = (p / 100) * b; maxAttempts--;
-  } while (result !== Math.floor(result) && maxAttempts > 0);
-  if (result !== Math.floor(result)) { p = 25; b = 200; result = 50; }
-  return { question: p + '% of ' + b + ' = ?', answer: result, category: 'percentages' };
-}
+/** Percentages (ADR-083 archetypes: direct-of · reverse-base · what-percent · percent-change · successive-discount ·
+ *  equal-±x trap). Every build guarantees a clean answer or returns null so the tier retries. */
+var _PCT_P = { easy: [5, 10, 20, 25, 50], medium: [5, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75], hard: [5, 8, 12, 15, 16, 18, 20, 24, 25, 30, 36, 40, 45, 50, 60, 75] };
+var _PCT_B = { easy: [80, 120, 160, 200, 240, 400, 500, 600, 800], medium: [60, 80, 120, 150, 160, 200, 240, 250, 300, 360, 400, 450, 500, 600, 720], hard: [120, 150, 160, 200, 240, 300, 360, 400, 480, 500, 600, 720, 840, 960, 1200] };
+function _pctDirect(diff) { for (var i = 0; i < 40; i++) { var p = pick(_PCT_P[diff]), b = pick(_PCT_B[diff]), r = p * b / 100; if (r === Math.floor(r)) return { q: pick([p + '% of ' + b + ' = ?', 'Find ' + p + '% of ' + b + '.', p + '% of ' + b + ' is what number?']), a: r, k: 'directOf', explain: p + '% of ' + b + ' = ' + p + ' × ' + b + ' ÷ 100 = ' + r + '. Tip: ' + p + '% of ' + b + ' = ' + b + '% of ' + p + ' — swap when one side is rounder.' }; } return null; }
+function _pctReverse(diff) { for (var i = 0; i < 40; i++) { var p = pick(_PCT_P[diff]), b = pick(_PCT_B[diff]), r = p * b / 100; if (r === Math.floor(r)) return { q: p + '% of what number is ' + r + '?', a: b, k: 'reverse', explain: 'If ' + p + '% of N = ' + r + ', then N = ' + r + ' × 100 ÷ ' + p + ' = ' + b + '.' }; } return null; }
+function _pctWhat(diff) { for (var i = 0; i < 40; i++) { var p = pick(_PCT_P[diff]), b = pick(_PCT_B[diff]), y = p * b / 100; if (y === Math.floor(y)) return { q: 'What percent of ' + b + ' is ' + y + '?', a: p, k: 'whatPct', explain: y + ' out of ' + b + ' = (' + y + ' ÷ ' + b + ') × 100 = ' + p + '%.' }; } return null; }
+function _pctChange() { for (var i = 0; i < 40; i++) { var old = pick([80, 100, 120, 150, 160, 200, 250, 400]); var pc = pick([10, 20, 25, 40, 50, 60, 75]); var nw = Math.round(old * (1 + pc / 100)); if ((nw - old) * 100 % old === 0) return { q: 'A value rises from ' + old + ' to ' + nw + '. The percent increase = ? %', a: (nw - old) * 100 / old, k: 'pctChange', explain: '% increase = (new − old)/OLD × 100 = (' + nw + ' − ' + old + ')/' + old + ' × 100 = ' + ((nw - old) * 100 / old) + '%. Always divide by the ORIGINAL value.' }; } return null; }
+function _pctSuccessive() { for (var i = 0; i < 40; i++) { var d1 = pick([10, 15, 20, 25]), d2 = pick([10, 20, 25]); var base = pick([200, 250, 300, 400, 500, 600, 800, 1000]); var f = base * (1 - d1 / 100) * (1 - d2 / 100); if (f === Math.floor(f)) return { q: 'A ₹' + base + ' item is given successive discounts of ' + d1 + '% and ' + d2 + '%. Final price = ₹?', a: f, k: 'successive', explain: 'Apply in sequence: ' + base + ' × ' + (1 - d1 / 100) + ' × ' + (1 - d2 / 100) + ' = ' + f + '. Single equivalent = ' + d1 + '+' + d2 + '−(' + d1 + '×' + d2 + ')/100 = ' + (d1 + d2 - d1 * d2 / 100) + '%.' }; } return null; }
+function _pctNetTrap() { var x = pick([10, 20, 30, 40, 50]); return { q: 'A salary is increased by ' + x + '% and then decreased by ' + x + '%. It falls by ? % overall.', a: x * x / 100, k: 'netTrap', explain: 'Equal +' + x + '% then −' + x + '% never cancels — the net fall = x²/100 = ' + x + '²/100 = ' + (x * x / 100) + '%. It compounds, it does not add.' }; }
+var _PCT_ARCH = {
+  easy: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }],
+  medium: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }, { k: 'reverse', skill: 'inverse', build: function (d) { return _pctReverse(d); } }, { k: 'whatPct', skill: 'inverse', build: function (d) { return _pctWhat(d); } }],
+  hard: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }, { k: 'reverse', skill: 'inverse', build: function (d) { return _pctReverse(d); } }, { k: 'whatPct', skill: 'inverse', build: function (d) { return _pctWhat(d); } }, { k: 'pctChange', skill: 'multi-step', build: function () { return _pctChange(); } }, { k: 'successive', skill: 'multi-step', build: function () { return _pctSuccessive(); } }, { k: 'netTrap', skill: 'multi-step', build: function () { return _pctNetTrap(); } }]
+};
+function _pctSafe(diff) { var b = pick([100, 200, 400, 500, 800, 1000]); var p = pick(_PCT_P[diff]); return { q: p + '% of ' + b + ' = ?', a: p * b / 100, k: 'directOf', explain: p + '% of ' + b + ' = ' + (p * b / 100) + '.' }; }
+var _PCT_PRIMARY = { easy: function () { return _pctSafe('easy'); }, medium: function () { return _pctSafe('medium'); }, hard: function () { return _pctSafe('hard'); } };
+function genPercentage() { return _genArch('percentages', _PCT_ARCH, _PCT_PRIMARY); }
 
 /** Mental multiplication: varied sub-types including 3-factor and squaring */
 function genMultiplication() {

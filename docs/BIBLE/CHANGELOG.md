@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Engine Master Overhaul, Phase 1: foundation (ADR-083)
+
+Bring the original Quant engine up to the DI/LR generative bar. Phase 1 of a phased, single-ADR overhaul (Foundation →
+overhaul existing → complete coverage → calibration → global validation). No new colours/deps/Firestore, no gamification;
+Node duel path preserved.
+
+```
+### feat/quant(ADR-083): shared generative helpers
+- js/utils/generative-helpers.js (NEW, dual browser/Node): randInt/pick/shuffle/pickN, sum/min/max, round1/2, isClean,
+  gcd/lcm/gcdArr/lcmArr, factorize/numFactors/isPrime, pluralize/frac, exam-native name+item pools, mcq(), and
+  near-miss distractor builder. Consolidates the RNG/gcd duplicated across di-engine/lr-engine.
+
+### feat/quant(ADR-083): archetype framework + earned difficulty + explanations
+- js/questions.js: _genArch(category, ARCH, PRIMARY) — each topic exposes per-tier {k,skill,build} archetype pools and
+  a guaranteed-clean PRIMARY fallback; picks an in-tier archetype, retries in-tier, NEVER downgrades; tags
+  subtype:'diff:key' and attaches a teaching explanation (method → working → shortcut/trap). Mirrors di-engine._genFromArch.
+- Refactored the 5 laziest/flagship generators to the new bar: squares (direct/inverse/diff-of-squares),
+  cubes (direct/inverse), area (square/rectangle/triangle/parallelogram/circle/trapezium/border),
+  volume (cube/cuboid/cylinder/sphere/cone), percentages (direct/reverse/what-%/change/successive/±x-trap).
+
+### test/quant(ADR-083): recompute validation harness
+- scripts/quant-engine.check.js (NEW → package.json): structural checks over ALL 14 categories × 3 difficulties;
+  independent answer RE-COMPUTE for the refactored 5; earned-tier + no-downgrade + archetype-diversity assertions.
+  Result: 27,917 passed, 2,250 recomputed, 0 mismatches.
+
+### chore(ADR-083): wiring
+- index.html loads generative-helpers.js before questions.js; service-worker precache + v167→v168.
+```
+
+Verification: `npm test` exit 0 (quant-engine 27,917/0 with 0 recompute mismatches; all 20 other suites unchanged);
+browser boot clean (window.QRGen present, generateQuestion returns explanations + diff:key subtypes, 0 page errors);
+Node `require('js/questions.js')` (duel path) still works. **Docs:** DECISION_LOG ADR-083, VERSIONS 2.81→2.82, this entry.
+
+---
+
 ## 2026-06-30 — Final verification & excellence pass (ADR-082 addendum)
 
 A 3-agent read-only audit (independently re-verified) confirmed ADR-082 fully correct, zero regressions, and the

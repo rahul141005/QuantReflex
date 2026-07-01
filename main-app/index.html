@@ -1654,6 +1654,8 @@
   <script defer src="services/quantTopics.js"></script>
   <script defer src="data/subjects.js"></script>
   <script defer src="js/progress.js"></script>
+  <!-- Shared procedural-generation helpers (ADR-083): MUST load before questions.js (window.QRGen). -->
+  <script defer src="js/utils/generative-helpers.js"></script>
   <script defer src="js/questions.js"></script>
   <!-- Data Interpretation engine (ADR-074): MUST load after questions.js — di-engine self-registers its generators
        into questions.js's categoryGenerators so Practice reuses the same pipeline; di-charts renders the chart block. -->

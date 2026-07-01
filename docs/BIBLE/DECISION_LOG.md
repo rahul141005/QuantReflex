@@ -8,6 +8,30 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-083 — Quant Engine Master Overhaul (evolution to the DI/LR bar, complete coverage) (2026-07-01)
+- **Context:** Quant is the flagship subject but its engine is the *original* one — DI (ADR-078) and LR (ADR-079) were
+  later rebuilt far past it. A 3-agent audit found Quant at ~60% of that bar: 14 numeric generators in `js/questions.js`
+  with **no per-generator explanations** (only generic post-hoc tips), **no validation harness**, mixed/lazy difficulty
+  (squares/cubes/area/volume just scaled numbers), no archetype registry, no shared helpers, and Learn↔Practice orphans.
+  The generators are dual-exported (browser + Node) and power duels — a hard constraint.
+- **Decision:** a single coherent, phased overhaul (Foundation → overhaul existing → complete coverage → calibration →
+  global validation), every topic production-grade (archetypes · earned difficulty · premium explanations · deterministic
+  recompute-validation · exam-authentic wording), zero orphan content. Generators stay **exam-agnostic** (reasoning is
+  universal — exam fit lives in ordering/metadata + adaptive bias, not faked math) and **numeric-entry** (except the one
+  genuinely-MCQ format, quantity-comparison, which reuses the drill engine's existing options path).
+- **Phase 1 (this entry) — foundation + proof:** new `js/utils/generative-helpers.js` (dual browser/Node: RNG, gcd/lcm,
+  factorise, clean-check, name/item pools, `mcq`, near-miss distractors). An **archetype framework** in `questions.js`
+  (`ARCH = {easy,medium,hard}` of `{k,skill,build}` + `PRIMARY` clean fallback; `_genArch` picks in-tier, retries in-tier,
+  never downgrades; tags `subtype:'diff:key'`; attaches a teaching `explanation`). Refactored the 5 laziest/flagship
+  generators — **squares, cubes, area, volume, percentages** — to earned-difficulty archetype pools with premium
+  explanations (method → working → shortcut/trap) and wording variety. New `scripts/quant-engine.check.js` (into
+  `npm test`): structural checks over all 14 categories × 3 difficulties + independent **recompute** for the refactored
+  5 + earned-tier / no-downgrade / archetype-diversity assertions.
+- **Consequences:** `quant-engine.check` green — 27,917 assertions, 2,250 answers independently recomputed, **0
+  mismatches**; full suite green; Node duel path intact; browser boot clean (0 page errors, `QRGen` loaded). No new
+  colours/deps/Firestore, no gamification. Phases 2–5 (overhaul remaining 9 generators; add the full missing-topic roster
+  with Learn + drill + harness; calibration; global validation) follow under this ADR. SW v167→v168, Bible 2.81→2.82.
+
 ## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
 - **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the
   squares/cubes quick-reference grids. On a narrow phone the "Ask Subject Before Quick Start" settings row clipped its
