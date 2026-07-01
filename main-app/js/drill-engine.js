@@ -112,6 +112,14 @@ function createDrillEngine(container, opts) {
   var _nextGuardTimer = null;
   var _autoAdvanceTimer = null;
   var _loadingTimer = null; /* ADR-086 P5: defer-to-next-frame handle for the honest loading state (cancelled on teardown) */
+  /* ADR-086 P7 — pause/resume: countdowns are kept at engine scope (not trapped in the tick closures) so pause can
+     freeze them and resume can restart from the exact second. Timing anchors (qStart/overallStart) are shifted forward
+     by the paused duration on resume so a pause never counts against response or total time. */
+  var _globalRemaining = null;
+  var _perQRemaining = null;
+  var _paused = false;
+  var _pauseStart = 0;
+  var _visHandler = null; /* visibilitychange auto-pause handler (installed for non-duel sessions, removed on cleanup) */
   var answered = false; /* prevents double-counting */
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
@@ -422,6 +430,7 @@ function createDrillEngine(container, opts) {
     container.innerHTML =
       (isDuel ? duelHeaderHTML : '') +
       (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' : '') +
+      (!isDuel ? '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' : '') +
       '<div class="card center-content fade-in question-card-transition' + (isMCQ ? ' drill-has-mcq' : '') + '">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
@@ -452,6 +461,9 @@ function createDrillEngine(container, opts) {
       '</div>';
     ui.globalTimerEl = container.querySelector('#globalTimer');
     ui.perQTimerEl = container.querySelector('#perQTimer');
+    /* Paint the running global countdown immediately (it's started once in _beginBuild, before this element exists,
+       so without this it would read blank for the first second of the session). */
+    if (ui.globalTimerEl && _globalRemaining != null) ui.globalTimerEl.textContent = '⏱ ' + _globalRemaining + 's';
     ui.answerInputEl = container.querySelector('#answerInput');
     ui.submitBtnEl = container.querySelector('#submitBtn');
     ui.feedbackEl = container.querySelector('#feedback');
@@ -484,6 +496,12 @@ function createDrillEngine(container, opts) {
           performExit();
         }
       });
+    }
+
+    /* Pause button (ADR-086 P7) — freezes timers + shows the resume overlay. Guarded so its absence can't throw. */
+    var _drillPauseBtn = container.querySelector('#drillPauseBtn');
+    if (_drillPauseBtn) {
+      _drillPauseBtn.addEventListener('click', function () { pauseSession(); });
     }
 
     var input = ui.answerInputEl;
@@ -1350,37 +1368,104 @@ function createDrillEngine(container, opts) {
 
   /* ---- global timer (for timed tests) ---- */
 
+  function _globalTick() {
+    var el = ui.globalTimerEl;
+    if (el) el.textContent = '⏱ ' + _globalRemaining + 's';
+    if (_globalRemaining <= 0) { clearInterval(overallTimer); overallTimer = null; finish(); return; }
+    _globalRemaining--;
+  }
   function startGlobalTimer() {
     if (!timeLimit) return;
-    var remaining = timeLimit;
-    function tick() {
-      var el = ui.globalTimerEl;
-      if (el) el.textContent = '⏱ ' + remaining + 's';
-      if (remaining <= 0) { clearInterval(overallTimer); overallTimer = null; finish(); return; }
-      remaining--;
-    }
-    tick();
-    overallTimer = setInterval(tick, 1000);
+    _globalRemaining = timeLimit;
+    _globalTick();
+    overallTimer = setInterval(_globalTick, 1000);
   }
 
   /* ---- per-question timer (for reflex drills) ---- */
 
-  function startPerQTimer() {
-    var remaining = perQLimit;
-    function tick() {
-      var el = ui.perQTimerEl;
-      if (el) el.textContent = '⏱ ' + remaining + 's';
-      if (remaining <= 0) {
-        clearInterval(perQTimer);
-        perQTimer = null;
-        /* Auto-submit empty answer when time runs out (duel → capture-only path) */
-        if (!answered && !_isFinished) { if (isDuel) captureDuelAnswer(''); else checkAnswer(''); }
-        return;
-      }
-      remaining--;
+  function _perQTick() {
+    var el = ui.perQTimerEl;
+    if (el) el.textContent = '⏱ ' + _perQRemaining + 's';
+    if (_perQRemaining <= 0) {
+      clearInterval(perQTimer);
+      perQTimer = null;
+      /* Auto-submit empty answer when time runs out (duel → capture-only path) */
+      if (!answered && !_isFinished) { if (isDuel) captureDuelAnswer(''); else checkAnswer(''); }
+      return;
     }
-    tick();
-    perQTimer = setInterval(tick, 1000);
+    _perQRemaining--;
+  }
+  function startPerQTimer() {
+    _perQRemaining = perQLimit;
+    _perQTick();
+    perQTimer = setInterval(_perQTick, 1000);
+  }
+
+  /* ---- pause / resume (ADR-086 P7) ---- */
+
+  function pauseSession() {
+    if (isDuel || _paused || _isFinished) return;   /* never pause a live duel */
+    _paused = true;
+    _pauseStart = performance.now();
+    if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }
+    if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+    _showPauseOverlay();
+  }
+
+  function resumeSession() {
+    if (!_paused) return;
+    _paused = false;
+    var pausedMs = performance.now() - _pauseStart;
+    /* Shift the timing anchors so the paused span is excluded from response + total time. */
+    if (qStart) qStart += pausedMs;
+    if (overallStart) overallStart += pausedMs;
+    _hidePauseOverlay();
+    if (_isFinished) return;
+    /* Restart each frozen countdown with an immediate tick (mirrors startGlobalTimer/startPerQTimer) so the visible
+       number updates the instant you resume, not a second later. Global (timed test) runs through feedback too; the
+       per-question countdown only while the question is unanswered. */
+    if (timeLimit && !overallTimer && _globalRemaining != null) {
+      _globalTick();
+      if (!_isFinished && !overallTimer) overallTimer = setInterval(_globalTick, 1000);
+    }
+    if (perQLimit && !perQTimer && !answered && _perQRemaining != null) {
+      _perQTick();
+      if (!_isFinished && !answered && !perQTimer) perQTimer = setInterval(_perQTick, 1000);
+    }
+  }
+
+  function _showPauseOverlay() {
+    if (container.querySelector('#drillPauseOverlay')) return;
+    var ov = document.createElement('div');
+    ov.id = 'drillPauseOverlay';
+    ov.className = 'drill-pause-overlay';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-label', 'Session paused');
+    ov.innerHTML =
+      '<div class="drill-pause-card">' +
+        '<div class="drill-pause-icon" aria-hidden="true">⏸</div>' +
+        '<h2 class="drill-pause-title">Paused</h2>' +
+        '<p class="drill-pause-sub">Your timer is frozen. Resume when you\'re ready.</p>' +
+        '<button class="btn-primary" type="button" id="drillResumeBtn">Resume</button>' +
+      '</div>';
+    container.appendChild(ov);
+    var rb = ov.querySelector('#drillResumeBtn');
+    if (rb) rb.addEventListener('click', resumeSession);
+  }
+
+  function _hidePauseOverlay() {
+    var ov = container.querySelector('#drillPauseOverlay');
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  }
+
+  /* Auto-pause when the tab is backgrounded mid-question so time-away never counts against the user. Deliberately does
+     NOT auto-resume on return — the student resumes consciously. Not installed for duels (real-time multiplayer). */
+  function _installVisibilityGuard() {
+    if (isDuel || _visHandler) return;
+    _visHandler = function () {
+      if (typeof document !== 'undefined' && document.hidden && !_paused && !_isFinished) pauseSession();
+    };
+    try { document.addEventListener('visibilitychange', _visHandler); } catch (_) {}
   }
 
   /* ---- cleanup timers ---- */
@@ -1391,6 +1476,10 @@ function createDrillEngine(container, opts) {
     if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; }
     if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
     if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
+    /* ADR-086 P7: tear down the visibility auto-pause listener + clear any pause latch so a torn-down engine leaves no
+       global handler behind and a fresh session never inherits a stale paused state. */
+    if (_visHandler) { try { document.removeEventListener('visibilitychange', _visHandler); } catch (_) {} _visHandler = null; }
+    _paused = false;
     _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;
     if (adaptiveMode) _clearAdaptiveOverride();
@@ -1414,7 +1503,9 @@ function createDrillEngine(container, opts) {
     if (beginStarted) return;
     beginStarted = true;
     _isFinished = false; /* a restart (Retry / Practice Mistakes / Increase Difficulty) reuses this engine — clear the finished latch */
+    _paused = false; /* clear any stale pause latch on (re)start */
     _nextReady = true; /* ensure clean guard state at session start */
+    _installVisibilityGuard(); /* ADR-086 P7: auto-pause on backgrounding (non-duel) */
     /* Reset anti-repetition tracker so new session gets fresh questions */
     if (typeof resetRecentQuestions === 'function') resetRecentQuestions();
     /* Mark session as active and hide nav for immersive experience */
@@ -1465,45 +1556,77 @@ function createDrillEngine(container, opts) {
       '</div>';
   }
 
+  /* Graceful generation-failure card (ADR-086 P7): shown when a deck can't be built. Offers Retry (rebuild in place)
+     and a clean exit. The session shell is already active, so this renders inside it. */
+  function _renderGenError() {
+    container.classList.remove('drill-results-active');
+    container.innerHTML =
+      '<div class="card center-content drill-error">' +
+        '<div class="drill-error-icon" aria-hidden="true">⚠️</div>' +
+        '<h2>Couldn\'t build this session</h2>' +
+        '<p class="secondary-text">Something went wrong preparing your questions. Please try again.</p>' +
+        '<button class="btn-primary" type="button" id="drillGenRetry">Try Again</button>' +
+        '<button class="btn-secondary" type="button" id="drillGenBack">← Back to Practice</button>' +
+      '</div>';
+    var _rt = container.querySelector('#drillGenRetry');
+    if (_rt) _rt.addEventListener('click', function () { beginStarted = false; answered = false; begin(); });
+    var _bk = container.querySelector('#drillGenBack');
+    if (_bk) _bk.addEventListener('click', function () {
+      try { cleanup(); } catch (_) {}
+      _exitDrillSession();
+      if (typeof FirestoreSync !== 'undefined' && FirestoreSync.endDrillBatch) FirestoreSync.endDrillBatch();
+      if (onFinish) onFinish('practice'); else if (typeof Router !== 'undefined') Router.showView('practice');
+    });
+  }
+
   /* The actual deck build + session-counter reset + first render. Split out of begin() so it can run either
      synchronously (pre-built/light) or deferred one frame behind the loader (heavy generation). */
   function _beginBuild() {
-    if (diSet) {
-      /* DI Set: map the shared-context set into the drill question shape. Each question carries the SET's category
-         (so analytics attribute to di-bar/di-line/… exactly like single questions) and the shared chart (so AI
-         Explain grounds on the same data); caselet sets carry the worded context for grounding. */
-      questions = diSet.questions.map(function (sq) {
-        return { question: sq.question, answer: sq.answer, category: diSet.category, subtype: sq.subtype, chart: diSet.chart || null, aiContext: diSet.context || null };
-      });
-      count = questions.length;
-    } else if (preloadedQuestions && preloadedQuestions.length > 0) {
-      questions = preloadedQuestions;
-      count = questions.length;
-    } else if (reviewMode) {
-      questions = generateMistakeReviewQuestions(count);
-      if (questions.length === 0) {
-        _exitDrillSession();
-        if (typeof FirestoreSync !== 'undefined') {
-          FirestoreSync.endDrillBatch();
-        }
-        container.innerHTML =
-          '<div class="card center-content">' +
-            '<h2>All Caught Up!</h2>' +
-            '<p class="secondary-text">Impressive — you\'ve mastered all your previous mistakes.</p>' +
-            '<button class="btn-primary" id="backToPractice">Continue Training</button>' +
-          '</div>';
-        container.querySelector('#backToPractice').addEventListener('click', function () {
-          Router.showView('practice');
+    /* ADR-086 P7 — generation is wrapped so any generator throw (or an empty non-review deck) surfaces a graceful
+       error card with Retry instead of a blank/frozen session. Offline is a non-issue (generation is fully client-side)
+       but a corrupt input or missing generator would otherwise crash here. */
+    try {
+      if (diSet) {
+        /* DI Set: map the shared-context set into the drill question shape. Each question carries the SET's category
+           (so analytics attribute to di-bar/di-line/… exactly like single questions) and the shared chart (so AI
+           Explain grounds on the same data); caselet sets carry the worded context for grounding. */
+        questions = diSet.questions.map(function (sq) {
+          return { question: sq.question, answer: sq.answer, category: diSet.category, subtype: sq.subtype, chart: diSet.chart || null, aiContext: diSet.context || null };
         });
-        return;
+        count = questions.length;
+      } else if (preloadedQuestions && preloadedQuestions.length > 0) {
+        questions = preloadedQuestions;
+        count = questions.length;
+      } else if (reviewMode) {
+        questions = generateMistakeReviewQuestions(count);
+        if (questions.length === 0) {
+          _exitDrillSession();
+          if (typeof FirestoreSync !== 'undefined') {
+            FirestoreSync.endDrillBatch();
+          }
+          container.innerHTML =
+            '<div class="card center-content">' +
+              '<h2>All Caught Up!</h2>' +
+              '<p class="secondary-text">Impressive — you\'ve mastered all your previous mistakes.</p>' +
+              '<button class="btn-primary" id="backToPractice">Continue Training</button>' +
+            '</div>';
+          container.querySelector('#backToPractice').addEventListener('click', function () {
+            Router.showView('practice');
+          });
+          return;
+        }
+        count = questions.length;
+        reviewOriginalCount = count;
+      } else if (topics && topics.length) {
+        questions = _generateCustomTopicQuestions(count, topics);
+      } else {
+        questions = generateQuestions(count, category);
       }
-      count = questions.length;
-      reviewOriginalCount = count;
-    } else if (topics && topics.length) {
-      questions = _generateCustomTopicQuestions(count, topics);
-    } else {
-      questions = generateQuestions(count, category);
+    } catch (_genErr) {
+      _renderGenError();
+      return;
     }
+    if (!questions || !questions.length) { _renderGenError(); return; }
     current = 0;
     score = 0;
     bestSessionStreak = 0;

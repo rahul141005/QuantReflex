@@ -6270,6 +6270,39 @@ body.dark-mode .drill-explain-btn:active {
 .drill-next-grid .btn-secondary { margin: 0; width: 100%; }
 .drill-next-grid .btn-secondary:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
+/* ── Pause / resume + graceful failure (ADR-086 P7) — token-driven across all themes ── */
+.session-pause,
+.drill-pause-btn {
+  position: absolute; top: 12px; left: 12px; width: 2rem; height: 2rem;
+  border: none; border-radius: 50%; background: transparent; color: var(--qr-text-dim);
+  font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  padding: 0; z-index: 10; transition: background .15s ease, color .15s ease;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.session-pause:active,
+.drill-pause-btn:active { background: rgba(0,0,0,.12); color: var(--qr-text); }
+body.dark-mode .session-pause:active,
+body.dark-mode .drill-pause-btn:active { background: rgba(255,255,255,.15); color: var(--qr-text); }
+body.drill-session-active .drill-pause-btn {
+  position: fixed; top: calc(.75rem + env(safe-area-inset-top, 0px)); left: .75rem; z-index: 100;
+}
+.drill-pause-overlay {
+  position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem; background: rgba(15,23,42,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: drillFadeIn var(--qr-dur, .2s) var(--qr-ease, ease) both;
+}
+.drill-pause-card {
+  width: 100%; max-width: 20rem; text-align: center; padding: 1.75rem 1.4rem; border-radius: 1.25rem;
+  background: var(--qr-surface-solid); border: 1px solid var(--qr-border); box-shadow: 0 18px 50px rgba(0,0,0,.28);
+}
+.drill-pause-icon { font-size: 2.4rem; line-height: 1; margin-bottom: .5rem; }
+.drill-pause-title { margin: 0 0 .35rem; font-size: 1.4rem; font-weight: 800; color: var(--qr-text); }
+.drill-pause-sub { margin: 0 0 1.2rem; font-size: .9rem; color: var(--qr-text-dim); }
+.drill-pause-card .btn-primary { width: 100%; margin: 0; }
+.drill-error-icon { font-size: 2.6rem; line-height: 1; margin-bottom: .4rem; }
+@keyframes drillFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .drill-pause-overlay { animation: none; } }
+
 /* ---- AI Study Plan ---- */
 .sp-card {
   border-left: 3px solid #2563eb;
