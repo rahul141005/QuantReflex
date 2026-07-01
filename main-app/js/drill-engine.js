@@ -239,7 +239,19 @@ function createDrillEngine(container, opts) {
       actions.classList.add('has-skip'); actions.insertBefore(skipBtn, submitBtn);
     }
     qStart = performance.now();
-    if (!isMCQ && typeof showCustomNumpad === 'function') showCustomNumpad(ui.answerInputEl, function () { if (!answered) checkAnswer(ui.answerInputEl.value.trim()); });
+    if (!isMCQ && typeof showCustomNumpad === 'function') showCustomNumpad(ui.answerInputEl, function () { if (!answered) checkAnswer(ui.answerInputEl.value.trim()); }, _numpadOptsFor(q));
+  }
+
+  /* Adaptive-keypad options for a question, from the shared answer-format registry (ADR-086): the exact keys its
+     answer can contain + the invalid-sequence guard. Undefined (→ legacy keypad) if the registry is unavailable. */
+  function _numpadOptsFor(q) {
+    try {
+      if (typeof QRAnswerFormat !== 'undefined' && QRAnswerFormat.answerFormat) {
+        var f = QRAnswerFormat.answerFormat(q);
+        if (f && f.kind === 'numeric') return { keys: f.keys, validate: f.validateKeystroke };
+      }
+    } catch (e) {}
+    return undefined;
   }
 
   function renderQuestion() {
@@ -399,8 +411,9 @@ function createDrillEngine(container, opts) {
         });
       }
     } else {
-      /* Show custom numpad (the SAME component as Practice — true reuse, ADR-033) */
-      showCustomNumpad(input, function() { submit(); });
+      /* Show custom numpad (the SAME component as Practice — true reuse, ADR-033), adapted to THIS answer's format
+         (ADR-086): only the keys this question's answer can contain, with invalid-sequence guarding. */
+      showCustomNumpad(input, function() { submit(); }, _numpadOptsFor(q));
     }
 
     /* Per-question timer */

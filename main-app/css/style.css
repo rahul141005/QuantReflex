@@ -3937,12 +3937,22 @@ body.dark-mode .clear-option-info span {
   pointer-events: none;
 }
 .numpad-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: .45rem;
+  /* ADR-086: a stable 3-column digit pad + a tall submit column on the right. The digit block never moves; only the
+     single contextual symbol slot (bottom-left) changes per answer format, so the keypad never reshuffles. */
+  display: flex;
+  gap: .5rem;
   max-width: 480px;
   margin: 0 auto;
+  align-items: stretch;
 }
+.numpad-pad {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .45rem;
+}
+.numpad-btn.numpad-sym { color: var(--qr-accent); font-weight: 700; }
+.numpad-blank { visibility: hidden; pointer-events: none; box-shadow: none; }
 .numpad-btn {
   min-height: 50px;
   border: none;
@@ -3966,9 +3976,11 @@ body.dark-mode .clear-option-info span {
   transform: scale(.93);
 }
 .numpad-btn.numpad-submit {
+  flex: 0 0 23%;
+  min-width: 66px;
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   box-shadow: 0 2px 8px rgba(37,99,235,.25);
 }
 .numpad-btn.numpad-submit:active {
@@ -4080,6 +4092,14 @@ body.drill-session-active #drillContainer > .card {
 }
 body.drill-session-active #drillContainer > .card:active {
   transform: none;
+}
+/* ADR-086 — kill the MCQ dead space: when NO numpad is shown (MCQ/LR questions), the card and action bar no longer
+   reserve the ~13.75rem keypad band; the question card grows to fill the lower region instead of leaving it blank. */
+body.drill-session-active:not(.numpad-active) #drillContainer > .card {
+  bottom: calc(var(--drill-actions-h) + var(--drill-card-gap) + var(--drill-safe-b));
+}
+body.drill-session-active:not(.numpad-active) .drill-actions {
+  bottom: calc(var(--drill-safe-b) + .4rem);
 }
 
 /* Scrollable question content inside the fixed card */

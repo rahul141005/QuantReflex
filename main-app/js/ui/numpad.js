@@ -1,22 +1,70 @@
 /**
- * numpad.js — Custom numpad controller
+ * numpad.js — the shared on-screen answer keypad, now an ADAPTIVE keypad (ADR-086).
  *
- * Extracted from app.js. Manages:
- *   - showCustomNumpad() / hideCustomNumpad() toggle
- *   - Numpad key click handler (digits, backspace, submit)
- *   - Numpad key press visual feedback (pressed state + haptic)
- *   - Input focus management
+ * The keypad is a single persistent bottom surface reused by the drill engine, onboarding and duels. It renders a
+ * stable digit block + a tall submit key + at most one contextual symbol slot, so the layout never reshuffles between
+ * numeric question types. The exact keys and the input-validation rule for the current question come from the caller
+ * (drill passes `QRAnswerFormat.answerFormat(q).keys` + `validateKeystroke`), so a question can never demand a key the
+ * keypad can't produce and a valid answer can never be blocked (proven by scripts/answer-format.check.js).
  *
- * All functions remain as bare globals for backward compatibility.
+ * Public (bare globals, unchanged signatures + one optional opts arg):
+ *   showCustomNumpad(inputEl, submitCallback, opts?)   opts = { keys?: [symbol chars beyond digits], validate?(cur,ch) }
+ *   hideCustomNumpad()
  */
 
 /* ---- Custom Numpad Controller ---- */
 var _numpadInput = null;
 var _numpadSubmitCb = null;
+var _numpadValidate = null;              /* (current, key) → bool; null = allow everything (legacy callers) */
+var _NUMPAD_LEGACY_SYMBOLS = [':', '%', '.', '-'];   /* pre-ADR-086 static set — default when a caller passes no keys */
+var _numpadCurrentKey = '';              /* remembers the current symbol layout to avoid needless rebuilds */
 
-function showCustomNumpad(inputEl, submitCallback) {
+/* Build the keypad grid: a stable 3-column digit pad (1–9, [symbol|0|⌫]) + a tall submit column on the right.
+   `symbols` is a short string of the contextual keys (e.g. '', '.', ':', '/', '-'). At most one is needed today; the
+   builder degrades gracefully if a future format declares more. */
+function _buildNumpadGrid(symbols) {
+  var grid = document.querySelector('#customNumpad .numpad-grid');
+  if (!grid) return;
+  symbols = (symbols == null ? '' : String(symbols));
+  var sig = 'k:' + symbols;
+  if (_numpadCurrentKey === sig && grid.getAttribute('data-built') === '1') return;   /* already this layout */
+  _numpadCurrentKey = sig;
+
+  function key(k, label, cls) { return '<button class="numpad-btn' + (cls ? ' ' + cls : '') + '" type="button" data-numpad="' + k + '"' + (k === 'backspace' ? ' aria-label="Backspace"' : (k === 'submit' ? ' aria-label="Submit"' : '')) + '>' + label + '</button>'; }
+  var first = symbols.charAt(0) || '';
+  var extra = symbols.slice(1);            /* any beyond the first (future-proof) go before backspace */
+  var minusGlyph = '−';
+  function symLabel(s) { return s === '-' ? minusGlyph : s; }
+
+  var pad =
+    key('1', '1') + key('2', '2') + key('3', '3') +
+    key('4', '4') + key('5', '5') + key('6', '6') +
+    key('7', '7') + key('8', '8') + key('9', '9') +
+    (first ? key(first, symLabel(first), 'numpad-sym') : '<span class="numpad-btn numpad-blank" aria-hidden="true"></span>') +
+    key('0', '0') +
+    (extra ? extra.split('').map(function (s) { return key(s, symLabel(s), 'numpad-sym'); }).join('') : '') +
+    key('backspace', '⌫', 'numpad-backspace');
+
+  grid.innerHTML =
+    '<div class="numpad-pad">' + pad + '</div>' +
+    key('submit', '↵', 'numpad-submit');
+  grid.setAttribute('data-built', '1');
+}
+
+function showCustomNumpad(inputEl, submitCallback, opts) {
   _numpadInput = inputEl;
   _numpadSubmitCb = submitCallback;
+  opts = opts || {};
+  _numpadValidate = (typeof opts.validate === 'function') ? opts.validate : null;
+  /* Symbols = the non-digit keys the caller asked for. Drill passes answerFormat(q).keys (digits + symbols); we keep
+     only the symbols here. A caller with no keys gets the legacy set so onboarding/duels are unchanged. */
+  var symbols;
+  if (opts.keys) {
+    symbols = opts.keys.filter(function (k) { return '0123456789'.indexOf(k) === -1; }).join('');
+  } else {
+    symbols = _NUMPAD_LEGACY_SYMBOLS.join('');
+  }
+  _buildNumpadGrid(symbols);
   var numpad = document.getElementById('customNumpad');
   if (numpad) {
     numpad.classList.add('visible');
@@ -27,6 +75,7 @@ function showCustomNumpad(inputEl, submitCallback) {
 function hideCustomNumpad() {
   _numpadInput = null;
   _numpadSubmitCb = null;
+  _numpadValidate = null;
   var numpad = document.getElementById('customNumpad');
   if (numpad) {
     numpad.classList.remove('visible');
@@ -40,7 +89,7 @@ function hideCustomNumpad() {
 
   document.addEventListener('pointerdown', function (e) {
     var btn = e.target.closest('.numpad-btn');
-    if (!btn) return;
+    if (!btn || btn.classList.contains('numpad-blank')) return;
     /* Release any previously held key (multi-touch guard) */
     if (_activePress && _activePress !== btn) {
       _activePress.classList.remove('pressed');
@@ -60,6 +109,36 @@ function hideCustomNumpad() {
 
   document.addEventListener('pointerup', _releaseAll);
   document.addEventListener('pointercancel', _releaseAll);
+})();
+
+/* ---- Backspace hold-to-repeat + hold-to-clear (ADR-086) ----
+   A short tap deletes one character (handled by the click listener below). Pressing and holding backspace repeats the
+   delete, then — after a longer hold — clears the whole buffer, so a wrong long answer is fast to wipe with one thumb. */
+(function () {
+  var _repeat = null, _clear = null;
+  function _stop() {
+    if (_repeat) { clearInterval(_repeat); _repeat = null; }
+    if (_clear) { clearTimeout(_clear); _clear = null; }
+  }
+  function _del() {
+    if (!_numpadInput || _numpadInput.disabled) return;
+    if (!document.body.contains(_numpadInput)) { _stop(); return; }
+    _numpadInput.value = _numpadInput.value.slice(0, -1);
+  }
+  document.addEventListener('pointerdown', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-numpad="backspace"]');
+    if (!btn || !_numpadInput) return;
+    _stop();
+    _repeat = setInterval(_del, 90);                 /* auto-repeat delete while held */
+    _clear = setTimeout(function () {                /* long hold → clear all */
+      if (_numpadInput && !_numpadInput.disabled && document.body.contains(_numpadInput)) _numpadInput.value = '';
+      _stop();
+      if (typeof triggerHaptic === 'function') triggerHaptic(18);
+    }, 600);
+  });
+  document.addEventListener('pointerup', _stop);
+  document.addEventListener('pointercancel', _stop);
+  document.addEventListener('pointerleave', _stop);
 })();
 
 /* ---- MCQ option press feedback (LR, ADR-075) — parity with the numpad above ----
@@ -115,6 +194,8 @@ function hideCustomNumpad() {
     } else if (key === 'backspace') {
       _numpadInput.value = _numpadInput.value.slice(0, -1);
     } else {
+      /* Reject keystrokes that would build an invalid answer (2nd '.', non-leading '-', …) per the current format. */
+      if (_numpadValidate && !_numpadValidate(_numpadInput.value, key)) return;
       /* Cap input length to prevent unbounded entry */
       if (_numpadInput.value.length < 15) {
         _numpadInput.value += key;
