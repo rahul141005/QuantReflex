@@ -75,7 +75,6 @@ var QRGen = (typeof module !== 'undefined' && module.exports && typeof require !
   : (typeof window !== 'undefined' && window.QRGen ? window.QRGen
     : (typeof globalThis !== 'undefined' && globalThis.QRGen ? globalThis.QRGen : null));
 
-function _round1(x) { return Math.round(x * 10) / 10; }
 function _round2(x) { return Math.round(x * 100) / 100; }
 /* Ordinal suffix (1st, 2nd, 3rd, 4th … 11th, 12th, 13th). Keeps the number's digits intact for the recompute harness. */
 function _ord(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }

@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 7: dead-code cleanup
+
+Remove verified-dead helpers so the generator toolbox reads honestly.
+
+```
+### chore/quant(ADR-084): drop unused helpers
+- js/questions.js: removed unused _round1().
+- js/utils/generative-helpers.js: removed mcq, nearMissDistractors, frac, commaGroup, pluralize, gcdArr, lcmArr
+  (function + export) and factorize from the public export (kept as internal helper for numFactors). Header comment
+  updated to match. QRGen export surface 29 -> 21 keys.
+```
+
+Verification: each name re-grepped across main-app/api/scripts before deletion (apparent mcq/frac script hits were
+test-label strings / fracExponent substrings). Module + generative-helpers require OK, numFactors still works, full
+`npm test` exit 0, dual browser/Node export intact. **Docs:** DECISION_LOG ADR-084 (Batch 7), VERSIONS 2.101→2.102,
+this entry. **SW** v186→v187.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 6: Learn consistency + high-value tables
 
 Bring every Quant chapter to the same structural bar and add scannable comparison tables where they aid revision.

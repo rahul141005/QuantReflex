@@ -17,6 +17,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 7 — dead-code cleanup:** removed the unused `_round1()` from `js/questions.js` (it kept its own copy; DI
+  engines have their own local one) and eight never-called exports from `js/utils/generative-helpers.js` — `mcq`,
+  `nearMissDistractors`, `frac`, `commaGroup`, `pluralize`, `gcdArr`, `lcmArr` (function + export each) and `factorize`
+  from the public export only (still used internally by `numFactors`). Each was re-grepped across `main-app/`, `api/`
+  and `scripts/` before deletion (the apparent `mcq`/`frac` script hits were test-label strings and `fracExponent`
+  substrings, not calls). QRGen surface shrinks 29→21 keys; the dual browser/Node export and the duel Node path are
+  intact; full `npm test` green. SW v186→v187.
 - **Batch 6 — Learn consistency + high-value tables:** five published chapters lacked the "How toppers handle these"
   **exam** block that the rest of the Learn set carries (`multiplication`, `fractions`, `squares`, `cubes`,
   `permutation-combination`) — added one to each so every chapter now teaches strategy, not just method. Added scannable

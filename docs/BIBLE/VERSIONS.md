@@ -9,12 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.101 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.102 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.102 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 7: dead-code cleanup.** Removed the unused
+> `_round1()` from questions.js and eight never-called exports (`mcq`, `nearMissDistractors`, `frac`, `commaGroup`,
+> `pluralize`, `gcdArr`, `lcmArr`, and `factorize` from the public API only — still used internally by `numFactors`)
+> from generative-helpers.js. Each re-grepped across main-app/api/scripts before removal; QRGen surface 29→21 keys;
+> dual-export + duel Node path intact; full npm test green. SW v186→v187.
+>
 > **2.101 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 6: Learn consistency + high-value tables.**
 > Added the missing "How toppers handle these" exam block to 5 chapters (multiplication, fractions, squares, cubes,
 > permutation-combination) and scannable comparison tables to 3 formula-dense chapters (progressions AP-vs-GP,
