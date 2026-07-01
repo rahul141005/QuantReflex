@@ -6241,6 +6241,35 @@ body.dark-mode .drill-explain-btn:active {
   .drill-loading-orb span { animation-duration: 2.2s; }
 }
 
+/* ── Completion dashboard (ADR-086 P6) — token-driven, one design across all themes ── */
+.drill-chips { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin: 0 auto .9rem; }
+.drill-chip {
+  display: inline-flex; align-items: center; font-size: .78rem; font-weight: 700; line-height: 1;
+  padding: .34rem .6rem; border-radius: 999px; border: 1px solid var(--qr-border);
+  background: var(--qr-surface-2); color: var(--qr-text);
+}
+.drill-chip.chip-up { color: var(--qr-success-fg); background: var(--qr-success-bg); border-color: var(--qr-success-border); }
+.drill-chip.chip-down { color: var(--qr-danger); background: var(--qr-danger-bg); border-color: var(--qr-danger-border); }
+.drill-chip.chip-review { color: var(--qr-info-fg); }
+.drill-chip.chip-pb { color: var(--qr-warn); }
+.drill-topics { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; width: 100%; max-width: 24rem; margin: 0 auto 1.1rem; }
+.drill-topic {
+  display: flex; align-items: center; gap: .55rem; text-align: left;
+  padding: .65rem .7rem; border-radius: .85rem; border: 1px solid var(--qr-border); background: var(--qr-surface-2);
+}
+.drill-topic .dt-ico { font-size: 1.35rem; line-height: 1; flex: 0 0 auto; }
+.drill-topic .dt-body { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.drill-topic .dt-lbl { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--qr-text-mut); }
+.drill-topic .dt-name { font-size: .92rem; font-weight: 800; color: var(--qr-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drill-topic .dt-acc { font-size: .76rem; font-weight: 600; color: var(--qr-text-dim); }
+.drill-topic-strong { border-left: 3px solid var(--qr-success-border); }
+.drill-topic-weak { border-left: 3px solid var(--qr-warn); }
+.drill-next { display: flex; flex-direction: column; gap: .55rem; width: 100%; max-width: 24rem; margin: .3rem auto 0; }
+.drill-next-primary { width: 100%; }
+.drill-next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.drill-next-grid .btn-secondary { margin: 0; width: 100%; }
+.drill-next-grid .btn-secondary:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
 /* ---- AI Study Plan ---- */
 .sp-card {
   border-left: 3px solid #2563eb;

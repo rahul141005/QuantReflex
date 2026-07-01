@@ -101,6 +101,7 @@ function createDrillEngine(container, opts) {
   var currentSessionStreak = 0;
   var perQuestionTimes = [];
   var sessionWrongCategories = {}; /* category → wrong count for insight engine */
+  var sessionCategoryStats = {};   /* ADR-086 P6: category → {correct,total} for the strongest/weakest topic breakdown */
   var qStart = 0;
   var overallStart = 0;
   var overallTimer = null;
@@ -662,6 +663,13 @@ function createDrillEngine(container, opts) {
       }
     }
 
+    /* ADR-086 P6: per-category session tally (correct/total) → the results dashboard derives strongest & weakest
+       topic from this. Every answered question counts (right or wrong), keyed by the same category used for analytics. */
+    var _statCat = q.category || 'unknown';
+    var _cStat = sessionCategoryStats[_statCat] || (sessionCategoryStats[_statCat] = { correct: 0, total: 0 });
+    _cStat.total++;
+    if (correct) _cStat.correct++;
+
     /* Record answer with response time and question data for mistake tracking */
     if (!isDuel) {
       recordAnswer(correct, q.category, q, elapsedRounded);
@@ -910,6 +918,58 @@ function createDrillEngine(container, opts) {
     return ScoringService.computeSessionInsight(accNum, wrongCats);
   }
 
+  /* ADR-086 P6 — next-action restarts. All reuse THIS engine instance: drop the results overlay, clear the finished/
+     answered latches, and re-enter begin() (which regenerates a fresh deck for generated modes and resets every
+     session counter). Kept in-engine so "what next" works for every mode without new host wiring. */
+  function _restartSession() {
+    container.classList.remove('drill-results-active');
+    beginStarted = false;
+    answered = false;
+    begin();
+  }
+
+  /* Switch this engine into review mode and replay the user's mistakes (this session's wrong answers are already in
+     the mistake store via recordAnswer). Premium-gated exactly like the Practice-view Review Mistakes entry. */
+  function _practiceMistakesRestart() {
+    if (typeof canAccessFeature === 'function' && !canAccessFeature('review_mistakes')) {
+      if (typeof showPaywall === 'function') showPaywall('review_mistakes');
+      return;
+    }
+    reviewMode = true;
+    preloadedQuestions = null;   /* mock/word-problem decks must not pre-empt the review branch in _beginBuild */
+    diSet = null;
+    mode = '🔄 Review Mistakes';
+    count = 10;
+    _restartSession();
+  }
+
+  /* Bump the persisted difficulty one level (easy→medium→hard) and replay the same session config at the harder tier. */
+  function _increaseDifficultyRestart() {
+    try {
+      var s = (typeof AppState !== 'undefined' && AppState.getSettings) ? AppState.getSettings()
+        : (typeof loadSettings === 'function' ? loadSettings() : {});
+      var next = ({ easy: 'medium', medium: 'hard' })[(s && s.difficulty) || 'medium'] || 'hard';
+      s.difficulty = next;
+      if (typeof AppState !== 'undefined' && AppState.setSettings) AppState.setSettings(s);
+      else { try { localStorage.setItem('quant_reflex_settings', JSON.stringify(s)); } catch (_) {} }
+      if (typeof showToast === 'function') showToast('Difficulty raised to ' + next + '.');
+    } catch (_) { /* ignore — restart at the current level */ }
+    _restartSession();
+  }
+
+  /* Exit cleanly into a Learn chapter (deliberate study action after a session). Mirrors _buildConceptLink's teardown. */
+  function _continueLearning(topic) {
+    try { cleanup(); } catch (_) {}
+    try { _exitDrillSession(); } catch (_) {}
+    try { if (typeof FirestoreSync !== 'undefined' && FirestoreSync.endDrillBatch) FirestoreSync.endDrillBatch(); } catch (_) {}
+    try {
+      if (typeof Router !== 'undefined' && Router.showView) {
+        if (topic && topic.id) Router.showView('learn', { path: topic.id });
+        else Router.showView('learn');
+      }
+    } catch (_) {}
+  }
+
   function finish() {
     _isFinished = true;
     cleanup();
@@ -1027,6 +1087,70 @@ function createDrillEngine(container, opts) {
     /* Rule-based post-session insight (always visible, no AI call) */
     var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
 
+    /* ── ADR-086 P6 dashboard signals ──────────────────────────────────────────────────────────────────────
+       Strongest & weakest topic from the per-category session tally; a "mistakes to review" count; the within-
+       session speed trend (already computed as _sessImp); and a personal-bests reference. Every block is
+       conditional — a single-category or all-correct session simply omits the parts that don't apply. */
+    function _catLabelFor(c) { return (typeof formatCategoryName === 'function') ? formatCategoryName(c) : String(c || ''); }
+    var _catArr = Object.keys(sessionCategoryStats).map(function (c) {
+      var st = sessionCategoryStats[c];
+      return { cat: c, acc: st.total ? st.correct / st.total : 0, total: st.total, correct: st.correct };
+    });
+    var _strongest = null, _weakest = null;
+    if (_catArr.length >= 2) {
+      var _sortedCats = _catArr.slice().sort(function (a, b) { return (b.acc - a.acc) || (b.total - a.total); });
+      _strongest = _sortedCats[0];
+      _weakest = _sortedCats[_sortedCats.length - 1];
+      /* If every category scored identically, a strong/weak split is meaningless — suppress it. */
+      if (_strongest.acc === _weakest.acc) { _strongest = null; _weakest = null; }
+    }
+    var _wrongCount = Math.max(0, perQuestionTimes.length - score);
+
+    /* Continue-Learning target: the weakest topic's chapter, else the practiced category's, else any missed category. */
+    var _learnTopic = _weakest ? _learnTopicForDrill(_weakest.cat) : null;
+    if (!_learnTopic && category) _learnTopic = _learnTopicForDrill(category);
+    if (!_learnTopic) {
+      var _wcs = Object.keys(sessionWrongCategories);
+      for (var _wi = 0; _wi < _wcs.length && !_learnTopic; _wi++) _learnTopic = _learnTopicForDrill(_wcs[_wi]);
+    }
+
+    /* Topic breakdown block (strongest + focus-next) */
+    var _topicHTML = '';
+    if (_strongest && _weakest) {
+      _topicHTML =
+        '<div class="drill-topics">' +
+          '<div class="drill-topic drill-topic-strong">' +
+            '<span class="dt-ico" aria-hidden="true">💪</span>' +
+            '<span class="dt-body">' +
+              '<span class="dt-lbl">Strongest</span>' +
+              '<span class="dt-name">' + _escHtml(_catLabelFor(_strongest.cat)) + '</span>' +
+              '<span class="dt-acc">' + Math.round(_strongest.acc * 100) + '% · ' + _strongest.correct + '/' + _strongest.total + '</span>' +
+            '</span>' +
+          '</div>' +
+          '<div class="drill-topic drill-topic-weak">' +
+            '<span class="dt-ico" aria-hidden="true">🎯</span>' +
+            '<span class="dt-body">' +
+              '<span class="dt-lbl">Focus next</span>' +
+              '<span class="dt-name">' + _escHtml(_catLabelFor(_weakest.cat)) + '</span>' +
+              '<span class="dt-acc">' + Math.round(_weakest.acc * 100) + '% · ' + _weakest.correct + '/' + _weakest.total + '</span>' +
+            '</span>' +
+          '</div>' +
+        '</div>';
+    }
+
+    /* Insight chips: within-session speed trend · mistakes-to-review · personal-best reference */
+    var _chips = [];
+    if (_sessImp && Math.abs(_sessImp.improvementPct) >= 1) {
+      var _up = _sessImp.improvementPct > 0;
+      _chips.push('<span class="drill-chip ' + (_up ? 'chip-up' : 'chip-down') + '">' +
+        (_up ? '⚡ ' : '🐢 ') + (_up ? '+' : '') + _sessImp.improvementPct + '% ' + (_up ? 'faster' : 'slower') + ' by the end</span>');
+    }
+    if (_wrongCount > 0) _chips.push('<span class="drill-chip chip-review">📝 ' + _wrongCount + ' to review</span>');
+    if (bests && (bests.bestAccuracy || bests.bestSpeedScore)) {
+      _chips.push('<span class="drill-chip chip-pb">🏅 Best ' + Math.round(bests.bestAccuracy || 0) + '% · ' + (bests.bestSpeedScore || 0) + ' spd</span>');
+    }
+    var _chipsHTML = _chips.length ? '<div class="drill-chips">' + _chips.join('') + '</div>' : '';
+
     /* Activate fullscreen scrollable results mode on the container */
     container.classList.add('drill-results-active');
 
@@ -1075,12 +1199,34 @@ function createDrillEngine(container, opts) {
       topics: _shareTopics
     };
 
+    /* ── ADR-086 P6 next-action routing ──────────────────────────────────────────────────────────────────────
+       Context-aware "what next": a dominant primary (Practice My Mistakes when there are mistakes to review, else
+       Practice Again), plus a grid of the actions that actually apply to this session. Each is wired to an in-engine
+       restart or a clean exit — no dead buttons. */
+    var _curDiffLc = _startDifficulty().toLowerCase();
+    var _canHarder = !adaptiveMode && !diSet && !(preloadedQuestions && preloadedQuestions.length) && !reviewMode &&
+      (_curDiffLc === 'easy' || _curDiffLc === 'medium');
+    var _primaryIsMistakes = (_wrongCount > 0 && !reviewMode);
+    var _nextHTML =
+      '<div class="drill-next">' +
+        '<button class="btn-primary drill-next-primary" type="button" id="' + (_primaryIsMistakes ? 'actMistakes' : 'actRetry') + '">' +
+          (_primaryIsMistakes ? '📝 Practice My Mistakes' : '🔁 Practice Again') +
+        '</button>' +
+        '<div class="drill-next-grid">' +
+          (_primaryIsMistakes ? '<button class="btn-secondary" type="button" id="actRetry">🔁 Retry</button>' : '') +
+          (_canHarder ? '<button class="btn-secondary" type="button" id="actHarder">🔺 Increase Difficulty</button>' : '') +
+          (_learnTopic ? '<button class="btn-secondary" type="button" id="actLearn">📖 Continue Learning</button>' : '') +
+          '<button class="btn-secondary" type="button" id="actPractice">🏠 Back to Practice</button>' +
+        '</div>' +
+      '</div>';
+
     container.innerHTML =
       '<div class="card center-content fade-in">' +
         '<h2>Session Complete</h2>' +
         (isNewBest ? '<div class="new-best-badge">🎉 New Personal Best!</div>' : '') +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
         '<div class="session-insight-card">' + _escHtml(_insightText) + '</div>' +
+        _chipsHTML +
         '<div class="results-grid">' +
           '<div class="result-item"><span class="result-value">' + score + '/' + count + '</span><span class="result-label">Score</span></div>' +
           '<div class="result-item"><span class="result-value">' + accuracy + '%</span><span class="result-label">Accuracy</span></div>' +
@@ -1088,6 +1234,7 @@ function createDrillEngine(container, opts) {
           '<div class="result-item"><span class="result-value">' + bestSessionStreak + '</span><span class="result-label">Best Streak</span></div>' +
           '<div class="result-item"><span class="result-value">' + totalTime + 's</span><span class="result-label">Total Time</span></div>' +
         '</div>' +
+        _topicHTML +
         '<div class="speed-benchmark-card" id="speedBenchmarkCard">' +
           '<div class="benchmark-header">' +
             '<span class="benchmark-icon">⚡</span>' +
@@ -1116,24 +1263,24 @@ function createDrillEngine(container, opts) {
           '</div>' +
         '</div>' +
         '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
-        '<button class="btn-primary" id="tryAgainBtn">Challenge Again</button>' +
-        '<button class="btn-secondary" id="homeBtn">Back to Home</button>' +
+        _nextHTML +
       '</div>';
 
-    container.querySelector('#tryAgainBtn').addEventListener('click', function () {
-      if (onFinish) {
-        onFinish('practice', _finishResults);
-      } else {
-        Router.showView('practice');
-      }
-    });
-    container.querySelector('#homeBtn').addEventListener('click', function () {
-      if (onFinish) {
-        onFinish('home', _finishResults);
-      } else {
-        Router.showView('home');
-      }
-    });
+    /* Next-action wiring (ADR-086 P6). Each button is present only when applicable, so guard every lookup. */
+    var _backToPractice = function () {
+      if (onFinish) onFinish('practice', _finishResults);
+      else Router.showView('practice');
+    };
+    var _elRetry = container.querySelector('#actRetry');
+    if (_elRetry) _elRetry.addEventListener('click', function () { _restartSession(); });
+    var _elMistakes = container.querySelector('#actMistakes');
+    if (_elMistakes) _elMistakes.addEventListener('click', function () { _practiceMistakesRestart(); });
+    var _elHarder = container.querySelector('#actHarder');
+    if (_elHarder) _elHarder.addEventListener('click', function () { _increaseDifficultyRestart(); });
+    var _elLearn = container.querySelector('#actLearn');
+    if (_elLearn) _elLearn.addEventListener('click', function () { _continueLearning(_learnTopic); });
+    var _elPractice = container.querySelector('#actPractice');
+    if (_elPractice) _elPractice.addEventListener('click', _backToPractice);
     /* Share button — opens premium share card preview */
     var shareBtn = container.querySelector('#shareResultBtn');
     if (shareBtn) {
@@ -1266,6 +1413,7 @@ function createDrillEngine(container, opts) {
   function begin() {
     if (beginStarted) return;
     beginStarted = true;
+    _isFinished = false; /* a restart (Retry / Practice Mistakes / Increase Difficulty) reuses this engine — clear the finished latch */
     _nextReady = true; /* ensure clean guard state at session start */
     /* Reset anti-repetition tracker so new session gets fresh questions */
     if (typeof resetRecentQuestions === 'function') resetRecentQuestions();
@@ -1362,6 +1510,7 @@ function createDrillEngine(container, opts) {
     currentSessionStreak = 0;
     perQuestionTimes = [];
     sessionWrongCategories = {};
+    sessionCategoryStats = {};
     overallStart = performance.now();
     startGlobalTimer();
     renderQuestion();
