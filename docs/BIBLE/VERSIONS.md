@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.85 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.86 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.86 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch C): number-properties drill
+> (ADR-083).** New gold-standard `number-properties` generator (archetypes: HCF · LCM · unit-digit-via-cyclicity ·
+> number-of-factors), wired into the category map + quantTopics + the number-system Learn topic's `drillCategory` —
+> closing the last existing-Learn orphan. Harness independently recomputes every archetype (modular exponentiation +
+> trial-division divisor count as independent code paths): **65,279 assertions, 0 mismatches**; subjects roster 20→21.
+> SW v171→v172.
+>
 > **2.85 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch B): arithmetic practice orphans
 > (ADR-083).** New gold-standard generators for ages (ratio-sum / age-difference / father-son), mixtures-alligations
 > (alligation-ratio / mean-price / alligation-quantity) and pipes-and-cisterns (two-inlets / inlet-outlet net-fill),

@@ -19,7 +19,7 @@ function ok(label, cond) { if (cond) pass++; else { fail++; if (++shownFail <= 2
 var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
-  'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns'];
+  'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -42,13 +42,20 @@ var TIER_KEYS = {
   partnership: { easy: ['share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] },
   ages: { easy: ['ratioSum'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
   mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty', 'alligationRatio'] },
-  'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'together'] }
+  'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'together'] },
+  'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
 function nums(s) { return (String(s).match(/\d+/g) || []).map(Number); }
 function approxEq(a, b) { return Math.abs(a - b) < 0.02; }
 function r2(x) { return Math.round(x * 100) / 100; }
+/* Independent gcd (Euclid) — a different code path from the generator's helper. */
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = b; b = a % b; a = t; } return a; }
+/* Independent modular exponentiation — for recomputing unit digits without the generator's cyclicity table. */
+function modpow(b, e, m) { var r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; e = Math.floor(e / 2); b = b * b % m; } return r; }
+/* Independent trial-division divisor count. */
+function divisorCount(N) { N = Math.abs(N); var c = 0; for (var d = 1; d * d <= N; d++) { if (N % d === 0) c += (d === N / d ? 1 : 2); } return c; }
 /* Independent re-evaluation of a pure arithmetic stem (multiplication / simplification) via a different code path. */
 function evalExpr(text) { var lhs = String(text).split('=')[0].replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/[^0-9+\-*/(). ]/g, ''); try { return Function('"use strict";return (' + lhs + ')')(); } catch (e) { return null; } }
 /* Independent next-term detector for number series (arithmetic / geometric / constant 2nd difference). */
@@ -117,6 +124,12 @@ function recompute(cat, key, text) {
   if (cat === 'pipes-cisterns') {
     if (key === 'together') return n[0] * n[1] / (n[0] + n[1]);
     if (key === 'netFill') return n[0] * n[1] / (n[1] - n[0]);
+  }
+  if (cat === 'number-properties') {
+    if (key === 'hcf') return gcd(n[0], n[1]);
+    if (key === 'lcm') return Math.abs(n[0] * n[1]) / gcd(n[0], n[1]);
+    if (key === 'unitDigit') return modpow(n[0] % 10, n[1], 10);        /* independent: modular exponentiation */
+    if (key === 'numFactors') return divisorCount(n[0]);               /* independent: trial-division divisor count */
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

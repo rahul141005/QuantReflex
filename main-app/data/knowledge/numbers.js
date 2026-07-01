@@ -12,7 +12,7 @@
     {
       id: 'number-system', title: 'Number System', icon: '🔢', category: 'numbers',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
-      drillCategory: null, syllabusTopicId: null, revisionIntervalDays: 3,
+      drillCategory: 'number-properties', syllabusTopicId: null, revisionIntervalDays: 3,
       related: ['simplification', 'ratio-proportion', 'percentages'],
       searchTerms: ['hcf', 'lcm', 'gcd', 'prime', 'factors', 'divisibility', 'remainder', 'cyclicity', 'unit digit', 'composite', 'co-prime', 'integers'],
       sections: [

@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch C: number-properties drill (ADR-083)
+
+Close the last existing-Learn orphan (number-system → drill). Full suite green.
+
+```
+### feat/quant(ADR-083): number-properties generator (HCF · LCM · unit-digit · factor-count)
+- js/questions.js: genNumberProperties with archetypes hcf / lcm / unitDigit (cyclicity table) / numFactors
+  (prime-factorisation), using the shared QRGen gcd/lcm helpers. Earned difficulty + premium explanations. Fixed the
+  LCM archetype to never pick a == b (no degenerate "LCM of 20 and 20").
+- Wired: categoryGenerators + random pool + quantTopics CATEGORY_LABELS. number-system Learn topic drillCategory set →
+  every existing Learn Quant chapter now has a drill (existing-Learn orphan closure complete).
+- scripts/quant-engine.check.js: independent gcd/modpow/divisorCount helpers + TIER_KEYS + recompute (65,279 passed,
+  0 mismatches). subjects.check 20→21.
+```
+
+Verification: `npm test` exit 0 (quant-engine 65,279/0; subjects/learn-content green); generator samples spot-checked
+correct + clean. **Docs:** DECISION_LOG ADR-083 (Phase 3C), VERSIONS 2.85→2.86, this entry. **SW** v171→v172.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch B: arithmetic practice orphans (ADR-083)
 
 Close the remaining arithmetic Learn↔Practice orphans with production-grade generators. Full suite green.

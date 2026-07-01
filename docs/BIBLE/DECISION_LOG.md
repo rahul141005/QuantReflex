@@ -56,6 +56,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch C) — close the last existing-Learn orphan (number-system):** new **number-properties** generator
+  (archetypes: HCF · LCM · unit-digit-via-cyclicity · number-of-factors) using the shared `QRGen` gcd/lcm helpers.
+  Wired into the category map + quantTopics + the number-system Learn topic's `drillCategory`, so **every existing Learn
+  Quant chapter now has a drill** (existing-Learn orphan closure complete). The harness recomputes each archetype
+  through a genuinely-independent path — modular exponentiation for unit digits, trial-division divisor count for factor
+  counts — (**65,279 assertions, 0 mismatches**). subjects roster 20→21. SW v171→v172, Bible 2.85→2.86.
 
 ## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
 - **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the

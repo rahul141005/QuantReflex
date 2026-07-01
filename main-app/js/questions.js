@@ -436,6 +436,20 @@ var _PIPE_PRIMARY = {
 };
 function genPipes() { return _genArch('pipes-cisterns', _PIPE_ARCH, _PIPE_PRIMARY); }
 
+/** Number Properties (archetypes: HCF · LCM · unit-digit via cyclicity · number-of-factors). Uses QRGen number helpers. */
+var _CYCLE = { 0: [0], 1: [1], 2: [2, 4, 8, 6], 3: [3, 9, 7, 1], 4: [4, 6], 5: [5], 6: [6], 7: [7, 9, 3, 1], 8: [8, 4, 2, 6], 9: [9, 1] };
+function _npHCF() { var k = pick([2, 3, 4, 6, 7, 8, 9, 12]), a = k * pick([2, 3, 4, 5, 7]), b = k * pick([3, 5, 7, 8, 9, 11]); return { q: 'Find the HCF (highest common factor) of ' + a + ' and ' + b + '.', a: QRGen.gcd(a, b), k: 'hcf', explain: 'HCF(' + a + ', ' + b + ') = ' + QRGen.gcd(a, b) + ' — the largest number that divides both (Euclidean method or common prime factors).' }; }
+function _npLCM() { var a, b; for (var t = 0; t < 20; t++) { a = pick([4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20]); b = pick([6, 8, 9, 10, 12, 15, 16, 18, 20, 24]); if (a !== b) break; } return { q: 'Find the LCM (least common multiple) of ' + a + ' and ' + b + '.', a: QRGen.lcm(a, b), k: 'lcm', explain: 'LCM = (a × b) ÷ HCF = (' + a + ' × ' + b + ') ÷ ' + QRGen.gcd(a, b) + ' = ' + QRGen.lcm(a, b) + '.' }; }
+function _npUnit(diff) { var base = pick([2, 3, 4, 7, 8, 9, 12, 13, 14, 17, 23]), e = randInt(diff === 'hard' ? 15 : 4, diff === 'hard' ? 60 : 20), u = base % 10, cyc = _CYCLE[u], ud = cyc[(e - 1) % cyc.length]; return { q: 'What is the unit (last) digit of ' + base + '^' + e + '?', a: ud, k: 'unitDigit', explain: 'The unit digit of powers of ' + base + ' repeats as [' + cyc.join(', ') + '] (cycle length ' + cyc.length + '). ' + e + ' mod ' + cyc.length + ' lands on ' + ud + '.' }; }
+function _npFactors(diff) { for (var t = 0; t < 20; t++) { var ps = pick([[2, 3], [2, 5], [2, 3, 5], [2, 7], [3, 5], [2, 3, 7]]), ex = ps.map(function () { return randInt(1, diff === 'hard' ? 4 : 3); }), N = 1, parts = [], nf = 1; for (var i = 0; i < ps.length; i++) { N *= Math.pow(ps[i], ex[i]); parts.push(ps[i] + (ex[i] > 1 ? '^' + ex[i] : '')); nf *= (ex[i] + 1); } if (N > 2 && N <= 100000) return { q: 'How many factors (divisors) does ' + N + ' have?', a: nf, k: 'numFactors', explain: '' + N + ' = ' + parts.join(' × ') + '. Number of factors = product of (each exponent + 1) = ' + ex.map(function (e) { return '(' + e + '+1)'; }).join(' × ') + ' = ' + nf + '.' }; } return null; }
+var _NP_ARCH = {
+  easy: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }],
+  medium: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }, { k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }],
+  hard: [{ k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }, { k: 'numFactors', skill: 'multi-step', build: function (d) { return _npFactors(d); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }]
+};
+var _NP_PRIMARY = { easy: function () { return _npHCF(); }, medium: function () { return _npLCM(); }, hard: function () { return _npUnit('hard'); } };
+function genNumberProperties() { return _genArch('number-properties', _NP_ARCH, _NP_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -457,7 +471,8 @@ var categoryGenerators = {
   partnership: genPartnership,
   ages: genAges,
   mixtures: genMixtures,
-  'pipes-cisterns': genPipes
+  'pipes-cisterns': genPipes,
+  'number-properties': genNumberProperties
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -512,7 +527,7 @@ function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
   genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership,
-  genAges, genMixtures, genPipes];
+  genAges, genMixtures, genPipes, genNumberProperties];
 
 /**
  * Generate a single random question.

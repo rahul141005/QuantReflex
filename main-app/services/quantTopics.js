@@ -22,7 +22,8 @@
     'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
     simplification: 'Simplification', 'number-series': 'Number Series',
     'simple-interest': 'Simple Interest', 'compound-interest': 'Compound Interest', partnership: 'Partnership',
-    ages: 'Problems on Ages', mixtures: 'Mixtures & Alligations', 'pipes-cisterns': 'Pipes & Cisterns'
+    ages: 'Problems on Ages', mixtures: 'Mixtures & Alligations', 'pipes-cisterns': 'Pipes & Cisterns',
+    'number-properties': 'Number Properties'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }
