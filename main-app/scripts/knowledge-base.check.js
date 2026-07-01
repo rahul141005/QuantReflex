@@ -13,7 +13,10 @@ var SYL = require(path.join(__dirname, '..', 'data', 'syllabus.js'));
 var pass = 0, fail = 0;
 function ok(c, m) { if (c) pass++; else { fail++; console.log('  ✗ ' + m); } }
 
-var DRILL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios', 'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series'];
+/* Derive the valid practice-category whitelist from the SINGLE source of truth (services/quantTopics.js) rather than a
+   frozen snapshot — so a future syllabus entry pointing at any of the 36 real Quant categories validates correctly and
+   this check can never go stale (ADR-084 production audit). */
+var DRILL_CATS = Object.keys(require(path.join(__dirname, '..', 'services', 'quantTopics.js')).CATEGORY_LABELS);
 var BANDS = ['very-high', 'high', 'medium', 'low'];
 var CONF = ['high', 'med', 'low'];
 

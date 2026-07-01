@@ -3,7 +3,7 @@
  *
  * The DI (di-engine.js) and LR (lr-engine.js) engines each re-implemented the same tiny RNG/number helpers. The Quant
  * Master Overhaul consolidates them here so every generator (and its check harness) draws from ONE tested toolbox:
- * random ints, picking/shuffling, sums, gcd/lcm, clean-number checks, divisor counting, and exam-native name/item pools.
+ * random ints, picking/shuffling, sums, gcd/lcm, clean-number checks, divisor counting, and an exam-native name pool.
  *
  * PURE — no DOM, no I/O, deterministic given Math.random. Dual-exported: the browser loads it as a <script> (it hangs
  * a `QRGen` global off window) and Node `require()`s it (api/duel.js path + scripts/*.check.js). Nothing here reads
@@ -17,7 +17,6 @@
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function shuffle(a) { var b = a.slice(); for (var i = b.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = b[i]; b[i] = b[j]; b[j] = t; } return b; }
   function pickN(a, n) { return shuffle(a).slice(0, n); }
-  function sample(a, n) { return pickN(a, n); }
 
   /* ── arithmetic helpers ── */
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
@@ -36,20 +35,21 @@
   function numFactors(n) { var f = factorize(n), c = 1; for (var p in f) if (f.hasOwnProperty(p)) c *= (f[p] + 1); return c; }
   function isPrime(n) { if (n < 2) return false; for (var d = 2; d * d <= n; d++) if (n % d === 0) return false; return true; }
 
-  /* ── exam-native vocabulary pools (Indian aptitude context) ── */
+  /* ── exam-native name pool (Indian aptitude context) — surfaced via name()/twoNames(), the accessors word-problem
+     generators actually call (js/questions.js _one/_two). ── */
   var NAMES = ['Ravi', 'Priya', 'Arjun', 'Meera', 'Kabir', 'Anita', 'Rohan', 'Sneha', 'Vikram', 'Pooja', 'Amit', 'Neha',
     'Raj', 'Divya', 'Karan', 'Isha', 'Manish', 'Rina', 'Sunil', 'Kavya', 'Deepak', 'Nisha', 'Arun', 'Sara'];
   function name() { return pick(NAMES); }
   function twoNames() { return pickN(NAMES, 2); }
-  var ITEMS = ['pens', 'books', 'apples', 'chairs', 'bags', 'toys', 'bottles', 'cards', 'boxes', 'tickets', 'mangoes', 'candles'];
-  function item() { return pick(ITEMS); }
 
+  /* Shared numeric/collection toolbox. `gcd`/`lcm`/`shuffle`/`name`/`twoNames` are consumed by the Quant generator
+     (js/questions.js); the remaining primitives are the tested, general-purpose core other generators build on. */
   var API = {
-    randInt: randInt, pick: pick, shuffle: shuffle, pickN: pickN, sample: sample,
+    randInt: randInt, pick: pick, shuffle: shuffle, pickN: pickN,
     sum: sum, max: maxOf, min: minOf, round1: round1, round2: round2,
     isClean: isClean, isInt: isInt, gcd: gcd, lcm: lcm,
     numFactors: numFactors, isPrime: isPrime,
-    NAMES: NAMES, name: name, twoNames: twoNames, ITEMS: ITEMS, item: item
+    name: name, twoNames: twoNames
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

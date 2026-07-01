@@ -17,6 +17,21 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 9 — final production audit fix (pipes-cisterns easy variety):** the independent final audit ran a 32,400-
+  question stress sweep and flagged **one** low-variety tier: `pipes-cisterns/easy` produced only **3 distinct stems**
+  (the clean-integer constraint `ab mod (a+b) = 0` over the tiny pool `a∈[2,3,4,6]` yields just 3 valid pairs, so a
+  student re-drilling easy pipes saw the same 3 questions forever). Fixed by drawing both pipe times for the easy tier
+  from a shared wider pool `[3,4,5,6,10,12,15,20,24,30]` — **18 distinct stems** now (6×), still clean small integer
+  answers, recompute unchanged (harness 113,001/0). Full 32,400-question re-sweep: **no** tier below 5 distinct stems.
+  The audit also found a **stale test-only whitelist**: `scripts/knowledge-base.check.js` `DRILL_CATS` was a frozen
+  14-item array used to validate the syllabus layer's `drillable`/`signals` category references — a subset of the real
+  36, so a future syllabus entry pointing at any of the other 22 categories would have wrongly failed the check. Now
+  derived from `services/quantTopics.js` `CATEGORY_LABELS` (all syllabus refs re-verified valid; 3,654/0). Finally, an
+  independent dead-code sweep confirmed the only external consumer of `js/utils/generative-helpers.js` is `questions.js`
+  (5 members: gcd/lcm/shuffle/name/twoNames; api/duel.js goes through questions.js) — trimmed the leftover unused
+  content-pool exports `NAMES`/`ITEMS`/`item` and the redundant `sample` alias (QRGen surface 21→17), keeping the
+  coherent numeric primitive toolbox. Regression proof for the shared helper: DI/LR suites green (di-engine 15,246/0,
+  di-set 13,681/0, lr-engine 28,692/0, lr-set 5,155/0). SW v188→v189.
 - **Batch 8 — global validation + ship verdict (ADR-084 COMPLETE):** whole-engine acceptance sweep after all batches.
   Full `npm test` green (harness **112,993 assertions / 0 mismatches**; category-source, quick-ref 382/0, learn/statmath/
   subjects counts all pass). Node stress: **4,320-question** cross-topic sweep (36 categories × 3 tiers × 40) found **0

@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 9: final production-audit fixes
+
+An independent strict production-readiness audit (3 parallel repo sweeps + a 32,400-question stress run) found three
+real items; all fixed.
+
+```
+### fix/quant(ADR-084): production-audit fixes
+- js/questions.js: pipes-cisterns easy tier drew both pipe times from a tiny pool ([2,3,4,6]) under the clean-integer
+  constraint, yielding only 3 possible questions. Now draws from a shared wider pool [3,4,5,6,10,12,15,20,24,30] → 18
+  distinct stems (6x), still clean small-integer answers, recompute unchanged.
+- scripts/knowledge-base.check.js: DRILL_CATS was a frozen 14-item whitelist (a stale subset of the 36) used to
+  validate the syllabus layer's drillable/signals category refs; now derived from services/quantTopics.js
+  CATEGORY_LABELS so it validates all 36 and never goes stale.
+- js/utils/generative-helpers.js: removed leftover unused exports NAMES, ITEMS, item (+ the ITEMS/item defs) and the
+  redundant `sample` alias — the only external consumer (questions.js) uses gcd/lcm/shuffle/name/twoNames. QRGen
+  surface 21 -> 17 keys; the numeric primitive toolbox is retained.
+```
+
+Verification: recompute harness 113,001 assertions / 0 mismatches; 32,400-question re-sweep — 0 dirty, 0 throws, no
+tier below 5 distinct stems; full `npm test` exit 0; DI/LR regression clean (di-engine 15,246/0, di-set 13,681/0,
+lr-engine 28,692/0, lr-set 5,155/0). **Docs:** DECISION_LOG ADR-084 (Batch 9), VERSIONS 2.104→2.105, this entry.
+**SW** v188→v189.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 8: global validation + ship verdict (COMPLETE)
 
 Whole-engine acceptance sweep and final ship review across all ADR-084 batches. No code change — validation + docs.

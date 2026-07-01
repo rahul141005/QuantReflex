@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.104 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.105 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.55 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.105 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 9: final production-audit fixes.** An
+> independent strict audit (3 parallel sweeps + 32,400-question stress) found and fixed three items: pipes-cisterns
+> easy variety (3→18 distinct stems via a wider clean pool), a stale 14-item test whitelist in
+> `knowledge-base.check.js` (now derived from the source of truth), and leftover unused exports in
+> `generative-helpers.js` (NAMES/ITEMS/item/sample removed; 21→17 keys). Harness 113,001/0; full npm test green; DI/LR
+> regression clean. SW v188→v189.
+>
 > **2.104 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) COMPLETE — Batch 8: global validation + ship
 > verdict.** Whole-engine acceptance: full npm test green (harness 112,993/0), 4,320-question stress (0 dirty / 0
 > throws / 24 names), browser at 360/390/768/1280px light+dark (picker + Quick-Reference, 0 errors, no overflow).
