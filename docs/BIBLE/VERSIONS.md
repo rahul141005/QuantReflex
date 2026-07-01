@@ -9,12 +9,17 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.96 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.97 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.97 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 2a: dynamic category picker.** The Practice
+> "Choose Category" grid now renders from the single source of truth (`js/ui/category-picker.js`) instead of static
+> HTML frozen at 14 Quant categories — all 36 appear, grouped into collapsible sections with topic counts and a live
+> search (DI + LR too). Same `.category-btn[data-cat]` click contract → focus/custom flows unchanged. SW v181→v182.
+>
 > **2.96 / Arch 2.53 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 1: zero stale category lists.** Category
 > display now derives from the single source of truth (`services/quantTopics.js`): `formatCategoryName` (app.js),
 > planner `drillName`, and duel `_categoryEntries` no longer hold frozen 14-item snapshots, so all 36 categories render

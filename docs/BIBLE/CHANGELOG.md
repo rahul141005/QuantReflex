@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 2a: dynamic category picker
+
+Render the Practice "Choose Category" grid from the source of truth so all 36 Quant categories are discoverable.
+
+```
+### feat/practice(ADR-084): dynamic collapsible/searchable category picker
+- js/ui/category-picker.js (NEW): renders #categorySelect at runtime from the Learn registry (Quant section grouping)
+  + quantTopics labels + DI/LR engines. Collapsible sections with topic counts, live search, session-remembered
+  expand state (localStorage). Same .category-btn[data-cat] contract → practice-modes/practice-config unchanged.
+- index.html: replaced the static 14-Quant/DI/LR button grid with a search box + #categoryGroups render target.
+- css/style.css: .category-search-input + .category-section* styles (light + dark).
+- js/controllers/practice-modes.js: CategoryPicker.render() on focus/custom entry.
+- Wired script + SW precache.
+```
+
+Verification: `npm test` exit 0; real-browser render — 36/36 Quant categories present in 7 sections (Numbers 7,
+Arithmetic 9, Commercial 4, Algebra 6, Modern 4, Geometry 3, Mensuration 3) + DI 5 + LR 23 (set-only seating/puzzle
+excluded); live search filters; collapse toggles; 0 page errors; no overflow at 390px. **Docs:** DECISION_LOG ADR-084
+(Batch 2a), VERSIONS 2.96→2.97 / Arch 2.53→2.54, this entry. **SW** v181→v182.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 1: zero stale category lists
 
 Make every category-display surface derive from the single source of truth so new categories never render as raw keys.

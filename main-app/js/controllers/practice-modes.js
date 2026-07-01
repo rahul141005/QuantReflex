@@ -420,6 +420,7 @@ function initPracticeView() {
           _resetTimerSelection();
           _resetAdaptiveToggle();
           _resetCustomPracticeState();
+          if (typeof CategoryPicker !== 'undefined') CategoryPicker.render();   /* ADR-084: dynamic picker from source of truth */
           _syncCustomPracticeSelectionUi();
           return;
         }
@@ -465,6 +466,7 @@ function initPracticeView() {
           if (catTitle) catTitle.textContent = 'Focus Training';
           _resetTimerSelection();
           _resetAdaptiveToggle();
+          if (typeof CategoryPicker !== 'undefined') CategoryPicker.render();   /* ADR-084: dynamic picker from source of truth */
           _syncCustomPracticeSelectionUi();
         } else if (modeKey === 'review') {
           if (!canAccessFeature('review_mistakes')) { showPaywall('review_mistakes'); return; }

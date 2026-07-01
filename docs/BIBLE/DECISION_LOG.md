@@ -17,7 +17,17 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
-- **Batch 1 (this entry) — zero stale category lists:** `js/app.js` `formatCategoryName` now resolves Quant labels from
+- **Batch 2a — dynamic, discoverable category picker:** the Practice "Choose Category" grid was static HTML frozen at
+  the original 14 Quant categories (DI/LR listed in full) — so 22 ADR-083 categories were unreachable there. New
+  `js/ui/category-picker.js` renders `#categorySelect` at runtime from the source of truth (registry section grouping +
+  `quantTopics` labels; DI/LR from their engines) into **collapsible sections with topic counts and a live search**.
+  All 36 Quant categories now appear, grouped Numbers/Arithmetic/Commercial/Algebra/Modern/Geometry/Mensuration, with
+  DI + LR (LR tiered; set-only `lr-seating`/`lr-puzzle` excluded as before). The rendered buttons keep the exact
+  `.category-btn[data-cat]` click contract, so `practice-modes`/`practice-config` (focus single-select + custom
+  multi-select) work unchanged. Sections collapse by default with session-remembered state (localStorage). Verified in
+  a real browser: 36/36 Quant present, search filters live, collapse toggles, 0 errors, no overflow at 390px. SW
+  v181→v182.
+- **Batch 1 — zero stale category lists:** `js/app.js` `formatCategoryName` now resolves Quant labels from
   the single source of truth (`services/quantTopics.js` `CATEGORY_LABELS`) instead of a frozen 14-item map; the same
   derivation replaces the stale snapshots in `js/views/planner-view.js` (`drillName` → `formatCategoryName`) and
   `js/duel-ui.js` (`_categoryEntries` → `QuantTopics.CATEGORY_LABELS`). New categories now render their real names in

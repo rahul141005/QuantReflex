@@ -11072,6 +11072,35 @@ body.dark-mode .kx-topic-card.is-complete .kx-tc-title::after { color: #4ade80; 
 body.dark-mode .category-subject-label { color: #cbd5e1; }
 body.dark-mode .category-subject-hint { color: #64748b; }
 
+/* ADR-084: dynamic category picker — search + collapsible sections. Reuses .category-grid / .category-btn. */
+.category-search-wrap { padding: .25rem .15rem .1rem; }
+.category-search-input {
+  width: 100%; box-sizing: border-box; padding: .6rem .85rem; border: 1px solid rgba(0,0,0,.10);
+  border-radius: 10px; background: #fff; color: #111827; font-size: 14px; -webkit-appearance: none; appearance: none;
+}
+.category-search-input::placeholder { color: #94a3b8; }
+.category-search-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.category-section { border: 1px solid rgba(0,0,0,.07); border-radius: 12px; overflow: hidden; margin-top: .5rem; background: #fff; }
+.category-section-header {
+  width: 100%; display: flex; align-items: center; gap: .5rem; padding: .7rem .85rem; background: #f8fafc;
+  border: 0; cursor: pointer; text-align: left; font: inherit; color: #0f172a; transition: background .18s;
+}
+.category-section-header:active { background: #eef2f7; }
+.category-section-header:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.category-section-title { flex: 1 1 auto; min-width: 0; font-size: .84rem; font-weight: 700; letter-spacing: .01em; }
+.category-section-icon { font-size: .95rem; }
+.category-section-count { flex: 0 0 auto; font-size: .68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.category-section-header .collapse-icon { flex: 0 0 auto; font-size: .7rem; color: #94a3b8; }
+.category-section .category-grid { padding: 10px; margin: 0; animation: catSectionIn .18s ease; }
+@keyframes catSectionIn { from { opacity: .3; } to { opacity: 1; } }
+.category-picker-empty { text-align: center; padding: 1rem .5rem; }
+body.dark-mode .category-search-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,.12); }
+body.dark-mode .category-search-input::placeholder { color: #64748b; }
+body.dark-mode .category-section { background: #0f172a; border-color: rgba(255,255,255,.08); }
+body.dark-mode .category-section-header { background: #1e293b; color: #e2e8f0; }
+body.dark-mode .category-section-header:active { background: #263449; }
+body.dark-mode .category-section-count { color: #94a3b8; }
+
 /* ============================================================================
    Multiple-choice answers — Logical Reasoning (ADR-075, V2 Phase 3)
    Rendered in place of the numeric input when a question carries options[].
