@@ -18,6 +18,7 @@
     { id: 'numbers', title: 'Numbers', icon: '🔟', order: 10, subject: 'quant', blurb: 'The number system, divisibility and fast simplification — the bedrock of every other topic.' },
     { id: 'arithmetic', title: 'Arithmetic', icon: '➗', order: 20, subject: 'quant', blurb: 'The everyday number skills exams test most — percentages, ratio, averages, time, work and motion.' },
     { id: 'commercial-math', title: 'Commercial Math', icon: '🏷️', order: 30, subject: 'quant', blurb: 'Money maths: profit & loss, discounts, and simple & compound interest.' },
+    { id: 'algebra', title: 'Algebra', icon: '🅰️', order: 35, subject: 'quant', blurb: 'Equations, indices, logarithms, series and inequalities — the symbolic core of quant.' },
     { id: 'modern-math', title: 'Modern Math', icon: '🃏', order: 40, subject: 'quant', blurb: 'Counting and chance — probability and combinatorics.' },
     { id: 'mensuration', title: 'Mensuration', icon: '📏', order: 50, subject: 'quant', blurb: 'Area and volume of the standard 2D and 3D shapes.' }
   ];

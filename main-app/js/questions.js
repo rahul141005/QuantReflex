@@ -450,6 +450,52 @@ var _NP_ARCH = {
 var _NP_PRIMARY = { easy: function () { return _npHCF(); }, medium: function () { return _npLCM(); }, hard: function () { return _npUnit('hard'); } };
 function genNumberProperties() { return _genArch('number-properties', _NP_ARCH, _NP_PRIMARY); }
 
+/* ═══════════════════════════ ADR-083 Phase 3D — Algebra generators ═══════════════════════════ */
+
+/** Linear Equations (archetypes: one-variable solve · bracket-expand · two-variable system). Answer = a variable value. */
+function _linOne(diff) { var a = randInt(diff === 'easy' ? 2 : 3, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, 30), c = a * x + b; return { q: pick([a + 'x + ' + b + ' = ' + c + '.  Find x.', 'Solve for x:  ' + a + 'x + ' + b + ' = ' + c, 'If ' + a + 'x + ' + b + ' = ' + c + ', then x = ?']), a: x, k: 'solveOne', explain: 'Move the constant across: ' + a + 'x = ' + c + ' − ' + b + ' = ' + (c - b) + '. Then x = ' + (c - b) + ' ÷ ' + a + ' = ' + x + '.' }; }
+function _linSub(diff) { var a = randInt(2, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, a * x - 1), c = a * x - b; return { q: pick([a + 'x − ' + b + ' = ' + c + '.  Find x.', 'Solve for x:  ' + a + 'x − ' + b + ' = ' + c]), a: x, k: 'solveOneSub', explain: a + 'x = ' + c + ' + ' + b + ' = ' + (c + b) + ', so x = ' + (c + b) + ' ÷ ' + a + ' = ' + x + '.' }; }
+function _linBracket() { var a = randInt(2, 8), x = randInt(2, 14), b = randInt(1, 12), c = a * (x + b); return { q: pick([a + '(x + ' + b + ') = ' + c + '.  Find x.', 'Solve:  ' + a + '(x + ' + b + ') = ' + c]), a: x, k: 'bracket', explain: 'Divide both sides by ' + a + ' first: x + ' + b + ' = ' + (c / a) + '. So x = ' + (c / a) + ' − ' + b + ' = ' + x + '.' }; }
+function _linSumDiff() { var x = randInt(6, 30), y = randInt(2, x - 1), S = x + y, D = x - y; return { q: 'If x + y = ' + S + ' and x − y = ' + D + ', find x.', a: x, k: 'sumDiff', explain: 'Add the equations: 2x = ' + S + ' + ' + D + ' = ' + (S + D) + ', so x = ' + x + ' (and y = ' + y + ').' }; }
+function _linSystem() { for (var t = 0; t < 40; t++) { var x = randInt(2, 12), y = randInt(2, 12), a1 = randInt(2, 5), b1 = randInt(2, 5), a2 = randInt(2, 5), b2 = randInt(2, 5), det = a1 * b2 - a2 * b1; if (det === 0) continue; var c1 = a1 * x + b1 * y, c2 = a2 * x + b2 * y; return { q: 'Solve the system:  ' + a1 + 'x + ' + b1 + 'y = ' + c1 + '  and  ' + a2 + 'x + ' + b2 + 'y = ' + c2 + '.  Find x.', a: x, k: 'system2', explain: 'Eliminate y (or substitute) to get x = ' + x + ', y = ' + y + '. Check: ' + a1 + '·' + x + ' + ' + b1 + '·' + y + ' = ' + c1 + '. ✓' }; } return null; }
+var _LIN_ARCH = {
+  easy: [{ k: 'solveOne', skill: 'direct', build: function (d) { return _linOne(d); } }, { k: 'solveOneSub', skill: 'direct', build: function (d) { return _linSub(d); } }],
+  medium: [{ k: 'solveOne', skill: 'direct', build: function (d) { return _linOne(d); } }, { k: 'bracket', skill: 'multi-step', build: function () { return _linBracket(); } }, { k: 'sumDiff', skill: 'multi-step', build: function () { return _linSumDiff(); } }],
+  hard: [{ k: 'bracket', skill: 'multi-step', build: function () { return _linBracket(); } }, { k: 'sumDiff', skill: 'multi-step', build: function () { return _linSumDiff(); } }, { k: 'system2', skill: 'multi-step', build: function () { return _linSystem(); } }]
+};
+var _LIN_PRIMARY = { easy: function () { return _linOne('easy'); }, medium: function () { return _linSumDiff(); }, hard: function () { return _linSystem() || _linSumDiff(); } };
+function genLinearEquations() { return _genArch('linear-equations', _LIN_ARCH, _LIN_PRIMARY); }
+
+/** Quadratic Equations — canonical form x² − Bx + C = 0 with positive integer roots (sign-clean & recompute-safe). */
+function _quad(diff, ask) {
+  var r1 = randInt(1, diff === 'hard' ? 15 : 9), r2 = randInt(1, diff === 'hard' ? 15 : 9), B = r1 + r2, C = r1 * r2, lo = Math.min(r1, r2), hi = Math.max(r1, r2), eq = 'x² − ' + B + 'x + ' + C + ' = 0';
+  if (ask === 'sum') return { q: eq + '.  Find the sum of its roots.', a: B, k: 'sumRoots', explain: 'For x² − Bx + C = 0, sum of roots = B = ' + B + ' (Vieta: sum = −b/a = ' + B + ').' };
+  if (ask === 'product') return { q: eq + '.  Find the product of its roots.', a: C, k: 'productRoots', explain: 'Product of roots = C = c/a = ' + C + ' (the constant term).' };
+  if (ask === 'disc') return { q: eq + '.  Find the discriminant (b² − 4ac).', a: B * B - 4 * C, k: 'discriminant', explain: 'Δ = b² − 4ac = ' + B + '² − 4·1·' + C + ' = ' + (B * B) + ' − ' + (4 * C) + ' = ' + (B * B - 4 * C) + '.' };
+  if (ask === 'smaller') return { q: eq + '.  Find the smaller root.', a: lo, k: 'smallerRoot', explain: 'x² − ' + B + 'x + ' + C + ' = (x − ' + lo + ')(x − ' + hi + '). Roots ' + lo + ' and ' + hi + '; smaller = ' + lo + '.' };
+  return { q: eq + '.  Find the larger root.', a: hi, k: 'largerRoot', explain: 'Factor into (x − ' + lo + ')(x − ' + hi + ') = 0 → roots ' + lo + ' and ' + hi + '. Larger = ' + hi + '.' };
+}
+var _QUAD_ARCH = {
+  easy: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
+  medium: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'smallerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'smaller'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
+  hard: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'discriminant', skill: 'formula', build: function (d) { return _quad(d, 'disc'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }]
+};
+var _QUAD_PRIMARY = { easy: function () { return _quad('easy', 'larger'); }, medium: function () { return _quad('medium', 'sum'); }, hard: function () { return _quad('hard', 'disc'); } };
+function genQuadraticEquations() { return _genArch('quadratic-equations', _QUAD_ARCH, _QUAD_PRIMARY); }
+
+/** Surds & Indices (archetypes: power evaluation · fractional exponent · index law · solve-the-exponent). Integer answers. */
+function _siPow(diff) { var a = randInt(2, diff === 'hard' ? 7 : 5), n = randInt(2, diff === 'hard' ? 6 : 4); return { q: pick([a + '^' + n + ' = ?', 'Evaluate ' + a + '^' + n + '.']), a: Math.pow(a, n), k: 'powerEval', explain: a + '^' + n + ' = ' + a + ' multiplied by itself ' + n + ' times = ' + Math.pow(a, n) + '.' }; }
+function _siFrac() { var t = pick([[8, 3], [27, 3], [16, 2], [16, 4], [32, 5], [64, 3], [64, 6], [81, 4], [125, 3], [9, 2], [25, 2], [36, 2], [100, 2], [1000, 3]]), b = t[0], root = t[1], p = randInt(1, root - 1 < 1 ? 1 : root - 1), rt = Math.round(Math.pow(b, 1 / root)), val = Math.round(Math.pow(rt, p)); return { q: b + '^(' + p + '/' + root + ') = ?', a: val, k: 'fracExponent', explain: b + '^(' + p + '/' + root + ') = (' + b + '^(1/' + root + '))^' + p + ' = ' + rt + '^' + p + ' = ' + val + '.' }; }
+function _siLaws(diff) { var a = randInt(2, 5), m = randInt(3, diff === 'hard' ? 9 : 6), n = randInt(1, m - 1); return { q: '(' + a + '^' + m + ') ÷ (' + a + '^' + n + ') = ' + a + '^? — give the exponent.', a: m - n, k: 'indexLaw', explain: 'aᵐ ÷ aⁿ = aᵐ⁻ⁿ, so the exponent is ' + m + ' − ' + n + ' = ' + (m - n) + '.' }; }
+function _siSolve(diff) { var a = pick([2, 3, 5]), x = randInt(2, diff === 'hard' ? 7 : 5), N = Math.pow(a, x); return { q: 'If ' + a + '^x = ' + N + ', find x.', a: x, k: 'solveExp', explain: '' + N + ' = ' + a + '^' + x + ' (since ' + a + ' to the power ' + x + ' is ' + N + '), so x = ' + x + '.' }; }
+var _SURD_ARCH = {
+  easy: [{ k: 'powerEval', skill: 'direct', build: function (d) { return _siPow(d); } }, { k: 'solveExp', skill: 'direct', build: function (d) { return _siSolve(d); } }],
+  medium: [{ k: 'powerEval', skill: 'direct', build: function (d) { return _siPow(d); } }, { k: 'fracExponent', skill: 'multi-step', build: function () { return _siFrac(); } }, { k: 'indexLaw', skill: 'formula', build: function (d) { return _siLaws(d); } }],
+  hard: [{ k: 'fracExponent', skill: 'multi-step', build: function () { return _siFrac(); } }, { k: 'indexLaw', skill: 'formula', build: function (d) { return _siLaws(d); } }, { k: 'solveExp', skill: 'direct', build: function (d) { return _siSolve(d); } }]
+};
+var _SURD_PRIMARY = { easy: function () { return _siPow('easy'); }, medium: function () { return _siFrac(); }, hard: function () { return _siLaws('hard'); } };
+function genSurdsIndices() { return _genArch('surds-indices', _SURD_ARCH, _SURD_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -472,7 +518,10 @@ var categoryGenerators = {
   ages: genAges,
   mixtures: genMixtures,
   'pipes-cisterns': genPipes,
-  'number-properties': genNumberProperties
+  'number-properties': genNumberProperties,
+  'linear-equations': genLinearEquations,
+  'quadratic-equations': genQuadraticEquations,
+  'surds-indices': genSurdsIndices
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -527,7 +576,8 @@ function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
   genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership,
-  genAges, genMixtures, genPipes, genNumberProperties];
+  genAges, genMixtures, genPipes, genNumberProperties,
+  genLinearEquations, genQuadraticEquations, genSurdsIndices];
 
 /**
  * Generate a single random question.

@@ -9,12 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.86 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.87 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.87 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch D-a): Algebra category + first three
+> algebra topics (ADR-083).** New `algebra` Learn category (order 35) plus three gold-standard, production-grade topics —
+> **linear-equations** (one-variable solve / bracket / two-variable system), **quadratic-equations** (Vieta sum·product /
+> discriminant / larger·smaller root, sign-clean x²−Bx+C form), **surds-indices** (power eval / fractional exponent /
+> index law / solve-the-exponent) — each with an archetype generator (earned difficulty + premium explanations) AND a
+> full Learn chapter (overview/concept/formula/trick/example/exam/trap/memory/revision), cross-linked both ways.
+> Harness recomputes every archetype independently (Cramer's rule, Vieta, modular log) — **74,751 assertions,
+> 0 mismatches**; Learn graph 45→48 topics; subjects roster 21→24. SW v172→v173.
+>
 > **2.86 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch C): number-properties drill
 > (ADR-083).** New gold-standard `number-properties` generator (archetypes: HCF · LCM · unit-digit-via-cyclicity ·
 > number-of-factors), wired into the category map + quantTopics + the number-system Learn topic's `drillCategory` —

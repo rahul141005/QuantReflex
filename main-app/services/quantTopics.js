@@ -23,7 +23,9 @@
     simplification: 'Simplification', 'number-series': 'Number Series',
     'simple-interest': 'Simple Interest', 'compound-interest': 'Compound Interest', partnership: 'Partnership',
     ages: 'Problems on Ages', mixtures: 'Mixtures & Alligations', 'pipes-cisterns': 'Pipes & Cisterns',
-    'number-properties': 'Number Properties'
+    'number-properties': 'Number Properties',
+    'linear-equations': 'Linear Equations', 'quadratic-equations': 'Quadratic Equations',
+    'surds-indices': 'Surds & Indices'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

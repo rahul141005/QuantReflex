@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch D-a: Algebra category (ADR-083)
+
+Open the Algebra category with three fully-packaged topics (generator + Learn chapter + harness). Full suite green.
+
+```
+### feat/quant(ADR-083): algebra category — linear-equations, quadratic-equations, surds-indices
+- js/questions.js: genLinearEquations (solveOne/solveOneSub/bracket/sumDiff/system2), genQuadraticEquations
+  (larger/smaller root, sum/product/discriminant via Vieta on x²−Bx+C), genSurdsIndices (powerEval/fracExponent/
+  indexLaw/solveExp). Archetype pools, earned difficulty, premium explanations. System coefficients ≥2 (clean wording +
+  stable recompute indices); LCM/quadratic forms sign-clean.
+- data/knowledge/algebra.js (NEW): 3 gold-standard Learn chapters, cross-linked via drillCategory + related.
+- data/knowledge/categories.js: NEW 'algebra' category (subject quant, order 35). Wired into index.html + service-worker
+  precache + learn-content.check requires.
+- services/quantTopics.js: 3 new CATEGORY_LABELS. scripts/quant-engine.check.js: TIER_KEYS + independent recompute
+  (Cramer / Vieta / log). subjects.check 21→24; learn-content counts 45→48 topics, 5→6 quant categories.
+```
+
+Verification: `npm test` exit 0 (quant-engine 74,751/0; learn-content 48 topics; subjects 24). Generator samples
+spot-checked correct, clean and exam-authentic. **Docs:** DECISION_LOG ADR-083 (Phase 3D-a), VERSIONS 2.86→2.87, this
+entry. **SW** v172→v173.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch C: number-properties drill (ADR-083)
 
 Close the last existing-Learn orphan (number-system → drill). Full suite green.

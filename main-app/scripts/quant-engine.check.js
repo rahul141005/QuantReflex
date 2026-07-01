@@ -19,7 +19,8 @@ function ok(label, cond) { if (cond) pass++; else { fail++; if (++shownFail <= 2
 var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
-  'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties'];
+  'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties',
+  'linear-equations', 'quadratic-equations', 'surds-indices'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -43,7 +44,10 @@ var TIER_KEYS = {
   ages: { easy: ['ratioSum'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
   mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty', 'alligationRatio'] },
   'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'together'] },
-  'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] }
+  'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] },
+  'linear-equations': { easy: ['solveOne', 'solveOneSub'], medium: ['solveOne', 'bracket', 'sumDiff'], hard: ['bracket', 'sumDiff', 'system2'] },
+  'quadratic-equations': { easy: ['largerRoot', 'sumRoots'], medium: ['largerRoot', 'smallerRoot', 'productRoots', 'sumRoots'], hard: ['largerRoot', 'discriminant', 'productRoots'] },
+  'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -130,6 +134,26 @@ function recompute(cat, key, text) {
     if (key === 'lcm') return Math.abs(n[0] * n[1]) / gcd(n[0], n[1]);
     if (key === 'unitDigit') return modpow(n[0] % 10, n[1], 10);        /* independent: modular exponentiation */
     if (key === 'numFactors') return divisorCount(n[0]);               /* independent: trial-division divisor count */
+  }
+  if (cat === 'linear-equations') {
+    if (key === 'solveOne') return (n[2] - n[1]) / n[0];               /* ax + b = c → (c−b)/a */
+    if (key === 'solveOneSub') return (n[2] + n[1]) / n[0];            /* ax − b = c → (c+b)/a */
+    if (key === 'bracket') return n[2] / n[0] - n[1];                  /* a(x + b) = c → c/a − b */
+    if (key === 'sumDiff') return (n[0] + n[1]) / 2;                   /* x+y=S, x−y=D → (S+D)/2 */
+    if (key === 'system2') return (n[2] * n[4] - n[5] * n[1]) / (n[0] * n[4] - n[3] * n[1]);  /* Cramer's rule for x */
+  }
+  if (cat === 'quadratic-equations') {                                 /* stem: x² − Bx + C = 0 → n[0]=B, n[1]=C */
+    if (key === 'sumRoots') return n[0];
+    if (key === 'productRoots') return n[1];
+    if (key === 'discriminant') return n[0] * n[0] - 4 * n[1];
+    if (key === 'largerRoot') return (n[0] + Math.sqrt(n[0] * n[0] - 4 * n[1])) / 2;
+    if (key === 'smallerRoot') return (n[0] - Math.sqrt(n[0] * n[0] - 4 * n[1])) / 2;
+  }
+  if (cat === 'surds-indices') {
+    if (key === 'powerEval') return Math.pow(n[0], n[1]);              /* a^n */
+    if (key === 'fracExponent') return Math.round(Math.pow(n[0], n[1] / n[2]));  /* b^(p/root) */
+    if (key === 'indexLaw') return n[1] - n[3];                        /* (a^m)÷(a^n) exponent = m−n */
+    if (key === 'solveExp') return Math.round(Math.log(n[1]) / Math.log(n[0]));  /* a^x = N → x */
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

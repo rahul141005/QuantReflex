@@ -56,6 +56,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch D-a) — open the Algebra category:** a NEW `algebra` Learn category (subject: quant, order 35) plus
+  the first three fully-packaged algebra topics — **linear-equations**, **quadratic-equations**, **surds-indices**.
+  Each ships a drill generator (archetype pools + earned difficulty + premium explanations) AND a gold-standard Learn
+  chapter, cross-linked via `drillCategory` + `related`. Quadratics use the canonical x² − Bx + C = 0 form (positive
+  integer roots) so answers stay sign-clean and the harness can recompute roots/sum/product/discriminant independently;
+  linear systems recompute via Cramer's rule; surds via independent power/log evaluation. Harness **74,751 assertions,
+  0 mismatches**; Learn graph 45→48; subjects roster 21→24. SW v172→v173, Bible 2.86→2.87.
+  *(Deliberately excluded from the algebra drill roster, documented here: `functions_graphs` — the interesting cases need
+  a plotted curve; pure numeric evaluation is too trivial and overlaps linear-equations. `algebraic_identities` — folded
+  into squares' difference-of-squares archetype + simplification rather than fragmenting into a thin standalone drill.)*
 - **Phase 3 (batch C) — close the last existing-Learn orphan (number-system):** new **number-properties** generator
   (archetypes: HCF · LCM · unit-digit-via-cyclicity · number-of-factors) using the shared `QRGen` gcd/lcm helpers.
   Wired into the category map + quantTopics + the number-system Learn topic's `drillCategory`, so **every existing Learn
