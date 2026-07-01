@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.106 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.55 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.107 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.56 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.107 / Arch 2.56 (2026-07-01)** — **Complete Drill Engine redesign (ADR-086).** The drill journey — start →
+> loading → question loop → teaching feedback → completion dashboard → next actions — redesigned as one premium product
+> across all three themes. New `js/answer-format.js` registry is the single source of truth the grader, the spec-driven
+> adaptive keypad, and a ~35k-assertion coverage check (`scripts/answer-format.check.js`) all consume, so keyboard
+> completeness is code-enforced (fixed the un-typeable `"3/8"`, dropped the dead `%`). Added a premium start screen +
+> honest loading state, first-class MCQ-in-dock, a teaching correction panel, the revived Reflex auto-advance
+> (`opts.autoAdvance`), a performance dashboard with context-aware next actions, pause/resume with backgrounding
+> auto-pause, and graceful failure on every path. All driven by a new semantic design-token system (no new hues) that
+> makes light/dark/theme-playful first-class from one implementation. No generator/answer changes (harness stays
+> 0-mismatch). SW v190→v200.
+>
 > **2.106 / Arch 2.55 (2026-07-01)** — **Dragon-Boss whole-app production audit (ADR-085).** A no-assumptions sweep of
 > the entire main-app (runtime, PWA/SW, security, dead-code, docs) with every agent claim re-verified against code.
 > Verified-clean on PWA/security/code-health; rejected 5 false "critical" claims. Two real fixes: (1) drill-engine

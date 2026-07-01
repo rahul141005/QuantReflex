@@ -6,6 +6,62 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Complete Drill Engine redesign (ADR-086)
+
+The entire drill journey redesigned as one premium product across all three themes, shipped as small green commits
+P0–P9 (each `npm test`-green + browser-verified). No generator or answer-format changes — the recompute harness stays
+0-mismatch; `q.answerFormat` is an optional additive field only.
+
+```
+### feat(ADR-086 P0): semantic design-token system (all 3 themes × light/dark)
+- css/style.css: added --qr-text/-dim/-mut, --qr-surface(-2/-3/-solid), --qr-border(-strong), --qr-success/-danger/
+  -warn/-info(+fg/bg/border), --qr-focus-ring, --qr-dur*/--qr-ease, seeded from existing hex literals (no new hues) on
+  :root, body.dark-mode, body.theme-playful, body.theme-playful.dark-mode. No behaviour change.
+
+### feat(ADR-086 P1): answer-format registry + code-enforced keyboard coverage
+- js/answer-format.js (NEW, dual browser/Node export): answerFormat(q) -> {kind, keys, normalize, validateKeystroke}
+  inferred from category/subtype/options. One source of truth for grader + keypad + coverage.
+- js/drill-engine.js: checkAnswer grades via QRAnswerFormat.normalize (guarded fallback).
+- scripts/answer-format.check.js (NEW): sweeps every Quant/DI/LR category x difficulty (~35k assertions, 0 failed) —
+  every numeric answer's chars are a subset of its keys AND typeable keystroke-by-keystroke; every MCQ has options.
+- index.html, service-worker.js: load + precache answer-format.js.
+
+### feat(ADR-086 P2-P4): adaptive dock + first-class MCQ + teaching feedback + Reflex fix
+- js/ui/numpad.js, css/style.css: keypad built at runtime from answerFormat(q).keys with keystroke validation; added
+  '/', dropped dead '%'; conditional dead-space reservation removes the ~14rem blank band under MCQ.
+- js/drill-engine.js: MCQ layouts (2/3/4/long/picture) first-class; wrong answers show a teaching panel (verdict +
+  correct-answer chip + formatted "Why" steps + Learn concept-link), preserving AI Explain + auto-tip/paywall.
+- js/controllers/practice-modes.js, js/drill-engine.js: Reflex auto-advance revived via explicit opts.autoAdvance
+  (the old mode==='Reflex Drill' string guard never matched the emoji-prefixed label).
+
+### feat(ADR-086 P5): premium start screen + honest loading state
+- js/drill-engine.js: renderStart shows a badge + question count/est. duration/difficulty/timer stat grid + dominant
+  CTA; _renderLoading shows a subtle no-fake-progress loader for heavy deck generation (deferred one frame; pre-built
+  decks skip it; _loadingTimer cancelled in cleanup).
+
+### feat(ADR-086 P6): completion performance dashboard + next-action routing
+- js/drill-engine.js: new sessionCategoryStats (per-category correct/total) drives Strongest/Focus-next topics; insight
+  chips (speed trend, mistakes-to-review, personal-best); context-aware next actions (Practice My Mistakes / Retry /
+  Increase Difficulty / Continue Learning / Back), each an in-engine restart or clean exit. begin() clears _isFinished.
+
+### fix(ADR-086 P7): pause/resume + graceful session-flow
+- js/drill-engine.js: countdowns hoisted to engine scope so a ⏸ pause freezes them and resume restarts from the exact
+  second; qStart/overallStart shifted forward so a pause never counts against time; visibilitychange auto-pause on
+  background (non-duel); Escape/focus a11y on the overlay; deck generation wrapped -> Retry error card on failure;
+  global countdown painted immediately on question render.
+
+### fix(ADR-086 P8): chart/figure label clipping
+- js/ui/di-charts.js: long bar/line/legend labels truncate with an ellipsis sized to the slot.
+- js/ui/lr-figures.js: a multi-item `row` figure scales its max-width by item count (~84px/item, capped 340) so a
+  3-4 figure series stays legible instead of squashed by the 130px cap.
+
+### chore(ADR-086 P9): cross-theme verification + docs
+- Cross-theme functional matrix (light/dark/playful x 320/768) + computed-style contrast check: 0 horizontal overflow,
+  correct per-theme tokens, every state renders, 0 page errors. Coverage stress re-run (34,991/0).
+- docs/BIBLE/{DECISION_LOG,VERSIONS,CHANGELOG}.md: ADR-086 recorded; Bible 2.106->2.107, Arch 2.55->2.56.
+- service-worker.js: SW v190 -> v200 across the phases.
+```
+
 ## 2026-07-01 — Dragon-Boss whole-app production audit (ADR-085)
 
 A no-assumptions production-readiness sweep of the entire main-app. Three parallel Explore sweeps (runtime, PWA/

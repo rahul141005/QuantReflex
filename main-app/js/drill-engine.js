@@ -1448,9 +1448,11 @@ function createDrillEngine(container, opts) {
         '<p class="drill-pause-sub">Your timer is frozen. Resume when you\'re ready.</p>' +
         '<button class="btn-primary" type="button" id="drillResumeBtn">Resume</button>' +
       '</div>';
+    /* Escape resumes — the overlay is modal, so a keyboard user isn't trapped. */
+    ov.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { ev.preventDefault(); resumeSession(); } });
     container.appendChild(ov);
     var rb = ov.querySelector('#drillResumeBtn');
-    if (rb) rb.addEventListener('click', resumeSession);
+    if (rb) { rb.addEventListener('click', resumeSession); try { rb.focus(); } catch (_) {} }
   }
 
   function _hidePauseOverlay() {

@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-086 — Complete Drill Engine redesign: the drill journey as one premium product (2026-07-01)
+- **Context:** the drill screen is QuantReflex's flagship, yet a full audit (three Explore passes + firsthand reading)
+  found it inconsistent and, in places, broken: a persistent 4×4 keypad reserved a ~14rem dead band under every MCQ,
+  showed a **dead `%` key** on every question, and **omitted `/`** so the fraction answer `"3/8"` was literally
+  un-typeable; MCQ was second-class; the explanation was a cramped `createTextNode` box; **Reflex auto-advance was
+  silently dead** (label `'🧠 Reflex Drill'` never matched the `'Reflex Drill'` guard); charts/figures clipped; and
+  there were no semantic colour tokens (every theme hand-painted). The mandate: redesign the **entire journey** — start
+  → loading → question loop → feedback → results → next actions — across **all three themes**, with a keyboard whose
+  completeness is **enforced by code, not convention**.
+- **Decision 1 — spec-driven adaptive keyboard, proven complete.** A single `answer-format.js` registry (`answerFormat(q)`
+  → `{kind, keys, normalize, validateKeystroke}`) is the one source of truth consumed by the grader (`normalize`), the
+  adaptive keypad (`keys` + `validateKeystroke`) **and** the coverage check. The pad exposes only the digits + symbols
+  a given answer can contain (added `/`, dropped dead `%`), blocks invalid sequences (2nd `.`, mid-string `-`,
+  double separators), and stays visually stable. `scripts/answer-format.check.js` sweeps every Quant/DI/LR category ×
+  difficulty (**~35k assertions, 0 failed**): every numeric answer's characters ⊆ its keys **and** typeable
+  keystroke-by-keystroke; every MCQ carries options. An un-typeable future question is therefore impossible to ship.
+- **Decision 2 — the whole journey, every mode.** Redesigned as one cohesive flow: a **premium start screen**
+  (badge + question count · estimated duration · difficulty · timer profile · dominant CTA); an **honest loading state**
+  (subtle 3-orb motion, no fake progress, shown only while a deck is actually generated, deferred one frame so the tap
+  feels instant; pre-built decks skip it); first-class **MCQ-in-dock** layouts; a **teaching correction panel** (verdict
+  · correct-answer chip · formatted "Why" steps · Learn concept-link · preserved AI Explain + auto-tip/paywall); the
+  revived **Reflex auto-advance** (now an explicit `opts.autoAdvance` flag); a **completion dashboard** (score · accuracy
+  · avg time · streak · strongest & focus-next topic from a per-category tally · mistakes-to-review · within-session
+  speed trend · personal-best reference · speed benchmark) with **context-aware next actions** (Practice My Mistakes ·
+  Retry · Increase Difficulty · Continue Learning · Back — each an in-engine restart or clean exit, no dead buttons);
+  and **pause/resume** (freezes both countdowns, shifts timing anchors so a pause never counts against the user,
+  auto-pauses on tab-background, Escape/focus a11y). Every failure path is graceful — a generator throw or empty deck
+  surfaces a Retry error card instead of a blank/frozen screen; rotation is handled by the fixed-inset session shell;
+  offline is a non-issue (generation is fully client-side).
+- **Decision 3 — all three themes from one token system.** Semantic design tokens (`--qr-text`, `--qr-surface(-2/-3)`,
+  `--qr-border`, `--qr-success/-danger/-warn/-info`, `--qr-focus-ring`, motion durations…) seeded from the existing hex
+  literals (no new hues) drive every redesigned component. `default (light)`, `dark`, `theme-playful` and
+  `theme-playful.dark-mode` share identical structure/spacing/motion/a11y — only the token values differ, so a future
+  theme is a token-only add. Cross-theme computed-style + functional matrix (light/dark/playful × 320/768) confirmed
+  0 horizontal overflow, correct per-theme contrast, and every state rendering with 0 page errors.
+- **Guardrails honoured:** no new deps/Firestore/colours/gamification; **no generator or answer-format changes**
+  (`q.answerFormat` is an optional additive field only — the recompute harness stays 0-mismatch); numeric entry stays
+  custom-keyboard-only; Duel/Sets/Mock/Adaptive/Review keep working (Duel is explicitly excluded from pause + the loader).
+  Shipped as small, independently-green commits (P0–P9), each `npm test`-green + browser-verified. SW v190 → v200.
+
 ## ADR-085 — Dragon-Boss whole-app production audit (2026-07-01)
 - **Context:** a final, no-assumptions production-readiness sweep of the entire main-app (not just Quant) — runtime/
   static analysis, PWA/service-worker, security, data integrity, cross-feature regression, dead-code, and docs. Ran
