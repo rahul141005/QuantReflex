@@ -6,7 +6,7 @@ A Progressive Web App (PWA) — the **Speed Aptitude** trainer for competitive e
 
 - **Practice Modes** — Quick Drill (5 questions), Reflex Drill (10 questions, 15s per question), Timed Test (10 questions, 3-minute limit), Focus Training (category-specific), Custom (multi-topic), **Mixed Aptitude** (a one-tap balanced cross-subject sprint across Quant, DI & Reasoning), and **📊 DI Set** (one shared chart with a linked set of progressive, exam-style Data Interpretation questions — ADR-078)
 - **QuanAI — cross-subject intelligence** (ADR-076): Coach, Insights, Planner and Explanations read one per-subject rollup (`statMath.subjectRollup`, derived on read) so coaching connects subjects — a percentages gap is named as the cause of slow Data Interpretation. Stats shows an "aptitude by subject" breakdown (overall → subject → category)
-- **Speed-Aptitude subjects** (ADR-073/074/075/078) — **Quantitative Aptitude** (14 categories) + **Data Interpretation** (5 generative chart/table families: Bar, Line, Pie, Tables, Caselets — `js/di-engine.js`) + **Logical Reasoning — a 25-category hybrid platform (ADR-079)** across a Foundation→Core→Advanced→Verbal/Critical→Visual syllabus: a generative core (`js/lr-engine.js` — coding, blood relations via a kinship solver, direction, series, analogy, odd-one-out, ranking, syllogisms, coded inequalities, calendars, clocks, input-output), a **puzzle SET engine** (`js/lr-set-engine.js` — seating/floor sets with a guaranteed-unique solution), an **authored-content subsystem** (`data/lr-authored/*` — Critical Reasoning, Statement, Cause-Effect, Course-of-Action, Decision Making, each with a teaching explanation), and a **generative visual engine** (`js/ui/lr-figures.js` + `js/lr-visual-engine.js` — mirror/water/dice/cube/figure series & analogy as DPI-independent SVG, with picture-answer options). **DI v2 (ADR-078):** earned difficulty (no fallback downgrades), ~12 exam-authentic archetypes incl. missing-value, ratio, contribution and **cross-series** questions, an extensible **multi-series** SVG renderer (grouped/stacked/horizontal bars, multi-line, multi-column tables; single-series byte-identical), **~40 realistic dataset domains** (banking, government, business, agriculture, telecom, energy, healthcare…), and authentic **DI Sets** (`js/di-set-engine.js` — one shared chart, 3–6 progressive linked questions). One grouped Practice picker, no separate tab; subject is a derived lens (no Firestore migration).
+- **Speed-Aptitude subjects** (ADR-073/074/075/078) — **Quantitative Aptitude** (36 categories) + **Data Interpretation** (5 generative chart/table families: Bar, Line, Pie, Tables, Caselets — `js/di-engine.js`) + **Logical Reasoning — a 25-category hybrid platform (ADR-079)** across a Foundation→Core→Advanced→Verbal/Critical→Visual syllabus: a generative core (`js/lr-engine.js` — coding, blood relations via a kinship solver, direction, series, analogy, odd-one-out, ranking, syllogisms, coded inequalities, calendars, clocks, input-output), a **puzzle SET engine** (`js/lr-set-engine.js` — seating/floor sets with a guaranteed-unique solution), an **authored-content subsystem** (`data/lr-authored/*` — Critical Reasoning, Statement, Cause-Effect, Course-of-Action, Decision Making, each with a teaching explanation), and a **generative visual engine** (`js/ui/lr-figures.js` + `js/lr-visual-engine.js` — mirror/water/dice/cube/figure series & analogy as DPI-independent SVG, with picture-answer options). **DI v2 (ADR-078):** earned difficulty (no fallback downgrades), ~12 exam-authentic archetypes incl. missing-value, ratio, contribution and **cross-series** questions, an extensible **multi-series** SVG renderer (grouped/stacked/horizontal bars, multi-line, multi-column tables; single-series byte-identical), **~40 realistic dataset domains** (banking, government, business, agriculture, telecom, energy, healthcare…), and authentic **DI Sets** (`js/di-set-engine.js` — one shared chart, 3–6 progressive linked questions). One grouped Practice picker, no separate tab; subject is a derived lens (no Firestore migration).
 - **Learn Knowledge Engine** (ADR-069) — a deep-linkable hub→topic knowledge graph: **45 gold-standard topics** (overview · concepts · formulas · tricks · traps · worked examples · memory · revision) across 7 categories (Numbers · Arithmetic · Commercial Math · Modern Math · Mensuration · Data Interpretation · Logical Reasoning), built from reusable knowledge objects (`data/knowledge/*`), grouped by subject; plus the preserved Quick-Reference tables and user-created custom topics & bookmarks
 - **Progress Tracking** — Accuracy, streaks, daily streak, category-wise performance, all stored in localStorage
 - **Settings** — Dark mode, sound feedback, vibration feedback, difficulty levels, progress reset
@@ -44,24 +44,33 @@ A Progressive Web App (PWA) — the **Speed Aptitude** trainer for competitive e
 
 ## File Structure
 
+QuantReflex is a **single-page app**: there is exactly one HTML file (`index.html`). Every "screen" (Home, Practice,
+Learn, Stats, Settings, …) is a `.spa-view` div inside it, shown/hidden by the hash router (`js/router.js`). There are
+no per-page `.html` files. Scripts are plain `<script defer>` tags loaded in dependency order (state → infra → engines →
+data → services → views → `app.js` bootstrap last).
+
 ```
-├── index.html          Home dashboard with warmup, progress snapshot, study cards
-├── practice.html       Combined practice page (Quick Drill, Reflex Drill, Timed Test, Focus Training)
-├── learn.html          Collapsible study vault (fractions, tables, squares, cubes, formulas)
-├── stats.html          Performance tracking with category accuracy
-├── settings.html       Configuration (dark mode, sound, vibration, difficulty, reset)
-├── drill.html          Legacy reflex drill page
-├── test.html           Legacy timed test page
-├── progress.html       Legacy progress page
-├── style.css           Mobile-first responsive styles with dark mode support
-├── app.js              Service worker registration, PWA install, dark mode bootstrap
-├── drill-engine.js     Drill/test engine (multi-mode, timer, scoring, feedback)
-├── questions.js        Random question generator (12 categories)
-├── progress.js         localStorage progress tracking (daily streak, category stats)
-├── tables.js           Dynamic multiplication table renderer
-├── knowledge/          Learn Knowledge Engine (ADR-069): schema.js, registry.js, blocks.js
-├── ../data/knowledge/  Knowledge objects per category (arithmetic.js, mensuration.js, categories.js)
-├── learn/learn-search.js  Registry-backed Learn search index
-├── manifest.json       PWA manifest
-└── service-worker.js   Offline caching service worker
+├── index.html              The SPA shell — all views, loaded scripts, and the app markup
+├── manifest.json           PWA manifest (icons, maskable, theme, standalone)
+├── service-worker.js       Offline precache + versioned cache invalidation
+├── css/style.css           Mobile-first responsive styles with dark-mode support
+├── js/
+│   ├── state/store.js       Central app state
+│   ├── router.js            Hash router — #view/<path> → showView() (SPA navigation)
+│   ├── app.js               Bootstrap: SW registration, PWA install, hydration, nav wiring
+│   ├── drill-engine.js      Multi-mode drill/test engine (timer, scoring, feedback, MCQ)
+│   ├── questions.js         Quant generator — 36 drill categories (source of truth: services/quantTopics.js)
+│   ├── di-engine.js · di-set-engine.js · ui/di-charts.js    Data Interpretation generators + SVG charts
+│   ├── lr-engine.js · lr-set-engine.js · lr-authored-engine.js · lr-visual-engine.js · ui/lr-figures.js   Logical Reasoning
+│   ├── firestore-sync.js · auth.js · session.js · session-manager.js   Firebase sync, auth, single-device session
+│   ├── progress.js          localStorage progress (daily streak, per-category stats)
+│   ├── knowledge/           Learn Knowledge Engine (ADR-069): schema.js, registry.js, blocks.js
+│   ├── quick-reference/     Quick-Reference revision library (ADR-084): data + renderer
+│   ├── controllers/ · ui/ · views/ · services/ · utils/    Practice controllers, UI widgets, view renderers, helpers
+├── data/
+│   ├── knowledge/*.js       Learn knowledge objects per category (numbers, arithmetic, algebra, …)
+│   ├── syllabus.js · subjects.js · statMath.js · lr-authored/*   Syllabus, subject map, rollups, authored LR
+├── services/quantTopics.js  SINGLE source of truth for the 36 Quant drill categories (CATEGORY_LABELS)
+├── api/                     Vercel serverless functions (auth, ai, duel, payment, notify, account)
+└── scripts/*.check.js       Node test suites (run via `npm test`)
 ```

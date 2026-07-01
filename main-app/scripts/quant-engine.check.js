@@ -5,7 +5,7 @@
  * (the numpad grades with a tight tolerance), and EARNED DIFFICULTY (a tier must use a tier archetype, never a silent
  * downgrade). This harness samples every category × difficulty and, for each ARCHETYPE-refactored category, independently
  * RE-COMPUTES the answer from the question stem (no shared code with the generator) and asserts it matches — plus
- * structural invariants for all 14 categories and per-tier archetype-coverage/diversity. Wired into `npm test`.
+ * structural invariants for all 36 categories and per-tier archetype-coverage/diversity. Wired into `npm test`.
  *   node scripts/quant-engine.check.js
  */
 'use strict';
@@ -254,7 +254,7 @@ function recompute(cat, key, text) {
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }
 
-/* ── 1. structural sweep over all 14 categories × 3 difficulties ── */
+/* ── 1. structural sweep over all 36 categories × 3 difficulties ── */
 var structural = 0, recomputed = 0, mismatches = 0;
 var seenKeys = {};   /* cat/diff → {key:true} for diversity */
 ALL_CATS.forEach(function (cat) {

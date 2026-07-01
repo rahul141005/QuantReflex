@@ -4,7 +4,7 @@
  * QuantReflex is evolving from "Quant-first" to "Speed Aptitude-first": the generative-speed spine is
  * Quant → Data Interpretation → generatable Logical Reasoning. A "subject" is the lens one notch above the
  * categories. This module is the source of truth for the SUBJECT registry (ids/labels/order) and for the
- * **drill-category → subject** map (the 14 quant drill categories, the DI categories, …) used by Practice/Stats/
+ * **drill-category → subject** map (the 36 quant drill categories, the DI categories, …) used by Practice/Stats/
  * analytics — `stats.categoryStats` is keyed by these drill categories, so subject roll-ups derive from here.
  *
  * NOTE — two category namespaces, one subject vocabulary: the **Learn** hub has its OWN category ids (numbers,

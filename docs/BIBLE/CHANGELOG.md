@@ -6,6 +6,32 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Dragon-Boss whole-app production audit (ADR-085)
+
+A no-assumptions production-readiness sweep of the entire main-app. Three parallel Explore sweeps (runtime, PWA/
+security, code-health/docs), then every claim re-verified against the actual code. Verified-clean on PWA precache,
+cache/update flow, manifest, XSS escaping, secrets, storage, webhook, dead-code, config. Five agent "critical" claims
+rejected as false after code inspection (signup double-fire, drill-session strand, logout data-loss, duel cache leak,
+`_memoryCache` race). Two real defects fixed:
+
+```
+### fix(ADR-085): drill-engine stray-timer cancellation + documentation rot
+- js/drill-engine.js: the Reflex auto-advance setTimeout(nextQuestion,600) and the 350ms next-guard setTimeout were
+  fire-and-forget; stored both ids engine-scoped and clearTimeout them in cleanup() so a fast exit can't fire
+  nextQuestion/finish into a torn-down engine.
+- README.md: replaced the "File Structure" block (listed 7 non-existent per-page .html files) with the real SPA layout;
+  "14/12 Quant categories" -> 36.
+- services/quantTopics.js, scripts/quant-engine.check.js (x2), data/subjects.js, index.html: stale "14 categories"
+  comments -> 36.
+```
+
+Verification: full `npm test` exit 0 (harness 0 mismatches; all suites green). Browser-proven for the timer fix — a
+headless Reflex drill that answers then exits within the auto-advance window schedules the 600ms timer, `cleanup()`
+cancels it (1/1), and the drill does not advance to Q2, 0 page errors. **Docs:** DECISION_LOG ADR-085, VERSIONS
+2.105→2.106, this entry. **SW** v189→v190.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 9: final production-audit fixes
 
 An independent strict production-readiness audit (3 parallel repo sweeps + a 32,400-question stress run) found three

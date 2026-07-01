@@ -8,6 +8,38 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-085 — Dragon-Boss whole-app production audit (2026-07-01)
+- **Context:** a final, no-assumptions production-readiness sweep of the entire main-app (not just Quant) — runtime/
+  static analysis, PWA/service-worker, security, data integrity, cross-feature regression, dead-code, and docs. Ran
+  three independent parallel Explore sweeps, then **re-verified every claim against the actual code** (the mandate was
+  to trust no report, including the agents'). Most agent "CRITICAL" findings dissolved on inspection — recorded below
+  so the audit trail is honest.
+- **Verified-clean (evidence gathered, unchanged):** SW precache covers every local `./js`/`./css` asset (independently
+  cross-checked); cache versioning + old-cache purge + network-first-for-code + SPA fallback correct; manifest complete
+  (icons/maskable/theme/scope). Security: consistent `_esc()`/`textContent` escaping (no XSS sites), Firebase web
+  config intentionally public, server secrets from env, webhook HMAC + timing-safe + idempotent, storage reads
+  try/catch-guarded, no debug flags/`debugger`/TODO. Code health: 0 orphan files, 0 dead code, all `npm test` scripts +
+  vercel fns + deps resolve. Engines already proven (harness 113,001/0; 32,400-question stress 0-dirty; DI/LR suites).
+- **Rejected agent claims (checked → false):** signup callback double-fire (each branch fires once then returns —
+  auth.js:169–196); drill-session strand (nav teardown calls BOTH `cleanup()` + `_exitDrillSession()` — app.js:1122–
+  1136); logout loses pending writes (`resetSyncState` flushes before clearing — firestore-sync.js:165–179; plus
+  beforeunload/visibility flush); duel `_myAnswerCache` never cleared (cleared — duel-manager.js:665); `_memoryCache`
+  "race" (JS is single-threaded).
+- **Fix 1 — drill-engine stray-timer cancellation (real, low-severity):** the Reflex-mode auto-advance
+  `setTimeout(nextQuestion, 600)` and the 350 ms next-guard `setTimeout` were fire-and-forget (no stored id), so
+  `cleanup()` couldn't cancel them; exiting a Reflex drill within that window fired `nextQuestion`/`finish` into a
+  torn-down engine (a possible duplicate session-record on a hidden view). Stored both ids engine-scoped and
+  `clearTimeout` them in `cleanup()` alongside the existing `overallTimer`/`perQTimer` clears. **Browser-proven:**
+  a headless Reflex drill that answers then exits within the window schedules the 600 ms timer, `cleanup()` cancels it
+  (1/1), and the drill does NOT advance to Q2 (stays "Question 1 / 2"), 0 page errors. SW v189→v190.
+- **Fix 2 — documentation rot (docs/comments only, zero runtime risk):** `README.md` "File Structure" listed **7 HTML
+  files that don't exist** (`practice.html`, `learn.html`, …) — the app is a pure SPA with only `index.html`; rewrote
+  it to the real SPA layout. Corrected stale "14/12 Quant categories" → **36** in `README.md`, `services/quantTopics.js`,
+  `scripts/quant-engine.check.js` (×2), `data/subjects.js`, and the `index.html` load-order comment.
+- **Intentional exclusions:** duplicate `_ri`/`_pick`/`_shuffle` across the four independently-tested DI/LR engines
+  (deliberate engine isolation — sharing a dep adds coupling + regression risk for a ~4-line dedup); no CSP header
+  (deployment-level, not app code; a mis-scoped policy could break the Firebase CDN scripts).
+
 ## ADR-084 — Quant Gold Audit + Excellence Pass (premium discoverability, Quick-Reference, generator craft) (2026-07-01)
 - **Context:** ADR-083 shipped complete Quant coverage (36 drill categories + Learn chapters, zero orphans, harness
   113k/0). A production-readiness audit (4 independent Explore passes, each finding re-verified) found the coverage was

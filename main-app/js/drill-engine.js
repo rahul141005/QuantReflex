@@ -102,6 +102,11 @@ function createDrillEngine(container, opts) {
   var overallStart = 0;
   var overallTimer = null;
   var perQTimer = null;
+  /* Post-answer transition timers (engine-scoped so cleanup() can cancel them). Both are plain setTimeout ids: the
+     350ms guard that re-enables Next, and the 600ms Reflex auto-advance. Left uncancelled they would fire nextQuestion/
+     finish into a torn-down engine if the user exits within the window (stray session-record on a hidden view). */
+  var _nextGuardTimer = null;
+  var _autoAdvanceTimer = null;
   var answered = false; /* prevents double-counting */
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
@@ -617,7 +622,7 @@ function createDrillEngine(container, opts) {
     submitBtn.textContent = current + 1 < count ? 'Next →' : 'View Results';
     /* Block next-question for 350ms to prevent carry-over numpad taps */
     _nextReady = false;
-    var _nextGuardTimer = setTimeout(function () {
+    _nextGuardTimer = setTimeout(function () {
       _nextReady = true;
       /* Pulse the Next button after the guard clears to draw attention */
       submitBtn.classList.add('next-btn-pulse');
@@ -627,7 +632,7 @@ function createDrillEngine(container, opts) {
     /* Auto-advance logic for quick reflex modes */
     if (!isDuel && mode === 'Reflex Drill' && correct) {
       _nextReady = false;
-      setTimeout(nextQuestion, 600);
+      _autoAdvanceTimer = setTimeout(nextQuestion, 600);
     }
     
     submitBtn.onclick = function () {
@@ -1091,6 +1096,9 @@ function createDrillEngine(container, opts) {
   function cleanup() {
     if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }
     if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+    /* Cancel any pending post-answer transition timers so they can't fire nextQuestion/finish after teardown. */
+    if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; }
+    if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
     _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;
     if (adaptiveMode) _clearAdaptiveOverride();

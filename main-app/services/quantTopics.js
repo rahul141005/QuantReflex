@@ -1,6 +1,6 @@
 /**
- * quantTopics.js — the SINGLE source of truth for QuantReflex's 14 drillable quantitative categories (ADR-045/047;
- *   simplification + number-series added in ADR-067).
+ * quantTopics.js — the SINGLE source of truth for QuantReflex's 36 drillable quantitative categories (ADR-045/047;
+ *   simplification + number-series added in ADR-067; expanded to full coverage in ADR-083/084).
  *
  * Pure module: NO firebase-admin, NO side effects, NO I/O → safe to require from unit tests and from the
  * analysis engine (studentProfile.js). Keeps the drillable category vocabulary defined in exactly one place.

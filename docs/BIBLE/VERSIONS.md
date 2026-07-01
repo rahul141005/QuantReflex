@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.105 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.106 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.55 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.106 / Arch 2.55 (2026-07-01)** — **Dragon-Boss whole-app production audit (ADR-085).** A no-assumptions sweep of
+> the entire main-app (runtime, PWA/SW, security, dead-code, docs) with every agent claim re-verified against code.
+> Verified-clean on PWA/security/code-health; rejected 5 false "critical" claims. Two real fixes: (1) drill-engine
+> Reflex auto-advance + next-guard `setTimeout`s are now stored and cancelled in `cleanup()` (browser-proven: no stray
+> advance after exit); (2) documentation rot — README's fictitious per-page HTML rewritten to the real SPA layout, and
+> stale "14/12 Quant categories" corrected to 36 across README + 4 code comments. SW v189→v190.
+>
 > **2.105 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 9: final production-audit fixes.** An
 > independent strict audit (3 parallel sweeps + 32,400-question stress) found and fixed three items: pipes-cisterns
 > easy variety (3→18 distinct stems via a wider clean pool), a stale 14-item test whitelist in
