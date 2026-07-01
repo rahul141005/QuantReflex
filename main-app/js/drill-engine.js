@@ -257,6 +257,83 @@ function createDrillEngine(container, opts) {
     return undefined;
   }
 
+  /* ── Teaching-panel helpers (ADR-086 P4) ── */
+  /* Split an explanation string into readable steps on the authored separators (→ ; and newlines) — never on '. '
+     so decimals/abbreviations stay intact. Returns [] when there's nothing to show. */
+  function _explainSteps(text) {
+    if (!text) return [];
+    var parts = String(text).trim().split(/\s*→\s*|\s*;\s+|\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    return parts.length ? parts : [String(text).trim()];
+  }
+  /* drill category → the Learn chapter that teaches it (memoised scan of the registry). */
+  var _drillTopicCache = null;
+  function _learnTopicForDrill(cat) {
+    if (!cat) return null;
+    try {
+      if (typeof KnowledgeBase === 'undefined' || !KnowledgeBase.all) return null;
+      if (!_drillTopicCache) {
+        _drillTopicCache = {};
+        KnowledgeBase.all().forEach(function (t) { if (t.drillCategory && !_drillTopicCache[t.drillCategory]) _drillTopicCache[t.drillCategory] = { id: t.id, title: t.title }; });
+      }
+      return _drillTopicCache[cat] || null;
+    } catch (e) { return null; }
+  }
+  /* A subtle "Review <chapter> →" link that cleanly exits the session into the Learn chapter (deliberate study action). */
+  function _buildConceptLink(topic) {
+    var a = document.createElement('button');
+    a.type = 'button';
+    a.className = 'drill-teach-concept';
+    a.textContent = '📖 Review ' + topic.title;
+    a.addEventListener('click', function () {
+      try { cleanup(); } catch (_) {}
+      try { _exitDrillSession(); } catch (_) {}
+      try { if (typeof FirestoreSync !== 'undefined' && FirestoreSync.endDrillBatch) FirestoreSync.endDrillBatch(); } catch (_) {}
+      try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: topic.id }); } catch (_) {}
+    });
+    return a;
+  }
+  /* The "Why" block: formatted explanation steps (+ optional concept link). */
+  function _buildWhy(steps, topic) {
+    var wrap = document.createElement('div');
+    wrap.className = 'drill-teach-why';
+    var head = document.createElement('div');
+    head.className = 'drill-teach-why-head';
+    head.textContent = 'Why';
+    wrap.appendChild(head);
+    var list = document.createElement('div');
+    list.className = 'drill-teach-steps';
+    steps.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'drill-teach-step';
+      row.textContent = s;
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    if (topic) wrap.appendChild(_buildConceptLink(topic));
+    return wrap;
+  }
+  /* Rule-based auto-tip element (premium / explain-credits / paywall-lock preserved) — used only when a question ships
+     no written explanation. Returns an element (or null if nothing to show). */
+  function _buildAutoTip(q) {
+    var el = document.createElement('div');
+    var _isPremium = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
+    if (_isPremium) {
+      el.className = 'auto-explain-tip'; el.textContent = _getAutoTip(q.category, q.subtype);
+    } else {
+      var _credits = _getExplainCredits();
+      if (_credits > 0) {
+        _decrementExplainCredits();
+        el.className = 'auto-explain-tip'; el.textContent = _getAutoTip(q.category, q.subtype);
+      } else {
+        el.className = 'auto-explain-tip auto-explain-locked';
+        el.innerHTML = '🔒 <a class="auto-explain-unlock" href="#">Unlock unlimited explanations</a>';
+        var _lockLink = el.querySelector('.auto-explain-unlock');
+        if (_lockLink) _lockLink.addEventListener('click', function (e) { e.preventDefault(); if (typeof showPaywall === 'function') showPaywall('ai_explain'); });
+      }
+    }
+    return el;
+  }
+
   function renderQuestion() {
     if (diSet) { _renderSetQuestion(); return; }
     answered = false;
@@ -534,69 +611,50 @@ function createDrillEngine(container, opts) {
     }
 
     var feedback = ui.feedbackEl;
+    /* ADR-086 P4 — the answer state teaches, not just informs. Correct → a crisp verdict + (if shipped) the "Why".
+       Wrong → a structured teaching panel: verdict · correct-answer chip · Why (formatted explanation steps + a Learn
+       concept link) OR the rule-based auto-tip (premium/credits/paywall preserved) when no written explanation. */
+    var _steps = _explainSteps(q.explanation);
+    var _topic = _learnTopicForDrill(q.category);
 
     if (correct) {
-      feedback.textContent = '✓ Correct!';
       feedback.className = 'feedback correct feedback-anim';
+      feedback.innerHTML = '';
+      var okHead = document.createElement('div');
+      okHead.className = 'drill-verdict drill-verdict-ok';
+      okHead.textContent = '✓ Correct';
+      feedback.appendChild(okHead);
+      if (_steps.length) feedback.appendChild(_buildWhy(_steps, null));   /* teach the method; no concept-link on a win */
     } else {
       feedback.className = 'feedback wrong wrong-answer-card feedback-anim';
       feedback.innerHTML = '';
-      var wrongLabel = document.createElement('div');
-      wrongLabel.className = 'wrong-answer-header';
-      wrongLabel.textContent = '❌ Wrong Answer';
-      var correctLabel = document.createElement('div');
-      correctLabel.className = 'wrong-answer-correct';
-      correctLabel.textContent = 'Correct Answer: ' + expected;
-      feedback.appendChild(wrongLabel);
-      feedback.appendChild(correctLabel);
-
-      /* Auto-explain: a rule-based tip on a wrong answer — but ONLY when the question ships no written explanation.
-         Generated Quant (ADR-083) + authored LR now carry a full teaching explanation, rendered free to everyone just
-         below; showing the generic tip (or, worse, its paywall lock) alongside a free explanation would be redundant
-         and contradictory for out-of-credit free users. So the rich explanation supersedes the generic tip. */
-      if (!q.explanation) {
-      var autoTipEl = document.createElement('div');
-      var _isPremium = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
-      if (_isPremium) {
-        autoTipEl.className = 'auto-explain-tip';
-        autoTipEl.textContent = _getAutoTip(q.category, q.subtype);
+      var teach = document.createElement('div');
+      teach.className = 'drill-teach';
+      var head = document.createElement('div');
+      head.className = 'drill-verdict drill-verdict-wrong';
+      head.textContent = 'Not quite';
+      teach.appendChild(head);
+      var ansRow = document.createElement('div');
+      ansRow.className = 'drill-teach-answer';
+      var ansLbl = document.createElement('span');
+      ansLbl.className = 'drill-teach-answer-lbl';
+      ansLbl.textContent = 'Correct answer';
+      var ansVal = document.createElement('span');
+      ansVal.className = 'drill-teach-answer-val';
+      ansVal.textContent = expected;
+      ansRow.appendChild(ansLbl); ansRow.appendChild(ansVal);
+      teach.appendChild(ansRow);
+      if (_steps.length) {
+        teach.appendChild(_buildWhy(_steps, _topic));
       } else {
-        var _credits = _getExplainCredits();
-        if (_credits > 0) {
-          _decrementExplainCredits();
-          autoTipEl.className = 'auto-explain-tip';
-          autoTipEl.textContent = _getAutoTip(q.category, q.subtype);
-        } else {
-          autoTipEl.className = 'auto-explain-tip auto-explain-locked';
-          autoTipEl.innerHTML = '🔒 <a class="auto-explain-unlock" href="#">Unlock unlimited explanations</a>';
-          var _lockLink = autoTipEl.querySelector('.auto-explain-unlock');
-          if (_lockLink) {
-            _lockLink.addEventListener('click', function (e) {
-              e.preventDefault();
-              if (typeof showPaywall === 'function') showPaywall('ai_explain');
-            });
-          }
-        }
+        teach.appendChild(_buildAutoTip(q));
+        if (_topic) teach.appendChild(_buildConceptLink(_topic));
       }
-      feedback.appendChild(autoTipEl);
-      }
+      feedback.appendChild(teach);
 
       var card = ui.cardEl;
       if (card) card.classList.add('feedback-shake');
       setTimeout(function () { if (card) card.classList.remove('feedback-shake'); }, 400);
-    }
-
-    /* Authored items (ADR-079) ship with a written teaching explanation — reveal it on every answer (correct or
-       wrong) so the reasoning is taught, not just the verdict. Reuses the feedback region; no AI call, no gating. */
-    if (q.explanation) {
-      var _expEl = document.createElement('div');
-      _expEl.className = 'authored-explanation';
-      var _expHead = document.createElement('span');
-      _expHead.className = 'authored-explanation-head';
-      _expHead.textContent = 'Why this answer: ';
-      _expEl.appendChild(_expHead);
-      _expEl.appendChild(document.createTextNode(q.explanation));
-      feedback.appendChild(_expEl);
     }
 
     if (typeof AIFeatures !== 'undefined' && (!correct || reviewMode)) {

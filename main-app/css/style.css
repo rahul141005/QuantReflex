@@ -6166,6 +6166,38 @@ body.dark-mode .drill-explain-btn:active {
   color: #1e1b4b;
 }
 
+/* ── Teaching correction panel (ADR-086 P4) — token-driven, one design across all themes ── */
+.drill-verdict { font-size: 1rem; font-weight: 800; letter-spacing: .01em; }
+.drill-verdict-ok { color: var(--qr-success-fg); }
+.drill-verdict-wrong { color: var(--qr-danger); }
+.drill-teach {
+  display: flex; flex-direction: column; align-items: stretch; gap: .55rem;
+  width: 100%; max-width: 24rem; margin: 0 auto; text-align: left;
+}
+.drill-teach-answer {
+  display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap;
+  padding: .5rem .7rem; border-radius: .7rem;
+  background: var(--qr-success-bg); border: 1px solid var(--qr-success-border);
+}
+.drill-teach-answer-lbl { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--qr-text-dim); }
+.drill-teach-answer-val { font-size: 1.15rem; font-weight: 800; color: var(--qr-success-fg); word-break: break-word; }
+.drill-teach-why {
+  padding: .55rem .7rem; border-radius: .7rem; text-align: left;
+  background: var(--qr-surface-2); border-left: 3px solid var(--qr-accent);
+}
+.drill-teach-why-head { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--qr-accent); margin-bottom: .3rem; }
+.drill-teach-steps { display: flex; flex-direction: column; gap: .3rem; }
+.drill-teach-step { font-size: .9rem; line-height: 1.45; color: var(--qr-text); position: relative; padding-left: .95rem; }
+.drill-teach-step::before { content: ''; position: absolute; left: .1rem; top: .55em; width: .35rem; height: .35rem; border-radius: 50%; background: var(--qr-accent); }
+.drill-teach-step:only-child { padding-left: 0; }
+.drill-teach-step:only-child::before { display: none; }
+.drill-teach-concept {
+  align-self: flex-start; margin-top: .5rem; font: inherit; font-size: .8rem; font-weight: 600;
+  padding: .34rem .75rem; border-radius: 999px; cursor: pointer;
+  color: var(--qr-accent); background: transparent; border: 1px solid var(--qr-border-strong);
+}
+.drill-teach-concept:active { transform: scale(.97); background: var(--qr-surface-2); }
+
 /* ---- AI Study Plan ---- */
 .sp-card {
   border-left: 3px solid #2563eb;
