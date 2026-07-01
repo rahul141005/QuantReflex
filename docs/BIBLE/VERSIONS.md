@@ -9,12 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.99 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.100 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.100 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 5: archetype + explanation + difficulty
+> polish.** Added a genuine 2nd easy archetype to the four single-archetype easy tiers (logarithms `solveLog`,
+> partnership `shareRatio`, ages `presentAge`, simple-interest `amount`), enriched six terse explanations to
+> method→working→shortcut/trap depth, and unified the logarithms base set to include the common log (base 10). Every
+> new numeric archetype is independently recomputed by the harness (112,993/0). SW v184→v185.
+>
 > **2.99 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 4: generator scenario/name diversity.**
 > Wired the previously-unused shared `NAMES`/`ITEMS`/`twoNames()` pools + expanded context pools into the word-problem
 > generators (partnership, ages, ratios, mixtures, trigonometry, set-theory) so drills stop feeling templated. Names/

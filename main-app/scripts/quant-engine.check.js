@@ -41,17 +41,17 @@ var TIER_KEYS = {
   simplification: { easy: ['multiplyAdd'], medium: ['divideAdd', 'multiplyAdd'], hard: ['fullBodmas', 'divideAdd'] },
   'number-series': { easy: ['arithmetic', 'geometric'], medium: ['arithmetic', 'geometric', 'growingGap'], hard: ['geometric', 'growingGap', 'arithmetic'] },
   fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracToPct', 'pctToFrac'] },
-  'simple-interest': { easy: ['si'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal', 'amount', 'si'] },
+  'simple-interest': { easy: ['si', 'amount'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal', 'amount', 'si'] },
   'compound-interest': { easy: ['amount'], medium: ['amount', 'ci'], hard: ['ci', 'ciSiDiff', 'amount'] },
-  partnership: { easy: ['share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] },
-  ages: { easy: ['ratioSum'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
+  partnership: { easy: ['shareRatio', 'share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] },
+  ages: { easy: ['ratioSum', 'presentAge'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
   mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty', 'alligationRatio'] },
   'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'together'] },
   'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] },
   'linear-equations': { easy: ['solveOne', 'solveOneSub'], medium: ['solveOne', 'bracket', 'sumDiff'], hard: ['bracket', 'sumDiff', 'system2'] },
   'quadratic-equations': { easy: ['largerRoot', 'sumRoots'], medium: ['largerRoot', 'smallerRoot', 'productRoots', 'sumRoots'], hard: ['largerRoot', 'discriminant', 'productRoots'] },
   'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] },
-  logarithms: { easy: ['evalLog'], medium: ['evalLog', 'logSum', 'logPower'], hard: ['logPower', 'solveLog', 'logSum'] },
+  logarithms: { easy: ['evalLog', 'solveLog'], medium: ['evalLog', 'logSum', 'logPower'], hard: ['logPower', 'solveLog', 'logSum'] },
   progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum', 'apSum'] },
   'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] },
   'geometry-basics': { easy: ['complement', 'supplement', 'triangleThird'], medium: ['triangleThird', 'pythHyp', 'isosceles'], hard: ['pythLeg', 'polygonSum', 'polygonEach'] },
@@ -136,6 +136,7 @@ function recompute(cat, key, text) {
     if (key === 'shareTime') return n[4] * (n[0] * n[1]) / (n[0] * n[1] + n[2] * n[3]);
   }
   if (cat === 'ages') {
+    if (key === 'presentAge') return n[0] + n[1];                              /* "t years ago age was a" → a + t */
     if (key === 'ratioSum') return n[0] / (n[0] + n[1]) * n[2];                 /* ratio a:b, sum S → a/(a+b)·S */
     if (key === 'ageDiff') return (n[0] - (n[2] - 1) * n[1]) / (n[2] - 1);      /* "A is x older; in t yrs A = m×B" */
     if (key === 'fatherSon') return n[1] * (n[2] - 1) / (n[0] - n[2]);          /* "father N×; in t yrs M×" → t(M−1)/(N−M) */

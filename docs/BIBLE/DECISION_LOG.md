@@ -17,6 +17,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 5 — archetype + explanation + difficulty polish:** four easy tiers each carried only a **single** archetype,
+  so the easy band felt monotonous. Added a genuine 2nd easy archetype to each (extending the harness TIER_KEYS + an
+  independent recompute case where numeric): **logarithms** → `solveLog` (rewrite logₐx = k as x = aᵏ); **partnership**
+  → `shareRatio` (divide profit in the investment ratio, string answer); **ages** → `presentAge` (back-calculate from
+  "t years ago"); **simple-interest** → `amount` (P + SI). Enriched six terse explanations to method → working →
+  shortcut/trap depth (`logarithms:evalLog`, `surds:indexLaw`, `inequalities:countRange`, `trigonometry:identity`,
+  `quadratic:productRoots`, `progressions:gpSum`). Unified the logarithms hard/medium base set to include **10** (the
+  common log, previously absent from the product/power/solve archetypes). Recompute-safe — harness re-derives every new
+  numeric archetype independently (112,993/0). SW v184→v185.
 - **Batch 4 — generator scenario/name diversity:** the shared `NAMES`/`ITEMS`/`twoNames()`/`item()` pools in
   `generative-helpers.js` were built in ADR-083 but **never used** — every word problem hardcoded "A and B" / one fixed
   context, so drills felt templated over a long session. Wired named characters + expanded context pools into the

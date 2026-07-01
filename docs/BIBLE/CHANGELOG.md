@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 5: archetype + explanation + difficulty polish
+
+Add a 2nd easy archetype to the four single-archetype easy tiers, enrich terse explanations, unify the log base set.
+
+```
+### feat/quant(ADR-084): 2nd easy archetypes + richer explanations
+- js/questions.js: logarithms easy gains solveLog; partnership easy gains shareRatio (_pRatio, string ratio); ages easy
+  gains presentAge (_agePresent); simple-interest easy gains amount. Enriched explanations: quadratic productRoots,
+  surds indexLaw, logarithms evalLog, progressions gpSum, inequalities countRange, trigonometry identity (method →
+  working → shortcut/trap). Logarithms product/power/solve base set now includes 10 (common log).
+- scripts/quant-engine.check.js: TIER_KEYS updated for the four easy tiers; added ages `presentAge` recompute case.
+```
+
+Verification: `node -e "require('./js/questions.js')"` OK; quant harness 112,993 assertions / 0 mismatches (14,759
+independently recomputed); full `npm test` exit 0; every new easy archetype earns its tier and hard never downgrades.
+**Docs:** DECISION_LOG ADR-084 (Batch 5), VERSIONS 2.99→2.100, this entry. **SW** v184→v185.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 4: generator scenario/name diversity
 
 Wire the shared name/item/context pools into the word-problem generators so drills stop feeling templated.
