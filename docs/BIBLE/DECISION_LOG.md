@@ -17,6 +17,21 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 3 — premium Quick-Reference revision library:** the AskUserQuestion direction was to treat Quick Reference as
+  a premium differentiator, not stop at Learn-only tables. Built a curated, standalone revision library at the Learn
+  sub-route `#learn/quick-ref` (a hub entry chip opens it). New `js/quick-reference/quick-ref-data.js` holds **21
+  curated cards** across 5 sections (Number Sense · Arithmetic & Commercial · Algebra · Geometry & Mensuration · Modern
+  Math) — divisibility, HCF/LCM, squares/cubes grids, fraction⇄decimal⇄percent, multiplication shortcuts, speed/time,
+  SI/CI, profit-percentage, algebraic identities, AP/GP, log rules, surds & indices, area/volume/surface, trig standard
+  values + identities, coordinate geometry, geometry properties, nPr/nCr, probability. `quick-ref-renderer.js` renders
+  them into collapsible sections (reusing the global `toggleSection` + `.collapsible-card`), with an **instant search**
+  and **per-card Learn/Practice cross-links** (only shown when the target chapter/drill genuinely exists). Tables render
+  through the shared `BlockRenderers.table` (same `.math-table` + dark-mode + phone horizontal-scroll); grids reuse
+  `.math-grid`. Content is **free** (no paywall flags, no new Firestore). New `scripts/quick-ref.check.js` (into
+  `npm test`) enforces the zero-stale-links contract: every card's section, Learn id and drill category must resolve
+  and every block must be well-formed (382 assertions). Real-browser verified at 360/768px, light + dark: 5 sections,
+  21 cards (19 tables + 2 grids), 42 cross-links, search filters live, empty-state works, no overflow, 0 errors.
+  SW v187→v188.
 - **Batch 7 — dead-code cleanup:** removed the unused `_round1()` from `js/questions.js` (it kept its own copy; DI
   engines have their own local one) and eight never-called exports from `js/utils/generative-helpers.js` — `mcq`,
   `nearMissDistractors`, `frac`, `commaGroup`, `pluralize`, `gcdArr`, `lcmArr` (function + export each) and `factorize`

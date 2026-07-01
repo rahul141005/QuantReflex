@@ -529,6 +529,13 @@
       <h2 class="kx-hub-head">📚 Quick Reference</h2>
       <p class="kx-cat-blurb">Calculation foundations every student should memorize.</p>
 
+      <!-- Premium Quick-Reference revision library entry (ADR-084) -->
+      <button class="qr-lib-entry" id="quickRefEntry" type="button">
+        <span class="qr-lib-entry-ico">⚡</span>
+        <span class="qr-lib-entry-txt"><strong>Quick-Reference Library</strong><small>Every high-value formula, table &amp; standard value — grouped for fast, pre-exam revision</small></span>
+        <span class="qr-lib-entry-arrow">›</span>
+      </button>
+
       <!-- Multiplication Tables (collapsible — large section with selector) -->
       <div class="card collapsible-card" id="tablesContainer">
         <div class="collapsible-header" onclick="toggleSection(this)" role="button" tabindex="0" aria-expanded="false" aria-controls="tablesContent">
@@ -618,6 +625,9 @@
 
       <!-- TOPIC PAGE (rendered on #learn/&lt;topicId&gt;) -->
       <div id="learnTopic" hidden></div>
+
+      <!-- QUICK-REFERENCE LIBRARY (rendered on #learn/quick-ref — ADR-084) -->
+      <div id="learnQuickRef" hidden></div>
     </div>
 
     <!-- ==================== STATS VIEW ==================== -->
@@ -1646,6 +1656,8 @@
   <script defer src="data/knowledge/exam-relevance.js"></script>
   <script defer src="js/learn/learn-search.js"></script>
   <script defer src="js/learn/learn-progress.js"></script>
+  <script defer src="js/quick-reference/quick-ref-data.js"></script>
+  <script defer src="js/quick-reference/quick-ref-renderer.js"></script>
   <script defer src="js/settings.js"></script>
   <script defer src="js/notifications.js"></script>
   <script defer src="js/soundEngine.js"></script>

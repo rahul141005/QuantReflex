@@ -1,0 +1,192 @@
+/**
+ * quick-ref-renderer.js — renders the curated Quick-Reference library (ADR-084 Batch 3).
+ *
+ * Turns QR_QUICKREF data into the Learn sub-view at #learn/quick-ref: collapsible sections (reusing the global
+ * toggleSection() + .collapsible-card pattern), an instant search, and per-card Learn/Practice cross-links. Tables
+ * render through the shared BlockRenderers.table (identical .math-table markup + dark-mode); grids reuse .math-grid.
+ * Expand state is remembered per session (localStorage), matching the category picker.
+ *
+ * Public: QuickRef.render(host) builds once into `host`; QuickRef.filter(query) filters live.
+ */
+var QuickRef = (function () {
+  'use strict';
+
+  var OPEN_KEY = 'qr_quickref_open';
+  var _built = false;
+
+  function _data() { return (typeof QR_QUICKREF !== 'undefined') ? QR_QUICKREF : (typeof window !== 'undefined' ? window.QR_QUICKREF : null); }
+  function _KB() { return (typeof KnowledgeBase !== 'undefined') ? KnowledgeBase : null; }
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
+
+  function _openState() { try { return JSON.parse(localStorage.getItem(OPEN_KEY) || '{}') || {}; } catch (_) { return {}; } }
+  function _setOpen(sec, on) { try { var s = _openState(); s[sec] = !!on; localStorage.setItem(OPEN_KEY, JSON.stringify(s)); } catch (_) {} }
+
+  /* Render one card's data block into a DOM node (table via the shared renderer; grid mirrors the hub squares/cubes). */
+  function _blockNode(block) {
+    if (!block) return document.createElement('div');
+    if (block.kind === 'grid') {
+      var g = document.createElement('div');
+      g.className = 'math-grid qr-grid';
+      (block.items || []).forEach(function (it) {
+        var cell = document.createElement('div'); cell.className = 'math-grid-item';
+        cell.innerHTML = '<span class="math-expr">' + _esc(it.e) + '</span><span class="math-eq">=</span><span class="math-val">' + _esc(it.v) + '</span>';
+        g.appendChild(cell);
+      });
+      return g;
+    }
+    /* default: table via BlockRenderers so styling + dark-mode + phone horizontal-scroll come for free */
+    if (typeof BlockRenderers !== 'undefined' && BlockRenderers.render) {
+      return BlockRenderers.render({ type: 'table', caption: block.caption, headers: block.headers, rows: block.rows });
+    }
+    var fallback = document.createElement('div'); fallback.textContent = '(table)'; return fallback;
+  }
+
+  function _cardNode(card) {
+    var KB = _KB();
+    var wrap = document.createElement('div');
+    wrap.className = 'qr-card';
+    var terms = [card.title].concat(card.searchTerms || []).join(' ').toLowerCase();
+    wrap.setAttribute('data-terms', terms);
+
+    var head = document.createElement('div');
+    head.className = 'qr-card-head';
+    head.innerHTML = '<span class="qr-card-ico">' + _esc(card.icon || '📎') + '</span><span class="qr-card-title">' + _esc(card.title) + '</span>';
+    wrap.appendChild(head);
+
+    wrap.appendChild(_blockNode(card.block));
+
+    /* cross-links — only shown when the target genuinely exists (Learn topic in the registry / Quant drill category) */
+    var links = document.createElement('div');
+    links.className = 'qr-card-links';
+    if (card.learn && KB && KB.has(card.learn)) {
+      var lb = document.createElement('button');
+      lb.type = 'button'; lb.className = 'qr-link qr-link-learn'; lb.textContent = '📖 Learn';
+      lb.addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: card.learn }); } catch (_) {} });
+      links.appendChild(lb);
+    }
+    if (card.drill) {
+      var pb = document.createElement('button');
+      pb.type = 'button'; pb.className = 'qr-link qr-link-practice'; pb.textContent = '✏️ Practice';
+      pb.addEventListener('click', function () { _launchDrill(card.drill, card.title); });
+      links.appendChild(pb);
+    }
+    if (links.childNodes.length) wrap.appendChild(links);
+    return wrap;
+  }
+
+  function _launchDrill(cat, label) {
+    try { if (typeof _tryPracticeAction === 'function' && !_tryPracticeAction()) return; } catch (_) {}
+    try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('practice'); } catch (_) {}
+    setTimeout(function () { try { if (typeof startDrillFromPractice === 'function') startDrillFromPractice('focus', cat, label); } catch (_) {} }, 60);
+  }
+
+  function _sectionNode(sec, cards) {
+    var open = _openState()[sec.id];
+    var card = document.createElement('div');
+    card.className = 'card collapsible-card qr-sec';
+    card.setAttribute('data-sec', sec.id);
+
+    var header = document.createElement('div');
+    header.className = 'collapsible-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', open ? 'true' : 'false');
+    header.innerHTML = '<h3 class="section-title">' + _esc(sec.icon) + ' ' + _esc(sec.title) +
+      ' <span class="qr-sec-count">' + cards.length + '</span></h3><span class="collapse-icon">' + (open ? '▲' : '▼') + '</span>';
+    header.addEventListener('click', function () { if (typeof toggleSection === 'function') toggleSection(header); _setOpen(sec.id, header.getAttribute('aria-expanded') === 'true'); });
+    card.appendChild(header);
+
+    var content = document.createElement('div');
+    content.className = 'collapsible-content';
+    content.style.display = open ? 'block' : 'none';
+    cards.forEach(function (c) { content.appendChild(_cardNode(c)); });
+    card.appendChild(content);
+    return card;
+  }
+
+  function render(host) {
+    if (!host) host = document.getElementById('learnQuickRef');
+    if (!host) return;
+    var data = _data();
+    if (_built || !data) { return; }
+
+    host.innerHTML = '';
+    var head = document.createElement('div');
+    head.className = 'qr-lib-head';
+    head.innerHTML =
+      '<button class="qr-lib-back" type="button" aria-label="Back to Learn">← Learn</button>' +
+      '<h2 class="kx-hub-head">⚡ Quick Reference</h2>' +
+      '<p class="kx-cat-blurb">Every high-value formula, table and standard value — grouped for fast, pre-exam revision.</p>';
+    host.appendChild(head);
+    head.querySelector('.qr-lib-back').addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn'); } catch (_) {} });
+
+    var searchWrap = document.createElement('div');
+    searchWrap.className = 'qr-search-wrap';
+    searchWrap.innerHTML = '<input id="quickRefSearch" class="qr-search-input" type="search" inputmode="search" autocomplete="off" placeholder="Search formulas, tables, values…" aria-label="Search Quick Reference" />';
+    host.appendChild(searchWrap);
+
+    var body = document.createElement('div');
+    body.className = 'qr-lib-body';
+    data.SECTIONS.forEach(function (sec) {
+      var cards = data.CARDS.filter(function (c) { return c.section === sec.id; });
+      if (cards.length) body.appendChild(_sectionNode(sec, cards));
+    });
+    host.appendChild(body);
+
+    var empty = document.createElement('p');
+    empty.className = 'qr-empty secondary-text';
+    empty.id = 'quickRefEmpty';
+    empty.style.display = 'none';
+    empty.textContent = 'No formulas match your search.';
+    host.appendChild(empty);
+
+    var input = searchWrap.querySelector('#quickRefSearch');
+    if (input) input.addEventListener('input', function () { filter(input.value); });
+
+    _built = true;
+  }
+
+  /* Live filter: show only cards whose title/searchTerms match; auto-expand sections with hits, restore on clear. */
+  function filter(query) {
+    var host = document.getElementById('learnQuickRef');
+    if (!host) return;
+    var q = String(query || '').trim().toLowerCase();
+    var anyGlobal = false;
+
+    host.querySelectorAll('.qr-sec').forEach(function (sec) {
+      var content = sec.querySelector('.collapsible-content');
+      var header = sec.querySelector('.collapsible-header');
+      var icon = sec.querySelector('.collapse-icon');
+      var secId = sec.getAttribute('data-sec');
+      var anyInSec = false;
+
+      sec.querySelectorAll('.qr-card').forEach(function (cardEl) {
+        var match = !q || (cardEl.getAttribute('data-terms') || '').indexOf(q) !== -1;
+        cardEl.style.display = match ? '' : 'none';
+        if (match) anyInSec = true;
+      });
+
+      if (!q) {
+        /* restore remembered expand state */
+        var open = _openState()[secId];
+        sec.style.display = '';
+        content.style.display = open ? 'block' : 'none';
+        if (icon) icon.textContent = open ? '▲' : '▼';
+        if (header) header.setAttribute('aria-expanded', open ? 'true' : 'false');
+      } else {
+        sec.style.display = anyInSec ? '' : 'none';
+        content.style.display = anyInSec ? 'block' : 'none';   /* auto-expand sections with a hit */
+        if (icon) icon.textContent = anyInSec ? '▲' : '▼';
+        if (header) header.setAttribute('aria-expanded', anyInSec ? 'true' : 'false');
+        if (anyInSec) anyGlobal = true;
+      }
+    });
+
+    var empty = document.getElementById('quickRefEmpty');
+    if (empty) empty.style.display = (q && !anyGlobal) ? 'block' : 'none';
+  }
+
+  return { render: render, filter: filter };
+})();
+
+if (typeof window !== 'undefined') window.QuickRef = QuickRef;

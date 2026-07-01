@@ -157,6 +157,9 @@ var LearnView = (function () {
       }
     }
 
+    var qrEntry = document.getElementById('quickRefEntry');
+    if (qrEntry) qrEntry.addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: 'quick-ref' }); } catch (_) {} });
+
     _renderCategories();
     if (typeof renderBookmarksSection === 'function') renderBookmarksSection();
     if (typeof renderCustomTopicSections === 'function') renderCustomTopicSections();
@@ -596,8 +599,25 @@ var LearnView = (function () {
     if (!_hubBuilt) { _buildHub(); _hubBuilt = true; }
     var hub = document.getElementById('learnHub');
     var topicEl = document.getElementById('learnTopic');
+    var qrEl = document.getElementById('learnQuickRef');
     var KB = _KB();
     var path = params && params.path;
+
+    if (path === 'quick-ref' && qrEl && typeof QuickRef !== 'undefined') {
+      /* Quick-Reference revision library sub-view (ADR-084) — hub/topic hidden, library shown. */
+      if (hub && !hub.hidden) { var qc = document.querySelector('.container'); _hubScroll = qc ? qc.scrollTop : 0; }
+      var qin = document.getElementById('learnSearch'); if (qin) qin.value = '';
+      var qbox = document.getElementById('learnSearchResults'); if (qbox) { qbox.hidden = true; qbox.innerHTML = ''; }
+      if (hub) hub.hidden = true;
+      if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
+      QuickRef.render(qrEl);
+      qrEl.hidden = false;
+      _scrollTop();
+      var qh = qrEl.querySelector('.kx-hub-head');
+      if (qh && qh.focus) { try { qh.setAttribute('tabindex', '-1'); qh.focus({ preventScroll: true }); } catch (_) {} }
+      return;
+    }
+    if (qrEl) qrEl.hidden = true;
 
     if (path && KB && KB.has(path)) {
       /* remember where the hub was scrolled to, so Back restores the reading position instead of jumping to top */

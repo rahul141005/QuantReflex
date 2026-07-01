@@ -6,6 +6,30 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 3: premium Quick-Reference revision library
+
+Build a curated, standalone revision library as a Learn sub-view — a premium exam-day differentiator.
+
+```
+### feat/learn(ADR-084): Quick-Reference revision library (#learn/quick-ref)
+- js/quick-reference/quick-ref-data.js (NEW): 21 curated cards across 5 sections (Number Sense, Arithmetic & Commercial,
+  Algebra, Geometry & Mensuration, Modern Math); each card = table/grid block + optional Learn/Practice cross-links.
+- js/quick-reference/quick-ref-renderer.js (NEW): QuickRef.render/filter — collapsible sections (reuse toggleSection +
+  .collapsible-card), instant search, session-remembered expand state, Learn/Practice cross-link buttons. Tables via
+  BlockRenderers.table; grids via .math-grid.
+- index.html: #learnQuickRef container + hub entry chip (#quickRefEntry) + two script tags.
+- js/views/learn-view.js: renderLearnRoute branch for path === 'quick-ref'; wire the hub entry to Router.showView.
+- css/style.css: .qr-lib-entry / .qr-lib-head / .qr-search-input / .qr-sec-count / .qr-card* / .qr-link* (light + dark).
+- scripts/quick-ref.check.js (NEW): cross-link + block-shape integrity (into npm test).
+```
+
+Verification: quick-ref.check 382/0; full `npm test` exit 0; real browser at 360/768px light+dark — 5 sections, 21
+cards (19 tables + 2 grids), 42 Learn/Practice cross-links, search filters live, empty-state works, no overflow, 0
+errors. Content is free — no new Firestore or paywall flags. **Docs:** DECISION_LOG ADR-084 (Batch 3), VERSIONS
+2.102→2.103 / Arch 2.54→2.55, this entry. **SW** v187→v188.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 7: dead-code cleanup
 
 Remove verified-dead helpers so the generator toolbox reads honestly.

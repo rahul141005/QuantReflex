@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.102 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.103 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.55 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.103 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 3: premium Quick-Reference library.** A new
+> curated revision library at the Learn sub-route `#learn/quick-ref` (opened from a hub entry chip): 21 cards across 5
+> sections — formulas, comparison tables and standard values students re-read before mocks — in collapsible/searchable
+> sections with per-card Learn/Practice cross-links. New `js/quick-reference/{quick-ref-data,quick-ref-renderer}.js`
+> reuse `BlockRenderers.table` + `.math-grid` + `.collapsible-*` + dark-mode; content is free (no new Firestore/paywall).
+> New `scripts/quick-ref.check.js` guards cross-links (382/0). Browser-verified 360/768px light+dark, 0 errors. SW
+> v187→v188.
+>
 > **2.102 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 7: dead-code cleanup.** Removed the unused
 > `_round1()` from questions.js and eight never-called exports (`mcq`, `nearMissDistractors`, `frac`, `commaGroup`,
 > `pluralize`, `gcdArr`, `lcmArr`, and `factorize` from the public API only — still used internally by `numFactors`)
