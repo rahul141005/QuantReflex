@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v193';
-const CACHE_NAME = 'qr-cache-v193';
+const APP_VERSION = 'v194';
+const CACHE_NAME = 'qr-cache-v194';
 
 var ASSETS = [
   './',
