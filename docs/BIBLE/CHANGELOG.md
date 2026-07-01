@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch E-a: Geometry category (ADR-083)
+
+Open the Geometry category with two diagram-free topics (generator + Learn + harness). Full suite green.
+
+```
+### feat/quant(ADR-083): geometry category — geometry-basics, coordinate-geometry-basics
+- js/questions.js: genGeometryBasics (complement/supplement/triangleThird/isosceles/pythHyp/pythLeg/polygonSum/
+  polygonEach), genCoordinateGeometry (distance/midpointX/slope/sectionX). Pythagorean triples table for clean roots;
+  coordinates non-negative for sign-safe recompute; section ratio m≠n.
+- data/knowledge/geometry.js (NEW): 2 gold-standard Learn chapters. categories.js: NEW 'geometry' category (order 45).
+  Wired into index.html + service-worker + learn-content.check requires.
+- quantTopics: 2 new labels. quant-engine.check: TIER_KEYS + recompute (Pythagoras/distance/section) + slope
+  negative-answer exemption — 90,515 assertions, 0 mismatches. subjects.check 27→29; learn-content 51→53 topics,
+  6→7 quant categories.
+```
+
+Verification: `npm test` exit 0 (quant-engine 90,515/0; learn-content 53 topics; subjects 29). Samples spot-checked
+correct, clean, exam-authentic. **Docs:** DECISION_LOG ADR-083 (Phase 3E-a), VERSIONS 2.88→2.89, this entry. **SW**
+v174→v175.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch D-b: complete Algebra (ADR-083)
 
 Finish the Algebra category with logarithms, progressions and inequalities-modulus. Full suite green.

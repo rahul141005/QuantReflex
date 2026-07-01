@@ -21,7 +21,8 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
   'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties',
   'linear-equations', 'quadratic-equations', 'surds-indices',
-  'logarithms', 'progressions', 'inequalities-modulus'];
+  'logarithms', 'progressions', 'inequalities-modulus',
+  'geometry-basics', 'coordinate-geometry-basics'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -51,7 +52,9 @@ var TIER_KEYS = {
   'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] },
   logarithms: { easy: ['evalLog'], medium: ['evalLog', 'logSum', 'logPower'], hard: ['logPower', 'solveLog', 'logSum'] },
   progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum', 'apSum'] },
-  'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] }
+  'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] },
+  'geometry-basics': { easy: ['complement', 'supplement', 'triangleThird'], medium: ['triangleThird', 'pythHyp', 'isosceles'], hard: ['pythLeg', 'polygonSum', 'polygonEach'] },
+  'coordinate-geometry-basics': { easy: ['distance', 'midpointX'], medium: ['distance', 'slope', 'midpointX'], hard: ['slope', 'distance', 'sectionX'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -179,6 +182,22 @@ function recompute(cat, key, text) {
     if (key === 'modIneqCount') return 2 * n[1] - 1;                  /* |x−a|<b → 2b−1 integers */
     if (key === 'modIneqCountLe') return 2 * n[1] + 1;               /* |x−a|≤b → 2b+1 integers */
   }
+  if (cat === 'geometry-basics') {
+    if (key === 'complement') return 90 - n[0];
+    if (key === 'supplement') return 180 - n[0];
+    if (key === 'triangleThird') return 180 - n[0] - n[1];
+    if (key === 'isosceles') return (180 - n[0]) / 2;
+    if (key === 'pythHyp') return Math.sqrt(n[0] * n[0] + n[1] * n[1]);          /* legs → hypotenuse */
+    if (key === 'pythLeg') return Math.sqrt(n[0] * n[0] - n[1] * n[1]);          /* hyp,leg → other leg */
+    if (key === 'polygonSum') return (n[0] - 2) * 180;
+    if (key === 'polygonEach') return (n[0] - 2) * 180 / n[0];
+  }
+  if (cat === 'coordinate-geometry-basics') {                                     /* coords non-negative → sign-safe */
+    if (key === 'distance') return Math.sqrt((n[2] - n[0]) * (n[2] - n[0]) + (n[3] - n[1]) * (n[3] - n[1]));
+    if (key === 'midpointX') return (n[0] + n[2]) / 2;
+    if (key === 'slope') return (n[3] - n[1]) / (n[2] - n[0]);
+    if (key === 'sectionX') return (n[4] * n[2] + n[5] * n[0]) / (n[4] + n[5]);   /* nums: x1,y1,x2,y2,m,n */
+  }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }
 
@@ -194,7 +213,9 @@ ALL_CATS.forEach(function (cat) {
       ok('1 ' + tag + ' has question text', typeof q.question === 'string' && q.question.length > 0);
       ok('1 ' + tag + ' category tag', q.category === cat);
       var isNum = typeof q.answer === 'number';
-      if (isNum) ok('1 ' + tag + ' finite non-negative numeric answer', isFinite(q.answer) && q.answer >= 0);
+      /* Slopes are the one legitimately-negative answer (a downward line); everything else stays non-negative. */
+      var negOk = cat === 'coordinate-geometry-basics' && String(q.subtype).split(':')[1] === 'slope';
+      if (isNum) ok('1 ' + tag + ' finite ' + (negOk ? '' : 'non-negative ') + 'numeric answer', isFinite(q.answer) && (negOk || q.answer >= 0));
       else ok('1 ' + tag + ' non-empty string answer', typeof q.answer === 'string' && q.answer.length > 0);
       if (q.options) { ok('1 ' + tag + ' options include answer', q.options.indexOf(String(q.answer)) !== -1); ok('1 ' + tag + ' options distinct', q.options.length === q.options.filter(function (o, k) { return q.options.indexOf(o) === k; }).length); }
 

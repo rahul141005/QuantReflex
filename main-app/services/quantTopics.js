@@ -26,7 +26,8 @@
     'number-properties': 'Number Properties',
     'linear-equations': 'Linear Equations', 'quadratic-equations': 'Quadratic Equations',
     'surds-indices': 'Surds & Indices', logarithms: 'Logarithms', progressions: 'Progressions (AP & GP)',
-    'inequalities-modulus': 'Inequalities & Modulus'
+    'inequalities-modulus': 'Inequalities & Modulus',
+    'geometry-basics': 'Geometry Basics', 'coordinate-geometry-basics': 'Coordinate Geometry'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

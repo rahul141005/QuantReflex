@@ -9,12 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.88 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.89 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.89 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch E-a): open the Geometry category
+> (ADR-083).** New `geometry` Learn category (order 45) plus two gold-standard, diagram-free topics — **geometry-basics**
+> (angle relations / triangle angle-sum & isosceles / Pythagoras via triples / polygon angles) and
+> **coordinate-geometry-basics** (distance / midpoint / slope / section formula) — each with an archetype generator
+> (earned difficulty + premium explanations) AND a full Learn chapter. Coordinates are kept non-negative so the
+> sign-stripping recompute harness stays exact; slope is the one allowed-negative answer. Harness independently
+> recomputes every archetype (Pythagoras, distance, section formula) — **90,515 assertions, 0 mismatches**; Learn graph
+> 51→53 topics; subjects roster 27→29. SW v174→v175.
+>
 > **2.88 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch D-b): complete the Algebra category
 > (ADR-083).** Three more gold-standard algebra topics — **logarithms** (evaluate / product-rule / power-rule /
 > solve-for-x), **progressions** (AP nth-term & sum, GP nth-term & sum) and **inequalities-modulus** (smallest-integer

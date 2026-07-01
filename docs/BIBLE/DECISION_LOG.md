@@ -56,6 +56,14 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch E-a) — open the Geometry category:** a NEW `geometry` Learn category (subject: quant, order 45)
+  plus two diagram-free topics — **geometry-basics** (angles, triangle angle-sum, Pythagoras via triples, polygon
+  angles) and **coordinate-geometry-basics** (distance, midpoint, slope, section). Generator + Learn chapter + harness
+  each. Coordinates are generated non-negative so the sign-stripping `nums()` recompute stays exact; slope is the one
+  archetype whose answer may be negative (harness exempts it from the non-negative assertion). Pythagorean triples keep
+  distance/hypotenuse answers integer. Harness **90,515 assertions, 0 mismatches**; Learn graph 51→53; subjects roster
+  27→29. SW v174→v175, Bible 2.88→2.89. *(Geometry ships numeric/formula-only — full plane-geometry proofs,
+  constructions and graph-plotting remain excluded per the ADR-083 scope, as they need figures.)*
 - **Phase 3 (batch D-b) — complete the Algebra category:** three more fully-packaged topics — **logarithms**,
   **progressions** (AP & GP), **inequalities-modulus** — generator + Learn chapter + harness each. Log stems use
   ASCII-readable bases ("log to base 2 of 8") so the harness parses them; progression stems use a real ordinal helper

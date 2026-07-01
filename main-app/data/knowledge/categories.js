@@ -20,6 +20,7 @@
     { id: 'commercial-math', title: 'Commercial Math', icon: '🏷️', order: 30, subject: 'quant', blurb: 'Money maths: profit & loss, discounts, and simple & compound interest.' },
     { id: 'algebra', title: 'Algebra', icon: '🅰️', order: 35, subject: 'quant', blurb: 'Equations, indices, logarithms, series and inequalities — the symbolic core of quant.' },
     { id: 'modern-math', title: 'Modern Math', icon: '🃏', order: 40, subject: 'quant', blurb: 'Counting and chance — probability and combinatorics.' },
+    { id: 'geometry', title: 'Geometry', icon: '🔺', order: 45, subject: 'quant', blurb: 'Angles, triangles, polygons, coordinates and trigonometry — geometry as formulas, not figures.' },
     { id: 'mensuration', title: 'Mensuration', icon: '📏', order: 50, subject: 'quant', blurb: 'Area and volume of the standard 2D and 3D shapes.' }
   ];
 

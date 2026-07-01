@@ -538,6 +538,41 @@ var _INEQ_ARCH = {
 var _INEQ_PRIMARY = { easy: function () { return _countRange(); }, medium: function () { return _modLarger(); }, hard: function () { return _modIneqCount(); } };
 function genInequalities() { return _genArch('inequalities-modulus', _INEQ_ARCH, _INEQ_PRIMARY); }
 
+/* ═══════════════════════════ ADR-083 Phase 3E — Geometry generators ═══════════════════════════ */
+
+var _PYTH = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [8, 15, 17], [9, 12, 15], [7, 24, 25], [20, 21, 29], [10, 24, 26], [9, 40, 41], [12, 16, 20]];
+
+/** Geometry Basics (archetypes: angle relations · triangle angle-sum & isosceles · Pythagoras · polygon angles). */
+function _geoComplement() { var a = randInt(10, 80); return { q: 'What is the complement of an angle of ' + a + '°?', a: 90 - a, k: 'complement', explain: 'Complementary angles sum to 90°, so the complement = 90° − ' + a + '° = ' + (90 - a) + '°.' }; }
+function _geoSupplement() { var a = randInt(20, 160); return { q: 'What is the supplement of an angle of ' + a + '°?', a: 180 - a, k: 'supplement', explain: 'Supplementary angles sum to 180°, so the supplement = 180° − ' + a + '° = ' + (180 - a) + '°.' }; }
+function _geoThird() { var a = randInt(30, 90), b = randInt(30, 150 - a); return { q: 'Two angles of a triangle are ' + a + '° and ' + b + '°. Find the third angle.', a: 180 - a - b, k: 'triangleThird', explain: 'Angles of a triangle sum to 180°, so the third = 180° − ' + a + '° − ' + b + '° = ' + (180 - a - b) + '°.' }; }
+function _geoIsosceles() { var v = pick([20, 30, 40, 50, 70, 80, 100]); return { q: 'An isosceles triangle has a vertex (apex) angle of ' + v + '°. Find each base angle.', a: (180 - v) / 2, k: 'isosceles', explain: 'The two base angles are equal and the three sum to 180°: each = (180° − ' + v + '°)/2 = ' + ((180 - v) / 2) + '°.' }; }
+function _geoPythHyp() { var t = pick(_PYTH); return { q: 'A right-angled triangle has legs ' + t[0] + ' and ' + t[1] + '. Find the hypotenuse.', a: t[2], k: 'pythHyp', explain: 'Hypotenuse = √(' + t[0] + '² + ' + t[1] + '²) = √(' + (t[0] * t[0]) + ' + ' + (t[1] * t[1]) + ') = √' + (t[2] * t[2]) + ' = ' + t[2] + '.' }; }
+function _geoPythLeg() { var t = pick(_PYTH); return { q: 'A right-angled triangle has hypotenuse ' + t[2] + ' and one leg ' + t[1] + '. Find the other leg.', a: t[0], k: 'pythLeg', explain: 'Other leg = √(' + t[2] + '² − ' + t[1] + '²) = √(' + (t[2] * t[2]) + ' − ' + (t[1] * t[1]) + ') = √' + (t[0] * t[0]) + ' = ' + t[0] + '.' }; }
+function _geoPolygonSum() { var n = pick([5, 6, 7, 8, 9, 10, 12]); return { q: 'Find the sum of the interior angles of a polygon with ' + n + ' sides.', a: (n - 2) * 180, k: 'polygonSum', explain: 'Sum of interior angles = (n − 2) × 180° = (' + n + ' − 2) × 180° = ' + ((n - 2) * 180) + '°.' }; }
+function _geoPolygonEach() { var n = pick([3, 4, 5, 6, 8, 9, 10, 12]); return { q: 'Find each interior angle of a regular polygon with ' + n + ' sides.', a: (n - 2) * 180 / n, k: 'polygonEach', explain: 'Each interior angle = (n − 2) × 180° / n = ' + ((n - 2) * 180) + '° / ' + n + ' = ' + ((n - 2) * 180 / n) + '°.' }; }
+var _GEO_ARCH = {
+  easy: [{ k: 'complement', skill: 'formula', build: function () { return _geoComplement(); } }, { k: 'supplement', skill: 'formula', build: function () { return _geoSupplement(); } }, { k: 'triangleThird', skill: 'formula', build: function () { return _geoThird(); } }],
+  medium: [{ k: 'triangleThird', skill: 'formula', build: function () { return _geoThird(); } }, { k: 'pythHyp', skill: 'multi-step', build: function () { return _geoPythHyp(); } }, { k: 'isosceles', skill: 'multi-step', build: function () { return _geoIsosceles(); } }],
+  hard: [{ k: 'pythLeg', skill: 'multi-step', build: function () { return _geoPythLeg(); } }, { k: 'polygonSum', skill: 'formula', build: function () { return _geoPolygonSum(); } }, { k: 'polygonEach', skill: 'multi-step', build: function () { return _geoPolygonEach(); } }]
+};
+var _GEO_PRIMARY = { easy: function () { return _geoThird(); }, medium: function () { return _geoPythHyp(); }, hard: function () { return _geoPolygonSum(); } };
+function genGeometryBasics() { return _genArch('geometry-basics', _GEO_ARCH, _GEO_PRIMARY); }
+
+/** Coordinate Geometry Basics (archetypes: distance · midpoint x-coord · slope · section-formula x-coord). */
+/* Coordinates kept NON-NEGATIVE so the recompute harness (which strips signs) reads them correctly; slope answers may still be negative. */
+function _cgDistance() { var t = pick(_PYTH), x1 = randInt(0, 6), y1 = randInt(0, 6), x2 = x1 + t[0], y2 = y1 + t[1]; return { q: 'Find the distance between the points (' + x1 + ', ' + y1 + ') and (' + x2 + ', ' + y2 + ').', a: t[2], k: 'distance', explain: 'Distance = √[(Δx)² + (Δy)²] = √[' + t[0] + '² + ' + t[1] + '²] = √' + (t[2] * t[2]) + ' = ' + t[2] + '.' }; }
+function _cgMidpoint() { var x1 = randInt(0, 12), x2 = x1 + 2 * randInt(1, 8), y1 = randInt(0, 12), y2 = y1 + 2 * randInt(1, 8); return { q: 'Find the x-coordinate of the midpoint of (' + x1 + ', ' + y1 + ') and (' + x2 + ', ' + y2 + ').', a: (x1 + x2) / 2, k: 'midpointX', explain: 'Midpoint x = (x₁ + x₂)/2 = (' + x1 + ' + ' + x2 + ')/2 = ' + ((x1 + x2) / 2) + '.' }; }
+function _cgSlope() { for (var t = 0; t < 30; t++) { var x1 = randInt(0, 6), dx = randInt(1, 6), x2 = x1 + dx, m = randInt(1, 5) * pick([1, -1]), y1 = randInt(0, 12), y2 = y1 + m * dx; if (y2 < 0) continue; return { q: 'Find the slope of the line joining (' + x1 + ', ' + y1 + ') and (' + x2 + ', ' + y2 + ').', a: (y2 - y1) / (x2 - x1), k: 'slope', explain: 'Slope = (y₂ − y₁)/(x₂ − x₁) = (' + (y2 - y1) + ')/(' + (x2 - x1) + ') = ' + ((y2 - y1) / (x2 - x1)) + '.' }; } return null; }
+function _cgSection() { for (var t = 0; t < 30; t++) { var x1 = randInt(0, 8), x2 = randInt(2, 14), m = randInt(1, 4), n = randInt(1, 4), y1 = randInt(0, 8), y2 = randInt(2, 14), x = (m * x2 + n * x1) / (m + n); if (m !== n && x === Math.floor(x)) return { q: 'Point P divides the line joining (' + x1 + ', ' + y1 + ') and (' + x2 + ', ' + y2 + ') internally in the ratio ' + m + ':' + n + '. Find the x-coordinate of P.', a: x, k: 'sectionX', explain: 'Section formula: x = (m·x₂ + n·x₁)/(m + n) = (' + m + '·' + x2 + ' + ' + n + '·' + x1 + ')/(' + m + ' + ' + n + ') = ' + x + '.' }; } return null; }
+var _CG_ARCH = {
+  easy: [{ k: 'distance', skill: 'formula', build: function () { return _cgDistance(); } }, { k: 'midpointX', skill: 'direct', build: function () { return _cgMidpoint(); } }],
+  medium: [{ k: 'distance', skill: 'formula', build: function () { return _cgDistance(); } }, { k: 'slope', skill: 'formula', build: function () { return _cgSlope(); } }, { k: 'midpointX', skill: 'direct', build: function () { return _cgMidpoint(); } }],
+  hard: [{ k: 'slope', skill: 'formula', build: function () { return _cgSlope(); } }, { k: 'distance', skill: 'formula', build: function () { return _cgDistance(); } }, { k: 'sectionX', skill: 'multi-step', build: function () { return _cgSection(); } }]
+};
+var _CG_PRIMARY = { easy: function () { return _cgMidpoint(); }, medium: function () { return _cgDistance(); }, hard: function () { return _cgSlope(); } };
+function genCoordinateGeometry() { return _genArch('coordinate-geometry-basics', _CG_ARCH, _CG_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -566,7 +601,9 @@ var categoryGenerators = {
   'surds-indices': genSurdsIndices,
   logarithms: genLogarithms,
   progressions: genProgressions,
-  'inequalities-modulus': genInequalities
+  'inequalities-modulus': genInequalities,
+  'geometry-basics': genGeometryBasics,
+  'coordinate-geometry-basics': genCoordinateGeometry
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -623,7 +660,8 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership,
   genAges, genMixtures, genPipes, genNumberProperties,
   genLinearEquations, genQuadraticEquations, genSurdsIndices,
-  genLogarithms, genProgressions, genInequalities];
+  genLogarithms, genProgressions, genInequalities,
+  genGeometryBasics, genCoordinateGeometry];
 
 /**
  * Generate a single random question.

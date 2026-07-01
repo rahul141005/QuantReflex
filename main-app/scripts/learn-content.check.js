@@ -27,6 +27,7 @@ require(p('data/knowledge/arithmetic'));
 require(p('data/knowledge/commercial'));
 require(p('data/knowledge/algebra'));   // ADR-083 Phase 3D: Algebra Learn content
 require(p('data/knowledge/modern'));
+require(p('data/knowledge/geometry'));  // ADR-083 Phase 3E: Geometry Learn content
 require(p('data/knowledge/mensuration'));
 require(p('data/knowledge/di'));   // ADR-074: Data Interpretation Learn content
 require(p('data/knowledge/lr'));   // ADR-075: Logical Reasoning Learn content
@@ -45,7 +46,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   var errs = KB.validateAll();
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
-  ok('1 fifty-one topics registered (25 Quant + 6 DI + 20 LR)', KB.count() === 51);
+  ok('1 fifty-three topics registered (27 Quant + 6 DI + 20 LR)', KB.count() === 53);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
@@ -72,7 +73,7 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   eq('3 mensuration topicCount', byId.mensuration && byId.mensuration.topicCount, 2);
   eq('3 di-charts topicCount', byId['di-charts'] && byId['di-charts'].topicCount, 6);
   eq('3 lr-reasoning topicCount', byId['lr-reasoning'] && byId['lr-reasoning'].topicCount, 20);
-  eq('3 published gold-standard count = 51', KB.all().filter(function (t) { return t.status === 'published'; }).length, 51);
+  eq('3 published gold-standard count = 53', KB.all().filter(function (t) { return t.status === 'published'; }).length, 53);
   var order = cats.map(function (c) { return c.id; });
   ok('3 category order quant…<di-charts<lr-reasoning',
     order.indexOf('mensuration') < order.indexOf('di-charts') && order.indexOf('di-charts') < order.indexOf('lr-reasoning'));
@@ -82,9 +83,9 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
 (function () {
   var known = {}; SUB.subjects().forEach(function (s) { known[s.id] = 1; });
   KB.categories().forEach(function (c) { ok('3b ' + c.id + ' declares a known subject', !!c.subject && !!known[c.subject]); });
-  eq('3b categoriesBySubject(quant) = the six Quant categories in order', KB.categoriesBySubject('quant'),
-    ['numbers', 'arithmetic', 'commercial-math', 'algebra', 'modern-math', 'mensuration']);
-  eq('3b bySubject(quant) covers all 25 Quant topics', KB.bySubject('quant').length, 25);
+  eq('3b categoriesBySubject(quant) = the seven Quant categories in order', KB.categoriesBySubject('quant'),
+    ['numbers', 'arithmetic', 'commercial-math', 'algebra', 'modern-math', 'geometry', 'mensuration']);
+  eq('3b bySubject(quant) covers all 27 Quant topics', KB.bySubject('quant').length, 27);
   eq('3b categoriesBySubject(di) = [di-charts]', KB.categoriesBySubject('di'), ['di-charts']);
   eq('3b bySubject(di) covers all 6 DI topics', KB.bySubject('di').length, 6);
   eq('3b categoriesBySubject(lr) = [lr-reasoning]', KB.categoriesBySubject('lr'), ['lr-reasoning']);
