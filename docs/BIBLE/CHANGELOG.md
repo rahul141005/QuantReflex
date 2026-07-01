@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch B: arithmetic practice orphans (ADR-083)
+
+Close the remaining arithmetic Learn↔Practice orphans with production-grade generators. Full suite green.
+
+```
+### feat/quant(ADR-083): ages, mixtures-alligations, pipes-and-cisterns generators
+- js/questions.js: genAges (ratio-sum / age-difference-multiple / father-son-multiple), genMixtures (alligation-ratio
+  [string] / mean-price / alligation-quantity), genPipes (two-inlets-together / inlet-outlet net-fill). Archetype
+  pools, earned difficulty, premium explanations, exam-authentic wording, realistic magnitudes.
+- Wired: categoryGenerators + random pool + quantTopics CATEGORY_LABELS. drillCategory set on the ages,
+  mixtures-alligations and pipes-and-cisterns Learn topics; pipes' `drillComingSoon` flag removed (real bank now ships).
+- scripts/quant-engine.check.js: TIER_KEYS + recompute for the 3 (62,155 passed, 0 mismatches). subjects.check 17→20.
+```
+
+Verification: `npm test` exit 0 (quant-engine 62,155/0; subjects 105/0; learn-content 431/0); browser boot clean
+(20 quant categories, generators work, 0 page errors); samples spot-checked correct + realistic. **Docs:** DECISION_LOG
+ADR-083 (Phase 3B), VERSIONS 2.84→2.85, this entry. **SW** v170→v171.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch A: commercial-math orphans + Phase 1-2 verification (ADR-083)
 
 Independent Phase 1-2 regression audit (clean) + two prep fixes, then the first Phase-3 coverage batch. Node duel path

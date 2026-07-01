@@ -19,7 +19,7 @@ function ok(label, cond) { if (cond) pass++; else { fail++; if (++shownFail <= 2
 var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
-  'simple-interest', 'compound-interest', 'partnership'];
+  'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -39,7 +39,10 @@ var TIER_KEYS = {
   fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracToPct', 'pctToFrac'] },
   'simple-interest': { easy: ['si'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal', 'amount', 'si'] },
   'compound-interest': { easy: ['amount'], medium: ['amount', 'ci'], hard: ['ci', 'ciSiDiff', 'amount'] },
-  partnership: { easy: ['share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] }
+  partnership: { easy: ['share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] },
+  ages: { easy: ['ratioSum'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
+  mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty', 'alligationRatio'] },
+  'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'together'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -102,7 +105,20 @@ function recompute(cat, key, text) {
     if (key === 'share2') return n[2] * n[0] / (n[0] + n[1]);
     if (key === 'shareTime') return n[4] * (n[0] * n[1]) / (n[0] * n[1] + n[2] * n[3]);
   }
-  return null;   /* fractions (string), ratios pctRatio/combine (string) */
+  if (cat === 'ages') {
+    if (key === 'ratioSum') return n[0] / (n[0] + n[1]) * n[2];                 /* ratio a:b, sum S → a/(a+b)·S */
+    if (key === 'ageDiff') return (n[0] - (n[2] - 1) * n[1]) / (n[2] - 1);      /* "A is x older; in t yrs A = m×B" */
+    if (key === 'fatherSon') return n[1] * (n[2] - 1) / (n[0] - n[2]);          /* "father N×; in t yrs M×" → t(M−1)/(N−M) */
+  }
+  if (cat === 'mixtures') {
+    if (key === 'meanPrice') return (n[0] * n[1] + n[2] * n[3]) / (n[0] + n[2]);
+    if (key === 'alligationQty') return n[1] * (n[2] - n[3]) / (n[3] - n[0]);   /* "at ₹a, y kg at ₹b, mixture ₹m" */
+  }
+  if (cat === 'pipes-cisterns') {
+    if (key === 'together') return n[0] * n[1] / (n[0] + n[1]);
+    if (key === 'netFill') return n[0] * n[1] / (n[1] - n[0]);
+  }
+  return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }
 
 /* ── 1. structural sweep over all 14 categories × 3 difficulties ── */

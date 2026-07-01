@@ -198,10 +198,9 @@
     {
       id: 'pipes-and-cisterns', title: 'Pipes & Cisterns', icon: '🚰', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      // No dedicated Pipes & Cisterns drill exists yet, and reusing the 'time-and-work' bank would launch the WRONG
-      // questions — so Practice is intentionally pending (drillComingSoon) rather than misleading. Restore a real
-      // drillCategory once a dedicated pipes bank ships.
-      drillCategory: null, drillComingSoon: true, syllabusTopicId: 'pipes_cisterns', revisionIntervalDays: 6,
+      // ADR-083: a dedicated Pipes & Cisterns generator now ships (two-inlets-together + inlet/outlet net-fill), so the
+      // topic is fully drillable — drillComingSoon retired.
+      drillCategory: 'pipes-cisterns', syllabusTopicId: 'pipes_cisterns', revisionIntervalDays: 6,
       related: ['time-and-work'],
       searchTerms: ['pipe', 'cistern', 'tank', 'inlet', 'outlet', 'leak', 'fill', 'empty', 'drain'],
       sections: [
@@ -290,7 +289,7 @@
     {
       id: 'ages', title: 'Problems on Ages', icon: '🎂', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      drillCategory: null, syllabusTopicId: 'ages', revisionIntervalDays: 6,
+      drillCategory: 'ages', syllabusTopicId: 'ages', revisionIntervalDays: 6,
       related: ['ratio-proportion', 'averages'],
       searchTerms: ['age', 'ages', 'years', 'present age', 'years ago', 'years hence', 'elder', 'younger'],
       sections: [
@@ -335,7 +334,7 @@
     {
       id: 'mixtures-alligations', title: 'Mixtures & Alligations', icon: '🧪', category: 'arithmetic',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      drillCategory: null, syllabusTopicId: 'mixtures', revisionIntervalDays: 6,
+      drillCategory: 'mixtures', syllabusTopicId: 'mixtures', revisionIntervalDays: 6,
       related: ['ratio-proportion', 'averages'],
       searchTerms: ['mixture', 'alligation', 'replacement', 'milk water', 'dilution', 'cheaper dearer', 'blend', 'ratio'],
       sections: [

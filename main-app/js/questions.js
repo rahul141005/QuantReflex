@@ -393,6 +393,49 @@ var _PART_PRIMARY = {
 };
 function genPartnership() { return _genArch('partnership', _PART_ARCH, _PART_PRIMARY); }
 
+/** Problems on Ages (archetypes: ratio-sum · age-difference-multiple · father-son-multiple). */
+function _ageRatioSum(diff) { var pr = pick([[2, 3], [3, 4], [3, 5], [4, 5], [5, 7], [4, 7], [5, 6], [2, 5]]), k = randInt(diff === 'easy' ? 3 : 5, diff === 'hard' ? 14 : 10), S = (pr[0] + pr[1]) * k; return { q: 'The present ages of A and B are in the ratio ' + pr[0] + ' : ' + pr[1] + '. If the sum of their ages is ' + S + ' years, the present age of A = ? years', a: pr[0] * k, k: 'ratioSum', explain: 'Let the ages be ' + pr[0] + 'x and ' + pr[1] + 'x. Then (' + pr[0] + ' + ' + pr[1] + ')x = ' + S + ' → x = ' + k + '. A = ' + pr[0] + 'x = ' + (pr[0] * k) + ' years.' }; }
+function _ageDiff() { for (var i = 0; i < 40; i++) { var mult = pick([2, 3]), t = pick([2, 4, 5, 6]), x = pick([4, 6, 8, 10, 12, 15, 18, 20]); var B = (x - (mult - 1) * t) / (mult - 1); if (B === Math.floor(B) && B >= 2 && B <= 60) return { q: 'A is ' + x + ' years older than B. In ' + t + ' years, A will be ' + mult + ' times as old as B. B’s present age = ? years', a: B, k: 'ageDiff', explain: 'A = B + ' + x + '. In ' + t + ' years: (B + ' + x + ' + ' + t + ') = ' + mult + '(B + ' + t + ') → B = ' + B + ' years.' }; } return null; }
+function _ageFatherSon() { for (var i = 0; i < 40; i++) { var n = pick([3, 4, 5, 6]), m = pick([2, 3]), t = pick([4, 5, 6, 8, 10]); if (n <= m) continue; var num = t * (m - 1), den = n - m; if (num % den !== 0) continue; var s = num / den; if (s < 2 || s > 55) continue; return { q: 'A father is now ' + n + ' times as old as his son. In ' + t + ' years he will be ' + m + ' times as old as his son. The son’s present age = ? years', a: s, k: 'fatherSon', explain: 'Let son = s, father = ' + n + 's. In ' + t + ' years: ' + n + 's + ' + t + ' = ' + m + '(s + ' + t + ') → s = ' + t + '(' + m + '−1)/(' + n + '−' + m + ') = ' + s + ' years.' }; } return null; }
+var _AGE_ARCH = {
+  easy: [{ k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }],
+  medium: [{ k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }, { k: 'ageDiff', skill: 'multi-step', build: function () { return _ageDiff(); } }],
+  hard: [{ k: 'ageDiff', skill: 'multi-step', build: function () { return _ageDiff(); } }, { k: 'fatherSon', skill: 'multi-step', build: function () { return _ageFatherSon(); } }, { k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }]
+};
+var _AGE_PRIMARY = { easy: function () { return _ageRatioSum('easy'); }, medium: function () { return _ageRatioSum('medium'); }, hard: function () { return _ageRatioSum('hard'); } };
+function genAges() { return _genArch('ages', _AGE_ARCH, _AGE_PRIMARY); }
+
+/** Mixtures & Alligations (archetypes: alligation-ratio [string] · mean-price · alligation-quantity). */
+function _mixRatio() { for (var i = 0; i < 40; i++) { var a = pick([20, 24, 25, 30, 36, 40]), b = pick([40, 45, 48, 50, 54, 60]); if (b <= a + 3) continue; var m = randInt(a + 2, b - 2), lo = b - m, hi = m - a; if (lo <= 0 || hi <= 0) continue; var g = _gcd(lo, hi); return { q: 'In what ratio must rice at ₹' + a + ' per kg be mixed with rice at ₹' + b + ' per kg so that the mixture is worth ₹' + m + ' per kg?', a: (lo / g) + ':' + (hi / g), k: 'alligationRatio', explain: 'By alligation, cheaper : dearer = (dearer − mean) : (mean − cheaper) = (' + b + '−' + m + ') : (' + m + '−' + a + ') = ' + lo + ' : ' + hi + ' = ' + (lo / g) + ' : ' + (hi / g) + '.' }; } return null; }
+function _mixMean() { for (var i = 0; i < 30; i++) { var x = pick([2, 3, 4, 5, 6, 8, 10]), y = pick([2, 3, 4, 5, 6, 8, 10]), a = pick([20, 25, 30, 40, 50]), b = pick([30, 40, 50, 60, 70, 80]); if (a === b) continue; var mean = (a * x + b * y) / (x + y); if (mean === Math.floor(mean)) return { q: '' + x + ' kg of rice at ₹' + a + ' per kg is mixed with ' + y + ' kg of rice at ₹' + b + ' per kg. The average price of the mixture = ₹? per kg', a: mean, k: 'meanPrice', explain: 'Average = total cost ÷ total weight = (' + x + '×' + a + ' + ' + y + '×' + b + ') ÷ (' + x + '+' + y + ') = ' + (a * x + b * y) + ' ÷ ' + (x + y) + ' = ₹' + mean + '.' }; } return null; }
+function _mixQty() { for (var i = 0; i < 40; i++) { var a = pick([20, 24, 25, 30]), b = pick([40, 45, 48, 50, 60]); if (b <= a + 3) continue; var m = randInt(a + 2, b - 2), y = pick([4, 5, 6, 8, 10, 12]), lo = b - m, hi = m - a, x = y * lo / hi; if (x === Math.floor(x) && x >= 1 && x <= 60) return { q: 'In what quantity (in kg) must rice at ₹' + a + ' per kg be mixed with ' + y + ' kg of rice at ₹' + b + ' per kg so that the mixture is worth ₹' + m + ' per kg?', a: x, k: 'alligationQty', explain: 'By alligation, cheaper : dearer = (' + b + '−' + m + ') : (' + m + '−' + a + ') = ' + lo + ' : ' + hi + '. Cheaper quantity = ' + y + ' × ' + lo + '/' + hi + ' = ' + x + ' kg.' }; } return null; }
+var _MIX_ARCH = {
+  easy: [{ k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }],
+  medium: [{ k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }, { k: 'meanPrice', skill: 'direct', build: function () { return _mixMean(); } }],
+  hard: [{ k: 'meanPrice', skill: 'direct', build: function () { return _mixMean(); } }, { k: 'alligationQty', skill: 'multi-step', build: function () { return _mixQty(); } }, { k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }]
+};
+var _MIX_PRIMARY = {
+  easy: function () { return { q: 'In what ratio must rice at ₹20 per kg be mixed with rice at ₹30 per kg so that the mixture is worth ₹24 per kg?', a: '3:2', k: 'alligationRatio', explain: '(30−24) : (24−20) = 6 : 4 = 3 : 2.' }; },
+  medium: function () { return { q: 'In what ratio must rice at ₹20 per kg be mixed with rice at ₹30 per kg so that the mixture is worth ₹24 per kg?', a: '3:2', k: 'alligationRatio', explain: '(30−24) : (24−20) = 3 : 2.' }; },
+  hard: function () { return { q: '4 kg of rice at ₹20 per kg is mixed with 6 kg of rice at ₹30 per kg. The average price of the mixture = ₹? per kg', a: 26, k: 'meanPrice', explain: '(4×20 + 6×30)/(4+6) = 260/10 = ₹26.' }; }
+};
+function genMixtures() { return _genArch('mixtures', _MIX_ARCH, _MIX_PRIMARY); }
+
+/** Pipes & Cisterns (archetypes: two-inlets-together · inlet+outlet net fill). Rate thinking, like Time & Work. */
+function _pipeTogether(diff) { for (var i = 0; i < 40; i++) { var a = pick(diff === 'easy' ? [2, 3, 4, 6] : [4, 5, 6, 8, 10, 12, 15]), b = pick([6, 8, 10, 12, 15, 20, 24]); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'Pipe A fills a tank in ' + a + ' hours and pipe B fills it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (a + b), k: 'together', explain: 'Combined time = (A × B)/(A + B) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + ((a * b) / (a + b)) + ' hours — add the rates 1/' + a + ' + 1/' + b + '.' }; } return null; }
+function _pipeNet() { for (var i = 0; i < 40; i++) { var a = pick([4, 5, 6, 8, 10, 12]), b = pick([12, 15, 20, 24, 30, 40]); if (b <= a) continue; if ((a * b) % (b - a) === 0) return { q: 'An inlet pipe fills a tank in ' + a + ' hours while an outlet pipe empties it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (b - a), k: 'netFill', explain: 'Net rate = 1/' + a + ' − 1/' + b + '; time = (A × B)/(B − A) = (' + a + ' × ' + b + ')/(' + b + ' − ' + a + ') = ' + ((a * b) / (b - a)) + ' hours.' }; } return null; }
+var _PIPE_ARCH = {
+  easy: [{ k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }],
+  medium: [{ k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }, { k: 'netFill', skill: 'multi-step', build: function () { return _pipeNet(); } }],
+  hard: [{ k: 'netFill', skill: 'multi-step', build: function () { return _pipeNet(); } }, { k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }]
+};
+var _PIPE_PRIMARY = {
+  easy: function () { return { q: 'Pipe A fills a tank in 6 hours and pipe B fills it in 3 hours. If both are opened together, the tank fills in ? hours', a: 2, k: 'together', explain: '(6×3)/(6+3) = 18/9 = 2 hours.' }; },
+  medium: function () { return { q: 'Pipe A fills a tank in 6 hours and pipe B fills it in 3 hours. If both are opened together, the tank fills in ? hours', a: 2, k: 'together', explain: '(6×3)/(6+3) = 2 hours.' }; },
+  hard: function () { return { q: 'An inlet pipe fills a tank in 6 hours while an outlet pipe empties it in 12 hours. If both are opened together, the tank fills in ? hours', a: 12, k: 'netFill', explain: 'Time = (6×12)/(12−6) = 72/6 = 12 hours.' }; }
+};
+function genPipes() { return _genArch('pipes-cisterns', _PIPE_ARCH, _PIPE_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -411,7 +454,10 @@ var categoryGenerators = {
   'time-and-work': genTimeWork,
   'simple-interest': genSimpleInterest,
   'compound-interest': genCompoundInterest,
-  partnership: genPartnership
+  partnership: genPartnership,
+  ages: genAges,
+  mixtures: genMixtures,
+  'pipes-cisterns': genPipes
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -465,7 +511,8 @@ function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
 
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
-  genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership];
+  genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership,
+  genAges, genMixtures, genPipes];
 
 /**
  * Generate a single random question.

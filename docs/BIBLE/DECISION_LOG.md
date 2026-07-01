@@ -50,6 +50,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   explanations, exam-authentic ₹ wording, realistic magnitudes. Registered in `categoryGenerators` + `quantTopics` +
   the random pool; set each Learn topic's `drillCategory` (Learn↔Practice parity); harness recomputes all three
   (**52,956 assertions, ~7,000 recomputed, 0 mismatches**). subjects roster 14→17. SW v169→v170, Bible 2.83→2.84.
+- **Phase 3 (batch B) — close the arithmetic practice orphans:** new generators for **ages** (ratio-sum / age-difference
+  / father-son multiple), **mixtures-alligations** (alligation-ratio / mean-price / alligation-quantity) and
+  **pipes-and-cisterns** (two-inlets-together / inlet-outlet net-fill) — pipes' `drillComingSoon` flag retired now that a
+  real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
+  archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
+  2.84→2.85.
 
 ## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
 - **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the
