@@ -17,6 +17,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 4 — generator scenario/name diversity:** the shared `NAMES`/`ITEMS`/`twoNames()`/`item()` pools in
+  `generative-helpers.js` were built in ADR-083 but **never used** — every word problem hardcoded "A and B" / one fixed
+  context, so drills felt templated over a long session. Wired named characters + expanded context pools into the
+  word-problem generators: **partnership**, **ages** (ratio-sum + age-difference), **ratios** (divide), **mixtures**
+  (8 commodities), **trigonometry** height (7 structures), **set-theory** (14 context pairs). **Recompute-safe** —
+  names/items carry no digits so `nums()`-based recompute is byte-identical (harness still 113,050/0). Verified: 20
+  distinct names surface across partnership/ages samples; commodities/structures/contexts all vary. SW v183→v184.
 - **Batch 2b — personalization + favourites:** the picker gained a **"For You" strip** built entirely from existing
   signals (no new Firestore): **Recommended** (exam-relevance `weightedCategories` for the active exam / overall
   priority), **Continue** (`LearnProgress.recent()` → drillCategory), **Recently practised** (a small localStorage list

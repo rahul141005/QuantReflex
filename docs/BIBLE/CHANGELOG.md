@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 4: generator scenario/name diversity
+
+Wire the shared name/item/context pools into the word-problem generators so drills stop feeling templated.
+
+```
+### feat/quant(ADR-084): generator scenario + name diversity
+- js/questions.js: added _two()/_one() bridges to QRGen.twoNames()/name(); wired _two() into partnership (_pShare,
+  _pShareTime), ages (_ageRatioSum, _ageDiff), ratios (_ratDivide) so two-actor stems draw from the 20-name pool
+  instead of "A and B". Commodity variety in mixtures (_mixRatio/_mixMean/_mixQty via _MIX_ITEMS); structure variety
+  in trigonometry height (_trigHeight object pool); _SET_CTX expanded 5→14 context pairs for set-theory.
+- Recompute-safe: names/items/contexts carry no digits, so nums(stem) is unchanged → answers byte-identical.
+```
+
+Verification: `node -e "require('./js/questions.js')"` loads OK; recompute harness 113,050 assertions / 0 mismatches;
+full `npm test` exit 0; sampled stems draw from 20 distinct names across partnership/ages. **Docs:** DECISION_LOG
+ADR-084 (Batch 4), VERSIONS 2.98→2.99, this entry. **SW** v183→v184.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 2b: picker personalization + favourites
 
 Add a "For You" strip and per-row favourites to the category picker, from existing signals only.
