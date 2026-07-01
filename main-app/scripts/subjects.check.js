@@ -38,10 +38,11 @@ console.log('subjects.check — Subject layer (ADR-073)');
   ok('1 unknown subject label falls back to id', SUB.label('zzz') === 'zzz');
 })();
 
-/* ── 2. every one of the 14 drill categories maps to exactly one known subject (none orphaned) ── */
+/* ── 2. every Quant drill category maps to exactly one known subject (none orphaned). Count grows as ADR-083 adds
+   topics — assert the current roster size + that all resolve to quant. ── */
 (function () {
   var cats = Object.keys(quantTopics.CATEGORY_LABELS);
-  eq('2 fourteen drill categories', cats.length, 14);
+  eq('2 quant drill categories', cats.length, 17);
   cats.forEach(function (c) { ok('2 ' + c + ' → quant', SUB.categoryToSubject(c) === 'quant'); });
 })();
 

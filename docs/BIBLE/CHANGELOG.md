@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch A: commercial-math orphans + Phase 1-2 verification (ADR-083)
+
+Independent Phase 1-2 regression audit (clean) + two prep fixes, then the first Phase-3 coverage batch. Node duel path
+preserved; full suite green.
+
+```
+### fix(ADR-083): Phase 1-2 verification prep
+- js/drill-engine.js: on a wrong answer, suppress the generic auto-tip when the question ships a written explanation —
+  it was redundant with, and its "Unlock explanations" paywall lock contradicted, the free explanation shown below.
+- js/questions.js: remove the dead `PI` constant (generators use literal 3.14).
+
+### feat/quant(ADR-083): close the commercial-math practice orphans (Learn↔Practice parity)
+- js/questions.js: new generators genSimpleInterest (find-SI/amount/find-rate/find-principal), genCompoundInterest
+  (amount/CI/CI−SI-difference), genPartnership (capital share / capital×time share) — archetype pools, earned
+  difficulty, premium explanations, exam-authentic ₹ wording, realistic magnitudes.
+- Registered in categoryGenerators + the random `generators` pool; services/quantTopics.js CATEGORY_LABELS +3;
+  data/knowledge/commercial.js: set drillCategory on simple-interest / compound-interest / partnership (were null).
+- scripts/quant-engine.check.js: TIER_KEYS + recompute for the 3 new categories. 52,956 passed, ~7,000 recomputed,
+  0 mismatches. scripts/subjects.check.js: drill-category roster assertion 14→17.
+```
+
+Verification: `npm test` exit 0 (quant-engine 52,956/0; subjects 102/0; learn-content 428/0; all suites green); browser
+boot clean (new categories generate, 0 page errors); partnership magnitudes calibrated to realistic profits. **Docs:**
+DECISION_LOG ADR-083 (verification + Phase 3A), VERSIONS 2.83→2.84, this entry. **SW** v169→v170.
+
+---
+
 ## 2026-07-01 — Quant Engine Master Overhaul, Phase 2: overhaul the remaining 9 generators (ADR-083)
 
 Bring every existing Quant generator to the DI/LR bar (Phase-1 refactored 5; this phase does the other 9). No new

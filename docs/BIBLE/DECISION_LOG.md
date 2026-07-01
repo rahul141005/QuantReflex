@@ -40,6 +40,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   (arithmetic stems re-evaluated independently; series next-term re-detected; keyed recompute elsewhere). Result:
   **43,503 assertions, 5,638 answers independently recomputed, 0 mismatches**; full suite + Node duel path green. SW
   v168→v169, Bible 2.82→2.83.
+- **Verification interlude (before Phase 3):** an independent regression audit + real-app checks confirmed Phases 1–2
+  safe (subtype `diff:key` handled by all consumers, `q.explanation` renders free/ungated, duel/Node path intact, no
+  accidental MCQ). Two prep fixes: drill-engine suppresses the generic auto-tip when a written explanation exists (it
+  was redundant, and its paywall lock sat contradictorily next to a free explanation); dropped the dead `PI` constant.
+- **Phase 3 (batch A) — close the commercial-math practice orphans:** new production-grade generators for
+  **simple-interest** (find-SI / amount / find-rate / find-principal), **compound-interest** (amount / CI / CI−SI
+  difference) and **partnership** (capital share / capital×time share) — archetype pools, earned difficulty, premium
+  explanations, exam-authentic ₹ wording, realistic magnitudes. Registered in `categoryGenerators` + `quantTopics` +
+  the random pool; set each Learn topic's `drillCategory` (Learn↔Practice parity); harness recomputes all three
+  (**52,956 assertions, ~7,000 recomputed, 0 mismatches**). subjects roster 14→17. SW v169→v170, Bible 2.83→2.84.
 
 ## ADR-082 — Learn UX polish: subject filter, squares/cubes reference, settings-row fix (2026-06-30)
 - **Context:** A craftsmanship pass on the Learn tab plus a Settings layout regression and an extension of the

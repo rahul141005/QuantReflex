@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.83 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.84 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.84 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch A): commercial-math practice orphans
+> (ADR-083).** New gold-standard generators for simple-interest, compound-interest and partnership, wired into the
+> category map + quantTopics + the Learn topics' `drillCategory` for Learn↔Practice parity. Harness recomputes all
+> three (52,956 assertions, 0 mismatches); subjects roster 14→17. Preceded by an independent Phase 1–2 regression
+> audit (clean) + two prep fixes (suppress redundant auto-tip when a written explanation exists; drop dead `PI`). SW
+> v169→v170.
+>
 > **2.83 / Arch 2.53 (2026-07-01)** — **Quant Engine Master Overhaul — Phase 2: overhaul the remaining 9 generators
 > (ADR-083).** fractions, multiplication, ratios, averages, profit-loss, time-speed-distance, time-and-work,
 > simplification and number-series now use the same per-tier archetype pools, earned difficulty, premium explanations

@@ -14,13 +14,14 @@
 (function (root) {
   'use strict';
 
-  /* The 14 canonical drillable categories. Key = drill-engine category; value = human label. */
+  /* The canonical drillable Quant categories. Key = drill-engine category; value = human label. (ADR-083 expands this.) */
   var CATEGORY_LABELS = {
     squares: 'Squares & Roots', cubes: 'Cubes & Roots', area: 'Area', volume: 'Volume',
     percentages: 'Percentages', multiplication: 'Multiplication', fractions: 'Fractions',
     averages: 'Averages', ratios: 'Ratios', 'profit-loss': 'Profit & Loss',
     'time-speed-distance': 'Time, Speed & Distance', 'time-and-work': 'Time & Work',
-    simplification: 'Simplification', 'number-series': 'Number Series'
+    simplification: 'Simplification', 'number-series': 'Number Series',
+    'simple-interest': 'Simple Interest', 'compound-interest': 'Compound Interest', partnership: 'Partnership'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

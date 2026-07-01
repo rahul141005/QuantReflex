@@ -61,7 +61,7 @@
     {
       id: 'simple-interest', title: 'Simple Interest', icon: '🏦', category: 'commercial-math',
       difficulty: 'foundation', examFrequency: 'high', status: 'published',
-      drillCategory: null, syllabusTopicId: 'interest', revisionIntervalDays: 5,
+      drillCategory: 'simple-interest', syllabusTopicId: 'interest', revisionIntervalDays: 5,
       related: ['compound-interest', 'percentages'],
       searchTerms: ['si', 'simple interest', 'principal', 'rate', 'amount', 'double', 'p r t'],
       sections: [
@@ -103,7 +103,7 @@
     {
       id: 'compound-interest', title: 'Compound Interest', icon: '💹', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: null, syllabusTopicId: 'interest', revisionIntervalDays: 5,
+      drillCategory: 'compound-interest', syllabusTopicId: 'interest', revisionIntervalDays: 5,
       related: ['simple-interest', 'percentages'],
       searchTerms: ['ci', 'compound interest', 'half yearly', 'quarterly', 'compounding', 'amount', 'ci-si'],
       sections: [
@@ -147,7 +147,7 @@
     {
       id: 'partnership', title: 'Partnership', icon: '🤝', category: 'commercial-math',
       difficulty: 'core', examFrequency: 'medium', status: 'published',
-      drillCategory: null, syllabusTopicId: 'partnership', revisionIntervalDays: 6,
+      drillCategory: 'partnership', syllabusTopicId: 'partnership', revisionIntervalDays: 6,
       related: ['ratio-proportion', 'profit-loss'],
       searchTerms: ['partnership', 'investment', 'profit share', 'capital', 'sleeping partner', 'working partner', 'capital months', 'ratio'],
       sections: [

@@ -18,7 +18,8 @@ function ok(label, cond) { if (cond) pass++; else { fail++; if (++shownFail <= 2
 
 var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
-  'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series'];
+  'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
+  'simple-interest', 'compound-interest', 'partnership'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -35,7 +36,10 @@ var TIER_KEYS = {
   'time-and-work': { easy: ['together', 'workDone'], medium: ['together', 'workDone', 'workersScale'], hard: ['together', 'workersScale', 'workDone'] },
   simplification: { easy: ['multiplyAdd'], medium: ['divideAdd', 'multiplyAdd'], hard: ['fullBodmas', 'divideAdd'] },
   'number-series': { easy: ['arithmetic', 'geometric'], medium: ['arithmetic', 'geometric', 'growingGap'], hard: ['geometric', 'growingGap', 'arithmetic'] },
-  fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracToPct', 'pctToFrac'] }
+  fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracToPct', 'pctToFrac'] },
+  'simple-interest': { easy: ['si'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal', 'amount', 'si'] },
+  'compound-interest': { easy: ['amount'], medium: ['amount', 'ci'], hard: ['ci', 'ciSiDiff', 'amount'] },
+  partnership: { easy: ['share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -86,6 +90,18 @@ function recompute(cat, key, text) {
     if (key === 'together') return n[0] * n[1] / (n[0] + n[1]); if (key === 'workDone') return n[1] * 100 / n[0]; if (key === 'workersScale') return n[0] * n[1] / n[2];
   }
   if (cat === 'number-series') return seriesNext(n.slice(0, 4));
+  if (cat === 'simple-interest') {
+    if (key === 'si') return n[0] * n[1] * n[2] / 100; if (key === 'amount') return n[0] + n[0] * n[1] * n[2] / 100;
+    if (key === 'findRate') return n[1] * 100 / (n[0] * n[2]); if (key === 'findPrincipal') return n[0] * 100 / (n[1] * n[2]);
+  }
+  if (cat === 'compound-interest') {
+    if (key === 'amount') return n[0] * Math.pow(1 + n[1] / 100, n[2]); if (key === 'ci') return n[0] * Math.pow(1 + n[1] / 100, n[2]) - n[0];
+    if (key === 'ciSiDiff') return n[0] * n[1] * n[1] / 10000;
+  }
+  if (cat === 'partnership') {
+    if (key === 'share2') return n[2] * n[0] / (n[0] + n[1]);
+    if (key === 'shareTime') return n[4] * (n[0] * n[1]) / (n[0] * n[1] + n[2] * n[3]);
+  }
   return null;   /* fractions (string), ratios pctRatio/combine (string) */
 }
 

@@ -345,6 +345,54 @@ var _NS_ARCH = {
 var _NS_PRIMARY = { easy: function () { return _nsArith('easy'); }, medium: function () { return _nsArith('medium'); }, hard: function () { return _nsGeo('hard'); } };
 function genNumberSeries() { return _genArch('number-series', _NS_ARCH, _NS_PRIMARY); }
 
+/* ═══════════════════════════ ADR-083 Phase 3 — new topic generators ═══════════════════════════ */
+
+/** Simple Interest (archetypes: find-SI · amount · find-rate · find-principal). P is a multiple of 100 → SI is clean. */
+var _SI_P = [1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000];
+function _siFind(diff) { var P = pick(_SI_P), R = pick(diff === 'easy' ? [5, 10] : (diff === 'hard' ? [4, 6, 8, 12, 15, 18] : [5, 8, 10, 12])), T = randInt(2, diff === 'hard' ? 6 : 4), si = P * R * T / 100; return { q: 'Find the simple interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years.', a: si, k: 'si', explain: 'SI = P × R × T ÷ 100 = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '.' }; }
+function _siAmount(diff) { var P = pick(_SI_P), R = pick(diff === 'hard' ? [4, 6, 8, 12, 15] : [5, 8, 10, 12]), T = randInt(2, 4), si = P * R * T / 100; return { q: 'A sum of ₹' + P + ' is lent at ' + R + '% simple interest per annum. The amount after ' + T + ' years = ₹?', a: P + si, k: 'amount', explain: 'SI = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '; Amount = P + SI = ' + P + ' + ' + si + ' = ₹' + (P + si) + '.' }; }
+function _siRate(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12, 15]), T = randInt(2, 5), si = P * R * T / 100; return { q: 'At what rate percent per annum does ₹' + P + ' yield ₹' + si + ' as simple interest in ' + T + ' years?', a: R, k: 'findRate', explain: 'R = SI × 100 ÷ (P × T) = ' + si + ' × 100 ÷ (' + P + ' × ' + T + ') = ' + R + '%.' }; }
+function _siPrincipal(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12]), T = randInt(2, 5), si = P * R * T / 100; return { q: 'A sum earns ₹' + si + ' as simple interest at ' + R + '% per annum in ' + T + ' years. Find the sum.', a: P, k: 'findPrincipal', explain: 'P = SI × 100 ÷ (R × T) = ' + si + ' × 100 ÷ (' + R + ' × ' + T + ') = ₹' + P + '.' }; }
+var _SI_ARCH = {
+  easy: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }],
+  medium: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }, { k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }],
+  hard: [{ k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }, { k: 'findPrincipal', skill: 'inverse', build: function (d) { return _siPrincipal(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }, { k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }]
+};
+var _SI_PRIMARY = { easy: function () { return _siFind('easy'); }, medium: function () { return _siFind('medium'); }, hard: function () { return _siFind('hard'); } };
+function genSimpleInterest() { return _genArch('simple-interest', _SI_ARCH, _SI_PRIMARY); }
+
+/** Compound Interest (archetypes: amount · CI · CI−SI difference). Retry-until-clean guarantees integer amounts. */
+var _CI_P = [1000, 1200, 1500, 1600, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 16000, 20000];
+function _ciAmount(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: 'Find the amount on ₹' + P + ' at ' + R + '% per annum compounded annually for ' + T + ' years.', a: A, k: 'amount', explain: 'A = P(1 + R/100)ᵀ = ' + P + ' × ' + (1 + R / 100) + (T === 2 ? '²' : '³') + ' = ₹' + A + '.' }; } return null; }
+function _ciInterest(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: 'Find the compound interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years, compounded annually.', a: A - P, k: 'ci', explain: 'A = ' + P + '(1 + ' + R + '/100)' + (T === 2 ? '²' : '³') + ' = ₹' + A + '; CI = A − P = ' + A + ' − ' + P + ' = ₹' + (A - P) + '.' }; } return null; }
+function _ciDiff() { for (var i = 0; i < 50; i++) { var R = pick([5, 10, 15, 20, 25]), P = pick([1000, 1600, 2000, 2500, 4000, 5000, 8000, 10000, 16000, 20000]), d = P * R * R / 10000; if (d === Math.floor(d)) return { q: 'The difference between the compound interest and the simple interest on ₹' + P + ' at ' + R + '% per annum for 2 years = ₹?', a: d, k: 'ciSiDiff', explain: 'For 2 years, CI − SI = P(R/100)² = ' + P + ' × (' + R + '/100)² = ₹' + d + '.' }; } return null; }
+var _CI_ARCH = {
+  easy: [{ k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }],
+  medium: [{ k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }, { k: 'ci', skill: 'direct', build: function (d) { return _ciInterest(d); } }],
+  hard: [{ k: 'ci', skill: 'direct', build: function (d) { return _ciInterest(d); } }, { k: 'ciSiDiff', skill: 'multi-step', build: function () { return _ciDiff(); } }, { k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }]
+};
+var _CI_PRIMARY = {
+  easy: function () { return { q: 'Find the amount on ₹1000 at 10% per annum compounded annually for 2 years.', a: 1210, k: 'amount', explain: 'A = 1000 × 1.1² = ₹1210.' }; },
+  medium: function () { return { q: 'Find the compound interest on ₹1000 at 10% per annum for 2 years, compounded annually.', a: 210, k: 'ci', explain: 'A = 1000 × 1.1² = ₹1210; CI = 1210 − 1000 = ₹210.' }; },
+  hard: function () { return { q: 'The difference between the compound interest and the simple interest on ₹10000 at 10% per annum for 2 years = ₹?', a: 100, k: 'ciSiDiff', explain: 'CI − SI = P(R/100)² = 10000 × (10/100)² = ₹100.' }; }
+};
+function genCompoundInterest() { return _genArch('compound-interest', _CI_ARCH, _CI_PRIMARY); }
+
+/** Partnership (archetypes: profit-share by capital · profit-share by capital×time). Profit splits in investment ratio. */
+function _pShare() { for (var i = 0; i < 40; i++) { var x = pick([2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000]), y = pick([2000, 3000, 4000, 5000, 6000, 8000, 9000, 12000]); if (x === y) continue; var g = _gcd(x, y), profit = (x + y) / g * pick([200, 300, 400, 500, 600, 700, 800, 1000]), share = profit * x / (x + y); if (share === Math.floor(share)) return { q: 'A and B start a business investing ₹' + x + ' and ₹' + y + ' respectively. Out of a total profit of ₹' + profit + ', A’s share = ₹?', a: share, k: 'share2', explain: 'Profit is shared in the ratio of investments ' + x + ' : ' + y + '. A’s share = ' + x + '/(' + x + '+' + y + ') × ' + profit + ' = ₹' + share + '.' }; } return null; }
+function _pShareTime() { for (var i = 0; i < 40; i++) { var x = pick([2, 3, 4, 5, 6]) * 1000, y = pick([2, 3, 4, 5, 6]) * 1000, m = pick([4, 6, 8, 12]), n = pick([4, 6, 8, 12]); var cx = x * m, cy = y * n; if (cx === cy) continue; var g = _gcd(cx, cy), profit = (cx + cy) / g * pick([100, 150, 200, 250, 300, 400, 500]), share = profit * cx / (cx + cy); if (share === Math.floor(share)) return { q: 'A invests ₹' + x + ' for ' + m + ' months and B invests ₹' + y + ' for ' + n + ' months. Out of a profit of ₹' + profit + ', A’s share = ₹?', a: share, k: 'shareTime', explain: 'Weight each partner by capital × time: A = ' + x + '×' + m + ' = ' + cx + ', B = ' + y + '×' + n + ' = ' + cy + '. A’s share = ' + cx + '/(' + cx + '+' + cy + ') × ' + profit + ' = ₹' + share + '.' }; } return null; }
+var _PART_ARCH = {
+  easy: [{ k: 'share2', skill: 'direct', build: function () { return _pShare(); } }],
+  medium: [{ k: 'share2', skill: 'direct', build: function () { return _pShare(); } }, { k: 'shareTime', skill: 'multi-step', build: function () { return _pShareTime(); } }],
+  hard: [{ k: 'shareTime', skill: 'multi-step', build: function () { return _pShareTime(); } }, { k: 'share2', skill: 'direct', build: function () { return _pShare(); } }]
+};
+var _PART_PRIMARY = {
+  easy: function () { return { q: 'A and B start a business investing ₹4000 and ₹6000 respectively. Out of a total profit of ₹5000, A’s share = ₹?', a: 2000, k: 'share2', explain: 'Ratio 4000 : 6000 = 2 : 3. A’s share = 2/5 × 5000 = ₹2000.' }; },
+  medium: function () { return { q: 'A and B start a business investing ₹4000 and ₹6000 respectively. Out of a total profit of ₹5000, A’s share = ₹?', a: 2000, k: 'share2', explain: 'Ratio 2 : 3 → A = 2/5 × 5000 = ₹2000.' }; },
+  hard: function () { return { q: 'A invests ₹5000 for 6 months and B invests ₹5000 for 4 months. Out of a profit of ₹5000, A’s share = ₹?', a: 3000, k: 'shareTime', explain: 'A = 5000×6 = 30000, B = 5000×4 = 20000 → 3 : 2. A = 3/5 × 5000 = ₹3000.' }; }
+};
+function genPartnership() { return _genArch('partnership', _PART_ARCH, _PART_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -360,7 +408,10 @@ var categoryGenerators = {
   averages: genAverage,
   'profit-loss': genProfitLoss,
   'time-speed-distance': genTSD,
-  'time-and-work': genTimeWork
+  'time-and-work': genTimeWork,
+  'simple-interest': genSimpleInterest,
+  'compound-interest': genCompoundInterest,
+  partnership: genPartnership
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -414,7 +465,7 @@ function _gcd(a, b) { return b === 0 ? a : _gcd(b, a % b); }
 
 var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercentage,
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
-  genSimplification, genNumberSeries];
+  genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership];
 
 /**
  * Generate a single random question.
