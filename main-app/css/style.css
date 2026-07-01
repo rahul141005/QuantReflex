@@ -11297,6 +11297,17 @@ body.dark-mode .mcq-option.mcq-correct { background: rgba(34,197,94,.18); border
 body.dark-mode .mcq-option.mcq-wrong { background: rgba(239,68,68,.18); border-color: #ef4444; color: #fca5a5; }
 @media (prefers-reduced-motion: reduce) { .mcq-option { transition: none; } .mcq-option:active, .mcq-option.pressed { transform: none; } }
 
+/* ── MCQ as a first-class lower-region interaction (ADR-086 P3) ──
+   Anchor the options toward the bottom of the (now full-height) card so they OCCUPY the lower answer region under the
+   thumb instead of floating centred with voids; the stem scrolls above. Bigger, comfortable targets fill the space. */
+.drill-has-mcq .drill-question-scroll::after { display: none; }
+.drill-has-mcq .drill-question-scroll::before { flex: 0 1 auto; min-height: .75rem; }
+.drill-has-mcq #mcqOptions { margin-top: auto; padding-top: .4rem; }
+.mcq-options { gap: .7rem; margin: .35rem 0 .2rem; }
+.mcq-option { padding: 1.05rem .95rem; font-size: 1.06rem; min-height: 3.4rem; display: flex; align-items: center; justify-content: center; }
+.mcq-option.mcq-para { justify-content: flex-start; }
+@media (min-width: 640px) { .drill-has-mcq #mcqOptions { max-width: 34rem; margin-left: auto; margin-right: auto; } }
+
 /* Stats: the per-subject breakdown sits above the per-category list with a little breathing room (ADR-076) */
 
 /* Learn-hub subject grouping (ADR-073/074): a calm header above each subject's categories */
