@@ -30,6 +30,10 @@
     });
   }
   function _fmt(n) { return (Math.round(n * 100) / 100).toLocaleString('en-IN'); }
+  /* Truncate a label with an ellipsis so it can't run past the fixed 320-wide viewBox and get clipped (ADR-086 P8). */
+  function _clip(str, max) { str = String(str); return (max > 0 && str.length > max) ? str.slice(0, max - 1) + '…' : str; }
+  /* Char budget for an axis label given the px slot it must fit (di-axis-lbl ≈ 4.6px/char). */
+  function _lblMax(slotPx) { return Math.max(3, Math.floor(slotPx / 4.6)); }
   function _niceMax(m) { /* round the axis ceiling up to a clean step so gridlines read well */
     if (m <= 0) return 1;
     var pow = Math.pow(10, Math.floor(Math.log(m) / Math.LN10));
@@ -98,7 +102,7 @@
       var fill = PALETTE[i % PALETTE.length];
       s += '<rect x="' + padL + '" y="' + (cy - bh / 2).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="2" fill="' + fill + '"/>';
       s += '<text x="' + (padL + bw + 3).toFixed(1) + '" y="' + (cy + 3).toFixed(1) + '" class="di-val" text-anchor="start">' + _fmt(V[i]) + '</text>';
-      s += '<text x="' + (padL - 4) + '" y="' + (cy + 3).toFixed(1) + '" class="di-axis-lbl" text-anchor="end">' + _esc(L[i]) + '</text>';
+      s += '<text x="' + (padL - 4) + '" y="' + (cy + 3).toFixed(1) + '" class="di-axis-lbl" text-anchor="end">' + _esc(_clip(L[i], _lblMax(padL - 6))) + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
@@ -121,7 +125,7 @@
       var y = baseY - bh, fill = PALETTE[i % PALETTE.length];
       s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="2" fill="' + fill + '"/>';
       s += '<text x="' + cx.toFixed(1) + '" y="' + (y - 3).toFixed(1) + '" class="di-val" text-anchor="middle">' + _fmt(V[i]) + '</text>';
-      s += '<text x="' + cx.toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(L[i]) + '</text>';
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(_clip(L[i], _lblMax(plotW / n))) + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
@@ -160,7 +164,7 @@
           if (showVals) s += '<text x="' + (bx + sub * 0.43).toFixed(1) + '" y="' + (y2 - 2).toFixed(1) + '" class="di-val" text-anchor="middle" style="font-size:7px">' + _fmt(v2) + '</text>';
         }
       }
-      s += '<text x="' + cx.toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(L[i]) + '</text>';
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(_clip(L[i], _lblMax(plotW / n))) + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
@@ -182,7 +186,7 @@
     for (var i = 0; i < n; i++) {
       s += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(V[i]).toFixed(1) + '" r="3" fill="' + PALETTE[0] + '"/>';
       s += '<text x="' + X(i).toFixed(1) + '" y="' + (Y(V[i]) - 6).toFixed(1) + '" class="di-val" text-anchor="middle">' + _fmt(V[i]) + '</text>';
-      s += '<text x="' + X(i).toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(L[i]) + '</text>';
+      s += '<text x="' + X(i).toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(_clip(L[i], _lblMax(plotW / n))) + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
@@ -211,7 +215,7 @@
         if (showVals) s += '<text x="' + X(i).toFixed(1) + '" y="' + (Y(V[i]) - 5).toFixed(1) + '" class="di-val" text-anchor="middle" style="font-size:7px">' + _fmt(V[i]) + '</text>';
       }
     }
-    for (var j = 0; j < n; j++) s += '<text x="' + X(j).toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(L[j]) + '</text>';
+    for (var j = 0; j < n; j++) s += '<text x="' + X(j).toFixed(1) + '" y="' + (baseY + 11) + '" class="di-axis-lbl" text-anchor="middle">' + _esc(_clip(L[j], _lblMax(plotW / n))) + '</text>';
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
   }
@@ -238,7 +242,7 @@
     for (var j = 0; j < n; j++) {
       var yy = ly0 + j * 20;
       s += '<rect x="' + lx0 + '" y="' + (yy - 8) + '" width="11" height="11" rx="2" fill="' + PALETTE[j % PALETTE.length] + '"/>';
-      s += '<text x="' + (lx0 + 17) + '" y="' + (yy + 1) + '" class="di-axis-lbl" text-anchor="start">' + _esc(L[j]) + ' — ' + _fmt(V[j]) + '</text>';
+      s += '<text x="' + (lx0 + 17) + '" y="' + (yy + 1) + '" class="di-axis-lbl" text-anchor="start">' + _esc(_clip(L[j], 13)) + ' — ' + _fmt(V[j]) + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));
