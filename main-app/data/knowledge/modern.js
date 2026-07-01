@@ -77,6 +77,11 @@
           'Expand nCr as a short product: nCr = (n·(n−1)·…·r terms) / r!. e.g. 10C3 = (10·9·8)/(3·2·1) = 120.',
           'A handshake / line-joining between n people = nC2 = n(n−1)/2 (each pair once).'
         ] },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Before anything else they answer one question — does order matter? — and write "P" or "C" in the margin. Half the errors in this topic are choosing the wrong one.',
+          'They never expand full factorials: nCr is computed as a short product of r terms over r!, and they use nCr = nC(n−r) to keep r small (10C8 → 10C2 = 45).',
+          'For "at least" wording they count the complement (total − none) instead of summing many cases — usually one subtraction versus several additions.'
+        ] },
         { type: 'trap', title: 'Common mistakes', items: [
           'Using a permutation when order is irrelevant (counting {A,B} and {B,A} as two committees) — overcounts by r!.',
           'Forgetting to divide by the factorials of identical items in word-arrangement problems.',
@@ -116,6 +121,13 @@
           { name: 'Neither', expr: 'Neither = Total − |A ∪ B|', when: 'When a total and a "neither/both" count are given.' },
           { name: 'Only A', expr: 'Only A = |A| − |A ∩ B|', when: 'Exclusive region of one set.' },
           { name: 'Three-set union', expr: '|A∪B∪C| = Σsingles − Σpairs + triple', when: 'Three overlapping groups.', trap: '"Exactly two" ≠ "at least two" — subtract 3× the triple for exactly-two.' }
+        ] },
+        { type: 'table', caption: 'Region → formula (two sets)', headers: ['You want', 'Formula'], rows: [
+          ['At least one (A ∪ B)', '|A| + |B| − both'],
+          ['Only A', '|A| − both'],
+          ['Only B', '|B| − both'],
+          ['Exactly one', '|A| + |B| − 2·both'],
+          ['Neither', 'Total − (|A| + |B| − both)']
         ] },
         { type: 'trick', title: 'Speed tactics', items: [
           'Draw the Venn diagram and fill the CENTRE (all-three) region first, then the pairwise, then the singles.',
@@ -165,6 +177,12 @@
           { name: 'Median', expr: 'Middle of the SORTED list (avg of two middles if even count)', when: 'Typical value; ignores outliers.' },
           { name: 'Mode', expr: 'The most frequently occurring value', when: 'Most common item; works for categories.' },
           { name: 'Range', expr: 'Range = maximum − minimum', when: 'Spread of the data.' }
+        ] },
+        { type: 'table', caption: 'The four measures at a glance', headers: ['Measure', 'How to find it', 'Answers'], rows: [
+          ['Mean', 'sum ÷ count', 'overall average'],
+          ['Median', 'middle of sorted list', 'typical middle value'],
+          ['Mode', 'most frequent value', 'most common item'],
+          ['Range', 'max − min', 'spread of the data']
         ] },
         { type: 'trick', title: 'Speed tactics', items: [
           'ALWAYS sort the data before reading off the median — the #1 cause of wrong answers.',

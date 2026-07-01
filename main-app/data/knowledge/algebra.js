@@ -226,6 +226,12 @@
           { name: 'GP nth term', expr: 'aₙ = a·rⁿ⁻¹', when: 'Doubling/tripling patterns; the exponent is n − 1, not n.' },
           { name: 'GP sum (finite / infinite)', expr: 'Sₙ = a(rⁿ − 1)/(r − 1);  S∞ = a/(1 − r) for |r| < 1', when: 'Finite sum, or an infinite GP that shrinks.' }
         ] },
+        { type: 'table', caption: 'AP vs GP at a glance', headers: ['', 'AP', 'GP'], rows: [
+          ['Built by', 'adding d', 'multiplying by r'],
+          ['nth term', 'a + (n−1)d', 'a·rⁿ⁻¹'],
+          ['Sum of n', 'n/2·(first + last)', 'a(rⁿ−1)/(r−1)'],
+          ['Infinite sum', '—', 'a/(1−r), if |r| < 1']
+        ] },
         { type: 'trick', title: 'Speed tactics', items: [
           'AP sum = number of terms × average term. For 1..100: 100 × 50.5 = 5050.',
           'The exponent in a GP term is (n − 1) — the first term uses r⁰ = 1. Off-by-one here is the #1 slip.',

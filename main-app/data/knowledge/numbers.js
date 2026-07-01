@@ -176,6 +176,11 @@
           '45 × 12 = 45 × 10 + 45 × 2.',
           '= 450 + 90 = 540.'
         ], answer: '540' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'They almost never long-multiply — they split, round-and-adjust, or reach for a special multiplier, so the work fits on one line.',
+          'Scan both factors first: a factor near 10/100 wants round-and-adjust; a 5, 25 or 11 wants its own trick. Pick the tactic before touching the digits.',
+          'In DI, most products only need to be accurate to 2–3 significant figures for the answer choices — estimate, then refine only if the options are close.'
+        ] },
         { type: 'trap', title: 'Common mistakes', items: [
           'Carry slips under time pressure — jot the carry.',
           'Rounding one factor but forgetting to adjust for the difference.',
@@ -218,6 +223,11 @@
           '5/8 = 0.625.',
           '× 100 = 62.5%.'
         ], answer: '62.5%' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'They read a percentage as its fraction instantly — "12.5% of 800" becomes "1/8 of 800 = 100", no multiplication at all.',
+          'When a question mixes fractions, decimals and percentages, they convert everything to whichever single form makes the arithmetic cleanest, then work there.',
+          'For "x% of y = y% of x", they swap to the easier direction (16% of 25 = 25% of 16 = 4) — a favourite exam shortcut.'
+        ] },
         { type: 'trap', title: 'Common mistakes', items: [
           'Cross-multiplication direction errors when comparing.',
           'Adding fractions without a common denominator.',
@@ -238,7 +248,7 @@
       difficulty: 'foundation', examFrequency: 'high', status: 'published',
       drillCategory: 'squares', syllabusTopicId: 'squares_roots', revisionIntervalDays: 6,
       related: ['cubes', 'multiplication', 'surds-indices'],
-      searchTerms: ['squares', 'square root', 'perfect square', 'squaring', 'mental squaring'],
+      searchTerms: ['squares', 'square root', 'perfect square', 'squaring', 'mental squaring', 'root', 'ends in 5', 'square table'],
       sections: [
         { type: 'overview', text: 'Squares and square roots appear everywhere — Pythagoras, areas, standard deviation, quadratics. Knowing the squares to 30 by heart and two mental-squaring tricks lets you square any two-digit number in seconds.' },
         { type: 'concept', title: 'Mental squaring', body: 'Use (a ± b)² = a² ± 2ab + b² with a round a: 43² = (40 + 3)² = 1600 + 240 + 9 = 1849. Numbers ending in 5 are instant: (n5)² = n(n+1) followed by 25 — 35² = (3×4)｜25 = 1225, 85² = (8×9)｜25 = 7225.' },
@@ -257,6 +267,11 @@
           'Ends in 5: n = 6, so n(n+1) = 6 × 7 = 42.',
           'Append 25 → 4225.'
         ], answer: '4225' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'The squares to 30 are reflexes, not calculations — that alone answers many square-root and quadratic questions on sight.',
+          'For a square root in the options, they check the last digit first: it rules out most choices before any arithmetic (a perfect square never ends in 2, 3, 7 or 8).',
+          'They reach for a² − b² = (a+b)(a−b) the moment they see a difference of two squares — factoring beats squaring both and subtracting.'
+        ] },
         { type: 'trap', title: 'Common mistakes', items: [
           'Dropping the 2ab middle term in (a + b)².',
           'Assuming every number has an integer square root.',
@@ -276,7 +291,7 @@
       difficulty: 'foundation', examFrequency: 'medium', status: 'published',
       drillCategory: 'cubes', syllabusTopicId: 'cubes_roots', revisionIntervalDays: 7,
       related: ['squares', 'multiplication', 'surds-indices'],
-      searchTerms: ['cubes', 'cube root', 'perfect cube', 'cubing'],
+      searchTerms: ['cubes', 'cube root', 'perfect cube', 'cubing', 'cube table', 'last digit trick'],
       sections: [
         { type: 'overview', text: 'Cubes and cube roots turn up in volume, algebraic identities and number-system questions. The cubes to 15 are worth memorising, and a neat last-digit trick recovers the cube root of any perfect cube instantly.' },
         { type: 'concept', title: 'The cube table & last digits', body: 'Learn 1³…15³. The last digit of a cube uniquely identifies the last digit of its root: 1→1, 8→2, 7→3, 4→4, 5→5, 6→6, 3→7, 2→8, 9→9, 0→0 (note the 2↔8 and 3↔7 swaps). So a cube ending in 7 has a root ending in 3.' },
@@ -295,6 +310,11 @@
           'Remaining "4" lies between 1³=1 and 2³=8 → leading digit 1.',
           'Cube root = 17.'
         ], answer: '17' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'For any perfect-cube root question they run the two-step last-digit + thousands-split trick — it lands the answer in seconds, no trial multiplication.',
+          'They keep the 2↔8 and 3↔7 last-digit swap at their fingertips; everything else maps to itself, so the root\'s last digit is instant.',
+          'When they spot a³ ± b³ or (a+b)³ in an expression, they factor with the identity rather than expanding — far fewer terms to slip on.'
+        ] },
         { type: 'trap', title: 'Common mistakes', items: [
           'Forgetting the 2↔8 and 3↔7 last-digit swaps for cube roots.',
           'Dropping the 3a²b or 3ab² terms in (a + b)³.',

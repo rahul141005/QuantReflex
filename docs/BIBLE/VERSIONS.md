@@ -9,12 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.100 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.101 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.54 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.101 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 6: Learn consistency + high-value tables.**
+> Added the missing "How toppers handle these" exam block to 5 chapters (multiplication, fractions, squares, cubes,
+> permutation-combination) and scannable comparison tables to 3 formula-dense chapters (progressions AP-vs-GP,
+> set-theory regions, statistics-basics measures), plus a few searchTerms. Pure content — learn-content/render + full
+> npm test all green. SW v185→v186.
+>
 > **2.100 / Arch 2.54 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 5: archetype + explanation + difficulty
 > polish.** Added a genuine 2nd easy archetype to the four single-archetype easy tiers (logarithms `solveLog`,
 > partnership `shareRatio`, ages `presentAge`, simple-interest `amount`), enriched six terse explanations to

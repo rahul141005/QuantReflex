@@ -6,6 +6,24 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 6: Learn consistency + high-value tables
+
+Bring every Quant chapter to the same structural bar and add scannable comparison tables where they aid revision.
+
+```
+### content/learn(ADR-084): exam blocks + comparison tables
+- data/knowledge/numbers.js: exam block added to multiplication, fractions, squares, cubes; extra searchTerms on
+  squares/cubes.
+- data/knowledge/modern.js: exam block added to permutation-combination; region→formula table added to set-theory;
+  four-measures table added to statistics-basics.
+- data/knowledge/algebra.js: AP-vs-GP comparison table added to progressions.
+```
+
+Verification: learn-content.check 588/0, learn-render.check 15/0, full `npm test` exit 0. Pure content — no schema or
+renderer change. **Docs:** DECISION_LOG ADR-084 (Batch 6), VERSIONS 2.100→2.101, this entry. **SW** v185→v186.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 5: archetype + explanation + difficulty polish
 
 Add a 2nd easy archetype to the four single-archetype easy tiers, enrich terse explanations, unify the log base set.

@@ -17,6 +17,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 6 — Learn consistency + high-value tables:** five published chapters lacked the "How toppers handle these"
+  **exam** block that the rest of the Learn set carries (`multiplication`, `fractions`, `squares`, `cubes`,
+  `permutation-combination`) — added one to each so every chapter now teaches strategy, not just method. Added scannable
+  comparison **tables** to three formula-dense chapters: `progressions` (AP vs GP), `set-theory` (region → formula), and
+  `statistics-basics` (the four measures) — these render in Learn today and are ready to feed the Quick-Reference library.
+  A few `searchTerms` added to `squares`/`cubes` for discoverability. Pure content, no schema/renderer change; learn-
+  content (588) + learn-render (15) + full `npm test` all green. SW v185→v186.
 - **Batch 5 — archetype + explanation + difficulty polish:** four easy tiers each carried only a **single** archetype,
   so the easy band felt monotonous. Added a genuine 2nd easy archetype to each (extending the harness TIER_KEYS + an
   independent recompute case where numeric): **logarithms** → `solveLog` (rewrite logₐx = k as x = aᵏ); **partnership**
