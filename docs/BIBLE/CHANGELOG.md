@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch D-b: complete Algebra (ADR-083)
+
+Finish the Algebra category with logarithms, progressions and inequalities-modulus. Full suite green.
+
+```
+### feat/quant(ADR-083): logarithms, progressions, inequalities-modulus generators + Learn
+- js/questions.js: genLogarithms (evalLog/logSum/logPower/solveLog), genProgressions (apNth/apSum/gpNth/gpSum),
+  genInequalities (linIneqMin/modLarger/countRange/modIneqCount/modIneqCountLe). Added _ord() ordinal helper so AP/GP
+  "nth term" wording reads 1st/2nd/3rd while keeping digits for the recompute harness. Log stems use ASCII bases.
+- data/knowledge/algebra.js: 3 more gold-standard Learn chapters (algebra now complete at 6 topics).
+- quantTopics: 3 new labels. quant-engine.check: TIER_KEYS + independent recompute (modular log, series formulas,
+  band counting) — 84,201 assertions, 0 mismatches. subjects.check 24→27; learn-content 48→51 topics.
+```
+
+Verification: `npm test` exit 0 (quant-engine 84,201/0; learn-content 51 topics; subjects 27). Generator samples
+spot-checked correct, clean, exam-authentic (ordinals fixed). **Docs:** DECISION_LOG ADR-083 (Phase 3D-b),
+VERSIONS 2.87→2.88, this entry. **SW** v173→v174.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch D-a: Algebra category (ADR-083)
 
 Open the Algebra category with three fully-packaged topics (generator + Learn chapter + harness). Full suite green.

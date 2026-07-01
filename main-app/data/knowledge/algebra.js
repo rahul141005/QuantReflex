@@ -159,6 +159,156 @@
           'Simplify surds by extracting perfect-power factors; rationalise with the conjugate.'
         ] }
       ]
+    },
+    {
+      id: 'logarithms', title: 'Logarithms', icon: '🪜', category: 'algebra',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'logarithms', syllabusTopicId: 'logarithms', revisionIntervalDays: 8,
+      related: ['surds-indices', 'simplification', 'number-system'],
+      searchTerms: ['logarithm', 'log', 'base', 'ln', 'log rules', 'change of base', 'exponent', 'antilog'],
+      sections: [
+        { type: 'overview', text: 'A logarithm just asks "what power?" — logₐN is the exponent you raise a to, to get N. It is the exact inverse of indices, so every index law has a matching log law. Exam logs are almost always designed to come out as whole numbers.' },
+        { type: 'concept', title: 'The definition (read it backwards)', body: 'logₐN = x  ⟺  aˣ = N. So log₂8 = 3 because 2³ = 8; log₁₀1000 = 3 because 10³ = 1000. The base a must be positive and ≠ 1, and N must be positive (you can\'t log zero or a negative). "log" with no base written means base 10; "ln" means base e.' },
+        { type: 'concept', title: 'The three working rules', body: 'They mirror the index laws: PRODUCT logₐ(xy) = logₐx + logₐy; QUOTIENT logₐ(x/y) = logₐx − logₐy; POWER logₐ(xᵏ) = k·logₐx. Two anchors: logₐ1 = 0 (anything⁰ = 1) and logₐa = 1. To switch bases, use change of base: logₐN = logN / loga.' },
+        { type: 'formula', items: [
+          { name: 'Definition', expr: 'logₐN = x ⟺ aˣ = N', when: 'Convert between log and index form — the key first move.' },
+          { name: 'Product & quotient', expr: 'logₐ(xy) = logₐx + logₐy;  logₐ(x/y) = logₐx − logₐy', when: 'Break a big log into a sum/difference of small ones.' },
+          { name: 'Power rule', expr: 'logₐ(xᵏ) = k · logₐx', when: 'Pull an exponent out in front.' },
+          { name: 'Change of base', expr: 'logₐN = log_c N / log_c a', when: 'Compute or compare logs with different bases.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'To evaluate logₐN, ask "a to what power is N?" — write N as a power of a.',
+          'Adding two same-base logs? Multiply the insides: log₂4 + log₂8 = log₂32 = 5.',
+          'A coefficient in front of a log is a hidden power: 2·log₃3 = log₃(3²) = log₃9 = 2.'
+        ] },
+        { type: 'example', problem: 'Evaluate log₅125 + log₅25.', steps: [
+          'log₅125 = 3 (5³ = 125); log₅25 = 2 (5² = 25).',
+          'Sum = 3 + 2 = 5.',
+          'Check via product rule: log₅(125·25) = log₅3125 = log₅5⁵ = 5. ✓'
+        ], answer: '5' },
+        { type: 'example', problem: 'If log₃x = 4, find x.', steps: [
+          'Convert to index form: x = 3⁴.',
+          'x = 81.'
+        ], answer: '81' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Always convert logₐN = x to aˣ = N immediately — most log questions dissolve once written as indices.',
+          'Combine logs with the product/quotient rules BEFORE evaluating; it keeps the numbers tiny.',
+          'Memorise powers of 2, 3, 5 and 10 so you can read a log off by sight.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'logₐ(x + y) is NOT logₐx + logₐy — the sum rule is for products, not sums.',
+          'log of a negative number or zero is undefined.',
+          '(logₐx)ᵏ ≠ k·logₐx — the power rule needs the exponent INSIDE the log.',
+          'Forgetting that a plain "log" means base 10.'
+        ] },
+        { type: 'memory', text: '"Log is the power." logₐN literally answers: a to what power gives N?' },
+        { type: 'revision', points: [
+          'logₐN = x ⟺ aˣ = N; logₐ1 = 0, logₐa = 1.',
+          'Product → add logs; quotient → subtract; power → coefficient out front.',
+          'Change of base: logₐN = logN / loga.',
+          'log(sum) ≠ sum of logs — the rule is for products.'
+        ] }
+      ]
+    },
+    {
+      id: 'progressions', title: 'Progressions (AP & GP)', icon: '📶', category: 'algebra',
+      difficulty: 'core', examFrequency: 'high', status: 'published',
+      drillCategory: 'progressions', syllabusTopicId: 'progressions', revisionIntervalDays: 7,
+      related: ['number-series', 'averages', 'linear-equations'],
+      searchTerms: ['progression', 'sequence', 'series', 'ap', 'gp', 'arithmetic progression', 'geometric progression', 'nth term', 'sum of terms', 'common difference', 'common ratio'],
+      sections: [
+        { type: 'overview', text: 'A progression is a sequence built by a fixed rule. In an AP you ADD a constant (the common difference d); in a GP you MULTIPLY by a constant (the common ratio r). Learn the nth-term and sum formulas for both and you can answer almost any series question in one line.' },
+        { type: 'concept', title: 'Arithmetic Progression (AP)', body: 'Each term = previous + d. Terms: a, a+d, a+2d, … The nth term is aₙ = a + (n − 1)d. The sum of the first n terms is Sₙ = n/2·[2a + (n − 1)d], which is also n × (average of first and last term) = n/2·(first + last). The middle term of an odd-length AP equals the average of the whole AP.' },
+        { type: 'concept', title: 'Geometric Progression (GP)', body: 'Each term = previous × r. Terms: a, ar, ar², … The nth term is aₙ = a·rⁿ⁻¹. The sum of the first n terms is Sₙ = a(rⁿ − 1)/(r − 1) for r ≠ 1. If |r| < 1, the infinite sum converges to S∞ = a/(1 − r).' },
+        { type: 'formula', items: [
+          { name: 'AP nth term', expr: 'aₙ = a + (n − 1)d', when: 'Any "find the kth term" AP question.' },
+          { name: 'AP sum', expr: 'Sₙ = n/2·[2a + (n − 1)d] = n/2·(first + last)', when: 'Summing a run of AP terms.' },
+          { name: 'GP nth term', expr: 'aₙ = a·rⁿ⁻¹', when: 'Doubling/tripling patterns; the exponent is n − 1, not n.' },
+          { name: 'GP sum (finite / infinite)', expr: 'Sₙ = a(rⁿ − 1)/(r − 1);  S∞ = a/(1 − r) for |r| < 1', when: 'Finite sum, or an infinite GP that shrinks.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'AP sum = number of terms × average term. For 1..100: 100 × 50.5 = 5050.',
+          'The exponent in a GP term is (n − 1) — the first term uses r⁰ = 1. Off-by-one here is the #1 slip.',
+          'Three terms in AP? Call them a−d, a, a+d so they sum to 3a. In GP, use a/r, a, ar.'
+        ] },
+        { type: 'example', problem: 'Find the sum of the first 20 terms of an AP with first term 3 and common difference 4.', steps: [
+          'Sₙ = n/2·[2a + (n − 1)d] = 20/2·[2·3 + 19·4].',
+          '= 10·[6 + 76] = 10·82.',
+          '= 820.'
+        ], answer: '820' },
+        { type: 'example', problem: 'Find the 6th term of a GP with first term 2 and common ratio 3.', steps: [
+          'aₙ = a·rⁿ⁻¹ = 2·3⁶⁻¹ = 2·3⁵.',
+          '= 2·243 = 486.'
+        ], answer: '486' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'Decide AP or GP first — difference constant → AP, ratio constant → GP.',
+          'For AP sums, "n × average" is faster and less error-prone than the bracket formula.',
+          'Watch the GP exponent (n − 1) and, for infinite GPs, confirm |r| < 1 before using a/(1 − r).'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Using rⁿ instead of rⁿ⁻¹ for the nth GP term.',
+          'Applying S∞ = a/(1 − r) when |r| ≥ 1 (it diverges).',
+          'Forgetting the ÷2 in the AP sum formula.',
+          'Confusing common difference (AP, added) with common ratio (GP, multiplied).'
+        ] },
+        { type: 'memory', text: 'AP ADDS d, GP multiplies by r. Sum of an AP = "how many × the average".' },
+        { type: 'revision', points: [
+          'AP: aₙ = a + (n−1)d; Sₙ = n/2·(first + last).',
+          'GP: aₙ = a·rⁿ⁻¹; Sₙ = a(rⁿ−1)/(r−1).',
+          'Infinite GP: S∞ = a/(1−r), only when |r| < 1.',
+          'The GP term exponent is n − 1 — mind the off-by-one.'
+        ] }
+      ]
+    },
+    {
+      id: 'inequalities-modulus', title: 'Inequalities & Modulus', icon: '🎚️', category: 'algebra',
+      difficulty: 'core', examFrequency: 'medium', status: 'published',
+      drillCategory: 'inequalities-modulus', syllabusTopicId: 'inequalities_modulus', revisionIntervalDays: 8,
+      related: ['linear-equations', 'quadratic-equations', 'number-system'],
+      searchTerms: ['inequality', 'inequalities', 'modulus', 'absolute value', 'greater than', 'less than', 'number line', 'range', 'integer solutions'],
+      sections: [
+        { type: 'overview', text: 'Inequalities are solved almost exactly like equations — with ONE rule that changes everything: multiplying or dividing by a negative flips the sign. Modulus (absolute value) |x| measures distance from zero, so a modulus statement always splits into two cases or a range on the number line.' },
+        { type: 'concept', title: 'Solving linear inequalities', body: 'Add, subtract, multiply and divide just like an equation to isolate x — EXCEPT when you multiply or divide both sides by a negative number, reverse the inequality sign (> becomes <). "Smallest integer x with 3x + 7 > 25" → 3x > 18 → x > 6 → smallest integer is 7. Note x > 6 excludes 6 itself (strict), so the smallest integer is 7, not 6.' },
+        { type: 'concept', title: 'Modulus — distance from zero', body: '|x| is how far x is from 0, always ≥ 0. So |x − a| is the distance between x and a. |x − a| = b means x is exactly b away: x = a + b or x = a − b (two solutions). |x − a| < b means x is within b of a: a − b < x < a + b (a range). |x − a| > b means x is outside that band.' },
+        { type: 'formula', items: [
+          { name: 'Sign-flip rule', expr: 'Multiply/divide an inequality by a negative ⟹ flip < to > (and vice-versa)', when: 'The single most-tested idea. Never forget it.' },
+          { name: 'Modulus equation', expr: '|x − a| = b ⟹ x = a + b or x = a − b', when: 'Two discrete solutions.' },
+          { name: 'Modulus inequality (bounded)', expr: '|x − a| < b ⟹ a − b < x < a + b', when: 'A single interval; ≤ makes the ends inclusive.' },
+          { name: 'Integer count in a range', expr: 'Integers in [a, b] = b − a + 1', when: 'Counting solutions; |x − a| < b (strict) gives 2b − 1 integers, ≤ gives 2b + 1.' }
+        ] },
+        { type: 'trick', title: 'Speed tactics', items: [
+          'Sketch a number line for any modulus question — the two cases or the band become obvious.',
+          'Integers strictly inside |x − a| < b span 2b − 1 values; inclusive (≤) span 2b + 1.',
+          'For "smallest/largest integer" answers, solve the inequality first, then step to the nearest integer ON the allowed side.'
+        ] },
+        { type: 'example', problem: 'How many integers satisfy |x − 10| < 4?', steps: [
+          'Rewrite as a band: 10 − 4 < x < 10 + 4, i.e. 6 < x < 14.',
+          'Integers strictly between 6 and 14: 7, 8, 9, 10, 11, 12, 13.',
+          'That is 7 values (= 2·4 − 1).'
+        ], answer: '7' },
+        { type: 'example', problem: 'Solve −2x + 5 < 11.', steps: [
+          'Subtract 5: −2x < 6.',
+          'Divide by −2 and FLIP the sign: x > −3.'
+        ], answer: 'x > −3' },
+        { type: 'exam', title: 'How toppers handle these', items: [
+          'The instant you divide by a negative, flip the sign — the classic trap tests exactly this.',
+          'Translate modulus to a range or two cases before doing anything else.',
+          'Count integer solutions with b − a + 1 (inclusive) rather than listing them out.'
+        ] },
+        { type: 'trap', title: 'Common mistakes', items: [
+          'Forgetting to flip the sign when multiplying/dividing by a negative.',
+          'Treating |x − a| = b as a single solution instead of two.',
+          'Off-by-one when counting integers (strict < vs inclusive ≤).',
+          'Assuming |x| can be negative — it never is.'
+        ] },
+        { type: 'memory', text: 'Modulus = distance from zero. Divide by a negative ⟹ the inequality flips.' },
+        { type: 'revision', points: [
+          'Solve inequalities like equations; flip the sign on ×/÷ by a negative.',
+          '|x − a| = b ⟹ x = a ± b; |x − a| < b ⟹ a − b < x < a + b.',
+          'Integers in [a, b] = b − a + 1; strict |x−a|<b ⟹ 2b − 1.',
+          '|x| ≥ 0 always.'
+        ] }
+      ]
     }
   ];
 

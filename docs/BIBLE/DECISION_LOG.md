@@ -56,6 +56,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch D-b) — complete the Algebra category:** three more fully-packaged topics — **logarithms**,
+  **progressions** (AP & GP), **inequalities-modulus** — generator + Learn chapter + harness each. Log stems use
+  ASCII-readable bases ("log to base 2 of 8") so the harness parses them; progression stems use a real ordinal helper
+  (1st/2nd/3rd) that preserves digits for recompute; modulus/inequality answers are integer counts or the larger root.
+  Harness **84,201 assertions, 0 mismatches**; Learn graph 48→51; subjects roster 24→27. Algebra is now complete (6
+  topics). SW v173→v174, Bible 2.87→2.88.
 - **Phase 3 (batch D-a) — open the Algebra category:** a NEW `algebra` Learn category (subject: quant, order 35) plus
   the first three fully-packaged algebra topics — **linear-equations**, **quadratic-equations**, **surds-indices**.
   Each ships a drill generator (archetype pools + earned difficulty + premium explanations) AND a gold-standard Learn

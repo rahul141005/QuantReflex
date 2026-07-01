@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.87 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.88 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.88 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch D-b): complete the Algebra category
+> (ADR-083).** Three more gold-standard algebra topics — **logarithms** (evaluate / product-rule / power-rule /
+> solve-for-x), **progressions** (AP nth-term & sum, GP nth-term & sum) and **inequalities-modulus** (smallest-integer
+> solution / |x−a|=b / integer-count in a range) — each with an archetype generator (earned difficulty + premium
+> explanations, ASCII-clean stems, ordinal wording) AND a full Learn chapter. Algebra now has all six planned topics.
+> Harness recomputes every archetype independently (modular log, series formulas, band-counting) — **84,201 assertions,
+> 0 mismatches**; Learn graph 48→51 topics; subjects roster 24→27. SW v173→v174.
+>
 > **2.87 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch D-a): Algebra category + first three
 > algebra topics (ADR-083).** New `algebra` Learn category (order 35) plus three gold-standard, production-grade topics —
 > **linear-equations** (one-variable solve / bracket / two-variable system), **quadratic-equations** (Vieta sum·product /

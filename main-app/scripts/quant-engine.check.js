@@ -20,7 +20,8 @@ var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',
   'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties',
-  'linear-equations', 'quadratic-equations', 'surds-indices'];
+  'linear-equations', 'quadratic-equations', 'surds-indices',
+  'logarithms', 'progressions', 'inequalities-modulus'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -47,7 +48,10 @@ var TIER_KEYS = {
   'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] },
   'linear-equations': { easy: ['solveOne', 'solveOneSub'], medium: ['solveOne', 'bracket', 'sumDiff'], hard: ['bracket', 'sumDiff', 'system2'] },
   'quadratic-equations': { easy: ['largerRoot', 'sumRoots'], medium: ['largerRoot', 'smallerRoot', 'productRoots', 'sumRoots'], hard: ['largerRoot', 'discriminant', 'productRoots'] },
-  'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] }
+  'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] },
+  logarithms: { easy: ['evalLog'], medium: ['evalLog', 'logSum', 'logPower'], hard: ['logPower', 'solveLog', 'logSum'] },
+  progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum', 'apSum'] },
+  'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -154,6 +158,26 @@ function recompute(cat, key, text) {
     if (key === 'fracExponent') return Math.round(Math.pow(n[0], n[1] / n[2]));  /* b^(p/root) */
     if (key === 'indexLaw') return n[1] - n[3];                        /* (a^m)÷(a^n) exponent = m−n */
     if (key === 'solveExp') return Math.round(Math.log(n[1]) / Math.log(n[0]));  /* a^x = N → x */
+  }
+  if (cat === 'logarithms') {
+    var lg = function (base, v) { return Math.round(Math.log(v) / Math.log(base)); };
+    if (key === 'evalLog') return lg(n[0], n[1]);                      /* log_b(N) */
+    if (key === 'logSum') return lg(n[0], n[1]) + lg(n[2], n[3]);      /* log_b(x)+log_b(y) */
+    if (key === 'logPower') return n[2] * lg(n[0], n[1]);              /* log_b(x^k) = k·log_b(x) */
+    if (key === 'solveLog') return Math.pow(n[0], n[1]);              /* log_b(x)=k → x = b^k */
+  }
+  if (cat === 'progressions') {
+    if (key === 'apNth') return n[0] + (n[2] - 1) * n[1];              /* a + (n−1)d */
+    if (key === 'apSum') return n[2] / 2 * (2 * n[0] + (n[2] - 1) * n[1]);  /* n/2·[2a+(n−1)d] */
+    if (key === 'gpNth') return n[0] * Math.pow(n[1], n[2] - 1);       /* a·r^(n−1) */
+    if (key === 'gpSum') return n[0] * (Math.pow(n[1], n[2]) - 1) / (n[1] - 1);  /* a(rⁿ−1)/(r−1) */
+  }
+  if (cat === 'inequalities-modulus') {
+    if (key === 'linIneqMin') return Math.floor((n[2] - n[1]) / n[0]) + 1;  /* smallest int with ax+b>c */
+    if (key === 'modLarger') return n[0] + n[1];                      /* |x−a|=b → larger = a+b */
+    if (key === 'countRange') return n[1] - n[0] + 1;                 /* integers in [a,b] inclusive */
+    if (key === 'modIneqCount') return 2 * n[1] - 1;                  /* |x−a|<b → 2b−1 integers */
+    if (key === 'modIneqCountLe') return 2 * n[1] + 1;               /* |x−a|≤b → 2b+1 integers */
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

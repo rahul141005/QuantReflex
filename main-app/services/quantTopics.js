@@ -25,7 +25,8 @@
     ages: 'Problems on Ages', mixtures: 'Mixtures & Alligations', 'pipes-cisterns': 'Pipes & Cisterns',
     'number-properties': 'Number Properties',
     'linear-equations': 'Linear Equations', 'quadratic-equations': 'Quadratic Equations',
-    'surds-indices': 'Surds & Indices'
+    'surds-indices': 'Surds & Indices', logarithms: 'Logarithms', progressions: 'Progressions (AP & GP)',
+    'inequalities-modulus': 'Inequalities & Modulus'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

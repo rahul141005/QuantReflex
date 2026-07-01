@@ -77,6 +77,8 @@ var QRGen = (typeof module !== 'undefined' && module.exports && typeof require !
 
 function _round1(x) { return Math.round(x * 10) / 10; }
 function _round2(x) { return Math.round(x * 100) / 100; }
+/* Ordinal suffix (1st, 2nd, 3rd, 4th … 11th, 12th, 13th). Keeps the number's digits intact for the recompute harness. */
+function _ord(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
 function _genArch(category, arch, primary) {
   var diff = _getDifficulty();
@@ -496,6 +498,46 @@ var _SURD_ARCH = {
 var _SURD_PRIMARY = { easy: function () { return _siPow('easy'); }, medium: function () { return _siFrac(); }, hard: function () { return _siLaws('hard'); } };
 function genSurdsIndices() { return _genArch('surds-indices', _SURD_ARCH, _SURD_PRIMARY); }
 
+/** Logarithms (archetypes: evaluate · product-rule sum · power-rule · solve-for-x). Integer answers, ASCII bases. */
+function _logEval(diff) { var b = pick(diff === 'hard' ? [2, 3, 5, 7] : [2, 3, 5, 10]), k = randInt(2, b >= 7 ? 3 : (b === 10 ? 4 : (b >= 5 ? 4 : 5))), N = Math.pow(b, k); return { q: pick(['log to base ' + b + ' of ' + N + ' = ?', 'Evaluate log base ' + b + ' of ' + N + '.']), a: k, k: 'evalLog', explain: 'Ask: ' + b + ' to what power gives ' + N + '?  ' + b + '^' + k + ' = ' + N + ', so the log = ' + k + '.' }; }
+function _logSum() { var b = pick([2, 3, 5]), i = randInt(1, 3), j = randInt(1, 3), x = Math.pow(b, i), y = Math.pow(b, j); return { q: '(log to base ' + b + ' of ' + x + ') + (log to base ' + b + ' of ' + y + ') = ?', a: i + j, k: 'logSum', explain: 'logₐx + logₐy = logₐ(xy). Here = ' + i + ' + ' + j + ' = ' + (i + j) + ' (since ' + b + '^' + i + ' = ' + x + ', ' + b + '^' + j + ' = ' + y + ').' }; }
+function _logPower() { var b = pick([2, 3, 5]), i = randInt(1, 3), x = Math.pow(b, i), k = randInt(2, 3); return { q: 'log to base ' + b + ' of ' + x + '^' + k + ' = ?', a: i * k, k: 'logPower', explain: 'logₐ(xᵏ) = k·logₐx = ' + k + ' × ' + i + ' = ' + (i * k) + ' (since log base ' + b + ' of ' + x + ' = ' + i + ').' }; }
+function _logSolve(diff) { var b = pick([2, 3, 5]), k = randInt(2, diff === 'hard' ? 5 : 4), x = Math.pow(b, k); return { q: 'If log to base ' + b + ' of x = ' + k + ', find x.', a: x, k: 'solveLog', explain: 'logₐx = k means x = aᵏ. So x = ' + b + '^' + k + ' = ' + x + '.' }; }
+var _LOG_ARCH = {
+  easy: [{ k: 'evalLog', skill: 'direct', build: function (d) { return _logEval(d); } }],
+  medium: [{ k: 'evalLog', skill: 'direct', build: function (d) { return _logEval(d); } }, { k: 'logSum', skill: 'formula', build: function () { return _logSum(); } }, { k: 'logPower', skill: 'formula', build: function () { return _logPower(); } }],
+  hard: [{ k: 'logPower', skill: 'formula', build: function () { return _logPower(); } }, { k: 'solveLog', skill: 'multi-step', build: function (d) { return _logSolve(d); } }, { k: 'logSum', skill: 'formula', build: function () { return _logSum(); } }]
+};
+var _LOG_PRIMARY = { easy: function () { return _logEval('easy'); }, medium: function () { return _logSum(); }, hard: function () { return _logSolve('hard'); } };
+function genLogarithms() { return _genArch('logarithms', _LOG_ARCH, _LOG_PRIMARY); }
+
+/** Progressions (archetypes: AP nth-term · AP sum · GP nth-term · GP sum). Rate/series thinking; integer answers. */
+function _apNth(diff) { var a = randInt(1, 20), d = randInt(1, diff === 'hard' ? 12 : 8), n = randInt(5, diff === 'hard' ? 20 : 12); return { q: 'An AP has first term ' + a + ' and common difference ' + d + '. Find its ' + _ord(n) + ' term.', a: a + (n - 1) * d, k: 'apNth', explain: 'aₙ = a + (n − 1)d = ' + a + ' + (' + n + ' − 1)·' + d + ' = ' + a + ' + ' + ((n - 1) * d) + ' = ' + (a + (n - 1) * d) + '.' }; }
+function _apSum(diff) { var a = randInt(1, 15), d = randInt(1, diff === 'hard' ? 8 : 5), n = randInt(5, diff === 'hard' ? 15 : 10); return { q: 'An AP has first term ' + a + ' and common difference ' + d + '. Find the sum of its first ' + n + ' terms.', a: n / 2 * (2 * a + (n - 1) * d), k: 'apSum', explain: 'Sₙ = n/2 · [2a + (n − 1)d] = ' + n + '/2 · [' + (2 * a) + ' + ' + ((n - 1) * d) + '] = ' + (n / 2 * (2 * a + (n - 1) * d)) + '.' }; }
+function _gpNth(diff) { var a = randInt(1, 6), r = pick([2, 3]), n = randInt(3, diff === 'hard' ? 7 : 5); return { q: 'A GP has first term ' + a + ' and common ratio ' + r + '. Find its ' + _ord(n) + ' term.', a: a * Math.pow(r, n - 1), k: 'gpNth', explain: 'aₙ = a·rⁿ⁻¹ = ' + a + '·' + r + '^' + (n - 1) + ' = ' + a + '·' + Math.pow(r, n - 1) + ' = ' + (a * Math.pow(r, n - 1)) + '.' }; }
+function _gpSum(diff) { var a = randInt(1, 5), r = pick([2, 3]), n = randInt(3, diff === 'hard' ? 6 : 4); return { q: 'A GP has first term ' + a + ' and common ratio ' + r + '. Find the sum of its first ' + n + ' terms.', a: a * (Math.pow(r, n) - 1) / (r - 1), k: 'gpSum', explain: 'Sₙ = a(rⁿ − 1)/(r − 1) = ' + a + '(' + r + '^' + n + ' − 1)/(' + r + ' − 1) = ' + a + '·' + (Math.pow(r, n) - 1) + '/' + (r - 1) + ' = ' + (a * (Math.pow(r, n) - 1) / (r - 1)) + '.' }; }
+var _PROG_ARCH = {
+  easy: [{ k: 'apNth', skill: 'formula', build: function (d) { return _apNth(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }],
+  medium: [{ k: 'apNth', skill: 'formula', build: function (d) { return _apNth(d); } }, { k: 'gpNth', skill: 'multi-step', build: function (d) { return _gpNth(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }],
+  hard: [{ k: 'gpNth', skill: 'multi-step', build: function (d) { return _gpNth(d); } }, { k: 'gpSum', skill: 'multi-step', build: function (d) { return _gpSum(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }]
+};
+var _PROG_PRIMARY = { easy: function () { return _apNth('easy'); }, medium: function () { return _gpNth('medium'); }, hard: function () { return _gpSum('hard'); } };
+function genProgressions() { return _genArch('progressions', _PROG_ARCH, _PROG_PRIMARY); }
+
+/** Inequalities & Modulus (archetypes: smallest-integer solution · |x−a|=b larger value · integer-count in a range). */
+function _ineqMin(diff) { var a = randInt(2, diff === 'hard' ? 8 : 6), b = randInt(1, 15), c = b + randInt(a + 1, a * (diff === 'hard' ? 14 : 9)); return { q: 'Find the smallest integer x such that ' + a + 'x + ' + b + ' > ' + c + '.', a: Math.floor((c - b) / a) + 1, k: 'linIneqMin', explain: a + 'x > ' + c + ' − ' + b + ' = ' + (c - b) + ', so x > ' + ((c - b) / a).toFixed(2).replace(/\.00$/, '') + '. The smallest integer greater than that is ' + (Math.floor((c - b) / a) + 1) + '.' }; }
+function _modLarger() { var a = randInt(4, 15), b = randInt(2, 6); return { q: 'If |x − ' + a + '| = ' + b + ', find the larger value of x.', a: a + b, k: 'modLarger', explain: '|x − ' + a + '| = ' + b + ' gives x = ' + a + ' + ' + b + ' = ' + (a + b) + ' or x = ' + a + ' − ' + b + ' = ' + (a - b) + '. The larger is ' + (a + b) + '.' }; }
+function _countRange() { var a = randInt(2, 20), b = a + randInt(3, 20); return { q: 'How many integers x satisfy ' + a + ' ≤ x ≤ ' + b + '?', a: b - a + 1, k: 'countRange', explain: 'Inclusive count = (upper − lower) + 1 = (' + b + ' − ' + a + ') + 1 = ' + (b - a + 1) + '.' }; }
+function _modIneqCount() { var a = randInt(5, 20), b = randInt(2, 7); return { q: 'How many integer values of x satisfy |x − ' + a + '| < ' + b + '?', a: 2 * b - 1, k: 'modIneqCount', explain: '|x − ' + a + '| < ' + b + ' means ' + (a - b) + ' < x < ' + (a + b) + '. The integers strictly between span 2·' + b + ' − 1 = ' + (2 * b - 1) + ' values.' }; }
+function _modIneqCountLe() { var a = randInt(5, 20), b = randInt(2, 7); return { q: 'How many integer values of x satisfy |x − ' + a + '| ≤ ' + b + '?', a: 2 * b + 1, k: 'modIneqCountLe', explain: '|x − ' + a + '| ≤ ' + b + ' means ' + (a - b) + ' ≤ x ≤ ' + (a + b) + ', inclusive = 2·' + b + ' + 1 = ' + (2 * b + 1) + ' integers.' }; }
+var _INEQ_ARCH = {
+  easy: [{ k: 'linIneqMin', skill: 'multi-step', build: function (d) { return _ineqMin(d); } }, { k: 'countRange', skill: 'direct', build: function () { return _countRange(); } }],
+  medium: [{ k: 'linIneqMin', skill: 'multi-step', build: function (d) { return _ineqMin(d); } }, { k: 'modLarger', skill: 'formula', build: function () { return _modLarger(); } }, { k: 'countRange', skill: 'direct', build: function () { return _countRange(); } }],
+  hard: [{ k: 'modIneqCount', skill: 'multi-step', build: function () { return _modIneqCount(); } }, { k: 'modIneqCountLe', skill: 'multi-step', build: function () { return _modIneqCountLe(); } }, { k: 'modLarger', skill: 'formula', build: function () { return _modLarger(); } }]
+};
+var _INEQ_PRIMARY = { easy: function () { return _countRange(); }, medium: function () { return _modLarger(); }, hard: function () { return _modIneqCount(); } };
+function genInequalities() { return _genArch('inequalities-modulus', _INEQ_ARCH, _INEQ_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -521,7 +563,10 @@ var categoryGenerators = {
   'number-properties': genNumberProperties,
   'linear-equations': genLinearEquations,
   'quadratic-equations': genQuadraticEquations,
-  'surds-indices': genSurdsIndices
+  'surds-indices': genSurdsIndices,
+  logarithms: genLogarithms,
+  progressions: genProgressions,
+  'inequalities-modulus': genInequalities
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -577,7 +622,8 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genMultiplication, genRatio, genAverage, genProfitLoss, genTSD, genTimeWork,
   genSimplification, genNumberSeries, genSimpleInterest, genCompoundInterest, genPartnership,
   genAges, genMixtures, genPipes, genNumberProperties,
-  genLinearEquations, genQuadraticEquations, genSurdsIndices];
+  genLinearEquations, genQuadraticEquations, genSurdsIndices,
+  genLogarithms, genProgressions, genInequalities];
 
 /**
  * Generate a single random question.
