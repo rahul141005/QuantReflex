@@ -17,6 +17,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Decision:** make category surfacing fully **registry-derived** (a future topic needs only a central edit), redesign
   the picker as a premium collapsible/searchable/personalized experience, build a premium **Quick-Reference revision
   library**, and land the content-craft polish — all without regressions, new deps/Firestore, or lowering the DI/LR bar.
+- **Batch 8 — global validation + ship verdict (ADR-084 COMPLETE):** whole-engine acceptance sweep after all batches.
+  Full `npm test` green (harness **112,993 assertions / 0 mismatches**; category-source, quick-ref 382/0, learn/statmath/
+  subjects counts all pass). Node stress: **4,320-question** cross-topic sweep (36 categories × 3 tiers × 40) found **0
+  dirty answers, 0 throws**, all **24 shared names** surface across word problems, longest stem 146 chars. Real browser
+  at 360 / 390 / 768 / 1280px, light **and** dark: the redesigned category picker (70 buttons, 11 collapsible sections,
+  For-You strip, no overflow) and the Quick-Reference library (5 sections, 21 cards, 42 cross-links, live search, no
+  overflow) both render with **0 page errors**. **Ship verdict — GO:** coverage is complete AND discoverable (zero stale
+  category lists — every surface derives from the source of truth), the Quant engine matches the DI/LR production bar,
+  no regressions, no new deps/Firestore/paywall, no dead code. Docs-only batch → no SW bump.
 - **Batch 3 — premium Quick-Reference revision library:** the AskUserQuestion direction was to treat Quick Reference as
   a premium differentiator, not stop at Learn-only tables. Built a curated, standalone revision library at the Learn
   sub-route `#learn/quick-ref` (a hub entry chip opens it). New `js/quick-reference/quick-ref-data.js` holds **21

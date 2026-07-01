@@ -9,12 +9,18 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.103 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.104 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.55 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.104 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) COMPLETE — Batch 8: global validation + ship
+> verdict.** Whole-engine acceptance: full npm test green (harness 112,993/0), 4,320-question stress (0 dirty / 0
+> throws / 24 names), browser at 360/390/768/1280px light+dark (picker + Quick-Reference, 0 errors, no overflow).
+> Ship verdict: **GO** — coverage complete AND discoverable, DI/LR bar held, no regressions/new deps/dead code.
+> Docs-only (no SW bump).
+>
 > **2.103 / Arch 2.55 (2026-07-01)** — **Quant Gold Audit (ADR-084) — Batch 3: premium Quick-Reference library.** A new
 > curated revision library at the Learn sub-route `#learn/quick-ref` (opened from a hub entry chip): 21 cards across 5
 > sections — formulas, comparison tables and standard values students re-read before mocks — in collapsible/searchable

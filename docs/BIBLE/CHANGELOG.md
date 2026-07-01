@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 8: global validation + ship verdict (COMPLETE)
+
+Whole-engine acceptance sweep and final ship review across all ADR-084 batches. No code change — validation + docs.
+
+Verification:
+- Full `npm test` exit 0 — recompute harness 112,993 assertions / 0 mismatches; category-source, quick-ref (382/0),
+  learn-content/render/browser/progress, statmath, subjects all green.
+- Node stress: 4,320-question cross-topic sweep (36 categories × 3 tiers × 40) → 0 dirty answers, 0 throws, 24 distinct
+  shared names surface across word problems, longest stem 146 chars.
+- Real browser at 360/390/768/1280px, light + dark: category picker (70 buttons, 11 sections, For-You strip, no
+  overflow) and Quick-Reference library (5 sections, 21 cards, 42 cross-links, live search, no overflow) — 0 errors.
+
+**Ship verdict — GO.** Quant coverage is complete AND discoverable (zero stale category lists; every surface derives
+from the source of truth), the engine matches the DI/LR production bar, and the batches introduced no regressions, new
+dependencies, new Firestore collections, paywall flags, or dead code. **Docs:** DECISION_LOG ADR-084 (Batch 8 /
+COMPLETE), VERSIONS 2.103→2.104. Docs-only — no SW bump.
+
+---
+
 ## 2026-07-01 — Quant Gold Audit (ADR-084) Batch 3: premium Quick-Reference revision library
 
 Build a curated, standalone revision library as a Learn sub-view — a premium exam-day differentiator.
