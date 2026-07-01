@@ -428,14 +428,15 @@ function createDrillEngine(container, opts) {
     var q = questions[current];
     var expected = String(q.answer);
 
-    /* Normalize both values for comparison:
-       - trim whitespace
-       - handle numeric equivalence (e.g. "57.0" == "57", "3234.00" == "3234")
-       - answer tolerance for decimal precision (33.33 matches 33.333, 33.3)
-       Tolerance: allow rounding differences up to 0.5% of the expected value
-       (min 0.05) to accept reasonable decimal approximations without being too lenient */
-    var normalizedRaw = raw.replace(/\s/g, '');
-    var normalizedExpected = expected.replace(/\s/g, '');
+    /* Normalize both values for comparison via the shared answer-format registry (ADR-086 — one source of truth for
+       keyboard, grader and coverage checks): strip whitespace, then numeric-equivalence ("57.0" == "57") with a small
+       rounding tolerance = max(0.01, 0.1% of |expected|) so 1–2-dp approximations are accepted. Guarded fallback keeps
+       grading working even if the registry global is unavailable. */
+    var _normalize = (typeof QRAnswerFormat !== 'undefined' && QRAnswerFormat.normalize)
+      ? QRAnswerFormat.normalize
+      : function (s) { return String(s == null ? '' : s).replace(/\s+/g, ''); };
+    var normalizedRaw = _normalize(raw);
+    var normalizedExpected = _normalize(expected);
     var correct = false;
 
     if (normalizedRaw === normalizedExpected) {
