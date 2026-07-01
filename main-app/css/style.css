@@ -27,8 +27,42 @@
   --qr-practice-gap: .6rem;        /* Practice scroll-panel: equal top/bottom inset */
   --qr-bg: #f8fafc;                /* app background (light) — used by sticky surfaces e.g. Learn section nav */
   --qr-accent: #2563eb;            /* canonical brand blue (new code; existing hard-coded #2563eb left as-is) */
+
+  /* ── Semantic design tokens (ADR-086) — seeded from the existing palette (no new hues). The redesigned drill
+     journey references THESE, so every theme × mode inherits one structure and expresses only its own colour.
+     Light defaults below; dark + playful override the same names. ── */
+  --qr-text: #0f172a; --qr-text-dim: #64748b; --qr-text-mut: #94a3b8;
+  --qr-surface: rgba(255,255,255,.88); --qr-surface-solid: #ffffff; --qr-surface-2: #f1f5f9; --qr-surface-3: #e2e8f0;
+  --qr-border: #e2e8f0; --qr-border-strong: #cbd5e1;
+  --qr-accent-2: #3b82f6; --qr-accent-strong: #1d4ed8;
+  --qr-success: #16a34a; --qr-success-fg: #15803d; --qr-success-bg: rgba(22,163,74,.12); --qr-success-border: #22c55e;
+  --qr-danger: #dc2626; --qr-danger-fg: #991b1b; --qr-danger-bg: rgba(220,38,38,.10); --qr-danger-border: #ef4444;
+  --qr-warn: #f59e0b; --qr-info: #8b5cf6; --qr-info-fg: #7c3aed;
+  --qr-focus-ring: 0 0 0 3px rgba(37,99,235,.35);
+  --qr-dur-fast: .12s; --qr-dur: .2s; --qr-dur-slow: .4s; --qr-ease: cubic-bezier(.2,.7,.2,1);
 }
-body.dark-mode { --qr-bg: #0f172a; --qr-accent: #60a5fa; }
+body.dark-mode {
+  --qr-bg: #0f172a; --qr-accent: #60a5fa;
+  --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #64748b;
+  --qr-surface: rgba(30,41,59,.88); --qr-surface-solid: #1e293b; --qr-surface-2: #0f172a; --qr-surface-3: #334155;
+  --qr-border: #334155; --qr-border-strong: #475569;
+  --qr-accent-2: #3b82f6; --qr-accent-strong: #3b82f6;
+  --qr-success: #22c55e; --qr-success-fg: #86efac; --qr-success-bg: rgba(22,163,74,.20); --qr-success-border: #22c55e;
+  --qr-danger: #f87171; --qr-danger-fg: #fca5a5; --qr-danger-bg: rgba(220,38,38,.22); --qr-danger-border: #ef4444;
+  --qr-warn: #fbbf24; --qr-info: #a78bfa; --qr-info-fg: #c4b5fd;
+  --qr-focus-ring: 0 0 0 3px rgba(96,165,250,.4);
+}
+/* Playful skin (ADR-086 tokens): warm off-white surfaces + its own blue; structure/motion inherited unchanged. */
+body.theme-playful {
+  --qr-accent-2: #4f8ff7; --qr-accent-strong: #3b7de0;
+  --qr-surface: #faf9f7; --qr-surface-solid: #faf9f7; --qr-surface-2: #f0eee9; --qr-surface-3: #e8e6e1;
+  --qr-border: #e8e6e1; --qr-border-strong: #d9d5cc;
+}
+body.theme-playful.dark-mode {
+  --qr-accent-2: #58a6ff; --qr-accent-strong: #4f8ff7;
+  --qr-surface: rgba(30,35,48,.9); --qr-surface-solid: #1b2130; --qr-surface-2: #141926; --qr-surface-3: #2a3346;
+  --qr-border: #2a3346; --qr-border-strong: #3a465e;
+}
 
 /* ---- Reset & Base ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
