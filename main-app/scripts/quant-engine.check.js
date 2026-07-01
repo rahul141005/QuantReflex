@@ -22,7 +22,8 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
   'simple-interest', 'compound-interest', 'partnership', 'ages', 'mixtures', 'pipes-cisterns', 'number-properties',
   'linear-equations', 'quadratic-equations', 'surds-indices',
   'logarithms', 'progressions', 'inequalities-modulus',
-  'geometry-basics', 'coordinate-geometry-basics', 'trigonometry', 'surface-area'];
+  'geometry-basics', 'coordinate-geometry-basics', 'trigonometry', 'surface-area',
+  'permutation-combination', 'probability'];
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
@@ -56,7 +57,9 @@ var TIER_KEYS = {
   'geometry-basics': { easy: ['complement', 'supplement', 'triangleThird'], medium: ['triangleThird', 'pythHyp', 'isosceles'], hard: ['pythLeg', 'polygonSum', 'polygonEach'] },
   'coordinate-geometry-basics': { easy: ['distance', 'midpointX'], medium: ['distance', 'slope', 'midpointX'], hard: ['slope', 'distance', 'sectionX'] },
   trigonometry: { easy: ['standardEval', 'complementary'], medium: ['standardEval', 'complementary', 'identity'], hard: ['identity', 'heightElev', 'complementary'] },
-  'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA', 'cuboidTSA'] }
+  'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA', 'cuboidTSA'] },
+  'permutation-combination': { easy: ['factorial', 'arrange'], medium: ['nCr', 'nPr', 'arrange'], hard: ['committee', 'handshakes', 'nCr'] },
+  probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb', 'allHeads'] }
 };
 var REFACTORED = Object.keys(TIER_KEYS);
 
@@ -69,6 +72,10 @@ function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = b; b 
 function modpow(b, e, m) { var r = 1; b %= m; while (e > 0) { if (e & 1) r = r * b % m; e = Math.floor(e / 2); b = b * b % m; } return r; }
 /* Independent trial-division divisor count. */
 function divisorCount(N) { N = Math.abs(N); var c = 0; for (var d = 1; d * d <= N; d++) { if (N % d === 0) c += (d === N / d ? 1 : 2); } return c; }
+/* Independent factorial / permutations / combinations (iterative — a different path from the generator's helpers). */
+function fact(n) { var r = 1; for (var i = 2; i <= n; i++) r *= i; return r; }
+function nPr(n, r) { return fact(n) / fact(n - r); }
+function nCr(n, r) { return fact(n) / (fact(r) * fact(n - r)); }
 /* Independent re-evaluation of a pure arithmetic stem (multiplication / simplification) via a different code path. */
 function evalExpr(text) { var lhs = String(text).split('=')[0].replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/[^0-9+\-*/(). ]/g, ''); try { return Function('"use strict";return (' + lhs + ')')(); } catch (e) { return null; } }
 /* Independent next-term detector for number series (arithmetic / geometric / constant 2nd difference). */
@@ -213,6 +220,18 @@ function recompute(cat, key, text) {
     if (key === 'cylCSA') return r2(2 * 3.14 * n[0] * n[1]);
     if (key === 'cylTSA') return r2(2 * 3.14 * n[0] * (n[0] + n[1]));
     if (key === 'sphereSA') return r2(4 * 3.14 * n[0] * n[0]);
+  }
+  if (cat === 'permutation-combination') {
+    if (key === 'factorial' || key === 'arrange') return fact(n[0]);
+    if (key === 'nPr') return nPr(n[0], n[1]);                        /* "7P3" → nums 7,3 */
+    if (key === 'nCr' || key === 'committee') return nCr(n[0], n[1]);
+    if (key === 'handshakes') return nCr(n[0], 2);
+  }
+  if (cat === 'probability') {
+    if (key === 'bagSingle') return r2(n[0] / (n[0] + n[1]));
+    if (key === 'complement') return r2(1 - n[0] / (n[0] + n[1]));
+    if (key === 'allHeads') return r2(Math.pow(0.5, n[0]));
+    if (key === 'multipleProb') return r2(Math.floor(n[1] / n[2]) / n[1]);   /* nums: 1, T, d */
   }
   return null;   /* fractions (string), ratios pctRatio/combine (string), mixtures alligationRatio (string) */
 }

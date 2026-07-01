@@ -9,12 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.90 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.91 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.53 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.91 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch F-a): close the Modern-Math practice
+> orphans (ADR-083).** New drill generators for the two existing drill-less Modern-Math Learn chapters —
+> **permutation-combination** (factorial / arrangement / nPr / nCr / committee / handshakes, ASCII "7P3"/"8C3" notation)
+> and **probability** (single-draw / complement / all-heads coins / multiples-in-a-range, clean decimal answers) —
+> `drillCategory` set on both so every Modern-Math chapter now has a drill. Harness recomputes each archetype through an
+> independent factorial/nCr path — **103,145 assertions, 0 mismatches**; subjects roster 31→33. SW v176→v177.
+>
 > **2.90 / Arch 2.53 (2026-07-01)** — **Quant Master Overhaul — Phase 3 (batch E-b): trigonometry + surface-area
 > (ADR-083).** Two more topics — **trigonometry** (standard-angle evaluation / complementary angles / Pythagorean
 > identities / 45° heights-and-distances — answers kept to the clean set {0, ½, 1} or integer angles/heights) and

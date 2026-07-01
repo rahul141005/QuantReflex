@@ -56,6 +56,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real dedicated bank exists. Wired + `drillCategory` set on all three Learn topics; harness recomputes the numeric
   archetypes (**62,155 assertions, ~8,000 recomputed, 0 mismatches**). subjects roster 17→20. SW v170→v171, Bible
   2.84→2.85.
+- **Phase 3 (batch F-a) — close the Modern-Math practice orphans:** drill generators for the two drill-less Modern-Math
+  Learn chapters — **permutation-combination** (factorial / arrangement / nPr / nCr / committee / handshakes, ASCII
+  "7P3"/"8C3" notation so the harness parses it) and **probability** (single-draw / complement / all-heads / multiples,
+  clean decimal answers within the numpad's `.`-entry). `drillCategory` set on both (Modern-Math now has zero orphans).
+  Harness recomputes via an independent factorial/nCr path — **103,145 assertions, 0 mismatches**; subjects roster
+  31→33. SW v176→v177, Bible 2.90→2.91.
 - **Phase 3 (batch E-b) — trigonometry + surface-area:** **trigonometry** (standard-angle eval, complementary angles,
   Pythagorean identities, 45° heights-and-distances) with answers restricted to {0, ½, 1}/integer angles/heights so
   numeric entry stays exact and recompute is independent (native `Math.sin/cos/tan`); **surface-area** (cube/cuboid/

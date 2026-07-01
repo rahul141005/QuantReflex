@@ -28,7 +28,8 @@
     'surds-indices': 'Surds & Indices', logarithms: 'Logarithms', progressions: 'Progressions (AP & GP)',
     'inequalities-modulus': 'Inequalities & Modulus',
     'geometry-basics': 'Geometry Basics', 'coordinate-geometry-basics': 'Coordinate Geometry',
-    trigonometry: 'Trigonometry', 'surface-area': 'Surface Area'
+    trigonometry: 'Trigonometry', 'surface-area': 'Surface Area',
+    'permutation-combination': 'Permutation & Combination', probability: 'Probability'
   };
 
   function label(cat) { return CATEGORY_LABELS[cat] || cat; }

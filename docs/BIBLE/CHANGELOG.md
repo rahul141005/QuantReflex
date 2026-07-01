@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-01 — Quant Master Overhaul, Phase 3 batch F-a: modern-math practice orphans (ADR-083)
+
+Close the two drill-less Modern-Math Learn chapters with production-grade generators. Full suite green.
+
+```
+### feat/quant(ADR-083): permutation-combination + probability generators
+- js/questions.js: genPermutationCombination (factorial/arrange/nPr/nCr/committee/handshakes, ASCII 7P3/8C3),
+  genProbability (bagSingle/complement/allHeads/multipleProb, clean decimal answers). Independent _fact/_nPr/_nCr.
+- data/knowledge/modern.js: drillCategory set on probability + permutation-combination (were null) → Modern-Math
+  has zero orphans. (Learn chapters + exam-relevance already existed.)
+- quantTopics: 2 new labels. quant-engine.check: TIER_KEYS + recompute (independent factorial/nCr) — 103,145
+  assertions, 0 mismatches. subjects.check 31→33.
+```
+
+Verification: `npm test` exit 0 (quant-engine 103,145/0; subjects 33). Samples spot-checked correct + clean.
+**Docs:** DECISION_LOG ADR-083 (Phase 3F-a), VERSIONS 2.90→2.91, this entry. **SW** v176→v177.
+
+---
+
 ## 2026-07-01 — Quant Master Overhaul, Phase 3 batch E-b: trigonometry + surface-area (ADR-083)
 
 Add trigonometry and surface-area; backfill exam-relevance for all new algebra/geometry topics. Full suite green.

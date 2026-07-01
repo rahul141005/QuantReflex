@@ -604,6 +604,41 @@ var _SA_ARCH = {
 var _SA_PRIMARY = { easy: function () { return _saCubeTSA(); }, medium: function () { return _saCuboidTSA(); }, hard: function () { return _saSphere(); } };
 function genSurfaceArea() { return _genArch('surface-area', _SA_ARCH, _SA_PRIMARY); }
 
+/* ═══════════════════════════ ADR-083 Phase 3F — Modern Math generators ═══════════════════════════ */
+
+function _fact(n) { var r = 1; for (var i = 2; i <= n; i++) r *= i; return r; }
+function _nPr(n, r) { return _fact(n) / _fact(n - r); }
+function _nCr(n, r) { return _fact(n) / (_fact(r) * _fact(n - r)); }
+
+/** Permutation & Combination (archetypes: factorial · arrangement · nPr · nCr · committee · handshakes). ASCII notation. */
+function _pcFactorial(diff) { var n = randInt(3, diff === 'hard' ? 8 : 6); return { q: n + '! = ?', a: _fact(n), k: 'factorial', explain: n + '! = ' + n + ' × ' + (n - 1) + ' × … × 1 = ' + _fact(n) + '.' }; }
+function _pcArrange(diff) { var n = randInt(3, diff === 'hard' ? 7 : 5); return { q: 'In how many ways can ' + n + ' distinct books be arranged in a row?', a: _fact(n), k: 'arrange', explain: 'All ' + n + ' arranged = ' + n + '! = ' + _fact(n) + '.' }; }
+function _pcNPr(diff) { var n = randInt(4, diff === 'hard' ? 9 : 7), r = randInt(2, Math.min(4, n - 1)); return { q: 'Find the value of ' + n + 'P' + r + ' (permutations of ' + r + ' from ' + n + ').', a: _nPr(n, r), k: 'nPr', explain: 'nPr = n!/(n−r)! = ' + n + '!/' + (n - r) + '! = ' + _nPr(n, r) + '.' }; }
+function _pcNCr(diff) { var n = randInt(4, diff === 'hard' ? 10 : 8), r = randInt(2, Math.min(4, n - 1)); return { q: 'Find the value of ' + n + 'C' + r + ' (combinations of ' + r + ' from ' + n + ').', a: _nCr(n, r), k: 'nCr', explain: 'nCr = n!/[r!(n−r)!] = ' + n + '!/[' + r + '!·' + (n - r) + '!] = ' + _nCr(n, r) + '.' }; }
+function _pcCommittee(diff) { var n = randInt(5, diff === 'hard' ? 10 : 8), r = randInt(2, Math.min(4, n - 1)); return { q: 'From ' + n + ' people, how many different committees of ' + r + ' can be formed?', a: _nCr(n, r), k: 'committee', explain: 'Order does not matter → combinations: ' + n + 'C' + r + ' = ' + _nCr(n, r) + '.' }; }
+function _pcHandshakes(diff) { var n = randInt(4, diff === 'hard' ? 15 : 10); return { q: 'In a party of ' + n + ' people, everyone shakes hands with everyone else once. How many handshakes take place?', a: _nCr(n, 2), k: 'handshakes', explain: 'Each handshake is a pair → ' + n + 'C2 = ' + n + '×' + (n - 1) + '/2 = ' + _nCr(n, 2) + '.' }; }
+var _PC_ARCH = {
+  easy: [{ k: 'factorial', skill: 'direct', build: function (d) { return _pcFactorial(d); } }, { k: 'arrange', skill: 'direct', build: function (d) { return _pcArrange(d); } }],
+  medium: [{ k: 'nCr', skill: 'formula', build: function (d) { return _pcNCr(d); } }, { k: 'nPr', skill: 'formula', build: function (d) { return _pcNPr(d); } }, { k: 'arrange', skill: 'direct', build: function (d) { return _pcArrange(d); } }],
+  hard: [{ k: 'committee', skill: 'multi-step', build: function (d) { return _pcCommittee(d); } }, { k: 'handshakes', skill: 'multi-step', build: function (d) { return _pcHandshakes(d); } }, { k: 'nCr', skill: 'formula', build: function (d) { return _pcNCr(d); } }]
+};
+var _PC_PRIMARY = { easy: function () { return _pcFactorial('easy'); }, medium: function () { return _pcNCr('medium'); }, hard: function () { return _pcHandshakes('hard'); } };
+function genPermutationCombination() { return _genArch('permutation-combination', _PC_ARCH, _PC_PRIMARY); }
+
+/** Probability (archetypes: single draw · complement · all-heads coins · multiples in a range). Decimal answers (clean). */
+var _PROB_TOTALS = [4, 5, 10, 20, 25];
+function _probBag() { var T = pick(_PROB_TOTALS), r = randInt(1, T - 1), b = T - r, colours = pick([['red', 'blue'], ['green', 'yellow'], ['black', 'white'], ['red', 'green']]); return { q: 'A bag has ' + r + ' ' + colours[0] + ' and ' + b + ' ' + colours[1] + ' balls. One ball is drawn at random. What is the probability it is ' + colours[0] + '? (as a decimal)', a: _round2(r / T), k: 'bagSingle', explain: 'P = favourable/total = ' + r + '/' + T + ' = ' + _round2(r / T) + '.' }; }
+function _probComplement() { var T = pick(_PROB_TOTALS), r = randInt(1, T - 1), b = T - r, colours = pick([['red', 'blue'], ['green', 'yellow'], ['black', 'white']]); return { q: 'A bag has ' + r + ' ' + colours[0] + ' and ' + b + ' ' + colours[1] + ' balls. One ball is drawn at random. What is the probability it is NOT ' + colours[0] + '? (as a decimal)', a: _round2(1 - r / T), k: 'complement', explain: 'P(not ' + colours[0] + ') = 1 − ' + r + '/' + T + ' = ' + _round2(1 - r / T) + '.' }; }
+function _probCoins(diff) { var n = randInt(1, diff === 'hard' ? 4 : 3); return { q: n + ' fair coin' + (n > 1 ? 's are' : ' is') + ' tossed. What is the probability of getting ' + (n === 1 ? 'a head' : 'all heads') + '? (as a decimal)', a: _round2(Math.pow(0.5, n)), k: 'allHeads', explain: 'P(all heads) = (1/2)^' + n + ' = ' + _round2(Math.pow(0.5, n)) + '.' }; }
+function _probMultiple() { for (var t = 0; t < 30; t++) { var T = pick([10, 20, 25, 50]), d = pick([2, 4, 5, 10]); if (T % d !== 0) continue; var fav = T / d, p = fav / T; return { q: 'A number is chosen at random from 1 to ' + T + '. What is the probability it is a multiple of ' + d + '? (as a decimal)', a: _round2(p), k: 'multipleProb', explain: 'Multiples of ' + d + ' up to ' + T + ': ' + fav + '. P = ' + fav + '/' + T + ' = ' + _round2(p) + '.' }; } return null; }
+var _PROB_ARCH = {
+  easy: [{ k: 'bagSingle', skill: 'formula', build: function () { return _probBag(); } }, { k: 'allHeads', skill: 'formula', build: function (d) { return _probCoins(d); } }],
+  medium: [{ k: 'bagSingle', skill: 'formula', build: function () { return _probBag(); } }, { k: 'complement', skill: 'multi-step', build: function () { return _probComplement(); } }, { k: 'multipleProb', skill: 'multi-step', build: function () { return _probMultiple(); } }],
+  hard: [{ k: 'complement', skill: 'multi-step', build: function () { return _probComplement(); } }, { k: 'multipleProb', skill: 'multi-step', build: function () { return _probMultiple(); } }, { k: 'allHeads', skill: 'formula', build: function (d) { return _probCoins(d); } }]
+};
+var _PROB_PRIMARY = { easy: function () { return _probBag(); }, medium: function () { return _probComplement(); }, hard: function () { return _probMultiple() || _probComplement(); } };
+function genProbability() { return _genArch('probability', _PROB_ARCH, _PROB_PRIMARY); }
+
 /* ---- category map for focus training ---- */
 var categoryGenerators = {
   squares: genSquare,
@@ -636,7 +671,9 @@ var categoryGenerators = {
   'geometry-basics': genGeometryBasics,
   'coordinate-geometry-basics': genCoordinateGeometry,
   trigonometry: genTrigonometry,
-  'surface-area': genSurfaceArea
+  'surface-area': genSurfaceArea,
+  'permutation-combination': genPermutationCombination,
+  probability: genProbability
 };
 
 /* ---- recent-question tracker (anti-repetition across calls) ---- */
@@ -694,7 +731,8 @@ var generators = [genSquare, genCube, genArea, genVolume, genFraction, genPercen
   genAges, genMixtures, genPipes, genNumberProperties,
   genLinearEquations, genQuadraticEquations, genSurdsIndices,
   genLogarithms, genProgressions, genInequalities,
-  genGeometryBasics, genCoordinateGeometry, genTrigonometry, genSurfaceArea];
+  genGeometryBasics, genCoordinateGeometry, genTrigonometry, genSurfaceArea,
+  genPermutationCombination, genProbability];
 
 /**
  * Generate a single random question.
