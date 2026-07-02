@@ -242,7 +242,11 @@
     for (var j = 0; j < n; j++) {
       var yy = ly0 + j * 20;
       s += '<rect x="' + lx0 + '" y="' + (yy - 8) + '" width="11" height="11" rx="2" fill="' + PALETTE[j % PALETTE.length] + '"/>';
-      s += '<text x="' + (lx0 + 17) + '" y="' + (yy + 1) + '" class="di-axis-lbl" text-anchor="start">' + _esc(_clip(L[j], 13)) + ' — ' + _fmt(V[j]) + '</text>';
+      /* Keep the whole legend entry inside the ~115px column (x≈205→320): the value always shows in full; the label
+         yields whatever room is left so a large value can never clip at the viewBox edge (ADR-088 A8). */
+      var _val = _fmt(V[j]);
+      var _lblBudget = Math.max(4, 24 - String(_val).length - 3);
+      s += '<text x="' + (lx0 + 17) + '" y="' + (yy + 1) + '" class="di-axis-lbl" text-anchor="start">' + _esc(_clip(L[j], _lblBudget)) + ' — ' + _val + '</text>';
     }
     s += '</svg>';
     return _figure(spec.title, s, _ariaSummary(spec));

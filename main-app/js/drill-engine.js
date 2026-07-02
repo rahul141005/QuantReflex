@@ -276,13 +276,13 @@ function createDrillEngine(container, opts) {
       });
     }
     var host = container.querySelector('#diSetQHost');
-    var progressPct = count > 0 ? Math.round((current / count) * 100) : 0;
+    var progressPct = count > 0 ? Math.min(100, Math.round((current / count) * 100)) : 0;
     /* a set question may be numeric (DI) OR multiple-choice (LR puzzle sets, ADR-079) — render the matching input */
     var isMCQ = !!(q.options && q.options.length);
     var setBadge = (diSet.category && String(diSet.category).indexOf('lr-') === 0) ? 'LR SET' : 'DI SET';
     host.innerHTML =
       '<p class="drill-progress">Question ' + (current + 1) + ' / ' + count + ' <span class="di-set-badge">' + setBadge + '</span></p>' +
-      '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+      '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + count + '" aria-valuenow="' + (current + 1) + '" aria-label="Question ' + (current + 1) + ' of ' + count + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
       '<h2 class="question-text">' + _escHtml(q.question) + '</h2>' +
       (isMCQ
         ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
@@ -436,7 +436,7 @@ function createDrillEngine(container, opts) {
       '<div class="card center-content fade-in question-card-transition' + (isMCQ ? ' drill-has-mcq' : '') + '">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
-          '<div class="drill-progress-bar"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+          '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + displayCount + '" aria-valuenow="' + (current + 1) + '" aria-label="Question ' + (current + 1) + ' of ' + displayCount + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
           (timeLimit ? '<p id="globalTimer" class="timer"></p>' : '') +
           (perQLimit ? '<p id="perQTimer" class="timer"></p>' : '') +
           /* DI (ADR-074): a question may carry a `chart` spec rendered ABOVE the stem. Reuses the same engine,
@@ -451,7 +451,7 @@ function createDrillEngine(container, opts) {
              data-opt is still what the grader compares). */
           (isMCQ
             ? '<div id="mcqOptions" class="mcq-options' + (q.optionFigures ? ' mcq-options-figures' : '') + '" role="group" aria-label="Answer options">' +
-                q.options.map(function (o, _i) { var s = _escHtml(String(o)); var fig = (q.optionFigures && q.optionFigures[_i] && typeof LRFigures !== 'undefined') ? LRFigures.render(q.optionFigures[_i]) : ''; var len = String(o).length; var cls = fig ? 'mcq-option mcq-figure-option' : ('mcq-option' + (len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : '')); return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="Option ' + s + '">' + (fig || s) + '</button>'; }).join('') +
+                q.options.map(function (o, _i) { var s = _escHtml(String(o)); var fig = (q.optionFigures && q.optionFigures[_i] && typeof LRFigures !== 'undefined') ? LRFigures.render(q.optionFigures[_i]) : ''; var len = String(o).length; var cls = fig ? 'mcq-option mcq-figure-option' : ('mcq-option' + (len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : '')); return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="Option ' + s.replace(/"/g, '&quot;') + '">' + (fig || s) + '</button>'; }).join('') +
               '</div>'
             : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />'
           ) +
@@ -690,13 +690,11 @@ function createDrillEngine(container, opts) {
     _cStat.total++;
     if (correct) _cStat.correct++;
 
-    /* Record answer with response time and question data for mistake tracking */
+    /* Record answer with response time and question data for mistake tracking. (Duel never reaches checkAnswer — it
+       routes through captureDuelAnswer for capture-only submission — so the old duel arm here was unreachable dead
+       code with a mismatched signature; removed in ADR-088.) */
     if (!isDuel) {
       recordAnswer(correct, q.category, q, elapsedRounded);
-    } else if (typeof onDuelAnswerSubmit === 'function') {
-      onDuelAnswerSubmit(correct, expected, elapsedRounded, q, current, function advance() {
-        /* This allows the duel manager to control when to advance to the next question */
-      });
     }
 
     /* Provide optional haptic/sound feedback */
@@ -942,14 +940,15 @@ function createDrillEngine(container, opts) {
   /* ADR-086 P6 — next-action restarts. All reuse THIS engine instance: drop the results overlay, clear the finished/
      answered latches, and re-enter begin() (which regenerates a fresh deck for generated modes and resets every
      session counter). Kept in-engine so "what next" works for every mode without new host wiring. */
-  function _restartSession() {
+  function _restartSession(overrideCount) {
     container.classList.remove('drill-results-active');
     beginStarted = false;
     answered = false;
     /* Restore the originally-requested size (ADR-087 D4). Review mode grows `count` by re-queuing missed questions;
-       without this, a review Retry would replay the inflated count. Harmless for preloaded/diSet — _beginBuild
-       overwrites `count` from the deck length regardless. */
-    count = _initialCount;
+       without this, a Retry would replay the inflated count. A caller may pass an explicit size (ADR-088: Practice
+       Mistakes wants 10 regardless of the prior mode's count). Harmless for preloaded/diSet — _beginBuild overwrites
+       `count` from the deck length regardless. */
+    count = (typeof overrideCount === 'number') ? overrideCount : _initialCount;
     begin();
   }
 
@@ -964,8 +963,7 @@ function createDrillEngine(container, opts) {
     preloadedQuestions = null;   /* mock/word-problem decks must not pre-empt the review branch in _beginBuild */
     diSet = null;
     mode = '🔄 Review Mistakes';
-    count = 10;
-    _restartSession();
+    _restartSession(10);   /* review 10 mistakes regardless of the prior mode's size (ADR-088; _restartSession would otherwise restore _initialCount) */
   }
 
   /* Bump the persisted difficulty one level (easy→medium→hard) and replay the same session config at the harder tier. */
@@ -1076,9 +1074,12 @@ function createDrillEngine(container, opts) {
       try { recordSessionImprovement(_sessImp.improvementPct); } catch (_) { /* ignore */ }
     }
 
-    /* Speed benchmark computation */
-    var speedScore = _computeSpeedScore(accNum, avgRaw);
-    var percentile = _computeContinuousPercentile(speedScore);
+    /* Speed benchmark computation. Guard the degenerate 0-answer session (e.g. a timed test that expires with nothing
+       attempted): avgRaw is 0, which computeSpeedScore would read as "maximally fast" and inflate to ~37th percentile.
+       An unanswered session has no speed signal, so score it 0 (ADR-088 A2). */
+    var _attempted = perQuestionTimes.length;
+    var speedScore = _attempted ? _computeSpeedScore(accNum, avgRaw) : 0;
+    var percentile = _attempted ? _computeContinuousPercentile(speedScore) : 0;
     var percentileClass = _getPercentileClass(percentile);
 
     /* Session delta: compare with last stored percentile */
@@ -1247,8 +1248,8 @@ function createDrillEngine(container, opts) {
       '</div>';
 
     container.innerHTML =
-      '<div class="card center-content fade-in">' +
-        '<h2>Session Complete</h2>' +
+      '<div class="card center-content fade-in" role="status" aria-live="polite">' +
+        '<h2 tabindex="-1" id="drillResultsHeading">Session Complete</h2>' +
         (isNewBest ? '<div class="new-best-badge">🎉 New Personal Best!</div>' : '') +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
         '<div class="session-insight-card">' + _escHtml(_insightText) + '</div>' +
@@ -1291,6 +1292,10 @@ function createDrillEngine(container, opts) {
         '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
         _nextHTML +
       '</div>';
+
+    /* Land screen-reader + keyboard focus on the results heading (ADR-088 A6): finish() replaces the whole container,
+       so without this focus would be orphaned on a detached node and SR users wouldn't be told the session ended. */
+    try { var _rh = container.querySelector('#drillResultsHeading'); if (_rh) _rh.focus(); } catch (_) {}
 
     /* Next-action wiring (ADR-086 P6). Each button is present only when applicable, so guard every lookup. */
     var _backToPractice = function () {
@@ -1457,6 +1462,7 @@ function createDrillEngine(container, opts) {
     ov.id = 'drillPauseOverlay';
     ov.className = 'drill-pause-overlay';
     ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
     ov.setAttribute('aria-label', 'Session paused');
     ov.innerHTML =
       '<div class="drill-pause-card">' +
