@@ -7892,16 +7892,8 @@ body.dark-mode .duel-exit-btn {
   min-width: 100px;
 }
 
-/* Results share button — premium gradient accent */
-.results-share-btn {
-  background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, .25);
-  font-weight: 700;
-}
-.results-share-btn:active {
-  box-shadow: 0 2px 6px rgba(37, 99, 235, .15);
-}
+/* (ADR-087: the premium-gradient .results-share-btn override that lived here was merged into the single base rule
+   near the results styles — removed to eliminate the duplicate + its !important.) */
 
 /* ==================== AUTH SCREEN ==================== */
 .auth-screen {
