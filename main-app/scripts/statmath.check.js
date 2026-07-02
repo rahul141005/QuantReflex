@@ -106,40 +106,6 @@ function mkStats(over) {
   ok('masteryDetail quant weakAreas is array', md.quant && Array.isArray(md.quant.weakAreas));
 })();
 
-/* comparativeInsights: accurate-but-slow fires */
-(function () {
-  var qcats = subjectCats.quant || [];
-  var cs = {};
-  cs[qcats[0]] = { attempted: 20, correct: 18, sumTime: 400, timedCount: 20 }; // 20s/Q, accurate, SLOW
-  cs[qcats[1]] = { attempted: 20, correct: 18, sumTime: 100, timedCount: 20 }; // 5s/Q, accurate, fast
-  var st = mkStats({ categoryStats: cs, totalAttempted: 40, totalCorrect: 36 });
-  var ins = SM.comparativeInsights(st);
-  ok('comparativeInsights returns array (≤3)', Array.isArray(ins) && ins.length <= 3);
-  ok('comparativeInsights surfaces the accurate-but-slow pair', ins.some(function (i) { return i.kind === 'speed' && i.pctSlower >= 25; }));
-})();
-
-/* examReadiness: bounded, monotonic in accuracy, confidence-damped, null on no data */
-(function () {
-  var rel = WC.filter(function (r) { return r.weights.CAT > 0; });
-  ok('there are CAT-relevant categories to test', rel.length >= 3);
-  function statsWithAccuracy(acc, days, nPerCat) {
-    var cs = {}, total = 0, cor = 0, hist = {};
-    rel.slice(0, 6).forEach(function (r) { var a = nPerCat, c = Math.round(a * acc); cs[r.cat] = { attempted: a, correct: c }; total += a; cor += c; });
-    for (var d = 0; d < days; d++) { var k = new Date(Date.now() - d * 86400000).toDateString(); hist[k] = { attempted: 5, correct: Math.round(5 * acc), sumTimes: 50, count: 5 }; }
-    return mkStats({ categoryStats: cs, totalAttempted: total, totalCorrect: cor, dailyHistory: hist, byDifficulty: { medium: { attempted: total, correct: cor } } });
-  }
-  var rich = statsWithAccuracy(0.9, 14, 30);
-  var lo = SM.examReadiness(statsWithAccuracy(0.5, 14, 30), WC).CAT;
-  var hi = SM.examReadiness(rich, WC).CAT;
-  ok('readiness bounded 0..100', hi.score >= 0 && hi.score <= 100 && lo.score >= 0 && lo.score <= 100);
-  ok('readiness monotonic in accuracy (90% > 50%)', hi.score > lo.score);
-  var thin = SM.examReadiness(statsWithAccuracy(0.9, 1, 2), WC).CAT;
-  ok('readiness confidence-damped (thin 2-Q history < rich)', thin.score < hi.score);
-  var none = SM.examReadiness(mkStats(), WC).CAT;
-  ok('readiness null when no relevant practice', none.score === null);
-  ok('readiness has no NaN', isFinite(hi.score) && isFinite(lo.score));
-})();
-
 /* weakestTopics + nextRecommendation */
 (function () {
   var cs = {};

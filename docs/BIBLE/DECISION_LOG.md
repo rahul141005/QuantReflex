@@ -8,6 +8,49 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-089 — Final UI cleanup: forward-only results actions + remove two Stats sections (2026-07-02)
+- **Context:** a production polish pass (explicitly *not* a redesign) to remove the last of the UX debt: the results
+  screen carried five backward-looking actions, two Stats sections had outlived their usefulness, and the results
+  topic cards clipped long topic names with an ellipsis. Three independent read-only audits mapped every footprint from
+  code first, so each removal's shared-vs-exclusive boundary was known before any edit.
+- **Results screen → forward-only (`js/drill-engine.js`, `css/style.css`):** removed the `actMistakes`
+  ("Practice My Mistakes" shortcut), `actRetry` ("Practice Again"/"Retry"), and `actHarder` ("Increase Difficulty")
+  buttons and their listeners, plus the now-dead restart machinery they were the only callers of — `_restartSession`,
+  `_practiceMistakesRestart`, `_increaseDifficultyRestart`, `_initialCount`, `_canHarder`/`_curDiffLc`,
+  `_primaryIsMistakes`. The results actions are now just **Continue Learning** (primary, full-width, always shown —
+  `_continueLearning` already falls back to the Learn view when no chapter resolves) over **Back to Practice**
+  (secondary, full-width). Share Achievement stays, always. The insight chips (incl. "N to review"), the
+  `.session-insight-card`, and `_wrongCount` are untouched. CSS: `.drill-next` collapses to a stacked full-width column;
+  the two-column `.drill-next-grid` rules were deleted.
+- **Review My Mistakes — kept in full (deliberate boundary):** only the *results-screen shortcut* was removed. The
+  review MODE — `reviewMode` plumbing, `generateMistakeReviewQuestions`, `getMistakes`, the Practice "Review Mistakes"
+  card + launcher, the `review_mistakes` entitlement/paywall/analytics/docs — is unchanged and still reachable from the
+  Practice section. Mistake *tracking* (`recordAnswer → progress.mistakes`) also feeds Firestore sync and the
+  server-side AI coach, so it was never a removal candidate. "Remove the shortcut, not the feature."
+- **Stats: removed "Performance Insights" + "Exam Readiness" (`js/views/stats-view.js`, `data/statMath.js`,
+  `index.html`, `css/style.css`, `scripts/statmath.check.js`):** deleted the two sections' render functions
+  (`_renderInsights`, `_renderReadiness`), their `renderStatsView` calls + `_toggleSection` lines, the `#insightsSection`
+  /`#readinessSection` markup, the `.stats-insight-*`/`.stats-ready-*` CSS (and a now-orphaned `#statsInsights`-scoped
+  rule), and the two check-script IIFEs. In `statMath` the exclusive derivations `comparativeInsights`, `examReadiness`
+  and its private `_hardAccuracy` helper (plus the now-unused `_CONF_FACTOR`) were removed with their exports.
+- **Deliberately kept (shared surfaces):** the `performance_insights` entitlement is shared — it still gates Subject
+  Mastery, Study Next and QuanAI Recommends — so it and its paywall/marketing copy stay (nothing advertises a removed
+  section; the copy maps to the retained premium-analytics tier). All shared `statMath` helpers (`accuracyWindows`,
+  `deriveMastery`, `consistency`, `evidence`, `overallAccuracy`, `_barClass`, …) stay. The planner's separate
+  `examReadinessScore` subsystem (`services/*`, `planner-view.js`) and the drill `.session-insight-card` are unrelated
+  and untouched.
+- **Topic cards never overflow + Settings (`css/style.css`, `index.html`):** `.dt-name` replaces
+  `white-space:nowrap; text-overflow:ellipsis` with a two-line clamp (`overflow-wrap:anywhere` + `-webkit-line-clamp:2`);
+  `.drill-topic` gains `min-height` + `align-items:flex-start` for equal card heights and aligned icons; `.drill-topics`
+  stacks to one column ≤360px. Settings toggle renamed "Ask Subject Before Quick Start" → **"Ask Subject"** with a
+  clearer subtitle; the `practiceAskSubject` key + bindings are unchanged.
+- **Consequences:** the results screen reads as one forward motion (badge/insight → metrics → strongest → focus-next →
+  speed benchmark → Continue Learning → Back to Practice); Stats is shorter and every section still resolves; the last
+  topic-name clip is gone at 320/768/landscape in all four theme combinations. Verified: full 25-check harness green
+  (statmath.check 713/0 after trimming), CSS braces balanced, `node --check` on the edited JS, and an 80-assertion
+  Playwright sweep (4 themes × 320/768) confirming the results actions, topic-card overflow/equal-height, Stats section
+  removal, and Settings label — 0 app errors. SW `v203 → v204`.
+
 ## ADR-088 — Drill Engine hardening round 2: complete theme coverage + audit fixes (2026-07-02)
 - **Context:** the assume-nothing drill quality-gate was re-run — three fresh independent audits (logic/results/a11y,
   CSS/theming, performance/figures/regression) + direct code re-reads + the full harness, trusting no prior summary.

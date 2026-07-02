@@ -33,7 +33,6 @@
  */
 function createDrillEngine(container, opts) {
   var count = opts.count || 10;
-  var _initialCount = count;   /* ADR-087 D4: the requested session size, restored on Retry (review mode mutates `count` by re-queuing mistakes) */
   var timeLimit = opts.timeLimitSec || null;
   var perQLimit = opts.perQuestionSec || null;
   var category = opts.category || null;
@@ -937,49 +936,6 @@ function createDrillEngine(container, opts) {
     return ScoringService.computeSessionInsight(accNum, wrongCats);
   }
 
-  /* ADR-086 P6 — next-action restarts. All reuse THIS engine instance: drop the results overlay, clear the finished/
-     answered latches, and re-enter begin() (which regenerates a fresh deck for generated modes and resets every
-     session counter). Kept in-engine so "what next" works for every mode without new host wiring. */
-  function _restartSession(overrideCount) {
-    container.classList.remove('drill-results-active');
-    beginStarted = false;
-    answered = false;
-    /* Restore the originally-requested size (ADR-087 D4). Review mode grows `count` by re-queuing missed questions;
-       without this, a Retry would replay the inflated count. A caller may pass an explicit size (ADR-088: Practice
-       Mistakes wants 10 regardless of the prior mode's count). Harmless for preloaded/diSet — _beginBuild overwrites
-       `count` from the deck length regardless. */
-    count = (typeof overrideCount === 'number') ? overrideCount : _initialCount;
-    begin();
-  }
-
-  /* Switch this engine into review mode and replay the user's mistakes (this session's wrong answers are already in
-     the mistake store via recordAnswer). Premium-gated exactly like the Practice-view Review Mistakes entry. */
-  function _practiceMistakesRestart() {
-    if (typeof canAccessFeature === 'function' && !canAccessFeature('review_mistakes')) {
-      if (typeof showPaywall === 'function') showPaywall('review_mistakes');
-      return;
-    }
-    reviewMode = true;
-    preloadedQuestions = null;   /* mock/word-problem decks must not pre-empt the review branch in _beginBuild */
-    diSet = null;
-    mode = '🔄 Review Mistakes';
-    _restartSession(10);   /* review 10 mistakes regardless of the prior mode's size (ADR-088; _restartSession would otherwise restore _initialCount) */
-  }
-
-  /* Bump the persisted difficulty one level (easy→medium→hard) and replay the same session config at the harder tier. */
-  function _increaseDifficultyRestart() {
-    try {
-      var s = (typeof AppState !== 'undefined' && AppState.getSettings) ? AppState.getSettings()
-        : (typeof loadSettings === 'function' ? loadSettings() : {});
-      var next = ({ easy: 'medium', medium: 'hard' })[(s && s.difficulty) || 'medium'] || 'hard';
-      s.difficulty = next;
-      if (typeof AppState !== 'undefined' && AppState.setSettings) AppState.setSettings(s);
-      else { try { localStorage.setItem('quant_reflex_settings', JSON.stringify(s)); } catch (_) {} }
-      if (typeof showToast === 'function') showToast('Difficulty raised to ' + next + '.');
-    } catch (_) { /* ignore — restart at the current level */ }
-    _restartSession();
-  }
-
   /* Exit cleanly into a Learn chapter (deliberate study action after a session). Mirrors _buildConceptLink's teardown. */
   function _continueLearning(topic) {
     try { cleanup(); } catch (_) {}
@@ -1226,25 +1182,13 @@ function createDrillEngine(container, opts) {
       topics: _shareTopics
     };
 
-    /* ── ADR-086 P6 next-action routing ──────────────────────────────────────────────────────────────────────
-       Context-aware "what next": a dominant primary (Practice My Mistakes when there are mistakes to review, else
-       Practice Again), plus a grid of the actions that actually apply to this session. Each is wired to an in-engine
-       restart or a clean exit — no dead buttons. */
-    var _curDiffLc = _startDifficulty().toLowerCase();
-    var _canHarder = !adaptiveMode && !diSet && !(preloadedQuestions && preloadedQuestions.length) && !reviewMode &&
-      (_curDiffLc === 'easy' || _curDiffLc === 'medium');
-    var _primaryIsMistakes = (_wrongCount > 0 && !reviewMode);
+    /* Forward-only next actions (ADR-089): a single dominant primary — Continue Learning (falls back to the Learn
+       view when no chapter resolves) — with Back to Practice as the secondary beneath it. Stacked, full-width, no
+       backward-looking restart/retry actions. Review Mistakes stays reachable from the Practice section. */
     var _nextHTML =
       '<div class="drill-next">' +
-        '<button class="btn-primary drill-next-primary" type="button" id="' + (_primaryIsMistakes ? 'actMistakes' : 'actRetry') + '">' +
-          (_primaryIsMistakes ? '📝 Practice My Mistakes' : '🔁 Practice Again') +
-        '</button>' +
-        '<div class="drill-next-grid">' +
-          (_primaryIsMistakes ? '<button class="btn-secondary" type="button" id="actRetry">🔁 Retry</button>' : '') +
-          (_canHarder ? '<button class="btn-secondary" type="button" id="actHarder">🔺 Increase Difficulty</button>' : '') +
-          (_learnTopic ? '<button class="btn-secondary" type="button" id="actLearn">📖 Continue Learning</button>' : '') +
-          '<button class="btn-secondary" type="button" id="actPractice">🏠 Back to Practice</button>' +
-        '</div>' +
+        '<button class="btn-primary drill-next-primary" type="button" id="actLearn">📖 Continue Learning</button>' +
+        '<button class="btn-secondary drill-next-secondary" type="button" id="actPractice">🏠 Back to Practice</button>' +
       '</div>';
 
     container.innerHTML =
@@ -1297,17 +1241,11 @@ function createDrillEngine(container, opts) {
        so without this focus would be orphaned on a detached node and SR users wouldn't be told the session ended. */
     try { var _rh = container.querySelector('#drillResultsHeading'); if (_rh) _rh.focus(); } catch (_) {}
 
-    /* Next-action wiring (ADR-086 P6). Each button is present only when applicable, so guard every lookup. */
+    /* Next-action wiring (ADR-089): Continue Learning (primary) + Back to Practice (secondary). */
     var _backToPractice = function () {
       if (onFinish) onFinish('practice', _finishResults);
       else Router.showView('practice');
     };
-    var _elRetry = container.querySelector('#actRetry');
-    if (_elRetry) _elRetry.addEventListener('click', function () { _restartSession(); });
-    var _elMistakes = container.querySelector('#actMistakes');
-    if (_elMistakes) _elMistakes.addEventListener('click', function () { _practiceMistakesRestart(); });
-    var _elHarder = container.querySelector('#actHarder');
-    if (_elHarder) _elHarder.addEventListener('click', function () { _increaseDifficultyRestart(); });
     var _elLearn = container.querySelector('#actLearn');
     if (_elLearn) _elLearn.addEventListener('click', function () { _continueLearning(_learnTopic); });
     var _elPractice = container.querySelector('#actPractice');

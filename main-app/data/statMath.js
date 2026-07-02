@@ -191,10 +191,8 @@
     return { totalAttempted: n, activeDays: ad, hasMultiDayHistory: ad >= 2, confidence: conf };
   }
 
-  // ── ADR-080 derivations: time invested · per-subject mastery detail · comparative insights · per-exam readiness
-  //    · weakest topics · the single next recommendation. All PURE; thin-data is damped, never fabricated. ──
-
-  var _CONF_FACTOR = { 'first-session': 0.4, early: 0.6, established: 0.85, rich: 1.0 };
+  // ── ADR-080 derivations: time invested · per-subject mastery detail · weakest topics · the single next
+  //    recommendation. All PURE; thin-data is damped, never fabricated. ──
 
   /** Total solving time (seconds) over today / 7d / 30d / all from dailyHistory, plus a lifetime per-subject split
    *  from per-category `sumTime` (caller passes subjectCats). Time windows are global; bySubject is lifetime. */
@@ -242,86 +240,6 @@
     return out;
   }
 
-  /** 1–3 honest, deterministic comparative insights (structured — the view renders the sentence with category
-   *  labels). Computed only from STORED data: overall recent trend, the strongest-vs-weakest accuracy gap, and a
-   *  "accurate but slower than a peer" speed comparison (per-category avg time). No per-category weekly history is
-   *  stored, so we never claim a per-topic weekly drop. */
-  function comparativeInsights(stats) {
-    var out = [], cs = (stats && stats.categoryStats) || {};
-    // (1) overall trend
-    var aw = accuracyWindows(stats);
-    if (aw.direction === 'improving') out.push({ kind: 'trend', direction: 'improving', d7: aw.d7, d30: aw.d30 });
-    else if (aw.direction === 'declining') out.push({ kind: 'trend', direction: 'declining', d7: aw.d7, d30: aw.d30 });
-    // (2) accuracy gap between the relative strongest and weakest tiered categories
-    var m = deriveMastery(stats);
-    if (m.length >= 2) {
-      var weak = m[0], strong = m[m.length - 1];
-      for (var i = 1; i < m.length; i++) { if (m[i].acc > strong.acc) strong = m[i]; }
-      if (strong.cat !== weak.cat && (strong.acc - weak.acc) >= 0.2) {
-        out.push({ kind: 'gap', weakCat: weak.cat, weakAcc: _round(weak.acc * 100, 0), strongCat: strong.cat, strongAcc: _round(strong.acc * 100, 0) });
-      }
-    }
-    // (3) accurate-but-slow: among confidently-accurate categories, the slowest vs the fastest
-    var solid = [];
-    Object.keys(cs).forEach(function (cat) {
-      var d = cs[cat] || {}, a = Number(d.attempted) || 0, c = Number(d.correct) || 0, tc = Number(d.timedCount) || 0, st = Number(d.sumTime) || 0;
-      if (a >= MIN_ATTEMPTS && tc >= MIN_ATTEMPTS && (c / a) >= STRONG) solid.push({ cat: cat, avg: st / tc });
-    });
-    if (solid.length >= 2) {
-      solid.sort(function (x, y) { return x.avg - y.avg; });
-      var fast = solid[0], slow = solid[solid.length - 1];
-      var pctSlower = fast.avg > 0 ? Math.round(((slow.avg - fast.avg) / fast.avg) * 100) : 0;
-      if (pctSlower >= 25) out.push({ kind: 'speed', slowCat: slow.cat, fastCat: fast.cat, pctSlower: pctSlower, slowSec: _round(slow.avg, 1), fastSec: _round(fast.avg, 1) });
-    }
-    return out.slice(0, 3);
-  }
-
-  /** Difficulty-weighted competence 0..1 from byDifficulty: accuracy on medium+hard, falling back to overall. */
-  function _hardAccuracy(stats) {
-    var bd = (stats && stats.byDifficulty) || {};
-    var att = 0, cor = 0;
-    ['medium', 'hard'].forEach(function (d) { var e = bd[d] || {}; att += Number(e.attempted) || 0; cor += Number(e.correct) || 0; });
-    if (att >= MIN_ATTEMPTS) return cor / att;
-    var ov = overallAccuracy(stats); return ov == null ? null : ov;
-  }
-
-  /**
-   * Per-exam-track readiness 0–100, HONEST (confidence-damped, evidence-gated). The caller passes `weightedCats`
-   * (from QR_EXAMREL.weightedCategories) — rows of { cat, weights:{CAT,SNAP_NMAT,Banking,SSC} } — so statMath stays
-   * pure. For each track: importance-weighted accuracy on practised relevant categories (0.5) + breadth of coverage
-   * of that exam's relevant topics (0.3) + medium/hard competence (0.2), nudged by consistency, then multiplied by a
-   * confidence factor so a 2-question history can't read 90%. Returns { TRACK: {score, level, coverage, practised,
-   *  relevant} } or score:null when the user hasn't touched any relevant topic.
-   */
-  function examReadiness(stats, weightedCats, tracks) {
-    weightedCats = weightedCats || [];
-    tracks = tracks || ['CAT', 'SNAP_NMAT', 'Banking', 'SSC'];
-    var cs = (stats && stats.categoryStats) || {};
-    var diffTerm = _hardAccuracy(stats); if (diffTerm == null) diffTerm = 0;
-    var cons = consistency(stats);
-    var consAdj = cons.streakHealth === 'strong' ? 1.0 : cons.streakHealth === 'fragile' ? 0.95 : 0.9;
-    var confFactor = _CONF_FACTOR[evidence(stats).confidence] || 0.6;
-    var out = {};
-    tracks.forEach(function (track) {
-      var impAtt = 0, impCor = 0, impAll = 0, impPractised = 0, practised = 0, relevant = 0;
-      weightedCats.forEach(function (row) {
-        var imp = (row.weights && row.weights[track]) || 0; if (imp <= 0) return;
-        relevant++; impAll += imp;
-        var d = cs[row.cat] || {}, a = Number(d.attempted) || 0, c = Number(d.correct) || 0;
-        if (a > 0) { impAtt += imp * a; impCor += imp * c; }
-        if (a >= MIN_ATTEMPTS) { practised++; impPractised += imp; }
-      });
-      if (impAtt <= 0) { out[track] = { score: null, level: 'none', coverage: 0, practised: 0, relevant: relevant }; return; }
-      var accTerm = impCor / impAtt;                    // importance-weighted accuracy (0..1)
-      var coverage = impAll > 0 ? impPractised / impAll : 0;  // breadth (0..1)
-      var base = 0.5 * accTerm + 0.3 * coverage + 0.2 * diffTerm;
-      var score = Math.max(0, Math.min(100, Math.round(base * consAdj * confFactor * 100)));
-      var level = score >= 75 ? 'strong' : score >= 55 ? 'on-track' : score >= 35 ? 'building' : 'early';
-      out[track] = { score: score, level: level, coverage: _round(coverage, 2), practised: practised, relevant: relevant };
-    });
-    return out;
-  }
-
   /** Ranked weakest categories (≥ MIN_ATTEMPTS), weakest-first — the "study next" list. */
   function weakestTopics(stats, limit) {
     return deriveMastery(stats).filter(function (m) { return m.tier === 'weak' || m.acc < STRONG; }).slice(0, limit || 5);
@@ -365,8 +283,8 @@
     overallAccuracy: overallAccuracy, accuracyWindows: accuracyWindows,
     speed: speed, consistency: consistency, today: today,
     activeDays: activeDays, evidence: evidence,
-    timeInvested: timeInvested, masteryDetail: masteryDetail, comparativeInsights: comparativeInsights,
-    examReadiness: examReadiness, weakestTopics: weakestTopics, nextRecommendation: nextRecommendation
+    timeInvested: timeInvested, masteryDetail: masteryDetail,
+    weakestTopics: weakestTopics, nextRecommendation: nextRecommendation
   };
 
   // Dual-mode export (same pattern as syllabus.js): <script> on the client exposes window.QR_STATMATH;

@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.109 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.110 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.56 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.110 / Arch 2.56 (2026-07-02)** — **Final UI cleanup (ADR-089).** Production polish, not a redesign. Results
+> screen is now forward-only: removed the Practice-My-Mistakes shortcut, Practice-Again/Retry, and Increase-Difficulty
+> buttons + the dead restart machinery they were the only callers of; the actions are Continue Learning (primary,
+> full-width, always) over Back to Practice (secondary), with Share always shown. Removed the Stats "Performance
+> Insights" and "Exam Readiness" sections and their exclusive `statMath` derivations (`comparativeInsights`,
+> `examReadiness`, `_hardAccuracy`, `_CONF_FACTOR`) + CSS + check assertions. Fixed the results topic cards to
+> two-line-clamp long names (equal-height, no clip/overflow at 320/768/landscape) and renamed the Settings toggle to
+> "Ask Subject". Kept in full: Review My Mistakes (mode/entitlement/paywall/routes), the shared `performance_insights`
+> entitlement + marketing, all shared `statMath` helpers, the planner readiness subsystem, and the drill
+> session-insight card. Harness 25/25 green; 80-assertion Playwright sweep across 4 themes × 320/768. SW v203→v204.
+>
 > **2.109 / Arch 2.56 (2026-07-02)** — **Drill hardening round 2 (ADR-088).** Re-ran the assume-nothing quality-gate;
 > re-verified ADR-086/087 correct from code, then fixed a regression (Practice-Mistakes count), a latent bug (0-answer
 > speed-score inflation), a11y gaps (progressbar role, results focus/announce, pause aria-modal, MCQ aria-label escape),

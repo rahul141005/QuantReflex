@@ -1960,9 +1960,6 @@ body.paywall-open {
     #f8fafc;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
 }
-#statsInsights .stats-insights-locked {
-  grid-column: 1 / -1;
-}
 .stats-insights-locked::before {
   content: '';
   position: absolute;
@@ -6328,21 +6325,28 @@ body.dark-mode .drill-explain-btn:active {
 .drill-chip.chip-pb { color: var(--qr-warn); }
 .drill-topics { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; width: 100%; max-width: 24rem; margin: 0 auto 1.1rem; }
 .drill-topic {
-  display: flex; align-items: center; gap: .55rem; text-align: left;
-  padding: .65rem .7rem; border-radius: .85rem; border: 1px solid var(--qr-border); background: var(--qr-surface-2);
+  display: flex; align-items: flex-start; gap: .55rem; text-align: left;
+  min-height: 5.1rem; padding: .65rem .7rem; border-radius: .85rem;
+  border: 1px solid var(--qr-border); background: var(--qr-surface-2);
 }
-.drill-topic .dt-ico { font-size: 1.35rem; line-height: 1; flex: 0 0 auto; }
+.drill-topic .dt-ico { font-size: 1.35rem; line-height: 1.2; flex: 0 0 auto; }
 .drill-topic .dt-body { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .drill-topic .dt-lbl { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--qr-text-mut); }
-.drill-topic .dt-name { font-size: .92rem; font-weight: 800; color: var(--qr-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Topic names can be long ("Time, Speed & Distance", "Profit, Loss & Discount"): wrap to two lines and clamp
+   rather than clip with an ellipsis, so the full label reads and the card never overflows (ADR-089). */
+.drill-topic .dt-name {
+  font-size: .92rem; font-weight: 800; color: var(--qr-text); line-height: 1.2;
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .drill-topic .dt-acc { font-size: .76rem; font-weight: 600; color: var(--qr-text-dim); }
 .drill-topic-strong { border-left: 3px solid var(--qr-success-border); }
 .drill-topic-weak { border-left: 3px solid var(--qr-warn); }
+/* Very narrow phones (≤360px): a 2-column split leaves each card too tight for a wrapped topic name — stack them. */
+@media (max-width: 360px) { .drill-topics { grid-template-columns: 1fr; } }
 .drill-next { display: flex; flex-direction: column; gap: .55rem; width: 100%; max-width: 24rem; margin: .3rem auto 0; }
 .drill-next-primary { width: 100%; }
-.drill-next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-.drill-next-grid .btn-secondary { margin: 0; width: 100%; }
-.drill-next-grid .btn-secondary:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.drill-next-secondary { width: 100%; margin: 0; }
 
 /* ── Pause / resume + graceful failure (ADR-086 P7) — token-driven across all themes ── */
 .session-pause,
@@ -10689,29 +10693,6 @@ body.dark-mode .stats-mastery-pct { color: #93c5fd; }
 .stats-mastery-sub { font-size: .74rem; color: #94a3b8; }
 .stats-mastery-weak { font-size: .76rem; color: #b45309; margin-top: .3rem; }
 body.dark-mode .stats-mastery-weak { color: #fcd34d; }
-
-/* comparative insights */
-.stats-insight-row { display: flex; gap: .6rem; align-items: flex-start; padding: .55rem 0; border-bottom: 1px solid #f1f5f9; }
-.stats-insight-row:last-child { border-bottom: none; }
-body.dark-mode .stats-insight-row { border-bottom-color: #334155; }
-.stats-insight-ico { flex: 0 0 auto; font-size: 1rem; line-height: 1.5; }
-.stats-insight-row p { margin: 0; font-size: .88rem; line-height: 1.5; color: #334155; }
-body.dark-mode .stats-insight-row p { color: #cbd5e1; }
-.stats-insight-row strong { color: #0f172a; font-weight: 700; }
-body.dark-mode .stats-insight-row strong { color: #f1f5f9; }
-
-/* exam readiness */
-.stats-ready-row { display: grid; grid-template-columns: minmax(5.5rem,auto) 1fr auto; grid-template-areas: 'name bar score' 'lvl bar score'; align-items: center; gap: .15rem .55rem; padding: .5rem 0; }
-.stats-ready-name { grid-area: name; font-size: .86rem; font-weight: 700; color: #0f172a; }
-body.dark-mode .stats-ready-name { color: #f1f5f9; }
-.stats-ready-row .cat-bar-container { grid-area: bar; }
-.stats-ready-score { grid-area: score; font-size: 1rem; font-weight: 800; color: #2563eb; min-width: 2.6rem; text-align: right; }
-body.dark-mode .stats-ready-score { color: #93c5fd; }
-.stats-ready-lvl { grid-area: lvl; font-size: .72rem; color: #94a3b8; }
-.stats-ready-row.is-target { background: rgba(37,99,235,.05); border-radius: .6rem; padding: .55rem .6rem; margin: 0 -.35rem; }
-body.dark-mode .stats-ready-row.is-target { background: rgba(37,99,235,.14); }
-.stats-ready-tag { font-size: .58rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #2563eb; background: rgba(37,99,235,.12); padding: .05rem .35rem; border-radius: .3rem; }
-body.dark-mode .stats-ready-tag { color: #bfdbfe; background: rgba(37,99,235,.26); }
 
 /* study next */
 .stats-weak-row { display: flex; align-items: center; gap: .55rem; width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: .55rem 0; border-bottom: 1px solid #f1f5f9; transition: background .12s ease; }

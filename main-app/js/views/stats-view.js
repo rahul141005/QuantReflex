@@ -4,8 +4,7 @@
  * The Stats tab answers ONE question: "Am I becoming better at aptitude?" It reads exclusively from the pure
  * derivation layer (statMath) weighted by the exam-relevance metadata, so Analytics and QuanAI can never disagree and
  * nothing is fabricated (thin data is confidence-damped or shown as an honest empty state). Sections, top to bottom:
- *   Today · Momentum · Subject Mastery · Performance Insights · Exam Readiness · Time Invested · Study Next · QuanAI
- *   Recommends · AI deep-dive.
+ *   Today · Momentum · Subject Mastery · Time Invested · Study Next · QuanAI Recommends · AI deep-dive.
  * No gamification (no XP/coins/levels/badges) — a premium productivity tool.
  */
 var _lastStatsFingerprint = null;
@@ -31,10 +30,8 @@ function renderStatsView() {
   _renderToday(p, SM, SUB, subjectCats);
   _renderMomentum(p, SM);
 
-  /* Premium block — Subject Mastery, Insights, Readiness, Study Next, Recommendation. Free users get one clean locked
-     card and the rest are hidden (Time Invested stays free as a motivation hook). */
-  _toggleSection('insightsSection', canDeep);
-  _toggleSection('readinessSection', canDeep);
+  /* Premium block — Subject Mastery, Study Next, Recommendation. Free users get one clean locked card and the rest are
+     hidden (Time Invested stays free as a motivation hook). */
   _toggleSection('weakestSection', canDeep);
   _toggleSection('recommendationSection', canDeep);
 
@@ -42,8 +39,6 @@ function renderStatsView() {
     _renderMasteryLocked();
   } else {
     _renderMastery(p, SM, SUB, subjectCats);
-    _renderInsights(p, SM);
-    _renderReadiness(p, SM, ER, weightedCats);
     _renderWeakest(p, SM);
     _renderRecommendation(p, SM, ER, weightedCats);
   }
@@ -195,7 +190,7 @@ function _renderMasteryLocked() {
   var el = _statsEl('statsMastery'); if (!el) return;
   el.innerHTML = '<button class="stats-insights-locked" id="unlockInsightsBtn" type="button">' +
     '<div class="stats-insights-locked-content">' +
-    '<p class="stats-insights-locked-title">Subject mastery, exam readiness & QuanAI insights are Premium 🔒</p>' +
+    '<p class="stats-insights-locked-title">Subject mastery & QuanAI insights are Premium 🔒</p>' +
     '<p class="stats-insights-locked-cta">Upgrade to see where you stand and what to study next</p>' +
     '</div></button>';
   var b = _statsEl('unlockInsightsBtn'); if (b) b.addEventListener('click', function () { showPaywall('stats'); });
@@ -226,55 +221,6 @@ function _renderMastery(p, SM, SUB, subjectCats) {
       '</div>';
   }).join('');
   el.innerHTML = '<div class="stats-block-cap">Your mastery across Quant, DI and Reasoning</div>' + rows;
-}
-
-/* ───────────────────────── PERFORMANCE INSIGHTS ───────────────────────── */
-function _renderInsights(p, SM) {
-  var el = _statsEl('statsInsights'); if (!el) return;
-  var ins = SM ? SM.comparativeInsights(p) : [];
-  if (!ins.length) {
-    el.innerHTML = '<p class="secondary-text">Keep practising — QuanAI will surface patterns (where you\'re fast, where accuracy slips) as your history grows.</p>';
-    return;
-  }
-  var html = ins.map(function (i) {
-    var text = '';
-    if (i.kind === 'trend') text = i.direction === 'improving'
-      ? 'Your accuracy is <strong>climbing</strong> — the last 7 days beat your 30-day average.'
-      : 'Your accuracy <strong>dipped</strong> this week versus your 30-day average — worth a steady session.';
-    else if (i.kind === 'gap') text = 'Your <strong>' + _statCatLabel(i.strongCat) + '</strong> (' + i.strongAcc + '%) is well ahead of your <strong>' + _statCatLabel(i.weakCat) + '</strong> (' + i.weakAcc + '%).';
-    else if (i.kind === 'speed') text = 'You\'re accurate on <strong>' + _statCatLabel(i.slowCat) + '</strong> but about <strong>' + i.pctSlower + '% slower</strong> than your ' + _statCatLabel(i.fastCat) + ' (' + i.slowSec + 's vs ' + i.fastSec + 's).';
-    return '<div class="stats-insight-row"><span class="stats-insight-ico">💡</span><p>' + text + '</p></div>';
-  }).join('');
-  el.innerHTML = html;
-}
-
-/* ───────────────────────── EXAM READINESS ───────────────────────── */
-function _renderReadiness(p, SM, ER, weightedCats) {
-  var el = _statsEl('statsReadiness'); if (!el) return;
-  if (!SM || !ER || !weightedCats.length) { el.innerHTML = '<p class="secondary-text">Exam readiness appears once you\'ve practised exam-relevant topics.</p>'; return; }
-  var tracks = ER.tracks();
-  var r = SM.examReadiness(p, weightedCats, tracks);
-  var targetTrack = ER.trackForExam(_statsTargetExam());
-  var anyData = tracks.some(function (t) { return r[t] && r[t].score != null; });
-  if (!anyData) { el.innerHTML = '<p class="secondary-text">Practise a few exam-relevant topics to unlock your readiness scores.</p>'; return; }
-  var levelTxt = { strong: 'Exam-ready', 'on-track': 'On track', building: 'Building', early: 'Early days', none: '' };
-  /* order: target track first, then by score desc */
-  var ordered = tracks.slice().sort(function (a, b) {
-    if (a === targetTrack) return -1; if (b === targetTrack) return 1;
-    return ((r[b] && r[b].score) || -1) - ((r[a] && r[a].score) || -1);
-  });
-  var rows = ordered.map(function (t) {
-    var d = r[t] || {}, sc = d.score, isTarget = t === targetTrack;
-    var bar = sc == null ? 0 : sc;
-    var disp = sc == null ? '—' : sc + '%';
-    var lvl = sc == null ? 'Not started' : (levelTxt[d.level] || '');
-    return '<div class="stats-ready-row' + (isTarget ? ' is-target' : '') + '">' +
-      '<span class="stats-ready-name">' + ER.trackLabel(t) + (isTarget ? ' <span class="stats-ready-tag">Your exam</span>' : '') + '</span>' +
-      '<div class="cat-bar-container"><div class="cat-bar ' + _barClass(bar) + '" style="width:' + bar + '%"></div></div>' +
-      '<span class="stats-ready-score">' + disp + '</span>' +
-      '<span class="stats-ready-lvl">' + lvl + '</span></div>';
-  }).join('');
-  el.innerHTML = '<div class="stats-block-cap">Readiness blends accuracy, speed, consistency, difficulty &amp; topic coverage — damped until you\'ve done enough.</div>' + rows;
 }
 
 /* ───────────────────────── TIME INVESTED ───────────────────────── */

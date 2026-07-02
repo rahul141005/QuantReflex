@@ -6,6 +6,54 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-02 — Final UI cleanup: forward-only results actions + Stats section removals (ADR-089)
+
+Production polish (not a redesign). Removed the last UX debt from the results and Stats surfaces, fixed the results
+topic-card overflow, and tightened Settings — small green commits, mapped from three read-only audits first.
+
+```
+### refactor(ADR-089 A): results screen — forward-only actions
+- js/drill-engine.js: removed the actMistakes (Practice My Mistakes shortcut), actRetry (Practice Again/Retry) and
+  actHarder (Increase Difficulty) buttons + listeners; the results actions are now Continue Learning (btn-primary,
+  full-width, always) over Back to Practice (btn-secondary, full-width). Share Achievement stays, always shown.
+- js/drill-engine.js: deleted the now-dead restart machinery these were the only callers of — _restartSession,
+  _practiceMistakesRestart, _increaseDifficultyRestart, _initialCount, _canHarder/_curDiffLc, _primaryIsMistakes.
+  Kept the insight chips (incl. "N to review"), .session-insight-card, and _wrongCount.
+- css/style.css: .drill-next collapses to a stacked full-width column; removed the two-column .drill-next-grid rules.
+- KEPT IN FULL — Review My Mistakes: reviewMode plumbing, generateMistakeReviewQuestions, getMistakes, the Practice
+  "Review Mistakes" card + launcher, the review_mistakes entitlement/paywall/analytics/docs. Only the results-screen
+  shortcut was removed. Mistake tracking (recordAnswer → progress.mistakes) untouched (feeds Firestore + AI coach).
+
+### refactor(ADR-089 C): remove Stats "Performance Insights" + "Exam Readiness"
+- js/views/stats-view.js: deleted _renderInsights + _renderReadiness, their renderStatsView calls + _toggleSection
+  lines, and the "exam readiness" name-drop in the mastery-locked copy.
+- data/statMath.js: removed comparativeInsights, examReadiness, the private _hardAccuracy helper and the now-unused
+  _CONF_FACTOR, plus their exports. Kept all shared helpers (accuracyWindows, deriveMastery, consistency, evidence,
+  overallAccuracy, _barClass, …).
+- index.html: removed #insightsSection + #readinessSection. css/style.css: removed .stats-insight-* / .stats-ready-*
+  and a now-orphaned #statsInsights-scoped rule. scripts/statmath.check.js: removed the two dead IIFEs.
+- KEPT: the shared performance_insights entitlement (still gates Subject Mastery / Study Next / QuanAI Recommends) +
+  its paywall/marketing copy; the separate planner examReadinessScore subsystem; the drill .session-insight-card.
+
+### fix(ADR-089 D): results topic cards never overflow + Settings rename
+- css/style.css: .dt-name two-line clamp (overflow-wrap:anywhere + -webkit-line-clamp:2) replacing the single-line
+  nowrap+ellipsis; .drill-topic min-height + align-items:flex-start for equal heights + aligned icons; .drill-topics
+  stacks to one column ≤360px.
+- index.html: Settings toggle "🎚️ Ask Subject Before Quick Start" → "🎚️ Ask Subject", clearer subtitle. The
+  practiceAskSubject key + bindings are unchanged.
+
+### chore(ADR-089 E): verify + docs + SW
+- Dead-code grep gates clean (no actRetry/actMistakes/actHarder/_restartSession/…/.drill-next-grid/#insightsSection/
+  #readinessSection/comparativeInsights/examReadiness/_hardAccuracy references). CSS braces balanced; node --check on
+  edited JS. Harness 25/25 green (statmath.check 713/0). 80-assertion Playwright sweep (4 themes × 320/768): results
+  actions, topic-card overflow/equal-height, Stats section removal, Settings label — 0 app errors.
+- service-worker.js: v203 → v204 (APP_VERSION + CACHE_NAME).
+```
+
+Docs kept in sync: [DECISION_LOG.md](DECISION_LOG.md) ADR-089 · [VERSIONS.md](VERSIONS.md) Bible 2.110.
+
+---
+
 ## 2026-07-02 — Drill Engine hardening round 2: theme coverage + audit fixes (ADR-088)
 
 Re-ran the assume-nothing drill quality-gate (three fresh independent audits + code re-reads + full harness). ADR-086/
