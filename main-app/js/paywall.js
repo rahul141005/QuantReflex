@@ -314,7 +314,7 @@ function _contextAccent(featureType) {
     table_modal: '📋 Full-screen table view is a Premium feature.',
     hard_mode: '🔥 Hard mode is a Premium feature.',
     skip_question: '⏭ Skip question is a Premium feature.',
-    advanced_theme: '🎨 Advanced themes are a Premium feature.',
+    advanced_theme: '🎨 The Playful Professional theme is a Premium feature.',
     daily_goal_limit: '📈 Higher daily goals are a Premium feature.',
     ai_explain: '🧠 QuanAI mistake explanations are a Premium feature.',
     ai_coach: '🤖 QuanAI Coach is a Premium feature.',
@@ -324,34 +324,25 @@ function _contextAccent(featureType) {
   return map[featureType] || '';
 }
 
+/* One benefits presentation (the old value-chips section duplicated this table and pushed the price
+   below the fold — removed). Rows are the real gated features only; no "Priority Features" filler. */
 var _COMPARE_ROWS = [
   ['Daily practice questions', '20 / day', 'Unlimited'],
-  ['AI explanations', '5 total', 'Unlimited'],
-  ['AI Coach', '—', '✓'],
-  ['Study Planner', '—', '✓'],
+  ['AI explanations', '5 free to try', 'Unlimited'],
+  ['AI Coach & Study Planner', '—', '✓'],
   ['Math Duel', '—', '✓'],
-  ['Performance Insights', '—', '✓'],
-  ['Category Accuracy', '—', '✓'],
+  ['Timed Mocks', '—', '✓'],
   ['Mistake Review', '—', '✓'],
   ['Advanced Practice Modes', '—', '✓'],
-  ['Priority Features', '—', '✓'],
-  ['Future Premium Updates', '—', '✓'],
-  ['Detailed Analytics', 'Basic', 'Advanced'],
-  ['Personalized Recommendations', '—', '✓']
+  ['Analytics & Insights', 'Basic', 'Advanced']
 ];
 
-/* Premium benefits chips (Section 2) */
-var _VALUE_CARDS = [
-  ['⚡', 'Unlimited Practice'],
-  ['🤖', 'AI Coach'],
-  ['🔁', 'Review Mistakes'],
-  ['📈', 'Advanced Analytics'],
-  ['🏆', 'Math Duel'],
-  ['📅', 'Study Planner'],
-  ['🎯', 'Personalized Insights']
+/* [icon-name, emoji, text] triples rendered through qrIco() so both themes share one markup. */
+var _TRUST = [
+  ['lock', '🔒', 'Secure Payments'],
+  ['rotate', '↩️', '7-Day Refund'],
+  ['zap', '⚡', 'Instant Activation']
 ];
-
-var _TRUST = ['🔒 Secure Payments', '⚡ Instant Activation'];
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -403,11 +394,10 @@ function showPaywall(featureType) {
            '<td class="pw-compare-prem">' + _esc(r[2]) + '</td></tr>';
   }).join('');
 
-  var valueCards = _VALUE_CARDS.map(function (v) {
-    return '<div class="pw-value"><span class="pw-value-icon">' + v[0] + '</span><span class="pw-value-text">' + _esc(v[1]) + '</span></div>';
+  var trust = _TRUST.map(function (t) {
+    var icon = (typeof qrIco === 'function') ? qrIco(t[0], t[1]) : t[1];
+    return '<span class="pw-trust-item">' + icon + ' ' + _esc(t[2]) + '</span>';
   }).join('');
-
-  var trust = _TRUST.map(function (t) { return '<span class="pw-trust-item">' + t + '</span>'; }).join('');
 
   var overlay = document.createElement('div');
   overlay.id = 'paywallModalOverlay';
@@ -416,6 +406,9 @@ function showPaywall(featureType) {
     '<div class="paywall-card pw-card">' +
       '<button class="paywall-close pw-close" type="button" aria-label="Close">×</button>' +
 
+      /* Price-first structure: hero → why-you're-here → plans + CTA on the first screen, the
+         comparison table as supporting detail below. The old chips section (a duplicate of the
+         table) pushed the price two screens down — a paywall that hides its price reads as one. */
       '<div class="pw-hero">' +
         '<div class="pw-hero-icon">🧠</div>' +
         '<h2 class="pw-hero-title">Unlock Your Full Potential</h2>' +
@@ -424,7 +417,10 @@ function showPaywall(featureType) {
 
       (accent ? '<p class="pw-context">' + _esc(accent) + '</p>' : '') +
 
-      '<div class="pw-values">' + valueCards + '</div>' +
+      '<div class="pw-plans" role="group" aria-label="Choose a plan">' + _buildPlansHTML(selected) + '</div>' +
+
+      '<button class="pw-cta" type="button">Start Premium</button>' +
+      '<p class="pw-cta-note">One-time payment · No auto-renewal · 7-day refund</p>' +
 
       '<div class="pw-compare-wrap">' +
         '<table class="pw-compare">' +
@@ -433,17 +429,14 @@ function showPaywall(featureType) {
         '</table>' +
       '</div>' +
 
-      '<div class="pw-plans" role="group" aria-label="Choose a plan">' + _buildPlansHTML(selected) + '</div>' +
-
-      '<button class="pw-cta" type="button">Start Premium</button>' +
-      '<p class="pw-cta-note">One-time payment · No auto-renewal</p>' +
-
       '<div class="pw-trust">' + trust + '</div>' +
 
       '<div class="pw-footer">' +
         '<a class="pw-footer-link" href="#terms" data-view="terms">Terms</a>' +
         '<span class="pw-footer-dot">·</span>' +
         '<a class="pw-footer-link" href="#privacy" data-view="privacy">Privacy</a>' +
+        '<span class="pw-footer-dot">·</span>' +
+        '<a class="pw-footer-link" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>' +
       '</div>' +
     '</div>';
 

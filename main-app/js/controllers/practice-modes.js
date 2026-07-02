@@ -222,6 +222,40 @@ function startMockFromPractice(examId) {
   _startPracticeEngine(drillContainer, config);
 }
 
+/* ---- Session review launcher: replay THIS session's missed questions from memory ---- */
+/* Free for everyone by design — the wrong question objects (chart/figure specs intact) are still in
+   memory when the results card offers "Review these N now", so no persistence and no premium-archive
+   giveaway. The cross-session Review Mistakes mode stays premium. Skips the pre-session start screen:
+   the user committed by tapping the action. */
+function startSessionReview(wrongQuestions) {
+  if (!Array.isArray(wrongQuestions) || !wrongQuestions.length) return;
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  var drillContainer = document.getElementById('drillContainer');
+  if (!drillContainer) return;
+
+  var config = {
+    count: wrongQuestions.length,
+    timeLimitSec: null, perQuestionSec: null, category: null,
+    _preloadedQuestions: wrongQuestions,
+    skipStartScreen: true,
+    mode: '🔄 Session Review',
+    onFinish: function (view) {
+      if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
+      var _dc = document.getElementById('drillContainer');
+      if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
+      if (_drillSessionActive && typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch();
+      _exitDrillSession();
+      if (view === 'practice') _resetPracticeUiToModes();
+      Router.showView(view);
+    }
+  };
+
+  drillContainer.classList.remove('drill-results-active');
+  drillContainer.style.display = 'block';
+  if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  _startPracticeEngine(drillContainer, config);
+}
+
 /* ---- DI Set launcher (ADR-078): one shared chart + linked questions, served by the same drill engine ---- */
 function startDiSet(category) {
   if (typeof DISetEngine === 'undefined' || !DISetEngine.generateSet) {
@@ -397,10 +431,10 @@ function initPracticeView() {
           var _isPremMock = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
           if (!_isPremMock) { showPaywall('premium_required'); return; }
           var _mockExam = '';
-          try { _mockExam = localStorage.getItem('qr_active_exam') || ''; } catch (_) {}
+          try { _mockExam = (typeof TargetExam !== 'undefined' && TargetExam.get()) || ''; } catch (_) {}
           if (!_mockExam) {
-            if (typeof showToast === 'function') showToast('Set up your study plan first to take a mock.');
-            if (typeof Companion !== 'undefined' && Companion.openStudyPlanner) { try { Companion.openStudyPlanner(true); } catch (_) {} }
+            if (typeof showToast === 'function') showToast('Set your target exam in Settings to take a mock.');
+            if (typeof Router !== 'undefined') { try { Router.showView('settings'); } catch (_) {} }
             return;
           }
           _customPracticeActive = false;

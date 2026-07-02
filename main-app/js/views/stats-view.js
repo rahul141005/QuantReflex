@@ -49,7 +49,7 @@ function renderStatsView() {
 
 /* ───────────────────────── helpers ───────────────────────── */
 function _statsEl(id) { return document.getElementById(id); }
-function _statsTargetExam() { try { return localStorage.getItem('qr_active_exam') || ''; } catch (_) { return ''; } }
+function _statsTargetExam() { try { return (typeof TargetExam !== 'undefined' && TargetExam.get()) || ''; } catch (_) { return ''; } }
 function _toggleSection(id, show) { var el = _statsEl(id); if (el) el.style.display = show ? '' : 'none'; }
 function _statCatLabel(cat) { return (typeof formatCategoryName === 'function') ? formatCategoryName(cat) : cat; }
 function _statSubjLabel(SUB, sid) { return (SUB && SUB.label) ? SUB.label(sid) : sid; }

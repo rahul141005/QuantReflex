@@ -13,7 +13,7 @@
  *
  * Public API:
  *   ShareService.shareAsImage(data)
- *   ShareService.shareTextFallback(accuracy, percentile)
+ *   ShareService.shareTextFallback(accuracy, speedScore)
  */
 
 var ShareService = (function () {
@@ -101,7 +101,7 @@ var ShareService = (function () {
    * @param {object} data
    * @param {string} data.accuracy - e.g. "85"
    * @param {string} data.avgTime - e.g. "3.2"
-   * @param {number} data.percentile - e.g. 72
+   * @param {number} data.speedScore - e.g. 72 (honest 0-100 speed score)
    * @param {number} data.score - correct answers
    * @param {number} data.total - total questions
    * @param {number} data.streak - best session streak
@@ -285,10 +285,10 @@ var ShareService = (function () {
     y += (sCardH * 2) + rowGap + SEC_GAP;
 
     /* ════════════════════════════════
-       SECTION 6 — SPEED BENCHMARK
+       SECTION 6 — SPEED SCORE
        Narrower width, visually integrated
        ════════════════════════════════ */
-    if (data.percentile > 0) {
+    if (data.speedScore > 0) {
       var benchW = Math.min(CW, 720); /* narrower than full width */
       var benchX = (W - benchW) / 2;
       var benchH = 56;
@@ -306,7 +306,7 @@ var ShareService = (function () {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#93c5fd';
       ctx.font = 'bold 24px ' + FONT;
-      ctx.fillText('⚡ Faster than ' + data.percentile + '% of users', W / 2, y + 35);
+      ctx.fillText('⚡ Speed Score ' + data.speedScore + '/100', W / 2, y + 35);
       y += benchH + SEC_GAP - 8;
     }
 
@@ -512,7 +512,7 @@ var ShareService = (function () {
   function _doShare(canvas, data) {
     canvas.toBlob(function (blob) {
       if (!blob) {
-        shareTextFallback(data.accuracy, data.percentile);
+        shareTextFallback(data.accuracy, data.speedScore);
         return;
       }
       var file = new File([blob], 'quantreflex-achievement.png', { type: 'image/png' });
@@ -556,12 +556,12 @@ var ShareService = (function () {
    * @param {object} data - Session data object
    */
   function shareAsImage(data) {
-    /* Backwards compatibility: old 3-arg signature (accuracy, avg, percentile) */
+    /* Backwards compatibility: old 3-arg signature (accuracy, avg, speedScore) */
     if (typeof data === 'string') {
       data = {
         accuracy: arguments[0],
         avgTime: arguments[1],
-        percentile: arguments[2],
+        speedScore: arguments[2],
         score: 0,
         total: 0,
         streak: 0,
@@ -574,7 +574,7 @@ var ShareService = (function () {
 
     var canvas = _generateCard(data);
     if (!canvas) {
-      shareTextFallback(data.accuracy, data.percentile);
+      shareTextFallback(data.accuracy, data.speedScore);
       return;
     }
 
@@ -741,10 +741,10 @@ var ShareService = (function () {
    * Share drill result as text via Web Share API or clipboard.
    *
    * @param {string} accuracy - e.g. "85"
-   * @param {number} percentile - speed percentile, e.g. 72
+   * @param {number} speedScore - speed score 0-100, e.g. 72
    */
-  function shareTextFallback(accuracy, percentile) {
-    var shareText = 'I scored ' + accuracy + '% accuracy on QuantReflex \uD83D\uDD25 — faster than ' + percentile + '% of users! Train your Speed Aptitude: https://www.quantreflex.app';
+  function shareTextFallback(accuracy, speedScore) {
+    var shareText = 'I scored ' + accuracy + '% accuracy with a Speed Score of ' + (speedScore || 0) + '/100 on QuantReflex \uD83D\uDD25 Train your Speed Aptitude: https://www.quantreflex.app';
     if (navigator.share) {
       navigator.share({ text: shareText }).catch(function () {});
     } else if (navigator.clipboard && navigator.clipboard.writeText) {

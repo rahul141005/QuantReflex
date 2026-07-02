@@ -9,12 +9,28 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.110 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.56 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.111 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.57 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.22 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.111 / Arch 2.57 / Firestore 2.22 / Security 2.16 (2026-07-02)** — **Critical launch-readiness resolution
+> (ADR-090).** The 7 Critical audit findings, independently re-evaluated then implemented. Target-exam identity: new
+> `TargetExam` accessor (canonical synced `settings.targetExam` + `targetTier`, `qr_active_exam` mirror), onboarding
+> tier→exam step, Settings row, hero chip (Firestore 2.21→2.22 — two new settings-map fields, no migration).
+> Fabricated "Faster than N% of users" percentile deleted everywhere → honest Speed Score + self-trend
+> (`qr_last_speed_score`). Session Complete: one verdict slot (PB needs ≥3 prior sessions; neutral <50% verdict),
+> ≥3-attempt topic cards, free session-scoped "Review these N now" (in-memory `_preloadedQuestions` replay; amends
+> ADR-089 forward-only). QR icon system: one `qr-ico` markup, playful renders `--qri-*` CSS masks (~36 glyphs);
+> `updateNavigationIcons` deleted; 8.3MB `appicons/tab` assets removed; `--qr-grad-a/b` + `--qr-shadow-playful`
+> tokens. Google Sign-In (Security 2.15→2.16): popup-first client flow + idempotent authed
+> `POST /api/account?action=ensure-profile` (register-shaped seed; fixes the claimSession skeleton-doc bug; replaces
+> the rules-denied client `_createDefaultDocument` write); provider-aware delete re-auth; Profile-modal bind-once
+> coaching claim; `scripts/ensure-profile.check.js`. Copy coherence (goal 20/10–100, "Stats", "Today's Goal", honest
+> exit dialog, 4-tier catalog copy). Paywall price-first + 7-day-refund trust row + support email; "5 free to try".
+> All 26 checks green; Playwright-verified across themes. SW v204→v205.
+>
 > **2.110 / Arch 2.56 (2026-07-02)** — **Final UI cleanup (ADR-089).** Production polish, not a redesign. Results
 > screen is now forward-only: removed the Practice-My-Mistakes shortcut, Practice-Again/Retry, and Increase-Difficulty
 > buttons + the dead restart machinery they were the only callers of; the actions are Continue Learning (primary,

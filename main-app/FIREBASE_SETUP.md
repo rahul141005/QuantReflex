@@ -362,3 +362,40 @@ Custom claims are baked into the user's secure token. For the QuantReflex app to
 1. Open the QuantReflex app.
 2. **Log out and log back in.** (This forces Firebase to fetch a brand new token containing the new claims).
 3. The app will now read the token securely and unlock Premium features automatically!
+
+---
+
+## Google Sign-In (one-time console setup)
+
+The app ships a "Continue with Google" button on the auth screen. It stays functional only after
+these console steps (code cannot do them):
+
+1. **Enable the provider:** Firebase Console → Authentication → Sign-in method → **Google** → Enable
+   (set the project support email). Until enabled, the button surfaces "Google sign-in is not
+   enabled" — nothing breaks.
+2. **Authorized domains:** Authentication → Settings → Authorized domains → add `quantreflex.app`
+   and `dev.quantreflex.app` (localhost is pre-authorized).
+
+### First-login provisioning
+
+Provider sign-ins do NOT go through `/api/auth/register`, so the client calls the idempotent
+`POST /api/account?action=ensure-profile` on a genuinely-new login **before** claiming the
+single-device session. It seeds the exact `users/{uid}` shape register.js creates (entitlement
+defaults, emailLower, stats roster key, usage/ai) and no-ops for already-provisioned users. If it
+ever fails, login continues on local defaults and the next login retries.
+
+### Two caveats to know before enabling
+
+- **Redirect fallback reliability:** `authDomain` is `quant-reflex-trainer.firebaseapp.com` — a
+  different site from `quantreflex.app`, so the `signInWithRedirect` fallback (used only when a
+  popup is blocked) is unreliable on Safari/iOS third-party-storage partitioning. Popup-first works
+  today. The robust follow-up is Firebase's documented proxy option: set
+  `authDomain: 'quantreflex.app'`, add a Vercel rewrite for `/__/auth/:path*` →
+  `https://quant-reflex-trainer.firebaseapp.com/__/auth/:path*`, and add
+  `https://quantreflex.app/__/auth/handler` to the OAuth client's authorized redirect URIs in
+  Google Cloud Console.
+- **Unverified-password unlink:** with the default "one account per email" policy, if an email user
+  (register.js creates them with `emailVerified: false`) later signs in with Google on the same
+  address, Firebase keeps the same uid (data intact) but **unlinks the password provider** — their
+  password stops working until they use "Forgot password". Expected Firebase behavior; worth knowing
+  for support.

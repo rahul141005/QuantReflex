@@ -1,20 +1,19 @@
 /**
- * scoring-service.js — Speed scoring, percentiles, best scores, auto-tips, session insights
+ * scoring-service.js — Speed scoring, best scores, auto-tips, session insights
  *
  * Extracted from drill-engine.js to reduce module size.
  * All functions are pure or semi-pure (read from localStorage only).
  *
  * Public API:
  *   ScoringService.computeSpeedScore(accNum, avgTimeSec)
- *   ScoringService.computePercentile(speedScore)
- *   ScoringService.getPercentileClass(pct)
+ *   ScoringService.getSpeedScoreClass(score)
+ *   ScoringService.loadLastSpeedScore() / saveLastSpeedScore(score)
  *   ScoringService.loadBestScores()
  *   ScoringService.saveBestScores(obj)
  *   ScoringService.getExplainCredits()
  *   ScoringService.decrementExplainCredits()
  *   ScoringService.getAutoTip(cat, subtype)
  *   ScoringService.computeSessionInsight(accNum, wrongCats)
- *   ScoringService.PERCENTILE_KEY
  *   ScoringService.BEST_SCORES_KEY
  *   ScoringService.SESSIONS_COUNT_KEY
  */
@@ -23,7 +22,7 @@ var ScoringService = (function () {
   'use strict';
 
   /* ---- Storage keys ---- */
-  var PERCENTILE_KEY = 'qr_last_percentile';
+  var LAST_SPEED_KEY = 'qr_last_speed_score';
   var BEST_SCORES_KEY = 'qr_best_scores';
   var EXPLAIN_CREDITS_KEY = 'qr_explain_credits';
   var SESSIONS_COUNT_KEY = 'qr_sessions_count';
@@ -42,27 +41,31 @@ var ScoringService = (function () {
     return Math.round(accScore + timeScore);
   }
 
-  /**
-   * Compute a simulated continuous percentile from speed score.
-   * Adds small jitter for natural-feeling variation.
-   * @param {number} speedScore
-   * @returns {number} percentile (5-95)
-   */
-  function computePercentile(speedScore) {
-    var base = Math.min(95, Math.max(5, Math.round(speedScore * 0.92)));
-    var jitter = Math.round((Math.random() - 0.5) * 6);
-    return Math.min(95, Math.max(5, base + jitter));
-  }
+  /* The old computePercentile() ("Faster than N% of users") was a SIMULATED number — speed score
+     scaled + random jitter, no real cohort behind it. Removed on principle: the product never shows
+     a comparison it cannot honestly support. Progress framing is now self-referential: the Speed
+     Score (real, 0-100) and its delta vs the user's own last session. */
 
   /**
-   * Get CSS class for a percentile band.
-   * @param {number} pct
+   * Get CSS class for a speed-score band (same visual bands the percentile used).
+   * @param {number} score - speed score 0-100
    * @returns {string}
    */
-  function getPercentileClass(pct) {
-    if (pct >= 70) return 'benchmark-band-top';
-    if (pct >= 35) return 'benchmark-band-mid';
+  function getSpeedScoreClass(score) {
+    if (score >= 70) return 'benchmark-band-top';
+    if (score >= 35) return 'benchmark-band-mid';
     return 'benchmark-band-bottom';
+  }
+
+  /* ---- Last speed score (self-trend anchor) ---- */
+
+  function loadLastSpeedScore() {
+    var v = parseInt(localStorage.getItem(LAST_SPEED_KEY));
+    return isNaN(v) ? null : v;
+  }
+
+  function saveLastSpeedScore(score) {
+    try { localStorage.setItem(LAST_SPEED_KEY, String(Math.round(score))); } catch (_) {}
   }
 
   /* ---- Best scores persistence ---- */
@@ -245,33 +248,35 @@ var ScoringService = (function () {
       streak = parseInt(progData.dailyStreak) || 0;
     } catch (_) {}
 
-    /* Build insight message */
-    if (accNum === 100) return '\uD83C\uDF1F Perfect score! Flawless session — push the difficulty up next time.';
+    /* Build insight message. The insight is the single explanatory sentence under the verdict badge —
+       it must never repeat the verdict's celebration (the badge already carries the emotion) and must
+       only recommend actions the results card actually offers. */
+    if (accNum === 100) return 'Flawless — push the difficulty up next time.';
     if (rollingAvg !== null) {
       var diff = accNum - rollingAvg;
       if (diff <= -8 && catLabel) return '\uD83D\uDCC9 Accuracy dropped ' + Math.abs(Math.round(diff)) + '% vs your average — focus on ' + catLabel + ' next session.';
       if (diff <= -8) return '\uD83D\uDCC9 Accuracy dropped ' + Math.abs(Math.round(diff)) + '% below your 7-day average — keep practising to bounce back.';
-      if (diff >= 8) return '\uD83D\uDCC8 Strong session! Accuracy is ' + Math.round(diff) + '% above your 7-day average — great form.';
+      if (diff >= 8) return '\uD83D\uDCC8 Accuracy is ' + Math.round(diff) + '% above your 7-day average — great form.';
     }
     if (catLabel && topMissedCount >= 2) return '\u26A0\uFE0F You missed ' + topMissedCount + ' ' + catLabel + ' question' + (topMissedCount > 1 ? 's' : '') + ' — try a focused ' + catLabel + ' drill next.';
-    if (accNum >= 90) return '\uD83D\uDCAA Excellent accuracy (' + accNum + '%) — try a timed session to sharpen your speed.';
-    if (accNum >= 75) return '\uD83D\uDC4D Good session! A little more practice on your weak spots will push you into the top tier.';
-    if (accNum < 50) return '\uD83D\uDCDA Tough session — review the concepts and try again with fewer questions.';
+    if (accNum >= 90) return 'Excellent accuracy (' + accNum + '%) — try a timed session to sharpen your speed.';
+    if (accNum >= 75) return 'A little more practice on your weak spots will push you into the top tier.';
+    if (accNum < 50) return 'Tough session — reviewing the questions you missed is the fastest way back.';
     if (streak >= 3) return '\uD83D\uDD25 ' + streak + '-day streak! Consistency is your biggest advantage — keep showing up.';
-    return '\uD83D\uDCCB Session done. Focus on accuracy first, speed will follow.';
+    return 'Session done. Focus on accuracy first — speed will follow.';
   }
 
   return {
     computeSpeedScore: computeSpeedScore,
-    computePercentile: computePercentile,
-    getPercentileClass: getPercentileClass,
+    getSpeedScoreClass: getSpeedScoreClass,
+    loadLastSpeedScore: loadLastSpeedScore,
+    saveLastSpeedScore: saveLastSpeedScore,
     loadBestScores: loadBestScores,
     saveBestScores: saveBestScores,
     getExplainCredits: getExplainCredits,
     decrementExplainCredits: decrementExplainCredits,
     getAutoTip: getAutoTip,
     computeSessionInsight: computeSessionInsight,
-    PERCENTILE_KEY: PERCENTILE_KEY,
     BEST_SCORES_KEY: BEST_SCORES_KEY,
     SESSIONS_COUNT_KEY: SESSIONS_COUNT_KEY
   };

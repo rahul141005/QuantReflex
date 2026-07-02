@@ -307,87 +307,20 @@ function formatCategoryName(key) {
   return key.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
 
-/* ---- Theme-Based Navigation Icon Switching ---- */
-var _NAV_EMOJIS = {
-  home: '🏠', practice: '🎯', learn: '📖', stats: '📊', settings: '⚙️'
-};
-var _NAV_SVGS = {
-  home: 'appicons/tab/hometab.svg',
-  practice: 'appicons/tab/practicetab.svg',
-  learn: 'appicons/tab/learntab.svg',
-  stats: 'appicons/tab/statstab.svg',
-  settings: 'appicons/tab/settingstab.svg'
-};
-var _HEADER_LABELS = {
-  'view-practice': { emoji: '🎯', label: 'Practice', view: 'practice' },
-  'view-learn': { emoji: '📖', label: 'Learn', view: 'learn' },
-  'view-stats': { emoji: '📊', label: 'Analytics', view: 'stats' },
-  'view-settings': { emoji: '⚙️', label: 'Settings', view: 'settings' }
-};
-function _handleTabPopAnimationEnd() {
-  this.classList.remove('tab-pop');
+/* ---- QR Icon System (ADR: two-personality themes) ----
+   One markup for every chrome icon: <span class="qr-ico" data-ico="name" aria-hidden="true">🌙</span>.
+   Classic Blue renders the emoji text node (expressive personality); Playful Professional hides it
+   and paints a monochrome SVG mask tinted by currentColor — entirely in CSS (see "QR ICON SYSTEM"
+   in style.css), so a theme switch is instantly correct on every icon, static or generated, with no
+   JS re-render. The old updateNavigationIcons() img-swap (and its 8.3MB appicons/tab PNGs-in-SVG)
+   was replaced by this system. qrIco() is a plain string-builder for generated markup — it reads no
+   theme, so it can never go stale. */
+function qrIco(name, emoji) {
+  return '<span class="qr-ico" data-ico="' + name + '" aria-hidden="true">' + emoji + '</span>';
 }
 
-/**
- * Switch navigation and header icons based on theme.
- * Classic Blue: emoji icons, Playful Professional: SVG icons.
- * @param {string} theme - 'classic' or 'playful'
- */
-function updateNavigationIcons(theme) {
-  /* Update bottom nav icons */
-  var navLinks = document.querySelectorAll('.bottom-nav a[data-view]');
-  for (var i = 0; i < navLinks.length; i++) {
-    var view = navLinks[i].getAttribute('data-view');
-    var navIcon = navLinks[i].querySelector('.nav-icon');
-    if (!navIcon) continue;
-    navIcon.innerHTML = '';
-
-    if (theme === 'playful' && _NAV_SVGS[view]) {
-      var img = document.createElement('img');
-      img.src = _NAV_SVGS[view];
-      img.alt = '';
-      img.width = 24;
-      img.height = 24;
-      img.draggable = false;
-      navIcon.appendChild(img);
-    } else {
-      var span = document.createElement('span');
-      span.className = 'nav-emoji';
-      span.textContent = _NAV_EMOJIS[view] || '';
-      navIcon.appendChild(span);
-    }
-
-    /* Re-attach animationend cleanup listener */
-    var iconChild = navIcon.firstChild;
-    if (iconChild) {
-      iconChild.removeEventListener('animationend', _handleTabPopAnimationEnd);
-      iconChild.addEventListener('animationend', _handleTabPopAnimationEnd);
-    }
-  }
-
-  /* Update header icons (home header stays as title text, no icon) */
-  for (var viewId in _HEADER_LABELS) {
-    var viewEl = document.getElementById(viewId);
-    if (!viewEl) continue;
-    var h1 = viewEl.querySelector('header h1');
-    if (!h1) continue;
-    var info = _HEADER_LABELS[viewId];
-    h1.textContent = '';
-
-    if (theme === 'playful' && _NAV_SVGS[info.view]) {
-      var hImg = document.createElement('img');
-      hImg.src = _NAV_SVGS[info.view];
-      hImg.alt = '';
-      hImg.className = 'header-icon';
-      hImg.width = 28;
-      hImg.height = 28;
-      hImg.draggable = false;
-      h1.appendChild(hImg);
-      h1.appendChild(document.createTextNode(' ' + info.label));
-    } else {
-      h1.textContent = info.emoji + ' ' + info.label;
-    }
-  }
+function _handleTabPopAnimationEnd() {
+  this.classList.remove('tab-pop');
 }
 
 /* Session management moved to js/session-manager.js */
@@ -521,6 +454,11 @@ document.addEventListener('DOMContentLoaded', function () {
         authBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
         authBtn.disabled = false;
       }
+      /* Reset the Google button's loading state too */
+      var gBtn = document.getElementById('googleSignInBtn');
+      var gLabel = document.getElementById('googleSignInLabel');
+      if (gBtn) gBtn.disabled = false;
+      if (gLabel) gLabel.textContent = 'Continue with Google';
     } else if (state === 'hydrating') {
       /* Wait for data. Do not hide the login screen or splash screen yet,
          but keep the loading button text active. */
@@ -534,12 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (container) container.style.display = '';
       if (bottomNav) bottomNav.style.display = '';
       
-      try {
-        var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-        updateNavigationIcons(s.theme || 'classic');
-      } catch (_) {
-        updateNavigationIcons('classic');
-      }
+      /* Nav/header icons are theme-driven purely in CSS (QR icon system) — no per-theme swap needed. */
 
       if (typeof Router !== 'undefined') {
         if (!window._routerInitialized) {
@@ -995,6 +928,42 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    /* ---- Google Sign-In ---- */
+    var googleSignInBtn = document.getElementById('googleSignInBtn');
+    var googleSignInLabel = document.getElementById('googleSignInLabel');
+    function _setGoogleLoading(loading) {
+      if (googleSignInBtn) googleSignInBtn.disabled = loading;
+      if (googleSignInLabel) googleSignInLabel.textContent = loading ? 'Please wait…' : 'Continue with Google';
+    }
+    if (googleSignInBtn) {
+      googleSignInBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (googleSignInBtn.disabled) return;
+        if (typeof Auth === 'undefined' || !Auth.loginWithGoogle) {
+          showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+          return;
+        }
+        hideError();
+        _setGoogleLoading(true);
+        Auth.loginWithGoogle(function (err, user, meta) {
+          if (err) {
+            _setGoogleLoading(false);
+            /* A deliberate popup dismissal is not an error state — restore silently. */
+            if (!(meta && meta.cancelled)) showError(err);
+            return;
+          }
+          /* Success: stay disabled — onStateChange drives hydration exactly like email login,
+             with the same 5s watchdog in case the state transition stalls. */
+          setTimeout(function () {
+            if (googleSignInBtn && googleSignInBtn.disabled && _currentAppState !== 'app') {
+              console.warn('Auth state transition timeout (Google). Forcing hydration.');
+              startHydrationAndShowApp();
+            }
+          }, 5000);
+        });
+      });
+    }
+
     /* ---- Validation Listeners ---- */
 
     /* Email: validate on blur, then on debounced input after first blur */
@@ -1100,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', function () {
   for (var i = 0; i < navLinks.length; i++) {
     /* Clean up tab-pop class after animation finishes */
     (function (link) {
-      var icon = link.querySelector('.nav-icon img') || link.querySelector('.nav-icon .nav-emoji');
+      var icon = link.querySelector('.nav-icon .qr-ico');
       if (icon) {
         icon.removeEventListener('animationend', _handleTabPopAnimationEnd);
         icon.addEventListener('animationend', _handleTabPopAnimationEnd);
@@ -1138,8 +1107,8 @@ document.addEventListener('DOMContentLoaded', function () {
       _closeAllInfoModals();
       SoundEngine.play('tabSwitch');
       triggerHaptic(10);
-      /* Trigger icon pop animation (works for both img and emoji) */
-      var iconEl = this.querySelector('.nav-icon img') || this.querySelector('.nav-icon .nav-emoji');
+      /* Trigger icon pop animation */
+      var iconEl = this.querySelector('.nav-icon .qr-ico');
       if (iconEl) {
         iconEl.classList.remove('tab-pop');
         void iconEl.offsetWidth; /* force reflow to restart animation */

@@ -103,6 +103,7 @@ function createDrillEngine(container, opts) {
   var perQuestionTimes = [];
   var sessionWrongCategories = {}; /* category → wrong count for insight engine */
   var sessionCategoryStats = {};   /* ADR-086 P6: category → {correct,total} for the strongest/weakest topic breakdown */
+  var sessionWrongQuestions = [];  /* full question objects missed this session (charts/figures intact) → "Review these now" replay */
   var qStart = 0;
   var overallStart = 0;
   var overallTimer = null;
@@ -663,6 +664,9 @@ function createDrillEngine(container, opts) {
       /* Track wrong-answer categories for post-session insight */
       var _wCat = q.category || 'unknown';
       sessionWrongCategories[_wCat] = (sessionWrongCategories[_wCat] || 0) + 1;
+      /* Keep the full question object (chart/figure specs included) so the results card can offer an
+         immediate in-memory replay — no persistence, free for everyone (session-scoped only). */
+      if (!isDuel) sessionWrongQuestions.push(q);
       /* In review mode, re-queue incorrect questions at the end so users
          cycle through remaining mistakes before seeing the same one again.
          Only re-queue if this exact question isn't already waiting in the
@@ -897,15 +901,10 @@ function createDrillEngine(container, opts) {
     return { firstHalfAvg: firstHalfAvg, secondHalfAvg: secondHalfAvg, improvementPct: improvementPct };
   }
 
-  var _PERCENTILE_KEY = ScoringService.PERCENTILE_KEY;
   var _SESSIONS_COUNT_KEY = ScoringService.SESSIONS_COUNT_KEY;
 
-  function _computeContinuousPercentile(speedScore) {
-    return ScoringService.computePercentile(speedScore);
-  }
-
-  function _getPercentileClass(pct) {
-    return ScoringService.getPercentileClass(pct);
+  function _getSpeedScoreClass(score) {
+    return ScoringService.getSpeedScoreClass(score);
   }
 
   function _loadBestScores() {
@@ -1031,41 +1030,54 @@ function createDrillEngine(container, opts) {
     }
 
     /* Speed benchmark computation. Guard the degenerate 0-answer session (e.g. a timed test that expires with nothing
-       attempted): avgRaw is 0, which computeSpeedScore would read as "maximally fast" and inflate to ~37th percentile.
+       attempted): avgRaw is 0, which computeSpeedScore would read as "maximally fast" and inflate the score.
        An unanswered session has no speed signal, so score it 0 (ADR-088 A2). */
     var _attempted = perQuestionTimes.length;
     var speedScore = _attempted ? _computeSpeedScore(accNum, avgRaw) : 0;
-    var percentile = _attempted ? _computeContinuousPercentile(speedScore) : 0;
-    var percentileClass = _getPercentileClass(percentile);
+    var speedBandClass = _getSpeedScoreClass(speedScore);
 
-    /* Session delta: compare with last stored percentile */
-    var lastPct = null;
-    try { lastPct = parseInt(localStorage.getItem(_PERCENTILE_KEY)); } catch (_) {}
+    /* One session counter for everyone — powers both the verdict baseline below and the
+       free-tier upgrade cadence at the end of finish(). (It used to increment only for free
+       users inside the upgrade branch, which made it unusable as a baseline.) */
+    var _sessCount = 0;
+    try {
+      _sessCount = (parseInt(localStorage.getItem(_SESSIONS_COUNT_KEY)) || 0) + 1;
+      localStorage.setItem(_SESSIONS_COUNT_KEY, String(_sessCount));
+    } catch (_) {}
+
+    /* Self-trend: this Speed Score vs the user's own last session — the only comparison the product
+       can honestly make. (The old "Faster than N% of users" percentile was simulated — speed score
+       scaled plus random jitter, no cohort — and was removed on principle.) */
+    var lastSpeed = ScoringService.loadLastSpeedScore();
     var deltaHtml = '';
-    if (!isNaN(lastPct) && lastPct > 0) {
-      var delta = percentile - lastPct;
-      if (delta > 0) deltaHtml = '<span class="percentile-delta delta-up">↑ +' + delta + '% from last session</span>';
-      else if (delta < 0) deltaHtml = '<span class="percentile-delta delta-down">↓ ' + delta + '% from last session</span>';
+    if (_attempted && lastSpeed !== null && lastSpeed > 0) {
+      var delta = speedScore - lastSpeed;
+      if (delta > 0) deltaHtml = '<span class="percentile-delta delta-up">↑ +' + delta + ' vs your last session</span>';
+      else if (delta < 0) deltaHtml = '<span class="percentile-delta delta-down">↓ ' + delta + ' vs your last session</span>';
     }
-    try { localStorage.setItem(_PERCENTILE_KEY, String(percentile)); } catch (_) {}
+    if (_attempted) ScoringService.saveLastSpeedScore(speedScore);
 
-    /* New Best detection */
+    /* Personal bests — always recorded; celebrated only against a real baseline (≥3 prior sessions),
+       so a first session can never claim a "personal best" over nothing. */
     var bests = _loadBestScores();
     var prevBestAcc = bests.bestAccuracy || 0;
     var prevBestScore = bests.bestSpeedScore || 0;
-    var isNewBest = (accNum > prevBestAcc) || (speedScore > prevBestScore);
-    if (isNewBest) {
+    var improvedBest = _attempted > 0 && ((accNum > prevBestAcc) || (speedScore > prevBestScore));
+    if (improvedBest) {
       bests.bestAccuracy = Math.max(prevBestAcc, accNum);
       bests.bestSpeedScore = Math.max(prevBestScore, speedScore);
       _saveBestScores(bests);
     }
+    var isNewBest = improvedBest && _sessCount >= 4;
 
-    /* Performance badge */
+    /* ONE verdict slot: personal best OR the accuracy band — never both stacked. Below 50% the
+       verdict is neutral and honest; no celebration copy dressed in failure colors. */
     var badgeText, badgeClass;
-    if (accNum >= 90) { badgeText = '🏆 Outstanding Performance'; badgeClass = 'badge-excellent'; }
+    if (isNewBest) { badgeText = '🎉 New Personal Best'; badgeClass = 'badge-excellent'; }
+    else if (accNum >= 90) { badgeText = '🏆 Outstanding Performance'; badgeClass = 'badge-excellent'; }
     else if (accNum >= 75) { badgeText = '💎 Strong Performance'; badgeClass = 'badge-good'; }
     else if (accNum >= 50) { badgeText = '📈 Building Momentum'; badgeClass = 'badge-practice'; }
-    else { badgeText = '🌱 Growth in Progress'; badgeClass = 'badge-weak'; }
+    else { badgeText = '🔎 Needs Review'; badgeClass = 'badge-review'; }
 
     /* Rule-based post-session insight (always visible, no AI call) */
     var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
@@ -1086,8 +1098,9 @@ function createDrillEngine(container, opts) {
       _weakest = _sortedCats[_sortedCats.length - 1];
       /* If every category scored identically, a strong/weak split is meaningless — suppress it. */
       if (_strongest.acc === _weakest.acc) { _strongest = null; _weakest = null; }
+      /* n<3 attempts in a category is noise, not signal — never crown a "strongest topic" off 1/1. */
+      if (_strongest && (_strongest.total < 3 || _weakest.total < 3)) { _strongest = null; _weakest = null; }
     }
-    var _wrongCount = Math.max(0, perQuestionTimes.length - score);
 
     /* Continue-Learning target: the weakest topic's chapter, else the practiced category's, else any missed category. */
     var _learnTopic = _weakest ? _learnTopicForDrill(_weakest.cat) : null;
@@ -1121,16 +1134,14 @@ function createDrillEngine(container, opts) {
         '</div>';
     }
 
-    /* Insight chips: within-session speed trend · mistakes-to-review · personal-best reference */
+    /* One insight chip: the within-session speed trend (real, per-question times). The old
+       mistakes-to-review chip became the primary CTA below, and the cryptic "Best N% · N spd"
+       chip is gone — bests live in the Speed Score card in plain words. */
     var _chips = [];
     if (_sessImp && Math.abs(_sessImp.improvementPct) >= 1) {
       var _up = _sessImp.improvementPct > 0;
       _chips.push('<span class="drill-chip ' + (_up ? 'chip-up' : 'chip-down') + '">' +
         (_up ? '⚡ ' : '🐢 ') + (_up ? '+' : '') + _sessImp.improvementPct + '% ' + (_up ? 'faster' : 'slower') + ' by the end</span>');
-    }
-    if (_wrongCount > 0) _chips.push('<span class="drill-chip chip-review">📝 ' + _wrongCount + ' to review</span>');
-    if (bests && (bests.bestAccuracy || bests.bestSpeedScore)) {
-      _chips.push('<span class="drill-chip chip-pb">🏅 Best ' + Math.round(bests.bestAccuracy || 0) + '% · ' + (bests.bestSpeedScore || 0) + ' spd</span>');
     }
     var _chipsHTML = _chips.length ? '<div class="drill-chips">' + _chips.join('') + '</div>' : '';
 
@@ -1171,7 +1182,7 @@ function createDrillEngine(container, opts) {
     var _shareData = {
       accuracy: accuracy,
       avgTime: avg,
-      percentile: percentile,
+      speedScore: speedScore,
       score: score,
       total: count,
       streak: bestSessionStreak,
@@ -1182,19 +1193,25 @@ function createDrillEngine(container, opts) {
       topics: _shareTopics
     };
 
-    /* Forward-only next actions (ADR-089): a single dominant primary — Continue Learning (falls back to the Learn
-       view when no chapter resolves) — with Back to Practice as the secondary beneath it. Stacked, full-width, no
-       backward-looking restart/retry actions. Review Mistakes stays reachable from the Practice section. */
+    /* Next actions (ADR-089 amended): forward-only stays the default, but when THIS session produced
+       mistakes the single most valuable forward action is replaying them while they're fresh — the wrong
+       question objects (charts/figures included) are still in memory, so this is free for everyone and
+       session-scoped (the cross-session mistake archive remains premium). Set-mode sessions are excluded:
+       their questions depend on a shared scenario that a fragment replay would lose. */
+    var _reviewCount = sessionWrongQuestions.length;
+    var _canReviewNow = _reviewCount > 0 && !diSet && typeof startSessionReview === 'function';
     var _nextHTML =
       '<div class="drill-next">' +
-        '<button class="btn-primary drill-next-primary" type="button" id="actLearn">📖 Continue Learning</button>' +
+        (_canReviewNow
+          ? '<button class="btn-primary drill-next-primary" type="button" id="actReviewNow">🔄 Review these ' + _reviewCount + ' now</button>'
+          : '') +
+        '<button class="' + (_canReviewNow ? 'btn-secondary drill-next-secondary' : 'btn-primary drill-next-primary') + '" type="button" id="actLearn">📖 Continue Learning</button>' +
         '<button class="btn-secondary drill-next-secondary" type="button" id="actPractice">🏠 Back to Practice</button>' +
       '</div>';
 
     container.innerHTML =
       '<div class="card center-content fade-in" role="status" aria-live="polite">' +
         '<h2 tabindex="-1" id="drillResultsHeading">Session Complete</h2>' +
-        (isNewBest ? '<div class="new-best-badge">🎉 New Personal Best!</div>' : '') +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
         '<div class="session-insight-card">' + _escHtml(_insightText) + '</div>' +
         _chipsHTML +
@@ -1209,10 +1226,10 @@ function createDrillEngine(container, opts) {
         '<div class="speed-benchmark-card" id="speedBenchmarkCard">' +
           '<div class="benchmark-header">' +
             '<span class="benchmark-icon">⚡</span>' +
-            '<span class="benchmark-title">Speed Benchmark</span>' +
+            '<span class="benchmark-title">Speed Score</span>' +
           '</div>' +
-          '<div class="benchmark-highlight ' + percentileClass + '">' +
-            '<span class="benchmark-highlight-pct">Faster than <strong>' + percentile + '%</strong> of users</span>' +
+          '<div class="benchmark-highlight ' + speedBandClass + '">' +
+            '<span class="benchmark-highlight-pct"><strong>' + speedScore + '</strong> / 100</span>' +
             deltaHtml +
           '</div>' +
           '<div class="benchmark-stats-row">' +
@@ -1225,8 +1242,8 @@ function createDrillEngine(container, opts) {
               '<span class="benchmark-stat-label">Avg Time</span>' +
             '</div>' +
             '<div class="benchmark-stat-block">' +
-              '<span class="benchmark-stat-value">' + speedScore + '</span>' +
-              '<span class="benchmark-stat-label">Speed Score</span>' +
+              '<span class="benchmark-stat-value">' + (bests.bestSpeedScore || speedScore) + '</span>' +
+              '<span class="benchmark-stat-label">Your Best</span>' +
             '</div>' +
           '</div>' +
           '<div class="benchmark-ai-section" id="benchmarkAiSection">' +
@@ -1246,6 +1263,13 @@ function createDrillEngine(container, opts) {
       if (onFinish) onFinish('practice', _finishResults);
       else Router.showView('practice');
     };
+    var _elReviewNow = container.querySelector('#actReviewNow');
+    if (_elReviewNow) {
+      var _reviewDeck = sessionWrongQuestions.slice();
+      _elReviewNow.addEventListener('click', function () {
+        startSessionReview(_reviewDeck);
+      });
+    }
     var _elLearn = container.querySelector('#actLearn');
     if (_elLearn) _elLearn.addEventListener('click', function () { _continueLearning(_learnTopic); });
     var _elPractice = container.querySelector('#actPractice');
@@ -1262,10 +1286,10 @@ function createDrillEngine(container, opts) {
        exam-accurate, negative-marking score here). Additive + guarded — never blocks the normal results. */
     if (typeof onResults === 'function') { try { onResults(_finishResults, container); } catch (_e) { } }
 
-    /* Speed Benchmark summary — generated locally, available to all users */
+    /* Speed Score summary — generated locally, available to all users */
     var benchmarkPlaceholder = container.querySelector('#benchmarkAiPlaceholder');
     if (benchmarkPlaceholder && typeof AIFeatures !== 'undefined' && typeof AIFeatures.fetchSpeedBenchmark === 'function') {
-      AIFeatures.fetchSpeedBenchmark(accNum, parseFloat(avg), speedScore, percentile, count, mode, function (err, data) {
+      AIFeatures.fetchSpeedBenchmark(accNum, parseFloat(avg), speedScore, null, count, mode, function (err, data) {
         if (err || !data) {
           benchmarkPlaceholder.innerHTML = '';
           return;
@@ -1274,13 +1298,11 @@ function createDrillEngine(container, opts) {
       });
     }
 
-    /* Post-session soft upgrade prompt — shown after 2nd session and every 5th after (free users only) */
+    /* Post-session soft upgrade prompt — shown after 2nd session and every 5th after (free users only).
+       Uses the session counter incremented once above (for everyone). */
     try {
       var _isPremiumUser = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
       if (!_isPremiumUser) {
-        var _sessCount = parseInt(localStorage.getItem(_SESSIONS_COUNT_KEY)) || 0;
-        _sessCount++;
-        localStorage.setItem(_SESSIONS_COUNT_KEY, String(_sessCount));
         var _shouldPrompt = (_sessCount === 2) || (_sessCount > 2 && (_sessCount - 2) % 5 === 0);
         if (_shouldPrompt) {
           setTimeout(function () {
@@ -1602,20 +1624,23 @@ function createDrillEngine(container, opts) {
     perQuestionTimes = [];
     sessionWrongCategories = {};
     sessionCategoryStats = {};
+    sessionWrongQuestions = [];
     overallStart = performance.now();
     startGlobalTimer();
     renderQuestion();
   }
 
   /* ---- public API ---- */
-  return { 
+  return {
     start: function() {
-      if (isDuel) {
+      /* Duels and explicit relaunches (e.g. "Review these N now" from a results card) skip the
+         pre-session start screen — the user already committed by tapping a specific action. */
+      if (isDuel || opts.skipStartScreen === true) {
         begin();
       } else {
         renderStart();
       }
-    }, 
-    cleanup: cleanup 
+    },
+    cleanup: cleanup
   };
 }

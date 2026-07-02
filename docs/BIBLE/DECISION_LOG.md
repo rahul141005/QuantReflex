@@ -8,6 +8,80 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-090 — Critical launch-readiness resolution: exam identity, honest metrics, verdict hierarchy, two-personality themes, Google Sign-In (2026-07-02)
+- **Context:** the product/UX audit (`AUDIT-REPORT-PRODUCT-UX.md`) identified 7 Critical launch blockers. Each was
+  independently re-evaluated before implementation (owner mandate: best product > consistency with the report); one was
+  revised per an explicit owner design directive (themes), the rest upheld with sharpened implementations.
+- **C1 Target-exam identity (`js/services/target-exam.js`):** there were two disconnected notions of "exam" —
+  `qr_active_exam` (local-only, Planner-written) and synced settings (no exam field). ONE accessor now owns it:
+  `TargetExam.get/set/clear/label` — canonical `settings.targetExam` (+`targetTier`, auto-synced; FirestoreSync writes
+  the whole settings object) with `qr_active_exam` kept as a local mirror/migration source. All 4 readers (Timed Mock,
+  Learn badges, Stats readiness, category picker) and both Planner writers go through it. Onboarding gained a
+  **tier→exam step** (screen 2 of now-7; data from `QR_SYLLABUS.TIERS/examsByTier`; skippable; "Not sure? Foundation");
+  the name question became optional (it hard-blocked progress). Surfaces: Home hero exam chip, Settings "Target Exam"
+  row (optgroups by tier), one-time dismissible Home nudge for pre-existing users, and Timed Mock no longer dead-ends
+  into "set up your study plan first".
+- **C2 Honest metrics:** `computePercentile` ("Faster than N% of users") was a SIMULATED value — speed score × 0.92 ±
+  random jitter, no cohort. Deleted on principle (the product never shows a comparison it cannot support). The results
+  card is now a **Speed Score** card (real 0-100 metric, band-classed) with a self-trend delta vs the user's own last
+  session (`qr_last_speed_score`) and "Your Best". Swept every consumer: results markup, PB chip, share card + share
+  text, `_generateLocalBenchmark` copy ("climb the rankings" → self-referential), stored `qr_last_percentile` retired.
+- **C3 Session Complete = one verdict · one insight · one action:** the screen stacked contradictory verdicts (verified
+  live: "New Personal Best!" + "Growth in Progress" in danger-red + "Tough session" on a 20% first session). Now: ONE
+  verdict slot (PB requires ≥3 prior sessions AND an actual improvement — `qr_sessions_count` increment hoisted out of
+  the free-only upgrade branch so it counts for everyone; <50% verdict is a neutral "Needs Review", never celebration
+  copy in failure colors); topic strongest/focus-next cards require ≥3 attempts per category (no more "Strongest:
+  Trigonometry 1/1"); insight strings de-duplicated against the verdict and only recommend offered actions.
+  **"Review these N now"** (free, session-scoped): wrong question objects (chart/figure specs intact) are collected
+  in-memory during the session and replayed via the existing `_preloadedQuestions` mechanism + a new
+  `skipStartScreen` engine opt (launcher `startSessionReview` in practice-modes.js) — no persistence, no premium-archive
+  giveaway (cross-session Review Mistakes stays premium); set-mode sessions excluded (fragments lose their shared
+  scenario). This deliberately amends ADR-089's forward-only rule: the app must never *recommend* an action it doesn't
+  offer. The separate "try 5 easier questions" CTA from the plan was dropped during implementation — session review IS
+  the contextual retry, and a second retry button would violate the one-action principle.
+- **C4 Two-personality theme system (owner directive — QR icon system):** Classic Blue stays expressive (emoji as
+  personality); Playful Professional is the premium design language. One markup for every chrome icon —
+  `<span class="qr-ico" data-ico="name" aria-hidden="true">🌙</span>` (`qrIco()` string-builder in app.js) — with the
+  swap done ENTIRELY in CSS: playful collapses the emoji (`font-size:0`) and paints a monochrome SVG
+  `mask-image`/`currentColor` glyph from `--qri-*` data-URI tokens (~36 glyphs, ~18KB), so theme switches are instantly
+  correct on static AND generated markup with zero JS re-render (rejected: extending the JS img-swap — per-generator
+  drift; an `Icon.render()` helper — provably stale on static markup). `updateNavigationIcons()` deleted; nav/headers
+  are now static `qr-ico` spans. The five `appicons/tab/*.svg` "icons" were AI-exported SVGs wrapping embedded PNGs —
+  **8.3MB total, all SW-precached** — deleted (−8.3MB install payload). Playful polish: `--qr-grad-a/b` +
+  `--qr-shadow-playful` tokens replace hardcoded gradient/shadow literals; bento squircles become soft neutral tiles
+  with accent-tinted mask icons. Rule recorded: *chrome/affordance icons → `qr-ico`; expressive/celebration copy →
+  emoji in both themes.* Unbound `data-ico` names degrade to a neutral dot glyph.
+- **C5 Google Sign-In:** popup-first (`prompt:'select_account'`), redirect fallback only on popup-blocked (flagged via
+  sessionStorage; `getRedirectResult` surfaces errors on return). **Latent bug found & fixed:** server `claimSession`
+  merge-sets `users/{uid}` and thereby CREATES a skeleton doc, while rules deny client creates — a Google first-login
+  would have produced a permanently malformed doc (no email/plan/createdAt; broken rosters + admin search). New
+  idempotent **`POST /api/account?action=ensure-profile`** (withAuth, zero new Vercel functions) seeds the exact
+  register.js shape (only missing fields; never clobbers coachingId or the session skeleton; `usage/ai` via `.create()`
+  so quota is never reset) — provider logins chain ensure-profile → `Session.claim` → hydration, so ADR-072
+  single-device enforcement is identical for all login methods. The dead client-side `_createDefaultDocument` Firestore
+  write (rules-denied since ADR-041) was replaced with ensure-profile + re-get for every account type. Delete-account
+  re-auth branches on provider (`reauthenticateWithPopup` for Google-only users; password field hidden). The dormant
+  bind-once `claim-coaching` action is now surfaced in the Profile modal (editable only while unbound) — covers Google
+  sign-ups AND email users who skipped the field. Console prerequisites + two caveats (cross-site `authDomain` redirect
+  reliability; unverified-password unlink on same-email Google login) documented in `FIREBASE_SETUP.md`. Contract
+  test: `scripts/ensure-profile.check.js` (15 assertions).
+- **C6 Copy/default coherence:** daily goal = 20 default / 10–100 range everywhere (was 10/20 vs 50 vs 20 in four
+  places); "Stats" is the single name (tab + header + App Guide; was "Analytics" on the screen); greeting no longer
+  falls back to the app's own name ("Good afternoon, QuantReflex"); "Daily Training Ring" → "Today's Goal";
+  manifest + meta + About aligned to the 4-tier ADR-067 catalog (GMAT/GRE/NTSE/Olympiad/school removed); exit dialog
+  tells the truth ("Answered questions are saved — this session just won't get a summary." — per-answer writes are
+  batched during the drill, so "your progress will be lost" was false).
+- **C7 Paywall trust (owner decisions: 7-day refund YES; AI explanations stay 5 lifetime, copy reworded):** structure
+  reordered to price-first — hero → context accent → **plans + CTA** → trimmed 8-row compare table (was: 2 screens of
+  duplicate chips + 13 rows before the price); value-chips section deleted (duplicated the table); trust row =
+  Secure Payments · **7-Day Refund** · Instant Activation; footer gains `quantreflex@gmail.com`; CTA note + About carry
+  the refund promise; "AI explanations: 5 total" → "5 free to try"; "Advanced Themes" → "Premium theme" (honest after
+  C4); paywall secondary copy contrast fixed (#94a3b8 → #64748b, AA on the money screen).
+- **Consequences:** exam identity is now a free-tier primitive (personalization can build on `TargetExam`); every
+  number the product shows is real; the results screen has a single emotional through-line and a pedagogical action;
+  the premium theme is visibly premium and the icon architecture cannot drift; Google reduces signup friction with
+  server-authoritative provisioning; the paywall makes a checkable promise. SW v204→v205.
+
 ## ADR-089 — Final UI cleanup: forward-only results actions + remove two Stats sections (2026-07-02)
 - **Context:** a production polish pass (explicitly *not* a redesign) to remove the last of the UX debt: the results
   screen carried five backward-looking actions, two Stats sections had outlived their usefulness, and the results

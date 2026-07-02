@@ -254,9 +254,55 @@ function initHomeView() {
       greeting = 'Good evening';
     }
 
-    if (greetingEl) greetingEl.textContent = greeting;
-    if (userNameEl) userNameEl.textContent = displayName || 'QuantReflex';
+    /* Without a name, the greeting stands alone — never greet the app by its own name. */
+    if (greetingEl) greetingEl.textContent = displayName ? greeting : 'Welcome back';
+    if (userNameEl) userNameEl.textContent = displayName || greeting;
     if (initialEl) initialEl.textContent = displayName ? displayName.charAt(0).toUpperCase() : 'Q';
+
+    /* ---- Target exam chip (canonical identity from TargetExam) ---- */
+    var examChip = document.getElementById('heroExamChip');
+    if (examChip) {
+      var examLabel = (typeof TargetExam !== 'undefined') ? TargetExam.label() : '';
+      if (examLabel) {
+        examChip.textContent = '🎯 ' + examLabel;
+        examChip.style.display = '';
+        examChip.onclick = function () { if (typeof Router !== 'undefined') Router.showView('settings'); };
+      } else {
+        examChip.style.display = 'none';
+      }
+    }
+
+    /* ---- One-time nudge for users onboarded before target exams existed ---- */
+    try {
+      var s0 = loadSettings();
+      if (s0.onboardingCompleted && typeof TargetExam !== 'undefined' && !TargetExam.get() &&
+          !localStorage.getItem('qr_exam_nudge_dismissed')) {
+        var nudge = document.getElementById('examNudgeBanner');
+        if (!nudge) {
+          var goalCard = document.getElementById('dailyGoalCard');
+          if (goalCard && goalCard.parentNode) {
+            nudge = document.createElement('div');
+            nudge.id = 'examNudgeBanner';
+            nudge.className = 'card exam-nudge-banner';
+            nudge.innerHTML =
+              '<span class="exam-nudge-text">Preparing for an exam? Set your target to sharpen your plan.</span>' +
+              '<button class="btn-primary exam-nudge-btn" type="button">Set target</button>' +
+              '<button class="exam-nudge-dismiss" type="button" aria-label="Dismiss">×</button>';
+            nudge.querySelector('.exam-nudge-btn').addEventListener('click', function () {
+              if (typeof Router !== 'undefined') Router.showView('settings');
+            });
+            nudge.querySelector('.exam-nudge-dismiss').addEventListener('click', function () {
+              try { localStorage.setItem('qr_exam_nudge_dismissed', '1'); } catch (_) {}
+              if (nudge.parentNode) nudge.parentNode.removeChild(nudge);
+            });
+            goalCard.parentNode.insertBefore(nudge, goalCard);
+          }
+        }
+      } else {
+        var staleNudge = document.getElementById('examNudgeBanner');
+        if (staleNudge && staleNudge.parentNode) staleNudge.parentNode.removeChild(staleNudge);
+      }
+    } catch (_) {}
 
     /* ---- Streak badge ---- */
     var streakCount = document.getElementById('homeStreakCount');

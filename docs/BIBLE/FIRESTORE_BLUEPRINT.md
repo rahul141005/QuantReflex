@@ -26,7 +26,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 | `email` | string | — | admin | set at register (preserves the casing entered) |
 | `emailLower` | string | — | admin (register) | **lowercased `email`** — the case-insensitive Global Search key (ADR-020). Set at register; existing docs backfilled 2026-06-12 via `firestore/migrations/2026-06-12-add-emailLower.js`. |
 | `profile` | map `{name, createdAt}` | `{}` | client/admin | display name |
-| `settings` | map | defaults | client | theme, sound, vibration, difficulty, dailyGoal, etc. |
+| `settings` | map | defaults | client | theme, sound, vibration, difficulty, dailyGoal, etc. **ADR-090:** `targetExam` (QR_SYLLABUS exam id, canonical target-exam identity — written via `TargetExam.set`, mirrored to local `qr_active_exam`) + `targetTier`. Whole-map sync, no whitelist — no migration needed. |
 | `stats` | map | defaults | client | attempts, streaks, categoryStats, mistakes[], responseTimes[], **dailyHistory{}** (see note). `categoryStats` is keyed by the 14 drill categories — **the "subject" lens (ADR-073) is DERIVED from it on read, never stored** (see note). |
 | `quickLinks` | array | seeded | client | |
 | `customTopics` | array | `[]` | client | |

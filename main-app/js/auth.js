@@ -24,6 +24,21 @@ var Auth = (function () {
       console.warn('Auth persistence error:', err);
     });
 
+    /* Google redirect-fallback return path: surface a mapped error on the login screen if the
+       redirect flow failed. (Success needs nothing here — onAuthStateChanged handles it.) */
+    try {
+      if (sessionStorage.getItem('qr_google_redirect')) {
+        sessionStorage.removeItem('qr_google_redirect');
+        _auth.getRedirectResult().catch(function (err) {
+          console.warn('[Auth] Google redirect sign-in failed:', err && err.code);
+          try {
+            var el = document.getElementById('loginError');
+            if (el) { el.textContent = getReadableError(err); el.style.display = 'block'; }
+          } catch (_) {}
+        });
+      }
+    } catch (_) {}
+
     _auth.onAuthStateChanged(function (user) {
       var previousUser = _currentUser;
       _currentUser = user;
@@ -70,9 +85,20 @@ var Auth = (function () {
         /* ADR-072 (single active device): on a GENUINE new login (this device hasn't yet claimed a session for this
            uid), claim the single active session — which displaces any other device — BEFORE loading Firestore, so the
            firestore-sync session listener doesn't race our own claim. On resume (already claimed) we skip claiming;
-           re-claiming would wrongly displace whoever logged in most recently, and the listener still enforces. */
+           re-claiming would wrongly displace whoever logged in most recently, and the listener still enforces.
+
+           Provider logins (Google) additionally run server-side provisioning FIRST: firestore.rules deny client
+           creates, and Session.claim's merge-set would otherwise leave a skeleton user doc (only activeSessionId/
+           activeSessionAt — no email/plan/createdAt). ensure-profile is idempotent and never blocks the login. */
         if (window.Session && typeof Session.claim === 'function' && !Session.hasClaimed(user.uid)) {
-          Session.claim(function () { return user.getIdToken(); }).then(function (ok) {
+          var _isProviderUser = false;
+          try {
+            _isProviderUser = (user.providerData || []).some(function (p) { return p && p.providerId === 'google.com'; });
+          } catch (_) {}
+          var _ensure = _isProviderUser ? _ensureProfile(user) : Promise.resolve(true);
+          _ensure.then(function () {
+            return Session.claim(function () { return user.getIdToken(); });
+          }).then(function (ok) {
             if (ok) Session.markClaimed(user.uid);
             _afterSession();
           });
@@ -130,8 +156,64 @@ var Auth = (function () {
       return 'Password is too weak.';
     } else if (error.code === 'auth/network-request-failed') {
       return 'Network unavailable. Please check your connection.';
+    } else if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      return 'Sign-in was cancelled.';
+    } else if (error.code === 'auth/popup-blocked') {
+      return 'Your browser blocked the sign-in window. Please allow popups and try again.';
+    } else if (error.code === 'auth/account-exists-with-different-credential') {
+      return 'An account already exists with this email using a different sign-in method. Log in with your email and password.';
+    } else if (error.code === 'auth/unauthorized-domain') {
+      return 'Sign-in is not available from this address.';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      return 'Google sign-in is not enabled. Please contact support.';
     }
     return error.message || 'Authentication failed.';
+  }
+
+  /* Idempotent server-side provisioning for provider sign-ins (see onAuthStateChanged). Resolves
+     true/false, never rejects — a transient failure must not block login (loadFromFirestore copes,
+     and the next login retries). */
+  function _ensureProfile(user) {
+    return user.getIdToken().then(function (token) {
+      var headers = { 'Authorization': 'Bearer ' + token };
+      try { if (window.Session && Session.header) headers['X-Session-Id'] = Session.header()['X-Session-Id']; } catch (_) {}
+      return fetch('/api/account?action=ensure-profile', { method: 'POST', headers: headers });
+    }).then(function (resp) {
+      return !!(resp && resp.ok);
+    }).catch(function (err) {
+      console.warn('[Auth] ensure-profile failed (login continues):', err && err.message);
+      return false;
+    });
+  }
+
+  /**
+   * Google Sign-In — popup-first (works in installed PWAs and normal tabs); falls back to a full
+   * redirect only when the popup is blocked/unsupported. Success flows through the same
+   * onAuthStateChanged → ensure-profile → Session.claim path as every other login.
+   */
+  function loginWithGoogle(callback) {
+    if (!_auth) {
+      callback('Authentication service not available.', null);
+      return;
+    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    _auth.signInWithPopup(provider)
+      .then(function () {
+        callback(null, _currentUser);
+      })
+      .catch(function (err) {
+        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+          try { sessionStorage.setItem('qr_google_redirect', '1'); } catch (_) {}
+          _auth.signInWithRedirect(provider).catch(function (e2) { callback(getReadableError(e2), null); });
+          return; /* page navigates away; init() surfaces any redirect error on return */
+        }
+        var cancelled = err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request');
+        if (!cancelled && typeof SecurityEvents !== 'undefined') {
+          SecurityEvents.record('failed_login', { errorCode: err && err.code, reason: 'google_login_failed' });
+        }
+        callback(getReadableError(err), null, { cancelled: cancelled });
+      });
   }
 
   function signup(email, password, coachingId, callback) {
@@ -284,6 +366,7 @@ var Auth = (function () {
     onStateChange: onStateChange,
     signup: signup,
     login: login,
+    loginWithGoogle: loginWithGoogle,
     resetPassword: resetPassword,
     logout: logout,
     getCurrentUser: getCurrentUser,

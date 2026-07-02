@@ -113,7 +113,9 @@ module.exports = async (req, res) => {
     // 3. Atomic Firestore Setup
     const batch = db.batch();
 
-    // User Profile — email-first, no username
+    // User Profile — email-first, no username.
+    // NOTE: this seed shape is mirrored by api/account.js `ensure-profile` (provider sign-ins).
+    // If a field is added/changed here, change it there too (and in scripts/ensure-profile.check.js).
     const userRef = db.collection('users').doc(uid);
     batch.set(userRef, {
       uid: uid,

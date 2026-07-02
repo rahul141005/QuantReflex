@@ -69,7 +69,7 @@ var LearnView = (function () {
      labels). With a target exam set: "⭐ For <exam>" on that exam's top-focus topics. Otherwise: "🔥 Most Asked" on
      perennial topics. Everything else stays clean. */
   function _examRel() { return (typeof QR_EXAMREL !== 'undefined') ? QR_EXAMREL : (typeof window !== 'undefined' ? window.QR_EXAMREL : null); }
-  function _targetExam() { try { return localStorage.getItem('qr_active_exam') || ''; } catch (_) { return ''; } }
+  function _targetExam() { try { return (typeof TargetExam !== 'undefined' && TargetExam.get()) || ''; } catch (_) { return ''; } }
   function _ctxBadge(t) {
     var ER = _examRel(); if (!ER || !t || !t.id) return '';
     var exam = _targetExam();

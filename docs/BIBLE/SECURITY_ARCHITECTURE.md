@@ -48,6 +48,15 @@ The single entitlement claim `premium` is set server-side after payment (`claims
   against cross-user write leakage (`_syncGeneration`, `qr_last_uid`); logout clears the session claim so the next
   login re-claims.
 - **Coaching active-state gate (audit M4, fixed 2026-06-11):** signup, claim-coaching, and validate-coaching all gate on the canonical `isCoachingActive()` helper (`status==='active'`, else `isActive!==false`). Previously claim/validate only rejected `status==='expired'` (never written), so a `suspended`/`deleted` coaching could be claimed. Now uniformly rejected.
+- **Google Sign-In + server-side provisioning (ADR-090):** the Google provider signs in client-side (popup-first);
+  first logins are provisioned by the **idempotent authed `POST /api/account?action=ensure-profile`** (withAuth,
+  self-scoped) which seeds the exact `/api/auth/register` doc shape — entitlement defaults remain server-authoritative
+  (`allow create: if false` unchanged), only missing fields are merged (never clobbers `coachingId` or the
+  `activeSessionId` skeleton that `claimSession`'s merge-set may have created first), and `usage/ai` is seeded via
+  `.create()` so quota can never be reset by a re-call. Provider logins chain ensure-profile → `Session.claim`, so
+  ADR-072 single-device enforcement is identical for all login methods. The old client-side `_createDefaultDocument`
+  Firestore write (always rules-denied) was replaced by this endpoint for every account type. Contract test:
+  `scripts/ensure-profile.check.js`.
 
 ## 4. Firestore Rules (`firestore/rules/firestore.rules`)
 

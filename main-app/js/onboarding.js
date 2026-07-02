@@ -1,21 +1,22 @@
 /**
  * onboarding.js — Premium onboarding experience
  *
- * Manages a six-screen onboarding flow:
- *   1. Introduction
- *   2. Learn & Drill
- *   3. Stats
- *   4. Daily Goal Selection
- *   5. Ready to Train
- *   6. First Question (up to 3 attempts with guided retry)
+ * Manages a seven-screen onboarding flow:
+ *   1. Introduction (name — optional)
+ *   2. Target Exam (tier → exam, skippable)
+ *   3. Learn & Drill
+ *   4. Stats
+ *   5. Daily Goal Selection
+ *   6. Ready to Train
+ *   7. First Question (up to 3 attempts with guided retry)
  *
  * Display logic:
  *   - Shows only when `onboardingCompleted` is false in settings.
- *   - Stores `dailyGoal` in quant_reflex_settings.
+ *   - Stores `dailyGoal` in quant_reflex_settings; target exam via TargetExam.
  *   - Sets `onboardingCompleted = true` on completion.
  *
  * Skip behavior:
- *   - Skip jumps to Screen 4 (Daily Goal).
+ *   - Skip jumps to the Daily Goal screen.
  *   - After selecting a goal, skips remaining screens and goes to Home.
  *
  * Analytics:
@@ -29,6 +30,9 @@ var Onboarding = (function () {
   var _skipped = false;
   var _selectedGoal = 20;
   var _displayName = '';
+  var _selectedExam = '';         /* QR_SYLLABUS exam id chosen on the exam screen ('' = not chosen) */
+  var _selectedTierId = '';       /* tier the user tapped (drives the exam-stage list) */
+  var _examStage = 'tier';        /* 'tier' | 'exam' — two-stage picker inside one screen */
   var _onComplete = null;
   var _questionAttempt = 0;       /* 0-based: tracks which attempt (0, 1, 2) */
   var _isShowing = false;         /* re-entry guard: true while onboarding is visible */
@@ -155,6 +159,11 @@ var Onboarding = (function () {
           FirestoreSync.updateProfileName(_displayName);
         }
       }
+      /* Persist the target exam through the canonical accessor (synced settings + legacy mirror).
+         Runs after syncSettings so the exam write is the final settings state. */
+      if (_selectedExam && typeof TargetExam !== 'undefined') {
+        TargetExam.set(_selectedExam);
+      }
     } catch (_) { /* ignore */ }
   }
 
@@ -192,6 +201,9 @@ var Onboarding = (function () {
     _currentScreen = 0;
     _skipped = false;
     _selectedGoal = 20;
+    _selectedExam = '';
+    _selectedTierId = '';
+    _examStage = 'tier';
     _questionAttempt = 0;
     _currentQuestion = null;
 
@@ -262,8 +274,8 @@ var Onboarding = (function () {
     var card = _overlay.querySelector('.onboarding-card');
     if (!card) return;
 
-    /* Clean up Screen 3 stats guide if leaving it */
-    if (_currentScreen !== 2 || index !== 2) {
+    /* Clean up stats-screen nav guide if leaving it (stats is screen index 3) */
+    if (_currentScreen !== 3 || index !== 3) {
       _hideStatsNavGuide();
     }
 
@@ -273,7 +285,7 @@ var Onboarding = (function () {
 
     setTimeout(function () {
       var content = '';
-      var totalScreens = _skipped ? 4 : 6;
+      var totalScreens = _skipped ? 5 : 7;
       var dotIndex = index;
 
       switch (index) {
@@ -282,24 +294,28 @@ var Onboarding = (function () {
           dotIndex = 0;
           break;
         case 1:
-          content = _screen2();
+          content = _screenExam();
           dotIndex = 1;
           break;
         case 2:
-          content = _screen3();
+          content = _screen2();
           dotIndex = 2;
           break;
         case 3:
-          content = _screen4();
+          content = _screen3();
           dotIndex = 3;
           break;
         case 4:
-          content = _screen5();
+          content = _screen4();
           dotIndex = 4;
           break;
         case 5:
-          content = _screen6();
+          content = _screen5();
           dotIndex = 5;
+          break;
+        case 6:
+          content = _screen6();
+          dotIndex = 6;
           break;
       }
 
@@ -319,8 +335,8 @@ var Onboarding = (function () {
       /* Bind event handlers for this screen */
       _bindScreenHandlers(index);
 
-      /* Show Stats nav guide on Screen 3 */
-      if (index === 2) {
+      /* Show Stats nav guide on the stats screen */
+      if (index === 3) {
         _showStatsNavGuide();
       }
     }, 180);
@@ -345,6 +361,70 @@ var Onboarding = (function () {
       '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
       '</div>';
+  }
+
+  /* Target-exam screen — two stages inside one screen: tier cards, then that tier's exams.
+     Data comes from QR_SYLLABUS (the one catalog the Planner also uses); a minimal fallback keeps
+     onboarding functional if the catalog script ever fails to load. */
+  function _tiers() {
+    try {
+      if (typeof QR_SYLLABUS !== 'undefined' && QR_SYLLABUS.TIERS && QR_SYLLABUS.TIERS.length) return QR_SYLLABUS.TIERS;
+    } catch (_) {}
+    return [
+      { id: 'mba', label: 'MBA Entrance', blurb: 'CAT, XAT, SNAP, NMAT, CMAT, MAH CET', def: 'mbacet' },
+      { id: 'banking', label: 'Banking', blurb: 'IBPS, SBI & more', def: 'ibpsclerk' },
+      { id: 'government', label: 'Government Aptitude', blurb: 'SSC & Railways', def: 'ssccgl' },
+      { id: 'foundation', label: 'Foundation', blurb: 'Build your calculation speed from scratch', def: 'foundation' }
+    ];
+  }
+
+  function _tierExams(tierId) {
+    try {
+      if (typeof QR_SYLLABUS !== 'undefined' && typeof QR_SYLLABUS.examsByTier === 'function') {
+        return QR_SYLLABUS.examsByTier(tierId) || [];
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  function _screenExam() {
+    var html = '<div class="onboarding-visual"><span class="onboarding-goal-icon">🎯</span></div>';
+    if (_examStage === 'exam' && _selectedTierId) {
+      var tier = null;
+      var tiers = _tiers();
+      for (var t = 0; t < tiers.length; t++) if (tiers[t].id === _selectedTierId) tier = tiers[t];
+      var exams = _tierExams(_selectedTierId);
+      html += '<h2 class="onboarding-title">' + _escapeHtml(tier ? tier.label : 'Pick your exam') + '</h2>' +
+        '<p class="onboarding-desc">Pick your exam — drills, mocks and study focus follow it.</p>' +
+        '<div class="onboarding-goal-options onboarding-exam-list">';
+      for (var i = 0; i < exams.length; i++) {
+        var active = exams[i].id === _selectedExam;
+        html += '<button class="onboarding-goal-btn onboarding-exam-btn' + (active ? ' onboarding-goal-active' : '') + '"' +
+          ' data-exam="' + _escapeHtml(exams[i].id) + '" aria-pressed="' + (active ? 'true' : 'false') + '">' +
+          _escapeHtml(exams[i].name) + '</button>';
+      }
+      html += '</div>' +
+        '<div class="onboarding-actions">' +
+        '<button class="btn onboarding-skip-btn" id="obExamBack">← All exams</button>' +
+        '</div>';
+      return html;
+    }
+    html += '<h2 class="onboarding-title">What are you preparing for?</h2>' +
+      '<p class="onboarding-desc">Your target shapes what you drill, mock and revise. You can change it anytime in Settings.</p>' +
+      '<div class="onboarding-goal-options onboarding-exam-list">';
+    var list = _tiers();
+    for (var j = 0; j < list.length; j++) {
+      html += '<button class="onboarding-goal-btn onboarding-tier-btn" data-tier="' + _escapeHtml(list[j].id) + '">' +
+        '<span class="onboarding-tier-label">' + _escapeHtml(list[j].label) + '</span>' +
+        '<span class="onboarding-tier-blurb">' + _escapeHtml(list[j].blurb || '') + '</span>' +
+        '</button>';
+    }
+    html += '</div>' +
+      '<p class="onboarding-note">Not sure yet? <a href="#" id="obExamFoundation">Start with Foundation</a></p>' +
+      '<div class="onboarding-actions">' +
+      '<button class="btn onboarding-skip-btn" id="obExamLater">Choose later</button>' +
+      '</div>';
+    return html;
   }
 
   function _screen2() {
@@ -435,22 +515,13 @@ var Onboarding = (function () {
         if (typeof triggerHaptic === 'function') triggerHaptic(10);
         if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle');
 
-        /* Capture name from Screen 1 — name is required */
+        /* Capture name from Screen 1 — optional; empty is fine (the app greets without it) */
         if (index === 0) {
           var nameInput = document.getElementById('obNameInput');
-          if (nameInput && nameInput.value.trim()) {
-            _displayName = nameInput.value.trim();
-          } else {
-            if (nameInput) {
-              nameInput.style.borderColor = '#dc2626';
-              nameInput.setAttribute('placeholder', 'Please enter your name');
-              nameInput.focus();
-            }
-            return;
-          }
+          if (nameInput) _displayName = nameInput.value.trim();
         }
 
-        if (index === 3) {
+        if (index === 4) {
           /* Save daily goal */
           _saveDailyGoal();
 
@@ -461,7 +532,7 @@ var Onboarding = (function () {
           }
         }
 
-        if (index < 5) {
+        if (index < 6) {
           _goToScreen(index + 1);
         }
       });
@@ -472,20 +543,58 @@ var Onboarding = (function () {
         if (typeof triggerHaptic === 'function') triggerHaptic(10);
         if (index === 0) {
           var nameInput = document.getElementById('obNameInput');
-          if (nameInput && nameInput.value.trim()) {
-            _displayName = nameInput.value.trim();
-          } else {
-            if (nameInput) {
-              nameInput.style.borderColor = '#dc2626';
-              nameInput.setAttribute('placeholder', 'Please enter your name');
-              nameInput.focus();
-            }
-            return;
-          }
+          if (nameInput) _displayName = nameInput.value.trim();
         }
         _skipped = true;
-        _goToScreen(3);
+        _goToScreen(4);
       });
+    }
+
+    /* Exam screen (index 1): tier → exam two-stage picker */
+    if (index === 1) {
+      var tierBtns = _overlay.querySelectorAll('.onboarding-tier-btn');
+      for (var tb = 0; tb < tierBtns.length; tb++) {
+        tierBtns[tb].addEventListener('click', function () {
+          if (typeof triggerHaptic === 'function') triggerHaptic(8);
+          _selectedTierId = this.getAttribute('data-tier') || '';
+          _examStage = 'exam';
+          _renderScreen(1);
+        });
+      }
+      var examBtns = _overlay.querySelectorAll('.onboarding-exam-btn');
+      for (var eb = 0; eb < examBtns.length; eb++) {
+        examBtns[eb].addEventListener('click', function () {
+          if (typeof triggerHaptic === 'function') triggerHaptic(10);
+          if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle');
+          _selectedExam = this.getAttribute('data-exam') || '';
+          _examStage = 'tier';
+          _goToScreen(2);
+        });
+      }
+      var foundationLink = document.getElementById('obExamFoundation');
+      if (foundationLink) {
+        foundationLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (typeof triggerHaptic === 'function') triggerHaptic(10);
+          _selectedExam = 'foundation';
+          _goToScreen(2);
+        });
+      }
+      var laterBtn = document.getElementById('obExamLater');
+      if (laterBtn) {
+        laterBtn.addEventListener('click', function () {
+          if (typeof triggerHaptic === 'function') triggerHaptic(10);
+          _selectedExam = '';
+          _goToScreen(2);
+        });
+      }
+      var backBtn = document.getElementById('obExamBack');
+      if (backBtn) {
+        backBtn.addEventListener('click', function () {
+          _examStage = 'tier';
+          _renderScreen(1);
+        });
+      }
     }
 
     /* Goal selection buttons */
@@ -504,8 +613,8 @@ var Onboarding = (function () {
       });
     }
 
-    /* Screen 6: show numpad for the first question */
-    if (index === 5) {
+    /* Final screen: show numpad for the first question */
+    if (index === 6) {
       var answerInput = document.getElementById('obAnswer');
       if (answerInput) {
         _showOnboardingNumpad(answerInput);
@@ -688,10 +797,10 @@ var Onboarding = (function () {
 
     /* Keep progress dots */
     var dotsHtml = '<div class="onboarding-dots">';
-    var totalScreens = 6;
+    var totalScreens = 7;
     for (var i = 0; i < totalScreens; i++) {
-      var activeClass = i === 5 ? ' onboarding-dot-active' : '';
-      var completedClass = i < 5 ? ' onboarding-dot-completed' : '';
+      var activeClass = i === 6 ? ' onboarding-dot-active' : '';
+      var completedClass = i < 6 ? ' onboarding-dot-completed' : '';
       dotsHtml += '<span class="onboarding-dot' + activeClass + completedClass + '"></span>';
     }
     dotsHtml += '</div>';

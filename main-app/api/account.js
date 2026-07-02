@@ -190,6 +190,79 @@ async function _notificationsMarkRead(req, res, db) {
   return res.status(200).json({ success: true });
 }
 
+/* ── ?action=ensure-profile (POST) ──
+   Idempotent server-side provisioning for the authenticated caller's users/{uid} doc. Needed for
+   provider sign-ins (Google): firestore.rules deny client creates (allow create: if false), and
+   Session.claim's merge-set can leave a SKELETON doc holding only activeSessionId/activeSessionAt —
+   no email/emailLower/plan/createdAt — which breaks coaching rosters and admin search. Seeds the
+   exact same shape as /api/auth/register (kept in sync — see register.js), filling ONLY missing
+   fields so it can run on every login safely. No-ops when the doc already carries `plan`. */
+async function _ensureProfile(req, res, db) {
+  const uid = req.userId;
+
+  let authUser;
+  try {
+    authUser = await admin.auth().getUser(uid);
+  } catch (err) {
+    return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'Auth user not found.' } });
+  }
+  const email = authUser.email || '';
+  const displayName = authUser.displayName || (email ? email.split('@')[0] : 'User');
+
+  const userRef = db.collection('users').doc(uid);
+  let existed = false;
+
+  await db.runTransaction(async function (transaction) {
+    const snap = await transaction.get(userRef);
+    const data = snap.exists ? snap.data() : {};
+    if (snap.exists && data.plan !== undefined) { existed = true; return; }   // fully provisioned — no-op
+
+    const TS = admin.firestore.FieldValue.serverTimestamp();
+    const patch = {
+      uid: uid,
+      email: email,
+      emailLower: email.toLowerCase(),
+      updatedAt: TS,
+      // Entitlement defaults (v2 — safe free tier); server-authoritative, identical to register.js
+      plan: 'free',
+      planType: null,
+      planExpiry: null,
+      planSource: null,
+      isTrial: false,
+      trialEnd: null,
+      planUpdatedAt: TS,
+      lastPaymentId: null
+    };
+    if (data.createdAt === undefined) patch.createdAt = TS;
+    if (data.coachingId === undefined) patch.coachingId = null;               // never clobber an existing binding
+    if (data.stats === undefined) {
+      // Roster key seed (ADR-032) — orderBy('stats.lastActiveMs') must never drop this user
+      patch.stats = { lastActiveMs: Date.now(), lastActiveDate: new Date().toDateString() };
+    }
+    if (!data.profile || !data.profile.name) {
+      patch.profile = Object.assign({}, data.profile || {}, { name: displayName });
+    }
+    transaction.set(userRef, patch, { merge: true });                          // merge preserves any session skeleton
+  });
+
+  if (!existed) {
+    /* AI usage seed — .create() so a concurrent/earlier seed is never reset (quota safety). */
+    try {
+      await userRef.collection('usage').doc('ai').create({
+        wordProblemsUsedLifetime: 0,
+        wordProblemsUsedToday: 0,
+        explanationsUsed: 0
+      });
+    } catch (err) {
+      if (!(err && (err.code === 6 || String(err.message || '').indexOf('ALREADY_EXISTS') !== -1))) {
+        console.warn('[account:ensure-profile] usage/ai seed failed:', err.message);
+      }
+    }
+  }
+
+  return res.status(200).json({ success: true, existed: existed });
+}
+
 /* ── ?action=claim-coaching (POST) ── */
 async function _claimCoaching(req, res, db) {
   const body = parseBody(req);
@@ -253,6 +326,7 @@ async function handler(req, res) {
   const action = req.query.action || '';
   try {
     if (action === 'delete' && req.method === 'POST') return await _delete(req, res, db);
+    if (action === 'ensure-profile' && req.method === 'POST') return await _ensureProfile(req, res, db);
     if (action === 'notifications-list' && req.method === 'GET') return await _notificationsList(req, res, db);
     if (action === 'notifications-markRead' && req.method === 'POST') return await _notificationsMarkRead(req, res, db);
     if (action === 'claim-coaching' && req.method === 'POST') return await _claimCoaching(req, res, db);

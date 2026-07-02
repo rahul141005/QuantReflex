@@ -361,7 +361,7 @@ var Planner = (function () {
       danger.disabled = true; danger.textContent = 'Starting over…';
       api('reset').then(function (res) {
         if (res.ok && res.data && res.data.ok) {
-          try { localStorage.removeItem('qr_active_exam'); } catch (_) {}
+          try { if (typeof TargetExam !== 'undefined') TargetExam.clear(); else localStorage.removeItem('qr_active_exam'); } catch (_) {}
           _markAiDirty(); _plan = null; _sel = null;
           close();
           if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true);

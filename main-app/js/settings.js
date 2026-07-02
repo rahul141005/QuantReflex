@@ -47,9 +47,7 @@ function applyTheme(theme) {
   if (theme === 'playful') {
     document.body.classList.add('theme-playful');
   }
-  if (typeof updateNavigationIcons === 'function') {
-    updateNavigationIcons(theme);
-  }
+  /* Icons are theme-driven purely in CSS (QR icon system) — toggling the body class is enough. */
 }
 
 function getDifficulty() {
@@ -208,6 +206,31 @@ function initSettingsView() {
     askSubjectToggle.checked = settings.practiceAskSubject !== false;
   }
 
+  /* Target exam select — options from the QR_SYLLABUS catalog grouped by tier; canonical write via TargetExam. */
+  var targetExamSelect = document.getElementById('targetExamSelect');
+  if (targetExamSelect && typeof QR_SYLLABUS !== 'undefined' && typeof TargetExam !== 'undefined') {
+    if (targetExamSelect.options.length <= 1) {
+      (QR_SYLLABUS.TIERS || []).forEach(function (tier) {
+        var group = document.createElement('optgroup');
+        group.label = tier.label;
+        (QR_SYLLABUS.examsByTier(tier.id) || []).forEach(function (ex) {
+          var opt = document.createElement('option');
+          opt.value = ex.id;
+          opt.textContent = ex.name;
+          group.appendChild(opt);
+        });
+        if (group.children.length) targetExamSelect.appendChild(group);
+      });
+    }
+    targetExamSelect = rebind(targetExamSelect, 'change', function () {
+      TargetExam.set(this.value || null);
+      settings = loadSettings(); /* TargetExam.set wrote settings — refresh the local copy so later saves don't clobber it */
+      SoundEngine.play('settingsToggle');
+      if (this.value) showToast('Target set: ' + (TargetExam.label(this.value) || this.value));
+    });
+    targetExamSelect.value = TargetExam.get() || '';
+  }
+
   difficultySelect = rebind(difficultySelect, 'change', function () {
     if (this.value === 'hard' && !canAccessFeature('hard_mode')) {
       this.value = settings.difficulty || 'medium';
@@ -232,7 +255,7 @@ function initSettingsView() {
   if (dailyGoalInput) {
     dailyGoalInput = rebind(dailyGoalInput, 'change', function () {
       var val = parseInt(this.value);
-      if (val >= 10 && val <= 500) {
+      if (val >= 10 && val <= 100) {
         if (val > 20 && !canAccessFeature('daily_goal_limit')) {
           this.value = String(settings.dailyGoal || 20);
           showPaywall('settings');
@@ -693,9 +716,26 @@ function openProfileModal() {
     handleInput.value = handleStr;
   }
 
-  /* Coaching ID: read-only display */
+  /* Coaching ID: bound → read-only display; unbound → editable ONCE (bind-once, server-enforced).
+     This surfaces the existing claim-coaching path for Google sign-ups (no coaching field at signup)
+     and for email users who skipped it. */
   var coachingIdInput = document.getElementById('profileCoachingId');
-  if (coachingIdInput) coachingIdInput.value = coachingId || 'None';
+  var coachingHelper = document.getElementById('profileCoachingHelper');
+  if (coachingIdInput) {
+    if (coachingId) {
+      coachingIdInput.value = coachingId;
+      coachingIdInput.readOnly = true;
+      coachingIdInput.disabled = true;
+      if (coachingHelper) coachingHelper.style.display = 'none';
+    } else {
+      coachingIdInput.value = '';
+      coachingIdInput.readOnly = false;
+      coachingIdInput.disabled = false;
+      coachingIdInput.placeholder = 'e.g. QRABCD1234';
+      coachingIdInput.maxLength = 50;
+      if (coachingHelper) coachingHelper.style.display = '';
+    }
+  }
 
   /* Profile banner: "{Name} started mathing on {Date}".
      Resolve the start date robustly so it NEVER renders "unknown date": onboarding completion (the day the user
@@ -734,6 +774,18 @@ function openProfileModal() {
       showToast('Profile saved successfully.');
     }
 
+    /* One-time coaching claim (only when unbound and a code was typed) */
+    var codeVal = (coachingIdInput && !coachingIdInput.disabled) ? coachingIdInput.value.trim().toUpperCase() : '';
+    if (codeVal && typeof FirestoreSync !== 'undefined' && FirestoreSync.claimCoaching) {
+      FirestoreSync.claimCoaching(codeVal, function (err) {
+        if (err) {
+          showToast(err.message || 'Could not join that coaching. Check the code and try again.');
+        } else {
+          showToast('Coaching joined: ' + codeVal);
+        }
+      });
+    }
+
     closeModal();
   };
 }
@@ -755,6 +807,16 @@ function openDeleteAccountModal() {
 
   if (passInput) passInput.value = '';
   if (errDiv) errDiv.style.display = 'none';
+
+  /* Provider-aware re-auth: a Google-only user has no password — show the popup-confirm note
+     instead of the password field, and re-authenticate via the provider on confirm. */
+  var _delUser = (typeof Auth !== 'undefined') ? Auth.getCurrentUser() : null;
+  var _hasPasswordProvider = !!(_delUser && (_delUser.providerData || []).some(function (p) { return p && p.providerId === 'password'; }));
+  var passLabel = document.getElementById('deleteAccountPasswordLabel');
+  var providerNote = document.getElementById('deleteAccountProviderNote');
+  if (passInput) passInput.style.display = _hasPasswordProvider ? '' : 'none';
+  if (passLabel) passLabel.style.display = _hasPasswordProvider ? '' : 'none';
+  if (providerNote) providerNote.style.display = _hasPasswordProvider ? 'none' : '';
 
   function closeModal() {
     modal.style.display = 'none';
@@ -780,6 +842,15 @@ function openDeleteAccountModal() {
       if (msg.indexOf('auth/requires-recent-login') !== -1) {
         return 'For security, please log out and log back in, then try deleting again.';
       }
+      if (msg.indexOf('auth/popup-closed-by-user') !== -1 || msg.indexOf('auth/cancelled-popup-request') !== -1) {
+        return 'Confirmation was cancelled.';
+      }
+      if (msg.indexOf('auth/user-mismatch') !== -1) {
+        return 'Please confirm with the same Google account you signed in with.';
+      }
+      if (msg.indexOf('auth/popup-blocked') !== -1) {
+        return 'Your browser blocked the confirmation window. Allow popups or try from your browser.';
+      }
       if (msg.indexOf('UNAUTHORIZED') !== -1 || msg.indexOf('token') !== -1) {
         return 'Your session has expired. Please log out, log back in, and try again.';
       }
@@ -802,8 +873,8 @@ function openDeleteAccountModal() {
     var passInput = document.getElementById('deleteAccountPassword');
     var errDiv = document.getElementById('deleteAccountError');
     var password = passInput ? passInput.value.trim() : '';
-    
-    if (passInput && !password) {
+
+    if (_hasPasswordProvider && passInput && !password) {
       if (errDiv) { errDiv.textContent = 'Password is required to delete your account.'; errDiv.style.display = 'block'; }
       return;
     }
@@ -818,9 +889,15 @@ function openDeleteAccountModal() {
     if (errDiv) errDiv.style.display = 'none';
 
     var user = Auth.getCurrentUser();
-    var credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
+    var reauthPromise;
+    if (_hasPasswordProvider) {
+      var credential = firebase.auth.EmailAuthProvider.credential(user.email, password);
+      reauthPromise = user.reauthenticateWithCredential(credential);
+    } else {
+      reauthPromise = user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+    }
 
-    user.reauthenticateWithCredential(credential).then(function() {
+    reauthPromise.then(function() {
       return Auth.getIdToken();
     }).then(function (idToken) {
       return fetch('/api/account?action=delete', {

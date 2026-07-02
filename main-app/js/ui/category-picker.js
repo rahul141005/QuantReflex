@@ -44,7 +44,7 @@
   function _recommended(n) {
     var EX = root.QR_EXAMREL, KB = root.KnowledgeBase;
     if (!EX || !EX.weightedCategories || !KB) return [];
-    var exam = ''; try { exam = localStorage.getItem('qr_active_exam') || ''; } catch (e) {}
+    var exam = ''; try { exam = (typeof TargetExam !== 'undefined' && TargetExam.get()) || ''; } catch (e) {}
     var track = EX.trackForExam ? EX.trackForExam(exam) : null;
     var rows = EX.weightedCategories(KB.bySubject ? KB.bySubject('quant') : []);
     rows = rows.filter(function (r) { return r && r.cat; });

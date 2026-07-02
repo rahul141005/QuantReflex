@@ -6,6 +6,72 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-02 — Critical launch-readiness resolution (ADR-090)
+
+The 7 Critical findings of `AUDIT-REPORT-PRODUCT-UX.md`, independently re-evaluated then implemented (full reasoning
+in ADR-090). Summary of code changes:
+
+```
+### feat(C1): target-exam identity
+- js/services/target-exam.js (NEW): TargetExam.get/set/clear/label — canonical settings.targetExam (synced) +
+  qr_active_exam legacy mirror; all 4 readers (practice-modes mock, learn-view, stats-view, category-picker) and
+  the Planner writers (companion-ui ×2, planner-view reset) go through it. Registered in index.html + SW precache.
+- js/onboarding.js: 6→7 screens — new tier→exam step (QR_SYLLABUS.TIERS / examsByTier, skippable, Foundation
+  quick-pick); name now optional; TargetExam.set persisted in _markCompleted.
+- index.html + js/settings.js: Settings "Target Exam" select (optgroups by tier, canonical write path).
+- js/views/home-view.js + index.html + css: hero exam chip; one-time exam nudge banner for pre-existing users.
+### fix(C2): fabricated percentile removed
+- js/services/scoring-service.js: computePercentile/getPercentileClass/PERCENTILE_KEY deleted; getSpeedScoreClass +
+  loadLastSpeedScore/saveLastSpeedScore (qr_last_speed_score) added.
+- js/drill-engine.js: Speed Benchmark card → Speed Score card (score/100, self-delta vs last session, Your Best);
+  "Best N% · N spd" chip removed; shareData.percentile → speedScore.
+- js/ai-features.js: benchmark copy self-referential (no rankings); percentile arg retired.
+- js/services/share-service.js: card + text fallback → "Speed Score N/100".
+### feat(C3): Session Complete verdict hierarchy + free session review
+- js/drill-engine.js: one verdict slot (PB gated on ≥3 prior sessions + real improvement; <50% = neutral
+  "Needs Review" badge-review class); qr_sessions_count hoisted (counts for everyone); topic cards need ≥3
+  attempts/category; sessionWrongQuestions collected in checkAnswer; "Review these N now" primary CTA
+  (in-memory replay via _preloadedQuestions + new skipStartScreen opt); insight strings de-duplicated.
+- js/controllers/practice-modes.js: startSessionReview launcher (daily-limit-guarded, standard finish handler).
+- css/style.css: .badge-review (neutral slate; dark + playful variants).
+### fix(C6): copy/default coherence
+- Daily goal 20 default / 10–100 range (index.html, settings.js); "Stats" everywhere (header, App Guide);
+  greeting name-fallback removed (home-view.js); "Today's Goal" ring; manifest.json + meta + About → 4-tier
+  catalog (no GMAT); exit dialog honest copy (session-manager.js, index.html).
+### feat(C7): paywall price-first + trust row
+- js/paywall.js: order hero→accent→plans+CTA→8-row table; _VALUE_CARDS deleted; trust = Secure Payments ·
+  7-Day Refund · Instant Activation (qrIco triples); footer + About + CTA note carry the refund promise +
+  support email; "5 free to try"; "Premium theme"; css: dead .pw-value* removed, secondary copy #64748b (AA).
+### feat(C4): QR icon system — two-personality themes (owner directive)
+- css/style.css: "QR ICON SYSTEM" block — playful renders --qri-* data-URI masks in currentColor via
+  body.theme-playful .qr-ico::before (~36 glyphs); context size/tint rules; nav selectors migrated
+  img/.nav-emoji → .qr-ico; --qr-grad-a/b + --qr-shadow-playful tokens replace hardcoded literals; playful
+  bento soft tiles.
+- index.html: nav, view headers, settings rows, mode cards, bento, clear-data, install card, action buttons
+  wrapped in qr-ico spans (classic renders the same emoji as before — wrappers only).
+- js/app.js: qrIco() string-builder; updateNavigationIcons/_NAV_SVGS/_HEADER_LABELS deleted; tab-pop wiring
+  targets .qr-ico. js/settings.js: applyTheme is a pure class toggle.
+- appicons/tab/*.svg DELETED (8.3MB of PNG-in-SVG), removed from SW precache. SW v204→v205.
+### feat(C5): Google Sign-In + server-side provisioning
+- api/account.js: idempotent ensure-profile action (register.js-shaped seed, missing-fields-only merge,
+  usage/ai via .create(); fixes the claimSession skeleton-doc latent bug). api/auth/register.js: anti-drift
+  cross-reference comment.
+- js/auth.js: loginWithGoogle (popup-first, redirect fallback), provider error map, ensure-profile →
+  Session.claim chain on genuinely-new provider logins, getRedirectResult handling.
+- index.html + js/app.js + css: "Continue with Google" button, divider, loading/reset wiring.
+- js/firestore-sync.js: dead client-side _createDefaultDocument write → ensure-profile + re-get (all accounts).
+- js/settings.js + index.html: provider-aware delete re-auth (reauthenticateWithPopup, password field hidden);
+  Profile modal surfaces bind-once claim-coaching while unbound.
+- scripts/ensure-profile.check.js (NEW, 15 assertions). FIREBASE_SETUP.md: console steps + redirect/unlink caveats.
+```
+
+Verification: all 26 `scripts/*.check.js` green (incl. new ensure-profile 15/15); Playwright walkthrough at 390×844 —
+onboarding exam step end-to-end (targetExam = settings + mirror), 0/5 session shows ONE neutral verdict + Speed Score
+card + working "Review these 5 now" replay, paywall price-above-fold with refund row, classic emoji parity + playful
+mask icons across light/dark; zero page errors. Docs: ADR-090, this entry, VERSIONS row, SECURITY_ARCHITECTURE
+(ensure-profile), FIRESTORE_BLUEPRINT (settings.targetExam/targetTier). SW v204→v205.
+> Bible 2.110→2.111, Arch 2.56→2.57, Firestore 2.21→2.22, Security 2.15→2.16.
+
 ## 2026-07-02 — Final UI cleanup: forward-only results actions + Stats section removals (ADR-089)
 
 Production polish (not a redesign). Removed the last UX debt from the results and Stats surfaces, fixed the results

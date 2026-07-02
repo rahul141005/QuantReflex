@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v204';
-const CACHE_NAME = 'qr-cache-v204';
+const APP_VERSION = 'v205';
+const CACHE_NAME = 'qr-cache-v205';
 
 var ASSETS = [
   './',
@@ -73,6 +73,7 @@ var ASSETS = [
   './js/services/adaptive-state.js',
   './js/services/scoring-service.js',
   './js/services/share-service.js',
+  './js/services/target-exam.js',
   './js/services/ai-analytics.js',
   './js/companion-ui.js',
   './js/controllers/practice-config.js',
@@ -100,11 +101,6 @@ var ASSETS = [
   './icons/icon-512-maskable.png',
   './icons/icon-192.svg',
   './icons/icon-512.svg',
-  './appicons/tab/hometab.svg',
-  './appicons/tab/learntab.svg',
-  './appicons/tab/practicetab.svg',
-  './appicons/tab/settingstab.svg',
-  './appicons/tab/statstab.svg',
   './appicons/splashQ.svg',
   './sounds/drillend.mp3',
   './sounds/settingstoggle.mp3',

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
   <meta name="theme-color" content="#2563eb" />
-  <meta name="description" content="Train Speed Aptitude — Quant, Data Interpretation &amp; Logical Reasoning — for competitive exams like CAT, CET, and GMAT. Daily drills, QuanAI coaching, and performance analytics." />
+  <meta name="description" content="Train Speed Aptitude — Quant, Data Interpretation &amp; Logical Reasoning — for exams like CAT, MAH-CET, IBPS and SSC. Daily drills, QuanAI coaching, and performance analytics." />
   <title>QuantReflex</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
@@ -67,6 +67,11 @@
 
         <div id="loginError" class="auth-error" style="display:none;"></div>
         <button id="authSubmitBtn" class="auth-btn">Log In</button>
+        <div class="auth-divider"><span>or</span></div>
+        <button type="button" id="googleSignInBtn" class="auth-google-btn">
+          <svg class="auth-google-logo" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span id="googleSignInLabel">Continue with Google</span>
+        </button>
       </div>
       <p class="auth-footer">🔒 Your data syncs across all your devices.</p>
     </div>
@@ -85,28 +90,28 @@
 
       <div id="clearDataOptions">
         <button class="clear-option-btn" data-clear="stats">
-          <span class="clear-option-icon">📊</span>
+          <span class="clear-option-icon qr-ico" data-ico="chart-bar" aria-hidden="true">📊</span>
           <div class="clear-option-info">
             <strong>Clear Statistics</strong>
             <span>Reset all progress and performance history</span>
           </div>
         </button>
         <button class="clear-option-btn" data-clear="streaks">
-          <span class="clear-option-icon">🔥</span>
+          <span class="clear-option-icon qr-ico" data-ico="flame" aria-hidden="true">🔥</span>
           <div class="clear-option-info">
             <strong>Clear Streaks</strong>
             <span>Reset current and best streaks</span>
           </div>
         </button>
         <button class="clear-option-btn" data-clear="formulas">
-          <span class="clear-option-icon">📝</span>
+          <span class="clear-option-icon qr-ico" data-ico="file-text" aria-hidden="true">📝</span>
           <div class="clear-option-info">
             <strong>Clear Formulas &amp; Tips</strong>
             <span>Delete all custom topics and added formulas</span>
           </div>
         </button>
         <button class="clear-option-btn clear-option-danger" data-clear="all">
-          <span class="clear-option-icon">⚠️</span>
+          <span class="clear-option-icon qr-ico" data-ico="alert" aria-hidden="true">⚠️</span>
           <div class="clear-option-info">
             <strong>Clear Entire App Data</strong>
             <span>Reset everything: settings, stats, formulas, bookmarks</span>
@@ -135,11 +140,11 @@
   <!-- ==================== EXIT SESSION CONFIRMATION MODAL ==================== -->
   <div id="exitSessionModal" class="modal-overlay" style="display:none;">
     <div class="modal-content">
-      <h3 class="modal-title">⚠️ Exit Session?</h3>
-      <p class="secondary-text" style="margin-bottom:1rem;">Your progress will be lost.</p>
+      <h3 class="modal-title">End Session?</h3>
+      <p class="secondary-text" style="margin-bottom:1rem;">Answered questions are saved — this session just won’t get a summary.</p>
       <div class="modal-actions">
-        <button class="btn-secondary modal-cancel" id="exitSessionCancel">Cancel</button>
-        <button class="btn-secondary" id="exitSessionConfirm" style="background:#fee2e2;color:#dc2626;">Exit</button>
+        <button class="btn-secondary modal-cancel" id="exitSessionCancel">Keep Going</button>
+        <button class="btn-secondary" id="exitSessionConfirm" style="background:#fee2e2;color:#dc2626;">End Session</button>
       </div>
     </div>
   </div>
@@ -203,6 +208,7 @@
             <div class="hero-greeting-col">
               <p id="homeGreeting" class="home-hero-greeting">Train your Speed Aptitude daily</p>
               <h1 class="home-hero-title" id="homeUserName">QuantReflex</h1>
+              <button class="hero-exam-chip" id="heroExamChip" type="button" style="display:none;" aria-label="Change target exam"></button>
             </div>
             <div class="hero-streak-col" style="display:flex; align-items:center; gap:0.5rem;">
               <div class="home-streak-badge" id="homeStreakBadge">
@@ -239,7 +245,7 @@
       <!-- PRIMARY CTA -->
       <div class="home-cta-section">
         <button class="home-cta-btn" id="startWarmup" type="button">
-          <span class="home-cta-icon">⚡</span>
+          <span class="home-cta-icon qr-ico" data-ico="zap" aria-hidden="true">⚡</span>
           <span class="home-cta-text">
             <strong id="homeCTALabel">Start Training</strong>
             <small id="homeCTADesc">5-question daily warmup</small>
@@ -260,8 +266,8 @@
           </div>
         </div>
         <div class="home-goal-info">
-          <h4 class="home-goal-title">Daily Training Ring</h4>
-          <p class="home-goal-detail"><span id="goalDone">0</span> / <span id="goalTarget">50</span> questions</p>
+          <h4 class="home-goal-title">Today’s Goal</h4>
+          <p class="home-goal-detail"><span id="goalDone">0</span> / <span id="goalTarget">20</span> questions</p>
           <p class="home-goal-status" id="goalStatus">Build an unstoppable habit.</p>
         </div>
       </div>
@@ -282,7 +288,7 @@
         <div class="home-bento-card home-bento-duel" id="homeDuelCard">
           <div class="home-bento-glow"></div>
           <div class="home-bento-header">
-            <div class="home-bento-icon-squircle icon-amber"><span class="home-bento-icon">⚔️</span></div>
+            <div class="home-bento-icon-squircle icon-amber"><span class="home-bento-icon qr-ico" data-ico="swords" aria-hidden="true">⚔️</span></div>
             <h4 class="home-bento-title">Math Duel <span class="home-premium-badge" id="duelPremiumBadge" style="display:none;" title="Premium">🔒 PRO</span></h4>
           </div>
           <p class="home-bento-desc">Challenge anyone in real-time competitive math battles.</p>
@@ -298,7 +304,7 @@
         <!-- AI Coach Card (premium feature — Math Duel's sibling) -->
         <div class="home-bento-card home-bento-coach home-twin-card" id="homeBentoCoach">
           <div class="home-bento-header">
-            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon">🤖</span></div>
+            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon qr-ico" data-ico="bot" aria-hidden="true">🤖</span></div>
             <h4 class="home-bento-title">AI Coach <span class="home-premium-badge" id="coachPremiumBadge" title="Premium">🔒 PRO</span></h4>
           </div>
           <p class="home-bento-desc">Personalized preparation guidance</p>
@@ -308,7 +314,7 @@
         <!-- AI Study Plan Card (premium feature — Math Duel's sibling) -->
         <div class="home-bento-card home-bento-timetable home-twin-card" id="homeBentoTimetable">
           <div class="home-bento-header">
-            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon">📅</span></div>
+            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon qr-ico" data-ico="calendar" aria-hidden="true">📅</span></div>
             <h4 class="home-bento-title">Study Planner <span class="home-premium-badge" id="timetablePremiumBadge" title="Premium">🔒 PRO</span></h4>
           </div>
           <p class="home-bento-desc">AI-generated study schedule</p>
@@ -327,7 +333,7 @@
 
     <!-- ==================== PRACTICE VIEW ==================== -->
     <div id="view-practice" class="spa-view">
-      <header><h1><img src="appicons/tab/practicetab.svg" alt="Practice" class="header-icon" width="28" height="28" draggable="false"> Practice</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="practice" aria-hidden="true">🎯</span> Practice</h1></header>
 
       <!-- Mode selection (sectioned). NOTE: .practice-container provides the
            internal scroll region — required, the practice view is overflow:hidden. -->
@@ -341,15 +347,15 @@
           <div class="home-section-header"><h3 class="home-section-title">Quick Start</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="quick">
-              <h3>⚡ Quick Drill</h3>
+              <h3><span class="qr-ico" data-ico="zap" aria-hidden="true">⚡</span> Quick Drill</h3>
               <p>5 questions · No timer · Quick warmup</p>
             </div>
             <div class="mode-card" data-mode="reflex">
-              <h3>🧠 Reflex Drill</h3>
+              <h3><span class="qr-ico" data-ico="activity" aria-hidden="true">🧠</span> Reflex Drill</h3>
               <p>10 questions · 15s per question · Train speed</p>
             </div>
             <div class="mode-card" data-mode="timed">
-              <h3>⏱ Timed Test</h3>
+              <h3><span class="qr-ico" data-ico="timer" aria-hidden="true">⏱</span> Timed Test</h3>
               <p>10 questions · 3 min total · Exam pressure</p>
             </div>
           </div>
@@ -360,11 +366,11 @@
           <div class="home-section-header"><h3 class="home-section-title">Subject Sets</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="diset">
-              <h3>📊 DI Set</h3>
+              <h3><span class="qr-ico" data-ico="chart-bar" aria-hidden="true">📊</span> DI Set</h3>
               <p>One chart, a linked set of questions · real Data Interpretation practice</p>
             </div>
             <div class="mode-card" data-mode="lrset">
-              <h3>🧩 Reasoning Set</h3>
+              <h3><span class="qr-ico" data-ico="nodes" aria-hidden="true">🧩</span> Reasoning Set</h3>
               <p>One seating/floor scenario, a linked set of clues &amp; questions · exam-style puzzles</p>
             </div>
           </div>
@@ -375,23 +381,23 @@
           <div class="home-section-header"><h3 class="home-section-title">Advanced</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="focus">
-              <h3>🎯 Focus Training</h3>
+              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> Focus Training</h3>
               <p>10 questions · Choose a category</p>
             </div>
             <div class="mode-card" data-mode="custom">
-              <h3><span class="mode-icon mode-icon-custom" aria-hidden="true">📑</span> Custom Training</h3>
+              <h3><span class="mode-icon mode-icon-custom qr-ico" data-ico="layers" aria-hidden="true">📑</span> Custom Training</h3>
               <p>Multi-topic session · 1–100 questions · Fully personalized</p>
             </div>
             <div class="mode-card" data-mode="mixed">
-              <h3>🎨 Mixed Aptitude</h3>
+              <h3><span class="qr-ico" data-ico="shuffle" aria-hidden="true">🎨</span> Mixed Aptitude</h3>
               <p>12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
             </div>
             <div class="mode-card" data-mode="review">
-              <h3>🔄 Review Mistakes</h3>
+              <h3><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> Review Mistakes</h3>
               <p>Practice your previously wrong answers</p>
             </div>
             <div class="mode-card" data-mode="mock">
-              <h3>📝 Timed Mock</h3>
+              <h3><span class="qr-ico" data-ico="file-text" aria-hidden="true">📝</span> Timed Mock</h3>
               <p>Exam-style section · Your target exam · Real clock &amp; marking scheme</p>
             </div>
             <!-- Word Problems: intentionally staged as a "Coming Soon" feature card. Always visible; tapping opens the
@@ -399,7 +405,7 @@
                  future-ready (aiBrain.wordProblem); when it ships, swap the Coming Soon intercept for the live setup. -->
             <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative;">
               <span class="coming-soon-pill">Coming soon</span>
-              <h3>🤖 Word Problems</h3>
+              <h3><span class="qr-ico" data-ico="bot" aria-hidden="true">🤖</span> Word Problems</h3>
               <p>AI-crafted exam-style word problems · comprehension + calculation</p>
             </div>
           </div>
@@ -502,7 +508,7 @@
 
     <!-- ==================== LEARN VIEW ==================== -->
     <div id="view-learn" class="spa-view">
-      <header><h1 id="learnHeading" tabindex="-1"><img src="appicons/tab/learntab.svg" alt="Learn" class="header-icon" width="28" height="28" draggable="false"> Learn</h1></header>
+      <header><h1 id="learnHeading" tabindex="-1"><span class="qr-ico header-icon" data-ico="learn" aria-hidden="true">📖</span> Learn</h1></header>
 
       <!-- Search (registry-backed; results deep-link to topic pages) -->
       <div class="learn-search-container">
@@ -632,7 +638,7 @@
 
     <!-- ==================== STATS VIEW ==================== -->
     <div id="view-stats" class="spa-view">
-      <header><h1><img src="appicons/tab/statstab.svg" alt="Stats" class="header-icon" width="28" height="28" draggable="false"> Analytics</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="stats" aria-hidden="true">📊</span> Stats</h1></header>
 
       <!-- TODAY — the live snapshot: am I moving today? -->
       <div class="analytics-section">
@@ -694,11 +700,11 @@
 
     <!-- ==================== SETTINGS VIEW ==================== -->
     <div id="view-settings" class="spa-view">
-      <header><h1><img src="appicons/tab/settingstab.svg" alt="Settings" class="header-icon" width="28" height="28" draggable="false"> Settings</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="settings" aria-hidden="true">⚙️</span> Settings</h1></header>
 
       <!-- Install App -->
       <div class="card" id="installCard" style="display:none;">
-        <h3 style="margin-bottom:.5rem;">📲 Install App</h3>
+        <h3 style="margin-bottom:.5rem;"><span class="qr-ico" data-ico="download" aria-hidden="true">📲</span> Install App</h3>
         <p class="secondary-text" style="margin-bottom:.75rem;">Install QuantReflex on your device for offline use</p>
         <button id="installBtn" class="btn-primary">Install App</button>
       </div>
@@ -709,11 +715,11 @@
         <div class="settings-section-card trial-upgrade-card">
           <h3 class="trial-upgrade-title">Upgrade to Premium 🚀</h3>
           <ul class="trial-upgrade-list">
-            <li>Custom Training</li>
+            <li>Unlimited daily questions</li>
             <li>Review Mistakes</li>
-            <li>Performance Insights</li>
-            <li>Hard Mode</li>
-            <li>Advanced Themes</li>
+            <li>Custom Training &amp; Timed Mocks</li>
+            <li>QuanAI Coach &amp; Study Planner</li>
+            <li>Premium theme</li>
           </ul>
           <button id="trialUpgradeBtn" class="btn-primary trial-upgrade-btn" type="button">Unlock Premium</button>
         </div>
@@ -725,7 +731,7 @@
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🌙 Dark Mode</h3>
+              <h3><span class="qr-ico" data-ico="moon" aria-hidden="true">🌙</span> Dark Mode</h3>
               <p>Switch between light and dark theme</p>
             </div>
             <label class="toggle">
@@ -736,7 +742,7 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🎨 Theme</h3>
+              <h3><span class="qr-ico" data-ico="palette" aria-hidden="true">🎨</span> Theme</h3>
               <p>Choose a visual style</p>
             </div>
             <select id="themeSelect" class="theme-select">
@@ -751,9 +757,19 @@
       <div class="settings-section">
         <h3 class="settings-section-title">Practice Preferences</h3>
         <div class="settings-section-card">
+          <div class="settings-row" id="targetExamSettingsRow">
+            <div class="settings-label">
+              <h3><span class="qr-ico" data-ico="graduation" aria-hidden="true">🎓</span> Target Exam</h3>
+              <p>Shapes mocks, study focus and recommendations</p>
+            </div>
+            <select id="targetExamSelect" class="theme-select" style="min-width:8.5rem;">
+              <option value="">Not set</option>
+            </select>
+          </div>
+          <div class="settings-row-divider"></div>
           <div class="settings-row" id="difficultySettingsRow">
             <div class="settings-label">
-              <h3>📈 Difficulty Level</h3>
+              <h3><span class="qr-ico" data-ico="gauge" aria-hidden="true">📈</span> Difficulty Level</h3>
               <p>Adjusts question complexity</p>
             </div>
             <select id="difficultySelect" class="theme-select" style="min-width:7rem;">
@@ -765,15 +781,15 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🎯 Daily Goal</h3>
-              <p>Set your daily question target</p>
+              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> Daily Goal</h3>
+              <p>Set your daily question target (above 20 needs Premium)</p>
             </div>
-            <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="500" step="10" value="50" />
+            <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="100" step="10" value="20" />
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>⏭️ Skip Questions</h3>
+              <h3><span class="qr-ico" data-ico="skip" aria-hidden="true">⏭️</span> Skip Questions</h3>
               <p>Allow skipping questions in drills</p>
             </div>
             <label class="toggle">
@@ -784,7 +800,7 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🎚️ Ask Subject</h3>
+              <h3><span class="qr-ico" data-ico="sliders" aria-hidden="true">🎚️</span> Ask Subject</h3>
               <p>Choose a subject before starting Quick Drill, Reflex Drill or Timed Test.</p>
             </div>
             <label class="toggle">
@@ -801,7 +817,7 @@
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🔊 Sound Feedback</h3>
+              <h3><span class="qr-ico" data-ico="volume" aria-hidden="true">🔊</span> Sound Feedback</h3>
               <p>Play sound on answers and navigation</p>
             </div>
             <label class="toggle">
@@ -812,7 +828,7 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>📳 Vibration</h3>
+              <h3><span class="qr-ico" data-ico="vibrate" aria-hidden="true">📳</span> Vibration</h3>
               <p>Vibrate on correct answers</p>
             </div>
             <label class="toggle">
@@ -823,7 +839,7 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🐢 Reduced Motion</h3>
+              <h3><span class="qr-ico" data-ico="pause-circle" aria-hidden="true">🐢</span> Reduced Motion</h3>
               <p>Reduce animations for accessibility</p>
             </div>
             <label class="toggle">
@@ -840,7 +856,7 @@
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3>🔔 Daily Reminders</h3>
+              <h3><span class="qr-ico" data-ico="bell" aria-hidden="true">🔔</span> Daily Reminders</h3>
               <p>Receive daily motivational push reminders</p>
             </div>
             <label class="toggle">
@@ -857,7 +873,7 @@
         <div class="settings-section-card">
           <div class="settings-row settings-link" id="openAppGuide">
             <div class="settings-label">
-              <h3>📖 App Guide</h3>
+              <h3><span class="qr-ico" data-ico="book" aria-hidden="true">📖</span> App Guide</h3>
               <p>Learn how to use the app</p>
             </div>
             <span class="settings-chevron">›</span>
@@ -865,7 +881,7 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row settings-link" id="openAbout">
             <div class="settings-label">
-              <h3>💡 About</h3>
+              <h3><span class="qr-ico" data-ico="info" aria-hidden="true">💡</span> About</h3>
               <p>App info and developer</p>
             </div>
             <span class="settings-chevron">›</span>
@@ -883,17 +899,17 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row settings-link" id="openProfileModal">
             <div class="settings-label">
-              <h3>👤 Profile</h3>
+              <h3><span class="qr-ico" data-ico="user" aria-hidden="true">👤</span> Profile</h3>
               <p>View and edit your profile</p>
             </div>
             <span class="settings-chevron">›</span>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row-block">
-            <button id="logoutBtn" class="btn settings-action-btn" type="button">🚪 Log Out</button>
+            <button id="logoutBtn" class="btn settings-action-btn" type="button"><span class="qr-ico" data-ico="log-out" aria-hidden="true">🚪</span> Log Out</button>
           </div>
           <div class="settings-row-block">
-            <button id="deleteAccountBtn" class="btn settings-action-btn settings-action-danger" type="button">🗑️ Delete Account</button>
+            <button id="deleteAccountBtn" class="btn settings-action-btn settings-action-danger" type="button"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> Delete Account</button>
           </div>
         </div>
       </div>
@@ -904,13 +920,13 @@
         <div class="settings-section-card">
           <div class="settings-row-block">
             <button id="updateAppBtn" class="btn settings-action-btn settings-action-with-desc" type="button">
-              <span class="settings-btn-label">🔄 Update App</span>
+              <span class="settings-btn-label"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> Update App</span>
               <span class="settings-btn-desc">(Refresh app to latest version)</span>
             </button>
           </div>
           <div class="settings-row-block">
             <button id="clearDataBtn" class="btn settings-action-btn settings-action-danger settings-action-with-desc" type="button">
-              <span class="settings-btn-label">🗑️ Clear Data</span>
+              <span class="settings-btn-label"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> Clear Data</span>
               <span class="settings-btn-desc">(Clears local app data only)</span>
             </button>
           </div>
@@ -939,7 +955,7 @@
           <p>QuantReflex is a precision Speed Aptitude platform — Quant, Data Interpretation and Logical Reasoning in one place. Build speed and accuracy through short, focused daily sessions.</p>
           <p><strong>Built for:</strong></p>
           <ul class="info-list">
-            <li><strong>CAT / GMAT / MBA CET aspirants</strong>: sharpen QA section speed</li>
+            <li><strong>CAT / MAH-CET / MBA entrance aspirants</strong>: sharpen QA section speed</li>
             <li><strong>Placement preparation</strong>: ace aptitude rounds in campus drives</li>
             <li><strong>School students (Class 6–12)</strong>: master mental math for boards and classwork</li>
             <li><strong>NTSE / Olympiad learners</strong>: build competitive math reflexes</li>
@@ -952,7 +968,7 @@
             <li>Pick a practice mode from the <strong>Practice</strong> tab</li>
             <li>Answer with the custom numpad: no keyboard distractions</li>
             <li>Review your results and mistakes after each session</li>
-            <li>Check your progress on the <strong>Analytics</strong> tab</li>
+            <li>Check your progress on the <strong>Stats</strong> tab</li>
             <li>Set a daily goal and turn on reminders in <strong>Settings</strong></li>
           </ul>
           <p class="info-tip">💡 Use the Daily Warmup on the Home tab every morning to start your streak and ease into the day.</p>
@@ -960,7 +976,7 @@
         <div class="info-block">
           <h4>Getting around</h4>
           <ul class="info-list">
-            <li><strong>Bottom tabs</strong>: Home · Practice · Learn · Analytics · Settings</li>
+            <li><strong>Bottom tabs</strong>: Home · Practice · Learn · Stats · Settings</li>
             <li><strong>Swipe left/right</strong> anywhere to move between tabs</li>
             <li><strong>Horizontal rows scroll on their own</strong> — drag the Learn section pills or the "Continue / Saved" rows sideways without changing tabs</li>
             <li><strong>Learn links are shareable</strong>: every topic has its own address, and back/forward work like a browser</li>
@@ -1040,7 +1056,7 @@
       </div>
 
       <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📊 Reading Your Analytics</h3>
+        <h3 class="info-section-title">📊 Reading Your Stats</h3>
         <div class="info-block">
           <h4>What Each Metric Means</h4>
           <ul class="info-list">
@@ -1278,7 +1294,7 @@
           <ul class="info-list">
             <li><strong>Start with accuracy, then speed</strong>: Get 80%+ accuracy before pushing for faster times</li>
             <li><strong>Review mistakes every day</strong>: The Review Mistakes mode exists for a reason — use it after every session</li>
-            <li><strong>Focus on weakest topics</strong>: Check your category breakdown in Analytics and drill your lowest-performing area</li>
+            <li><strong>Focus on weakest topics</strong>: Check your category breakdown in Stats and drill your lowest-performing area</li>
             <li><strong>Memorize the Learn tab</strong>: Tables, fractions, and shortcut tricks save 3–5 seconds per question in exams</li>
             <li><strong>Use timed modes regularly</strong>: Reflex Drill and Timed Test build the pressure tolerance you need on exam day</li>
             <li><strong>Set a daily goal and protect your streak</strong>: Small, consistent sessions compound into massive improvement over weeks</li>
@@ -1291,7 +1307,7 @@
         <h3 class="info-section-title">❓ Frequently Asked Questions</h3>
         <div class="info-block">
           <h4>Is QuantReflex free?</h4>
-          <p>Yes! The core experience (Quick Drill, Reflex Drill, Timed Test, Focus Training, Learn tab, Analytics) is completely free with a daily question limit. Premium unlocks unlimited questions and advanced features.</p>
+          <p>Yes! The core experience (Quick Drill, Reflex Drill, Timed Test, Focus Training, Learn tab, Stats) is completely free with a daily question limit. Premium unlocks unlimited questions and advanced features.</p>
         </div>
         <div class="info-block">
           <h4>Does it work offline?</h4>
@@ -1352,12 +1368,11 @@
         <h3 class="info-section-title">Who Is It For?</h3>
         <div class="info-block">
           <ul class="info-list">
-            <li><strong>CAT / MBA entrance aspirants</strong>: Build the calculation speed required for QA sections</li>
-            <li><strong>GMAT / GRE quantitative preparation</strong>: Master quick mental arithmetic for standardized tests</li>
+            <li><strong>MBA entrance aspirants (CAT, XAT, SNAP, NMAT, CMAT, MAH-CET)</strong>: Build the calculation speed required for QA and DI sections</li>
+            <li><strong>Banking aspirants (IBPS PO/Clerk, SBI PO)</strong>: Master the brutal time pressure of simplification, series and DI</li>
+            <li><strong>Government-exam aspirants (SSC CGL/CHSL/MTS, RRB NTPC)</strong>: Sharpen no-calculator arithmetic, percentages and mensuration reflexes</li>
+            <li><strong>Foundation builders</strong>: Start from scratch and build genuine calculation fluency before choosing a target exam</li>
             <li><strong>Campus placement &amp; aptitude preparation</strong>: Ace aptitude rounds in campus drives and interviews</li>
-            <li><strong>Banking (IBPS, SBI), SSC, Railway exams</strong>: Sharpen arithmetic, percentages, and data interpretation reflexes</li>
-            <li><strong>NTSE / Olympiad competitors</strong>: Sharpen speed and accuracy for competitive math challenges</li>
-            <li><strong>School students (Class 6–12)</strong>: Master mental math fundamentals for board exams and daily classwork</li>
             <li><strong>Coaching institutes</strong>: Track student progress with coaching integration and performance monitoring</li>
             <li><strong>Self-learners</strong>: Structured daily practice that scales from beginner to advanced — no classroom needed</li>
           </ul>
@@ -1404,9 +1419,9 @@
       <div class="info-section guide-animate-section">
         <h3 class="info-section-title">💎 Premium</h3>
         <div class="info-block">
-          <p><strong>Premium</strong> unlocks custom training, mistake review, hard mode, adaptive practice, advanced themes, performance insights, and unlimited daily questions.</p>
+          <p><strong>Premium</strong> unlocks custom training, mistake review, hard mode, adaptive practice, the premium theme, performance insights, and unlimited daily questions.</p>
           <p>It also includes the <strong>QuanAI suite</strong>: mistake explainer with step-by-step reasoning, personalized coach insights, and the study planner — one engine reading your real results — plus Math Duel, with QuanAI Word Problems coming soon.</p>
-          <p class="secondary-text">One-time payment · ₹349 for 6 months or ₹499 for 12 months · No auto-renewal.</p>
+          <p class="secondary-text">One-time payment · ₹349 for 6 months or ₹499 for 12 months · No auto-renewal · 7-day refund — write to quantreflex@gmail.com.</p>
         </div>
       </div>
 
@@ -1481,7 +1496,8 @@
       </div>
       <div class="profile-field">
         <label class="profile-field-label">Coaching ID</label>
-        <input type="text" id="profileCoachingId" class="input profile-input" readonly disabled />
+        <input type="text" id="profileCoachingId" class="input profile-input" readonly disabled style="text-transform:uppercase;" />
+        <p id="profileCoachingHelper" class="secondary-text" style="display:none; font-size:0.78rem; margin-top:0.35rem;">Have a coaching code? Enter it once — it can't be changed later.</p>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary modal-cancel" id="profileCancel">Cancel</button>
@@ -1496,8 +1512,9 @@
       <h3 class="modal-title">⚠️ Delete Account</h3>
       <p class="secondary-text" style="margin-bottom:1.5rem;">This action cannot be undone. All your progress, bookmarks, and settings will be permanently lost.</p>
       <div id="deleteAccountReauthContainer" style="margin-bottom:1rem; text-align:left;">
-        <label for="deleteAccountPassword" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.5rem;">To confirm, please enter your password:</label>
+        <label for="deleteAccountPassword" id="deleteAccountPasswordLabel" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.5rem;">To confirm, please enter your password:</label>
         <input type="password" id="deleteAccountPassword" placeholder="Your password" class="input-text" style="width:100%;" />
+        <p id="deleteAccountProviderNote" class="secondary-text" style="display:none; font-size:0.85rem;">For security, you'll be asked to confirm with your Google account.</p>
         <div id="deleteAccountError" style="color:var(--accent-primary, #ef4444); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
       </div>
       <div class="modal-actions">
@@ -1524,11 +1541,11 @@
 
   <!-- Bottom Navigation -->
   <nav class="bottom-nav" style="display:none;" role="tablist">
-    <a href="#home" data-view="home" role="tab"><span class="nav-icon"><img src="appicons/tab/hometab.svg" alt="Home" width="24" height="24" draggable="false"></span>Home</a>
-    <a href="#practice" data-view="practice" role="tab"><span class="nav-icon"><img src="appicons/tab/practicetab.svg" alt="Practice" width="24" height="24" draggable="false"></span>Practice</a>
-    <a href="#learn" data-view="learn" role="tab"><span class="nav-icon"><img src="appicons/tab/learntab.svg" alt="Learn" width="24" height="24" draggable="false"></span>Learn</a>
-    <a href="#stats" data-view="stats" role="tab"><span class="nav-icon"><img src="appicons/tab/statstab.svg" alt="Stats" width="24" height="24" draggable="false"></span>Stats</a>
-    <a href="#settings" data-view="settings" role="tab"><span class="nav-icon"><img src="appicons/tab/settingstab.svg" alt="Settings" width="24" height="24" draggable="false"></span>Settings</a>
+    <a href="#home" data-view="home" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="home" aria-hidden="true">🏠</span></span>Home</a>
+    <a href="#practice" data-view="practice" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="practice" aria-hidden="true">🎯</span></span>Practice</a>
+    <a href="#learn" data-view="learn" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="learn" aria-hidden="true">📖</span></span>Learn</a>
+    <a href="#stats" data-view="stats" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="stats" aria-hidden="true">📊</span></span>Stats</a>
+    <a href="#settings" data-view="settings" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="settings" aria-hidden="true">⚙️</span></span>Settings</a>
   </nav>
 
   <!-- Firebase SDK (compat for broad browser support) -->
@@ -1571,6 +1588,7 @@
   <script defer src="js/services/adaptive-state.js"></script>
   <script defer src="js/services/scoring-service.js"></script>
   <script defer src="js/services/share-service.js"></script>
+  <script defer src="js/services/target-exam.js"></script>
   <script defer src="data/statMath.js"></script>
   <!-- Subject layer (ADR-073): quantTopics (the 36-category source of truth) must load before subjects.js,
        which derives Quant's category set from it. Subject is a derived lens — no Firestore, no stored rollup. -->

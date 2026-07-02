@@ -386,21 +386,32 @@ var FirestoreSync = (function () {
       AppState.setBookmarks(fallbackDefaults.bookmarks);
     }
     if (typeof invalidateProgressCache === 'function') invalidateProgressCache();
-    /* Simple document creation — no transaction, no appMeta read.
-       New users start on free tier (plan:'free', isTrial:false). */
+    /* Root-doc provisioning is SERVER-SIDE ONLY: firestore.rules deny client creates
+       (allow create: if false), so the old client-side docRef.set(...) here could never
+       succeed against production rules — the user silently ran on localStorage with no
+       server doc. The idempotent /api/account?action=ensure-profile seeds the same shape
+       as /api/auth/register; on success we re-read so entitlements hydrate normally. */
     docRef.get().then(function (userDoc) {
-      if (userDoc.exists) return;
-      return docRef.set(fallbackDefaults, { merge: true }).then(function () {
-
-        /* Non-blocking: eagerly seed all structured subcollections for new user */
+      if (userDoc.exists && userDoc.data().plan !== undefined) return;
+      var tokenPromise = (typeof Auth !== 'undefined' && Auth.getIdToken) ? Auth.getIdToken() : Promise.reject(new Error('no auth'));
+      return tokenPromise.then(function (token) {
+        var headers = { 'Authorization': 'Bearer ' + token };
+        try { if (window.Session && Session.id) headers['X-Session-Id'] = Session.id(); } catch (_) {}
+        return fetch('/api/account?action=ensure-profile', { method: 'POST', headers: headers });
+      }).then(function (resp) {
+        if (!resp || !resp.ok) throw new Error('ensure-profile returned ' + (resp && resp.status));
+        /* Re-read the now-provisioned doc into the cache */
+        return docRef.get().then(function (fresh) {
+          if (fresh.exists) { _memoryCache = fresh.data(); }
+        });
+      }).then(function () {
+        /* Non-blocking: eagerly seed the owner-writable structured subcollections */
         var mc = _memoryCache || fallbackDefaults;
         var seedDocRef = _getUserDocRef();
         _syncPerformanceSubcollection(mc.stats || fallbackDefaults.stats);
         /* Eagerly create practice/data so the subcollection exists from day 0.
            NOTE (audit M1): AI usage is owned server-side at users/{uid}/usage/ai
-           (seeded by /api/auth/register, read/written by aiService). The old
-           client-side ai/usage seed was an orphaned mirror that nothing read —
-           removed to eliminate schema drift. */
+           (seeded by register/ensure-profile, read/written by aiService). */
         if (seedDocRef) {
           seedDocRef.collection('practice').doc('data').set({
             mistakes: [],
@@ -408,13 +419,10 @@ var FirestoreSync = (function () {
             updatedAt: new Date().toISOString()
           }, { merge: true }).catch(function (err) { console.warn('Practice seed failed:', err); });
         }
-
       });
     }).catch(function (err) {
-      console.warn('Firestore default document creation failed:', err);
-      docRef.set(fallbackDefaults, { merge: true }).catch(function (fallbackErr) {
-        console.warn('Firestore fallback default document creation failed:', fallbackErr);
-      });
+      /* Offline or server hiccup: the user keeps working on local defaults; the next login retries. */
+      console.warn('Server-side profile provisioning failed (will retry on next login):', err && err.message);
     });
   }
 
