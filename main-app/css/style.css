@@ -65,7 +65,7 @@ body.theme-playful {
   --qr-border: #e8e6e1; --qr-border-strong: #d9d5cc;
   --qr-success: #16a34a; --qr-success-fg: #146a31; --qr-success-bg: rgba(22,163,74,.12); --qr-success-border: #22c55e;
   --qr-danger: #dc2626; --qr-danger-fg: #991b1b; --qr-danger-bg: rgba(220,38,38,.10); --qr-danger-border: #ef4444;
-  --qr-warn: #b45309; --qr-info: #6d28d9; --qr-info-fg: #6d28d9;
+  --qr-warn: #9a4708; --qr-info: #6d28d9; --qr-info-fg: #6d28d9;
   --qr-focus-ring: 0 0 0 3px rgba(42,99,198,.35);
 }
 body.theme-playful.dark-mode {
@@ -2063,6 +2063,28 @@ body.dark-mode .paywall-free-continue { color: #64748b; }
 body.dark-mode .paywall-free-continue:hover { color: #94a3b8; }
 body.dark-mode .paywall-footnote { color: #94a3b8; }
 body.dark-mode .paywall-badge { color: #93c5fd; }
+/* Post-session soft upgrade prompt (free users, results screen). ADR-088: authored this base rule — previously ONLY a
+   body.dark-mode rule existed, so the banner rendered completely unstyled in Light + Playful. Fully token-driven, so
+   every theme (incl. Playful) styles it automatically; the dark rule below still overrides bg/border/text. The CTA text
+   uses --qr-surface-solid over --qr-accent: in every theme the surface is the opposite lightness of the accent, so
+   on-accent text stays high-contrast (light themes → light text on dark-blue; dark themes → dark text on light-blue). */
+.session-upgrade-banner {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  margin: 1rem auto 0; max-width: 24rem; padding: .7rem .85rem;
+  border: 1px solid var(--qr-border); border-radius: .85rem;
+  background: var(--qr-surface-2);
+}
+.session-upgrade-text { flex: 1 1 8rem; min-width: 0; font-size: .85rem; font-weight: 600; color: var(--qr-text); }
+.session-upgrade-btn {
+  flex: 0 0 auto; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+  padding: .42rem .85rem; border-radius: 999px; border: none;
+  background: var(--qr-accent); color: var(--qr-surface-solid);
+}
+.session-upgrade-btn:active { transform: scale(.97); }
+.session-upgrade-dismiss {
+  flex: 0 0 auto; font: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer;
+  background: none; border: none; color: var(--qr-text-mut); padding: .1rem .3rem;
+}
 body.dark-mode .session-upgrade-banner {
   background: linear-gradient(135deg, #1e3a8a22, #1d4ed820);
   border-color: #334155;
@@ -4834,6 +4856,58 @@ body.theme-playful .btn.accent {
 body.theme-playful .btn.accent:hover {
   background: linear-gradient(135deg, #3d7de5, #24c4b0);
 }
+
+/* ── ADR-088: complete the Playful drill/results identity ──────────────────────────────────────────────────────────
+   These results/feedback/interactive components predate the token system and rendered classic blue/violet/pastel in
+   Playful. Re-themed here through Playful tokens (which resolve for both Playful light AND dark), so Playful reads as a
+   full identity. Classic + Dark are byte-identical — no base or body.dark-mode rule is touched. WCAG AA-verified. */
+
+/* Primary CTA (drill Submit / Next / Retry) + share button → the Playful blue→teal accent (matches .btn.accent). */
+body.theme-playful .btn-primary { background: linear-gradient(135deg, #4f8ff7, #2dd4bf); color: #ffffff; }
+body.theme-playful .btn-primary:hover { background: linear-gradient(135deg, #3d7de5, #24c4b0); }
+body.theme-playful .results-share-btn { background: linear-gradient(135deg, #4f8ff7, #2dd4bf); border-color: var(--qr-accent); }
+
+/* Performance badges + adaptive pills → token-tinted (warm-surface friendly) instead of classic pastels. */
+body.theme-playful .badge-excellent,
+body.theme-playful .adaptive-pill-easy { background: var(--qr-success-bg); color: var(--qr-success-fg); }
+body.theme-playful .badge-good,
+body.theme-playful .adaptive-pill-medium { background: var(--qr-surface-3); color: var(--qr-accent); }
+body.theme-playful .badge-practice { background: var(--qr-surface-3); color: var(--qr-warn); }
+body.theme-playful .badge-weak { background: var(--qr-danger-bg); color: var(--qr-danger-fg); }
+body.theme-playful .adaptive-pill-hard { background: var(--qr-surface-3); color: var(--qr-info-fg); }
+
+/* Speed-benchmark card → Playful surface + accent (was fixed lilac/violet, off on warm cream). */
+body.theme-playful .speed-benchmark-card { background: var(--qr-surface-2); border-color: var(--qr-border); box-shadow: none; }
+body.theme-playful .benchmark-title,
+body.theme-playful .benchmark-stat-value { color: var(--qr-accent); }
+body.theme-playful .benchmark-highlight-pct,
+body.theme-playful .benchmark-highlight-pct strong,
+body.theme-playful .benchmark-summary { color: var(--qr-text); }
+body.theme-playful .benchmark-stat-label,
+body.theme-playful .benchmark-suggestion { color: var(--qr-text-dim); }
+body.theme-playful .benchmark-level { background: linear-gradient(135deg, #4f8ff7, #2dd4bf); box-shadow: none; }
+body.theme-playful .benchmark-unlock-btn { border-color: var(--qr-accent); color: var(--qr-accent); }
+
+/* Insight / auto-explain / wrong-answer / percentile-delta → accent + status tokens. */
+body.theme-playful .session-insight-card { color: var(--qr-text); background: var(--qr-surface-2); border-left-color: var(--qr-accent); }
+body.theme-playful .auto-explain-tip { color: var(--qr-accent); background: var(--qr-surface-2); border-left-color: var(--qr-accent); }
+body.theme-playful .wrong-answer-card { background: var(--qr-danger-bg); border-left-color: var(--qr-danger-border); }
+body.theme-playful .wrong-answer-header { color: var(--qr-danger-fg); }
+body.theme-playful .wrong-answer-correct { color: var(--qr-text); }
+body.theme-playful .percentile-delta.delta-up { color: var(--qr-success-fg); }
+body.theme-playful .percentile-delta.delta-down { color: var(--qr-danger-fg); }
+
+/* MCQ options + correct/wrong reveal → surface/border/text + status tokens. */
+body.theme-playful .mcq-option { color: var(--qr-text); background: var(--qr-surface-solid); border-color: var(--qr-border); }
+body.theme-playful .mcq-option.pressed { background: var(--qr-surface-2); }
+body.theme-playful .mcq-option.mcq-correct { background: var(--qr-success-bg); border-color: var(--qr-success-border); color: var(--qr-success-fg); }
+body.theme-playful .mcq-option.mcq-wrong { background: var(--qr-danger-bg); border-color: var(--qr-danger-border); color: var(--qr-danger-fg); }
+
+/* Feedback wrapper text · progress label · active-drill skip. */
+body.theme-playful .feedback.correct { color: var(--qr-success-fg); }
+body.theme-playful .feedback.wrong { color: var(--qr-danger-fg); }
+body.theme-playful .drill-progress { color: var(--qr-text-dim); }
+body.theme-playful.drill-session-active .drill-actions.has-skip .skip-btn { background: var(--qr-surface-2); color: var(--qr-text-dim); }
 
 body.theme-playful .goal-input {
   background: #ffffff;
