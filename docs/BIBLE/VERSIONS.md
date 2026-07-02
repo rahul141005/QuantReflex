@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.111 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.57 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.22 | Collection/field/path schema + indexes. |
+| **Bible Version** | 2.112 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.58 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.112 / Arch 2.58 / Firestore 2.23 (2026-07-02)** — **Product Excellence Pass (ADR-091).** The remaining audit
+> items, independently re-evaluated: M11 + M3 closed as already-solved, M4 rejected as wrong (exact-equivalence
+> grading needs printed DI values), M6/N-series deferred. Shipped: correct-answer chime + quiet streak chip + shake
+> removal (reinforcement now favors success); honest "⏱ Time's up" timeout verdict (amber, no failure sound); the
+> numpad yields to the explanation after answering; 1-tap Home warmup (`skipStartScreen` reuse); cold-start dashes
+> instead of zeros (streak badge/accuracy/quota); **Appearance System/Light/Dark** with lazy legacy migration + live
+> OS-scheme listener (Firestore 2.22→2.23 — `settings.appearance`, no migration); calm-until-urgent timers with
+> tabular numerals; ≥768px tablet drill layout (640px surfaces, 3-col results); legacy token aliases in `:root`;
+> 44px pause/exit targets + pause in set-mode; system-ui-first font stack; results-heading focus ring suppressed.
+> SW v205→v206.
+>
 > **2.111 / Arch 2.57 / Firestore 2.22 / Security 2.16 (2026-07-02)** — **Critical launch-readiness resolution
 > (ADR-090).** The 7 Critical audit findings, independently re-evaluated then implemented. Target-exam identity: new
 > `TargetExam` accessor (canonical synced `settings.targetExam` + `targetTier`, `qr_active_exam` mirror), onboarding

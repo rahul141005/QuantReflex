@@ -8,6 +8,60 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-091 — Product Excellence Pass: remaining audit items, independently re-evaluated (2026-07-02)
+- **Context:** after ADR-090 closed the audit's Critical set, the owner mandated a pass over the *remaining*
+  recommendations — explicitly re-evaluated against the current codebase rather than mechanically implemented
+  (owner exclusions: H5/H9/H10/H11/M1/M8; AI-explanation limits stay 5-lifetime).
+- **Re-evaluation outcomes (the honest part):**
+  - **Already solved, closed with no change:** M11 (MCQ ✓/✗ glyphs — `.mcq-correct/.mcq-wrong ::after` existed all
+    along) and M3 (the Settings Skip toggle was already entitlement-gated with a paywall AND hard-mode-gated with a
+    toast; the drill-side 3-way check is defense-in-depth, not "invisible logic" — V1 overstated it).
+  - **Rejected — V1 was wrong:** M4 (hide DI chart value labels at hard). Grading is exact-equivalence
+    (tolerance 0.1%); without printed values a student can only estimate off a bar — the question becomes
+    *unanswerable*, not harder. Would need gridline-precise charts + a new tolerance model; cost/benefit fails.
+  - **Deferred:** M6 i18n scaffold (horizontal refactor, zero user value until translations exist) and
+    N2/N3/N5/N6 (features, not polish — bloat for this pass).
+- **Shipped (12 items):**
+  - **H1 Reinforcement rebalance:** new synthesized `sounds/correctanswer.wav` (soft two-note A5→D6 chime, ~15KB,
+    in-repo Python/`wave`) plays on correct; a quiet `🔥 N in a row` chip joins "✓ Correct" from 3-in-a-row
+    (`currentSessionStreak`, non-duel); the 400ms wrong-answer card shake is REMOVED (shake + failure sound + red
+    panel was triple punishment — anxiety, not information; `.feedback-shake` CSS deleted as now-dead).
+  - **H2 Honest timeout:** `checkAnswer(raw, opts)` gains `opts.timedOut`; `_perQTick` expiry passes it. Verdict
+    reads "⏱ Time's up" in amber (`--qr-warn`, `.drill-verdict-timeout`) with a single soft haptic and NO failure
+    sound — a pacing verdict, not a knowledge verdict. Grading/stats identical (unattempted-wrong as before).
+  - **H3 Numpad yields to the learning moment:** on answer (except Reflex auto-advance, to avoid a slide bounce at
+    pace) `hideCustomNumpad()` — dropping `body.numpad-active` collapses the reserved band via the EXISTING MCQ
+    layout rules, so the card + explanation get the full height; `nextQuestion()`'s re-render restores the pad.
+  - **H4 1-tap warmup:** the Home CTA passes `skipStartScreen: true` through `startDrillFromPractice`'s opts
+    (reuses the ADR-090 session-review mechanism) — the daily loop lands directly on Question 1. Practice-tab
+    launches keep the interstitial (real decisions live there).
+  - **H6 Cold-start honesty:** the streak badge hides until a streak exists (no more "🔥 0"); hero Accuracy/Best
+    show "—" until there are attempts; the Practice quota bar appears only after the first question of the day.
+  - **H7 Appearance: System / Light / Dark:** `resolveDarkMode(s)` in settings.js is the ONE owner of the decision
+    — canonical `settings.appearance`, lazy legacy migration (`darkMode:true→'dark'`, `false→'system'`; nothing
+    added to DEFAULT_SETTINGS so backfill can't clobber it), `settings.darkMode` maintained as the derived mirror
+    for every legacy reader. Both apply sites (pre-paint + post-hydration in app.js) route through the resolver;
+    a `matchMedia('(prefers-color-scheme: dark)')` listener follows live OS changes while in System. The Settings
+    toggle became a three-option `.theme-select` row. All 981 `body.dark-mode` CSS rules untouched.
+  - **H8 Timer urgency:** `.timer` was PERMANENTLY red — constant alarm, zero signal. Now calm (`--qr-text-dim`,
+    tabular numerals) with `.timer-low` (danger + 1Hz opacity pulse, reduced-motion-neutralized automatically)
+    toggled at ≤5s per-question / ≤10s total.
+  - **M5 Tablet drill layout:** at ≥768px the drill card, keypad and in-session actions center-constrain to 640px
+    (keypad gets top radii; show/hide transforms carry the translateX pair); results grid goes 3-column.
+  - **M7 Root-cause token aliases:** the undefined legacy names (`--text-primary/-secondary`, `--accent-primary`,
+    `--bg-surface`, `--bg-elevated`, `--border-color` — used by inbox + two index.html inline styles, previously
+    silently falling back) are aliased ONCE in `:root` to the `--qr-*` system; var indirection means dark/playful
+    re-declarations flow through automatically.
+  - **M10 Pause everywhere:** pause/exit grew to 44px targets with a visible `--qr-surface-2` circle; set-mode
+    (DI/LR — the longest sessions, still timing per-question stats) gains the pause button (`pauseSession()` is
+    mode-agnostic).
+  - **N1-lite typography + focus polish:** body stack reordered mobile-first (`system-ui` before `'Segoe UI'`);
+    `tabular-nums` on question text, timers and result values; the loud UA focus ring on the programmatically-
+    focused results heading suppressed (SR focus behavior unchanged).
+- **Consequences:** success is now the rewarded event; timeouts stop reading as failures; the explanation owns the
+  screen; the daily loop is one tap; new users aren't greeted by zeros; night users get dark automatically; time
+  pressure is visible exactly when real; tablets get a real layout. SW v205→v206.
+
 ## ADR-090 — Critical launch-readiness resolution: exam identity, honest metrics, verdict hierarchy, two-personality themes, Google Sign-In (2026-07-02)
 - **Context:** the product/UX audit (`AUDIT-REPORT-PRODUCT-UX.md`) identified 7 Critical launch blockers. Each was
   independently re-evaluated before implementation (owner mandate: best product > consistency with the report); one was

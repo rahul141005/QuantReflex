@@ -261,6 +261,7 @@ function createDrillEngine(container, opts) {
         : (diSet.context ? '<div class="di-caselet-context">' + _escHtml(diSet.context) + '</div>' : '');
       container.innerHTML =
         '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
+        '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' +
         '<div class="card center-content fade-in question-card-transition">' +
           '<div class="drill-question-scroll">' +
             '<div class="di-set-context">' + ctxHTML + '</div>' +
@@ -274,6 +275,10 @@ function createDrillEngine(container, opts) {
         function performExit() { cleanup(); _exitDrillSession(); if (typeof FirestoreSync !== 'undefined') FirestoreSync.endDrillBatch(); if (onFinish) onFinish('practice'); else Router.showView('practice'); }
         if (typeof showExitSessionDialog === 'function') showExitSessionDialog(performExit); else performExit();
       });
+      /* ADR-091: sets are the LONGEST sessions and still time per-question stats — pause belongs
+         here too. pauseSession() is mode-agnostic (freezes the qStart anchor sets rely on). */
+      var _p = container.querySelector('#drillPauseBtn');
+      if (_p) _p.addEventListener('click', function () { pauseSession(); });
     }
     var host = container.querySelector('#diSetQHost');
     var progressPct = count > 0 ? Math.min(100, Math.round((current / count) * 100)) : 0;
@@ -598,9 +603,17 @@ function createDrillEngine(container, opts) {
     }
   }
 
-  function checkAnswer(raw) {
+  /**
+   * Grade the submitted answer and render the feedback state.
+   * @param {string} raw - the submitted answer ('' on timer expiry)
+   * @param {object} [opts] - { timedOut: true } when the per-question timer expired: a pacing
+   *   failure, not a knowledge failure — same grading/stats, but a distinct calm verdict
+   *   ("Time's up", amber) with no failure sound.
+   */
+  function checkAnswer(raw, opts) {
     if (answered || _isFinished) return; /* prevent double-counting or post-finish race */
     answered = true;
+    var timedOut = !!(opts && opts.timedOut);
 
     if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
 
@@ -700,9 +713,13 @@ function createDrillEngine(container, opts) {
       recordAnswer(correct, q.category, q, elapsedRounded);
     }
 
-    /* Provide optional haptic/sound feedback */
+    /* Haptic/sound feedback — reinforcement favors success: a bright chime on correct, and the
+       failure sound only on a genuine wrong submission (a timeout gets a single soft pulse). */
     if (correct) {
+      SoundEngine.play('correctAnswer');
       if (typeof triggerHaptic === 'function') triggerHaptic(50);
+    } else if (timedOut) {
+      if (typeof triggerHaptic === 'function') triggerHaptic(40);
     } else {
       SoundEngine.play('wrongAnswer');
       if (typeof triggerHaptic === 'function') triggerHaptic([40, 30, 40]);
@@ -721,6 +738,14 @@ function createDrillEngine(container, opts) {
       var okHead = document.createElement('div');
       okHead.className = 'drill-verdict drill-verdict-ok';
       okHead.textContent = '✓ Correct';
+      /* Quiet momentum acknowledgment: from 3-in-a-row the verdict carries the run. No confetti —
+         a serious trainer notices your rhythm without performing for you. */
+      if (currentSessionStreak >= 3 && !isDuel) {
+        var streakChip = document.createElement('span');
+        streakChip.className = 'drill-streak-chip';
+        streakChip.textContent = '🔥 ' + currentSessionStreak + ' in a row';
+        okHead.appendChild(streakChip);
+      }
       feedback.appendChild(okHead);
       if (_steps.length) feedback.appendChild(_buildWhy(_steps, null));   /* teach the method; no concept-link on a win */
     } else {
@@ -729,8 +754,8 @@ function createDrillEngine(container, opts) {
       var teach = document.createElement('div');
       teach.className = 'drill-teach';
       var head = document.createElement('div');
-      head.className = 'drill-verdict drill-verdict-wrong';
-      head.textContent = 'Not quite';
+      head.className = 'drill-verdict drill-verdict-wrong' + (timedOut ? ' drill-verdict-timeout' : '');
+      head.textContent = timedOut ? '⏱ Time’s up' : 'Not quite';
       teach.appendChild(head);
       var ansRow = document.createElement('div');
       ansRow.className = 'drill-teach-answer';
@@ -749,11 +774,15 @@ function createDrillEngine(container, opts) {
         if (_topic) teach.appendChild(_buildConceptLink(_topic));
       }
       feedback.appendChild(teach);
-
-      var card = ui.cardEl;
-      if (card) card.classList.add('feedback-shake');
-      setTimeout(function () { if (card) card.classList.remove('feedback-shake'); }, 400);
+      /* No card shake: the sound + red teaching panel already carry the verdict. Shake + sound +
+         red was triple punishment — and anxiety, not information (removed with ADR-091). */
     }
+
+    /* The learning moment gets the screen: once answered, the keypad is dead weight, so it slides
+       away and the existing MCQ layout rules give the card + explanation the full height. Kept
+       visible during Reflex auto-advance (600ms) to avoid a slide-down/up bounce at pace;
+       nextQuestion()'s re-render restores it. */
+    if (!(autoAdvance && correct)) hideCustomNumpad();
 
     if (typeof AIFeatures !== 'undefined' && (!correct || reviewMode)) {
       var explainBtn = document.createElement('button');
@@ -1343,7 +1372,11 @@ function createDrillEngine(container, opts) {
 
   function _globalTick() {
     var el = ui.globalTimerEl;
-    if (el) el.textContent = '⏱ ' + _globalRemaining + 's';
+    if (el) {
+      el.textContent = '⏱ ' + _globalRemaining + 's';
+      /* Urgency state (ADR-091): calm until the clock actually matters */
+      el.classList.toggle('timer-low', _globalRemaining <= 10);
+    }
     if (_globalRemaining <= 0) { clearInterval(overallTimer); overallTimer = null; finish(); return; }
     _globalRemaining--;
   }
@@ -1358,12 +1391,17 @@ function createDrillEngine(container, opts) {
 
   function _perQTick() {
     var el = ui.perQTimerEl;
-    if (el) el.textContent = '⏱ ' + _perQRemaining + 's';
+    if (el) {
+      el.textContent = '⏱ ' + _perQRemaining + 's';
+      /* Urgency state (ADR-091): calm until the clock actually matters */
+      el.classList.toggle('timer-low', _perQRemaining <= 5);
+    }
     if (_perQRemaining <= 0) {
       clearInterval(perQTimer);
       perQTimer = null;
-      /* Auto-submit empty answer when time runs out (duel → capture-only path) */
-      if (!answered && !_isFinished) { if (isDuel) captureDuelAnswer(''); else checkAnswer(''); }
+      /* Auto-submit empty answer when time runs out (duel → capture-only path). The practice path
+         flags the timeout so feedback reads "Time's up" (pacing) instead of "Not quite" (knowledge). */
+      if (!answered && !_isFinished) { if (isDuel) captureDuelAnswer(''); else checkAnswer('', { timedOut: true }); }
       return;
     }
     _perQRemaining--;

@@ -9,6 +9,7 @@
 var SoundEngine = (function () {
   var sounds = {};
   var soundFiles = {
+    correctAnswer: 'sounds/correctanswer.wav',
     drillEnd: 'sounds/drillend.mp3',
     settingsToggle: 'sounds/settingstoggle.mp3',
     tableModal: 'sounds/tablemodalopeningandclosing.mp3',

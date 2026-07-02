@@ -50,6 +50,41 @@ function applyTheme(theme) {
   /* Icons are theme-driven purely in CSS (QR icon system) — toggling the body class is enough. */
 }
 
+/* ---- Appearance: System / Light / Dark (ADR-091) ----
+   ONE resolver owns the light/dark decision. `settings.appearance` is canonical
+   ('system' | 'light' | 'dark'); when absent, the legacy boolean migrates lazily:
+   darkMode:true → 'dark' (an explicit choice stays), darkMode:false → 'system'
+   (overwhelmingly "never touched" — and System is the honest default). All 981
+   dark-mode CSS rules keep keying off body.dark-mode; only JS resolves the OS
+   preference, so there is no duplicated stylesheet. */
+function appearanceMode(s) {
+  return s.appearance || (s.darkMode ? 'dark' : 'system');
+}
+
+function resolveDarkMode(s) {
+  var mode = appearanceMode(s || {});
+  if (mode === 'dark') return true;
+  if (mode === 'light') return false;
+  try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (_) { return false; }
+}
+
+function applyAppearance(s) {
+  document.body.classList.toggle('dark-mode', resolveDarkMode(s || loadSettings()));
+}
+
+/* Follow live OS scheme changes while in System mode (e.g. sunset auto-dark). */
+(function () {
+  try {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function () {
+      var s = loadSettings();
+      if (appearanceMode(s) === 'system') applyAppearance(s);
+    };
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+    else if (typeof mq.addListener === 'function') mq.addListener(onChange); /* older Safari */
+  } catch (_) { /* matchMedia unavailable — fixed light default */ }
+})();
+
 function getDifficulty() {
   return loadSettings().difficulty || 'medium';
 }
@@ -90,12 +125,12 @@ function initSettingsView() {
   var isPremiumUser = accessState && accessState.plan === 'premium';
   var isTrialUser = accessState && accessState.isTrial === true;
 
-  var darkToggle = document.getElementById('darkModeToggle');
+  var appearanceSelect = document.getElementById('appearanceSelect');
   var soundToggle = document.getElementById('soundToggle');
   var vibrationToggle = document.getElementById('vibrationToggle');
   var difficultySelect = document.getElementById('difficultySelect');
 
-  if (!darkToggle) return;
+  if (!appearanceSelect) return;
 
   /* Remove old listeners by cloning */
   function rebind(el, event, handler) {
@@ -106,14 +141,18 @@ function initSettingsView() {
     return newEl;
   }
 
-  darkToggle = rebind(darkToggle, 'change', function () {
-    settings.darkMode = this.checked;
-    document.body.classList.toggle('dark-mode', this.checked);
+  /* Appearance select (ADR-091): writes the canonical mode + keeps settings.darkMode as the
+     derived resolved boolean so every legacy reader (incl. the synced settings blob the coaching
+     app sees) stays correct. */
+  appearanceSelect = rebind(appearanceSelect, 'change', function () {
+    settings.appearance = this.value;
+    settings.darkMode = resolveDarkMode(settings);
+    applyAppearance(settings);
     saveSettings(settings);
     SoundEngine.play('settingsToggle');
     if (typeof triggerHaptic === 'function') triggerHaptic(15);
   });
-  darkToggle.checked = settings.darkMode || false;
+  appearanceSelect.value = appearanceMode(settings);
 
   /* Theme selector */
   var themeSelect = document.getElementById('themeSelect');

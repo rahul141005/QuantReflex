@@ -3,8 +3,8 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v205';
-const CACHE_NAME = 'qr-cache-v205';
+const APP_VERSION = 'v206';
+const CACHE_NAME = 'qr-cache-v206';
 
 var ASSETS = [
   './',
@@ -102,6 +102,7 @@ var ASSETS = [
   './icons/icon-192.svg',
   './icons/icon-512.svg',
   './appicons/splashQ.svg',
+  './sounds/correctanswer.wav',
   './sounds/drillend.mp3',
   './sounds/settingstoggle.mp3',
   './sounds/tablemodalopeningandclosing.mp3',

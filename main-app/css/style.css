@@ -41,6 +41,17 @@
   --qr-warn: #f59e0b; --qr-info: #8b5cf6; --qr-info-fg: #7c3aed;
   --qr-focus-ring: 0 0 0 3px rgba(37,99,235,.35);
   --qr-dur-fast: .12s; --qr-dur: .2s; --qr-dur-slow: .4s; --qr-ease: cubic-bezier(.2,.7,.2,1);
+
+  /* Legacy token aliases (ADR-091): a handful of older inline styles reference pre-ADR-086 names
+     that were never defined (they silently fell back to inherited colors). Alias them ONCE to the
+     semantic system — var() resolves at use time, so dark/playful re-declarations of the qr tokens
+     flow through automatically. Prefer --qr-* in all new code. */
+  --text-primary: var(--qr-text);
+  --text-secondary: var(--qr-text-dim);
+  --accent-primary: var(--qr-danger);
+  --bg-surface: var(--qr-surface-solid);
+  --bg-elevated: var(--qr-surface-2);
+  --border-color: var(--qr-border);
 }
 body.dark-mode {
   --qr-bg: #0f172a; --qr-accent: #60a5fa;
@@ -117,7 +128,7 @@ html {
 html::-webkit-scrollbar { display: none; } /* Chrome, Edge, Samsung Internet */
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; /* mobile-first: let each OS serve its native face */
   background: #f8fafc;
   color: #0f172a;
   height: 100%;
@@ -529,11 +540,26 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   transition: width .4s cubic-bezier(.25,.46,.45,.94);
 }
 
+/* Timer urgency (ADR-091): calm by default — a permanently red clock is a constant alarm, i.e.
+   no signal. Danger color + a gentle opacity pulse only when time actually matters (≤5s per-Q,
+   ≤10s total). Tabular numerals keep the digits from jiggling as they count down. The pulse is
+   animation-based, so both reduced-motion kill-switches neutralize it automatically. */
 .timer {
   font-size: 1rem;
-  color: #dc2626;
+  color: var(--qr-text-dim);
   font-weight: 600;
   margin-bottom: .5rem;
+  font-variant-numeric: tabular-nums;
+  transition: color .3s ease;
+}
+.timer.timer-low {
+  color: var(--qr-danger);
+  font-weight: 700;
+  animation: timerUrgent 1s ease-in-out infinite;
+}
+@keyframes timerUrgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
 }
 
 .question-text {
@@ -545,6 +571,7 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   word-break: break-word;
   overflow-wrap: break-word;
   will-change: contents; /* hint GPU for text swaps between questions */
+  font-variant-numeric: tabular-nums; /* stable digit widths across question swaps */
 }
 
 .feedback {
@@ -567,19 +594,19 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   border: 1px solid rgba(220,38,38,.15);
 }
 
-/* Drill exit button */
+/* Drill exit button — 44px target with a visible affordance circle (ADR-091) */
 .session-exit,
 .drill-exit-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 2rem;
-  height: 2rem;
+  top: 10px;
+  right: 10px;
+  width: 2.75rem;
+  height: 2.75rem;
   border: none;
   border-radius: 50%;
-  background: transparent;
+  background: var(--qr-surface-2);
   color: #64748b;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 500;
   line-height: 1.1;
   cursor: pointer;
@@ -639,7 +666,7 @@ body.dark-mode .drill-exit-btn:active {
   flex-direction: column;
   align-items: center;
 }
-.result-value { font-size: 1.5rem; font-weight: 700; color: #2563eb; }
+.result-value { font-size: 1.5rem; font-weight: 700; color: #2563eb; font-variant-numeric: tabular-nums; }
 .result-label { font-size: .8rem; color: #64748b; margin-top: .25rem; }
 .results-grid .result-item:last-child:nth-child(odd) {
   grid-column: 1 / -1;
@@ -4257,17 +4284,8 @@ body.dark-mode .numpad-btn.pressed {
   transition: background .05s ease, transform .05s ease;
 }
 
-/* Feedback card bounce for correct/wrong answers */
-.feedback-shake {
-  animation: feedbackShake .35s ease;
-}
-@keyframes feedbackShake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-4px); }
-  40% { transform: translateX(4px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(2px); }
-}
+/* (The wrong-answer card shake was removed with ADR-091 — sound + the red teaching panel carry
+   the verdict; shake on top was punishment, not information.) */
 
 /* Drill progress bar pulse on completion */
 .drill-progress-fill.completed {
@@ -6241,6 +6259,21 @@ body.dark-mode .drill-explain-btn:active {
 .drill-verdict { font-size: 1rem; font-weight: 800; letter-spacing: .01em; }
 .drill-verdict-ok { color: var(--qr-success-fg); }
 .drill-verdict-wrong { color: var(--qr-danger); }
+/* Timeout is a pacing verdict, not a knowledge verdict — amber, not failure-red (ADR-091) */
+.drill-verdict-wrong.drill-verdict-timeout { color: var(--qr-warn); }
+/* Quiet in-session momentum chip beside "✓ Correct" from 3-in-a-row */
+.drill-streak-chip {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--qr-success-bg);
+  color: var(--qr-success-fg);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
 .drill-teach {
   display: flex; flex-direction: column; align-items: stretch; gap: .55rem;
   width: 100%; max-width: 24rem; margin: 0 auto; text-align: left;
@@ -6347,11 +6380,12 @@ body.dark-mode .drill-explain-btn:active {
 .drill-next-secondary { width: 100%; margin: 0; }
 
 /* ── Pause / resume + graceful failure (ADR-086 P7) — token-driven across all themes ── */
+/* 44px target with a visible affordance circle (ADR-091) */
 .session-pause,
 .drill-pause-btn {
-  position: absolute; top: 12px; left: 12px; width: 2rem; height: 2rem;
-  border: none; border-radius: 50%; background: transparent; color: var(--qr-text-dim);
-  font-size: 15px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  position: absolute; top: 10px; left: 10px; width: 2.75rem; height: 2.75rem;
+  border: none; border-radius: 50%; background: var(--qr-surface-2); color: var(--qr-text-dim);
+  font-size: 17px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
   padding: 0; z-index: 10; transition: background .15s ease, color .15s ease;
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
@@ -11770,4 +11804,51 @@ body.theme-playful {
   --qri-vibrate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Crect x='9' y='5' width='6' height='14' rx='1.5'/%3E%3Cpath d='M5 8v8'/%3E%3Cpath d='M2 10v4'/%3E%3Cpath d='M19 8v8'/%3E%3Cpath d='M22 10v4'/%3E%3C/svg%3E");
   --qri-volume: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5' fill='%23000' stroke='none'/%3E%3Cpath d='M15.5 8.5a5 5 0 0 1 0 7'/%3E%3Cpath d='M18.5 5.5a9 9 0 0 1 0 13'/%3E%3C/svg%3E");
   --qri-zap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   TABLET DRILL LAYOUT (ADR-091) — at ≥768px the drill was a phone column inside a
+   720px container with a full-bleed keypad. Center-constrain the working surfaces
+   to a comfortable 640px reading/answer width; give the results grid a third column.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) {
+  #drillContainer > .card {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .custom-numpad {
+    max-width: 640px;
+    left: 50%;
+    right: auto;
+    width: 100%;
+    transform: translateX(-50%) translateY(100%);
+    border-radius: 16px 16px 0 0;
+  }
+  .custom-numpad.visible {
+    transform: translateX(-50%) translateY(0);
+  }
+  body.drill-session-active .drill-actions {
+    left: 50%;
+    right: auto;
+    width: 100%;
+    max-width: 640px;
+    transform: translateX(-50%);
+  }
+  .results-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* 5 tiles → 3 + 2 at three columns; the phone-only odd-last span no longer applies */
+  .results-grid .result-item:last-child:nth-child(odd) {
+    grid-column: auto;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+/* Programmatic focus lands on the results heading for screen readers (ADR-088 A6);
+   the loud user-agent ring on a non-interactive heading is visual noise (ADR-091). */
+#drillResultsHeading:focus {
+  outline: none;
 }

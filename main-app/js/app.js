@@ -53,7 +53,10 @@
 
   try {
     var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
-    if (settings.darkMode) document.body.classList.add('dark-mode');
+    /* Appearance (ADR-091): System/Light/Dark resolved by settings.js's resolveDarkMode (loads
+       before app.js); the darkMode boolean remains the guarded fallback. */
+    var _dark = (typeof resolveDarkMode === 'function') ? resolveDarkMode(settings) : !!settings.darkMode;
+    if (_dark) document.body.classList.add('dark-mode');
     if (settings.reducedMotion) document.body.classList.add('reduced-motion');
     if (settings.theme === 'playful') document.body.classList.add('theme-playful');
   } catch (_) { /* ignore */ }
@@ -507,7 +510,7 @@ document.addEventListener('DOMContentLoaded', function () {
       transitionFired = true;
       try {
         var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
-        document.body.classList.toggle('dark-mode', !!s.darkMode);
+        document.body.classList.toggle('dark-mode', (typeof resolveDarkMode === 'function') ? resolveDarkMode(s) : !!s.darkMode);
         if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
       } catch (_) { /* ignore */ }
       _launchOnboardingOrShowMain();

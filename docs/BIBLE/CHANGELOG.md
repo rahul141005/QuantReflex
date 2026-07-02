@@ -6,6 +6,47 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-02 — Product Excellence Pass: remaining audit items (ADR-091)
+
+Independent re-evaluation + implementation of the audit's remaining recommendations (full reasoning incl. two
+already-solved closures and one rejected-as-wrong item in ADR-091). Code changes:
+
+```
+### feat(H1+H2): feedback rebalance + honest timeout
+- sounds/correctanswer.wav (NEW, ~15KB synthesized chime) + soundEngine.js map entry + SW precache.
+- js/drill-engine.js: checkAnswer(raw, opts) with opts.timedOut (from _perQTick expiry); correct path plays
+  correctAnswer; timeout path = "⏱ Time's up" amber verdict (.drill-verdict-timeout), single haptic, NO wrong
+  sound; 🔥 N-in-a-row chip beside "✓ Correct" from streak ≥3; wrong-answer card shake removed.
+- css/style.css: .drill-streak-chip, .drill-verdict-timeout; .feedback-shake/keyframes deleted (dead).
+### feat(H3+H4): numpad yields + 1-tap warmup
+- js/drill-engine.js: hideCustomNumpad() on answer (kept during Reflex auto-advance) — existing MCQ layout rules
+  give the explanation full height; re-render restores.
+- js/controllers/practice-modes.js: startDrillFromPractice forwards opts.skipStartScreen;
+  js/views/home-view.js: warmup CTA passes it — Home → Question 1 directly.
+### feat(H6+H7): cold-start honesty + Appearance System/Light/Dark
+- js/views/home-view.js: streak badge hidden at 0; hero Accuracy/Best "—" until data; quota bar hidden until
+  the first question of the day.
+- js/settings.js: appearanceMode/resolveDarkMode/applyAppearance + live prefers-color-scheme listener; the
+  darkModeToggle block → appearanceSelect handler (writes settings.appearance, mirrors settings.darkMode).
+- js/app.js: both dark-mode apply sites route through resolveDarkMode (guarded). index.html: toggle row →
+  three-option .theme-select row ("Appearance · Follow your device, or set light or dark").
+### feat(H8/M5/M7/M10/N1): timers, tablet, tokens, pause, typography
+- css/style.css: .timer calm by default + .timer-low danger/pulse (JS toggles at ≤5s perQ / ≤10s total);
+  ≥768px block centers drill card/keypad/actions at 640px + 3-col results grid; legacy token aliases in :root
+  (--text-primary/-secondary, --accent-primary, --bg-surface/-elevated, --border-color → --qr-*); pause/exit
+  44px visible-circle targets; body font stack system-ui-first; tabular-nums on question/timer/result digits;
+  #drillResultsHeading:focus outline suppressed.
+- js/drill-engine.js: set-mode header gains the pause button (pauseSession is mode-agnostic).
+```
+
+Closed with no change: M11 (MCQ ✓/✗ glyphs already existed), M3 (Skip toggle already paywall- and hard-mode-gated
+in Settings). Rejected: M4 (hiding DI value labels makes exact-equivalence grading unanswerable). Deferred: M6
+i18n scaffold, N2/N3/N5/N6.
+Verification: npm test (26 checks) green; Playwright sweep — 1-tap warmup, Time's-up verdict, numpad collapse,
+timer-low class, cold-start dashes, Appearance×colorScheme emulation, tablet 640px/3-col, set-mode pause.
+SW v205→v206.
+> Bible 2.111→2.112, Arch 2.57→2.58, Firestore 2.22→2.23 (settings.appearance).
+
 ## 2026-07-02 — Critical launch-readiness resolution (ADR-090)
 
 The 7 Critical findings of `AUDIT-REPORT-PRODUCT-UX.md`, independently re-evaluated then implemented (full reasoning

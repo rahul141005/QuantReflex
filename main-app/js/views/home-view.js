@@ -311,16 +311,21 @@ function initHomeView() {
     var dailyStreak = parseInt(p.dailyStreak) || 0;
     if (streakCount) streakCount.textContent = dailyStreak;
     if (streakBadge) {
+      /* Cold-start honesty (ADR-091): a "🔥 0" badge tells a new user they're nothing — the
+         streak appears the day it exists. */
+      streakBadge.style.display = dailyStreak > 0 ? '' : 'none';
       streakBadge.classList.toggle('streak-active', dailyStreak > 0);
     }
 
-    /* ---- Progress stat pills ---- */
+    /* ---- Progress stat pills ----
+       Cold-start honesty (ADR-091): before any attempt there IS no accuracy or best — an em dash,
+       not a zero. "0 TODAY" stays: today's count is an honest nudge, not a judgment. */
     var todayEl = document.getElementById('homeTodayCount');
     var accEl = document.getElementById('homeAccuracy');
     var bestEl = document.getElementById('homeBestStreak');
     if (todayEl) todayEl.textContent = p.todayAttempted || 0;
-    if (accEl) accEl.textContent = accuracy + '%';
-    if (bestEl) bestEl.textContent = p.bestStreak || 0;
+    if (accEl) accEl.textContent = p.totalAttempted ? accuracy + '%' : '—';
+    if (bestEl) bestEl.textContent = p.bestStreak || '—';
 
     /* ---- Dynamic CTA text ---- */
     var ctaLabel = document.getElementById('homeCTALabel');
@@ -448,7 +453,8 @@ function initHomeView() {
       if (!_tryPracticeAction()) return;
       SoundEngine.play('settingsToggle');
       Router.showView('practice');
-      startDrillFromPractice('quick');
+      /* 1-tap daily loop (ADR-091): the warmup CTA lands directly on Question 1 — no interstitial. */
+      startDrillFromPractice('quick', null, null, { skipStartScreen: true });
     });
   }
 
@@ -577,6 +583,7 @@ function _renderDailyQuota(progress) {
   if (limit === Infinity) return; /* Premium user — no cap */
 
   var used = parseInt(progress.todayAttempted) || 0;
+  if (used === 0) return; /* Cold-start (ADR-091): the cap appears once it's meaningful — never "0/20" before the first question */
   var remaining = Math.max(0, limit - used);
   var pct = Math.min(100, Math.round((used / limit) * 100));
 

@@ -127,6 +127,10 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
     config.topics = opts.topics.slice();
     if (opts.subjectLabel) config.mode = config.mode + ' · ' + opts.subjectLabel;
   }
+  /* ADR-091: the habitual path costs one tap — the Home warmup goes straight to Question 1 (the
+     interstitial shows the same four facts every day; it stays for Practice-tab launches, where the
+     mode choice is a real decision). Same engine opt startSessionReview already uses. */
+  if (opts.skipStartScreen === true) config.skipStartScreen = true;
 
   config.onFinish = function (view) {
     if (_activeDrillEngine) {
