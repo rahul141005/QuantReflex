@@ -36,9 +36,13 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Deliberately kept (shared surfaces):** the `performance_insights` entitlement is shared — it still gates Subject
   Mastery, Study Next and QuanAI Recommends — so it and its paywall/marketing copy stay (nothing advertises a removed
   section; the copy maps to the retained premium-analytics tier). All shared `statMath` helpers (`accuracyWindows`,
-  `deriveMastery`, `consistency`, `evidence`, `overallAccuracy`, `_barClass`, …) stay. The planner's separate
-  `examReadinessScore` subsystem (`services/*`, `planner-view.js`) and the drill `.session-insight-card` are unrelated
-  and untouched.
+  `deriveMastery`, `consistency`, `evidence`, `_barClass`, …) stay. The planner's separate `examReadinessScore`
+  subsystem (`services/*`, `planner-view.js`) and the drill `.session-insight-card` are unrelated and untouched.
+- **Post-implementation hardening (same release):** three independent adversarial re-audits (results / Stats /
+  regression) confirmed no functional regressions and no dangling product-code references. They surfaced only
+  housekeeping: `overallAccuracy` had become dead (its sole callers were the removed `_hardAccuracy`/`examReadiness`)
+  so it and its export were removed; a stale `statmath.check.js` header and two stale `ROADMAP.md` lines (naming the
+  removed "Exam Readiness"/"comparative insights") were corrected.
 - **Topic cards never overflow + Settings (`css/style.css`, `index.html`):** `.dt-name` replaces
   `white-space:nowrap; text-overflow:ellipsis` with a two-line clamp (`overflow-wrap:anywhere` + `-webkit-line-clamp:2`);
   `.drill-topic` gains `min-height` + `align-items:flex-start` for equal card heights and aligned icons; `.drill-topics`

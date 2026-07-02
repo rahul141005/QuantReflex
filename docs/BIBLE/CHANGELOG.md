@@ -29,9 +29,19 @@ topic-card overflow, and tightened Settings — small green commits, mapped from
   lines, and the "exam readiness" name-drop in the mastery-locked copy.
 - data/statMath.js: removed comparativeInsights, examReadiness, the private _hardAccuracy helper and the now-unused
   _CONF_FACTOR, plus their exports. Kept all shared helpers (accuracyWindows, deriveMastery, consistency, evidence,
-  overallAccuracy, _barClass, …).
+  _barClass, …).
 - index.html: removed #insightsSection + #readinessSection. css/style.css: removed .stats-insight-* / .stats-ready-*
   and a now-orphaned #statsInsights-scoped rule. scripts/statmath.check.js: removed the two dead IIFEs.
+
+### chore(ADR-089 hardening): post-implementation audit — close residual items
+- Three independent adversarial re-audits (results / Stats / regression+settings+docs) found no functional regressions
+  and no dangling product-code references. Closed the only residual housekeeping:
+- data/statMath.js: removed overallAccuracy (function + export) — it became dead once _hardAccuracy/examReadiness were
+  removed (a full-repo grep confirmed zero callers).
+- scripts/statmath.check.js: corrected the stale file header (dropped "comparative insights" + the deleted examReadiness
+  bounded/monotonic/damped assertions).
+- docs/BIBLE/ROADMAP.md: reworded two stale references — "Exam Readiness" → "the planner's exam-readiness score", and
+  dropped "comparative insights" — so the roadmap no longer names removed Stats derivations as live.
 - KEPT: the shared performance_insights entitlement (still gates Subject Mastery / Study Next / QuanAI Recommends) +
   its paywall/marketing copy; the separate planner examReadinessScore subsystem; the drill .session-insight-card.
 

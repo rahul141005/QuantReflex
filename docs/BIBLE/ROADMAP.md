@@ -11,11 +11,12 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [DECISION_LOG.md](DECISION_LOG.md) 
 ## ✨ Exam-relevance metadata layer (ADR-080) — now unlocks
 
 The new `data/knowledge/exam-relevance.js` (`QR_EXAMREL`) is a per-topic, per-exam importance + priority +
-recommended-order layer that already powers Exam Readiness, QuanAI recommendations, the "Study Next" ranking and the
-contextual Learn badges. It is deliberately built to also power, with little extra work: **exam-specific Learn/Practice
-filters** ("show only CAT-heavy topics"), **planner topic-ordering** by `recommendedOrder`, and **per-exam mock weighting**.
-Those are natural next features, not yet built. (Per-category *daily* history — which would enable true per-topic weekly
-trend insights — is intentionally NOT stored yet; revisit only if the comparative insights need it.)
+recommended-order layer that already powers the planner's exam-readiness score, QuanAI recommendations, the "Study Next"
+ranking and the contextual Learn badges. It is deliberately built to also power, with little extra work:
+**exam-specific Learn/Practice filters** ("show only CAT-heavy topics"), **planner topic-ordering** by `recommendedOrder`,
+and **per-exam mock weighting**. Those are natural next features, not yet built. (Per-category *daily* history — which
+would enable true per-topic weekly trend views — is intentionally NOT stored yet; revisit only if a future per-topic
+trend feature needs it.)
 
 ## 🚧 QuantReflex V2 — The Speed-Aptitude Engine (ADR-073)
 

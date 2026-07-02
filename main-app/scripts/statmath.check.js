@@ -1,11 +1,10 @@
 /**
  * statmath.check.js — validates the ADR-080 derivations + the exam-relevance metadata layer.
  *
- * The Stats rebuild (readiness, time invested, mastery detail, comparative insights, recommendations) and the Learn
+ * The Stats derivations (time invested, mastery detail, weakest topics, next recommendation) and the Learn
  * personalization all read from PURE functions in data/statMath.js, weighted by data/knowledge/exam-relevance.js.
- * This asserts: the metadata covers every published Learn topic exactly once and is well-formed; readiness is bounded
- * 0–100, monotonic in accuracy/coverage, confidence-damped, and null on no data; and the other derivations have the
- * right shape and never emit NaN. No DOM, no Firestore.   node scripts/statmath.check.js
+ * This asserts: the metadata covers every published Learn topic exactly once and is well-formed; and the derivations
+ * have the right shape and never emit NaN. No DOM, no Firestore.   node scripts/statmath.check.js
  */
 'use strict';
 var path = require('path');

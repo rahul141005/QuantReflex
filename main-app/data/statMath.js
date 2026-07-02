@@ -73,12 +73,6 @@
     return best.cat;   // the student's relative best (matches the Analytics "strongest area" display)
   }
 
-  /** Lifetime accuracy 0..1 (null when no attempts — never a misleading 0). */
-  function overallAccuracy(stats) {
-    var att = Number(stats && stats.totalAttempted) || 0, cor = Number(stats && stats.totalCorrect) || 0;
-    return att > 0 ? cor / att : null;
-  }
-
   /** 7d vs 30d accuracy windows + direction, from dailyHistory. */
   function accuracyWindows(stats) {
     var hist = (stats && stats.dailyHistory) || {}, now = Date.now();
@@ -280,7 +274,7 @@
     masteryForCat: masteryForCat, masteryMap: masteryMap, deriveMastery: deriveMastery,
     weakest: weakest, strongest: strongest,
     subjectRollup: subjectRollup, weakestSubject: weakestSubject,
-    overallAccuracy: overallAccuracy, accuracyWindows: accuracyWindows,
+    accuracyWindows: accuracyWindows,
     speed: speed, consistency: consistency, today: today,
     activeDays: activeDays, evidence: evidence,
     timeInvested: timeInvested, masteryDetail: masteryDetail,
