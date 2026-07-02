@@ -53,16 +53,31 @@ body.dark-mode {
   --qr-warn: #fbbf24; --qr-info: #a78bfa; --qr-info-fg: #c4b5fd;
   --qr-focus-ring: 0 0 0 3px rgba(96,165,250,.4);
 }
-/* Playful skin (ADR-086 tokens): warm off-white surfaces + its own blue; structure/motion inherited unchanged. */
+/* Playful skin — a COMPLETE token identity (ADR-087): warm off-white surfaces, its own confident blue accent, warm
+   ink, and matching status/focus tokens. Every token-driven component (start screen, keypad symbols, teaching panel,
+   verdict, chips, topics, loading, focus rings) now expresses the Playful palette instead of falling back to the
+   default blue — structure/motion stay inherited. All pairs WCAG AA-verified (scripts contrast validator). */
 body.theme-playful {
-  --qr-accent-2: #4f8ff7; --qr-accent-strong: #3b7de0;
+  --qr-bg: #faf9f7;
+  --qr-accent: #2a63c6; --qr-accent-2: #4f8ff7; --qr-accent-strong: #3b7de0;
+  --qr-text: #2a2521; --qr-text-dim: #6a6055; --qr-text-mut: #6f6455;
   --qr-surface: #faf9f7; --qr-surface-solid: #faf9f7; --qr-surface-2: #f0eee9; --qr-surface-3: #e8e6e1;
   --qr-border: #e8e6e1; --qr-border-strong: #d9d5cc;
+  --qr-success: #16a34a; --qr-success-fg: #146a31; --qr-success-bg: rgba(22,163,74,.12); --qr-success-border: #22c55e;
+  --qr-danger: #dc2626; --qr-danger-fg: #991b1b; --qr-danger-bg: rgba(220,38,38,.10); --qr-danger-border: #ef4444;
+  --qr-warn: #b45309; --qr-info: #6d28d9; --qr-info-fg: #6d28d9;
+  --qr-focus-ring: 0 0 0 3px rgba(42,99,198,.35);
 }
 body.theme-playful.dark-mode {
-  --qr-accent-2: #58a6ff; --qr-accent-strong: #4f8ff7;
+  --qr-bg: #0d1117;
+  --qr-accent: #58a6ff; --qr-accent-2: #58a6ff; --qr-accent-strong: #4f8ff7;
+  --qr-text: #e6edf3; --qr-text-dim: #9aa5b1; --qr-text-mut: #7f8b99;
   --qr-surface: rgba(30,35,48,.9); --qr-surface-solid: #1b2130; --qr-surface-2: #141926; --qr-surface-3: #2a3346;
   --qr-border: #2a3346; --qr-border-strong: #3a465e;
+  --qr-success: #22c55e; --qr-success-fg: #86efac; --qr-success-bg: rgba(22,163,74,.20); --qr-success-border: #22c55e;
+  --qr-danger: #f87171; --qr-danger-fg: #fca5a5; --qr-danger-bg: rgba(220,38,38,.22); --qr-danger-border: #ef4444;
+  --qr-warn: #fbbf24; --qr-info: #a78bfa; --qr-info-fg: #c4b5fd;
+  --qr-focus-ring: 0 0 0 3px rgba(88,166,255,.4);
 }
 
 /* ---- Reset & Base ---- */
@@ -636,19 +651,10 @@ body.dark-mode .drill-exit-btn:active {
   right: 0;
   bottom: 0;
   z-index: 10;
-  background: #f8fafc;
+  background: var(--qr-bg);   /* ADR-087: was four per-theme literals, each == that theme's --qr-bg (pixel-identical) */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-}
-body.dark-mode #drillContainer.drill-results-active {
-  background: #0f172a;
-}
-body.theme-playful #drillContainer.drill-results-active {
-  background: #faf9f7;
-}
-body.theme-playful.dark-mode #drillContainer.drill-results-active {
-  background: #0d1117;
 }
 #drillContainer.drill-results-active > .card.center-content {
   position: relative;
@@ -4050,7 +4056,9 @@ body.drill-session-active .custom-numpad {
   bottom: var(--drill-safe-b);
 }
 
-/* Background layer — fills viewport, provides theme background */
+/* Background layer — fills viewport, provides theme background.
+   ADR-087: tokenized to var(--qr-bg). The four per-theme literals it replaced (#f8fafc / #0f172a / #faf9f7 / #0d1117)
+   each equal that theme's --qr-bg exactly, so this is pixel-identical while making a future theme's shell automatic. */
 body.drill-session-active #drillContainer {
   position: fixed;
   top: 0;
@@ -4058,22 +4066,15 @@ body.drill-session-active #drillContainer {
   right: 0;
   bottom: 0;
   z-index: 10;
-  background: #f8fafc;
-}
-body.dark-mode.drill-session-active #drillContainer {
-  background: #0f172a;
-}
-body.theme-playful.drill-session-active #drillContainer {
-  background: #faf9f7;
-}
-body.theme-playful.dark-mode.drill-session-active #drillContainer {
-  background: #0d1117;
+  background: var(--qr-bg);
 }
 
-/* Exit button: fixed top-right, above everything */
+/* Exit button: fixed top-right, above everything.
+   ADR-087: matches the pause button's safe-area handling so both top-corner controls sit at the same height and clear
+   the notch/status bar on devices with a top inset. */
 body.drill-session-active .drill-exit-btn {
   position: fixed;
-  top: .75rem;
+  top: calc(.75rem + env(safe-area-inset-top, 0px));
   right: .75rem;
   z-index: 100;
 }
@@ -5563,7 +5564,8 @@ body.theme-playful.dark-mode .numpad-btn {
 }
 body.theme-playful.dark-mode .numpad-btn:active { background: rgba(30,35,55,.95); }
 body.theme-playful.dark-mode .numpad-btn.numpad-submit {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  /* ADR-087: match Playful-light's signature blue→teal submit so Playful reads cohesively in dark too (was plain blue). */
+  background: linear-gradient(135deg, #4f8ff7, #2dd4bf);
   border: none;
   color: #ffffff;
 }
@@ -6140,31 +6142,28 @@ body.dark-mode .wrong-answer-header {
 body.dark-mode .wrong-answer-correct {
   color: #e2e8f0;
 }
+/* AI Explain button — tokenized to --qr-info (ADR-087). Classic/Dark values equal the previous hardcoded #8b5cf6/
+   #a78bfa exactly (pixel-identical); Playful now inherits its own deep-violet info tone automatically. */
 .drill-explain-btn {
   display: block;
   margin-top: .75rem;
   padding: .5rem 1.25rem;
   font-size: .85rem;
   font-weight: 600;
-  border: 1.5px solid #8b5cf6;
+  border: 1.5px solid var(--qr-info);
   border-radius: .5rem;
   background: none;
-  color: #8b5cf6;
+  color: var(--qr-info);
   cursor: pointer;
   flex-shrink: 0;
   transition: background .15s ease, color .15s ease;
 }
 .drill-explain-btn:active {
-  background: #8b5cf6;
+  background: var(--qr-info);
   color: #fff;
 }
-body.dark-mode .drill-explain-btn {
-  border-color: #a78bfa;
-  color: #a78bfa;
-}
 body.dark-mode .drill-explain-btn:active {
-  background: #a78bfa;
-  color: #1e1b4b;
+  color: #1e1b4b;   /* dark ink on the light-lavender active fill */
 }
 
 /* ── Teaching correction panel (ADR-086 P4) — token-driven, one design across all themes ── */
@@ -6830,10 +6829,8 @@ body.dark-mode .duel-active-card-sub { color: #94a3b8; }
    duel's visible container — #drillContainer lives in the hidden practice view and a position:fixed child of a
    display:none ancestor won't paint), so mirror ONLY the 6 container-keyed overlay rules here. Every other shell
    rule keys on classes (.drill-actions/.drill-question-scroll/.custom-numpad) and already applies. */
-body.drill-session-active #duelActive { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; background: #f8fafc; }
-body.dark-mode.drill-session-active #duelActive { background: #0f172a; }
-body.theme-playful.drill-session-active #duelActive { background: #faf9f7; }
-body.theme-playful.dark-mode.drill-session-active #duelActive { background: #0d1117; }
+/* ADR-087: tokenized to var(--qr-bg) — collapses the four per-theme literals (each == that theme's --qr-bg). */
+body.drill-session-active #duelActive { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--qr-bg); }
 body.drill-session-active #duelActive > .card {
   /* top pushed down (was 3rem) so the redesigned header reads as a proper band with breathing room above the
      card — this also trims the card's height-from-top, which felt squeezed against the header (ADR-063 polish). */
