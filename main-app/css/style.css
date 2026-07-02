@@ -15,6 +15,7 @@
   --qr-card-radius-sm: 1.25rem;    /* 20px — small cards / tiles */
   --qr-btn-radius: 1.125rem;       /* 18px — buttons / CTAs */
   --qr-card-padding: 1.25rem;      /* 20px */
+  --qr-numpad-h: 13.75rem;         /* single source for the custom-numpad height reservation (drill card + numpad-active body padding) — ADR-087 */
   --qr-card-border-light: 1px solid rgba(15,23,42,0.06);
   --qr-card-border-dark: 1px solid rgba(255,255,255,0.08); /* soft hairline on navy */
   --qr-shadow-light: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.03);
@@ -4012,7 +4013,7 @@ body.dark-mode .numpad-btn.numpad-submit {
 
 /* When numpad is visible, add bottom padding to body to prevent content overlap */
 body.numpad-active {
-  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px) + 13.5rem);
+  padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px) + var(--qr-numpad-h));
 }
 
 /* ---- Drill Session: Fixed-Position Layout ----
@@ -4032,7 +4033,7 @@ body.numpad-active {
 */
 
 body.drill-session-active {
-  --drill-numpad-h: 13.75rem;
+  --drill-numpad-h: var(--qr-numpad-h);
   --drill-actions-h: 3.5rem;
   --drill-card-gap: 1.25rem;   /* the LARGER gap between the question card and Submit — creates hierarchy */
   --drill-submit-gap: .5rem;   /* the small gap between Submit and the numpad (Submit lifts off the keypad) */
@@ -6608,7 +6609,9 @@ body.dark-mode .auto-explain-locked .auto-explain-unlock {
 body.dark-mode .delta-up   { color: #4ade80; }
 body.dark-mode .delta-down { color: #f87171; }
 
-/* ---- Share button on results ---- */
+/* ---- Share button on results (premium gradient accent) ----
+   ADR-087: consolidated from two rules (a base outlined style + a later `!important` gradient override that made the
+   base background/color/hover/dark-bg declarations dead-on-arrival) into this single coherent rule — renders identically. */
 .results-share-btn {
   display: flex;
   align-items: center;
@@ -6620,20 +6623,16 @@ body.dark-mode .delta-down { color: #f87171; }
   padding: .7rem 1.25rem;
   border: 1.5px solid #2563eb;
   border-radius: .75rem;
-  background: rgba(37,99,235,.06);
-  color: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
   font-size: .95rem;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, .25);
   cursor: pointer;
   transition: background .15s ease;
 }
-.results-share-btn:hover  { background: rgba(37,99,235,.12); }
-.results-share-btn:active { background: rgba(37,99,235,.2); }
-body.dark-mode .results-share-btn {
-  border-color: #60a5fa;
-  background: rgba(37,99,235,.1);
-  color: #60a5fa;
-}
+.results-share-btn:active { box-shadow: 0 2px 6px rgba(37, 99, 235, .15); }
+body.dark-mode .results-share-btn { border-color: #60a5fa; }
 
 /* ---- Session insight card (results screen) ---- */
 .session-insight-card {

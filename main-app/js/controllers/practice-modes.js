@@ -370,42 +370,9 @@ function initPracticeView() {
         if (!_tryPracticeAction()) return;
         SoundEngine.play('settingsToggle');
         var modeKey = this.getAttribute('data-mode');
-        if (modeKey === 'wordproblems') {
-          _customPracticeActive = false;
-          _focusModeActive = false;
-          modeSelect.style.display = 'none';
-          var wpSetup = document.getElementById('wordProblemsSetup');
-          if (wpSetup && typeof AIFeatures !== 'undefined') {
-            wpSetup.style.display = 'flex';
-            AIFeatures.renderWordProblemsSetup(wpSetup, function (questions, cat, diff, wpTimerCfg) {
-              wpSetup.style.display = 'none';
-              var dc = document.getElementById('drillContainer');
-              if (!dc) return;
-              dc.style.display = 'block';
-              var _tCfg = wpTimerCfg || { timeLimitSec: null, perQuestionSec: null };
-              var cfg = {
-                count: questions.length,
-                timeLimitSec: _tCfg.timeLimitSec,
-                perQuestionSec: _tCfg.perQuestionSec,
-                category: cat,
-                mode: '🤖 Word Problems (' + diff + ')',
-                onFinish: function (view) {
-                  if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
-                  /* Remove fullscreen results overlay */
-                  var _dc = document.getElementById('drillContainer');
-                  if (_dc) { _dc.classList.remove('drill-results-active'); _dc.style.display = 'none'; }
-                  if (_drillSessionActive && typeof FirestoreSync !== 'undefined') { FirestoreSync.endDrillBatch(); }
-                  _exitDrillSession();
-                  if (view === 'practice') _resetPracticeUiToModes();
-                  Router.showView(view);
-                }
-              };
-              cfg._preloadedQuestions = questions;
-              _startPracticeEngine(dc, cfg);
-            });
-          }
-          return;
-        }
+        /* NOTE: Word Problems is intercepted at the top of this handler (Coming-Soon modal + return), so it never
+           reaches the dispatch below — the old live-session launcher that used to live here was unreachable dead code
+           and was removed in ADR-087. */
         if (modeKey === 'custom') {
           if (!canAccessFeature('custom_training')) { showPaywall('custom_training'); return; }
           _customPracticeActive = true;

@@ -39,9 +39,10 @@ function createDrillEngine(container, opts) {
   var category = opts.category || null;
   var topics = Array.isArray(opts.topics) ? opts.topics : null;
   var mode = opts.mode || 'Drill';
-  /* Auto-advance after a correct answer (Reflex Drill). Driven by an explicit flag, NOT the display label — the old
-     `mode === 'Reflex Drill'` guard silently never matched the emoji-prefixed label '🧠 Reflex Drill' (ADR-086). */
-  var autoAdvance = (opts.autoAdvance === true) || mode === 'Reflex Drill' || /Reflex Drill/.test(mode);
+  /* Auto-advance after a correct answer (Reflex Drill). Driven by the explicit flag (set in practice-modes.js), with a
+     label regex as a safety net — the old bare `mode === 'Reflex Drill'` literal never matched the emoji-prefixed
+     '🧠 Reflex Drill' and is subsumed by the regex, so it was dropped (ADR-086 fix, ADR-087 cleanup). */
+  var autoAdvance = (opts.autoAdvance === true) || /Reflex Drill/.test(mode);
   var reviewMode = opts.reviewMode || false;
   var onFinish = opts.onFinish || null;
   var onResults = opts.onResults || null;   // optional: host hook to augment the results card (e.g. mock scoring)
@@ -932,10 +933,6 @@ function createDrillEngine(container, opts) {
 
   function _shareAsImage(shareData) {
     ShareService.shareAsImage(shareData);
-  }
-
-  function _shareTextFallback(accuracy, percentile) {
-    ShareService.shareTextFallback(accuracy, percentile);
   }
 
   function _computeSessionInsight(accNum, wrongCats) {
