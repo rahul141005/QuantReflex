@@ -44,6 +44,9 @@ in Settings). Rejected: M4 (hiding DI value labels makes exact-equivalence gradi
 i18n scaffold, N2/N3/N5/N6.
 Verification: npm test (26 checks) green; Playwright sweep — 1-tap warmup, Time's-up verdict, numpad collapse,
 timer-low class, cold-start dashes, Appearance×colorScheme emulation, tablet 640px/3-col, set-mode pause.
+Final independent review addendum: empty Submit taps are now ignored in practice (a stray tap must never burn the
+question with a failure verdict + sound; duels keep empty "lock in" submits — set-mode never runs in duels), and the
+App Guide's Settings section now describes Appearance instead of the removed Dark Mode toggle. Both re-verified live.
 SW v205→v206.
 > Bible 2.111→2.112, Arch 2.57→2.58, Firestore 2.22→2.23 (settings.appearance).
 

@@ -315,7 +315,7 @@ function createDrillEngine(container, opts) {
       }
     } else {
       var input = ui.answerInputEl;
-      var submit = function () { if (answered) return; checkAnswer(input.value.trim()); };
+      var submit = function () { if (answered) return; if (!input.value.trim()) return; checkAnswer(input.value.trim()); }; /* sets never run in duels — empty submits ignored (ADR-091 review) */
       submitBtn.addEventListener('click', submit);
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
     }
@@ -519,6 +519,10 @@ function createDrillEngine(container, opts) {
 
     function submit() {
       if (answered) return;
+      /* Practice: ignore empty submissions (ADR-091 review) — a stray Submit tap must never burn
+         the question with a failure verdict + sound; deliberate give-up paths are Skip or the
+         timer. Duels keep empty submits: locking in blank is a legitimate "move on" play there. */
+      if (!isDuel && !input.value.trim()) return;
       if (isDuel) captureDuelAnswer(input.value.trim());   /* capture-only: no client grading (ADR-033) */
       else checkAnswer(input.value.trim());
     }
