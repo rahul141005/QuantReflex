@@ -6321,8 +6321,6 @@ body.dark-mode .drill-explain-btn:active {
 }
 .drill-chip.chip-up { color: var(--qr-success-fg); background: var(--qr-success-bg); border-color: var(--qr-success-border); }
 .drill-chip.chip-down { color: var(--qr-danger); background: var(--qr-danger-bg); border-color: var(--qr-danger-border); }
-.drill-chip.chip-review { color: var(--qr-info-fg); }
-.drill-chip.chip-pb { color: var(--qr-warn); }
 .drill-topics { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; width: 100%; max-width: 24rem; margin: 0 auto 1.1rem; }
 .drill-topic {
   display: flex; align-items: flex-start; gap: .55rem; text-align: left;
@@ -11686,7 +11684,6 @@ body.theme-playful .qr-ico::before {
 body.theme-playful .bottom-nav .nav-icon .qr-ico { --qr-ico-size: 1.4rem; }
 body.theme-playful header h1 .qr-ico { --qr-ico-size: 1.5rem; vertical-align: -0.15em; }
 body.theme-playful .settings-label h3 .qr-ico { --qr-ico-size: 1.05rem; }
-body.theme-playful .mode-select-card h3 .qr-ico,
 body.theme-playful .mode-card h3 .qr-ico { --qr-ico-size: 1.15rem; }
 body.theme-playful .settings-btn-label .qr-ico,
 body.theme-playful .settings-action-btn .qr-ico { --qr-ico-size: 1.05rem; color: inherit; }

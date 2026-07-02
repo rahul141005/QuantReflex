@@ -18,10 +18,6 @@ var _navTransitionInProgress = false;
 var _practiceActionLocked = false;
 /* True only while user is actively answering questions (after START pressed) */
 var _drillSessionActive = false;
-/* Honest copy: answered questions ARE recorded (the engine batches per-answer writes during the
-   drill) — what's lost is only the unfinished session's summary. Never tell a user data vanishes
-   when it doesn't; false loss-warnings breed exit anxiety and distrust. */
-var _exitSessionMsg = 'End this session? Answered questions are saved — this session just won’t get a summary.';
 /* Prevents multiple exit dialogs from stacking */
 var _exitDialogShowing = false;
 

@@ -254,8 +254,9 @@ function initHomeView() {
       greeting = 'Good evening';
     }
 
-    /* Without a name, the greeting stands alone — never greet the app by its own name. */
-    if (greetingEl) greetingEl.textContent = displayName ? greeting : 'Welcome back';
+    /* Without a name, the time greeting becomes the title — never greet the app by its own
+       name, and never claim "welcome back" to a first-run user. */
+    if (greetingEl) greetingEl.textContent = displayName ? greeting : 'Ready to train?';
     if (userNameEl) userNameEl.textContent = displayName || greeting;
     if (initialEl) initialEl.textContent = displayName ? displayName.charAt(0).toUpperCase() : 'Q';
 
