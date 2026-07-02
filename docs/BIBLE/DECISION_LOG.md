@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-087 — Drill Engine final verification, hardening + complete Playful theme identity (2026-07-02)
+- **Context:** a no-assumptions production quality-gate on the shipped ADR-086 drill redesign — prove it correct from
+  the code (trusting no prior summary) and fix anything blocking production. Ran three independent Explore audits
+  (engine logic, CSS/theming, integration) + direct code re-reads + the full harness. Verified-clean: numpad rewrite
+  is backward-compatible (onboarding safely uses the legacy default; duel skips pause+loader), SW v201 precaches
+  `answer-format.js`, script load order correct, keyboard coverage still 35k/0, no stale `#tryAgainBtn/#homeBtn`, no
+  TODO/FIXME. But the audit surfaced three real correctness bugs and an incomplete Playful theme.
+- **Correctness bugs (each reproduced + browser-verified fixed):** **D1 —** Reflex Drill silently skipped a question:
+  the 350 ms next-guard re-enabled the Next button while the 600 ms `_autoAdvanceTimer` was still pending, so a manual
+  tap in that window advanced and then the timer advanced again. `nextQuestion()` now cancels both transition timers at
+  its top (idempotent advance). **D2 —** pausing inside that window stranded the session (the auto-advance fired under
+  the overlay, wiping it + starting a per-Q timer while `_paused`): `pauseSession()` now clears the transition timers
+  and re-enables Next; `startPerQTimer()` no-ops while paused. **D3/D4 —** review "Retry" replayed an inflated count
+  (review re-queues wrong questions with `count++`, never reset): captured `_initialCount` and restore it on restart.
+- **Safety + hygiene:** `finish()` made idempotent; the "All Caught Up" and generation-error terminal cards now tear
+  down the visibility auto-pause listener; removed the unreachable Word-Problems live-session launcher
+  (`practice-modes.js`, shadowed by the Coming-Soon intercept), the never-called `_shareTextFallback`, and the
+  redundant `mode === 'Reflex Drill'` literal; unified the `13.5rem ↔ 13.75rem` numpad-height drift behind one
+  `--qr-numpad-h` token; consolidated the duplicate `.results-share-btn` rule (+ its `!important`); wired the orphaned
+  `mock-engine.check.js` into `npm test` (now 25 checks).
+- **Complete Playful theme identity (per explicit user direction):** Playful was only a surface/border reskin — its
+  accent, text, status and focus tokens fell back to the default palette, so token-driven drill components rendered in
+  the default blue while the numpad wore a playful teal. Extended `body.theme-playful` (+ its dark variant) to a
+  **complete semantic palette** (`--qr-bg`, its own blue `--qr-accent`, warm ink, success/danger/warn/info, an
+  accent-matched focus ring) and **tokenized the drill components** that still hardcoded colour (`.drill-explain-btn`
+  → `--qr-info`; drill/results/duel session-shell backgrounds → `--qr-bg`; playful-dark numpad submit → its signature
+  blue→teal; exit-button safe-area parity). **Invariant held:** the `:root`/`dark-mode` token blocks were never
+  touched, and every tokenised literal equalled its theme's token value, so **Classic + Dark are byte-identical**
+  (computed-style-verified) — only Playful intentionally re-themes. All theme pairs are **WCAG AA-verified** by a
+  contrast validator (text-on-surface ≥4.5, accent-as-text ≥4.5, status-fg-on-bg ≥4.5, on-accent ≥4.5).
+- **Verification:** full `npm test` green (quant 112,949/0 recompute-0; answer-format 34,989/0; +mock-engine 100/0);
+  D1/D2/D4 reproduced-then-fixed in headless Chromium; cross-theme × size journey matrix (light/dark/playful ×
+  320/768, start→Q→feedback→MCQ→results) 6/6 clean — 0 overflow, 0 page errors, every state renders; per-theme token
+  audit + WCAG validator all AA. SW v201 → v202.
+- **Intentional limitations:** the numpad's bespoke per-theme hex palette is retained (it is already fully themed per
+  variant, incl. the playful teal — not a default fallback; tokenising it wouldn't be pixel-identical); neutral
+  decorative shadows/scrims and on-accent `#fff` / dark active-ink are left as-is; `AIFeatures.renderWordProblemsSetup`
+  is kept (staged "coming soon" feature, not dead); app-wide re-tokenisation of non-drill screens is out of scope (the
+  now-complete Playful palette means token-consuming screens inherit it automatically).
+
 ## ADR-086 — Complete Drill Engine redesign: the drill journey as one premium product (2026-07-01)
 - **Context:** the drill screen is QuantReflex's flagship, yet a full audit (three Explore passes + firsthand reading)
   found it inconsistent and, in places, broken: a persistent 4×4 keypad reserved a ~14rem dead band under every MCQ,

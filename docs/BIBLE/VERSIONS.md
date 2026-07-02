@@ -9,12 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.107 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.108 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.56 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.108 / Arch 2.56 (2026-07-02)** — **Drill Engine final verification + hardening + Playful identity (ADR-087).**
+> A no-assumptions quality-gate on ADR-086 (3 independent audits + code re-reads + full harness). Fixed three
+> browser-reproduced correctness bugs — Reflex double-advance/skip (D1), pause-during-auto-advance strand (D2), review
+> Retry count inflation (D4) — plus `finish()` idempotency, a visibility-listener leak, dead code (unreachable
+> Word-Problems launcher, `_shareTextFallback`, redundant Reflex literal), the `13.5↔13.75rem` numpad drift (now one
+> `--qr-numpad-h` token), a duplicate `.results-share-btn`, and wired the orphaned `mock-engine.check` (npm test now 25
+> checks). Completed the **Playful theme** into a full token identity (accent/text/bg/status/focus) and tokenized the
+> drill components that still hardcoded colour — Classic + Dark byte-identical (computed-verified), only Playful
+> re-themed, all pairs WCAG AA. SW v201→v202.
+>
 > **2.107 / Arch 2.56 (2026-07-01)** — **Complete Drill Engine redesign (ADR-086).** The drill journey — start →
 > loading → question loop → teaching feedback → completion dashboard → next actions — redesigned as one premium product
 > across all three themes. New `js/answer-format.js` registry is the single source of truth the grader, the spec-driven

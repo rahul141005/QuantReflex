@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-02 — Drill Engine final verification, hardening + Playful identity (ADR-087)
+
+A no-assumptions production quality-gate on the shipped ADR-086 drill engine: three independent Explore audits (engine
+logic, CSS/theming, integration) + direct code re-reads + the full harness. Verified-clean on numpad back-compat, SW
+precache, load order, keyboard coverage (35k/0). Surfaced and fixed three real correctness bugs (each reproduced then
+verified fixed in headless Chromium) plus dead code, spacing/CSS drift, an orphaned test, and an incomplete Playful
+theme. Shipped as small green commits H1–H6.
+
+```
+### fix(ADR-087 H1): Reflex double-advance/skip, pause-window strand, review-retry count + safety guards
+- js/drill-engine.js: nextQuestion() clears _autoAdvanceTimer + _nextGuardTimer at top (D1 — manual tap in the
+  350–600ms window no longer double-advances/skips). pauseSession() clears both transition timers + re-enables Next
+  when answered, and startPerQTimer() no-ops while _paused (D2 — pausing in the auto-advance window no longer strands
+  the session). Captured _initialCount and restore it in _restartSession (D4 — review Retry replays the original
+  count, not the re-queue-inflated one). finish() early-returns if _isFinished (idempotent). "All Caught Up" +
+  generation-error paths now _removeVisibilityGuard() (no leaked global listener).
+
+### chore(ADR-087 H2+H3): dead-code removal, spacing/CSS consolidation, wire orphaned mock check
+- js/controllers/practice-modes.js: removed the unreachable Word-Problems live-session launcher (~35 lines; the
+  Coming-Soon intercept returns first).
+- js/drill-engine.js: removed never-called _shareTextFallback; dropped the redundant `mode === 'Reflex Drill'` literal.
+- css/style.css: --qr-numpad-h token unifies the 13.5rem↔13.75rem drift; consolidated the duplicate .results-share-btn.
+- package.json: wired scripts/mock-engine.check.js (npm test now 25 checks, all green).
+
+### feat(ADR-087 H4): complete Playful theme identity + drill-component tokenization
+- css/style.css: extended body.theme-playful (+ dark) to a full semantic palette (--qr-bg, its own --qr-accent, warm
+  --qr-text*, success/danger/warn/info, accent-matched --qr-focus-ring) — WCAG AA-verified. Tokenized drill components
+  that still hardcoded colour: .drill-explain-btn -> var(--qr-info); drill/results/duel session-shell backgrounds ->
+  var(--qr-bg); playful-dark numpad submit -> signature blue→teal; exit-button safe-area parity. Classic + Dark stay
+  byte-identical (:root/dark-mode blocks untouched; every tokenised literal equals its theme's token value); only
+  Playful re-themes.
+
+### chore(ADR-087 H5): finish the .results-share-btn dedup
+- css/style.css: removed the leftover premium-gradient !important override (merged into the single base rule; renders
+  identically). Verified via cross-theme journey matrix (6/6 clean) + per-theme token/contrast audit.
+```
+
+SW v201 -> v202. Bible 2.107 -> 2.108.
+
 ## 2026-07-01 — Complete Drill Engine redesign (ADR-086)
 
 The entire drill journey redesigned as one premium product across all three themes, shipped as small green commits
