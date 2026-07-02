@@ -33,6 +33,7 @@
  */
 function createDrillEngine(container, opts) {
   var count = opts.count || 10;
+  var _initialCount = count;   /* ADR-087 D4: the requested session size, restored on Retry (review mode mutates `count` by re-queuing mistakes) */
   var timeLimit = opts.timeLimitSec || null;
   var perQLimit = opts.perQuestionSec || null;
   var category = opts.category || null;
@@ -848,6 +849,11 @@ function createDrillEngine(container, opts) {
     /* Guard against carry-over taps during transition debounce */
     if (!_nextReady) return;
     _nextReady = false; /* Immediately lock to prevent double-advance */
+    /* Cancel any pending post-answer transition timers (ADR-087 D1): in Reflex mode the 350ms next-guard re-enables
+       the Next button while the 600ms auto-advance is still pending, so a manual tap in that window would advance and
+       then the timer would advance AGAIN — silently skipping a question. Clearing both here makes advance idempotent. */
+    if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
+    if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; }
     current++;
     if (current < count) {
       /* Adaptive: recompute difficulty and generate a fresh question for next slot */
@@ -943,6 +949,10 @@ function createDrillEngine(container, opts) {
     container.classList.remove('drill-results-active');
     beginStarted = false;
     answered = false;
+    /* Restore the originally-requested size (ADR-087 D4). Review mode grows `count` by re-queuing missed questions;
+       without this, a review Retry would replay the inflated count. Harmless for preloaded/diSet — _beginBuild
+       overwrites `count` from the deck length regardless. */
+    count = _initialCount;
     begin();
   }
 
@@ -989,6 +999,7 @@ function createDrillEngine(container, opts) {
   }
 
   function finish() {
+    if (_isFinished) return; /* ADR-087: idempotent — guards a global-timer-expiry vs last-question race re-running recording/results */
     _isFinished = true;
     cleanup();
     _exitDrillSession();
@@ -1397,6 +1408,9 @@ function createDrillEngine(container, opts) {
   }
   function startPerQTimer() {
     _perQRemaining = perQLimit;
+    /* Don't start ticking while paused (ADR-087 D2): if a render happens under the pause overlay, resumeSession() will
+       start the countdown when the user actually resumes. */
+    if (_paused) return;
     _perQTick();
     perQTimer = setInterval(_perQTick, 1000);
   }
@@ -1409,6 +1423,12 @@ function createDrillEngine(container, opts) {
     _pauseStart = performance.now();
     if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }
     if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+    /* Also cancel the reflex post-answer transition timers (ADR-087 D2): pausing inside the 350–600ms auto-advance
+       window would otherwise let _autoAdvanceTimer fire nextQuestion UNDER the overlay — re-rendering (wiping the
+       overlay) and starting a fresh per-question timer while _paused stays true. Cancel them; since the answer is
+       already recorded, re-enable Next so the user simply advances manually after resuming. */
+    if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
+    if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; if (answered) _nextReady = true; }
     _showPauseOverlay();
   }
 
@@ -1469,6 +1489,9 @@ function createDrillEngine(container, opts) {
     };
     try { document.addEventListener('visibilitychange', _visHandler); } catch (_) {}
   }
+  function _removeVisibilityGuard() {
+    if (_visHandler) { try { document.removeEventListener('visibilitychange', _visHandler); } catch (_) {} _visHandler = null; }
+  }
 
   /* ---- cleanup timers ---- */
   function cleanup() {
@@ -1480,7 +1503,7 @@ function createDrillEngine(container, opts) {
     if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
     /* ADR-086 P7: tear down the visibility auto-pause listener + clear any pause latch so a torn-down engine leaves no
        global handler behind and a fresh session never inherits a stale paused state. */
-    if (_visHandler) { try { document.removeEventListener('visibilitychange', _visHandler); } catch (_) {} _visHandler = null; }
+    _removeVisibilityGuard();
     _paused = false;
     _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;
@@ -1562,6 +1585,7 @@ function createDrillEngine(container, opts) {
      and a clean exit. The session shell is already active, so this renders inside it. */
   function _renderGenError() {
     container.classList.remove('drill-results-active');
+    _removeVisibilityGuard(); /* ADR-087: no live session behind this card — don't leave a stray auto-pause listener */
     container.innerHTML =
       '<div class="card center-content drill-error">' +
         '<div class="drill-error-icon" aria-hidden="true">⚠️</div>' +
@@ -1603,6 +1627,7 @@ function createDrillEngine(container, opts) {
         questions = generateMistakeReviewQuestions(count);
         if (questions.length === 0) {
           _exitDrillSession();
+          _removeVisibilityGuard(); /* ADR-087: terminal card, no live session — drop the auto-pause listener */
           if (typeof FirestoreSync !== 'undefined') {
             FirestoreSync.endDrillBatch();
           }
