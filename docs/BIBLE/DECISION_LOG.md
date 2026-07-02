@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-088 — Drill Engine hardening round 2: complete theme coverage + audit fixes (2026-07-02)
+- **Context:** the assume-nothing drill quality-gate was re-run — three fresh independent audits (logic/results/a11y,
+  CSS/theming, performance/figures/regression) + direct code re-reads + the full harness, trusting no prior summary.
+  The ADR-086/087 fixes were **re-verified correct from code** (D1/D2/D4, timer/listener teardown, results-math
+  crash-safety, figure clipping, SW precache, 25-check chain). The pass surfaced one regression I'd introduced, a latent
+  bug, accessibility gaps, and — the main finding — that ADR-087 tokenised only the *new* components while the older
+  results/feedback/interactive components still rendered classic blue/violet/pastel in Playful.
+- **Correctness + a11y (reproduced, then browser-verified fixed):** **A1 (regression)** — `_practiceMistakesRestart`
+  set `count=10` then `_restartSession()` overwrote it with `_initialCount`, so Practice-Mistakes replayed the prior
+  mode's size and `=10` was dead; `_restartSession(overrideCount)` now takes an optional size and Practice-Mistakes
+  passes 10. **A2** — a timed test expiring with zero answers fed `avgRaw=0` into `computeSpeedScore` → "Faster than
+  ~37%"; `finish()` now scores an unanswered session 0. **A3** — removed the unreachable, wrong-signature duel branch
+  in `checkAnswer`. **A4** — MCQ `aria-label` now escapes `"`. **A5** — `.drill-progress-bar` gains
+  `role="progressbar"` + `aria-valuenow/min/max` + label (both render paths). **A6** — the results card gets
+  `role="status"` + focus lands on the "Session Complete" heading. **A7** — pause overlay gains `aria-modal="true"`.
+  **A8** — the pie-legend label yields room to the full value so a large value can't clip the 320 viewBox; set-mode
+  progress clamped.
+- **Real bug (B):** `.session-upgrade-banner` had ONLY a `body.dark-mode` rule — completely unstyled in Light +
+  Playful. Authored a token-driven base rule (banner + text + CTA + dismiss); the CTA uses `--qr-surface-solid` over
+  `--qr-accent`, contrast-safe in every theme.
+- **Complete Playful theme (C):** added a consolidated `body.theme-playful` override block (tokens, covering Playful
+  light + dark) for the primary CTA + share button (→ Playful blue→teal), performance badges + adaptive pills, the
+  speed-benchmark card + `.benchmark-*`, session-insight / auto-explain / wrong-answer / percentile-delta, MCQ options
+  + correct/wrong reveal, feedback text, the progress label and the active-drill skip. Nudged Playful `--qr-warn`
+  `#b45309 → #9a4708` so warn-as-badge-text clears AA on the warm surfaces. **Invariant held:** no `:root`/base/
+  `body.dark-mode` rule was touched, so **Classic + Dark are byte-identical** (computed-verified — classic button still
+  blue, benchmark still violet, badges still pastel, MCQ still white); only Playful re-themes. All 11 new Playful pairs
+  pass **WCAG AA** (contrast validator).
+- **Pixel polish (D):** audited — the flagged inconsistencies (benchmark px vs rem, bespoke shadows/radii, the
+  Submit-vs-Skip height difference) either have no pixel-identical token to map to, or would alter Classic/Dark, or are
+  defensible hierarchy (prominent Submit vs secondary Skip). No safe pixel-identical improvement was available, so none
+  was forced — the drill renders cleanly (matrix 6/6, 0 overflow).
+- **Verification:** full `npm test` green (25 checks); D1/D2/D4/A1/A2/A5–A7 reproduced-then-fixed in headless Chromium;
+  computed-style audit confirmed Classic/Dark byte-identical + Playful fully themed across the 4 variants; WCAG
+  validator 11/11 AA; cross-theme journey matrix (light/dark/playful × 320/768) 6/6 clean. SW v202 → v203.
+- **Intentional limitations:** the numpad's bespoke per-theme palette (already fully themed incl. Playful teal) and
+  neutral shadows/scrims are retained; in Playful-dark a few secondary cards (MCQ base, insight) fall to the
+  near-identical classic-dark navy via `body.dark-mode` source order — the distinctive accent elements (buttons,
+  benchmark, badges) win; app-wide non-drill tokenisation stays out of scope.
+
 ## ADR-087 — Drill Engine final verification, hardening + complete Playful theme identity (2026-07-02)
 - **Context:** a no-assumptions production quality-gate on the shipped ADR-086 drill redesign — prove it correct from
   the code (trusting no prior summary) and fix anything blocking production. Ran three independent Explore audits

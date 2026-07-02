@@ -9,12 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.108 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.109 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.56 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.21 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.15 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.109 / Arch 2.56 (2026-07-02)** — **Drill hardening round 2 (ADR-088).** Re-ran the assume-nothing quality-gate;
+> re-verified ADR-086/087 correct from code, then fixed a regression (Practice-Mistakes count), a latent bug (0-answer
+> speed-score inflation), a11y gaps (progressbar role, results focus/announce, pause aria-modal, MCQ aria-label escape),
+> a dead duel branch, and the `.session-upgrade-banner` unstyled in Light/Playful. Completed the Playful theme across
+> the older results/feedback components (buttons, benchmark card, badges, pills, MCQ, insight/auto-explain/wrong-answer,
+> feedback text) via a token-driven `body.theme-playful` block — Classic/Dark byte-identical, all 11 new pairs WCAG AA.
+> SW v202→v203.
+>
 > **2.108 / Arch 2.56 (2026-07-02)** — **Drill Engine final verification + hardening + Playful identity (ADR-087).**
 > A no-assumptions quality-gate on ADR-086 (3 independent audits + code re-reads + full harness). Fixed three
 > browser-reproduced correctness bugs — Reflex double-advance/skip (D1), pause-during-auto-advance strand (D2), review

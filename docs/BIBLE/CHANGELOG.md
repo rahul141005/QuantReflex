@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-02 — Drill Engine hardening round 2: theme coverage + audit fixes (ADR-088)
+
+Re-ran the assume-nothing drill quality-gate (three fresh independent audits + code re-reads + full harness). ADR-086/
+087 re-verified correct from code. Fixed the items the round-2 pass found, as small green commits R2-A…R2-C.
+
+```
+### fix(ADR-088 R2-A): correctness + accessibility
+- js/drill-engine.js: A1 _restartSession(overrideCount) — Practice-Mistakes now requests 10 (was overwritten by the D4
+  _initialCount restore, so it replayed the prior mode's size). A2 finish() scores a 0-answer timed expiry as
+  speedScore 0 (was inflated to ~37th percentile via avgRaw=0). A3 removed the unreachable/mismatched duel branch in
+  checkAnswer. A4 MCQ aria-label escapes '"'. A5 .drill-progress-bar role=progressbar + aria-valuenow/min/max + label
+  (both render paths). A6 results card role=status + focus to the "Session Complete" heading. A7 pause overlay
+  aria-modal=true. A8 set-mode progressPct clamp.
+- js/ui/di-charts.js: A8 pie-legend label yields room to the full value so a large value can't clip the 320 viewBox.
+
+### fix(ADR-088 R2-B): session-upgrade-banner unstyled in Light/Playful
+- css/style.css: authored the token-driven base rule (banner + text + CTA + dismiss) — previously ONLY a
+  body.dark-mode rule existed. CTA text uses --qr-surface-solid over --qr-accent (contrast-safe in every theme).
+
+### feat(ADR-088 R2-C): complete the Playful drill/results identity
+- css/style.css: added a consolidated body.theme-playful override block (tokens → covers Playful light + dark) for the
+  primary CTA + share button (blue→teal), performance badges + adaptive pills, speed-benchmark card + benchmark-*,
+  session-insight / auto-explain / wrong-answer / percentile-delta, MCQ options + correct/wrong, feedback text, progress
+  label, active-drill skip. Playful --qr-warn #b45309 -> #9a4708 (warn-as-badge-text AA on warm surfaces). No :root/
+  base/body.dark-mode rule touched — Classic + Dark byte-identical (computed-verified); all 11 new Playful pairs AA.
+```
+
+Pixel polish (Phase 19) was audited: the flagged inconsistencies either lack a pixel-identical token to map to, would
+alter Classic/Dark, or are defensible hierarchy — so none was forced (the drill renders cleanly, matrix 6/6). SW
+v202 -> v203; Bible 2.108 -> 2.109.
+
 ## 2026-07-02 — Drill Engine final verification, hardening + Playful identity (ADR-087)
 
 A no-assumptions production quality-gate on the shipped ADR-086 drill engine: three independent Explore audits (engine
