@@ -45,6 +45,7 @@ var QuickRef = (function () {
     var KB = _KB();
     var wrap = document.createElement('div');
     wrap.className = 'qr-card';
+    wrap.setAttribute('data-card', card.id);
     var terms = [card.title].concat(card.searchTerms || []).join(' ').toLowerCase();
     wrap.setAttribute('data-terms', terms);
 
@@ -186,7 +187,30 @@ var QuickRef = (function () {
     if (empty) empty.style.display = (q && !anyGlobal) ? 'block' : 'none';
   }
 
-  return { render: render, filter: filter };
+  /* Jump straight to one card (ADR-092 unified search): expand its section, scroll it into view, flash it.
+     Safe no-op if the library isn't rendered yet or the id is unknown. */
+  function reveal(cardId) {
+    var host = document.getElementById('learnQuickRef'); if (!host) return;
+    var cardEl = host.querySelector('.qr-card[data-card="' + String(cardId).replace(/"/g, '') + '"]');
+    if (!cardEl || !cardEl.closest) return;
+    var sec = cardEl.closest('.qr-sec');
+    if (sec) {
+      var content = sec.querySelector('.collapsible-content');
+      var header = sec.querySelector('.collapsible-header');
+      var icon = sec.querySelector('.collapse-icon');
+      if (content) content.style.display = 'block';
+      if (icon) icon.textContent = '▲';
+      if (header) header.setAttribute('aria-expanded', 'true');
+      _setOpen(sec.getAttribute('data-sec'), true);
+    }
+    var behavior = 'smooth';
+    try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) behavior = 'auto'; } catch (_) {}
+    try { cardEl.scrollIntoView({ behavior: behavior, block: 'start' }); } catch (_) { cardEl.scrollIntoView(); }
+    cardEl.classList.add('qr-card-flash');
+    setTimeout(function () { cardEl.classList.remove('qr-card-flash'); }, 1600);
+  }
+
+  return { render: render, filter: filter, reveal: reveal };
 })();
 
 if (typeof window !== 'undefined') window.QuickRef = QuickRef;

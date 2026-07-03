@@ -62,16 +62,16 @@
       ] }
     },
     {
-      id: 'squares', section: 'number', title: 'Squares (1–30)', icon: '🔲',
+      id: 'squares', section: 'number', title: 'Squares (1–50)', icon: '🔲',
       learn: 'squares', drill: 'squares',
       searchTerms: ['squares', 'square table', 'perfect square'],
-      block: _grid('²', 1, 30, function (n) { return n * n; })
+      block: _grid('²', 1, 50, function (n) { return n * n; })
     },
     {
-      id: 'cubes', section: 'number', title: 'Cubes (1–15)', icon: '🔳',
+      id: 'cubes', section: 'number', title: 'Cubes (1–30)', icon: '🔳',
       learn: 'cubes', drill: 'cubes',
       searchTerms: ['cubes', 'cube table', 'perfect cube'],
-      block: _grid('³', 1, 15, function (n) { return n * n * n; })
+      block: _grid('³', 1, 30, function (n) { return n * n * n; })
     },
 
     /* ── Arithmetic & Commercial ── */
@@ -79,11 +79,20 @@
       id: 'frac-pct', section: 'arithmetic', title: 'Fraction ⇄ Decimal ⇄ Percent', icon: '🍕',
       learn: 'fractions', drill: 'fractions',
       searchTerms: ['fraction', 'decimal', 'percentage', 'percent', 'conversion'],
+      /* The complete classic memorisation table (ADR-092: absorbed the Learn-hub static table — single source). */
       block: { kind: 'table', headers: ['Fraction', 'Decimal', 'Percent'], rows: [
-        ['1/2', '0.5', '50%'], ['1/3', '0.333', '33.33%'], ['1/4', '0.25', '25%'],
-        ['1/5', '0.2', '20%'], ['1/6', '0.1667', '16.67%'], ['1/8', '0.125', '12.5%'],
-        ['3/8', '0.375', '37.5%'], ['5/8', '0.625', '62.5%'], ['1/9', '0.111', '11.11%'],
-        ['1/10', '0.1', '10%'], ['1/12', '0.0833', '8.33%'], ['1/20', '0.05', '5%']
+        ['1/2', '0.5', '50%'], ['1/3', '0.333', '33.33%'], ['2/3', '0.667', '66.66%'],
+        ['1/4', '0.25', '25%'], ['3/4', '0.75', '75%'],
+        ['1/5', '0.2', '20%'], ['2/5', '0.4', '40%'], ['3/5', '0.6', '60%'], ['4/5', '0.8', '80%'],
+        ['1/6', '0.1667', '16.67%'], ['5/6', '0.8333', '83.33%'],
+        ['1/8', '0.125', '12.5%'], ['3/8', '0.375', '37.5%'], ['5/8', '0.625', '62.5%'], ['7/8', '0.875', '87.5%'],
+        ['1/9', '0.111', '11.11%'], ['2/9', '0.222', '22.22%'], ['4/9', '0.444', '44.44%'],
+        ['5/9', '0.555', '55.55%'], ['7/9', '0.777', '77.77%'], ['8/9', '0.888', '88.88%'],
+        ['1/10', '0.1', '10%'],
+        ['1/11', '0.0909', '9.09%'], ['2/11', '0.1818', '18.18%'], ['3/11', '0.2727', '27.27%'],
+        ['5/11', '0.4545', '45.45%'], ['9/11', '0.8181', '81.81%'],
+        ['1/12', '0.0833', '8.33%'], ['1/15', '0.0667', '6.66%'], ['1/20', '0.05', '5%'],
+        ['1/25', '0.04', '4%'], ['1/40', '0.025', '2.5%'], ['1/50', '0.02', '2%']
       ] }
     },
     {
@@ -94,6 +103,8 @@
         ['× 5', '(n × 10) ÷ 2'],
         ['× 25', '(n × 100) ÷ 4'],
         ['× 50', '(n × 100) ÷ 2'],
+        ['× 75', '(n × 300) ÷ 4'],
+        ['× 125', '(n × 1000) ÷ 8'],
         ['× 9', '(n × 10) − n'],
         ['× 11', 'Add each adjacent digit pair inward'],
         ['× 15', '(n × 10) + (n × 5)']

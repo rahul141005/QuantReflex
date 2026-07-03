@@ -110,15 +110,32 @@ function renderQuickStudyLinks() {
     container.appendChild(card);
   }
 
-  /* Re-bind click handlers for learn section links */
+  /* Re-bind click handlers for learn section links.
+     ADR-092 moved most condensed reference into the Quick-Reference library — each legacy link routes to the
+     content's new single home (library card via QuickRef.reveal, or a hub section). `formulaSections` had NO DOM
+     target since ADR-069 replaced the old formula sections; it now honestly opens the library (the formula home). */
+  var LEARN_LINK_DEST = {
+    fractionTable: { qr: 'frac-pct' },
+    mentalTricks: { qr: 'mult-tricks' },
+    squaresSection: { qr: 'squares' },
+    formulaSections: { qr: null },              /* library root */
+    bookmarksSection: { hub: 'myNotesSection' } /* starred formulas live inside the My-notes card */
+  };
   var studyLinks = container.querySelectorAll('[data-learn-section]');
   for (var s = 0; s < studyLinks.length; s++) {
     studyLinks[s].addEventListener('click', function (e) {
       e.preventDefault();
       var section = this.getAttribute('data-learn-section');
+      var dest = LEARN_LINK_DEST[section];
+      if (dest && 'qr' in dest) {
+        Router.showView('learn', { path: 'quick-ref' });
+        if (dest.qr) setTimeout(function () { try { if (typeof QuickRef !== 'undefined' && QuickRef.reveal) QuickRef.reveal(dest.qr); } catch (_) {} }, 120);
+        return;
+      }
+      var targetId = (dest && dest.hub) || section;
       Router.showView('learn');
       setTimeout(function () {
-        var target = document.getElementById(section);
+        var target = document.getElementById(targetId);
         if (target) {
           var header = target.querySelector('.collapsible-header');
           if (header) {

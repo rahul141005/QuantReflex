@@ -135,27 +135,12 @@ var LearnView = (function () {
   /* ───────────────────────── hub ───────────────────────── */
 
   function _buildHub() {
-    /* Quick-Reference interactive aids (preserved exactly — tables.js + grids). */
+    /* The loved multiplication tables (tables.js) — kept on the hub as a first-class revision shortcut (ADR-092).
+       All other condensed reference (squares, cubes, fraction↔percent, mental math) now lives ONLY in the
+       Quick-Reference library — one intentional home instead of three historical ones. */
     var tableSelector = document.getElementById('tableSelector');
     var tableDisplay = document.getElementById('tableDisplay');
     if (tableSelector && tableDisplay && typeof renderTableSelector === 'function') renderTableSelector(tableSelector, tableDisplay, 30);
-
-    var sqGrid = document.getElementById('squaresGrid');
-    if (sqGrid && !sqGrid.childNodes.length) {
-      for (var n = 1; n <= 50; n++) {
-        var s = document.createElement('div'); s.className = 'math-grid-item';
-        s.innerHTML = '<span class="math-expr">' + padTableNum(n, 2) + '²</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(n * n, 4) + '</span>';
-        sqGrid.appendChild(s);
-      }
-    }
-    var cuGrid = document.getElementById('cubesGrid');
-    if (cuGrid && !cuGrid.childNodes.length) {
-      for (var m = 1; m <= 30; m++) {
-        var c = document.createElement('div'); c.className = 'math-grid-item';
-        c.innerHTML = '<span class="math-expr">' + padTableNum(m, 2) + '³</span><span class="math-eq">=</span><span class="math-val">' + padTableNum(m * m * m, 5) + '</span>';
-        cuGrid.appendChild(c);
-      }
-    }
 
     var qrEntry = document.getElementById('quickRefEntry');
     if (qrEntry) qrEntry.addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: 'quick-ref' }); } catch (_) {} });
@@ -179,10 +164,12 @@ var LearnView = (function () {
     _wireSearch();
   }
 
+  /* ADR-092 de-badging: difficulty + AT MOST one contextual badge per card. Exam frequency stays on the topic
+     page where there's room for full metadata — 62 cards × 3 badges was a wall, not information. */
   function _topicCardHtml(t) {
     return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +
-      '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _freqBadge(t.examFrequency) + _ctxBadge(t) +
+      '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _ctxBadge(t) +
       (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') + '</div>' +
       '</button>';
   }
@@ -203,8 +190,11 @@ var LearnView = (function () {
     var KB = _KB(); var topics = KB.byCategory(c.id);
     /* hideHead: when a subject has a single category, its rich subject header already names it — repeating the
        category title right below would be redundant, so we drop it and let the sub-groups carry the structure. */
+    var LP = _LP(), done = 0;
+    if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
     var head = hideHead ? '' : ('<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
-      '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') + '</span></div>' +
+      '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') +
+      (done > 0 ? ' · ' + done + ' read' : '') + '</span></div>' +
       (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : ''));
     var groups = SUBGROUPS[c.id], body;
     if (groups) {
@@ -278,6 +268,7 @@ var LearnView = (function () {
         var sel = p.getAttribute('data-filter');
         _saveFilter(sel);
         _applyFilter(host, sel);
+        _renderUpNext();   // the "Up next" pick is filter-aware (ADR-092)
         if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('tabSwitch'); } catch (_) {} }
       });
     });
@@ -336,21 +327,44 @@ var LearnView = (function () {
     });
   }
 
+  /* ADR-092: ONE search over everything — topic chapters AND Quick-Reference cards, rendered as two groups. */
   function _runSearch(q) {
     var box = document.getElementById('learnSearchResults'); if (!box) return;
     q = (q || '').trim();
     if (!q || typeof LearnSearch === 'undefined') { box.hidden = true; box.innerHTML = ''; return; }
-    var res = LearnSearch.query(q).slice(0, 8);
+    var topics = LearnSearch.query(q).slice(0, 6);
+    var cards = (LearnSearch.queryCards ? LearnSearch.queryCards(q) : []).slice(0, 4);
     box.hidden = false;
-    if (!res.length) { box.innerHTML = '<div class="kx-search-empty">No topics match “' + _esc(q) + '”.</div>'; return; }
-    box.innerHTML = res.map(function (r) {
-      return '<a class="kx-search-item" href="#learn/' + encodeURIComponent(r.id) + '" data-topic="' + _esc(r.id) + '">' +
-        '<span class="kx-search-ico">' + _esc(r.icon || '📘') + '</span>' +
-        '<span class="kx-search-title">' + _esc(r.title) + '</span>' +
-        '<span class="kx-search-cat">' + _esc(r.category) + '</span></a>';
-    }).join('');
-    box.querySelectorAll('.kx-search-item').forEach(function (a) {
+    if (!topics.length && !cards.length) { box.innerHTML = '<div class="kx-search-empty">No matches for “' + _esc(q) + '”.</div>'; return; }
+    var html = '';
+    if (topics.length) {
+      html += '<div class="kx-search-group">Topics</div>' + topics.map(function (r) {
+        return '<a class="kx-search-item" href="#learn/' + encodeURIComponent(r.id) + '" data-topic="' + _esc(r.id) + '">' +
+          '<span class="kx-search-ico">' + _esc(r.icon || '📘') + '</span>' +
+          '<span class="kx-search-title">' + _esc(r.title) + '</span>' +
+          '<span class="kx-search-cat">' + _esc(r.category) + '</span></a>';
+      }).join('');
+    }
+    if (cards.length) {
+      html += '<div class="kx-search-group">Quick reference</div>' + cards.map(function (r) {
+        return '<a class="kx-search-item" href="#learn/quick-ref" data-card="' + _esc(r.id) + '">' +
+          '<span class="kx-search-ico">' + _esc(r.icon || '⚡') + '</span>' +
+          '<span class="kx-search-title">' + _esc(r.title) + '</span>' +
+          '<span class="kx-search-cat">' + _esc(r.section) + '</span></a>';
+      }).join('');
+    }
+    box.innerHTML = html;
+    box.querySelectorAll('.kx-search-item[data-topic]').forEach(function (a) {
       a.addEventListener('click', function (e) { e.preventDefault(); _go(a.getAttribute('data-topic')); });
+    });
+    box.querySelectorAll('.kx-search-item[data-card]').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var id = a.getAttribute('data-card');
+        _go('quick-ref');
+        /* reveal AFTER the route has rendered + focused (both synchronous) so our scroll wins */
+        setTimeout(function () { try { if (typeof QuickRef !== 'undefined' && QuickRef.reveal) QuickRef.reveal(id); } catch (_) {} }, 60);
+      });
     });
   }
 
@@ -364,12 +378,14 @@ var LearnView = (function () {
     host.classList.remove('kx-revision-only');   // never carry the cheat-sheet projection across topics
     host.innerHTML = '';
 
-    /* breadcrumb */
-    var crumbs = document.createElement('nav'); crumbs.className = 'kx-crumbs'; crumbs.setAttribute('aria-label', 'Breadcrumb');
-    crumbs.innerHTML = '<button class="kx-crumb" data-go="">Learn</button>' +
-      '<span class="kx-crumb-sep">›</span><button class="kx-crumb" data-go="">' + _esc(cat.title) + '</button>' +
-      '<span class="kx-crumb-sep">›</span><span class="kx-crumb-cur">' + _esc(topic.title) + '</span>';
-    host.appendChild(crumbs);
+    /* Single honest back affordance (ADR-092): topic pages are one level deep — the old breadcrumb's category
+       crumb also just went to the hub, a pretend hierarchy. One link, no lie. Hub scroll position is restored. */
+    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
+    var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
+    backBtn.innerHTML = '← Learn';
+    backBtn.addEventListener('click', function () { _go(null); });
+    backNav.appendChild(backBtn);
+    host.appendChild(backNav);
 
     /* header + badges */
     var header = document.createElement('div'); header.className = 'kx-topic-header';
@@ -414,7 +430,8 @@ var LearnView = (function () {
       host.appendChild(nav);
     }
 
-    /* body: main reading column + aside (related / prev-next / back) */
+    /* ONE reading column at every width (ADR-092) — the old desktop aside split the reader's attention and hid
+       prev/next in a sidebar; everything that matters at the END of a chapter now lives at the end of the chapter. */
     var body = document.createElement('div'); body.className = 'kx-topic-body';
     var main = document.createElement('div'); main.className = 'kx-topic-main';
 
@@ -437,12 +454,67 @@ var LearnView = (function () {
       if (node) sec.appendChild(node);
       main.appendChild(sec);
     });
-    body.appendChild(main);
 
-    var aside = document.createElement('aside'); aside.className = 'kx-aside'; aside.setAttribute('aria-label', 'Related topics and navigation');
+    /* End-of-chapter footer (ADR-092): the read → practise → complete loop at the exact moment of finish,
+       then the path onward (Next up / related / previous). Published topics only. */
+    if (topic.status !== 'scaffold') main.appendChild(_buildChapterFoot(topic, cat));
+    body.appendChild(main);
+    host.appendChild(body);
+
+    _setupSectionSpy(sections.length);
+  }
+
+  /* Every complete-toggle on the page (action bar + chapter footer) shows the same state. */
+  function _syncCompleteButtons(nowDone) {
+    document.querySelectorAll('#learnTopic .kx-action-complete').forEach(function (b) {
+      b.classList.toggle('is-on', nowDone);
+      b.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
+      b.innerHTML = nowDone ? '✓ Completed' : '○ Mark complete';
+    });
+  }
+  function _completeBtn(topic, LP) {
+    var done = LP.isComplete(topic.id);
+    var cb = document.createElement('button'); cb.className = 'kx-action kx-action-complete' + (done ? ' is-on' : ''); cb.type = 'button';
+    cb.setAttribute('aria-pressed', done ? 'true' : 'false'); cb.innerHTML = done ? '✓ Completed' : '○ Mark complete';
+    cb.addEventListener('click', function () {
+      var nowDone = LP.toggleComplete(topic.id);
+      _syncCompleteButtons(nowDone);
+      if (typeof showToast === 'function') showToast(nowDone ? 'Marked “' + topic.title + '” complete' : 'Marked as not complete.');
+    });
+    return cb;
+  }
+
+  function _buildChapterFoot(topic, cat) {
+    var KB = _KB(), LP = _LP();
+    var foot = document.createElement('div'); foot.className = 'kx-chapter-foot';
+
+    /* the moment of finish: complete + practise side by side */
+    var row = document.createElement('div'); row.className = 'kx-foot-actions';
+    if (LP) row.appendChild(_completeBtn(topic, LP));
+    if (topic.drillCategory) {
+      var pb = document.createElement('button'); pb.className = 'kx-action kx-action-practise'; pb.type = 'button';
+      pb.innerHTML = '🎯 Practise this';
+      pb.addEventListener('click', function () { _launchDrill(topic); });
+      row.appendChild(pb);
+    }
+    if (row.childNodes.length) foot.appendChild(row);
+
+    var sib = KB ? KB.siblings(topic.id) : { prev: null, next: null };
+    if (sib.next) {
+      var nu = document.createElement('div'); nu.className = 'kx-foot-block';
+      nu.innerHTML = '<div class="kx-aside-title">Next up</div>';
+      var nc = document.createElement('button'); nc.className = 'kx-foot-next'; nc.type = 'button';
+      nc.innerHTML = '<span class="kx-fn-ico" aria-hidden="true">' + _esc(sib.next.icon || '📘') + '</span>' +
+        '<span class="kx-fn-txt"><span class="kx-fn-title">' + _esc(sib.next.title) + '</span>' +
+        '<span class="kx-fn-cat">' + _esc(cat.title) + '</span></span>' +
+        '<span class="kx-fn-arrow" aria-hidden="true">›</span>';
+      nc.addEventListener('click', (function (id) { return function () { _go(id); }; })(sib.next.id));
+      nu.appendChild(nc); foot.appendChild(nu);
+    }
+
     var related = KB ? KB.related(topic.id) : [];
     if (related.length) {
-      var rb = document.createElement('div'); rb.className = 'kx-aside-block';
+      var rb = document.createElement('div'); rb.className = 'kx-foot-block';
       rb.innerHTML = '<div class="kx-aside-title">Related topics</div>';
       var chips = document.createElement('div'); chips.className = 'kx-related';
       related.forEach(function (rt) {
@@ -451,34 +523,16 @@ var LearnView = (function () {
         a.addEventListener('click', function (e) { e.preventDefault(); _go(rt.id); });
         chips.appendChild(a);
       });
-      rb.appendChild(chips); aside.appendChild(rb);
+      rb.appendChild(chips); foot.appendChild(rb);
     }
-    var sib = KB ? KB.siblings(topic.id) : { prev: null, next: null };
-    if (sib.prev || sib.next) {
-      var pn = document.createElement('div'); pn.className = 'kx-aside-block';
-      pn.innerHTML = '<div class="kx-aside-title">More in ' + _esc(cat.title) + '</div>';
-      var row = document.createElement('div'); row.className = 'kx-prevnext';
-      [['Prev', sib.prev], ['Next', sib.next]].forEach(function (pair) {
-        if (!pair[1]) return;
-        var btn = document.createElement('button'); btn.className = 'kx-pn'; btn.type = 'button';
-        btn.innerHTML = '<div class="kx-pn-dir">' + pair[0] + '</div><div class="kx-pn-title">' + _esc(pair[1].title) + '</div>';
-        btn.addEventListener('click', (function (id) { return function () { _go(id); }; })(pair[1].id));
-        row.appendChild(btn);
-      });
-      pn.appendChild(row); aside.appendChild(pn);
+
+    if (sib.prev) {
+      var pv = document.createElement('button'); pv.className = 'kx-foot-prev'; pv.type = 'button';
+      pv.innerHTML = '← Previous: ' + _esc(sib.prev.title);
+      pv.addEventListener('click', (function (id) { return function () { _go(id); }; })(sib.prev.id));
+      foot.appendChild(pv);
     }
-    var backBlock = document.createElement('div'); backBlock.className = 'kx-aside-block';
-    var back = document.createElement('button'); back.className = 'kx-back'; back.type = 'button';
-    back.innerHTML = '← Back to all topics';
-    back.addEventListener('click', function () { _go(null); });
-    backBlock.appendChild(back); aside.appendChild(backBlock);
-    body.appendChild(aside);
-
-    host.appendChild(body);
-
-    crumbs.querySelectorAll('.kx-crumb').forEach(function (b) { b.addEventListener('click', function () { _go(null); }); });
-
-    _setupSectionSpy(sections.length);
+    return foot;
   }
 
   /* Highlight the section-nav pill for the section currently in view (premium polish; degrades gracefully). */
@@ -522,16 +576,7 @@ var LearnView = (function () {
       bar.appendChild(qb);
     }
     if (LP) {
-      var done = LP.isComplete(topic.id);
-      var cb = document.createElement('button'); cb.className = 'kx-action kx-action-complete' + (done ? ' is-on' : ''); cb.type = 'button';
-      cb.setAttribute('aria-pressed', done ? 'true' : 'false'); cb.innerHTML = done ? '✓ Completed' : '○ Mark complete';
-      cb.addEventListener('click', function () {
-        var nowDone = LP.toggleComplete(topic.id);
-        cb.classList.toggle('is-on', nowDone); cb.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
-        cb.innerHTML = nowDone ? '✓ Completed' : '○ Mark complete';
-        if (typeof showToast === 'function') showToast(nowDone ? 'Marked “' + topic.title + '” complete' : 'Marked as not complete.');
-      });
-      bar.appendChild(cb);
+      bar.appendChild(_completeBtn(topic, LP));   // shared with the chapter footer — the two toggles stay in sync
 
       var saved = LP.isBookmarked(topic.id);
       var bb = document.createElement('button'); bb.className = 'kx-action kx-action-save' + (saved ? ' is-on' : ''); bb.type = 'button';
@@ -547,7 +592,76 @@ var LearnView = (function () {
     return bar;
   }
 
-  /* ───────────────────────── hub resume strips (Continue + Due for revision) ───────────────────────── */
+  /* ───────────────────────── "Up next" + "Revise today" (ADR-092) ───────────────────────── */
+
+  /* All topic ids currently due for spaced revision (shared by the Revise-today card and the revise flow). */
+  function _dueIds() {
+    var LP = _LP(), KB = _KB();
+    if (!LP || !KB) return [];
+    var input = KB.all().map(function (t) { return { id: t.id, revisionIntervalDays: t.revisionIntervalDays }; });
+    return LP.due(input).filter(function (id) { return KB.has(id); });
+  }
+
+  /* ONE recommended next chapter — the study spine made visible. First not-completed topic by the exam-relevance
+     recommended order, honouring the saved subject filter and (when a target exam is set) preferring that exam's
+     focus topics. Hidden once everything is read. */
+  function _renderUpNext() {
+    var host = document.getElementById('learnUpNext'); if (!host) return;
+    var KB = _KB(), LP = _LP(), ER = _examRel();
+    if (!KB) { host.innerHTML = ''; return; }
+    var subjOf = {};
+    KB.categories().forEach(function (c) { subjOf[c.id] = c.subject || '_'; });
+    var subjRank = {};
+    try { if (typeof window !== 'undefined' && window.QR_SUBJECTS) window.QR_SUBJECTS.subjects().forEach(function (s, i) { subjRank[s.id] = i; }); } catch (_) {}
+    var cands = KB.all().filter(function (t) { return t.status !== 'scaffold' && !(LP && LP.isComplete(t.id)); });
+    var sel = _loadFilter();
+    if (sel !== 'all') {
+      var inSubj = cands.filter(function (t) { return subjOf[t.category] === sel; });
+      if (inSubj.length) cands = inSubj;   // filter subject fully read → fall back to everything
+    }
+    if (!cands.length) { host.innerHTML = ''; return; }
+    var exam = _targetExam(), track = (exam && ER) ? ER.trackForExam(exam) : null;
+    if (track) {
+      var focus = cands.filter(function (t) { return ER.weight(t.id, track) >= 2; });
+      if (focus.length) cands = focus;
+    }
+    cands.sort(function (a, b) {
+      var sa = subjRank[subjOf[a.category]] || 0, sb = subjRank[subjOf[b.category]] || 0;
+      if (sa !== sb) return sa - sb;
+      return (ER ? ER.order(a.id) : 999) - (ER ? ER.order(b.id) : 999);
+    });
+    var t = cands[0];
+    var cat = KB.categoryMeta(t.category) || { title: t.category };
+    var why = [DIFF_LABEL[t.difficulty] || '', cat.title];
+    if (track && ER.weight(t.id, track) >= 3) why.push('⭐ High priority for ' + ER.trackLabel(track));
+    else if (ER && ER.isMostAsked(t.id)) why.push('🔥 Most asked');
+    host.innerHTML = '<button class="kx-upnext" type="button" data-topic="' + _esc(t.id) + '">' +
+      '<span class="kx-upnext-eyebrow">Up next</span>' +
+      '<span class="kx-upnext-row">' +
+      '<span class="kx-upnext-ico" aria-hidden="true">' + _esc(t.icon || '📘') + '</span>' +
+      '<span class="kx-upnext-txt"><span class="kx-upnext-title">' + _esc(t.title) + '</span>' +
+      '<span class="kx-upnext-why">' + why.filter(Boolean).map(_esc).join(' · ') + '</span></span>' +
+      '<span class="kx-upnext-arrow" aria-hidden="true">›</span></span></button>';
+    host.querySelector('.kx-upnext').addEventListener('click', function () { _go(t.id); });
+  }
+
+  /* The daily recall entry point — visible only when spaced revision actually has something due. */
+  function _renderReviseCard() {
+    var host = document.getElementById('learnReviseCard'); if (!host) return;
+    var due = _dueIds();
+    if (!due.length) { host.innerHTML = ''; return; }
+    var n = due.length;
+    host.innerHTML = '<button class="kx-revise-card" type="button">' +
+      '<span class="kx-revise-ico" aria-hidden="true">🔁</span>' +
+      '<span class="kx-revise-txt"><strong>Revise today</strong>' +
+      '<small>' + n + (n === 1 ? ' topic is' : ' topics are') + ' due — a quick recall pass keeps them fresh</small></span>' +
+      '<span class="kx-revise-cta">Start</span></button>';
+    host.querySelector('.kx-revise-card').addEventListener('click', function () {
+      try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: 'revise' }); } catch (_) {}
+    });
+  }
+
+  /* ───────────────────────── hub resume strips (Continue + Needs practice + Saved) ───────────────────────── */
 
   function _stripHtml(title, ids, KB) {
     var LP = _LP();
@@ -562,19 +676,39 @@ var LearnView = (function () {
     return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
   }
 
+  /* "Needs practice" (ADR-092): the drill→learn loop. The SAME weakest derivation Stats shows (QR_STATMATH via
+     loadProgress) mapped onto Learn topics through drillCategory — Learn and Analytics can never disagree. */
+  function _weakStripHtml(KB) {
+    try {
+      if (typeof QR_STATMATH === 'undefined' || typeof loadProgress !== 'function') return '';
+      var weak = QR_STATMATH.weakestTopics(loadProgress(), 4);
+      if (!weak || !weak.length) return '';
+      var byCat = {};
+      KB.all().forEach(function (t) { if (t.drillCategory && !byCat[t.drillCategory]) byCat[t.drillCategory] = t; });
+      var cards = weak.map(function (m) {
+        var t = byCat[m.cat]; if (!t) return '';
+        return '<button class="kx-resume-card kx-weak-card" type="button" data-topic="' + _esc(t.id) + '">' +
+          '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
+          '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
+          '<span class="kx-rc-acc">' + Math.round((m.acc || 0) * 100) + '%</span></button>';
+      }).join('');
+      if (!cards) return '';
+      return '<div class="kx-resume"><div class="kx-resume-head">🎯 Needs practice</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
+    } catch (_) { return ''; }
+  }
+
   function _renderResume() {
     var host = document.getElementById('learnResume'); if (!host) return;
     var LP = _LP(); var KB = _KB();
     if (!LP || !KB) { host.innerHTML = ''; return; }
     var html = '';
 
-    var dueInput = KB.all().map(function (t) { return { id: t.id, revisionIntervalDays: t.revisionIntervalDays }; });
-    var due = LP.due(dueInput).filter(function (id) { return KB.has(id); }).slice(0, 8);
-    if (due.length) html += _stripHtml('🔁 Due for revision', due, KB);
-
-    /* Continue excludes anything already shown under Due (the more urgent framing of the same topic) — no dup cards. */
+    /* Continue excludes anything currently due (the Revise-today card is the more urgent framing) — no dup cards. */
+    var due = _dueIds();
     var recent = LP.recent(8).filter(function (id) { return KB.has(id) && due.indexOf(id) === -1; });
     if (recent.length) html += _stripHtml('⏱️ Continue learning', recent, KB);
+
+    html += _weakStripHtml(KB);
 
     /* Saved stays authoritative (an explicit user list) — every saved topic shows, even if also Due/Continue. */
     var saved = LP.bookmarkedIds().filter(function (id) { return KB.has(id); }).slice(0, 8);
@@ -595,21 +729,28 @@ var LearnView = (function () {
 
   /* ───────────────────────── route dispatch ───────────────────────── */
 
+  /* Stash the hub scroll position + clear the search box before leaving the hub for any sub-view. */
+  function _leaveHub(hub) {
+    if (hub && !hub.hidden) { var c = document.querySelector('.container'); _hubScroll = c ? c.scrollTop : 0; }
+    var input = document.getElementById('learnSearch'); if (input) input.value = '';
+    var box = document.getElementById('learnSearchResults'); if (box) { box.hidden = true; box.innerHTML = ''; }
+  }
+
   function renderLearnRoute(params) {
     if (!_hubBuilt) { _buildHub(); _hubBuilt = true; }
     var hub = document.getElementById('learnHub');
     var topicEl = document.getElementById('learnTopic');
     var qrEl = document.getElementById('learnQuickRef');
+    var revEl = document.getElementById('learnRevise');
     var KB = _KB();
     var path = params && params.path;
 
     if (path === 'quick-ref' && qrEl && typeof QuickRef !== 'undefined') {
       /* Quick-Reference revision library sub-view (ADR-084) — hub/topic hidden, library shown. */
-      if (hub && !hub.hidden) { var qc = document.querySelector('.container'); _hubScroll = qc ? qc.scrollTop : 0; }
-      var qin = document.getElementById('learnSearch'); if (qin) qin.value = '';
-      var qbox = document.getElementById('learnSearchResults'); if (qbox) { qbox.hidden = true; qbox.innerHTML = ''; }
+      _leaveHub(hub);
       if (hub) hub.hidden = true;
       if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
+      if (revEl) { revEl.hidden = true; revEl.innerHTML = ''; }
       QuickRef.render(qrEl);
       qrEl.hidden = false;
       _scrollTop();
@@ -619,11 +760,24 @@ var LearnView = (function () {
     }
     if (qrEl) qrEl.hidden = true;
 
+    if (path === 'revise' && revEl && typeof ReviseFlow !== 'undefined') {
+      /* Guided Revision flow (ADR-092) — a fresh pass over whatever is currently due. The search bar hides for
+         the duration: a recall session is a focused mode, not a browsing surface. */
+      _leaveHub(hub);
+      if (hub) hub.hidden = true;
+      if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
+      var sc = document.querySelector('#view-learn .learn-search-container'); if (sc) sc.hidden = true;
+      ReviseFlow.render(revEl);
+      revEl.hidden = false;
+      _scrollTop();
+      return;
+    }
+    if (revEl) { revEl.hidden = true; revEl.innerHTML = ''; }
+    var sc2 = document.querySelector('#view-learn .learn-search-container'); if (sc2) sc2.hidden = false;
+
     if (path && KB && KB.has(path)) {
       /* remember where the hub was scrolled to, so Back restores the reading position instead of jumping to top */
-      if (hub && !hub.hidden) { var hc = document.querySelector('.container'); _hubScroll = hc ? hc.scrollTop : 0; }
-      var input = document.getElementById('learnSearch'); if (input) input.value = '';
-      var box = document.getElementById('learnSearchResults'); if (box) { box.hidden = true; box.innerHTML = ''; }
+      _leaveHub(hub);
       if (hub) hub.hidden = true;
       _buildTopicPage(KB.get(path));
       if (topicEl) topicEl.hidden = false;
@@ -640,7 +794,9 @@ var LearnView = (function () {
       if (_io) { try { _io.disconnect(); } catch (_) {} _io = null; }
       if (topicEl) { topicEl.hidden = true; topicEl.innerHTML = ''; }
       if (hub) hub.hidden = false;
-      _renderResume();      // refresh Continue / Due strips with any topics viewed this session
+      _renderUpNext();      // the recommended-next pick reflects fresh completions (ADR-092)
+      _renderReviseCard();  // due count changes as topics are viewed/revised
+      _renderResume();      // refresh Continue / Needs-practice / Saved strips
       _refreshCardTicks();  // keep completion ticks live on the category cards
       /* restore the hub scroll position (set when we left for a topic) now that the hub layout is settled */
       var hc2 = document.querySelector('.container'); if (hc2) hc2.scrollTop = _hubScroll;

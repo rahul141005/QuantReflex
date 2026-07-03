@@ -9,12 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.112 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.58 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.113 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.59 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.113 / Arch 2.59 (2026-07-03)** — **Learn reimagined (ADR-092).** First-principles Learn redesign around
+> Study / Revise / Look-up: hub becomes a short router ("Up next" recommended chapter, "Revise today" card,
+> Continue/Needs-practice/Saved strips, Quick-Reference entry + hub times tables, browse, collapsed "My notes");
+> new **Guided Revision flow** at `#learn/revise` (`js/learn/revise-flow.js` — due topics as sequenced recall over
+> the existing revision blocks, `markViewed` re-arms the spaced interval); the Quick-Reference library is the ONE
+> home for condensed reference (grids extended to 1–50/1–30, full fraction table; static hub duplicates deleted);
+> one unified search over topics + cards (`LearnSearch.queryCards`, `QuickRef.reveal`); topic pages become a
+> single reading spine (honest back link, aside → end-of-chapter footer, quieter pills, lede overview). No schema
+> or security change (all Learn state stays in the existing localStorage keys / FirestoreSync fields). SW v207.
+>
 > **2.112 / Arch 2.58 / Firestore 2.23 (2026-07-02)** — **Product Excellence Pass (ADR-091).** The remaining audit
 > items, independently re-evaluated: M11 + M3 closed as already-solved, M4 rejected as wrong (exact-equivalence
 > grading needs printed DI values), M6/N-series deferred. Shipped: correct-answer chime + quiet streak chip + shake

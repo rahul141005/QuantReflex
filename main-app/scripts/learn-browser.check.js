@@ -38,7 +38,9 @@ var ctx = vm.createContext(sandbox);
  'data/knowledge/geometry.js', 'data/knowledge/mensuration.js',
  'data/knowledge/di.js',
  'data/knowledge/lr.js',
- 'js/learn/learn-search.js'].forEach(function (rel) {
+ 'js/learn/learn-search.js',
+ 'js/quick-reference/quick-ref-data.js',
+ 'js/learn/revise-flow.js'].forEach(function (rel) {
   var code = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
   vm.runInContext(code, ctx, { filename: rel });
 });
@@ -64,6 +66,17 @@ ok('search works in browser path ("percent" → percentages)', (function () {
   win.LearnSearch.build();
   var r = win.LearnSearch.query('percent');
   return r.length && r[0].id === 'percentages';
+})());
+
+ok('card search works in browser path ("divisibility" → quick-ref card)', (function () {
+  if (!win.LearnSearch.queryCards) return false;
+  var r = win.LearnSearch.queryCards('divisibility');
+  return r.length && r[0].id === 'divisibility';
+})());
+
+ok('window.ReviseFlow present (ADR-092)', !!win.ReviseFlow);
+ok('ReviseFlow.buildQueue pure helper works in browser path', (function () {
+  return win.ReviseFlow && win.ReviseFlow.buildQueue(['a', 'b', 'c'], 2).join(',') === 'a,b';
 })());
 
 ok('renderer works in browser path (overview)', (function () {

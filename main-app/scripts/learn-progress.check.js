@@ -102,5 +102,17 @@ ok('corrupt progress JSON degrades to empty', LP.isViewed('x') === false && LP.c
 _store[LP.BOOKMARK_KEY] = '{not an array';
 ok('corrupt bookmark JSON degrades to empty', LP.bookmarkedIds().length === 0);
 
+/* ---- guided revision flow: pure queue builder (ADR-092) ---- */
+var RF = require(path.join(__dirname, '..', 'js', 'learn', 'revise-flow.js'));
+ok('buildQueue preserves due order', (function () {
+  var q = RF.buildQueue(['r', 'p', 'q'], 10); return q.length === 3 && q[0] === 'r' && q[2] === 'q';
+})());
+ok('buildQueue caps a long backlog', RF.buildQueue(['a', 'b', 'c', 'd'], 2).length === 2);
+ok('buildQueue defaults its cap to 10', RF.buildQueue('abcdefghijklm'.split('')).length === 10);
+ok('buildQueue on empty/undefined → []', RF.buildQueue([]).length === 0 && RF.buildQueue(undefined).length === 0);
+ok('buildQueue does not mutate its input', (function () {
+  var input = ['a', 'b', 'c']; RF.buildQueue(input, 2); return input.length === 3;
+})());
+
 console.log('\nlearn-progress.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

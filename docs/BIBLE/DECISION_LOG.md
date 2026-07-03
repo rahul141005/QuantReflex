@@ -8,6 +8,51 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-092 — Learn reimagined: study spine, guided revision, one reference home (2026-07-03)
+- **Context:** the owner mandated a first-principles redesign of the Learn tab (not incremental polish). Analysis
+  found three product generations layered on one endless page — the ADR-069 knowledge base (62 chapters), the
+  ADR-084 Quick-Reference library, and the legacy layer (static tables + custom topics/starred formulas) — with
+  squares/cubes/fraction↔percent/multiplication-tricks each duplicated in 2–3 places, two half-coverage search
+  boxes, a topic-page breadcrumb whose category crumb lied (both crumbs went to the hub), a desktop aside that
+  hid prev/next, spaced revision that only re-opened the full chapter (passive re-reading), and no drill→learn
+  loop (weak areas lived only in Stats).
+- **Owner decisions (asked & answered):** (1) the Quick-Reference library becomes the ONE home for condensed
+  reference — except the interactive Multiplication Tables, which stay on the hub as a first-class revision
+  shortcut; (2) build a first-class **Guided Revision** flow (sequenced active recall over due topics using the
+  existing quick-revision content), NOT a generic flashcard engine; (3) custom topics + starred formulas fold
+  into one collapsed "My notes" section.
+- **Design thesis:** Learn serves three jobs — *Study* (guided progression), *Revise* (daily spaced recall +
+  reference), *Look up* (one search over everything). The hub is now a short router around those jobs; the topic
+  page is one reading spine with an end-of-chapter loop; revision is an active habit.
+- **Shipped:**
+  - **Hub restructure (index.html + learn-view.js):** "Up next" hero (ONE recommended chapter — first
+    not-completed by `QR_EXAMREL.order()`, subject-filter-aware, target-exam-focus preferred, with a why-line);
+    "Revise today · N due" card (only when due); strips become Continue / **Needs practice** (new — the SAME
+    `QR_STATMATH.weakestTopics` derivation Stats uses, mapped via `drillCategory`, with accuracy chips) / Saved;
+    Quick-Reference entry + hub Multiplication Tables; "All topics" browse (categories gain a quiet "· N read";
+    topic cards de-badged to difficulty + at most one contextual badge — frequency stays on topic pages);
+    collapsed "My notes" merging custom topics + starred formulas (paywall untouched). REMOVED from the hub:
+    static Fraction→%, Squares, Cubes, Mental-Math cards (library absorbed them — supersets, incl. grids 1–50 /
+    1–30 and the full 34-row fraction table) and the old "Due for revision" strip (the Revise card replaced it).
+  - **Guided Revision flow (`js/learn/revise-flow.js`, `#learn/revise`):** due topics (oldest-first, capped 10)
+    presented one at a time as their revision projection (formula/trick/trap/revision blocks via the same
+    `BlockRenderers`); progress bar + "Revising · i of N"; "Revised ✓ · Next" re-arms the spaced interval via
+    `LearnProgress.markViewed` (no new storage); "Read full chapter →" escape hatch; caught-up + completion
+    screens. Every entry is a fresh pass over what is still due — leaving mid-flow loses nothing. No sounds, no
+    confetti: a serious trainer.
+  - **Unified search:** `LearnSearch.queryCards()` indexes the library cards; the ONE Learn search box returns
+    grouped Topics + Quick-reference results; a card tap opens the library and `QuickRef.reveal(cardId)` expands,
+    scrolls and flashes the card. `query()`'s topic-only contract (and its checks) untouched.
+  - **Topic page = one reading spine:** breadcrumb → single honest "← Learn" back link; the ≥960px aside grid is
+    gone (single centred 720px column at every width); a designed **end-of-chapter footer** carries the moment of
+    finish (Mark complete + Practise side-by-side, state-synced with the top bar) then Next-up card, related
+    chips, and a quiet Previous link; section pills visually quieter; the overview renders as a proper lede.
+- **Options considered:** flashcard engine (rejected by owner — generic, content-quality risk ×62 topics);
+  keeping the static hub tables (rejected — three homes for the same numbers is historical accident, not design);
+  removing custom topics (rejected — orphans user data + a paywalled feature).
+- **Consequence:** every condensed reference exists in exactly one place; the hub's initial DOM shrank (~120
+  static nodes gone); revision has a habit loop; Learn and Stats can never disagree about weak areas. SW v207.
+
 ## ADR-091 — Product Excellence Pass: remaining audit items, independently re-evaluated (2026-07-02)
 - **Context:** after ADR-090 closed the audit's Critical set, the owner mandated a pass over the *remaining*
   recommendations — explicitly re-evaluated against the current codebase rather than mechanically implemented

@@ -6,6 +6,49 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-03 — Learn reimagined: study spine, guided revision, one reference home (ADR-092)
+
+First-principles redesign of the Learn tab around its three jobs — Study, Revise, Look up (full reasoning +
+owner decisions in ADR-092). Code changes:
+
+```
+### feat(hub): a short router, not an archive
+- index.html: Learn view restructured — #learnUpNext + #learnReviseCard + #learnResume, Quick-Reference entry +
+  hub Multiplication Tables (kept by owner decision), "All topics" browse, collapsed "My notes" (merges custom
+  topics + starred formulas; paywall untouched). REMOVED: static Fraction→%, Squares, Cubes, Mental-Math cards
+  and the "Your Topics"/"Quick Reference" heading blocks. New #learnRevise container + revise-flow.js script tag.
+- js/views/learn-view.js: _renderUpNext (recommended next chapter — order/filter/exam-aware), _renderReviseCard
+  (due count), _weakStripHtml ("Needs practice" via QR_STATMATH.weakestTopics + drillCategory), category heads
+  gain "· N read", topic cards de-badged (difficulty + one contextual badge), _buildHub grid loops deleted.
+### feat(revise): Guided Revision flow (ADR-092 centerpiece)
+- js/learn/revise-flow.js (NEW): #learn/revise — due topics one at a time as their revision projection
+  (formula/trick/trap/revision via BlockRenderers), progress bar, "Revised ✓ · Next" re-arms the spaced interval
+  (LearnProgress.markViewed), caught-up/completion screens; pure buildQueue dual-exported for the check.
+- js/views/learn-view.js: renderLearnRoute dispatches path==='revise'; _leaveHub factored (scroll stash + search
+  clear shared by topic/quick-ref/revise branches).
+### feat(library): the ONE home for condensed reference
+- js/quick-reference/quick-ref-data.js: squares 1–50, cubes 1–30, frac-pct full 34-row table, mult-tricks +×75/×125.
+- js/quick-reference/quick-ref-renderer.js: QuickRef.reveal(cardId) — expand section, scroll, flash (+data-card).
+### feat(search): one search over everything
+- js/learn/learn-search.js: queryCards() over QR_QUICKREF (title/searchTerms/section haystack); query() contract
+  untouched. js/views/learn-view.js _runSearch renders grouped Topics + Quick-reference results; card tap →
+  library + reveal. Search placeholder: "Search topics, formulas, tables…".
+### feat(topic page): one reading spine
+- js/views/learn-view.js: breadcrumb → single "← Learn" back link; aside removed; end-of-chapter footer (Mark
+  complete + Practise synced via shared _completeBtn/_syncCompleteButtons, Next-up card, related chips, Previous
+  link).
+- css/style.css: .kx-topic-body single centred 720px column (≥960px grid + .kx-aside/.kx-pn/.kx-crumbs rules
+  deleted); .kx-chapter-foot/.kx-foot-*; quieter .kx-sec-pill; .kx-overview as lede; ADR-092 block (.kx-upnext,
+  .kx-revise-card, .kx-rc-acc, .kx-search-group, .kx-rev-*, .kx-mynotes-sub, .qr-card-flash) with dark-mode +
+  reduced-motion coverage.
+### chore(checks + SW)
+- scripts/learn-progress.check.js: +5 ReviseFlow.buildQueue tests; scripts/learn-browser.check.js: loads
+  quick-ref-data + revise-flow, asserts queryCards/ReviseFlow globals (13 checks).
+- service-worker.js: qr-cache v206→v207; js/learn/revise-flow.js pre-cached.
+```
+
+Docs: DECISION_LOG (ADR-092) · VERSIONS (Bible 2.112→2.113, Arch 2.58→2.59).
+
 ## 2026-07-02 — Product Excellence Pass: remaining audit items (ADR-091)
 
 Independent re-evaluation + implementation of the audit's remaining recommendations (full reasoning incl. two
