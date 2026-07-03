@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-03 — Full-repository audit: submission bug + Critical/High remediation (ADR-094)
+
+Complete first-principles audit (three independent investigations, each finding cross-checked against the code). The
+reported P0 ("cannot submit answers in any drill") did NOT reproduce on the mainline pipeline; one real
+submission-blocking defect in review mode was found and fixed, plus the High-severity quality gaps. Full findings,
+rationale and the Medium/Low backlog in ADR-094.
+
+```
+### fix(critical): review-mode re-queue no longer strips MCQ options
+- js/drill-engine.js: a wrong MCQ mistake was re-queued as {question,answer,category,subtype} (no options), so its
+  2nd encounter rendered as a numeric numpad for a text answer — un-answerable. Now re-queues Object.assign({},q).
+### feat(a11y): physical-keyboard numeric answer entry
+- js/ui/numpad.js: global keydown mirrors the on-screen numpad (same validateKeystroke, 15-char cap, submit cb),
+  auto-scoped by _numpadInput (inert on MCQ + post-answer), gated to the format's key set, never focus()es. Digits
+  and symbols type into the readonly answer field; Enter submits; Backspace deletes. Desktop/switch users can answer.
+### fix(content): authored-LR difficulty honesty + depth (ADR-094 H2)
+- js/lr-authored-engine.js: tier-aware _tierPool (prefer exact tier → nearest EASIER → harder) replaces the
+  whole-pool dump that let Easy silently serve Hard.
+- data/lr-authored/{statement,cause,course,decision}.js: +15 approved items (77→92); Statement/Cause/Course now
+  4 easy / 5 hard, Decision 4 easy (was 1). New Course answer keys diversified. All pass lr-authored.check.
+### fix(quant): hard-tier de-dilution (ADR-094 H3 — difficulty earned, not just bigger numbers)
+- js/questions.js: percentages hard = pctChange/successive/netTrap (drops the medium direct/reverse/whatPct);
+  ratios hard drops the easy 'divide'; averages hard = weighted/newMember (drops mean/missing); multiplication moves
+  the non-scaling mentalSquare down to medium. _PCT_PRIMARY.hard repointed to the always-clean netTrap.
+- scripts/quant-engine.check.js: TIER_KEYS updated in lockstep — the "no earned-tier downgrade" guard is now
+  meaningful (previously toothless) and green over 112,990 assertions, 0 recompute mismatches.
+### chore(SW)
+- service-worker.js: qr-cache v209→v210.
+```
+
+Docs: DECISION_LOG (ADR-094) · VERSIONS (Bible bump). All 26 check suites green.
+
 ## 2026-07-03 — Visual question ecosystem redesign + Quant recalibration (ADR-093)
 
 Product-level rebuild of visual reasoning, a presentation stage for visual questions, and a difficulty/wording

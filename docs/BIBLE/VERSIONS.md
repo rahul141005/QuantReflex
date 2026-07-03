@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.114 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.115 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.60 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.115 / Arch 2.60 (2026-07-03)** — **Full-repository audit: submission bug + Critical/High remediation (ADR-094).**
+> A three-lens audit (architecture / product-education-a11y / bug-hunt), each finding code-verified. The reported P0
+> ("cannot submit answers") did not reproduce on the mainline pipeline; the one real submission defect — review mode
+> re-queuing a wrong MCQ mistake without its `options`, so it re-rendered as an un-typeable numpad — was fixed
+> (full-clone re-queue). Highs: physical-keyboard numeric entry added to the numpad (accessibility/desktop) without
+> breaking the mobile no-native-keyboard invariant; authored-LR tier fallback made tier-aware (Easy never silently
+> serves Hard) and thin banks deepened (77→92 items); Quant hard tiers de-diluted (percentages/ratios/averages/
+> multiplication) so difficulty is earned by reasoning, not number size, with `TIER_KEYS` in lockstep. All 26 check
+> suites green (quant 112,990 assertions / 0 mismatches). Medium/Low findings recorded as a backlog in ADR-094. No
+> schema/security change. SW v210.
+>
 > **2.114 / Arch 2.60 (2026-07-03)** — **Visual question ecosystem redesign + Quant recalibration (ADR-093).**
 > LRFigures v2 grows the figure vocabulary from 5 to 12 primitive kinds (shapes/compositions/lattice line figures/
 > paper folding/cube nets/three-face dice/3×3 matrices); lr-visual-engine v2 rebuilds all six visual categories on

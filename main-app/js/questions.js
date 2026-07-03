@@ -253,10 +253,15 @@ function _pctNetTrap() { var x = pick([10, 20, 30, 40, 50]); return { q: 'A sala
 var _PCT_ARCH = {
   easy: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }],
   medium: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }, { k: 'reverse', skill: 'inverse', build: function (d) { return _pctReverse(d); } }, { k: 'whatPct', skill: 'inverse', build: function (d) { return _pctWhat(d); } }],
-  hard: [{ k: 'directOf', skill: 'direct', build: function (d) { return _pctDirect(d); } }, { k: 'reverse', skill: 'inverse', build: function (d) { return _pctReverse(d); } }, { k: 'whatPct', skill: 'inverse', build: function (d) { return _pctWhat(d); } }, { k: 'pctChange', skill: 'multi-step', build: function () { return _pctChange(); } }, { k: 'successive', skill: 'multi-step', build: function () { return _pctSuccessive(); } }, { k: 'netTrap', skill: 'multi-step', build: function () { return _pctNetTrap(); } }]
+  /* ADR-094 (hard-tier de-dilution): hard drops direct/reverse/whatPct — those ARE the medium archetypes, differing
+     only by number pool — so a "hard" percentage question always demands genuine multi-step reasoning (change on the
+     original base, successive discounts, or the compound +x%/−x% trap). */
+  hard: [{ k: 'pctChange', skill: 'multi-step', build: function () { return _pctChange(); } }, { k: 'successive', skill: 'multi-step', build: function () { return _pctSuccessive(); } }, { k: 'netTrap', skill: 'multi-step', build: function () { return _pctNetTrap(); } }]
 };
 function _pctSafe(diff) { var b = pick([100, 200, 400, 500, 800, 1000]); var p = pick(_PCT_P[diff]); return { q: p + '% of ' + b + ' = ?', a: p * b / 100, k: 'directOf', explain: p + '% of ' + b + ' = ' + (p * b / 100) + '.' }; }
-var _PCT_PRIMARY = { easy: function () { return _pctSafe('easy'); }, medium: function () { return _pctSafe('medium'); }, hard: function () { return _pctSafe('hard'); } };
+/* hard PRIMARY must stay a HARD archetype (netTrap always succeeds and never returns null), so the guaranteed-clean
+   fallback can never inject the easy 'directOf' key into a hard question (ADR-094 lockstep with TIER_KEYS). */
+var _PCT_PRIMARY = { easy: function () { return _pctSafe('easy'); }, medium: function () { return _pctSafe('medium'); }, hard: function () { return _pctNetTrap(); } };
 function genPercentage() { return _genArch('percentages', _PCT_ARCH, _PCT_PRIMARY); }
 
 /** Mental multiplication: varied sub-types including 3-factor and squaring */
@@ -267,8 +272,11 @@ function _mul3(diff) { var a, b, c; if (diff === 'hard') { a = randInt(4, 12); b
 function _mulSquare() { var n = pick([11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25]); var r = Math.round(n / 10) * 10, d = n - r; return { q: n + ' × ' + n + ' = ?', a: n * n, k: 'mentalSquare', explain: n + '² = (' + r + (d < 0 ? '' : '+') + d + ')² = ' + (n * n) + ' — a fast mental square.' }; }
 var _MUL_ARCH = {
   easy: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }],
-  medium: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }],
-  hard: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }, { k: 'mentalSquare', skill: 'multi-step', build: function () { return _mulSquare(); } }]
+  /* ADR-094: mentalSquare (fixed 11–25², which ignored difficulty) sat in HARD where it was easier than a medium
+     two-digit product — it now lives in medium (its true level). Hard is multiply/divide/threeFactor at their hard
+     number ranges, where magnitude is the honest difficulty axis for mental arithmetic. */
+  medium: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }, { k: 'mentalSquare', skill: 'multi-step', build: function () { return _mulSquare(); } }],
+  hard: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }, { k: 'divide', skill: 'inverse', build: function (d) { return _mulDiv(d); } }, { k: 'threeFactor', skill: 'multi-step', build: function (d) { return _mul3(d); } }]
 };
 var _MUL_PRIMARY = { easy: function () { return _mulTwo('easy'); }, medium: function () { return _mulTwo('medium'); }, hard: function () { return _mulTwo('hard'); } };
 function genMultiplication() { return _genArch('multiplication', _MUL_ARCH, _MUL_PRIMARY); }
@@ -282,7 +290,9 @@ function _ratPct(diff) { var s = pick(diff === 'hard' ? _RAT_PCT.hard.concat(_RA
 var _RATIO_ARCH = {
   easy: [{ k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }, { k: 'pctRatio', skill: 'direct', build: function (d) { return _ratPct(d); } }],
   medium: [{ k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }, { k: 'findTerm', skill: 'inverse', build: function (d) { return _ratTerm(d); } }, { k: 'pctRatio', skill: 'formula', build: function (d) { return _ratPct(d); } }],
-  hard: [{ k: 'findTerm', skill: 'inverse', build: function (d) { return _ratTerm(d); } }, { k: 'combine', skill: 'multi-step', build: function () { return _ratCombine(); } }, { k: 'pctRatio', skill: 'formula', build: function (d) { return _ratPct(d); } }, { k: 'divide', skill: 'direct', build: function (d) { return _ratDivide(d); } }]
+  /* ADR-094: hard drops the direct 'divide' archetype (that is the EASY tier) — a hard ratio question is now always
+     inverse (findTerm), multi-step (combine A:B:C) or the harder pct→ratio conversions. */
+  hard: [{ k: 'findTerm', skill: 'inverse', build: function (d) { return _ratTerm(d); } }, { k: 'combine', skill: 'multi-step', build: function () { return _ratCombine(); } }, { k: 'pctRatio', skill: 'formula', build: function (d) { return _ratPct(d); } }]
 };
 var _RATIO_PRIMARY = { easy: function () { return _ratDivide('easy'); }, medium: function () { return _ratDivide('medium'); }, hard: function () { return _ratTerm('hard'); } };
 function genRatio() { return _genArch('ratios', _RATIO_ARCH, _RATIO_PRIMARY); }
@@ -296,7 +306,9 @@ function _avgNewMember() { for (var i = 0; i < 40; i++) { var n = pick([4, 5, 6,
 var _AVG_ARCH = {
   easy: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }],
   medium: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }, { k: 'missing', skill: 'inverse', build: function (d) { return _avgMissing(d); } }],
-  hard: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }, { k: 'missing', skill: 'inverse', build: function (d) { return _avgMissing(d); } }, { k: 'weighted', skill: 'multi-step', build: function () { return _avgWeighted(); } }, { k: 'newMember', skill: 'multi-step', build: function () { return _avgNewMember(); } }]
+  /* ADR-094: hard drops plain 'mean' (easy) and 'missing' (medium) — a hard averages question is now always
+     weighted two-group or the new-member/replacement reasoning. PRIMARY.hard already yields 'weighted'. */
+  hard: [{ k: 'weighted', skill: 'multi-step', build: function () { return _avgWeighted(); } }, { k: 'newMember', skill: 'multi-step', build: function () { return _avgNewMember(); } }]
 };
 var _AVG_PRIMARY = {
   easy: function () { var a = randInt(15, 45); return { q: 'The average of ' + [a - 2, a, a + 2].join(', ') + ' = ?', a: a, k: 'mean', explain: 'The three numbers are evenly spaced around ' + a + ', so the average is the middle value ' + a + '.' }; },

@@ -202,6 +202,45 @@
       answer: 'The student\'s own interest and aptitude in the subject and how it fits their career goal.',
       explanation: 'A sound subject choice depends on the student\'s interest, aptitude and career fit — that information is decisive. The textbook cover, classroom, and class day carry no real bearing on whether the elective is the right choice.',
       explanationVersion: V, tags: ['relevance', 'data-adequacy'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'dm-mgr-006', topic: 'lr-decision', subtype: 'managerial', difficulty: 'easy', exams: ['NMAT', 'SNAP'],
+      stem: 'A newly joined employee is confused about how to use the company\'s leave-application system and asks his manager for help. What is the best response?',
+      options: [
+        'Take a few minutes to show him how the system works, or point him to a colleague who can, so he learns to apply correctly.',
+        'Tell him to figure it out on his own, since everyone else in the team managed to learn it without help.',
+        'Ignore the request for now because you are busy with your own deadlines and he can ask again later.',
+        'Apply the leave on his behalf every time he needs it, so that he never actually has to learn the system himself.'
+      ],
+      answer: 'Take a few minutes to show him how the system works, or point him to a colleague who can, so he learns to apply correctly.',
+      explanation: 'Helping a new joiner learn a routine system is basic, constructive management and makes him self-sufficient. Telling him to struggle alone is needlessly unsupportive; ignoring the request neglects a manager\'s duty; doing it for him forever creates dependence instead of capability.',
+      explanationVersion: V, tags: ['management', 'support'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'dm-pri-004', topic: 'lr-decision', subtype: 'priority', difficulty: 'easy', exams: ['XAT', 'SNAP'],
+      stem: 'A shopkeeper notices a small fire starting near the electrical wiring at the back of the shop while a customer is still paying at the counter. What should he do first?',
+      options: [
+        'Get everyone out of the shop safely and raise the alarm or tackle the fire before doing anything else.',
+        'Finish collecting the customer\'s payment and hand over the change first, then turn to deal with the fire.',
+        'Ignore the fire for now, since it is still small and may die down on its own without any action.',
+        'Look for the day\'s cash box and account books to move them to safety before attending to the fire.'
+      ],
+      answer: 'Get everyone out of the shop safely and raise the alarm or tackle the fire before doing anything else.',
+      explanation: 'Human safety comes before money or property: the first priority is to get people out and address the fire while it is still small. Finishing the payment, waiting for it to die down, or saving the cash box first all place transactions or property above the immediate risk to life.',
+      explanationVersion: V, tags: ['safety', 'priority'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'dm-eth-006', topic: 'lr-decision', subtype: 'ethical', difficulty: 'easy', exams: ['XAT', 'NMAT'],
+      stem: 'A cashier realises she has accidentally given a customer ₹500 too little in change, and the customer is still in the shop. What is the right thing to do?',
+      options: [
+        'Call the customer back at once and return the ₹500 that is rightfully theirs, apologising for the mistake.',
+        'Say nothing about it, since the customer did not notice the shortfall and has not complained.',
+        'Keep the extra ₹500 and quietly add it to the day\'s takings so the till still balances.',
+        'Wait to see whether the customer comes back on their own to complain before deciding to return the money.'
+      ],
+      answer: 'Call the customer back at once and return the ₹500 that is rightfully theirs, apologising for the mistake.',
+      explanation: 'The money belongs to the customer, so the honest act is to return it immediately. Staying silent, pocketing the amount, or waiting to be caught all knowingly keep money that is not hers — each is a form of dishonesty regardless of whether the customer noticed.',
+      explanationVersion: V, tags: ['ethics', 'honesty'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;

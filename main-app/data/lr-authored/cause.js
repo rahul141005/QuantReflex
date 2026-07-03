@@ -75,7 +75,27 @@
       'The shopkeeper raised the price of notebooks this week.',
       'The wholesale cost of paper rose sharply last week.',
       'Statement II is the cause and Statement I is its effect',
-      'The wholesale paper-cost rise (II) happened first and forces the retailer to charge more, so the notebook price went up (I). II is the cause and I its effect.')
+      'The wholesale paper-cost rise (II) happened first and forces the retailer to charge more, so the notebook price went up (I). II is the cause and I its effect.'),
+    it('ce-013', 'easy', ['SSC CHSL', 'RRB', 'IBPS Clerk'],
+      'It rained heavily throughout the night.',
+      'The morning cricket match on the open ground was postponed.',
+      'Statement I is the cause and Statement II is its effect',
+      'Heavy overnight rain (I) leaves the open ground wet and unplayable, which is why the morning match was postponed (II). The rain comes first and directly explains the postponement, so I is the cause and II its effect.'),
+    it('ce-014', 'easy', ['SSC CGL', 'IBPS Clerk'],
+      'The bakery offered a large discount on all cakes over the weekend.',
+      'The bakery sold far more cakes than usual over the weekend.',
+      'Statement I is the cause and Statement II is its effect',
+      'A weekend discount (I) attracts more buyers, which raises the number of cakes sold (II). The offer drives the surge in sales, so Statement I is the cause and Statement II its effect.'),
+    it('ce-015', 'hard', ['CAT', 'XAT'],
+      'Sales of winter jackets in the town rose sharply in December.',
+      'Electricity used for room heating in the town rose sharply in December.',
+      'Both statements are independent effects of a common cause',
+      'Buying jackets does not cause heater use, nor the reverse; both rise together because of a common cause — the onset of severe cold in December. They are independent effects of the same underlying cause, a classic spurious-correlation trap.'),
+    it('ce-016', 'hard', ['SBI PO', 'CAT'],
+      'Sales of raincoats in a coastal city rose in June.',
+      'Sales of air conditioners in a northern inland city rose in June.',
+      'Both statements are effects of independent causes',
+      'The two cities face different June weather: monsoon rain on the coast drives raincoat sales, while inland heat drives air-conditioner sales. The two rises merely share the month; they arise from separate, independent causes in different places rather than one common cause.')
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
   var W = (typeof window !== 'undefined') ? window : root;

@@ -102,6 +102,38 @@
       answer: 'Only I follows',
       explanation: 'The statement directly shows fog delaying the trains, so "fog can disrupt train timings" follows. "Never on time" is an extreme generalisation from a single foggy day and does not follow. Only I.',
       explanationVersion: V, tags: ['statement-conclusion'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'st-inf-002', topic: 'lr-statement', subtype: 'inference', difficulty: 'easy', exams: ['SSC CHSL', 'RRB', 'IBPS Clerk'],
+      stem: 'Statement: "The library is open from 9 a.m. to 6 p.m. on all weekdays and remains closed on weekends." Which inference is definitely true?',
+      options: ['The library is open at 11 a.m. on a Wednesday.', 'The library is open on Sunday morning.', 'The library stays open until midnight on weekdays.', 'The library is open only on weekends.'],
+      answer: 'The library is open at 11 a.m. on a Wednesday.',
+      explanation: 'Wednesday is a weekday and 11 a.m. lies within the 9 a.m.–6 p.m. window, so the library is definitely open then. Sundays are weekends (closed), the hours end at 6 p.m. (not midnight), and weekends are exactly when it is shut — so those three are false.',
+      explanationVersion: V, tags: ['statement-inference'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'st-assum-005', topic: 'lr-statement', subtype: 'assumption', difficulty: 'easy', exams: ['SSC CHSL', 'IBPS Clerk'],
+      stem: 'Statement: "Notice in a classroom: \'Switch off the lights and fans before leaving the room.\'" Assumptions: I. Lights and fans are sometimes left on when the room is vacated. II. Switching them off saves electricity.',
+      options: ['Only I is implicit', 'Only II is implicit', 'Both I and II are implicit', 'Neither is implicit', 'Either I or II is implicit'],
+      answer: 'Both I and II are implicit',
+      explanation: 'Such a reminder is put up only because lights and fans are sometimes left running — I is implicit. Its whole purpose is to avoid wasting electricity — II is implicit. Both assumptions underlie the notice.',
+      explanationVersion: V, tags: ['statement-assumption'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'st-con-005', topic: 'lr-statement', subtype: 'conclusion', difficulty: 'hard', exams: ['SBI PO', 'CAT'],
+      stem: 'Statement: "For the last five years, in every month the city hosted its annual book fair, sales at local bookstores rose; in the one year the fair was cancelled, sales that month stayed flat." Conclusions: I. The book fair boosts local bookstore sales. II. Local bookstores depend entirely on the fair for their yearly profit.',
+      options: ['Only I follows', 'Only II follows', 'Both follow', 'Neither follows', 'Either I or II follows'],
+      answer: 'Only I follows',
+      explanation: 'A consistent pattern across five years — sales rise with the fair and stay flat without it — supports that the fair boosts bookstore sales, so I follows. Conclusion II leaps from a single month\'s effect to "entirely depend for yearly profit," a large overreach the evidence does not support, so II does not follow. Only I.',
+      explanationVersion: V, tags: ['statement-conclusion', 'causation'], reviewStatus: A, meta: M
+    },
+    {
+      id: 'st-inf-003', topic: 'lr-statement', subtype: 'inference', difficulty: 'hard', exams: ['SBI PO', 'RBI'],
+      stem: 'Statement: "Only candidates who cleared BOTH the written test and the interview are on the final merit list. Some candidates who cleared the written test are not on the final merit list." Which inference is definitely true?',
+      options: ['Some candidates who cleared the written test did not clear the interview.', 'All candidates who cleared the written test also cleared the interview.', 'No candidate cleared the interview.', 'Everyone who cleared the written test is on the merit list.'],
+      answer: 'Some candidates who cleared the written test did not clear the interview.',
+      explanation: 'The list requires clearing BOTH stages. Since some written-test clearers are absent from the list, they must have failed the other requirement — the interview. So "some who cleared the written test did not clear the interview" is definitely true; the other three contradict the given statements.',
+      explanationVersion: V, tags: ['statement-inference', 'deduction'], reviewStatus: A, meta: M
     }
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;

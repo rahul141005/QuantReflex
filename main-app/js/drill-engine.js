@@ -713,7 +713,10 @@ function createDrillEngine(container, opts) {
           }
         }
         if (!isDuplicate) {
-          questions.push({ question: q.question, answer: q.answer, category: q.category, subtype: q.subtype });
+          /* Clone the WHOLE question (options/optionFigures/explanation included). A 4-field subset dropped
+             `options`, so a re-queued text-MCQ mistake (e.g. quantity-comparison, "Quantity I > Quantity II")
+             re-rendered as a numeric numpad — isMCQ needs q.options — leaving its correct answer un-typeable. */
+          questions.push(Object.assign({}, q));
           count++;
         }
       }

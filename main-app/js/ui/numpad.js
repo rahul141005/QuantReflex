@@ -16,6 +16,7 @@
 var _numpadInput = null;
 var _numpadSubmitCb = null;
 var _numpadValidate = null;              /* (current, key) → bool; null = allow everything (legacy callers) */
+var _numpadKeys = null;                   /* the current format's allowed key set (digits+symbols); gates physical keys */
 var _NUMPAD_LEGACY_SYMBOLS = [':', '%', '.', '-'];   /* pre-ADR-086 static set — default when a caller passes no keys */
 var _numpadCurrentKey = '';              /* remembers the current symbol layout to avoid needless rebuilds */
 
@@ -56,6 +57,7 @@ function showCustomNumpad(inputEl, submitCallback, opts) {
   _numpadSubmitCb = submitCallback;
   opts = opts || {};
   _numpadValidate = (typeof opts.validate === 'function') ? opts.validate : null;
+  _numpadKeys = (opts.keys && opts.keys.length) ? opts.keys.slice() : null;
   /* Symbols = the non-digit keys the caller asked for. Drill passes answerFormat(q).keys (digits + symbols); we keep
      only the symbols here. A caller with no keys gets the legacy set so onboarding/duels are unchanged. */
   var symbols;
@@ -76,6 +78,7 @@ function hideCustomNumpad() {
   _numpadInput = null;
   _numpadSubmitCb = null;
   _numpadValidate = null;
+  _numpadKeys = null;
   var numpad = document.getElementById('customNumpad');
   if (numpad) {
     numpad.classList.remove('visible');
@@ -206,5 +209,48 @@ function hideCustomNumpad() {
        calling focus() triggers the native keyboard on mobile, which
        fights with our custom numpad overlay. The input is readonly
        so no native keyboard is needed. */
+  });
+})();
+
+/* ---- Physical-keyboard entry (accessibility / desktop / tablet-with-keyboard, ADR-094) ----
+   The answer input is readonly + never focused (so mobile never raises the native keyboard), which left
+   keyboard-only, switch and desktop users unable to type numeric answers. This global keydown mirrors the numpad
+   click logic EXACTLY — same _numpadValidate, same 15-char cap, same _numpadSubmitCb — and is auto-scoped by
+   _numpadInput (only set while a numeric drill question is live; MCQ + post-answer call hideCustomNumpad, which
+   nulls it), so it never fires on MCQ screens or outside a drill. It never calls focus(), preserving the mobile
+   invariant. Physical keys are gated to the current format's allowed set (_numpadKeys) just like the rendered buttons. */
+(function () {
+  var LEGACY = ['0','1','2','3','4','5','6','7','8','9',':','%','.','-'];
+  function _allowedKey(ch) {
+    return (_numpadKeys && _numpadKeys.length) ? _numpadKeys.indexOf(ch) !== -1 : LEGACY.indexOf(ch) !== -1;
+  }
+  document.addEventListener('keydown', function (e) {
+    if (!_numpadInput) return;                                  /* no active numeric question */
+    if (e.ctrlKey || e.metaKey || e.altKey) return;            /* let browser/OS shortcuts through */
+    if (!document.body.contains(_numpadInput)) return;         /* stale reference guard */
+    /* Don't hijack typing in a real editable field (login, custom-topic name, search). The answer input is
+       readonly, so a focused, non-readonly INPUT/TEXTAREA/contentEditable means the user is typing elsewhere. */
+    var t = e.target;
+    if (t && t !== _numpadInput) {
+      var tag = t.tagName;
+      if (t.isContentEditable || tag === 'TEXTAREA' || (tag === 'INPUT' && !t.readOnly)) return;
+    }
+    var key = e.key;
+    if (key === 'Enter') {
+      e.preventDefault();
+      if (_numpadSubmitCb) _numpadSubmitCb();
+      return;
+    }
+    if (_numpadInput.disabled) return;                          /* already answered — ignore digit entry */
+    if (key === 'Backspace') {
+      e.preventDefault();
+      _numpadInput.value = _numpadInput.value.slice(0, -1);
+      return;
+    }
+    if (key && key.length === 1 && _allowedKey(key)) {
+      e.preventDefault();
+      if (_numpadValidate && !_numpadValidate(_numpadInput.value, key)) return;
+      if (_numpadInput.value.length < 15) _numpadInput.value += key;
+    }
   });
 })();

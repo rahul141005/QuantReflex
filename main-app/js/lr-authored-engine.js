@@ -74,12 +74,29 @@
     };
   }
 
+  /* Tier-aware pool selection (ADR-094). The old fallback (`sub.length ? sub : pool`) dumped the ENTIRE
+     mixed-difficulty bank whenever the requested tier was thin/empty, so picking Easy could silently serve a Hard
+     item. Instead: prefer the exact tier; if empty, walk OUTWARD preferring the nearest EASIER tier before a harder
+     one (an Easy request is never answered with Hard where a Medium exists); only mix tiers as a last resort. */
+  var _DIFF_ORDER = ['easy', 'medium', 'hard'];
+  function _tierPool(pool, diff) {
+    var exact = pool.filter(function (it) { return it.difficulty === diff; });
+    if (exact.length) return exact;
+    var idx = _DIFF_ORDER.indexOf(diff);
+    if (idx === -1) return pool;
+    for (var step = 1; step < _DIFF_ORDER.length; step++) {
+      var lo = idx - step, hi = idx + step, p;
+      if (lo >= 0) { p = pool.filter(function (it) { return it.difficulty === _DIFF_ORDER[lo]; }); if (p.length) return p; }
+      if (hi < _DIFF_ORDER.length) { p = pool.filter(function (it) { return it.difficulty === _DIFF_ORDER[hi]; }); if (p.length) return p; }
+    }
+    return pool;
+  }
+
   function generate(category, difficulty) {
     var pool = BY_TOPIC[category] || [];
     if (!pool.length) return { question: '(no authored items available)', options: ['OK'], answer: 'OK', category: category, subtype: 'medium:none' };
     var diff = _difficulty(difficulty);
-    var sub = pool.filter(function (it) { return it.difficulty === diff; });
-    return _toQuestion(_ringPick(category, sub.length ? sub : pool));
+    return _toQuestion(_ringPick(category, _tierPool(pool, diff)));
   }
 
   /* searchable surface for Learn / search (returns matching items, not drill questions) */

@@ -82,7 +82,31 @@
       'The municipal authority should repair the street light.',
       'The authority should close the lane to the public at night.',
       'Only I follows',
-      'Repairing the broken light (I) addresses the actual problem and is practical. Closing a busy lane at night (II) is disproportionate and merely shifts the inconvenience, so it does not follow. Only I.')
+      'Repairing the broken light (I) addresses the actual problem and is practical. Closing a busy lane at night (II) is disproportionate and merely shifts the inconvenience, so it does not follow. Only I.'),
+    it('coa-013', 'easy', ['SSC CHSL', 'IBPS Clerk'],
+      'The water cooler on an office floor has stopped working, leaving staff with no drinking water on that floor.',
+      'The office should get the water cooler repaired or replaced promptly.',
+      'The office should ask all staff on that floor to work from home indefinitely.',
+      'Only I follows',
+      'Repairing or replacing the cooler (I) directly and practically fixes the problem. Sending a whole floor home indefinitely (II) is a wildly disproportionate response to a broken appliance, so it does not follow. Only I.'),
+    it('coa-014', 'easy', ['SSC CGL', 'RRB'],
+      'A school playground has several broken swings that have already caused minor injuries to children.',
+      'The school should stop children from using the broken swings until they are fixed.',
+      'The school should get the broken swings repaired.',
+      'Both I and II follow',
+      'Stopping use of the dangerous swings (I) is an immediate safety measure, and repairing them (II) removes the hazard at its source. Both actions are sensible and directly address the danger, so both follow.'),
+    it('coa-015', 'hard', ['SBI PO', 'RBI'],
+      'A sudden outbreak of a contagious disease is reported in a district, and the number of cases is rising each day.',
+      'The health authorities should isolate affected patients and trace their recent contacts.',
+      'The health authorities should run a public-awareness drive on prevention and early symptoms.',
+      'Both I and II follow',
+      'Isolating patients and tracing contacts (I) contains the spread at its source, while a public-awareness drive (II) cuts new infections through prevention and earlier reporting. Both are standard, proportionate outbreak responses, so both follow.'),
+    it('coa-016', 'hard', ['CAT', 'XAT'],
+      'A company\'s quarterly profit dipped slightly for one quarter after several years of steady growth.',
+      'The company should immediately lay off a large part of its workforce.',
+      'The company should abandon its main product line at once.',
+      'Neither follows',
+      'A single slight dip after years of steady growth does not justify drastic action. Mass layoffs (I) and abandoning the core product (II) are both gross over-reactions to one modest, possibly temporary, dip; the proportionate step would be to investigate the cause first. Neither follows.')
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
   var W = (typeof window !== 'undefined') ? window : root;

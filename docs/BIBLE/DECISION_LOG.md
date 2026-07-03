@@ -8,6 +8,55 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-094 — Full-repository audit: submission bug + Critical/High remediation (2026-07-03)
+- **Context:** the owner commissioned a complete, first-principles repository audit, triggered by a P0 report that
+  "users cannot submit answers in any drill or test session." The audit ran as three independent, evidence-based
+  investigations (architecture/reliability, product/UX/education/design/accessibility, bug-hunt/engines/submission),
+  each finding cross-checked against the code.
+- **P0 disposition — the universal claim does NOT reproduce.** The drill-engine diff since the last-known-good commit
+  is rendering-only; live reproduction graded correctly through every surface (numpad ↵, Enter, Submit, MCQ/figure
+  tap), every mode (focus/quick/endurance/warmup/mock) and all question types. The apparent failures during
+  investigation were harness artifacts (invalid category keys falling back to quant; the 20-question free daily limit
+  tripping after ~20 submissions in one browser context). All three investigations independently debunked the
+  hypothesised races/leaks (finish/checkAnswer is `_isFinished`-guarded and idempotent; listeners are GC'd by the
+  full innerHTML rewrite; timers are cleared in cleanup; JSON.parse is centrally guarded).
+- **Decision — fix the one real submission bug + the High-severity quality gaps; document Medium/Low as a backlog:**
+  - **C1 (Critical — the real submission defect):** review mode re-queued a wrong MCQ mistake as a 4-field subset
+    `{question, answer, category, subtype}`, dropping `options`. On its second encounter `isMCQ` (which needs
+    `q.options`) was false, so a text-MCQ item (e.g. quantity-comparison, "Quantity I > Quantity II") re-rendered as a
+    numeric numpad — its correct answer un-typeable. This is the defect whose symptom ("a keypad appears but I can't
+    enter the answer") plausibly seeded the P0. Fix: re-queue a full clone (`Object.assign({}, q)`). `drill-engine.js`.
+  - **H1 (keyboard/AT answer entry):** the answer input is readonly + never focused (a deliberate mobile invariant so
+    the native keyboard never fights the custom numpad), which left keyboard-only, switch and desktop users unable to
+    type numeric answers. Added a global keydown IN the numpad module that mirrors the click logic exactly (same
+    `validateKeystroke`, 15-char cap, submit callback), auto-scoped by `_numpadInput` (null on MCQ + post-answer), gated
+    to the format's allowed keys, never calling focus(). `js/ui/numpad.js`.
+  - **H2 (authored-LR difficulty honesty + depth):** the engine's tier fallback (`sub.length ? sub : pool`) dumped the
+    whole mixed-difficulty bank when a tier was thin, so picking Easy could silently serve Hard; and thin tiers
+    (Decision had ONE easy item) caused heavy repetition. Fix: a tier-aware `_tierPool` that prefers the exact tier,
+    then the nearest EASIER neighbour before a harder one; plus a content pass raising Statement/Cause/Course to 4
+    easy / 5 hard and Decision to 4 easy (77 → 92 approved items, all through `lr-authored.check`). Answer keys of the
+    new Course items were diversified (the bank skewed heavily to "Only I follows").
+  - **H3 (Quant hard-tier de-dilution):** several hard pools re-included their own easy/medium archetypes (only the
+    number range differed), so the ADR-083/093 "difficulty is earned" contract was only half true — and the check's
+    "no earned-tier downgrade" guard was toothless because the shared keys made its `easyOnly` set empty. Fix:
+    percentages hard = {pctChange, successive, netTrap}; ratios hard drops the easy `divide`; averages hard = {weighted,
+    newMember}; multiplication moves the non-scaling `mentalSquare` down to medium (its true level) and keeps hard as
+    magnitude-scaled multiply/divide/threeFactor. `_PCT_PRIMARY.hard` repointed from `directOf` (easy) to the
+    always-clean `netTrap` so the guaranteed-clean fallback can't inject an easy key at hard. `TIER_KEYS` updated in
+    lockstep; the downgrade guard is now meaningful and green.
+- **Verification:** `node --check` on all touched files; full `npm test` — all 26 suites green (quant-engine 112,990
+  assertions / 14,756 recomputed / 0 mismatches; lr-authored 3,641; lr-figures 138). Playwright: C1 review 2nd-encounter
+  now renders MCQ with options; keyboard entry types "42" + Enter grades, MCQ ignores digits, numpad tap + Backspace
+  intact; fresh-context sweep of all 10 visual categories + authored-LR tiers all pass. SW `qr-cache` v209→v210.
+- **Documented backlog (Medium/Low, not this pass):** unimplemented localStorage legacy→canonical migration
+  (`store.js`); duplicate `updateCoachingId` key (`firestore-sync.js`); `skipWaiting` vs the in-app update toast;
+  network-first-without-timeout on the 430 KB single stylesheet; stats-view fingerprint omitting entitlement (locked
+  cards after in-session upgrade); undefined `--accent*` tokens on the Home goal ring; raw-emoji drill chrome vs the
+  qr-ico rule; "Guided Revision" being re-reading not retrieval; category-button touch targets < 44px; dark-mode
+  tertiary-text contrast; weak recompute coverage for string-valued Quant archetypes (fractions/ratios/mixtures);
+  moving `../shared/auth-validators.js` under the app root for offline consistency.
+
 ## ADR-093 — Visual question ecosystem redesign + Quant recalibration (2026-07-03)
 - **Context:** the owner mandated a product-level audit of every visual-based question engine and a
   difficulty/wording audit of the Quant corpus — "do not optimize around preserving the current implementation."
