@@ -1043,7 +1043,8 @@ function createDrillEngine(container, opts) {
       ? (perQuestionTimes.reduce(function (a, b) { return a + b; }, 0) / perQuestionTimes.length)
       : 0;
     var avg = avgRaw.toFixed(1);
-    var accuracy = ((score / count) * 100).toFixed(0);
+    /* Zero-guard (ADR-095): an empty deck would make score/count NaN and poison the results badge/insight. */
+    var accuracy = (count > 0 ? ((score / count) * 100) : 0).toFixed(0);
     var accNum = parseFloat(accuracy);
     /* Session summary for onFinish consumers (mock mode re-scores with the exam's marking scheme). */
     _finishResults = { correct: score, attempted: perQuestionTimes.length, total: count, totalTimeSec: parseFloat(totalTime) };

@@ -8,6 +8,47 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-095 — RC verification: pause regression fix + backlog execution (2026-07-03)
+- **Context:** a release-candidate verification pass over the ADR-094 Critical/High fixes — evidence-based, not
+  trust-based. Every fix was re-read from scratch and cross-validated by an independent adversarial review whose only
+  goal was to disprove correctness. Result: **C1 (review re-queue) and H2 (authored-LR) verified correct** (shallow
+  clone proven safe — nothing mutates `q.options` in place; all 15 new authored answers independently re-checked). But
+  two real findings surfaced, then the Medium/Low backlog was executed.
+- **F1 — regression introduced by ADR-094's H1, now fixed.** The new physical-keyboard handler fired **under the
+  pause overlay**: `pauseSession()` sets `_paused` but never nulls `_numpadInput`/disables the input, so Enter graded
+  the frozen answer (inflating elapsed time) and, in Reflex Drill, could schedule `nextQuestion` under the overlay —
+  re-opening the ADR-087 D2 stuck state. The on-screen numpad is safe because the overlay (`z-index:200`; `.container`
+  makes no stacking context) covers and pointer-blocks it, but keyboard events bypass that visual guard. Fix: the
+  handler bails when `#drillPauseOverlay` is present (`js/ui/numpad.js`).
+- **P1 — H3-extended (hard-tier de-dilution finished).** ADR-094 fixed 4 categories; the adversarial review + my own
+  `TIER_KEYS` scan found the same "difficulty from number size, not reasoning" pattern in ~14 more — including
+  `simple-interest` whose PRIMARY.hard still emitted the easy `si` key (the very bug ADR-094 claimed to kill), and
+  `time-and-work` whose hard tier had **no unique hard archetype at all**. De-diluted: squares, simple-interest
+  (PRIMARY repointed to find-rate), profit-loss, compound-interest, ages (PRIMARY repointed to a clean father-son),
+  mixtures, number-properties, progressions, surface-area, trigonometry, quadratic, number-series, simplification,
+  probability. Added a genuine hard archetype `inverseTogether` (given the combined time and one worker's solo time,
+  find the other) for time-and-work, with its own recompute branch. `TIER_KEYS` updated in lockstep; the once-toothless
+  "no earned-tier downgrade" guard is now meaningful across the board.
+- **Backlog executed (re-prioritized):** P2 stats-view fingerprint now includes entitlement (premium cards unlock
+  immediately after an in-session upgrade, not on the next answer); P3 added independent value-based recompute for the
+  string-valued Quant archetypes (fractions fracToPct/pctToFrac/addFrac, ratios pctRatio/combine, mixtures
+  alligationRatio) — +857 answers now cross-checked, so a bad table entry/broken conversion fails CI; P4 the Home
+  daily-goal ring now uses the theme-aware `--qr-accent`/`--qr-success` (the referenced `--accent*` tokens were never
+  defined, so it was theme-blind); P5 easy wins (category buttons →44px with no selection reflow; dark tertiary text
+  contrast ≥AA; removed the dead duplicate `updateCoachingId`; accuracy zero-guard; limit-banner sourced from
+  `getDailyQuestionLimit()` + `addEventListener` not inline `onclick`; `CACHE_NAME` derived from `APP_VERSION`);
+  P6 a network-first fetch timeout so "lie-fi" falls back to cache instead of stalling first paint; P7 the documented
+  localStorage legacy→canonical migration is now actually implemented centrally in the read helpers.
+- **On review, NOT changed:** the word-problems `WP_MAX_QUESTIONS_PREMIUM` (25/session) vs `WP_PREMIUM_DAILY_LIMIT`
+  (30/day) "mismatch" is two different axes and internally consistent — no fix needed.
+- **Verification:** all 26 suites green (quant 113,909 assertions / 15,676 recomputed / 0 mismatches); Playwright —
+  pause+keyboard inert then restored, review 2nd-encounter renders MCQ, keyboard entry works, all 15 de-diluted hard
+  tiers emit only retained archetypes and grade in the real UI, stats unlock on entitlement flip, ring theme-aware.
+  SW v210→v211.
+- **Still deferred (documented):** drill chrome emoji→qr-ico (broad surface); Guided-Revision retrieval gate (UX
+  behaviour change worth its own review); the `skipWaiting` vs update-toast model (needs a product decision); CSS
+  split of the 430 KB stylesheet.
+
 ## ADR-094 — Full-repository audit: submission bug + Critical/High remediation (2026-07-03)
 - **Context:** the owner commissioned a complete, first-principles repository audit, triggered by a P0 report that
   "users cannot submit answers in any drill or test session." The audit ran as three independent, evidence-based

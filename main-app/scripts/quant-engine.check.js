@@ -27,7 +27,7 @@ var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages'
 
 /* Every archetype-refactored category (all 14 after ADR-083 Phase 2) — full recompute + earned-tier + diversity checks. */
 var TIER_KEYS = {
-  squares: { easy: ['direct'], medium: ['direct', 'inverse'], hard: ['direct', 'inverse', 'diffSquares'] },
+  squares: { easy: ['direct'], medium: ['direct', 'inverse'], hard: ['inverse', 'diffSquares'] },
   cubes: { easy: ['direct'], medium: ['direct', 'inverse'], hard: ['inverse', 'cubeRoot5', 'diffCubes'] },
   area: { easy: ['square', 'rectangle'], medium: ['rectangle', 'triangle', 'parallelogram', 'circle'], hard: ['triangle', 'circle', 'trapezium', 'border'] },
   volume: { easy: ['cube', 'cuboid'], medium: ['cuboid', 'cylinder'], hard: ['cylinder', 'sphere', 'cone'] },
@@ -35,31 +35,31 @@ var TIER_KEYS = {
   multiplication: { easy: ['multiply'], medium: ['multiply', 'divide', 'threeFactor', 'mentalSquare'], hard: ['multiply', 'divide', 'threeFactor'] },
   ratios: { easy: ['divide', 'pctRatio'], medium: ['divide', 'findTerm', 'pctRatio'], hard: ['findTerm', 'combine', 'pctRatio'] },
   averages: { easy: ['mean'], medium: ['mean', 'missing'], hard: ['weighted', 'newMember'] },
-  'profit-loss': { easy: ['spProfit', 'spLoss'], medium: ['spProfit', 'spLoss', 'profitPct'], hard: ['profitPct', 'findCP', 'successive', 'spLoss'] },
+  'profit-loss': { easy: ['spProfit', 'spLoss'], medium: ['spProfit', 'spLoss', 'profitPct'], hard: ['profitPct', 'findCP', 'successive'] },
   'time-speed-distance': { easy: ['distance', 'time', 'speed'], medium: ['distance', 'time', 'speed', 'unitConvert'], hard: ['avgSpeed', 'relativeSpeed', 'trainCrossing'] },
-  'time-and-work': { easy: ['together', 'workDone'], medium: ['together', 'workDone', 'workersScale'], hard: ['together', 'workersScale', 'workDone'] },
-  simplification: { easy: ['multiplyAdd'], medium: ['divideAdd', 'multiplyAdd'], hard: ['fullBodmas', 'divideAdd'] },
-  'number-series': { easy: ['arithmetic', 'geometric'], medium: ['arithmetic', 'geometric', 'growingGap'], hard: ['growingGap', 'squaresSeries', 'alternating', 'geometric'] },
+  'time-and-work': { easy: ['together', 'workDone'], medium: ['together', 'workDone', 'workersScale'], hard: ['inverseTogether', 'workersScale'] },
+  simplification: { easy: ['multiplyAdd'], medium: ['divideAdd', 'multiplyAdd'], hard: ['fullBodmas'] },
+  'number-series': { easy: ['arithmetic', 'geometric'], medium: ['arithmetic', 'geometric', 'growingGap'], hard: ['growingGap', 'squaresSeries', 'alternating'] },
   fractions: { easy: ['fracToPct'], medium: ['fracToPct', 'pctToFrac'], hard: ['fracOfFrac', 'addFrac', 'pctToFrac'] },
-  'simple-interest': { easy: ['si', 'amount'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal', 'amount', 'si'] },
-  'compound-interest': { easy: ['amount'], medium: ['amount', 'ci'], hard: ['ci', 'ciSiDiff', 'amount'] },
+  'simple-interest': { easy: ['si', 'amount'], medium: ['si', 'amount', 'findRate'], hard: ['findRate', 'findPrincipal'] },
+  'compound-interest': { easy: ['amount'], medium: ['amount', 'ci'], hard: ['ci', 'ciSiDiff'] },
   partnership: { easy: ['shareRatio', 'share2'], medium: ['share2', 'shareTime'], hard: ['shareTime', 'share2'] },
-  ages: { easy: ['ratioSum', 'presentAge'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon', 'ratioSum'] },
-  mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty', 'alligationRatio'] },
+  ages: { easy: ['ratioSum', 'presentAge'], medium: ['ratioSum', 'ageDiff'], hard: ['ageDiff', 'fatherSon'] },
+  mixtures: { easy: ['alligationRatio'], medium: ['alligationRatio', 'meanPrice'], hard: ['meanPrice', 'alligationQty'] },
   'pipes-cisterns': { easy: ['together'], medium: ['together', 'netFill'], hard: ['netFill', 'inverseFill', 'leakEmpty'] },
-  'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors', 'lcm'] },
+  'number-properties': { easy: ['hcf', 'lcm'], medium: ['hcf', 'lcm', 'unitDigit'], hard: ['unitDigit', 'numFactors'] },
   'linear-equations': { easy: ['solveOne', 'solveOneSub'], medium: ['solveOne', 'bracket', 'sumDiff'], hard: ['bracket', 'sumDiff', 'system2'] },
-  'quadratic-equations': { easy: ['largerRoot', 'sumRoots'], medium: ['largerRoot', 'smallerRoot', 'productRoots', 'sumRoots'], hard: ['largerRoot', 'discriminant', 'productRoots', 'rootRelation'] },
+  'quadratic-equations': { easy: ['largerRoot', 'sumRoots'], medium: ['largerRoot', 'smallerRoot', 'productRoots', 'sumRoots'], hard: ['discriminant', 'productRoots', 'rootRelation'] },
   'surds-indices': { easy: ['powerEval', 'solveExp'], medium: ['powerEval', 'fracExponent', 'indexLaw'], hard: ['fracExponent', 'indexLaw', 'solveExp'] },
   logarithms: { easy: ['evalLog', 'solveLog'], medium: ['evalLog', 'logSum', 'logPower'], hard: ['logPower', 'solveLog', 'logSum'] },
-  progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum', 'apSum'] },
+  progressions: { easy: ['apNth', 'apSum'], medium: ['apNth', 'gpNth', 'apSum'], hard: ['gpNth', 'gpSum'] },
   'inequalities-modulus': { easy: ['linIneqMin', 'countRange'], medium: ['linIneqMin', 'modLarger', 'countRange'], hard: ['modIneqCount', 'modIneqCountLe', 'modLarger'] },
   'geometry-basics': { easy: ['complement', 'supplement', 'triangleThird'], medium: ['triangleThird', 'pythHyp', 'isosceles'], hard: ['pythLeg', 'polygonSum', 'polygonEach'] },
   'coordinate-geometry-basics': { easy: ['distance', 'midpointX'], medium: ['distance', 'slope', 'midpointX'], hard: ['slope', 'distance', 'sectionX'] },
-  trigonometry: { easy: ['standardEval', 'complementary'], medium: ['standardEval', 'complementary', 'identity'], hard: ['identity', 'heightElev', 'complementary'] },
-  'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA', 'cuboidTSA'] },
+  trigonometry: { easy: ['standardEval', 'complementary'], medium: ['standardEval', 'complementary', 'identity'], hard: ['identity', 'heightElev'] },
+  'surface-area': { easy: ['cubeTSA', 'cuboidTSA'], medium: ['cuboidTSA', 'cylCSA', 'cubeLSA'], hard: ['cylTSA', 'sphereSA'] },
   'permutation-combination': { easy: ['factorial', 'arrange'], medium: ['nCr', 'nPr', 'arrange'], hard: ['committee', 'handshakes', 'circular', 'atLeastOne'] },
-  probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb', 'allHeads'] },
+  probability: { easy: ['bagSingle', 'allHeads'], medium: ['bagSingle', 'complement', 'multipleProb'], hard: ['complement', 'multipleProb'] },
   'set-theory': { easy: ['union', 'onlyA'], medium: ['neither', 'both', 'union'], hard: ['threeUnion', 'neither', 'both'] },
   'statistics-basics': { easy: ['median', 'range'], medium: ['median', 'mode', 'range'], hard: ['mode', 'median', 'mean'] },
   'quantity-comparison': { easy: ['pct', 'product'], medium: ['solve', 'average', 'pct'], hard: ['solve', 'square', 'average'] }
@@ -69,6 +69,16 @@ var REFACTORED = Object.keys(TIER_KEYS);
 function nums(s) { return (String(s).match(/\d+/g) || []).map(Number); }
 function approxEq(a, b) { return Math.abs(a - b) < 0.02; }
 function r2(x) { return Math.round(x * 100) / 100; }
+/* Numeric VALUE of an answer, so string answers (ratios "p:q", fractions "p/q") can be verified by relationship:
+   a wrong table entry or broken conversion shifts the value and is caught, without reconstructing the canonical
+   string. Plain numbers/decimals pass straight through, so existing numeric recomputes are unaffected (ADR-095 P3). */
+function answerValue(a) {
+  if (typeof a === 'number') return a;
+  var s = String(a).trim();
+  var mR = s.match(/^(-?\d+(?:\.\d+)?)\s*:\s*(-?\d+(?:\.\d+)?)$/); if (mR) return Number(mR[1]) / Number(mR[2]);
+  var mF = s.match(/^(-?\d+)\s*\/\s*(-?\d+)$/); if (mF) return Number(mF[1]) / Number(mF[2]);
+  return parseFloat(s);
+}
 /* Independent gcd (Euclid) — a different code path from the generator's helper. */
 function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = b; b = a % b; a = t; } return a; }
 /* Independent modular exponentiation — for recomputing unit digits without the generator's cyclicity table. */
@@ -90,6 +100,10 @@ function recompute(cat, key, text) {
   if (cat === 'squares') { if (key === 'direct') return n[0] * n[0]; if (key === 'inverse') return Math.sqrt(n[0]); if (key === 'diffSquares') return n[0] * n[0] - n[1] * n[1]; }
   if (cat === 'cubes') { if (key === 'direct') return n[0] * n[0] * n[0]; if (key === 'inverse' || key === 'cubeRoot5') return Math.round(Math.cbrt(n[0])); if (key === 'diffCubes') return n[0] * n[0] * n[0] - n[1] * n[1] * n[1]; }
   if (cat === 'fractions' && key === 'fracOfFrac') return n[4] * n[0] * n[2] / (n[1] * n[3]);   /* a/b of c/d of N */
+  /* ADR-095 P3 — string-answer fractions verified by VALUE (catches a bad frac↔pct table entry or broken add): */
+  if (cat === 'fractions' && key === 'fracToPct') return n[0] / n[1] * 100;                     /* "a/b as %" → a/b×100 */
+  if (cat === 'fractions' && key === 'addFrac') return n[0] / n[1] + n[2] / n[3];               /* "a1/b1 + a2/b2" → sum value */
+  if (cat === 'fractions' && key === 'pctToFrac') { var mp = String(text).match(/([\d.]+)\s*%/); return mp ? parseFloat(mp[1]) / 100 : null; }   /* "X% as a fraction" → X/100 */
   if (cat === 'area') {
     if (key === 'square') return n[0] * n[0]; if (key === 'rectangle' || key === 'parallelogram') return n[0] * n[1];
     if (key === 'triangle') return n[0] * n[1] / 2; if (key === 'circle') return r2(3.14 * n[0] * n[0]);
@@ -104,7 +118,13 @@ function recompute(cat, key, text) {
     if (key === 'pctChange') return (n[1] - n[0]) * 100 / n[0]; if (key === 'successive') return n[0] * (1 - n[1] / 100) * (1 - n[2] / 100); if (key === 'netTrap') return n[0] * n[0] / 100;
   }
   if (cat === 'multiplication' || cat === 'simplification') return evalExpr(text);
-  if (cat === 'ratios') { if (key === 'divide') return n[0] * n[1] / (n[1] + n[2]); if (key === 'findTerm') return n[2] * n[1] / n[0]; return null; }
+  if (cat === 'ratios') {
+    if (key === 'divide') return n[0] * n[1] / (n[1] + n[2]); if (key === 'findTerm') return n[2] * n[1] / n[0];
+    /* ADR-095 P3 — string-answer ratios verified by VALUE: */
+    if (key === 'combine') return n[0] / n[3];                                                  /* A:B=a:b, B:C=b:c (b common) → A:C value = a/c */
+    if (key === 'pctRatio') { var mr = String(text).match(/([\d.]+)\s*%\s*(more|less)/); if (!mr) return null; var x = parseFloat(mr[1]); return (mr[2] === 'more' ? (100 + x) : (100 - x)) / 100; }   /* "A is X% more/less than B" → A/B value */
+    return null;
+  }
   if (cat === 'averages') {
     if (key === 'mean') return n.reduce(function (s, v) { return s + v; }, 0) / n.length;
     if (key === 'missing') { var k = n.slice(0, -1), avg = n[n.length - 1]; return avg * (k.length + 1) - k.reduce(function (s, v) { return s + v; }, 0); }
@@ -128,6 +148,7 @@ function recompute(cat, key, text) {
   }
   if (cat === 'time-and-work') {
     if (key === 'together') return n[0] * n[1] / (n[0] + n[1]); if (key === 'workDone') return n[1] * 100 / n[0]; if (key === 'workersScale') return n[0] * n[1] / n[2];
+    if (key === 'inverseTogether') return n[0] * n[1] / (n[1] - n[0]);                   /* together T, one solo a → other = a·T/(a−T); tokens [T, a] */
   }
   if (cat === 'number-series') {
     if (key === 'alternating') return n[4] + (n[2] - n[0]);   /* two interleaved APs: the 7th term continues chain 1 */
@@ -154,6 +175,7 @@ function recompute(cat, key, text) {
   if (cat === 'mixtures') {
     if (key === 'meanPrice') return (n[0] * n[1] + n[2] * n[3]) / (n[0] + n[2]);
     if (key === 'alligationQty') return n[1] * (n[2] - n[3]) / (n[3] - n[0]);   /* "at ₹a, y kg at ₹b, mixture ₹m" */
+    if (key === 'alligationRatio') return (n[1] - n[2]) / (n[2] - n[0]);        /* ADR-095 P3: "at ₹a, ₹b, mixture ₹m" → cheaper:dearer value = (b−m)/(m−a) */
   }
   if (cat === 'pipes-cisterns') {
     if (key === 'together') return n[0] * n[1] / (n[0] + n[1]);
@@ -294,7 +316,7 @@ ALL_CATS.forEach(function (cat) {
         ok('2 ' + tag + ' has explanation', typeof q.explanation === 'string' && q.explanation.length >= 10);
         (seenKeys[tag] = seenKeys[tag] || {})[key] = true;
         var exp = recompute(cat, key, q.question);
-        if (exp != null) { recomputed++; var good = approxEq(exp, q.answer); if (!good) { mismatches++; if (shownFail < 20) console.error('    recompute ' + tag + '/' + key + ': got ' + q.answer + ' expected ' + exp + ' — ' + q.question); } ok('2 ' + tag + '/' + key + ' answer == independent recompute', good); }
+        if (exp != null) { recomputed++; var good = approxEq(exp, answerValue(q.answer)); if (!good) { mismatches++; if (shownFail < 20) console.error('    recompute ' + tag + '/' + key + ': got ' + q.answer + ' expected ' + exp + ' — ' + q.question); } ok('2 ' + tag + '/' + key + ' answer == independent recompute', good); }
       }
     }
   });

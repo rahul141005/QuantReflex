@@ -394,10 +394,11 @@ function initHomeView() {
         goalRingFill.style.transition = 'stroke-dashoffset 0.8s ease-out';
         goalRingFill.style.strokeDashoffset = offset.toFixed(2);
       });
-      /* Color based on progress */
-      if (pct >= 100) goalRingFill.style.stroke = 'var(--accent-success, #22c55e)';
-      else if (pct >= 50) goalRingFill.style.stroke = 'var(--accent, #2563eb)';
-      else goalRingFill.style.stroke = 'var(--accent-muted, #60a5fa)';
+      /* Colour by progress via the THEME tokens (ADR-095): --accent/--accent-success/--accent-muted were never defined
+         anywhere, so this hero ring always rendered the hard-coded blue/green and ignored Dark/Playful. --qr-accent and
+         --qr-success ARE theme-aware — goal-met turns the ring success-green, otherwise the brand accent (the arc
+         length already conveys how far along the day is). */
+      goalRingFill.style.stroke = (pct >= 100) ? 'var(--qr-success, #16a34a)' : 'var(--qr-accent, #2563eb)';
     }
 
     /* ---- Streak-at-risk banner ---- */

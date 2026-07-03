@@ -12,16 +12,19 @@ var _lastStatsFingerprint = null;
 function renderStatsView() {
   var p = loadProgress();
 
-  /* Dirty-flag cache: every answer bumps totalAttempted, so this catches all content changes cheaply. */
+  var canDeep = (typeof canAccessFeature === 'function') ? canAccessFeature('performance_insights') : true;
+
+  /* Dirty-flag cache: every answer bumps totalAttempted, so this catches all content changes cheaply. Entitlement is
+     part of the key (ADR-095) — an in-session upgrade flips canDeep with no new answer, and must re-render so the
+     locked Mastery/Study-Next/Recommends cards unlock immediately instead of staying gated until the next question. */
   var fingerprint = (p.totalAttempted || 0) + ':' + (p.totalCorrect || 0) + ':' + (p.dailyStreak || 0) + ':' +
-    (p.todayAttempted || 0) + ':' + (_statsTargetExam());
+    (p.todayAttempted || 0) + ':' + (_statsTargetExam()) + ':' + (canDeep ? 1 : 0);
   if (_lastStatsFingerprint === fingerprint) return;
   _lastStatsFingerprint = fingerprint;
 
   var SM = (typeof QR_STATMATH !== 'undefined') ? QR_STATMATH : null;
   var SUB = (typeof QR_SUBJECTS !== 'undefined') ? QR_SUBJECTS : null;
   var ER = (typeof QR_EXAMREL !== 'undefined') ? QR_EXAMREL : null;
-  var canDeep = (typeof canAccessFeature === 'function') ? canAccessFeature('performance_insights') : true;
 
   var subjectCats = {};
   if (SUB) SUB.subjects().forEach(function (s) { subjectCats[s.id] = SUB.subjectToCategories(s.id); });

@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.115 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.116 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.60 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.116 / Arch 2.60 (2026-07-03)** — **RC verification: pause regression fix + backlog execution (ADR-095).**
+> Evidence-based re-verification of the ADR-094 fixes (cross-checked by an independent adversarial review): C1/H2
+> confirmed correct; one regression the review caught — the new physical-keyboard handler firing under the pause
+> overlay — fixed. The hard-tier de-dilution was then finished across ~14 more Quant categories (incl. simple-interest,
+> whose guaranteed-clean fallback still injected the easy `si` key, and time-and-work, which gained a real hard
+> archetype), so "difficulty earned by reasoning" holds app-wide and the check's downgrade guard is meaningful
+> everywhere. Backlog executed: stats premium cards unlock on in-session upgrade; string-archetype recompute coverage
+> (+857 checks); theme-aware Home goal ring; 44px category buttons + AA dark tertiary text; dead-code + inline-handler
+> cleanups; SW network-first timeout for lie-fi; and the long-documented localStorage legacy→canonical migration now
+> actually implemented. All 26 suites green. No schema/security change. SW v211.
+>
 > **2.115 / Arch 2.60 (2026-07-03)** — **Full-repository audit: submission bug + Critical/High remediation (ADR-094).**
 > A three-lens audit (architecture / product-education-a11y / bug-hunt), each finding code-verified. The reported P0
 > ("cannot submit answers") did not reproduce on the mainline pipeline; the one real submission defect — review mode

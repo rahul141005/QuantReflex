@@ -3,8 +3,9 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v210';
-const CACHE_NAME = 'qr-cache-v210';
+const APP_VERSION = 'v211';
+const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
+const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
 var ASSETS = [
   './',
@@ -228,8 +229,17 @@ self.addEventListener('fetch', function (event) {
 
       /* App JS/CSS: NETWORK-FIRST so a new deploy is picked up on the very next load (the cache stays as the
          offline fallback). Other assets (images / sounds / fonts): cache-first for speed + offline.
-         This stops a deploy from being masked by a stale cached bundle. */
-      if (isAppAsset) { return fetchPromise.then(function (resp) { return resp || cached; }); }
+         This stops a deploy from being masked by a stale cached bundle.
+         ADR-095: bound the network wait. On "lie-fi" (connected but hanging) an unbounded fetch would stall first
+         paint even though a cached copy exists. When we HAVE a cached copy, race the fetch against a short timeout and
+         fall back to cache; the fetch still runs and refreshes the cache for the next load (stale-while-revalidate).
+         With no cache we must wait for the network. */
+      if (isAppAsset) {
+        var netFirst = fetchPromise.then(function (resp) { return resp || cached; });
+        if (!cached) return netFirst;
+        var timed = new Promise(function (resolve) { setTimeout(function () { resolve(cached); }, NET_FIRST_TIMEOUT_MS); });
+        return Promise.race([netFirst, timed]);
+      }
       return cached || fetchPromise;
     })
   );

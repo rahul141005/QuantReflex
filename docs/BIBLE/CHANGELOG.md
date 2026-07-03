@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-03 — RC verification: pause regression fix + backlog execution (ADR-095)
+
+Release-candidate verification of the ADR-094 fixes (cross-checked by an independent adversarial review). C1 + H2
+verified correct; one regression fixed; the remaining backlog executed. Full detail in ADR-095.
+
+```
+### fix(regression): keyboard entry no longer fires under the pause overlay
+- js/ui/numpad.js: the ADR-094 keydown handler bailed only on !_numpadInput; pause doesn't null it, so Enter graded
+  the frozen answer / could advance under the overlay. Now also bails when #drillPauseOverlay is present.
+### fix(quant): H3-extended — hard-tier de-dilution across ~14 more categories
+- js/questions.js: squares, simple-interest, profit-loss, compound-interest, ages, mixtures, number-properties,
+  progressions, surface-area, trigonometry, quadratic, number-series, simplification, probability hard tiers no
+  longer re-include their easy/medium archetypes; time-and-work gains a real hard archetype (inverseTogether).
+  PRIMARY.hard repointed for squares/simple-interest/ages/time-and-work off the easy keys they injected.
+- scripts/quant-engine.check.js: TIER_KEYS updated in lockstep + inverseTogether recompute; the "no downgrade" guard
+  is now meaningful. P3: value-based recompute added for string archetypes (fractions/ratios/mixtures) — +857 checks.
+### fix(ui/a11y/robustness): backlog batch
+- js/views/stats-view.js: fingerprint includes entitlement → premium cards unlock on in-session upgrade (P2).
+- js/views/home-view.js + css/style.css: daily-goal ring uses theme-aware --qr-accent/--qr-success (P4).
+- css/style.css: .category-btn 44px + no selection reflow; dark --qr-text-mut ≥AA contrast (P5).
+- js/firestore-sync.js: removed dead duplicate updateCoachingId; js/drill-engine.js: accuracy zero-guard (P5).
+- js/controllers/practice-modes.js: limit banner via addEventListener + getDailyQuestionLimit() (P5).
+- service-worker.js: network-first JS/CSS timeout (lie-fi → cache); CACHE_NAME derived from APP_VERSION; v210→v211 (P5/P6).
+- js/state/store.js: implemented the documented legacy→canonical localStorage read-time migration (P7).
+```
+
+Docs: DECISION_LOG (ADR-095) · VERSIONS (Bible bump). All 26 suites green (quant 0 recompute mismatches).
+
 ## 2026-07-03 — Full-repository audit: submission bug + Critical/High remediation (ADR-094)
 
 Complete first-principles audit (three independent investigations, each finding cross-checked against the code). The

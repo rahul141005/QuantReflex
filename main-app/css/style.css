@@ -55,7 +55,7 @@
 }
 body.dark-mode {
   --qr-bg: #0f172a; --qr-accent: #60a5fa;
-  --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #64748b;
+  --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #93a3b8;   /* ADR-095: was #64748b (~3.2:1 on dark surfaces, below AA); #93a3b8 clears 4.5:1 for small tertiary text */
   --qr-surface: rgba(30,41,59,.88); --qr-surface-solid: #1e293b; --qr-surface-2: #0f172a; --qr-surface-3: #334155;
   --qr-border: #334155; --qr-border-strong: #475569;
   --qr-accent-2: #3b82f6; --qr-accent-strong: #3b82f6;
@@ -1466,8 +1466,8 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
 }
 .category-btn {
   padding: 10px;
-  min-height: 0;
-  border: 1px solid rgba(0,0,0,.08);
+  min-height: 44px;                 /* ADR-095: meet the 44px touch-target minimum for this dense picker grid */
+  border: 2px solid rgba(0,0,0,.08);/* 2px in BOTH states so selection is a colour change, never a width reflow */
   border-radius: 10px;
   background: #ffffff;
   color: #111827;
@@ -1483,7 +1483,7 @@ body.dark-mode .quota-upgrade-link { color: #60a5fa; }
 }
 .category-btn.selected {
   background: rgba(37,99,235,.10);
-  border: 2.5px solid #2563eb;
+  border: 2px solid #2563eb;        /* same width as base → no layout shift on select */
   color: #1d4ed8;
   font-weight: 700;
 }
@@ -8706,7 +8706,7 @@ body.dark-mode .home-goal-card {
 body.dark-mode .home-goal-ring-bg { stroke: #334155; }
 .home-goal-ring-fill {
   fill: none;
-  stroke: var(--accent, #2563eb);
+  stroke: var(--qr-accent, #2563eb);   /* theme-aware; JS overrides per progress (ADR-095) */
   stroke-width: 8;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.8s ease-out;

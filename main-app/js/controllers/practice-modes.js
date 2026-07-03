@@ -85,10 +85,15 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
     if (modeSelectEl) {
       var existingBanner = document.querySelector('.daily-limit-banner');
       if (!existingBanner) {
+        /* ADR-095: source the number from the single limit definition (not a hardcoded "20") and bind via
+           addEventListener rather than an inline onclick (CSP-friendly, consistent with the rest of the app). */
+        var _freeLimit = (typeof getDailyQuestionLimit === 'function' && isFinite(getDailyQuestionLimit())) ? getDailyQuestionLimit() : 20;
         var banner = document.createElement('div');
         banner.className = 'daily-limit-banner';
-        banner.innerHTML = '🔒 You\'ve reached your daily limit of 20 free questions.<br>Upgrade to Premium for unlimited practice.' +
-          '<br><button class="btn-primary" onclick="showPaywall(\'settings\')">Upgrade Now</button>';
+        banner.innerHTML = '🔒 You\'ve reached your daily limit of ' + _freeLimit + ' free questions.<br>Upgrade to Premium for unlimited practice.' +
+          '<br><button class="btn-primary" type="button">Upgrade Now</button>';
+        var _upBtn = banner.querySelector('button');
+        if (_upBtn) _upBtn.addEventListener('click', function () { showPaywall('settings'); });
         modeSelectEl.parentNode.insertBefore(banner, modeSelectEl);
       }
     }

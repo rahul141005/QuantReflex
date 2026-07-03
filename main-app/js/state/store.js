@@ -44,6 +44,32 @@ var AppState = (function () {
     premium:        'qr_premium'
   };
 
+  /* Legacy → canonical map (ADR-095): the module always documented a lazy read-time migration but never implemented
+     it, so a user upgrading from a build that wrote the old `quant_*`/`premiumStatus` keys would read DEFAULTS
+     offline / before Firestore hydration — a real data-loss window. The read helpers below now migrate on first
+     read (only when the canonical key is absent AND a legacy key exists — so current canonical users are untouched). */
+  var LEGACY = {
+    'qr_settings':        'quant_reflex_settings',
+    'qr_progress':        'quant_reflex_progress',
+    'qr_quick_links':     'quant_quick_links',
+    'qr_custom_topics':   'quant_custom_topics',
+    'qr_custom_formulas': 'quant_custom_formulas',
+    'qr_bookmarks':       'quant_bookmarks',
+    'qr_notif_enabled':   'quant_notifications_enabled',
+    'qr_onboarding_done': 'quant_onboarding_complete',
+    'qr_premium':         'premiumStatus'
+  };
+
+  /* Return the stored raw string for a canonical key, migrating a legacy value into it on first read. */
+  function _rawWithMigration(key) {
+    var raw = localStorage.getItem(key);
+    if (raw === null && LEGACY[key]) {
+      var legacyRaw = localStorage.getItem(LEGACY[key]);
+      if (legacyRaw !== null) { try { localStorage.setItem(key, legacyRaw); } catch (_) { /* quota — still return the value */ } raw = legacyRaw; }
+    }
+    return raw;
+  }
+
 
 
   /* ---- Defaults ---- */
@@ -95,7 +121,7 @@ var AppState = (function () {
    */
   function _readJSON(key, fallback) {
     try {
-      var raw = localStorage.getItem(key);
+      var raw = _rawWithMigration(key);
       if (raw !== null) return JSON.parse(raw);
     } catch (_) { /* ignore */ }
     return (typeof fallback === 'function') ? fallback() : fallback;
@@ -122,7 +148,7 @@ var AppState = (function () {
    */
   function _readString(key, fallback) {
     try {
-      var val = localStorage.getItem(key);
+      var val = _rawWithMigration(key);
       if (val !== null) return val;
     } catch (_) { /* ignore */ }
     return fallback;

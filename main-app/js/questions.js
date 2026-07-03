@@ -126,8 +126,9 @@ var _SQUARES_ARCH = {
     { k: 'direct', skill: 'direct', build: function () { var n = randInt(13, 30); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?']), a: n * n, explain: _sqIdentity(n) }; } },
     { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(4, 25), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'Square root of ' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: 'Find x with x² = ' + sq + '. Since ' + n + '² = ' + sq + ', √' + sq + ' = ' + n + '.' }; } }
   ],
+  /* ADR-095: mirror cubes — big-number "compute n²" is calculator work, not reasoning, so hard drops 'direct'. Hard is
+     the inverse (√) and the a²−b² factoring identity. */
   hard: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(31, 60); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?']), a: n * n, explain: _sqIdentity(n) }; } },
     { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(20, 45), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: n + '² = ' + sq + ', so √' + sq + ' = ' + n + '. It sits just above ' + (Math.floor(n / 10) * 10) + '² = ' + (Math.floor(n / 10) * 10) * (Math.floor(n / 10) * 10) + '.' }; } },
     { k: 'diffSquares', skill: 'multi-step', build: function () { var a = randInt(12, 40), b = randInt(2, a - 1); return { q: a + '² − ' + b + '² = ?', a: a * a - b * b, explain: 'a² − b² = (a+b)(a−b) = (' + (a + b) + ')(' + (a - b) + ') = ' + (a * a - b * b) + '. Factor instead of squaring both — far faster.' }; } }
   ]
@@ -135,7 +136,8 @@ var _SQUARES_ARCH = {
 var _SQUARES_PRIMARY = {
   easy: function () { var n = randInt(2, 12); return { q: n + '² = ?', a: n * n, k: 'direct', explain: n + '² = ' + (n * n) + '.' }; },
   medium: function () { var n = randInt(13, 30); return { q: n + '² = ?', a: n * n, k: 'direct', explain: _sqIdentity(n) }; },
-  hard: function () { var n = randInt(31, 60); return { q: n + '² = ?', a: n * n, k: 'direct', explain: _sqIdentity(n) }; }
+  /* hard PRIMARY must emit a HARD key (not the dropped 'direct'): a clean √ (ADR-095 lockstep). */
+  hard: function () { var n = randInt(20, 45), sq = n * n; return { q: '√' + sq + ' = ?', a: n, k: 'inverse', explain: n + '² = ' + sq + ', so √' + sq + ' = ' + n + '.' }; }
 };
 function genSquare() { return _genArch('squares', _SQUARES_ARCH, _SQUARES_PRIMARY); }
 
@@ -329,7 +331,9 @@ function _plSuccessive() { for (var i = 0; i < 40; i++) { var pl = pick([[10, 10
 var _PL_ARCH = {
   easy: [{ k: 'spProfit', skill: 'direct', build: function (d) { return _plSPprofit(d); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }],
   medium: [{ k: 'spProfit', skill: 'direct', build: function (d) { return _plSPprofit(d); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }, { k: 'profitPct', skill: 'inverse', build: function (d) { return _plProfitPct(d); } }],
-  hard: [{ k: 'profitPct', skill: 'inverse', build: function (d) { return _plProfitPct(d); } }, { k: 'findCP', skill: 'inverse', build: function (d) { return _plFindCP(d); } }, { k: 'successive', skill: 'multi-step', build: function () { return _plSuccessive(); } }, { k: 'spLoss', skill: 'direct', build: function (d) { return _plSPloss(d); } }]
+  /* ADR-095 (hard = earned): drop the direct 'spLoss' (an easy archetype) — hard is profit% (inverse), find-CP
+     (reverse) and successive (multi-step). */
+  hard: [{ k: 'profitPct', skill: 'inverse', build: function (d) { return _plProfitPct(d); } }, { k: 'findCP', skill: 'inverse', build: function (d) { return _plFindCP(d); } }, { k: 'successive', skill: 'multi-step', build: function () { return _plSuccessive(); } }]
 };
 var _PL_PRIMARY = {
   easy: function () { return { q: 'The cost price is ₹200 and the profit is 25%. The selling price = ₹?', a: 250, k: 'spProfit', explain: 'SP = 200 × 1.25 = ₹250.' }; },
@@ -388,15 +392,22 @@ function genTSD() { return _genArch('time-speed-distance', _TSD_ARCH, _TSD_PRIMA
 function _twTogether(diff) { for (var i = 0; i < 40; i++) { var a = pick(diff === 'easy' ? [2, 3, 4, 6] : (diff === 'hard' ? [5, 6, 8, 10, 12, 15] : [3, 4, 5, 6, 10])); var b = pick(diff === 'easy' ? [3, 4, 6] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [4, 5, 6, 10, 12])); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'A can do a piece of work in ' + a + ' days and B in ' + b + ' days. Working together, they finish it in ? days', a: (a * b) / (a + b), k: 'together', explain: 'Together time = (a × b)/(a + b) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + (a * b) + '/' + (a + b) + ' = ' + ((a * b) / (a + b)) + ' days. Add the RATES (1/a + 1/b), never the days.' }; } return null; }
 function _twWorkDone(diff) { var days = pick(diff === 'easy' ? [2, 4, 5, 10] : (diff === 'hard' ? [5, 8, 10, 20, 25] : [4, 5, 8, 10])); var wd = 0; for (var i = 0; i < 20; i++) { wd = randInt(1, days - 1); if ((wd * 100) % days === 0) break; } if ((wd * 100) % days !== 0) return null; return { q: 'A can finish a job in ' + days + ' days. In ' + wd + ' days he completes ? % of the work.', a: wd * 100 / days, k: 'workDone', explain: 'Fraction done = ' + wd + '/' + days + ', so ' + wd + '/' + days + ' × 100 = ' + (wd * 100 / days) + '%.' }; }
 function _twScale(diff) { for (var i = 0; i < 40; i++) { var w1 = pick(diff === 'easy' ? [2, 3, 4, 5] : (diff === 'hard' ? [4, 5, 6, 8, 10] : [3, 4, 5, 6])); var dp = pick(diff === 'easy' ? [4, 6, 8, 10, 12] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [6, 8, 10, 12])); var tot = w1 * dp, opts = []; for (var w = 2; w <= 20; w++) { if (w !== w1 && tot % w === 0) opts.push(w); } if (!opts.length) continue; var w2 = pick(opts); return { q: 'If ' + w1 + ' workers finish a task in ' + dp + ' days, then ' + w2 + ' workers finish the same task in ? days', a: tot / w2, k: 'workersScale', explain: 'Total work = ' + w1 + ' × ' + dp + ' = ' + tot + ' worker-days. Time for ' + w2 + ' workers = ' + tot + ' ÷ ' + w2 + ' = ' + (tot / w2) + ' days (workers and days are inversely proportional).' }; } return null; }
+/* ADR-095: a GENUINE hard archetype — the inverse of "together". Given the combined time and one worker's solo time,
+   find the other's solo time: 1/b = 1/T − 1/a → b = aT/(a−T). Token order in the stem is [T, a] (combined first, then
+   the known solo), matching the recompute branch. */
+function _twInverse() { for (var i = 0; i < 60; i++) { var T = pick([2, 3, 4, 5, 6, 8]); var a = pick([6, 8, 9, 10, 12, 15, 18, 20, 24]); if (a <= T) continue; if ((a * T) % (a - T) !== 0) continue; var b = (a * T) / (a - T); if (b <= T || b > 90) continue; var nm = _two(); return { q: nm[0] + ' and ' + nm[1] + ' together can finish a piece of work in ' + T + ' days. ' + nm[0] + ' alone can do it in ' + a + ' days. In how many days can ' + nm[1] + ' alone finish it?', a: b, k: 'inverseTogether', explain: 'Work with RATES: 1/' + nm[1] + ' = 1/' + T + ' − 1/' + a + ' = (' + a + ' − ' + T + ')/(' + a + '×' + T + ') = ' + (a - T) + '/' + (a * T) + '. So ' + nm[1] + ' alone = ' + (a * T) + '/' + (a - T) + ' = ' + b + ' days.' }; } return null; }
 var _TW_ARCH = {
   easy: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }],
   medium: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }],
-  hard: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }]
+  /* ADR-095: hard previously re-used the easy 'together'/'workDone' with bigger numbers — no unique hard archetype.
+     Now hard is the inverse-together deduction and the workers↔days inverse-proportion scaling. */
+  hard: [{ k: 'inverseTogether', skill: 'multi-step', build: function () { return _twInverse(); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }]
 };
 var _TW_PRIMARY = {
   easy: function () { return { q: 'A can do a piece of work in 6 days and B in 3 days. Working together, they finish it in ? days', a: 2, k: 'together', explain: '(6 × 3)/(6 + 3) = 18/9 = 2 days.' }; },
   medium: function () { return { q: 'If 4 workers finish a task in 6 days, then 8 workers finish the same task in ? days', a: 3, k: 'workersScale', explain: '24 worker-days ÷ 8 = 3 days.' }; },
-  hard: function () { return { q: 'A can do a piece of work in 10 days and B in 15 days. Working together, they finish it in ? days', a: 6, k: 'together', explain: '(10 × 15)/(10 + 15) = 150/25 = 6 days.' }; }
+  /* hard PRIMARY is the inverse-together deduction (clean fixed instance, never null): together 6, A 10 → B 15. */
+  hard: function () { return { q: 'A and B together can finish a piece of work in 6 days. A alone can do it in 10 days. In how many days can B alone finish it?', a: 15, k: 'inverseTogether', explain: '1/B = 1/6 − 1/10 = (10 − 6)/60 = 4/60 = 1/15, so B alone = 15 days.' }; }
 };
 function genTimeWork() { return _genArch('time-and-work', _TW_ARCH, _TW_PRIMARY); }
 
@@ -405,7 +416,9 @@ function genTimeWork() { return _genArch('time-and-work', _TW_ARCH, _TW_PRIMARY)
 function _simEasy() { var a = randInt(2, 12), b = randInt(2, 12), c = randInt(2, 30); return { q: a + ' × ' + b + ' + ' + c + ' = ?', a: a * b + c, k: 'multiplyAdd', explain: 'BODMAS — multiply first: ' + a + ' × ' + b + ' = ' + (a * b) + ', then + ' + c + ' = ' + (a * b + c) + '.' }; }
 function _simMed() { var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40); return { q: num + ' ÷ ' + dv + ' + ' + add + ' = ?', a: num / dv + add, k: 'divideAdd', explain: 'Divide first: ' + num + ' ÷ ' + dv + ' = ' + (num / dv) + ', then + ' + add + ' = ' + (num / dv + add) + '.' }; }
 function _simHard() { var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9); return { q: '(' + p + ' × ' + q + ') ÷ ' + r + ' + ' + s + ' × ' + t + ' = ?', a: (p * q) / r + s * t, k: 'fullBodmas', explain: 'Brackets → (' + p + ' × ' + q + ') = ' + (p * q) + '; ÷ ' + r + ' = ' + ((p * q) / r) + '; and ' + s + ' × ' + t + ' = ' + (s * t) + '; sum = ' + ((p * q) / r + s * t) + '.' }; }
-var _SIM_ARCH = { easy: [{ k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], medium: [{ k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }, { k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], hard: [{ k: 'fullBodmas', skill: 'multi-step', build: function () { return _simHard(); } }, { k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }] };
+/* ADR-095: hard drops the fixed-range medium 'divideAdd' — a "hard" simplification is the full multi-operator BODMAS
+   expression, not a two-step divide-add at bigger numbers. (Single rich archetype; the diversity check skips len-1 tiers.) */
+var _SIM_ARCH = { easy: [{ k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], medium: [{ k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }, { k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], hard: [{ k: 'fullBodmas', skill: 'multi-step', build: function () { return _simHard(); } }] };
 var _SIM_PRIMARY = { easy: function () { return _simEasy(); }, medium: function () { return _simMed(); }, hard: function () { return _simHard(); } };
 function genSimplification() { return _genArch('simplification', _SIM_ARCH, _SIM_PRIMARY); }
 
@@ -429,7 +442,8 @@ function _nsAlt() {
 var _NS_ARCH = {
   easy: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }],
   medium: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }, { k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }],
-  hard: [{ k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }, { k: 'squaresSeries', skill: 'pattern', build: function () { return _nsSquares(); } }, { k: 'alternating', skill: 'multi-step', build: function () { return _nsAlt(); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }]
+  /* ADR-095: drop plain 'geometric' (an easy pattern) — hard is growing-gap, n²±k squares series and interleaved APs. */
+  hard: [{ k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }, { k: 'squaresSeries', skill: 'pattern', build: function () { return _nsSquares(); } }, { k: 'alternating', skill: 'multi-step', build: function () { return _nsAlt(); } }]
 };
 var _NS_PRIMARY = { easy: function () { return _nsArith('easy'); }, medium: function () { return _nsArith('medium'); }, hard: function () { return _nsSquares(); } };
 function genNumberSeries() { return _genArch('number-series', _NS_ARCH, _NS_PRIMARY); }
@@ -445,9 +459,12 @@ function _siPrincipal(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12]), T =
 var _SI_ARCH = {
   easy: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }],
   medium: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }, { k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }],
-  hard: [{ k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }, { k: 'findPrincipal', skill: 'inverse', build: function (d) { return _siPrincipal(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }, { k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }]
+  /* ADR-095: drop the direct 'si' and 'amount' (the easy archetypes) — hard is the inverse problems: find-rate and
+     find-principal from a given interest. */
+  hard: [{ k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }, { k: 'findPrincipal', skill: 'inverse', build: function (d) { return _siPrincipal(d); } }]
 };
-var _SI_PRIMARY = { easy: function () { return _siFind('easy'); }, medium: function () { return _siFind('medium'); }, hard: function () { return _siFind('hard'); } };
+/* hard PRIMARY repointed off 'si' (easy) to the inverse find-rate build — _siRate never returns null (ADR-095). */
+var _SI_PRIMARY = { easy: function () { return _siFind('easy'); }, medium: function () { return _siFind('medium'); }, hard: function () { return _siRate('hard'); } };
 function genSimpleInterest() { return _genArch('simple-interest', _SI_ARCH, _SI_PRIMARY); }
 
 /** Compound Interest (archetypes: amount · CI · CI−SI difference). Retry-until-clean guarantees integer amounts. */
@@ -458,7 +475,8 @@ function _ciDiff() { for (var i = 0; i < 50; i++) { var R = pick([5, 10, 15, 20,
 var _CI_ARCH = {
   easy: [{ k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }],
   medium: [{ k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }, { k: 'ci', skill: 'direct', build: function (d) { return _ciInterest(d); } }],
-  hard: [{ k: 'ci', skill: 'direct', build: function (d) { return _ciInterest(d); } }, { k: 'ciSiDiff', skill: 'multi-step', build: function () { return _ciDiff(); } }, { k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }]
+  /* ADR-095: drop the direct 'amount' (an easy archetype) — hard is CI (compute) and the CI−SI difference trap. */
+  hard: [{ k: 'ci', skill: 'direct', build: function (d) { return _ciInterest(d); } }, { k: 'ciSiDiff', skill: 'multi-step', build: function () { return _ciDiff(); } }]
 };
 var _CI_PRIMARY = {
   easy: function () { return { q: 'Find the amount on ₹1000 at 10% per annum compounded annually for 2 years.', a: 1210, k: 'amount', explain: 'A = 1000 × 1.1² = ₹1210.' }; },
@@ -491,9 +509,13 @@ function _ageFatherSon() { for (var i = 0; i < 40; i++) { var n = pick([3, 4, 5,
 var _AGE_ARCH = {
   easy: [{ k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }, { k: 'presentAge', skill: 'direct', build: function (d) { return _agePresent(d); } }],
   medium: [{ k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }, { k: 'ageDiff', skill: 'multi-step', build: function () { return _ageDiff(); } }],
-  hard: [{ k: 'ageDiff', skill: 'multi-step', build: function () { return _ageDiff(); } }, { k: 'fatherSon', skill: 'multi-step', build: function () { return _ageFatherSon(); } }, { k: 'ratioSum', skill: 'direct', build: function (d) { return _ageRatioSum(d); } }]
+  /* ADR-095: drop the direct 'ratioSum' (an easy archetype) — hard is the age-difference and father-son multiples,
+     both multi-step equation problems. */
+  hard: [{ k: 'ageDiff', skill: 'multi-step', build: function () { return _ageDiff(); } }, { k: 'fatherSon', skill: 'multi-step', build: function () { return _ageFatherSon(); } }]
 };
-var _AGE_PRIMARY = { easy: function () { return _ageRatioSum('easy'); }, medium: function () { return _ageRatioSum('medium'); }, hard: function () { return _ageRatioSum('hard'); } };
+/* hard PRIMARY repointed off 'ratioSum' (easy) to a guaranteed-clean father-son (ageDiff/fatherSon builds can retry-fail;
+   this fixed instance never returns null): son=4 → father 16; in 8 yrs 24 = 2×12 (ADR-095). */
+var _AGE_PRIMARY = { easy: function () { return _ageRatioSum('easy'); }, medium: function () { return _ageRatioSum('medium'); }, hard: function () { return { q: 'A father is now 4 times as old as his son. In 8 years he will be 2 times as old as his son. The son’s present age = ? years', a: 4, k: 'fatherSon', explain: 'Let son = s, father = 4s. In 8 years: 4s + 8 = 2(s + 8) → 2s = 8 → s = 4 years.' }; } };
 function genAges() { return _genArch('ages', _AGE_ARCH, _AGE_PRIMARY); }
 
 /** Mixtures & Alligations (archetypes: alligation-ratio [string] · mean-price · alligation-quantity). */
@@ -504,7 +526,9 @@ function _mixQty() { for (var i = 0; i < 40; i++) { var a = pick([20, 24, 25, 30
 var _MIX_ARCH = {
   easy: [{ k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }],
   medium: [{ k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }, { k: 'meanPrice', skill: 'direct', build: function () { return _mixMean(); } }],
-  hard: [{ k: 'meanPrice', skill: 'direct', build: function () { return _mixMean(); } }, { k: 'alligationQty', skill: 'multi-step', build: function () { return _mixQty(); } }, { k: 'alligationRatio', skill: 'formula', build: function () { return _mixRatio(); } }]
+  /* ADR-095: drop 'alligationRatio' (the easy ratio archetype) — hard is mean-price and the reverse alligation
+     quantity problem. */
+  hard: [{ k: 'meanPrice', skill: 'direct', build: function () { return _mixMean(); } }, { k: 'alligationQty', skill: 'multi-step', build: function () { return _mixQty(); } }]
 };
 var _MIX_PRIMARY = {
   easy: function () { return { q: 'In what ratio must rice at ₹20 per kg be mixed with rice at ₹30 per kg so that the mixture is worth ₹24 per kg?', a: '3:2', k: 'alligationRatio', explain: '(30−24) : (24−20) = 6 : 4 = 3 : 2.' }; },
@@ -558,7 +582,8 @@ function _npFactors(diff) { for (var t = 0; t < 20; t++) { var ps = pick([[2, 3]
 var _NP_ARCH = {
   easy: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }],
   medium: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }, { k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }],
-  hard: [{ k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }, { k: 'numFactors', skill: 'multi-step', build: function (d) { return _npFactors(d); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }]
+  /* ADR-095: drop the direct 'lcm' (easy) — hard is unit-digit cyclicity and factor-counting. */
+  hard: [{ k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }, { k: 'numFactors', skill: 'multi-step', build: function (d) { return _npFactors(d); } }]
 };
 var _NP_PRIMARY = { easy: function () { return _npHCF(); }, medium: function () { return _npLCM(); }, hard: function () { return _npUnit('hard'); } };
 function genNumberProperties() { return _genArch('number-properties', _NP_ARCH, _NP_PRIMARY); }
@@ -591,7 +616,9 @@ function _quad(diff, ask) {
 var _QUAD_ARCH = {
   easy: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
   medium: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'smallerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'smaller'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
-  hard: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'discriminant', skill: 'formula', build: function (d) { return _quad(d, 'disc'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'rootRelation', skill: 'multi-step', build: function () { return _quadRelation(); } }]
+  /* ADR-095: drop 'largerRoot' (the easy solve-and-pick archetype) — hard is discriminant, product-of-roots and the
+     root-relation (Vieta reconstruction) reasoning. */
+  hard: [{ k: 'discriminant', skill: 'formula', build: function (d) { return _quad(d, 'disc'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'rootRelation', skill: 'multi-step', build: function () { return _quadRelation(); } }]
 };
 /* ADR-093: a genuinely hard Vieta problem — reconstruct the constant term from the sum and the gap of the roots. */
 function _quadRelation() {
@@ -638,7 +665,8 @@ function _gpSum(diff) { var a = randInt(1, 5), r = pick([2, 3]), n = randInt(3, 
 var _PROG_ARCH = {
   easy: [{ k: 'apNth', skill: 'formula', build: function (d) { return _apNth(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }],
   medium: [{ k: 'apNth', skill: 'formula', build: function (d) { return _apNth(d); } }, { k: 'gpNth', skill: 'multi-step', build: function (d) { return _gpNth(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }],
-  hard: [{ k: 'gpNth', skill: 'multi-step', build: function (d) { return _gpNth(d); } }, { k: 'gpSum', skill: 'multi-step', build: function (d) { return _gpSum(d); } }, { k: 'apSum', skill: 'formula', build: function (d) { return _apSum(d); } }]
+  /* ADR-095: drop 'apSum' (the easy AP-sum archetype) — hard is the geometric-progression nth-term and sum. */
+  hard: [{ k: 'gpNth', skill: 'multi-step', build: function (d) { return _gpNth(d); } }, { k: 'gpSum', skill: 'multi-step', build: function (d) { return _gpSum(d); } }]
 };
 var _PROG_PRIMARY = { easy: function () { return _apNth('easy'); }, medium: function () { return _gpNth('medium'); }, hard: function () { return _gpSum('hard'); } };
 function genProgressions() { return _genArch('progressions', _PROG_ARCH, _PROG_PRIMARY); }
@@ -703,7 +731,9 @@ function _trigHeight(diff) { var base = randInt(5, diff === 'hard' ? 80 : 40), s
 var _TRIG_ARCH = {
   easy: [{ k: 'standardEval', skill: 'direct', build: function () { return _trigStd(); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }],
   medium: [{ k: 'standardEval', skill: 'direct', build: function () { return _trigStd(); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }, { k: 'identity', skill: 'formula', build: function () { return _trigIdentity(); } }],
-  hard: [{ k: 'identity', skill: 'formula', build: function () { return _trigIdentity(); } }, { k: 'heightElev', skill: 'multi-step', build: function (d) { return _trigHeight(d); } }, { k: 'complementary', skill: 'formula', build: function () { return _trigComp(); } }]
+  /* ADR-095: drop 'complementary' (the easy complementary-angle archetype) — hard is identity simplification and the
+     height-and-distance (angle of elevation) multi-step problem. */
+  hard: [{ k: 'identity', skill: 'formula', build: function () { return _trigIdentity(); } }, { k: 'heightElev', skill: 'multi-step', build: function (d) { return _trigHeight(d); } }]
 };
 var _TRIG_PRIMARY = { easy: function () { return _trigStd(); }, medium: function () { return _trigComp(); }, hard: function () { return _trigIdentity(); } };
 function genTrigonometry() { return _genArch('trigonometry', _TRIG_ARCH, _TRIG_PRIMARY); }
@@ -718,7 +748,8 @@ function _saSphere() { var r = randInt(2, 14); return { q: pick(['Find the surfa
 var _SA_ARCH = {
   easy: [{ k: 'cubeTSA', skill: 'formula', build: function () { return _saCubeTSA(); } }, { k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }],
   medium: [{ k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }, { k: 'cylCSA', skill: 'multi-step', build: function () { return _saCylCSA(); } }, { k: 'cubeLSA', skill: 'formula', build: function () { return _saCubeLSA(); } }],
-  hard: [{ k: 'cylTSA', skill: 'multi-step', build: function () { return _saCylTSA(); } }, { k: 'sphereSA', skill: 'multi-step', build: function () { return _saSphere(); } }, { k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }]
+  /* ADR-095: drop 'cuboidTSA' (the easy cuboid-surface archetype) — hard is cylinder TSA and sphere surface area. */
+  hard: [{ k: 'cylTSA', skill: 'multi-step', build: function () { return _saCylTSA(); } }, { k: 'sphereSA', skill: 'multi-step', build: function () { return _saSphere(); } }]
 };
 var _SA_PRIMARY = { easy: function () { return _saCubeTSA(); }, medium: function () { return _saCuboidTSA(); }, hard: function () { return _saSphere(); } };
 function genSurfaceArea() { return _genArch('surface-area', _SA_ARCH, _SA_PRIMARY); }
@@ -764,7 +795,9 @@ function _probMultiple() { for (var t = 0; t < 30; t++) { var T = pick([10, 20, 
 var _PROB_ARCH = {
   easy: [{ k: 'bagSingle', skill: 'formula', build: function () { return _probBag(); } }, { k: 'allHeads', skill: 'formula', build: function (d) { return _probCoins(d); } }],
   medium: [{ k: 'bagSingle', skill: 'formula', build: function () { return _probBag(); } }, { k: 'complement', skill: 'multi-step', build: function () { return _probComplement(); } }, { k: 'multipleProb', skill: 'multi-step', build: function () { return _probMultiple(); } }],
-  hard: [{ k: 'complement', skill: 'multi-step', build: function () { return _probComplement(); } }, { k: 'multipleProb', skill: 'multi-step', build: function () { return _probMultiple(); } }, { k: 'allHeads', skill: 'formula', build: function (d) { return _probCoins(d); } }]
+  /* ADR-095: drop 'allHeads' (the easy all-coins archetype) — hard is complement ("at least one") and multi-event
+     probability reasoning. */
+  hard: [{ k: 'complement', skill: 'multi-step', build: function () { return _probComplement(); } }, { k: 'multipleProb', skill: 'multi-step', build: function () { return _probMultiple(); } }]
 };
 var _PROB_PRIMARY = { easy: function () { return _probBag(); }, medium: function () { return _probComplement(); }, hard: function () { return _probMultiple() || _probComplement(); } };
 function genProbability() { return _genArch('probability', _PROB_ARCH, _PROB_PRIMARY); }

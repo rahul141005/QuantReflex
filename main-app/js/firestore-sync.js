@@ -1070,16 +1070,6 @@ var FirestoreSync = (function () {
         }
       }
     },
-    /**
-     * Update the user's coaching ID in Firestore.
-     * @param {string} coachingId - the coaching institute identifier (or empty to clear)
-     */
-    updateCoachingId: function (coachingId) {
-      var sanitized = (typeof coachingId === 'string') ? coachingId.trim().substring(0, 50) : null;
-      if (sanitized === '') sanitized = null;
-      if (_memoryCache) _memoryCache.coachingId = sanitized;
-      queueUpdate('coachingId', sanitized);
-    },
     getAccessState: function () {
       if (!_memoryCache) return null;
       var now = Date.now();
