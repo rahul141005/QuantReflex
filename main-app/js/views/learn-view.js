@@ -1,11 +1,13 @@
 /**
- * learn-view.js — Learn controller (ADR-069, Phase 2): hub ↔ deep-linkable topic pages.
+ * learn-view.js — Learn controller (ADR-069 hub/topics · ADR-092 reimagined around Study / Revise / Look up).
  *
- * Render-on-route: Router.onShow('learn', params) → renderLearnRoute(params). No path → the HUB (knowledge
- * categories + preserved Quick-Reference tables + bookmarks + custom topics). A path (#learn/<topicId>) → a TOPIC
- * PAGE built from the knowledge object (breadcrumb, sticky section nav, typed blocks via BlockRenderers, related,
- * prev/next). In-Learn navigation goes through Router.showView('learn', {path}) so browser back/forward + shareable
- * URLs work. Reuses tables.js (the loved tables), learn-manager (bookmarks/custom topics), and LearnSearch. No AI.
+ * Render-on-route: Router.onShow('learn', params) → renderLearnRoute(params). No path → the HUB ("Up next"
+ * recommended chapter, "Revise today" card, Continue/Needs-practice/Saved strips, Quick-Reference entry + times
+ * tables, category browse, My notes). #learn/<topicId> → a TOPIC PAGE (back link, sticky section nav, typed blocks
+ * via BlockRenderers, end-of-chapter footer with complete/practise/next-up/related). #learn/quick-ref → the
+ * Quick-Reference library (ADR-084). #learn/revise → the Guided Revision flow (revise-flow.js). In-Learn navigation
+ * goes through Router.showView('learn', {path}) so browser back/forward + shareable URLs work. Reuses tables.js
+ * (the loved tables), learn-manager (My notes), LearnSearch (topics + quick-ref cards) and LearnProgress. No AI.
  */
 
 /* ---- Collapsible section toggle (shared: Quick-Reference tables here + home-view) ---- */
@@ -186,15 +188,22 @@ var LearnView = (function () {
   }
   function _gridHtml(topics) { return '<div class="kx-topic-grid">' + _byOrder(topics).map(_topicCardHtml).join('') + '</div>'; }
 
+  /* "7 topics · 3 read" — shared by the initial build and the live refresh (_refreshCardTicks). */
+  function _catCountText(catId) {
+    var KB = _KB(), LP = _LP();
+    var topics = KB ? KB.byCategory(catId) : [];
+    var done = 0;
+    if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
+    return topics.length + (topics.length === 1 ? ' topic' : ' topics') + (done > 0 ? ' · ' + done + ' read' : '');
+  }
+
   function _catHtml(c, hideHead) {
     var KB = _KB(); var topics = KB.byCategory(c.id);
     /* hideHead: when a subject has a single category, its rich subject header already names it — repeating the
        category title right below would be redundant, so we drop it and let the sub-groups carry the structure. */
-    var LP = _LP(), done = 0;
-    if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
+    /* data-cat lets _refreshCardTicks keep the "· N read" count live after a completion (hub builds once). */
     var head = hideHead ? '' : ('<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
-      '<span class="kx-cat-count">' + topics.length + (topics.length === 1 ? ' topic' : ' topics') +
-      (done > 0 ? ' · ' + done + ' read' : '') + '</span></div>' +
+      '<span class="kx-cat-count" data-cat="' + _esc(c.id) + '">' + _catCountText(c.id) + '</span></div>' +
       (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : ''));
     var groups = SUBGROUPS[c.id], body;
     if (groups) {
@@ -500,15 +509,26 @@ var LearnView = (function () {
     if (row.childNodes.length) foot.appendChild(row);
 
     var sib = KB ? KB.siblings(topic.id) : { prev: null, next: null };
-    if (sib.next) {
+    /* Last topic of a category shouldn't dead-end: continue into the next category of the same subject
+       (recommended order), labelled with ITS category so the hand-off is explicit. */
+    var next = sib.next, nextCatTitle = cat.title;
+    if (!next && KB) {
+      var cats = KB.categories().filter(function (c) { return c.subject === (KB.categoryMeta(topic.category) || {}).subject; });
+      var ci = cats.map(function (c) { return c.id; }).indexOf(topic.category);
+      if (ci !== -1 && ci < cats.length - 1) {
+        var candidates = _byOrder(KB.byCategory(cats[ci + 1].id)).filter(function (t) { return t.status !== 'scaffold'; });
+        if (candidates.length) { next = candidates[0]; nextCatTitle = cats[ci + 1].title; }
+      }
+    }
+    if (next) {
       var nu = document.createElement('div'); nu.className = 'kx-foot-block';
       nu.innerHTML = '<div class="kx-aside-title">Next up</div>';
       var nc = document.createElement('button'); nc.className = 'kx-foot-next'; nc.type = 'button';
-      nc.innerHTML = '<span class="kx-fn-ico" aria-hidden="true">' + _esc(sib.next.icon || '📘') + '</span>' +
-        '<span class="kx-fn-txt"><span class="kx-fn-title">' + _esc(sib.next.title) + '</span>' +
-        '<span class="kx-fn-cat">' + _esc(cat.title) + '</span></span>' +
+      nc.innerHTML = '<span class="kx-fn-ico" aria-hidden="true">' + _esc(next.icon || '📘') + '</span>' +
+        '<span class="kx-fn-txt"><span class="kx-fn-title">' + _esc(next.title) + '</span>' +
+        '<span class="kx-fn-cat">' + _esc(nextCatTitle) + '</span></span>' +
         '<span class="kx-fn-arrow" aria-hidden="true">›</span>';
-      nc.addEventListener('click', (function (id) { return function () { _go(id); }; })(sib.next.id));
+      nc.addEventListener('click', (function (id) { return function () { _go(id); }; })(next.id));
       nu.appendChild(nc); foot.appendChild(nu);
     }
 
@@ -720,11 +740,14 @@ var LearnView = (function () {
     });
   }
 
-  /* Reflect completion on the category topic cards (the grid is built once; ticks stay live). */
+  /* Reflect completion on the built-once grid: card ticks AND the "· N read" category counts stay live. */
   function _refreshCardTicks() {
     var LP = _LP(); if (!LP) return;
     var cards = document.querySelectorAll('#learnCategories .kx-topic-card');
     for (var i = 0; i < cards.length; i++) cards[i].classList.toggle('is-complete', LP.isComplete(cards[i].getAttribute('data-topic')));
+    document.querySelectorAll('#learnCategories .kx-cat-count[data-cat]').forEach(function (el) {
+      el.textContent = _catCountText(el.getAttribute('data-cat'));
+    });
   }
 
   /* ───────────────────────── route dispatch ───────────────────────── */

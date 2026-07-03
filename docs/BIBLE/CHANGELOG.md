@@ -45,6 +45,16 @@ owner decisions in ADR-092). Code changes:
 - scripts/learn-progress.check.js: +5 ReviseFlow.buildQueue tests; scripts/learn-browser.check.js: loads
   quick-ref-data + revise-flow, asserts queryCards/ReviseFlow globals (13 checks).
 - service-worker.js: qr-cache v206→v207; js/learn/revise-flow.js pre-cached.
+### fix(final audit pass): five findings from the end-to-end verification sweep
+- js/views/home-view.js: Home "Quick Study" learn links rerouted (fractionTable/mentalTricks/squaresSection →
+  library card reveal; formulaSections → library root — it had NO DOM target since ADR-069; bookmarksSection →
+  My notes). [shipped in the main ADR-092 commit; listed here for the record]
+- css/style.css: .kx-hub-head:focus outline suppressed (the programmatically-focused Quick-Reference heading
+  showed a loud UA ring); #learnRevise capped to the same 720px centred measure as topic pages at ≥960px.
+- js/views/learn-view.js: category "· N read" counts now refresh live after completions (_catCountText +
+  data-cat, hub builds once); the LAST topic of a category no longer dead-ends — its footer "Next up" hands
+  off to the next category of the same subject (recommended order, labelled with its category); the guided
+  revision flow hides the Learn search bar for the session; stale file-header comment rewritten for ADR-092.
 ```
 
 Docs: DECISION_LOG (ADR-092) · VERSIONS (Bible 2.112→2.113, Arch 2.58→2.59).

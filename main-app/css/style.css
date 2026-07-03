@@ -11210,7 +11210,8 @@ body.dark-mode .kx-section-nav { background: rgba(15,23,42,.72); }
   body.dark-mode .kx-section-nav { background: rgba(15,23,42,.97); }
 }
 /* Programmatic focus targets (route-change a11y) must not paint a ring for mouse users — they aren't controls. */
-.kx-th-title:focus, #learnHeading:focus { outline: none; }
+/* programmatic a11y focus targets (non-interactive headings) — focus lands for SR without a loud UA ring */
+.kx-th-title:focus, #learnHeading:focus, .kx-hub-head:focus { outline: none; }
 /* ADR-092: quieter inactive pills — the nav is a map, not a row of buttons competing with the content */
 .kx-sec-pill { flex: 0 0 auto; min-height: 2.25rem; border: 1px solid transparent; background: rgba(15,23,42,.05); color: #64748b; border-radius: 2rem; padding: .4rem .75rem; font-size: .76rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, color .15s, transform .12s ease; }
 .kx-sec-pill:hover { background: #eff6ff; color: #2563eb; }
@@ -11421,7 +11422,10 @@ body.dark-mode .kx-rc-acc { color: #f87171; background: rgba(248,113,113,.14); }
 .kx-mynotes-sub { font-size: .85rem; font-weight: 800; color: #334155; margin: .2rem 0 .5rem; }
 body.dark-mode .kx-mynotes-sub { color: #cbd5e1; }
 
-/* guided revision flow (#learn/revise) */
+/* guided revision flow (#learn/revise) — same centred reading measure as the topic page on wide screens */
+@media (min-width: 960px) {
+  #learnRevise { max-width: 720px; margin-left: auto; margin-right: auto; }
+}
 .kx-rev-top { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
 .kx-rev-exit { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border: none; border-radius: 50%; background: rgba(15,23,42,.06); color: #64748b; font-size: 1.05rem; font-weight: 700; cursor: pointer; }
 .kx-rev-exit:hover { background: rgba(15,23,42,.12); }
