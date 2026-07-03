@@ -290,11 +290,12 @@
     },
     {
       id: 'lr-nonverbal-images', title: 'Mirror, Water, Dice & Cubes', icon: '🪞', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
-      drillCategory: 'lr-mirror', searchTerms: ['mirror image', 'water image', 'dice', 'cube', 'non-verbal', 'ssc reasoning'], related: ['lr-figure-series'],
+      drillCategory: 'lr-mirror', searchTerms: ['mirror image', 'water image', 'dice', 'cube', 'non-verbal', 'ssc reasoning', 'paper folding', 'embedded figures', 'odd figure', 'cube net', 'two positions of a die'], related: ['lr-figure-series'],
       sections: [
-        { type: 'overview', text: 'Non-verbal questions test spatial sense: how a figure looks reflected (mirror/water), or how a 3-D die or painted cube behaves. A few fixed rules cover most of them.' },
-        { type: 'concept', title: 'Mirror vs water', body: 'A mirror image flips LEFT ↔ RIGHT (top and bottom stay put). A water image flips TOP ↔ BOTTOM (left and right stay put). Symmetric shapes look unchanged along their axis of symmetry.' },
-        { type: 'concept', title: 'Dice and painted cubes', body: 'On a standard die, opposite faces sum to 7. When a cube is painted and cut into n×n×n pieces, the position (corner/edge/face/interior) decides how many faces are painted.' },
+        { type: 'overview', text: 'Non-verbal questions test spatial sense: how a figure looks reflected (mirror/water), how a die or painted cube behaves in 3-D, how a punched sheet unfolds, and which figure hides inside another. A few fixed rules cover most of them.' },
+        { type: 'concept', title: 'Mirror vs water', body: 'A mirror image flips LEFT ↔ RIGHT (top and bottom stay put). A water image flips TOP ↔ BOTTOM (left and right stay put). Symmetric shapes look unchanged along their axis of symmetry — and a ROTATED copy is never a reflection: rotations keep orientation, reflections reverse it.' },
+        { type: 'concept', title: 'Dice, nets and painted cubes', body: 'On a standard die, opposite faces sum to 7. In a cross-shaped net, faces separated by one square fold to opposite sides. When the SAME die is shown in two positions, every number seen beside a face is its neighbour — the one number never seen beside it is opposite. For a painted n×n×n cube, position (corner/edge/face/interior) decides how many faces are painted.' },
+        { type: 'concept', title: 'Paper folding', body: 'Unfold one crease at a time: every punched hole reflects across the fold line. One fold doubles the holes; two folds quadruple them, all mirror-placed. A diagonal fold reflects holes across the diagonal — (x, y) gains a twin at (y, x).' },
         { type: 'formula', items: [
           { name: 'Mirror image', expr: 'left ↔ right (vertical mirror)' },
           { name: 'Water image', expr: 'top ↔ bottom (horizontal reflection)' },

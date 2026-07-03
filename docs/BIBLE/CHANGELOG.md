@@ -6,6 +6,46 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-03 — Visual question ecosystem redesign + Quant recalibration (ADR-093)
+
+Product-level rebuild of visual reasoning, a presentation stage for visual questions, and a difficulty/wording
+audit of all 36 Quant families (full rationale + archetype tables in ADR-093). Code changes:
+
+```
+### feat(figures): LRFigures v2 — exam-grade primitive vocabulary
+- js/ui/lr-figures.js: + shape (10 forms, none/solid/half fills w/ unique clipPath ids), compo (anchored inner
+  elements, 8-anchor cycle), seg (0..3 lattice line figures), paper (folds/holes/unfolded), net (cross cube net),
+  die3 (three visible faces), grid3 (3×3 matrix); flip/rot on all new kinds; describe() for each; dark-mode classes.
+### feat(engine): lr-visual-engine v2 — 10 categories, ~34 verified archetypes
+- js/lr-visual-engine.js: mirror/water rebuilt (glyph + figure + cluster + CHIRAL seg tiers); dice + net-folding
+  + two-position deduction; painted cube + at-least-one + cuboid; series/analogy on compositions with double-rule
+  hard tiers; NEW lr-odd-fig, lr-paper, lr-pattern, lr-embedded (segment-subset proofs). Explanations on every
+  question; anti-repetition rings; trap-informed distractors; spec-distinct options guaranteed.
+- Registration: js/ui/category-picker.js Visual Reasoning tier → 10 keys; scoring-service auto-tips for the four
+  new categories (+ sharper fseries/fanalogy tips); questions.js NEEDS_CONTEXT excludes new visual categories
+  from mistake-review; data/knowledge/lr.js non-verbal chapter refreshed (nets, two-position dice, paper folding).
+### feat(presentation): the figure is the hero
+- js/drill-engine.js: question-text-compact for figure/chart/long stems (single + set mode); .q-figure-stage wrap;
+  A–D letter badges + descriptive aria on picture options; teach panel shows "Option C" for figure MCQs.
+- css/style.css: stage panel, compact stem, option letter badges, new lr-fig-* classes (seg/paper/net/facelbl/
+  grid) with dark variants; figure-option grid capped at 420px and letter-badged.
+- js/di-engine.js: rotating natural lead-ins replace the fixed "Study the chart and answer:" prefix.
+### feat(quant): recalibration + wording (ADR-093 rules: numeric token order preserved; no digits in phrasing)
+- js/questions.js: cubes hard → cubeRoot5 + diffCubes (plain big-number direct removed); TSD medium + unitConvert,
+  hard → avgSpeed/relativeSpeed/trainCrossing; fractions hard → fracOfFrac + addFrac (lowest-terms guard);
+  pipes hard → inverseFill + leakEmpty; PnC hard → circular + atLeastOne; quadratic hard + rootRelation;
+  series hard + squaresSeries + alternating; averages hard PRIMARY → weighted build. Wording variety added to
+  area/volume/SI/CI/surface-area/geometry/progressions (scenario nouns, named actors via _one()).
+### chore(checks + SW)
+- scripts/lr-figures.check.js REWRITTEN: renderer contracts for every primitive + 10×3×150 engine sweep with
+  fully independent recompute (own lattice/anchor math, fold re-unfolding, die-pair deduction, subset tests).
+- scripts/quant-engine.check.js: TIER_KEYS recalibrated + recompute branches for 12 new archetypes;
+  js/answer-format.js: fractions:addFrac → '/'.
+- service-worker.js: qr-cache v207→v208.
+```
+
+Docs: DECISION_LOG (ADR-093) · VERSIONS (Bible 2.114, Arch 2.60).
+
 ## 2026-07-03 — Learn reimagined: study spine, guided revision, one reference home (ADR-092)
 
 First-principles redesign of the Learn tab around its three jobs — Study, Revise, Look up (full reasoning +

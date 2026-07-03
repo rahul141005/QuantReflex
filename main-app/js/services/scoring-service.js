@@ -157,8 +157,12 @@ var ScoringService = (function () {
       'lr-water':          'Tip: A water image flips TOP ↔ BOTTOM only (left and right stay). Letters with horizontal symmetry (B, C, D, E) look unchanged.',
       'lr-dice':           'Tip: On a standard die opposite faces sum to 7, so the face opposite N is 7 − N. For two views, the faces that move are adjacent — never opposite.',
       'lr-cube':           'Tip: For an n×n×n painted cube — corners (3 faces) = 8; edges (2) = 12(n−2); faces (1) = 6(n−2)²; inside (0) = (n−2)³.',
-      'lr-fseries':        'Tip: Find the constant turn between consecutive figures (e.g. +90° each), then apply it once more for the next figure.',
-      'lr-fanalogy':       'Tip: Work out exactly how the first figure becomes the second (rotate by a fixed angle / reflect), then apply the SAME change to the third.',
+      'lr-fseries':        'Tip: Track ONE element at a time — where the marker moves, how the count changes, how the shading cycles — then apply every rule once more for the next figure.',
+      'lr-fanalogy':       'Tip: Work out exactly how the first figure becomes the second (rotate / reflect / re-count / re-shade), then apply the SAME change to the third.',
+      'lr-odd-fig':        'Tip: Three figures are usually ROTATIONS of one another. The odd one differs in kind — a mirror image, a different count, or a different inner shape.',
+      'lr-paper':          'Tip: Unfold one crease at a time: every hole reflects ACROSS the fold line. One fold doubles the holes; two folds make four, mirror-placed.',
+      'lr-pattern':        'Tip: Read the matrix row by row AND column by column — find what changes across a row and what changes down a column. The answer must satisfy both rules.',
+      'lr-embedded':       'Tip: Fix the given figure’s exact lengths and slants in your mind, then scan each option for those SAME lines — a near-miss changes one line slightly.',
       'lr-seating':        'Tip: Start from the FIXED clues (ends, "exactly between"), pencil those in, then place the rest. Test each remaining clue against your diagram.',
       'lr-puzzle':         'Tip: Begin with the most restrictive clue (a fixed floor or an exact gap). Build the arrangement step by step and verify every clue before answering.'
     };

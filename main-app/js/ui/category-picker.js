@@ -127,7 +127,7 @@
   var LR_TIERS = [
     { title: 'Foundation & Core', keys: ['lr-coding', 'lr-blood', 'lr-direction', 'lr-series', 'lr-analogy', 'lr-odd', 'lr-ranking', 'lr-syllogism', 'lr-inequality', 'lr-calendar', 'lr-clock', 'lr-io'] },
     { title: 'Verbal & Critical Reasoning', keys: ['lr-critical', 'lr-statement', 'lr-cause', 'lr-course', 'lr-decision'] },
-    { title: 'Visual Reasoning', keys: ['lr-mirror', 'lr-water', 'lr-dice', 'lr-cube', 'lr-fseries', 'lr-fanalogy'] }
+    { title: 'Visual Reasoning', keys: ['lr-mirror', 'lr-water', 'lr-paper', 'lr-fseries', 'lr-fanalogy', 'lr-odd-fig', 'lr-pattern', 'lr-embedded', 'lr-dice', 'lr-cube'] }
   ];
   /* SET-based LR categories are launched via startLrSet(), not the single-question focus/custom drill path — so they
      are excluded from this picker (matching the pre-ADR-084 behaviour). */

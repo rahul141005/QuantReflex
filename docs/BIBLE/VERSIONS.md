@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.113 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.59 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.114 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.60 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.114 / Arch 2.60 (2026-07-03)** — **Visual question ecosystem redesign + Quant recalibration (ADR-093).**
+> LRFigures v2 grows the figure vocabulary from 5 to 12 primitive kinds (shapes/compositions/lattice line figures/
+> paper folding/cube nets/three-face dice/3×3 matrices); lr-visual-engine v2 rebuilds all six visual categories on
+> real exam archetypes and adds four new ones (`lr-odd-fig`, `lr-paper`, `lr-pattern`, `lr-embedded`) — every
+> archetype independently recomputed by the check harness (chirality, fold-reflection, die-pair and segment-subset
+> proofs). The drill gains a visual presentation stage (compact instruction stems, framed figure panel, A–D
+> lettered picture options); DI lead-ins de-robotized. Quant: 12 new/replacement archetypes fix every
+> hard-is-just-bigger-numbers tier (cubes/TSD/fractions/pipes/PnC/quadratic/series + the averages hard fallback)
+> and a wording pass adds natural exam phrasing to the single-literal families under the numeric-token-order rule.
+> No schema/security change. SW v208.
+>
 > **2.113 / Arch 2.59 (2026-07-03)** — **Learn reimagined (ADR-092).** First-principles Learn redesign around
 > Study / Revise / Look-up: hub becomes a short router ("Up next" recommended chapter, "Revise today" card,
 > Continue/Needs-practice/Saved strips, Quick-Reference entry + hub times tables, browse, collapsed "My notes");

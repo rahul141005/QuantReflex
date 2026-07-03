@@ -149,25 +149,28 @@ var _CUBES_ARCH = {
     { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(2, 10), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: n + '³ = ' + c + ', so ∛' + c + ' = ' + n + '. Tip: the unit digit ' + (c % 10) + ' of the cube fixes the unit digit of the root.' }; } }
   ],
   hard: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(14, 20); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + (n * n) + ' × ' + n + ' = ' + (n * n * n) + '.' }; } },
-    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(6, 20), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: '∛' + c + ' = ' + n + '. Unit digit ' + (c % 10) + ' → the root ends in ' + (n % 10) + '; the leading part places it near ' + n + '.' }; } }
+    /* ADR-093: hard is EARNED — big-number "compute n³" is calculator work, not reasoning. Hard now tests the two
+       genuine exam skills: 5-digit cube roots via the unit-digit technique, and a³ − b³ via the identity. */
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(12, 20), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: '∛' + c + ' = ' + n + '. Unit digit ' + (c % 10) + ' → the root ends in ' + (n % 10) + '; the leading part places it near ' + n + '.' }; } },
+    { k: 'cubeRoot5', skill: 'multi-step', build: function () { var n = randInt(21, 46), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Find the cube root of ' + c + '.']), a: n, explain: 'Split ' + c + ': the last digit ' + (c % 10) + ' fixes the root’s unit digit as ' + (n % 10) + '; the thousands part ' + Math.floor(c / 1000) + ' sits between ' + Math.floor(n / 10) + '³ and ' + (Math.floor(n / 10) + 1) + '³, so the tens digit is ' + Math.floor(n / 10) + '. Root = ' + n + '.' }; } },
+    { k: 'diffCubes', skill: 'multi-step', build: function () { var a = randInt(6, 15), b = randInt(2, a - 1); return { q: a + '³ − ' + b + '³ = ?', a: a * a * a - b * b * b, explain: a + '³ = ' + (a * a * a) + ' and ' + b + '³ = ' + (b * b * b) + ', so the difference = ' + (a * a * a - b * b * b) + '. (Identity: a³ − b³ = (a − b)(a² + ab + b²).)' }; } }
   ]
 };
 var _CUBES_PRIMARY = {
   easy: function () { var n = randInt(1, 6); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; },
   medium: function () { var n = randInt(7, 13); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; },
-  hard: function () { var n = randInt(14, 20); return { q: n + '³ = ?', a: n * n * n, k: 'direct', explain: n + '³ = ' + (n * n * n) + '.' }; }
+  hard: function () { var n = randInt(21, 46), c = n * n * n; return { q: '∛' + c + ' = ?', a: n, k: 'cubeRoot5', explain: 'Unit digit + thousands grouping give ∛' + c + ' = ' + n + '.' }; }
 };
 function genCube() { return _genArch('cubes', _CUBES_ARCH, _CUBES_PRIMARY); }
 
 /** Area (ADR-083 archetypes by tier: square/rectangle → triangle/parallelogram/circle → trapezium/border). π = 3.14. */
-function _areaSquare(diff) { var s = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(21, 45) : randInt(12, 25)); return { q: 'The area of a square of side ' + s + ' cm = ? cm².', a: s * s, k: 'square', explain: 'Area of a square = side² = ' + s + '² = ' + (s * s) + ' cm².' }; }
-function _areaRect(diff) { var l = diff === 'easy' ? randInt(4, 12) : (diff === 'hard' ? randInt(22, 48) : randInt(12, 25)); var b = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: 'A rectangle is ' + l + ' cm long and ' + b + ' cm wide. Its area = ? cm².', a: l * b, k: 'rectangle', explain: 'Area = length × breadth = ' + l + ' × ' + b + ' = ' + (l * b) + ' cm².' }; }
-function _areaTri(diff) { var base = 2 * (diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(11, 24) : randInt(6, 12))); var h = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: 'A triangle has base ' + base + ' cm and height ' + h + ' cm. Its area = ? cm².', a: base * h / 2, k: 'triangle', explain: 'Area = ½ × base × height = ½ × ' + base + ' × ' + h + ' = ' + (base * h / 2) + ' cm². Halve the even side first to avoid fractions.' }; }
-function _areaPara(diff) { var b = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 40) : randInt(11, 20)); var h = diff === 'easy' ? randInt(3, 8) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); return { q: 'A parallelogram has base ' + b + ' cm and height ' + h + ' cm. Its area = ? cm².', a: b * h, k: 'parallelogram', explain: 'Area = base × height = ' + b + ' × ' + h + ' = ' + (b * h) + ' cm². Use the perpendicular height, not the slant side.' }; }
-function _areaCircle(diff) { var r = diff === 'hard' ? randInt(12, 20) : randInt(6, 12); var a = _round2(3.14 * r * r); return { q: 'The area of a circle of radius ' + r + ' cm = ? cm². (use π = 3.14)', a: a, k: 'circle', explain: 'Area = πr² = 3.14 × ' + r + '² = 3.14 × ' + (r * r) + ' = ' + a + ' cm².' }; }
-function _areaTrap(diff) { var a1, b1; do { a1 = diff === 'hard' ? randInt(12, 28) : randInt(6, 16); b1 = diff === 'hard' ? randInt(10, 24) : randInt(5, 14); } while ((a1 + b1) % 2 !== 0); var h = diff === 'hard' ? randInt(8, 20) : randInt(6, 12); return { q: 'A trapezium has parallel sides ' + a1 + ' cm and ' + b1 + ' cm, and height ' + h + ' cm. Its area = ? cm².', a: (a1 + b1) * h / 2, k: 'trapezium', explain: 'Area = ½ × (sum of parallel sides) × height = ½ × ' + (a1 + b1) + ' × ' + h + ' = ' + ((a1 + b1) * h / 2) + ' cm².' }; }
-function _areaBorder() { var L = randInt(18, 40), B = randInt(12, 30), w = pick([1, 2, 3]); var inner = (L - 2 * w) * (B - 2 * w); return { q: 'A ' + L + ' cm × ' + B + ' cm sheet has a uniform border of width ' + w + ' cm. The area of the border = ? cm².', a: L * B - inner, k: 'border', explain: 'Border = outer − inner = ' + L + '×' + B + ' − ' + (L - 2 * w) + '×' + (B - 2 * w) + ' = ' + (L * B) + ' − ' + inner + ' = ' + (L * B - inner) + ' cm².' }; }
+function _areaSquare(diff) { var s = diff === 'easy' ? randInt(3, 12) : (diff === 'hard' ? randInt(21, 45) : randInt(12, 25)); return { q: pick(['The area of a square of side ' + s + ' cm = ? cm².', 'A square tile has a side of ' + s + ' cm. Find its area (in cm²).', 'Each side of a square field measures ' + s + ' m. Its area = ? m².']), a: s * s, k: 'square', explain: 'Area of a square = side² = ' + s + '² = ' + (s * s) + '.' }; }
+function _areaRect(diff) { var l = diff === 'easy' ? randInt(4, 12) : (diff === 'hard' ? randInt(22, 48) : randInt(12, 25)); var b = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: pick(['A rectangle is ' + l + ' cm long and ' + b + ' cm wide. Its area = ? cm².', 'A rectangular plot measures ' + l + ' m by ' + b + ' m. Find its area (in m²).', 'A hall is ' + l + ' m long and ' + b + ' m broad. The area of its floor = ? m².']), a: l * b, k: 'rectangle', explain: 'Area = length × breadth = ' + l + ' × ' + b + ' = ' + (l * b) + '.' }; }
+function _areaTri(diff) { var base = 2 * (diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(11, 24) : randInt(6, 12))); var h = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 30) : randInt(8, 16)); return { q: pick(['A triangle has base ' + base + ' cm and height ' + h + ' cm. Its area = ? cm².', 'Find the area of a triangle whose base is ' + base + ' cm and height is ' + h + ' cm (in cm²).']), a: base * h / 2, k: 'triangle', explain: 'Area = ½ × base × height = ½ × ' + base + ' × ' + h + ' = ' + (base * h / 2) + ' cm². Halve the even side first to avoid fractions.' }; }
+function _areaPara(diff) { var b = diff === 'easy' ? randInt(4, 10) : (diff === 'hard' ? randInt(21, 40) : randInt(11, 20)); var h = diff === 'easy' ? randInt(3, 8) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); return { q: pick(['A parallelogram has base ' + b + ' cm and height ' + h + ' cm. Its area = ? cm².', 'Find the area of a parallelogram with base ' + b + ' cm and perpendicular height ' + h + ' cm (in cm²).']), a: b * h, k: 'parallelogram', explain: 'Area = base × height = ' + b + ' × ' + h + ' = ' + (b * h) + ' cm². Use the perpendicular height, not the slant side.' }; }
+function _areaCircle(diff) { var r = diff === 'hard' ? randInt(12, 20) : randInt(6, 12); var a = _round2(3.14 * r * r); return { q: pick(['The area of a circle of radius ' + r + ' cm = ? cm². (use π = 3.14)', 'A circular garden has a radius of ' + r + ' m. Find its area in m² (take π = 3.14).']), a: a, k: 'circle', explain: 'Area = πr² = 3.14 × ' + r + '² = 3.14 × ' + (r * r) + ' = ' + a + '.' }; }
+function _areaTrap(diff) { var a1, b1; do { a1 = diff === 'hard' ? randInt(12, 28) : randInt(6, 16); b1 = diff === 'hard' ? randInt(10, 24) : randInt(5, 14); } while ((a1 + b1) % 2 !== 0); var h = diff === 'hard' ? randInt(8, 20) : randInt(6, 12); return { q: pick(['A trapezium has parallel sides ' + a1 + ' cm and ' + b1 + ' cm, and height ' + h + ' cm. Its area = ? cm².', 'The parallel sides of a trapezium measure ' + a1 + ' cm and ' + b1 + ' cm, and the distance between them is ' + h + ' cm. Find its area (in cm²).']), a: (a1 + b1) * h / 2, k: 'trapezium', explain: 'Area = ½ × (sum of parallel sides) × height = ½ × ' + (a1 + b1) + ' × ' + h + ' = ' + ((a1 + b1) * h / 2) + ' cm².' }; }
+function _areaBorder() { var L = randInt(18, 40), B = randInt(12, 30), w = pick([1, 2, 3]); var inner = (L - 2 * w) * (B - 2 * w); return { q: pick(['A ' + L + ' cm × ' + B + ' cm sheet has a uniform border of width ' + w + ' cm. The area of the border = ? cm².', 'A photo frame ' + L + ' cm by ' + B + ' cm has a uniform border ' + w + ' cm wide along its edge. Find the area of the border (in cm²).']), a: L * B - inner, k: 'border', explain: 'Border = outer − inner = ' + L + '×' + B + ' − ' + (L - 2 * w) + '×' + (B - 2 * w) + ' = ' + (L * B) + ' − ' + inner + ' = ' + (L * B - inner) + ' cm².' }; }
 var _AREA_ARCH = {
   easy: [{ k: 'square', skill: 'direct', build: function () { return _areaSquare('easy'); } }, { k: 'rectangle', skill: 'direct', build: function () { return _areaRect('easy'); } }],
   medium: [{ k: 'rectangle', skill: 'direct', build: function () { return _areaRect('medium'); } }, { k: 'triangle', skill: 'formula', build: function () { return _areaTri('medium'); } }, { k: 'parallelogram', skill: 'formula', build: function () { return _areaPara('medium'); } }, { k: 'circle', skill: 'formula', build: function () { return _areaCircle('medium'); } }],
@@ -177,11 +180,11 @@ var _AREA_PRIMARY = { easy: function () { return _areaSquare('easy'); }, medium:
 function genArea() { return _genArch('area', _AREA_ARCH, _AREA_PRIMARY); }
 
 /** Volume (ADR-083 archetypes by tier: cube/cuboid → cuboid/cylinder → cylinder/sphere/cone). π = 3.14. */
-function _volCube(diff) { var s = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(15, 25) : randInt(8, 15)); return { q: 'The volume of a cube of side ' + s + ' cm = ? cm³.', a: s * s * s, k: 'cube', explain: 'Volume of a cube = side³ = ' + s + '³ = ' + (s * s * s) + ' cm³.' }; }
-function _volCuboid(diff) { var l = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); var b = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(10, 20) : randInt(6, 12)); var h = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(8, 16) : randInt(5, 10)); return { q: 'A cuboid measures ' + l + ' cm × ' + b + ' cm × ' + h + ' cm. Its volume = ? cm³.', a: l * b * h, k: 'cuboid', explain: 'Volume = l × b × h = ' + l + ' × ' + b + ' × ' + h + ' = ' + (l * b * h) + ' cm³.' }; }
-function _volCyl(diff) { var r = diff === 'hard' ? randInt(7, 14) : randInt(4, 10); var h = diff === 'hard' ? randInt(10, 20) : randInt(6, 14); var a = _round2(3.14 * r * r * h); return { q: 'A cylinder has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'cylinder', explain: 'Volume = πr²h = 3.14 × ' + r + '² × ' + h + ' = 3.14 × ' + (r * r * h) + ' = ' + a + ' cm³.' }; }
-function _volSphere(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 7); var a = _round2((4 / 3) * 3.14 * r * r * r); return { q: 'A sphere has radius ' + r + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'sphere', explain: 'Volume = (4/3)πr³ = (4/3) × 3.14 × ' + r + '³ = ' + a + ' cm³.' }; }
-function _volCone(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 8); var h = diff === 'hard' ? randInt(9, 18) : randInt(6, 12); var a = _round2((1 / 3) * 3.14 * r * r * h); return { q: 'A cone has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', a: a, k: 'cone', explain: 'Volume = (1/3)πr²h = (1/3) × 3.14 × ' + (r * r) + ' × ' + h + ' = ' + a + ' cm³.' }; }
+function _volCube(diff) { var s = diff === 'easy' ? randInt(2, 8) : (diff === 'hard' ? randInt(15, 25) : randInt(8, 15)); return { q: pick(['The volume of a cube of side ' + s + ' cm = ? cm³.', 'A cubical box has an edge of ' + s + ' cm. Find its volume (in cm³).', 'Each edge of a cube measures ' + s + ' cm. Its volume = ? cm³.']), a: s * s * s, k: 'cube', explain: 'Volume of a cube = side³ = ' + s + '³ = ' + (s * s * s) + ' cm³.' }; }
+function _volCuboid(diff) { var l = diff === 'easy' ? randInt(3, 9) : (diff === 'hard' ? randInt(15, 28) : randInt(9, 16)); var b = diff === 'easy' ? randInt(2, 7) : (diff === 'hard' ? randInt(10, 20) : randInt(6, 12)); var h = diff === 'easy' ? randInt(2, 6) : (diff === 'hard' ? randInt(8, 16) : randInt(5, 10)); return { q: pick(['A cuboid measures ' + l + ' cm × ' + b + ' cm × ' + h + ' cm. Its volume = ? cm³.', 'A carton is ' + l + ' cm long, ' + b + ' cm wide and ' + h + ' cm high. Find its volume (in cm³).', 'A water tank measures ' + l + ' m by ' + b + ' m by ' + h + ' m. Its capacity = ? m³.']), a: l * b * h, k: 'cuboid', explain: 'Volume = l × b × h = ' + l + ' × ' + b + ' × ' + h + ' = ' + (l * b * h) + '.' }; }
+function _volCyl(diff) { var r = diff === 'hard' ? randInt(7, 14) : randInt(4, 10); var h = diff === 'hard' ? randInt(10, 20) : randInt(6, 14); var a = _round2(3.14 * r * r * h); return { q: pick(['A cylinder has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', 'A cylindrical drum has a base radius of ' + r + ' cm and stands ' + h + ' cm tall. Find its volume in cm³ (take π = 3.14).']), a: a, k: 'cylinder', explain: 'Volume = πr²h = 3.14 × ' + r + '² × ' + h + ' = 3.14 × ' + (r * r * h) + ' = ' + a + ' cm³.' }; }
+function _volSphere(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 7); var a = _round2((4 / 3) * 3.14 * r * r * r); return { q: pick(['A sphere has radius ' + r + ' cm. Its volume = ? cm³. (use π = 3.14)', 'Find the volume of a solid sphere of radius ' + r + ' cm, taking π = 3.14 (in cm³).']), a: a, k: 'sphere', explain: 'Volume = (4/3)πr³ = (4/3) × 3.14 × ' + r + '³ = ' + a + ' cm³.' }; }
+function _volCone(diff) { var r = diff === 'hard' ? randInt(6, 12) : randInt(3, 8); var h = diff === 'hard' ? randInt(9, 18) : randInt(6, 12); var a = _round2((1 / 3) * 3.14 * r * r * h); return { q: pick(['A cone has radius ' + r + ' cm and height ' + h + ' cm. Its volume = ? cm³. (use π = 3.14)', 'An ice-cream cone has a base radius of ' + r + ' cm and a height of ' + h + ' cm. Find its volume in cm³ (π = 3.14).']), a: a, k: 'cone', explain: 'Volume = (1/3)πr²h = (1/3) × 3.14 × ' + (r * r) + ' × ' + h + ' = ' + a + ' cm³.' }; }
 var _VOLUME_ARCH = {
   easy: [{ k: 'cube', skill: 'direct', build: function () { return _volCube('easy'); } }, { k: 'cuboid', skill: 'direct', build: function () { return _volCuboid('easy'); } }],
   medium: [{ k: 'cuboid', skill: 'direct', build: function () { return _volCuboid('medium'); } }, { k: 'cylinder', skill: 'formula', build: function () { return _volCyl('medium'); } }],
@@ -204,12 +207,37 @@ var _FRAC_TABLE = [
 ];
 function _fracToPct(diff) { var it = pick(diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE); return { q: pick([it.frac + ' expressed as a percentage = ? %', 'Convert ' + it.frac + ' to a percentage.', it.frac + ' = ? %', 'What is ' + it.frac + ' as a percentage?']), a: it.pct, k: 'fracToPct', explain: it.frac + ' = ' + it.pct + '% (divide and ×100; memorising the common ones saves seconds).' }; }
 function _pctToFrac(diff) { var pool = (diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE).filter(function (e) { return e.pct.indexOf('.') === -1 || ['12.5', '37.5', '62.5', '87.5', '2.5'].indexOf(e.pct) !== -1; }); if (!pool.length) return null; var it = pick(pool); return { q: pick([it.pct + '% as a fraction = ?', 'Express ' + it.pct + '% as a fraction.', it.pct + '% = ? (in lowest terms)']), a: it.frac, k: 'pctToFrac', explain: it.pct + '% = ' + it.pct + '/100 = ' + it.frac + ' in lowest terms.' }; }
+/* ADR-093: hard is EARNED — conversions repeat medium, so hard adds real multi-step fraction work. */
+function _fracOfFrac() {
+  for (var i = 0; i < 40; i++) {
+    var b1 = pick([2, 3, 4, 5, 8]), a1 = randInt(1, b1 - 1);
+    var b2 = pick([2, 3, 4, 5, 8]), a2 = randInt(1, b2 - 1);
+    if (_gcd(a1, b1) !== 1 || _gcd(a2, b2) !== 1) continue;   // exam fractions are written in lowest terms
+    var N = b1 * b2 * pick([5, 10, 12, 15, 20]);
+    var r = N * a1 * a2 / (b1 * b2);
+    if (r === Math.floor(r) && r > 0) return { q: pick([a1 + '/' + b1 + ' of ' + a2 + '/' + b2 + ' of ' + N + ' = ?', 'Find ' + a1 + '/' + b1 + ' of ' + a2 + '/' + b2 + ' of ' + N + '.']), a: r, k: 'fracOfFrac', explain: '“Of” means multiply: ' + a1 + '/' + b1 + ' × ' + a2 + '/' + b2 + ' × ' + N + '. Cancel before multiplying: the answer is ' + r + '.' };
+  }
+  return null;
+}
+function _fracAdd() {
+  for (var i = 0; i < 40; i++) {
+    var b1 = pick([2, 3, 4, 5, 6, 8, 12]), b2 = pick([2, 3, 4, 5, 6, 8, 12]);
+    if (b1 === b2) continue;
+    var a1 = randInt(1, b1 - 1), a2 = randInt(1, b2 - 1);
+    if (_gcd(a1, b1) !== 1 || _gcd(a2, b2) !== 1) continue;   // exam fractions are written in lowest terms
+    var num = a1 * b2 + a2 * b1, den = b1 * b2, g = _gcd(num, den);
+    num /= g; den /= g;
+    if (den === 1) continue;   // keep it a genuine fraction answer
+    return { q: pick([a1 + '/' + b1 + ' + ' + a2 + '/' + b2 + ' = ? (in lowest terms)', 'Add ' + a1 + '/' + b1 + ' and ' + a2 + '/' + b2 + '. Give the answer in lowest terms.']), a: num + '/' + den, k: 'addFrac', explain: 'Common denominator ' + (b1 * b2) + ': ' + (a1 * b2) + '/' + (b1 * b2) + ' + ' + (a2 * b1) + '/' + (b1 * b2) + ' = ' + (a1 * b2 + a2 * b1) + '/' + (b1 * b2) + ' = ' + num + '/' + den + ' after reducing by ' + g + '.' };
+  }
+  return null;
+}
 var _FRAC_ARCH = {
   easy: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }],
   medium: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }, { k: 'pctToFrac', skill: 'inverse', build: function (d) { return _pctToFrac(d); } }],
-  hard: [{ k: 'fracToPct', skill: 'direct', build: function (d) { return _fracToPct(d); } }, { k: 'pctToFrac', skill: 'inverse', build: function (d) { return _pctToFrac(d); } }]
+  hard: [{ k: 'fracOfFrac', skill: 'multi-step', build: function () { return _fracOfFrac(); } }, { k: 'addFrac', skill: 'multi-step', build: function () { return _fracAdd(); } }, { k: 'pctToFrac', skill: 'inverse', build: function (d) { return _pctToFrac(d); } }]
 };
-var _FRAC_PRIMARY = { easy: function () { return _fracToPct('easy'); }, medium: function () { return _fracToPct('medium'); }, hard: function () { return _fracToPct('hard'); } };
+var _FRAC_PRIMARY = { easy: function () { return _fracToPct('easy'); }, medium: function () { return _fracToPct('medium'); }, hard: function () { return { q: '2/3 of 3/4 of 120 = ?', a: 60, k: 'fracOfFrac', explain: '2/3 × 3/4 = 1/2; half of 120 is 60.' }; } };
 function genFraction() { return _genArch('fractions', _FRAC_ARCH, _FRAC_PRIMARY); }
 
 /** Percentages (ADR-083 archetypes: direct-of · reverse-base · what-percent · percent-change · successive-discount ·
@@ -271,9 +299,10 @@ var _AVG_ARCH = {
   hard: [{ k: 'mean', skill: 'direct', build: function (d) { return _avgMean(d); } }, { k: 'missing', skill: 'inverse', build: function (d) { return _avgMissing(d); } }, { k: 'weighted', skill: 'multi-step', build: function () { return _avgWeighted(); } }, { k: 'newMember', skill: 'multi-step', build: function () { return _avgNewMember(); } }]
 };
 var _AVG_PRIMARY = {
-  easy: function () { var a = randInt(15, 45); return { q: 'The average of ' + [a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All three equal ' + a + ', so the average is ' + a + '.' }; },
-  medium: function () { var a = randInt(20, 60); return { q: 'The average of ' + [a, a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All four equal ' + a + ' → average ' + a + '.' }; },
-  hard: function () { var a = randInt(30, 80); return { q: 'The average of ' + [a, a, a, a, a].join(', ') + ' = ?', a: a, k: 'mean', explain: 'All five equal ' + a + ' → average ' + a + '.' }; }
+  easy: function () { var a = randInt(15, 45); return { q: 'The average of ' + [a - 2, a, a + 2].join(', ') + ' = ?', a: a, k: 'mean', explain: 'The three numbers are evenly spaced around ' + a + ', so the average is the middle value ' + a + '.' }; },
+  medium: function () { var a = randInt(20, 60); return { q: 'The average of ' + [a - 3, a - 1, a + 1, a + 3].join(', ') + ' = ?', a: a, k: 'mean', explain: 'The values pair up around ' + a + ' (sum = ' + (4 * a) + '), so the average is ' + a + '.' }; },
+  /* ADR-093: the hard fallback must EARN its tier — a weighted two-group average, never five equal numbers */
+  hard: function () { var m = pick([2, 3, 4]), n = pick([4, 6, 8]), a = pick([30, 40, 50]), b = a + pick([10, 20]); var ov = (m * a + n * b) / (m + n); if (ov !== Math.floor(ov)) { m = 2; n = 4; a = 40; b = 52; ov = (2 * 40 + 4 * 52) / 6; } return { q: 'The average weight of ' + m + ' boys is ' + a + ' kg and of ' + n + ' girls is ' + b + ' kg. The average weight of the whole group = ? kg', a: ov, k: 'weighted', explain: 'Weighted mean = (' + m + '×' + a + ' + ' + n + '×' + b + ') ÷ ' + (m + n) + ' = ' + ov + ' kg.' }; }
 };
 function genAverage() { return _genArch('averages', _AVG_ARCH, _AVG_PRIMARY); }
 
@@ -305,12 +334,42 @@ function _tsdDist(diff) { var s = pick(_SPD[diff]); var t = randInt(2, diff === 
 function _tsdTime(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A car covers ' + d + ' km at ' + s + ' km/h. The time taken = ? hours', 'At ' + s + ' km/h, the time to cover ' + d + ' km = ? hours', 'Travelling ' + d + ' km at ' + s + ' km/h takes ? hours']), a: t, k: 'time', explain: 'Time = distance ÷ speed = ' + d + ' ÷ ' + s + ' = ' + t + ' hours.' }; }
 function _tsdSpeed(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A train covers ' + d + ' km in ' + t + ' hours. Its speed = ? km/h', 'Covering ' + d + ' km in ' + t + ' hours, the speed = ? km/h', 'A bus runs ' + d + ' km in ' + t + ' hours. Average speed = ? km/h']), a: s, k: 'speed', explain: 'Speed = distance ÷ time = ' + d + ' ÷ ' + t + ' = ' + s + ' km/h.' }; }
 function _tsdAvg(diff) { for (var i = 0; i < 30; i++) { var pr = pick(diff === 'hard' ? [[60, 80], [40, 60], [50, 70], [72, 48], [90, 60], [45, 55]] : [[30, 60], [40, 80], [50, 100], [60, 90]]); var ans = (2 * pr[0] * pr[1]) / (pr[0] + pr[1]); if (ans === Math.floor(ans)) return { q: 'A person covers equal distances at ' + pr[0] + ' km/h and ' + pr[1] + ' km/h. The average speed for the whole journey = ? km/h', a: ans, k: 'avgSpeed', explain: 'For equal distances, average speed = 2·s₁·s₂/(s₁+s₂) = 2×' + pr[0] + '×' + pr[1] + '/(' + pr[0] + '+' + pr[1] + ') = ' + ans + ' km/h — the harmonic mean, never the simple average.' }; } return null; }
+/* ADR-093: medium/hard are EARNED — medium adds km/h ↔ m/s conversion; hard is relative speed, train crossing and
+   average-speed (harmonic mean), never a plain read at a bigger number. */
+function _tsdConvert() {
+  if (Math.random() < 0.5) { var k = 18 * pick([1, 2, 3, 4, 5, 6]); return { q: pick(['Express ' + k + ' km/h in metres per second.', 'A train moves at ' + k + ' km/h. Its speed in m/s = ?']), a: k * 5 / 18, k: 'unitConvert', explain: 'km/h → m/s: multiply by 5/18. ' + k + ' × 5/18 = ' + (k * 5 / 18) + ' m/s.' }; }
+  var m = 5 * pick([2, 3, 4, 5, 6, 8, 10]);
+  return { q: pick(['Express ' + m + ' m/s in km/h.', 'A sprinter runs at ' + m + ' m/s. That speed in km/h = ?']), a: m * 18 / 5, k: 'unitConvert', explain: 'm/s → km/h: multiply by 18/5. ' + m + ' × 18/5 = ' + (m * 18 / 5) + ' km/h.' };
+}
+function _tsdRelative() {
+  for (var i = 0; i < 40; i++) {
+    var s1 = pick([40, 50, 60, 70, 80]), s2 = pick([30, 40, 50, 60]);
+    var t = randInt(2, 5), d = (s1 + s2) * t;
+    return { q: pick(['Two trains start ' + d + ' km apart and travel towards each other at ' + s1 + ' km/h and ' + s2 + ' km/h. After how many hours do they meet?', 'Two cars ' + d + ' km apart drive towards each other at ' + s1 + ' km/h and ' + s2 + ' km/h. They meet after ? hours']), a: t, k: 'relativeSpeed', explain: 'Moving towards each other, speeds ADD: closing speed = ' + s1 + ' + ' + s2 + ' = ' + (s1 + s2) + ' km/h. Time = ' + d + ' ÷ ' + (s1 + s2) + ' = ' + t + ' hours.' };
+  }
+  return null;
+}
+function _tsdTrain() {
+  for (var i = 0; i < 40; i++) {
+    var v = 18 * pick([2, 3, 4, 5]);   // km/h whose m/s is integer
+    var ms = v * 5 / 18, t = pick([6, 8, 10, 12, 15, 20]);
+    if (Math.random() < 0.5) {
+      var len = ms * t;
+      if (len < 60 || len > 500) continue;
+      return { q: 'A train ' + len + ' m long is running at ' + v + ' km/h. How many seconds does it take to pass a pole?', a: t, k: 'trainCrossing', explain: 'Convert the speed: ' + v + ' km/h = ' + ms + ' m/s. Passing a pole means covering its OWN length: ' + len + ' ÷ ' + ms + ' = ' + t + ' s.' };
+    }
+    var len2 = pick([100, 120, 150, 180, 200]), plat = ms * t - len2;
+    if (plat < 50 || plat > 500) continue;
+    return { q: 'A train ' + len2 + ' m long, running at ' + v + ' km/h, crosses a platform ' + plat + ' m long in ? seconds', a: t, k: 'trainCrossing', explain: 'Speed = ' + v + ' km/h = ' + ms + ' m/s. To clear a platform the train covers train + platform = ' + len2 + ' + ' + plat + ' = ' + (len2 + plat) + ' m. Time = ' + (len2 + plat) + ' ÷ ' + ms + ' = ' + t + ' s.' };
+  }
+  return null;
+}
 var _TSD_ARCH = {
   easy: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }],
-  medium: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }],
-  hard: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }, { k: 'avgSpeed', skill: 'multi-step', build: function (d) { return _tsdAvg(d); } }]
+  medium: [{ k: 'distance', skill: 'direct', build: function (d) { return _tsdDist(d); } }, { k: 'time', skill: 'inverse', build: function (d) { return _tsdTime(d); } }, { k: 'speed', skill: 'inverse', build: function (d) { return _tsdSpeed(d); } }, { k: 'unitConvert', skill: 'formula', build: function () { return _tsdConvert(); } }],
+  hard: [{ k: 'avgSpeed', skill: 'multi-step', build: function (d) { return _tsdAvg(d); } }, { k: 'relativeSpeed', skill: 'multi-step', build: function () { return _tsdRelative(); } }, { k: 'trainCrossing', skill: 'multi-step', build: function () { return _tsdTrain(); } }]
 };
-var _TSD_PRIMARY = { easy: function () { return _tsdDist('easy'); }, medium: function () { return _tsdDist('medium'); }, hard: function () { return _tsdDist('hard'); } };
+var _TSD_PRIMARY = { easy: function () { return _tsdDist('easy'); }, medium: function () { return _tsdDist('medium'); }, hard: function () { return { q: 'Two trains start 300 km apart and travel towards each other at 60 km/h and 40 km/h. After how many hours do they meet?', a: 3, k: 'relativeSpeed', explain: 'Closing speed = 100 km/h; 300 ÷ 100 = 3 hours.' }; } };
 function genTSD() { return _genArch('time-speed-distance', _TSD_ARCH, _TSD_PRIMARY); }
 
 /** Time & Work (ADR-083 archetypes: together · work-done-% · workers↔days scaling). LCM/units thinking. */
@@ -342,22 +401,35 @@ function genSimplification() { return _genArch('simplification', _SIM_ARCH, _SIM
 function _nsArith(diff) { var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]); var t = []; for (var i = 0; i < 5; i++) t.push(start + i * step); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'arithmetic', explain: 'A constant difference of ' + step + ' (arithmetic progression): ' + t[t.length - 1] + ' + ' + step + ' = ' + ans + '.' }; }
 function _nsGeo(diff) { var s0 = randInt(2, 5), r = pick([2, 3]); var t = []; for (var i = 0; i < 5; i++) t.push(s0 * Math.pow(r, i)); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'geometric', explain: 'Each term is × ' + r + ' (geometric progression): ' + t[t.length - 1] + ' × ' + r + ' = ' + ans + '.' }; }
 function _nsInc(diff) { var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base; var t = []; for (var i = 0; i < 5; i++) { t.push(cur); cur += d; d += base; } var ans = t.pop(); var gap = t[t.length - 1] - t[t.length - 2] + base; return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'growingGap', explain: 'The gaps grow by ' + base + ' each step (constant second difference): the next gap is ' + gap + ', so ' + t[t.length - 1] + ' + ' + gap + ' = ' + ans + '.' }; }
+/* ADR-093: hard patterns worth the name — n²±k series, and two interleaved APs (the classic banking series). */
+function _nsSquares() {
+  var k = pick([-2, -1, 1, 2, 3]), s = randInt(1, 4);
+  var t = []; for (var i = 0; i < 5; i++) { var n = s + i; t.push(n * n + k); }
+  var ans = t.pop();
+  return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'squaresSeries', explain: 'Each term is a perfect square ' + (k >= 0 ? 'plus ' + k : 'minus ' + Math.abs(k)) + ': ' + t.map(function (v, i) { return (s + i) + '²' + (k >= 0 ? '+' + k : '−' + Math.abs(k)); }).join(', ') + '. Next = ' + (s + 4) + '²' + (k >= 0 ? '+' + k : '−' + Math.abs(k)) + ' = ' + ans + '.' };
+}
+function _nsAlt() {
+  var a0 = randInt(2, 9), d1 = pick([3, 4, 5, 7]), b0 = randInt(20, 40), d2 = pick([-3, -2, 2, 3]);
+  var t = []; for (var i = 0; i < 6; i++) t.push(i % 2 === 0 ? a0 + (i / 2) * d1 : b0 + ((i - 1) / 2) * d2);
+  var ans = a0 + 3 * d1;   // 7th term belongs to the first chain
+  return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'alternating', explain: 'Two series are interleaved: the odd positions go ' + a0 + ', ' + (a0 + d1) + ', ' + (a0 + 2 * d1) + ', … (+' + d1 + ') and the even positions form their own chain. The next term continues the FIRST chain: ' + (a0 + 2 * d1) + ' + ' + d1 + ' = ' + ans + '.' };
+}
 var _NS_ARCH = {
   easy: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }],
   medium: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }, { k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }],
-  hard: [{ k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }, { k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }, { k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }]
+  hard: [{ k: 'growingGap', skill: 'multi-step', build: function (d) { return _nsInc(d); } }, { k: 'squaresSeries', skill: 'pattern', build: function () { return _nsSquares(); } }, { k: 'alternating', skill: 'multi-step', build: function () { return _nsAlt(); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }]
 };
-var _NS_PRIMARY = { easy: function () { return _nsArith('easy'); }, medium: function () { return _nsArith('medium'); }, hard: function () { return _nsGeo('hard'); } };
+var _NS_PRIMARY = { easy: function () { return _nsArith('easy'); }, medium: function () { return _nsArith('medium'); }, hard: function () { return _nsSquares(); } };
 function genNumberSeries() { return _genArch('number-series', _NS_ARCH, _NS_PRIMARY); }
 
 /* ═══════════════════════════ ADR-083 Phase 3 — new topic generators ═══════════════════════════ */
 
 /** Simple Interest (archetypes: find-SI · amount · find-rate · find-principal). P is a multiple of 100 → SI is clean. */
 var _SI_P = [1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000];
-function _siFind(diff) { var P = pick(_SI_P), R = pick(diff === 'easy' ? [5, 10] : (diff === 'hard' ? [4, 6, 8, 12, 15, 18] : [5, 8, 10, 12])), T = randInt(2, diff === 'hard' ? 6 : 4), si = P * R * T / 100; return { q: 'Find the simple interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years.', a: si, k: 'si', explain: 'SI = P × R × T ÷ 100 = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '.' }; }
-function _siAmount(diff) { var P = pick(_SI_P), R = pick(diff === 'hard' ? [4, 6, 8, 12, 15] : [5, 8, 10, 12]), T = randInt(2, 4), si = P * R * T / 100; return { q: 'A sum of ₹' + P + ' is lent at ' + R + '% simple interest per annum. The amount after ' + T + ' years = ₹?', a: P + si, k: 'amount', explain: 'SI = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '; Amount = P + SI = ' + P + ' + ' + si + ' = ₹' + (P + si) + '.' }; }
-function _siRate(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12, 15]), T = randInt(2, 5), si = P * R * T / 100; return { q: 'At what rate percent per annum does ₹' + P + ' yield ₹' + si + ' as simple interest in ' + T + ' years?', a: R, k: 'findRate', explain: 'R = SI × 100 ÷ (P × T) = ' + si + ' × 100 ÷ (' + P + ' × ' + T + ') = ' + R + '%.' }; }
-function _siPrincipal(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12]), T = randInt(2, 5), si = P * R * T / 100; return { q: 'A sum earns ₹' + si + ' as simple interest at ' + R + '% per annum in ' + T + ' years. Find the sum.', a: P, k: 'findPrincipal', explain: 'P = SI × 100 ÷ (R × T) = ' + si + ' × 100 ÷ (' + R + ' × ' + T + ') = ₹' + P + '.' }; }
+function _siFind(diff) { var P = pick(_SI_P), R = pick(diff === 'easy' ? [5, 10] : (diff === 'hard' ? [4, 6, 8, 12, 15, 18] : [5, 8, 10, 12])), T = randInt(2, diff === 'hard' ? 6 : 4), si = P * R * T / 100; return { q: pick(['Find the simple interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years.', _one() + ' deposits ₹' + P + ' in a scheme paying ' + R + '% simple interest per annum. The interest earned in ' + T + ' years = ₹?', 'What simple interest does ₹' + P + ' earn at ' + R + '% per annum over ' + T + ' years?']), a: si, k: 'si', explain: 'SI = P × R × T ÷ 100 = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '.' }; }
+function _siAmount(diff) { var P = pick(_SI_P), R = pick(diff === 'hard' ? [4, 6, 8, 12, 15] : [5, 8, 10, 12]), T = randInt(2, 4), si = P * R * T / 100; return { q: pick(['A sum of ₹' + P + ' is lent at ' + R + '% simple interest per annum. The amount after ' + T + ' years = ₹?', _one() + ' borrows ₹' + P + ' at ' + R + '% per annum simple interest. How much must be repaid after ' + T + ' years (in ₹)?']), a: P + si, k: 'amount', explain: 'SI = ' + P + ' × ' + R + ' × ' + T + ' ÷ 100 = ₹' + si + '; Amount = P + SI = ' + P + ' + ' + si + ' = ₹' + (P + si) + '.' }; }
+function _siRate(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12, 15]), T = randInt(2, 5), si = P * R * T / 100; return { q: pick(['At what rate percent per annum does ₹' + P + ' yield ₹' + si + ' as simple interest in ' + T + ' years?', 'A sum of ₹' + P + ' earns ₹' + si + ' as simple interest in ' + T + ' years. The annual rate = ? %']), a: R, k: 'findRate', explain: 'R = SI × 100 ÷ (P × T) = ' + si + ' × 100 ÷ (' + P + ' × ' + T + ') = ' + R + '%.' }; }
+function _siPrincipal(diff) { var P = pick(_SI_P), R = pick([5, 8, 10, 12]), T = randInt(2, 5), si = P * R * T / 100; return { q: pick(['A sum earns ₹' + si + ' as simple interest at ' + R + '% per annum in ' + T + ' years. Find the sum.', 'What principal yields ₹' + si + ' as simple interest at ' + R + '% per annum in ' + T + ' years?']), a: P, k: 'findPrincipal', explain: 'P = SI × 100 ÷ (R × T) = ' + si + ' × 100 ÷ (' + R + ' × ' + T + ') = ₹' + P + '.' }; }
 var _SI_ARCH = {
   easy: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }],
   medium: [{ k: 'si', skill: 'direct', build: function (d) { return _siFind(d); } }, { k: 'amount', skill: 'direct', build: function (d) { return _siAmount(d); } }, { k: 'findRate', skill: 'inverse', build: function (d) { return _siRate(d); } }],
@@ -368,8 +440,8 @@ function genSimpleInterest() { return _genArch('simple-interest', _SI_ARCH, _SI_
 
 /** Compound Interest (archetypes: amount · CI · CI−SI difference). Retry-until-clean guarantees integer amounts. */
 var _CI_P = [1000, 1200, 1500, 1600, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 16000, 20000];
-function _ciAmount(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: 'Find the amount on ₹' + P + ' at ' + R + '% per annum compounded annually for ' + T + ' years.', a: A, k: 'amount', explain: 'A = P(1 + R/100)ᵀ = ' + P + ' × ' + (1 + R / 100) + (T === 2 ? '²' : '³') + ' = ₹' + A + '.' }; } return null; }
-function _ciInterest(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: 'Find the compound interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years, compounded annually.', a: A - P, k: 'ci', explain: 'A = ' + P + '(1 + ' + R + '/100)' + (T === 2 ? '²' : '³') + ' = ₹' + A + '; CI = A − P = ' + A + ' − ' + P + ' = ₹' + (A - P) + '.' }; } return null; }
+function _ciAmount(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: pick(['Find the amount on ₹' + P + ' at ' + R + '% per annum compounded annually for ' + T + ' years.', _one() + ' invests ₹' + P + ' at ' + R + '% per annum, compounded annually. The amount after ' + T + ' years = ₹?']), a: A, k: 'amount', explain: 'A = P(1 + R/100)ᵀ = ' + P + ' × ' + (1 + R / 100) + (T === 2 ? '²' : '³') + ' = ₹' + A + '.' }; } return null; }
+function _ciInterest(diff) { for (var i = 0; i < 50; i++) { var R = pick(diff === 'easy' ? [10, 20] : [5, 10, 15, 20, 25]), T = pick(diff === 'hard' ? [2, 3] : [2]), P = pick(_CI_P), A = P * Math.pow(1 + R / 100, T); if (A === Math.floor(A)) return { q: pick(['Find the compound interest on ₹' + P + ' at ' + R + '% per annum for ' + T + ' years, compounded annually.', 'A loan of ₹' + P + ' is taken at ' + R + '% per annum, compounded annually. The compound interest payable after ' + T + ' years = ₹?']), a: A - P, k: 'ci', explain: 'A = ' + P + '(1 + ' + R + '/100)' + (T === 2 ? '²' : '³') + ' = ₹' + A + '; CI = A − P = ' + A + ' − ' + P + ' = ₹' + (A - P) + '.' }; } return null; }
 function _ciDiff() { for (var i = 0; i < 50; i++) { var R = pick([5, 10, 15, 20, 25]), P = pick([1000, 1600, 2000, 2500, 4000, 5000, 8000, 10000, 16000, 20000]), d = P * R * R / 10000; if (d === Math.floor(d)) return { q: 'The difference between the compound interest and the simple interest on ₹' + P + ' at ' + R + '% per annum for 2 years = ₹?', a: d, k: 'ciSiDiff', explain: 'For 2 years, CI − SI = P(R/100)² = ' + P + ' × (' + R + '/100)² = ₹' + d + '.' }; } return null; }
 var _CI_ARCH = {
   easy: [{ k: 'amount', skill: 'direct', build: function (d) { return _ciAmount(d); } }],
@@ -432,15 +504,36 @@ function genMixtures() { return _genArch('mixtures', _MIX_ARCH, _MIX_PRIMARY); }
 /** Pipes & Cisterns (archetypes: two-inlets-together · inlet+outlet net fill). Rate thinking, like Time & Work. */
 function _pipeTogether(diff) { var ap = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [4, 5, 6, 8, 10, 12, 15], bp = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [6, 8, 10, 12, 15, 20, 24]; for (var i = 0; i < 40; i++) { var a = pick(ap), b = pick(bp); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'Pipe A fills a tank in ' + a + ' hours and pipe B fills it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (a + b), k: 'together', explain: 'Combined time = (A × B)/(A + B) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + ((a * b) / (a + b)) + ' hours — add the rates 1/' + a + ' + 1/' + b + '.' }; } return null; }
 function _pipeNet() { for (var i = 0; i < 40; i++) { var a = pick([4, 5, 6, 8, 10, 12]), b = pick([12, 15, 20, 24, 30, 40]); if (b <= a) continue; if ((a * b) % (b - a) === 0) return { q: 'An inlet pipe fills a tank in ' + a + ' hours while an outlet pipe empties it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (b - a), k: 'netFill', explain: 'Net rate = 1/' + a + ' − 1/' + b + '; time = (A × B)/(B − A) = (' + a + ' × ' + b + ')/(' + b + ' − ' + a + ') = ' + ((a * b) / (b - a)) + ' hours.' }; } return null; }
+/* ADR-093: hard is EARNED — the inverse problem ("together time known, find the slower pipe") and a three-pipe
+   net-rate problem join netFill; hard is never a reshuffle of medium. */
+function _pipeInverse() {
+  for (var i = 0; i < 40; i++) {
+    var a = pick([4, 5, 6, 8, 10, 12]), b = pick([6, 8, 10, 12, 15, 20, 24]);
+    if (a === b || (a * b) % (a + b) !== 0) continue;
+    var tog = (a * b) / (a + b);
+    return { q: 'Two pipes together fill a tank in ' + tog + ' hours. If the first pipe alone fills it in ' + a + ' hours, the second pipe alone fills it in ? hours', a: b, k: 'inverseFill', explain: 'Rates subtract: 1/second = 1/' + tog + ' − 1/' + a + ' = ' + (a - tog) + '/' + (a * tog) + ', so the second pipe alone takes ' + b + ' hours.' };
+  }
+  return null;
+}
+function _pipeThree() {
+  for (var i = 0; i < 60; i++) {
+    var a = pick([4, 5, 6, 8, 10]), b = pick([6, 8, 10, 12, 15]), c = pick([12, 15, 20, 24, 30, 40]);
+    if (a === b) continue;
+    var num = a * b * c, den = b * c + a * c - a * b;
+    if (den <= 0 || num % den !== 0) continue;
+    return { q: 'Pipes A and B fill a tank in ' + a + ' and ' + b + ' hours respectively, while pipe C empties it in ' + c + ' hours. With all three open, the tank fills in ? hours', a: num / den, k: 'leakEmpty', explain: 'Net rate = 1/' + a + ' + 1/' + b + ' − 1/' + c + '. Over an LCM-sized tank that is ' + den + ' units/hour for ' + num + ' units, so the time = ' + (num / den) + ' hours.' };
+  }
+  return null;
+}
 var _PIPE_ARCH = {
   easy: [{ k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }],
   medium: [{ k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }, { k: 'netFill', skill: 'multi-step', build: function () { return _pipeNet(); } }],
-  hard: [{ k: 'netFill', skill: 'multi-step', build: function () { return _pipeNet(); } }, { k: 'together', skill: 'formula', build: function (d) { return _pipeTogether(d); } }]
+  hard: [{ k: 'netFill', skill: 'multi-step', build: function () { return _pipeNet(); } }, { k: 'inverseFill', skill: 'inverse', build: function () { return _pipeInverse(); } }, { k: 'leakEmpty', skill: 'multi-step', build: function () { return _pipeThree(); } }]
 };
 var _PIPE_PRIMARY = {
   easy: function () { return { q: 'Pipe A fills a tank in 6 hours and pipe B fills it in 3 hours. If both are opened together, the tank fills in ? hours', a: 2, k: 'together', explain: '(6×3)/(6+3) = 18/9 = 2 hours.' }; },
-  medium: function () { return { q: 'Pipe A fills a tank in 6 hours and pipe B fills it in 3 hours. If both are opened together, the tank fills in ? hours', a: 2, k: 'together', explain: '(6×3)/(6+3) = 2 hours.' }; },
-  hard: function () { return { q: 'An inlet pipe fills a tank in 6 hours while an outlet pipe empties it in 12 hours. If both are opened together, the tank fills in ? hours', a: 12, k: 'netFill', explain: 'Time = (6×12)/(12−6) = 72/6 = 12 hours.' }; }
+  medium: function () { return { q: 'An inlet pipe fills a tank in 6 hours while an outlet pipe empties it in 12 hours. If both are opened together, the tank fills in ? hours', a: 12, k: 'netFill', explain: 'Time = (6×12)/(12−6) = 72/6 = 12 hours.' }; },
+  hard: function () { return { q: 'Two pipes together fill a tank in 4 hours. If the first pipe alone fills it in 6 hours, the second pipe alone fills it in ? hours', a: 12, k: 'inverseFill', explain: '1/second = 1/4 − 1/6 = 1/12 → 12 hours.' }; }
 };
 function genPipes() { return _genArch('pipes-cisterns', _PIPE_ARCH, _PIPE_PRIMARY); }
 
@@ -486,8 +579,16 @@ function _quad(diff, ask) {
 var _QUAD_ARCH = {
   easy: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
   medium: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'smallerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'smaller'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
-  hard: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'discriminant', skill: 'formula', build: function (d) { return _quad(d, 'disc'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }]
+  hard: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'discriminant', skill: 'formula', build: function (d) { return _quad(d, 'disc'); } }, { k: 'productRoots', skill: 'formula', build: function (d) { return _quad(d, 'product'); } }, { k: 'rootRelation', skill: 'multi-step', build: function () { return _quadRelation(); } }]
 };
+/* ADR-093: a genuinely hard Vieta problem — reconstruct the constant term from the sum and the gap of the roots. */
+function _quadRelation() {
+  for (var i = 0; i < 40; i++) {
+    var lo = randInt(2, 12), gap = pick([2, 4, 6, 8]), hi = lo + gap, B = lo + hi;
+    return { q: 'The roots of x² − ' + B + 'x + c = 0 differ by ' + gap + '. Find c.', a: lo * hi, k: 'rootRelation', explain: 'Sum = ' + B + ' and difference = ' + gap + ' give the roots (' + B + '±' + gap + ')/2 = ' + hi + ' and ' + lo + '. By Vieta, c = product = ' + hi + ' × ' + lo + ' = ' + (lo * hi) + '.' };
+  }
+  return null;
+}
 var _QUAD_PRIMARY = { easy: function () { return _quad('easy', 'larger'); }, medium: function () { return _quad('medium', 'sum'); }, hard: function () { return _quad('hard', 'disc'); } };
 function genQuadraticEquations() { return _genArch('quadratic-equations', _QUAD_ARCH, _QUAD_PRIMARY); }
 
@@ -518,7 +619,7 @@ var _LOG_PRIMARY = { easy: function () { return _logEval('easy'); }, medium: fun
 function genLogarithms() { return _genArch('logarithms', _LOG_ARCH, _LOG_PRIMARY); }
 
 /** Progressions (archetypes: AP nth-term · AP sum · GP nth-term · GP sum). Rate/series thinking; integer answers. */
-function _apNth(diff) { var a = randInt(1, 20), d = randInt(1, diff === 'hard' ? 12 : 8), n = randInt(5, diff === 'hard' ? 20 : 12); return { q: 'An AP has first term ' + a + ' and common difference ' + d + '. Find its ' + _ord(n) + ' term.', a: a + (n - 1) * d, k: 'apNth', explain: 'aₙ = a + (n − 1)d = ' + a + ' + (' + n + ' − 1)·' + d + ' = ' + a + ' + ' + ((n - 1) * d) + ' = ' + (a + (n - 1) * d) + '.' }; }
+function _apNth(diff) { var a = randInt(1, 20), d = randInt(1, diff === 'hard' ? 12 : 8), n = randInt(5, diff === 'hard' ? 20 : 12); return { q: pick(['An AP has first term ' + a + ' and common difference ' + d + '. Find its ' + _ord(n) + ' term.', 'An arithmetic progression starts at ' + a + ' and increases by ' + d + ' each term. What is its ' + _ord(n) + ' term?']), a: a + (n - 1) * d, k: 'apNth', explain: 'aₙ = a + (n − 1)d = ' + a + ' + (' + n + ' − 1)·' + d + ' = ' + a + ' + ' + ((n - 1) * d) + ' = ' + (a + (n - 1) * d) + '.' }; }
 function _apSum(diff) { var a = randInt(1, 15), d = randInt(1, diff === 'hard' ? 8 : 5), n = randInt(5, diff === 'hard' ? 15 : 10); return { q: 'An AP has first term ' + a + ' and common difference ' + d + '. Find the sum of its first ' + n + ' terms.', a: n / 2 * (2 * a + (n - 1) * d), k: 'apSum', explain: 'Sₙ = n/2 · [2a + (n − 1)d] = ' + n + '/2 · [' + (2 * a) + ' + ' + ((n - 1) * d) + '] = ' + (n / 2 * (2 * a + (n - 1) * d)) + '.' }; }
 function _gpNth(diff) { var a = randInt(1, 6), r = pick([2, 3]), n = randInt(3, diff === 'hard' ? 7 : 5); return { q: 'A GP has first term ' + a + ' and common ratio ' + r + '. Find its ' + _ord(n) + ' term.', a: a * Math.pow(r, n - 1), k: 'gpNth', explain: 'aₙ = a·rⁿ⁻¹ = ' + a + '·' + r + '^' + (n - 1) + ' = ' + a + '·' + Math.pow(r, n - 1) + ' = ' + (a * Math.pow(r, n - 1)) + '.' }; }
 function _gpSum(diff) { var a = randInt(1, 5), r = pick([2, 3]), n = randInt(3, diff === 'hard' ? 6 : 4); return { q: 'A GP has first term ' + a + ' and common ratio ' + r + '. Find the sum of its first ' + n + ' terms.', a: a * (Math.pow(r, n) - 1) / (r - 1), k: 'gpSum', explain: 'For a GP with ratio r > 1 use Sₙ = a(rⁿ − 1)/(r − 1). Substitute a = ' + a + ', r = ' + r + ', n = ' + n + ': = ' + a + '(' + r + '^' + n + ' − 1)/(' + r + ' − 1) = ' + a + '·' + (Math.pow(r, n) - 1) + '/' + (r - 1) + ' = ' + (a * (Math.pow(r, n) - 1) / (r - 1)) + '. (Trap: don’t add terms one by one — the formula collapses the whole series; for r < 1 flip it to a(1 − rⁿ)/(1 − r).)' }; }
@@ -549,13 +650,13 @@ function genInequalities() { return _genArch('inequalities-modulus', _INEQ_ARCH,
 var _PYTH = [[3, 4, 5], [6, 8, 10], [5, 12, 13], [8, 15, 17], [9, 12, 15], [7, 24, 25], [20, 21, 29], [10, 24, 26], [9, 40, 41], [12, 16, 20]];
 
 /** Geometry Basics (archetypes: angle relations · triangle angle-sum & isosceles · Pythagoras · polygon angles). */
-function _geoComplement() { var a = randInt(10, 80); return { q: 'What is the complement of an angle of ' + a + '°?', a: 90 - a, k: 'complement', explain: 'Complementary angles sum to 90°, so the complement = 90° − ' + a + '° = ' + (90 - a) + '°.' }; }
-function _geoSupplement() { var a = randInt(20, 160); return { q: 'What is the supplement of an angle of ' + a + '°?', a: 180 - a, k: 'supplement', explain: 'Supplementary angles sum to 180°, so the supplement = 180° − ' + a + '° = ' + (180 - a) + '°.' }; }
-function _geoThird() { var a = randInt(30, 90), b = randInt(30, 150 - a); return { q: 'Two angles of a triangle are ' + a + '° and ' + b + '°. Find the third angle.', a: 180 - a - b, k: 'triangleThird', explain: 'Angles of a triangle sum to 180°, so the third = 180° − ' + a + '° − ' + b + '° = ' + (180 - a - b) + '°.' }; }
+function _geoComplement() { var a = randInt(10, 80); return { q: pick(['What is the complement of an angle of ' + a + '°?', 'Two angles are complementary and one of them measures ' + a + '°. Find the other (in degrees).']), a: 90 - a, k: 'complement', explain: 'Complementary angles sum to 90°, so the complement = 90° − ' + a + '° = ' + (90 - a) + '°.' }; }
+function _geoSupplement() { var a = randInt(20, 160); return { q: pick(['What is the supplement of an angle of ' + a + '°?', 'Two angles lie on a straight line and one measures ' + a + '°. Find the other (in degrees).']), a: 180 - a, k: 'supplement', explain: 'Supplementary angles sum to 180°, so the supplement = 180° − ' + a + '° = ' + (180 - a) + '°.' }; }
+function _geoThird() { var a = randInt(30, 90), b = randInt(30, 150 - a); return { q: pick(['Two angles of a triangle are ' + a + '° and ' + b + '°. Find the third angle.', 'In a triangle, two of the angles measure ' + a + '° and ' + b + '°. The third angle = ?°']), a: 180 - a - b, k: 'triangleThird', explain: 'Angles of a triangle sum to 180°, so the third = 180° − ' + a + '° − ' + b + '° = ' + (180 - a - b) + '°.' }; }
 function _geoIsosceles() { var v = pick([20, 30, 40, 50, 70, 80, 100]); return { q: 'An isosceles triangle has a vertex (apex) angle of ' + v + '°. Find each base angle.', a: (180 - v) / 2, k: 'isosceles', explain: 'The two base angles are equal and the three sum to 180°: each = (180° − ' + v + '°)/2 = ' + ((180 - v) / 2) + '°.' }; }
-function _geoPythHyp() { var t = pick(_PYTH); return { q: 'A right-angled triangle has legs ' + t[0] + ' and ' + t[1] + '. Find the hypotenuse.', a: t[2], k: 'pythHyp', explain: 'Hypotenuse = √(' + t[0] + '² + ' + t[1] + '²) = √(' + (t[0] * t[0]) + ' + ' + (t[1] * t[1]) + ') = √' + (t[2] * t[2]) + ' = ' + t[2] + '.' }; }
+function _geoPythHyp() { var t = pick(_PYTH); return { q: pick(['A right-angled triangle has legs ' + t[0] + ' and ' + t[1] + '. Find the hypotenuse.', 'A ladder foot stands ' + t[0] + ' m from a wall and reaches ' + t[1] + ' m up it. How long is the ladder (in m)?']), a: t[2], k: 'pythHyp', explain: 'Hypotenuse = √(' + t[0] + '² + ' + t[1] + '²) = √(' + (t[0] * t[0]) + ' + ' + (t[1] * t[1]) + ') = √' + (t[2] * t[2]) + ' = ' + t[2] + '.' }; }
 function _geoPythLeg() { var t = pick(_PYTH); return { q: 'A right-angled triangle has hypotenuse ' + t[2] + ' and one leg ' + t[1] + '. Find the other leg.', a: t[0], k: 'pythLeg', explain: 'Other leg = √(' + t[2] + '² − ' + t[1] + '²) = √(' + (t[2] * t[2]) + ' − ' + (t[1] * t[1]) + ') = √' + (t[0] * t[0]) + ' = ' + t[0] + '.' }; }
-function _geoPolygonSum() { var n = pick([5, 6, 7, 8, 9, 10, 12]); return { q: 'Find the sum of the interior angles of a polygon with ' + n + ' sides.', a: (n - 2) * 180, k: 'polygonSum', explain: 'Sum of interior angles = (n − 2) × 180° = (' + n + ' − 2) × 180° = ' + ((n - 2) * 180) + '°.' }; }
+function _geoPolygonSum() { var n = pick([5, 6, 7, 8, 9, 10, 12]); return { q: pick(['Find the sum of the interior angles of a polygon with ' + n + ' sides.', 'The interior angles of a ' + n + '-sided polygon add up to ?°']), a: (n - 2) * 180, k: 'polygonSum', explain: 'Sum of interior angles = (n − 2) × 180° = (' + n + ' − 2) × 180° = ' + ((n - 2) * 180) + '°.' }; }
 function _geoPolygonEach() { var n = pick([3, 4, 5, 6, 8, 9, 10, 12]); return { q: 'Find each interior angle of a regular polygon with ' + n + ' sides.', a: (n - 2) * 180 / n, k: 'polygonEach', explain: 'Each interior angle = (n − 2) × 180° / n = ' + ((n - 2) * 180) + '° / ' + n + ' = ' + ((n - 2) * 180 / n) + '°.' }; }
 var _GEO_ARCH = {
   easy: [{ k: 'complement', skill: 'formula', build: function () { return _geoComplement(); } }, { k: 'supplement', skill: 'formula', build: function () { return _geoSupplement(); } }, { k: 'triangleThird', skill: 'formula', build: function () { return _geoThird(); } }],
@@ -596,12 +697,12 @@ var _TRIG_PRIMARY = { easy: function () { return _trigStd(); }, medium: function
 function genTrigonometry() { return _genArch('trigonometry', _TRIG_ARCH, _TRIG_PRIMARY); }
 
 /** Surface Area (archetypes: cube TSA/LSA · cuboid TSA · cylinder CSA/TSA · sphere SA). Uses π = 3.14 like area/volume. */
-function _saCubeTSA() { var a = randInt(2, 20); return { q: 'Find the total surface area of a cube of side ' + a + ' cm (in cm²).', a: 6 * a * a, k: 'cubeTSA', explain: 'TSA of a cube = 6a² = 6 × ' + a + '² = 6 × ' + (a * a) + ' = ' + (6 * a * a) + ' cm².' }; }
+function _saCubeTSA() { var a = randInt(2, 20); return { q: pick(['Find the total surface area of a cube of side ' + a + ' cm (in cm²).', 'A cubical box has an edge of ' + a + ' cm. The total area to be painted, covering all its faces, = ? cm²']), a: 6 * a * a, k: 'cubeTSA', explain: 'TSA of a cube = 6a² = 6 × ' + a + '² = 6 × ' + (a * a) + ' = ' + (6 * a * a) + ' cm².' }; }
 function _saCubeLSA() { var a = randInt(2, 20); return { q: 'Find the lateral (side) surface area of a cube of side ' + a + ' cm (in cm²).', a: 4 * a * a, k: 'cubeLSA', explain: 'LSA of a cube = 4a² (the four side faces) = 4 × ' + (a * a) + ' = ' + (4 * a * a) + ' cm².' }; }
 function _saCuboidTSA() { var l = randInt(2, 15), b = randInt(2, 15), h = randInt(2, 15); return { q: 'Find the total surface area of a cuboid ' + l + ' × ' + b + ' × ' + h + ' cm (in cm²).', a: 2 * (l * b + b * h + l * h), k: 'cuboidTSA', explain: 'TSA = 2(lb + bh + hl) = 2(' + (l * b) + ' + ' + (b * h) + ' + ' + (l * h) + ') = ' + (2 * (l * b + b * h + l * h)) + ' cm².' }; }
 function _saCylCSA() { var r = randInt(2, 14), h = randInt(3, 20); return { q: 'Find the curved surface area of a cylinder of radius ' + r + ' cm and height ' + h + ' cm (use π = 3.14).', a: _round2(2 * 3.14 * r * h), k: 'cylCSA', explain: 'CSA = 2πrh = 2 × 3.14 × ' + r + ' × ' + h + ' = ' + _round2(2 * 3.14 * r * h) + ' cm².' }; }
 function _saCylTSA() { var r = randInt(2, 12), h = randInt(3, 18); return { q: 'Find the total surface area of a cylinder of radius ' + r + ' cm and height ' + h + ' cm (use π = 3.14).', a: _round2(2 * 3.14 * r * (r + h)), k: 'cylTSA', explain: 'TSA = 2πr(r + h) = 2 × 3.14 × ' + r + ' × (' + r + ' + ' + h + ') = ' + _round2(2 * 3.14 * r * (r + h)) + ' cm².' }; }
-function _saSphere() { var r = randInt(2, 14); return { q: 'Find the surface area of a sphere of radius ' + r + ' cm (use π = 3.14).', a: _round2(4 * 3.14 * r * r), k: 'sphereSA', explain: 'Surface area = 4πr² = 4 × 3.14 × ' + r + '² = ' + _round2(4 * 3.14 * r * r) + ' cm².' }; }
+function _saSphere() { var r = randInt(2, 14); return { q: pick(['Find the surface area of a sphere of radius ' + r + ' cm (use π = 3.14).', 'A spherical ball has a radius of ' + r + ' cm. Its surface area, taking π = 3.14, = ? cm²']), a: _round2(4 * 3.14 * r * r), k: 'sphereSA', explain: 'Surface area = 4πr² = 4 × 3.14 × ' + r + '² = ' + _round2(4 * 3.14 * r * r) + ' cm².' }; }
 var _SA_ARCH = {
   easy: [{ k: 'cubeTSA', skill: 'formula', build: function () { return _saCubeTSA(); } }, { k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }],
   medium: [{ k: 'cuboidTSA', skill: 'formula', build: function () { return _saCuboidTSA(); } }, { k: 'cylCSA', skill: 'multi-step', build: function () { return _saCylCSA(); } }, { k: 'cubeLSA', skill: 'formula', build: function () { return _saCubeLSA(); } }],
@@ -626,8 +727,19 @@ function _pcHandshakes(diff) { var n = randInt(4, diff === 'hard' ? 15 : 10); re
 var _PC_ARCH = {
   easy: [{ k: 'factorial', skill: 'direct', build: function (d) { return _pcFactorial(d); } }, { k: 'arrange', skill: 'direct', build: function (d) { return _pcArrange(d); } }],
   medium: [{ k: 'nCr', skill: 'formula', build: function (d) { return _pcNCr(d); } }, { k: 'nPr', skill: 'formula', build: function (d) { return _pcNPr(d); } }, { k: 'arrange', skill: 'direct', build: function (d) { return _pcArrange(d); } }],
-  hard: [{ k: 'committee', skill: 'multi-step', build: function (d) { return _pcCommittee(d); } }, { k: 'handshakes', skill: 'multi-step', build: function (d) { return _pcHandshakes(d); } }, { k: 'nCr', skill: 'formula', build: function (d) { return _pcNCr(d); } }]
+  hard: [{ k: 'committee', skill: 'multi-step', build: function (d) { return _pcCommittee(d); } }, { k: 'handshakes', skill: 'multi-step', build: function (d) { return _pcHandshakes(d); } }, { k: 'circular', skill: 'formula', build: function () { return _pcCircular(); } }, { k: 'atLeastOne', skill: 'multi-step', build: function () { return _pcAtLeastOne(); } }]
 };
+/* ADR-093: two genuinely-hard PnC archetypes — circular arrangements and at-least-one via the complement. */
+function _pcCircular() { var n = randInt(4, 8); return { q: 'In how many ways can ' + n + ' people be seated around a circular table?', a: _fact(n - 1), k: 'circular', explain: 'Around a circle one seat is fixed to remove identical rotations, leaving (n − 1)! = ' + (n - 1) + '! = ' + _fact(n - 1) + ' arrangements.' }; }
+function _pcAtLeastOne() {
+  for (var i = 0; i < 40; i++) {
+    var w = randInt(2, 4), m = randInt(3, 5), r = randInt(2, 3);
+    var total = _nCr(w + m, r), allMen = m >= r ? _nCr(m, r) : 0, ans = total - allMen;
+    if (ans <= 0) continue;
+    return { q: 'A committee of ' + r + ' is chosen from ' + w + ' women and ' + m + ' men. How many committees include at least one woman?', a: ans, k: 'atLeastOne', explain: 'Count the complement: total committees ' + (w + m) + 'C' + r + ' = ' + total + ', minus all-men committees ' + m + 'C' + r + ' = ' + allMen + ', gives ' + ans + '. “At least one” almost always means subtract the none-case.' };
+  }
+  return null;
+}
 var _PC_PRIMARY = { easy: function () { return _pcFactorial('easy'); }, medium: function () { return _pcNCr('medium'); }, hard: function () { return _pcHandshakes('hard'); } };
 function genPermutationCombination() { return _genArch('permutation-combination', _PC_ARCH, _PC_PRIMARY); }
 
@@ -918,7 +1030,7 @@ function generateMistakeReviewQuestions(n) {
   /* What can be re-served (ADR-079): Quant numeric, and any self-contained text-MCQ LR item whose options were
      stored (generated LR + authored CR). Still EXCLUDED — DI (needs the chart dataset), LR puzzle SETS (need the
      shared scenario) and LR visual items (need the figure): a stored mistake can't reconstruct that context. */
-  var NEEDS_CONTEXT = { 'lr-seating': 1, 'lr-puzzle': 1, 'lr-mirror': 1, 'lr-water': 1, 'lr-dice': 1, 'lr-cube': 1, 'lr-fseries': 1, 'lr-fanalogy': 1 };
+  var NEEDS_CONTEXT = { 'lr-seating': 1, 'lr-puzzle': 1, 'lr-mirror': 1, 'lr-water': 1, 'lr-dice': 1, 'lr-cube': 1, 'lr-fseries': 1, 'lr-fanalogy': 1, 'lr-odd-fig': 1, 'lr-paper': 1, 'lr-pattern': 1, 'lr-embedded': 1 };
   mistakes = mistakes.filter(function (m) {
     var c = String(m && m.category);
     if (c.indexOf('di-') === 0) return false;

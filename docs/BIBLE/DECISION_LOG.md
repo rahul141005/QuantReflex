@@ -8,6 +8,56 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-093 — Visual question ecosystem redesign + Quant recalibration (2026-07-03)
+- **Context:** the owner mandated a product-level audit of every visual-based question engine and a
+  difficulty/wording audit of the Quant corpus — "do not optimize around preserving the current implementation."
+  The audit found the visual system was the weakest in the app: 6 categories over exactly 5 SVG primitives
+  (letter glyphs, arrows, a one-face die, an iso cube, a "?"), ~14 archetypes, a 9-character glyph pool, no
+  anti-repetition and no explanations. Mirror/Water only flipped letters; Series/Analogy only rotated arrows;
+  paper folding, embedded figures, odd-figure-out and matrix completion — SSC/Banking non-verbal staples — did
+  not exist. Presentation was backwards (huge display-size stems dwarfing tiny figures, options below the fold,
+  robotic "Study the chart and answer:" prefixes). Quant (ADR-083) was architecturally sound but miscalibrated
+  in spots and single-phrased in ~18 of 36 families.
+- **Decision — one figure language, real archetypes, earned difficulty, a presentation stage:**
+  - **LRFigures v2** (`js/ui/lr-figures.js`): the vocabulary grows to an exam-grade set — parametric `shape`
+    (10 forms × none/solid/half fills via unique-id clipPaths), `compo` (outer + anchored inner elements on an
+    8-anchor cycle), `seg` line figures on a 0..3 lattice (canonical, exactly comparable), `paper` (folded sheet
+    with creases/holes and unfolded results), `net` (cross cube net), `die3` (three visible faces), `grid3`
+    (3×3 matrix). All kinds accept `flip`/`rot` so transformations are spec-level and check-verifiable. Old kinds
+    kept; class-based dark-mode extended.
+  - **lr-visual-engine v2** (10 categories): mirror/water rebuilt (single glyph + composed figures at easy,
+    character clusters — the authentic SSC archetype — + two-marker compos at medium, CHIRAL line figures at hard
+    where the trap is rotation-vs-reflection, chirality proven by lattice math); dice gains cube-net folding and
+    the classic two-positions-of-a-die deduction (non-standard pairing, solvable-by-construction); painted cube
+    gains at-least-one and CUBOID counting; series/analogy move from arrows to compositions (position cycling,
+    count progression, shading alternation, and DOUBLE-rule hard tiers with half-applied-rule traps); NEW
+    `lr-odd-fig` (count/form/3-rotations-+-1-reflection), NEW `lr-paper` (v/h/diagonal/two-fold punching), NEW
+    `lr-pattern` (3×3 matrices with row+column rules), NEW `lr-embedded` (segment-subset embedding with provable
+    distractors — a distractor host can never contain the motif). Every question ships an explanation; an
+    anti-repetition ring varies forms/glyphs; distractors encode documented exam traps, never noise.
+  - **Presentation stage** (drill-engine + CSS): stems with a figure/chart (or >90 chars) render as a compact
+    instruction (`question-text-compact`), not a 2rem headline; prompt figures sit on a framed `.q-figure-stage`
+    consistent with `.di-chart`; picture options carry A–D badges (and the teach panel says "Option C" instead of
+    a raw token); DI single-question lead-ins rotate naturally (bare question / "Based on the chart, …" /
+    "From the chart shown: …") — safe because the DI check recomputes from chart data, not stem prefixes.
+  - **Quant recalibration** (36 families audited): cubes hard = 5-digit cube roots + a³−b³ (was: medium with
+    bigger numbers); TSD medium + km/h↔m/s, hard = average-speed/relative-speed/train-crossing (was: easy reads
+    re-labelled); fractions hard = fraction-of-fraction + lowest-terms addition (was ≡ medium); pipes hard =
+    inverse-fill + three-pipe net rate; PnC hard + circular and at-least-one-via-complement; quadratic hard +
+    root-relation (Vieta reconstruction); series hard + n²±k and interleaved APs; the averages hard PRIMARY
+    fallback (average of five equal numbers) replaced with a weighted two-group build. Wording pass: 2-3 natural
+    exam phrasings added to every single-literal family (area, volume, SI, CI, surface-area, geometry,
+    progressions…) with scenario nouns and named actors — under the hard rule that numeric token order is
+    preserved (the check harness recomputes positionally) and no digits enter the phrasing.
+- **Verification:** `lr-figures.check.js` rewritten — renderer structural contracts for every primitive plus a
+  10×3×150 engine sweep whose recompute re-derives every archetype with independent math (own lattice/anchor
+  transforms, fold re-unfolding, die-pair deduction, segment-subset tests); zero mismatches. Quant: 113k
+  assertions, 14.8k answers independently recomputed, zero mismatches; answer-format (`fractions:addFrac` → '/')
+  and all 26 suites green. Playwright screenshots reviewed for every category in light+dark.
+- **Consequence:** visual reasoning goes from a demo (letters and arrows) to an exam-representative product
+  surface with 10 categories and ~34 verified archetypes; hard finally means harder reasoning everywhere; the
+  question card treats figures as the hero. SW v208.
+
 ## ADR-092 — Learn reimagined: study spine, guided revision, one reference home (2026-07-03)
 - **Context:** the owner mandated a first-principles redesign of the Learn tab (not incremental polish). Analysis
   found three product generations layered on one endless page — the ADR-069 knowledge base (62 chapters), the

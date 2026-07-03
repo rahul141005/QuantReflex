@@ -11771,10 +11771,51 @@ body.dark-mode .lr-fig-die { fill: #0f172a; stroke: #f1f5f9; }
 body.dark-mode .lr-fig-cubeface { fill: #1e3a5f; stroke: #cbd5e1; }
 body.dark-mode .lr-fig-cubeface2 { fill: #25456b; stroke: #cbd5e1; }
 body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
-/* picture-answer grid: each option button shows a figure */
-.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; }
-.mcq-figure-option { display: flex; align-items: center; justify-content: center; padding: .5rem; min-height: 84px; }
-.mcq-figure-option .lr-figure { margin: 0; max-width: 92px; }
+
+/* ── ADR-093 primitives: shapes, compositions, line figures, paper, nets, matrices ── */
+.lr-fig-shape { stroke: #1e293b; stroke-width: 3.5; stroke-linejoin: round; fill: none; }
+.lr-fig-solidshape { fill: #1e293b; stroke: #1e293b; stroke-width: 2; stroke-linejoin: round; }
+.lr-fig-dotfill { fill: #1e293b; }
+.lr-fig-seg { stroke: #1e293b; stroke-width: 5; stroke-linecap: round; fill: none; }
+.lr-fig-paper { fill: #f8fafc; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-fold { stroke: #2563eb; stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+.lr-fig-foldarrow { stroke: #2563eb; stroke-width: 2; fill: none; }
+.lr-fig-hole { fill: #1e293b; }
+.lr-fig-netcell { fill: #eff6ff; stroke: #1e293b; stroke-width: 2; }
+.lr-fig-netlbl { font-size: 13px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
+.lr-fig-facelbl { font-size: 18px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
+.lr-fig-facelbl-top, .lr-fig-facelbl-side { font-size: 13px; }
+.lr-fig-gridframe { fill: none; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-gridline { stroke: #94a3b8; stroke-width: 1.5; }
+body.dark-mode .lr-fig-shape { stroke: #f1f5f9; }
+body.dark-mode .lr-fig-solidshape { fill: #f1f5f9; stroke: #f1f5f9; }
+body.dark-mode .lr-fig-dotfill { fill: #f1f5f9; }
+body.dark-mode .lr-fig-seg { stroke: #f1f5f9; }
+body.dark-mode .lr-fig-paper { fill: #0f172a; stroke: #f1f5f9; }
+body.dark-mode .lr-fig-fold, body.dark-mode .lr-fig-foldarrow { stroke: #60a5fa; }
+body.dark-mode .lr-fig-hole { fill: #f1f5f9; }
+body.dark-mode .lr-fig-netcell { fill: #1e3a5f; stroke: #cbd5e1; }
+body.dark-mode .lr-fig-netlbl, body.dark-mode .lr-fig-facelbl { fill: #f1f5f9; }
+body.dark-mode .lr-fig-gridframe { stroke: #f1f5f9; }
+body.dark-mode .lr-fig-gridline { stroke: #64748b; }
+
+/* ── ADR-093 presentation stage: the figure is the hero, the stem is an instruction ── */
+.question-text-compact { font-size: 1.02rem; font-weight: 600; letter-spacing: 0; line-height: 1.5; color: #334155; max-width: 34rem; }
+body.dark-mode .question-text-compact { color: #cbd5e1; }
+@media (max-height: 600px) { .question-text-compact { font-size: .95rem; } }
+.q-figure-stage { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 420px; margin: 0 auto .8rem; padding: .8rem .6rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.q-figure-stage .lr-figure { margin: 0; }
+body.dark-mode .q-figure-stage { background: #1e293b; border-color: #334155; }
+.lr-figure-grid { max-width: 220px; margin: 0 auto; }
+.q-figure-stage .lr-figure-grid { max-width: 210px; }
+
+/* picture-answer grid: each option button shows a lettered figure */
+.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; width: 100%; max-width: 420px; margin-left: auto; margin-right: auto; }
+.mcq-figure-option { position: relative; display: flex; align-items: center; justify-content: center; padding: .55rem .5rem .5rem; min-height: 92px; }
+.mcq-figure-option .lr-figure { margin: 0; max-width: 96px; }
+.mcq-figure-option .lr-figure-grid { max-width: 88px; }
+.mcq-opt-letter { position: absolute; top: .3rem; left: .4rem; font-size: .68rem; font-weight: 800; color: #64748b; background: rgba(15,23,42,.06); border-radius: .55rem; padding: .05rem .4rem; line-height: 1.3; }
+body.dark-mode .mcq-opt-letter { color: #94a3b8; background: rgba(255,255,255,.08); }
 
 /* ── authored teaching explanation (ADR-079): shown on reveal under the feedback ── */
 .authored-explanation { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; background: #f1f5f9; border-left: 3px solid var(--qr-accent, #2563eb); font-size: .9rem; line-height: 1.5; color: #1e293b; text-align: left; }

@@ -40,6 +40,7 @@
     'mixtures:alligationRatio': ':',
     'partnership:shareRatio': ':',
     'fractions:pctToFrac': '/',
+    'fractions:addFrac': '/',                   /* ADR-093: lowest-terms fraction answer like "7/12" */
     'fractions:fracToPct': '.',                 /* percent-value string like "62.5" */
     'coordinate-geometry-basics:slope': '-'     /* slope may be negative */
   };

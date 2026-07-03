@@ -243,6 +243,17 @@
     var tot = a1 + a2; if (!tot) return null; var sh = a1 / tot * 100; if (!_isClean(sh)) return null; return { q: stem + 'Of all the people who ' + ctx.act + ', what percent are ' + ctx.g1 + '? (to 1 decimal place)', a: _round1(sh), k: 'caseShare', skill: 'contribution' };
   }
 
+  /* ADR-093: the chart sits directly above the stem, so a fixed "Study the chart and answer:" prefix is noise.
+     Rotate natural exam lead-ins (including none). Label matching in the check harness is unaffected — lead-ins
+     never contain entity names or digits. */
+  function _lead(noun, q) {
+    var r = Math.random();
+    if (r < 0.4) return q;                                                              // the chart speaks for itself
+    if (r < 0.65) return 'Based on the ' + noun + ', ' + q.charAt(0).toLowerCase() + q.slice(1);
+    if (r < 0.85) return 'From the ' + noun + ' shown: ' + q;
+    return 'Refer to the ' + noun + '. ' + q;
+  }
+
   /* ── the per-category generators: pick an in-tier archetype, build a clean question, attach chart ── */
   function _genFromArch(category, chartFn, diff, ds, arch, primary) {
     var noun = category === 'di-table' ? 'table' : 'chart';
@@ -250,10 +261,10 @@
       var d = ds();
       var a = arch[diff][_ri(0, arch[diff].length - 1)];
       var qa = a.build(d);
-      if (qa) return { question: 'Study the ' + noun + ' and answer: ' + qa.q, answer: qa.a, category: category, chart: chartFn(d), subtype: diff + ':' + qa.k };
+      if (qa) return { question: _lead(noun, qa.q), answer: qa.a, category: category, chart: chartFn(d), subtype: diff + ':' + qa.k };
     }
     var d2 = ds(), qa2 = primary[diff](d2);   /* guaranteed clean, in-tier — never a downgrade */
-    return { question: 'Study the ' + noun + ' and answer: ' + qa2.q, answer: qa2.a, category: category, chart: chartFn(d2), subtype: diff + ':' + qa2.k };
+    return { question: _lead(noun, qa2.q), answer: qa2.a, category: category, chart: chartFn(d2), subtype: diff + ':' + qa2.k };
   }
 
   function _genEntity(category, chartFn, diff) {
@@ -263,7 +274,7 @@
         var dm = _entityMultiDataset(_pick([2, 2, 3]));
         if (category === 'di-bar' && Math.random() < 0.4) dm._stacked = true;
         var qa = _multiQuestion(dm);
-        if (qa) return { question: 'Study the ' + (category === 'di-table' ? 'table' : 'chart') + ' and answer: ' + qa.q, answer: qa.a, category: category, chart: chartFn(dm), subtype: 'hard:' + qa.k };
+        if (qa) return { question: _lead(category === 'di-table' ? 'table' : 'chart', qa.q), answer: qa.a, category: category, chart: chartFn(dm), subtype: 'hard:' + qa.k };
       }
     }
     return _genFromArch(category, chartFn, diff, _entityDataset, ENTITY_ARCH, ENTITY_PRIMARY);
@@ -273,7 +284,7 @@
       for (var attempt = 0; attempt < 40; attempt++) {
         var dm = _timeMultiDataset(2);
         var qa = _multiQuestion(dm);
-        if (qa) return { question: 'Study the graph and answer: ' + qa.q, answer: qa.a, category: 'di-line', chart: _lineChart(dm), subtype: 'hard:' + qa.k };
+        if (qa) return { question: _lead('graph', qa.q), answer: qa.a, category: 'di-line', chart: _lineChart(dm), subtype: 'hard:' + qa.k };
       }
     }
     return _genFromArch('di-line', _lineChart, diff, _timeDataset, TIME_ARCH, TIME_PRIMARY);
