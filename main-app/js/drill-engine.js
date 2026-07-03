@@ -820,6 +820,14 @@ function createDrillEngine(container, opts) {
         var _explainQ = (q.aiContext ? q.aiContext + ' ' : '') + q.question;
         try { if (q.chart && typeof DICharts !== 'undefined' && DICharts.describe) { var _d = DICharts.describe(q.chart); if (_d) _explainQ = _d + ' ' + q.question; } } catch (_) {}
         try { if (q.figure && typeof LRFigures !== 'undefined' && LRFigures.describe) { var _df = LRFigures.describe(q.figure); if (_df) _explainQ = 'Figure: ' + _df + '. ' + q.question; } } catch (_) {}
+        /* picture options (ADR-093): describe each lettered option too, so the AI can reason about the choices
+           (odd-figure-out has no prompt figure at all — the options ARE the question). */
+        try {
+          if (q.optionFigures && typeof LRFigures !== 'undefined' && LRFigures.describe) {
+            var _opts = q.optionFigures.map(function (f, i) { return String.fromCharCode(65 + i) + ') ' + LRFigures.describe(f); }).join('; ');
+            if (_opts) _explainQ += ' Options: ' + _opts + '.';
+          }
+        } catch (_) {}
         AIFeatures.showExplanationModal(_explainQ, expected, q.category);
       });
       feedback.parentNode.insertBefore(explainBtn, feedback.nextSibling);

@@ -11776,6 +11776,7 @@ body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
 .lr-fig-shape { stroke: #1e293b; stroke-width: 3.5; stroke-linejoin: round; fill: none; }
 .lr-fig-solidshape { fill: #1e293b; stroke: #1e293b; stroke-width: 2; stroke-linejoin: round; }
 .lr-fig-dotfill { fill: #1e293b; }
+.lr-fig-dotknock { fill: #fff; stroke: #1e293b; stroke-width: 2.5; }   /* marker on a shaded shape — never vanishes */
 .lr-fig-seg { stroke: #1e293b; stroke-width: 5; stroke-linecap: round; fill: none; }
 .lr-fig-paper { fill: #f8fafc; stroke: #1e293b; stroke-width: 2.5; }
 .lr-fig-fold { stroke: #2563eb; stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
@@ -11790,6 +11791,7 @@ body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
 body.dark-mode .lr-fig-shape { stroke: #f1f5f9; }
 body.dark-mode .lr-fig-solidshape { fill: #f1f5f9; stroke: #f1f5f9; }
 body.dark-mode .lr-fig-dotfill { fill: #f1f5f9; }
+body.dark-mode .lr-fig-dotknock { fill: #1e293b; stroke: #f1f5f9; }
 body.dark-mode .lr-fig-seg { stroke: #f1f5f9; }
 body.dark-mode .lr-fig-paper { fill: #0f172a; stroke: #f1f5f9; }
 body.dark-mode .lr-fig-fold, body.dark-mode .lr-fig-foldarrow { stroke: #60a5fa; }

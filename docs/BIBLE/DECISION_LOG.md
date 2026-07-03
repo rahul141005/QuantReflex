@@ -57,6 +57,15 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Consequence:** visual reasoning goes from a demo (letters and arrows) to an exam-representative product
   surface with 10 categories and ~34 verified archetypes; hard finally means harder reasoning everywhere; the
   question card treats figures as the hero. SW v208.
+- **Final audit pass (same day):** a mandated self-audit ran repetition/balance metrics (200 samples per
+  category-tier) plus rendered-output screenshot review and found five real defects, all fixed: the fanalogy
+  medium `reflect` archetype was dead (its rotation distractor always collided with the corner-anchor
+  reflection, so distinctness never passed — 0/200 generated; now ~40%); constant stems in the four rebuilt
+  figure families (phrasing pick-pools added); narrow cube-size/paper-hole variety (widened to pools);
+  embedded distractor hosts could theoretically re-absorb the motif (forbid-list added); and marker dots
+  vanished against solid/half fills (knockout dots with contrasting fill+stroke, dark-mode aware). AI-explain
+  prompts for figure MCQs now include `describe()` of each lettered option. Re-verified: lr-figures.check
+  138/0, all 26 suites green. SW v209.
 
 ## ADR-092 — Learn reimagined: study spine, guided revision, one reference home (2026-07-03)
 - **Context:** the owner mandated a first-principles redesign of the Learn tab (not incremental polish). Analysis

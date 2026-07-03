@@ -42,6 +42,18 @@ audit of all 36 Quant families (full rationale + archetype tables in ADR-093). C
 - scripts/quant-engine.check.js: TIER_KEYS recalibrated + recompute branches for 12 new archetypes;
   js/answer-format.js: fractions:addFrac → '/'.
 - service-worker.js: qr-cache v207→v208.
+### fix(final audit pass — repetition metrics + rendered-output review over 200 samples/category-tier)
+- js/lr-visual-engine.js: fanalogy medium `reflect` archetype was DEAD (0/200 — its rotation distractor
+  `_rotAt(atC, 2)` always coincided with the corner-anchor reflection, so `_distinct` never passed and the
+  builder silently fell through) → distractor now `_rotAt(atC, 4)`; generates ~40% of medium. Stem phrasing
+  variants (pick pools) added to fseries/fanalogy/odd-fig/pattern. Cube variety: medium n∈{4,6},
+  hard paint5 n∈{5,7}. Paper hole positions widened to a 3-value pool per axis. Embedded distractor hosts
+  built via `_extendHost(..., forbid)` so they can never re-absorb the removed motif segments.
+- js/ui/lr-figures.js + css/style.css: marker dots on solid/half-filled shapes were invisible (same fill) →
+  knockout dots (`lr-fig-dotknock`: contrasting fill + stroke, dark-mode variant) when the outer is shaded.
+- js/drill-engine.js: AI-explain prompt for figure MCQs now appends `LRFigures.describe()` of each lettered
+  option, grounding explanations in what the student actually sees.
+- service-worker.js: qr-cache v208→v209.
 ```
 
 Docs: DECISION_LOG (ADR-093) · VERSIONS (Bible 2.114, Arch 2.60).

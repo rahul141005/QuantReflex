@@ -120,18 +120,20 @@
 
   /* compo: outer shape + inner elements at anchors. Inner scale defaults 0.34 (0.5 for centre singletons). */
   function _compo(s) {
-    var g = _shapeBody((s.outer && s.outer.form) || 'square', (s.outer && s.outer.fill) || 'none');
+    var oFill = (s.outer && s.outer.fill) || 'none';
+    var g = _shapeBody((s.outer && s.outer.form) || 'square', oFill);
     (s.inner || []).forEach(function (el) {
       var a = ANCHOR[el.at || 'c'] || ANCHOR.c;
       var k = el.scale || (el.at === 'c' || !el.at ? 0.5 : 0.3);
-      g += '<g transform="translate(' + (a[0] - 50) + ',' + (a[1] - 50) + ')">' + _shapeBody0(el.form, el.fill, k) + '</g>';
+      g += '<g transform="translate(' + (a[0] - 50) + ',' + (a[1] - 50) + ')">' + _shapeBody0(el.form, el.fill, k, oFill !== 'none') + '</g>';
     });
     var tr = _fr(s);
     return '<g' + (tr ? ' transform="' + tr + '"' : '') + '>' + g + '</g>';
   }
-  /* inner shapes render scaled about the cell centre (the translate above moves them to the anchor) */
-  function _shapeBody0(form, fill, k) {
-    if (form === 'dot') return '<circle cx="50" cy="50" r="' + (9 * (k / 0.3)) + '" class="lr-fig-dotfill" />';
+  /* inner shapes render scaled about the cell centre (the translate above moves them to the anchor).
+     On a shaded outer the marker knocks out (contrasting fill + stroke) so it never vanishes into the fill. */
+  function _shapeBody0(form, fill, k, onShaded) {
+    if (form === 'dot') return '<circle cx="50" cy="50" r="' + (9 * (k / 0.3)) + '" class="' + (onShaded ? 'lr-fig-dotknock' : 'lr-fig-dotfill') + '" />';
     if (fill === 'solid') return _formEl(form, 'lr-fig-solidshape', k);
     if (fill === 'half') {
       var id = 'lrfclip' + (++_uid);

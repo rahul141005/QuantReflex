@@ -263,8 +263,8 @@
   }
   function _genCube(diff) {
     if (diff === 'easy') return _cubePaint('easy', 3, 'paint3');
-    if (diff === 'medium') return _cubePaint('medium', 4, 'paint');
-    if (Math.random() < 0.5) return _cubePaint('hard', 5, 'paint5');
+    if (diff === 'medium') return _cubePaint('medium', _pick([4, 6]), 'paint');
+    if (Math.random() < 0.5) return _cubePaint('hard', _pick([5, 7]), 'paint5');
     /* cuboid painting — three distinct dimensions, the real discriminator */
     var dims = _pickN([3, 4, 5, 6], 3).sort(function (x, y) { return x - y; });
     var a = dims[0], b = dims[1], c = dims[2];
@@ -302,7 +302,7 @@
   }
   function _genFSeries(diff) {
     var outer = _ringPick('fs-outer', OUTERS);
-    var stem = _pick(['Which figure should come next in the series, in place of the question mark?', 'Study the series and pick the figure that continues it.']);
+    var stem = _pick(['Which figure should come next in the series, in place of the question mark?', 'Study the series and pick the figure that continues it.', 'Select the figure that will replace the question mark in the series.', 'The figures follow a pattern. Which option comes next?']);
     if (diff === 'easy') {
       if (Math.random() < 0.55) {   // constant position step
         var k = _pick([1, 2]), start = _ri(0, 7);
@@ -381,7 +381,7 @@
 
   function _genFAnalogy(diff) {
     var outer = _ringPick('fa-outer', OUTERS);
-    var stem = 'The first figure is related to the second in a certain way. Which option relates to the third figure in the SAME way?';
+    var stem = _pick(['The first figure is related to the second in a certain way. Which option relates to the third figure in the SAME way?', 'Select the figure that completes the analogy (first is to second as third is to ?).', 'The second figure follows from the first by a rule. Apply the same rule to the third figure and pick the result.']);
     if (diff === 'easy') {   // rotation of the marker position
       var k = _pick([2, 4, 6]), aAt = _ri(0, 7), cAt = _ri(0, 7);
       var A = _compoDot(outer, ORDER8[aAt]), B = _compoDot(outer, ORDER8[(aAt + k) % 8]);
@@ -399,7 +399,9 @@
         var A2 = _compoDot(outer, at1), B2 = _compoDot(outer, MIR_AT[at1]);
         var o2f = _pick(OUTERS.filter(function (f) { return f !== outer; }));
         var C2 = _compoDot(o2f, atC), ok2 = _compoDot(o2f, MIR_AT[atC]);
-        var figs2 = [ok2, _compoDot(o2f, WAT_AT[atC]), _compoDot(o2f, atC), _compoDot(o2f, _rotAt(atC, 2))];
+        /* distractors: water reflection, unchanged, and the OPPOSITE corner (rot 180°) — for corner anchors a 90°
+           rotation coincides with one of the reflections, which silently killed this archetype before ADR-093's audit */
+        var figs2 = [ok2, _compoDot(o2f, WAT_AT[atC]), _compoDot(o2f, atC), _compoDot(o2f, _rotAt(atC, 4))];
         if (!_distinct(figs2)) return _genFAnalogy(diff);
         var o2 = _figOptions(figs2);
         return { question: stem, figure: { kind: 'row', items: [A2, B2, C2, { kind: 'qmark' }] }, options: o2.options, optionFigures: o2.optionFigures, answer: o2.answer, subtype: 'medium:reflect', explanation: 'The second figure is the MIRROR image of the first (left ↔ right) — not a rotation. Mirror the third figure the same way.' };
@@ -457,7 +459,7 @@
   /* ─────────────────────────── odd figure out ─────────────────────────── */
 
   function _genOdd(diff) {
-    var stem = 'Three of the four figures are alike in a certain way. Select the one that is DIFFERENT.';
+    var stem = _pick(['Three of the four figures are alike in a certain way. Select the one that is DIFFERENT.', 'Find the odd figure out.', 'Three figures share a common property. Choose the one that does not belong.']);
     if (diff === 'easy') {   // three share a dot count, one differs
       var outer = _ringPick('odd-outer', OUTERS);
       var c = _ri(2, 4), oddC = c + _pick([-1, 1]);
@@ -509,7 +511,7 @@
     var fold, holes, correctHoles, wrongAxis, alsoWrong;
     if (diff === 'hard') {
       /* two folds: right half onto left, then bottom onto top → hole in the top-left quadrant unfolds to 4 holes */
-      var hx = _pick([0.2, 0.32]), hy = _pick([0.2, 0.32]);
+      var hx = _pick([0.18, 0.3, 0.42]), hy = _pick([0.18, 0.3, 0.42]);
       holes = [[hx, hy]];
       correctHoles = [[hx, hy], [1 - hx, hy], [hx, 1 - hy], [1 - hx, 1 - hy]];
       wrongAxis = [[hx, hy], [1 - hx, hy]];                                   // forgot the second fold
@@ -556,7 +558,7 @@
     var used = {};
     holes = [];
     while (holes.length < nHoles) {
-      var region = fold === 'v' ? [[_pick([0.2, 0.32]), _pick(HOLE_POS)]] : [[_pick(HOLE_POS), _pick([0.2, 0.32])]];
+      var region = fold === 'v' ? [[_pick([0.18, 0.3, 0.42]), _pick(HOLE_POS)]] : [[_pick(HOLE_POS), _pick([0.18, 0.3, 0.42])]];
       var h = region[0], k = h.join(',');
       if (!used[k]) { used[k] = 1; holes.push(h); }
     }
@@ -583,7 +585,7 @@
   /* ─────────────────────────── matrix (pattern) completion ─────────────────────────── */
 
   function _genPattern(diff) {
-    var stem = 'Study the 3×3 matrix. Which figure completes it, in place of the question mark?';
+    var stem = _pick(['Study the 3×3 matrix. Which figure completes it, in place of the question mark?', 'Each row of the matrix follows a rule. Select the figure that belongs in the empty cell.', 'Which option completes the figure matrix?']);
     var forms = _pickN(OUTERS, 3);
     var markers = _pickN(['dot', 'triangle', 'square'], 3);
     var start = _ri(0, 7), step = _pick([1, 2, 3]);
