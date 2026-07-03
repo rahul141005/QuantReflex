@@ -226,10 +226,11 @@ function hideCustomNumpad() {
   }
   document.addEventListener('keydown', function (e) {
     if (!_numpadInput) return;                                  /* no active numeric question */
-    /* Paused: the drill pause overlay covers (and pointer-blocks) the on-screen numpad, but keyboard events bypass
-       that visual guard — so a keypress could otherwise submit/mutate the frozen answer or advance under the overlay
-       (ADR-095). The overlay exists only between pause and resume, so its presence is the paused signal. */
-    if (document.getElementById('drillPauseOverlay')) return;
+    /* Any blocking overlay covers (and pointer-blocks) the on-screen numpad, but keyboard events bypass that visual
+       guard — a keypress could otherwise submit/mutate the frozen answer or advance the drill UNDER the overlay
+       (ADR-095). Yield to BOTH the pause overlay (its own element; it doesn't set modal-open) and any modal that sets
+       body.modal-open — notably the exit-session dialog, which is reachable mid-question. */
+    if (document.getElementById('drillPauseOverlay') || document.body.classList.contains('modal-open')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;            /* let browser/OS shortcuts through */
     if (!document.body.contains(_numpadInput)) return;         /* stale reference guard */
     /* Don't hijack typing in a real editable field (login, custom-topic name, search). The answer input is

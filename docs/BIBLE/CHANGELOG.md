@@ -34,6 +34,11 @@ verified correct; one regression fixed; the remaining backlog executed. Full det
 
 Docs: DECISION_LOG (ADR-095) · VERSIONS (Bible bump). All 26 suites green (quant 0 recompute mismatches).
 
+### fix(regression, follow-up): keyboard guard was incomplete — also yield under the exit-session modal
+- js/ui/numpad.js: the F1 guard only checked #drillPauseOverlay; the same Enter-grades-frozen-answer / advance-under-
+  overlay bypass existed under the exit-session dialog (body.modal-open, reachable mid-question). Guard now bails under
+  the pause overlay OR any body.modal-open modal. service-worker.js v211→v212. (found by independent RC re-review)
+
 ## 2026-07-03 — Full-repository audit: submission bug + Critical/High remediation (ADR-094)
 
 Complete first-principles audit (three independent investigations, each finding cross-checked against the code). The

@@ -48,6 +48,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **Still deferred (documented):** drill chrome emoji→qr-ico (broad surface); Guided-Revision retrieval gate (UX
   behaviour change worth its own review); the `skipWaiting` vs update-toast model (needs a product decision); CSS
   split of the 430 KB stylesheet.
+- **Follow-up (final RC pass, same day):** an independent re-review found the F1 keyboard guard was **incomplete** —
+  it yielded only under the pause overlay, but the identical bypass still existed under the **exit-session dialog**
+  (`#exitSessionModal`, which sets `body.modal-open` and is reachable mid-question): pressing Enter with it open graded
+  the frozen answer and could advance the drill under the modal. Generalised the guard to bail under the pause overlay
+  **or** any `body.modal-open` modal (`js/ui/numpad.js`), covering the exit dialog and any future blocking modal.
+  Verified (Playwright): digits/Enter inert under both the pause overlay and the exit dialog, keyboard restored on
+  resume/cancel. The AI-explain modal was confirmed already-safe (`hideCustomNumpad` nulls the input before it opens).
+  Two other re-review findings were judged not worth changing: the legacy-migration shape concern (consumers already
+  self-heal missing fields via `if (!p.x) p.x = …`, and a default-merge would introduce nested-reference aliasing),
+  and the value-based recompute tolerance (generators reduce ratios; the net catches gross errors). SW v211→v212.
 
 ## ADR-094 — Full-repository audit: submission bug + Critical/High remediation (2026-07-03)
 - **Context:** the owner commissioned a complete, first-principles repository audit, triggered by a P0 report that
