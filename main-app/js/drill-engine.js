@@ -126,6 +126,10 @@ function createDrillEngine(container, opts) {
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
   var _isFinished = false; /* prevents timer/checkAnswer race after finish() */
+  /* A blocking overlay (pause overlay or any body.modal-open modal such as the exit dialog) visually covers and
+     pointer-blocks the answer surface, but KEYBOARD activation of a still-focusable option/key bypasses that guard.
+     User-initiated answer entry must yield while one is up, so grading can't happen under an overlay (ADR-095). */
+  function _blockedByOverlay() { return !!document.getElementById('drillPauseOverlay') || document.body.classList.contains('modal-open'); }
   var _finishResults = null; /* session summary passed to onFinish (used by mock mode for exam-accurate scoring) */
   var reviewOriginalCount = 0; /* track original count for review mode cap */
   var ui = {
@@ -312,7 +316,7 @@ function createDrillEngine(container, opts) {
       if (submitBtn) submitBtn.style.display = 'none';
       var _mh = host.querySelector('#mcqOptions'), _os = _mh ? _mh.querySelectorAll('.mcq-option') : [];
       for (var _oi = 0; _oi < _os.length; _oi++) {
-        _os[_oi].addEventListener('click', function () { if (answered) return; this.classList.add('selected'); checkAnswer(this.getAttribute('data-opt')); });
+        _os[_oi].addEventListener('click', function () { if (answered || _blockedByOverlay()) return; this.classList.add('selected'); checkAnswer(this.getAttribute('data-opt')); });
       }
     } else {
       var input = ui.answerInputEl;
@@ -599,7 +603,7 @@ function createDrillEngine(container, opts) {
       var _opts = _mcqHost ? _mcqHost.querySelectorAll('.mcq-option') : [];
       for (var _oi = 0; _oi < _opts.length; _oi++) {
         _opts[_oi].addEventListener('click', function () {
-          if (answered) return;
+          if (answered || _blockedByOverlay()) return;
           this.classList.add('selected');
           var _v = this.getAttribute('data-opt');
           if (isDuel) captureDuelAnswer(_v); else checkAnswer(_v);

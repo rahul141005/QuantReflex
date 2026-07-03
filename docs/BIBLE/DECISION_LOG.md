@@ -58,6 +58,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   Two other re-review findings were judged not worth changing: the legacy-migration shape concern (consumers already
   self-heal missing fields via `if (!p.x) p.x = …`, and a default-merge would introduce nested-reference aliasing),
   and the value-based recompute tolerance (generators reduce ratios; the net catches gross errors). SW v211→v212.
+  Extending the same reasoning, the MCQ path had the identical class of gap — option `<button>`s stay focusable under
+  an overlay, so keyboard Enter/Space (a synthetic click) could grade while paused / with the exit dialog open
+  (confirmed via Playwright). Added a shared `_blockedByOverlay()` guard to both MCQ click handlers (single + set
+  paths) in `js/drill-engine.js`; normal mouse/tap selection is unaffected (verified across all 10 visual categories).
+  Net: no answer can be graded under any blocking overlay — via numpad, physical keyboard, or MCQ. SW v212→v213.
 
 ## ADR-094 — Full-repository audit: submission bug + Critical/High remediation (2026-07-03)
 - **Context:** the owner commissioned a complete, first-principles repository audit, triggered by a P0 report that

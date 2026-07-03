@@ -38,6 +38,10 @@ Docs: DECISION_LOG (ADR-095) · VERSIONS (Bible bump). All 26 suites green (quan
 - js/ui/numpad.js: the F1 guard only checked #drillPauseOverlay; the same Enter-grades-frozen-answer / advance-under-
   overlay bypass existed under the exit-session dialog (body.modal-open, reachable mid-question). Guard now bails under
   the pause overlay OR any body.modal-open modal. service-worker.js v211→v212. (found by independent RC re-review)
+### fix(a11y): MCQ options also inert under a blocking overlay
+- js/drill-engine.js: option <button>s stay focusable under the pause/exit overlay, so keyboard Enter/Space (a
+  synthetic click) could grade while paused / with the exit dialog open. Added a shared _blockedByOverlay() guard to
+  both MCQ click handlers; normal mouse/tap selection unaffected. Now no answer grades under any overlay. SW v212→v213.
 
 ## 2026-07-03 — Full-repository audit: submission bug + Critical/High remediation (ADR-094)
 
