@@ -314,23 +314,6 @@ function validateCreatePayload(body) {
     if (r != null) fields.rating = Math.max(FIELD_LIMITS.ratingMin, Math.min(FIELD_LIMITS.ratingMax, Math.round(r)));
   }
 
-  /* Substance guard (ADR-099):
-     • Question-family reports filed IN-DRILL are meaningful from the attached question alone (2-tap) — text
-       optional. But a question report filed from Settings has NO live question attached, so it needs a note
-       (which question? what looked wrong?).
-     • ai_explain reports are meaningful from the attached explanation + reason — text optional.
-     • Everything else (app / account / other / a Settings-filed ai_issue) must carry SOME substance —
-       free text OR a rating (star-only feedback is valid). */
-  if (group === 'question') {
-    if (source === 'settings' && !title && !description) {
-      return { ok: false, code: 'EMPTY_REPORT', message: 'Tell us which question and what looked off.' };
-    }
-  } else if (source !== 'ai_explain') {
-    if (!title && !description && fields.rating == null) {
-      return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description (or a rating).' };
-    }
-  }
-
   var context = sanitizeContext(body.context, source);
 
   /* Capture the exact question for in-drill AND ai_explain reports (both are anchored to a live question). */
@@ -342,6 +325,22 @@ function validateCreatePayload(body) {
 
   /* AI-explanation metadata (ADR-097) — only meaningful for ai_explain, but sanitized defensively regardless. */
   var ai = sanitizeAi(body.ai);
+
+  /* Substance guard (ADR-099, hardened ADR-099-verify): a report must never be EMPTY. Gate the "no free text
+     needed" exemptions on MATERIALIZED content — NOT on the client-declared `source`, which is spoofable
+     (an authed client can POST any body). Otherwise `{type:'feedback', source:'ai_explain'}` or
+     `{type:'answer_wrong', source:'drill'}` with nothing attached would slip through as junk/empty rows.
+     • Question-family: the attached question IS the substance; if no question actually materialized, require a note.
+     • Everything else: require free text OR a rating OR a materialized AI-explanation bundle (the ai_explain 2-tap). */
+  if (group === 'question') {
+    if (!question && !title && !description) {
+      return { ok: false, code: 'EMPTY_REPORT', message: 'Tell us which question and what looked off.' };
+    }
+  } else {
+    if (!ai && !title && !description && fields.rating == null) {
+      return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description (or a rating).' };
+    }
+  }
 
   /* client idempotency key — dedupes a double-submit / offline-retry into ONE row (handler enforces). */
   var clientKey = _str(body.clientKey, 64);

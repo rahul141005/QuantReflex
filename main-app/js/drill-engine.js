@@ -161,7 +161,18 @@ function createDrillEngine(container, opts) {
     if (isDuel) return;                    /* duels have no answer key and their own results flow */
     if (_blockedByOverlay()) return;        /* don't open over the pause/exit overlay (ADR-095 ethos) */
     if (typeof ReportModal === 'undefined' || !ReportModal.open) return;
-    ReportModal.open({ source: 'drill', question: questions[current] || null, session: _buildReportState() });
+    var q = questions[current] || null;
+    var sess = _buildReportState();         /* capture the live state (incl. timerRunning) BEFORE we freeze it */
+    /* Freeze the session while the report sheet is open so the clock can't END the test, TIME OUT the question
+       (auto-marking it wrong), or AUTO-ADVANCE under the sheet — the "your session is safe" promise (ADR-099
+       verification). Silent = no pause overlay (the report sheet is already on top). Resume on close. Only
+       needed when something is actually ticking; untimed Quick Drill has nothing to freeze. */
+    var atRisk = !_paused && !_isFinished && !!(perQTimer || overallTimer || _autoAdvanceTimer);
+    if (atRisk) pauseSession(true);
+    ReportModal.open({
+      source: 'drill', question: q, session: sess,
+      onClose: function () { if (atRisk) resumeSession(); }
+    });
   }
   var _finishResults = null; /* session summary passed to onFinish (used by mock mode for exam-accurate scoring) */
   var reviewOriginalCount = 0; /* track original count for review mode cap */
@@ -1506,7 +1517,7 @@ function createDrillEngine(container, opts) {
 
   /* ---- pause / resume (ADR-086 P7) ---- */
 
-  function pauseSession() {
+  function pauseSession(silent) {
     if (isDuel || _paused || _isFinished) return;   /* never pause a live duel */
     _paused = true;
     _pauseStart = performance.now();
@@ -1518,7 +1529,9 @@ function createDrillEngine(container, opts) {
        already recorded, re-enable Next so the user simply advances manually after resuming. */
     if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
     if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; if (answered) _nextReady = true; }
-    _showPauseOverlay();
+    /* silent = freeze the clock WITHOUT the pause overlay (used when the report sheet is already on top and owns
+       focus — ADR-099 verification). resumeSession() is overlay-agnostic, so closing the sheet resumes cleanly. */
+    if (!silent) _showPauseOverlay();
   }
 
   function resumeSession() {

@@ -38,9 +38,21 @@ var ReportsView = (function () {
     question_wrong: 'Wrong question', formatting: 'Formatting'
   };
 
+  /* Sub-reason id → human label (ADR-099). Flat map across all types — shared ids (other/formatting) share a
+     label. Keeps the most triage-relevant field (esp. for AI reports) readable instead of a raw snake_case id.
+     Lockstep with shared/constants/report-types.js subReasons is asserted by scripts/report.check.js. */
+  var SUBREASON_LABELS = {
+    /* visual */ chart_wrong: 'Chart is wrong', figure_render: "Figure doesn't render", clipping: 'Clipped / cut off', missing_image: 'Missing image',
+    /* ai_issue */ wrong_answer: 'Wrong final answer', flawed_reasoning: 'Flawed reasoning', hallucination: 'Made something up', incomplete: 'Missing steps', confusing: 'Confusing wording',
+    /* payment */ not_activated: 'Premium not activated', deducted_no_premium: 'Money deducted, no premium', refund: 'Refund request', transaction_error: 'Transaction error',
+    /* account */ login: 'Login / sign-in', sync: 'Data not syncing', delete: 'Delete account / data',
+    /* shared */ formatting: 'Formatting problem', other: 'Something else'
+  };
+
   function _esc(s) { return AdminUtils.escapeHtml(s == null ? '' : String(s)); }
   function _fmtT(v) { return AdminUtils.formatDateTime(v); }
   function _typeLabel(t) { return TYPE_LABELS[t] || t || 'Report'; }
+  function _subLabel(s) { return SUBREASON_LABELS[s] || s; }
   function _err(e) { return AdminUtils.getReadableError(e); }
 
   function _statusBadge(s) {
@@ -228,7 +240,7 @@ var ReportsView = (function () {
     var f = r.fields || {}, life = r.lifecycle || {}, rep = r.reporter || {};
     var extra = Object.keys(f).map(function (k) { return _kv(k.charAt(0).toUpperCase() + k.slice(1), f[k]); }).join('');
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
-      _kv('Type', _typeLabel(r.type)) + (r.subReason ? _kv('Reason', r.subReason) : '') +
+      _kv('Type', _typeLabel(r.type)) + (r.subReason ? _kv('Reason', _subLabel(r.subReason)) : '') +
       _kv('Priority', r.priority) + _kv('Status', STATUS_LABELS[r.status] || r.status) +
       _kv('Reporter', rep.name || rep.email || rep.uid) + _kv('Email', rep.email) +
       _kv('Plan', rep.plan) + (rep.coachingId ? _kv('Coaching', rep.coachingId) : '') +

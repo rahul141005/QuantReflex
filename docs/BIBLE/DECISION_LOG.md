@@ -64,6 +64,40 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 - **No new infra, no rules/index deploy needed** (Vercel-Hobby architecture intact). SW v216→v217 (`QR_APP_VERSION`
   in lockstep). **Governance:** FIRESTORE_BLUEPRINT (enriched `classification.type` list; browser taxonomy is now
   main-app-local); CHANGELOG; VERSIONS (Bible + Firestore — type value-set change).
+- **Final verification pass (fresh adversarial re-audit — 3 independent agents + owner review).** Confirmed the
+  design is sound and fixed every real defect found; no taxonomy/schema change (SW v217→v218 for the client fixes):
+  - **[HIGH] In-drill report didn't pause the session clock** → a Timed/Reflex/Mock run kept ticking under the
+    sheet: the global timer could `finish()` (END the test) and the per-question timer could `checkAnswer('',{timedOut})`
+    (auto-mark wrong + auto-advance) while the user typed a report — falsifying "your session is safe."
+    Fix: `_openReport` now silently freezes the session (`pauseSession(silent)` — no overlay/focus-steal) when a
+    timer/auto-advance is live, and resumes via an `onClose` hook when the sheet closes.
+  - **[HIGH] Duel-review AI reports lost the question text + signature** — the duel explain ctx passes
+    `{questionText}` but `snapshotQuestion` read only `q.question`, so a reported duel explanation had a null
+    question (no admin context, no aggregation). Fix: `snapshotQuestion` accepts `question` **or** `questionText`.
+  - **[HIGH] Substance guard was bypassable via the spoofable client `source`** — `{type:'feedback',
+    source:'ai_explain'}` (or `{type:'answer_wrong', source:'drill'}`) with nothing attached slipped through as an
+    empty/junk row. Fix: the guard now gates on MATERIALIZED content (a real question snapshot / a real `ai`
+    bundle), never on the declared source.
+  - **[MED] Concurrent same-`clientKey` submits could double-file** (the pre-query dedupe is a non-atomic TOCTOU).
+    Fix: the report doc id is now DETERMINISTIC (`ck-<uid>-<clientKey>`) with an in-transaction existence check, so
+    a concurrent double-submit collapses into one row (and can't double-count `questionReports`); also closes the
+    query-fail-open dedupe gap.
+  - **[MED] Super-admin rendered `subReason` as a raw snake_case id** (the key AI-triage field). Fix: added
+    `SUBREASON_LABELS`; `report.check` now asserts label coverage for every subReason (and the JSON-schema
+    `classification.type` enum — a previously-unchecked 5th surface).
+  - **[MED] Playful theme:** the report sheet's `close`/`back`/`send`/`check`/`robot` icons degraded to neutral
+    dots (unbound qr-ico names). Fix: bound the masks (`robot`→`bot`) + sized the success ✅.
+  - **[MED] Rating stars** exposed multiple `aria-checked` radios in one group → now exactly one; **reason/group
+    rows** dropped `role="listitem"` on `<button>` (was hiding the button affordance from AT); touch targets bumped.
+  - **[MED] Backdrop-tap / over-drag discarded a typed-into form** with no confirmation → both now no-op when the
+    form is dirty (explicit ✕/Cancel/Escape still close).
+  - **[LOW]** escaped drill→app reports no longer staple the irrelevant question snapshot; the offline queue keeps
+    the NEWEST at the cap (was dropping the just-added report); reports get their own middleware rate bucket (can't
+    429 the user's AI calls); a reported AI explanation now captures the FULL text (was capped at the 900-char AI
+    anchor); the empty-report toast no longer mentions a rating a type doesn't have.
+  - Verification: `report.check.js` → **541** assertions; Playwright sweep → **64** (adds the onClose/resume hook,
+    escape-path question suppression, dirty-form backdrop guard, rating ARIA, button roles). All prior suites green;
+    real-app boot smoke confirms `ReportTypes` + `AuthValidators` load from the app origin. SW v217→v218.
 
 ## ADR-098 — QuanAI product identity: no LLM/provider leakage in reporting (+ final-pass hardening) (2026-07-06)
 - **Context:** a final independent verification pass introduced a hard product requirement — **QuanAI is the

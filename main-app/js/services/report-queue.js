@@ -42,7 +42,10 @@
     } catch (_) { return []; }
   }
   function _save(arr) {
-    try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(arr.slice(0, MAX_QUEUE))); } catch (_) {}
+    /* At the cap keep the NEWEST MAX_QUEUE (drop the oldest) — _enqueue appends to the tail, so slice(-N)
+       retains the just-added report rather than discarding it (ADR-099 verification: "never lose" must not
+       silently drop the newest submission on a long-offline device). */
+    try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(arr.slice(-MAX_QUEUE))); } catch (_) {}
   }
   function _enqueue(entry) {
     var q = _load();

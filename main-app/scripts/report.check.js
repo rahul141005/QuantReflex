@@ -102,22 +102,28 @@ ok('isValidSubReason(bug,anything) false (no subReasons)', !S.isValidSubReason('
 ok('isOpenStatus(open) true / (resolved) false', S.isOpenStatus('open') && !S.isOpenStatus('resolved'));
 
 /* ───────── 3. validateCreatePayload ───────── */
+/* A realistic in-drill question snapshot (server-side shape: `questionText`). Real in-drill reports always
+   attach this, so a 2-tap question report carries substance without any typed text. */
+var Q = { questionId: 'Qx', category: 'ratios', questionText: 'If a:b=2:3, find a:c' };
 var v;
 v = S.validateCreatePayload({ type: 'nope' });
 ok('reject unknown type', !v.ok && v.code === 'INVALID_TYPE');
-v = S.validateCreatePayload({ type: 'visual', subReason: 'zzz', source: 'drill' });
+v = S.validateCreatePayload({ type: 'visual', subReason: 'zzz', source: 'drill', question: Q });
 ok('reject invalid subReason', !v.ok && v.code === 'INVALID_SUBREASON');
 v = S.validateCreatePayload({ type: 'bug', source: 'settings' });
 ok('reject empty app report', !v.ok && v.code === 'EMPTY_REPORT');
-v = S.validateCreatePayload({ type: 'answer_wrong', source: 'drill' });
-ok('accept in-drill question report with no text', v.ok && v.clean.type === 'answer_wrong');
+v = S.validateCreatePayload({ type: 'answer_wrong', source: 'drill', question: Q });
+ok('accept in-drill question report with no text (2-tap, question attached)', v.ok && v.clean.type === 'answer_wrong');
 ok('question report seeds critical priority', v.ok && v.clean.priority === 'critical');
-/* ADR-099: a question report from SETTINGS has no attached question, so it needs a note. */
-ok('reject empty Settings question report', !S.validateCreatePayload({ type: 'answer_wrong', source: 'settings' }).ok);
+/* ADR-099-verify: the substance guard gates on MATERIALIZED content, not the (spoofable) client source. */
+ok('reject empty Settings question report (no question attached)', !S.validateCreatePayload({ type: 'answer_wrong', source: 'settings' }).ok);
+ok('reject in-drill question report with NO question attached', S.validateCreatePayload({ type: 'answer_wrong', source: 'drill' }).code === 'EMPTY_REPORT');
+ok('reject junk feedback masquerading as ai_explain (no ai bundle)', S.validateCreatePayload({ type: 'feedback', source: 'ai_explain' }).code === 'EMPTY_REPORT');
+ok('reject junk bug masquerading as ai_explain (no ai bundle)', S.validateCreatePayload({ type: 'bug', source: 'ai_explain' }).code === 'EMPTY_REPORT');
 ok('accept Settings question report with a note', S.validateCreatePayload({ type: 'answer_wrong', source: 'settings', description: 'the 3rd MCQ marks B but it is C' }).ok);
-/* ADR-099 new types validate + seed as intended. */
-ok('accept in-drill solution_wrong', S.validateCreatePayload({ type: 'solution_wrong', source: 'drill' }).ok);
-ok('accept in-drill difficulty_mismatch', S.validateCreatePayload({ type: 'difficulty_mismatch', source: 'drill' }).ok);
+/* ADR-099 new types validate + seed as intended (in-drill, question attached). */
+ok('accept in-drill solution_wrong', S.validateCreatePayload({ type: 'solution_wrong', source: 'drill', question: Q }).ok);
+ok('accept in-drill difficulty_mismatch', S.validateCreatePayload({ type: 'difficulty_mismatch', source: 'drill', question: Q }).ok);
 ok('ui_issue needs substance', S.validateCreatePayload({ type: 'ui_issue', source: 'settings' }).code === 'EMPTY_REPORT');
 ok('ui_issue accepts a description', S.validateCreatePayload({ type: 'ui_issue', source: 'settings', description: 'buttons overlap' }).ok);
 v = S.validateCreatePayload({ type: 'bug', description: 'It broke', source: 'settings' });
@@ -126,8 +132,8 @@ ok('server-seeds priority (never trusts body)', S.validateCreatePayload({ type: 
 
 /* source is forced from body.source only to the two allowed values */
 ok('source forced to settings by default', S.validateCreatePayload({ type: 'feedback', description: 'hi' }).clean.source === 'settings');
-ok('source drill honored', S.validateCreatePayload({ type: 'typo', source: 'drill' }).clean.source === 'drill');
-ok('context.app.source cannot be spoofed', S.validateCreatePayload({ type: 'typo', source: 'drill', context: { app: { source: 'HACK' } } }).clean.context.app.source === 'drill');
+ok('source drill honored', S.validateCreatePayload({ type: 'typo', source: 'drill', question: Q }).clean.source === 'drill');
+ok('context.app.source cannot be spoofed', S.validateCreatePayload({ type: 'typo', source: 'drill', question: Q, context: { app: { source: 'HACK' } } }).clean.context.app.source === 'drill');
 
 /* caps + control-char strip + spaces preserved */
 var longDesc = new Array(5000).join('x');
@@ -143,7 +149,7 @@ v = S.validateCreatePayload({ type: 'bug', description: 'x', fields: { expected:
 ok('unknown field keys dropped', v.clean.fields.expected === 'a' && v.clean.fields.bogus === undefined);
 
 /* clientKey passthrough */
-ok('clientKey passthrough', S.validateCreatePayload({ type: 'typo', source: 'drill', clientKey: 'abc123' }).clean.clientKey === 'abc123');
+ok('clientKey passthrough', S.validateCreatePayload({ type: 'typo', source: 'drill', question: Q, clientKey: 'abc123' }).clean.clientKey === 'abc123');
 
 /* ───────── 4. signature stability + collision-resistance ───────── */
 var qA = { category: 'ratios', subtype: 'x', questionText: 'What is 2+2?' };
@@ -220,7 +226,7 @@ ok('A ai_explain captures question snapshot', aiv.clean.question && aiv.clean.si
 ok('A ai bundle keeps explanation + promptId', aiv.clean.ai && aiv.clean.ai.promptId === 'explain.base@3' && aiv.clean.ai.explanation === 'because 2+2=5');
 ok('A ai bundle dropped when empty', S.validateCreatePayload({ type: 'bug', source: 'settings', description: 'x', ai: {} }).clean.ai === null);
 ok('A sanitizeAi caps explanation to 8000', S.sanitizeAi({ explanation: new Array(9000).join('z') }).explanation.length === 8000);
-ok('A non-ai_explain report carries no ai', S.validateCreatePayload({ type: 'typo', source: 'drill' }).clean.ai === null);
+ok('A non-ai_explain report carries no ai', S.validateCreatePayload({ type: 'typo', source: 'drill', question: Q }).clean.ai === null);
 ok('A ai_explain needs no free text (2-tap)', S.validateCreatePayload({ type: 'ai_issue', source: 'ai_explain', subReason: 'hallucination', question: { questionId: 'Q1', questionText: 'x', answer: 1 }, ai: { explanation: 'e' } }).ok === true);
 
 /* ───────── 8. QuanAI identity (ADR-098): NO provider/model ever reaches a report ───────── */
@@ -250,6 +256,21 @@ ok('QuanAI: serialized report payload leaks no gpt/openai', (function () { var c
   var typeKeys = keysOf('TYPE_LABELS'), statusKeys = keysOf('STATUS_LABELS');
   RT.TYPES.forEach(function (t) { ok('super-admin TYPE_LABELS covers ' + t.id, typeKeys.indexOf(t.id) !== -1); });
   RT.STATUSES.forEach(function (s) { ok('super-admin STATUS_LABELS covers ' + s, statusKeys.indexOf(s) !== -1); });
+
+  /* ADR-099-verify: the VIEW must also label every SUB-REASON (esp. AI reasons — the key triage field) or it
+     renders a raw snake_case id. Assert SUBREASON_LABELS covers every subReason id across the taxonomy. */
+  var subKeys = keysOf('SUBREASON_LABELS');
+  var allSubs = {};
+  RT.TYPES.forEach(function (t) { (t.subReasons || []).forEach(function (s) { allSubs[s.id] = 1; }); });
+  Object.keys(allSubs).forEach(function (sid) { ok('super-admin SUBREASON_LABELS covers ' + sid, subKeys.indexOf(sid) !== -1); });
+
+  /* 5th surface (ADR-099-verify): the canonical JSON schema's classification.type enum must equal the taxonomy —
+     a type added to report-types.js but forgotten in the JSON schema would otherwise go uncaught. */
+  var jsonSchema = JSON.parse(fs.readFileSync(p('../shared/schemas/report-schema.json'), 'utf8'));
+  var jsonTypeEnum = jsonSchema.properties.classification.properties.type.enum;
+  ok('JSON-schema classification.type enum lockstep', arrEq(jsonTypeEnum, RT.TYPES.map(function (t) { return t.id; })));
+  var jsonSourceEnum = jsonSchema.properties.context.properties.app.properties.source.enum;
+  ok('JSON-schema context.app.source includes ai_explain', jsonSourceEnum.indexOf('ai_explain') !== -1);
 })();
 
 /* ───────── done ───────── */

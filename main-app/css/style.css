@@ -11925,6 +11925,13 @@ body.theme-playful .qr-ico[data-ico='lock'] { --ico: var(--qri-lock); }
 body.theme-playful .qr-ico[data-ico='flame'] { --ico: var(--qri-flame); }
 body.theme-playful .qr-ico[data-ico='alert'] { --ico: var(--qri-alert); }
 body.theme-playful .qr-ico[data-ico='flag'] { --ico: var(--qri-flag); }
+/* Report modal chrome (ADR-099): bind the icons the report sheet uses so Playful paints masks instead of the
+   neutral-dot fallback. 'robot' reuses the existing bot glyph. */
+body.theme-playful .qr-ico[data-ico='close'] { --ico: var(--qri-x); }
+body.theme-playful .qr-ico[data-ico='back'] { --ico: var(--qri-chevron-left); }
+body.theme-playful .qr-ico[data-ico='send'] { --ico: var(--qri-send); }
+body.theme-playful .qr-ico[data-ico='check'] { --ico: var(--qri-check); }
+body.theme-playful .qr-ico[data-ico='robot'] { --ico: var(--qri-bot); }
 
 /* glyph tokens (URL-encoded monochrome SVG masks) */
 body.theme-playful {
@@ -11942,6 +11949,10 @@ body.theme-playful {
   --qri-file-text: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='16' y1='13' x2='8' y2='13'/%3E%3Cline x1='16' y1='17' x2='8' y2='17'/%3E%3C/svg%3E");
   --qri-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M12 22c4.4 0 7-2.9 7-6.7 0-3.5-2.6-5.6-3.8-8.2-1.7 1.6-2.2 2.9-2.2 5-1.2-1.7-2.5-3-2.5-5.9C7.6 9 5 11.6 5 15.3 5 19.1 7.6 22 12 22z'/%3E%3C/svg%3E");
   --qri-flag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z'/%3E%3Cline x1='4' y1='22' x2='4' y2='15'/%3E%3C/svg%3E");
+  --qri-x: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+  --qri-chevron-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
+  --qri-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cline x1='22' y1='2' x2='11' y2='13'/%3E%3Cpolygon points='22 2 15 22 11 13 2 9 22 2'/%3E%3C/svg%3E");
+  --qri-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
   --qri-gauge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M12 15l4-5'/%3E%3Cpath d='M3.34 19a10 10 0 1 1 17.32 0z'/%3E%3C/svg%3E");
   --qri-graduation: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M22 10 12 5 2 10l10 5 10-5z'/%3E%3Cpath d='M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5'/%3E%3Cline x1='22' y1='10' x2='22' y2='15'/%3E%3C/svg%3E");
   --qri-home: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3C/svg%3E");
@@ -12173,9 +12184,18 @@ body.dark-mode .companion-report { background: rgba(96, 165, 250, .14); color: #
 .report-success-id strong { color: var(--qr-text); font-variant-numeric: tabular-nums; letter-spacing: .03em; }
 .report-state-center .report-actions { width: 100%; margin-top: 1.2rem; }
 
+/* Touch targets (ADR-099 verification): give the head buttons + chips + stars a comfortable hit area on touch. */
+.report-sheet-back, .report-sheet-close { width: 2.5rem; height: 2.5rem; }
+.report-chip { min-height: 2.5rem; }
+.report-star { padding: .15rem .25rem; }
+/* Long topic/version labels can't blow out the context box (ADR-099 verification). */
+.report-ctx-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
 /* Playful theme accents */
 body.theme-playful .report-reason { border-radius: var(--qr-card-radius, 1.5rem); }
 body.theme-playful .report-spinner { border-top-color: var(--qr-accent); }
+/* The success ✅ is a 3rem focal glyph; in Playful it's an SVG mask, so size the mask up (qr-ico defaults to 1.2rem). */
+body.theme-playful .report-success-check .qr-ico { --qr-ico-size: 2.75rem; vertical-align: middle; }
 
 /* Reduced-motion: no rise / pop / spin easing beyond a gentle fade */
 @media (prefers-reduced-motion: reduce) {

@@ -89,6 +89,10 @@ var MAX_REQUESTS_PER_HOUR = 20;
 var DUEL_MAX_REQUESTS_PER_HOUR = 600;   /* a live duel legitimately POLLS room state (lobby sync + waiting) — 120
                                             could 429 the poll mid-lobby during back-to-back play, stranding a
                                             player. 600/hr (~10/min sustained) covers real play + rapid testing. */
+/* Reporting (api/report.js) gets its OWN bucket (ADR-099) so a burst of reports can't 429 the user's AI calls
+   (or vice-versa). The real cap is the domain limiter in report.js (15/hr, 60/day); this coarse middleware gate
+   sits comfortably above it (offline-queue retries can legitimately re-POST) so the domain limiter is what bites. */
+var REPORT_MAX_REQUESTS_PER_HOUR = 40;
 var CLEANUP_INTERVAL = 50; /* purge stale entries every N checks */
 
 /* Parameterized per-user limiter. `max` defaults to the AI cap; `bucket` namespaces the counter so different
@@ -142,6 +146,7 @@ function withAuth(handler, opts) {
      { rateLimitClass: 'duel' } for its own 120/hr bucket so it can't 429 mid-duel or eat the AI budget. */
   var rlMax = MAX_REQUESTS_PER_HOUR, rlBucket = '';
   if (opts.rateLimitClass === 'duel') { rlMax = DUEL_MAX_REQUESTS_PER_HOUR; rlBucket = 'duel'; }
+  else if (opts.rateLimitClass === 'report') { rlMax = REPORT_MAX_REQUESTS_PER_HOUR; rlBucket = 'report'; }
   return async function (req, res) {
     /* Handle CORS preflight — required for POST with Authorization header */
     if (req.method === 'OPTIONS') {

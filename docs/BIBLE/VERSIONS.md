@@ -9,12 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.120 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.121 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.27 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.121 / Firestore 2.27 (2026-07-06)** — **Reporting: final verification pass — fixes (ADR-099).**
+> A fresh adversarial re-audit (3 independent agents + owner review) of the entire reporting system. Design
+> confirmed sound; fixed every real defect: **[HIGH]** the in-drill report now PAUSES the session so a Timed/Reflex
+> run can't end / auto-mark / auto-advance under the sheet ("your session is safe" now true); **[HIGH]** duel-review
+> AI reports no longer lose the question text/signature (`snapshotQuestion` accepts `questionText`); **[HIGH]** the
+> substance guard gates on materialized content, not the spoofable client `source` (closes empty/junk-report
+> bypasses); **[MED]** deterministic report doc id + in-transaction existence check kills the concurrent
+> double-file / aggregate double-count race; **[MED]** super-admin now labels sub-reasons (were raw ids); **[MED]**
+> Playful icon masks + rating ARIA + button roles + touch targets + a dirty-form dismiss guard; **[LOW]** own rate
+> bucket, queue keeps the newest at the cap, full AI-explanation capture, escaped reports drop the stale question.
+> No taxonomy/schema change (Firestore 2.27 unchanged); no rules/index deploy. report.check.js → 541; Playwright
+> → 64; all prior suites + real-app boot smoke green. SW v217→v218.
+>
 > **2.120 / Firestore 2.27 (2026-07-06)** — **Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (ADR-099).**
 > The "Report a problem" sheet was rendering EMPTY in production — a load bug, not weak design: the modal's taxonomy
 > was loaded from `../shared/constants/report-types.js`, but `shared/` sits outside the main-app deploy root, so the

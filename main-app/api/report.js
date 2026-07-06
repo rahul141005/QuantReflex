@@ -108,8 +108,12 @@ async function _create(req, res, db) {
     return res.status(429).json({ error: { code: rl.code, message: rl.message, retryable: rl.retryable } });
   }
 
-  /* 4) Assemble the doc SERVER-SIDE. */
-  const reportRef = db.collection('reports').doc();
+  /* 4) Assemble the doc SERVER-SIDE. With a client idempotency key, use a DETERMINISTIC doc id (uid+clientKey)
+        so a CONCURRENT double-submit collapses into ONE row via the transaction's existence check below. The
+        pre-query dedupe above only catches SEQUENTIAL retries (a prior attempt already committed + visible to the
+        query); the deterministic id + transaction also closes the concurrent race AND the query-fail-open gap. */
+  const deterministicId = clean.clientKey ? _safeDocId('ck-' + uid + '-' + clean.clientKey) : null;
+  const reportRef = deterministicId ? db.collection('reports').doc(deterministicId) : db.collection('reports').doc();
   const id = reportRef.id;
   const shortId = schema.makeShortId(crypto.randomBytes(6), 4);
   const nowIso = new Date(now).toISOString();
@@ -153,32 +157,47 @@ async function _create(req, res, db) {
     ai: clean.ai               /* ADR-097: AI explanation metadata (explanation text + model + promptId), else null */
   };
 
-  /* 5) Write reports/{id} + bump questionReports/{signature} atomically. Spark has no Firestore triggers, so
-        the aggregate is maintained here in the request path. A transaction reads the aggregate so first-seen
-        fields (firstAtMs, sampleReportId) are written EXACTLY once and never overwritten by later reports. */
+  /* 5) Write reports/{id} (+ bump questionReports/{signature}) in ONE transaction. Spark has no Firestore
+        triggers, so the aggregate is maintained here in the request path. The transaction:
+        (a) when the id is deterministic, re-checks existence FIRST so a concurrent same-clientKey submit
+            collapses into one row (and can't double-count the aggregate) — atomic, unlike the pre-query dedupe;
+        (b) reads the aggregate so first-seen fields (firstAtMs, sampleReportId) are written EXACTLY once. */
   try {
-    if (clean.signature) {
-      const aggRef = db.collection('questionReports').doc(_safeDocId(clean.signature));
-      await db.runTransaction(async function (tx) {
-        const aggSnap = await tx.get(aggRef);
-        const prev = aggSnap.exists ? (aggSnap.data() || {}) : {};
-        const prevReasons = prev.topReasons || {};
-        const agg = {
-          signature: clean.signature,
-          count: (typeof prev.count === 'number' ? prev.count : 0) + 1,
-          openCount: (typeof prev.openCount === 'number' ? prev.openCount : 0) + 1, // created 'open'; admin resolve decrements
-          firstAtMs: typeof prev.firstAtMs === 'number' ? prev.firstAtMs : now,      // set once, never overwritten
-          lastAtMs: now,
-          sampleReportId: prev.sampleReportId || id,                                  // set once
-          lastReportId: id,
-          category: (clean.question && clean.question.category) || prev.category || null,
-          subtype: (clean.question && clean.question.subtype) || prev.subtype || null,
-          topReasons: Object.assign({}, prevReasons, (function () { var o = {}; o[clean.type] = (typeof prevReasons[clean.type] === 'number' ? prevReasons[clean.type] : 0) + 1; return o; })()),
-          updatedAt: nowIso
-        };
+    const aggRef = clean.signature ? db.collection('questionReports').doc(_safeDocId(clean.signature)) : null;
+    if (deterministicId || aggRef) {
+      const txOut = await db.runTransaction(async function (tx) {
+        /* reads first (Firestore requires all reads before writes) */
+        if (deterministicId) {
+          const existing = await tx.get(reportRef);
+          if (existing.exists) { const ed = existing.data() || {}; return { existed: true, shortId: ed.shortId || null }; }
+        }
+        let agg = null;
+        if (aggRef) {
+          const aggSnap = await tx.get(aggRef);
+          const prev = aggSnap.exists ? (aggSnap.data() || {}) : {};
+          const prevReasons = prev.topReasons || {};
+          agg = {
+            signature: clean.signature,
+            count: (typeof prev.count === 'number' ? prev.count : 0) + 1,
+            openCount: (typeof prev.openCount === 'number' ? prev.openCount : 0) + 1, // created 'open'; admin resolve decrements
+            firstAtMs: typeof prev.firstAtMs === 'number' ? prev.firstAtMs : now,      // set once, never overwritten
+            lastAtMs: now,
+            sampleReportId: prev.sampleReportId || id,                                  // set once
+            lastReportId: id,
+            category: (clean.question && clean.question.category) || prev.category || null,
+            subtype: (clean.question && clean.question.subtype) || prev.subtype || null,
+            topReasons: Object.assign({}, prevReasons, (function () { var o = {}; o[clean.type] = (typeof prevReasons[clean.type] === 'number' ? prevReasons[clean.type] : 0) + 1; return o; })()),
+            updatedAt: nowIso
+          };
+        }
         tx.set(reportRef, doc);
-        tx.set(aggRef, agg, { merge: true });
+        if (aggRef) tx.set(aggRef, agg, { merge: true });
+        return { existed: false };
       });
+      if (txOut && txOut.existed) {
+        console.log('[report:create] idempotent clientKey hit for', uid);
+        return res.status(200).json({ success: true, id: id, shortId: txOut.shortId, duplicate: true });
+      }
     } else {
       await reportRef.set(doc);
     }
@@ -217,4 +236,6 @@ async function handler(req, res) {
   }
 }
 
-module.exports = withAuth(handler);
+/* Own rate-limit bucket (ADR-099) so report bursts and the user's AI calls never 429 each other; the real
+   throttle is the domain limiter in _create (15/hr, 60/day). */
+module.exports = withAuth(handler, { rateLimitClass: 'report' });

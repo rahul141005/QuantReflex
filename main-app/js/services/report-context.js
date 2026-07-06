@@ -125,7 +125,9 @@
       category: q.category || null,
       subtype: q.subtype || null,
       difficulty: q.difficulty || null,
-      questionText: (q.question != null ? String(q.question) : null),
+      /* Accept either `question` (live drill question object) or `questionText` (the shape the duel-review
+         explain path passes) so a reported explanation ALWAYS carries its text + a stable signature (ADR-099). */
+      questionText: (q.question != null ? String(q.question) : (q.questionText != null ? String(q.questionText) : null)),
       options: Array.isArray(q.options) ? q.options.slice(0, 12) : null,
       optionFigures: Array.isArray(q.optionFigures) ? q.optionFigures.slice(0, 12) : null,
       answer: (q.answer === undefined ? null : q.answer),

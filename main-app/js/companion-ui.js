@@ -18,13 +18,15 @@ var Companion = (function () {
   function log(feature, type, meta) { try { if (window.AIAnalytics && AIAnalytics.log) AIAnalytics.log(feature, type, meta || {}); } catch (_) {} }
   /* Flatten an explanation envelope (say + steps) to plain text, so Explain follow-ups can be ANCHORED to the
      exact question + the last explanation the student is looking at (ADR-045 — kills the Trapezium→Rectangle drift). */
-  function explanationText(env) {
+  function explanationText(env, maxLen) {
     var parts = [];
     (env && env.blocks || []).forEach(function (b) {
       if (b.type === 'say' && b.text) parts.push(b.text);
       else if (b.type === 'steps' && Array.isArray(b.items)) parts.push(b.items.join(' '));
     });
-    return parts.join(' ').slice(0, 900);
+    /* Default 900 bounds the anchor sent back to the LLM for the next follow-up (ADR-045). A report passes a
+       larger cap so an admin sees the FULL explanation the user saw (server caps at 8000 — ADR-099 verification). */
+    return parts.join(' ').slice(0, maxLen || 900);
   }
 
   /* ---------- freshness signal (ADR-045) ----------
@@ -422,7 +424,7 @@ var Companion = (function () {
       var env = res.data.response;
       (env.blocks || []).forEach(function (b) { if (b.type === 'say') _state.history.push({ role: 'ai', content: b.text }); });
       // Keep the anchor fresh: the latest reworked explanation becomes the basis for the next follow-up.
-      if (_state.explainCtx) { var t = explanationText(env); if (t) _state.explainCtx.lastExplanation = t; _captureAiMeta(env); }
+      if (_state.explainCtx) { var t = explanationText(env); if (t) { _state.explainCtx.lastExplanation = t; _state.explainCtx.fullExplanation = explanationText(env, 8000); } _captureAiMeta(env); }
       renderEnvelope(body, env, true);
     });
   }
@@ -481,7 +483,7 @@ var Companion = (function () {
       if (!env) { if (!hadCache) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); } return; }
       if (force) markSeen(o.feature, stamp);
       if (cacheable) _envCache[o.feature] = env;
-      if (_state.explainCtx) { _state.explainCtx.lastExplanation = explanationText(env); _captureAiMeta(env); }
+      if (_state.explainCtx) { _state.explainCtx.lastExplanation = explanationText(env); _state.explainCtx.fullExplanation = explanationText(env, 8000); _captureAiMeta(env); }
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId, refreshed: !!force });
       renderEnvelope(m.body, env, false);
     });
@@ -504,7 +506,7 @@ var Companion = (function () {
       source: 'ai_explain',
       question: (ec.reportCtx && ec.reportCtx.question) || null,
       session: (ec.reportCtx && ec.reportCtx.session) || {},
-      ai: { explanation: ec.lastExplanation || '', promptId: ec.promptId || null }
+      ai: { explanation: ec.fullExplanation || ec.lastExplanation || '', promptId: ec.promptId || null }
     });
   }
 

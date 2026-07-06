@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Reporting: final verification pass — fixes (ADR-099)
+
+A fresh adversarial re-audit (3 independent agents + owner review) of the whole reporting system. Design
+confirmed sound; every real defect fixed. No taxonomy/schema change; SW v217→v218 for the client fixes.
+
+```
+### fix(drill): report never corrupts a live session (HIGH)
+- js/drill-engine.js: _openReport silently pauses (pauseSession(silent) — no overlay) when a timer/auto-advance
+  is live, so the clock can't END the test / auto-mark the question / auto-advance under the sheet; resumes via
+  an onClose hook. pauseSession gains a `silent` param.
+- js/ui/report-modal.js: open() accepts opts.onClose; close() invokes it after teardown.
+### fix(reporting): correctness (HIGH/MED)
+- js/services/report-context.js: snapshotQuestion accepts `question` OR `questionText` — duel-review AI reports
+  no longer lose the question text + signature.
+- api/_lib/report-schema.js: substance guard gates on MATERIALIZED content (real question / ai bundle), not the
+  spoofable client `source` — closes empty/junk-report bypasses.
+- api/report.js: deterministic report doc id (ck-<uid>-<clientKey>) + in-transaction existence check → a
+  concurrent same-clientKey submit can't double-file or double-count the aggregate (also closes query-fail-open).
+- api/_lib/middleware.js + api/report.js: reports get their own rate-limit bucket (40/hr) so a report burst and
+  the user's AI calls can't 429 each other; the real cap stays the domain limiter (15/hr).
+- js/services/report-queue.js: at MAX_QUEUE keep the NEWEST (slice(-N)) — was dropping the just-added report.
+- js/companion-ui.js: capture the FULL explanation for a report (explanationText(env,8000)); the 900-char cap is
+  kept only for the AI follow-up anchor.
+### fix(ui/a11y): super-admin + report sheet polish (MED)
+- super-admin-app/js/views/reports.js: SUBREASON_LABELS — the reason (esp. for AI reports) renders human text,
+  not a raw snake_case id.
+- css/style.css: bound Playful masks for close/back/send/check (+robot→bot) so the sheet's icons don't degrade to
+  dots; sized the success ✅; bigger touch targets; chip overflow guard.
+- js/ui/report-modal.js: rating radiogroup exposes exactly one aria-checked; reason/group rows are plain buttons
+  (dropped role=listitem); backdrop-tap / over-drag no longer discard a typed-into form; escaped drill→app reports
+  don't attach the irrelevant question; empty-report toast only mentions a rating when the type has one.
+### test
+- scripts/report.check.js → 541 (materialized-content guard, JSON-schema + subReason lockstep, new-type coverage).
+- Playwright sweep → 64 (onClose/resume hook, escape-path question suppression, dirty-form backdrop guard, rating
+  ARIA, button roles). All prior suites green; real-app boot smoke green.
+```
+Docs: DECISION_LOG ADR-099 (verification-pass addendum); VERSIONS (Bible 2.120→2.121; SW v217→v218). No Firestore
+change (taxonomy unchanged); no rules/index deploy.
+
 ## 2026-07-06 — Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (ADR-099)
 
 The owner's screenshots showed the "Report a problem" sheet rendering empty. Root cause was a **production load

@@ -101,6 +101,7 @@
       question: opts.question || null,
       session: opts.session || null,
       ai: opts.ai || null,
+      onClose: (typeof opts.onClose === 'function') ? opts.onClose : null,  /* caller cleanup (e.g. resume a paused drill) */
       group: null,
       type: null,
       subReason: null,
@@ -137,7 +138,9 @@
 
     _overlay.querySelector('.report-sheet-close').addEventListener('click', function () { if (!st.submitting) close(); });
     _backEl.addEventListener('click', _back);
-    _overlay.addEventListener('click', function (e) { if (e.target === _overlay && !st.submitting) close(); });
+    /* Backdrop tap dismisses — but NOT when the form has typed content (guard against an accidental mis-tap
+       discarding a written report; the explicit ✕ / Cancel / Escape still close — ADR-099 verification). */
+    _overlay.addEventListener('click', function (e) { if (e.target === _overlay && !st.submitting && !_isFormDirty()) close(); });
     _keyHandler = function (e) {
       if (e.key === 'Escape' && !st.submitting) { e.preventDefault(); close(); return; }
       if (e.key === 'Tab') _trapTab(e);
@@ -155,6 +158,7 @@
 
   function close() {
     if (!_overlay) { _open = false; return; }
+    var onClose = st && st.onClose;
     document.removeEventListener('keydown', _keyHandler, true);
     if (_overlay.parentNode) _overlay.parentNode.removeChild(_overlay);
     document.body.classList.remove('modal-open');
@@ -162,6 +166,20 @@
     _keyHandler = null; _open = false; st = null;
     try { if (_lastFocus && _lastFocus.focus) _lastFocus.focus(); } catch (_) {}
     _lastFocus = null;
+    /* Run caller cleanup LAST (after teardown) so e.g. resuming a paused drill can't re-enter an inconsistent
+       modal state. Guarded so a throwing callback never leaves the sheet half-open. */
+    if (onClose) { try { onClose(); } catch (_) {} }
+  }
+
+  /* "Dirty" = the user typed free text or set a rating in the current form step — the real data-loss surface.
+     A one-tap reason/sub-reason selection is trivially redone, so it doesn't count. Guards accidental
+     backdrop-tap / over-drag dismissals. */
+  function _isFormDirty() {
+    if (!st || st.step !== 'form' || !_body) return false;
+    if (st._rating) return true;
+    var inputs = _body.querySelectorAll('.modal-input, .report-textarea');
+    for (var i = 0; i < inputs.length; i++) { if ((inputs[i].value || '').trim()) return true; }
+    return false;
   }
 
   /* Drag-down-to-dismiss on the grabber/head — mirrors the companion sheet (ADR-049). */
@@ -179,8 +197,8 @@
     function onEnd() {
       if (!dragging) return; dragging = false;
       _sheet.style.transition = 'transform .2s cubic-bezier(.2,.7,.3,1)';
-      if (dy > 90) { _sheet.style.transform = 'translateY(100%)'; setTimeout(close, 170); }
-      else { _sheet.style.transform = 'translateY(0)'; }
+      if (dy > 90 && !_isFormDirty()) { _sheet.style.transform = 'translateY(100%)'; setTimeout(close, 170); }
+      else { _sheet.style.transform = 'translateY(0)'; }   /* snap back (also when the form has unsaved input) */
     }
     [handle, head].forEach(function (el) {
       if (!el) return;
@@ -244,7 +262,7 @@
     var rows = _groups().map(_groupRow).join('');
     _body.innerHTML =
       '<p class="report-lead">What would you like to tell us about? Pick the closest — we\'ll take it from there.</p>' +
-      '<div class="report-reason-list" role="list">' + rows + '</div>';
+      '<div class="report-reason-list">' + rows + '</div>';
     var btns = _body.querySelectorAll('[data-group]');
     for (var i = 0; i < btns.length; i++) {
       btns[i].addEventListener('click', function () {
@@ -258,7 +276,7 @@
   }
 
   function _groupRow(g) {
-    return '<button class="report-reason" type="button" role="listitem" data-group="' + _esc(g.id) + '">' +
+    return '<button class="report-reason" type="button" data-group="' + _esc(g.id) + '">' +
              '<span class="report-reason-ico" aria-hidden="true">' + _esc(g.icon || '•') + '</span>' +
              '<span class="report-reason-txt">' +
                '<span class="report-reason-label">' + _esc(g.label) + '</span>' +
@@ -281,7 +299,7 @@
       if (st.source === 'ai_explain') html += _aiAttachedHtml();
       else html += '<p class="report-lead">What\'s off about QuanAI\'s explanations?</p>';
       var subs = _aiReasons();
-      html += '<div class="report-reason-list" role="list">';
+      html += '<div class="report-reason-list">';
       subs.forEach(function (s) { html += _reasonTile({ id: s.id, label: s.label, icon: s.icon || '•', helper: s.helper || '' }, 'sub'); });
       html += '</div>';
       _body.innerHTML = html;
@@ -296,7 +314,7 @@
       if (st.source === 'drill') html += _qContextHtml();
       else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
       var qTypes = _typesForGroup('question');
-      html += '<div class="report-reason-list" role="list">';
+      html += '<div class="report-reason-list">';
       qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });
       html += '</div>';
       if (st.source === 'drill') {
@@ -315,7 +333,7 @@
     _setHead(grpLabel, hasBack);
     html += '<p class="report-lead">Pick the closest — we can always sort out the details.</p>';
     var types = _typesForGroup(g);
-    html += '<div class="report-reason-list" role="list">';
+    html += '<div class="report-reason-list">';
     types.forEach(function (t) { html += _reasonTile(t, 'type'); });
     html += '</div>';
     _body.innerHTML = html;
@@ -325,7 +343,7 @@
 
   function _reasonTile(t, kind) {
     var attr = kind === 'sub' ? 'data-sub' : 'data-type';
-    return '<button class="report-reason" type="button" role="listitem" ' + attr + '="' + _esc(t.id) + '">' +
+    return '<button class="report-reason" type="button" ' + attr + '="' + _esc(t.id) + '">' +
              '<span class="report-reason-ico" aria-hidden="true">' + _esc(t.icon || '•') + '</span>' +
              '<span class="report-reason-txt">' +
                '<span class="report-reason-label">' + _esc(t.label) + '</span>' +
@@ -515,9 +533,9 @@
         var val = parseInt(this.getAttribute('data-rating'), 10);
         st._rating = val;
         for (var k = 0; k < stars.length; k++) {
-          var on = parseInt(stars[k].getAttribute('data-rating'), 10) <= val;
-          stars[k].classList.toggle('on', on);
-          stars[k].setAttribute('aria-checked', on ? 'true' : 'false');
+          var rv = parseInt(stars[k].getAttribute('data-rating'), 10);
+          stars[k].classList.toggle('on', rv <= val);                        // visual: fill up to the value
+          stars[k].setAttribute('aria-checked', rv === val ? 'true' : 'false'); // ARIA: exactly ONE radio checked
         }
       });
     }
@@ -529,8 +547,8 @@
     }
     if (st._rating) {
       for (var rs = 0; rs < stars.length; rs++) {
-        var on2 = parseInt(stars[rs].getAttribute('data-rating'), 10) <= st._rating;
-        stars[rs].classList.toggle('on', on2); stars[rs].setAttribute('aria-checked', on2 ? 'true' : 'false');
+        var rvv = parseInt(stars[rs].getAttribute('data-rating'), 10);
+        stars[rs].classList.toggle('on', rvv <= st._rating); stars[rs].setAttribute('aria-checked', rvv === st._rating ? 'true' : 'false');
       }
     }
     if (st._draft) {
@@ -620,7 +638,10 @@
     if (isSettingsQuestion) needsText = !vals.title && !vals.description;
     else if (st.group !== 'question' && st.source !== 'ai_explain') needsText = !vals.title && !vals.description && vals.fields.rating == null;
     if (needsText) {
-      _toast(isSettingsQuestion ? 'Tell us which question and what looked off.' : 'Please add a short description (or a rating).');
+      /* Only mention a rating when the type actually offers one (feedback) — otherwise the copy is misleading. */
+      var hasRating = (t.fields || []).indexOf('rating') !== -1;
+      _toast(isSettingsQuestion ? 'Tell us which question and what looked off.'
+        : (hasRating ? 'Please add a short description (or a rating).' : 'Please add a short description.'));
       var firstField = _body.querySelector('.modal-input');
       if (firstField) firstField.focus();
       return;
@@ -641,7 +662,10 @@
       fields: vals.fields,
       source: st.source,
       context: _collectContext(),
-      question: ((st.source === 'drill' || st.source === 'ai_explain') && st.question && root.ReportContext)
+      /* Attach the question snapshot ONLY when the report is actually about the question: an AI-explanation
+         report, or an in-drill report still scoped to the question group. After "Not about this question →"
+         the group is app/account/other, so we must NOT staple an irrelevant question to it (ADR-099 verify). */
+      question: ((st.source === 'ai_explain' || (st.source === 'drill' && st.group === 'question')) && st.question && root.ReportContext)
         ? root.ReportContext.snapshotQuestion(st.question, st.session || {})
         : null,
       /* Whitelist the AI bundle to product-safe fields (QuanAI identity, ADR-098) — never let a provider/model
