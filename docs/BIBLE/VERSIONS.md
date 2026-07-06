@@ -9,12 +9,29 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.123 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.124 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.62 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.29 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.124 / Arch 2.62 (2026-07-06)** — **Unified in-app Update System across all three apps (ADR-102).**
+> The "update available → Update App" experience now exists in the **main app, Super-Admin, and Coaching-Admin**,
+> implemented ONCE behind a shared, behavior-preserving module. New canonical **`shared/update/update-manager.js`**
+> (`QRUpdateManager`) owns all the mechanics (registration, detection, version-scoped dedup, skip-waiting, cache
+> purge, one-shot reload, race/loop handling) and exposes only state + actions; each app renders its own themed
+> toast + Update button. Because `shared/` is outside every deploy root (the ADR-099 P0), each app loads a
+> **byte-identical local copy** (`scripts/sync-update-manager.js` regenerates them; `scripts/update.check.js`, wired
+> into `npm test`, fails on drift or SW↔`window.*_APP_VERSION` version skew). The main-app refactor is
+> **behavior-preserving** (same toast/copy/click→Settings, always-present button). The admin `sw.js` files gain an
+> `APP_VERSION`-derived cache, a `GET_VERSION` handshake, and network-first JS/CSS + nav fallback, while
+> **deliberately keeping no `skipWaiting()` on install** (admins must not swap SW mid-session); each shows an Update
+> button **only when an update is available**. Correctness: version-scoped dedup, **no `controllerchange` listener**
+> (no reload loop), cache-purge-before-reload (no stale/partial state), flag consumed once, first-install silent.
+> `vercel.json` adds `no-cache` + `Service-Worker-Allowed` for `/sw.js` in both admin apps. No Firestore
+> rules/index/schema change; no new infra. SW: main v220→v221, super-admin cache v12→v13, coaching cache v2→v3.
+> Verified: `npm test` + `update.check` (32), Node module harness (18), Playwright presentation/browser-parse (18).
+>
 > **2.123 / Firestore 2.29 (2026-07-06)** — **Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (ADR-101).**
 > A fresh, distrust-everything re-verification of the whole reporting system. Design confirmed sound (AI reporting
 > complete across all three surfaces; escaping clean; write race-safe; six-surface enum lockstep holds); fixed every

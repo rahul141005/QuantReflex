@@ -19,9 +19,33 @@ var SettingsView = (function () {
   function _pref(k, def) { try { var v = localStorage.getItem(k); return v == null ? def : v; } catch (_) { return def; } }
   function _setPref(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
 
+  /* ADR-102: the Update card appears ONLY when QRUpdateManager reports a pending update — nothing is
+     shown otherwise. Identical flow/wording to the main app; native admin styling. */
+  function _updateCard() {
+    if (!(window.QRUpdateManager && QRUpdateManager.isUpdateAvailable())) return '';
+    return '<div class="card" id="setUpdateCard" style="padding:1rem;margin-bottom:1rem;">' +
+      _row('Update available', '(Refresh app to latest version)',
+        '<button class="btn accent" id="setUpdateApp" type="button">🔄 Update App</button>') +
+      '</div>';
+  }
+  function _wireUpdateBtn() {
+    var b = document.getElementById('setUpdateApp'); if (!b) return;
+    b.onclick = function () {
+      b.disabled = true; b.textContent = '⏳ Updating app...';
+      if (window.Toast) Toast.show('Updating app...');
+      if (window.QRUpdateManager) QRUpdateManager.applyUpdate();
+    };
+  }
+  /* Re-render if an update is detected while the Settings view is already open (live reveal). */
+  function notifyUpdate() {
+    var v = document.getElementById('view-settings');
+    if (v && v.classList.contains('active')) render();
+  }
+
   function render() {
     var c = document.getElementById('view-settings'); if (!c) return;
-    c.innerHTML = '<div class="view-header"><h2 class="view-title">Settings</h2><p class="view-subtitle">Admin account, security, appearance, and platform.</p></div><div id="setTabs"></div>';
+    c.innerHTML = '<div class="view-header"><h2 class="view-title">Settings</h2><p class="view-subtitle">Admin account, security, appearance, and platform.</p></div>' + _updateCard() + '<div id="setTabs"></div>';
+    _wireUpdateBtn();
     Tabs.mount(document.getElementById('setTabs'), {
       tabs: [
         { id: 'account', label: 'Account', render: _tabAccount },
@@ -164,5 +188,5 @@ var SettingsView = (function () {
     document.getElementById('setAudit').onclick = function () { window.location.hash = '#operations'; };
   }
 
-  return { render: render };
+  return { render: render, notifyUpdate: notifyUpdate };
 })();

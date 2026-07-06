@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Unified in-app Update System across all three apps (ADR-102)
+
+The in-app "update available → Update App" experience now exists in all three apps and is implemented ONCE behind a
+shared, behavior-preserving module. No new features to the main app (behavior unchanged); no Firestore change. Full
+detail in ADR-102.
+
+```
+Shared engine:
+- NEW shared/update/update-manager.js (QRUpdateManager) — owns registration, detection, version-scoped dedup,
+  skip-waiting, cache purge, one-shot reload, post-reload success + all race/loop handling. Exposes only state +
+  actions (init/isUpdateAvailable/applyUpdate); each app renders its own themed toast + button.
+- Cross-root copy pattern (shared/ is outside deploy roots — ADR-099 P0): byte-identical local copies at
+  main-app/js/services/, super-admin-app/js/ui/, coaching-admin-app/js/ui/. scripts/sync-update-manager.js
+  regenerates them; scripts/update.check.js fails npm test on drift or version skew.
+Main app (behavior-preserving):
+- app.js + settings.js now delegate to QRUpdateManager (toast DOM/copy/click→Settings + always-present Update
+  button unchanged). service-worker.js gains GET_VERSION; APP_VERSION v220->v221 + QR_APP_VERSION lockstep.
+Super-Admin + Coaching-Admin (new, native-themed, identical flow):
+- sw.js: APP_VERSION-derived CACHE_NAME (qr-admin-cache-v13 / qr-coach-cache-v3), GET_VERSION + SKIP_WAITING,
+  network-first JS/CSS + cache-first assets + nav fallback; KEEP no-skipWaiting-on-install (admin policy).
+- index.html: window.QR_ADMIN_APP_VERSION / QR_COACH_APP_VERSION, update-manager.js script, QRUpdateManager.init
+  wiring a themed .update-toast (identical copy, role=status, click->Settings).
+- Conditional "Update App" card in each Settings view — shown ONLY when an update is available.
+- vercel.json: no-cache + Service-Worker-Allowed headers for /sw.js. Super-admin SW also now pre-caches reports.js.
+Correctness: version-scoped dedup key (v<newVersion>_<date>), NO controllerchange listener (no reload loop),
+cache-purge-before-reload (no stale/partial state), flag consumed once, first-install silent.
+Verify: npm test incl update.check (32); Node module harness (18); Playwright presentation + browser-parse (18);
+node --check all touched JS. SW: main v220->v221, super-admin v12->v13, coaching v2->v3.
+Docs: DECISION_LOG ADR-102; VERSIONS (Bible bump). No Firestore rules/index/schema change.
+```
+
 ## 2026-07-06 — Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (ADR-101)
 
 A fresh, from-scratch adversarial verification of the entire reporting system (distrust every prior pass), fixing

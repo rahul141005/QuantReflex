@@ -1,7 +1,13 @@
-const CACHE_NAME = 'qr-admin-cache-v12';
-/* Super Admin V2 (ADR-022) script set — matches index.html exactly. The legacy
-   dashboard/payments/system/inactive/security/firestore-ops/exports/notifications
-   view files were deleted in the 5-Center consolidation and are no longer cached. */
+/* Super-Admin service worker.
+   ADR-102: unified lifecycle shape with the main app — APP_VERSION-derived cache, GET_VERSION +
+   SKIP_WAITING message handshake, delete-old-caches + claim on activate, and network-first JS/CSS
+   (so a deploy is picked up on the next load) + cache-first assets + cached-index.html nav fallback.
+   DELIBERATELY still does NOT skipWaiting() on install — an admin panel must not swap its SW
+   mid-session; the new worker waits and the in-app QRUpdateManager surfaces the Update affordance. */
+const APP_VERSION = 'v13';
+const CACHE_NAME = 'qr-admin-cache-' + APP_VERSION;   /* derived so the two strings can never drift */
+const NET_FIRST_TIMEOUT_MS = 3000;                    /* network-first JS/CSS falls back to cache on "lie-fi" */
+
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -16,9 +22,11 @@ const ASSETS_TO_CACHE = [
   '/js/ui/table.js',
   '/js/ui/split.js',
   '/js/ui/tabs.js',
+  '/js/ui/update-manager.js',
   '/js/utils.js',
   '/js/views/users.js',
   '/js/views/coachings.js',
+  '/js/views/reports.js',
   '/js/views/revenue.js',
   '/js/views/questions.js',
   '/js/views/ai.js',
@@ -32,15 +40,13 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  /* Use Promise.allSettled instead of cache.addAll to prevent a single
-     failing asset from blocking the entire service worker install.
-     Do NOT call skipWaiting() here — admin panels performing sensitive
-     operations should not have their SW swapped mid-session. */
+  /* Promise.allSettled (not cache.addAll) so one failing asset can't block install.
+     Do NOT call skipWaiting() here — see the file header. */
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.allSettled(
         ASSETS_TO_CACHE.map((url) =>
-          fetch(url).then((response) => {
+          fetch(url, { cache: 'no-cache' }).then((response) => {
             if (response.ok) return cache.put(url, response);
           }).catch((err) => {
             console.warn('[SW] Failed to cache:', url, err.message || '');
@@ -51,10 +57,12 @@ self.addEventListener('install', (event) => {
   );
 });
 
-/* Allow controlled activation via postMessage from the app */
+/* Controlled activation + version handshake (ADR-102). */
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data && event.data.type === 'GET_VERSION') {
+    try { if (event.ports && event.ports[0]) event.ports[0].postMessage({ version: APP_VERSION }); } catch (_) {}
   }
 });
 
@@ -62,11 +70,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
+        cacheNames.map((cache) => { if (cache !== CACHE_NAME) return caches.delete(cache); })
       );
     })
   );
@@ -74,27 +78,50 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-  
-  // Skip API requests from caching entirely to avoid stale data
-  if (event.request.url.includes('/api/')) {
+  const req = event.request;
+  const url = req.url;
+
+  // Skip cross-origin requests.
+  if (!url.startsWith(self.location.origin)) return;
+  // Never cache API calls — always go to network (avoids stale admin data).
+  if (url.indexOf('/api/') !== -1) return;
+
+  // SPA navigation fallback: serve cached index.html when offline so deep links/refresh work.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req, { cache: 'no-cache' }).then((response) => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+        }
+        return response;
+      }).catch(() => caches.match('/index.html'))
+    );
     return;
   }
 
+  const isAppAsset = url.endsWith('.js') || url.endsWith('.css');
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Return cached response if found
-      if (response) {
+    caches.match(req).then((cached) => {
+      const net = fetch(req).then((response) => {
+        if (response && response.ok && isAppAsset) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
         return response;
+      }).catch(() => cached);
+
+      /* App JS/CSS: NETWORK-FIRST (timeout → cache) so a new deploy is picked up on the next load;
+         other assets: cache-first for speed + offline. */
+      if (isAppAsset) {
+        return new Promise((resolve) => {
+          let settled = false;
+          const to = setTimeout(() => { if (!settled && cached) { settled = true; resolve(cached); } }, NET_FIRST_TIMEOUT_MS);
+          net.then((r) => { if (!settled) { settled = true; clearTimeout(to); resolve(r || cached); } },
+                   () => { if (!settled) { settled = true; clearTimeout(to); resolve(cached); } });
+        });
       }
-      
-      // Fallback to network
-      return fetch(event.request).then((networkResponse) => {
-        return networkResponse;
-      });
+      return cached || net;
     })
   );
 });

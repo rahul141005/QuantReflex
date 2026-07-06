@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v220';</script>
+  <script>window.QR_APP_VERSION = 'v221';</script>
 </head>
 <body>
 
@@ -1661,6 +1661,9 @@
   <script defer src="js/services/report-context.js"></script>
   <script defer src="js/services/report-queue.js"></script>
   <script defer src="js/ui/report-modal.js"></script>
+  <!-- ADR-102: shared in-app update engine (QRUpdateManager). Local copy of shared/update/update-manager.js
+       (shared/ is outside the deploy root); loaded before app.js which calls QRUpdateManager.init(). -->
+  <script defer src="js/services/update-manager.js"></script>
   <script defer src="js/app.js"></script>
 </body>
 </html>

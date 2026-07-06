@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v220';
+const APP_VERSION = 'v221';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -81,6 +81,7 @@ var ASSETS = [
   './js/ui/report-taxonomy.js',
   './js/services/report-context.js',
   './js/services/report-queue.js',
+  './js/services/update-manager.js',
   './js/ui/report-modal.js',
   './js/companion-ui.js',
   './js/controllers/practice-config.js',
@@ -252,10 +253,13 @@ self.addEventListener('fetch', function (event) {
 
 /* ---- Push Notification Handling ---- */
 
-/* Handle postMessage from app to skip waiting (update flow) */
+/* Handle postMessage from app to skip waiting (update flow) + version handshake (ADR-102: the
+   client's QRUpdateManager asks the INCOMING worker for its version to key the update toast). */
 self.addEventListener('message', function (event) {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data && event.data.type === 'GET_VERSION') {
+    try { if (event.ports && event.ports[0]) event.ports[0].postMessage({ version: APP_VERSION }); } catch (_) {}
   }
 });
 

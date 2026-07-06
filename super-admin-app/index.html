@@ -21,6 +21,8 @@
     })();
   </script>
   <link rel="stylesheet" href="css/admin-style.css" />
+  <!-- ADR-102: app build tag. Bump in LOCKSTEP with sw.js APP_VERSION (scripts/update.check.js enforces it). -->
+  <script>window.QR_ADMIN_APP_VERSION = 'v13';</script>
 </head>
 <body>
 
@@ -137,6 +139,7 @@
   <script src="js/ui/table.js"></script>
   <script src="js/ui/split.js"></script>
   <script src="js/ui/tabs.js"></script>
+  <script src="js/ui/update-manager.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/views/users.js"></script>
   <script src="js/views/coachings.js"></script>
@@ -149,15 +152,33 @@
   <script src="js/views/settings.js"></script>
   <script src="js/app.js"></script>
 
-  <!-- Service Worker Registration -->
+  <!-- Service Worker + in-app update (ADR-102: unified via the shared QRUpdateManager). The module owns
+       registration/detection/skip-waiting/cache-purge/reload; this block is admin-themed PRESENTATION only. -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => {
-          console.error('ServiceWorker registration failed: ', err);
+    (function () {
+      function showUpdateToast() {
+        if (document.getElementById('_swUpdateToast')) return;
+        var t = document.createElement('div');
+        t.id = '_swUpdateToast';
+        t.className = 'update-toast';
+        t.setAttribute('role', 'status');
+        t.textContent = '🚀 New version available. Update from Settings';
+        t.addEventListener('click', function () { t.remove(); window.location.hash = '#settings'; });
+        document.body.appendChild(t);
+        setTimeout(function () { if (t.parentNode) t.remove(); }, 8000);
+      }
+      if (typeof QRUpdateManager !== 'undefined') {
+        QRUpdateManager.init({
+          swUrl: 'sw.js',
+          appKey: 'qr_admin',
+          onUpdateAvailable: function (shouldToast) {
+            if (window.SettingsView && SettingsView.notifyUpdate) SettingsView.notifyUpdate();
+            if (shouldToast) showUpdateToast();
+          },
+          onUpdated: function () { if (window.Toast) Toast.success('✅ App updated successfully'); }
         });
-      });
-    }
+      }
+    })();
   </script>
 </body>
 </html>

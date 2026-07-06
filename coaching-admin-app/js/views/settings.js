@@ -21,12 +21,35 @@ var SettingsView = (function () {
     }).catch(function (err) {
       /* Don't paint placeholder data as if real — show an honest error + retry, but keep the
          always-available account actions (support/logout) usable. */
-      root.innerHTML = '<div class="view-pad">' +
+      root.innerHTML = '<div class="view-pad">' + _updateSection() +
         '<div class="empty-state"><div class="empty-state-icon">' + U.icon('alert', 28) + '</div>' +
         '<div class="empty-state-text">' + U.escapeHtml(U.getReadableError(err)) + '</div>' +
         '<button class="btn btn-outline btn-sm mt-md" onclick="SettingsView.render(true)">Retry</button></div>' +
         _accountActions() + '</div>';
     });
+  }
+
+  /* ADR-102: the Update section appears ONLY when QRUpdateManager reports a pending update — nothing is
+     shown otherwise. Identical flow/wording to the main app; native coach styling. */
+  function _updateSection() {
+    if (!(window.QRUpdateManager && QRUpdateManager.isUpdateAvailable())) return '';
+    return '<div class="card card-compact mb-lg" id="coachUpdateCard">' +
+      '<div class="coaching-info-row"><div>' +
+        '<div class="coaching-info-label">Update available</div>' +
+        '<div class="more-hint">(Refresh app to latest version)</div></div>' +
+      '<button class="btn btn-primary btn-sm" id="coachUpdateBtn" type="button" onclick="SettingsView.applyUpdate()">🔄 Update App</button>' +
+      '</div></div>';
+  }
+  function applyUpdate() {
+    var b = document.getElementById('coachUpdateBtn');
+    if (b) { b.disabled = true; b.textContent = '⏳ Updating app...'; }
+    if (typeof Toast !== 'undefined') Toast.show('Updating app...');
+    if (window.QRUpdateManager) QRUpdateManager.applyUpdate();
+  }
+  /* Re-render if an update is detected while the Settings view is already open (live reveal). */
+  function notifyUpdate() {
+    var v = document.getElementById('view-settings');
+    if (v && v.classList.contains('active')) render(false);
   }
 
   /* Account actions (support + logout) — always available even when coaching info fails to load. */
@@ -65,6 +88,7 @@ var SettingsView = (function () {
     var id = c.id || CoachingState.get('coachingId') || '—';
 
     var html = '<div class="view-pad">';
+    html += _updateSection();
 
     /* Coaching info — logo when present, else name-initial avatar */
     html += '<div class="coaching-info-card mb-lg">';
@@ -123,5 +147,5 @@ var SettingsView = (function () {
     if (typeof CoachingAuth !== 'undefined' && CoachingAuth.logout) CoachingAuth.logout();
   }
 
-  return { render: render, support: support, logout: logout, copyCode: copyCode, toggleInfo: toggleInfo };
+  return { render: render, support: support, logout: logout, copyCode: copyCode, toggleInfo: toggleInfo, applyUpdate: applyUpdate, notifyUpdate: notifyUpdate };
 })();

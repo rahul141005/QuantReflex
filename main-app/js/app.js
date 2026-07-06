@@ -178,72 +178,25 @@ window.addEventListener('unhandledrejection', function (event) {
      visibility in console and external monitoring tools (e.g. Sentry). */
 });
 
-/* ---- Service Worker Registration ---- */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker
-      .register('./service-worker.js')
-      .then(function (registration) {
-        if (!registration.waiting) {
-          try { localStorage.removeItem('qr_pending_update_id'); } catch(_) {}
-        }
-
-        /* Detect a new SW waiting to activate and prompt user to reload */
-        function onUpdateFound() {
-          var newWorker = registration.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', function () {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              /* New version is ready — show a lightweight toast / reload prompt */
-              _showUpdateToast();
-            }
-          });
-        }
-
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          _showUpdateToast();
-        }
-        registration.addEventListener('updatefound', onUpdateFound);
-      })
-      .catch(function (err) { console.warn('SW registration failed:', err); });
+/* ---- Service Worker + in-app update (ADR-102: unified via the shared QRUpdateManager) ----
+   All the mechanics live in the shared module; this file only supplies the main app's PRESENTATION
+   (the update toast + the success toast). */
+if (typeof QRUpdateManager !== 'undefined') {
+  QRUpdateManager.init({
+    swUrl: './service-worker.js',
+    appKey: 'qr',
+    onUpdateAvailable: function (shouldToast) { if (shouldToast) _showUpdateToast(); },
+    onUpdated: function () { if (typeof showToast === 'function') showToast('✅ App updated successfully'); }
   });
 }
 
-try {
-  if (localStorage.getItem('appUpdating') === 'true') {
-    localStorage.removeItem('appUpdating');
-    window.addEventListener('load', function () {
-      setTimeout(function () {
-        if (typeof showToast === 'function') {
-          showToast('\u2705 App updated successfully');
-        }
-      }, 1500);
-    });
-  }
-} catch (_) {}
-
+/* Presentation only: the shared module already deduped (once per version/day) before calling us. */
 function _showUpdateToast() {
   if (document.getElementById('_swUpdateToast')) return;
-  var _updateKey = '';
-  try {
-    _updateKey = localStorage.getItem('qr_pending_update_id');
-    if (!_updateKey) {
-      var d = new Date();
-      var dateStr = d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
-      _updateKey = 'app_update_' + dateStr;
-      localStorage.setItem('qr_pending_update_id', _updateKey);
-    }
-  } catch (_) {}
 
-  // ADR-066: the "update available → reload" prompt is a LOCAL UI affordance, NOT a notification — it stays a
-  // toast and is never written to the Inbox. Clients no longer create notifications; a real "new version" Inbox
-  // notification, when wanted, is sent through the server pipeline (super-admin broadcast, category system).
-
-  // Toast Notification generation (deduplicated via localStorage)
-  try {
-    if (localStorage.getItem(_updateKey) === '1') return;
-    localStorage.setItem(_updateKey, '1');
-  } catch (_) {}
+  // ADR-066: the update-available prompt is a LOCAL UI affordance, NOT a notification. It stays a toast
+  // and is never written to the Inbox. A real "new version" Inbox notification, when wanted, is sent
+  // through the server pipeline (super-admin broadcast, category system).
 
   var toast = document.createElement('div');
   toast.id = '_swUpdateToast';

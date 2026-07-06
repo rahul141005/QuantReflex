@@ -482,37 +482,13 @@ function initSettingsView() {
         updateAppBtn.textContent = '⏳ Updating app...';
       }
       if (typeof showToast === 'function') showToast('Updating app...');
-      var done = function () {
-        try {
-          /* Clear all version-keyed update toast flags */
-          var _storageKeys = Object.keys(localStorage);
-          for (var _si = 0; _si < _storageKeys.length; _si++) {
-            if (_storageKeys[_si].indexOf('updateToastShown') === 0) {
-              localStorage.removeItem(_storageKeys[_si]);
-            }
-          }
-          localStorage.setItem('appUpdating', 'true');
-        } catch (_) {}
-        // Force the app to reload at the root (home) rather than the current hash
-        window.location.href = window.location.pathname;
-      };
-      if ('caches' in window) {
-        caches.keys().then(function (keys) {
-          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-        }).then(function () {
-          if ('serviceWorker' in navigator) {
-            return navigator.serviceWorker.getRegistrations().then(function (regs) {
-              for (var i = 0; i < regs.length; i++) {
-                if (regs[i].waiting) {
-                  regs[i].waiting.postMessage({ type: 'SKIP_WAITING' });
-                }
-                regs[i].update();
-              }
-            });
-          }
-        }).then(done).catch(done);
+      /* ADR-102: the shared QRUpdateManager owns cache-purge + skip-waiting + the one-shot reload
+         (identical sequence to before). This handler is now pure presentation + the action call. */
+      if (typeof QRUpdateManager !== 'undefined') {
+        QRUpdateManager.applyUpdate();
       } else {
-        done();
+        try { localStorage.setItem('qr_appUpdating', 'true'); } catch (_) {}
+        window.location.href = window.location.pathname;
       }
     });
   }
