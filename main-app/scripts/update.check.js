@@ -35,10 +35,14 @@ var APPS = [
   { name: 'main-app', sw: 'main-app/service-worker.js', html: 'main-app/index.html',
     copy: 'main-app/js/services/update-manager.js', global: 'QR_APP_VERSION', prefix: 'qr-cache-' },
   { name: 'super-admin-app', sw: 'super-admin-app/sw.js', html: 'super-admin-app/index.html',
-    copy: 'super-admin-app/js/ui/update-manager.js', global: 'QR_ADMIN_APP_VERSION', prefix: 'qr-admin-cache-' },
+    copy: 'super-admin-app/js/ui/update-manager.js', global: 'QR_ADMIN_APP_VERSION', prefix: 'qr-admin-cache-',
+    initFile: 'super-admin-app/index.html' },
   { name: 'coaching-admin-app', sw: 'coaching-admin-app/sw.js', html: 'coaching-admin-app/index.html',
-    copy: 'coaching-admin-app/js/ui/update-manager.js', global: 'QR_COACH_APP_VERSION', prefix: 'qr-coach-cache-' }
+    copy: 'coaching-admin-app/js/ui/update-manager.js', global: 'QR_COACH_APP_VERSION', prefix: 'qr-coach-cache-',
+    initFile: 'coaching-admin-app/index.html' }
 ];
+/* main-app calls QRUpdateManager.init from app.js (not index.html — where only a comment mentions it). */
+APPS[0].initFile = 'main-app/js/app.js';
 
 APPS.forEach(function (a) {
   var copySrc = read(a.copy);
@@ -59,9 +63,12 @@ APPS.forEach(function (a) {
   ok(a.name + ': SW answers the GET_VERSION handshake', /GET_VERSION/.test(sw) && /event\.ports\[0\]\.postMessage\(\{\s*version:\s*APP_VERSION/.test(sw));
   ok(a.name + ': SW handles SKIP_WAITING', /SKIP_WAITING/.test(sw) && /skipWaiting\(\)/.test(sw));
 
-  ok(a.name + ': index.html initializes via QRUpdateManager.init', /QRUpdateManager\.init\s*\(/.test(html));
-  ok(a.name + ': index.html no longer registers the SW bare (module owns registration)',
-    !/navigator\.serviceWorker\.register\s*\(/.test(html));
+  /* Verify the REAL init call (in the app's bootstrap), not a passing mention in an index.html comment. */
+  var initSrc = read(a.initFile);
+  ok(a.name + ': initializes via QRUpdateManager.init (' + a.initFile + ')', /QRUpdateManager\.init\s*\(/.test(initSrc));
+  /* The shared module registers via `nav.serviceWorker.register`; the app's own files must not register bare. */
+  ok(a.name + ': no bare navigator.serviceWorker.register in app code (module owns registration)',
+    !/navigator\.serviceWorker\.register\s*\(/.test(html) && !/navigator\.serviceWorker\.register\s*\(/.test(initSrc));
 });
 
 /* Admin apps: the deliberate waiting-worker policy (no skipWaiting on install) must hold. */

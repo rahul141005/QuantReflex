@@ -35,6 +35,24 @@ cache-purge-before-reload (no stale/partial state), flag consumed once, first-in
 Verify: npm test incl update.check (32); Node module harness (18); Playwright presentation + browser-parse (18);
 node --check all touched JS. SW: main v220->v221, super-admin v12->v13, coaching v2->v3.
 Docs: DECISION_LOG ADR-102; VERSIONS (Bible bump). No Firestore rules/index/schema change.
+
+Adversarial verification-pass fixes (same unreleased changeset — three independent audits):
+- Reporting: a Settings-filed "question" report no longer hides "Bad options"/"Diagram or image" — the
+  mcqOnly/figureOnly gating now applies ONLY when a live question is attached (report-modal.js).
+- Update D1: on a GET_VERSION timeout the module now ALWAYS toasts and never writes a shared version-less
+  dedup key, so a genuinely new version can't be suppressed by an earlier same-day timeout.
+- Update D2: a NEWER version replacing the waiting worker in a long-lived session re-notifies (dedup is now
+  per distinct incoming version, not once-per-load); the same version still doesn't re-toast.
+- Update O2: both admin SWs now return an explicit 503 instead of respondWith(undefined) for an
+  uncached+offline asset or nav fallback (matches the main app).
+- Update O4: update.check now verifies the REAL QRUpdateManager.init call in main-app/js/app.js (was
+  satisfied by a comment in index.html).
+- Transition: the pre-module unprefixed `appUpdating` flag is still consumed once on the v220->v221 upgrade
+  so the "App updated successfully" toast isn't missed.
+- Contact card: redesigned as a STANDALONE premium card adopting the About modal's .info-block design
+  language (14px radius, soft dual shadow, hairline border, generous padding, dark-mode) while keeping its
+  avatar + tap-to-email + tap-to-copy affordances — verified against .info-block (16 computed-style
+  assertions, light+dark) + screenshots. report-e2e 86, update-e2e 25.
 ```
 
 ## 2026-07-06 — Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (ADR-101)

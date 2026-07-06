@@ -77,6 +77,9 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+/* Last-resort response when a request is neither cached nor reachable — never respondWith(undefined). */
+function offline503() { return new Response('Service Unavailable', { status: 503, statusText: 'Service Unavailable' }); }
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = req.url;
@@ -95,7 +98,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
         }
         return response;
-      }).catch(() => caches.match('/index.html'))
+      }).catch(() => caches.match('/index.html').then((r) => r || offline503()))
     );
     return;
   }
@@ -109,16 +112,16 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
         return response;
-      }).catch(() => cached);
+      }).catch(() => cached || offline503());
 
       /* App JS/CSS: NETWORK-FIRST (timeout → cache) so a new deploy is picked up on the next load;
-         other assets: cache-first for speed + offline. */
+         other assets: cache-first for speed + offline. Never resolve undefined. */
       if (isAppAsset) {
         return new Promise((resolve) => {
           let settled = false;
           const to = setTimeout(() => { if (!settled && cached) { settled = true; resolve(cached); } }, NET_FIRST_TIMEOUT_MS);
-          net.then((r) => { if (!settled) { settled = true; clearTimeout(to); resolve(r || cached); } },
-                   () => { if (!settled) { settled = true; clearTimeout(to); resolve(cached); } });
+          net.then((r) => { if (!settled) { settled = true; clearTimeout(to); resolve(r || cached || offline503()); } },
+                   () => { if (!settled) { settled = true; clearTimeout(to); resolve(cached || offline503()); } });
         });
       }
       return cached || net;

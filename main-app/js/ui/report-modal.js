@@ -331,13 +331,16 @@
       _setHead(title, hasBack);
       if (st.source === 'drill') html += _qContextHtml();
       else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
-      /* Content-aware reason gating (ADR-100/101): never offer a reason the live question can't have.
-         `mcqOnly` reasons ("Bad options") are dropped for typed/numeric questions; `figureOnly` reasons
-         ("Diagram or image") are dropped for questions with no chart/figure/optionFigures. Driven by taxonomy flags. */
+      /* Content-aware reason gating (ADR-100/101): never offer a reason the LIVE question can't have.
+         `mcqOnly` ("Bad options") is dropped for typed/numeric questions; `figureOnly` ("Diagram or image")
+         is dropped for questions with no chart/figure/optionFigures. Only gate when a question is actually
+         attached (in-drill / AI) — from Settings (no live question) ALL reasons must stay available so the
+         user can still categorize an options- or diagram-related problem (ADR-102 verification). */
+      var gate = !!st.question;
       var isMcq = _isMCQ(st.question);
       var hasVisual = _hasVisual(st.question);
       var qTypes = _typesForGroup('question').filter(function (t) {
-        return !(t.mcqOnly && !isMcq) && !(t.figureOnly && !hasVisual);
+        return !(gate && t.mcqOnly && !isMcq) && !(gate && t.figureOnly && !hasVisual);
       });
       html += '<div class="report-reason-list">';
       qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });

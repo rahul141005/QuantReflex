@@ -1904,9 +1904,25 @@ body.dark-mode .settings-link:active {
 }
 body.dark-mode .settings-chevron { color: #64748b; }
 
-/* ---- Contact support card (ADR-100) — a premium support row in the Feedback section: mail avatar + address
-   (tap to email) + a copy button (tap to copy). Matches the .settings-* design language + dark mode. ---- */
-.contact-card { display: flex; align-items: center; gap: .8rem; padding: .3rem 0; min-height: 48px; }
+/* ---- Contact support card (ADR-100 → ADR-102 premium redesign) — a STANDALONE card in the Feedback
+   section: mail avatar + address (tap to email) + a copy button (tap to copy). Adopts the About modal's
+   .info-block design language (radius, soft dual shadow, hairline border, generous padding, press-scale)
+   so it reads as intentional/premium, while keeping its richer avatar + copy affordances. Dark-mode aware. ---- */
+.contact-card {
+  display: flex; align-items: center; gap: .9rem;
+  margin-top: .85rem;
+  background: #ffffff;
+  border-radius: .875rem;
+  padding: 1.1rem 1.15rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.03);
+  border: 1px solid rgba(226,232,240,.5);
+  transition: box-shadow .15s ease;
+}
+body.dark-mode .contact-card {
+  background: #1e293b;
+  border-color: rgba(51,65,85,.5);
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
 .contact-card-avatar {
   flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%;
   background: rgba(37,99,235,.1); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.15rem;

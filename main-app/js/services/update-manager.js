@@ -80,17 +80,28 @@
     });
   }
 
-  /* A genuinely new version is installed and waiting to take over. Set state (drives the button) and,
-     once per load, decide whether the toast should show (version-scoped, per-day dedup). */
+  /* A genuinely new version is installed and waiting to take over. Set state (drives the button) and
+     decide whether the toast should show (version-scoped, per-day dedup). */
   function _becameAvailable(worker) {
     _available = true;
-    if (_notifiedThisLoad) return;
-    _notifiedThisLoad = true;
     _askVersion(worker).then(function (ver) {
+      /* Re-notify at most once per DISTINCT incoming version this load: the same waiting worker must
+         not re-fire (prong B + C both see it), but a NEWER worker replacing it in a long-lived admin
+         session should still nudge. */
+      if (_notifiedThisLoad && ver === _newVersion) return;
+      _notifiedThisLoad = true;
       _newVersion = ver;
-      var key = _dedupPrefix() + (ver ? ('v' + ver + '_') : '') + _todayStamp();
-      var shouldToast = (_get(key) !== '1');
-      if (shouldToast) _set(key, '1');
+      var shouldToast;
+      if (!ver) {
+        /* Version unknown (GET_VERSION timed out): we can't tell a new build from an already-seen one,
+           so ALWAYS toast and never write a shared version-less dedup key (which would wrongly suppress
+           a genuinely different next version that also times out the same day). */
+        shouldToast = true;
+      } else {
+        var key = _dedupPrefix() + 'v' + ver + '_' + _todayStamp();
+        shouldToast = (_get(key) !== '1');
+        if (shouldToast) _set(key, '1');
+      }
       if (typeof _cfg.onUpdateAvailable === 'function') {
         try { _cfg.onUpdateAvailable(shouldToast); } catch (_) {}
       }
@@ -128,8 +139,13 @@
 
   /* If we just reloaded as the result of an Update tap, surface the success state exactly once. */
   function _handlePostReload() {
-    if (_get(_updatingKey()) !== 'true') return;
+    var flagged = _get(_updatingKey()) === 'true';
+    /* Also consume the legacy unprefixed key from the pre-module main-app build, so the one-time
+       upgrade INTO the shared module still shows "App updated successfully" (ADR-102 transition). */
+    var legacy = _prefix() === 'qr' && _get('appUpdating') === 'true';
+    if (!flagged && !legacy) return;
     _del(_updatingKey());     /* consumed once */
+    if (legacy) _del('appUpdating');
     _sweepDedup();            /* the update is applied — forget "already shown" flags */
     var fire = function () {
       root.setTimeout(function () {

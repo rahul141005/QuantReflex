@@ -63,6 +63,19 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   deploys can't run headless — built to contract + the correctness walkthrough + code review.
 - **No new infra / no Firestore rules/index/schema change** (Vercel-Hobby + Spark intact). SW versions: main
   v220→v221, super-admin cache v12→v13, coaching cache v2→v3.
+- **Adversarial verification-pass fixes (same changeset):** three independent audits confirmed the system
+  sound and surfaced a small set of real defects, all fixed: (1) a Settings-filed *question* report wrongly
+  hid "Bad options"/"Diagram or image" — the mcqOnly/figureOnly gating now applies only when a live question
+  is attached; (2) **D1** — on a `GET_VERSION` timeout the module always toasts and never writes a shared
+  version-less dedup key (a genuinely new version can't be suppressed by an earlier same-day timeout); (3)
+  **D2** — a newer version replacing the waiting worker in a long session re-notifies (dedup is per distinct
+  incoming version, not once-per-load); (4) **O2** — both admin SWs return an explicit 503 instead of
+  `respondWith(undefined)` for an uncached+offline asset/nav fallback; (5) **O4** — `update.check` now
+  verifies the real `QRUpdateManager.init` call in `app.js`, not a comment; (6) the legacy unprefixed
+  `appUpdating` flag is consumed once on the v220→v221 upgrade so the success toast isn't missed. Separately,
+  the **Settings Contact card was redesigned** as a standalone premium card adopting the About modal's
+  `.info-block` design language (radius/shadow/border/padding/dark-mode matched — 16 computed-style assertions
+  in light+dark) while keeping its avatar + tap-to-email + tap-to-copy affordances.
 
 ## ADR-101 — Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (2026-07-06)
 - **Context:** a fresh, from-scratch adversarial verification of the *entire* reporting system (three independent
