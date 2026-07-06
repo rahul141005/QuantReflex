@@ -9,12 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.122 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.123 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.28 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.29 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.123 / Firestore 2.29 (2026-07-06)** — **Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (ADR-101).**
+> A fresh, distrust-everything re-verification of the whole reporting system. Design confirmed sound (AI reporting
+> complete across all three surfaces; escaping clean; write race-safe; six-surface enum lockstep holds); fixed every
+> confirmed defect: **[data loss]** the server now captures the LR **`figure`** in the question snapshot (**Firestore
+> 2.29** — a `visual` report no longer stores no picture); **[schema invariant]** the `ai`/`learn` bundles are now
+> strictly **source-gated** (a fabricated bundle on a `bug`/`typo` is stripped server-side); **[impossible reason]**
+> `visual` gains `figureOnly` and is dropped from the in-drill grid when the question has no visual (twin of the
+> `mcqOnly` gate); **[false success]** Contact copy runs the execCommand fallback on clipboard reject and never toasts
+> a false success; **[moderation]** Learn topics are searchable, a per-type analytics breakdown + dashboard family
+> strip, the page-local-search banner shows only with a text query, duel reports drop the mislabelled answer-type
+> line, an unknown-type family badge has a neutral default; **[never-lose]** the offline queue treats 401/409 as
+> retryable; scaffold Learn topics now expose the report action. No taxonomy/type/source change (values still
+> index-agnostic) → **no new index, no rules change**. report.check.js → 675; Playwright → 83; full suite + real-app
+> boot smoke green. No new infra (Vercel-Hobby intact). SW v219→v220.
+>
 > **2.122 / Firestore 2.28 (2026-07-06)** — **Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (ADR-100).**
 > The final sign-off for the reporting feature. **(1) Learn topic reporting** — a purpose-built `source:'learn'` flow
 > opened from a quiet end-of-chapter affordance; a new `learn_issue` type in a new `learn` group with its own

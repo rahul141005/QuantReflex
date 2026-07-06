@@ -467,6 +467,12 @@ var LearnView = (function () {
     /* End-of-chapter footer (ADR-092): the read → practise → complete loop at the exact moment of finish,
        then the path onward (Next up / related / previous). Published topics only. */
     if (topic.status !== 'scaffold') main.appendChild(_buildChapterFoot(topic, cat));
+    else {
+      /* Scaffold ("coming soon") topics skip the chapter footer, but must still expose the report action so EVERY
+         topic page is reportable (ADR-101) — e.g. a wrong stub title or a mis-scoped placeholder. */
+      var srl = _reportTopicLine(topic, cat);
+      if (srl) { srl.style.marginTop = '1.6rem'; main.appendChild(srl); }
+    }
     body.appendChild(main);
     host.appendChild(body);
 
@@ -554,22 +560,29 @@ var LearnView = (function () {
     }
 
     /* Report an issue (ADR-100) — a deliberate, low-emphasis affordance closing the reading spine: secondary to the
-       finish actions, always discoverable, never competing with "Practise this". Opens the purpose-built Learn
-       report flow pre-scoped to THIS chapter (topic metadata auto-attached — the user picks a reason, 2 taps). */
-    if (typeof ReportModal !== 'undefined' && ReportModal.open) {
-      var rep = document.createElement('button'); rep.className = 'kx-report-line'; rep.type = 'button';
-      rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> Spotted a problem in this chapter? <span class="kx-report-cta">Report it</span>';
-      rep.addEventListener('click', function () {
-        ReportModal.open({ source: 'learn', topic: {
-          id: topic.id, title: topic.title, category: topic.category,
-          subject: (cat && cat.subject) || null,
-          difficulty: topic.difficulty, examFrequency: topic.examFrequency,
-          route: '#learn/' + topic.id
-        } });
-      });
-      foot.appendChild(rep);
-    }
+       finish actions, always discoverable, never competing with "Practise this". */
+    var rl = _reportTopicLine(topic, cat);
+    if (rl) foot.appendChild(rl);
     return foot;
+  }
+
+  /* The "Report an issue" line — opens the purpose-built Learn report flow pre-scoped to THIS chapter (topic
+     metadata auto-attached; the user picks a reason, 2 taps). Shared by the chapter footer (published topics) and
+     the scaffold topic page (ADR-101 — so EVERY topic page exposes the report action). Returns null if reporting
+     is unavailable. */
+  function _reportTopicLine(topic, cat) {
+    if (typeof ReportModal === 'undefined' || !ReportModal.open) return null;
+    var rep = document.createElement('button'); rep.className = 'kx-report-line'; rep.type = 'button';
+    rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> Spotted a problem in this chapter? <span class="kx-report-cta">Report it</span>';
+    rep.addEventListener('click', function () {
+      ReportModal.open({ source: 'learn', topic: {
+        id: topic.id, title: topic.title, category: topic.category,
+        subject: (cat && cat.subject) || null,
+        difficulty: topic.difficulty, examFrequency: topic.examFrequency,
+        route: '#learn/' + topic.id
+      } });
+    });
+    return rep;
   }
 
   /* Highlight the section-nav pill for the section currently in view (premium polish; degrades gracefully). */

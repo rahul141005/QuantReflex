@@ -331,10 +331,14 @@
       _setHead(title, hasBack);
       if (st.source === 'drill') html += _qContextHtml();
       else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
-      /* Answer-mode aware (ADR-100): drop MCQ-only reasons (e.g. "Bad options") for typed/numeric questions so the
-         UI never offers an "options" reason for a question that has none. Driven by the taxonomy `mcqOnly` flag. */
+      /* Content-aware reason gating (ADR-100/101): never offer a reason the live question can't have.
+         `mcqOnly` reasons ("Bad options") are dropped for typed/numeric questions; `figureOnly` reasons
+         ("Diagram or image") are dropped for questions with no chart/figure/optionFigures. Driven by taxonomy flags. */
       var isMcq = _isMCQ(st.question);
-      var qTypes = _typesForGroup('question').filter(function (t) { return !(t.mcqOnly && !isMcq); });
+      var hasVisual = _hasVisual(st.question);
+      var qTypes = _typesForGroup('question').filter(function (t) {
+        return !(t.mcqOnly && !isMcq) && !(t.figureOnly && !hasVisual);
+      });
       html += '<div class="report-reason-list">';
       qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });
       html += '</div>';
@@ -498,6 +502,8 @@
   /* Answer mode of the reported question — MCQ iff it carries options (mirrors the drill engine / answer-format).
      Used to drop MCQ-only reasons for typed/numeric questions (ADR-100). */
   function _isMCQ(q) { return !!(q && q.options && q.options.length); }
+  /* Does the reported question carry a visual (DI chart / LR figure / per-option figures)? Gates figureOnly reasons. */
+  function _hasVisual(q) { return !!(q && (q.chart || q.figure || (q.optionFigures && q.optionFigures.length))); }
 
   /* The Learn reason set (each a learn_issue sub-reason), with an icon + helper for the grid. */
   function _learnReasons() {

@@ -241,6 +241,7 @@ function sanitizeQuestion(q) {
     explanation: _str(q.explanation, 8000),
     aiContext: (q.aiContext === undefined ? null : q.aiContext),
     chart: (q.chart === undefined ? null : q.chart),
+    figure: (q.figure === undefined ? null : q.figure),   /* ADR-101: LR stem figure spec, so a visual-LR report keeps its figure (was dropped) */
     mode: _str(q.mode, 40),
     isDuel: _bool(q.isDuel),
     reviewMode: _bool(q.reviewMode),
@@ -262,8 +263,8 @@ function sanitizeQuestion(q) {
   /* Defense-in-depth (ADR-100): if the client didn't send isMCQ, derive it from options so admin/consumers always
      have a reliable answer-mode flag. */
   if (clean.isMCQ == null) clean.isMCQ = !!(clean.options && clean.options.length);
-  /* Byte-cap guard: if the snapshot is huge (e.g. giant chart spec), drop the heaviest optional fields. */
-  if (_byteLen(clean) > QUESTION_MAX_BYTES) { clean.chart = null; clean.aiContext = null; }
+  /* Byte-cap guard: if the snapshot is huge (e.g. giant chart/figure spec), drop the heaviest optional fields. */
+  if (_byteLen(clean) > QUESTION_MAX_BYTES) { clean.chart = null; clean.figure = null; clean.aiContext = null; }
   if (_byteLen(clean) > QUESTION_MAX_BYTES) { clean.optionFigures = null; clean.explanation = _str(clean.explanation, 2000); }
   return clean;
 }
@@ -349,10 +350,12 @@ function validateCreatePayload(body) {
     if (question) signature = question.signature;
   }
 
-  /* AI-explanation metadata (ADR-097) — only meaningful for ai_explain, but sanitized defensively regardless. */
-  var ai = sanitizeAi(body.ai);
-  /* Learn topic metadata (ADR-100) — only meaningful for source==='learn', sanitized defensively regardless. */
-  var learn = sanitizeLearn(body.learn);
+  /* AI-explanation metadata (ADR-097) / Learn topic metadata (ADR-100) — SOURCE-GATED (ADR-101). Each bundle is
+     kept ONLY for its own entry point (mirrors the `question` gating above). This closes two holes: a crafted body
+     can't (a) satisfy the substance guard with a fabricated bundle on an unrelated type, nor (b) persist an `ai`/
+     `learn` object on a report whose source doesn't match — preserving the schema invariant. */
+  var ai = (source === 'ai_explain') ? sanitizeAi(body.ai) : null;
+  var learn = (source === 'learn') ? sanitizeLearn(body.learn) : null;
 
   /* Substance guard (ADR-099, hardened ADR-099-verify): a report must never be EMPTY. Gate the "no free text
      needed" exemptions on MATERIALIZED content — NOT on the client-declared `source`, which is spoofable

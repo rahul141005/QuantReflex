@@ -63,7 +63,7 @@
     { id: 'options_wrong',       label: 'Bad options',          icon: '🔢', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'Options are wrong, repeated or missing',    fields: ['note'], mcqOnly: true },
     { id: 'formula_wrong',       label: 'Formula looks wrong',  icon: '📐', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'A formula or rule used here seems off',     fields: ['note'] },
     { id: 'typo',                label: 'Typo or wording',      icon: '✍️', group: 'question', inDrill: true, defaultPriority: 'low',      helper: 'A spelling, symbol or wording mistake',     fields: ['note'] },
-    { id: 'visual',              label: 'Diagram or image',     icon: '🎨', group: 'question', inDrill: true, defaultPriority: 'medium',   helper: 'A chart, figure or image has a problem',    fields: ['note'],
+    { id: 'visual',              label: 'Diagram or image',     icon: '🎨', group: 'question', inDrill: true, defaultPriority: 'medium',   helper: 'A chart, figure or image has a problem',    fields: ['note'], figureOnly: true,
       subReasons: [
         { id: 'chart_wrong',    label: 'Chart is wrong' },
         { id: 'figure_render',  label: "Figure doesn't render right" },

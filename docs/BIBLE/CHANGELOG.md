@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (ADR-101)
+
+A fresh, from-scratch adversarial verification of the entire reporting system (distrust every prior pass), fixing
+every confirmed defect it surfaced. No new features; no Firestore rules/index change. Full detail in ADR-101.
+
+```
+Correctness/data integrity:
+- A1 report-schema.js sanitizeQuestion — capture `figure` (byte-cap-guarded); a visual LR report no longer loses
+  the figure (was: server whitelist dropped it → data loss).
+- A2 report-schema.js — `ai` gated to source==='ai_explain', `learn` to source==='learn' (null otherwise); a
+  fabricated bundle on a bug/typo/etc. is stripped server-side (schema invariant + junk-report protection).
+- A3 report-types.js + report-taxonomy.js — `visual` gains `figureOnly:true`; report-modal.js in-drill grid drops
+  figureOnly reasons when the live question has no chart/figure/optionFigures (_hasVisual), mirroring mcqOnly.
+- A4 settings.js — Contact copy: async clipboard reject now runs the execCommand fallback and only toasts success
+  when a copy path actually succeeded (was: false "✅ Email copied" on denial, fallback skipped).
+Super-Admin moderation:
+- B5 admin/reports.js — light _shapeRow carries `learn:{topicId,title}`; text search matches learn title/topicId.
+- B6 admin/reports.js + views/reports.js — analytics `byType` count()-aggregation + a per-family dashboard strip.
+- B7 views/reports.js — the page-local-search banner shows only when a text query is active.
+- B8 views/reports.js — duel-sourced reports omit the Answer-type line (was: mislabelled MCQ duel as "Typed").
+- B9 admin-style.css — neutral `.report-fam-other` default rule for unknown/future types.
+Hardening/cleanup:
+- C10 report-queue.js — 401/409 are retryable (kept + retried after re-auth); closes "never lose a report".
+- C11 report.check.js — assert super-admin TYPE_META/FAMILY_LABELS/TYPE_FILTER_GROUPS/inline TYPES cover every
+  type; JSON learn/ai prop-sets match sanitiser outputs; visual.figureOnly; sanitizeQuestion keeps figure; bundle
+  stripping + substance-guard cases; removed vacuous ok(...,true). → 675 assertions.
+- C12 report-queue.js — removed dead `earliestFuture` reduce.
+- C13 learn-view.js — extracted _reportTopicLine; the report action now also appears on scaffold topic pages.
+Verify: npm test green; report.check 675/0; Playwright 83/0 (MCQ-no-figure=11 reasons w/ visual hidden; figure MCQ
+=12 + figure round-trips; typed=10). SW v219→v220.
+Docs: DECISION_LOG ADR-101; FIRESTORE_BLUEPRINT (question.figure captured + ai/learn source-gated); VERSIONS
+(Bible 2.122→2.123 / Firestore 2.28→2.29); report-schema.json (figure doc).
+```
+
 ## 2026-07-06 — Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (ADR-100)
 
 The final sign-off for the reporting feature — five owner-requested improvements, each grounded in a fresh audit,

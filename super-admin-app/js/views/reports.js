@@ -197,7 +197,9 @@ var ReportsView = (function () {
       return;
     }
     listEl.innerHTML =
-      (_pageLocal ? '<div class="muted" style="font-size:.75rem;margin-bottom:.4rem;">Search matches within the loaded pages — Load more to search further.</div>' : '') +
+      /* Only warn about page-local scope when a TEXT search is active — a pure type/priority filter is server-side
+         and complete, so the banner would mislead (ADR-101). */
+      ((_pageLocal && _text && _text.trim()) ? '<div class="muted" style="font-size:.75rem;margin-bottom:.4rem;">Search matches within the loaded pages — Load more to search further.</div>' : '') +
       _rows.map(function (r) {
         /* Line 2: reason (sub-reason if present, else the type label) · reporter · time — so a moderator sees the
            specific issue without opening. The type FAMILY is the badge on line 1. */
@@ -228,6 +230,21 @@ var ReportsView = (function () {
   function _loadAnalytics() {
     API.getReportsAnalytics().then(function (a) { _analytics = a; _paintStats(); }).catch(function () { /* non-fatal */ });
   }
+  /* Per-family volume roll-up from the analytics byType counts (ADR-101) — rolls the 23 type counts up to the six
+     families so a moderator sees, at a glance, how many Question / QuanAI / Learn / App / Account / Idea reports
+     exist (incl. how many Learn reports). Clicking a family sets the type filter is out of scope; this is a summary. */
+  var FAMILY_ICON = { question: '📝', ai: '🤖', learn: '📚', app: '🐞', account: '💳', idea: '💡' };
+  var FAMILY_ORDER = ['question', 'ai', 'learn', 'app', 'account', 'idea'];
+  function _familyStrip(byType) {
+    if (!byType) return '';
+    var fam = {};
+    Object.keys(byType).forEach(function (t) { var n = byType[t]; if (typeof n !== 'number') return; var f = _typeFamily(t); fam[f] = (fam[f] || 0) + n; });
+    var chips = FAMILY_ORDER.filter(function (f) { return fam[f]; }).map(function (f) {
+      return '<span class="report-fam-count"><span aria-hidden="true">' + FAMILY_ICON[f] + '</span> ' + _esc(FAMILY_LABELS[f] || f) + ' <b>' + fam[f] + '</b></span>';
+    }).join('');
+    return chips ? '<div class="report-fam-strip" aria-label="Reports by category">' + chips + '</div>' : '';
+  }
+
   function _paintStats() {
     var el = document.getElementById('rStats'); if (!el) return;
     var a = _analytics;
@@ -240,6 +257,7 @@ var ReportsView = (function () {
       AdminUtils.statTile('This week', a.week != null ? a.week : '—') +
       AdminUtils.statTile('Oldest open', oldestDays != null ? (oldestDays + 'd') : '—') +
       '</div>' +
+      _familyStrip(a.byType) +
       ((a.topQuestions && a.topQuestions.length) ? '<div class="report-top-q"><div class="cc-section-title">Most-reported questions</div>' +
         a.topQuestions.slice(0, 5).map(function (q) {
           return '<div class="cc-feed-row"><span style="overflow:hidden;text-overflow:ellipsis;">' + _esc((q.category || 'unknown') + (q.subtype ? '/' + q.subtype : '')) + '</span>' +
@@ -329,9 +347,12 @@ var ReportsView = (function () {
       '</div>';
   }
 
-  /* ADR-100: human answer-mode label so the admin never sees "options" for a typed question. */
+  /* ADR-100/101: human answer-mode label so the admin never sees "options" for a typed question. Duel-sourced
+     reports don't thread the option set, so the mode is genuinely unknown — omit the line rather than guess
+     "Typed answer" (ADR-101). */
   function _answerTypeLabel(q) {
     if (!q) return null;
+    if (q.isDuel && !q.isMCQ && !q.answerFormat) return null;
     if (q.isMCQ) return 'Multiple choice';
     var fmt = q.answerFormat;
     if (fmt && fmt !== 'mcq' && fmt !== 'numeric') return 'Typed · ' + fmt;
@@ -357,7 +378,7 @@ var ReportsView = (function () {
       (aggregate ? '<div class="report-agg"><span class="badge badge-open">Reported ' + (aggregate.count || 0) + '×</span> · ' + (aggregate.openCount || 0) + ' still open</div>' : '') +
       _kv('Signature', q.signature) + _kv('Category', q.category) + (q.subtype ? _kv('Subtype', q.subtype) : '') +
       (q.difficulty ? _kv('Difficulty', q.difficulty) : '') + _kv('Mode', q.mode) +
-      _kv('Answer type', _answerTypeLabel(q)) +
+      (_answerTypeLabel(q) ? _kv('Answer type', _answerTypeLabel(q)) : '') +
       _kv('Q number', (q.questionNumber != null ? q.questionNumber : '?') + (q.count != null ? ' / ' + q.count : '')) +
       (q.questionText ? '<div class="report-desc"><div class="muted" style="margin:.6rem 0 .25rem;">Question</div><div class="report-desc-body">' + _esc(q.questionText) + '</div></div>' : '') +
       opts +

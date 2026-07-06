@@ -32,6 +32,9 @@ if (!admin.apps.length) {
 var STATUSES = ['open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate', 'archived'];
 var OPEN_STATUSES = ['open', 'investigating', 'needs_info'];
 var PRIORITIES = ['critical', 'high', 'medium', 'low'];
+/* Full type list (LOCKSTEP with shared/constants/report-types.js — asserted by main-app/scripts/report.check.js).
+   Drives the analytics per-type counts (ADR-101). */
+var TYPES = ['answer_wrong', 'solution_wrong', 'explanation_wrong', 'options_wrong', 'formula_wrong', 'typo', 'visual', 'unclear', 'difficulty_mismatch', 'wrong_topic', 'duplicate', 'question_other', 'ai_issue', 'learn_issue', 'bug', 'crash', 'ui_issue', 'performance', 'payment', 'account', 'feature_request', 'feedback', 'other'];
 var CLOSED_ON = { resolved: true, dismissed: true };   /* statuses that stamp resolvedAt/resolvedBy */
 var LABEL_MAX = 40, LABELS_MAX = 12, NOTE_MAX = 2000;
 
@@ -67,6 +70,9 @@ function _shapeRow(doc, full) {
     reporterPlan: rep.plan || 'free',
     questionSignature: d.questionSignature || null,
     source: (d.context && d.context.app && d.context.app.source) || null,
+    /* Compact Learn descriptor on the LIGHT row (ADR-101) so a Learn report is searchable by topic + the list can
+       show/scan it without the full doc. */
+    learn: d.learn ? { topicId: d.learn.topicId || null, title: d.learn.title || null } : null,
     createdAt: _safeTS(d.createdAt) || _safeTS(d.createdAtMs),
     createdAtMs: typeof d.createdAtMs === 'number' ? d.createdAtMs : 0,
     updatedAt: _safeTS(d.updatedAt)
@@ -132,10 +138,14 @@ async function handler(req, res) {
       if (priority && type && !status) matched = matched.filter(function (r) { return r.priority === priority; });
       if (search) {
         matched = matched.filter(function (r) {
+          var learnT = r.learn ? ((r.learn.title || '') + ' ' + (r.learn.topicId || '')) : '';
           return (r.shortId && r.shortId.toLowerCase().indexOf(search) !== -1) ||
                  (r.title && r.title.toLowerCase().indexOf(search) !== -1) ||
                  (r.reporterEmail && r.reporterEmail.toLowerCase().indexOf(search) !== -1) ||
-                 (r.type && r.type.toLowerCase().indexOf(search) !== -1);
+                 (r.type && r.type.toLowerCase().indexOf(search) !== -1) ||
+                 (r.subReason && r.subReason.toLowerCase().indexOf(search) !== -1) ||
+                 /* ADR-101: Learn topic title/id are searchable (the placeholder promises "topic"). */
+                 (learnT.toLowerCase().indexOf(search) !== -1);
         });
       }
 
@@ -196,7 +206,7 @@ async function handler(req, res) {
 
     /* ── analytics ── */
     if (action === 'analytics' && req.method === 'GET') {
-      const out = { byStatus: {}, byPriority: {}, openTotal: 0, today: 0, week: 0, topQuestions: [], oldestOpenMs: null };
+      const out = { byStatus: {}, byPriority: {}, byType: {}, openTotal: 0, today: 0, week: 0, topQuestions: [], oldestOpenMs: null };
       const now = Date.now();
 
       async function _count(q) { try { return (await q.count().get()).data().count; } catch (_) { return null; } }
@@ -207,6 +217,11 @@ async function handler(req, res) {
       }
       for (let p = 0; p < PRIORITIES.length; p++) {
         out.byPriority[PRIORITIES[p]] = await _count(db.collection('reports').where('classification.priority', '==', PRIORITIES[p]));
+      }
+      /* per-type counts (ADR-101) — one count() aggregation per type; the client rolls these up to families for
+         the dashboard. Cheap (O(1) each) on this admin-only, non-hot endpoint. */
+      for (let t = 0; t < TYPES.length; t++) {
+        out.byType[TYPES[t]] = await _count(db.collection('reports').where('classification.type', '==', TYPES[t]));
       }
       out.openTotal = OPEN_STATUSES.reduce(function (s, st) { return s + (out.byStatus[st] || 0); }, 0);
       out.today = await _count(db.collection('reports').where('createdAtMs', '>=', now - 24 * 60 * 60 * 1000));

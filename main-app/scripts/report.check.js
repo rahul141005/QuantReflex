@@ -266,6 +266,22 @@ ok('QuanAI: serialized report payload leaks no gpt/openai', (function () { var c
   RT.TYPES.forEach(function (t) { ok('super-admin TYPE_LABELS covers ' + t.id, typeKeys.indexOf(t.id) !== -1); });
   RT.STATUSES.forEach(function (s) { ok('super-admin STATUS_LABELS covers ' + s, statusKeys.indexOf(s) !== -1); });
 
+  /* ADR-101 hardening: the ADR-100 row badge + type filter are driven by TYPE_META (icon+family) and
+     TYPE_FILTER_GROUPS. A type present in TYPE_LABELS but missing here would render the ⚑/'other' fallback and be
+     absent from the filter — the exact "raw id" drift class, so guard it too. */
+  var metaKeys = keysOf('TYPE_META');
+  RT.TYPES.forEach(function (t) { ok('super-admin TYPE_META covers ' + t.id, metaKeys.indexOf(t.id) !== -1); });
+  var famBlock = (view.match(/var TYPE_FILTER_GROUPS = \[([\s\S]*?)\];/) || [])[1] || '';
+  RT.TYPES.forEach(function (t) { ok('super-admin type filter offers ' + t.id, famBlock.indexOf("'" + t.id + "'") !== -1); });
+  /* Every family a type declares in TYPE_META must have a FAMILY_LABELS entry (no unlabeled badge). */
+  var famLabelKeys = keysOf('FAMILY_LABELS');
+  var metaBlock = (view.match(/var TYPE_META = \{([\s\S]*?)\};/) || [])[1] || '';
+  (metaBlock.match(/\['(\w+)'/g) || []).map(function (s) { return s.replace(/\['/, '').replace(/'/, ''); }).forEach(function (fam) {
+    ok('super-admin FAMILY_LABELS covers family ' + fam, famLabelKeys.indexOf(fam) !== -1);
+  });
+  /* The analytics per-type loop (ADR-101) uses an inline TYPES list in the API — keep it in lockstep too. */
+  ok('super-admin API TYPES lockstep', arrEq(saArr('TYPES'), RT.TYPES.map(function (t) { return t.id; })));
+
   /* ADR-099-verify: the VIEW must also label every SUB-REASON (esp. AI reasons — the key triage field) or it
      renders a raw snake_case id. Assert SUBREASON_LABELS covers every subReason id across the taxonomy. */
   var subKeys = keysOf('SUBREASON_LABELS');
@@ -282,6 +298,16 @@ ok('QuanAI: serialized report payload leaks no gpt/openai', (function () { var c
   ok('JSON-schema context.app.source includes ai_explain', jsonSourceEnum.indexOf('ai_explain') !== -1);
   ok('JSON-schema context.app.source includes learn (ADR-100)', jsonSourceEnum.indexOf('learn') !== -1);
   ok('JSON-schema documents the learn object (ADR-100)', !!jsonSchema.properties.learn && jsonSchema.properties.learn.additionalProperties === false);
+
+  /* ADR-101 hardening: the JSON `learn`/`ai` object property SETS must match the sanitizer outputs — existence
+     alone let a sanitizer field addition go undocumented. Compare the documented props to the sanitizer's keys. */
+  function _keys(o) { return Object.keys(o || {}).sort(); }
+  var learnProps = _keys(jsonSchema.properties.learn.properties);
+  var learnOut = _keys(S.sanitizeLearn({ topicId: 'a', title: 'b', category: 'c', subject: 'd', difficulty: 'e', examFrequency: 'f', route: 'g' }));
+  ok('JSON learn object props match sanitizeLearn output', arrEq(learnProps, learnOut));
+  var aiProps = _keys(jsonSchema.properties.ai.properties);
+  var aiOut = _keys(S.sanitizeAi({ explanation: 'e', promptId: 'p' }));
+  ok('JSON ai object props match sanitizeAi output', arrEq(aiProps, aiOut));
 })();
 
 /* ───────── 9. ADR-100: Learn reporting + MCQ-vs-typed correctness ───────── */
@@ -294,7 +320,15 @@ ok('learn report carries no question/ai', lv.clean.question === null && lv.clean
 ok('reject empty learn report (no topic, no text)', S.validateCreatePayload({ type: 'learn_issue', source: 'learn' }).code === 'EMPTY_REPORT');
 ok('sanitizeLearn keeps the topic fields', (function () { var l = S.sanitizeLearn({ topicId: 'x', title: 'T', category: 'c', subject: 's', difficulty: 'core', examFrequency: 'high', route: '#learn/x', bogus: 'drop' }); return l.topicId === 'x' && l.subject === 's' && l.bogus === undefined; })());
 ok('sanitizeLearn null when nothing identifying', S.sanitizeLearn({ difficulty: 'core' }) === null);
-ok('learn subReasons all covered by super-admin SUBREASON_LABELS (via §8)', true); // coverage asserted in §8's allSubs loop
+ok('learn_issue has 8 sub-reasons', RT.typeById('learn_issue').subReasons.length === 8);
+/* ADR-101: a fabricated ai/learn bundle on the wrong source is stripped (source-gated) — can't fake substance. */
+ok('learn bundle stripped on a non-learn source', S.validateCreatePayload({ type: 'bug', source: 'settings', description: 'x', learn: { topicId: 'z' } }).clean.learn === null);
+ok('ai bundle stripped on a non-ai_explain source', S.validateCreatePayload({ type: 'bug', source: 'settings', description: 'x', ai: { explanation: 'z' } }).clean.ai === null);
+ok('fabricated learn bundle no longer satisfies the substance guard', S.validateCreatePayload({ type: 'bug', source: 'settings', learn: { topicId: 'z' } }).code === 'EMPTY_REPORT');
+ok('fabricated ai bundle no longer satisfies the substance guard', S.validateCreatePayload({ type: 'crash', source: 'ai_explain', ai: {} }).code === 'EMPTY_REPORT');
+/* ADR-101: visual reason is figureOnly (shared⇄browser) + sanitizeQuestion keeps the LR figure. */
+ok('visual is figureOnly (shared⇄browser)', RT.typeById('visual').figureOnly === true && BR.typeById('visual').figureOnly === true);
+ok('sanitizeQuestion keeps the figure spec', (function () { var q = S.sanitizeQuestion({ questionId: 'Qf', questionText: 'x', figure: { kind: 'mirror', n: 3 } }); return q.figure && q.figure.kind === 'mirror'; })());
 /* MCQ-vs-typed: the snapshot carries a reliable answer-mode marker; server derives isMCQ from options if absent. */
 ok('sanitizeQuestion keeps client isMCQ=false for a typed question', S.sanitizeQuestion({ questionId: 'Q1', questionText: '2+2?', isMCQ: false, answer: 4 }).isMCQ === false);
 ok('sanitizeQuestion derives isMCQ from options when absent (MCQ)', S.sanitizeQuestion({ questionId: 'Q2', questionText: 'x', options: ['a', 'b', 'c'], answer: 'a' }).isMCQ === true);

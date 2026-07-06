@@ -1021,6 +1021,12 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .report-fam-app { background: var(--warn-bg); color: var(--warn-fg); }
 .report-fam-account { background: rgba(37,99,235,.12); color: var(--accent-primary); }
 .report-fam-idea { background: var(--surface-2, #f1f5f9); color: var(--text-secondary); }
+.report-fam-other { background: var(--surface-2, #f1f5f9); color: var(--text-secondary); }   /* ADR-101: default family fallback */
+
+/* Per-family volume strip on the reports dashboard (ADR-101) */
+.report-fam-strip { display: flex; flex-wrap: wrap; gap: .4rem; margin: .1rem 0 .6rem; }
+.report-fam-count { font-size: .74rem; color: var(--text-secondary); background: var(--surface-2, #f1f5f9); border-radius: .5rem; padding: .15rem .5rem; }
+.report-fam-count b { color: var(--text-strong, var(--text-primary)); font-variant-numeric: tabular-nums; }
 
 /* Dashboard strip */
 .report-stat-row { margin-bottom: .5rem; }

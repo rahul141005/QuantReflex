@@ -346,16 +346,29 @@ function initSettingsView() {
   var CONTACT_EMAIL = 'quantreflex@gmail.com';
   var copyBtn = document.getElementById('contactEmailCopy');
   if (copyBtn) {
-    rebind(copyBtn, 'click', function () {
-      var done = function () {
-        try { if (typeof showToast === 'function') showToast('✅ Email copied'); } catch (_) {}
-        var b = document.getElementById('contactEmailCopy');
-        if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById('contactEmailCopy'); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
-      };
+    /* Legacy synchronous copy — returns true only if it actually copied (so we never claim false success). */
+    function _execCopy() {
       try {
-        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(CONTACT_EMAIL).then(done, done); }
-        else { var ta = document.createElement('textarea'); ta.value = CONTACT_EMAIL; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
-      } catch (_) { done(); }
+        var ta = document.createElement('textarea'); ta.value = CONTACT_EMAIL;
+        ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var okc = document.execCommand('copy'); document.body.removeChild(ta); return !!okc;
+      } catch (_) { return false; }
+    }
+    function _copied() {
+      try { if (typeof showToast === 'function') showToast('✅ Email copied'); } catch (_) {}
+      var b = document.getElementById('contactEmailCopy');
+      if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById('contactEmailCopy'); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
+    }
+    /* Copy failed on every path — don't fake success; point the user at the address they can still tap to email. */
+    function _copyFailed() { try { if (typeof showToast === 'function') showToast('Couldn\'t copy — the address is ' + CONTACT_EMAIL); } catch (_) {} }
+    rebind(copyBtn, 'click', function () {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          /* On async rejection (denied permission / insecure context) fall back to execCommand; only THEN report. */
+          navigator.clipboard.writeText(CONTACT_EMAIL).then(_copied, function () { if (_execCopy()) _copied(); else _copyFailed(); });
+        } else { if (_execCopy()) _copied(); else _copyFailed(); }
+      } catch (_) { if (_execCopy()) _copied(); else _copyFailed(); }
     });
   }
 

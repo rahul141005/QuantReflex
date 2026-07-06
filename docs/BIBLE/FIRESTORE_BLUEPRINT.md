@@ -275,7 +275,12 @@ completedAt, createdAt }`.
   (question-only aggregation). The `question` snapshot now also carries `isMCQ` (bool) + `answerFormat` so consumers
   never re-infer answer mode from options length (a typed/numeric question is never described with "options").
   All new type/source values are index-agnostic — the `(classification.type, createdAtMs)` index covers them; NO new
-  index or rules change.
+  index or rules change. **(ADR-101)** the `question` snapshot now also captures `figure` (the size-capped LR figure
+  spec, byte-cap-guarded alongside `chart`/`aiContext`) so a `visual` LR report can be re-rendered admin-side — this
+  was previously dropped by the server whitelist (data loss). The `ai` and `learn` objects are strictly
+  **source-gated**: `ai` is persisted only when `source==='ai_explain'` and `learn` only when `source==='learn'`
+  (null otherwise) — a fabricated bundle on any other type is stripped server-side, so a `bug`/`typo`/etc. doc can
+  never carry an `ai`/`learn` object (schema-invariant + junk-report protection).
   Canonical schema: `shared/schemas/report-schema.json`; enums: `shared/constants/report-types.js` (inline-copied by the
   server handler in `api/_lib/report-schema.js` AND — since **ADR-099** — by the browser in `main-app/js/ui/report-taxonomy.js`,
   which the modal loads same-origin because `shared/` is outside the main-app deploy root; lockstep across all four surfaces

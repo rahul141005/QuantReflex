@@ -8,6 +8,70 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-101 — Reporting final hardening pass: from-scratch adversarial re-audit + confirmed fixes (2026-07-06)
+- **Context:** a fresh, from-scratch adversarial verification of the *entire* reporting system (three independent
+  audits — client/Learn/MCQ/Contact, backend/schema/lockstep, super-admin/AI-completeness) run under the standing
+  order to *distrust every prior pass and try to disprove correctness*. The feature is fundamentally sound
+  (AI-explanation reporting is complete across all three surfaces — drill wrong-answer, drill review, duel review;
+  XSS escaping is clean; the deterministic-`clientKey` write is race-safe; the six-surface enum lockstep holds), but
+  the audit surfaced one genuine **data-loss** bug, one **schema-invariant / junk-report** hole, a lingering
+  **"impossible reason offered"** assumption (the twin of the MCQ one), a **false "topic" search affordance**, a
+  **broken clipboard-reject** path, and several polish/hardening gaps. Every item was verified against code before
+  fixing. No new features; no Firestore rules/index change (all `classification.type` values remain index-agnostic).
+- **A · Correctness / data integrity.**
+  - **A1 — Server dropped the LR `figure` (data loss).** `report-context.js snapshotQuestion` captured `q.figure`,
+    but the server `sanitizeQuestion` whitelisted only `chart`/`optionFigures` — so a **visual LR** report (the
+    reason that most needs the picture) stored no figure. Fixed: `sanitizeQuestion` now captures `figure`
+    (byte-cap-guarded alongside `chart`/`aiContext`).
+  - **A2 — Fabricated `ai`/`learn` bundle defeated the substance guard + violated the schema invariant.**
+    `sanitizeAi`/`sanitizeLearn` ran unconditionally, so `{type:'bug', learn:{topicId:'x'}}` was accepted (non-empty)
+    and a `bug` doc stored a `learn` bundle. Fixed: `ai` is gated to `source==='ai_explain'` and `learn` to
+    `source==='learn'` (null otherwise) — mirrors the existing `question` source-gating.
+  - **A3 — `visual` reason offered where impossible (twin of the MCQ assumption).** ADR-100 gated `options_wrong`
+    with `mcqOnly`, but "Diagram or image" (`visual`) still showed for pure-text/numeric questions with no chart/
+    figure/optionFigures. Fixed: added `figureOnly:true` to `visual` (shared + browser taxonomy); the in-drill grid
+    now drops `figureOnly` reasons when the live question carries no visual (`_hasVisual`, mirrors the `mcqOnly` gate).
+  - **A4 — Contact copy showed a false success on async clipboard rejection.** `navigator.clipboard.writeText(...)
+    .then(done, done)` toasted "✅ Email copied" even on a denied-permission reject and never tried the `execCommand`
+    fallback. Fixed: on reject, run the `execCommand` fallback and only toast success when a copy path *actually*
+    succeeded (`_execCopy`/`_copied`/`_copyFailed`).
+- **B · Super-Admin moderation.**
+  - **B5 — Learn topics weren't searchable** though the placeholder promised "topic". The light row shape omitted
+    `learn`. Fixed: `_shapeRow` includes a compact `learn:{topicId,title}`; the text filter also matches
+    `learn.title`/`learn.topicId`.
+  - **B6 — no per-type analytics breakdown.** Added `byType` counts (a `count()`-aggregation loop over an inline
+    lockstep-checked `TYPES` list — same O(1) pattern as byStatus/byPriority), rolled up to a compact per-family
+    strip in the dashboard.
+  - **B7 — `pageLocalSearch` banner misled** on a pure type/priority filter with no text. Fixed: shown only when a
+    text query is active.
+  - **B8 — duel-review AI report mislabelled answer type** (no options → `isMCQ:false` → "Typed answer" for an MCQ
+    duel question). Fixed: omit the Answer-type line for duel-sourced reports rather than assert a guessed mode.
+  - **B9 — `.report-fam-other` had no CSS** (the `_typeFamily` default) → a future/unknown type rendered unstyled.
+    Fixed: neutral default rule.
+- **C · Hardening / cleanup.**
+  - **C10 — offline queue could drop a valid report on 401/409.** A transient token-reject (401) or session-replaced
+    (409) during a flush was treated as terminal. Fixed: 401/409 are retryable (kept + retried after re-auth) —
+    closes the last gap in "never lose a report".
+  - **C11 — `report.check.js` blind spots** hardened so ADR-100's drift classes can't recur: assert the super-admin
+    `TYPE_META` + `FAMILY_LABELS` + `TYPE_FILTER_GROUPS` + inline `TYPES` list cover every taxonomy type (not just
+    `TYPE_LABELS`/`SUBREASON_LABELS`); JSON-schema `learn`/`ai` object property sets match the sanitiser outputs;
+    `visual.figureOnly` (shared⇄browser); `sanitizeQuestion` keeps `figure`; the `ai`/`learn` bundle is stripped on a
+    non-matching source; a fabricated bundle no longer satisfies the substance guard. Replaced the vacuous `ok(...,
+    true)` assertions. → **675** assertions.
+  - **C12 — dead code:** removed the unused `earliestFuture` reduce in `report-queue.js flush()`.
+  - **C13 — Learn report on scaffold ("coming soon") topic pages.** The report line lived only in the chapter
+    footer, which scaffold pages skip. Fixed: extracted `_reportTopicLine` and surfaced it on scaffold pages too, so
+    "every topic page exposes a report action" holds.
+- **Deliberately NOT changed (documented):** the minimal `_FALLBACK_TYPES` stays small (last-ditch net if the
+  taxonomy 404s); `answerFormat` remains best-effort (explicit name, else `QRAnswerFormat` kind — documented
+  dual-space); no per-topic Learn aggregation (question-only by design).
+- **Verification:** full `npm test` green; `report.check.js` **675/0**; Playwright sweep **83/0** (adds: MCQ-no-figure
+  shows 11 reasons with `visual` hidden + `options_wrong` shown; a figure MCQ shows all 12 + `figure` round-trips into
+  the payload; typed shows 10; all prior ADR-099/100 cases). `node --check` all touched JS; JSON schema valid; boot
+  smoke clean. Vercel/Firestore/Super-Admin runtime paths reviewed to contract (can't execute here), documented.
+- **No new infra / no rules or index deploy** (Vercel-Hobby intact). SW v219→v220. **Governance:** FIRESTORE_BLUEPRINT
+  (`question.figure` now captured; `ai`/`learn` strictly source-gated); CHANGELOG; VERSIONS (Bible + Firestore).
+
 ## ADR-100 — Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (2026-07-06)
 - **Context:** the final production sign-off for the reporting feature (ADR-096→099). Five owner-requested gaps,
   each grounded in a fresh code audit. No regressions to the ADR-099 experience; no Firestore rules/index change.

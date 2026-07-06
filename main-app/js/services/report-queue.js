@@ -96,6 +96,9 @@
     if (res.ok) return false;
     if (typeof res.status === 'number' && res.status >= 500) return true;
     if (res.status === 429) return true;   /* rate-limited now → try again later */
+    /* 401 (token momentarily rejected) and 409 (session replaced by a newer login) are TRANSIENT auth/session
+       states, not content-invalid — keep the report queued so it flushes after re-auth (ADR-101: "never lose"). */
+    if (res.status === 401 || res.status === 409) return true;
     var err = res.data && res.data.error;
     if (err && err.retryable === true) return true;
     return false;   /* 4xx validation → terminal */
@@ -149,7 +152,6 @@
 
     var now = _now();
     var due = q.filter(function (e) { return !e.nextAt || e.nextAt <= now; });
-    var earliestFuture = q.reduce(function (min, e) { return (e.nextAt && e.nextAt > now) ? Math.min(min, e.nextAt) : min; }, Infinity);
 
     function step(i) {
       if (i >= due.length) return Promise.resolve();
