@@ -445,10 +445,11 @@ async function explainBase(question, answer, category, uid) {
     || (mastery && mastery.tier === 'weak');
 
   var promptId = 'explain.base@' + explainVersion;
+  var usedModel = null;   // ADR-097: the model that generated THIS explanation — surfaced in meta so a report can capture it
   var pieces = null;
   try {
     var cached = await cacheRef.get();
-    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); await aiService.recordAiRequest(uid, { feature: 'explain', status: 'cache_hit', cacheHit: true }); }
+    if (cached.exists) { var c = cached.data(); pieces = { concept: c.concept, steps: c.steps, mistakes: c.mistakes, shortcut: c.shortcut }; usedModel = c.model || null; cacheRef.update({ usageCount: (c.usageCount || 0) + 1 }).catch(function () {}); await aiService.recordAiRequest(uid, { feature: 'explain', status: 'cache_hit', cacheHit: true }); }
   } catch (e) { console.warn('[aiBrain] explain cache read failed:', e.message); }
 
   if (!pieces) {
@@ -465,8 +466,9 @@ async function explainBase(question, answer, category, uid) {
       promptId = _promptId(p);
       var r = await llm.complete({ system: p.system, user: p.user, schema: p.schema, schemaName: p.schemaName, maxTokens: p.maxTokens, temperature: p.temperature, validate: p.validate });
       aiService.recordAiRequest(uid, { feature: _featOf(p.id), promptId: p.id, version: p.version, usage: r.usage, latencyMs: r.latencyMs, model: r.model, attempts: r.attempts });
+      usedModel = r.model || null;
       pieces = r.data;
-      cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistakes: pieces.mistakes, shortcut: pieces.shortcut, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
+      cacheRef.set({ questionId: hash, promptVersion: explainVersion, question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistakes: pieces.mistakes, shortcut: pieces.shortcut, model: r.model || null, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
       if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
       return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
@@ -515,7 +517,7 @@ async function explainBase(question, answer, category, uid) {
     chipReply('Go deeper', 'explain_deeper'),
     chipReply('Another like this', 'explain_another'),
     chipDrill('Drill this', category, catLabel, '⚡')
-  ], { promptId: promptId, topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
+  ], { promptId: promptId, topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50), model: usedModel, provider: 'openai' });
 }
 
 /* ════════════════════════ Conversational turn (explain follow-ups + generic) ════════════════════════ */

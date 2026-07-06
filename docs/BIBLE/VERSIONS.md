@@ -9,12 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.117 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.118 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.24 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.25 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.118 / Firestore 2.25 (2026-07-06)** — **AI-explanation reporting + reporting adversarial hardening (ADR-097).**
+> A code-first adversarial re-verification of ADR-096. Closed the headline gap — users can now **report an AI
+> explanation from the explanation itself** (a ⚑ in the Companion explain sheet), auto-capturing the full question
+> snapshot + the AI explanation text + model + prompt version; the model is now surfaced in the explain envelope
+> meta (`aiBrain.js`, one field) and reports gain a top-level `ai{}` field + a `context.app.source:'ai_explain'`
+> value (**Firestore 2.25**; no rules/index change — the field needs neither). Fixed the audit's findings:
+> a **HIGH** data-loss bug where the Super-Admin list pagination skipped matching reports under an in-memory filter;
+> `_str` deleting newlines/tabs from multi-line free text; rating-only feedback being rejected; internal notes never
+> rendered; the offline queue's dead fatal-drop; and rate-limit-before-dedupe. report.check.js → 226 assertions
+> (incl. tri-surface enum lockstep); Playwright sweep → 47 (AI-report payload, z-index layering, rating-only,
+> multi-line). All prior suites green. No email / no attachments (ADR-096 holds). SW v214→v215.
+>
 > **2.117 / Arch 2.61 / Firestore 2.24 / Security 2.17 (2026-07-06)** — **Ultimate Reporting System (ADR-096).**
 > A complete user-reporting ecosystem across the main app and the Super-Admin app: a premium "Report a Problem" modal
 > (Settings + a fast in-drill ⚑ button that auto-scopes to the current question), a server-authoritative Firestore

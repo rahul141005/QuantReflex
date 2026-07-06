@@ -119,7 +119,7 @@
           "description": "App-level context.",
           "properties": {
             "version": { "type": ["string", "null"], "description": "APP_VERSION (service-worker cache version)." },
-            "source": { "type": "string", "enum": ["settings", "drill"], "description": "Which entry point opened the report." },
+            "source": { "type": "string", "enum": ["settings", "drill", "ai_explain"], "description": "Which entry point opened the report: Settings, an in-drill question, or an AI explanation (ADR-097)." },
             "theme": { "type": ["string", "null"], "enum": ["classic", "playful", null], "description": "Active theme." },
             "appearance": { "type": ["string", "null"], "enum": ["system", "light", "dark", null], "description": "Appearance preference." },
             "targetExam": { "type": ["string", "null"], "description": "Selected target exam." }
@@ -207,6 +207,17 @@
         "streak": { "type": ["number", "null"], "description": "Session streak at report time." }
       },
       "additionalProperties": true
+    },
+    "ai": {
+      "type": ["object", "null"],
+      "description": "AI explanation metadata (ADR-097) — present only when context.app.source==='ai_explain'. Ties a reported explanation back to its exact generation config so an admin can triage it without reproducing it. null otherwise.",
+      "properties": {
+        "explanation": { "type": ["string", "null"], "maxLength": 8000, "description": "The full AI explanation text the user was looking at." },
+        "promptId": { "type": ["string", "null"], "description": "Prompt id embedding the prompt version, e.g. 'explain.base@3'." },
+        "model": { "type": ["string", "null"], "description": "Model that generated the explanation, e.g. 'gpt-4o-mini' (surfaced in the explain envelope meta)." },
+        "provider": { "type": ["string", "null"], "description": "Generation provider, e.g. 'openai'." }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

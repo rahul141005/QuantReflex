@@ -85,6 +85,7 @@ function _shapeRow(doc, full) {
     };
     row.context = d.context || {};
     row.question = d.question || null;
+    row.ai = d.ai || null;   // ADR-097: AI explanation metadata (explanation text + model + promptId)
   }
   return row;
 }
@@ -120,28 +121,36 @@ async function handler(req, res) {
         if (cur.exists) query = query.startAfter(cur);
       }
       const snap = await query.limit(fetchN).get();
-      let rows = [];
-      snap.forEach(function (doc) { rows.push(_shapeRow(doc, false)); });
-      const lastDocId = snap.docs.length ? snap.docs[snap.docs.length - 1].id : null;
+      const fetchedFullWindow = snap.docs.length >= fetchN;   // more docs may exist beyond this window
+      const lastFetchedId = snap.docs.length ? snap.docs[snap.docs.length - 1].id : null;
 
       /* in-memory refinement (type as a secondary filter + text search; status/priority handled by the query) */
-      if (type && status) rows = rows.filter(function (r) { return r.type === type; });
-      if (priority && type && !status) rows = rows.filter(function (r) { return r.priority === priority; });
+      let matched = [];
+      snap.forEach(function (doc) { matched.push(_shapeRow(doc, false)); });
+      if (type && status) matched = matched.filter(function (r) { return r.type === type; });
+      if (priority && type && !status) matched = matched.filter(function (r) { return r.priority === priority; });
       if (search) {
-        rows = rows.filter(function (r) {
+        matched = matched.filter(function (r) {
           return (r.shortId && r.shortId.toLowerCase().indexOf(search) !== -1) ||
                  (r.title && r.title.toLowerCase().indexOf(search) !== -1) ||
                  (r.reporterEmail && r.reporterEmail.toLowerCase().indexOf(search) !== -1) ||
                  (r.type && r.type.toLowerCase().indexOf(search) !== -1);
         });
       }
-      const truncatedForSearch = needsMemFilter;   // page-local search — flagged so the UI can say so
-      rows = rows.slice(0, limit);
+
+      const shown = matched.slice(0, limit);
+      /* There is more to load if the query window was full (more docs beyond it) OR we truncated extra matches
+         from this window. CURSOR = the last DISPLAYED row's id so "Load more" resumes immediately after it and
+         re-scans everything past it — this is lossless (the old bug set the cursor to the last *fetched* doc,
+         which skipped matches that sat between the shown page and the window end). If a full window yielded zero
+         shown rows (all filtered out), advance from the last fetched doc so scanning continues instead of dead-ending. */
+      const hasMore = fetchedFullWindow || matched.length > limit;
+      const nextCursor = hasMore ? (shown.length ? shown[shown.length - 1].id : lastFetchedId) : null;
 
       return res.status(200).json({
-        reports: rows,
-        nextCursor: (snap.docs.length >= fetchN) ? lastDocId : null,
-        pageLocalSearch: truncatedForSearch
+        reports: shown,
+        nextCursor: nextCursor,
+        pageLocalSearch: needsMemFilter   // flag so the UI can note search matches are within loaded pages
       });
     }
 

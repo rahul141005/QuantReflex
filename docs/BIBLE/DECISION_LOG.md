@@ -8,6 +8,55 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-097 — AI-explanation reporting + reporting-system adversarial hardening (2026-07-06)
+- **Context:** a fresh, code-first adversarial re-verification of the ADR-096 reporting system. The headline gap:
+  **users could not report an AI-generated explanation from the explanation itself.** AI explanations render only
+  in the Companion bottom-sheet (`companion-ui.js`), whose only chrome was refresh/close; `ReportModal.open` was
+  reachable solely from Settings and the in-drill ⚑. The `ai_issue` type existed but was Settings-only and attached
+  no AI content — the explanation text, model, and prompt version were never captured. (An adversarial check
+  disproved the separate worry that Timed-Test/Mock lacked the ⚑ button — both reuse `createDrillEngine`, so it's
+  present; only Duel omits it, by design.)
+- **AI-explanation reporting (the fix).** A first-class **"Report this explanation"** ⚑ button now sits in the
+  explain sheet header (`companion-ui.js` `openModal`, gated to `feature==='explain'`). It opens the report modal
+  pre-scoped to the AI issue type and auto-captures, with zero extra taps: the **full question snapshot**
+  (questionId/category/subtype/difficulty/correct answer/the user's answer/drill config — threaded from the drill
+  engine's explain button as `{question, session}`), the **full AI explanation text**, the **model**, and the
+  **prompt version** (`promptId`). **Server (one field):** `aiBrain.js#explainBase` now includes `model` (+
+  `provider`) in the explain envelope `meta` (the model was already in scope for telemetry; also persisted in the
+  explanation cache so cache hits expose it too) — `env.meta.promptId` already carried the prompt version. The
+  report doc gains a top-level `ai:{explanation,promptId,model,provider}` field; a new `context.app.source`
+  value `'ai_explain'`. Reporting an explanation is **2-tap** (pick a sub-reason → send) — no free text required,
+  because the attached AI content is the substance. The Super-Admin Question tab renders an **AI explanation block**
+  (model · provider · prompt version · full text) so an admin sees the exact generation config without reproducing
+  it. Scope: the explanation only (not Coach/Insights/Planner). Still **NO email / NO attachments** (ADR-096 holds).
+- **Confirmed bug fixes from the audit.**
+  - **HIGH — Super-Admin list pagination dropped matching reports.** With an in-memory refinement active (text
+    search, or `type` combined with `status`/`priority`) the "Load more" cursor pointed at the last *fetched* doc,
+    so matches between the shown page and the fetch-window end were skipped forever. Fixed: cursor is now the last
+    *displayed* row's id (re-scan resumes right after it, losing nothing); `hasMore = fullWindow || matched>limit`;
+    a full window with zero shown rows advances from the last fetched id so scanning continues.
+  - **`_str` deleted newlines/tabs** — the control-char strip `[\x00-\x1f\x7f]` collapsed multi-line
+    description/repro/question/explanation into run-on text. Now preserves `\t\n\r`.
+  - **Rating-only feedback was rejected** — a 5-star submit with no text was blocked (client + server). A present
+    `fields.rating` now counts as content.
+  - **Internal notes were written but never displayed** — the Actions tab now renders the note thread.
+  - **Offline queue's `fatal` NO_AUTH drop** — unreachable, and would have violated "never lose a report"; a missing
+    token is now treated as a transient failure (kept + retried).
+  - **Rate-limit ran before dedupe** — an idempotent offline retry could be spuriously 429'd; dedupe (clientKey /
+    type+signature) now runs first so a retry is recognized immediately.
+  - Minor: star-rating state cleared on type-switch; the page-local-search banner persists across mutations; dropped
+    a dead `reasonKey` local.
+- **Verification:** `scripts/report.check.js` → **226** assertions (adds ai-bundle sanitize, `ai_explain` source +
+  2-tap acceptance, rating-only, newline preservation, and a **tri-surface** enum lockstep incl. the super-admin
+  copy). A Playwright browser sweep → **47** assertions (adds: the ai_explain payload carries the AI bundle +
+  question snapshot and no forged uid/plan; the report overlay layers above a z-index:600 companion sheet;
+  rating-only submits; multi-line survives). All prior suites green. **Honest scope:** the Vercel endpoints / real
+  Firestore / the live Super-Admin UI still can't run here — built to contract + code-reviewed; the Firestore/UI-only
+  fixes verified by reading.
+- **Layering:** `.report-modal-overlay` raised to `z-index:700` (above the companion sheet's 600). **Governance:**
+  FIRESTORE_BLUEPRINT (`reports.ai` + `source:'ai_explain'`), CHANGELOG, VERSIONS (Bible + Firestore). No rules or
+  index change — the `ai` field needs neither. SW v214→v215 (`QR_APP_VERSION` in lockstep).
+
 ## ADR-096 — Ultimate Reporting System (bug reports, wrong questions/answers, feedback) (2026-07-06)
 - **Context:** QuantReflex had no way for users to report a bug, a wrong question/answer/explanation, or send
   feedback, and no admin surface to triage such reports. This builds the full ecosystem: a premium in-app submission

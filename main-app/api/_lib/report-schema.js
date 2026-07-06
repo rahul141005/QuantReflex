@@ -85,7 +85,9 @@ function isValidSubReason(type, sub) {
 function _str(v, max) {
   if (v == null) return null;
   var s = String(v);
-  s = s.replace(/[\x00-\x1f\x7f]/g, '').trim();   // strip control chars (keep printable); trim
+  // Strip control chars but PRESERVE tab (\x09), LF (\x0a) and CR (\x0d) so multi-line free-text
+  // (description / repro / expected / actual, and question/explanation snapshots) keeps its line breaks.
+  s = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').trim();
   if (!s) return null;
   if (max && s.length > max) s = s.slice(0, max);
   return s;
@@ -239,6 +241,20 @@ function sanitizeQuestion(q) {
   return clean;
 }
 
+/* ── AI explanation metadata sanitizer (ADR-097) ──
+   Captures the exact generation config + text so an admin can tie a reported explanation back to its source
+   without reproducing it: the full AI explanation text, provider, model, and prompt version (promptId). */
+var AI_EXPLANATION_MAX = 8000;
+function sanitizeAi(ai) {
+  if (!ai || typeof ai !== 'object') return null;
+  var explanation = _str(ai.explanation, AI_EXPLANATION_MAX);
+  var promptId = _str(ai.promptId, 120);
+  var model = _str(ai.model, 60);
+  var provider = _str(ai.provider, 40);
+  if (!explanation && !promptId && !model && !provider) return null;   // nothing worth storing
+  return { explanation: explanation, promptId: promptId, model: model, provider: provider };
+}
+
 /**
  * Validate + normalize a create payload. PURE — no I/O, no reporter identity (assembled by the handler).
  * @param {object} body — untrusted client body
@@ -261,18 +277,12 @@ function validateCreatePayload(body) {
   var title = _str(body.title, FIELD_LIMITS.title);
   var description = _str(body.description, FIELD_LIMITS.description);
 
-  var source = (body.source === 'drill') ? 'drill' : 'settings';
+  /* source is client-declared but constrained to the known entry points; anything else → 'settings'. */
+  var source = (body.source === 'drill' || body.source === 'ai_explain') ? body.source : 'settings';
   var group = groupFor(type);
 
-  /* Question-family reports (the in-drill fast path) are meaningful from the TYPE alone — text optional.
-     App / account / other reports must carry SOME free text (title or description) so triage has substance. */
-  if (group !== 'question') {
-    if (!title && !description) {
-      return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description of the problem.' };
-    }
-  }
-
-  /* type-specific fields bag: keep only known keys, cap each, coerce rating to [1..5]. */
+  /* type-specific fields bag: keep only known keys, cap each, coerce rating to [1..5]. Parsed BEFORE the
+     empty-report guard so a rating counts as content (a star-only feedback submit is valid). */
   var rawFields = (body.fields && typeof body.fields === 'object') ? body.fields : {};
   var fields = {};
   Object.keys(FIELD_CAPS).forEach(function (k) {
@@ -284,13 +294,26 @@ function validateCreatePayload(body) {
     if (r != null) fields.rating = Math.max(FIELD_LIMITS.ratingMin, Math.min(FIELD_LIMITS.ratingMax, Math.round(r)));
   }
 
+  /* Question-family reports (the in-drill fast path) AND ai_explain reports are meaningful from the type +
+     attached context alone — text optional. App / account / other reports must carry SOME substance —
+     free text OR a rating (star-only feedback). */
+  if (group !== 'question' && source !== 'ai_explain') {
+    if (!title && !description && fields.rating == null) {
+      return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description (or a rating).' };
+    }
+  }
+
   var context = sanitizeContext(body.context, source);
 
+  /* Capture the exact question for in-drill AND ai_explain reports (both are anchored to a live question). */
   var question = null, signature = null;
-  if (source === 'drill') {
+  if (source === 'drill' || source === 'ai_explain') {
     question = sanitizeQuestion(body.question);
     if (question) signature = question.signature;
   }
+
+  /* AI-explanation metadata (ADR-097) — only meaningful for ai_explain, but sanitized defensively regardless. */
+  var ai = sanitizeAi(body.ai);
 
   /* client idempotency key — dedupes a double-submit / offline-retry into ONE row (handler enforces). */
   var clientKey = _str(body.clientKey, 64);
@@ -308,6 +331,7 @@ function validateCreatePayload(body) {
       context: context,
       question: question,
       signature: signature,
+      ai: ai,
       clientKey: clientKey
     }
   };
@@ -368,7 +392,7 @@ module.exports = {
   isValidType: isValidType, isValidStatus: isValidStatus, isValidPriority: isValidPriority, isOpenStatus: isOpenStatus,
   groupFor: groupFor, defaultPriorityFor: defaultPriorityFor, isValidSubReason: isValidSubReason,
   computeSignature: computeSignature, makeShortId: makeShortId,
-  sanitizeContext: sanitizeContext, sanitizeQuestion: sanitizeQuestion,
+  sanitizeContext: sanitizeContext, sanitizeQuestion: sanitizeQuestion, sanitizeAi: sanitizeAi,
   validateCreatePayload: validateCreatePayload,
   rateLimitDecision: rateLimitDecision, findDuplicate: findDuplicate
 };

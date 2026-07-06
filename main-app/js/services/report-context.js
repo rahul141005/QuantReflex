@@ -78,7 +78,7 @@
     return {
       app: {
         version: _appVersion(),
-        source: (source === 'drill') ? 'drill' : 'settings',
+        source: (source === 'drill' || source === 'ai_explain') ? source : 'settings',
         theme: s.theme || null,
         appearance: s.appearance || null,
         targetExam: _safe(function () { return (typeof TargetExam !== 'undefined' && TargetExam.get) ? TargetExam.get() : null; })

@@ -502,7 +502,7 @@ var AIFeatures = (function () {
      language, interactive). The old one-shot modal bodies remain as a defensive fallback if Companion is absent. */
   return {
     fetchSpeedBenchmark: fetchSpeedBenchmark,
-    showExplanationModal: function (q, a, c) { if (window.Companion) return Companion.openExplain(q, a, c); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
+    showExplanationModal: function (q, a, c, reportCtx) { if (window.Companion) return Companion.openExplain(q, a, c, reportCtx); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
     showStatsInsightsModal: function () { if (window.Companion) return Companion.openInsights(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
     showCoachModal: function () { if (window.Companion) return Companion.openCoach(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
     openStudyPlanner: function (forceSetup) { if (window.Planner && Planner.open && !forceSetup) return Planner.open(); if (window.Companion && Companion.openStudyPlanner) return Companion.openStudyPlanner(forceSetup); },

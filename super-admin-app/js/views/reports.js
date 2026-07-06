@@ -11,7 +11,7 @@ var ReportsView = (function () {
   'use strict';
 
   var _split = null;
-  var _rows = [], _cursor = null, _loading = false, _more = false;
+  var _rows = [], _cursor = null, _loading = false, _more = false, _pageLocal = false;
   var _statusFilter = 'open', _priorityFilter = '', _text = '', _analytics = null;
 
   var STATUS_CHIPS = ['all', 'open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate'];
@@ -109,7 +109,8 @@ var ReportsView = (function () {
       _rows = reset ? got : _rows.concat(got);
       _cursor = res && res.nextCursor;
       _more = !!_cursor;
-      _renderList(res && res.pageLocalSearch);
+      _pageLocal = !!(res && res.pageLocalSearch);
+      _renderList();
     }).catch(function (e) {
       _loading = false;
       var listEl = document.getElementById('rList');
@@ -117,7 +118,7 @@ var ReportsView = (function () {
     });
   }
 
-  function _renderList(pageLocal) {
+  function _renderList() {
     var listEl = document.getElementById('rList'); if (!listEl) return;
     if (!_rows.length) {
       listEl.innerHTML = AdminUtils.emptyState({ icon: '✅', title: 'No reports', text: 'Nothing matches this filter. Try “All” or a different priority.' });
@@ -125,7 +126,7 @@ var ReportsView = (function () {
       return;
     }
     listEl.innerHTML =
-      (pageLocal ? '<div class="muted" style="font-size:.75rem;margin-bottom:.4rem;">Search matches within the loaded pages — Load more to search further.</div>' : '') +
+      (_pageLocal ? '<div class="muted" style="font-size:.75rem;margin-bottom:.4rem;">Search matches within the loaded pages — Load more to search further.</div>' : '') +
       _rows.map(function (r) {
         var sub = _typeLabel(r.type) + (r.reporterEmail ? ' · ' + _esc(r.reporterEmail) : '') + ' · ' + _esc(_fmtT(r.createdAt));
         return '<div class="sv-row" role="button" tabindex="0" aria-label="Open report ' + _esc(r.shortId || r.id) + '" data-sv-id="' + _esc(r.id) + '" data-rid="' + _esc(r.id) + '">' +
@@ -226,9 +227,20 @@ var ReportsView = (function () {
       '</div>';
   }
 
+  /* ADR-097: AI explanation block — the exact generation config + text so an admin can tie the report to its
+     source without reproducing it. */
+  function _aiBlock(ai) {
+    if (!ai) return '';
+    return '<div class="report-ai-block">' +
+      '<div class="cc-section-title">🤖 AI explanation reported</div>' +
+      _kv('Model', ai.model || 'unknown') + _kv('Provider', ai.provider || '—') + _kv('Prompt version', ai.promptId || '—') +
+      (ai.explanation ? '<div class="muted" style="margin:.5rem 0 .25rem;">Explanation shown to the user</div><pre class="report-tech-pre">' + _esc(ai.explanation) + '</pre>' : '<div class="muted">No explanation text captured.</div>') +
+      '</div>';
+  }
+
   function _tabQuestion(el, r, aggregate, related) {
     var q = r.question;
-    if (!q) { el.innerHTML = '<div class="card" style="padding:1rem;"><div class="muted">This report is not tied to a specific question.</div></div>'; return; }
+    if (!q) { el.innerHTML = '<div class="card" style="padding:1rem;">' + (r.ai ? _aiBlock(r.ai) : '<div class="muted">This report is not tied to a specific question.</div>') + '</div>'; return; }
     var opts = '';
     if (Array.isArray(q.options) && q.options.length) {
       opts = '<div class="muted" style="margin:.6rem 0 .25rem;">Options</div>' + q.options.map(function (o) {
@@ -237,6 +249,7 @@ var ReportsView = (function () {
       }).join('');
     }
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
+      _aiBlock(r.ai) +
       (aggregate ? '<div class="report-agg"><span class="badge badge-open">Reported ' + (aggregate.count || 0) + '×</span> · ' + (aggregate.openCount || 0) + ' still open</div>' : '') +
       _kv('Signature', q.signature) + _kv('Category', q.category) + (q.subtype ? _kv('Subtype', q.subtype) : '') +
       (q.difficulty ? _kv('Difficulty', q.difficulty) : '') + _kv('Mode', q.mode) +
@@ -285,6 +298,9 @@ var ReportsView = (function () {
       return '<button class="btn btn-sm ' + (p === r.priority ? 'accent' : 'btn-outline') + '" data-prio="' + p + '">' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>';
     }).join('');
     var labels = (life.labels || []).map(function (l) { return '<span class="badge badge-draft report-label-chip" data-label="' + _esc(l) + '">' + _esc(l) + ' ✕</span>'; }).join(' ');
+    var notes = (life.internalNotes || []).map(function (n) {
+      return '<div class="report-note"><div class="report-note-meta muted">' + _esc(n.email || n.by || 'admin') + ' · ' + _esc(_fmtT(n.at)) + '</div><div class="report-note-body">' + _esc(n.text || '') + '</div></div>';
+    }).join('');
 
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
       '<div class="cc-section-title">Status</div><div class="cc-quick" id="rStatusRow">' + statusBtns + '</div>' +
@@ -296,7 +312,8 @@ var ReportsView = (function () {
       '<div class="cc-section-title" style="margin-top:.75rem;">Labels</div>' +
         '<div id="rLabels" style="margin-bottom:.4rem;">' + (labels || '<span class="muted">None</span>') + '</div>' +
         '<div style="display:flex;gap:.5rem;"><input type="text" class="modal-input" id="rLabelInput" placeholder="Add a label" style="flex:1;margin:0;" maxlength="40" /><button class="btn btn-sm btn-outline" id="rLabelAdd">Add</button></div>' +
-      '<div class="cc-section-title" style="margin-top:.75rem;">Internal note</div>' +
+      '<div class="cc-section-title" style="margin-top:.75rem;">Internal notes</div>' +
+        (notes ? '<div id="rNotes" style="margin-bottom:.4rem;">' + notes + '</div>' : '<div class="muted" style="margin-bottom:.4rem;">No notes yet.</div>') +
         '<textarea class="modal-input" id="rNote" placeholder="Add a private note (not shown to the reporter)" style="min-height:3.5rem;"></textarea>' +
         '<button class="btn btn-sm btn-outline" id="rNoteAdd" style="margin-top:.4rem;">Add note</button>' +
       '<div class="cc-section-title" style="margin-top:.75rem;">Merge</div>' +

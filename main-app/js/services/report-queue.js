@@ -68,7 +68,9 @@
   /* One network attempt. Resolves { ok, status, data } or { ok:false, network:true } on transport failure. */
   function _post(payload) {
     return _token().then(function (token) {
-      if (!token) return { ok: false, code: 'NO_AUTH', fatal: true };
+      /* No token yet (auth not ready / signed out mid-flush) → treat as a transient transport failure so the
+         report is KEPT in the queue and retried later, never dropped ("never lose a report"). */
+      if (!token) return { ok: false, network: true };
       var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
       try { if (root.Session && Session.id) headers['X-Session-Id'] = Session.id(); } catch (_) {}
       return root.fetch('/api/report?action=create', {

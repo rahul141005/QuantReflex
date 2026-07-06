@@ -6,6 +6,45 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — AI-explanation reporting + reporting-system adversarial hardening (ADR-097)
+
+A code-first adversarial re-verification of ADR-096. Added the missing **"Report this explanation"** path from AI
+explanations (auto-capturing the question snapshot + full explanation text + model + prompt version) and fixed the
+defects the audit surfaced — headlined by a data-loss bug in the Super-Admin list pagination. Still no email / no
+attachments. Full detail in ADR-097.
+
+```
+### feat(reporting): AI-explanation reporting
+- services/aiBrain.js: explainBase() envelope meta now includes model (+ provider); model persisted in the
+  explanation cache so cache hits expose it too. (env.meta.promptId already carried the prompt version.)
+- js/ai-features.js + js/drill-engine.js: showExplanationModal forwards a 4th reportCtx {question, session} from
+  the drill explain button (live question + session snapshot).
+- js/companion-ui.js: ⚑ "Report this explanation" button in the explain sheet header (feature-gated); captures
+  promptId/model/lastExplanation and opens ReportModal(source:'ai_explain', question, session, ai:{…}).
+- js/ui/report-modal.js: source 'ai_explain' pre-scopes to ai_issue, renders form directly (Back closes), 2-tap
+  (no free text required), attaches the ai bundle + question snapshot; tech preview shows model/prompt/snippet.
+- api/_lib/report-schema.js: sanitizeAi() (explanation≤8000, promptId/model/provider); source 'ai_explain' accepted;
+  question snapshot captured for ai_explain; api/report.js stores top-level `ai`; shared/schemas/report-schema.json
+  documents `ai` + the new source. super-admin api/admin/reports.js `_shapeRow` returns `ai`; js/views/reports.js
+  renders an AI explanation block (model · provider · prompt version · full text).
+- css/style.css: .report-modal-overlay z-index 700 (above the companion sheet's 600) + .companion-report button.
+### fix(reporting): adversarial audit findings
+- super-admin api/admin/reports.js (HIGH): list pagination no longer skips matching reports under an in-memory
+  refinement — cursor is the last DISPLAYED row (lossless re-scan), hasMore accounts for truncated matches.
+- api/_lib/report-schema.js: _str preserves \t\n\r (multi-line free text no longer collapsed); rating-only feedback
+  accepted (present rating counts as content); report.js dedupe now runs BEFORE the rate-limit (idempotent retries
+  never spuriously 429'd); dropped dead `reasonKey`.
+- super-admin js/views/reports.js: Actions tab renders the internal-note thread; page-local-search banner persists
+  across mutations (state-backed).
+- js/services/report-queue.js: a missing token is a transient failure (kept + retried), not a fatal drop.
+- js/ui/report-modal.js: star-rating state cleared on type switch.
+### chore + test
+- index.html + service-worker.js: v214 → v215 (QR_APP_VERSION in lockstep).
+- scripts/report.check.js: 226 assertions (adds ai-bundle sanitize, ai_explain source + 2-tap, rating-only, newline
+  preservation, tri-surface enum lockstep incl. super-admin). Playwright browser sweep: 47 assertions (adds AI-report
+  payload capture, z-index layering, rating-only, multi-line). All prior suites green.
+```
+
 ## 2026-07-06 — Ultimate Reporting System (ADR-096)
 
 Complete user-reporting ecosystem across the main app and the Super-Admin app: a premium "Report a Problem" modal

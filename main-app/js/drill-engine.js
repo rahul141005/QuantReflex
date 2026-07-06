@@ -885,7 +885,9 @@ function createDrillEngine(container, opts) {
             if (_opts) _explainQ += ' Options: ' + _opts + '.';
           }
         } catch (_) {}
-        AIFeatures.showExplanationModal(_explainQ, expected, q.category);
+        /* ADR-097: hand the explain sheet the LIVE question + session snapshot so a "Report this explanation"
+           from inside the sheet auto-captures the exact item (id/category/answer/user-answer/…). */
+        AIFeatures.showExplanationModal(_explainQ, expected, q.category, { question: q, session: _buildReportState() });
       });
       feedback.parentNode.insertBefore(explainBtn, feedback.nextSibling);
     }

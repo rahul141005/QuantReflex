@@ -91,18 +91,21 @@ async function _create(req, res, db) {
     console.warn('[report:create] recent-reports query failed (rate-limit skipped):', qErr.message);
   }
 
-  const rl = schema.rateLimitDecision(candidates.map(function (c) { return c.createdAtMs; }), now, schema.RATE_LIMIT);
-  if (!rl.allowed) {
-    return res.status(429).json({ error: { code: rl.code, message: rl.message, retryable: rl.retryable } });
-  }
-
-  /* Dedupe: an identical (type+signature) within the window, or a repeated clientKey (offline retry),
-     collapses into the existing row — we return its ref instead of filing a new report. */
+  /* Dedupe FIRST (before the rate-limit): an identical (type+signature) within the window, or a repeated
+     clientKey (offline retry), collapses into the existing row — we return its ref instead of filing a new
+     report. Running this before the rate-limit means an idempotent retry of an already-filed report is
+     recognized immediately and never spuriously 429'd once the per-hour cap is reached. */
   const dupId = schema.findDuplicate(candidates, { type: clean.type, signature: clean.signature, clientKey: clean.clientKey }, now, schema.RATE_LIMIT);
   if (dupId) {
     let shortId = null;
     try { const dSnap = await db.collection('reports').doc(dupId).get(); if (dSnap.exists) shortId = dSnap.data().shortId || null; } catch (_) {}
     return res.status(200).json({ success: true, id: dupId, shortId: shortId, duplicate: true });
+  }
+
+  /* Rate-limit genuinely-new reports only (dedupe already returned for retries above). */
+  const rl = schema.rateLimitDecision(candidates.map(function (c) { return c.createdAtMs; }), now, schema.RATE_LIMIT);
+  if (!rl.allowed) {
+    return res.status(429).json({ error: { code: rl.code, message: rl.message, retryable: rl.retryable } });
   }
 
   /* 4) Assemble the doc SERVER-SIDE. */
@@ -146,7 +149,8 @@ async function _create(req, res, db) {
       internalNotes: []
     },
     context: clean.context,
-    question: clean.question   /* null unless source==='drill' */
+    question: clean.question,  /* null unless source is 'drill' or 'ai_explain' */
+    ai: clean.ai               /* ADR-097: AI explanation metadata (explanation text + model + promptId), else null */
   };
 
   /* 5) Write reports/{id} + bump questionReports/{signature} atomically. Spark has no Firestore triggers, so
@@ -155,7 +159,6 @@ async function _create(req, res, db) {
   try {
     if (clean.signature) {
       const aggRef = db.collection('questionReports').doc(_safeDocId(clean.signature));
-      const reasonKey = 'topReasons.' + clean.type;
       await db.runTransaction(async function (tx) {
         const aggSnap = await tx.get(aggRef);
         const prev = aggSnap.exists ? (aggSnap.data() || {}) : {};

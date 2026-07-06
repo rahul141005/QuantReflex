@@ -53,11 +53,13 @@
     if (_open) return;
     opts = opts || {};
     _open = true;
+    var src = (opts.source === 'drill' || opts.source === 'ai_explain') ? opts.source : 'settings';
     st = {
-      source: opts.source === 'drill' ? 'drill' : 'settings',
+      source: src,
       question: opts.question || null,
       session: opts.session || null,
-      scope: opts.source === 'drill' ? 'drill' : 'all',   /* which type set the picker shows */
+      ai: opts.ai || null,                                /* ADR-097: AI explanation bundle (ai_explain source) */
+      scope: src === 'drill' ? 'drill' : 'all',           /* which type set the picker shows */
       type: null,
       subReason: null,
       submitting: false
@@ -79,7 +81,9 @@
     };
     document.addEventListener('keydown', _keyHandler, true);
 
-    _renderPicker();
+    /* ai_explain is pre-scoped to the AI issue type — skip the picker and open the form directly. */
+    if (st.source === 'ai_explain') { st.type = 'ai_issue'; _renderForm(); }
+    else _renderPicker();
     _sound('settingsToggle');
   }
 
@@ -174,12 +178,15 @@
     for (var i = 0; i < btns.length; i++) {
       btns[i].addEventListener('click', function () {
         st.type = this.getAttribute('data-type');
-        st.subReason = null;
+        _clearForm();   /* new type → drop any rating/sub-reason left from a previous form (ADR-097 B6) */
         _sound('tabSwitch');
         _renderForm();
       });
     }
   }
+
+  /* Reset transient per-form state so it never leaks across a type switch (ADR-097 B6). */
+  function _clearForm() { if (st) { st.subReason = null; st._rating = null; } }
 
   /* ── Step 2: type-specific form ── */
   function _typeById(id) {
@@ -198,12 +205,16 @@
     var html = '' +
       '<div class="modal-content report-modal">' +
         '<button class="report-modal-close" type="button" aria-label="Close">' + _ico('close', '✕') + '</button>' +
-        '<button class="report-back-btn" type="button">' + _ico('back', '‹') + ' Back</button>' +
+        /* ai_explain has no picker to go back to — the Back button closes instead. */
+        '<button class="report-back-btn" type="button">' + _ico('back', '‹') + (st.source === 'ai_explain' ? ' Close' : ' Back') + '</button>' +
         '<h3 class="modal-title report-modal-title">' +
           '<span class="report-type-emoji" aria-hidden="true">' + _esc(t.icon || '•') + '</span> ' + _esc(t.label) +
         '</h3>';
 
-    if (st.source === 'drill' && st.question) {
+    if (st.source === 'ai_explain') {
+      html += '<p class="report-modal-sub report-q-scope">' + _ico('robot', '🤖') +
+              ' Reporting this AI explanation — the question, your answer, the explanation text and the model are attached automatically.</p>';
+    } else if (st.source === 'drill' && st.question) {
       html += '<p class="report-modal-sub report-q-scope">' + _ico('target', '🎯') +
               ' Reporting the current question — its full details are attached automatically.</p>';
     }
@@ -258,7 +269,7 @@
 
   function _wireForm(t) {
     _overlay.querySelector('.report-modal-close').addEventListener('click', function () { if (!st.submitting) close(); });
-    _overlay.querySelector('.report-back-btn').addEventListener('click', function () { if (!st.submitting) _renderPicker(); });
+    _overlay.querySelector('.report-back-btn').addEventListener('click', function () { if (st.submitting) return; if (st.source === 'ai_explain') { close(); } else { _clearForm(); _renderPicker(); } });
     _overlay.querySelector('.report-cancel').addEventListener('click', function () { if (!st.submitting) close(); });
 
     /* sub-reason chips */
@@ -319,9 +330,13 @@
     lines.push('Online: ' + (dev.online === false ? 'no' : 'yes') + (dev.connection ? ' (' + dev.connection + ')' : ''));
     lines.push('Locale: ' + (loc.language || '-') + ' · ' + (loc.tz || '-'));
     lines.push('Route: ' + (ctx.route || '-'));
-    if (st.source === 'drill' && st.question) {
+    if ((st.source === 'drill' || st.source === 'ai_explain') && st.question) {
       lines.push('Question: ' + (st.question.category || '?') + (st.question.subtype ? '/' + st.question.subtype : ''));
       if (st.question.question) lines.push('  “' + String(st.question.question).slice(0, 120) + '”');
+    }
+    if (st.source === 'ai_explain' && st.ai) {
+      lines.push('AI model: ' + (st.ai.model || 'unknown') + (st.ai.promptId ? ' · prompt ' + st.ai.promptId : ''));
+      if (st.ai.explanation) lines.push('Explanation: “' + String(st.ai.explanation).slice(0, 160) + (st.ai.explanation.length > 160 ? '…' : '') + '”');
     }
     if (ctx.recentErrors && ctx.recentErrors.length) lines.push('Recent errors: ' + ctx.recentErrors.length + ' captured');
     return lines.join('\n');
@@ -359,9 +374,10 @@
     if (!t) return;
     var vals = _readFields(t);
 
-    /* app/account/other reports need SOME text; question-family reports are meaningful from the type alone. */
-    if (t.group !== 'question' && !vals.title && !vals.description) {
-      _toast('Please add a short description first.');
+    /* app/account/other reports need SOME substance — free text OR a rating (a star-only feedback submit is
+       valid). Question-family AND ai_explain reports are meaningful from the type + attached context alone. */
+    if (t.group !== 'question' && st.source !== 'ai_explain' && !vals.title && !vals.description && vals.fields.rating == null) {
+      _toast('Please add a short description (or a rating).');
       var firstField = _overlay.querySelector('.modal-input');
       if (firstField) firstField.focus();
       return;
@@ -378,9 +394,10 @@
       fields: vals.fields,
       source: st.source,
       context: _collectContext(),
-      question: (st.source === 'drill' && st.question && root.ReportContext)
+      question: ((st.source === 'drill' || st.source === 'ai_explain') && st.question && root.ReportContext)
         ? root.ReportContext.snapshotQuestion(st.question, st.session || {})
-        : null
+        : null,
+      ai: (st.source === 'ai_explain' && st.ai) ? st.ai : null
     };
 
     var submitP = (root.ReportQueue && root.ReportQueue.submit)

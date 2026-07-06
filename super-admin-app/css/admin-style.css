@@ -1018,3 +1018,9 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .report-label-chip:hover { opacity: .8; }
 .report-tech-pre { margin: 0; padding: .5rem .6rem; font-size: .72rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2, #f1f5f9); border-radius: .4rem; }
 .report-tech summary { cursor: pointer; font-size: .82rem; color: var(--text-secondary); padding: .3rem 0; }
+
+/* ADR-097 — AI explanation report block + internal note rows */
+.report-ai-block { border: 1px solid var(--border-color); border-radius: .6rem; padding: .6rem .7rem; margin-bottom: .6rem; background: var(--accent-soft); }
+.report-note { border-left: 3px solid var(--border-strong); padding: .3rem .5rem; margin-bottom: .4rem; background: var(--surface-2, #f1f5f9); border-radius: .3rem; }
+.report-note-meta { font-size: .72rem; margin-bottom: .15rem; }
+.report-note-body { font-size: .84rem; white-space: pre-wrap; word-break: break-word; }

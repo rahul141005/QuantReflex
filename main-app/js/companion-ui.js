@@ -121,7 +121,8 @@ var Companion = (function () {
   function fmtMin(m) { return m >= 60 ? (m % 60 ? (Math.floor(m / 60) + 'h ' + (m % 60) + 'm') : (m / 60 + 'h')) : (m + ' min'); }
 
   /* ---------- modal ---------- */
-  function openModal(title) {
+  function openModal(title, opts) {
+    opts = opts || {};
     var prior = document.getElementById('companionOverlay'); if (prior && prior.parentNode) prior.parentNode.removeChild(prior);
     var overlay = el(
       '<div id="companionOverlay" class="companion-overlay" role="dialog" aria-modal="true" tabindex="-1" aria-label="' + esc(title || PERSONA) + '">' +
@@ -129,12 +130,15 @@ var Companion = (function () {
           '<div class="companion-grabber" aria-hidden="true"></div>' +
           '<div class="companion-head"><span class="companion-badge">' + esc(PERSONA) + '</span>' +
             '<span class="companion-title">' + esc(title || '') + '</span>' +
+            /* ADR-097: report affordance — only rendered for surfaces that pass onReport (the explanation sheet). */
+            (opts.onReport ? '<button class="companion-report" type="button" aria-label="Report this explanation" title="Report a problem">⚑</button>' : '') +
             '<button class="companion-refresh" type="button" aria-label="Refresh" title="Refresh" style="display:none">↻</button>' +
             '<button class="companion-close" type="button" aria-label="Close">✕</button></div>' +
           '<div class="companion-scroll"></div>' +
         '</div></div>');
     document.body.appendChild(overlay);
     function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); _state = null; }
+    if (opts.onReport) { var _rb = overlay.querySelector('.companion-report'); if (_rb) _rb.addEventListener('click', function () { opts.onReport(); }); }
     overlay.querySelector('.companion-close').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
     /* Keyboard parity with touch's drag-to-dismiss: Escape closes the sheet (standard dialog expectation). */
@@ -418,7 +422,7 @@ var Companion = (function () {
       var env = res.data.response;
       (env.blocks || []).forEach(function (b) { if (b.type === 'say') _state.history.push({ role: 'ai', content: b.text }); });
       // Keep the anchor fresh: the latest reworked explanation becomes the basis for the next follow-up.
-      if (_state.explainCtx) { var t = explanationText(env); if (t) _state.explainCtx.lastExplanation = t; }
+      if (_state.explainCtx) { var t = explanationText(env); if (t) _state.explainCtx.lastExplanation = t; _captureAiMeta(env); }
       renderEnvelope(body, env, true);
     });
   }
@@ -441,10 +445,12 @@ var Companion = (function () {
 
   /* ---------- feature openers ---------- */
   function openFeature(o) {
-    var m = openModal(o.title);
+    // ADR-097: the explain sheet gets a ⚑ report affordance; other features don't.
+    var m = openModal(o.title, o.feature === 'explain' ? { onReport: _reportExplanation } : null);
     _state = { feature: o.feature, topic: o.topic || '', history: [], body: m.body, modal: m };
     // Explain anchor: remember the exact question so every follow-up turn deepens THIS problem (ADR-045).
-    if (o.feature === 'explain') _state.explainCtx = { question: (o.body && o.body.question) || '', lastExplanation: '' };
+    // reportCtx (ADR-097) carries the live question object + drill session snapshot for a report from here.
+    if (o.feature === 'explain') _state.explainCtx = { question: (o.body && o.body.question) || '', lastExplanation: '', reportCtx: o.reportCtx || null, promptId: null, model: null };
     log(o.feature, 'opened', {});
     // Force a fresh context when the student practiced since this feature last refreshed, or tapped refresh.
     var force = !!o.force || (o.autoForce && shouldForce(o.feature));
@@ -475,16 +481,37 @@ var Companion = (function () {
       if (!env) { if (!hadCache) { m.body.innerHTML = ''; renderError(m.body, { code: 'ERR' }, reopen); } return; }
       if (force) markSeen(o.feature, stamp);
       if (cacheable) _envCache[o.feature] = env;
-      if (_state.explainCtx) _state.explainCtx.lastExplanation = explanationText(env);
+      if (_state.explainCtx) { _state.explainCtx.lastExplanation = explanationText(env); _captureAiMeta(env); }
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId, refreshed: !!force });
       renderEnvelope(m.body, env, false);
     });
   }
   function _assign(a, b) { var o = {}; var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 
-  function openExplain(question, answer, category) {
+  /* ADR-097: capture the generation config from the explain envelope meta so a report can attach it. */
+  function _captureAiMeta(env) {
+    if (!_state || !_state.explainCtx || !env || !env.meta) return;
+    if (env.meta.promptId) _state.explainCtx.promptId = env.meta.promptId;
+    if (env.meta.model) _state.explainCtx.model = env.meta.model;
+  }
+  /* ADR-097: open the report modal pre-scoped to THIS AI explanation (question snapshot + explanation text +
+     model + prompt version). Guarded so a missing ReportModal never throws. */
+  function _reportExplanation() {
+    if (!_state || !_state.explainCtx) return;
+    if (typeof ReportModal === 'undefined' || !ReportModal.open) return;
+    var ec = _state.explainCtx;
+    ReportModal.open({
+      source: 'ai_explain',
+      question: (ec.reportCtx && ec.reportCtx.question) || null,
+      session: (ec.reportCtx && ec.reportCtx.session) || {},
+      ai: { explanation: ec.lastExplanation || '', promptId: ec.promptId || null, model: ec.model || null, provider: 'openai' }
+    });
+  }
+
+  function openExplain(question, answer, category, reportCtx) {
     openFeature({ feature: 'explain', title: 'Explain', topic: category, action: 'explain',
-      body: { question: question, answer: answer, category: category }, stages: ['Working through it…', 'Finding the cleanest way…'] });
+      body: { question: question, answer: answer, category: category }, reportCtx: reportCtx || null,
+      stages: ['Working through it…', 'Finding the cleanest way…'] });
   }
   function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, withClientStats: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
   function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, withClientStats: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }

@@ -12017,6 +12017,13 @@ body.theme-playful {
    Reuses .modal-overlay/.modal-content scaffold. Themed via --qr-* tokens
    (dark-mode + playful inherit automatically). No screenshot/file UI.
    ============================================================ */
+/* ADR-097: the report overlay must sit ABOVE the AI companion sheet (z-index 600) so an "ai_explain"
+   report opened from inside the explanation renders on top of it, not behind. */
+.report-modal-overlay { z-index: 700; }
+/* Report affordance in the AI explanation sheet header (mirrors .companion-refresh). */
+.companion-report { flex: 0 0 auto; width: 2rem; height: 2rem; border: none; background: rgba(37, 99, 235, .08); border-radius: 999px; color: #2563eb; font-size: 1rem; line-height: 1; cursor: pointer; }
+.companion-report:active { transform: scale(.95); }
+body.dark-mode .companion-report { background: rgba(96, 165, 250, .14); color: #93c5fd; }
 .report-modal {
   width: 100%; max-width: 30rem; max-height: min(88vh, 44rem);
   display: flex; flex-direction: column; position: relative;
