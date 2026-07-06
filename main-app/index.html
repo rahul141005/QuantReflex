@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v218';</script>
+  <script>window.QR_APP_VERSION = 'v219';</script>
 </head>
 <body>
 
@@ -814,7 +814,7 @@
         </div>
       </div>
 
-      <!-- SECTION 5b — Feedback (ADR-096) -->
+      <!-- SECTION 5b — Feedback (ADR-096) + Contact (ADR-100) -->
       <div class="settings-section">
         <h3 class="settings-section-title">Feedback</h3>
         <div class="settings-section-card">
@@ -824,6 +824,18 @@
               <p>Wrong question, a bug, or an idea — tell us</p>
             </div>
             <span class="settings-chevron">›</span>
+          </div>
+          <div class="settings-row-divider"></div>
+          <!-- Contact card (ADR-100): tap the address to email, or copy it. -->
+          <div class="contact-card">
+            <span class="contact-card-avatar" aria-hidden="true"><span class="qr-ico" data-ico="mail">✉️</span></span>
+            <div class="contact-card-body">
+              <div class="contact-card-title">Contact QuantReflex</div>
+              <a class="contact-card-email" id="contactEmailLink" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>
+            </div>
+            <button class="contact-card-copy" id="contactEmailCopy" type="button" aria-label="Copy email address" title="Copy email">
+              <span class="qr-ico" data-ico="copy" aria-hidden="true">📋</span>
+            </button>
           </div>
         </div>
       </div>

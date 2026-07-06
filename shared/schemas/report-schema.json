@@ -55,8 +55,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["answer_wrong", "solution_wrong", "explanation_wrong", "options_wrong", "formula_wrong", "typo", "visual", "unclear", "difficulty_mismatch", "wrong_topic", "duplicate", "question_other", "ai_issue", "bug", "crash", "ui_issue", "performance", "payment", "account", "feature_request", "feedback", "other"],
-          "description": "Report type (ADR-099 taxonomy). Groups: question (answer_wrong…question_other, all in-drill), ai (ai_issue), app (bug/crash/ui_issue/performance), account (payment/account), other (feature_request/feedback/other). In-drill entry shows the question-family reasons; the AI explanation sheet pre-selects ai_issue; Settings offers a guided chooser across all groups. Type values are index-agnostic — the (classification.type, createdAtMs) composite index is value-agnostic, so this set can be enriched with no new index. Legacy ids question_wrong/formatting may appear on reports filed before ADR-099."
+          "enum": ["answer_wrong", "solution_wrong", "explanation_wrong", "options_wrong", "formula_wrong", "typo", "visual", "unclear", "difficulty_mismatch", "wrong_topic", "duplicate", "question_other", "ai_issue", "learn_issue", "bug", "crash", "ui_issue", "performance", "payment", "account", "feature_request", "feedback", "other"],
+          "description": "Report type (ADR-099 taxonomy; ADR-100 adds learn_issue). Groups: question (answer_wrong…question_other, all in-drill), ai (ai_issue), learn (learn_issue — opened from a Learn chapter), app (bug/crash/ui_issue/performance), account (payment/account), other (feature_request/feedback/other). In-drill entry shows the question-family reasons; the AI explanation sheet pre-selects ai_issue; a Learn chapter pre-selects learn_issue; Settings offers a guided chooser across the question/ai/app/account/other groups. Type values are index-agnostic — the (classification.type, createdAtMs) composite index is value-agnostic, so this set can be enriched with no new index. Legacy ids question_wrong/formatting may appear on reports filed before ADR-099."
         },
         "subReason": { "type": ["string", "null"], "description": "Optional type-specific refinement (e.g. visual→'chart_wrong', payment→'refund'). Validated against report-types.js subReasons for the type.", "default": null },
         "title": { "type": ["string", "null"], "maxLength": 140, "description": "Optional short summary (shown for bug/crash/feature/other).", "default": null },
@@ -119,7 +119,7 @@
           "description": "App-level context.",
           "properties": {
             "version": { "type": ["string", "null"], "description": "APP_VERSION (service-worker cache version)." },
-            "source": { "type": "string", "enum": ["settings", "drill", "ai_explain"], "description": "Which entry point opened the report: Settings, an in-drill question, or an AI explanation (ADR-097)." },
+            "source": { "type": "string", "enum": ["settings", "drill", "ai_explain", "learn"], "description": "Which entry point opened the report: Settings, an in-drill question, an AI explanation (ADR-097), or a Learn chapter (ADR-100)." },
             "theme": { "type": ["string", "null"], "enum": ["classic", "playful", null], "description": "Active theme." },
             "appearance": { "type": ["string", "null"], "enum": ["system", "light", "dark", null], "description": "Appearance preference." },
             "targetExam": { "type": ["string", "null"], "description": "Selected target exam." }
@@ -183,7 +183,9 @@
         "subtype": { "type": ["string", "null"], "description": "Archetype/subtype key." },
         "difficulty": { "type": ["string", "null"] },
         "questionText": { "type": ["string", "null"], "maxLength": 4000 },
-        "options": { "type": ["array", "null"], "description": "MCQ options as rendered." },
+        "isMCQ": { "type": ["boolean", "null"], "description": "ADR-100: true iff the question is multiple-choice (has options); false for typed/numeric input. Lets consumers stop re-inferring answer mode from options length." },
+        "answerFormat": { "type": ["string", "null"], "description": "ADR-100: answer format kind when known (mcq|integer|decimal|negint|negdecimal|ratio|fraction|percentValue), best-effort from the question or the answer-format module." },
+        "options": { "type": ["array", "null"], "description": "MCQ options as rendered (null for typed/numeric questions)." },
         "optionFigures": { "type": ["array", "null"], "description": "Compact per-option figure specs, when present." },
         "answer": { "description": "Correct answer (number or string as rendered)." },
         "explanation": { "type": ["string", "null"], "maxLength": 8000 },
@@ -214,6 +216,20 @@
       "properties": {
         "explanation": { "type": ["string", "null"], "maxLength": 8000, "description": "The full QuanAI explanation text the user was looking at." },
         "promptId": { "type": ["string", "null"], "description": "QuanAI-owned prompt/version identifier, e.g. 'explain.base@3'. Reveals nothing about the underlying provider or model." }
+      },
+      "additionalProperties": false
+    },
+    "learn": {
+      "type": ["object", "null"],
+      "description": "Learn topic metadata (ADR-100) — present only when context.app.source==='learn' (a report filed from a Learn chapter). Lets an admin see exactly which chapter without reproducing it. null otherwise. There is no Learn content version in the knowledge schema (the tiny/stable topic shape), so none is captured — the app version lives in context.app.version.",
+      "properties": {
+        "topicId": { "type": ["string", "null"], "description": "Learn topic slug, e.g. 'lr-coding-decoding'." },
+        "title": { "type": ["string", "null"], "maxLength": 200, "description": "Chapter title." },
+        "category": { "type": ["string", "null"], "description": "Knowledge category id (e.g. 'lr-reasoning')." },
+        "subject": { "type": ["string", "null"], "description": "Subject rollup id (e.g. 'lr', 'quant', 'di')." },
+        "difficulty": { "type": ["string", "null"], "description": "foundation|core|advanced." },
+        "examFrequency": { "type": ["string", "null"], "description": "very-high|high|medium|low." },
+        "route": { "type": ["string", "null"], "description": "location.hash at report time, e.g. '#learn/lr-coding-decoding'." }
       },
       "additionalProperties": false
     }

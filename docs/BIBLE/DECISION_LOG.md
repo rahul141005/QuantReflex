@@ -8,6 +8,46 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-100 — Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (2026-07-06)
+- **Context:** the final production sign-off for the reporting feature (ADR-096→099). Five owner-requested gaps,
+  each grounded in a fresh code audit. No regressions to the ADR-099 experience; no Firestore rules/index change.
+- **1 — Learn topic reporting (new `source:'learn'`).** Learn chapters had only a "Practise this" CTA. A deliberate,
+  low-emphasis **"Spotted a problem in this chapter? Report it"** line now closes the end-of-chapter reading spine
+  (`learn-view.js` `_buildChapterFoot`; `.kx-report-line` — secondary to the filled Practise primary, always
+  discoverable). It opens a **purpose-built** Learn flow (a sibling of the AI flow, not the generic chooser): a new
+  `learn_issue` type in its own `learn` group with sub-reasons (concept · formula · explanation · typo · formatting ·
+  visual · outdated · other — no AI reason, since **Learn ships no AI surface**), a chapter context banner, and 2-tap
+  submit. The chapter is attached as a top-level **`learn` field** `{topicId, title, category, subject, difficulty,
+  examFrequency, route}` (symmetric with `ai`); there is no Learn content version in the knowledge schema, so none is
+  captured (the app version lives in `context.app.version`). No `questionSignature` for Learn (no per-topic aggregate
+  in v1 — `questionReports` stays question-only). `learn_issue` is index-agnostic → no new index/rules.
+- **2 — MCQ vs typed-answer correctness.** MCQ was inferred only from `!!(q.options && q.options.length)`, but the
+  in-drill grid offered **"Bad options"** for every question — wrong for typed/numeric (fraction/ratio/decimal/
+  negative) questions. Added an `mcqOnly` flag to `options_wrong` and the grid now **drops MCQ-only reasons for typed
+  questions** (data-driven, not a hardcoded id). The snapshot now carries a reliable **`isMCQ` + `answerFormat`**
+  marker (server derives `isMCQ` from options if absent — defense-in-depth), the in-drill context header shows a
+  "Multiple choice" / "Typed answer" chip, and Super-Admin shows an **Answer type** line — so the UI never says
+  "options" for a typed question.
+- **3 — Settings Contact card.** A premium support card in the Feedback section: "Contact QuantReflex" +
+  `quantreflex@gmail.com`, a mail avatar, tap-to-email (real `mailto:` anchor — keyboard/semantics for free) and a
+  copy button (clipboard idiom + `showToast('✅ Email copied')` + a brief copied state). Dark/light, 48px targets,
+  new `mail`/`copy` qr-ico masks for Playful.
+- **4 — Super-Admin moderation dashboard.** The list row now shows a **per-type icon + family badge** (Question 📝 ·
+  QuanAI 🤖 · Learn 📚 · App 🐞 · Account 💳 · Idea 💡) + the specific reason, so a moderator distinguishes report
+  kinds at a glance; a grouped **type/category filter** `<select>` (sends the existing API `type` param) joins the
+  status chips + priority + search (now also matching topic titles). Detail view adds a first-class **Learn topic
+  block** (no more empty "not tied to a question" state for Learn) and the **Answer type** line; `_shapeRow` exposes
+  the `learn` field; `SUBREASON_LABELS` + `TYPE_LABELS` cover the new type + sub-reasons.
+- **Verification:** `report.check.js` → **595** assertions (adds `learn` to VALID_GROUPS, `learn_issue` 4-surface
+  lockstep, `mcqOnly`, `sanitizeLearn`, `isMCQ`/`answerFormat` capture, JSON `learn` object + source enum, a typed
+  fraction round-trip). Playwright sweep → **77** (adds: typed question hides "Bad options" + keeps answer/solution,
+  "Typed answer" chip, isMCQ=false + fraction in the payload; MCQ still offers options + "Multiple choice"; the Learn
+  flow reason grid, topic bundle in the payload, no question/ai, no AI reason). All prior ADR-099 cases + full suite
+  green; real-app boot smoke confirms `learn_issue` in the taxonomy + AuthValidators load from origin.
+- **No new infra / no rules or index deploy** (Vercel-Hobby intact). SW v218→v219. **Governance:** FIRESTORE_BLUEPRINT
+  (`learn` field + `learn_issue` type + `source:'learn'` + question `isMCQ`/`answerFormat`); CHANGELOG; VERSIONS
+  (Bible + Firestore — new type + field).
+
 ## ADR-099 — Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (2026-07-06)
 - **Context:** the owner's screenshots showed the "Report a problem" sheet rendering with an **empty body** (title +
   one sentence, no options). An independent code trace proved this was **not weak design — it was a production load

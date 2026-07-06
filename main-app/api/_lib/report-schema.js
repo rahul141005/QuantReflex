@@ -40,6 +40,8 @@ var TYPE_META = {
   question_other:      { group: 'question', inDrill: true,  defaultPriority: 'medium',   subReasons: [] },
   /* — QuanAI explanations (own group + reason set) — */
   ai_issue:            { group: 'ai',       inDrill: false, defaultPriority: 'medium',   subReasons: ['wrong_answer', 'flawed_reasoning', 'hallucination', 'incomplete', 'confusing', 'formatting', 'other'] },
+  /* — Learn topics (opened from a Learn chapter via source:'learn'; own reason set) — */
+  learn_issue:         { group: 'learn',    inDrill: false, defaultPriority: 'medium',   subReasons: ['concept', 'formula', 'explanation', 'typo', 'formatting', 'visual', 'outdated', 'other'] },
   /* — App problems — */
   bug:                 { group: 'app',      inDrill: false, defaultPriority: 'high',     subReasons: [] },
   crash:               { group: 'app',      inDrill: false, defaultPriority: 'critical', subReasons: [] },
@@ -231,6 +233,8 @@ function sanitizeQuestion(q) {
     subtype: _str(q.subtype, 80),
     difficulty: _str(q.difficulty, 40),
     questionText: _str(q.questionText, FIELD_LIMITS.description),
+    isMCQ: _bool(q.isMCQ),                              // ADR-100: answer mode captured explicitly (client-derived; defense-in-depth below)
+    answerFormat: _str(q.answerFormat, 40),
     options: Array.isArray(q.options) ? q.options.slice(0, 12).map(function (o) { return _capScalar(o, 300); }) : null,
     optionFigures: Array.isArray(q.optionFigures) ? q.optionFigures.slice(0, 12) : null,
     answer: _capScalar(q.answer, 300),
@@ -255,6 +259,9 @@ function sanitizeQuestion(q) {
     streak: _num(q.streak)
   };
   clean.signature = computeSignature(q);
+  /* Defense-in-depth (ADR-100): if the client didn't send isMCQ, derive it from options so admin/consumers always
+     have a reliable answer-mode flag. */
+  if (clean.isMCQ == null) clean.isMCQ = !!(clean.options && clean.options.length);
   /* Byte-cap guard: if the snapshot is huge (e.g. giant chart spec), drop the heaviest optional fields. */
   if (_byteLen(clean) > QUESTION_MAX_BYTES) { clean.chart = null; clean.aiContext = null; }
   if (_byteLen(clean) > QUESTION_MAX_BYTES) { clean.optionFigures = null; clean.explanation = _str(clean.explanation, 2000); }
@@ -273,6 +280,25 @@ function sanitizeAi(ai) {
   var promptId = _str(ai.promptId, 120);
   if (!explanation && !promptId) return null;   // nothing worth storing
   return { explanation: explanation, promptId: promptId };
+}
+
+/* ── Learn topic metadata sanitizer (ADR-100) ──
+   Captures the chapter a Learn report is about so an admin sees exactly which topic without reproducing it.
+   Present only for source==='learn'. There is no content version in the Learn schema (only the app version, which
+   lives in context.app.version), so none is captured here. */
+function sanitizeLearn(learn) {
+  if (!learn || typeof learn !== 'object') return null;
+  var out = {
+    topicId: _str(learn.topicId, 120),
+    title: _str(learn.title, 200),
+    category: _str(learn.category, 80),
+    subject: _str(learn.subject, 80),
+    difficulty: _str(learn.difficulty, 40),
+    examFrequency: _str(learn.examFrequency, 40),
+    route: _str(learn.route, 200)
+  };
+  if (!out.topicId && !out.title) return null;   // nothing identifying → not a real Learn snapshot
+  return out;
 }
 
 /**
@@ -298,7 +324,7 @@ function validateCreatePayload(body) {
   var description = _str(body.description, FIELD_LIMITS.description);
 
   /* source is client-declared but constrained to the known entry points; anything else → 'settings'. */
-  var source = (body.source === 'drill' || body.source === 'ai_explain') ? body.source : 'settings';
+  var source = (body.source === 'drill' || body.source === 'ai_explain' || body.source === 'learn') ? body.source : 'settings';
   var group = groupFor(type);
 
   /* type-specific fields bag: keep only known keys, cap each, coerce rating to [1..5]. Parsed BEFORE the
@@ -325,19 +351,21 @@ function validateCreatePayload(body) {
 
   /* AI-explanation metadata (ADR-097) — only meaningful for ai_explain, but sanitized defensively regardless. */
   var ai = sanitizeAi(body.ai);
+  /* Learn topic metadata (ADR-100) — only meaningful for source==='learn', sanitized defensively regardless. */
+  var learn = sanitizeLearn(body.learn);
 
   /* Substance guard (ADR-099, hardened ADR-099-verify): a report must never be EMPTY. Gate the "no free text
      needed" exemptions on MATERIALIZED content — NOT on the client-declared `source`, which is spoofable
      (an authed client can POST any body). Otherwise `{type:'feedback', source:'ai_explain'}` or
      `{type:'answer_wrong', source:'drill'}` with nothing attached would slip through as junk/empty rows.
      • Question-family: the attached question IS the substance; if no question actually materialized, require a note.
-     • Everything else: require free text OR a rating OR a materialized AI-explanation bundle (the ai_explain 2-tap). */
+     • Everything else: require free text OR a rating OR a materialized AI-explanation / Learn-topic bundle (2-tap). */
   if (group === 'question') {
     if (!question && !title && !description) {
       return { ok: false, code: 'EMPTY_REPORT', message: 'Tell us which question and what looked off.' };
     }
   } else {
-    if (!ai && !title && !description && fields.rating == null) {
+    if (!ai && !learn && !title && !description && fields.rating == null) {
       return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description (or a rating).' };
     }
   }
@@ -359,6 +387,7 @@ function validateCreatePayload(body) {
       question: question,
       signature: signature,
       ai: ai,
+      learn: learn,
       clientKey: clientKey
     }
   };
@@ -419,7 +448,7 @@ module.exports = {
   isValidType: isValidType, isValidStatus: isValidStatus, isValidPriority: isValidPriority, isOpenStatus: isOpenStatus,
   groupFor: groupFor, defaultPriorityFor: defaultPriorityFor, isValidSubReason: isValidSubReason,
   computeSignature: computeSignature, makeShortId: makeShortId,
-  sanitizeContext: sanitizeContext, sanitizeQuestion: sanitizeQuestion, sanitizeAi: sanitizeAi,
+  sanitizeContext: sanitizeContext, sanitizeQuestion: sanitizeQuestion, sanitizeAi: sanitizeAi, sanitizeLearn: sanitizeLearn,
   validateCreatePayload: validateCreatePayload,
   rateLimitDecision: rateLimitDecision, findDuplicate: findDuplicate
 };

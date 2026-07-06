@@ -257,17 +257,25 @@ completedAt, createdAt }`.
   `questionReports` aggregate run in the request path (Spark has no triggers). Triaged only via
   `super-admin /api/admin/reports` (Admin SDK, `withAdminAuth`). Shape: `{id, shortId (QR-XXXX), createdAt:ISO,
   createdAtMs, updatedAt/Ms, clientKey, questionSignature|null, reporter{uid,email,name,plan:'free'|'premium',
-  coachingId}, classification{type (22-value enum, ADR-099), subReason|null, title|null, description|null,
+  coachingId}, classification{type (23-value enum, ADR-099 + learn_issue ADR-100), subReason|null, title|null, description|null,
   priority:'critical'|'high'|'medium'|'low', fields{}}, lifecycle{status:'open'|'investigating'|'needs_info'|'resolved'
   |'dismissed'|'duplicate'|'archived', assignedTo, assignedToEmail, resolvedAt, resolvedBy, duplicateOf, labels[],
   internalNotes[{by,email,text,at}]}, context{app{version,source,theme,appearance,targetExam}, device{ua,platform,
   formFactor,screen,viewport,dpr,online,connection,deviceMemory,hardwareConcurrency,standalone,reducedMotion},
-  locale{tz,language}, route, sessionId, recentErrors[{msg,at}], submittedAtMs}, question{…full generator snapshot…}|null,
-  ai{explanation,promptId}|null}`. **(ADR-097/098)** `context.app.source` adds `'ai_explain'` (a report filed from a
+  locale{tz,language}, route, sessionId, recentErrors[{msg,at}], submittedAtMs}, question{…full generator snapshot…,
+  isMCQ, answerFormat}|null, ai{explanation,promptId}|null, learn{topicId,title,category,subject,difficulty,
+  examFrequency,route}|null}`. **(ADR-097/098)** `context.app.source` adds `'ai_explain'` (a report filed from a
   QuanAI explanation); such reports carry the full `question` snapshot AND the `ai` object — the explanation text +
   the QuanAI-owned version id (`promptId`, e.g. `explain.base@3`) — so an admin can triage a reported explanation
   without reproducing it. **(ADR-098, QuanAI product identity)** the underlying provider/model is intentionally NOT
   captured in `ai` (or anywhere client-reachable); the real model lives only in server-side `aiRequests` telemetry.
+  **(ADR-100)** `context.app.source` also adds `'learn'` (a report filed from a Learn chapter) → the new
+  `learn_issue` type (group `learn`) + a top-level `learn` object with the chapter metadata (no content version
+  exists in the knowledge schema; the app version lives in `context.app.version`); no `questionSignature` for Learn
+  (question-only aggregation). The `question` snapshot now also carries `isMCQ` (bool) + `answerFormat` so consumers
+  never re-infer answer mode from options length (a typed/numeric question is never described with "options").
+  All new type/source values are index-agnostic — the `(classification.type, createdAtMs)` index covers them; NO new
+  index or rules change.
   Canonical schema: `shared/schemas/report-schema.json`; enums: `shared/constants/report-types.js` (inline-copied by the
   server handler in `api/_lib/report-schema.js` AND — since **ADR-099** — by the browser in `main-app/js/ui/report-taxonomy.js`,
   which the modal loads same-origin because `shared/` is outside the main-app deploy root; lockstep across all four surfaces

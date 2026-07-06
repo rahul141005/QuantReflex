@@ -6,6 +6,44 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (ADR-100)
+
+The final sign-off for the reporting feature — five owner-requested improvements, each grounded in a fresh audit,
+with no ADR-099 regressions and no Firestore rules/index change. Full detail in ADR-100.
+
+```
+### feat(learn): report an issue from a Learn topic (source:'learn')
+- shared/constants/report-types.js + js/ui/report-taxonomy.js + api/_lib/report-schema.js: new learn_issue type in
+  a new 'learn' group with sub-reasons (concept/formula/explanation/typo/formatting/visual/outdated/other). Not in
+  the Settings chooser (opened only from a Learn chapter). No AI reason (Learn has no AI surface).
+- js/views/learn-view.js + css/style.css: a quiet ".kx-report-line" closing the chapter footer → ReportModal.open
+  ({ source:'learn', topic:{...} }); secondary to the Practise primary, always discoverable.
+- js/ui/report-modal.js: 'learn' source allow-list + routing; purpose-built Learn reason grid (_learnReasons) +
+  _learnAttachedHtml banner; attaches a `learn` bundle in the payload; 2-tap substance guard.
+- api/report.js + api/_lib/report-schema.js: sanitizeLearn(topicId/title/category/subject/difficulty/examFrequency/
+  route); accept source 'learn'; store top-level `learn` field. js/services/report-context.js: allow 'learn'.
+  shared/schemas/report-schema.json: learn_issue in the type enum, 'learn' source, `learn` object documented.
+### fix(reporting): correctly handle MCQ AND typed/numeric questions (no more MCQ assumption)
+- options_wrong gains mcqOnly:true (shared+browser); the in-drill grid drops mcqOnly reasons when the live question
+  has no options (report-modal.js), so typed/numeric questions never offer "Bad options".
+- report-context.js snapshotQuestion + api/_lib/report-schema.js sanitizeQuestion capture isMCQ + answerFormat
+  (server derives isMCQ from options if absent). Context header shows a "Multiple choice"/"Typed answer" chip.
+### feat(settings): premium Contact card
+- index.html + js/settings.js + css/style.css: "Contact QuantReflex" / quantreflex@gmail.com card in the Feedback
+  section — mailto: anchor + copy-to-clipboard button (showToast + copied state), dark/light, a11y, 48px targets.
+  New --qri-mail / --qri-copy Playful masks.
+### feat(super-admin): moderation dashboard (not a Firestore viewer)
+- js/views/reports.js: per-type icon + family badge on each list row + the reason; a grouped type filter <select>
+  (sends the API `type` param); TYPE_LABELS.learn_issue + SUBREASON_LABELS for learn; a Learn topic detail block +
+  an Answer-type line. api/admin/reports.js: _shapeRow exposes `learn`. css/admin-style.css: badge + family colors.
+### test
+- scripts/report.check.js → 595 (learn lockstep, mcqOnly, sanitizeLearn, isMCQ/answerFormat, JSON learn/source enum).
+- Playwright sweep → 77 (typed-vs-MCQ reason gating + chip + payload, Learn flow + topic bundle, no-AI-in-Learn).
+  Full suite + real-app boot smoke green.
+```
+Docs: DECISION_LOG ADR-100; FIRESTORE_BLUEPRINT (learn field + learn_issue + source:'learn' + question isMCQ/
+answerFormat); VERSIONS (Bible 2.121→2.122 / Firestore 2.27→2.28). SW v218→v219. No rules/index deploy.
+
 ## 2026-07-06 — Reporting: final verification pass — fixes (ADR-099)
 
 A fresh adversarial re-audit (3 independent agents + owner review) of the whole reporting system. Design

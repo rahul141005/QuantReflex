@@ -60,7 +60,7 @@
     { id: 'answer_wrong',        label: 'Wrong answer',         icon: '✅', group: 'question', inDrill: true, defaultPriority: 'critical', helper: 'The marked answer looks incorrect',          fields: ['note'] },
     { id: 'solution_wrong',      label: 'Wrong solution',       icon: '🧮', group: 'question', inDrill: true, defaultPriority: 'high',     helper: "The working or steps don't add up",         fields: ['note'] },
     { id: 'explanation_wrong',   label: 'Wrong explanation',    icon: '🧠', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'The explanation is wrong or misleading',    fields: ['note'] },
-    { id: 'options_wrong',       label: 'Bad options',          icon: '🔢', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'Options are wrong, repeated or missing',    fields: ['note'] },
+    { id: 'options_wrong',       label: 'Bad options',          icon: '🔢', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'Options are wrong, repeated or missing',    fields: ['note'], mcqOnly: true },
     { id: 'formula_wrong',       label: 'Formula looks wrong',  icon: '📐', group: 'question', inDrill: true, defaultPriority: 'high',     helper: 'A formula or rule used here seems off',     fields: ['note'] },
     { id: 'typo',                label: 'Typo or wording',      icon: '✍️', group: 'question', inDrill: true, defaultPriority: 'low',      helper: 'A spelling, symbol or wording mistake',     fields: ['note'] },
     { id: 'visual',              label: 'Diagram or image',     icon: '🎨', group: 'question', inDrill: true, defaultPriority: 'medium',   helper: 'A chart, figure or image has a problem',    fields: ['note'],
@@ -86,6 +86,19 @@
         { id: 'confusing',        label: 'Confusing wording' },
         { id: 'formatting',       label: 'Formatting problem' },
         { id: 'other',            label: 'Something else' }
+      ] },
+    /* — Learn topics (purpose-built; opened from a Learn chapter via source:'learn'; own reason set. NOT in the
+         Settings chooser GROUPS. Learn ships no AI surface, so there is deliberately no AI reason here.) — */
+    { id: 'learn_issue',   label: 'A Learn topic', icon: '📚', group: 'learn', inDrill: false, defaultPriority: 'medium', helper: "Something's off in this chapter", fields: ['note'],
+      subReasons: [
+        { id: 'concept',     label: 'Incorrect concept' },
+        { id: 'formula',     label: 'Wrong formula' },
+        { id: 'explanation', label: 'Incorrect explanation' },
+        { id: 'typo',        label: 'Typo' },
+        { id: 'formatting',  label: 'Broken formatting' },
+        { id: 'visual',      label: 'Image / diagram issue' },
+        { id: 'outdated',    label: 'Outdated information' },
+        { id: 'other',       label: 'Something else' }
       ] },
     /* — App problems — */
     { id: 'bug',           label: "Something's broken", icon: '🐞', group: 'app', inDrill: false, defaultPriority: 'high',     helper: "A feature isn't working right",  fields: ['title', 'description', 'expected', 'actual', 'repro'] },

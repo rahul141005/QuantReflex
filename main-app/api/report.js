@@ -154,7 +154,8 @@ async function _create(req, res, db) {
     },
     context: clean.context,
     question: clean.question,  /* null unless source is 'drill' or 'ai_explain' */
-    ai: clean.ai               /* ADR-097: AI explanation metadata (explanation text + model + promptId), else null */
+    ai: clean.ai,              /* ADR-097: AI explanation metadata (explanation text + promptId), else null */
+    learn: clean.learn         /* ADR-100: Learn topic metadata (topicId/title/category/subject/…), else null */
   };
 
   /* 5) Write reports/{id} (+ bump questionReports/{signature}) in ONE transaction. Spark has no Firestore

@@ -12,7 +12,7 @@ var ReportsView = (function () {
 
   var _split = null;
   var _rows = [], _cursor = null, _loading = false, _more = false, _pageLocal = false;
-  var _statusFilter = 'open', _priorityFilter = '', _text = '', _analytics = null;
+  var _statusFilter = 'open', _priorityFilter = '', _typeFilter = '', _text = '', _analytics = null;
 
   var STATUS_CHIPS = ['all', 'open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate', 'archived'];
   var STATUS_LABELS = { open: 'Open', investigating: 'Investigating', needs_info: 'Needs info', resolved: 'Resolved', dismissed: 'Dismissed', duplicate: 'Duplicate', archived: 'Archived' };
@@ -28,6 +28,8 @@ var ReportsView = (function () {
     duplicate: 'Duplicate question', question_other: 'Question — other',
     /* QuanAI */
     ai_issue: 'QuanAI explanation',
+    /* Learn (ADR-100) */
+    learn_issue: 'Learn topic',
     /* App */
     bug: 'Bug', crash: 'Crash', ui_issue: 'Looks broken', performance: 'Performance',
     /* Account */
@@ -46,13 +48,48 @@ var ReportsView = (function () {
     /* ai_issue */ wrong_answer: 'Wrong final answer', flawed_reasoning: 'Flawed reasoning', hallucination: 'Made something up', incomplete: 'Missing steps', confusing: 'Confusing wording',
     /* payment */ not_activated: 'Premium not activated', deducted_no_premium: 'Money deducted, no premium', refund: 'Refund request', transaction_error: 'Transaction error',
     /* account */ login: 'Login / sign-in', sync: 'Data not syncing', delete: 'Delete account / data',
-    /* shared */ formatting: 'Formatting problem', other: 'Something else'
+    /* learn (ADR-100) */ concept: 'Incorrect concept', formula: 'Wrong formula', explanation: 'Incorrect explanation', outdated: 'Outdated information', visual: 'Image / diagram issue',
+    /* shared */ typo: 'Typo', formatting: 'Formatting problem', other: 'Something else'
   };
+
+  /* Type → { family, icon } for at-a-glance distinction in the list (ADR-100). A moderator can tell a
+     question / QuanAI / Learn / app / account / idea report apart without opening it. Families also drive the
+     type-filter <select> optgroups. Legacy ids map to the question family. */
+  var TYPE_META = {
+    answer_wrong: ['question', '✅'], solution_wrong: ['question', '🧮'], explanation_wrong: ['question', '🧠'],
+    options_wrong: ['question', '🔢'], formula_wrong: ['question', '📐'], typo: ['question', '✍️'],
+    visual: ['question', '🎨'], unclear: ['question', '❓'], difficulty_mismatch: ['question', '🎚️'],
+    wrong_topic: ['question', '🗂️'], duplicate: ['question', '🔁'], question_other: ['question', '💬'],
+    question_wrong: ['question', '📖'], formatting: ['question', '📐'],
+    ai_issue: ['ai', '🤖'],
+    learn_issue: ['learn', '📚'],
+    bug: ['app', '🐞'], crash: ['app', '💥'], ui_issue: ['app', '🧩'], performance: ['app', '⚡'],
+    payment: ['account', '💳'], account: ['account', '🔒'],
+    feature_request: ['idea', '💡'], feedback: ['idea', '📝'], other: ['idea', '📦']
+  };
+  var FAMILY_LABELS = { question: 'Question', ai: 'QuanAI', learn: 'Learn', app: 'App', account: 'Account', idea: 'Idea' };
+  /* Type filter groups for the moderation <select> (each option value is a concrete classification.type the API
+     filters on). */
+  var TYPE_FILTER_GROUPS = [
+    { label: 'Questions', types: ['answer_wrong', 'solution_wrong', 'explanation_wrong', 'options_wrong', 'formula_wrong', 'typo', 'visual', 'unclear', 'difficulty_mismatch', 'wrong_topic', 'duplicate', 'question_other'] },
+    { label: 'QuanAI', types: ['ai_issue'] },
+    { label: 'Learn', types: ['learn_issue'] },
+    { label: 'App', types: ['bug', 'crash', 'ui_issue', 'performance'] },
+    { label: 'Account', types: ['payment', 'account'] },
+    { label: 'Ideas', types: ['feature_request', 'feedback', 'other'] }
+  ];
 
   function _esc(s) { return AdminUtils.escapeHtml(s == null ? '' : String(s)); }
   function _fmtT(v) { return AdminUtils.formatDateTime(v); }
   function _typeLabel(t) { return TYPE_LABELS[t] || t || 'Report'; }
   function _subLabel(s) { return SUBREASON_LABELS[s] || s; }
+  function _typeFamily(t) { return (TYPE_META[t] && TYPE_META[t][0]) || 'other'; }
+  function _typeIcon(t) { return (TYPE_META[t] && TYPE_META[t][1]) || '⚑'; }
+  function _typeBadge(t) {
+    var fam = _typeFamily(t);
+    return '<span class="report-type-badge report-fam-' + _esc(fam) + '" title="' + _esc(_typeLabel(t)) + '">' +
+      '<span class="report-type-badge-ico" aria-hidden="true">' + _typeIcon(t) + '</span>' + _esc(FAMILY_LABELS[fam] || fam) + '</span>';
+  }
   function _err(e) { return AdminUtils.getReadableError(e); }
 
   function _statusBadge(s) {
@@ -87,13 +124,20 @@ var ReportsView = (function () {
     var prioOpts = ['<option value="">Any priority</option>'].concat(PRIORITIES.map(function (p) {
       return '<option value="' + p + '"' + (p === _priorityFilter ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
     })).join('');
+    /* Type/category filter (ADR-100) — grouped by family; sends the concrete classification.type to the API. */
+    var typeOpts = '<option value="">All types</option>' + TYPE_FILTER_GROUPS.map(function (g) {
+      return '<optgroup label="' + _esc(g.label) + '">' + g.types.map(function (t) {
+        return '<option value="' + _esc(t) + '"' + (t === _typeFilter ? ' selected' : '') + '>' + _esc(_typeLabel(t)) + '</option>';
+      }).join('') + '</optgroup>';
+    }).join('');
     listEl.innerHTML =
       '<div class="view-header" style="margin-bottom:.4rem;"><h2 class="view-title">Reports</h2>' +
         '<p class="view-subtitle">User-submitted bugs, wrong content & feedback.</p></div>' +
       '<div id="rStats" class="report-stat-row"></div>' +
       '<div class="chip-bar" id="rChips">' + chips + '</div>' +
-      '<div style="display:flex;gap:.5rem;margin:.5rem 0;">' +
-        '<input type="text" class="modal-input" id="rText" placeholder="Search ID / title / email / type" aria-label="Search reports" style="flex:1;margin:0;" />' +
+      '<div style="display:flex;gap:.5rem;margin:.5rem 0;flex-wrap:wrap;">' +
+        '<input type="text" class="modal-input" id="rText" placeholder="Search ID / title / email / type / topic" aria-label="Search reports" style="flex:1;min-width:10rem;margin:0;" />' +
+        '<select class="modal-input" id="rType" aria-label="Filter by type" style="max-width:11rem;margin:0;">' + typeOpts + '</select>' +
         '<select class="modal-input" id="rPrio" aria-label="Filter by priority" style="max-width:9rem;margin:0;">' + prioOpts + '</select>' +
       '</div>' +
       '<div id="rList"><div class="loading">Loading…</div></div>' +
@@ -110,12 +154,14 @@ var ReportsView = (function () {
     var _deb = null;
     txt.addEventListener('input', function (e) { _text = e.target.value; clearTimeout(_deb); _deb = setTimeout(_loadFirst, 300); });
     listEl.querySelector('#rPrio').addEventListener('change', function (e) { _priorityFilter = e.target.value; _loadFirst(); });
+    listEl.querySelector('#rType').addEventListener('change', function (e) { _typeFilter = e.target.value; _loadFirst(); });
   }
 
   function _filters() {
     var f = {};
     if (_statusFilter && _statusFilter !== 'all') f.status = _statusFilter;
     if (_priorityFilter) f.priority = _priorityFilter;
+    if (_typeFilter) f.type = _typeFilter;
     if (_text && _text.trim()) f.q = _text.trim();
     return f;
   }
@@ -153,11 +199,15 @@ var ReportsView = (function () {
     listEl.innerHTML =
       (_pageLocal ? '<div class="muted" style="font-size:.75rem;margin-bottom:.4rem;">Search matches within the loaded pages — Load more to search further.</div>' : '') +
       _rows.map(function (r) {
-        var sub = _typeLabel(r.type) + (r.reporterEmail ? ' · ' + _esc(r.reporterEmail) : '') + ' · ' + _esc(_fmtT(r.createdAt));
-        return '<div class="sv-row" role="button" tabindex="0" aria-label="Open report ' + _esc(r.shortId || r.id) + '" data-sv-id="' + _esc(r.id) + '" data-rid="' + _esc(r.id) + '">' +
+        /* Line 2: reason (sub-reason if present, else the type label) · reporter · time — so a moderator sees the
+           specific issue without opening. The type FAMILY is the badge on line 1. */
+        var reason = r.subReason ? _subLabel(r.subReason) : _typeLabel(r.type);
+        var sub = _esc(reason) + (r.reporterEmail ? ' · ' + _esc(r.reporterEmail) : '') + ' · ' + _esc(_fmtT(r.createdAt));
+        return '<div class="sv-row" role="button" tabindex="0" aria-label="Open ' + _esc(FAMILY_LABELS[_typeFamily(r.type)] || '') + ' report ' + _esc(r.shortId || r.id) + '" data-sv-id="' + _esc(r.id) + '" data-rid="' + _esc(r.id) + '">' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
-              _priorityPill(r.priority) + ' ' + _esc(r.title || _typeLabel(r.type)) + '</div>' +
+            '<div class="report-row-head">' +
+              _priorityPill(r.priority) + _typeBadge(r.type) +
+              '<span class="report-row-title">' + _esc(r.title || _typeLabel(r.type)) + '</span></div>' +
             '<div style="font-size:.78rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><code>' + _esc(r.shortId || r.id) + '</code> · ' + sub + '</div>' +
           '</div>' + _statusBadge(r.status) + '</div>';
       }).join('');
@@ -263,9 +313,38 @@ var ReportsView = (function () {
       '</div>';
   }
 
+  /* ADR-100: Learn topic block — the exact chapter a Learn report is about, so an admin never sees an empty
+     "not tied to a question" state for a Learn report. */
+  function _learnBlock(learn) {
+    if (!learn) return '';
+    return '<div class="report-ai-block">' +
+      '<div class="cc-section-title">📚 Learn topic reported</div>' +
+      _kv('Topic', learn.title || learn.topicId || '—') +
+      (learn.topicId ? _kv('Topic id', learn.topicId) : '') +
+      (learn.subject ? _kv('Subject', learn.subject) : '') +
+      (learn.category ? _kv('Category', learn.category) : '') +
+      (learn.difficulty ? _kv('Difficulty', learn.difficulty) : '') +
+      (learn.examFrequency ? _kv('Exam frequency', learn.examFrequency) : '') +
+      (learn.route ? _kv('Route', learn.route) : '') +
+      '</div>';
+  }
+
+  /* ADR-100: human answer-mode label so the admin never sees "options" for a typed question. */
+  function _answerTypeLabel(q) {
+    if (!q) return null;
+    if (q.isMCQ) return 'Multiple choice';
+    var fmt = q.answerFormat;
+    if (fmt && fmt !== 'mcq' && fmt !== 'numeric') return 'Typed · ' + fmt;
+    return 'Typed answer';
+  }
+
   function _tabQuestion(el, r, aggregate, related) {
     var q = r.question;
-    if (!q) { el.innerHTML = '<div class="card" style="padding:1rem;">' + (r.ai ? _aiBlock(r.ai) : '<div class="muted">This report is not tied to a specific question.</div>') + '</div>'; return; }
+    if (!q) {
+      var blocks = _aiBlock(r.ai) + _learnBlock(r.learn);
+      el.innerHTML = '<div class="card" style="padding:1rem;">' + (blocks || '<div class="muted">This report is not tied to a specific question or topic.</div>') + '</div>';
+      return;
+    }
     var opts = '';
     if (Array.isArray(q.options) && q.options.length) {
       opts = '<div class="muted" style="margin:.6rem 0 .25rem;">Options</div>' + q.options.map(function (o) {
@@ -278,6 +357,7 @@ var ReportsView = (function () {
       (aggregate ? '<div class="report-agg"><span class="badge badge-open">Reported ' + (aggregate.count || 0) + '×</span> · ' + (aggregate.openCount || 0) + ' still open</div>' : '') +
       _kv('Signature', q.signature) + _kv('Category', q.category) + (q.subtype ? _kv('Subtype', q.subtype) : '') +
       (q.difficulty ? _kv('Difficulty', q.difficulty) : '') + _kv('Mode', q.mode) +
+      _kv('Answer type', _answerTypeLabel(q)) +
       _kv('Q number', (q.questionNumber != null ? q.questionNumber : '?') + (q.count != null ? ' / ' + q.count : '')) +
       (q.questionText ? '<div class="report-desc"><div class="muted" style="margin:.6rem 0 .25rem;">Question</div><div class="report-desc-body">' + _esc(q.questionText) + '</div></div>' : '') +
       opts +

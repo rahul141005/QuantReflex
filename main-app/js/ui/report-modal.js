@@ -34,10 +34,12 @@
   var _FALLBACK_TYPES = [
     { id: 'answer_wrong',      label: 'Wrong answer',      icon: '✅', group: 'question', inDrill: true,  helper: 'The marked answer looks incorrect', fields: ['note'] },
     { id: 'explanation_wrong', label: 'Wrong explanation', icon: '🧠', group: 'question', inDrill: true,  helper: 'The explanation is wrong',           fields: ['note'] },
-    { id: 'options_wrong',     label: 'Bad options',       icon: '🔢', group: 'question', inDrill: true,  helper: 'Options are wrong or missing',       fields: ['note'] },
+    { id: 'options_wrong',     label: 'Bad options',       icon: '🔢', group: 'question', inDrill: true,  helper: 'Options are wrong or missing',       fields: ['note'], mcqOnly: true },
     { id: 'question_other',    label: 'Something else',    icon: '💬', group: 'question', inDrill: true,  helper: 'Another issue with this question',   fields: ['note'] },
     { id: 'ai_issue',          label: 'A QuanAI explanation', icon: '🤖', group: 'ai', inDrill: false,     helper: "Something's off with an explanation", fields: ['note'],
       subReasons: [ { id: 'wrong_answer', label: 'Wrong final answer' }, { id: 'flawed_reasoning', label: 'Flawed reasoning' }, { id: 'hallucination', label: 'Made something up' }, { id: 'other', label: 'Something else' } ] },
+    { id: 'learn_issue',       label: 'A Learn topic', icon: '📚', group: 'learn', inDrill: false, helper: "Something's off in this chapter", fields: ['note'],
+      subReasons: [ { id: 'concept', label: 'Incorrect concept' }, { id: 'formula', label: 'Wrong formula' }, { id: 'explanation', label: 'Incorrect explanation' }, { id: 'typo', label: 'Typo' }, { id: 'formatting', label: 'Broken formatting' }, { id: 'visual', label: 'Image / diagram issue' }, { id: 'outdated', label: 'Outdated information' }, { id: 'other', label: 'Something else' } ] },
     { id: 'bug',               label: "Something's broken", icon: '🐞', group: 'app', inDrill: false, helper: "A feature isn't working", fields: ['title', 'description', 'repro'] },
     { id: 'crash',             label: 'Crash or freeze',    icon: '💥', group: 'app', inDrill: false, helper: 'The app froze or closed', fields: ['title', 'description', 'repro'] },
     { id: 'payment',           label: 'Payment or billing', icon: '💳', group: 'account', inDrill: false, helper: 'A payment or premium issue', fields: ['description'] },
@@ -95,12 +97,13 @@
     if (_open) return;
     opts = opts || {};
     _open = true;
-    var src = (opts.source === 'drill' || opts.source === 'ai_explain') ? opts.source : 'settings';
+    var src = (opts.source === 'drill' || opts.source === 'ai_explain' || opts.source === 'learn') ? opts.source : 'settings';
     st = {
       source: src,
       question: opts.question || null,
       session: opts.session || null,
       ai: opts.ai || null,
+      topic: opts.topic || null,                                            /* ADR-100: Learn chapter descriptor (source:'learn') */
       onClose: (typeof opts.onClose === 'function') ? opts.onClose : null,  /* caller cleanup (e.g. resume a paused drill) */
       group: null,
       type: null,
@@ -150,6 +153,7 @@
 
     /* Route to the first step for this entry point. */
     if (st.source === 'ai_explain') { st.group = 'ai'; _renderReasons(); }
+    else if (st.source === 'learn') { st.group = 'learn'; _renderReasons(); }
     else if (st.source === 'drill') { st.group = 'question'; _renderReasons(); }
     else { _renderChooser(); }
 
@@ -308,12 +312,29 @@
       return;
     }
 
+    if (st.source === 'learn' || g === 'learn') {
+      /* Purpose-built Learn-chapter reason grid (the learn_issue sub-reasons act as the primary reasons). */
+      _setHead('This chapter', hasBack);
+      html += _learnAttachedHtml();
+      var lsubs = _learnReasons();
+      html += '<div class="report-reason-list">';
+      lsubs.forEach(function (s) { html += _reasonTile({ id: s.id, label: s.label, icon: s.icon || '•', helper: s.helper || '' }, 'sub'); });
+      html += '</div>';
+      _body.innerHTML = html;
+      _wireReasonTiles('sub');
+      _focusBody();
+      return;
+    }
+
     if (g === 'question') {
       var title = st.source === 'drill' ? 'What\'s off?' : 'A question or its answer';
       _setHead(title, hasBack);
       if (st.source === 'drill') html += _qContextHtml();
       else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
-      var qTypes = _typesForGroup('question');
+      /* Answer-mode aware (ADR-100): drop MCQ-only reasons (e.g. "Bad options") for typed/numeric questions so the
+         UI never offers an "options" reason for a question that has none. Driven by the taxonomy `mcqOnly` flag. */
+      var isMcq = _isMCQ(st.question);
+      var qTypes = _typesForGroup('question').filter(function (t) { return !(t.mcqOnly && !isMcq); });
       html += '<div class="report-reason-list">';
       qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });
       html += '</div>';
@@ -358,7 +379,7 @@
     var btns = _body.querySelectorAll(sel);
     for (var i = 0; i < btns.length; i++) {
       btns[i].addEventListener('click', function () {
-        if (kind === 'sub') { st.type = 'ai_issue'; st.subReason = this.getAttribute('data-sub'); }
+        if (kind === 'sub') { st.type = (st.group === 'learn') ? 'learn_issue' : 'ai_issue'; st.subReason = this.getAttribute('data-sub'); }
         else { st.type = this.getAttribute('data-type'); if (st.source !== 'ai_explain') st.subReason = null; st._rating = null; st._draft = null; }
         _sound('tabSwitch');
         _renderForm();
@@ -403,15 +424,17 @@
     /* Context banner (reassure the user which item this is about + that nothing is lost). */
     if (st.source === 'ai_explain') {
       html += _aiAttachedHtml();
+    } else if (st.source === 'learn') {
+      html += _learnAttachedHtml();
     } else if (st.source === 'drill' && st.group === 'question') {
       html += _qContextHtml();
     } else if (isSettingsQuestion) {
       html += '<p class="report-note-hint">' + _ico('info', 'ℹ️') + ' We can\'t see which question you mean from here — please tell us below.</p>';
     }
 
-    /* sub-reason chips (visual / payment / account). AI + settings-AI already chose their reason in the grid. */
+    /* sub-reason chips (visual / payment / account). AI, Learn + settings-AI already chose their reason in the grid. */
     var subs = (t.subReasons || []);
-    var showChips = subs.length && st.group !== 'ai';
+    var showChips = subs.length && st.group !== 'ai' && st.group !== 'learn';
     if (showChips) {
       html += '<div class="report-field"><label class="modal-label">Which best describes it?</label>' +
               '<div class="report-subreason-chips" role="radiogroup" aria-label="Reason">';
@@ -436,6 +459,8 @@
         if (fname === 'note' && isSettingsQuestion) { label = 'Which question, and what\'s off?'; ph = 'Describe the question and what looked wrong.'; }
         /* A Settings-filed AI report has no explanation attached, so its note is required + reframed. */
         else if (fname === 'note' && st.group === 'ai' && st.source === 'settings') { label = "What's wrong with the explanations?"; ph = 'Tell us what you\'ve noticed about QuanAI\'s explanations.'; }
+        /* Learn note stays optional but reframed — the chapter is attached, so a note only adds detail. */
+        else if (fname === 'note' && st.source === 'learn') { label = 'Add anything else (optional)'; ph = "Anything you noticed. The chapter's details are attached automatically, so this is optional."; }
         var cap = def.cap ? (lim[def.cap] || 600) : 600;
         html += '<div class="report-field">' +
                 '<label class="modal-label" for="rf_' + fname + '">' + _esc(label) + '</label>' +
@@ -466,7 +491,44 @@
   function _reassureLine() {
     if (st.source === 'drill') return 'Your session is safe — sending this won\'t end your drill.';
     if (st.source === 'ai_explain') return 'We\'ll take a look. This won\'t change what\'s on your screen.';
+    if (st.source === 'learn') return 'Thanks — we\'ll review this chapter. You won\'t lose your place.';
     return 'Thanks for helping us make QuantReflex better.';
+  }
+
+  /* Answer mode of the reported question — MCQ iff it carries options (mirrors the drill engine / answer-format).
+     Used to drop MCQ-only reasons for typed/numeric questions (ADR-100). */
+  function _isMCQ(q) { return !!(q && q.options && q.options.length); }
+
+  /* The Learn reason set (each a learn_issue sub-reason), with an icon + helper for the grid. */
+  function _learnReasons() {
+    var meta = {
+      concept:     { icon: '🧩', helper: 'A concept here is stated incorrectly' },
+      formula:     { icon: '📐', helper: 'A formula or rule looks wrong' },
+      explanation: { icon: '🧠', helper: 'The explanation is wrong or misleading' },
+      typo:        { icon: '✍️', helper: 'A spelling, symbol or wording mistake' },
+      formatting:  { icon: '🧱', helper: 'Layout or maths renders badly' },
+      visual:      { icon: '🎨', helper: 'An image or diagram has a problem' },
+      outdated:    { icon: '🕰️', helper: 'The information is out of date' },
+      other:       { icon: '💬', helper: 'Something else about this chapter' }
+    };
+    var t = _RT() && _RT().typeById ? _RT().typeById('learn_issue') : null;
+    var subs = (t && t.subReasons) ? t.subReasons : (_FALLBACK_TYPES.filter(function (x) { return x.id === 'learn_issue'; })[0].subReasons || []);
+    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: s.label, icon: m.icon || '•', helper: m.helper || '' }; });
+  }
+
+  /* Read-only "what's attached" summary for a Learn-topic report (chapter title + subject/category). */
+  function _learnAttachedHtml() {
+    var tp = st.topic || {};
+    var lines = [];
+    if (tp.subject) lines.push(_titro(tp.subject));
+    else if (tp.category) lines.push(_titro(tp.category));
+    if (tp.difficulty) lines.push(_titro(tp.difficulty));
+    var meta = lines.length ? '<div class="report-ctx-chips">' + lines.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('') + '</div>' : '';
+    var ttl = tp.title ? '<div class="report-ctx-q">“' + _esc(String(tp.title).slice(0, 120)) + '”</div>' : '';
+    return '<div class="report-ctx">' +
+             '<div class="report-ctx-top">' + _ico('book', '📚') + '<span>This chapter — attached automatically</span></div>' +
+             meta + ttl +
+           '</div>';
   }
 
   /* Contextual question header — auto-built from the live question + session so the user trusts *which* item
@@ -480,6 +542,7 @@
     if (q.difficulty) chips.push(_titro(q.difficulty));
     var ml = _modeLabel(s);
     if (ml) chips.push(ml);
+    chips.push(_isMCQ(q) ? 'Multiple choice' : 'Typed answer');   /* ADR-100: answer-mode aware, never implies "options" for typed */
     var chipHtml = chips.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('');
     var qtext = q.question != null ? String(q.question) : '';
     var preview = qtext ? '<div class="report-ctx-q">“' + _esc(qtext.slice(0, 120)) + (qtext.length > 120 ? '…' : '') + '”</div>' : '';
@@ -631,12 +694,12 @@
     var isSettingsQuestion = (st.group === 'question' && st.source === 'settings');
 
     /* Substance guard (mirrors api/_lib/report-schema.js):
-       • in-drill question + ai_explain → meaningful from the attached context alone.
+       • in-drill question + ai_explain + learn → meaningful from the attached context alone (2-tap).
        • a Settings-filed question → needs a note (no question is attached here).
        • everything else → needs free text OR a rating. */
     var needsText = false;
     if (isSettingsQuestion) needsText = !vals.title && !vals.description;
-    else if (st.group !== 'question' && st.source !== 'ai_explain') needsText = !vals.title && !vals.description && vals.fields.rating == null;
+    else if (st.group !== 'question' && st.source !== 'ai_explain' && st.source !== 'learn') needsText = !vals.title && !vals.description && vals.fields.rating == null;
     if (needsText) {
       /* Only mention a rating when the type actually offers one (feedback) — otherwise the copy is misleading. */
       var hasRating = (t.fields || []).indexOf('rating') !== -1;
@@ -670,7 +733,17 @@
         : null,
       /* Whitelist the AI bundle to product-safe fields (QuanAI identity, ADR-098) — never let a provider/model
          identifier into the POST body or the offline queue, regardless of what the caller supplied. */
-      ai: (st.source === 'ai_explain' && st.ai) ? { explanation: st.ai.explanation || '', promptId: st.ai.promptId || null } : null
+      ai: (st.source === 'ai_explain' && st.ai) ? { explanation: st.ai.explanation || '', promptId: st.ai.promptId || null } : null,
+      /* Learn chapter descriptor (ADR-100) — attached for a Learn-topic report so the admin sees exactly which chapter. */
+      learn: (st.source === 'learn' && st.topic) ? {
+        topicId: st.topic.id || st.topic.topicId || null,
+        title: st.topic.title || null,
+        category: st.topic.category || null,
+        subject: st.topic.subject || null,
+        difficulty: st.topic.difficulty || null,
+        examFrequency: st.topic.examFrequency || null,
+        route: st.topic.route || (root.location && root.location.hash) || null
+      } : null
     };
 
     var submitP = (root.ReportQueue && root.ReportQueue.submit)

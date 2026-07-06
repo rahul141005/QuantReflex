@@ -9,12 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.121 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.122 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.27 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.28 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.122 / Firestore 2.28 (2026-07-06)** — **Reporting production sign-off: Learn reports · MCQ-vs-typed · Contact card · admin moderation (ADR-100).**
+> The final sign-off for the reporting feature. **(1) Learn topic reporting** — a purpose-built `source:'learn'` flow
+> opened from a quiet end-of-chapter affordance; a new `learn_issue` type in a new `learn` group with its own
+> sub-reasons (no AI reason — Learn has no AI surface); the chapter is attached as a top-level **`learn` field**
+> `{topicId,title,category,subject,difficulty,examFrequency,route}` (**Firestore 2.28**). **(2) MCQ-vs-typed** — the
+> in-drill reason grid now drops "Bad options" for typed/numeric questions (new `mcqOnly` flag), the question snapshot
+> gains **`isMCQ`/`answerFormat`**, and the UI/admin never say "options" for a typed question. **(3) Contact card** —
+> a premium "Contact QuantReflex / quantreflex@gmail.com" support card in Settings (mailto + copy-to-clipboard).
+> **(4) Super-Admin moderation** — per-type icon + family badge on every list row, a grouped type filter, and a Learn
+> topic detail block + Answer-type line. Values remain index-agnostic → **no new index, no rules change**.
+> report.check.js → 595; Playwright → 77; full suite + real-app boot smoke green. No new infra (Vercel-Hobby intact).
+> SW v218→v219.
+>
 > **2.121 / Firestore 2.27 (2026-07-06)** — **Reporting: final verification pass — fixes (ADR-099).**
 > A fresh adversarial re-audit (3 independent agents + owner review) of the entire reporting system. Design
 > confirmed sound; fixed every real defect: **[HIGH]** the in-drill report now PAUSES the session so a Timed/Reflex

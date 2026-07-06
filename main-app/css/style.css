@@ -1904,6 +1904,34 @@ body.dark-mode .settings-link:active {
 }
 body.dark-mode .settings-chevron { color: #64748b; }
 
+/* ---- Contact support card (ADR-100) — a premium support row in the Feedback section: mail avatar + address
+   (tap to email) + a copy button (tap to copy). Matches the .settings-* design language + dark mode. ---- */
+.contact-card { display: flex; align-items: center; gap: .8rem; padding: .3rem 0; min-height: 48px; }
+.contact-card-avatar {
+  flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%;
+  background: rgba(37,99,235,.1); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+}
+body.dark-mode .contact-card-avatar { background: rgba(96,165,250,.14); color: #93c5fd; }
+.contact-card-body { flex: 1; min-width: 0; }
+.contact-card-title { font-size: .8rem; font-weight: 600; color: #64748b; }
+body.dark-mode .contact-card-title { color: #94a3b8; }
+.contact-card-email { display: inline-block; margin-top: .1rem; font-size: 1rem; font-weight: 700; color: #2563eb; text-decoration: none; word-break: break-all; -webkit-tap-highlight-color: transparent; }
+.contact-card-email:hover { text-decoration: underline; }
+.contact-card-email:active { opacity: .7; }
+.contact-card-email:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: .25rem; }
+body.dark-mode .contact-card-email { color: #93c5fd; }
+.contact-card-copy {
+  flex: 0 0 auto; width: 2.75rem; height: 2.75rem; border: 1px solid rgba(226,232,240,.9); border-radius: .75rem;
+  background: #fff; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem; transition: background .15s, border-color .15s, transform .05s;
+}
+.contact-card-copy:hover { background: #f1f5f9; }
+.contact-card-copy:active { transform: scale(.95); }
+.contact-card-copy:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.contact-card-copy.is-copied { background: rgba(16,163,74,.12); border-color: rgba(16,163,74,.4); color: #16a34a; }
+body.dark-mode .contact-card-copy { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+body.dark-mode .contact-card-copy.is-copied { background: rgba(16,163,74,.2); border-color: rgba(16,163,74,.5); color: #4ade80; }
+
 /* ---- Full-screen Info Modals ---- */
 .info-modal-overlay {
   position: fixed;
@@ -11323,6 +11351,23 @@ body.dark-mode .kx-back { color: #60a5fa; }
 body.dark-mode .kx-chapter-foot { border-top-color: rgba(255,255,255,.1); }
 .kx-foot-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.3rem; }
 .kx-foot-block { margin-bottom: 1.2rem; }
+/* Report-an-issue line (ADR-100): a quiet, full-width affordance that closes the chapter — deliberately
+   low-emphasis (never competes with the filled "Practise this" primary), but always discoverable. */
+.kx-report-line {
+  display: block; width: 100%; margin-top: 1.4rem; padding: .8rem 1rem;
+  border: 1px dashed rgba(100,116,139,.35); border-radius: var(--qr-card-radius-sm, 1.25rem);
+  background: none; font: inherit; font-size: .84rem; color: #64748b; text-align: center; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.kx-report-line:hover { background: rgba(37,99,235,.05); border-color: rgba(37,99,235,.3); color: #475569; }
+.kx-report-line:active { transform: scale(.99); }
+.kx-report-line:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.kx-report-ico { margin-right: .25rem; opacity: .8; }
+.kx-report-cta { color: #2563eb; font-weight: 700; }
+body.dark-mode .kx-report-line { border-color: rgba(148,163,184,.3); color: #94a3b8; }
+body.dark-mode .kx-report-line:hover { background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.35); color: #cbd5e1; }
+body.dark-mode .kx-report-cta { color: #93c5fd; }
+@media (prefers-reduced-motion: reduce) { .kx-report-line:active { transform: none; } }
 .kx-foot-next { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; padding: .85rem 1rem; border: 1.5px solid #e2e8f0; border-radius: var(--qr-card-radius-sm); background: rgba(255,255,255,.85); cursor: pointer; font: inherit; color: inherit; transition: transform .12s ease, border-color .15s, background .15s; }
 .kx-foot-next:hover { border-color: #bfdbfe; background: #eff6ff; transform: translateY(-1px); }
 .kx-foot-next:active { transform: scale(.99); }
@@ -11932,6 +11977,9 @@ body.theme-playful .qr-ico[data-ico='back'] { --ico: var(--qri-chevron-left); }
 body.theme-playful .qr-ico[data-ico='send'] { --ico: var(--qri-send); }
 body.theme-playful .qr-ico[data-ico='check'] { --ico: var(--qri-check); }
 body.theme-playful .qr-ico[data-ico='robot'] { --ico: var(--qri-bot); }
+/* Contact card (ADR-100) */
+body.theme-playful .qr-ico[data-ico='mail'] { --ico: var(--qri-mail); }
+body.theme-playful .qr-ico[data-ico='copy'] { --ico: var(--qri-copy); }
 
 /* glyph tokens (URL-encoded monochrome SVG masks) */
 body.theme-playful {
@@ -11953,6 +12001,8 @@ body.theme-playful {
   --qri-chevron-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
   --qri-send: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cline x1='22' y1='2' x2='11' y2='13'/%3E%3Cpolygon points='22 2 15 22 11 13 2 9 22 2'/%3E%3C/svg%3E");
   --qri-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  --qri-mail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-10 6L2 7'/%3E%3C/svg%3E");
+  --qri-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Crect x='9' y='9' width='13' height='13' rx='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E");
   --qri-gauge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M12 15l4-5'/%3E%3Cpath d='M3.34 19a10 10 0 1 1 17.32 0z'/%3E%3C/svg%3E");
   --qri-graduation: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M22 10 12 5 2 10l10 5 10-5z'/%3E%3Cpath d='M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5'/%3E%3Cline x1='22' y1='10' x2='22' y2='15'/%3E%3C/svg%3E");
   --qri-home: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3C/svg%3E");

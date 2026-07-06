@@ -85,7 +85,8 @@ function _shapeRow(doc, full) {
     };
     row.context = d.context || {};
     row.question = d.question || null;
-    row.ai = d.ai || null;   // ADR-097: AI explanation metadata (explanation text + model + promptId)
+    row.ai = d.ai || null;   // ADR-097: AI explanation metadata (explanation text + promptId)
+    row.learn = d.learn || null;   // ADR-100: Learn topic metadata (topicId/title/category/subject/…)
   }
   return row;
 }

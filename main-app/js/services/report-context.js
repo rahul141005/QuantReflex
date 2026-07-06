@@ -68,7 +68,7 @@
 
   /**
    * Collect the full auto-context for a report.
-   * @param {'settings'|'drill'} source
+   * @param {'settings'|'drill'|'ai_explain'|'learn'} source
    * @returns {object} context map (matches shared/schemas/report-schema.json 'context')
    */
   function collect(source) {
@@ -78,7 +78,7 @@
     return {
       app: {
         version: _appVersion(),
-        source: (source === 'drill' || source === 'ai_explain') ? source : 'settings',
+        source: (source === 'drill' || source === 'ai_explain' || source === 'learn') ? source : 'settings',
         theme: s.theme || null,
         appearance: s.appearance || null,
         targetExam: _safe(function () { return (typeof TargetExam !== 'undefined' && TargetExam.get) ? TargetExam.get() : null; })
@@ -128,6 +128,15 @@
       /* Accept either `question` (live drill question object) or `questionText` (the shape the duel-review
          explain path passes) so a reported explanation ALWAYS carries its text + a stable signature (ADR-099). */
       questionText: (q.question != null ? String(q.question) : (q.questionText != null ? String(q.questionText) : null)),
+      /* Answer mode (ADR-100): captured explicitly so no consumer has to re-infer it from options length.
+         `isMCQ` is authoritative (has options); `answerFormat` is best-effort (explicit q.answerFormat, else the
+         QRAnswerFormat kind — 'mcq'/'numeric'). Lets the UI + admin never say "options" for a typed question. */
+      isMCQ: (Array.isArray(q.options) && q.options.length > 0),
+      answerFormat: (function () {
+        if (typeof q.answerFormat === 'string' && q.answerFormat) return q.answerFormat;
+        try { if (root.QRAnswerFormat && root.QRAnswerFormat.answerFormat) { var f = root.QRAnswerFormat.answerFormat(q); return (f && f.kind) ? f.kind : null; } } catch (_) {}
+        return null;
+      })(),
       options: Array.isArray(q.options) ? q.options.slice(0, 12) : null,
       optionFigures: Array.isArray(q.optionFigures) ? q.optionFigures.slice(0, 12) : null,
       answer: (q.answer === undefined ? null : q.answer),

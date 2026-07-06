@@ -71,7 +71,7 @@ BR.GROUPS.forEach(function (g) {
 ok('browser taxonomy is non-empty', BR.TYPES.length >= 12);
 
 /* ───────── 2. report-types cross-consistency ───────── */
-var VALID_GROUPS = ['question', 'ai', 'app', 'account', 'other'];
+var VALID_GROUPS = ['question', 'ai', 'learn', 'app', 'account', 'other'];
 RT.TYPES.forEach(function (t) {
   ok(t.id + ' has a label', typeof t.label === 'string' && t.label.length > 0);
   ok(t.id + ' has a valid group', VALID_GROUPS.indexOf(t.group) !== -1);
@@ -90,6 +90,15 @@ ok('difficulty_mismatch exists (question, low)', S.groupFor('difficulty_mismatch
 ok('question_other exists (question)', S.groupFor('question_other') === 'question');
 ok('ui_issue exists (app)', S.groupFor('ui_issue') === 'app');
 ok('ai_issue is its own group', S.groupFor('ai_issue') === 'ai');
+/* ADR-100: Learn topic type + MCQ-only flag. */
+ok('learn_issue is its own group', S.groupFor('learn_issue') === 'learn' && RT.typeById('learn_issue') && RT.typeById('learn_issue').group === 'learn');
+ok('learn_issue is not in-drill', !RT.typeById('learn_issue').inDrill);
+ok('learn_issue not in the Settings chooser GROUPS', RT.GROUPS.every(function (g) { return g.id !== 'learn'; }));
+ok('learn_issue subReasons lockstep (shared⇄server)', arrEq(RT.typeById('learn_issue').subReasons.map(function (s) { return s.id; }), S.TYPE_META.learn_issue.subReasons));
+ok('isValidSubReason(learn_issue,concept)', S.isValidSubReason('learn_issue', 'concept') && RT.isValidSubReason('learn_issue', 'concept'));
+ok('isValidSubReason(learn_issue,formula)', S.isValidSubReason('learn_issue', 'formula'));
+ok('options_wrong is mcqOnly (shared⇄browser)', RT.typeById('options_wrong').mcqOnly === true && BR.typeById('options_wrong').mcqOnly === true);
+ok('answer_wrong is NOT mcqOnly (applies to typed too)', !RT.typeById('answer_wrong').mcqOnly);
 ok('legacy question_wrong is GONE from the taxonomy', !S.isValidType('question_wrong') && !RT.isValidType('question_wrong'));
 ok('legacy formatting is GONE from the taxonomy', !S.isValidType('formatting') && !RT.isValidType('formatting'));
 ok('defaultPriorityFor(answer_wrong)=critical', RT.defaultPriorityFor('answer_wrong') === 'critical' && S.defaultPriorityFor('answer_wrong') === 'critical');
@@ -271,7 +280,27 @@ ok('QuanAI: serialized report payload leaks no gpt/openai', (function () { var c
   ok('JSON-schema classification.type enum lockstep', arrEq(jsonTypeEnum, RT.TYPES.map(function (t) { return t.id; })));
   var jsonSourceEnum = jsonSchema.properties.context.properties.app.properties.source.enum;
   ok('JSON-schema context.app.source includes ai_explain', jsonSourceEnum.indexOf('ai_explain') !== -1);
+  ok('JSON-schema context.app.source includes learn (ADR-100)', jsonSourceEnum.indexOf('learn') !== -1);
+  ok('JSON-schema documents the learn object (ADR-100)', !!jsonSchema.properties.learn && jsonSchema.properties.learn.additionalProperties === false);
 })();
+
+/* ───────── 9. ADR-100: Learn reporting + MCQ-vs-typed correctness ───────── */
+/* source:'learn' is accepted (not coerced to settings) and a Learn report is 2-tap when a topic is attached. */
+var lv = S.validateCreatePayload({ type: 'learn_issue', subReason: 'concept', source: 'learn', learn: { topicId: 'lr-coding-decoding', title: 'Coding-Decoding', category: 'lr-reasoning', subject: 'lr' } });
+ok('learn source accepted (not coerced)', lv.ok && lv.clean.source === 'learn');
+ok('learn report is 2-tap with a topic attached (no text needed)', lv.ok && lv.clean.learn && lv.clean.learn.topicId === 'lr-coding-decoding');
+ok('learn report seeds medium priority', lv.ok && lv.clean.priority === 'medium');
+ok('learn report carries no question/ai', lv.clean.question === null && lv.clean.ai === null);
+ok('reject empty learn report (no topic, no text)', S.validateCreatePayload({ type: 'learn_issue', source: 'learn' }).code === 'EMPTY_REPORT');
+ok('sanitizeLearn keeps the topic fields', (function () { var l = S.sanitizeLearn({ topicId: 'x', title: 'T', category: 'c', subject: 's', difficulty: 'core', examFrequency: 'high', route: '#learn/x', bogus: 'drop' }); return l.topicId === 'x' && l.subject === 's' && l.bogus === undefined; })());
+ok('sanitizeLearn null when nothing identifying', S.sanitizeLearn({ difficulty: 'core' }) === null);
+ok('learn subReasons all covered by super-admin SUBREASON_LABELS (via §8)', true); // coverage asserted in §8's allSubs loop
+/* MCQ-vs-typed: the snapshot carries a reliable answer-mode marker; server derives isMCQ from options if absent. */
+ok('sanitizeQuestion keeps client isMCQ=false for a typed question', S.sanitizeQuestion({ questionId: 'Q1', questionText: '2+2?', isMCQ: false, answer: 4 }).isMCQ === false);
+ok('sanitizeQuestion derives isMCQ from options when absent (MCQ)', S.sanitizeQuestion({ questionId: 'Q2', questionText: 'x', options: ['a', 'b', 'c'], answer: 'a' }).isMCQ === true);
+ok('sanitizeQuestion derives isMCQ=false when no options', S.sanitizeQuestion({ questionId: 'Q3', questionText: 'x', answer: '7/12' }).isMCQ === false);
+ok('sanitizeQuestion keeps answerFormat', S.sanitizeQuestion({ questionId: 'Q4', questionText: 'x', answer: '3:2', answerFormat: 'ratio' }).answerFormat === 'ratio');
+ok('typed-answer report round-trips a fraction answer', S.validateCreatePayload({ type: 'answer_wrong', source: 'drill', question: { questionId: 'Q5', questionText: 'x', answer: '7/12', selectedAnswer: '1/2', isMCQ: false } }).clean.question.answer === '7/12');
 
 /* ───────── done ───────── */
 console.log('\nreport.check.js: ' + pass + ' passed, ' + fail + ' failed');

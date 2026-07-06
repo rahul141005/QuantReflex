@@ -341,6 +341,24 @@ function initSettingsView() {
     });
   }
 
+  /* Contact card (ADR-100) — the email is a real mailto: anchor (keyboard + semantics for free); the copy button
+     writes the address to the clipboard with a toast + brief "copied" state. Idempotent via rebind (Settings re-inits). */
+  var CONTACT_EMAIL = 'quantreflex@gmail.com';
+  var copyBtn = document.getElementById('contactEmailCopy');
+  if (copyBtn) {
+    rebind(copyBtn, 'click', function () {
+      var done = function () {
+        try { if (typeof showToast === 'function') showToast('✅ Email copied'); } catch (_) {}
+        var b = document.getElementById('contactEmailCopy');
+        if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById('contactEmailCopy'); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(CONTACT_EMAIL).then(done, done); }
+        else { var ta = document.createElement('textarea'); ta.value = CONTACT_EMAIL; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
+      } catch (_) { done(); }
+    });
+  }
+
   /* App Guide button — opens modal */
   var appGuideBtn = document.getElementById('openAppGuide');
   if (appGuideBtn) {

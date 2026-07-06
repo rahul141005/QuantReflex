@@ -552,6 +552,23 @@ var LearnView = (function () {
       pv.addEventListener('click', (function (id) { return function () { _go(id); }; })(sib.prev.id));
       foot.appendChild(pv);
     }
+
+    /* Report an issue (ADR-100) — a deliberate, low-emphasis affordance closing the reading spine: secondary to the
+       finish actions, always discoverable, never competing with "Practise this". Opens the purpose-built Learn
+       report flow pre-scoped to THIS chapter (topic metadata auto-attached — the user picks a reason, 2 taps). */
+    if (typeof ReportModal !== 'undefined' && ReportModal.open) {
+      var rep = document.createElement('button'); rep.className = 'kx-report-line'; rep.type = 'button';
+      rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> Spotted a problem in this chapter? <span class="kx-report-cta">Report it</span>';
+      rep.addEventListener('click', function () {
+        ReportModal.open({ source: 'learn', topic: {
+          id: topic.id, title: topic.title, category: topic.category,
+          subject: (cat && cat.subject) || null,
+          difficulty: topic.difficulty, examFrequency: topic.examFrequency,
+          route: '#learn/' + topic.id
+        } });
+      });
+      foot.appendChild(rep);
+    }
     return foot;
   }
 
