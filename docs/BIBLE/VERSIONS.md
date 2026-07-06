@@ -9,12 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.118 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.119 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.25 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.26 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.119 / Firestore 2.26 (2026-07-06)** — **QuanAI identity: no LLM leakage in reporting + final-pass hardening (ADR-098).**
+> Final independent verification pass. Enforced the **QuanAI product-identity** rule (users must never learn the
+> underlying LLM): ADR-097 had surfaced the raw model + `provider:'openai'` in the explain envelope, the report
+> modal UI, and the report payload/localStorage — all removed. The report `ai` object is now `{explanation, promptId}`
+> where `promptId` (`explain.base@3`) is a QuanAI-owned version id that reveals nothing; the real model stays only in
+> server-side `aiRequests` telemetry (**Firestore 2.26** — `reports.ai` shape change). Also fixed the low-severity
+> items two independent re-audits found: duel-review explanations are now reportable with context; "oldest open"
+> analytics spans all open statuses; an `archived` filter chip; scalar answer/option size caps; openCount-failure
+> logging; typed-input restore on terminal-error re-render; and a lockstep guard over the Super-Admin view label maps.
+> report.check.js → 254 assertions; Playwright → 52 (both include QuanAI no-leak guards). All prior suites green.
+> No new infra / no rules or index change (Vercel-Hobby intact). SW v215→v216.
+>
 > **2.118 / Firestore 2.25 (2026-07-06)** — **AI-explanation reporting + reporting adversarial hardening (ADR-097).**
 > A code-first adversarial re-verification of ADR-096. Closed the headline gap — users can now **report an AI
 > explanation from the explanation itself** (a ⚑ in the Companion explain sheet), auto-capturing the full question

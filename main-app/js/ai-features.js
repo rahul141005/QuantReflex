@@ -93,7 +93,7 @@ var AIFeatures = (function () {
     }
     var actualCount = Math.min(count, quota.remaining);
 
-    /* Fetch from centralized Firestore question bank instead of runtime OpenAI.
+    /* Fetch from centralized Firestore question bank instead of runtime AI generation.
        The AI generation pipeline now lives in the Super Admin ecosystem —
        questions are pre-generated, curated, and approved before reaching users. */
     if (typeof QuestionBankService !== 'undefined') {

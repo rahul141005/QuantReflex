@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-098 — QuanAI product identity: no LLM/provider leakage in reporting (+ final-pass hardening) (2026-07-06)
+- **Context:** a final independent verification pass introduced a hard product requirement — **QuanAI is the
+  product identity; users must never learn which underlying LLM powers explanations.** No provider name
+  ("openai") or model id ("gpt-4o-mini") may appear in the client UI, any client-reachable response, or any
+  user-inspectable report payload (POST body / localStorage). Server-side telemetry is exempt. This **directly
+  implicated ADR-097**, which (to capture generation config for admin debugging) had surfaced the raw model +
+  `provider:'openai'` in the explain envelope `meta` (client-reachable via `/api/ai`), displayed "AI model:
+  gpt-4o-mini" in the report modal's tech-preview UI, and carried it in the report POST body → localStorage →
+  Firestore. An independent leak sweep traced the full 10-site chain.
+- **Fix — one QuanAI-owned identifier, no provider/model client-side.** The safe identifier already existed:
+  `promptId` = `explain.base@<version>` (a QuanAI prompt/version id that reveals nothing about the provider).
+  - `services/aiBrain.js`: reverted the ADR-097 additions — the explain envelope `meta` no longer carries
+    `model`/`provider` (removed `usedModel`, the cache-hit read, and the `model` cache-doc write). The real model
+    stays ONLY in pre-existing server-side `recordAiRequest`→`aiRequests` telemetry.
+  - `js/companion-ui.js`: the report `ai` bundle is `{ explanation, promptId }` (dropped model + the hardcoded
+    `provider:'openai'`); `explainCtx` no longer holds a model.
+  - `js/ui/report-modal.js`: scope-banner + tech-preview show the **QuanAI explanation version** (promptId), never
+    a model; and `_submit` **whitelists** the outgoing `ai` bundle to `{explanation, promptId}` so no caller can
+    ever leak a model/provider into the POST body or the offline queue.
+  - `api/_lib/report-schema.js` `sanitizeAi`: keeps only `{ explanation, promptId }` — a hand-crafted client body
+    sending `model`/`provider` is ignored, so it can never persist to Firestore or reach the Super-Admin view.
+  - `super-admin-app/js/views/reports.js`: the AI block shows "Explanation version" (promptId), not Model/Provider.
+  - Hygiene: scrubbed provider names from three **view-source-reachable** client-JS comments (companion-ui,
+    ai-features, question-bank-service: "GPT"/"OpenAI" → "AI"). All other AI envelopes (coach/insights/planner/chat)
+    were already clean.
+  - **No new infra, no extra reads, no index/rules change** — a minimal revert; Vercel-Hobby architecture intact.
+- **Final-pass audit fixes** (two independent agents confirmed the ADR-096/097 work is otherwise sound):
+  - **AI reporting completeness — duel review.** `duel-manager.js` opens the same explanation sheet from post-match
+    review; it now passes a minimal `reportCtx` (question text/answer/category + `isDuel`) so a report from a duel
+    explanation also carries the item. AI-explanation reporting is now complete everywhere explanations appear.
+  - **Analytics "oldest open"** now spans all open statuses (open/investigating/needs_info), matching `openTotal`
+    (was strictly `status=='open'`, understating the backlog).
+  - **`archived` filter chip** added to the Super-Admin list (it was settable but not filterable).
+  - **`sanitizeQuestion` hardening** — `answer`/`selectedAnswer`/`options` scalars are now length-capped
+    (`_capScalar`) so a crafted oversized value can't defeat the question byte-cap.
+  - **`_adjustOpenCount`** now logs on failure instead of silently swallowing (openCount-drift observability).
+  - **Report modal** now restores typed text + sub-reason + rating on a terminal-error re-render (no lost input).
+  - **Lockstep test** extended to guard the Super-Admin VIEW's `TYPE_LABELS`/`STATUS_LABELS` (a new type/status can
+    no longer silently render as a raw id).
+- **Verification:** `scripts/report.check.js` → **254** assertions (adds QuanAI no-leak: `sanitizeAi` never returns
+  model/provider, whole serialized payload has no gpt/openai token; + view-label coverage). Playwright browser
+  sweep → **52** (adds: tech-preview shows the QuanAI version and no model even when handed a leaky bundle; POST
+  body + offline localStorage carry no gpt/openai; promptId retained). All prior suites green. SW v215→v216.
+- **Governance:** FIRESTORE_BLUEPRINT `reports.ai` amended to `{explanation, promptId}` (provider/model
+  intentionally not captured); CHANGELOG; VERSIONS (Bible + Firestore).
+
 ## ADR-097 — AI-explanation reporting + reporting-system adversarial hardening (2026-07-06)
 - **Context:** a fresh, code-first adversarial re-verification of the ADR-096 reporting system. The headline gap:
   **users could not report an AI-generated explanation from the explanation itself.** AI explanations render only

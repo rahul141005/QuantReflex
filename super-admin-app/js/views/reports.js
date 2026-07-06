@@ -14,7 +14,7 @@ var ReportsView = (function () {
   var _rows = [], _cursor = null, _loading = false, _more = false, _pageLocal = false;
   var _statusFilter = 'open', _priorityFilter = '', _text = '', _analytics = null;
 
-  var STATUS_CHIPS = ['all', 'open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate'];
+  var STATUS_CHIPS = ['all', 'open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate', 'archived'];
   var STATUS_LABELS = { open: 'Open', investigating: 'Investigating', needs_info: 'Needs info', resolved: 'Resolved', dismissed: 'Dismissed', duplicate: 'Duplicate', archived: 'Archived' };
   var PRIORITIES = ['critical', 'high', 'medium', 'low'];
   var STATUSES = ['open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate', 'archived'];
@@ -232,8 +232,8 @@ var ReportsView = (function () {
   function _aiBlock(ai) {
     if (!ai) return '';
     return '<div class="report-ai-block">' +
-      '<div class="cc-section-title">🤖 AI explanation reported</div>' +
-      _kv('Model', ai.model || 'unknown') + _kv('Provider', ai.provider || '—') + _kv('Prompt version', ai.promptId || '—') +
+      '<div class="cc-section-title">🤖 QuanAI explanation reported</div>' +
+      _kv('Explanation version', ai.promptId || '—') +
       (ai.explanation ? '<div class="muted" style="margin:.5rem 0 .25rem;">Explanation shown to the user</div><pre class="report-tech-pre">' + _esc(ai.explanation) + '</pre>' : '<div class="muted">No explanation text captured.</div>') +
       '</div>';
   }

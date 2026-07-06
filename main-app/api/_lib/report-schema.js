@@ -94,6 +94,14 @@ function _str(v, max) {
 }
 function _num(v) { var n = Number(v); return (typeof v !== 'boolean' && isFinite(n)) ? n : null; }
 function _bool(v) { return typeof v === 'boolean' ? v : null; }
+/* A scalar answer/option value: keep numbers/booleans as-is, length-cap strings, drop objects/arrays. Bounds a
+   crafted oversized answer/option so it can't defeat the question byte-cap (ADR-098 hardening). */
+function _capScalar(v, max) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number' || typeof v === 'boolean') return v;
+  if (typeof v === 'string') return v.length > max ? v.slice(0, max) : v;
+  return null;
+}
 function _byteLen(obj) { try { return Buffer.byteLength(JSON.stringify(obj)); } catch (_) { return 0; } }
 
 /* Deterministic, collision-resistant string hash (djb2 xor variant) → base36. Pure, stable across runs. */
@@ -211,9 +219,9 @@ function sanitizeQuestion(q) {
     subtype: _str(q.subtype, 80),
     difficulty: _str(q.difficulty, 40),
     questionText: _str(q.questionText, FIELD_LIMITS.description),
-    options: Array.isArray(q.options) ? q.options.slice(0, 12) : null,
+    options: Array.isArray(q.options) ? q.options.slice(0, 12).map(function (o) { return _capScalar(o, 300); }) : null,
     optionFigures: Array.isArray(q.optionFigures) ? q.optionFigures.slice(0, 12) : null,
-    answer: (q.answer === undefined ? null : q.answer),
+    answer: _capScalar(q.answer, 300),
     explanation: _str(q.explanation, 8000),
     aiContext: (q.aiContext === undefined ? null : q.aiContext),
     chart: (q.chart === undefined ? null : q.chart),
@@ -224,7 +232,7 @@ function sanitizeQuestion(q) {
     adaptiveDifficulty: _str(q.adaptiveDifficulty, 40),
     questionNumber: _num(q.questionNumber),
     count: _num(q.count),
-    selectedAnswer: (q.selectedAnswer === undefined ? null : q.selectedAnswer),
+    selectedAnswer: _capScalar(q.selectedAnswer, 300),
     wasAnswered: _bool(q.wasAnswered),
     wasCorrect: _bool(q.wasCorrect),
     timeSpentMs: _num(q.timeSpentMs),
@@ -241,18 +249,18 @@ function sanitizeQuestion(q) {
   return clean;
 }
 
-/* ── AI explanation metadata sanitizer (ADR-097) ──
-   Captures the exact generation config + text so an admin can tie a reported explanation back to its source
-   without reproducing it: the full AI explanation text, provider, model, and prompt version (promptId). */
+/* ── AI explanation metadata sanitizer (ADR-097; ADR-098 identity) ──
+   Captures the explanation text + the QuanAI-owned version id (promptId, e.g. 'explain.base@3') so an admin can
+   tie a reported explanation back to its generation config. The underlying provider/model is DELIBERATELY NOT
+   captured or stored (QuanAI product identity, ADR-098) — a hand-crafted client body sending `model`/`provider`
+   is ignored here; the real model lives only in server-side aiRequests telemetry. */
 var AI_EXPLANATION_MAX = 8000;
 function sanitizeAi(ai) {
   if (!ai || typeof ai !== 'object') return null;
   var explanation = _str(ai.explanation, AI_EXPLANATION_MAX);
   var promptId = _str(ai.promptId, 120);
-  var model = _str(ai.model, 60);
-  var provider = _str(ai.provider, 40);
-  if (!explanation && !promptId && !model && !provider) return null;   // nothing worth storing
-  return { explanation: explanation, promptId: promptId, model: model, provider: provider };
+  if (!explanation && !promptId) return null;   // nothing worth storing
+  return { explanation: explanation, promptId: promptId };
 }
 
 /**

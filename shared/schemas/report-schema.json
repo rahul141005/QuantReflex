@@ -210,12 +210,10 @@
     },
     "ai": {
       "type": ["object", "null"],
-      "description": "AI explanation metadata (ADR-097) — present only when context.app.source==='ai_explain'. Ties a reported explanation back to its exact generation config so an admin can triage it without reproducing it. null otherwise.",
+      "description": "AI explanation metadata (ADR-097) — present only when context.app.source==='ai_explain'. Ties a reported QuanAI explanation back to its generation config so an admin can triage it without reproducing it. null otherwise. NOTE (ADR-098, QuanAI product identity): the underlying provider/model is intentionally NOT captured — 'promptId' is a QuanAI-owned version identifier that reveals nothing about the LLM; the real model lives only in server-side aiRequests telemetry.",
       "properties": {
-        "explanation": { "type": ["string", "null"], "maxLength": 8000, "description": "The full AI explanation text the user was looking at." },
-        "promptId": { "type": ["string", "null"], "description": "Prompt id embedding the prompt version, e.g. 'explain.base@3'." },
-        "model": { "type": ["string", "null"], "description": "Model that generated the explanation, e.g. 'gpt-4o-mini' (surfaced in the explain envelope meta)." },
-        "provider": { "type": ["string", "null"], "description": "Generation provider, e.g. 'openai'." }
+        "explanation": { "type": ["string", "null"], "maxLength": 8000, "description": "The full QuanAI explanation text the user was looking at." },
+        "promptId": { "type": ["string", "null"], "description": "QuanAI-owned prompt/version identifier, e.g. 'explain.base@3'. Reveals nothing about the underlying provider or model." }
       },
       "additionalProperties": false
     }

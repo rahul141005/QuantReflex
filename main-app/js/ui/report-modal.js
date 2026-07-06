@@ -186,7 +186,7 @@
   }
 
   /* Reset transient per-form state so it never leaks across a type switch (ADR-097 B6). */
-  function _clearForm() { if (st) { st.subReason = null; st._rating = null; } }
+  function _clearForm() { if (st) { st.subReason = null; st._rating = null; st._draft = null; } }
 
   /* ── Step 2: type-specific form ── */
   function _typeById(id) {
@@ -213,7 +213,7 @@
 
     if (st.source === 'ai_explain') {
       html += '<p class="report-modal-sub report-q-scope">' + _ico('robot', '🤖') +
-              ' Reporting this AI explanation — the question, your answer, the explanation text and the model are attached automatically.</p>';
+              ' Reporting this QuanAI explanation — the question, your answer, the explanation text and the QuanAI version are attached automatically.</p>';
     } else if (st.source === 'drill' && st.question) {
       html += '<p class="report-modal-sub report-q-scope">' + _ico('target', '🎯') +
               ' Reporting the current question — its full details are attached automatically.</p>';
@@ -297,6 +297,23 @@
       });
     }
 
+    /* Restore in-progress input after a re-render (e.g. a terminal submit failure) so nothing the user typed/
+       selected is lost (ADR-098). st.subReason / st._rating are the source of truth; st._draft holds typed text. */
+    if (st.subReason) {
+      var selChip = _overlay.querySelector('.report-chip[data-sub="' + st.subReason + '"]');
+      if (selChip) { selChip.classList.add('selected'); selChip.setAttribute('aria-checked', 'true'); }
+    }
+    if (st._rating) {
+      for (var rs = 0; rs < stars.length; rs++) {
+        var on2 = parseInt(stars[rs].getAttribute('data-rating'), 10) <= st._rating;
+        stars[rs].classList.toggle('on', on2); stars[rs].setAttribute('aria-checked', on2 ? 'true' : 'false');
+      }
+    }
+    if (st._draft) {
+      Object.keys(st._draft).forEach(function (fn) { var el = _overlay.querySelector('#rf_' + fn); if (el) el.value = st._draft[fn]; });
+      st._draft = null;   /* consumed */
+    }
+
     /* char counters */
     var counted = _overlay.querySelectorAll('[data-for]');
     for (var c = 0; c < counted.length; c++) {
@@ -335,7 +352,7 @@
       if (st.question.question) lines.push('  “' + String(st.question.question).slice(0, 120) + '”');
     }
     if (st.source === 'ai_explain' && st.ai) {
-      lines.push('AI model: ' + (st.ai.model || 'unknown') + (st.ai.promptId ? ' · prompt ' + st.ai.promptId : ''));
+      lines.push('QuanAI explanation version: ' + (st.ai.promptId || 'unknown'));
       if (st.ai.explanation) lines.push('Explanation: “' + String(st.ai.explanation).slice(0, 160) + (st.ai.explanation.length > 160 ? '…' : '') + '”');
     }
     if (ctx.recentErrors && ctx.recentErrors.length) lines.push('Recent errors: ' + ctx.recentErrors.length + ' captured');
@@ -383,6 +400,10 @@
       return;
     }
 
+    /* Stash typed text so a terminal-error re-render (below) can restore it — nothing the user wrote is lost. */
+    st._draft = {};
+    (t.fields || []).forEach(function (fname) { var el = _overlay.querySelector('#rf_' + fname); if (el && FIELD_DEFS[fname] && FIELD_DEFS[fname].input !== 'rating') st._draft[fname] = el.value; });
+
     st.submitting = true;
     _renderSubmitting();
 
@@ -397,7 +418,9 @@
       question: ((st.source === 'drill' || st.source === 'ai_explain') && st.question && root.ReportContext)
         ? root.ReportContext.snapshotQuestion(st.question, st.session || {})
         : null,
-      ai: (st.source === 'ai_explain' && st.ai) ? st.ai : null
+      /* Whitelist the AI bundle to product-safe fields (QuanAI identity, ADR-098) — never let a provider/model
+         identifier into the POST body or the offline queue, regardless of what the caller supplied. */
+      ai: (st.source === 'ai_explain' && st.ai) ? { explanation: st.ai.explanation || '', promptId: st.ai.promptId || null } : null
     };
 
     var submitP = (root.ReportQueue && root.ReportQueue.submit)

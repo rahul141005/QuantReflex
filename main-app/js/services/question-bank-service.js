@@ -4,7 +4,7 @@
  * Reads curated, AI-generated questions from the Firestore `questions`
  * collection (managed by the Super Admin ecosystem).
  *
- * Replaces runtime OpenAI generation with a pre-generated, approved,
+ * Replaces runtime AI generation with a pre-generated, approved,
  * centralized question bank — preserving the AI-powered experience.
  *
  * Features:

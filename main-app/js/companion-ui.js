@@ -4,7 +4,7 @@
  * ONE renderer for the whole AI ecosystem. Transforms an AIResponse block envelope (server: aiBrain.js) into
  * DOM components, drives the turn-by-turn conversation (chips → chat turns), handles deep-links into real
  * drills, staged loading, errors, and analytics. Every feature (Explain/Coach/Insights/Study Plan/Word
- * Problems) opens through here, so they look and behave like one intelligent tutor — never separate GPT tools.
+ * Problems) opens through here, so they look and behave like one intelligent tutor — never separate AI tools.
  *
  * Self-contained: own modal, own authenticated fetch, own state. Exposes window.Companion.
  */
@@ -450,7 +450,7 @@ var Companion = (function () {
     _state = { feature: o.feature, topic: o.topic || '', history: [], body: m.body, modal: m };
     // Explain anchor: remember the exact question so every follow-up turn deepens THIS problem (ADR-045).
     // reportCtx (ADR-097) carries the live question object + drill session snapshot for a report from here.
-    if (o.feature === 'explain') _state.explainCtx = { question: (o.body && o.body.question) || '', lastExplanation: '', reportCtx: o.reportCtx || null, promptId: null, model: null };
+    if (o.feature === 'explain') _state.explainCtx = { question: (o.body && o.body.question) || '', lastExplanation: '', reportCtx: o.reportCtx || null, promptId: null };
     log(o.feature, 'opened', {});
     // Force a fresh context when the student practiced since this feature last refreshed, or tapped refresh.
     var force = !!o.force || (o.autoForce && shouldForce(o.feature));
@@ -488,14 +488,14 @@ var Companion = (function () {
   }
   function _assign(a, b) { var o = {}; var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 
-  /* ADR-097: capture the generation config from the explain envelope meta so a report can attach it. */
+  /* ADR-097/098: capture the QuanAI-owned generation version (promptId) from the explain envelope meta so a
+     report can attach it. The underlying provider/model is NEVER sent to the client (QuanAI identity, ADR-098). */
   function _captureAiMeta(env) {
     if (!_state || !_state.explainCtx || !env || !env.meta) return;
     if (env.meta.promptId) _state.explainCtx.promptId = env.meta.promptId;
-    if (env.meta.model) _state.explainCtx.model = env.meta.model;
   }
-  /* ADR-097: open the report modal pre-scoped to THIS AI explanation (question snapshot + explanation text +
-     model + prompt version). Guarded so a missing ReportModal never throws. */
+  /* ADR-097/098: open the report modal pre-scoped to THIS AI explanation (question snapshot + explanation text +
+     QuanAI version). No model/provider is captured or attached. Guarded so a missing ReportModal never throws. */
   function _reportExplanation() {
     if (!_state || !_state.explainCtx) return;
     if (typeof ReportModal === 'undefined' || !ReportModal.open) return;
@@ -504,7 +504,7 @@ var Companion = (function () {
       source: 'ai_explain',
       question: (ec.reportCtx && ec.reportCtx.question) || null,
       session: (ec.reportCtx && ec.reportCtx.session) || {},
-      ai: { explanation: ec.lastExplanation || '', promptId: ec.promptId || null, model: ec.model || null, provider: 'openai' }
+      ai: { explanation: ec.lastExplanation || '', promptId: ec.promptId || null }
     });
   }
 

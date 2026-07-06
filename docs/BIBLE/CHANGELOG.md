@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — QuanAI identity: no LLM/provider leakage in reporting + final-pass hardening (ADR-098)
+
+Final independent verification pass. Enforced the QuanAI product-identity requirement (users must never learn the
+underlying LLM) — which ADR-097 had violated by surfacing the raw model/provider client-side — and fixed the
+low-severity items two independent re-audits surfaced. No new infra; Vercel-Hobby intact. Full detail in ADR-098.
+
+```
+### fix(identity): strip LLM/provider from every client-reachable path (QuanAI)
+- services/aiBrain.js: explain envelope meta no longer carries model/provider (reverted the ADR-097 usedModel
+  plumbing + cache model write); model stays only in server-side recordAiRequest/aiRequests telemetry.
+- js/companion-ui.js: report ai bundle = { explanation, promptId } (dropped model + provider); explainCtx drops model.
+- js/ui/report-modal.js: banner + tech preview show the QuanAI explanation version (promptId), never a model;
+  _submit whitelists the outgoing ai bundle to {explanation, promptId} so no caller can leak model/provider into
+  the POST body or offline queue.
+- api/_lib/report-schema.js: sanitizeAi keeps only { explanation, promptId } — a client-sent model/provider is ignored.
+- shared/schemas/report-schema.json + super-admin views/reports.js: ai = {explanation, promptId}; admin shows
+  "Explanation version", not Model/Provider.
+- scrubbed provider names from 3 view-source-reachable client-JS comments (companion-ui, ai-features,
+  question-bank-service).
+### fix(reporting): final-pass audit items
+- js/duel-manager.js: duel-review explanation now passes reportCtx so a report from it carries the item
+  (AI-explanation reporting complete everywhere explanations appear).
+- super-admin api/admin/reports.js: "oldest open" analytics spans all open statuses (matches openTotal); openCount
+  adjust logs on failure instead of swallowing.
+- super-admin js/views/reports.js: added the 'archived' filter chip.
+- api/_lib/report-schema.js: _capScalar caps answer/selectedAnswer/options so a crafted oversized value can't
+  defeat the question byte-cap.
+- js/ui/report-modal.js: restores typed text + sub-reason + rating on a terminal-error re-render (no lost input).
+### chore + test
+- index.html + service-worker.js: v215 → v216 (QR_APP_VERSION in lockstep).
+- scripts/report.check.js: 254 assertions (QuanAI no-leak guards + super-admin VIEW label-map lockstep). Playwright
+  sweep: 52 assertions (tech preview + POST body + offline localStorage carry no gpt/openai; promptId retained).
+  All prior suites green.
+```
+
 ## 2026-07-06 — AI-explanation reporting + reporting-system adversarial hardening (ADR-097)
 
 A code-first adversarial re-verification of ADR-096. Added the missing **"Report this explanation"** path from AI

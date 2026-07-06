@@ -211,10 +211,17 @@ async function handler(req, res) {
       out.today = await _count(db.collection('reports').where('createdAtMs', '>=', now - 24 * 60 * 60 * 1000));
       out.week = await _count(db.collection('reports').where('createdAtMs', '>=', now - 7 * 24 * 60 * 60 * 1000));
 
-      /* oldest open report age (single doc read) */
+      /* Oldest still-open report age — across ALL open statuses (open/investigating/needs_info), so the tile
+         matches openTotal's definition (a report moved to 'investigating' must still count). One indexed
+         limit(1) asc read per open status; take the min createdAtMs. */
       try {
-        const oSnap = await db.collection('reports').where('lifecycle.status', '==', 'open').orderBy('createdAtMs', 'asc').limit(1).get();
-        if (!oSnap.empty) { const od = oSnap.docs[0].data(); out.oldestOpenMs = typeof od.createdAtMs === 'number' ? (now - od.createdAtMs) : null; }
+        let oldest = null;
+        for (let i = 0; i < OPEN_STATUSES.length; i++) {
+          const s = OPEN_STATUSES[i];
+          const oSnap = await db.collection('reports').where('lifecycle.status', '==', s).orderBy('createdAtMs', 'asc').limit(1).get();
+          if (!oSnap.empty) { const c = oSnap.docs[0].data().createdAtMs; if (typeof c === 'number' && (oldest === null || c < oldest)) oldest = c; }
+        }
+        out.oldestOpenMs = oldest !== null ? (now - oldest) : null;
       } catch (_) {}
 
       /* top reported questions */
@@ -239,7 +246,11 @@ async function handler(req, res) {
     /* Shared: apply an openCount delta to the questionReports aggregate when a report's open-ness flips. */
     async function _adjustOpenCount(sig, delta) {
       if (!sig || !delta) return;
-      try { await db.collection('questionReports').doc(_safeDocId(sig)).update({ openCount: admin.firestore.FieldValue.increment(delta) }); } catch (_) {}
+      /* Log (don't silently swallow) — if the aggregate doc is missing this delta is lost and questionReports.openCount
+         would drift from the true open count; surfacing it keeps that observable. Dashboard status counts use count()
+         aggregation and are unaffected; only the per-question openCount in details/analytics could drift. */
+      try { await db.collection('questionReports').doc(_safeDocId(sig)).update({ openCount: admin.firestore.FieldValue.increment(delta) }); }
+      catch (e) { console.warn('[reports] openCount adjust failed for signature', sig, '(delta ' + delta + '):', e && e.message); }
     }
 
     /* ── update-status ── */

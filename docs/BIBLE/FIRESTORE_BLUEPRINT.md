@@ -263,9 +263,11 @@ completedAt, createdAt }`.
   internalNotes[{by,email,text,at}]}, context{app{version,source,theme,appearance,targetExam}, device{ua,platform,
   formFactor,screen,viewport,dpr,online,connection,deviceMemory,hardwareConcurrency,standalone,reducedMotion},
   locale{tz,language}, route, sessionId, recentErrors[{msg,at}], submittedAtMs}, question{…full generator snapshot…}|null,
-  ai{explanation,promptId,model,provider}|null}`. **(ADR-097)** `context.app.source` adds `'ai_explain'` (a report filed
-  from an AI explanation); such reports carry the full `question` snapshot AND the `ai` object — the exact explanation
-  text + model + prompt version (`promptId`) — so an admin can triage a reported explanation without reproducing it.
+  ai{explanation,promptId}|null}`. **(ADR-097/098)** `context.app.source` adds `'ai_explain'` (a report filed from a
+  QuanAI explanation); such reports carry the full `question` snapshot AND the `ai` object — the explanation text +
+  the QuanAI-owned version id (`promptId`, e.g. `explain.base@3`) — so an admin can triage a reported explanation
+  without reproducing it. **(ADR-098, QuanAI product identity)** the underlying provider/model is intentionally NOT
+  captured in `ai` (or anywhere client-reachable); the real model lives only in server-side `aiRequests` telemetry.
   Canonical schema: `shared/schemas/report-schema.json`; enums: `shared/constants/report-types.js` (inline-copied by the
   handlers, lockstep enforced by `main-app/scripts/report.check.js`). **No screenshots/attachments in v1** — the rich
   `context`+`question` snapshot replaces them; a `reports/{id}/attachments/*` subcollection can be added later with
