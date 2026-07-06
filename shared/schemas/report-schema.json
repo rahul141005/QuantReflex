@@ -55,8 +55,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["question_wrong", "answer_wrong", "options_wrong", "explanation_wrong", "typo", "formatting", "visual", "bug", "crash", "performance", "ai_issue", "payment", "account", "feature_request", "feedback", "other"],
-          "description": "Report type. In-drill entry pre-selects the question-family types; Settings offers all."
+          "enum": ["answer_wrong", "solution_wrong", "explanation_wrong", "options_wrong", "formula_wrong", "typo", "visual", "unclear", "difficulty_mismatch", "wrong_topic", "duplicate", "question_other", "ai_issue", "bug", "crash", "ui_issue", "performance", "payment", "account", "feature_request", "feedback", "other"],
+          "description": "Report type (ADR-099 taxonomy). Groups: question (answer_wrong…question_other, all in-drill), ai (ai_issue), app (bug/crash/ui_issue/performance), account (payment/account), other (feature_request/feedback/other). In-drill entry shows the question-family reasons; the AI explanation sheet pre-selects ai_issue; Settings offers a guided chooser across all groups. Type values are index-agnostic — the (classification.type, createdAtMs) composite index is value-agnostic, so this set can be enriched with no new index. Legacy ids question_wrong/formatting may appear on reports filed before ADR-099."
         },
         "subReason": { "type": ["string", "null"], "description": "Optional type-specific refinement (e.g. visual→'chart_wrong', payment→'refund'). Validated against report-types.js subReasons for the type.", "default": null },
         "title": { "type": ["string", "null"], "maxLength": 140, "description": "Optional short summary (shown for bug/crash/feature/other).", "default": null },

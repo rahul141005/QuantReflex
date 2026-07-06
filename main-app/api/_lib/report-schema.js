@@ -22,24 +22,36 @@ var STATUSES = ['open', 'investigating', 'needs_info', 'resolved', 'dismissed', 
 var OPEN_STATUSES = ['open', 'investigating', 'needs_info'];
 var PRIORITIES = ['critical', 'high', 'medium', 'low'];
 
-/* type id → { group, inDrill, defaultPriority, subReasons:[ids] }. Mirrors report-types.js TYPES. */
+/* type id → { group, inDrill, defaultPriority, subReasons:[ids] }. Mirrors report-types.js TYPES (ADR-099).
+   Order matches the shared TYPES array so the check's id-set lockstep passes. */
 var TYPE_META = {
-  question_wrong:    { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
-  answer_wrong:      { group: 'question', inDrill: true,  defaultPriority: 'critical', subReasons: [] },
-  options_wrong:     { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
-  explanation_wrong: { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
-  typo:              { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
-  formatting:        { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
-  visual:            { group: 'question', inDrill: true,  defaultPriority: 'medium',   subReasons: ['chart_wrong', 'figure_render', 'clipping', 'missing_image', 'other'] },
-  bug:               { group: 'app',      inDrill: false, defaultPriority: 'high',     subReasons: [] },
-  crash:             { group: 'app',      inDrill: false, defaultPriority: 'critical', subReasons: [] },
-  performance:       { group: 'app',      inDrill: false, defaultPriority: 'medium',   subReasons: [] },
-  ai_issue:          { group: 'app',      inDrill: false, defaultPriority: 'medium',   subReasons: ['wrong_explanation', 'hallucination', 'poor_reasoning', 'incomplete', 'wrong_calc', 'other'] },
-  payment:           { group: 'account',  inDrill: false, defaultPriority: 'high',     subReasons: ['not_activated', 'deducted_no_premium', 'refund', 'transaction_error', 'other'] },
-  account:           { group: 'account',  inDrill: false, defaultPriority: 'high',     subReasons: ['login', 'sync', 'delete', 'other'] },
-  feature_request:   { group: 'other',    inDrill: false, defaultPriority: 'low',      subReasons: [] },
-  feedback:          { group: 'other',    inDrill: false, defaultPriority: 'low',      subReasons: [] },
-  other:             { group: 'other',    inDrill: false, defaultPriority: 'medium',   subReasons: [] }
+  /* — Question-family (in-drill fast path; each reason is its own type for per-reason triage counts) — */
+  answer_wrong:        { group: 'question', inDrill: true,  defaultPriority: 'critical', subReasons: [] },
+  solution_wrong:      { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
+  explanation_wrong:   { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
+  options_wrong:       { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
+  formula_wrong:       { group: 'question', inDrill: true,  defaultPriority: 'high',     subReasons: [] },
+  typo:                { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
+  visual:              { group: 'question', inDrill: true,  defaultPriority: 'medium',   subReasons: ['chart_wrong', 'figure_render', 'clipping', 'missing_image', 'other'] },
+  unclear:             { group: 'question', inDrill: true,  defaultPriority: 'medium',   subReasons: [] },
+  difficulty_mismatch: { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
+  wrong_topic:         { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
+  duplicate:           { group: 'question', inDrill: true,  defaultPriority: 'low',      subReasons: [] },
+  question_other:      { group: 'question', inDrill: true,  defaultPriority: 'medium',   subReasons: [] },
+  /* — QuanAI explanations (own group + reason set) — */
+  ai_issue:            { group: 'ai',       inDrill: false, defaultPriority: 'medium',   subReasons: ['wrong_answer', 'flawed_reasoning', 'hallucination', 'incomplete', 'confusing', 'formatting', 'other'] },
+  /* — App problems — */
+  bug:                 { group: 'app',      inDrill: false, defaultPriority: 'high',     subReasons: [] },
+  crash:               { group: 'app',      inDrill: false, defaultPriority: 'critical', subReasons: [] },
+  ui_issue:            { group: 'app',      inDrill: false, defaultPriority: 'medium',   subReasons: [] },
+  performance:         { group: 'app',      inDrill: false, defaultPriority: 'medium',   subReasons: [] },
+  /* — Account / billing — */
+  payment:             { group: 'account',  inDrill: false, defaultPriority: 'high',     subReasons: ['not_activated', 'deducted_no_premium', 'refund', 'transaction_error', 'other'] },
+  account:             { group: 'account',  inDrill: false, defaultPriority: 'high',     subReasons: ['login', 'sync', 'delete', 'other'] },
+  /* — Ideas & catch-all — */
+  feature_request:     { group: 'other',    inDrill: false, defaultPriority: 'low',      subReasons: [] },
+  feedback:            { group: 'other',    inDrill: false, defaultPriority: 'low',      subReasons: [] },
+  other:               { group: 'other',    inDrill: false, defaultPriority: 'medium',   subReasons: [] }
 };
 var TYPES = Object.keys(TYPE_META);
 
@@ -302,10 +314,18 @@ function validateCreatePayload(body) {
     if (r != null) fields.rating = Math.max(FIELD_LIMITS.ratingMin, Math.min(FIELD_LIMITS.ratingMax, Math.round(r)));
   }
 
-  /* Question-family reports (the in-drill fast path) AND ai_explain reports are meaningful from the type +
-     attached context alone — text optional. App / account / other reports must carry SOME substance —
-     free text OR a rating (star-only feedback). */
-  if (group !== 'question' && source !== 'ai_explain') {
+  /* Substance guard (ADR-099):
+     • Question-family reports filed IN-DRILL are meaningful from the attached question alone (2-tap) — text
+       optional. But a question report filed from Settings has NO live question attached, so it needs a note
+       (which question? what looked wrong?).
+     • ai_explain reports are meaningful from the attached explanation + reason — text optional.
+     • Everything else (app / account / other / a Settings-filed ai_issue) must carry SOME substance —
+       free text OR a rating (star-only feedback is valid). */
+  if (group === 'question') {
+    if (source === 'settings' && !title && !description) {
+      return { ok: false, code: 'EMPTY_REPORT', message: 'Tell us which question and what looked off.' };
+    }
+  } else if (source !== 'ai_explain') {
     if (!title && !description && fields.rating == null) {
       return { ok: false, code: 'EMPTY_REPORT', message: 'Please add a short description (or a rating).' };
     }

@@ -1,33 +1,23 @@
 /**
- * report-types.js — CANONICAL constants for the QuantReflex Reporting System (ADR-096 · redesigned ADR-099).
+ * report-taxonomy.js — BROWSER copy of the QuantReflex reporting taxonomy (ADR-096 · redesigned ADR-099).
  *
- * ONE source of truth for report TYPES, STATUSES, PRIORITIES, per-type SUB-REASONS, field caps,
- * and the abuse/rate-limit constants. Consumed by:
- *   • the report check harness (`main-app/scripts/report.check.js`) via `require()` — the canonical reference.
- *   • the main-app browser taxonomy (`main-app/js/ui/report-taxonomy.js`) — a LOCAL, byte-for-byte copy of the
- *     TYPES/STATUS/PRIORITY data that the modal loads as `window.ReportTypes`.
+ * This is the file the main app actually LOADS in the browser (as `window.ReportTypes`), served from the
+ * main-app origin so it can never 404. It is a byte-for-byte copy of the enum/taxonomy data in
+ * `shared/constants/report-types.js` (the canonical spec); `scripts/report.check.js` asserts they stay in
+ * LOCKSTEP with each other, with the server inline copy (`api/_lib/report-schema.js`), and with the
+ * Super-Admin label maps.
  *
- * WHY A LOCAL BROWSER COPY (ADR-099): the main app deploys rooted at `main-app/` (its own vercel.json); `shared/`
- * is a SIBLING outside that deploy root, so `<script src="../shared/constants/report-types.js">` resolved to the
- * SPA catch-all rewrite and returned index.html → SyntaxError → `window.ReportTypes` was undefined → the report
- * type grid rendered EMPTY in production. The browser now loads `js/ui/report-taxonomy.js` (same origin); this
- * file stays the canonical spec, and `report.check.js` asserts the browser copy ↔ this file ↔ the server inline
- * copy ↔ the Super-Admin label maps are all in LOCKSTEP.
+ * WHY THIS FILE EXISTS (ADR-099 — P0 fix): the main app deploys rooted at `main-app/` (its own vercel.json);
+ * `shared/` is a SIBLING *outside* that deploy root. So the previous `<script src="../shared/constants/
+ * report-types.js">` tag resolved through the SPA catch-all rewrite ("/((?!api/).*)" → "/index.html") and the
+ * browser received index.html instead of JS → `Uncaught SyntaxError` → `window.ReportTypes` stayed undefined →
+ * the report type grid rendered EMPTY in production (the reason the "Report a problem" sheet looked like a bare
+ * scaffold). Serving the taxonomy from this same-origin path fixes that at the root. `report-modal.js` also
+ * keeps a defensive fallback so an empty grid can never recur silently.
  *
- * The Vercel serverless handler (`main-app/api/report.js`) cannot `require('../shared/...')` at runtime
- * (its bundle root is `main-app/`), so it keeps a validated INLINE COPY in `api/_lib/report-schema.js`.
- *
- * REPORTING PHILOSOPHY (ADR-096): reports are fully self-contained in Firestore — the Super-Admin Reports
- * dashboard is the source of truth. NO email / external notification is involved. Screenshots are NOT part of
- * v1 (the rich auto-collected context replaces them); the schema leaves a clean, migration-free seam for
- * attachments and for a future notification hook.
- *
- * TAXONOMY (ADR-099): the type values are index-agnostic — the `(classification.type, createdAtMs)` composite
- * index is value-agnostic, so enriching the type set needs NO new Firestore index and NO rules change. Each
- * question-family reason is a top-level `type` (not a sub-reason) so `questionReports.topReasons` keeps a
- * per-reason count for triage.
- *
- * STATUS: Reference constants (dual-exported: window.ReportTypes + module.exports). ISO-8601 timestamps.
+ * KEEP IN SYNC: when the canonical `shared/constants/report-types.js` changes, mirror the change here (the
+ * check enforces it). Presentation-only fields (helper text, icons) live in the taxonomy so the modal stays
+ * data-driven. Dual-exported: window.ReportTypes + module.exports (so the check + Playwright can require it).
  */
 (function (root) {
   'use strict';

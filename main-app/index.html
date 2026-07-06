@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v216';</script>
+  <script>window.QR_APP_VERSION = 'v217';</script>
 </head>
 <body>
 
@@ -1545,7 +1545,9 @@
   <script defer src="js/session.js"></script>
   <script defer src="js/security-events.js"></script>
   <script defer src="js/maintenance-gate.js"></script>
-  <script defer src="../shared/validation/auth-validators.js"></script>
+  <!-- Auth validators: LOCAL copy (ADR-099). Was `../shared/validation/auth-validators.js`, which 404'd to
+       index.html in production (shared/ is outside the main-app deploy root) → AuthValidators silently undefined. -->
+  <script defer src="js/utils/auth-validators.js"></script>
   <script defer src="js/auth.js"></script>
   <script defer src="js/firestore-sync.js"></script>
   <script defer src="js/services/adaptive-state.js"></script>
@@ -1638,9 +1640,12 @@
   <script defer src="js/views/stats-view.js"></script>
   <script defer src="js/views/inbox-view.js"></script>
   <script defer src="js/views/planner-view.js"></script>
-  <!-- Reporting system (ADR-096): canonical enums → context collector → offline-safe queue → modal.
-       Loaded before app.js so Settings + in-drill entry points can open the modal at runtime. -->
-  <script defer src="../shared/constants/report-types.js"></script>
+  <!-- Reporting system (ADR-096 · redesigned ADR-099): browser taxonomy → context collector → offline-safe
+       queue → modal. Loaded before app.js so Settings + in-drill + AI entry points can open the modal.
+       report-taxonomy.js is a main-app-LOCAL copy of shared/constants/report-types.js — the old
+       `../shared/constants/report-types.js` tag 404'd to index.html in production (shared/ is outside the
+       main-app deploy root) → window.ReportTypes undefined → the report grid rendered EMPTY (ADR-099 P0 fix). -->
+  <script defer src="js/ui/report-taxonomy.js"></script>
   <script defer src="js/services/report-context.js"></script>
   <script defer src="js/services/report-queue.js"></script>
   <script defer src="js/ui/report-modal.js"></script>

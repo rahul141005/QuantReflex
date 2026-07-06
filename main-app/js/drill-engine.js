@@ -300,7 +300,7 @@ function createDrillEngine(container, opts) {
       container.innerHTML =
         '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
         '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' +
-        '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">⚑</button>' +
+        '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">' + (typeof qrIco === 'function' ? qrIco('flag', '⚑') : '⚑') + '</button>' +
         '<div class="card center-content fade-in question-card-transition">' +
           '<div class="drill-question-scroll">' +
             '<div class="di-set-context">' + ctxHTML + '</div>' +
@@ -483,7 +483,7 @@ function createDrillEngine(container, opts) {
       (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' : '') +
       (!isDuel ? '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' : '') +
       /* ADR-096: fast in-drill report — auto-scopes to this exact question. Not shown in duels. */
-      (!isDuel ? '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">⚑</button>' : '') +
+      (!isDuel ? '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">' + (typeof qrIco === 'function' ? qrIco('flag', '⚑') : '⚑') + '</button>' : '') +
       '<div class="card center-content fade-in question-card-transition' + (isMCQ ? ' drill-has-mcq' : '') + '">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +

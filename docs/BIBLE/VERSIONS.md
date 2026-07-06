@@ -9,12 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.119 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.120 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.26 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.27 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.120 / Firestore 2.27 (2026-07-06)** — **Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (ADR-099).**
+> The "Report a problem" sheet was rendering EMPTY in production — a load bug, not weak design: the modal's taxonomy
+> was loaded from `../shared/constants/report-types.js`, but `shared/` sits outside the main-app deploy root, so the
+> SPA catch-all rewrite returned index.html → SyntaxError → `window.ReportTypes` undefined → empty grid (reporting
+> unusable since ADR-096; the same bug silently disabled `AuthValidators`). Fixed by serving both from the app origin
+> (new `js/ui/report-taxonomy.js` + `js/utils/auth-validators.js`) + a defensive fallback so an empty grid can't recur.
+> The report modal is redesigned as a **companion-style bottom sheet** (grabber, drag-to-dismiss, responsive→centred,
+> dark/reduced-motion/safe-area): Settings = a guided category chooser; in-drill = a contextual question header + a
+> 12-reason grid; AI = a purpose-built QuanAI reason grid. The type taxonomy is **enriched** — question family split
+> into 12 top-level reasons (per-reason triage counts), a new `ui_issue` app type, and `ai_issue` in its own `ai`
+> group (**Firestore 2.27** — `classification.type` value-set change; values are index-agnostic so **no new index and
+> no rules change**). report.check.js → 518 assertions (4-surface browser↔shared↔server↔super-admin lockstep);
+> Playwright → 54 (loads via the local taxonomy path, proving the grid renders). All prior suites green. No new infra
+> (Vercel-Hobby intact). SW v216→v217.
+>
 > **2.119 / Firestore 2.26 (2026-07-06)** — **QuanAI identity: no LLM leakage in reporting + final-pass hardening (ADR-098).**
 > Final independent verification pass. Enforced the **QuanAI product-identity** rule (users must never learn the
 > underlying LLM): ADR-097 had surfaced the raw model + `provider:'openai'` in the explain envelope, the report

@@ -18,11 +18,24 @@ var ReportsView = (function () {
   var STATUS_LABELS = { open: 'Open', investigating: 'Investigating', needs_info: 'Needs info', resolved: 'Resolved', dismissed: 'Dismissed', duplicate: 'Duplicate', archived: 'Archived' };
   var PRIORITIES = ['critical', 'high', 'medium', 'low'];
   var STATUSES = ['open', 'investigating', 'needs_info', 'resolved', 'dismissed', 'duplicate', 'archived'];
+  /* ADR-099 taxonomy. Legacy ids (question_wrong, formatting) are retained so any report filed before the
+     redesign still renders with a human label instead of a raw id. */
   var TYPE_LABELS = {
-    question_wrong: 'Wrong question', answer_wrong: 'Wrong answer', options_wrong: 'Wrong options',
-    explanation_wrong: 'Wrong explanation', typo: 'Typo', formatting: 'Formatting', visual: 'Visual/figure',
-    bug: 'Bug', crash: 'Crash', performance: 'Performance', ai_issue: 'AI issue',
-    payment: 'Payment', account: 'Account', feature_request: 'Feature request', feedback: 'Feedback', other: 'Other'
+    /* Question family */
+    answer_wrong: 'Wrong answer', solution_wrong: 'Wrong solution', explanation_wrong: 'Wrong explanation',
+    options_wrong: 'Bad options', formula_wrong: 'Formula wrong', typo: 'Typo/wording', visual: 'Diagram/image',
+    unclear: 'Confusing', difficulty_mismatch: 'Wrong difficulty', wrong_topic: 'Wrong topic',
+    duplicate: 'Duplicate question', question_other: 'Question — other',
+    /* QuanAI */
+    ai_issue: 'QuanAI explanation',
+    /* App */
+    bug: 'Bug', crash: 'Crash', ui_issue: 'Looks broken', performance: 'Performance',
+    /* Account */
+    payment: 'Payment', account: 'Account',
+    /* Ideas & catch-all */
+    feature_request: 'Feature idea', feedback: 'Feedback', other: 'Other',
+    /* Legacy (pre-ADR-099) */
+    question_wrong: 'Wrong question', formatting: 'Formatting'
   };
 
   function _esc(s) { return AdminUtils.escapeHtml(s == null ? '' : String(s)); }

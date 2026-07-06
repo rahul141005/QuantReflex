@@ -8,6 +8,63 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-099 — Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (2026-07-06)
+- **Context:** the owner's screenshots showed the "Report a problem" sheet rendering with an **empty body** (title +
+  one sentence, no options). An independent code trace proved this was **not weak design — it was a production load
+  bug.** The modal reads its type list from `window.ReportTypes`, defined only in `shared/constants/report-types.js`,
+  loaded via `<script src="../shared/constants/report-types.js">`. But **the main app deploys rooted at `main-app/`**
+  (its own `vercel.json`); `shared/` is a SIBLING *outside* that deploy root, so `/shared/constants/report-types.js`
+  matched the SPA catch-all rewrite `"/((?!api/).*)" → "/index.html"` and returned **HTML** → `Uncaught SyntaxError`
+  → `window.ReportTypes` undefined → `_types()` returned `[]` → **empty grid, no fallback.** Reporting had therefore
+  been effectively unusable in production since ADR-096 (the earlier Playwright harness masked it by loading a *local*
+  copy). The **same bug** hit `../shared/validation/auth-validators.js` but degraded *silently* (auth.js guards
+  `typeof AuthValidators !== 'undefined'`), so client-side email/password validation was quietly skipped in prod too —
+  a second latent bug fixed this pass.
+- **P0 fix — serve the taxonomy from the main-app origin.**
+  - New **`main-app/js/ui/report-taxonomy.js`** — the browser taxonomy (dual-export `window.ReportTypes`), a
+    byte-for-byte copy of the canonical `shared/constants/report-types.js` enum data, served same-origin so it can
+    never 404. `index.html` now loads it (and the old broken `../shared` tag is gone).
+  - New **`main-app/js/utils/auth-validators.js`** — local copy; `index.html` repointed off `../shared/…`. Restores
+    client-side auth validation.
+  - `report-modal.js` `_types()`/`_groups()` gain a **defensive fallback** (a built-in core set + a one-time
+    `console.warn`) so an empty grid can never recur silently, even if the taxonomy fails to load.
+  - `report.check.js` now enforces a **4-surface lockstep**: browser taxonomy ↔ shared spec ↔ server inline copy ↔
+    Super-Admin label maps. Both new files added to `service-worker.js` ASSETS.
+- **Enriched taxonomy (index-safe).** Question-family reasons stay **top-level `type` values** (so
+  `questionReports.topReasons` keeps a per-reason count) — enriched, each with an icon + one-line helper:
+  `answer_wrong · solution_wrong · explanation_wrong · options_wrong · formula_wrong · typo · visual · unclear ·
+  difficulty_mismatch · wrong_topic · duplicate · question_other` (12; replaces the vague `question_wrong`/`formatting`).
+  App: `bug · crash · ui_issue · performance`. **New `ai` group** for `ai_issue` (its own reason set: wrong_answer ·
+  flawed_reasoning · hallucination · incomplete · confusing · formatting · other). Account: `payment · account`.
+  Ideas: `feature_request · feedback · other`. Every type is just a new `classification.type` string — the existing
+  `(classification.type, createdAtMs)` composite index is value-agnostic, so **no new index and no rules change**.
+  Legacy ids (`question_wrong`, `formatting`) retained in the Super-Admin label map so pre-ADR-099 rows still label.
+- **Premium redesign — a companion-style bottom sheet.** The report modal was a generic centred glass box; it's now
+  a **sibling of the QuanAI explanation sheet**: `.report-sheet-overlay` (z-index 700, backdrop blur) → `.report-sheet`
+  (grabber, drag-to-dismiss >90px, `rptRise`, responsive→centred ≥600px, dark + reduced-motion + safe-area aware).
+  Every entry point shares the shell but is purpose-scoped:
+  - **Settings** opens a **guided chooser** (5 rich category rows: icon + title + one-line helper) → the scoped reason
+    grid → an optional detail step. No more bare grid.
+  - **In-drill** opens straight to a **contextual question header** (auto-built chips: Question N/count · topic ·
+    difficulty · session type + a question preview — the user types nothing) above the 12-reason grid, with a quiet
+    "Not about this question →" escape to the full chooser, and reassurance copy ("Your session is safe — sending this
+    won't end your drill").
+  - **AI** opens a **purpose-built QuanAI reason grid** + a read-only "what's attached" line (question + explanation +
+    QuanAI version — never a provider/model, per ADR-098).
+  - Substance guard hardened: a question report filed from **Settings** (no live question attached) now requires a
+    note (server + client), so it can't be an empty row. Terminal-error re-renders still restore typed text.
+  - The in-drill **⚑** button now renders via `qrIco('flag','⚑')` (a new `flag` mask so Playful paints it, not a dot).
+  - Full states retained/restyled: rise/drag/Escape/backdrop close, sending, success (QuanAI-voice reassurance +
+    reference id + "Back to practice"/"Done"), offline ("Saved — it'll send itself…"), inline retry, focus-trap + aria.
+- **Verification:** `report.check.js` → **518** assertions (adds the 4-surface lockstep, new-taxonomy validity, the
+  Settings-question substance guard, legacy-id removal). A rebuilt Playwright sweep → **54** assertions loading via the
+  **local** taxonomy path (proves the grid renders), driving all three flows + payloads, the QuanAI no-leak guard, the
+  offline queue, the defensive fallback, Escape/backdrop, responsive centring, and z-index layering. A real-app boot
+  smoke confirmed `window.ReportTypes` **and** `AuthValidators` now load from the app origin. All prior suites green.
+- **No new infra, no rules/index deploy needed** (Vercel-Hobby architecture intact). SW v216→v217 (`QR_APP_VERSION`
+  in lockstep). **Governance:** FIRESTORE_BLUEPRINT (enriched `classification.type` list; browser taxonomy is now
+  main-app-local); CHANGELOG; VERSIONS (Bible + Firestore — type value-set change).
+
 ## ADR-098 — QuanAI product identity: no LLM/provider leakage in reporting (+ final-pass hardening) (2026-07-06)
 - **Context:** a final independent verification pass introduced a hard product requirement — **QuanAI is the
   product identity; users must never learn which underlying LLM powers explanations.** No provider name

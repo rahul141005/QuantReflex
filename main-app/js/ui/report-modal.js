@@ -1,26 +1,72 @@
 /**
- * report-modal.js — ReportModal (ADR-096).
+ * report-modal.js — ReportModal (ADR-096 · premium redesign ADR-099).
  *
- * The premium "Report a Problem" experience. Two entry points share one modal:
- *   • Settings  → ReportModal.open({ source:'settings' })         — full type set, grouped.
- *   • In-drill  → ReportModal.open({ source:'drill', question, session }) — pre-scoped to the current
- *                 question (question-family types first), fast (pick a reason → send).
+ * The "Report a problem" experience, rebuilt as a companion-style BOTTOM SHEET (a sibling of the QuanAI
+ * explanation sheet): same shell, tokens, motion, grabber + drag-to-dismiss, responsive→centred ≥600px,
+ * dark / reduced-motion / safe-area aware. Every entry point shares this shell but is purpose-scoped:
  *
- * Flow: Step 1 type picker → Step 2 type-specific fields (+ optional sub-reason + a collapsible read-only
- * "Technical details (auto-attached)" preview so the user sees the rich diagnostics being sent — which is
- * why no screenshot is needed) → Submit → progress → success (shows the Report ID). Reports never lose:
- * ReportQueue queues offline and flushes later, so "Send" always succeeds from the user's point of view.
+ *   • Settings  → ReportModal.open({ source:'settings' })
+ *        Guided first step: a short list of rich category rows (icon + title + one-line helper) →
+ *        the scoped reason grid for that category → an optional detail step.
+ *   • In-drill  → ReportModal.open({ source:'drill', question, session })
+ *        Opens straight to a contextual question header (which item, auto-collected) + the question
+ *        reason grid; a quiet "Not about this question →" escapes to the full chooser.
+ *   • AI        → ReportModal.open({ source:'ai_explain', question, session, ai:{explanation, promptId} })
+ *        A purpose-built QuanAI reason grid (wrong answer / flawed reasoning / made something up / …) →
+ *        an optional note. The question, the explanation text and the QuanAI version are attached
+ *        automatically. NO provider/model is ever captured or shown (QuanAI identity, ADR-098).
  *
- * Glass scaffold reuses .modal-overlay/.modal-content + body.modal-open, qr-ico, showToast, SoundEngine.
- * NO file input / NO screenshot UI (ADR-096). Global: window.ReportModal.
+ * Reports never lose: ReportQueue submits, and queues offline to flush later, so "Send" always succeeds from
+ * the user's point of view. Auto-collected diagnostics (ReportContext) mean the user types as little as
+ * possible. NO file input / NO screenshot UI (ADR-096). Global: window.ReportModal.
  */
 (function (root) {
   'use strict';
 
-  var _open = false;        /* reentrancy guard — only one report modal at a time */
-  var _overlay = null;
+  var _open = false;        /* reentrancy guard — only one report sheet at a time */
+  var _overlay = null, _sheet = null, _body = null, _titleEl = null, _backEl = null;
   var _lastFocus = null;
   var _keyHandler = null;
+  var st = null;            /* working state for the current session */
+
+  /* Never render an empty grid: if the taxonomy failed to load, fall back to a built-in core set + warn
+     (ADR-099 — the P0 that made the grid look like a bare scaffold must never recur silently). */
+  var _FALLBACK_TYPES = [
+    { id: 'answer_wrong',      label: 'Wrong answer',      icon: '✅', group: 'question', inDrill: true,  helper: 'The marked answer looks incorrect', fields: ['note'] },
+    { id: 'explanation_wrong', label: 'Wrong explanation', icon: '🧠', group: 'question', inDrill: true,  helper: 'The explanation is wrong',           fields: ['note'] },
+    { id: 'options_wrong',     label: 'Bad options',       icon: '🔢', group: 'question', inDrill: true,  helper: 'Options are wrong or missing',       fields: ['note'] },
+    { id: 'question_other',    label: 'Something else',    icon: '💬', group: 'question', inDrill: true,  helper: 'Another issue with this question',   fields: ['note'] },
+    { id: 'ai_issue',          label: 'A QuanAI explanation', icon: '🤖', group: 'ai', inDrill: false,     helper: "Something's off with an explanation", fields: ['note'],
+      subReasons: [ { id: 'wrong_answer', label: 'Wrong final answer' }, { id: 'flawed_reasoning', label: 'Flawed reasoning' }, { id: 'hallucination', label: 'Made something up' }, { id: 'other', label: 'Something else' } ] },
+    { id: 'bug',               label: "Something's broken", icon: '🐞', group: 'app', inDrill: false, helper: "A feature isn't working", fields: ['title', 'description', 'repro'] },
+    { id: 'crash',             label: 'Crash or freeze',    icon: '💥', group: 'app', inDrill: false, helper: 'The app froze or closed', fields: ['title', 'description', 'repro'] },
+    { id: 'payment',           label: 'Payment or billing', icon: '💳', group: 'account', inDrill: false, helper: 'A payment or premium issue', fields: ['description'] },
+    { id: 'account',           label: 'Account or sign-in', icon: '🔒', group: 'account', inDrill: false, helper: 'Sign-in or your data', fields: ['description'] },
+    { id: 'feedback',          label: 'General feedback',   icon: '📝', group: 'other', inDrill: false, helper: "Tell us how it's going", fields: ['description', 'rating'] },
+    { id: 'other',             label: 'Something else',     icon: '📦', group: 'other', inDrill: false, helper: 'Anything not listed', fields: ['title', 'description'] }
+  ];
+  var _FALLBACK_GROUPS = [
+    { id: 'question', label: 'A question or its answer', icon: '📝', helper: 'A wrong answer, option or typo' },
+    { id: 'ai',       label: 'A QuanAI explanation',     icon: '🤖', helper: 'An explanation issue' },
+    { id: 'app',      label: "The app isn't working",    icon: '🐞', helper: 'A bug or crash' },
+    { id: 'account',  label: 'Account or payment',       icon: '💳', helper: 'Sign-in, syncing or premium' },
+    { id: 'other',    label: 'An idea or feedback',      icon: '💡', helper: 'A suggestion or feedback' }
+  ];
+  var _warned = false;
+  function _RT() { return root.ReportTypes || null; }
+  function _types() {
+    var rt = _RT();
+    var t = (rt && rt.TYPES) ? rt.TYPES : [];
+    if (!t.length) { if (!_warned) { _warned = true; try { console.warn('[report-modal] ReportTypes taxonomy missing — using built-in fallback so the grid is never empty.'); } catch (_) {} } return _FALLBACK_TYPES; }
+    return t;
+  }
+  function _groups() {
+    var rt = _RT();
+    var g = (rt && rt.GROUPS) ? rt.GROUPS : [];
+    return g.length ? g : _FALLBACK_GROUPS;
+  }
+  function _typesForGroup(gid) { return _types().filter(function (t) { return t.group === gid; }); }
+  function _limits() { return (_RT() && _RT().FIELD_LIMITS) ? _RT().FIELD_LIMITS : { title: 140, description: 4000, note: 600 }; }
 
   function _esc(s) {
     if (typeof escapeHtml === 'function') return escapeHtml(s == null ? '' : String(s));
@@ -29,26 +75,22 @@
   function _ico(name, emoji) { return (typeof qrIco === 'function') ? qrIco(name, emoji) : '<span class="qr-ico" data-ico="' + name + '" aria-hidden="true">' + emoji + '</span>'; }
   function _sound(name) { try { if (typeof SoundEngine !== 'undefined' && SoundEngine.play) SoundEngine.play(name); } catch (_) {} }
   function _toast(msg) { try { if (typeof showToast === 'function') showToast(msg); } catch (_) {} }
-  function _types() { return (root.ReportTypes && root.ReportTypes.TYPES) ? root.ReportTypes.TYPES : []; }
-  function _limits() { return (root.ReportTypes && root.ReportTypes.FIELD_LIMITS) ? root.ReportTypes.FIELD_LIMITS : { title: 140, description: 4000, note: 600 }; }
+  function _titro(x) { x = String(x == null ? '' : x).replace(/[_-]+/g, ' ').trim(); return x ? x.charAt(0).toUpperCase() + x.slice(1) : ''; }
 
   /* Per-field render metadata. `key` says where the value lands in the payload: 'title'/'description' are
-     top-level; anything else goes into classification.fields. 'note' collapses into description (question
-     types carry no separate description). */
+     top-level; anything else goes into classification.fields. 'note' collapses into description. */
   var FIELD_DEFS = {
-    title:       { key: 'title',       label: 'Title', input: 'text',     placeholder: 'A short summary', cap: 'title' },
-    description: { key: 'description', label: 'Describe the problem', input: 'textarea', placeholder: 'What went wrong? The more detail, the faster we can fix it.', cap: 'description' },
-    note:        { key: 'description', label: 'Add a note (optional)', input: 'textarea', placeholder: 'Anything you noticed — optional. The question details are attached automatically.', cap: 'note' },
+    title:       { key: 'title',       label: 'Give it a short title', input: 'text',     placeholder: 'A one-line summary', cap: 'title' },
+    description: { key: 'description', label: 'What happened?', input: 'textarea', placeholder: 'Tell us what went wrong — the more detail, the faster we can fix it.', cap: 'description' },
+    note:        { key: 'description', label: 'Add anything else (optional)', input: 'textarea', placeholder: "Anything you noticed. The question's details are attached automatically, so this is optional.", cap: 'note' },
     expected:    { key: 'expected',    label: 'What did you expect?', input: 'textarea', placeholder: 'What should have happened?', cap: 'expected' },
-    actual:      { key: 'actual',      label: 'What actually happened?', input: 'textarea', placeholder: 'What did you see instead?', cap: 'actual' },
-    repro:       { key: 'repro',       label: 'Steps to reproduce (optional)', input: 'textarea', placeholder: 'How can we make it happen again?', cap: 'repro' },
-    benefit:     { key: 'benefit',     label: 'How would this help you?', input: 'textarea', placeholder: 'Optional — tell us why it matters.', cap: 'benefit' },
-    rating:      { key: 'rating',      label: 'How would you rate your experience?', input: 'rating' }
+    actual:      { key: 'actual',      label: 'What happened instead?', input: 'textarea', placeholder: 'What did you see?', cap: 'actual' },
+    repro:       { key: 'repro',       label: 'How can we reproduce it? (optional)', input: 'textarea', placeholder: 'Steps to make it happen again.', cap: 'repro' },
+    benefit:     { key: 'benefit',     label: 'How would this help you? (optional)', input: 'textarea', placeholder: 'Tell us why it matters.', cap: 'benefit' },
+    rating:      { key: 'rating',      label: 'How are we doing?', input: 'rating' }
   };
 
-  /* Working state for the current session. */
-  var st = null;
-
+  /* ─────────────────────────────── open / close ─────────────────────────────── */
   function open(opts) {
     if (_open) return;
     opts = opts || {};
@@ -58,32 +100,56 @@
       source: src,
       question: opts.question || null,
       session: opts.session || null,
-      ai: opts.ai || null,                                /* ADR-097: AI explanation bundle (ai_explain source) */
-      scope: src === 'drill' ? 'drill' : 'all',           /* which type set the picker shows */
+      ai: opts.ai || null,
+      group: null,
       type: null,
       subReason: null,
+      step: null,
+      _escaped: false,     /* in-drill user tapped "Not about this question →" */
+      _rating: null,
+      _draft: null,
       submitting: false
     };
 
     _lastFocus = document.activeElement;
     _overlay = document.createElement('div');
-    _overlay.className = 'modal-overlay report-modal-overlay';
+    _overlay.className = 'report-sheet-overlay';
     _overlay.setAttribute('role', 'dialog');
     _overlay.setAttribute('aria-modal', 'true');
     _overlay.setAttribute('aria-label', 'Report a problem');
+    _overlay.innerHTML =
+      '<div class="report-sheet" role="document">' +
+        '<div class="report-sheet-grabber" aria-hidden="true"></div>' +
+        '<div class="report-sheet-head">' +
+          '<button class="report-sheet-back" type="button" aria-label="Back" style="display:none">' + _ico('back', '‹') + '</button>' +
+          '<span class="report-sheet-title"></span>' +
+          '<button class="report-sheet-close" type="button" aria-label="Close">' + _ico('close', '✕') + '</button>' +
+        '</div>' +
+        '<div class="report-sheet-body"></div>' +
+      '</div>';
     document.body.appendChild(_overlay);
     document.body.classList.add('modal-open');
 
+    _sheet = _overlay.querySelector('.report-sheet');
+    _body = _overlay.querySelector('.report-sheet-body');
+    _titleEl = _overlay.querySelector('.report-sheet-title');
+    _backEl = _overlay.querySelector('.report-sheet-back');
+
+    _overlay.querySelector('.report-sheet-close').addEventListener('click', function () { if (!st.submitting) close(); });
+    _backEl.addEventListener('click', _back);
     _overlay.addEventListener('click', function (e) { if (e.target === _overlay && !st.submitting) close(); });
     _keyHandler = function (e) {
       if (e.key === 'Escape' && !st.submitting) { e.preventDefault(); close(); return; }
       if (e.key === 'Tab') _trapTab(e);
     };
     document.addEventListener('keydown', _keyHandler, true);
+    _wireDrag();
 
-    /* ai_explain is pre-scoped to the AI issue type — skip the picker and open the form directly. */
-    if (st.source === 'ai_explain') { st.type = 'ai_issue'; _renderForm(); }
-    else _renderPicker();
+    /* Route to the first step for this entry point. */
+    if (st.source === 'ai_explain') { st.group = 'ai'; _renderReasons(); }
+    else if (st.source === 'drill') { st.group = 'question'; _renderReasons(); }
+    else { _renderChooser(); }
+
     _sound('settingsToggle');
   }
 
@@ -92,11 +158,39 @@
     document.removeEventListener('keydown', _keyHandler, true);
     if (_overlay.parentNode) _overlay.parentNode.removeChild(_overlay);
     document.body.classList.remove('modal-open');
-    _overlay = null; _keyHandler = null; _open = false; st = null;
+    _overlay = _sheet = _body = _titleEl = _backEl = null;
+    _keyHandler = null; _open = false; st = null;
     try { if (_lastFocus && _lastFocus.focus) _lastFocus.focus(); } catch (_) {}
     _lastFocus = null;
   }
 
+  /* Drag-down-to-dismiss on the grabber/head — mirrors the companion sheet (ADR-049). */
+  function _wireDrag() {
+    var handle = _overlay.querySelector('.report-sheet-grabber');
+    var head = _overlay.querySelector('.report-sheet-head');
+    var startY = 0, dy = 0, dragging = false;
+    function onStart(e) { if (st.submitting) return; dragging = true; dy = 0; startY = (e.touches ? e.touches[0].clientY : e.clientY); _sheet.style.transition = 'none'; }
+    function onMove(e) {
+      if (!dragging) return;
+      dy = (e.touches ? e.touches[0].clientY : e.clientY) - startY;
+      if (dy < 0) dy = 0;
+      _sheet.style.transform = 'translateY(' + dy + 'px)';
+    }
+    function onEnd() {
+      if (!dragging) return; dragging = false;
+      _sheet.style.transition = 'transform .2s cubic-bezier(.2,.7,.3,1)';
+      if (dy > 90) { _sheet.style.transform = 'translateY(100%)'; setTimeout(close, 170); }
+      else { _sheet.style.transform = 'translateY(0)'; }
+    }
+    [handle, head].forEach(function (el) {
+      if (!el) return;
+      el.addEventListener('touchstart', onStart, { passive: true });
+      el.addEventListener('touchmove', onMove, { passive: true });
+      el.addEventListener('touchend', onEnd);
+    });
+  }
+
+  /* ─────────────────────────────── focus management ─────────────────────────────── */
   function _focusables() {
     if (!_overlay) return [];
     return Array.prototype.slice.call(_overlay.querySelectorAll(
@@ -110,85 +204,167 @@
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
-  function _focusFirst() {
-    var f = _focusables();
-    if (f.length) setTimeout(function () { try { f[0].focus(); } catch (_) {} }, 40);
+  function _focusBody() {
+    var f = _body ? _body.querySelector('button, input, textarea, [tabindex]:not([tabindex="-1"])') : null;
+    if (f) setTimeout(function () { try { f.focus(); } catch (_) {} }, 40);
   }
 
-  /* ── Step 1: type picker ── */
-  function _renderPicker() {
-    var types = _types();
-    var showTypes;
-    if (st.scope === 'drill') {
-      showTypes = types.filter(function (t) { return t.inDrill; });
-    } else {
-      showTypes = types;
+  /* head title + back-button visibility */
+  function _setHead(title, hasBack) {
+    if (_titleEl) _titleEl.textContent = title || 'Report a problem';
+    if (_backEl) _backEl.style.display = hasBack ? '' : 'none';
+  }
+
+  /* Back button behaviour depends on where we are + how we got here. */
+  function _back() {
+    if (!st || st.submitting) return;
+    _sound('tabSwitch');
+    if (st.step === 'form') {
+      st.type = null; _clearForm();
+      _renderReasons();
+      return;
     }
+    if (st.step === 'reasons') {
+      if (st.source === 'settings' || st._escaped) { st.group = null; _renderChooser(); return; }
+      close(); return;   /* in-drill / AI first step → nothing behind */
+    }
+    if (st.step === 'chooser') {
+      if (st._escaped) { st._escaped = false; st.group = 'question'; _renderReasons(); return; }  /* back to the drill question */
+      close(); return;
+    }
+    close();
+  }
 
-    var html = '' +
-      '<div class="modal-content report-modal">' +
-        '<button class="report-modal-close" type="button" aria-label="Close">' + _ico('close', '✕') + '</button>' +
-        '<h3 class="modal-title report-modal-title">' + _ico('flag', '⚑') + ' Report a problem</h3>' +
-        '<p class="report-modal-sub">' + (st.scope === 'drill'
-            ? 'What\'s wrong with this question?'
-            : 'What would you like to tell us about?') + '</p>' +
-        '<div class="report-type-grid" role="list">';
+  function _clearForm() { if (st) { st.subReason = null; st._rating = null; st._draft = null; } }
 
-    if (st.scope === 'settings') {
-      var groups = [
-        { key: 'question', label: 'Question content' },
-        { key: 'app', label: 'App problems' },
-        { key: 'account', label: 'Account & billing' },
-        { key: 'other', label: 'Ideas & feedback' }
-      ];
-      groups.forEach(function (g) {
-        var inGroup = showTypes.filter(function (t) { return t.group === g.key; });
-        if (!inGroup.length) return;
-        html += '<div class="report-type-group-label">' + _esc(g.label) + '</div>';
-        inGroup.forEach(function (t) { html += _typeBtn(t); });
+  /* ─────────────────────────────── Step: guided chooser (Settings) ─────────────────────────────── */
+  function _renderChooser() {
+    st.step = 'chooser';
+    _setHead('Report a problem', st._escaped);
+    var rows = _groups().map(_groupRow).join('');
+    _body.innerHTML =
+      '<p class="report-lead">What would you like to tell us about? Pick the closest — we\'ll take it from there.</p>' +
+      '<div class="report-reason-list" role="list">' + rows + '</div>';
+    var btns = _body.querySelectorAll('[data-group]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function () {
+        st.group = this.getAttribute('data-group');
+        _clearForm(); st.type = null;
+        _sound('tabSwitch');
+        _renderReasons();
       });
-    } else {
-      showTypes.forEach(function (t) { html += _typeBtn(t); });
     }
-
-    html += '</div>';
-
-    if (st.scope === 'drill') {
-      html += '<button class="report-scope-switch" type="button">This isn\'t about the question →</button>';
-    }
-    html += '</div>';
-
-    _overlay.innerHTML = html;
-    _wirePicker();
-    _focusFirst();
+    _focusBody();
   }
 
-  function _typeBtn(t) {
-    return '<button class="report-type-btn" type="button" role="listitem" data-type="' + _esc(t.id) + '">' +
-             '<span class="report-type-emoji" aria-hidden="true">' + _esc(t.icon || '•') + '</span>' +
-             '<span class="report-type-label">' + _esc(t.label) + '</span>' +
+  function _groupRow(g) {
+    return '<button class="report-reason" type="button" role="listitem" data-group="' + _esc(g.id) + '">' +
+             '<span class="report-reason-ico" aria-hidden="true">' + _esc(g.icon || '•') + '</span>' +
+             '<span class="report-reason-txt">' +
+               '<span class="report-reason-label">' + _esc(g.label) + '</span>' +
+               (g.helper ? '<span class="report-reason-help">' + _esc(g.helper) + '</span>' : '') +
+             '</span>' +
+             '<span class="report-reason-chev" aria-hidden="true">›</span>' +
            '</button>';
   }
 
-  function _wirePicker() {
-    _overlay.querySelector('.report-modal-close').addEventListener('click', function () { if (!st.submitting) close(); });
-    var sw = _overlay.querySelector('.report-scope-switch');
-    if (sw) sw.addEventListener('click', function () { st.scope = 'all'; _sound('tabSwitch'); _renderPicker(); });
-    var btns = _overlay.querySelectorAll('.report-type-btn');
+  /* ─────────────────────────────── Step: reason grid ─────────────────────────────── */
+  function _renderReasons() {
+    st.step = 'reasons';
+    var g = st.group;
+    var hasBack = (st.source === 'settings') || st._escaped;
+    var html = '';
+
+    if (st.source === 'ai_explain' || g === 'ai') {
+      /* Purpose-built QuanAI reason grid (the ai_issue sub-reasons act as the primary reasons). */
+      _setHead('The QuanAI explanation', hasBack);
+      if (st.source === 'ai_explain') html += _aiAttachedHtml();
+      else html += '<p class="report-lead">What\'s off about QuanAI\'s explanations?</p>';
+      var subs = _aiReasons();
+      html += '<div class="report-reason-list" role="list">';
+      subs.forEach(function (s) { html += _reasonTile({ id: s.id, label: s.label, icon: s.icon || '•', helper: s.helper || '' }, 'sub'); });
+      html += '</div>';
+      _body.innerHTML = html;
+      _wireReasonTiles('sub');
+      _focusBody();
+      return;
+    }
+
+    if (g === 'question') {
+      var title = st.source === 'drill' ? 'What\'s off?' : 'A question or its answer';
+      _setHead(title, hasBack);
+      if (st.source === 'drill') html += _qContextHtml();
+      else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
+      var qTypes = _typesForGroup('question');
+      html += '<div class="report-reason-list" role="list">';
+      qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });
+      html += '</div>';
+      if (st.source === 'drill') {
+        html += '<button class="report-escape" type="button">' + _ico('back', '↔') + ' Not about this question</button>';
+      }
+      _body.innerHTML = html;
+      _wireReasonTiles('type');
+      var esc = _body.querySelector('.report-escape');
+      if (esc) esc.addEventListener('click', function () { st._escaped = true; st.group = null; _clearForm(); st.type = null; _sound('tabSwitch'); _renderChooser(); });
+      _focusBody();
+      return;
+    }
+
+    /* app / account / other */
+    var grpLabel = (_RT() && _RT().GROUP_LABELS && _RT().GROUP_LABELS[g]) || _titro(g);
+    _setHead(grpLabel, hasBack);
+    html += '<p class="report-lead">Pick the closest — we can always sort out the details.</p>';
+    var types = _typesForGroup(g);
+    html += '<div class="report-reason-list" role="list">';
+    types.forEach(function (t) { html += _reasonTile(t, 'type'); });
+    html += '</div>';
+    _body.innerHTML = html;
+    _wireReasonTiles('type');
+    _focusBody();
+  }
+
+  function _reasonTile(t, kind) {
+    var attr = kind === 'sub' ? 'data-sub' : 'data-type';
+    return '<button class="report-reason" type="button" role="listitem" ' + attr + '="' + _esc(t.id) + '">' +
+             '<span class="report-reason-ico" aria-hidden="true">' + _esc(t.icon || '•') + '</span>' +
+             '<span class="report-reason-txt">' +
+               '<span class="report-reason-label">' + _esc(t.label) + '</span>' +
+               (t.helper ? '<span class="report-reason-help">' + _esc(t.helper) + '</span>' : '') +
+             '</span>' +
+             '<span class="report-reason-chev" aria-hidden="true">›</span>' +
+           '</button>';
+  }
+
+  function _wireReasonTiles(kind) {
+    var sel = kind === 'sub' ? '[data-sub]' : '[data-type]';
+    var btns = _body.querySelectorAll(sel);
     for (var i = 0; i < btns.length; i++) {
       btns[i].addEventListener('click', function () {
-        st.type = this.getAttribute('data-type');
-        _clearForm();   /* new type → drop any rating/sub-reason left from a previous form (ADR-097 B6) */
+        if (kind === 'sub') { st.type = 'ai_issue'; st.subReason = this.getAttribute('data-sub'); }
+        else { st.type = this.getAttribute('data-type'); if (st.source !== 'ai_explain') st.subReason = null; st._rating = null; st._draft = null; }
         _sound('tabSwitch');
         _renderForm();
       });
     }
   }
 
-  /* Reset transient per-form state so it never leaks across a type switch (ADR-097 B6). */
-  function _clearForm() { if (st) { st.subReason = null; st._rating = null; st._draft = null; } }
+  /* The QuanAI reason set (each an ai_issue sub-reason), given a little icon + helper for the grid. */
+  function _aiReasons() {
+    var meta = {
+      wrong_answer:     { icon: '🎯', helper: "The explanation's final answer is wrong" },
+      flawed_reasoning: { icon: '🧠', helper: "A step or the logic doesn't hold up" },
+      hallucination:    { icon: '🌫️', helper: 'It stated something untrue or invented' },
+      incomplete:       { icon: '➗', helper: 'It skipped steps or stopped early' },
+      confusing:        { icon: '❓', helper: 'The wording is hard to follow' },
+      formatting:       { icon: '📐', helper: 'Maths or layout renders badly' },
+      other:            { icon: '💬', helper: 'Something else about it' }
+    };
+    var t = _RT() && _RT().typeById ? _RT().typeById('ai_issue') : null;
+    var subs = (t && t.subReasons) ? t.subReasons : (_FALLBACK_TYPES.filter(function (x) { return x.id === 'ai_issue'; })[0].subReasons || []);
+    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: s.label, icon: m.icon || '•', helper: m.helper || '' }; });
+  }
 
-  /* ── Step 2: type-specific form ── */
+  /* ─────────────────────────────── Step: detail form ─────────────────────────────── */
   function _typeById(id) {
     var ts = _types();
     for (var i = 0; i < ts.length; i++) if (ts[i].id === id) return ts[i];
@@ -196,31 +372,29 @@
   }
 
   function _renderForm() {
+    st.step = 'form';
     var t = _typeById(st.type);
-    if (!t) { _renderPicker(); return; }
+    if (!t) { _renderReasons(); return; }
     var lim = _limits();
     var fields = t.fields || [];
-    var subs = (t.subReasons || []);
+    var isSettingsQuestion = (st.group === 'question' && st.source === 'settings');
+    _setHead(t.label, true);
 
-    var html = '' +
-      '<div class="modal-content report-modal">' +
-        '<button class="report-modal-close" type="button" aria-label="Close">' + _ico('close', '✕') + '</button>' +
-        /* ai_explain has no picker to go back to — the Back button closes instead. */
-        '<button class="report-back-btn" type="button">' + _ico('back', '‹') + (st.source === 'ai_explain' ? ' Close' : ' Back') + '</button>' +
-        '<h3 class="modal-title report-modal-title">' +
-          '<span class="report-type-emoji" aria-hidden="true">' + _esc(t.icon || '•') + '</span> ' + _esc(t.label) +
-        '</h3>';
+    var html = '';
 
+    /* Context banner (reassure the user which item this is about + that nothing is lost). */
     if (st.source === 'ai_explain') {
-      html += '<p class="report-modal-sub report-q-scope">' + _ico('robot', '🤖') +
-              ' Reporting this QuanAI explanation — the question, your answer, the explanation text and the QuanAI version are attached automatically.</p>';
-    } else if (st.source === 'drill' && st.question) {
-      html += '<p class="report-modal-sub report-q-scope">' + _ico('target', '🎯') +
-              ' Reporting the current question — its full details are attached automatically.</p>';
+      html += _aiAttachedHtml();
+    } else if (st.source === 'drill' && st.group === 'question') {
+      html += _qContextHtml();
+    } else if (isSettingsQuestion) {
+      html += '<p class="report-note-hint">' + _ico('info', 'ℹ️') + ' We can\'t see which question you mean from here — please tell us below.</p>';
     }
 
-    /* sub-reason chips (optional refinement) */
-    if (subs.length) {
+    /* sub-reason chips (visual / payment / account). AI + settings-AI already chose their reason in the grid. */
+    var subs = (t.subReasons || []);
+    var showChips = subs.length && st.group !== 'ai';
+    if (showChips) {
       html += '<div class="report-field"><label class="modal-label">Which best describes it?</label>' +
               '<div class="report-subreason-chips" role="radiogroup" aria-label="Reason">';
       subs.forEach(function (s) {
@@ -239,12 +413,17 @@
         for (var r = 1; r <= 5; r++) html += '<button class="report-star" type="button" role="radio" aria-checked="false" data-rating="' + r + '" aria-label="' + r + ' star">★</button>';
         html += '</div></div>';
       } else {
+        var label = def.label, ph = def.placeholder;
+        /* A Settings-filed question report has no attached question, so its note is required + reframed. */
+        if (fname === 'note' && isSettingsQuestion) { label = 'Which question, and what\'s off?'; ph = 'Describe the question and what looked wrong.'; }
+        /* A Settings-filed AI report has no explanation attached, so its note is required + reframed. */
+        else if (fname === 'note' && st.group === 'ai' && st.source === 'settings') { label = "What's wrong with the explanations?"; ph = 'Tell us what you\'ve noticed about QuanAI\'s explanations.'; }
         var cap = def.cap ? (lim[def.cap] || 600) : 600;
         html += '<div class="report-field">' +
-                '<label class="modal-label" for="rf_' + fname + '">' + _esc(def.label) + '</label>' +
+                '<label class="modal-label" for="rf_' + fname + '">' + _esc(label) + '</label>' +
                 (def.input === 'textarea'
-                  ? '<textarea class="modal-input report-textarea" id="rf_' + fname + '" maxlength="' + cap + '"></textarea>'
-                  : '<input class="modal-input" type="text" id="rf_' + fname + '" maxlength="' + cap + '" />') +
+                  ? '<textarea class="modal-input report-textarea" id="rf_' + fname + '" maxlength="' + cap + '" placeholder="' + _esc(ph || '') + '"></textarea>'
+                  : '<input class="modal-input" type="text" id="rf_' + fname + '" maxlength="' + cap + '" placeholder="' + _esc(ph || '') + '" />') +
                 '<div class="report-char-count" data-for="rf_' + fname + '">0 / ' + cap + '</div>' +
                 '</div>';
       }
@@ -252,28 +431,74 @@
 
     /* collapsible auto-attached technical details (transparency; reassures no screenshot needed) */
     html += '<details class="report-tech">' +
-              '<summary>' + _ico('info', 'ℹ️') + ' Technical details (attached automatically)</summary>' +
+              '<summary>' + _ico('info', 'ℹ️') + ' What we attach automatically</summary>' +
               '<pre class="report-tech-pre" id="reportTechPre">Loading…</pre>' +
             '</details>';
 
-    html += '<div class="modal-actions report-actions">' +
-              '<button class="btn-secondary report-cancel" type="button">Cancel</button>' +
+    html += '<div class="report-actions">' +
               '<button class="btn-primary report-submit" type="button">' + _ico('send', '📤') + ' Send report</button>' +
+              '<p class="report-reassure">' + _reassureLine() + '</p>' +
             '</div>';
-    html += '</div>';
 
-    _overlay.innerHTML = html;
+    _body.innerHTML = html;
     _wireForm(t);
-    _focusFirst();
+    _focusBody();
+  }
+
+  function _reassureLine() {
+    if (st.source === 'drill') return 'Your session is safe — sending this won\'t end your drill.';
+    if (st.source === 'ai_explain') return 'We\'ll take a look. This won\'t change what\'s on your screen.';
+    return 'Thanks for helping us make QuantReflex better.';
+  }
+
+  /* Contextual question header — auto-built from the live question + session so the user trusts *which* item
+     they're reporting (they type nothing). */
+  function _qContextHtml() {
+    var q = st.question || {}, s = st.session || {};
+    var chips = [];
+    if (s.questionNumber) chips.push('Question ' + s.questionNumber + (s.count ? ' of ' + s.count : ''));
+    var topic = q.category || q.subtype;
+    if (topic) chips.push(_titro(topic));
+    if (q.difficulty) chips.push(_titro(q.difficulty));
+    var ml = _modeLabel(s);
+    if (ml) chips.push(ml);
+    var chipHtml = chips.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('');
+    var qtext = q.question != null ? String(q.question) : '';
+    var preview = qtext ? '<div class="report-ctx-q">“' + _esc(qtext.slice(0, 120)) + (qtext.length > 120 ? '…' : '') + '”</div>' : '';
+    return '<div class="report-ctx">' +
+             '<div class="report-ctx-top">' + _ico('target', '🎯') + '<span>This question — attached automatically</span></div>' +
+             (chipHtml ? '<div class="report-ctx-chips">' + chipHtml + '</div>' : '') +
+             preview +
+           '</div>';
+  }
+
+  function _modeLabel(s) {
+    if (!s) return null;
+    if (s.isDuel) return 'Duel';
+    if (s.reviewMode) return 'Review';
+    if (s.mode) { var m = { practice: 'Practice', timed: 'Timed test', mock: 'Mock test', exam: 'Exam', warmup: 'Warm-up', quick: 'Quick drill', reflex: 'Reflex drill' }; return m[s.mode] || _titro(s.mode); }
+    return null;
+  }
+
+  /* Read-only "what's attached" summary for an AI-explanation report (question + explanation + QuanAI version). */
+  function _aiAttachedHtml() {
+    var q = st.question || {}, ai = st.ai || {};
+    var lines = [];
+    var topic = q.category || q.subtype;
+    if (topic) lines.push(_titro(topic));
+    var ver = ai.promptId ? 'QuanAI ' + ai.promptId : null;
+    if (ver) lines.push(ver);
+    var meta = lines.length ? '<div class="report-ctx-chips">' + lines.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('') + '</div>' : '';
+    var exp = ai.explanation ? '<div class="report-ctx-q">“' + _esc(String(ai.explanation).slice(0, 130)) + (String(ai.explanation).length > 130 ? '…' : '') + '”</div>' : '';
+    return '<div class="report-ctx">' +
+             '<div class="report-ctx-top">' + _ico('robot', '🤖') + '<span>This QuanAI explanation — attached automatically</span></div>' +
+             meta + exp +
+           '</div>';
   }
 
   function _wireForm(t) {
-    _overlay.querySelector('.report-modal-close').addEventListener('click', function () { if (!st.submitting) close(); });
-    _overlay.querySelector('.report-back-btn').addEventListener('click', function () { if (st.submitting) return; if (st.source === 'ai_explain') { close(); } else { _clearForm(); _renderPicker(); } });
-    _overlay.querySelector('.report-cancel').addEventListener('click', function () { if (!st.submitting) close(); });
-
     /* sub-reason chips */
-    var chips = _overlay.querySelectorAll('.report-chip');
+    var chips = _body.querySelectorAll('.report-chip');
     for (var i = 0; i < chips.length; i++) {
       chips[i].addEventListener('click', function () {
         var was = this.getAttribute('aria-checked') === 'true';
@@ -284,7 +509,7 @@
     }
 
     /* rating stars */
-    var stars = _overlay.querySelectorAll('.report-star');
+    var stars = _body.querySelectorAll('.report-star');
     for (var s = 0; s < stars.length; s++) {
       stars[s].addEventListener('click', function () {
         var val = parseInt(this.getAttribute('data-rating'), 10);
@@ -297,10 +522,9 @@
       });
     }
 
-    /* Restore in-progress input after a re-render (e.g. a terminal submit failure) so nothing the user typed/
-       selected is lost (ADR-098). st.subReason / st._rating are the source of truth; st._draft holds typed text. */
+    /* Restore any in-progress input after a re-render (terminal submit failure) — nothing typed is lost. */
     if (st.subReason) {
-      var selChip = _overlay.querySelector('.report-chip[data-sub="' + st.subReason + '"]');
+      var selChip = _body.querySelector('.report-chip[data-sub="' + st.subReason + '"]');
       if (selChip) { selChip.classList.add('selected'); selChip.setAttribute('aria-checked', 'true'); }
     }
     if (st._rating) {
@@ -310,15 +534,15 @@
       }
     }
     if (st._draft) {
-      Object.keys(st._draft).forEach(function (fn) { var el = _overlay.querySelector('#rf_' + fn); if (el) el.value = st._draft[fn]; });
-      st._draft = null;   /* consumed */
+      Object.keys(st._draft).forEach(function (fn) { var el = _body.querySelector('#rf_' + fn); if (el) el.value = st._draft[fn]; });
+      st._draft = null;
     }
 
     /* char counters */
-    var counted = _overlay.querySelectorAll('[data-for]');
+    var counted = _body.querySelectorAll('[data-for]');
     for (var c = 0; c < counted.length; c++) {
       (function (counter) {
-        var field = _overlay.querySelector('#' + counter.getAttribute('data-for'));
+        var field = _body.querySelector('#' + counter.getAttribute('data-for'));
         if (!field) return;
         var cap = field.getAttribute('maxlength');
         var upd = function () { counter.textContent = field.value.length + ' / ' + cap; };
@@ -326,11 +550,10 @@
       })(counted[c]);
     }
 
-    _overlay.querySelector('.report-submit').addEventListener('click', _submit);
+    _body.querySelector('.report-submit').addEventListener('click', _submit);
 
-    /* lazily fill the technical-details preview (kept cheap; only computed once the form is shown) */
     try {
-      var pre = _overlay.querySelector('#reportTechPre');
+      var pre = _body.querySelector('#reportTechPre');
       if (pre) pre.textContent = _techPreview();
     } catch (_) {}
   }
@@ -364,17 +587,14 @@
     return root.ReportContext.collect(st.source);
   }
 
-  /* ── Submit ── */
+  /* ─────────────────────────────── Submit ─────────────────────────────── */
   function _readFields(t) {
     var out = { title: null, description: null, fields: {} };
     (t.fields || []).forEach(function (fname) {
       var def = FIELD_DEFS[fname];
       if (!def) return;
-      if (def.input === 'rating') {
-        if (st._rating) out.fields.rating = st._rating;
-        return;
-      }
-      var el = _overlay.querySelector('#rf_' + fname);
+      if (def.input === 'rating') { if (st._rating) out.fields.rating = st._rating; return; }
+      var el = _body.querySelector('#rf_' + fname);
       if (!el) return;
       var val = (el.value || '').trim();
       if (!val) return;
@@ -390,19 +610,25 @@
     var t = _typeById(st.type);
     if (!t) return;
     var vals = _readFields(t);
+    var isSettingsQuestion = (st.group === 'question' && st.source === 'settings');
 
-    /* app/account/other reports need SOME substance — free text OR a rating (a star-only feedback submit is
-       valid). Question-family AND ai_explain reports are meaningful from the type + attached context alone. */
-    if (t.group !== 'question' && st.source !== 'ai_explain' && !vals.title && !vals.description && vals.fields.rating == null) {
-      _toast('Please add a short description (or a rating).');
-      var firstField = _overlay.querySelector('.modal-input');
+    /* Substance guard (mirrors api/_lib/report-schema.js):
+       • in-drill question + ai_explain → meaningful from the attached context alone.
+       • a Settings-filed question → needs a note (no question is attached here).
+       • everything else → needs free text OR a rating. */
+    var needsText = false;
+    if (isSettingsQuestion) needsText = !vals.title && !vals.description;
+    else if (st.group !== 'question' && st.source !== 'ai_explain') needsText = !vals.title && !vals.description && vals.fields.rating == null;
+    if (needsText) {
+      _toast(isSettingsQuestion ? 'Tell us which question and what looked off.' : 'Please add a short description (or a rating).');
+      var firstField = _body.querySelector('.modal-input');
       if (firstField) firstField.focus();
       return;
     }
 
-    /* Stash typed text so a terminal-error re-render (below) can restore it — nothing the user wrote is lost. */
+    /* Stash typed text so a terminal-error re-render can restore it — nothing the user wrote is lost. */
     st._draft = {};
-    (t.fields || []).forEach(function (fname) { var el = _overlay.querySelector('#rf_' + fname); if (el && FIELD_DEFS[fname] && FIELD_DEFS[fname].input !== 'rating') st._draft[fname] = el.value; });
+    (t.fields || []).forEach(function (fname) { var el = _body.querySelector('#rf_' + fname); if (el && FIELD_DEFS[fname] && FIELD_DEFS[fname].input !== 'rating') st._draft[fname] = el.value; });
 
     st.submitting = true;
     _renderSubmitting();
@@ -444,8 +670,9 @@
   }
 
   function _renderSubmitting() {
-    _overlay.innerHTML =
-      '<div class="modal-content report-modal report-state-center">' +
+    _setHead('Sending…', false);
+    _body.innerHTML =
+      '<div class="report-state-center">' +
         '<div class="report-spinner" aria-hidden="true"></div>' +
         '<p class="report-state-msg" aria-live="polite">Sending your report…</p>' +
       '</div>';
@@ -453,22 +680,24 @@
 
   function _renderSuccess(shortId, queued) {
     st.submitting = false;
+    _setHead(queued ? 'Saved' : 'Report sent', false);
     var idLine = shortId
       ? '<p class="report-success-id">Reference: <strong>' + _esc(shortId) + '</strong></p>'
       : '';
+    var title = queued ? 'Saved — we\'ll send it' : 'Thanks — we\'ve got it';
     var msg = queued
-      ? 'You\'re offline — your report is saved and will send automatically when you\'re back online.'
-      : 'Thanks! Your report is in — our team can see it right away.';
-    _overlay.innerHTML =
-      '<div class="modal-content report-modal report-state-center">' +
+      ? 'You\'re offline, so we\'ve saved your report. It\'ll send itself the moment you\'re back online — nothing is lost.'
+      : 'Your report is with our team now. We read every one — thank you for helping us make QuantReflex better.';
+    _body.innerHTML =
+      '<div class="report-state-center">' +
         '<div class="report-success-check" aria-hidden="true">' + _ico('check', '✅') + '</div>' +
-        '<h3 class="report-success-title">Report ' + (queued ? 'saved' : 'sent') + '</h3>' +
+        '<h3 class="report-success-title">' + _esc(title) + '</h3>' +
         '<p class="report-success-msg" aria-live="polite">' + _esc(msg) + '</p>' +
         idLine +
-        '<div class="modal-actions"><button class="btn-primary report-done" type="button">' +
-          (st.source === 'drill' ? 'Continue practice' : 'Done') + '</button></div>' +
+        '<div class="report-actions"><button class="btn-primary report-done" type="button">' +
+          (st.source === 'drill' ? 'Back to practice' : 'Done') + '</button></div>' +
       '</div>';
-    var done = _overlay.querySelector('.report-done');
+    var done = _body.querySelector('.report-done');
     done.addEventListener('click', close);
     setTimeout(function () { try { done.focus(); } catch (_) {} }, 40);
   }

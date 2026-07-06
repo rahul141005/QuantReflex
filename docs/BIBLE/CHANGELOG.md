@@ -6,6 +6,49 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Reporting: P0 taxonomy-load fix + premium bottom-sheet redesign (ADR-099)
+
+The owner's screenshots showed the "Report a problem" sheet rendering empty. Root cause was a **production load
+bug**, not weak design: the modal's taxonomy was loaded from `../shared/constants/report-types.js`, but `shared/`
+sits outside the main-app deploy root, so the SPA catch-all rewrite served index.html → SyntaxError →
+`window.ReportTypes` undefined → empty grid (reporting unusable since ADR-096). The same bug silently disabled
+`AuthValidators`. This fixes the P0 by serving both from the app origin, then redesigns the whole experience as a
+companion-style bottom sheet. No new infra; no rules/index change. Full detail in ADR-099.
+
+```
+### fix(P0): serve the report taxonomy + auth-validators from the main-app origin
+- js/ui/report-taxonomy.js (NEW): browser copy of the taxonomy (window.ReportTypes), same-origin so it can't 404.
+- js/utils/auth-validators.js (NEW): local copy; restores client-side email/password validation.
+- index.html: replaced the two broken ../shared/* <script> tags with the local paths; QR_APP_VERSION v216→v217.
+- js/ui/report-modal.js: _types()/_groups() gain a built-in defensive fallback (never render an empty grid).
+- service-worker.js: ASSETS += report-taxonomy.js + utils/auth-validators.js; APP_VERSION v216→v217.
+### feat(taxonomy): enriched, index-safe report types (ADR-099)
+- shared/constants/report-types.js + js/ui/report-taxonomy.js + api/_lib/report-schema.js: question family →
+  answer_wrong/solution_wrong/explanation_wrong/options_wrong/formula_wrong/typo/visual/unclear/
+  difficulty_mismatch/wrong_topic/duplicate/question_other (drops question_wrong/formatting); app adds ui_issue;
+  ai_issue moves to its own 'ai' group with a new reason set. Each type carries an icon + one-line helper.
+- Type values are index-agnostic — the (classification.type, createdAtMs) index covers them; no new index/rules.
+- shared/schemas/report-schema.json: classification.type enum updated. super-admin views/reports.js: TYPE_LABELS
+  cover every new type (legacy question_wrong/formatting retained so old rows still label).
+- api/_lib/report-schema.js: a question report filed from Settings (no attached question) now requires a note.
+### feat(ui): report modal → premium companion-style bottom sheet
+- js/ui/report-modal.js: full rewrite — .report-sheet-overlay/.report-sheet with grabber, drag-to-dismiss, rise,
+  responsive→centred ≥600px. Settings = guided category chooser → scoped reason grid; in-drill = contextual
+  question header (auto chips: Q N/count · topic · difficulty · session type + preview) + reason grid + escape;
+  AI = purpose-built QuanAI reason grid + read-only "what's attached" (no provider/model). QuanAI-voice wording,
+  reassurance + success/offline/retry states; typed-input restore on terminal error.
+- css/style.css: replaced the .report-modal block with the .report-sheet system (dark/playful/reduced-motion/
+  safe-area/tablet); added a 'flag' qr-ico mask.
+- js/drill-engine.js: the in-drill ⚑ renders via qrIco('flag','⚑').
+### test(reporting): 4-surface lockstep + rebuilt browser sweep
+- scripts/report.check.js → 518 assertions (browser↔shared↔server↔super-admin lockstep, new-taxonomy validity,
+  Settings-question substance guard, legacy-id removal).
+- Playwright sweep → 54 (loads via the LOCAL taxonomy path — proves the grid renders; Settings/drill/AI flows +
+  payloads; QuanAI no-leak; offline queue; defensive fallback; Escape/backdrop; responsive centring; z-index).
+```
+Docs: DECISION_LOG ADR-099; FIRESTORE_BLUEPRINT (enriched classification.type list + browser taxonomy is main-app-local);
+VERSIONS (Bible 2.119→2.120 / Firestore 2.26→2.27 — type value-set change). SW v216→v217.
+
 ## 2026-07-06 — QuanAI identity: no LLM/provider leakage in reporting + final-pass hardening (ADR-098)
 
 Final independent verification pass. Enforced the QuanAI product-identity requirement (users must never learn the

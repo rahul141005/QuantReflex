@@ -257,7 +257,7 @@ completedAt, createdAt }`.
   `questionReports` aggregate run in the request path (Spark has no triggers). Triaged only via
   `super-admin /api/admin/reports` (Admin SDK, `withAdminAuth`). Shape: `{id, shortId (QR-XXXX), createdAt:ISO,
   createdAtMs, updatedAt/Ms, clientKey, questionSignature|null, reporter{uid,email,name,plan:'free'|'premium',
-  coachingId}, classification{type (16-value enum), subReason|null, title|null, description|null,
+  coachingId}, classification{type (22-value enum, ADR-099), subReason|null, title|null, description|null,
   priority:'critical'|'high'|'medium'|'low', fields{}}, lifecycle{status:'open'|'investigating'|'needs_info'|'resolved'
   |'dismissed'|'duplicate'|'archived', assignedTo, assignedToEmail, resolvedAt, resolvedBy, duplicateOf, labels[],
   internalNotes[{by,email,text,at}]}, context{app{version,source,theme,appearance,targetExam}, device{ua,platform,
@@ -269,7 +269,10 @@ completedAt, createdAt }`.
   without reproducing it. **(ADR-098, QuanAI product identity)** the underlying provider/model is intentionally NOT
   captured in `ai` (or anywhere client-reachable); the real model lives only in server-side `aiRequests` telemetry.
   Canonical schema: `shared/schemas/report-schema.json`; enums: `shared/constants/report-types.js` (inline-copied by the
-  handlers, lockstep enforced by `main-app/scripts/report.check.js`). **No screenshots/attachments in v1** — the rich
+  server handler in `api/_lib/report-schema.js` AND — since **ADR-099** — by the browser in `main-app/js/ui/report-taxonomy.js`,
+  which the modal loads same-origin because `shared/` is outside the main-app deploy root; lockstep across all four surfaces
+  enforced by `main-app/scripts/report.check.js`). `classification.type` values are index-agnostic — the
+  `(classification.type, createdAtMs)` index is value-agnostic, so the ADR-099 enrichment needed no new index/rules. **No screenshots/attachments in v1** — the rich
   `context`+`question` snapshot replaces them; a `reports/{id}/attachments/*` subcollection can be added later with
   **zero migration** (documented seam). **No email** — the Super-Admin Reports dashboard is the source of truth. See ADR-096.
 - **`questionReports/{signature}`** (ADR-096) — the **"reported N times"** rollup keyed by question signature.
