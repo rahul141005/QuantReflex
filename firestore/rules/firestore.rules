@@ -412,6 +412,31 @@ service cloud.firestore {
     }
 
     // ════════════════════════════════════════════
+    // REPORTS COLLECTION (ADR-096) — server-write-only
+    // ════════════════════════════════════════════
+    // User-submitted reports (bugs, wrong questions/answers/explanations, feedback, …).
+    // Created SERVER-SIDE ONLY by main-app POST /api/report (Admin SDK) so the reporter uid/plan
+    // and rich diagnostic context are assembled server-authoritatively (never trusted from the
+    // client body) and the per-uid rate-limit / dedupe + questionReports aggregate run in the
+    // request path (Spark has no Firestore triggers). Triaged via /api/admin/reports (Admin SDK).
+    // Clients touch this collection ONLY through those endpoints → all-deny here, matching the
+    // coachings / notificationLogs / auditLogs precedent. No attachments subcollection in v1
+    // (future seam: reports/{id}/attachments/* adds with zero migration — see FIRESTORE_BLUEPRINT).
+    match /reports/{reportId} {
+      allow read, write: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
+    // QUESTION REPORTS AGGREGATE (ADR-096) — server-write-only
+    // ════════════════════════════════════════════
+    // Per-generator rollup keyed by question signature ("reported N times"): count / openCount /
+    // firstAtMs / lastAtMs / topReasons. Incremented via FieldValue.increment inside the
+    // /api/report create path and read by /api/admin/reports. Admin-SDK only → all-deny.
+    match /questionReports/{signature} {
+      allow read, write: if false; // Admin SDK bypasses this
+    }
+
+    // ════════════════════════════════════════════
     // DEFAULT: Deny all unmatched paths
     // ════════════════════════════════════════════
     match /{document=**} {

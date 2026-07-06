@@ -83,6 +83,8 @@ Authoritative summary (rules file is canonical; keep this table in sync):
 | `config/aiKillSwitch` · `config/paymentKillSwitch` (ADR-021) | authed users (client enforces) | **denied** (Admin-SDK only) | **denied** | **denied** |
 | `config/aiBudget` (+ any other `config/*`) | **denied** (Admin-SDK only) | **denied** | **denied** | **denied** |
 | `notificationLogs`/`scheduledNotices` | denied | denied | denied | denied |
+| `reports/{id}` (ADR-096) | **denied** | **denied** (Admin-SDK only — `main-app /api/report`, `withAuth`; reporter identity/priority/status/`shortId` server-assembled) | **denied** (Admin-SDK only — `super-admin /api/admin/reports`, `withAdminAuth`) | **denied** |
+| `questionReports/{signature}` (ADR-096) | **denied** | **denied** (Admin-SDK only — maintained in the `/api/report` create path) | **denied** (Admin-SDK only) | **denied** |
 | `duelInvitations` | denied | denied | denied | denied |
 | default `**` | denied | denied | denied | denied |
 
@@ -149,6 +151,8 @@ authority); `presence.lastSeenAt` is a client write (a spoof only self-disadvant
 | `withAdminAuth` (super-admin) | super-admin `_lib/middleware.js` | `admin:true` | `req.userId` + `req.adminUid` | **300/hr/admin** (5/min sustained — raised 30→300 so normal User-360 sessions aren't throttled; audit M5/M6, applied to ALL super-admin endpoints) |
 | `withAdmin` (super-admin) | super-admin `_lib/firebase-admin.js` | — | — | thin re-export of `withAdminAuth` (audit M5) |
 | `withCoachingAuth` | coaching `_lib/middleware.js` | `coaching_admin:true` + `coachingId` | `req.userId/coachingId` | — |
+
+**Reporting endpoints (ADR-096).** `main-app /api/report?action=create` is `withAuth` (so it inherits the 20/hr in-memory cap + `X-Session-Id` single-device check) **and** enforces a report-specific, Firestore-backed per-uid limit (**15/hr, 60/day**) computed from an indexed `reporter.uid`+`createdAtMs` query in the request path — over-limit returns `429 REPORT_RATE_LIMIT`. All classification input is untrusted and validated/size-capped in `api/_lib/report-schema.js`; reporter identity (uid/email/plan/coachingId), priority, status and `shortId` are server-assembled — never trusted from the body — and `context.sessionId` is overwritten with the trusted `X-Session-Id` header. A client-generated `clientKey` idempotency key (+ a 5-min identical-`type`+`signature` window) dedupes retries into one row. `super-admin /api/admin/reports` is `withAdminAuth` (300/hr/admin); every mutation writes an immutable `auditLogs` row (`category:'report'`). **No email / external notification and no attachment/upload surface exist** — nothing to authorize or rate-limit there (ADR-096).
 
 **Resolved (audit M5, 2026-06-11):** super-admin converged on a single wrapper — `_lib/middleware.js#withAdminAuth` (rate-limited, sets both `req.userId` and `req.adminUid`); `firebase-admin.js#withAdmin` re-exports it. Previously the sensitive endpoints (entitlements, payments, coachings) had **no** rate limit — only `questions.js` did. Now all do.
 

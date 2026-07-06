@@ -6,6 +6,56 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-06 — Ultimate Reporting System (ADR-096)
+
+Complete user-reporting ecosystem across the main app and the Super-Admin app: a premium "Report a Problem" modal
+(Settings + a fast in-drill ⚑ button that auto-scopes to the current question), a server-authoritative Firestore
+model, an offline-safe queue, and a full Super-Admin Reports triage section. Reports are **self-contained in
+Firestore with the Super-Admin dashboard as the source of truth — NO email / notification service**, and **NO
+screenshots in v1** (maximized auto-context replaces them). Both are clean, migration-free future seams. Full
+detail in ADR-096.
+
+```
+### feat(reporting): shared schema + enums + rules + indexes
+- shared/constants/report-types.js: canonical 16-type enum set (+ statuses, priorities, per-type sub-reasons, caps,
+  rate-limit) — dual-exported for the browser modal + the check.
+- shared/schemas/report-schema.json: draft-07 schema documenting reports/{id} (context/question maximized;
+  attachments deliberately omitted with a documented seam).
+- firestore/rules/firestore.rules: reports/{id} + questionReports/{signature} all-deny (Admin-SDK only).
+- firestore/indexes/firestore.indexes.json: 7 reports composites (status / status+priority / type / priority /
+  assignedTo / reporter.uid / questionSignature × createdAtMs).
+### feat(reporting): main-app backend (no email, no attachments)
+- main-app/api/report.js: withAuth ?action=create — validate, per-uid rate-limit (15/hr, 60/day) + dedupe, assemble
+  the doc server-side (never trusts body uid/plan/priority), write reports/{id} + transactional questionReports
+  aggregate. One comment marks the future notify seam (implemented as nothing).
+- main-app/api/_lib/report-schema.js: pure inline enum copy + validation/sanitizers/signature/rate-limit/dedupe
+  (lockstep with the shared constants, tested by report.check.js).
+- main-app/vercel.json: api/report.js maxDuration.
+### feat(reporting): main-app client
+- js/services/report-context.js: MAXIMIZED auto-context collector + question snapshot.
+- js/services/report-queue.js: offline-safe localStorage queue (qr_report_queue) w/ backoff + clientKey idempotency.
+- js/ui/report-modal.js: premium multi-step glass modal (type picker → fields → tech-details preview → success);
+  no file input; focus-trap/Escape/aria.
+- js/app.js: error ring-buffer (window.onerror + unhandledrejection → getRecentErrors) for the auto-context.
+- js/settings.js + index.html: "Report a Problem" Feedback card (#openReportProblem).
+- js/drill-engine.js: #drillReportBtn (⚑) in both render paths; live question + session snapshot; overlay/duel guards.
+- css/style.css: report modal + in-drill button styling (dark/playful/phone).
+- index.html: window.QR_APP_VERSION='v214' + report module <script> tags; service-worker.js v213→v214 + ASSETS.
+### feat(reporting): Super-Admin Reports section
+- super-admin-app/api/admin/reports.js: withAdminAuth list/details/analytics + update-status/assign/priority/label/
+  note/merge-duplicate; maintains questionReports.openCount; every mutation writes an auditLogs row (category:'report').
+- js/services/api.js: getReports/getReportDetails/getReportsAnalytics + mutation methods.
+- js/views/reports.js: SplitView dashboard (stat strip + top-questions) + master list (chips/priority/search/Load more)
+  + detail tabs Overview/Question/Context/History/Actions.
+- index.html + js/app.js: Reports nav item + #view-reports + DOMAINS.reports.
+- js/views/command-center.js: DRILL.reports_pending='#reports'; api/admin/system.js: reports_pending alert.
+- css/admin-style.css: badge-open/badge-progress, priority pills, report dashboard/detail styling.
+### test(reporting)
+- main-app/scripts/report.check.js: 212 assertions (enum lockstep, validation, signature, rate-limit/dedupe,
+  sanitizers) wired into npm test. Playwright browser sweep (35 assertions): both entry points, payload capture
+  (maximized context + question snapshot, no forged uid/plan), offline queue, a11y — all green. All prior suites green.
+```
+
 ## 2026-07-03 — RC verification: pause regression fix + backlog execution (ADR-095)
 
 Release-candidate verification of the ADR-094 fixes (cross-checked by an independent adversarial review). C1 + H2

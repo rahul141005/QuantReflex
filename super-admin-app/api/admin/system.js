@@ -228,6 +228,16 @@ async function handler(req, res) {
         const fl = (await db.collection('securityEvents').where('type', '==', 'failed_login').where('createdAt', '>=', secCut).count().get()).data().count;
         if (fl >= 20) alerts.push({ severity: 'warning', type: 'login_failures', message: fl + ' failed login(s) in the last 24h — possible brute-force; review the Security Center.' });
       } catch (_) { /* securityEvents collection/index may not exist yet */ }
+      /* Reports triage backlog (ADR-096) — open reports awaiting attention + any critical-priority ones.
+         count() aggregations; needs the reports(lifecycle.status, createdAtMs) / (priority) indexes, degrades to 0. */
+      try {
+        const openReports = (await db.collection('reports').where('lifecycle.status', '==', 'open').count().get()).data().count;
+        if (openReports >= 1) {
+          let critOpen = 0;
+          try { critOpen = (await db.collection('reports').where('lifecycle.status', '==', 'open').where('classification.priority', '==', 'critical').count().get()).data().count; } catch (_) { /* composite index building */ }
+          alerts.push({ severity: critOpen > 0 ? 'critical' : (openReports >= 10 ? 'warning' : 'info'), type: 'reports_pending', message: openReports + ' open report(s)' + (critOpen > 0 ? ' incl. ' + critOpen + ' critical' : '') + ' awaiting triage — open the Reports section.' });
+        }
+      } catch (_) { /* reports collection/index may not exist yet */ }
       const _visible = alerts.filter(function (al) { const ak = _acks[al.type]; return !(ak && ak.until && ak.until > nowIso); });
       return res.status(200).json({ alerts: _visible, suppressed: alerts.length - _visible.length, generatedAt: nowIso });
     }

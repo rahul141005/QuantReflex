@@ -333,6 +333,14 @@ function initSettingsView() {
     notifToggle.checked = notifEnabled;
   }
 
+  /* Report a Problem (ADR-096) — opens the reporting modal (full type set from Settings). */
+  var reportBtn = document.getElementById('openReportProblem');
+  if (reportBtn) {
+    rebind(reportBtn, 'click', function () {
+      if (typeof ReportModal !== 'undefined' && ReportModal.open) ReportModal.open({ source: 'settings' });
+    });
+  }
+
   /* App Guide button — opens modal */
   var appGuideBtn = document.getElementById('openAppGuide');
   if (appGuideBtn) {

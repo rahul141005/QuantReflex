@@ -123,6 +123,8 @@ function createDrillEngine(container, opts) {
   var _pauseStart = 0;
   var _visHandler = null; /* visibilitychange auto-pause handler (installed for non-duel sessions, removed on cleanup) */
   var answered = false; /* prevents double-counting */
+  var _lastRaw = null;    /* ADR-096: last submitted raw answer, for the in-drill report snapshot */
+  var _lastCorrect = null; /* ADR-096: whether that submission was correct */
   var _nextReady = true; /* debounce guard — false for 350ms after answer confirmed, prevents carry-over taps */
   var beginStarted = false; /* prevents duplicate START on rapid taps */
   var _isFinished = false; /* prevents timer/checkAnswer race after finish() */
@@ -130,6 +132,37 @@ function createDrillEngine(container, opts) {
      pointer-blocks the answer surface, but KEYBOARD activation of a still-focusable option/key bypasses that guard.
      User-initiated answer entry must yield while one is up, so grading can't happen under an overlay (ADR-095). */
   function _blockedByOverlay() { return !!document.getElementById('drillPauseOverlay') || document.body.classList.contains('modal-open'); }
+
+  /* ADR-096 — in-drill "Report" button. Builds the LIVE session state for the current question and opens
+     ReportModal pre-scoped to it. Guarded against the pause/exit-overlay state (never open over a blocking
+     overlay) and against duels (which have no answer key / their own flow). */
+  function _buildReportState() {
+    var q = questions[current] || {};
+    return {
+      mode: mode,
+      isDuel: isDuel,
+      reviewMode: reviewMode,
+      adaptiveMode: adaptiveMode,
+      adaptiveDifficulty: _adaptiveDifficulty,
+      questionNumber: current + 1,
+      count: count,
+      selectedAnswer: (answered ? _lastRaw : null),
+      wasAnswered: answered,
+      wasCorrect: (answered ? _lastCorrect : null),
+      timeSpentMs: (qStart ? Math.round(performance.now() - qStart) : null),
+      timerRunning: !!(perQTimer || overallTimer) && !_paused,
+      perQLimit: perQLimit,
+      timeLimit: timeLimit,
+      score: score,
+      streak: currentSessionStreak
+    };
+  }
+  function _openReport() {
+    if (isDuel) return;                    /* duels have no answer key and their own results flow */
+    if (_blockedByOverlay()) return;        /* don't open over the pause/exit overlay (ADR-095 ethos) */
+    if (typeof ReportModal === 'undefined' || !ReportModal.open) return;
+    ReportModal.open({ source: 'drill', question: questions[current] || null, session: _buildReportState() });
+  }
   var _finishResults = null; /* session summary passed to onFinish (used by mock mode for exam-accurate scoring) */
   var reviewOriginalCount = 0; /* track original count for review mode cap */
   var ui = {
@@ -257,6 +290,7 @@ function createDrillEngine(container, opts) {
      regenerated mid-set). */
   function _renderSetQuestion() {
     answered = false;
+    _lastRaw = null; _lastCorrect = null; /* ADR-096: clear the per-question report snapshot */
     _nextReady = true;
     var q = questions[current];
     if (!_setShellBuilt) {
@@ -266,6 +300,7 @@ function createDrillEngine(container, opts) {
       container.innerHTML =
         '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
         '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' +
+        '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">⚑</button>' +
         '<div class="card center-content fade-in question-card-transition">' +
           '<div class="drill-question-scroll">' +
             '<div class="di-set-context">' + ctxHTML + '</div>' +
@@ -283,6 +318,9 @@ function createDrillEngine(container, opts) {
          here too. pauseSession() is mode-agnostic (freezes the qStart anchor sets rely on). */
       var _p = container.querySelector('#drillPauseBtn');
       if (_p) _p.addEventListener('click', function () { pauseSession(); });
+      /* ADR-096: in-drill report button (set path). */
+      var _r = container.querySelector('#drillReportBtn');
+      if (_r) _r.addEventListener('click', function () { _openReport(); });
     }
     var host = container.querySelector('#diSetQHost');
     var progressPct = count > 0 ? Math.min(100, Math.round((current / count) * 100)) : 0;
@@ -427,6 +465,7 @@ function createDrillEngine(container, opts) {
   function renderQuestion() {
     if (diSet) { _renderSetQuestion(); return; }
     answered = false;
+    _lastRaw = null; _lastCorrect = null; /* ADR-096: clear the per-question report snapshot */
     _nextReady = true; /* reset debounce for each new question */
     var q = questions[current];
     var isMCQ = !!(q.options && q.options.length);   /* LR (ADR-075): a question may be multiple-choice */
@@ -443,6 +482,8 @@ function createDrillEngine(container, opts) {
       (isDuel ? duelHeaderHTML : '') +
       (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' : '') +
       (!isDuel ? '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' : '') +
+      /* ADR-096: fast in-drill report — auto-scopes to this exact question. Not shown in duels. */
+      (!isDuel ? '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">⚑</button>' : '') +
       '<div class="card center-content fade-in question-card-transition' + (isMCQ ? ' drill-has-mcq' : '') + '">' +
         '<div class="drill-question-scroll">' +
           '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
@@ -529,6 +570,12 @@ function createDrillEngine(container, opts) {
     var _drillPauseBtn = container.querySelector('#drillPauseBtn');
     if (_drillPauseBtn) {
       _drillPauseBtn.addEventListener('click', function () { pauseSession(); });
+    }
+
+    /* Report button (ADR-096) — opens ReportModal scoped to the live question. Guarded absent in duels. */
+    var _drillReportBtn = container.querySelector('#drillReportBtn');
+    if (_drillReportBtn) {
+      _drillReportBtn.addEventListener('click', function () { _openReport(); });
     }
 
     var input = ui.answerInputEl;
@@ -674,6 +721,9 @@ function createDrillEngine(container, opts) {
         }
       }
     }
+
+    /* ADR-096: remember what was submitted so an in-drill report can attach the user's actual answer. */
+    _lastRaw = raw; _lastCorrect = correct;
 
     /* LR MCQ (ADR-075): reveal the correct option + mark the wrong pick, lock further taps. */
     var _mcqHost = container.querySelector('#mcqOptions');

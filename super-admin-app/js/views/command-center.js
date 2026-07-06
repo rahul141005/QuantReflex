@@ -15,7 +15,8 @@ var CommandCenterView = (function () {
   var DRILL = {
     ai_budget: '#ai', expired_premium: '#users', orphan_duels: '#operations',
     pending_purge: '#operations', firestore_growth: '#operations',
-    payment_failures: '#operations', login_failures: '#operations'
+    payment_failures: '#operations', login_failures: '#operations',
+    reports_pending: '#reports'
   };
   var EM_LABELS = { maintenance: 'Maintenance mode', aiKillSwitch: 'AI kill switch', paymentKillSwitch: 'Payment kill switch' };
 

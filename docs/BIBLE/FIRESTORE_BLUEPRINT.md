@@ -250,6 +250,28 @@ completedAt, createdAt }`.
 - `config/aiBudget` — admin-only AI-spend budget config: `{monthlyBudgetUSD, warnPct (default 80), critPct (default 90), updatedAt, updatedBy}`. Read/written only via `api/admin/ai?action=budget` (Admin SDK; client denied by default-deny). The GET computes month-to-date spend by summing `systemMetrics/ai_daily_{YYYY-MM-*}.estimatedCostUSD` (≤31 doc reads). (Phase 3, ADR-015.)
 - **Emergency Controls config (Super Admin V2, ADR-021)** — break-glass flags: `config/maintenance {enabled, message?, updatedBy, updatedAt}`, `config/aiKillSwitch {enabled, updatedBy, updatedAt}`, `config/paymentKillSwitch {enabled, updatedBy, updatedAt}`. Written **only** via `super-admin system?action=config-set` (Admin SDK + immutable `auditLogs`). **Client-readable** (unlike `aiBudget`) so the student app enforces them: `config/maintenance` is world-readable (renders the pre-auth maintenance screen), `aiKillSwitch`/`paymentKillSwitch` readable by authenticated users; all three are client-**write-denied**. main-app honors them (`aiService` skips OpenAI, `paymentService` skips Razorpay, boot shows a maintenance screen for non-admins). See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) §6A.
 - `notificationLogs/{id}`, `scheduledNotices/{id}` — admin-only (rules deny client).
+- **`reports/{auto}`** (ADR-096) — **user-submitted reports** (bugs, wrong questions/answers/explanations, feedback).
+  **Server-write-only** (client read/write **denied** by rules, matching `auditLogs`/`coachings`). Created only via
+  `main-app POST /api/report?action=create` (Admin SDK, `withAuth`) so the reporter identity, priority, status and
+  `shortId` are assembled **server-side** (never trusted from the body) and the per-uid rate-limit/dedupe +
+  `questionReports` aggregate run in the request path (Spark has no triggers). Triaged only via
+  `super-admin /api/admin/reports` (Admin SDK, `withAdminAuth`). Shape: `{id, shortId (QR-XXXX), createdAt:ISO,
+  createdAtMs, updatedAt/Ms, clientKey, questionSignature|null, reporter{uid,email,name,plan:'free'|'premium',
+  coachingId}, classification{type (16-value enum), subReason|null, title|null, description|null,
+  priority:'critical'|'high'|'medium'|'low', fields{}}, lifecycle{status:'open'|'investigating'|'needs_info'|'resolved'
+  |'dismissed'|'duplicate'|'archived', assignedTo, assignedToEmail, resolvedAt, resolvedBy, duplicateOf, labels[],
+  internalNotes[{by,email,text,at}]}, context{app{version,source,theme,appearance,targetExam}, device{ua,platform,
+  formFactor,screen,viewport,dpr,online,connection,deviceMemory,hardwareConcurrency,standalone,reducedMotion},
+  locale{tz,language}, route, sessionId, recentErrors[{msg,at}], submittedAtMs}, question{…full generator snapshot…}|null}`.
+  Canonical schema: `shared/schemas/report-schema.json`; enums: `shared/constants/report-types.js` (inline-copied by the
+  handlers, lockstep enforced by `main-app/scripts/report.check.js`). **No screenshots/attachments in v1** — the rich
+  `context`+`question` snapshot replaces them; a `reports/{id}/attachments/*` subcollection can be added later with
+  **zero migration** (documented seam). **No email** — the Super-Admin Reports dashboard is the source of truth. See ADR-096.
+- **`questionReports/{signature}`** (ADR-096) — the **"reported N times"** rollup keyed by question signature.
+  Server-write-only (Admin SDK). Shape: `{signature, count, openCount, firstAtMs, lastAtMs, sampleReportId,
+  lastReportId, category, subtype, topReasons{typeId:count}, updatedAt}`. Maintained transactionally in the
+  `/api/report` create path (first-seen fields written exactly once); `openCount` decremented/incremented by
+  `/api/admin/reports` as reports move between open and closed statuses.
 - `metrics/{dateStr}` + `metrics/latest` — platform snapshot (admin-only), refreshed **daily** by the Vercel-Cron endpoint `super-admin-app/api/cron/sweep.js` and read **O(1)** by the admin dashboard (which additionally reads today's `systemMetrics/ai_daily_*` doc **live** so the GPT Cost Center is real-time, not frozen to the last snapshot). DAU/MAU/newToday counts use a disjoint Timestamp+ISO-string `count()` union (mixed-type `updatedAt`/`createdAt`, M9). Shape: `{date, totalUsers, premiumUsers, trialUsers, freeUsers, dau, mau, newToday, revenueTotalINR, revenueTodayINR, revenue6mCount, revenue12mCount, totalTokensInput, totalTokensOutput, estimatedCostUSD, gptCalls, collectionCounts{users,questions,duels,payments,coachings,auditLogs,securityEvents}, updatedAt}`. Counts come from Firestore **`count()` aggregation** (not document scans) so the snapshot scales to 1M+ users; `metrics/latest` mirrors the newest day for instant dashboard load. (ADR-013.) **`collectionCounts` (Phase 5, ADR-018)** records per-collection `count()` sizes each day so the Firestore-Ops view (`system?action=firestore-ops`) shows current sizes + a day-over-day growth series, and powers the Firestore-growth-spike alert — all with no on-demand scans. Absent on pre-Phase-5 metrics docs (readers tolerate its absence).
 
 ### Deprecated
@@ -285,8 +307,15 @@ completedAt, createdAt }`.
 | duelHistory | outcome (ASC), playedAt (DESC) | **ADR-068** — Battle Archive Wins/Losses/Draws filter, newest-first (per-user subcollection query; time-range stacks as a `playedAt` inequality). |
 | duelHistory | difficulty (ASC), playedAt (DESC) | **ADR-068** — Battle Archive difficulty filter (Easy/Medium/Hard), newest-first. |
 | duelHistory | opponentUid (ASC), playedAt (DESC) | **ADR-068** — Battle Archive rivalry view: one opponent's head-to-head history, newest-first. |
+| reports | lifecycle.status (ASC), createdAtMs (DESC) | **ADR-096** — Reports master list filtered by status, newest-first; also the per-uid rate-limit window query uses `reporter.uid`+`createdAtMs` (below). |
+| reports | lifecycle.status (ASC), classification.priority (ASC), createdAtMs (DESC) | **ADR-096** — status + priority combined filter, newest-first. |
+| reports | classification.type (ASC), createdAtMs (DESC) | **ADR-096** — filter the list by report type, newest-first. |
+| reports | classification.priority (ASC), createdAtMs (DESC) | **ADR-096** — filter by priority (no status), newest-first. |
+| reports | lifecycle.assignedTo (ASC), createdAtMs (DESC) | **ADR-096** — an admin's assigned reports, newest-first. |
+| reports | reporter.uid (ASC), createdAtMs (DESC) | **ADR-096** — the per-uid rate-limit + dedupe window query (last-day reports) in `/api/report` create. |
+| reports | questionSignature (ASC), createdAtMs (DESC) | **ADR-096** — all reports for one generator ("reported N times" / related reports). |
 
-**Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). **Global Search (ADR-020)** prefix range queries on `users.email`, `users.profile.name`, `users.coachingId`, the user doc-id (`FieldPath.documentId()`), and `coachings.name` + doc-id also use single-field auto-indexes — **no new composite** is required unless a multi-field search variant is introduced. `aiStudyPlans (userId,status,createdAt)`: **verified ABSENT** in `firestore.indexes.json` (2026-06-24) and **not required** — `aiStudyPlans` is a legacy collection, superseded by `aiPlanner/{uid}` (one doc per user; the live planner needs no composite).
+**Single-field auto-indexes** cover the v2 `users.plan == 'premium'`, `users.isTrial == true`, `users.fcmToken != null` queries (used by `enforceEntitlementExpiry`, the admin dashboard counts, and reminders). **Global Search (ADR-020)** prefix range queries on `users.email`, `users.profile.name`, `users.coachingId`, the user doc-id (`FieldPath.documentId()`), and `coachings.name` + doc-id also use single-field auto-indexes — **no new composite** is required unless a multi-field search variant is introduced. `aiStudyPlans (userId,status,createdAt)`: **verified ABSENT** in `firestore.indexes.json` (2026-06-24) and **not required** — `aiStudyPlans` is a legacy collection, superseded by `aiPlanner/{uid}` (one doc per user; the live planner needs no composite). **ADR-096:** `reports.createdAtMs`-range analytics counts (today/week), the `questionReports orderBy('count'|'openCount' desc)` top-questions query, and per-status/priority `count()` aggregations all use single-field auto-indexes (both sort directions are auto-created) — no extra composite beyond the seven `reports` composites above.
 
 > **Action item (resolved 2026-06-24):** no `aiStudyPlans` composite needed — legacy collection superseded by `aiPlanner/{uid}` (doc-per-user). `entitlementLogs` index scope (M2) remains tracked.
 

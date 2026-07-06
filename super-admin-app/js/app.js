@@ -48,6 +48,7 @@ var App = (function () {
     'command-center': { cid: 'view-command-center', view: 'CommandCenterView' },
     'users':          { cid: 'view-users',          view: 'UsersView' },
     'coachings':      { cid: 'view-coachings',       view: 'CoachingsView' },
+    'reports':        { cid: 'view-reports',         view: 'ReportsView' },
     'revenue':        { cid: 'view-revenue',         view: 'RevenueCenter' },
     'content':        { cid: 'view-questions',       view: 'QuestionsView' },
     'ai':             { cid: 'view-ai',              view: 'AIAnalyticsView' },

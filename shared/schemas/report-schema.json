@@ -1,0 +1,213 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuantReflex Report",
+  "description": "Canonical schema for user-submitted reports in the QuantReflex ecosystem (ADR-096). Written SERVER-SIDE ONLY by main-app POST /api/report (Admin SDK) and read by the Super-Admin Reports dashboard via /api/admin/reports (Admin SDK). Clients never touch the 'reports' collection directly (firestore.rules: all-deny). Enums are the source of truth in shared/constants/report-types.js; both API handlers keep an inline copy (Vercel bundles per-app root, so ../shared cannot be required at runtime) and scripts/report.check.js asserts lockstep. Reports are fully self-contained in Firestore — NO email / external notification (the dashboard is the source of truth). Screenshots/attachments are intentionally NOT part of v1; the schema leaves a migration-free seam (see 'attachments' note under 'question' and the reports/{id}/attachments/* subcollection reserved in FIRESTORE_BLUEPRINT).",
+  "type": "object",
+  "required": ["id", "shortId", "createdAtMs", "reporter", "classification", "lifecycle", "context"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Firestore auto-ID of this report (mirrored into the doc for client-free reference)."
+    },
+    "shortId": {
+      "type": "string",
+      "pattern": "^QR-[A-Z0-9]{4,8}$",
+      "description": "Human-friendly reference shown to the reporter and admins (crypto-random base32, e.g. 'QR-8F3K'). Not guaranteed globally unique but collision-resistant enough for support conversations."
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO-8601 creation timestamp (readers normalize number|ISO|Timestamp|Date per FIRESTORE_BLUEPRINT)."
+    },
+    "createdAtMs": {
+      "type": "number",
+      "description": "Epoch-ms creation time. Primary sort/range key (createdAtMs DESC) and the field used by the per-uid rate-limit / dedupe window query."
+    },
+    "updatedAt": {
+      "type": "string",
+      "description": "ISO-8601 of the last admin mutation (status/assign/priority/label/note/merge). Equals createdAt at creation."
+    },
+    "updatedAtMs": {
+      "type": "number",
+      "description": "Epoch-ms mirror of updatedAt."
+    },
+    "questionSignature": {
+      "type": ["string", "null"],
+      "description": "Top-level mirror of question.signature (null for non-drill reports). Indexed so the dashboard can list all reports for one generator ('reported N times') and drive the questionReports aggregate.",
+      "default": null
+    },
+    "reporter": {
+      "type": "object",
+      "description": "Identity of the submitting user — assembled SERVER-SIDE from req.userId + resolved auth (never trusted from the client body).",
+      "required": ["uid"],
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth uid of the reporter (from the verified ID token)." },
+        "email": { "type": ["string", "null"], "description": "Reporter email (server-resolved)." },
+        "name": { "type": ["string", "null"], "description": "Display name (server-resolved)." },
+        "plan": { "type": "string", "enum": ["free", "premium"], "description": "Entitlement at report time (server-resolved via aiService.resolveUserAuth)." },
+        "coachingId": { "type": ["string", "null"], "description": "Coaching binding, if any (server-resolved)." }
+      },
+      "additionalProperties": false
+    },
+    "classification": {
+      "type": "object",
+      "description": "What the report is about + how the user described it.",
+      "required": ["type", "priority"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["question_wrong", "answer_wrong", "options_wrong", "explanation_wrong", "typo", "formatting", "visual", "bug", "crash", "performance", "ai_issue", "payment", "account", "feature_request", "feedback", "other"],
+          "description": "Report type. In-drill entry pre-selects the question-family types; Settings offers all."
+        },
+        "subReason": { "type": ["string", "null"], "description": "Optional type-specific refinement (e.g. visual→'chart_wrong', payment→'refund'). Validated against report-types.js subReasons for the type.", "default": null },
+        "title": { "type": ["string", "null"], "maxLength": 140, "description": "Optional short summary (shown for bug/crash/feature/other).", "default": null },
+        "description": { "type": ["string", "null"], "maxLength": 4000, "description": "Free-text body (or in-drill note). Length-capped per FIELD_LIMITS.", "default": null },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Triage priority. Auto-seeded from the type's defaultPriority at create time; admin-editable afterwards."
+        },
+        "fields": {
+          "type": "object",
+          "description": "Raw type-specific structured fields captured by the modal (e.g. bug: expected/actual/repro; feedback: rating). Optional; each string capped per FIELD_LIMITS. Kept as a bag so new per-type fields need no schema migration.",
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Admin-driven triage state. Created with status:'open' and empty labels/notes; every field here is mutated ONLY by /api/admin/reports (Admin SDK), never the client.",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["open", "investigating", "needs_info", "resolved", "dismissed", "duplicate", "archived"],
+          "description": "Lifecycle status. 'open'|'investigating'|'needs_info' count as still-needs-attention (dashboard Open count + questionReports.openCount)."
+        },
+        "assignedTo": { "type": ["string", "null"], "description": "adminUid this report is assigned to, or null.", "default": null },
+        "assignedToEmail": { "type": ["string", "null"], "description": "Email mirror of assignedTo for display.", "default": null },
+        "resolvedAt": { "type": ["string", "null"], "description": "ISO-8601 when moved to resolved/dismissed.", "default": null },
+        "resolvedBy": { "type": ["string", "null"], "description": "adminUid who resolved/dismissed.", "default": null },
+        "duplicateOf": { "type": ["string", "null"], "description": "reportId this was merged into (status:'duplicate').", "default": null },
+        "labels": { "type": "array", "items": { "type": "string", "maxLength": 40 }, "maxItems": 12, "description": "Free-form triage labels.", "default": [] },
+        "internalNotes": {
+          "type": "array",
+          "description": "Admin-only note thread. Never shown to the reporter (no reply-to-reporter channel in v1).",
+          "items": {
+            "type": "object",
+            "required": ["by", "text", "at"],
+            "properties": {
+              "by": { "type": "string", "description": "adminUid author." },
+              "email": { "type": ["string", "null"], "description": "author email." },
+              "text": { "type": "string", "maxLength": 2000, "description": "note body." },
+              "at": { "type": "string", "description": "ISO-8601." }
+            },
+            "additionalProperties": false
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "description": "MAXIMIZED auto-collected diagnostics — the primary (and only) debug aid in v1, replacing screenshots. Assembled client-side by ReportContext.collect() and re-validated/size-capped server-side. Schemaless bag by design; adding fields needs no migration.",
+      "properties": {
+        "app": {
+          "type": "object",
+          "description": "App-level context.",
+          "properties": {
+            "version": { "type": ["string", "null"], "description": "APP_VERSION (service-worker cache version)." },
+            "source": { "type": "string", "enum": ["settings", "drill"], "description": "Which entry point opened the report." },
+            "theme": { "type": ["string", "null"], "enum": ["classic", "playful", null], "description": "Active theme." },
+            "appearance": { "type": ["string", "null"], "enum": ["system", "light", "dark", null], "description": "Appearance preference." },
+            "targetExam": { "type": ["string", "null"], "description": "Selected target exam." }
+          },
+          "additionalProperties": true
+        },
+        "device": {
+          "type": "object",
+          "description": "Device / runtime fingerprint (best-effort; unavailable fields omitted).",
+          "properties": {
+            "ua": { "type": ["string", "null"], "description": "navigator.userAgent (capped)." },
+            "platform": { "type": ["string", "null"] },
+            "formFactor": { "type": ["string", "null"], "enum": ["phone", "tablet", "desktop", null] },
+            "screen": { "type": ["object", "null"], "properties": { "w": { "type": "number" }, "h": { "type": "number" } }, "additionalProperties": false },
+            "viewport": { "type": ["object", "null"], "properties": { "w": { "type": "number" }, "h": { "type": "number" } }, "additionalProperties": false },
+            "dpr": { "type": ["number", "null"] },
+            "online": { "type": ["boolean", "null"] },
+            "connection": { "type": ["string", "null"], "description": "navigator.connection.effectiveType." },
+            "deviceMemory": { "type": ["number", "null"] },
+            "hardwareConcurrency": { "type": ["number", "null"] },
+            "standalone": { "type": ["boolean", "null"], "description": "PWA display-mode standalone." },
+            "reducedMotion": { "type": ["boolean", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "locale": {
+          "type": "object",
+          "properties": {
+            "tz": { "type": ["string", "null"], "description": "Intl timeZone." },
+            "language": { "type": ["string", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "route": { "type": ["string", "null"], "description": "location.hash at report time." },
+        "sessionId": { "type": ["string", "null"], "description": "X-Session-Id (ADR-072 single-device)." },
+        "recentErrors": {
+          "type": "array",
+          "description": "Bounded ring of the most recent window.onerror / unhandledrejection captures (last ~10) from the app error buffer.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "msg": { "type": "string", "maxLength": 500 },
+              "at": { "type": "number", "description": "epoch-ms" }
+            },
+            "additionalProperties": true
+          },
+          "default": []
+        },
+        "submittedAtMs": { "type": ["number", "null"], "description": "Client clock at submit (may differ from server createdAtMs; useful for offline-queued reports)." }
+      },
+      "additionalProperties": true
+    },
+    "question": {
+      "type": ["object", "null"],
+      "description": "Present ONLY when context.app.source==='drill'. MAXIMIZED snapshot so the exact item is reproducible admin-side without a screenshot. attachments deliberately omitted — a future reports/{id}/attachments/* subcollection (or question.figures[]) adds with zero migration.",
+      "properties": {
+        "signature": { "type": ["string", "null"], "description": "Stable generator identity: questionId || _authoredId || hash(category|subtype|question)." },
+        "questionId": { "type": ["string", "null"], "description": "Firestore question doc id, if a bank question." },
+        "_authoredId": { "type": ["string", "null"], "description": "Authored-question id, if applicable." },
+        "category": { "type": ["string", "null"] },
+        "subtype": { "type": ["string", "null"], "description": "Archetype/subtype key." },
+        "difficulty": { "type": ["string", "null"] },
+        "questionText": { "type": ["string", "null"], "maxLength": 4000 },
+        "options": { "type": ["array", "null"], "description": "MCQ options as rendered." },
+        "optionFigures": { "type": ["array", "null"], "description": "Compact per-option figure specs, when present." },
+        "answer": { "description": "Correct answer (number or string as rendered)." },
+        "explanation": { "type": ["string", "null"], "maxLength": 8000 },
+        "aiContext": { "description": "Compact AI-explain context bundle (mirrors the drill-engine AI packaging idiom)." },
+        "chart": { "description": "Size-capped chart/figure spec so the visual can be re-rendered admin-side." },
+        "mode": { "type": ["string", "null"] },
+        "isDuel": { "type": ["boolean", "null"] },
+        "reviewMode": { "type": ["boolean", "null"] },
+        "adaptiveMode": { "type": ["boolean", "null"] },
+        "adaptiveDifficulty": { "type": ["string", "null"] },
+        "questionNumber": { "type": ["number", "null"], "description": "1-based position (current+1)." },
+        "count": { "type": ["number", "null"], "description": "Total questions in the session." },
+        "selectedAnswer": { "description": "Raw selected answer at report time (may be null if unanswered)." },
+        "wasAnswered": { "type": ["boolean", "null"] },
+        "wasCorrect": { "type": ["boolean", "null"] },
+        "timeSpentMs": { "type": ["number", "null"] },
+        "timerRunning": { "type": ["boolean", "null"] },
+        "perQLimit": { "type": ["number", "null"] },
+        "timeLimit": { "type": ["number", "null"] },
+        "score": { "type": ["number", "null"], "description": "Session score at report time." },
+        "streak": { "type": ["number", "null"], "description": "Session streak at report time." }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

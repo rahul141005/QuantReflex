@@ -9,12 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.116 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.60 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.23 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.16 | Auth model, rules, claims, abuse controls. |
+| **Bible Version** | 2.117 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.61 | App topology, service boundaries, data-flow contracts. |
+| **Firestore Version** | 2.24 | Collection/field/path schema + indexes. |
+| **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.117 / Arch 2.61 / Firestore 2.24 / Security 2.17 (2026-07-06)** — **Ultimate Reporting System (ADR-096).**
+> A complete user-reporting ecosystem across the main app and the Super-Admin app: a premium "Report a Problem" modal
+> (Settings + a fast in-drill ⚑ button that auto-scopes to the current question), a server-authoritative Firestore
+> model, an offline-safe queue that never loses a report, and a full Super-Admin Reports triage section (dashboard,
+> filter/search master list, detail tabs, status/assign/priority/label/note/merge-duplicate, "reported N times"
+> aggregation). Per owner directive it uses **no email / notification service** (the Super-Admin dashboard is the
+> source of truth) and **no screenshots in v1** (maximized auto-context — app version, device/runtime, locale, route,
+> recent errors, and a full question snapshot — replaces them); both are clean, migration-free future seams. New:
+> `reports/{id}` + `questionReports/{signature}` (both server-write-only, all-deny client rules) + 7 reports composite
+> indexes → **Firestore 2.24**; `/api/report` (withAuth, 15/hr·60/day report cap, server-assembled doc + dedupe) and
+> `/api/admin/reports` (withAdminAuth, audited) → **Security 2.17**. 212 report.check.js assertions + a 35-assertion
+> Playwright browser sweep green; all prior suites green. SW v213→v214 (window.QR_APP_VERSION in lockstep). Owner
+> deploys `firebase deploy --only firestore:rules,firestore:indexes`; no email/attachment provisioning needed.
+>
 > **2.116 / Arch 2.60 (2026-07-03)** — **RC verification: pause regression fix + backlog execution (ADR-095).**
 > Evidence-based re-verification of the ADR-094 fixes (cross-checked by an independent adversarial review): C1/H2
 > confirmed correct; one regression the review caught — the new physical-keyboard handler firing under the pause

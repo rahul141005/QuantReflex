@@ -229,6 +229,26 @@ var API = (function () {
   function setEmergencyConfig(key, enabled, message) { return _fetch('/api/admin/system?action=config-set', { method: 'POST', body: JSON.stringify({ key: key, enabled: enabled, message: message }) }); }
   function revokeMyTokens() { return _fetch('/api/admin/system?action=revoke-tokens', { method: 'POST' }); }
 
+  /* ---- Reports (ADR-096) ---- */
+  function getReports(cursor, filters) {
+    var url = '/api/admin/reports?action=list';
+    filters = filters || {};
+    if (cursor) url += '&startAfter=' + encodeURIComponent(cursor);
+    if (filters.status) url += '&status=' + encodeURIComponent(filters.status);
+    if (filters.type) url += '&type=' + encodeURIComponent(filters.type);
+    if (filters.priority) url += '&priority=' + encodeURIComponent(filters.priority);
+    if (filters.q) url += '&q=' + encodeURIComponent(filters.q);
+    return _fetch(url);
+  }
+  function getReportDetails(id) { return _fetch('/api/admin/reports?action=details&id=' + encodeURIComponent(id)); }
+  function getReportsAnalytics() { return _fetch('/api/admin/reports?action=analytics'); }
+  function updateReportStatus(id, status) { return _fetch('/api/admin/reports?action=update-status', { method: 'POST', body: JSON.stringify({ id: id, status: status }) }); }
+  function assignReport(id, assignTo, assignToEmail) { return _fetch('/api/admin/reports?action=assign', { method: 'POST', body: JSON.stringify({ id: id, assignTo: assignTo, assignToEmail: assignToEmail }) }); }
+  function setReportPriority(id, priority) { return _fetch('/api/admin/reports?action=priority', { method: 'POST', body: JSON.stringify({ id: id, priority: priority }) }); }
+  function labelReport(id, label, op) { return _fetch('/api/admin/reports?action=label', { method: 'POST', body: JSON.stringify({ id: id, label: label, op: op || 'add' }) }); }
+  function addReportNote(id, text) { return _fetch('/api/admin/reports?action=note', { method: 'POST', body: JSON.stringify({ id: id, text: text }) }); }
+  function mergeReportDuplicate(id, duplicateOf) { return _fetch('/api/admin/reports?action=merge-duplicate', { method: 'POST', body: JSON.stringify({ id: id, duplicateOf: duplicateOf, confirm: 'MERGE' }) }); }
+
   return {
     getDashboard: getDashboard,
     getUsers: getUsers,
@@ -292,6 +312,15 @@ var API = (function () {
     },
     cleanupDuels: function() {
       return _fetch('/api/admin/system?action=duels-cleanup', { method: 'POST' });
-    }
+    },
+    getReports: getReports,
+    getReportDetails: getReportDetails,
+    getReportsAnalytics: getReportsAnalytics,
+    updateReportStatus: updateReportStatus,
+    assignReport: assignReport,
+    setReportPriority: setReportPriority,
+    labelReport: labelReport,
+    addReportNote: addReportNote,
+    mergeReportDuplicate: mergeReportDuplicate
   };
 })();

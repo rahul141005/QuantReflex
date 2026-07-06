@@ -8,6 +8,62 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-096 — Ultimate Reporting System (bug reports, wrong questions/answers, feedback) (2026-07-06)
+- **Context:** QuantReflex had no way for users to report a bug, a wrong question/answer/explanation, or send
+  feedback, and no admin surface to triage such reports. This builds the full ecosystem: a premium in-app submission
+  experience (Settings **Report a Problem** + a fast in-drill **⚑** button that auto-knows the current question),
+  a scalable server-authoritative Firestore model, and a complete Super-Admin **Reports** section (dashboard,
+  filterable/searchable master list, detail with Overview/Question/Context/History/Actions tabs, status/assign/
+  priority/label/note/merge-duplicate actions, "reported N times" aggregation).
+- **Owner directives (binding, incorporated with no options):**
+  1. **NO email / external notification of any kind.** No mail transports, providers, SMTP, Resend/SendGrid/Nodemailer,
+     env vars, mail abstractions, or placeholder email code. Reports are **fully self-contained in Firestore**; the
+     **Super-Admin Reports dashboard is the source of truth** and every report appears there the instant the write
+     commits. The system is fully functional with zero external services. **Future seam (no code now):** the single
+     request-path handler (`/api/report` create) carries one comment marking where a future notify hook could be added.
+  2. **NO screenshots / attachments in v1.** No Firebase Storage, inline images, thumbnails, compression, file input,
+     or attachment subcollection. Instead we **maximize automatically-collected diagnostics** so a report reproduces
+     the issue without any upload (app version, theme/appearance/target-exam, full device/runtime fingerprint, locale,
+     route, recent JS errors, and — for in-drill reports — a complete question snapshot: generator identity, options,
+     correct answer, explanation, exact drill config, and what the user had selected). **Future seam:** Firestore is
+     schemaless, so a `reports/{id}/attachments/*` subcollection (or a `question.figures[]` field) can be added later
+     with **zero breaking migration** — documented in `shared/schemas/report-schema.json`, implemented as nothing now.
+  - Reporting is **free for all users** (never paywalled).
+- **Hard constraints that shaped the design:**
+  - **Spark plan → NO Cloud Functions triggers/schedules run.** All post-write work (the per-uid rate-limit + dedupe,
+    and the `questionReports` aggregate) happens **synchronously in the request-path handler** — never a trigger.
+  - **Admin SDK bypasses Firestore rules.** `reports`/`questionReports` are **server-write-only** (client all-deny,
+    matching `coachings`/`auditLogs`); creation is only via `POST /api/report` (main-app, `withAuth`), triage only via
+    `/api/admin/reports` (super-admin, `withAdminAuth`). Reporter identity + priority + status + `shortId` are assembled
+    **server-side** — never trusted from the body.
+  - **Cross-app server code is not shared** (separate Vercel deploys bundle per app root). The canonical enums live in
+    `shared/constants/report-types.js` (browser + check); the main-app handler keeps a validated INLINE copy in
+    `api/_lib/report-schema.js` and the super-admin handler inlines the status/priority enums; `scripts/report.check.js`
+    asserts the main-app copy stays in **lockstep** with the shared constants.
+- **Data model:** `reports/{autoId}` — `{id, shortId (QR-XXXX), createdAt/createdAtMs/updatedAt, questionSignature,
+  reporter{uid,email,name,plan,coachingId}, classification{type,subReason,title,description,priority,fields},
+  lifecycle{status,assignedTo,resolvedAt/By,duplicateOf,labels[],internalNotes[]}, context{app,device,locale,route,
+  sessionId,recentErrors[],submittedAtMs}, question{…snapshot…|null}}`. `questionReports/{signature}` — the
+  "reported N times" rollup `{count, openCount, firstAtMs, lastAtMs, sampleReportId, topReasons{}, category, subtype}`,
+  maintained transactionally in the create path (`FieldValue`-free explicit increment so first-seen fields write once).
+  16 types (question-family question_wrong/answer_wrong/options_wrong/explanation_wrong/typo/formatting/visual — all
+  in-drill; app bug/crash/performance/ai_issue; account payment/account; other feature_request/feedback/other).
+- **Offline safety:** `ReportQueue` (localStorage `qr_report_queue`) — a failed/offline POST is queued and flushed on
+  `online` + boot with capped backoff; a client-generated `clientKey` idempotency key collapses a retry/double-submit
+  into ONE row server-side (`findDuplicate`). Reports are never lost.
+- **Verification:** `scripts/report.check.js` (212 assertions — enum lockstep, type cross-consistency, validation
+  accept/reject + normalization, signature stability + 2000-item collision sweep, rate-limit + dedupe decisions,
+  shortId format, context/question sanitizers + byte caps) wired into `npm test`; all prior suites green. A Playwright
+  browser sweep (35 assertions) drove the modal from both entry points and asserted the POST payload carries the
+  maximized auto-context + full question snapshot and **never** a client-forged uid/plan, the offline queue path, the
+  success state, and Escape/aria behaviour. **Honest scope:** the Vercel endpoints, real Firestore writes, and the
+  Super-Admin UI end-to-end cannot be exercised here (no Vercel runtime / admin claim / Firestore) — those are built
+  to the documented contracts + reviewed against the conventions. No email/attachment paths exist to test — by design.
+- **Governance:** rules (`reports`/`questionReports` all-deny) + composite indexes added; FIRESTORE_BLUEPRINT +
+  SECURITY_ARCHITECTURE updated; SW v213→v214 (`window.QR_APP_VERSION` bumped in lockstep). Bible/Firestore/Security
+  versions bumped. Owner deploys `firebase deploy --only firestore:rules,firestore:indexes` and grants the `admin`
+  claim to view Reports; no email/attachment provisioning is required.
+
 ## ADR-095 — RC verification: pause regression fix + backlog execution (2026-07-03)
 - **Context:** a release-candidate verification pass over the ADR-094 Critical/High fixes — evidence-based, not
   trust-based. Every fix was re-read from scratch and cross-validated by an independent adversarial review whose only

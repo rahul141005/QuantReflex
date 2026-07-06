@@ -11,6 +11,9 @@
   <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/style.css" />
+  <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
+       service-worker APP_VERSION so triage always sees which build a report came from. -->
+  <script>window.QR_APP_VERSION = 'v214';</script>
 </head>
 <body>
 
@@ -807,6 +810,20 @@
               <input type="checkbox" id="notificationsToggle" />
               <span class="toggle-slider"></span>
             </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5b — Feedback (ADR-096) -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Feedback</h3>
+        <div class="settings-section-card">
+          <div class="settings-row settings-link" id="openReportProblem">
+            <div class="settings-label">
+              <h3><span class="qr-ico" data-ico="flag" aria-hidden="true">⚑</span> Report a Problem</h3>
+              <p>Wrong question, a bug, or an idea — tell us</p>
+            </div>
+            <span class="settings-chevron">›</span>
           </div>
         </div>
       </div>
@@ -1621,6 +1638,12 @@
   <script defer src="js/views/stats-view.js"></script>
   <script defer src="js/views/inbox-view.js"></script>
   <script defer src="js/views/planner-view.js"></script>
+  <!-- Reporting system (ADR-096): canonical enums → context collector → offline-safe queue → modal.
+       Loaded before app.js so Settings + in-drill entry points can open the modal at runtime. -->
+  <script defer src="../shared/constants/report-types.js"></script>
+  <script defer src="js/services/report-context.js"></script>
+  <script defer src="js/services/report-queue.js"></script>
+  <script defer src="js/ui/report-modal.js"></script>
   <script defer src="js/app.js"></script>
 </body>
 </html>

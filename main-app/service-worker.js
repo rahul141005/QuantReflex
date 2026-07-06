@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v213';
+const APP_VERSION = 'v214';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -77,6 +77,9 @@ var ASSETS = [
   './js/services/share-service.js',
   './js/services/target-exam.js',
   './js/services/ai-analytics.js',
+  './js/services/report-context.js',
+  './js/services/report-queue.js',
+  './js/ui/report-modal.js',
   './js/companion-ui.js',
   './js/controllers/practice-config.js',
   './js/controllers/practice-modes.js',

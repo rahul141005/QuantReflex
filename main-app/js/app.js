@@ -139,9 +139,41 @@ function triggerHaptic(pattern) {
 
 /* Numpad key press visual feedback moved to js/ui/numpad.js */
 
+/* ---- Error ring-buffer (ADR-096) ----
+   Bounded capture of the most recent uncaught errors + promise rejections. ReportContext attaches this
+   ring to every report so a bug report carries the JS errors that led up to it (replacing screenshots as
+   the debugging aid). Never throws; capped at 10 so it can't grow unbounded. Exposed as window.getRecentErrors. */
+(function () {
+  var MAX = 10;
+  var ring = [];
+  window.__qrErrors = ring;
+  function push(msg) {
+    try {
+      if (!msg) return;
+      ring.push({ msg: String(msg).slice(0, 500), at: Date.now() });
+      if (ring.length > MAX) ring.shift();
+    } catch (_) { /* never let logging break the app */ }
+  }
+  window.getRecentErrors = function () { return ring.slice(-MAX); };
+  window.addEventListener('error', function (event) {
+    try {
+      var m = event && event.message ? event.message : 'error';
+      if (event && event.filename) m += ' @ ' + event.filename + ':' + (event.lineno || 0);
+      push(m);
+    } catch (_) {}
+  });
+  window.__qrPushError = push;   /* seam for modules that want to record a handled error into the ring */
+})();
+
 /* ---- Global error handling for unhandled promise rejections ---- */
 window.addEventListener('unhandledrejection', function (event) {
   console.warn('Unhandled promise rejection:', event.reason);
+  /* ADR-096: mirror into the report error ring so it shows up in the auto-context. */
+  try {
+    var r = event && event.reason;
+    var m = r && r.message ? r.message : String(r);
+    if (window.__qrPushError) window.__qrPushError('unhandledrejection: ' + m);
+  } catch (_) {}
   /* NOTE: event.preventDefault() intentionally removed to preserve error
      visibility in console and external monitoring tools (e.g. Sentry). */
 });
