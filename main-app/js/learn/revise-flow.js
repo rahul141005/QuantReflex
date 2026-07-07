@@ -36,11 +36,21 @@ var ReviseFlow = (function () {
     return (dueIds || []).slice(0, cap || CAP);
   }
 
+  /* ADR-109 cert fix (CERT-1): a Premium topic the CURRENT user can't access must never surface its condensed
+     revision content here — this flow is the ONE topic-content renderer outside the renderLearnRoute gate. A
+     lapsed-premium user's progress map can contain gated ids (viewed while subscribed; progress persists in
+     localStorage + Firestore), so those ids would otherwise age into the due queue and leak their cheat-sheet
+     blocks. Fail-closed like learn-view's _isTopicLockedForUser: hasPremiumAccess unavailable ⇒ treat as locked. */
+  function _lockedForUser(id) {
+    if (typeof LearnEntitlements === 'undefined' || !LearnEntitlements.isPremiumLearnTopic(id)) return false;
+    return !((typeof hasPremiumAccess === 'function') && hasPremiumAccess());
+  }
+
   function _dueNow() {
     var LP = _LP(), KB = _KB();
     if (!LP || !KB) return [];
     var input = KB.all().map(function (t) { return { id: t.id, revisionIntervalDays: t.revisionIntervalDays }; });
-    return LP.due(input).filter(function (id) { return KB.has(id); });
+    return LP.due(input).filter(function (id) { return KB.has(id) && !_lockedForUser(id); });
   }
 
   /* ---- screens ---- */
@@ -70,6 +80,7 @@ var ReviseFlow = (function () {
     }
     var topic = KB.get(_queue[_pos]);
     if (!topic) { _pos++; _screen(host); return; }   // topic removed since queueing — skip, never strand
+    if (_lockedForUser(topic.id)) { _pos++; _screen(host); return; }   // ADR-109: lapsed mid-flow — skip, never leak
 
     var types = _revisionTypes();
     var secs = (topic.sections || []).filter(function (b) { return b && types.indexOf(b.type) !== -1; });

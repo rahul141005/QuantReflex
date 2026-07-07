@@ -132,14 +132,9 @@ function requirePremium(featureKey, opts) {
   return false;
 }
 
-/* Pure, side-effect-free premium read for RENDERING decisions (lock badges, disabled controls). Fails closed: if
-   paywall state can't resolve, a gated key reads as NOT allowed. Mirrors canAccess but never fails open on a known key. */
-function isPremiumFeature(featureKey) {
-  return !!_LOCKED_FEATURES[featureKey];
-}
-function isFeatureAllowed(featureKey) {
-  return hasPremiumAccess(_getAccessUserState()) || !_LOCKED_FEATURES[featureKey];
-}
+/* (ADR-109 cert cleanup: the isPremiumFeature/isFeatureAllowed render-read helpers added with requirePremium were
+   removed — isFeatureAllowed duplicated canAccessFeature exactly and neither gained a consumer. Render decisions use
+   canAccessFeature/hasPremiumAccess; action gates use requirePremium.) */
 
 /* ADR-103: free users get 5 lifetime QuanAI "Explain" calls. The SERVER is the true gate (it decrements a
    transactional counter and 403s on exhaustion). This client flag is only a UX hint: once the server tells us a
@@ -455,9 +450,6 @@ function showPaywall(featureType) {
   /* Already premium? nothing to sell. */
   if (hasPremiumAccess(_getAccessUserState())) return;
 
-  _lastPaywallFeature = featureType || '';   /* ADR-109: remembered so a subsequent upgrade attributes to this gate */
-  _track('gate_shown', featureType);
-
   var now = Date.now();
   var existing = document.getElementById('paywallModalOverlay');
   if (existing && existing.classList.contains('closing')) {
@@ -468,6 +460,11 @@ function showPaywall(featureType) {
   if (existing) { document.body.classList.add('paywall-open'); _paywallModalOpen = true; return; }
   _paywallLastOpenAt = now;
   _paywallModalOpen = true;
+
+  /* ADR-109 telemetry — AFTER the debounce/closing/existing-modal early-returns (cert fix CERT-4), so one paywall
+     impression logs exactly one gate_shown: a <280ms double-tap or a closing-retry no longer double-logs. */
+  _lastPaywallFeature = featureType || '';   /* remembered so a subsequent upgrade attributes to this gate */
+  _track('gate_shown', featureType);
 
   var userId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : '';
   var accent = _contextAccent(featureType);
@@ -569,8 +566,6 @@ function showPaywall(featureType) {
 global.canAccess = canAccess;
 global.canAccessFeature = canAccessFeature;
 global.requirePremium = requirePremium;
-global.isPremiumFeature = isPremiumFeature;
-global.isFeatureAllowed = isFeatureAllowed;
 global.canOpenExplain = canOpenExplain;
 global.markFreeExplainExhausted = markFreeExplainExhausted;
 global.showPaywall = showPaywall;
@@ -582,8 +577,6 @@ global.Paywall = {
   canAccess: canAccess,
   canAccessFeature: canAccessFeature,
   requirePremium: requirePremium,
-  isPremiumFeature: isPremiumFeature,
-  isFeatureAllowed: isFeatureAllowed,
   showPaywall: showPaywall,
   openPremiumPayment: openPremiumPayment,
   getDailyQuestionLimit: getDailyQuestionLimit,

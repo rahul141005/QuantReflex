@@ -50,6 +50,28 @@ ok(sortedEq(learnClient.PREMIUM_CATEGORIES, sharedLearn.PREMIUM_CATEGORIES),
 ok(sortedEq(learnClient.PREMIUM_TOPIC_IDS, sharedLearn.PREMIUM_TOPIC_IDS),
   'PREMIUM_TOPIC_IDS match (client === shared)');
 
+// ── 2b. wiring guard (ADR-109 cert fix CERT-3): the ONLY realistic way LearnEntitlements goes missing (which would
+//        fail the Learn gate open) is a removed script tag or precache entry — assert both, plus load order. ──
+var indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+var swSrc = fs.readFileSync(path.join(__dirname, '..', 'service-worker.js'), 'utf8');
+var idxEnt = indexHtml.indexOf('js/learn-entitlements.js');
+var idxLearnView = indexHtml.indexOf('js/views/learn-view.js');
+ok(idxEnt !== -1, 'index.html loads js/learn-entitlements.js');
+ok(idxLearnView !== -1 && idxEnt < idxLearnView, 'learn-entitlements.js loads BEFORE views/learn-view.js');
+ok(swSrc.indexOf("'./js/learn-entitlements.js'") !== -1, 'service worker precaches js/learn-entitlements.js');
+
+// ── 2c. KB-existence guard (ADR-109 cert fix CERT-6): a typo replicated on BOTH sides would pass the mirror check
+//        silently — assert every gated id exists in the real knowledge data. ──
+var kbDir = path.join(__dirname, '..', 'data', 'knowledge');
+var kbSrc = fs.readdirSync(kbDir).filter(function (f) { return /\.js$/.test(f); })
+  .map(function (f) { return fs.readFileSync(path.join(kbDir, f), 'utf8'); }).join('\n');
+learnClient.PREMIUM_TOPIC_IDS.forEach(function (id) {
+  ok(new RegExp("id:\\s*'" + id + "'").test(kbSrc), 'gated topic id "' + id + '" exists in data/knowledge');
+});
+learnClient.PREMIUM_CATEGORIES.forEach(function (id) {
+  ok(new RegExp("id:\\s*'" + id + "'").test(kbSrc), 'gated category id "' + id + '" exists in data/knowledge');
+});
+
 // ── 3. predicate sanity (real gated + free examples) ──
 ok(learnClient.isPremiumLearnTopic('profit-loss', 'commercial-math') === true, 'commercial-math topic is premium (by category)');
 ok(learnClient.isPremiumLearnTopic('di-bar-line') === true, 'di-bar-line is premium (by id)');

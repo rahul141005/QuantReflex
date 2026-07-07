@@ -185,9 +185,18 @@ var LearnView = (function () {
   }
 
   /* ADR-109: is `id` a Premium Learn topic the CURRENT user cannot access? Fail-closed — if paywall.js is absent,
-     hasPremiumAccess() is unavailable ⇒ a premium topic stays locked. */
+     hasPremiumAccess() is unavailable ⇒ a premium topic stays locked. If the ENTITLEMENTS MODULE itself is missing,
+     topics resolve as unlocked — a deliberate, documented trade-off (cert pass): blanket-locking would black out ALL
+     free Learn content in the same failure window, which is strictly worse; the module is precached + tag-order and
+     precache presence are asserted by entitlement-parity.check, and JS is network-first so the state self-heals on
+     any online load. We log loudly (once) so the state is at least detectable. */
+  var _warnedNoEntitlements = false;
   function _isTopicLockedForUser(id, category) {
-    if (typeof LearnEntitlements === 'undefined' || !LearnEntitlements.isPremiumLearnTopic(id, category)) return false;
+    if (typeof LearnEntitlements === 'undefined') {
+      if (!_warnedNoEntitlements) { _warnedNoEntitlements = true; try { console.error('[Learn] LearnEntitlements missing — premium Learn gating disabled until it loads'); } catch (_) {} }
+      return false;
+    }
+    if (!LearnEntitlements.isPremiumLearnTopic(id, category)) return false;
     return !((typeof hasPremiumAccess === 'function') && hasPremiumAccess());
   }
 
@@ -659,12 +668,14 @@ var LearnView = (function () {
 
   /* ───────────────────────── "Up next" + "Revise today" (ADR-092) ───────────────────────── */
 
-  /* All topic ids currently due for spaced revision (shared by the Revise-today card and the revise flow). */
+  /* All topic ids currently due for spaced revision (shared by the Revise-today card and the revise flow).
+     ADR-109 cert fix (CERT-1): topics locked for THIS user (lapsed-premium progress on gated chapters) are excluded,
+     matching ReviseFlow._dueNow — so the hub card's count never advertises a session the flow won't deliver. */
   function _dueIds() {
     var LP = _LP(), KB = _KB();
     if (!LP || !KB) return [];
     var input = KB.all().map(function (t) { return { id: t.id, revisionIntervalDays: t.revisionIntervalDays }; });
-    return LP.due(input).filter(function (id) { return KB.has(id); });
+    return LP.due(input).filter(function (id) { return KB.has(id) && !_isTopicLockedForUser(id); });
   }
 
   /* ONE recommended next chapter — the study spine made visible. First not-completed topic by the exam-relevance
@@ -733,9 +744,13 @@ var LearnView = (function () {
     var cards = ids.map(function (id) {
       var t = KB.get(id); if (!t) return '';
       var done = LP && LP.isComplete(id);
+      /* ADR-109 cert fix (CERT-5): strips show the same lock affordance as hub cards — the click was already
+         gated (routes through renderLearnRoute), this keeps the promise honest before the tap. */
+      var locked = _isTopicLockedForUser(id, t.category);
       return '<button class="kx-resume-card" type="button" data-topic="' + _esc(id) + '">' +
         '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
         '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
+        (locked ? '<span class="kx-rc-lock" aria-label="Premium">🔒</span>' : '') +
         (done ? '<span class="kx-rc-done" aria-label="completed">✓</span>' : '') + '</button>';
     }).join('');
     return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
@@ -752,9 +767,11 @@ var LearnView = (function () {
       KB.all().forEach(function (t) { if (t.drillCategory && !byCat[t.drillCategory]) byCat[t.drillCategory] = t; });
       var cards = weak.map(function (m) {
         var t = byCat[m.cat]; if (!t) return '';
+        var locked = _isTopicLockedForUser(t.id, t.category);   /* ADR-109 cert fix (CERT-5) */
         return '<button class="kx-resume-card kx-weak-card" type="button" data-topic="' + _esc(t.id) + '">' +
           '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
           '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
+          (locked ? '<span class="kx-rc-lock" aria-label="Premium">🔒</span>' : '') +
           '<span class="kx-rc-acc">' + Math.round((m.acc || 0) * 100) + '%</span></button>';
       }).join('');
       if (!cards) return '';
@@ -834,20 +851,44 @@ var LearnView = (function () {
     host.appendChild(lock);
     var cta = lock.querySelector('.kx-locked-cta');
     if (cta) cta.addEventListener('click', function () {
+      /* ADR-109 cert fix (CERT-2): seamless unlock IN PLACE. The payment-success handler's default refresh calls
+         Router.showView(getCurrentView()) — view id only, no {path} — which would drop the user on the Learn hub
+         instead of the chapter they just paid to read. Arm the same one-shot resume hook the drill quota-pause uses:
+         payment-success prefers it over the default refresh, and router.showView invalidates it on any real
+         navigation (dismissing the paywall and going elsewhere falls back to the normal flow). The re-shown route
+         re-runs the entitlement gate — now premium — and renders the full chapter. */
+      window.__qrResumeAfterUpgrade = function () {
+        window.__qrResumeAfterUpgrade = null;
+        if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: topic.id });
+      };
       if (typeof requirePremium === 'function') requirePremium('learn_premium');
       else if (typeof showPaywall === 'function') showPaywall('learn_premium');
     });
   }
 
-  /* ADR-109: after an in-session upgrade, drop stale lock badges on the (build-once) hub without a full rebuild.
-     Locks are only ever REMOVED live — a user never transitions premium→free mid-session without a reload. */
-  function _refreshPremiumLocks() {
-    if (!((typeof hasPremiumAccess === 'function') && hasPremiumAccess())) return;
-    var cards = document.querySelectorAll('#learnCategories .kx-topic-card.is-premium');
+  /* ADR-109 (cert fix CERT-5): keep the (build-once) hub's lock badges in sync with the LIVE entitlement in BOTH
+     directions, without a full rebuild — badges clear after an in-session upgrade AND appear after a mid-session
+     lapse (getAccessState self-heals expired premium in-memory, so a lapse CAN flip mid-session; the render gate
+     already re-locks content, this keeps the affordance honest too). */
+  function _syncPremiumLocks() {
+    var cards = document.querySelectorAll('#learnCategories .kx-topic-card[data-topic]');
     for (var i = 0; i < cards.length; i++) {
-      cards[i].classList.remove('is-premium');
-      var b = cards[i].querySelector('.kx-status-premium');
-      if (b && b.parentNode) b.parentNode.removeChild(b);
+      var card = cards[i];
+      var locked = _isTopicLockedForUser(card.getAttribute('data-topic'));
+      var badge = card.querySelector('.kx-status-premium');
+      if (!locked && (badge || card.classList.contains('is-premium'))) {
+        card.classList.remove('is-premium');
+        if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
+      } else if (locked && !badge) {
+        card.classList.add('is-premium');
+        var row = card.querySelector('.kx-tc-badges');
+        if (row) {
+          var b = document.createElement('span');
+          b.className = 'kx-badge kx-status-premium';
+          b.innerHTML = ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' Premium';
+          row.appendChild(b);
+        }
+      }
     }
   }
 
@@ -921,7 +962,7 @@ var LearnView = (function () {
       _renderReviseCard();  // due count changes as topics are viewed/revised
       _renderResume();      // refresh Continue / Needs-practice / Saved strips
       _refreshCardTicks();  // keep completion ticks live on the category cards
-      _refreshPremiumLocks(); // ADR-109: clear stale lock badges after an in-session upgrade (build-once hub)
+      _syncPremiumLocks();  // ADR-109: badges track live entitlement both ways (upgrade clears, lapse adds)
       /* restore the hub scroll position (set when we left for a topic) now that the hub layout is settled */
       var hc2 = document.querySelector('.container'); if (hc2) hc2.scrollTop = _hubScroll;
       /* a11y: return focus to the Learn heading so keyboard/SR users aren't stranded on the torn-down topic */

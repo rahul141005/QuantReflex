@@ -11506,6 +11506,7 @@ body.dark-mode .kx-resume-head { color: #94a3b8; }
 .kx-rc-ico { font-size: 1.2rem; line-height: 1; }
 .kx-rc-title { font-weight: 700; font-size: .88rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kx-rc-done { color: #16a34a; font-weight: 800; }
+.kx-rc-lock { flex: 0 0 auto; font-size: .78rem; opacity: .85; }   /* ADR-109: premium lock chip on strip cards */
 body.dark-mode .kx-resume-card { background: rgba(30,41,59,.7); border-color: rgba(255,255,255,.08); box-shadow: var(--qr-shadow-dark); }
 body.dark-mode .kx-rc-title { color: #f1f5f9; }
 body.dark-mode .kx-rc-done { color: #4ade80; }
