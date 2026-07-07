@@ -65,11 +65,13 @@ ok(swSrc.indexOf("'./js/learn-entitlements.js'") !== -1, 'service worker precach
 var kbDir = path.join(__dirname, '..', 'data', 'knowledge');
 var kbSrc = fs.readdirSync(kbDir).filter(function (f) { return /\.js$/.test(f); })
   .map(function (f) { return fs.readFileSync(path.join(kbDir, f), 'utf8'); }).join('\n');
+/* Anchored so a field merely ENDING in "id" (e.g. a hypothetical parentid:) can't false-pass. */
+function kbHasId(id) { return new RegExp("(?:^|[^\\w])id:\\s*'" + id + "'").test(kbSrc); }
 learnClient.PREMIUM_TOPIC_IDS.forEach(function (id) {
-  ok(new RegExp("id:\\s*'" + id + "'").test(kbSrc), 'gated topic id "' + id + '" exists in data/knowledge');
+  ok(kbHasId(id), 'gated topic id "' + id + '" exists in data/knowledge');
 });
 learnClient.PREMIUM_CATEGORIES.forEach(function (id) {
-  ok(new RegExp("id:\\s*'" + id + "'").test(kbSrc), 'gated category id "' + id + '" exists in data/knowledge');
+  ok(kbHasId(id), 'gated category id "' + id + '" exists in data/knowledge');
 });
 
 // ── 3. predicate sanity (real gated + free examples) ──

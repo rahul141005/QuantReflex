@@ -23,7 +23,16 @@ function invalidateProgressCache() { _progressCache = null; }
 /** Return saved progress or defaults */
 function loadProgress() {
   try {
-    if (_progressCache) return _progressCache;
+    if (_progressCache) {
+      /* ADR-109 cert fix: the cache must not outlive the DAY. Without this, a tab left open across local midnight
+         never re-runs the day-change reset below (nothing invalidates the cache mid-session), so yesterday's
+         todayAttempted/diSetsToday/lrSetsToday keep counting — wrongly limiting a genuine day-2 user and showing
+         stale counts on Home/Stats. A null lastActiveDate (never practiced) keeps the fast path: the counters are
+         already 0, so there is nothing to reset and no reason to re-parse storage on every call. */
+      var _cachedDay = _progressCache.lastActiveDate;
+      if (!_cachedDay || _cachedDay === new Date().toDateString()) return _progressCache;
+      _progressCache = null;   /* crossed local midnight in a live tab — fall through to the reset path */
+    }
     var data = (typeof AppState !== 'undefined') ? AppState.getProgress() : null;
     if (!data) {
       var raw = localStorage.getItem(PROGRESS_KEY);

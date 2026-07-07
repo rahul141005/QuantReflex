@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.132 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.133 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.133 (2026-07-07)** — **Premium entitlement final certification (ADR-109 addendum #2).** Two fresh agents
+> re-verified the addendum-#1 fix diff (all five fixes hold, zero regressions; upgrade telemetry attribution proven
+> never stale) and swept the integrated seams. Fixed the one new defect: the day-change reset only fired on a COLD
+> progress cache, so a tab open across local midnight kept yesterday's daily counters until reload (revenue-
+> conservative but wrongly limiting day-2 users; the cache is now date-aware and drops itself when `lastActiveDate`
+> ≠ today). Polish: the revise done-screen counts real "Revised ✓" clicks; the parity check's KB regex is
+> word-anchored. Documented intended behaviors: multi-tab/multi-device can exceed the 20/day cap (explicit instance
+> of the accepted client-cap trade-off); the onboarding warm-up consumes 1 of 20; cross-tab premium refreshes on
+> reload. Rides unreleased SW `v223`.
 
 > **2.132 (2026-07-07)** — **Premium Phase 6 certification fixes (ADR-109 addendum).** Three-agent adversarial
 > certification: core enforcement sound; fixed the revise-flow gated-content leak for lapsed-premium users (CERT-1,

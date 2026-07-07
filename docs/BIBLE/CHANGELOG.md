@@ -6,6 +6,24 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Premium entitlement final certification (ADR-109 addendum #2)
+
+Last-gate pass: two fresh agents re-verified the addendum-#1 fix diff (all hold, zero regressions) and swept the
+integrated system's untested seams (day rollover, multi-tab, cloud hydration, restore, UI coherence). Rides SW
+`v223`; Bible 2.132→2.133.
+
+- **Day-reset on a warm cache (NEW, fixed):** `loadProgress()` returned the in-memory cache before the day-change
+  reset could run — a tab open across local midnight kept yesterday's `todayAttempted`/set counters until reload
+  (never over-granted; wrongly limited day-2 users + stale Home/Stats counts). The cache is now date-aware: a hit
+  whose `lastActiveDate` ≠ today falls through to the existing reset path.
+- **Polish:** revise done-screen counts real "Revised ✓" clicks (skips no longer inflate the total); the parity
+  check's KB-existence regex is word-anchored.
+- **Documented intended behaviors:** ordinary multi-tab/multi-device use can exceed the 20/day cap (explicit instance
+  of the accepted client-side-cap trade-off); the onboarding warm-up consumes 1 of the day's 20; cross-tab premium
+  state refreshes on reload (no crash, no double-charge).
+
+---
+
 ## 2026-07-07 — Premium Phase 6 certification fixes (ADR-109 addendum)
 
 Three-agent adversarial certification of the entitlement system. Core enforcement certified sound; fixes applied.

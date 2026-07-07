@@ -9,6 +9,29 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-109 — Premium Phase 6: feature gating + free-plan hardening (2026-07-07)
+- **Certification addendum #2 (same day, final pass).** Two fresh agents re-verified the addendum-#1 fix diff
+  line-by-line (all five fixes hold, zero regressions; upgrade telemetry attribution proven never stale —
+  `openPremiumPayment` has no callers outside the visible paywall) and swept the integrated system's untested seams.
+  One new defect fixed + polish:
+  - **Day-reset skipped on a warm cache (LOW-MED, fixed).** `loadProgress()` returned the in-memory `_progressCache`
+    before the `lastActiveDate !== today` reset block ever ran, and nothing invalidates that cache mid-session — a
+    tab left open across LOCAL MIDNIGHT kept yesterday's `todayAttempted`/`diSetsToday`/`lrSetsToday` until reload.
+    Never over-granted (the cap held continuously); it wrongly LIMITED a genuine day-2 user in a long-lived tab and
+    showed stale counts on Home/Stats. Fixed with a date-aware cache: a cache hit whose `lastActiveDate` is set and
+    ≠ today drops the cache and falls through to the existing reset path (null/never-practiced keeps the fast path —
+    counters already 0). A session straddling midnight now earns a fresh 20 at 00:00 — honest per-day semantics,
+    identical to a reload. (Also closes the ADR-107 wording gap: the reset fires on any cold OR day-crossed read,
+    plus Firestore hydration, which invalidates the cache before enforcement — verified reset-before-enforcement on
+    new-device login.)
+  - **Polish:** the revise done-screen now counts actual "Revised ✓" clicks (skips no longer inflate "N topics
+    refreshed"); the parity check's KB-existence regex is word-anchored (a field merely ending in `…id:` can't
+    false-pass).
+  - **Documented behaviors (intended, not defects):** ordinary multi-tab / multi-device use can exceed the 20/day
+    cap (per-tab in-memory caches + last-writer-wins localStorage; the same accepted client-side-cap trade-off as
+    PREM-4 — question generation is free/local, server-cost surfaces are server-gated — now stated explicitly rather
+    than framed as tampering only); the onboarding warm-up question consumes 1 of the day's 20 (it is a real
+    recorded answer that seeds stats/streak); cross-tab premium state refreshes on reload (no crash, single payment
+    flow, no double-charge). Bible 2.132→2.133; rides unreleased SW `v223`.
 - **Certification addendum (same day).** Three independent adversarial agents re-audited the whole entitlement
   surface from scratch (Learn gate + checkpoint + conversions; Practice/Mixed + the full 20/day quota edge matrix;
   payment/offline/analytics/regression). Core enforcement certified sound; the pass surfaced and fixed:

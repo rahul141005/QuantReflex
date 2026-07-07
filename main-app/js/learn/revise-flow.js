@@ -16,6 +16,7 @@ var ReviseFlow = (function () {
   var CAP = 10;        // a long backlog stays one sitting, not a wall — the rest is simply still due tomorrow
   var _queue = [];
   var _pos = 0;
+  var _doneCount = 0;  // topics ACTUALLY marked "Revised ✓" this pass — skips (removed/lapse-locked) don't count
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
@@ -74,7 +75,7 @@ var ReviseFlow = (function () {
   function _screen(host) {
     var KB = _KB();
     if (_pos >= _queue.length) {
-      host.innerHTML = _doneHtml(_queue.length);
+      host.innerHTML = _doneHtml(_doneCount);   /* ADR-109 cert: count real "Revised ✓" clicks, not skipped items */
       _wireEnd(host);
       return;
     }
@@ -119,6 +120,7 @@ var ReviseFlow = (function () {
     host.querySelector('.kx-rev-full').addEventListener('click', function () { _goTopic(topic.id); });
     host.querySelector('.kx-rev-next').addEventListener('click', function () {
       var LP = _LP(); if (LP) LP.markViewed(topic.id);   // re-arms the spaced interval; clears due-ness
+      _doneCount++;
       _pos++;
       _screen(host);
       _scrollTop();
@@ -149,6 +151,7 @@ var ReviseFlow = (function () {
     }
     _queue = buildQueue(due, CAP);
     _pos = 0;
+    _doneCount = 0;
     _screen(host);
   }
 
