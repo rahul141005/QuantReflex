@@ -11,9 +11,9 @@
     : (typeof window !== 'undefined' ? window.KnowledgeBase : root.KnowledgeBase);
   if (!KB) return;
 
-  /* Every category declares its Speed-Aptitude `subject` (ADR-073). Today all Learn content is Quant; Data
-     Interpretation and generatable Logical Reasoning register their own categories (subject:'di'/'lr') in V2.0/V2.5.
-     Subject is the derived lens above category — the hub groups by it once a second subject has content. */
+  /* Every category declares its Speed-Aptitude `subject` (ADR-073). Learn now spans three subjects — Quant, Data
+     Interpretation, and generatable Logical Reasoning (subject:'quant'/'di'/'lr'), each registering its own
+     categories. Subject is the derived lens above category — the hub groups by it now that multiple subjects have content. */
   var CATEGORIES = [
     { id: 'numbers', title: 'Numbers', icon: '🔟', order: 10, subject: 'quant', blurb: 'The number system, divisibility and fast simplification — the bedrock of every other topic.' },
     { id: 'arithmetic', title: 'Arithmetic', icon: '➗', order: 20, subject: 'quant', blurb: 'The everyday number skills exams test most — percentages, ratio, averages, time, work and motion.' },

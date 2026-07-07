@@ -106,6 +106,9 @@ quality-first content. **No AI in Learn (by design).** Phased, each phase backwa
   Ages, Mixtures & Alligations, Partnership, Permutation & Combination) and published them — the curated 5-category
   scope is now **19/19 gold, zero scaffolds/placeholders** (every formula + example hand- + agent-verified, 0 errors;
   content gate 196 assertions). Broader syllabus categories (algebra/geometry/DI) remain a future additive expansion.
+  - **Present-state note (2026-07):** the entries above are accurate as of their dates; the curated 5-category scope
+    was 19/19 gold at the time. The Learn catalog has since grown additively to **62 topics spanning three subjects**
+    (Quant + Data Interpretation + generatable Logical Reasoning) — the historical milestones stand as written.
 - **Phase 4 — Integrations (no AI) ✅ (2026-06-28):** progress module (`js/learn/learn-progress.js`, localStorage-
   primary + best-effort Firestore mirror; spaced-revision helpers under `learn-progress.check`, 32 assertions); topic
   **action bar** (Practise this → focus-drill via `drillCategory`; **Quick-revision cheat-sheet projection** = a

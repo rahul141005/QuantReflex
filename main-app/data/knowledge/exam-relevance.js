@@ -34,7 +34,7 @@
     ssccgl: 'SSC', sscchsl: 'SSC', sscmts: 'SSC'
   };
 
-  /* ---- the metadata. order is within-subject (Quant 1–19, DI 1–6, LR 1–20). ---- */
+  /* ---- the metadata. order is within-subject (Quant 1–36, DI 1–6, LR 1–20). ---- */
   var META = {
     /* ── Quantitative Aptitude ── */
     'number-system':           { priority: 'high',   order: 1,  mostAsked: true,  exams: { CAT: 'medium', Banking: 'high', SSC: 'very-high' } },

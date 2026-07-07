@@ -60,7 +60,7 @@ The administrative control panel. Manages users, entitlements, question bank, co
 Future coaching analytics and student monitoring panel.
 
 **Deploy target:** `admin.quantreflex.app`  
-**Status:** Scaffold — not yet built
+**Status:** Functional API (auth, students, dashboard, notices, insights) with a lean UI
 
 ---
 

@@ -526,6 +526,14 @@ function initSettingsView() {
 function updateAboutUserStatus() {
   var statusEl = document.getElementById('aboutUserStatusMessage');
   var settingsStatusEl = document.getElementById('settingsUserStatusMessage');
+  /* ADR-103: source the displayed version from the single build tag (QR_APP_VERSION) so it can never
+     drift from the shipped build (the old hard-coded "Version 2.1.0" was disconnected from it). */
+  try {
+    var _verEl = document.getElementById('aboutVersionLine');
+    if (_verEl && typeof window !== 'undefined' && window.QR_APP_VERSION) {
+      _verEl.textContent = 'Version ' + window.QR_APP_VERSION;
+    }
+  } catch (_) {}
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
     ? (FirestoreSync.getAccessState() || {})
     : {};

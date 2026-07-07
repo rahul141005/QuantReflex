@@ -64,8 +64,9 @@ var LearnProgress = (function () {
   /** topics: [{id, revisionIntervalDays}] → ids viewed at least `interval` days ago, oldest-first (most overdue). */
   function computeDue(progressMap, topics, now) {
     now = now || _now();
-    /* Every Learn topic carries an explicit revisionIntervalDays (data/knowledge/*.js), so this fallback never
-       fires in production; it only keeps computeDue total for ad-hoc/test inputs that omit the field. */
+    /* Quant topics carry an explicit revisionIntervalDays (data/knowledge/*.js); the DI & LR topics omit it today, so
+       the 5-day fallback below currently applies to them (Phase 4 will set per-topic intervals). It also keeps
+       computeDue total for ad-hoc/test inputs that omit the field. */
     var intervalOf = {}; (topics || []).forEach(function (t) { intervalOf[t.id] = t.revisionIntervalDays || 5; });
     return Object.keys(progressMap || {})
       .filter(function (id) {
