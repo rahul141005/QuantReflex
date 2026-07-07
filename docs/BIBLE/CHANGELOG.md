@@ -6,6 +6,26 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — About modal + App Guide complete redesign (ADR-110)
+
+Both info modals rewritten from a repository audit so every claim matches the shipped app. Rides SW `v223`;
+Bible 2.133→2.134.
+
+- **About:** product identity (Speed Aptitude, reflex philosophy), verified feature list (adds the missing DI/LR
+  Sets, Mixed Aptitude, Timed Mocks, reporting, accessibility), no-pricing Premium paragraph, live update-status
+  line (`#aboutUpdateStatus` via `QRUpdateManager.isUpdateAvailable()`), Settings-matching contact card with copy
+  button, privacy note, refreshed quote; stale roadmap + pricing removed.
+- **Guide:** now a 16-section manual with a TOC chip row — all 12 practice modes documented, a dedicated Daily Free
+  Limit section (20/day firm, pause + upgrade-resume), exact premium Learn sections, DI/LR set mechanics, QuanAI
+  limits, Stats free-vs-premium, full Settings tour, reporting entry points + categories, updates, offline truth,
+  accessibility, non-generic tips, precise FAQ (replaces "completely free").
+- **Shared:** info modals gained `role="dialog"`/focus management; `.info-modal-title` hierarchy fixed; new
+  `.info-premium-chip` + `.info-toc` styles; tighter section stagger; `qrIco` section icons; generalized contact
+  copy wiring. Verified: full suite green, Playwright light+dark renders, 19-point scripted fact check, all 16 TOC
+  targets resolve.
+
+---
+
 ## 2026-07-07 — Premium entitlement final certification (ADR-109 addendum #2)
 
 Last-gate pass: two fresh agents re-verified the addendum-#1 fix diff (all hold, zero regressions) and swept the

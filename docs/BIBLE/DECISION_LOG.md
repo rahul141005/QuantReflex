@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-110 — About modal + App Guide complete redesign (2026-07-07)
+- **Context.** Product-level refresh of both info modals so they accurately represent the app after Phases 1–6.
+  Three exploration passes drove the rewrite: a line-level staleness inventory, a repository feature-truth inventory
+  (only verified facts may be stated), and a modal design kit. The audit found nothing fabricated but both modals
+  badly incomplete: four real practice modes undocumented (DI Set, Reasoning Set, Mixed Aptitude, Timed Mock),
+  premium Learn sections unreflected, the concrete free limits never stated, reporting invisible, the FAQ's
+  "completely free" softly misleading post-ADR-109, plus heavy duplication and UI defects (inverted heading
+  hierarchy, emoji headings, an unexplained 🔒 convention, no dialog semantics, a 430-line guide with no navigation).
+- **Shared infrastructure.** `openInfoModal` gained dialog a11y (both overlays now carry `role="dialog"
+  aria-modal aria-labelledby`; focus moves to the modal title on open and returns to the trigger on close) and a
+  delegated TOC-chip scroll handler (reduced-motion-aware: instant jump under `body.reduced-motion`/OS preference).
+  CSS: `.info-modal-title` raised to 1.2rem/800 (fixes the inverted hierarchy), new `.info-toc`/`.info-toc-chip`
+  (horizontally scrollable section navigation in the sticky hero), new `.info-premium-chip` (a self-explanatory
+  "🔒 Premium" chip replacing bare lock glyphs in prose), and a tightened `.guide-animate-section` stagger (16
+  sections; tail now .36s instead of .88s). Section headings use `qrIco()` spans instead of raw emoji in text.
+  The Settings contact-copy wiring was generalized (`_wireEmailCopy`) to also power the About contact card.
+- **About modal (rewritten, ~10 sections).** Product identity (Speed Aptitude: Quant + DI + LR trained against the
+  clock; reflex philosophy), a philosophy block, a verified "What's inside" list (incl. the previously-missing DI/LR
+  Sets, Mixed Aptitude, Timed Mocks, reporting, accessibility), a natural no-pricing Premium paragraph, runtime
+  Your-Plan + Version (ids preserved) **plus a new live update-status line** (`#aboutUpdateStatus`, fed by
+  `QRUpdateManager.isUpdateAvailable()` in `updateAboutUserStatus`), a polished Developer section (KrisVeltrix
+  identity kept), a Contact block reusing the exact Settings `.contact-card` (own ids, shared copy handler), a brief
+  Privacy note (account-stored progress, Razorpay-processed payments, no card data), and a refreshed closing quote.
+  **Removed:** the stale "What's Next" roadmap, the standalone audience section (folded to one line), and the
+  pricing line — the paywall owns pricing.
+- **App Guide (rewritten as a real manual, 16 sections + TOC).** Getting Started; ALL practice modes with free/
+  premium status (the four missing modes documented; duel's room-code flow; word-problems staged once); a dedicated
+  "Daily Free Limit" section (20/day counted everywhere, finish-Q20-not-Q21, graceful pause, upgrade resumes the
+  same session, midnight reset); Learn (62 chapters, revision, search, quick-ref, notes premium, and the exact
+  premium sections incl. what stays free); DI and LR sections (set mechanics, 1/day each); QuanAI (5 free lifetime,
+  premium suite, offline limitation, free local Speed Score); Stats free-vs-premium; a full Settings tour;
+  a no-selling Free-vs-Premium overview; Reporting (all four entry points + real reason categories); Updates
+  (toast → Settings → one reload, and why); Offline & installation (honest works/doesn't split); Accessibility
+  (reduced motion, keyboard entry, SR announcements); seven non-generic Tips; rewritten FAQ + Troubleshooting
+  (precise free-plan answer replaces "completely free"; no pricing).
+- **Verification.** Full suite green (update.check + entitlement-parity assertions on index.html unaffected);
+  Playwright renders of both modals top/middle/bottom in light + dark; a scripted 19-point fact check (limits,
+  counts, premium section names, all 12 modes, zero pricing strings, runtime ids, no stale phrases) all passing;
+  16 TOC chips each verified to map to a real section id.
+- **Out-of-scope inconsistencies recorded for a future phase (not silently fixed):** the Settings Update-App button
+  is always visible (a manual refresh) while `isUpdateAvailable()` could drive a conditional presentation; the
+  Settings trial-upgrade card carries its own premium enumeration (now the third place after paywall + Guide);
+  the Word Problems surface is fully built but unreachable behind the Coming-Soon card; onboarding's audience copy
+  overlaps the About identity line; the Settings inline help text duplicates the Guide's daily-goal note.
+  Rides unreleased SW `v223` (all touched files already precached); Bible 2.133→2.134.
+
 ## ADR-109 — Premium Phase 6: feature gating + free-plan hardening (2026-07-07)
 - **Certification addendum #2 (same day, final pass).** Two fresh agents re-verified the addendum-#1 fix diff
   line-by-line (all five fixes hold, zero regressions; upgrade telemetry attribution proven never stale —

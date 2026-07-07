@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.133 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.134 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.134 (2026-07-07)** — **About modal + App Guide complete redesign (ADR-110).** Both info modals rewritten from
+> a repository audit: the Guide becomes a 16-section manual with TOC navigation documenting ALL practice modes (four
+> were missing), the firm daily limit, the exact premium Learn sections, DI/LR set mechanics, QuanAI limits,
+> reporting, updates, offline truth, and accessibility; About gets a premium product-identity rewrite, a live
+> update-status line, a Settings-matching contact card, and a privacy note — with the stale roadmap and all in-modal
+> pricing removed (the paywall owns pricing). Shared info-modal shell gains dialog a11y + focus management, a fixed
+> title hierarchy, `.info-premium-chip`, and `qrIco` section icons. Verified by suite + Playwright + a 19-point
+> scripted fact check. Rides unreleased SW `v223`.
 
 > **2.133 (2026-07-07)** — **Premium entitlement final certification (ADR-109 addendum #2).** Two fresh agents
 > re-verified the addendum-#1 fix diff (all five fixes hold, zero regressions; upgrade telemetry attribution proven
