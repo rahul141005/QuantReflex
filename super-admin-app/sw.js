@@ -4,7 +4,7 @@
    (so a deploy is picked up on the next load) + cache-first assets + cached-index.html nav fallback.
    DELIBERATELY still does NOT skipWaiting() on install — an admin panel must not swap its SW
    mid-session; the new worker waits and the in-app QRUpdateManager surfaces the Update affordance. */
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 const CACHE_NAME = 'qr-admin-cache-' + APP_VERSION;   /* derived so the two strings can never drift */
 const NET_FIRST_TIMEOUT_MS = 3000;                    /* network-first JS/CSS falls back to cache on "lie-fi" */
 
@@ -23,6 +23,8 @@ const ASSETS_TO_CACHE = [
   '/js/ui/split.js',
   '/js/ui/tabs.js',
   '/js/ui/update-manager.js',
+  '/js/ui/di-charts.js',
+  '/js/ui/lr-figures.js',
   '/js/utils.js',
   '/js/views/users.js',
   '/js/views/coachings.js',

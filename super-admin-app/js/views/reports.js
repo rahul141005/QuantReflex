@@ -359,6 +359,27 @@ var ReportsView = (function () {
     return 'Typed answer';
   }
 
+  /* ADR-105 (REP-1): re-render the student's reported chart/figure instead of leaving it buried in the raw JSON.
+     The specs are already stored on the report (report-context → report-schema → report.js). Pure renderers
+     (DICharts/LRFigures) are loaded app-locally. Guards every branch: a missing renderer or a null spec (a 48 KB
+     byte-cap can strip chart/figure; Learn reports carry none) simply renders nothing and the Raw-JSON details
+     block below remains the fallback. */
+  function _visualBlock(q) {
+    var html = '';
+    try {
+      if (q.chart && typeof DICharts !== 'undefined' && DICharts.render) { var c = DICharts.render(q.chart); if (c) html += '<div class="report-visual">' + c + '</div>'; }
+      if (q.figure && typeof LRFigures !== 'undefined' && LRFigures.render) { var f = LRFigures.render(q.figure); if (f) html += '<div class="report-visual report-visual-fig">' + f + '</div>'; }
+      if (Array.isArray(q.optionFigures) && q.optionFigures.length && typeof LRFigures !== 'undefined' && LRFigures.render) {
+        var letters = 'ABCDEFGH';
+        var cells = q.optionFigures.map(function (of, i) {
+          return '<div class="report-optfig"><span class="report-optfig-lbl">' + (letters.charAt(i) || (i + 1)) + '</span>' + (of ? LRFigures.render(of) : '') + '</div>';
+        }).join('');
+        html += '<div class="report-optfigs">' + cells + '</div>';
+      }
+    } catch (e) { return ''; }
+    return html ? ('<div class="muted" style="margin:.6rem 0 .25rem;">Reported visual</div>' + html) : '';
+  }
+
   function _tabQuestion(el, r, aggregate, related) {
     var q = r.question;
     if (!q) {
@@ -381,6 +402,7 @@ var ReportsView = (function () {
       (_answerTypeLabel(q) ? _kv('Answer type', _answerTypeLabel(q)) : '') +
       _kv('Q number', (q.questionNumber != null ? q.questionNumber : '?') + (q.count != null ? ' / ' + q.count : '')) +
       (q.questionText ? '<div class="report-desc"><div class="muted" style="margin:.6rem 0 .25rem;">Question</div><div class="report-desc-body">' + _esc(q.questionText) + '</div></div>' : '') +
+      _visualBlock(q) +
       opts +
       _kv('Correct answer', q.answer) + _kv('User answer', (q.wasAnswered ? q.selectedAnswer : 'not answered')) +
       (q.wasCorrect != null ? _kv('Was correct', q.wasCorrect ? 'Yes' : 'No') : '') +

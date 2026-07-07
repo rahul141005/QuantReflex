@@ -6,6 +6,29 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Phase-3 exam-grade visuals + REP-1 super-admin chart/figure rendering (ADR-105)
+
+Made the practice visuals exam-grade and let super-admins see the visual a student reported. Visual-only for the
+practice paths (`describe()`/aria + MCQ grading unchanged); super-admin adds read-only rendering of already-stored
+data. Full detail in ADR-105.
+
+- **Phase-1 follow-up:** `_explain`'s 400 (BAD_REQUEST) path now also refunds the free credit, so the refund covers
+  every no-content exit (not just throws).
+- **DI charts (`di-charts.js` + `style.css`):** value-axis gridlines + numeric tick scale (VIS-1); rotated y-title +
+  centered x-title from the spec (VIS-2); single-series bars now one colour and a single CSS-variable series palette,
+  theme-tuned for light + dark (VIS-3/4). New axis/grid marks use `<line>`/`<text>` only (di-charts.check green).
+- **LR figures (`style.css` + `lr-figures.js`):** normalized stroke weights via `--lr-stroke`/`--lr-stroke-thin`
+  tokens (grid3 ×3 for its 300-viewBox) (VIS-5); larger figure caps (VIS-6); opaque A/B/C/D badge plate so a wide
+  `row` option can't render under it (VIS-7). lr-figures.check green.
+- **REP-1 (super-admin):** promoted `di-charts.js` + `lr-figures.js` to canonical `shared/ui/` with byte-identical
+  app copies (`scripts/sync-visual-renderers.js` + `scripts/visual-renderers.check.js`, wired into `npm test`);
+  super-admin `_tabQuestion` now renders the reported chart/figure/optionFigures above the stem (raw-JSON fallback +
+  null-spec guard kept). Ported chart/figure CSS into `admin-style.css`; super-admin SW `v13→v14` + lockstep. No
+  main-app capture/schema/rules change (specs already stored).
+- **Docs:** ADR-105 (DECISION_LOG); VERSIONS (Bible 2.126→2.127, Arch 2.62→2.63). **Verification:** `npm test` green
+  (incl. the new lockstep check + update.check for the v14 super-admin lockstep); Playwright before/after screenshots
+  (light + dark) for DI charts, LR figures, and the super-admin report detail. Main-app rides unreleased `v222`.
+
 ## 2026-07-07 — Phase-1 verification hardening + Phase-2 dead-code prune (ADR-104)
 
 Independent adversarial re-review of Phase 1 (ADR-103) before Phase 2. Phase 1 verified sound; three real free-explain

@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.126 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.62 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.127 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.30 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.127 / Arch 2.63 (2026-07-07)** — **Phase-3 exam-grade visuals + REP-1 (ADR-105).** DI charts gained a value
+> scale + gridlines (VIS-1), axis titles (VIS-2), and one theme-tuned CSS-variable series palette that ends the
+> single-series rainbow and fixes dark mode (VIS-3/4); LR figures got normalized stroke tokens (VIS-5), larger caps
+> (VIS-6), and an opaque option-letter badge (VIS-7). **REP-1:** the two pure renderers were promoted to canonical
+> **`shared/ui/{di-charts,lr-figures}.js`** with byte-identical app copies (new `scripts/sync-visual-renderers.js` +
+> `visual-renderers.check.js`, the ADR-099/102 pattern), so the **super-admin Reports detail** now re-renders a
+> student's reported chart/figure instead of raw JSON (specs were already stored — no main-app capture change).
+> Super-admin SW `v13→v14`; chart/figure CSS ported to `admin-style.css`. Also closed a Phase-1 residual: `_explain`'s
+> 400 path now refunds the free credit. Main-app rides unreleased `v222` (no re-bump). No Firestore/rules change.
 
 > **2.126 (2026-07-07)** — **Phase-1 verification hardening + Phase-2 dead-code prune (ADR-104).** Adversarial
 > re-review of Phase 1 (ADR-103): added `refundFreeExplain` so a pre-generation server error can't burn a free

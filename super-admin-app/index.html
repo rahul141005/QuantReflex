@@ -22,7 +22,7 @@
   </script>
   <link rel="stylesheet" href="css/admin-style.css" />
   <!-- ADR-102: app build tag. Bump in LOCKSTEP with sw.js APP_VERSION (scripts/update.check.js enforces it). -->
-  <script>window.QR_ADMIN_APP_VERSION = 'v13';</script>
+  <script>window.QR_ADMIN_APP_VERSION = 'v14';</script>
 </head>
 <body>
 
@@ -140,6 +140,11 @@
   <script src="js/ui/split.js"></script>
   <script src="js/ui/tabs.js"></script>
   <script src="js/ui/update-manager.js"></script>
+  <!-- ADR-105: shared DI/LR renderers (byte-identical copies of shared/ui/*, kept in sync by
+       scripts/sync-visual-renderers.js) so the Reports detail can re-render a student's reported chart/figure
+       instead of only dumping raw JSON (REP-1). Pure, dependency-free; expose window.DICharts / window.LRFigures. -->
+  <script src="js/ui/di-charts.js"></script>
+  <script src="js/ui/lr-figures.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/views/users.js"></script>
   <script src="js/views/coachings.js"></script>
