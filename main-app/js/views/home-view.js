@@ -408,8 +408,12 @@ function initHomeView() {
     _renderSuggestedPractice();
 
     /* ---- Premium badge visibility ---- */
-    var isPP = (typeof canAccessFeature === 'function') && canAccessFeature('ai_coach');
-    var isDuelPP = (typeof canAccessFeature === 'function') && canAccessFeature('math_duel');
+    /* PREM-6 (ADR-107): the Coach card, Study-Plan card, and timetable badge are all plain Premium gates, so they
+       derive from ONE premium check (hasPremiumAccess) rather than one feature key ('ai_coach') standing in for the
+       whole group — which previously read inconsistently against the Study-Plan CTA's own 'ai_study_plan' key.
+       Behaviour is identical under the single tier; the per-CTA showPaywall keys stay feature-specific for context. */
+    var isPP = (typeof hasPremiumAccess === 'function') && hasPremiumAccess();
+    var isDuelPP = (typeof hasPremiumAccess === 'function') && hasPremiumAccess();
 
     var duelBadge = document.getElementById('duelPremiumBadge');
     var coachBadge = document.getElementById('coachPremiumBadge');

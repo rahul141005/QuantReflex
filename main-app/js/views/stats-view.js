@@ -12,7 +12,10 @@ var _lastStatsFingerprint = null;
 function renderStatsView() {
   var p = loadProgress();
 
-  var canDeep = (typeof canAccessFeature === 'function') ? canAccessFeature('performance_insights') : true;
+  /* PREM-6 (ADR-107): the deep-insights block (mastery + study-next + QuanAI breakdown) is one Premium gate, so it
+     derives from the premium entitlement directly rather than a single feature key standing in for the group.
+     Behaviour-identical under the single tier; the locked-card CTAs keep their own showPaywall context keys. */
+  var canDeep = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : true;
 
   /* Dirty-flag cache: every answer bumps totalAttempted, so this catches all content changes cheaply. Entitlement is
      part of the key (ADR-095) — an in-session upgrade flips canDeep with no new answer, and must re-render so the

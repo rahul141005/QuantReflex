@@ -2167,6 +2167,17 @@ body.dark-mode .session-upgrade-banner {
 }
 body.dark-mode .session-upgrade-text { color: #93c5fd; }
 body.dark-mode .session-upgrade-dismiss { color: #94a3b8; }
+
+/* Firm daily-cap pause panel (ADR-107, Phase 5A): a free user hit their 20/day limit mid-session. Rendered into
+   the immersive drill container in place of the next question; the session is preserved for a seamless upgrade. */
+.quota-reached-card { text-align: center; gap: .9rem; max-width: 26rem; margin: 0 auto; }
+.quota-reached-icon { font-size: 2.6rem; line-height: 1; }
+.quota-reached-title { font-size: 1.25rem; font-weight: 800; color: var(--qr-text); margin: 0; }
+.quota-reached-sub { font-size: .92rem; line-height: 1.5; color: var(--qr-text-mut); margin: 0; max-width: 22rem; }
+.quota-reached-actions { display: flex; flex-direction: column; gap: .6rem; width: 100%; max-width: 18rem; margin-top: .3rem; }
+.quota-reached-actions .btn-primary,
+.quota-reached-actions .btn-secondary { width: 100%; }
+.quota-reached-reset { font-size: .78rem; color: var(--qr-text-mut); margin: .1rem 0 0; opacity: .85; }
 body.dark-mode .stat-card-locked,
 body.dark-mode .category-locked-card {
   background: rgba(30, 41, 59, .8);

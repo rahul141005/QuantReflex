@@ -176,6 +176,18 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
  * section clock + marking scheme. Reuses the proven drill engine via _preloadedQuestions. */
 function startMockFromPractice(examId) {
   if (typeof QR_MOCK === 'undefined' || typeof generateQuestions !== 'function') return;
+  /* Defensive entitlement gate (PREM-5, ADR-107): Timed Mock is Premium-only. The card handler checks this before
+     calling, but keeping the gate at the launcher head means ANY future caller (deep link, retry, test) is safe —
+     the entitlement is enforced in one authoritative place, not only at the UI entry point. Premium users have an
+     Infinity daily limit, so the 20/day cap never blocks a mock. */
+  if (typeof canAccessFeature === 'function' && !canAccessFeature('timed_mocks')) {
+    if (typeof showPaywall === 'function') showPaywall('timed_mocks');
+    return;
+  }
+  if (typeof hasPremiumAccess === 'function' && !hasPremiumAccess()) {
+    if (typeof showPaywall === 'function') showPaywall('premium_required');
+    return;
+  }
   var built = QR_MOCK.buildMockDeck(examId, function (cat, n) { return generateQuestions(n || 1, cat); });
   if (!built || !built.deck || !built.deck.length) {
     if (typeof showToast === 'function') showToast('A mock isn\'t available for this exam yet.');
@@ -271,7 +283,16 @@ function startDiSet(category) {
     /* engine not loaded → degrade gracefully to a normal DI focus drill */
     return startDrillFromPractice('focus', category || 'di-bar', 'Data Interpretation');
   }
-  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  /* The 20/day question cap also applies at launch — a set's questions count toward it, so if the user is already
+     out of daily questions, don't start a new one (ADR-107). */
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('daily_limit'); return; }
+  /* Per-day SET quota (ADR-107): free users get ONE new DI set per day; Premium is unlimited. Gated on the daily
+     counter + hasPremiumAccess (NOT _LOCKED_FEATURES — this is a per-day quota, not an all-or-nothing lock). */
+  var _isPremiumSet = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('di') >= 1) {
+    if (typeof showPaywall === 'function') showPaywall('diset_limit');
+    return;
+  }
   var cats = ['di-bar', 'di-line', 'di-pie', 'di-table', 'di-caselet'];
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = DISetEngine.generateSet(cat);
@@ -305,6 +326,10 @@ function startDiSet(category) {
   if (customPracticeConfig) customPracticeConfig.style.display = 'none';
   drillContainer.style.display = 'block';
   if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  /* Count this granted start against today's DI-set quota (ADR-107). Only for free users — Premium is unlimited so
+     the counter is irrelevant to them. Recorded here (after all validation passes) so a build failure never burns
+     the day's one free set. */
+  if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('di');
   _startPracticeEngine(drillContainer, config);
 }
 
@@ -313,7 +338,14 @@ function startLrSet(category) {
   if (typeof LRSetEngine === 'undefined' || !LRSetEngine.generateSet) {
     return startDrillFromPractice('focus', category || 'lr-syllogism', 'Logical Reasoning');
   }
-  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  /* The 20/day question cap also applies at launch (ADR-107) — a set's questions count toward it. */
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('daily_limit'); return; }
+  /* Per-day SET quota (ADR-107): free users get ONE new Reasoning set per day; Premium unlimited. */
+  var _isPremiumSet = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
+  if (!_isPremiumSet && typeof getSetsStartedToday === 'function' && getSetsStartedToday('lr') >= 1) {
+    if (typeof showPaywall === 'function') showPaywall('lrset_limit');
+    return;
+  }
   var cats = ['lr-seating', 'lr-puzzle'];
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = LRSetEngine.generateSet(cat);
@@ -347,6 +379,8 @@ function startLrSet(category) {
   if (customPracticeConfig) customPracticeConfig.style.display = 'none';
   drillContainer.style.display = 'block';
   if (typeof AdaptiveState !== 'undefined') AdaptiveState.setPattern(null); else window._sessionAdaptivePattern = null;
+  /* Count this granted start against today's Reasoning-set quota (ADR-107); free users only. */
+  if (!_isPremiumSet && typeof recordSetStarted === 'function') recordSetStarted('lr');
   _startPracticeEngine(drillContainer, config);
 }
 

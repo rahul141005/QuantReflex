@@ -20,6 +20,7 @@ var ASSETS = [
   './js/firestore-sync.js',
   './js/app.js',
   './js/router.js',
+  './js/quota-policy.js',
   './js/drill-engine.js',
   './js/onboarding.js',
   './js/utils/generative-helpers.js',

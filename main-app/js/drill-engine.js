@@ -455,7 +455,10 @@ function createDrillEngine(container, opts) {
      no written explanation. Returns an element (or null if nothing to show). */
   function _buildAutoTip(q) {
     var el = document.createElement('div');
-    var _isPremium = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
+    /* PREM-6 (ADR-107): ask the entitlement directly (hasPremiumAccess) rather than piggy-backing on a specific
+       gated feature ('adaptive_training') as a premium proxy — behaviour-identical under the single tier, but it
+       won't silently break if that feature's gating ever changes. */
+    var _isPremium = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
     if (_isPremium) {
       el.className = 'auto-explain-tip'; el.textContent = _getAutoTip(q.category, q.subtype);
     } else {
@@ -981,6 +984,71 @@ function createDrillEngine(container, opts) {
     nextQuestion();
   }
 
+  /* Today's answered-question count from the single localStorage-primary source (progress.js). Kept as a tiny
+     helper so the firm-cap boundary reads the SAME counter recordAnswer increments — no drift. */
+  function _todayAttempted() {
+    var p = (typeof loadProgress === 'function') ? loadProgress() : null;
+    return (p && typeof p.todayAttempted === 'number') ? p.todayAttempted : 0;
+  }
+
+  /* Phase 5A quota-reached pause. Renders a polished panel into the drill container INSTEAD of the next question
+     when a free user hits their daily cap mid-session. Critically it does NOT call finish()/cleanup(): the session
+     stays live and immersive so an immediate Premium upgrade can resume the very same session at the blocked index.
+     Two exits: "Upgrade to continue" (registers a one-shot resume hook, opens the paywall) and "See results" (ends
+     normally — every answered question was already recorded, so analytics are complete and identical). */
+  function _renderQuotaReached() {
+    /* Freeze any running countdowns so a timed test can't fire finish() underneath the panel. We keep the engine
+       otherwise intact (no cleanup) — this is a pause, not an end. */
+    if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }
+    if (perQTimer) { clearInterval(perQTimer); perQTimer = null; }
+    if (_autoAdvanceTimer) { clearTimeout(_autoAdvanceTimer); _autoAdvanceTimer = null; }
+    if (_nextGuardTimer) { clearTimeout(_nextGuardTimer); _nextGuardTimer = null; }
+    hideCustomNumpad();
+    /* A DI/LR set renders through a cached shell (#diSetQHost); replacing container.innerHTML destroys it, so
+       reset the flag — a resume re-renders the shell cleanly via _renderSetQuestion. */
+    _setShellBuilt = false;
+
+    var _limit = (typeof getDailyQuestionLimit === 'function') ? getDailyQuestionLimit() : 20;
+    var _limitLabel = (typeof _limit === 'number' && isFinite(_limit)) ? _limit : 20;
+    var _remaining = Math.max(0, count - current);   /* questions left in THIS session, preserved for the copy */
+
+    container.innerHTML =
+      '<div class="card center-content fade-in quota-reached-card">' +
+        '<div class="quota-reached-icon" aria-hidden="true">🎯</div>' +
+        '<h2 class="quota-reached-title">You’ve used today’s ' + _limitLabel + ' free questions</h2>' +
+        '<p class="quota-reached-sub">Your progress is saved. Go Premium for unlimited daily practice and pick up right where you left off' +
+          (_remaining > 0 ? ' — ' + _remaining + ' more in this session.' : '.') + '</p>' +
+        '<div class="quota-reached-actions">' +
+          '<button class="btn-primary quota-upgrade-btn" type="button" id="quotaUpgradeBtn">Upgrade to continue</button>' +
+          '<button class="btn-secondary quota-results-btn" type="button" id="quotaResultsBtn">See results</button>' +
+        '</div>' +
+        '<p class="quota-reached-reset">Free questions reset tomorrow.</p>' +
+      '</div>';
+
+    var _up = container.querySelector('#quotaUpgradeBtn');
+    if (_up) _up.addEventListener('click', function () {
+      /* One-shot seamless-resume hook (ADR-107): paywall.js payment-success invokes this INSTEAD of its default
+         view re-render, so the paused session survives and renderQuestion() continues at the blocked index. */
+      window.__qrResumeAfterUpgrade = function () {
+        window.__qrResumeAfterUpgrade = null;
+        if (_isFinished) return;                 /* user ended the session in the meantime — nothing to resume */
+        renderQuestion();                         /* continue the SAME session at the blocked index */
+        /* Resume a timed test from the FROZEN remaining (not a fresh clock) — payment time isn't charged against
+           the exam. The per-question countdown, if any, is restarted by renderQuestion for the new question. */
+        if (timeLimit && !overallTimer && _globalRemaining != null && _globalRemaining > 0) {
+          _globalTick();
+          overallTimer = setInterval(_globalTick, 1000);
+        }
+      };
+      if (typeof showPaywall === 'function') showPaywall('daily_limit');
+    });
+    var _res = container.querySelector('#quotaResultsBtn');
+    if (_res) _res.addEventListener('click', function () {
+      window.__qrResumeAfterUpgrade = null;      /* chose results over upgrade — drop any stale hook */
+      finish();
+    });
+  }
+
   function nextQuestion() {
     /* Guard against carry-over taps during transition debounce */
     if (!_nextReady) return;
@@ -1003,6 +1071,22 @@ function createDrillEngine(container, opts) {
         var fresh = generateQuestions(1, nextCat || null);
         if (fresh && fresh.length > 0) questions[current] = fresh[0];
         _clearAdaptiveOverride();
+      }
+      /* Firm free daily cap (ADR-107, Phase 5A): a free user may COMPLETE their 20th question but may NOT begin
+         #21. The just-answered question was already recorded (recordAnswer → todayAttempted++ in checkAnswer),
+         so at this boundary the counter is fresh. When the cap is hit and the session still has more questions,
+         we PAUSE — render a quota-reached panel — instead of rendering the next one; no finish(), so all session
+         state (questions/current/count/score/streaks) is preserved and an immediate upgrade resumes it seamlessly.
+         Premium never pauses (limit = Infinity). Duels are server-authoritative and out of scope. */
+      if (!isDuel && typeof QuotaPolicy !== 'undefined' &&
+          QuotaPolicy.shouldStopForDailyQuota({
+            isPremium: (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false,
+            hasMoreInSession: true,
+            todayAttempted: _todayAttempted(),
+            limit: (typeof getDailyQuestionLimit === 'function') ? getDailyQuestionLimit() : Infinity
+          })) {
+        _renderQuotaReached();
+        return;
       }
       renderQuestion();
     } else {
@@ -1436,7 +1520,7 @@ function createDrillEngine(container, opts) {
     /* Post-session soft upgrade prompt — shown after 2nd session and every 5th after (free users only).
        Uses the session counter incremented once above (for everyone). */
     try {
-      var _isPremiumUser = (typeof canAccessFeature === 'function') ? canAccessFeature('adaptive_training') : false;
+      var _isPremiumUser = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;  /* PREM-6 (ADR-107) */
       if (!_isPremiumUser) {
         var _shouldPrompt = (_sessCount === 2) || (_sessCount > 2 && (_sessCount - 2) % 5 === 0);
         if (_shouldPrompt) {
@@ -1613,6 +1697,10 @@ function createDrillEngine(container, opts) {
     /* ADR-086 P7: tear down the visibility auto-pause listener + clear any pause latch so a torn-down engine leaves no
        global handler behind and a fresh session never inherits a stale paused state. */
     _removeVisibilityGuard();
+    /* ADR-107: drop any pending seamless-resume hook — once this engine is torn down there is no session to
+       resume into, so a later upgrade from elsewhere must fall through to the normal view refresh, never fire
+       renderQuestion() on a dead engine. */
+    if (window.__qrResumeAfterUpgrade) window.__qrResumeAfterUpgrade = null;
     _paused = false;
     _nextReady = true; /* reset guard on cleanup */
     beginStarted = false;

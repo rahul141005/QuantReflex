@@ -45,6 +45,8 @@ function loadProgress() {
         data.todayAttempted = 0;
         data.todayCorrect = 0;
         data.todayCats = {};   /* ADR-080: per-category counts for TODAY's subject split — reset with the day counters */
+        data.diSetsToday = 0;  /* ADR-107: free users get 1 new DI set + 1 new Reasoning set per day — reset daily */
+        data.lrSetsToday = 0;
         data.lastActiveDate = today;
         data.lastActiveMs = Date.now();   /* sortable last-active (ADR-029) — toDateString isn't query-safe */
         saveProgress(data);
@@ -65,6 +67,8 @@ function loadProgress() {
       data.bestDailyStreak = parseInt(data.bestDailyStreak) || 0;
       data.todayAttempted = parseInt(data.todayAttempted) || 0;
       data.todayCorrect = parseInt(data.todayCorrect) || 0;
+      data.diSetsToday = parseInt(data.diSetsToday) || 0;   /* ADR-107 */
+      data.lrSetsToday = parseInt(data.lrSetsToday) || 0;
       _progressCache = data;
       return data;
     }
@@ -79,6 +83,7 @@ function loadProgress() {
     lastActiveDate: null,
     lastPracticeDate: null,
     todayAttempted: 0, todayCorrect: 0,
+    diSetsToday: 0, lrSetsToday: 0,   /* ADR-107: per-day DI/LR set quota counters */
     categoryStats: {},
     mistakes: [],
     responseTimes: [],
@@ -328,9 +333,35 @@ function resetProgress() {
     lastActiveDate: null,
     lastPracticeDate: null,
     todayAttempted: 0, todayCorrect: 0,
+    diSetsToday: 0, lrSetsToday: 0,   /* ADR-107 */
     categoryStats: {},
     mistakes: [],
     responseTimes: [],
     dailyHistory: {}
   });
+}
+
+/**
+ * ADR-107 (Phase 5B): record that a free user STARTED a DI or Reasoning set today. Free users get one of each per
+ * day; the gate in practice-modes.js reads diSetsToday/lrSetsToday and increments through here on a granted start.
+ * localStorage-primary + Firestore mirror, exactly like the todayAttempted counter — no server/schema change.
+ * @param {'di'|'lr'} kind
+ * @returns {number} the new per-day count for that kind
+ */
+function recordSetStarted(kind) {
+  var data = loadProgress();
+  if (kind === 'lr') {
+    data.lrSetsToday = (parseInt(data.lrSetsToday) || 0) + 1;
+  } else {
+    data.diSetsToday = (parseInt(data.diSetsToday) || 0) + 1;
+  }
+  data.lastActiveDate = new Date().toDateString();
+  saveProgress(data);
+  return kind === 'lr' ? data.lrSetsToday : data.diSetsToday;
+}
+
+/** ADR-107: how many DI (or LR) sets a free user has started TODAY. Premium ignores these (unlimited). */
+function getSetsStartedToday(kind) {
+  var data = loadProgress();
+  return (kind === 'lr' ? (parseInt(data.lrSetsToday) || 0) : (parseInt(data.diSetsToday) || 0));
 }

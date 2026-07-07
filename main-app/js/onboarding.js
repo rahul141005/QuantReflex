@@ -305,38 +305,20 @@ var Onboarding = (function () {
 
     setTimeout(function () {
       var content = '';
-      var totalScreens = _skipped ? 5 : 7;
+      /* ADR-107: derive the dot count from the screen map (was literal 7 / 5). Full flow = every screen; skip mode
+         collapses two dots — preserving the prior values exactly (WARMUP+1 = 7; −2 = 5). */
+      var FULL_SCREENS = SCREENS.WARMUP + 1;
+      var totalScreens = _skipped ? (FULL_SCREENS - 2) : FULL_SCREENS;
       var dotIndex = index;
 
       switch (index) {
-        case 0:
-          content = _screen1();
-          dotIndex = 0;
-          break;
-        case 1:
-          content = _screenExam();
-          dotIndex = 1;
-          break;
-        case 2:
-          content = _screen2();
-          dotIndex = 2;
-          break;
-        case 3:
-          content = _screen3();
-          dotIndex = 3;
-          break;
-        case 4:
-          content = _screen4();
-          dotIndex = 4;
-          break;
-        case 5:
-          content = _screen5();
-          dotIndex = 5;
-          break;
-        case 6:
-          content = _screen6();
-          dotIndex = 6;
-          break;
+        case SCREENS.INTRO:    content = _screen1();    break;
+        case SCREENS.EXAM:     content = _screenExam(); break;
+        case SCREENS.PRACTICE: content = _screen2();    break;
+        case SCREENS.STATS:    content = _screen3();    break;
+        case SCREENS.GOAL:     content = _screen4();    break;
+        case SCREENS.READY:    content = _screen5();    break;
+        case SCREENS.WARMUP:   content = _screen6();    break;
       }
 
       /* Update progress dots */
@@ -491,7 +473,7 @@ var Onboarding = (function () {
       '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10" aria-pressed="' + (_selectedGoal === 10 ? 'true' : 'false') + '">10 questions</button>' +
       '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20" aria-pressed="' + (_selectedGoal === 20 ? 'true' : 'false') + '">20 questions</button>' +
       '</div>' +
-      '<p class="onboarding-note">You can change this anytime from the Settings tab.<br>Goals above 20 require Premium.</p>' +
+      '<p class="onboarding-note">You can change this anytime from the Settings tab.</p>' +
       '<div class="onboarding-actions">' +
       '<button class="btn-primary onboarding-next-btn" id="obNext">Continue</button>' +
       '</div>';
@@ -824,12 +806,12 @@ var Onboarding = (function () {
       '<div class="onboarding-q-feedback" id="obFeedback"></div>' +
       '</div>';
 
-    /* Keep progress dots */
+    /* Keep progress dots — the warm-up is the last screen, so all prior dots are completed (ADR-107: named indices). */
     var dotsHtml = '<div class="onboarding-dots">';
-    var totalScreens = 7;
+    var totalScreens = SCREENS.WARMUP + 1;
     for (var i = 0; i < totalScreens; i++) {
-      var activeClass = i === 6 ? ' onboarding-dot-active' : '';
-      var completedClass = i < 6 ? ' onboarding-dot-completed' : '';
+      var activeClass = i === SCREENS.WARMUP ? ' onboarding-dot-active' : '';
+      var completedClass = i < SCREENS.WARMUP ? ' onboarding-dot-completed' : '';
       dotsHtml += '<span class="onboarding-dot' + activeClass + completedClass + '"></span>';
     }
     dotsHtml += '</div>';

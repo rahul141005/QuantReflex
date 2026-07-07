@@ -17,6 +17,12 @@ var PLANS = {
 };
 var DEFAULT_PLAN = 'premium_12m';
 
+/* Free-tier daily practice-question cap (ADR-107). Mirrors the canonical
+   shared/constants/entitlements.js → FREE_TIER_LIMITS.DAILY_QUESTION_LIMIT (= 20). entitlements.js is server/node
+   only (module.exports) and is NOT loaded in the browser, so the value is declared here for the client. Keep the
+   two in lockstep — scripts/daily-limit.check.js asserts they never drift. */
+var FREE_DAILY_QUESTION_LIMIT = 20;
+
 /* Every premium-gated feature. With the single tier, all of these require premium. */
 var _LOCKED_FEATURES = {
   custom_training: true, review_mistakes: true, add_formula: true, add_topic: true,
@@ -102,7 +108,7 @@ function canOpenExplain() {
 }
 
 function getDailyQuestionLimit() {
-  return hasPremiumAccess(_getAccessUserState()) ? Infinity : 20;
+  return hasPremiumAccess(_getAccessUserState()) ? Infinity : FREE_DAILY_QUESTION_LIMIT;
 }
 
 function hasReachedDailyLimit() {
@@ -257,6 +263,15 @@ function openPremiumPayment(planType, userId) {
                         console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
                         showToast('Premium unlocked 🎉');
                         _closePaywallModal();
+                        /* Seamless in-session resume (ADR-107, Phase 5A): if a drill paused at the free daily cap
+                           registered a one-shot resume hook, run it INSTEAD of the default view re-render — the
+                           re-render would tear down the paused drill container and lose the session. The hook
+                           continues the very same session at the blocked question (now Premium → no cap). It clears
+                           itself; if it's absent (any other paywall entry point) we fall back to the normal refresh. */
+                        var _resume = window.__qrResumeAfterUpgrade;
+                        if (typeof _resume === 'function') {
+                          try { _resume(); return; } catch (_e) { window.__qrResumeAfterUpgrade = null; }
+                        }
                         var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
                         if (currentView && typeof Router !== 'undefined' && Router.showView) Router.showView(currentView);
                       });
@@ -327,10 +342,18 @@ function _contextAccent(featureType) {
     skip_question: '⏭ Skip question is a Premium feature.',
     advanced_theme: '🎨 The Playful Professional theme is a Premium feature.',
     daily_goal_limit: '📈 Higher daily goals are a Premium feature.',
-    ai_explain: '🧠 QuanAI mistake explanations are a Premium feature.',
+    ai_explain: '🧠 Unlimited QuanAI explanations are a Premium feature.',
     ai_coach: '🤖 QuanAI Coach is a Premium feature.',
     ai_study_plan: '📅 The QuanAI Study Planner is a Premium feature.',
-    math_duel: '⚔️ Math Duel — real-time challenges — is a Premium feature.'
+    math_duel: '⚔️ Math Duel — real-time challenges — is a Premium feature.',
+    /* Phase 5 (ADR-107): quota- and generic-entry contexts that previously fell through to the bare hero. */
+    daily_limit: '🎯 You’ve used today’s free questions. Premium is unlimited daily practice.',
+    diset_limit: '📊 You’ve done today’s free Data Interpretation set. Premium unlocks unlimited sets.',
+    lrset_limit: '🧩 You’ve done today’s free Reasoning set. Premium unlocks unlimited sets.',
+    stats: '📊 Deep performance insights are a Premium feature.',
+    settings: '✨ This is a Premium feature.',
+    premium_required: '✨ This is a Premium feature.',
+    upgrade: '🚀 Unlock everything with Premium.'
   };
   return map[featureType] || '';
 }
