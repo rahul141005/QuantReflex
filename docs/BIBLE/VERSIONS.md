@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.127 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.128 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.30 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.31 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.128 / Firestore 2.31 (2026-07-07)** — **Phase-1–3 certification fixes + Phase-4 (ADR-106).** Certification
+> found the free-explain gate reused `explanationsUsed` (shared with premium telemetry), starving lapsed-premium users
+> of their 5 free — split onto a dedicated **`usage/ai.freeExplanationsUsed`** field (the Firestore bump); also a
+> limit cross-check, a trimmed + value-locked admin CSS port, and minor doc/UX fixes. Phase 4: onboarding is now
+> **resumable** (not locked out on abandon) with a global Back + named-constant nav (ONB-1), teaches the practice loop
+> incl. DI/LR (ONB-2/3), and a Stats-spotlight a11y fix; the App Guide gains a Quant/DI/LR "Question Types" section
+> (GID-1); every DI/LR Learn topic gains a difficulty-mapped `revisionIntervalDays` (LRN-2). New
+> `scripts/onboarding.check.js`. No Firestore rules/index change; rides unreleased `v222`. ONB-4 → Phase 5.
 
 > **2.127 / Arch 2.63 (2026-07-07)** — **Phase-3 exam-grade visuals + REP-1 (ADR-105).** DI charts gained a value
 > scale + gridlines (VIS-1), axis titles (VIS-2), and one theme-tuned CSS-variable series palette that ends the

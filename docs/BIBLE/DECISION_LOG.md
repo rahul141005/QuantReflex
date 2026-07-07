@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-106 — Phase-1–3 certification fixes + Phase-4 onboarding/guide/revision-intervals (2026-07-07)
+- **Context.** A fresh, independent certification of Phases 1–3 (two adversarial passes + the full ~200k-assertion
+  suite, all green) confirmed no Critical issues, then Phase 4 of the roadmap ("Help new users learn the app"). This
+  entry covers the certification fixes (Part V) and Phase 4 (ONB-1/2/3, GID-1, LRN-2, a11y). Rides unreleased `v222`.
+- **Part V — certification fixes.**
+  - **Free-explain counter split (HIGH).** `consumeFreeExplain` gated on `usage/ai.explanationsUsed` — the same field
+    premium users increment as unbounded telemetry — so an expired-premium user (>5 explanations generated) lapsed to
+    free and was instantly denied all 5. Split the free allowance onto a dedicated **`freeExplanationsUsed`** field
+    (consume/refund/normalize/register); `explanationsUsed` reverts to premium-telemetry-only (its original meaning).
+    FIRESTORE_BLUEPRINT updated; ADR-103's overload superseded.
+  - **Limit cross-check.** `free-explain.check` now asserts `freeExplainPolicy.FREE_EXPLAIN_LIMIT ===
+    entitlements.FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS` — the previously-dead canonical constant is now load-bearing.
+  - **Admin CSS port trimmed + value-locked.** Removed ~40 lines of drill-UI classes the renderers never emit
+    (`.q-figure-stage`, `.mcq-*`, `.di-set-*`, `.question-text-compact`) from `admin-style.css`; added a DI-palette +
+    `--lr-stroke` token value-lockstep to `visual-renderers.check` (the CSS can't be byte-synced — the two apps differ
+    only by the `body.dark-mode` vs `:root[data-theme]` selector).
+  - **Minors.** Static About version `v221→v222`; ADR-103's "never throws / no refund" claim annotated as superseded;
+    super-admin `_visualBlock` skips an absent `optionFigures` cell.
+- **Phase 4 — onboarding (ONB-1/2/3), App Guide (GID-1), revision intervals (LRN-2), a11y.**
+  - **ONB-1 (resumable + Back).** Onboarding no longer persists `onboardingCompleted=true` on show — the double-show
+    race is handled by the in-memory `_isShowing` guard, and completion is written **only** on a genuine finish
+    (`_markCompleted`). So a user who abandons mid-flow is shown onboarding again next boot instead of being locked
+    out. Added a global **Back** on every screen except the intro + warm-up. Scattered magic screen indices (3/4/6)
+    replaced with named `SCREENS` constants + pure `_navNext`/`_navBack` helpers (unit-tested — the module is now
+    dual-exported for node).
+  - **ONB-2 (teach the loop).** The "Learn & Drill" screen now teaches the core practice loop (pick a mode, answer on
+    the clock, instant feedback + QuanAI explanation) and names all three pillars (Quant, DI, LR).
+  - **ONB-3 (warm-up).** Added two DI-flavoured (still numpad-answerable) items to the warm-up pool so it isn't purely
+    arithmetic while the pitch promises DI. (A true chart/verbal item needs a non-numeric answer path — out of
+    proportion for a warm-up.)
+  - **a11y.** The Stats-tab spotlight now sets `aria-hidden` on the decorative nav (and restores it), so a
+    screen-reader user isn't left on a dead, unlabeled tab bar.
+  - **GID-1.** Added a "Question Types — Quant, DI & LR" section to the App Guide with a worked example for each.
+  - **LRN-2.** Every DI (6) + LR (20) topic now carries an explicit `revisionIntervalDays` (difficulty-mapped
+    4/6/8 to match Quant); `computeDue`'s `|| 5` fallback now fires only for ad-hoc/test inputs. New
+    `learn-content.check` invariant: every catalog topic has a positive interval.
+  - **New test:** `scripts/onboarding.check.js` (26 assertions) locks the nav math (next/back/skip round-trips), the
+    resumability invariant (completion written only in `_markCompleted`), the DI warm-up item, and the aria-hidden
+    spotlight.
+- **Consequences.** The "5 free" promise is fair for lapsed-premium users; the admin CSS drift risk is closed; new
+  users are taught how to practice (incl. DI/LR) and can't be permanently locked out of onboarding; DI/LR revision
+  cadence is tuned. No Firestore rules/index/schema change (`freeExplanationsUsed` is a new server-written field on the
+  existing server-write-only `usage/ai` doc). Deferred: ONB-4 (goal-limit premium messaging) → Phase 5.
+
+---
+
 ## ADR-105 — Phase-3 exam-grade visuals + REP-1 super-admin chart/figure rendering (2026-07-07)
 - **Context.** Phase 3 of the roadmap ("make the practice visuals exam-grade") + a residual Phase-1 credit-accounting
   gap found in re-verification. Evidence-backed against the audit (VIS-1..7, REP-1).

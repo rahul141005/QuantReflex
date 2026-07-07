@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Phase-1–3 certification fixes + Phase-4 onboarding/guide/intervals (ADR-106)
+
+Independent certification of Phases 1–3 (all green, no Critical issues) + Phase 4 of the roadmap. Rides `v222`.
+
+- **Certification (Part V):** the free-explain gate reused `explanationsUsed` (which premium telemetry also
+  increments), so a lapsed-premium user got 0 free explanations — split onto a dedicated `usage/ai.freeExplanationsUsed`
+  field (`explanationsUsed` reverts to premium-telemetry). `free-explain.check` now cross-checks the limit vs the
+  canonical `entitlements` constant; trimmed ~40 lines of dead drill-UI CSS from the admin port + added a DI-palette/
+  `--lr-stroke` value-lockstep to `visual-renderers.check`; static About version `v221→v222`; ADR-103 claim annotated;
+  super-admin skips empty option-figure cells.
+- **Phase 4 — onboarding:** no longer locks a user out on mid-flow abandon (completion persisted only on a genuine
+  finish; the in-memory `_isShowing` guard handles the double-show race), added a global **Back**, replaced magic
+  screen indices with named constants + pure nav helpers (ONB-1); the practice screen now teaches the drill loop and
+  names Quant/DI/LR (ONB-2); two DI-flavoured warm-up items (ONB-3); Stats-spotlight `aria-hidden` (a11y). New
+  `scripts/onboarding.check.js` (26 assertions).
+- **Phase 4 — App Guide + intervals:** a "Question Types — Quant, DI & LR" section with a worked example each (GID-1);
+  every DI/LR topic gains a difficulty-mapped `revisionIntervalDays` (LRN-2) + a `learn-content.check` invariant.
+- **Docs:** ADR-106 (DECISION_LOG); FIRESTORE_BLUEPRINT (`freeExplanationsUsed`); VERSIONS (Bible 2.127→2.128).
+  **Verification:** `npm test` green (onboarding 26, free-explain 27, visual-renderers 10, learn-content 589, + full
+  ~200k-assertion suite); Playwright confirms the onboarding screens/Back, the guide section, and the trimmed admin
+  CSS (light + dark).
+
 ## 2026-07-07 — Phase-3 exam-grade visuals + REP-1 super-admin chart/figure rendering (ADR-105)
 
 Made the practice visuals exam-grade and let super-admins see the visual a student reported. Visual-only for the
