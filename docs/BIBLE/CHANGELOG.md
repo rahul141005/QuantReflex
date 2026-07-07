@@ -6,6 +6,34 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Internationalization Phase A: i18n core + language settings (ADR-111)
+
+First phase of the English + हिन्दी + मराठी localization project. Feature-flagged OFF (users see no
+change; English behavior byte-identical) until all phases pass three-language QA. Rides SW `v223`;
+Bible 2.135→2.136.
+
+- **Core:** `js/i18n.js` (`QRI18n`) — two channels per the ADR-111 user decision (`t()` = App
+  language for UI chrome, `tc()` = Study language for questions/solutions/Learn/AI), `{param}`
+  interpolation, `Intl.PluralRules` plurals, hi/mr→en→key fallback, `localeTag()` with `-u-nu-latn`
+  (digits always 0-9), `data-i18n`/`data-i18n-attr` DOM translation with English restore.
+- **Catalogs:** `locales/{en,hi,mr}.js` (pilot namespaces: bottom nav + Settings appearance/language
+  rows), terms per the new `docs/BIBLE/GLOSSARY_I18N.md` (researched coaching-book vocabulary).
+- **Settings:** App language + Study language selects (hidden until flag/preview), linked-defaults
+  rule with explicit-divergence memory; `appLanguage`/`studyLanguage` persist in the settings blob
+  and sync cross-device.
+- **Boot:** inline `<head>` pre-paint script sets `<html lang>` + locale hook (flash-of-English
+  guard, lockstep `I18N_ON` ⇄ `QRI18n.ENABLED`); languages re-applied with appearance at boot and
+  after Firestore hydration.
+- **Typography:** bundled Noto Sans Devanagari (118 KB variable subset, unicode-range-scoped,
+  SW-precached); scoped `letter-spacing: normal` guard under hi/mr locales (matra/conjunct shaping);
+  new `globe` + `book-open` Playful icon masks.
+- **Enforcement:** `scripts/i18n.check.js` in `npm test` (186 assertions: catalog/placeholder/plural
+  parity, Latin-leak heuristic, DOM-key resolution, flag lockstep, SW wiring, t/tc channel
+  separation, runtime behavior). Playwright: hi/mr rendering + EN restore + font shaping verified,
+  zero console errors; full suite green.
+
+---
+
 ## 2026-07-07 — About + App Guide certification fixes (ADR-110 addendum)
 
 Two-auditor certification of the modal redesign (possible-interruption audit): all ~40 planned items verified

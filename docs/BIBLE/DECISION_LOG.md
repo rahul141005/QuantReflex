@@ -8,6 +8,60 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Context.** QuantReflex was English-only: `<html lang="en">` hardcoded, ~1,600–2,000 inline
+  strings across ~45 files, zero i18n infrastructure. Three evidence audits sized the project
+  (string inventory; content scale — Learn KB ~23k words + authored LR ~12k words + question
+  generators needing genuine grammar re-engineering; server/AI seams — QuanAI prompt injection
+  point, code-keyed server errors, server-composed notifications, SW push constraints).
+- **Decision — two language channels.** `appLanguage` (UI chrome, read via `QRI18n.t()`) and
+  `studyLanguage` (questions/solutions/Learn/AI, read via `QRI18n.tc()`), each en/hi/mr, stored in
+  the settings blob (whole-map Firestore sync rides free). App language defaults Study language
+  until the user explicitly diverges them — a CAT aspirant (English-only exam) can study in
+  English inside a Hindi app; an MPSC aspirant runs both in Marathi. Mirrors Testbook/Adda247
+  exam-language treatment.
+- **Decision — one complete public release behind a feature flag.** `QRI18n.ENABLED=false` (and
+  its inline pre-paint twin `I18N_ON`, lockstep-checked) until every surface passes a full
+  three-language QA; internal phases build/merge incrementally; users never see a half-translated
+  product. QA force-enables via `localStorage qr_i18n_preview=1`. While off, both channels are
+  hard-forced to `'en'` and `applyDom()` no-ops — English behavior stays byte-identical.
+- **Architecture.** Global-IIFE core `js/i18n.js` (t/tc, `{param}` interpolation,
+  `Intl.PluralRules` plural objects, hi/mr→en→key fallback with one-time dev warnings,
+  `localeTag()` pinning `-u-nu-latn` so digits never render Devanagari — CLDR mr-IN otherwise
+  would); same-origin catalogs `locales/{en,hi,mr}.js` registered via `QRI18n.register` (ADR-099:
+  never `../shared` at runtime); static HTML keeps English inline as source of truth with
+  `data-i18n`/`data-i18n-attr` overwrite + `data-i18n-orig` restore; `<html lang>` +
+  `data-app-locale` set by an inline head script pre-paint (flash-of-English guard, mirrors the
+  `QR_APP_VERSION` inline precedent) and re-applied at boot + after Firestore hydration
+  (cross-device language sync). Terminology single source of truth: `docs/BIBLE/GLOSSARY_I18N.md`
+  (researched against Arihant / R.S. Aggarwal / MPSC coaching-material chapter vocabulary — never
+  machine translation).
+- **Typography.** Bundled Noto Sans Devanagari (variable-weight Devanagari subset, 118 KB,
+  `unicode-range`-scoped so all-English sessions never download it; SW-precached for offline
+  hi/mr) appended to the body stack behind the OS faces. Devanagari never letter-spaces: a scoped
+  `letter-spacing: normal !important` under `[data-app-locale='hi'|'mr']` and `[lang='hi'|'mr']`
+  neutralizes the ~60 uppercase micro-label tracking rules that would break matra/conjunct shaping
+  (uppercase itself is a harmless no-op).
+- **Enforcement.** New `scripts/i18n.check.js` in `npm test`: en/hi/mr key parity, no empty
+  values, plural-category parity, `{placeholder}` parity, Latin-leak heuristic with the glossary
+  allowlist, every `data-i18n` key resolves, flag lockstep (inline `I18N_ON` ⇄ `QRI18n.ENABLED`),
+  SW-precache + script-tag wiring, t/tc channel separation (content namespaces only via tc), and
+  runtime behavior (flag-off coercion, preview switching, fallback, hi plural "0 = one", locale
+  tags). 186 assertions at Phase A.
+- **Phase A shipped (this entry).** Core + catalogs + flag + pre-paint script + two Settings
+  language selects (hidden until flag/preview; App-language change follows into Study language via
+  the linked-defaults rule, `studyLanguageDiverged` records an explicit split) + Devanagari font +
+  CSS guards + check + SW ASSETS (rides unreleased v223). Pilot surfaces prove the architecture
+  end-to-end: bottom nav + Appearance/language rows render correctly in all three languages
+  (Playwright: hi/mr application, EN restore on switch-back, letter-spacing reset, font shaping,
+  zero console errors). Remaining phases per the approved plan: B app chrome, C practice core,
+  D long-form static, E AI & server seam, F generated questions (locale-aware stem builders),
+  G Learn KB + authored LR content, H full three-language QA + flag flip.
+- **Consequences.** Every future user-facing string must land with keys in all three catalogs (or
+  as a glossary-compliant content-pack entry) — the check fails otherwise. English stays the
+  reference locale; hi/mr fall back to en per key, so partially-localized internal builds degrade
+  gracefully and invisibly while the flag is off.
+
 ## ADR-110 — About modal + App Guide complete redesign (2026-07-07)
 - **Certification addendum (same day).** Two independent auditors verified the implementation plan item by item
   against the repository (possible-interruption audit). All ~40 planned items confirmed implemented with evidence;

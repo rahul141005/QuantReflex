@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.135 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.136 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.136 (2026-07-07)** — **Internationalization Phase A (ADR-111).** The app gains a localization
+> layer for English + हिन्दी + मराठी, feature-flagged OFF until every phase passes three-language QA
+> (users see zero change; English behavior byte-identical, proven by check + Playwright). New:
+> `js/i18n.js` two-channel core (App language for UI chrome via `t()`, Study language for
+> questions/Learn/AI via `tc()` — the ADR-111 user decision), `locales/{en,hi,mr}.js` catalogs,
+> `docs/BIBLE/GLOSSARY_I18N.md` (researched Arihant/R.S. Aggarwal/MPSC terminology — the single
+> source of truth for every Hindi/Marathi term), two Settings language selects (hidden behind the
+> flag), a pre-paint `<html lang>` head script, bundled Noto Sans Devanagari with a Devanagari
+> letter-spacing guard, and `scripts/i18n.check.js` (186 assertions) in `npm test`. Architecture
+> 2.63→2.64 (new localization layer + boot step). Rides unreleased SW `v223`.
 
 > **2.135 (2026-07-07)** — **About + App Guide certification fixes (ADR-110 addendum).** A two-auditor,
 > possible-interruption certification verified every planned redesign item implemented, then fixed what it found:
