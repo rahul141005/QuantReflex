@@ -342,10 +342,12 @@ function initSettingsView() {
   }
 
   /* Contact card (ADR-100) — the email is a real mailto: anchor (keyboard + semantics for free); the copy button
-     writes the address to the clipboard with a toast + brief "copied" state. Idempotent via rebind (Settings re-inits). */
+     writes the address to the clipboard with a toast + brief "copied" state. Idempotent via rebind (Settings re-inits).
+     ADR-110: generalized to wire BOTH copy buttons (Settings card + the About modal's contact card) identically. */
   var CONTACT_EMAIL = 'quantreflex@gmail.com';
-  var copyBtn = document.getElementById('contactEmailCopy');
-  if (copyBtn) {
+  function _wireEmailCopy(btnId) {
+    var copyBtn = document.getElementById(btnId);
+    if (!copyBtn) return;
     /* Legacy synchronous copy — returns true only if it actually copied (so we never claim false success). */
     function _execCopy() {
       try {
@@ -357,8 +359,8 @@ function initSettingsView() {
     }
     function _copied() {
       try { if (typeof showToast === 'function') showToast('✅ Email copied'); } catch (_) {}
-      var b = document.getElementById('contactEmailCopy');
-      if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById('contactEmailCopy'); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
+      var b = document.getElementById(btnId);
+      if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById(btnId); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
     }
     /* Copy failed on every path — don't fake success; point the user at the address they can still tap to email. */
     function _copyFailed() { try { if (typeof showToast === 'function') showToast('Couldn\'t copy — the address is ' + CONTACT_EMAIL); } catch (_) {} }
@@ -371,6 +373,8 @@ function initSettingsView() {
       } catch (_) { if (_execCopy()) _copied(); else _copyFailed(); }
     });
   }
+  _wireEmailCopy('contactEmailCopy');
+  _wireEmailCopy('aboutContactEmailCopy');
 
   /* App Guide button — opens modal */
   var appGuideBtn = document.getElementById('openAppGuide');
@@ -532,6 +536,18 @@ function updateAboutUserStatus() {
     var _verEl = document.getElementById('aboutVersionLine');
     if (_verEl && typeof window !== 'undefined' && window.QR_APP_VERSION) {
       _verEl.textContent = 'Version ' + window.QR_APP_VERSION;
+    }
+  } catch (_) {}
+  /* ADR-110: live update status in About. isUpdateAvailable() is the shared UpdateManager's synchronous flag —
+     true only when a genuinely newer service worker is installed and waiting. */
+  try {
+    var _updEl = document.getElementById('aboutUpdateStatus');
+    if (_updEl) {
+      var _updAvail = (typeof QRUpdateManager !== 'undefined' && QRUpdateManager.isUpdateAvailable)
+        ? QRUpdateManager.isUpdateAvailable() : false;
+      _updEl.textContent = _updAvail
+        ? '🚀 An update is ready — install it from Settings → Update App.'
+        : '✅ You\'re on the latest version.';
     }
   } catch (_) {}
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
@@ -1029,6 +1045,12 @@ function openInfoModal(modalId) {
 
   var closeBtn = modal.querySelector('.info-modal-close');
 
+  /* ADR-110 a11y: remember what opened us, move focus to the modal title (tabindex="-1"), and hand focus back on
+     close — so keyboard/SR users land inside the dialog and aren't stranded on a hidden trigger afterwards. */
+  var _trigger = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+  var _title = modal.querySelector('.info-modal-title');
+  if (_title && _title.focus) { try { _title.focus({ preventScroll: true }); } catch (_) { try { _title.focus(); } catch (_2) {} } }
+
   function closeModal() {
     modal.classList.add('closing');
     SoundEngine.play('tableModal');
@@ -1038,6 +1060,7 @@ function openInfoModal(modalId) {
       modal.style.display = 'none';
       modal.classList.remove('closing');
       document.body.classList.remove('modal-open');
+      if (_trigger && _trigger.focus && document.contains(_trigger)) { try { _trigger.focus({ preventScroll: true }); } catch (_) {} }
     }, 200);
   }
 
@@ -1051,6 +1074,19 @@ function openInfoModal(modalId) {
 
   if (closeBtn) closeBtn.onclick = closeModal;
   modal.onclick = function (e) {
+    /* ADR-110: TOC chips (App Guide) scroll their target section within .info-modal-scroll. Delegated here so the
+       chips need no per-chip wiring; honours reduced motion (instant jump instead of smooth scroll). */
+    var chip = e.target && e.target.closest ? e.target.closest('.info-toc-chip') : null;
+    if (chip && modal.contains(chip)) {
+      var targetEl = document.getElementById(chip.getAttribute('data-target') || '');
+      if (targetEl) {
+        var _instant = document.body.classList.contains('reduced-motion') ||
+          (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        try { targetEl.scrollIntoView({ behavior: _instant ? 'auto' : 'smooth', block: 'start' }); }
+        catch (_) { targetEl.scrollIntoView(); }
+      }
+      return;
+    }
     if (e.target === modal) closeModal();
   };
   document.addEventListener('keydown', _infoModalEscapeHandler);

@@ -911,570 +911,421 @@
   </div>
 
   <!-- ==================== APP GUIDE MODAL ==================== -->
-  <div id="appGuideModal" class="info-modal-overlay" style="display:none;">
+  <!-- ADR-110: rewritten as a real user manual. Every claim is repository-verified — modes, limits, premium
+       gating, offline behaviour. The TOC chips scroll within .info-modal-scroll (handler in settings.js).
+       Premium markers use .info-premium-chip (self-explanatory) instead of a bare lock glyph. -->
+  <div id="appGuideModal" class="info-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="appGuideTitle">
     <div class="info-modal-content">
       <div class="info-hero">
         <div class="info-modal-header">
-          <h2 class="info-modal-title">📖 QuantReflex Guide</h2>
-          <button class="info-modal-close" id="appGuideClose" aria-label="Close">✕</button>
+          <h2 class="info-modal-title" id="appGuideTitle" tabindex="-1"><span class="qr-ico" data-ico="book-open" aria-hidden="true">📖</span> QuantReflex Guide</h2>
+          <button class="info-modal-close" aria-label="Close">✕</button>
         </div>
-        <p class="info-modal-subtitle">Everything you need to master competitive aptitude training</p>
+        <p class="info-modal-subtitle">The complete manual — every mode, every limit, every setting.</p>
+        <div class="info-toc" role="navigation" aria-label="Guide sections" data-no-swipe>
+          <button class="info-toc-chip" type="button" data-target="guideStart">Start</button>
+          <button class="info-toc-chip" type="button" data-target="guidePractice">Practice</button>
+          <button class="info-toc-chip" type="button" data-target="guideLimit">Daily limit</button>
+          <button class="info-toc-chip" type="button" data-target="guideLearn">Learn</button>
+          <button class="info-toc-chip" type="button" data-target="guideDI">DI</button>
+          <button class="info-toc-chip" type="button" data-target="guideLR">Reasoning</button>
+          <button class="info-toc-chip" type="button" data-target="guideAI">QuanAI</button>
+          <button class="info-toc-chip" type="button" data-target="guideStats">Stats</button>
+          <button class="info-toc-chip" type="button" data-target="guideSettings">Settings</button>
+          <button class="info-toc-chip" type="button" data-target="guidePremium">Premium</button>
+          <button class="info-toc-chip" type="button" data-target="guideReport">Reporting</button>
+          <button class="info-toc-chip" type="button" data-target="guideUpdates">Updates</button>
+          <button class="info-toc-chip" type="button" data-target="guideOffline">Offline</button>
+          <button class="info-toc-chip" type="button" data-target="guideAccess">Accessibility</button>
+          <button class="info-toc-chip" type="button" data-target="guideTips">Tips</button>
+          <button class="info-toc-chip" type="button" data-target="guideFaq">FAQ</button>
+        </div>
       </div>
       <div class="info-modal-scroll">
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🚀 Getting Started</h3>
-        <div class="info-block info-block-highlight">
-          <h4>Welcome to QuantReflex</h4>
-          <p>QuantReflex is a precision Speed Aptitude platform — Quant, Data Interpretation and Logical Reasoning in one place. Build speed and accuracy through short, focused daily sessions.</p>
-          <p><strong>Built for:</strong></p>
-          <ul class="info-list">
-            <li><strong>MBA entrance aspirants (CAT, XAT, SNAP, NMAT, CMAT, MAH-CET)</strong>: build QA + DI section speed</li>
-            <li><strong>Banking aspirants (IBPS, SBI)</strong>: master the time pressure of simplification, series and DI</li>
-            <li><strong>Government-exam aspirants (SSC, Railways)</strong>: sharpen no-calculator arithmetic and reasoning</li>
-            <li><strong>Campus placement &amp; aptitude prep</strong>: ace aptitude rounds in campus drives</li>
-            <li><strong>Foundation &amp; self-learners</strong>: build genuine calculation fluency from scratch</li>
-          </ul>
-          <p>Here's how to get going in 60 seconds:</p>
-          <ul class="info-list">
-            <li>Sign in or create your account</li>
-            <li>Complete the quick onboarding warmup</li>
-            <li>Pick a practice mode from the <strong>Practice</strong> tab</li>
-            <li>Answer with the custom numpad: no keyboard distractions</li>
-            <li>Review your results and mistakes after each session</li>
-            <li>Check your progress on the <strong>Stats</strong> tab</li>
-            <li>Set a daily goal and turn on reminders in <strong>Settings</strong></li>
-          </ul>
-          <p class="info-tip">💡 Use the Daily Warmup on the Home tab every morning to start your streak and ease into the day.</p>
-        </div>
-        <div class="info-block">
-          <h4>Getting around</h4>
-          <ul class="info-list">
-            <li><strong>Bottom tabs</strong>: Home · Practice · Learn · Stats · Settings</li>
-            <li><strong>Swipe left/right</strong> anywhere to move between tabs</li>
-            <li><strong>Horizontal rows scroll on their own</strong> — drag the Learn section pills or the "Continue / Saved" rows sideways without changing tabs</li>
-            <li><strong>Learn links are shareable</strong>: every topic has its own address, and back/forward work like a browser</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🎯 Practice Modes</h3>
-        <div class="info-block">
-          <h4>⚡ Quick Drill</h4>
-          <p>5 questions, no timer. The fastest way to start sharp — use it every morning to build a daily habit before you dive deeper.</p>
-        </div>
-        <div class="info-block">
-          <h4>🧠 Reflex Drill</h4>
-          <p>10 questions, 15 seconds each. Builds the muscle memory you need to solve under exam pressure — where every second counts.</p>
-        </div>
-        <div class="info-block">
-          <h4>⏱ Timed Test</h4>
-          <p>10 questions in 3 minutes. The closest simulation of a real QA section — train your pacing so exam day feels familiar.</p>
-        </div>
-        <div class="info-block">
-          <h4>🎯 Focus Training</h4>
-          <p>10 questions, one category. Drill weak topics — Percentages, TSD, Profit &amp; Loss — until they stop costing you marks.</p>
-        </div>
-        <div class="info-block">
-          <h4>🔓 Custom Training</h4>
-          <p>Pick any mix of categories, set count (1–100), and add a timer. Build sessions around your exact syllabus — not a preset someone else designed.</p>
-          <p class="info-tip">💡 Combine 2–3 weak categories in one session for high-density revision.</p>
-        </div>
-        <div class="info-block">
-          <h4>🔓 Review Mistakes</h4>
-          <p>Retry every question you got wrong — they stay in your pool until you solve them correctly. The fastest path to recovering marks you're already losing.</p>
-          <p class="info-tip">💡 Finish every session with a Review Mistakes round. Mistakes not revisited are marks not recovered.</p>
-        </div>
-        <div class="info-block">
-          <h4>🤖 Word Problems <span class="guide-tier-badge">Coming soon</span></h4>
-          <p>AI-crafted, exam-style word problems that test comprehension + calculation, not just raw speed. This one's in final polish — tapping the card shows a quick "coming soon" note for now, and it launches for Premium soon.</p>
-        </div>
-        <div class="info-block">
-          <h4>⚔️ Math Duel (Premium)</h4>
-          <p>Challenge a friend to a real-time 1v1 battle with identical questions. Both players solve the same set simultaneously — winner takes the highest accuracy and fastest time. Create a room, share the invite link, and compete live.</p>
-          <p class="info-tip">💡 Duels are the ultimate test of exam readiness — if you can beat a friend under pressure, you're ready for the real thing.</p>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🧩 Question Types — Quant, DI &amp; LR</h3>
-        <div class="info-block">
-          <p>Every practice mode mixes the three exam pillars, weighted toward your target exam. Here's what each looks like.</p>
-        </div>
-        <div class="info-block">
-          <h4>🔢 Quantitative Aptitude</h4>
-          <p>Speed arithmetic and problem-solving — numbers, percentages, ratio, time–speed–distance, profit &amp; loss, averages, algebra, geometry. You answer on the numpad.</p>
-          <p class="info-tip">💡 Example: a ₹800 shirt sold at 25% off → you type <strong>600</strong>.</p>
-        </div>
-        <div class="info-block">
-          <h4>📊 Data Interpretation (DI)</h4>
-          <p>Turn a picture of data into a number, fast. A bar chart, line graph, pie chart, table or caselet renders right above the question, and you read the answer off it — the core skill for Banking &amp; MBA papers.</p>
-          <p class="info-tip">💡 Example: a budget pie chart shows Rent = 40% of ₹5,000 → Rent = <strong>2000</strong>.</p>
-        </div>
-        <div class="info-block">
-          <h4>🧠 Logical Reasoning (LR)</h4>
-          <p>Coding-decoding, number/letter series, blood relations, directions and syllogisms — plus <strong>visual puzzles</strong> (mirror images, paper folding, cubes &amp; dice, odd-one-out, matrices) where you pick the right figure.</p>
-          <p class="info-tip">💡 Example: if A=1, B=2, C=3 … then the code for "CAB" is <strong>312</strong>.</p>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📖 Learn Tab — Knowledge Engine</h3>
-        <div class="info-block">
-          <p>Learn is a browsable knowledge graph, not a wall of formulas. The home shows what matters <em>today</em> — your next chapter, what's due for revision, and what needs practice — with every topic one tap away.</p>
-          <h4>How it's organised</h4>
-          <ul class="info-list">
-            <li><strong>Up next</strong>: one recommended chapter, picked from the study order and your target exam — no choice paralysis</li>
-            <li><strong>Gold-standard topics</strong>: each page has an overview, core concepts, formulas (with <em>when to use</em> and <em>traps</em>), speed tricks, worked examples and a revision recap — ending with what to do next</li>
-            <li><strong>Difficulty badges</strong> on every card so you know what to prioritise</li>
-          </ul>
-        </div>
-        <div class="info-block">
-          <h4>Work smarter</h4>
-          <ul class="info-list">
-            <li><strong>Search</strong>: one box finds topics <em>and</em> quick-reference tables — results deep-link straight there</li>
-            <li><strong>🔁 Revise today</strong>: when topics fall due, a guided flow walks you through each one's formulas, tricks and traps — active recall, spaced right before you'd forget</li>
-            <li><strong>🎯 Needs practice</strong>: your weakest drill topics surface on the Learn home, linked to their chapters</li>
-            <li><strong>★ Save</strong>: star a topic and it appears in a <strong>Saved</strong> row on the Learn home</li>
-            <li><strong>⚡ Quick revision</strong>: collapse any topic to a one-screen cheat sheet of just the formulas, tricks and key points</li>
-            <li><strong>🎯 Practise this</strong>: jump from a topic straight into a focused drill on it (where a drill exists)</li>
-            <li><strong>✓ Mark complete</strong>: track which topics you've finished — ticks show on the cards</li>
-          </ul>
-        </div>
-        <div class="info-block">
-          <h4>Also in Learn</h4>
-          <ul class="info-list">
-            <li><strong>⚡ Quick-Reference Library</strong>: every high-value formula, table and standard value — squares, cubes, fraction ⇄ percent, trig values and more — in one searchable place</li>
-            <li><strong>✖️ Multiplication Tables (1–30)</strong>: the interactive tables, right on the Learn home</li>
-            <li><strong>🔓 My notes</strong>: build your own topics and star personal formulas</li>
-            <li><strong>🔓 Full-Screen Tables</strong>: triple-tap any table to open it distraction-free</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📊 Reading Your Stats</h3>
-        <div class="info-block">
-          <h4>What Each Metric Means</h4>
-          <ul class="info-list">
-            <li><strong>Accuracy %</strong>: your correct-answer rate. Get this to 80%+ before you start prioritizing speed.</li>
-            <li><strong>Avg Response Time</strong>: your average seconds per question. Below 10s is solid; below 7s is exam-ready.</li>
-            <li><strong>Current Streak</strong>: days in a row with at least one session. Protect it — consistency is what compounds over time.</li>
-            <li><strong>Weakest Category</strong>: your lowest-accuracy topic. Open Focus Training on it today.</li>
-            <li><strong>🔓 Category Breakdown</strong>: see exactly which topics are costing you marks — and by how much.</li>
-            <li><strong>🔓 Performance Insights</strong>: spot trends in your training before they become exam-day problems.</li>
-            <li><strong>Daily Goal Progress</strong>: how close you are to today's target. Hit it every single day.</li>
-          </ul>
-          <p class="info-tip">💡 Check your weakest category every week. If it's below 60%, run a Focus Training session on it before your next mixed drill.</p>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">⚙️ Settings &amp; Personalization</h3>
-        <div class="info-block">
-          <h4>What You Can Control</h4>
-          <ul class="info-list">
-            <li><strong>🔓 Theme</strong>: switch to the Playful Professional theme for a cleaner alternate look</li>
-            <li><strong>Appearance</strong>: follow your device's light/dark setting automatically, or fix either one — easy on the eyes for late-night sessions</li>
-            <li><strong>Difficulty</strong>: Easy or Medium for free; 🔓 Hard unlocks the toughest question variants</li>
-            <li><strong>🔓 Skip Questions</strong>: add a Skip button to drills — move past stuck moments without breaking momentum</li>
-            <li><strong>Sound &amp; Vibration</strong>: toggle audio and haptic feedback to match your environment</li>
-            <li><strong>Reduced Motion</strong>: turn off animations for distraction-free or accessibility use</li>
-            <li><strong>Daily Goal</strong>: set your question target per day (🔓 goals above 20 require Premium)</li>
-            <li><strong>Notifications</strong>: daily push reminders so your streak stays intact</li>
-            <li><strong>🔓 Focus Timer</strong>: add time pressure to Focus Training sessions and simulate real exam pacing</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="info-section guide-animate-section">
-        <div class="guide-premium-section guide-premium-tier">
-          <div class="guide-premium-header">
-            <span class="guide-tier-badge guide-tier-badge--premium">🔓 PREMIUM</span>
-            <h3 class="guide-tier-title">Unlock Full Training Experience</h3>
-            <p class="guide-tier-subtitle">Train faster. Improve accuracy. Build consistency.</p>
+        <div class="info-section guide-animate-section" id="guideStart">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="zap" aria-hidden="true">⚡</span> Getting Started</h3>
+          <div class="info-block info-block-highlight">
+            <h4>Your first session in under a minute</h4>
+            <p>Sign in with email or Google, open <strong>Practice</strong>, tap <strong>Quick Drill</strong>, pick a subject, and answer five questions. That's the whole loop — everything else in QuantReflex builds on it.</p>
           </div>
-
-          <div class="guide-feature-group">
-            <div class="guide-feature-group-label">⚡ Core Training Power</div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Custom Training</span>
-                <span class="guide-feature-desc">Train exactly what you need, when you need it</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Review Mistakes</span>
-                <span class="guide-feature-desc">Every wrong answer becomes a lesson — retry until it sticks</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Adaptive Training ⭐</span>
-                <span class="guide-feature-desc">Questions adapt to your level in real time — always the right challenge</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Hard Mode</span>
-                <span class="guide-feature-desc">Push beyond your comfort zone with the toughest question variants</span>
-              </div>
-            </div>
+          <div class="info-block">
+            <h4>Finding your way around</h4>
+            <ul class="info-list">
+              <li><strong>Home</strong> — your daily goal ring, streak, today's numbers, and quick links.</li>
+              <li><strong>Practice</strong> — every training mode, from a 5-question warm-up to full mocks.</li>
+              <li><strong>Learn</strong> — 62 chapters of concepts, methods, and quick-reference tables.</li>
+              <li><strong>Stats</strong> — accuracy, speed, streaks, and where to focus next.</li>
+              <li><strong>Settings</strong> — appearance, sound, goals, account, updates, and help.</li>
+            </ul>
+            <p class="info-tip">Set a daily goal in Settings and let the Home ring keep you honest. Small, daily beats long and rare.</p>
           </div>
+        </div>
 
-          <div class="guide-feature-group">
-            <div class="guide-feature-group-label">📊 Performance &amp; Feedback</div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Performance Insights</span>
-                <span class="guide-feature-desc">Understand exactly where you're improving and where you're losing marks</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Category Accuracy</span>
-                <span class="guide-feature-desc">Track your accuracy per topic — know precisely where to focus next</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Speed Benchmark ⭐</span>
-                <span class="guide-feature-desc">A per-session speed score that tracks how your pace is improving</span>
-              </div>
-            </div>
+        <div class="info-section guide-animate-section" id="guidePractice">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> Practice Modes</h3>
+          <div class="info-block">
+            <h4>Free modes</h4>
+            <ul class="info-list">
+              <li><strong>⚡ Quick Drill</strong> — 5 questions, no timer. The warm-up and streak-keeper.</li>
+              <li><strong>🧠 Reflex Drill</strong> — 10 questions, 15 seconds each, auto-advance. Builds raw speed.</li>
+              <li><strong>⏱ Timed Test</strong> — 10 questions against a 3-minute clock. Pacing under pressure.</li>
+              <li><strong>🎯 Focus Training</strong> — 10 questions from one category you choose. Fix a weak spot.</li>
+              <li><strong>📊 DI Set</strong> — one chart or table with a linked set of questions, exactly like the exam. One new set free per day.</li>
+              <li><strong>🧩 Reasoning Set</strong> — one seating or puzzle scenario with linked questions. One new set free per day.</li>
+            </ul>
+            <p>Quick, Reflex, and Timed first ask which subject you want — Quant, Data Interpretation, Reasoning, or a mix. You can turn that question off in Settings.</p>
           </div>
-
-          <div class="guide-feature-group">
-            <div class="guide-feature-group-label">🎯 Control &amp; Flexibility</div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Skip Questions</span>
-                <span class="guide-feature-desc">Move forward without getting stuck — just like in a real exam</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Focus Timer</span>
-                <span class="guide-feature-desc">Add time pressure to Focus Training and simulate real exam conditions</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Extended Daily Goals</span>
-                <span class="guide-feature-desc">Go beyond the default cap and set higher daily targets</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Unlimited Questions</span>
-                <span class="guide-feature-desc">No daily cap — practice as much as you want, every day</span>
-              </div>
-            </div>
+          <div class="info-block">
+            <h4>Premium modes <span class="info-premium-chip"><span class="qr-ico" data-ico="lock" aria-hidden="true">🔒</span>Premium</span></h4>
+            <ul class="info-list">
+              <li><strong>📑 Custom Training</strong> — build your own session: any mix of topics, 1–100 questions.</li>
+              <li><strong>🎨 Mixed Aptitude</strong> — a 12-question sprint across Quant, DI, and Reasoning in one sitting.</li>
+              <li><strong>🔄 Review Mistakes</strong> — re-practice questions you got wrong across past sessions. (Reviewing this session's mistakes right after the results is free for everyone.)</li>
+              <li><strong>📝 Timed Mock</strong> — an exam-style section for your target exam, with its real clock, weightage, and marking scheme. Set your target exam in Settings first.</li>
+              <li><strong>⚔️ Math Duel</strong> — a live head-to-head race. Create a room, share the code or invite link, and a friend joins. Two players, one winner.</li>
+            </ul>
+            <p><strong>🤖 Word Problems</strong> — AI-crafted exam-style word problems — is coming soon.</p>
           </div>
+        </div>
 
-          <div class="guide-feature-group">
-            <div class="guide-feature-group-label">🎨 Experience</div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Advanced Theme</span>
-                <span class="guide-feature-desc">A clean, distraction-free interface built for long study sessions</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Full-Screen Tables</span>
-                <span class="guide-feature-desc">Open any multiplication table in a focused, full-screen view</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🔓</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Custom Formulas &amp; Topics</span>
-                <span class="guide-feature-desc">Build your own formula cards and organize your personal study notes</span>
-              </div>
-            </div>
+        <div class="info-section guide-animate-section" id="guideLimit">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="gauge" aria-hidden="true">🎛</span> The Daily Free Limit</h3>
+          <div class="info-block">
+            <h4>20 questions a day, counted everywhere</h4>
+            <p>On the free plan, every answered question counts toward one daily total of 20 — whether it comes from a drill, Focus Training, a DI Set, or a Reasoning Set. There are no side doors.</p>
+            <ul class="info-list">
+              <li>You can always <strong>finish</strong> your 20th question — the session never cuts you off mid-answer.</li>
+              <li>If a session has more questions left, it <strong>pauses gracefully</strong> at the limit. Your progress and results are kept.</li>
+              <li>If you upgrade right there, the <strong>same session resumes</strong> at the exact question where it paused.</li>
+              <li>The limit resets at midnight. Premium removes it entirely.</li>
+            </ul>
           </div>
-
-          <div class="guide-tier-footer">One-time payment · 6 or 12 months · No auto-renewal.</div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <div class="guide-premium-section guide-ai-tier">
-          <div class="guide-premium-header">
-            <span class="guide-tier-badge guide-tier-badge--ai">🤖 AI FEATURES · INCLUDED IN PREMIUM</span>
-            <h3 class="guide-tier-title">Train Smarter with QuanAI</h3>
-            <p class="guide-tier-subtitle">QuanAI is the intelligence inside QuantReflex — one engine behind your coach, insights, study planner and explanations, reading your real results to guide every step.</p>
+        <div class="info-section guide-animate-section" id="guideLearn">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="book" aria-hidden="true">📖</span> Learn</h3>
+          <div class="info-block">
+            <h4>62 chapters, three subjects</h4>
+            <p>Learn is a full textbook: Quantitative Aptitude, Data Interpretation, and Logical Reasoning, each chapter with concepts, worked methods, tricks, and traps. Difficulty and exam-frequency badges tell you where to start; the <strong>Up next</strong> card recommends your next chapter.</p>
+            <ul class="info-list">
+              <li><strong>Search</strong> finds any chapter or quick-reference card instantly.</li>
+              <li><strong>Quick Reference</strong> — tables, squares, cubes, and speed-math grids for revision.</li>
+              <li><strong>Guided Revision</strong> — chapters return here automatically when they're due. Spaced repetition, built in.</li>
+              <li><strong>Practise this</strong> — every chapter links straight into a Focus drill on its topic.</li>
+              <li><strong>My notes</strong> <span class="info-premium-chip"><span class="qr-ico" data-ico="lock" aria-hidden="true">🔒</span>Premium</span> — save your own formulas and custom topics.</li>
+            </ul>
           </div>
-
-          <div class="guide-feature-group">
-            <div class="guide-feature-group-label">🤖 Powered by QuanAI</div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🤖</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Mistake Explainer</span>
-                <span class="guide-feature-desc">Understand why you got a question wrong — with step-by-step reasoning, instantly</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🤖</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">AI Coach Insights</span>
-                <span class="guide-feature-desc">Your daily coaching brief — built from your actual session results</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🤖</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Study Planner</span>
-                <span class="guide-feature-desc">A week-by-week study plan built around your exam date, your time, and your gaps</span>
-              </div>
-            </div>
-            <div class="guide-feature-row">
-              <span class="guide-feature-icon">🤖</span>
-              <div class="guide-feature-info">
-                <span class="guide-feature-name">Word Problems <span class="guide-tier-badge">Coming soon</span></span>
-                <span class="guide-feature-desc">AI-crafted, exam-style word problems (comprehension + calculation) — launching soon for Premium</span>
-              </div>
-            </div>
+          <div class="info-block">
+            <h4>Premium chapters</h4>
+            <p>Core chapters are free. These sections require Premium — they stay visible in the catalog with a Premium badge, so you always know what's there:</p>
+            <ul class="info-list">
+              <li><strong>Quant:</strong> Commercial Math, Algebra, Modern Math, and Geometry.</li>
+              <li><strong>Data Interpretation:</strong> the chart, table, and set chapters. (DI Foundations and Calculation Shortcuts stay free.)</li>
+              <li><strong>Reasoning:</strong> Critical Reasoning and Visual Reasoning. (Everything else in Reasoning stays free.)</li>
+            </ul>
           </div>
+        </div>
 
-          <div class="guide-tier-footer guide-tier-cta-note">For when good practice isn't enough — train with QuanAI, your personal coach.</div>
+        <div class="info-section guide-animate-section" id="guideDI">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="chart-bar" aria-hidden="true">📊</span> Data Interpretation</h3>
+          <div class="info-block">
+            <h4>Real charts, real sets</h4>
+            <p>DI questions come with genuine bar, line, and pie charts, tables, and caselets — rendered exactly as exams present them. A <strong>DI Set</strong> gives you one shared chart with several linked questions, the format every major exam uses.</p>
+            <ul class="info-list">
+              <li>Free plan: <strong>one new DI Set per day</strong>, and its questions count toward the daily 20.</li>
+              <li>Premium: unlimited sets, plus the premium DI chapters in Learn.</li>
+              <li>Start with the free <strong>DI Foundations</strong> and <strong>Calculation Shortcuts</strong> chapters — they teach the reading habits the sets test.</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📲 Offline &amp; PWA Installation</h3>
-        <div class="info-block">
-          <h4>Install QuantReflex on Your Device</h4>
-          <p>QuantReflex is a Progressive Web App: install it from your browser and use it offline.</p>
-          <ul class="info-list">
-            <li><strong>Android / Chrome</strong>: tap the install banner or use menu → "Add to Home Screen"</li>
-            <li><strong>iOS / Safari</strong>: tap Share → "Add to Home Screen"</li>
-          </ul>
-          <p>Once installed, the app launches full-screen and works offline. Refresh after updates if needed.</p>
-          <p class="info-tip">💡 Installing gives you a faster, distraction-free training experience.</p>
+        <div class="info-section guide-animate-section" id="guideLR">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="nodes" aria-hidden="true">🧩</span> Logical Reasoning</h3>
+          <div class="info-block">
+            <h4>From series to seating</h4>
+            <p>Reasoning covers coding–decoding, series, blood relations, directions, syllogisms, visual puzzles, and more. A <strong>Reasoning Set</strong> presents one seating or floor scenario with a linked chain of questions — solve the arrangement once, answer everything.</p>
+            <ul class="info-list">
+              <li>Free plan: <strong>one new Reasoning Set per day</strong>, counted within the daily 20.</li>
+              <li><strong>Critical Reasoning</strong> (arguments, decisions, cause &amp; effect) and <strong>Visual Reasoning</strong> (image-based puzzles) chapters are Premium; the rest of Reasoning is free.</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🔥 Streaks &amp; Consistency</h3>
-        <div class="info-block">
-          <h4>How Streaks Work</h4>
-          <ul class="info-list">
-            <li><strong>Daily streak</strong>: Complete at least one practice session per day to maintain your streak</li>
-            <li><strong>Streak protection</strong>: The app shows a "streak at risk" warning on the Home tab if you haven't practiced today</li>
-            <li><strong>Daily goal</strong>: Set a question target (10, 20, or higher with Premium) and track progress on the Home tab</li>
-            <li><strong>Push reminders</strong>: Enable daily notifications in Settings to never forget a session</li>
-          </ul>
-          <p class="info-tip">💡 Consistency beats intensity. A 10-question daily habit beats occasional marathon sessions every time.</p>
+        <div class="info-section guide-animate-section" id="guideAI">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="bot" aria-hidden="true">🤖</span> QuanAI</h3>
+          <div class="info-block">
+            <h4>Your explanation engine</h4>
+            <p>Got a question wrong? Tap <strong>Explain</strong> and QuanAI walks through the solution step by step.</p>
+            <ul class="info-list">
+              <li>Free plan: <strong>5 explanations</strong> to try — total, not per day.</li>
+              <li>Premium: unlimited explanations, plus <strong>QuanAI Coach</strong>, the <strong>Study Planner</strong>, and deep <strong>Stats insights</strong>.</li>
+              <li>QuanAI needs an internet connection. The Speed Score summary after every session is generated on your device and is always free.</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📈 Tips for Faster Improvement</h3>
-        <div class="info-block">
-          <ul class="info-list">
-            <li><strong>Start with accuracy, then speed</strong>: Get 80%+ accuracy before pushing for faster times</li>
-            <li><strong>Review mistakes every day</strong>: The Review Mistakes mode exists for a reason — use it after every session</li>
-            <li><strong>Focus on weakest topics</strong>: Check your category breakdown in Stats and drill your lowest-performing area</li>
-            <li><strong>Memorize the Learn tab</strong>: Tables, fractions, and shortcut tricks save 3–5 seconds per question in exams</li>
-            <li><strong>Use timed modes regularly</strong>: Reflex Drill and Timed Test build the pressure tolerance you need on exam day</li>
-            <li><strong>Set a daily goal and protect your streak</strong>: Small, consistent sessions compound into massive improvement over weeks</li>
-            <li><strong>Challenge friends in Math Duel</strong>: Competitive pressure reveals how you perform when it matters most</li>
-          </ul>
+        <div class="info-section guide-animate-section" id="guideStats">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="activity" aria-hidden="true">📈</span> Your Stats</h3>
+          <div class="info-block">
+            <h4>Free for everyone</h4>
+            <ul class="info-list">
+              <li><strong>Today</strong> — questions solved, accuracy, average time, study time, and the subject split.</li>
+              <li><strong>Momentum</strong> — accuracy and speed trends, your current and best streaks, and a 7-day accuracy chart.</li>
+              <li><strong>Time invested</strong> — today, this week, this month.</li>
+            </ul>
+            <p><strong>With Premium:</strong> subject mastery across Quant, DI, and Reasoning, a "study next" list of your weakest topics, QuanAI recommendations, and the full AI performance breakdown.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">❓ Frequently Asked Questions</h3>
-        <div class="info-block">
-          <h4>Is QuantReflex free?</h4>
-          <p>Yes! The core experience (Quick Drill, Reflex Drill, Timed Test, Focus Training, Learn tab, Stats) is completely free with a daily question limit. Premium unlocks unlimited questions and advanced features.</p>
+        <div class="info-section guide-animate-section" id="guideSettings">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="sliders" aria-hidden="true">⚙️</span> Settings</h3>
+          <div class="info-block">
+            <h4>Make it yours</h4>
+            <ul class="info-list">
+              <li><strong>Appearance</strong> — System, Light, or Dark. System follows your device automatically.</li>
+              <li><strong>Theme</strong> — the Playful Professional look is <span class="info-premium-chip"><span class="qr-ico" data-ico="lock" aria-hidden="true">🔒</span>Premium</span>.</li>
+              <li><strong>Difficulty</strong> — Easy and Medium are free; Hard is Premium.</li>
+              <li><strong>Skip question</strong> — Premium, and always off in Hard mode.</li>
+              <li><strong>Sound &amp; vibration</strong> — feedback chimes and haptics, each with its own toggle.</li>
+              <li><strong>Reduced motion</strong> — turns off animations app-wide. Your device's reduce-motion setting is also respected automatically.</li>
+              <li><strong>Daily goal</strong> — 10 or 20 free; goals above 20 are Premium.</li>
+              <li><strong>Notifications</strong> — enable to receive practice reminders and updates as notifications.</li>
+              <li><strong>Ask subject before Quick Start</strong> — the pre-drill subject question, on or off.</li>
+              <li><strong>Focus session timers</strong> — per-question or whole-session clocks in Focus mode, Premium.</li>
+              <li><strong>Install App</strong> — appears when your browser can install QuantReflex to your home screen.</li>
+              <li><strong>Account</strong> — password reset, sign out, and permanent account deletion.</li>
+            </ul>
+          </div>
         </div>
-        <div class="info-block">
-          <h4>Does it work offline?</h4>
-          <p>Yes. Install the app from your browser and all practice modes work offline. AI features and Duels require an internet connection.</p>
-        </div>
-        <div class="info-block">
-          <h4>How is my data synced?</h4>
-          <p>Your progress, settings, and statistics sync securely via Firebase across all devices where you're logged in.</p>
-        </div>
-        <div class="info-block">
-          <h4>What does Premium include?</h4>
-          <p>Premium unlocks everything: unlimited practice, all training modes, performance insights, and the AI suite — mistake explainers, AI coaching, study plans, and Math Duel (plus AI Word Problems, coming soon). ₹349 for 6 months or ₹499 for 12 months.</p>
-        </div>
-        <div class="info-block">
-          <h4>Can I use this for coaching?</h4>
-          <p>Yes. Enter your coaching institute's unique ID during signup to connect your progress with your institute's dashboard.</p>
-        </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🛠 Troubleshooting</h3>
-        <div class="info-block">
-          <ul class="info-list">
-            <li><strong>Numpad not showing?</strong> Tap the answer input field to bring it back up.</li>
-            <li><strong>Notifications not arriving?</strong> Check browser notification permissions in your device settings.</li>
-            <li><strong>Progress not syncing?</strong> Ensure you're logged in with an active internet connection.</li>
-            <li><strong>App feels slow after update?</strong> Pull down to refresh, or go to Settings → Update App.</li>
-            <li><strong>Streak not updating?</strong> Complete at least one session per day. Check your device date/time.</li>
-          </ul>
+        <div class="info-section guide-animate-section" id="guidePremium">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="zap" aria-hidden="true">💎</span> Free vs Premium</h3>
+          <div class="info-block">
+            <h4>What's always free</h4>
+            <ul class="info-list">
+              <li>Quick, Reflex, Timed, and Focus practice — 20 questions a day.</li>
+              <li>One DI Set and one Reasoning Set daily.</li>
+              <li>The core Learn library, Quick Reference, and Guided Revision.</li>
+              <li>5 QuanAI explanations to try.</li>
+              <li>Full progress tracking: streaks, goals, trends, and the Speed Score.</li>
+              <li>Same-session mistake review after every result.</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>What Premium unlocks</h4>
+            <ul class="info-list">
+              <li>Unlimited daily questions and unlimited DI &amp; Reasoning Sets.</li>
+              <li>Custom Training, Mixed Aptitude, Review Mistakes, Timed Mocks, and Math Duel.</li>
+              <li>The premium Learn chapters, My Notes, and full-screen tables.</li>
+              <li>Unlimited QuanAI explanations, Coach, Study Planner, and deep stats.</li>
+              <li>Adaptive difficulty, Hard mode, Skip, focus timers, higher goals, and the Playful theme.</li>
+            </ul>
+            <p class="info-tip">Premium keeps growing — new capabilities join the same plan over time.</p>
+          </div>
         </div>
-      </div>
+
+        <div class="info-section guide-animate-section" id="guideReport">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="flag" aria-hidden="true">⚑</span> Reporting Problems</h3>
+          <div class="info-block">
+            <h4>See something wrong? Flag it.</h4>
+            <p>Every report goes straight to review, with the exact question and context attached automatically.</p>
+            <ul class="info-list">
+              <li><strong>During practice</strong> — tap the ⚑ flag button to report the current question: wrong answer, wrong solution, a typo, a confusing stem, or a chart or figure that doesn't look right.</li>
+              <li><strong>On a QuanAI explanation</strong> — flag a wrong final answer, flawed reasoning, or missing steps.</li>
+              <li><strong>In Learn</strong> — report an incorrect concept, formula, or diagram from any chapter.</li>
+              <li><strong>Settings → Report a Problem</strong> — for anything else: app bugs, payment or account issues, or an idea you'd like to see.</li>
+            </ul>
+            <p class="info-tip">Detailed reports genuinely shape the question bank — flagged questions are reviewed and fixed.</p>
+          </div>
+        </div>
+
+        <div class="info-section guide-animate-section" id="guideUpdates">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> Updates</h3>
+          <div class="info-block">
+            <h4>Always current, one tap when needed</h4>
+            <p>QuantReflex updates itself in the background. When a new version is ready, a toast appears — open <strong>Settings → Update App</strong> and the app refreshes to the latest version with one quick reload. The reload is what swaps every file to the new version at once, so nothing runs half-old, half-new. You can also tap Update App any time to force a fresh copy.</p>
+          </div>
+        </div>
+
+        <div class="info-section guide-animate-section" id="guideOffline">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="download" aria-hidden="true">📲</span> Offline &amp; Installation</h3>
+          <div class="info-block">
+            <h4>Built to work without a signal</h4>
+            <ul class="info-list">
+              <li><strong>Works offline:</strong> every practice mode's questions are generated on your device, and the whole Learn library is stored locally. Your progress saves on-device and syncs when you're back online.</li>
+              <li><strong>Needs internet:</strong> QuanAI, Math Duel, payments, and cloud sync.</li>
+            </ul>
+            <h4>Install to your home screen</h4>
+            <p><strong>Android / Chrome:</strong> menu ⋮ → "Install app" (or use the Install button in Settings). <strong>iPhone / Safari:</strong> Share → "Add to Home Screen". Installed, QuantReflex opens full-screen like a native app.</p>
+          </div>
+        </div>
+
+        <div class="info-section guide-animate-section" id="guideAccess">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="user" aria-hidden="true">♿</span> Accessibility</h3>
+          <div class="info-block">
+            <h4>Training for everyone</h4>
+            <ul class="info-list">
+              <li><strong>Reduced motion</strong> — a Settings toggle, and your device's own reduce-motion preference is honored automatically.</li>
+              <li><strong>Full keyboard entry</strong> — answer with digits, Backspace, and Enter on any keyboard; the on-screen numpad is never required.</li>
+              <li><strong>Screen-reader support</strong> — answer feedback, results, and progress are announced; controls carry proper labels.</li>
+              <li><strong>Responsive layout</strong> — one design from small phones to tablets and desktops.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-section guide-animate-section" id="guideTips">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="flame" aria-hidden="true">🔥</span> Tips That Actually Work</h3>
+          <div class="info-block">
+            <ul class="info-list">
+              <li><strong>Accuracy first, speed second.</strong> The Speed Score rewards both — rushing into wrong answers scores worse than steady and right.</li>
+              <li><strong>Use your free sets daily.</strong> One DI Set and one Reasoning Set every day builds the exam stamina single questions can't.</li>
+              <li><strong>Read, then drill.</strong> Finish a Learn chapter and tap "Practise this" while the method is fresh.</li>
+              <li><strong>Review immediately.</strong> Same-session mistake review is free right on the results screen — the best minute of study you'll get.</li>
+              <li><strong>Protect the streak.</strong> On busy days, one 5-question Quick Drill keeps it alive. Consistency compounds.</li>
+              <li><strong>Trust the Revise card.</strong> When Guided Revision says a chapter is due, that timing is the science — revisit it then, not later.</li>
+              <li><strong>Flag anything odd.</strong> A 20-second report makes the bank better for everyone, including you.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-section guide-animate-section" id="guideFaq">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="info" aria-hidden="true">❓</span> FAQ &amp; Troubleshooting</h3>
+          <div class="info-block">
+            <h4>What exactly is free?</h4>
+            <p>Core practice (Quick, Reflex, Timed, Focus) up to 20 questions a day, one DI Set and one Reasoning Set daily, the core Learn library with revision, 5 QuanAI explanations, and all your stats and streaks. Premium removes the limits and unlocks the advanced modes and chapters.</p>
+            <h4>Does it work offline?</h4>
+            <p>Yes — practice and Learn work fully offline. QuanAI, Duel, and payments need a connection; progress syncs when you're back online.</p>
+            <h4>Is my progress synced?</h4>
+            <p>Yes. Progress is saved to your account and follows you across devices. QuantReflex uses one active device at a time — signing in on a new device signs out the old one.</p>
+            <h4>I have a coaching ID — what does it do?</h4>
+            <p>Entering it at sign-up links your account to your coaching institute so your mentors can follow your progress.</p>
+          </div>
+          <div class="info-block">
+            <h4>Something's off?</h4>
+            <ul class="info-list">
+              <li><strong>Numpad not appearing</strong> — tap the answer box once; the numpad is built-in, so the system keyboard stays out of the way.</li>
+              <li><strong>No notifications</strong> — check the Settings toggle, then your device's notification permission for your browser.</li>
+              <li><strong>Progress looks stale</strong> — pull a fresh sync by reopening the app while online.</li>
+              <li><strong>App feels outdated</strong> — Settings → Update App refreshes to the latest version.</li>
+              <li><strong>Streak didn't count</strong> — a day counts once you answer your first question in it, by your local time.</li>
+            </ul>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
   <!-- ==================== ABOUT MODAL ==================== -->
-  <div id="aboutModal" class="info-modal-overlay" style="display:none;">
+  <!-- ADR-110: rewritten. Runtime ids preserved: #aboutVersionLine + #aboutUserStatusMessage (settings.js
+       updateAboutUserStatus) + new #aboutUpdateStatus (update availability via QRUpdateManager). Contact reuses
+       the Settings .contact-card design language with its own ids. No pricing here — the paywall owns pricing. -->
+  <div id="aboutModal" class="info-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
     <div class="info-modal-content">
       <div class="info-hero">
         <div class="info-modal-header">
-          <h2 class="info-modal-title">About QuantReflex</h2>
+          <h2 class="info-modal-title" id="aboutTitle" tabindex="-1">About QuantReflex</h2>
           <button class="info-modal-close" id="aboutClose" aria-label="Close">✕</button>
         </div>
-        <p class="info-modal-subtitle">India's precision training platform for competitive Speed Aptitude</p>
+        <p class="info-modal-subtitle">The Speed Aptitude trainer for competitive exams.</p>
       </div>
       <div class="info-modal-scroll">
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">What is QuantReflex?</h3>
-        <div class="info-block info-block-highlight">
-          <p>QuantReflex is a <strong>performance-first Speed Aptitude training app</strong> built for serious exam preparation — covering <strong>Quant, Data Interpretation and Logical Reasoning</strong>. It combines speed drills, a structured <strong>Learn knowledge engine</strong>, adaptive practice, QuanAI-powered coaching, competitive 1v1 duels, and precision analytics — so you build both speed and accuracy with measurable, trackable consistency.</p>
-          <p>Unlike passive study apps, QuantReflex is <strong>action-first</strong>: every session is deliberate practice that directly mirrors exam conditions. Whether you're solving against the clock, learning a concept and practising it in one tap, or reviewing your weakest categories with AI guidance — every tap moves you closer to your target score.</p>
-          <p>QuantReflex is the <strong>student app</strong> in a connected platform: link it to your <strong>coaching institute</strong> with a coaching ID to share progress with their dashboard, all managed behind the scenes by the QuantReflex platform. It works fully <strong>offline</strong> and installs as an app on phones, tablets and desktop.</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="zap" aria-hidden="true">⚡</span> What is QuantReflex?</h3>
+          <div class="info-block info-block-highlight">
+            <p>QuantReflex trains the three skills competitive exams actually score — <strong>Quantitative Aptitude</strong>, <strong>Data Interpretation</strong>, and <strong>Logical Reasoning</strong> — the way they're actually tested: against the clock.</p>
+            <p>Knowing a method isn't the same as producing the answer in twenty seconds. QuantReflex closes that gap by turning technique into <strong>reflex</strong>: short, timed, repeated sessions where speed and accuracy are trained together, never traded against each other.</p>
+            <p>Built for MBA, banking, government, and campus aptitude tests — and for anyone who wants to be genuinely fast with numbers.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">Who Is It For?</h3>
-        <div class="info-block">
-          <ul class="info-list">
-            <li><strong>MBA entrance aspirants (CAT, XAT, SNAP, NMAT, CMAT, MAH-CET)</strong>: Build the calculation speed required for QA and DI sections</li>
-            <li><strong>Banking aspirants (IBPS PO/Clerk, SBI PO)</strong>: Master the brutal time pressure of simplification, series and DI</li>
-            <li><strong>Government-exam aspirants (SSC CGL/CHSL/MTS, RRB NTPC)</strong>: Sharpen no-calculator arithmetic, percentages and mensuration reflexes</li>
-            <li><strong>Foundation builders</strong>: Start from scratch and build genuine calculation fluency before choosing a target exam</li>
-            <li><strong>Campus placement &amp; aptitude preparation</strong>: Ace aptitude rounds in campus drives and interviews</li>
-            <li><strong>Coaching institutes</strong>: Track student progress with coaching integration and performance monitoring</li>
-            <li><strong>Self-learners</strong>: Structured daily practice that scales from beginner to advanced — no classroom needed</li>
-          </ul>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> The Philosophy</h3>
+          <div class="info-block">
+            <ul class="info-list">
+              <li><strong>Practice over theory.</strong> You learn to solve by solving.</li>
+              <li><strong>Reflex over memorization.</strong> Repetition until the method fires on sight.</li>
+              <li><strong>Accuracy before speed.</strong> Fast and wrong is just wrong — precision comes first, pace follows.</li>
+              <li><strong>Daily over occasional.</strong> Streaks and goals exist because consistency compounds.</li>
+              <li><strong>Measured, not guessed.</strong> Every session feeds honest numbers — no vanity metrics.</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">Why QuantReflex?</h3>
-        <div class="info-block">
-          <ul class="info-list">
-            <li><strong>Reflex-first training</strong>: Timed modes simulate real exam pressure so you build solving speed, not just knowledge</li>
-            <li><strong>Learn, then practise</strong>: A knowledge engine of gold-standard topics — concepts, formulas, tricks and traps — with a one-tap jump from any topic into a focused drill</li>
-            <li><strong>Precision practice</strong>: Category-focused drills and mistake-driven review target your exact weak points</li>
-            <li><strong>QuanAI coaching</strong>: Mistake explainers, study plans, and personalized insights — all powered by QuanAI, the intelligence inside QuantReflex</li>
-            <li><strong>Competitive edge</strong>: Live 1v1 Math Duels and per-session speed benchmarks that show how you're improving</li>
-            <li><strong>Measurable progress</strong>: Analytics, streaks, and daily goals convert effort into visible, trackable growth</li>
-            <li><strong>Adaptive difficulty</strong>: Questions adjust to your level in real-time — always the right challenge</li>
-            <li><strong>Anytime readiness</strong>: Installable PWA works offline across phone, tablet and desktop — train anywhere</li>
-          </ul>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="layers" aria-hidden="true">✨</span> What's Inside</h3>
+          <div class="info-block">
+            <ul class="info-list">
+              <li><strong>A full Learn library</strong> — 62 chapters across Quant, DI, and Reasoning, with quick-reference tables and spaced Guided Revision.</li>
+              <li><strong>A complete practice suite</strong> — Quick, Reflex, Timed, and Focus drills; exam-style DI and Reasoning Sets; Custom Training, Mixed Aptitude, Mistake Review, and target-exam Timed Mocks.</li>
+              <li><strong>Math Duel</strong> — live head-to-head races with a friend.</li>
+              <li><strong>QuanAI</strong> — step-by-step explanations, a coach, a study planner, and performance insights.</li>
+              <li><strong>Real progress tracking</strong> — streaks, daily goals, trends, and a Speed Score that rewards accuracy and pace together.</li>
+              <li><strong>In-app reporting</strong> — flag any question, explanation, or chapter and it gets reviewed.</li>
+              <li><strong>A true app experience</strong> — installable, offline-capable, self-updating, with dark mode, reduced motion, and full keyboard support.</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">✨ Platform Features</h3>
-        <div class="info-block">
-          <ul class="info-list">
-            <li>📖 <strong>Learn — Knowledge Engine</strong> — Deep-linkable topic pages across 5 categories: concepts, formulas, tricks, traps, worked examples &amp; revision</li>
-            <li>🔎 <strong>Search, Save &amp; Revise</strong> — Find any topic or formula instantly, star topics, and get spaced "due for revision" reminders</li>
-            <li>⚡ <strong>Quick Practice</strong> — 5 questions, untimed, perfect for daily warmup</li>
-            <li>🧠 <strong>Reflex Mode</strong> — Per-question timer builds exam-ready reflexes</li>
-            <li>⏱ <strong>Timed Tests</strong> — Full session timer simulates real exam pacing</li>
-            <li>🤖 <strong>AI Word Problems</strong> <em>(coming soon)</em> — AI-crafted, exam-style word problems: comprehension + calculation</li>
-            <li>⚔️ <strong>Math Duel</strong> — Live 1v1 competitive challenges with identical questions</li>
-            <li>📊 <strong>Detailed Analytics</strong> — Accuracy, speed, category breakdown, 7-day trends</li>
-            <li>🔥 <strong>Streak Tracking</strong> — Build consistency with daily practice streaks</li>
-            <li>👨‍🏫 <strong>Coaching Integration</strong> — Connect with coaching institutes for monitored progress</li>
-            <li>🏆 <strong>Speed Benchmarks</strong> — A per-session speed score so you can see your pace improve over time</li>
-            <li>🎯 <strong>Adaptive Practice</strong> — Questions adapt to your performance level in real-time</li>
-            <li>📈 <strong>Performance Insights</strong> — AI-powered analysis of your strengths and weaknesses</li>
-          </ul>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="lock" aria-hidden="true">💎</span> Premium</h3>
+          <div class="info-block">
+            <p>The core of QuantReflex is free: daily practice, one DI and one Reasoning Set a day, the core Learn library, QuanAI to try, and all your stats.</p>
+            <p>Premium removes the daily limits and unlocks the advanced practice modes, the premium Learn chapters, unlimited QuanAI, and the power settings — one plan, everything included, and it keeps growing. The full breakdown lives in the App Guide.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">💎 Premium</h3>
-        <div class="info-block">
-          <p><strong>Premium</strong> unlocks custom training, mistake review, hard mode, adaptive practice, the premium theme, performance insights, and unlimited daily questions.</p>
-          <p>It also includes the <strong>QuanAI suite</strong>: mistake explainer with step-by-step reasoning, personalized coach insights, and the study planner — one engine reading your real results — plus Math Duel, with QuanAI Word Problems coming soon.</p>
-          <p class="secondary-text">One-time payment · ₹349 for 6 months or ₹499 for 12 months · No auto-renewal · 7-day refund — write to quantreflex@gmail.com.</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="user" aria-hidden="true">👤</span> Your Plan</h3>
+          <div class="info-block">
+            <p id="aboutUserStatusMessage" class="about-user-status-text">Free Plan</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📋 Version Information</h3>
-        <div class="info-block">
-          <h4>Current Version</h4>
-          <p class="info-version" id="aboutVersionLine">Version v223</p>
-          <p>The Learn tab is now a full <strong>Knowledge Engine</strong> — deep-linkable topic pages, search, saved topics, spaced revision and one-tap practice — wrapped in a responsive design that adapts from phones to tablets and desktop, with accessibility and offline support throughout. Builds on the v2 foundation: AI coaching, Math Duel, adaptive training and comprehensive analytics.</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="rotate" aria-hidden="true">📋</span> Version &amp; Updates</h3>
+          <div class="info-block">
+            <p class="info-version" id="aboutVersionLine">Version v223</p>
+            <p class="info-version" id="aboutUpdateStatus">Checking for updates…</p>
+            <p>QuantReflex updates itself in the background — when a new version is ready, install it in one tap from Settings → Update App.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">👤 Your Plan</h3>
-        <div class="info-block">
-          <p id="aboutUserStatusMessage" class="about-user-status-text">Free Plan</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="cog" aria-hidden="true">👨‍💻</span> Developer</h3>
+          <div class="info-block">
+            <h4>Built by KrisVeltrix (KVt)</h4>
+            <p>QuantReflex is designed and built end-to-end by an independent developer with one goal: give serious aspirants a trainer that respects their time — fast, honest, and focused on the skills exams actually measure. Every feature ships only when it earns its place.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">🗺 What's Next</h3>
-        <div class="info-block">
-          <p>QuantReflex is actively developed and continuously improving. Areas being explored:</p>
-          <ul class="info-list">
-            <li>Performance trend graphs and historical analysis</li>
-            <li>Expanded question categories and difficulty tiers</li>
-            <li>Global leaderboards and seasonal challenges</li>
-            <li>Multi-language support</li>
-            <li>Enhanced coaching dashboard with group analytics</li>
-          </ul>
-          <p class="info-tip">💡 Quality is always prioritized over speed — every feature ships when it's ready.</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="mail" aria-hidden="true">📬</span> Contact</h3>
+          <div class="contact-card">
+            <span class="contact-card-avatar" aria-hidden="true"><span class="qr-ico" data-ico="mail">✉️</span></span>
+            <div class="contact-card-body">
+              <div class="contact-card-title">Questions, feedback, or ideas</div>
+              <a class="contact-card-email" id="aboutContactEmailLink" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>
+            </div>
+            <button class="contact-card-copy" id="aboutContactEmailCopy" type="button" aria-label="Copy email address" title="Copy email">
+              <span class="qr-ico" data-ico="copy" aria-hidden="true">📋</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">👨‍💻 Developer</h3>
-        <div class="info-block">
-          <h4>Built by KrisVeltrix (KVt)</h4>
-          <p>QuantReflex was built with a single conviction: speed aptitude — quant, data interpretation, and logical reasoning — isn't talent, it's trained reflex. This platform exists to make that training structured, measurable, and accessible to every serious exam aspirant.</p>
+        <div class="info-section guide-animate-section">
+          <h3 class="info-section-title"><span class="qr-ico" data-ico="check" aria-hidden="true">🔐</span> Privacy</h3>
+          <div class="info-block">
+            <p>Your progress is stored securely in your account and synced across your devices. Payments are processed by Razorpay — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <h3 class="info-section-title">📬 Contact</h3>
-        <div class="info-block">
-          <p>For feedback, suggestions, or support, reach out at:</p>
-          <p><a href="mailto:quantreflex@gmail.com"><strong>quantreflex@gmail.com</strong></a></p>
+        <div class="info-section guide-animate-section">
+          <blockquote class="info-quote">"Speed is a skill. Train it like one."</blockquote>
         </div>
-      </div>
 
-      <div class="info-section guide-animate-section">
-        <div class="info-block info-quote">
-          <p><em>"From practice to percentile — one session at a time."</em></p>
-        </div>
-      </div>
       </div>
     </div>
   </div>

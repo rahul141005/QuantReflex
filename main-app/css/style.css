@@ -2292,17 +2292,66 @@ body.dark-mode .stats-insights-locked-cta {
   display: none;
 }
 .info-modal-title {
-  font-size: 16px;
-  font-weight: 600;
+  /* ADR-110: the modal title must outrank the block h4s below it (was 16px/600 — visually inverted hierarchy). */
+  font-size: 1.2rem;
+  font-weight: 800;
   color: #0f172a;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
 }
+.info-modal-title:focus { outline: none; }   /* programmatic focus target on open (ADR-110 a11y) — no ring on mouse */
 .info-modal-subtitle {
   font-size: .85rem;
   color: #64748b;
   line-height: 1.5;
   margin: .3rem 0 0;
 }
+/* ADR-110: Guide section navigation — one horizontally scrollable chip row in the sticky hero. */
+.info-toc {
+  display: flex;
+  gap: .4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: .7rem 0 .1rem;
+  padding-bottom: .15rem;
+}
+.info-toc::-webkit-scrollbar { display: none; }
+.info-toc-chip {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: .3rem .7rem;
+  cursor: pointer;
+  min-height: 1.9rem;
+}
+.info-toc-chip:active { transform: scale(.97); }
+.info-toc-chip:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+body.dark-mode .info-toc-chip { color: #cbd5e1; background: #1e293b; border-color: #334155; }
+/* ADR-110: inline Premium marker — replaces the bare 🔒 glyph in prose with a self-explanatory chip. */
+.info-premium-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  vertical-align: baseline;
+  font-size: .62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: #2563eb;
+  background: rgba(37,99,235,.12);
+  border-radius: .4rem;
+  padding: .12rem .4rem;
+}
+.info-premium-chip .qr-ico { width: .75em; height: .75em; }
+body.dark-mode .info-premium-chip { color: #93c5fd; background: rgba(96,165,250,.18); }
 
 /* Info modal sections */
 .info-section {
@@ -2444,20 +2493,14 @@ body.dark-mode .info-quote p { color: #94a3b8; }
   transform: translateY(12px);
   animation: guideCardFadeIn .4s ease forwards;
 }
-.guide-animate-section:nth-child(2) { animation-delay: .08s; }
-.guide-animate-section:nth-child(3) { animation-delay: .16s; }
-.guide-animate-section:nth-child(4) { animation-delay: .24s; }
-.guide-animate-section:nth-child(5) { animation-delay: .32s; }
-.guide-animate-section:nth-child(6) { animation-delay: .40s; }
-.guide-animate-section:nth-child(7) { animation-delay: .48s; }
-.guide-animate-section:nth-child(8) { animation-delay: .56s; }
-.guide-animate-section:nth-child(9) { animation-delay: .64s; }
-.guide-animate-section:nth-child(10) { animation-delay: .72s; }
-.guide-animate-section:nth-child(11) { animation-delay: .80s; }
-.guide-animate-section:nth-child(12) { animation-delay: .88s; }
-/* Safety cap (ADR-103): any sections beyond 12 share the last delay so they never pop in early
-   with delay:0 — the About modal (11) + App Guide (12) both now stagger fully to the last card. */
-.guide-animate-section:nth-child(n+13) { animation-delay: .88s; }
+/* ADR-110: tighter stagger — the Guide now has 16 sections; a .88s tail felt slow. First few cards cascade,
+   everything below the fold (n+7) shares one late-but-snappy delay. Reduced-motion kill-switch still applies. */
+.guide-animate-section:nth-child(2) { animation-delay: .06s; }
+.guide-animate-section:nth-child(3) { animation-delay: .12s; }
+.guide-animate-section:nth-child(4) { animation-delay: .18s; }
+.guide-animate-section:nth-child(5) { animation-delay: .24s; }
+.guide-animate-section:nth-child(6) { animation-delay: .30s; }
+.guide-animate-section:nth-child(n+7) { animation-delay: .36s; }
 @keyframes guideCardFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
