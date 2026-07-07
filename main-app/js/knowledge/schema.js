@@ -15,7 +15,10 @@
   /* Allowed enums — kept tiny and stable. */
   var DIFFICULTIES = ['foundation', 'core', 'advanced'];
   var FREQUENCIES = ['very-high', 'high', 'medium', 'low'];
-  var STATUSES = ['published', 'scaffold'];   // gold-standard vs coming-soon (never filler)
+  // gold-standard vs coming-soon (never filler). RETAINED SEAM (ADR-104): all 62 topics are currently 'published',
+  // so the 'scaffold' branches across learn-view.js are dormant — but this is a deliberate, low-cost extensibility
+  // point for staging future topics honestly, and the content gate depends on the published/scaffold split. Kept.
+  var STATUSES = ['published', 'scaffold'];
 
   /* Block types the engine understands. Each maps 1:1 to a renderer in blocks.js. */
   var BLOCK_TYPES = [

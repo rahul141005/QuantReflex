@@ -10,8 +10,13 @@
  * All functions remain as bare globals for backward compatibility.
  */
 
+/* Custom-practice question-count bounds — the single source of truth for the default (ADR-104: was duplicated as a
+   literal 20 on _customPracticeState.totalQuestions). Declared before the state that seeds from it. */
+var _CUSTOM_DEFAULT_QUESTIONS = 20;
+var _CUSTOM_MIN_QUESTIONS = 1;
+var _CUSTOM_MAX_QUESTIONS = 100;
 var _customPracticeState = {
-  totalQuestions: 20
+  totalQuestions: _CUSTOM_DEFAULT_QUESTIONS
 };
 var selectedTopics = [];
 var _customPracticeDom = {
@@ -27,9 +32,6 @@ var _focusSelectedCategory = null;
 var _focusSelectedCategoryLabel = null;
 var _adaptiveModeActive = false;
 var _selectedTimerOption = 'none';
-var _CUSTOM_DEFAULT_QUESTIONS = 20;
-var _CUSTOM_MIN_QUESTIONS = 1;
-var _CUSTOM_MAX_QUESTIONS = 100;
 var _timerPillMode = 'per';
 
 /* ---- Timer Config ---- */

@@ -484,7 +484,6 @@ var DuelManager = (function () {
   function _renderResults() {
     DuelUI.renderResults(_el('duelResults'), {
       duel: _duel, myUid: _myUid(),
-      onShare: function () {},
       onReview: _openReview,                      // ADR-064: per-question match review
       onFinish: function () { _finishDuel(_code); }
     });

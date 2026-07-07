@@ -167,7 +167,10 @@ var LearnView = (function () {
   }
 
   /* ADR-092 de-badging: difficulty + AT MOST one contextual badge per card. Exam frequency stays on the topic
-     page where there's room for full metadata — 62 cards × 3 badges was a wall, not information. */
+     page where there's room for full metadata — 62 cards × 3 badges was a wall, not information.
+     Note (ADR-104): the `status === 'scaffold'` branches here and elsewhere in this file are a RETAINED SEAM —
+     dormant today (all 62 topics are 'published') but the intended, honest way to stage future "coming soon"
+     topics. Kept deliberately; see schema.js STATUSES. */
   function _topicCardHtml(t) {
     return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +

@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.125 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.126 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.62 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.30 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.126 (2026-07-07)** — **Phase-1 verification hardening + Phase-2 dead-code prune (ADR-104).** Adversarial
+> re-review of Phase 1 (ADR-103): added `refundFreeExplain` so a pre-generation server error can't burn a free
+> credit, and a proactive Explain-button lock at exhaustion; extended `free-explain.check.js` to 26 assertions. The
+> `ai_explain` paywall-copy reword was declined (shared key across three exhaustion sources) → Phase 5. Phase-2
+> "clean up behind the scenes": removed dead ids (`#masterySection`/`#timeSection`), a never-read `onShare` noop, and
+> a duplicated custom-practice default; **retained** the scaffold seam (documented). No schema/rules change; rides
+> unreleased `v222` (no SW/version re-bump).
 
 > **2.125 / Firestore 2.30 (2026-07-07)** — **Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish
 > (ADR-103).** The upgrade screen's "free AI explanations" promise is now honoured: free accounts get **5 real QuanAI

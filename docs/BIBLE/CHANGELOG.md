@@ -6,6 +6,31 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Phase-1 verification hardening + Phase-2 dead-code prune (ADR-104)
+
+Independent adversarial re-review of Phase 1 (ADR-103) before Phase 2. Phase 1 verified sound; three real free-explain
+gaps fixed, then the Phase-2 "clean up behind the scenes" prune. Rides unreleased `v222` (no re-bump).
+
+- **Free-explain hardening.** Added `aiService.refundFreeExplain` (transactional, clamp-at-0, cache-coherent —
+  mirrors `refundWordProblemQuota`), wired into `api/ai.js`'s dispatch `catch` to refund iff `req.freeExplain` was
+  granted — so a throw *before* content is produced (e.g. `ctxEngine.build`) can't silently burn a credit
+  (`explainBase`'s own fallback still keeps the credit, since it delivers content). Clamp is the pure
+  `freeExplainPolicy.freeExplainRefund`. `companion-ui` now flips the exhausted flag when the server echoes
+  `remaining === 0`, so the Explain button locks immediately instead of wasting a 6th tap. `free-explain.check.js`
+  extended to 26 assertions (refund: give back one, clamp at 0, round-trip).
+- **`ai_explain` paywall copy — declined (→ Phase 5).** The key is shared by three exhaustion sources (real Explain,
+  local auto-tip, word-problems); a 5-free reword would misdescribe two. Specific messaging already correct at each
+  source. Entitlement-key cleanup deferred to Phase 5.
+- **Phase-2 dead-code prune (grep-proven dead, smoke-verified).** Removed the unreferenced `#masterySection` /
+  `#timeSection` ids (`index.html`; live children `#statsMastery`/`#statsTime` untouched); removed the never-read
+  `onShare` noop (`duel-manager.js`); consolidated the duplicated custom-practice default (`practice-config.js` now
+  seeds `totalQuestions` from `_CUSTOM_DEFAULT_QUESTIONS`). **Retained** the scaffold subsystem (`learn-view.js` /
+  `schema.js`) with "retained seam" comments — a deliberate extensibility point the content gate depends on. Kept
+  `?action=wordproblems` (future-ready). ARC-2/ARC-5 left as-is (churn/risk for zero behavior change); the ADR-092
+  legacy-Learn CSS was already pruned (0 matches).
+- **Docs:** ADR-104 (DECISION_LOG) + ADR-103 follow-up pointer; VERSIONS (Bible 2.125→2.126). **Verification:**
+  `npm test` green; Playwright re-confirmed the stagger + version line and Stats-section DOM integrity.
+
 ## 2026-07-07 — Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish (ADR-103)
 
 Made the upgrade screen's long-standing "free AI explanations" promise true. Free accounts now get **5 real QuanAI

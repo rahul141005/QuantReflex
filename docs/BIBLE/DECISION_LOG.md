@@ -8,6 +8,61 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-104 — Phase-1 verification hardening + Phase-2 dead-code prune (2026-07-07)
+- **Context.** An independent adversarial re-review of Phase 1 (ADR-103) before starting Phase 2. Phase 1 held up —
+  every roadmap objective was confirmed delivered (stagger to the 12th section + cap, runtime version line,
+  reconciled Guide audience, `exam-relevance.js` "Quant 1–36" = exactly 36 entries, the `learn-progress.js` fallback
+  comment accurate since only the 7 Quant data files set `revisionIntervalDays`, no reachable guest/Explain
+  regression because the app is login-gated, governance + tests green). The review surfaced **three** genuine gaps in
+  the free-explain feature and cleared the way for the Phase-2 cleanup. `v222` is unreleased, so all of this rides the
+  same `v222` (no re-bump; the `update.check` SW↔`QR_APP_VERSION` lockstep stays satisfied).
+- **Verification-pass fixes (free-explain hardening).**
+  - **Refund on empty failure (correctness).** `aiBrain.explainBase` guards only LLM generation (its catch returns a
+    usable fallback envelope = content, so that path rightly keeps the credit), but `ctxEngine.build(uid)` + setup run
+    *outside* any try/catch — a throw there surfaces as a 500 with the free credit already consumed and nothing shown.
+    Added `aiService.refundFreeExplain(uid)` (transactional `explanationsUsed = max(0, n-1)`, clamp-at-0,
+    cache-coherent, best-effort — mirrors `refundWordProblemQuota`) and wired it into the `api/ai.js` dispatch `catch`
+    to fire **only** when `req.freeExplain` was granted. The clamp is a pure `freeExplainPolicy.freeExplainRefund`
+    (single-sourced, unit-tested). Net: a transient server error never silently burns one of a user's 5.
+  - **Proactive lock after the 5th (UX).** When the server echoes `freeExplain.remaining === 0`, `companion-ui`
+    flips the session exhausted flag so the Explain button shows 🔒 on its next render instead of wasting a 6th tap
+    that the server would 403.
+  - **`ai_explain` paywall copy — investigated, deliberately NOT changed (→ Phase 5).** The reword was unsafe: the
+    `ai_explain` paywall key is shared by **three** exhaustion sources — the real QuanAI Explain (drill/duel/
+    companion), the local rule-based auto-tip (`drill-engine.js` `_buildAutoTip`, `qr_explain_credits`), and the
+    word-problems free-limit (`ai-features.js`). A 5-free-explanations line would misdescribe the other two. The
+    specific "used all 5" message is already surfaced at the explain source (companion) and the word-problem source
+    (its own error text), so nothing is user-facing-wrong. The shared-key mismatch is an entitlement-key cleanup
+    deferred to Phase 5 ("tidy the paid/free system").
+  - Tests: `scripts/free-explain.check.js` extended with refund assertions (give back exactly one, clamp at 0,
+    consume-then-refund round-trips) — 26 assertions, green.
+- **Phase-2 — "Clean up behind the scenes" (dead-code prune).** Each removal grep-proven dead first, then re-verified
+  by `npm test` + a Playwright DOM-integrity smoke.
+  - **ARC-1 — dead HTML ids.** `#masterySection` / `#timeSection` (`index.html`) were referenced nowhere in JS/CSS
+    (unlike `weakestSection` / `recommendationSection`, which are entitlement-toggled via `_toggleSection`). Removed
+    just the two dead ids; the `.analytics-section` wrappers and their live children (`#statsMastery` / `#statsTime`,
+    populated by `stats-view.js`) are untouched. Smoke confirmed the sections still render and the ids are gone.
+  - **ARC-3 — small dead ends.** Removed the never-read `onShare: function(){}` passed to `DuelUI.renderResults`
+    (`duel-manager.js`); consolidated the duplicated custom-practice default (`practice-config.js` seeded
+    `totalQuestions` with a literal `20` beside `_CUSTOM_DEFAULT_QUESTIONS = 20`) so the constant is the single source
+    (reordered so the state seeds from it). **Kept** `api/ai?action=wordproblems` (intentional future-ready infra with
+    live quota plumbing; paid-system-adjacent → Phase 5).
+  - **LRN-1 — scaffold subsystem: RETAINED, not pruned.** The `status === 'scaffold'` paths in `learn-view.js`
+    (+ `schema.js` `STATUSES`) are dormant (all 62 topics `published`), but scaffold is a deliberate, low-cost
+    extensibility seam — the honest way to stage future "coming soon" topics — and the content-quality gate depends on
+    the `published`/`scaffold` split. Pruning it would remove a capability that makes *later work safer* (the opposite
+    of Phase 2's intent); the audit explicitly sanctions keeping it with a note. Added concise "retained seam" comments
+    at `schema.js` `STATUSES` and the primary `learn-view.js` scaffold site; **no behavior change**.
+  - **Already done / consciously declined.** The ADR-092 legacy-Learn CSS follow-ups (`.learn-jump-*`,
+    `.learn-group-*`, `.search-highlight`, `learn-searchable`) grep to **0 matches** — pruned in a prior pass, nothing
+    to do. **ARC-2** (`_renderDailyQuota` misfiled but functionally correct) and **ARC-5** (`answer-format.js` path
+    nit) are left as-is — moving working, loaded/required code is pure churn/regression risk for zero behavior change.
+- **Consequences.** The "5 free" promise is now fair under transient failure and doesn't waste a tap at exhaustion;
+  the codebase sheds genuinely-dead ids/keys and de-duplicates a constant while preserving a useful extensibility seam.
+  No schema/rules/index change; no version re-bump (unreleased `v222`).
+
+---
+
 ## ADR-103 — Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish (2026-07-07)
 - **Context (from the product audit → Phase-1 roadmap).** The upgrade screen has long promised free users a taste of
   the real QuanAI "Explain" feature, and the codebase even carried a `FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS = 5`
@@ -63,7 +118,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   curly-quote stragglers in the App Guide.
 - **Consequences.** The promise on the upgrade screen is now true; the dead constant is load-bearing; the free→paid
   funnel gets a real, bounded taste of QuanAI with a server-enforced cap that survives storage clears. Deferred (per
-  the user's upcoming Premium/paywall work): a cross-session exhausted-button hint and any refund path.
+  the user's upcoming Premium/paywall work): a cross-session exhausted-button hint.
+- **Verification-pass follow-ups (2026-07-07, see ADR-104):** an adversarial re-review added a refund path
+  (`refundFreeExplain`) so a pre-generation server error can't burn a credit, and a proactive session-lock when the
+  5th is spent. The `ai_explain` paywall-copy reword was investigated and deliberately declined (shared key) → Phase 5.
 
 ---
 
