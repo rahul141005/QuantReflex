@@ -31,6 +31,9 @@ async function _explain(req, res) {
   var answer = body.answer;
   var category = typeof body.category === 'string' ? body.category : '';
   if (!question || answer === undefined) {
+    /* ADR-104 principle: refund on EVERY path that consumed a free credit but delivered no content. This 400 is a
+       `return` (not a throw), so the dispatch catch's refund never sees it — refund here. */
+    if (req.freeExplain) { try { await aiService.refundFreeExplain(req.userId); } catch (_) {} }
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields: question, answer', retryable: false } });
   }
   var response = await aiBrain.explainBase(question, String(answer).substring(0, 50), category, req.userId);
