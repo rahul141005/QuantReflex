@@ -374,7 +374,7 @@ function createDrillEngine(container, opts) {
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
     }
     var _sk = typeof loadSettings === 'function' ? loadSettings() : {};
-    var _ska = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
+    var _ska = (typeof canAccessFeature === 'function') && canAccessFeature('skip_question'); /* ADR-109 fail-closed */
     if (_ska && _sk.skipEnabled && _sk.difficulty !== 'hard') {
       var skipBtn = document.createElement('button'); skipBtn.className = 'btn skip-btn'; skipBtn.textContent = 'Skip →';
       skipBtn.addEventListener('click', function () { if (answered) return; answered = true; recordAnswer(false, q.category, q, null); nextQuestion(); });
@@ -631,7 +631,7 @@ function createDrillEngine(container, opts) {
       }
     } else {
       var _skipSettings = typeof loadSettings === 'function' ? loadSettings() : {};
-      var _skipFeatureAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('skip_question') : true;
+      var _skipFeatureAccess = (typeof canAccessFeature === 'function') && canAccessFeature('skip_question'); /* ADR-109 fail-closed */
       if (_skipFeatureAccess && _skipSettings.skipEnabled && _skipSettings.difficulty !== 'hard') {
         var skipBtn = document.createElement('button');
         skipBtn.className = 'btn skip-btn';
@@ -997,6 +997,13 @@ function createDrillEngine(container, opts) {
      Two exits: "Upgrade to continue" (registers a one-shot resume hook, opens the paywall) and "See results" (ends
      normally — every answered question was already recorded, so analytics are complete and identical). */
   function _renderQuotaReached() {
+    /* ADR-109 telemetry: the free daily cap was hit mid-session. `set_interrupted` when it truncates a DI/LR set,
+       else `daily_quota_reached`. Best-effort, reuses the batched AIAnalytics sink. */
+    try {
+      if (typeof AIAnalytics !== 'undefined' && AIAnalytics.log) {
+        AIAnalytics.log('premium', diSet ? 'set_interrupted' : 'daily_quota_reached', { mode: mode, answered: current });
+      }
+    } catch (_) { /* best-effort */ }
     /* Freeze any running countdowns so a timed test can't fire finish() underneath the panel. We keep the engine
        otherwise intact (no cleanup) — this is a pause, not an end. */
     if (overallTimer) { clearInterval(overallTimer); overallTimer = null; }

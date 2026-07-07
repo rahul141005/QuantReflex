@@ -86,7 +86,7 @@ function _initTimerControls() {
   if (!toggle) return;
 
   toggle.addEventListener('change', function () {
-    if (this.checked && _focusModeActive && typeof canAccessFeature === 'function' && !canAccessFeature('focus_timer')) {
+    if (this.checked && _focusModeActive && (typeof canAccessFeature !== 'function' || !canAccessFeature('focus_timer'))) {
       this.checked = false;
       if (typeof showPaywall === 'function') showPaywall('focus_timer');
       return;

@@ -23,13 +23,16 @@ var DEFAULT_PLAN = 'premium_12m';
    two in lockstep — scripts/daily-limit.check.js asserts they never drift. */
 var FREE_DAILY_QUESTION_LIMIT = 20;
 
-/* Every premium-gated feature. With the single tier, all of these require premium. */
+/* Every premium-gated feature. With the single tier, all of these require premium. Kept in lockstep with
+   shared/constants/entitlements.js → PREMIUM_FEATURES by scripts/entitlement-parity.check.js (ADR-109). */
 var _LOCKED_FEATURES = {
   custom_training: true, review_mistakes: true, add_formula: true, add_topic: true,
   performance_insights: true, category_accuracy: true, hard_mode: true, skip_question: true,
   advanced_theme: true, daily_goal_limit: true, focus_timer: true, table_modal: true,
   adaptive_training: true, math_duel: true, timed_mocks: true,
-  ai_explain: true, ai_coach: true, ai_study_plan: true
+  ai_explain: true, ai_coach: true, ai_study_plan: true,
+  /* ADR-109 — Premium Phase 6: Mixed Aptitude practice mode + gated Learn topics/sections. */
+  mixed_aptitude: true, learn_premium: true
 };
 
 var PAYWALL_DEBOUNCE_MS = 280;
@@ -43,6 +46,7 @@ var _paymentBusy = false;
 var _paymentSafetyTimer = null;
 var _paymentSlowTimer = null;
 var _attemptId = 0;
+var _lastPaywallFeature = '';   /* ADR-109: the feature key of the most recently shown paywall, for upgrade attribution */
 
 function _toMillis(value) {
   if (!value) return 0;
@@ -100,6 +104,41 @@ function canAccess(feature, user) {
 
 function canAccessFeature(feature) {
   return canAccess(feature, _getAccessUserState());
+}
+
+/* ─────────────────────── Entitlement telemetry (ADR-109) ───────────────────────
+   Reuses the batched AIAnalytics sink (users/{uid}/aiEvents; it already stamps `plan`). Best-effort, never throws.
+   feature is always 'premium'; the specific gated key rides in meta so the event taxonomy stays small + dedup-able. */
+function _track(type, featureKey, extra) {
+  try {
+    if (typeof AIAnalytics !== 'undefined' && AIAnalytics.log) {
+      var meta = { key: String(featureKey || '') };
+      if (extra && typeof extra === 'object') { for (var k in extra) { if (extra.hasOwnProperty(k)) meta[k] = extra[k]; } }
+      AIAnalytics.log('premium', type, meta);
+    }
+  } catch (_) { /* best-effort */ }
+}
+
+/* ─────────────────────── THE single fail-closed entitlement checkpoint (ADR-109) ───────────────────────
+   Every premium-gated action funnels through requirePremium(): it returns true ONLY when the user genuinely has
+   premium; otherwise it records the attempt, opens the paywall for that feature, and returns false. Fail-closed by
+   construction — the key is treated as gated regardless of _LOCKED_FEATURES membership, and an unresolved/absent
+   entitlement state resolves to free (hasPremiumAccess → false). Use this at every gate instead of the old
+   `typeof canAccessFeature === 'function' ? canAccessFeature(x) : true` idiom (which failed OPEN). */
+function requirePremium(featureKey, opts) {
+  if (hasPremiumAccess(_getAccessUserState())) return true;
+  _track('feature_attempted', featureKey);
+  if (!(opts && opts.silent) && typeof showPaywall === 'function') showPaywall(featureKey);
+  return false;
+}
+
+/* Pure, side-effect-free premium read for RENDERING decisions (lock badges, disabled controls). Fails closed: if
+   paywall state can't resolve, a gated key reads as NOT allowed. Mirrors canAccess but never fails open on a known key. */
+function isPremiumFeature(featureKey) {
+  return !!_LOCKED_FEATURES[featureKey];
+}
+function isFeatureAllowed(featureKey) {
+  return hasPremiumAccess(_getAccessUserState()) || !_LOCKED_FEATURES[featureKey];
 }
 
 /* ADR-103: free users get 5 lifetime QuanAI "Explain" calls. The SERVER is the true gate (it decrements a
@@ -179,6 +218,7 @@ function openPremiumPayment(planType, userId) {
   if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; btn.classList.add('pw-cta--loading'); }
 
   console.info('[PaymentFlow] PAYMENT_INITIATED | plan: ' + planType + ' | uid: ' + userId);
+  _track('upgrade_initiated', _lastPaywallFeature, { plan: planType });   /* ADR-109 telemetry */
 
   if (_paymentSlowTimer) clearTimeout(_paymentSlowTimer);
   _paymentSlowTimer = setTimeout(function () {
@@ -259,6 +299,8 @@ function openPremiumPayment(planType, userId) {
                       return;
                     }
                     console.info('[PaymentFlow] PAYMENT_VERIFIED | plan: ' + result.plan);
+                    _track('upgrade_completed', _lastPaywallFeature, { plan: result.plan });   /* ADR-109 */
+                    _track('feature_unlocked', _lastPaywallFeature);
                     /* Force-refresh JWT so the new `premium` claim is available immediately */
                     try {
                       var _cu = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
@@ -413,6 +455,9 @@ function showPaywall(featureType) {
   /* Already premium? nothing to sell. */
   if (hasPremiumAccess(_getAccessUserState())) return;
 
+  _lastPaywallFeature = featureType || '';   /* ADR-109: remembered so a subsequent upgrade attributes to this gate */
+  _track('gate_shown', featureType);
+
   var now = Date.now();
   var existing = document.getElementById('paywallModalOverlay');
   if (existing && existing.classList.contains('closing')) {
@@ -523,6 +568,9 @@ function showPaywall(featureType) {
 
 global.canAccess = canAccess;
 global.canAccessFeature = canAccessFeature;
+global.requirePremium = requirePremium;
+global.isPremiumFeature = isPremiumFeature;
+global.isFeatureAllowed = isFeatureAllowed;
 global.canOpenExplain = canOpenExplain;
 global.markFreeExplainExhausted = markFreeExplainExhausted;
 global.showPaywall = showPaywall;
@@ -533,6 +581,9 @@ global.hasPremiumAccess = hasPremiumAccess;
 global.Paywall = {
   canAccess: canAccess,
   canAccessFeature: canAccessFeature,
+  requirePremium: requirePremium,
+  isPremiumFeature: isPremiumFeature,
+  isFeatureAllowed: isFeatureAllowed,
   showPaywall: showPaywall,
   openPremiumPayment: openPremiumPayment,
   getDailyQuestionLimit: getDailyQuestionLimit,

@@ -11288,6 +11288,19 @@ body.dark-mode .kx-tc-title { color: #f1f5f9; }
 .kx-diff-advanced { background: rgba(217,119,6,.16); color: #d97706; }
 .kx-freq { background: rgba(100,116,139,.14); color: #475569; }
 .kx-status-scaffold { background: rgba(100,116,139,.14); color: #475569; }
+/* ADR-109: Premium-gated Learn topic badge + card affordance. */
+.kx-status-premium { background: rgba(37,99,235,.14); color: #2563eb; display: inline-flex; align-items: center; gap: .25rem; font-weight: 700; }
+.kx-status-premium .qr-ico { width: .8em; height: .8em; }
+.kx-topic-card.is-premium .kx-tc-title { opacity: .82; }
+body.dark-mode .kx-status-premium { background: rgba(96,165,250,.2); color: #93c5fd; }
+/* ADR-109: locked topic page (rendered in place of the chapter for a gated topic the user hasn't unlocked). */
+.kx-topic-locked { text-align: center; max-width: 30rem; margin: 1.5rem auto 0; display: flex; flex-direction: column; align-items: center; gap: .75rem; padding: 1.5rem 1.1rem; border: 1px solid var(--qr-border); border-radius: 1rem; background: var(--qr-surface-2); }
+.kx-locked-icon { font-size: 2.4rem; line-height: 1; color: #2563eb; }
+.kx-locked-icon .qr-ico { width: 2.2rem; height: 2.2rem; }
+.kx-locked-title { font-size: 1.2rem; font-weight: 800; color: var(--qr-text); margin: 0; }
+.kx-locked-sub { font-size: .92rem; line-height: 1.5; color: var(--qr-text-mut); margin: 0; }
+.kx-locked-cta { width: 100%; max-width: 18rem; margin-top: .35rem; }
+body.dark-mode .kx-locked-icon { color: #93c5fd; }
 body.dark-mode .kx-diff-foundation { background: rgba(22,163,74,.2); color: #4ade80; }
 body.dark-mode .kx-diff-core { background: rgba(37,99,235,.22); color: #60a5fa; }
 body.dark-mode .kx-diff-advanced { background: rgba(217,119,6,.22); color: #fbbf24; }

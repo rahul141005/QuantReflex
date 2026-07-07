@@ -72,6 +72,12 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
     showPaywall('review_mistakes');
     return;
   }
+  /* ADR-109: Mixed Aptitude is Premium. Head gate here (PREM-5 pattern) — not only the card UI — so the companion-ui
+     deepLink path (server-supplied `mode`) and any future direct caller can't bypass it. Fail-closed: if the
+     entitlement API is unavailable, deny. requirePremium() opens the paywall + records telemetry. */
+  if (modeKey === 'mixed' && !(typeof requirePremium === 'function' && requirePremium('mixed_aptitude'))) {
+    return;
+  }
   /* Secondary explicit guard against console UI bypass for premium modes */
   if (modeKey === 'custom' || modeKey === 'review') {
     var isPrem = (typeof hasPremiumAccess === 'function') ? hasPremiumAccess() : false;
@@ -180,7 +186,7 @@ function startMockFromPractice(examId) {
      calling, but keeping the gate at the launcher head means ANY future caller (deep link, retry, test) is safe —
      the entitlement is enforced in one authoritative place, not only at the UI entry point. Premium users have an
      Infinity daily limit, so the 20/day cap never blocks a mock. */
-  if (typeof canAccessFeature === 'function' && !canAccessFeature('timed_mocks')) {
+  if (typeof canAccessFeature !== 'function' || !canAccessFeature('timed_mocks')) {
     if (typeof showPaywall === 'function') showPaywall('timed_mocks');
     return;
   }
@@ -515,6 +521,10 @@ function initPracticeView() {
         } else if (modeKey === 'review') {
           if (!canAccessFeature('review_mistakes')) { showPaywall('review_mistakes'); return; }
           startDrillFromPractice('review');
+        } else if (modeKey === 'mixed') {
+          /* ADR-109: Mixed Aptitude is Premium. Gate at the card (paywall) — startDrillFromPractice re-checks. */
+          if (typeof requirePremium === 'function' ? !requirePremium('mixed_aptitude') : true) return;
+          startDrillFromPractice('mixed');
         } else if (modeKey === 'quick' || modeKey === 'reflex' || modeKey === 'timed') {
           /* ADR-080: ask which subject first (unless the user opted out) — then launch the session scoped to it. */
           _launchQuickStart(modeKey);

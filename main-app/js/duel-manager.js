@@ -30,7 +30,7 @@ var DuelManager = (function () {
   var _pendingDeepLink = null;
 
   function _el(id) { return document.getElementById(id); }
-  function _premiumOk() { return (typeof canAccessFeature === 'function') ? canAccessFeature('math_duel') : true; }
+  function _premiumOk() { return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel'); }
   /* Math Duel is PWA-ONLY (ADR-038): real-time multiplayer needs the installed app — browser tabs don't run duels. */
   function _pwaOk() {
     try {

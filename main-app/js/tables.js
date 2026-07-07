@@ -166,7 +166,7 @@ function _attachTripleTap(card, n) {
  */
 function _openTableModal(n) {
   if (document.querySelector('.table-modal-overlay')) return;
-  if (typeof canAccessFeature === 'function' && !canAccessFeature('table_modal')) {
+  if (typeof canAccessFeature !== 'function' || !canAccessFeature('table_modal')) {
     if (typeof showPaywall === 'function') showPaywall('table_modal');
     return;
   }

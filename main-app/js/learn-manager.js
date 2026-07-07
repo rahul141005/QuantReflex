@@ -110,7 +110,7 @@ function isBookmarked(formulaId) {
 /* ---- Custom formula CRUD ---- */
 
 function addCustomFormula(topicId, formula) {
-  if (typeof canAccessFeature === 'function' && !canAccessFeature('add_formula')) {
+  if (typeof canAccessFeature !== 'function' || !canAccessFeature('add_formula')) {
     if (typeof showPaywall === 'function') showPaywall('add_formula');
     return null;
   }
@@ -158,7 +158,7 @@ function getCustomFormulasForTopic(topicId) {
 /* ---- Custom topic CRUD ---- */
 
 function addCustomTopic(name) {
-  if (typeof canAccessFeature === 'function' && !canAccessFeature('add_topic')) {
+  if (typeof canAccessFeature !== 'function' || !canAccessFeature('add_topic')) {
     if (typeof showPaywall === 'function') showPaywall('add_topic');
     return null;
   }
@@ -329,10 +329,10 @@ function renderCustomFormulas(container, topicId, onUpdate) {
 function renderAddFormulaButton(container, topicId, onUpdate) {
   var btn = document.createElement('button');
   btn.className = 'btn add-formula-btn';
-  var canAddFormula = (typeof canAccessFeature === 'function') ? canAccessFeature('add_formula') : true;
+  var canAddFormula = (typeof canAccessFeature === 'function') && canAccessFeature('add_formula');
   btn.textContent = canAddFormula ? '+ Add Formula / Tip' : '🔒 Add Formula / Tip (Premium)';
   btn.addEventListener('click', function () {
-    var hasAccessNow = (typeof canAccessFeature === 'function') ? canAccessFeature('add_formula') : true;
+    var hasAccessNow = (typeof canAccessFeature === 'function') && canAccessFeature('add_formula');
     if (!hasAccessNow) {
       if (typeof showPaywall === 'function') showPaywall('add_formula');
       return;
@@ -433,7 +433,7 @@ function renderCustomTopicSections() {
       card.appendChild(header);
 
       header.querySelector('.rename-topic-btn').addEventListener('click', function () {
-        var hasTopicAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('add_topic') : true;
+        var hasTopicAccess = (typeof canAccessFeature === 'function') && canAccessFeature('add_topic');
         if (!hasTopicAccess) {
           if (typeof showPaywall === 'function') showPaywall('add_topic');
           return;
@@ -448,7 +448,7 @@ function renderCustomTopicSections() {
       });
 
       header.querySelector('.delete-topic-btn').addEventListener('click', function () {
-        var hasTopicAccess = (typeof canAccessFeature === 'function') ? canAccessFeature('add_topic') : true;
+        var hasTopicAccess = (typeof canAccessFeature === 'function') && canAccessFeature('add_topic');
         if (!hasTopicAccess) {
           if (typeof showPaywall === 'function') showPaywall('add_topic');
           return;

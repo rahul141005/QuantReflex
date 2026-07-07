@@ -103,7 +103,31 @@ var PREMIUM_FEATURES = {
   AI_EXPLAIN: 'ai_explain',
   AI_COACH: 'ai_coach',
   AI_STUDY_PLAN: 'ai_study_plan',
-  MATH_DUEL: 'math_duel'
+  MATH_DUEL: 'math_duel',
+  TIMED_MOCKS: 'timed_mocks',        // was missing here (client _LOCKED_FEATURES had it) — ADR-109 lockstep fix
+  MIXED_APTITUDE: 'mixed_aptitude',  // ADR-109 — Mixed Aptitude practice mode is Premium
+  LEARN_PREMIUM: 'learn_premium'     // ADR-109 — gated Learn topics/sections
+};
+
+// ══════════════════════════════════════════════
+// PREMIUM LEARN CONTENT (ADR-109)
+// ══════════════════════════════════════════════
+// Which Learn topics require Premium. Source of truth mirrored to the client at
+// main-app/js/learn-entitlements.js (kept in lockstep by scripts/entitlement-parity.check.js).
+//   - whole Quant categories: Commercial Math, Algebra, Modern Math, Geometry
+//   - partial DI sections (Charts & Graphs + Tables & Sets; DI Foundations stays free)
+//   - partial LR sections (Critical Reasoning + Visual Reasoning; other LR stays free)
+// A topic is Premium iff its category is in PREMIUM_CATEGORIES OR its id is in PREMIUM_TOPIC_IDS.
+var PREMIUM_LEARN = {
+  PREMIUM_CATEGORIES: ['commercial-math', 'algebra', 'modern-math', 'geometry'],
+  PREMIUM_TOPIC_IDS: [
+    // DI — Charts & Graphs + Tables & Sets (di-foundations, di-speed-math stay free)
+    'di-bar-line', 'di-pie-charts', 'di-tables-caselets', 'di-sets',
+    // LR — Critical Reasoning
+    'lr-critical-reasoning', 'lr-statement-argument', 'lr-decision-making', 'lr-cause-effect', 'lr-course-of-action',
+    // LR — Visual Reasoning
+    'lr-nonverbal-images', 'lr-figure-series'
+  ]
 };
 
 // ══════════════════════════════════════════════
@@ -129,6 +153,7 @@ if (typeof module !== 'undefined' && module.exports) {
     PRICING: PRICING,
     DURATIONS_DAYS: DURATIONS_DAYS,
     FREE_TIER_LIMITS: FREE_TIER_LIMITS,
-    PREMIUM_FEATURES: PREMIUM_FEATURES
+    PREMIUM_FEATURES: PREMIUM_FEATURES,
+    PREMIUM_LEARN: PREMIUM_LEARN
   };
 }

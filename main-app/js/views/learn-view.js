@@ -172,11 +172,23 @@ var LearnView = (function () {
      dormant today (all 62 topics are 'published') but the intended, honest way to stage future "coming soon"
      topics. Kept deliberately; see schema.js STATUSES. */
   function _topicCardHtml(t) {
-    return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
+    /* ADR-109: a Premium-gated Learn topic that THIS user hasn't unlocked shows a lock badge (still visible +
+       clickable — opening it lands on the locked topic page, so Learn reads as a full catalog, not a wall). */
+    var locked = _isTopicLockedForUser(t.id, t.category);
+    return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + (locked ? ' is-premium' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +
       '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _ctxBadge(t) +
-      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') + '</div>' +
+      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') +
+      (locked ? '<span class="kx-badge kx-status-premium">' + ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' Premium</span>' : '') +
+      '</div>' +
       '</button>';
+  }
+
+  /* ADR-109: is `id` a Premium Learn topic the CURRENT user cannot access? Fail-closed — if paywall.js is absent,
+     hasPremiumAccess() is unavailable ⇒ a premium topic stays locked. */
+  function _isTopicLockedForUser(id, category) {
+    if (typeof LearnEntitlements === 'undefined' || !LearnEntitlements.isPremiumLearnTopic(id, category)) return false;
+    return !((typeof hasPremiumAccess === 'function') && hasPremiumAccess());
   }
 
   /* Order topics by the exam-relevance recommendedOrder (learning progression — "where to start" first), stably
@@ -792,6 +804,53 @@ var LearnView = (function () {
     var box = document.getElementById('learnSearchResults'); if (box) { box.hidden = true; box.innerHTML = ''; }
   }
 
+  /* ADR-109: the Premium-locked topic page. Rendered INSTEAD of _buildTopicPage for a gated topic the user hasn't
+     unlocked — same reading-spine shell (back link + header) so it feels like the app, with a Premium hero + Upgrade
+     CTA instead of the chapter body. Never markViewed (they didn't read it). This is the single render chokepoint, so
+     it covers URL / deep link / history / back uniformly. */
+  function _buildLockedTopicPage(topic) {
+    var host = document.getElementById('learnTopic'); if (!host) return;
+    if (_io) { try { _io.disconnect(); } catch (_) {} _io = null; }
+    host.classList.remove('kx-revision-only');
+    host.innerHTML = '';
+
+    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
+    var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
+    backBtn.innerHTML = '← Learn';
+    backBtn.addEventListener('click', function () { _go(null); });
+    backNav.appendChild(backBtn);
+    host.appendChild(backNav);
+
+    var header = document.createElement('div'); header.className = 'kx-topic-header';
+    header.innerHTML = '<span class="kx-th-ico">' + _esc(topic.icon || '📘') + '</span><h1 class="kx-th-title" tabindex="-1">' + _esc(topic.title) + '</h1>';
+    host.appendChild(header);
+
+    var lock = document.createElement('div'); lock.className = 'kx-topic-locked';
+    lock.innerHTML =
+      '<div class="kx-locked-icon" aria-hidden="true">' + ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + '</div>' +
+      '<h2 class="kx-locked-title">A Premium chapter</h2>' +
+      '<p class="kx-locked-sub">Unlock ' + _esc(topic.title) + ' and every Premium lesson — full worked examples, methods, and revision — with QuantReflex Premium.</p>' +
+      '<button class="btn-primary kx-locked-cta" type="button">Unlock with Premium</button>';
+    host.appendChild(lock);
+    var cta = lock.querySelector('.kx-locked-cta');
+    if (cta) cta.addEventListener('click', function () {
+      if (typeof requirePremium === 'function') requirePremium('learn_premium');
+      else if (typeof showPaywall === 'function') showPaywall('learn_premium');
+    });
+  }
+
+  /* ADR-109: after an in-session upgrade, drop stale lock badges on the (build-once) hub without a full rebuild.
+     Locks are only ever REMOVED live — a user never transitions premium→free mid-session without a reload. */
+  function _refreshPremiumLocks() {
+    if (!((typeof hasPremiumAccess === 'function') && hasPremiumAccess())) return;
+    var cards = document.querySelectorAll('#learnCategories .kx-topic-card.is-premium');
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].classList.remove('is-premium');
+      var b = cards[i].querySelector('.kx-status-premium');
+      if (b && b.parentNode) b.parentNode.removeChild(b);
+    }
+  }
+
   function renderLearnRoute(params) {
     if (!_hubBuilt) { _buildHub(); _hubBuilt = true; }
     var hub = document.getElementById('learnHub');
@@ -835,7 +894,15 @@ var LearnView = (function () {
       /* remember where the hub was scrolled to, so Back restores the reading position instead of jumping to top */
       _leaveHub(hub);
       if (hub) hub.hidden = true;
-      _buildTopicPage(KB.get(path));
+      var _topic = KB.get(path);
+      /* ADR-109 Premium gate — the SINGLE topic-render chokepoint. A gated topic the user hasn't unlocked renders the
+         locked page instead of the chapter, so URL/deep-link/history/back all funnel through the same enforcement.
+         Fail-closed: hasPremiumAccess absent ⇒ locked. */
+      if (_isTopicLockedForUser(path, _topic && _topic.category)) {
+        _buildLockedTopicPage(_topic);
+      } else {
+        _buildTopicPage(_topic);
+      }
       if (topicEl) topicEl.hidden = false;
       _scrollTop();
       /* a11y: move focus to the new topic heading so keyboard/SR users land on the content (no scroll jump for mouse) */
@@ -854,6 +921,7 @@ var LearnView = (function () {
       _renderReviseCard();  // due count changes as topics are viewed/revised
       _renderResume();      // refresh Continue / Needs-practice / Saved strips
       _refreshCardTicks();  // keep completion ticks live on the category cards
+      _refreshPremiumLocks(); // ADR-109: clear stale lock badges after an in-session upgrade (build-once hub)
       /* restore the hub scroll position (set when we left for a topic) now that the hub layout is settled */
       var hc2 = document.querySelector('.container'); if (hc2) hc2.scrollTop = _hubScroll;
       /* a11y: return focus to the Learn heading so keyboard/SR users aren't stranded on the torn-down topic */
