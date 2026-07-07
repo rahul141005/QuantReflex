@@ -23,6 +23,11 @@ console.log('Free-tier AI-explanation allowance (ADR-103)\n');
 // ── the limit is the promised 5 (matches shared/constants/entitlements AI_EXPLANATION_CREDITS) ──
 ok(LIMIT === 5, 'FREE_EXPLAIN_LIMIT is 5');
 ok(typeof decide === 'function', 'freeExplainDecision is exported');
+// ADR-106: the server can't require('../shared/...') at runtime, so the limit is declared in freeExplainPolicy — but
+// this Node check CAN require both, so assert they never drift from the canonical entitlements constant.
+var entitlements = require('../../shared/constants/entitlements');
+ok(LIMIT === entitlements.FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS,
+  'freeExplainPolicy limit === entitlements.FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS (' + LIMIT + ' === ' + entitlements.FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS + ')');
 
 // ── grants #1 through #5, denies #6 ──
 ok(decide(0, LIMIT).ok === true && decide(0, LIMIT).remaining === 4, 'used 0 → grant, 4 left');

@@ -258,6 +258,7 @@ async function _loadUsage(uid) {
         wordProblemsLastDate: legacy.lastUsedDate || null,
         lastUsageDate: legacy.lastUsedDate || null,
         explanationsUsed: 0,
+        freeExplanationsUsed: 0,
         insightsGeneratedDate: null
       };
       usageCache[uid] = migrated;
@@ -273,6 +274,7 @@ async function _loadUsage(uid) {
     wordProblemsLastDate: null,
     lastUsageDate: null,
     explanationsUsed: 0,
+    freeExplanationsUsed: 0,
     insightsGeneratedDate: null
   };
   usageCache[uid] = fresh;
@@ -290,6 +292,7 @@ function _normalizeUsageDoc(data) {
   if (data.wordProblemsUsedLifetime === undefined) data.wordProblemsUsedLifetime = 0;
   if (data.wordProblemsUsedToday === undefined) data.wordProblemsUsedToday = 0;
   if (data.explanationsUsed === undefined) data.explanationsUsed = 0;
+  if (data.freeExplanationsUsed === undefined) data.freeExplanationsUsed = 0;
   return data;
 }
 
@@ -490,13 +493,14 @@ async function refundWordProblemQuota(uid, isPremium, count) {
 }
 
 /**
- * ADR-103: atomically consume one free-tier AI-explanation credit.
+ * ADR-103 (field corrected ADR-106): atomically consume one free-tier AI-explanation credit.
  *
- * Free accounts get FREE_EXPLAIN_LIMIT (5) real QuanAI explanations, lifetime. The count lives on the SAME field the
- * admin dashboards already read — users/{uid}/usage/ai.explanationsUsed — so no new schema. Mirrors the proven
- * consumeWordProblemQuota transaction: the read + limit-check + increment happen inside ONE Firestore transaction,
- * so concurrent taps can never over-grant past the cap. Premium users are metered elsewhere (trackExplanationUsage,
- * telemetry only) and must NEVER reach this path.
+ * Free accounts get FREE_EXPLAIN_LIMIT (5) real QuanAI explanations, lifetime, counted on a DEDICATED field —
+ * users/{uid}/usage/ai.freeExplanationsUsed. This is deliberately SEPARATE from `explanationsUsed` (which premium
+ * users increment as unbounded telemetry via trackExplanationUsage): sharing one field meant an expired-premium user
+ * who had generated >5 explanations lapsed to free and was instantly denied all 5 (ADR-106 fix). Mirrors the proven
+ * consumeWordProblemQuota transaction: read + limit-check + increment in ONE Firestore transaction, so concurrent
+ * taps can never over-grant past the cap. Premium users are metered elsewhere and must NEVER reach this path.
  *
  * @returns {Promise<{ ok:boolean, remaining:number }>}
  */
@@ -506,10 +510,10 @@ async function consumeFreeExplain(uid) {
 
   var result = await db.runTransaction(async function (tx) {
     var doc = await tx.get(usageRef);
-    var data = doc.exists ? _normalizeUsageDoc(doc.data()) : { explanationsUsed: 0 };
-    var decision = freeExplainPolicy.freeExplainDecision(data.explanationsUsed || 0, FREE_EXPLAIN_LIMIT);
+    var data = doc.exists ? _normalizeUsageDoc(doc.data()) : { freeExplanationsUsed: 0 };
+    var decision = freeExplainPolicy.freeExplainDecision(data.freeExplanationsUsed || 0, FREE_EXPLAIN_LIMIT);
     if (!decision.ok) return decision;
-    data.explanationsUsed = (data.explanationsUsed || 0) + 1;
+    data.freeExplanationsUsed = (data.freeExplanationsUsed || 0) + 1;
     data.lastUsageDate = now.toISOString();
     tx.set(usageRef, data, { merge: true });
     return decision;
@@ -517,7 +521,7 @@ async function consumeFreeExplain(uid) {
 
   /* Keep the in-memory cache coherent with the authoritative write. */
   if (result.ok && usageCache[uid]) {
-    usageCache[uid].explanationsUsed = (usageCache[uid].explanationsUsed || 0) + 1;
+    usageCache[uid].freeExplanationsUsed = (usageCache[uid].freeExplanationsUsed || 0) + 1;
     usageCache[uid].lastUsageDate = now.toISOString();
   }
   if (result.ok) await trackGlobalAIUsage('explanations', 1);
@@ -536,10 +540,10 @@ async function refundFreeExplain(uid) {
       var doc = await tx.get(usageRef);
       if (!doc.exists) return;
       var data = _normalizeUsageDoc(doc.data());
-      data.explanationsUsed = freeExplainPolicy.freeExplainRefund(data.explanationsUsed || 0);
+      data.freeExplanationsUsed = freeExplainPolicy.freeExplainRefund(data.freeExplanationsUsed || 0);
       tx.set(usageRef, data, { merge: true });
     });
-    if (usageCache[uid]) usageCache[uid].explanationsUsed = freeExplainPolicy.freeExplainRefund(usageCache[uid].explanationsUsed || 0);
+    if (usageCache[uid]) usageCache[uid].freeExplanationsUsed = freeExplainPolicy.freeExplainRefund(usageCache[uid].freeExplanationsUsed || 0);
     await trackGlobalAIUsage('explanations', -1);
   } catch (e) { console.warn('[aiService] freeExplain refund failed:', e.message); }
 }

@@ -1134,13 +1134,6 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 .di-chart-svg .di-series-4 { color: var(--di-series-4); }
 .di-chart-svg .di-series-5 { color: var(--di-series-5); }
 
-/* DI Sets (ADR-078): the shared context (chart or caselet) sits persistently above the rotating question block. */
-.di-set-context { width: 100%; margin: 0 0 .35rem; }
-.di-caselet-context { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--qr-card-radius-sm); padding: .85rem 1rem; font-size: .95rem; line-height: 1.5; color: #1e293b; text-align: left; }
-:root[data-theme="dark"] .di-caselet-context { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-.di-set-badge { display: inline-block; font-size: .6rem; font-weight: 800; letter-spacing: .06em; color: var(--qr-accent); background: rgba(37,99,235,.1); padding: .1rem .4rem; border-radius: .5rem; vertical-align: middle; margin-left: .3rem; }
-:root[data-theme="dark"] .di-set-badge { background: rgba(37,99,235,.22); }
-
 /* DI data table */
 .di-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .di-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -1203,23 +1196,7 @@ body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none 
 :root[data-theme="dark"] .lr-fig-gridframe { stroke: #f1f5f9; }
 :root[data-theme="dark"] .lr-fig-gridline { stroke: #64748b; }
 
-/* ── ADR-093 presentation stage: the figure is the hero, the stem is an instruction ── */
-.question-text-compact { font-size: 1.02rem; font-weight: 600; letter-spacing: 0; line-height: 1.5; color: #334155; max-width: 34rem; }
-:root[data-theme="dark"] .question-text-compact { color: #cbd5e1; }
-@media (max-height: 600px) { .question-text-compact { font-size: .95rem; } }
-.q-figure-stage { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 420px; margin: 0 auto .8rem; padding: .8rem .6rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
-.q-figure-stage .lr-figure { margin: 0; }
-:root[data-theme="dark"] .q-figure-stage { background: #1e293b; border-color: #334155; }
+/* grid3 (3×3 matrix) figures render with .lr-figure-grid — the ONLY presentation-layer class the renderers emit;
+   the drill-only .q-figure-stage / .mcq-* option-grid classes are intentionally NOT ported (super-admin uses the
+   .report-optfig wrappers above). */
 .lr-figure-grid { max-width: 240px; margin: 0 auto; }
-.q-figure-stage .lr-figure-grid { max-width: 230px; }
-
-/* picture-answer grid: each option button shows a lettered figure. VIS-6 (ADR-105): larger caps so figures are
-   readable at a glance (was 96/88px, min-height 92). */
-.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; width: 100%; max-width: 440px; margin-left: auto; margin-right: auto; }
-.mcq-figure-option { position: relative; display: flex; align-items: center; justify-content: center; padding: .6rem .5rem .55rem; min-height: 108px; }
-.mcq-figure-option .lr-figure { margin: 0; max-width: 112px; }
-.mcq-figure-option .lr-figure-grid { max-width: 104px; }
-/* VIS-7 (ADR-105): opaque letter chip (solid plate + hairline + slight shadow) so a wide `row` option figure that
-   extends toward the corner can never render under the A/B/C/D badge. */
-.mcq-opt-letter { position: absolute; top: .3rem; left: .3rem; z-index: 1; font-size: .68rem; font-weight: 800; color: #475569; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(15,23,42,.08); border-radius: .5rem; padding: .05rem .38rem; line-height: 1.3; }
-:root[data-theme="dark"] .mcq-opt-letter { color: #cbd5e1; background: #1e293b; border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,.3); }

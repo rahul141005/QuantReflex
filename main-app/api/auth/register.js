@@ -150,7 +150,8 @@ module.exports = async (req, res) => {
     batch.set(aiUsageRef, {
       wordProblemsUsedLifetime: 0,
       wordProblemsUsedToday: 0,
-      explanationsUsed: 0
+      explanationsUsed: 0,
+      freeExplanationsUsed: 0   // ADR-106: the enforced free-tier explain meter (separate from premium telemetry)
     });
 
     // studentCount maintenance in the request path (ADR-032) — the syncCoachingStudentCount trigger does NOT run

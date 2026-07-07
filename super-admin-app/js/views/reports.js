@@ -372,9 +372,10 @@ var ReportsView = (function () {
       if (Array.isArray(q.optionFigures) && q.optionFigures.length && typeof LRFigures !== 'undefined' && LRFigures.render) {
         var letters = 'ABCDEFGH';
         var cells = q.optionFigures.map(function (of, i) {
-          return '<div class="report-optfig"><span class="report-optfig-lbl">' + (letters.charAt(i) || (i + 1)) + '</span>' + (of ? LRFigures.render(of) : '') + '</div>';
+          if (!of) return '';   // ADR-106 (L3): skip an absent option cell instead of rendering an empty lettered box
+          return '<div class="report-optfig"><span class="report-optfig-lbl">' + (letters.charAt(i) || (i + 1)) + '</span>' + LRFigures.render(of) + '</div>';
         }).join('');
-        html += '<div class="report-optfigs">' + cells + '</div>';
+        if (cells) html += '<div class="report-optfigs">' + cells + '</div>';
       }
     } catch (e) { return ''; }
     return html ? ('<div class="muted" style="margin:.6rem 0 .25rem;">Reported visual</div>' + html) : '';

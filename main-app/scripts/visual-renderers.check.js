@@ -36,5 +36,21 @@ RENDERERS.forEach(function (r) {
   });
 });
 
+/* ADR-106 (M2): the renderers' CSS is NOT byte-syncable across apps (main-app uses `body.dark-mode`, super-admin uses
+   `:root[data-theme="dark"]`), so instead lock the VALUES that actually matter — the DI series palette + LR stroke
+   tokens — so a palette/token change in main-app can't silently drift the super-admin charts. Selector-agnostic. */
+function extractTokens(src) {
+  var re = /--(di-series-\d|lr-stroke(?:-thin)?)\s*:\s*([^;]+);/g, m2, out = [];
+  while ((m2 = re.exec(src))) out.push(m2[1] + ':' + m2[2].trim());
+  return out.sort();
+}
+(function () {
+  var mainTokens = extractTokens(read('main-app/css/style.css'));
+  var adminTokens = extractTokens(read('super-admin-app/css/admin-style.css'));
+  ok('DI/LR CSS tokens present in main-app style.css', mainTokens.length >= 14);   // 6 light + 6 dark series + 2 lr-stroke
+  ok('super-admin admin-style.css defines the same DI series palette + LR stroke tokens as main-app (no drift)',
+    JSON.stringify(mainTokens) === JSON.stringify(adminTokens));
+})();
+
 console.log('\nvisual-renderers.check.js: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

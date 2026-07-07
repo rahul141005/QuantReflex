@@ -145,6 +145,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
     graceful fallback envelope (the correct answer + a retry affordance) rather than throwing, so a consumed credit
     **always** buys usable content. A manual retry after a rare generation failure spends another credit — an accepted
     minor edge; a `refundFreeExplain` mirroring `refundWordProblemQuota` is a possible future nicety.
+    **⚠ Superseded (ADR-104/106):** this "never throws → no refund needed" claim was too strong — `explainBase` runs
+    `ctxEngine.build` + setup *outside* its try/catch, and `_explain` can 400 before generation. ADR-104 added
+    `refundFreeExplain` on every no-content exit, and ADR-106 moved the free meter to its own `freeExplanationsUsed`
+    field (so premium telemetry no longer starves a lapsed user's free allowance).
   - **Client (the gate change is local).** The drill Explain button (`drill-engine.js`) and the duel-review Explain
     (`duel-manager.js`) previously called `canAccessFeature('ai_explain')` and opened the paywall without ever calling
     the API. They now use a new `canOpenExplain()` (premium → allowed; free → allowed until the server reports
