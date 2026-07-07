@@ -262,7 +262,7 @@ var UsersView = (function () {
     var cost = a.gptCostUSD != null ? Number(a.gptCostUSD).toFixed(4) : '0';
     var thr = (d.profile && d.profile.aiThrottle) || null;
     el.innerHTML = '<div class="card" style="padding:1rem;">' +
-      _kv('GPT cost (lifetime)', '$' + cost) + _kv('GPT calls', a.gptCalls || 0) + _kv('Tokens in/out', (a.gptTokensInput || 0) + ' / ' + (a.gptTokensOutput || 0)) + _kv('Word problems', a.wordProblemsUsedLifetime || 0) + _kv('Explanations', a.explanationsUsed || 0) +
+      _kv('GPT cost (lifetime)', '$' + cost) + _kv('GPT calls', a.gptCalls || 0) + _kv('Tokens in/out', (a.gptTokensInput || 0) + ' / ' + (a.gptTokensOutput || 0)) + _kv('Word problems', a.wordProblemsUsedLifetime || 0) + _kv('Explanations (premium)', a.explanationsUsed || 0) + _kv('Free explanations used', (a.freeExplanationsUsed || 0) + ' / 5') +
       _kv('Throttle', thr ? thr.cap + '/day (by ' + (thr.setBy || '?') + ')' : 'none') +
       '<div style="display:flex;gap:.5rem;margin-top:.75rem;"><input type="number" class="modal-input" id="uCap" placeholder="daily cap (0 = clear)" style="flex:1;" value="' + (thr ? thr.cap : '') + '" /><button class="btn btn-sm accent" id="uThrBtn">Set throttle</button></div></div>';
     document.getElementById('uThrBtn').onclick = function () { var cap = parseInt((document.getElementById('uCap') || {}).value, 10) || 0; API.throttleUser(uid, cap).then(function () { Toast.success(cap > 0 ? 'Throttled to ' + cap + '/day' : 'Throttle cleared'); _split.select(uid); }).catch(function (e) { Toast.error(AdminUtils.getReadableError(e)); }); };
