@@ -14,6 +14,22 @@
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
   <script>window.QR_APP_VERSION = 'v223';</script>
+  <!-- ADR-111: pre-paint language application (flash-of-English guard). Sets <html lang> and the
+       locale hook before first paint so a saved Hindi/Marathi choice never flashes English chrome.
+       I18N_ON must stay in LOCKSTEP with QRI18n.ENABLED (js/i18n.js) — scripts/i18n.check.js
+       enforces it. qr_i18n_preview is the internal-QA override while the feature is unreleased. -->
+  <script>
+  (function () {
+    var I18N_ON = false;
+    try {
+      if (!I18N_ON && localStorage.getItem('qr_i18n_preview') !== '1') return;
+      var s = JSON.parse(localStorage.getItem('qr_settings') || localStorage.getItem('quant_reflex_settings') || '{}');
+      var l = (s.appLanguage === 'hi' || s.appLanguage === 'mr') ? s.appLanguage : 'en';
+      document.documentElement.lang = l;
+      document.documentElement.setAttribute('data-app-locale', l);
+    } catch (_) { /* English default */ }
+  })();
+  </script>
 </head>
 <body>
 
@@ -678,14 +694,43 @@
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="moon" aria-hidden="true">🌙</span> Appearance</h3>
-              <p>Follow your device, or set light or dark</p>
+              <h3><span class="qr-ico" data-ico="moon" aria-hidden="true">🌙</span> <span data-i18n="settings.appearanceTitle">Appearance</span></h3>
+              <p data-i18n="settings.appearanceDesc">Follow your device, or set light or dark</p>
             </div>
             <select id="appearanceSelect" class="theme-select" style="min-width:7rem;">
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system" data-i18n="settings.appearanceSystem">System</option>
+              <option value="light" data-i18n="settings.appearanceLight">Light</option>
+              <option value="dark" data-i18n="settings.appearanceDark">Dark</option>
             </select>
+          </div>
+          <!-- ADR-111: language rows. Hidden until the i18n feature flag (or qr_i18n_preview) is on —
+               settings.js reveals and wires them. App language drives UI chrome; Study language drives
+               questions, solutions and Learn content. Language names are endonyms (never translated). -->
+          <div id="languageSettingsBlock" style="display:none;">
+            <div class="settings-row-divider"></div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <h3><span class="qr-ico" data-ico="globe" aria-hidden="true">🌐</span> <span data-i18n="settings.appLanguageTitle">App language</span></h3>
+                <p data-i18n="settings.appLanguageDesc">Menus, buttons and screens</p>
+              </div>
+              <select id="appLanguageSelect" class="theme-select" style="min-width:7rem;">
+                <option value="en">English</option>
+                <option value="hi">हिन्दी</option>
+                <option value="mr">मराठी</option>
+              </select>
+            </div>
+            <div class="settings-row-divider"></div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <h3><span class="qr-ico" data-ico="book-open" aria-hidden="true">📚</span> <span data-i18n="settings.studyLanguageTitle">Study language</span></h3>
+                <p data-i18n="settings.studyLanguageDesc">Questions, solutions and Learn chapters</p>
+              </div>
+              <select id="studyLanguageSelect" class="theme-select" style="min-width:7rem;">
+                <option value="en">English</option>
+                <option value="hi">हिन्दी</option>
+                <option value="mr">मराठी</option>
+              </select>
+            </div>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row">
@@ -1389,11 +1434,11 @@
 
   <!-- Bottom Navigation -->
   <nav class="bottom-nav" style="display:none;" role="tablist">
-    <a href="#home" data-view="home" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="home" aria-hidden="true">🏠</span></span>Home</a>
-    <a href="#practice" data-view="practice" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="practice" aria-hidden="true">🎯</span></span>Practice</a>
-    <a href="#learn" data-view="learn" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="learn" aria-hidden="true">📖</span></span>Learn</a>
-    <a href="#stats" data-view="stats" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="stats" aria-hidden="true">📊</span></span>Stats</a>
-    <a href="#settings" data-view="settings" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="settings" aria-hidden="true">⚙️</span></span>Settings</a>
+    <a href="#home" data-view="home" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="home" aria-hidden="true">🏠</span></span><span data-i18n="nav.home">Home</span></a>
+    <a href="#practice" data-view="practice" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="practice" aria-hidden="true">🎯</span></span><span data-i18n="nav.practice">Practice</span></a>
+    <a href="#learn" data-view="learn" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="learn" aria-hidden="true">📖</span></span><span data-i18n="nav.learn">Learn</span></a>
+    <a href="#stats" data-view="stats" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="stats" aria-hidden="true">📊</span></span><span data-i18n="nav.stats">Stats</span></a>
+    <a href="#settings" data-view="settings" role="tab"><span class="nav-icon"><span class="qr-ico" data-ico="settings" aria-hidden="true">⚙️</span></span><span data-i18n="nav.settings">Settings</span></a>
   </nav>
 
   <!-- Firebase SDK (compat for broad browser support) -->
@@ -1425,6 +1470,13 @@
     Layer 13 — Bootstrap:   app.js (must be last — initializes everything)
   -->
   <script defer src="js/state/store.js"></script>
+  <!-- Localization core (ADR-111): QRI18n + catalogs load right after the store so every later
+       module can call QRI18n.t()/tc() at render time. Catalogs are same-origin IIFEs (never
+       ../shared — ADR-099). Study-content packs load with their engines, not here. -->
+  <script defer src="js/i18n.js"></script>
+  <script defer src="locales/en.js"></script>
+  <script defer src="locales/hi.js"></script>
+  <script defer src="locales/mr.js"></script>
   <script defer src="js/utils/event-registry.js"></script>
   <script defer src="js/firebase.js"></script>
   <script defer src="js/session.js"></script>

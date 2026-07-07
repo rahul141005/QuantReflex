@@ -76,7 +76,8 @@ var AppState = (function () {
   var DEFAULT_SETTINGS = {
     darkMode: false, sound: true, vibration: true, difficulty: 'medium',
     dailyGoal: 20, reducedMotion: false, skipEnabled: false,
-    notificationsEnabled: false, theme: 'classic'
+    notificationsEnabled: false, theme: 'classic',
+    appLanguage: 'en', studyLanguage: 'en' /* ADR-111: UI chrome vs study content channels */
   };
 
   var DEFAULT_PROGRESS = {

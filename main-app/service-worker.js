@@ -12,6 +12,14 @@ var ASSETS = [
   './index.html',
   './css/style.css',
   './js/state/store.js',
+  /* Localization (ADR-111): core + all three UI catalogs precached so every language works offline;
+     .js entries stay network-first, so translation fixes ship without a version bump. The bundled
+     Devanagari face is cache-first like other fonts. */
+  './js/i18n.js',
+  './locales/en.js',
+  './locales/hi.js',
+  './locales/mr.js',
+  './fonts/noto-sans-devanagari.woff2',
   './js/firebase.js',
   './js/session.js',
   './js/security-events.js',

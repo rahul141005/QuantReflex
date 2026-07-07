@@ -18,7 +18,8 @@ function loadSettings() {
   return {
     darkMode: false, sound: true, vibration: true, difficulty: 'medium',
     dailyGoal: 20, reducedMotion: false, skipEnabled: false, notificationsEnabled: false,
-    theme: 'classic', practiceAskSubject: true, practiceLastSubject: 'quant'
+    theme: 'classic', practiceAskSubject: true, practiceLastSubject: 'quant',
+    appLanguage: 'en', studyLanguage: 'en'
   };
 }
 
@@ -153,6 +154,37 @@ function initSettingsView() {
     if (typeof triggerHaptic === 'function') triggerHaptic(15);
   });
   appearanceSelect.value = appearanceMode(settings);
+
+  /* Language rows (ADR-111): hidden until the i18n feature flag (or qr_i18n_preview) is on.
+     App language drives UI chrome; Study language follows it until the user explicitly picks a
+     different one (linked-defaults rule — a CAT aspirant can study in English with a Hindi app). */
+  var langBlock = document.getElementById('languageSettingsBlock');
+  if (langBlock && typeof QRI18n !== 'undefined' && QRI18n.isOn()) {
+    langBlock.style.display = '';
+    function _applyLanguageChange() {
+      QRI18n.init(settings);
+      saveSettings(settings);
+      SoundEngine.play('settingsToggle');
+      if (typeof triggerHaptic === 'function') triggerHaptic(15);
+      showToast(QRI18n.t('settings.languageUpdated'));
+    }
+    var appLanguageSelect = rebind(document.getElementById('appLanguageSelect'), 'change', function () {
+      settings.appLanguage = this.value;
+      if (!settings.studyLanguageDiverged) {
+        settings.studyLanguage = this.value;
+        var st = document.getElementById('studyLanguageSelect');
+        if (st) st.value = this.value;
+      }
+      _applyLanguageChange();
+    });
+    if (appLanguageSelect) appLanguageSelect.value = settings.appLanguage || 'en';
+    var studyLanguageSelect = rebind(document.getElementById('studyLanguageSelect'), 'change', function () {
+      settings.studyLanguage = this.value;
+      settings.studyLanguageDiverged = this.value !== (settings.appLanguage || 'en');
+      _applyLanguageChange();
+    });
+    if (studyLanguageSelect) studyLanguageSelect.value = settings.studyLanguage || settings.appLanguage || 'en';
+  }
 
   /* Theme selector */
   var themeSelect = document.getElementById('themeSelect');

@@ -127,8 +127,30 @@ html {
 }
 html::-webkit-scrollbar { display: none; } /* Chrome, Edge, Samsung Internet */
 
+/* ==================== LOCALIZATION TYPOGRAPHY (ADR-111) ====================
+   Devanagari coverage: Android (Noto), iOS (Kohinoor) and Windows (Nirmala UI) all serve a native
+   Devanagari face through the system stack; the bundled Noto Sans Devanagari below is the guaranteed
+   fallback for platforms without one (desktop Linux, kiosk browsers). unicode-range keeps it from
+   ever downloading on an all-English session; the SW precaches it for offline hi/mr. */
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/noto-sans-devanagari.woff2') format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
+}
+/* Devanagari NEVER letter-spaces: positive tracking breaks matra positioning and conjunct/ligature
+   shaping. The app's ~60 uppercase micro-labels pair letter-spacing for a small-caps affordance —
+   a Latin-only treatment. Under a Devanagari app locale (or inside any hi/mr content container)
+   tracking is force-reset; text-transform:uppercase is already a harmless no-op for Devanagari. */
+[data-app-locale='hi'] *, [data-app-locale='mr'] *,
+[lang='hi'], [lang='hi'] *, [lang='mr'], [lang='mr'] * {
+  letter-spacing: normal !important;
+}
+
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; /* mobile-first: let each OS serve its native face */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Devanagari', sans-serif; /* mobile-first: let each OS serve its native face; bundled Devanagari fallback (ADR-111) */
   background: #f8fafc;
   color: #0f172a;
   height: 100%;
@@ -11870,6 +11892,9 @@ body.theme-playful .qr-ico[data-ico='robot'] { --ico: var(--qri-bot); }
 /* Contact card (ADR-100) */
 body.theme-playful .qr-ico[data-ico='mail'] { --ico: var(--qri-mail); }
 body.theme-playful .qr-ico[data-ico='copy'] { --ico: var(--qri-copy); }
+/* Language settings rows (ADR-111) */
+body.theme-playful .qr-ico[data-ico='globe'] { --ico: var(--qri-globe); }
+body.theme-playful .qr-ico[data-ico='book-open'] { --ico: var(--qri-book-open); }
 
 /* glyph tokens (URL-encoded monochrome SVG masks) */
 body.theme-playful {
@@ -11879,6 +11904,7 @@ body.theme-playful {
   --qri-bell: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E");
   --qri-book: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/%3E%3Cpath d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/%3E%3C/svg%3E");
   --qri-book-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M2 4h7a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H2z'/%3E%3Cpath d='M22 4h-7a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E");
+  --qri-globe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='2' y1='12' x2='22' y2='12'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/%3E%3C/svg%3E");
   --qri-bot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Crect x='4' y='8' width='16' height='12' rx='2'/%3E%3Cline x1='12' y1='8' x2='12' y2='4'/%3E%3Ccircle cx='12' cy='3' r='1'/%3E%3Ccircle cx='9' cy='13' r='1' fill='%23000' stroke='none'/%3E%3Ccircle cx='15' cy='13' r='1' fill='%23000' stroke='none'/%3E%3Cpath d='M9 17h6'/%3E%3C/svg%3E");
   --qri-calendar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
   --qri-chart-bar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cline x1='6' y1='20' x2='6' y2='12'/%3E%3Cline x1='12' y1='20' x2='12' y2='5'/%3E%3Cline x1='18' y1='20' x2='18' y2='9'/%3E%3Cline x1='3' y1='20' x2='21' y2='20'/%3E%3C/svg%3E");

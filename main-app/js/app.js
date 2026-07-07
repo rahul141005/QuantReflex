@@ -59,6 +59,9 @@
     if (_dark) document.body.classList.add('dark-mode');
     if (settings.reducedMotion) document.body.classList.add('reduced-motion');
     if (settings.theme === 'playful') document.body.classList.add('theme-playful');
+    /* Languages (ADR-111): applied with the other appearance state so static chrome is already
+       localized before first paint completes (the inline head script covered <html lang> pre-paint). */
+    if (typeof QRI18n !== 'undefined') QRI18n.init(settings);
   } catch (_) { /* ignore */ }
 })();
 
@@ -497,6 +500,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
         document.body.classList.toggle('dark-mode', (typeof resolveDarkMode === 'function') ? resolveDarkMode(s) : !!s.darkMode);
         if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
+        /* ADR-111: re-apply languages after Firestore hydration (settings may have synced from
+           another device where the user picked a different language). */
+        if (typeof QRI18n !== 'undefined') QRI18n.init(s);
       } catch (_) { /* ignore */ }
       _launchOnboardingOrShowMain();
     }
