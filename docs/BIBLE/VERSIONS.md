@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.131 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.132 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.132 (2026-07-07)** — **Premium Phase 6 certification fixes (ADR-109 addendum).** Three-agent adversarial
+> certification: core enforcement sound; fixed the revise-flow gated-content leak for lapsed-premium users (CERT-1,
+> found independently twice — due queue + hub count now filter locked topics), made the Learn upgrade land back on
+> the paid-for chapter via the existing one-shot resume hook (CERT-2), hardened the learn-entitlements wiring in the
+> parity check + one-time missing-module error with the narrow offline residual documented (CERT-3), de-duplicated
+> `gate_shown` under the paywall debounce (CERT-4), made hub/strip lock badges track live entitlement both ways
+> (CERT-5), extended the parity check to validate gated ids against real knowledge data — 16→34 assertions (CERT-6),
+> and removed the dead `isPremiumFeature`/`isFeatureAllowed` helpers (CERT-7). Rides unreleased SW `v223`.
 
 > **2.131 (2026-07-07)** — **Premium Phase 6: feature gating + free-plan hardening (ADR-109).** Gate Learn topics by
 > section (whole Commercial-Math/Algebra/Modern-Math/Geometry; DI Charts/Tables/Sets; LR Critical/Visual Reasoning) +

@@ -6,6 +6,27 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Premium Phase 6 certification fixes (ADR-109 addendum)
+
+Three-agent adversarial certification of the entitlement system. Core enforcement certified sound; fixes applied.
+Rides SW `v223`; Bible 2.131→2.132.
+
+- **Revise-flow content leak (CERT-1):** the Guided Revision flow rendered gated chapters' condensed blocks for
+  lapsed-premium users (the one renderer outside the Learn gate) — the due queue now filters locked topics
+  (`revise-flow.js _dueNow` + mid-flow skip), mirrored in the hub "Revise today" count (`learn-view.js _dueIds`).
+- **Seamless Learn unlock (CERT-2):** upgrading from a locked chapter now returns to THAT chapter unlocked (the
+  locked-page CTA arms the existing one-shot `__qrResumeAfterUpgrade` hook) instead of dropping on the hub.
+- **Gate-wiring hardening (CERT-3):** `entitlement-parity.check` asserts the learn-entitlements script tag, its load
+  order, and its SW precache entry; a one-time console.error fires if the module is missing (documented narrow
+  residual: non-atomic precache + offline; Learn content only).
+- **Analytics (CERT-4):** `gate_shown` moved below the paywall debounce — one impression, one event.
+- **Badge honesty (CERT-5):** bidirectional `_syncPremiumLocks` (upgrade clears, lapse adds) + lock chips on the
+  Continue/Saved/Needs-practice strips.
+- **Check hardening (CERT-6):** parity check validates every gated id against real `data/knowledge` sources (16→34
+  assertions). **Cleanup (CERT-7):** removed dead `isPremiumFeature`/`isFeatureAllowed` helpers.
+
+---
+
 ## 2026-07-07 — Premium Phase 6: feature gating + free-plan hardening (ADR-109)
 
 Gate Learn topics by section + make Mixed Aptitude Premium, behind ONE fail-closed entitlement checkpoint. Hardened

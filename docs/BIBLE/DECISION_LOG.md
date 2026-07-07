@@ -9,6 +9,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-109 — Premium Phase 6: feature gating + free-plan hardening (2026-07-07)
+- **Certification addendum (same day).** Three independent adversarial agents re-audited the whole entitlement
+  surface from scratch (Learn gate + checkpoint + conversions; Practice/Mixed + the full 20/day quota edge matrix;
+  payment/offline/analytics/regression). Core enforcement certified sound; the pass surfaced and fixed:
+  - **CERT-1 (MEDIUM, found independently twice) — revise-flow content leak.** The Guided Revision flow was the ONE
+    topic-content renderer outside the `renderLearnRoute` gate: a lapsed-premium user's due queue (gated topics
+    viewed while subscribed; progress persists) rendered gated chapters' condensed revision blocks. Fixed at the
+    queue source (`revise-flow.js _dueNow` + a mid-flow lapse skip in `_screen`) and mirrored in the hub
+    "Revise today" count (`learn-view.js _dueIds`) — all three use the same fail-closed predicate. Never-premium
+    users could never seed the queue (markViewed only fires on the full topic page, which the gate withholds).
+  - **CERT-2 (MEDIUM, UX) — post-upgrade landed on the hub, not the paid-for chapter.** The payment-success default
+    refresh carries only a view id (no `{path}`). The locked-page Upgrade CTA now arms the same one-shot
+    `__qrResumeAfterUpgrade` hook the drill quota-pause uses → payment success re-shows `learn/{topicId}` → the gate
+    re-evaluates (now premium) → the full chapter renders in place. `router.showView` still invalidates the hook on
+    any real navigation.
+  - **CERT-3 (MEDIUM, narrow) — Learn gate fails open if `learn-entitlements.js` alone fails to load.** The SW
+    precache is `allSettled` (non-atomic), so a single skipped asset is possible; JS is network-first so the state
+    self-heals on any online load. Blanket fail-closed would black out ALL free Learn content in the same window —
+    strictly worse. Hardened the realistic causes instead: `entitlement-parity.check` now asserts the script tag
+    exists + loads before `learn-view.js` + is SW-precached; `_isTopicLockedForUser` logs a one-time console.error
+    when the module is missing. Residual window (single-asset install skip AND offline before any reload; Learn
+    content only, no payment/account exposure) is a documented conscious trade-off.
+  - **CERT-4 (LOW) — `gate_shown` double-logged on a <280ms double-tap** (fired before the paywall debounce). Moved
+    below the early-return guards; one impression = one event. `feature_attempted` stays attempt-level by design.
+  - **CERT-5 (LOW) — badge honesty.** `_refreshPremiumLocks` → bidirectional `_syncPremiumLocks` (badges clear on
+    upgrade AND appear on a mid-session lapse); Continue/Saved/Needs-practice strip cards gained the lock chip
+    (`.kx-rc-lock`) — clicks were already gated, the affordance now matches.
+  - **CERT-6 (LOW) — parity check now validates every gated topic/category id against the real `data/knowledge`
+    sources** (a typo replicated on both sides no longer passes). Check grew 16→34 assertions.
+  - **CERT-7 (INFO) — removed dead helpers** `isPremiumFeature`/`isFeatureAllowed` (zero consumers;
+    `isFeatureAllowed` duplicated `canAccessFeature` exactly). API: render reads use
+    `canAccessFeature`/`hasPremiumAccess`; action gates use `requirePremium`.
+  - **Documented, not changed:** the free Quick-Start "Mixed" SUBJECT choice (a 5-question quota-counted quick drill,
+    distinct from the paywalled 12-question Mixed Aptitude MODE — intended per the "Quick Start stays free"
+    decision); `gate_shown` as the canonical paywall-impression metric (direct-call gates emit no
+    `feature_attempted`); the client-side architecture ceiling (console tampering) per the locked hardened-client
+    decision. All changes ride the unreleased SW `v223`; Bible 2.131→2.132.
 - **Context.** Extend the client-side entitlement system to gate Learn topics by section, make Mixed Aptitude Premium,
   and unify every entitlement decision behind ONE fail-closed checkpoint — so no free user reaches Premium content via
   any UI, route, deep link, resume, render, offline, or cached path. **User decisions:** Quick Start (Quick/Reflex/
