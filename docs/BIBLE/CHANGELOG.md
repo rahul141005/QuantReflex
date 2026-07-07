@@ -6,6 +6,30 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Premium Phase 6: feature gating + free-plan hardening (ADR-109)
+
+Gate Learn topics by section + make Mixed Aptitude Premium, behind ONE fail-closed entitlement checkpoint. Hardened
+client-side only (offline PWA preserved). SW `v222→v223`; Bible 2.130→2.131.
+
+- **Checkpoint:** new `paywall.requirePremium(key)` (fail-closed: denies unless genuinely premium, opens paywall,
+  records telemetry) + `isPremiumFeature`/`isFeatureAllowed`. Converted ~8 fail-OPEN entitlement idioms
+  (learn-manager, drill-engine skip, tables, questions hard-mode, practice-config focus-timer, practice-modes mocks,
+  duel) to fail-closed. New locked keys `mixed_aptitude`, `learn_premium`.
+- **Learn:** gated topics render a polished locked page (Premium hero + Upgrade CTA) at the single `renderLearnRoute`
+  chokepoint (covers URL/deep-link/history/back); hub cards show a `.kx-status-premium` lock badge and stay clickable.
+  Gated set = whole `commercial-math`/`algebra`/`modern-math`/`geometry`; DI Charts/Tables/Sets topics (DI Foundations
+  free); LR Critical + Visual Reasoning topics. Source of truth: `js/learn-entitlements.js` ↔ shared `PREMIUM_LEARN`.
+- **Practice:** Mixed Aptitude is Premium (card + `startDrillFromPractice` head gate — closes the companion deep-link
+  bypass). Quick Start/Focus/DI-LR sets/Review stay free. The ADR-107 20/day master cap (set questions count, session
+  ends at Q20, quota=0 locks sets, upgrade resumes) verified against every edge case — unchanged.
+- **Analytics:** reuse the batched AIAnalytics sink — `gate_shown`, `feature_attempted`, `upgrade_initiated`,
+  `upgrade_completed`, `feature_unlocked`, `daily_quota_reached`, `set_interrupted` — emitted centrally, no dup.
+- **Lockstep:** `entitlements.js` gained MIXED_APTITUDE/LEARN_PREMIUM/TIMED_MOCKS (drift fix) + PREMIUM_LEARN; new
+  `scripts/entitlement-parity.check.js` (client `_LOCKED_FEATURES` === shared `PREMIUM_FEATURES`; Learn map lockstep)
+  wired into `npm test`. No Firestore rules/schema change.
+
+---
+
 ## 2026-07-07 — Phase-1–5 final certification fixes (ADR-108)
 
 Independent four-agent certification of the whole Phase-1–5 surface. Verdict: PASS WITH MINOR ITEMS; all real issues

@@ -8,6 +8,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-109 — Premium Phase 6: feature gating + free-plan hardening (2026-07-07)
+- **Context.** Extend the client-side entitlement system to gate Learn topics by section, make Mixed Aptitude Premium,
+  and unify every entitlement decision behind ONE fail-closed checkpoint — so no free user reaches Premium content via
+  any UI, route, deep link, resume, render, offline, or cached path. **User decisions:** Quick Start (Quick/Reflex/
+  Timed) stays FREE; enforcement is **hardened client-side only** — QuantReflex stays an offline-capable, client-
+  rendered PWA (no server-authoritative per-question redesign; AI + Duel remain the only server-enforced surfaces).
+  Much of the Practice quota behaviour already existed (ADR-107); this phase closed the remaining gaps + hardened.
+  Three exploration passes mapped the Learn taxonomy, Practice dispatch, and the entitlement/bypass surface.
+- **Single fail-closed checkpoint (`paywall.js`).** New `requirePremium(featureKey, opts)` — returns true iff
+  `hasPremiumAccess()`, else records telemetry + opens the paywall + returns false; **fail-closed by construction**
+  (a missing/unresolved entitlement state denies). New `isPremiumFeature`/`isFeatureAllowed` pure reads for render
+  decisions. New locked keys `mixed_aptitude`, `learn_premium`. The ~8 fail-OPEN idioms
+  (`… === 'function' ? canAccessFeature('x') : true` and `… && !canAccessFeature('x')`) across `learn-manager`,
+  `drill-engine` (skip), `tables`, `questions` (hard), `practice-config` (focus_timer), `practice-modes` (timed_mocks),
+  `duel-manager` were converted to fail-closed (a missing paywall.js now DENIES premium, never grants).
+- **Learn gating.** One render chokepoint: `learn-view.js renderLearnRoute` renders a polished **locked topic page**
+  (back link + header + Premium hero + Upgrade CTA) instead of the chapter for a gated topic the user hasn't
+  unlocked — covering URL/deep-link/history/back uniformly; hub cards get a `.kx-status-premium` lock badge (still
+  visible + clickable → the locked page, so Learn reads as a full catalog). Premium set (single source of truth in
+  `js/learn-entitlements.js`, mirrored in `shared/constants/entitlements.js PREMIUM_LEARN`): whole Quant categories
+  `commercial-math`/`algebra`/`modern-math`/`geometry`; DI topics `di-bar-line`/`di-pie-charts`/`di-tables-caselets`/
+  `di-sets` (DI Foundations stays free); LR Critical-Reasoning (5) + Visual-Reasoning (2) topics. All other LR + Quant
+  numbers/arithmetic/mensuration stay free. `_isTopicLockedForUser` fails closed.
+- **Practice gating.** Mixed Aptitude (the only currently-free Advanced mode, previously ungated) is now Premium:
+  gated at the card handler AND at the `startDrillFromPractice` head (PREM-5 pattern) so the `companion-ui` deepLink
+  and any future direct caller can't bypass it. Quick Start / Focus / DI-LR sets / Session Review stay free per
+  decision; custom/review/mock stay Premium. The ADR-107 20/day master-constraint (all modes → `recordAnswer`, the
+  `nextQuestion`/`QuotaPolicy` boundary ends any session incl. DI/LR sets at Q20, `hasReachedDailyLimit` locks set
+  launch at quota=0, `__qrResumeAfterUpgrade` resumes on upgrade) was verified against every edge case — unchanged.
+- **Analytics.** Reuse the batched `AIAnalytics` sink (users/{uid}/aiEvents, already stamps `plan`) via a `paywall._track`
+  helper. Centralized emission — no per-site duplication: `showPaywall` → `gate_shown` + (via `requirePremium`)
+  `feature_attempted`; `openPremiumPayment` → `upgrade_initiated`; payment-success → `upgrade_completed` +
+  `feature_unlocked`; `drill-engine._renderQuotaReached` → `daily_quota_reached` / `set_interrupted`.
+- **Lockstep + governance.** `shared/constants/entitlements.js` gained `MIXED_APTITUDE`/`LEARN_PREMIUM` + the missing
+  `TIMED_MOCKS` (fixing pre-existing drift) + `PREMIUM_LEARN`. New `scripts/entitlement-parity.check.js` asserts
+  `_LOCKED_FEATURES` set === `PREMIUM_FEATURES` values AND the client Learn map === shared — wired into `npm test`.
+  New `js/learn-entitlements.js` precached; main-app SW `v222→v223`.
+- **Anti-bypass (audited, hardened).** SW serves one shell (paywall.js precached → gates always run; no per-view HTML
+  to serve ungated offline); no plan mirror in localStorage; cold load fails closed until Firestore resolves; router
+  navigation re-runs gates at each dispatch/render, not a cached premium render; payment success flips
+  `_memoryCache.plan` synchronously + refreshes the JWT (unlock without restart). The Learn render gate + the
+  Mixed head gate + the fail-closed idiom conversions close the enumerated UI/deep-link/console/offline paths.
+- **Scope boundary (documented).** Client-generated practice content cannot be made console-proof without a server
+  session model, which the user explicitly ruled out (offline PWA, Vercel-free). Hardened client-side enforcement is
+  the deliberate ceiling; AI + Duel stay server-enforced as the paid surfaces with real backend cost.
+
 ## ADR-108 — Phase-1–5 final certification fixes (2026-07-07)
 - **Context.** Final release gate. Four independent adversarial agents re-audited the whole Phase-1–5 surface
   (reporting, entitlements/premium/payment, service-worker/update/PWA/lockstep, firm-cap/resume) from scratch and ran

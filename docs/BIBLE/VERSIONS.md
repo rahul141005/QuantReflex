@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.130 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.131 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.131 (2026-07-07)** — **Premium Phase 6: feature gating + free-plan hardening (ADR-109).** Gate Learn topics by
+> section (whole Commercial-Math/Algebra/Modern-Math/Geometry; DI Charts/Tables/Sets; LR Critical/Visual Reasoning) +
+> make Mixed Aptitude Premium, behind ONE **fail-closed** entitlement checkpoint (`paywall.requirePremium`); converted
+> the pre-existing fail-OPEN gate idioms to fail-closed. Learn shows a polished locked topic page at the single render
+> chokepoint + lock badges on hub cards; Practice gates Mixed at both the card and the launcher head (closes the
+> companion deep-link bypass). Quick Start / Focus / DI-LR sets stay free; the ADR-107 20/day master cap is unchanged
+> (verified). Entitlement telemetry reuses the AIAnalytics sink. New `js/learn-entitlements.js` ↔ shared `PREMIUM_LEARN`
+> + `scripts/entitlement-parity.check.js` lockstep guard; `entitlements.js` gained MIXED_APTITUDE/LEARN_PREMIUM and the
+> long-missing TIMED_MOCKS. Main-app SW **v222→v223**. No Firestore rules/schema change (analytics reuse `aiEvents`).
 
 > **2.130 / Security 2.18 / Payment 2.5 (2026-07-07)** — **Phase-1–5 final certification fixes (ADR-108).** A
 > four-agent independent audit returned PASS WITH MINOR ITEMS; all real issues fixed. Firm-cap: the quota "See results"
