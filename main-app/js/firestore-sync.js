@@ -1116,7 +1116,12 @@ var FirestoreSync = (function () {
         isTrial: _memoryCache.isTrial === true,
         trialEnd: _memoryCache.trialEnd || null,
         trialDays: computedTrialDays,
-        createdAt: _memoryCache.createdAt || null
+        createdAt: _memoryCache.createdAt || null,
+        /* ADR-107 cert fix: expose the server-written timestamps so paywall._clockSafeNow can anchor the
+           rewound-clock guard to a real server write (activatePremium writes both) instead of always falling back
+           to createdAt (which is far in the past, making the guard inert). */
+        updatedAt: _memoryCache.updatedAt || null,
+        planUpdatedAt: _memoryCache.planUpdatedAt || null
       };
     },
     /**

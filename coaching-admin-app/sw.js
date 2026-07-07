@@ -4,7 +4,7 @@
    (so a deploy is picked up on the next load) + cache-first assets + cached-index.html nav fallback.
    DELIBERATELY still does NOT skipWaiting() on install — an admin panel must not swap its SW
    mid-session; the new worker waits and the in-app QRUpdateManager surfaces the Update affordance. */
-const APP_VERSION = 'v3';
+const APP_VERSION = 'v4';
 const CACHE_NAME = 'qr-coach-cache-' + APP_VERSION;   /* derived so the two strings can never drift */
 const NET_FIRST_TIMEOUT_MS = 3000;                    /* network-first JS/CSS falls back to cache on "lie-fi" */
 
@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
   '/js/state/store.js',
   '/js/firebase/firebase.js',
   '/js/firebase/security-events.js',
+  '/js/auth-validators.js',
   '/js/firebase/auth.js',
   '/js/services/api.js',
   '/js/utils.js',

@@ -1045,6 +1045,11 @@ function createDrillEngine(container, opts) {
     var _res = container.querySelector('#quotaResultsBtn');
     if (_res) _res.addEventListener('click', function () {
       window.__qrResumeAfterUpgrade = null;      /* chose results over upgrade — drop any stale hook */
+      /* ADR-107 fix: a normal finish always has count === current (finish fires when current >= count). On a
+         quota-paused finish `current` is the number actually answered while `count` is still the full deck, so
+         results/analytics would use the wrong denominator (e.g. "5/10, 50%" for a perfect 5/5). Collapse the deck
+         to what was answered so the results card + saved practiceSessions record match a normal finish exactly. */
+      count = current;
       finish();
     });
   }

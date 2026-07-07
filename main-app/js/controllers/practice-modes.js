@@ -93,11 +93,11 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
         banner.innerHTML = '🔒 You\'ve reached your daily limit of ' + _freeLimit + ' free questions.<br>Upgrade to Premium for unlimited practice.' +
           '<br><button class="btn-primary" type="button">Upgrade Now</button>';
         var _upBtn = banner.querySelector('button');
-        if (_upBtn) _upBtn.addEventListener('click', function () { showPaywall('settings'); });
+        if (_upBtn) _upBtn.addEventListener('click', function () { showPaywall('daily_limit'); });
         modeSelectEl.parentNode.insertBefore(banner, modeSelectEl);
       }
     }
-    showPaywall('settings');
+    showPaywall('daily_limit');   /* ADR-107: the accurate daily-cap context, not the generic 'settings' hero */
     return;
   }
   var modeSelect = document.getElementById('modeSelect');
@@ -250,7 +250,7 @@ function startMockFromPractice(examId) {
    the user committed by tapping the action. */
 function startSessionReview(wrongQuestions) {
   if (!Array.isArray(wrongQuestions) || !wrongQuestions.length) return;
-  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('settings'); return; }
+  if (typeof hasReachedDailyLimit === 'function' && hasReachedDailyLimit()) { showPaywall('daily_limit'); return; }
   var drillContainer = document.getElementById('drillContainer');
   if (!drillContainer) return;
 

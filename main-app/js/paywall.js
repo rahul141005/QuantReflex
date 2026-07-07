@@ -60,7 +60,10 @@ function _toMillis(value) {
 function _clockSafeNow(u) {
   var now = Date.now();
   if (u) {
-    var lastUpdateMs = _toMillis(u.updatedAt) || _toMillis(u.createdAt);
+    /* Prefer the most recent server write: planUpdatedAt (set on every entitlement change) > updatedAt > createdAt.
+       ADR-107 cert fix — getAccessState now exposes planUpdatedAt/updatedAt, so this guard is no longer inert
+       (it previously always fell back to createdAt and never fired). */
+    var lastUpdateMs = _toMillis(u.planUpdatedAt) || _toMillis(u.updatedAt) || _toMillis(u.createdAt);
     if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = lastUpdateMs;
   }
   return now;

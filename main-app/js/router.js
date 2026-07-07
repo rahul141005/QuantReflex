@@ -83,7 +83,13 @@ var Router = (function () {
 
   function showView(viewId, params) {
 
-    
+    /* ADR-107 hardening: a pending one-shot drill resume hook (window.__qrResumeAfterUpgrade, set when a free user
+       pauses at the daily cap) is only valid within an uninterrupted paused session. Any view navigation invalidates
+       it, so drop it here — a later upgrade from elsewhere must fall through to the normal refresh, never fire
+       renderQuestion() into a hidden/torn-down engine. The happy-path resume runs renderQuestion() and returns
+       before any showView(), so this never clears a live resume. */
+    if (typeof window !== 'undefined' && window.__qrResumeAfterUpgrade) window.__qrResumeAfterUpgrade = null;
+
     var views = document.querySelectorAll('.spa-view');
     for (var i = 0; i < views.length; i++) {
       views[i].classList.remove('spa-view-active');

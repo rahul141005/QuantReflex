@@ -188,7 +188,9 @@ async function activatePremium(uid, planType, paymentId, orderId) {
   var finalExpiry = expiry;
 
   await db.runTransaction(async function (tx) {
+    /* All reads MUST precede all writes in a Firestore transaction. */
     var paymentDoc = await tx.get(paymentRef);
+    var userDoc = await tx.get(userRef);
     if (paymentDoc.exists) {
       var existing = paymentDoc.data();
       if (existing.uid !== uid) {
@@ -210,13 +212,25 @@ async function activatePremium(uid, planType, paymentId, orderId) {
       }, { merge: true });
       return;
     }
-    var paymentDoc2 = { uid: uid, plan: planType, amount: (PREMIUM_PRICE_PAISE[planType] || 0), status: 'paid', expiry: expiry, claimedAt: new Date().toISOString() };
+    /* Renewal stacking (ADR-107 cert fix): a user who renews while still an UNEXPIRED purchase-premium keeps their
+       remaining days — the new term stacks on top instead of resetting to now+days. Only for an active purchase
+       (never a trial or an already-expired plan, which correctly restart from now). */
+    var baseMs = Date.now();
+    if (userDoc.exists) {
+      var ud = userDoc.data() || {};
+      if (ud.plan === 'premium' && ud.planSource === 'purchase' && ud.planExpiry) {
+        var curMs = Date.parse(ud.planExpiry);
+        if (!isNaN(curMs) && curMs > baseMs) baseMs = curMs;
+      }
+    }
+    finalExpiry = new Date(baseMs + days * 24 * 60 * 60 * 1000).toISOString();
+    var paymentDoc2 = { uid: uid, plan: planType, amount: (PREMIUM_PRICE_PAISE[planType] || 0), status: 'paid', expiry: finalExpiry, claimedAt: new Date().toISOString() };
     if (orderId) paymentDoc2.orderId = String(orderId);
     tx.create(paymentRef, paymentDoc2);
     tx.set(userRef, {
       plan: 'premium',
       planType: planType,
-      planExpiry: expiry,
+      planExpiry: finalExpiry,
       planSource: 'purchase',
       isTrial: false,
       trialEnd: null,

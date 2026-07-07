@@ -160,7 +160,7 @@ function initSettingsView() {
     themeSelect = rebind(themeSelect, 'change', function () {
       if (this.value !== 'classic' && !canAccessFeature('advanced_theme')) {
         this.value = settings.theme || 'classic';
-        showPaywall('settings');
+        showPaywall('advanced_theme');
         return;
       }
       settings.theme = this.value;
@@ -217,7 +217,7 @@ function initSettingsView() {
         toggle.checked = false;
         settings.skipEnabled = false;
         saveSettings(settings);
-        showPaywall('settings');
+        showPaywall('skip_question');
         return;
       }
       if (toggle.checked && settings.difficulty === 'hard') {
@@ -273,7 +273,7 @@ function initSettingsView() {
   difficultySelect = rebind(difficultySelect, 'change', function () {
     if (this.value === 'hard' && !canAccessFeature('hard_mode')) {
       this.value = settings.difficulty || 'medium';
-      showPaywall('settings');
+      showPaywall('hard_mode');
       return;
     }
     settings.difficulty = this.value;
@@ -297,7 +297,7 @@ function initSettingsView() {
       if (val >= 10 && val <= 100) {
         if (val > 20 && !canAccessFeature('daily_goal_limit')) {
           this.value = String(settings.dailyGoal || 20);
-          showPaywall('settings');
+          showPaywall('daily_goal_limit');
           return;
         }
         settings.dailyGoal = val;
@@ -500,7 +500,7 @@ function initSettingsView() {
   var trialUpgradeBtn = document.getElementById('trialUpgradeBtn');
   if (trialUpgradeBtn) {
     rebind(trialUpgradeBtn, 'click', function () {
-      showPaywall('settings');
+      showPaywall('upgrade');
     });
   }
 

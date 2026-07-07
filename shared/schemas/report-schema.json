@@ -174,7 +174,7 @@
     },
     "question": {
       "type": ["object", "null"],
-      "description": "Present ONLY when context.app.source==='drill'. MAXIMIZED snapshot so the exact item is reproducible admin-side without a screenshot. attachments deliberately omitted — a future reports/{id}/attachments/* subcollection (or question.figures[]) adds with zero migration.",
+      "description": "Present when context.app.source==='drill' OR 'ai_explain' (both anchor to a specific question). MAXIMIZED snapshot so the exact item is reproducible admin-side without a screenshot. attachments deliberately omitted — a future reports/{id}/attachments/* subcollection (or question.figures[]) adds with zero migration.",
       "properties": {
         "signature": { "type": ["string", "null"], "description": "Stable generator identity: questionId || _authoredId || hash(category|subtype|question)." },
         "questionId": { "type": ["string", "null"], "description": "Firestore question doc id, if a bank question." },
