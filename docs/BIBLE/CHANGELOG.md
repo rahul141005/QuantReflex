@@ -20,8 +20,10 @@ fixed. Rides `v222` (main-app); coaching SW `v3→v4`.
   auth-validators.js` copy, precached (coaching SW `v3→v4`); removed the same dead (unused) script from super-admin.
   New `scripts/auth-validators.check.js` lockstep guard wired into `npm test`.
 - **Entitlement/payment:** `_clockSafeNow` clock-tamper guard was inert (no server-write timestamp reached the client)
-  — `getAccessState()` now exposes `planUpdatedAt`/`updatedAt` and the guard prefers them; `activatePremium` now stacks
-  an early renewal on `max(now, currentExpiry)+days` instead of resetting (no forfeited paid days).
+  — `getAccessState()` now exposes `planUpdatedAt`/`updatedAt` and the guard anchors to the most recent server write
+  (`Math.max(...)`, corrected in cert pass #3 from a first-truthy chain that masked the server-authoritative
+  `updatedAt`); `activatePremium` now stacks an early renewal on `max(now, currentExpiry)+days` instead of resetting
+  (no forfeited paid days).
 - **Consistency/docs:** Settings paywalls use their specific context keys (`advanced_theme`, `skip_question`,
   `hard_mode`, `daily_goal_limit`, `upgrade`); corrected `report-schema.json` prose (`question` snapshot is attached
   for `ai_explain` too). Bible 2.129→2.130.

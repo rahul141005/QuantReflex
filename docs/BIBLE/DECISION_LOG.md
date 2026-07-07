@@ -37,8 +37,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
     but `FirestoreSync.getAccessState()` never exposed a server-write timestamp, so it always fell back to `createdAt`
     (far past) and the rewound-clock guard never fired — a lapsed-premium user could rewind the device clock to regain
     client-gated features (server-cost AI was independently protected). Fixed: `getAccessState()` now exposes
-    `planUpdatedAt`/`updatedAt` (both already written by `activatePremium`) and `_clockSafeNow` prefers
-    `planUpdatedAt||updatedAt||createdAt`.
+    `planUpdatedAt`/`updatedAt` (both already written by `activatePremium`) and `_clockSafeNow` anchors to the most
+    recent server write via `Math.max(planUpdatedAt, updatedAt, createdAt)`. (Cert pass #3 correction: `Math.max`, not
+    first-truthy — `planUpdatedAt` is frozen at purchase time and a `||` chain would mask the server-authoritative
+    `updatedAt` and leave the guard weak for its exact target, a lapsed-premium user who rewinds the clock.)
   - **Early renewal reset expiry (LOW/MED, billing).** `activatePremium` always set `expiry = now + days`, so renewing
     an unexpired purchase forfeited remaining days. Fixed: the transaction now reads the user doc and, for an unexpired
     `planSource==='purchase'` premium, stacks on `max(now, currentExpiry) + days` (trials / expired plans still restart

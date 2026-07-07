@@ -60,10 +60,13 @@ function _toMillis(value) {
 function _clockSafeNow(u) {
   var now = Date.now();
   if (u) {
-    /* Prefer the most recent server write: planUpdatedAt (set on every entitlement change) > updatedAt > createdAt.
-       ADR-107 cert fix — getAccessState now exposes planUpdatedAt/updatedAt, so this guard is no longer inert
-       (it previously always fell back to createdAt and never fired). */
-    var lastUpdateMs = _toMillis(u.planUpdatedAt) || _toMillis(u.updatedAt) || _toMillis(u.createdAt);
+    /* Anchor to the MOST RECENT server write, so a rewound device clock snaps forward as far as any trustworthy
+       timestamp allows. Must be max(), not first-truthy: planUpdatedAt is frozen at purchase time (the oldest stamp)
+       and is present for every purchased user, so a `||` chain would always pick it and discard `updatedAt` — the
+       field firestore-sync writes via FieldValue.serverTimestamp() SPECIFICALLY as the tamper-resistant skew anchor.
+       Absent fields → _toMillis 0 (ignored); a pending serverTimestamp sentinel → 0 (no false lockout); updatedAt
+       can't be future, so a legitimate clock is unaffected. (ADR-108 cert fix, corrected in cert pass #3.) */
+    var lastUpdateMs = Math.max(_toMillis(u.planUpdatedAt), _toMillis(u.updatedAt), _toMillis(u.createdAt));
     if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = lastUpdateMs;
   }
   return now;
