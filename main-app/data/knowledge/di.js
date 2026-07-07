@@ -19,6 +19,7 @@
       id: 'di-foundations', title: 'DI Foundations', icon: '🧱', category: 'di-charts',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-bar',
+      revisionIntervalDays: 4,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['data interpretation', 'di', 'charts', 'graphs', 'reading data', 'caselet'],
       related: ['di-speed-math', 'di-bar-line'],
       sections: [
@@ -40,6 +41,7 @@
       id: 'di-bar-line', title: 'Bar & Line Graphs', icon: '📉', category: 'di-charts',
       difficulty: 'core', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-line',
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['bar graph', 'line graph', 'trend', 'year on year', 'growth', 'di'],
       related: ['di-foundations', 'di-speed-math'],
       sections: [
@@ -61,6 +63,7 @@
       id: 'di-pie-charts', title: 'Pie Charts', icon: '🥧', category: 'di-charts',
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'di-pie',
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['pie chart', 'central angle', 'degrees', 'share', 'percentage', 'di'],
       related: ['di-foundations', 'di-speed-math'],
       sections: [
@@ -81,6 +84,7 @@
       id: 'di-tables-caselets', title: 'Tables & Caselets', icon: '📋', category: 'di-charts',
       difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'di-table',
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['table', 'caselet', 'data table', 'rows', 'columns', 'di'],
       related: ['di-foundations', 'di-speed-math'],
       sections: [
@@ -101,6 +105,7 @@
       id: 'di-speed-math', title: 'DI Calculation Shortcuts', icon: '⚡', category: 'di-charts',
       difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
       drillCategory: 'di-caselet',
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['approximation', 'shortcuts', 'percentage to fraction', 'speed', 'estimation', 'di'],
       related: ['di-foundations', 'di-pie-charts'],
       sections: [
@@ -121,6 +126,7 @@
       id: 'di-sets', title: 'DI Sets & Multi-Series Charts', icon: '🗂️', category: 'di-charts',
       difficulty: 'advanced', examFrequency: 'high', status: 'published',
       drillCategory: 'di-bar',
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       searchTerms: ['di set', 'caselet set', 'grouped bar', 'stacked bar', 'multiple line', 'multi series', 'missing data', 'set selection', 'di'],
       related: ['di-foundations', 'di-bar-line'],
       sections: [

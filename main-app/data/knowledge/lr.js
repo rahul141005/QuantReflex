@@ -18,6 +18,7 @@
     {
       id: 'lr-coding-decoding', title: 'Coding-Decoding', icon: '🔡', category: 'lr-reasoning', difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-coding', searchTerms: ['coding', 'decoding', 'cipher', 'letter shift', 'code'], related: ['lr-analogies'],
+      revisionIntervalDays: 4,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Coding-Decoding hides a word or number behind a simple, consistent RULE — a letter shift, a position value, or an arithmetic pattern. Crack the rule from the example, then apply it. It is pure pattern speed, no vocabulary needed.' },
         { type: 'concept', title: 'Letters have positions', body: 'Every letter has a fixed position: A=1, B=2, …, Z=26 (and reversed: A=26 … Z=1). Most codes are built on these positions — a sum, a shift, or a swap. Knowing positions instantly is half the battle.' },
@@ -36,6 +37,7 @@
     {
       id: 'lr-blood-relations', title: 'Blood Relations', icon: '👪', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-blood', searchTerms: ['blood relations', 'family', 'relationship', 'generations', 'family tree', 'genealogy', 'kinship'], related: ['lr-direction-sense'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Blood-relation questions give a chain of family links and ask how two people are related. The reliable method is to turn the words into a small family TREE and read the answer off it.' },
         { type: 'concept', title: 'Think in generations', body: 'Place people on levels: grandparents on top, parents in the middle, children below. Most answers are just "one or two levels up/down, same or sideways".' },
@@ -56,6 +58,7 @@
     {
       id: 'lr-direction-sense', title: 'Direction Sense', icon: '🧭', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-direction', searchTerms: ['direction', 'distance', 'compass', 'displacement', 'turns'], related: ['lr-blood-relations'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Direction questions track someone walking and turning, then ask the final distance or direction from the start. Track position as coordinates and the rest is Pythagoras.' },
         { type: 'concept', title: 'Use a coordinate grid', body: 'Let North be +y, East be +x. Add each move to a running (x, y). North/South change y; East/West change x. Opposite moves cancel.' },
@@ -74,6 +77,7 @@
     {
       id: 'lr-ranking', title: 'Ranking & Ordering', icon: '🏅', category: 'lr-reasoning', difficulty: 'foundation', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-ranking', searchTerms: ['ranking', 'ordering', 'position', 'row', 'rank from left'], related: ['lr-direction-sense'],
+      revisionIntervalDays: 4,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Ranking questions place people in a row or order and ask a total or a position. Almost all of them come down to one identity about the overlap when you count from both ends.' },
         { type: 'concept', title: 'The overlap of +1', body: 'If a person is L-th from the left and R-th from the right, they are counted TWICE — once from each end — so the total is L + R − 1, not L + R.' },
@@ -92,6 +96,7 @@
     {
       id: 'lr-odd-one-out', title: 'Odd One Out', icon: '🔎', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-odd', searchTerms: ['odd one out', 'classification', 'pattern', 'does not belong'], related: ['lr-analogies'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'You are given a few items that share a hidden property and one that breaks it. Spot the shared rule, then the misfit is obvious. Speed comes from a quick mental checklist of common rules.' },
         { type: 'concept', title: 'Find the rule, not the odd one', body: 'Don\'t hunt for the odd item directly — identify what the MAJORITY share (all squares? all primes? all multiples of 6?). The one that fails that rule is the answer.' },
@@ -108,6 +113,7 @@
     {
       id: 'lr-analogies', title: 'Analogies', icon: '🔗', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-analogy', searchTerms: ['analogy', 'relationship', 'ratio', 'is to'], related: ['lr-coding-decoding', 'lr-odd-one-out'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'An analogy gives a related pair A : B and asks you to complete C : ? with the SAME relationship. Find the exact operation that turns A into B, then apply it to C.' },
         { type: 'concept', title: 'Nail the exact relation', body: 'Is B a multiple of A? A power? A plus a constant? Pin down the precise rule on the given pair before touching C — small numbers can fit several rules, so verify.' },
@@ -125,6 +131,7 @@
     {
       id: 'lr-syllogisms', title: 'Syllogisms', icon: '⭕', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-syllogism', searchTerms: ['syllogism', 'all some no', 'conclusion', 'venn', 'logic'], related: ['lr-coding-decoding'],
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Syllogisms give two statements (using All / No / Some) and ask whether a conclusion necessarily follows. A conclusion follows only if it is true in EVERY possible picture of the statements.' },
         { type: 'concept', title: 'What each word guarantees', body: '"All A are B" puts A entirely inside B. "No A are B" keeps them apart. "Some A are B" guarantees an overlap exists — but says nothing about the rest, and never implies "some are NOT".' },
@@ -145,6 +152,7 @@
     {
       id: 'lr-series', title: 'Letter & Number Series', icon: '🔠', category: 'lr-reasoning', difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-series', searchTerms: ['series', 'letter series', 'alphanumeric', 'next term', 'pattern'], related: ['lr-analogies', 'lr-coding-decoding'],
+      revisionIntervalDays: 4,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'A series is a sequence built on a hidden rule; you find the rule and extend it. The rule may act on numbers, on letter POSITIONS, or on both at once (alphanumeric). Speed comes from checking differences first.' },
         { type: 'concept', title: 'Differences and steps', body: 'Write the gaps between consecutive terms. A constant gap is an arithmetic step; a growing gap may be ×k, squares, or added increments. For letters, convert to positions (A=1…Z=26) and treat them like numbers.' },
@@ -163,6 +171,7 @@
     {
       id: 'lr-coded-inequalities', title: 'Coded Inequalities', icon: '🔣', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-inequality', searchTerms: ['inequalities', 'coded inequality', 'definitely true', 'either or', 'banking reasoning'], related: ['lr-syllogisms'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Coded inequalities replace the signs >, ≥, <, ≤, = with symbols, then ask which conclusion is definitely true. Decode the chain, then combine the signs between the two terms in the conclusion.' },
         { type: 'concept', title: 'Combining a chain', body: 'Along a path, signs combine only if they point the SAME way. A > B ≥ C gives A > C (any strict > makes the result strict). If the path mixes a > and a <, the relation between the ends is undecided.' },
@@ -181,6 +190,7 @@
     {
       id: 'lr-calendars', title: 'Calendars', icon: '📅', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: 'lr-calendar', searchTerms: ['calendar', 'day of week', 'odd days', 'leap year'], related: ['lr-clocks'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Calendar questions ask the day of the week for a date, or the day after a gap. Everything reduces to counting "odd days" — the remainder of a day-count divided by 7.' },
         { type: 'concept', title: 'Odd days', body: 'Days of the week repeat every 7. So only the remainder when the number of days is divided by 7 matters. Add that remainder to the known weekday and wrap around.' },
@@ -199,6 +209,7 @@
     {
       id: 'lr-clocks', title: 'Clocks', icon: '🕐', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: 'lr-clock', searchTerms: ['clock', 'angle between hands', 'mirror time', 'hour hand'], related: ['lr-calendars'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Clock problems are about the angles of the hour and minute hands. The hour hand moves 0.5° per minute, the minute hand 6° per minute — every angle follows from that.' },
         { type: 'concept', title: 'Hand speeds', body: 'In 60 minutes the minute hand sweeps 360° (6°/min) and the hour hand 30° (0.5°/min). At H hours M minutes the hour hand is at 30H + 0.5M degrees and the minute hand at 6M degrees.' },
@@ -217,6 +228,7 @@
     {
       id: 'lr-critical-reasoning', title: 'Critical Reasoning', icon: '🧠', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-critical', searchTerms: ['critical reasoning', 'assumption', 'strengthen', 'weaken', 'inference', 'cat verbal'], related: ['lr-statement-argument'],
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Critical Reasoning tests how an argument is built — its evidence, its conclusion, and the gap between them. You will be asked to find an assumption, or to strengthen, weaken or draw a valid inference. It rewards careful reading, not vocabulary.' },
         { type: 'concept', title: 'Argument anatomy', body: 'Separate the CONCLUSION (the claim) from the EVIDENCE (the support). The unstated link between them is the assumption — the soft target most questions attack or defend.' },
@@ -236,6 +248,7 @@
     {
       id: 'lr-statement-argument', title: 'Statement & Argument', icon: '💬', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-statement', searchTerms: ['statement assumption', 'statement conclusion', 'strong argument', 'implicit'], related: ['lr-critical-reasoning'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'This family gives a statement and asks what is implicit (assumption), what follows (conclusion), or which argument is strong. The verdict-style options (Only I, Only II, Both, Neither, Either) demand precise reasoning.' },
         { type: 'concept', title: 'Assumption vs conclusion', body: 'An assumption is taken for granted BEHIND the statement; a conclusion is drawn FROM it. An assumption must be necessary, not merely plausible; a conclusion must follow with certainty.' },
@@ -254,6 +267,7 @@
     {
       id: 'lr-decision-making', title: 'Decision Making', icon: '🤔', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-decision', searchTerms: ['decision making', 'xat', 'ethical', 'managerial', 'best course'], related: ['lr-critical-reasoning'],
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Decision Making (the hallmark of XAT) places you in a managerial or ethical situation and asks for the best action. The winning choice is balanced, ethical and practical — not extreme, not self-serving.' },
         { type: 'concept', title: 'Weigh all stakeholders', body: 'Identify everyone affected — customers, employees, the organisation, the public — and look for the option that protects the most important interests (safety, integrity) while remaining workable.' },
@@ -272,6 +286,7 @@
     {
       id: 'lr-seating-puzzles', title: 'Seating Arrangement & Puzzles', icon: '🪑', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'very-high', status: 'published',
       drillCategory: 'lr-seating', searchTerms: ['seating arrangement', 'puzzle', 'linear', 'floor puzzle', 'banking puzzle'], related: ['lr-ranking'],
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'A puzzle gives one scenario (a row, a circle, or floors) and a set of clues that together pin down a single arrangement. Several questions then read off that arrangement. The skill is building the diagram efficiently.' },
         { type: 'concept', title: 'Start from fixed clues', body: 'Begin with the most restrictive, definite clues — who is at an end, an exact position, or "exactly between". Pencil those in first; they anchor everything else.' },
@@ -291,6 +306,7 @@
     {
       id: 'lr-nonverbal-images', title: 'Mirror, Water, Dice & Cubes', icon: '🪞', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-mirror', searchTerms: ['mirror image', 'water image', 'dice', 'cube', 'non-verbal', 'ssc reasoning', 'paper folding', 'embedded figures', 'odd figure', 'cube net', 'two positions of a die'], related: ['lr-figure-series'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Non-verbal questions test spatial sense: how a figure looks reflected (mirror/water), how a die or painted cube behaves in 3-D, how a punched sheet unfolds, and which figure hides inside another. A few fixed rules cover most of them.' },
         { type: 'concept', title: 'Mirror vs water', body: 'A mirror image flips LEFT ↔ RIGHT (top and bottom stay put). A water image flips TOP ↔ BOTTOM (left and right stay put). Symmetric shapes look unchanged along their axis of symmetry — and a ROTATED copy is never a reflection: rotations keep orientation, reflections reverse it.' },
@@ -312,6 +328,7 @@
     {
       id: 'lr-figure-series', title: 'Figure Series & Analogy', icon: '🔷', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'high', status: 'published',
       drillCategory: 'lr-fseries', searchTerms: ['figure series', 'figure analogy', 'rotation', 'pattern', 'non-verbal'], related: ['lr-nonverbal-images', 'lr-analogies'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Figure series and analogy test how a picture TRANSFORMS — usually a rotation, a reflection, or a change of shading/elements. Spot the single consistent change and apply it.' },
         { type: 'concept', title: 'Name the transformation', body: 'Compare consecutive figures (series) or the first pair (analogy) and describe the change in words: "rotates 90° clockwise", "reflects", "one element added". One clean rule explains the whole set.' },
@@ -330,6 +347,7 @@
     {
       id: 'lr-input-output', title: 'Input-Output (Machine)', icon: '⚙️', category: 'lr-reasoning', difficulty: 'advanced', examFrequency: 'medium', status: 'published',
       drillCategory: 'lr-io', searchTerms: ['input output', 'machine input', 'word arrangement', 'shifting', 'banking reasoning'], related: ['lr-series'],
+      revisionIntervalDays: 8,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'An input-output "machine" rearranges a line of words or numbers by a FIXED rule, one step at a time, until it is fully arranged. Your job is to apply the rule mechanically and report the line (or a position) after a given step.' },
         { type: 'concept', title: 'Find the rule, then march', body: 'Compare the input to step 1 to see what moved — usually the smallest (or alphabetically first) item shifts to one end. The same operation repeats every step. Do not jump ahead; rewrite the WHOLE line each step.' },
@@ -348,6 +366,7 @@
     {
       id: 'lr-cause-effect', title: 'Cause & Effect', icon: '⛓️', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: 'lr-cause', searchTerms: ['cause and effect', 'causal', 'common cause', 'reason', 'banking reasoning'], related: ['lr-critical-reasoning'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'Cause-and-effect questions give two statements and ask how they are related: does one cause the other, are both effects of a single common cause, or are they unrelated? The trap is mistaking things that merely happen together for cause and effect.' },
         { type: 'concept', title: 'Order and mechanism', body: 'A cause comes BEFORE its effect and plausibly produces it. Ask: which event happened first, and does it explain the other? If yes, you have a cause→effect pair.' },
@@ -366,6 +385,7 @@
     {
       id: 'lr-course-of-action', title: 'Course of Action', icon: '✅', category: 'lr-reasoning', difficulty: 'core', examFrequency: 'medium', status: 'published',
       drillCategory: 'lr-course', searchTerms: ['course of action', 'follows', 'problem solving', 'decision', 'banking reasoning'], related: ['lr-statement-argument'],
+      revisionIntervalDays: 6,   // LRN-2: difficulty-mapped spaced-revision cadence (foundation 4 / core 6 / advanced 8)
       sections: [
         { type: 'overview', text: 'A course-of-action question states a problem and proposes one or more actions; you decide which actions logically "follow". An action follows only if it directly addresses the problem AND is practical and proportionate.' },
         { type: 'concept', title: 'Two tests for "follows"', body: 'A valid course of action must (1) be RELEVANT — it tackles the actual cause of the problem, and (2) be REASONABLE — practical, proportionate, and not an over-reaction. An action failing either test does not follow.' },

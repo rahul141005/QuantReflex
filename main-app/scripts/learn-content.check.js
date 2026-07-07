@@ -47,6 +47,11 @@ console.log('learn-content.check — Learn Knowledge Engine (ADR-069)');
   if (errs.length) errs.forEach(function (e) { console.error('  ✗ integrity: ' + e); });
   ok('1 registry.validateAll() returns no errors', errs.length === 0);
   ok('1 sixty-two topics registered (36 Quant + 6 DI + 20 LR)', KB.count() === 62);
+  /* LRN-2 (ADR-106): every catalog topic carries an explicit revisionIntervalDays (Quant + DI + LR), so the
+     computeDue `|| 5` fallback fires only for ad-hoc/test inputs — a guarded invariant, not an accident. */
+  var missingInterval = KB.all().filter(function (t) { return typeof t.revisionIntervalDays !== 'number' || t.revisionIntervalDays <= 0; });
+  if (missingInterval.length) missingInterval.forEach(function (t) { console.error('  ✗ revisionIntervalDays missing: ' + t.id); });
+  ok('1 every topic has a positive revisionIntervalDays (LRN-2)', missingInterval.length === 0);
 })();
 
 /* ── 2. drillCategory + syllabusTopicId references are valid (cross-file) ── */
