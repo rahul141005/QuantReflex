@@ -8,6 +8,53 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-108 — Phase-1–5 final certification fixes (2026-07-07)
+- **Context.** Final release gate. Four independent adversarial agents re-audited the whole Phase-1–5 surface
+  (reporting, entitlements/premium/payment, service-worker/update/PWA/lockstep, firm-cap/resume) from scratch and ran
+  every check harness. Verdict: **PASS WITH MINOR ITEMS** — no critical/high defects; the fixes below are the full set
+  of real issues found. Rides unreleased `v222` (main-app); coaching SW `v3→v4`.
+- **Phase-5-introduced.**
+  - **Quota-paused results denominator (MEDIUM).** On the firm-cap "See results" finish, `finish()` used the full deck
+    `count` for accuracy + the `score/count` display + `savePracticeSession({total:count})`, so a free user blocked at
+    Q5 of a 10-deck saw "5/10, 50%" and the persisted session understated it. Fixed by collapsing `count = current`
+    before `finish()` in the quota "See results" handler — restoring the normal-finish invariant `count === current`
+    (the resume path keeps the full deck).
+  - **Resume-hook hardening (LOW).** `router.js showView()` now clears any pending `window.__qrResumeAfterUpgrade`, so
+    a view navigation can never let a later upgrade fire `renderQuestion()` into a hidden/torn-down engine (the
+    happy-path resume returns before any showView, so a live resume is never cleared).
+  - **Daily-limit paywall context (consistency).** The daily-cap banner + `startDrillFromPractice` +
+    `startSessionReview` now open `showPaywall('daily_limit')` (the precise ADR-107 line) instead of the generic
+    `'settings'` hero.
+- **Pre-existing production defects (found in certification scope).**
+  - **Coaching-admin cross-root auth-validators (MEDIUM, prod).** `coaching-admin-app/index.html` runtime-loaded
+    `../shared/validation/auth-validators.js`; `shared/` is outside the deploy root, so in prod it served index.html
+    (ADR-099 hazard) and `auth.js`'s `typeof AuthValidators` guard SILENTLY skipped signup email/password validation.
+    Fixed with a same-origin `coaching-admin-app/js/auth-validators.js` copy (precached; coaching SW `v3→v4`), exactly
+    as main-app resolved its own instance.
+  - **Super-admin dead cross-root load (LOW).** Same `../shared` `<script>` in super-admin, but `AuthValidators` is
+    never referenced there → a guaranteed prod console error with no function. Removed the tag.
+  - **Clock-tamper guard was inert (MEDIUM, security-adjacent).** `paywall._clockSafeNow` read `updatedAt`/`createdAt`
+    but `FirestoreSync.getAccessState()` never exposed a server-write timestamp, so it always fell back to `createdAt`
+    (far past) and the rewound-clock guard never fired — a lapsed-premium user could rewind the device clock to regain
+    client-gated features (server-cost AI was independently protected). Fixed: `getAccessState()` now exposes
+    `planUpdatedAt`/`updatedAt` (both already written by `activatePremium`) and `_clockSafeNow` prefers
+    `planUpdatedAt||updatedAt||createdAt`.
+  - **Early renewal reset expiry (LOW/MED, billing).** `activatePremium` always set `expiry = now + days`, so renewing
+    an unexpired purchase forfeited remaining days. Fixed: the transaction now reads the user doc and, for an unexpired
+    `planSource==='purchase'` premium, stacks on `max(now, currentExpiry) + days` (trials / expired plans still restart
+    from now; same-payment replay still reuses the stored expiry).
+- **Consistency / docs.** Settings feature-gates now open their specific paywall context (`advanced_theme`,
+  `skip_question`, `hard_mode`, `daily_goal_limit`; the trial CTA → `upgrade`) instead of the generic `'settings'`.
+  Corrected the stale `report-schema.json` prose (the `question` snapshot is attached for `ai_explain` too, not
+  drill-only). New `scripts/auth-validators.check.js` lockstep guard (logic-identical across shared + main-app +
+  coaching copies; no cross-root runtime load; coaching precache) wired into `npm test`.
+- **Explicitly NOT changed (informational / conscious trade-offs).** questionReports counting ai_explain against a
+  question's report tally (defensible; `topReasons` disambiguates); admin analytics `count()` churn (admin-only,
+  O(1)); the client 20/day cap not being a security boundary (ADR-107/PREM-4 — questions are free/local; server-cost
+  AI is server-gated); `recordSetStarted` omitting `lastActiveMs` (harmless). All documented, none production-blocking.
+- **Consequences.** Full suite green (3654-assertion core + all harnesses incl. new `auth-validators.check`); the
+  quota panel re-verified in light/dark. QuantReflex is production-ready across all three apps.
+
 ## ADR-107 — Phase-5 paid/free consistency + firm free limits + DI/LR-set daily quota (2026-07-07)
 - **Context.** A fresh, independent certification of Phases 1–4 (two adversarial passes + the full suite, all green)
   confirmed production-readiness and surfaced only debt. Phase 5 — the final roadmap phase — tidies the paid/free line

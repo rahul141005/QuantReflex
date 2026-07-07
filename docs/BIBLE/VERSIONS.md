@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.129 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.130 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+| **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
+| **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.130 / Security 2.18 / Payment 2.5 (2026-07-07)** — **Phase-1–5 final certification fixes (ADR-108).** A
+> four-agent independent audit returned PASS WITH MINOR ITEMS; all real issues fixed. Firm-cap: the quota "See results"
+> finish collapses `count=current` (was reporting/persisting the wrong denominator), `showView` clears any pending
+> resume hook, and the daily-cap paths open the precise `daily_limit` paywall. **Security:** the coaching-admin app
+> loaded `../shared/validation/auth-validators.js` (served index.html in prod → signup validation silently skipped) —
+> now a same-origin copy (coaching SW **v3→v4**), with a dead copy removed from super-admin and a new
+> `auth-validators.check` lockstep guard; the `_clockSafeNow` rewound-clock guard was inert (no server timestamp
+> reached the client) and is now anchored to `planUpdatedAt`/`updatedAt`. **Payment:** `activatePremium` stacks an
+> early renewal on `max(now, currentExpiry)+days` instead of resetting. Settings paywalls use their specific context
+> keys; `report-schema.json` prose corrected. Main-app rides unreleased `v222`; no Firestore schema change.
 
 > **2.129 / Firestore 2.32 (2026-07-07)** — **Phase-5 paid/free consistency + firm free limits (ADR-107).** The final
 > roadmap phase. The **20/day question cap is now firm mid-session**: a free user completes their 20th question but

@@ -6,6 +6,28 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Phase-1–5 final certification fixes (ADR-108)
+
+Independent four-agent certification of the whole Phase-1–5 surface. Verdict: PASS WITH MINOR ITEMS; all real issues
+fixed. Rides `v222` (main-app); coaching SW `v3→v4`.
+
+- **Phase-5 firm-cap:** the quota "See results" finish now collapses `count = current` so accuracy/results/persisted
+  `practiceSessions` match a normal finish (was showing "5/10, 50%" for a perfect 5/5); `router.js showView()` clears
+  any pending resume hook (hardening); the daily-cap banner / `startDrillFromPractice` / `startSessionReview` open the
+  precise `daily_limit` paywall instead of the generic `settings` one.
+- **Cross-root auth-validators (ADR-099 residual):** coaching-admin loaded `../shared/validation/auth-validators.js`
+  (served index.html in prod → signup validation silently skipped) — now a same-origin `coaching-admin-app/js/
+  auth-validators.js` copy, precached (coaching SW `v3→v4`); removed the same dead (unused) script from super-admin.
+  New `scripts/auth-validators.check.js` lockstep guard wired into `npm test`.
+- **Entitlement/payment:** `_clockSafeNow` clock-tamper guard was inert (no server-write timestamp reached the client)
+  — `getAccessState()` now exposes `planUpdatedAt`/`updatedAt` and the guard prefers them; `activatePremium` now stacks
+  an early renewal on `max(now, currentExpiry)+days` instead of resetting (no forfeited paid days).
+- **Consistency/docs:** Settings paywalls use their specific context keys (`advanced_theme`, `skip_question`,
+  `hard_mode`, `daily_goal_limit`, `upgrade`); corrected `report-schema.json` prose (`question` snapshot is attached
+  for `ai_explain` too). Bible 2.129→2.130.
+
+---
+
 ## 2026-07-07 — Phase-5 paid/free consistency + firm free limits + DI/LR-set daily quota (ADR-107)
 
 Final roadmap phase: tidy the paid/free line and make the free limits firm, ahead of upcoming Premium work. Rides `v222`.
