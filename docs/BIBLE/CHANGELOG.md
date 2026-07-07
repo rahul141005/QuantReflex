@@ -6,6 +6,22 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Comprehensive product audit + Contact-card typography (Phase 9)
+
+Authored `docs/BIBLE/PRODUCT_AUDIT.md` — a deep, evidence-backed (file:line) audit of the main app across every
+surface (shell/Home/Stats/Settings, Practice + question engines, visual questions, Learn, QuanAI/Duel/paywall,
+onboarding/About/App-Guide, reporting, premium), with a findings register (severity-rated) and a prioritized roadmap.
+No Critical findings; the highest-value opportunities are PREM-1 (paywall advertises "5 free AI explanations" that
+don't exist — `paywall.js:331` vs the server 403 at `api/ai.js:179`), REP-1 (Super-Admin never re-renders reported
+charts/figures), and VIS-1/2/3 (DI charts lack y-gridlines/axis-titles + use rainbow single-series bars). Linked from
+`docs/BIBLE/README.md`. Documentation-only; no code behavior change; no version-track bump.
+
+Implemented the one requested code refinement (audit Phase 9): `main-app/css/style.css` `.contact-card-email`
+`font-size 1rem → .84rem` + `line-height:1.6` to match the About modal's `.info-block` typography scale, keeping the
+accent blue (`#2563eb`/dark `#93c5fd`) since the Settings email is an interactive tap-to-email affordance. Verified
+via Playwright computed-style + before/after screenshots (light + dark); `npm test` green (CSS-only). No SW/version
+bump (cosmetic; rides the unreleased v221 changeset). Every other audit finding is a recommendation, not implemented.
+
 ## 2026-07-06 — Unified in-app Update System across all three apps (ADR-102)
 
 The in-app "update available → Update App" experience now exists in all three apps and is implemented ONCE behind a

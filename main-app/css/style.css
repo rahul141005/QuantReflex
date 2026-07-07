@@ -1931,7 +1931,7 @@ body.dark-mode .contact-card-avatar { background: rgba(96,165,250,.14); color: #
 .contact-card-body { flex: 1; min-width: 0; }
 .contact-card-title { font-size: .8rem; font-weight: 600; color: #64748b; }
 body.dark-mode .contact-card-title { color: #94a3b8; }
-.contact-card-email { display: inline-block; margin-top: .1rem; font-size: 1rem; font-weight: 700; color: #2563eb; text-decoration: none; word-break: break-all; -webkit-tap-highlight-color: transparent; }
+.contact-card-email { display: inline-block; margin-top: .1rem; font-size: .84rem; line-height: 1.6; font-weight: 700; color: #2563eb; text-decoration: none; word-break: break-all; -webkit-tap-highlight-color: transparent; }
 .contact-card-email:hover { text-decoration: underline; }
 .contact-card-email:active { opacity: .7; }
 .contact-card-email:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: .25rem; }

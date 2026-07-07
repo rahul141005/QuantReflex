@@ -24,6 +24,8 @@ documents before touching code. They are authoritative over code comments, commi
 - **[DECISION_LOG.md](DECISION_LOG.md)** — why decisions were made (ADRs).
 - **[ROADMAP.md](ROADMAP.md)** — planned work and open technical debt.
 - **[CHANGELOG.md](CHANGELOG.md)** — dated record of every change.
+- **[PRODUCT_AUDIT.md](PRODUCT_AUDIT.md)** — comprehensive, evidence-backed product/UX/UI audit of the main app
+  (findings register + prioritized roadmap). Reference for future feature/polish work.
 
 ## The one rule
 
