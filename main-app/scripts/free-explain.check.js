@@ -53,6 +53,17 @@ ok(decide(0, 0).remaining === 4, 'zero/invalid limit falls back to the default (
 ok(decide(2, 3).ok === true && decide(2, 3).remaining === 0, 'custom limit 3: used 2 → grant, 0 left');
 ok(decide(3, 3).ok === false, 'custom limit 3: used 3 → deny');
 
+// ── refund decision (ADR-103 verification-pass follow-up): give back exactly one, never below zero ──
+var refund = policy.freeExplainRefund;
+ok(typeof refund === 'function', 'freeExplainRefund is exported');
+ok(refund(1) === 0, 'refund 1 → 0');
+ok(refund(5) === 4, 'refund 5 → 4');
+ok(refund(0) === 0, 'refund 0 → 0 (clamped, never negative)');
+ok(refund(-3) === 0, 'refund negative → 0 (clamped)');
+ok(refund(2.9) === 1, 'refund fractional → floored then decremented');
+// consume-then-refund round-trips to the original count (no credit gained or lost on a refunded error)
+ok(refund(decide(3, LIMIT).ok ? 4 : 3) === 3, 'consume (3→4) then refund → back to 3');
+
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

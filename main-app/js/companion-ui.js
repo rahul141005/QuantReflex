@@ -508,6 +508,9 @@ var Companion = (function () {
       var txt = n > 0 ? (n + ' free explanation' + (n === 1 ? '' : 's') + ' left')
                       : 'That was your last free explanation — upgrade for unlimited.';
       bodyEl.appendChild(el('<div class="companion-free-note">' + esc(txt) + '</div>'));
+      // ADR-103 (verification-pass follow-up): when the last free credit is spent, proactively flip the session flag
+      // so the Explain button shows 🔒 on its next render instead of wasting a 6th tap that the server would 403.
+      if (n === 0 && typeof markFreeExplainExhausted === 'function') markFreeExplainExhausted();
     } catch (_) {}
   }
   function _assign(a, b) { var o = {}; var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }

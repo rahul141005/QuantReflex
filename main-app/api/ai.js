@@ -229,6 +229,10 @@ module.exports = withAuth(async function (req, res) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Unknown AI action: ' + action, retryable: false } });
   } catch (err) {
     console.error('[api/ai] action ' + action + ' failed:', err.message);
+    /* ADR-103: a free user's credit was consumed in the gate, but the handler threw before delivering any content
+       (explainBase's own generation catch returns a usable fallback, so it never lands here). Refund the credit so a
+       transient server error never silently burns one of their 5 free explanations. Best-effort; never masks the 500. */
+    if (req.freeExplain) { try { await aiService.refundFreeExplain(req.userId); } catch (_) {} }
     return res.status(500).json({ error: formatError(err) });
   }
 });

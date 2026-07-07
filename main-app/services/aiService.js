@@ -524,6 +524,26 @@ async function consumeFreeExplain(uid) {
   return result;
 }
 
+/* ADR-103 (verification-pass follow-up): refund one free-explain credit when a consumed request ultimately delivered
+   NO content — e.g. a throw before/around generation (ctxEngine.build, an unexpected exception) that surfaces as a
+   500. explainBase's own generation catch returns a usable fallback envelope (content), so that path keeps the credit
+   and never triggers a refund. Transactional decrement, clamps at 0, best-effort (never throws into the caller),
+   cache-coherent — mirrors refundWordProblemQuota. */
+async function refundFreeExplain(uid) {
+  var usageRef = db.collection('users').doc(uid).collection('usage').doc('ai');
+  try {
+    await db.runTransaction(async function (tx) {
+      var doc = await tx.get(usageRef);
+      if (!doc.exists) return;
+      var data = _normalizeUsageDoc(doc.data());
+      data.explanationsUsed = freeExplainPolicy.freeExplainRefund(data.explanationsUsed || 0);
+      tx.set(usageRef, data, { merge: true });
+    });
+    if (usageCache[uid]) usageCache[uid].explanationsUsed = freeExplainPolicy.freeExplainRefund(usageCache[uid].explanationsUsed || 0);
+    await trackGlobalAIUsage('explanations', -1);
+  } catch (e) { console.warn('[aiService] freeExplain refund failed:', e.message); }
+}
+
 /**
  * Enforce a per-user daily AI-request cap set by a super-admin (ADR-022).
  *
@@ -667,4 +687,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, consumeFreeExplain, FREE_EXPLAIN_LIMIT, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, consumeFreeExplain, refundFreeExplain, FREE_EXPLAIN_LIMIT, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

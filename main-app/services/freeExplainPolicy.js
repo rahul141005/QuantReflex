@@ -26,4 +26,20 @@ function freeExplainDecision(used, limit) {
   return { ok: true, remaining: cap - (n + 1) };
 }
 
-module.exports = { FREE_EXPLAIN_LIMIT: FREE_EXPLAIN_LIMIT, freeExplainDecision: freeExplainDecision };
+/**
+ * ADR-103 (verification-pass follow-up): the new explanationsUsed after refunding one credit — clamps at 0 so a
+ * refund never drives the counter negative (which would hand out a bonus credit). Kept pure for unit testing;
+ * aiService.refundFreeExplain applies it inside a transaction.
+ * @param {number} used  explanationsUsed before the refund
+ * @returns {number}  the count after refunding one (never below 0)
+ */
+function freeExplainRefund(used) {
+  var n = (typeof used === 'number' && used > 0) ? Math.floor(used) : 0;
+  return Math.max(0, n - 1);
+}
+
+module.exports = {
+  FREE_EXPLAIN_LIMIT: FREE_EXPLAIN_LIMIT,
+  freeExplainDecision: freeExplainDecision,
+  freeExplainRefund: freeExplainRefund
+};
