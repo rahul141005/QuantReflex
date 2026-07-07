@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Phase-5 paid/free consistency + firm free limits + DI/LR-set daily quota (ADR-107)
+
+Final roadmap phase: tidy the paid/free line and make the free limits firm, ahead of upcoming Premium work. Rides `v222`.
+
+- **Firm 20/day cap + seamless upgrade (A):** a free user completes their 20th question but cannot begin #21 — the
+  session **pauses** with a polished quota-reached panel (`drill-engine.js nextQuestion()`), preserving all progress
+  and analytics (no `finish()`); **Upgrade to continue** registers a one-shot resume hook that `paywall.js`
+  payment-success runs **instead of** the default view refresh, continuing the SAME session at the blocked question
+  now that the user is Premium; **See results** ends normally. Enforced through the ONE `recordAnswer` counter + the
+  ONE `nextQuestion` boundary, so every mode/drill/test/DI-set/LR-set is covered with no loopholes. New pure
+  `js/quota-policy.js shouldStopForDailyQuota()` + `scripts/quota-policy.check.js` (17 assertions).
+- **DI/LR Set daily quota (B):** DI Sets and Reasoning Sets stay free but are now gated — free users get **one new
+  DI set + one new Reasoning set per day**, Premium unlimited. New client counters `diSetsToday`/`lrSetsToday` +
+  `recordSetStarted`/`getSetsStartedToday` in `progress.js` (daily-reset with the other today-counters, Firestore
+  mirror); `practice-modes.js` gates `startDiSet`/`startLrSet` on the counter + `hasPremiumAccess` and opens the new
+  `diset_limit`/`lrset_limit` paywalls. Corrected the stale `index.html` "premium exam-style modes" comment.
+- **Consistency (C–G):** `startMockFromPractice` gains a defensive premium gate at its head (PREM-5); premium probes
+  in `drill-engine.js`/`home-view.js`/`stats-view.js` normalized to `hasPremiumAccess()` and the shared `ai_explain`
+  context made feature-neutral (PREM-6); `getDailyQuestionLimit()` now uses a named `FREE_DAILY_QUESTION_LIMIT` const
+  with a lockstep guard `scripts/daily-limit.check.js` (PREM-7); added the seven missing paywall `_contextAccent`
+  lines (PREM-8); removed onboarding's "Goals above 20 require Premium" note (ONB-4, copy-only).
+- **Docs:** ADR-107; Bible 2.128→2.129; Firestore 2.31→2.32 (two mirrored client counters `stats.diSetsToday`/
+  `stats.lrSetsToday`); FIRESTORE_BLUEPRINT `stats` note. Client-only daily cap is a documented conscious trade-off
+  (PREM-4). No rules/index change; rides unreleased `v222`.
+
+---
+
 ## 2026-07-07 — Phase-1–3 certification fixes + Phase-4 onboarding/guide/intervals (ADR-106)
 
 Independent certification of Phases 1–3 (all green, no Critical issues) + Phase 4 of the roadmap. Rides `v222`.

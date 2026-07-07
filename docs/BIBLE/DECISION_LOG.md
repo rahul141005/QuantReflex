@@ -8,6 +8,69 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-107 — Phase-5 paid/free consistency + firm free limits + DI/LR-set daily quota (2026-07-07)
+- **Context.** A fresh, independent certification of Phases 1–4 (two adversarial passes + the full suite, all green)
+  confirmed production-readiness and surfaced only debt. Phase 5 — the final roadmap phase — tidies the paid/free line
+  and makes the free limits *firm* right before the user's upcoming Premium work, so nothing has to be re-touched.
+  Rides unreleased `v222`. Per the user's explicit direction (overriding the audit's lighter framing).
+- **A — Firm 20/day cap + seamless in-session upgrade (PREM-3, expanded).** A free user may **complete** their 20th
+  question but may **not begin** #21. The counter already existed (`progress.js recordAnswer` bumps `todayAttempted`
+  for every answered question; `loadProgress` resets it on a day change), and DI/LR sets + all drill modes route
+  through the ONE drill engine, so a single boundary gate is loophole-proof. In `drill-engine.js nextQuestion()`
+  (after `current++`, before rendering the next question) a new pure decision —
+  **`shouldStopForDailyQuota({isPremium, hasMoreInSession, todayAttempted, limit})`** in `js/quota-policy.js` —
+  decides whether to **pause**: it renders a polished quota-reached panel into the drill container **instead of**
+  question #21, WITHOUT calling `finish()`, so the session (`questions`/`current`/`count`/`score`/streaks) is fully
+  preserved and every answered question was already recorded (analytics complete + identical). The panel offers
+  **"Upgrade to continue"** (registers a one-shot `window.__qrResumeAfterUpgrade` hook + opens the paywall) and
+  **"See results"** (`finish()` → normal results). `paywall.js` payment-success invokes the resume hook **instead of**
+  its default `Router.showView` re-render (which would tear down the paused session), continuing the SAME session at
+  the blocked index — now Premium, so the cap never fires again. The hook is one-shot, cleared on run, on "See
+  results", and defensively on any engine `cleanup()` (so a stale hook can never fire into a dead engine). A timed
+  test resumes from its **frozen** remaining, never a fresh clock. Premium never pauses (`limit = Infinity`); duels
+  are server-authoritative and out of scope; the AI-explanation 5-lifetime cap is a separate server gate, unchanged.
+  Pure decision unit-tested (`scripts/quota-policy.check.js`, 17 assertions); the DOM/Razorpay wiring is
+  contract-reviewed (no live payment runtime here).
+- **B — DI/LR Set per-day entitlement (PREM-2 → user decision).** DI Sets and Reasoning Sets stay **free** but are
+  now **entitlement-gated**: a free user gets **one new DI set + one new Reasoning set per day**; Premium is
+  unlimited. New client counters **`diSetsToday`/`lrSetsToday`** in `progress.js` (init + daily reset in the same
+  `loadProgress` day-change block as `todayAttempted`; localStorage-primary + Firestore mirror), a
+  `recordSetStarted('di'|'lr')` helper, and `getSetsStartedToday(kind)`. `practice-modes.js startDiSet`/`startLrSet`
+  gate on **the counter + `hasPremiumAccess`** (NOT `_LOCKED_FEATURES`, which is binary — this is a per-day quota,
+  not an all-or-nothing lock): a free user past their one → `showPaywall('diset_limit'|'lrset_limit')`; otherwise
+  start and `recordSetStarted` **after** all validation (a build failure never burns the day's free set). The
+  existing launch `hasReachedDailyLimit()` check stays (a set's questions also count toward the 20/day) and now opens
+  the accurate `daily_limit` context. The stale `index.html` "the premium exam-style modes" comment is corrected;
+  no fake Premium badge (they are partly free). No server/rules/schema-shape change beyond the two mirrored counters.
+- **C — PREM-5 defensive launcher gate.** `startMockFromPractice` now re-checks `canAccessFeature('timed_mocks')` +
+  `hasPremiumAccess()` at its head (not only in the card handler), so any future caller is safe.
+- **D — PREM-6 normalize premium probes.** `drill-engine.js` `_buildAutoTip` + the post-session upgrade prompt now
+  ask `hasPremiumAccess()` directly instead of piggy-backing on `canAccessFeature('adaptive_training')` as a premium
+  proxy; the Home coach/study-plan/timetable group and the Stats deep-insights block likewise derive from
+  `hasPremiumAccess()` (one premium gate) rather than a single feature key standing in for the group — all
+  behaviour-identical under the single tier, but robust if a feature's gating ever changes. The shared `ai_explain`
+  paywall context line is made feature-neutral ("Unlimited QuanAI explanations…") so it fits all four callers.
+- **E — PREM-7 daily-limit constant lockstep.** `paywall.js` replaces the magic `20` in `getDailyQuestionLimit()`
+  with a named `FREE_DAILY_QUESTION_LIMIT` (entitlements.js is server/node-only, not loaded client-side). New
+  `scripts/daily-limit.check.js` source-scans it and asserts `=== entitlements.FREE_TIER_LIMITS.DAILY_QUESTION_LIMIT`,
+  mirroring `free-explain.check`.
+- **F — PREM-8 paywall context lines.** Added the previously-absent `_contextAccent` entries (`daily_limit`,
+  `diset_limit`, `lrset_limit`, `stats`, `settings`, `premium_required`, `upgrade`) so those paywalls open with a
+  specific line instead of a bare hero.
+- **G — ONB-4 drop the onboarding Premium note.** Removed "Goals above 20 require Premium" from onboarding's goal
+  screen (the only goal options are 10/20 — both free — so the line was both premature and moot). Onboarding stays
+  motivational; limits are introduced only when a user actually reaches them or attempts a Premium feature. Copy-only;
+  nav math / dots / goal selection / analytics / `onboarding.check` untouched.
+- **H — PREM-4 (documented, not fixed).** The daily cap is client-side (localStorage) and therefore resettable by a
+  determined user. Accepted at current scale: question generation is free and local, so there is no per-volume cost to
+  protect. A server-side counter is the future fix if generation cost ever attaches to volume.
+- **Consequences.** The paid/free line is now consistent and the free limits are firm with no loopholes: every
+  quota-consuming path funnels through the ONE `recordAnswer` counter + the ONE `nextQuestion` boundary; a free user's
+  session is preserved on the cap and resumes seamlessly on upgrade; DI/LR sets are a clean per-day quota; premium
+  probes are normalized; the daily limit is a lockstep-guarded named constant. Firestore gains two mirrored client
+  counters (`stats.diSetsToday`/`stats.lrSetsToday`) — Firestore version bumped. New checks: `quota-policy.check`,
+  `daily-limit.check`.
+
 ## ADR-106 — Phase-1–3 certification fixes + Phase-4 onboarding/guide/revision-intervals (2026-07-07)
 - **Context.** A fresh, independent certification of Phases 1–3 (two adversarial passes + the full ~200k-assertion
   suite, all green) confirmed no Critical issues, then Phase 4 of the roadmap ("Help new users learn the app"). This

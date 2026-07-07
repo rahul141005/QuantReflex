@@ -9,11 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.128 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.129 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.31 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.129 / Firestore 2.32 (2026-07-07)** — **Phase-5 paid/free consistency + firm free limits (ADR-107).** The final
+> roadmap phase. The **20/day question cap is now firm mid-session**: a free user completes their 20th question but
+> cannot begin #21 — the drill engine **pauses** (a quota-reached panel), preserving all progress/analytics, and an
+> immediate upgrade **resumes the same session** via a one-shot hook in the payment-success path (new pure
+> `js/quota-policy.js` + `scripts/quota-policy.check.js`). **DI/LR Sets** stay free but are gated to **one of each per
+> day** for free users (Premium unlimited) via new client counters **`stats.diSetsToday`/`stats.lrSetsToday`** (the
+> Firestore bump — two mirrored today-counters, reset daily like `todayAttempted`). Consistency: a defensive mock gate
+> (PREM-5), premium probes normalized to `hasPremiumAccess()` (PREM-6), a lockstep-guarded `FREE_DAILY_QUESTION_LIMIT`
+> named const + `scripts/daily-limit.check.js` (PREM-7), seven added paywall context lines (PREM-8), and the dropped
+> onboarding "Goals above 20 require Premium" note (ONB-4). Client-only cap is a documented trade-off (PREM-4). No
+> rules/index change; rides unreleased `v222`.
 
 > **2.128 / Firestore 2.31 (2026-07-07)** — **Phase-1–3 certification fixes + Phase-4 (ADR-106).** Certification
 > found the free-explain gate reused `explanationsUsed` (shared with premium telemetry), starving lapsed-premium users
