@@ -271,9 +271,9 @@
     }
     var n = spec.kind === 'row' ? (spec.items || []).length : 1;
     var w = 100 * Math.max(1, n);
-    /* A multi-item row's viewBox is 100·n wide; the 130px .lr-figure cap would squash it. Scale the cap by item
-       count (≈84px/item, capped) so a 3–4 figure series stays legible on a phone (ADR-086 P8). */
-    var style = (spec.kind === 'row' && n > 1) ? ' style="max-width:' + Math.min(340, 84 * n) + 'px"' : '';
+    /* A multi-item row's viewBox is 100·n wide; the single-figure cap would squash it. Scale the cap by item
+       count (≈96px/item, capped) so a 3–4 figure series stays legible on a phone (ADR-086 P8; enlarged VIS-6/ADR-105). */
+    var style = (spec.kind === 'row' && n > 1) ? ' style="max-width:' + Math.min(360, 96 * n) + 'px"' : '';
     return '<figure class="lr-figure" role="img" aria-label="' + _esc(describe(spec)) + '"' + style + '>' +
       '<svg class="lr-figure-svg" viewBox="0 0 ' + w + ' 100" preserveAspectRatio="xMidYMid meet" focusable="false" aria-hidden="true">' +
       _inner(spec) + '</svg></figure>';

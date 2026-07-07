@@ -11825,6 +11825,25 @@ body.dark-mode .di-chart-svg .di-val { fill: #f1f5f9; }
 body.dark-mode .di-chart-svg .di-axis-lbl { fill: #94a3b8; }
 body.dark-mode .di-chart-svg .di-axis { stroke: #475569; }
 
+/* VIS-1/2 (ADR-105): recessive value-axis gridlines + axis titles. Gridlines sit behind the marks. */
+.di-chart-svg .di-grid { stroke: #eef2f7; stroke-width: 1; }
+body.dark-mode .di-chart-svg .di-grid { stroke: #334155; }
+.di-chart-svg .di-tick { font-variant-numeric: tabular-nums; }
+.di-chart-svg .di-axis-title { font-size: 8px; font-weight: 600; fill: #64748b; letter-spacing: .01em; }
+body.dark-mode .di-chart-svg .di-axis-title { fill: #94a3b8; }
+
+/* VIS-3/4 (ADR-105): ONE categorical series palette, theme-tuned, applied via `currentColor` from these classes so
+   the renderer stays theme-unaware. Light hues are the brand set (CVD worst-adjacent ΔE 21.4, relief via on-chart
+   value labels); dark steps are lightened to clear ≥3:1 on the dark card (#1e293b). Fixed slot order, never cycled. */
+.di-chart-svg { --di-series-0: #2563eb; --di-series-1: #0ea5e9; --di-series-2: #22c55e; --di-series-3: #f59e0b; --di-series-4: #ef4444; --di-series-5: #8b5cf6; }
+body.dark-mode .di-chart-svg { --di-series-0: #60a5fa; --di-series-1: #38bdf8; --di-series-2: #4ade80; --di-series-3: #fbbf24; --di-series-4: #f87171; --di-series-5: #a78bfa; }
+.di-chart-svg .di-series-0 { color: var(--di-series-0); }
+.di-chart-svg .di-series-1 { color: var(--di-series-1); }
+.di-chart-svg .di-series-2 { color: var(--di-series-2); }
+.di-chart-svg .di-series-3 { color: var(--di-series-3); }
+.di-chart-svg .di-series-4 { color: var(--di-series-4); }
+.di-chart-svg .di-series-5 { color: var(--di-series-5); }
+
 /* DI Sets (ADR-078): the shared context (chart or caselet) sits persistently above the rotating question block. */
 .di-set-context { width: 100%; margin: 0 0 .35rem; }
 .di-caselet-context { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--qr-card-radius-sm); padding: .85rem 1rem; font-size: .95rem; line-height: 1.5; color: #1e293b; text-align: left; }
@@ -11843,13 +11862,16 @@ body.dark-mode .di-table th { color: #cbd5e1; background: #0f172a; }
 body.dark-mode .di-table th, body.dark-mode .di-table td { border-color: #334155; }
 
 /* ── LR visual figures (ADR-079): viewBox-vector, DPI-independent, themed via these classes ── */
-.lr-figure { margin: 0 auto .6rem; max-width: 130px; width: 100%; }
+/* VIS-5 (ADR-105): ONE normalized stroke weight for primary figure outlines (was scattered 2.5–6) + a thinner token
+   for interior/secondary lines, so figures shown side-by-side in an option grid read consistently. grid3 renders in a
+   300×300 viewBox (3× the 100-unit figures), so its strokes multiply the token by 3 to match at display size. */
+.lr-figure { margin: 0 auto .6rem; max-width: 156px; width: 100%; --lr-stroke: 3.5; --lr-stroke-thin: 1.5; }
 .lr-figure-svg { width: 100%; height: auto; display: block; }
 .lr-fig-glyph { font-size: 56px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
 .lr-fig-qmark { fill: #94a3b8; }
-.lr-fig-stroke { stroke: #1e293b; stroke-width: 6; stroke-linecap: round; fill: none; }
+.lr-fig-stroke { stroke: #1e293b; stroke-width: var(--lr-stroke); stroke-linecap: round; fill: none; }
 .lr-fig-fill { fill: #1e293b; stroke: none; }
-.lr-fig-die { fill: #f8fafc; stroke: #1e293b; stroke-width: 3; }
+.lr-fig-die { fill: #f8fafc; stroke: #1e293b; stroke-width: var(--lr-stroke); }
 .lr-fig-cubeface { fill: #dbeafe; stroke: #1e293b; stroke-width: 2.5; }
 .lr-fig-cubeface2 { fill: #eff6ff; stroke: #1e293b; stroke-width: 2.5; }
 .lr-fig-cubeface3 { fill: #bfdbfe; stroke: #1e293b; stroke-width: 2.5; }
@@ -11863,12 +11885,12 @@ body.dark-mode .lr-fig-cubeface2 { fill: #25456b; stroke: #cbd5e1; }
 body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
 
 /* ── ADR-093 primitives: shapes, compositions, line figures, paper, nets, matrices ── */
-.lr-fig-shape { stroke: #1e293b; stroke-width: 3.5; stroke-linejoin: round; fill: none; }
+.lr-fig-shape { stroke: #1e293b; stroke-width: var(--lr-stroke); stroke-linejoin: round; fill: none; }
 .lr-fig-solidshape { fill: #1e293b; stroke: #1e293b; stroke-width: 2; stroke-linejoin: round; }
 .lr-fig-dotfill { fill: #1e293b; }
 .lr-fig-dotknock { fill: #fff; stroke: #1e293b; stroke-width: 2.5; }   /* marker on a shaded shape — never vanishes */
-.lr-fig-seg { stroke: #1e293b; stroke-width: 5; stroke-linecap: round; fill: none; }
-.lr-fig-paper { fill: #f8fafc; stroke: #1e293b; stroke-width: 2.5; }
+.lr-fig-seg { stroke: #1e293b; stroke-width: var(--lr-stroke); stroke-linecap: round; fill: none; }
+.lr-fig-paper { fill: #f8fafc; stroke: #1e293b; stroke-width: var(--lr-stroke); }
 .lr-fig-fold { stroke: #2563eb; stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
 .lr-fig-foldarrow { stroke: #2563eb; stroke-width: 2; fill: none; }
 .lr-fig-hole { fill: #1e293b; }
@@ -11876,8 +11898,8 @@ body.dark-mode .lr-fig-cubeface3 { fill: #14304f; stroke: #cbd5e1; }
 .lr-fig-netlbl { font-size: 13px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
 .lr-fig-facelbl { font-size: 18px; font-weight: 800; fill: #1e293b; font-family: 'Inter', system-ui, sans-serif; }
 .lr-fig-facelbl-top, .lr-fig-facelbl-side { font-size: 13px; }
-.lr-fig-gridframe { fill: none; stroke: #1e293b; stroke-width: 2.5; }
-.lr-fig-gridline { stroke: #94a3b8; stroke-width: 1.5; }
+.lr-fig-gridframe { fill: none; stroke: #1e293b; stroke-width: calc(var(--lr-stroke) * 3); }   /* 300×300 viewBox → ×3 to match 100-unit figures */
+.lr-fig-gridline { stroke: #94a3b8; stroke-width: calc(var(--lr-stroke-thin) * 3); }
 body.dark-mode .lr-fig-shape { stroke: #f1f5f9; }
 body.dark-mode .lr-fig-solidshape { fill: #f1f5f9; stroke: #f1f5f9; }
 body.dark-mode .lr-fig-dotfill { fill: #f1f5f9; }
@@ -11898,16 +11920,19 @@ body.dark-mode .question-text-compact { color: #cbd5e1; }
 .q-figure-stage { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 420px; margin: 0 auto .8rem; padding: .8rem .6rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
 .q-figure-stage .lr-figure { margin: 0; }
 body.dark-mode .q-figure-stage { background: #1e293b; border-color: #334155; }
-.lr-figure-grid { max-width: 220px; margin: 0 auto; }
-.q-figure-stage .lr-figure-grid { max-width: 210px; }
+.lr-figure-grid { max-width: 240px; margin: 0 auto; }
+.q-figure-stage .lr-figure-grid { max-width: 230px; }
 
-/* picture-answer grid: each option button shows a lettered figure */
-.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; width: 100%; max-width: 420px; margin-left: auto; margin-right: auto; }
-.mcq-figure-option { position: relative; display: flex; align-items: center; justify-content: center; padding: .55rem .5rem .5rem; min-height: 92px; }
-.mcq-figure-option .lr-figure { margin: 0; max-width: 96px; }
-.mcq-figure-option .lr-figure-grid { max-width: 88px; }
-.mcq-opt-letter { position: absolute; top: .3rem; left: .4rem; font-size: .68rem; font-weight: 800; color: #64748b; background: rgba(15,23,42,.06); border-radius: .55rem; padding: .05rem .4rem; line-height: 1.3; }
-body.dark-mode .mcq-opt-letter { color: #94a3b8; background: rgba(255,255,255,.08); }
+/* picture-answer grid: each option button shows a lettered figure. VIS-6 (ADR-105): larger caps so figures are
+   readable at a glance (was 96/88px, min-height 92). */
+.mcq-options-figures { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; width: 100%; max-width: 440px; margin-left: auto; margin-right: auto; }
+.mcq-figure-option { position: relative; display: flex; align-items: center; justify-content: center; padding: .6rem .5rem .55rem; min-height: 108px; }
+.mcq-figure-option .lr-figure { margin: 0; max-width: 112px; }
+.mcq-figure-option .lr-figure-grid { max-width: 104px; }
+/* VIS-7 (ADR-105): opaque letter chip (solid plate + hairline + slight shadow) so a wide `row` option figure that
+   extends toward the corner can never render under the A/B/C/D badge. */
+.mcq-opt-letter { position: absolute; top: .3rem; left: .3rem; z-index: 1; font-size: .68rem; font-weight: 800; color: #475569; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(15,23,42,.08); border-radius: .5rem; padding: .05rem .38rem; line-height: 1.3; }
+body.dark-mode .mcq-opt-letter { color: #cbd5e1; background: #1e293b; border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 
 /* ── authored teaching explanation (ADR-079): shown on reveal under the feedback ── */
 .authored-explanation { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; background: #f1f5f9; border-left: 3px solid var(--qr-accent, #2563eb); font-size: .9rem; line-height: 1.5; color: #1e293b; text-align: left; }
