@@ -4623,6 +4623,25 @@ body.dark-mode .onboarding-name-label {
 }
 
 /* ---- Onboarding Buttons ---- */
+/* ADR-106 (ONB-1): subtle global Back at the card's top-left — lets a user step back without abandoning the flow. */
+.onboarding-back-btn {
+  position: absolute;
+  top: .85rem;
+  left: .9rem;
+  background: none;
+  border: none;
+  padding: .2rem .3rem;
+  font-size: .82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  z-index: 2;
+  transition: color .15s ease;
+}
+.onboarding-back-btn:hover { color: #475569; }
+body.dark-mode .onboarding-back-btn { color: #64748b; }
+body.dark-mode .onboarding-back-btn:hover { color: #cbd5e1; }
+
 .onboarding-actions {
   margin-top: 1.25rem;
   display: flex;

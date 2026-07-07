@@ -38,6 +38,32 @@ var Onboarding = (function () {
   var _isShowing = false;         /* re-entry guard: true while onboarding is visible */
   var _currentQuestion = null;    /* current question object {text, answer} */
 
+  /* ADR-106 (ONB-1): named screen indices replace scattered magic numbers, so the flow + global Back + skip math
+     read clearly and future screen edits don't silently miss a hard-coded 3/4/6. */
+  var SCREENS = { INTRO: 0, EXAM: 1, PRACTICE: 2, STATS: 3, GOAL: 4, READY: 5, WARMUP: 6 };
+  var FINISH = -1;                /* _navNext sentinel: the flow is complete (no further screen) */
+
+  /* Pure navigation math (no DOM) — the single source of truth for next/back/skip transitions, so it is unit-tested
+     (scripts/onboarding.check.js) and the click handlers below just apply the result. */
+  function _navNext(index, skipped) {
+    if (index === SCREENS.GOAL && skipped) return FINISH;   // skip mode ends right after the goal screen
+    if (index >= SCREENS.WARMUP) return FINISH;             // warm-up is the last screen (completes via the answer)
+    return index + 1;
+  }
+  function _navBack(index, skipped, examStage) {
+    if (index === SCREENS.EXAM && examStage === 'exam') return { stage: 'tier' };   // exam picker's internal back
+    if (index === SCREENS.GOAL && skipped) return { index: SCREENS.INTRO, resetSkip: true }; // skip jumped 0→4
+    if (index > SCREENS.INTRO) return { index: index - 1 };
+    return null;   // no Back from the intro screen
+  }
+  /* A global Back is offered on every screen except the intro (nothing before it), the warm-up (mid-answer), and the
+     exam picker's exam sub-stage (which already shows "← All exams"). */
+  function _shouldShowBack(index) {
+    if (index === SCREENS.INTRO || index === SCREENS.WARMUP) return false;
+    if (index === SCREENS.EXAM && _examStage === 'exam') return false;
+    return true;
+  }
+
   /* Numpad re-show tracking — prevents duplicate listener stacking */
   var _numpadBoundInput = null;
   var _numpadFocusHandler = null;
@@ -73,6 +99,11 @@ var Onboarding = (function () {
     { text: '50% of 40 = ?', answer: 20, category: 'percentages' },
     { text: '10% of 90 = ?', answer: 9, category: 'percentages' },
     { text: '25% of 80 = ?', answer: 20, category: 'percentages' },
+    /* ADR-106 (ONB-3): a couple of data-interpretation-flavoured items so the warm-up isn't purely arithmetic while
+       the pitch promises DI — still single-number, numpad-answerable (a real chart/verbal item needs a non-numeric
+       answer path, out of proportion for a warm-up). */
+    { text: 'In a survey of 800 people, 25% chose tea. How many chose tea?', answer: 200, category: 'percentages' },
+    { text: 'A budget pie chart shows Rent = 40% of ₹5000. Rent = ?', answer: 2000, category: 'percentages' },
     { text: '5² = ?', answer: 25, category: 'squares' },
     { text: '7² = ?', answer: 49, category: 'squares' },
     { text: '2³ = ?', answer: 8, category: 'cubes' }
@@ -111,24 +142,12 @@ var Onboarding = (function () {
   }
 
   /**
-   * Mark onboarding as started — writes onboardingCompleted=true IMMEDIATELY
-   * to both AppState and localStorage so that any concurrent shouldShow()
-   * calls return false. This prevents the race condition where auth callbacks
-   * trigger onboarding twice.
+   * ADR-106 (ONB-1): the double-show race (two auth callbacks in one page load) is defeated by the in-memory
+   * `_isShowing` guard (set synchronously in show(), checked by shouldShow()) — NOT by persisting completion. We
+   * therefore no longer write onboardingCompleted here: `onboardingCompleted` is set ONLY on a genuine finish
+   * (_markCompleted, via _finish / _finishToPractice). So a user who abandons mid-flow (closes the app) is shown
+   * onboarding again next boot instead of being permanently locked out.
    */
-  function _markStarted() {
-    try {
-      if (typeof AppState !== 'undefined') {
-        var s = AppState.getSettings();
-        s.onboardingCompleted = true;
-        AppState.setSettings(s);
-      }
-      var raw = localStorage.getItem(SETTINGS_KEY);
-      var settings = raw ? JSON.parse(raw) : {};
-      settings.onboardingCompleted = true;
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch (_) { /* ignore */ }
-  }
 
   /**
    * Mark onboarding as completed and save the daily goal.
@@ -189,13 +208,10 @@ var Onboarding = (function () {
    * @param {function} onComplete - Called when onboarding finishes
    */
   function show(onComplete) {
-    /* Re-entry guard — bail if already showing */
+    /* Re-entry guard — bail if already showing. This in-memory flag (not a persisted onboardingCompleted) is what
+       defeats the double-show race; completion is persisted only when the user actually finishes (ADR-106/ONB-1). */
     if (_isShowing) return;
     _isShowing = true;
-
-    /* Write onboardingCompleted=true IMMEDIATELY to prevent race conditions.
-       The daily goal and profile name are written later in _markCompleted(). */
-    _markStarted();
 
     _onComplete = onComplete;
     _currentScreen = 0;
@@ -242,8 +258,11 @@ var Onboarding = (function () {
     }
     bottomNav.style.display = 'flex';
     bottomNav.style.zIndex = '10001';
-    /* Prevent actual navigation — visual guide only */
+    /* Prevent actual navigation — visual guide only. ADR-106 (a11y): the spotlight is decorative (non-interactive,
+       siblings hidden), so hide the whole nav from the accessibility tree — a screen-reader user isn't left with a
+       dead, unlabeled tab bar; the onboarding card stays the focusable content. */
     bottomNav.style.pointerEvents = 'none';
+    bottomNav.setAttribute('aria-hidden', 'true');
   }
 
   /**
@@ -262,6 +281,7 @@ var Onboarding = (function () {
     }
     bottomNav.style.zIndex = '';
     bottomNav.style.pointerEvents = '';
+    bottomNav.removeAttribute('aria-hidden');   // ADR-106 (a11y): restore to the accessibility tree
     /* Hide the nav again — it was temporarily shown for Screen 3 guidance.
        The main app's _revealMainApp() will unhide it when onboarding completes. */
     bottomNav.style.display = 'none';
@@ -274,8 +294,8 @@ var Onboarding = (function () {
     var card = _overlay.querySelector('.onboarding-card');
     if (!card) return;
 
-    /* Clean up stats-screen nav guide if leaving it (stats is screen index 3) */
-    if (_currentScreen !== 3 || index !== 3) {
+    /* Clean up stats-screen nav guide if leaving it */
+    if (_currentScreen !== SCREENS.STATS || index !== SCREENS.STATS) {
       _hideStatsNavGuide();
     }
 
@@ -328,7 +348,10 @@ var Onboarding = (function () {
       }
       dotsHtml += '</div>';
 
-      card.innerHTML = content + dotsHtml;
+      /* ADR-106 (ONB-1): global Back so a user who wandered forward isn't trapped (the intro + warm-up opt out). */
+      var backHtml = _shouldShowBack(index) ? '<button class="onboarding-back-btn" id="obBack" type="button" aria-label="Go back">‹ Back</button>' : '';
+
+      card.innerHTML = backHtml + content + dotsHtml;
       card.classList.remove('onboarding-card-exit');
       card.classList.add('onboarding-card-enter');
 
@@ -336,7 +359,7 @@ var Onboarding = (function () {
       _bindScreenHandlers(index);
 
       /* Show Stats nav guide on the stats screen */
-      if (index === 3) {
+      if (index === SCREENS.STATS) {
         _showStatsNavGuide();
       }
     }, 180);
@@ -431,11 +454,12 @@ var Onboarding = (function () {
     return '<div class="onboarding-visual">' +
       '<div class="onboarding-split-preview">' +
       '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">📖</span><span class="onboarding-preview-label">Learn</span></div>' +
-      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">Drill</span></div>' +
+      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">Practice</span></div>' +
       '</div></div>' +
       '<h2 class="onboarding-title">Learn Smarter. Practice Faster.</h2>' +
-      '<p class="onboarding-desc">Use the Learn tab to master tables, formulas, charts, and reasoning shortcuts. Then jump into drills to train your speed.</p>' +
-      '<p class="onboarding-hint">💡 Triple tap any table to open a larger full-screen view.</p>' +
+      '<p class="onboarding-desc">The <strong>Practice</strong> tab is the core loop: pick a mode (Quick, Reflex, Timed or Focus), answer against the clock, and get instant right/wrong feedback with a QuanAI explanation on every miss.</p>' +
+      '<p class="onboarding-desc">It spans all three exam pillars — <strong>Quant</strong>, <strong>Data Interpretation</strong> (charts &amp; tables) and <strong>Logical Reasoning</strong> — and the <strong>Learn</strong> tab has the tables, formulas and shortcuts behind them.</p>' +
+      '<p class="onboarding-hint">💡 Wrong answers are auto-saved to Review Mistakes so you can retrain them later.</p>' +
       '<div class="onboarding-actions">' +
       '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
       '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
@@ -515,50 +539,55 @@ var Onboarding = (function () {
         if (typeof triggerHaptic === 'function') triggerHaptic(10);
         if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle');
 
-        /* Capture name from Screen 1 — optional; empty is fine (the app greets without it) */
-        if (index === 0) {
+        /* Capture name from the intro screen — optional; empty is fine (the app greets without it) */
+        if (index === SCREENS.INTRO) {
           var nameInput = document.getElementById('obNameInput');
           if (nameInput) _displayName = nameInput.value.trim();
         }
 
-        if (index === 4) {
-          /* Save daily goal */
-          _saveDailyGoal();
+        if (index === SCREENS.GOAL) _saveDailyGoal();
 
-          if (_skipped) {
-            /* Skip mode: after goal selection, go straight to home */
-            _finish();
-            return;
-          }
-        }
-
-        if (index < 6) {
-          _goToScreen(index + 1);
-        }
+        /* Pure nav math decides the next step (incl. skip-mode finishing after the goal). */
+        var next = _navNext(index, _skipped);
+        if (next === FINISH) { _finish(); return; }
+        _goToScreen(next);
       });
     }
 
     if (skipBtn) {
       skipBtn.addEventListener('click', function () {
         if (typeof triggerHaptic === 'function') triggerHaptic(10);
-        if (index === 0) {
+        if (index === SCREENS.INTRO) {
           var nameInput = document.getElementById('obNameInput');
           if (nameInput) _displayName = nameInput.value.trim();
         }
         _skipped = true;
-        _goToScreen(4);
+        _goToScreen(SCREENS.GOAL);
       });
     }
 
-    /* Exam screen (index 1): tier → exam two-stage picker */
-    if (index === 1) {
+    /* ADR-106 (ONB-1): global Back — applies the pure _navBack descriptor (exam sub-stage, skip-mode, or -1 index). */
+    var backBtn2 = document.getElementById('obBack');
+    if (backBtn2) {
+      backBtn2.addEventListener('click', function () {
+        if (typeof triggerHaptic === 'function') triggerHaptic(8);
+        var b = _navBack(_currentScreen, _skipped, _examStage);
+        if (!b) return;
+        if (b.stage) { _examStage = b.stage; _renderScreen(SCREENS.EXAM); return; }
+        if (b.resetSkip) _skipped = false;
+        _goToScreen(b.index);
+      });
+    }
+
+    /* Exam screen: tier → exam two-stage picker */
+    if (index === SCREENS.EXAM) {
       var tierBtns = _overlay.querySelectorAll('.onboarding-tier-btn');
       for (var tb = 0; tb < tierBtns.length; tb++) {
         tierBtns[tb].addEventListener('click', function () {
           if (typeof triggerHaptic === 'function') triggerHaptic(8);
           _selectedTierId = this.getAttribute('data-tier') || '';
           _examStage = 'exam';
-          _renderScreen(1);
+          _renderScreen(SCREENS.EXAM);
         });
       }
       var examBtns = _overlay.querySelectorAll('.onboarding-exam-btn');
@@ -568,7 +597,7 @@ var Onboarding = (function () {
           if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle');
           _selectedExam = this.getAttribute('data-exam') || '';
           _examStage = 'tier';
-          _goToScreen(2);
+          _goToScreen(SCREENS.PRACTICE);
         });
       }
       var foundationLink = document.getElementById('obExamFoundation');
@@ -577,7 +606,7 @@ var Onboarding = (function () {
           e.preventDefault();
           if (typeof triggerHaptic === 'function') triggerHaptic(10);
           _selectedExam = 'foundation';
-          _goToScreen(2);
+          _goToScreen(SCREENS.PRACTICE);
         });
       }
       var laterBtn = document.getElementById('obExamLater');
@@ -585,14 +614,14 @@ var Onboarding = (function () {
         laterBtn.addEventListener('click', function () {
           if (typeof triggerHaptic === 'function') triggerHaptic(10);
           _selectedExam = '';
-          _goToScreen(2);
+          _goToScreen(SCREENS.PRACTICE);
         });
       }
       var backBtn = document.getElementById('obExamBack');
       if (backBtn) {
         backBtn.addEventListener('click', function () {
           _examStage = 'tier';
-          _renderScreen(1);
+          _renderScreen(SCREENS.EXAM);
         });
       }
     }
@@ -614,7 +643,7 @@ var Onboarding = (function () {
     }
 
     /* Final screen: show numpad for the first question */
-    if (index === 6) {
+    if (index === SCREENS.WARMUP) {
       var answerInput = document.getElementById('obAnswer');
       if (answerInput) {
         _showOnboardingNumpad(answerInput);
@@ -888,6 +917,12 @@ var Onboarding = (function () {
   return {
     shouldShow: shouldShow,
     show: show,
-    forceCleanup: _cleanupNumpad
+    forceCleanup: _cleanupNumpad,
+    /* Exposed for unit tests (scripts/onboarding.check.js) — the pure navigation math + screen map, no DOM. */
+    _nav: { next: _navNext, back: _navBack, shouldShowBack: _shouldShowBack, SCREENS: SCREENS, FINISH: FINISH }
   };
 })();
+
+/* Dual export: browser global (var Onboarding) + node require for the check harness. Loading under node only DEFINES
+   the functions (the IIFE touches no DOM at load), so requiring it is safe. */
+if (typeof module !== 'undefined' && module.exports) module.exports = Onboarding;
