@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.124 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.125 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.62 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.29 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.30 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.17 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.4 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.125 / Firestore 2.30 (2026-07-07)** — **Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish
+> (ADR-103).** The upgrade screen's "free AI explanations" promise is now honoured: free accounts get **5 real QuanAI
+> "Explain" calls, lifetime**, server-enforced (closes audit PREM-1). The count reuses the existing
+> `users/{uid}/usage/ai.explanationsUsed` field — **no new schema**; the Firestore bump records that this field is now
+> the *enforced free-explain meter*, not just telemetry. The limit + pure grant decision live in the dependency-free
+> `services/freeExplainPolicy.js` (single source of truth, unit-tested via `scripts/free-explain.check.js`);
+> `aiService.consumeFreeExplain` wraps it in a race-safe Firestore transaction; `api/ai.js` gates strictly on
+> `action==='explain'` after throttle/budget so no other AI action leaks and no blocked request burns a credit;
+> `trackExplanationUsage` gated to premium-only to avoid double-counting. Client: `canOpenExplain()` lets a free user
+> reach the server (drill + duel Explain buttons), which is the true gate; a subtle "N free left" note + session 🔒
+> hint on exhaustion. Bundled Phase-1 polish is copy/CSS/doc only (fade-in stagger, audience wording, runtime-sourced
+> version line, stale-comment corrections). `APP_VERSION` v221→**v222** + `QR_APP_VERSION` lockstep. No Firestore
+> rules/index change (doc + field pre-exist, server-write-only).
 
 > **2.124 / Arch 2.62 (2026-07-06)** — **Unified in-app Update System across all three apps (ADR-102).**
 > The "update available → Update App" experience now exists in the **main app, Super-Admin, and Coaching-Admin**,

@@ -90,6 +90,17 @@ function canAccessFeature(feature) {
   return canAccess(feature, _getAccessUserState());
 }
 
+/* ADR-103: free users get 5 lifetime QuanAI "Explain" calls. The SERVER is the true gate (it decrements a
+   transactional counter and 403s on exhaustion). This client flag is only a UX hint: once the server tells us a
+   free user is out (PREMIUM_REQUIRED on explain), we flip it so the Explain button proactively shows 🔒 for the
+   rest of the session instead of making the user tap into a dead end. Premium users are always allowed. */
+var _freeExplainExhausted = false;
+function markFreeExplainExhausted() { _freeExplainExhausted = true; }
+function canOpenExplain() {
+  if (hasPremiumAccess(_getAccessUserState())) return true;
+  return !_freeExplainExhausted;   // free users may attempt until the server says they're out
+}
+
 function getDailyQuestionLimit() {
   return hasPremiumAccess(_getAccessUserState()) ? Infinity : 20;
 }
@@ -483,6 +494,8 @@ function showPaywall(featureType) {
 
 global.canAccess = canAccess;
 global.canAccessFeature = canAccessFeature;
+global.canOpenExplain = canOpenExplain;
+global.markFreeExplainExhausted = markFreeExplainExhausted;
 global.showPaywall = showPaywall;
 global.openPremiumPayment = openPremiumPayment;
 global.getDailyQuestionLimit = getDailyQuestionLimit;
@@ -495,6 +508,8 @@ global.Paywall = {
   openPremiumPayment: openPremiumPayment,
   getDailyQuestionLimit: getDailyQuestionLimit,
   hasReachedDailyLimit: hasReachedDailyLimit,
-  hasPremiumAccess: hasPremiumAccess
+  hasPremiumAccess: hasPremiumAccess,
+  canOpenExplain: canOpenExplain,
+  markFreeExplainExhausted: markFreeExplainExhausted
 };
 })(window);

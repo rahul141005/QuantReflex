@@ -500,7 +500,11 @@ var DuelManager = (function () {
         duel: dz, review: _myReview || [], myAnswers: _myAnswerCache,
         onBack: function () { _renderResults(); },
         onExplain: function (question, answer, category) {
-          if (typeof canAccessFeature === 'function' && !canAccessFeature('ai_explain')) { if (typeof showPaywall === 'function') showPaywall('ai_explain'); return; }
+          /* ADR-103: same free-explain allowance as the drill Explain button — a free user may attempt until the
+             server reports exhaustion; the server is the true gate and opens the paywall on 403. */
+          var _allowed = (typeof canOpenExplain === 'function') ? canOpenExplain()
+            : ((typeof canAccessFeature !== 'function') || canAccessFeature('ai_explain'));
+          if (!_allowed) { if (typeof showPaywall === 'function') showPaywall('ai_explain'); return; }
           /* ADR-098: pass a minimal report context so a "Report this explanation" from the duel-review sheet
              still carries the item (duels are server-authoritative — only text/answer/category are available). */
           if (typeof AIFeatures !== 'undefined' && AIFeatures.showExplanationModal) AIFeatures.showExplanationModal(question, answer, category, { question: { questionText: question, answer: answer, category: category, isDuel: true, mode: 'Duel' }, session: { mode: 'Duel', isDuel: true } });

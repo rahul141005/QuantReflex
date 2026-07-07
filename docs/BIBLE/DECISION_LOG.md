@@ -8,6 +8,65 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-103 — Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish (2026-07-07)
+- **Context (from the product audit → Phase-1 roadmap).** The upgrade screen has long promised free users a taste of
+  the real QuanAI "Explain" feature, and the codebase even carried a `FREE_TIER_LIMITS.AI_EXPLANATION_CREDITS = 5`
+  constant — but it was **dead**: `api/ai.js` 403'd **every** AI action for any non-premium user before the action was
+  even read, so free users actually got **zero** explanations. The promise and the product disagreed. The user's
+  explicit instruction was to *keep* the promise and *honour* it — grant the 5, don't delete the copy. Bundled with a
+  batch of safe Phase-1 polish (fade-in stagger, audience wording, single-sourced version line, stale-comment fixes).
+- **Decision — grant 5 free lifetime "explain" calls, server-authoritative.** Every free account may use the real
+  Explain feature **5 times, lifetime**; the 6th returns the upgrade prompt. Premium stays unlimited. Enforced on the
+  server so clearing browser storage can't reset it.
+  - **Reuse the existing meter, no new schema.** The count lives on the field admin dashboards already read —
+    `users/{uid}/usage/ai.explanationsUsed` (seeded 0 at register). The limit (5) + the pure grant decision live in a
+    new dependency-free module **`services/freeExplainPolicy.js`** (`freeExplainDecision(used, limit)` →
+    `{ ok, remaining }`), the single source of truth, unit-tested in isolation. It mirrors the canonical
+    `shared/constants/entitlements.js` value; a serverless fn can't `require('../shared/...')` at runtime (ADR-099 /
+    `report-schema.js`), so the number is declared in the policy module and kept in lockstep.
+  - **Race-safe consume.** `aiService.consumeFreeExplain(uid)` wraps the decision in a Firestore **transaction**
+    (mirrors the proven `consumeWordProblemQuota` / `enforceAiThrottle`): read `explanationsUsed`, deny at ≥5, else
+    increment and return the remaining count — so concurrent taps can never over-grant past 5.
+  - **Gate re-order (`api/ai.js`).** Was `kill-switch → premium-403 → throttle → budget → dispatch`. Now
+    `kill-switch → throttle → budget → entitlement → dispatch`, where entitlement is: premium → proceed; else
+    `action === 'explain'` → consume a credit (or 403 `PREMIUM_REQUIRED`); else → 403. Throttle + budget run **before**
+    the credit is spent, so a throttled/over-budget request never burns one. The free path is guarded on the **exact
+    string `'explain'`**, so coach/insights/chat/planner/wordproblems stay fully premium — no cost leak.
+  - **Counter de-dup (the top risk).** `trackExplanationUsage` (fire-and-forget telemetry) also incremented
+    `explanationsUsed` for everyone; left alone it would burn a free user's 5 down twice as fast. Fixed by gating that
+    call to **premium only** — free users are metered by the transactional consume, premium by telemetry. One writer
+    per user type; the field stays an accurate total.
+  - **No refund path (deliberate, Phase-1 scope).** `aiBrain.explainBase` catches its own LLM failure and returns a
+    graceful fallback envelope (the correct answer + a retry affordance) rather than throwing, so a consumed credit
+    **always** buys usable content. A manual retry after a rare generation failure spends another credit — an accepted
+    minor edge; a `refundFreeExplain` mirroring `refundWordProblemQuota` is a possible future nicety.
+  - **Client (the gate change is local).** The drill Explain button (`drill-engine.js`) and the duel-review Explain
+    (`duel-manager.js`) previously called `canAccessFeature('ai_explain')` and opened the paywall without ever calling
+    the API. They now use a new `canOpenExplain()` (premium → allowed; free → allowed until the server reports
+    exhaustion), so a free user actually reaches the server, which is the true gate. `ai_explain` in
+    `_LOCKED_FEATURES` is **left flipped on** — the change is scoped to these two buttons so no other surface is
+    affected. `companion-ui` shows a subtle "N free explanations left" note from the echoed `freeExplain.remaining`,
+    and on a `PREMIUM_REQUIRED` for explain it surfaces the server's friendly "used all 5" message, flips a
+    session-only exhausted flag (button shows 🔒 for the rest of the session), and opens the paywall.
+- **Verification.** New `scripts/free-explain.check.js` (wired into `npm test`, 19 assertions) locks the pure
+  decision: grants #1–#5, denies #6, never over-grants across a lifetime, honours a custom limit, handles corrupt
+  input. The transaction wrapper + gate ordering + de-dup + strict `'explain'` guard are contract-reviewed (need a
+  live Firestore/Vercel runtime, like prior server-path changes). Full suite green. `APP_VERSION` v221→**v222** +
+  `QR_APP_VERSION` lockstep (client JS changed). No Firestore rules/index change — the `usage/ai` doc + field already
+  exist and are already server-write-only.
+- **Phase-1 polish (same ship, copy/CSS/doc only — no logic).** Fade-in stagger extended past the 6th section on the
+  About modal + App Guide (`style.css`, with a `nth-child(n+13)` safety cap); App Guide "Built for" audience
+  reconciled with the About modal + onboarding (MBA/Banking/Government/Foundation, not School/NTSE); the About version
+  line now reads from `QR_APP_VERSION` at runtime so it can't drift; corrected genuinely-stale current-state comments
+  (`categories.js`, `exam-relevance.js` "Quant 1–36", `learn-progress.js` revision-interval fallback), the
+  coaching-admin README status ("Functional API … with a lean UI"), a present-state note on `ROADMAP.md`, and two
+  curly-quote stragglers in the App Guide.
+- **Consequences.** The promise on the upgrade screen is now true; the dead constant is load-bearing; the free→paid
+  funnel gets a real, bounded taste of QuanAI with a server-enforced cap that survives storage clears. Deferred (per
+  the user's upcoming Premium/paywall work): a cross-session exhausted-button hint and any refund path.
+
+---
+
 ## ADR-102 — Unified in-app Update System across all three apps (2026-07-06)
 - **Context:** only the **main app** had an in-app "update available → Update App" experience. The **Super-Admin**
   and **Coaching-Admin** PWAs each shipped a service worker (`sw.js`) but registered it bare — no update detection,

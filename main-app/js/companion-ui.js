@@ -430,9 +430,12 @@ var Companion = (function () {
   }
 
   function renderError(bodyEl, res, onRetry) {
+    // ADR-103: for an exhausted free-explain the server sends a friendly "used all 5 free" message — surface it
+    // verbatim; other PREMIUM_REQUIRED cases keep the generic line.
+    var _isExplain = !!(_state && _state.feature === 'explain');
     var msg = res.code === 'AI_BUDGET_EXCEEDED' || res.code === 'AI_THROTTLED'
       ? PERSONA + ' is resting for a bit — please try again shortly.'
-      : res.code === 'PREMIUM_REQUIRED' ? 'This is a Premium feature.'
+      : res.code === 'PREMIUM_REQUIRED' ? ((_isExplain && res.message) ? res.message : 'This is a Premium feature.')
       : res.code === 'NO_AUTH' ? 'You\'ve been signed out — refresh the app and sign in again.'
       : 'I couldn\'t respond just now. Tap retry.';
     // Auth failure and premium gating aren't transient — don't offer a retry that will just loop.
@@ -442,7 +445,12 @@ var Companion = (function () {
     bodyEl.appendChild(row);
     var btn = row.querySelector('.companion-chip');
     if (btn) btn.addEventListener('click', function () { onRetry(); });
-    if (res.code === 'PREMIUM_REQUIRED') { try { if (typeof showPaywall === 'function') showPaywall('ai_coach'); } catch (_) {} }
+    if (res.code === 'PREMIUM_REQUIRED') {
+      // ADR-103: a free user who's out of the 5 explanations → remember it (button shows 🔒 for the session) and
+      // open the paywall scoped to the right feature.
+      if (_isExplain && typeof markFreeExplainExhausted === 'function') { try { markFreeExplainExhausted(); } catch (_) {} }
+      try { if (typeof showPaywall === 'function') showPaywall(_isExplain ? 'ai_explain' : 'ai_coach'); } catch (_) {}
+    }
   }
 
   /* ---------- feature openers ---------- */
@@ -486,7 +494,21 @@ var Companion = (function () {
       if (_state.explainCtx) { _state.explainCtx.lastExplanation = explanationText(env); _state.explainCtx.fullExplanation = explanationText(env, 8000); _captureAiMeta(env); }
       log(o.feature, 'shown', { promptId: env.meta && env.meta.promptId, refreshed: !!force });
       renderEnvelope(m.body, env, false);
+      // ADR-103: for a free user, the server echoes how many of the 5 free explanations remain — show a subtle note.
+      if (o.feature === 'explain' && res.data.freeExplain && typeof res.data.freeExplain.remaining === 'number') {
+        _renderFreeExplainNote(m.body, res.data.freeExplain.remaining);
+      }
     });
+  }
+
+  /* ADR-103: a quiet "N free explanations left" line under a free user's explanation (premium never sends the count). */
+  function _renderFreeExplainNote(bodyEl, remaining) {
+    try {
+      var n = remaining > 0 ? Math.floor(remaining) : 0;
+      var txt = n > 0 ? (n + ' free explanation' + (n === 1 ? '' : 's') + ' left')
+                      : 'That was your last free explanation — upgrade for unlimited.';
+      bodyEl.appendChild(el('<div class="companion-free-note">' + esc(txt) + '</div>'));
+    } catch (_) {}
   }
   function _assign(a, b) { var o = {}; var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 

@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Free-tier AI-explanation allowance (5 lifetime) + Phase-1 polish (ADR-103)
+
+Made the upgrade screen's long-standing "free AI explanations" promise true. Free accounts now get **5 real QuanAI
+"Explain" calls, lifetime**, server-enforced; the 6th shows the upgrade prompt; premium stays unlimited. This closes
+audit finding **PREM-1** (`paywall.js` advertised 5 free explanations while `api/ai.js` 403'd all AI for free users).
+
+- **Server.** New dependency-free `main-app/services/freeExplainPolicy.js` (the limit `5` + pure
+  `freeExplainDecision(used, limit)` → `{ok, remaining}`, single source of truth). `aiService.consumeFreeExplain(uid)`
+  wraps it in a Firestore **transaction** on the existing `users/{uid}/usage/ai.explanationsUsed` field (no new
+  schema) — race-safe, can't over-grant past 5. `api/ai.js` gating re-ordered to
+  `kill-switch → throttle → budget → entitlement → dispatch`: premium proceeds; a free user may use **only**
+  `action==='explain'` and only by spending a credit (throttle/budget run first so a blocked request never burns one);
+  every other action still 403s. Counter **de-dup**: `trackExplanationUsage` (telemetry) gated to premium-only so a
+  free user's 5 aren't double-counted. No refund path (Phase-1 scope) — `explainBase` never throws, so a credit always
+  buys content.
+- **Client.** New `canOpenExplain()` in `paywall.js` (premium always; free until the server reports exhaustion) now
+  gates the drill Explain button (`drill-engine.js`) and duel-review Explain (`duel-manager.js`) — scoped to those two
+  buttons, `_LOCKED_FEATURES.ai_explain` left on. `companion-ui.js` shows a subtle "N free explanations left" note from
+  the echoed count, surfaces the server's "used all 5" message on exhaustion, flips a session-only 🔒 hint, and opens
+  the paywall.
+- **Phase-1 polish (copy/CSS/doc, no logic):** fade-in stagger extended past the 6th section on About + App Guide
+  (`style.css`, with a safety cap); App Guide "Built for" audience reconciled with About/onboarding
+  (MBA/Banking/Government/Foundation); About version line now reads `QR_APP_VERSION` at runtime (can't drift);
+  corrected stale current-state comments (`categories.js`, `exam-relevance.js` "Quant 1–36", `learn-progress.js`
+  revision-interval fallback), coaching-admin README status, a `ROADMAP.md` present-state note, and two curly quotes.
+- **Docs kept in sync:** ADR-103 (DECISION_LOG), FIRESTORE_BLUEPRINT (`usage/ai.explanationsUsed` documented as the
+  enforced free-explain meter), VERSIONS (Bible 2.124→2.125, Firestore 2.29→2.30).
+- **Verification:** new `scripts/free-explain.check.js` (wired into `npm test`, 19 assertions) locks the grant
+  decision; transaction/gate ordering/de-dup contract-reviewed (need live Firestore/Vercel). Full suite green.
+- **Version bump:** `APP_VERSION` v221→**v222** + `QR_APP_VERSION` lockstep (client JS changed). No Firestore
+  rules/index change (doc + field already exist and are server-write-only).
+
 ## 2026-07-07 — Comprehensive product audit + Contact-card typography (Phase 9)
 
 Authored `docs/BIBLE/PRODUCT_AUDIT.md` — a deep, evidence-backed (file:line) audit of the main app across every

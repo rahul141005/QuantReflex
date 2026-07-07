@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const admin = require('firebase-admin');
 const pricing = require('./aiPricing');   // SINGLE source of truth for model pricing + cost math
+const freeExplainPolicy = require('./freeExplainPolicy');   // ADR-103: pure free-explain allowance decision
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -230,6 +231,9 @@ async function activatePremium(uid, planType, paymentId, orderId) {
 
 var WP_FREE_LIMIT = 5;
 var WP_PREMIUM_DAILY = 30;
+/* ADR-103: free-tier lifetime allowance for the real QuanAI "Explain" feature. The value + pure grant decision
+   live in the dependency-free services/freeExplainPolicy.js (single source of truth, unit-tested there). */
+var FREE_EXPLAIN_LIMIT = freeExplainPolicy.FREE_EXPLAIN_LIMIT;
 var MAX_QUESTION_LENGTH = 300;
 var usageCache = {};
 
@@ -486,6 +490,41 @@ async function refundWordProblemQuota(uid, isPremium, count) {
 }
 
 /**
+ * ADR-103: atomically consume one free-tier AI-explanation credit.
+ *
+ * Free accounts get FREE_EXPLAIN_LIMIT (5) real QuanAI explanations, lifetime. The count lives on the SAME field the
+ * admin dashboards already read — users/{uid}/usage/ai.explanationsUsed — so no new schema. Mirrors the proven
+ * consumeWordProblemQuota transaction: the read + limit-check + increment happen inside ONE Firestore transaction,
+ * so concurrent taps can never over-grant past the cap. Premium users are metered elsewhere (trackExplanationUsage,
+ * telemetry only) and must NEVER reach this path.
+ *
+ * @returns {Promise<{ ok:boolean, remaining:number }>}
+ */
+async function consumeFreeExplain(uid) {
+  var usageRef = db.collection('users').doc(uid).collection('usage').doc('ai');
+  var now = new Date();
+
+  var result = await db.runTransaction(async function (tx) {
+    var doc = await tx.get(usageRef);
+    var data = doc.exists ? _normalizeUsageDoc(doc.data()) : { explanationsUsed: 0 };
+    var decision = freeExplainPolicy.freeExplainDecision(data.explanationsUsed || 0, FREE_EXPLAIN_LIMIT);
+    if (!decision.ok) return decision;
+    data.explanationsUsed = (data.explanationsUsed || 0) + 1;
+    data.lastUsageDate = now.toISOString();
+    tx.set(usageRef, data, { merge: true });
+    return decision;
+  });
+
+  /* Keep the in-memory cache coherent with the authoritative write. */
+  if (result.ok && usageCache[uid]) {
+    usageCache[uid].explanationsUsed = (usageCache[uid].explanationsUsed || 0) + 1;
+    usageCache[uid].lastUsageDate = now.toISOString();
+  }
+  if (result.ok) await trackGlobalAIUsage('explanations', 1);
+  return result;
+}
+
+/**
  * Enforce a per-user daily AI-request cap set by a super-admin (ADR-022).
  *
  * Reads `users/{uid}.aiThrottle.cap` (set via the AI Cost Center / User-360 throttle control).
@@ -628,4 +667,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, consumeFreeExplain, FREE_EXPLAIN_LIMIT, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

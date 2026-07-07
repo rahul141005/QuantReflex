@@ -1,8 +1,10 @@
 /**
  * AI domain API (ADR-017, redesigned ADR-039) — ONE serverless function (Vercel Free: ≤12 functions).
- * withAuth (JWT + entitlement). Every action requires Premium.
+ * withAuth (JWT + entitlement). Premium unlocks every action; a FREE user gets 5 lifetime "explain" calls (ADR-103)
+ * and nothing else.
  *
- * Gating order: methodGuard(POST) → aiKillSwitch → premium → aiThrottle → enforceAiBudget → dispatch.
+ * Gating order: methodGuard(POST) → aiKillSwitch → aiThrottle → enforceAiBudget → entitlement → dispatch.
+ * Entitlement: premium → proceed; else action==='explain' → consume one free credit (or 403); else → 403.
  *
  * The AI brain (services/aiBrain.js) is the single orchestrator. The client sends ONLY the action + minimal
  * inputs; ALL student context is read server-authoritatively (no client-sent stats). Responses carry an
@@ -32,8 +34,14 @@ async function _explain(req, res) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields: question, answer', retryable: false } });
   }
   var response = await aiBrain.explainBase(question, String(answer).substring(0, 50), category, req.userId);
-  aiService.trackExplanationUsage(req.userId).catch(function (e) { console.warn('[api/ai] explain usage track failed:', e.message); });
-  return res.json({ response: response });
+  /* Counter de-dup (ADR-103): a FREE user's explanation was already metered transactionally in the gate
+     (consumeFreeExplain); count only PREMIUM users here for telemetry. One writer per user type keeps
+     usage/ai.explanationsUsed an accurate total and stops a free user's 5 from burning down twice as fast. */
+  if (req.userPremium) aiService.trackExplanationUsage(req.userId).catch(function (e) { console.warn('[api/ai] explain usage track failed:', e.message); });
+  var out = { response: response };
+  /* Echo the remaining free-explain count so the client can show "N free explanations left" (absent for premium). */
+  if (req.freeExplain) out.freeExplain = req.freeExplain;
+  return res.json(out);
 }
 
 /* The student's LOCAL calendar date ('YYYY-MM-DD'), sent by the client so "today" is never UTC (ADR-049). */
@@ -176,11 +184,9 @@ module.exports = withAuth(async function (req, res) {
   if (await isEnabled('aiKillSwitch')) {
     return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'AI features are temporarily disabled. Please try again later.', retryable: true } });
   }
-  if (!req.userPremium) {
-    return res.status(403).json({ error: { code: 'PREMIUM_REQUIRED', message: 'This feature requires Premium. Upgrade to continue.', retryable: false } });
-  }
-
-  /* Per-user admin throttle (ADR-022) then the ENFORCED daily cost breaker (ADR-039). */
+  /* Per-user admin throttle (ADR-022) then the ENFORCED daily cost breaker (ADR-039). Applied to EVERY request that
+     will call the model — free-tier explains included — and BEFORE any free credit is consumed, so a throttled or
+     over-budget request never burns one of a free user's 5 explanations. */
   try {
     await aiService.enforceAiThrottle(req.userId);
     await aiService.enforceAiBudget();
@@ -191,6 +197,28 @@ module.exports = withAuth(async function (req, res) {
   }
 
   var action = req.query.action || '';
+
+  /* Entitlement (ADR-103). Premium unlocks every AI action (unchanged). A FREE user may use ONLY the real
+     "Explain" feature, and only by spending one of their 5 lifetime free credits — every OTHER action stays fully
+     Premium (strict `=== 'explain'` guard so coach/insights/chat/planner/wordproblems can never leak to free
+     users). The credit is consumed here (server-authoritative, race-safe) and echoed to the client below. */
+  if (!req.userPremium) {
+    if (action !== 'explain') {
+      return res.status(403).json({ error: { code: 'PREMIUM_REQUIRED', message: 'This feature requires Premium. Upgrade to continue.', retryable: false } });
+    }
+    var grant;
+    try {
+      grant = await aiService.consumeFreeExplain(req.userId);
+    } catch (e) {
+      console.error('[api/ai] consumeFreeExplain failed:', e.message);
+      return res.status(500).json({ error: formatError(e) });
+    }
+    if (!grant.ok) {
+      return res.status(403).json({ error: { code: 'PREMIUM_REQUIRED', message: 'You\'ve used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.', retryable: false } });
+    }
+    req.freeExplain = { remaining: grant.remaining };
+  }
+
   try {
     if (action === 'explain') return await _explain(req, res);
     if (action === 'coach') return await _coach(req, res);

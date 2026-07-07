@@ -876,10 +876,16 @@ function createDrillEngine(container, opts) {
     if (typeof AIFeatures !== 'undefined' && (!correct || reviewMode)) {
       var explainBtn = document.createElement('button');
       explainBtn.className = 'drill-explain-btn';
-      var _canExplain = (typeof canAccessFeature === 'function') ? canAccessFeature('ai_explain') : true;
+      /* ADR-103: free users get 5 lifetime QuanAI explanations. canOpenExplain() lets a free user through until the
+         SERVER reports exhaustion (then it flips to 🔒 for the session). Premium is always unlocked. Falls back to
+         the old premium-only gate if paywall.js is somehow absent. */
+      var _canExplain = (typeof canOpenExplain === 'function') ? canOpenExplain()
+        : ((typeof canAccessFeature === 'function') ? canAccessFeature('ai_explain') : true);
       explainBtn.textContent = _canExplain ? '🧠 Explain' : '🧠 Explain 🔒';
       explainBtn.addEventListener('click', function () {
-        if (typeof canAccessFeature === 'function' && !canAccessFeature('ai_explain')) {
+        var _allowed = (typeof canOpenExplain === 'function') ? canOpenExplain()
+          : ((typeof canAccessFeature !== 'function') || canAccessFeature('ai_explain'));
+        if (!_allowed) {
           if (typeof showPaywall === 'function') showPaywall('ai_explain');
           return;
         }
