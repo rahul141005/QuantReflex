@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.134 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.135 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.63 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.135 (2026-07-07)** — **About + App Guide certification fixes (ADR-110 addendum).** A two-auditor,
+> possible-interruption certification verified every planned redesign item implemented, then fixed what it found:
+> the Guide's wrong password-reset location (it's on the sign-in screen, not Settings), the misfiled Focus-timer
+> line (moved to Focus Training), the unstyled closing quote (missing inner `<p>` — the style rule was dead),
+> 255 lines of dead old-Guide premium-tier CSS left by the rewrite, Playful-theme icon coherence
+> (Premium/Privacy → lock; Version emoji → 🔄), and 36px touch targets for TOC chips + the close button.
+> In-browser certification: 12-combination rendering matrix, TOC scroll, sticky hero, focus management,
+> reduced-motion — all pass with zero console errors. Rides unreleased SW `v223`.
 
 > **2.134 (2026-07-07)** — **About modal + App Guide complete redesign (ADR-110).** Both info modals rewritten from
 > a repository audit: the Guide becomes a 16-section manual with TOC navigation documenting ALL practice modes (four

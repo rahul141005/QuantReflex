@@ -6,6 +6,23 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — About + App Guide certification fixes (ADR-110 addendum)
+
+Two-auditor certification of the modal redesign (possible-interruption audit): all ~40 planned items verified
+implemented; fixes applied. Rides SW `v223`; Bible 2.134→2.135.
+
+- **Factual:** the Guide no longer claims password reset lives in Settings (it's "Forgot password?" on the sign-in
+  screen); Focus session timers moved from the Settings tour to Focus Training's line (the control lives on the
+  Focus setup screen).
+- **Rendering:** the About closing quote now has its inner `<p>` (the styling rule was dead — quote rendered
+  unstyled); removed 255 lines of dead old-Guide premium-tier CSS left behind by the rewrite; Premium/Privacy/Version
+  icon coherence under the Playful theme; TOC chips + close button raised to 36px touch targets.
+- **Verified:** full suite green; 12-combination Playwright matrix (2 modals × light/dark × 3 viewports) with zero
+  overflow/console errors; TOC scroll, sticky hero, focus management, and reduced-motion all confirmed in-browser;
+  9-point post-fix fact grep passing.
+
+---
+
 ## 2026-07-07 — About modal + App Guide complete redesign (ADR-110)
 
 Both info modals rewritten from a repository audit so every claim matches the shipped app. Rides SW `v223`;

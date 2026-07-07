@@ -9,6 +9,26 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-110 — About modal + App Guide complete redesign (2026-07-07)
+- **Certification addendum (same day).** Two independent auditors verified the implementation plan item by item
+  against the repository (possible-interruption audit). All ~40 planned items confirmed implemented with evidence;
+  every factual claim re-validated against source; no orphaned ids (all 54 settings.js getElementById targets
+  resolve), no TODOs/placeholders, terminology exactly consistent with the Practice cards. Certification fixes:
+  - **D1 (factual):** the Guide's Settings→Account line claimed password reset lives in Settings — it exists only as
+    "Forgot password?" on the sign-in screen. Reworded to point there.
+  - **D2 (misfiled):** "Focus session timers" was listed in the Settings tour but the control lives on the
+    Focus-mode setup screen — folded into Focus Training's line in Practice Modes.
+  - **D3 (markup):** the About closing quote lacked an inner `<p>`, so the `.info-quote p` style rule was dead and
+    the quote rendered unstyled — wrapped; rule revived.
+  - **Dead CSS (interruption residue):** removed the 255-line old Guide premium-tier block (`.guide-premium-section`
+    … `.guide-tier-cta-note` incl. dark/playful variants) — zero usages after the rewrite; `guideCardFadeIn` kept.
+  - **Icon coherence (Playful theme):** Premium sections use `lock` in BOTH modals; About Privacy `check`→`lock`;
+    About Version emoji `📋`→`🔄` to match its `rotate` mask. Guide Accessibility keeps `user`/♿ (closest bound name).
+  - **Touch targets:** `.info-toc-chip` and `.info-modal-close` raised to 2.25rem (36px measured).
+  - **Dynamic certification:** 12-combination rendering matrix (2 modals × light/dark × 360/420/820) with zero
+    horizontal overflow and zero console errors; TOC scroll, sticky hero, focusable title, and reduced-motion
+    instant-visibility all verified in-browser; quote confirmed styled post-fix. Full suite green. Bible 2.134→2.135.
+  - **Recorded, not fixed:** update-manager.js:19's stale "conditional Update button" comment (inside the
+    byte-lockstep shared file; the Guide copy correctly describes the actual unconditional behavior).
 - **Context.** Product-level refresh of both info modals so they accurately represent the app after Phases 1–6.
   Three exploration passes drove the rewrite: a line-level staleness inventory, a repository feature-truth inventory
   (only verified facts may be stated), and a modal design kit. The audit found nothing fabricated but both modals
