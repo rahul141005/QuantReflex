@@ -129,7 +129,7 @@ async function _planner(req, res) {
 
   if (op === 'get') {
     // ADR-051: pass the floor (client already sends it) so the on-load forecast/readiness reflect a fresh session.
-    var got = await aiBrain.plannerGet(req.userId, { clientStats: clientStats, clientDate: clientDate });
+    var got = await aiBrain.plannerGet(req.userId, { clientStats: clientStats, clientDate: clientDate, lang: _lang(body) });
     return res.json({ plan: got.plan || null, response: got.envelope || null });
   }
   if (op === 'setup') {

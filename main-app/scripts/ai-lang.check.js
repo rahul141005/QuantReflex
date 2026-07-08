@@ -218,6 +218,90 @@ function aiBrainExplainCacheId() {
   }
 }
 
+/* ============================================================================
+ * 7. aiStrings table (E-M3) — EN verbatim + key/placeholder/plural parity + Latin-leak
+ * ==========================================================================*/
+section('7. aiStrings deterministic table: EN verbatim, parity, and no Latin leak (E-M3)');
+
+var AIStrings = require('../services/aiStrings');
+var MAP = AIStrings._MAP;
+
+/* 7a. A sampled set of EN values MUST equal the pre-i18n literals byte-for-byte (envelope byte-identity). */
+var EN_SAMPLES = {
+  'band.examReady': 'Exam ready',
+  'coach.greetingNamed': 'Welcome back, {name}.',
+  'coach.oneWorry': "One thing I'm watching",
+  'coach.updatedFromPractice': 'Updated from your latest practice.',
+  'coach.dteOnTrack': '{days} days to {exam} — on track, {buffer}d buffer',
+  'pattern.careless.title': 'Careless slips',
+  'pattern.speed.body': "Your pace drifted to {recent}s/Q from {baseline}s/Q — let's do speed reps.",
+  'metric.doneValue': '{pct}% ({n} done)',
+  'insights.patternsIntro': "Here's what your data is really saying.",
+  'insights.forecast': 'Forecast: on the optimal path you reach ~{projected}/100 (target {target}) — {verdict}. Confidence: {conf}.',
+  'explain.stepByStep': 'Step-by-step solution',
+  'explain.chipGotIt': 'Got it ✓',
+  'examInsight.text': '{label} is {freq}-frequency in {exam} and {diff}. Aim for about {target} a question.',
+  'planner.restDay': 'Rest day — recovery is part of the plan. Back at it tomorrow.',
+  'mission.today': 'Today: {label}',
+  'chip.helpful': '👍 Helpful'
+};
+Object.keys(EN_SAMPLES).forEach(function (k) {
+  ok(MAP.en[k] === EN_SAMPLES[k], 'aiStrings EN "' + k + '" must be byte-identical to its pre-i18n literal');
+});
+
+/* 7b. Key-set parity across en/hi/mr (no missing/orphan keys). */
+var enKeys = Object.keys(MAP.en);
+['hi', 'mr'].forEach(function (lang) {
+  var lk = Object.keys(MAP[lang]);
+  enKeys.forEach(function (k) { ok(MAP[lang][k] !== undefined, 'aiStrings ' + lang + ' is missing key: ' + k); });
+  lk.forEach(function (k) { ok(MAP.en[k] !== undefined, 'aiStrings ' + lang + ' has orphan key not in en: ' + k); });
+});
+
+/* 7c. Non-empty + plural-category parity + placeholder-set parity per key. */
+function _placeholders(v) {
+  var set = {};
+  (String(v).match(/\{(\w+)\}/g) || []).forEach(function (t) { set[t] = 1; });
+  return Object.keys(set).sort().join(',');
+}
+enKeys.forEach(function (k) {
+  var ev = MAP.en[k];
+  ['en', 'hi', 'mr'].forEach(function (lang) {
+    var v = MAP[lang][k];
+    if (typeof ev === 'object' && ev !== null) {
+      ok(typeof v === 'object' && v !== null, 'aiStrings ' + lang + ' "' + k + '" must be a plural object like en');
+      if (typeof v === 'object' && v !== null) {
+        Object.keys(ev).forEach(function (cat) { ok(v[cat] !== undefined && String(v[cat]).length, 'aiStrings ' + lang + ' "' + k + '" missing/empty plural cat "' + cat + '"'); });
+        Object.keys(ev).forEach(function (cat) { ok(_placeholders(ev[cat]) === _placeholders(v[cat]), 'aiStrings ' + lang + ' "' + k + '.' + cat + '" placeholder set must match en'); });
+      }
+    } else {
+      ok(typeof v === 'string' && v.length > 0, 'aiStrings ' + lang + ' "' + k + '" must be a non-empty string');
+      ok(_placeholders(ev) === _placeholders(v), 'aiStrings ' + lang + ' "' + k + '" placeholder set must match en (' + _placeholders(ev) + ')');
+    }
+  });
+});
+
+/* 7d. Latin-leak heuristic over hi/mr values: after stripping {tokens}, DNT terms, digits/%/₹/units,
+   no run of 3+ Latin letters may survive (a stray English word left untranslated). */
+var LEAK_ALLOW = ['QuantReflex', 'QuanAI', 'Premium', 'Speed', 'DI', 'LR', 'AI'];
+function _leaks(v) {
+  var s = String(v).replace(/\{\w+\}/g, ' ');            // drop interpolation tokens
+  LEAK_ALLOW.forEach(function (w) { s = s.split(w).join(' '); });
+  s = s.replace(/s\/Q/g, ' ').replace(/km\/h|m\/s/g, ' ');// units
+  return /[A-Za-z]{3,}/.test(s);
+}
+['hi', 'mr'].forEach(function (lang) {
+  enKeys.forEach(function (k) {
+    var v = MAP[lang][k];
+    var vals = (typeof v === 'object' && v !== null) ? Object.keys(v).map(function (c) { return v[c]; }) : [v];
+    vals.forEach(function (one) { ok(!_leaks(one), 'aiStrings ' + lang + ' "' + k + '" leaks untranslated Latin: ' + JSON.stringify(one)); });
+  });
+});
+
+/* 7e. s() resolution: unknown lang → en; missing hi key → en fallback; interpolation works. */
+ok(AIStrings.s('xx', 'band.examReady') === MAP.en['band.examReady'], 's() unknown lang must resolve to en');
+ok(AIStrings.s('hi', 'coach.greetingNamed', { name: 'रवि' }).indexOf('रवि') !== -1, 's() must interpolate hi params');
+ok(AIStrings.s('en', 'nope.missing') === 'nope.missing', 's() unknown key must echo the key');
+
 /* ============================================================================ */
 if (failures) {
   console.error('\n✗ ai-lang.check FAILED with ' + failures + ' assertion failure(s).');

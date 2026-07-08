@@ -13,6 +13,7 @@ const admin = require('firebase-admin');
 const ctxEngine = require('./studentProfile');
 const llm = require('./llmProvider');
 const prompts = require('./aiPrompts');
+const aiStrings = require('./aiStrings');           // ADR-111 (E-M3): deterministic server-string table (en/hi/mr)
 const aiService = require('./aiService');
 const SYL = require('../data/syllabus');             // bundled syllabus DB (ADR-046)
 const plannerEngine = require('./plannerEngine');    // mechanical schedule helpers (applyCompletion/rebalance)
@@ -26,7 +27,7 @@ function db() { return admin.firestore(); }
 function _examOf(ctx) { return (ctx && ctx.memory && ctx.memory.examName) || ''; }
 /* ADR-051: deterministic "how this concept shows up in YOUR exam" — grounded in the bundled syllabus metadata
    (frequency/difficulty), never invented by the LLM. examName → exam (in-memory) → matching drillable topics. */
-function _examInsight(category, examName) {
+function _examInsight(category, examName, lang) {
   if (!category || !examName) return null;
   try {
     var exam = (SYL.searchExams(examName) || [])[0];
@@ -36,10 +37,12 @@ function _examInsight(category, examName) {
     if (!topics.length) return null;
     topics.sort(function (a, b) { return (b.importance || 0) - (a.importance || 0); });
     var top = topics[0];
-    var freq = top.frequency || (top.importance >= 0.75 ? 'high' : top.importance >= 0.5 ? 'medium' : 'low');
-    var diff = top.difficulty >= 0.66 ? 'a tougher area' : top.difficulty >= 0.4 ? 'moderate' : 'one of the friendlier topics';
+    var freqRaw = top.frequency || (top.importance >= 0.75 ? 'high' : top.importance >= 0.5 ? 'medium' : 'low');
+    var freqKey = freqRaw === 'high' ? 'examInsight.freqHigh' : freqRaw === 'medium' ? 'examInsight.freqMedium' : freqRaw === 'low' ? 'examInsight.freqLow' : null;
+    var freq = freqKey ? aiStrings.s(lang, freqKey) : freqRaw;
+    var diff = aiStrings.s(lang, top.difficulty >= 0.66 ? 'examInsight.diffTough' : top.difficulty >= 0.4 ? 'examInsight.diffModerate' : 'examInsight.diffFriendly');
     var target = top.difficulty >= 0.66 ? '~100s' : top.difficulty >= 0.4 ? '~75s' : '~45s';
-    return { examName: exam.name, text: top.label + ' is ' + freq + '-frequency in ' + exam.name + ' and ' + diff + '. Aim for about ' + target + ' a question.' };
+    return { examName: exam.name, text: aiStrings.s(lang, 'examInsight.text', { label: top.label, freq: freq, exam: exam.name, diff: diff, target: target }) };
   } catch (_) { return null; }
 }
 function _promptId(p) { return p.id + '@' + p.version; }
@@ -90,7 +93,7 @@ function chipDeep(label, mode, category, catLabel, icon) { return { label: label
    conversation — never navigates to the Practice page (vs chipDeep). Used by Explain so the learning flow is unbroken. */
 function chipDrill(label, category, catLabel, icon) { return { label: label, kind: 'drill', icon: icon || '', drill: { category: category, label: catLabel } }; }
 function chipDismiss(label) { return { label: label, value: 'dismiss', kind: 'dismiss' }; }
-function helpfulChips() { return [chipReply('👍 Helpful', 'helpful_yes'), chipReply('👎 Not really', 'helpful_no')]; }
+function helpfulChips(lang) { return [chipReply(aiStrings.s(lang, 'chip.helpful'), 'helpful_yes'), chipReply(aiStrings.s(lang, 'chip.notReally'), 'helpful_no')]; }
 function envelope(feature, blocks, chips, meta) {
   return { v: 1, feature: feature, blocks: (blocks || []).filter(Boolean), chips: (chips || []).filter(Boolean), meta: meta || {} };
 }
@@ -139,7 +142,7 @@ async function coachToday(uid, opts) {
   // ADR-052: NEVER lock the coach. With little data (tier 0 = 0–5 lifetime) render a deterministic, helpful read
   // of whatever exists — no LLM (controlled copy avoids generic output near zero data), never "I don't know you".
   if (tier === 0) {
-    var lowEnv = _coachLowData(ctx, focus, strategy);
+    var lowEnv = _coachLowData(ctx, focus, strategy, opts.lang);
     _putDaily(uid, 'coach', lowEnv);
     return lowEnv;
   }
@@ -157,21 +160,21 @@ async function coachToday(uid, opts) {
     _maybeWriteWin(uid, ctx);
   } catch (e) {
     if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
-    env = _coachFallback(ctx, focus, strategy);
+    env = _coachFallback(ctx, focus, strategy, opts.lang);
   }
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'coach', env);
   return env;
 }
 
 /* ADR-057 helpers shared by the roles. */
-function _band(score) { return score >= 80 ? 'Exam ready' : score >= 60 ? 'On track' : score >= 40 ? 'Building' : 'Early days'; }
+function _band(score, lang) { return aiStrings.s(lang, score >= 80 ? 'band.examReady' : score >= 60 ? 'band.onTrack' : score >= 40 ? 'band.building' : 'band.early'); }
 /* The next concrete task: a recovery override first (recent analytics conflict with the plan), else the first
    undone task on the projected schedule. Returns null when there's no exam strategy. */
-function _nextTask(strategy) {
+function _nextTask(strategy, lang) {
   if (!strategy) return null;
   if (strategy.recovery && strategy.recovery.topics[0]) {
     var rt = strategy.recovery.topics[0];
-    return { label: rt.label, drillable: rt.drillable, kind: 'revise', estMin: 10, reason: 'Recent accuracy slipped here — a short recovery before new work.' };
+    return { label: rt.label, drillable: rt.drillable, kind: 'revise', estMin: 10, reason: aiStrings.s(lang, 'nextTask.recoveryReason') };
   }
   var days = (strategy.schedule && strategy.schedule.days) || [];
   for (var i = 0; i < days.length; i++) {
@@ -186,82 +189,89 @@ function _nextTask(strategy) {
    it; without one it stays a rich Profile-only mentor (never "dumber"). The LLM writes only the prose fields. */
 function _coachDashboard(ctx, focus, strategy, d, tier, opts, promptId) {
   d = d || {};
+  var lang = opts.lang;
   var name = (ctx.name || '').split(' ')[0];
   var blocks = [];
-  blocks.push(say(d.greeting || ('Welcome back' + (name ? ', ' + name : '') + '.')));
+  blocks.push(say(d.greeting || (name ? aiStrings.s(lang, 'coach.greetingNamed', { name: name }) : aiStrings.s(lang, 'coach.greeting'))));
   if (strategy) {
-    var sub = (strategy.daysToExam != null ? strategy.daysToExam + ' days to ' + strategy.examName : _band(strategy.readinessScore));
-    blocks.push(ring(strategy.readinessScore, 'Exam readiness', sub));
+    var sub = (strategy.daysToExam != null ? aiStrings.s(lang, 'label.daysToExam', { days: strategy.daysToExam, exam: strategy.examName }) : _band(strategy.readinessScore, lang));
+    blocks.push(ring(strategy.readinessScore, aiStrings.s(lang, 'label.examReadiness'), sub));
   }
   // ADR-061: the long-form mentor note — the heart of the coaching (behaviour + analytics + plan, reasoned).
-  if (d.mentorNote) blocks.push(card('Your coach', _clip(d.mentorNote, 820), 'blue', '🧭'));
+  if (d.mentorNote) blocks.push(card(aiStrings.s(lang, 'coach.yourCoach'), _clip(d.mentorNote, 820), 'blue', '🧭'));
   if (d.biggestWin) blocks.push(celebrate(d.biggestWin));
-  if (d.oneWorry) blocks.push(card('One thing I\'m watching', d.oneWorry, 'amber', '👀'));
+  if (d.oneWorry) blocks.push(card(aiStrings.s(lang, 'coach.oneWorry'), d.oneWorry, 'amber', '👀'));
   if (tier >= 2) {
     // ADR-055: honest, evidence-aware metrics (windowed only with real multi-day history; speed in seconds).
-    blocks = blocks.concat(_metricCluster(ctx));
-    if (ctx.dailyStreak) blocks.push(metric('Streak', ctx.dailyStreak + 'd', ctx.dailyStreak >= 3 ? 'up' : 'flat', ctx.dailyStreak >= 1));
+    blocks = blocks.concat(_metricCluster(ctx, lang));
+    if (ctx.dailyStreak) blocks.push(metric(aiStrings.s(lang, 'label.streak'), ctx.dailyStreak + 'd', ctx.dailyStreak >= 3 ? 'up' : 'flat', ctx.dailyStreak >= 1));
   }
   if (strategy) {
     var pr = strategy.progress || {};
-    if (pr.adherencePct != null) blocks.push(progress('This week\'s plan', pr.adherencePct, pr.adherencePct >= 80 ? 'On track — keep it up' : 'Let\'s close the gap'));
-    if (strategy.daysToExam != null) blocks.push(callout(pr.onTrack === false ? 'warn' : 'info',
-      strategy.daysToExam + ' days to ' + strategy.examName +
-      (pr.bufferDays != null ? (pr.onTrack !== false ? ' — on track, ' + pr.bufferDays + 'd buffer' : ' — ' + Math.abs(pr.bufferDays) + 'd behind, plan rebalanced') : '.')));
+    if (pr.adherencePct != null) blocks.push(progress(aiStrings.s(lang, 'coach.thisWeeksPlan'), pr.adherencePct, aiStrings.s(lang, pr.adherencePct >= 80 ? 'coach.onTrackKeep' : 'coach.closeGap')));
+    if (strategy.daysToExam != null) {
+      var dteParams = { days: strategy.daysToExam, exam: strategy.examName };
+      var dteKey = 'coach.dtePlain';
+      if (pr.bufferDays != null) {
+        if (pr.onTrack !== false) { dteKey = 'coach.dteOnTrack'; dteParams.buffer = pr.bufferDays; }
+        else { dteKey = 'coach.dteBehind'; dteParams.behind = Math.abs(pr.bufferDays); }
+      }
+      blocks.push(callout(pr.onTrack === false ? 'warn' : 'info', aiStrings.s(lang, dteKey, dteParams)));
+    }
   }
-  var topTask = _nextTask(strategy);
+  var topTask = _nextTask(strategy, lang);
   if (topTask && topTask.label) {
-    blocks.push(missionBlock((topTask.kind === 'revise' ? 'Revise: ' : 'Today: ') + topTask.label, d.todayRecommendation || topTask.reason || 'From your study plan.', topTask.drillable ? 'focus' : 'practice', topTask.drillable || '', topTask.label, topTask.estMin || 10));
+    blocks.push(missionBlock(aiStrings.s(lang, topTask.kind === 'revise' ? 'mission.revise' : 'mission.today', { label: topTask.label }), d.todayRecommendation || topTask.reason || aiStrings.s(lang, 'coach.fromStudyPlan'), topTask.drillable ? 'focus' : 'practice', topTask.drillable || '', topTask.label, topTask.estMin || 10));
   } else {
-    blocks.push(missionBlock('Today: drill ' + focus.label, d.todayRecommendation || d.missionWhy || 'Your highest-impact topic right now.', 'focus', focus.cat, focus.label, 8));
+    blocks.push(missionBlock(aiStrings.s(lang, 'mission.todayDrill', { label: focus.label }), d.todayRecommendation || d.missionWhy || aiStrings.s(lang, 'coach.missionWhyDefault'), 'focus', focus.cat, focus.label, 8));
   }
   if (d.motivation) blocks.push(say(d.motivation));
-  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
+  if (opts.force) blocks.push(callout('success', aiStrings.s(lang, 'coach.updatedFromPractice')));
 
   var drill = (topTask && topTask.drillable) ? { cat: topTask.drillable, label: topTask.label } : { cat: focus.cat, label: focus.label };
   var chips = [
-    chipDeep('Start today\'s set', 'focus', drill.cat, drill.label, '⚡'),
-    chipReply('Speed or accuracy?', 'coach_speed_accuracy'),
-    strategy ? chipReply('Open my planner', 'planner_open_calendar', '🗓️') : chipReply('Set an exam goal', 'planner_open_calendar', '🎯')
-  ].concat(helpfulChips());
+    chipDeep(aiStrings.s(lang, 'coach.chipStartSet'), 'focus', drill.cat, drill.label, '⚡'),
+    chipReply(aiStrings.s(lang, 'coach.chipSpeedAccuracy'), 'coach_speed_accuracy'),
+    strategy ? chipReply(aiStrings.s(lang, 'coach.chipOpenPlanner'), 'planner_open_calendar', '🗓️') : chipReply(aiStrings.s(lang, 'coach.chipSetGoal'), 'planner_open_calendar', '🎯')
+  ].concat(helpfulChips(lang));
   return envelope('coach', blocks, chips, { promptId: promptId, focus: focus.cat, tier: tier, hasPlan: !!strategy });
 }
 
 /* ADR-052: low-data coach (tier 0 = 0–5 lifetime). Deterministic + genuinely helpful — reads whatever data
    exists and frames it as growth. NEVER a lock: no "I don't know you", no "10 questions to unlock". */
-function _coachLowData(ctx, focus, strategy) {
+function _coachLowData(ctx, focus, strategy, lang) {
   var name = (ctx.name || '').split(' ')[0];
   var n = (ctx && ctx.totalAttempted) || 0;
-  var hi = name ? 'Hey ' + name + ' 👋 ' : 'Hey there 👋 ';
+  var hi = name ? aiStrings.s(lang, 'coachLow.heyName', { name: name }) : aiStrings.s(lang, 'coachLow.heyThere');
   var blocks = [];
   blocks.push(say(n > 0
-    ? hi + 'I\'ve analysed your first ' + n + ' question' + (n === 1 ? '' : 's') + ' — here\'s the early read. The more you practise, the sharper my coaching gets.'
-    : hi + 'I don\'t know much about you yet, but that\'s the fun part — every set you do makes my coaching sharper. Here\'s where we\'ll start.'));
-  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, 'Exam readiness', ''));
+    ? hi + aiStrings.s(lang, 'coachLow.analysed', { n: n, count: n })
+    : hi + aiStrings.s(lang, 'coachLow.noData')));
+  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, aiStrings.s(lang, 'label.examReadiness'), ''));
   // any real signal we already have
   if (ctx.today && ctx.today.attempted && ctx.today.accuracy != null) {
-    blocks.push(metric('Today', Math.round(ctx.today.accuracy * 100) + '% (' + ctx.today.attempted + ' done)', 'flat', ctx.today.accuracy >= 0.6));
+    blocks.push(metric(aiStrings.s(lang, 'metric.today'), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(ctx.today.accuracy * 100), n: ctx.today.attempted }), 'flat', ctx.today.accuracy >= 0.6));
   } else if (ctx.accuracy != null && n > 0) {
-    blocks.push(metric('So far', Math.round(ctx.accuracy * 100) + '% (' + n + ' done)', 'flat', ctx.accuracy >= 0.6));
+    blocks.push(metric(aiStrings.s(lang, 'metric.soFar'), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(ctx.accuracy * 100), n: n }), 'flat', ctx.accuracy >= 0.6));
   }
   if (focus.cat) {
-    blocks.push(missionBlock('Sharpen ' + focus.label, 'Early signal says this is your highest-impact topic to nudge first.', 'focus', focus.cat, focus.label, 8));
+    blocks.push(missionBlock(aiStrings.s(lang, 'mission.sharpen', { label: focus.label }), aiStrings.s(lang, 'coachLow.sharpenWhy'), 'focus', focus.cat, focus.label, 8));
   } else {
-    blocks.push(missionBlock('Start a mixed set', 'A short, varied set lets me read your pace, accuracy, and first weak spots.', 'practice', '', '', 6));
+    blocks.push(missionBlock(aiStrings.s(lang, 'mission.startMixed'), aiStrings.s(lang, 'coachLow.mixedWhy'), 'practice', '', '', 6));
   }
-  blocks.push(say('Every question teaches me something about how you think — let\'s build the picture together.'));
+  blocks.push(say(aiStrings.s(lang, 'coachLow.buildTogether')));
   var chips = [
-    focus.cat ? chipDeep('Practise ' + focus.label, 'focus', focus.cat, focus.label, '⚡') : chipDeep('Start a set', 'practice', '', '', '⚡')
-  ].concat(helpfulChips());
+    focus.cat ? chipDeep(aiStrings.s(lang, 'mission.practise', { label: focus.label }), 'focus', focus.cat, focus.label, '⚡') : chipDeep(aiStrings.s(lang, 'coachLow.chipStartSet'), 'practice', '', '', '⚡')
+  ].concat(helpfulChips(lang));
   return envelope('coach', blocks, chips, { lowData: true, focus: focus.cat, tier: 0 });
 }
 
-function _coachFallback(ctx, focus, strategy) {
-  var blocks = [say('You\'re ' + Math.round((ctx.accuracy || 0) * 100) + '% accurate over ' + ctx.totalAttempted + ' questions. ' +
-    (focus.cat ? 'Tighten up ' + focus.label + ' next — that\'s your biggest lever right now.' : 'Keep your streak alive with a focused set.'))];
-  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, 'Exam readiness', ''));
-  blocks.push(missionBlock('Drill ' + focus.label, 'Targeted practice on your weakest topic.', 'focus', focus.cat, focus.label, 8));
-  return envelope('coach', blocks, [chipDeep('Start that set', 'focus', focus.cat, focus.label, '⚡'), chipDismiss('Not today')].concat(helpfulChips()), { fallback: true });
+function _coachFallback(ctx, focus, strategy, lang) {
+  var blocks = [say(aiStrings.s(lang, 'coachFallback.accLine', { pct: Math.round((ctx.accuracy || 0) * 100), total: ctx.totalAttempted }) +
+    (focus.cat ? aiStrings.s(lang, 'coachFallback.tighten', { label: focus.label }) : aiStrings.s(lang, 'coachFallback.keepStreak')))];
+  if (strategy && strategy.readinessScore != null) blocks.push(ring(strategy.readinessScore, aiStrings.s(lang, 'label.examReadiness'), ''));
+  blocks.push(missionBlock(aiStrings.s(lang, 'mission.drill', { label: focus.label }), aiStrings.s(lang, 'coachFallback.drillWhy'), 'focus', focus.cat, focus.label, 8));
+  return envelope('coach', blocks, [chipDeep(aiStrings.s(lang, 'coachFallback.chipStart'), 'focus', focus.cat, focus.label, '⚡'), chipDismiss(aiStrings.s(lang, 'coachFallback.chipNotToday'))].concat(helpfulChips(lang)), { fallback: true });
 }
 
 /* Populate aiMemory.wins on a genuine improvement so the Coach can show continuity next time (ADR-050). */
@@ -283,14 +293,14 @@ function _maybeWriteWin(uid, ctx) {
 /* ════════════════════════ AI INSIGHTS — an analyst, not a report (ADR-050) ════════════════════════ */
 /* Deterministic pattern detection from the behavioural flags + error patterns + trends that ctx already
    computes but were never surfaced. Each pattern is a card; the dashboard pairs them with an action. */
-function _detectPatterns(ctx) {
+function _detectPatterns(ctx, lang) {
   var f = ctx.flags || {}, t = ctx.trends || {}, out = [];
-  if (f.careless) out.push({ title: 'Careless slips', body: 'You\'re missing questions in topics you\'ve already mastered — slow down on the ones you know.', accent: 'amber', icon: '⚠️' });
-  if (f.speedRegression && t.speed && t.speed.recentSecPerQ != null && t.speed.baselineSecPerQ != null) out.push({ title: 'You\'re slowing down', body: 'Your pace drifted to ' + t.speed.recentSecPerQ.toFixed(1) + 's/Q from ' + t.speed.baselineSecPerQ.toFixed(1) + 's/Q — let\'s do speed reps.', accent: 'rose', icon: '🐢' });
-  if (f.plateau) out.push({ title: 'You\'ve plateaued', body: 'Your accuracy has held flat for a month — time to raise the difficulty and break through.', accent: 'slate', icon: '➖' });
-  if (f.inconsistent && t.consistency) out.push({ title: 'Practice is sporadic', body: 'Only ' + t.consistency.activeDaysLast14 + '/14 active days — you improve fastest with a steady streak.', accent: 'amber', icon: '📅' });
-  if (f.burnout) out.push({ title: 'Rebuild your momentum', body: 'A break plus a dip in accuracy — ease back in on a topic you already know well.', accent: 'blue', icon: '🌱' });
-  if ((t.sessionImprovementPct || 0) >= 5) out.push({ title: 'You warm up well', body: 'You get ~' + Math.round(t.sessionImprovementPct) + '% faster within a session — longer sets really pay off for you.', accent: 'green', icon: '🔥' });
+  if (f.careless) out.push({ title: aiStrings.s(lang, 'pattern.careless.title'), body: aiStrings.s(lang, 'pattern.careless.body'), accent: 'amber', icon: '⚠️' });
+  if (f.speedRegression && t.speed && t.speed.recentSecPerQ != null && t.speed.baselineSecPerQ != null) out.push({ title: aiStrings.s(lang, 'pattern.speed.title'), body: aiStrings.s(lang, 'pattern.speed.body', { recent: t.speed.recentSecPerQ.toFixed(1), baseline: t.speed.baselineSecPerQ.toFixed(1) }), accent: 'rose', icon: '🐢' });
+  if (f.plateau) out.push({ title: aiStrings.s(lang, 'pattern.plateau.title'), body: aiStrings.s(lang, 'pattern.plateau.body'), accent: 'slate', icon: '➖' });
+  if (f.inconsistent && t.consistency) out.push({ title: aiStrings.s(lang, 'pattern.inconsistent.title'), body: aiStrings.s(lang, 'pattern.inconsistent.body', { active: t.consistency.activeDaysLast14 }), accent: 'amber', icon: '📅' });
+  if (f.burnout) out.push({ title: aiStrings.s(lang, 'pattern.burnout.title'), body: aiStrings.s(lang, 'pattern.burnout.body'), accent: 'blue', icon: '🌱' });
+  if ((t.sessionImprovementPct || 0) >= 5) out.push({ title: aiStrings.s(lang, 'pattern.warmup.title'), body: aiStrings.s(lang, 'pattern.warmup.body', { pct: Math.round(t.sessionImprovementPct) }), accent: 'green', icon: '🔥' });
   return out.slice(0, 3);
 }
 
@@ -306,7 +316,7 @@ async function insights(uid, opts) {
 
   // ADR-052: never lock Insights. With little data render a deterministic early read (no LLM), never "practice to unlock".
   if (tier === 0) {
-    var lowIns = _insightsLowData(ctx);
+    var lowIns = _insightsLowData(ctx, opts.lang);
     _putDaily(uid, 'insights', lowIns);
     return lowIns;
   }
@@ -324,7 +334,7 @@ async function insights(uid, opts) {
     aiService.updateMemory(uid, { addWeakConcepts: weakCats0.map(function (m) { return m.cat; }), timelineEntry: { feature: 'insights', summary: 'Flagged ' + weak.label + ' as top weakness.' } }, 'insights');
   } catch (e) {
     if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
-    env = _insightsFallback(ctx, weak);
+    env = _insightsFallback(ctx, weak, opts.lang);
   }
   if (!(env.meta && env.meta.fallback)) _putDaily(uid, 'insights', env);
   return env;
@@ -332,103 +342,104 @@ async function insights(uid, opts) {
 
 /* ADR-055: honest metrics — windowed "7d" stats ONLY with real multi-day history; otherwise today's numbers,
    labelled as today. Speed is SECONDS/Q (never /1000 → 0.0). Never fabricates a window that doesn't exist. */
-function _metricCluster(ctx) {
+function _metricCluster(ctx, lang) {
   var t = ctx.trends || {}, td = ctx.today || {}, multi = !!(ctx.evidence && ctx.evidence.hasMultiDayHistory), b = [];
   if (multi && t.accuracy && t.accuracy.d7 != null && t.accuracy.direction) {
-    b.push(metric('Accuracy (7d)', Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
+    b.push(metric(aiStrings.s(lang, 'metric.accuracy7d'), Math.round(t.accuracy.d7 * 100) + '%', t.accuracy.direction === 'improving' ? 'up' : (t.accuracy.direction === 'declining' ? 'down' : 'flat'), t.accuracy.direction !== 'declining'));
   } else if (td.accuracy != null) {
-    b.push(metric('Accuracy today', Math.round(td.accuracy * 100) + '%', 'flat', td.accuracy >= 0.6));
+    b.push(metric(aiStrings.s(lang, 'metric.accuracyToday'), Math.round(td.accuracy * 100) + '%', 'flat', td.accuracy >= 0.6));
   } else if (ctx.accuracy != null) {
-    b.push(metric('Accuracy', Math.round(ctx.accuracy * 100) + '%', 'flat', ctx.accuracy >= 0.6));
+    b.push(metric(aiStrings.s(lang, 'metric.accuracy'), Math.round(ctx.accuracy * 100) + '%', 'flat', ctx.accuracy >= 0.6));
   }
   if (multi && t.speed && t.speed.recentSecPerQ != null && t.speed.direction) {
-    b.push(metric('Speed', t.speed.recentSecPerQ.toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
+    b.push(metric(aiStrings.s(lang, 'metric.speed'), t.speed.recentSecPerQ.toFixed(1) + 's/Q', t.speed.direction === 'faster' ? 'up' : (t.speed.direction === 'slower' ? 'down' : 'flat'), t.speed.direction !== 'slower'));
   } else if (td.avgSecPerQ != null) {
-    b.push(metric('Speed today', td.avgSecPerQ.toFixed(1) + 's/Q', 'flat', true));
+    b.push(metric(aiStrings.s(lang, 'metric.speedToday'), td.avgSecPerQ.toFixed(1) + 's/Q', 'flat', true));
   }
-  if (multi && t.consistency) b.push(metric('Consistency', t.consistency.activeDaysLast14 + '/14 days', t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
+  if (multi && t.consistency) b.push(metric(aiStrings.s(lang, 'metric.consistency'), aiStrings.s(lang, 'metric.consistencyValue', { n: t.consistency.activeDaysLast14 }), t.consistency.streakHealth === 'strong' ? 'up' : (t.consistency.streakHealth === 'broken' ? 'down' : 'flat'), t.consistency.streakHealth !== 'broken'));
   return b;
 }
 
 function _insightsDashboard(ctx, weak, strategy, d, tier, opts, promptId) {
   d = d || {};
-  var patterns = _detectPatterns(ctx);
+  var lang = opts.lang;
+  var patterns = _detectPatterns(ctx, lang);
   var blocks = [];
-  blocks.push(say(d.patternsIntro || 'Here\'s what your data is really saying.'));
+  blocks.push(say(d.patternsIntro || aiStrings.s(lang, 'insights.patternsIntro')));
   // ADR-062: lead with DISCOVERIES (relationships the student wouldn't spot). The LLM phrases the top one
   // (headline); the rest render as deterministic supporting cards. Insights ≠ a restatement of the planner.
   var discoveries = (strategy && strategy.discoveries) || [];
-  if (d.headline) blocks.push(card('The big discovery', d.headline, 'blue', '💡'));
-  else if (discoveries[0]) blocks.push(card('The big discovery', discoveries[0].text, 'blue', '💡'));
-  discoveries.slice(1).forEach(function (disc) { blocks.push(card('Worth knowing', disc.text, 'slate', '🔎')); });
-  blocks = blocks.concat(_metricCluster(ctx));
-  if (opts.force) blocks.push(callout('success', 'Updated from your latest practice.'));
+  if (d.headline) blocks.push(card(aiStrings.s(lang, 'insights.bigDiscovery'), d.headline, 'blue', '💡'));
+  else if (discoveries[0]) blocks.push(card(aiStrings.s(lang, 'insights.bigDiscovery'), discoveries[0].text, 'blue', '💡'));
+  discoveries.slice(1).forEach(function (disc) { blocks.push(card(aiStrings.s(lang, 'insights.worthKnowing'), disc.text, 'slate', '🔎')); });
+  blocks = blocks.concat(_metricCluster(ctx, lang));
+  if (opts.force) blocks.push(callout('success', aiStrings.s(lang, 'coach.updatedFromPractice')));
   patterns.forEach(function (pt) { blocks.push(card(pt.title, pt.body, pt.accent, pt.icon)); });
-  blocks.push(card('Your biggest weakness', d.weaknessInsight || ('Tighten up ' + weak.label + ' — it\'s your highest-impact fix.'), 'rose', '🎯'));
+  blocks.push(card(aiStrings.s(lang, 'insights.biggestWeakness'), d.weaknessInsight || aiStrings.s(lang, 'insights.weaknessDefault', { label: weak.label }), 'rose', '🎯'));
   // ADR-057: Insights REASONS with the strategy (when an exam exists) — adherence, recovery override, forecast.
   if (strategy) {
     var pr = strategy.progress || {}, fc = pr.forecast;
-    if (pr.adherencePct != null && pr.adherencePct < 60) blocks.push(callout('warn', 'You\'ve done ' + pr.adherencePct + '% of your planned work lately — the plan only helps if you run it.'));
-    if (strategy.recovery) blocks.push(card('Plan vs. your data', 'Your plan moves on, but recent accuracy slipped on ' + strategy.recovery.topics.map(function (x) { return x.label; }).join(', ') + ' — do a short recovery set first.', 'amber', '🔁'));
+    if (pr.adherencePct != null && pr.adherencePct < 60) blocks.push(callout('warn', aiStrings.s(lang, 'insights.adherenceLow', { pct: pr.adherencePct })));
+    if (strategy.recovery) blocks.push(card(aiStrings.s(lang, 'insights.planVsData'), aiStrings.s(lang, 'insights.recoveryBody', { topics: strategy.recovery.topics.map(function (x) { return x.label; }).join(', ') }), 'amber', '🔁'));
     if (fc && fc.daysToExam != null) {
-      if (fc.onTrack !== false && (fc.bufferDays || 0) > 0) blocks.push(callout('success', 'At this pace you\'ll be exam-ready ' + fc.bufferDays + ' days early.'));
-      else if (fc.onTrack === false) blocks.push(callout('warn', 'You\'re ' + Math.abs(fc.bufferDays || 0) + ' days behind' + (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? ' — +15 min/day claws back ' + fc.ifPlusMinutes.daysSaved + '.' : '.')));
-      else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', '+15 min/day → finish ' + fc.ifPlusMinutes.daysSaved + ' days sooner.'));
+      if (fc.onTrack !== false && (fc.bufferDays || 0) > 0) blocks.push(callout('success', aiStrings.s(lang, 'insights.readyEarly', { buffer: fc.bufferDays })));
+      else if (fc.onTrack === false) blocks.push(callout('warn', aiStrings.s(lang, 'insights.behind', { behind: Math.abs(fc.bufferDays || 0), claw: (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved ? aiStrings.s(lang, 'insights.clawback', { saved: fc.ifPlusMinutes.daysSaved }) : aiStrings.s(lang, 'insights.behindEnd')) })));
+      else if (fc.ifPlusMinutes && fc.ifPlusMinutes.daysSaved > 0) blocks.push(callout('info', aiStrings.s(lang, 'insights.plusMinutes', { saved: fc.ifPlusMinutes.daysSaved })));
     }
     // ADR-061 (M5): the analyst's evidence-backed reads — forecast confidence, opportunity cost, dependency
     // bottleneck, revision debt. All deterministic numbers (the prose comes from the LLM; figures never hallucinated).
     var conf = (ctx.evidence && ctx.evidence.confidence) || 'early';
-    if (strategy.projectedScore != null) blocks.push(callout('info', 'Forecast: on the optimal path you reach ~' + strategy.projectedScore + '/100 (target ' + strategy.targetScore + ') — ' + (strategy.achievable ? 'achievable' : 'short for now') + '. Confidence: ' + conf + '.'));
-    if (strategy.marksAtRisk > 0 && strategy.skip && strategy.skip.length) blocks.push(card('Opportunity cost', 'Parking ' + strategy.skip.slice(0, 2).map(function (t) { return t.label; }).join(' & ') + ' leaves about +' + strategy.marksAtRisk + ' readiness points unclaimed. If you free up time, ' + strategy.skip[0].label + ' is the highest-value add-back.', 'amber', '💰'));
+    if (strategy.projectedScore != null) blocks.push(callout('info', aiStrings.s(lang, 'insights.forecast', { projected: strategy.projectedScore, target: strategy.targetScore, verdict: aiStrings.s(lang, strategy.achievable ? 'insights.forecastAchievable' : 'insights.forecastShort'), conf: conf })));
+    if (strategy.marksAtRisk > 0 && strategy.skip && strategy.skip.length) blocks.push(card(aiStrings.s(lang, 'insights.opportunityCost'), aiStrings.s(lang, 'insights.opportunityBody', { topics: strategy.skip.slice(0, 2).map(function (t) { return t.label; }).join(' & '), marks: strategy.marksAtRisk, top: strategy.skip[0].label }), 'amber', '💰'));
     // de-dup: suppress ADR-061 cards already covered by a discovery above (leverage↔bottleneck, momentum↔stale).
     var dk = {}; ((strategy.discoveries) || []).forEach(function (x) { dk[x.kind] = 1; });
     var bottleneck = dk.leverage ? null : (strategy.topics || []).filter(function (t) { return t.readiness < 0.4 && (t.unlocks || []).length >= 2; }).sort(function (a, b) { return (b.unlocks.length) - (a.unlocks.length); })[0];
-    if (bottleneck) blocks.push(card('Dependency bottleneck', bottleneck.label + ' is weak but unlocks ' + bottleneck.unlocks.slice(0, 3).join(', ') + ' — clearing it lifts several downstream topics at once.', 'blue', '🔓'));
-    if (pr.revisionDue && pr.revisionDue.length >= 2) blocks.push(card('Revision debt', pr.revisionDue.length + ' topics are past their revision date — retention decays fastest right after you learn, so this is quietly costing you earned marks.', 'rose', '📉'));
-    if (!dk.momentum && strategy.behaviour && strategy.behaviour.stale && strategy.behaviour.stale.length) { var st = strategy.behaviour.stale[0]; blocks.push(card('Going stale', 'You haven\'t touched ' + st.label + ' in ' + st.days + ' days — a 15-minute brush-up now beats relearning it later.', 'slate', '🧊')); }
+    if (bottleneck) blocks.push(card(aiStrings.s(lang, 'insights.bottleneck'), aiStrings.s(lang, 'insights.bottleneckBody', { label: bottleneck.label, unlocks: bottleneck.unlocks.slice(0, 3).join(', ') }), 'blue', '🔓'));
+    if (pr.revisionDue && pr.revisionDue.length >= 2) blocks.push(card(aiStrings.s(lang, 'insights.revisionDebt'), aiStrings.s(lang, 'insights.revisionDebtBody', { n: pr.revisionDue.length }), 'rose', '📉'));
+    if (!dk.momentum && strategy.behaviour && strategy.behaviour.stale && strategy.behaviour.stale.length) { var st = strategy.behaviour.stale[0]; blocks.push(card(aiStrings.s(lang, 'insights.goingStale'), aiStrings.s(lang, 'insights.goingStaleBody', { label: st.label, days: st.days }), 'slate', '🧊')); }
   }
   // every insight leads to an action
   var weakCats = (ctx.mastery || []).filter(function (m) { return m.tier === 'weak'; }).slice(0, 2);
-  weakCats.forEach(function (m) { blocks.push(missionBlock('Fix ' + m.label, Math.round(m.acc * 100) + '% accuracy — high-impact to improve.', 'focus', m.cat, m.label, 8)); });
-  if (!weakCats.length && weak.cat) blocks.push(missionBlock('Sharpen ' + weak.label, 'Your highest-impact topic to push next.', 'focus', weak.cat, weak.label, 8));
+  weakCats.forEach(function (m) { blocks.push(missionBlock(aiStrings.s(lang, 'mission.fix', { label: m.label }), aiStrings.s(lang, 'insights.fixWhy', { pct: Math.round(m.acc * 100) }), 'focus', m.cat, m.label, 8)); });
+  if (!weakCats.length && weak.cat) blocks.push(missionBlock(aiStrings.s(lang, 'mission.sharpen', { label: weak.label }), aiStrings.s(lang, 'insights.sharpenWhy'), 'focus', weak.cat, weak.label, 8));
 
-  var chips = weakCats.map(function (m) { return chipDeep('Fix ' + m.label, 'focus', m.cat, m.label, '⚡'); });
-  if (!chips.length && weak.cat) chips.push(chipDeep('Practice ' + weak.label, 'focus', weak.cat, weak.label, '⚡'));
-  chips.push(chipReply(d.nextStepLabel || 'What first?', 'insights_why'));
-  chips.push(chipReply('Open my planner', 'planner_open_calendar', '🗓️'));
-  chips = chips.concat(helpfulChips());
+  var chips = weakCats.map(function (m) { return chipDeep(aiStrings.s(lang, 'mission.fix', { label: m.label }), 'focus', m.cat, m.label, '⚡'); });
+  if (!chips.length && weak.cat) chips.push(chipDeep(aiStrings.s(lang, 'insights.chipPractice', { label: weak.label }), 'focus', weak.cat, weak.label, '⚡'));
+  chips.push(chipReply(d.nextStepLabel || aiStrings.s(lang, 'insights.chipWhatFirst'), 'insights_why'));
+  chips.push(chipReply(aiStrings.s(lang, 'insights.chipOpenPlanner'), 'planner_open_calendar', '🗓️'));
+  chips = chips.concat(helpfulChips(lang));
   return envelope('insights', blocks, chips, { promptId: promptId, tier: tier });
 }
 
 /* ADR-052: low-data Insights (tier 0). A real early read from whatever exists — never "practice to unlock". */
-function _insightsLowData(ctx) {
+function _insightsLowData(ctx, lang) {
   var n = (ctx && ctx.totalAttempted) || 0;
   var weak = ctxEngine.topWeakCategory(ctx);   // null until a category has ≥3 attempts
   var blocks = [];
   blocks.push(say(n > 0
-    ? 'Early read from your first ' + n + ' question' + (n === 1 ? '' : 's') + ': the picture sharpens with every set — here\'s what I can already see.'
-    : 'I haven\'t seen you solve yet, so here\'s how this works: every question feeds your accuracy, speed, and topic patterns — and I\'ll surface them the moment they appear.'));
+    ? aiStrings.s(lang, 'insightsLow.analysed', { n: n, count: n })
+    : aiStrings.s(lang, 'insightsLow.noData')));
   if (ctx.today && ctx.today.attempted && ctx.today.accuracy != null) {
-    blocks.push(metric('Today', Math.round(ctx.today.accuracy * 100) + '% (' + ctx.today.attempted + ' done)', 'flat', ctx.today.accuracy >= 0.6));
+    blocks.push(metric(aiStrings.s(lang, 'metric.today'), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(ctx.today.accuracy * 100), n: ctx.today.attempted }), 'flat', ctx.today.accuracy >= 0.6));
   } else if (ctx.accuracy != null && n > 0) {
-    blocks.push(metric('Accuracy so far', Math.round(ctx.accuracy * 100) + '% (' + n + ' done)', 'flat', ctx.accuracy >= 0.6));
+    blocks.push(metric(aiStrings.s(lang, 'metric.accuracySoFar'), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(ctx.accuracy * 100), n: n }), 'flat', ctx.accuracy >= 0.6));
   }
   if (weak && weak.cat) {
-    blocks.push(card('First pattern', 'Your early numbers point to ' + weak.label + ' as the topic to tighten first.', 'rose', '🎯'));
-    blocks.push(missionBlock('Fix ' + weak.label, 'Your highest-impact topic on the data so far.', 'focus', weak.cat, weak.label, 8));
+    blocks.push(card(aiStrings.s(lang, 'insightsLow.firstPattern'), aiStrings.s(lang, 'insightsLow.firstPatternBody', { label: weak.label }), 'rose', '🎯'));
+    blocks.push(missionBlock(aiStrings.s(lang, 'mission.fix', { label: weak.label }), aiStrings.s(lang, 'insightsLow.fixWhy'), 'focus', weak.cat, weak.label, 8));
   } else {
-    blocks.push(missionBlock('Run a mixed set', 'A short, varied set is all I need to surface your first real patterns.', 'practice', '', '', 6));
+    blocks.push(missionBlock(aiStrings.s(lang, 'mission.runMixed'), aiStrings.s(lang, 'insightsLow.mixedWhy'), 'practice', '', '', 6));
   }
   var chips = [
-    (weak && weak.cat) ? chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡') : chipDeep('Start a set', 'practice', '', '', '⚡')
-  ].concat(helpfulChips());
+    (weak && weak.cat) ? chipDeep(aiStrings.s(lang, 'mission.fix', { label: weak.label }), 'focus', weak.cat, weak.label, '⚡') : chipDeep(aiStrings.s(lang, 'coachLow.chipStartSet'), 'practice', '', '', '⚡')
+  ].concat(helpfulChips(lang));
   return envelope('insights', blocks, chips, { lowData: true, tier: 0 });
 }
 
-function _insightsFallback(ctx, weak) {
-  var blocks = [say('Here\'s where you stand. Your highest-impact move is tightening up ' + weak.label + '.')].concat(_metricCluster(ctx));
-  blocks.push(missionBlock('Fix ' + weak.label, 'Your weakest topic by accuracy.', 'focus', weak.cat, weak.label, 8));
-  return envelope('insights', blocks, [chipDeep('Fix ' + weak.label, 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips()), { fallback: true });
+function _insightsFallback(ctx, weak, lang) {
+  var blocks = [say(aiStrings.s(lang, 'insightsFallback.stand', { label: weak.label }))].concat(_metricCluster(ctx, lang));
+  blocks.push(missionBlock(aiStrings.s(lang, 'mission.fix', { label: weak.label }), aiStrings.s(lang, 'insightsFallback.fixWhy'), 'focus', weak.cat, weak.label, 8));
+  return envelope('insights', blocks, [chipDeep(aiStrings.s(lang, 'mission.fix', { label: weak.label }), 'focus', weak.cat, weak.label, '⚡')].concat(helpfulChips(lang)), { fallback: true });
 }
 
 /* ════════════════════════ AI EXPLAIN — a premium learning document (ADR-051) ════════════════════════ */
@@ -480,58 +491,59 @@ async function explainBase(question, answer, category, uid, lang) {
       cacheRef.set({ questionId: hash, promptVersion: explainVersion, lang: (lang === 'hi' || lang === 'mr') ? lang : 'en', question: String(question), answer: String(answer), category: category || '', concept: pieces.concept, steps: pieces.steps, mistakes: pieces.mistakes, shortcut: pieces.shortcut, usageCount: 1, createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(function (e) { console.warn('[aiBrain] explain cache write failed:', e.message); });
     } catch (e) {
       if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
-      return envelope('explain', [say('I couldn\'t generate a full explanation just now.'), callout('warn', 'The correct answer is ' + answer + '. Tap retry to try again.')],
-        [chipReply('Retry', 'explain_retry'), chipDeep('Drill this topic', 'focus', category, catLabel, '⚡')], { fallback: true });
+      return envelope('explain', [say(aiStrings.s(lang, 'explain.couldntGenerate')), callout('warn', aiStrings.s(lang, 'explain.correctAnswer', { answer: answer }))],
+        [chipReply(aiStrings.s(lang, 'explain.chipRetry'), 'explain_retry'), chipDeep(aiStrings.s(lang, 'explain.chipDrillTopic'), 'focus', category, catLabel, '⚡')], { fallback: true });
     }
   }
 
   aiService.updateMemory(uid, { addExplainedTopic: category, timelineEntry: { feature: 'explain', summary: 'Explained a ' + catLabel + ' question.' } }, 'explain');
 
   // ── assemble the learning document ──
-  var blocks = [say(pieces.concept), steps(pieces.steps, 'Step-by-step solution')];
+  var blocks = [say(pieces.concept), steps(pieces.steps, aiStrings.s(lang, 'explain.stepByStep'))];
   // Common mistakes (always visible), personalized when this is a live weak spot.
   var mistakes = Array.isArray(pieces.mistakes) ? pieces.mistakes.filter(Boolean) : (pieces.mistakes ? [String(pieces.mistakes)] : []);
   if (mistakes.length) {
-    var lead = struggledHint ? 'You\'ve slipped here before — watch these:\n' : '';
-    blocks.push(card('Common mistakes', lead + '• ' + mistakes.slice(0, 3).join('\n• '), 'amber', '⚠️'));
+    var lead = struggledHint ? aiStrings.s(lang, 'explain.slippedLead') : '';
+    blocks.push(card(aiStrings.s(lang, 'explain.commonMistakes'), lead + '• ' + mistakes.slice(0, 3).join('\n• '), 'amber', '⚠️'));
   }
   // Faster method (always visible).
-  if (pieces.shortcut) blocks.push(card('Faster method', pieces.shortcut, 'blue', '⚡'));
+  if (pieces.shortcut) blocks.push(card(aiStrings.s(lang, 'explain.fasterMethod'), pieces.shortcut, 'blue', '⚡'));
   // Exam insight (always visible when the exam is known) — deterministic from the syllabus.
-  var exam = _examInsight(category, mem.examName);
-  if (exam) blocks.push(card('In ' + exam.examName, exam.text, 'slate', '🎯'));
+  var exam = _examInsight(category, mem.examName, lang);
+  if (exam) blocks.push(card(aiStrings.s(lang, 'explain.inExam', { exam: exam.examName }), exam.text, 'slate', '🎯'));
   // Mastery status (always visible when there's real data) — the canonical number, never invented.
   if (mastery) {
-    blocks.push(metric('Your ' + catLabel + ' accuracy', Math.round(mastery.acc * 100) + '% (' + mastery.n + ' done)',
+    blocks.push(metric(aiStrings.s(lang, 'explain.yourAccuracy', { label: catLabel }), aiStrings.s(lang, 'metric.doneValue', { pct: Math.round(mastery.acc * 100), n: mastery.n }),
       mastery.tier === 'strong' ? 'up' : (mastery.tier === 'weak' ? 'down' : 'flat'), mastery.tier !== 'weak'));
   }
   // Recommended next step (always visible) — from the mastery tier; reuses the focus-drill deep link.
   var nextNote, nextTitle, nextWhy, nextMin;
   if (!mastery || mastery.tier === 'weak') {
-    nextNote = mastery ? 'This is one of your focus areas — let\'s turn it around.' : 'Let\'s build a base here.';
-    nextTitle = 'Drill ' + catLabel + ' now'; nextWhy = 'A focused set is the fastest way to fix this.'; nextMin = 8;
+    nextNote = aiStrings.s(lang, mastery ? 'explain.nextWeak' : 'explain.nextBase');
+    nextTitle = aiStrings.s(lang, 'mission.drillNow', { label: catLabel }); nextWhy = aiStrings.s(lang, 'explain.whyWeak'); nextMin = 8;
   } else if (mastery.tier === 'strong') {
-    nextNote = struggledHint ? 'You\'re strong here — that looks like a slip, not a gap.' : 'You\'ve got this topic down.';
-    nextTitle = 'Quick 5 to keep it sharp'; nextWhy = 'A short set locks in a topic you already own.'; nextMin = 5;
+    nextNote = aiStrings.s(lang, struggledHint ? 'explain.nextStrongSlip' : 'explain.nextStrong');
+    nextTitle = aiStrings.s(lang, 'mission.quick5'); nextWhy = aiStrings.s(lang, 'explain.whyStrong'); nextMin = 5;
   } else {
-    nextNote = 'You\'re developing this well — keep the momentum.';
-    nextTitle = 'Add ' + catLabel + ' to today\'s practice'; nextWhy = 'A bit more reps moves this into a strength.'; nextMin = 6;
+    nextNote = aiStrings.s(lang, 'explain.nextDeveloping');
+    nextTitle = aiStrings.s(lang, 'mission.addToday', { label: catLabel }); nextWhy = aiStrings.s(lang, 'explain.whyDeveloping'); nextMin = 6;
   }
   blocks.push(callout('info', nextNote));
   blocks.push(missionBlock(nextTitle, nextWhy, 'focus', category, catLabel, nextMin));
 
   return envelope('explain', blocks, [
-    chipReply('Got it ✓', 'helpful_yes'),
-    chipReply('Simpler', 'explain_simpler'),
-    chipReply('Go deeper', 'explain_deeper'),
-    chipReply('Another like this', 'explain_another'),
-    chipDrill('Drill this', category, catLabel, '⚡')
+    chipReply(aiStrings.s(lang, 'explain.chipGotIt'), 'helpful_yes'),
+    chipReply(aiStrings.s(lang, 'explain.chipSimpler'), 'explain_simpler'),
+    chipReply(aiStrings.s(lang, 'explain.chipDeeper'), 'explain_deeper'),
+    chipReply(aiStrings.s(lang, 'explain.chipAnother'), 'explain_another'),
+    chipDrill(aiStrings.s(lang, 'explain.chipDrillThis'), category, catLabel, '⚡')
   ], { promptId: promptId, topic: category, question: String(question).slice(0, 300), answer: String(answer).slice(0, 50) });
 }
 
 /* ════════════════════════ Conversational turn (explain follow-ups + generic) ════════════════════════ */
 async function chatTurn(uid, body) {
   var feature = body.feature || 'chat';
+  var lang = body.lang;
   var topic = body.topic || '';
   var catLabel = ctxEngine.label(topic) || 'this topic';
   var userTurn = String(body.userTurn || '').slice(0, 400);
@@ -539,8 +551,8 @@ async function chatTurn(uid, body) {
   // depth nudges + helpful acks handled WITHOUT an LLM call
   if (userTurn === 'helpful_yes' || userTurn === 'helpful_no') {
     if (userTurn === 'helpful_no') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
-    var ackChip = feature === 'explain' ? chipDrill('Drill ' + catLabel, topic, catLabel, '⚡') : chipDeep('Drill ' + catLabel, 'focus', topic, catLabel, '⚡');
-    return envelope(feature, [say(userTurn === 'helpful_yes' ? 'Great — keep that momentum.' : 'Got it, I\'ll go more thorough next time.')], [ackChip], { ack: true });
+    var ackChip = feature === 'explain' ? chipDrill(aiStrings.s(lang, 'chat.drillLabel', { label: catLabel }), topic, catLabel, '⚡') : chipDeep(aiStrings.s(lang, 'chat.drillLabel', { label: catLabel }), 'focus', topic, catLabel, '⚡');
+    return envelope(feature, [say(aiStrings.s(lang, userTurn === 'helpful_yes' ? 'chat.ackYes' : 'chat.ackNo'))], [ackChip], { ack: true });
   }
   if (userTurn === 'explain_simpler') aiService.updateMemory(uid, { preferredDepth: 'concise' }, 'feedback');
   if (userTurn === 'explain_deeper') aiService.updateMemory(uid, { preferredDepth: 'deep' }, 'feedback');
@@ -574,13 +586,13 @@ async function chatTurn(uid, body) {
       var fb = [say(df.say)];
       if (Array.isArray(df.steps) && df.steps.length) fb.push(steps(df.steps));
       return envelope('explain', fb, [
-        chipReply('Got it ✓', 'helpful_yes'), chipReply('Simpler', 'explain_simpler'),
-        chipReply('Go deeper', 'explain_deeper'), chipReply('Another like this', 'explain_another'),
-        chipDrill('Drill this', topic, catLabel, '⚡')
+        chipReply(aiStrings.s(lang, 'explain.chipGotIt'), 'helpful_yes'), chipReply(aiStrings.s(lang, 'explain.chipSimpler'), 'explain_simpler'),
+        chipReply(aiStrings.s(lang, 'explain.chipDeeper'), 'explain_deeper'), chipReply(aiStrings.s(lang, 'explain.chipAnother'), 'explain_another'),
+        chipDrill(aiStrings.s(lang, 'explain.chipDrillThis'), topic, catLabel, '⚡')
       ], { promptId: _promptId(pf), topic: topic });
     } catch (e) {
       if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
-      return envelope('explain', [callout('warn', 'I couldn\'t expand on that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
+      return envelope('explain', [callout('warn', aiStrings.s(lang, 'chat.couldntExpand'))], [chipReply(aiStrings.s(lang, 'explain.chipRetry'), userTurn)], { fallback: true });
     }
   }
 
@@ -593,12 +605,12 @@ async function chatTurn(uid, body) {
     var blocks = [say(d.say)];
     if (Array.isArray(d.steps) && d.steps.length) blocks.push(steps(d.steps));
     var chips = (feature === 'explain')
-      ? [chipReply('Got it ✓', 'helpful_yes'), chipReply('Another', 'explain_another'), chipDrill('Drill this', topic, catLabel, '⚡')]
-      : [chipReply('Got it ✓', 'helpful_yes')];
+      ? [chipReply(aiStrings.s(lang, 'explain.chipGotIt'), 'helpful_yes'), chipReply(aiStrings.s(lang, 'chat.chipAnother'), 'explain_another'), chipDrill(aiStrings.s(lang, 'explain.chipDrillThis'), topic, catLabel, '⚡')]
+      : [chipReply(aiStrings.s(lang, 'explain.chipGotIt'), 'helpful_yes')];
     return envelope(feature, blocks, chips, { promptId: _promptId(p), topic: topic });
   } catch (e) {
     if (e && e.usage) aiService.recordAiRequest(uid, { feature: _featOf(p && p.id), promptId: (p && p.id) || null, version: (p && p.version), usage: e.usage, latencyMs: e.latencyMs, model: e.model, attempts: e.attempts, status: 'error', errorCode: e.code });
-    return envelope(feature, [callout('warn', 'I couldn\'t answer that just now — try again in a moment.')], [chipReply('Retry', userTurn)], { fallback: true });
+    return envelope(feature, [callout('warn', aiStrings.s(lang, 'chat.couldntAnswer'))], [chipReply(aiStrings.s(lang, 'explain.chipRetry'), userTurn)], { fallback: true });
   }
 }
 
@@ -707,17 +719,16 @@ async function plannerGet(uid, opts) {
     doc.readiness = { score: liveStrategy.readinessScore, band: _bandKey(liveStrategy.readinessScore) };
     doc.forecast = liveStrategy.progress.forecast;
   }
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null, opts.clientDate) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, null, opts.clientDate, opts.lang) };
 }
 
 /** Ask the LLM to narrate a block the engine already built. Cold-start / failure → deterministic copy. */
 async function _narratePlan(uid, ctx, seed) {
   var fallback = {
-    rationale: 'This block focuses on ' + (seed.focusTopics || []).slice(0, 3).map(function (f) { return f.label; }).join(', ')
-      + ' — your highest-impact topics right now, ordered so each builds on the last.',
+    rationale: aiStrings.s(seed.lang, 'planner.narrateRationale', { topics: (seed.focusTopics || []).slice(0, 3).map(function (f) { return f.label; }).join(', ') }),
     encouragement: seed.onTrack === false
-      ? "You're a little behind — I've added a recovery day so the plan still lands before your exam."
-      : 'Stay consistent and you\'re on track. Readiness ' + seed.readinessScore + '/100 and climbing.'
+      ? aiStrings.s(seed.lang, 'planner.narrateBehind')
+      : aiStrings.s(seed.lang, 'planner.narrateOnTrack', { score: seed.readinessScore })
   };
   if (ctxEngine.isColdStart(ctx)) return fallback;
   try {
@@ -794,7 +805,7 @@ async function plannerSetup(uid, params, opts) {
   aiService.updateMemory(uid, { examName: examName, examDate: examDate, goal: goal, dailyMinutes: dailyMinutes,
     timelineEntry: { feature: 'planner', summary: 'Started a study plan for ' + examName + '.' } }, 'interview');
 
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate, opts.lang) };
 }
 
 /** Toggle a task's completion → credit coverage, run Smart Catch-up, recompute readiness + forecast. */
@@ -867,44 +878,49 @@ async function plannerRegenBlock(uid, opts) {
   var okR = await _writePlanner(uid, { block: doc.block, strategy: doc.strategy, topicState: doc.topicState, blockHistory: doc.blockHistory, readiness: doc.readiness, forecast: doc.forecast, updatedAt: doc.updatedAt });
   if (!okR) return { error: 'write_failed' };
 
-  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate) };
+  return { plan: doc, envelope: _plannerEnvelope(ctx, doc, narrated.encouragement, opts.clientDate, opts.lang) };
 }
 
 /** Build the companion envelope: today's tasks + readiness + forecast, linking out to the calendar view. */
-function _plannerEnvelope(ctx, doc, encouragement, clientDate) {
+function _plannerEnvelope(ctx, doc, encouragement, clientDate, lang) {
   var today = clientDate || _todayIso();   // ADR-049: LOCAL today
   var day = (doc.block && doc.block.days || []).find(function (d) { return d.date === today; });
   var tasks = (day && day.tasks) || [];
   var rd = doc.readiness || { score: 0, band: 'early' };
   var fc = doc.forecast || {};
 
-  var blocks = [say(doc.block && doc.block.rationale || 'Your study planner adapts every two weeks from your real progress.')];
-  blocks.push(metric('Exam readiness', rd.score + '/100', rd.band === 'exam-ready' ? 'up' : 'flat', rd.score >= 35));
+  var blocks = [say(doc.block && doc.block.rationale || aiStrings.s(lang, 'planner.rationaleDefault'))];
+  blocks.push(metric(aiStrings.s(lang, 'label.examReadiness'), rd.score + '/100', rd.band === 'exam-ready' ? 'up' : 'flat', rd.score >= 35));
 
   if (tasks.length) {
     tasks.slice(0, 3).forEach(function (t) {
       blocks.push(missionBlock(
-        (t.kind === 'revise' ? 'Revise: ' : t.kind === 'mock' ? 'Mock: ' : 'Study: ') + t.label,
+        aiStrings.s(lang, t.kind === 'revise' ? 'mission.revise' : t.kind === 'mock' ? 'mission.mock' : 'mission.study', { label: t.label }),
         t.reason, t.drillable ? 'focus' : 'practice', t.drillable || '', t.label, t.estMin));
     });
   } else if (day && day.kind === 'rest') {
-    blocks.push(callout('info', 'Rest day — recovery is part of the plan. Back at it tomorrow.'));
+    blocks.push(callout('info', aiStrings.s(lang, 'planner.restDay')));
   } else {
-    blocks.push(callout('info', 'No tasks scheduled today. Open the calendar to see what\'s ahead.'));
+    blocks.push(callout('info', aiStrings.s(lang, 'planner.noTasks')));
   }
 
   if (fc.daysToExam != null) {
-    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info',
-      fc.daysToExam + ' days to ' + (doc.examName || 'your exam') + (fc.bufferDays != null
-        ? (fc.onTrack ? ' — on track with ' + fc.bufferDays + ' days of buffer.' : ' — ' + Math.abs(fc.bufferDays) + ' days behind; I rebalanced your plan.') : '.')));
+    var pExam = doc.examName || aiStrings.s(lang, 'planner.yourExam');
+    var pParams = { days: fc.daysToExam, exam: pExam };
+    var pKey = 'planner.dtePlain';
+    if (fc.bufferDays != null) {
+      if (fc.onTrack) { pKey = 'planner.dteOnTrack'; pParams.buffer = fc.bufferDays; }
+      else { pKey = 'planner.dteBehind'; pParams.behind = Math.abs(fc.bufferDays); }
+    }
+    blocks.push(callout(fc.onTrack === false ? 'warn' : 'info', aiStrings.s(lang, pKey, pParams)));
   }
   if (encouragement) blocks.push(say(encouragement));
 
   var firstDrillable = tasks.find(function (t) { return t.drillable; });
   var chips = [];
-  if (firstDrillable) chips.push(chipDeep('Start today\'s drill', 'focus', firstDrillable.drillable, firstDrillable.label, '⚡'));
-  chips.push(chipReply('Open calendar', 'planner_open_calendar', '🗓️'));
-  chips.push(chipReply('Adjust plan', 'planner_setup'));
+  if (firstDrillable) chips.push(chipDeep(aiStrings.s(lang, 'planner.chipStartDrill'), 'focus', firstDrillable.drillable, firstDrillable.label, '⚡'));
+  chips.push(chipReply(aiStrings.s(lang, 'planner.chipOpenCalendar'), 'planner_open_calendar', '🗓️'));
+  chips.push(chipReply(aiStrings.s(lang, 'planner.chipAdjust'), 'planner_setup'));
 
   return envelope('planner', blocks, chips, { promptId: 'planner.narrate@' + prompts.REGISTRY['planner.narrate'].version, readiness: rd.score });
 }
