@@ -9,6 +9,26 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase B addendum (same day) — the entire app chrome is localized.** Every user-facing string in
+  the app shell now flows through the catalogs: Settings (static rows + all dynamic toasts,
+  plan-status, clear-data confirms, profile banner, delete-account error map), Auth (screen, tabs,
+  validation checklist — the byte-locked shared validators localize at display time via a
+  label→key map, lockstep untouched — Firebase error map, coaching-code verify with plural student
+  counts), all top-level modals + the offline banner, Home (static + greetings, CTA states,
+  goal-ring statuses, streak-risk/suggested/quota cards, quick-links), Stats (all cards, trends,
+  localized sparkline day abbreviations, mastery, recommendations with Hindi danda sentence
+  endings), Practice (mode cards + session-header labels + daily-limit banner + mock score
+  summary), Paywall (hero, plans, compare/trust tables, 25 context accents, payment toasts),
+  Onboarding (all six screens + exam-tier picker; exam names stay proper nouns), Coming-soon, and
+  the Learn hub/topic chrome (badges, sub-groups, category titles+blurbs via a `learn.cat_*`
+  display layer, strips, action bar). All 70 category names + 3 subjects localize through
+  `formatCategoryName()`/`QR_SUBJECTS.label()` display layers over the untouched canonical maps.
+  Language switch re-renders the active view, busts the Stats fingerprint cache and rebuilds the
+  Learn hub; parse-time-frozen strings were made lazy (Learn sub-groups, subject blurbs).
+  `scripts/i18n.check.js` now runs **5,238 assertions**; the Playwright Phase-B matrix verifies
+  hi/mr rendering, zero horizontal overflow at 360px, plural selection and EN restore. One
+  intentional EN micro-fix: "1 questions done today" → proper singular via plural rules. Bible
+  2.136→2.137.
 - **Context.** QuantReflex was English-only: `<html lang="en">` hardcoded, ~1,600–2,000 inline
   strings across ~45 files, zero i18n infrastructure. Three evidence audits sized the project
   (string inventory; content scale — Learn KB ~23k words + authored LR ~12k words + question

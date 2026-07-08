@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.136 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.137 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.137 (2026-07-07)** — **Internationalization Phase B (ADR-111).** The complete app chrome —
+> Settings, Auth, modals, Home, Stats, Practice, Paywall, Onboarding, Coming-soon, Learn hub/topic
+> chrome, all 70 category names and 3 subject names — is localized into हिन्दी and मराठी through the
+> ADR-111 catalogs (~700 keys × 3 languages), still feature-flagged OFF. Lockstep files stay
+> byte-identical (validators and report labels localize at display time). i18n.check.js now runs
+> 5,238 assertions; Playwright verifies hi/mr rendering, overflow, plurals and EN restore. Rides
+> unreleased SW `v223`.
 
 > **2.136 (2026-07-07)** — **Internationalization Phase A (ADR-111).** The app gains a localization
 > layer for English + हिन्दी + मराठी, feature-flagged OFF until every phase passes three-language QA

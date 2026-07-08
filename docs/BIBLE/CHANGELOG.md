@@ -6,6 +6,24 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-07 — Internationalization Phase B: full app chrome in en/hi/mr (ADR-111)
+
+Every app-shell string now flows through the ADR-111 catalogs (still feature-flagged OFF; English
+behavior unchanged apart from one plural micro-fix). Rides SW `v223`; Bible 2.136→2.137.
+
+- **Surfaces:** Settings (static + all dynamic strings), Auth (incl. lockstep-safe validator-label
+  localization + Firebase error map), all modals + offline banner, Home, Stats (localized day
+  abbreviations, plurals, Hindi danda), Practice modes + mock scoring, Paywall (25 context accents,
+  compare/trust tables), Onboarding + exam tiers, Coming-soon, Learn hub/topic chrome + category
+  titles/blurbs. 70 category names + 3 subjects via display layers over the canonical English maps.
+- **Behavior:** language switch re-renders the active view, busts Stats' render cache and rebuilds
+  the Learn hub; parse-time-frozen Learn strings made lazy.
+- **Verified:** i18n.check.js 5,238 assertions (parity, placeholders, plurals, Latin-leak with
+  glossary allowlist, channel separation); full suite green; Playwright hi/mr matrix — key strings,
+  zero overflow at 360px, plural forms, EN restore, zero console errors.
+
+---
+
 ## 2026-07-07 — Internationalization Phase A: i18n core + language settings (ADR-111)
 
 First phase of the English + हिन्दी + मराठी localization project. Feature-flagged OFF (users see no
