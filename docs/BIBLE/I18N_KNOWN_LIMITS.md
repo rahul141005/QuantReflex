@@ -24,7 +24,8 @@ These appear verbatim inside otherwise-Devanagari strings and are allowlisted in
 - **Third-party / proper nouns:** Google, Razorpay (payment processor), KrisVeltrix / KVt
   (developer), Android, Chrome, iPhone, Safari (install instructions), WhatsApp (duel invite),
   the product URLs (`https://www.quantreflex.app`, `www.quantreflex.app`, `quantreflex.app`), the
-  login placeholder `you@example.com`, the duel room-code placeholder `ABC123`.
+  login placeholder `you@example.com`, the duel room-code placeholder `ABC123`, the contact email
+  `quantreflex@gmail.com` (About modal + Settings contact card).
 - **Theme names:** Playful Professional, Classic Blue.
 
 Rationale: these are proper nouns, brand/feature identities, exam-board names, or machine tokens
