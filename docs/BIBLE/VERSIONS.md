@@ -9,11 +9,20 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.138 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.139 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.139 (2026-07-08)** — **Internationalization Phase C (ADR-111).** The practice core — drill
+> engine (chrome, verdicts, quota, results, insights), report sheet (taxonomy display layer over
+> the byte-locked canonical labels; server errors localized by stable code incl. the free-explain
+> `reason` sub-code), share cards + share sheet, Word-Problems setup, local speed benchmark, and
+> all remaining system/duel/learn toasts — is localized into हिन्दी and मराठी, still feature-flagged
+> OFF. Auto-tip translations ride Phase G (tc plumbing live); LR-visual explanations ride Phase F;
+> planner-view/Companion chrome ride Phase E. i18n.check.js at 7,926 assertions; Playwright
+> Phase-C harness green (report sheet, share modal, plurals, overflow, EN restore). Rides SW v223.
 
 > **2.138 (2026-07-08)** — **ADR-111 Final Localization Certification gate.** Governance-only: the
 > i18n feature flag is now formally gated behind an independent, adversarial certification with

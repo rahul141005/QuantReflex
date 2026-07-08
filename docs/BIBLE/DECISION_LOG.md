@@ -9,6 +9,40 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase C addendum (2026-07-08) — practice core localized.** All session-time surfaces now flow
+  through the catalogs (flag still OFF): the complete drill engine (start screen, session chrome +
+  arias, verdicts, streak toasts, quota panel, results card with badges/stat labels/deltas/insights,
+  pause overlay, loading/gen-error/review-empty states), session insights (`computeSessionInsight`)
+  and the local speed benchmark, the entire Report-a-problem sheet, share cards (canvas card text,
+  duel card, preview modal, toasts, Web-Share payloads), the Word-Problems setup UI, and the
+  scattered system/duel/learn toasts (sync warning, duel manager ×11, coming-soon, duel history,
+  question-bank difficulty fallback). Key mechanics decided here:
+  - **Report taxonomy display layer.** Canonical English labels stay byte-locked in
+    report-taxonomy.js ⇄ shared/constants ⇄ api/_lib/report-schema.js (`report.check` lockstep
+    untouched); the modal renders translations keyed by the stable id (`report.type_*`,
+    `report.group_*`, `report.sub_<type>_*`) with the canonical label as fallback. Server
+    submissions keep sending ids only. Context chips reuse the app-wide display layers
+    (`formatCategoryName`, `QR_SUBJECTS.label`, Settings difficulty terms) — an intentional EN
+    improvement over the old id-mangling (`profit_loss` → "Profit & Loss", not "Profit loss").
+  - **Server-error localization by stable code.** Report submit errors localize via
+    `report.err_<code>` with server-message fallback for unknown codes. The exhausted-free-explain
+    403 (api/ai.js) now carries `reason:'FREE_EXPLAINS_EXHAUSTED'` next to the unchanged
+    `PREMIUM_REQUIRED` code + English message, so old cached clients keep working verbatim while
+    new clients render client-owned localized text. Internal QuestionBankService/word-problem
+    errors became stable codes (`no_questions`, `service_unavailable`) localized at display sites.
+  - **Auto-tips ride the study channel.** `getAutoTip` resolves `tips.sub_*`/`tips.dikey_*`/
+    `tips.cat_*`/`tips.generic` via `tc()` with the English maps as canonical fallback; the ~85
+    hi/mr tip translations themselves land with the Phase G content packs. The 27 LR-visual
+    explanation strings ship with the Phase F generator packs.
+  - **Deferred to later phases (tracked):** planner-view + Companion feature titles/loading stages/
+    envelope block titles/chips → Phase E (AI seam); duel-ui full surface (~93 strings) → with the
+    remaining-modals batch; question/solution content → Phases F/G.
+  Verified: `i18n.check.js` grown to **7,926 assertions** (incl. product-URL allowlist for share
+  text); full 34-script suite green (`report.check` byte-lockstep intact); Playwright Phase-C
+  harness drives the real report sheet (chooser → reasons → form, in-drill context chips), the
+  share preview modal (real canvas render) and param/plural probes in hi + mr at 360px — all
+  strings localized, zero overflow, zero console errors, EN restore byte-identical. Bible
+  2.138→2.139.
 - **Final Localization Certification — MANDATORY GATE (user requirement, 2026-07-08).** The feature
   flag (`QRI18n.ENABLED` / inline `I18N_ON`) may only be enabled after an independent, adversarial
   certification passes with **zero critical findings**. Scope, binding on Phase H:

@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-08 — Internationalization Phase C: practice core in en/hi/mr (ADR-111)
+
+Every session-time string now flows through the ADR-111 catalogs (flag still OFF; EN unchanged
+except intentional micro-fixes noted below). Rides SW `v223`; Bible 2.138→2.139.
+
+- **Drill engine:** start screen, session chrome + accessibility labels, verdicts, streak toasts,
+  quota panel, full results card (badges, stat labels, vs-last-session deltas, insights), pause,
+  loading, generation-error and review-empty states; session insights + local speed benchmark.
+- **Report sheet:** all chrome plus a taxonomy display layer keyed by stable ids — canonical
+  English stays byte-locked (report.check untouched), servers keep receiving ids; context chips
+  reuse the category/subject/difficulty display layers (EN improvement: canonical labels instead
+  of mangled ids); terminal submit errors localize by stable error code.
+- **AI error seam:** exhausted free-explain 403 gains `reason:'FREE_EXPLAINS_EXHAUSTED'`
+  (backward-compatible next to PREMIUM_REQUIRED + verbatim message); companion error lines, retry
+  chip and free-explanations-left notes are client-owned and localized.
+- **Share:** canvas achievement + duel cards, preview modal, toasts and Web-Share text localized
+  (product URL allowlisted; spaced-letter styling kept EN-only to protect Devanagari shaping).
+- **Word Problems setup** (reusing practice.* widget keys, category display layer, quota/limit and
+  error states as stable codes) and system/duel/learn toasts (sync warning, 11 duel-manager
+  toasts, Learn coming-soon, duel history, question-bank difficulty fallback).
+- **Deferred, tracked:** 85 auto-tip translations → Phase G packs (tc-channel plumbing live);
+  27 LR-visual explanations → Phase F; planner-view + Companion chrome → Phase E; duel-ui full
+  surface → remaining-modals batch.
+- **Verified:** i18n.check.js 7,926 assertions; 34-script suite green; Playwright Phase-C harness
+  (real report sheet flows, share modal with live canvas, param/plural probes) in hi + mr at
+  360px — zero overflow, zero console errors, EN restore identical.
+
+---
+
 ## 2026-07-08 — ADR-111: Final Localization Certification made a mandatory gate
 
 Governance-only. Per user requirement, the i18n feature flag may only be enabled after an
