@@ -9,6 +9,52 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase D addendum (2026-07-08) — long-form static + Math Duel localized.** Every remaining STATIC
+  documentation surface and the entire Duel UI now flow through the catalogs (flag still OFF).
+  After Phase D the only English left in the product is: AI/server-composed text (Phase E),
+  generated question/solution content (Phase F), and the Learn/authored/tips content (Phase G).
+  - **New `applyDom` capability — `data-i18n-html`.** The About/Guide bodies embed `<strong>`
+    mid-sentence, which cannot be split into text-only spans without producing untranslatable
+    fragments (hi/mr word order differs). Decision: an element bearing `data-i18n-html="ns.key"`
+    gets its `innerHTML` replaced by the catalog value after a **whitelist sanitizer** — only bare
+    `<strong>`/`<em>`/`<br>` survive (attributes stripped, every other tag unwrapped keeping its
+    text), so a hostile `<img onerror>`/`<script>` can leave no executable residue. The original
+    innerHTML is stashed in `data-i18n-orig-html` for byte-identical EN restore; a missing/unknown
+    key keeps the English markup (never prints a raw key). The sanitizer is a pure string transform
+    (identical in the browser and the Node check) and is defense-in-depth behind a build-time
+    markup-safety scan (`i18n.check.js` §4 asserts every hi/mr/en html value carries only
+    whitelisted, attribute-free, balanced tags). Rejected: arbitrary HTML in catalog values (one
+    bad value = injection/regression vector the certification can't bound); rebuilding About/Guide
+    from JS templates (needless churn of ADR-110-certified content); per-fragment keys around
+    `<strong>` (untranslatable half-sentences).
+  - **Surfaces localized.** About modal (39 keys), App Guide — 16 TOC chips + 16 sections (164
+    keys), Math Duel UI (`js/duel-ui.js`, ~90 strings across install-gate/create/join/lobby/
+    waiting/results/review/exit), and the stray home/auth fragments (Math Duel bento title, three
+    `🔒 PRO` badges, login placeholder). Guide prose reuses the app's established exam-book
+    terminology verbatim (क्विक ड्रिल, गलतियों की समीक्षा / चुकांची उजळणी, आंकड़ा निर्वचन /
+    आकडेवारी विश्लेषण, …) — enforced by a programmatic consistency assertion (a Guide value must
+    contain the referenced app-catalog value for the same feature).
+  - **Duel exit-modal regression fixed.** `DuelUI.showExitModal` overwrote the already-localized
+    static `#exitDuelModal` markup with hardcoded English at runtime; it now composes entirely from
+    catalog keys — one wording source. It uses dedicated `duel.exit*` keys rather than the static
+    `modals.exitDuel*` keys the blueprint suggested reusing, because the runtime modal's wording
+    genuinely differs from the static modal's; reusing those would have regressed the runtime EN
+    wording (violating EN byte-identity). The two bolded fragments compose via a `{n}` param plus a
+    `<strong>` inside `duel.exitNoRejoin`.
+  - **Known-limits register created** (`docs/BIBLE/I18N_KNOWN_LIMITS.md`): the authoritative list of
+    intentionally-English / DNT / frozen items, each with a rationale, that the Phase-H
+    certification validates against (anything English NOT listed is a critical finding). Notable
+    documented decisions: the About version line (`#aboutVersionLine`) is localized via the existing
+    `settings.versionLine` JS path rather than a param-free `data-i18n` fallback (which would
+    hard-code a drifting build version); the App Guide `Premium` chip badges stay untagged (DNT).
+  - **Verified.** `i18n.check.js` grown to **11,342 assertions** (added: `data-i18n-html` key +
+    markup-safety scans, sanitizer runtime tests, ~460 new catalog keys × 3 languages). Full
+    34-script suite green. Playwright real-DOM harnesses (About, Guide, duel-ui) in hi + mr at
+    360/820: `<strong>` survives inside Devanagari, feature-name consistency asserted, premium chips
+    intact, no overflow, EN restore byte-identical, zero console errors. applyDom language-switch
+    latency measured on the full document (314 `data-i18n` + 92 `data-i18n-html` + 20
+    `data-i18n-attr` nodes) at **6 ms median / 11 ms max** under 4× CPU throttling — far inside the
+    50 ms budget. Bible 2.139→2.140.
 - **Phase C addendum (2026-07-08) — practice core localized.** All session-time surfaces now flow
   through the catalogs (flag still OFF): the complete drill engine (start screen, session chrome +
   arias, verdicts, streak toasts, quota panel, results card with badges/stat labels/deltas/insights,

@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-08 — Internationalization Phase D: long-form static + Math Duel in en/hi/mr (ADR-111)
+
+Every remaining STATIC documentation surface and the entire Math Duel UI now flow through the
+ADR-111 catalogs (flag still OFF; EN behaviour unchanged). Rides SW `v223`; Bible 2.139→2.140.
+
+- **New infra — `data-i18n-html`:** `applyDom` gains a third mode for sentences with inline
+  `<strong>`/`<em>`/`<br>`, replacing `innerHTML` with the catalog value after a whitelist sanitizer
+  (attributes stripped, all other tags unwrapped). Original markup stashed for byte-identical EN
+  restore; missing key keeps the English markup. `i18n.check.js` §4 statically proves every html
+  value carries only whitelisted, attribute-free, balanced tags; §7 runtime-tests the sanitizer
+  (keeps `<strong>`, drops a hostile `<img onerror>`, strips attributes, restores the original).
+- **Surfaces:** About modal (39 keys), App Guide — 16 TOC chips + 16 sections (164 keys), Math Duel
+  UI (`js/duel-ui.js`, ~90 strings), stray home/auth fragments (Math Duel bento title, three PRO
+  badges, login placeholder). Guide feature names reuse the app's established exam-book terminology,
+  asserted programmatically.
+- **Fix:** the duel exit modal (`showExitModal`, which overwrites the static `#exitDuelModal`) is
+  now single-sourced from the catalog via dedicated `duel.exit*` keys (preserving its runtime EN
+  wording rather than adopting the different static-modal wording).
+- **Governance:** `docs/BIBLE/I18N_KNOWN_LIMITS.md` created — the authoritative list of
+  intentionally-English / DNT / frozen items the Phase-H certification validates against.
+- **Verified:** i18n.check.js 11,342 assertions; full suite green; Playwright real-DOM (About,
+  Guide, duel) in hi + mr at 360/820 — `<strong>` survives inside Devanagari, feature-name
+  consistency, premium chips intact, no overflow, EN restore identical, zero console errors;
+  applyDom switch latency 6 ms median (426 tagged nodes, 4× CPU throttle) vs a 50 ms budget.
+
+---
+
 ## 2026-07-08 — Internationalization Phase C: practice core in en/hi/mr (ADR-111)
 
 Every session-time string now flows through the ADR-111 catalogs (flag still OFF; EN unchanged

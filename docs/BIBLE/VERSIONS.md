@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.139 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.140 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.140 (2026-07-08)** — **Internationalization Phase D (ADR-111).** Every remaining static
+> documentation surface — the About modal, the 16-section App Guide — and the entire Math Duel UI
+> (`js/duel-ui.js`) are localized into हिन्दी and मराठी, still feature-flagged OFF. A new
+> `data-i18n-html` `applyDom` mode (whitelist-sanitized `<strong>`/`<em>`/`<br>`) handles the
+> emphasis-bearing long-form prose; the duel exit-modal runtime regression is fixed by single-
+> sourcing it from the catalog. `docs/BIBLE/I18N_KNOWN_LIMITS.md` is created as the Phase-H
+> certification's DNT/frozen-item register. i18n.check.js at 11,342 assertions; Playwright real-DOM
+> green (About, Guide, duel; `<strong>` survival, feature-name consistency, no overflow, EN restore,
+> 6 ms switch latency at 4× CPU throttle). Rides SW v223.
 
 > **2.139 (2026-07-08)** — **Internationalization Phase C (ADR-111).** The practice core — drill
 > engine (chrome, verdicts, quota, results, insights), report sheet (taxonomy display layer over
