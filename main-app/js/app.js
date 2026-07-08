@@ -282,6 +282,16 @@ window.addEventListener('beforeinstallprompt', function (e) {
  */
 function formatCategoryName(key) {
   if (!key) return '-';
+  /* ADR-111: localized display name first. The canonical English maps below stay untouched (they
+     are lockstep-checked sources of truth); translation is a display layer keyed by the stable
+     category id — `categories.<key>` in the active App-language catalog. Falls through to English
+     whenever the key isn't translated or i18n is off. */
+  try {
+    if (typeof QRI18n !== 'undefined' && QRI18n.appLang() !== 'en') {
+      var _loc = QRI18n.t('categories.' + key);
+      if (_loc !== 'categories.' + key) return _loc;
+    }
+  } catch (_) { /* fall through to English */ }
   /* Quant labels come from the SINGLE source of truth (services/quantTopics.js CATEGORY_LABELS) so every drill
      category — including ones added later — renders its real name, never a raw key (ADR-084). */
   try { if (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS && QuantTopics.CATEGORY_LABELS[key]) return QuantTopics.CATEGORY_LABELS[key]; } catch (_) {}

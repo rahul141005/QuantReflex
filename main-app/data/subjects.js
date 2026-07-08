@@ -80,8 +80,21 @@
     return s ? { id: s.id, label: s.label, short: s.short, order: s.order } : null;
   }
 
-  /** Human label for a subject id (falls back to the id). */
-  function label(id) { var s = _byId[id]; return s ? s.label : id; }
+  /** Human label for a subject id (falls back to the id). ADR-111: localized display name first —
+      catalog key `subjects.<id>` in the App-language catalog; the canonical English registry above
+      stays the lockstep-checked source of truth and the fallback. */
+  function label(id) {
+    var s = _byId[id];
+    if (!s) return id;
+    try {
+      var I = (typeof window !== 'undefined' && window.QRI18n) ? window.QRI18n : null;
+      if (I && I.appLang() !== 'en') {
+        var loc = I.t('subjects.' + id);
+        if (loc !== 'subjects.' + id) return loc;
+      }
+    } catch (_) { /* fall through to English */ }
+    return s.label;
+  }
 
   /** The subject a drill category belongs to (or null if unknown). Resolved across all subjects' category sets. */
   function categoryToSubject(cat) {

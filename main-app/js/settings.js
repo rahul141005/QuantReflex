@@ -255,7 +255,7 @@ function initSettingsView() {
       if (toggle.checked && settings.difficulty === 'hard') {
         /* Revert toggle immediately */
         toggle.checked = false;
-        showToast('Skip is unavailable in Hard mode for maximum challenge.');
+        showToast(QRI18n.t('settings.skipHardToast'));
         return;
       }
       settings.skipEnabled = toggle.checked;
@@ -297,7 +297,7 @@ function initSettingsView() {
       TargetExam.set(this.value || null);
       settings = loadSettings(); /* TargetExam.set wrote settings — refresh the local copy so later saves don't clobber it */
       SoundEngine.play('settingsToggle');
-      if (this.value) showToast('Target set: ' + (TargetExam.label(this.value) || this.value));
+      if (this.value) showToast(QRI18n.t('settings.targetSetToast', { label: TargetExam.label(this.value) || this.value }));
     });
     targetExamSelect.value = TargetExam.get() || '';
   }
@@ -314,7 +314,7 @@ function initSettingsView() {
       settings.skipEnabled = false;
       var st = document.getElementById('skipToggle');
       if (st) st.checked = false;
-      showToast('Skip is unavailable in Hard mode for maximum challenge.');
+      showToast(QRI18n.t('settings.skipHardToast'));
     }
     saveSettings(settings);
     SoundEngine.play('settingsToggle');
@@ -390,12 +390,12 @@ function initSettingsView() {
       } catch (_) { return false; }
     }
     function _copied() {
-      try { if (typeof showToast === 'function') showToast('✅ Email copied'); } catch (_) {}
+      try { if (typeof showToast === 'function') showToast(QRI18n.t('settings.emailCopied')); } catch (_) {}
       var b = document.getElementById(btnId);
       if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById(btnId); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
     }
     /* Copy failed on every path — don't fake success; point the user at the address they can still tap to email. */
-    function _copyFailed() { try { if (typeof showToast === 'function') showToast('Couldn\'t copy — the address is ' + CONTACT_EMAIL); } catch (_) {} }
+    function _copyFailed() { try { if (typeof showToast === 'function') showToast(QRI18n.t('settings.emailCopyFailed', { email: CONTACT_EMAIL })); } catch (_) {} }
     rebind(copyBtn, 'click', function () {
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -472,7 +472,7 @@ function initSettingsView() {
               if (err) {
                 var lb = document.getElementById('logoutBtn');
                 if (lb) lb.disabled = false;
-                alert('Logout failed: ' + err);
+                alert(QRI18n.t('settings.logoutFailed', { error: err }));
                 window.location.reload(); /* Force reload to recover state */
               } else {
                 window.location.reload();
@@ -488,7 +488,7 @@ function initSettingsView() {
           if (err) {
             var lb = document.getElementById('logoutBtn');
             if (lb) lb.disabled = false;
-            alert('Logout failed: ' + err);
+            alert(QRI18n.t('settings.logoutFailed', { error: err }));
           } else {
             /* Reload page for clean state — auth persistence keeps
                the user logged out, and all JS state is reset */
@@ -513,11 +513,11 @@ function initSettingsView() {
       updateAppBtn.disabled = true;
       var labelEl = updateAppBtn.querySelector('.settings-btn-label');
       if (labelEl) {
-        labelEl.textContent = '⏳ Updating app...';
+        labelEl.textContent = QRI18n.t('settings.updatingApp');
       } else {
-        updateAppBtn.textContent = '⏳ Updating app...';
+        updateAppBtn.textContent = QRI18n.t('settings.updatingApp');
       }
-      if (typeof showToast === 'function') showToast('Updating app...');
+      if (typeof showToast === 'function') showToast(QRI18n.t('settings.updatingAppToast'));
       /* ADR-102: the shared QRUpdateManager owns cache-purge + skip-waiting + the one-shot reload
          (identical sequence to before). This handler is now pure presentation + the action call. */
       if (typeof QRUpdateManager !== 'undefined') {
@@ -567,7 +567,7 @@ function updateAboutUserStatus() {
   try {
     var _verEl = document.getElementById('aboutVersionLine');
     if (_verEl && typeof window !== 'undefined' && window.QR_APP_VERSION) {
-      _verEl.textContent = 'Version ' + window.QR_APP_VERSION;
+      _verEl.textContent = QRI18n.t('settings.versionLine', { version: window.QR_APP_VERSION });
     }
   } catch (_) {}
   /* ADR-110: live update status in About. isUpdateAvailable() is the shared UpdateManager's synchronous flag —
@@ -578,8 +578,8 @@ function updateAboutUserStatus() {
       var _updAvail = (typeof QRUpdateManager !== 'undefined' && QRUpdateManager.isUpdateAvailable)
         ? QRUpdateManager.isUpdateAvailable() : false;
       _updEl.textContent = _updAvail
-        ? '🚀 An update is ready — install it from Settings → Update App.'
-        : '✅ You\'re on the latest version.';
+        ? QRI18n.t('settings.updateReadyLine')
+        : QRI18n.t('settings.upToDateLine');
     }
   } catch (_) {}
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
@@ -591,26 +591,26 @@ function updateAboutUserStatus() {
     else if (typeof value === 'string') ms = new Date(value).getTime();
     else if (value && typeof value.toDate === 'function') { try { ms = value.toDate().getTime(); } catch (_) {} }
     if (!ms || isNaN(ms)) return '';
-    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms));
+    return new Intl.DateTimeFormat((typeof QRI18n !== 'undefined') ? QRI18n.localeTag() : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms));
   }
 
-  var message = 'Free Plan';
+  var message = QRI18n.t('settings.planFree');
   if (accessState.plan === 'premium') {
     if (accessState.isTrial === true) {
       /* Trial — N days left */
       var trialDaysLabel = '';
       if (accessState.trialDays != null && accessState.trialDays > 0) {
-        trialDaysLabel = ' — ' + accessState.trialDays + ' day' + (accessState.trialDays !== 1 ? 's' : '') + ' left';
+        trialDaysLabel = QRI18n.t('settings.trialDaysLeft', { count: accessState.trialDays });
       } else {
         var tStr = _fmtDate(accessState.trialEnd);
-        if (tStr) trialDaysLabel = ' — Expires ' + tStr;
+        if (tStr) trialDaysLabel = QRI18n.t('settings.trialExpires', { date: tStr });
       }
-      message = '⏳ Premium Trial' + trialDaysLabel;
+      message = QRI18n.t('settings.planTrial') + trialDaysLabel;
     } else {
-      var planLabel = accessState.planType === 'premium_12m' ? '12 Months'
-                    : accessState.planType === 'premium_6m' ? '6 Months' : '';
+      var planLabel = accessState.planType === 'premium_12m' ? QRI18n.t('settings.plan12m')
+                    : accessState.planType === 'premium_6m' ? QRI18n.t('settings.plan6m') : '';
       var expStr = _fmtDate(accessState.planExpiry);
-      message = '💎 Premium' + (planLabel ? ' (' + planLabel + ')' : '') + (expStr ? ' · Expires ' + expStr : '');
+      message = QRI18n.t('settings.planPremium') + (planLabel ? ' (' + planLabel + ')' : '') + (expStr ? QRI18n.t('settings.planExpiresFrag', { date: expStr }) : '');
     }
   }
   if (statusEl) {
@@ -669,12 +669,12 @@ function openClearConfirmModal(type) {
   if (!modal || !textEl) return;
 
   var messages = {
-    stats: 'This will permanently reset all your statistics and performance history. Continue?',
-    streaks: 'This will permanently reset your current and best streaks. Continue?',
-    formulas: 'This will permanently delete all your custom topics and added formulas. Continue?',
-    all: 'This will permanently reset ALL your data including settings, statistics, formulas, and bookmarks. Continue?'
+    stats: QRI18n.t('settings.clearStatsConfirm'),
+    streaks: QRI18n.t('settings.clearStreaksConfirm'),
+    formulas: QRI18n.t('settings.clearFormulasConfirm'),
+    all: QRI18n.t('settings.clearAllConfirm')
   };
-  textEl.textContent = messages[type] || 'Are you sure?';
+  textEl.textContent = messages[type] || QRI18n.t('settings.confirmFallback');
   modal.style.display = 'flex';
   document.body.classList.add('modal-open');
 
@@ -700,7 +700,7 @@ function openClearConfirmModal(type) {
         progress.lastPracticeDate = null;
         saveProgress(progress);
       } catch (_) {}
-      showToast('Streak data has been reset.');
+      showToast(QRI18n.t('settings.streaksReset'));
       if (typeof Router !== 'undefined') {
         Router.showView('settings');
       }
@@ -710,18 +710,18 @@ function openClearConfirmModal(type) {
     if (typeof FirestoreSync !== 'undefined') {
       FirestoreSync.clearUserData(type, function (err) {
         if (err) {
-          alert('Failed to clear data: ' + err);
+          alert(QRI18n.t('settings.clearFailed', { error: err }));
         } else {
           if (type === 'stats') {
             /* Stats only — re-render settings view without reload */
-            showToast('Performance statistics have been reset.');
+            showToast(QRI18n.t('settings.statsReset'));
             if (typeof Router !== 'undefined') {
               Router.showView('settings');
             }
           } else {
             /* Formulas or all — reload page for clean DOM state.
                Auth persistence keeps the user logged in. */
-            showToast('App data has been cleared.');
+            showToast(QRI18n.t('settings.dataCleared'));
             setTimeout(function () { window.location.reload(); }, 500);
           }
         }
@@ -757,12 +757,12 @@ function openClearConfirmModal(type) {
         }
       }
       if (type === 'stats') {
-        showToast('Performance statistics have been reset.');
+        showToast(QRI18n.t('settings.statsReset'));
         if (typeof Router !== 'undefined') {
           Router.showView('settings');
         }
       } else {
-        showToast('App data has been cleared.');
+        showToast(QRI18n.t('settings.dataCleared'));
         setTimeout(function () { window.location.reload(); }, 500);
       }
     }
@@ -841,7 +841,7 @@ function openProfileModal() {
       coachingIdInput.value = '';
       coachingIdInput.readOnly = false;
       coachingIdInput.disabled = false;
-      coachingIdInput.placeholder = 'e.g. QRABCD1234';
+      coachingIdInput.placeholder = QRI18n.t('settings.coachingPlaceholder');
       coachingIdInput.maxLength = 50;
       if (coachingHelper) coachingHelper.style.display = '';
     }
@@ -852,16 +852,16 @@ function openProfileModal() {
      started here) → client profile.createdAt → server-side root createdAt (a Firestore Timestamp). Each source may
      be a Firestore Timestamp, an ISO string, or epoch ms — _toDate() normalises all of them. */
   if (bannerEl) {
-    var displayName = profile.name || 'You';
+    var displayName = profile.name || QRI18n.t('settings.profileYou');
     var startSettings = {};
     try { if (typeof AppState !== 'undefined' && AppState.getSettings) startSettings = AppState.getSettings() || {}; } catch (_) {}
     var joinedDate = _toDate(startSettings.onboardingCompletedAt) || _toDate(profile.createdAt) || _toDate(cache && cache.createdAt);
     if (joinedDate) {
-      var dateStr = joinedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-      bannerEl.textContent = displayName + ' started mathing on ' + dateStr + '.';
+      var dateStr = joinedDate.toLocaleDateString((typeof QRI18n !== 'undefined') ? QRI18n.localeTag() : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      bannerEl.textContent = QRI18n.t('settings.profileJoined', { name: displayName, date: dateStr });
     } else {
       // No reliable date anywhere — use a graceful, dateless line rather than "an unknown date".
-      bannerEl.textContent = displayName + ' is sharpening their math reflexes.';
+      bannerEl.textContent = QRI18n.t('settings.profileSharpening', { name: displayName });
     }
   }
 
@@ -881,7 +881,7 @@ function openProfileModal() {
     /* Update name in Firestore */
     if (newName && typeof FirestoreSync !== 'undefined') {
       FirestoreSync.updateProfileName(newName);
-      showToast('Profile saved successfully.');
+      showToast(QRI18n.t('settings.profileSaved'));
     }
 
     /* One-time coaching claim (only when unbound and a code was typed) */
@@ -889,9 +889,9 @@ function openProfileModal() {
     if (codeVal && typeof FirestoreSync !== 'undefined' && FirestoreSync.claimCoaching) {
       FirestoreSync.claimCoaching(codeVal, function (err) {
         if (err) {
-          showToast(err.message || 'Could not join that coaching. Check the code and try again.');
+          showToast(err.message || QRI18n.t('settings.coachingJoinFailed'));
         } else {
-          showToast('Coaching joined: ' + codeVal);
+          showToast(QRI18n.t('settings.coachingJoined', { code: codeVal }));
         }
       });
     }
@@ -936,7 +936,7 @@ function openDeleteAccountModal() {
   function _setDeleteLoading(loading) {
     if (confirmBtn) {
       confirmBtn.disabled = loading;
-      confirmBtn.textContent = loading ? 'Deleting account...' : 'Delete Forever';
+      confirmBtn.textContent = loading ? QRI18n.t('settings.deleting') : QRI18n.t('settings.deleteForever');
       if (loading) confirmBtn.classList.add('btn-loading');
       else confirmBtn.classList.remove('btn-loading');
     }
@@ -946,32 +946,32 @@ function openDeleteAccountModal() {
 
   /* Map Firebase/server error codes to user-friendly messages */
   function _getDeleteErrorMessage(err) {
-    if (!err) return 'Account deletion failed. Please try again.';
+    if (!err) return QRI18n.t('settings.deleteFailed');
     var msg = err.message || err;
     if (typeof msg === 'string') {
       if (msg.indexOf('auth/requires-recent-login') !== -1) {
-        return 'For security, please log out and log back in, then try deleting again.';
+        return QRI18n.t('settings.deleteReauth');
       }
       if (msg.indexOf('auth/popup-closed-by-user') !== -1 || msg.indexOf('auth/cancelled-popup-request') !== -1) {
-        return 'Confirmation was cancelled.';
+        return QRI18n.t('settings.deleteCancelled');
       }
       if (msg.indexOf('auth/user-mismatch') !== -1) {
-        return 'Please confirm with the same Google account you signed in with.';
+        return QRI18n.t('settings.deleteMismatch');
       }
       if (msg.indexOf('auth/popup-blocked') !== -1) {
-        return 'Your browser blocked the confirmation window. Allow popups or try from your browser.';
+        return QRI18n.t('settings.deletePopupBlocked');
       }
       if (msg.indexOf('UNAUTHORIZED') !== -1 || msg.indexOf('token') !== -1) {
-        return 'Your session has expired. Please log out, log back in, and try again.';
+        return QRI18n.t('settings.deleteSessionExpired');
       }
       if (msg.indexOf('DELETION_FAILED') !== -1) {
-        return 'Account deletion partially failed. Please try again or contact support.';
+        return QRI18n.t('settings.deletePartial');
       }
       if (msg.indexOf('network') !== -1 || msg.indexOf('fetch') !== -1 || msg.indexOf('Failed to fetch') !== -1) {
-        return 'Network error. Please check your connection and try again.';
+        return QRI18n.t('settings.deleteNetwork');
       }
     }
-    return 'Unable to delete account. Please try again or contact support.';
+    return QRI18n.t('settings.deleteUnable');
   }
 
   cancelBtn.onclick = closeModal;
@@ -985,12 +985,12 @@ function openDeleteAccountModal() {
     var password = passInput ? passInput.value.trim() : '';
 
     if (_hasPasswordProvider && passInput && !password) {
-      if (errDiv) { errDiv.textContent = 'Password is required to delete your account.'; errDiv.style.display = 'block'; }
+      if (errDiv) { errDiv.textContent = QRI18n.t('settings.deletePasswordRequired'); errDiv.style.display = 'block'; }
       return;
     }
 
     if (typeof Auth === 'undefined' || !Auth.getCurrentUser()) {
-      showToast('Sign in to manage your account.');
+      showToast(QRI18n.t('settings.signInToManage'));
       closeModal();
       return;
     }
@@ -1046,7 +1046,7 @@ function openDeleteAccountModal() {
       } catch (_) {}
 
       closeModal();
-      showToast('Your account has been deleted.');
+      showToast(QRI18n.t('settings.accountDeleted'));
 
       setTimeout(function () {
         window.location.reload();

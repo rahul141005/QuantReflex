@@ -663,34 +663,34 @@
 
     <!-- ==================== SETTINGS VIEW ==================== -->
     <div id="view-settings" class="spa-view">
-      <header><h1><span class="qr-ico header-icon" data-ico="settings" aria-hidden="true">⚙️</span> Settings</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="settings" aria-hidden="true">⚙️</span> <span data-i18n="settings.header">Settings</span></h1></header>
 
       <!-- Install App -->
       <div class="card" id="installCard" style="display:none;">
-        <h3 style="margin-bottom:.5rem;"><span class="qr-ico" data-ico="download" aria-hidden="true">📲</span> Install App</h3>
-        <p class="secondary-text" style="margin-bottom:.75rem;">Install QuantReflex on your device for offline use</p>
-        <button id="installBtn" class="btn-primary">Install App</button>
+        <h3 style="margin-bottom:.5rem;"><span class="qr-ico" data-ico="download" aria-hidden="true">📲</span> <span data-i18n="settings.installTitle">Install App</span></h3>
+        <p class="secondary-text" style="margin-bottom:.75rem;" data-i18n="settings.installDesc">Install QuantReflex on your device for offline use</p>
+        <button id="installBtn" class="btn-primary" data-i18n="settings.installBtn">Install App</button>
       </div>
 
       <!-- SECTION 1 — Premium Upgrade -->
       <div class="settings-section" id="trialUpgradeSection" style="display:none;">
-        <h3 class="settings-section-title">Premium</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionPremium">Premium</h3>
         <div class="settings-section-card trial-upgrade-card">
-          <h3 class="trial-upgrade-title">Upgrade to Premium 🚀</h3>
+          <h3 class="trial-upgrade-title" data-i18n="settings.upgradeTitle">Upgrade to Premium 🚀</h3>
           <ul class="trial-upgrade-list">
-            <li>Unlimited daily questions</li>
-            <li>Review Mistakes</li>
-            <li>Custom Training &amp; Timed Mocks</li>
-            <li>QuanAI Coach &amp; Study Planner</li>
-            <li>Premium theme</li>
+            <li data-i18n="settings.upgradeLiQuestions">Unlimited daily questions</li>
+            <li data-i18n="settings.upgradeLiReview">Review Mistakes</li>
+            <li data-i18n="settings.upgradeLiCustom">Custom Training &amp; Timed Mocks</li>
+            <li data-i18n="settings.upgradeLiCoach">QuanAI Coach &amp; Study Planner</li>
+            <li data-i18n="settings.upgradeLiTheme">Premium theme</li>
           </ul>
-          <button id="trialUpgradeBtn" class="btn-primary trial-upgrade-btn" type="button">Unlock Premium</button>
+          <button id="trialUpgradeBtn" class="btn-primary trial-upgrade-btn" type="button" data-i18n="settings.upgradeBtn">Unlock Premium</button>
         </div>
       </div>
 
       <!-- SECTION 2 — Appearance & Personalization -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Appearance &amp; Personalization</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionAppearance">Appearance &amp; Personalization</h3>
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
@@ -735,8 +735,8 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="palette" aria-hidden="true">🎨</span> Theme</h3>
-              <p>Choose a visual style</p>
+              <h3><span class="qr-ico" data-ico="palette" aria-hidden="true">🎨</span> <span data-i18n="settings.themeTitle">Theme</span></h3>
+              <p data-i18n="settings.themeDesc">Choose a visual style</p>
             </div>
             <select id="themeSelect" class="theme-select">
               <option value="classic">Classic Blue</option>
@@ -748,42 +748,42 @@
 
       <!-- SECTION 3 — Practice Preferences -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Practice Preferences</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionPractice">Practice Preferences</h3>
         <div class="settings-section-card">
           <div class="settings-row" id="targetExamSettingsRow">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="graduation" aria-hidden="true">🎓</span> Target Exam</h3>
-              <p>Shapes mocks, study focus and recommendations</p>
+              <h3><span class="qr-ico" data-ico="graduation" aria-hidden="true">🎓</span> <span data-i18n="settings.targetExamTitle">Target Exam</span></h3>
+              <p data-i18n="settings.targetExamDesc">Shapes mocks, study focus and recommendations</p>
             </div>
             <select id="targetExamSelect" class="theme-select" style="min-width:8.5rem;">
-              <option value="">Not set</option>
+              <option value="" data-i18n="settings.targetExamNotSet">Not set</option>
             </select>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row" id="difficultySettingsRow">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="gauge" aria-hidden="true">📈</span> Difficulty Level</h3>
-              <p>Adjusts question complexity</p>
+              <h3><span class="qr-ico" data-ico="gauge" aria-hidden="true">📈</span> <span data-i18n="settings.difficultyTitle">Difficulty Level</span></h3>
+              <p data-i18n="settings.difficultyDesc">Adjusts question complexity</p>
             </div>
             <select id="difficultySelect" class="theme-select" style="min-width:7rem;">
-              <option value="easy">Easy</option>
-              <option value="medium" selected>Medium</option>
-              <option value="hard">Hard</option>
+              <option value="easy" data-i18n="settings.difficultyEasy">Easy</option>
+              <option value="medium" selected data-i18n="settings.difficultyMedium">Medium</option>
+              <option value="hard" data-i18n="settings.difficultyHard">Hard</option>
             </select>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> Daily Goal</h3>
-              <p>Set your daily question target (above 20 needs Premium)</p>
+              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> <span data-i18n="settings.dailyGoalTitle">Daily Goal</span></h3>
+              <p data-i18n="settings.dailyGoalDesc">Set your daily question target (above 20 needs Premium)</p>
             </div>
             <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="100" step="10" value="20" />
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="skip" aria-hidden="true">⏭️</span> Skip Questions</h3>
-              <p>Allow skipping questions in drills</p>
+              <h3><span class="qr-ico" data-ico="skip" aria-hidden="true">⏭️</span> <span data-i18n="settings.skipTitle">Skip Questions</span></h3>
+              <p data-i18n="settings.skipDesc">Allow skipping questions in drills</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="skipToggle" />
@@ -793,8 +793,8 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="sliders" aria-hidden="true">🎚️</span> Ask Subject</h3>
-              <p>Choose a subject before starting Quick Drill, Reflex Drill or Timed Test.</p>
+              <h3><span class="qr-ico" data-ico="sliders" aria-hidden="true">🎚️</span> <span data-i18n="settings.askSubjectTitle">Ask Subject</span></h3>
+              <p data-i18n="settings.askSubjectDesc">Choose a subject before starting Quick Drill, Reflex Drill or Timed Test.</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="askSubjectToggle" />
@@ -806,12 +806,12 @@
 
       <!-- SECTION 4 — Feedback & Interactions -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Feedback &amp; Interactions</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionInteractions">Feedback &amp; Interactions</h3>
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="volume" aria-hidden="true">🔊</span> Sound Feedback</h3>
-              <p>Play sound on answers and navigation</p>
+              <h3><span class="qr-ico" data-ico="volume" aria-hidden="true">🔊</span> <span data-i18n="settings.soundTitle">Sound Feedback</span></h3>
+              <p data-i18n="settings.soundDesc">Play sound on answers and navigation</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="soundToggle" />
@@ -821,8 +821,8 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="vibrate" aria-hidden="true">📳</span> Vibration</h3>
-              <p>Vibrate on correct answers</p>
+              <h3><span class="qr-ico" data-ico="vibrate" aria-hidden="true">📳</span> <span data-i18n="settings.vibrationTitle">Vibration</span></h3>
+              <p data-i18n="settings.vibrationDesc">Vibrate on correct answers</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="vibrationToggle" />
@@ -832,8 +832,8 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="pause-circle" aria-hidden="true">🐢</span> Reduced Motion</h3>
-              <p>Reduce animations for accessibility</p>
+              <h3><span class="qr-ico" data-ico="pause-circle" aria-hidden="true">🐢</span> <span data-i18n="settings.reducedMotionTitle">Reduced Motion</span></h3>
+              <p data-i18n="settings.reducedMotionDesc">Reduce animations for accessibility</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="reducedMotionToggle" />
@@ -845,12 +845,12 @@
 
       <!-- SECTION 5 — Notifications -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Notifications</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionNotifications">Notifications</h3>
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="bell" aria-hidden="true">🔔</span> Daily Reminders</h3>
-              <p>Receive daily motivational push reminders</p>
+              <h3><span class="qr-ico" data-ico="bell" aria-hidden="true">🔔</span> <span data-i18n="settings.remindersTitle">Daily Reminders</span></h3>
+              <p data-i18n="settings.remindersDesc">Receive daily motivational push reminders</p>
             </div>
             <label class="toggle">
               <input type="checkbox" id="notificationsToggle" />
@@ -862,12 +862,12 @@
 
       <!-- SECTION 5b — Feedback (ADR-096) + Contact (ADR-100) -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Feedback</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionFeedback">Feedback</h3>
         <div class="settings-section-card">
           <div class="settings-row settings-link" id="openReportProblem">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="flag" aria-hidden="true">⚑</span> Report a Problem</h3>
-              <p>Wrong question, a bug, or an idea — tell us</p>
+              <h3><span class="qr-ico" data-ico="flag" aria-hidden="true">⚑</span> <span data-i18n="settings.reportTitle">Report a Problem</span></h3>
+              <p data-i18n="settings.reportDesc">Wrong question, a bug, or an idea — tell us</p>
             </div>
             <span class="settings-chevron">›</span>
           </div>
@@ -877,10 +877,10 @@
         <div class="contact-card">
           <span class="contact-card-avatar" aria-hidden="true"><span class="qr-ico" data-ico="mail">✉️</span></span>
           <div class="contact-card-body">
-            <div class="contact-card-title">Contact QuantReflex</div>
+            <div class="contact-card-title" data-i18n="settings.contactTitle">Contact QuantReflex</div>
             <a class="contact-card-email" id="contactEmailLink" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>
           </div>
-          <button class="contact-card-copy" id="contactEmailCopy" type="button" aria-label="Copy email address" title="Copy email">
+          <button class="contact-card-copy" id="contactEmailCopy" type="button" aria-label="Copy email address" title="Copy email" data-i18n-attr="aria-label:settings.copyEmailAria;title:settings.copyEmailTitle">
             <span class="qr-ico" data-ico="copy" aria-hidden="true">📋</span>
           </button>
         </div>
@@ -888,20 +888,20 @@
 
       <!-- SECTION 6 — Help & Information -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Help &amp; Information</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionHelp">Help &amp; Information</h3>
         <div class="settings-section-card">
           <div class="settings-row settings-link" id="openAppGuide">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="book" aria-hidden="true">📖</span> App Guide</h3>
-              <p>Learn how to use the app</p>
+              <h3><span class="qr-ico" data-ico="book" aria-hidden="true">📖</span> <span data-i18n="settings.guideTitle">App Guide</span></h3>
+              <p data-i18n="settings.guideDesc">Learn how to use the app</p>
             </div>
             <span class="settings-chevron">›</span>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row settings-link" id="openAbout">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="info" aria-hidden="true">💡</span> About</h3>
-              <p>App info and developer</p>
+              <h3><span class="qr-ico" data-ico="info" aria-hidden="true">💡</span> <span data-i18n="settings.aboutTitle">About</span></h3>
+              <p data-i18n="settings.aboutDesc">App info and developer</p>
             </div>
             <span class="settings-chevron">›</span>
           </div>
@@ -910,7 +910,7 @@
 
       <!-- SECTION 7 — Account Management -->
       <div class="settings-section">
-        <h3 class="settings-section-title">Account</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionAccount">Account</h3>
         <div class="settings-section-card">
           <div class="settings-row-block settings-user-status-block">
             <p id="settingsUserStatusMessage" class="about-user-status-text">Free Plan</p>
@@ -918,35 +918,35 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row settings-link" id="openProfileModal">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="user" aria-hidden="true">👤</span> Profile</h3>
-              <p>View and edit your profile</p>
+              <h3><span class="qr-ico" data-ico="user" aria-hidden="true">👤</span> <span data-i18n="settings.profileTitle">Profile</span></h3>
+              <p data-i18n="settings.profileDesc">View and edit your profile</p>
             </div>
             <span class="settings-chevron">›</span>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row-block">
-            <button id="logoutBtn" class="btn settings-action-btn" type="button"><span class="qr-ico" data-ico="log-out" aria-hidden="true">🚪</span> Log Out</button>
+            <button id="logoutBtn" class="btn settings-action-btn" type="button"><span class="qr-ico" data-ico="log-out" aria-hidden="true">🚪</span> <span data-i18n="settings.logoutBtn">Log Out</span></button>
           </div>
           <div class="settings-row-block">
-            <button id="deleteAccountBtn" class="btn settings-action-btn settings-action-danger" type="button"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> Delete Account</button>
+            <button id="deleteAccountBtn" class="btn settings-action-btn settings-action-danger" type="button"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> <span data-i18n="settings.deleteAccountBtn">Delete Account</span></button>
           </div>
         </div>
       </div>
 
       <!-- SECTION 8 — App -->
       <div class="settings-section">
-        <h3 class="settings-section-title">App</h3>
+        <h3 class="settings-section-title" data-i18n="settings.sectionApp">App</h3>
         <div class="settings-section-card">
           <div class="settings-row-block">
             <button id="updateAppBtn" class="btn settings-action-btn settings-action-with-desc" type="button">
-              <span class="settings-btn-label"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> Update App</span>
-              <span class="settings-btn-desc">(Refresh app to latest version)</span>
+              <span class="settings-btn-label"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> <span data-i18n="settings.updateBtn">Update App</span></span>
+              <span class="settings-btn-desc" data-i18n="settings.updateNote">(Refresh app to latest version)</span>
             </button>
           </div>
           <div class="settings-row-block">
             <button id="clearDataBtn" class="btn settings-action-btn settings-action-danger settings-action-with-desc" type="button">
-              <span class="settings-btn-label"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> Clear Data</span>
-              <span class="settings-btn-desc">(Clears local app data only)</span>
+              <span class="settings-btn-label"><span class="qr-ico" data-ico="trash" aria-hidden="true">🗑️</span> <span data-i18n="settings.clearDataBtn">Clear Data</span></span>
+              <span class="settings-btn-desc" data-i18n="settings.clearDataNote">(Clears local app data only)</span>
             </button>
           </div>
         </div>

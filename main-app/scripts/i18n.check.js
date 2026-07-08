@@ -34,7 +34,8 @@ var CONTENT_NS = ['gen', 'learnContent', 'tips', 'study'];
 var LATIN_ALLOWLIST = [
   'QuantReflex', 'QuanAI', 'Premium', 'English', 'Focus', 'DI', 'LR', 'AI',
   'CAT', 'MBA', 'CET', 'MAH', 'Bank', 'PO', 'SSC', 'CGL', 'IBPS', 'RRB', 'UPSC', 'MPSC', 'NDA', 'CDS',
-  'km', 'kmph', 'cm', 'mm', 'kg', 'XP'
+  'km', 'kmph', 'cm', 'mm', 'kg', 'XP',
+  'Google', 'QRABCD1234', 'AP', 'GP'
 ];
 
 /* ── capture raw catalogs by requiring the locale IIFEs against a recording stub ── */
