@@ -16,6 +16,10 @@
   var GI = (typeof QRGenI18n !== 'undefined') ? QRGenI18n
     : (typeof require !== 'undefined' ? require('../../js/gen-i18n.js') : null);
 
+  /* English ordinal (1st, 2nd, 3rd, 4th …) — recomputed from a number slot at render time (pure, no random).
+     Mirrors _ord() in questions.js; hi/mr packs will supply their own ordinal forms. */
+  function ord(n) { var e = ['th', 'st', 'nd', 'rd'], vv = n % 100; return n + (e[(vv - 20) % 10] || e[vv] || e[0]); }
+
   var pack = { pools: {}, tpl: {
     /* ── Squares & roots ── */
     'squares:easy:direct': {
@@ -632,6 +636,138 @@
     'quadratic-equations:hard:rootRelation': {
       s: [function (s) { return 'The roots of x² − ' + s.B + 'x + c = 0 differ by ' + s.gap + '. Find c.'; }],
       e: [function (s) { return 'Sum = ' + s.B + ' and difference = ' + s.gap + ' give the roots (' + s.B + '±' + s.gap + ')/2 = ' + s.hi + ' and ' + s.lo + '. By Vieta, c = product = ' + s.hi + ' × ' + s.lo + ' = ' + (s.lo * s.hi) + '.'; }]
+    },
+
+    /* ── Surds & indices ── (^ notation and integer answers recompute from slots) */
+    'surds-indices:easy:powerEval': {
+      s: [function (s) { return s.a + '^' + s.n + ' = ?'; }, function (s) { return 'Evaluate ' + s.a + '^' + s.n + '.'; }],
+      e: [function (s) { return s.a + '^' + s.n + ' = ' + s.a + ' multiplied by itself ' + s.n + ' times = ' + s.val + '.'; }]
+    },
+    'surds-indices:medium:powerEval': {
+      s: [function (s) { return s.a + '^' + s.n + ' = ?'; }, function (s) { return 'Evaluate ' + s.a + '^' + s.n + '.'; }],
+      e: [function (s) { return s.a + '^' + s.n + ' = ' + s.a + ' multiplied by itself ' + s.n + ' times = ' + s.val + '.'; }]
+    },
+    'surds-indices:easy:solveExp': {
+      s: [function (s) { return 'If ' + s.a + '^x = ' + s.N + ', find x.'; }],
+      e: [function (s) { return '' + s.N + ' = ' + s.a + '^' + s.x + ' (since ' + s.a + ' to the power ' + s.x + ' is ' + s.N + '), so x = ' + s.x + '.'; }]
+    },
+    'surds-indices:hard:solveExp': {
+      s: [function (s) { return 'If ' + s.a + '^x = ' + s.N + ', find x.'; }],
+      e: [function (s) { return '' + s.N + ' = ' + s.a + '^' + s.x + ' (since ' + s.a + ' to the power ' + s.x + ' is ' + s.N + '), so x = ' + s.x + '.'; }]
+    },
+    'surds-indices:medium:fracExponent': {
+      s: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = ?'; }],
+      e: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = (' + s.b + '^(1/' + s.root + '))^' + s.p + ' = ' + s.rt + '^' + s.p + ' = ' + s.val + '.'; }]
+    },
+    'surds-indices:hard:fracExponent': {
+      s: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = ?'; }],
+      e: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = (' + s.b + '^(1/' + s.root + '))^' + s.p + ' = ' + s.rt + '^' + s.p + ' = ' + s.val + '.'; }]
+    },
+    'surds-indices:medium:indexLaw': {
+      s: [function (s) { return '(' + s.a + '^' + s.m + ') ÷ (' + s.a + '^' + s.n + ') = ' + s.a + '^? — give the exponent.'; }],
+      e: [function (s) { return 'Quotient law of indices: dividing same-base powers subtracts the exponents, aᵐ ÷ aⁿ = aᵐ⁻ⁿ. So the exponent is ' + s.m + ' − ' + s.n + ' = ' + (s.m - s.n) + '. (Trap: the base ' + s.a + ' stays the same — you never divide the bases.)'; }]
+    },
+    'surds-indices:hard:indexLaw': {
+      s: [function (s) { return '(' + s.a + '^' + s.m + ') ÷ (' + s.a + '^' + s.n + ') = ' + s.a + '^? — give the exponent.'; }],
+      e: [function (s) { return 'Quotient law of indices: dividing same-base powers subtracts the exponents, aᵐ ÷ aⁿ = aᵐ⁻ⁿ. So the exponent is ' + s.m + ' − ' + s.n + ' = ' + (s.m - s.n) + '. (Trap: the base ' + s.a + ' stays the same — you never divide the bases.)'; }]
+    },
+
+    /* ── Logarithms ── (ASCII "log to base b of N" wording; integer answers) */
+    'logarithms:easy:evalLog': {
+      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.N + ' = ?'; }, function (s) { return 'Evaluate log base ' + s.b + ' of ' + s.N + '.'; }],
+      e: [function (s) { return 'logₐN asks “' + s.b + ' raised to what power gives ' + s.N + '?” Rewrite ' + s.N + ' as a power of ' + s.b + ': ' + s.b + '^' + s.k + ' = ' + s.N + ', so log base ' + s.b + ' of ' + s.N + ' = ' + s.k + '.' + (s.b === 10 ? ' (For base 10 — the common log — just count how many times you multiply by 10.)' : ''); }]
+    },
+    'logarithms:medium:evalLog': {
+      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.N + ' = ?'; }, function (s) { return 'Evaluate log base ' + s.b + ' of ' + s.N + '.'; }],
+      e: [function (s) { return 'logₐN asks “' + s.b + ' raised to what power gives ' + s.N + '?” Rewrite ' + s.N + ' as a power of ' + s.b + ': ' + s.b + '^' + s.k + ' = ' + s.N + ', so log base ' + s.b + ' of ' + s.N + ' = ' + s.k + '.' + (s.b === 10 ? ' (For base 10 — the common log — just count how many times you multiply by 10.)' : ''); }]
+    },
+    'logarithms:easy:solveLog': {
+      s: [function (s) { return 'If log to base ' + s.b + ' of x = ' + s.k + ', find x.'; }],
+      e: [function (s) { return 'logₐx = k is the same statement as x = aᵏ (rewrite the log in exponential form). So x = ' + s.b + '^' + s.k + ' = ' + s.x + '.'; }]
+    },
+    'logarithms:hard:solveLog': {
+      s: [function (s) { return 'If log to base ' + s.b + ' of x = ' + s.k + ', find x.'; }],
+      e: [function (s) { return 'logₐx = k is the same statement as x = aᵏ (rewrite the log in exponential form). So x = ' + s.b + '^' + s.k + ' = ' + s.x + '.'; }]
+    },
+    'logarithms:medium:logSum': {
+      s: [function (s) { return '(log to base ' + s.b + ' of ' + s.x + ') + (log to base ' + s.b + ' of ' + s.y + ') = ?'; }],
+      e: [function (s) { return 'Product rule: logₐx + logₐy = logₐ(xy). Since ' + s.b + '^' + s.i + ' = ' + s.x + ' and ' + s.b + '^' + s.j + ' = ' + s.y + ', the two logs are ' + s.i + ' and ' + s.j + ', so the sum = ' + s.i + ' + ' + s.j + ' = ' + (s.i + s.j) + '. (Shortcut: adding same-base logs just adds the exponents.)'; }]
+    },
+    'logarithms:hard:logSum': {
+      s: [function (s) { return '(log to base ' + s.b + ' of ' + s.x + ') + (log to base ' + s.b + ' of ' + s.y + ') = ?'; }],
+      e: [function (s) { return 'Product rule: logₐx + logₐy = logₐ(xy). Since ' + s.b + '^' + s.i + ' = ' + s.x + ' and ' + s.b + '^' + s.j + ' = ' + s.y + ', the two logs are ' + s.i + ' and ' + s.j + ', so the sum = ' + s.i + ' + ' + s.j + ' = ' + (s.i + s.j) + '. (Shortcut: adding same-base logs just adds the exponents.)'; }]
+    },
+    'logarithms:medium:logPower': {
+      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.x + '^' + s.k + ' = ?'; }],
+      e: [function (s) { return 'Power rule: logₐ(xᵏ) = k·logₐx. Here log base ' + s.b + ' of ' + s.x + ' = ' + s.i + ' (because ' + s.b + '^' + s.i + ' = ' + s.x + '), so the answer = ' + s.k + ' × ' + s.i + ' = ' + (s.i * s.k) + '. (Trap: the exponent multiplies the log — it does not become a new base.)'; }]
+    },
+    'logarithms:hard:logPower': {
+      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.x + '^' + s.k + ' = ?'; }],
+      e: [function (s) { return 'Power rule: logₐ(xᵏ) = k·logₐx. Here log base ' + s.b + ' of ' + s.x + ' = ' + s.i + ' (because ' + s.b + '^' + s.i + ' = ' + s.x + '), so the answer = ' + s.k + ' × ' + s.i + ' = ' + (s.i * s.k) + '. (Trap: the exponent multiplies the log — it does not become a new base.)'; }]
+    },
+
+    /* ── Progressions ── (ordinal from a number slot via ord(); AP/GP formulae recompute from slots) */
+    'progressions:easy:apNth': {
+      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find its ' + ord(s.n) + ' term.'; }, function (s) { return 'An arithmetic progression starts at ' + s.a + ' and increases by ' + s.d + ' each term. What is its ' + ord(s.n) + ' term?'; }],
+      e: [function (s) { return 'aₙ = a + (n − 1)d = ' + s.a + ' + (' + s.n + ' − 1)·' + s.d + ' = ' + s.a + ' + ' + ((s.n - 1) * s.d) + ' = ' + (s.a + (s.n - 1) * s.d) + '.'; }]
+    },
+    'progressions:medium:apNth': {
+      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find its ' + ord(s.n) + ' term.'; }, function (s) { return 'An arithmetic progression starts at ' + s.a + ' and increases by ' + s.d + ' each term. What is its ' + ord(s.n) + ' term?'; }],
+      e: [function (s) { return 'aₙ = a + (n − 1)d = ' + s.a + ' + (' + s.n + ' − 1)·' + s.d + ' = ' + s.a + ' + ' + ((s.n - 1) * s.d) + ' = ' + (s.a + (s.n - 1) * s.d) + '.'; }]
+    },
+    'progressions:easy:apSum': {
+      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find the sum of its first ' + s.n + ' terms.'; }],
+      e: [function (s) { return 'Sₙ = n/2 · [2a + (n − 1)d] = ' + s.n + '/2 · [' + (2 * s.a) + ' + ' + ((s.n - 1) * s.d) + '] = ' + (s.n / 2 * (2 * s.a + (s.n - 1) * s.d)) + '.'; }]
+    },
+    'progressions:medium:apSum': {
+      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find the sum of its first ' + s.n + ' terms.'; }],
+      e: [function (s) { return 'Sₙ = n/2 · [2a + (n − 1)d] = ' + s.n + '/2 · [' + (2 * s.a) + ' + ' + ((s.n - 1) * s.d) + '] = ' + (s.n / 2 * (2 * s.a + (s.n - 1) * s.d)) + '.'; }]
+    },
+    'progressions:medium:gpNth': {
+      s: [function (s) { return 'A GP has first term ' + s.a + ' and common ratio ' + s.r + '. Find its ' + ord(s.n) + ' term.'; }],
+      e: [function (s) { return 'aₙ = a·rⁿ⁻¹ = ' + s.a + '·' + s.r + '^' + (s.n - 1) + ' = ' + s.a + '·' + Math.pow(s.r, s.n - 1) + ' = ' + (s.a * Math.pow(s.r, s.n - 1)) + '.'; }]
+    },
+    'progressions:hard:gpNth': {
+      s: [function (s) { return 'A GP has first term ' + s.a + ' and common ratio ' + s.r + '. Find its ' + ord(s.n) + ' term.'; }],
+      e: [function (s) { return 'aₙ = a·rⁿ⁻¹ = ' + s.a + '·' + s.r + '^' + (s.n - 1) + ' = ' + s.a + '·' + Math.pow(s.r, s.n - 1) + ' = ' + (s.a * Math.pow(s.r, s.n - 1)) + '.'; }]
+    },
+    'progressions:hard:gpSum': {
+      s: [function (s) { return 'A GP has first term ' + s.a + ' and common ratio ' + s.r + '. Find the sum of its first ' + s.n + ' terms.'; }],
+      e: [function (s) { return 'For a GP with ratio r > 1 use Sₙ = a(rⁿ − 1)/(r − 1). Substitute a = ' + s.a + ', r = ' + s.r + ', n = ' + s.n + ': = ' + s.a + '(' + s.r + '^' + s.n + ' − 1)/(' + s.r + ' − 1) = ' + s.a + '·' + (Math.pow(s.r, s.n) - 1) + '/' + (s.r - 1) + ' = ' + (s.a * (Math.pow(s.r, s.n) - 1) / (s.r - 1)) + '. (Trap: don’t add terms one by one — the formula collapses the whole series; for r < 1 flip it to a(1 − rⁿ)/(1 − r).)'; }]
+    },
+
+    /* ── Inequalities & modulus ── (≤ ≥ < > verbatim; counts recompute from slots) */
+    'inequalities-modulus:easy:linIneqMin': {
+      s: [function (s) { return 'Find the smallest integer x such that ' + s.a + 'x + ' + s.b + ' > ' + s.c + '.'; }],
+      e: [function (s) { return s.a + 'x > ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + ', so x > ' + ((s.c - s.b) / s.a).toFixed(2).replace(/\.00$/, '') + '. The smallest integer greater than that is ' + (Math.floor((s.c - s.b) / s.a) + 1) + '.'; }]
+    },
+    'inequalities-modulus:medium:linIneqMin': {
+      s: [function (s) { return 'Find the smallest integer x such that ' + s.a + 'x + ' + s.b + ' > ' + s.c + '.'; }],
+      e: [function (s) { return s.a + 'x > ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + ', so x > ' + ((s.c - s.b) / s.a).toFixed(2).replace(/\.00$/, '') + '. The smallest integer greater than that is ' + (Math.floor((s.c - s.b) / s.a) + 1) + '.'; }]
+    },
+    'inequalities-modulus:easy:countRange': {
+      s: [function (s) { return 'How many integers x satisfy ' + s.a + ' ≤ x ≤ ' + s.b + '?'; }],
+      e: [function (s) { return 'Counting integers in a closed range is inclusive of both ends: count = (upper − lower) + 1 = (' + s.b + ' − ' + s.a + ') + 1 = ' + (s.b - s.a + 1) + '. (The “+1” is the classic fencepost step — subtracting alone drops one endpoint and undercounts by 1.)'; }]
+    },
+    'inequalities-modulus:medium:countRange': {
+      s: [function (s) { return 'How many integers x satisfy ' + s.a + ' ≤ x ≤ ' + s.b + '?'; }],
+      e: [function (s) { return 'Counting integers in a closed range is inclusive of both ends: count = (upper − lower) + 1 = (' + s.b + ' − ' + s.a + ') + 1 = ' + (s.b - s.a + 1) + '. (The “+1” is the classic fencepost step — subtracting alone drops one endpoint and undercounts by 1.)'; }]
+    },
+    'inequalities-modulus:medium:modLarger': {
+      s: [function (s) { return 'If |x − ' + s.a + '| = ' + s.b + ', find the larger value of x.'; }],
+      e: [function (s) { return '|x − ' + s.a + '| = ' + s.b + ' gives x = ' + s.a + ' + ' + s.b + ' = ' + (s.a + s.b) + ' or x = ' + s.a + ' − ' + s.b + ' = ' + (s.a - s.b) + '. The larger is ' + (s.a + s.b) + '.'; }]
+    },
+    'inequalities-modulus:hard:modLarger': {
+      s: [function (s) { return 'If |x − ' + s.a + '| = ' + s.b + ', find the larger value of x.'; }],
+      e: [function (s) { return '|x − ' + s.a + '| = ' + s.b + ' gives x = ' + s.a + ' + ' + s.b + ' = ' + (s.a + s.b) + ' or x = ' + s.a + ' − ' + s.b + ' = ' + (s.a - s.b) + '. The larger is ' + (s.a + s.b) + '.'; }]
+    },
+    'inequalities-modulus:hard:modIneqCount': {
+      s: [function (s) { return 'How many integer values of x satisfy |x − ' + s.a + '| < ' + s.b + '?'; }],
+      e: [function (s) { return '|x − ' + s.a + '| < ' + s.b + ' means ' + (s.a - s.b) + ' < x < ' + (s.a + s.b) + '. The integers strictly between span 2·' + s.b + ' − 1 = ' + (2 * s.b - 1) + ' values.'; }]
+    },
+    'inequalities-modulus:hard:modIneqCountLe': {
+      s: [function (s) { return 'How many integer values of x satisfy |x − ' + s.a + '| ≤ ' + s.b + '?'; }],
+      e: [function (s) { return '|x − ' + s.a + '| ≤ ' + s.b + ' means ' + (s.a - s.b) + ' ≤ x ≤ ' + (s.a + s.b) + ', inclusive = 2·' + s.b + ' + 1 = ' + (2 * s.b + 1) + ' integers.'; }]
     }
   } };
 
