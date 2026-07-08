@@ -20,6 +20,12 @@
      Mirrors _ord() in questions.js; hi/mr packs will supply their own ordinal forms. */
   function ord(n) { var e = ['th', 'st', 'nd', 'rd'], vv = n % 100; return n + (e[(vv - 20) % 10] || e[vv] || e[0]); }
 
+  /* Index-aligned word pools for trigonometry — the builder stores only an INDEX (slots.stIdx / slots.idx) so
+     hi/mr packs can translate the noun / identity description while EN keeps these exact strings (math symbols in
+     the identity pairs are DNT and stay Latin in every language). */
+  var TRIG_STRUCT = ['tower', 'pole', 'building', 'tree', 'flagpole', 'lighthouse', 'chimney'];
+  var TRIG_IDENT = [['sin²θ + cos²θ', 'the Pythagorean identity sin²θ + cos²θ = 1'], ['sec²θ − tan²θ', 'the identity sec²θ − tan²θ = 1'], ['cosec²θ − cot²θ', 'the identity cosec²θ − cot²θ = 1']];
+
   var pack = { pools: {}, tpl: {
     /* ── Squares & roots ── */
     'squares:easy:direct': {
@@ -768,6 +774,109 @@
     'inequalities-modulus:hard:modIneqCountLe': {
       s: [function (s) { return 'How many integer values of x satisfy |x − ' + s.a + '| ≤ ' + s.b + '?'; }],
       e: [function (s) { return '|x − ' + s.a + '| ≤ ' + s.b + ' means ' + (s.a - s.b) + ' ≤ x ≤ ' + (s.a + s.b) + ', inclusive = 2·' + s.b + ' + 1 = ' + (2 * s.b + 1) + ' integers.'; }]
+    },
+
+    /* ── Geometry basics ── (° verbatim; angle/Pythagoras/polygon formulae recompute from slots) */
+    'geometry-basics:easy:complement': {
+      s: [function (s) { return 'What is the complement of an angle of ' + s.a + '°?'; }, function (s) { return 'Two angles are complementary and one of them measures ' + s.a + '°. Find the other (in degrees).'; }],
+      e: [function (s) { return 'Complementary angles sum to 90°, so the complement = 90° − ' + s.a + '° = ' + (90 - s.a) + '°.'; }]
+    },
+    'geometry-basics:easy:supplement': {
+      s: [function (s) { return 'What is the supplement of an angle of ' + s.a + '°?'; }, function (s) { return 'Two angles lie on a straight line and one measures ' + s.a + '°. Find the other (in degrees).'; }],
+      e: [function (s) { return 'Supplementary angles sum to 180°, so the supplement = 180° − ' + s.a + '° = ' + (180 - s.a) + '°.'; }]
+    },
+    'geometry-basics:easy:triangleThird': {
+      s: [function (s) { return 'Two angles of a triangle are ' + s.a + '° and ' + s.b + '°. Find the third angle.'; }, function (s) { return 'In a triangle, two of the angles measure ' + s.a + '° and ' + s.b + '°. The third angle = ?°'; }],
+      e: [function (s) { return 'Angles of a triangle sum to 180°, so the third = 180° − ' + s.a + '° − ' + s.b + '° = ' + (180 - s.a - s.b) + '°.'; }]
+    },
+    'geometry-basics:medium:triangleThird': {
+      s: [function (s) { return 'Two angles of a triangle are ' + s.a + '° and ' + s.b + '°. Find the third angle.'; }, function (s) { return 'In a triangle, two of the angles measure ' + s.a + '° and ' + s.b + '°. The third angle = ?°'; }],
+      e: [function (s) { return 'Angles of a triangle sum to 180°, so the third = 180° − ' + s.a + '° − ' + s.b + '° = ' + (180 - s.a - s.b) + '°.'; }]
+    },
+    'geometry-basics:medium:pythHyp': {
+      s: [function (s) { return 'A right-angled triangle has legs ' + s.t0 + ' and ' + s.t1 + '. Find the hypotenuse.'; }, function (s) { return 'A ladder foot stands ' + s.t0 + ' m from a wall and reaches ' + s.t1 + ' m up it. How long is the ladder (in m)?'; }],
+      e: [function (s) { return 'Hypotenuse = √(' + s.t0 + '² + ' + s.t1 + '²) = √(' + (s.t0 * s.t0) + ' + ' + (s.t1 * s.t1) + ') = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'geometry-basics:medium:isosceles': {
+      s: [function (s) { return 'An isosceles triangle has a vertex (apex) angle of ' + s.v + '°. Find each base angle.'; }],
+      e: [function (s) { return 'The two base angles are equal and the three sum to 180°: each = (180° − ' + s.v + '°)/2 = ' + ((180 - s.v) / 2) + '°.'; }]
+    },
+    'geometry-basics:hard:pythLeg': {
+      s: [function (s) { return 'A right-angled triangle has hypotenuse ' + s.t2 + ' and one leg ' + s.t1 + '. Find the other leg.'; }],
+      e: [function (s) { return 'Other leg = √(' + s.t2 + '² − ' + s.t1 + '²) = √(' + (s.t2 * s.t2) + ' − ' + (s.t1 * s.t1) + ') = √' + (s.t0 * s.t0) + ' = ' + s.t0 + '.'; }]
+    },
+    'geometry-basics:hard:polygonSum': {
+      s: [function (s) { return 'Find the sum of the interior angles of a polygon with ' + s.n + ' sides.'; }, function (s) { return 'The interior angles of a ' + s.n + '-sided polygon add up to ?°'; }],
+      e: [function (s) { return 'Sum of interior angles = (n − 2) × 180° = (' + s.n + ' − 2) × 180° = ' + ((s.n - 2) * 180) + '°.'; }]
+    },
+    'geometry-basics:hard:polygonEach': {
+      s: [function (s) { return 'Find each interior angle of a regular polygon with ' + s.n + ' sides.'; }],
+      e: [function (s) { return 'Each interior angle = (n − 2) × 180° / n = ' + ((s.n - 2) * 180) + '° / ' + s.n + ' = ' + ((s.n - 2) * 180 / s.n) + '°.'; }]
+    },
+
+    /* ── Coordinate geometry basics ── (coordinate pairs & formulae recompute from slots) */
+    'coordinate-geometry-basics:easy:distance': {
+      s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'coordinate-geometry-basics:medium:distance': {
+      s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'coordinate-geometry-basics:hard:distance': {
+      s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'coordinate-geometry-basics:easy:midpointX': {
+      s: [function (s) { return 'Find the x-coordinate of the midpoint of (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Midpoint x = (x₁ + x₂)/2 = (' + s.x1 + ' + ' + s.x2 + ')/2 = ' + ((s.x1 + s.x2) / 2) + '.'; }]
+    },
+    'coordinate-geometry-basics:medium:midpointX': {
+      s: [function (s) { return 'Find the x-coordinate of the midpoint of (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Midpoint x = (x₁ + x₂)/2 = (' + s.x1 + ' + ' + s.x2 + ')/2 = ' + ((s.x1 + s.x2) / 2) + '.'; }]
+    },
+    'coordinate-geometry-basics:medium:slope': {
+      s: [function (s) { return 'Find the slope of the line joining (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Slope = (y₂ − y₁)/(x₂ − x₁) = (' + (s.y2 - s.y1) + ')/(' + (s.x2 - s.x1) + ') = ' + ((s.y2 - s.y1) / (s.x2 - s.x1)) + '.'; }]
+    },
+    'coordinate-geometry-basics:hard:slope': {
+      s: [function (s) { return 'Find the slope of the line joining (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
+      e: [function (s) { return 'Slope = (y₂ − y₁)/(x₂ − x₁) = (' + (s.y2 - s.y1) + ')/(' + (s.x2 - s.x1) + ') = ' + ((s.y2 - s.y1) / (s.x2 - s.x1)) + '.'; }]
+    },
+    'coordinate-geometry-basics:hard:sectionX': {
+      s: [function (s) { return 'Point P divides the line joining (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ') internally in the ratio ' + s.m + ':' + s.n + '. Find the x-coordinate of P.'; }],
+      e: [function (s) { return 'Section formula: x = (m·x₂ + n·x₁)/(m + n) = (' + s.m + '·' + s.x2 + ' + ' + s.n + '·' + s.x1 + ')/(' + s.m + ' + ' + s.n + ') = ' + s.x + '.'; }]
+    },
+
+    /* ── Trigonometry ── (sin/cos/tan and identity symbols are DNT math; structure noun & identity description ride
+       index pools TRIG_STRUCT / TRIG_IDENT for hi/mr translation) */
+    'trigonometry:easy:standardEval': {
+      s: [function (s) { return s.fn + ' ' + s.ang + '° = ?'; }],
+      e: [function (s) { return 'From the standard-angle table, ' + s.fn + ' ' + s.ang + '° = ' + s.val + '.'; }]
+    },
+    'trigonometry:medium:standardEval': {
+      s: [function (s) { return s.fn + ' ' + s.ang + '° = ?'; }],
+      e: [function (s) { return 'From the standard-angle table, ' + s.fn + ' ' + s.ang + '° = ' + s.val + '.'; }]
+    },
+    'trigonometry:easy:complementary': {
+      s: [function (s) { return 'If ' + s.p0 + ' θ = ' + s.p1 + ' ' + s.x + '°, find the acute angle θ (in degrees).'; }],
+      e: [function (s) { return s.p0 + ' θ = ' + s.p1 + '(90° − θ), so θ = 90° − ' + s.x + '° = ' + (90 - s.x) + '°.'; }]
+    },
+    'trigonometry:medium:complementary': {
+      s: [function (s) { return 'If ' + s.p0 + ' θ = ' + s.p1 + ' ' + s.x + '°, find the acute angle θ (in degrees).'; }],
+      e: [function (s) { return s.p0 + ' θ = ' + s.p1 + '(90° − θ), so θ = 90° − ' + s.x + '° = ' + (90 - s.x) + '°.'; }]
+    },
+    'trigonometry:medium:identity': {
+      s: [function (s) { return 'Evaluate ' + TRIG_IDENT[s.idx][0] + '.'; }],
+      e: [function (s) { return 'This is ' + TRIG_IDENT[s.idx][1] + ' — one of the three Pythagorean identities, all derived from sin²θ + cos²θ = 1 (divide through by cos²θ or sin²θ for the other two). Its value is fixed at 1 for every angle θ, so no specific angle is needed. (Trap: the squares are on the functions, e.g. sin²θ means (sinθ)², not sin(θ²).)'; }]
+    },
+    'trigonometry:hard:identity': {
+      s: [function (s) { return 'Evaluate ' + TRIG_IDENT[s.idx][0] + '.'; }],
+      e: [function (s) { return 'This is ' + TRIG_IDENT[s.idx][1] + ' — one of the three Pythagorean identities, all derived from sin²θ + cos²θ = 1 (divide through by cos²θ or sin²θ for the other two). Its value is fixed at 1 for every angle θ, so no specific angle is needed. (Trap: the squares are on the functions, e.g. sin²θ means (sinθ)², not sin(θ²).)'; }]
+    },
+    'trigonometry:hard:heightElev': {
+      s: [function (s) { return 'The angle of elevation of the top of a ' + TRIG_STRUCT[s.stIdx] + ' from a point ' + s.base + ' m from its base is 45°. Find the height of the ' + TRIG_STRUCT[s.stIdx] + ' (in metres).'; }],
+      e: [function (s) { return 'tan(45°) = height / base = 1, so height = base = ' + s.base + ' m.'; }]
     }
   } };
 
