@@ -142,14 +142,12 @@ EN byte-identity is proven per category by the masked-shape census guard in `scr
 (frozen baseline `scripts/fixtures/quant-census.json`). The following remain intentionally English pending
 later Phase-F milestones:
 
-### quantity-comparison — deferred to F-M3
-- **Strings:** the entire `quantity-comparison` category (stems, explanations, and the three relation
-  options `Quantity I > / < / = Quantity II`).
-- **Rationale:** it is the one genuinely-MCQ quant format — the graded answer AND the option labels are
-  relation strings. Localizing it correctly needs a per-language option-render seam that `_wrapArch` does
-  not yet expose (it renders only stem + explanation). Converting the stem alone would ship a
-  mixed-language MCQ (Hindi stem, English options), so the category is left byte-identical (untouched) and
-  will be converted in F-M3 alongside the hi/mr packs, when the MCQ relation/option localization seam lands.
+### quantity-comparison — RESOLVED in F-M2.5 (no longer deferred)
+- The MCQ option-render seam was built in F-M2.5: `render()` gained an opt-in `o(slots)`/`ans(slots)`
+  channel, `_wrapArch` uses the rendered options/answer, and `quantity-comparison` was converted to slots
+  with the answer relation + shuffled option order stored as INDICES (rendered from the shared `QC_REL`
+  pool per language). All 36/36 quant categories are now slots-based; EN stays byte-identical (census).
+  Only the hi/mr `QC_REL` phrases remain to be authored in F-M3 (content, not architecture).
 
 ### Hardcoded guaranteed-clean PRIMARY fallbacks — English
 - **Strings:** the inline `{q, explain}` PRIMARY builders that do NOT call a refactored archetype helper —
