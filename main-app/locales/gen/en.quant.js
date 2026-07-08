@@ -207,6 +207,92 @@
     'surface-area:hard:sphereSA': {
       s: [function (s) { return 'Find the surface area of a sphere of radius ' + s.r + ' cm (use π = 3.14).'; }, function (s) { return 'A spherical ball has a radius of ' + s.r + ' cm. Its surface area, taking π = 3.14, = ? cm²'; }],
       e: [function (s) { return 'Surface area = 4πr² = 4 × 3.14 × ' + s.r + '² = ' + s.ans + ' cm².'; }]
+    },
+
+    /* ── Percentages ── (% and the arithmetic stay verbatim; number slots let hi/mr translate the framing words) */
+    'percentages:easy:directOf': {
+      s: [function (s) { return s.p + '% of ' + s.b + ' = ?'; }, function (s) { return 'Find ' + s.p + '% of ' + s.b + '.'; }, function (s) { return s.p + '% of ' + s.b + ' is what number?'; }],
+      e: [function (s) { return s.p + '% of ' + s.b + ' = ' + s.p + ' × ' + s.b + ' ÷ 100 = ' + s.r + '. Tip: ' + s.p + '% of ' + s.b + ' = ' + s.b + '% of ' + s.p + ' — swap when one side is rounder.'; }]
+    },
+    'percentages:medium:directOf': {
+      s: [function (s) { return s.p + '% of ' + s.b + ' = ?'; }, function (s) { return 'Find ' + s.p + '% of ' + s.b + '.'; }, function (s) { return s.p + '% of ' + s.b + ' is what number?'; }],
+      e: [function (s) { return s.p + '% of ' + s.b + ' = ' + s.p + ' × ' + s.b + ' ÷ 100 = ' + s.r + '. Tip: ' + s.p + '% of ' + s.b + ' = ' + s.b + '% of ' + s.p + ' — swap when one side is rounder.'; }]
+    },
+    'percentages:medium:reverse': {
+      s: [function (s) { return s.p + '% of what number is ' + s.r + '?'; }],
+      e: [function (s) { return 'If ' + s.p + '% of N = ' + s.r + ', then N = ' + s.r + ' × 100 ÷ ' + s.p + ' = ' + s.b + '.'; }]
+    },
+    'percentages:medium:whatPct': {
+      s: [function (s) { return 'What percent of ' + s.b + ' is ' + s.y + '?'; }],
+      e: [function (s) { return s.y + ' out of ' + s.b + ' = (' + s.y + ' ÷ ' + s.b + ') × 100 = ' + s.p + '%.'; }]
+    },
+    'percentages:hard:pctChange': {
+      s: [function (s) { return 'A value rises from ' + s.old + ' to ' + s.nw + '. The percent increase = ? %'; }],
+      e: [function (s) { return '% increase = (new − old)/OLD × 100 = (' + s.nw + ' − ' + s.old + ')/' + s.old + ' × 100 = ' + ((s.nw - s.old) * 100 / s.old) + '%. Always divide by the ORIGINAL value.'; }]
+    },
+    'percentages:hard:successive': {
+      s: [function (s) { return 'A ₹' + s.base + ' item is given successive discounts of ' + s.d1 + '% and ' + s.d2 + '%. Final price = ₹?'; }],
+      e: [function (s) { return 'Apply in sequence: ' + s.base + ' × ' + (1 - s.d1 / 100) + ' × ' + (1 - s.d2 / 100) + ' = ' + s.f + '. Single equivalent = ' + s.d1 + '+' + s.d2 + '−(' + s.d1 + '×' + s.d2 + ')/100 = ' + (s.d1 + s.d2 - s.d1 * s.d2 / 100) + '%.'; }]
+    },
+    'percentages:hard:netTrap': {
+      s: [function (s) { return 'A salary is increased by ' + s.x + '% and then decreased by ' + s.x + '%. It falls by ? % overall.'; }],
+      e: [function (s) { return 'Equal +' + s.x + '% then −' + s.x + '% never cancels — the net fall = x²/100 = ' + s.x + '²/100 = ' + (s.x * s.x / 100) + '%. It compounds, it does not add.'; }]
+    },
+
+    /* ── Averages ── (number lists live in slots as arrays; sums recompute from the array, language-neutral) */
+    'averages:easy:mean': {
+      s: [function (s) { return 'The average of ' + s.nums.join(', ') + ' = ?'; }, function (s) { return 'Find the mean of ' + s.nums.join(', ') + '.'; }, function (s) { return 'What is the average of ' + s.nums.join(', ') + '?'; }],
+      e: [function (s) { return 'Average = sum ÷ count = ' + s.nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + s.count + ' = ' + s.avg + '.'; }]
+    },
+    'averages:medium:mean': {
+      s: [function (s) { return 'The average of ' + s.nums.join(', ') + ' = ?'; }, function (s) { return 'Find the mean of ' + s.nums.join(', ') + '.'; }, function (s) { return 'What is the average of ' + s.nums.join(', ') + '?'; }],
+      e: [function (s) { return 'Average = sum ÷ count = ' + s.nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + s.count + ' = ' + s.avg + '.'; }]
+    },
+    'averages:medium:missing': {
+      s: [function (s) { return 'The average of ' + s.known.join(', ') + ' and x is ' + s.avg + '. x = ?'; }],
+      e: [function (s) { return 'Total needed = average × count = ' + s.avg + ' × ' + s.count + ' = ' + (s.avg * s.count) + '. x = ' + (s.avg * s.count) + ' − ' + s.sum + ' = ' + s.x + '.'; }]
+    },
+    'averages:hard:weighted': {
+      s: [function (s) { return 'The average weight of ' + s.m + ' boys is ' + s.a + ' kg and of ' + s.n + ' girls is ' + s.b + ' kg. The average weight of the whole group = ? kg'; }],
+      e: [function (s) { return 'Weighted mean = (total of both groups) ÷ (total count) = (' + s.m + '×' + s.a + ' + ' + s.n + '×' + s.b + ') ÷ (' + s.m + '+' + s.n + ') = ' + (s.m * s.a + s.n * s.b) + ' ÷ ' + (s.m + s.n) + ' = ' + s.ov + '.'; }]
+    },
+    'averages:hard:newMember': {
+      s: [function (s) { return 'The average of ' + s.n + ' numbers is ' + s.A + '. When one more number is added the average becomes ' + s.B + '. The new number = ?'; }],
+      e: [function (s) { return 'New number = new total − old total = ' + s.B + '×' + (s.n + 1) + ' − ' + s.A + '×' + s.n + ' = ' + (s.B * (s.n + 1)) + ' − ' + (s.A * s.n) + ' = ' + s.x + '.'; }]
+    },
+
+    /* ── Profit & loss ── (₹ verbatim; CP/SP/percent arithmetic recomputes from slots) */
+    'profit-loss:easy:spProfit': {
+      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the profit is ' + s.pr + '%. The selling price = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 + profit%) = ' + s.cp + ' × ' + (1 + s.pr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:medium:spProfit': {
+      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the profit is ' + s.pr + '%. The selling price = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 + profit%) = ' + s.cp + ' × ' + (1 + s.pr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:easy:spLoss': {
+      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the loss is ' + s.lr + '%. The selling price = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 − loss%) = ' + s.cp + ' × ' + (1 - s.lr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:medium:spLoss': {
+      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the loss is ' + s.lr + '%. The selling price = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 − loss%) = ' + s.cp + ' × ' + (1 - s.lr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:medium:profitPct': {
+      s: [function (s) { return 'An article bought for ₹' + s.cp + ' is sold for ₹' + s.sp + '. The profit percent = ?'; }],
+      e: [function (s) { return 'Profit% = (SP − CP)/CP × 100 = (' + s.sp + ' − ' + s.cp + ')/' + s.cp + ' × 100 = ' + s.pr + '%. The base is always the cost price.'; }]
+    },
+    'profit-loss:hard:profitPct': {
+      s: [function (s) { return 'An article bought for ₹' + s.cp + ' is sold for ₹' + s.sp + '. The profit percent = ?'; }],
+      e: [function (s) { return 'Profit% = (SP − CP)/CP × 100 = (' + s.sp + ' − ' + s.cp + ')/' + s.cp + ' × 100 = ' + s.pr + '%. The base is always the cost price.'; }]
+    },
+    'profit-loss:hard:findCP': {
+      s: [function (s) { return 'By selling an article for ₹' + s.sp + ', a shopkeeper gains ' + s.pr + '%. The cost price = ₹?'; }],
+      e: [function (s) { return 'CP = SP ÷ (1 + profit%) = ' + s.sp + ' ÷ ' + (1 + s.pr / 100) + ' = ₹' + s.cp + '.'; }]
+    },
+    'profit-loss:hard:successive': {
+      s: [function (s) { return 'An article costing ₹' + s.cp + ' is sold at a ' + s.p0 + '% profit, and that price is then raised by a further ' + s.p1 + '%. The final selling price = ₹?'; }],
+      e: [function (s) { return 'Chain the multipliers: ' + s.cp + ' × ' + (1 + s.p0 / 100) + ' × ' + (1 + s.p1 / 100) + ' = ₹' + s.sp + '.'; }]
     }
   } };
 
