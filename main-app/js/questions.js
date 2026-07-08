@@ -166,18 +166,18 @@ function genSquare() { return _genArch('squares', _SQUARES_ARCH, _SQUARES_PRIMAR
 /** Cubes & cube-roots (ADR-083 archetypes: direct · inverse). */
 var _CUBES_ARCH = {
   easy: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(1, 6); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + n + ' × ' + n + ' × ' + n + ' = ' + (n * n * n) + '.' }; } }
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(1, 6); return { slots: { n: n }, a: n * n * n, v: randInt(0, 999) }; } }
   ],
   medium: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(7, 13); return { q: pick([n + '³ = ?', 'Cube of ' + n + ' = ?']), a: n * n * n, explain: n + '³ = ' + n + '² × ' + n + ' = ' + (n * n) + ' × ' + n + ' = ' + (n * n * n) + '.' }; } },
-    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(2, 10), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: n + '³ = ' + c + ', so ∛' + c + ' = ' + n + '. Tip: the unit digit ' + (c % 10) + ' of the cube fixes the unit digit of the root.' }; } }
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(7, 13); return { slots: { n: n }, a: n * n * n, v: randInt(0, 999) }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(2, 10); return { slots: { n: n }, a: n, v: randInt(0, 999) }; } }
   ],
   hard: [
     /* ADR-093: hard is EARNED — big-number "compute n³" is calculator work, not reasoning. Hard now tests the two
        genuine exam skills: 5-digit cube roots via the unit-digit technique, and a³ − b³ via the identity. */
-    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(12, 20), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Cube root of ' + c + ' = ?']), a: n, explain: '∛' + c + ' = ' + n + '. Unit digit ' + (c % 10) + ' → the root ends in ' + (n % 10) + '; the leading part places it near ' + n + '.' }; } },
-    { k: 'cubeRoot5', skill: 'multi-step', build: function () { var n = randInt(21, 46), c = n * n * n; return { q: pick(['∛' + c + ' = ?', 'Find the cube root of ' + c + '.']), a: n, explain: 'Split ' + c + ': the last digit ' + (c % 10) + ' fixes the root’s unit digit as ' + (n % 10) + '; the thousands part ' + Math.floor(c / 1000) + ' sits between ' + Math.floor(n / 10) + '³ and ' + (Math.floor(n / 10) + 1) + '³, so the tens digit is ' + Math.floor(n / 10) + '. Root = ' + n + '.' }; } },
-    { k: 'diffCubes', skill: 'multi-step', build: function () { var a = randInt(6, 15), b = randInt(2, a - 1); return { q: a + '³ − ' + b + '³ = ?', a: a * a * a - b * b * b, explain: a + '³ = ' + (a * a * a) + ' and ' + b + '³ = ' + (b * b * b) + ', so the difference = ' + (a * a * a - b * b * b) + '. (Identity: a³ − b³ = (a − b)(a² + ab + b²).)' }; } }
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(12, 20); return { slots: { n: n }, a: n, v: randInt(0, 999) }; } },
+    { k: 'cubeRoot5', skill: 'multi-step', build: function () { var n = randInt(21, 46); return { slots: { n: n }, a: n, v: randInt(0, 999) }; } },
+    { k: 'diffCubes', skill: 'multi-step', build: function () { var a = randInt(6, 15), b = randInt(2, a - 1); return { slots: { a: a, b: b }, a: a * a * a - b * b * b, v: randInt(0, 999) }; } }
   ]
 };
 var _CUBES_PRIMARY = {
