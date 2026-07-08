@@ -164,6 +164,12 @@ function initSettingsView() {
     function _applyLanguageChange() {
       QRI18n.init(settings);
       saveSettings(settings);
+      /* Re-render the active view so JS-rendered strings (plan status, banners) switch instantly;
+         static text is already re-applied by QRI18n.applyDom inside init(). */
+      if (typeof updateAboutUserStatus === 'function') { try { updateAboutUserStatus(); } catch (_) {} }
+      if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
+        try { Router.showView(Router.getCurrentView() || 'settings'); } catch (_) {}
+      }
       SoundEngine.play('settingsToggle');
       if (typeof triggerHaptic === 'function') triggerHaptic(15);
       showToast(QRI18n.t('settings.languageUpdated'));

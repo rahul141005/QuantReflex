@@ -331,7 +331,7 @@ var Onboarding = (function () {
       dotsHtml += '</div>';
 
       /* ADR-106 (ONB-1): global Back so a user who wandered forward isn't trapped (the intro + warm-up opt out). */
-      var backHtml = _shouldShowBack(index) ? '<button class="onboarding-back-btn" id="obBack" type="button" aria-label="Go back">‹ Back</button>' : '';
+      var backHtml = _shouldShowBack(index) ? '<button class="onboarding-back-btn" id="obBack" type="button" aria-label="' + QRI18n.t('onboarding.backAria') + '">' + QRI18n.t('onboarding.backBtn') + '</button>' : '';
 
       card.innerHTML = backHtml + content + dotsHtml;
       card.classList.remove('onboarding-card-exit');
@@ -356,15 +356,15 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-1">⚡</span>' +
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">✨</span>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Sharpen Your Edge. Master Speed Aptitude.</h2>' +
-      '<p class="onboarding-desc">Build elite reflexes across quant, data interpretation, and logical reasoning — through precision drills, QuanAI coaching, and competitive challenges.</p>' +
+      '<h2 class="onboarding-title">' + QRI18n.t('onboarding.title1') + '</h2>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.desc1') + '</p>' +
       '<div class="onboarding-name-field">' +
-      '<label class="onboarding-name-label">What\'s your name?</label>' +
-      '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="Enter your name" maxlength="50" value="' + _escapeHtml(_displayName) + '" />' +
+      '<label class="onboarding-name-label">' + QRI18n.t('onboarding.whatsYourName') + '</label>' +
+      '<input type="text" class="input onboarding-name-input" id="obNameInput" placeholder="' + QRI18n.t('onboarding.namePlaceholder') + '" maxlength="50" value="' + _escapeHtml(_displayName) + '" />' +
       '</div>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
-      '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">' + QRI18n.t('onboarding.next') + '</button>' +
+      '<button class="btn onboarding-skip-btn" id="obSkip">' + QRI18n.t('onboarding.skip') + '</button>' +
       '</div>';
   }
 
@@ -383,6 +383,12 @@ var Onboarding = (function () {
     ];
   }
 
+  /* ADR-111: tier labels/blurbs localize via the exams.* catalog keys; the syllabus objects stay
+     the canonical English source (unknown tier ids fall back to them). Exam NAMES are proper nouns
+     (CAT, IBPS Clerk…) and never translate. */
+  function _tierLabel(t) { var k = 'exams.tier_' + t.id + 'Label'; var v = QRI18n.t(k); return v === k ? t.label : v; }
+  function _tierBlurb(t) { var k = 'exams.tier_' + t.id + 'Blurb'; var v = QRI18n.t(k); return v === k ? (t.blurb || '') : v; }
+
   function _tierExams(tierId) {
     try {
       if (typeof QR_SYLLABUS !== 'undefined' && typeof QR_SYLLABUS.examsByTier === 'function') {
@@ -399,8 +405,8 @@ var Onboarding = (function () {
       var tiers = _tiers();
       for (var t = 0; t < tiers.length; t++) if (tiers[t].id === _selectedTierId) tier = tiers[t];
       var exams = _tierExams(_selectedTierId);
-      html += '<h2 class="onboarding-title">' + _escapeHtml(tier ? tier.label : 'Pick your exam') + '</h2>' +
-        '<p class="onboarding-desc">Pick your exam — drills, mocks and study focus follow it.</p>' +
+      html += '<h2 class="onboarding-title">' + _escapeHtml(tier ? _tierLabel(tier) : QRI18n.t('onboarding.pickYourExam')) + '</h2>' +
+        '<p class="onboarding-desc">' + QRI18n.t('onboarding.pickExamDesc') + '</p>' +
         '<div class="onboarding-goal-options onboarding-exam-list">';
       for (var i = 0; i < exams.length; i++) {
         var active = exams[i].id === _selectedExam;
@@ -410,24 +416,24 @@ var Onboarding = (function () {
       }
       html += '</div>' +
         '<div class="onboarding-actions">' +
-        '<button class="btn onboarding-skip-btn" id="obExamBack">← All exams</button>' +
+        '<button class="btn onboarding-skip-btn" id="obExamBack">' + QRI18n.t('onboarding.allExams') + '</button>' +
         '</div>';
       return html;
     }
-    html += '<h2 class="onboarding-title">What are you preparing for?</h2>' +
-      '<p class="onboarding-desc">Your target shapes what you drill, mock and revise. You can change it anytime in Settings.</p>' +
+    html += '<h2 class="onboarding-title">' + QRI18n.t('onboarding.preparingFor') + '</h2>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.preparingDesc') + '</p>' +
       '<div class="onboarding-goal-options onboarding-exam-list">';
     var list = _tiers();
     for (var j = 0; j < list.length; j++) {
       html += '<button class="onboarding-goal-btn onboarding-tier-btn" data-tier="' + _escapeHtml(list[j].id) + '">' +
-        '<span class="onboarding-tier-label">' + _escapeHtml(list[j].label) + '</span>' +
-        '<span class="onboarding-tier-blurb">' + _escapeHtml(list[j].blurb || '') + '</span>' +
+        '<span class="onboarding-tier-label">' + _escapeHtml(_tierLabel(list[j])) + '</span>' +
+        '<span class="onboarding-tier-blurb">' + _escapeHtml(_tierBlurb(list[j])) + '</span>' +
         '</button>';
     }
     html += '</div>' +
-      '<p class="onboarding-note">Not sure yet? <a href="#" id="obExamFoundation">Start with Foundation</a></p>' +
+      '<p class="onboarding-note">' + QRI18n.t('onboarding.notSureYet') + ' <a href="#" id="obExamFoundation">' + QRI18n.t('onboarding.startFoundation') + '</a></p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn onboarding-skip-btn" id="obExamLater">Choose later</button>' +
+      '<button class="btn onboarding-skip-btn" id="obExamLater">' + QRI18n.t('onboarding.chooseLater') + '</button>' +
       '</div>';
     return html;
   }
@@ -435,32 +441,32 @@ var Onboarding = (function () {
   function _screen2() {
     return '<div class="onboarding-visual">' +
       '<div class="onboarding-split-preview">' +
-      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">📖</span><span class="onboarding-preview-label">Learn</span></div>' +
-      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">Practice</span></div>' +
+      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">📖</span><span class="onboarding-preview-label">' + QRI18n.t('nav.learn') + '</span></div>' +
+      '<div class="onboarding-preview-card"><span class="onboarding-preview-icon">🎯</span><span class="onboarding-preview-label">' + QRI18n.t('nav.practice') + '</span></div>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Learn Smarter. Practice Faster.</h2>' +
-      '<p class="onboarding-desc">The <strong>Practice</strong> tab is the core loop: pick a mode (Quick, Reflex, Timed or Focus), answer against the clock, and get instant right/wrong feedback with a QuanAI explanation on every miss.</p>' +
-      '<p class="onboarding-desc">It spans all three exam pillars — <strong>Quant</strong>, <strong>Data Interpretation</strong> (charts &amp; tables) and <strong>Logical Reasoning</strong> — and the <strong>Learn</strong> tab has the tables, formulas and shortcuts behind them.</p>' +
-      '<p class="onboarding-hint">💡 Wrong answers are auto-saved to Review Mistakes so you can retrain them later.</p>' +
+      '<h2 class="onboarding-title">' + QRI18n.t('onboarding.title2') + '</h2>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.desc2a') + '</p>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.desc2b') + '</p>' +
+      '<p class="onboarding-hint">' + QRI18n.t('onboarding.hint2') + '</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
-      '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">' + QRI18n.t('onboarding.next') + '</button>' +
+      '<button class="btn onboarding-skip-btn" id="obSkip">' + QRI18n.t('onboarding.skip') + '</button>' +
       '</div>';
   }
 
   function _screen3() {
     return '<div class="onboarding-visual">' +
       '<div class="onboarding-stats-preview">' +
-      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">92%</span><span class="onboarding-stat-label">Accuracy</span></div>' +
-      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">1.8s</span><span class="onboarding-stat-label">Avg Time</span></div>' +
-      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">5</span><span class="onboarding-stat-label">Streak</span></div>' +
+      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">92%</span><span class="onboarding-stat-label">' + QRI18n.t('onboarding.accuracy') + '</span></div>' +
+      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">1.8s</span><span class="onboarding-stat-label">' + QRI18n.t('onboarding.avgTime') + '</span></div>' +
+      '<div class="onboarding-stat-item"><span class="onboarding-stat-val">5</span><span class="onboarding-stat-label">' + QRI18n.t('onboarding.streak') + '</span></div>' +
       '</div></div>' +
-      '<h2 class="onboarding-title">Measure Your Growth</h2>' +
-      '<p class="onboarding-desc">Track accuracy, speed, and category performance — your analytics dashboard shows exactly where to focus next.</p>' +
-      '<p class="onboarding-hint">💡 Your weakest topics are automatically identified so you never waste time guessing.</p>' +
+      '<h2 class="onboarding-title">' + QRI18n.t('onboarding.title3') + '</h2>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.desc3') + '</p>' +
+      '<p class="onboarding-hint">' + QRI18n.t('onboarding.hint3') + '</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn-primary onboarding-next-btn" id="obNext">Next</button>' +
-      '<button class="btn onboarding-skip-btn" id="obSkip">Skip</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">' + QRI18n.t('onboarding.next') + '</button>' +
+      '<button class="btn onboarding-skip-btn" id="obSkip">' + QRI18n.t('onboarding.skip') + '</button>' +
       '</div>';
   }
 
@@ -468,22 +474,22 @@ var Onboarding = (function () {
     return '<div class="onboarding-visual">' +
       '<span class="onboarding-goal-icon">🎯</span>' +
       '</div>' +
-      '<h2 class="onboarding-title">Set Your Daily Training Goal</h2>' +
+      '<h2 class="onboarding-title">' + QRI18n.t('onboarding.title4') + '</h2>' +
       '<div class="onboarding-goal-options">' +
-      '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10" aria-pressed="' + (_selectedGoal === 10 ? 'true' : 'false') + '">10 questions</button>' +
-      '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20" aria-pressed="' + (_selectedGoal === 20 ? 'true' : 'false') + '">20 questions</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 10 ? ' onboarding-goal-active' : '') + '" data-goal="10" aria-pressed="' + (_selectedGoal === 10 ? 'true' : 'false') + '">' + QRI18n.t('onboarding.q10') + '</button>' +
+      '<button class="onboarding-goal-btn ' + (_selectedGoal === 20 ? ' onboarding-goal-active' : '') + '" data-goal="20" aria-pressed="' + (_selectedGoal === 20 ? 'true' : 'false') + '">' + QRI18n.t('onboarding.q20') + '</button>' +
       '</div>' +
-      '<p class="onboarding-note">You can change this anytime from the Settings tab.</p>' +
+      '<p class="onboarding-note">' + QRI18n.t('onboarding.note4') + '</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn-primary onboarding-next-btn" id="obNext">Continue</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">' + QRI18n.t('onboarding.continueBtn') + '</button>' +
       '</div>';
   }
 
   function _screen5() {
     var safeName = _escapeHtml(_displayName);
     var title = safeName
-      ? safeName + ', ready to begin?'
-      : 'Ready to Begin?';
+      ? QRI18n.t('onboarding.readyName', { name: safeName })
+      : QRI18n.t('onboarding.ready');
     return '<div class="onboarding-visual">' +
       '<div class="onboarding-icon-anim">' +
       '<span class="onboarding-icon-main">🚀</span>' +
@@ -491,21 +497,21 @@ var Onboarding = (function () {
       '<span class="onboarding-icon-sparkle onboarding-sparkle-2">🔥</span>' +
       '</div></div>' +
       '<h2 class="onboarding-title">' + title + '</h2>' +
-      '<p class="onboarding-desc">Your training plan is set. Let\'s see what you can do.</p>' +
+      '<p class="onboarding-desc">' + QRI18n.t('onboarding.desc5') + '</p>' +
       '<div class="onboarding-actions">' +
-      '<button class="btn-primary onboarding-next-btn" id="obNext">Let\'s Go</button>' +
+      '<button class="btn-primary onboarding-next-btn" id="obNext">' + QRI18n.t('onboarding.letsGo') + '</button>' +
       '</div>';
   }
 
   function _screen6() {
     var q = _pickNewQuestion();
-    var attemptLabel = _questionAttempt === 0 ? 'Your first question' :
-                       _questionAttempt === 1 ? 'Try this one' :
-                       'One more try';
+    var attemptLabel = _questionAttempt === 0 ? QRI18n.t('onboarding.firstQuestion') :
+                       _questionAttempt === 1 ? QRI18n.t('onboarding.tryThisOne') :
+                       QRI18n.t('onboarding.oneMoreTry');
     return '<div class="onboarding-question-screen" data-answer="' + q.answer + '">' +
       '<p class="onboarding-q-label">' + attemptLabel + '</p>' +
       '<h2 class="onboarding-q-text">' + q.text + '</h2>' +
-      '<input type="text" class="input onboarding-q-input" id="obAnswer" readonly placeholder="Tap numpad to answer" autocomplete="off" />' +
+      '<input type="text" class="input onboarding-q-input" id="obAnswer" readonly placeholder="' + QRI18n.t('onboarding.numpadPlaceholder') + '" autocomplete="off" />' +
       '<div class="onboarding-q-feedback" id="obFeedback"></div>' +
       '</div>';
   }
@@ -749,7 +755,7 @@ var Onboarding = (function () {
       inputEl.disabled = true;
       if (typeof triggerHaptic === 'function') triggerHaptic(50);
       if (typeof SoundEngine !== 'undefined') SoundEngine.play('drillEnd');
-      feedback.innerHTML = '<span class="onboarding-success">🎉 Perfect! You\'re all set to begin.</span>';
+      feedback.innerHTML = '<span class="onboarding-success">' + QRI18n.t('onboarding.perfect') + '</span>';
       feedback.style.display = 'block';
 
       /* Auto-complete after a short delay */
@@ -764,8 +770,8 @@ var Onboarding = (function () {
         /* Attempts 1 or 2: show supportive message, then present new question */
         if (typeof triggerHaptic === 'function') triggerHaptic([40, 30, 40]);
         var msg = _questionAttempt === 1
-          ? 'Not quite — here\'s another one.'
-          : 'Getting warmer. One more chance.';
+          ? QRI18n.t('onboarding.notQuite')
+          : QRI18n.t('onboarding.gettingWarmer');
         feedback.innerHTML = '<span class="onboarding-retry-msg">' + msg + '</span>';
         feedback.style.display = 'block';
 
@@ -777,7 +783,7 @@ var Onboarding = (function () {
         /* 3rd wrong answer: reassuring message, redirect to Learn tab */
         inputEl.disabled = true;
         if (typeof triggerHaptic === 'function') triggerHaptic([40, 30, 40]);
-        feedback.innerHTML = '<span class="onboarding-retry-msg">That\'s okay — everyone starts somewhere. Let\'s build your foundation.</span>';
+        feedback.innerHTML = '<span class="onboarding-retry-msg">' + QRI18n.t('onboarding.thatsOkay') + '</span>';
         feedback.style.display = 'block';
 
         setTimeout(function () {
@@ -797,12 +803,12 @@ var Onboarding = (function () {
 
     /* Build new question content */
     var q = _pickNewQuestion();
-    var attemptLabel = _questionAttempt === 1 ? 'Try this one' : 'One more try';
+    var attemptLabel = _questionAttempt === 1 ? QRI18n.t('onboarding.tryThisOne') : QRI18n.t('onboarding.oneMoreTry');
 
     var content = '<div class="onboarding-question-screen" data-answer="' + q.answer + '">' +
       '<p class="onboarding-q-label">' + attemptLabel + '</p>' +
       '<h2 class="onboarding-q-text">' + q.text + '</h2>' +
-      '<input type="text" class="input onboarding-q-input" id="obAnswer" readonly placeholder="Tap numpad to answer" autocomplete="off" />' +
+      '<input type="text" class="input onboarding-q-input" id="obAnswer" readonly placeholder="' + QRI18n.t('onboarding.numpadPlaceholder') + '" autocomplete="off" />' +
       '<div class="onboarding-q-feedback" id="obFeedback"></div>' +
       '</div>';
 

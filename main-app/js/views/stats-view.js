@@ -313,3 +313,7 @@ function _renderAiDeepDive(p) {
     if (b) b.addEventListener('click', function () { AIFeatures.showStatsInsightsModal(p); });
   }
 }
+
+/* ADR-111: a language switch must bust the dirty-flag cache, or Stats keeps its old-language render
+   until the next answered question. */
+if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () { _lastStatsFingerprint = null; });

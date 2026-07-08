@@ -35,7 +35,7 @@ var LATIN_ALLOWLIST = [
   'QuantReflex', 'QuanAI', 'Premium', 'English', 'Focus', 'DI', 'LR', 'AI',
   'CAT', 'MBA', 'CET', 'MAH', 'Bank', 'PO', 'SSC', 'CGL', 'IBPS', 'RRB', 'UPSC', 'MPSC', 'NDA', 'CDS',
   'km', 'kmph', 'cm', 'mm', 'kg', 'XP',
-  'Google', 'QRABCD1234', 'AP', 'GP', 'Speed Aptitude', 'Speed Score', 'Math Duel', 'Quant', 'Playful Professional', 'Classic Blue'
+  'Google', 'QRABCD1234', 'AP', 'GP', 'Speed Aptitude', 'Speed Score', 'Math Duel', 'Quant', 'Playful Professional', 'Classic Blue', 'XAT', 'SNAP', 'NMAT', 'CMAT', 'SBI', 'Foundation'
 ];
 
 /* ── capture raw catalogs by requiring the locale IIFEs against a recording stub ── */
