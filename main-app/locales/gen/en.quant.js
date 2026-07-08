@@ -293,6 +293,58 @@
     'profit-loss:hard:successive': {
       s: [function (s) { return 'An article costing ₹' + s.cp + ' is sold at a ' + s.p0 + '% profit, and that price is then raised by a further ' + s.p1 + '%. The final selling price = ₹?'; }],
       e: [function (s) { return 'Chain the multipliers: ' + s.cp + ' × ' + (1 + s.p0 / 100) + ' × ' + (1 + s.p1 / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+
+    /* ── Simple interest ── (₹/% verbatim; person names ride slot `nm` as trilingual entries → .en/.hi/.mr) */
+    'simple-interest:easy:si': {
+      s: [function (s) { return 'Find the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' deposits ₹' + s.P + ' in a scheme paying ' + s.R + '% simple interest per annum. The interest earned in ' + s.T + ' years = ₹?'; }, function (s) { return 'What simple interest does ₹' + s.P + ' earn at ' + s.R + '% per annum over ' + s.T + ' years?'; }],
+      e: [function (s) { return 'SI = P × R × T ÷ 100 = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '.'; }]
+    },
+    'simple-interest:medium:si': {
+      s: [function (s) { return 'Find the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' deposits ₹' + s.P + ' in a scheme paying ' + s.R + '% simple interest per annum. The interest earned in ' + s.T + ' years = ₹?'; }, function (s) { return 'What simple interest does ₹' + s.P + ' earn at ' + s.R + '% per annum over ' + s.T + ' years?'; }],
+      e: [function (s) { return 'SI = P × R × T ÷ 100 = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '.'; }]
+    },
+    'simple-interest:easy:amount': {
+      s: [function (s) { return 'A sum of ₹' + s.P + ' is lent at ' + s.R + '% simple interest per annum. The amount after ' + s.T + ' years = ₹?'; }, function (s) { return s.nm.en + ' borrows ₹' + s.P + ' at ' + s.R + '% per annum simple interest. How much must be repaid after ' + s.T + ' years (in ₹)?'; }],
+      e: [function (s) { return 'SI = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '; Amount = P + SI = ' + s.P + ' + ' + s.si + ' = ₹' + (s.P + s.si) + '.'; }]
+    },
+    'simple-interest:medium:amount': {
+      s: [function (s) { return 'A sum of ₹' + s.P + ' is lent at ' + s.R + '% simple interest per annum. The amount after ' + s.T + ' years = ₹?'; }, function (s) { return s.nm.en + ' borrows ₹' + s.P + ' at ' + s.R + '% per annum simple interest. How much must be repaid after ' + s.T + ' years (in ₹)?'; }],
+      e: [function (s) { return 'SI = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '; Amount = P + SI = ' + s.P + ' + ' + s.si + ' = ₹' + (s.P + s.si) + '.'; }]
+    },
+    'simple-interest:medium:findRate': {
+      s: [function (s) { return 'At what rate percent per annum does ₹' + s.P + ' yield ₹' + s.si + ' as simple interest in ' + s.T + ' years?'; }, function (s) { return 'A sum of ₹' + s.P + ' earns ₹' + s.si + ' as simple interest in ' + s.T + ' years. The annual rate = ? %'; }],
+      e: [function (s) { return 'R = SI × 100 ÷ (P × T) = ' + s.si + ' × 100 ÷ (' + s.P + ' × ' + s.T + ') = ' + s.R + '%.'; }]
+    },
+    'simple-interest:hard:findRate': {
+      s: [function (s) { return 'At what rate percent per annum does ₹' + s.P + ' yield ₹' + s.si + ' as simple interest in ' + s.T + ' years?'; }, function (s) { return 'A sum of ₹' + s.P + ' earns ₹' + s.si + ' as simple interest in ' + s.T + ' years. The annual rate = ? %'; }],
+      e: [function (s) { return 'R = SI × 100 ÷ (P × T) = ' + s.si + ' × 100 ÷ (' + s.P + ' × ' + s.T + ') = ' + s.R + '%.'; }]
+    },
+    'simple-interest:hard:findPrincipal': {
+      s: [function (s) { return 'A sum earns ₹' + s.si + ' as simple interest at ' + s.R + '% per annum in ' + s.T + ' years. Find the sum.'; }, function (s) { return 'What principal yields ₹' + s.si + ' as simple interest at ' + s.R + '% per annum in ' + s.T + ' years?'; }],
+      e: [function (s) { return 'P = SI × 100 ÷ (R × T) = ' + s.si + ' × 100 ÷ (' + s.R + ' × ' + s.T + ') = ₹' + s.P + '.'; }]
+    },
+
+    /* ── Compound interest ── (superscript exponent picks ² or ³ from T; ₹/% verbatim) */
+    'compound-interest:easy:amount': {
+      s: [function (s) { return 'Find the amount on ₹' + s.P + ' at ' + s.R + '% per annum compounded annually for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' invests ₹' + s.P + ' at ' + s.R + '% per annum, compounded annually. The amount after ' + s.T + ' years = ₹?'; }],
+      e: [function (s) { return 'A = P(1 + R/100)ᵀ = ' + s.P + ' × ' + (1 + s.R / 100) + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '.'; }]
+    },
+    'compound-interest:medium:amount': {
+      s: [function (s) { return 'Find the amount on ₹' + s.P + ' at ' + s.R + '% per annum compounded annually for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' invests ₹' + s.P + ' at ' + s.R + '% per annum, compounded annually. The amount after ' + s.T + ' years = ₹?'; }],
+      e: [function (s) { return 'A = P(1 + R/100)ᵀ = ' + s.P + ' × ' + (1 + s.R / 100) + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '.'; }]
+    },
+    'compound-interest:medium:ci': {
+      s: [function (s) { return 'Find the compound interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years, compounded annually.'; }, function (s) { return 'A loan of ₹' + s.P + ' is taken at ' + s.R + '% per annum, compounded annually. The compound interest payable after ' + s.T + ' years = ₹?'; }],
+      e: [function (s) { return 'A = ' + s.P + '(1 + ' + s.R + '/100)' + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '; CI = A − P = ' + s.A + ' − ' + s.P + ' = ₹' + (s.A - s.P) + '.'; }]
+    },
+    'compound-interest:hard:ci': {
+      s: [function (s) { return 'Find the compound interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years, compounded annually.'; }, function (s) { return 'A loan of ₹' + s.P + ' is taken at ' + s.R + '% per annum, compounded annually. The compound interest payable after ' + s.T + ' years = ₹?'; }],
+      e: [function (s) { return 'A = ' + s.P + '(1 + ' + s.R + '/100)' + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '; CI = A − P = ' + s.A + ' − ' + s.P + ' = ₹' + (s.A - s.P) + '.'; }]
+    },
+    'compound-interest:hard:ciSiDiff': {
+      s: [function (s) { return 'The difference between the compound interest and the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for 2 years = ₹?'; }],
+      e: [function (s) { return 'For 2 years, CI − SI = P(R/100)² = ' + s.P + ' × (' + s.R + '/100)² = ₹' + s.d + '.'; }]
     }
   } };
 
