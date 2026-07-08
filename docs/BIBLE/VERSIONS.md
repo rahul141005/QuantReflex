@@ -9,11 +9,17 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.137 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.138 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.138 (2026-07-08)** — **ADR-111 Final Localization Certification gate.** Governance-only: the
+> i18n feature flag is now formally gated behind an independent, adversarial certification with
+> zero critical findings — zero untranslated strings on every user-visible surface, zero
+> correctness/layout/typography defects, full switch-matrix + settings-independence + persistence
+> proofs, in en/hi/mr on phone and tablet. Binding exit criteria recorded in ADR-111.
 
 > **2.137 (2026-07-07)** — **Internationalization Phase B (ADR-111).** The complete app chrome —
 > Settings, Auth, modals, Home, Stats, Practice, Paywall, Onboarding, Coming-soon, Learn hub/topic

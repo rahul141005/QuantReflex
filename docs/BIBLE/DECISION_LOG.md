@@ -9,6 +9,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Final Localization Certification — MANDATORY GATE (user requirement, 2026-07-08).** The feature
+  flag (`QRI18n.ENABLED` / inline `I18N_ON`) may only be enabled after an independent, adversarial
+  certification passes with **zero critical findings**. Scope, binding on Phase H:
+  1. **Zero untranslated user-facing strings anywhere** — audited on every text surface: every
+     screen, tab, modal, bottom sheet, dialog, confirmation popup, tooltip, snackbar, toast,
+     loading/empty/offline/retry-error state, onboarding screen, About page, App Guide page,
+     Report modal, Billing/Premium screen, payment flow, premium-lock message, quota message,
+     Learn/Practice/Stats/Settings/Home page, notification, AI explanation, generated solution,
+     generated hint, generated question, subject/chapter/reasoning/DI category name, placeholder,
+     input hint, accessibility label, share/export text, and any other user-visible string.
+     Method: exhaustive source sweep for literals reaching the DOM outside t()/tc()/data-i18n,
+     plus rendered-DOM sweeps in hi and mr over every route/overlay (non-allowlisted Latin runs
+     fail the gate).
+  2. **Correctness:** no hardcoded English; no unexpected English fallback; no missing keys; no
+     placeholder mismatches; no pluralization issues; no formatting inconsistencies (digits 0-9,
+     ₹, Indian grouping); no broken interpolation (a rendered literal `{token}` is a critical
+     finding); no console localization errors.
+  3. **Layout/typography:** no overflow, clipped buttons, truncated text, font-rendering or
+     Devanagari spacing issues — screenshot + programmatic clip/overflow assertions per surface.
+  4. **Behavior:** language switching updates all affected UI (full 3×3 switch matrix, exercised
+     mid-session); App Language and Study Language proven fully independent (all combinations,
+     incl. per-element `lang` when diverged); both selections survive restart, reload and SW
+     update.
+  5. **Matrix:** English, Hindi and Marathi × phone and tablet layouts × the complete app.
+  Exit: a certification report with per-surface evidence and zero critical findings, every finding
+  fixed and re-verified. No localization work is considered complete until this gate passes.
 - **Phase B addendum (same day) — the entire app chrome is localized.** Every user-facing string in
   the app shell now flows through the catalogs: Settings (static rows + all dynamic toasts,
   plan-status, clear-data confirms, profile banner, delete-account error map), Auth (screen, tabs,

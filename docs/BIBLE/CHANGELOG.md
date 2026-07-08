@@ -6,6 +6,19 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-08 — ADR-111: Final Localization Certification made a mandatory gate
+
+Governance-only. Per user requirement, the i18n feature flag may only be enabled after an
+independent certification proves ZERO untranslated user-facing strings across every surface
+(screens, modals, sheets, toasts, states, notifications, AI output, generated questions, labels,
+placeholders, a11y text, share text), zero correctness defects (fallbacks, keys, placeholders,
+plurals, interpolation, formatting, console errors), zero layout/typography defects under longer
+Devanagari text, and correct switch/independence/persistence behavior for both language settings —
+in all three languages on phone and tablet. Recorded as the binding Phase-H exit gate in ADR-111.
+Bible 2.137→2.138.
+
+---
+
 ## 2026-07-07 — Internationalization Phase B: full app chrome in en/hi/mr (ADR-111)
 
 Every app-shell string now flows through the ADR-111 catalogs (still feature-flagged OFF; English
