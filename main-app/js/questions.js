@@ -377,37 +377,43 @@ function genProfitLoss() { return _genArch('profit-loss', _PL_ARCH, _PL_PRIMARY)
 /** Time, Speed & Distance (ADR-083 archetypes: distance · time · speed · average-speed). Stems keep speed × time in
  *  order for distance, and use magnitudes that recompute unambiguously (distance ≥ 2× speed). */
 var _SPD = { easy: [30, 40, 45, 50, 60, 75, 80, 90, 100], medium: [25, 30, 35, 36, 40, 45, 48, 50, 54, 56, 60, 70, 72, 75, 80, 90, 96], hard: [36, 40, 45, 48, 50, 54, 56, 60, 64, 72, 75, 80, 90, 96, 100, 108, 112, 120] };
-function _tsdDist(diff) { var s = pick(_SPD[diff]); var t = randInt(2, diff === 'easy' ? 5 : (diff === 'hard' ? 10 : 8)); return { q: pick(['A car travels at ' + s + ' km/h for ' + t + ' hours. The distance covered = ? km', 'Moving at ' + s + ' km/h for ' + t + ' hours, a train covers ? km', 'At a steady ' + s + ' km/h for ' + t + ' hours, the distance = ? km']), a: s * t, k: 'distance', explain: 'Distance = speed × time = ' + s + ' × ' + t + ' = ' + (s * t) + ' km.' }; }
-function _tsdTime(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A car covers ' + d + ' km at ' + s + ' km/h. The time taken = ? hours', 'At ' + s + ' km/h, the time to cover ' + d + ' km = ? hours', 'Travelling ' + d + ' km at ' + s + ' km/h takes ? hours']), a: t, k: 'time', explain: 'Time = distance ÷ speed = ' + d + ' ÷ ' + s + ' = ' + t + ' hours.' }; }
-function _tsdSpeed(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { q: pick(['A train covers ' + d + ' km in ' + t + ' hours. Its speed = ? km/h', 'Covering ' + d + ' km in ' + t + ' hours, the speed = ? km/h', 'A bus runs ' + d + ' km in ' + t + ' hours. Average speed = ? km/h']), a: s, k: 'speed', explain: 'Speed = distance ÷ time = ' + d + ' ÷ ' + t + ' = ' + s + ' km/h.' }; }
-function _tsdAvg(diff) { for (var i = 0; i < 30; i++) { var pr = pick(diff === 'hard' ? [[60, 80], [40, 60], [50, 70], [72, 48], [90, 60], [45, 55]] : [[30, 60], [40, 80], [50, 100], [60, 90]]); var ans = (2 * pr[0] * pr[1]) / (pr[0] + pr[1]); if (ans === Math.floor(ans)) return { q: 'A person covers equal distances at ' + pr[0] + ' km/h and ' + pr[1] + ' km/h. The average speed for the whole journey = ? km/h', a: ans, k: 'avgSpeed', explain: 'For equal distances, average speed = 2·s₁·s₂/(s₁+s₂) = 2×' + pr[0] + '×' + pr[1] + '/(' + pr[0] + '+' + pr[1] + ') = ' + ans + ' km/h — the harmonic mean, never the simple average.' }; } return null; }
+function _tsdDist(diff) { var s = pick(_SPD[diff]); var t = randInt(2, diff === 'easy' ? 5 : (diff === 'hard' ? 10 : 8)); return { slots: { sp: s, t: t }, a: s * t, k: 'distance', v: randInt(0, 999) }; }
+function _tsdTime(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { slots: { sp: s, t: t, d: d }, a: t, k: 'time', v: randInt(0, 999) }; }
+function _tsdSpeed(diff) { var s = pick(_SPD[diff]); var t = randInt(2, 6); var d = s * t; return { slots: { sp: s, t: t, d: d }, a: s, k: 'speed', v: randInt(0, 999) }; }
+function _tsdAvg(diff) { for (var i = 0; i < 30; i++) { var pr = pick(diff === 'hard' ? [[60, 80], [40, 60], [50, 70], [72, 48], [90, 60], [45, 55]] : [[30, 60], [40, 80], [50, 100], [60, 90]]); var ans = (2 * pr[0] * pr[1]) / (pr[0] + pr[1]); if (ans === Math.floor(ans)) return { slots: { s1: pr[0], s2: pr[1], ans: ans }, a: ans, k: 'avgSpeed', v: randInt(0, 999) }; } return null; }
 /* ADR-093: medium/hard are EARNED — medium adds km/h ↔ m/s conversion; hard is relative speed, train crossing and
-   average-speed (harmonic mean), never a plain read at a bigger number. */
+   average-speed (harmonic mean), never a plain read at a bigger number.
+   ADR-111 Phase F: the two builders below choose a sub-form with an intra-build random draw. To keep render() pure,
+   the sub-form is DERIVED from the variant seed `v` (v%4<2 = km/h→m/s vs m/s→km/h; v%2 = pole vs platform), so the
+   template's `s[v%len]`/`e[v%len]` always match the form the build committed to — the census proves both shapes still
+   appear and stay byte-identical. */
 function _tsdConvert() {
-  if (Math.random() < 0.5) { var k = 18 * pick([1, 2, 3, 4, 5, 6]); return { q: pick(['Express ' + k + ' km/h in metres per second.', 'A train moves at ' + k + ' km/h. Its speed in m/s = ?']), a: k * 5 / 18, k: 'unitConvert', explain: 'km/h → m/s: multiply by 5/18. ' + k + ' × 5/18 = ' + (k * 5 / 18) + ' m/s.' }; }
+  var vv = randInt(0, 999);
+  if (vv % 4 < 2) { var k = 18 * pick([1, 2, 3, 4, 5, 6]); return { slots: { x: k, ans: k * 5 / 18 }, a: k * 5 / 18, k: 'unitConvert', v: vv }; }
   var m = 5 * pick([2, 3, 4, 5, 6, 8, 10]);
-  return { q: pick(['Express ' + m + ' m/s in km/h.', 'A sprinter runs at ' + m + ' m/s. That speed in km/h = ?']), a: m * 18 / 5, k: 'unitConvert', explain: 'm/s → km/h: multiply by 18/5. ' + m + ' × 18/5 = ' + (m * 18 / 5) + ' km/h.' };
+  return { slots: { x: m, ans: m * 18 / 5 }, a: m * 18 / 5, k: 'unitConvert', v: vv };
 }
 function _tsdRelative() {
   for (var i = 0; i < 40; i++) {
     var s1 = pick([40, 50, 60, 70, 80]), s2 = pick([30, 40, 50, 60]);
     var t = randInt(2, 5), d = (s1 + s2) * t;
-    return { q: pick(['Two trains start ' + d + ' km apart and travel towards each other at ' + s1 + ' km/h and ' + s2 + ' km/h. After how many hours do they meet?', 'Two cars ' + d + ' km apart drive towards each other at ' + s1 + ' km/h and ' + s2 + ' km/h. They meet after ? hours']), a: t, k: 'relativeSpeed', explain: 'Moving towards each other, speeds ADD: closing speed = ' + s1 + ' + ' + s2 + ' = ' + (s1 + s2) + ' km/h. Time = ' + d + ' ÷ ' + (s1 + s2) + ' = ' + t + ' hours.' };
+    return { slots: { s1: s1, s2: s2, d: d, t: t }, a: t, k: 'relativeSpeed', v: randInt(0, 999) };
   }
   return null;
 }
 function _tsdTrain() {
+  var seed = randInt(0, 999), pole = (seed % 2 === 0);
   for (var i = 0; i < 40; i++) {
     var v = 18 * pick([2, 3, 4, 5]);   // km/h whose m/s is integer
     var ms = v * 5 / 18, t = pick([6, 8, 10, 12, 15, 20]);
-    if (Math.random() < 0.5) {
+    if (pole) {
       var len = ms * t;
       if (len < 60 || len > 500) continue;
-      return { q: 'A train ' + len + ' m long is running at ' + v + ' km/h. How many seconds does it take to pass a pole?', a: t, k: 'trainCrossing', explain: 'Convert the speed: ' + v + ' km/h = ' + ms + ' m/s. Passing a pole means covering its OWN length: ' + len + ' ÷ ' + ms + ' = ' + t + ' s.' };
+      return { slots: { spd: v, ms: ms, len: len, t: t }, a: t, k: 'trainCrossing', v: seed };
     }
     var len2 = pick([100, 120, 150, 180, 200]), plat = ms * t - len2;
     if (plat < 50 || plat > 500) continue;
-    return { q: 'A train ' + len2 + ' m long, running at ' + v + ' km/h, crosses a platform ' + plat + ' m long in ? seconds', a: t, k: 'trainCrossing', explain: 'Speed = ' + v + ' km/h = ' + ms + ' m/s. To clear a platform the train covers train + platform = ' + len2 + ' + ' + plat + ' = ' + (len2 + plat) + ' m. Time = ' + (len2 + plat) + ' ÷ ' + ms + ' = ' + t + ' s.' };
+    return { slots: { spd: v, ms: ms, len2: len2, plat: plat, t: t }, a: t, k: 'trainCrossing', v: seed };
   }
   return null;
 }

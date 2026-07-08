@@ -345,6 +345,49 @@
     'compound-interest:hard:ciSiDiff': {
       s: [function (s) { return 'The difference between the compound interest and the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for 2 years = ₹?'; }],
       e: [function (s) { return 'For 2 years, CI − SI = P(R/100)² = ' + s.P + ' × (' + s.R + '/100)² = ₹' + s.d + '.'; }]
+    },
+
+    /* ── Time, speed & distance ── (km/h, m/s, km, hours verbatim; unitConvert & trainCrossing carry a form encoded
+       in the variant seed — see the builders — so each stem lines up with its own explanation) */
+    'time-speed-distance:easy:distance': {
+      s: [function (s) { return 'A car travels at ' + s.sp + ' km/h for ' + s.t + ' hours. The distance covered = ? km'; }, function (s) { return 'Moving at ' + s.sp + ' km/h for ' + s.t + ' hours, a train covers ? km'; }, function (s) { return 'At a steady ' + s.sp + ' km/h for ' + s.t + ' hours, the distance = ? km'; }],
+      e: [function (s) { return 'Distance = speed × time = ' + s.sp + ' × ' + s.t + ' = ' + (s.sp * s.t) + ' km.'; }]
+    },
+    'time-speed-distance:medium:distance': {
+      s: [function (s) { return 'A car travels at ' + s.sp + ' km/h for ' + s.t + ' hours. The distance covered = ? km'; }, function (s) { return 'Moving at ' + s.sp + ' km/h for ' + s.t + ' hours, a train covers ? km'; }, function (s) { return 'At a steady ' + s.sp + ' km/h for ' + s.t + ' hours, the distance = ? km'; }],
+      e: [function (s) { return 'Distance = speed × time = ' + s.sp + ' × ' + s.t + ' = ' + (s.sp * s.t) + ' km.'; }]
+    },
+    'time-speed-distance:easy:time': {
+      s: [function (s) { return 'A car covers ' + s.d + ' km at ' + s.sp + ' km/h. The time taken = ? hours'; }, function (s) { return 'At ' + s.sp + ' km/h, the time to cover ' + s.d + ' km = ? hours'; }, function (s) { return 'Travelling ' + s.d + ' km at ' + s.sp + ' km/h takes ? hours'; }],
+      e: [function (s) { return 'Time = distance ÷ speed = ' + s.d + ' ÷ ' + s.sp + ' = ' + s.t + ' hours.'; }]
+    },
+    'time-speed-distance:medium:time': {
+      s: [function (s) { return 'A car covers ' + s.d + ' km at ' + s.sp + ' km/h. The time taken = ? hours'; }, function (s) { return 'At ' + s.sp + ' km/h, the time to cover ' + s.d + ' km = ? hours'; }, function (s) { return 'Travelling ' + s.d + ' km at ' + s.sp + ' km/h takes ? hours'; }],
+      e: [function (s) { return 'Time = distance ÷ speed = ' + s.d + ' ÷ ' + s.sp + ' = ' + s.t + ' hours.'; }]
+    },
+    'time-speed-distance:easy:speed': {
+      s: [function (s) { return 'A train covers ' + s.d + ' km in ' + s.t + ' hours. Its speed = ? km/h'; }, function (s) { return 'Covering ' + s.d + ' km in ' + s.t + ' hours, the speed = ? km/h'; }, function (s) { return 'A bus runs ' + s.d + ' km in ' + s.t + ' hours. Average speed = ? km/h'; }],
+      e: [function (s) { return 'Speed = distance ÷ time = ' + s.d + ' ÷ ' + s.t + ' = ' + s.sp + ' km/h.'; }]
+    },
+    'time-speed-distance:medium:speed': {
+      s: [function (s) { return 'A train covers ' + s.d + ' km in ' + s.t + ' hours. Its speed = ? km/h'; }, function (s) { return 'Covering ' + s.d + ' km in ' + s.t + ' hours, the speed = ? km/h'; }, function (s) { return 'A bus runs ' + s.d + ' km in ' + s.t + ' hours. Average speed = ? km/h'; }],
+      e: [function (s) { return 'Speed = distance ÷ time = ' + s.d + ' ÷ ' + s.t + ' = ' + s.sp + ' km/h.'; }]
+    },
+    'time-speed-distance:medium:unitConvert': {
+      s: [function (s) { return 'Express ' + s.x + ' km/h in metres per second.'; }, function (s) { return 'A train moves at ' + s.x + ' km/h. Its speed in m/s = ?'; }, function (s) { return 'Express ' + s.x + ' m/s in km/h.'; }, function (s) { return 'A sprinter runs at ' + s.x + ' m/s. That speed in km/h = ?'; }],
+      e: [function (s) { return 'km/h → m/s: multiply by 5/18. ' + s.x + ' × 5/18 = ' + s.ans + ' m/s.'; }, function (s) { return 'km/h → m/s: multiply by 5/18. ' + s.x + ' × 5/18 = ' + s.ans + ' m/s.'; }, function (s) { return 'm/s → km/h: multiply by 18/5. ' + s.x + ' × 18/5 = ' + s.ans + ' km/h.'; }, function (s) { return 'm/s → km/h: multiply by 18/5. ' + s.x + ' × 18/5 = ' + s.ans + ' km/h.'; }]
+    },
+    'time-speed-distance:hard:avgSpeed': {
+      s: [function (s) { return 'A person covers equal distances at ' + s.s1 + ' km/h and ' + s.s2 + ' km/h. The average speed for the whole journey = ? km/h'; }],
+      e: [function (s) { return 'For equal distances, average speed = 2·s₁·s₂/(s₁+s₂) = 2×' + s.s1 + '×' + s.s2 + '/(' + s.s1 + '+' + s.s2 + ') = ' + s.ans + ' km/h — the harmonic mean, never the simple average.'; }]
+    },
+    'time-speed-distance:hard:relativeSpeed': {
+      s: [function (s) { return 'Two trains start ' + s.d + ' km apart and travel towards each other at ' + s.s1 + ' km/h and ' + s.s2 + ' km/h. After how many hours do they meet?'; }, function (s) { return 'Two cars ' + s.d + ' km apart drive towards each other at ' + s.s1 + ' km/h and ' + s.s2 + ' km/h. They meet after ? hours'; }],
+      e: [function (s) { return 'Moving towards each other, speeds ADD: closing speed = ' + s.s1 + ' + ' + s.s2 + ' = ' + (s.s1 + s.s2) + ' km/h. Time = ' + s.d + ' ÷ ' + (s.s1 + s.s2) + ' = ' + s.t + ' hours.'; }]
+    },
+    'time-speed-distance:hard:trainCrossing': {
+      s: [function (s) { return 'A train ' + s.len + ' m long is running at ' + s.spd + ' km/h. How many seconds does it take to pass a pole?'; }, function (s) { return 'A train ' + s.len2 + ' m long, running at ' + s.spd + ' km/h, crosses a platform ' + s.plat + ' m long in ? seconds'; }],
+      e: [function (s) { return 'Convert the speed: ' + s.spd + ' km/h = ' + s.ms + ' m/s. Passing a pole means covering its OWN length: ' + s.len + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }, function (s) { return 'Speed = ' + s.spd + ' km/h = ' + s.ms + ' m/s. To clear a platform the train covers train + platform = ' + s.len2 + ' + ' + s.plat + ' = ' + (s.len2 + s.plat) + ' m. Time = ' + (s.len2 + s.plat) + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }]
     }
   } };
 
