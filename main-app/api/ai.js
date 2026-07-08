@@ -36,7 +36,7 @@ async function _explain(req, res) {
     if (req.freeExplain) { try { await aiService.refundFreeExplain(req.userId); } catch (_) {} }
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields: question, answer', retryable: false } });
   }
-  var response = await aiBrain.explainBase(question, String(answer).substring(0, 50), category, req.userId);
+  var response = await aiBrain.explainBase(question, String(answer).substring(0, 50), category, req.userId, _lang(body));
   /* Counter de-dup (ADR-103): a FREE user's explanation was already metered transactionally in the gate
      (consumeFreeExplain); count only PREMIUM users here for telemetry. One writer per user type keeps
      usage/ai.explanationsUsed an accurate total and stops a free user's 5 from burning down twice as fast. */
@@ -53,16 +53,24 @@ function _clientDate(body) {
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
 }
 
+/* ADR-111: the QuanAI response language (study language), threaded into aiBrain → aiPrompts.sys().
+   Whitelisted to the three supported locales; anything else (incl. absent) is 'en', so old clients
+   and the English path are byte-identical. */
+function _lang(body) {
+  var l = body && body.lang;
+  return (l === 'hi' || l === 'mr') ? l : 'en';
+}
+
 async function _coach(req, res) {
   // ADR-048: pass the clientStats floor (like the planner) so a drill finished moments ago isn't missed while
   // the debounced syncStats write is still in flight. ADR-049: clientDate so Coach matches the right day's plan.
-  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body) });
+  var response = await aiBrain.coachToday(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body), lang: _lang(req.body) });
   aiService.trackGlobalAIUsage('coach', 1).catch(function () {});
   return res.json({ response: response });
 }
 
 async function _insights(req, res) {
-  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body) });
+  var response = await aiBrain.insights(req.userId, { force: !!(req.body && req.body.force), clientStats: _sanitizeClientStats(req.body && req.body.clientStats), clientDate: _clientDate(req.body), lang: _lang(req.body) });
   aiService.trackInsightsUsage(req.userId).catch(function () {});
   return res.json({ response: response });
 }
@@ -79,7 +87,7 @@ async function _chat(req, res) {
     lastExplanation: typeof body.lastExplanation === 'string' ? body.lastExplanation.slice(0, 900) : '',
     drill: typeof body.drill === 'string' ? body.drill.slice(0, 400) : '',
     // ADR-051: floor the context so a conversational turn agrees with the Coach dashboard on "today".
-    clientStats: _sanitizeClientStats(body.clientStats), clientDate: _clientDate(body)
+    clientStats: _sanitizeClientStats(body.clientStats), clientDate: _clientDate(body), lang: _lang(body)
   });
   return res.json({ response: response });
 }
@@ -136,7 +144,7 @@ async function _planner(req, res) {
       prepLevel: typeof body.prepLevel === 'string' ? body.prepLevel : 'average',
       preferredTime: typeof body.preferredTime === 'string' ? body.preferredTime : '',
       goal: typeof body.goal === 'string' ? body.goal : ''
-    }, { clientStats: clientStats, clientDate: clientDate });
+    }, { clientStats: clientStats, clientDate: clientDate, lang: _lang(body) });
     if (result.error) return _plannerError(res, result.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: result.plan || null, response: result.envelope || null });
@@ -155,7 +163,7 @@ async function _planner(req, res) {
     return res.json({ plan: result2.plan || null });
   }
   if (op === 'regen') {
-    var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats, clientDate: clientDate });
+    var r3 = await aiBrain.plannerRegenBlock(req.userId, { clientStats: clientStats, clientDate: clientDate, lang: _lang(body) });
     if (r3.error) return _plannerError(res, r3.error);
     aiService.trackGlobalAIUsage('planner', 1).catch(function () {});
     return res.json({ plan: r3.plan || null, response: r3.envelope || null });
@@ -172,7 +180,7 @@ async function _wordProblems(req, res) {
   var body = req.body || {};
   var category = typeof body.category === 'string' ? body.category.slice(0, 50) : '';
   var difficulty = (body.difficulty === 'easy' || body.difficulty === 'hard') ? body.difficulty : 'medium';
-  var result = await aiBrain.wordProblem(req.userId, category, difficulty, req.userPremium, { clientStats: _sanitizeClientStats(body.clientStats) });
+  var result = await aiBrain.wordProblem(req.userId, category, difficulty, req.userPremium, { clientStats: _sanitizeClientStats(body.clientStats), lang: _lang(body) });
   if (result.error) {
     var map = { free_limit_reached: 403, daily_limit_reached: 429, generation_failed: 503 };
     return res.status(map[result.error] || 400).json({ error: { code: result.error.toUpperCase(), message: result.error, retryable: result.error === 'generation_failed' } });

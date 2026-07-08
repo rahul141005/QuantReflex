@@ -127,6 +127,8 @@ var QRI18n = (function () {
 
   function appLang() { return _appLang; }
   function studyLang() { return _studyLang; }
+  /** Active languages as a plain object (server-seam callers read .study for the AI response language). */
+  function langs() { return { app: _appLang, study: _studyLang }; }
 
   /** BCP-47 tag for Intl.* on either channel ('app' default | 'study'). */
   function localeTag(channel) {
@@ -263,6 +265,7 @@ var QRI18n = (function () {
     tc: tc,
     appLang: appLang,
     studyLang: studyLang,
+    langs: langs,
     localeTag: localeTag,
     setLanguages: setLanguages,
     init: init,

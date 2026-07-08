@@ -59,13 +59,19 @@ var Companion = (function () {
   // while the (cache-backed) network call revalidates. Cleared on reload; never persisted (avoids cross-day stale).
   var _envCache = {};
   function api(action, body) {
-    var key = action + '|' + JSON.stringify(body || {});
+    body = body || {};
+    /* ADR-111: QuanAI answers in the STUDY language. Inject it once here so every feature (and any
+       future one) is covered; a copy is made so the caller's object is never mutated, and lang is
+       part of the in-flight de-dup key so hi and en requests never share a pending promise. */
+    var b = {}; for (var _k in body) { if (Object.prototype.hasOwnProperty.call(body, _k)) b[_k] = body[_k]; }
+    b.lang = (typeof QRI18n !== 'undefined' && QRI18n.langs) ? QRI18n.langs().study : 'en';
+    var key = action + '|' + JSON.stringify(b);
     if (_inFlight[key]) return _inFlight[key];
     var pending = _token().then(function (token) {
       if (!token) return { ok: false, code: 'NO_AUTH' };
       return fetch('/api/ai?action=' + encodeURIComponent(action), {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-Session-Id': (window.Session ? Session.id() : '') },
-        body: JSON.stringify(body || {})
+        body: JSON.stringify(b)
       }).then(function (r) {
         return r.json().then(function (j) {
           if (r.ok) return { ok: true, data: j };
