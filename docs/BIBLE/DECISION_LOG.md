@@ -45,6 +45,16 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
     prompt forwarding; `_explainCacheId` EN-stable + suffixed; aiStrings + notificationStrings EN-verbatim /
     parity / leak; a cron per-(template,lang) bucketing unit. npm test green (12,364). Bible 2.140→2.141.
     LLM output QUALITY in hi/mr is verified by the Phase-H live-AI manual matrix (cannot be unit-tested).
+  - **Dynamic verification (E-M7).** Playwright real-DOM harness (`scratchpad/i18n-phaseE.js`) renders the
+    companion modal shell + arias, loading stages, thinking-lead, a fixture coach envelope composed from
+    `aiStrings` (end-to-end block-title localization), the micro-drill strings, the full 7-screen setup wizard
+    (walked via DOM), and the planner calendar + Start-over dialog — across hi / mr at 360 & 820 and en. All
+    pass: Devanagari renders (Noto shaping eyeballed on envelope / wizard / planner screenshots), zero
+    horizontal overflow (≤2px), no Devanagari numerals, no literal `{tokens}`, the server-data boundary holds
+    (English topic/section/exam labels survive beside hi chrome), language switching re-renders,
+    `documentElement.lang` tracks the switch, and **EN is byte-identical** (13 sampled keys equal their exact
+    English literals; the EN planner render contains zero Devanagari). Zero console errors; all three
+    languages LTR (no RTL assumptions). **Phase E is certified complete.**
 - **Phase D addendum (2026-07-08) — long-form static + Math Duel localized.** Every remaining STATIC
   documentation surface and the entire Duel UI now flow through the catalogs (flag still OFF).
   After Phase D the only English left in the product is: AI/server-composed text (Phase E),

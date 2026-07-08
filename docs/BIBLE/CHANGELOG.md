@@ -30,6 +30,11 @@ calendar) is translated. Flag still OFF; EN behaviour byte-identical. Rides SW `
 - **Verification:** NEW `scripts/ai-lang.check.js` in `npm test` (sys byte-snapshot, DNT directive, `_lang`
   whitelist + threading + frozen-gate checksum, cache-id, aiStrings/notificationStrings parity/leak, cron
   bucketing unit). `notifications.check` / `free-explain.check` green and unchanged. npm test: 12,364 assertions.
+  Dynamic: Playwright real-DOM harness (`scratchpad/i18n-phaseE.js`) renders companion shell/arias, loading
+  stages, thinking-lead, a fixture aiStrings envelope, micro-drill strings, the 7-screen setup wizard, and the
+  planner calendar + Start-over dialog across hi/mr @360/820 and en — Devanagari shaping (eyeballed), overflow
+  ≤2px, server-data boundary, language-switch re-render, `<html lang>` tracking, EN byte-identity, zero console
+  errors, LTR-only. **Phase E certified complete.**
 - **Docs:** ADR-111 Phase-E addendum (`DECISION_LOG.md`); known-limits additions (`I18N_KNOWN_LIMITS.md`);
   VERSIONS 2.140→2.141.
 
