@@ -19,17 +19,27 @@
 var ShareService = (function () {
   'use strict';
 
+  /* i18n (ADR-111): share chrome, toasts and card text read the app-language channel. Canvas text
+     shapes Devanagari via the browser's font fallback. Performance badges + taglines stay keyed to
+     their canonical English (fallback) so an absent catalog can never blank the card. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  function _tx(key, fallback) { var v = _t(key); return v === key ? fallback : v; }
+  function _diffLabel(d) {
+    var k = { easy: 'settings.difficultyEasy', medium: 'settings.difficultyMedium', hard: 'settings.difficultyHard' }[String(d || '').toLowerCase()];
+    return k ? _t(k) : String(d || '');
+  }
+
   /* ---- Performance Labels ---- */
   var PERFORMANCE_LABELS = [
-    { minAcc: 95, maxAvg: 5,   label: 'Reflex Master',       emoji: '⚡' },
-    { minAcc: 90, maxAvg: 7,   label: 'Speed Demon',         emoji: '🔥' },
-    { minAcc: 90, maxAvg: 999, label: 'Precision Genius',     emoji: '🎯' },
-    { minAcc: 80, maxAvg: 10,  label: 'Quant Warrior',        emoji: '⚔️' },
-    { minAcc: 80, maxAvg: 999, label: 'Accuracy Beast',       emoji: '💎' },
-    { minAcc: 70, maxAvg: 999, label: 'Elite Solver',         emoji: '🏅' },
-    { minAcc: 60, maxAvg: 999, label: 'Aptitude Challenger',  emoji: '💪' },
-    { minAcc: 50, maxAvg: 999, label: 'Calculation Machine',  emoji: '🧮' },
-    { minAcc: 0,  maxAvg: 999, label: 'Rising Learner',       emoji: '🌱' }
+    { minAcc: 95, maxAvg: 5,   key: 'reflexMaster',       label: 'Reflex Master',       emoji: '⚡' },
+    { minAcc: 90, maxAvg: 7,   key: 'speedDemon',         label: 'Speed Demon',         emoji: '🔥' },
+    { minAcc: 90, maxAvg: 999, key: 'precisionGenius',    label: 'Precision Genius',     emoji: '🎯' },
+    { minAcc: 80, maxAvg: 10,  key: 'quantWarrior',       label: 'Quant Warrior',        emoji: '⚔️' },
+    { minAcc: 80, maxAvg: 999, key: 'accuracyBeast',      label: 'Accuracy Beast',       emoji: '💎' },
+    { minAcc: 70, maxAvg: 999, key: 'eliteSolver',        label: 'Elite Solver',        emoji: '🏅' },
+    { minAcc: 60, maxAvg: 999, key: 'aptitudeChallenger', label: 'Aptitude Challenger',  emoji: '💪' },
+    { minAcc: 50, maxAvg: 999, key: 'calculationMachine', label: 'Calculation Machine',  emoji: '🧮' },
+    { minAcc: 0,  maxAvg: 999, key: 'risingLearner',      label: 'Rising Learner',       emoji: '🌱' }
   ];
 
   var TAGLINES = [
@@ -54,7 +64,8 @@ var ShareService = (function () {
   }
 
   function _getRandomTagline() {
-    return TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+    var i = Math.floor(Math.random() * TAGLINES.length);
+    return _tx('share.tagline' + (i + 1), TAGLINES[i]);
   }
 
   /* ---- Canvas Drawing Helpers ---- */
@@ -155,7 +166,7 @@ var ShareService = (function () {
 
     ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
     ctx.font = '20px ' + FONT;
-    ctx.fillText('Competitive Aptitude Training', W / 2, y);
+    ctx.fillText(_t('share.brandSub'), W / 2, y);
     y += 28;
 
     /* Divider */
@@ -184,13 +195,13 @@ var ShareService = (function () {
     y += 16;
     ctx.fillStyle = '#3b82f6';
     ctx.font = 'bold 32px ' + FONT;
-    ctx.fillText(perf.emoji + '  ' + perf.label, W / 2, y);
+    ctx.fillText(perf.emoji + '  ' + _tx('share.perf_' + perf.key, perf.label), W / 2, y);
     y += 30; /* equal breathing before pill */
 
     /* Mode + Difficulty pill */
-    var modeText = (data.mode || 'Practice').toUpperCase();
+    var modeText = (data.mode || _t('share.modePractice')).toUpperCase();
     if (data.difficulty && data.difficulty !== 'medium') {
-      modeText += '  ·  ' + data.difficulty.toUpperCase();
+      modeText += '  ·  ' + _diffLabel(data.difficulty).toUpperCase();
     }
     ctx.font = '600 18px ' + FONT;
     var pillW = ctx.measureText(modeText).width + 36;
@@ -224,12 +235,12 @@ var ShareService = (function () {
     /* ACCURACY label — tight beneath */
     ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
     ctx.font = '600 20px ' + FONT;
-    ctx.fillText('A C C U R A C Y', W / 2, scoreBL + 28);
+    ctx.fillText(_t('share.accuracySpaced'), W / 2, scoreBL + 28);
 
     /* Score fraction */
     ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
     ctx.font = '24px ' + FONT;
-    ctx.fillText(data.score + ' of ' + data.total + ' correct', W / 2, scoreBL + 56);
+    ctx.fillText(_t('share.scoreFraction', { score: data.score, total: data.total }), W / 2, scoreBL + 56);
 
     y = scoreBL + 56 + SEC_GAP;
 
@@ -238,10 +249,10 @@ var ShareService = (function () {
        Cards with true vertical centering
        ════════════════════════════════ */
     var stats = [
-      { value: data.avgTime + 's', label: 'Avg Time' },
-      { value: '' + data.streak,   label: 'Best Streak' },
-      { value: data.totalTime + 's', label: 'Total Time' },
-      { value: '' + data.total,    label: 'Questions' }
+      { value: data.avgTime + 's', label: _t('drill.avgTime') },
+      { value: '' + data.streak,   label: _t('drill.bestStreak') },
+      { value: data.totalTime + 's', label: _t('drill.totalTime') },
+      { value: '' + data.total,    label: _t('drill.questionsLbl', { count: data.total }) }
     ];
 
     var colGap = 14;
@@ -435,8 +446,8 @@ var ShareService = (function () {
     overlay.innerHTML =
       '<div class="share-preview-modal">' +
         '<div class="share-preview-header">' +
-          '<h3 class="share-preview-title">🏆 Your Achievement Card</h3>' +
-          '<button class="share-preview-close" aria-label="Close">&times;</button>' +
+          '<h3 class="share-preview-title">🏆 ' + _t('share.previewTitle') + '</h3>' +
+          '<button class="share-preview-close" aria-label="' + _t('share.closeAria') + '">&times;</button>' +
         '</div>' +
         '<div class="share-preview-canvas-wrap"></div>' +
         '<div class="share-preview-actions"></div>' +
@@ -445,7 +456,7 @@ var ShareService = (function () {
     var canvasWrap = overlay.querySelector('.share-preview-canvas-wrap');
     var previewImg = document.createElement('img');
     previewImg.className = 'share-preview-img';
-    previewImg.alt = 'QuantReflex Result Card';
+    previewImg.alt = _t('share.cardAlt');
     previewImg.src = canvas.toDataURL('image/png');
     canvasWrap.appendChild(previewImg);
 
@@ -455,7 +466,7 @@ var ShareService = (function () {
     /* Share button */
     var shareBtn = document.createElement('button');
     shareBtn.className = 'btn accent share-action-btn';
-    shareBtn.innerHTML = '📤 Share';
+    shareBtn.textContent = '📤 ' + _t('share.shareBtn');
     shareBtn.addEventListener('click', function () {
       _doShare(canvas, data);
     });
@@ -464,7 +475,7 @@ var ShareService = (function () {
     /* Save button */
     var saveBtn = document.createElement('button');
     saveBtn.className = 'btn share-action-btn';
-    saveBtn.innerHTML = '💾 Save Image';
+    saveBtn.textContent = '💾 ' + _t('share.saveBtn');
     saveBtn.addEventListener('click', function () {
       _doSaveImage(canvas);
     });
@@ -473,7 +484,7 @@ var ShareService = (function () {
     /* Regenerate button */
     var regenBtn = document.createElement('button');
     regenBtn.className = 'btn share-action-btn share-action-regen';
-    regenBtn.innerHTML = '🔄 New Card';
+    regenBtn.textContent = '🔄 ' + _t('share.newCardBtn');
     regenBtn.addEventListener('click', function () {
       var newCanvas = _generateCard(data);
       if (newCanvas) {
@@ -519,8 +530,8 @@ var ShareService = (function () {
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({
           files: [file],
-          title: 'QuantReflex Achievement',
-          text: 'I scored ' + data.accuracy + '% on QuantReflex! 🔥'
+          title: _t('share.shareTitle'),
+          text: _t('share.shareText', { acc: data.accuracy })
         }).catch(function () {
           _doSaveImage(canvas);
         });
@@ -533,7 +544,7 @@ var ShareService = (function () {
   function _doSaveImage(canvas) {
     canvas.toBlob(function (blob) {
       if (!blob) {
-        if (typeof showToast === 'function') showToast('Unable to generate image.');
+        if (typeof showToast === 'function') showToast(_t('share.errImage'));
         return;
       }
       var url = URL.createObjectURL(blob);
@@ -544,7 +555,7 @@ var ShareService = (function () {
       a.click();
       document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-      if (typeof showToast === 'function') showToast('✅ Image saved!');
+      if (typeof showToast === 'function') showToast('✅ ' + _t('share.savedImgToast'));
     }, 'image/png');
   }
 
@@ -600,8 +611,8 @@ var ShareService = (function () {
     ctx.clearRect(0, 0, W, BUFFER_H);
 
     var isDraw = data.result === 'draw';
-    var myName = String(data.myName || 'You');
-    var opName = String(data.opName || 'Opponent');
+    var myName = String(data.myName || _t('share.you'));
+    var opName = String(data.opName || _t('share.opponent'));
     var isWinner = data.winner === data.myUid;
 
     /* ---- local draw helpers (closure over ctx) ---- */
@@ -635,7 +646,7 @@ var ShareService = (function () {
     /* ── Winner banner ── */
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 56px ' + FONT;
-    var bannerText = isDraw ? 'Draw' : ((isWinner ? myName : opName) + ' wins');
+    var bannerText = isDraw ? _t('share.draw') : _t('share.wins', { name: isWinner ? myName : opName });
     ctx.fillText((isDraw ? '🤝 ' : '👑 ') + _truncate(ctx, bannerText, CW - 110), W / 2, y);
     y += 72;
 
@@ -660,13 +671,13 @@ var ShareService = (function () {
       ctx.fillStyle = '#ffffff'; ctx.font = 'bold 96px ' + FONT;
       ctx.fillText(String(score), cx, yC + 318);
       ctx.fillStyle = '#64748b'; ctx.font = '600 19px ' + FONT;
-      ctx.fillText('C O R R E C T', cx, yC + 354);
+      ctx.fillText(_t('share.correctSpaced'), cx, yC + 354);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cardX + 40, yC + 384); ctx.lineTo(cardX + cardW - 40, yC + 384); ctx.stroke();
       var lx = cardX + cardW * 0.30, rx = cardX + cardW * 0.70;
       ctx.fillStyle = '#94a3b8'; ctx.font = '600 18px ' + FONT;
-      ctx.fillText('ACCURACY', lx, yC + 420);
-      ctx.fillText('SPEED', rx, yC + 420);
+      ctx.fillText(_t('share.accuracyShort'), lx, yC + 420);
+      ctx.fillText(_t('share.speedShort'), rx, yC + 420);
       ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 30px ' + FONT;
       ctx.fillText(accStr, lx, yC + 456);
       ctx.fillText(spdStr, rx, yC + 456);
@@ -690,7 +701,7 @@ var ShareService = (function () {
     /* ── Footer ── */
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e2e8f0'; ctx.font = '600 30px ' + FONT;
-    ctx.fillText('Think you can solve faster?', W / 2, y);
+    ctx.fillText(_t('share.duelCta'), W / 2, y);
     y += 44;
     ctx.fillStyle = 'rgba(148,163,184,0.75)'; ctx.font = '24px ' + FONT;
     ctx.fillText('quantreflex.app', W / 2, y);
@@ -744,17 +755,17 @@ var ShareService = (function () {
    * @param {number} speedScore - speed score 0-100, e.g. 72
    */
   function shareTextFallback(accuracy, speedScore) {
-    var shareText = 'I scored ' + accuracy + '% accuracy with a Speed Score of ' + (speedScore || 0) + '/100 on QuantReflex \uD83D\uDD25 Train your Speed Aptitude: https://www.quantreflex.app';
+    var shareText = _t('share.fallbackText', { acc: accuracy, speed: speedScore || 0 });
     if (navigator.share) {
       navigator.share({ text: shareText }).catch(function () {});
     } else if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareText).then(function () {
-        if (typeof showToast === 'function') showToast('✅ Copied to clipboard!');
+        if (typeof showToast === 'function') showToast('✅ ' + _t('share.copiedToast'));
       }).catch(function () {
-        if (typeof showToast === 'function') showToast('Could not copy. Try again.');
+        if (typeof showToast === 'function') showToast(_t('share.copyFailed'));
       });
     } else {
-      if (typeof showToast === 'function') showToast('Sharing not supported on this browser.');
+      if (typeof showToast === 'function') showToast(_t('share.notSupported'));
     }
   }
 
