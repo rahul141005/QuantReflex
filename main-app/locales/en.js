@@ -397,6 +397,7 @@
       targetSetToast: 'Target set: {label}',
       emailCopied: '✅ Email copied',
       emailCopyFailed: 'Couldn\'t copy — the address is {email}',
+      notifEnableFailed: 'Couldn\'t enable notifications — check your browser or device permissions.',
       updatingApp: '⏳ Updating app...',
       updatingAppToast: 'Updating app...',
       logoutFailed: 'Logout failed: {error}',

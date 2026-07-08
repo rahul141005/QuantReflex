@@ -392,6 +392,7 @@
       targetSetToast: 'लक्ष्य सेट: {label}',
       emailCopied: '✅ ईमेल कॉपी हो गया',
       emailCopyFailed: 'कॉपी नहीं हो सका — पता है {email}',
+      notifEnableFailed: 'सूचनाएँ चालू नहीं हो सकीं — अपने ब्राउज़र या डिवाइस की अनुमतियाँ जाँचें।',
       updatingApp: '⏳ ऐप अपडेट हो रहा है...',
       updatingAppToast: 'ऐप अपडेट हो रहा है...',
       logoutFailed: 'लॉग आउट विफल: {error}',

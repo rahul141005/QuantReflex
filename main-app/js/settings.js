@@ -361,6 +361,7 @@ function initSettingsView() {
           if (err) {
             toggle.checked = false;
             console.warn('Notifications could not be enabled:', err);
+            if (typeof showToast === 'function') showToast(QRI18n.t('settings.notifEnableFailed'));
           }
         });
       } else {

@@ -13,9 +13,14 @@
 'use strict';
 
 var notificationService = require('./notificationService');
+var NS = require('./notificationStrings');   // ADR-111 (E-M4): localized reminder templates
 
 var DAY_MS = 24 * 60 * 60 * 1000;
 var SCAN_CAP = 10000;   // bound the daily scan (matches the broadcast cap)
+var SUPPORTED_LANGS = ['en', 'hi', 'mr'];
+
+/* ADR-111: a reminder is app chrome → recipient's appLanguage. Never-synced users default to 'en'. */
+function _langOf(u) { var l = u.settings && u.settings.appLanguage; return (l === 'hi' || l === 'mr') ? l : 'en'; }
 
 function _dateKey(now) { return new Date(now).toISOString().slice(0, 10); }            // UTC YYYY-MM-DD
 function _startOfDayUTC(now) { var d = new Date(now); d.setUTCHours(0, 0, 0, 0); return d.getTime(); }
@@ -46,7 +51,9 @@ async function runDaily(db, messaging, opts) {
 
   var startToday = _startOfDayUTC(now);
   var active14 = now - 14 * DAY_MS;
-  var streakUids = [], dailyUids = [], premiumExpiry = [], trialExpiry = [];
+  // ADR-111: per-(template, appLanguage) buckets so each notify() call carries one pre-localized title/body.
+  function _buckets() { return { en: [], hi: [], mr: [] }; }
+  var streakUids = _buckets(), dailyUids = _buckets(), premiumExpiry = _buckets(), trialExpiry = _buckets();
 
   var snap = await db.collection('users').limit(SCAN_CAP).get();
   snap.forEach(function (doc) {
@@ -56,47 +63,46 @@ async function runDaily(db, messaging, opts) {
     var last = (typeof st.lastActiveMs === 'number') ? st.lastActiveMs : 0;
     var practicedToday = last >= startToday;
     var total = st.totalAttempted || 0;
+    var lang = _langOf(u);
 
     // Practice reminders (one per user/day; streak-at-risk takes priority over the generic nudge).
     if (!practicedToday) {
-      if ((st.dailyStreak || 0) >= 1) streakUids.push(doc.id);
-      else if (total > 0 && last >= active14) dailyUids.push(doc.id);
+      if ((st.dailyStreak || 0) >= 1) streakUids[lang].push(doc.id);
+      else if (total > 0 && last >= active14) dailyUids[lang].push(doc.id);
     }
 
     // Billing reminders — warn 1–3 days before expiry (the actual expiry notice fires in resolvePlan).
     if (u.plan === 'premium') {
       var ex = _expiryMs(u.planExpiry);
-      if (ex > now && ex <= now + 3 * DAY_MS) premiumExpiry.push(doc.id);
+      if (ex > now && ex <= now + 3 * DAY_MS) premiumExpiry[lang].push(doc.id);
     }
     if (u.isTrial) {
       var te = _expiryMs(u.trialEnd);
-      if (te > now && te <= now + 3 * DAY_MS) trialExpiry.push(doc.id);
+      if (te > now && te <= now + 3 * DAY_MS) trialExpiry[lang].push(doc.id);
     }
   });
 
   var results = {};
-  async function emit(key, uids, notification) {
-    if (!uids.length) { results[key] = { reached: 0 }; return; }
-    try { results[key] = await notificationService.notify(db, messaging, { recipients: { uids: uids }, notification: notification, logSegment: 'reminder:' + key }); }
-    catch (e) { results[key] = { error: e.message }; }
+  // Emit ONE notify() per (template, language) bucket: same notify() contract, pre-localized copy.
+  async function emit(key, byLang, base, titleKey, bodyKey) {
+    var reached = 0;
+    for (var i = 0; i < SUPPORTED_LANGS.length; i++) {
+      var lang = SUPPORTED_LANGS[i];
+      var uids = byLang[lang];
+      if (!uids.length) continue;
+      var notification = Object.assign({}, base, { title: NS.s(lang, titleKey), body: NS.s(lang, bodyKey) });
+      try {
+        var r = await notificationService.notify(db, messaging, { recipients: { uids: uids }, notification: notification, logSegment: 'reminder:' + key + (lang === 'en' ? '' : ':' + lang) });
+        reached += (r && r.reached) || 0;
+      } catch (e) { results[key + ':' + lang] = { error: e.message }; }
+    }
+    results[key] = { reached: reached };
   }
 
-  await emit('streak', streakUids, {
-    title: 'Keep your streak alive 🔥', body: 'You haven\'t practiced today — a quick 5-question drill keeps your streak going.',
-    type: 'streak_reminder', category: 'reminder', deepLink: '#practice'
-  });
-  await emit('daily', dailyUids, {
-    title: 'Time to sharpen your reflexes', body: 'A 5-minute mental-math session today compounds into real exam speed.',
-    type: 'daily_reminder', category: 'reminder', deepLink: '#practice'
-  });
-  await emit('premiumExpiry', premiumExpiry, {
-    title: 'Your Premium is expiring soon', body: 'Renew to keep your AI Coach, Planner, Insights and Math Duels without interruption.',
-    type: 'premium', category: 'billing', priority: 'high', deepLink: '#settings'
-  });
-  await emit('trialExpiry', trialExpiry, {
-    title: 'Your trial ends soon', body: 'Upgrade now to keep your full QuantReflex experience.',
-    type: 'trial', category: 'billing', priority: 'high', deepLink: '#settings'
-  });
+  await emit('streak', streakUids, { type: 'streak_reminder', category: 'reminder', deepLink: '#practice' }, 'streak.title', 'streak.body');
+  await emit('daily', dailyUids, { type: 'daily_reminder', category: 'reminder', deepLink: '#practice' }, 'daily.title', 'daily.body');
+  await emit('premiumExpiry', premiumExpiry, { type: 'premium', category: 'billing', priority: 'high', deepLink: '#settings' }, 'premiumExpiry.title', 'premiumExpiry.body');
+  await emit('trialExpiry', trialExpiry, { type: 'trial', category: 'billing', priority: 'high', deepLink: '#settings' }, 'trialExpiry.title', 'trialExpiry.body');
 
   try { await markerRef.set({ finishedAt: Date.now(), results: results }, { merge: true }); } catch (_) {}
   return { date: date, results: results, scanned: snap.size };

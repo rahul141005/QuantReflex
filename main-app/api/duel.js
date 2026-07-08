@@ -17,6 +17,7 @@
 const { withAuth, parseBody, formatError } = require('./_lib/middleware');
 const QGen = require('../js/questions.js');   // unified generator — the SAME engine Practice uses (one generator, ADR)
 const notificationService = require('../services/notificationService');   // ADR-066: the ONE notification pipeline
+const notificationStrings = require('../services/notificationStrings');   // ADR-111 (E-M4): localized duel notice
 const duelStats = require('../services/duelStats');   // ADR-068: pure duel-aggregate math (Battle Archive)
 const admin = require('firebase-admin');
 
@@ -181,10 +182,15 @@ function _viewRoom(data, viewerUid) {
 // (Was push-only via admin.messaging().send → lost when push failed.)
 async function _sendOpponentFinishedFcm(toUid, opponentName, code) {
   try {
+    // ADR-111 (E-M4): notification is app chrome → recipient's appLanguage. One extra read to resolve it
+    // (never-synced users default to 'en'). The opponent NAME is user data (verbatim); 'Math Duel' is DNT.
+    var lang = 'en';
+    try { var us = await db.collection('users').doc(toUid).get(); var s = us.exists && us.data() && us.data().settings; var l = s && s.appLanguage; if (l === 'hi' || l === 'mr') lang = l; } catch (_) { /* default en */ }
+    var oppName = opponentName || notificationStrings.s(lang, 'duel.defaultOpponent');
     await notificationService.notify(db, admin.messaging(), {
       recipients: { uids: [toUid] },
       notification: {
-        title: 'Duel finished', body: 'Your duel against ' + (opponentName || 'your opponent') + ' is ready — see the result.',
+        title: notificationStrings.s(lang, 'duel.title'), body: notificationStrings.s(lang, 'duel.body', { name: oppName }),
         // deepLink → #home (the live duel-result card lives on Home): the finished duel session no longer exists,
         // so routing to #duel would open a blank view. type 'duel' + metadata.code let the inbox route this
         // specially (toast now; Duel History later) without depending on a dead duel session.

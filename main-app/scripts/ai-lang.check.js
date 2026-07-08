@@ -282,7 +282,7 @@ enKeys.forEach(function (k) {
 
 /* 7d. Latin-leak heuristic over hi/mr values: after stripping {tokens}, DNT terms, digits/%/₹/units,
    no run of 3+ Latin letters may survive (a stray English word left untranslated). */
-var LEAK_ALLOW = ['QuantReflex', 'QuanAI', 'Premium', 'Speed', 'DI', 'LR', 'AI'];
+var LEAK_ALLOW = ['QuantReflex', 'QuanAI', 'Premium', 'Speed', 'Math Duel', 'Duels', 'Duel', 'Math', 'DI', 'LR', 'AI'];
 function _leaks(v) {
   var s = String(v).replace(/\{\w+\}/g, ' ');            // drop interpolation tokens
   LEAK_ALLOW.forEach(function (w) { s = s.split(w).join(' '); });
@@ -302,9 +302,92 @@ ok(AIStrings.s('xx', 'band.examReady') === MAP.en['band.examReady'], 's() unknow
 ok(AIStrings.s('hi', 'coach.greetingNamed', { name: 'रवि' }).indexOf('रवि') !== -1, 's() must interpolate hi params');
 ok(AIStrings.s('en', 'nope.missing') === 'nope.missing', 's() unknown key must echo the key');
 
-/* ============================================================================ */
-if (failures) {
-  console.error('\n✗ ai-lang.check FAILED with ' + failures + ' assertion failure(s).');
-  process.exit(1);
-}
-console.log('\n✓ ai-lang.check passed — server language seam intact, EN byte-identical.');
+/* ============================================================================
+ * 8. notificationStrings (E-M4) — EN verbatim, parity, leak, and cron per-language bucketing
+ * ==========================================================================*/
+section('8. Notifications: localized templates + per-(template,lang) cron bucketing (E-M4)');
+
+var NS = require('../services/notificationStrings');
+var NMAP = NS._MAP;
+
+/* 8a. EN templates verbatim + key/placeholder parity + non-empty + no Latin leak. */
+var N_EN_SAMPLES = {
+  'streak.title': 'Keep your streak alive 🔥',
+  'daily.body': 'A 5-minute mental-math session today compounds into real exam speed.',
+  'premiumExpiry.body': 'Renew to keep your AI Coach, Planner, Insights and Math Duels without interruption.',
+  'duel.body': 'Your duel against {name} is ready — see the result.'
+};
+Object.keys(N_EN_SAMPLES).forEach(function (k) { ok(NMAP.en[k] === N_EN_SAMPLES[k], 'notificationStrings EN "' + k + '" must be byte-identical'); });
+var nEnKeys = Object.keys(NMAP.en);
+['hi', 'mr'].forEach(function (lang) {
+  nEnKeys.forEach(function (k) {
+    ok(typeof NMAP[lang][k] === 'string' && NMAP[lang][k].length > 0, 'notificationStrings ' + lang + ' "' + k + '" must be a non-empty string');
+    ok(_placeholders(NMAP.en[k]) === _placeholders(NMAP[lang][k]), 'notificationStrings ' + lang + ' "' + k + '" placeholder parity');
+    ok(!_leaks(NMAP[lang][k]), 'notificationStrings ' + lang + ' "' + k + '" leaks Latin: ' + JSON.stringify(NMAP[lang][k]));
+  });
+  Object.keys(NMAP[lang]).forEach(function (k) { ok(NMAP.en[k] !== undefined, 'notificationStrings ' + lang + ' orphan key: ' + k); });
+});
+/* Duel body for a hi recipient carries Devanagari + the interpolated opponent name. */
+var duelHi = NS.s('hi', 'duel.body', { name: 'रोहन' });
+ok(/[ऀ-ॿ]/.test(duelHi) && duelHi.indexOf('रोहन') !== -1, 'duel.body(hi) must be Devanagari with {name} interpolated');
+
+/* 8b. Cron bucketing unit — fake user docs by appLanguage; assert one notify() per (template, lang)
+   with pre-localized copy, and EN for a never-synced user. Stub notify() to capture, fake the db. */
+(async function runAsyncAndFinish() {
+  try {
+    /* notificationService requires firebase-admin at load; shim it (and openai) for the require only. */
+    Module._load = function (request) {
+      if (request === 'openai') { return function () {}; }
+      if (request === 'firebase-admin') { return { firestore: Object.assign(function () { return {}; }, { FieldValue: { serverTimestamp: function () {} } }), apps: [], initializeApp: function () {}, messaging: function () { return {}; } }; }
+      return _origLoad.apply(this, arguments);
+    };
+    var notifSvc = require('../services/notificationService');
+    var reminderCron = require('../services/reminderCron');
+    Module._load = _origLoad;
+    var captured = [];
+    var _origNotify = notifSvc.notify;
+    notifSvc.notify = function (db, messaging, payload) { captured.push(payload); return Promise.resolve({ reached: (payload.recipients.uids || []).length }); };
+
+    var DAY = 24 * 60 * 60 * 1000;
+    var NOW = 1700000000000;                 // fixed timestamp (deterministic)
+    var oldActive = NOW - 2 * DAY;           // active but not "today"
+    var users = [
+      { __id: 'u_hi', settings: { appLanguage: 'hi' }, stats: { dailyStreak: 2, lastActiveMs: oldActive, totalAttempted: 40 } },
+      { __id: 'u_mr', settings: { appLanguage: 'mr' }, stats: { dailyStreak: 1, lastActiveMs: oldActive, totalAttempted: 30 } },
+      { __id: 'u_en', stats: { dailyStreak: 3, lastActiveMs: oldActive, totalAttempted: 20 } },              // never-synced → en
+      { __id: 'u_daily_hi', settings: { appLanguage: 'hi' }, stats: { dailyStreak: 0, lastActiveMs: oldActive, totalAttempted: 10 } }
+    ];
+    var fakeDb = {
+      collection: function (name) {
+        if (name === 'systemMetrics') return { doc: function () { return { create: function () { return Promise.resolve(); }, set: function () { return Promise.resolve(); } }; } };
+        if (name === 'users') return { limit: function () { return { get: function () { return Promise.resolve({ size: users.length, forEach: function (cb) { users.forEach(function (u) { cb({ id: u.__id, data: function () { return u; } }); }); } }); } }; } };
+        return { doc: function () { return { get: function () { return Promise.resolve({ exists: false }); } }; } };
+      }
+    };
+
+    await reminderCron.runDaily(fakeDb, {}, { now: NOW });
+    notifSvc.notify = _origNotify;   // restore
+
+    function findByTitle(title) { return captured.filter(function (p) { return p.notification.title === title; }); }
+    var streakHi = findByTitle(NMAP.hi['streak.title']);
+    var streakMr = findByTitle(NMAP.mr['streak.title']);
+    var streakEn = findByTitle(NMAP.en['streak.title']);
+    var dailyHi = findByTitle(NMAP.hi['daily.title']);
+    ok(streakHi.length === 1 && streakHi[0].recipients.uids.join() === 'u_hi', 'cron: hi streak bucket → u_hi with hi title');
+    ok(streakMr.length === 1 && streakMr[0].recipients.uids.join() === 'u_mr', 'cron: mr streak bucket → u_mr with mr title');
+    ok(streakEn.length === 1 && streakEn[0].recipients.uids.join() === 'u_en', 'cron: never-synced user gets the EN streak bucket');
+    ok(streakHi.length && streakHi[0].notification.body === NMAP.hi['streak.body'], 'cron: hi streak body is the localized template');
+    ok(dailyHi.length === 1 && dailyHi[0].recipients.uids.join() === 'u_daily_hi', 'cron: hi daily bucket → u_daily_hi');
+    /* type/category/deepLink metadata preserved across the localized emit. */
+    ok(streakHi.length && streakHi[0].notification.type === 'streak_reminder' && streakHi[0].notification.deepLink === '#practice', 'cron: localized notification keeps its type/deepLink metadata');
+  } catch (e) {
+    failures++; console.error('  ✗ cron bucketing unit threw: ' + (e && e.message));
+  }
+
+  /* ---- finish ---- */
+  if (failures) {
+    console.error('\n✗ ai-lang.check FAILED with ' + failures + ' assertion failure(s).');
+    process.exit(1);
+  }
+  console.log('\n✓ ai-lang.check passed — server language seam intact, EN byte-identical.');
+})();
