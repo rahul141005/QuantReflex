@@ -105,7 +105,109 @@
     'simplification:easy:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
     'simplification:medium:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
     'simplification:medium:divideAdd': { s: [function (s) { return s.num + ' ÷ ' + s.dv + ' + ' + s.add + ' = ?'; }], e: [function (s) { return 'Divide first: ' + s.num + ' ÷ ' + s.dv + ' = ' + (s.num / s.dv) + ', then + ' + s.add + ' = ' + (s.num / s.dv + s.add) + '.'; }] },
-    'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'Brackets → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; and ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; sum = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] }
+    'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'Brackets → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; and ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; sum = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] },
+
+    /* ── Area ── (cm/m units live in the wording; numbers are slots; formulae recompute from slots, language-neutral) */
+    'area:easy:square': {
+      s: [function (s) { return 'The area of a square of side ' + s.s + ' cm = ? cm².'; }, function (s) { return 'A square tile has a side of ' + s.s + ' cm. Find its area (in cm²).'; }, function (s) { return 'Each side of a square field measures ' + s.s + ' m. Its area = ? m².'; }],
+      e: [function (s) { return 'Area of a square = side² = ' + s.s + '² = ' + (s.s * s.s) + '.'; }]
+    },
+    'area:easy:rectangle': {
+      s: [function (s) { return 'A rectangle is ' + s.l + ' cm long and ' + s.b + ' cm wide. Its area = ? cm².'; }, function (s) { return 'A rectangular plot measures ' + s.l + ' m by ' + s.b + ' m. Find its area (in m²).'; }, function (s) { return 'A hall is ' + s.l + ' m long and ' + s.b + ' m broad. The area of its floor = ? m².'; }],
+      e: [function (s) { return 'Area = length × breadth = ' + s.l + ' × ' + s.b + ' = ' + (s.l * s.b) + '.'; }]
+    },
+    'area:medium:rectangle': {
+      s: [function (s) { return 'A rectangle is ' + s.l + ' cm long and ' + s.b + ' cm wide. Its area = ? cm².'; }, function (s) { return 'A rectangular plot measures ' + s.l + ' m by ' + s.b + ' m. Find its area (in m²).'; }, function (s) { return 'A hall is ' + s.l + ' m long and ' + s.b + ' m broad. The area of its floor = ? m².'; }],
+      e: [function (s) { return 'Area = length × breadth = ' + s.l + ' × ' + s.b + ' = ' + (s.l * s.b) + '.'; }]
+    },
+    'area:medium:triangle': {
+      s: [function (s) { return 'A triangle has base ' + s.base + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a triangle whose base is ' + s.base + ' cm and height is ' + s.h + ' cm (in cm²).'; }],
+      e: [function (s) { return 'Area = ½ × base × height = ½ × ' + s.base + ' × ' + s.h + ' = ' + (s.base * s.h / 2) + ' cm². Halve the even side first to avoid fractions.'; }]
+    },
+    'area:hard:triangle': {
+      s: [function (s) { return 'A triangle has base ' + s.base + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a triangle whose base is ' + s.base + ' cm and height is ' + s.h + ' cm (in cm²).'; }],
+      e: [function (s) { return 'Area = ½ × base × height = ½ × ' + s.base + ' × ' + s.h + ' = ' + (s.base * s.h / 2) + ' cm². Halve the even side first to avoid fractions.'; }]
+    },
+    'area:medium:parallelogram': {
+      s: [function (s) { return 'A parallelogram has base ' + s.b + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a parallelogram with base ' + s.b + ' cm and perpendicular height ' + s.h + ' cm (in cm²).'; }],
+      e: [function (s) { return 'Area = base × height = ' + s.b + ' × ' + s.h + ' = ' + (s.b * s.h) + ' cm². Use the perpendicular height, not the slant side.'; }]
+    },
+    'area:medium:circle': {
+      s: [function (s) { return 'The area of a circle of radius ' + s.r + ' cm = ? cm². (use π = 3.14)'; }, function (s) { return 'A circular garden has a radius of ' + s.r + ' m. Find its area in m² (take π = 3.14).'; }],
+      e: [function (s) { return 'Area = πr² = 3.14 × ' + s.r + '² = 3.14 × ' + (s.r * s.r) + ' = ' + s.ans + '.'; }]
+    },
+    'area:hard:circle': {
+      s: [function (s) { return 'The area of a circle of radius ' + s.r + ' cm = ? cm². (use π = 3.14)'; }, function (s) { return 'A circular garden has a radius of ' + s.r + ' m. Find its area in m² (take π = 3.14).'; }],
+      e: [function (s) { return 'Area = πr² = 3.14 × ' + s.r + '² = 3.14 × ' + (s.r * s.r) + ' = ' + s.ans + '.'; }]
+    },
+    'area:hard:trapezium': {
+      s: [function (s) { return 'A trapezium has parallel sides ' + s.a1 + ' cm and ' + s.b1 + ' cm, and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'The parallel sides of a trapezium measure ' + s.a1 + ' cm and ' + s.b1 + ' cm, and the distance between them is ' + s.h + ' cm. Find its area (in cm²).'; }],
+      e: [function (s) { return 'Area = ½ × (sum of parallel sides) × height = ½ × ' + (s.a1 + s.b1) + ' × ' + s.h + ' = ' + ((s.a1 + s.b1) * s.h / 2) + ' cm².'; }]
+    },
+    'area:hard:border': {
+      s: [function (s) { return 'A ' + s.L + ' cm × ' + s.B + ' cm sheet has a uniform border of width ' + s.w + ' cm. The area of the border = ? cm².'; }, function (s) { return 'A photo frame ' + s.L + ' cm by ' + s.B + ' cm has a uniform border ' + s.w + ' cm wide along its edge. Find the area of the border (in cm²).'; }],
+      e: [function (s) { return 'Border = outer − inner = ' + s.L + '×' + s.B + ' − ' + (s.L - 2 * s.w) + '×' + (s.B - 2 * s.w) + ' = ' + (s.L * s.B) + ' − ' + ((s.L - 2 * s.w) * (s.B - 2 * s.w)) + ' = ' + (s.L * s.B - (s.L - 2 * s.w) * (s.B - 2 * s.w)) + ' cm².'; }]
+    },
+
+    /* ── Volume ── (π = 3.14; the rounded answer is precomputed into slot `ans` so render stays pure) */
+    'volume:easy:cube': {
+      s: [function (s) { return 'The volume of a cube of side ' + s.s + ' cm = ? cm³.'; }, function (s) { return 'A cubical box has an edge of ' + s.s + ' cm. Find its volume (in cm³).'; }, function (s) { return 'Each edge of a cube measures ' + s.s + ' cm. Its volume = ? cm³.'; }],
+      e: [function (s) { return 'Volume of a cube = side³ = ' + s.s + '³ = ' + (s.s * s.s * s.s) + ' cm³.'; }]
+    },
+    'volume:easy:cuboid': {
+      s: [function (s) { return 'A cuboid measures ' + s.l + ' cm × ' + s.b + ' cm × ' + s.h + ' cm. Its volume = ? cm³.'; }, function (s) { return 'A carton is ' + s.l + ' cm long, ' + s.b + ' cm wide and ' + s.h + ' cm high. Find its volume (in cm³).'; }, function (s) { return 'A water tank measures ' + s.l + ' m by ' + s.b + ' m by ' + s.h + ' m. Its capacity = ? m³.'; }],
+      e: [function (s) { return 'Volume = l × b × h = ' + s.l + ' × ' + s.b + ' × ' + s.h + ' = ' + (s.l * s.b * s.h) + '.'; }]
+    },
+    'volume:medium:cuboid': {
+      s: [function (s) { return 'A cuboid measures ' + s.l + ' cm × ' + s.b + ' cm × ' + s.h + ' cm. Its volume = ? cm³.'; }, function (s) { return 'A carton is ' + s.l + ' cm long, ' + s.b + ' cm wide and ' + s.h + ' cm high. Find its volume (in cm³).'; }, function (s) { return 'A water tank measures ' + s.l + ' m by ' + s.b + ' m by ' + s.h + ' m. Its capacity = ? m³.'; }],
+      e: [function (s) { return 'Volume = l × b × h = ' + s.l + ' × ' + s.b + ' × ' + s.h + ' = ' + (s.l * s.b * s.h) + '.'; }]
+    },
+    'volume:medium:cylinder': {
+      s: [function (s) { return 'A cylinder has radius ' + s.r + ' cm and height ' + s.h + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'A cylindrical drum has a base radius of ' + s.r + ' cm and stands ' + s.h + ' cm tall. Find its volume in cm³ (take π = 3.14).'; }],
+      e: [function (s) { return 'Volume = πr²h = 3.14 × ' + s.r + '² × ' + s.h + ' = 3.14 × ' + (s.r * s.r * s.h) + ' = ' + s.ans + ' cm³.'; }]
+    },
+    'volume:hard:cylinder': {
+      s: [function (s) { return 'A cylinder has radius ' + s.r + ' cm and height ' + s.h + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'A cylindrical drum has a base radius of ' + s.r + ' cm and stands ' + s.h + ' cm tall. Find its volume in cm³ (take π = 3.14).'; }],
+      e: [function (s) { return 'Volume = πr²h = 3.14 × ' + s.r + '² × ' + s.h + ' = 3.14 × ' + (s.r * s.r * s.h) + ' = ' + s.ans + ' cm³.'; }]
+    },
+    'volume:hard:sphere': {
+      s: [function (s) { return 'A sphere has radius ' + s.r + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'Find the volume of a solid sphere of radius ' + s.r + ' cm, taking π = 3.14 (in cm³).'; }],
+      e: [function (s) { return 'Volume = (4/3)πr³ = (4/3) × 3.14 × ' + s.r + '³ = ' + s.ans + ' cm³.'; }]
+    },
+    'volume:hard:cone': {
+      s: [function (s) { return 'A cone has radius ' + s.r + ' cm and height ' + s.h + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'An ice-cream cone has a base radius of ' + s.r + ' cm and a height of ' + s.h + ' cm. Find its volume in cm³ (π = 3.14).'; }],
+      e: [function (s) { return 'Volume = (1/3)πr²h = (1/3) × 3.14 × ' + (s.r * s.r) + ' × ' + s.h + ' = ' + s.ans + ' cm³.'; }]
+    },
+
+    /* ── Surface area ── (π = 3.14; rounded answers precomputed into slot `ans`) */
+    'surface-area:easy:cubeTSA': {
+      s: [function (s) { return 'Find the total surface area of a cube of side ' + s.a + ' cm (in cm²).'; }, function (s) { return 'A cubical box has an edge of ' + s.a + ' cm. The total area to be painted, covering all its faces, = ? cm²'; }],
+      e: [function (s) { return 'TSA of a cube = 6a² = 6 × ' + s.a + '² = 6 × ' + (s.a * s.a) + ' = ' + (6 * s.a * s.a) + ' cm².'; }]
+    },
+    'surface-area:medium:cubeLSA': {
+      s: [function (s) { return 'Find the lateral (side) surface area of a cube of side ' + s.a + ' cm (in cm²).'; }],
+      e: [function (s) { return 'LSA of a cube = 4a² (the four side faces) = 4 × ' + (s.a * s.a) + ' = ' + (4 * s.a * s.a) + ' cm².'; }]
+    },
+    'surface-area:easy:cuboidTSA': {
+      s: [function (s) { return 'Find the total surface area of a cuboid ' + s.l + ' × ' + s.b + ' × ' + s.h + ' cm (in cm²).'; }],
+      e: [function (s) { return 'TSA = 2(lb + bh + hl) = 2(' + (s.l * s.b) + ' + ' + (s.b * s.h) + ' + ' + (s.l * s.h) + ') = ' + (2 * (s.l * s.b + s.b * s.h + s.l * s.h)) + ' cm².'; }]
+    },
+    'surface-area:medium:cuboidTSA': {
+      s: [function (s) { return 'Find the total surface area of a cuboid ' + s.l + ' × ' + s.b + ' × ' + s.h + ' cm (in cm²).'; }],
+      e: [function (s) { return 'TSA = 2(lb + bh + hl) = 2(' + (s.l * s.b) + ' + ' + (s.b * s.h) + ' + ' + (s.l * s.h) + ') = ' + (2 * (s.l * s.b + s.b * s.h + s.l * s.h)) + ' cm².'; }]
+    },
+    'surface-area:medium:cylCSA': {
+      s: [function (s) { return 'Find the curved surface area of a cylinder of radius ' + s.r + ' cm and height ' + s.h + ' cm (use π = 3.14).'; }],
+      e: [function (s) { return 'CSA = 2πrh = 2 × 3.14 × ' + s.r + ' × ' + s.h + ' = ' + s.ans + ' cm².'; }]
+    },
+    'surface-area:hard:cylTSA': {
+      s: [function (s) { return 'Find the total surface area of a cylinder of radius ' + s.r + ' cm and height ' + s.h + ' cm (use π = 3.14).'; }],
+      e: [function (s) { return 'TSA = 2πr(r + h) = 2 × 3.14 × ' + s.r + ' × (' + s.r + ' + ' + s.h + ') = ' + s.ans + ' cm².'; }]
+    },
+    'surface-area:hard:sphereSA': {
+      s: [function (s) { return 'Find the surface area of a sphere of radius ' + s.r + ' cm (use π = 3.14).'; }, function (s) { return 'A spherical ball has a radius of ' + s.r + ' cm. Its surface area, taking π = 3.14, = ? cm²'; }],
+      e: [function (s) { return 'Surface area = 4πr² = 4 × 3.14 × ' + s.r + '² = ' + s.ans + ' cm².'; }]
+    }
   } };
 
   if (GI) GI.register('en', 'quant', pack);
