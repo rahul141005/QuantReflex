@@ -68,6 +68,83 @@ the exact chapter names students see in Hindi/Marathi aptitude books.
 | Permutation & Combination | क्रमचय और संचय | क्रमचय व संचय | verify vs Target Publications during implementation |
 | Squares & Roots | वर्ग और वर्गमूल | वर्ग व वर्गमूळ | |
 
+## Quant generated-content vocabulary (F-M3 / F-M4)
+
+The term authority for `locales/gen/{hi,mr}.quant.js`. Every generated stem/explanation MUST use these exact
+Hindi/Marathi words; any new term is added here BEFORE it appears in a pack. Register: exam-book Hindi (Arihant /
+R.S. Aggarwal / Disha / Testbook / Adda247), आप-form when addressing the student, non-honorific 3rd person for named
+actors. Math notation (sin, cos, tan, log, nPr, nCr, √, ², ³, ×, ÷, −, ₹, %, digits) stays Latin/symbolic in every
+language. Marathi column filled in F-M4.
+
+| English | Hindi | Marathi | Note |
+|---|---|---|---|
+| square (n²) | वर्ग | — | |
+| square root (√) | वर्गमूल | — | |
+| cube (n³) | घन | — | |
+| cube root | घनमूल | — | |
+| area | क्षेत्रफल | — | |
+| volume | आयतन | — | |
+| surface area | पृष्ठीय क्षेत्रफल | — | TSA संपूर्ण पृष्ठीय क्षेत्रफल; CSA वक्र पृष्ठीय क्षेत्रफल; LSA पार्श्व पृष्ठीय क्षेत्रफल |
+| side / edge | भुजा / कोर | — | edge (of cube) = कोर/किनारा |
+| length / breadth / height | लंबाई / चौड़ाई / ऊँचाई | — | |
+| base / radius / diameter | आधार / त्रिज्या / व्यास | — | |
+| rectangle / triangle / circle | आयत / त्रिभुज / वृत्त | — | |
+| parallelogram / trapezium | समांतर चतुर्भुज / समलंब चतुर्भुज | — | |
+| cube / cuboid / cylinder / sphere / cone | घन / घनाभ / बेलन / गोला / शंकु | — | |
+| perpendicular height | लंब ऊँचाई | — | |
+| percent / of | प्रतिशत / का | — | "x% of y" → "y का x%" |
+| increase / decrease | वृद्धि / कमी | — | |
+| discount (successive) | बट्टा (क्रमिक) | — | |
+| fraction | भिन्न | — | |
+| multiply / product | गुणा / गुणनफल | — | |
+| ratio / proportion | अनुपात / समानुपात | — | |
+| part / share (in ratio) | भाग / हिस्सा | — | |
+| divide (a sum) | बाँटना / विभाजित करना | — | |
+| average / mean | औसत / माध्य | — | |
+| cost price (CP) / selling price (SP) | क्रय मूल्य / विक्रय मूल्य | — | keep CP/SP Latin in formula lines |
+| profit / loss | लाभ / हानि | — | |
+| article / shopkeeper | वस्तु / दुकानदार | — | |
+| speed / distance / time | चाल / दूरी / समय | — | TSD chapter uses चाल for speed |
+| car / train / bus | कार / रेलगाड़ी / बस | — | |
+| average speed / relative speed | औसत चाल / सापेक्ष चाल | — | |
+| platform / pole / metre / second | प्लेटफ़ॉर्म / खंभा / मीटर / सेकंड | — | |
+| work / days / workers | कार्य / दिन / श्रमिक | — | |
+| together / finish | मिलकर / पूरा करना | — | |
+| principal / rate / amount | मूलधन / दर / मिश्रधन | — | |
+| simple / compound interest | साधारण ब्याज / चक्रवृद्धि ब्याज | — | per annum = प्रति वर्ष |
+| deposit / borrow / invest / loan | जमा करना / उधार लेना / निवेश करना / ऋण | — | |
+| partnership / capital / business | साझेदारी / पूँजी / व्यवसाय | — | months = महीने |
+| age / years / present age | आयु / वर्ष / वर्तमान आयु | — | son पुत्र, father पिता |
+| mixture / alligation | मिश्रण / पल्लीकरण | — | cheaper सस्ता, dearer महँगा, mean price माध्य मूल्य, per kg प्रति किग्रा |
+| pipe / tank / fill / empty | नल / टंकी / भरना / खाली करना | — | inlet प्रवेश नल, outlet निकास नल |
+| next number / series | अगली संख्या / श्रेढ़ी | — | |
+| HCF / LCM | म.स.प. / ल.स.प. | — | full: महत्तम समापवर्तक / लघुत्तम समापवर्त्य; keep म.स.प./ल.स.प. inline |
+| factors (divisors) / unit digit / power | गुणनखंड / इकाई अंक / घात | — | |
+| solve / equation / system | हल कीजिए / समीकरण / निकाय | — | |
+| quadratic / roots / discriminant | द्विघात / मूल / विविक्तकर | — | larger/smaller root बड़ा/छोटा मूल; sum/product योग/गुणनफल |
+| indices / surds / value | घातांक / करणी / मान | — | |
+| logarithm / base | लघुगणक / आधार | — | keep "log to base b of N" pattern as "b आधार पर N का लघुगणक" |
+| AP / GP / term / first term | समांतर श्रेढ़ी / गुणोत्तर श्रेढ़ी / पद / प्रथम पद | — | common difference सार्व अंतर, common ratio सार्व अनुपात |
+| inequality / modulus / integer / smallest | असमिका / निरपेक्ष मान / पूर्णांक / सबसे छोटा | — | |
+| angle / complement / supplement | कोण / पूरक कोण / संपूरक कोण | — | degree डिग्री (°) |
+| isosceles / hypotenuse / right-angled | समद्विबाहु / कर्ण / समकोण | — | vertex(apex) angle शीर्ष कोण, base angle आधार कोण |
+| polygon / interior angle / regular | बहुभुज / अंतःकोण / सम | — | |
+| ladder / wall | सीढ़ी / दीवार | — | |
+| coordinate / point / midpoint / slope | निर्देशांक / बिंदु / मध्यबिंदु / ढाल | — | section formula विभाजन सूत्र; internally आंतरिक रूप से |
+| trigonometry / angle of elevation | त्रिकोणमिति / उन्नयन कोण | — | standard-angle table मानक कोण सारणी; identity सर्वसमिका |
+| tower/pole/building/tree/flagpole/lighthouse/chimney | मीनार / खंभा / इमारत / पेड़ / ध्वजदंड / लाइटहाउस / चिमनी | — | TRIG_STRUCT pool (index-aligned) |
+| permutation / combination / factorial | क्रमचय / संचय / क्रमगुणित | — | |
+| arrange / books / committee / people | व्यवस्थित करना / पुस्तकें / समिति / व्यक्ति | — | handshake हस्तमिलन, circular वृत्ताकार, women/men महिलाएँ/पुरुष |
+| probability / bag / ball / toss | प्रायिकता / थैला / गेंद / उछालना | — | coin सिक्का, head चित, decimal दशमलव, multiple गुणज, at random यादृच्छिक रूप से |
+| red/blue/green/yellow/black/white | लाल / नीला / हरा / पीला / काला / सफ़ेद | — | PROB_COL pool |
+| set / union / only / both / neither | समुच्चय / सम्मिलन / केवल / दोनों / कोई नहीं | — | group समूह, class कक्षा, students विद्यार्थी, like पसंद करना, survey सर्वेक्षण |
+| tea/coffee, football/cricket, hockey, chess, carrom, tennis, badminton | चाय/कॉफ़ी, फुटबॉल/क्रिकेट, हॉकी, शतरंज, कैरम, टेनिस, बैडमिंटन | — | SET_CTX pool (games/drinks transliterate; subjects translate) |
+| Maths/Science/Hindi/English/Physics/Chemistry/History/Geography | गणित / विज्ञान / हिंदी / अंग्रेज़ी / भौतिकी / रसायन / इतिहास / भूगोल | — | SET_CTX school subjects (school subject, not the language picker) |
+| apples/oranges, pizza/burgers, painting/music, guitar/piano, dogs/cats | सेब/संतरे, पिज़्ज़ा/बर्गर, चित्रकला/संगीत, गिटार/पियानो, कुत्ते/बिल्लियाँ | — | SET_CTX pool |
+| rice/wheat/sugar/tea/coffee/pulses/flour/salt | चावल / गेहूँ / चीनी / चाय / कॉफ़ी / दाल / आटा / नमक | — | MIX_ITEMS pool |
+| Quantity I / Quantity II / compare | राशि I / राशि II / तुलना कीजिए | — | QC_REL: "राशि I > राशि II" etc. (I/II Roman, > < = symbols) |
+| more / less (than) | अधिक / कम | — | RAT_PCT descriptor: "B से 25% अधिक" |
+
 ## Reasoning subjects
 
 | English (app) | Hindi | Marathi | Note |

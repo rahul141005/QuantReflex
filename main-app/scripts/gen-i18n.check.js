@@ -33,7 +33,11 @@ function digitMultiset(str) { return (String(str).match(/[0-9]/g) || []).sort().
 function hasDevanagariDigit(str) { return /[०-९]/.test(String(str)); }
 /* Latin-leak heuristic for generated hi/mr text: strip {tokens}-free output's digits, units, ₹/%, all-caps
    cipher substrates (CAT→DBU stays Latin in HI books), and a DNT allowlist; any residual 3+ Latin run leaks. */
-var GEN_DNT = ['QuantReflex', 'QuanAI', 'Premium', 'DI', 'LR', 'AI', 'km', 'kmph', 'cm', 'mm', 'kg'];
+/* Do-not-translate tokens in generated content: product/subject acronyms, units, AND standard math notation that
+   stays Latin in Hindi/Marathi exam books (trig/log function names, permutation/combination notation). All-caps
+   abbreviations (CP, SP, SI, CI, HCF, LCM, AP, GP, TSA, LSA, CSA, BODMAS) are already stripped by the [A-Z]{2,} rule. */
+var GEN_DNT = ['QuantReflex', 'QuanAI', 'Premium', 'DI', 'LR', 'AI', 'km', 'kmph', 'cm', 'mm', 'kg',
+  'sin', 'cos', 'tan', 'cot', 'sec', 'cosec', 'log', 'nPr', 'nCr'];
 function genLeaks(str, extraAllow) {
   var s = String(str);
   s = s.replace(/[०-९0-9]/g, ' ').replace(/₹|%/g, ' ').replace(/km\/h|m\/s|s\/Q/g, ' ');
