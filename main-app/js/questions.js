@@ -884,15 +884,22 @@ function genStatistics() { return _genArch('statistics-basics', _STAT_ARCH, _STA
  *  correct relation. Reuses the drill engine's q.options MCQ path (no UI work). Answers are the relation strings. */
 var _QC_GT = 'Quantity I > Quantity II', _QC_LT = 'Quantity I < Quantity II', _QC_EQ = 'Quantity I = Quantity II';
 var _QC_OPTS = [_QC_GT, _QC_LT, _QC_EQ];
-function _qcWrap(q1, q2, desc1, desc2, work, k) {
-  var rel = q1 > q2 ? _QC_GT : (q1 < q2 ? _QC_LT : _QC_EQ);
-  return { q: 'Compare the two quantities.  Quantity I: ' + desc1 + '.  Quantity II: ' + desc2 + '.', a: rel, options: QRGen.shuffle(_QC_OPTS.slice()), k: k, explain: work + ' So Quantity I = ' + q1 + ' and Quantity II = ' + q2 + ', giving “' + rel + '”.' };
+/* ADR-111 Phase F-M2.5: quantity-comparison is the one text-MCQ quant format. build() stores the answer relation
+   INDEX (0=>, 1=<, 2==) plus a shuffled option-index permutation `ord`; the surface (stem, explanation) and the
+   localized `options`/`answer` render from the QC_REL pool by index (F3 channel) — self-consistent per language,
+   graded by string-equality. `a` is set to the EN relation so the node-context recompute/structural check reads it;
+   _wrapArch overrides it with the rendered (active-language) answer. */
+function _qcArch(slots, q1, q2, k) {
+  slots.q1 = q1; slots.q2 = q2;
+  slots.relIdx = q1 > q2 ? 0 : (q1 < q2 ? 1 : 2);
+  slots.ord = QRGen.shuffle([0, 1, 2]);
+  return { slots: slots, a: _QC_OPTS[slots.relIdx], k: k, v: randInt(0, 999) };
 }
-function _qcPct() { var b = pick([200, 250, 300, 400, 500, 600, 800]), a = pick([10, 15, 20, 25, 30, 40]), q1 = a * b / 100, d = pick([10, 20, 30]), q2 = pick([q1 - d, q1 + d, q1]); if (q2 < 0) q2 = q1 + d; return _qcWrap(q1, q2, a + '% of ' + b, '' + q2, a + '% of ' + b + ' = ' + q1 + '.', 'pct'); }
-function _qcProduct() { var a = randInt(6, 18), b = randInt(6, 18), c = randInt(6, 18), d = randInt(6, 18), q1 = a * b, q2 = c * d; return _qcWrap(q1, q2, a + ' × ' + b, c + ' × ' + d, a + ' × ' + b + ' = ' + q1 + '; ' + c + ' × ' + d + ' = ' + q2 + '.', 'product'); }
-function _qcSolve() { var m = randInt(2, 9), x = randInt(3, 20), n = randInt(1, 30), c = m * x + n, q2 = pick([x - 2, x - 1, x, x + 1, x + 2]); return _qcWrap(x, q2, 'the value of x, where ' + m + 'x + ' + n + ' = ' + c, '' + q2, m + 'x + ' + n + ' = ' + c + ' → x = ' + x + '.', 'solve'); }
-function _qcAverage() { var list = [randInt(10, 40), randInt(10, 40), randInt(10, 40)], s = list[0] + list[1] + list[2]; if (s % 3 !== 0) { list[2] += (3 - s % 3); s = list[0] + list[1] + list[2]; } var q1 = s / 3, q2 = pick([q1 - pick([2, 5, 8]), q1 + pick([2, 5, 8]), q1]); return _qcWrap(q1, q2, 'the average of ' + list.join(', '), '' + q2, 'Average = (' + list.join(' + ') + ')/3 = ' + q1 + '.', 'average'); }
-function _qcSquare() { var a = randInt(6, 20), q1 = a * a, q2 = pick([a * a - pick([1, 5, 11]), a * a + pick([1, 5, 11]), a * a]); return _qcWrap(q1, q2, a + '²', '' + q2, a + '² = ' + q1 + '.', 'square'); }
+function _qcPct() { var b = pick([200, 250, 300, 400, 500, 600, 800]), a = pick([10, 15, 20, 25, 30, 40]), q1 = a * b / 100, d = pick([10, 20, 30]), q2 = pick([q1 - d, q1 + d, q1]); if (q2 < 0) q2 = q1 + d; return _qcArch({ a: a, b: b }, q1, q2, 'pct'); }
+function _qcProduct() { var a = randInt(6, 18), b = randInt(6, 18), c = randInt(6, 18), d = randInt(6, 18), q1 = a * b, q2 = c * d; return _qcArch({ a: a, b: b, c: c, d: d }, q1, q2, 'product'); }
+function _qcSolve() { var m = randInt(2, 9), x = randInt(3, 20), n = randInt(1, 30), c = m * x + n, q2 = pick([x - 2, x - 1, x, x + 1, x + 2]); return _qcArch({ m: m, x: x, n: n, c: c }, x, q2, 'solve'); }
+function _qcAverage() { var list = [randInt(10, 40), randInt(10, 40), randInt(10, 40)], s = list[0] + list[1] + list[2]; if (s % 3 !== 0) { list[2] += (3 - s % 3); s = list[0] + list[1] + list[2]; } var q1 = s / 3, q2 = pick([q1 - pick([2, 5, 8]), q1 + pick([2, 5, 8]), q1]); return _qcArch({ list: list }, q1, q2, 'average'); }
+function _qcSquare() { var a = randInt(6, 20), q1 = a * a, q2 = pick([a * a - pick([1, 5, 11]), a * a + pick([1, 5, 11]), a * a]); return _qcArch({ a: a }, q1, q2, 'square'); }
 var _QC_ARCH = {
   easy: [{ k: 'pct', skill: 'compare', build: function () { return _qcPct(); } }, { k: 'product', skill: 'compare', build: function () { return _qcProduct(); } }],
   medium: [{ k: 'solve', skill: 'compare', build: function () { return _qcSolve(); } }, { k: 'average', skill: 'compare', build: function () { return _qcAverage(); } }, { k: 'pct', skill: 'compare', build: function () { return _qcPct(); } }],

@@ -35,8 +35,20 @@
   var RAT_PCT_POOL = [['25% more', '5:4'], ['20% less', '4:5'], ['50% more', '3:2'], ['20% more', '6:5'], ['25% less', '3:4'], ['10% less', '9:10'], ['12.5% more', '9:8'], ['16.66% less', '5:6'], ['37.5% more', '11:8'], ['11.11% less', '8:9'], ['66.66% more', '5:3'], ['150% more', '5:2'], ['40% more', '7:5'], ['75% more', '7:4']];
   /* Mixture item pool (index-aligned) — the commodity being mixed; ₹/kg and the ratio/price answers stay neutral. */
   var MIX_ITEMS = ['rice', 'wheat', 'sugar', 'tea', 'coffee', 'pulses', 'flour', 'salt'];
+  /* Quantity-comparison relation pool (index 0=>, 1=<, 2==) — the text-MCQ answer/option space. The three phrases
+     translate per language; grading stays self-consistent because answer AND options render from THIS pool by index
+     (build stored the answer index + a shuffled option-index order in slots). Shared o()/ans() below serve all five
+     QC archetypes — one rendering path, no per-archetype option logic. */
+  var QC_REL = ['Quantity I > Quantity II', 'Quantity I < Quantity II', 'Quantity I = Quantity II'];
+  function qcO(s) { return s.ord.map(function (i) { return QC_REL[i]; }); }
+  function qcAns(s) { return QC_REL[s.relIdx]; }
 
-  var pack = { pools: {}, tpl: {
+  /* F1 — every index-aligned pool is registered on pack.pools so QRGenI18n.pools('quant', lang) can enumerate them
+     and gen-i18n.check can assert cross-language length/shape parity. Templates still read the module-closure vars
+     directly (zero template churn); this is the same array by reference, exposed for the parity guard. */
+  var POOLS = { TRIG_STRUCT: TRIG_STRUCT, TRIG_IDENT: TRIG_IDENT, PROB_COL: PROB_COL, PROB_COLC: PROB_COLC, SET_CTX: SET_CTX, RAT_PCT_POOL: RAT_PCT_POOL, MIX_ITEMS: MIX_ITEMS, QC_REL: QC_REL };
+
+  var pack = { pools: POOLS, tpl: {
     /* ── Squares & roots ── */
     'squares:easy:direct': {
       s: [function (s) { return s.n + '² = ?'; }, function (s) { return 'Square of ' + s.n + ' = ?'; }, function (s) { return s.n + ' squared = ?'; }],
@@ -746,6 +758,34 @@
     'mixtures:hard:alligationQty': {
       s: [function (s) { return 'In what quantity (in kg) must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
       e: [function (s) { return 'By alligation, cheaper : dearer = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + '. Cheaper quantity = ' + s.y + ' × ' + s.lo + '/' + s.hi + ' = ' + s.x + ' kg.'; }]
+    },
+
+    /* ── Quantity comparison ── (the one text-MCQ quant format; stem/explain per archetype, options+answer from the
+       shared QC_REL pool via qcO/qcAns. Quantity I/II labels and the relation phrases translate; math stays neutral) */
+    'quantity-comparison:*:pct': {
+      s: [function (s) { return 'Compare the two quantities.  Quantity I: ' + s.a + '% of ' + s.b + '.  Quantity II: ' + s.q2 + '.'; }],
+      e: [function (s) { return s.a + '% of ' + s.b + ' = ' + s.q1 + '. So Quantity I = ' + s.q1 + ' and Quantity II = ' + s.q2 + ', giving “' + QC_REL[s.relIdx] + '”.'; }],
+      o: qcO, ans: qcAns
+    },
+    'quantity-comparison:*:product': {
+      s: [function (s) { return 'Compare the two quantities.  Quantity I: ' + s.a + ' × ' + s.b + '.  Quantity II: ' + s.c + ' × ' + s.d + '.'; }],
+      e: [function (s) { return s.a + ' × ' + s.b + ' = ' + s.q1 + '; ' + s.c + ' × ' + s.d + ' = ' + s.q2 + '. So Quantity I = ' + s.q1 + ' and Quantity II = ' + s.q2 + ', giving “' + QC_REL[s.relIdx] + '”.'; }],
+      o: qcO, ans: qcAns
+    },
+    'quantity-comparison:*:solve': {
+      s: [function (s) { return 'Compare the two quantities.  Quantity I: the value of x, where ' + s.m + 'x + ' + s.n + ' = ' + s.c + '.  Quantity II: ' + s.q2 + '.'; }],
+      e: [function (s) { return s.m + 'x + ' + s.n + ' = ' + s.c + ' → x = ' + s.x + '. So Quantity I = ' + s.q1 + ' and Quantity II = ' + s.q2 + ', giving “' + QC_REL[s.relIdx] + '”.'; }],
+      o: qcO, ans: qcAns
+    },
+    'quantity-comparison:*:average': {
+      s: [function (s) { return 'Compare the two quantities.  Quantity I: the average of ' + s.list.join(', ') + '.  Quantity II: ' + s.q2 + '.'; }],
+      e: [function (s) { return 'Average = (' + s.list.join(' + ') + ')/3 = ' + s.q1 + '. So Quantity I = ' + s.q1 + ' and Quantity II = ' + s.q2 + ', giving “' + QC_REL[s.relIdx] + '”.'; }],
+      o: qcO, ans: qcAns
+    },
+    'quantity-comparison:*:square': {
+      s: [function (s) { return 'Compare the two quantities.  Quantity I: ' + s.a + '².  Quantity II: ' + s.q2 + '.'; }],
+      e: [function (s) { return s.a + '² = ' + s.q1 + '. So Quantity I = ' + s.q1 + ' and Quantity II = ' + s.q2 + ', giving “' + QC_REL[s.relIdx] + '”.'; }],
+      o: qcO, ans: qcAns
     }
   } };
 
