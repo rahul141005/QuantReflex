@@ -143,31 +143,31 @@ var Auth = (function () {
 
   function getReadableError(error) {
     if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-      return 'No account found with this email.';
+      return QRI18n.t('auth.errNoAccount');
     } else if (error.code === 'auth/wrong-password') {
-      return 'Incorrect password.';
+      return QRI18n.t('auth.errWrongPassword');
     } else if (error.code === 'auth/invalid-credential') {
-      return 'Invalid email or password.';
+      return QRI18n.t('auth.errInvalidCreds');
     } else if (error.code === 'auth/too-many-requests') {
-      return 'Too many attempts. Please try again later.';
+      return QRI18n.t('auth.errTooMany');
     } else if (error.code === 'auth/email-already-in-use') {
-      return 'An account already exists with this email address.';
+      return QRI18n.t('auth.errEmailExists');
     } else if (error.code === 'auth/weak-password') {
-      return 'Password is too weak.';
+      return QRI18n.t('auth.errWeakPassword');
     } else if (error.code === 'auth/network-request-failed') {
-      return 'Network unavailable. Please check your connection.';
+      return QRI18n.t('auth.errNetwork');
     } else if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-      return 'Sign-in was cancelled.';
+      return QRI18n.t('auth.errCancelled');
     } else if (error.code === 'auth/popup-blocked') {
-      return 'Your browser blocked the sign-in window. Please allow popups and try again.';
+      return QRI18n.t('auth.errPopupBlocked');
     } else if (error.code === 'auth/account-exists-with-different-credential') {
-      return 'An account already exists with this email using a different sign-in method. Log in with your email and password.';
+      return QRI18n.t('auth.errDifferentMethod');
     } else if (error.code === 'auth/unauthorized-domain') {
-      return 'Sign-in is not available from this address.';
+      return QRI18n.t('auth.errUnauthorizedDomain');
     } else if (error.code === 'auth/operation-not-allowed') {
-      return 'Google sign-in is not enabled. Please contact support.';
+      return QRI18n.t('auth.errGoogleDisabled');
     }
-    return error.message || 'Authentication failed.';
+    return error.message || QRI18n.t('auth.errAuthFailed');
   }
 
   /* Idempotent server-side provisioning for provider sign-ins (see onAuthStateChanged). Resolves
@@ -193,7 +193,7 @@ var Auth = (function () {
    */
   function loginWithGoogle(callback) {
     if (!_auth) {
-      callback('Authentication service not available.', null);
+      callback(QRI18n.t('auth.errServiceMissing'), null);
       return;
     }
     var provider = new firebase.auth.GoogleAuthProvider();
@@ -242,7 +242,7 @@ var Auth = (function () {
               var data = JSON.parse(text);
               return { ok: false, data: data };
             } catch (e) {
-              return { ok: false, data: { error: { message: 'Server error (' + resp.status + '). Please try again later.' } } };
+              return { ok: false, data: { error: { message: QRI18n.t('auth.errServer', { status: resp.status }) } } };
             }
           });
         }
@@ -250,16 +250,16 @@ var Auth = (function () {
       })
       .then(function (result) {
         if (!result.ok) {
-          var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || 'Registration failed.';
+          var errMsg = (result.data && result.data.error && result.data.error.message) || (result.data && result.data.error) || QRI18n.t('auth.errRegisterFailed');
           callback(errMsg, null);
           return Promise.resolve();
         }
         
         if (!result.data || !result.data.token) {
-           throw new Error('Registration succeeded, but the server returned an invalid authentication token.');
+           throw new Error(QRI18n.t('auth.errRegisterInvalidToken'));
         }
 
-        if (!_auth) throw new Error('Authentication service not available.');
+        if (!_auth) throw new Error(QRI18n.t('auth.errServiceMissing'));
         return _auth.signInWithCustomToken(result.data.token)
           .then(function () {
             callback(null, _currentUser);
@@ -270,9 +270,9 @@ var Auth = (function () {
       })
       .catch(function (error) {
         console.error('Registration pipeline error:', error);
-        var displayMsg = error && error.message ? error.message : 'A connection error occurred. Please try again.';
+        var displayMsg = error && error.message ? error.message : QRI18n.t('auth.errConnection');
         if (displayMsg === 'Failed to fetch') {
-           displayMsg = 'Network error. Please check your connection to the server.';
+           displayMsg = QRI18n.t('auth.errNetworkServer');
         }
         callback(displayMsg, null);
       });
@@ -290,7 +290,7 @@ var Auth = (function () {
     }
 
     if (!_auth) {
-      callback('Authentication service not available.', null);
+      callback(QRI18n.t('auth.errServiceMissing'), null);
       return;
     }
 
@@ -310,8 +310,8 @@ var Auth = (function () {
    */
   function resetPassword(email, callback) {
     var cleanEmail = (email || '').trim().toLowerCase();
-    if (!cleanEmail || cleanEmail.indexOf('@') < 1) { callback('Enter a valid email address.'); return; }
-    if (!_auth) { callback('Authentication service not available.'); return; }
+    if (!cleanEmail || cleanEmail.indexOf('@') < 1) { callback(QRI18n.t('auth.errEnterValidEmail')); return; }
+    if (!_auth) { callback(QRI18n.t('auth.errServiceMissing')); return; }
     _auth.sendPasswordResetEmail(cleanEmail)
       .then(function () { callback(null); })
       .catch(function (err) {
@@ -322,7 +322,7 @@ var Auth = (function () {
 
   function logout(callback) {
     if (!_auth) {
-      if (callback) callback('Authentication service not available.');
+      if (callback) callback(QRI18n.t('auth.errServiceMissing'));
       return;
     }
 
@@ -339,7 +339,7 @@ var Auth = (function () {
         if (callback) callback(null);
       })
       .catch(function(err) {
-        if (callback) callback('Logout failed: ' + err.message);
+        if (callback) callback(QRI18n.t('settings.logoutFailed', { error: err.message }));
       });
   }
 

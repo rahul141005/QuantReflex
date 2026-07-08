@@ -44,25 +44,25 @@
     <div class="auth-card">
       <img class="auth-logo" src="appicons/splashQ.svg" alt="QuantReflex Logo" />
       <h1 class="auth-title">QuantReflex</h1>
-      <p class="auth-subtitle">Train your Speed Aptitude daily</p>
+      <p class="auth-subtitle" data-i18n="auth.subtitle">Train your Speed Aptitude daily</p>
 
       <!-- Auth Tabs -->
       <div class="auth-tabs">
-        <button type="button" class="auth-tab active" data-mode="login">Login</button>
-        <button type="button" class="auth-tab" data-mode="register">Create Account</button>
+        <button type="button" class="auth-tab active" data-mode="login" data-i18n="auth.tabLogin">Login</button>
+        <button type="button" class="auth-tab" data-mode="register" data-i18n="auth.tabRegister">Create Account</button>
       </div>
 
       <!-- Auth Form -->
       <div id="authForm">
         <div class="auth-field">
-          <label for="loginEmail" class="auth-label">Email</label>
+          <label for="loginEmail" class="auth-label" data-i18n="auth.emailLabel">Email</label>
           <input type="email" id="loginEmail" class="auth-input" placeholder="you@example.com" autocomplete="email" autocapitalize="off" />
         </div>
         <div class="auth-field">
-          <label for="loginPassword" class="auth-label">Password</label>
+          <label for="loginPassword" class="auth-label" data-i18n="auth.passwordLabel">Password</label>
           <div class="password-wrapper">
-            <input type="password" id="loginPassword" class="auth-input" placeholder="Enter your password" autocomplete="current-password" />
-            <button type="button" class="password-toggle-btn" id="togglePasswordVisibility" aria-label="Show password">
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Enter your password" autocomplete="current-password" data-i18n-attr="placeholder:auth.passwordPlaceholder" />
+            <button type="button" class="password-toggle-btn" id="togglePasswordVisibility" aria-label="Show password" data-i18n-attr="aria-label:auth.showPasswordAria">
               <svg class="eye-icon-show" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               <svg class="eye-icon-hide" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
             </button>
@@ -73,26 +73,26 @@
         <!-- Register-only field -->
         <div id="registerFields" style="display:none;">
           <div class="auth-field coaching-id-field">
-            <label for="loginCoachingId" class="auth-label">Coaching ID <span style="font-weight:normal;text-transform:none;opacity:0.8;">(Optional)</span></label>
-            <input type="text" id="loginCoachingId" class="auth-input" placeholder="e.g. QRABCD1234" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;" maxlength="50" />
+            <label for="loginCoachingId" class="auth-label"><span data-i18n="auth.coachingLabel">Coaching ID</span> <span style="font-weight:normal;text-transform:none;opacity:0.8;" data-i18n="auth.coachingOptional">(Optional)</span></label>
+            <input type="text" id="loginCoachingId" class="auth-input" placeholder="e.g. QRABCD1234" data-i18n-attr="placeholder:auth.coachingPlaceholder" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;" maxlength="50" />
             <div id="coachingIdValidation" class="login-field-validation"></div>
-            <div class="coaching-helper-text">Enter your coaching code if provided by your institute.</div>
+            <div class="coaching-helper-text" data-i18n="auth.coachingHelper">Enter your coaching code if provided by your institute.</div>
           </div>
         </div>
 
         <div id="forgotPasswordRow" style="text-align:right;margin:-.15rem 0 .35rem;">
-          <button type="button" id="forgotPasswordBtn" class="auth-forgot-btn">Forgot password?</button>
+          <button type="button" id="forgotPasswordBtn" class="auth-forgot-btn" data-i18n="auth.forgotPassword">Forgot password?</button>
         </div>
 
         <div id="loginError" class="auth-error" style="display:none;"></div>
-        <button id="authSubmitBtn" class="auth-btn">Log In</button>
-        <div class="auth-divider"><span>or</span></div>
+        <button id="authSubmitBtn" class="auth-btn" data-i18n="auth.submitLogin">Log In</button>
+        <div class="auth-divider"><span data-i18n="auth.divider">or</span></div>
         <button type="button" id="googleSignInBtn" class="auth-google-btn">
           <svg class="auth-google-logo" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          <span id="googleSignInLabel">Continue with Google</span>
+          <span id="googleSignInLabel" data-i18n="auth.googleContinue">Continue with Google</span>
         </button>
       </div>
-      <p class="auth-footer">🔒 Your data syncs across all your devices.</p>
+      <p class="auth-footer" data-i18n="auth.footerSync">🔒 Your data syncs across all your devices.</p>
     </div>
   </div>
 

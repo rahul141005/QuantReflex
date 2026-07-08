@@ -189,7 +189,7 @@ if (typeof QRUpdateManager !== 'undefined') {
     swUrl: './service-worker.js',
     appKey: 'qr',
     onUpdateAvailable: function (shouldToast) { if (shouldToast) _showUpdateToast(); },
-    onUpdated: function () { if (typeof showToast === 'function') showToast('✅ App updated successfully'); }
+    onUpdated: function () { if (typeof showToast === 'function') showToast(QRI18n.t('app.updated')); }
   });
 }
 
@@ -212,7 +212,7 @@ function _showUpdateToast() {
     'box-shadow:0 4px 16px rgba(0,0,0,.35)', 'max-width:90vw',
     'cursor:pointer'
   ].join(';');
-  toast.textContent = '\uD83D\uDE80 New version available. Update from Settings';
+  toast.textContent = QRI18n.t('app.updateAvailable');
   document.body.appendChild(toast);
   toast.addEventListener('click', function () {
     toast.remove();
@@ -591,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function () {
         /* ADR-072: if this sign-out was caused by the account being opened on another device, explain it once. */
         try {
           if (window.Session && Session.consumeReplacedFlag() && typeof showToast === 'function') {
-            showToast('Signed out — your account was opened on another device.');
+            showToast(QRI18n.t('auth.signedOutElsewhere'));
           }
         } catch (_) {}
       }
@@ -657,10 +657,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!authSubmitBtn) return;
       authSubmitBtn.disabled = loading;
       if (loading) {
-        authSubmitBtn.textContent = 'Please wait...';
+        authSubmitBtn.textContent = QRI18n.t('auth.pleaseWait');
       } else {
         var activeTab = document.querySelector('.auth-tab.active');
-        authSubmitBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+        authSubmitBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? QRI18n.t('auth.tabRegister') : QRI18n.t('auth.submitLogin');
       }
     }
 
@@ -684,12 +684,12 @@ document.addEventListener('DOMContentLoaded', function () {
         _isSignupMode = true;
         if (registerFields) registerFields.style.display = 'block';
         if (forgotRow) forgotRow.style.display = 'none';
-        if (authSubmitBtn) authSubmitBtn.textContent = 'Create Account';
+        if (authSubmitBtn) authSubmitBtn.textContent = QRI18n.t('auth.tabRegister');
       } else {
         _isSignupMode = false;
         if (registerFields) registerFields.style.display = 'none';
         if (forgotRow) forgotRow.style.display = 'block';
-        if (authSubmitBtn) authSubmitBtn.textContent = 'Log In';
+        if (authSubmitBtn) authSubmitBtn.textContent = QRI18n.t('auth.submitLogin');
       }
       hideError();
       _resetAllValidation();
@@ -704,14 +704,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var email = emailInput ? emailInput.value : '';
         if (!email || email.indexOf('@') < 1) {
           if (emailInput) emailInput.focus();
-          if (typeof showToast === 'function') showToast('Enter your email above first, then tap "Forgot password?".');
-          else if (loginError) { loginError.textContent = 'Enter your email above first.'; loginError.style.display = 'block'; }
+          if (typeof showToast === 'function') showToast(QRI18n.t('auth.forgotNeedEmail'));
+          else if (loginError) { loginError.textContent = QRI18n.t('auth.forgotNeedEmailShort'); loginError.style.display = 'block'; }
           return;
         }
-        forgotBtn.disabled = true; var _orig = forgotBtn.textContent; forgotBtn.textContent = 'Sending…';
+        forgotBtn.disabled = true; var _orig = forgotBtn.textContent; forgotBtn.textContent = QRI18n.t('auth.sending');
         Auth.resetPassword(email, function (err) {
           forgotBtn.disabled = false; forgotBtn.textContent = _orig;
-          var msg = err ? err : 'If an account exists for that email, we just sent a reset link. Check your inbox (and spam).';
+          var msg = err ? err : QRI18n.t('auth.resetSent');
           if (typeof showToast === 'function') showToast(msg);
           else if (loginError) { loginError.textContent = msg; loginError.style.display = 'block'; }
         });
@@ -726,6 +726,23 @@ document.addEventListener('DOMContentLoaded', function () {
     var _coachingDebounce = null;
     var passwordValidationEl = document.getElementById('passwordValidation');
     var coachingIdValidationEl = document.getElementById('coachingIdValidation');
+
+    /* ADR-111: validator rule labels come from the byte-locked shared validators (ADR-099) —
+       localize at display time by mapping the canonical English label to a catalog key. Unmapped
+       labels render as-is (English), never break. */
+    var _VAL_LABEL_KEYS = {
+      'At least 8 characters': 'auth.ruleMinChars',
+      'One uppercase letter': 'auth.ruleUpper',
+      'One lowercase letter': 'auth.ruleLower',
+      'One number': 'auth.ruleNumber',
+      'Please enter a valid email address.': 'auth.invalidEmail',
+      'Password must be at least 6 characters.': 'auth.passwordMin6',
+      'Password does not meet requirements.': 'auth.passwordWeak'
+    };
+    function _valLabel(label) {
+      var k = _VAL_LABEL_KEYS[label];
+      return k ? QRI18n.t(k) : label;
+    }
 
     /**
      * Render validation results into a container element.
@@ -742,7 +759,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (result.valid) {
         containerEl.className = 'login-field-validation active all-valid';
-        containerEl.innerHTML = '<span class="val-summary">Looks good</span>';
+        containerEl.innerHTML = '<span class="val-summary">' + QRI18n.t('auth.looksGood') + '</span>';
         if (inputEl) {
           inputEl.classList.remove('input-error');
           inputEl.classList.add('input-valid');
@@ -752,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function () {
         for (var i = 0; i < rules.length; i++) {
           var r = rules[i];
           var passed = r.passed !== undefined ? r.passed : (typeof r.test === 'function' ? r.test() : false);
-          html += '<li class="' + (passed ? 'val-pass' : 'val-error') + '">' + r.label + '</li>';
+          html += '<li class="' + (passed ? 'val-pass' : 'val-error') + '">' + _valLabel(r.label) + '</li>';
         }
         html += '</ul>';
         containerEl.className = 'login-field-validation active';
@@ -855,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!_isSignupMode) {
             /* LOGIN FLOW */
             if (typeof Auth === 'undefined' || !Auth.login) {
-              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              showError(QRI18n.t('auth.serviceUnavailable'));
               return;
             }
 
@@ -893,12 +910,12 @@ document.addEventListener('DOMContentLoaded', function () {
             var coachingId = loginCoachingId ? loginCoachingId.value.trim() : '';
             
             if (loginCoachingId && loginCoachingId.classList.contains('input-error')) {
-              showError('Please enter a valid coaching code or leave it blank.');
+              showError(QRI18n.t('auth.coachingInvalid'));
               return;
             }
             
             if (typeof Auth === 'undefined' || !Auth.signup) {
-              showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+              showError(QRI18n.t('auth.serviceUnavailable'));
               return;
             }
 
@@ -937,14 +954,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var googleSignInLabel = document.getElementById('googleSignInLabel');
     function _setGoogleLoading(loading) {
       if (googleSignInBtn) googleSignInBtn.disabled = loading;
-      if (googleSignInLabel) googleSignInLabel.textContent = loading ? 'Please wait…' : 'Continue with Google';
+      if (googleSignInLabel) googleSignInLabel.textContent = loading ? QRI18n.t('auth.pleaseWaitG') : QRI18n.t('auth.googleContinue');
     }
     if (googleSignInBtn) {
       googleSignInBtn.addEventListener('click', function (e) {
         e.preventDefault();
         if (googleSignInBtn.disabled) return;
         if (typeof Auth === 'undefined' || !Auth.loginWithGoogle) {
-          showError('Authentication service is currently unavailable. Please check your connection and refresh.');
+          showError(QRI18n.t('auth.serviceUnavailable'));
           return;
         }
         hideError();
@@ -1018,8 +1035,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data && data.valid) {
               /* Trust signal (ADR-030): confirm WHICH institute ("Connected to <name>"), with the logo when
                  the coaching has set one (coachings.logoUrl) — a stronger join confirmation than "valid". */
-              var nm = data.name ? ('Connected to ' + _esc(data.name)) : 'Valid coaching code';
-              var sc = (typeof data.studentCount === 'number' && data.studentCount > 0) ? (' · ' + data.studentCount + ' students') : '';
+              var nm = data.name ? QRI18n.t('auth.connectedTo', { name: _esc(data.name) }) : QRI18n.t('auth.validCoachingCode');
+              var sc = (typeof data.studentCount === 'number' && data.studentCount > 0) ? QRI18n.t('auth.studentCount', { count: data.studentCount }) : '';
               var logo = (typeof data.logoUrl === 'string' && /^https:\/\//i.test(data.logoUrl))
                 ? '<img class="coaching-join-logo" src="' + _esc(data.logoUrl) + '" alt="" onerror="this.style.display=\'none\'" /> ' : '';
               coachingIdValidationEl.className = 'login-field-validation active all-valid';
@@ -1028,9 +1045,9 @@ document.addEventListener('DOMContentLoaded', function () {
               loginCoachingId.classList.remove('input-error');
               loginCoachingId.classList.add('input-valid');
             } else {
-              var msg = (data && data.reason === 'suspended') ? 'This institute is suspended — contact them.'
-                : (data && data.reason === 'deleted') ? 'This institute is no longer active.'
-                : 'Code not found.';
+              var msg = (data && data.reason === 'suspended') ? QRI18n.t('auth.instituteSuspended')
+                : (data && data.reason === 'deleted') ? QRI18n.t('auth.instituteInactive')
+                : QRI18n.t('auth.codeNotFound');
               coachingIdValidationEl.className = 'login-field-validation active';
               coachingIdValidationEl.innerHTML = '<ul><li class="val-error">' + msg + '</li></ul>';
               loginCoachingId.classList.remove('input-valid');
@@ -1039,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function () {
           })
           .catch(function(err) {
             coachingIdValidationEl.className = 'login-field-validation active';
-            coachingIdValidationEl.innerHTML = '<ul><li class="val-error">Could not verify code</li></ul>';
+            coachingIdValidationEl.innerHTML = '<ul><li class="val-error">' + QRI18n.t('auth.verifyFailed') + '</li></ul>';
           });
       }, 500);
     }
