@@ -203,14 +203,15 @@ function createDrillEngine(container, opts) {
   /* Read the persisted difficulty preference through whichever settings accessor is present (mirrors begin()'s
      guarded lookup). Adaptive sessions report 'Adaptive' since the level moves in-session. */
   function _startDifficulty() {
-    if (adaptiveMode) return 'Adaptive';
+    if (adaptiveMode) return QRI18n.t('drill.adaptive');
     var s = {};
     try {
       if (typeof AppState !== 'undefined' && AppState.getSettings) s = AppState.getSettings() || {};
       else if (typeof loadSettings === 'function') s = loadSettings() || {};
       else s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
     } catch (_) { s = {}; }
-    return _startTitleCase(s.difficulty || 'medium');
+    var _dk = { easy: 'settings.difficultyEasy', medium: 'settings.difficultyMedium', hard: 'settings.difficultyHard' }[s.difficulty || 'medium'];
+    return _dk ? QRI18n.t(_dk) : _startTitleCase(s.difficulty || 'medium');
   }
 
   function _fmtDurLabel(sec) {
@@ -230,23 +231,23 @@ function createDrillEngine(container, opts) {
   function _startStats() {
     var est = _estDurationSec();
     var timer;
-    if (timeLimit) timer = { icon: '⏱', val: _fmtDurLabel(timeLimit), lbl: 'Total limit' };
-    else if (perQLimit) timer = { icon: '⚡', val: perQLimit + 's', lbl: 'Per question' };
-    else timer = { icon: '🕊️', val: 'Relaxed', lbl: 'No timer' };
+    if (timeLimit) timer = { icon: '⏱', val: _fmtDurLabel(timeLimit), lbl: QRI18n.t('drill.totalLimit') };
+    else if (perQLimit) timer = { icon: '⚡', val: perQLimit + 's', lbl: QRI18n.t('drill.perQuestionLbl') };
+    else timer = { icon: '🕊️', val: QRI18n.t('drill.relaxed'), lbl: QRI18n.t('drill.noTimer') };
     return [
-      { icon: '📝', val: String(count), lbl: count === 1 ? 'Question' : 'Questions' },
-      { icon: '⏳', val: (timeLimit ? '≤ ' : '≈ ') + _fmtDurLabel(est), lbl: 'Est. time' },
-      { icon: '📊', val: _startDifficulty(), lbl: 'Difficulty' },
+      { icon: '📝', val: String(count), lbl: QRI18n.t('drill.questionsLbl', { count: count }) },
+      { icon: '⏳', val: (timeLimit ? '≤ ' : '≈ ') + _fmtDurLabel(est), lbl: QRI18n.t('drill.estTime') },
+      { icon: '📊', val: _startDifficulty(), lbl: QRI18n.t('drill.difficultyLbl') },
       timer
     ];
   }
 
   function _startContext() {
-    if (reviewMode) return 'A focused pass over questions you\'ve missed before.';
-    if (diSet) return 'One shared context · linked questions — read once, answer all.';
-    if (topics && topics.length > 1) return 'Spanning ' + topics.length + ' topics for a mixed workout.';
-    if (adaptiveMode) return 'Difficulty adapts to you as you go — stay sharp.';
-    return 'Ranked on accuracy and speed. Answer at your own pace.';
+    if (reviewMode) return QRI18n.t('drill.ctxReview');
+    if (diSet) return QRI18n.t('drill.ctxSet');
+    if (topics && topics.length > 1) return QRI18n.t('drill.ctxTopics', { count: topics.length });
+    if (adaptiveMode) return QRI18n.t('drill.ctxAdaptive');
+    return QRI18n.t('drill.ctxDefault');
   }
 
   function renderStart() {
@@ -266,8 +267,8 @@ function createDrillEngine(container, opts) {
         '<h2 class="drill-start-title">' + _escHtml(badge.title) + '</h2>' +
         '<p class="drill-start-sub">' + _escHtml(_startContext()) + '</p>' +
         '<div class="drill-start-stats">' + statHTML + '</div>' +
-        '<button id="startBtn" class="btn-primary drill-start-cta">Begin Challenge</button>' +
-        '<button id="startBackBtn" class="btn-secondary drill-start-back">← Back to Modes</button>' +
+        '<button id="startBtn" class="btn-primary drill-start-cta">' + QRI18n.t('drill.beginChallenge') + '</button>' +
+        '<button id="startBackBtn" class="btn-secondary drill-start-back">' + QRI18n.t('drill.backToModes') + '</button>' +
       '</div>';
     hideCustomNumpad();
     _exitDrillSession();
@@ -289,9 +290,9 @@ function createDrillEngine(container, opts) {
   function _escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
   function _adaptiveDiffLabel(diff) {
-    if (diff === 'hard') return '<span class="adaptive-mode-pill adaptive-pill-hard">Hard ▲</span>';
-    if (diff === 'easy') return '<span class="adaptive-mode-pill adaptive-pill-easy">Easy ▼</span>';
-    return '<span class="adaptive-mode-pill adaptive-pill-medium">Medium ●</span>';
+    if (diff === 'hard') return '<span class="adaptive-mode-pill adaptive-pill-hard">' + QRI18n.t('settings.difficultyHard') + ' ▲</span>';
+    if (diff === 'easy') return '<span class="adaptive-mode-pill adaptive-pill-easy">' + QRI18n.t('settings.difficultyEasy') + ' ▼</span>';
+    return '<span class="adaptive-mode-pill adaptive-pill-medium">' + QRI18n.t('settings.difficultyMedium') + ' ●</span>';
   }
 
   /* DI Sets (ADR-078): the shared chart/caselet context is rendered ONCE in a persistent region; each question swaps
@@ -309,8 +310,8 @@ function createDrillEngine(container, opts) {
         ? DICharts.render(diSet.chart)
         : (diSet.context ? '<div class="di-caselet-context">' + _escHtml(diSet.context) + '</div>' : '');
       container.innerHTML =
-        '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' +
-        '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' +
+        '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="' + QRI18n.t('drill.exitAria') + '" title="' + QRI18n.t('drill.exitAria') + '">✕</button>' +
+        '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="' + QRI18n.t('drill.pauseAria') + '" title="' + QRI18n.t('drill.pauseTitle') + '">⏸</button>' +
         '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">' + (typeof qrIco === 'function' ? qrIco('flag', '⚑') : '⚑') + '</button>' +
         '<div class="card center-content fade-in question-card-transition">' +
           '<div class="drill-question-scroll">' +
@@ -339,20 +340,20 @@ function createDrillEngine(container, opts) {
     var isMCQ = !!(q.options && q.options.length);
     var setBadge = (diSet.category && String(diSet.category).indexOf('lr-') === 0) ? 'LR SET' : 'DI SET';
     host.innerHTML =
-      '<p class="drill-progress">Question ' + (current + 1) + ' / ' + count + ' <span class="di-set-badge">' + setBadge + '</span></p>' +
-      '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + count + '" aria-valuenow="' + (current + 1) + '" aria-label="Question ' + (current + 1) + ' of ' + count + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+      '<p class="drill-progress">' + QRI18n.t('drill.progress', { n: current + 1, total: count }) + ' <span class="di-set-badge">' + setBadge + '</span></p>' +
+      '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + count + '" aria-valuenow="' + (current + 1) + '" aria-label="' + QRI18n.t('drill.progressAria', { n: current + 1, total: count }) + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
       /* set stems sit under a shared chart/caselet — they are instructions, never headlines (ADR-093) */
       '<h2 class="question-text question-text-compact">' + _escHtml(q.question) + '</h2>' +
       (isMCQ
-        ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="Answer options">' +
+        ? '<div id="mcqOptions" class="mcq-options" role="group" aria-label="' + QRI18n.t('drill.answerOptionsAria') + '">' +
             q.options.map(function (o) { var s = _escHtml(String(o)); var len = String(o).length; var wide = len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : ''; return '<button class="mcq-option' + wide + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>'; }).join('') +
           '</div>'
-        : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />') +
+        : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="' + QRI18n.t('drill.yourAnswer') + '" maxlength="15" readonly />') +
       '<div id="feedback" class="feedback" aria-live="polite"></div>';
     /* fresh actions each question (checkAnswer mutates them into Next / disables skip). */
     var actions = container.querySelector('.drill-actions');
     actions.className = 'drill-actions';
-    actions.innerHTML = '<button id="submitBtn" class="btn-primary">Submit</button>';
+    actions.innerHTML = '<button id="submitBtn" class="btn-primary">' + QRI18n.t('drill.submit') + '</button>';
     ui.globalTimerEl = null; ui.perQTimerEl = null;
     ui.answerInputEl = host.querySelector('#answerInput');
     ui.submitBtnEl = container.querySelector('#submitBtn');
@@ -376,7 +377,7 @@ function createDrillEngine(container, opts) {
     var _sk = typeof loadSettings === 'function' ? loadSettings() : {};
     var _ska = (typeof canAccessFeature === 'function') && canAccessFeature('skip_question'); /* ADR-109 fail-closed */
     if (_ska && _sk.skipEnabled && _sk.difficulty !== 'hard') {
-      var skipBtn = document.createElement('button'); skipBtn.className = 'btn skip-btn'; skipBtn.textContent = 'Skip →';
+      var skipBtn = document.createElement('button'); skipBtn.className = 'btn skip-btn'; skipBtn.textContent = QRI18n.t('drill.skipArrow');
       skipBtn.addEventListener('click', function () { if (answered) return; answered = true; recordAnswer(false, q.category, q, null); nextQuestion(); });
       actions.classList.add('has-skip'); actions.insertBefore(skipBtn, submitBtn);
     }
@@ -422,7 +423,7 @@ function createDrillEngine(container, opts) {
     var a = document.createElement('button');
     a.type = 'button';
     a.className = 'drill-teach-concept';
-    a.textContent = '📖 Review ' + topic.title;
+    a.textContent = QRI18n.t('drill.reviewChapter', { title: topic.title });
     a.addEventListener('click', function () {
       try { cleanup(); } catch (_) {}
       try { _exitDrillSession(); } catch (_) {}
@@ -437,7 +438,7 @@ function createDrillEngine(container, opts) {
     wrap.className = 'drill-teach-why';
     var head = document.createElement('div');
     head.className = 'drill-teach-why-head';
-    head.textContent = 'Why';
+    head.textContent = QRI18n.t('drill.why');
     wrap.appendChild(head);
     var list = document.createElement('div');
     list.className = 'drill-teach-steps';
@@ -468,7 +469,7 @@ function createDrillEngine(container, opts) {
         el.className = 'auto-explain-tip'; el.textContent = _getAutoTip(q.category, q.subtype);
       } else {
         el.className = 'auto-explain-tip auto-explain-locked';
-        el.innerHTML = '🔒 <a class="auto-explain-unlock" href="#">Unlock unlimited explanations</a>';
+        el.innerHTML = '🔒 <a class="auto-explain-unlock" href="#">' + QRI18n.t('drill.unlockExplanations') + '</a>';
         var _lockLink = el.querySelector('.auto-explain-unlock');
         if (_lockLink) _lockLink.addEventListener('click', function (e) { e.preventDefault(); if (typeof showPaywall === 'function') showPaywall('ai_explain'); });
       }
@@ -494,14 +495,14 @@ function createDrillEngine(container, opts) {
     var adaptivePill = adaptiveMode ? _adaptiveDiffLabel(_adaptiveDifficulty) : '';
     container.innerHTML =
       (isDuel ? duelHeaderHTML : '') +
-      (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="Exit session" title="Exit session">✕</button>' : '') +
-      (!isDuel ? '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="Pause session" title="Pause">⏸</button>' : '') +
+      (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="' + QRI18n.t('drill.exitAria') + '" title="' + QRI18n.t('drill.exitAria') + '">✕</button>' : '') +
+      (!isDuel ? '<button class="session-pause drill-pause-btn" id="drillPauseBtn" aria-label="' + QRI18n.t('drill.pauseAria') + '" title="' + QRI18n.t('drill.pauseTitle') + '">⏸</button>' : '') +
       /* ADR-096: fast in-drill report — auto-scopes to this exact question. Not shown in duels. */
       (!isDuel ? '<button class="session-report drill-report-btn" id="drillReportBtn" aria-label="Report a problem with this question" title="Report a problem">' + (typeof qrIco === 'function' ? qrIco('flag', '⚑') : '⚑') + '</button>' : '') +
       '<div class="card center-content fade-in question-card-transition' + (isMCQ ? ' drill-has-mcq' : '') + '">' +
         '<div class="drill-question-scroll">' +
-          '<p class="drill-progress">Question ' + (current + 1) + ' / ' + displayCount + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
-          '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + displayCount + '" aria-valuenow="' + (current + 1) + '" aria-label="Question ' + (current + 1) + ' of ' + displayCount + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+          '<p class="drill-progress">' + QRI18n.t('drill.progress', { n: current + 1, total: displayCount }) + (adaptivePill ? ' ' + adaptivePill : '') + '</p>' +
+          '<div class="drill-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + displayCount + '" aria-valuenow="' + (current + 1) + '" aria-label="' + QRI18n.t('drill.progressAria', { n: current + 1, total: displayCount }) + '"><div class="drill-progress-fill" style="width:' + progressPct + '%"></div></div>' +
           (timeLimit ? '<p id="globalTimer" class="timer"></p>' : '') +
           (perQLimit ? '<p id="perQTimer" class="timer"></p>' : '') +
           /* DI (ADR-074): a question may carry a `chart` spec rendered ABOVE the stem. Reuses the same engine,
@@ -518,22 +519,22 @@ function createDrillEngine(container, opts) {
              Visual LR (ADR-079/093): when the choices are pictures, each button renders its figure with an A–D
              badge (the token in data-opt is still what the grader compares). */
           (isMCQ
-            ? '<div id="mcqOptions" class="mcq-options' + (q.optionFigures ? ' mcq-options-figures' : '') + '" role="group" aria-label="Answer options">' +
+            ? '<div id="mcqOptions" class="mcq-options' + (q.optionFigures ? ' mcq-options-figures' : '') + '" role="group" aria-label="' + QRI18n.t('drill.answerOptionsAria') + '">' +
                 q.options.map(function (o, _i) {
                   var s = _escHtml(String(o));
                   var hasFig = q.optionFigures && q.optionFigures[_i] && typeof LRFigures !== 'undefined';
                   if (hasFig) {
                     var letter = String.fromCharCode(65 + _i);
-                    var alab = 'Option ' + letter + ': ' + LRFigures.describe(q.optionFigures[_i]);
+                    var alab = QRI18n.t('drill.optionAria', { opt: letter }) + ': ' + LRFigures.describe(q.optionFigures[_i]);
                     return '<button class="mcq-option mcq-figure-option" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="' + _escHtml(alab).replace(/"/g, '&quot;') + '">' +
                       '<span class="mcq-opt-letter" aria-hidden="true">' + letter + '</span>' + LRFigures.render(q.optionFigures[_i]) + '</button>';
                   }
                   var len = String(o).length;
                   var cls = 'mcq-option' + (len > 14 ? (len > 48 ? ' mcq-wide mcq-para' : ' mcq-wide') : '');
-                  return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="Option ' + s.replace(/"/g, '&quot;') + '">' + s + '</button>';
+                  return '<button class="' + cls + '" type="button" data-opt="' + s.replace(/"/g, '&quot;') + '" aria-label="' + QRI18n.t('drill.optionAria', { opt: s.replace(/"/g, '&quot;') }) + '">' + s + '</button>';
                 }).join('') +
               '</div>'
-            : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="Your answer" maxlength="15" readonly />'
+            : '<input id="answerInput" class="input" type="text" inputmode="none" autocomplete="off" placeholder="' + QRI18n.t('drill.yourAnswer') + '" maxlength="15" readonly />'
           ) +
           '<div id="feedback" class="feedback" aria-live="polite"></div>' +
         '</div>' +
@@ -624,7 +625,7 @@ function createDrillEngine(container, opts) {
       if (duelAllowSkip) {   /* default OFF — only when the host enabled "Allow Skip Questions" */
         var dSkipBtn = document.createElement('button');
         dSkipBtn.className = 'btn skip-btn';
-        dSkipBtn.textContent = 'Skip →';
+        dSkipBtn.textContent = QRI18n.t('drill.skipArrow');
         dSkipBtn.addEventListener('click', function () { if (!answered) captureDuelAnswer(''); });
         var dActionsDiv = container.querySelector('.drill-actions');
         if (dActionsDiv) { dActionsDiv.classList.add('has-skip'); dActionsDiv.insertBefore(dSkipBtn, submitBtn); }
@@ -635,7 +636,7 @@ function createDrillEngine(container, opts) {
       if (_skipFeatureAccess && _skipSettings.skipEnabled && _skipSettings.difficulty !== 'hard') {
         var skipBtn = document.createElement('button');
         skipBtn.className = 'btn skip-btn';
-        skipBtn.textContent = 'Skip →';
+        skipBtn.textContent = QRI18n.t('drill.skipArrow');
         skipBtn.addEventListener('click', function () {
           if (answered) return;
           answered = true;
@@ -828,13 +829,13 @@ function createDrillEngine(container, opts) {
       feedback.innerHTML = '';
       var okHead = document.createElement('div');
       okHead.className = 'drill-verdict drill-verdict-ok';
-      okHead.textContent = '✓ Correct';
+      okHead.textContent = QRI18n.t('drill.correct');
       /* Quiet momentum acknowledgment: from 3-in-a-row the verdict carries the run. No confetti —
          a serious trainer notices your rhythm without performing for you. */
       if (currentSessionStreak >= 3 && !isDuel) {
         var streakChip = document.createElement('span');
         streakChip.className = 'drill-streak-chip';
-        streakChip.textContent = '🔥 ' + currentSessionStreak + ' in a row';
+        streakChip.textContent = QRI18n.t('drill.inARow', { count: currentSessionStreak });
         okHead.appendChild(streakChip);
       }
       feedback.appendChild(okHead);
@@ -846,13 +847,13 @@ function createDrillEngine(container, opts) {
       teach.className = 'drill-teach';
       var head = document.createElement('div');
       head.className = 'drill-verdict drill-verdict-wrong' + (timedOut ? ' drill-verdict-timeout' : '');
-      head.textContent = timedOut ? '⏱ Time’s up' : 'Not quite';
+      head.textContent = timedOut ? QRI18n.t('drill.timesUp') : QRI18n.t('drill.notQuite');
       teach.appendChild(head);
       var ansRow = document.createElement('div');
       ansRow.className = 'drill-teach-answer';
       var ansLbl = document.createElement('span');
       ansLbl.className = 'drill-teach-answer-lbl';
-      ansLbl.textContent = 'Correct answer';
+      ansLbl.textContent = QRI18n.t('drill.correctAnswer');
       var ansVal = document.createElement('span');
       ansVal.className = 'drill-teach-answer-val';
       /* picture options grade by position token ("1".."4") — surface the exam-style letter instead (ADR-093) */
@@ -1022,14 +1023,14 @@ function createDrillEngine(container, opts) {
     container.innerHTML =
       '<div class="card center-content fade-in quota-reached-card">' +
         '<div class="quota-reached-icon" aria-hidden="true">🎯</div>' +
-        '<h2 class="quota-reached-title">You’ve used today’s ' + _limitLabel + ' free questions</h2>' +
-        '<p class="quota-reached-sub">Your progress is saved. Go Premium for unlimited daily practice and pick up right where you left off' +
-          (_remaining > 0 ? ' — ' + _remaining + ' more in this session.' : '.') + '</p>' +
+        '<h2 class="quota-reached-title">' + QRI18n.t('drill.quotaTitle', { count: _limitLabel }) + '</h2>' +
+        '<p class="quota-reached-sub">' + QRI18n.t('drill.quotaSub') +
+          (_remaining > 0 ? QRI18n.t('drill.quotaRemaining', { count: _remaining }) : QRI18n.t('stats.fullStop')) + '</p>' +
         '<div class="quota-reached-actions">' +
-          '<button class="btn-primary quota-upgrade-btn" type="button" id="quotaUpgradeBtn">Upgrade to continue</button>' +
-          '<button class="btn-secondary quota-results-btn" type="button" id="quotaResultsBtn">See results</button>' +
+          '<button class="btn-primary quota-upgrade-btn" type="button" id="quotaUpgradeBtn">' + QRI18n.t('drill.quotaUpgrade') + '</button>' +
+          '<button class="btn-secondary quota-results-btn" type="button" id="quotaResultsBtn">' + QRI18n.t('drill.seeResults') + '</button>' +
         '</div>' +
-        '<p class="quota-reached-reset">Free questions reset tomorrow.</p>' +
+        '<p class="quota-reached-reset">' + QRI18n.t('drill.quotaReset') + '</p>' +
       '</div>';
 
     var _up = container.querySelector('#quotaUpgradeBtn');
@@ -1283,8 +1284,8 @@ function createDrillEngine(container, opts) {
     var deltaHtml = '';
     if (_attempted && lastSpeed !== null && lastSpeed > 0) {
       var delta = speedScore - lastSpeed;
-      if (delta > 0) deltaHtml = '<span class="percentile-delta delta-up">↑ +' + delta + ' vs your last session</span>';
-      else if (delta < 0) deltaHtml = '<span class="percentile-delta delta-down">↓ ' + delta + ' vs your last session</span>';
+      if (delta > 0) deltaHtml = '<span class="percentile-delta delta-up">↑ +' + delta + ' ' + QRI18n.t('drill.vsLastSession') + '</span>';
+      else if (delta < 0) deltaHtml = '<span class="percentile-delta delta-down">↓ ' + delta + ' ' + QRI18n.t('drill.vsLastSession') + '</span>';
     }
     if (_attempted) ScoringService.saveLastSpeedScore(speedScore);
 
@@ -1304,11 +1305,11 @@ function createDrillEngine(container, opts) {
     /* ONE verdict slot: personal best OR the accuracy band — never both stacked. Below 50% the
        verdict is neutral and honest; no celebration copy dressed in failure colors. */
     var badgeText, badgeClass;
-    if (isNewBest) { badgeText = '🎉 New Personal Best'; badgeClass = 'badge-excellent'; }
-    else if (accNum >= 90) { badgeText = '🏆 Outstanding Performance'; badgeClass = 'badge-excellent'; }
-    else if (accNum >= 75) { badgeText = '💎 Strong Performance'; badgeClass = 'badge-good'; }
-    else if (accNum >= 50) { badgeText = '📈 Building Momentum'; badgeClass = 'badge-practice'; }
-    else { badgeText = '🔎 Needs Review'; badgeClass = 'badge-review'; }
+    if (isNewBest) { badgeText = QRI18n.t('drill.badgeNewBest'); badgeClass = 'badge-excellent'; }
+    else if (accNum >= 90) { badgeText = QRI18n.t('drill.badgeOutstanding'); badgeClass = 'badge-excellent'; }
+    else if (accNum >= 75) { badgeText = QRI18n.t('drill.badgeStrong'); badgeClass = 'badge-good'; }
+    else if (accNum >= 50) { badgeText = QRI18n.t('drill.badgeBuilding'); badgeClass = 'badge-practice'; }
+    else { badgeText = QRI18n.t('drill.badgeNeedsReview'); badgeClass = 'badge-review'; }
 
     /* Rule-based post-session insight (always visible, no AI call) */
     var _insightText = _computeSessionInsight(accNum, sessionWrongCategories);
@@ -1349,7 +1350,7 @@ function createDrillEngine(container, opts) {
           '<div class="drill-topic drill-topic-strong">' +
             '<span class="dt-ico" aria-hidden="true">💪</span>' +
             '<span class="dt-body">' +
-              '<span class="dt-lbl">Strongest</span>' +
+              '<span class="dt-lbl">' + QRI18n.t('drill.strongest') + '</span>' +
               '<span class="dt-name">' + _escHtml(_catLabelFor(_strongest.cat)) + '</span>' +
               '<span class="dt-acc">' + Math.round(_strongest.acc * 100) + '% · ' + _strongest.correct + '/' + _strongest.total + '</span>' +
             '</span>' +
@@ -1357,7 +1358,7 @@ function createDrillEngine(container, opts) {
           '<div class="drill-topic drill-topic-weak">' +
             '<span class="dt-ico" aria-hidden="true">🎯</span>' +
             '<span class="dt-body">' +
-              '<span class="dt-lbl">Focus next</span>' +
+              '<span class="dt-lbl">' + QRI18n.t('drill.focusNext') + '</span>' +
               '<span class="dt-name">' + _escHtml(_catLabelFor(_weakest.cat)) + '</span>' +
               '<span class="dt-acc">' + Math.round(_weakest.acc * 100) + '% · ' + _weakest.correct + '/' + _weakest.total + '</span>' +
             '</span>' +
@@ -1372,7 +1373,7 @@ function createDrillEngine(container, opts) {
     if (_sessImp && Math.abs(_sessImp.improvementPct) >= 1) {
       var _up = _sessImp.improvementPct > 0;
       _chips.push('<span class="drill-chip ' + (_up ? 'chip-up' : 'chip-down') + '">' +
-        (_up ? '⚡ ' : '🐢 ') + (_up ? '+' : '') + _sessImp.improvementPct + '% ' + (_up ? 'faster' : 'slower') + ' by the end</span>');
+        (_up ? '⚡ ' : '🐢 ') + QRI18n.t(_up ? 'drill.fasterByEnd' : 'drill.slowerByEnd', { pct: (_up ? '+' : '') + _sessImp.improvementPct }) + '</span>');
     }
     var _chipsHTML = _chips.length ? '<div class="drill-chips">' + _chips.join('') + '</div>' : '';
 
@@ -1434,30 +1435,30 @@ function createDrillEngine(container, opts) {
     var _nextHTML =
       '<div class="drill-next">' +
         (_canReviewNow
-          ? '<button class="btn-primary drill-next-primary" type="button" id="actReviewNow">🔄 Review these ' + _reviewCount + ' now</button>'
+          ? '<button class="btn-primary drill-next-primary" type="button" id="actReviewNow">' + QRI18n.t('drill.reviewTheseNow', { count: _reviewCount }) + '</button>'
           : '') +
-        '<button class="' + (_canReviewNow ? 'btn-secondary drill-next-secondary' : 'btn-primary drill-next-primary') + '" type="button" id="actLearn">📖 Continue Learning</button>' +
-        '<button class="btn-secondary drill-next-secondary" type="button" id="actPractice">🏠 Back to Practice</button>' +
+        '<button class="' + (_canReviewNow ? 'btn-secondary drill-next-secondary' : 'btn-primary drill-next-primary') + '" type="button" id="actLearn">' + QRI18n.t('drill.continueLearning') + '</button>' +
+        '<button class="btn-secondary drill-next-secondary" type="button" id="actPractice">' + QRI18n.t('drill.backToPractice') + '</button>' +
       '</div>';
 
     container.innerHTML =
       '<div class="card center-content fade-in" role="status" aria-live="polite">' +
-        '<h2 tabindex="-1" id="drillResultsHeading">Session Complete</h2>' +
+        '<h2 tabindex="-1" id="drillResultsHeading">' + QRI18n.t('drill.sessionComplete') + '</h2>' +
         '<div class="performance-badge ' + badgeClass + '">' + badgeText + '</div>' +
         '<div class="session-insight-card">' + _escHtml(_insightText) + '</div>' +
         _chipsHTML +
         '<div class="results-grid">' +
-          '<div class="result-item"><span class="result-value">' + score + '/' + count + '</span><span class="result-label">Score</span></div>' +
-          '<div class="result-item"><span class="result-value">' + accuracy + '%</span><span class="result-label">Accuracy</span></div>' +
-          '<div class="result-item"><span class="result-value">' + avg + 's</span><span class="result-label">Avg Time</span></div>' +
-          '<div class="result-item"><span class="result-value">' + bestSessionStreak + '</span><span class="result-label">Best Streak</span></div>' +
-          '<div class="result-item"><span class="result-value">' + totalTime + 's</span><span class="result-label">Total Time</span></div>' +
+          '<div class="result-item"><span class="result-value">' + score + '/' + count + '</span><span class="result-label">' + QRI18n.t('drill.score') + '</span></div>' +
+          '<div class="result-item"><span class="result-value">' + accuracy + '%</span><span class="result-label">' + QRI18n.t('drill.accuracy') + '</span></div>' +
+          '<div class="result-item"><span class="result-value">' + avg + 's</span><span class="result-label">' + QRI18n.t('drill.avgTime') + '</span></div>' +
+          '<div class="result-item"><span class="result-value">' + bestSessionStreak + '</span><span class="result-label">' + QRI18n.t('drill.bestStreak') + '</span></div>' +
+          '<div class="result-item"><span class="result-value">' + totalTime + 's</span><span class="result-label">' + QRI18n.t('drill.totalTime') + '</span></div>' +
         '</div>' +
         _topicHTML +
         '<div class="speed-benchmark-card" id="speedBenchmarkCard">' +
           '<div class="benchmark-header">' +
             '<span class="benchmark-icon">⚡</span>' +
-            '<span class="benchmark-title">Speed Score</span>' +
+            '<span class="benchmark-title">' + QRI18n.t('drill.speedScore') + '</span>' +
           '</div>' +
           '<div class="benchmark-highlight ' + speedBandClass + '">' +
             '<span class="benchmark-highlight-pct"><strong>' + speedScore + '</strong> / 100</span>' +
@@ -1466,22 +1467,22 @@ function createDrillEngine(container, opts) {
           '<div class="benchmark-stats-row">' +
             '<div class="benchmark-stat-block">' +
               '<span class="benchmark-stat-value">' + accuracy + '%</span>' +
-              '<span class="benchmark-stat-label">Accuracy</span>' +
+              '<span class="benchmark-stat-label">' + QRI18n.t('drill.accuracy') + '</span>' +
             '</div>' +
             '<div class="benchmark-stat-block">' +
               '<span class="benchmark-stat-value">' + avg + 's</span>' +
-              '<span class="benchmark-stat-label">Avg Time</span>' +
+              '<span class="benchmark-stat-label">' + QRI18n.t('drill.avgTime') + '</span>' +
             '</div>' +
             '<div class="benchmark-stat-block">' +
               '<span class="benchmark-stat-value">' + (bests.bestSpeedScore || speedScore) + '</span>' +
-              '<span class="benchmark-stat-label">Your Best</span>' +
+              '<span class="benchmark-stat-label">' + QRI18n.t('drill.yourBest') + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="benchmark-ai-section" id="benchmarkAiSection">' +
             '<div class="benchmark-ai-placeholder" id="benchmarkAiPlaceholder"></div>' +
           '</div>' +
         '</div>' +
-        '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">🏆 Share Achievement</button>' +
+        '<button class="btn-primary results-share-btn" type="button" id="shareResultBtn">' + QRI18n.t('drill.shareAchievement') + '</button>' +
         _nextHTML +
       '</div>';
 
@@ -1544,9 +1545,9 @@ function createDrillEngine(container, opts) {
             var _banner = document.createElement('div');
             _banner.className = 'session-upgrade-banner';
             _banner.innerHTML =
-              '<span class="session-upgrade-text">Ready for the next level? Unlock your full potential.</span>' +
-              '<button class="session-upgrade-btn" type="button">Go Premium</button>' +
-              '<button class="session-upgrade-dismiss" type="button" aria-label="Dismiss">×</button>';
+              '<span class="session-upgrade-text">' + QRI18n.t('drill.upgradeBannerText') + '</span>' +
+              '<button class="session-upgrade-btn" type="button">' + QRI18n.t('drill.goPremium') + '</button>' +
+              '<button class="session-upgrade-dismiss" type="button" aria-label="' + QRI18n.t('home.dismissAria') + '">×</button>';
             _banner.querySelector('.session-upgrade-btn').addEventListener('click', function () {
               if (typeof showPaywall === 'function') showPaywall('upgrade');
             });
@@ -1669,9 +1670,9 @@ function createDrillEngine(container, opts) {
     ov.innerHTML =
       '<div class="drill-pause-card">' +
         '<div class="drill-pause-icon" aria-hidden="true">⏸</div>' +
-        '<h2 class="drill-pause-title">Paused</h2>' +
-        '<p class="drill-pause-sub">Your timer is frozen. Resume when you\'re ready.</p>' +
-        '<button class="btn-primary" type="button" id="drillResumeBtn">Resume</button>' +
+        '<h2 class="drill-pause-title">' + QRI18n.t('drill.paused') + '</h2>' +
+        '<p class="drill-pause-sub">' + QRI18n.t('drill.pauseSub') + '</p>' +
+        '<button class="btn-primary" type="button" id="drillResumeBtn">' + QRI18n.t('drill.resume') + '</button>' +
       '</div>';
     /* Escape resumes — the overlay is modal, so a keyboard user isn't trapped. */
     ov.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { ev.preventDefault(); resumeSession(); } });
@@ -1786,7 +1787,7 @@ function createDrillEngine(container, opts) {
       '<div class="card center-content drill-loading" role="status" aria-live="polite">' +
         '<div class="drill-loading-orb" aria-hidden="true"><span></span><span></span><span></span></div>' +
         '<h2 class="drill-loading-title">' + _escHtml(badge.title) + '</h2>' +
-        '<p class="drill-loading-sub">Preparing your questions…</p>' +
+        '<p class="drill-loading-sub">' + QRI18n.t('drill.preparing') + '</p>' +
       '</div>';
   }
 
@@ -1798,10 +1799,10 @@ function createDrillEngine(container, opts) {
     container.innerHTML =
       '<div class="card center-content drill-error">' +
         '<div class="drill-error-icon" aria-hidden="true">⚠️</div>' +
-        '<h2>Couldn\'t build this session</h2>' +
-        '<p class="secondary-text">Something went wrong preparing your questions. Please try again.</p>' +
-        '<button class="btn-primary" type="button" id="drillGenRetry">Try Again</button>' +
-        '<button class="btn-secondary" type="button" id="drillGenBack">← Back to Practice</button>' +
+        '<h2>' + QRI18n.t('drill.genErrorTitle') + '</h2>' +
+        '<p class="secondary-text">' + QRI18n.t('drill.genErrorSub') + '</p>' +
+        '<button class="btn-primary" type="button" id="drillGenRetry">' + QRI18n.t('drill.tryAgain') + '</button>' +
+        '<button class="btn-secondary" type="button" id="drillGenBack">' + QRI18n.t('drill.backToPracticeArrow') + '</button>' +
       '</div>';
     var _rt = container.querySelector('#drillGenRetry');
     if (_rt) _rt.addEventListener('click', function () { beginStarted = false; answered = false; begin(); });
@@ -1842,9 +1843,9 @@ function createDrillEngine(container, opts) {
           }
           container.innerHTML =
             '<div class="card center-content">' +
-              '<h2>All Caught Up!</h2>' +
-              '<p class="secondary-text">Impressive — you\'ve mastered all your previous mistakes.</p>' +
-              '<button class="btn-primary" id="backToPractice">Continue Training</button>' +
+              '<h2>' + QRI18n.t('drill.allCaughtUp') + '</h2>' +
+              '<p class="secondary-text">' + QRI18n.t('drill.allCaughtUpSub') + '</p>' +
+              '<button class="btn-primary" id="backToPractice">' + QRI18n.t('drill.continueTraining') + '</button>' +
             '</div>';
           container.querySelector('#backToPractice').addEventListener('click', function () {
             Router.showView('practice');

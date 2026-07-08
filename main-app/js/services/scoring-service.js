@@ -193,9 +193,18 @@ var ScoringService = (function () {
       posshift: 'Tip: Each letter moves forward by its POSITION (1st +1, 2nd +2, …). Number the letters before shifting.',
       ineq: 'Tip: Combine the signs only between the two terms asked about. Same direction ⇒ a definite result; a > mixed with a < ⇒ "either/neither".'
     };
-    if (subtype && subtypeTips[subtype]) return subtypeTips[subtype];
-    if (subtype && subtype.indexOf(':') !== -1) { var _dk = subtype.split(':')[1]; if (diKeyTips[_dk]) return diKeyTips[_dk]; }
-    return categoryTips[cat] || 'Tip: Review the formula used for this type of question.';
+    /* ADR-111: auto-tips are STUDY content — resolved via the tc() channel keyed by the same
+       subtype/category ids (tips.sub_* / tips.dikey_* / tips.cat_*); the English maps above stay
+       the canonical fallback. hi/mr tip content ships with the Phase G content packs. */
+    var _tcTip = function (k) {
+      if (typeof QRI18n === 'undefined') return null;
+      var v = QRI18n.tc(k);
+      return v === k ? null : v;
+    };
+    if (subtype && subtypeTips[subtype]) return _tcTip('tips.sub_' + subtype) || subtypeTips[subtype];
+    if (subtype && subtype.indexOf(':') !== -1) { var _dk = subtype.split(':')[1]; if (diKeyTips[_dk]) return _tcTip('tips.dikey_' + _dk) || diKeyTips[_dk]; }
+    if (categoryTips[cat]) return _tcTip('tips.cat_' + cat) || categoryTips[cat];
+    return _tcTip('tips.generic') || 'Tip: Review the formula used for this type of question.';
   }
 
   /* ---- Session insight (rule-based post-session message) ---- */
@@ -255,19 +264,22 @@ var ScoringService = (function () {
     /* Build insight message. The insight is the single explanatory sentence under the verdict badge —
        it must never repeat the verdict's celebration (the badge already carries the emotion) and must
        only recommend actions the results card actually offers. */
-    if (accNum === 100) return 'Flawless — push the difficulty up next time.';
+    /* ADR-111: guarded t() — scoring-service is also require()d by node checks where QRI18n may
+       be absent; the guard returns the key there (never called in checks anyway). */
+    var _t = function (k, prm) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(k, prm) : k; };
+    if (accNum === 100) return _t('drill.insightFlawless');
     if (rollingAvg !== null) {
       var diff = accNum - rollingAvg;
-      if (diff <= -8 && catLabel) return '\uD83D\uDCC9 Accuracy dropped ' + Math.abs(Math.round(diff)) + '% vs your average — focus on ' + catLabel + ' next session.';
-      if (diff <= -8) return '\uD83D\uDCC9 Accuracy dropped ' + Math.abs(Math.round(diff)) + '% below your 7-day average — keep practising to bounce back.';
-      if (diff >= 8) return '\uD83D\uDCC8 Accuracy is ' + Math.round(diff) + '% above your 7-day average — great form.';
+      if (diff <= -8 && catLabel) return _t('drill.insightDropCat', { pct: Math.abs(Math.round(diff)), cat: catLabel });
+      if (diff <= -8) return _t('drill.insightDrop', { pct: Math.abs(Math.round(diff)) });
+      if (diff >= 8) return _t('drill.insightAbove', { pct: Math.round(diff) });
     }
-    if (catLabel && topMissedCount >= 2) return '\u26A0\uFE0F You missed ' + topMissedCount + ' ' + catLabel + ' question' + (topMissedCount > 1 ? 's' : '') + ' — try a focused ' + catLabel + ' drill next.';
-    if (accNum >= 90) return 'Excellent accuracy (' + accNum + '%) — try a timed session to sharpen your speed.';
-    if (accNum >= 75) return 'A little more practice on your weak spots will push you into the top tier.';
-    if (accNum < 50) return 'Tough session — reviewing the questions you missed is the fastest way back.';
-    if (streak >= 3) return '\uD83D\uDD25 ' + streak + '-day streak! Consistency is your biggest advantage — keep showing up.';
-    return 'Session done. Focus on accuracy first — speed will follow.';
+    if (catLabel && topMissedCount >= 2) return _t('drill.insightMissed', { count: topMissedCount, cat: catLabel });
+    if (accNum >= 90) return _t('drill.insightExcellent', { pct: accNum });
+    if (accNum >= 75) return _t('drill.insightNearTop');
+    if (accNum < 50) return _t('drill.insightTough');
+    if (streak >= 3) return _t('drill.insightStreak', { count: streak });
+    return _t('drill.insightDefault');
   }
 
   return {
