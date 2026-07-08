@@ -478,6 +478,58 @@
     'pipes-cisterns:hard:leakEmpty': {
       s: [function (s) { return 'Pipes A and B fill a tank in ' + s.a + ' and ' + s.b + ' hours respectively, while pipe C empties it in ' + s.c + ' hours. With all three open, the tank fills in ? hours'; }],
       e: [function (s) { return 'Net rate = 1/' + s.a + ' + 1/' + s.b + ' − 1/' + s.c + '. Over an LCM-sized tank that is ' + s.den + ' units/hour for ' + s.num + ' units, so the time = ' + (s.num / s.den) + ' hours.'; }]
+    },
+
+    /* ── Problems on ages ── (person names ride slot `nm` as trilingual entries; years verbatim) */
+    'ages:easy:ratioSum': {
+      s: [function (s) { return 'The present ages of ' + s.nm[0].en + ' and ' + s.nm[1].en + ' are in the ratio ' + s.p0 + ' : ' + s.p1 + '. If the sum of their ages is ' + s.S + ' years, the present age of ' + s.nm[0].en + ' = ? years'; }],
+      e: [function (s) { return 'Let the ages be ' + s.p0 + 'x and ' + s.p1 + 'x. Then (' + s.p0 + ' + ' + s.p1 + ')x = ' + s.S + ' → x = ' + s.k + '. ' + s.nm[0].en + ' = ' + s.p0 + 'x = ' + (s.p0 * s.k) + ' years.'; }]
+    },
+    'ages:medium:ratioSum': {
+      s: [function (s) { return 'The present ages of ' + s.nm[0].en + ' and ' + s.nm[1].en + ' are in the ratio ' + s.p0 + ' : ' + s.p1 + '. If the sum of their ages is ' + s.S + ' years, the present age of ' + s.nm[0].en + ' = ? years'; }],
+      e: [function (s) { return 'Let the ages be ' + s.p0 + 'x and ' + s.p1 + 'x. Then (' + s.p0 + ' + ' + s.p1 + ')x = ' + s.S + ' → x = ' + s.k + '. ' + s.nm[0].en + ' = ' + s.p0 + 'x = ' + (s.p0 * s.k) + ' years.'; }]
+    },
+    'ages:easy:presentAge': {
+      s: [function (s) { return '' + s.t + ' years ago, ' + s.nm.en + ' was ' + s.a + ' years old. ' + s.nm.en + '’s present age = ? years'; }],
+      e: [function (s) { return 'Present age = age then + years elapsed = ' + s.a + ' + ' + s.t + ' = ' + (s.a + s.t) + ' years. (Going forward in time adds; “ago” means we add back.)'; }]
+    },
+    'ages:medium:ageDiff': {
+      s: [function (s) { return s.nm[0].en + ' is ' + s.x + ' years older than ' + s.nm[1].en + '. In ' + s.t + ' years, ' + s.nm[0].en + ' will be ' + s.mult + ' times as old as ' + s.nm[1].en + '. ' + s.nm[1].en + '’s present age = ? years'; }],
+      e: [function (s) { return s.nm[0].en + ' = ' + s.nm[1].en + ' + ' + s.x + '. In ' + s.t + ' years: (' + s.nm[1].en + ' + ' + s.x + ' + ' + s.t + ') = ' + s.mult + '(' + s.nm[1].en + ' + ' + s.t + ') → ' + s.nm[1].en + ' = ' + s.B + ' years.'; }]
+    },
+    'ages:hard:ageDiff': {
+      s: [function (s) { return s.nm[0].en + ' is ' + s.x + ' years older than ' + s.nm[1].en + '. In ' + s.t + ' years, ' + s.nm[0].en + ' will be ' + s.mult + ' times as old as ' + s.nm[1].en + '. ' + s.nm[1].en + '’s present age = ? years'; }],
+      e: [function (s) { return s.nm[0].en + ' = ' + s.nm[1].en + ' + ' + s.x + '. In ' + s.t + ' years: (' + s.nm[1].en + ' + ' + s.x + ' + ' + s.t + ') = ' + s.mult + '(' + s.nm[1].en + ' + ' + s.t + ') → ' + s.nm[1].en + ' = ' + s.B + ' years.'; }]
+    },
+    'ages:hard:fatherSon': {
+      s: [function (s) { return 'A father is now ' + s.n + ' times as old as his son. In ' + s.t + ' years he will be ' + s.m + ' times as old as his son. The son’s present age = ? years'; }],
+      e: [function (s) { return 'Let son = s, father = ' + s.n + 's. In ' + s.t + ' years: ' + s.n + 's + ' + s.t + ' = ' + s.m + '(s + ' + s.t + ') → s = ' + s.t + '(' + s.m + '−1)/(' + s.n + '−' + s.m + ') = ' + s.sn + ' years.'; }]
+    },
+
+    /* ── Partnership ── (person names ride slot `nm`; ₹ and the ratio answer are language-neutral) */
+    'partnership:easy:shareRatio': {
+      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' invest ₹' + s.x + ' and ₹' + s.y + ' respectively in a business. In what ratio should the annual profit be divided between them?'; }],
+      e: [function (s) { return 'Profit is always divided in the ratio of the capitals invested. ' + s.x + ' : ' + s.y + ', dividing both by their HCF ' + s.g + ', gives ' + (s.x / s.g) + ' : ' + (s.y / s.g) + '.'; }]
+    },
+    'partnership:easy:share2': {
+      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
+      e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+    'partnership:medium:share2': {
+      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
+      e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+    'partnership:hard:share2': {
+      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
+      e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+    'partnership:medium:shareTime': {
+      s: [function (s) { return s.nm[0].en + ' invests ₹' + s.x + ' for ' + s.m + ' months and ' + s.nm[1].en + ' invests ₹' + s.y + ' for ' + s.n + ' months. Out of a profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
+      e: [function (s) { return 'Weight each partner by capital × time: ' + s.nm[0].en + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].en + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].en + '’s share = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+    'partnership:hard:shareTime': {
+      s: [function (s) { return s.nm[0].en + ' invests ₹' + s.x + ' for ' + s.m + ' months and ' + s.nm[1].en + ' invests ₹' + s.y + ' for ' + s.n + ' months. Out of a profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
+      e: [function (s) { return 'Weight each partner by capital × time: ' + s.nm[0].en + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].en + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].en + '’s share = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
     }
   } };
 
