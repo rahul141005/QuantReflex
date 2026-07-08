@@ -79,6 +79,27 @@
   function _toast(msg) { try { if (typeof showToast === 'function') showToast(msg); } catch (_) {} }
   function _titro(x) { x = String(x == null ? '' : x).replace(/[_-]+/g, ' ').trim(); return x ? x.charAt(0).toUpperCase() + x.slice(1) : ''; }
 
+  /* ── i18n (ADR-111) ──
+     Chrome strings read the app-language channel. Taxonomy labels are a DISPLAY layer keyed by the
+     stable id: canonical English stays byte-locked in report-taxonomy.js ⇄ shared/constants ⇄
+     api/_lib/report-schema.js (report.check lockstep) and remains the fallback for any id without a
+     catalog entry. Server submissions keep sending ids only — never display labels. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  function _tx(key, fallback) { var v = _t(key); return v === key ? (fallback || '') : v; }
+  function _typeLabel(t) { return _tx('report.type_' + t.id, t.label); }
+  function _typeHelp(t) { return t.helper ? _tx('report.typeHelp_' + t.id, t.helper) : ''; }
+  function _groupLabel(g) { return _tx('report.group_' + g.id, g.label); }
+  function _groupHelp(g) { return g.helper ? _tx('report.groupHelp_' + g.id, g.helper) : ''; }
+  function _subLabel(typeId, s) { return _tx('report.sub_' + typeId + '_' + s.id, s.label); }
+  /* Context-chip localizers — reuse the app-wide display layers (category resolver, subject labels,
+     Settings difficulty terms) so a chip never shows a mangled raw id in hi/mr. */
+  function _catChip(c) { return (typeof formatCategoryName === 'function') ? formatCategoryName(c) : _titro(c); }
+  function _subjChip(s) { try { if (typeof QR_SUBJECTS !== 'undefined' && QR_SUBJECTS.label) return QR_SUBJECTS.label(s) || _titro(s); } catch (_) {} return _titro(s); }
+  function _diffChip(d) {
+    var k = { easy: 'settings.difficultyEasy', medium: 'settings.difficultyMedium', hard: 'settings.difficultyHard' }[String(d == null ? '' : d).toLowerCase()];
+    return k ? _t(k) : _titro(d);
+  }
+
   /* Per-field render metadata. `key` says where the value lands in the payload: 'title'/'description' are
      top-level; anything else goes into classification.fields. 'note' collapses into description. */
   var FIELD_DEFS = {
@@ -120,14 +141,14 @@
     _overlay.className = 'report-sheet-overlay';
     _overlay.setAttribute('role', 'dialog');
     _overlay.setAttribute('aria-modal', 'true');
-    _overlay.setAttribute('aria-label', 'Report a problem');
+    _overlay.setAttribute('aria-label', _t('report.headDefault'));
     _overlay.innerHTML =
       '<div class="report-sheet" role="document">' +
         '<div class="report-sheet-grabber" aria-hidden="true"></div>' +
         '<div class="report-sheet-head">' +
-          '<button class="report-sheet-back" type="button" aria-label="Back" style="display:none">' + _ico('back', '‹') + '</button>' +
+          '<button class="report-sheet-back" type="button" aria-label="' + _esc(_t('report.backAria')) + '" style="display:none">' + _ico('back', '‹') + '</button>' +
           '<span class="report-sheet-title"></span>' +
-          '<button class="report-sheet-close" type="button" aria-label="Close">' + _ico('close', '✕') + '</button>' +
+          '<button class="report-sheet-close" type="button" aria-label="' + _esc(_t('report.closeAria')) + '">' + _ico('close', '✕') + '</button>' +
         '</div>' +
         '<div class="report-sheet-body"></div>' +
       '</div>';
@@ -233,7 +254,7 @@
 
   /* head title + back-button visibility */
   function _setHead(title, hasBack) {
-    if (_titleEl) _titleEl.textContent = title || 'Report a problem';
+    if (_titleEl) _titleEl.textContent = title || _t('report.headDefault');
     if (_backEl) _backEl.style.display = hasBack ? '' : 'none';
   }
 
@@ -262,10 +283,10 @@
   /* ─────────────────────────────── Step: guided chooser (Settings) ─────────────────────────────── */
   function _renderChooser() {
     st.step = 'chooser';
-    _setHead('Report a problem', st._escaped);
+    _setHead(_t('report.headDefault'), st._escaped);
     var rows = _groups().map(_groupRow).join('');
     _body.innerHTML =
-      '<p class="report-lead">What would you like to tell us about? Pick the closest — we\'ll take it from there.</p>' +
+      '<p class="report-lead">' + _esc(_t('report.chooserLead')) + '</p>' +
       '<div class="report-reason-list">' + rows + '</div>';
     var btns = _body.querySelectorAll('[data-group]');
     for (var i = 0; i < btns.length; i++) {
@@ -283,8 +304,8 @@
     return '<button class="report-reason" type="button" data-group="' + _esc(g.id) + '">' +
              '<span class="report-reason-ico" aria-hidden="true">' + _esc(g.icon || '•') + '</span>' +
              '<span class="report-reason-txt">' +
-               '<span class="report-reason-label">' + _esc(g.label) + '</span>' +
-               (g.helper ? '<span class="report-reason-help">' + _esc(g.helper) + '</span>' : '') +
+               '<span class="report-reason-label">' + _esc(_groupLabel(g)) + '</span>' +
+               (g.helper ? '<span class="report-reason-help">' + _esc(_groupHelp(g)) + '</span>' : '') +
              '</span>' +
              '<span class="report-reason-chev" aria-hidden="true">›</span>' +
            '</button>';
@@ -299,9 +320,9 @@
 
     if (st.source === 'ai_explain' || g === 'ai') {
       /* Purpose-built QuanAI reason grid (the ai_issue sub-reasons act as the primary reasons). */
-      _setHead('The QuanAI explanation', hasBack);
+      _setHead(_t('report.headAi'), hasBack);
       if (st.source === 'ai_explain') html += _aiAttachedHtml();
-      else html += '<p class="report-lead">What\'s off about QuanAI\'s explanations?</p>';
+      else html += '<p class="report-lead">' + _esc(_t('report.aiLeadSettings')) + '</p>';
       var subs = _aiReasons();
       html += '<div class="report-reason-list">';
       subs.forEach(function (s) { html += _reasonTile({ id: s.id, label: s.label, icon: s.icon || '•', helper: s.helper || '' }, 'sub'); });
@@ -314,7 +335,7 @@
 
     if (st.source === 'learn' || g === 'learn') {
       /* Purpose-built Learn-chapter reason grid (the learn_issue sub-reasons act as the primary reasons). */
-      _setHead('This chapter', hasBack);
+      _setHead(_t('report.headLearn'), hasBack);
       html += _learnAttachedHtml();
       var lsubs = _learnReasons();
       html += '<div class="report-reason-list">';
@@ -327,10 +348,10 @@
     }
 
     if (g === 'question') {
-      var title = st.source === 'drill' ? 'What\'s off?' : 'A question or its answer';
+      var title = st.source === 'drill' ? _t('report.headDrill') : _tx('report.group_question', 'A question or its answer');
       _setHead(title, hasBack);
       if (st.source === 'drill') html += _qContextHtml();
-      else html += '<p class="report-lead">Pick what\'s wrong — you\'ll tell us which question on the next step.</p>';
+      else html += '<p class="report-lead">' + _esc(_t('report.leadQuestionSettings')) + '</p>';
       /* Content-aware reason gating (ADR-100/101): never offer a reason the LIVE question can't have.
          `mcqOnly` ("Bad options") is dropped for typed/numeric questions; `figureOnly` ("Diagram or image")
          is dropped for questions with no chart/figure/optionFigures. Only gate when a question is actually
@@ -346,7 +367,7 @@
       qTypes.forEach(function (t) { html += _reasonTile(t, 'type'); });
       html += '</div>';
       if (st.source === 'drill') {
-        html += '<button class="report-escape" type="button">' + _ico('back', '↔') + ' Not about this question</button>';
+        html += '<button class="report-escape" type="button">' + _ico('back', '↔') + ' ' + _esc(_t('report.escapeNotThis')) + '</button>';
       }
       _body.innerHTML = html;
       _wireReasonTiles('type');
@@ -357,9 +378,9 @@
     }
 
     /* app / account / other */
-    var grpLabel = (_RT() && _RT().GROUP_LABELS && _RT().GROUP_LABELS[g]) || _titro(g);
+    var grpLabel = _tx('report.group_' + g, (_RT() && _RT().GROUP_LABELS && _RT().GROUP_LABELS[g]) || _titro(g));
     _setHead(grpLabel, hasBack);
-    html += '<p class="report-lead">Pick the closest — we can always sort out the details.</p>';
+    html += '<p class="report-lead">' + _esc(_t('report.leadGeneric')) + '</p>';
     var types = _typesForGroup(g);
     html += '<div class="report-reason-list">';
     types.forEach(function (t) { html += _reasonTile(t, 'type'); });
@@ -371,11 +392,13 @@
 
   function _reasonTile(t, kind) {
     var attr = kind === 'sub' ? 'data-sub' : 'data-type';
+    var lbl = kind === 'sub' ? t.label : _typeLabel(t);    /* sub tiles arrive pre-localized from _aiReasons/_learnReasons */
+    var hlp = kind === 'sub' ? (t.helper || '') : _typeHelp(t);
     return '<button class="report-reason" type="button" ' + attr + '="' + _esc(t.id) + '">' +
              '<span class="report-reason-ico" aria-hidden="true">' + _esc(t.icon || '•') + '</span>' +
              '<span class="report-reason-txt">' +
-               '<span class="report-reason-label">' + _esc(t.label) + '</span>' +
-               (t.helper ? '<span class="report-reason-help">' + _esc(t.helper) + '</span>' : '') +
+               '<span class="report-reason-label">' + _esc(lbl) + '</span>' +
+               (hlp ? '<span class="report-reason-help">' + _esc(hlp) + '</span>' : '') +
              '</span>' +
              '<span class="report-reason-chev" aria-hidden="true">›</span>' +
            '</button>';
@@ -407,7 +430,7 @@
     };
     var t = _RT() && _RT().typeById ? _RT().typeById('ai_issue') : null;
     var subs = (t && t.subReasons) ? t.subReasons : (_FALLBACK_TYPES.filter(function (x) { return x.id === 'ai_issue'; })[0].subReasons || []);
-    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: s.label, icon: m.icon || '•', helper: m.helper || '' }; });
+    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: _subLabel('ai_issue', s), icon: m.icon || '•', helper: _tx('report.aimeta_' + s.id, m.helper || '') }; });
   }
 
   /* ─────────────────────────────── Step: detail form ─────────────────────────────── */
@@ -424,7 +447,7 @@
     var lim = _limits();
     var fields = t.fields || [];
     var isSettingsQuestion = (st.group === 'question' && st.source === 'settings');
-    _setHead(t.label, true);
+    _setHead(_typeLabel(t), true);
 
     var html = '';
 
@@ -436,17 +459,17 @@
     } else if (st.source === 'drill' && st.group === 'question') {
       html += _qContextHtml();
     } else if (isSettingsQuestion) {
-      html += '<p class="report-note-hint">' + _ico('info', 'ℹ️') + ' We can\'t see which question you mean from here — please tell us below.</p>';
+      html += '<p class="report-note-hint">' + _ico('info', 'ℹ️') + ' ' + _esc(_t('report.settingsQHint')) + '</p>';
     }
 
     /* sub-reason chips (visual / payment / account). AI, Learn + settings-AI already chose their reason in the grid. */
     var subs = (t.subReasons || []);
     var showChips = subs.length && st.group !== 'ai' && st.group !== 'learn';
     if (showChips) {
-      html += '<div class="report-field"><label class="modal-label">Which best describes it?</label>' +
-              '<div class="report-subreason-chips" role="radiogroup" aria-label="Reason">';
+      html += '<div class="report-field"><label class="modal-label">' + _esc(_t('report.whichBest')) + '</label>' +
+              '<div class="report-subreason-chips" role="radiogroup" aria-label="' + _esc(_t('report.reasonAria')) + '">';
       subs.forEach(function (s) {
-        html += '<button class="report-chip" type="button" role="radio" aria-checked="false" data-sub="' + _esc(s.id) + '">' + _esc(s.label) + '</button>';
+        html += '<button class="report-chip" type="button" role="radio" aria-checked="false" data-sub="' + _esc(s.id) + '">' + _esc(_subLabel(t.id, s)) + '</button>';
       });
       html += '</div></div>';
     }
@@ -456,18 +479,18 @@
       var def = FIELD_DEFS[fname];
       if (!def) return;
       if (def.input === 'rating') {
-        html += '<div class="report-field"><label class="modal-label">' + _esc(def.label) + '</label>' +
-                '<div class="report-rating" role="radiogroup" aria-label="Rating">';
-        for (var r = 1; r <= 5; r++) html += '<button class="report-star" type="button" role="radio" aria-checked="false" data-rating="' + r + '" aria-label="' + r + ' star">★</button>';
+        html += '<div class="report-field"><label class="modal-label">' + _esc(_tx('report.f_' + fname, def.label)) + '</label>' +
+                '<div class="report-rating" role="radiogroup" aria-label="' + _esc(_t('report.ratingAria')) + '">';
+        for (var r = 1; r <= 5; r++) html += '<button class="report-star" type="button" role="radio" aria-checked="false" data-rating="' + r + '" aria-label="' + _esc(_t('report.starAria', { count: r })) + '">★</button>';
         html += '</div></div>';
       } else {
-        var label = def.label, ph = def.placeholder;
+        var label = _tx('report.f_' + fname, def.label), ph = _tx('report.fph_' + fname, def.placeholder);
         /* A Settings-filed question report has no attached question, so its note is required + reframed. */
-        if (fname === 'note' && isSettingsQuestion) { label = 'Which question, and what\'s off?'; ph = 'Describe the question and what looked wrong.'; }
+        if (fname === 'note' && isSettingsQuestion) { label = _t('report.noteSettingsQLabel'); ph = _t('report.noteSettingsQPh'); }
         /* A Settings-filed AI report has no explanation attached, so its note is required + reframed. */
-        else if (fname === 'note' && st.group === 'ai' && st.source === 'settings') { label = "What's wrong with the explanations?"; ph = 'Tell us what you\'ve noticed about QuanAI\'s explanations.'; }
+        else if (fname === 'note' && st.group === 'ai' && st.source === 'settings') { label = _t('report.noteSettingsAiLabel'); ph = _t('report.noteSettingsAiPh'); }
         /* Learn note stays optional but reframed — the chapter is attached, so a note only adds detail. */
-        else if (fname === 'note' && st.source === 'learn') { label = 'Add anything else (optional)'; ph = "Anything you noticed. The chapter's details are attached automatically, so this is optional."; }
+        else if (fname === 'note' && st.source === 'learn') { label = _t('report.noteLearnLabel'); ph = _t('report.noteLearnPh'); }
         var cap = def.cap ? (lim[def.cap] || 600) : 600;
         html += '<div class="report-field">' +
                 '<label class="modal-label" for="rf_' + fname + '">' + _esc(label) + '</label>' +
@@ -481,12 +504,12 @@
 
     /* collapsible auto-attached technical details (transparency; reassures no screenshot needed) */
     html += '<details class="report-tech">' +
-              '<summary>' + _ico('info', 'ℹ️') + ' What we attach automatically</summary>' +
-              '<pre class="report-tech-pre" id="reportTechPre">Loading…</pre>' +
+              '<summary>' + _ico('info', 'ℹ️') + ' ' + _esc(_t('report.techSummary')) + '</summary>' +
+              '<pre class="report-tech-pre" id="reportTechPre">' + _esc(_t('report.techLoading')) + '</pre>' +
             '</details>';
 
     html += '<div class="report-actions">' +
-              '<button class="btn-primary report-submit" type="button">' + _ico('send', '📤') + ' Send report</button>' +
+              '<button class="btn-primary report-submit" type="button">' + _ico('send', '📤') + ' ' + _esc(_t('report.sendReport')) + '</button>' +
               '<p class="report-reassure">' + _reassureLine() + '</p>' +
             '</div>';
 
@@ -496,10 +519,10 @@
   }
 
   function _reassureLine() {
-    if (st.source === 'drill') return 'Your session is safe — sending this won\'t end your drill.';
-    if (st.source === 'ai_explain') return 'We\'ll take a look. This won\'t change what\'s on your screen.';
-    if (st.source === 'learn') return 'Thanks — we\'ll review this chapter. You won\'t lose your place.';
-    return 'Thanks for helping us make QuantReflex better.';
+    if (st.source === 'drill') return _esc(_t('report.reassureDrill'));
+    if (st.source === 'ai_explain') return _esc(_t('report.reassureAi'));
+    if (st.source === 'learn') return _esc(_t('report.reassureLearn'));
+    return _esc(_t('report.reassureDefault'));
   }
 
   /* Answer mode of the reported question — MCQ iff it carries options (mirrors the drill engine / answer-format).
@@ -522,20 +545,20 @@
     };
     var t = _RT() && _RT().typeById ? _RT().typeById('learn_issue') : null;
     var subs = (t && t.subReasons) ? t.subReasons : (_FALLBACK_TYPES.filter(function (x) { return x.id === 'learn_issue'; })[0].subReasons || []);
-    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: s.label, icon: m.icon || '•', helper: m.helper || '' }; });
+    return subs.map(function (s) { var m = meta[s.id] || {}; return { id: s.id, label: _subLabel('learn_issue', s), icon: m.icon || '•', helper: _tx('report.learnmeta_' + s.id, m.helper || '') }; });
   }
 
   /* Read-only "what's attached" summary for a Learn-topic report (chapter title + subject/category). */
   function _learnAttachedHtml() {
     var tp = st.topic || {};
     var lines = [];
-    if (tp.subject) lines.push(_titro(tp.subject));
-    else if (tp.category) lines.push(_titro(tp.category));
-    if (tp.difficulty) lines.push(_titro(tp.difficulty));
+    if (tp.subject) lines.push(_subjChip(tp.subject));
+    else if (tp.category) lines.push(_catChip(tp.category));
+    if (tp.difficulty) lines.push(_diffChip(tp.difficulty));
     var meta = lines.length ? '<div class="report-ctx-chips">' + lines.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('') + '</div>' : '';
     var ttl = tp.title ? '<div class="report-ctx-q">“' + _esc(String(tp.title).slice(0, 120)) + '”</div>' : '';
     return '<div class="report-ctx">' +
-             '<div class="report-ctx-top">' + _ico('book', '📚') + '<span>This chapter — attached automatically</span></div>' +
+             '<div class="report-ctx-top">' + _ico('book', '📚') + '<span>' + _esc(_t('report.attachedChapter')) + '</span></div>' +
              meta + ttl +
            '</div>';
   }
@@ -545,18 +568,18 @@
   function _qContextHtml() {
     var q = st.question || {}, s = st.session || {};
     var chips = [];
-    if (s.questionNumber) chips.push('Question ' + s.questionNumber + (s.count ? ' of ' + s.count : ''));
+    if (s.questionNumber) chips.push(s.count ? _t('report.qNumOf', { n: s.questionNumber, count: s.count }) : _t('report.qNum', { n: s.questionNumber }));
     var topic = q.category || q.subtype;
-    if (topic) chips.push(_titro(topic));
-    if (q.difficulty) chips.push(_titro(q.difficulty));
+    if (topic) chips.push(_catChip(topic));
+    if (q.difficulty) chips.push(_diffChip(q.difficulty));
     var ml = _modeLabel(s);
     if (ml) chips.push(ml);
-    chips.push(_isMCQ(q) ? 'Multiple choice' : 'Typed answer');   /* ADR-100: answer-mode aware, never implies "options" for typed */
+    chips.push(_isMCQ(q) ? _t('report.multipleChoice') : _t('report.typedAnswer'));   /* ADR-100: answer-mode aware, never implies "options" for typed */
     var chipHtml = chips.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('');
     var qtext = q.question != null ? String(q.question) : '';
     var preview = qtext ? '<div class="report-ctx-q">“' + _esc(qtext.slice(0, 120)) + (qtext.length > 120 ? '…' : '') + '”</div>' : '';
     return '<div class="report-ctx">' +
-             '<div class="report-ctx-top">' + _ico('target', '🎯') + '<span>This question — attached automatically</span></div>' +
+             '<div class="report-ctx-top">' + _ico('target', '🎯') + '<span>' + _esc(_t('report.attachedQuestion')) + '</span></div>' +
              (chipHtml ? '<div class="report-ctx-chips">' + chipHtml + '</div>' : '') +
              preview +
            '</div>';
@@ -564,9 +587,9 @@
 
   function _modeLabel(s) {
     if (!s) return null;
-    if (s.isDuel) return 'Duel';
-    if (s.reviewMode) return 'Review';
-    if (s.mode) { var m = { practice: 'Practice', timed: 'Timed test', mock: 'Mock test', exam: 'Exam', warmup: 'Warm-up', quick: 'Quick drill', reflex: 'Reflex drill' }; return m[s.mode] || _titro(s.mode); }
+    if (s.isDuel) return _t('report.mode_duel');
+    if (s.reviewMode) return _t('report.mode_review');
+    if (s.mode) { var m = { practice: 1, timed: 1, mock: 1, exam: 1, warmup: 1, quick: 1, reflex: 1 }; return m[s.mode] ? _t('report.mode_' + s.mode) : _titro(s.mode); }
     return null;
   }
 
@@ -575,13 +598,13 @@
     var q = st.question || {}, ai = st.ai || {};
     var lines = [];
     var topic = q.category || q.subtype;
-    if (topic) lines.push(_titro(topic));
+    if (topic) lines.push(_catChip(topic));
     var ver = ai.promptId ? 'QuanAI ' + ai.promptId : null;
     if (ver) lines.push(ver);
     var meta = lines.length ? '<div class="report-ctx-chips">' + lines.map(function (x) { return '<span class="report-ctx-chip">' + _esc(x) + '</span>'; }).join('') + '</div>' : '';
     var exp = ai.explanation ? '<div class="report-ctx-q">“' + _esc(String(ai.explanation).slice(0, 130)) + (String(ai.explanation).length > 130 ? '…' : '') + '”</div>' : '';
     return '<div class="report-ctx">' +
-             '<div class="report-ctx-top">' + _ico('robot', '🤖') + '<span>This QuanAI explanation — attached automatically</span></div>' +
+             '<div class="report-ctx-top">' + _ico('robot', '🤖') + '<span>' + _esc(_t('report.attachedAi')) + '</span></div>' +
              meta + exp +
            '</div>';
   }
@@ -653,22 +676,22 @@
     var ctx = _collectContext();
     var lines = [];
     var app = ctx.app || {}, dev = ctx.device || {}, loc = ctx.locale || {};
-    lines.push('App version: ' + (app.version || 'unknown'));
-    lines.push('Source: ' + (app.source || '') + (app.targetExam ? ' · exam: ' + app.targetExam : ''));
-    lines.push('Theme: ' + (app.theme || '-') + ' / ' + (app.appearance || '-'));
-    lines.push('Device: ' + (dev.formFactor || '?') + ' · ' + (dev.viewport ? dev.viewport.w + '×' + dev.viewport.h : '') + ' @' + (dev.dpr || 1) + 'x');
-    lines.push('Online: ' + (dev.online === false ? 'no' : 'yes') + (dev.connection ? ' (' + dev.connection + ')' : ''));
-    lines.push('Locale: ' + (loc.language || '-') + ' · ' + (loc.tz || '-'));
-    lines.push('Route: ' + (ctx.route || '-'));
+    lines.push(_t('report.techApp') + ' ' + (app.version || _t('report.techUnknown')));
+    lines.push(_t('report.techSource') + ' ' + (app.source || '') + (app.targetExam ? ' · ' + _t('report.techExam') + ' ' + app.targetExam : ''));
+    lines.push(_t('report.techTheme') + ' ' + (app.theme || '-') + ' / ' + (app.appearance || '-'));
+    lines.push(_t('report.techDevice') + ' ' + (dev.formFactor || '?') + ' · ' + (dev.viewport ? dev.viewport.w + '×' + dev.viewport.h : '') + ' @' + (dev.dpr || 1) + 'x');
+    lines.push(_t('report.techOnline') + ' ' + (dev.online === false ? _t('report.techNo') : _t('report.techYes')) + (dev.connection ? ' (' + dev.connection + ')' : ''));
+    lines.push(_t('report.techLocale') + ' ' + (loc.language || '-') + ' · ' + (loc.tz || '-'));
+    lines.push(_t('report.techRoute') + ' ' + (ctx.route || '-'));
     if ((st.source === 'drill' || st.source === 'ai_explain') && st.question) {
-      lines.push('Question: ' + (st.question.category || '?') + (st.question.subtype ? '/' + st.question.subtype : ''));
+      lines.push(_t('report.techQuestion') + ' ' + (st.question.category || '?') + (st.question.subtype ? '/' + st.question.subtype : ''));
       if (st.question.question) lines.push('  “' + String(st.question.question).slice(0, 120) + '”');
     }
     if (st.source === 'ai_explain' && st.ai) {
-      lines.push('QuanAI explanation version: ' + (st.ai.promptId || 'unknown'));
-      if (st.ai.explanation) lines.push('Explanation: “' + String(st.ai.explanation).slice(0, 160) + (st.ai.explanation.length > 160 ? '…' : '') + '”');
+      lines.push(_t('report.techAiVer') + ' ' + (st.ai.promptId || _t('report.techUnknown')));
+      if (st.ai.explanation) lines.push(_t('report.techExplanation') + ' “' + String(st.ai.explanation).slice(0, 160) + (st.ai.explanation.length > 160 ? '…' : '') + '”');
     }
-    if (ctx.recentErrors && ctx.recentErrors.length) lines.push('Recent errors: ' + ctx.recentErrors.length + ' captured');
+    if (ctx.recentErrors && ctx.recentErrors.length) lines.push(_t('report.techRecentErrors', { count: ctx.recentErrors.length }));
     return lines.join('\n');
   }
 
@@ -712,8 +735,8 @@
     if (needsText) {
       /* Only mention a rating when the type actually offers one (feedback) — otherwise the copy is misleading. */
       var hasRating = (t.fields || []).indexOf('rating') !== -1;
-      _toast(isSettingsQuestion ? 'Tell us which question and what looked off.'
-        : (hasRating ? 'Please add a short description (or a rating).' : 'Please add a short description.'));
+      _toast(isSettingsQuestion ? _t('report.toastWhichQuestion')
+        : (hasRating ? _t('report.toastAddDescOrRating') : _t('report.toastAddDesc')));
       var firstField = _body.querySelector('.modal-input');
       if (firstField) firstField.focus();
       return;
@@ -757,7 +780,7 @@
 
     var submitP = (root.ReportQueue && root.ReportQueue.submit)
       ? root.ReportQueue.submit(payload)
-      : Promise.resolve({ ok: false, code: 'NO_QUEUE', message: 'Reporting is unavailable right now.' });
+      : Promise.resolve({ ok: false, code: 'NO_QUEUE', message: _t('report.errUnavailable') });
 
     submitP.then(function (res) {
       if (res && res.ok) {
@@ -765,35 +788,37 @@
         _renderSuccess(res.queued ? null : (res.shortId || null), !!res.queued);
       } else {
         st.submitting = false;
-        _toast((res && res.message) || 'Could not send your report. Please try again.');
+        /* Localize terminal errors by stable code; an unknown code falls back to the server's own
+           message rather than hiding the reason (ADR-111 server-error seam). */
+        _toast(_tx('report.err_' + ((res && res.code) || ''), (res && res.message) || _t('report.errSendFailed')));
         _renderForm();
       }
     }).catch(function () {
       st.submitting = false;
-      _toast('Could not send your report. Please try again.');
+      _toast(_t('report.errSendFailed'));
       _renderForm();
     });
   }
 
   function _renderSubmitting() {
-    _setHead('Sending…', false);
+    _setHead(_t('report.sendingHead'), false);
     _body.innerHTML =
       '<div class="report-state-center">' +
         '<div class="report-spinner" aria-hidden="true"></div>' +
-        '<p class="report-state-msg" aria-live="polite">Sending your report…</p>' +
+        '<p class="report-state-msg" aria-live="polite">' + _esc(_t('report.sendingMsg')) + '</p>' +
       '</div>';
   }
 
   function _renderSuccess(shortId, queued) {
     st.submitting = false;
-    _setHead(queued ? 'Saved' : 'Report sent', false);
+    _setHead(queued ? _t('report.headSaved') : _t('report.headSent'), false);
     var idLine = shortId
-      ? '<p class="report-success-id">Reference: <strong>' + _esc(shortId) + '</strong></p>'
+      ? '<p class="report-success-id">' + _esc(_t('report.referenceLbl')) + ' <strong>' + _esc(shortId) + '</strong></p>'
       : '';
-    var title = queued ? 'Saved — we\'ll send it' : 'Thanks — we\'ve got it';
+    var title = queued ? _t('report.successQueuedTitle') : _t('report.successSentTitle');
     var msg = queued
-      ? 'You\'re offline, so we\'ve saved your report. It\'ll send itself the moment you\'re back online — nothing is lost.'
-      : 'Your report is with our team now. We read every one — thank you for helping us make QuantReflex better.';
+      ? _t('report.successQueuedMsg')
+      : _t('report.successSentMsg');
     _body.innerHTML =
       '<div class="report-state-center">' +
         '<div class="report-success-check" aria-hidden="true">' + _ico('check', '✅') + '</div>' +
@@ -801,7 +826,7 @@
         '<p class="report-success-msg" aria-live="polite">' + _esc(msg) + '</p>' +
         idLine +
         '<div class="report-actions"><button class="btn-primary report-done" type="button">' +
-          (st.source === 'drill' ? 'Back to practice' : 'Done') + '</button></div>' +
+          (st.source === 'drill' ? _esc(_t('report.doneBackToPractice')) : _esc(_t('report.done'))) + '</button></div>' +
       '</div>';
     var done = _body.querySelector('.report-done');
     done.addEventListener('click', close);
