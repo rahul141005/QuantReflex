@@ -133,3 +133,29 @@ comprehension.
 - **Strings:** the `min` / `h` / `m` unit letters in `fmtMin` (companion-ui + planner-view).
 - **Rationale:** treated as unit abbreviations (like `km/h`, `s/Q`) rather than translatable words —
   digits and the surrounding labels localize; the unit letters stay stable across languages.
+
+## Phase F — generated quant content (ADR-111 F-M2)
+
+The quant engine (`js/questions.js`, 36 categories) was refactored so each archetype `build()` returns
+language-neutral `slots` + a fixed variant seed `v`, rendered by `QRGenI18n` from `locales/gen/en.quant.js`.
+EN byte-identity is proven per category by the masked-shape census guard in `scripts/quant-engine.check.js`
+(frozen baseline `scripts/fixtures/quant-census.json`). The following remain intentionally English pending
+later Phase-F milestones:
+
+### quantity-comparison — deferred to F-M3
+- **Strings:** the entire `quantity-comparison` category (stems, explanations, and the three relation
+  options `Quantity I > / < / = Quantity II`).
+- **Rationale:** it is the one genuinely-MCQ quant format — the graded answer AND the option labels are
+  relation strings. Localizing it correctly needs a per-language option-render seam that `_wrapArch` does
+  not yet expose (it renders only stem + explanation). Converting the stem alone would ship a
+  mixed-language MCQ (Hindi stem, English options), so the category is left byte-identical (untouched) and
+  will be converted in F-M3 alongside the hi/mr packs, when the MCQ relation/option localization seam lands.
+
+### Hardcoded guaranteed-clean PRIMARY fallbacks — English
+- **Strings:** the inline `{q, explain}` PRIMARY builders that do NOT call a refactored archetype helper —
+  `_pctSafe`; `_AVG_PRIMARY.easy/medium`; all of `_PL_PRIMARY`, `_TW_PRIMARY`, `_PIPE_PRIMARY`, `_CI_PRIMARY`,
+  `_PART_PRIMARY`, `_TSD_PRIMARY.hard`, `_AGE_PRIMARY.hard`, `_MIX_PRIMARY.easy/medium`.
+- **Rationale:** these fire only when ~50 in-tier archetype attempts all return `null` (rare, clean-number
+  guarantee). PRIMARY builders that CALL a refactored helper (e.g. `_ratDivide('easy')`) auto-localize; only
+  the hardcoded-string fallbacks stay English. Low exposure; the census proves they are byte-unchanged. They
+  will be migrated to slots opportunistically during F-M3/M4.
