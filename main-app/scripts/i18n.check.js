@@ -111,12 +111,16 @@ function tokensOf(v) {
   });
 })();
 
-/* ── 4. every data-i18n / data-i18n-attr key in index.html resolves ── */
+/* ── 4. every data-i18n / data-i18n-html / data-i18n-attr key in index.html resolves,
+      and every data-i18n-html catalog value carries only whitelisted markup ── */
 var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
 (function () {
   var used = {};
+  var htmlKeys = {};
   var m, re = /data-i18n="([^"]+)"/g;
   while ((m = re.exec(indexHtml))) used[m[1]] = 1;
+  re = /data-i18n-html="([^"]+)"/g;
+  while ((m = re.exec(indexHtml))) { used[m[1]] = 1; htmlKeys[m[1]] = 1; }
   re = /data-i18n-attr="([^"]+)"/g;
   while ((m = re.exec(indexHtml))) {
     m[1].split(';').forEach(function (pair) {
@@ -128,6 +132,23 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   ok('4 index.html uses data-i18n keys', keys.length > 0);
   keys.forEach(function (key) {
     ok('4 key resolves in all catalogs: ' + key, LANGS.every(function (l) { return get(catalogs[l], key) !== undefined; }));
+  });
+  /* data-i18n-html values are assigned as innerHTML (sanitized at runtime); the sanitizer is
+     defense-in-depth, so guarantee at build time that every catalog value carries only bare
+     <strong>/<em>/<br> and balanced strong/em tags — a disallowed tag or attribute is a bug. */
+  var BAD_TAG = /<(?!\/?(?:strong|em|br)\b)[a-zA-Z]/; /* any tag whose name isn't strong/em/br */
+  var HAS_ATTR = /<(?:strong|em|br)\b[^>]*[^\/>]>/i;   /* a whitelisted tag carrying attributes */
+  function count(s, re2) { return (s.match(re2) || []).length; }
+  Object.keys(htmlKeys).forEach(function (key) {
+    LANGS.forEach(function (l) {
+      var v = get(catalogs[l], key);
+      if (v === undefined) return; /* resolution failure already reported above */
+      var s = typeof v === 'object' ? Object.keys(v).map(function (c) { return v[c]; }).join(' ') : String(v);
+      ok('4 html value only whitelisted tags: ' + l + ':' + key, !BAD_TAG.test(s));
+      ok('4 html value no tag attributes: ' + l + ':' + key, !HAS_ATTR.test(s));
+      ok('4 html value balanced <strong>: ' + l + ':' + key, count(s, /<strong>/gi) === count(s, /<\/strong>/gi));
+      ok('4 html value balanced <em>: ' + l + ':' + key, count(s, /<em>/gi) === count(s, /<\/em>/gi));
+    });
   });
 })();
 
@@ -212,6 +233,41 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   P.setLanguages('en', 'mr');
   ok('7 localeTag study=mr forces -u-nu-latn', P.localeTag('study') === 'mr-IN-u-nu-latn');
   ok('7 localeTag app=en is en-IN', P.localeTag() === 'en-IN');
+
+  /* 7c. data-i18n-html: whitelist sanitize + orig-stash + EN restore, driven through
+     the real applyDom via a minimal fake element. The hi value deliberately carries a
+     hostile <img onerror> to prove the sanitizer neutralizes it. The real browser-DOM
+     path (innerHTML rendering, Devanagari shaping) is covered by the Phase-D Playwright
+     harness. */
+  P.register('en', { about: { rich: 'Train <strong>daily</strong>.' } });
+  P.register('hi', { about: { rich: 'रोज़ <strong>अभ्यास</strong> करें।<img src=x onerror="alert(1)">' } });
+  var htmlEl = {
+    _a: { 'data-i18n-html': 'about.rich' },
+    innerHTML: 'Train <strong>daily</strong>.',
+    getAttribute: function (n) { return this._a[n] !== undefined ? this._a[n] : null; },
+    setAttribute: function (n, v) { this._a[n] = String(v); }
+  };
+  var fakeRoot = { querySelectorAll: function (sel) { return sel === '[data-i18n-html]' ? [htmlEl] : []; } };
+  P.setLanguages('hi', 'mr');
+  P.applyDom(fakeRoot);
+  ok('7 html mode translates + keeps <strong>', htmlEl.innerHTML.indexOf('<strong>अभ्यास</strong>') !== -1);
+  ok('7 html mode drops hostile <img>/onerror', htmlEl.innerHTML.indexOf('img') === -1 && htmlEl.innerHTML.toLowerCase().indexOf('onerror') === -1);
+  ok('7 html mode stashes English original', htmlEl.getAttribute('data-i18n-orig-html') === 'Train <strong>daily</strong>.');
+  P.setLanguages('en', 'en');
+  P.applyDom(fakeRoot);
+  ok('7 html mode restores English innerHTML', htmlEl.innerHTML === 'Train <strong>daily</strong>.');
+  /* attributes on a whitelisted tag are stripped */
+  P.register('en', { about: { attr: '<strong>x</strong>' } });
+  P.register('hi', { about: { attr: '<strong class="x" onclick="e()">क</strong>' } });
+  var attrEl = {
+    _a: { 'data-i18n-html': 'about.attr' }, innerHTML: '<strong>x</strong>',
+    getAttribute: function (n) { return this._a[n] !== undefined ? this._a[n] : null; },
+    setAttribute: function (n, v) { this._a[n] = String(v); }
+  };
+  var attrRoot = { querySelectorAll: function (sel) { return sel === '[data-i18n-html]' ? [attrEl] : []; } };
+  P.setLanguages('hi', 'mr');
+  P.applyDom(attrRoot);
+  ok('7 html mode strips tag attributes', attrEl.innerHTML === '<strong>क</strong>');
   delete global.localStorage;
 })();
 

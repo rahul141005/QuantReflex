@@ -174,13 +174,33 @@ var QRI18n = (function () {
   /** Subscribe to language changes (views re-render themselves). */
   function onChange(cb) { if (typeof cb === 'function') _listeners.push(cb); }
 
+  /* Whitelist sanitizer for data-i18n-html values (ADR-111 Phase D). Values come
+     exclusively from our own catalogs, which i18n.check §4 statically proves carry
+     no tag outside {strong, em, br} and no attributes — this runtime pass is
+     defense-in-depth. Every allowed tag is normalized to its bare form (attributes
+     stripped); every other tag is unwrapped (dropped), keeping only its text, so a
+     hostile <img onerror>/<script> can leave no executable residue. Pure string
+     transform: identical in the browser and in the Node check harness. */
+  var _HTML_OK = { strong: 1, em: 1, br: 1 };
+  function _sanitizeHtml(str) {
+    return String(str).replace(/<[^>]*>/g, function (tag) {
+      var m = /^<\s*(\/?)\s*([a-zA-Z][a-zA-Z0-9]*)/.exec(tag);
+      if (!m || !_HTML_OK[m[2].toLowerCase()]) return '';
+      return '<' + (m[1] ? '/' : '') + m[2].toLowerCase() + '>';
+    });
+  }
+
   /**
    * Translate static HTML in place. Elements opt in via:
-   *   data-i18n="ns.key"                      → textContent
+   *   data-i18n="ns.key"                      → textContent (text-only elements)
+   *   data-i18n-html="ns.key"                 → innerHTML, sanitized to <strong>/<em>/<br>
+   *                                             (for sentences with inline emphasis markup)
    *   data-i18n-attr="aria-label:ns.key"      → attribute(s), ';'-separated pairs
-   * The English original is captured into data-i18n-orig on first touch so
-   * switching back to English restores the exact inline source text.
-   * data-i18n elements must contain ONLY text (wrap mixed markup in a span).
+   * The English original is captured into data-i18n-orig / data-i18n-orig-html on
+   * first touch so switching back to English restores the exact inline source. A
+   * data-i18n element must contain ONLY text; use data-i18n-html when it embeds
+   * <strong>/<em>/<br>. A missing translation leaves the element's English markup
+   * untouched (never prints the raw key into the DOM).
    */
   function applyDom(root) {
     if (!root || typeof root.querySelectorAll !== 'function') return;
@@ -196,6 +216,24 @@ var QRI18n = (function () {
         el.setAttribute('data-i18n-orig', el.textContent);
       }
       el.textContent = toEnglish ? el.getAttribute('data-i18n-orig') : _resolve(_appLang, key, null);
+    }
+    nodes = root.querySelectorAll('[data-i18n-html]');
+    for (i = 0; i < nodes.length; i++) {
+      el = nodes[i];
+      key = el.getAttribute('data-i18n-html');
+      if (!key) continue;
+      if (el.getAttribute('data-i18n-orig-html') === null) {
+        if (toEnglish) continue; /* untouched English node — nothing to do */
+        el.setAttribute('data-i18n-orig-html', el.innerHTML);
+      }
+      if (toEnglish) {
+        el.innerHTML = el.getAttribute('data-i18n-orig-html');
+      } else {
+        var v = _resolve(_appLang, key, null);
+        /* Unknown key → _resolve echoes the key; keep the English markup instead of
+           writing a stray "ns.key" string into the page. */
+        el.innerHTML = (v === key) ? el.getAttribute('data-i18n-orig-html') : _sanitizeHtml(v);
+      }
     }
     nodes = root.querySelectorAll('[data-i18n-attr]');
     for (i = 0; i < nodes.length; i++) {
