@@ -18,6 +18,10 @@ var Planner = (function () {
   var _modal = null; // the companion bottom-sheet this planner renders into
 
   function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+  /* Guarded i18n (ADR-111): resolve at render, never at parse. `_t` for chrome, `_dow` for the localized
+     weekday-abbreviation CSV. Server-data labels (examName, verdict, section/task/focus labels, rationale,
+     whyNow, reason, scoreImpact) render VERBATIM — they are produced by the strategy engine / LLM. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
   /* LOCAL date 'YYYY-MM-DD' (ADR-049) — never toISOString() (UTC). Shared with Companion so client + server agree. */
   function todayIso() {
     if (window.Companion && Companion.localDate) return Companion.localDate();
@@ -25,13 +29,14 @@ var Planner = (function () {
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
   function fmtMin(m) { m = Math.round(m || 0); return m >= 60 ? (m % 60 ? (Math.floor(m / 60) + 'h ' + (m % 60) + 'm') : (m / 60 + 'h')) : (m + 'm'); }
-  function dow(iso) { return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
+  function dow(iso) { return (_t('planner.dowAbbrevs').split(','))[new Date(iso + 'T00:00:00Z').getUTCDay()]; }
   function dnum(iso) { return new Date(iso + 'T00:00:00Z').getUTCDate(); }
 
+  /* kind → {css class, catalog key}; the display label resolves lazily via _t(k.k). */
   var KIND = {
-    study: { c: 'st', label: 'Study' }, revision: { c: 'rv', label: 'Revision' },
-    mock: { c: 'mk', label: 'Mock' }, buffer: { c: 'bf', label: 'Recovery' },
-    rest: { c: 'rs', label: 'Rest' }, missed: { c: 'ms', label: 'Missed' }
+    study: { c: 'st', k: 'planner.kind_study' }, revision: { c: 'rv', k: 'planner.kind_revision' },
+    mock: { c: 'mk', k: 'planner.kind_mock' }, buffer: { c: 'bf', k: 'planner.kind_buffer' },
+    rest: { c: 'rs', k: 'planner.kind_rest' }, missed: { c: 'ms', k: 'planner.kind_missed' }
   };
 
   function api(op, extra) {
@@ -46,13 +51,13 @@ var Planner = (function () {
   /* ---- entry points (ADR-049: the planner is a premium bottom-sheet, not a full router view) ---- */
   function open() {
     if (!(window.Companion && Companion.openModal)) return;
-    _modal = Companion.openModal('Study Planner');
+    _modal = Companion.openModal(_t('ai.titlePlanner'));
     var r = root();
     /* Reuse QuanAI's staged shimmer (personalized "reviewing your…" lead + rotating stages) so opening the plan reads
        as the mentor actively rebuilding it — same premium loading the Coach/Insights surfaces use, not a flat line. */
     var stop = (r && Companion.showLoading)
-      ? Companion.showLoading(r, ['Reading your strengths…', 'Weighting topics by exam frequency…', 'Scheduling your next 14 days…'])
-      : (function () { if (r) r.innerHTML = '<div class="planner-loading">Loading your plan…</div>'; return function () {}; })();
+      ? Companion.showLoading(r, [_t('planner.stageOpen1'), _t('planner.stageOpen2'), _t('planner.stageOpen3')])
+      : (function () { if (r) r.innerHTML = '<div class="planner-loading">' + esc(_t('planner.loadingPlan')) + '</div>'; return function () {}; })();
     api('get').then(function (res) {
       stop();
       if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; render(); }
@@ -67,9 +72,9 @@ var Planner = (function () {
     r.innerHTML =
       '<div class="planner-empty">' +
         '<div class="pe-emoji">🗓️</div>' +
-        '<h2>Build your study plan</h2>' +
-        '<p>Tell me your exam and how much time you have — QuanAI maps the full syllabus to your strengths and schedules your next two weeks.</p>' +
-        '<button class="planner-cta" type="button">Create my plan ✨</button>' +
+        '<h2>' + esc(_t('planner.emptyTitle')) + '</h2>' +
+        '<p>' + esc(_t('planner.emptyBody')) + '</p>' +
+        '<button class="planner-cta" type="button">' + esc(_t('ai.wizCreatePlan')) + '</button>' +
       '</div>';
     var btn = r.querySelector('.planner-cta');
     if (btn) btn.onclick = function () { if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true); };
@@ -85,19 +90,20 @@ var Planner = (function () {
   }
 
   function dayTasksDone(d) { var t = d.tasks || []; return { done: t.filter(function (x) { return x.done; }).length, total: t.length }; }
-  function bandLabel(score) { return score >= 80 ? 'Exam ready' : score >= 60 ? 'On track' : score >= 40 ? 'Building' : 'Early days'; }
+  function bandLabel(score) { return _t(score >= 80 ? 'planner.band_ready' : score >= 60 ? 'planner.band_track' : score >= 40 ? 'planner.band_building' : 'planner.band_early'); }
   // ADR-059 display helpers — weightage band, session type, and the friendly drill-category name.
-  function wbLabel(w) { return ({ 'very-high': 'Very High', 'high': 'High', 'medium': 'Medium', 'low': 'Low' })[w] || 'Medium'; }
-  function sessionLabel(st, kind) { return ({ 'first-learning': 'First Learning', 'practice': 'Practice', 'revision': 'Revision', 'mock': 'Mock' })[st] || (kind === 'revise' ? 'Revision' : 'First Learning'); }
+  function wbLabel(w) { return _t(({ 'very-high': 'planner.wb_veryhigh', 'high': 'planner.wb_high', 'medium': 'planner.wb_medium', 'low': 'planner.wb_low' })[w] || 'planner.wb_medium'); }
+  function sessionLabel(st, kind) { return _t(({ 'first-learning': 'planner.session_first', 'practice': 'planner.session_practice', 'revision': 'planner.session_revision', 'mock': 'planner.session_mock' })[st] || (kind === 'revise' ? 'planner.session_revision' : 'planner.session_first')); }
   // Category labels come from the SINGLE source of truth via formatCategoryName (services/quantTopics.js +
   // DI/LR engines), so new drill categories never render as a raw key here (ADR-084).
   function drillName(c) { return (typeof formatCategoryName === 'function') ? formatCategoryName(c) : c; }
   // ADR-062: a human time estimate — "≈50 min" / "≈3.7 hours" (never a bare "3.7h").
   function estLabel(mins) {
     mins = Number(mins) || 0;
-    if (mins < 60) return '≈' + Math.round(mins) + ' min';
+    if (mins < 60) return _t('planner.estMin', { n: Math.round(mins) });
     var h = mins / 60;
-    return '≈' + (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10) + (h < 1.05 ? ' hour' : ' hours');
+    var val = (h >= 10 ? Math.round(h) : Math.round(h * 10) / 10);
+    return _t(h < 1.05 ? 'planner.estHour' : 'planner.estHours', { n: val });
   }
 
   /* ADR-057: the STRATEGY dashboard — readiness + verdict, the milestone path, focus-with-why, recovery, triage.
@@ -109,10 +115,10 @@ var Planner = (function () {
     var html = '<div class="planner-readiness' + (bd ? ' is-tappable' : '') + '"' + (bd ? ' data-readiness="1" role="button" tabindex="0" aria-label="See how exam readiness is calculated"' : '') + '>' + ring(s.readinessScore) +
       '<div class="pr-meta">' +
         '<div class="pr-band">' + esc(bandLabel(s.readinessScore)) + '</div>' +
-        '<div class="pr-label">Exam readiness <span class="pr-sub">· coverage + accuracy + consistency</span></div>' +
-        '<div class="pr-projected">Projected ' + (s.projectedScore != null ? s.projectedScore : '—') + '/100 · target ' + (s.targetScore || '—') + (s.achievable ? ' ✓' : '') + '</div>' +
-        (s.daysToExam != null ? '<div class="pr-forecast ' + (pr.onTrack === false ? 'is-behind' : '') + '">' + s.daysToExam + ' days to ' + esc(s.examName || 'your exam') + (pr.adherencePct != null ? ' · ' + pr.adherencePct + '% done' : '') + '</div>' : '') +
-        (bd ? '<div class="pr-why">Tap to see why it\'s ' + s.readinessScore + '</div>' : '') +
+        '<div class="pr-label">' + esc(_t('planner.readinessLabel')) + ' <span class="pr-sub">' + esc(_t('planner.readinessSub')) + '</span></div>' +
+        '<div class="pr-projected">' + esc(_t('planner.projected', { p: (s.projectedScore != null ? s.projectedScore : '—'), t: (s.targetScore || '—') })) + (s.achievable ? ' ✓' : '') + '</div>' +
+        (s.daysToExam != null ? '<div class="pr-forecast ' + (pr.onTrack === false ? 'is-behind' : '') + '">' + esc(_t('planner.forecastDays', { days: s.daysToExam, exam: (s.examName || _t('planner.forecastExamFallback')) })) + (pr.adherencePct != null ? esc(_t('planner.forecastDone', { pct: pr.adherencePct })) : '') + '</div>' : '') +
+        (bd ? '<div class="pr-why">' + esc(_t('planner.whyTap', { score: s.readinessScore })) + '</div>' : '') +
       '</div></div>';
     // ADR-062: the "why this number" breakdown — no black box. Hidden until tapped.
     if (bd) {
@@ -123,19 +129,19 @@ var Planner = (function () {
             '<span class="prd-bar"><span style="width:' + Math.max(0, Math.min(100, f.pct)) + '%"></span></span>' +
             '<span class="prd-fpct">' + f.pct + '%</span></div>';
         }).join('') + '</div>' +
-        '<div class="prd-note">Exam readiness is a weighted blend of these seven signals — coverage counts most, then accuracy and consistency.</div>' +
+        '<div class="prd-note">' + esc(_t('planner.breakdownNote')) + '</div>' +
       '</div>';
     }
     if (s.verdict) html += '<div class="planner-verdict">' + esc(s.verdict) + '</div>';
 
     if (s.recovery && s.recovery.topics && s.recovery.topics.length) {
       var rt = s.recovery.topics[0];
-      html += '<div class="planner-recovery"><div class="prc-text">⚠ Recent accuracy slipped on <strong>' + esc(s.recovery.topics.map(function (t) { return t.label; }).join(', ')) + '</strong> — a short recovery session is scheduled before new work' +
-        (rt.drillable ? ' (Drills: ' + esc(drillName(rt.drillable)) + ')' : '') + '.</div></div>';
+      html += '<div class="planner-recovery"><div class="prc-text">' + _t('planner.recoveryText', { topics: '<strong>' + esc(s.recovery.topics.map(function (t) { return t.label; }).join(', ')) + '</strong>' }) +
+        (rt.drillable ? esc(_t('planner.recoveryDrills', { name: drillName(rt.drillable) })) : '') + '.</div></div>';
     }
 
     // THE PATH = real syllabus SECTIONS with progress, expandable to their real topics (ADR-059).
-    html += '<div class="planner-section-title">Your path to ' + esc(s.examName || 'the exam') + '</div><div class="planner-sections">' +
+    html += '<div class="planner-section-title">' + esc(_t('planner.pathTitle', { exam: (s.examName || _t('planner.pathExamFallback')) })) + '</div><div class="planner-sections">' +
       (s.sections || []).map(function (sec) {
         var pct = Math.max(0, Math.min(100, sec.progressPct || 0));
         var mins = (sec.topics || []).reduce(function (a, t) { return a + (Number(t.durationMin) || 0); }, 0);
@@ -145,10 +151,10 @@ var Planner = (function () {
         }).join('');
         return '<div class="psec is-' + (sec.status || 'upcoming') + '">' +
           '<div class="psec-head" data-sec="' + esc(sec.name) + '">' +
-            '<div class="psec-title">' + esc(sec.name) + (sec.status === 'active' ? ' <span class="pm-now">now</span>' : '') + '</div>' +
-            '<div class="psec-meta">' + sec.topicCount + ' topics' + (mins > 0 ? ' · ' + estLabel(mins) + ' of study' : '') + ' · ' + wbLabel(sec.weightage) + ' weightage</div>' +
-            '<div class="pm-bar" title="How ready you are across this section"><span style="width:' + pct + '%"></span></div>' +
-            '<div class="psec-progresslabel">' + pct + '% ready</div>' +
+            '<div class="psec-title">' + esc(sec.name) + (sec.status === 'active' ? ' <span class="pm-now">' + esc(_t('planner.now')) + '</span>' : '') + '</div>' +
+            '<div class="psec-meta">' + esc(_t('planner.secTopics', { n: sec.topicCount, count: sec.topicCount }) + (mins > 0 ? _t('planner.secStudySuffix', { est: estLabel(mins) }) : '') + _t('planner.secWeightSuffix', { wb: wbLabel(sec.weightage) })) + '</div>' +
+            '<div class="pm-bar" title="' + esc(_t('planner.secBarTitle')) + '"><span style="width:' + pct + '%"></span></div>' +
+            '<div class="psec-progresslabel">' + esc(_t('planner.ready', { pct: pct })) + '</div>' +
           '</div>' +
           '<div class="psec-topics">' + topicsHtml + '</div>' +
         '</div>';
@@ -156,22 +162,22 @@ var Planner = (function () {
 
     // FOCUS NEXT — what to do now, WHY, ROI + priority. Drills are surfaced as a suggestion, never a button here.
     if (s.focus && s.focus.length) {
-      html += '<div class="planner-section-title">Focus next</div><div class="planner-focus">' +
+      html += '<div class="planner-section-title">' + esc(_t('planner.focusTitle')) + '</div><div class="planner-focus">' +
         s.focus.slice(0, 4).map(function (t) {
           var pri = t.roi != null ? Math.round(t.roi * 10) / 10 : null;
           return '<div class="pf"><div class="pf-head"><div class="pf-label">' + esc(t.label) + '</div>' +
-            (pri != null ? '<span class="pf-pri">' + pri + '/10</span>' : '') + '</div>' +
-            '<div class="pf-tags">' + wbLabel(t.weightage) + (t.pyqFreq != null ? ' · appears ~' + Math.round(t.pyqFreq * 100) + '% of papers' : '') + (t.durationMin ? ' · ~' + t.durationMin + ' min' : '') + '</div>' +
+            (pri != null ? '<span class="pf-pri">' + esc(_t('planner.pri', { pri: pri })) + '</span>' : '') + '</div>' +
+            '<div class="pf-tags">' + esc(wbLabel(t.weightage) + (t.pyqFreq != null ? _t('planner.pfAppears', { p: Math.round(t.pyqFreq * 100) }) : '') + (t.durationMin ? _t('planner.pfMin', { m: t.durationMin }) : '')) + '</div>' +
             (t.whyNow ? '<div class="pf-why">' + esc(t.whyNow) + '</div>' : '') +
-            (t.unlocks && t.unlocks.length ? '<div class="pf-unlocks">Unlocks ' + esc(t.unlocks.slice(0, 3).join(', ')) + '</div>' : '') +
+            (t.unlocks && t.unlocks.length ? '<div class="pf-unlocks">' + esc(_t('planner.unlocks', { list: t.unlocks.slice(0, 3).join(', ') })) + '</div>' : '') +
             (t.scoreImpact ? '<div class="pf-impact">' + esc(t.scoreImpact) + '</div>' : '') +
-            (t.drillable ? '<div class="pf-suggest">💡 Practice available in Drills after you study this</div>' : '') + '</div>';
+            (t.drillable ? '<div class="pf-suggest">' + esc(_t('planner.practiceAvail')) + '</div>' : '') + '</div>';
         }).join('') + '</div>';
     }
 
     if (s.skip && s.skip.length) {
-      html += '<div class="planner-triage"><strong>Parked for time:</strong> ' + esc(s.skip.slice(0, 4).map(function (t) { return t.label; }).join(', ')) +
-        (s.marksAtRisk ? ' · ~' + s.marksAtRisk + ' pts at risk' : '') + '</div>';
+      html += '<div class="planner-triage"><strong>' + esc(_t('planner.parkedLabel')) + '</strong> ' + esc(s.skip.slice(0, 4).map(function (t) { return t.label; }).join(', ')) +
+        (s.marksAtRisk ? esc(_t('planner.parkedRisk', { m: s.marksAtRisk })) : '') + '</div>';
     }
     return html;
   }
@@ -179,9 +185,9 @@ var Planner = (function () {
   /* Legacy readiness panel for docs predating the strategy (ADR-057 graceful fallback). */
   function legacyReadiness(p) {
     var rd = p.readiness || { score: 0, band: 'early' }, fc = p.forecast || {};
-    var line = fc.daysToExam != null ? fc.daysToExam + ' days to ' + esc(p.examName || 'your exam') + (fc.onTrack === false ? ' · behind' : ' · on track') : '';
+    var line = fc.daysToExam != null ? (esc(_t('planner.forecastDays', { days: fc.daysToExam, exam: (p.examName || _t('planner.forecastExamFallback')) })) + esc(fc.onTrack === false ? _t('planner.legacyBehind') : _t('planner.legacyOnTrack'))) : '';
     return '<div class="planner-readiness">' + ring(rd.score) + '<div class="pr-meta"><div class="pr-band">' + esc(bandLabel(rd.score)) +
-      '</div><div class="pr-label">Exam readiness</div>' + (line ? '<div class="pr-forecast">' + line + '</div>' : '') + '</div></div>';
+      '</div><div class="pr-label">' + esc(_t('planner.readinessLabel')) + '</div>' + (line ? '<div class="pr-forecast">' + line + '</div>' : '') + '</div></div>';
   }
 
   function render() {
@@ -199,7 +205,7 @@ var Planner = (function () {
       var dotState = dt.total ? (dt.done === dt.total ? '✓' : (dt.done + '/' + dt.total)) : '';
       return '<button class="' + cls + '" data-date="' + d.date + '" type="button">' +
         '<span class="pd-dow">' + dow(d.date) + '</span><span class="pd-num">' + dnum(d.date) + '</span>' +
-        '<span class="pd-tag">' + (dotState || (d.kind === 'rest' ? 'rest' : '')) + '</span></button>';
+        '<span class="pd-tag">' + (dotState || (d.kind === 'rest' ? esc(_t('planner.cellRest')) : '')) + '</span></button>';
     }).join('');
 
     var selDay = (b.days || []).find(function (d) { return d.date === _sel; }) || { tasks: [], kind: 'rest' };
@@ -207,18 +213,18 @@ var Planner = (function () {
 
     r.innerHTML =
       '<div class="planner-top">' +
-        '<div class="planner-titles"><div class="planner-title">' + esc(p.examName || 'Study Planner') + '</div><div class="planner-sub">' + esc(s ? 'Your strategy to maximise marks' : 'Your study plan') + '</div></div>' +
-        '<button class="planner-adjust" type="button">Adjust</button>' +
+        '<div class="planner-titles"><div class="planner-title">' + esc(p.examName || _t('ai.titlePlanner')) + '</div><div class="planner-sub">' + esc(s ? _t('planner.subStrategy') : _t('planner.subPlan')) + '</div></div>' +
+        '<button class="planner-adjust" type="button">' + esc(_t('planner.adjust')) + '</button>' +
       '</div>' +
       (s ? renderStrategy(s, p) : legacyReadiness(p)) +
-      '<div class="planner-section-title planner-sched-title">Your schedule</div>' +
+      '<div class="planner-section-title planner-sched-title">' + esc(_t('planner.scheduleTitle')) + '</div>' +
       (b.rationale ? '<div class="planner-rationale">' + esc(b.rationale) + '</div>' : '') +
       '<div class="planner-grid">' + cells + '</div>' +
       '<div class="planner-detail">' + detail + '</div>' +
       '<div class="planner-foot">' +
-        '<button class="planner-regen" type="button">Rebuild my plan</button>' +
-        (today >= b.endDate ? '<div class="planner-foot-hint">Your 14-day block is complete — rebuild for the next two weeks.</div>' : '') +
-        '<button class="planner-startover" type="button">Start over</button>' +
+        '<button class="planner-regen" type="button">' + esc(_t('planner.rebuild')) + '</button>' +
+        (today >= b.endDate ? '<div class="planner-foot-hint">' + esc(_t('planner.blockComplete')) + '</div>' : '') +
+        '<button class="planner-startover" type="button">' + esc(_t('planner.startOver')) + '</button>' +
       '</div>';
 
     // wiring
@@ -242,11 +248,11 @@ var Planner = (function () {
 
   function renderDay(d, today) {
     var k = KIND[d.kind] || KIND.study;
-    var head = '<div class="pday-head"><span class="pday-kind k-' + k.c + '">' + (k.label || 'Study') + '</span>' +
+    var head = '<div class="pday-head"><span class="pday-kind k-' + k.c + '">' + esc(_t(k.k || 'planner.kind_study')) + '</span>' +
       '<span class="pday-date">' + dow(d.date) + ' ' + dnum(d.date) + '</span></div>';
     if (!d.tasks || !d.tasks.length) {
-      var msg = d.kind === 'rest' ? 'Rest day — recovery is part of the plan.' : (d.kind === 'missed' ? 'Missed — its tasks were moved into upcoming days.' : 'Nothing scheduled.');
-      return head + '<div class="pday-empty">' + msg + '</div>';
+      var msg = d.kind === 'rest' ? _t('planner.dayRest') : (d.kind === 'missed' ? _t('planner.dayMissed') : _t('planner.dayNothing'));
+      return head + '<div class="pday-empty">' + esc(msg) + '</div>';
     }
     // ADR-059: a real coaching study block — Topic — duration (Session Type) + reason. Drills are surfaced as a
     // SUGGESTION, never a button (Planner plans; Drills execute). Completion is tracked with the checkbox.
@@ -254,16 +260,16 @@ var Planner = (function () {
       var diff = tk.difficulty || 'medium';
       var st = sessionLabel(tk.sessionType, tk.kind);
       var suggest = tk.drillable
-        ? '<div class="pt-suggest">💡 Drill suggestion: <strong>' + esc(drillName(tk.drillable)) + '</strong> (practise after studying)</div>'
-        : '<div class="pt-suggest pt-ext">📖 Study from your books / notes — no in-app drill for this topic</div>';
+        ? '<div class="pt-suggest">' + _t('planner.drillSuggest', { name: '<strong>' + esc(drillName(tk.drillable)) + '</strong>' }) + '</div>'
+        : '<div class="pt-suggest pt-ext">' + esc(_t('planner.studyFromBooks')) + '</div>';
       return '<div class="pt-task' + (tk.done ? ' is-done' : '') + '">' +
-        '<input class="pt-check" type="checkbox" data-date="' + d.date + '" data-topic="' + esc(tk.topicId) + '"' + (tk.done ? ' checked' : '') + ' aria-label="Mark ' + esc(tk.label) + ' done" />' +
+        '<input class="pt-check" type="checkbox" data-date="' + d.date + '" data-topic="' + esc(tk.topicId) + '"' + (tk.done ? ' checked' : '') + ' aria-label="' + esc(_t('planner.markDone', { label: tk.label })) + '" />' +
         '<div class="pt-main">' +
           '<div class="pt-title">' + esc(tk.label) + ' <span class="pt-st pt-st-' + (tk.sessionType || 'first-learning') + '">' + st + '</span></div>' +
           '<div class="pt-meta"><span class="pt-sec">' + esc(tk.section || '') + '</span><span class="pt-dot">·</span>' + fmtMin(tk.estMin) +
             (tk.weightage ? '<span class="pt-dot">·</span>' + wbLabel(tk.weightage) : '') + '<span class="pt-dot">·</span><span class="pt-diff d-' + esc(diff) + '">' + esc(diff) + '</span></div>' +
           (tk.reason ? '<div class="pt-reason">' + esc(tk.reason) + '</div>' : '') +
-          (tk.unlocks && tk.unlocks.length ? '<div class="pt-unlocks">Unlocks ' + esc(tk.unlocks.slice(0, 3).join(', ')) + '</div>' : '') +
+          (tk.unlocks && tk.unlocks.length ? '<div class="pt-unlocks">' + esc(_t('planner.unlocks', { list: tk.unlocks.slice(0, 3).join(', ') })) + '</div>' : '') +
           suggest +
         '</div>' +
       '</div>';
@@ -281,7 +287,7 @@ var Planner = (function () {
     function rollback() {
       if (task) { task.done = prevDone; task.completedAt = prevAt; }
       render();
-      try { if (typeof showToast === 'function') showToast('Couldn\'t save that — check your connection.'); } catch (_) {}
+      try { if (typeof showToast === 'function') showToast(_t('planner.toggleFail')); } catch (_) {}
     }
     api('toggle', { date: date, topicId: topicId, done: done }).then(function (res) {
       // ADR-048: the server now AWAITS the write, so a non-ok response means it really didn't save → roll back.
@@ -301,7 +307,7 @@ var Planner = (function () {
   }
 
   function regen() {
-    var r = root(); var foot = r && r.querySelector('.planner-foot'); if (foot) foot.innerHTML = '<div class="planner-loading">QuanAI is planning your next two weeks…</div>';
+    var r = root(); var foot = r && r.querySelector('.planner-foot'); if (foot) foot.innerHTML = '<div class="planner-loading">' + esc(_t('planner.regenLoading')) + '</div>';
     api('regen').then(function (res) {
       if (res.ok && res.data && res.data.plan) { _plan = res.data.plan; _sel = null; _markAiDirty(); render(); }
       else render();
@@ -319,25 +325,25 @@ var Planner = (function () {
     overlay.className = 'qr-confirm-overlay';
     overlay.innerHTML =
       '<div class="qr-confirm-card" role="dialog" aria-modal="true" aria-labelledby="qrConfirmTitle" aria-describedby="qrConfirmBody">' +
-        '<div class="qr-confirm-title" id="qrConfirmTitle">Start over?</div>' +
+        '<div class="qr-confirm-title" id="qrConfirmTitle">' + esc(_t('planner.soTitle')) + '</div>' +
         '<div class="qr-confirm-body" id="qrConfirmBody">' +
-          '<p class="qr-confirm-lead">This permanently clears your study plan and its setup. QuanAI will take you back to planner setup to build a fresh one.</p>' +
-          '<div class="qr-confirm-list-label">This will be deleted</div>' +
+          '<p class="qr-confirm-lead">' + esc(_t('planner.soLead')) + '</p>' +
+          '<div class="qr-confirm-list-label">' + esc(_t('planner.soDelLabel')) + '</div>' +
           '<ul class="qr-confirm-list is-del">' +
-            '<li>Your generated study plan &amp; 14-day schedule</li>' +
-            '<li>Your exam &amp; target-date configuration</li>' +
-            '<li>Your planner setup answers</li>' +
-            '<li>Your planner task progress</li>' +
+            '<li>' + esc(_t('planner.soDel1')) + '</li>' +
+            '<li>' + esc(_t('planner.soDel2')) + '</li>' +
+            '<li>' + esc(_t('planner.soDel3')) + '</li>' +
+            '<li>' + esc(_t('planner.soDel4')) + '</li>' +
           '</ul>' +
-          '<div class="qr-confirm-list-label">This stays safe</div>' +
+          '<div class="qr-confirm-list-label">' + esc(_t('planner.soKeepLabel')) + '</div>' +
           '<ul class="qr-confirm-list is-keep">' +
-            '<li>Your practice history, accuracy, streaks &amp; drill stats</li>' +
+            '<li>' + esc(_t('planner.soKeep1')) + '</li>' +
           '</ul>' +
-          '<p class="qr-confirm-note">Your exam goal is also removed from QuanAI Coach &amp; Insights — they\'ll keep coaching you from your practice data.</p>' +
+          '<p class="qr-confirm-note">' + esc(_t('planner.soNote')) + '</p>' +
         '</div>' +
         '<div class="qr-confirm-actions">' +
-          '<button class="qr-confirm-cancel" type="button">Cancel</button>' +
-          '<button class="qr-confirm-danger" type="button">Start over</button>' +
+          '<button class="qr-confirm-cancel" type="button">' + esc(_t('planner.soCancel')) + '</button>' +
+          '<button class="qr-confirm-danger" type="button">' + esc(_t('planner.soConfirm')) + '</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -354,11 +360,11 @@ var Planner = (function () {
     overlay.querySelector('.qr-confirm-cancel').onclick = close;
     var danger = overlay.querySelector('.qr-confirm-danger');
     function fail() {
-      danger.disabled = false; danger.textContent = 'Start over';
-      try { if (typeof showToast === 'function') showToast('Couldn\'t reset just now — check your connection.'); } catch (_) {}
+      danger.disabled = false; danger.textContent = _t('planner.soConfirm');
+      try { if (typeof showToast === 'function') showToast(_t('planner.soFail')); } catch (_) {}
     }
     danger.onclick = function () {
-      danger.disabled = true; danger.textContent = 'Starting over…';
+      danger.disabled = true; danger.textContent = _t('planner.soConfirming');
       api('reset').then(function (res) {
         if (res.ok && res.data && res.data.ok) {
           try { if (typeof TargetExam !== 'undefined') TargetExam.clear(); else localStorage.removeItem('qr_active_exam'); } catch (_) {}
