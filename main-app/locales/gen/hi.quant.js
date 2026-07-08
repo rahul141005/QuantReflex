@@ -92,7 +92,87 @@
     /* सरलीकरण / BODMAS */
     'simplification:*:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — पहले गुणा: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', फिर + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
     'simplification:medium:divideAdd': { s: [function (s) { return s.num + ' ÷ ' + s.dv + ' + ' + s.add + ' = ?'; }], e: [function (s) { return 'पहले भाग: ' + s.num + ' ÷ ' + s.dv + ' = ' + (s.num / s.dv) + ', फिर + ' + s.add + ' = ' + (s.num / s.dv + s.add) + '.'; }] },
-    'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'कोष्ठक → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; और ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; योग = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] }
+    'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'कोष्ठक → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; और ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; योग = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] },
+
+    /* ── Batch 2: क्षेत्रफल, आयतन, पृष्ठीय क्षेत्रफल (units cm/m + π = 3.14 stay; nouns/verbs Hindi) ── */
+
+    /* क्षेत्रफल */
+    'area:easy:square': {
+      s: [function (s) { return 'भुजा ' + s.s + ' cm वाले वर्ग का क्षेत्रफल = ? cm².'; }, function (s) { return 'एक वर्गाकार टाइल की भुजा ' + s.s + ' cm है। इसका क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }, function (s) { return 'एक वर्गाकार खेत की प्रत्येक भुजा ' + s.s + ' m है। इसका क्षेत्रफल = ? m².'; }],
+      e: [function (s) { return 'वर्ग का क्षेत्रफल = भुजा² = ' + s.s + '² = ' + (s.s * s.s) + '.'; }]
+    },
+    'area:*:rectangle': {
+      s: [function (s) { return 'एक आयत ' + s.l + ' cm लंबा और ' + s.b + ' cm चौड़ा है। इसका क्षेत्रफल = ? cm².'; }, function (s) { return 'एक आयताकार भूखंड की माप ' + s.l + ' m × ' + s.b + ' m है। इसका क्षेत्रफल ज्ञात कीजिए (m² में)।'; }, function (s) { return 'एक हॉल ' + s.l + ' m लंबा और ' + s.b + ' m चौड़ा है। इसके फ़र्श का क्षेत्रफल = ? m².'; }],
+      e: [function (s) { return 'क्षेत्रफल = लंबाई × चौड़ाई = ' + s.l + ' × ' + s.b + ' = ' + (s.l * s.b) + '.'; }]
+    },
+    'area:*:triangle': {
+      s: [function (s) { return 'एक त्रिभुज का आधार ' + s.base + ' cm और ऊँचाई ' + s.h + ' cm है। इसका क्षेत्रफल = ? cm².'; }, function (s) { return 'उस त्रिभुज का क्षेत्रफल ज्ञात कीजिए जिसका आधार ' + s.base + ' cm और ऊँचाई ' + s.h + ' cm है (cm² में)।'; }],
+      e: [function (s) { return 'क्षेत्रफल = ½ × आधार × ऊँचाई = ½ × ' + s.base + ' × ' + s.h + ' = ' + (s.base * s.h / 2) + ' cm². भिन्न से बचने के लिए पहले सम भुजा को आधा कीजिए।'; }]
+    },
+    'area:medium:parallelogram': {
+      s: [function (s) { return 'एक समांतर चतुर्भुज का आधार ' + s.b + ' cm और ऊँचाई ' + s.h + ' cm है। इसका क्षेत्रफल = ? cm².'; }, function (s) { return 'आधार ' + s.b + ' cm और लंब ऊँचाई ' + s.h + ' cm वाले समांतर चतुर्भुज का क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }],
+      e: [function (s) { return 'क्षेत्रफल = आधार × ऊँचाई = ' + s.b + ' × ' + s.h + ' = ' + (s.b * s.h) + ' cm². तिरछी भुजा नहीं, लंब ऊँचाई लीजिए।'; }]
+    },
+    'area:*:circle': {
+      s: [function (s) { return s.r + ' cm त्रिज्या वाले वृत्त का क्षेत्रफल = ? cm². (π = 3.14 लीजिए)'; }, function (s) { return 'एक वृत्ताकार बगीचे की त्रिज्या ' + s.r + ' m है। इसका क्षेत्रफल m² में ज्ञात कीजिए (π = 3.14 लीजिए)।'; }],
+      e: [function (s) { return 'क्षेत्रफल = πr² = 3.14 × ' + s.r + '² = 3.14 × ' + (s.r * s.r) + ' = ' + s.ans + '.'; }]
+    },
+    'area:hard:trapezium': {
+      s: [function (s) { return 'एक समलंब चतुर्भुज की समांतर भुजाएँ ' + s.a1 + ' cm और ' + s.b1 + ' cm हैं तथा ऊँचाई ' + s.h + ' cm है। इसका क्षेत्रफल = ? cm².'; }, function (s) { return 'एक समलंब की समांतर भुजाओं की माप ' + s.a1 + ' cm और ' + s.b1 + ' cm है, और उनके बीच की दूरी ' + s.h + ' cm है। इसका क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }],
+      e: [function (s) { return 'क्षेत्रफल = ½ × (समांतर भुजाओं का योग) × ऊँचाई = ½ × ' + (s.a1 + s.b1) + ' × ' + s.h + ' = ' + ((s.a1 + s.b1) * s.h / 2) + ' cm².'; }]
+    },
+    'area:hard:border': {
+      s: [function (s) { return 'एक ' + s.L + ' cm × ' + s.B + ' cm की शीट पर ' + s.w + ' cm चौड़ाई की एकसमान सीमा है। सीमा का क्षेत्रफल = ? cm².'; }, function (s) { return 'एक ' + s.L + ' cm × ' + s.B + ' cm के फ़ोटो फ़्रेम के किनारे पर ' + s.w + ' cm चौड़ी एकसमान सीमा है। सीमा का क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }],
+      e: [function (s) { return 'सीमा = बाहरी − भीतरी = ' + s.L + '×' + s.B + ' − ' + (s.L - 2 * s.w) + '×' + (s.B - 2 * s.w) + ' = ' + (s.L * s.B) + ' − ' + ((s.L - 2 * s.w) * (s.B - 2 * s.w)) + ' = ' + (s.L * s.B - (s.L - 2 * s.w) * (s.B - 2 * s.w)) + ' cm².'; }]
+    },
+
+    /* आयतन */
+    'volume:easy:cube': {
+      s: [function (s) { return s.s + ' cm भुजा वाले घन का आयतन = ? cm³.'; }, function (s) { return 'एक घनाकार डिब्बे की कोर ' + s.s + ' cm है। इसका आयतन ज्ञात कीजिए (cm³ में)।'; }, function (s) { return 'एक घन की प्रत्येक कोर ' + s.s + ' cm मापती है। इसका आयतन = ? cm³.'; }],
+      e: [function (s) { return 'घन का आयतन = भुजा³ = ' + s.s + '³ = ' + (s.s * s.s * s.s) + ' cm³.'; }]
+    },
+    'volume:*:cuboid': {
+      s: [function (s) { return 'एक घनाभ की माप ' + s.l + ' cm × ' + s.b + ' cm × ' + s.h + ' cm है। इसका आयतन = ? cm³.'; }, function (s) { return 'एक कार्टन ' + s.l + ' cm लंबा, ' + s.b + ' cm चौड़ा और ' + s.h + ' cm ऊँचा है। इसका आयतन ज्ञात कीजिए (cm³ में)।'; }, function (s) { return 'एक पानी की टंकी की माप ' + s.l + ' m × ' + s.b + ' m × ' + s.h + ' m है। इसकी धारिता = ? m³.'; }],
+      e: [function (s) { return 'आयतन = लंबाई × चौड़ाई × ऊँचाई = ' + s.l + ' × ' + s.b + ' × ' + s.h + ' = ' + (s.l * s.b * s.h) + '.'; }]
+    },
+    'volume:*:cylinder': {
+      s: [function (s) { return 'एक बेलन की त्रिज्या ' + s.r + ' cm और ऊँचाई ' + s.h + ' cm है। इसका आयतन = ? cm³. (π = 3.14 लीजिए)'; }, function (s) { return 'एक बेलनाकार ड्रम की आधार त्रिज्या ' + s.r + ' cm है और यह ' + s.h + ' cm ऊँचा है। इसका आयतन cm³ में ज्ञात कीजिए (π = 3.14 लीजिए)।'; }],
+      e: [function (s) { return 'आयतन = πr²h = 3.14 × ' + s.r + '² × ' + s.h + ' = 3.14 × ' + (s.r * s.r * s.h) + ' = ' + s.ans + ' cm³.'; }]
+    },
+    'volume:hard:sphere': {
+      s: [function (s) { return 'एक गोले की त्रिज्या ' + s.r + ' cm है। इसका आयतन = ? cm³. (π = 3.14 लीजिए)'; }, function (s) { return 'एक ठोस गोले की त्रिज्या ' + s.r + ' cm है; π = 3.14 लेकर इसका आयतन ज्ञात कीजिए (cm³ में)।'; }],
+      e: [function (s) { return 'आयतन = (4/3)πr³ = (4/3) × 3.14 × ' + s.r + '³ = ' + s.ans + ' cm³.'; }]
+    },
+    'volume:hard:cone': {
+      s: [function (s) { return 'एक शंकु की त्रिज्या ' + s.r + ' cm और ऊँचाई ' + s.h + ' cm है। इसका आयतन = ? cm³. (π = 3.14 लीजिए)'; }, function (s) { return 'एक आइसक्रीम शंकु की आधार त्रिज्या ' + s.r + ' cm और ऊँचाई ' + s.h + ' cm है। इसका आयतन cm³ में ज्ञात कीजिए (π = 3.14)।'; }],
+      e: [function (s) { return 'आयतन = (1/3)πr²h = (1/3) × 3.14 × ' + (s.r * s.r) + ' × ' + s.h + ' = ' + s.ans + ' cm³.'; }]
+    },
+
+    /* पृष्ठीय क्षेत्रफल */
+    'surface-area:easy:cubeTSA': {
+      s: [function (s) { return s.a + ' cm भुजा वाले घन का संपूर्ण पृष्ठीय क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }, function (s) { return 'एक घनाकार डिब्बे की कोर ' + s.a + ' cm है। इसके सभी फलकों को ढकने के लिए रँगा जाने वाला कुल क्षेत्रफल = ? cm²'; }],
+      e: [function (s) { return 'घन का संपूर्ण पृष्ठीय क्षेत्रफल = 6a² = 6 × ' + s.a + '² = 6 × ' + (s.a * s.a) + ' = ' + (6 * s.a * s.a) + ' cm².'; }]
+    },
+    'surface-area:medium:cubeLSA': {
+      s: [function (s) { return s.a + ' cm भुजा वाले घन का पार्श्व (साइड) पृष्ठीय क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }],
+      e: [function (s) { return 'घन का पार्श्व पृष्ठीय क्षेत्रफल = 4a² (चार पार्श्व फलक) = 4 × ' + (s.a * s.a) + ' = ' + (4 * s.a * s.a) + ' cm².'; }]
+    },
+    'surface-area:*:cuboidTSA': {
+      s: [function (s) { return 'एक घनाभ ' + s.l + ' × ' + s.b + ' × ' + s.h + ' cm का संपूर्ण पृष्ठीय क्षेत्रफल ज्ञात कीजिए (cm² में)।'; }],
+      e: [function (s) { return 'संपूर्ण पृष्ठीय क्षेत्रफल = 2(lb + bh + hl) = 2(' + (s.l * s.b) + ' + ' + (s.b * s.h) + ' + ' + (s.l * s.h) + ') = ' + (2 * (s.l * s.b + s.b * s.h + s.l * s.h)) + ' cm².'; }]
+    },
+    'surface-area:medium:cylCSA': {
+      s: [function (s) { return s.r + ' cm त्रिज्या और ' + s.h + ' cm ऊँचाई वाले बेलन का वक्र पृष्ठीय क्षेत्रफल ज्ञात कीजिए (π = 3.14 लीजिए)।'; }],
+      e: [function (s) { return 'वक्र पृष्ठीय क्षेत्रफल = 2πrh = 2 × 3.14 × ' + s.r + ' × ' + s.h + ' = ' + s.ans + ' cm².'; }]
+    },
+    'surface-area:hard:cylTSA': {
+      s: [function (s) { return s.r + ' cm त्रिज्या और ' + s.h + ' cm ऊँचाई वाले बेलन का संपूर्ण पृष्ठीय क्षेत्रफल ज्ञात कीजिए (π = 3.14 लीजिए)।'; }],
+      e: [function (s) { return 'संपूर्ण पृष्ठीय क्षेत्रफल = 2πr(r + h) = 2 × 3.14 × ' + s.r + ' × (' + s.r + ' + ' + s.h + ') = ' + s.ans + ' cm².'; }]
+    },
+    'surface-area:hard:sphereSA': {
+      s: [function (s) { return s.r + ' cm त्रिज्या वाले गोले का पृष्ठीय क्षेत्रफल ज्ञात कीजिए (π = 3.14 लीजिए)।'; }, function (s) { return 'एक गोलाकार गेंद की त्रिज्या ' + s.r + ' cm है। π = 3.14 लेकर इसका पृष्ठीय क्षेत्रफल = ? cm²'; }],
+      e: [function (s) { return 'पृष्ठीय क्षेत्रफल = 4πr² = 4 × 3.14 × ' + s.r + '² = ' + s.ans + ' cm².'; }]
+    }
   } };
 
   if (GI) GI.register('hi', 'quant', pack);
