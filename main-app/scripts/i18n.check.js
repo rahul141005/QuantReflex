@@ -39,7 +39,11 @@ var LATIN_ALLOWLIST = [
   /* share text carries the product URL verbatim (longest form first — stripping is literal) */
   'https://www.quantreflex.app', 'www.quantreflex.app', 'quantreflex.app',
   /* developer + payment-processor proper nouns (About modal, DNT) */
-  'Razorpay', 'KrisVeltrix', 'KVt'
+  'Razorpay', 'KrisVeltrix', 'KVt',
+  /* platform / browser brand names (App Guide install instructions, DNT) */
+  'Android', 'Chrome', 'iPhone', 'Safari',
+  /* theme brand word ('Playful Professional' / 'Playful theme', DNT) */
+  'Playful'
 ];
 
 /* ── capture raw catalogs by requiring the locale IIFEs against a recording stub ── */

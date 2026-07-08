@@ -58,3 +58,14 @@ comprehension.
 - **Rationale:** these are single static documents consumed by crawlers / the OS install prompt
   before any user session or language preference exists; there is no per-user language to apply.
   English is the correct default. (Recorded here now; re-confirmed at certification.)
+
+### App Guide — `info-premium-chip` badges
+
+- **String:** the three `Premium` labels inside `<span class="info-premium-chip">` badges (App
+  Guide sections "Premium modes", "My notes", "Theme").
+- **Status:** left untagged; render `Premium` (Latin) in every language.
+- **Rationale:** `Premium` is on the do-not-translate list (it appears as the Latin chip form
+  everywhere in the product). Tagging these badges with a `data-i18n` key whose value is `Premium`
+  in all three languages would be redundant. They render identically whether tagged or not, and are
+  correctly allowlisted by the leak heuristic. The surrounding sentence text (e.g. "Premium modes",
+  "the Playful Professional look is") IS tagged so its non-`Premium` words translate.
