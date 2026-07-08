@@ -30,6 +30,11 @@
   var PROB_COLC = [['red', 'blue'], ['green', 'yellow'], ['black', 'white']];
   /* Set-theory context pairs (index-aligned) — the two liked-things per Venn problem; hi/mr translate the nouns. */
   var SET_CTX = [['tea', 'coffee'], ['football', 'cricket'], ['Maths', 'Science'], ['Hindi', 'English'], ['apples', 'oranges'], ['chess', 'carrom'], ['Physics', 'Chemistry'], ['badminton', 'tennis'], ['History', 'Geography'], ['painting', 'music'], ['guitar', 'piano'], ['dogs', 'cats'], ['cricket', 'hockey'], ['pizza', 'burgers']];
+  /* Ratio percent-descriptor pool — flat (easy 0..5, then hard 6..13), index-aligned with _RAT_PCT_FLAT in
+     questions.js. Only the descriptor ('25% more') translates; the ratio answer is neutral and rides a slot. */
+  var RAT_PCT_POOL = [['25% more', '5:4'], ['20% less', '4:5'], ['50% more', '3:2'], ['20% more', '6:5'], ['25% less', '3:4'], ['10% less', '9:10'], ['12.5% more', '9:8'], ['16.66% less', '5:6'], ['37.5% more', '11:8'], ['11.11% less', '8:9'], ['66.66% more', '5:3'], ['150% more', '5:2'], ['40% more', '7:5'], ['75% more', '7:4']];
+  /* Mixture item pool (index-aligned) — the commodity being mixed; ₹/kg and the ratio/price answers stay neutral. */
+  var MIX_ITEMS = ['rice', 'wheat', 'sugar', 'tea', 'coffee', 'pulses', 'flour', 'salt'];
 
   var pack = { pools: {}, tpl: {
     /* ── Squares & roots ── */
@@ -1018,6 +1023,62 @@
     'statistics-basics:hard:mean': {
       s: [function (s) { return 'Find the mean (average) of ' + s.a.join(', ') + '.'; }],
       e: [function (s) { return 'Mean = sum ÷ count = ' + s.sum + ' ÷ ' + s.k + ' = ' + s.M + '.'; }]
+    },
+
+    /* ── Ratios ── (person names ride slot `nm`; ratio answers & the pct-descriptor ride the RAT_PCT_POOL index) */
+    'ratios:easy:divide': {
+      s: [function (s) { return '₹' + s.total + ' is divided between ' + s.nm[0].en + ' and ' + s.nm[1].en + ' in the ratio ' + s.p0 + ' : ' + s.p1 + '. ' + s.nm[0].en + ' gets ₹?'; }],
+      e: [function (s) { return 'Total parts = ' + s.p0 + ' + ' + s.p1 + ' = ' + s.parts + '. One part = ' + s.total + ' ÷ ' + s.parts + ' = ' + (s.total / s.parts) + '. ' + s.nm[0].en + ' = ' + s.p0 + ' × ' + (s.total / s.parts) + ' = ' + (s.total * s.p0 / s.parts) + '.'; }]
+    },
+    'ratios:medium:divide': {
+      s: [function (s) { return '₹' + s.total + ' is divided between ' + s.nm[0].en + ' and ' + s.nm[1].en + ' in the ratio ' + s.p0 + ' : ' + s.p1 + '. ' + s.nm[0].en + ' gets ₹?'; }],
+      e: [function (s) { return 'Total parts = ' + s.p0 + ' + ' + s.p1 + ' = ' + s.parts + '. One part = ' + s.total + ' ÷ ' + s.parts + ' = ' + (s.total / s.parts) + '. ' + s.nm[0].en + ' = ' + s.p0 + ' × ' + (s.total / s.parts) + ' = ' + (s.total * s.p0 / s.parts) + '.'; }]
+    },
+    'ratios:medium:findTerm': {
+      s: [function (s) { return 'A : B = ' + s.p0 + ' : ' + s.p1 + ' and A = ' + s.aVal + '. B = ?'; }],
+      e: [function (s) { return 'One part = A ÷ ' + s.p0 + ' = ' + s.aVal + ' ÷ ' + s.p0 + ' = ' + s.one + '. B = ' + s.p1 + ' × ' + s.one + ' = ' + s.bVal + '.'; }]
+    },
+    'ratios:hard:findTerm': {
+      s: [function (s) { return 'A : B = ' + s.p0 + ' : ' + s.p1 + ' and A = ' + s.aVal + '. B = ?'; }],
+      e: [function (s) { return 'One part = A ÷ ' + s.p0 + ' = ' + s.aVal + ' ÷ ' + s.p0 + ' = ' + s.one + '. B = ' + s.p1 + ' × ' + s.one + ' = ' + s.bVal + '.'; }]
+    },
+    'ratios:hard:combine': {
+      s: [function (s) { return 'A : B = ' + s.ab0 + ' : ' + s.ab1 + ' and B : C = ' + s.bc0 + ' : ' + s.bc1 + '. A : C = ?'; }],
+      e: [function (s) { return 'B is common (' + s.ab1 + '=' + s.bc0 + '), so A : C = ' + s.ab0 + ' : ' + s.bc1 + ' = ' + (s.ab0 / s.g) + ' : ' + (s.bc1 / s.g) + ' after dividing by ' + s.g + '.'; }]
+    },
+    'ratios:easy:pctRatio': {
+      s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
+      e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
+    },
+    'ratios:medium:pctRatio': {
+      s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
+      e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
+    },
+    'ratios:hard:pctRatio': {
+      s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
+      e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
+    },
+
+    /* ── Mixtures & alligations ── (commodity rides the MIX_ITEMS index pool; ₹/kg + ratio/price answers neutral) */
+    'mixtures:easy:alligationRatio': {
+      s: [function (s) { return 'In what ratio must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
+      e: [function (s) { return 'By alligation, cheaper : dearer = (dearer − mean) : (mean − cheaper) = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + ' = ' + (s.lo / s.g) + ' : ' + (s.hi / s.g) + '.'; }]
+    },
+    'mixtures:medium:alligationRatio': {
+      s: [function (s) { return 'In what ratio must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
+      e: [function (s) { return 'By alligation, cheaper : dearer = (dearer − mean) : (mean − cheaper) = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + ' = ' + (s.lo / s.g) + ' : ' + (s.hi / s.g) + '.'; }]
+    },
+    'mixtures:medium:meanPrice': {
+      s: [function (s) { return '' + s.x + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg is mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg. The average price of the mixture = ₹? per kg'; }],
+      e: [function (s) { return 'Average = total cost ÷ total weight = (' + s.x + '×' + s.a + ' + ' + s.y + '×' + s.b + ') ÷ (' + s.x + '+' + s.y + ') = ' + (s.a * s.x + s.b * s.y) + ' ÷ ' + (s.x + s.y) + ' = ₹' + s.mean + '.'; }]
+    },
+    'mixtures:hard:meanPrice': {
+      s: [function (s) { return '' + s.x + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg is mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg. The average price of the mixture = ₹? per kg'; }],
+      e: [function (s) { return 'Average = total cost ÷ total weight = (' + s.x + '×' + s.a + ' + ' + s.y + '×' + s.b + ') ÷ (' + s.x + '+' + s.y + ') = ' + (s.a * s.x + s.b * s.y) + ' ÷ ' + (s.x + s.y) + ' = ₹' + s.mean + '.'; }]
+    },
+    'mixtures:hard:alligationQty': {
+      s: [function (s) { return 'In what quantity (in kg) must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
+      e: [function (s) { return 'By alligation, cheaper : dearer = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + '. Cheaper quantity = ' + s.y + ' × ' + s.lo + '/' + s.hi + ' = ' + s.x + ' kg.'; }]
     }
   } };
 
