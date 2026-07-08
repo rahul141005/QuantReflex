@@ -43,7 +43,9 @@ var LATIN_ALLOWLIST = [
   /* platform / browser brand names (App Guide install instructions, DNT) */
   'Android', 'Chrome', 'iPhone', 'Safari',
   /* theme brand word ('Playful Professional' / 'Playful theme', DNT) */
-  'Playful'
+  'Playful',
+  /* home premium badge + login placeholder (DNT) */
+  'PRO', 'you@example.com'
 ];
 
 /* ── capture raw catalogs by requiring the locale IIFEs against a recording stub ── */

@@ -16,14 +16,15 @@ These appear verbatim inside otherwise-Devanagari strings and are allowlisted in
 `scripts/i18n.check.js` (`LATIN_ALLOWLIST`) so the leak heuristic does not flag them:
 
 - **Product / brand:** QuantReflex, QuanAI, Premium (chip form), Speed Score, Speed Aptitude,
-  Math Duel.
+  Math Duel, PRO (the `🔒 PRO` home premium badge), Playful (the "Playful Professional" theme).
 - **Domains / discipline acronyms:** DI, LR, AI.
 - **Exam names / acronyms:** CAT, MBA, CET, MAH, Bank, PO, SSC, CGL, IBPS, RRB, UPSC, MPSC, NDA,
   CDS, XAT, SNAP, NMAT, CMAT, SBI, Foundation.
 - **Units / math:** km, kmph, cm, mm, kg, XP, AP, GP (digits always 0-9; ₹ and % untouched).
 - **Third-party / proper nouns:** Google, Razorpay (payment processor), KrisVeltrix / KVt
-  (developer), the product URLs (`https://www.quantreflex.app`, `www.quantreflex.app`,
-  `quantreflex.app`), the login placeholder `you@example.com`.
+  (developer), Android, Chrome, iPhone, Safari (install instructions), WhatsApp (duel invite),
+  the product URLs (`https://www.quantreflex.app`, `www.quantreflex.app`, `quantreflex.app`), the
+  login placeholder `you@example.com`, the duel room-code placeholder `ABC123`.
 - **Theme names:** Playful Professional, Classic Blue.
 
 Rationale: these are proper nouns, brand/feature identities, exam-board names, or machine tokens
