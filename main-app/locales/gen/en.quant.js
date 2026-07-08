@@ -530,6 +530,108 @@
     'partnership:hard:shareTime': {
       s: [function (s) { return s.nm[0].en + ' invests ₹' + s.x + ' for ' + s.m + ' months and ' + s.nm[1].en + ' invests ₹' + s.y + ' for ' + s.n + ' months. Out of a profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
       e: [function (s) { return 'Weight each partner by capital × time: ' + s.nm[0].en + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].en + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].en + '’s share = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+
+    /* ── Number properties ── (HCF/LCM/unit-digit/factor-count; cycle & factor arrays ride slots, language-neutral) */
+    'number-properties:easy:hcf': {
+      s: [function (s) { return 'Find the HCF (highest common factor) of ' + s.a + ' and ' + s.b + '.'; }],
+      e: [function (s) { return 'HCF(' + s.a + ', ' + s.b + ') = ' + s.g + ' — the largest number that divides both (Euclidean method or common prime factors).'; }]
+    },
+    'number-properties:medium:hcf': {
+      s: [function (s) { return 'Find the HCF (highest common factor) of ' + s.a + ' and ' + s.b + '.'; }],
+      e: [function (s) { return 'HCF(' + s.a + ', ' + s.b + ') = ' + s.g + ' — the largest number that divides both (Euclidean method or common prime factors).'; }]
+    },
+    'number-properties:easy:lcm': {
+      s: [function (s) { return 'Find the LCM (least common multiple) of ' + s.a + ' and ' + s.b + '.'; }],
+      e: [function (s) { return 'LCM = (a × b) ÷ HCF = (' + s.a + ' × ' + s.b + ') ÷ ' + s.g + ' = ' + s.l + '.'; }]
+    },
+    'number-properties:medium:lcm': {
+      s: [function (s) { return 'Find the LCM (least common multiple) of ' + s.a + ' and ' + s.b + '.'; }],
+      e: [function (s) { return 'LCM = (a × b) ÷ HCF = (' + s.a + ' × ' + s.b + ') ÷ ' + s.g + ' = ' + s.l + '.'; }]
+    },
+    'number-properties:medium:unitDigit': {
+      s: [function (s) { return 'What is the unit (last) digit of ' + s.base + '^' + s.e + '?'; }],
+      e: [function (s) { return 'The unit digit of powers of ' + s.base + ' repeats as [' + s.cyc.join(', ') + '] (cycle length ' + s.cyc.length + '). ' + s.e + ' mod ' + s.cyc.length + ' lands on ' + s.ud + '.'; }]
+    },
+    'number-properties:hard:unitDigit': {
+      s: [function (s) { return 'What is the unit (last) digit of ' + s.base + '^' + s.e + '?'; }],
+      e: [function (s) { return 'The unit digit of powers of ' + s.base + ' repeats as [' + s.cyc.join(', ') + '] (cycle length ' + s.cyc.length + '). ' + s.e + ' mod ' + s.cyc.length + ' lands on ' + s.ud + '.'; }]
+    },
+    'number-properties:hard:numFactors': {
+      s: [function (s) { return 'How many factors (divisors) does ' + s.N + ' have?'; }],
+      e: [function (s) { return '' + s.N + ' = ' + s.parts.join(' × ') + '. Number of factors = product of (each exponent + 1) = ' + s.ex.map(function (e) { return '(' + e + '+1)'; }).join(' × ') + ' = ' + s.nf + '.'; }]
+    },
+
+    /* ── Linear equations ── (answer = a variable value; the algebra recomputes from slots) */
+    'linear-equations:easy:solveOne': {
+      s: [function (s) { return s.a + 'x + ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x + ' + s.b + ' = ' + s.c; }, function (s) { return 'If ' + s.a + 'x + ' + s.b + ' = ' + s.c + ', then x = ?'; }],
+      e: [function (s) { return 'Move the constant across: ' + s.a + 'x = ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + '. Then x = ' + (s.c - s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:medium:solveOne': {
+      s: [function (s) { return s.a + 'x + ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x + ' + s.b + ' = ' + s.c; }, function (s) { return 'If ' + s.a + 'x + ' + s.b + ' = ' + s.c + ', then x = ?'; }],
+      e: [function (s) { return 'Move the constant across: ' + s.a + 'x = ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + '. Then x = ' + (s.c - s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:easy:solveOneSub': {
+      s: [function (s) { return s.a + 'x − ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x − ' + s.b + ' = ' + s.c; }],
+      e: [function (s) { return s.a + 'x = ' + s.c + ' + ' + s.b + ' = ' + (s.c + s.b) + ', so x = ' + (s.c + s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:medium:bracket': {
+      s: [function (s) { return s.a + '(x + ' + s.b + ') = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve:  ' + s.a + '(x + ' + s.b + ') = ' + s.c; }],
+      e: [function (s) { return 'Divide both sides by ' + s.a + ' first: x + ' + s.b + ' = ' + (s.c / s.a) + '. So x = ' + (s.c / s.a) + ' − ' + s.b + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:hard:bracket': {
+      s: [function (s) { return s.a + '(x + ' + s.b + ') = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve:  ' + s.a + '(x + ' + s.b + ') = ' + s.c; }],
+      e: [function (s) { return 'Divide both sides by ' + s.a + ' first: x + ' + s.b + ' = ' + (s.c / s.a) + '. So x = ' + (s.c / s.a) + ' − ' + s.b + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:medium:sumDiff': {
+      s: [function (s) { return 'If x + y = ' + s.S + ' and x − y = ' + s.D + ', find x.'; }],
+      e: [function (s) { return 'Add the equations: 2x = ' + s.S + ' + ' + s.D + ' = ' + (s.S + s.D) + ', so x = ' + s.x + ' (and y = ' + s.y + ').'; }]
+    },
+    'linear-equations:hard:sumDiff': {
+      s: [function (s) { return 'If x + y = ' + s.S + ' and x − y = ' + s.D + ', find x.'; }],
+      e: [function (s) { return 'Add the equations: 2x = ' + s.S + ' + ' + s.D + ' = ' + (s.S + s.D) + ', so x = ' + s.x + ' (and y = ' + s.y + ').'; }]
+    },
+    'linear-equations:hard:system2': {
+      s: [function (s) { return 'Solve the system:  ' + s.a1 + 'x + ' + s.b1 + 'y = ' + s.c1 + '  and  ' + s.a2 + 'x + ' + s.b2 + 'y = ' + s.c2 + '.  Find x.'; }],
+      e: [function (s) { return 'Eliminate y (or substitute) to get x = ' + s.x + ', y = ' + s.y + '. Check: ' + s.a1 + '·' + s.x + ' + ' + s.b1 + '·' + s.y + ' = ' + s.c1 + '. ✓'; }]
+    },
+
+    /* ── Quadratic equations ── (canonical x² − Bx + C = 0; Vieta relations recompute from slots) */
+    'quadratic-equations:easy:largerRoot': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the larger root.'; }],
+      e: [function (s) { return 'Factor into (x − ' + s.lo + ')(x − ' + s.hi + ') = 0 → roots ' + s.lo + ' and ' + s.hi + '. Larger = ' + s.hi + '.'; }]
+    },
+    'quadratic-equations:medium:largerRoot': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the larger root.'; }],
+      e: [function (s) { return 'Factor into (x − ' + s.lo + ')(x − ' + s.hi + ') = 0 → roots ' + s.lo + ' and ' + s.hi + '. Larger = ' + s.hi + '.'; }]
+    },
+    'quadratic-equations:medium:smallerRoot': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the smaller root.'; }],
+      e: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = (x − ' + s.lo + ')(x − ' + s.hi + '). Roots ' + s.lo + ' and ' + s.hi + '; smaller = ' + s.lo + '.'; }]
+    },
+    'quadratic-equations:easy:sumRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the sum of its roots.'; }],
+      e: [function (s) { return 'For x² − Bx + C = 0, sum of roots = B = ' + s.B + ' (Vieta: sum = −b/a = ' + s.B + ').'; }]
+    },
+    'quadratic-equations:medium:sumRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the sum of its roots.'; }],
+      e: [function (s) { return 'For x² − Bx + C = 0, sum of roots = B = ' + s.B + ' (Vieta: sum = −b/a = ' + s.B + ').'; }]
+    },
+    'quadratic-equations:medium:productRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the product of its roots.'; }],
+      e: [function (s) { return 'By Vieta’s formulas, for x² − (sum)x + (product) = 0 the product of the roots equals the constant term. Here that constant is ' + s.C + ', so the product = ' + s.C + ' — no need to actually solve the equation. (Trap: the sum of the roots is the −(x-coefficient), a separate value.)'; }]
+    },
+    'quadratic-equations:hard:productRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the product of its roots.'; }],
+      e: [function (s) { return 'By Vieta’s formulas, for x² − (sum)x + (product) = 0 the product of the roots equals the constant term. Here that constant is ' + s.C + ', so the product = ' + s.C + ' — no need to actually solve the equation. (Trap: the sum of the roots is the −(x-coefficient), a separate value.)'; }]
+    },
+    'quadratic-equations:hard:discriminant': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the discriminant (b² − 4ac).'; }],
+      e: [function (s) { return 'Δ = b² − 4ac = ' + s.B + '² − 4·1·' + s.C + ' = ' + (s.B * s.B) + ' − ' + (4 * s.C) + ' = ' + (s.B * s.B - 4 * s.C) + '.'; }]
+    },
+    'quadratic-equations:hard:rootRelation': {
+      s: [function (s) { return 'The roots of x² − ' + s.B + 'x + c = 0 differ by ' + s.gap + '. Find c.'; }],
+      e: [function (s) { return 'Sum = ' + s.B + ' and difference = ' + s.gap + ' give the roots (' + s.B + '±' + s.gap + ')/2 = ' + s.hi + ' and ' + s.lo + '. By Vieta, c = product = ' + s.hi + ' × ' + s.lo + ' = ' + (s.lo * s.hi) + '.'; }]
     }
   } };
 

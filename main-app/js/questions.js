@@ -612,10 +612,10 @@ function genPipes() { return _genArch('pipes-cisterns', _PIPE_ARCH, _PIPE_PRIMAR
 
 /** Number Properties (archetypes: HCF · LCM · unit-digit via cyclicity · number-of-factors). Uses QRGen number helpers. */
 var _CYCLE = { 0: [0], 1: [1], 2: [2, 4, 8, 6], 3: [3, 9, 7, 1], 4: [4, 6], 5: [5], 6: [6], 7: [7, 9, 3, 1], 8: [8, 4, 2, 6], 9: [9, 1] };
-function _npHCF() { var k = pick([2, 3, 4, 6, 7, 8, 9, 12]), a = k * pick([2, 3, 4, 5, 7]), b = k * pick([3, 5, 7, 8, 9, 11]); return { q: 'Find the HCF (highest common factor) of ' + a + ' and ' + b + '.', a: QRGen.gcd(a, b), k: 'hcf', explain: 'HCF(' + a + ', ' + b + ') = ' + QRGen.gcd(a, b) + ' — the largest number that divides both (Euclidean method or common prime factors).' }; }
-function _npLCM() { var a, b; for (var t = 0; t < 20; t++) { a = pick([4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20]); b = pick([6, 8, 9, 10, 12, 15, 16, 18, 20, 24]); if (a !== b) break; } return { q: 'Find the LCM (least common multiple) of ' + a + ' and ' + b + '.', a: QRGen.lcm(a, b), k: 'lcm', explain: 'LCM = (a × b) ÷ HCF = (' + a + ' × ' + b + ') ÷ ' + QRGen.gcd(a, b) + ' = ' + QRGen.lcm(a, b) + '.' }; }
-function _npUnit(diff) { var base = pick([2, 3, 4, 7, 8, 9, 12, 13, 14, 17, 23]), e = randInt(diff === 'hard' ? 15 : 4, diff === 'hard' ? 60 : 20), u = base % 10, cyc = _CYCLE[u], ud = cyc[(e - 1) % cyc.length]; return { q: 'What is the unit (last) digit of ' + base + '^' + e + '?', a: ud, k: 'unitDigit', explain: 'The unit digit of powers of ' + base + ' repeats as [' + cyc.join(', ') + '] (cycle length ' + cyc.length + '). ' + e + ' mod ' + cyc.length + ' lands on ' + ud + '.' }; }
-function _npFactors(diff) { for (var t = 0; t < 20; t++) { var ps = pick([[2, 3], [2, 5], [2, 3, 5], [2, 7], [3, 5], [2, 3, 7]]), ex = ps.map(function () { return randInt(1, diff === 'hard' ? 4 : 3); }), N = 1, parts = [], nf = 1; for (var i = 0; i < ps.length; i++) { N *= Math.pow(ps[i], ex[i]); parts.push(ps[i] + (ex[i] > 1 ? '^' + ex[i] : '')); nf *= (ex[i] + 1); } if (N > 2 && N <= 100000) return { q: 'How many factors (divisors) does ' + N + ' have?', a: nf, k: 'numFactors', explain: '' + N + ' = ' + parts.join(' × ') + '. Number of factors = product of (each exponent + 1) = ' + ex.map(function (e) { return '(' + e + '+1)'; }).join(' × ') + ' = ' + nf + '.' }; } return null; }
+function _npHCF() { var k = pick([2, 3, 4, 6, 7, 8, 9, 12]), a = k * pick([2, 3, 4, 5, 7]), b = k * pick([3, 5, 7, 8, 9, 11]); return { slots: { a: a, b: b, g: QRGen.gcd(a, b) }, a: QRGen.gcd(a, b), k: 'hcf', v: randInt(0, 999) }; }
+function _npLCM() { var a, b; for (var t = 0; t < 20; t++) { a = pick([4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20]); b = pick([6, 8, 9, 10, 12, 15, 16, 18, 20, 24]); if (a !== b) break; } return { slots: { a: a, b: b, g: QRGen.gcd(a, b), l: QRGen.lcm(a, b) }, a: QRGen.lcm(a, b), k: 'lcm', v: randInt(0, 999) }; }
+function _npUnit(diff) { var base = pick([2, 3, 4, 7, 8, 9, 12, 13, 14, 17, 23]), e = randInt(diff === 'hard' ? 15 : 4, diff === 'hard' ? 60 : 20), u = base % 10, cyc = _CYCLE[u], ud = cyc[(e - 1) % cyc.length]; return { slots: { base: base, e: e, cyc: cyc, ud: ud }, a: ud, k: 'unitDigit', v: randInt(0, 999) }; }
+function _npFactors(diff) { for (var t = 0; t < 20; t++) { var ps = pick([[2, 3], [2, 5], [2, 3, 5], [2, 7], [3, 5], [2, 3, 7]]), ex = ps.map(function () { return randInt(1, diff === 'hard' ? 4 : 3); }), N = 1, parts = [], nf = 1; for (var i = 0; i < ps.length; i++) { N *= Math.pow(ps[i], ex[i]); parts.push(ps[i] + (ex[i] > 1 ? '^' + ex[i] : '')); nf *= (ex[i] + 1); } if (N > 2 && N <= 100000) return { slots: { N: N, parts: parts, ex: ex, nf: nf }, a: nf, k: 'numFactors', v: randInt(0, 999) }; } return null; }
 var _NP_ARCH = {
   easy: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }],
   medium: [{ k: 'hcf', skill: 'direct', build: function () { return _npHCF(); } }, { k: 'lcm', skill: 'direct', build: function () { return _npLCM(); } }, { k: 'unitDigit', skill: 'multi-step', build: function (d) { return _npUnit(d); } }],
@@ -628,11 +628,11 @@ function genNumberProperties() { return _genArch('number-properties', _NP_ARCH, 
 /* ═══════════════════════════ ADR-083 Phase 3D — Algebra generators ═══════════════════════════ */
 
 /** Linear Equations (archetypes: one-variable solve · bracket-expand · two-variable system). Answer = a variable value. */
-function _linOne(diff) { var a = randInt(diff === 'easy' ? 2 : 3, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, 30), c = a * x + b; return { q: pick([a + 'x + ' + b + ' = ' + c + '.  Find x.', 'Solve for x:  ' + a + 'x + ' + b + ' = ' + c, 'If ' + a + 'x + ' + b + ' = ' + c + ', then x = ?']), a: x, k: 'solveOne', explain: 'Move the constant across: ' + a + 'x = ' + c + ' − ' + b + ' = ' + (c - b) + '. Then x = ' + (c - b) + ' ÷ ' + a + ' = ' + x + '.' }; }
-function _linSub(diff) { var a = randInt(2, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, a * x - 1), c = a * x - b; return { q: pick([a + 'x − ' + b + ' = ' + c + '.  Find x.', 'Solve for x:  ' + a + 'x − ' + b + ' = ' + c]), a: x, k: 'solveOneSub', explain: a + 'x = ' + c + ' + ' + b + ' = ' + (c + b) + ', so x = ' + (c + b) + ' ÷ ' + a + ' = ' + x + '.' }; }
-function _linBracket() { var a = randInt(2, 8), x = randInt(2, 14), b = randInt(1, 12), c = a * (x + b); return { q: pick([a + '(x + ' + b + ') = ' + c + '.  Find x.', 'Solve:  ' + a + '(x + ' + b + ') = ' + c]), a: x, k: 'bracket', explain: 'Divide both sides by ' + a + ' first: x + ' + b + ' = ' + (c / a) + '. So x = ' + (c / a) + ' − ' + b + ' = ' + x + '.' }; }
-function _linSumDiff() { var x = randInt(6, 30), y = randInt(2, x - 1), S = x + y, D = x - y; return { q: 'If x + y = ' + S + ' and x − y = ' + D + ', find x.', a: x, k: 'sumDiff', explain: 'Add the equations: 2x = ' + S + ' + ' + D + ' = ' + (S + D) + ', so x = ' + x + ' (and y = ' + y + ').' }; }
-function _linSystem() { for (var t = 0; t < 40; t++) { var x = randInt(2, 12), y = randInt(2, 12), a1 = randInt(2, 5), b1 = randInt(2, 5), a2 = randInt(2, 5), b2 = randInt(2, 5), det = a1 * b2 - a2 * b1; if (det === 0) continue; var c1 = a1 * x + b1 * y, c2 = a2 * x + b2 * y; return { q: 'Solve the system:  ' + a1 + 'x + ' + b1 + 'y = ' + c1 + '  and  ' + a2 + 'x + ' + b2 + 'y = ' + c2 + '.  Find x.', a: x, k: 'system2', explain: 'Eliminate y (or substitute) to get x = ' + x + ', y = ' + y + '. Check: ' + a1 + '·' + x + ' + ' + b1 + '·' + y + ' = ' + c1 + '. ✓' }; } return null; }
+function _linOne(diff) { var a = randInt(diff === 'easy' ? 2 : 3, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, 30), c = a * x + b; return { slots: { a: a, x: x, b: b, c: c }, a: x, k: 'solveOne', v: randInt(0, 999) }; }
+function _linSub(diff) { var a = randInt(2, diff === 'hard' ? 12 : 9), x = randInt(2, diff === 'hard' ? 20 : 12), b = randInt(1, a * x - 1), c = a * x - b; return { slots: { a: a, x: x, b: b, c: c }, a: x, k: 'solveOneSub', v: randInt(0, 999) }; }
+function _linBracket() { var a = randInt(2, 8), x = randInt(2, 14), b = randInt(1, 12), c = a * (x + b); return { slots: { a: a, x: x, b: b, c: c }, a: x, k: 'bracket', v: randInt(0, 999) }; }
+function _linSumDiff() { var x = randInt(6, 30), y = randInt(2, x - 1), S = x + y, D = x - y; return { slots: { x: x, y: y, S: S, D: D }, a: x, k: 'sumDiff', v: randInt(0, 999) }; }
+function _linSystem() { for (var t = 0; t < 40; t++) { var x = randInt(2, 12), y = randInt(2, 12), a1 = randInt(2, 5), b1 = randInt(2, 5), a2 = randInt(2, 5), b2 = randInt(2, 5), det = a1 * b2 - a2 * b1; if (det === 0) continue; var c1 = a1 * x + b1 * y, c2 = a2 * x + b2 * y; return { slots: { x: x, y: y, a1: a1, b1: b1, a2: a2, b2: b2, c1: c1, c2: c2 }, a: x, k: 'system2', v: randInt(0, 999) }; } return null; }
 var _LIN_ARCH = {
   easy: [{ k: 'solveOne', skill: 'direct', build: function (d) { return _linOne(d); } }, { k: 'solveOneSub', skill: 'direct', build: function (d) { return _linSub(d); } }],
   medium: [{ k: 'solveOne', skill: 'direct', build: function (d) { return _linOne(d); } }, { k: 'bracket', skill: 'multi-step', build: function () { return _linBracket(); } }, { k: 'sumDiff', skill: 'multi-step', build: function () { return _linSumDiff(); } }],
@@ -643,12 +643,13 @@ function genLinearEquations() { return _genArch('linear-equations', _LIN_ARCH, _
 
 /** Quadratic Equations — canonical form x² − Bx + C = 0 with positive integer roots (sign-clean & recompute-safe). */
 function _quad(diff, ask) {
-  var r1 = randInt(1, diff === 'hard' ? 15 : 9), r2 = randInt(1, diff === 'hard' ? 15 : 9), B = r1 + r2, C = r1 * r2, lo = Math.min(r1, r2), hi = Math.max(r1, r2), eq = 'x² − ' + B + 'x + ' + C + ' = 0';
-  if (ask === 'sum') return { q: eq + '.  Find the sum of its roots.', a: B, k: 'sumRoots', explain: 'For x² − Bx + C = 0, sum of roots = B = ' + B + ' (Vieta: sum = −b/a = ' + B + ').' };
-  if (ask === 'product') return { q: eq + '.  Find the product of its roots.', a: C, k: 'productRoots', explain: 'By Vieta’s formulas, for x² − (sum)x + (product) = 0 the product of the roots equals the constant term. Here that constant is ' + C + ', so the product = ' + C + ' — no need to actually solve the equation. (Trap: the sum of the roots is the −(x-coefficient), a separate value.)' };
-  if (ask === 'disc') return { q: eq + '.  Find the discriminant (b² − 4ac).', a: B * B - 4 * C, k: 'discriminant', explain: 'Δ = b² − 4ac = ' + B + '² − 4·1·' + C + ' = ' + (B * B) + ' − ' + (4 * C) + ' = ' + (B * B - 4 * C) + '.' };
-  if (ask === 'smaller') return { q: eq + '.  Find the smaller root.', a: lo, k: 'smallerRoot', explain: 'x² − ' + B + 'x + ' + C + ' = (x − ' + lo + ')(x − ' + hi + '). Roots ' + lo + ' and ' + hi + '; smaller = ' + lo + '.' };
-  return { q: eq + '.  Find the larger root.', a: hi, k: 'largerRoot', explain: 'Factor into (x − ' + lo + ')(x − ' + hi + ') = 0 → roots ' + lo + ' and ' + hi + '. Larger = ' + hi + '.' };
+  var r1 = randInt(1, diff === 'hard' ? 15 : 9), r2 = randInt(1, diff === 'hard' ? 15 : 9), B = r1 + r2, C = r1 * r2, lo = Math.min(r1, r2), hi = Math.max(r1, r2);
+  var sl = { B: B, C: C, lo: lo, hi: hi };
+  if (ask === 'sum') return { slots: sl, a: B, k: 'sumRoots', v: randInt(0, 999) };
+  if (ask === 'product') return { slots: sl, a: C, k: 'productRoots', v: randInt(0, 999) };
+  if (ask === 'disc') return { slots: sl, a: B * B - 4 * C, k: 'discriminant', v: randInt(0, 999) };
+  if (ask === 'smaller') return { slots: sl, a: lo, k: 'smallerRoot', v: randInt(0, 999) };
+  return { slots: sl, a: hi, k: 'largerRoot', v: randInt(0, 999) };
 }
 var _QUAD_ARCH = {
   easy: [{ k: 'largerRoot', skill: 'multi-step', build: function (d) { return _quad(d, 'larger'); } }, { k: 'sumRoots', skill: 'formula', build: function (d) { return _quad(d, 'sum'); } }],
@@ -661,7 +662,7 @@ var _QUAD_ARCH = {
 function _quadRelation() {
   for (var i = 0; i < 40; i++) {
     var lo = randInt(2, 12), gap = pick([2, 4, 6, 8]), hi = lo + gap, B = lo + hi;
-    return { q: 'The roots of x² − ' + B + 'x + c = 0 differ by ' + gap + '. Find c.', a: lo * hi, k: 'rootRelation', explain: 'Sum = ' + B + ' and difference = ' + gap + ' give the roots (' + B + '±' + gap + ')/2 = ' + hi + ' and ' + lo + '. By Vieta, c = product = ' + hi + ' × ' + lo + ' = ' + (lo * hi) + '.' };
+    return { slots: { B: B, gap: gap, hi: hi, lo: lo }, a: lo * hi, k: 'rootRelation', v: randInt(0, 999) };
   }
   return null;
 }
