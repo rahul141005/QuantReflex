@@ -10,6 +10,8 @@
  */
 var Companion = (function () {
   var PERSONA = 'QuanAI';
+  /* i18n (ADR-111): app-language channel for the sheet's own chrome/errors; harness-safe when QRI18n absent. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
   var _state = null; // { feature, topic, history:[], modal }
 
   /* ---------- utils ---------- */
@@ -70,7 +72,7 @@ var Companion = (function () {
           var code = (j.error && j.error.code) || 'ERR';
           // ADR-072: this device was displaced by a newer login — sign out gracefully (the listener also catches it).
           if (code === 'SESSION_REPLACED') { try { if (window.Session) Session.onReplaced(); } catch (_) {} }
-          return { ok: false, code: code, message: (j.error && j.error.message) || '', status: r.status };
+          return { ok: false, code: code, reason: (j.error && j.error.reason) || null, message: (j.error && j.error.message) || '', status: r.status };
         }).catch(function () { return { ok: false, code: 'PARSE' }; });
       }).catch(function () { return { ok: false, code: 'NETWORK' }; });
     });
@@ -430,18 +432,20 @@ var Companion = (function () {
   }
 
   function renderError(bodyEl, res, onRetry) {
-    // ADR-103: for an exhausted free-explain the server sends a friendly "used all 5 free" message — surface it
-    // verbatim; other PREMIUM_REQUIRED cases keep the generic line.
+    // ADR-103/ADR-111: an exhausted free-explain carries reason:'FREE_EXPLAINS_EXHAUSTED', so the client owns
+    // (and localizes) that text; an older server without the reason still falls back to its verbatim message.
+    // Other PREMIUM_REQUIRED cases keep the generic line.
     var _isExplain = !!(_state && _state.feature === 'explain');
     var msg = res.code === 'AI_BUDGET_EXCEEDED' || res.code === 'AI_THROTTLED'
-      ? PERSONA + ' is resting for a bit — please try again shortly.'
-      : res.code === 'PREMIUM_REQUIRED' ? ((_isExplain && res.message) ? res.message : 'This is a Premium feature.')
-      : res.code === 'NO_AUTH' ? 'You\'ve been signed out — refresh the app and sign in again.'
-      : 'I couldn\'t respond just now. Tap retry.';
+      ? _t('ai.errBusy', { persona: PERSONA })
+      : res.code === 'PREMIUM_REQUIRED' ? (res.reason === 'FREE_EXPLAINS_EXHAUSTED' ? _t('ai.errFreeExplainsUsed')
+        : (_isExplain && res.message) ? res.message : _t('ai.errPremium'))
+      : res.code === 'NO_AUTH' ? _t('ai.errSignedOut')
+      : _t('ai.errGeneric');
     // Auth failure and premium gating aren't transient — don't offer a retry that will just loop.
     var canRetry = res.code !== 'PREMIUM_REQUIRED' && res.code !== 'NO_AUTH' && typeof onRetry === 'function';
     var row = el('<div class="companion-turn"><div class="cb-callout tone-warn">' + esc(msg) + '</div>' +
-      (canRetry ? '<div class="companion-chips"><button class="companion-chip kind-reply" type="button">Retry</button></div>' : '') + '</div>');
+      (canRetry ? '<div class="companion-chips"><button class="companion-chip kind-reply" type="button">' + esc(_t('ai.retry')) + '</button></div>' : '') + '</div>');
     bodyEl.appendChild(row);
     var btn = row.querySelector('.companion-chip');
     if (btn) btn.addEventListener('click', function () { onRetry(); });
@@ -505,8 +509,8 @@ var Companion = (function () {
   function _renderFreeExplainNote(bodyEl, remaining) {
     try {
       var n = remaining > 0 ? Math.floor(remaining) : 0;
-      var txt = n > 0 ? (n + ' free explanation' + (n === 1 ? '' : 's') + ' left')
-                      : 'That was your last free explanation — upgrade for unlimited.';
+      var txt = n > 0 ? _t('ai.freeLeft', { count: n })
+                      : _t('ai.freeLastUsed');
       bodyEl.appendChild(el('<div class="companion-free-note">' + esc(txt) + '</div>'));
       // ADR-103 (verification-pass follow-up): when the last free credit is spent, proactively flip the session flag
       // so the Explain button shows 🔒 on its next render instead of wasting a 6th tap that the server would 403.

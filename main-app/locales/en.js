@@ -738,6 +738,20 @@
     /* Report-a-problem sheet (report-modal.js). Taxonomy display layer: canonical English for
        type_/typeHelp_/group_/groupHelp_/sub_ keys lives byte-locked in report-taxonomy.js ⇄ shared
        ⇄ api schema (report.check) — these catalog values must mirror it verbatim in EN. */
+    /* QuanAI sheet chrome — client-owned error lines + free-explain notes (companion-ui.js).
+       Server errors localize by stable code/reason (ADR-111 seam); explanations themselves are
+       study content and ride the Phase E lang param. */
+    ai: {
+      errBusy: '{persona} is resting for a bit — please try again shortly.',
+      errPremium: 'This is a Premium feature.',
+      errFreeExplainsUsed: "You've used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.",
+      errSignedOut: "You've been signed out — refresh the app and sign in again.",
+      errGeneric: "I couldn't respond just now. Tap retry.",
+      retry: 'Retry',
+      freeLeft: { one: '{count} free explanation left', other: '{count} free explanations left' },
+      freeLastUsed: 'That was your last free explanation — upgrade for unlimited.'
+    },
+
     report: {
       headDefault: 'Report a problem',
       backAria: 'Back',

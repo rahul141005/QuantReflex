@@ -217,7 +217,10 @@ module.exports = withAuth(async function (req, res) {
       return res.status(500).json({ error: formatError(e) });
     }
     if (!grant.ok) {
-      return res.status(403).json({ error: { code: 'PREMIUM_REQUIRED', message: 'You\'ve used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.', retryable: false } });
+      /* ADR-111: `reason` is the stable sub-code the client localizes from; the English message stays for
+         older cached clients that still render it verbatim. Keeping code=PREMIUM_REQUIRED preserves their
+         paywall + 🔒 handling. */
+      return res.status(403).json({ error: { code: 'PREMIUM_REQUIRED', reason: 'FREE_EXPLAINS_EXHAUSTED', message: 'You\'ve used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.', retryable: false } });
     }
     req.freeExplain = { remaining: grant.remaining };
   }
