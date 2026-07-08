@@ -42,6 +42,34 @@
   function name() { return pick(NAMES); }
   function twoNames() { return pickN(NAMES, 2); }
 
+  /* ── Trilingual gendered name pool (ADR-111 Phase F) ── the single pool the slots-based generators draw from:
+     entry = { en, hi, mr, g } (g = 'm'|'f' for grammatical agreement in hi/mr templates). It merges the legacy
+     quant NAMES with the LR pool. `nameEntry()`/`twoNameEntries()` return ENTRY OBJECTS; templates emit .en/.hi/.mr
+     for the active language. Additive for now (F-M1) — `name()`/`twoNames()` above stay string-valued until the
+     engine refactors (F-M2+) migrate their call sites to the entry accessors. Devanagari spellings are the standard
+     Indian aptitude-book renderings; Marathi uses the native long-ी on -i endings (रवी, कवी) where idiomatic. */
+  var NAME_POOL = [
+    { en: 'Ravi', hi: 'रवि', mr: 'रवी', g: 'm' }, { en: 'Priya', hi: 'प्रिया', mr: 'प्रिया', g: 'f' },
+    { en: 'Arjun', hi: 'अर्जुन', mr: 'अर्जुन', g: 'm' }, { en: 'Meera', hi: 'मीरा', mr: 'मीरा', g: 'f' },
+    { en: 'Kabir', hi: 'कबीर', mr: 'कबीर', g: 'm' }, { en: 'Anita', hi: 'अनीता', mr: 'अनिता', g: 'f' },
+    { en: 'Rohan', hi: 'रोहन', mr: 'रोहन', g: 'm' }, { en: 'Sneha', hi: 'स्नेहा', mr: 'स्नेहा', g: 'f' },
+    { en: 'Vikram', hi: 'विक्रम', mr: 'विक्रम', g: 'm' }, { en: 'Pooja', hi: 'पूजा', mr: 'पूजा', g: 'f' },
+    { en: 'Amit', hi: 'अमित', mr: 'अमित', g: 'm' }, { en: 'Neha', hi: 'नेहा', mr: 'नेहा', g: 'f' },
+    { en: 'Raj', hi: 'राज', mr: 'राज', g: 'm' }, { en: 'Divya', hi: 'दिव्या', mr: 'दिव्या', g: 'f' },
+    { en: 'Karan', hi: 'करण', mr: 'करण', g: 'm' }, { en: 'Isha', hi: 'ईशा', mr: 'ईशा', g: 'f' },
+    { en: 'Manish', hi: 'मनीष', mr: 'मनीष', g: 'm' }, { en: 'Rina', hi: 'रीना', mr: 'रीना', g: 'f' },
+    { en: 'Sunil', hi: 'सुनील', mr: 'सुनील', g: 'm' }, { en: 'Kavya', hi: 'काव्या', mr: 'काव्या', g: 'f' },
+    { en: 'Deepak', hi: 'दीपक', mr: 'दीपक', g: 'm' }, { en: 'Nisha', hi: 'निशा', mr: 'निशा', g: 'f' },
+    { en: 'Arun', hi: 'अरुण', mr: 'अरुण', g: 'm' }, { en: 'Sara', hi: 'सारा', mr: 'सारा', g: 'f' },
+    { en: 'Rahul', hi: 'राहुल', mr: 'राहुल', g: 'm' }, { en: 'Anjali', hi: 'अंजली', mr: 'अंजली', g: 'f' },
+    { en: 'Vijay', hi: 'विजय', mr: 'विजय', g: 'm' }, { en: 'Sonia', hi: 'सोनिया', mr: 'सोनिया', g: 'f' },
+    { en: 'Nikhil', hi: 'निखिल', mr: 'निखिल', g: 'm' }, { en: 'Ritu', hi: 'रितु', mr: 'रितू', g: 'f' },
+    { en: 'Sagar', hi: 'सागर', mr: 'सागर', g: 'm' }, { en: 'Tanvi', hi: 'तन्वी', mr: 'तन्वी', g: 'f' }
+  ];
+  function nameEntry() { return pick(NAME_POOL); }
+  function twoNameEntries() { return pickN(NAME_POOL, 2); }
+  function nameEntries(n) { return pickN(NAME_POOL, n); }
+
   /* Shared numeric/collection toolbox. `gcd`/`lcm`/`shuffle`/`name`/`twoNames` are consumed by the Quant generator
      (js/questions.js); the remaining primitives are the tested, general-purpose core other generators build on. */
   var API = {
@@ -49,7 +77,8 @@
     sum: sum, max: maxOf, min: minOf, round1: round1, round2: round2,
     isClean: isClean, isInt: isInt, gcd: gcd, lcm: lcm,
     numFactors: numFactors, isPrime: isPrime,
-    name: name, twoNames: twoNames
+    name: name, twoNames: twoNames,
+    NAME_POOL: NAME_POOL, nameEntry: nameEntry, twoNameEntries: twoNameEntries, nameEntries: nameEntries
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

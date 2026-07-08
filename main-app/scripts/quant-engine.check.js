@@ -16,6 +16,18 @@ var Q = require(p('js/questions.js'));
 var pass = 0, fail = 0, shownFail = 0;
 function ok(label, cond) { if (cond) pass++; else { fail++; if (++shownFail <= 20) console.error('  ✗ ' + label); } }
 
+/* ADR-111 Phase F: node-context generation is PINNED to English (QRI18n absent → QRGenI18n resolves 'en'),
+   so this check's digit-order recompute keeps validating the EN math exactly. If a future refactor let a
+   non-EN pack drive generation in the node harness, the recompute below would parse Devanagari-framed stems
+   and this pin would catch it first. */
+(function () {
+  var GI = require(p('js/gen-i18n.js'));
+  GI.register('en', '_enpin', { tpl: { p: { s: [function () { return 'EN'; }] } } });
+  GI.register('hi', '_enpin', { tpl: { p: { s: [function () { return 'HI'; }] } } });
+  var r = GI.render('_enpin', 'p', 0, {});
+  ok('node-context generation pins to EN (QRI18n stubbed off)', !!r && r.q === 'EN');
+})();
+
 var DIFFS = ['easy', 'medium', 'hard'];
 var ALL_CATS = ['squares', 'cubes', 'area', 'volume', 'fractions', 'percentages', 'multiplication', 'ratios',
   'averages', 'profit-loss', 'time-speed-distance', 'time-and-work', 'simplification', 'number-series',

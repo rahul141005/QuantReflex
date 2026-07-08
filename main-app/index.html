@@ -1499,6 +1499,15 @@
   <script defer src="js/progress.js"></script>
   <!-- Shared procedural-generation helpers (ADR-083): MUST load before questions.js (window.QRGen). -->
   <script defer src="js/utils/generative-helpers.js"></script>
+  <!-- Generated-content localization (ADR-111 Phase F): the render registry + lazy pack loader, then the EAGER
+       English generator packs (they register templates the engines render at generation time). hi/mr packs load
+       lazily via QRPacks.ensure but are SW-precached. gen-i18n.js MUST precede the en.* packs (they call register). -->
+  <script defer src="js/gen-i18n.js"></script>
+  <script defer src="js/i18n-packs.js"></script>
+  <script defer src="locales/gen/en.quant.js"></script>
+  <script defer src="locales/gen/en.di.js"></script>
+  <script defer src="locales/gen/en.lr.js"></script>
+  <script defer src="locales/gen/en.lrv.js"></script>
   <script defer src="js/questions.js"></script>
   <script defer src="js/answer-format.js"></script>
   <!-- Data Interpretation engine (ADR-074): MUST load after questions.js — di-engine self-registers its generators
