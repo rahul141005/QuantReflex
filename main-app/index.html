@@ -352,7 +352,7 @@
 
     <!-- ==================== PRACTICE VIEW ==================== -->
     <div id="view-practice" class="spa-view">
-      <header><h1><span class="qr-ico header-icon" data-ico="practice" aria-hidden="true">🎯</span> Practice</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="practice" aria-hidden="true">🎯</span> <span data-i18n="practice.header">Practice</span></h1></header>
 
       <!-- Mode selection (sectioned). NOTE: .practice-container provides the
            internal scroll region — required, the practice view is overflow:hidden. -->
@@ -363,19 +363,19 @@
 
         <!-- Quick Start — session styles. Tapping one opens the subject picker (Quant/DI/LR/Mixed) before starting. -->
         <section class="practice-section">
-          <div class="home-section-header"><h3 class="home-section-title">Quick Start</h3></div>
+          <div class="home-section-header"><h3 class="home-section-title" data-i18n="practice.quickStart">Quick Start</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="quick">
-              <h3><span class="qr-ico" data-ico="zap" aria-hidden="true">⚡</span> Quick Drill</h3>
-              <p>5 questions · No timer · Quick warmup</p>
+              <h3><span class="qr-ico" data-ico="zap" aria-hidden="true">⚡</span> <span data-i18n="practice.quickDrill">Quick Drill</span></h3>
+              <p data-i18n="practice.quickDrillDesc">5 questions · No timer · Quick warmup</p>
             </div>
             <div class="mode-card" data-mode="reflex">
-              <h3><span class="qr-ico" data-ico="activity" aria-hidden="true">🧠</span> Reflex Drill</h3>
-              <p>10 questions · 15s per question · Train speed</p>
+              <h3><span class="qr-ico" data-ico="activity" aria-hidden="true">🧠</span> <span data-i18n="practice.reflexDrill">Reflex Drill</span></h3>
+              <p data-i18n="practice.reflexDrillDesc">10 questions · 15s per question · Train speed</p>
             </div>
             <div class="mode-card" data-mode="timed">
-              <h3><span class="qr-ico" data-ico="timer" aria-hidden="true">⏱</span> Timed Test</h3>
-              <p>10 questions · 3 min total · Exam pressure</p>
+              <h3><span class="qr-ico" data-ico="timer" aria-hidden="true">⏱</span> <span data-i18n="practice.timedTest">Timed Test</span></h3>
+              <p data-i18n="practice.timedTestDesc">10 questions · 3 min total · Exam pressure</p>
             </div>
           </div>
         </section>
@@ -383,50 +383,50 @@
         <!-- Subject Sets — exam-style modes: one stimulus, a linked set of questions. Free users get one new DI
              set + one new Reasoning set per day (ADR-107); Premium is unlimited. Not badged Premium (partly free). -->
         <section class="practice-section">
-          <div class="home-section-header"><h3 class="home-section-title">Subject Sets</h3></div>
+          <div class="home-section-header"><h3 class="home-section-title" data-i18n="practice.subjectSets">Subject Sets</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="diset">
-              <h3><span class="qr-ico" data-ico="chart-bar" aria-hidden="true">📊</span> DI Set</h3>
-              <p>One chart, a linked set of questions · real Data Interpretation practice</p>
+              <h3><span class="qr-ico" data-ico="chart-bar" aria-hidden="true">📊</span> <span data-i18n="practice.diSet">DI Set</span></h3>
+              <p data-i18n="practice.diSetDesc">One chart, a linked set of questions · real Data Interpretation practice</p>
             </div>
             <div class="mode-card" data-mode="lrset">
-              <h3><span class="qr-ico" data-ico="nodes" aria-hidden="true">🧩</span> Reasoning Set</h3>
-              <p>One seating/floor scenario, a linked set of clues &amp; questions · exam-style puzzles</p>
+              <h3><span class="qr-ico" data-ico="nodes" aria-hidden="true">🧩</span> <span data-i18n="practice.reasoningSet">Reasoning Set</span></h3>
+              <p data-i18n="practice.reasoningSetDesc">One seating/floor scenario, a linked set of clues &amp; questions · exam-style puzzles</p>
             </div>
           </div>
         </section>
 
         <!-- Advanced -->
         <section class="practice-section">
-          <div class="home-section-header"><h3 class="home-section-title">Advanced</h3></div>
+          <div class="home-section-header"><h3 class="home-section-title" data-i18n="practice.advanced">Advanced</h3></div>
           <div class="practice-mode-group">
             <div class="mode-card" data-mode="focus">
-              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> Focus Training</h3>
-              <p>10 questions · Choose a category</p>
+              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> <span data-i18n="practice.focusTraining">Focus Training</span></h3>
+              <p data-i18n="practice.focusTrainingDesc">10 questions · Choose a category</p>
             </div>
             <div class="mode-card" data-mode="custom">
-              <h3><span class="mode-icon mode-icon-custom qr-ico" data-ico="layers" aria-hidden="true">📑</span> Custom Training</h3>
-              <p>Multi-topic session · 1–100 questions · Fully personalized</p>
+              <h3><span class="mode-icon mode-icon-custom qr-ico" data-ico="layers" aria-hidden="true">📑</span> <span data-i18n="practice.customTraining">Custom Training</span></h3>
+              <p data-i18n="practice.customTrainingDesc">Multi-topic session · 1–100 questions · Fully personalized</p>
             </div>
             <div class="mode-card" data-mode="mixed">
-              <h3><span class="qr-ico" data-ico="shuffle" aria-hidden="true">🎨</span> Mixed Aptitude</h3>
-              <p>12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
+              <h3><span class="qr-ico" data-ico="shuffle" aria-hidden="true">🎨</span> <span data-i18n="practice.mixedAptitude">Mixed Aptitude</span></h3>
+              <p data-i18n="practice.mixedAptitudeDesc">12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
             </div>
             <div class="mode-card" data-mode="review">
-              <h3><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> Review Mistakes</h3>
-              <p>Practice your previously wrong answers</p>
+              <h3><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> <span data-i18n="practice.reviewMistakes">Review Mistakes</span></h3>
+              <p data-i18n="practice.reviewMistakesDesc">Practice your previously wrong answers</p>
             </div>
             <div class="mode-card" data-mode="mock">
-              <h3><span class="qr-ico" data-ico="file-text" aria-hidden="true">📝</span> Timed Mock</h3>
-              <p>Exam-style section · Your target exam · Real clock &amp; marking scheme</p>
+              <h3><span class="qr-ico" data-ico="file-text" aria-hidden="true">📝</span> <span data-i18n="practice.timedMock">Timed Mock</span></h3>
+              <p data-i18n="practice.timedMockDesc">Exam-style section · Your target exam · Real clock &amp; marking scheme</p>
             </div>
             <!-- Word Problems: intentionally staged as a "Coming Soon" feature card. Always visible; tapping opens the
                  shared Coming Soon modal (practice-modes.js) — no session/nav/analytics. The AI generation pipeline is
                  future-ready (aiBrain.wordProblem); when it ships, swap the Coming Soon intercept for the live setup. -->
             <div class="mode-card mode-card-soon" data-mode="wordproblems" style="position:relative;">
-              <span class="coming-soon-pill">Coming soon</span>
-              <h3><span class="qr-ico" data-ico="bot" aria-hidden="true">🤖</span> Word Problems</h3>
-              <p>AI-crafted exam-style word problems · comprehension + calculation</p>
+              <span class="coming-soon-pill" data-i18n="practice.comingSoonPill">Coming soon</span>
+              <h3><span class="qr-ico" data-ico="bot" aria-hidden="true">🤖</span> <span data-i18n="practice.wordProblems">Word Problems</span></h3>
+              <p data-i18n="practice.wordProblemsDesc">AI-crafted exam-style word problems · comprehension + calculation</p>
             </div>
           </div>
         </section>
@@ -435,7 +435,7 @@
       <!-- Category selection (shown when Focus Training is picked) -->
       <div id="categorySelect" style="display:none;">
         <div class="training-card">
-          <h3 class="category-select-title" id="categorySelectTitle">Choose Category</h3>
+          <h3 class="category-select-title" id="categorySelectTitle" data-i18n="practice.chooseCategory">Choose Category</h3>
           <div class="training-card-body">
             <!-- Speed-Aptitude category picker (ADR-084): rendered dynamically by js/ui/category-picker.js from the
                  single source of truth (services/quantTopics.js + the Learn registry + DI/LR engines), grouped into
@@ -443,29 +443,29 @@
                  automatically — no hardcoded button list. -->
             <div class="category-search-wrap" id="categorySearchWrap">
               <input id="categoryPickerSearch" class="category-search-input" type="search" inputmode="search"
-                     autocomplete="off" placeholder="Search topics…" aria-label="Search categories" aria-controls="categoryGroups" />
+                     autocomplete="off" placeholder="Search topics…" aria-label="Search categories" data-i18n-attr="placeholder:practice.searchTopics;aria-label:practice.searchCategoriesAria" aria-controls="categoryGroups" />
             </div>
             <div id="categoryGroups" aria-live="polite"><!-- populated by CategoryPicker.render() --></div>
-            <p id="categoryPickerEmpty" class="category-picker-empty secondary-text" style="display:none;">No topics match your search.</p>
+            <p id="categoryPickerEmpty" class="category-picker-empty secondary-text" style="display:none;" data-i18n="practice.noTopicsMatch">No topics match your search.</p>
 
             <!-- Adaptive Training Toggle -->
             <div class="timer-select-section adaptive-toggle-section" id="adaptiveTrainingSection">
               <div class="timer-toggle-row">
-                <span class="timer-toggle-label">Adaptive Training ✨</span>
+                <span class="timer-toggle-label" data-i18n="practice.adaptiveTraining">Adaptive Training ✨</span>
                 <label class="toggle">
                   <input type="checkbox" id="adaptiveTrainingToggle" />
                   <span class="toggle-slider"></span>
                 </label>
               </div>
               <div class="adaptive-toggle-hint" id="adaptiveHint" style="display:none;">
-                <p class="adaptive-hint-text">Difficulty is auto-managed based on your performance.</p>
+                <p class="adaptive-hint-text" data-i18n="practice.adaptiveDesc">Difficulty is auto-managed based on your performance.</p>
               </div>
             </div>
 
             <!-- Timer Selection -->
             <div class="timer-select-section" id="timerSelectSection">
               <div class="timer-toggle-row">
-                <span class="timer-toggle-label">Timer</span>
+                <span class="timer-toggle-label" data-i18n="practice.timer">Timer</span>
                 <label class="toggle">
                   <input type="checkbox" id="timerToggle" />
                   <span class="toggle-slider"></span>
@@ -473,33 +473,33 @@
               </div>
               <div class="timer-config-area" id="timerConfigArea" style="display:none;">
                 <div class="timer-pill-selector">
-                  <button class="timer-pill active" data-pill="per" type="button">Per Ques.</button>
-                  <button class="timer-pill" data-pill="total" type="button">Total</button>
+                  <button class="timer-pill active" data-pill="per" type="button" data-i18n="practice.perQues">Per Ques.</button>
+                  <button class="timer-pill" data-pill="total" type="button" data-i18n="practice.total">Total</button>
                 </div>
                 <div class="timer-input-row">
                   <input type="number" id="timerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />
-                  <span class="timer-unit-label">seconds</span>
+                  <span class="timer-unit-label" data-i18n="practice.seconds">seconds</span>
                 </div>
               </div>
             </div>
 
             <!-- Focus mode start button -->
             <div id="focusStartSection" style="display:none;">
-              <button class="btn-primary custom-practice-start-btn" id="startFocusSessionBtn">Start Focus Session</button>
+              <button class="btn-primary custom-practice-start-btn" id="startFocusSessionBtn" data-i18n="practice.startFocus">Start Focus Session</button>
             </div>
 
             <div id="customPracticeConfig" class="custom-practice-config">
-              <label class="secondary-text" for="customQuestionCount">Number of Questions</label>
+              <label class="secondary-text" for="customQuestionCount" data-i18n="practice.numQuestions">Number of Questions</label>
               <input id="customQuestionCount" class="custom-question-range" type="range" min="1" max="100" value="20" />
               <div class="custom-practice-meta-row">
                 <strong id="customQuestionCountValue">20</strong>
-                <span class="secondary-text" id="customQuestionCountText">You will solve 20 questions</span>
+                <span class="secondary-text" id="customQuestionCountText" data-i18n="practice.youWillSolveStatic">You will solve 20 questions</span>
               </div>
               <p id="customModeError" class="custom-mode-error secondary-text"></p>
-              <button class="btn-primary custom-practice-start-btn" id="startCustomSessionBtn">Start Custom Session</button>
+              <button class="btn-primary custom-practice-start-btn" id="startCustomSessionBtn" data-i18n="practice.startCustom">Start Custom Session</button>
             </div>
           </div>
-          <button class="training-card-back" id="backToModes" type="button" aria-label="Back to practice modes">← Back</button>
+          <button class="training-card-back" id="backToModes" type="button" aria-label="Back to practice modes" data-i18n="practice.backArrow" data-i18n-attr="aria-label:practice.backToModesAria">← Back</button>
         </div>
       </div>
 
@@ -528,12 +528,12 @@
 
     <!-- ==================== LEARN VIEW ==================== -->
     <div id="view-learn" class="spa-view">
-      <header><h1 id="learnHeading" tabindex="-1"><span class="qr-ico header-icon" data-ico="learn" aria-hidden="true">📖</span> Learn</h1></header>
+      <header><h1 id="learnHeading" tabindex="-1"><span class="qr-ico header-icon" data-ico="learn" aria-hidden="true">📖</span> <span data-i18n="learn.header">Learn</span></h1></header>
 
       <!-- ONE search over everything: topic chapters + Quick-Reference cards (ADR-092) -->
       <div class="learn-search-container">
-        <input type="text" id="learnSearch" class="learn-search-input" placeholder="🔍 Search topics, formulas, tables…" aria-label="Search Learn" autocomplete="off" />
-        <div id="learnSearchResults" class="kx-search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>
+        <input type="text" id="learnSearch" class="learn-search-input" placeholder="🔍 Search topics, formulas, tables…" aria-label="Search Learn" data-i18n-attr="placeholder:learn.searchPlaceholder;aria-label:learn.searchLearnAria" autocomplete="off" />
+        <div id="learnSearchResults" class="kx-search-results" role="region" aria-label="Search results" data-i18n-attr="aria-label:learn.searchResultsAria" aria-live="polite" hidden></div>
       </div>
 
       <!-- HUB (ADR-092): Study — Revise — Browse. A short router, not an archive. -->
@@ -551,13 +551,13 @@
       <!-- Quick access: the reference library + the loved times tables (kept on the hub by design) -->
       <button class="qr-lib-entry" id="quickRefEntry" type="button">
         <span class="qr-lib-entry-ico">⚡</span>
-        <span class="qr-lib-entry-txt"><strong>Quick-Reference Library</strong><small>Every high-value formula, table &amp; standard value — grouped for fast, pre-exam revision</small></span>
+        <span class="qr-lib-entry-txt"><strong data-i18n="learn.quickRefTitle">Quick-Reference Library</strong><small data-i18n="learn.quickRefDesc">Every high-value formula, table &amp; standard value — grouped for fast, pre-exam revision</small></span>
         <span class="qr-lib-entry-arrow">›</span>
       </button>
 
       <div class="card collapsible-card" id="tablesContainer">
         <div class="collapsible-header" onclick="toggleSection(this)" role="button" tabindex="0" aria-expanded="false" aria-controls="tablesContent">
-          <h3 class="section-title">✖️ Multiplication Tables (1 – 30)</h3>
+          <h3 class="section-title" data-i18n="learn.multiplicationTables">✖️ Multiplication Tables (1 – 30)</h3>
           <span class="collapse-icon">▼</span>
         </div>
         <div class="collapsible-content" id="tablesContent" style="display:none;">
@@ -567,23 +567,23 @@
       </div>
 
       <!-- Browse all topics (rendered from the KnowledgeBase → deep-linkable topic pages) -->
-      <h2 class="kx-hub-head" id="learnBrowseHead">📚 All topics</h2>
+      <h2 class="kx-hub-head" id="learnBrowseHead" data-i18n="learn.allTopics">📚 All topics</h2>
       <div id="learnCategories"></div>
 
       <!-- My notes (merged legacy: custom topics + starred formulas — one quiet, collapsed section) -->
       <div class="card collapsible-card" id="myNotesSection">
         <div class="collapsible-header" onclick="toggleSection(this)" role="button" tabindex="0" aria-expanded="false" aria-controls="myNotesContent">
-          <h3 class="section-title">✏️ My notes</h3>
+          <h3 class="section-title" data-i18n="learn.myNotes">✏️ My notes</h3>
           <span class="collapse-icon">▼</span>
         </div>
         <div class="collapsible-content" id="myNotesContent" style="display:none;">
-          <p class="kx-cat-blurb">Your own topics and the formulas you've starred.</p>
+          <p class="kx-cat-blurb" data-i18n="learn.myNotesDesc">Your own topics and the formulas you've starred.</p>
           <div class="bookmarks-card" id="bookmarksSection" style="display:none;">
-            <h4 class="kx-mynotes-sub">⭐ Starred formulas</h4>
+            <h4 class="kx-mynotes-sub" data-i18n="learn.starredFormulas">⭐ Starred formulas</h4>
             <div class="bookmarks-content"></div>
           </div>
           <div id="customTopicSections"></div>
-          <button class="btn add-topic-btn" id="addTopicBtn">+ Add New Topic</button>
+          <button class="btn add-topic-btn" id="addTopicBtn" data-i18n="learn.addNewTopic">+ Add New Topic</button>
         </div>
       </div>
 
@@ -601,11 +601,11 @@
 
     <!-- ==================== STATS VIEW ==================== -->
     <div id="view-stats" class="spa-view">
-      <header><h1><span class="qr-ico header-icon" data-ico="stats" aria-hidden="true">📊</span> Stats</h1></header>
+      <header><h1><span class="qr-ico header-icon" data-ico="stats" aria-hidden="true">📊</span> <span data-i18n="stats.header">Stats</span></h1></header>
 
       <!-- TODAY — the live snapshot: am I moving today? -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Today</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.today">Today</h3>
         <div class="analytics-card">
           <div class="stat-grid stat-grid-2" id="statsToday"></div>
           <div id="statsTodaySplit"></div>
@@ -614,7 +614,7 @@
 
       <!-- MOMENTUM — am I getting better over time? -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Momentum</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.momentum">Momentum</h3>
         <div class="analytics-card">
           <div id="statsSparkline"></div>
           <div class="stat-grid stat-grid-3" id="statsMomentum"></div>
@@ -623,7 +623,7 @@
 
       <!-- SUBJECT MASTERY -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Subject Mastery</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.subjectMastery">Subject Mastery</h3>
         <div class="analytics-card">
           <div id="statsMastery"></div>
         </div>
@@ -631,7 +631,7 @@
 
       <!-- TIME INVESTED -->
       <div class="analytics-section">
-        <h3 class="analytics-section-title">Time Invested</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.timeInvested">Time Invested</h3>
         <div class="analytics-card">
           <div id="statsTime"></div>
         </div>
@@ -639,7 +639,7 @@
 
       <!-- STUDY NEXT — auto-ranked weakest topics -->
       <div class="analytics-section" id="weakestSection">
-        <h3 class="analytics-section-title">Study Next</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.studyNext">Study Next</h3>
         <div class="analytics-card">
           <div id="statsWeakest"></div>
         </div>
@@ -647,7 +647,7 @@
 
       <!-- QUANAI RECOMMENDS — one decisive next step -->
       <div class="analytics-section" id="recommendationSection">
-        <h3 class="analytics-section-title">QuanAI Recommends</h3>
+        <h3 class="analytics-section-title" data-i18n="stats.quanaiRecommends">QuanAI Recommends</h3>
         <div class="analytics-card">
           <div id="statsRecommendation"></div>
         </div>
@@ -656,7 +656,7 @@
       <!-- AI Insights deep-dive (premium modal entry) -->
       <div class="analytics-section" id="aiInsightsSection" style="text-align:center; padding: 1.5rem 0 2rem;">
         <div id="aiInsightsContainer">
-          <p class="secondary-text">AI-powered performance analysis.</p>
+          <p class="secondary-text" data-i18n="stats.aiAnalysis">AI-powered performance analysis.</p>
         </div>
       </div>
     </div>
