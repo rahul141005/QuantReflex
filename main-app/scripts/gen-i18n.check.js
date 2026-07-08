@@ -173,6 +173,143 @@ var inv2 = [];
 assertInvariant('t', { en: { answer: 10, options: [] }, hi: { answer: 11, options: [] }, mr: { answer: 10, options: [] } }, function (m) { inv2.push(m); });
 ok(inv2.length === 1, 'assertInvariant catches a diverged answer');
 
+/* ============================================================================
+ * 6. Template structural rules (F5) — s/e variant pairing over the live EN quant pack
+ * ==========================================================================*/
+section('6. Template structural rules: stem/explanation variant pairing (F5)');
+
+/* render() picks s[v%s.length] and e[v%e.length] INDEPENDENTLY. For a stem and its explanation to stay paired the
+   explanation array must be either a single shared entry (e.length===1) or index-aligned 1:1 with the stems
+   (e.length===s.length). Any other shape silently scrambles stem↔explanation under some v. Enforced for EN now and
+   for every hi/mr pack as it is authored (same rule, same guard). */
+function checkPairing(engine, lang) {
+  var store = QRGenI18n._store[engine] && QRGenI18n._store[engine][lang];
+  if (!store) return;
+  Object.keys(store.tpl).forEach(function (k) {
+    var a = store.tpl[k];
+    ok(a.s && a.s.length >= 1, engine + '.' + lang + ' ' + k + ': has ≥1 stem variant');
+    ok(!a.e || a.e.length <= 1 || a.e.length === (a.s || []).length,
+      engine + '.' + lang + ' ' + k + ': explanation pairing (s=' + (a.s && a.s.length) + ', e=' + (a.e && a.e.length) + ') — need e≤1 or e===s');
+    /* MCQ archetypes must expose BOTH o() and ans() or neither (a half-wired option channel would render options
+       with no gradable answer, or vice-versa). */
+    ok((typeof a.o === 'function') === (typeof a.ans === 'function'),
+      engine + '.' + lang + ' ' + k + ': o()/ans() are declared together (MCQ channel is all-or-nothing)');
+  });
+}
+LANGS.forEach(function (l) { GEN_FILES.forEach(function (eng) { checkPairing(eng, l); }); });
+
+/* ============================================================================
+ * 7. Index-aligned pool parity (F1) — pools must match length/shape across languages
+ * ==========================================================================*/
+section('7. Index-aligned pool parity across languages (F1)');
+
+/* A builder stores only an INDEX into a per-language pool; if hi/mr ship a pool of a different length (or different
+   inner arity for pair-pools) an in-range EN index renders `undefined` in that language. This guard makes the
+   invariant enforceable — pools are exposed on pack.pools. A language that has NOT yet authored a pool is skipped
+   (coverage §9 tracks that); once present, length + inner shape must match EN exactly. */
+function assertPoolParity(engine, report) {
+  var en = QRGenI18n.pools(engine, 'en') || {};
+  Object.keys(en).forEach(function (name) {
+    ok(Array.isArray(en[name]) && en[name].length > 0, engine + ' EN pool ' + name + ' is a non-empty array');
+  });
+  ['hi', 'mr'].forEach(function (l) {
+    var lp = QRGenI18n.pools(engine, l) || {};
+    Object.keys(en).forEach(function (name) {
+      if (!lp[name]) return;   // not authored yet
+      if (lp[name].length !== en[name].length) report(engine + '.' + l + ' pool ' + name + ': length ' + lp[name].length + ' ≠ EN ' + en[name].length);
+      en[name].forEach(function (row, i) {
+        if (Array.isArray(row)) {
+          if (!Array.isArray(lp[name][i]) || lp[name][i].length !== row.length) report(engine + '.' + l + ' pool ' + name + '[' + i + ']: inner arity ≠ EN');
+        }
+      });
+    });
+  });
+}
+var poolErr = [];
+GEN_FILES.forEach(function (eng) { assertPoolParity(eng, function (m) { poolErr.push(m); }); });
+ok(poolErr.length === 0, 'pool parity across en/hi/mr' + (poolErr.length ? ': ' + poolErr.join('; ') : ''));
+/* self-test the parity guard with a synthetic engine where hi drifts by one entry */
+QRGenI18n.register('en', '_pp', { pools: { P: ['a', 'b', 'c'], PAIR: [['x', 'y'], ['z', 'w']] }, tpl: {} });
+QRGenI18n.register('hi', '_pp', { pools: { P: ['क', 'ख'], PAIR: [['x', 'y'], ['z', 'w']] }, tpl: {} });
+var ppErr = []; assertPoolParity('_pp', function (m) { ppErr.push(m); });
+ok(ppErr.length === 1 && /pool P: length 2 ≠ EN 3/.test(ppErr[0]), 'pool-parity guard catches a length drift (got ' + JSON.stringify(ppErr) + ')');
+
+/* ============================================================================
+ * 8. Cross-language generation invariance + hi/mr surface safety (F4)
+ * ==========================================================================*/
+section('8. Cross-language generation invariance + hi/mr surface safety (F4)');
+
+var Q = require('../js/questions.js');
+var QCATS = require('./quant-census.js').QUANT_CATS;
+var DIFFS8 = ['easy', 'medium', 'hard'];
+/* Generate one question in a forced study language under a seeded RNG. render() draws no randomness, so the SAME
+   seed yields identical slots/answer in every language — only the surface wording may differ. */
+function genAt(lang, cat, diff, seed) {
+  var orig = Math.random;
+  global.QRI18n = { studyLang: function () { return lang; }, langs: function () { return { app: lang, study: lang }; } };
+  Math.random = makeLCG(seed);
+  var q; try { q = Q.generateQuestion(cat, diff); } catch (e) { q = null; }
+  Math.random = orig; delete global.QRI18n;
+  return q;
+}
+function agn(k) { return k.replace(/:(easy|medium|hard):/, ':*:'); }
+var invErr = 0, digErr = 0, leakErr = 0, devErr = 0, hiActive = 0, checked = 0;
+QCATS.forEach(function (cat, ci) {
+  DIFFS8.forEach(function (diff, di) {
+    for (var s = 0; s < 80; s++) {
+      var seed = 0x51a7 + ci * 7919 + di * 131 + s * 17;
+      var en = genAt('en', cat, diff, seed), hi = genAt('hi', cat, diff, seed), mr = genAt('mr', cat, diff, seed);
+      if (!en || !hi || !mr) continue;
+      checked++;
+      /* MATH invariance: answer, subtype, and option SET identical across languages. */
+      var byLang = { en: { answer: en.answer, subtype: en.subtype, options: en.options }, hi: { answer: hi.answer, subtype: hi.subtype, options: hi.options }, mr: { answer: mr.answer, subtype: mr.subtype, options: mr.options } };
+      /* QC answer/options are language-dependent STRINGS — compare their INDEX in the shared pool instead, so the
+         invariance is on the RELATION chosen, not its localized text. */
+      if (en.category === 'quantity-comparison') { ['en', 'hi', 'mr'].forEach(function (l) { var o = (byLang[l].options || []); byLang[l] = { answer: o.indexOf(byLang[l].answer), subtype: byLang[l].subtype, options: o.map(function (_, i) { return i; }) }; }); }
+      assertInvariant(cat + ':' + diff, byLang, function () { invErr++; });
+      /* Digit multiset preserved across languages (translation never adds/drops a digit). */
+      var eD = digitMultiset(en.question + (en.explanation || ''));
+      if (digitMultiset(hi.question + (hi.explanation || '')) !== eD) digErr++;
+      if (digitMultiset(mr.question + (mr.explanation || '')) !== eD) digErr++;
+      /* Surface safety applies only where the language ACTUALLY rendered (its pack carries the archetype) — under
+         EN-fallback the "hi" surface is English and must not be leak-tested. Activates automatically in F-M3. */
+      [['hi', hi], ['mr', mr]].forEach(function (p) {
+        var l = p[0], q = p[1], key = q.category + ':' + q.subtype;
+        if (QRGenI18n.has('quant', key, l) || QRGenI18n.has('quant', agn(key), l)) {
+          hiActive++;
+          var surf = q.question + ' ‖ ' + (q.explanation || '') + ' ‖ ' + ((q.options || []).join(' '));
+          if (genLeaks(surf)) leakErr++;
+          if (hasDevanagariDigit(surf)) devErr++;
+        }
+      });
+    }
+  });
+});
+ok(invErr === 0, 'cross-language MATH invariance holds (answer/subtype/option-set) — ' + checked + ' samples/lang');
+ok(digErr === 0, 'digit multiset preserved across languages');
+ok(leakErr === 0, 'no Latin leak in actually-rendered hi/mr surfaces (' + hiActive + ' active)');
+ok(devErr === 0, 'no Devanagari digits in generated output');
+console.log('  (F4 runner: ' + checked + ' seeds/lang across ' + QCATS.length + ' categories; hi/mr rendered=' + hiActive + ' — activates as packs are authored)');
+
+/* ============================================================================
+ * 9. Coverage report (non-blocking until a pack declares complete:true)
+ * ==========================================================================*/
+section('9. hi/mr coverage vs EN (F4 — reported; hard-gate flips on complete:true)');
+
+GEN_FILES.forEach(function (eng) {
+  var enStore = QRGenI18n._store[eng] && QRGenI18n._store[eng].en;
+  if (!enStore) return;
+  var enKeys = Object.keys(enStore.tpl);
+  if (!enKeys.length) return;
+  ['hi', 'mr'].forEach(function (l) {
+    var st = QRGenI18n._store[eng] && QRGenI18n._store[eng][l];
+    var have = st ? enKeys.filter(function (k) { return st.tpl[k]; }).length : 0;
+    var complete = !!(st && st.complete);
+    console.log('  ' + eng + '.' + l + ': ' + have + '/' + enKeys.length + ' archetypes' + (complete ? ' [complete]' : ''));
+    if (complete) ok(have === enKeys.length, eng + '.' + l + ' declares complete but is missing ' + (enKeys.length - have) + ' archetypes');
+  });
+});
+
 /* ============================================================================ */
 module.exports = { makeLCG: makeLCG, digitMultiset: digitMultiset, hasDevanagariDigit: hasDevanagariDigit, genLeaks: genLeaks, assertInvariant: assertInvariant };
 
