@@ -117,21 +117,27 @@ function _genArch(category, arch, primary) {
 }
 
 function _wrapArch(category, diff, qa) {
-  var q = qa.q, explain = qa.explain;
+  var q = qa.q, explain = qa.explain, answer = qa.a, options = qa.options;
   /* ADR-111 Phase F: a refactored build() returns language-neutral `slots` + a fixed variant `v` instead of
      composed strings — the surface is rendered here in the active study language (EN byte-identical). An
-     unrefactored build() still returns q/explain and takes the legacy path untouched. */
+     unrefactored build() still returns q/explain and takes the legacy path untouched. For text-MCQ archetypes the
+     render also returns localized `options`/`answer` (both from the same per-language pool by index, so grading by
+     string-equality stays self-consistent). */
   if (qa.slots !== undefined && QRGenI18n && QRGenI18n.render) {
     var rendered = QRGenI18n.render('quant', category + ':' + diff + ':' + (qa.k || 'q'), qa.v, qa.slots);
-    if (rendered) { q = rendered.q; explain = rendered.explain || undefined; }
+    if (rendered) {
+      q = rendered.q; explain = rendered.explain || undefined;
+      if (rendered.options !== undefined) options = rendered.options;
+      if (rendered.answer !== undefined) answer = rendered.answer;
+    }
   }
   return {
     question: q,
-    answer: qa.a,
+    answer: answer,
     category: category,
     subtype: diff + ':' + (qa.k || 'q'),
     explanation: explain || undefined,
-    options: qa.options || undefined
+    options: options || undefined
   };
 }
 

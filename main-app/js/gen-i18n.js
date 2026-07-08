@@ -46,21 +46,31 @@ var QRGenI18n = (function () {
 
   function _packFor(engine, lang) { return (_store[engine] && _store[engine][lang]) || null; }
 
+  /* Difficulty-agnostic sibling of an archetype key: `cat:diff:k` → `cat:*:k`. An archetype whose wording does not
+     vary by difficulty is authored ONCE under `cat:*:k` (in every language) instead of duplicated per tier; a
+     tier-specific `cat:diff:k` entry, when present, wins. Returns null when the key carries no difficulty segment
+     (keeps the resolver generic for engines/subjects that don't use the diff:key convention). */
+  function _agnostic(key) { var m = /^(.*):(?:easy|medium|hard):(.*)$/.exec(key); return m ? (m[1] + ':*:' + m[2]) : null; }
+  /* Look up an archetype in one language, preferring the exact key over its difficulty-agnostic sibling. */
+  function _lookup(engine, lang, key, agn) { var p = _packFor(engine, lang); if (!p) return null; return p.tpl[key] || (agn && p.tpl[agn]) || null; }
+
   /**
    * Render one archetype's surface in the active study language. `v` selects the variant with `v % length` (no
-   * random). Returns { q, explain } (either may be ''), or null when neither the active language nor EN has a
-   * template for `archKey` — the engine then keeps its own inline fallback. Never draws randomness.
+   * random). Returns { q, explain } and, when the archetype defines them, { options, answer } for text-MCQ formats
+   * (§5.4.5 — options/answer render from the SAME per-language pool by index, so grading stays self-consistent).
+   * Resolution order: active-lang exact → active-lang `:*:` → EN exact → EN `:*:`. Returns null when nothing matches
+   * (the engine then keeps its own inline fallback). Never draws randomness.
    */
   function render(engine, key, v, slots) {
     var lang = _lang();
-    var pack = _packFor(engine, lang);
-    var arch = pack && pack.tpl[key];
+    var agn = _agnostic(key);
+    var arch = _lookup(engine, lang, key, agn);
     if (!arch && lang !== 'en') {
       if (!_warned['t:' + engine + ':' + key + ':' + lang]) {
         _warned['t:' + engine + ':' + key + ':' + lang] = 1;
         try { console.warn('[QRGenI18n] no ' + lang + ' template for ' + engine + '.' + key + ' (fell back to en)'); } catch (_) {}
       }
-      pack = _packFor(engine, 'en'); arch = pack && pack.tpl[key];
+      arch = _lookup(engine, 'en', key, agn);
     }
     if (!arch) {
       if (!_warned['m:' + engine + ':' + key]) {
@@ -71,10 +81,16 @@ var QRGenI18n = (function () {
     }
     var n = (typeof v === 'number' && v >= 0) ? v : 0;
     var sList = arch.s || [], eList = arch.e || [];
-    return {
+    var out = {
       q: sList.length ? sList[n % sList.length](slots) : '',
       explain: eList.length ? eList[n % eList.length](slots) : ''
     };
+    /* Text-MCQ channel (opt-in per archetype): `o(slots)` → localized option strings, `ans(slots)` → the localized
+       correct answer. Both are pure functions of slots (the shuffle/answer index were drawn in build), so options
+       and answer render in ONE language and grade by string-equality within it. */
+    if (typeof arch.o === 'function') out.options = arch.o(slots);
+    if (typeof arch.ans === 'function') out.answer = arch.ans(slots);
+    return out;
   }
 
   /** Pool accessor for engines that need pool sizes (index-aligned across languages by construction). */

@@ -86,19 +86,11 @@
     },
 
     /* ── Fractions ── (frac/pct strings are language-neutral math tokens carried in slots) */
-    'fractions:easy:fracToPct': {
+    'fractions:*:fracToPct': {
       s: [function (s) { return s.frac + ' expressed as a percentage = ? %'; }, function (s) { return 'Convert ' + s.frac + ' to a percentage.'; }, function (s) { return s.frac + ' = ? %'; }, function (s) { return 'What is ' + s.frac + ' as a percentage?'; }],
       e: [function (s) { return s.frac + ' = ' + s.pct + '% (divide and ×100; memorising the common ones saves seconds).'; }]
     },
-    'fractions:medium:fracToPct': {
-      s: [function (s) { return s.frac + ' expressed as a percentage = ? %'; }, function (s) { return 'Convert ' + s.frac + ' to a percentage.'; }, function (s) { return s.frac + ' = ? %'; }, function (s) { return 'What is ' + s.frac + ' as a percentage?'; }],
-      e: [function (s) { return s.frac + ' = ' + s.pct + '% (divide and ×100; memorising the common ones saves seconds).'; }]
-    },
-    'fractions:medium:pctToFrac': {
-      s: [function (s) { return s.pct + '% as a fraction = ?'; }, function (s) { return 'Express ' + s.pct + '% as a fraction.'; }, function (s) { return s.pct + '% = ? (in lowest terms)'; }],
-      e: [function (s) { return s.pct + '% = ' + s.pct + '/100 = ' + s.frac + ' in lowest terms.'; }]
-    },
-    'fractions:hard:pctToFrac': {
+    'fractions:*:pctToFrac': {
       s: [function (s) { return s.pct + '% as a fraction = ?'; }, function (s) { return 'Express ' + s.pct + '% as a fraction.'; }, function (s) { return s.pct + '% = ? (in lowest terms)'; }],
       e: [function (s) { return s.pct + '% = ' + s.pct + '/100 = ' + s.frac + ' in lowest terms.'; }]
     },
@@ -112,18 +104,13 @@
     },
 
     /* ── Mental multiplication ── (single stem per archetype; explanation derives products from slot numbers) */
-    'multiplication:easy:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
-    'multiplication:medium:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
-    'multiplication:hard:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
-    'multiplication:medium:divide': { s: [function (s) { return s.p + ' ÷ ' + s.x + ' = ?'; }], e: [function (s) { return s.p + ' ÷ ' + s.x + ' = ' + s.y + ', since ' + s.x + ' × ' + s.y + ' = ' + s.p + '. Division undoes the product.'; }] },
-    'multiplication:hard:divide': { s: [function (s) { return s.p + ' ÷ ' + s.x + ' = ?'; }], e: [function (s) { return s.p + ' ÷ ' + s.x + ' = ' + s.y + ', since ' + s.x + ' × ' + s.y + ' = ' + s.p + '. Division undoes the product.'; }] },
-    'multiplication:medium:threeFactor': { s: [function (s) { return s.a + ' × ' + s.b + ' × ' + s.c + ' = ?'; }], e: [function (s) { return 'Left to right: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then × ' + s.c + ' = ' + (s.a * s.b * s.c) + '. Regroup to make a round number when possible.'; }] },
-    'multiplication:hard:threeFactor': { s: [function (s) { return s.a + ' × ' + s.b + ' × ' + s.c + ' = ?'; }], e: [function (s) { return 'Left to right: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then × ' + s.c + ' = ' + (s.a * s.b * s.c) + '. Regroup to make a round number when possible.'; }] },
+    'multiplication:*:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
+    'multiplication:*:divide': { s: [function (s) { return s.p + ' ÷ ' + s.x + ' = ?'; }], e: [function (s) { return s.p + ' ÷ ' + s.x + ' = ' + s.y + ', since ' + s.x + ' × ' + s.y + ' = ' + s.p + '. Division undoes the product.'; }] },
+    'multiplication:*:threeFactor': { s: [function (s) { return s.a + ' × ' + s.b + ' × ' + s.c + ' = ?'; }], e: [function (s) { return 'Left to right: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then × ' + s.c + ' = ' + (s.a * s.b * s.c) + '. Regroup to make a round number when possible.'; }] },
     'multiplication:medium:mentalSquare': { s: [function (s) { return s.n + ' × ' + s.n + ' = ?'; }], e: [function (s) { return s.n + '² = (' + s.r + (s.d < 0 ? '' : '+') + s.d + ')² = ' + (s.n * s.n) + ' — a fast mental square.'; }] },
 
     /* ── Simplification / BODMAS ── (pure arithmetic expressions; explanation frames the operator order) */
-    'simplification:easy:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
-    'simplification:medium:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
+    'simplification:*:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
     'simplification:medium:divideAdd': { s: [function (s) { return s.num + ' ÷ ' + s.dv + ' + ' + s.add + ' = ?'; }], e: [function (s) { return 'Divide first: ' + s.num + ' ÷ ' + s.dv + ' = ' + (s.num / s.dv) + ', then + ' + s.add + ' = ' + (s.num / s.dv + s.add) + '.'; }] },
     'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'Brackets → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; and ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; sum = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] },
 
@@ -132,19 +119,11 @@
       s: [function (s) { return 'The area of a square of side ' + s.s + ' cm = ? cm².'; }, function (s) { return 'A square tile has a side of ' + s.s + ' cm. Find its area (in cm²).'; }, function (s) { return 'Each side of a square field measures ' + s.s + ' m. Its area = ? m².'; }],
       e: [function (s) { return 'Area of a square = side² = ' + s.s + '² = ' + (s.s * s.s) + '.'; }]
     },
-    'area:easy:rectangle': {
+    'area:*:rectangle': {
       s: [function (s) { return 'A rectangle is ' + s.l + ' cm long and ' + s.b + ' cm wide. Its area = ? cm².'; }, function (s) { return 'A rectangular plot measures ' + s.l + ' m by ' + s.b + ' m. Find its area (in m²).'; }, function (s) { return 'A hall is ' + s.l + ' m long and ' + s.b + ' m broad. The area of its floor = ? m².'; }],
       e: [function (s) { return 'Area = length × breadth = ' + s.l + ' × ' + s.b + ' = ' + (s.l * s.b) + '.'; }]
     },
-    'area:medium:rectangle': {
-      s: [function (s) { return 'A rectangle is ' + s.l + ' cm long and ' + s.b + ' cm wide. Its area = ? cm².'; }, function (s) { return 'A rectangular plot measures ' + s.l + ' m by ' + s.b + ' m. Find its area (in m²).'; }, function (s) { return 'A hall is ' + s.l + ' m long and ' + s.b + ' m broad. The area of its floor = ? m².'; }],
-      e: [function (s) { return 'Area = length × breadth = ' + s.l + ' × ' + s.b + ' = ' + (s.l * s.b) + '.'; }]
-    },
-    'area:medium:triangle': {
-      s: [function (s) { return 'A triangle has base ' + s.base + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a triangle whose base is ' + s.base + ' cm and height is ' + s.h + ' cm (in cm²).'; }],
-      e: [function (s) { return 'Area = ½ × base × height = ½ × ' + s.base + ' × ' + s.h + ' = ' + (s.base * s.h / 2) + ' cm². Halve the even side first to avoid fractions.'; }]
-    },
-    'area:hard:triangle': {
+    'area:*:triangle': {
       s: [function (s) { return 'A triangle has base ' + s.base + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a triangle whose base is ' + s.base + ' cm and height is ' + s.h + ' cm (in cm²).'; }],
       e: [function (s) { return 'Area = ½ × base × height = ½ × ' + s.base + ' × ' + s.h + ' = ' + (s.base * s.h / 2) + ' cm². Halve the even side first to avoid fractions.'; }]
     },
@@ -152,11 +131,7 @@
       s: [function (s) { return 'A parallelogram has base ' + s.b + ' cm and height ' + s.h + ' cm. Its area = ? cm².'; }, function (s) { return 'Find the area of a parallelogram with base ' + s.b + ' cm and perpendicular height ' + s.h + ' cm (in cm²).'; }],
       e: [function (s) { return 'Area = base × height = ' + s.b + ' × ' + s.h + ' = ' + (s.b * s.h) + ' cm². Use the perpendicular height, not the slant side.'; }]
     },
-    'area:medium:circle': {
-      s: [function (s) { return 'The area of a circle of radius ' + s.r + ' cm = ? cm². (use π = 3.14)'; }, function (s) { return 'A circular garden has a radius of ' + s.r + ' m. Find its area in m² (take π = 3.14).'; }],
-      e: [function (s) { return 'Area = πr² = 3.14 × ' + s.r + '² = 3.14 × ' + (s.r * s.r) + ' = ' + s.ans + '.'; }]
-    },
-    'area:hard:circle': {
+    'area:*:circle': {
       s: [function (s) { return 'The area of a circle of radius ' + s.r + ' cm = ? cm². (use π = 3.14)'; }, function (s) { return 'A circular garden has a radius of ' + s.r + ' m. Find its area in m² (take π = 3.14).'; }],
       e: [function (s) { return 'Area = πr² = 3.14 × ' + s.r + '² = 3.14 × ' + (s.r * s.r) + ' = ' + s.ans + '.'; }]
     },
@@ -174,19 +149,11 @@
       s: [function (s) { return 'The volume of a cube of side ' + s.s + ' cm = ? cm³.'; }, function (s) { return 'A cubical box has an edge of ' + s.s + ' cm. Find its volume (in cm³).'; }, function (s) { return 'Each edge of a cube measures ' + s.s + ' cm. Its volume = ? cm³.'; }],
       e: [function (s) { return 'Volume of a cube = side³ = ' + s.s + '³ = ' + (s.s * s.s * s.s) + ' cm³.'; }]
     },
-    'volume:easy:cuboid': {
+    'volume:*:cuboid': {
       s: [function (s) { return 'A cuboid measures ' + s.l + ' cm × ' + s.b + ' cm × ' + s.h + ' cm. Its volume = ? cm³.'; }, function (s) { return 'A carton is ' + s.l + ' cm long, ' + s.b + ' cm wide and ' + s.h + ' cm high. Find its volume (in cm³).'; }, function (s) { return 'A water tank measures ' + s.l + ' m by ' + s.b + ' m by ' + s.h + ' m. Its capacity = ? m³.'; }],
       e: [function (s) { return 'Volume = l × b × h = ' + s.l + ' × ' + s.b + ' × ' + s.h + ' = ' + (s.l * s.b * s.h) + '.'; }]
     },
-    'volume:medium:cuboid': {
-      s: [function (s) { return 'A cuboid measures ' + s.l + ' cm × ' + s.b + ' cm × ' + s.h + ' cm. Its volume = ? cm³.'; }, function (s) { return 'A carton is ' + s.l + ' cm long, ' + s.b + ' cm wide and ' + s.h + ' cm high. Find its volume (in cm³).'; }, function (s) { return 'A water tank measures ' + s.l + ' m by ' + s.b + ' m by ' + s.h + ' m. Its capacity = ? m³.'; }],
-      e: [function (s) { return 'Volume = l × b × h = ' + s.l + ' × ' + s.b + ' × ' + s.h + ' = ' + (s.l * s.b * s.h) + '.'; }]
-    },
-    'volume:medium:cylinder': {
-      s: [function (s) { return 'A cylinder has radius ' + s.r + ' cm and height ' + s.h + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'A cylindrical drum has a base radius of ' + s.r + ' cm and stands ' + s.h + ' cm tall. Find its volume in cm³ (take π = 3.14).'; }],
-      e: [function (s) { return 'Volume = πr²h = 3.14 × ' + s.r + '² × ' + s.h + ' = 3.14 × ' + (s.r * s.r * s.h) + ' = ' + s.ans + ' cm³.'; }]
-    },
-    'volume:hard:cylinder': {
+    'volume:*:cylinder': {
       s: [function (s) { return 'A cylinder has radius ' + s.r + ' cm and height ' + s.h + ' cm. Its volume = ? cm³. (use π = 3.14)'; }, function (s) { return 'A cylindrical drum has a base radius of ' + s.r + ' cm and stands ' + s.h + ' cm tall. Find its volume in cm³ (take π = 3.14).'; }],
       e: [function (s) { return 'Volume = πr²h = 3.14 × ' + s.r + '² × ' + s.h + ' = 3.14 × ' + (s.r * s.r * s.h) + ' = ' + s.ans + ' cm³.'; }]
     },
@@ -208,11 +175,7 @@
       s: [function (s) { return 'Find the lateral (side) surface area of a cube of side ' + s.a + ' cm (in cm²).'; }],
       e: [function (s) { return 'LSA of a cube = 4a² (the four side faces) = 4 × ' + (s.a * s.a) + ' = ' + (4 * s.a * s.a) + ' cm².'; }]
     },
-    'surface-area:easy:cuboidTSA': {
-      s: [function (s) { return 'Find the total surface area of a cuboid ' + s.l + ' × ' + s.b + ' × ' + s.h + ' cm (in cm²).'; }],
-      e: [function (s) { return 'TSA = 2(lb + bh + hl) = 2(' + (s.l * s.b) + ' + ' + (s.b * s.h) + ' + ' + (s.l * s.h) + ') = ' + (2 * (s.l * s.b + s.b * s.h + s.l * s.h)) + ' cm².'; }]
-    },
-    'surface-area:medium:cuboidTSA': {
+    'surface-area:*:cuboidTSA': {
       s: [function (s) { return 'Find the total surface area of a cuboid ' + s.l + ' × ' + s.b + ' × ' + s.h + ' cm (in cm²).'; }],
       e: [function (s) { return 'TSA = 2(lb + bh + hl) = 2(' + (s.l * s.b) + ' + ' + (s.b * s.h) + ' + ' + (s.l * s.h) + ') = ' + (2 * (s.l * s.b + s.b * s.h + s.l * s.h)) + ' cm².'; }]
     },
@@ -230,11 +193,7 @@
     },
 
     /* ── Percentages ── (% and the arithmetic stay verbatim; number slots let hi/mr translate the framing words) */
-    'percentages:easy:directOf': {
-      s: [function (s) { return s.p + '% of ' + s.b + ' = ?'; }, function (s) { return 'Find ' + s.p + '% of ' + s.b + '.'; }, function (s) { return s.p + '% of ' + s.b + ' is what number?'; }],
-      e: [function (s) { return s.p + '% of ' + s.b + ' = ' + s.p + ' × ' + s.b + ' ÷ 100 = ' + s.r + '. Tip: ' + s.p + '% of ' + s.b + ' = ' + s.b + '% of ' + s.p + ' — swap when one side is rounder.'; }]
-    },
-    'percentages:medium:directOf': {
+    'percentages:*:directOf': {
       s: [function (s) { return s.p + '% of ' + s.b + ' = ?'; }, function (s) { return 'Find ' + s.p + '% of ' + s.b + '.'; }, function (s) { return s.p + '% of ' + s.b + ' is what number?'; }],
       e: [function (s) { return s.p + '% of ' + s.b + ' = ' + s.p + ' × ' + s.b + ' ÷ 100 = ' + s.r + '. Tip: ' + s.p + '% of ' + s.b + ' = ' + s.b + '% of ' + s.p + ' — swap when one side is rounder.'; }]
     },
@@ -260,11 +219,7 @@
     },
 
     /* ── Averages ── (number lists live in slots as arrays; sums recompute from the array, language-neutral) */
-    'averages:easy:mean': {
-      s: [function (s) { return 'The average of ' + s.nums.join(', ') + ' = ?'; }, function (s) { return 'Find the mean of ' + s.nums.join(', ') + '.'; }, function (s) { return 'What is the average of ' + s.nums.join(', ') + '?'; }],
-      e: [function (s) { return 'Average = sum ÷ count = ' + s.nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + s.count + ' = ' + s.avg + '.'; }]
-    },
-    'averages:medium:mean': {
+    'averages:*:mean': {
       s: [function (s) { return 'The average of ' + s.nums.join(', ') + ' = ?'; }, function (s) { return 'Find the mean of ' + s.nums.join(', ') + '.'; }, function (s) { return 'What is the average of ' + s.nums.join(', ') + '?'; }],
       e: [function (s) { return 'Average = sum ÷ count = ' + s.nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + s.count + ' = ' + s.avg + '.'; }]
     },
@@ -282,27 +237,15 @@
     },
 
     /* ── Profit & loss ── (₹ verbatim; CP/SP/percent arithmetic recomputes from slots) */
-    'profit-loss:easy:spProfit': {
+    'profit-loss:*:spProfit': {
       s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the profit is ' + s.pr + '%. The selling price = ₹?'; }],
       e: [function (s) { return 'SP = CP × (1 + profit%) = ' + s.cp + ' × ' + (1 + s.pr / 100) + ' = ₹' + s.sp + '.'; }]
     },
-    'profit-loss:medium:spProfit': {
-      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the profit is ' + s.pr + '%. The selling price = ₹?'; }],
-      e: [function (s) { return 'SP = CP × (1 + profit%) = ' + s.cp + ' × ' + (1 + s.pr / 100) + ' = ₹' + s.sp + '.'; }]
-    },
-    'profit-loss:easy:spLoss': {
+    'profit-loss:*:spLoss': {
       s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the loss is ' + s.lr + '%. The selling price = ₹?'; }],
       e: [function (s) { return 'SP = CP × (1 − loss%) = ' + s.cp + ' × ' + (1 - s.lr / 100) + ' = ₹' + s.sp + '.'; }]
     },
-    'profit-loss:medium:spLoss': {
-      s: [function (s) { return 'The cost price is ₹' + s.cp + ' and the loss is ' + s.lr + '%. The selling price = ₹?'; }],
-      e: [function (s) { return 'SP = CP × (1 − loss%) = ' + s.cp + ' × ' + (1 - s.lr / 100) + ' = ₹' + s.sp + '.'; }]
-    },
-    'profit-loss:medium:profitPct': {
-      s: [function (s) { return 'An article bought for ₹' + s.cp + ' is sold for ₹' + s.sp + '. The profit percent = ?'; }],
-      e: [function (s) { return 'Profit% = (SP − CP)/CP × 100 = (' + s.sp + ' − ' + s.cp + ')/' + s.cp + ' × 100 = ' + s.pr + '%. The base is always the cost price.'; }]
-    },
-    'profit-loss:hard:profitPct': {
+    'profit-loss:*:profitPct': {
       s: [function (s) { return 'An article bought for ₹' + s.cp + ' is sold for ₹' + s.sp + '. The profit percent = ?'; }],
       e: [function (s) { return 'Profit% = (SP − CP)/CP × 100 = (' + s.sp + ' − ' + s.cp + ')/' + s.cp + ' × 100 = ' + s.pr + '%. The base is always the cost price.'; }]
     },
@@ -316,27 +259,15 @@
     },
 
     /* ── Simple interest ── (₹/% verbatim; person names ride slot `nm` as trilingual entries → .en/.hi/.mr) */
-    'simple-interest:easy:si': {
+    'simple-interest:*:si': {
       s: [function (s) { return 'Find the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' deposits ₹' + s.P + ' in a scheme paying ' + s.R + '% simple interest per annum. The interest earned in ' + s.T + ' years = ₹?'; }, function (s) { return 'What simple interest does ₹' + s.P + ' earn at ' + s.R + '% per annum over ' + s.T + ' years?'; }],
       e: [function (s) { return 'SI = P × R × T ÷ 100 = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '.'; }]
     },
-    'simple-interest:medium:si': {
-      s: [function (s) { return 'Find the simple interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' deposits ₹' + s.P + ' in a scheme paying ' + s.R + '% simple interest per annum. The interest earned in ' + s.T + ' years = ₹?'; }, function (s) { return 'What simple interest does ₹' + s.P + ' earn at ' + s.R + '% per annum over ' + s.T + ' years?'; }],
-      e: [function (s) { return 'SI = P × R × T ÷ 100 = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '.'; }]
-    },
-    'simple-interest:easy:amount': {
+    'simple-interest:*:amount': {
       s: [function (s) { return 'A sum of ₹' + s.P + ' is lent at ' + s.R + '% simple interest per annum. The amount after ' + s.T + ' years = ₹?'; }, function (s) { return s.nm.en + ' borrows ₹' + s.P + ' at ' + s.R + '% per annum simple interest. How much must be repaid after ' + s.T + ' years (in ₹)?'; }],
       e: [function (s) { return 'SI = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '; Amount = P + SI = ' + s.P + ' + ' + s.si + ' = ₹' + (s.P + s.si) + '.'; }]
     },
-    'simple-interest:medium:amount': {
-      s: [function (s) { return 'A sum of ₹' + s.P + ' is lent at ' + s.R + '% simple interest per annum. The amount after ' + s.T + ' years = ₹?'; }, function (s) { return s.nm.en + ' borrows ₹' + s.P + ' at ' + s.R + '% per annum simple interest. How much must be repaid after ' + s.T + ' years (in ₹)?'; }],
-      e: [function (s) { return 'SI = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '; Amount = P + SI = ' + s.P + ' + ' + s.si + ' = ₹' + (s.P + s.si) + '.'; }]
-    },
-    'simple-interest:medium:findRate': {
-      s: [function (s) { return 'At what rate percent per annum does ₹' + s.P + ' yield ₹' + s.si + ' as simple interest in ' + s.T + ' years?'; }, function (s) { return 'A sum of ₹' + s.P + ' earns ₹' + s.si + ' as simple interest in ' + s.T + ' years. The annual rate = ? %'; }],
-      e: [function (s) { return 'R = SI × 100 ÷ (P × T) = ' + s.si + ' × 100 ÷ (' + s.P + ' × ' + s.T + ') = ' + s.R + '%.'; }]
-    },
-    'simple-interest:hard:findRate': {
+    'simple-interest:*:findRate': {
       s: [function (s) { return 'At what rate percent per annum does ₹' + s.P + ' yield ₹' + s.si + ' as simple interest in ' + s.T + ' years?'; }, function (s) { return 'A sum of ₹' + s.P + ' earns ₹' + s.si + ' as simple interest in ' + s.T + ' years. The annual rate = ? %'; }],
       e: [function (s) { return 'R = SI × 100 ÷ (P × T) = ' + s.si + ' × 100 ÷ (' + s.P + ' × ' + s.T + ') = ' + s.R + '%.'; }]
     },
@@ -346,19 +277,11 @@
     },
 
     /* ── Compound interest ── (superscript exponent picks ² or ³ from T; ₹/% verbatim) */
-    'compound-interest:easy:amount': {
+    'compound-interest:*:amount': {
       s: [function (s) { return 'Find the amount on ₹' + s.P + ' at ' + s.R + '% per annum compounded annually for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' invests ₹' + s.P + ' at ' + s.R + '% per annum, compounded annually. The amount after ' + s.T + ' years = ₹?'; }],
       e: [function (s) { return 'A = P(1 + R/100)ᵀ = ' + s.P + ' × ' + (1 + s.R / 100) + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '.'; }]
     },
-    'compound-interest:medium:amount': {
-      s: [function (s) { return 'Find the amount on ₹' + s.P + ' at ' + s.R + '% per annum compounded annually for ' + s.T + ' years.'; }, function (s) { return s.nm.en + ' invests ₹' + s.P + ' at ' + s.R + '% per annum, compounded annually. The amount after ' + s.T + ' years = ₹?'; }],
-      e: [function (s) { return 'A = P(1 + R/100)ᵀ = ' + s.P + ' × ' + (1 + s.R / 100) + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '.'; }]
-    },
-    'compound-interest:medium:ci': {
-      s: [function (s) { return 'Find the compound interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years, compounded annually.'; }, function (s) { return 'A loan of ₹' + s.P + ' is taken at ' + s.R + '% per annum, compounded annually. The compound interest payable after ' + s.T + ' years = ₹?'; }],
-      e: [function (s) { return 'A = ' + s.P + '(1 + ' + s.R + '/100)' + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '; CI = A − P = ' + s.A + ' − ' + s.P + ' = ₹' + (s.A - s.P) + '.'; }]
-    },
-    'compound-interest:hard:ci': {
+    'compound-interest:*:ci': {
       s: [function (s) { return 'Find the compound interest on ₹' + s.P + ' at ' + s.R + '% per annum for ' + s.T + ' years, compounded annually.'; }, function (s) { return 'A loan of ₹' + s.P + ' is taken at ' + s.R + '% per annum, compounded annually. The compound interest payable after ' + s.T + ' years = ₹?'; }],
       e: [function (s) { return 'A = ' + s.P + '(1 + ' + s.R + '/100)' + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '; CI = A − P = ' + s.A + ' − ' + s.P + ' = ₹' + (s.A - s.P) + '.'; }]
     },
@@ -369,27 +292,15 @@
 
     /* ── Time, speed & distance ── (km/h, m/s, km, hours verbatim; unitConvert & trainCrossing carry a form encoded
        in the variant seed — see the builders — so each stem lines up with its own explanation) */
-    'time-speed-distance:easy:distance': {
+    'time-speed-distance:*:distance': {
       s: [function (s) { return 'A car travels at ' + s.sp + ' km/h for ' + s.t + ' hours. The distance covered = ? km'; }, function (s) { return 'Moving at ' + s.sp + ' km/h for ' + s.t + ' hours, a train covers ? km'; }, function (s) { return 'At a steady ' + s.sp + ' km/h for ' + s.t + ' hours, the distance = ? km'; }],
       e: [function (s) { return 'Distance = speed × time = ' + s.sp + ' × ' + s.t + ' = ' + (s.sp * s.t) + ' km.'; }]
     },
-    'time-speed-distance:medium:distance': {
-      s: [function (s) { return 'A car travels at ' + s.sp + ' km/h for ' + s.t + ' hours. The distance covered = ? km'; }, function (s) { return 'Moving at ' + s.sp + ' km/h for ' + s.t + ' hours, a train covers ? km'; }, function (s) { return 'At a steady ' + s.sp + ' km/h for ' + s.t + ' hours, the distance = ? km'; }],
-      e: [function (s) { return 'Distance = speed × time = ' + s.sp + ' × ' + s.t + ' = ' + (s.sp * s.t) + ' km.'; }]
-    },
-    'time-speed-distance:easy:time': {
+    'time-speed-distance:*:time': {
       s: [function (s) { return 'A car covers ' + s.d + ' km at ' + s.sp + ' km/h. The time taken = ? hours'; }, function (s) { return 'At ' + s.sp + ' km/h, the time to cover ' + s.d + ' km = ? hours'; }, function (s) { return 'Travelling ' + s.d + ' km at ' + s.sp + ' km/h takes ? hours'; }],
       e: [function (s) { return 'Time = distance ÷ speed = ' + s.d + ' ÷ ' + s.sp + ' = ' + s.t + ' hours.'; }]
     },
-    'time-speed-distance:medium:time': {
-      s: [function (s) { return 'A car covers ' + s.d + ' km at ' + s.sp + ' km/h. The time taken = ? hours'; }, function (s) { return 'At ' + s.sp + ' km/h, the time to cover ' + s.d + ' km = ? hours'; }, function (s) { return 'Travelling ' + s.d + ' km at ' + s.sp + ' km/h takes ? hours'; }],
-      e: [function (s) { return 'Time = distance ÷ speed = ' + s.d + ' ÷ ' + s.sp + ' = ' + s.t + ' hours.'; }]
-    },
-    'time-speed-distance:easy:speed': {
-      s: [function (s) { return 'A train covers ' + s.d + ' km in ' + s.t + ' hours. Its speed = ? km/h'; }, function (s) { return 'Covering ' + s.d + ' km in ' + s.t + ' hours, the speed = ? km/h'; }, function (s) { return 'A bus runs ' + s.d + ' km in ' + s.t + ' hours. Average speed = ? km/h'; }],
-      e: [function (s) { return 'Speed = distance ÷ time = ' + s.d + ' ÷ ' + s.t + ' = ' + s.sp + ' km/h.'; }]
-    },
-    'time-speed-distance:medium:speed': {
+    'time-speed-distance:*:speed': {
       s: [function (s) { return 'A train covers ' + s.d + ' km in ' + s.t + ' hours. Its speed = ? km/h'; }, function (s) { return 'Covering ' + s.d + ' km in ' + s.t + ' hours, the speed = ? km/h'; }, function (s) { return 'A bus runs ' + s.d + ' km in ' + s.t + ' hours. Average speed = ? km/h'; }],
       e: [function (s) { return 'Speed = distance ÷ time = ' + s.d + ' ÷ ' + s.t + ' = ' + s.sp + ' km/h.'; }]
     },
@@ -411,27 +322,15 @@
     },
 
     /* ── Time & work ── (days verbatim; the RATES idea is in the wording, numbers in slots) */
-    'time-and-work:easy:together': {
+    'time-and-work:*:together': {
       s: [function (s) { return 'A can do a piece of work in ' + s.a + ' days and B in ' + s.b + ' days. Working together, they finish it in ? days'; }],
       e: [function (s) { return 'Together time = (a × b)/(a + b) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + (s.a * s.b) + '/' + (s.a + s.b) + ' = ' + ((s.a * s.b) / (s.a + s.b)) + ' days. Add the RATES (1/a + 1/b), never the days.'; }]
     },
-    'time-and-work:medium:together': {
-      s: [function (s) { return 'A can do a piece of work in ' + s.a + ' days and B in ' + s.b + ' days. Working together, they finish it in ? days'; }],
-      e: [function (s) { return 'Together time = (a × b)/(a + b) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + (s.a * s.b) + '/' + (s.a + s.b) + ' = ' + ((s.a * s.b) / (s.a + s.b)) + ' days. Add the RATES (1/a + 1/b), never the days.'; }]
-    },
-    'time-and-work:easy:workDone': {
+    'time-and-work:*:workDone': {
       s: [function (s) { return 'A can finish a job in ' + s.days + ' days. In ' + s.wd + ' days he completes ? % of the work.'; }],
       e: [function (s) { return 'Fraction done = ' + s.wd + '/' + s.days + ', so ' + s.wd + '/' + s.days + ' × 100 = ' + (s.wd * 100 / s.days) + '%.'; }]
     },
-    'time-and-work:medium:workDone': {
-      s: [function (s) { return 'A can finish a job in ' + s.days + ' days. In ' + s.wd + ' days he completes ? % of the work.'; }],
-      e: [function (s) { return 'Fraction done = ' + s.wd + '/' + s.days + ', so ' + s.wd + '/' + s.days + ' × 100 = ' + (s.wd * 100 / s.days) + '%.'; }]
-    },
-    'time-and-work:medium:workersScale': {
-      s: [function (s) { return 'If ' + s.w1 + ' workers finish a task in ' + s.dp + ' days, then ' + s.w2 + ' workers finish the same task in ? days'; }],
-      e: [function (s) { return 'Total work = ' + s.w1 + ' × ' + s.dp + ' = ' + s.tot + ' worker-days. Time for ' + s.w2 + ' workers = ' + s.tot + ' ÷ ' + s.w2 + ' = ' + (s.tot / s.w2) + ' days (workers and days are inversely proportional).'; }]
-    },
-    'time-and-work:hard:workersScale': {
+    'time-and-work:*:workersScale': {
       s: [function (s) { return 'If ' + s.w1 + ' workers finish a task in ' + s.dp + ' days, then ' + s.w2 + ' workers finish the same task in ? days'; }],
       e: [function (s) { return 'Total work = ' + s.w1 + ' × ' + s.dp + ' = ' + s.tot + ' worker-days. Time for ' + s.w2 + ' workers = ' + s.tot + ' ÷ ' + s.w2 + ' = ' + (s.tot / s.w2) + ' days (workers and days are inversely proportional).'; }]
     },
@@ -441,27 +340,15 @@
     },
 
     /* ── Number series ── (term lists ride slots as arrays; the pattern description is language-neutral math) */
-    'number-series:easy:arithmetic': {
+    'number-series:*:arithmetic': {
       s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
       e: [function (s) { return 'A constant difference of ' + s.step + ' (arithmetic progression): ' + s.terms[s.terms.length - 1] + ' + ' + s.step + ' = ' + s.ans + '.'; }]
     },
-    'number-series:medium:arithmetic': {
-      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
-      e: [function (s) { return 'A constant difference of ' + s.step + ' (arithmetic progression): ' + s.terms[s.terms.length - 1] + ' + ' + s.step + ' = ' + s.ans + '.'; }]
-    },
-    'number-series:easy:geometric': {
+    'number-series:*:geometric': {
       s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
       e: [function (s) { return 'Each term is × ' + s.r + ' (geometric progression): ' + s.terms[s.terms.length - 1] + ' × ' + s.r + ' = ' + s.ans + '.'; }]
     },
-    'number-series:medium:geometric': {
-      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
-      e: [function (s) { return 'Each term is × ' + s.r + ' (geometric progression): ' + s.terms[s.terms.length - 1] + ' × ' + s.r + ' = ' + s.ans + '.'; }]
-    },
-    'number-series:medium:growingGap': {
-      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
-      e: [function (s) { return 'The gaps grow by ' + s.base + ' each step (constant second difference): the next gap is ' + s.gap + ', so ' + s.terms[s.terms.length - 1] + ' + ' + s.gap + ' = ' + s.ans + '.'; }]
-    },
-    'number-series:hard:growingGap': {
+    'number-series:*:growingGap': {
       s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
       e: [function (s) { return 'The gaps grow by ' + s.base + ' each step (constant second difference): the next gap is ' + s.gap + ', so ' + s.terms[s.terms.length - 1] + ' + ' + s.gap + ' = ' + s.ans + '.'; }]
     },
@@ -475,19 +362,11 @@
     },
 
     /* ── Pipes & cisterns ── (hours verbatim; combined/net-rate arithmetic recomputes from slots) */
-    'pipes-cisterns:easy:together': {
+    'pipes-cisterns:*:together': {
       s: [function (s) { return 'Pipe A fills a tank in ' + s.a + ' hours and pipe B fills it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
       e: [function (s) { return 'Combined time = (A × B)/(A + B) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + ((s.a * s.b) / (s.a + s.b)) + ' hours — add the rates 1/' + s.a + ' + 1/' + s.b + '.'; }]
     },
-    'pipes-cisterns:medium:together': {
-      s: [function (s) { return 'Pipe A fills a tank in ' + s.a + ' hours and pipe B fills it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
-      e: [function (s) { return 'Combined time = (A × B)/(A + B) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + ((s.a * s.b) / (s.a + s.b)) + ' hours — add the rates 1/' + s.a + ' + 1/' + s.b + '.'; }]
-    },
-    'pipes-cisterns:medium:netFill': {
-      s: [function (s) { return 'An inlet pipe fills a tank in ' + s.a + ' hours while an outlet pipe empties it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
-      e: [function (s) { return 'Net rate = 1/' + s.a + ' − 1/' + s.b + '; time = (A × B)/(B − A) = (' + s.a + ' × ' + s.b + ')/(' + s.b + ' − ' + s.a + ') = ' + ((s.a * s.b) / (s.b - s.a)) + ' hours.'; }]
-    },
-    'pipes-cisterns:hard:netFill': {
+    'pipes-cisterns:*:netFill': {
       s: [function (s) { return 'An inlet pipe fills a tank in ' + s.a + ' hours while an outlet pipe empties it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
       e: [function (s) { return 'Net rate = 1/' + s.a + ' − 1/' + s.b + '; time = (A × B)/(B − A) = (' + s.a + ' × ' + s.b + ')/(' + s.b + ' − ' + s.a + ') = ' + ((s.a * s.b) / (s.b - s.a)) + ' hours.'; }]
     },
@@ -501,11 +380,7 @@
     },
 
     /* ── Problems on ages ── (person names ride slot `nm` as trilingual entries; years verbatim) */
-    'ages:easy:ratioSum': {
-      s: [function (s) { return 'The present ages of ' + s.nm[0].en + ' and ' + s.nm[1].en + ' are in the ratio ' + s.p0 + ' : ' + s.p1 + '. If the sum of their ages is ' + s.S + ' years, the present age of ' + s.nm[0].en + ' = ? years'; }],
-      e: [function (s) { return 'Let the ages be ' + s.p0 + 'x and ' + s.p1 + 'x. Then (' + s.p0 + ' + ' + s.p1 + ')x = ' + s.S + ' → x = ' + s.k + '. ' + s.nm[0].en + ' = ' + s.p0 + 'x = ' + (s.p0 * s.k) + ' years.'; }]
-    },
-    'ages:medium:ratioSum': {
+    'ages:*:ratioSum': {
       s: [function (s) { return 'The present ages of ' + s.nm[0].en + ' and ' + s.nm[1].en + ' are in the ratio ' + s.p0 + ' : ' + s.p1 + '. If the sum of their ages is ' + s.S + ' years, the present age of ' + s.nm[0].en + ' = ? years'; }],
       e: [function (s) { return 'Let the ages be ' + s.p0 + 'x and ' + s.p1 + 'x. Then (' + s.p0 + ' + ' + s.p1 + ')x = ' + s.S + ' → x = ' + s.k + '. ' + s.nm[0].en + ' = ' + s.p0 + 'x = ' + (s.p0 * s.k) + ' years.'; }]
     },
@@ -513,11 +388,7 @@
       s: [function (s) { return '' + s.t + ' years ago, ' + s.nm.en + ' was ' + s.a + ' years old. ' + s.nm.en + '’s present age = ? years'; }],
       e: [function (s) { return 'Present age = age then + years elapsed = ' + s.a + ' + ' + s.t + ' = ' + (s.a + s.t) + ' years. (Going forward in time adds; “ago” means we add back.)'; }]
     },
-    'ages:medium:ageDiff': {
-      s: [function (s) { return s.nm[0].en + ' is ' + s.x + ' years older than ' + s.nm[1].en + '. In ' + s.t + ' years, ' + s.nm[0].en + ' will be ' + s.mult + ' times as old as ' + s.nm[1].en + '. ' + s.nm[1].en + '’s present age = ? years'; }],
-      e: [function (s) { return s.nm[0].en + ' = ' + s.nm[1].en + ' + ' + s.x + '. In ' + s.t + ' years: (' + s.nm[1].en + ' + ' + s.x + ' + ' + s.t + ') = ' + s.mult + '(' + s.nm[1].en + ' + ' + s.t + ') → ' + s.nm[1].en + ' = ' + s.B + ' years.'; }]
-    },
-    'ages:hard:ageDiff': {
+    'ages:*:ageDiff': {
       s: [function (s) { return s.nm[0].en + ' is ' + s.x + ' years older than ' + s.nm[1].en + '. In ' + s.t + ' years, ' + s.nm[0].en + ' will be ' + s.mult + ' times as old as ' + s.nm[1].en + '. ' + s.nm[1].en + '’s present age = ? years'; }],
       e: [function (s) { return s.nm[0].en + ' = ' + s.nm[1].en + ' + ' + s.x + '. In ' + s.t + ' years: (' + s.nm[1].en + ' + ' + s.x + ' + ' + s.t + ') = ' + s.mult + '(' + s.nm[1].en + ' + ' + s.t + ') → ' + s.nm[1].en + ' = ' + s.B + ' years.'; }]
     },
@@ -531,49 +402,25 @@
       s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' invest ₹' + s.x + ' and ₹' + s.y + ' respectively in a business. In what ratio should the annual profit be divided between them?'; }],
       e: [function (s) { return 'Profit is always divided in the ratio of the capitals invested. ' + s.x + ' : ' + s.y + ', dividing both by their HCF ' + s.g + ', gives ' + (s.x / s.g) + ' : ' + (s.y / s.g) + '.'; }]
     },
-    'partnership:easy:share2': {
+    'partnership:*:share2': {
       s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
       e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
     },
-    'partnership:medium:share2': {
-      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
-      e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
-    },
-    'partnership:hard:share2': {
-      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' start a business investing ₹' + s.x + ' and ₹' + s.y + ' respectively. Out of a total profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
-      e: [function (s) { return 'Profit is shared in the ratio of investments ' + s.x + ' : ' + s.y + '. ' + s.nm[0].en + '’s share = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
-    },
-    'partnership:medium:shareTime': {
-      s: [function (s) { return s.nm[0].en + ' invests ₹' + s.x + ' for ' + s.m + ' months and ' + s.nm[1].en + ' invests ₹' + s.y + ' for ' + s.n + ' months. Out of a profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
-      e: [function (s) { return 'Weight each partner by capital × time: ' + s.nm[0].en + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].en + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].en + '’s share = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
-    },
-    'partnership:hard:shareTime': {
+    'partnership:*:shareTime': {
       s: [function (s) { return s.nm[0].en + ' invests ₹' + s.x + ' for ' + s.m + ' months and ' + s.nm[1].en + ' invests ₹' + s.y + ' for ' + s.n + ' months. Out of a profit of ₹' + s.profit + ', ' + s.nm[0].en + '’s share = ₹?'; }],
       e: [function (s) { return 'Weight each partner by capital × time: ' + s.nm[0].en + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].en + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].en + '’s share = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
     },
 
     /* ── Number properties ── (HCF/LCM/unit-digit/factor-count; cycle & factor arrays ride slots, language-neutral) */
-    'number-properties:easy:hcf': {
+    'number-properties:*:hcf': {
       s: [function (s) { return 'Find the HCF (highest common factor) of ' + s.a + ' and ' + s.b + '.'; }],
       e: [function (s) { return 'HCF(' + s.a + ', ' + s.b + ') = ' + s.g + ' — the largest number that divides both (Euclidean method or common prime factors).'; }]
     },
-    'number-properties:medium:hcf': {
-      s: [function (s) { return 'Find the HCF (highest common factor) of ' + s.a + ' and ' + s.b + '.'; }],
-      e: [function (s) { return 'HCF(' + s.a + ', ' + s.b + ') = ' + s.g + ' — the largest number that divides both (Euclidean method or common prime factors).'; }]
-    },
-    'number-properties:easy:lcm': {
+    'number-properties:*:lcm': {
       s: [function (s) { return 'Find the LCM (least common multiple) of ' + s.a + ' and ' + s.b + '.'; }],
       e: [function (s) { return 'LCM = (a × b) ÷ HCF = (' + s.a + ' × ' + s.b + ') ÷ ' + s.g + ' = ' + s.l + '.'; }]
     },
-    'number-properties:medium:lcm': {
-      s: [function (s) { return 'Find the LCM (least common multiple) of ' + s.a + ' and ' + s.b + '.'; }],
-      e: [function (s) { return 'LCM = (a × b) ÷ HCF = (' + s.a + ' × ' + s.b + ') ÷ ' + s.g + ' = ' + s.l + '.'; }]
-    },
-    'number-properties:medium:unitDigit': {
-      s: [function (s) { return 'What is the unit (last) digit of ' + s.base + '^' + s.e + '?'; }],
-      e: [function (s) { return 'The unit digit of powers of ' + s.base + ' repeats as [' + s.cyc.join(', ') + '] (cycle length ' + s.cyc.length + '). ' + s.e + ' mod ' + s.cyc.length + ' lands on ' + s.ud + '.'; }]
-    },
-    'number-properties:hard:unitDigit': {
+    'number-properties:*:unitDigit': {
       s: [function (s) { return 'What is the unit (last) digit of ' + s.base + '^' + s.e + '?'; }],
       e: [function (s) { return 'The unit digit of powers of ' + s.base + ' repeats as [' + s.cyc.join(', ') + '] (cycle length ' + s.cyc.length + '). ' + s.e + ' mod ' + s.cyc.length + ' lands on ' + s.ud + '.'; }]
     },
@@ -583,11 +430,7 @@
     },
 
     /* ── Linear equations ── (answer = a variable value; the algebra recomputes from slots) */
-    'linear-equations:easy:solveOne': {
-      s: [function (s) { return s.a + 'x + ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x + ' + s.b + ' = ' + s.c; }, function (s) { return 'If ' + s.a + 'x + ' + s.b + ' = ' + s.c + ', then x = ?'; }],
-      e: [function (s) { return 'Move the constant across: ' + s.a + 'x = ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + '. Then x = ' + (s.c - s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
-    },
-    'linear-equations:medium:solveOne': {
+    'linear-equations:*:solveOne': {
       s: [function (s) { return s.a + 'x + ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x + ' + s.b + ' = ' + s.c; }, function (s) { return 'If ' + s.a + 'x + ' + s.b + ' = ' + s.c + ', then x = ?'; }],
       e: [function (s) { return 'Move the constant across: ' + s.a + 'x = ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + '. Then x = ' + (s.c - s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
     },
@@ -595,19 +438,11 @@
       s: [function (s) { return s.a + 'x − ' + s.b + ' = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve for x:  ' + s.a + 'x − ' + s.b + ' = ' + s.c; }],
       e: [function (s) { return s.a + 'x = ' + s.c + ' + ' + s.b + ' = ' + (s.c + s.b) + ', so x = ' + (s.c + s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
     },
-    'linear-equations:medium:bracket': {
+    'linear-equations:*:bracket': {
       s: [function (s) { return s.a + '(x + ' + s.b + ') = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve:  ' + s.a + '(x + ' + s.b + ') = ' + s.c; }],
       e: [function (s) { return 'Divide both sides by ' + s.a + ' first: x + ' + s.b + ' = ' + (s.c / s.a) + '. So x = ' + (s.c / s.a) + ' − ' + s.b + ' = ' + s.x + '.'; }]
     },
-    'linear-equations:hard:bracket': {
-      s: [function (s) { return s.a + '(x + ' + s.b + ') = ' + s.c + '.  Find x.'; }, function (s) { return 'Solve:  ' + s.a + '(x + ' + s.b + ') = ' + s.c; }],
-      e: [function (s) { return 'Divide both sides by ' + s.a + ' first: x + ' + s.b + ' = ' + (s.c / s.a) + '. So x = ' + (s.c / s.a) + ' − ' + s.b + ' = ' + s.x + '.'; }]
-    },
-    'linear-equations:medium:sumDiff': {
-      s: [function (s) { return 'If x + y = ' + s.S + ' and x − y = ' + s.D + ', find x.'; }],
-      e: [function (s) { return 'Add the equations: 2x = ' + s.S + ' + ' + s.D + ' = ' + (s.S + s.D) + ', so x = ' + s.x + ' (and y = ' + s.y + ').'; }]
-    },
-    'linear-equations:hard:sumDiff': {
+    'linear-equations:*:sumDiff': {
       s: [function (s) { return 'If x + y = ' + s.S + ' and x − y = ' + s.D + ', find x.'; }],
       e: [function (s) { return 'Add the equations: 2x = ' + s.S + ' + ' + s.D + ' = ' + (s.S + s.D) + ', so x = ' + s.x + ' (and y = ' + s.y + ').'; }]
     },
@@ -617,11 +452,7 @@
     },
 
     /* ── Quadratic equations ── (canonical x² − Bx + C = 0; Vieta relations recompute from slots) */
-    'quadratic-equations:easy:largerRoot': {
-      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the larger root.'; }],
-      e: [function (s) { return 'Factor into (x − ' + s.lo + ')(x − ' + s.hi + ') = 0 → roots ' + s.lo + ' and ' + s.hi + '. Larger = ' + s.hi + '.'; }]
-    },
-    'quadratic-equations:medium:largerRoot': {
+    'quadratic-equations:*:largerRoot': {
       s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the larger root.'; }],
       e: [function (s) { return 'Factor into (x − ' + s.lo + ')(x − ' + s.hi + ') = 0 → roots ' + s.lo + ' and ' + s.hi + '. Larger = ' + s.hi + '.'; }]
     },
@@ -629,19 +460,11 @@
       s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the smaller root.'; }],
       e: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = (x − ' + s.lo + ')(x − ' + s.hi + '). Roots ' + s.lo + ' and ' + s.hi + '; smaller = ' + s.lo + '.'; }]
     },
-    'quadratic-equations:easy:sumRoots': {
+    'quadratic-equations:*:sumRoots': {
       s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the sum of its roots.'; }],
       e: [function (s) { return 'For x² − Bx + C = 0, sum of roots = B = ' + s.B + ' (Vieta: sum = −b/a = ' + s.B + ').'; }]
     },
-    'quadratic-equations:medium:sumRoots': {
-      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the sum of its roots.'; }],
-      e: [function (s) { return 'For x² − Bx + C = 0, sum of roots = B = ' + s.B + ' (Vieta: sum = −b/a = ' + s.B + ').'; }]
-    },
-    'quadratic-equations:medium:productRoots': {
-      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the product of its roots.'; }],
-      e: [function (s) { return 'By Vieta’s formulas, for x² − (sum)x + (product) = 0 the product of the roots equals the constant term. Here that constant is ' + s.C + ', so the product = ' + s.C + ' — no need to actually solve the equation. (Trap: the sum of the roots is the −(x-coefficient), a separate value.)'; }]
-    },
-    'quadratic-equations:hard:productRoots': {
+    'quadratic-equations:*:productRoots': {
       s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  Find the product of its roots.'; }],
       e: [function (s) { return 'By Vieta’s formulas, for x² − (sum)x + (product) = 0 the product of the roots equals the constant term. Here that constant is ' + s.C + ', so the product = ' + s.C + ' — no need to actually solve the equation. (Trap: the sum of the roots is the −(x-coefficient), a separate value.)'; }]
     },
@@ -655,95 +478,51 @@
     },
 
     /* ── Surds & indices ── (^ notation and integer answers recompute from slots) */
-    'surds-indices:easy:powerEval': {
+    'surds-indices:*:powerEval': {
       s: [function (s) { return s.a + '^' + s.n + ' = ?'; }, function (s) { return 'Evaluate ' + s.a + '^' + s.n + '.'; }],
       e: [function (s) { return s.a + '^' + s.n + ' = ' + s.a + ' multiplied by itself ' + s.n + ' times = ' + s.val + '.'; }]
     },
-    'surds-indices:medium:powerEval': {
-      s: [function (s) { return s.a + '^' + s.n + ' = ?'; }, function (s) { return 'Evaluate ' + s.a + '^' + s.n + '.'; }],
-      e: [function (s) { return s.a + '^' + s.n + ' = ' + s.a + ' multiplied by itself ' + s.n + ' times = ' + s.val + '.'; }]
-    },
-    'surds-indices:easy:solveExp': {
+    'surds-indices:*:solveExp': {
       s: [function (s) { return 'If ' + s.a + '^x = ' + s.N + ', find x.'; }],
       e: [function (s) { return '' + s.N + ' = ' + s.a + '^' + s.x + ' (since ' + s.a + ' to the power ' + s.x + ' is ' + s.N + '), so x = ' + s.x + '.'; }]
     },
-    'surds-indices:hard:solveExp': {
-      s: [function (s) { return 'If ' + s.a + '^x = ' + s.N + ', find x.'; }],
-      e: [function (s) { return '' + s.N + ' = ' + s.a + '^' + s.x + ' (since ' + s.a + ' to the power ' + s.x + ' is ' + s.N + '), so x = ' + s.x + '.'; }]
-    },
-    'surds-indices:medium:fracExponent': {
+    'surds-indices:*:fracExponent': {
       s: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = ?'; }],
       e: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = (' + s.b + '^(1/' + s.root + '))^' + s.p + ' = ' + s.rt + '^' + s.p + ' = ' + s.val + '.'; }]
     },
-    'surds-indices:hard:fracExponent': {
-      s: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = ?'; }],
-      e: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = (' + s.b + '^(1/' + s.root + '))^' + s.p + ' = ' + s.rt + '^' + s.p + ' = ' + s.val + '.'; }]
-    },
-    'surds-indices:medium:indexLaw': {
-      s: [function (s) { return '(' + s.a + '^' + s.m + ') ÷ (' + s.a + '^' + s.n + ') = ' + s.a + '^? — give the exponent.'; }],
-      e: [function (s) { return 'Quotient law of indices: dividing same-base powers subtracts the exponents, aᵐ ÷ aⁿ = aᵐ⁻ⁿ. So the exponent is ' + s.m + ' − ' + s.n + ' = ' + (s.m - s.n) + '. (Trap: the base ' + s.a + ' stays the same — you never divide the bases.)'; }]
-    },
-    'surds-indices:hard:indexLaw': {
+    'surds-indices:*:indexLaw': {
       s: [function (s) { return '(' + s.a + '^' + s.m + ') ÷ (' + s.a + '^' + s.n + ') = ' + s.a + '^? — give the exponent.'; }],
       e: [function (s) { return 'Quotient law of indices: dividing same-base powers subtracts the exponents, aᵐ ÷ aⁿ = aᵐ⁻ⁿ. So the exponent is ' + s.m + ' − ' + s.n + ' = ' + (s.m - s.n) + '. (Trap: the base ' + s.a + ' stays the same — you never divide the bases.)'; }]
     },
 
     /* ── Logarithms ── (ASCII "log to base b of N" wording; integer answers) */
-    'logarithms:easy:evalLog': {
+    'logarithms:*:evalLog': {
       s: [function (s) { return 'log to base ' + s.b + ' of ' + s.N + ' = ?'; }, function (s) { return 'Evaluate log base ' + s.b + ' of ' + s.N + '.'; }],
       e: [function (s) { return 'logₐN asks “' + s.b + ' raised to what power gives ' + s.N + '?” Rewrite ' + s.N + ' as a power of ' + s.b + ': ' + s.b + '^' + s.k + ' = ' + s.N + ', so log base ' + s.b + ' of ' + s.N + ' = ' + s.k + '.' + (s.b === 10 ? ' (For base 10 — the common log — just count how many times you multiply by 10.)' : ''); }]
     },
-    'logarithms:medium:evalLog': {
-      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.N + ' = ?'; }, function (s) { return 'Evaluate log base ' + s.b + ' of ' + s.N + '.'; }],
-      e: [function (s) { return 'logₐN asks “' + s.b + ' raised to what power gives ' + s.N + '?” Rewrite ' + s.N + ' as a power of ' + s.b + ': ' + s.b + '^' + s.k + ' = ' + s.N + ', so log base ' + s.b + ' of ' + s.N + ' = ' + s.k + '.' + (s.b === 10 ? ' (For base 10 — the common log — just count how many times you multiply by 10.)' : ''); }]
-    },
-    'logarithms:easy:solveLog': {
+    'logarithms:*:solveLog': {
       s: [function (s) { return 'If log to base ' + s.b + ' of x = ' + s.k + ', find x.'; }],
       e: [function (s) { return 'logₐx = k is the same statement as x = aᵏ (rewrite the log in exponential form). So x = ' + s.b + '^' + s.k + ' = ' + s.x + '.'; }]
     },
-    'logarithms:hard:solveLog': {
-      s: [function (s) { return 'If log to base ' + s.b + ' of x = ' + s.k + ', find x.'; }],
-      e: [function (s) { return 'logₐx = k is the same statement as x = aᵏ (rewrite the log in exponential form). So x = ' + s.b + '^' + s.k + ' = ' + s.x + '.'; }]
-    },
-    'logarithms:medium:logSum': {
+    'logarithms:*:logSum': {
       s: [function (s) { return '(log to base ' + s.b + ' of ' + s.x + ') + (log to base ' + s.b + ' of ' + s.y + ') = ?'; }],
       e: [function (s) { return 'Product rule: logₐx + logₐy = logₐ(xy). Since ' + s.b + '^' + s.i + ' = ' + s.x + ' and ' + s.b + '^' + s.j + ' = ' + s.y + ', the two logs are ' + s.i + ' and ' + s.j + ', so the sum = ' + s.i + ' + ' + s.j + ' = ' + (s.i + s.j) + '. (Shortcut: adding same-base logs just adds the exponents.)'; }]
     },
-    'logarithms:hard:logSum': {
-      s: [function (s) { return '(log to base ' + s.b + ' of ' + s.x + ') + (log to base ' + s.b + ' of ' + s.y + ') = ?'; }],
-      e: [function (s) { return 'Product rule: logₐx + logₐy = logₐ(xy). Since ' + s.b + '^' + s.i + ' = ' + s.x + ' and ' + s.b + '^' + s.j + ' = ' + s.y + ', the two logs are ' + s.i + ' and ' + s.j + ', so the sum = ' + s.i + ' + ' + s.j + ' = ' + (s.i + s.j) + '. (Shortcut: adding same-base logs just adds the exponents.)'; }]
-    },
-    'logarithms:medium:logPower': {
-      s: [function (s) { return 'log to base ' + s.b + ' of ' + s.x + '^' + s.k + ' = ?'; }],
-      e: [function (s) { return 'Power rule: logₐ(xᵏ) = k·logₐx. Here log base ' + s.b + ' of ' + s.x + ' = ' + s.i + ' (because ' + s.b + '^' + s.i + ' = ' + s.x + '), so the answer = ' + s.k + ' × ' + s.i + ' = ' + (s.i * s.k) + '. (Trap: the exponent multiplies the log — it does not become a new base.)'; }]
-    },
-    'logarithms:hard:logPower': {
+    'logarithms:*:logPower': {
       s: [function (s) { return 'log to base ' + s.b + ' of ' + s.x + '^' + s.k + ' = ?'; }],
       e: [function (s) { return 'Power rule: logₐ(xᵏ) = k·logₐx. Here log base ' + s.b + ' of ' + s.x + ' = ' + s.i + ' (because ' + s.b + '^' + s.i + ' = ' + s.x + '), so the answer = ' + s.k + ' × ' + s.i + ' = ' + (s.i * s.k) + '. (Trap: the exponent multiplies the log — it does not become a new base.)'; }]
     },
 
     /* ── Progressions ── (ordinal from a number slot via ord(); AP/GP formulae recompute from slots) */
-    'progressions:easy:apNth': {
+    'progressions:*:apNth': {
       s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find its ' + ord(s.n) + ' term.'; }, function (s) { return 'An arithmetic progression starts at ' + s.a + ' and increases by ' + s.d + ' each term. What is its ' + ord(s.n) + ' term?'; }],
       e: [function (s) { return 'aₙ = a + (n − 1)d = ' + s.a + ' + (' + s.n + ' − 1)·' + s.d + ' = ' + s.a + ' + ' + ((s.n - 1) * s.d) + ' = ' + (s.a + (s.n - 1) * s.d) + '.'; }]
     },
-    'progressions:medium:apNth': {
-      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find its ' + ord(s.n) + ' term.'; }, function (s) { return 'An arithmetic progression starts at ' + s.a + ' and increases by ' + s.d + ' each term. What is its ' + ord(s.n) + ' term?'; }],
-      e: [function (s) { return 'aₙ = a + (n − 1)d = ' + s.a + ' + (' + s.n + ' − 1)·' + s.d + ' = ' + s.a + ' + ' + ((s.n - 1) * s.d) + ' = ' + (s.a + (s.n - 1) * s.d) + '.'; }]
-    },
-    'progressions:easy:apSum': {
+    'progressions:*:apSum': {
       s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find the sum of its first ' + s.n + ' terms.'; }],
       e: [function (s) { return 'Sₙ = n/2 · [2a + (n − 1)d] = ' + s.n + '/2 · [' + (2 * s.a) + ' + ' + ((s.n - 1) * s.d) + '] = ' + (s.n / 2 * (2 * s.a + (s.n - 1) * s.d)) + '.'; }]
     },
-    'progressions:medium:apSum': {
-      s: [function (s) { return 'An AP has first term ' + s.a + ' and common difference ' + s.d + '. Find the sum of its first ' + s.n + ' terms.'; }],
-      e: [function (s) { return 'Sₙ = n/2 · [2a + (n − 1)d] = ' + s.n + '/2 · [' + (2 * s.a) + ' + ' + ((s.n - 1) * s.d) + '] = ' + (s.n / 2 * (2 * s.a + (s.n - 1) * s.d)) + '.'; }]
-    },
-    'progressions:medium:gpNth': {
-      s: [function (s) { return 'A GP has first term ' + s.a + ' and common ratio ' + s.r + '. Find its ' + ord(s.n) + ' term.'; }],
-      e: [function (s) { return 'aₙ = a·rⁿ⁻¹ = ' + s.a + '·' + s.r + '^' + (s.n - 1) + ' = ' + s.a + '·' + Math.pow(s.r, s.n - 1) + ' = ' + (s.a * Math.pow(s.r, s.n - 1)) + '.'; }]
-    },
-    'progressions:hard:gpNth': {
+    'progressions:*:gpNth': {
       s: [function (s) { return 'A GP has first term ' + s.a + ' and common ratio ' + s.r + '. Find its ' + ord(s.n) + ' term.'; }],
       e: [function (s) { return 'aₙ = a·rⁿ⁻¹ = ' + s.a + '·' + s.r + '^' + (s.n - 1) + ' = ' + s.a + '·' + Math.pow(s.r, s.n - 1) + ' = ' + (s.a * Math.pow(s.r, s.n - 1)) + '.'; }]
     },
@@ -753,27 +532,15 @@
     },
 
     /* ── Inequalities & modulus ── (≤ ≥ < > verbatim; counts recompute from slots) */
-    'inequalities-modulus:easy:linIneqMin': {
+    'inequalities-modulus:*:linIneqMin': {
       s: [function (s) { return 'Find the smallest integer x such that ' + s.a + 'x + ' + s.b + ' > ' + s.c + '.'; }],
       e: [function (s) { return s.a + 'x > ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + ', so x > ' + ((s.c - s.b) / s.a).toFixed(2).replace(/\.00$/, '') + '. The smallest integer greater than that is ' + (Math.floor((s.c - s.b) / s.a) + 1) + '.'; }]
     },
-    'inequalities-modulus:medium:linIneqMin': {
-      s: [function (s) { return 'Find the smallest integer x such that ' + s.a + 'x + ' + s.b + ' > ' + s.c + '.'; }],
-      e: [function (s) { return s.a + 'x > ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + ', so x > ' + ((s.c - s.b) / s.a).toFixed(2).replace(/\.00$/, '') + '. The smallest integer greater than that is ' + (Math.floor((s.c - s.b) / s.a) + 1) + '.'; }]
-    },
-    'inequalities-modulus:easy:countRange': {
+    'inequalities-modulus:*:countRange': {
       s: [function (s) { return 'How many integers x satisfy ' + s.a + ' ≤ x ≤ ' + s.b + '?'; }],
       e: [function (s) { return 'Counting integers in a closed range is inclusive of both ends: count = (upper − lower) + 1 = (' + s.b + ' − ' + s.a + ') + 1 = ' + (s.b - s.a + 1) + '. (The “+1” is the classic fencepost step — subtracting alone drops one endpoint and undercounts by 1.)'; }]
     },
-    'inequalities-modulus:medium:countRange': {
-      s: [function (s) { return 'How many integers x satisfy ' + s.a + ' ≤ x ≤ ' + s.b + '?'; }],
-      e: [function (s) { return 'Counting integers in a closed range is inclusive of both ends: count = (upper − lower) + 1 = (' + s.b + ' − ' + s.a + ') + 1 = ' + (s.b - s.a + 1) + '. (The “+1” is the classic fencepost step — subtracting alone drops one endpoint and undercounts by 1.)'; }]
-    },
-    'inequalities-modulus:medium:modLarger': {
-      s: [function (s) { return 'If |x − ' + s.a + '| = ' + s.b + ', find the larger value of x.'; }],
-      e: [function (s) { return '|x − ' + s.a + '| = ' + s.b + ' gives x = ' + s.a + ' + ' + s.b + ' = ' + (s.a + s.b) + ' or x = ' + s.a + ' − ' + s.b + ' = ' + (s.a - s.b) + '. The larger is ' + (s.a + s.b) + '.'; }]
-    },
-    'inequalities-modulus:hard:modLarger': {
+    'inequalities-modulus:*:modLarger': {
       s: [function (s) { return 'If |x − ' + s.a + '| = ' + s.b + ', find the larger value of x.'; }],
       e: [function (s) { return '|x − ' + s.a + '| = ' + s.b + ' gives x = ' + s.a + ' + ' + s.b + ' = ' + (s.a + s.b) + ' or x = ' + s.a + ' − ' + s.b + ' = ' + (s.a - s.b) + '. The larger is ' + (s.a + s.b) + '.'; }]
     },
@@ -795,11 +562,7 @@
       s: [function (s) { return 'What is the supplement of an angle of ' + s.a + '°?'; }, function (s) { return 'Two angles lie on a straight line and one measures ' + s.a + '°. Find the other (in degrees).'; }],
       e: [function (s) { return 'Supplementary angles sum to 180°, so the supplement = 180° − ' + s.a + '° = ' + (180 - s.a) + '°.'; }]
     },
-    'geometry-basics:easy:triangleThird': {
-      s: [function (s) { return 'Two angles of a triangle are ' + s.a + '° and ' + s.b + '°. Find the third angle.'; }, function (s) { return 'In a triangle, two of the angles measure ' + s.a + '° and ' + s.b + '°. The third angle = ?°'; }],
-      e: [function (s) { return 'Angles of a triangle sum to 180°, so the third = 180° − ' + s.a + '° − ' + s.b + '° = ' + (180 - s.a - s.b) + '°.'; }]
-    },
-    'geometry-basics:medium:triangleThird': {
+    'geometry-basics:*:triangleThird': {
       s: [function (s) { return 'Two angles of a triangle are ' + s.a + '° and ' + s.b + '°. Find the third angle.'; }, function (s) { return 'In a triangle, two of the angles measure ' + s.a + '° and ' + s.b + '°. The third angle = ?°'; }],
       e: [function (s) { return 'Angles of a triangle sum to 180°, so the third = 180° − ' + s.a + '° − ' + s.b + '° = ' + (180 - s.a - s.b) + '°.'; }]
     },
@@ -825,31 +588,15 @@
     },
 
     /* ── Coordinate geometry basics ── (coordinate pairs & formulae recompute from slots) */
-    'coordinate-geometry-basics:easy:distance': {
+    'coordinate-geometry-basics:*:distance': {
       s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
       e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
     },
-    'coordinate-geometry-basics:medium:distance': {
-      s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
-      e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
-    },
-    'coordinate-geometry-basics:hard:distance': {
-      s: [function (s) { return 'Find the distance between the points (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
-      e: [function (s) { return 'Distance = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
-    },
-    'coordinate-geometry-basics:easy:midpointX': {
+    'coordinate-geometry-basics:*:midpointX': {
       s: [function (s) { return 'Find the x-coordinate of the midpoint of (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
       e: [function (s) { return 'Midpoint x = (x₁ + x₂)/2 = (' + s.x1 + ' + ' + s.x2 + ')/2 = ' + ((s.x1 + s.x2) / 2) + '.'; }]
     },
-    'coordinate-geometry-basics:medium:midpointX': {
-      s: [function (s) { return 'Find the x-coordinate of the midpoint of (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
-      e: [function (s) { return 'Midpoint x = (x₁ + x₂)/2 = (' + s.x1 + ' + ' + s.x2 + ')/2 = ' + ((s.x1 + s.x2) / 2) + '.'; }]
-    },
-    'coordinate-geometry-basics:medium:slope': {
-      s: [function (s) { return 'Find the slope of the line joining (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
-      e: [function (s) { return 'Slope = (y₂ − y₁)/(x₂ − x₁) = (' + (s.y2 - s.y1) + ')/(' + (s.x2 - s.x1) + ') = ' + ((s.y2 - s.y1) / (s.x2 - s.x1)) + '.'; }]
-    },
-    'coordinate-geometry-basics:hard:slope': {
+    'coordinate-geometry-basics:*:slope': {
       s: [function (s) { return 'Find the slope of the line joining (' + s.x1 + ', ' + s.y1 + ') and (' + s.x2 + ', ' + s.y2 + ').'; }],
       e: [function (s) { return 'Slope = (y₂ − y₁)/(x₂ − x₁) = (' + (s.y2 - s.y1) + ')/(' + (s.x2 - s.x1) + ') = ' + ((s.y2 - s.y1) / (s.x2 - s.x1)) + '.'; }]
     },
@@ -860,27 +607,15 @@
 
     /* ── Trigonometry ── (sin/cos/tan and identity symbols are DNT math; structure noun & identity description ride
        index pools TRIG_STRUCT / TRIG_IDENT for hi/mr translation) */
-    'trigonometry:easy:standardEval': {
+    'trigonometry:*:standardEval': {
       s: [function (s) { return s.fn + ' ' + s.ang + '° = ?'; }],
       e: [function (s) { return 'From the standard-angle table, ' + s.fn + ' ' + s.ang + '° = ' + s.val + '.'; }]
     },
-    'trigonometry:medium:standardEval': {
-      s: [function (s) { return s.fn + ' ' + s.ang + '° = ?'; }],
-      e: [function (s) { return 'From the standard-angle table, ' + s.fn + ' ' + s.ang + '° = ' + s.val + '.'; }]
-    },
-    'trigonometry:easy:complementary': {
+    'trigonometry:*:complementary': {
       s: [function (s) { return 'If ' + s.p0 + ' θ = ' + s.p1 + ' ' + s.x + '°, find the acute angle θ (in degrees).'; }],
       e: [function (s) { return s.p0 + ' θ = ' + s.p1 + '(90° − θ), so θ = 90° − ' + s.x + '° = ' + (90 - s.x) + '°.'; }]
     },
-    'trigonometry:medium:complementary': {
-      s: [function (s) { return 'If ' + s.p0 + ' θ = ' + s.p1 + ' ' + s.x + '°, find the acute angle θ (in degrees).'; }],
-      e: [function (s) { return s.p0 + ' θ = ' + s.p1 + '(90° − θ), so θ = 90° − ' + s.x + '° = ' + (90 - s.x) + '°.'; }]
-    },
-    'trigonometry:medium:identity': {
-      s: [function (s) { return 'Evaluate ' + TRIG_IDENT[s.idx][0] + '.'; }],
-      e: [function (s) { return 'This is ' + TRIG_IDENT[s.idx][1] + ' — one of the three Pythagorean identities, all derived from sin²θ + cos²θ = 1 (divide through by cos²θ or sin²θ for the other two). Its value is fixed at 1 for every angle θ, so no specific angle is needed. (Trap: the squares are on the functions, e.g. sin²θ means (sinθ)², not sin(θ²).)'; }]
-    },
-    'trigonometry:hard:identity': {
+    'trigonometry:*:identity': {
       s: [function (s) { return 'Evaluate ' + TRIG_IDENT[s.idx][0] + '.'; }],
       e: [function (s) { return 'This is ' + TRIG_IDENT[s.idx][1] + ' — one of the three Pythagorean identities, all derived from sin²θ + cos²θ = 1 (divide through by cos²θ or sin²θ for the other two). Its value is fixed at 1 for every angle θ, so no specific angle is needed. (Trap: the squares are on the functions, e.g. sin²θ means (sinθ)², not sin(θ²).)'; }]
     },
@@ -894,11 +629,7 @@
       s: [function (s) { return s.n + '! = ?'; }],
       e: [function (s) { return s.n + '! = ' + s.n + ' × ' + (s.n - 1) + ' × … × 1 = ' + s.val + '.'; }]
     },
-    'permutation-combination:easy:arrange': {
-      s: [function (s) { return 'In how many ways can ' + s.n + ' distinct books be arranged in a row?'; }],
-      e: [function (s) { return 'All ' + s.n + ' arranged = ' + s.n + '! = ' + s.val + '.'; }]
-    },
-    'permutation-combination:medium:arrange': {
+    'permutation-combination:*:arrange': {
       s: [function (s) { return 'In how many ways can ' + s.n + ' distinct books be arranged in a row?'; }],
       e: [function (s) { return 'All ' + s.n + ' arranged = ' + s.n + '! = ' + s.val + '.'; }]
     },
@@ -928,11 +659,7 @@
     },
 
     /* ── Probability ── (decimal answers precomputed; colour nouns ride the PROB_COL / PROB_COLC index pools) */
-    'probability:easy:bagSingle': {
-      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COL[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COL[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is ' + PROB_COL[s.colIdx][0] + '? (as a decimal)'; }],
-      e: [function (s) { return 'P = favourable/total = ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
-    },
-    'probability:medium:bagSingle': {
+    'probability:*:bagSingle': {
       s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COL[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COL[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is ' + PROB_COL[s.colIdx][0] + '? (as a decimal)'; }],
       e: [function (s) { return 'P = favourable/total = ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
     },
@@ -940,29 +667,17 @@
       s: [function (s) { return s.n + ' fair coin' + (s.n > 1 ? 's are' : ' is') + ' tossed. What is the probability of getting ' + (s.n === 1 ? 'a head' : 'all heads') + '? (as a decimal)'; }],
       e: [function (s) { return 'P(all heads) = (1/2)^' + s.n + ' = ' + s.ans + '.'; }]
     },
-    'probability:medium:complement': {
+    'probability:*:complement': {
       s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COLC[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COLC[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is NOT ' + PROB_COLC[s.colIdx][0] + '? (as a decimal)'; }],
       e: [function (s) { return 'P(not ' + PROB_COLC[s.colIdx][0] + ') = 1 − ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
     },
-    'probability:hard:complement': {
-      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COLC[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COLC[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is NOT ' + PROB_COLC[s.colIdx][0] + '? (as a decimal)'; }],
-      e: [function (s) { return 'P(not ' + PROB_COLC[s.colIdx][0] + ') = 1 − ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
-    },
-    'probability:medium:multipleProb': {
-      s: [function (s) { return 'A number is chosen at random from 1 to ' + s.T + '. What is the probability it is a multiple of ' + s.d + '? (as a decimal)'; }],
-      e: [function (s) { return 'Multiples of ' + s.d + ' up to ' + s.T + ': ' + s.fav + '. P = ' + s.fav + '/' + s.T + ' = ' + s.ans + '.'; }]
-    },
-    'probability:hard:multipleProb': {
+    'probability:*:multipleProb': {
       s: [function (s) { return 'A number is chosen at random from 1 to ' + s.T + '. What is the probability it is a multiple of ' + s.d + '? (as a decimal)'; }],
       e: [function (s) { return 'Multiples of ' + s.d + ' up to ' + s.T + ': ' + s.fav + '. P = ' + s.fav + '/' + s.T + ' = ' + s.ans + '.'; }]
     },
 
     /* ── Set theory ── (inclusion–exclusion; the two liked-things ride the SET_CTX index pool, A/B/C are labels) */
-    'set-theory:easy:union': {
-      s: [function (s) { return 'In a group, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ', and ' + s.both + ' like both. How many like at least one of the two?'; }],
-      e: [function (s) { return '|A∪B| = |A| + |B| − |A∩B| = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + (s.a + s.b - s.both) + '.'; }]
-    },
-    'set-theory:medium:union': {
+    'set-theory:*:union': {
       s: [function (s) { return 'In a group, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ', and ' + s.both + ' like both. How many like at least one of the two?'; }],
       e: [function (s) { return '|A∪B| = |A| + |B| − |A∩B| = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + (s.a + s.b - s.both) + '.'; }]
     },
@@ -970,19 +685,11 @@
       s: [function (s) { return 'In a group, ' + s.a + ' people like ' + SET_CTX[s.ci][0] + ' and ' + s.both + ' of them also like ' + SET_CTX[s.ci][1] + '. How many like ONLY ' + SET_CTX[s.ci][0] + '?'; }],
       e: [function (s) { return 'Only ' + SET_CTX[s.ci][0] + ' = |A| − |A∩B| = ' + s.a + ' − ' + s.both + ' = ' + (s.a - s.both) + '.'; }]
     },
-    'set-theory:medium:neither': {
+    'set-theory:*:neither': {
       s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.both + ' like both. How many like neither?'; }],
       e: [function (s) { return 'Like at least one = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + s.union + '. Neither = ' + s.total + ' − ' + s.union + ' = ' + s.neither + '.'; }]
     },
-    'set-theory:hard:neither': {
-      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.both + ' like both. How many like neither?'; }],
-      e: [function (s) { return 'Like at least one = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + s.union + '. Neither = ' + s.total + ' − ' + s.union + ' = ' + s.neither + '.'; }]
-    },
-    'set-theory:medium:both': {
-      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.neither + ' like neither. How many like both?'; }],
-      e: [function (s) { return 'Like at least one = ' + s.total + ' − ' + s.neither + ' = ' + s.union + '. Both = |A| + |B| − union = ' + s.a + ' + ' + s.b + ' − ' + s.union + ' = ' + s.both + '.'; }]
-    },
-    'set-theory:hard:both': {
+    'set-theory:*:both': {
       s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.neither + ' like neither. How many like both?'; }],
       e: [function (s) { return 'Like at least one = ' + s.total + ' − ' + s.neither + ' = ' + s.union + '. Both = |A| + |B| − union = ' + s.a + ' + ' + s.b + ' − ' + s.union + ' = ' + s.both + '.'; }]
     },
@@ -992,31 +699,15 @@
     },
 
     /* ── Statistics basics ── (data lists ride slots as arrays; median/mode/range/mean recompute from slots) */
-    'statistics-basics:easy:median': {
+    'statistics-basics:*:median': {
       s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
       e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
     },
-    'statistics-basics:medium:median': {
-      s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
-      e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
-    },
-    'statistics-basics:hard:median': {
-      s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
-      e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
-    },
-    'statistics-basics:easy:range': {
+    'statistics-basics:*:range': {
       s: [function (s) { return 'Find the range of ' + s.a.join(', ') + '.'; }],
       e: [function (s) { return 'Range = largest − smallest = ' + s.mx + ' − ' + s.mn + ' = ' + (s.mx - s.mn) + '.'; }]
     },
-    'statistics-basics:medium:range': {
-      s: [function (s) { return 'Find the range of ' + s.a.join(', ') + '.'; }],
-      e: [function (s) { return 'Range = largest − smallest = ' + s.mx + ' − ' + s.mn + ' = ' + (s.mx - s.mn) + '.'; }]
-    },
-    'statistics-basics:medium:mode': {
-      s: [function (s) { return 'Find the mode of ' + s.a.join(', ') + '.'; }],
-      e: [function (s) { return 'The mode is the most frequent value. ' + s.m + ' appears 3 times — more than any other — so the mode is ' + s.m + '.'; }]
-    },
-    'statistics-basics:hard:mode': {
+    'statistics-basics:*:mode': {
       s: [function (s) { return 'Find the mode of ' + s.a.join(', ') + '.'; }],
       e: [function (s) { return 'The mode is the most frequent value. ' + s.m + ' appears 3 times — more than any other — so the mode is ' + s.m + '.'; }]
     },
@@ -1026,19 +717,11 @@
     },
 
     /* ── Ratios ── (person names ride slot `nm`; ratio answers & the pct-descriptor ride the RAT_PCT_POOL index) */
-    'ratios:easy:divide': {
+    'ratios:*:divide': {
       s: [function (s) { return '₹' + s.total + ' is divided between ' + s.nm[0].en + ' and ' + s.nm[1].en + ' in the ratio ' + s.p0 + ' : ' + s.p1 + '. ' + s.nm[0].en + ' gets ₹?'; }],
       e: [function (s) { return 'Total parts = ' + s.p0 + ' + ' + s.p1 + ' = ' + s.parts + '. One part = ' + s.total + ' ÷ ' + s.parts + ' = ' + (s.total / s.parts) + '. ' + s.nm[0].en + ' = ' + s.p0 + ' × ' + (s.total / s.parts) + ' = ' + (s.total * s.p0 / s.parts) + '.'; }]
     },
-    'ratios:medium:divide': {
-      s: [function (s) { return '₹' + s.total + ' is divided between ' + s.nm[0].en + ' and ' + s.nm[1].en + ' in the ratio ' + s.p0 + ' : ' + s.p1 + '. ' + s.nm[0].en + ' gets ₹?'; }],
-      e: [function (s) { return 'Total parts = ' + s.p0 + ' + ' + s.p1 + ' = ' + s.parts + '. One part = ' + s.total + ' ÷ ' + s.parts + ' = ' + (s.total / s.parts) + '. ' + s.nm[0].en + ' = ' + s.p0 + ' × ' + (s.total / s.parts) + ' = ' + (s.total * s.p0 / s.parts) + '.'; }]
-    },
-    'ratios:medium:findTerm': {
-      s: [function (s) { return 'A : B = ' + s.p0 + ' : ' + s.p1 + ' and A = ' + s.aVal + '. B = ?'; }],
-      e: [function (s) { return 'One part = A ÷ ' + s.p0 + ' = ' + s.aVal + ' ÷ ' + s.p0 + ' = ' + s.one + '. B = ' + s.p1 + ' × ' + s.one + ' = ' + s.bVal + '.'; }]
-    },
-    'ratios:hard:findTerm': {
+    'ratios:*:findTerm': {
       s: [function (s) { return 'A : B = ' + s.p0 + ' : ' + s.p1 + ' and A = ' + s.aVal + '. B = ?'; }],
       e: [function (s) { return 'One part = A ÷ ' + s.p0 + ' = ' + s.aVal + ' ÷ ' + s.p0 + ' = ' + s.one + '. B = ' + s.p1 + ' × ' + s.one + ' = ' + s.bVal + '.'; }]
     },
@@ -1046,33 +729,17 @@
       s: [function (s) { return 'A : B = ' + s.ab0 + ' : ' + s.ab1 + ' and B : C = ' + s.bc0 + ' : ' + s.bc1 + '. A : C = ?'; }],
       e: [function (s) { return 'B is common (' + s.ab1 + '=' + s.bc0 + '), so A : C = ' + s.ab0 + ' : ' + s.bc1 + ' = ' + (s.ab0 / s.g) + ' : ' + (s.bc1 / s.g) + ' after dividing by ' + s.g + '.'; }]
     },
-    'ratios:easy:pctRatio': {
-      s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
-      e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
-    },
-    'ratios:medium:pctRatio': {
-      s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
-      e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
-    },
-    'ratios:hard:pctRatio': {
+    'ratios:*:pctRatio': {
       s: [function (s) { return 'A is ' + RAT_PCT_POOL[s.idx][0] + ' than B. A : B = ?'; }],
       e: [function (s) { return 'Write A as a fraction of B: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', so A : B = ' + s.ratio + ' in lowest terms.'; }]
     },
 
     /* ── Mixtures & alligations ── (commodity rides the MIX_ITEMS index pool; ₹/kg + ratio/price answers neutral) */
-    'mixtures:easy:alligationRatio': {
+    'mixtures:*:alligationRatio': {
       s: [function (s) { return 'In what ratio must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
       e: [function (s) { return 'By alligation, cheaper : dearer = (dearer − mean) : (mean − cheaper) = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + ' = ' + (s.lo / s.g) + ' : ' + (s.hi / s.g) + '.'; }]
     },
-    'mixtures:medium:alligationRatio': {
-      s: [function (s) { return 'In what ratio must ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg be mixed with ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg so that the mixture is worth ₹' + s.m + ' per kg?'; }],
-      e: [function (s) { return 'By alligation, cheaper : dearer = (dearer − mean) : (mean − cheaper) = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + ' = ' + (s.lo / s.g) + ' : ' + (s.hi / s.g) + '.'; }]
-    },
-    'mixtures:medium:meanPrice': {
-      s: [function (s) { return '' + s.x + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg is mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg. The average price of the mixture = ₹? per kg'; }],
-      e: [function (s) { return 'Average = total cost ÷ total weight = (' + s.x + '×' + s.a + ' + ' + s.y + '×' + s.b + ') ÷ (' + s.x + '+' + s.y + ') = ' + (s.a * s.x + s.b * s.y) + ' ÷ ' + (s.x + s.y) + ' = ₹' + s.mean + '.'; }]
-    },
-    'mixtures:hard:meanPrice': {
+    'mixtures:*:meanPrice': {
       s: [function (s) { return '' + s.x + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.a + ' per kg is mixed with ' + s.y + ' kg of ' + MIX_ITEMS[s.itIdx] + ' at ₹' + s.b + ' per kg. The average price of the mixture = ₹? per kg'; }],
       e: [function (s) { return 'Average = total cost ÷ total weight = (' + s.x + '×' + s.a + ' + ' + s.y + '×' + s.b + ') ÷ (' + s.x + '+' + s.y + ') = ' + (s.a * s.x + s.b * s.y) + ' ÷ ' + (s.x + s.y) + ' = ₹' + s.mean + '.'; }]
     },
