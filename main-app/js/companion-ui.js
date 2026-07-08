@@ -141,9 +141,9 @@ var Companion = (function () {
           '<div class="companion-head"><span class="companion-badge">' + esc(PERSONA) + '</span>' +
             '<span class="companion-title">' + esc(title || '') + '</span>' +
             /* ADR-097: report affordance — only rendered for surfaces that pass onReport (the explanation sheet). */
-            (opts.onReport ? '<button class="companion-report" type="button" aria-label="Report this explanation" title="Report a problem">⚑</button>' : '') +
-            '<button class="companion-refresh" type="button" aria-label="Refresh" title="Refresh" style="display:none">↻</button>' +
-            '<button class="companion-close" type="button" aria-label="Close">✕</button></div>' +
+            (opts.onReport ? '<button class="companion-report" type="button" aria-label="' + esc(_t('ai.reportAria')) + '" title="' + esc(_t('ai.reportTitle')) + '">⚑</button>' : '') +
+            '<button class="companion-refresh" type="button" aria-label="' + esc(_t('ai.refreshAria')) + '" title="' + esc(_t('ai.refreshTitle')) + '" style="display:none">↻</button>' +
+            '<button class="companion-close" type="button" aria-label="' + esc(_t('ai.closeAria')) + '">✕</button></div>' +
           '<div class="companion-scroll"></div>' +
         '</div></div>');
     document.body.appendChild(overlay);
@@ -202,12 +202,12 @@ var Companion = (function () {
       var acc = Math.round((p.totalCorrect || 0) / p.totalAttempted * 100);
       var streak = p.dailyStreak || 0;
       return streak >= 2
-        ? PERSONA + ' is reviewing your ' + acc + '% accuracy and ' + streak + '-day streak…'
-        : PERSONA + ' is reviewing your ' + acc + '% accuracy…';
+        ? _t('ai.thinkingStreak', { persona: PERSONA, acc: acc, streak: streak })
+        : _t('ai.thinking', { persona: PERSONA, acc: acc });
     } catch (_) { return null; }
   }
   function showLoading(bodyEl, stages) {
-    stages = stages || ['Reading your recent sessions…', 'Spotting patterns…'];
+    stages = stages || [_t('ai.stageDefault1'), _t('ai.stageDefault2')];
     // Lead with a personalized QuanAI "thinking" line, then rotate into the feature's stages.
     var lead = _thinkingLead();
     var seq = lead ? [lead].concat(stages) : stages.slice();
@@ -342,9 +342,9 @@ var Companion = (function () {
       var q = qs[0]; if (!q || q.question == null) { total = idx; return finish(); }
       var startMs = Date.now();
       host.innerHTML =
-        '<div class="cq-head">Quick drill · ' + (idx + 1) + '/' + total + ' · ' + esc(label || 'practice') + '</div>' +
+        '<div class="cq-head">' + esc(_t('ai.drillHead', { i: idx + 1, n: total, label: label || 'practice' })) + '</div>' +
         '<div class="cq-q">' + esc(String(q.question)) + '</div>' +
-        '<form class="cq-form"><input class="cq-input" type="text" inputmode="decimal" autocomplete="off" placeholder="Your answer" /><button class="cq-go" type="submit">Check</button></form>' +
+        '<form class="cq-form"><input class="cq-input" type="text" inputmode="decimal" autocomplete="off" placeholder="' + esc(_t('drill.yourAnswer')) + '" /><button class="cq-go" type="submit">' + esc(_t('ai.drillCheck')) + '</button></form>' +
         '<div class="cq-fb"></div>';
       var form = host.querySelector('.cq-form'), input = host.querySelector('.cq-input'), fb = host.querySelector('.cq-fb');
       try { input.focus(); } catch (_) {}
@@ -356,7 +356,7 @@ var Companion = (function () {
         diff = _bumpDiff(diff, good ? 1 : -1);
         input.disabled = true; var go = host.querySelector('.cq-go'); if (go) go.disabled = true;
         fb.className = 'cq-fb ' + (good ? 'good' : 'bad');
-        fb.textContent = good ? ('Correct · ' + (ms / 1000).toFixed(1) + 's') : ('Answer: ' + q.answer);
+        fb.textContent = good ? _t('ai.drillCorrect', { s: (ms / 1000).toFixed(1) }) : _t('ai.drillAnswerLine', { a: q.answer });
         idx++;
         setTimeout(renderQ, good ? 700 : 1300);
       };
@@ -365,7 +365,7 @@ var Companion = (function () {
     function finish() {
       var n = results.length || total;
       var avgMs = results.length ? Math.round(results.reduce(function (s, r) { return s + r.ms; }, 0) / results.length) : 0;
-      host.innerHTML = '<div class="cq-result">Drill done · <strong>' + correct + '/' + n + '</strong>' + (avgMs ? (' · ~' + (avgMs / 1000).toFixed(1) + 's/Q') : '') + '</div>';
+      host.innerHTML = '<div class="cq-result">' + _t('ai.drillDone', { score: '<strong>' + correct + '/' + n + '</strong>' }) + (avgMs ? _t('ai.drillPerQ', { s: (avgMs / 1000).toFixed(1) }) : '') + '</div>';
       log(feature, 'microdrill_done', { score: correct, total: n });
       var missed = results.map(function (r, i) { return r.correct ? null : ('Q' + (i + 1)); }).filter(Boolean);
       var summary = 'The student just did a ' + n + '-question micro-drill on ' + (label || category) + ' and scored ' + correct + '/' + n
@@ -387,8 +387,9 @@ var Companion = (function () {
   }
   /* Standard Explain chip row — used to restore the conversation if the post-drill reaction can't be fetched. */
   function _explainChips(category, label) {
-    return [{ label: 'Got it ✓', value: 'helpful_yes', kind: 'reply' }, { label: 'Another like this', value: 'explain_another', kind: 'reply' },
-      { label: 'Drill this', kind: 'drill', icon: '⚡', drill: { category: category, label: label } }];
+    /* Labels MUST mirror the server aiStrings explain-chip twins (same hi/mr wording); values are machine codes. */
+    return [{ label: _t('ai.chipGotIt'), value: 'helpful_yes', kind: 'reply' }, { label: _t('ai.chipAnother'), value: 'explain_another', kind: 'reply' },
+      { label: _t('ai.chipDrillThis'), kind: 'drill', icon: '⚡', drill: { category: category, label: label } }];
   }
 
   function onChip(chip, env) {
@@ -546,23 +547,24 @@ var Companion = (function () {
   }
 
   function openExplain(question, answer, category, reportCtx) {
-    openFeature({ feature: 'explain', title: 'Explain', topic: category, action: 'explain',
+    openFeature({ feature: 'explain', title: _t('ai.titleExplain'), topic: category, action: 'explain',
       body: { question: question, answer: answer, category: category }, reportCtx: reportCtx || null,
-      stages: ['Working through it…', 'Finding the cleanest way…'] });
+      stages: [_t('ai.stageExplain1'), _t('ai.stageExplain2')] });
   }
-  function openCoach() { openFeature({ feature: 'coach', title: 'Your Coach', action: 'coach', autoForce: true, withClientStats: true, stages: ['Reviewing your week…', 'Picking your next move…'] }); }
-  function openInsights() { openFeature({ feature: 'insights', title: 'Insights', action: 'insights', autoForce: true, withClientStats: true, stages: ['Reading your trends…', 'Finding your biggest lever…'] }); }
+  function openCoach() { openFeature({ feature: 'coach', title: _t('ai.titleCoach'), action: 'coach', autoForce: true, withClientStats: true, stages: [_t('ai.stageCoach1'), _t('ai.stageCoach2')] }); }
+  function openInsights() { openFeature({ feature: 'insights', title: _t('ai.titleInsights'), action: 'insights', autoForce: true, withClientStats: true, stages: [_t('ai.stageInsights1'), _t('ai.stageInsights2')] }); }
 
   /* ---------- QuanAI Planner (ADR-046): setup wizard → server builds the 14-day block → calendar/envelope ---------- */
-  var PREP_LEVELS = [['scratch', 'Starting from scratch'], ['revision', 'Need revision'], ['average', 'Average'], ['confident', 'Fairly confident'], ['ready', 'Almost exam ready']];
-  var PREF_TIMES = [['morning', '🌅 Morning'], ['afternoon', '☀️ Afternoon'], ['evening', '🌆 Evening'], ['night', '🌙 Night']];
+  /* [value, catalog-key] — labels resolve lazily at render (ADR-111 lazy-resolution rule). */
+  var PREP_LEVELS = [['scratch', 'ai.prep_scratch'], ['revision', 'ai.prep_revision'], ['average', 'ai.prep_average'], ['confident', 'ai.prep_confident'], ['ready', 'ai.prep_ready']];
+  var PREF_TIMES = [['morning', 'ai.pref_morning'], ['afternoon', 'ai.pref_afternoon'], ['evening', 'ai.pref_evening'], ['night', 'ai.pref_night']];
 
   function openStudyPlanner(forceSetup) {
-    var m = openModal('Study Planner');
+    var m = openModal(_t('ai.titlePlanner'));
     _state = { feature: 'planner', topic: '', history: [], body: m.body, modal: m };
     log('planner', 'opened', {});
     if (forceSetup) return runPlannerSetup(m);
-    var stop = showLoading(m.body, ['Loading your plan…']);
+    var stop = showLoading(m.body, [_t('ai.stagePlannerLoad')]);
     api('planner', { op: 'get', clientStats: clientStats(), clientDate: localDate() }).then(function (res) {
       stop();
       if (res.ok && res.data && res.data.plan && res.data.response) {
@@ -588,8 +590,8 @@ var Companion = (function () {
     function frame(inner, opts) {
       opts = opts || {};
       body.innerHTML = '<div class="companion-turn ps-screen">' + dots() + inner +
-        '<div class="ps-nav">' + (si > 0 ? '<button class="companion-chip kind-reply ps-back" type="button">← Back</button>' : '<span></span>') +
-        '<button class="companion-chip kind-deeplink ps-next" type="button"' + (opts.nextDisabled ? ' disabled' : '') + '>' + esc(opts.nextLabel || 'Next →') + '</button>' +
+        '<div class="ps-nav">' + (si > 0 ? '<button class="companion-chip kind-reply ps-back" type="button">' + esc(_t('ai.wizBack')) + '</button>' : '<span></span>') +
+        '<button class="companion-chip kind-deeplink ps-next" type="button"' + (opts.nextDisabled ? ' disabled' : '') + '>' + esc(opts.nextLabel || _t('ai.wizNext')) + '</button>' +
         '</div></div>';
       var back = body.querySelector('.ps-back'); if (back) back.onclick = function () { si = Math.max(0, si - 1); render(); };
       var next = body.querySelector('.ps-next'); if (next) next.onclick = function () { if (opts.onNext && opts.onNext() === false) return; si++; render(); };
@@ -597,12 +599,12 @@ var Companion = (function () {
 
     function screenTier() {
       var tiers = plannerTiers();
-      var inner = '<div class="cb-say">What are you preparing for?</div>' +
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizTier')) + '</div>' +
         '<div class="ps-stack">' + tiers.map(function (t) {
           return '<button class="ps-opt big' + (a.tier === t.id ? ' sel' : '') + '" data-tier="' + esc(t.id) + '" type="button">' +
             esc(t.label) + ' <span class="ps-sub">' + esc(t.blurb || '') + '</span></button>';
         }).join('') + '</div>' +
-        '<div class="ps-hint">Not sure where to start? Pick <strong>Foundation</strong> to build speed from scratch.</div>';
+        '<div class="ps-hint">' + _t('ai.wizTierHint') + '</div>';
       frame(inner, { nextDisabled: !a.tier });
       // Tapping a tier sets a smart default exam and jumps straight to the (short) exam list — one tap, no long scroll.
       body.querySelectorAll('[data-tier]').forEach(function (b) {
@@ -620,8 +622,8 @@ var Companion = (function () {
       var q = (a._examQ || '').trim();
       var list = q ? searchExams(q) : examsForTier(a.tier);
       var t = plannerTiers().filter(function (x) { return x.id === a.tier; })[0];
-      var inner = '<div class="cb-say">' + (t ? esc(t.label) + ' — pick your exam' : 'Which exam are you preparing for?') + '</div>' +
-        '<input class="ps-search" type="text" placeholder="Search all exams…" value="' + esc(a._examQ) + '" />' +
+      var inner = '<div class="cb-say">' + (t ? _t('ai.wizExamPick', { tier: esc(t.label) }) : esc(_t('ai.wizExamWhich'))) + '</div>' +
+        '<input class="ps-search" type="text" placeholder="' + esc(_t('ai.wizSearchPlaceholder')) + '" value="' + esc(a._examQ) + '" />' +
         '<div class="ps-list">' + list.map(function (e) { return '<button class="ps-opt' + (a.examId === e.id ? ' sel' : '') + '" data-id="' + esc(e.id) + '" data-name="' + esc(e.name) + '" data-tier="' + esc(e.tier || '') + '" type="button">' + esc(e.name) + '</button>'; }).join('') + '</div>';
       frame(inner, { nextDisabled: !a.examId });
       var search = body.querySelector('.ps-search');
@@ -631,14 +633,14 @@ var Companion = (function () {
     function screenDate() {
       var days = a.examDate ? Math.max(0, Math.ceil((Date.parse(a.examDate + 'T00:00:00Z') - Date.now()) / 86400000)) : null;
       var min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-      var inner = '<div class="cb-say">When\'s your exam?</div>' +
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizWhenExam')) + '</div>' +
         '<input class="ps-date" type="date" min="' + min + '" value="' + esc(a.examDate || '') + '" />' +
-        '<div class="ps-hint">' + (days != null ? (days + ' days to prepare') : 'Pick your exam date — or skip if you\'re not sure yet') + '</div>';
-      frame(inner, { nextLabel: a.examDate ? 'Next →' : 'Skip →' });
+        '<div class="ps-hint">' + esc(days != null ? _t('ai.wizDaysToPrepare', { days: days }) : _t('ai.wizPickDate')) + '</div>';
+      frame(inner, { nextLabel: a.examDate ? _t('ai.wizNext') : _t('ai.wizSkip') });
       var dt = body.querySelector('.ps-date'); if (dt) dt.onchange = function () { a.examDate = dt.value; screenDate(); };
     }
     function screenTime() {
-      var inner = '<div class="cb-say">How long can you study each day?</div>' +
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizDailyTime')) + '</div>' +
         '<div class="ps-bigval"><strong>' + fmtMin(a.dailyMinutes) + '</strong></div>' +
         '<input class="ps-range" type="range" min="15" max="480" step="15" value="' + a.dailyMinutes + '" />' +
         '<div class="ps-presets">' + [30, 60, 120, 180, 240].map(function (p) { return '<button class="ps-chip' + (a.dailyMinutes === p ? ' sel' : '') + '" data-v="' + p + '" type="button">' + fmtMin(p) + '</button>'; }).join('') + '</div>';
@@ -648,22 +650,22 @@ var Companion = (function () {
       body.querySelectorAll('.ps-chip').forEach(function (c) { c.onclick = function () { a.dailyMinutes = parseInt(c.getAttribute('data-v'), 10); screenTime(); }; });
     }
     function screenDays() {
-      var inner = '<div class="cb-say">How many days a week will you study?</div>' +
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizDaysWeek')) + '</div>' +
         '<div class="ps-week">' + [1, 2, 3, 4, 5, 6, 7].map(function (d) { return '<button class="ps-day' + (a.daysPerWeek === d ? ' sel' : '') + '" data-d="' + d + '" type="button">' + d + '</button>'; }).join('') + '</div>' +
-        '<div class="ps-hint">' + a.daysPerWeek + ' day' + (a.daysPerWeek > 1 ? 's' : '') + ' a week</div>';
+        '<div class="ps-hint">' + esc(_t('ai.wizDaysWeekHint', { n: a.daysPerWeek, count: a.daysPerWeek })) + '</div>';
       frame(inner, {});
       body.querySelectorAll('.ps-day').forEach(function (b) { b.onclick = function () { a.daysPerWeek = parseInt(b.getAttribute('data-d'), 10); screenDays(); }; });
     }
     function screenPrep() {
-      var inner = '<div class="cb-say">Where are you right now?</div>' +
-        '<div class="ps-stack">' + PREP_LEVELS.map(function (p) { return '<button class="ps-opt big' + (a.prepLevel === p[0] ? ' sel' : '') + '" data-v="' + p[0] + '" type="button">' + esc(p[1]) + '</button>'; }).join('') + '</div>';
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizPrep')) + '</div>' +
+        '<div class="ps-stack">' + PREP_LEVELS.map(function (p) { return '<button class="ps-opt big' + (a.prepLevel === p[0] ? ' sel' : '') + '" data-v="' + p[0] + '" type="button">' + esc(_t(p[1])) + '</button>'; }).join('') + '</div>';
       frame(inner, { nextDisabled: !a.prepLevel });
       body.querySelectorAll('.ps-opt').forEach(function (b) { b.onclick = function () { a.prepLevel = b.getAttribute('data-v'); screenPrep(); }; });
     }
     function screenPref() {
-      var inner = '<div class="cb-say">When do you prefer to study? <span class="ps-sub">(optional)</span></div>' +
-        '<div class="ps-grid">' + PREF_TIMES.map(function (p) { return '<button class="ps-opt' + (a.preferredTime === p[0] ? ' sel' : '') + '" data-v="' + p[0] + '" type="button">' + esc(p[1]) + '</button>'; }).join('') + '</div>';
-      frame(inner, { nextLabel: 'Create my plan ✨' });
+      var inner = '<div class="cb-say">' + esc(_t('ai.wizPref')) + ' <span class="ps-sub">' + esc(_t('ai.wizPrefOptional')) + '</span></div>' +
+        '<div class="ps-grid">' + PREF_TIMES.map(function (p) { return '<button class="ps-opt' + (a.preferredTime === p[0] ? ' sel' : '') + '" data-v="' + p[0] + '" type="button">' + esc(_t(p[1])) + '</button>'; }).join('') + '</div>';
+      frame(inner, { nextLabel: _t('ai.wizCreatePlan') });
       body.querySelectorAll('.ps-opt').forEach(function (b) { b.onclick = function () { var v = b.getAttribute('data-v'); a.preferredTime = (a.preferredTime === v ? '' : v); screenPref(); }; });
     }
 
@@ -679,7 +681,7 @@ var Companion = (function () {
       return screenPref();
     }
     function submit() {
-      var stop = showLoading(body, ['Mapping the syllabus to your strengths…', 'Weighting by exam frequency…', 'Scheduling your next 14 days…']);
+      var stop = showLoading(body, [_t('ai.stagePlannerSubmit1'), _t('ai.stagePlannerSubmit2'), _t('ai.stagePlannerSubmit3')]);
       api('planner', { op: 'setup', examId: a.examId, examName: a.examName, examDate: a.examDate, dailyMinutes: a.dailyMinutes, daysPerWeek: a.daysPerWeek, prepLevel: a.prepLevel, preferredTime: a.preferredTime, clientStats: clientStats(), clientDate: localDate() }).then(function (res) {
         stop();
         if (res.ok && res.data && res.data.response) {
