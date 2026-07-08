@@ -9,9 +9,9 @@
  */
 function showComingSoon(opts) {
   opts = opts || {};
-  var title = opts.title || 'Coming soon';
-  var blurb = opts.blurb || 'We\'re putting the final polish on this. Launching soon for Premium.';
-  var eta = opts.eta || 'Launching soon';
+  var title = opts.title || QRI18n.t('soon.title');
+  var blurb = opts.blurb || QRI18n.t('soon.blurb');
+  var eta = opts.eta || QRI18n.t('soon.eta');
 
   var overlay = document.getElementById('comingSoonOverlay');
   if (!overlay) { overlay = document.createElement('div'); overlay.id = 'comingSoonOverlay'; document.body.appendChild(overlay); }
@@ -32,7 +32,7 @@ function showComingSoon(opts) {
         '</div>' +
         '<h3 style="font-size:1.35rem;font-weight:800;margin:0 0 .5rem;color:#f8fafc;">' + esc(title) + '</h3>' +
         '<p style="color:#94a3b8;font-size:.95rem;line-height:1.5;margin:0 0 1.5rem;">' + esc(blurb) + '</p>' +
-        '<button id="comingSoonClose" class="btn btn-primary" style="width:100%;padding:.8rem;font-weight:700;">Got it</button>' +
+        '<button id="comingSoonClose" class="btn btn-primary" style="width:100%;padding:.8rem;font-weight:700;">' + QRI18n.t('soon.gotIt') + '</button>' +
       '</div>' +
     '</div>';
 

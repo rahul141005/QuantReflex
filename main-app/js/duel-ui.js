@@ -158,7 +158,7 @@ var DuelUI = (function () {
           typeWord.classList.remove('active');       // slide/fade selection back to Quick Math
           typeQuick.classList.add('active');
           _wordReverting = false;
-          if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problem Duels', blurb: 'Battle a friend with AI-crafted, exam-style word problems. Launching soon for Premium.' });
+          if (typeof showComingSoon === 'function') showComingSoon({ title: QRI18n.t('duel.wpDuelsTitle'), blurb: QRI18n.t('duel.wpDuelsBlurb') });
         }, 280);
       };
     }

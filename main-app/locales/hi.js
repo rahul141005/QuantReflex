@@ -384,7 +384,42 @@
       youWillSolve: { one: 'आप {count} प्रश्न हल करेंगे', other: 'आप {count} प्रश्न हल करेंगे' },
       startCustom: 'कस्टम सेशन शुरू करें',
       backArrow: '← वापस',
-      backToModesAria: 'अभ्यास मोड पर वापस जाएँ'
+      backToModesAria: 'अभ्यास मोड पर वापस जाएँ',
+      dailyLimitBanner: '🔒 आज के {count} मुफ़्त प्रश्नों की सीमा पूरी हो गई।<br>असीमित अभ्यास के लिए Premium लें।',
+      upgradeNow: 'अभी अपग्रेड करें',
+      focusAdaptive: 'फोकस ट्रेनिंग (अडैप्टिव)',
+      customAdaptive: 'कस्टम ट्रेनिंग (अडैप्टिव)',
+      sessionReview: 'सेशन समीक्षा',
+      mockUnavailable: 'इस परीक्षा का मॉक अभी उपलब्ध नहीं है।',
+      mockSuffix: '{exam} मॉक',
+      mockScoreHead: '{exam} — परीक्षा स्कोर',
+      perWrong: ' · हर गलत पर −{n}',
+      noNegative: ' · कोई निगेटिव मार्किंग नहीं',
+      mockAttemptLine: 'प्रयास {a}/{t} · सही {c} · गलत {w} · छोड़े {s}',
+      paceLine: 'गति {p}s/Q (बजट {b}s)',
+      diSetFailed: 'DI सेट नहीं बन सका — फिर कोशिश करें।',
+      lrSetFailed: 'LR सेट नहीं बन सका — फिर कोशिश करें।',
+      setSuffix: '{label} सेट',
+      puzzleShort: 'पहेली',
+      seatingShort: 'बैठक',
+      wordProblemsSoonBlurb: 'AI-निर्मित परीक्षा-शैली इबारती प्रश्न जो समझ और गणना परखते हैं — सिर्फ़ गति नहीं। हम अंतिम रूप दे रहे हैं। जल्द ही Premium के लिए।',
+      setTargetExam: 'मॉक देने के लिए सेटिंग्स में लक्ष्य परीक्षा सेट करें।',
+      selectCategoryFirst: 'पहले कोई अध्याय चुनें।',
+      selectAtLeastOne: 'कम से कम एक टॉपिक चुनें',
+      premiumRequiredAria: 'Premium आवश्यक',
+      adaptiveManagedTitle: 'कठिनाई अडैप्टिव ट्रेनिंग से अपने आप तय होती है'
+    },
+
+    soon: {
+      title: 'जल्द आ रहा है',
+      blurb: 'हम इसे अंतिम रूप दे रहे हैं। जल्द ही Premium के लिए।',
+      eta: 'जल्द लॉन्च होगा',
+      gotIt: 'ठीक है'
+    },
+
+    duel: {
+      wpDuelsTitle: 'इबारती प्रश्न डुएल',
+      wpDuelsBlurb: 'AI-निर्मित परीक्षा-शैली इबारती प्रश्नों में दोस्त से मुकाबला करें। जल्द ही Premium के लिए।'
     },
 
     learn: {

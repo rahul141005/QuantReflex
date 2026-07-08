@@ -389,7 +389,42 @@
       youWillSolve: { one: 'You will solve {count} question', other: 'You will solve {count} questions' },
       startCustom: 'Start Custom Session',
       backArrow: '← Back',
-      backToModesAria: 'Back to practice modes'
+      backToModesAria: 'Back to practice modes',
+      dailyLimitBanner: "🔒 You've reached your daily limit of {count} free questions.<br>Upgrade to Premium for unlimited practice.",
+      upgradeNow: 'Upgrade Now',
+      focusAdaptive: 'Focus Training (Adaptive)',
+      customAdaptive: 'Custom Training (Adaptive)',
+      sessionReview: 'Session Review',
+      mockUnavailable: "A mock isn't available for this exam yet.",
+      mockSuffix: '{exam} Mock',
+      mockScoreHead: '{exam} — exam score',
+      perWrong: ' · −{n} per wrong',
+      noNegative: ' · no negative marking',
+      mockAttemptLine: 'Attempted {a}/{t} · Correct {c} · Wrong {w} · Skipped {s}',
+      paceLine: 'Pace {p}s/Q (budget {b}s)',
+      diSetFailed: 'Could not build a DI set — try again.',
+      lrSetFailed: 'Could not build an LR set — try again.',
+      setSuffix: '{label} Set',
+      puzzleShort: 'Puzzle',
+      seatingShort: 'Seating',
+      wordProblemsSoonBlurb: 'AI-crafted, exam-style word problems that test comprehension and calculation — not just speed. We’re putting the final polish on it. Launching soon for Premium.',
+      setTargetExam: 'Set your target exam in Settings to take a mock.',
+      selectCategoryFirst: 'Please select a category first.',
+      selectAtLeastOne: 'Please select at least one topic',
+      premiumRequiredAria: 'Premium required',
+      adaptiveManagedTitle: 'Difficulty is auto-managed by Adaptive Training'
+    },
+
+    soon: {
+      title: 'Coming soon',
+      blurb: "We're putting the final polish on this. Launching soon for Premium.",
+      eta: 'Launching soon',
+      gotIt: 'Got it'
+    },
+
+    duel: {
+      wpDuelsTitle: 'Word Problem Duels',
+      wpDuelsBlurb: 'Battle a friend with AI-crafted, exam-style word problems. Launching soon for Premium.'
     },
 
     learn: {

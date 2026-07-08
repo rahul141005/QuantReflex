@@ -141,7 +141,7 @@ function _initAdaptiveToggle() {
         var lockSpan = document.createElement('span');
         lockSpan.className = 'adaptive-lock';
         lockSpan.textContent = ' 🔒';
-        lockSpan.setAttribute('aria-label', 'Premium required');
+        lockSpan.setAttribute('aria-label', QRI18n.t('practice.premiumRequiredAria'));
         labelEl.appendChild(lockSpan);
       }
     } else {
@@ -163,7 +163,7 @@ function _initAdaptiveToggle() {
       var diffRow = document.getElementById('difficultySettingsRow');
       if (diffRow) diffRow.style.display = 'none';
       var diffSel = document.getElementById('difficultySelect');
-      if (diffSel) { diffSel.disabled = true; diffSel.title = 'Difficulty is auto-managed by Adaptive Training'; }
+      if (diffSel) { diffSel.disabled = true; diffSel.title = QRI18n.t('practice.adaptiveManagedTitle'); }
     } else {
       _adaptiveModeActive = false;
       var hint2 = document.getElementById('adaptiveHint');
@@ -228,7 +228,7 @@ function _updateCustomQuestionCountUI() {
   var valueEl = _customPracticeDom.value;
   var textEl = _customPracticeDom.text;
   if (valueEl) valueEl.textContent = String(_customPracticeState.totalQuestions);
-  if (textEl) textEl.textContent = 'You will solve ' + _customPracticeState.totalQuestions + ' questions';
+  if (textEl) textEl.textContent = QRI18n.t('practice.youWillSolve', { count: _customPracticeState.totalQuestions });
 }
 
 function _resetCustomPracticeState() {
@@ -260,7 +260,7 @@ function _resetPracticeUiToModes() {
   if (categorySelect) categorySelect.style.display = 'none';
   if (customPracticeConfig) customPracticeConfig.style.display = 'none';
   if (focusStartSec) focusStartSec.style.display = 'none';
-  if (catTitle) catTitle.textContent = 'Choose Category';
+  if (catTitle) catTitle.textContent = QRI18n.t('practice.chooseCategory');
   if (drillContainer) {
     drillContainer.style.display = 'none';
     drillContainer.classList.remove('drill-results-active');

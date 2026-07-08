@@ -96,8 +96,8 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
         var _freeLimit = (typeof getDailyQuestionLimit === 'function' && isFinite(getDailyQuestionLimit())) ? getDailyQuestionLimit() : 20;
         var banner = document.createElement('div');
         banner.className = 'daily-limit-banner';
-        banner.innerHTML = '🔒 You\'ve reached your daily limit of ' + _freeLimit + ' free questions.<br>Upgrade to Premium for unlimited practice.' +
-          '<br><button class="btn-primary" type="button">Upgrade Now</button>';
+        banner.innerHTML = QRI18n.t('practice.dailyLimitBanner', { count: _freeLimit }) +
+          '<br><button class="btn-primary" type="button">' + QRI18n.t('practice.upgradeNow') + '</button>';
         var _upBtn = banner.querySelector('button');
         if (_upBtn) _upBtn.addEventListener('click', function () { showPaywall('daily_limit'); });
         modeSelectEl.parentNode.insertBefore(banner, modeSelectEl);
@@ -117,13 +117,13 @@ function startDrillFromPractice(modeKey, category, categoryLabel, opts) {
   var _useAdaptive = _adaptiveModeActive && _canAdaptive && (modeKey === 'focus' || modeKey === 'custom');
 
   var modes = {
-    quick:  { count: 5,  timeLimitSec: null, perQuestionSec: null, category: null, mode: '⚡ Quick Drill' },
-    reflex: { count: 10, timeLimitSec: null, perQuestionSec: 15,   category: null, mode: '🧠 Reflex Drill', autoAdvance: true },
-    timed:  { count: 10, timeLimitSec: 180,  perQuestionSec: null, category: null, mode: '⏱ Timed Test' },
-    focus:  { count: 10, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, mode: _useAdaptive ? '🎯 Focus Training (Adaptive)' : '🎯 Focus Training', adaptive: _useAdaptive },
-    custom: { count: _customPracticeState.totalQuestions, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, topics: selectedTopics.slice(), mode: _useAdaptive ? '📑 Custom Training (Adaptive)' : '📑 Custom Training', adaptive: _useAdaptive },
-    review: { count: 10, timeLimitSec: null, perQuestionSec: null, category: null, mode: '🔄 Review Mistakes', reviewMode: true },
-    mixed:  { count: 12, timeLimitSec: null, perQuestionSec: null, category: null, topics: _mixedAptitudeTopics(), mode: '🎨 Mixed Aptitude' }
+    quick:  { count: 5,  timeLimitSec: null, perQuestionSec: null, category: null, mode: '⚡ ' + QRI18n.t('practice.quickDrill') },
+    reflex: { count: 10, timeLimitSec: null, perQuestionSec: 15,   category: null, mode: '🧠 ' + QRI18n.t('practice.reflexDrill'), autoAdvance: true },
+    timed:  { count: 10, timeLimitSec: 180,  perQuestionSec: null, category: null, mode: '⏱ ' + QRI18n.t('practice.timedTest') },
+    focus:  { count: 10, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, mode: '🎯 ' + (_useAdaptive ? QRI18n.t('practice.focusAdaptive') : QRI18n.t('practice.focusTraining')), adaptive: _useAdaptive },
+    custom: { count: _customPracticeState.totalQuestions, timeLimitSec: timerCfg.timeLimitSec, perQuestionSec: timerCfg.perQuestionSec, category: null, topics: selectedTopics.slice(), mode: '📑 ' + (_useAdaptive ? QRI18n.t('practice.customAdaptive') : QRI18n.t('practice.customTraining')), adaptive: _useAdaptive },
+    review: { count: 10, timeLimitSec: null, perQuestionSec: null, category: null, mode: '🔄 ' + QRI18n.t('practice.reviewMistakes'), reviewMode: true },
+    mixed:  { count: 12, timeLimitSec: null, perQuestionSec: null, category: null, topics: _mixedAptitudeTopics(), mode: '🎨 ' + QRI18n.t('practice.mixedAptitude') }
   };
 
   var config = Object.assign({}, modes[modeKey] || modes.quick);
@@ -196,7 +196,7 @@ function startMockFromPractice(examId) {
   }
   var built = QR_MOCK.buildMockDeck(examId, function (cat, n) { return generateQuestions(n || 1, cat); });
   if (!built || !built.deck || !built.deck.length) {
-    if (typeof showToast === 'function') showToast('A mock isn\'t available for this exam yet.');
+    if (typeof showToast === 'function') showToast(QRI18n.t('practice.mockUnavailable'));
     return;
   }
   var mock = built.mock;
@@ -211,7 +211,7 @@ function startMockFromPractice(examId) {
     timeLimitSec: mock.durationSec,     // the single section clock — auto-submits on zero (engine behaviour)
     perQuestionSec: null,
     category: null,
-    mode: '📝 ' + mock.examName + ' Mock',
+    mode: '📝 ' + QRI18n.t('practice.mockSuffix', { exam: mock.examName }),
     _preloadedQuestions: built.deck,
     /* Inject the EXAM-ACCURATE score (its own marking scheme) into the results card when it renders — this is
        what makes the mock a "real marking scheme" test rather than a plain drill. (Raw attempts are persisted
@@ -219,14 +219,14 @@ function startMockFromPractice(examId) {
     onResults: function (summary, container) {
       if (!summary || typeof QR_MOCK === 'undefined' || !container) return;
       var scored = QR_MOCK.score(mock, { correct: summary.correct, attempted: summary.attempted }, { elapsedSec: summary.totalTimeSec });
-      var negNote = mock.negPerWrong ? (' · −' + mock.negPerWrong + ' per wrong') : ' · no negative marking';
+      var negNote = mock.negPerWrong ? QRI18n.t('practice.perWrong', { n: mock.negPerWrong }) : QRI18n.t('practice.noNegative');
       var el = document.createElement('div');
       el.className = 'mock-score-summary';
       el.setAttribute('style', 'margin:0 0 14px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,0.05);text-align:center;');
-      el.innerHTML = '<h3 style="margin:0 0 4px;">' + mock.examName + ' — exam score</h3>' +
+      el.innerHTML = '<h3 style="margin:0 0 4px;">' + QRI18n.t('practice.mockScoreHead', { exam: mock.examName }) + '</h3>' +
         '<p style="margin:0;font-size:1.4em;"><strong>' + scored.score + ' / ' + scored.maxScore + '</strong>' + negNote + '</p>' +
-        '<p style="margin:6px 0 0;opacity:0.8;">Attempted ' + scored.attempted + '/' + mock.totalQuestions + ' · Correct ' + scored.correct + ' · Wrong ' + scored.wrong + ' · Skipped ' + scored.skipped + '</p>' +
-        (scored.secPerQ ? '<p style="margin:4px 0 0;opacity:0.8;">Pace ' + scored.secPerQ + 's/Q (budget ' + mock.secondsPerQuestion + 's)</p>' : '');
+        '<p style="margin:6px 0 0;opacity:0.8;">' + QRI18n.t('practice.mockAttemptLine', { a: scored.attempted, t: mock.totalQuestions, c: scored.correct, w: scored.wrong, s: scored.skipped }) + '</p>' +
+        (scored.secPerQ ? '<p style="margin:4px 0 0;opacity:0.8;">' + QRI18n.t('practice.paceLine', { p: scored.secPerQ, b: mock.secondsPerQuestion }) + '</p>' : '');
       var card = container.querySelector('.card');
       if (card) card.insertBefore(el, card.firstChild); else container.appendChild(el);
     },
@@ -265,7 +265,7 @@ function startSessionReview(wrongQuestions) {
     timeLimitSec: null, perQuestionSec: null, category: null,
     _preloadedQuestions: wrongQuestions,
     skipStartScreen: true,
-    mode: '🔄 Session Review',
+    mode: '🔄 ' + QRI18n.t('practice.sessionReview'),
     onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
@@ -302,7 +302,7 @@ function startDiSet(category) {
   var cats = ['di-bar', 'di-line', 'di-pie', 'di-table', 'di-caselet'];
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = DISetEngine.generateSet(cat);
-  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast('Could not build a DI set — try again.'); return; }
+  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast(QRI18n.t('practice.diSetFailed')); return; }
 
   var modeSelect = document.getElementById('modeSelect');
   var categorySelect = document.getElementById('categorySelect');
@@ -315,7 +315,7 @@ function startDiSet(category) {
     count: set.questions.length,
     timeLimitSec: null, perQuestionSec: null, category: null,
     diSet: set,
-    mode: '📊 ' + label + ' Set',
+    mode: '📊 ' + QRI18n.t('practice.setSuffix', { label: label }),
     onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
@@ -355,7 +355,7 @@ function startLrSet(category) {
   var cats = ['lr-seating', 'lr-puzzle'];
   var cat = category || cats[Math.floor(Math.random() * cats.length)];
   var set = LRSetEngine.generateSet(cat);
-  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast('Could not build an LR set — try again.'); return; }
+  if (!set || !set.questions || !set.questions.length) { if (typeof showToast === 'function') showToast(QRI18n.t('practice.lrSetFailed')); return; }
 
   var modeSelect = document.getElementById('modeSelect');
   var categorySelect = document.getElementById('categorySelect');
@@ -363,12 +363,12 @@ function startLrSet(category) {
   var drillContainer = document.getElementById('drillContainer');
   if (!drillContainer) return;
 
-  var label = (cat === 'lr-puzzle') ? 'Puzzle' : 'Seating';
+  var label = (cat === 'lr-puzzle') ? QRI18n.t('practice.puzzleShort') : QRI18n.t('practice.seatingShort');
   var config = {
     count: set.questions.length,
     timeLimitSec: null, perQuestionSec: null, category: null,
     diSet: set,
-    mode: '🧩 ' + label + ' Set',
+    mode: '🧩 ' + QRI18n.t('practice.setSuffix', { label: label }),
     onFinish: function (view) {
       if (_activeDrillEngine) { _activeDrillEngine.cleanup(); _activeDrillEngine = null; }
       var _dc = document.getElementById('drillContainer');
@@ -447,7 +447,7 @@ function initPracticeView() {
            NOTHING else: no session, no question generation, no navigation, no analytics, no backend (ADR-031
            release scope). Intercept BEFORE the practice-action gate / sound / dispatch. */
         if (this.getAttribute('data-mode') === 'wordproblems') {
-          if (typeof showComingSoon === 'function') showComingSoon({ title: 'Word Problems', blurb: 'AI-crafted, exam-style word problems that test comprehension and calculation — not just speed. We’re putting the final polish on it. Launching soon for Premium.' });
+          if (typeof showComingSoon === 'function') showComingSoon({ title: QRI18n.t('practice.wordProblems'), blurb: QRI18n.t('practice.wordProblemsSoonBlurb') });
           return;
         }
         if (!_tryPracticeAction()) return;
@@ -466,7 +466,7 @@ function initPracticeView() {
           var focusStartSec2 = document.getElementById('focusStartSection');
           if (focusStartSec2) focusStartSec2.style.display = 'none';
           var catTitle2 = document.getElementById('categorySelectTitle');
-          if (catTitle2) catTitle2.textContent = 'Custom Training';
+          if (catTitle2) catTitle2.textContent = QRI18n.t('practice.customTraining');
           _resetTimerSelection();
           _resetAdaptiveToggle();
           _resetCustomPracticeState();
@@ -482,7 +482,7 @@ function initPracticeView() {
           var _mockExam = '';
           try { _mockExam = (typeof TargetExam !== 'undefined' && TargetExam.get()) || ''; } catch (_) {}
           if (!_mockExam) {
-            if (typeof showToast === 'function') showToast('Set your target exam in Settings to take a mock.');
+            if (typeof showToast === 'function') showToast(QRI18n.t('practice.setTargetExam'));
             if (typeof Router !== 'undefined') { try { Router.showView('settings'); } catch (_) {} }
             return;
           }
@@ -513,7 +513,7 @@ function initPracticeView() {
           var focusStartSec = document.getElementById('focusStartSection');
           if (focusStartSec) focusStartSec.style.display = 'none';
           var catTitle = document.getElementById('categorySelectTitle');
-          if (catTitle) catTitle.textContent = 'Focus Training';
+          if (catTitle) catTitle.textContent = QRI18n.t('practice.focusTraining');
           _resetTimerSelection();
           _resetAdaptiveToggle();
           if (typeof CategoryPicker !== 'undefined') CategoryPicker.render();   /* ADR-084: dynamic picker from source of truth */
@@ -570,7 +570,7 @@ function initPracticeView() {
     if (focusStartBtn) {
       focusStartBtn.addEventListener('click', function () {
         if (!_tryPracticeAction()) return;
-        if (!_focusSelectedCategory) { showToast('Please select a category first.'); return; }
+        if (!_focusSelectedCategory) { showToast(QRI18n.t('practice.selectCategoryFirst')); return; }
         startDrillFromPractice('focus', _focusSelectedCategory, _focusSelectedCategoryLabel);
       });
     }
@@ -592,7 +592,7 @@ function initPracticeView() {
         if (!_tryPracticeAction()) return;
         if (!canAccessFeature('custom_training')) { showPaywall('custom_training'); return; }
         if (selectedTopics.length === 0) {
-          if (_customPracticeDom.error) _customPracticeDom.error.textContent = 'Please select at least one topic';
+          if (_customPracticeDom.error) _customPracticeDom.error.textContent = QRI18n.t('practice.selectAtLeastOne');
           return;
         }
         startDrillFromPractice('custom');
