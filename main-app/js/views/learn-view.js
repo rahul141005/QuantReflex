@@ -63,9 +63,14 @@ var LearnView = (function () {
   }
 
   var DIFF_LABEL = { foundation: 'Foundation', core: 'Core', advanced: 'Advanced' };
+  function _diffLabel(d) { var k = { foundation: 'learn.diffFoundation', core: 'learn.diffCore', advanced: 'learn.diffAdvanced' }[d]; return k ? QRI18n.t(k) : (DIFF_LABEL[d] || d); }
+  function _freqLabelTxt(f) { var k = { 'very-high': 'learn.freqVeryHigh', high: 'learn.freqHigh', medium: 'learn.freqMedium', low: 'learn.freqLow' }[f]; return k ? QRI18n.t(k) : (FREQ_LABEL[f] || f); }
+  /* ADR-111: Learn category titles/blurbs + LR/DI sub-group titles localize via learn.* keys; the
+     registry objects remain the canonical English source. */
+  function _lcat(id, field, fallback) { var k = 'learn.cat_' + id + field; var v = QRI18n.t(k); return v === k ? fallback : v; }
   var FREQ_LABEL = { 'very-high': 'Very High', high: 'High', medium: 'Medium', low: 'Low' };
-  function _diffBadge(d) { return '<span class="kx-badge kx-diff-' + _esc(d) + '">' + _esc(DIFF_LABEL[d] || d) + '</span>'; }
-  function _freqBadge(f) { return '<span class="kx-badge kx-freq">' + _esc(FREQ_LABEL[f] || f) + '</span>'; }
+  function _diffBadge(d) { return '<span class="kx-badge kx-diff-' + _esc(d) + '">' + _esc(_diffLabel(d)) + '</span>'; }
+  function _freqBadge(f) { return '<span class="kx-badge kx-freq">' + _esc(_freqLabelTxt(f)) + '</span>'; }
 
   /* ADR-080 — exam-relevance metadata drives ONE subtle, high-value contextual badge per card (never a wall of
      labels). With a target exam set: "⭐ For <exam>" on that exam's top-focus topics. Otherwise: "🔥 Most Asked" on
@@ -89,22 +94,22 @@ var LearnView = (function () {
      sensible learning order. */
   var SUBGROUPS = {
     'lr-reasoning': [
-      { title: 'Foundations', ids: ['lr-coding-decoding', 'lr-series', 'lr-analogies', 'lr-odd-one-out', 'lr-ranking', 'lr-direction-sense', 'lr-blood-relations'] },
-      { title: 'Analytical & Puzzles', ids: ['lr-seating-puzzles', 'lr-syllogisms', 'lr-coded-inequalities', 'lr-input-output', 'lr-calendars', 'lr-clocks'] },
-      { title: 'Critical Reasoning', ids: ['lr-critical-reasoning', 'lr-statement-argument', 'lr-decision-making', 'lr-cause-effect', 'lr-course-of-action'] },
-      { title: 'Visual Reasoning', ids: ['lr-nonverbal-images', 'lr-figure-series'] }
+      { titleKey: 'learn.groupFoundations', ids: ['lr-coding-decoding', 'lr-series', 'lr-analogies', 'lr-odd-one-out', 'lr-ranking', 'lr-direction-sense', 'lr-blood-relations'] },
+      { titleKey: 'learn.groupAnalytical', ids: ['lr-seating-puzzles', 'lr-syllogisms', 'lr-coded-inequalities', 'lr-input-output', 'lr-calendars', 'lr-clocks'] },
+      { titleKey: 'learn.groupCritical', ids: ['lr-critical-reasoning', 'lr-statement-argument', 'lr-decision-making', 'lr-cause-effect', 'lr-course-of-action'] },
+      { titleKey: 'learn.groupVisual', ids: ['lr-nonverbal-images', 'lr-figure-series'] }
     ],
     'di-charts': [
-      { title: 'Foundations', ids: ['di-foundations', 'di-speed-math'] },
-      { title: 'Charts & Graphs', ids: ['di-bar-line', 'di-pie-charts'] },
-      { title: 'Tables & Sets', ids: ['di-tables-caselets', 'di-sets'] }
+      { titleKey: 'learn.groupFoundations', ids: ['di-foundations', 'di-speed-math'] },
+      { titleKey: 'learn.groupCharts', ids: ['di-bar-line', 'di-pie-charts'] },
+      { titleKey: 'learn.groupTables', ids: ['di-tables-caselets', 'di-sets'] }
     ]
   };
-  var SUBJECT_BLURB = {
-    quant: 'Speed arithmetic and number sense — the backbone of every aptitude section.',
-    di: 'Read and reason over charts, tables and caselets under time pressure.',
-    lr: 'Puzzles, arrangements, verbal logic and visual reasoning, end to end.'
-  };
+  /* Resolved lazily — parse happens before the boot language applies (ADR-111). */
+  function _subjectBlurb(sid) {
+    var k = { quant: 'learn.subjBlurbQuant', di: 'learn.subjBlurbDi', lr: 'learn.subjBlurbLr' }[sid];
+    return k ? QRI18n.t(k) : '';
+  }
 
   /* ---- Phase-4 integration helpers (progress / revision / practice — all local, NO AI) ---- */
   function _LP() { return (typeof LearnProgress !== 'undefined') ? LearnProgress : null; }
@@ -129,7 +134,7 @@ var LearnView = (function () {
     var on = host.classList.toggle('kx-revision-only');
     btn.classList.toggle('is-on', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    btn.innerHTML = on ? '📖 Full notes' : '⚡ Quick revision';
+    btn.innerHTML = on ? QRI18n.t('learn.fullNotes') : QRI18n.t('learn.quickRevision');
     /* hidden sections can't intersect, so clear any now-stale scroll-spy highlight (re-applies on next scroll) */
     host.querySelectorAll('.kx-sec-pill.is-active').forEach(function (p) { p.classList.remove('is-active'); p.removeAttribute('aria-current'); });
   }
@@ -155,7 +160,7 @@ var LearnView = (function () {
     if (addTopicBtn) {
       addTopicBtn.addEventListener('click', function () {
         if (typeof canAccessFeature === 'function' && !canAccessFeature('add_topic')) { if (typeof showPaywall === 'function') showPaywall('add_topic'); return; }
-        _createModal('Create New Topic', [{ name: 'name', label: 'Topic Name', placeholder: 'e.g. Number Systems' }], function (values) {
+        _createModal(QRI18n.t('learn.createTopic'), [{ name: 'name', label: QRI18n.t('learn.topicName'), placeholder: QRI18n.t('learn.topicNamePlaceholder') }], function (values) {
           if (!values.name) return;
           addCustomTopic(values.name);
           renderCustomTopicSections();
@@ -218,7 +223,7 @@ var LearnView = (function () {
     var topics = KB ? KB.byCategory(catId) : [];
     var done = 0;
     if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
-    return topics.length + (topics.length === 1 ? ' topic' : ' topics') + (done > 0 ? ' · ' + done + ' read' : '');
+    return QRI18n.t('learn.topicCount', { count: topics.length }) + (done > 0 ? ' · ' + QRI18n.t('learn.readCount', { count: done }) : '');
   }
 
   function _catHtml(c, hideHead) {
@@ -226,9 +231,9 @@ var LearnView = (function () {
     /* hideHead: when a subject has a single category, its rich subject header already names it — repeating the
        category title right below would be redundant, so we drop it and let the sub-groups carry the structure. */
     /* data-cat lets _refreshCardTicks keep the "· N read" count live after a completion (hub builds once). */
-    var head = hideHead ? '' : ('<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(c.title) + '</h2>' +
+    var head = hideHead ? '' : ('<div class="kx-cat-head"><h2 class="kx-cat-title">' + _esc(c.icon) + ' ' + _esc(_lcat(c.id, 'Title', c.title)) + '</h2>' +
       '<span class="kx-cat-count" data-cat="' + _esc(c.id) + '">' + _catCountText(c.id) + '</span></div>' +
-      (c.blurb ? '<p class="kx-cat-blurb">' + _esc(c.blurb) + '</p>' : ''));
+      (c.blurb ? '<p class="kx-cat-blurb">' + _esc(_lcat(c.id, 'Blurb', c.blurb)) + '</p>' : ''));
     var groups = SUBGROUPS[c.id], body;
     if (groups) {
       var byId = {}; topics.forEach(function (t) { byId[t.id] = t; });
@@ -237,7 +242,7 @@ var LearnView = (function () {
         var gt = g.ids.map(function (id) { return byId[id]; }).filter(Boolean);
         gt.forEach(function (t) { used[t.id] = 1; });
         if (!gt.length) return '';
-        return '<div class="kx-subgroup"><h3 class="kx-subgroup-head">' + _esc(g.title) +
+        return '<div class="kx-subgroup"><h3 class="kx-subgroup-head">' + _esc(QRI18n.t(g.titleKey)) +
           '<span class="kx-subgroup-count">' + gt.length + '</span></h3>' + _gridHtml(gt) + '</div>';
       }).join('');
       var rest = topics.filter(function (t) { return !used[t.id]; });
@@ -256,11 +261,11 @@ var LearnView = (function () {
     topics.forEach(function (t) { diffs[t.difficulty] = 1; });
     var order = ['foundation', 'core', 'advanced'], present = order.filter(function (d) { return diffs[d]; });
     var coverage = present.length ? (DIFF_LABEL[present[0]] + (present.length > 1 ? ' → ' + DIFF_LABEL[present[present.length - 1]] : '')) : '';
-    var blurb = SUBJECT_BLURB[sid] || '';
+    var blurb = _subjectBlurb(sid);
     /* subtle progress — a quiet "x read" using the completion the app already tracks (no gamification). */
     var LP = _LP(), done = 0;
     if (LP) topics.forEach(function (t) { if (LP.isComplete(t.id)) done++; });
-    var read = done > 0 ? ' · ' + done + ' read' : '';
+    var read = done > 0 ? ' · ' + QRI18n.t('learn.readCount', { count: done }) : '';
     return '<div class="kx-subject-head-wrap">' +
       '<h2 class="kx-subject-head">' + _esc(label) + '</h2>' +
       (blurb ? '<p class="kx-subject-blurb">' + _esc(blurb) + '</p>' : '') +
@@ -278,9 +283,9 @@ var LearnView = (function () {
       return '<button class="kx-filter-pill' + (sel === id ? ' is-active' : '') + '" type="button" role="tab"' +
         ' aria-selected="' + (sel === id ? 'true' : 'false') + '" data-filter="' + _esc(id) + '">' + _esc(text) + '</button>';
     };
-    var pills = pill('all', 'All');
+    var pills = pill('all', QRI18n.t('learn.allPill'));
     ordered.forEach(function (sid) { pills += pill(sid, label[sid] || sid); });
-    return '<div class="kx-filter" role="tablist" aria-label="Filter Learn by subject">' + pills + '</div>';
+    return '<div class="kx-filter" role="tablist" aria-label="' + QRI18n.t('learn.filterAria') + '">' + pills + '</div>';
   }
 
   function _applyFilter(host, sel) {
@@ -368,7 +373,7 @@ var LearnView = (function () {
     var topics = LearnSearch.query(q).slice(0, 6);
     var cards = (LearnSearch.queryCards ? LearnSearch.queryCards(q) : []).slice(0, 4);
     box.hidden = false;
-    if (!topics.length && !cards.length) { box.innerHTML = '<div class="kx-search-empty">No matches for “' + _esc(q) + '”.</div>'; return; }
+    if (!topics.length && !cards.length) { box.innerHTML = '<div class="kx-search-empty">' + QRI18n.t('learn.noMatches', { q: _esc(q) }) + '</div>'; return; }
     var html = '';
     if (topics.length) {
       html += '<div class="kx-search-group">Topics</div>' + topics.map(function (r) {
@@ -415,7 +420,7 @@ var LearnView = (function () {
        crumb also just went to the hub, a pretend hierarchy. One link, no lie. Hub scroll position is restored. */
     var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
     var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
-    backBtn.innerHTML = '← Learn';
+    backBtn.innerHTML = '← ' + QRI18n.t('learn.header');
     backBtn.addEventListener('click', function () { _go(null); });
     backNav.appendChild(backBtn);
     host.appendChild(backNav);
@@ -448,7 +453,7 @@ var LearnView = (function () {
 
     /* sticky section nav (only when there is content to navigate) */
     if (sections.length > 1) {
-      var nav = document.createElement('nav'); nav.className = 'kx-section-nav'; nav.setAttribute('aria-label', 'On this page');
+      var nav = document.createElement('nav'); nav.className = 'kx-section-nav'; nav.setAttribute('aria-label', QRI18n.t('learn.onThisPageAria'));
       sections.forEach(function (b, i) {
         var pill = document.createElement('button');
         pill.className = 'kx-sec-pill' + (_isRevisionType(b.type) ? ' is-revision' : '');
@@ -470,7 +475,7 @@ var LearnView = (function () {
 
     if (!sections.length) {
       var soon = document.createElement('p'); soon.className = 'kx-overview';
-      soon.textContent = 'This topic is coming soon — full notes, tricks and examples are on the way.';
+      soon.textContent = QRI18n.t('learn.comingSoonTopic');
       main.appendChild(soon);
     }
     sections.forEach(function (b, i) {
@@ -508,17 +513,17 @@ var LearnView = (function () {
     document.querySelectorAll('#learnTopic .kx-action-complete').forEach(function (b) {
       b.classList.toggle('is-on', nowDone);
       b.setAttribute('aria-pressed', nowDone ? 'true' : 'false');
-      b.innerHTML = nowDone ? '✓ Completed' : '○ Mark complete';
+      b.innerHTML = nowDone ? QRI18n.t('learn.completed') : QRI18n.t('learn.markComplete');
     });
   }
   function _completeBtn(topic, LP) {
     var done = LP.isComplete(topic.id);
     var cb = document.createElement('button'); cb.className = 'kx-action kx-action-complete' + (done ? ' is-on' : ''); cb.type = 'button';
-    cb.setAttribute('aria-pressed', done ? 'true' : 'false'); cb.innerHTML = done ? '✓ Completed' : '○ Mark complete';
+    cb.setAttribute('aria-pressed', done ? 'true' : 'false'); cb.innerHTML = done ? QRI18n.t('learn.completed') : QRI18n.t('learn.markComplete');
     cb.addEventListener('click', function () {
       var nowDone = LP.toggleComplete(topic.id);
       _syncCompleteButtons(nowDone);
-      if (typeof showToast === 'function') showToast(nowDone ? 'Marked “' + topic.title + '” complete' : 'Marked as not complete.');
+      if (typeof showToast === 'function') showToast(nowDone ? QRI18n.t('learn.markedComplete', { title: topic.title }) : QRI18n.t('learn.markedNotComplete'));
     });
     return cb;
   }
@@ -532,7 +537,7 @@ var LearnView = (function () {
     if (LP) row.appendChild(_completeBtn(topic, LP));
     if (topic.drillCategory) {
       var pb = document.createElement('button'); pb.className = 'kx-action kx-action-practise'; pb.type = 'button';
-      pb.innerHTML = '🎯 Practise this';
+      pb.innerHTML = QRI18n.t('learn.practiseThis');
       pb.addEventListener('click', function () { _launchDrill(topic); });
       row.appendChild(pb);
     }
@@ -552,7 +557,7 @@ var LearnView = (function () {
     }
     if (next) {
       var nu = document.createElement('div'); nu.className = 'kx-foot-block';
-      nu.innerHTML = '<div class="kx-aside-title">Next up</div>';
+      nu.innerHTML = '<div class="kx-aside-title">' + QRI18n.t('learn.nextUp') + '</div>';
       var nc = document.createElement('button'); nc.className = 'kx-foot-next'; nc.type = 'button';
       nc.innerHTML = '<span class="kx-fn-ico" aria-hidden="true">' + _esc(next.icon || '📘') + '</span>' +
         '<span class="kx-fn-txt"><span class="kx-fn-title">' + _esc(next.title) + '</span>' +
@@ -565,7 +570,7 @@ var LearnView = (function () {
     var related = KB ? KB.related(topic.id) : [];
     if (related.length) {
       var rb = document.createElement('div'); rb.className = 'kx-foot-block';
-      rb.innerHTML = '<div class="kx-aside-title">Related topics</div>';
+      rb.innerHTML = '<div class="kx-aside-title">' + QRI18n.t('learn.relatedTopics') + '</div>';
       var chips = document.createElement('div'); chips.className = 'kx-related';
       related.forEach(function (rt) {
         var a = document.createElement('a'); a.className = 'kx-chip'; a.textContent = rt.title;
@@ -578,7 +583,7 @@ var LearnView = (function () {
 
     if (sib.prev) {
       var pv = document.createElement('button'); pv.className = 'kx-foot-prev'; pv.type = 'button';
-      pv.innerHTML = '← Previous: ' + _esc(sib.prev.title);
+      pv.innerHTML = QRI18n.t('learn.prevChapter', { title: _esc(sib.prev.title) });
       pv.addEventListener('click', (function (id) { return function () { _go(id); }; })(sib.prev.id));
       foot.appendChild(pv);
     }
@@ -597,7 +602,7 @@ var LearnView = (function () {
   function _reportTopicLine(topic, cat) {
     if (typeof ReportModal === 'undefined' || !ReportModal.open) return null;
     var rep = document.createElement('button'); rep.className = 'kx-report-line'; rep.type = 'button';
-    rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> Spotted a problem in this chapter? <span class="kx-report-cta">Report it</span>';
+    rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> ' + QRI18n.t('learn.reportPrompt') + ' <span class="kx-report-cta">' + QRI18n.t('learn.reportCta') + '</span>';
     rep.addEventListener('click', function () {
       ReportModal.open({ source: 'learn', topic: {
         id: topic.id, title: topic.title, category: topic.category,
@@ -634,18 +639,18 @@ var LearnView = (function () {
 
     if (topic.drillCategory) {
       var pb = document.createElement('button'); pb.className = 'kx-action kx-action-practise'; pb.type = 'button';
-      pb.innerHTML = '🎯 Practise this';
+      pb.innerHTML = QRI18n.t('learn.practiseThis');
       pb.addEventListener('click', function () { _launchDrill(topic); });
       bar.appendChild(pb);
     } else if (topic.drillComingSoon) {
       /* Practice is intentionally pending (no dedicated bank yet) — a non-interactive cue, never wrong content. */
       var soon = document.createElement('span'); soon.className = 'kx-action kx-action-soon';
-      soon.setAttribute('aria-disabled', 'true'); soon.textContent = '🎯 Practice coming soon';
+      soon.setAttribute('aria-disabled', 'true'); soon.textContent = QRI18n.t('learn.practiceComingSoon');
       bar.appendChild(soon);
     }
     if (_hasRevisionContent(topic)) {
       var qb = document.createElement('button'); qb.className = 'kx-action kx-action-revise'; qb.type = 'button';
-      qb.setAttribute('aria-pressed', 'false'); qb.innerHTML = '⚡ Quick revision';
+      qb.setAttribute('aria-pressed', 'false'); qb.innerHTML = QRI18n.t('learn.quickRevision');
       qb.addEventListener('click', function () { _toggleRevision(qb); });
       bar.appendChild(qb);
     }
@@ -654,12 +659,12 @@ var LearnView = (function () {
 
       var saved = LP.isBookmarked(topic.id);
       var bb = document.createElement('button'); bb.className = 'kx-action kx-action-save' + (saved ? ' is-on' : ''); bb.type = 'button';
-      bb.setAttribute('aria-pressed', saved ? 'true' : 'false'); bb.innerHTML = saved ? '★ Saved' : '☆ Save';
+      bb.setAttribute('aria-pressed', saved ? 'true' : 'false'); bb.innerHTML = saved ? QRI18n.t('learn.savedBtn') : QRI18n.t('learn.saveBtn');
       bb.addEventListener('click', function () {
         var nowSaved = LP.toggleBookmark(topic.id);
         bb.classList.toggle('is-on', nowSaved); bb.setAttribute('aria-pressed', nowSaved ? 'true' : 'false');
-        bb.innerHTML = nowSaved ? '★ Saved' : '☆ Save';
-        if (typeof showToast === 'function') showToast(nowSaved ? 'Saved “' + topic.title + '” — find it on the Learn home' : 'Removed from Saved.');
+        bb.innerHTML = nowSaved ? QRI18n.t('learn.savedBtn') : QRI18n.t('learn.saveBtn');
+        if (typeof showToast === 'function') showToast(nowSaved ? QRI18n.t('learn.savedToast', { title: topic.title }) : QRI18n.t('learn.removedSaved'));
       });
       bar.appendChild(bb);
     }
@@ -708,11 +713,11 @@ var LearnView = (function () {
     });
     var t = cands[0];
     var cat = KB.categoryMeta(t.category) || { title: t.category };
-    var why = [DIFF_LABEL[t.difficulty] || '', cat.title];
-    if (track && ER.weight(t.id, track) >= 3) why.push('⭐ High priority for ' + ER.trackLabel(track));
-    else if (ER && ER.isMostAsked(t.id)) why.push('🔥 Most asked');
+    var why = [_diffLabel(t.difficulty) || '', _lcat(t.category, 'Title', cat.title)];
+    if (track && ER.weight(t.id, track) >= 3) why.push(QRI18n.t('learn.highPriority', { track: ER.trackLabel(track) }));
+    else if (ER && ER.isMostAsked(t.id)) why.push(QRI18n.t('learn.mostAsked'));
     host.innerHTML = '<button class="kx-upnext" type="button" data-topic="' + _esc(t.id) + '">' +
-      '<span class="kx-upnext-eyebrow">Up next</span>' +
+      '<span class="kx-upnext-eyebrow">' + QRI18n.t('learn.upNextEyebrow') + '</span>' +
       '<span class="kx-upnext-row">' +
       '<span class="kx-upnext-ico" aria-hidden="true">' + _esc(t.icon || '📘') + '</span>' +
       '<span class="kx-upnext-txt"><span class="kx-upnext-title">' + _esc(t.title) + '</span>' +
@@ -729,9 +734,9 @@ var LearnView = (function () {
     var n = due.length;
     host.innerHTML = '<button class="kx-revise-card" type="button">' +
       '<span class="kx-revise-ico" aria-hidden="true">🔁</span>' +
-      '<span class="kx-revise-txt"><strong>Revise today</strong>' +
-      '<small>' + n + (n === 1 ? ' topic is' : ' topics are') + ' due — a quick recall pass keeps them fresh</small></span>' +
-      '<span class="kx-revise-cta">Start</span></button>';
+      '<span class="kx-revise-txt"><strong>' + QRI18n.t('learn.reviseToday') + '</strong>' +
+      '<small>' + QRI18n.t('learn.reviseDue', { count: n }) + '</small></span>' +
+      '<span class="kx-revise-cta">' + QRI18n.t('home.start') + '</span></button>';
     host.querySelector('.kx-revise-card').addEventListener('click', function () {
       try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: 'revise' }); } catch (_) {}
     });
@@ -775,7 +780,7 @@ var LearnView = (function () {
           '<span class="kx-rc-acc">' + Math.round((m.acc || 0) * 100) + '%</span></button>';
       }).join('');
       if (!cards) return '';
-      return '<div class="kx-resume"><div class="kx-resume-head">🎯 Needs practice</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
+      return '<div class="kx-resume"><div class="kx-resume-head">🎯 ' + QRI18n.t('learn.needsPractice') + '</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
     } catch (_) { return ''; }
   }
 
@@ -788,13 +793,13 @@ var LearnView = (function () {
     /* Continue excludes anything currently due (the Revise-today card is the more urgent framing) — no dup cards. */
     var due = _dueIds();
     var recent = LP.recent(8).filter(function (id) { return KB.has(id) && due.indexOf(id) === -1; });
-    if (recent.length) html += _stripHtml('⏱️ Continue learning', recent, KB);
+    if (recent.length) html += _stripHtml('⏱️ ' + QRI18n.t('learn.continueLearning'), recent, KB);
 
     html += _weakStripHtml(KB);
 
     /* Saved stays authoritative (an explicit user list) — every saved topic shows, even if also Due/Continue. */
     var saved = LP.bookmarkedIds().filter(function (id) { return KB.has(id); }).slice(0, 8);
-    if (saved.length) html += _stripHtml('★ Saved', saved, KB);
+    if (saved.length) html += _stripHtml('★ ' + QRI18n.t('learn.savedStrip'), saved, KB);
 
     host.innerHTML = html;
     host.querySelectorAll('.kx-resume-card').forEach(function (c) {
@@ -833,7 +838,7 @@ var LearnView = (function () {
 
     var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
     var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
-    backBtn.innerHTML = '← Learn';
+    backBtn.innerHTML = '← ' + QRI18n.t('learn.header');
     backBtn.addEventListener('click', function () { _go(null); });
     backNav.appendChild(backBtn);
     host.appendChild(backNav);
@@ -971,8 +976,14 @@ var LearnView = (function () {
     }
   }
 
-  return { renderLearnRoute: renderLearnRoute };
+  return { renderLearnRoute: renderLearnRoute, invalidateHub: function () { _hubBuilt = false; } };
 })();
 
 /* Global entry point: app.js calls renderLearnRoute(params) on every Learn show (builds the hub once internally). */
 function renderLearnRoute(params) { LearnView.renderLearnRoute(params); }
+
+/* ADR-111: the Learn hub is built once (_hubBuilt) — a language switch must force a rebuild so the
+   next visit renders localized. */
+if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () {
+  try { if (typeof LearnView !== 'undefined' && LearnView.invalidateHub) LearnView.invalidateHub(); } catch (_) { /* ignore */ }
+});
