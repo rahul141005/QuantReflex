@@ -25,6 +25,11 @@
      the identity pairs are DNT and stay Latin in every language). */
   var TRIG_STRUCT = ['tower', 'pole', 'building', 'tree', 'flagpole', 'lighthouse', 'chimney'];
   var TRIG_IDENT = [['sin²θ + cos²θ', 'the Pythagorean identity sin²θ + cos²θ = 1'], ['sec²θ − tan²θ', 'the identity sec²θ − tan²θ = 1'], ['cosec²θ − cot²θ', 'the identity cosec²θ − cot²θ = 1']];
+  /* Probability colour pools (index-aligned across languages) — bag draw has 4 pairs, complement has 3. */
+  var PROB_COL = [['red', 'blue'], ['green', 'yellow'], ['black', 'white'], ['red', 'green']];
+  var PROB_COLC = [['red', 'blue'], ['green', 'yellow'], ['black', 'white']];
+  /* Set-theory context pairs (index-aligned) — the two liked-things per Venn problem; hi/mr translate the nouns. */
+  var SET_CTX = [['tea', 'coffee'], ['football', 'cricket'], ['Maths', 'Science'], ['Hindi', 'English'], ['apples', 'oranges'], ['chess', 'carrom'], ['Physics', 'Chemistry'], ['badminton', 'tennis'], ['History', 'Geography'], ['painting', 'music'], ['guitar', 'piano'], ['dogs', 'cats'], ['cricket', 'hockey'], ['pizza', 'burgers']];
 
   var pack = { pools: {}, tpl: {
     /* ── Squares & roots ── */
@@ -877,6 +882,142 @@
     'trigonometry:hard:heightElev': {
       s: [function (s) { return 'The angle of elevation of the top of a ' + TRIG_STRUCT[s.stIdx] + ' from a point ' + s.base + ' m from its base is 45°. Find the height of the ' + TRIG_STRUCT[s.stIdx] + ' (in metres).'; }],
       e: [function (s) { return 'tan(45°) = height / base = 1, so height = base = ' + s.base + ' m.'; }]
+    },
+
+    /* ── Permutation & combination ── (ASCII nPr/nCr; factorial/combination values precomputed into slots) */
+    'permutation-combination:easy:factorial': {
+      s: [function (s) { return s.n + '! = ?'; }],
+      e: [function (s) { return s.n + '! = ' + s.n + ' × ' + (s.n - 1) + ' × … × 1 = ' + s.val + '.'; }]
+    },
+    'permutation-combination:easy:arrange': {
+      s: [function (s) { return 'In how many ways can ' + s.n + ' distinct books be arranged in a row?'; }],
+      e: [function (s) { return 'All ' + s.n + ' arranged = ' + s.n + '! = ' + s.val + '.'; }]
+    },
+    'permutation-combination:medium:arrange': {
+      s: [function (s) { return 'In how many ways can ' + s.n + ' distinct books be arranged in a row?'; }],
+      e: [function (s) { return 'All ' + s.n + ' arranged = ' + s.n + '! = ' + s.val + '.'; }]
+    },
+    'permutation-combination:medium:nPr': {
+      s: [function (s) { return 'Find the value of ' + s.n + 'P' + s.r + ' (permutations of ' + s.r + ' from ' + s.n + ').'; }],
+      e: [function (s) { return 'nPr = n!/(n−r)! = ' + s.n + '!/' + (s.n - s.r) + '! = ' + s.val + '.'; }]
+    },
+    'permutation-combination:medium:nCr': {
+      s: [function (s) { return 'Find the value of ' + s.n + 'C' + s.r + ' (combinations of ' + s.r + ' from ' + s.n + ').'; }],
+      e: [function (s) { return 'nCr = n!/[r!(n−r)!] = ' + s.n + '!/[' + s.r + '!·' + (s.n - s.r) + '!] = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:committee': {
+      s: [function (s) { return 'From ' + s.n + ' people, how many different committees of ' + s.r + ' can be formed?'; }],
+      e: [function (s) { return 'Order does not matter → combinations: ' + s.n + 'C' + s.r + ' = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:handshakes': {
+      s: [function (s) { return 'In a party of ' + s.n + ' people, everyone shakes hands with everyone else once. How many handshakes take place?'; }],
+      e: [function (s) { return 'Each handshake is a pair → ' + s.n + 'C2 = ' + s.n + '×' + (s.n - 1) + '/2 = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:circular': {
+      s: [function (s) { return 'In how many ways can ' + s.n + ' people be seated around a circular table?'; }],
+      e: [function (s) { return 'Around a circle one seat is fixed to remove identical rotations, leaving (n − 1)! = ' + (s.n - 1) + '! = ' + s.val + ' arrangements.'; }]
+    },
+    'permutation-combination:hard:atLeastOne': {
+      s: [function (s) { return 'A committee of ' + s.r + ' is chosen from ' + s.w + ' women and ' + s.m + ' men. How many committees include at least one woman?'; }],
+      e: [function (s) { return 'Count the complement: total committees ' + (s.w + s.m) + 'C' + s.r + ' = ' + s.total + ', minus all-men committees ' + s.m + 'C' + s.r + ' = ' + s.allMen + ', gives ' + s.ans + '. “At least one” almost always means subtract the none-case.'; }]
+    },
+
+    /* ── Probability ── (decimal answers precomputed; colour nouns ride the PROB_COL / PROB_COLC index pools) */
+    'probability:easy:bagSingle': {
+      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COL[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COL[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is ' + PROB_COL[s.colIdx][0] + '? (as a decimal)'; }],
+      e: [function (s) { return 'P = favourable/total = ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:medium:bagSingle': {
+      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COL[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COL[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is ' + PROB_COL[s.colIdx][0] + '? (as a decimal)'; }],
+      e: [function (s) { return 'P = favourable/total = ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:easy:allHeads': {
+      s: [function (s) { return s.n + ' fair coin' + (s.n > 1 ? 's are' : ' is') + ' tossed. What is the probability of getting ' + (s.n === 1 ? 'a head' : 'all heads') + '? (as a decimal)'; }],
+      e: [function (s) { return 'P(all heads) = (1/2)^' + s.n + ' = ' + s.ans + '.'; }]
+    },
+    'probability:medium:complement': {
+      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COLC[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COLC[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is NOT ' + PROB_COLC[s.colIdx][0] + '? (as a decimal)'; }],
+      e: [function (s) { return 'P(not ' + PROB_COLC[s.colIdx][0] + ') = 1 − ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:hard:complement': {
+      s: [function (s) { return 'A bag has ' + s.r + ' ' + PROB_COLC[s.colIdx][0] + ' and ' + s.b + ' ' + PROB_COLC[s.colIdx][1] + ' balls. One ball is drawn at random. What is the probability it is NOT ' + PROB_COLC[s.colIdx][0] + '? (as a decimal)'; }],
+      e: [function (s) { return 'P(not ' + PROB_COLC[s.colIdx][0] + ') = 1 − ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:medium:multipleProb': {
+      s: [function (s) { return 'A number is chosen at random from 1 to ' + s.T + '. What is the probability it is a multiple of ' + s.d + '? (as a decimal)'; }],
+      e: [function (s) { return 'Multiples of ' + s.d + ' up to ' + s.T + ': ' + s.fav + '. P = ' + s.fav + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:hard:multipleProb': {
+      s: [function (s) { return 'A number is chosen at random from 1 to ' + s.T + '. What is the probability it is a multiple of ' + s.d + '? (as a decimal)'; }],
+      e: [function (s) { return 'Multiples of ' + s.d + ' up to ' + s.T + ': ' + s.fav + '. P = ' + s.fav + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+
+    /* ── Set theory ── (inclusion–exclusion; the two liked-things ride the SET_CTX index pool, A/B/C are labels) */
+    'set-theory:easy:union': {
+      s: [function (s) { return 'In a group, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ', and ' + s.both + ' like both. How many like at least one of the two?'; }],
+      e: [function (s) { return '|A∪B| = |A| + |B| − |A∩B| = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + (s.a + s.b - s.both) + '.'; }]
+    },
+    'set-theory:medium:union': {
+      s: [function (s) { return 'In a group, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ', and ' + s.both + ' like both. How many like at least one of the two?'; }],
+      e: [function (s) { return '|A∪B| = |A| + |B| − |A∩B| = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + (s.a + s.b - s.both) + '.'; }]
+    },
+    'set-theory:easy:onlyA': {
+      s: [function (s) { return 'In a group, ' + s.a + ' people like ' + SET_CTX[s.ci][0] + ' and ' + s.both + ' of them also like ' + SET_CTX[s.ci][1] + '. How many like ONLY ' + SET_CTX[s.ci][0] + '?'; }],
+      e: [function (s) { return 'Only ' + SET_CTX[s.ci][0] + ' = |A| − |A∩B| = ' + s.a + ' − ' + s.both + ' = ' + (s.a - s.both) + '.'; }]
+    },
+    'set-theory:medium:neither': {
+      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.both + ' like both. How many like neither?'; }],
+      e: [function (s) { return 'Like at least one = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + s.union + '. Neither = ' + s.total + ' − ' + s.union + ' = ' + s.neither + '.'; }]
+    },
+    'set-theory:hard:neither': {
+      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.both + ' like both. How many like neither?'; }],
+      e: [function (s) { return 'Like at least one = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + s.union + '. Neither = ' + s.total + ' − ' + s.union + ' = ' + s.neither + '.'; }]
+    },
+    'set-theory:medium:both': {
+      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.neither + ' like neither. How many like both?'; }],
+      e: [function (s) { return 'Like at least one = ' + s.total + ' − ' + s.neither + ' = ' + s.union + '. Both = |A| + |B| − union = ' + s.a + ' + ' + s.b + ' − ' + s.union + ' = ' + s.both + '.'; }]
+    },
+    'set-theory:hard:both': {
+      s: [function (s) { return 'In a class of ' + s.total + ' students, ' + s.a + ' like ' + SET_CTX[s.ci][0] + ', ' + s.b + ' like ' + SET_CTX[s.ci][1] + ' and ' + s.neither + ' like neither. How many like both?'; }],
+      e: [function (s) { return 'Like at least one = ' + s.total + ' − ' + s.neither + ' = ' + s.union + '. Both = |A| + |B| − union = ' + s.a + ' + ' + s.b + ' − ' + s.union + ' = ' + s.both + '.'; }]
+    },
+    'set-theory:hard:threeUnion': {
+      s: [function (s) { return 'In a survey, ' + s.a + ' read A, ' + s.b + ' read B, ' + s.cc + ' read C; ' + s.ab + ' read A and B, ' + s.bc + ' read B and C, ' + s.ca + ' read A and C, and ' + s.abc + ' read all three. How many read at least one?'; }],
+      e: [function (s) { return '|A∪B∪C| = (' + s.a + '+' + s.b + '+' + s.cc + ') − (' + s.ab + '+' + s.bc + '+' + s.ca + ') + ' + s.abc + ' = ' + s.union + '.'; }]
+    },
+
+    /* ── Statistics basics ── (data lists ride slots as arrays; median/mode/range/mean recompute from slots) */
+    'statistics-basics:easy:median': {
+      s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
+    },
+    'statistics-basics:medium:median': {
+      s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
+    },
+    'statistics-basics:hard:median': {
+      s: [function (s) { return 'Find the median of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Sort: ' + s.sorted.join(', ') + '. With ' + s.k + ' values the median is the middle one = ' + s.med + '.'; }]
+    },
+    'statistics-basics:easy:range': {
+      s: [function (s) { return 'Find the range of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Range = largest − smallest = ' + s.mx + ' − ' + s.mn + ' = ' + (s.mx - s.mn) + '.'; }]
+    },
+    'statistics-basics:medium:range': {
+      s: [function (s) { return 'Find the range of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Range = largest − smallest = ' + s.mx + ' − ' + s.mn + ' = ' + (s.mx - s.mn) + '.'; }]
+    },
+    'statistics-basics:medium:mode': {
+      s: [function (s) { return 'Find the mode of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'The mode is the most frequent value. ' + s.m + ' appears 3 times — more than any other — so the mode is ' + s.m + '.'; }]
+    },
+    'statistics-basics:hard:mode': {
+      s: [function (s) { return 'Find the mode of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'The mode is the most frequent value. ' + s.m + ' appears 3 times — more than any other — so the mode is ' + s.m + '.'; }]
+    },
+    'statistics-basics:hard:mean': {
+      s: [function (s) { return 'Find the mean (average) of ' + s.a.join(', ') + '.'; }],
+      e: [function (s) { return 'Mean = sum ÷ count = ' + s.sum + ' ÷ ' + s.k + ' = ' + s.M + '.'; }]
     }
   } };
 
