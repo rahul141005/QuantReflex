@@ -196,7 +196,7 @@ function _resetPaymentGuards() {
   if (btn) {
     btn.disabled = false;
     btn.classList.remove('pw-cta--loading');
-    btn.textContent = 'Start Premium';
+    btn.textContent = QRI18n.t('paywall.startPremium');
   }
 }
 
@@ -210,7 +210,7 @@ function openPremiumPayment(planType, userId) {
   var attempt = ++_attemptId;
 
   var btn = document.querySelector('.pw-cta');
-  if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; btn.classList.add('pw-cta--loading'); }
+  if (btn) { btn.disabled = true; btn.textContent = QRI18n.t('paywall.processing'); btn.classList.add('pw-cta--loading'); }
 
   console.info('[PaymentFlow] PAYMENT_INITIATED | plan: ' + planType + ' | uid: ' + userId);
   _track('upgrade_initiated', _lastPaywallFeature, { plan: planType });   /* ADR-109 telemetry */
@@ -218,7 +218,7 @@ function openPremiumPayment(planType, userId) {
   if (_paymentSlowTimer) clearTimeout(_paymentSlowTimer);
   _paymentSlowTimer = setTimeout(function () {
     var b = document.querySelector('.pw-cta');
-    if (b && _paymentBusy) b.textContent = 'Still processing, please wait…';
+    if (b && _paymentBusy) b.textContent = QRI18n.t('paywall.stillProcessing');
   }, PAYMENT_SLOW_MS);
 
   if (_paymentSafetyTimer) clearTimeout(_paymentSafetyTimer);
@@ -228,12 +228,12 @@ function openPremiumPayment(planType, userId) {
     if (attempt !== _attemptId) return;
     if (loadErr || typeof Razorpay === 'undefined') {
       _resetPaymentGuards();
-      showToast('Payment service is unavailable right now.');
+      showToast(QRI18n.t('paywall.svcUnavailable'));
       return;
     }
     _getIdToken(function (idToken) {
       if (attempt !== _attemptId) return;
-      if (!idToken) { _resetPaymentGuards(); showToast('Please login to continue payment.'); return; }
+      if (!idToken) { _resetPaymentGuards(); showToast(QRI18n.t('paywall.loginToContinue')); return; }
 
       fetch('/api/payment?action=create-order', {
         method: 'POST',
@@ -245,7 +245,7 @@ function openPremiumPayment(planType, userId) {
           if (!resp.ok) {
             return resp.json().catch(function () { return {}; }).then(function (errData) {
               _resetPaymentGuards();
-              showToast((errData && errData.error && errData.error.message) || 'Could not create payment. Please try again.');
+              showToast((errData && errData.error && errData.error.message) || QRI18n.t('paywall.couldNotCreate'));
               return null;
             });
           }
@@ -253,7 +253,7 @@ function openPremiumPayment(planType, userId) {
         })
         .then(function (data) {
           if (attempt !== _attemptId || !data) return;
-          if (!data.orderId) { _resetPaymentGuards(); showToast('Could not create payment. Please try again.'); return; }
+          if (!data.orderId) { _resetPaymentGuards(); showToast(QRI18n.t('paywall.couldNotCreate')); return; }
 
           console.info('[PaymentFlow] ORDER_CREATED | plan: ' + planType + ' | orderId: ' + data.orderId);
           var planInfo = PLANS[planType] || PLANS[DEFAULT_PLAN];
@@ -264,7 +264,7 @@ function openPremiumPayment(planType, userId) {
             currency: 'INR',
             name: 'QuantReflex',
             description: 'Premium · ' + planInfo.label,
-            modal: { ondismiss: function () { _resetPaymentGuards(); showToast('Payment cancelled. You can upgrade anytime.'); } },
+            modal: { ondismiss: function () { _resetPaymentGuards(); showToast(QRI18n.t('paywall.cancelled')); } },
             handler: function (response) {
               if (attempt !== _attemptId) return;
               var paymentId = response.razorpay_payment_id;
@@ -272,7 +272,7 @@ function openPremiumPayment(planType, userId) {
               var signature = response.razorpay_signature;
               if (!paymentId || !rzpOrderId || !signature) {
                 _resetPaymentGuards();
-                showToast('Payment verification failed. Please retry.');
+                showToast(QRI18n.t('paywall.verificationFailed'));
                 return;
               }
               console.info('[PaymentFlow] PAYMENT_SUCCESS | paymentId: ' + paymentId + ' | orderId: ' + rzpOrderId);
@@ -290,7 +290,7 @@ function openPremiumPayment(planType, userId) {
                   .then(function (result) {
                     _resetPaymentGuards();
                     if (!result || !result.success) {
-                      showToast((result && result._serverError) || 'Payment activation failed. Please contact support.');
+                      showToast((result && result._serverError) || QRI18n.t('paywall.activationFailed'));
                       return;
                     }
                     console.info('[PaymentFlow] PAYMENT_VERIFIED | plan: ' + result.plan);
@@ -304,7 +304,7 @@ function openPremiumPayment(planType, userId) {
                     if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.activatePremium === 'function') {
                       FirestoreSync.activatePremium(result.plan, result.expiry, paymentId, function () {
                         console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
-                        showToast('Premium unlocked 🎉');
+                        showToast(QRI18n.t('paywall.unlocked'));
                         _closePaywallModal();
                         /* Seamless in-session resume (ADR-107, Phase 5A): if a drill paused at the free daily cap
                            registered a one-shot resume hook, run it INSTEAD of the default view re-render — the
@@ -319,11 +319,11 @@ function openPremiumPayment(planType, userId) {
                         if (currentView && typeof Router !== 'undefined' && Router.showView) Router.showView(currentView);
                       });
                     } else {
-                      showToast('Premium unlocked! Refresh to see your benefits.');
+                      showToast(QRI18n.t('paywall.unlockedRefresh'));
                       _closePaywallModal();
                     }
                   })
-                  .catch(function () { _resetPaymentGuards(); showToast('Payment activation failed. Please contact support.'); });
+                  .catch(function () { _resetPaymentGuards(); showToast(QRI18n.t('paywall.activationFailed')); });
               });
             }
           };
@@ -333,19 +333,19 @@ function openPremiumPayment(planType, userId) {
             rzp.on('payment.failed', function (resp) {
               _resetPaymentGuards();
               console.error('[PaymentFlow] PAYMENT_FAILED | Razorpay error:', resp.error);
-              showToast('Payment failed. Please try again.');
+              showToast(QRI18n.t('paywall.failed'));
             });
             console.info('[PaymentFlow] RAZORPAY_OPENED');
             rzp.open();
           } catch (_) {
             _resetPaymentGuards();
-            showToast('Could not open payment. Check your network and retry.');
+            showToast(QRI18n.t('paywall.couldNotOpen'));
           }
         })
         .catch(function () {
           if (attempt !== _attemptId) return;
           _resetPaymentGuards();
-          showToast('Could not connect to payment service. Check your network.');
+          showToast(QRI18n.t('paywall.couldNotConnect'));
         });
     });
   });
@@ -370,55 +370,33 @@ function _closePaywallModal() {
 }
 
 function _contextAccent(featureType) {
-  var map = {
-    custom_training: '🎯 Custom practice sessions are a Premium feature.',
-    review_mistakes: '📋 Reviewing your mistakes is a Premium feature.',
-    add_formula: '📝 Saving your own formulas is a Premium feature.',
-    add_topic: '📂 Creating custom topics is a Premium feature.',
-    performance_insights: '📊 Deep performance insights are a Premium feature.',
-    category_accuracy: '🎯 Category accuracy tracking is a Premium feature.',
-    adaptive_training: '🤖 Adaptive Training adjusts difficulty in real time. Premium only.',
-    timed_mocks: '📝 Full-length timed mocks of your target exam are a Premium feature.',
-    focus_timer: '⏱ Focus Timer is a Premium feature.',
-    table_modal: '📋 Full-screen table view is a Premium feature.',
-    hard_mode: '🔥 Hard mode is a Premium feature.',
-    skip_question: '⏭ Skip question is a Premium feature.',
-    advanced_theme: '🎨 The Playful Professional theme is a Premium feature.',
-    daily_goal_limit: '📈 Higher daily goals are a Premium feature.',
-    ai_explain: '🧠 Unlimited QuanAI explanations are a Premium feature.',
-    ai_coach: '🤖 QuanAI Coach is a Premium feature.',
-    ai_study_plan: '📅 The QuanAI Study Planner is a Premium feature.',
-    math_duel: '⚔️ Math Duel — real-time challenges — is a Premium feature.',
-    /* Phase 5 (ADR-107): quota- and generic-entry contexts that previously fell through to the bare hero. */
-    daily_limit: '🎯 You’ve used today’s free questions. Premium is unlimited daily practice.',
-    diset_limit: '📊 You’ve done today’s free Data Interpretation set. Premium unlocks unlimited sets.',
-    lrset_limit: '🧩 You’ve done today’s free Reasoning set. Premium unlocks unlimited sets.',
-    stats: '📊 Deep performance insights are a Premium feature.',
-    settings: '✨ This is a Premium feature.',
-    premium_required: '✨ This is a Premium feature.',
-    upgrade: '🚀 Unlock everything with Premium.'
-  };
-  return map[featureType] || '';
+  /* ADR-111: accent copy lives in the locale catalogs (paywall.ctx_<feature>); an unknown feature
+     resolves to its own key and falls back to the bare hero, exactly as the old map did. */
+  if (!featureType) return '';
+  var key = 'paywall.ctx_' + featureType;
+  var v = QRI18n.t(key);
+  return v === key ? '' : v;
 }
 
 /* One benefits presentation (the old value-chips section duplicated this table and pushed the price
    below the fold — removed). Rows are the real gated features only; no "Priority Features" filler. */
 var _COMPARE_ROWS = [
-  ['Daily practice questions', '20 / day', 'Unlimited'],
-  ['AI explanations', '5 free to try', 'Unlimited'],
-  ['AI Coach & Study Planner', '—', '✓'],
-  ['Math Duel', '—', '✓'],
-  ['Timed Mocks', '—', '✓'],
-  ['Mistake Review', '—', '✓'],
-  ['Advanced Practice Modes', '—', '✓'],
-  ['Analytics & Insights', 'Basic', 'Advanced']
+  /* ADR-111: catalog keys, resolved through t() at render time. */
+  ['paywall.cmpDailyFeat', 'paywall.cmpDailyFree', 'paywall.cmpUnlimited'],
+  ['paywall.cmpAiExplFeat', 'paywall.cmpAiExplFree', 'paywall.cmpUnlimited'],
+  ['paywall.cmpCoachFeat', 'paywall.cmpNone', 'paywall.cmpYes'],
+  ['paywall.cmpDuelFeat', 'paywall.cmpNone', 'paywall.cmpYes'],
+  ['paywall.cmpMocksFeat', 'paywall.cmpNone', 'paywall.cmpYes'],
+  ['paywall.cmpReviewFeat', 'paywall.cmpNone', 'paywall.cmpYes'],
+  ['paywall.cmpModesFeat', 'paywall.cmpNone', 'paywall.cmpYes'],
+  ['paywall.cmpAnalyticsFeat', 'paywall.cmpBasic', 'paywall.cmpAdvanced']
 ];
 
 /* [icon-name, emoji, text] triples rendered through qrIco() so both themes share one markup. */
 var _TRUST = [
-  ['lock', '🔒', 'Secure Payments'],
-  ['rotate', '↩️', '7-Day Refund'],
-  ['zap', '⚡', 'Instant Activation']
+  ['lock', '🔒', 'paywall.trustSecure'],
+  ['rotate', '↩️', 'paywall.trustRefund'],
+  ['zap', '⚡', 'paywall.trustInstant']
 ];
 
 function _esc(s) {
@@ -432,14 +410,14 @@ function _buildPlansHTML(selected) {
   ['premium_6m', 'premium_12m'].forEach(function (key) {
     var p = PLANS[key];
     var active = key === selected ? ' pw-plan--active' : '';
-    var best = key === 'premium_12m' ? '<span class="pw-plan-badge">BEST VALUE</span>' : '';
-    var save = key === 'premium_12m' ? '<div class="pw-plan-save">Save 28% vs 6 months</div>' : '<div class="pw-plan-save">&nbsp;</div>';
+    var best = key === 'premium_12m' ? '<span class="pw-plan-badge">' + QRI18n.t('paywall.bestValue') + '</span>' : '';
+    var save = key === 'premium_12m' ? '<div class="pw-plan-save">' + QRI18n.t('paywall.save28') + '</div>' : '<div class="pw-plan-save">&nbsp;</div>';
     html +=
       '<button type="button" class="pw-plan' + active + '" data-plan="' + key + '" aria-pressed="' + (key === selected) + '">' +
         best +
-        '<div class="pw-plan-label">' + p.label + '</div>' +
+        '<div class="pw-plan-label">' + QRI18n.t(key === 'premium_12m' ? 'settings.plan12m' : 'settings.plan6m') + '</div>' +
         '<div class="pw-plan-price">₹' + p.price + '</div>' +
-        '<div class="pw-plan-per">≈ ₹' + p.perMonth + '/month</div>' +
+        '<div class="pw-plan-per">' + QRI18n.t('paywall.perMonth', { amount: p.perMonth }) + '</div>' +
         save +
       '</button>';
   });
@@ -471,14 +449,14 @@ function showPaywall(featureType) {
   var selected = DEFAULT_PLAN;
 
   var compareRows = _COMPARE_ROWS.map(function (r) {
-    return '<tr><td class="pw-compare-feat">' + _esc(r[0]) + '</td>' +
-           '<td class="pw-compare-free">' + _esc(r[1]) + '</td>' +
-           '<td class="pw-compare-prem">' + _esc(r[2]) + '</td></tr>';
+    return '<tr><td class="pw-compare-feat">' + _esc(QRI18n.t(r[0])) + '</td>' +
+           '<td class="pw-compare-free">' + _esc(QRI18n.t(r[1])) + '</td>' +
+           '<td class="pw-compare-prem">' + _esc(QRI18n.t(r[2])) + '</td></tr>';
   }).join('');
 
   var trust = _TRUST.map(function (t) {
     var icon = (typeof qrIco === 'function') ? qrIco(t[0], t[1]) : t[1];
-    return '<span class="pw-trust-item">' + icon + ' ' + _esc(t[2]) + '</span>';
+    return '<span class="pw-trust-item">' + icon + ' ' + _esc(QRI18n.t(t[2])) + '</span>';
   }).join('');
 
   var overlay = document.createElement('div');
@@ -486,27 +464,27 @@ function showPaywall(featureType) {
   overlay.className = 'paywall-overlay';
   overlay.innerHTML =
     '<div class="paywall-card pw-card">' +
-      '<button class="paywall-close pw-close" type="button" aria-label="Close">×</button>' +
+      '<button class="paywall-close pw-close" type="button" aria-label="' + QRI18n.t('paywall.closeAria') + '">×</button>' +
 
       /* Price-first structure: hero → why-you're-here → plans + CTA on the first screen, the
          comparison table as supporting detail below. The old chips section (a duplicate of the
          table) pushed the price two screens down — a paywall that hides its price reads as one. */
       '<div class="pw-hero">' +
         '<div class="pw-hero-icon">🧠</div>' +
-        '<h2 class="pw-hero-title">Unlock Your Full Potential</h2>' +
-        '<p class="pw-hero-sub">Train Faster. Solve Faster. Score Higher.</p>' +
+        '<h2 class="pw-hero-title">' + QRI18n.t('paywall.heroTitle') + '</h2>' +
+        '<p class="pw-hero-sub">' + QRI18n.t('paywall.heroSub') + '</p>' +
       '</div>' +
 
       (accent ? '<p class="pw-context">' + _esc(accent) + '</p>' : '') +
 
-      '<div class="pw-plans" role="group" aria-label="Choose a plan">' + _buildPlansHTML(selected) + '</div>' +
+      '<div class="pw-plans" role="group" aria-label="' + QRI18n.t('paywall.choosePlanAria') + '">' + _buildPlansHTML(selected) + '</div>' +
 
-      '<button class="pw-cta" type="button">Start Premium</button>' +
-      '<p class="pw-cta-note">One-time payment · No auto-renewal · 7-day refund</p>' +
+      '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
+      '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>' +
 
       '<div class="pw-compare-wrap">' +
         '<table class="pw-compare">' +
-          '<thead><tr><th class="pw-compare-feat">Feature</th><th class="pw-compare-free">Free</th><th class="pw-compare-prem">Premium</th></tr></thead>' +
+          '<thead><tr><th class="pw-compare-feat">' + QRI18n.t('paywall.thFeature') + '</th><th class="pw-compare-free">' + QRI18n.t('paywall.thFree') + '</th><th class="pw-compare-prem">' + QRI18n.t('paywall.thPremium') + '</th></tr></thead>' +
           '<tbody>' + compareRows + '</tbody>' +
         '</table>' +
       '</div>' +
@@ -514,9 +492,9 @@ function showPaywall(featureType) {
       '<div class="pw-trust">' + trust + '</div>' +
 
       '<div class="pw-footer">' +
-        '<a class="pw-footer-link" href="#terms" data-view="terms">Terms</a>' +
+        '<a class="pw-footer-link" href="#terms" data-view="terms">' + QRI18n.t('paywall.terms') + '</a>' +
         '<span class="pw-footer-dot">·</span>' +
-        '<a class="pw-footer-link" href="#privacy" data-view="privacy">Privacy</a>' +
+        '<a class="pw-footer-link" href="#privacy" data-view="privacy">' + QRI18n.t('paywall.privacy') + '</a>' +
         '<span class="pw-footer-dot">·</span>' +
         '<a class="pw-footer-link" href="mailto:quantreflex@gmail.com">quantreflex@gmail.com</a>' +
       '</div>' +
@@ -552,7 +530,7 @@ function showPaywall(featureType) {
       var _now = Date.now();
       if (_now - _paywallGuestPromptAt < 1000) return;
       _paywallGuestPromptAt = _now;
-      showToast('Please login to continue payment.');
+      showToast(QRI18n.t('paywall.loginToContinue'));
       return;
     }
     openPremiumPayment(selected, userId);
