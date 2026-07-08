@@ -70,15 +70,15 @@ function _fmtClock(sec) {
 function _fmtAgo(ts) {
   if (!ts) return '—';
   var d = Math.floor((Date.now() - ts) / 86400000);
-  if (d <= 0) return 'today';
-  if (d === 1) return 'yesterday';
-  if (d < 7) return d + 'd ago';
-  if (d < 30) return Math.floor(d / 7) + 'w ago';
-  return Math.floor(d / 30) + 'mo ago';
+  if (d <= 0) return QRI18n.t('stats.agoToday');
+  if (d === 1) return QRI18n.t('stats.agoYesterday');
+  if (d < 7) return QRI18n.t('stats.agoDays', { count: d });
+  if (d < 30) return QRI18n.t('stats.agoWeeks', { count: Math.floor(d / 7) });
+  return QRI18n.t('stats.agoMonths', { count: Math.floor(d / 30) });
 }
 /* the shared accuracy→bar/strength language (same cuts as the category bars, so everything reads identically) */
 function _barClass(pct) { return pct >= 85 ? 'cat-bar-high' : pct >= 65 ? 'cat-bar-mid' : pct >= 40 ? 'cat-bar-low' : 'cat-bar-weak'; }
-function _strength(pct) { return pct >= 85 ? ['strong', 'Strong'] : pct >= 65 ? ['moderate', 'Moderate'] : ['weak', 'Weak']; }
+function _strength(pct) { return pct >= 85 ? ['strong', QRI18n.t('stats.strengthStrong')] : pct >= 65 ? ['moderate', QRI18n.t('stats.strengthModerate')] : ['weak', QRI18n.t('stats.strengthWeak')]; }
 /* vcls: 'value-sm' keeps the wrap-friendly small treatment (momentum trend words like "Building"); '' uses the big
    prominent .value (Today's headline numbers — these must read as the hero metric, not shrink to 13px). */
 function _statCard(value, label, mod, hint, vcls) {
@@ -97,10 +97,10 @@ function _renderToday(p, SM, SUB, subjectCats) {
   var study = ti ? _fmtClock(ti.todaySec) : '—';
   el.className = 'stat-grid stat-grid-2';
   el.innerHTML =
-    _statCard((t.attempted || 0), 'Solved today', '', '', '') +
-    _statCard(accDisp, 'Accuracy', t.accuracy != null ? (t.accuracy >= 0.7 ? ' stat-card-positive' : '') : '', '', '') +
-    _statCard(spd, 'Avg time / question', '', '', '') +
-    _statCard(study, 'Study time', '', '', '');
+    _statCard((t.attempted || 0), QRI18n.t('stats.solvedToday'), '', '', '') +
+    _statCard(accDisp, QRI18n.t('stats.accuracyLabel'), t.accuracy != null ? (t.accuracy >= 0.7 ? ' stat-card-positive' : '') : '', '', '') +
+    _statCard(spd, QRI18n.t('stats.avgTimePerQ'), '', '', '') +
+    _statCard(study, QRI18n.t('stats.studyTime'), '', '', '');
 
   /* today's subject split (from the day-reset todayCats tally) */
   var split = _statsEl('statsTodaySplit'); if (!split) return;
@@ -118,7 +118,7 @@ function _renderToday(p, SM, SUB, subjectCats) {
       }
     });
   }
-  split.innerHTML = rows ? '<div class="stats-split"><div class="stats-block-cap">Today\'s subject split</div>' + rows + '</div>' : '';
+  split.innerHTML = rows ? '<div class="stats-split"><div class="stats-block-cap">' + QRI18n.t('stats.todaysSplit') + '</div>' + rows + '</div>' : '';
 }
 
 /* ───────────────────────── MOMENTUM ───────────────────────── */
@@ -129,21 +129,21 @@ function _renderMomentum(p, SM) {
   var sp = SM ? SM.speed(p) : { direction: null };
   var cons = SM ? SM.consistency(p) : { activeDaysLast14: 0, streakHealth: 'fragile' };
 
-  var accTxt = aw.direction === 'improving' ? '📈 Up' : aw.direction === 'declining' ? '📉 Down' : aw.direction === 'flat' ? '➡️ Steady' : '—';
+  var accTxt = aw.direction === 'improving' ? QRI18n.t('stats.trendUp') : aw.direction === 'declining' ? QRI18n.t('stats.trendDown') : aw.direction === 'flat' ? QRI18n.t('stats.trendSteady') : '—';
   var accMod = aw.direction === 'improving' ? ' stat-card-positive' : aw.direction === 'declining' ? ' stat-card-negative' : '';
-  var spdTxt = sp.direction === 'faster' ? '⚡ Faster' : sp.direction === 'slower' ? '🐢 Slower' : sp.direction === 'flat' ? '➡️ Steady' : '—';
+  var spdTxt = sp.direction === 'faster' ? QRI18n.t('stats.trendFaster') : sp.direction === 'slower' ? QRI18n.t('stats.trendSlower') : sp.direction === 'flat' ? QRI18n.t('stats.trendSteady') : '—';
   var spdMod = sp.direction === 'faster' ? ' stat-card-positive' : sp.direction === 'slower' ? ' stat-card-negative' : '';
-  var consTxt = cons.streakHealth === 'strong' ? 'Strong' : cons.streakHealth === 'broken' ? 'Broken' : 'Building';
+  var consTxt = cons.streakHealth === 'strong' ? QRI18n.t('stats.strengthStrong') : cons.streakHealth === 'broken' ? QRI18n.t('stats.consBroken') : QRI18n.t('stats.consBuilding');
   var consMod = cons.streakHealth === 'strong' ? ' stat-card-positive' : cons.streakHealth === 'broken' ? ' stat-card-negative' : '';
 
   el.className = 'stat-grid stat-grid-3';
   el.innerHTML =
-    _statCard(accTxt, 'Accuracy trend', accMod) +
-    _statCard(spdTxt, 'Speed trend', spdMod) +
-    _statCard(consTxt, 'Consistency', consMod, cons.activeDaysLast14 + '/14 days') +
-    _statCard((p.dailyStreak || 0) + ' 🔥', 'Current streak') +
-    _statCard((p.bestDailyStreak || p.bestStreak || 0), 'Best streak') +
-    _statCard((p.bestStreak || 0), 'Best run', '', 'in a row correct');
+    _statCard(accTxt, QRI18n.t('stats.accuracyTrend'), accMod) +
+    _statCard(spdTxt, QRI18n.t('stats.speedTrend'), spdMod) +
+    _statCard(consTxt, QRI18n.t('stats.consistency'), consMod, QRI18n.t('stats.days14', { count: cons.activeDaysLast14 })) +
+    _statCard((p.dailyStreak || 0) + ' 🔥', QRI18n.t('stats.currentStreak')) +
+    _statCard((p.bestDailyStreak || p.bestStreak || 0), QRI18n.t('stats.bestStreak')) +
+    _statCard((p.bestStreak || 0), QRI18n.t('stats.bestRun'), '', QRI18n.t('stats.inARowCorrect'));
 }
 
 function _renderSparkline(p, SM) {
@@ -152,10 +152,10 @@ function _renderSparkline(p, SM) {
   var _allDates = Object.keys(history).sort(function (a, b) { return new Date(a).getTime() - new Date(b).getTime(); });
   var _last7 = _allDates.slice(-7);
   if (_last7.length < 2) {
-    sparklineEl.innerHTML = '<div class="qr-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><h2>Building your trend</h2><p>Practice on 2+ days to see your accuracy momentum.</p></div>';
+    sparklineEl.innerHTML = '<div class="qr-empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><h2>' + QRI18n.t('stats.buildingTrend') + '</h2><p>' + QRI18n.t('stats.buildingTrendSub') + '</p></div>';
     return;
   }
-  var _DAY_ABBREV = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  var _DAY_ABBREV = QRI18n.t('stats.dayAbbrevs').split(',');
   var _barW = 28, _barGap = 12, _chartH = 72, _labelH = 20, _topPad = 18;
   var _svgW = _last7.length * (_barW + _barGap) - _barGap + 16;
   var _svgH = _topPad + _chartH + _labelH + 4;
@@ -183,10 +183,10 @@ function _renderSparkline(p, SM) {
   }
   var _baseline = '<line x1="8" y1="' + (_topPad + _chartH) + '" x2="' + (_svgW - 8) + '" y2="' + (_topPad + _chartH) + '" stroke="currentColor" opacity="0.1" stroke-width="1" stroke-dasharray="4 3"/>';
   var _dir = SM ? SM.accuracyWindows(p).direction : null;
-  var _trendLabel = _dir === 'improving' ? '📈 Improving' : _dir === 'declining' ? '📉 Declining' : _dir === 'flat' ? '➡️ Steady' : '';
+  var _trendLabel = _dir === 'improving' ? QRI18n.t('stats.trendImproving') : _dir === 'declining' ? QRI18n.t('stats.trendDeclining') : _dir === 'flat' ? QRI18n.t('stats.trendSteady') : '';
   var _trendPillClass = _dir === 'improving' ? ' sparkline-trend-positive' : _dir === 'declining' ? ' sparkline-trend-negative' : ' sparkline-trend-steady';
-  sparklineEl.innerHTML = '<div class="stats-block-cap">Accuracy · last 7 days</div><div class="sparkline-chart-wrap">' +
-    '<svg class="stats-sparkline" role="img" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" preserveAspectRatio="xMidYMid meet" aria-label="7-day accuracy chart">' +
+  sparklineEl.innerHTML = '<div class="stats-block-cap">' + QRI18n.t('stats.accuracyLast7') + '</div><div class="sparkline-chart-wrap">' +
+    '<svg class="stats-sparkline" role="img" viewBox="0 0 ' + _svgW + ' ' + _svgH + '" preserveAspectRatio="xMidYMid meet" aria-label="' + QRI18n.t('stats.chartAria') + '">' +
     _defs + _baseline + _bars + '</svg></div>' +
     (_trendLabel ? '<div class="sparkline-trend-label' + _trendPillClass + '">' + _trendLabel + '</div>' : '');
 }
@@ -196,8 +196,8 @@ function _renderMasteryLocked() {
   var el = _statsEl('statsMastery'); if (!el) return;
   el.innerHTML = '<button class="stats-insights-locked" id="unlockInsightsBtn" type="button">' +
     '<div class="stats-insights-locked-content">' +
-    '<p class="stats-insights-locked-title">Subject mastery & QuanAI insights are Premium 🔒</p>' +
-    '<p class="stats-insights-locked-cta">Upgrade to see where you stand and what to study next</p>' +
+    '<p class="stats-insights-locked-title">' + QRI18n.t('stats.masteryLockedTitle') + '</p>' +
+    '<p class="stats-insights-locked-cta">' + QRI18n.t('stats.masteryLockedCta') + '</p>' +
     '</div></button>';
   var b = _statsEl('unlockInsightsBtn'); if (b) b.addEventListener('click', function () { showPaywall('stats'); });
 }
@@ -208,10 +208,10 @@ function _renderMastery(p, SM, SUB, subjectCats) {
   var detail = SM.masteryDetail(p, subjectCats);
   var sids = SUB.subjects().map(function (s) { return s.id; }).filter(function (id) { return detail[id]; });
   if (!sids.length) {
-    el.innerHTML = '<p class="secondary-text">Practise a few questions in each subject to see your mastery.</p>';
+    el.innerHTML = '<p class="secondary-text">' + QRI18n.t('stats.masteryEmpty') + '</p>';
     return;
   }
-  var conf = { high: 'Solid read', medium: 'Some data', low: 'Early' };
+  var conf = { high: QRI18n.t('stats.confHigh'), medium: QRI18n.t('stats.confMedium'), low: QRI18n.t('stats.confLow') };
   var rows = sids.map(function (id) {
     var d = detail[id], pct = d.pct, sc = _strength(pct);
     var weak = (d.weakAreas || []).map(_statCatLabel).slice(0, 2).join(', ');
@@ -221,12 +221,12 @@ function _renderMastery(p, SM, SUB, subjectCats) {
       '<div class="cat-bar-container"><div class="cat-bar ' + _barClass(pct) + '" style="width:' + pct + '%"></div></div>' +
       '<div class="stats-mastery-meta">' +
       '<span class="category-strength-label strength-' + sc[0] + '">' + sc[1] + '</span>' +
-      '<span class="stats-mastery-sub">' + (conf[d.confidence] || '') + ' · last ' + _fmtAgo(d.lastTs) + '</span>' +
+      '<span class="stats-mastery-sub">' + (conf[d.confidence] || '') + ' · ' + QRI18n.t('stats.lastAgo', { ago: _fmtAgo(d.lastTs) }) + '</span>' +
       '</div>' +
-      (weak ? '<div class="stats-mastery-weak">Weak: ' + weak + '</div>' : '') +
+      (weak ? '<div class="stats-mastery-weak">' + QRI18n.t('stats.weakPrefix', { list: weak }) + '</div>' : '') +
       '</div>';
   }).join('');
-  el.innerHTML = '<div class="stats-block-cap">Your mastery across Quant, DI and Reasoning</div>' + rows;
+  el.innerHTML = '<div class="stats-block-cap">' + QRI18n.t('stats.masteryCap') + '</div>' + rows;
 }
 
 /* ───────────────────────── TIME INVESTED ───────────────────────── */
@@ -234,11 +234,11 @@ function _renderTimeInvested(p, SM, SUB, subjectCats) {
   var el = _statsEl('statsTime'); if (!el) return;
   if (!SM) { el.innerHTML = ''; return; }
   var ti = SM.timeInvested(p, subjectCats);
-  if (!ti.totalSec) { el.innerHTML = '<p class="secondary-text">Your study time will add up here as you practise.</p>'; return; }
+  if (!ti.totalSec) { el.innerHTML = '<p class="secondary-text">' + QRI18n.t('stats.timeEmpty') + '</p>'; return; }
   var cards = '<div class="stat-grid stat-grid-3">' +
-    _statCard(_fmtClock(ti.todaySec), 'Today') +
-    _statCard(_fmtClock(ti.weekSec), 'This week') +
-    _statCard(_fmtClock(ti.monthSec), 'This month') + '</div>';
+    _statCard(_fmtClock(ti.todaySec), QRI18n.t('stats.today')) +
+    _statCard(_fmtClock(ti.weekSec), QRI18n.t('stats.thisWeek')) +
+    _statCard(_fmtClock(ti.monthSec), QRI18n.t('stats.thisMonth')) + '</div>';
   var split = '';
   if (SUB && ti.bySubject && Object.keys(ti.bySubject).length) {
     var total = 0; Object.keys(ti.bySubject).forEach(function (s) { total += ti.bySubject[s] || 0; });
@@ -248,7 +248,7 @@ function _renderTimeInvested(p, SM, SUB, subjectCats) {
         '<div class="stats-split-bar"><div class="stats-split-fill" style="width:' + pct + '%"></div></div>' +
         '<span class="stats-split-val">' + _fmtClock(sec) + '</span></div>';
     }).join('');
-    if (rows) split = '<div class="stats-split"><div class="stats-block-cap">Where your time goes</div>' + rows + '</div>';
+    if (rows) split = '<div class="stats-split"><div class="stats-block-cap">' + QRI18n.t('stats.whereTimeGoes') + '</div>' + rows + '</div>';
   }
   el.innerHTML = cards + split;
 }
@@ -257,16 +257,16 @@ function _renderTimeInvested(p, SM, SUB, subjectCats) {
 function _renderWeakest(p, SM) {
   var el = _statsEl('statsWeakest'); if (!el) return;
   var wt = SM ? SM.weakestTopics(p, 5) : [];
-  if (!wt.length) { el.innerHTML = '<p class="secondary-text">No weak spots yet — keep going and we\'ll flag what needs work.</p>'; return; }
+  if (!wt.length) { el.innerHTML = '<p class="secondary-text">' + QRI18n.t('stats.noWeakSpots') + '</p>'; return; }
   var rows = wt.map(function (m) {
     var pct = Math.round(m.acc * 100), sc = _strength(pct);
     return '<button class="stats-weak-row" type="button" data-cat="' + m.cat + '">' +
       '<span class="stats-weak-name">' + _statCatLabel(m.cat) + '</span>' +
       '<div class="cat-bar-container"><div class="cat-bar ' + _barClass(pct) + '" style="width:' + pct + '%"></div></div>' +
       '<span class="category-strength-label strength-' + sc[0] + '">' + pct + '%</span>' +
-      '<span class="stats-weak-go">Practise →</span></button>';
+      '<span class="stats-weak-go">' + QRI18n.t('stats.practiseGo') + '</span></button>';
   }).join('');
-  el.innerHTML = '<div class="stats-block-cap">Ranked weakest-first — the fastest way to lift your score</div>' + rows;
+  el.innerHTML = '<div class="stats-block-cap">' + QRI18n.t('stats.rankedWeakest') + '</div>' + rows;
   el.querySelectorAll('.stats-weak-row').forEach(function (b) {
     b.addEventListener('click', function () {
       var cat = b.getAttribute('data-cat');
@@ -281,17 +281,17 @@ function _renderRecommendation(p, SM, ER, weightedCats) {
   var el = _statsEl('statsRecommendation'); if (!el) return;
   var track = ER ? ER.trackForExam(_statsTargetExam()) : null;
   var rec = (SM && weightedCats.length) ? SM.nextRecommendation(p, weightedCats, track) : null;
-  if (!rec) { el.innerHTML = '<p class="secondary-text">QuanAI will suggest your single best next move as it learns your pattern.</p>'; return; }
+  if (!rec) { el.innerHTML = '<p class="secondary-text">' + QRI18n.t('stats.recEmpty') + '</p>'; return; }
   var revise = _statCatLabel(rec.reviseCat);
   var sentence = rec.practised
-    ? 'Revise <strong>' + revise + '</strong> — your accuracy there (' + Math.round((rec.acc || 0) * 100) + '%) is holding back your score'
-    : 'Start <strong>' + revise + '</strong> — it\'s high-value for your prep and you haven\'t built it yet';
-  if (rec.thenCat) sentence += ', before pushing further on ' + _statCatLabel(rec.thenCat);
-  sentence += '.';
+    ? QRI18n.t('stats.recRevise', { topic: revise, pct: Math.round((rec.acc || 0) * 100) })
+    : QRI18n.t('stats.recStart', { topic: revise });
+  if (rec.thenCat) sentence += QRI18n.t('stats.recThen', { topic: _statCatLabel(rec.thenCat) });
+  sentence += QRI18n.t('stats.fullStop');
   el.innerHTML = '<div class="stats-rec-card">' +
     '<div class="stats-rec-head"><span class="stats-rec-ico">🤖</span><span class="stats-rec-by">QuanAI</span></div>' +
     '<p class="stats-rec-text">' + sentence + '</p>' +
-    '<button class="btn-primary stats-rec-btn" type="button" data-cat="' + rec.reviseCat + '">Practise ' + revise + '</button></div>';
+    '<button class="btn-primary stats-rec-btn" type="button" data-cat="' + rec.reviseCat + '">' + QRI18n.t('stats.practiseTopic', { topic: revise }) + '</button></div>';
   var btn = el.querySelector('.stats-rec-btn');
   if (btn) btn.addEventListener('click', function () {
     var cat = btn.getAttribute('data-cat');
@@ -304,11 +304,11 @@ function _renderRecommendation(p, SM, ER, weightedCats) {
 function _renderAiDeepDive(p) {
   var c = _statsEl('aiInsightsContainer'); if (!c || typeof AIFeatures === 'undefined') return;
   if (!AIFeatures.isPremium()) {
-    c.innerHTML = '<p class="secondary-text stats-premium-note">🔒 A full QuanAI breakdown of your performance is a Premium feature.</p>' +
-      '<button class="btn-primary ai-coach-unlock-btn stats-premium-cta" type="button">Unlock with Premium</button>';
+    c.innerHTML = '<p class="secondary-text stats-premium-note">' + QRI18n.t('stats.deepLocked') + '</p>' +
+      '<button class="btn-primary ai-coach-unlock-btn stats-premium-cta" type="button">' + QRI18n.t('stats.unlockWithPremium') + '</button>';
     var u = c.querySelector('.ai-coach-unlock-btn'); if (u) u.addEventListener('click', function () { showPaywall('ai_coach'); });
   } else {
-    c.innerHTML = '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding:1rem 2rem;border-radius:12px;font-size:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);">🧠 Full QuanAI breakdown</button>';
+    c.innerHTML = '<button class="home-bento-action-btn ai-insights-btn" type="button" style="padding:1rem 2rem;border-radius:12px;font-size:1rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);">' + QRI18n.t('stats.fullBreakdown') + '</button>';
     var b = c.querySelector('.ai-insights-btn');
     if (b) b.addEventListener('click', function () { AIFeatures.showStatsInsightsModal(p); });
   }

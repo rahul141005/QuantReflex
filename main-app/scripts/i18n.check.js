@@ -102,7 +102,7 @@ function tokensOf(v) {
     flatKeys(catalogs[l]).forEach(function (key) {
       var v = get(catalogs[l], key);
       var s = typeof v === 'object' ? Object.keys(v).map(function (c) { return v[c]; }).join(' ') : String(v);
-      s = s.replace(/\{\w+\}/g, ' ');
+      s = s.replace(/\{\w+\}/g, ' ').replace(/<[^>]+>/g, ' '); /* placeholders + inline HTML markup are language-neutral */
       LATIN_ALLOWLIST.forEach(function (t) { s = s.split(t).join(' '); });
       ok('3 no untranslated English in ' + l + ':' + key, !/[A-Za-z]{3,}/.test(s));
     });
