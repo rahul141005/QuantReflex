@@ -75,6 +75,17 @@ var QRGen = (typeof module !== 'undefined' && module.exports && typeof require !
   : (typeof window !== 'undefined' && window.QRGen ? window.QRGen
     : (typeof globalThis !== 'undefined' && globalThis.QRGen ? globalThis.QRGen : null));
 
+/* ADR-111 Phase F: the render registry + eager EN generator pack. In the browser both are loaded as <script>
+   tags BEFORE questions.js (index.html), so window.QRGenI18n already carries the EN quant templates. In Node
+   (checks / duel path) we require the registry and the EN pack so a refactored (slots-based) build() can render.
+   _wrapArch resolves via the registry at render time, so an unrefactored category is completely unaffected. */
+var QRGenI18n = (typeof module !== 'undefined' && module.exports && typeof require !== 'undefined')
+  ? require('./gen-i18n.js')
+  : (typeof window !== 'undefined' ? window.QRGenI18n : (typeof globalThis !== 'undefined' ? globalThis.QRGenI18n : null));
+if (typeof module !== 'undefined' && module.exports && typeof require !== 'undefined') {
+  try { require('../locales/gen/en.quant.js'); } catch (_) { /* pack optional until F-M2 populates it */ }
+}
+
 function _round2(x) { return Math.round(x * 100) / 100; }
 /* Ordinal suffix (1st, 2nd, 3rd, 4th … 11th, 12th, 13th). Keeps the number's digits intact for the recompute harness. */
 function _ord(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
@@ -101,12 +112,20 @@ function _genArch(category, arch, primary) {
 }
 
 function _wrapArch(category, diff, qa) {
+  var q = qa.q, explain = qa.explain;
+  /* ADR-111 Phase F: a refactored build() returns language-neutral `slots` + a fixed variant `v` instead of
+     composed strings — the surface is rendered here in the active study language (EN byte-identical). An
+     unrefactored build() still returns q/explain and takes the legacy path untouched. */
+  if (qa.slots !== undefined && QRGenI18n && QRGenI18n.render) {
+    var rendered = QRGenI18n.render('quant', category + ':' + diff + ':' + (qa.k || 'q'), qa.v, qa.slots);
+    if (rendered) { q = rendered.q; explain = rendered.explain || undefined; }
+  }
   return {
-    question: qa.q,
+    question: q,
     answer: qa.a,
     category: category,
     subtype: diff + ':' + (qa.k || 'q'),
-    explanation: qa.explain || undefined,
+    explanation: explain || undefined,
     options: qa.options || undefined
   };
 }
@@ -118,19 +137,22 @@ function _sqIdentity(n) {
   var r = Math.round(n / 10) * 10; if (r === 0) r = 10; var d = n - r, sgn = d < 0 ? '−' : '+';
   return n + '² = (' + r + sgn + Math.abs(d) + ')² = ' + r + '² ' + sgn + ' 2·' + r + '·' + Math.abs(d) + ' + ' + Math.abs(d) + '² = ' + (r * r) + ' ' + sgn + ' ' + (2 * r * Math.abs(d)) + ' + ' + (d * d) + ' = ' + (n * n) + '.';
 }
+/* ADR-111 Phase F: builds return language-neutral slots + a fixed variant seed `v`; the surface (stem +
+   explanation) is rendered from locales/gen/*.quant.js by QRGenI18n. Math is untouched — the masked-shape
+   census proves EN byte-identity. Pure-math explanations (e.g. _sqIdentity) are precomputed into a slot. */
 var _SQUARES_ARCH = {
   easy: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(2, 12); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?', n + ' squared = ?']), a: n * n, explain: n + '² = ' + n + ' × ' + n + ' = ' + (n * n) + '.' }; } }
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(2, 12); return { slots: { n: n }, a: n * n, v: randInt(0, 999) }; } }
   ],
   medium: [
-    { k: 'direct', skill: 'direct', build: function () { var n = randInt(13, 30); return { q: pick([n + '² = ?', 'Square of ' + n + ' = ?']), a: n * n, explain: _sqIdentity(n) }; } },
-    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(4, 25), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'Square root of ' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: 'Find x with x² = ' + sq + '. Since ' + n + '² = ' + sq + ', √' + sq + ' = ' + n + '.' }; } }
+    { k: 'direct', skill: 'direct', build: function () { var n = randInt(13, 30); return { slots: { n: n, id: _sqIdentity(n) }, a: n * n, v: randInt(0, 999) }; } },
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(4, 25), sq = n * n; return { slots: { n: n, sq: sq }, a: n, v: randInt(0, 999) }; } }
   ],
   /* ADR-095: mirror cubes — big-number "compute n²" is calculator work, not reasoning, so hard drops 'direct'. Hard is
      the inverse (√) and the a²−b² factoring identity. */
   hard: [
-    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(20, 45), sq = n * n; return { q: pick(['√' + sq + ' = ?', 'If x² = ' + sq + ', x = ?']), a: n, explain: n + '² = ' + sq + ', so √' + sq + ' = ' + n + '. It sits just above ' + (Math.floor(n / 10) * 10) + '² = ' + (Math.floor(n / 10) * 10) * (Math.floor(n / 10) * 10) + '.' }; } },
-    { k: 'diffSquares', skill: 'multi-step', build: function () { var a = randInt(12, 40), b = randInt(2, a - 1); return { q: a + '² − ' + b + '² = ?', a: a * a - b * b, explain: 'a² − b² = (a+b)(a−b) = (' + (a + b) + ')(' + (a - b) + ') = ' + (a * a - b * b) + '. Factor instead of squaring both — far faster.' }; } }
+    { k: 'inverse', skill: 'inverse', build: function () { var n = randInt(20, 45), sq = n * n, b = Math.floor(n / 10) * 10; return { slots: { n: n, sq: sq, b: b, bsq: b * b }, a: n, v: randInt(0, 999) }; } },
+    { k: 'diffSquares', skill: 'multi-step', build: function () { var a = randInt(12, 40), b = randInt(2, a - 1); return { slots: { a: a, b: b, sum: a + b, diff: a - b, ans: a * a - b * b }, a: a * a - b * b, v: randInt(0, 999) }; } }
   ]
 };
 var _SQUARES_PRIMARY = {

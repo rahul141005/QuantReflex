@@ -1,12 +1,12 @@
 /**
  * hi.quant.js — generated-content pack (quant engine, hi) for QRGenI18n (ADR-111 Phase F).
- * Registers template/pool tables consumed by js/gen-i18n.js render(). Skeleton (F-M1): populated during the
- * quant engine refactor. Function-valued templates — validated by scripts/gen-i18n.check.js, NOT the catalog
- * string scanner. Same-origin IIFE, dual pattern (browser <script> + node require).
+ * Skeleton — templates authored in F-M3 (hi) / F-M4 (mr). Function-valued; validated by gen-i18n.check.
  */
 (function () {
   'use strict';
+  var GI = (typeof QRGenI18n !== 'undefined') ? QRGenI18n
+    : (typeof require !== 'undefined' ? require('../../js/gen-i18n.js') : null);
   var pack = { pools: {}, tpl: {} };
-  if (typeof QRGenI18n !== 'undefined') QRGenI18n.register('hi', 'quant', pack);
+  if (GI) GI.register('hi', 'quant', pack);
   if (typeof module !== 'undefined' && module.exports) module.exports = pack;
 })();

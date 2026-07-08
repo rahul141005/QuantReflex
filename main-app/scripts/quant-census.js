@@ -31,8 +31,21 @@ var SEED = 0x5eed1234;
 
 function makeLCG(seed) { var s = (seed >>> 0) || 1; return function () { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 4294967296; }; }
 
-/* Mask every run of digits to a single '#', so wording is compared independent of the specific numbers. */
-function mask(s) { return String(s == null ? '' : s).replace(/\d+/g, '#'); }
+/* Pool names (both the trilingual NAME_POOL and the legacy string pool) vary per draw and are proper nouns, not
+   wording — mask them to a single token so the census measures TEMPLATE shape, not which name happened to be
+   picked. Longest-first so substrings don't partially match. */
+var QRGen = require(path.join(__dirname, '..', 'js', 'utils', 'generative-helpers.js'));
+var NAME_TOKENS = (function () {
+  var set = {};
+  (QRGen.NAME_POOL || []).forEach(function (e) { set[e.en] = 1; });
+  ['Ravi', 'Priya', 'Arjun', 'Meera', 'Kabir', 'Anita', 'Rohan', 'Sneha', 'Vikram', 'Pooja', 'Amit', 'Neha',
+    'Raj', 'Divya', 'Karan', 'Isha', 'Manish', 'Rina', 'Sunil', 'Kavya', 'Deepak', 'Nisha', 'Arun', 'Sara'].forEach(function (n) { set[n] = 1; });
+  return Object.keys(set).sort(function (a, b) { return b.length - a.length; });
+})();
+var NAME_RE = new RegExp('\\b(' + NAME_TOKENS.join('|') + ')\\b', 'g');
+
+/* Mask every digit run to '#' and every pool name to 'ℕ', so shape is compared independent of numbers and names. */
+function mask(s) { return String(s == null ? '' : s).replace(NAME_RE, 'ℕ').replace(/\d+/g, '#'); }
 function shapeOf(qObj) { return mask(qObj.question) + ' ‖ ' + mask(qObj.explanation || ''); }
 
 /**
@@ -42,10 +55,12 @@ function shapeOf(qObj) { return mask(qObj.question) + ' ‖ ' + mask(qObj.explan
 function capture(Q, cats) {
   cats = cats || QUANT_CATS;
   var _orig = Math.random;
-  Math.random = makeLCG(SEED);
   var out = {};
   try {
-    cats.forEach(function (cat) {
+    cats.forEach(function (cat, idx) {
+      /* Reset the RNG PER CATEGORY so refactoring one category's random consumption cannot perturb another's
+         census stream — each category's shape set is measured in isolation (§5.4.6 stream-independence). */
+      Math.random = makeLCG(SEED + idx * 7919);
       var set = {};
       DIFFS.forEach(function (diff) {
         for (var i = 0; i < SAMPLES_PER; i++) {
