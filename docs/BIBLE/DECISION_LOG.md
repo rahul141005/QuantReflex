@@ -9,6 +9,42 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase E addendum (2026-07-08) — QuanAI, notifications & planner localized (server + client seams).**
+  QuanAI now answers in the user's STUDY language and every deterministic server-composed string, the
+  notification system, and the remaining AI client chrome are localized. Flag still OFF; EN byte-identical.
+  - **Response-language seam (E-M1).** `companion-ui api()` injects `body.lang = QRI18n.langs().study`;
+    `api/ai.js _lang()` whitelists it (hi|mr→self, else en) and threads it through every generative
+    `aiBrain.*` call; `aiBrain` forwards it into `prompts.get()`; `aiPrompts.sys(role, exam, lang)` appends
+    a response-language directive (`_langDirective`) for hi/mr naming the full DNT list, and returns
+    BYTE-IDENTICAL English for en/absent/unknown. **No prompt-version bumps** — EN prompt bytes are
+    unchanged, so the warmed explanation cache and the AI cost centre are untouched. The throttle→budget→
+    entitlement→dispatch gate is unchanged (checksum-frozen in ai-lang.check, lockstep with free-explain.check).
+  - **Explain-cache language dimension (E-M2).** `aiBrain._explainCacheId(q, a, lang)` — EN ids byte-identical
+    to the legacy `hash+'_v'+version`; hi/mr get `_hi`/`_mr` sibling docs so a Hindi explanation is never served
+    from an English cache entry. `lang` stored in the cache doc for observability.
+  - **Deterministic server strings (E-M3).** NEW `services/aiStrings.js` — `AIStrings.s(lang, key, params)`
+    over an {en,hi,mr} table (~165 keys). Every block title, metric label, pattern card, mission frame, chip,
+    low-data/fallback line, exam-insight and planner-narration string aiBrain composes deterministically now
+    localizes; EN values are the prior literals verbatim (envelope byte-identity, proven behaviourally by
+    planner-brain + intelligence-consistency checks). Chip VALUE codes untouched — only labels localize.
+    Word-order-divergent compositions became full-sentence parametric keys, never concatenated fragments.
+  - **Notifications (E-M4).** NEW `services/notificationStrings.js`; `reminderCron.runDaily` buckets recipients
+    per (template, appLanguage) and emits one `notify()` per bucket with pre-localized copy; `api/duel.js`
+    resolves the recipient's appLanguage before composing the duel-finished notice. `notify()`'s single
+    title/body contract is untouched — `notifications.check` stays green. Notifications follow **appLanguage**
+    (chrome), never studyLanguage; a never-synced user gets English.
+  - **Settings toast (E-M5).** Notification-enable failure now shows `settings.notifEnableFailed` (new EN string).
+  - **AI client chrome (E-M6).** companion-ui feature titles / arias / six loading-stage arrays / thinking-lead /
+    micro-drill / setup wizard, and the full planner-view calendar, localize through `_t`; new `ai(+)` and
+    `planner` catalog namespaces. Server-data labels (examName, verdict, section/task/focus labels, rationale,
+    whyNow, reason, scoreImpact) render VERBATIM (server-data boundary); drill category names localize via the
+    existing `formatCategoryName` single source. **Deviation:** the dedicated `syl` topic/section display layer
+    (blueprint §4.4.7) is deferred to Phase G (syllabus chapter vocabulary), recorded in the known-limits register.
+  - **Verification.** NEW `scripts/ai-lang.check.js` (in npm test): sys() EN byte-snapshot; hi/mr directive + DNT;
+    `_lang` whitelist + per-call threading + frozen-gate checksum; companion study-channel injection; aiBrain
+    prompt forwarding; `_explainCacheId` EN-stable + suffixed; aiStrings + notificationStrings EN-verbatim /
+    parity / leak; a cron per-(template,lang) bucketing unit. npm test green (12,364). Bible 2.140→2.141.
+    LLM output QUALITY in hi/mr is verified by the Phase-H live-AI manual matrix (cannot be unit-tested).
 - **Phase D addendum (2026-07-08) — long-form static + Math Duel localized.** Every remaining STATIC
   documentation surface and the entire Duel UI now flow through the catalogs (flag still OFF).
   After Phase D the only English left in the product is: AI/server-composed text (Phase E),

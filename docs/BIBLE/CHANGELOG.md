@@ -6,6 +6,33 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-08 — Internationalization Phase E: QuanAI + notifications + planner in en/hi/mr (ADR-111)
+
+QuanAI now answers in the user's STUDY language, every deterministic server-composed string and the
+notification system localize, and the remaining AI client chrome (companion + setup wizard + planner
+calendar) is translated. Flag still OFF; EN behaviour byte-identical. Rides SW `v223`; Bible 2.140→2.141.
+
+- **Response-language seam:** `companion-ui api()` injects `body.lang = QRI18n.langs().study`; `api/ai.js`
+  `_lang()` whitelists hi/mr and threads it through every generative `aiBrain.*` call → `prompts.get()` →
+  `aiPrompts.sys(role, exam, lang)`, which appends `_langDirective` for hi/mr and stays byte-identical for
+  English. No prompt-version bumps (warmed explanation cache + AI cost centre untouched).
+- **Explain cache:** `aiBrain._explainCacheId(q, a, lang)` — EN ids byte-identical, hi/mr suffixed `_hi`/`_mr`.
+- **`services/aiStrings.js` (NEW):** {en,hi,mr} table (~165 keys) behind `AIStrings.s()` for every block
+  title / metric label / pattern card / mission frame / chip / fallback / exam-insight / planner-narration
+  aiBrain composes; EN verbatim, chip value codes untouched.
+- **`services/notificationStrings.js` (NEW):** localized reminder + duel templates. `reminderCron` buckets
+  per (template, appLanguage); `api/duel.js` resolves recipient appLanguage. `notify()` contract untouched.
+- **Client chrome:** companion-ui (titles, arias, loading stages, thinking-lead, micro-drill, 7-screen setup
+  wizard) + planner-view (full calendar) localize via `_t`; new `ai(+)` / `planner` namespaces (~135 keys ×3).
+  Server-data labels render verbatim (server-data boundary); `settings.notifEnableFailed` toast added.
+- **Deferred (documented):** the dedicated `syl` topic/section display layer → Phase G (syllabus vocabulary);
+  recorded in the known-limits register.
+- **Verification:** NEW `scripts/ai-lang.check.js` in `npm test` (sys byte-snapshot, DNT directive, `_lang`
+  whitelist + threading + frozen-gate checksum, cache-id, aiStrings/notificationStrings parity/leak, cron
+  bucketing unit). `notifications.check` / `free-explain.check` green and unchanged. npm test: 12,364 assertions.
+- **Docs:** ADR-111 Phase-E addendum (`DECISION_LOG.md`); known-limits additions (`I18N_KNOWN_LIMITS.md`);
+  VERSIONS 2.140→2.141.
+
 ## 2026-07-08 — Internationalization Phase D: long-form static + Math Duel in en/hi/mr (ADR-111)
 
 Every remaining STATIC documentation surface and the entire Math Duel UI now flow through the

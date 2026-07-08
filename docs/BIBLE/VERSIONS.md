@@ -9,12 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.140 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.141 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.141 (2026-07-08)** — **Internationalization Phase E (ADR-111).** QuanAI now answers in the
+> user's STUDY language and every deterministic server-composed string, the notification system, and
+> the remaining AI client chrome (companion + 7-screen setup wizard + planner calendar) are localized
+> into हिन्दी and मराठी, still feature-flagged OFF (English byte-identical). The client injects
+> `body.lang` (study channel); `api/ai.js` whitelists it and threads it through `aiBrain` →
+> `aiPrompts.sys()`, which appends a response-language directive for hi/mr — no prompt-version bumps,
+> so the warmed explanation cache survives. New `services/aiStrings.js` (~165 keys) and
+> `services/notificationStrings.js` localize server scaffolding; `reminderCron` buckets per
+> (template, appLanguage); the explain cache is language-dimensioned (`_hi`/`_mr` sibling docs). New
+> `scripts/ai-lang.check.js` guards the seam (npm test at 12,364 assertions; notifications.check /
+> free-explain.check unchanged-green). The `syl` topic/section display layer is deferred to Phase G.
+> Rides SW v223.
+>
 > **2.140 (2026-07-08)** — **Internationalization Phase D (ADR-111).** Every remaining static
 > documentation surface — the About modal, the 16-section App Guide — and the entire Math Duel UI
 > (`js/duel-ui.js`) are localized into हिन्दी and मराठी, still feature-flagged OFF. A new
