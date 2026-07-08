@@ -227,6 +227,72 @@
       accountDeleted: 'तुमचे खाते हटवले गेले आहे.'
     },
 
+
+    modals: {
+      clearTitle: '🗑️ डेटा पुसा',
+      clearIntro: 'काय पुसायचे ते निवडा. ही कृती पूर्ववत होऊ शकत नाही.',
+      clearStats: 'आकडेवारी पुसा',
+      clearStatsDesc: 'सर्व प्रगती आणि कामगिरीचा इतिहास रीसेट करा',
+      clearStreaks: 'स्ट्रीक पुसा',
+      clearStreaksDesc: 'सध्याची आणि सर्वोत्तम स्ट्रीक रीसेट करा',
+      clearFormulas: 'सूत्रे आणि टिप्स पुसा',
+      clearFormulasDesc: 'सर्व कस्टम टॉपिक आणि जोडलेली सूत्रे हटवा',
+      clearAll: 'संपूर्ण ॲप डेटा पुसा',
+      clearAllDesc: 'सर्व काही रीसेट करा: सेटिंग्ज, आकडेवारी, सूत्रे, बुकमार्क',
+      cancel: 'रद्द करा',
+      confirmTitle: '⚠️ पुष्टी करा',
+      delete: 'हटवा',
+      exitSessionTitle: 'सेशन संपवायचे?',
+      exitSessionBody: 'दिलेली उत्तरे जतन आहेत — फक्त या सेशनचा सारांश मिळणार नाही.',
+      keepGoing: 'सुरू ठेवा',
+      endSession: 'सेशन संपवा',
+      inboxTitle: 'इनबॉक्स',
+      markAllRead: 'सर्व वाचले करा',
+      loadingNotifications: 'सूचना लोड होत आहेत...',
+      exitDuelTitle: 'ड्युएल सोडायचे?',
+      youHaveSolved: 'तुम्ही सोडवले:',
+      questionsWord: 'प्रश्न',
+      exitDuelLine1: 'आता सोडल्यास तुमच्यासाठी ड्युएल संपेल.',
+      exitDuelLine2: 'तुमची सध्याची प्रगती सबमिट केली जाईल.',
+      continuePrompt: 'पुढे जायचे का?',
+      confirmExit: 'बाहेर पडा',
+      profileTitle: '👤 प्रोफाइल',
+      nameLabel: 'नाव',
+      namePlaceholder: 'तुमचे नाव',
+      handleLabel: 'हँडल',
+      coachingIdLabel: 'कोचिंग ID',
+      coachingBindNote: 'कोचिंग कोड आहे? एकदाच लिहा — नंतर बदलता येत नाही.',
+      save: 'जतन करा',
+      deleteAccountTitle: '⚠️ खाते हटवा',
+      deleteAccountBody: 'ही कृती पूर्ववत होऊ शकत नाही. तुमची सर्व प्रगती, बुकमार्क आणि सेटिंग्ज कायमच्या नष्ट होतील.',
+      deletePasswordLabel: 'पुष्टीसाठी तुमचा पासवर्ड लिहा:',
+      deletePasswordPlaceholder: 'तुमचा पासवर्ड',
+      deleteGoogleNote: 'सुरक्षेसाठी तुम्हाला Google खात्याने पुष्टी करण्यास सांगितले जाईल.'
+    },
+
+    home: {
+      heroTagline: 'रोज तुमची Speed Aptitude धारदार करा',
+      examChipAria: 'लक्ष्य परीक्षा बदला',
+      statToday: 'आज',
+      statAccuracy: 'अचूकता',
+      statBest: 'सर्वोत्तम',
+      ctaStart: 'सराव सुरू करा',
+      ctaWarmup: '5 प्रश्नांचा दैनिक वॉर्मअप',
+      todaysGoal: 'आजचे उद्दिष्ट',
+      goalQuestions: 'प्रश्न',
+      goalHabit: 'अभेद्य सवय घडवा.',
+      sectionExplore: 'एक्सप्लोर करा',
+      duelDesc: 'रिअल-टाइम स्पर्धात्मक गणित लढतींमध्ये कोणालाही आव्हान द्या.',
+      createDuel: 'ड्युएल तयार करा',
+      joinDuel: 'ड्युएल जॉइन करा',
+      aiCoachTitle: 'AI कोच',
+      aiCoachDesc: 'वैयक्तिक तयारीचे मार्गदर्शन',
+      plannerTitle: 'स्टडी प्लॅनर',
+      plannerDesc: 'AI-निर्मित अभ्यास वेळापत्रक',
+      sectionQuickStudy: 'झटपट अभ्यास',
+      customizeTitle: 'बदला'
+    },
+
     auth: {
       subtitle: 'रोज तुमची Speed Aptitude धारदार करा',
       tabLogin: 'लॉग इन',
@@ -292,7 +358,8 @@
 
     app: {
       updated: '✅ ॲप यशस्वीरित्या अपडेट झाले',
-      updateAvailable: '🚀 नवीन आवृत्ती उपलब्ध आहे. सेटिंग्जमधून अपडेट करा'
+      updateAvailable: '🚀 नवीन आवृत्ती उपलब्ध आहे. सेटिंग्जमधून अपडेट करा',
+      offlineBanner: '📡 तुम्ही ऑफलाइन आहात — कनेक्ट होताच बदल सिंक होतील'
     }
 
   });

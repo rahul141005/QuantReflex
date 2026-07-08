@@ -232,6 +232,72 @@
       accountDeleted: 'Your account has been deleted.'
     },
 
+
+    modals: {
+      clearTitle: '🗑️ Clear Data',
+      clearIntro: 'Choose what data to clear. This action cannot be undone.',
+      clearStats: 'Clear Statistics',
+      clearStatsDesc: 'Reset all progress and performance history',
+      clearStreaks: 'Clear Streaks',
+      clearStreaksDesc: 'Reset current and best streaks',
+      clearFormulas: 'Clear Formulas & Tips',
+      clearFormulasDesc: 'Delete all custom topics and added formulas',
+      clearAll: 'Clear Entire App Data',
+      clearAllDesc: 'Reset everything: settings, stats, formulas, bookmarks',
+      cancel: 'Cancel',
+      confirmTitle: '⚠️ Confirm',
+      delete: 'Delete',
+      exitSessionTitle: 'End Session?',
+      exitSessionBody: 'Answered questions are saved — this session just won’t get a summary.',
+      keepGoing: 'Keep Going',
+      endSession: 'End Session',
+      inboxTitle: 'Inbox',
+      markAllRead: 'Mark all read',
+      loadingNotifications: 'Loading notifications...',
+      exitDuelTitle: 'Leave Duel?',
+      youHaveSolved: 'You have solved:',
+      questionsWord: 'Questions',
+      exitDuelLine1: 'Leaving now will finish the duel for you.',
+      exitDuelLine2: 'Your current progress will be submitted.',
+      continuePrompt: 'Do you want to continue?',
+      confirmExit: 'Confirm Exit',
+      profileTitle: '👤 Profile',
+      nameLabel: 'Name',
+      namePlaceholder: 'Your name',
+      handleLabel: 'Handle',
+      coachingIdLabel: 'Coaching ID',
+      coachingBindNote: 'Have a coaching code? Enter it once — it can’t be changed later.',
+      save: 'Save',
+      deleteAccountTitle: '⚠️ Delete Account',
+      deleteAccountBody: 'This action cannot be undone. All your progress, bookmarks, and settings will be permanently lost.',
+      deletePasswordLabel: 'To confirm, please enter your password:',
+      deletePasswordPlaceholder: 'Your password',
+      deleteGoogleNote: 'For security, you’ll be asked to confirm with your Google account.'
+    },
+
+    home: {
+      heroTagline: 'Train your Speed Aptitude daily',
+      examChipAria: 'Change target exam',
+      statToday: 'Today',
+      statAccuracy: 'Accuracy',
+      statBest: 'Best',
+      ctaStart: 'Start Training',
+      ctaWarmup: '5-question daily warmup',
+      todaysGoal: 'Today’s Goal',
+      goalQuestions: 'questions',
+      goalHabit: 'Build an unstoppable habit.',
+      sectionExplore: 'Explore',
+      duelDesc: 'Challenge anyone in real-time competitive math battles.',
+      createDuel: 'Create Duel',
+      joinDuel: 'Join Duel',
+      aiCoachTitle: 'AI Coach',
+      aiCoachDesc: 'Personalized preparation guidance',
+      plannerTitle: 'Study Planner',
+      plannerDesc: 'AI-generated study schedule',
+      sectionQuickStudy: 'Quick Study',
+      customizeTitle: 'Customize'
+    },
+
     auth: {
       subtitle: 'Train your Speed Aptitude daily',
       tabLogin: 'Login',
@@ -297,7 +363,8 @@
 
     app: {
       updated: '✅ App updated successfully',
-      updateAvailable: '🚀 New version available. Update from Settings'
+      updateAvailable: '🚀 New version available. Update from Settings',
+      offlineBanner: '📡 You\'re offline — changes will sync when reconnected'
     }
 
   });
