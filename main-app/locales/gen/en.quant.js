@@ -63,7 +63,49 @@
     'cubes:hard:diffCubes': {
       s: [function (s) { return s.a + '³ − ' + s.b + '³ = ?'; }],
       e: [function (s) { return s.a + '³ = ' + (s.a * s.a * s.a) + ' and ' + s.b + '³ = ' + (s.b * s.b * s.b) + ', so the difference = ' + (s.a * s.a * s.a - s.b * s.b * s.b) + '. (Identity: a³ − b³ = (a − b)(a² + ab + b²).)'; }]
-    }
+    },
+
+    /* ── Fractions ── (frac/pct strings are language-neutral math tokens carried in slots) */
+    'fractions:easy:fracToPct': {
+      s: [function (s) { return s.frac + ' expressed as a percentage = ? %'; }, function (s) { return 'Convert ' + s.frac + ' to a percentage.'; }, function (s) { return s.frac + ' = ? %'; }, function (s) { return 'What is ' + s.frac + ' as a percentage?'; }],
+      e: [function (s) { return s.frac + ' = ' + s.pct + '% (divide and ×100; memorising the common ones saves seconds).'; }]
+    },
+    'fractions:medium:fracToPct': {
+      s: [function (s) { return s.frac + ' expressed as a percentage = ? %'; }, function (s) { return 'Convert ' + s.frac + ' to a percentage.'; }, function (s) { return s.frac + ' = ? %'; }, function (s) { return 'What is ' + s.frac + ' as a percentage?'; }],
+      e: [function (s) { return s.frac + ' = ' + s.pct + '% (divide and ×100; memorising the common ones saves seconds).'; }]
+    },
+    'fractions:medium:pctToFrac': {
+      s: [function (s) { return s.pct + '% as a fraction = ?'; }, function (s) { return 'Express ' + s.pct + '% as a fraction.'; }, function (s) { return s.pct + '% = ? (in lowest terms)'; }],
+      e: [function (s) { return s.pct + '% = ' + s.pct + '/100 = ' + s.frac + ' in lowest terms.'; }]
+    },
+    'fractions:hard:pctToFrac': {
+      s: [function (s) { return s.pct + '% as a fraction = ?'; }, function (s) { return 'Express ' + s.pct + '% as a fraction.'; }, function (s) { return s.pct + '% = ? (in lowest terms)'; }],
+      e: [function (s) { return s.pct + '% = ' + s.pct + '/100 = ' + s.frac + ' in lowest terms.'; }]
+    },
+    'fractions:hard:fracOfFrac': {
+      s: [function (s) { return s.a1 + '/' + s.b1 + ' of ' + s.a2 + '/' + s.b2 + ' of ' + s.N + ' = ?'; }, function (s) { return 'Find ' + s.a1 + '/' + s.b1 + ' of ' + s.a2 + '/' + s.b2 + ' of ' + s.N + '.'; }],
+      e: [function (s) { return '“Of” means multiply: ' + s.a1 + '/' + s.b1 + ' × ' + s.a2 + '/' + s.b2 + ' × ' + s.N + '. Cancel before multiplying: the answer is ' + s.r + '.'; }]
+    },
+    'fractions:hard:addFrac': {
+      s: [function (s) { return s.a1 + '/' + s.b1 + ' + ' + s.a2 + '/' + s.b2 + ' = ? (in lowest terms)'; }, function (s) { return 'Add ' + s.a1 + '/' + s.b1 + ' and ' + s.a2 + '/' + s.b2 + '. Give the answer in lowest terms.'; }],
+      e: [function (s) { return 'Common denominator ' + s.cd + ': ' + s.l + '/' + s.cd + ' + ' + s.r2 + '/' + s.cd + ' = ' + s.snum0 + '/' + s.cd + ' = ' + s.num + '/' + s.den + ' after reducing by ' + s.g + '.'; }]
+    },
+
+    /* ── Mental multiplication ── (single stem per archetype; explanation derives products from slot numbers) */
+    'multiplication:easy:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
+    'multiplication:medium:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
+    'multiplication:hard:multiply': { s: [function (s) { return s.x + ' × ' + s.y + ' = ?'; }], e: [function (s) { return s.x + ' × ' + s.y + ' = ' + (s.x * s.y) + '. Split the second number: ' + s.x + ' × ' + s.tens + ' + ' + s.x + ' × ' + s.un + ' = ' + (s.x * s.tens) + ' + ' + (s.x * s.un) + '.'; }] },
+    'multiplication:medium:divide': { s: [function (s) { return s.p + ' ÷ ' + s.x + ' = ?'; }], e: [function (s) { return s.p + ' ÷ ' + s.x + ' = ' + s.y + ', since ' + s.x + ' × ' + s.y + ' = ' + s.p + '. Division undoes the product.'; }] },
+    'multiplication:hard:divide': { s: [function (s) { return s.p + ' ÷ ' + s.x + ' = ?'; }], e: [function (s) { return s.p + ' ÷ ' + s.x + ' = ' + s.y + ', since ' + s.x + ' × ' + s.y + ' = ' + s.p + '. Division undoes the product.'; }] },
+    'multiplication:medium:threeFactor': { s: [function (s) { return s.a + ' × ' + s.b + ' × ' + s.c + ' = ?'; }], e: [function (s) { return 'Left to right: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then × ' + s.c + ' = ' + (s.a * s.b * s.c) + '. Regroup to make a round number when possible.'; }] },
+    'multiplication:hard:threeFactor': { s: [function (s) { return s.a + ' × ' + s.b + ' × ' + s.c + ' = ?'; }], e: [function (s) { return 'Left to right: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then × ' + s.c + ' = ' + (s.a * s.b * s.c) + '. Regroup to make a round number when possible.'; }] },
+    'multiplication:medium:mentalSquare': { s: [function (s) { return s.n + ' × ' + s.n + ' = ?'; }], e: [function (s) { return s.n + '² = (' + s.r + (s.d < 0 ? '' : '+') + s.d + ')² = ' + (s.n * s.n) + ' — a fast mental square.'; }] },
+
+    /* ── Simplification / BODMAS ── (pure arithmetic expressions; explanation frames the operator order) */
+    'simplification:easy:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
+    'simplification:medium:multiplyAdd': { s: [function (s) { return s.a + ' × ' + s.b + ' + ' + s.c + ' = ?'; }], e: [function (s) { return 'BODMAS — multiply first: ' + s.a + ' × ' + s.b + ' = ' + (s.a * s.b) + ', then + ' + s.c + ' = ' + (s.a * s.b + s.c) + '.'; }] },
+    'simplification:medium:divideAdd': { s: [function (s) { return s.num + ' ÷ ' + s.dv + ' + ' + s.add + ' = ?'; }], e: [function (s) { return 'Divide first: ' + s.num + ' ÷ ' + s.dv + ' = ' + (s.num / s.dv) + ', then + ' + s.add + ' = ' + (s.num / s.dv + s.add) + '.'; }] },
+    'simplification:hard:fullBodmas': { s: [function (s) { return '(' + s.p + ' × ' + s.q + ') ÷ ' + s.r + ' + ' + s.ss + ' × ' + s.t + ' = ?'; }], e: [function (s) { return 'Brackets → (' + s.p + ' × ' + s.q + ') = ' + (s.p * s.q) + '; ÷ ' + s.r + ' = ' + ((s.p * s.q) / s.r) + '; and ' + s.ss + ' × ' + s.t + ' = ' + (s.ss * s.t) + '; sum = ' + ((s.p * s.q) / s.r + s.ss * s.t) + '.'; }] }
   } };
 
   if (GI) GI.register('en', 'quant', pack);

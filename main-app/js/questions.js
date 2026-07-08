@@ -229,8 +229,10 @@ var _FRAC_TABLE = [
   { frac: '1/15', pct: '6.66' }, { frac: '1/20', pct: '5' }, { frac: '1/25', pct: '4' }, { frac: '1/40', pct: '2.5' },
   { frac: '1/50', pct: '2' }, { frac: '3/10', pct: '30' }, { frac: '7/10', pct: '70' }, { frac: '9/10', pct: '90' }
 ];
-function _fracToPct(diff) { var it = pick(diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE); return { q: pick([it.frac + ' expressed as a percentage = ? %', 'Convert ' + it.frac + ' to a percentage.', it.frac + ' = ? %', 'What is ' + it.frac + ' as a percentage?']), a: it.pct, k: 'fracToPct', explain: it.frac + ' = ' + it.pct + '% (divide and ×100; memorising the common ones saves seconds).' }; }
-function _pctToFrac(diff) { var pool = (diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE).filter(function (e) { return e.pct.indexOf('.') === -1 || ['12.5', '37.5', '62.5', '87.5', '2.5'].indexOf(e.pct) !== -1; }); if (!pool.length) return null; var it = pick(pool); return { q: pick([it.pct + '% as a fraction = ?', 'Express ' + it.pct + '% as a fraction.', it.pct + '% = ? (in lowest terms)']), a: it.frac, k: 'pctToFrac', explain: it.pct + '% = ' + it.pct + '/100 = ' + it.frac + ' in lowest terms.' }; }
+/* ADR-111 Phase F: frac/pct strings are language-neutral math tokens → carried in slots; the surface renders
+   from locales/gen/*.quant.js. `_gcd` reductions and derived numerators are precomputed into slots. */
+function _fracToPct(diff) { var it = pick(diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE); return { slots: { frac: it.frac, pct: it.pct }, a: it.pct, k: 'fracToPct', v: randInt(0, 999) }; }
+function _pctToFrac(diff) { var pool = (diff === 'easy' ? _FRAC_TABLE.slice(0, 15) : _FRAC_TABLE).filter(function (e) { return e.pct.indexOf('.') === -1 || ['12.5', '37.5', '62.5', '87.5', '2.5'].indexOf(e.pct) !== -1; }); if (!pool.length) return null; var it = pick(pool); return { slots: { frac: it.frac, pct: it.pct }, a: it.frac, k: 'pctToFrac', v: randInt(0, 999) }; }
 /* ADR-093: hard is EARNED — conversions repeat medium, so hard adds real multi-step fraction work. */
 function _fracOfFrac() {
   for (var i = 0; i < 40; i++) {
@@ -239,7 +241,7 @@ function _fracOfFrac() {
     if (_gcd(a1, b1) !== 1 || _gcd(a2, b2) !== 1) continue;   // exam fractions are written in lowest terms
     var N = b1 * b2 * pick([5, 10, 12, 15, 20]);
     var r = N * a1 * a2 / (b1 * b2);
-    if (r === Math.floor(r) && r > 0) return { q: pick([a1 + '/' + b1 + ' of ' + a2 + '/' + b2 + ' of ' + N + ' = ?', 'Find ' + a1 + '/' + b1 + ' of ' + a2 + '/' + b2 + ' of ' + N + '.']), a: r, k: 'fracOfFrac', explain: '“Of” means multiply: ' + a1 + '/' + b1 + ' × ' + a2 + '/' + b2 + ' × ' + N + '. Cancel before multiplying: the answer is ' + r + '.' };
+    if (r === Math.floor(r) && r > 0) return { slots: { a1: a1, b1: b1, a2: a2, b2: b2, N: N, r: r }, a: r, k: 'fracOfFrac', v: randInt(0, 999) };
   }
   return null;
 }
@@ -250,9 +252,10 @@ function _fracAdd() {
     var a1 = randInt(1, b1 - 1), a2 = randInt(1, b2 - 1);
     if (_gcd(a1, b1) !== 1 || _gcd(a2, b2) !== 1) continue;   // exam fractions are written in lowest terms
     var num = a1 * b2 + a2 * b1, den = b1 * b2, g = _gcd(num, den);
+    var cd = b1 * b2, l = a1 * b2, r2 = a2 * b1, snum0 = a1 * b2 + a2 * b1;   // pre-reduction working (language-neutral)
     num /= g; den /= g;
     if (den === 1) continue;   // keep it a genuine fraction answer
-    return { q: pick([a1 + '/' + b1 + ' + ' + a2 + '/' + b2 + ' = ? (in lowest terms)', 'Add ' + a1 + '/' + b1 + ' and ' + a2 + '/' + b2 + '. Give the answer in lowest terms.']), a: num + '/' + den, k: 'addFrac', explain: 'Common denominator ' + (b1 * b2) + ': ' + (a1 * b2) + '/' + (b1 * b2) + ' + ' + (a2 * b1) + '/' + (b1 * b2) + ' = ' + (a1 * b2 + a2 * b1) + '/' + (b1 * b2) + ' = ' + num + '/' + den + ' after reducing by ' + g + '.' };
+    return { slots: { a1: a1, b1: b1, a2: a2, b2: b2, num: num, den: den, g: g, cd: cd, l: l, r2: r2, snum0: snum0 }, a: num + '/' + den, k: 'addFrac', v: randInt(0, 999) };
   }
   return null;
 }
@@ -290,10 +293,11 @@ function genPercentage() { return _genArch('percentages', _PCT_ARCH, _PCT_PRIMAR
 
 /** Mental multiplication: varied sub-types including 3-factor and squaring */
 /** Mental multiplication (ADR-083 archetypes: multiply · divide-inverse · 3-factor · mental-square). */
-function _mulTwo(diff) { var x, y; if (diff === 'easy') { x = randInt(2, 20); y = randInt(2, 12); } else if (diff === 'hard') { x = randInt(12, 50); y = randInt(6, 25); } else { x = randInt(6, 30); y = randInt(4, 20); } var tens = 10 * Math.floor(y / 10), un = y % 10; return { q: x + ' × ' + y + ' = ?', a: x * y, k: 'multiply', explain: x + ' × ' + y + ' = ' + (x * y) + '. Split the second number: ' + x + ' × ' + tens + ' + ' + x + ' × ' + un + ' = ' + (x * tens) + ' + ' + (x * un) + '.' }; }
-function _mulDiv(diff) { var x, y; if (diff === 'hard') { x = randInt(6, 25); y = randInt(4, 20); } else { x = randInt(3, 15); y = randInt(3, 15); } var p = x * y; return { q: p + ' ÷ ' + x + ' = ?', a: y, k: 'divide', explain: p + ' ÷ ' + x + ' = ' + y + ', since ' + x + ' × ' + y + ' = ' + p + '. Division undoes the product.' }; }
-function _mul3(diff) { var a, b, c; if (diff === 'hard') { a = randInt(4, 12); b = randInt(3, 8); c = randInt(2, 6); } else { a = randInt(2, 8); b = randInt(2, 6); c = randInt(2, 5); } if (a * b * c > 1200) c = Math.max(2, Math.floor(1000 / (a * b))); return { q: a + ' × ' + b + ' × ' + c + ' = ?', a: a * b * c, k: 'threeFactor', explain: 'Left to right: ' + a + ' × ' + b + ' = ' + (a * b) + ', then × ' + c + ' = ' + (a * b * c) + '. Regroup to make a round number when possible.' }; }
-function _mulSquare() { var n = pick([11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25]); var r = Math.round(n / 10) * 10, d = n - r; return { q: n + ' × ' + n + ' = ?', a: n * n, k: 'mentalSquare', explain: n + '² = (' + r + (d < 0 ? '' : '+') + d + ')² = ' + (n * n) + ' — a fast mental square.' }; }
+/* ADR-111 Phase F: slots + variant seed; surface rendered from locales/gen/*.quant.js. */
+function _mulTwo(diff) { var x, y; if (diff === 'easy') { x = randInt(2, 20); y = randInt(2, 12); } else if (diff === 'hard') { x = randInt(12, 50); y = randInt(6, 25); } else { x = randInt(6, 30); y = randInt(4, 20); } var tens = 10 * Math.floor(y / 10), un = y % 10; return { slots: { x: x, y: y, tens: tens, un: un }, a: x * y, k: 'multiply', v: randInt(0, 999) }; }
+function _mulDiv(diff) { var x, y; if (diff === 'hard') { x = randInt(6, 25); y = randInt(4, 20); } else { x = randInt(3, 15); y = randInt(3, 15); } var p = x * y; return { slots: { x: x, y: y, p: p }, a: y, k: 'divide', v: randInt(0, 999) }; }
+function _mul3(diff) { var a, b, c; if (diff === 'hard') { a = randInt(4, 12); b = randInt(3, 8); c = randInt(2, 6); } else { a = randInt(2, 8); b = randInt(2, 6); c = randInt(2, 5); } if (a * b * c > 1200) c = Math.max(2, Math.floor(1000 / (a * b))); return { slots: { a: a, b: b, c: c }, a: a * b * c, k: 'threeFactor', v: randInt(0, 999) }; }
+function _mulSquare() { var n = pick([11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25]); var r = Math.round(n / 10) * 10, d = n - r; return { slots: { n: n, r: r, d: d }, a: n * n, k: 'mentalSquare', v: randInt(0, 999) }; }
 var _MUL_ARCH = {
   easy: [{ k: 'multiply', skill: 'direct', build: function (d) { return _mulTwo(d); } }],
   /* ADR-094: mentalSquare (fixed 11–25², which ignored difficulty) sat in HARD where it was easier than a medium
@@ -435,9 +439,9 @@ function genTimeWork() { return _genArch('time-and-work', _TW_ARCH, _TW_PRIMARY)
 
 /** Simplification / BODMAS (ADR-083 archetypes: multiply-add · divide-add · full-BODMAS). Clean integers; the stem is a
  *  pure arithmetic expression so the harness re-evaluates it independently. */
-function _simEasy() { var a = randInt(2, 12), b = randInt(2, 12), c = randInt(2, 30); return { q: a + ' × ' + b + ' + ' + c + ' = ?', a: a * b + c, k: 'multiplyAdd', explain: 'BODMAS — multiply first: ' + a + ' × ' + b + ' = ' + (a * b) + ', then + ' + c + ' = ' + (a * b + c) + '.' }; }
-function _simMed() { var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40); return { q: num + ' ÷ ' + dv + ' + ' + add + ' = ?', a: num / dv + add, k: 'divideAdd', explain: 'Divide first: ' + num + ' ÷ ' + dv + ' = ' + (num / dv) + ', then + ' + add + ' = ' + (num / dv + add) + '.' }; }
-function _simHard() { var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9); return { q: '(' + p + ' × ' + q + ') ÷ ' + r + ' + ' + s + ' × ' + t + ' = ?', a: (p * q) / r + s * t, k: 'fullBodmas', explain: 'Brackets → (' + p + ' × ' + q + ') = ' + (p * q) + '; ÷ ' + r + ' = ' + ((p * q) / r) + '; and ' + s + ' × ' + t + ' = ' + (s * t) + '; sum = ' + ((p * q) / r + s * t) + '.' }; }
+function _simEasy() { var a = randInt(2, 12), b = randInt(2, 12), c = randInt(2, 30); return { slots: { a: a, b: b, c: c }, a: a * b + c, k: 'multiplyAdd', v: randInt(0, 999) }; }
+function _simMed() { var dv = pick([2, 3, 4, 5, 6]), num = dv * randInt(4, 15), add = randInt(5, 40); return { slots: { num: num, dv: dv, add: add }, a: num / dv + add, k: 'divideAdd', v: randInt(0, 999) }; }
+function _simHard() { var r = pick([2, 3, 4, 5, 6]), q = r * randInt(3, 12), p = randInt(3, 12), s = randInt(3, 15), t = randInt(2, 9); return { slots: { p: p, q: q, r: r, ss: s, t: t }, a: (p * q) / r + s * t, k: 'fullBodmas', v: randInt(0, 999) }; }
 /* ADR-095: hard drops the fixed-range medium 'divideAdd' — a "hard" simplification is the full multi-operator BODMAS
    expression, not a two-step divide-add at bigger numbers. (Single rich archetype; the diversity check skips len-1 tiers.) */
 var _SIM_ARCH = { easy: [{ k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], medium: [{ k: 'divideAdd', skill: 'direct', build: function () { return _simMed(); } }, { k: 'multiplyAdd', skill: 'direct', build: function () { return _simEasy(); } }], hard: [{ k: 'fullBodmas', skill: 'multi-step', build: function () { return _simHard(); } }] };
