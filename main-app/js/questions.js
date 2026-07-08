@@ -426,13 +426,13 @@ var _TSD_PRIMARY = { easy: function () { return _tsdDist('easy'); }, medium: fun
 function genTSD() { return _genArch('time-speed-distance', _TSD_ARCH, _TSD_PRIMARY); }
 
 /** Time & Work (ADR-083 archetypes: together · work-done-% · workers↔days scaling). LCM/units thinking. */
-function _twTogether(diff) { for (var i = 0; i < 40; i++) { var a = pick(diff === 'easy' ? [2, 3, 4, 6] : (diff === 'hard' ? [5, 6, 8, 10, 12, 15] : [3, 4, 5, 6, 10])); var b = pick(diff === 'easy' ? [3, 4, 6] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [4, 5, 6, 10, 12])); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'A can do a piece of work in ' + a + ' days and B in ' + b + ' days. Working together, they finish it in ? days', a: (a * b) / (a + b), k: 'together', explain: 'Together time = (a × b)/(a + b) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + (a * b) + '/' + (a + b) + ' = ' + ((a * b) / (a + b)) + ' days. Add the RATES (1/a + 1/b), never the days.' }; } return null; }
-function _twWorkDone(diff) { var days = pick(diff === 'easy' ? [2, 4, 5, 10] : (diff === 'hard' ? [5, 8, 10, 20, 25] : [4, 5, 8, 10])); var wd = 0; for (var i = 0; i < 20; i++) { wd = randInt(1, days - 1); if ((wd * 100) % days === 0) break; } if ((wd * 100) % days !== 0) return null; return { q: 'A can finish a job in ' + days + ' days. In ' + wd + ' days he completes ? % of the work.', a: wd * 100 / days, k: 'workDone', explain: 'Fraction done = ' + wd + '/' + days + ', so ' + wd + '/' + days + ' × 100 = ' + (wd * 100 / days) + '%.' }; }
-function _twScale(diff) { for (var i = 0; i < 40; i++) { var w1 = pick(diff === 'easy' ? [2, 3, 4, 5] : (diff === 'hard' ? [4, 5, 6, 8, 10] : [3, 4, 5, 6])); var dp = pick(diff === 'easy' ? [4, 6, 8, 10, 12] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [6, 8, 10, 12])); var tot = w1 * dp, opts = []; for (var w = 2; w <= 20; w++) { if (w !== w1 && tot % w === 0) opts.push(w); } if (!opts.length) continue; var w2 = pick(opts); return { q: 'If ' + w1 + ' workers finish a task in ' + dp + ' days, then ' + w2 + ' workers finish the same task in ? days', a: tot / w2, k: 'workersScale', explain: 'Total work = ' + w1 + ' × ' + dp + ' = ' + tot + ' worker-days. Time for ' + w2 + ' workers = ' + tot + ' ÷ ' + w2 + ' = ' + (tot / w2) + ' days (workers and days are inversely proportional).' }; } return null; }
+function _twTogether(diff) { for (var i = 0; i < 40; i++) { var a = pick(diff === 'easy' ? [2, 3, 4, 6] : (diff === 'hard' ? [5, 6, 8, 10, 12, 15] : [3, 4, 5, 6, 10])); var b = pick(diff === 'easy' ? [3, 4, 6] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [4, 5, 6, 10, 12])); if (a === b) continue; if ((a * b) % (a + b) === 0) return { slots: { a: a, b: b }, a: (a * b) / (a + b), k: 'together', v: randInt(0, 999) }; } return null; }
+function _twWorkDone(diff) { var days = pick(diff === 'easy' ? [2, 4, 5, 10] : (diff === 'hard' ? [5, 8, 10, 20, 25] : [4, 5, 8, 10])); var wd = 0; for (var i = 0; i < 20; i++) { wd = randInt(1, days - 1); if ((wd * 100) % days === 0) break; } if ((wd * 100) % days !== 0) return null; return { slots: { days: days, wd: wd }, a: wd * 100 / days, k: 'workDone', v: randInt(0, 999) }; }
+function _twScale(diff) { for (var i = 0; i < 40; i++) { var w1 = pick(diff === 'easy' ? [2, 3, 4, 5] : (diff === 'hard' ? [4, 5, 6, 8, 10] : [3, 4, 5, 6])); var dp = pick(diff === 'easy' ? [4, 6, 8, 10, 12] : (diff === 'hard' ? [6, 8, 10, 12, 15, 20] : [6, 8, 10, 12])); var tot = w1 * dp, opts = []; for (var w = 2; w <= 20; w++) { if (w !== w1 && tot % w === 0) opts.push(w); } if (!opts.length) continue; var w2 = pick(opts); return { slots: { w1: w1, dp: dp, w2: w2, tot: tot }, a: tot / w2, k: 'workersScale', v: randInt(0, 999) }; } return null; }
 /* ADR-095: a GENUINE hard archetype — the inverse of "together". Given the combined time and one worker's solo time,
    find the other's solo time: 1/b = 1/T − 1/a → b = aT/(a−T). Token order in the stem is [T, a] (combined first, then
    the known solo), matching the recompute branch. */
-function _twInverse() { for (var i = 0; i < 60; i++) { var T = pick([2, 3, 4, 5, 6, 8]); var a = pick([6, 8, 9, 10, 12, 15, 18, 20, 24]); if (a <= T) continue; if ((a * T) % (a - T) !== 0) continue; var b = (a * T) / (a - T); if (b <= T || b > 90) continue; var nm = _two(); return { q: nm[0] + ' and ' + nm[1] + ' together can finish a piece of work in ' + T + ' days. ' + nm[0] + ' alone can do it in ' + a + ' days. In how many days can ' + nm[1] + ' alone finish it?', a: b, k: 'inverseTogether', explain: 'Work with RATES: 1/' + nm[1] + ' = 1/' + T + ' − 1/' + a + ' = (' + a + ' − ' + T + ')/(' + a + '×' + T + ') = ' + (a - T) + '/' + (a * T) + '. So ' + nm[1] + ' alone = ' + (a * T) + '/' + (a - T) + ' = ' + b + ' days.' }; } return null; }
+function _twInverse() { for (var i = 0; i < 60; i++) { var T = pick([2, 3, 4, 5, 6, 8]); var a = pick([6, 8, 9, 10, 12, 15, 18, 20, 24]); if (a <= T) continue; if ((a * T) % (a - T) !== 0) continue; var b = (a * T) / (a - T); if (b <= T || b > 90) continue; var nm = _twoE(); return { slots: { T: T, a: a, b: b, nm: nm }, a: b, k: 'inverseTogether', v: randInt(0, 999) }; } return null; }
 var _TW_ARCH = {
   easy: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }],
   medium: [{ k: 'together', skill: 'formula', build: function (d) { return _twTogether(d); } }, { k: 'workDone', skill: 'direct', build: function (d) { return _twWorkDone(d); } }, { k: 'workersScale', skill: 'inverse', build: function (d) { return _twScale(d); } }],
@@ -460,21 +460,21 @@ var _SIM_PRIMARY = { easy: function () { return _simEasy(); }, medium: function 
 function genSimplification() { return _genArch('simplification', _SIM_ARCH, _SIM_PRIMARY); }
 
 /** Number Series — next term (ADR-083 archetypes: arithmetic · geometric · growing-gap). Integer answers. */
-function _nsArith(diff) { var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]); var t = []; for (var i = 0; i < 5; i++) t.push(start + i * step); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'arithmetic', explain: 'A constant difference of ' + step + ' (arithmetic progression): ' + t[t.length - 1] + ' + ' + step + ' = ' + ans + '.' }; }
-function _nsGeo(diff) { var s0 = randInt(2, 5), r = pick([2, 3]); var t = []; for (var i = 0; i < 5; i++) t.push(s0 * Math.pow(r, i)); var ans = t.pop(); return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'geometric', explain: 'Each term is × ' + r + ' (geometric progression): ' + t[t.length - 1] + ' × ' + r + ' = ' + ans + '.' }; }
-function _nsInc(diff) { var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base; var t = []; for (var i = 0; i < 5; i++) { t.push(cur); cur += d; d += base; } var ans = t.pop(); var gap = t[t.length - 1] - t[t.length - 2] + base; return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'growingGap', explain: 'The gaps grow by ' + base + ' each step (constant second difference): the next gap is ' + gap + ', so ' + t[t.length - 1] + ' + ' + gap + ' = ' + ans + '.' }; }
+function _nsArith(diff) { var start = randInt(2, 12), step = diff === 'easy' ? pick([2, 3, 5]) : pick([4, 6, 7, 9, 11]); var t = []; for (var i = 0; i < 5; i++) t.push(start + i * step); var ans = t.pop(); return { slots: { terms: t, step: step, ans: ans }, a: ans, k: 'arithmetic', v: randInt(0, 999) }; }
+function _nsGeo(diff) { var s0 = randInt(2, 5), r = pick([2, 3]); var t = []; for (var i = 0; i < 5; i++) t.push(s0 * Math.pow(r, i)); var ans = t.pop(); return { slots: { terms: t, r: r, ans: ans }, a: ans, k: 'geometric', v: randInt(0, 999) }; }
+function _nsInc(diff) { var cur = randInt(1, 4), base = pick([2, 3, 4]), d = base; var t = []; for (var i = 0; i < 5; i++) { t.push(cur); cur += d; d += base; } var ans = t.pop(); var gap = t[t.length - 1] - t[t.length - 2] + base; return { slots: { terms: t, base: base, gap: gap, ans: ans }, a: ans, k: 'growingGap', v: randInt(0, 999) }; }
 /* ADR-093: hard patterns worth the name — n²±k series, and two interleaved APs (the classic banking series). */
 function _nsSquares() {
   var k = pick([-2, -1, 1, 2, 3]), s = randInt(1, 4);
   var t = []; for (var i = 0; i < 5; i++) { var n = s + i; t.push(n * n + k); }
   var ans = t.pop();
-  return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'squaresSeries', explain: 'Each term is a perfect square ' + (k >= 0 ? 'plus ' + k : 'minus ' + Math.abs(k)) + ': ' + t.map(function (v, i) { return (s + i) + '²' + (k >= 0 ? '+' + k : '−' + Math.abs(k)); }).join(', ') + '. Next = ' + (s + 4) + '²' + (k >= 0 ? '+' + k : '−' + Math.abs(k)) + ' = ' + ans + '.' };
+  return { slots: { terms: t, s: s, k: k, ans: ans }, a: ans, k: 'squaresSeries', v: randInt(0, 999) };
 }
 function _nsAlt() {
   var a0 = randInt(2, 9), d1 = pick([3, 4, 5, 7]), b0 = randInt(20, 40), d2 = pick([-3, -2, 2, 3]);
   var t = []; for (var i = 0; i < 6; i++) t.push(i % 2 === 0 ? a0 + (i / 2) * d1 : b0 + ((i - 1) / 2) * d2);
   var ans = a0 + 3 * d1;   // 7th term belongs to the first chain
-  return { q: 'Find the next number: ' + t.join(', ') + ', ?', a: ans, k: 'alternating', explain: 'Two series are interleaved: the odd positions go ' + a0 + ', ' + (a0 + d1) + ', ' + (a0 + 2 * d1) + ', … (+' + d1 + ') and the even positions form their own chain. The next term continues the FIRST chain: ' + (a0 + 2 * d1) + ' + ' + d1 + ' = ' + ans + '.' };
+  return { slots: { terms: t, a0: a0, d1: d1, ans: ans }, a: ans, k: 'alternating', v: randInt(0, 999) };
 }
 var _NS_ARCH = {
   easy: [{ k: 'arithmetic', skill: 'pattern', build: function (d) { return _nsArith(d); } }, { k: 'geometric', skill: 'pattern', build: function (d) { return _nsGeo(d); } }],
@@ -575,8 +575,8 @@ var _MIX_PRIMARY = {
 function genMixtures() { return _genArch('mixtures', _MIX_ARCH, _MIX_PRIMARY); }
 
 /** Pipes & Cisterns (archetypes: two-inlets-together · inlet+outlet net fill). Rate thinking, like Time & Work. */
-function _pipeTogether(diff) { var ap = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [4, 5, 6, 8, 10, 12, 15], bp = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [6, 8, 10, 12, 15, 20, 24]; for (var i = 0; i < 40; i++) { var a = pick(ap), b = pick(bp); if (a === b) continue; if ((a * b) % (a + b) === 0) return { q: 'Pipe A fills a tank in ' + a + ' hours and pipe B fills it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (a + b), k: 'together', explain: 'Combined time = (A × B)/(A + B) = (' + a + ' × ' + b + ')/(' + a + ' + ' + b + ') = ' + ((a * b) / (a + b)) + ' hours — add the rates 1/' + a + ' + 1/' + b + '.' }; } return null; }
-function _pipeNet() { for (var i = 0; i < 40; i++) { var a = pick([4, 5, 6, 8, 10, 12]), b = pick([12, 15, 20, 24, 30, 40]); if (b <= a) continue; if ((a * b) % (b - a) === 0) return { q: 'An inlet pipe fills a tank in ' + a + ' hours while an outlet pipe empties it in ' + b + ' hours. If both are opened together, the tank fills in ? hours', a: (a * b) / (b - a), k: 'netFill', explain: 'Net rate = 1/' + a + ' − 1/' + b + '; time = (A × B)/(B − A) = (' + a + ' × ' + b + ')/(' + b + ' − ' + a + ') = ' + ((a * b) / (b - a)) + ' hours.' }; } return null; }
+function _pipeTogether(diff) { var ap = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [4, 5, 6, 8, 10, 12, 15], bp = diff === 'easy' ? [3, 4, 5, 6, 10, 12, 15, 20, 24, 30] : [6, 8, 10, 12, 15, 20, 24]; for (var i = 0; i < 40; i++) { var a = pick(ap), b = pick(bp); if (a === b) continue; if ((a * b) % (a + b) === 0) return { slots: { a: a, b: b }, a: (a * b) / (a + b), k: 'together', v: randInt(0, 999) }; } return null; }
+function _pipeNet() { for (var i = 0; i < 40; i++) { var a = pick([4, 5, 6, 8, 10, 12]), b = pick([12, 15, 20, 24, 30, 40]); if (b <= a) continue; if ((a * b) % (b - a) === 0) return { slots: { a: a, b: b }, a: (a * b) / (b - a), k: 'netFill', v: randInt(0, 999) }; } return null; }
 /* ADR-093: hard is EARNED — the inverse problem ("together time known, find the slower pipe") and a three-pipe
    net-rate problem join netFill; hard is never a reshuffle of medium. */
 function _pipeInverse() {
@@ -584,7 +584,7 @@ function _pipeInverse() {
     var a = pick([4, 5, 6, 8, 10, 12]), b = pick([6, 8, 10, 12, 15, 20, 24]);
     if (a === b || (a * b) % (a + b) !== 0) continue;
     var tog = (a * b) / (a + b);
-    return { q: 'Two pipes together fill a tank in ' + tog + ' hours. If the first pipe alone fills it in ' + a + ' hours, the second pipe alone fills it in ? hours', a: b, k: 'inverseFill', explain: 'Rates subtract: 1/second = 1/' + tog + ' − 1/' + a + ' = ' + (a - tog) + '/' + (a * tog) + ', so the second pipe alone takes ' + b + ' hours.' };
+    return { slots: { a: a, b: b, tog: tog }, a: b, k: 'inverseFill', v: randInt(0, 999) };
   }
   return null;
 }
@@ -594,7 +594,7 @@ function _pipeThree() {
     if (a === b) continue;
     var num = a * b * c, den = b * c + a * c - a * b;
     if (den <= 0 || num % den !== 0) continue;
-    return { q: 'Pipes A and B fill a tank in ' + a + ' and ' + b + ' hours respectively, while pipe C empties it in ' + c + ' hours. With all three open, the tank fills in ? hours', a: num / den, k: 'leakEmpty', explain: 'Net rate = 1/' + a + ' + 1/' + b + ' − 1/' + c + '. Over an LCM-sized tank that is ' + den + ' units/hour for ' + num + ' units, so the time = ' + (num / den) + ' hours.' };
+    return { slots: { a: a, b: b, c: c, num: num, den: den }, a: num / den, k: 'leakEmpty', v: randInt(0, 999) };
   }
   return null;
 }

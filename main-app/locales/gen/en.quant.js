@@ -388,6 +388,96 @@
     'time-speed-distance:hard:trainCrossing': {
       s: [function (s) { return 'A train ' + s.len + ' m long is running at ' + s.spd + ' km/h. How many seconds does it take to pass a pole?'; }, function (s) { return 'A train ' + s.len2 + ' m long, running at ' + s.spd + ' km/h, crosses a platform ' + s.plat + ' m long in ? seconds'; }],
       e: [function (s) { return 'Convert the speed: ' + s.spd + ' km/h = ' + s.ms + ' m/s. Passing a pole means covering its OWN length: ' + s.len + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }, function (s) { return 'Speed = ' + s.spd + ' km/h = ' + s.ms + ' m/s. To clear a platform the train covers train + platform = ' + s.len2 + ' + ' + s.plat + ' = ' + (s.len2 + s.plat) + ' m. Time = ' + (s.len2 + s.plat) + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }]
+    },
+
+    /* ── Time & work ── (days verbatim; the RATES idea is in the wording, numbers in slots) */
+    'time-and-work:easy:together': {
+      s: [function (s) { return 'A can do a piece of work in ' + s.a + ' days and B in ' + s.b + ' days. Working together, they finish it in ? days'; }],
+      e: [function (s) { return 'Together time = (a × b)/(a + b) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + (s.a * s.b) + '/' + (s.a + s.b) + ' = ' + ((s.a * s.b) / (s.a + s.b)) + ' days. Add the RATES (1/a + 1/b), never the days.'; }]
+    },
+    'time-and-work:medium:together': {
+      s: [function (s) { return 'A can do a piece of work in ' + s.a + ' days and B in ' + s.b + ' days. Working together, they finish it in ? days'; }],
+      e: [function (s) { return 'Together time = (a × b)/(a + b) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + (s.a * s.b) + '/' + (s.a + s.b) + ' = ' + ((s.a * s.b) / (s.a + s.b)) + ' days. Add the RATES (1/a + 1/b), never the days.'; }]
+    },
+    'time-and-work:easy:workDone': {
+      s: [function (s) { return 'A can finish a job in ' + s.days + ' days. In ' + s.wd + ' days he completes ? % of the work.'; }],
+      e: [function (s) { return 'Fraction done = ' + s.wd + '/' + s.days + ', so ' + s.wd + '/' + s.days + ' × 100 = ' + (s.wd * 100 / s.days) + '%.'; }]
+    },
+    'time-and-work:medium:workDone': {
+      s: [function (s) { return 'A can finish a job in ' + s.days + ' days. In ' + s.wd + ' days he completes ? % of the work.'; }],
+      e: [function (s) { return 'Fraction done = ' + s.wd + '/' + s.days + ', so ' + s.wd + '/' + s.days + ' × 100 = ' + (s.wd * 100 / s.days) + '%.'; }]
+    },
+    'time-and-work:medium:workersScale': {
+      s: [function (s) { return 'If ' + s.w1 + ' workers finish a task in ' + s.dp + ' days, then ' + s.w2 + ' workers finish the same task in ? days'; }],
+      e: [function (s) { return 'Total work = ' + s.w1 + ' × ' + s.dp + ' = ' + s.tot + ' worker-days. Time for ' + s.w2 + ' workers = ' + s.tot + ' ÷ ' + s.w2 + ' = ' + (s.tot / s.w2) + ' days (workers and days are inversely proportional).'; }]
+    },
+    'time-and-work:hard:workersScale': {
+      s: [function (s) { return 'If ' + s.w1 + ' workers finish a task in ' + s.dp + ' days, then ' + s.w2 + ' workers finish the same task in ? days'; }],
+      e: [function (s) { return 'Total work = ' + s.w1 + ' × ' + s.dp + ' = ' + s.tot + ' worker-days. Time for ' + s.w2 + ' workers = ' + s.tot + ' ÷ ' + s.w2 + ' = ' + (s.tot / s.w2) + ' days (workers and days are inversely proportional).'; }]
+    },
+    'time-and-work:hard:inverseTogether': {
+      s: [function (s) { return s.nm[0].en + ' and ' + s.nm[1].en + ' together can finish a piece of work in ' + s.T + ' days. ' + s.nm[0].en + ' alone can do it in ' + s.a + ' days. In how many days can ' + s.nm[1].en + ' alone finish it?'; }],
+      e: [function (s) { return 'Work with RATES: 1/' + s.nm[1].en + ' = 1/' + s.T + ' − 1/' + s.a + ' = (' + s.a + ' − ' + s.T + ')/(' + s.a + '×' + s.T + ') = ' + (s.a - s.T) + '/' + (s.a * s.T) + '. So ' + s.nm[1].en + ' alone = ' + (s.a * s.T) + '/' + (s.a - s.T) + ' = ' + s.b + ' days.'; }]
+    },
+
+    /* ── Number series ── (term lists ride slots as arrays; the pattern description is language-neutral math) */
+    'number-series:easy:arithmetic': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'A constant difference of ' + s.step + ' (arithmetic progression): ' + s.terms[s.terms.length - 1] + ' + ' + s.step + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:medium:arithmetic': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'A constant difference of ' + s.step + ' (arithmetic progression): ' + s.terms[s.terms.length - 1] + ' + ' + s.step + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:easy:geometric': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'Each term is × ' + s.r + ' (geometric progression): ' + s.terms[s.terms.length - 1] + ' × ' + s.r + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:medium:geometric': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'Each term is × ' + s.r + ' (geometric progression): ' + s.terms[s.terms.length - 1] + ' × ' + s.r + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:medium:growingGap': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'The gaps grow by ' + s.base + ' each step (constant second difference): the next gap is ' + s.gap + ', so ' + s.terms[s.terms.length - 1] + ' + ' + s.gap + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:hard:growingGap': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'The gaps grow by ' + s.base + ' each step (constant second difference): the next gap is ' + s.gap + ', so ' + s.terms[s.terms.length - 1] + ' + ' + s.gap + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:hard:squaresSeries': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'Each term is a perfect square ' + (s.k >= 0 ? 'plus ' + s.k : 'minus ' + Math.abs(s.k)) + ': ' + s.terms.map(function (v, i) { return (s.s + i) + '²' + (s.k >= 0 ? '+' + s.k : '−' + Math.abs(s.k)); }).join(', ') + '. Next = ' + (s.s + 4) + '²' + (s.k >= 0 ? '+' + s.k : '−' + Math.abs(s.k)) + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:hard:alternating': {
+      s: [function (s) { return 'Find the next number: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'Two series are interleaved: the odd positions go ' + s.a0 + ', ' + (s.a0 + s.d1) + ', ' + (s.a0 + 2 * s.d1) + ', … (+' + s.d1 + ') and the even positions form their own chain. The next term continues the FIRST chain: ' + (s.a0 + 2 * s.d1) + ' + ' + s.d1 + ' = ' + s.ans + '.'; }]
+    },
+
+    /* ── Pipes & cisterns ── (hours verbatim; combined/net-rate arithmetic recomputes from slots) */
+    'pipes-cisterns:easy:together': {
+      s: [function (s) { return 'Pipe A fills a tank in ' + s.a + ' hours and pipe B fills it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
+      e: [function (s) { return 'Combined time = (A × B)/(A + B) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + ((s.a * s.b) / (s.a + s.b)) + ' hours — add the rates 1/' + s.a + ' + 1/' + s.b + '.'; }]
+    },
+    'pipes-cisterns:medium:together': {
+      s: [function (s) { return 'Pipe A fills a tank in ' + s.a + ' hours and pipe B fills it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
+      e: [function (s) { return 'Combined time = (A × B)/(A + B) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + ((s.a * s.b) / (s.a + s.b)) + ' hours — add the rates 1/' + s.a + ' + 1/' + s.b + '.'; }]
+    },
+    'pipes-cisterns:medium:netFill': {
+      s: [function (s) { return 'An inlet pipe fills a tank in ' + s.a + ' hours while an outlet pipe empties it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
+      e: [function (s) { return 'Net rate = 1/' + s.a + ' − 1/' + s.b + '; time = (A × B)/(B − A) = (' + s.a + ' × ' + s.b + ')/(' + s.b + ' − ' + s.a + ') = ' + ((s.a * s.b) / (s.b - s.a)) + ' hours.'; }]
+    },
+    'pipes-cisterns:hard:netFill': {
+      s: [function (s) { return 'An inlet pipe fills a tank in ' + s.a + ' hours while an outlet pipe empties it in ' + s.b + ' hours. If both are opened together, the tank fills in ? hours'; }],
+      e: [function (s) { return 'Net rate = 1/' + s.a + ' − 1/' + s.b + '; time = (A × B)/(B − A) = (' + s.a + ' × ' + s.b + ')/(' + s.b + ' − ' + s.a + ') = ' + ((s.a * s.b) / (s.b - s.a)) + ' hours.'; }]
+    },
+    'pipes-cisterns:hard:inverseFill': {
+      s: [function (s) { return 'Two pipes together fill a tank in ' + s.tog + ' hours. If the first pipe alone fills it in ' + s.a + ' hours, the second pipe alone fills it in ? hours'; }],
+      e: [function (s) { return 'Rates subtract: 1/second = 1/' + s.tog + ' − 1/' + s.a + ' = ' + (s.a - s.tog) + '/' + (s.a * s.tog) + ', so the second pipe alone takes ' + s.b + ' hours.'; }]
+    },
+    'pipes-cisterns:hard:leakEmpty': {
+      s: [function (s) { return 'Pipes A and B fill a tank in ' + s.a + ' and ' + s.b + ' hours respectively, while pipe C empties it in ' + s.c + ' hours. With all three open, the tank fills in ? hours'; }],
+      e: [function (s) { return 'Net rate = 1/' + s.a + ' + 1/' + s.b + ' − 1/' + s.c + '. Over an LCM-sized tank that is ' + s.den + ' units/hour for ' + s.num + ' units, so the time = ' + (s.num / s.den) + ' hours.'; }]
     }
   } };
 
