@@ -351,6 +351,36 @@ REFACTORED.forEach(function (cat) {
   ok('4 ' + cat + ' hard never downgrades to an easy-only archetype', bad === 0);
 });
 
+/* ADR-111 F-M2: generation-integrity + fuzz + placeholder guard (production-grade standard). Beyond the
+   census (wording byte-identity) and the recompute (numeric correctness), this fuzzes EVERY category × tier
+   over a large randomized sample and asserts each generated item is structurally sound — so a template defect
+   (missing slot → 'undefined', unreplaced token, empty stem, malformed options) can NEVER ship regardless of
+   the generated values. Permanent net for all 36 categories (slots-refactored or legacy). */
+(function () {
+  var BAD = /\bundefined\b|\bNaN\b|\bInfinity\b|\{[a-zA-Z]/;   // dropped slot / stray literal placeholder
+  var perCat = 1500;
+  ALL_CATS.forEach(function (cat) {
+    var defects = 0, sample = null;
+    DIFFS.forEach(function (diff) {
+      for (var i = 0; i < perCat; i++) {
+        var qd = Q.generateQuestion(cat, diff);
+        var bad = null;
+        if (!qd || typeof qd.question !== 'string' || !qd.question.trim()) bad = 'empty/absent question';
+        else if (qd.answer === undefined || qd.answer === null || qd.answer === '') bad = 'empty answer';
+        else if (BAD.test(qd.question) || (qd.explanation && BAD.test(qd.explanation))) bad = 'undefined/NaN/{token} in text';
+        else if (!/^(easy|medium|hard):/.test(String(qd.subtype))) bad = 'malformed subtype ' + qd.subtype;
+        else if (qd.options) {
+          if (!Array.isArray(qd.options) || qd.options.length < 2) bad = 'bad options arity';
+          else if (qd.options.map(String).indexOf(String(qd.answer)) === -1) bad = 'answer not among options';
+          else { var seen = {}; qd.options.forEach(function (o) { if (seen[String(o)]) bad = 'duplicate option'; seen[String(o)] = 1; }); }
+        }
+        if (bad) { defects++; if (!sample) sample = bad + ' :: ' + JSON.stringify(qd && qd.question); }
+      }
+    });
+    ok('generation integrity (fuzz ' + (perCat * 3) + '×): ' + cat + (defects ? ' — ' + sample : ''), defects === 0);
+  });
+})();
+
 /* ADR-111 F-M2: masked-shape census guard. Every category's current digit-masked stem+explanation SET must
    equal the frozen legacy baseline (fixtures/quant-census.json) — this makes the slots refactor's EN
    byte-identity a hard test (a changed/new/dropped wording shape fails here) and is the permanent
