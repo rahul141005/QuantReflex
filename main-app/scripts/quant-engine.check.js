@@ -351,6 +351,29 @@ REFACTORED.forEach(function (cat) {
   ok('4 ' + cat + ' hard never downgrades to an easy-only archetype', bad === 0);
 });
 
+/* ADR-111 F-M2: masked-shape census guard. Every category's current digit-masked stem+explanation SET must
+   equal the frozen legacy baseline (fixtures/quant-census.json) — this makes the slots refactor's EN
+   byte-identity a hard test (a changed/new/dropped wording shape fails here) and is the permanent
+   anti-drift net for the whole quant engine. Regenerate the baseline only via `node scripts/quant-census.js`
+   in a deliberate, ADR-recorded EN wording change. */
+(function () {
+  var census = require(p('scripts/quant-census.js'));
+  var fixtures;
+  try { fixtures = require(p('scripts/fixtures/quant-census.json')); } catch (e) { ok('census baseline fixtures present', false); return; }
+  var now = census.capture(Q, census.QUANT_CATS);
+  var drift = 0;
+  census.QUANT_CATS.forEach(function (cat) {
+    var base = fixtures[cat] || [], cur = now[cat] || [];
+    var baseSet = {}; base.forEach(function (s) { baseSet[s] = 1; });
+    var curSet = {}; cur.forEach(function (s) { curSet[s] = 1; });
+    var added = cur.filter(function (s) { return !baseSet[s]; });        // NEW/changed wording — the drift we guard against
+    var missing = base.filter(function (s) { return !curSet[s]; });      // a shape the refactor stopped producing
+    var okCat = added.length === 0 && missing.length === 0;
+    ok('census EN byte-identity: ' + cat, okCat);
+    if (!okCat && drift < 4) { drift++; if (added[0]) console.error('    + added: ' + JSON.stringify(added[0])); if (missing[0]) console.error('    − missing: ' + JSON.stringify(missing[0])); }
+  });
+})();
+
 console.log('quant-engine.check: ' + pass + ' passed, ' + fail + ' failed');
 console.log('  (structural samples: ' + structural + '; answers independently recomputed: ' + recomputed + '; recompute mismatches: ' + mismatches + ')');
 if (fail) process.exit(1);
