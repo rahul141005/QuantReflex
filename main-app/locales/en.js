@@ -423,11 +423,23 @@
     },
 
     duel: {
+      installGate: 'Open Math Duels inside the installed QuantReflex app.',
+      installHint: 'In your browser menu, choose "Add to Home screen" to install QuantReflex.',
+      premiumRequired: 'Premium is required for Math Duel',
+      activeElsewhere: 'This duel is active on another device.',
+      loadTrouble: 'Trouble loading the duel — check your connection.',
+      loadingQuestions: 'Loading questions…',
+      ended: 'That duel has ended.',
+      unreachable: 'Couldn’t reach the duel — check your connection.',
+      syncTrouble: 'Trouble reaching the duel — check your connection.',
+      syncingHost: 'Syncing with host…',
+      historySoon: 'Duel history will be available soon.',
       wpDuelsTitle: 'Word Problem Duels',
       wpDuelsBlurb: 'Battle a friend with AI-crafted, exam-style word problems. Launching soon for Premium.'
     },
 
     learn: {
+      comingSoonToast: '“{title}” is coming soon — full notes are on the way.',
       header: 'Learn',
       searchPlaceholder: '🔍 Search topics, formulas, tables…',
       searchLearnAria: 'Search Learn',
@@ -649,6 +661,18 @@
 
 
     drill: {
+      benchBlazing: 'Blazing Fast',
+      benchQuick: 'Quick Thinker',
+      benchSteady: 'Steady Pacer',
+      benchNeedsWork: 'Needs Speed Work',
+      benchSummaryTop: "Outstanding session! You nailed {acc}% accuracy at {time}s per question — that's top-tier reflex performance.",
+      benchSummaryStrong: 'Strong work — {acc}% accuracy with an average of {time}s per question. Your speed and precision are well balanced.',
+      benchSummarySolid: '{acc}% accuracy at {time}s per question — a solid effort. Keep pushing the pace to beat your own best.',
+      benchSummaryBase: 'You answered at {acc}% accuracy and {time}s per question. Focus on core formulas first, then chip away at your response time.',
+      benchSugAccuracy: 'Accuracy first — slow down slightly and double-check each step before answering. Speed will follow naturally once the fundamentals are solid.',
+      benchSugQuick: 'Try the Quick Drill mode daily to build faster recall. Aim to shave 1–2 seconds off your average time each session.',
+      benchSugReflex: 'Run a focused 10-question Reflex Drill on your weakest category to push both accuracy and speed simultaneously.',
+      benchSugHard: 'Challenge yourself with Hard mode questions or timed tests to sharpen your edge even further.',
       totalLimit: 'Total limit',
       perQuestionLbl: 'Per question',
       relaxed: 'Relaxed',
@@ -742,6 +766,11 @@
        Server errors localize by stable code/reason (ADR-111 seam); explanations themselves are
        study content and ride the Phase E lang param. */
     ai: {
+      reopenApp: 'Reopen the app to use AI.',
+      unlockCoach: 'Unlock AI Coach ✨',
+      talkToCoach: 'Talk to your coach ✨',
+      unlockPremium: '🔒 Unlock with Premium',
+      openPlanner: 'Open your Study Planner ✨',
       errBusy: '{persona} is resting for a bit — please try again shortly.',
       errPremium: 'This is a Premium feature.',
       errFreeExplainsUsed: "You've used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.",
@@ -754,6 +783,37 @@
 
     /* Share cards + share sheet (share-service.js). Canvas card text, preview modal, toasts and the
        Web-Share payloads. 'Speed Score' / 'Math Duel' / the product URL are do-not-translate. */
+    /* Word Problems setup (ai-features.js). Widget labels reuse practice.*; these are wp-only. */
+    wp: {
+      quotaFree: '{remaining}/{limit} free AI questions remaining',
+      quotaDaily: '{remaining}/{limit} daily AI questions remaining',
+      cat_percentages: 'Percentages',
+      'cat_profit-loss': 'Profit & Loss',
+      cat_ratios: 'Ratios',
+      'cat_time-speed-distance': 'Time Speed Dist',
+      'cat_time-and-work': 'Time & Work',
+      cat_averages: 'Averages',
+      cat_fractions: 'Fractions',
+      cat_area: 'Area',
+      cat_volume: 'Volume',
+      generate: 'Generate Word Problems',
+      generating: 'Generating...',
+      freeLimitBtn: '🔒 Free limit reached',
+      dailyLimitBtn: 'Daily limit reached',
+      upgradeFor30: 'Upgrade to Premium for 30 AI questions per day.',
+      selectCategory: 'Please select a category',
+      noFreeRemaining: 'No free questions remaining.',
+      dailyLimitDot: 'Daily limit reached.',
+      errFreeUsed: "You've used all 5 free AI questions. Upgrade to Premium for more.",
+      errDailyLimit: "You've reached today's limit of 30 AI questions. Come back tomorrow!",
+      errInProgress: 'A request is already in progress. Please wait.',
+      errRateLimited: 'Too many requests. Please wait a moment and try again.',
+      errGeneric: 'Unable to generate right now. Try again later.',
+      errNoQuestions: 'No questions available for this topic yet. Try another category.',
+      errServiceUnavailable: 'Question bank service unavailable. Please update the app.',
+      fallbackDiff: 'Showing {used} questions — {req} not yet available for this topic.'
+    },
+
     share: {
       brandSub: 'Competitive Aptitude Training',
       perf_reflexMaster: 'Reflex Master',
@@ -1126,6 +1186,7 @@
     },
 
     app: {
+      syncWarn: '⚠️ Changes may not be saved. Check your connection.',
       updated: '✅ App updated successfully',
       updateAvailable: '🚀 New version available. Update from Settings',
       offlineBanner: '📡 You\'re offline — changes will sync when reconnected'

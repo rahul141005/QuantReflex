@@ -733,7 +733,7 @@ var FirestoreSync = (function () {
         _flushRetryCount = 0;
         /* Notify user that their data may not be saved */
         if (typeof showToast === 'function') {
-          showToast('⚠️ Changes may not be saved. Check your connection.', 4000);
+          showToast((typeof QRI18n !== 'undefined') ? QRI18n.t('app.syncWarn') : '⚠️ Changes may not be saved. Check your connection.', 4000);
         }
       }
     });

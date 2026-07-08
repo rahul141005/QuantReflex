@@ -214,7 +214,7 @@ var InboxView = (function () {
     // Finished-duel notifications point at a duel session that no longer exists — never navigate to a dead/blank
     // duel view. For now show a toast; the architecture (type 'duel' + metadata.code) is ready for Duel History.
     if (n.type === 'duel') {
-      try { if (typeof showToast === 'function') showToast('Duel history will be available soon.'); } catch (_) {}
+      try { if (typeof showToast === 'function') showToast((typeof QRI18n !== 'undefined') ? QRI18n.t('duel.historySoon') : 'Duel history will be available soon.'); } catch (_) {}
       return;
     }
     var link = n.deepLink || '';

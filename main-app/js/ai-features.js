@@ -5,6 +5,14 @@ var AIFeatures = (function () {
   var _wpInFlight = false;
   var _wpAdaptiveModeActive = false;
 
+  /* i18n (ADR-111): app-language channel; guarded for harness contexts without QRI18n. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  function _tx(key, fallback) { var v = _t(key); return v === key ? fallback : v; }
+  function _diffTxt(d) {
+    var k = { easy: 'settings.difficultyEasy', medium: 'settings.difficultyMedium', hard: 'settings.difficultyHard' }[String(d || '').toLowerCase()];
+    return k ? _t(k) : String(d || '');
+  }
+
   function _esc(str) {
     if (typeof str !== 'string') return '';
     var div = document.createElement('div');
@@ -106,13 +114,13 @@ var AIFeatures = (function () {
             consumeWordProblemQuota(questions.length);
             callback(null, questions);
           } else {
-            callback('No questions available for this topic.');
+            callback('no_questions');   /* stable code — localized at the display site (ADR-111) */
           }
         });
     } else {
       /* Fallback: QuestionBankService not loaded */
       _wpInFlight = false;
-      callback('Question bank service unavailable. Please update the app.');
+      callback('service_unavailable');   /* stable code — localized at the display site (ADR-111) */
     }
   }
 
@@ -123,7 +131,7 @@ var AIFeatures = (function () {
     if (!_isPremium()) {
       container.innerHTML =
         '<div class="ai-coach-body">' +
-          '<button class="home-bento-action-btn ai-coach-unlock-btn" type="button" id="coachUnlockBtn">Unlock AI Coach ✨</button>' +
+          '<button class="home-bento-action-btn ai-coach-unlock-btn" type="button" id="coachUnlockBtn">' + _esc(_t('ai.unlockCoach')) + '</button>' +
         '</div>';
       var unlockBtn = container.querySelector('.ai-coach-unlock-btn');
       if (unlockBtn) {
@@ -136,21 +144,21 @@ var AIFeatures = (function () {
 
     container.innerHTML =
       '<div class="ai-coach-body">' +
-        '<button class="home-bento-action-btn ai-insights-btn" type="button">Talk to your coach ✨</button>' +
+        '<button class="home-bento-action-btn ai-insights-btn" type="button">' + _esc(_t('ai.talkToCoach')) + '</button>' +
       '</div>';
 
     var insightsBtn = container.querySelector('.ai-insights-btn');
     insightsBtn.addEventListener('click', function () {
       // The brain handles cold-start server-side (deterministic, no LLM) — always open the unified coach.
       if (window.Companion) return Companion.openCoach();
-      if (typeof showToast === 'function') showToast('Reopen the app to use AI.');
+      if (typeof showToast === 'function') showToast(_t('ai.reopenApp'));
     });
   }
 
   /* INTENTIONAL narrowed subset (ADR-084): the AI word-problem generator only covers these arithmetic categories —
      deliberately NOT the full Quant category set in services/quantTopics.js. Not a stale list. */
   var WP_CATEGORIES = [
-    { key: 'percentages', label: 'Percentages' },
+    { key: 'percentages', label: 'Percentages' },   /* canonical EN; display via wp.cat_<key> (ADR-111) */
     { key: 'profit-loss', label: 'Profit & Loss' },
     { key: 'ratios', label: 'Ratios' },
     { key: 'time-speed-distance', label: 'Time Speed Dist' },
@@ -191,8 +199,8 @@ var AIFeatures = (function () {
   function renderWordProblemsSetup(container, onStart) {
     var quota = getWordProblemQuota();
     var quotaText = quota.type === 'lifetime'
-      ? quota.remaining + '/' + quota.limit + ' free AI questions remaining'
-      : quota.remaining + '/' + quota.limit + ' daily AI questions remaining';
+      ? _t('wp.quotaFree', { remaining: quota.remaining, limit: quota.limit })
+      : _t('wp.quotaDaily', { remaining: quota.remaining, limit: quota.limit });
 
     var wpMaxQuestions = _isPremium() ? WP_MAX_QUESTIONS_PREMIUM : WP_MAX_QUESTIONS_FREE;
     var wpDefaultCount = Math.min(WP_DEFAULT_QUESTIONS, wpMaxQuestions);
@@ -209,26 +217,26 @@ var AIFeatures = (function () {
 
     var catHtml = '';
     for (var c = 0; c < WP_CATEGORIES.length; c++) {
-      catHtml += '<button class="category-btn category-card wp-cat-btn" type="button" data-wpcat="' + WP_CATEGORIES[c].key + '">' + WP_CATEGORIES[c].label + '</button>';
+      catHtml += '<button class="category-btn category-card wp-cat-btn" type="button" data-wpcat="' + WP_CATEGORIES[c].key + '">' + _esc(_tx('wp.cat_' + WP_CATEGORIES[c].key, WP_CATEGORIES[c].label)) + '</button>';
     }
 
     container.innerHTML =
       '<div class="training-card">' +
-        '<h3 class="category-select-title">🤖 Word Problems</h3>' +
+        '<h3 class="category-select-title">🤖 ' + _esc(_t('practice.wordProblems')) + '</h3>' +
         '<div class="training-card-body">' +
           '<p class="ai-quota-text">' + quotaText + '</p>' +
           '<div class="category-grid">' + catHtml + '</div>' +
           '<div class="wp-config-section">' +
-            '<label class="secondary-text" for="wpQuestionSlider">Number of Questions</label>' +
+            '<label class="secondary-text" for="wpQuestionSlider">' + _esc(_t('practice.numQuestions')) + '</label>' +
             '<input id="wpQuestionSlider" class="custom-question-range" type="range" min="1" max="' + wpMaxQuestions + '" value="' + wpDefaultCount + '" />' +
             '<div class="custom-practice-meta-row">' +
               '<strong id="wpQuestionCountValue">' + wpDefaultCount + '</strong>' +
-              '<span class="secondary-text" id="wpQuestionCountText">You will solve ' + wpDefaultCount + ' questions</span>' +
+              '<span class="secondary-text" id="wpQuestionCountText">' + _esc(_t('practice.youWillSolve', { count: wpDefaultCount })) + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="timer-select-section adaptive-toggle-section">' +
             '<div class="timer-toggle-row">' +
-              '<span class="timer-toggle-label">Adaptive Training ✨' + (wpCanAdaptive ? '' : ' <span class="adaptive-lock">🔒</span>') + '</span>' +
+              '<span class="timer-toggle-label">' + _esc(_t('practice.adaptiveTraining')) + (wpCanAdaptive ? '' : ' <span class="adaptive-lock">🔒</span>') + '</span>' +
               '<label class="toggle">' +
                 '<input type="checkbox" id="wpAdaptiveToggle" />' +
                 '<span class="toggle-slider"></span>' +
@@ -237,16 +245,16 @@ var AIFeatures = (function () {
           '</div>' +
           '<div id="wpDiffRow" class="timer-select-section">' +
             '<div class="timer-toggle-row">' +
-              '<span class="timer-toggle-label secondary-text">Difficulty</span>' +
-              '<span class="secondary-text" id="wpDiffLabel">' + _esc(wpCurrentDiff) + '</span>' +
+              '<span class="timer-toggle-label secondary-text">' + _esc(_t('drill.difficultyLbl')) + '</span>' +
+              '<span class="secondary-text" id="wpDiffLabel">' + _esc(_diffTxt(wpCurrentDiff)) + '</span>' +
             '</div>' +
           '</div>' +
           '<div id="wpAdaptiveActiveChip" class="adaptive-toggle-hint" style="display:none;">' +
-            '<p class="adaptive-hint-text">Difficulty is auto-managed based on your performance.</p>' +
+            '<p class="adaptive-hint-text">' + _esc(_t('practice.adaptiveDesc')) + '</p>' +
           '</div>' +
           '<div class="timer-select-section wp-timer-section">' +
             '<div class="timer-toggle-row">' +
-              '<span class="timer-toggle-label">Timer</span>' +
+              '<span class="timer-toggle-label">' + _esc(_t('practice.timer')) + '</span>' +
               '<label class="toggle">' +
                 '<input type="checkbox" id="wpTimerToggle" />' +
                 '<span class="toggle-slider"></span>' +
@@ -254,19 +262,19 @@ var AIFeatures = (function () {
             '</div>' +
             '<div class="timer-config-area" id="wpTimerConfigArea" style="display:none;">' +
               '<div class="timer-pill-selector">' +
-                '<button class="timer-pill active" data-wppill="per" type="button">Per Ques.</button>' +
-                '<button class="timer-pill" data-wppill="total" type="button">Total</button>' +
+                '<button class="timer-pill active" data-wppill="per" type="button">' + _esc(_t('practice.perQues')) + '</button>' +
+                '<button class="timer-pill" data-wppill="total" type="button">' + _esc(_t('practice.total')) + '</button>' +
               '</div>' +
               '<div class="timer-input-row">' +
                 '<input type="number" id="wpTimerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />' +
-                '<span class="timer-unit-label">seconds</span>' +
+                '<span class="timer-unit-label">' + _esc(_t('practice.seconds')) + '</span>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary custom-practice-start-btn" id="startWordProblems" type="button">Generate Word Problems</button>' +
+          '<button class="btn-primary custom-practice-start-btn" id="startWordProblems" type="button">' + _esc(_t('wp.generate')) + '</button>' +
           '<div id="wpError" class="custom-mode-error secondary-text"></div>' +
         '</div>' +
-        '<button class="training-card-back" id="wpBackToModes" type="button" aria-label="Back to practice modes">← Back</button>' +
+        '<button class="training-card-back" id="wpBackToModes" type="button" aria-label="' + _esc(_t('practice.backToModesAria')) + '">' + _esc(_t('practice.backArrow')) + '</button>' +
       '</div>';
 
     var startBtn = container.querySelector('#startWordProblems');
@@ -305,7 +313,7 @@ var AIFeatures = (function () {
         if (isNaN(val)) val = wpDefaultCount;
         _wpQuestionCount = Math.max(1, Math.min(wpMaxQuestions, val));
         if (countValue) countValue.textContent = String(_wpQuestionCount);
-        if (countText) countText.textContent = 'You will solve ' + _wpQuestionCount + ' questions';
+        if (countText) countText.textContent = _t('practice.youWillSolve', { count: _wpQuestionCount });
       });
     }
 
@@ -355,9 +363,9 @@ var AIFeatures = (function () {
 
     if (quota.remaining <= 0) {
       startBtn.disabled = true;
-      startBtn.textContent = quota.type === 'lifetime' ? '🔒 Free limit reached' : 'Daily limit reached';
+      startBtn.textContent = quota.type === 'lifetime' ? _t('wp.freeLimitBtn') : _t('wp.dailyLimitBtn');
       if (quota.type === 'lifetime') {
-        errorEl.textContent = 'Upgrade to Premium for 30 AI questions per day.';
+        errorEl.textContent = _t('wp.upgradeFor30');
         errorEl.style.display = 'block';
       }
     }
@@ -366,18 +374,18 @@ var AIFeatures = (function () {
       if (startBtn.disabled || _wpInFlight) return;
       
       if (!_wpSelectedCategory) {
-        if (errorEl) errorEl.textContent = 'Please select a category';
+        if (errorEl) errorEl.textContent = _t('wp.selectCategory');
         return;
       }
       var diff = _wpAdaptiveModeActive ? _computeWpAdaptiveDifficulty() : ((typeof loadSettings === 'function') ? (loadSettings().difficulty || 'medium') : 'medium');
       var cnt = Math.min(_wpQuestionCount, quota.remaining);
       if (cnt <= 0) {
-        if (errorEl) errorEl.textContent = quota.type === 'lifetime' ? 'No free questions remaining.' : 'Daily limit reached.';
+        if (errorEl) errorEl.textContent = quota.type === 'lifetime' ? _t('wp.noFreeRemaining') : _t('wp.dailyLimitDot');
         return;
       }
 
       startBtn.disabled = true;
-      startBtn.innerHTML = '<div class="ai-spinner-inline"></div> Generating...';
+      startBtn.innerHTML = '<div class="ai-spinner-inline"></div> ' + _esc(_t('wp.generating'));
       errorEl.textContent = '';
 
       var wpTimerCfg = { timeLimitSec: null, perQuestionSec: null };
@@ -392,18 +400,22 @@ var AIFeatures = (function () {
       fetchWordProblems(_wpSelectedCategory, diff, cnt, function (err, questions) {
         if (err) {
           startBtn.disabled = false;
-          startBtn.textContent = 'Generate Word Problems';
+          startBtn.textContent = _t('wp.generate');
           if (err === 'free_limit_reached') {
-            errorEl.textContent = 'You\'ve used all 5 free AI questions. Upgrade to Premium for more.';
+            errorEl.textContent = _t('wp.errFreeUsed');
             if (typeof showPaywall === 'function') showPaywall('ai_explain');
           } else if (err === 'daily_limit_reached') {
-            errorEl.textContent = 'You\'ve reached today\'s limit of 30 AI questions. Come back tomorrow!';
+            errorEl.textContent = _t('wp.errDailyLimit');
           } else if (err === 'request_in_progress') {
-            errorEl.textContent = 'A request is already in progress. Please wait.';
+            errorEl.textContent = _t('wp.errInProgress');
           } else if (err === 'rate_limited') {
-            errorEl.textContent = 'Too many requests. Please wait a moment and try again.';
+            errorEl.textContent = _t('wp.errRateLimited');
+          } else if (err === 'no_questions') {
+            errorEl.textContent = _t('wp.errNoQuestions');
+          } else if (err === 'service_unavailable') {
+            errorEl.textContent = _t('wp.errServiceUnavailable');
           } else {
-            errorEl.textContent = FRIENDLY_ERROR;
+            errorEl.textContent = _tx('wp.errGeneric', FRIENDLY_ERROR);
           }
           return;
         }
@@ -426,7 +438,7 @@ var AIFeatures = (function () {
 
     if (!_isPremium()) {
       container.innerHTML =
-        '<button class="home-bento-action-btn sp-unlock-btn" type="button">🔒 Unlock with Premium</button>';
+        '<button class="home-bento-action-btn sp-unlock-btn" type="button">' + _esc(_t('ai.unlockPremium')) + '</button>';
       container.querySelector('.sp-unlock-btn').addEventListener('click', function () {
         if (typeof showPaywall === 'function') showPaywall('ai_study_plan');
       });
@@ -434,13 +446,13 @@ var AIFeatures = (function () {
     }
 
     container.innerHTML =
-      '<button class="home-bento-action-btn sp-open-btn" type="button">Open your Study Planner ✨</button>';
+      '<button class="home-bento-action-btn sp-open-btn" type="button">' + _esc(_t('ai.openPlanner')) + '</button>';
 
     container.querySelector('.sp-open-btn').addEventListener('click', function () {
       // QuanAI Planner (ADR-046) via the unified Companion. Prefer the full calendar view if it's loaded.
       if (window.Planner && Planner.open) return Planner.open();
       if (window.Companion && Companion.openStudyPlanner) return Companion.openStudyPlanner();
-      if (typeof showToast === 'function') showToast('Reopen the app to use AI.');
+      if (typeof showToast === 'function') showToast(_t('ai.reopenApp'));
     });
   }
 
@@ -461,34 +473,35 @@ var AIFeatures = (function () {
     var accNum = parseFloat(accuracy) || 0;
     var timeNum = parseFloat(avgTimeSec) || 0;
 
+    var prm = { acc: accNum.toFixed(0), time: timeNum.toFixed(1) };
     if (speedScore >= 85) {
-      level = 'Blazing Fast';
+      level = _t('drill.benchBlazing');
     } else if (speedScore >= 65) {
-      level = 'Quick Thinker';
+      level = _t('drill.benchQuick');
     } else if (speedScore >= 40) {
-      level = 'Steady Pacer';
+      level = _t('drill.benchSteady');
     } else {
-      level = 'Needs Speed Work';
+      level = _t('drill.benchNeedsWork');
     }
 
     if (speedScore >= 85) {
-      summary = 'Outstanding session! You nailed ' + accNum.toFixed(0) + '% accuracy at ' + timeNum.toFixed(1) + 's per question — that\'s top-tier reflex performance.';
+      summary = _t('drill.benchSummaryTop', prm);
     } else if (speedScore >= 65) {
-      summary = 'Strong work — ' + accNum.toFixed(0) + '% accuracy with an average of ' + timeNum.toFixed(1) + 's per question. Your speed and precision are well balanced.';
+      summary = _t('drill.benchSummaryStrong', prm);
     } else if (speedScore >= 40) {
-      summary = 'Solid effort with ' + accNum.toFixed(0) + '% accuracy at ' + timeNum.toFixed(1) + 's per question. Keep pushing the pace to beat your own best.';
+      summary = _t('drill.benchSummarySolid', prm);
     } else {
-      summary = 'You answered at ' + accNum.toFixed(0) + '% accuracy and ' + timeNum.toFixed(1) + 's per question. Focus on core formulas first, then chip away at your response time.';
+      summary = _t('drill.benchSummaryBase', prm);
     }
 
     if (accNum < 60) {
-      suggestion = 'Accuracy first — slow down slightly and double-check each step before answering. Speed will follow naturally once the fundamentals are solid.';
+      suggestion = _t('drill.benchSugAccuracy');
     } else if (timeNum > 12) {
-      suggestion = 'Try the Quick Drill mode daily to build faster recall. Aim to shave 1–2 seconds off your average time each session.';
+      suggestion = _t('drill.benchSugQuick');
     } else if (speedScore < 65) {
-      suggestion = 'Run a focused 10-question Reflex Drill on your weakest category to push both accuracy and speed simultaneously.';
+      suggestion = _t('drill.benchSugReflex');
     } else {
-      suggestion = 'Challenge yourself with Hard mode questions or timed tests to sharpen your edge even further.';
+      suggestion = _t('drill.benchSugHard');
     }
 
     return { level: level, summary: summary, suggestion: suggestion };
@@ -502,9 +515,9 @@ var AIFeatures = (function () {
      language, interactive). The old one-shot modal bodies remain as a defensive fallback if Companion is absent. */
   return {
     fetchSpeedBenchmark: fetchSpeedBenchmark,
-    showExplanationModal: function (q, a, c, reportCtx) { if (window.Companion) return Companion.openExplain(q, a, c, reportCtx); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
-    showStatsInsightsModal: function () { if (window.Companion) return Companion.openInsights(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
-    showCoachModal: function () { if (window.Companion) return Companion.openCoach(); if (typeof showToast === 'function') showToast('Reopen the app to use AI.'); },
+    showExplanationModal: function (q, a, c, reportCtx) { if (window.Companion) return Companion.openExplain(q, a, c, reportCtx); if (typeof showToast === 'function') showToast(_t('ai.reopenApp')); },
+    showStatsInsightsModal: function () { if (window.Companion) return Companion.openInsights(); if (typeof showToast === 'function') showToast(_t('ai.reopenApp')); },
+    showCoachModal: function () { if (window.Companion) return Companion.openCoach(); if (typeof showToast === 'function') showToast(_t('ai.reopenApp')); },
     openStudyPlanner: function (forceSetup) { if (window.Planner && Planner.open && !forceSetup) return Planner.open(); if (window.Companion && Companion.openStudyPlanner) return Companion.openStudyPlanner(forceSetup); },
     renderAICoachCard: renderAICoachCard,
     renderStudyPlanCard: renderStudyPlanCard,

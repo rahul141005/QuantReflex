@@ -318,11 +318,17 @@ var QuestionBankService = (function () {
           if (collected.length > 0) {
             /* Notify user about fallback (non-blocking) */
             if (fallbackDiffUsed && typeof showToast === 'function') {
-              showToast('Showing ' + fallbackDiffUsed + ' questions \u2014 ' + difficulty + ' not yet available for this topic.');
+              /* i18n (ADR-111): difficulty ids render via the Settings difficulty labels */
+              var _qbT = function (k, prm) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(k, prm) : k; };
+              var _qbDiff = function (d) {
+                var dk = { easy: 'settings.difficultyEasy', medium: 'settings.difficultyMedium', hard: 'settings.difficultyHard' }[String(d || '').toLowerCase()];
+                return dk ? _qbT(dk) : String(d || '');
+              };
+              showToast(_qbT('wp.fallbackDiff', { used: _qbDiff(fallbackDiffUsed), req: _qbDiff(difficulty) }));
             }
             _safeCallback(null, collected.slice(0, count));
           } else {
-            _safeCallback('No questions available for this topic yet. Try another category.');
+            _safeCallback('no_questions');   /* stable code — localized at the display site (ADR-111) */
           }
           return;
         }

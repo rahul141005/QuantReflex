@@ -42,13 +42,13 @@ var DuelManager = (function () {
   function _showInstallGate() {
     _phase = 'idle';
     var modal = _openSetupModal();
-    if (!modal || typeof DuelUI.renderInstallGate !== 'function') { _toast('Open Math Duels inside the installed QuantReflex app.'); return; }
+    if (!modal || typeof DuelUI.renderInstallGate !== 'function') { _toast(_t('duel.installGate')); return; }
     DuelUI.renderInstallGate(modal, {
       onClose: _closeSetupModal,
       onInstall: function () {
         var dp = window._deferredPrompt;
         if (dp && dp.prompt) { try { dp.prompt(); dp.userChoice.then(function () { window._deferredPrompt = null; }); } catch (_) {} }
-        else { _toast('In your browser menu, choose "Add to Home screen" to install QuantReflex.'); }
+        else { _toast(_t('duel.installHint')); }
       }
     });
   }
@@ -68,7 +68,9 @@ var DuelManager = (function () {
     return 'Anonymous';
   }
   function _toast(m) { if (typeof showToast === 'function') showToast(m); }
-  function _paywall() { if (typeof showPaywall === 'function') showPaywall('math_duel'); else _toast('Premium is required for Math Duel'); }
+  /* i18n (ADR-111): app-language channel; guarded so a harness without QRI18n still gets the key. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  function _paywall() { if (typeof showPaywall === 'function') showPaywall('math_duel'); else _toast(_t('duel.premiumRequired')); }
 
   /* ── View plumbing ── */
   var DUEL_CONTAINERS = ['duelSetup', 'duelPreview', 'duelWaiting', 'duelActive', 'duelResults'];
@@ -129,7 +131,7 @@ var DuelManager = (function () {
       // force-finalize (that stamps 'finished' and locks the live device out of answering — audit adversarial-04
       // / network-recovery-05). Leave the active duel to the other device; this one just returns to Home.
       var freshMs = (myP && myP.lastSeenAt) ? ((Date.now() + _serverOffset) - myP.lastSeenAt) : Infinity;
-      if (myState === 'solving' && freshMs >= 0 && freshMs < 15000) { _toast('This duel is active on another device.'); exitToHome(true); return; }
+      if (myState === 'solving' && freshMs >= 0 && freshMs < 15000) { _toast(_t('duel.activeElsewhere')); exitToHome(true); return; }
       _finishMe('submitted_early');   // off the solving screen → finalize on the synced answers
       return;
     }
@@ -260,8 +262,8 @@ var DuelManager = (function () {
     var prompts = src.slice().sort(function (a, b) { return a.index - b.index; });
     if (!prompts.length) {   // DR2 backstop — never run a 0-question engine; re-fetch the room, then retry (CAPPED)
       _syncRetries++;
-      if (_syncRetries > 6) { _syncRetries = 0; _toast('Trouble loading the duel — check your connection.'); exitToHome(true); return; }   // surface, don't loop forever (audit question-delivery-03)
-      _toast('Loading questions…');
+      if (_syncRetries > 6) { _syncRetries = 0; _toast(_t('duel.loadTrouble')); exitToHome(true); return; }   // surface, don't loop forever (audit question-delivery-03)
+      _toast(_t('duel.loadingQuestions'));
       DuelCore.fetchState(_code).then(function (res) { if (res && res.duel) { _duel = res.duel; if (res.duel.prompts && res.duel.prompts.length) _solvePrompts = res.duel.prompts.slice(); if (res.serverNow) _serverOffset = res.serverNow - Date.now(); } setTimeout(_startSolving, 400); }).catch(function () { setTimeout(_startSolving, 800); });
       return;
     }
@@ -575,10 +577,10 @@ var DuelManager = (function () {
       _serverOffset = (res.serverNow || Date.now()) - Date.now();
       var dd = res.duel;
       if (!dd) { _resetState(); refreshActiveCard(); return; }
-      if (dd.status === 'abandoned' || dd.status === 'expired') { _toast('That duel has ended.'); _resetState(); exitToHome(); return; }
+      if (dd.status === 'abandoned' || dd.status === 'expired') { _toast(_t('duel.ended')); _resetState(); exitToHome(); return; }
       if (dd.status === 'complete') { _duel = dd; _my = res.my || _my; _showResults(_code, dd); return; }   // INTENTIONAL open from the Home "Results ready" card
       _routeRecovered(_code, dd, res.my);
-    }).catch(function () { _toast('Couldn’t reach the duel — check your connection.'); refreshActiveCard(); });   // don't blindly re-enter from stale _duel (audit arch-statemachine-05 / home-history-05)
+    }).catch(function () { _toast(_t('duel.unreachable')); refreshActiveCard(); });   // don't blindly re-enter from stale _duel (audit arch-statemachine-05 / home-history-05)
   }
   function _setHomeCardIdle(card) {
     var desc = card.querySelector('.home-bento-desc');
@@ -640,8 +642,8 @@ var DuelManager = (function () {
   function _retryActiveFromLobby() {
     if (_phase !== 'lobby' && _phase !== 'countdown') return;
     _syncRetries++;
-    if (_syncRetries > 6) { _syncRetries = 0; _toast('Trouble reaching the duel — check your connection.'); return; }   // surface, don't loop forever
-    _toast('Syncing with host…');
+    if (_syncRetries > 6) { _syncRetries = 0; _toast(_t('duel.syncTrouble')); return; }   // surface, don't loop forever
+    _toast(_t('duel.syncingHost'));
     setTimeout(function () { if (_phase === 'lobby' || _phase === 'countdown') _onActiveFromLobby(); }, 1200);
   }
 

@@ -346,7 +346,7 @@ var LearnView = (function () {
         /* A scaffold ("coming soon") topic has no content yet — don't strand the user on a near-empty page;
            give clear feedback and stay on the hub. Direct deep links still render a graceful coming-soon page. */
         if (t && t.status === 'scaffold') {
-          if (typeof showToast === 'function') showToast('“' + t.title + '” is coming soon — full notes are on the way.');
+          if (typeof showToast === 'function') showToast(QRI18n.t('learn.comingSoonToast', { title: t.title }));
           return;
         }
         _go(id);
