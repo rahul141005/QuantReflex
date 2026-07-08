@@ -104,8 +104,8 @@ function renderQuickStudyLinks() {
     }
 
     card.innerHTML = '<div class="study-card-content">' +
-                     '<h3>' + linkData.icon + ' ' + linkData.title + '</h3>' +
-                     '<p>' + linkData.desc + '</p>' +
+                     '<h3>' + linkData.icon + ' ' + QRI18n.t('home.ql_' + linkData.id + 'Title') + '</h3>' +
+                     '<p>' + QRI18n.t('home.ql_' + linkData.id + 'Desc') + '</p>' +
                      '</div><div class="study-card-arrow">→</div>';
     container.appendChild(card);
   }
@@ -169,21 +169,21 @@ function openQuickLinksEditor() {
   var modal = document.createElement('div');
   modal.className = 'modal-content';
 
-  var html = '<h3 class="modal-title">Customize Quick Links</h3>';
-  html += '<p class="secondary-text" style="margin-bottom:.75rem;">Select up to 4 quick links for your home screen.</p>';
+  var html = '<h3 class="modal-title">' + QRI18n.t('home.customizeQuickLinks') + '</h3>';
+  html += '<p class="secondary-text" style="margin-bottom:.75rem;">' + QRI18n.t('home.selectUpTo4') + '</p>';
 
   for (var i = 0; i < AVAILABLE_QUICK_LINKS.length; i++) {
     var link = AVAILABLE_QUICK_LINKS[i];
     var isChecked = selectedIds.indexOf(link.id) !== -1;
     html += '<label class="quick-link-option' + (isChecked ? ' selected' : '') + '">';
     html += '<input type="checkbox" value="' + link.id + '"' + (isChecked ? ' checked' : '') + ' />';
-    html += '<span>' + link.icon + ' ' + link.title + '</span>';
+    html += '<span>' + link.icon + ' ' + QRI18n.t('home.ql_' + link.id + 'Title') + '</span>';
     html += '</label>';
   }
 
   html += '<div class="modal-actions">';
-  html += '<button class="btn-secondary modal-cancel">Cancel</button>';
-  html += '<button class="btn-primary modal-save">Save</button>';
+  html += '<button class="btn-secondary modal-cancel">' + QRI18n.t('modals.cancel') + '</button>';
+  html += '<button class="btn-primary modal-save">' + QRI18n.t('modals.save') + '</button>';
   html += '</div>';
 
   modal.innerHTML = html;
@@ -264,16 +264,16 @@ function initHomeView() {
     var hour = new Date().getHours();
     var greeting;
     if (hour < 12) {
-      greeting = 'Good morning';
+      greeting = QRI18n.t('home.goodMorning');
     } else if (hour < 17) {
-      greeting = 'Good afternoon';
+      greeting = QRI18n.t('home.goodAfternoon');
     } else {
-      greeting = 'Good evening';
+      greeting = QRI18n.t('home.goodEvening');
     }
 
     /* Without a name, the time greeting becomes the title — never greet the app by its own
        name, and never claim "welcome back" to a first-run user. */
-    if (greetingEl) greetingEl.textContent = displayName ? greeting : 'Ready to train?';
+    if (greetingEl) greetingEl.textContent = displayName ? greeting : QRI18n.t('home.readyToTrain');
     if (userNameEl) userNameEl.textContent = displayName || greeting;
     if (initialEl) initialEl.textContent = displayName ? displayName.charAt(0).toUpperCase() : 'Q';
 
@@ -303,9 +303,9 @@ function initHomeView() {
             nudge.id = 'examNudgeBanner';
             nudge.className = 'card exam-nudge-banner';
             nudge.innerHTML =
-              '<span class="exam-nudge-text">Preparing for an exam? Set your target to sharpen your plan.</span>' +
-              '<button class="btn-primary exam-nudge-btn" type="button">Set target</button>' +
-              '<button class="exam-nudge-dismiss" type="button" aria-label="Dismiss">×</button>';
+              '<span class="exam-nudge-text">' + QRI18n.t('home.examNudge') + '</span>' +
+              '<button class="btn-primary exam-nudge-btn" type="button">' + QRI18n.t('home.setTarget') + '</button>' +
+              '<button class="exam-nudge-dismiss" type="button" aria-label="' + QRI18n.t('home.dismissAria') + '">×</button>';
             nudge.querySelector('.exam-nudge-btn').addEventListener('click', function () {
               if (typeof Router !== 'undefined') Router.showView('settings');
             });
@@ -350,14 +350,14 @@ function initHomeView() {
     if (ctaLabel && ctaDesc) {
       var todayDone = parseInt(p.todayAttempted) || 0;
       if (todayDone > 0) {
-        ctaLabel.textContent = 'Continue Training';
-        ctaDesc.textContent = todayDone + ' questions done today';
+        ctaLabel.textContent = QRI18n.t('home.continueTraining');
+        ctaDesc.textContent = QRI18n.t('home.questionsDoneToday', { count: todayDone });
       } else if (dailyStreak > 0) {
-        ctaLabel.textContent = 'Keep Your Streak';
-        ctaDesc.textContent = dailyStreak + '-day streak — don\'t break it!';
+        ctaLabel.textContent = QRI18n.t('home.keepYourStreak');
+        ctaDesc.textContent = QRI18n.t('home.streakDontBreak', { count: dailyStreak });
       } else {
-        ctaLabel.textContent = 'Start Training';
-        ctaDesc.textContent = '5-question daily warmup';
+        ctaLabel.textContent = QRI18n.t('home.ctaStart');
+        ctaDesc.textContent = QRI18n.t('home.ctaWarmup');
       }
     }
 
@@ -376,11 +376,11 @@ function initHomeView() {
     if (goalTarget) goalTarget.textContent = goal;
     if (goalPct) goalPct.textContent = pct + '%';
     if (goalStatus) {
-      if (pct >= 100) goalStatus.textContent = '🎉 Daily goal achieved!';
-      else if (pct >= 75) goalStatus.textContent = '🔥 Almost at your goal!';
-      else if (pct >= 50) goalStatus.textContent = '💪 Halfway to your goal!';
-      else if (done > 0) goalStatus.textContent = 'Keep going!';
-      else goalStatus.textContent = 'Start training to hit your goal';
+      if (pct >= 100) goalStatus.textContent = QRI18n.t('home.goalAchieved');
+      else if (pct >= 75) goalStatus.textContent = QRI18n.t('home.goalAlmost');
+      else if (pct >= 50) goalStatus.textContent = QRI18n.t('home.goalHalfway');
+      else if (done > 0) goalStatus.textContent = QRI18n.t('home.goalKeepGoing');
+      else goalStatus.textContent = QRI18n.t('home.goalStart');
     }
 
     /* Animate circular ring fill */
@@ -433,7 +433,7 @@ function initHomeView() {
       } else {
         coachContainer.innerHTML =
           '<button class="home-bento-action-btn" type="button" id="coachUnlockBtn">' +
-            'Unlock AI Coach ✨' +
+            QRI18n.t('home.unlockAiCoach') +
           '</button>';
         var coachUnlockBtn = document.getElementById('coachUnlockBtn');
         if (coachUnlockBtn) {
@@ -452,7 +452,7 @@ function initHomeView() {
       } else {
         spContainer.innerHTML =
           '<button class="home-bento-action-btn" type="button" id="timetableUnlockBtn">' +
-            'Create Study Plan ✨' +
+            QRI18n.t('home.createStudyPlan') +
           '</button>';
         var timetableUnlockBtn = document.getElementById('timetableUnlockBtn');
         if (timetableUnlockBtn) {
@@ -530,10 +530,10 @@ function _renderStreakAtRisk(progress) {
     '<div class="streak-risk-card">' +
       '<span class="streak-risk-icon">🔥</span>' +
       '<div class="streak-risk-content">' +
-        '<strong>' + streak + '-day streak at risk!</strong>' +
-         '<span class="streak-risk-sub">Complete a session to protect your streak.</span>' +
+        '<strong>' + QRI18n.t('home.streakAtRisk', { count: streak }) + '</strong>' +
+         '<span class="streak-risk-sub">' + QRI18n.t('home.streakProtect') + '</span>' +
       '</div>' +
-      '<a href="#practice" class="streak-risk-btn" id="streakRiskPractice">Go</a>' +
+      '<a href="#practice" class="streak-risk-btn" id="streakRiskPractice">' + QRI18n.t('home.go') + '</a>' +
     '</div>';
 
   var goBtn = container.querySelector('#streakRiskPractice');
@@ -570,10 +570,10 @@ function _renderSuggestedPractice() {
     '<div class="suggested-practice-card">' +
       '<span class="suggested-icon">🎯</span>' +
       '<div class="suggested-content">' +
-        '<strong>Focus on ' + label + '</strong>' +
-         '<span class="suggested-sub">Your weakest topic — targeted practice drives the fastest improvement.</span>' +
+        '<strong>' + QRI18n.t('home.focusOn', { label: label }) + '</strong>' +
+         '<span class="suggested-sub">' + QRI18n.t('home.weakestTopicSub') + '</span>' +
       '</div>' +
-      '<button class="suggested-btn" id="suggestedPracticeBtn" type="button">Start</button>' +
+      '<button class="suggested-btn" id="suggestedPracticeBtn" type="button">' + QRI18n.t('home.start') + '</button>' +
     '</div>';
 
   var startBtn = container.querySelector('#suggestedPracticeBtn');
@@ -613,17 +613,17 @@ function _renderDailyQuota(progress) {
   container.innerHTML =
     '<div class="daily-quota-card">' +
       '<div class="quota-header">' +
-        '<span class="quota-label">Daily Questions</span>' +
+        '<span class="quota-label">' + QRI18n.t('home.dailyQuestions') + '</span>' +
         '<span class="quota-count">' + used + ' / ' + limit + '</span>' +
       '</div>' +
       '<div class="quota-bar">' +
         '<div class="quota-fill' + (pct >= 100 ? ' quota-full' : '') + '" style="width:' + pct + '%"></div>' +
       '</div>' +
       (remaining <= 5 && remaining > 0
-        ? '<span class="quota-warning">⚠️ ' + remaining + ' question' + (remaining === 1 ? '' : 's') + ' remaining today</span>'
+        ? '<span class="quota-warning">' + QRI18n.t('home.questionsRemaining', { count: remaining }) + '</span>'
         : '') +
       (remaining === 0
-        ? '<span class="quota-warning">Daily limit reached. <a href="#" class="quota-upgrade-link" id="quotaUpgradeLink">Upgrade for unlimited</a></span>'
+        ? '<span class="quota-warning">' + QRI18n.t('home.dailyLimitReached') + ' <a href="#" class="quota-upgrade-link" id="quotaUpgradeLink">' + QRI18n.t('home.upgradeForUnlimited') + '</a></span>'
         : '') +
     '</div>';
 
