@@ -1033,6 +1033,7 @@
       tabRegister: 'Create Account',
       emailLabel: 'Email',
       emailPlaceholder: 'you@example.com',
+      logoAlt: 'QuantReflex Logo',
       passwordLabel: 'Password',
       passwordPlaceholder: 'Enter your password',
       showPasswordAria: 'Show password',

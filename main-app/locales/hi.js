@@ -1028,6 +1028,7 @@
       tabRegister: 'खाता बनाएँ',
       emailLabel: 'ईमेल',
       emailPlaceholder: 'you@example.com',
+      logoAlt: 'QuantReflex लोगो',
       passwordLabel: 'पासवर्ड',
       passwordPlaceholder: 'अपना पासवर्ड लिखें',
       showPasswordAria: 'पासवर्ड दिखाएँ',
