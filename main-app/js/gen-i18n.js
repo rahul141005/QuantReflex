@@ -100,17 +100,22 @@ var QRGenI18n = (function () {
   /** True when a template for engine.key exists in the given (or active) language. */
   function has(engine, key, lang) { var p = _packFor(engine, lang || _lang()); return !!(p && p.tpl[key]); }
 
-  /* ── DI packs (ADR-111 F-M5) — the DI engine keeps all RNG/math and generates directly in the ACTIVE study
-     language, so its pack is a rich object (theme pools + stem/chart phrasers), not the pure render() tpl/slots
-     model quant uses. Stored whole; the engine reads diPack(activeLang) at generate() time. */
-  var _di = {};
-  function registerDI(lang, pack) { lang = _valid(lang); if (pack) _di[lang] = pack; }
-  /** The DI pack for the given (or active study) language; falls back to en so generation never breaks. */
-  function diPack(lang) { lang = lang ? _valid(lang) : _lang(); return _di[lang] || _di.en || null; }
-  /** Active study language, guarded (en in Node / pre-boot). Exposed so the DI engine resolves language once. */
+  /* ── Rich engine packs (ADR-111 F-M5 DI, F-M6 LR) — these engines keep all RNG/math and generate directly in the
+     ACTIVE study language, so their pack is a rich object (pools + stem/chart phrasers), not the pure render() tpl/
+     slots model quant uses. Stored whole per engine; the engine reads richPack(engine, activeLang) at generate() time. */
+  var _rich = { di: {}, lr: {} };
+  function registerRich(engine, lang, pack) { lang = _valid(lang); if (engine && pack) { (_rich[engine] || (_rich[engine] = {}))[lang] = pack; } }
+  /** The rich pack for engine in the given (or active study) language; falls back to en so generation never breaks. */
+  function richPack(engine, lang) { lang = lang ? _valid(lang) : _lang(); var e = _rich[engine] || {}; return e[lang] || e.en || null; }
+  /* DI/LR convenience wrappers (packs call registerDI/registerLR; engines call diPack/lrPack). */
+  function registerDI(lang, pack) { registerRich('di', lang, pack); }
+  function diPack(lang) { return richPack('di', lang); }
+  function registerLR(lang, pack) { registerRich('lr', lang, pack); }
+  function lrPack(lang) { return richPack('lr', lang); }
+  /** Active study language, guarded (en in Node / pre-boot). Exposed so the rich engines resolve language once. */
   function studyLangOf() { return _lang(); }
 
-  var API = { register: register, render: render, pools: pools, has: has, registerDI: registerDI, diPack: diPack, studyLangOf: studyLangOf, _store: _store, _di: _di };
+  var API = { register: register, render: render, pools: pools, has: has, registerRich: registerRich, richPack: richPack, registerDI: registerDI, diPack: diPack, registerLR: registerLR, lrPack: lrPack, studyLangOf: studyLangOf, _store: _store, _rich: _rich, _di: _rich.di };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRGenI18n = API;
   return API;
