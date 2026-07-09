@@ -101,6 +101,10 @@ language. Marathi column filled in F-M4.
 | part / share (in ratio) | भाग / हिस्सा | — | |
 | divide (a sum) | बाँटना / विभाजित करना | — | |
 | average / mean | औसत / माध्य | — | |
+| weighted mean | भारित माध्य | — | boys/girls लड़के/लड़कियाँ, weight भार, whole group पूरा समूह |
+| salary | वेतन | — | |
+| successive discount / single equivalent | क्रमिक बट्टा / एकल तुल्य | — | |
+| original value / net fall | मूल मान / कुल गिरावट | — | |
 | cost price (CP) / selling price (SP) | क्रय मूल्य / विक्रय मूल्य | — | keep CP/SP Latin in formula lines |
 | profit / loss | लाभ / हानि | — | |
 | article / shopkeeper | वस्तु / दुकानदार | — | |

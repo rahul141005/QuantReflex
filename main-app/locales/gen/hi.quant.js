@@ -172,6 +172,74 @@
     'surface-area:hard:sphereSA': {
       s: [function (s) { return s.r + ' cm त्रिज्या वाले गोले का पृष्ठीय क्षेत्रफल ज्ञात कीजिए (π = 3.14 लीजिए)।'; }, function (s) { return 'एक गोलाकार गेंद की त्रिज्या ' + s.r + ' cm है। π = 3.14 लेकर इसका पृष्ठीय क्षेत्रफल = ? cm²'; }],
       e: [function (s) { return 'पृष्ठीय क्षेत्रफल = 4πr² = 4 × 3.14 × ' + s.r + '² = ' + s.ans + ' cm².'; }]
+    },
+
+    /* ── Batch 3: प्रतिशत, औसत, लाभ-हानि (commercial arithmetic; ₹/% verbatim; formula lines keep CP/SP/N Latin) ── */
+
+    /* प्रतिशत ("x% of y" → "y का x%") */
+    'percentages:*:directOf': {
+      s: [function (s) { return s.b + ' का ' + s.p + '% = ?'; }, function (s) { return s.b + ' का ' + s.p + '% ज्ञात कीजिए।'; }, function (s) { return s.b + ' का ' + s.p + '% कौन-सी संख्या है?'; }],
+      e: [function (s) { return s.b + ' का ' + s.p + '% = ' + s.p + ' × ' + s.b + ' ÷ 100 = ' + s.r + '. संकेत: ' + s.b + ' का ' + s.p + '% = ' + s.p + ' का ' + s.b + '% — जब एक पक्ष अधिक गोल हो तो अदल-बदल कर लीजिए।'; }]
+    },
+    'percentages:medium:reverse': {
+      s: [function (s) { return 'किस संख्या का ' + s.p + '%, ' + s.r + ' है?'; }],
+      e: [function (s) { return 'यदि किसी संख्या N का ' + s.p + '% = ' + s.r + ', तो N = ' + s.r + ' × 100 ÷ ' + s.p + ' = ' + s.b + '.'; }]
+    },
+    'percentages:medium:whatPct': {
+      s: [function (s) { return s.b + ' का कितना प्रतिशत ' + s.y + ' है?'; }],
+      e: [function (s) { return s.b + ' में से ' + s.y + ' = (' + s.y + ' ÷ ' + s.b + ') × 100 = ' + s.p + '%.'; }]
+    },
+    'percentages:hard:pctChange': {
+      s: [function (s) { return 'एक मान ' + s.old + ' से बढ़कर ' + s.nw + ' हो जाता है। प्रतिशत वृद्धि = ? %'; }],
+      e: [function (s) { return 'प्रतिशत वृद्धि = (नया − पुराना)/पुराना × 100 = (' + s.nw + ' − ' + s.old + ')/' + s.old + ' × 100 = ' + ((s.nw - s.old) * 100 / s.old) + '%. सदैव मूल मान से भाग दीजिए।'; }]
+    },
+    'percentages:hard:successive': {
+      s: [function (s) { return '₹' + s.base + ' की एक वस्तु पर ' + s.d1 + '% और ' + s.d2 + '% के क्रमिक बट्टे दिए जाते हैं। अंतिम मूल्य = ₹?'; }],
+      e: [function (s) { return 'क्रम से लगाइए: ' + s.base + ' × ' + (1 - s.d1 / 100) + ' × ' + (1 - s.d2 / 100) + ' = ' + s.f + '. एकल तुल्य = ' + s.d1 + '+' + s.d2 + '−(' + s.d1 + '×' + s.d2 + ')/100 = ' + (s.d1 + s.d2 - s.d1 * s.d2 / 100) + '%.'; }]
+    },
+    'percentages:hard:netTrap': {
+      s: [function (s) { return 'किसी वेतन को ' + s.x + '% बढ़ाया जाता है और फिर ' + s.x + '% घटाया जाता है। कुल मिलाकर यह ? % गिर जाता है।'; }],
+      e: [function (s) { return 'समान +' + s.x + '% फिर −' + s.x + '% कभी रद्द नहीं होते — कुल गिरावट = x²/100 = ' + s.x + '²/100 = ' + (s.x * s.x / 100) + '%. यह चक्रवृद्धि होती है, केवल जोड़ नहीं।'; }]
+    },
+
+    /* औसत */
+    'averages:*:mean': {
+      s: [function (s) { return s.nums.join(', ') + ' का औसत = ?'; }, function (s) { return s.nums.join(', ') + ' का माध्य ज्ञात कीजिए।'; }, function (s) { return s.nums.join(', ') + ' का औसत क्या है?'; }],
+      e: [function (s) { return 'औसत = योग ÷ संख्या = ' + s.nums.reduce(function (x, y) { return x + y; }, 0) + ' ÷ ' + s.count + ' = ' + s.avg + '.'; }]
+    },
+    'averages:medium:missing': {
+      s: [function (s) { return s.known.join(', ') + ' और x का औसत ' + s.avg + ' है। x = ?'; }],
+      e: [function (s) { return 'आवश्यक कुल = औसत × संख्या = ' + s.avg + ' × ' + s.count + ' = ' + (s.avg * s.count) + '. x = ' + (s.avg * s.count) + ' − ' + s.sum + ' = ' + s.x + '.'; }]
+    },
+    'averages:hard:weighted': {
+      s: [function (s) { return s.m + ' लड़कों का औसत भार ' + s.a + ' kg है और ' + s.n + ' लड़कियों का ' + s.b + ' kg। पूरे समूह का औसत भार = ? kg'; }],
+      e: [function (s) { return 'भारित माध्य = (दोनों समूहों का कुल) ÷ (कुल संख्या) = (' + s.m + '×' + s.a + ' + ' + s.n + '×' + s.b + ') ÷ (' + s.m + '+' + s.n + ') = ' + (s.m * s.a + s.n * s.b) + ' ÷ ' + (s.m + s.n) + ' = ' + s.ov + '.'; }]
+    },
+    'averages:hard:newMember': {
+      s: [function (s) { return s.n + ' संख्याओं का औसत ' + s.A + ' है। एक और संख्या जोड़ने पर औसत ' + s.B + ' हो जाता है। नई संख्या = ?'; }],
+      e: [function (s) { return 'नई संख्या = नया कुल − पुराना कुल = ' + s.B + '×' + (s.n + 1) + ' − ' + s.A + '×' + s.n + ' = ' + (s.B * (s.n + 1)) + ' − ' + (s.A * s.n) + ' = ' + s.x + '.'; }]
+    },
+
+    /* लाभ और हानि (stems Hindi; formula lines keep SP/CP Latin per glossary) */
+    'profit-loss:*:spProfit': {
+      s: [function (s) { return 'क्रय मूल्य ₹' + s.cp + ' है और लाभ ' + s.pr + '% है। विक्रय मूल्य = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 + लाभ%) = ' + s.cp + ' × ' + (1 + s.pr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:*:spLoss': {
+      s: [function (s) { return 'क्रय मूल्य ₹' + s.cp + ' है और हानि ' + s.lr + '% है। विक्रय मूल्य = ₹?'; }],
+      e: [function (s) { return 'SP = CP × (1 − हानि%) = ' + s.cp + ' × ' + (1 - s.lr / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+    'profit-loss:*:profitPct': {
+      s: [function (s) { return '₹' + s.cp + ' में खरीदी गई एक वस्तु ₹' + s.sp + ' में बेची जाती है। लाभ प्रतिशत = ?'; }],
+      e: [function (s) { return 'लाभ% = (SP − CP)/CP × 100 = (' + s.sp + ' − ' + s.cp + ')/' + s.cp + ' × 100 = ' + s.pr + '%. आधार सदैव क्रय मूल्य होता है।'; }]
+    },
+    'profit-loss:hard:findCP': {
+      s: [function (s) { return 'एक वस्तु को ₹' + s.sp + ' में बेचकर एक दुकानदार ' + s.pr + '% लाभ कमाता है। क्रय मूल्य = ₹?'; }],
+      e: [function (s) { return 'CP = SP ÷ (1 + लाभ%) = ' + s.sp + ' ÷ ' + (1 + s.pr / 100) + ' = ₹' + s.cp + '.'; }]
+    },
+    'profit-loss:hard:successive': {
+      s: [function (s) { return '₹' + s.cp + ' लागत वाली एक वस्तु ' + s.p0 + '% लाभ पर बेची जाती है, और फिर उस मूल्य को ' + s.p1 + '% और बढ़ा दिया जाता है। अंतिम विक्रय मूल्य = ₹?'; }],
+      e: [function (s) { return 'गुणकों को श्रृंखलाबद्ध कीजिए: ' + s.cp + ' × ' + (1 + s.p0 / 100) + ' × ' + (1 + s.p1 / 100) + ' = ₹' + s.sp + '.'; }]
     }
   } };
 
