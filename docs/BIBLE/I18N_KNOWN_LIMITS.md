@@ -190,3 +190,11 @@ The following are intentional and bounded:
 ### hi/mr DI packs — coverage
 - `di.hi` authored in F-M5.2, `di.mr` in F-M5.3 — both now registered (`registerDI`); DI renders natively in EN + HI + MR. Until a language's DI pack is registered (`registerDI`), that language
   falls back to EN for DI (the leak/Devanagari checks skip it and report the gap), mirroring the quant coverage model.
+
+### DI chart aria-label kind prefix — English
+- **Detail:** di-charts.js `describe()` prefixes the accessible label with the chart KIND ("bar chart.", "line chart.",
+  "pie chart.", "data table."). The data-rich remainder of the aria-label — the chart TITLE, entity labels and values —
+  IS localized (it flows from the engine's localized chart spec). Only the one-word kind prefix stays English.
+- **Rationale:** the blueprint scoped F-M5 to the ENGINE's text pools ("di-charts.js needs zero changes"); the kind
+  prefix is renderer chrome, not engine content. Low exposure (screen-reader only, one word), and the localized title
+  immediately follows. Can be localized in a later renderer-chrome pass; recorded so certification does not flag it.
