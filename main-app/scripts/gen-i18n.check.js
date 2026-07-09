@@ -140,7 +140,7 @@ ok(QRPacks.ready('en') === true, "QRPacks.ready('en') is true (eager)");
   var f = QRPacks.files('hi');
   ok(f.length >= 4 && f[0].indexOf('locales/gen/hi.') === 0, 'QRPacks.files(hi) lists the 4 gen packs first');
   ok(f.slice(0, 4).every(function (x) { return x.indexOf('locales/gen/hi.') === 0; }), 'QRPacks.files(hi) gen packs precede content packs');
-  ok(f.slice(4).every(function (x) { return x.indexOf('hi/') !== -1; }), 'QRPacks.files(hi) content packs carry the resolved {lang}');
+  ok(f.slice(4).every(function (x) { return /(^|\/)hi(\/|\.)/.test(x) && x.indexOf('{lang}') === -1; }), 'QRPacks.files(hi) content packs carry the resolved {lang}');
 })();
 
 /* ============================================================================

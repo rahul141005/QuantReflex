@@ -50,6 +50,7 @@ function leaks(str) {
   s = s.replace(/<[^>]+>/g, ' ');                 // strip HTML tags
   s = s.replace(/[०-९0-9]/g, ' ').replace(/₹|%/g, ' ');
   _MATH_ALLOW.forEach(function (w) { s = s.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), ' '); });
+  s = s.replace(/\bn[CP][a-z0-9]\b/gi, ' ');       // n-choose / n-permute forms (nCr, nCn, nC0, nPr, nP0)
   s = s.replace(/\b[A-Za-z]\b/g, ' ');            // single variable letters (a, b, x, r, h, l)
   s = s.replace(/\b[A-Z]{1,5}\b/g, ' ');          // short all-caps abbreviations
   return /[A-Za-z]{3,}/.test(s);
@@ -131,6 +132,38 @@ var totalChecked = 0;
   if (cov.complete) ok(cov.have === cov.total, lang + ' declares complete but is missing ' + (cov.total - cov.have) + ' topic overlays');
 });
 console.log('  (' + totalChecked + ' overlay(s) validated; activates as G-M3…G-M8 author them)');
+
+/* ── 2. Quick-Reference card overlays (G-M9) — same machinery over QR_QUICKREF ── */
+section('2. Quick-Reference card overlays (congruence / forbidden / leak / digit / coverage)');
+var QR = require(p('js/quick-reference/quick-ref-data.js'));
+var QRI = require(p('js/quick-reference/quick-ref-i18n.js'));
+QRI._reset();
+['hi', 'mr'].forEach(function (lang) {
+  var f = path.join(__dirname, '..', 'js/quick-reference/i18n/' + lang + '.js');
+  if (fs.existsSync(f)) require(f);
+});
+var qrById = {}; QR.CARDS.forEach(function (c) { qrById[c.id] = c; });
+var qrIds = QR.CARDS.map(function (c) { return c.id; });
+var QR_FORBIDDEN = { section: 1, icon: 1, learn: 1, drill: 1, kind: 1 };   // machine fields never overlaid
+['hi', 'mr'].forEach(function (lang) {
+  var cov = QRI._coverage(lang, qrIds);
+  var cErr = 0, lErr = 0, dErr = 0, fErr = 0, n = 0;
+  qrIds.forEach(function (id) {
+    var ov = QRI._overlayOf(lang, id); if (!ov) return; n++;
+    var base = qrById[id];
+    for (var k in ov) { if (QR_FORBIDDEN[k]) { fErr++; console.error('  ✗ [' + lang + '] ' + id + ': forbidden field "' + k + '" in card overlay'); } }
+    var e = []; congruent(base, ov, id, e); if (e.length) { cErr += e.length; e.slice(0, 2).forEach(function (x) { console.error('  ✗ [' + lang + '] congruence ' + x); }); }
+    var de = []; digitCongruent(base, ov, id, de); if (de.length) { dErr += de.length; de.slice(0, 2).forEach(function (x) { console.error('  ✗ [' + lang + '] digits ' + x); }); }
+    var od = {}; for (var ok2 in ov) { if (ok2 !== 'id') od[ok2] = ov[ok2]; }
+    var ss = []; leafStrings(od, ss); ss.forEach(function (s) { if (leaks(s)) { lErr++; if (lErr <= 2) console.error('  ✗ [' + lang + '] Latin leak: ' + String(s).slice(0, 70)); } });
+  });
+  ok(fErr === 0, lang + ' quick-ref: no forbidden machine fields overlaid');
+  ok(cErr === 0, lang + ' quick-ref: all card overlays congruent with the EN base');
+  ok(lErr === 0, lang + ' quick-ref: no Latin leak in translated card strings');
+  ok(dErr === 0, lang + ' quick-ref: digits preserved (no Devanagari numerals)');
+  console.log('  ' + lang + ': ' + cov.have + '/' + cov.total + ' cards overlaid' + (cov.complete ? ' [complete]' : ''));
+  if (cov.complete) ok(cov.have === cov.total, lang + ' quick-ref declares complete but is missing ' + (cov.total - cov.have) + ' card overlays');
+});
 
 if (failures) { console.error('\n✗ learn-i18n.check FAILED with ' + failures + ' failure(s).'); process.exit(1); }
 console.log('\n✓ learn-i18n.check passed — Learn translation-overlay machinery sound (congruence / forbidden / leak / digit / merged-schema / coverage).');

@@ -16,6 +16,17 @@ var QuickRef = (function () {
 
   function _data() { return (typeof QR_QUICKREF !== 'undefined') ? QR_QUICKREF : (typeof window !== 'undefined' ? window.QR_QUICKREF : null); }
   function _KB() { return (typeof KnowledgeBase !== 'undefined') ? KnowledgeBase : null; }
+  /* Card CONTENT localizes to the STUDY language via the overlay resolver (title / block, keyed by immutable id). */
+  function _resolve(card) {
+    var i18n = (typeof QRQuickRefI18n !== 'undefined') ? QRQuickRefI18n : (typeof window !== 'undefined' ? window.QRQuickRefI18n : null);
+    return (i18n && i18n.resolve) ? i18n.resolve(card) : card;
+  }
+  /* Library CHROME (section titles, heading, links) follows the APP language via t() — a diverged app=en/study=hi page
+     shows Devanagari card content under English chrome. Guarded; flag-off returns the English catalog value byte-for-byte. */
+  function _t(key, fallback) {
+    try { if (typeof QRI18n !== 'undefined' && QRI18n.t) { var v = QRI18n.t('learn.' + key); if (v && v !== 'learn.' + key) return v; } } catch (_) {}
+    return fallback;
+  }
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
 
   function _openState() { try { return JSON.parse(localStorage.getItem(OPEN_KEY) || '{}') || {}; } catch (_) { return {}; } }
@@ -41,12 +52,14 @@ var QuickRef = (function () {
     var fallback = document.createElement('div'); fallback.textContent = '(table)'; return fallback;
   }
 
-  function _cardNode(card) {
+  function _cardNode(rawCard) {
     var KB = _KB();
+    var card = _resolve(rawCard);   // study-language merged view (EN base + hi/mr overlay); id/section/links unchanged
     var wrap = document.createElement('div');
     wrap.className = 'qr-card';
     wrap.setAttribute('data-card', card.id);
-    var terms = [card.title].concat(card.searchTerms || []).join(' ').toLowerCase();
+    /* BILINGUAL search: index the translated title + the EN title + the (union) searchTerms, so a query in either script hits. */
+    var terms = [card.title, rawCard.title].concat(card.searchTerms || []).join(' ').toLowerCase();
     wrap.setAttribute('data-terms', terms);
 
     var head = document.createElement('div');
@@ -61,13 +74,13 @@ var QuickRef = (function () {
     links.className = 'qr-card-links';
     if (card.learn && KB && KB.has(card.learn)) {
       var lb = document.createElement('button');
-      lb.type = 'button'; lb.className = 'qr-link qr-link-learn'; lb.textContent = '📖 Learn';
+      lb.type = 'button'; lb.className = 'qr-link qr-link-learn'; lb.textContent = _t('qrLinkLearn', '📖 Learn');
       lb.addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: card.learn }); } catch (_) {} });
       links.appendChild(lb);
     }
     if (card.drill) {
       var pb = document.createElement('button');
-      pb.type = 'button'; pb.className = 'qr-link qr-link-practice'; pb.textContent = '✏️ Practice';
+      pb.type = 'button'; pb.className = 'qr-link qr-link-practice'; pb.textContent = _t('qrLinkPractice', '✏️ Practice');
       pb.addEventListener('click', function () { _launchDrill(card.drill, card.title); });
       links.appendChild(pb);
     }
@@ -92,7 +105,7 @@ var QuickRef = (function () {
     header.setAttribute('role', 'button');
     header.setAttribute('tabindex', '0');
     header.setAttribute('aria-expanded', open ? 'true' : 'false');
-    header.innerHTML = '<h3 class="section-title">' + _esc(sec.icon) + ' ' + _esc(sec.title) +
+    header.innerHTML = '<h3 class="section-title">' + _esc(sec.icon) + ' ' + _esc(_t('qrSec_' + sec.id, sec.title)) +
       ' <span class="qr-sec-count">' + cards.length + '</span></h3><span class="collapse-icon">' + (open ? '▲' : '▼') + '</span>';
     header.addEventListener('click', function () { if (typeof toggleSection === 'function') toggleSection(header); _setOpen(sec.id, header.getAttribute('aria-expanded') === 'true'); });
     card.appendChild(header);
@@ -115,15 +128,15 @@ var QuickRef = (function () {
     var head = document.createElement('div');
     head.className = 'qr-lib-head';
     head.innerHTML =
-      '<button class="qr-lib-back" type="button" aria-label="Back to Learn">← Learn</button>' +
-      '<h2 class="kx-hub-head">⚡ Quick Reference</h2>' +
-      '<p class="kx-cat-blurb">Every high-value formula, table and standard value — grouped for fast, pre-exam revision.</p>';
+      '<button class="qr-lib-back" type="button" aria-label="' + _esc(_t('qrBackAria', 'Back to Learn')) + '">' + _esc(_t('qrBack', '← Learn')) + '</button>' +
+      '<h2 class="kx-hub-head">' + _esc(_t('qrLibHeading', '⚡ Quick Reference')) + '</h2>' +
+      '<p class="kx-cat-blurb">' + _esc(_t('qrBlurb', 'Every high-value formula, table and standard value — grouped for fast, pre-exam revision.')) + '</p>';
     host.appendChild(head);
     head.querySelector('.qr-lib-back').addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn'); } catch (_) {} });
 
     var searchWrap = document.createElement('div');
     searchWrap.className = 'qr-search-wrap';
-    searchWrap.innerHTML = '<input id="quickRefSearch" class="qr-search-input" type="search" inputmode="search" autocomplete="off" placeholder="Search formulas, tables, values…" aria-label="Search Quick Reference" />';
+    searchWrap.innerHTML = '<input id="quickRefSearch" class="qr-search-input" type="search" inputmode="search" autocomplete="off" placeholder="' + _esc(_t('qrSearchPlaceholder', 'Search formulas, tables, values…')) + '" aria-label="' + _esc(_t('qrSearchAria', 'Search Quick Reference')) + '" />';
     host.appendChild(searchWrap);
 
     var body = document.createElement('div');
@@ -138,7 +151,7 @@ var QuickRef = (function () {
     empty.className = 'qr-empty secondary-text';
     empty.id = 'quickRefEmpty';
     empty.style.display = 'none';
-    empty.textContent = 'No formulas match your search.';
+    empty.textContent = _t('qrEmpty', 'No formulas match your search.');
     host.appendChild(empty);
 
     var input = searchWrap.querySelector('#quickRefSearch');
