@@ -167,5 +167,22 @@ ok('1 five DI categories', DI.categories().length === 5 && DI.categories().index
   function _pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 })();
 
+/* ── 6. EN byte-identity census (ADR-111 F-M5) — the DI i18n refactor moved every string into locales/gen/<lang>.di.js.
+   To prove EN output is unchanged, regenerate the masked-shape census and assert SET equality with the frozen legacy
+   baseline (fixtures/di-census.json). A changed/new/dropped stem or chart-title shape fails here. Regenerate the
+   baseline only via `node scripts/di-census.js`, and only when an intentional EN wording change is being made. ── */
+(function () {
+  var census;
+  try { census = require(path.join(__dirname, 'di-census.js')); } catch (e) { ok('6 di-census module present', false); return; }
+  var base;
+  try { base = census.load(); } catch (e) { ok('6 di-census baseline fixture present', false); return; }
+  var now = census.capture(DI);
+  Object.keys(base).forEach(function (bucket) {
+    var a = base[bucket].join('\n'), b = (now[bucket] || []).join('\n');
+    ok('6 census EN byte-identity: ' + bucket, a === b);
+  });
+  ok('6 census bucket count matches', Object.keys(now).length === Object.keys(base).length);
+})();
+
 console.log('\ndi-engine.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);

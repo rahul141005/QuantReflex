@@ -100,7 +100,17 @@ var QRGenI18n = (function () {
   /** True when a template for engine.key exists in the given (or active) language. */
   function has(engine, key, lang) { var p = _packFor(engine, lang || _lang()); return !!(p && p.tpl[key]); }
 
-  var API = { register: register, render: render, pools: pools, has: has, _store: _store };
+  /* ── DI packs (ADR-111 F-M5) — the DI engine keeps all RNG/math and generates directly in the ACTIVE study
+     language, so its pack is a rich object (theme pools + stem/chart phrasers), not the pure render() tpl/slots
+     model quant uses. Stored whole; the engine reads diPack(activeLang) at generate() time. */
+  var _di = {};
+  function registerDI(lang, pack) { lang = _valid(lang); if (pack) _di[lang] = pack; }
+  /** The DI pack for the given (or active study) language; falls back to en so generation never breaks. */
+  function diPack(lang) { lang = lang ? _valid(lang) : _lang(); return _di[lang] || _di.en || null; }
+  /** Active study language, guarded (en in Node / pre-boot). Exposed so the DI engine resolves language once. */
+  function studyLangOf() { return _lang(); }
+
+  var API = { register: register, render: render, pools: pools, has: has, registerDI: registerDI, diPack: diPack, studyLangOf: studyLangOf, _store: _store, _di: _di };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRGenI18n = API;
   return API;
