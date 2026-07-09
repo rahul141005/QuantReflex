@@ -30,7 +30,12 @@ var QRPacks = (function () {
     'data/knowledge/i18n/{lang}/mensuration.js',  // G-M6
     'data/knowledge/i18n/{lang}/di.js',           // G-M7
     'data/knowledge/i18n/{lang}/lr.js',           // G-M8
-    'js/quick-reference/i18n/{lang}.js'           // G-M9
+    'js/quick-reference/i18n/{lang}.js',          // G-M9
+    'data/lr-authored/i18n/{lang}/critical.js',   // G-M10
+    'data/lr-authored/i18n/{lang}/statement.js',  // G-M10
+    'data/lr-authored/i18n/{lang}/cause.js',      // G-M10
+    'data/lr-authored/i18n/{lang}/course.js',     // G-M10
+    'data/lr-authored/i18n/{lang}/decision.js'    // G-M10
   ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });

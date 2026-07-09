@@ -165,5 +165,54 @@ var QR_FORBIDDEN = { section: 1, icon: 1, learn: 1, drill: 1, kind: 1 };   // ma
   if (cov.complete) ok(cov.have === cov.total, lang + ' quick-ref declares complete but is missing ' + (cov.total - cov.have) + ' card overlays');
 });
 
+/* ── 3. Authored-LR bank overlays (G-M10) — display-only overlay + answer-by-index correctness ── */
+section('3. Authored-LR bank overlays (forbidden / options-parity / digit / leak / merged-schema / coverage)');
+var LRE = require(p('js/lr-authored-engine.js'));
+var LRSchema = require(p('data/lr-authored/schema.js'));
+var LRI = require(p('js/lr-authored-i18n.js'));
+var lrItems = LRE.all();                                   // approved, schema-valid EN items (the set overlays must cover)
+var lrById = {}; lrItems.forEach(function (it) { lrById[it.id] = it; });
+var lrIds = lrItems.map(function (it) { return it.id; });
+var LR_ALLOWED = { id: 1, stem: 1, options: 1, explanation: 1 };   // ONLY display fields may be overlaid (id is the key)
+console.log('  (' + lrItems.length + ' EN authored items loaded)');
+['hi', 'mr'].forEach(function (lang) {
+  var fErr = 0, oErr = 0, dErr = 0, lErr = 0, sErr = 0;
+  /* Stub the study language so LRI.resolve() returns the MERGED view (with the index-derived answer) for validation.
+     Reset + re-require ONLY this language's overlays so coverage/resolve reflect exactly this pack. */
+  var prevQR = global.QRI18n;
+  global.QRI18n = { studyLang: function () { return lang; } };
+  LRI._reset();
+  ['critical', 'statement', 'cause', 'course', 'decision'].forEach(function (fam) {
+    var f = path.join(__dirname, '..', 'data/lr-authored/i18n/' + lang + '/' + fam + '.js');
+    if (fs.existsSync(f)) { delete require.cache[require.resolve(f)]; require(f); }
+  });
+  var cov = LRI._coverage(lang, lrIds);
+  lrIds.forEach(function (id) {
+    var ov = LRI._overlayOf(lang, id); if (!ov) return;
+    var base = lrById[id];
+    for (var k in ov) { if (!LR_ALLOWED[k]) { fErr++; console.error('  ✗ [' + lang + '] ' + id + ': forbidden field "' + k + '" in item overlay'); } }
+    /* options count parity — the answer-by-index derivation REQUIRES identical length/order */
+    if (ov.options && ov.options.length !== base.options.length) { oErr++; console.error('  ✗ [' + lang + '] ' + id + ': options count ' + ov.options.length + ' != EN ' + base.options.length); }
+    /* digit multiset per display field (no dropped/added digits, no Devanagari numerals) */
+    var de = []; digitCongruent({ stem: base.stem, options: base.options, explanation: base.explanation }, { stem: ov.stem, options: ov.options, explanation: ov.explanation }, id, de);
+    if (de.length) { dErr += de.length; de.slice(0, 2).forEach(function (x) { console.error('  ✗ [' + lang + '] digits ' + x); }); }
+    /* Latin-leak over the translated display strings */
+    var ss = []; leafStrings({ stem: ov.stem, options: ov.options, explanation: ov.explanation }, ss);
+    ss.forEach(function (s) { if (leaks(s)) { lErr++; if (lErr <= 2) console.error('  ✗ [' + lang + '] Latin leak: ' + String(s).slice(0, 70)); } });
+    /* MERGED-view schema validity: the index-derived answer ∈ translated options, lengths, no placeholders */
+    var merged = LRI.resolve(base);
+    var se = LRSchema.validateItem(merged);
+    if (se.length) { sErr += se.length; se.slice(0, 2).forEach(function (x) { console.error('  ✗ [' + lang + '] merged-schema ' + x); }); }
+  });
+  global.QRI18n = prevQR;
+  ok(fErr === 0, lang + ' authored-LR: no forbidden fields overlaid (display-only)');
+  ok(oErr === 0, lang + ' authored-LR: translated options index-aligned with the EN base (count parity)');
+  ok(dErr === 0, lang + ' authored-LR: digits preserved (no Devanagari numerals)');
+  ok(lErr === 0, lang + ' authored-LR: no Latin leak in translated item strings');
+  ok(sErr === 0, lang + ' authored-LR: merged view passes the item schema (answer ∈ options, lengths, no placeholders)');
+  console.log('  ' + lang + ': ' + cov.have + '/' + cov.total + ' items overlaid' + (cov.complete ? ' [complete]' : ''));
+  if (cov.complete) ok(cov.have === cov.total, lang + ' authored-LR declares complete but is missing ' + (cov.total - cov.have) + ' item overlays');
+});
+
 if (failures) { console.error('\n✗ learn-i18n.check FAILED with ' + failures + ' failure(s).'); process.exit(1); }
 console.log('\n✓ learn-i18n.check passed — Learn translation-overlay machinery sound (congruence / forbidden / leak / digit / merged-schema / coverage).');

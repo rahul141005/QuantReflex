@@ -66,7 +66,14 @@
     return item;
   }
 
+  /* STUDY-language overlay: resolve the picked item to hi/mr before it becomes a drill question (ADR-111 G-M10).
+     Guarded — no-op for 'en' / flag OFF / when the resolver isn't loaded; the answer is derived by index inside the
+     resolver, so the shuffled options + string-grading below keep working with the translated strings. */
+  function _i18n() { return (typeof LRAuthoredI18n !== 'undefined') ? LRAuthoredI18n : (typeof window !== 'undefined' ? window.LRAuthoredI18n : root.LRAuthoredI18n); }
+  function _resolveItem(it) { try { var R = _i18n(); return (R && R.resolve) ? R.resolve(it) : it; } catch (_) { return it; } }
+
   function _toQuestion(it) {
+    it = _resolveItem(it);
     return {
       question: it.stem, options: _shuffle(it.options.slice()), answer: it.answer,
       category: it.topic, subtype: it.difficulty + ':' + it.subtype,
