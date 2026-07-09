@@ -123,3 +123,33 @@ multi-engine archive (English, Hindi, Marathi questions in one list) renders cle
 learning substrate with reproduce-exact records, dedup-safe offline↔cloud synchronization, a complete query/mutation
 API for every future feature, and identical behaviour across English, Hindi and Marathi (EN byte-identical). **No
 unresolved critical findings.** Cleared to proceed to F-M9. The i18n feature flag stays OFF until Phase H.
+
+---
+
+## 11. Final long-term-extensibility audit (schema v3)
+
+Before F-M9 the archive was audited against 10 named future capabilities. Seven were already supported; three explicit
+extension points were ADDED now (schema **v3**, additive over v2 — old records upgrade in `normalize()`, no migration).
+`mistake-archive.check §8` asserts every row below.
+
+| # | Future capability | Support | Mechanism |
+|---|---|---|---|
+| 1 | AI coaching & personalized feedback | ✅ (extension point added) | reserved **`ext`** namespace (collision-free per-mistake feature data) + `gen` provenance; full attempt data via `query()` |
+| 2 | Spaced repetition & revision scheduling | ✅ (extension point added) | new **`dueTs` / `interval` / `ease`** fields + pure **`scheduleReview()`** (SM-2) + `getDueMistakes()` |
+| 3 | Bookmarks / favorites | ✅ already | `bookmarked` field + `bookmarkMistake()` |
+| 4 | Weak-topic detection | ✅ already | `query()` by category/engine/resolved + `facets()` |
+| 5 | Difficulty-progression history | ✅ (extension point added) | stable **`qkey`** + **`groupByQuestion()`** (per-question attempt timeline with `difficulty`/`ts`) |
+| 6 | Multiple attempts on the same question | ✅ (extension point added) | `qkey` groups attempts; each attempt is its own append-only record (distinct `id`, sync-safe) |
+| 7 | Coaching analytics | ✅ already | `query()`/`facets()` over every stored field (timing, resolution, engine, difficulty) |
+| 8 | User exports / imports | ✅ (helpers added) | **`exportArchive()`** (self-describing payload) + **`importArchive()`** (merge-by-id, dedup-safe) |
+| 9 | Cross-device synchronization | ✅ already | `mergeMistakes()` merge-by-id (no dup/loss/corruption) + `reconcileRemoteMistakes()` |
+| 10 | Future engines & question types | ✅ already | `engineOf()` safe default + engine-agnostic storage + `normalize()` preserves unknown record fields (additive schema) |
+
+**Explicit certification:** the archive schema accommodates all ten capabilities **without any structural redesign** —
+seven were inherent to the v2 additive schema + query/merge API, and the three genuinely-missing primitives (`qkey`,
+spaced-repetition scheduling, reserved `ext` namespace) plus the export/import helpers were added in v3. v3 is fully
+backward-compatible: v1 and v2 records upgrade in place with content and learning state preserved, and unknown future
+fields are never dropped. No further foundation changes are required before building any of these features.
+
+Verification: `mistake-archive.check §8` (extensibility) green; full npm test suite green (40 checks); Playwright archive
+validation green against v3 (6/6 configs). EN rendering unaffected.

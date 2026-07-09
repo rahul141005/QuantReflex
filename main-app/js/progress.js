@@ -342,9 +342,29 @@ function _mutateMistake(id, fn) {
 function bookmarkMistake(id, on) { return _mutateMistake(id, function (r) { r.bookmarked = (on == null) ? !r.bookmarked : !!on; }); }
 /** Mark a mistake resolved / unresolved (future: weak-topic clearing, mastery tracking). */
 function resolveMistake(id, on) { return _mutateMistake(id, function (r) { r.resolved = (on == null) ? !r.resolved : !!on; }); }
-/** Record that a mistake was reviewed (future: spaced-repetition scheduling). gotItRight resolves it. */
+/** Record that a mistake was reviewed and advance its spaced-repetition schedule (SM-2). gotItRight resolves it. */
 function recordMistakeReview(id, gotItRight, ts) {
-  return _mutateMistake(id, function (r) { r.reviewCount = (r.reviewCount || 0) + 1; r.lastReviewedTs = (typeof ts === 'number') ? ts : Date.now(); if (gotItRight) r.resolved = true; });
+  return _mutateMistake(id, function (r) {
+    if (typeof QRMistakeArchive !== 'undefined' && QRMistakeArchive.scheduleReview) {
+      var s = QRMistakeArchive.scheduleReview(r, !!gotItRight, (typeof ts === 'number') ? ts : Date.now());
+      r.reviewCount = s.reviewCount; r.ease = s.ease; r.interval = s.interval; r.dueTs = s.dueTs; r.lastReviewedTs = s.lastReviewedTs; r.resolved = s.resolved;
+    } else { r.reviewCount = (r.reviewCount || 0) + 1; r.lastReviewedTs = (typeof ts === 'number') ? ts : Date.now(); if (gotItRight) r.resolved = true; }
+  });
+}
+/** Mistakes due for spaced-repetition review at/before `nowTs` (unscheduled records are eligible immediately). */
+function getDueMistakes(nowTs) {
+  var now = (typeof nowTs === 'number') ? nowTs : Date.now();
+  return getMistakes().filter(function (r) { return r.dueTs == null || r.dueTs <= now; });
+}
+/** Export the whole archive as a portable payload (user export / backup). */
+function exportMistakes() { return (typeof QRMistakeArchive !== 'undefined') ? QRMistakeArchive.exportArchive(loadProgress().mistakes || []) : { mistakes: getMistakes() }; }
+/** Import a payload, merge-deduped into the archive (import can never duplicate or corrupt existing records). */
+function importMistakes(payload) {
+  if (typeof QRMistakeArchive === 'undefined') return getMistakes();
+  var p = loadProgress();
+  p.mistakes = QRMistakeArchive.importArchive(p.mistakes || [], payload);
+  saveProgress(p);
+  return p.mistakes;
 }
 /** Delete one mistake by id; returns the removed record (for undo/restore) or null. */
 function deleteMistake(id) {

@@ -131,5 +131,52 @@ ok(A.query(all, { limit: 2 }).length === 2, 'limit honoured');
 var f = A.facets(all);
 ok(f.engines.lrv === 1 && f.langs.hi === 2 && f.sources.drill === 3, 'facets counts distinct values');
 
+/* ── 8. Long-term extensibility (F-M8 final audit): the 10 future capabilities ── */
+section('8. Long-term extensibility — future capabilities accommodated without breaking compatibility');
+var e0 = A.buildRecord(Q.quant, { ts: 5000, lang: 'en', selected: '30', source: 'drill' });
+/* reserved namespaces present + additive schema */
+ok('ext' in e0 && typeof e0.ext === 'object', 'reserved `ext` namespace present (AI coaching notes / personalized feedback / tags)');
+ok('gen' in e0, 'gen provenance present (future exact re-generation)');
+/* AI coaching: writing under ext survives normalize untouched */
+var withNote = A.normalize(Object.assign({}, e0, { ext: { aiReview: { note: 'watch sign errors', tags: ['careless'] } } }));
+ok(withNote.ext.aiReview.note === 'watch sign errors' && withNote.ext.aiReview.tags[0] === 'careless', 'AI coaching feedback stored under ext survives normalize');
+/* spaced repetition: scheduling fields + SM-2 transition */
+ok('dueTs' in e0 && 'interval' in e0 && typeof e0.ease === 'number', 'spaced-repetition fields present (dueTs / interval / ease)');
+var sr1 = A.scheduleReview(e0, true, 1000000);
+ok(sr1.interval === 1 && sr1.dueTs === 1000000 + 86400000 && sr1.reviewCount === 1 && sr1.resolved === true, 'scheduleReview(correct) → 1-day interval, due tomorrow, resolved');
+var sr2 = A.scheduleReview(Object.assign({}, e0, sr1), true, 2000000);
+ok(sr2.interval === 3 && sr2.reviewCount === 2, 'scheduleReview second success → 3-day interval');
+var srFail = A.scheduleReview(Object.assign({}, e0, sr2), false, 3000000);
+ok(srFail.interval === 1 && srFail.ease < sr2.ease && srFail.resolved === false, 'scheduleReview(fail) → reset to 1 day, ease drops, unresolved');
+/* bookmarks + weak-topic + coaching analytics already asserted in §1/§7 (bookmarked field, query, facets) */
+ok('bookmarked' in e0, 'bookmarks/favorites field present');
+ok(typeof A.facets === 'function' && typeof A.query === 'function', 'weak-topic detection + coaching analytics via query()/facets()');
+/* difficulty progression history + multiple attempts on the same question: stable qkey groups attempts */
+var a1 = A.buildRecord(Q.quant, { ts: 100, selected: '30', source: 'drill' });
+var a2 = A.buildRecord(Q.quant, { ts: 200, selected: '32', source: 'drill' });   // SAME question, later attempt, different answer
+ok(a1.qkey === a2.qkey && a1.id !== a2.id, 'same question across attempts → same qkey, different id (multiple attempts tracked)');
+var grouped = A.groupByQuestion([a1, a2, A.buildRecord(Q.di, { ts: 300 })]);
+ok(grouped[a1.qkey] && grouped[a1.qkey].length === 2 && Object.keys(grouped).length === 2, 'groupByQuestion buckets attempts by question (progression history)');
+ok(grouped[a1.qkey][0].ts === 200, 'grouped attempts sorted newest-first');
+/* user export / import: round-trip, and import merge-dedups (no duplication / corruption) */
+var payload = A.exportArchive([a1, a2]);
+ok(payload.schema === A.SCHEMA_VERSION && payload.count === 2 && Array.isArray(payload.mistakes), 'exportArchive produces a self-describing portable payload');
+var imported = A.importArchive([a1], payload);   // a1 already present → must dedup
+ok(imported.length === 2, 'importArchive merges deduped (re-import cannot duplicate)');
+/* cross-device sync already asserted in §6 (mergeMistakes) */
+ok(typeof A.mergeMistakes === 'function', 'cross-device synchronization via mergeMistakes (merge-by-id)');
+/* future engines / question types: unknown category classifies safely; a future engine's record-level spec/field is
+   preserved by the additive schema (normalize never drops unknown record fields → new engines extend without breaking) */
+var fut = A.buildRecord({ question: 'new engine q', answer: '1', category: 'xy-newtype', subtype: 'medium:new' }, { ts: 9 });
+ok(fut.engine === 'quant', 'unknown future category classifies to safe default engine');
+var futWithNewSpec = A.normalize(Object.assign({}, fut, { newSpec: { grid: [[1, 2]] } }));
+ok(futWithNewSpec.newSpec && futWithNewSpec.newSpec.grid[0][1] === 2, 'a future engine record-level spec field is preserved through normalize (future question types)');
+/* schema version bumped, backward-compatible: a v2 record (no qkey/ext) upgrades in place */
+var v2rec = { v: 2, id: 'mabc', ts: 50, question: 'legacy v2', answer: 'z', category: 'squares', options: null, reviewCount: 1, bookmarked: true };
+var v3 = A.normalize(v2rec);
+ok(v3.v === A.SCHEMA_VERSION && v3.qkey && v3.ext && v3.interval === 0 && v3.ease === 2.5, 'v2 record upgrades to v3 (qkey/ext/SR fields backfilled)');
+ok(v3.bookmarked === true && v3.reviewCount === 1, 'v2 learning state preserved through the v3 upgrade');
+ok(A.normalize(v3) === v3, 'normalize idempotent on a current v3 record');
+
 if (failures) { console.error('\n✗ mistake-archive.check FAILED with ' + failures + ' failure(s).'); process.exit(1); }
 console.log('\n✓ mistake-archive.check passed — durable archive schema, cross-engine capture/replay, backward-compat, sync-merge integrity, and query layer are correct.');

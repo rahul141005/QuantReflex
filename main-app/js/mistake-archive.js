@@ -20,7 +20,9 @@
 (function (root) {
   'use strict';
 
-  var SCHEMA_VERSION = 2;
+  var SCHEMA_VERSION = 3;   /* v3 (additive over v2): + qkey (per-question identity), spaced-repetition scheduling
+                               fields (dueTs/interval/ease), and the reserved `ext` namespace. Old records upgrade in
+                               normalize(); no migration needed. */
   var CAP = 100;   /* keep the most-recent N to bound localStorage / the Firestore practice doc (unchanged from v1). */
 
   /* LR-visual categories (rendered from a machine figure spec). */
@@ -42,6 +44,9 @@
   function djb2(str) { var h = 5381, s = String(str); for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h; }
   /** Stable id from (question, selected, ts): the SAME attempt re-synced dedups; genuinely distinct attempts differ in ts. */
   function stableId(question, selected, ts) { return 'm' + djb2(String(question) + '§' + String(selected) + '§' + String(ts)).toString(36) + ts.toString(36); }
+  /** Stable QUESTION-identity key (independent of the specific attempt): groups every attempt on the same question so a
+      feature can track multiple attempts, difficulty progression, and repeat-error counts. */
+  function questionKey(question, answer, category) { return 'q' + djb2(String(question) + '§' + String(answer) + '§' + String(category)).toString(36); }
 
   /**
    * Build a v2 archive record from the wrong-answered question + a context object. `ctx` supplies the metadata the
@@ -56,6 +61,7 @@
     var selected = (ctx.selected == null) ? null : String(ctx.selected);
     var rec = {
       id: stableId(q.question, selected, ts),
+      qkey: questionKey(q.question, q.answer, category),   /* groups attempts on the SAME question (progression / repeats) */
       v: SCHEMA_VERSION,
       ts: ts,
       date: ctx.date || null,
@@ -81,15 +87,43 @@
       explanationViewed: !!ctx.explanationViewed,
       source: ctx.source || 'unknown',
       sessionType: ctx.sessionType || null,
-      /* --- learning-system state (reserved: spaced repetition, bookmarks, weak-topic, resolution) --- */
+      /* --- learning-system state (bookmarks, weak-topic, resolution) --- */
       reviewCount: 0,
       lastReviewedTs: null,
       bookmarked: false,
       resolved: false,
+      /* --- spaced-repetition scheduling (SM-2 style; scheduleReview() advances these) --- */
+      dueTs: null,       /* when this mistake is next due for review (epoch ms) */
+      interval: 0,       /* current inter-review interval in days */
+      ease: 2.5,         /* SM-2 ease factor */
       /* --- provenance for future exact re-generation (engine + classification; extend without breaking) --- */
-      gen: { engine: engineOf(category), subtype: q.subtype || null, lang: ctx.lang || 'en' }
+      gen: { engine: engineOf(category), subtype: q.subtype || null, lang: ctx.lang || 'en' },
+      /* --- reserved namespace for future per-mistake feature data (AI coaching notes, tags, personalized feedback,
+             import provenance…). Features write under `ext` so they never collide at the top level; preserved verbatim. */
+      ext: {}
     };
     return rec;
+  }
+
+  /**
+   * Pure spaced-repetition transition (SM-2 lite). Given a record + review outcome, returns the updated scheduling
+   * fields — the archive owns the schedule so every consumer stays consistent. `quality`: true = recalled/correct,
+   * false = failed. Does not mutate; progress.recordMistakeReview applies the result.
+   */
+  function scheduleReview(rec, quality, ts) {
+    var r = normalize(rec);
+    ts = (typeof ts === 'number') ? ts : (r.lastReviewedTs || r.ts || 0);
+    var ease = (typeof r.ease === 'number') ? r.ease : 2.5;
+    var interval = (typeof r.interval === 'number') ? r.interval : 0;
+    var reviewCount = (r.reviewCount || 0) + 1;
+    if (quality) {
+      ease = Math.max(1.3, ease + 0.1);
+      interval = (reviewCount <= 1) ? 1 : (reviewCount === 2 ? 3 : Math.round(interval * ease));
+    } else {
+      ease = Math.max(1.3, ease - 0.2);
+      interval = 1;   /* failed → see it again tomorrow */
+    }
+    return { reviewCount: reviewCount, ease: ease, interval: interval, dueTs: ts + interval * 86400000, lastReviewedTs: ts, resolved: quality ? true : false };
   }
 
   /* Difficulty from the question's subtype prefix ('easy:foo') or explicit field. */
@@ -106,7 +140,7 @@
    */
   function normalize(rec) {
     if (!rec || typeof rec !== 'object') return rec;
-    if (rec.v === SCHEMA_VERSION && rec.id) return rec;   /* already current */
+    if (rec.v === SCHEMA_VERSION && rec.id && rec.qkey && rec.ext) return rec;   /* already current (all v3 fields present) */
     var ts = (typeof rec.ts === 'number') ? rec.ts : (rec.date ? _dateToTs(rec.date) : 0);
     var out = {};
     for (var k in rec) if (Object.prototype.hasOwnProperty.call(rec, k)) out[k] = rec[k];   /* preserve unknown fields */
@@ -115,17 +149,39 @@
     if (!out.id) out.id = stableId(rec.question, (rec.selected == null ? null : rec.selected), ts);
     out.engine = out.engine || engineOf(rec.category);
     out.difficulty = out.difficulty || _difficultyOf(rec);
-    if (out.lang == null) out.lang = 'en';
     if (out.answer != null) out.answer = String(out.answer);
+    if (!out.qkey) out.qkey = questionKey(rec.question, out.answer, rec.category);
+    if (out.lang == null) out.lang = 'en';
     if (out.options && !out.options.length) out.options = null;
     if (typeof out.reviewCount !== 'number') out.reviewCount = 0;
     if (out.lastReviewedTs === undefined) out.lastReviewedTs = null;
     if (typeof out.bookmarked !== 'boolean') out.bookmarked = false;
     if (typeof out.resolved !== 'boolean') out.resolved = false;
+    if (out.dueTs === undefined) out.dueTs = null;
+    if (typeof out.interval !== 'number') out.interval = 0;
+    if (typeof out.ease !== 'number') out.ease = 2.5;
     if (typeof out.hintsUsed !== 'number') out.hintsUsed = 0;
     if (typeof out.explanationViewed !== 'boolean') out.explanationViewed = false;
     if (!out.source) out.source = 'unknown';
+    if (!out.ext || typeof out.ext !== 'object') out.ext = {};
     return out;
+  }
+
+  /** Group records by question identity (qkey) → { qkey: [attempts newest-first] }. Powers "multiple attempts on the
+      same question", difficulty progression, and repeat-error counts without any schema change. */
+  function groupByQuestion(list) {
+    var g = {};
+    normalizeList(list, CAP).forEach(function (r) { (g[r.qkey] || (g[r.qkey] = [])).push(r); });
+    for (var k in g) if (Object.prototype.hasOwnProperty.call(g, k)) g[k].sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    return g;
+  }
+
+  /** Export the archive as a portable, self-describing payload (for user export / backup). */
+  function exportArchive(list) { return { schema: SCHEMA_VERSION, exportedTs: null, count: normalizeList(list, CAP).length, mistakes: normalizeList(list, CAP) }; }
+  /** Import a payload into an existing list — merge-by-id so an import can never duplicate or corrupt existing records. */
+  function importArchive(existing, payload) {
+    var incoming = (payload && Array.isArray(payload.mistakes)) ? payload.mistakes : (Array.isArray(payload) ? payload : []);
+    return mergeMistakes(existing || [], incoming);
   }
   function _dateToTs(d) { var t = Date.parse(String(d)); return isFinite(t) ? t : 0; }
 
@@ -241,9 +297,11 @@
 
   var API = {
     SCHEMA_VERSION: SCHEMA_VERSION, CAP: CAP, SET_CATS: SET_CATS,
-    engineOf: engineOf, stableId: stableId, buildRecord: buildRecord,
+    engineOf: engineOf, stableId: stableId, questionKey: questionKey, buildRecord: buildRecord,
     normalize: normalize, normalizeList: normalizeList, mergeMistakes: mergeMistakes,
-    query: query, facets: facets, isReviewable: isReviewable, toReviewQuestion: toReviewQuestion
+    query: query, facets: facets, groupByQuestion: groupByQuestion,
+    isReviewable: isReviewable, toReviewQuestion: toReviewQuestion,
+    scheduleReview: scheduleReview, exportArchive: exportArchive, importArchive: importArchive
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRMistakeArchive = API;
