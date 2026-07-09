@@ -357,6 +357,136 @@ letters) is preserved exactly from EN.
 **Note:** the machine figure's screen-reader `aria-label` (`lr-figures.js describe()`) is spec-derived English — see
 `I18N_KNOWN_LIMITS.md` (renderer chrome, consistent with the F-M5 DI chart kind-prefix decision).
 
+## Learn library vocabulary (Phase G — G-M2 research pass)
+
+The authority for the Learn KB overlays (`data/knowledge/i18n/{hi,mr}/*`), quick-ref cards, and the `learn.*`
+renderer-chrome keys. Researched against the Hindi-medium aptitude series (Arihant / R.S. Aggarwal / Rakesh Yadav
+class-notes) and Maharashtra study materials (K'Sagar / Target Publications / MPSC chapter names). **Subject terms,
+formula-line words, and reasoning vocabulary are NOT repeated here — they are already fixed by the F-M3…F-M7
+generated-content tables above, and Learn prose MUST reuse those exact renderings** (a chapter cannot call a concept
+one word and its practice question another). This section adds only what Learn introduces: the on-page section chrome,
+the full 62-topic title map, and the textbook teaching-voice phrasing.
+
+### Renderer chrome — section labels + inline headings (`js/knowledge/blocks.js` → `learn.*` keys, G-M4)
+
+These render on EVERY topic page (section nav pills + block headings), so they are locked first and reused everywhere.
+The emoji stays; only the trailing word localizes.
+
+| English (blocks.js) | Hindi | Marathi | Note |
+|---|---|---|---|
+| Overview (section) | अवलोकन | आढावा | chapter-opening intro pill |
+| Concept | संकल्पना | संकल्पना | तत्सम, identical both languages |
+| Key Formulae | मुख्य सूत्र | मुख्य सूत्रे | MR plural सूत्रे |
+| Shortcuts & Tricks | शॉर्टकट व ट्रिक्स | शॉर्टकट व क्लृप्त्या | MR क्लृप्ती (pl. क्लृप्त्या) is the book word |
+| Common Mistakes | सामान्य गलतियाँ | सामान्य चुका | MR चूक (pl. चुका) |
+| Exam Strategy | परीक्षा रणनीति | परीक्षा रणनीती | |
+| Solved Example | हल किया उदाहरण | सोडवलेले उदाहरण | |
+| At a Glance (table) | एक नज़र में | एका दृष्टिक्षेपात | table default caption |
+| Memory Hook | याद रखने की तरकीब | लक्षात ठेवण्याची युक्ती | |
+| Key Takeaways | मुख्य बातें | महत्त्वाचे मुद्दे | revision block |
+| Related | संबंधित विषय | संबंधित विषय | |
+| ⚡ Speed trick (default) | तेज़ तरीका | जलद युक्ती | trick block fallback title |
+| Formula: (inline) | सूत्र: | सूत्र: | |
+| Use when: | कब लगाएँ: | केव्हा वापरावे: | |
+| Avoid when: | कब न लगाएँ: | केव्हा वापरू नये: | |
+| Trap: (inline) | सावधानी: | सापळा: | one-line gotcha inside a formula item |
+| Answer: | उत्तर: | उत्तर: | solved-example answer prefix |
+
+### The 62 Learn topic titles (`title` field of every overlay)
+
+Titles that also appear as a subject/chapter word above use that exact rendering; the rest are researched fresh here.
+
+| English (topic) | Hindi | Marathi |
+|---|---|---|
+| Number System | संख्या पद्धति | संख्याज्ञान |
+| Simplification | सरलीकरण | पदावली सोडवणे |
+| Number Series | संख्या श्रृंखला | संख्यामालिका |
+| Multiplication & Speed Calculation | गुणा व तीव्र गणना | गुणाकार व जलद गणन |
+| Fractions, Decimals & Percentages | भिन्न, दशमलव व प्रतिशत | अपूर्णांक, दशांश व टक्केवारी |
+| Squares & Square Roots | वर्ग व वर्गमूल | वर्ग व वर्गमूळ |
+| Cubes & Cube Roots | घन व घनमूल | घन व घनमूळ |
+| Percentages | प्रतिशत | शेकडेवारी |
+| Ratio & Proportion | अनुपात और समानुपात | गुणोत्तर व प्रमाण |
+| Averages | औसत | सरासरी |
+| Time & Work | समय और कार्य | काळ आणि काम |
+| Pipes & Cisterns | नल और टंकी | नळ व टाकी |
+| Time, Speed & Distance | समय, चाल और दूरी | वेळ, वेग आणि अंतर |
+| Problems on Ages | आयु संबंधी प्रश्न | वयवारी |
+| Mixtures & Alligations | मिश्रण और पल्लीकरण | मिश्रण व पल्लीकरण |
+| Quantity Comparison | राशि तुलना | राशी तुलना |
+| Profit & Loss | लाभ और हानि | नफा-तोटा |
+| Simple Interest | साधारण ब्याज | सरळव्याज |
+| Compound Interest | चक्रवृद्धि ब्याज | चक्रवाढ व्याज |
+| Partnership | साझेदारी | भागीदारी |
+| Linear Equations | रैखिक समीकरण | रेषीय समीकरणे |
+| Quadratic Equations | द्विघात समीकरण | वर्गसमीकरणे |
+| Surds & Indices | करणी और घातांक | करणी व घातांक |
+| Logarithms | लघुगणक | लॉगरिथम |
+| Progressions (AP & GP) | श्रेढ़ियाँ (समांतर व गुणोत्तर) | श्रेढी (अंकगणिती व भौमितिक) |
+| Inequalities & Modulus | असमिकाएँ व निरपेक्ष मान | असमानता व निरपेक्ष मूल्य |
+| Probability | प्रायिकता | संभाव्यता |
+| Permutation & Combination | क्रमचय और संचय | क्रमचय व संचय |
+| Set Theory & Venn Diagrams | समुच्चय सिद्धांत व वेन आरेख | संच सिद्धांत व व्हेन आकृती |
+| Statistics Basics | सांख्यिकी मूल बातें | सांख्यिकी मूलतत्त्वे |
+| Geometry Basics | ज्यामिति मूल बातें | भूमिती मूलतत्त्वे |
+| Coordinate Geometry | निर्देशांक ज्यामिति | निर्देशक भूमिती |
+| Trigonometry | त्रिकोणमिति | त्रिकोणमिती |
+| Area | क्षेत्रफल | क्षेत्रफळ |
+| Volume | आयतन | घनफळ |
+| Surface Area | पृष्ठीय क्षेत्रफल | पृष्ठफळ |
+| DI Foundations | DI की नींव | DI ची मूलतत्त्वे |
+| Bar & Line Graphs | दंड व रेखा ग्राफ़ | स्तंभ व रेषा आलेख |
+| Pie Charts | पाई चार्ट (वृत्त आरेख) | वर्तुळालेख (पाय चार्ट) |
+| Tables & Caselets | तालिका व केसलेट | तक्ते व केसलेट |
+| DI Calculation Shortcuts | DI गणना शॉर्टकट | DI गणन शॉर्टकट |
+| DI Sets & Multi-Series Charts | DI सेट व बहु-श्रृंखला चार्ट | DI संच व बहु-मालिका आलेख |
+| Coding-Decoding | कोडिंग-डिकोडिंग | सांकेतिक भाषा |
+| Blood Relations | रक्त संबंध | नातेसंबंध |
+| Direction Sense | दिशा ज्ञान | दिशा |
+| Ranking & Ordering | रैंकिंग व क्रम | क्रमवारी व मांडणी |
+| Odd One Out | विषम को छाँटें | गटात न बसणारा |
+| Analogies | सादृश्यता | साधर्म्य |
+| Syllogisms | न्याय निगमन | तर्क व अनुमान |
+| Letter & Number Series | अक्षर व संख्या श्रृंखला | अक्षर व अंकमालिका |
+| Coded Inequalities | कूट असमिकाएँ | सांकेतिक असमानता |
+| Calendars | कैलेंडर | दिनदर्शिका |
+| Clocks | घड़ी | घड्याळ |
+| Critical Reasoning | आलोचनात्मक तर्क | चिकित्सक तर्क |
+| Statement & Argument | कथन व तर्क | विधान व युक्तिवाद |
+| Decision Making | निर्णय लेना | निर्णय क्षमता |
+| Seating Arrangement & Puzzles | बैठक व्यवस्था व पहेलियाँ | बैठक व्यवस्था व कोडी |
+| Mirror, Water, Dice & Cubes | दर्पण, जल, पासा व घन | आरसा, पाणी, फासा व घन |
+| Figure Series & Analogy | आकृति श्रृंखला व सादृश्य | आकृती मालिका व साधर्म्य |
+| Input-Output (Machine) | इनपुट-आउटपुट (मशीन) | इनपुट-आउटपुट (यंत्र) |
+| Cause & Effect | कारण व प्रभाव | कारण व परिणाम |
+| Course of Action | कार्यवाही | कृतीचा मार्ग |
+
+### Teaching-voice phrasing (textbook register for prose — G-M3…G-M8)
+
+Learn prose is written in the instructional voice of the books, NOT translated sentence-for-sentence. These are the
+recurring verbs/connectors; **Hindi आप-form imperatives, Marathi तुम्ही-form imperatives**.
+
+| English | Hindi | Marathi | Note |
+|---|---|---|---|
+| Note that… | ध्यान दें कि… | लक्षात घ्या की… | |
+| Remember | याद रखें | लक्षात ठेवा | |
+| For example | उदाहरण के लिए | उदाहरणार्थ | |
+| Apply the formula | सूत्र लगाएँ | सूत्र वापरा | |
+| Step (in a worked example) | चरण | पायरी | "चरण 1" / "पायरी 1" |
+| Therefore / So | इसलिए | म्हणून | |
+| Tip | सुझाव | टीप | |
+| Careful / Watch out | सावधान | काळजी घ्या | |
+| Solve | हल कीजिए | सोडवा | |
+| Find / Compute | ज्ञात कीजिए | काढा | |
+| Convert (to) | बदलिए | रूपांतर करा | |
+| Check / Verify | जाँचिए | तपासा | |
+| in short / at a glance | संक्षेप में | थोडक्यात | |
+| Digital root | अंकों का मूल (डिजिटल रूट) | अंकमूळ | recurring number-system technique |
+| Unitary method | ऐकिक नियम | एकमान पद्धत | |
+| BODMAS (order of operations) | BODMAS क्रम | BODMAS क्रम | keep the acronym; MR पदावली chapter |
+| Venn diagram | वेन आरेख | व्हेन आकृती | |
+| Number line | संख्या रेखा | संख्यारेषा | |
+
 ## UI / product vocabulary
 
 | English | Hindi | Marathi | Rationale |
