@@ -70,6 +70,7 @@ function congruent(base, ov, pathStr, errs) {
     if (typeof ov !== 'object' || Array.isArray(ov)) { errs.push(pathStr + ': expected object'); return; }
     for (var k in ov) {
       if (_FORBIDDEN.indexOf(k) !== -1) { errs.push(pathStr + ': forbidden field "' + k + '" present in overlay'); continue; }
+      if (k === 'searchTerms') continue;  // bilingual UNION in the registry (base + translated) — not positionally congruent; leak-checked separately
       if (!(k in base)) continue;   // overlay may add a display-only sibling? disallow unknown structural keys
       congruent(base[k], ov[k], pathStr + '.' + k, errs);
     }
@@ -79,7 +80,7 @@ function congruent(base, ov, pathStr, errs) {
 function digitCongruent(base, ov, pathStr, errs) {
   if (ov === undefined || ov === null) return;
   if (Array.isArray(base) && Array.isArray(ov)) { for (var i = 0; i < Math.min(base.length, ov.length); i++) digitCongruent(base[i], ov[i], pathStr + '[' + i + ']', errs); return; }
-  if (base && typeof base === 'object') { for (var k in ov) { if (k in base) digitCongruent(base[k], ov[k], pathStr + '.' + k, errs); } return; }
+  if (base && typeof base === 'object') { for (var k in ov) { if (k === 'searchTerms') continue; if (k in base) digitCongruent(base[k], ov[k], pathStr + '.' + k, errs); } return; }
   if (typeof base === 'string' && typeof ov === 'string') {
     if (digitMultiset(base) !== digitMultiset(ov)) errs.push(pathStr + ': digit multiset "' + digitMultiset(ov) + '" ≠ EN "' + digitMultiset(base) + '"');
     if (hasDevanagariDigit(ov)) errs.push(pathStr + ': contains a Devanagari numeral');
@@ -110,7 +111,9 @@ var totalChecked = 0;
     if (errs.length) { congErr += errs.length; errs.slice(0, 2).forEach(function (e) { console.error('  ✗ [' + lang + '] congruence ' + e); }); }
     var dErrs = []; digitCongruent(base, ov, base.id, dErrs);
     if (dErrs.length) { digErr += dErrs.length; dErrs.slice(0, 2).forEach(function (e) { console.error('  ✗ [' + lang + '] digits ' + e); }); }
-    var strs = []; leafStrings(ov, strs);
+    /* leak-scan display strings only — `id` is the machine merge key (a hyphenated Latin slug), never rendered. */
+    var ovDisplay = {}; for (var ok in ov) { if (ok !== 'id') ovDisplay[ok] = ov[ok]; }
+    var strs = []; leafStrings(ovDisplay, strs);
     strs.forEach(function (s) { if (leaks(s)) { leakErr++; if (leakErr <= 2) console.error('  ✗ [' + lang + '] Latin leak: ' + String(s).slice(0, 70)); } });
     /* merged view must still be a valid topic */
     global.QRI18n = { studyLang: function () { return lang; } };

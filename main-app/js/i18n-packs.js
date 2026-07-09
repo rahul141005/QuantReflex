@@ -20,7 +20,9 @@ var QRPacks = (function () {
      (infrastructure only); each authoring batch (G-M3…G-M11) appends its file(s) here AND to the SW precache in the
      SAME commit, so a study language lazy-loads exactly the content that exists. Registered via the same ensure()
      channel + SW precache as the gen packs, so offline works in any language once installed. */
-  var CONTENT = [];
+  var CONTENT = [
+    'data/knowledge/i18n/{lang}/numbers.js'      // G-M3
+  ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
     for (var i = 0; i < CONTENT.length; i++) out.push(CONTENT[i].replace(/\{lang\}/g, lang));

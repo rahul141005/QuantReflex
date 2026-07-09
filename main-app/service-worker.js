@@ -46,6 +46,8 @@ var ASSETS = [
   './locales/gen/mr.di.js',
   './locales/gen/mr.lr.js',
   './locales/gen/mr.lrv.js',
+  './data/knowledge/i18n/hi/numbers.js',
+  './data/knowledge/i18n/mr/numbers.js',
   './js/questions.js',
   './js/answer-format.js',
   './js/di-engine.js',

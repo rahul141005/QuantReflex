@@ -135,7 +135,13 @@ LANGS.forEach(function (lang) {
 });
 /* QRPacks loader contract. */
 ok(QRPacks.ready('en') === true, "QRPacks.ready('en') is true (eager)");
-ok(QRPacks.files('hi').length === 4 && QRPacks.files('hi')[0].indexOf('locales/gen/hi.') === 0, 'QRPacks.files(hi) lists the 4 hi packs');
+/* files() = the 4 EAGER-ordered gen packs first, then any Phase-G content packs (Learn overlays) appended. */
+(function () {
+  var f = QRPacks.files('hi');
+  ok(f.length >= 4 && f[0].indexOf('locales/gen/hi.') === 0, 'QRPacks.files(hi) lists the 4 gen packs first');
+  ok(f.slice(0, 4).every(function (x) { return x.indexOf('locales/gen/hi.') === 0; }), 'QRPacks.files(hi) gen packs precede content packs');
+  ok(f.slice(4).every(function (x) { return x.indexOf('hi/') !== -1; }), 'QRPacks.files(hi) content packs carry the resolved {lang}');
+})();
 
 /* ============================================================================
  * 4. Wiring: SW precache + index.html eager EN pack script tags
