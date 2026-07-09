@@ -629,6 +629,18 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
   will-change: contents; /* hint GPU for text swaps between questions */
   font-variant-numeric: tabular-nums; /* stable digit widths across question swaps */
 }
+/* UI Phase 1 §6.2: medium-length prompts (53-110 chars) — between the display "24 × 18" and the compact
+   sentence tier. Left-aligned + capped width so a multi-line prompt reads as a paragraph, not a headline. */
+.question-text-medium {
+  font-size: 1.5rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: left;
+  max-width: 34rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-height: 600px) { .question-text-medium { font-size: 1.3rem; } }
 
 .feedback {
   min-height: 1.75rem;
@@ -11809,7 +11821,7 @@ html.dark-mode .lr-fig-gridframe { stroke: #f1f5f9; }
 html.dark-mode .lr-fig-gridline { stroke: #64748b; }
 
 /* ── ADR-093 presentation stage: the figure is the hero, the stem is an instruction ── */
-.question-text-compact { font-size: 1.02rem; font-weight: 600; letter-spacing: 0; line-height: 1.5; color: #334155; max-width: 34rem; }
+.question-text-compact { font-size: 1.02rem; font-weight: 600; letter-spacing: 0; line-height: 1.5; color: #334155; max-width: 34rem; text-align: left; margin-left: auto; margin-right: auto; }
 html.dark-mode .question-text-compact { color: #cbd5e1; }
 @media (max-height: 600px) { .question-text-compact { font-size: .95rem; } }
 .q-figure-stage { display: flex; justify-content: center; align-items: center; width: 100%; max-width: 420px; margin: 0 auto .8rem; padding: .8rem .6rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }

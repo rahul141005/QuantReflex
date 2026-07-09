@@ -516,7 +516,9 @@ function createDrillEngine(container, opts) {
           (q.figure && typeof LRFigures !== 'undefined' ? '<div class="q-figure-stage">' + LRFigures.render(q.figure) + '</div>' : '') +
           /* ADR-093: visual/long questions read as an instruction, not a headline — the display size is for
              short math expressions ("24 × 18"); anything carrying a chart/figure or a real sentence goes compact. */
-          '<h2 class="question-text' + ((q.chart || q.figure || q.optionFigures || String(q.question).length > 90) ? ' question-text-compact' : '') + '">' + _escHtml(q.question) + '</h2>' +
+          /* UI Phase 1 §6.2: 3-tier size ramp so a real sentence never renders as a giant headline wall.
+             Short math expressions ("24 × 18") stay display-size; medium prompts step down; long/visual go compact. */
+          '<h2 class="question-text' + ((q.chart || q.figure || q.optionFigures || String(q.question).length > 110) ? ' question-text-compact' : (String(q.question).length > 52 ? ' question-text-medium' : '')) + '">' + _escHtml(q.question) + '</h2>' +
           /* LR (ADR-075): multiple-choice questions render option buttons instead of the numeric input; everything
              else (grading, feedback, recordAnswer, Next) is reused. Quant/DI stay on the numpad path unchanged.
              Visual LR (ADR-079/093): when the choices are pictures, each button renders its figure with an A–D
