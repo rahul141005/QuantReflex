@@ -126,10 +126,15 @@ language. Marathi column filled in F-M4.
 | pipe / tank / fill / empty | नल / टंकी / भरना / खाली करना | — | inlet प्रवेश नल, outlet निकास नल |
 | next number / series | अगली संख्या / श्रेढ़ी | — | |
 | HCF / LCM | म.स.प. / ल.स.प. | — | full: महत्तम समापवर्तक / लघुत्तम समापवर्त्य; keep म.स.प./ल.स.प. inline |
+| Euclid('s algorithm) | यूक्लिड (एल्गोरिथ्म) | — | proper noun, transliterated; used in म.स.प. framing |
+| remainder (on dividing) | (भाग देने पर) शेषफल | — | preferred over "mod"; e.g. "N को k से भाग देने पर शेषफल" |
 | factors (divisors) / unit digit / power | गुणनखंड / इकाई अंक / घात | — | |
 | solve / equation / system | हल कीजिए / समीकरण / निकाय | — | |
+| elimination / substitution (method) | विलोपन / प्रतिस्थापन (विधि) | — | linear-system solving methods |
 | quadratic / roots / discriminant | द्विघात / मूल / विविक्तकर | — | larger/smaller root बड़ा/छोटा मूल; sum/product योग/गुणनफल |
+| Vieta('s formulas) | वीटा (सूत्र) | — | proper noun, transliterated; sum/product of roots relation |
 | indices / surds / value | घातांक / करणी / मान | — | |
+| quotient law (of indices) | भागफल नियम | — | product/quotient/power laws गुणनफल/भागफल/घात नियम |
 | logarithm / base | लघुगणक / आधार | — | keep "log to base b of N" pattern as "b आधार पर N का लघुगणक" |
 | AP / GP / term / first term | समांतर श्रेढ़ी / गुणोत्तर श्रेढ़ी / पद / प्रथम पद | — | common difference सार्व अंतर, common ratio सार्व अनुपात |
 | inequality / modulus / integer / smallest | असमिका / निरपेक्ष मान / पूर्णांक / सबसे छोटा | — | |

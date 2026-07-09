@@ -14,6 +14,10 @@
   var GI = (typeof QRGenI18n !== 'undefined') ? QRGenI18n
     : (typeof require !== 'undefined' ? require('../../js/gen-i18n.js') : null);
 
+  /* Hindi ordinal for "Nth term" — numeral + वाँ ("5वाँ पद"), the universal exam-book form. Preserves the digit
+     (digit-multiset parity with EN's ord()). */
+  function ordhi(n) { return n + 'वाँ'; }
+
   /* Index-aligned pools (Hindi) — same length + inner arity as en.quant.js (enforced by gen-i18n.check §7).
      Only the descriptor word translates ('more'→अधिक, 'less'→कम); the % numbers and the ratio answer are neutral. */
   var RAT_PCT_POOL = [['25% अधिक', '5:4'], ['20% कम', '4:5'], ['50% अधिक', '3:2'], ['20% अधिक', '6:5'], ['25% कम', '3:4'], ['10% कम', '9:10'], ['12.5% अधिक', '9:8'], ['16.66% कम', '5:6'], ['37.5% अधिक', '11:8'], ['11.11% कम', '8:9'], ['66.66% अधिक', '5:3'], ['150% अधिक', '5:2'], ['40% अधिक', '7:5'], ['75% अधिक', '7:4']];
@@ -418,6 +422,150 @@
     'partnership:*:shareTime': {
       s: [function (s) { return s.nm[0].hi + ' ₹' + s.x + ' को ' + s.m + ' महीनों के लिए और ' + s.nm[1].hi + ' ₹' + s.y + ' को ' + s.n + ' महीनों के लिए निवेश करते हैं। ₹' + s.profit + ' के लाभ में से ' + s.nm[0].hi + ' का हिस्सा = ₹?'; }],
       e: [function (s) { return 'प्रत्येक साझेदार को पूँजी × समय से भारित कीजिए: ' + s.nm[0].hi + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].hi + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].hi + ' का हिस्सा = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+
+    /* ── Batch 6: संख्या पद्धति, रैखिक/द्विघात समीकरण, करणी-घातांक, लघुगणक, श्रेढ़ी, असमिका (formula-heavy; math Latin) ── */
+
+    /* संख्या पद्धति */
+    'number-properties:*:hcf': {
+      s: [function (s) { return s.a + ' और ' + s.b + ' का म.स.प. (महत्तम समापवर्तक) ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'म.स.प.(' + s.a + ', ' + s.b + ') = ' + s.g + ' — वह सबसे बड़ी संख्या जो दोनों को विभाजित करती है (यूक्लिड विधि या उभयनिष्ठ अभाज्य गुणनखंड)।'; }]
+    },
+    'number-properties:*:lcm': {
+      s: [function (s) { return s.a + ' और ' + s.b + ' का ल.स.प. (लघुत्तम समापवर्त्य) ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'ल.स.प. = (a × b) ÷ म.स.प. = (' + s.a + ' × ' + s.b + ') ÷ ' + s.g + ' = ' + s.l + '.'; }]
+    },
+    'number-properties:*:unitDigit': {
+      s: [function (s) { return s.base + '^' + s.e + ' का इकाई (अंतिम) अंक क्या है?'; }],
+      e: [function (s) { return s.base + ' की घातों का इकाई अंक [' + s.cyc.join(', ') + '] के रूप में दोहराता है (चक्र लंबाई ' + s.cyc.length + ')। ' + s.e + ' को ' + s.cyc.length + ' से भाग देने पर शेषफल, ' + s.ud + ' अंक देता है।'; }]
+    },
+    'number-properties:hard:numFactors': {
+      s: [function (s) { return s.N + ' के कितने गुणनखंड (भाजक) हैं?'; }],
+      e: [function (s) { return '' + s.N + ' = ' + s.parts.join(' × ') + '. गुणनखंडों की संख्या = प्रत्येक (घातांक + 1) का गुणनफल = ' + s.ex.map(function (e) { return '(' + e + '+1)'; }).join(' × ') + ' = ' + s.nf + '.'; }]
+    },
+
+    /* रैखिक समीकरण */
+    'linear-equations:*:solveOne': {
+      s: [function (s) { return s.a + 'x + ' + s.b + ' = ' + s.c + '.  x ज्ञात कीजिए।'; }, function (s) { return 'x के लिए हल कीजिए:  ' + s.a + 'x + ' + s.b + ' = ' + s.c; }, function (s) { return 'यदि ' + s.a + 'x + ' + s.b + ' = ' + s.c + ', तो x = ?'; }],
+      e: [function (s) { return 'अचर पद को दूसरी ओर ले जाइए: ' + s.a + 'x = ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + '. फिर x = ' + (s.c - s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:easy:solveOneSub': {
+      s: [function (s) { return s.a + 'x − ' + s.b + ' = ' + s.c + '.  x ज्ञात कीजिए।'; }, function (s) { return 'x के लिए हल कीजिए:  ' + s.a + 'x − ' + s.b + ' = ' + s.c; }],
+      e: [function (s) { return s.a + 'x = ' + s.c + ' + ' + s.b + ' = ' + (s.c + s.b) + ', अतः x = ' + (s.c + s.b) + ' ÷ ' + s.a + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:*:bracket': {
+      s: [function (s) { return s.a + '(x + ' + s.b + ') = ' + s.c + '.  x ज्ञात कीजिए।'; }, function (s) { return 'हल कीजिए:  ' + s.a + '(x + ' + s.b + ') = ' + s.c; }],
+      e: [function (s) { return 'पहले दोनों पक्षों को ' + s.a + ' से भाग दीजिए: x + ' + s.b + ' = ' + (s.c / s.a) + '. अतः x = ' + (s.c / s.a) + ' − ' + s.b + ' = ' + s.x + '.'; }]
+    },
+    'linear-equations:*:sumDiff': {
+      s: [function (s) { return 'यदि x + y = ' + s.S + ' और x − y = ' + s.D + ', तो x ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'समीकरणों को जोड़िए: 2x = ' + s.S + ' + ' + s.D + ' = ' + (s.S + s.D) + ', अतः x = ' + s.x + ' (और y = ' + s.y + ')।'; }]
+    },
+    'linear-equations:hard:system2': {
+      s: [function (s) { return 'निकाय हल कीजिए:  ' + s.a1 + 'x + ' + s.b1 + 'y = ' + s.c1 + '  और  ' + s.a2 + 'x + ' + s.b2 + 'y = ' + s.c2 + '.  x ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'y का विलोपन (या प्रतिस्थापन) करके x = ' + s.x + ', y = ' + s.y + '. जाँच: ' + s.a1 + '·' + s.x + ' + ' + s.b1 + '·' + s.y + ' = ' + s.c1 + '. ✓'; }]
+    },
+
+    /* द्विघात समीकरण */
+    'quadratic-equations:*:largerRoot': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  बड़ा मूल ज्ञात कीजिए।'; }],
+      e: [function (s) { return '(x − ' + s.lo + ')(x − ' + s.hi + ') = 0 में गुणनखंडित कीजिए → मूल ' + s.lo + ' और ' + s.hi + '. बड़ा = ' + s.hi + '.'; }]
+    },
+    'quadratic-equations:medium:smallerRoot': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  छोटा मूल ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = (x − ' + s.lo + ')(x − ' + s.hi + '). मूल ' + s.lo + ' और ' + s.hi + '; छोटा = ' + s.lo + '.'; }]
+    },
+    'quadratic-equations:*:sumRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  इसके मूलों का योग ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'x² − Bx + C = 0 के लिए, मूलों का योग = B = ' + s.B + ' (वीटा: योग = −b/a = ' + s.B + ')।'; }]
+    },
+    'quadratic-equations:*:productRoots': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  इसके मूलों का गुणनफल ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'वीटा के सूत्रों से, x² − (योग)x + (गुणनफल) = 0 के लिए मूलों का गुणनफल अचर पद के बराबर होता है। यहाँ वह अचर ' + s.C + ' है, अतः गुणनफल = ' + s.C + ' — समीकरण को वास्तव में हल करने की आवश्यकता नहीं। (जाल: मूलों का योग −(x-गुणांक) होता है, एक अलग मान।)'; }]
+    },
+    'quadratic-equations:hard:discriminant': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + ' + s.C + ' = 0.  विविक्तकर (b² − 4ac) ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'Δ = b² − 4ac = ' + s.B + '² − 4·1·' + s.C + ' = ' + (s.B * s.B) + ' − ' + (4 * s.C) + ' = ' + (s.B * s.B - 4 * s.C) + '.'; }]
+    },
+    'quadratic-equations:hard:rootRelation': {
+      s: [function (s) { return 'x² − ' + s.B + 'x + c = 0 के मूलों में ' + s.gap + ' का अंतर है। c ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'योग = ' + s.B + ' और अंतर = ' + s.gap + ' से मूल (' + s.B + '±' + s.gap + ')/2 = ' + s.hi + ' और ' + s.lo + '. वीटा से, c = गुणनफल = ' + s.hi + ' × ' + s.lo + ' = ' + (s.lo * s.hi) + '.'; }]
+    },
+
+    /* करणी और घातांक */
+    'surds-indices:*:powerEval': {
+      s: [function (s) { return s.a + '^' + s.n + ' = ?'; }, function (s) { return s.a + '^' + s.n + ' का मान ज्ञात कीजिए।'; }],
+      e: [function (s) { return s.a + '^' + s.n + ' = ' + s.a + ' को स्वयं से ' + s.n + ' बार गुणा करने पर = ' + s.val + '.'; }]
+    },
+    'surds-indices:*:solveExp': {
+      s: [function (s) { return 'यदि ' + s.a + '^x = ' + s.N + ', तो x ज्ञात कीजिए।'; }],
+      e: [function (s) { return '' + s.N + ' = ' + s.a + '^' + s.x + ' (क्योंकि ' + s.a + ' की घात ' + s.x + ', ' + s.N + ' है), अतः x = ' + s.x + '.'; }]
+    },
+    'surds-indices:*:fracExponent': {
+      s: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = ?'; }],
+      e: [function (s) { return s.b + '^(' + s.p + '/' + s.root + ') = (' + s.b + '^(1/' + s.root + '))^' + s.p + ' = ' + s.rt + '^' + s.p + ' = ' + s.val + '.'; }]
+    },
+    'surds-indices:*:indexLaw': {
+      s: [function (s) { return '(' + s.a + '^' + s.m + ') ÷ (' + s.a + '^' + s.n + ') = ' + s.a + '^? — घातांक बताइए।'; }],
+      e: [function (s) { return 'घातांक का भागफल नियम: समान आधार की घातों को भाग देने पर घातांक घटते हैं, aᵐ ÷ aⁿ = aᵐ⁻ⁿ. अतः घातांक ' + s.m + ' − ' + s.n + ' = ' + (s.m - s.n) + ' है। (जाल: आधार ' + s.a + ' वही रहता है — आधारों को कभी भाग नहीं देते।)'; }]
+    },
+
+    /* लघुगणक */
+    'logarithms:*:evalLog': {
+      s: [function (s) { return s.b + ' आधार पर ' + s.N + ' का लघुगणक = ?'; }, function (s) { return s.b + ' आधार पर ' + s.N + ' का लघुगणक ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'logₐN पूछता है "' + s.b + ' को किस घात तक बढ़ाने पर ' + s.N + ' मिलता है?" ' + s.N + ' को ' + s.b + ' की घात के रूप में लिखिए: ' + s.b + '^' + s.k + ' = ' + s.N + ', अतः ' + s.b + ' आधार पर ' + s.N + ' का लघुगणक = ' + s.k + '.' + (s.b === 10 ? ' (आधार 10 के लिए — सामान्य लघुगणक — बस गिनिए कि 10 से कितनी बार गुणा करते हैं।)' : ''); }]
+    },
+    'logarithms:*:solveLog': {
+      s: [function (s) { return 'यदि ' + s.b + ' आधार पर x का लघुगणक ' + s.k + ' है, तो x ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'logₐx = k, x = aᵏ के समान कथन है (लघुगणक को चरघातांकी रूप में लिखिए)। अतः x = ' + s.b + '^' + s.k + ' = ' + s.x + '.'; }]
+    },
+    'logarithms:*:logSum': {
+      s: [function (s) { return '(' + s.b + ' आधार पर ' + s.x + ' का लघुगणक) + (' + s.b + ' आधार पर ' + s.y + ' का लघुगणक) = ?'; }],
+      e: [function (s) { return 'गुणनफल नियम: logₐx + logₐy = logₐ(xy). चूँकि ' + s.b + '^' + s.i + ' = ' + s.x + ' और ' + s.b + '^' + s.j + ' = ' + s.y + ', दोनों लघुगणक ' + s.i + ' और ' + s.j + ' हैं, अतः योग = ' + s.i + ' + ' + s.j + ' = ' + (s.i + s.j) + '. (शॉर्टकट: समान-आधार लघुगणकों को जोड़ने पर घातांक जुड़ जाते हैं।)'; }]
+    },
+    'logarithms:*:logPower': {
+      s: [function (s) { return s.b + ' आधार पर ' + s.x + '^' + s.k + ' का लघुगणक = ?'; }],
+      e: [function (s) { return 'घात नियम: logₐ(xᵏ) = k·logₐx. यहाँ ' + s.b + ' आधार पर ' + s.x + ' का लघुगणक = ' + s.i + ' (क्योंकि ' + s.b + '^' + s.i + ' = ' + s.x + '), अतः उत्तर = ' + s.k + ' × ' + s.i + ' = ' + (s.i * s.k) + '. (जाल: घातांक लघुगणक को गुणा करता है — यह नया आधार नहीं बनता।)'; }]
+    },
+
+    /* श्रेढ़ी */
+    'progressions:*:apNth': {
+      s: [function (s) { return 'एक समांतर श्रेढ़ी का प्रथम पद ' + s.a + ' और सार्व अंतर ' + s.d + ' है। इसका ' + ordhi(s.n) + ' पद ज्ञात कीजिए।'; }, function (s) { return 'एक समांतर श्रेढ़ी ' + s.a + ' से शुरू होती है और प्रत्येक पद में ' + s.d + ' बढ़ती है। इसका ' + ordhi(s.n) + ' पद क्या है?'; }],
+      e: [function (s) { return 'aₙ = a + (n − 1)d = ' + s.a + ' + (' + s.n + ' − 1)·' + s.d + ' = ' + s.a + ' + ' + ((s.n - 1) * s.d) + ' = ' + (s.a + (s.n - 1) * s.d) + '.'; }]
+    },
+    'progressions:*:apSum': {
+      s: [function (s) { return 'एक समांतर श्रेढ़ी का प्रथम पद ' + s.a + ' और सार्व अंतर ' + s.d + ' है। इसके प्रथम ' + s.n + ' पदों का योग ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'Sₙ = n/2 · [2a + (n − 1)d] = ' + s.n + '/2 · [' + (2 * s.a) + ' + ' + ((s.n - 1) * s.d) + '] = ' + (s.n / 2 * (2 * s.a + (s.n - 1) * s.d)) + '.'; }]
+    },
+    'progressions:*:gpNth': {
+      s: [function (s) { return 'एक गुणोत्तर श्रेढ़ी का प्रथम पद ' + s.a + ' और सार्व अनुपात ' + s.r + ' है। इसका ' + ordhi(s.n) + ' पद ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'aₙ = a·rⁿ⁻¹ = ' + s.a + '·' + s.r + '^' + (s.n - 1) + ' = ' + s.a + '·' + Math.pow(s.r, s.n - 1) + ' = ' + (s.a * Math.pow(s.r, s.n - 1)) + '.'; }]
+    },
+    'progressions:hard:gpSum': {
+      s: [function (s) { return 'एक गुणोत्तर श्रेढ़ी का प्रथम पद ' + s.a + ' और सार्व अनुपात ' + s.r + ' है। इसके प्रथम ' + s.n + ' पदों का योग ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'r > 1 वाली गुणोत्तर श्रेढ़ी के लिए Sₙ = a(rⁿ − 1)/(r − 1) प्रयोग कीजिए। a = ' + s.a + ', r = ' + s.r + ', n = ' + s.n + ' रखिए: = ' + s.a + '(' + s.r + '^' + s.n + ' − 1)/(' + s.r + ' − 1) = ' + s.a + '·' + (Math.pow(s.r, s.n) - 1) + '/' + (s.r - 1) + ' = ' + (s.a * (Math.pow(s.r, s.n) - 1) / (s.r - 1)) + '. (जाल: पदों को एक-एक करके मत जोड़िए — सूत्र पूरी श्रेढ़ी को समेट लेता है; r < 1 के लिए इसे a(1 − rⁿ)/(1 − r) में पलट दीजिए।)'; }]
+    },
+
+    /* असमिका और निरपेक्ष मान */
+    'inequalities-modulus:*:linIneqMin': {
+      s: [function (s) { return 'सबसे छोटा पूर्णांक x ज्ञात कीजिए जिसके लिए ' + s.a + 'x + ' + s.b + ' > ' + s.c + '.'; }],
+      e: [function (s) { return s.a + 'x > ' + s.c + ' − ' + s.b + ' = ' + (s.c - s.b) + ', अतः x > ' + ((s.c - s.b) / s.a).toFixed(2).replace(/\.00$/, '') + '. इससे बड़ा सबसे छोटा पूर्णांक ' + (Math.floor((s.c - s.b) / s.a) + 1) + ' है।'; }]
+    },
+    'inequalities-modulus:*:countRange': {
+      s: [function (s) { return 'कितने पूर्णांक x, ' + s.a + ' ≤ x ≤ ' + s.b + ' को संतुष्ट करते हैं?'; }],
+      e: [function (s) { return 'बंद परिसर में पूर्णांक गिनना दोनों सिरों सहित होता है: संख्या = (ऊपरी − निचला) + 1 = (' + s.b + ' − ' + s.a + ') + 1 = ' + (s.b - s.a + 1) + '. ("+1" प्रसिद्ध बाड़-खंभा चरण है — केवल घटाने पर एक सिरा छूट जाता है और गिनती 1 से कम हो जाती है।)'; }]
+    },
+    'inequalities-modulus:*:modLarger': {
+      s: [function (s) { return 'यदि |x − ' + s.a + '| = ' + s.b + ', तो x का बड़ा मान ज्ञात कीजिए।'; }],
+      e: [function (s) { return '|x − ' + s.a + '| = ' + s.b + ' से x = ' + s.a + ' + ' + s.b + ' = ' + (s.a + s.b) + ' या x = ' + s.a + ' − ' + s.b + ' = ' + (s.a - s.b) + '. बड़ा मान ' + (s.a + s.b) + ' है।'; }]
+    },
+    'inequalities-modulus:hard:modIneqCount': {
+      s: [function (s) { return 'x के कितने पूर्णांक मान |x − ' + s.a + '| < ' + s.b + ' को संतुष्ट करते हैं?'; }],
+      e: [function (s) { return '|x − ' + s.a + '| < ' + s.b + ' का अर्थ है ' + (s.a - s.b) + ' < x < ' + (s.a + s.b) + '. इनके ठीक बीच के पूर्णांक 2·' + s.b + ' − 1 = ' + (2 * s.b - 1) + ' मान हैं।'; }]
+    },
+    'inequalities-modulus:hard:modIneqCountLe': {
+      s: [function (s) { return 'x के कितने पूर्णांक मान |x − ' + s.a + '| ≤ ' + s.b + ' को संतुष्ट करते हैं?'; }],
+      e: [function (s) { return '|x − ' + s.a + '| ≤ ' + s.b + ' का अर्थ है ' + (s.a - s.b) + ' ≤ x ≤ ' + (s.a + s.b) + ', सम्मिलित = 2·' + s.b + ' + 1 = ' + (2 * s.b + 1) + ' पूर्णांक।'; }]
     }
   } };
 
