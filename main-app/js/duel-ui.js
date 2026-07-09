@@ -545,6 +545,7 @@ var DuelUI = (function () {
   }
 
   /* ═════════════════ Submit & Leave modal ═════════════════ */
+  var _exitHandle = null;
   function showExitModal(opts) {
     var modal = _el('exitDuelModal'); if (!modal) { opts.onConfirm(); return; }
     modal.innerHTML =
@@ -556,11 +557,24 @@ var DuelUI = (function () {
           '<button id="duExitConfirm" class="btn-primary" type="button">' + _esc(_t('duel.exitConfirm')) + '</button>' +
         '</div>' +
       '</div>';
-    modal.style.display = 'flex'; document.body.classList.add('modal-open');
+    modal.style.display = 'flex';
+    /* UI Phase 1 / M3: route through the shared overlay controller — gains focus-trap, focus-restore,
+       Escape-to-cancel and backdrop-to-cancel (both equivalent to "Keep Solving", whose onCancel is a
+       no-op). The static #exitDuelModal element and its i18n content are unchanged; close stays instant. */
+    _exitHandle = (typeof QROverlay !== 'undefined') ? QROverlay.open(modal, {
+      dialogEl: modal.querySelector('.modal-content'),
+      removeOnClose: false, closingClass: null, closeMs: 0,
+      initialFocus: '#duExitCancel',
+      onClose: function () { modal.style.display = 'none'; modal.innerHTML = ''; _exitHandle = null; }
+    }) : null;
+    if (!_exitHandle) document.body.classList.add('modal-open');
     _el('duExitCancel').onclick = function () { hideExitModal(); if (opts.onCancel) opts.onCancel(); };
     _el('duExitConfirm').onclick = function () { hideExitModal(); opts.onConfirm(); };
   }
-  function hideExitModal() { var m = _el('exitDuelModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; } document.body.classList.remove('modal-open'); }
+  function hideExitModal() {
+    if (_exitHandle) { _exitHandle.close(); return; }
+    var m = _el('exitDuelModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; } document.body.classList.remove('modal-open');
+  }
 
   /* ═════════════════ shared share/clipboard helpers ═════════════════ */
   function _inviteUrl(code) {

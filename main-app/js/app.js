@@ -236,34 +236,33 @@ function _showUpdateToast() {
  * thread-blocking in Android TWAs.
  */
 function showCustomConfirm(msg, onConfirm) {
+  var _t = function (k) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(k) : null; };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); };
+  /* UI Phase 1 / M3: routed through the shared confirm (scroll-lock + Escape + focus-trap + focus-restore),
+     replacing the hand-wired reuse of #clearConfirmModal. */
+  if (typeof QROverlay !== 'undefined' && QROverlay.confirm) {
+    QROverlay.confirm({
+      danger: true,
+      title: _t('modals.confirmTitle') || 'Confirm',
+      body: '<p>' + esc(msg) + '</p>',
+      cancelText: _t('modals.cancel') || 'Cancel',
+      confirmText: _t('modals.delete') || 'Delete',
+      onConfirm: onConfirm
+    });
+    return;
+  }
+  /* Fallback (no QROverlay — e.g. an isolated harness): the original static-modal path. */
   var modal = document.getElementById('clearConfirmModal');
   var textEl = document.getElementById('clearConfirmText');
   var cancelBtn = document.getElementById('clearConfirmCancel');
   var okBtn = document.getElementById('clearConfirmOk');
-
-  if (!modal || !textEl || !cancelBtn || !okBtn) {
-    console.error('Missing custom confirm dialog elements — action blocked for safety.');
-    return;
-  }
-
+  if (!modal || !textEl || !cancelBtn || !okBtn) { console.error('Missing custom confirm dialog elements — action blocked for safety.'); return; }
   textEl.textContent = msg;
   modal.style.display = 'flex';
-
-  function close() {
-    modal.style.display = 'none';
-    cancelBtn.onclick = null;
-    okBtn.onclick = null;
-    modal.onclick = null;
-  }
-
+  function close() { modal.style.display = 'none'; cancelBtn.onclick = null; okBtn.onclick = null; modal.onclick = null; }
   cancelBtn.onclick = function () { close(); };
-  okBtn.onclick = function () {
-    close();
-    onConfirm();
-  };
-  modal.onclick = function (e) {
-    if (e.target === modal) close();
-  };
+  okBtn.onclick = function () { close(); onConfirm(); };
+  modal.onclick = function (e) { if (e.target === modal) close(); };
 }
 
 /* ---- PWA Install Prompt ---- */

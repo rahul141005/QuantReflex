@@ -231,24 +231,33 @@ function _createModal(title, fields, onSave) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  overlay.querySelector('.modal-cancel').addEventListener('click', function () {
-    document.body.removeChild(overlay);
-  });
-  overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) document.body.removeChild(overlay);
-  });
+  /* UI Phase 1 / M3: the shared overlay controller adds scroll-lock, Escape, backdrop-tap, focus-trap
+     and focus-restore; close stays instant (closingClass null, 0ms) to match the original removeChild. */
+  var handle = (typeof QROverlay !== 'undefined') ? QROverlay.open(overlay, {
+    dialogEl: modal,
+    removeOnClose: true,
+    closingClass: null,
+    closeMs: 0,
+    initialFocus: '.modal-input'
+  }) : null;
+  function closeModal() { if (handle) { handle.close(); } else if (overlay.parentNode) { document.body.removeChild(overlay); } }
+
+  overlay.querySelector('.modal-cancel').addEventListener('click', closeModal);
   overlay.querySelector('.modal-save').addEventListener('click', function () {
     SoundEngine.play('settingsToggle');
     var values = {};
     for (var j = 0; j < fields.length; j++) {
       values[fields[j].name] = document.getElementById('modal_' + fields[j].name).value.trim();
     }
-    document.body.removeChild(overlay);
+    closeModal();
     onSave(values);
   });
-  /* Focus first input */
-  var firstInput = modal.querySelector('.modal-input');
-  if (firstInput) setTimeout(function () { firstInput.focus(); }, 50);
+  if (!handle) {
+    /* Fallback wiring when the shared controller isn't present (defensive; it always is in production). */
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+    var firstInput = modal.querySelector('.modal-input');
+    if (firstInput) setTimeout(function () { firstInput.focus(); }, 50);
+  }
 }
 
 /* ---- Rendering ---- */

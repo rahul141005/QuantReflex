@@ -41,6 +41,44 @@ lands `npm test` green + design-lint green + a rendered light/dark/playful scree
   - Verification: `npm test` 14,395 green; design-lint green; `m1-theme-proof` (10 assertions: Light default
     under OS-dark, pre-paint dark, dark retained through boot+auth-transition, System→OS both ways, Playful);
     rendered dark matrix (home/settings/practice/learn) all correct.
+- **M2 — Identity: SVG line-icons + drill sizing.** The 44-icon `.qr-ico[data-ico]` CSS-mask line-icon system
+  (already built but gated to the Playful theme) was promoted to **all four themes** (M2a) — nav, titles,
+  settings rows, badges and buttons now render theme-correct stroke icons that inherit `currentColor`, not OS
+  emoji. Drill question type gained a **3-tier size cap** (M2b): short prompts stay large, sentence-length
+  step down, long word-problems cap small — no more 2.5rem headline walls. (App-bar headers + Inter webfont
+  deferred to M4/later; recorded to avoid churn.) `npm test` green; light/dark icon matrix rendered.
+- **M3 — Primitives & modal consolidation.**
+  - **One shared overlay controller** — `js/ui/overlay.js` (`QROverlay`, precached, SW `v223→v224`). Centralizes
+    the cross-cutting concerns every overlay used to re-implement by hand: ref-counted `body.modal-open`
+    scroll-lock, Escape-to-close, Tab focus-trap, focus-restore-to-opener, backdrop-tap dismiss and a
+    reduced-motion-aware close animation, plus a standard `confirm()` dialog. `open(el, opts)` wires the
+    lifecycle onto any in-DOM overlay; the lock idempotently ensures the class while any overlay is open.
+  - **Primitive CSS** — `.qr-btn` (+ `-primary/-secondary/-danger/-ghost/-tonal/-sm/-lg/-block`),
+    `.qr-dialog-overlay`/`.qr-dialog-card` (+ `.is-danger`), toast variants (`.toast.is-success/-error/-info`
+    + `.toast-action`) and one unified `.qr-badge-pro`, all token-driven.
+  - **Consumers migrated to the shared controller:** `showCustomConfirm` (app.js) → `QROverlay.confirm`;
+    table-view modal (tables.js) and Learn form modal (learn-manager.js) → `QROverlay.open`; the static
+    **exit-session** (session-manager.js) and **exit-duel** (duel-ui.js) confirms now run their lifecycle
+    through `QROverlay.open` while keeping their static markup, guards, `customOptions` and i18n intact —
+    gaining focus-trap / focus-restore / Escape they lacked. Fixed a latent bug: `showExitSessionDialog` never
+    reset its `_exitDialogShowing` guard on the DOM-missing error paths (could wedge the dialog shut).
+  - **Scroll-lock gaps closed** — the companion sheet (companion-ui.js) and the inbox drawer (inbox-view.js)
+    never locked background scroll or restored focus; both now do (+ Escape on the drawer). Audit confirms
+    **every** dismissible overlay/modal/drawer/sheet now locks scroll (via `body.modal-open`, or the paywall's
+    own `body.paywall-open`).
+  - **PRO badge unified** — `.home-premium-badge` (amber), `.duel-premium-badge` (was purple) and
+    `.info-premium-chip` (was blue) collapsed onto the single amber `.qr-badge-pro` design (markup / ids /
+    i18n hooks untouched; only inline-margin deltas retained) — one PRO marker everywhere, light + dark.
+  - **Dead-CSS burn-down** — the entire legacy AI-Study-Planner v1/v3 CSS subsystem (`.sp-wiz-*`, `.sp-tl-*`,
+    `.sp-modal-*`, `.sp-premium-*`, timeline/slider/fab, ~950 lines) had **zero consumers** (grep-verified;
+    the live planner uses `ps-*`/companion classes) and was removed, keeping only the one live
+    `.sp-unlock-btn/.sp-open-btn` width rule. Census fell radii 57→51, shadows 147→141, font-size 87→81,
+    z-index 34→26, gradients 80→70, raw-color:var 7.24→6.94 — design-lint ceilings ratcheted DOWN to match.
+    (design-lint census now skips pure `var(--…)` refs so tokenizing a value can't paradoxically raise a count.)
+  - Verification: `npm test` 14,395 green; design-lint 9/9 green at the new ceilings; `m3-overlay-verify`
+    (24 assertions — confirm/open lifecycle, ref-count lock, badge single-source light+dark);
+    `m3-regression` on the **booted** app across phone/tablet × light/dark/playful (no page errors, no
+    horizontal overflow) + live table-modal open→lock→Escape-close→restore.
 
 ## 2026-07-09 — Internationalization Final Stabilization: audit fix batch + post-fix re-audit (ADR-111)
 

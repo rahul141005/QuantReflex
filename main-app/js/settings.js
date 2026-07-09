@@ -111,23 +111,34 @@ function getDifficulty() {
  * @param {string} message - text to display
  * @param {number} [duration=3000] - ms before auto-dismiss
  */
-function showToast(message, duration) {
+function showToast(message, opts) {
   var container = document.getElementById('toastContainer');
   if (!container) return;
+  /* Backward-compatible: showToast(msg) / showToast(msg, 4000) still work; the new form is
+     showToast(msg, { duration, type:'success'|'error'|'info', action:{ label, onClick } }). */
+  if (typeof opts === 'number') opts = { duration: opts };
+  opts = opts || {};
+  var duration = opts.duration || 3000;
   var toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = message;
-  container.appendChild(toast);
-  /* Trigger enter animation */
-  requestAnimationFrame(function () {
-    toast.classList.add('toast-visible');
-  });
-  setTimeout(function () {
+  toast.className = 'toast' + (opts.type ? ' is-' + opts.type : '');
+  /* Errors are announced assertively; everything else politely (container is aria-live=polite). */
+  toast.setAttribute('role', opts.type === 'error' ? 'alert' : 'status');
+  toast.appendChild(document.createTextNode(message));
+  var remove = function () {
     toast.classList.remove('toast-visible');
-    setTimeout(function () {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 300);
-  }, duration || 3000);
+    setTimeout(function () { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  };
+  if (opts.action && opts.action.label) {
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'toast-action'; btn.textContent = opts.action.label;
+    btn.addEventListener('click', function () { try { if (opts.action.onClick) opts.action.onClick(); } finally { remove(); } });
+    toast.appendChild(btn);
+  }
+  /* Cap the stack at 2 so a burst never buries the screen (oldest drops). */
+  while (container.children.length >= 2) container.removeChild(container.firstChild);
+  container.appendChild(toast);
+  requestAnimationFrame(function () { toast.classList.add('toast-visible'); });
+  setTimeout(remove, duration);
 }
 
 /**

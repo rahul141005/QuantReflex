@@ -8,6 +8,8 @@ var InboxView = (function () {
   var _unreadCount = 0;
   var _isOpen = false;
   var _initialized = false;
+  var _inboxOpener = null;   // element to restore focus to on close (a11y)
+  function _onEsc(e) { if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); close(); } }
 
   /* i18n (ADR-111): app-language channel; guarded for load order. */
   function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
@@ -59,13 +61,19 @@ var InboxView = (function () {
     if (!overlay || !drawer) return;
 
     _isOpen = true;
+    _inboxOpener = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
     overlay.style.display = 'block';
     drawer.style.display = 'flex';
-    
+    /* UI Phase 1 / M3: lock background scroll and wire Escape-to-close, matching every other overlay. */
+    document.body.classList.add('modal-open');
+    document.addEventListener('keydown', _onEsc, true);
+
     // Force reflow before animating
     void drawer.offsetWidth;
     drawer.style.right = '0';
-    
+    /* Move focus into the drawer so keyboard/SR users land inside it (and Escape is heard). */
+    try { var cb = document.getElementById('closeInboxBtn'); if (cb) cb.focus(); } catch (_) {}
+
     renderList();
   }
 
@@ -76,7 +84,11 @@ var InboxView = (function () {
 
     _isOpen = false;
     drawer.style.right = '-400px';
-    
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', _onEsc, true);
+    try { if (_inboxOpener && _inboxOpener.focus && document.contains(_inboxOpener)) _inboxOpener.focus({ preventScroll: true }); } catch (_) {}
+    _inboxOpener = null;
+
     setTimeout(function() {
       if (!_isOpen) { // Double check it hasn't been reopened during animation
         overlay.style.display = 'none';

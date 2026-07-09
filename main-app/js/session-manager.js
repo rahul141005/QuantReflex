@@ -84,15 +84,10 @@ function showExitSessionDialog(onConfirm, customOptions) {
   if (_exitDialogShowing) return;
   _exitDialogShowing = true;
 
-  function closeDialog(modalEl) {
-    if (modalEl) modalEl.style.display = 'none';
-    _exitDialogShowing = false;
-    document.body.classList.remove('modal-open');
-  }
-
   var modal = document.getElementById('exitSessionModal');
   if (!modal) {
     console.error('[SessionManager] exitSessionModal missing from DOM');
+    _exitDialogShowing = false;   // reset the guard so the dialog isn't wedged shut for the rest of the session
     onConfirm();
     return;
   }
@@ -104,6 +99,7 @@ function showExitSessionDialog(onConfirm, customOptions) {
 
   if (!cancelBtn || !confirmBtn) {
     console.error('[SessionManager] exitSession buttons missing from DOM');
+    _exitDialogShowing = false;
     onConfirm();
     return;
   }
@@ -126,22 +122,41 @@ function showExitSessionDialog(onConfirm, customOptions) {
   }
 
   modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
+
+  /* UI Phase 1 / M3: wire the shared overlay lifecycle onto this static modal — adds focus-trap,
+     Escape-to-cancel and focus-restore to the opener, on top of the scroll-lock/backdrop it already had.
+     The static markup, guard, customOptions and i18n are all preserved. Close stays instant. */
+  var handle = (typeof QROverlay !== 'undefined') ? QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.modal-content'),
+    removeOnClose: false,
+    closingClass: null,
+    closeMs: 0,
+    initialFocus: cancelBtn,   // land on the safe "Keep Going" choice, not the destructive one
+    onClose: function () { _exitDialogShowing = false; }   // fires for cancel / backdrop / Escape / confirm
+  }) : null;
+
+  function closeDialog() {
+    if (handle) { handle.close(); return; }
+    modal.style.display = 'none';
+    _exitDialogShowing = false;
+    document.body.classList.remove('modal-open');
+  }
 
   cancelBtn.onclick = function () {
-    closeDialog(modal);
+    closeDialog();
     /* Session continues — do nothing else */
   };
 
   confirmBtn.onclick = function () {
-    closeDialog(modal);
+    closeDialog();
     onConfirm();
   };
 
-  /* Close on overlay click (treat as cancel) */
-  modal.onclick = function (e) {
-    if (e.target === modal) closeDialog(modal);
-  };
+  if (!handle) {
+    /* Fallback wiring when the shared controller isn't loaded (defensive). */
+    document.body.classList.add('modal-open');
+    modal.onclick = function (e) { if (e.target === modal) closeDialog(); };
+  }
 }
 
 /* Prevent accidental page close / tab close during active drill sessions */

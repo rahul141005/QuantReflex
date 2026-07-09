@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v223';</script>
+  <script>window.QR_APP_VERSION = 'v224';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -1439,7 +1439,7 @@
   </div>
 
   <!-- ==================== TOAST NOTIFICATIONS ==================== -->
-  <div id="toastContainer" class="toast-container"></div>
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ==================== CUSTOM NUMPAD ==================== -->
   <!-- Adaptive answer keypad (ADR-086): the grid is built at runtime by js/ui/numpad.js from the current question's
@@ -1583,6 +1583,7 @@
   <script defer src="js/quick-reference/quick-ref-data.js"></script>
   <script defer src="js/quick-reference/quick-ref-i18n.js"></script>
   <script defer src="js/quick-reference/quick-ref-renderer.js"></script>
+  <script defer src="js/ui/overlay.js"></script>
   <script defer src="js/settings.js"></script>
   <script defer src="js/notifications.js"></script>
   <script defer src="js/soundEngine.js"></script>

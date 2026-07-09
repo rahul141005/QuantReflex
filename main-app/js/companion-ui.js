@@ -147,7 +147,14 @@ var Companion = (function () {
           '<div class="companion-scroll"></div>' +
         '</div></div>');
     document.body.appendChild(overlay);
-    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); _state = null; }
+    document.body.classList.add('modal-open');   // UI Phase 1 / M3: lock background scroll like every other overlay
+    var _opener = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+    function close() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      document.body.classList.remove('modal-open');
+      _state = null;
+      try { if (_opener && _opener.focus && document.contains(_opener)) _opener.focus({ preventScroll: true }); } catch (_) {}
+    }
     if (opts.onReport) { var _rb = overlay.querySelector('.companion-report'); if (_rb) _rb.addEventListener('click', function () { opts.onReport(); }); }
     overlay.querySelector('.companion-close').addEventListener('click', close);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });

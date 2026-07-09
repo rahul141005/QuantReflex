@@ -28,6 +28,10 @@ function distinct(re, normalize) {
   while ((m = re.exec(css)) !== null) {
     let v = m[1].trim().replace(/\s+/g, ' ');
     if (normalize) v = normalize(v);
+    // A pure design-token reference (e.g. `var(--fs-sub)`, `var(--r-lg)`) IS the consolidated system —
+    // it must not count against the raw-literal fragmentation ceiling, otherwise tokenizing a value would
+    // paradoxically raise the count. The census measures RAW literal proliferation only.
+    if (/^var\(--[\w-]+\)$/.test(v)) continue;
     set.add(v);
   }
   return set;
@@ -70,14 +74,14 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 
 /* ---- ceilings: baseline 2026-07-09 (ratchet DOWN only; blueprint goals in comments) ---- */
 const CEIL = {
-  radii: 61,        // goal ≤8
-  shadows: 151,     // goal ≤6
-  fontSizes: 87,    // goal ≤14
-  durations: 45,    // goal 4 (3 tokens + 0s)
-  easings: 21,      // goal 3 (2 tokens + linear)
-  zIndexes: 34,     // goal 7
-  gradients: 80,    // goal ≤10
-  colorRatio: 8.5   // goal ≤1.0 (chrome CSS)
+  radii: 51,        // goal ≤8   (M3: 61→51, dead planner CSS removed)
+  shadows: 141,     // goal ≤6   (M3: 151→141)
+  fontSizes: 81,    // goal ≤14  (M3: 87→81)
+  durations: 44,    // goal 4 (3 tokens + 0s)  (M3: 45→44)
+  easings: 18,      // goal 3 (2 tokens + linear)  (M3: 21→18)
+  zIndexes: 26,     // goal 7    (M3: 34→26)
+  gradients: 70,    // goal ≤10  (M3: 80→70)
+  colorRatio: 7.0   // goal ≤1.0 (chrome CSS)  (M3: 8.5→7.0)
 };
 
 console.log('design-lint census: radii=' + radii.size + ' shadows=' + shadows.size +

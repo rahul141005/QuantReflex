@@ -200,22 +200,22 @@ function _openTableModal(n) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
+  /* UI Phase 1 / M3: the shared overlay controller handles scroll-lock, Escape, backdrop-tap,
+     focus-trap and focus-restore; we keep the existing 200ms closing animation and close sound. */
+  var handle = (typeof QROverlay !== 'undefined') ? QROverlay.open(overlay, {
+    dialogEl: modal,
+    removeOnClose: true,
+    closingClass: 'closing',
+    closeMs: 200,
+    onClose: function () { _sfx('tableModal'); }
+  }) : null;
+
   function closeModal() {
+    if (handle) { handle.close(); return; }
     _sfx('tableModal');
     overlay.classList.add('closing');
-    document.removeEventListener('keydown', handleEscape);
-    setTimeout(function () {
-      if (overlay.parentNode) overlay.remove();
-    }, 200);
-  }
-
-  function handleEscape(e) {
-    if (e.key === 'Escape') closeModal();
+    setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 200);
   }
 
   closeBtn.addEventListener('click', closeModal);
-  overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) closeModal();
-  });
-  document.addEventListener('keydown', handleEscape);
 }
