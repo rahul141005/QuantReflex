@@ -209,6 +209,35 @@ Marathi rendering, app-wide. Board abbreviations म.सा.वि. (HCF) / ल.
 | Quantity I / Quantity II / compare | राशि I / राशि II / तुलना कीजिए | — | QC_REL: "राशि I > राशि II" etc. (I/II Roman, > < = symbols); "दोनों राशियों की तुलना कीजिए" |
 | more / less (than) | अधिक / कम | — | RAT_PCT descriptor: "B से 25% अधिक" |
 
+## DI (Data Interpretation) generated-content vocabulary (F-M5)
+
+The authority for `locales/gen/{hi,mr}.di.js`. The DI engine owns all numbers; only the theme/stem/chart WORDING
+localizes. Entity brand/city/scheme names transliterate to Devanagari; metric/unit/series/caselet words translate.
+Latin stays for: single-letter entity codes (A–F, P–U, X, Y), quarter labels (Q1, Q2), all-caps acronyms (LIC, HDFC,
+SBI, ICICI, BSNL, MTNL, ACT, KIMS, ELSS, UPI, GDP, AC, ICU, EV, MW), and unit symbols (₹, %, mm, `'000`). One concept
+→ one rendering; extend before use. Marathi column filled in F-M5.3.
+
+| English | Hindi | Marathi | Note |
+|---|---|---|---|
+| chart / table / graph | चार्ट / तालिका / ग्राफ़ | — | lead-ins: "चार्ट के आधार पर", "तालिका देखें" |
+| Year / over the years / Share of / by | वर्ष / वर्षों में / … का हिस्सा / … के अनुसार | — | chart title/axis connectors |
+| (in `<unit>`) | (`<unit>` में) | — | metricUnit: "बिक्री (₹ करोड़ में)" |
+| Sales / Revenue / Profit / Exports / Imports | बिक्री / राजस्व / लाभ / निर्यात / आयात | — | metrics |
+| Production / Output / Units Sold | उत्पादन / उत्पादन / बेची गई इकाई | — | |
+| Population / Employees / Students Enrolled / Subscribers | जनसंख्या / कर्मचारी / नामांकित विद्यार्थी / ग्राहक | — | |
+| Loans Disbursed / Premiums Collected / Assets Managed | वितरित ऋण / एकत्रित प्रीमियम / प्रबंधित परिसंपत्ति | — | Banking DI |
+| Rainfall / Wheat Production / Electricity Generated / Footfall | वर्षा / गेहूँ उत्पादन / उत्पादित बिजली / आगंतुक संख्या | — | |
+| Tourist Arrivals / Passengers Carried / Flights Handled / Orders | पर्यटक आगमन / ढोए गए यात्री / संचालित उड़ानें / ऑर्डर | — | |
+| crore / lakh / tonnes / units / million | करोड़ / लाख / टन / इकाई / मिलियन | — | translate; ₹/%/mm/MW/`'000` stay |
+| Company/Bank Branch/Product/School/Department | कंपनी / बैंक शाखा / उत्पाद / विद्यालय / विभाग | — | entity names |
+| City/Store/State/Country/Hospital/Platform/Operator | शहर / स्टोर / राज्य / देश / अस्पताल / प्लेटफ़ॉर्म / ऑपरेटर | — | |
+| Power Plant/Destination/Railway Zone/Airport/Insurer/Fund/District/Factory/Team/Mall | विद्युत संयंत्र / गंतव्य / रेलवे ज़ोन / हवाई अड्डा / बीमाकर्ता / फ़ंड / ज़िला / कारख़ाना / टीम / मॉल | — | |
+| Online/Retail, Boys/Girls, Urban/Rural, Domestic/Foreign | ऑनलाइन/खुदरा, लड़के/लड़कियाँ, शहरी/ग्रामीण, घरेलू/विदेशी | — | series |
+| Prepaid/Postpaid, Thermal/Solar/Renewable, Equity/Debt, Kharif/Rabi | प्रीपेड/पोस्टपेड, तापीय/सौर/नवीकरणीय, इक्विटी/ऋण, खरीफ़/रबी | — | series |
+| highest/lowest/total/combined/average/mean | सबसे अधिक / सबसे कम / कुल / संयुक्त / औसत / औसत | — | stems |
+| percent / ratio / times / difference / contribute | प्रतिशत / अनुपात / गुना / अंतर / योगदान | — | "1 दशमलव स्थान तक", "निरपेक्ष मान", "सरलतम रूप a:b" |
+| caselet: surveyed / men / women / passed / approved | सर्वेक्षित / पुरुष / महिलाएँ / पास की / स्वीकृति पाई | — | acts are perfective (survey = completed measurement; see known-limits) |
+
 ## Reasoning subjects
 
 | English (app) | Hindi | Marathi | Note |

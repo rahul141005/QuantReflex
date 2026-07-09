@@ -157,3 +157,36 @@ later Phase-F milestones:
   guarantee). PRIMARY builders that CALL a refactored helper (e.g. `_ratDivide('easy')`) auto-localize; only
   the hardcoded-string fallbacks stay English. Low exposure; the census proves they are byte-unchanged. They
   will be migrated to slots opportunistically during F-M3/M4.
+
+## Phase F — DI generated content (ADR-111 F-M5)
+
+The DI engine (`js/di-engine.js`, 5 categories) was refactored so it owns only RNG + math (dataset numbers, answers,
+chart NUMBERS) and reads all wording (themes, ~35 stem phrasers, chart titles/axes/columns, lead-ins, caselet contexts)
+from a per-language pack (`locales/gen/<lang>.di.js`) resolved live via `QRGenI18n.diPack()`. EN byte-identity is proven
+by the masked-shape census (`scripts/di-census.js`, `scripts/fixtures/di-census.json`; asserted in `di-engine.check` §6).
+The following are intentional and bounded:
+
+### Caselet survey acts — perfective past in hi/mr
+- **Detail:** a few EN caselet acts are present-tense or passive ("support the new metro line", "use mobile banking",
+  "own a smartphone", "were approved", "were discharged within a week"). Hindi/Marathi caselet stems place the count
+  before the act with the ergative marker ने / नी, which grammatically requires a **transitive perfective** verb.
+- **Decision:** every hi/mr act is authored as transitive perfective ("…का समर्थन किया", "…का उपयोग किया",
+  "स्मार्टफ़ोन ख़रीदा", "स्वीकृति पाई", "छुट्टी पाई"). A survey result is a completed measurement, so the perfective
+  reads natural to a Hindi/Marathi aspirant; the number, answer, difficulty and interpretation are unchanged. This is a
+  meaning-preserving register choice, not a translation error — recorded so the certification does not flag the tense
+  shift from the EN source.
+
+### Entity oblique plurals — numeral + singular noun
+- **Detail:** hi/mr DI stems read "5 कंपनी" / "5 विद्यालय" (numeral + singular) rather than the fully-inflected oblique
+  plural ("5 कंपनियों"). This is the common, accepted exam-book convention for numeral+noun in DI stems and keeps the
+  wording grammatically safe across all 22 diverse entity words (a per-entity oblique form is not maintained).
+
+### Latin-script tokens inside Devanagari DI output — by design
+- Single-letter entity codes (A–F, P–U, X, Y), quarter labels (Q1, Q2), all-caps org/scheme acronyms (LIC, HDFC, SBI,
+  ICICI, BSNL, MTNL, ACT, KIMS, ELSS, UPI, GDP, AC, ICU, EV), unit symbols (₹, %, mm, MW, `'000`) and 0-9 digits stay
+  Latin/symbolic in hi/mr — aspirants recognise these forms; they are allowlisted by the DI leak heuristic (gen-i18n.check
+  §10 `DI_DNT` + all-caps strip).
+
+### hi/mr DI packs — coverage
+- `di.hi` authored in F-M5.2, `di.mr` in F-M5.3. Until a language's DI pack is registered (`registerDI`), that language
+  falls back to EN for DI (the leak/Devanagari checks skip it and report the gap), mirroring the quant coverage model.
