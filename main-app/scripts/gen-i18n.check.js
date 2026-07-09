@@ -459,6 +459,69 @@ ok(lrLeak === 0, 'no Latin leak in authored hi/mr LR option/stem surfaces (' + l
 ok(lrDev === 0, 'no Devanagari digits in LR output');
 console.log('  lr.hi authored=' + lrAuthored.hi + ', lr.mr authored=' + lrAuthored.mr + ' (unauthored languages fall back to EN)');
 
+/* ============================================================================
+ * 12. LR-VISUAL cross-language invariance + stem/explanation surface safety (F-M7)
+ *   The LR-visual engine owns all RNG + geometry + the machine FIGURE specs; only the stem and explanation are strings.
+ *   Because the answer/option TOKENS (picture indices '1'..'4' or numeric answers) and the figure specs are language-
+ *   NEUTRAL, they must be LITERALLY IDENTICAL across en/hi/mr for a fixed seed (a stronger guarantee than LR's by-index
+ *   check) — only the question + explanation wording differs. Digit-multiset preserved; leak + Devanagari-digit checks
+ *   apply where the language's LRV pack is authored. EN byte-identity is proven separately by lrv-census.js.
+ * ==========================================================================*/
+section('12. LR-VISUAL cross-language invariance + stem/explanation safety (F-M7)');
+var LRV = require('../js/lr-visual-engine.js');
+require('../locales/gen/en.lrv.js');
+try { require('../locales/gen/hi.lrv.js'); } catch (_) { /* not authored yet */ }
+try { require('../locales/gen/mr.lrv.js'); } catch (_) { /* not authored yet */ }
+var LRVCATS = ['lr-mirror', 'lr-water', 'lr-dice', 'lr-cube', 'lr-fseries', 'lr-fanalogy', 'lr-odd-fig', 'lr-paper', 'lr-pattern', 'lr-embedded'];
+function genLRVAt(lang, cat, diff, seed) {
+  var orig = Math.random;
+  global.QRI18n = { studyLang: function () { return lang; }, langs: function () { return { app: lang, study: lang }; } };
+  Math.random = makeLCG(seed);
+  if (LRV._resetRings) LRV._resetRings();   // the anti-repetition ring is shared state — reset so a fixed seed is deterministic across the 3 language calls.
+  var q; try { q = LRV.generate(cat, diff); } catch (e) { q = null; }
+  Math.random = orig; delete global.QRI18n;
+  return q;
+}
+/* language-neutral fingerprint: subtype + answer + option tokens + BOTH figure specs — must be byte-identical. */
+function lrvFingerprint(q) {
+  if (!q) return 'none';
+  return q.subtype + '§' + String(q.answer) + '§' + ((q.options || []).join('|')) + '§' +
+    JSON.stringify(q.figure || null) + '§' + JSON.stringify(q.optionFigures || null);
+}
+/* localizable TEXT of a visual question — stem + explanation (for leak/digit checks). */
+function lrvText(q) { return (q.question || '') + ' ‖ ' + (q.explanation || ''); }
+var LRV_DNT = [];
+var lrvInv = 0, lrvDig = 0, lrvLeak = 0, lrvDev = 0, lrvChecked = 0, lrvActive = 0;
+var lrvAuthored = { hi: !!(QRGenI18n._rich.lrv && QRGenI18n._rich.lrv.hi), mr: !!(QRGenI18n._rich.lrv && QRGenI18n._rich.lrv.mr) };
+LRVCATS.forEach(function (cat, ci) {
+  DIFFS8.forEach(function (diff, di) {
+    for (var s = 0; s < 60; s++) {
+      var seed = 0x7e5f + ci * 8101 + di * 421 + s * 31;
+      var en = genLRVAt('en', cat, diff, seed), hi = genLRVAt('hi', cat, diff, seed), mr = genLRVAt('mr', cat, diff, seed);
+      if (!en || !hi || !mr) continue;
+      lrvChecked++;
+      var fEn = lrvFingerprint(en);
+      if (lrvFingerprint(hi) !== fEn) lrvInv++;
+      if (lrvFingerprint(mr) !== fEn) lrvInv++;
+      var dEn = digitMultiset(lrvText(en));
+      if (digitMultiset(lrvText(hi)) !== dEn) lrvDig++;
+      if (digitMultiset(lrvText(mr)) !== dEn) lrvDig++;
+      [['hi', hi], ['mr', mr]].forEach(function (p) {
+        if (!lrvAuthored[p[0]]) return;
+        lrvActive++;
+        var surf = lrvText(p[1]);
+        if (genLeaks(surf, LRV_DNT)) lrvLeak++;
+        if (hasDevanagariDigit(surf)) lrvDev++;
+      });
+    }
+  });
+});
+ok(lrvInv === 0, 'LR-visual cross-language invariance holds (subtype/answer/options/FIGURE-specs byte-identical) — ' + lrvChecked + ' samples/lang');
+ok(lrvDig === 0, 'LR-visual digit multiset preserved across languages');
+ok(lrvLeak === 0, 'no Latin leak in authored hi/mr LR-visual stem/explanation surfaces (' + lrvActive + ' active)');
+ok(lrvDev === 0, 'no Devanagari digits in LR-visual output');
+console.log('  lrv.hi authored=' + lrvAuthored.hi + ', lrv.mr authored=' + lrvAuthored.mr + ' (unauthored languages fall back to EN)');
+
 /* ============================================================================ */
 module.exports = { makeLCG: makeLCG, digitMultiset: digitMultiset, hasDevanagariDigit: hasDevanagariDigit, genLeaks: genLeaks, assertInvariant: assertInvariant };
 

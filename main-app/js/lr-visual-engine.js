@@ -22,6 +22,16 @@
 (function (root) {
   'use strict';
 
+  /* i18n (F-M7): the engine owns all RNG + geometry + FIGURE specs; every user-visible STRING lives in the per-language
+     pack locales/gen/<lang>.lrv.js. `_P()` returns the ACTIVE study-language pack (guarded default 'en'). RNG draw ORDER
+     is preserved: stem-variant arrays come from the pack with the SAME length, so _pick draws the same index. EN
+     byte-identity is proven by scripts/lrv-census.js; cross-language invariance by gen-i18n.check §12. */
+  var GI = (typeof QRGenI18n !== 'undefined') ? QRGenI18n
+    : (typeof require !== 'undefined' ? require('./gen-i18n.js') : null);
+  var _EN = null;
+  try { if (typeof require !== 'undefined') _EN = require('../locales/gen/en.lrv.js'); } catch (_) {}
+  function _P() { var p = (GI && GI.lrvPack) ? GI.lrvPack() : null; return p || _EN; }
+
   function _ri(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function _pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function _shuffle(a) { var b = a.slice(); for (var i = b.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = b[i]; b[i] = b[j]; b[j] = t; } return b; }
@@ -137,11 +147,7 @@
   var CHARS = ['F', 'G', 'J', 'L', 'P', 'Q', 'R', '2', '4', '5', '7'];
   function _glyphSpec(c, t) { return t === 'h' ? { kind: 'glyph', text: c, flip: 'h' } : t === 'v' ? { kind: 'glyph', text: c, flip: 'v' } : t === 'r' ? { kind: 'glyph', text: c, rot: 180 } : { kind: 'glyph', text: c, flip: 'none' }; }
 
-  function _axisWord(axis) {
-    return axis === 'h'
-      ? _pick(['mirror image (the mirror stands upright beside it)', 'mirror image', 'image in a vertical mirror'])
-      : _pick(['water image (its reflection in still water below)', 'water image', 'reflection in water']);
-  }
+  function _axisWord(axis) { return _pick(_P().axis[axis === 'h' ? 'h' : 'v']); }
 
   function _mirrorLike(diff, axis, keyBase) {
     var isM = axis === 'h';
@@ -150,13 +156,13 @@
         var g = _ringPick('mw-char', CHARS);
         var figs1 = [_glyphSpec(g, axis), _glyphSpec(g, 'none'), _glyphSpec(g, axis === 'h' ? 'v' : 'h'), _glyphSpec(g, 'r')];
         var o1 = _figOptions(figs1);
-        return { question: 'Select the correct ' + _axisWord(axis) + ' of the character shown at the top.', figure: _glyphSpec(g, 'none'), options: o1.options, optionFigures: o1.optionFigures, answer: o1.answer, subtype: 'easy:' + keyBase, explanation: (isM ? 'A mirror reverses left and right — the character appears flipped sideways.' : 'Water reflects top and bottom — the character appears flipped upside-down, not sideways.') };
+        return { question: _P().mirror.charStem(_axisWord(axis)), figure: _glyphSpec(g, 'none'), options: o1.options, optionFigures: o1.optionFigures, answer: o1.answer, subtype: 'easy:' + keyBase, explanation: _P().mirror.charExpl(isM) };
       }
       var base = _compoDot(_ringPick('mw-outer', OUTERS), _pick(['tl', 'tr', 'bl', 'br']));
       var correct = Object.assign({}, base, { flip: axis });
       var figsE = [correct, base, Object.assign({}, base, { flip: axis === 'h' ? 'v' : 'h' }), Object.assign({}, base, { rot: 180 })];
       var oE = _figOptions(figsE);
-      return { question: 'Which option shows the correct ' + _axisWord(axis) + ' of the figure?', figure: base, options: oE.options, optionFigures: oE.optionFigures, answer: oE.answer, subtype: 'easy:fig' + keyBase, explanation: (isM ? 'In a mirror the dot swaps to the opposite side (left ↔ right); top and bottom stay put.' : 'In water the figure flips vertically — the dot moves from top to bottom on the SAME side.') };
+      return { question: _P().mirror.figStem(_axisWord(axis)), figure: base, options: oE.options, optionFigures: oE.optionFigures, answer: oE.answer, subtype: 'easy:fig' + keyBase, explanation: _P().mirror.figExplE(isM) };
     }
     if (diff === 'medium' && Math.random() < 0.5) {   // the classic character-cluster archetype (SSC staple)
       var n = 4, gs = _pickN(CHARS, n);
@@ -173,7 +179,7 @@
       }
       var figs = [{ kind: 'row', items: correct2 }, { kind: 'row', items: dA }, { kind: 'row', items: dB }, { kind: 'row', items: plain.slice() }];
       var o = _figOptions(figs);
-      return { question: _pick(['Choose the option that shows the ' + _axisWord(axis) + ' of the given group of characters.', 'The group of characters at the top is held up to a ' + (isM ? 'mirror' : 'water surface') + '. Which option shows what you would see?']), figure: { kind: 'row', items: plain }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'medium:cluster', explanation: (isM ? 'A mirror reverses the ORDER of the characters and flips each one left-to-right.' : 'Water keeps the order but turns each character upside-down.') };
+      return { question: _pick(_P().mirror.clusterStems(_axisWord(axis), isM)), figure: { kind: 'row', items: plain }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'medium:cluster', explanation: _P().mirror.clusterExpl(isM) };
     }
     if (diff === 'medium') {   // composite figure with two markers
       var outer = _ringPick('mw-outer2', OUTERS);
@@ -183,7 +189,7 @@
       var okM = Object.assign({}, baseM, { flip: axis });
       var figsM = [okM, baseM, Object.assign({}, baseM, { flip: axis === 'h' ? 'v' : 'h' }), Object.assign({}, baseM, { rot: 180 })];
       var oM = _figOptions(figsM);
-      return { question: 'Which option shows the correct ' + _axisWord(axis) + ' of the figure?', figure: baseM, options: oM.options, optionFigures: oM.optionFigures, answer: oM.answer, subtype: 'medium:fig' + keyBase, explanation: (isM ? 'Reflect every element left ↔ right: each marker jumps to the opposite side of the vertical axis.' : 'Reflect every element top ↔ bottom: each marker jumps across the horizontal axis.') };
+      return { question: _P().mirror.figStem(_axisWord(axis)), figure: baseM, options: oM.options, optionFigures: oM.optionFigures, answer: oM.answer, subtype: 'medium:fig' + keyBase, explanation: _P().mirror.figExplM(isM) };
     }
     /* hard: chiral line figure — the rotation-vs-reflection discrimination */
     var segs = _chiralPath(_ri(4, 5));
@@ -194,7 +200,7 @@
     var figsH = [correctH, dH1, dH2, dH3];
     if (!_distinct(figsH)) return _mirrorLike(diff, axis, keyBase);   // rare collision → regenerate
     var oH = _figOptions(figsH);
-    return { question: 'Select the option that shows the exact ' + _axisWord(axis) + ' of the figure at the top.', figure: _segFig(segs), options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:seg' + keyBase, explanation: (isM ? 'Trace each line: a mirror swaps left and right only. A rotated copy LOOKS similar but the slants run the wrong way — that is the trap.' : 'Water flips the figure vertically. Compare the top of the original with the bottom of each option; rotations are the trap.') };
+    return { question: _P().mirror.segStem(_axisWord(axis)), figure: _segFig(segs), options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:seg' + keyBase, explanation: _P().mirror.segExpl(isM) };
   }
 
   function _genMirror(diff) { return _mirrorLike(diff, 'h', 'mirror'); }
@@ -207,11 +213,11 @@
       if (Math.random() < 0.5) {
         var top = _ri(1, 6);
         var m = _mcq(7 - top, ['1', '2', '3', '4', '5', '6'], 4);
-        return { question: _pick(['A standard die is shown (opposite faces always add up to 7). Which number is on the face opposite the ' + top + '?', 'The die shown is a standard die, so opposite faces total 7. What lies on the face opposite the one showing ' + top + '?']), figure: { kind: 'die', value: top }, options: m.options, answer: m.answer, subtype: 'easy:opp', explanation: 'On a standard die opposite faces sum to 7, so the face opposite ' + top + ' is 7 − ' + top + ' = ' + (7 - top) + '.' };
+        return { question: _pick(_P().dice.oppStems(top)), figure: { kind: 'die', value: top }, options: m.options, answer: m.answer, subtype: 'easy:opp', explanation: _P().dice.oppExpl(top) };
       }
       var t2 = _ri(1, 6);
       var m2 = _mcq(21 - t2, ['15', '16', '17', '18', '19', '20'], 4);
-      return { question: 'A die shows ' + t2 + ' on its top face. The six faces carry the numbers 1 to 6. What do the OTHER five faces add up to?', figure: { kind: 'die', value: t2 }, options: m2.options, answer: m2.answer, subtype: 'easy:hiddenSum', explanation: 'All six faces total 1+2+3+4+5+6 = 21, so the hidden five faces total 21 − ' + t2 + ' = ' + (21 - t2) + '.' };
+      return { question: _P().dice.hiddenStem(t2), figure: { kind: 'die', value: t2 }, options: m2.options, answer: m2.answer, subtype: 'easy:hiddenSum', explanation: _P().dice.hiddenExpl(t2) };
     }
     if (diff === 'medium') {
       if (Math.random() < 0.55) {   // net → opposite face (pairs fixed by the cross layout)
@@ -220,11 +226,11 @@
         var PAIR = { 0: 5, 5: 0, 1: 3, 3: 1, 2: 4, 4: 2 };
         var i = _ri(0, 5), ans = faces[PAIR[i]];
         var m3 = _mcq(ans, faces.filter(function (f) { return f !== ans && f !== faces[i]; }), 4);
-        return { question: 'The net shown is folded to form a cube. Which number will be on the face opposite ' + faces[i] + '?', figure: { kind: 'net', faces: faces }, options: m3.options, answer: m3.answer, subtype: 'medium:net', explanation: 'In a cross-shaped net, faces separated by one square fold to opposite sides. Here ' + faces[i] + ' folds opposite ' + ans + '; the four squares in between wrap around as its neighbours.' };
+        return { question: _P().dice.netStem(faces[i]), figure: { kind: 'net', faces: faces }, options: m3.options, answer: m3.answer, subtype: 'medium:net', explanation: _P().dice.netExpl(faces[i], ans) };
       }
       var a = _ri(1, 6), b = _ri(1, 6), pool = []; for (var x = 2; x <= 12; x++) pool.push(String(x));
       var m4 = _mcq((7 - a) + (7 - b), pool, 4);
-      return { question: 'Two standard dice show ' + a + ' and ' + b + ' on top. What is the total of the numbers on their two bottom faces?', figure: { kind: 'row', items: [{ kind: 'die', value: a }, { kind: 'die', value: b }] }, options: m4.options, answer: m4.answer, subtype: 'medium:twoDiceSum', explanation: 'Each bottom face is 7 minus its top face: (7 − ' + a + ') + (7 − ' + b + ') = ' + ((7 - a) + (7 - b)) + '.' };
+      return { question: _P().dice.twoDiceStem(a, b), figure: { kind: 'row', items: [{ kind: 'die', value: a }, { kind: 'die', value: b }] }, options: m4.options, answer: m4.answer, subtype: 'medium:twoDiceSum', explanation: _P().dice.twoDiceExpl(a, b) };
     }
     /* hard: two positions of the SAME (non-standard) die → deduce the opposite face. */
     var vals = _shuffle([1, 2, 3, 4, 5, 6]);
@@ -236,30 +242,28 @@
     function view(showX, n1, n2) { var arr = _shuffle([showX, n1, n2]); return { kind: 'die3', top: arr[0], front: arr[1], right: arr[2] }; }
     var v1 = view(X, nbr[0], nbr[1]), v2 = view(X, nbr[2], nbr[3]);
     var mH = _mcq(opp(X), nbr, 4);
-    return { question: 'The same die is shown in two different positions. Which number lies on the face opposite ' + X + '?', figure: { kind: 'row', items: [v1, v2] }, options: mH.options, answer: mH.answer, subtype: 'hard:twoPos', explanation: 'Across the two positions, the numbers ' + nbr.join(', ') + ' all appear on faces touching ' + X + ' — so they are its neighbours. The only number never seen next to ' + X + ' is ' + opp(X) + ', which must be opposite it.' };
+    return { question: _P().dice.twoPosStem(X), figure: { kind: 'row', items: [v1, v2] }, options: mH.options, answer: mH.answer, subtype: 'hard:twoPos', explanation: _P().dice.twoPosExpl(nbr.join(', '), X, opp(X)) };
   }
 
   /* ─────────────────────────── painted cube / cuboid ─────────────────────────── */
 
+  /* `k` is a stable id (the pack renders it via paintLabel); `f` is the count — math stays in the engine. */
   function _paintTypes(n) {
     return [
-      { k: 'exactly two faces painted', f: 12 * (n - 2) },
-      { k: 'exactly one face painted', f: 6 * (n - 2) * (n - 2) },
-      { k: 'no face painted', f: (n - 2) * (n - 2) * (n - 2) },
-      { k: 'exactly three faces painted', f: 8 }
+      { k: 'two', f: 12 * (n - 2) },
+      { k: 'one', f: 6 * (n - 2) * (n - 2) },
+      { k: 'none', f: (n - 2) * (n - 2) * (n - 2) },
+      { k: 'three', f: 8 }
     ];
   }
   function _cubePaint(diff, n, key) {
     var types = _paintTypes(n);
-    if (diff !== 'easy' && Math.random() < 0.3) types.push({ k: 'at least one face painted', f: n * n * n - (n - 2) * (n - 2) * (n - 2) });
+    if (diff !== 'easy' && Math.random() < 0.3) types.push({ k: 'atLeastOne', f: n * n * n - (n - 2) * (n - 2) * (n - 2) });
     var t = _pick(types), ans = t.f;
     var pool = [ans, 8, 12 * (n - 2), 6 * (n - 2) * (n - 2), (n - 2) * (n - 2) * (n - 2), n * n * n - (n - 2) * (n - 2) * (n - 2), n * n * n, 6 * n].filter(function (v, i, a) { return v >= 0 && a.indexOf(v) === i; });
     var m = _mcq(ans, pool.map(String), 4);
-    var stem = _pick([
-      'A cube is painted on all its faces and cut into ' + n + '×' + n + '×' + n + ' = ' + (n * n * n) + ' identical small cubes. How many small cubes have ' + t.k + '?',
-      'A solid cube is painted red on every face, then sliced into ' + (n * n * n) + ' equal small cubes (' + n + ' along each edge). How many of them have ' + t.k + '?'
-    ]);
-    return { question: stem, figure: { kind: 'cube', n: n }, options: m.options, answer: m.answer, subtype: diff + ':' + key, explanation: 'Corners (3 painted faces) = 8; edge cubes (2 faces) = 12×(n−2); face-centre cubes (1 face) = 6×(n−2)²; hidden inner cubes = (n−2)³, with n = ' + n + '.' };
+    var stem = _pick(_P().cube.cubeStems(n, _P().paintLabel(t.k)));
+    return { question: stem, figure: { kind: 'cube', n: n }, options: m.options, answer: m.answer, subtype: diff + ':' + key, explanation: _P().cube.cubeExpl(n) };
   }
   function _genCube(diff) {
     if (diff === 'easy') return _cubePaint('easy', 3, 'paint3');
@@ -269,17 +273,17 @@
     var dims = _pickN([3, 4, 5, 6], 3).sort(function (x, y) { return x - y; });
     var a = dims[0], b = dims[1], c = dims[2];
     var types = [
-      { k: 'exactly three faces painted', f: 8 },
-      { k: 'exactly two faces painted', f: 4 * ((a - 2) + (b - 2) + (c - 2)) },
-      { k: 'exactly one face painted', f: 2 * ((a - 2) * (b - 2) + (b - 2) * (c - 2) + (a - 2) * (c - 2)) },
-      { k: 'no face painted', f: (a - 2) * (b - 2) * (c - 2) }
+      { k: 'three', f: 8 },
+      { k: 'two', f: 4 * ((a - 2) + (b - 2) + (c - 2)) },
+      { k: 'one', f: 2 * ((a - 2) * (b - 2) + (b - 2) * (c - 2) + (a - 2) * (c - 2)) },
+      { k: 'none', f: (a - 2) * (b - 2) * (c - 2) }
     ];
     var t = _pick(types);
     var pool = types.map(function (x) { return x.f; })
       .concat([a * b * c, 8, 12, t.f + 2, t.f + 4, Math.max(0, t.f - 2), 4 * (a + b + c) - 24])
       .filter(function (v, i, arr) { return v >= 0 && arr.indexOf(v) === i; });
     var m = _mcq(t.f, pool.map(String), 4);
-    return { question: 'A cuboid measuring ' + a + ' × ' + b + ' × ' + c + ' units is painted on all faces and cut into unit cubes. How many unit cubes have ' + t.k + '?', figure: { kind: 'cube', n: 3 }, options: m.options, answer: m.answer, subtype: 'hard:cuboid', explanation: 'For an a×b×c cuboid: corners = 8; edges (2 faces) = 4[(a−2)+(b−2)+(c−2)]; faces (1 face) = 2[(a−2)(b−2)+(b−2)(c−2)+(a−2)(c−2)]; inner = (a−2)(b−2)(c−2).' };
+    return { question: _P().cube.cuboidStem(a, b, c, _P().paintLabel(t.k)), figure: { kind: 'cube', n: 3 }, options: m.options, answer: m.answer, subtype: 'hard:cuboid', explanation: _P().cube.cuboidExpl() };
   }
 
   /* ─────────────────────────── figure series ─────────────────────────── */
@@ -302,7 +306,7 @@
   }
   function _genFSeries(diff) {
     var outer = _ringPick('fs-outer', OUTERS);
-    var stem = _pick(['Which figure should come next in the series, in place of the question mark?', 'Study the series and pick the figure that continues it.', 'Select the figure that will replace the question mark in the series.', 'The figures follow a pattern. Which option comes next?']);
+    var stem = _pick(_P().fseries.stems);
     if (diff === 'easy') {
       if (Math.random() < 0.55) {   // constant position step
         var k = _pick([1, 2]), start = _ri(0, 7);
@@ -312,7 +316,7 @@
           { at: ORDER8[(start + 5 * k) % 8], count: 1, fill: 'none' },
           { at: ORDER8[(start + 3 * k) % 8], count: 1, fill: 'none' },
           { at: ORDER8[(start + 4 * k + 4) % 8], count: 1, fill: 'none' }
-        ], 'easy:pos', 'The dot moves ' + (k === 1 ? 'one step' : 'two steps') + ' clockwise around the ' + outer + ' each time, so it continues to the next position.', stem);
+        ], 'easy:pos', _P().fseries.posExpl(k, outer), stem);
         if (q) return q;
       }
       var up = Math.random() < 0.6, c0 = up ? 1 : 5;
@@ -324,7 +328,7 @@
         { at: 'c', count: up ? nxtC.count + 1 : nxtC.count + 2, fill: 'none' },
         { at: 'c', count: nxtC.count, fill: 'solid' }
       ];
-      var qC = _seriesQ(outer, stsC, nxtC, dC, 'easy:count', 'The number of dots ' + (up ? 'increases' : 'decreases') + ' by one in every figure of the series.', stem);
+      var qC = _seriesQ(outer, stsC, nxtC, dC, 'easy:count', _P().fseries.countExpl(up), stem);
       if (qC) return qC;
       return _genFSeries(diff);
     }
@@ -337,7 +341,7 @@
           { at: nxtS.at, count: 1, fill: 'solid' },                                 // right position, wrong shading
           { at: ORDER8[(s2 + 5 * k2) % 8], count: 1, fill: 'none' },                // one step too far
           { at: ORDER8[(s2 + 3 * k2) % 8], count: 1, fill: 'solid' }                // previous position
-        ], 'medium:posShade', 'Two things change together: the dot advances ' + k2 + ' step(s) clockwise every time, while the shading alternates. The next figure must satisfy BOTH rules.', stem);
+        ], 'medium:posShade', _P().fseries.posShadeExpl(k2), stem);
         if (qS) return qS;
       }
       var k3 = 3, s3 = _ri(0, 7);   // larger rotation step (135°)
@@ -347,7 +351,7 @@
         { at: ORDER8[(s3 + 4 * k3 + 1) % 8], count: 1, fill: 'none' },
         { at: ORDER8[(s3 + 4 * k3 - 1 + 8) % 8], count: 1, fill: 'none' },
         { at: ORDER8[(s3 + 3 * k3) % 8], count: 1, fill: 'none' }
-      ], 'medium:pos3', 'The dot jumps three positions (135°) clockwise each time — a longer step than it first appears. Track it around the shape.', stem);
+      ], 'medium:pos3', _P().fseries.pos3Expl(), stem);
       if (q3) return q3;
       return _genFSeries(diff);
     }
@@ -362,7 +366,7 @@
       { at: 'c', count: nxt4.count, fill: 'solid' },                                  // right count, wrong shading
       { at: 'c', count: sts4[3].count, fill: 'none' },                                // stale count
       { at: 'c', count: Math.min(6, Math.max(1, nxt4.count + (up4 ? 1 : -1))), fill: 'none' }
-    ], 'hard:countShade', 'Two rules run at once: the dot count ' + (up4 ? 'rises' : 'falls') + ' by one every step AND the shading alternates. Options that satisfy only one rule are traps.', stem);
+    ], 'hard:countShade', _P().fseries.countShadeExpl(up4), stem);
     if (q4) return q4;
     /* alternating position steps */
     var a1 = _pick([1, 2]), a2 = _pick([2, 3].filter(function (v) { return v !== a1; })), s5 = _ri(0, 7);
@@ -373,7 +377,7 @@
       { at: ORDER8[(s5 + 2 * a1 + 2 * a2 + a1) % 8], count: 1, fill: 'none' },
       { at: ORDER8[(s5 + 2 * a1 + a2 + a1) % 8], count: 1, fill: 'none' },
       { at: ORDER8[(s5 + 2 * a1 + 2 * a2 + 4) % 8], count: 1, fill: 'none' }
-    ], 'hard:altPos', 'The dot advances by ALTERNATING steps (' + a1 + ', then ' + a2 + ', then ' + a1 + '…). The next move is a ' + a2 + '-step jump.', stem);
+    ], 'hard:altPos', _P().fseries.altPosExpl(a1, a2), stem);
     return q5 || _genFSeries('medium');
   }
 
@@ -381,7 +385,7 @@
 
   function _genFAnalogy(diff) {
     var outer = _ringPick('fa-outer', OUTERS);
-    var stem = _pick(['The first figure is related to the second in a certain way. Which option relates to the third figure in the SAME way?', 'Select the figure that completes the analogy (first is to second as third is to ?).', 'The second figure follows from the first by a rule. Apply the same rule to the third figure and pick the result.']);
+    var stem = _pick(_P().fanalogy.stems);
     if (diff === 'easy') {   // rotation of the marker position
       var k = _pick([2, 4, 6]), aAt = _ri(0, 7), cAt = _ri(0, 7);
       var A = _compoDot(outer, ORDER8[aAt]), B = _compoDot(outer, ORDER8[(aAt + k) % 8]);
@@ -390,7 +394,7 @@
       var figs = [ok, _compoDot(outer2, ORDER8[(cAt + k + 2) % 8]), _compoDot(outer2, ORDER8[cAt]), _compoDot(outer2, ORDER8[(cAt - k + 8) % 8])];
       if (!_distinct(figs)) return _genFAnalogy(diff);
       var o = _figOptions(figs);
-      return { question: stem, figure: { kind: 'row', items: [A, B, C, { kind: 'qmark' }] }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'easy:rot', explanation: 'From the first to the second figure the dot turns ' + (k * 45) + '° clockwise. Apply the same turn to the third figure.' };
+      return { question: stem, figure: { kind: 'row', items: [A, B, C, { kind: 'qmark' }] }, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'easy:rot', explanation: _P().fanalogy.rotExpl(k) };
     }
     if (diff === 'medium') {
       var mode = _pick(['reflect', 'count', 'shade']);
@@ -404,7 +408,7 @@
         var figs2 = [ok2, _compoDot(o2f, WAT_AT[atC]), _compoDot(o2f, atC), _compoDot(o2f, _rotAt(atC, 4))];
         if (!_distinct(figs2)) return _genFAnalogy(diff);
         var o2 = _figOptions(figs2);
-        return { question: stem, figure: { kind: 'row', items: [A2, B2, C2, { kind: 'qmark' }] }, options: o2.options, optionFigures: o2.optionFigures, answer: o2.answer, subtype: 'medium:reflect', explanation: 'The second figure is the MIRROR image of the first (left ↔ right) — not a rotation. Mirror the third figure the same way.' };
+        return { question: stem, figure: { kind: 'row', items: [A2, B2, C2, { kind: 'qmark' }] }, options: o2.options, optionFigures: o2.optionFigures, answer: o2.answer, subtype: 'medium:reflect', explanation: _P().fanalogy.reflectExpl() };
       }
       if (mode === 'count') {
         var c1 = _ri(1, 3), dlt = _pick([1, 2]), cC = _ri(1, 3);
@@ -414,7 +418,7 @@
         var figs3 = [ok3, _compoCount(o3f, cC), _compoCount(o3f, Math.min(6, cC + dlt + 1)), _compoCount(o3f, Math.max(1, cC - dlt + (cC - dlt === cC + dlt ? 1 : 0)))];
         if (!_distinct(figs3)) return _genFAnalogy(diff);
         var o3 = _figOptions(figs3);
-        return { question: stem, figure: { kind: 'row', items: [A3, B3, C3, { kind: 'qmark' }] }, options: o3.options, optionFigures: o3.optionFigures, answer: o3.answer, subtype: 'medium:count', explanation: 'The rule adds ' + dlt + ' dot(s) from the first figure to the second. Add the same number to the third figure.' };
+        return { question: stem, figure: { kind: 'row', items: [A3, B3, C3, { kind: 'qmark' }] }, options: o3.options, optionFigures: o3.optionFigures, answer: o3.answer, subtype: 'medium:count', explanation: _P().fanalogy.countExpl(dlt) };
       }
       var at4 = _pick(['tl', 'tr', 'bl', 'br']), at4c = _pick(['tl', 'tr', 'bl', 'br']);
       var A4 = { kind: 'compo', outer: { form: outer, fill: 'none' }, inner: [{ form: 'dot', at: at4 }] };
@@ -425,7 +429,7 @@
       var figs4 = [ok4, C4, { kind: 'compo', outer: { form: o4f, fill: 'solid' }, inner: [{ form: 'dot', at: _rotAt(at4c, 2) }] }, { kind: 'compo', outer: { form: o4f, fill: 'half' }, inner: [{ form: 'dot', at: at4c }] }];
       if (!_distinct(figs4)) return _genFAnalogy(diff);
       var o4 = _figOptions(figs4);
-      return { question: stem, figure: { kind: 'row', items: [A4, B4, C4, { kind: 'qmark' }] }, options: o4.options, optionFigures: o4.optionFigures, answer: o4.answer, subtype: 'medium:shade', explanation: 'The outline becomes fully shaded while everything else stays put. Shade the third figure the same way.' };
+      return { question: stem, figure: { kind: 'row', items: [A4, B4, C4, { kind: 'qmark' }] }, options: o4.options, optionFigures: o4.optionFigures, answer: o4.answer, subtype: 'medium:shade', explanation: _P().fanalogy.shadeExpl() };
     }
     /* hard: combined rule (rotate marker + toggle shading) or inner/outer swap */
     if (Math.random() < 0.55) {
@@ -441,7 +445,7 @@
         { kind: 'compo', outer: { form: o5f, fill: 'solid' }, inner: [{ form: 'dot', at: ORDER8[(c5 - k5 + 8) % 8] }] }];
       if (!_distinct(figs5)) return _genFAnalogy(diff);
       var o5 = _figOptions(figs5);
-      return { question: stem, figure: { kind: 'row', items: [A5, B5, C5, { kind: 'qmark' }] }, options: o5.options, optionFigures: o5.optionFigures, answer: o5.answer, subtype: 'hard:rotShade', explanation: 'TWO changes happen together: the dot turns ' + (k5 * 45) + '° clockwise AND the outline becomes shaded. Options applying only one change are traps.' };
+      return { question: stem, figure: { kind: 'row', items: [A5, B5, C5, { kind: 'qmark' }] }, options: o5.options, optionFigures: o5.optionFigures, answer: o5.answer, subtype: 'hard:rotShade', explanation: _P().fanalogy.rotShadeExpl(k5) };
     }
     var fo = _pick(OUTERS), fi = _pick(['triangle', 'square', 'circle', 'diamond'].filter(function (f) { return f !== fo; }));
     var A6 = { kind: 'compo', outer: { form: fo, fill: 'none' }, inner: [{ form: fi, at: 'c' }] };
@@ -453,13 +457,13 @@
     var figs6 = [ok6, C6, { kind: 'compo', outer: { form: gi, fill: 'solid' }, inner: [{ form: go, at: 'c' }] }, { kind: 'compo', outer: { form: go, fill: 'none' }, inner: [{ form: gi, at: 'tl' }] }];
     if (!_distinct(figs6)) return _genFAnalogy(diff);
     var o6 = _figOptions(figs6);
-    return { question: stem, figure: { kind: 'row', items: [A6, B6, C6, { kind: 'qmark' }] }, options: o6.options, optionFigures: o6.optionFigures, answer: o6.answer, subtype: 'hard:swap', explanation: 'The inner and outer shapes trade places — the small shape grows into the outline and the outline shrinks inside it.' };
+    return { question: stem, figure: { kind: 'row', items: [A6, B6, C6, { kind: 'qmark' }] }, options: o6.options, optionFigures: o6.optionFigures, answer: o6.answer, subtype: 'hard:swap', explanation: _P().fanalogy.swapExpl() };
   }
 
   /* ─────────────────────────── odd figure out ─────────────────────────── */
 
   function _genOdd(diff) {
-    var stem = _pick(['Three of the four figures are alike in a certain way. Select the one that is DIFFERENT.', 'Find the odd figure out.', 'Three figures share a common property. Choose the one that does not belong.']);
+    var stem = _pick(_P().odd.stems);
     if (diff === 'easy') {   // three share a dot count, one differs
       var outer = _ringPick('odd-outer', OUTERS);
       var c = _ri(2, 4), oddC = c + _pick([-1, 1]);
@@ -467,7 +471,7 @@
       var figs = [_compoCount(_pick(OUTERS), oddC)].concat(same);
       if (!_distinct(figs)) return _genOdd(diff);
       var o = _figOptions(figs);
-      return { question: stem, figure: null, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'easy:count', explanation: 'Count the dots: three figures contain ' + c + ' dots each; the odd one contains ' + oddC + '. The outer shapes are a distraction.' };
+      return { question: stem, figure: null, options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: 'easy:count', explanation: _P().odd.countExpl(c, oddC) };
     }
     if (diff === 'medium') {   // three rotations of one composition, one with a different inner form
       var outerM = _ringPick('odd-outerM', OUTERS);
@@ -479,7 +483,7 @@
       var figsM = [oddM].concat(sameM);
       if (!_distinct(figsM)) return _genOdd(diff);
       var oM = _figOptions(figsM);
-      return { question: stem, figure: null, options: oM.options, optionFigures: oM.optionFigures, answer: oM.answer, subtype: 'medium:form', explanation: 'Three figures carry the same inner shape (a ' + innerM + ') merely moved to different positions — rotations of one another. The odd figure hides a different shape inside.' };
+      return { question: stem, figure: null, options: oM.options, optionFigures: oM.optionFigures, answer: oM.answer, subtype: 'medium:form', explanation: _P().odd.formExpl(innerM) };
     }
     /* hard: three rotations of a chiral line figure + one REFLECTION (the classic discrimination) */
     var segs = _chiralPath(_ri(4, 5));
@@ -488,7 +492,7 @@
     var figsH = [oddH].concat(rots);
     if (!_distinct(figsH)) return _genOdd(diff);
     var oH = _figOptions(figsH);
-    return { question: stem, figure: null, options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:reflect', explanation: 'Three options are the SAME figure merely rotated. The odd one is a mirror image — no amount of rotation can turn the original into it.' };
+    return { question: stem, figure: null, options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:reflect', explanation: _P().odd.reflectExpl() };
   }
 
   /* ─────────────────────────── paper folding ─────────────────────────── */
@@ -507,7 +511,7 @@
     return out;
   }
   function _genPaper(diff) {
-    var stem = 'A square sheet is folded as shown and holes are punched. How will it look when unfolded?';
+    var stem = _P().paper.stem;
     var fold, holes, correctHoles, wrongAxis, alsoWrong;
     if (diff === 'hard') {
       /* two folds: right half onto left, then bottom onto top → hole in the top-left quadrant unfolds to 4 holes */
@@ -525,10 +529,10 @@
       if (!_distinct(figsH)) return _genPaper(diff);
       var oH = _figOptions(figsH);
       return {
-        question: 'A square sheet is folded in half twice — right onto left, then bottom onto top — and one hole is punched. How does it look unfolded?',
+        question: _P().paper.fold2Stem,
         figure: { kind: 'row', items: [{ kind: 'paper', fold: 'v', folded: true, holes: [] }, { kind: 'paper', fold: ['v', 'h'], folded: true, holes: holes }] },
         options: oH.options, optionFigures: oH.optionFigures, answer: oH.answer, subtype: 'hard:fold2',
-        explanation: 'Each fold doubles the punch when opened: one hole becomes two across the vertical crease, then those two become four across the horizontal crease — one in each quadrant, all mirror-placed.'
+        explanation: _P().paper.fold2Expl
       };
     }
     if (diff === 'medium' && Math.random() < 0.45) {
@@ -546,10 +550,10 @@
       if (keysD.some(function (k, i) { return keysD.indexOf(k) !== i; })) return _genPaper(diff);
       var oD = _figOptions(figsD);
       return {
-        question: 'The sheet is folded along its diagonal and a hole is punched, as shown. Which option shows the unfolded sheet?',
+        question: _P().paper.foldDStem,
         figure: { kind: 'paper', fold: 'd', folded: true, holes: holes },
         options: oD.options, optionFigures: oD.optionFigures, answer: oD.answer, subtype: 'medium:foldD',
-        explanation: 'A diagonal fold reflects the punch ACROSS the diagonal: the hole at (x, y) gains a twin at (y, x). Left–right or top–bottom twins are the traps.'
+        explanation: _P().paper.foldDExpl
       };
     }
     /* single straight fold; easy = 1 hole, medium = 2 holes */
@@ -578,14 +582,14 @@
       question: stem,
       figure: { kind: 'paper', fold: fold, folded: true, holes: holes },
       options: o1.options, optionFigures: o1.optionFigures, answer: o1.answer, subtype: (diff === 'easy' ? 'easy:fold1' : 'medium:fold1b'),
-      explanation: 'Unfolding reflects every hole across the crease' + (fold === 'v' ? ' (left ↔ right)' : ' (top ↔ bottom)') + ': each punch appears twice, mirror-placed. Watch the reflection axis — it is the usual trap.'
+      explanation: _P().paper.fold1Expl(fold)
     };
   }
 
   /* ─────────────────────────── matrix (pattern) completion ─────────────────────────── */
 
   function _genPattern(diff) {
-    var stem = _pick(['Study the 3×3 matrix. Which figure completes it, in place of the question mark?', 'Each row of the matrix follows a rule. Select the figure that belongs in the empty cell.', 'Which option completes the figure matrix?']);
+    var stem = _pick(_P().pattern.stems);
     var forms = _pickN(OUTERS, 3);
     var markers = _pickN(['dot', 'triangle', 'square'], 3);
     var start = _ri(0, 7), step = _pick([1, 2, 3]);
@@ -599,9 +603,9 @@
       return { kind: 'compo', outer: { form: outerForm, fill: outerFill }, inner: [{ form: markerForm, at: at }] };
     }
     var subtype, expl;
-    if (diff === 'easy') { subtype = 'easy:rowRot'; expl = 'In every row the marker advances ' + step + ' position(s) clockwise from cell to cell; each row uses its own outer shape. Apply the same shift to the last row.'; }
-    else if (diff === 'medium') { subtype = 'medium:rotForm'; expl = 'Two rules stack: across each row the marker advances ' + step + ' position(s) clockwise, and each ROW carries its own marker shape. The missing cell must obey both rules.'; }
-    else { subtype = 'hard:rotShade'; expl = 'Across each row the marker advances ' + step + ' position(s); down the rows the shading of the outline deepens (plain → half → solid). The answer must satisfy the row rule AND the column rule.'; }
+    if (diff === 'easy') { subtype = 'easy:rowRot'; expl = _P().pattern.easyExpl(step); }
+    else if (diff === 'medium') { subtype = 'medium:rotForm'; expl = _P().pattern.mediumExpl(step); }
+    else { subtype = 'hard:rotShade'; expl = _P().pattern.hardExpl(step); }
     var cells = [];
     for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++) cells.push(cellFig(r, c, diff));
     var correct = cells[8];
@@ -676,9 +680,9 @@
       if (!_distinct(figs)) continue;
       var o = _figOptions(figs);
       return {
-        question: _pick(['The simple figure at the top is hidden inside exactly one of the four options. Which option contains it?', 'Select the option in which the given figure is embedded (same size, same orientation).']),
+        question: _pick(_P().embedded.stems),
         figure: _segFig(motif), options: o.options, optionFigures: o.optionFigures, answer: o.answer, subtype: diff + ':embed',
-        explanation: 'Look for the exact lines of the small figure — same lengths, same slants, same corners — buried inside one option. The other options alter one of its lines slightly, so the match fails.'
+        explanation: _P().embedded.expl
       };
     }
     /* graceful degradation — never strand the drill */
@@ -717,7 +721,9 @@
     label: function (c) { return CATEGORY_LABELS[c] || c; },
     generate: generate, generators: generators, registerInto: registerInto,
     /* pure internals exposed for the check harness (spec-level recompute) */
-    _t: { segMirror: _segMirror, segWater: _segWater, segRot: _segRot, segKey: _segKey, segChiral: _segChiral, segSubset: _segSubset, rotAt: _rotAt, MIR_AT: MIR_AT, WAT_AT: WAT_AT, ORDER8: ORDER8 }
+    _t: { segMirror: _segMirror, segWater: _segWater, segRot: _segRot, segKey: _segKey, segChiral: _segChiral, segSubset: _segSubset, rotAt: _rotAt, MIR_AT: MIR_AT, WAT_AT: WAT_AT, ORDER8: ORDER8 },
+    /* test hook: clear the anti-repetition ring so a fixed seed reproduces identical output across languages (F-M7 §12). */
+    _resetRings: function () { _rings = {}; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = LRVisualEngine;
   if (typeof window !== 'undefined') window.LRVisualEngine = LRVisualEngine;

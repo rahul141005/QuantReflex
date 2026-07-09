@@ -103,7 +103,7 @@ var QRGenI18n = (function () {
   /* ── Rich engine packs (ADR-111 F-M5 DI, F-M6 LR) — these engines keep all RNG/math and generate directly in the
      ACTIVE study language, so their pack is a rich object (pools + stem/chart phrasers), not the pure render() tpl/
      slots model quant uses. Stored whole per engine; the engine reads richPack(engine, activeLang) at generate() time. */
-  var _rich = { di: {}, lr: {} };
+  var _rich = { di: {}, lr: {}, lrv: {} };
   function registerRich(engine, lang, pack) { lang = _valid(lang); if (engine && pack) { (_rich[engine] || (_rich[engine] = {}))[lang] = pack; } }
   /** The rich pack for engine in the given (or active study) language; falls back to en so generation never breaks. */
   function richPack(engine, lang) { lang = lang ? _valid(lang) : _lang(); var e = _rich[engine] || {}; return e[lang] || e.en || null; }
@@ -112,10 +112,12 @@ var QRGenI18n = (function () {
   function diPack(lang) { return richPack('di', lang); }
   function registerLR(lang, pack) { registerRich('lr', lang, pack); }
   function lrPack(lang) { return richPack('lr', lang); }
+  function registerLRV(lang, pack) { registerRich('lrv', lang, pack); }
+  function lrvPack(lang) { return richPack('lrv', lang); }
   /** Active study language, guarded (en in Node / pre-boot). Exposed so the rich engines resolve language once. */
   function studyLangOf() { return _lang(); }
 
-  var API = { register: register, render: render, pools: pools, has: has, registerRich: registerRich, richPack: richPack, registerDI: registerDI, diPack: diPack, registerLR: registerLR, lrPack: lrPack, studyLangOf: studyLangOf, _store: _store, _rich: _rich, _di: _rich.di };
+  var API = { register: register, render: render, pools: pools, has: has, registerRich: registerRich, richPack: richPack, registerDI: registerDI, diPack: diPack, registerLR: registerLR, lrPack: lrPack, registerLRV: registerLRV, lrvPack: lrvPack, studyLangOf: studyLangOf, _store: _store, _rich: _rich, _di: _rich.di };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRGenI18n = API;
   return API;
