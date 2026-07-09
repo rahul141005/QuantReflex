@@ -109,10 +109,13 @@ function showExitSessionDialog(onConfirm, customOptions) {
   }
 
   /* Reset to defaults (honest copy — answered questions are already recorded) */
-  if (titleEl) titleEl.textContent = 'End Session?';
-  if (descEl) descEl.innerHTML = 'Answered questions are saved — this session just won’t get a summary.';
-  cancelBtn.textContent = 'Keep Going';
-  confirmBtn.textContent = 'End Session';
+  /* ADR-111 stabilization: the confirm's static markup is data-i18n-tagged, but this JS reset overwrote it with
+     English literals — route through the SAME modals.* keys so the dialog stays localized. Guarded for load-order. */
+  function _smT(key, fb) { try { if (typeof QRI18n !== 'undefined') { var v = QRI18n.t(key); if (v !== key) return v; } } catch (_) {} return fb; }
+  if (titleEl) titleEl.textContent = _smT('modals.exitSessionTitle', 'End Session?');
+  if (descEl) descEl.innerHTML = _smT('modals.exitSessionBody', 'Answered questions are saved — this session just won’t get a summary.');
+  cancelBtn.textContent = _smT('modals.keepGoing', 'Keep Going');
+  confirmBtn.textContent = _smT('modals.endSession', 'End Session');
 
   /* Apply overrides */
   if (customOptions) {

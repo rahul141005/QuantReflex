@@ -23,7 +23,7 @@
     var I18N_ON = false;
     try {
       if (!I18N_ON && localStorage.getItem('qr_i18n_preview') !== '1') return;
-      var s = JSON.parse(localStorage.getItem('qr_settings') || localStorage.getItem('quant_reflex_settings') || '{}');
+      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
       var l = (s.appLanguage === 'hi' || s.appLanguage === 'mr') ? s.appLanguage : 'en';
       document.documentElement.lang = l;
       document.documentElement.setAttribute('data-app-locale', l);

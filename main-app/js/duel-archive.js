@@ -32,17 +32,18 @@ var DuelArchive = (function () {
   /* ---- active filters ---- */
   var _f = { outcome: 'all', difficulty: 'all', range: 'all', search: '', rivalUid: null };
 
+  /* Display strings resolve at render time via _t so a language switch never shows a stale name (ADR-111). */
   var ACHIEVEMENTS = [
-    { key: 'firstBlood',  icon: '🩸', name: 'First Blood',       desc: 'Complete your first duel' },
-    { key: 'firstWin',    icon: '🏆', name: 'First Victory',     desc: 'Win your first duel' },
-    { key: 'tenWins',     icon: '🔟', name: '10 Wins',           desc: 'Win 10 duels' },
-    { key: 'fiftyWins',   icon: '🎖️', name: '50 Wins',           desc: 'Win 50 duels' },
-    { key: 'hundredWins', icon: '💯', name: '100 Wins',          desc: 'Win 100 duels' },
-    { key: 'streak5',     icon: '🔥', name: '5 Win Streak',      desc: 'Win 5 duels in a row' },
-    { key: 'streak10',    icon: '⚡', name: '10 Win Streak',     desc: 'Win 10 duels in a row' },
-    { key: 'perfectDuel', icon: '✨', name: 'Perfect Duel',      desc: 'Answer every question correctly' },
-    { key: 'lightning',   icon: '🚀', name: 'Lightning',         desc: 'Win averaging under 5s a question' },
-    { key: 'revenge',     icon: '🗡️', name: 'Revenge',           desc: 'Beat an opponent who had your number' }
+    { key: 'firstBlood',  icon: '🩸', nk: 'duel.achFirstBlood',  dk: 'duel.achFirstBloodDesc' },
+    { key: 'firstWin',    icon: '🏆', nk: 'duel.achFirstWin',    dk: 'duel.achFirstWinDesc' },
+    { key: 'tenWins',     icon: '🔟', nk: 'duel.achTenWins',     dk: 'duel.achTenWinsDesc' },
+    { key: 'fiftyWins',   icon: '🎖️', nk: 'duel.achFiftyWins',   dk: 'duel.achFiftyWinsDesc' },
+    { key: 'hundredWins', icon: '💯', nk: 'duel.achHundredWins', dk: 'duel.achHundredWinsDesc' },
+    { key: 'streak5',     icon: '🔥', nk: 'duel.achStreak5',     dk: 'duel.achStreak5Desc' },
+    { key: 'streak10',    icon: '⚡', nk: 'duel.achStreak10',    dk: 'duel.achStreak10Desc' },
+    { key: 'perfectDuel', icon: '✨', nk: 'duel.achPerfectDuel', dk: 'duel.achPerfectDuelDesc' },
+    { key: 'lightning',   icon: '🚀', nk: 'duel.achLightning',   dk: 'duel.achLightningDesc' },
+    { key: 'revenge',     icon: '🗡️', nk: 'duel.achRevenge',     dk: 'duel.achRevengeDesc' }
   ];
 
   /* ───────────────────────── helpers ───────────────────────── */
@@ -52,13 +53,18 @@ var DuelArchive = (function () {
   function _db() { return firebase.firestore(); }
   function _uid() { try { return (typeof DuelCore !== 'undefined' && DuelCore.getMyUid) ? DuelCore.getMyUid() : (firebase.auth().currentUser || {}).uid; } catch (_) { return null; } }
   function _el() { return document.getElementById(SECTION_ID); }
+  /* i18n (ADR-111): app-language channel; guarded so a harness without QRI18n still gets the key. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
 
-  var _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  function _fmtDate(ms) { if (!ms) return '—'; var d = new Date(ms); return d.getDate() + ' ' + _MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  var _MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function _months() { var p = String(_t('duel.archMonths') || '').split(','); return p.length === 12 ? p : _MONTHS_EN; }
+  function _fmtDate(ms) { if (!ms) return '—'; var d = new Date(ms); return d.getDate() + ' ' + _months()[d.getMonth()] + ' ' + d.getFullYear(); }
   function _fmtTime(ms) { if (!ms) return ''; var d = new Date(ms); var h = d.getHours(), m = d.getMinutes(); var ap = h >= 12 ? 'PM' : 'AM'; h = h % 12; if (h === 0) h = 12; return h + ':' + (m < 10 ? '0' + m : m) + ' ' + ap; }
-  function _fmtDur(ms) { if (!ms || ms < 0) return '—'; var s = Math.round(ms / 1000); if (s < 60) return s + 's'; var m = Math.floor(s / 60); return m + 'm ' + (s % 60) + 's'; }
-  function _fmtSpeed(sec) { return (sec && sec > 0) ? (Math.round(sec * 10) / 10) + 's' : '—'; }
+  function _fmtDur(ms) { if (!ms || ms < 0) return '—'; var s = Math.round(ms / 1000); if (s < 60) return _t('duel.archDurSecs', { s: s }); var m = Math.floor(s / 60); return _t('duel.archDurMinSecs', { m: m, s: s % 60 }); }
+  function _fmtSpeed(sec) { return (sec && sec > 0) ? _t('duel.archDurSecs', { s: Math.round(sec * 10) / 10 }) : '—'; }
   function _cap(s) { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+  function _diffLabel(diff) { return diff === 'easy' ? _t('guide.difficultyEasy') : (diff === 'medium' ? _t('guide.difficultyMedium') : (diff === 'hard' ? _t('guide.difficultyHard') : _cap(diff))); }
+  function _outLabel(o) { return o === 'win' ? _t('duel.archOutWin') : (o === 'loss' ? _t('duel.archOutLoss') : (o === 'no_contest' ? _t('duel.archOutNc') : _t('duel.archOutDraw'))); }
   function _rangeCutoff(range) {
     if (range === 'all') return 0;
     var now = new Date(); var d;
@@ -163,7 +169,7 @@ var DuelArchive = (function () {
   function _deriveRivalView(s, oppUid) {
     var rv = (s && s.rivals && s.rivals[oppUid]) || null; if (!rv) return null; var c = _n(rv.count);
     return {
-      name: rv.name || 'Opponent', battles: c, wins: _n(rv.wins), losses: _n(rv.losses), draws: _n(rv.draws),
+      name: rv.name || _t('share.opponent'), battles: c, wins: _n(rv.wins), losses: _n(rv.losses), draws: _n(rv.draws),
       headToHeadPct: c > 0 ? Math.round(_n(rv.wins) / c * 100) : 0, streak: _n(rv.streak), lastOutcome: rv.lastOutcome || null,
       fastestWinSec: _n(rv.fastestWinSec), closestMargin: rv.closestMargin == null ? null : _n(rv.closestMargin),
       avgMargin: c > 0 ? Math.round(_n(rv.totalMargin) / c * 10) / 10 : 0,
@@ -205,7 +211,7 @@ var DuelArchive = (function () {
     sec.innerHTML =
       '<button class="ba-open" type="button" id="baOpen" aria-haspopup="dialog">' +
         '<span class="ba-open-icon">⚔️</span>' +
-        '<span class="ba-open-label">Battle Archive' + (count != null ? ' <span class="ba-count">' + count + '</span>' : '') + '</span>' +
+        '<span class="ba-open-label">' + _t('duel.archOpenLabel') + (count != null ? ' <span class="ba-count">' + count + '</span>' : '') + '</span>' +
         '<span class="ba-open-chevron" aria-hidden="true">›</span>' +
       '</button>';
     var btn = document.getElementById('baOpen');
@@ -222,8 +228,8 @@ var DuelArchive = (function () {
     overlay.innerHTML =
       '<div class="ba-modal-card" role="dialog" aria-modal="true" aria-labelledby="baModalTitle">' +
         '<div class="ba-modal-head">' +
-          '<h2 class="ba-modal-title" id="baModalTitle" tabindex="-1">⚔️ Battle Archive</h2>' +
-          '<button class="ba-modal-close" id="baModalClose" type="button" aria-label="Close">✕</button>' +
+          '<h2 class="ba-modal-title" id="baModalTitle" tabindex="-1">' + _t('duel.archModalTitle') + '</h2>' +
+          '<button class="ba-modal-close" id="baModalClose" type="button" aria-label="' + _esc(_t('duel.archCloseAria')) + '">✕</button>' +
         '</div>' +
         '<div class="ba-modal-body ba-body" id="baBody"></div>' +
       '</div>';
@@ -284,9 +290,9 @@ var DuelArchive = (function () {
     return '' +
       '<div class="ba-empty">' +
         '<div class="ba-empty-art">⚔️</div>' +
-        '<h4 class="ba-empty-title">No battles yet</h4>' +
-        '<p class="ba-empty-sub">Challenge an opponent and your duel history, rivalries and achievements will live here.</p>' +
-        '<button class="ba-empty-cta" type="button" id="baEmptyCta">Challenge your first opponent</button>' +
+        '<h4 class="ba-empty-title">' + _t('duel.archEmptyTitle') + '</h4>' +
+        '<p class="ba-empty-sub">' + _t('duel.archEmptySub') + '</p>' +
+        '<button class="ba-empty-cta" type="button" id="baEmptyCta">' + _t('duel.archEmptyCta') + '</button>' +
       '</div>';
   }
   function _wireEmpty() {
@@ -297,25 +303,25 @@ var DuelArchive = (function () {
   function _rivalBannerHtml() {
     if (!_f.rivalUid) return '';
     var r = _rivalView(_f.rivalUid); if (!r) return '';
-    var streakTxt = r.streak > 0 ? ('W' + r.streak) : (r.streak < 0 ? ('L' + (-r.streak)) : '—');
+    var streakTxt = r.streak > 0 ? _t('duel.archStreakW', { n: r.streak }) : (r.streak < 0 ? _t('duel.archStreakL', { n: -r.streak }) : '—');
     return '' +
       '<div class="ba-rivalry">' +
-        '<button class="ba-rivalry-clear" type="button" id="baRivalClear" aria-label="Clear rivalry filter">✕</button>' +
+        '<button class="ba-rivalry-clear" type="button" id="baRivalClear" aria-label="' + _esc(_t('duel.archClearRivalAria')) + '">✕</button>' +
         '<div class="ba-rivalry-head">' +
           '<span class="duel-avatar lg">' + _esc(_initial(r.name)) + '</span>' +
-          '<div class="ba-rivalry-id"><span class="ba-rivalry-vs">Rivalry vs</span><strong class="ba-rivalry-name">' + _esc(r.name) + '</strong></div>' +
+          '<div class="ba-rivalry-id"><span class="ba-rivalry-vs">' + _t('duel.archRivalryVs') + '</span><strong class="ba-rivalry-name">' + _esc(r.name) + '</strong></div>' +
           '<div class="ba-rivalry-score"><span>' + r.wins + '</span><em>–</em><span>' + r.losses + '</span></div>' +
         '</div>' +
         '<div class="ba-rivalry-grid">' +
-          _miniStat('Battles', r.battles) +
-          _miniStat('Win %', r.headToHeadPct + '%') +
-          _miniStat('Streak', streakTxt) +
-          _miniStat('Draws', r.draws) +
-          _miniStat('Fastest win', _fmtSpeedDur(r.fastestWinSec)) +
-          _miniStat('Closest', r.closestMargin == null ? '—' : ('±' + r.closestMargin)) +
-          _miniStat('Avg margin', (r.avgMargin > 0 ? '+' : '') + r.avgMargin) +
-          _miniStat('Avg accuracy', r.avgAccuracy + '%') +
-          _miniStat('Avg solve', _fmtSpeed(r.avgSolveSec)) +
+          _miniStat(_t('duel.archStatBattles'), r.battles) +
+          _miniStat(_t('duel.archStatWinPct'), r.headToHeadPct + '%') +
+          _miniStat(_t('duel.archStatStreak'), streakTxt) +
+          _miniStat(_t('duel.archStatDraws'), r.draws) +
+          _miniStat(_t('duel.archStatFastestWin'), _fmtSpeedDur(r.fastestWinSec)) +
+          _miniStat(_t('duel.archStatClosest'), r.closestMargin == null ? '—' : ('±' + r.closestMargin)) +
+          _miniStat(_t('duel.archStatAvgMargin'), (r.avgMargin > 0 ? '+' : '') + r.avgMargin) +
+          _miniStat(_t('duel.archStatAvgAccuracy'), r.avgAccuracy + '%') +
+          _miniStat(_t('duel.archStatAvgSolve'), _fmtSpeed(r.avgSolveSec)) +
         '</div>' +
       '</div>';
   }
@@ -327,22 +333,22 @@ var DuelArchive = (function () {
     return '' +
       '<div class="ba-personal">' +
         '<div class="ba-personal-row">' +
-          _miniStat('Battles', agg.totalDuels) +
-          _miniStat('Wins', agg.wins) +
-          _miniStat('Losses', agg.losses) +
-          _miniStat('Win %', agg.winPct + '%') +
+          _miniStat(_t('duel.archStatBattles'), agg.totalDuels) +
+          _miniStat(_t('duel.archStatWins'), agg.wins) +
+          _miniStat(_t('duel.archStatLosses'), agg.losses) +
+          _miniStat(_t('duel.archStatWinPct'), agg.winPct + '%') +
         '</div>' +
         '<div class="ba-personal-row">' +
-          _miniStat('Streak', streakTxt) +
-          _miniStat('Best streak', agg.bestStreak) +
-          _miniStat('Avg accuracy', agg.avgAccuracy + '%') +
-          _miniStat('Avg solve', _fmtSpeed(agg.avgSolveSec)) +
+          _miniStat(_t('duel.archStatStreak'), streakTxt) +
+          _miniStat(_t('duel.archStatBestStreak'), agg.bestStreak) +
+          _miniStat(_t('duel.archStatAvgAccuracy'), agg.avgAccuracy + '%') +
+          _miniStat(_t('duel.archStatAvgSolve'), _fmtSpeed(agg.avgSolveSec)) +
         '</div>' +
         '<div class="ba-personal-row">' +
-          _miniStat('Fastest win', _fmtSpeedDur(agg.fastestWinSec)) +
-          _miniStat('High score', agg.highestScore) +
-          _miniStat('Most played', top.mostPlayed ? _esc(top.mostPlayed.name) : '—') +
-          _miniStat('Most beaten', top.mostDefeated ? _esc(top.mostDefeated.name) : '—') +
+          _miniStat(_t('duel.archStatFastestWin'), _fmtSpeedDur(agg.fastestWinSec)) +
+          _miniStat(_t('duel.archStatHighScore'), agg.highestScore) +
+          _miniStat(_t('duel.archStatMostPlayed'), top.mostPlayed ? _esc(top.mostPlayed.name) : '—') +
+          _miniStat(_t('duel.archStatMostBeaten'), top.mostDefeated ? _esc(top.mostDefeated.name) : '—') +
         '</div>' +
       '</div>';
   }
@@ -358,10 +364,10 @@ var DuelArchive = (function () {
     }
     return '' +
       '<div class="ba-filters">' +
-        chips('outcome', [{ v: 'all', l: 'All' }, { v: 'win', l: 'Wins' }, { v: 'loss', l: 'Losses' }, { v: 'draw', l: 'Draws' }], _f.outcome) +
-        chips('difficulty', [{ v: 'all', l: 'Any' }, { v: 'easy', l: 'Easy' }, { v: 'medium', l: 'Medium' }, { v: 'hard', l: 'Hard' }], _f.difficulty) +
-        chips('range', [{ v: 'all', l: 'All time' }, { v: 'today', l: 'Today' }, { v: 'week', l: 'Week' }, { v: 'month', l: 'Month' }], _f.range) +
-        '<input class="ba-search" type="search" id="baSearch" placeholder="Search opponent…" value="' + _esc(_f.search) + '" aria-label="Search opponent" />' +
+        chips('outcome', [{ v: 'all', l: _t('duel.archFAll') }, { v: 'win', l: _t('duel.archStatWins') }, { v: 'loss', l: _t('duel.archStatLosses') }, { v: 'draw', l: _t('duel.archStatDraws') }], _f.outcome) +
+        chips('difficulty', [{ v: 'all', l: _t('duel.archFAny') }, { v: 'easy', l: _t('guide.difficultyEasy') }, { v: 'medium', l: _t('guide.difficultyMedium') }, { v: 'hard', l: _t('guide.difficultyHard') }], _f.difficulty) +
+        chips('range', [{ v: 'all', l: _t('duel.archFAllTime') }, { v: 'today', l: _t('duel.archFToday') }, { v: 'week', l: _t('duel.archFWeek') }, { v: 'month', l: _t('duel.archFMonth') }], _f.range) +
+        '<input class="ba-search" type="search" id="baSearch" placeholder="' + _esc(_t('duel.archSearchPh')) + '" value="' + _esc(_f.search) + '" aria-label="' + _esc(_t('duel.archSearchAria')) + '" />' +
       '</div>';
   }
 
@@ -373,44 +379,44 @@ var DuelArchive = (function () {
       // older battles" is the honest hint when more pages exist.
       var clientRefined = !!_f.search || !!_f.rivalUid;
       var msg = (clientRefined && _morePages)
-        ? 'No matches in the battles loaded so far — load more to search older battles.'
-        : 'No battles match these filters.';
+        ? _t('duel.archNoMatchMore')
+        : _t('duel.archNoMatch');
       return '<div class="ba-noresults">' + msg + '</div>' + _loadMoreHtml();
     }
     return rows.map(_cardHtml).join('') + _loadMoreHtml();
   }
   function _loadMoreHtml() {
-    return _morePages ? '<button class="ba-loadmore" type="button" id="baLoadMore">Load more</button>' : '';
+    return _morePages ? '<button class="ba-loadmore" type="button" id="baLoadMore">' + _t('duel.archLoadMore') + '</button>' : '';
   }
 
   function _cardHtml(d) {
     var outcome = d.outcome || 'draw';
     var badgeCls = outcome === 'win' ? 'is-win' : (outcome === 'loss' ? 'is-loss' : (outcome === 'no_contest' ? 'is-nc' : 'is-draw'));
-    var badgeTxt = outcome === 'win' ? 'WIN' : (outcome === 'loss' ? 'LOSS' : (outcome === 'no_contest' ? 'NO CONTEST' : 'DRAW'));
-    var who = d.iChallenged ? 'You challenged' : 'Challenged you';
+    var badgeTxt = outcome === 'win' ? _t('duel.archBadgeWin') : (outcome === 'loss' ? _t('duel.archBadgeLoss') : (outcome === 'no_contest' ? _t('duel.archBadgeNc') : _t('duel.archBadgeDraw')));
+    var who = d.iChallenged ? _t('duel.archYouChallenged') : _t('duel.archChallengedYou');
     var n = d.questionCount || 0;
     return '' +
       '<div class="ba-card ' + badgeCls + '" data-id="' + _esc(d._id) + '" tabindex="0" role="button" aria-expanded="false">' +
         '<span class="duel-avatar ba-card-av">' + _esc(_initial(d.opponentName)) + '</span>' +
         '<div class="ba-card-main">' +
-          '<div class="ba-card-top"><strong class="ba-card-opp">' + _esc(d.opponentName || 'Opponent') + '</strong>' +
+          '<div class="ba-card-top"><strong class="ba-card-opp">' + _esc(d.opponentName || _t('share.opponent')) + '</strong>' +
             '<span class="ba-badge ' + badgeCls + '">' + badgeTxt + '</span></div>' +
-          '<div class="ba-card-sub">' + _fmtDate(d.playedAt) + ' · ' + (n ? n + ' Q' : '—') + (d.difficulty ? ' · ' + _cap(d.difficulty) : '') + '</div>' +
+          '<div class="ba-card-sub">' + _fmtDate(d.playedAt) + ' · ' + (n ? _t('duel.archQCount', { n: n }) : '—') + (d.difficulty ? ' · ' + _diffLabel(d.difficulty) : '') + '</div>' +
         '</div>' +
         '<div class="ba-card-score"><span class="ba-score-you">' + (d.myScore || 0) + '</span><em>–</em><span class="ba-score-opp">' + (d.oppScore || 0) + '</span></div>' +
         '<div class="ba-card-detail" hidden>' +
           '<div class="ba-detail-grid">' +
-            _miniStat('Your score', (d.myScore || 0)) +
-            _miniStat('Their score', (d.oppScore || 0)) +
-            _miniStat('Your accuracy', (d.accuracy || 0) + '%') +
-            _miniStat('Their accuracy', (d.oppAccuracy || 0) + '%') +
-            _miniStat('Your speed', _fmtSpeed(d.mySpeed)) +
-            _miniStat('Their speed', _fmtSpeed(d.oppSpeed)) +
-            _miniStat('Duration', _fmtDur(d.durationMs)) +
-            _miniStat('Time', _fmtTime(d.playedAt)) +
+            _miniStat(_t('duel.archStatYourScore'), (d.myScore || 0)) +
+            _miniStat(_t('duel.archStatTheirScore'), (d.oppScore || 0)) +
+            _miniStat(_t('duel.archStatYourAccuracy'), (d.accuracy || 0) + '%') +
+            _miniStat(_t('duel.archStatTheirAccuracy'), (d.oppAccuracy || 0) + '%') +
+            _miniStat(_t('duel.archStatYourSpeed'), _fmtSpeed(d.mySpeed)) +
+            _miniStat(_t('duel.archStatTheirSpeed'), _fmtSpeed(d.oppSpeed)) +
+            _miniStat(_t('duel.archStatDuration'), _fmtDur(d.durationMs)) +
+            _miniStat(_t('duel.archStatTime'), _fmtTime(d.playedAt)) +
           '</div>' +
-          '<div class="ba-detail-foot">' + _esc(who) + ' · ' + _esc(_cap(outcome === 'no_contest' ? 'no contest' : outcome)) +
-            '<button class="ba-detail-rival" type="button" data-rival="' + _esc(d.opponentUid || '') + '" data-rivalname="' + _esc(d.opponentName || '') + '">View rivalry →</button>' +
+          '<div class="ba-detail-foot">' + _esc(who) + ' · ' + _esc(_outLabel(outcome)) +
+            '<button class="ba-detail-rival" type="button" data-rival="' + _esc(d.opponentUid || '') + '" data-rivalname="' + _esc(d.opponentName || '') + '">' + _t('duel.archViewRivalry') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -420,14 +426,14 @@ var DuelArchive = (function () {
     var unlocked = (_summary && _summary.achievements) || {};
     var cards = ACHIEVEMENTS.map(function (a) {
       var on = !!unlocked[a.key];
-      return '<div class="ba-ach' + (on ? ' is-on' : '') + '" title="' + _esc(a.desc) + '">' +
+      return '<div class="ba-ach' + (on ? ' is-on' : '') + '" title="' + _esc(_t(a.dk)) + '">' +
         '<span class="ba-ach-icon">' + a.icon + '</span>' +
-        '<span class="ba-ach-name">' + _esc(a.name) + '</span>' +
-        (on ? '<span class="ba-ach-date">' + _fmtDate(unlocked[a.key]) + '</span>' : '<span class="ba-ach-locked">Locked</span>') +
+        '<span class="ba-ach-name">' + _esc(_t(a.nk)) + '</span>' +
+        (on ? '<span class="ba-ach-date">' + _fmtDate(unlocked[a.key]) + '</span>' : '<span class="ba-ach-locked">' + _t('duel.archAchLocked') + '</span>') +
         '</div>';
     }).join('');
     var count = ACHIEVEMENTS.filter(function (a) { return !!unlocked[a.key]; }).length;
-    return '<div class="ba-ach-wrap"><div class="ba-ach-head">Achievements <span class="ba-count">' + count + '/' + ACHIEVEMENTS.length + '</span></div>' +
+    return '<div class="ba-ach-wrap"><div class="ba-ach-head">' + _t('duel.archAchHead') + ' <span class="ba-count">' + count + '/' + ACHIEVEMENTS.length + '</span></div>' +
       '<div class="ba-ach-grid">' + cards + '</div></div>';
   }
 
@@ -487,7 +493,7 @@ var DuelArchive = (function () {
       });
     });
     var more = document.getElementById('baLoadMore');
-    if (more) more.addEventListener('click', function () { more.textContent = 'Loading…'; _loadPage(false).then(function () { _refreshListOnly(); }); });
+    if (more) more.addEventListener('click', function () { more.textContent = _t('duel.loadingMore'); _loadPage(false).then(function () { _refreshListOnly(); }); });
   }
 
   /** Apply a filter change: refetch only when the SERVER query identity changed; else repaint loaded docs. */

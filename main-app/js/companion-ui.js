@@ -269,6 +269,8 @@ var Companion = (function () {
 
   /* Render an envelope: append its blocks to the thread, replace the chip row. */
   function renderEnvelope(bodyEl, env, append) {
+    /* WCAG 3.1.2: AI responses are generated in the STUDY language — mark the thread body for screen readers. */
+    try { bodyEl.setAttribute('lang', ((typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en')); } catch (_) {}
     var blocksHTML = (env.blocks || []).map(blockHTML).join('');
     var turn = el('<div class="companion-turn' + (append ? ' is-new' : '') + '">' + blocksHTML + '</div>');
     if (!append) bodyEl.innerHTML = '';

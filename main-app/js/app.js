@@ -52,7 +52,7 @@
   window.addEventListener('orientationchange', setVH);
 
   try {
-    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
+    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
     /* Appearance (ADR-091): System/Light/Dark resolved by settings.js's resolveDarkMode (loads
        before app.js); the darkMode boolean remains the guarded fallback. */
     var _dark = (typeof resolveDarkMode === 'function') ? resolveDarkMode(settings) : !!settings.darkMode;
@@ -133,7 +133,7 @@ document.addEventListener('dragstart', function (e) {
 /* ---- Haptic feedback utility ---- */
 function triggerHaptic(pattern) {
   try {
-    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('qr_settings') || '{}');
+    var settings = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
     if (settings.vibration === false) return;
     if (typeof navigator.vibrate !== 'function') return;
     navigator.vibrate(pattern || 10);
@@ -452,14 +452,14 @@ document.addEventListener('DOMContentLoaded', function () {
       var authBtn = document.getElementById('authSubmitBtn');
       if (authBtn) {
         var activeTab = document.querySelector('.auth-tab.active');
-        authBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? 'Create Account' : 'Log In';
+        authBtn.textContent = (activeTab && activeTab.getAttribute('data-mode') === 'register') ? QRI18n.t('auth.tabRegister') : QRI18n.t('auth.submitLogin');
         authBtn.disabled = false;
       }
       /* Reset the Google button's loading state too */
       var gBtn = document.getElementById('googleSignInBtn');
       var gLabel = document.getElementById('googleSignInLabel');
       if (gBtn) gBtn.disabled = false;
-      if (gLabel) gLabel.textContent = 'Continue with Google';
+      if (gLabel) gLabel.textContent = QRI18n.t('auth.googleContinue');
     } else if (state === 'hydrating') {
       /* Wait for data. Do not hide the login screen or splash screen yet,
          but keep the loading button text active. */

@@ -10,6 +10,9 @@
 
 var CUSTOM_TOPICS_KEY = 'quant_custom_topics';
 var CUSTOM_FORMULAS_KEY = 'quant_custom_formulas';
+
+/* ADR-111 stabilization: My-Notes chrome resolves via the app-language channel (guarded; EN values verbatim). */
+function _lmT(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
 var BOOKMARKS_KEY = 'quant_bookmarks';
 
 /* ---- localStorage helpers ---- */
@@ -211,8 +214,8 @@ function _createModal(title, fields, onSave) {
     }
   }
   html += '<div class="modal-actions">';
-  html += '<button class="btn-secondary modal-cancel">Cancel</button>';
-  html += '<button class="btn-primary modal-save">Save</button>';
+  html += '<button class="btn-secondary modal-cancel">' + escapeHtml(_lmT('modals.cancel')) + '</button>';
+  html += '<button class="btn-primary modal-save">' + escapeHtml(_lmT('modals.save')) + '</button>';
   html += '</div>';
   modal.innerHTML = html;
 
@@ -266,9 +269,9 @@ function renderCustomFormulas(container, topicId, onUpdate) {
     html += '<div class="custom-formula-header">';
     html += '<strong>' + escapeHtml(f.title) + '</strong>';
     html += '<span class="custom-formula-actions">';
-    html += '<button class="formula-action-btn bookmark-btn ' + starred + '" data-fid="' + f.id + '" title="Bookmark">⭐</button>';
-    html += '<button class="formula-action-btn edit-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="Edit">✏️</button>';
-    html += '<button class="formula-action-btn delete-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="Delete">🗑️</button>';
+    html += '<button class="formula-action-btn bookmark-btn ' + starred + '" data-fid="' + f.id + '" title="' + escapeHtml(_lmT('learn.notesTipBookmark')) + '">⭐</button>';
+    html += '<button class="formula-action-btn edit-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="' + escapeHtml(_lmT('learn.notesTipEdit')) + '">✏️</button>';
+    html += '<button class="formula-action-btn delete-btn" data-fid="' + f.id + '" data-tid="' + topicId + '" title="' + escapeHtml(_lmT('learn.notesTipDelete')) + '">🗑️</button>';
     html += '</span>';
     html += '</div>';
     html += '<p class="formula-text">' + escapeHtml(f.text) + '</p>';
@@ -287,10 +290,10 @@ function renderCustomFormulas(container, topicId, onUpdate) {
       var tid = this.getAttribute('data-tid');
       var fData = getCustomFormulasForTopic(tid).filter(function (x) { return x.id === fid; })[0];
       if (!fData) return;
-      _createModal('Edit Formula', [
-        { name: 'title', label: 'Title', value: fData.title, placeholder: 'Formula title' },
-        { name: 'text', label: 'Formula / Description', type: 'textarea', value: fData.text, placeholder: 'Formula or description' },
-        { name: 'example', label: 'Example (optional)', value: fData.example || '', placeholder: 'Example usage' }
+      _createModal(_lmT('learn.notesEditTitle'), [
+        { name: 'title', label: _lmT('learn.notesFieldTitle'), value: fData.title, placeholder: _lmT('learn.notesPhEditTitle') },
+        { name: 'text', label: _lmT('learn.notesFieldText'), type: 'textarea', value: fData.text, placeholder: _lmT('learn.notesPhEditText') },
+        { name: 'example', label: _lmT('learn.notesFieldExample'), value: fData.example || '', placeholder: _lmT('learn.notesPhEditExample') }
       ], function (values) {
         if (!values.title || !values.text) return;
         editCustomFormula(tid, fid, values);
@@ -304,7 +307,7 @@ function renderCustomFormulas(container, topicId, onUpdate) {
     delBtns[d].addEventListener('click', function () {
       var fid = this.getAttribute('data-fid');
       var tid = this.getAttribute('data-tid');
-      showCustomConfirm('Delete this formula?', function() {
+      showCustomConfirm(_lmT('learn.notesDeleteFormula'), function() {
         deleteCustomFormula(tid, fid);
         onUpdate();
       });
@@ -337,11 +340,11 @@ function renderAddFormulaButton(container, topicId, onUpdate) {
       if (typeof showPaywall === 'function') showPaywall('add_formula');
       return;
     }
-    if (btn.textContent.indexOf('🔒') !== -1) btn.textContent = '+ Add Formula / Tip';
-    _createModal('Add Formula', [
-      { name: 'title', label: 'Title', placeholder: 'e.g. Compound Interest Formula' },
-      { name: 'text', label: 'Formula / Description', type: 'textarea', placeholder: 'e.g. CI = P(1 + r/100)^n - P' },
-      { name: 'example', label: 'Example (optional)', placeholder: 'e.g. P=1000, r=10%, n=2 → CI=210' }
+    if (btn.textContent.indexOf('🔒') !== -1) btn.textContent = _lmT('learn.notesAddBtn');
+    _createModal(_lmT('learn.notesAddTitle'), [
+      { name: 'title', label: _lmT('learn.notesFieldTitle'), placeholder: _lmT('learn.notesPhTitle') },
+      { name: 'text', label: _lmT('learn.notesFieldText'), type: 'textarea', placeholder: _lmT('learn.notesPhText') },
+      { name: 'example', label: _lmT('learn.notesFieldExample'), placeholder: _lmT('learn.notesPhExample') }
     ], function (values) {
       if (!values.title || !values.text) return;
       addCustomFormula(topicId, { title: values.title, text: values.text, example: values.example || '' });
@@ -387,7 +390,7 @@ function renderBookmarksSection() {
     html += '<div class="custom-formula-item">';
     html += '<div class="custom-formula-header">';
     html += '<strong>' + escapeHtml(it.title) + '</strong>';
-    html += '<button class="formula-action-btn bookmark-btn bookmarked" data-fid="' + it.id + '" title="Remove Bookmark">⭐</button>';
+    html += '<button class="formula-action-btn bookmark-btn bookmarked" data-fid="' + it.id + '" title="' + escapeHtml(_lmT('learn.notesTipRemoveBookmark')) + '">⭐</button>';
     html += '</div>';
     html += '<p class="formula-text">' + escapeHtml(it.text) + '</p>';
     if (it.example) {
@@ -427,8 +430,8 @@ function renderCustomTopicSections() {
       header.className = 'custom-topic-header';
       header.innerHTML = '<h3 class="section-title">📝 ' + escapeHtml(topic.name) + '</h3>' +
         '<span class="custom-topic-actions">' +
-        '<button class="formula-action-btn rename-topic-btn" title="Rename">✏️</button>' +
-        '<button class="formula-action-btn delete-topic-btn" title="Delete Topic">🗑️</button>' +
+        '<button class="formula-action-btn rename-topic-btn" title="' + escapeHtml(_lmT('learn.notesTipRename')) + '">✏️</button>' +
+        '<button class="formula-action-btn delete-topic-btn" title="' + escapeHtml(_lmT('learn.notesTipDeleteTopic')) + '">🗑️</button>' +
         '</span>';
       card.appendChild(header);
 
@@ -438,8 +441,8 @@ function renderCustomTopicSections() {
           if (typeof showPaywall === 'function') showPaywall('add_topic');
           return;
         }
-        _createModal('Rename Topic', [
-          { name: 'name', label: 'Topic Name', value: topic.name, placeholder: 'Topic name' }
+        _createModal(_lmT('learn.notesRenameTitle'), [
+          { name: 'name', label: _lmT('learn.notesFieldTopicName'), value: topic.name, placeholder: _lmT('learn.notesPhTopicName') }
         ], function (values) {
           if (!values.name) return;
           renameCustomTopic(topic.id, values.name);
@@ -453,7 +456,7 @@ function renderCustomTopicSections() {
           if (typeof showPaywall === 'function') showPaywall('add_topic');
           return;
         }
-        showCustomConfirm('Delete topic "' + topic.name + '" and all its formulas?', function() {
+        showCustomConfirm(_lmT('learn.notesDeleteTopic', { name: topic.name }), function() {
           deleteCustomTopic(topic.id);
           renderCustomTopicSections();
         });

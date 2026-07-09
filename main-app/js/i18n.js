@@ -114,7 +114,7 @@ var QRI18n = (function () {
       return key;
     }
     if (typeof value === 'object' && value !== null) {
-      value = _selectPlural(lang, value, params && typeof params.count === 'number' ? params.count : 1);
+      value = _selectPlural(lang, value, (function (c) { var n = (typeof c === 'number') ? c : Number(c); return isFinite(n) ? n : 1; })(params && params.count));
     }
     return _format(value, params);
   }

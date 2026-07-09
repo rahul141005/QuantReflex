@@ -125,6 +125,8 @@ var QuickRef = (function () {
     if (_built || !data) { return; }
 
     host.innerHTML = '';
+    /* WCAG 3.1.2: card content is STUDY-language (overlay-resolved) — mark the host for screen readers. */
+    try { host.setAttribute('lang', ((typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en')); } catch (_) {}
     var head = document.createElement('div');
     head.className = 'qr-lib-head';
     head.innerHTML =
@@ -222,6 +224,13 @@ var QuickRef = (function () {
     cardEl.classList.add('qr-card-flash');
     setTimeout(function () { cardEl.classList.remove('qr-card-flash'); }, 1600);
   }
+
+  /* ADR-111 stabilization: the library is built once (_built) with language-resolved card content, section chrome
+     and the data-terms search index baked in — a language switch must drop the latch so the NEXT visit rebuilds
+     localized (render() clears the host before building). Mirrors LearnView.invalidateHub. Guarded for Node. */
+  try {
+    if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () { _built = false; });
+  } catch (_) {}
 
   return { render: render, filter: filter, reveal: reveal };
 })();

@@ -493,6 +493,9 @@ function createDrillEngine(container, opts) {
       : count;
     var progressPct = displayCount > 0 ? Math.min(100, Math.round(((current) / displayCount) * 100)) : 0;
     var adaptivePill = adaptiveMode ? _adaptiveDiffLabel(_adaptiveDifficulty) : '';
+    /* WCAG 3.1.2 (ADR-111 stabilization): the question area is STUDY content — mark its language so screen
+       readers pick the right voice when app and study languages diverge. Harmless when aligned. */
+    try { container.setAttribute('lang', ((typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en')); } catch (_) {}
     container.innerHTML =
       (isDuel ? duelHeaderHTML : '') +
       (!isDuel ? '<button class="session-exit drill-exit-btn" id="drillExitBtn" aria-label="' + QRI18n.t('drill.exitAria') + '" title="' + QRI18n.t('drill.exitAria') + '">✕</button>' : '') +
@@ -1672,7 +1675,7 @@ function createDrillEngine(container, opts) {
     ov.className = 'drill-pause-overlay';
     ov.setAttribute('role', 'dialog');
     ov.setAttribute('aria-modal', 'true');
-    ov.setAttribute('aria-label', 'Session paused');
+    ov.setAttribute('aria-label', QRI18n.t('drill.pausedAria'));
     ov.innerHTML =
       '<div class="drill-pause-card">' +
         '<div class="drill-pause-icon" aria-hidden="true">⏸</div>' +

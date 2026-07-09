@@ -9,6 +9,9 @@ var InboxView = (function () {
   var _isOpen = false;
   var _initialized = false;
 
+  /* i18n (ADR-111): app-language channel; guarded for load order. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+
   function init() {
     if (_initialized) return;
     
@@ -140,16 +143,16 @@ var InboxView = (function () {
     var date = new Date(dateString);
     var seconds = Math.floor((new Date() - date) / 1000);
     var interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + ' years ago';
+    if (interval > 1) return _t('inbox.agoYears', { n: Math.floor(interval) });
     interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + ' months ago';
+    if (interval > 1) return _t('inbox.agoMonths', { n: Math.floor(interval) });
     interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + 'd ago';
+    if (interval > 1) return _t('inbox.agoDays', { n: Math.floor(interval) });
     interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + 'h ago';
+    if (interval > 1) return _t('inbox.agoHours', { n: Math.floor(interval) });
     interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + 'm ago';
-    return 'Just now';
+    if (interval > 1) return _t('inbox.agoMins', { n: Math.floor(interval) });
+    return _t('inbox.justNow');
   }
 
   function renderList() {
@@ -164,7 +167,7 @@ var InboxView = (function () {
     if (_notifications.length === 0) {
       listEl.innerHTML = '<div class="empty-state" style="padding:3rem 1rem; text-align:center;">' +
         '<div class="empty-state-icon" style="font-size:3rem; margin-bottom:1rem; opacity:0.5;">📭</div>' +
-        '<div class="empty-state-text" style="color:var(--text-secondary);">You\'re all caught up! No new notifications.</div>' +
+        '<div class="empty-state-text" style="color:var(--text-secondary);">' + ((typeof QRI18n !== 'undefined') ? QRI18n.t('modals.inboxEmpty') : 'You\'re all caught up! No new notifications.') + '</div>' +
         '</div>';
       return;
     }
@@ -224,12 +227,12 @@ var InboxView = (function () {
   // ADR-066: category → badge presentation (label + colour). Keeps the inbox scannable + premium.
   function _catMeta(category) {
     var m = {
-      system:   { label: 'System',   icon: '🔔', color: '#475569', bg: 'rgba(100,116,139,.14)' },
-      reminder: { label: 'Reminder', icon: '⏰', color: '#b45309', bg: 'rgba(217,119,6,.14)' },
-      coaching: { label: 'Coaching', icon: '🎓', color: '#7c3aed', bg: 'rgba(124,58,237,.14)' },
-      social:   { label: 'Duel',     icon: '⚔️', color: '#db2777', bg: 'rgba(219,39,119,.14)' },
-      billing:  { label: 'Billing',  icon: '💳', color: '#047857', bg: 'rgba(16,185,129,.14)' },
-      ai:       { label: 'Coach',    icon: '🧠', color: '#2563eb', bg: 'rgba(37,99,235,.14)' }
+      system:   { label: _t('inbox.catSystem'),   icon: '🔔', color: '#475569', bg: 'rgba(100,116,139,.14)' },
+      reminder: { label: _t('inbox.catReminder'), icon: '⏰', color: '#b45309', bg: 'rgba(217,119,6,.14)' },
+      coaching: { label: _t('inbox.catCoaching'), icon: '🎓', color: '#7c3aed', bg: 'rgba(124,58,237,.14)' },
+      social:   { label: _t('inbox.catDuel'),     icon: '⚔️', color: '#db2777', bg: 'rgba(219,39,119,.14)' },
+      billing:  { label: _t('inbox.catBilling'),  icon: '💳', color: '#047857', bg: 'rgba(16,185,129,.14)' },
+      ai:       { label: _t('inbox.catCoach'),    icon: '🧠', color: '#2563eb', bg: 'rgba(37,99,235,.14)' }
     };
     return m[category] || m.system;
   }

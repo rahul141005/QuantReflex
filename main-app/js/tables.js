@@ -110,7 +110,7 @@ function renderSingleTable(container, n) {
 
   var title = document.createElement('h4');
   title.className = 'table-title';
-  title.textContent = 'Table of ' + n;
+  title.textContent = (typeof QRI18n !== 'undefined') ? QRI18n.t('learn.tableOf', { n: n }) : 'Table of ' + n;
   card.appendChild(title);
 
   var table = document.createElement('table');
@@ -182,13 +182,13 @@ function _openTableModal(n) {
   var closeBtn = document.createElement('button');
   closeBtn.className = 'table-modal-close';
   closeBtn.textContent = '✕';
-  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.setAttribute('aria-label', (typeof QRI18n !== 'undefined') ? QRI18n.t('learn.tableCloseAria') : 'Close');
   modal.appendChild(closeBtn);
 
   /* Title */
   var title = document.createElement('h3');
   title.className = 'table-modal-title';
-  title.textContent = 'Table of ' + n;
+  title.textContent = (typeof QRI18n !== 'undefined') ? QRI18n.t('learn.tableOf', { n: n }) : 'Table of ' + n;
   modal.appendChild(title);
 
   /* Enlarged table */

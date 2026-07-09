@@ -89,9 +89,13 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
     });
   }
+  /* i18n (ADR-111): app-language channel; guarded so a harness without QRI18n still gets the key. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  /* ADR-111: formatCategoryName IS the localized display layer (categories.<key> first, canonical
+     English maps as fallback) — consulting the raw English maps first would pin the picker to English. */
   function _catLabel(key) {
-    if (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS && QuantTopics.CATEGORY_LABELS[key]) return QuantTopics.CATEGORY_LABELS[key];
     if (typeof formatCategoryName === 'function') return formatCategoryName(key);
+    if (typeof QuantTopics !== 'undefined' && QuantTopics.CATEGORY_LABELS && QuantTopics.CATEGORY_LABELS[key]) return QuantTopics.CATEGORY_LABELS[key];
     return key;
   }
 
@@ -108,7 +112,7 @@
         id: 'quant-' + sid,
         title: (meta[sid] && meta[sid].title) || sid,
         icon: (meta[sid] && meta[sid].icon) || '',
-        cats: topics.map(function (t) { return { key: t.drillCategory, label: QT.label(t.drillCategory) }; })
+        cats: topics.map(function (t) { return { key: t.drillCategory, label: _catLabel(t.drillCategory) }; })
       });
     });
     return out;
@@ -117,17 +121,17 @@
   function _diSections() {
     var DI = root.DIEngine;
     if (!DI || !DI.categories) return [];
-    var cats = (DI.categories() || []).map(function (k) { return { key: k, label: DI.label ? DI.label(k) : _catLabel(k) }; });
+    var cats = (DI.categories() || []).map(function (k) { return { key: k, label: _catLabel(k) }; });
     if (!cats.length) return [];
-    return [{ id: 'di-all', title: 'Data Interpretation', icon: '📊', hint: 'read charts & tables, fast', cats: cats }];
+    return [{ id: 'di-all', title: _t('subjects.di'), icon: '📊', hint: 'read charts & tables, fast', cats: cats }];
   }
 
   /* LR keys come from the source (subjectToCategories); tier grouping is presentation only, with a fallback bucket so
      a future LR category still appears without editing this list. */
   var LR_TIERS = [
-    { title: 'Foundation & Core', keys: ['lr-coding', 'lr-blood', 'lr-direction', 'lr-series', 'lr-analogy', 'lr-odd', 'lr-ranking', 'lr-syllogism', 'lr-inequality', 'lr-calendar', 'lr-clock', 'lr-io'] },
-    { title: 'Verbal & Critical Reasoning', keys: ['lr-critical', 'lr-statement', 'lr-cause', 'lr-course', 'lr-decision'] },
-    { title: 'Visual Reasoning', keys: ['lr-mirror', 'lr-water', 'lr-paper', 'lr-fseries', 'lr-fanalogy', 'lr-odd-fig', 'lr-pattern', 'lr-embedded', 'lr-dice', 'lr-cube'] }
+    { tk: 'picker.lrTierCore', keys: ['lr-coding', 'lr-blood', 'lr-direction', 'lr-series', 'lr-analogy', 'lr-odd', 'lr-ranking', 'lr-syllogism', 'lr-inequality', 'lr-calendar', 'lr-clock', 'lr-io'] },
+    { tk: 'picker.lrTierVerbal', keys: ['lr-critical', 'lr-statement', 'lr-cause', 'lr-course', 'lr-decision'] },
+    { tk: 'picker.lrTierVisual', keys: ['lr-mirror', 'lr-water', 'lr-paper', 'lr-fseries', 'lr-fanalogy', 'lr-odd-fig', 'lr-pattern', 'lr-embedded', 'lr-dice', 'lr-cube'] }
   ];
   /* SET-based LR categories are launched via startLrSet(), not the single-question focus/custom drill path — so they
      are excluded from this picker (matching the pre-ADR-084 behaviour). */
@@ -140,18 +144,18 @@
     var seen = {}, out = [];
     LR_TIERS.forEach(function (tier, i) {
       var cats = tier.keys.filter(function (k) { return all.indexOf(k) !== -1; }).map(function (k) { seen[k] = 1; return { key: k, label: _catLabel(k) }; });
-      if (cats.length) out.push({ id: 'lr-' + i, title: tier.title, icon: i === 0 ? '🧠' : '', hint: i === 0 ? 'reason under time pressure' : '', cats: cats });
+      if (cats.length) out.push({ id: 'lr-' + i, title: _t(tier.tk), icon: i === 0 ? '🧠' : '', hint: i === 0 ? 'reason under time pressure' : '', cats: cats });
     });
     var rest = all.filter(function (k) { return !seen[k]; }).map(function (k) { return { key: k, label: _catLabel(k) }; });
-    if (rest.length) out.push({ id: 'lr-more', title: 'More Reasoning', icon: '', cats: rest });
+    if (rest.length) out.push({ id: 'lr-more', title: _t('picker.lrMore'), icon: '', cats: rest });
     return out;
   }
 
   function _allSections() {
     return [
-      { subject: 'Quantitative Aptitude', sections: _quantSections() },
-      { subject: 'Data Interpretation', sections: _diSections() },
-      { subject: 'Logical Reasoning', sections: _lrSections() }
+      { subject: _t('subjects.quant'), sections: _quantSections() },
+      { subject: _t('subjects.di'), sections: _diSections() },
+      { subject: _t('subjects.lr'), sections: _lrSections() }
     ].filter(function (g) { return g.sections.length; });
   }
 
@@ -164,7 +168,7 @@
     var hot = opts.hot && _mostAskedSet()[c.key] ? ' 🔥' : '';
     var pinned = _isPinned(c.key);
     var star = opts.star === false ? '' :
-      '<span class="cat-star' + (pinned ? ' is-pinned' : '') + '" data-star="' + _esc(c.key) + '" aria-label="' + (pinned ? 'Unpin ' : 'Pin ') + _esc(c.label) + '">' + (pinned ? '★' : '☆') + '</span>';
+      '<span class="cat-star' + (pinned ? ' is-pinned' : '') + '" data-star="' + _esc(c.key) + '" aria-label="' + _esc(_t(pinned ? 'picker.unpinAria' : 'picker.pinAria', { label: c.label })) + '">' + (pinned ? '★' : '☆') + '</span>';
     return '<button class="category-btn category-card" type="button" data-cat="' + _esc(c.key) + '" data-label="' + _esc(c.label) + '">' + _esc(c.label) + hot + star + '</button>';
   }
 
@@ -174,7 +178,7 @@
     return '<div class="category-section" data-section="' + _esc(sec.id) + '">' +
       '<button class="category-section-header" type="button" aria-expanded="' + (open ? 'true' : 'false') + '" data-toggle="' + _esc(sec.id) + '">' +
         '<span class="category-section-title">' + (sec.icon ? '<span class="category-section-icon" aria-hidden="true">' + _esc(sec.icon) + '</span> ' : '') + _esc(sec.title) + '</span>' +
-        '<span class="category-section-count">' + n + ' topic' + (n === 1 ? '' : 's') + '</span>' +
+        '<span class="category-section-count">' + _esc(_t('picker.topicCount', { count: n })) + '</span>' +
         '<span class="collapse-icon" aria-hidden="true">' + (open ? '▲' : '▼') + '</span>' +
       '</button>' +
       '<div class="category-grid category-section-body"' + (open ? '' : ' style="display:none;"') + '>' + btns + '</div>' +
@@ -192,13 +196,13 @@
   function _stripHtml() {
     var valid = _validCats();
     var pinned = _pinned(), recommended = _recommended(6), cont = _continueCats(5), recent = _recent();
-    var rows = _chipRow('★ Pinned', pinned, valid) +
-      _chipRow('⭐ Recommended for you', recommended, valid) +
-      _chipRow('↩ Continue', cont, valid) +
-      _chipRow('🕒 Recently practised', recent, valid);
+    var rows = _chipRow(_t('picker.rowPinned'), pinned, valid) +
+      _chipRow(_t('picker.rowRecommended'), recommended, valid) +
+      _chipRow(_t('picker.rowContinue'), cont, valid) +
+      _chipRow(_t('picker.rowRecent'), recent, valid);
     if (!rows) return '';
-    return '<div class="category-group category-foryou" role="group" aria-label="For you">' +
-      '<p class="category-subject-label">For You</p>' + rows + '</div>';
+    return '<div class="category-group category-foryou" role="group" aria-label="' + _esc(_t('picker.forYouAria')) + '">' +
+      '<p class="category-subject-label">' + _esc(_t('picker.forYou')) + '</p>' + rows + '</div>';
   }
 
   function render() {
@@ -232,7 +236,7 @@
         var key = star.getAttribute('data-star'); _togglePin(key);
         var now = _isPinned(key);
         star.classList.toggle('is-pinned', now); star.textContent = now ? '★' : '☆';
-        star.setAttribute('aria-label', (now ? 'Unpin ' : 'Pin ') + (star.getAttribute('data-star') || ''));
+        star.setAttribute('aria-label', _t(now ? 'picker.unpinAria' : 'picker.pinAria', { label: star.getAttribute('data-star') || '' }));
         var oldStrip = host.querySelector('.category-foryou'), newStrip = _stripHtml();
         if (oldStrip) { if (newStrip) { oldStrip.outerHTML = newStrip; } else { oldStrip.parentNode.removeChild(oldStrip); } }
         else if (newStrip) { host.insertAdjacentHTML('afterbegin', newStrip); }

@@ -335,12 +335,12 @@ var DuelManager = (function () {
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
     var p = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp] : null;
-    var oppName = (p && p.name) ? p.name : 'Opponent';
+    var oppName = (p && p.name) ? p.name : _t('share.opponent');
     var finished = !!(p && p.state === 'finished');
     var nameEl = _el('duOppName'); if (nameEl) nameEl.textContent = oppName;            // textContent → XSS-safe
     var avEl = _el('duOppAvatar'); if (avEl) avEl.textContent = (oppName.trim()[0] || '⚔').toUpperCase();
     var stEl = _el('duOppStatus');
-    if (stEl) stEl.innerHTML = '<span class="duel-opp-dot ' + (finished ? 'is-finished' : 'is-solving') + '"></span>' + (finished ? 'Finished' : 'Solving');
+    if (stEl) stEl.innerHTML = '<span class="duel-opp-dot ' + (finished ? 'is-finished' : 'is-solving') + '"></span>' + (finished ? _t('duel.chipFinished') : _t('duel.stSolving'));
   }
 
   function _promptExit() {
@@ -395,8 +395,8 @@ var DuelManager = (function () {
     try {
       var uid = _myUid();
       var opp = ((_duel && _duel.participantUids) || []).find(function (u) { return u !== uid; });
-      return (opp && _duel.presence && _duel.presence[opp] && _duel.presence[opp].name) || 'your opponent';
-    } catch (_) { return 'your opponent'; }
+      return (opp && _duel.presence && _duel.presence[opp] && _duel.presence[opp].name) || _t('duel.yourOpponent');
+    } catch (_) { return _t('duel.yourOpponent'); }
   }
 
   function _teardownSolving() {
@@ -443,7 +443,7 @@ var DuelManager = (function () {
     _showContainer('duelWaiting');
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
-    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'your opponent';
+    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : _t('duel.yourOpponent');
     var oppP = (opp && _duel.presence) ? _duel.presence[opp] : null;
     var stale = oppP && oppP.lastSeenAt && (Date.now() + _serverOffset - oppP.lastSeenAt > 30000);
     DuelUI.renderWaiting(_el('duelWaiting'), { opponentName: oppName, opponentState: oppP ? oppP.state : 'connecting', opponentStale: stale, onHome: function () { exitToHome(true); } });
@@ -550,18 +550,18 @@ var DuelManager = (function () {
   function _setHomeCardActive(card, mode) {
     var uid = _myUid();
     var opp = (_duel.participantUids || []).find(function (u) { return u !== uid; });
-    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : 'your opponent';
+    var oppName = (opp && _duel.presence && _duel.presence[opp]) ? _duel.presence[opp].name : _t('duel.yourOpponent');
     var desc = card.querySelector('.home-bento-desc');
     var actions = card.querySelector('#homeDuelActions');
     var label, cta;
     if (mode === 'lobby') {
       var full = (_duel.participantUids || []).length >= 2;
-      label = full ? ('Lobby ready · vs ' + oppName) : ('Lobby · code ' + (_code || '') + ' · waiting for a player');
-      cta = 'Resume Lobby →';
+      label = full ? _t('duel.homeLobbyReady', { name: oppName }) : _t('duel.homeLobbyWaiting', { code: _code || '' });
+      cta = _t('duel.homeResumeLobby');
     } else if (mode === 'results') {
-      label = 'Results ready · vs ' + oppName; cta = 'View Results →';
+      label = _t('duel.homeResultsReady', { name: oppName }); cta = _t('duel.homeViewResults');
     } else {
-      label = 'Waiting for ' + oppName + ' to finish…'; cta = 'View Status →';
+      label = _t('duel.homeWaitingFinish', { name: oppName }); cta = _t('duel.homeViewStatus');
     }
     if (desc) desc.textContent = label;
     if (actions) {
@@ -585,11 +585,11 @@ var DuelManager = (function () {
   function _setHomeCardIdle(card) {
     var desc = card.querySelector('.home-bento-desc');
     var actions = card.querySelector('#homeDuelActions');
-    if (desc) desc.textContent = 'Challenge anyone in real-time competitive math battles.';
+    if (desc) desc.textContent = _t('home.duelDesc');
     if (actions) {
       actions.innerHTML =
-        '<button class="home-duel-btn btn-secondary home-duel-create" id="homeDuelCreate" type="button">Create Duel</button>' +
-        '<button class="home-duel-btn btn-secondary home-duel-join" id="homeDuelJoin" type="button">Join Duel</button>';
+        '<button class="home-duel-btn btn-secondary home-duel-create" id="homeDuelCreate" type="button">' + _t('duel.createBtn') + '</button>' +
+        '<button class="home-duel-btn btn-secondary home-duel-join" id="homeDuelJoin" type="button">' + _t('duel.joinBtn') + '</button>';
       var c = _el('homeDuelCreate'); if (c) c.onclick = function () { openSetup(); };
       var j = _el('homeDuelJoin'); if (j) j.onclick = function () { openJoinDuel(); };
     }
@@ -609,7 +609,7 @@ var DuelManager = (function () {
     _duel = d;
     var uid = _myUid();
     if (d.status === 'complete') { if (_phase !== 'results') _showResults(_code, d); return; }   // render results ONCE — never re-render on every snapshot (that rebinds the Finish button mid-click)
-    if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? 'Duel ended — no questions were answered.' : (d.createdBy === uid ? 'Duel ended.' : 'The host cancelled this duel.')); _resetState(); exitToHome(); return; }
+    if (d.status === 'abandoned' || d.status === 'expired') { _stopLobbyPoll(); _toast(d.abandonedReason === 'no_contest' ? _t('duel.endedNoContest') : (d.createdBy === uid ? _t('duel.endedShort') : _t('duel.hostCancelled'))); _resetState(); exitToHome(); return; }
     if (d.status === 'lobby') { if (_phase === 'lobby') { var lsig = _lobbySigOf(d); if (lsig !== _lobbySig) { _lobbySig = lsig; _renderLobby(); } } return; }   // re-render only on real change (audit realtime-sync-04)
     if (d.status === 'active') {
       if (_phase === 'lobby') { _stopLobbyPoll(); _onActiveFromLobby(); return; }
@@ -701,7 +701,7 @@ var DuelManager = (function () {
   }
 
   /* ── helpers ── */
-  function _err(e) { return (e && e.message) ? e.message : 'Something went wrong. Try again.'; }
+  function _err(e) { return (e && e.message) ? e.message : _t('duel.errGeneric'); }
   function _escText(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
 
   return {

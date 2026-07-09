@@ -164,15 +164,23 @@ function initSettingsView() {
     function _applyLanguageChange() {
       QRI18n.init(settings);
       saveSettings(settings);
-      /* Re-render the active view so JS-rendered strings (plan status, banners) switch instantly;
-         static text is already re-applied by QRI18n.applyDom inside init(). */
-      if (typeof updateAboutUserStatus === 'function') { try { updateAboutUserStatus(); } catch (_) {} }
-      if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
-        try { Router.showView(Router.getCurrentView() || 'settings'); } catch (_) {}
+      /* Re-render AFTER the study-language packs are in (ADR-111 stabilization): QRI18n.init fires onChange, which
+         starts the lazy hi/mr pack load; ensure() queues this callback onto that same in-flight load, so the view
+         repaint below sees localized generated/authored content on the very first switch. ensure() is synchronous
+         for 'en' and for already-loaded languages — behavior there is unchanged. Guarded for load-order safety. */
+      function _repaint() {
+        /* Re-render the active view so JS-rendered strings (plan status, banners) switch instantly;
+           static text is already re-applied by QRI18n.applyDom inside init(). */
+        if (typeof updateAboutUserStatus === 'function') { try { updateAboutUserStatus(); } catch (_) {} }
+        if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
+          try { Router.showView(Router.getCurrentView() || 'settings'); } catch (_) {}
+        }
+        SoundEngine.play('settingsToggle');
+        if (typeof triggerHaptic === 'function') triggerHaptic(15);
+        showToast(QRI18n.t('settings.languageUpdated'));
       }
-      SoundEngine.play('settingsToggle');
-      if (typeof triggerHaptic === 'function') triggerHaptic(15);
-      showToast(QRI18n.t('settings.languageUpdated'));
+      if (typeof QRPacks !== 'undefined' && QRPacks.ensure) QRPacks.ensure(settings.studyLanguage || 'en', _repaint);
+      else _repaint();
     }
     var appLanguageSelect = rebind(document.getElementById('appLanguageSelect'), 'change', function () {
       settings.appLanguage = this.value;
@@ -399,7 +407,7 @@ function initSettingsView() {
     function _copied() {
       try { if (typeof showToast === 'function') showToast(QRI18n.t('settings.emailCopied')); } catch (_) {}
       var b = document.getElementById(btnId);
-      if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', 'Email copied'); setTimeout(function () { var bb = document.getElementById(btnId); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', 'Copy email address'); } }, 1600); }
+      if (b) { b.classList.add('is-copied'); b.setAttribute('aria-label', QRI18n.t('settings.emailCopiedAria')); setTimeout(function () { var bb = document.getElementById(btnId); if (bb) { bb.classList.remove('is-copied'); bb.setAttribute('aria-label', QRI18n.t('settings.copyEmailAria')); } }, 1600); }
     }
     /* Copy failed on every path — don't fake success; point the user at the address they can still tap to email. */
     function _copyFailed() { try { if (typeof showToast === 'function') showToast(QRI18n.t('settings.emailCopyFailed', { email: CONTACT_EMAIL })); } catch (_) {} }

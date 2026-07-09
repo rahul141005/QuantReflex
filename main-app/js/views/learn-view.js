@@ -183,8 +183,8 @@ var LearnView = (function () {
     return '<button class="kx-topic-card' + (t.status === 'scaffold' ? ' is-scaffold' : '') + (locked ? ' is-premium' : '') + '" type="button" data-topic="' + _esc(t.id) + '">' +
       '<div class="kx-tc-top"><span class="kx-tc-ico">' + _esc(t.icon || '📘') + '</span><span class="kx-tc-title">' + _esc(t.title) + '</span></div>' +
       '<div class="kx-tc-badges">' + _diffBadge(t.difficulty) + _ctxBadge(t) +
-      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '') +
-      (locked ? '<span class="kx-badge kx-status-premium">' + ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' Premium</span>' : '') +
+      (t.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">' + QRI18n.t('learn.badgeComingSoon') + '</span>' : '') +
+      (locked ? '<span class="kx-badge kx-status-premium">' + ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' ' + QRI18n.t('learn.badgePremium') + '</span>' : '') +
       '</div>' +
       '</button>';
   }
@@ -384,7 +384,7 @@ var LearnView = (function () {
       }).join('');
     }
     if (cards.length) {
-      html += '<div class="kx-search-group">Quick reference</div>' + cards.map(function (r) {
+      html += '<div class="kx-search-group">' + _esc(QRI18n.t('learn.searchGroupQuickRef')) + '</div>' + cards.map(function (r) {
         return '<a class="kx-search-item" href="#learn/quick-ref" data-card="' + _esc(r.id) + '">' +
           '<span class="kx-search-ico">' + _esc(r.icon || '⚡') + '</span>' +
           '<span class="kx-search-title">' + _esc(r.title) + '</span>' +
@@ -418,7 +418,7 @@ var LearnView = (function () {
 
     /* Single honest back affordance (ADR-092): topic pages are one level deep — the old breadcrumb's category
        crumb also just went to the hub, a pretend hierarchy. One link, no lie. Hub scroll position is restored. */
-    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
+    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', (typeof QRI18n !== 'undefined') ? QRI18n.t('learn.qrBackAria') : 'Back to Learn');
     var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
     backBtn.innerHTML = '← ' + QRI18n.t('learn.header');
     backBtn.addEventListener('click', function () { _go(null); });
@@ -431,7 +431,7 @@ var LearnView = (function () {
     host.appendChild(header);
     var badges = document.createElement('div'); badges.className = 'kx-th-badges';
     badges.innerHTML = _diffBadge(topic.difficulty) + _freqBadge(topic.examFrequency) +
-      (topic.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">Coming soon</span>' : '');
+      (topic.status === 'scaffold' ? '<span class="kx-badge kx-status-scaffold">' + QRI18n.t('learn.badgeComingSoon') + '</span>' : '');
     host.appendChild(badges);
 
     /* Record the visit (powers Continue / Due-for-revision) and surface the action bar — published topics only. */
@@ -755,8 +755,8 @@ var LearnView = (function () {
       return '<button class="kx-resume-card" type="button" data-topic="' + _esc(id) + '">' +
         '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
         '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
-        (locked ? '<span class="kx-rc-lock" aria-label="Premium">🔒</span>' : '') +
-        (done ? '<span class="kx-rc-done" aria-label="completed">✓</span>' : '') + '</button>';
+        (locked ? '<span class="kx-rc-lock" aria-label="' + _esc(QRI18n.t('learn.badgePremium')) + '">🔒</span>' : '') +
+        (done ? '<span class="kx-rc-done" aria-label="' + _esc(QRI18n.t('learn.ariaCompleted')) + '">✓</span>' : '') + '</button>';
     }).join('');
     return '<div class="kx-resume"><div class="kx-resume-head">' + _esc(title) + '</div><div class="kx-resume-row" data-no-swipe>' + cards + '</div></div>';
   }
@@ -776,7 +776,7 @@ var LearnView = (function () {
         return '<button class="kx-resume-card kx-weak-card" type="button" data-topic="' + _esc(t.id) + '">' +
           '<span class="kx-rc-ico">' + _esc(t.icon || '📘') + '</span>' +
           '<span class="kx-rc-title">' + _esc(t.title) + '</span>' +
-          (locked ? '<span class="kx-rc-lock" aria-label="Premium">🔒</span>' : '') +
+          (locked ? '<span class="kx-rc-lock" aria-label="' + _esc(QRI18n.t('learn.badgePremium')) + '">🔒</span>' : '') +
           '<span class="kx-rc-acc">' + Math.round((m.acc || 0) * 100) + '%</span></button>';
       }).join('');
       if (!cards) return '';
@@ -836,7 +836,7 @@ var LearnView = (function () {
     host.classList.remove('kx-revision-only');
     host.innerHTML = '';
 
-    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', 'Back to Learn');
+    var backNav = document.createElement('nav'); backNav.className = 'kx-topic-nav'; backNav.setAttribute('aria-label', (typeof QRI18n !== 'undefined') ? QRI18n.t('learn.qrBackAria') : 'Back to Learn');
     var backBtn = document.createElement('button'); backBtn.className = 'kx-back'; backBtn.type = 'button';
     backBtn.innerHTML = '← ' + QRI18n.t('learn.header');
     backBtn.addEventListener('click', function () { _go(null); });
@@ -850,9 +850,9 @@ var LearnView = (function () {
     var lock = document.createElement('div'); lock.className = 'kx-topic-locked';
     lock.innerHTML =
       '<div class="kx-locked-icon" aria-hidden="true">' + ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + '</div>' +
-      '<h2 class="kx-locked-title">A Premium chapter</h2>' +
-      '<p class="kx-locked-sub">Unlock ' + _esc(topic.title) + ' and every Premium lesson — full worked examples, methods, and revision — with QuantReflex Premium.</p>' +
-      '<button class="btn-primary kx-locked-cta" type="button">Unlock with Premium</button>';
+      '<h2 class="kx-locked-title">' + QRI18n.t('learn.lockedTitle') + '</h2>' +
+      '<p class="kx-locked-sub">' + QRI18n.t('learn.lockedSub', { title: _esc(topic.title) }) + '</p>' +
+      '<button class="btn-primary kx-locked-cta" type="button">' + QRI18n.t('learn.lockedCta') + '</button>';
     host.appendChild(lock);
     var cta = lock.querySelector('.kx-locked-cta');
     if (cta) cta.addEventListener('click', function () {
@@ -890,7 +890,7 @@ var LearnView = (function () {
         if (row) {
           var b = document.createElement('span');
           b.className = 'kx-badge kx-status-premium';
-          b.innerHTML = ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' Premium';
+          b.innerHTML = ((typeof qrIco === 'function') ? qrIco('lock', '🔒') : '🔒') + ' ' + QRI18n.t('learn.badgePremium');
           row.appendChild(b);
         }
       }
@@ -949,7 +949,11 @@ var LearnView = (function () {
       } else {
         _buildTopicPage(_topic);
       }
-      if (topicEl) topicEl.hidden = false;
+      if (topicEl) {
+        topicEl.hidden = false;
+        /* WCAG 3.1.2: topic content follows the STUDY language (merged KB view) — mark it for screen readers. */
+        try { topicEl.setAttribute('lang', ((typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en')); } catch (_) {}
+      }
       _scrollTop();
       /* a11y: move focus to the new topic heading so keyboard/SR users land on the content (no scroll jump for mouse) */
       var th = document.querySelector('#learnTopic .kx-th-title');

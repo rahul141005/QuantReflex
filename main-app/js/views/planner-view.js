@@ -112,7 +112,7 @@ var Planner = (function () {
   function renderStrategy(s, p) {
     var pr = s.progress || {};
     var bd = s.readinessBreakdown;
-    var html = '<div class="planner-readiness' + (bd ? ' is-tappable' : '') + '"' + (bd ? ' data-readiness="1" role="button" tabindex="0" aria-label="See how exam readiness is calculated"' : '') + '>' + ring(s.readinessScore) +
+    var html = '<div class="planner-readiness' + (bd ? ' is-tappable' : '') + '"' + (bd ? ' data-readiness="1" role="button" tabindex="0" aria-label="' + esc(_t('planner.readinessAria')) + '"' : '') + '>' + ring(s.readinessScore) +
       '<div class="pr-meta">' +
         '<div class="pr-band">' + esc(bandLabel(s.readinessScore)) + '</div>' +
         '<div class="pr-label">' + esc(_t('planner.readinessLabel')) + ' <span class="pr-sub">' + esc(_t('planner.readinessSub')) + '</span></div>' +

@@ -23,6 +23,10 @@ var ReviseFlow = (function () {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
     });
   }
+  /* i18n (ADR-111): app-language chrome; guarded so the node check (buildQueue only) needs no QRI18n.
+     Study-channel content (topic title + blocks) is tagged with the study language for WCAG 3.1.2. */
+  function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }
+  function _sl() { try { return (typeof QRI18n !== 'undefined' && QRI18n.studyLang) ? QRI18n.studyLang() : 'en'; } catch (_) { return 'en'; } }
   function _KB() { return (typeof KnowledgeBase !== 'undefined') ? KnowledgeBase : null; }
   function _LP() { return (typeof LearnProgress !== 'undefined') ? LearnProgress : null; }
   function _revisionTypes() {
@@ -59,17 +63,17 @@ var ReviseFlow = (function () {
   function _caughtUpHtml() {
     return '<div class="kx-rev-done">' +
       '<div class="kx-rev-done-ico" aria-hidden="true">✓</div>' +
-      '<h2 class="kx-rev-done-title" tabindex="-1">All caught up</h2>' +
-      '<p class="kx-rev-done-sub">Nothing is due right now. Topics return here as they age — that spacing is what makes recall stick.</p>' +
-      '<button class="btn-primary kx-rev-home" type="button">Back to Learn</button></div>';
+      '<h2 class="kx-rev-done-title" tabindex="-1">' + _t('learn.revCaughtTitle') + '</h2>' +
+      '<p class="kx-rev-done-sub">' + _t('learn.revCaughtSub') + '</p>' +
+      '<button class="btn-primary kx-rev-home" type="button">' + _t('learn.revBackToLearn') + '</button></div>';
   }
 
   function _doneHtml(n) {
     return '<div class="kx-rev-done">' +
       '<div class="kx-rev-done-ico" aria-hidden="true">🔁</div>' +
-      '<h2 class="kx-rev-done-title" tabindex="-1">Revision done</h2>' +
-      '<p class="kx-rev-done-sub">' + n + (n === 1 ? ' topic' : ' topics') + ' refreshed. Each one comes back as it ages — steady spacing beats cramming.</p>' +
-      '<button class="btn-primary kx-rev-home" type="button">Done</button></div>';
+      '<h2 class="kx-rev-done-title" tabindex="-1">' + _t('learn.revDoneTitle') + '</h2>' +
+      '<p class="kx-rev-done-sub">' + _t('learn.revDoneSub', { count: n }) + '</p>' +
+      '<button class="btn-primary kx-rev-home" type="button">' + _t('learn.revDoneBtn') + '</button></div>';
   }
 
   function _screen(host) {
@@ -90,16 +94,16 @@ var ReviseFlow = (function () {
 
     host.innerHTML =
       '<div class="kx-rev-top">' +
-      '<button class="kx-rev-exit" type="button" aria-label="Exit revision">✕</button>' +
-      '<span class="kx-rev-count" tabindex="-1">Revising · ' + (_pos + 1) + ' of ' + _queue.length + '</span>' +
+      '<button class="kx-rev-exit" type="button" aria-label="' + _esc(_t('learn.revExitAria')) + '">✕</button>' +
+      '<span class="kx-rev-count" tabindex="-1">' + _t('learn.revCount', { n: _pos + 1, total: _queue.length }) + '</span>' +
       '</div>' +
       '<div class="kx-rev-bar" aria-hidden="true"><div class="kx-rev-fill" style="width:' + pct + '%"></div></div>' +
-      '<div class="kx-rev-head"><span class="kx-rev-ico" aria-hidden="true">' + _esc(topic.icon || '📘') + '</span>' +
+      '<div class="kx-rev-head" lang="' + _esc(_sl()) + '"><span class="kx-rev-ico" aria-hidden="true">' + _esc(topic.icon || '📘') + '</span>' +
       '<h2 class="kx-rev-title">' + _esc(topic.title) + '</h2></div>' +
-      '<div class="kx-rev-body"></div>' +
+      '<div class="kx-rev-body" lang="' + _esc(_sl()) + '"></div>' +
       '<div class="kx-rev-actions">' +
-      '<button class="kx-rev-full" type="button">Read full chapter →</button>' +
-      '<button class="btn-primary kx-rev-next" type="button">' + (last ? 'Revised ✓ · Finish' : 'Revised ✓ · Next') + '</button>' +
+      '<button class="kx-rev-full" type="button">' + _t('learn.revReadFull') + '</button>' +
+      '<button class="btn-primary kx-rev-next" type="button">' + (last ? _t('learn.revNextFinish') : _t('learn.revNextNext')) + '</button>' +
       '</div>';
 
     /* the same typed-block renderers the topic page uses — identical styling, dark-mode, tables */
@@ -112,7 +116,7 @@ var ReviseFlow = (function () {
     });
     if (!secs.length) {
       var p = document.createElement('p'); p.className = 'kx-rev-done-sub';
-      p.textContent = 'This chapter has no condensed notes yet — open it in full to revise.';
+      p.textContent = _t('learn.revNoNotes');
       body.appendChild(p);
     }
 

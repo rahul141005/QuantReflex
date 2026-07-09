@@ -20,6 +20,11 @@ var _numpadKeys = null;                   /* the current format's allowed key se
 var _NUMPAD_LEGACY_SYMBOLS = [':', '%', '.', '-'];   /* pre-ADR-086 static set — default when a caller passes no keys */
 var _numpadCurrentKey = '';              /* remembers the current symbol layout to avoid needless rebuilds */
 
+/* i18n (ADR-111): guarded resolve for the keypad aria labels — falls back to English without QRI18n. A language
+   switch clears the layout signature so the next build re-resolves the labels (the grid itself is language-free). */
+function _npT(key, fb) { try { if (typeof QRI18n !== 'undefined' && QRI18n.t) { var v = QRI18n.t(key); if (v && v !== key) return v; } } catch (_) {} return fb; }
+try { if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () { _numpadCurrentKey = ''; }); } catch (_) {}
+
 /* Build the keypad grid: a stable 3-column digit pad (1–9, [symbol|0|⌫]) + a tall submit column on the right.
    `symbols` is a short string of the contextual keys (e.g. '', '.', ':', '/', '-'). At most one is needed today; the
    builder degrades gracefully if a future format declares more. */
@@ -31,7 +36,7 @@ function _buildNumpadGrid(symbols) {
   if (_numpadCurrentKey === sig && grid.getAttribute('data-built') === '1') return;   /* already this layout */
   _numpadCurrentKey = sig;
 
-  function key(k, label, cls) { return '<button class="numpad-btn' + (cls ? ' ' + cls : '') + '" type="button" data-numpad="' + k + '"' + (k === 'backspace' ? ' aria-label="Backspace"' : (k === 'submit' ? ' aria-label="Submit"' : '')) + '>' + label + '</button>'; }
+  function key(k, label, cls) { return '<button class="numpad-btn' + (cls ? ' ' + cls : '') + '" type="button" data-numpad="' + k + '"' + (k === 'backspace' ? ' aria-label="' + _npT('drill.numpadBackspaceAria', 'Backspace') + '"' : (k === 'submit' ? ' aria-label="' + _npT('drill.numpadSubmitAria', 'Submit') + '"' : '')) + '>' + label + '</button>'; }
   var first = symbols.charAt(0) || '';
   var extra = symbols.slice(1);            /* any beyond the first (future-proof) go before backspace */
   var minusGlyph = '−';

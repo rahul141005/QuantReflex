@@ -70,7 +70,8 @@
   function _overlayOf(lang, id) { return (_overlays[lang] && _overlays[lang][id]) || null; }
   function _reset() { _overlays = {}; _complete = {}; _cache = {}; }
 
-  /* Clear the merge cache on a language switch (QuickRef re-renders on the same signal). */
+  /* Clear the merge cache on a language switch (the renderer drops its _built latch on the same signal, so the
+     next visit to #learn/quick-ref rebuilds from freshly-merged cards). */
   try { if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () { _cache = {}; }); } catch (_) {}
 
   var API = {
