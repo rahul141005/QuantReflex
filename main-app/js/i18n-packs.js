@@ -16,7 +16,18 @@ var QRPacks = (function () {
 
   /* Per-language generator pack basenames (relative to the app root). */
   var GEN = ['quant', 'di', 'lr', 'lrv'];
-  function _files(lang) { return GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; }); }
+  /* Phase G Learn/authored/quick-ref content packs — path templates carrying a {lang} placeholder. EMPTY in G-M1
+     (infrastructure only); each authoring batch (G-M3…G-M11) appends its file(s) here AND to the SW precache in the
+     SAME commit, so a study language lazy-loads exactly the content that exists. Registered via the same ensure()
+     channel + SW precache as the gen packs, so offline works in any language once installed. */
+  var CONTENT = [];
+  function _files(lang) {
+    var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
+    for (var i = 0; i < CONTENT.length; i++) out.push(CONTENT[i].replace(/\{lang\}/g, lang));
+    return out;
+  }
+  /** Register a content-pack path template (with a {lang} placeholder) so ensure(lang) lazy-loads it. Idempotent. */
+  function registerContent(tpl) { if (tpl && CONTENT.indexOf(tpl) === -1) CONTENT.push(tpl); }
 
   var _state = {};   // lang → true (loaded) | 'loading'
   var _queue = {};   // lang → [cb…] waiting on an in-flight load
@@ -55,7 +66,7 @@ var QRPacks = (function () {
   /** True once the language's packs are loaded (or for English, always). */
   function ready(lang) { lang = _valid(lang); return lang === 'en' || _state[lang] === true; }
 
-  var API = { ensure: ensure, ready: ready, files: _files };
+  var API = { ensure: ensure, ready: ready, files: _files, registerContent: registerContent };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRPacks = API;
   return API;

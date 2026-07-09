@@ -15,11 +15,72 @@
   var Schema = (typeof require !== 'undefined') ? require('./schema')
     : (typeof window !== 'undefined' ? window.KnowledgeSchema : root.KnowledgeSchema);
 
-  var _topics = {};      // id -> topic
+  var _topics = {};      // id -> topic (EN base — the certified reference)
   var _order = [];       // topic ids in registration order
   var _cats = {};        // id -> category meta
   var _catOrder = [];    // category ids in registration order
   var _dupes = [];       // ids registered more than once (a content bug to surface, not silently overwrite)
+
+  /* ── i18n (ADR-111 Phase G) — structural translation OVERLAYS. Each hi/mr overlay topic mirrors the EN base's shape
+     (same section/block counts + array lengths) but carries ONLY display fields, keyed by the same stable id. The EN
+     base stays the source of truth; get()/all()/byCategory() return a MERGED view for the active study language (EN base,
+     per-field overlay wins, missing field → EN fallback). expr / ids / related / machine fields are NEVER overlaid. A
+     no-op when the study language is 'en' or no overlay exists — so EN behaviour is byte-identical. */
+  var _overlays = {};    // lang -> { id -> overlayTopic }
+  var _complete = {};    // lang -> true once a pack declares 100% coverage (flips the learn-i18n.check hard-gate)
+  var _mergeCache = {};  // lang -> { id -> mergedTopic }  (cleared on overlay change / language switch)
+  /* fields that must NEVER come from an overlay — structure, machine data, and taxonomy stay EN/base. */
+  var _FORBIDDEN = { id: 1, category: 1, difficulty: 1, examFrequency: 1, status: 1, related: 1, ids: 1, expr: 1, type: 1, searchTerms: 1 };
+
+  function _activeLang() {
+    try { if (typeof QRI18n !== 'undefined' && QRI18n.studyLang) { var l = QRI18n.studyLang(); return (l === 'hi' || l === 'mr') ? l : 'en'; } } catch (_) {}
+    return 'en';
+  }
+  /* Deep per-field overlay: arrays merge by index (recursing into objects), scalars = overlay-wins, forbidden keys skip. */
+  function _deepOverlay(base, ov) {
+    if (ov === undefined || ov === null) return base;
+    if (Array.isArray(base) && Array.isArray(ov)) return base.map(function (b, i) { return i < ov.length ? _deepOverlay(b, ov[i]) : b; });
+    if (base && typeof base === 'object' && !Array.isArray(base) && ov && typeof ov === 'object' && !Array.isArray(ov)) {
+      var out = {}; for (var bk in base) out[bk] = base[bk];
+      for (var k in ov) { if (_FORBIDDEN[k]) continue; out[k] = _deepOverlay(base[k], ov[k]); }
+      return out;
+    }
+    return ov;   // scalar (string/number) — overlay wins
+  }
+  function _mergeTopic(base, ov) {
+    var merged = _deepOverlay(base, ov);
+    /* search is BILINGUAL: keep the EN terms AND add the translated ones (a student searches in either script). */
+    merged.searchTerms = (base.searchTerms || []).concat(ov.searchTerms || []);
+    return merged;
+  }
+  /** Register a language's translation overlays for a category (data/knowledge/i18n/<lang>/<category>.js call this). */
+  function registerTranslations(lang, categoryId, topics) {
+    lang = (lang === 'hi' || lang === 'mr') ? lang : null;
+    if (!lang || !topics) return;
+    var store = _overlays[lang] || (_overlays[lang] = {});
+    for (var i = 0; i < topics.length; i++) { var t = topics[i]; if (t && t.id) store[t.id] = t; }
+    _mergeCache[lang] = {};   // invalidate
+  }
+  /** A language pack declares 100% topic coverage → the learn-i18n.check flips from report-mode to a hard gate. */
+  function markTranslationsComplete(lang) { if (lang === 'hi' || lang === 'mr') _complete[lang] = true; }
+  /** Resolve a topic id to the active-language MERGED view (EN base when lang is en / no overlay). */
+  function _resolve(base) {
+    if (!base) return base;
+    var lang = _activeLang();
+    if (lang === 'en') return base;
+    var ov = _overlays[lang] && _overlays[lang][base.id];
+    if (!ov) return base;
+    var c = _mergeCache[lang] || (_mergeCache[lang] = {});
+    return c[base.id] || (c[base.id] = _mergeTopic(base, ov));
+  }
+  /* Introspection for the harness: per-language overlay coverage vs the EN base. */
+  function _translationCoverage(lang) {
+    var ov = _overlays[lang] || {};
+    var have = _order.filter(function (id) { return ov[id]; }).length;
+    return { have: have, total: _order.length, complete: !!_complete[lang] };
+  }
+  function _rawTopics() { return _order.map(function (id) { return _topics[id]; }); }   // EN base (for structural validation)
+  function _overlayOf(lang, id) { return (_overlays[lang] && _overlays[lang][id]) || null; }
 
   function registerCategory(meta) {
     if (!meta || !meta.id) return;
@@ -45,10 +106,10 @@
     for (var i = 0; i < topics.length; i++) _registerOne(categoryId, topics[i]);
   }
 
-  function get(id) { return _topics[id] || null; }
+  function get(id) { return _resolve(_topics[id] || null); }
   function has(id) { return !!_topics[id]; }
   function count() { return _order.length; }
-  function all() { return _order.map(function (id) { return _topics[id]; }); }
+  function all() { return _order.map(function (id) { return _resolve(_topics[id]); }); }
 
   /** Categories sorted by their declared order, then registration order. Each gets a live topic count. */
   function categories() {
@@ -92,7 +153,7 @@
     (t.sections || []).forEach(function (b) { if (b && b.type === 'related' && b.ids) ids = ids.concat(b.ids); });
     var seen = {}, out = [];
     ids.forEach(function (rid) {
-      if (rid !== id && _topics[rid] && !seen[rid]) { seen[rid] = 1; out.push(_topics[rid]); }
+      if (rid !== id && _topics[rid] && !seen[rid]) { seen[rid] = 1; out.push(_resolve(_topics[rid])); }
     });
     return out;
   }
@@ -113,7 +174,7 @@
   function validateAll() {
     var errs = [];
     _dupes.forEach(function (id) { errs.push('duplicate topic id "' + id + '" registered more than once'); });
-    all().forEach(function (t) {
+    _rawTopics().forEach(function (t) {   /* validate the EN BASE structure — the certified reference, not the merged view */
       errs = errs.concat(Schema.validateTopic(t));
       if (t.category && !_cats[t.category]) errs.push(t.id + ': category "' + t.category + '" is not registered');
       var refs = (t.related || []).slice();
@@ -124,7 +185,10 @@
   }
 
   /** Test-only: wipe the registry (so the node harness can re-load deterministically). */
-  function _reset() { _topics = {}; _order = []; _cats = {}; _catOrder = []; _dupes = []; }
+  function _reset() { _topics = {}; _order = []; _cats = {}; _catOrder = []; _dupes = []; _overlays = {}; _complete = {}; _mergeCache = {}; }
+
+  /* Clear the merge cache on a language switch (LearnView.invalidateHub already rebuilds the hub on QRI18n.onChange). */
+  try { if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(function () { _mergeCache = {}; }); } catch (_) {}
 
   var KnowledgeBase = {
     registerCategory: registerCategory,
@@ -133,7 +197,10 @@
     categories: categories, categoryMeta: categoryMeta, byCategory: byCategory,
     categoriesBySubject: categoriesBySubject, bySubject: bySubject,
     related: related, siblings: siblings,
-    validateAll: validateAll, _reset: _reset
+    validateAll: validateAll, _reset: _reset,
+    /* ADR-111 Phase G — translation overlays */
+    registerTranslations: registerTranslations, markTranslationsComplete: markTranslationsComplete,
+    _translationCoverage: _translationCoverage, _rawTopics: _rawTopics, _overlayOf: _overlayOf, _activeLang: _activeLang
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = KnowledgeBase;
