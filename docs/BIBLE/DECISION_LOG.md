@@ -9,6 +9,32 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase G addendum (2026-07-09) — the complete STUDY LIBRARY localized (Learn KB, Quick-Reference, authored-LR,
+  auto-tips).** The 62 Learn KB topics, 21 Quick-Reference cards, 92-item authored Logical-Reasoning bank
+  (Critical/Statement/Cause/Course/Decision) and 85 auto-tips now render in हिन्दी / मराठी at textbook quality, still
+  feature-flagged OFF (English byte-identical). **Decision — structural display-only overlays keyed by immutable id.**
+  Each translation file mirrors the EN base's structure and carries ONLY display fields; a merged view (EN base, per-field
+  overlay wins) is served study-language-aware with ZERO consumer call-site changes. Three resolvers:
+  `KnowledgeBase.registerTranslations` (registry.js merged `get`/`byCategory`/`all`), NEW `QRQuickRefI18n`
+  (quick-ref-i18n.js), NEW `LRAuthoredI18n` (lr-authored-i18n.js). Machine/frozen fields — ids, `expr` formula strings,
+  `related`, deep-link/cross-link ids, taxonomy, `searchTerms` (bilingual UNION, EN retained) — stay English by
+  construction (forbidden overlay fields, enforced). **Rejected:** flat `learnContent.*` positional keys (no structural
+  safety, silent single-sentence breakage); full parallel topic files (duplicates `expr`/graph data → drift); per-field
+  `{en,hi,mr}` objects in place (churns the certified EN files + every consumer). **Authored-LR answer-by-index
+  correctness guarantee:** the translated answer is DERIVED as the translated option at the EN answer's index (options
+  index-aligned, count-parity enforced), never authored separately — the correct choice stays correct in every language by
+  construction, and the engine's option-shuffle + string-grading are untouched. **Auto-tips:** ship in the `tips` catalog
+  namespace via the existing `tc()` seam `getAutoTip` was already wired for; EN values are VERBATIM from the scoring-service
+  maps (proven byte-identical → EN behaviour unchanged); hi/mr keep formula symbols / single-letter variables / DI·LR /
+  digits, HCF·LCM → म.स.·ल.स. / म.सा.वि.·ल.सा.वि. **Enforcement:** NEW `scripts/learn-i18n.check.js` (§1 KB / §2 quick-ref /
+  §3 authored-LR) validates congruence, forbidden-field absence, digit-multiset, Latin-leak, options index-parity and
+  merged-view schema; all packs declared `complete` → hard coverage gates (62/62, 21/21, 92/92 hi+mr). **Loading:**
+  `QRPacks.CONTENT` + SW precache carry the 30 content packs (lazy per study language, offline-precached); tips ride the
+  locale catalogs. **Known-limits added:** `expr` formula strings + numeric table cells (frozen machine notation); math
+  symbols / single-letter variables / DI·LR inside tips; machine fields on translated content; authored-LR I/II labels +
+  cipher substrates. **Verification:** full npm test green; Playwright KB/quick-ref/authored harnesses (en/hi/mr + diverged
+  app=en/study=hi at 360/820, EN restore byte-identical, answer-by-index tap-grade, zero console errors); cert reports
+  `I18N_GM9/GM10/GM12_*`. Bible 2.143; rides SW v223; flag stays OFF until the Phase-H Final Localization Certification.
 - **Phase F addendum (2026-07-09) — generated questions/solutions localized + durable Mistake Archive.** Every
   RUNTIME-GENERATED string (Quant stems + inline explanations, DI stems + chart text, LR stems + option terms, LR-visual
   stems + explanations) now renders in the study language as grammar-engineered exam-book Hindi/Marathi while the MATH is

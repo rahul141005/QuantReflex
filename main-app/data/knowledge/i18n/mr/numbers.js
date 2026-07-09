@@ -320,5 +320,7 @@
   var KB = (typeof require !== 'undefined') ? require('../../../../js/knowledge/registry')
     : (typeof window !== 'undefined' ? window.KnowledgeBase : root.KnowledgeBase);
   if (KB && KB.registerTranslations) KB.registerTranslations('mr', 'numbers', TOPICS);
+  /* G-M13: the मराठी Learn KB pack is 100% complete (all 62 topics) → flip learn-i18n.check §1 to a hard coverage gate. */
+  if (KB && KB.markTranslationsComplete) KB.markTranslationsComplete('mr');
   if (typeof module !== 'undefined' && module.exports) module.exports = TOPICS;
 })(this);

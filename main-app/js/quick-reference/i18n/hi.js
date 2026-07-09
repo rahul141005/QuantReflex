@@ -190,5 +190,7 @@
   var i18n = (typeof require !== 'undefined') ? require('../quick-ref-i18n')
     : (typeof window !== 'undefined' ? window.QRQuickRefI18n : root.QRQuickRefI18n);
   if (i18n && i18n.register) i18n.register('hi', CARDS);
+  /* G-M13: the हिन्दी quick-ref pack is 100% complete (all 21 cards) → flip learn-i18n.check §2 to a hard coverage gate. */
+  if (i18n && i18n.markComplete) i18n.markComplete('hi');
   if (typeof module !== 'undefined' && module.exports) module.exports = CARDS;
 })(this);

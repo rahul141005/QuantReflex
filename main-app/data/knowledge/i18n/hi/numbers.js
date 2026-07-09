@@ -321,5 +321,7 @@
   var KB = (typeof require !== 'undefined') ? require('../../../../js/knowledge/registry')
     : (typeof window !== 'undefined' ? window.KnowledgeBase : root.KnowledgeBase);
   if (KB && KB.registerTranslations) KB.registerTranslations('hi', 'numbers', TOPICS);
+  /* G-M13: the हिन्दी Learn KB pack is 100% complete (all 62 topics) → flip learn-i18n.check §1 to a hard coverage gate. */
+  if (KB && KB.markTranslationsComplete) KB.markTranslationsComplete('hi');
   if (typeof module !== 'undefined' && module.exports) module.exports = TOPICS;
 })(this);

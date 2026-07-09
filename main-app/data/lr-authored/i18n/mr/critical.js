@@ -245,5 +245,7 @@
     : (typeof require === 'function') ? require('../../../../js/lr-authored-i18n.js')
     : (typeof window !== 'undefined') ? window.LRAuthoredI18n : root.LRAuthoredI18n;
   if (R && R.register) R.register('mr', ITEMS);
+  /* G-M13: the मराठी authored-LR pack is 100% complete (all 92 items) → flip learn-i18n.check §3 to a hard coverage gate. */
+  if (R && R.markComplete) R.markComplete('mr');
   if (typeof module !== 'undefined' && module.exports) module.exports = ITEMS;
 })(this);

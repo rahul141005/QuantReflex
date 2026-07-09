@@ -9,12 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.142 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.143 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.143 (2026-07-09)** — **Internationalization Phase G (ADR-111).** The complete STUDY LIBRARY now renders in
+> हिन्दी / मराठी at textbook quality, still feature-flagged OFF (English byte-identical): all **62 Learn KB topics**,
+> the **21 Quick-Reference cards**, the **92-item authored Logical-Reasoning bank** (Critical/Statement/Cause/Course/
+> Decision) and the **85 auto-tips**. Mechanism: structural DISPLAY-ONLY overlays keyed by immutable id, merged over the
+> certified EN base (`KnowledgeBase.registerTranslations` / `QRQuickRefI18n` / `LRAuthoredI18n`); machine fields (ids,
+> `expr`, `related`, cross-links) stay English by construction. The authored-LR overlay derives the translated answer
+> BY INDEX (never authored separately), so the correct option stays correct in every language. Auto-tips ship in the
+> `tips` catalog namespace (EN verbatim from the `getAutoTip` maps). Renderer chrome + bilingual search (EN ∪ translated
+> `searchTerms`) localize with zero consumer call-site changes. New `scripts/learn-i18n.check.js` (§1 KB / §2 quick-ref /
+> §3 authored-LR) validates congruence, forbidden-field absence, digit-multiset, Latin-leak, options-parity and
+> merged-schema; all packs declared `complete` → hard coverage gates (62/62, 21/21, 92/92 hi+mr). Playwright: KB
+> topic-render + bilingual search + tip reveal, quick-ref library, and authored-LR drill — all incl. the diverged
+> app=en/study=hi case at 360/820, EN restore byte-identical, zero console errors. npm test green. Rides SW v223.
+>
 > **2.142 (2026-07-09)** — **Internationalization Phase F (ADR-111).** Every RUNTIME-GENERATED string —
 > Quant stems + inline explanations, DI set stems + chart text, LR stems + option terms, and the LR-visual
 > stems + explanations — now renders in the study language (हिन्दी / मराठी) as grammar-engineered, exam-book

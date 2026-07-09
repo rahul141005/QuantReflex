@@ -273,3 +273,38 @@ The following are intentional and bounded:
 - **Detail:** the archive keeps the 100 most-recent records (CAP), bounding localStorage and the Firestore `practice/data`
   doc; older mistakes age out. Unchanged from v1. Configurable via `QRMistakeArchive.CAP`; a future paged/subcollection
   store is an extension point that needs no record-schema redesign (the v2 record is already the canonical unit).
+
+## Phase G — Learn library, Quick-Reference, authored-LR, auto-tips (structural-overlay translation)
+
+### Learn-KB / Quick-Reference formula `expr` strings stay English (frozen machine field)
+- **Detail:** in the Learn knowledge base and the Quick-Reference cards, a formula's machine field — the `expr` string
+  (`"A = πr²"`, `"CI = P(1 + r/100)ⁿ − P"`) and per-row symbolic table cells — is NOT translated. The structural overlay
+  carries only display prose (formula `name`, `when`, `whenNot`, `trap`; captions; prose cells); `expr` is a FORBIDDEN
+  overlay field (`scripts/learn-i18n.check.js` fails if an overlay supplies it) and is served from the certified EN base.
+- **Rationale:** `expr` is symbolic formula notation, not language — variables, operators and function names are universal;
+  translating it would corrupt the notation and risks drift from the certified reference. The surrounding teaching prose IS
+  translated, so the formula reads inside a Devanagari sentence. Digits stay 0-9; π/√/²/³/×/÷ are script-neutral.
+  Certification treats symbolic `expr` / numeric-table cells as DNT, not as a leak.
+
+### Formula symbols, single-letter variables and discipline acronyms inside auto-tips stay Latin
+- **Detail:** the 85 auto-tips (`tips.*`) render in Devanagari but keep — by design — formula symbols (× ÷ = ² ³ π ≈ ≥ ≤
+  > < − ° % ₹ ↔ →), single-letter variables/labels (a, b, r, h, x, y, n, and A…Z in `A=1…Z=26`, `D = S × T`,
+  `|30×H − 5.5×M|`), digits 0-9, and the acronyms DI / LR (allowlisted in `scripts/i18n.check.js`). Book-form
+  abbreviations render Devanagari: HCF/LCM → म.स./ल.स. (hi), म.सा.वि./ल.सा.वि. (mr).
+- **Rationale:** these are mathematical notation, not prose; exam books keep them Latin. The `i18n.check` leak heuristic
+  flags only Latin runs of 3+ letters after allowlist stripping, so single letters and 2-letter acronyms pass by design.
+
+### Machine fields on translated content — ids, `related`, cross-links, `searchTerms` (EN retained)
+- **Detail:** every study-content overlay (KB, quick-ref, authored-LR) leaves machine/metadata fields on the EN base —
+  the `id`, `category`, `difficulty`, `examFrequency`, `status`, `related[]` topic ids, KB `learn`/`drill` deep-link ids,
+  quick-ref `section`/`icon`/`kind`, authored-LR `topic`/`subtype`/`exams`/`tags`/`reviewStatus`. `searchTerms` is a
+  bilingual UNION (EN terms retained, translated terms ADDED) so search works in either script.
+- **Rationale:** these are stable keys the routing, dedup, bookmarks, AI-recommendations and spaced-revision logic key on;
+  translating them would break those. Overlays are display-only by construction and the checks fail on any forbidden
+  field. ids never render as prose, so this is not a leak.
+
+### Authored-LR labels I / II and cipher substrates stay Latin
+- **Detail:** authored Statement/Cause/Course items keep the statement/action labels I and II (`कथन I`, `विधान II`,
+  `Courses of action: I. … II. …`) as Roman numerals, and any coding-decoding substrate stays on the English alphabet.
+- **Rationale:** Roman numerals I/II are single/2-char tokens (pass the leak heuristic) and are the standard exam-book
+  labels; Indian exam books pose letter-shift puzzles on the English alphabet. The prose around them is fully translated.

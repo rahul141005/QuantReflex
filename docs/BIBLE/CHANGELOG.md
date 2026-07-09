@@ -6,6 +6,42 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-09 — Internationalization Phase G: Learn library, Quick-Reference, authored-LR bank, auto-tips in en/hi/mr (ADR-111)
+
+The complete STUDY LIBRARY now renders in हिन्दी / मराठी at textbook quality, still feature-flagged OFF (English
+byte-identical). Content: 62 Learn KB topics, 21 Quick-Reference cards, the 92-item authored Logical-Reasoning bank,
+and the 85 auto-tips.
+
+- **Structural display-only overlays.** Each translation file mirrors the EN base and carries ONLY display fields, keyed
+  by the immutable id, merged at read time (EN base, per-field overlay wins). Resolvers: `KnowledgeBase.registerTranslations`
+  + merged `get`/`byCategory`/`all` (`js/knowledge/registry.js`); NEW `QRQuickRefI18n` (`js/quick-reference/quick-ref-i18n.js`);
+  NEW `LRAuthoredI18n` (`js/lr-authored-i18n.js`). Machine fields — ids, `expr` formula strings, `related`, deep-link/cross-link
+  ids, taxonomy — stay English (forbidden overlay fields).
+- **Authored-LR answer-by-index correctness guarantee.** `LRAuthoredI18n._merge` derives the translated answer as the
+  translated option at the EN answer's index (options index-aligned, count-parity enforced) — never authored separately —
+  so the correct choice stays correct in every language and the engine's shuffle + string-grading keep working. Wired into
+  `js/lr-authored-engine.js:_toQuestion` (guarded; en/flag-off is a byte-identical no-op).
+- **Auto-tips.** `tips` catalog namespace (85 keys) added to `locales/{en,hi,mr}.js`; EN values VERBATIM from the
+  `scoring-service.js getAutoTip` maps (byte-identical → EN behaviour unchanged); hi/mr keep formula symbols / single-letter
+  variables / DI·LR / digits, HCF·LCM → म.स.·ल.स. / म.सा.वि.·ल.सा.वि.
+- **Renderer chrome + bilingual search.** `js/knowledge/blocks.js` + `quick-ref-renderer.js` resolve `learn.*` chrome via the
+  APP language; `js/learn/learn-search.js` indexes EN ∪ translated `searchTerms` and rebuilds on language switch. Zero
+  consumer call-site changes.
+- **Enforcement.** NEW `scripts/learn-i18n.check.js` (§1 KB / §2 quick-ref / §3 authored-LR): congruence, forbidden-field
+  absence, digit-multiset (no Devanagari numerals), Latin-leak, options index-parity, merged-view schema. All packs declared
+  `complete` → hard coverage gates: **KB 62/62, quick-ref 21/21, authored-LR 92/92 in both hi and mr.** `i18n.check` covers
+  tips parity + no-leak.
+- **Loading / offline.** `QRPacks.CONTENT` + the service-worker precache carry the 18 KB overlays, 2 quick-ref packs and 10
+  authored-LR packs (lazy per study language, precached for offline); tips ride the already-precached locale catalogs.
+- **Verification.** Full `npm test` green. Playwright (`i18n-phaseG-kb.js` / `-quickref.js` / `-authored.js`) — KB topic-render
+  + bilingual search + tip reveal, quick-ref library, authored-LR drill — en/hi/mr + diverged app=en/study=hi at 360/820, EN
+  restore byte-identical, answer-by-index tap-grade, zero console errors; screenshots eyeballed. Certifications:
+  `I18N_GM9_QUICKREF_CERTIFICATION.md`, `I18N_GM10_AUTHORED_LR_CERTIFICATION.md`, `I18N_GM12_PHASE_G_CERTIFICATION.md`.
+- **Governance.** ADR-111 Phase G addendum (DECISION_LOG); known-limits register extended; VERSIONS Bible 2.143. Rides SW
+  v223. Flag stays OFF until the Phase-H Final Localization Certification.
+
+---
+
 ## 2026-07-09 — Internationalization Phase F: generated questions/solutions in en/hi/mr + durable Mistake Archive (ADR-111)
 
 Every procedurally-generated string now renders in the study language as grammar-engineered, exam-book Hindi/Marathi
