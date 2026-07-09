@@ -22,7 +22,9 @@ var QRPacks = (function () {
      channel + SW precache as the gen packs, so offline works in any language once installed. */
   var CONTENT = [
     'data/knowledge/i18n/{lang}/numbers.js',     // G-M3
-    'data/knowledge/i18n/{lang}/arithmetic.js'   // G-M4
+    'data/knowledge/i18n/{lang}/arithmetic.js',  // G-M4
+    'data/knowledge/i18n/{lang}/commercial.js',  // G-M5
+    'data/knowledge/i18n/{lang}/algebra.js'      // G-M5
   ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
