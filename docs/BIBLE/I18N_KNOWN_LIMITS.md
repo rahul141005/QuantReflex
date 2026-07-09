@@ -229,3 +229,22 @@ The following are intentional and bounded:
 - The premise/conclusion terminator lives in the pack (`syllo.period`): EN and MR use "." (modern Marathi / Maharashtra
   State Board convention), HI uses the danda "।". The engine change is EN-preserving — the EN period is unchanged, so
   the lr-census byte-identity (36/36 hashes) holds. Not a limitation; recorded so the mixed terminators are not flagged.
+
+## Phase F-M7 — LR-visual generated content (locales/gen/{hi,mr}.lrv.js)
+
+### Machine-figure aria-label (lr-figures.js describe()) — spec-derived English
+- **Detail:** each rendered figure is wrapped in `<figure role="img" aria-label="…">` whose label comes from
+  `lr-figures.js describe(spec)` — a spec-derived English sentence ("a die showing 3", "a row of figures: …"). The inner
+  `<svg>` is `aria-hidden="true"`. The STEM and explanation (the actual question content) ARE fully localized; only this
+  spec-derived figure label stays English.
+- **Rationale:** the blueprint scoped F-M7 to the engine's stems + explanations ("figure data untouched — lr-figures.js
+  renders machine specs"); `describe()` is renderer chrome, not engine content. Low exposure (screen-reader only, and the
+  localized stem carries the question the figure merely illustrates). Directly consistent with the F-M5 DI chart
+  kind-prefix known-limit. Can be localized in a later renderer-chrome pass; recorded so certification does not flag it.
+
+### Figure SVG internal clip-path ids are per-render, not deterministic
+- **Detail:** `lr-figures.js` mints unique `lrfclipN` ids per render() call (incrementing counter) for half-shaded
+  shapes. Two renders of the SAME figure spec therefore differ only in these internal ids — NOT visually, and NOT by
+  language. Cross-language figure identity is proven at the SPEC level (gen-i18n.check §12 asserts the figure specs are
+  byte-identical across en/hi/mr) and at the render level after normalising the counter. Not a localisation limitation;
+  recorded so the id churn is not mistaken for a rendering difference.

@@ -329,6 +329,34 @@ the genitive without a space (मीराची), carries a marker+copula map f
 dash frame for direction so masculine common-noun actors never mis-inflect. Distances keep the Latin unit `km`
 (consistent with the quant/DI packs). Ordinals: HI `n+वें`, MR `n+व्या`, always followed by स्थान.
 
+## LR-visual (non-verbal reasoning) generated-content vocabulary (F-M7)
+
+The LR-visual engine generates directly in the study language via `locales/gen/{hi,mr}.lrv.js`. The machine FIGURE specs
+(dots, dice, shapes, segment lattices, paper-fold hole sets, 3×3 grids) carry no text and are byte-identical across
+languages; only stems + explanations localize. Every digit / formula / symbol (× − ² ³ ° ↔ and the a,b,c,n,x,y variable
+letters) is preserved exactly from EN.
+
+| English | Hindi | Marathi | Note |
+|---|---|---|---|
+| circle / square / triangle | वृत्त / वर्ग / त्रिभुज | वर्तुळ / चौरस / त्रिकोण | shape-name words rendered by stable id |
+| pentagon / hexagon / diamond | पंचभुज / षट्भुज / समचतुर्भुज | पंचकोन / षटकोन / समभुज चौकोन | |
+| dot / star | बिंदु / तारा | बिंदू / तारा | |
+| Mirror image / Water image | दर्पण प्रतिबिंब / जल प्रतिबिंब | आरशातील प्रतिबिंब / पाण्यातील प्रतिबिंब | axis words |
+| Die / face / opposite face | पासा / फलक / सम्मुख फलक | फासा / बाजू / समोरील बाजू | MR uses बाजू for a die face |
+| Net (of a cube) | जाली | जाळी | folds to a cube |
+| Painted cube / cuboid | रंगा हुआ घन / घनाभ | रंगवलेला घन / इष्टिकाचिती | इष्टिकाचिती = MPSC/State-Board term for cuboid |
+| exactly two/one/three faces painted | ठीक दो/एक/तीन फलक रंगे | नेमकी दोन / नेमके एक / नेमकी तीन पृष्ठे रंगवलेली | paint-type labels rendered by id |
+| Figure series / analogy | आकृति श्रृंखला / सादृश्य | आकृती मालिका / साधर्म्य | |
+| Odd figure out | विषम आकृति | विषम आकृती | |
+| Paper folding / crease / hole | कागज़ मोड़ना / तह / छेद | कागद घडी / घडी / छिद्र | |
+| Matrix (3×3) / cell | आव्यूह (मैट्रिक्स) / कक्ष | सारणी (मॅट्रिक्स) / कप्पा | |
+| Embedded figure | अंतर्निहित आकृति | अंतर्भूत आकृती | |
+| clockwise | दक्षिणावर्त (घड़ी की दिशा में) | घड्याळाच्या काट्याच्या दिशेने | |
+| Reflection / rotation | परावर्तन / घुमाव | परावर्तन / फिरवणे | |
+
+**Note:** the machine figure's screen-reader `aria-label` (`lr-figures.js describe()`) is spec-derived English — see
+`I18N_KNOWN_LIMITS.md` (renderer chrome, consistent with the F-M5 DI chart kind-prefix decision).
+
 ## UI / product vocabulary
 
 | English | Hindi | Marathi | Rationale |
