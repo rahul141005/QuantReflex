@@ -67,6 +67,7 @@ var ASSETS = [
   './data/statMath.js',
   './services/quantTopics.js',
   './data/subjects.js',
+  './js/mistake-archive.js',
   './js/progress.js',
   './js/tables.js',
   './js/learn-manager.js',

@@ -270,6 +270,16 @@ var FirestoreSync = (function () {
           if (typeof AppState !== 'undefined') AppState.setSettings(data.settings);
         }
         if (data.stats) {
+          /* F-M8 sync integrity: MERGE the cloud mistake archive with any local (e.g. offline / guest) mistakes by
+             stable id — union, newest-per-id wins, learning-state OR-merged — so hydration never duplicates or drops a
+             mistake. Guarded + try/catch: on any issue the wholesale cloud value is used, exactly as before. */
+          try {
+            if (typeof QRMistakeArchive !== 'undefined' && Array.isArray(data.stats.mistakes)) {
+              var _localP = (typeof AppState !== 'undefined' && AppState.getProgress) ? AppState.getProgress() : null;
+              var _localM = (_localP && Array.isArray(_localP.mistakes)) ? _localP.mistakes : [];
+              data.stats.mistakes = QRMistakeArchive.mergeMistakes(_localM, data.stats.mistakes);
+            }
+          } catch (_) {}
           if (typeof AppState !== 'undefined') AppState.setProgress(data.stats);
           /* Invalidate progress.js cache so next loadProgress() reads fresh Firestore data */
           if (typeof invalidateProgressCache === 'function') invalidateProgressCache();

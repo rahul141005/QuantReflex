@@ -802,7 +802,13 @@ function createDrillEngine(container, opts) {
        routes through captureDuelAnswer for capture-only submission — so the old duel arm here was unreachable dead
        code with a mismatched signature; removed in ADR-088.) */
     if (!isDuel) {
-      recordAnswer(correct, q.category, q, elapsedRounded);
+      /* F-M8: pass capture metadata to the Mistake Archive (selected answer, drill-vs-test source, mode label). lang,
+         timing, difficulty, engine and the machine specs are derived in the archive from the question + QRI18n. */
+      recordAnswer(correct, q.category, q, elapsedRounded, {
+        selected: timedOut ? null : (raw == null ? null : String(raw)),
+        source: timeLimit ? 'timedTest' : 'drill',
+        sessionType: mode
+      });
     }
 
     /* Haptic/sound feedback — reinforcement favors success: a bright chime on correct, and the

@@ -138,9 +138,10 @@ function _answerDifficulty(questionData) {
   return 'medium';
 }
 
-function recordAnswer(correct, category, questionData, responseTime) {
+function recordAnswer(correct, category, questionData, responseTime, meta) {
   var p = loadProgress();
   var today = new Date().toDateString();
+  meta = meta || {};
 
   /* Daily streak: increment on first practice of a new day */
   if (p.lastPracticeDate !== today) {
@@ -164,23 +165,32 @@ function recordAnswer(correct, category, questionData, responseTime) {
     if (p.currentStreak > p.bestStreak) p.bestStreak = p.currentStreak;
   } else {
     p.currentStreak = 0;
-    /* Track mistake */
-    if (questionData) {
+    /* Track mistake (ADR-111 F-M8: the durable Mistake Archive). QRMistakeArchive.buildRecord captures a versioned,
+       forward-compatible record that reproduces the attempt exactly — the fully-rendered question in its capture
+       language (stem, options, explanation, AND the machine chart/figure/optionFigure specs, so DI + LR-visual are
+       reviewable too) plus rich metadata (lang, selected, timing, hints, explanation-viewed, difficulty, engine,
+       source, session type, timestamp). Backward-compatible: the record is a superset of the v1 shape. */
+    if (questionData && typeof QRMistakeArchive !== 'undefined') {
       if (!p.mistakes) p.mistakes = [];
-      /* Keep max 100 mistakes to avoid localStorage bloat */
-      if (p.mistakes.length >= 100) p.mistakes.shift();
-      /* Store the FULL question (ADR-079) so self-contained MCQ items — generated LR + authored CR — are reviewable.
-         options/explanation are kept only for clean text MCQs (no chart/figure), so Review can re-render them. */
-      var _reviewable = questionData.options && questionData.options.length && !questionData.chart && !questionData.figure;
-      p.mistakes.push({
-        question: questionData.question,
-        answer: String(questionData.answer),
+      if (p.mistakes.length >= QRMistakeArchive.CAP) p.mistakes.shift();
+      p.mistakes.push(QRMistakeArchive.buildRecord(questionData, {
         category: questionData.category || category,
-        options: _reviewable ? questionData.options.slice() : null,
-        explanation: questionData.explanation || null,
-        subtype: questionData.subtype || null,
-        date: today
-      });
+        ts: Date.now(),
+        date: today,
+        lang: _studyLangGuarded(),
+        selected: meta.selected,
+        timeMs: (typeof responseTime === 'number') ? responseTime : null,
+        hintsUsed: meta.hintsUsed,
+        explanationViewed: meta.explanationViewed,
+        source: meta.source || 'drill',
+        sessionType: meta.sessionType
+      }));
+    } else if (questionData) {
+      /* Archive module absent (defensive) — fall back to the legacy v1 record so a mistake is never dropped. */
+      if (!p.mistakes) p.mistakes = [];
+      if (p.mistakes.length >= 100) p.mistakes.shift();
+      var _reviewable = questionData.options && questionData.options.length && !questionData.chart && !questionData.figure;
+      p.mistakes.push({ question: questionData.question, answer: String(questionData.answer), category: questionData.category || category, options: _reviewable ? questionData.options.slice() : null, explanation: questionData.explanation || null, subtype: questionData.subtype || null, date: today });
     }
   }
 
@@ -289,10 +299,81 @@ function recordTimedTestSession() {
   saveProgress(p);
 }
 
-/** Get stored mistakes for review mode */
+/* Active study language, guarded (F-M8: stamps each captured mistake so the archive replays in its practice language). */
+function _studyLangGuarded() {
+  try { if (typeof QRI18n !== 'undefined' && QRI18n.studyLang) { var l = QRI18n.studyLang(); return (l === 'hi' || l === 'mr') ? l : 'en'; } } catch (_) {}
+  return 'en';
+}
+
+/** Get stored mistakes for review mode. Normalised to the current archive schema on read (v1 records upgrade in place). */
 function getMistakes() {
   var p = loadProgress();
-  return p.mistakes || [];
+  var list = p.mistakes || [];
+  return (typeof QRMistakeArchive !== 'undefined') ? QRMistakeArchive.normalizeList(list) : list;
+}
+
+/* ── Mistake Archive query + mutation + sync API (ADR-111 F-M8). The durable foundation for review, bookmarks,
+   spaced repetition, weak-topic detection, revision plans, coaching analytics, export and search. All persist. ── */
+
+/** Filter / sort / search the archive. opts per QRMistakeArchive.query. Returns normalised v2 records. */
+function queryMistakes(opts) {
+  if (typeof QRMistakeArchive === 'undefined') return getMistakes();
+  return QRMistakeArchive.query(loadProgress().mistakes || [], opts);
+}
+/** Distinct-value facet counts for building filter chips. */
+function mistakeFacets() {
+  if (typeof QRMistakeArchive === 'undefined') return {};
+  return QRMistakeArchive.facets(loadProgress().mistakes || []);
+}
+/* Mutate one record by id, persist, return whether it was found. */
+function _mutateMistake(id, fn) {
+  var p = loadProgress();
+  if (!Array.isArray(p.mistakes)) return false;
+  var found = false;
+  p.mistakes = p.mistakes.map(function (raw) {
+    var r = (typeof QRMistakeArchive !== 'undefined') ? QRMistakeArchive.normalize(raw) : raw;
+    if (r && r.id === id) { found = true; fn(r); }
+    return r;
+  });
+  if (found) saveProgress(p);
+  return found;
+}
+/** Toggle/set a bookmark on a mistake (future: saved-for-later, revision decks). */
+function bookmarkMistake(id, on) { return _mutateMistake(id, function (r) { r.bookmarked = (on == null) ? !r.bookmarked : !!on; }); }
+/** Mark a mistake resolved / unresolved (future: weak-topic clearing, mastery tracking). */
+function resolveMistake(id, on) { return _mutateMistake(id, function (r) { r.resolved = (on == null) ? !r.resolved : !!on; }); }
+/** Record that a mistake was reviewed (future: spaced-repetition scheduling). gotItRight resolves it. */
+function recordMistakeReview(id, gotItRight, ts) {
+  return _mutateMistake(id, function (r) { r.reviewCount = (r.reviewCount || 0) + 1; r.lastReviewedTs = (typeof ts === 'number') ? ts : Date.now(); if (gotItRight) r.resolved = true; });
+}
+/** Delete one mistake by id; returns the removed record (for undo/restore) or null. */
+function deleteMistake(id) {
+  var p = loadProgress();
+  if (!Array.isArray(p.mistakes)) return null;
+  var removed = null;
+  p.mistakes = p.mistakes.filter(function (raw) {
+    var r = (typeof QRMistakeArchive !== 'undefined') ? QRMistakeArchive.normalize(raw) : raw;
+    if (r && r.id === id && !removed) { removed = r; return false; }
+    return true;
+  });
+  if (removed) saveProgress(p);
+  return removed;
+}
+/** Restore a previously-deleted record (merge-by-id so a re-add can't duplicate). */
+function restoreMistake(record) {
+  if (!record || typeof QRMistakeArchive === 'undefined') return false;
+  var p = loadProgress();
+  p.mistakes = QRMistakeArchive.mergeMistakes(p.mistakes || [], [record]);
+  saveProgress(p);
+  return true;
+}
+/** Reconcile remote (cloud) mistakes into the local archive with no duplication / loss / corruption (sync integrity). */
+function reconcileRemoteMistakes(remoteList) {
+  if (typeof QRMistakeArchive === 'undefined') return getMistakes();
+  var p = loadProgress();
+  p.mistakes = QRMistakeArchive.mergeMistakes(p.mistakes || [], remoteList || []);
+  saveProgress(p);
+  return p.mistakes;
 }
 
 /** Get average response time */

@@ -1126,17 +1126,18 @@ function generateMultiTopic(n, topicKeys, difficulty) {
  */
 function generateMistakeReviewQuestions(n) {
   var mistakes = getMistakes();
-  /* What can be re-served (ADR-079): Quant numeric, and any self-contained text-MCQ LR item whose options were
-     stored (generated LR + authored CR). Still EXCLUDED — DI (needs the chart dataset), LR puzzle SETS (need the
-     shared scenario) and LR visual items (need the figure): a stored mistake can't reconstruct that context. */
-  var NEEDS_CONTEXT = { 'lr-seating': 1, 'lr-puzzle': 1, 'lr-mirror': 1, 'lr-water': 1, 'lr-dice': 1, 'lr-cube': 1, 'lr-fseries': 1, 'lr-fanalogy': 1, 'lr-odd-fig': 1, 'lr-paper': 1, 'lr-pattern': 1, 'lr-embedded': 1 };
-  mistakes = mistakes.filter(function (m) {
-    var c = String(m && m.category);
-    if (c.indexOf('di-') === 0) return false;
-    if (NEEDS_CONTEXT[c]) return false;
-    if (c.indexOf('lr-') === 0) return !!(m.options && m.options.length);   // re-serve only if options were stored
-    return true;
-  });
+  /* F-M8: the archive stores the FULL rendered question incl. machine chart/figure/optionFigure specs, so DI single
+     charts and LR-visual items are now reviewable too — the drill re-renders them from the stored spec (drill-engine
+     renders q.chart / q.figure / q.optionFigures). Only shared-context SETS (lr-seating, lr-puzzle, di-caselet) stay
+     excluded: one stored question can't reconstruct their scenario/caselet prose. QRMistakeArchive.isReviewable owns
+     this decision; toReviewQuestion reconstructs the drill question (frozen, in its capture language). */
+  var _reviewable = (typeof QRMistakeArchive !== 'undefined')
+    ? function (m) { return QRMistakeArchive.isReviewable(m); }
+    : function (m) { var c = String(m && m.category); if (c.indexOf('di-') === 0) return false; if (c.indexOf('lr-') === 0) return !!(m.options && m.options.length); return true; };
+  var _toQ = (typeof QRMistakeArchive !== 'undefined')
+    ? function (m) { return QRMistakeArchive.toReviewQuestion(m); }
+    : function (m) { return { question: m.question, answer: m.answer, category: m.category, options: m.options || undefined, explanation: m.explanation || undefined, subtype: m.subtype || undefined }; };
+  mistakes = mistakes.filter(_reviewable);
   if (mistakes.length === 0) return [];
 
   /* Shuffle and take up to n */
@@ -1148,9 +1149,7 @@ function generateMistakeReviewQuestions(n) {
     shuffled[j] = temp;
   }
 
-  return shuffled.slice(0, n).map(function (m) {
-    return { question: m.question, answer: m.answer, category: m.category, options: m.options || undefined, explanation: m.explanation || undefined, subtype: m.subtype || undefined };
-  });
+  return shuffled.slice(0, n).map(_toQ);
 }
 
 /* Dual-mode export: on the client this file loads as a <script> (no `module`); under Node (api/duel.js

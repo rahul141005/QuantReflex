@@ -1496,6 +1496,8 @@
        which derives Quant's category set from it. Subject is a derived lens — no Firestore, no stored rollup. -->
   <script defer src="services/quantTopics.js"></script>
   <script defer src="data/subjects.js"></script>
+  <!-- Mistake Archive foundation (ADR-111 F-M8): schema/merge/query/replay. MUST load before progress.js. -->
+  <script defer src="js/mistake-archive.js"></script>
   <script defer src="js/progress.js"></script>
   <!-- Shared procedural-generation helpers (ADR-083): MUST load before questions.js (window.QRGen). -->
   <script defer src="js/utils/generative-helpers.js"></script>
