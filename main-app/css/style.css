@@ -11844,7 +11844,7 @@ html.dark-mode .category-tier-label { color: #94a3b8; }
    SVG mask paints in currentColor — so playful+dark tints automatically and a
    theme switch needs no JS re-render. Unbound names degrade to a neutral dot.
    ═══════════════════════════════════════════════════════════════════════════ */
-html.theme-playful .qr-ico {
+.qr-ico {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -11856,7 +11856,7 @@ html.theme-playful .qr-ico {
   color: var(--qr-accent);
   --ico: var(--qri-dot);
 }
-html.theme-playful .qr-ico::before {
+.qr-ico::before {
   content: '';
   display: block;
   width: 100%;
@@ -11867,73 +11867,73 @@ html.theme-playful .qr-ico::before {
 }
 
 /* Context sizing & tinting (playful only) */
-html.theme-playful .bottom-nav .nav-icon .qr-ico { --qr-ico-size: 1.4rem; }
-html.theme-playful header h1 .qr-ico { --qr-ico-size: 1.5rem; vertical-align: -0.15em; }
-html.theme-playful .settings-label h3 .qr-ico { --qr-ico-size: 1.05rem; }
-html.theme-playful .mode-card h3 .qr-ico { --qr-ico-size: 1.15rem; }
-html.theme-playful .settings-btn-label .qr-ico,
-html.theme-playful .settings-action-btn .qr-ico { --qr-ico-size: 1.05rem; color: inherit; }
-html.theme-playful .clear-option-icon.qr-ico { --qr-ico-size: 1.25rem; }
-html.theme-playful .home-cta-icon.qr-ico { --qr-ico-size: 1.5rem; color: #ffffff; }
-html.theme-playful .home-bento-icon.qr-ico { --qr-ico-size: 1.45rem; }
-html.theme-playful .pw-trust-item .qr-ico { --qr-ico-size: 0.95rem; color: inherit; }
+.bottom-nav .nav-icon .qr-ico { --qr-ico-size: 1.4rem; }
+header h1 .qr-ico { --qr-ico-size: 1.5rem; vertical-align: -0.15em; }
+.settings-label h3 .qr-ico { --qr-ico-size: 1.05rem; }
+.mode-card h3 .qr-ico { --qr-ico-size: 1.15rem; }
+.settings-btn-label .qr-ico,
+.settings-action-btn .qr-ico { --qr-ico-size: 1.05rem; color: inherit; }
+.clear-option-icon.qr-ico { --qr-ico-size: 1.25rem; }
+.home-cta-icon.qr-ico { --qr-ico-size: 1.5rem; color: #ffffff; }
+.home-bento-icon.qr-ico { --qr-ico-size: 1.45rem; }
+.pw-trust-item .qr-ico { --qr-ico-size: 0.95rem; color: inherit; }
 html.theme-playful .bottom-nav a.active .nav-icon .qr-ico { color: var(--qr-grad-b, #2dd4bf); }
 
 /* name → glyph bindings */
-html.theme-playful .qr-ico[data-ico='home'] { --ico: var(--qri-home); }
-html.theme-playful .qr-ico[data-ico='practice'] { --ico: var(--qri-target); }
-html.theme-playful .qr-ico[data-ico='learn'] { --ico: var(--qri-book-open); }
-html.theme-playful .qr-ico[data-ico='stats'] { --ico: var(--qri-chart-bar); }
-html.theme-playful .qr-ico[data-ico='settings'] { --ico: var(--qri-cog); }
-html.theme-playful .qr-ico[data-ico='zap'] { --ico: var(--qri-zap); }
-html.theme-playful .qr-ico[data-ico='activity'] { --ico: var(--qri-activity); }
-html.theme-playful .qr-ico[data-ico='timer'] { --ico: var(--qri-timer); }
-html.theme-playful .qr-ico[data-ico='chart-bar'] { --ico: var(--qri-chart-bar); }
-html.theme-playful .qr-ico[data-ico='nodes'] { --ico: var(--qri-nodes); }
-html.theme-playful .qr-ico[data-ico='target'] { --ico: var(--qri-target); }
-html.theme-playful .qr-ico[data-ico='shuffle'] { --ico: var(--qri-shuffle); }
-html.theme-playful .qr-ico[data-ico='rotate'] { --ico: var(--qri-rotate); }
-html.theme-playful .qr-ico[data-ico='file-text'] { --ico: var(--qri-file-text); }
-html.theme-playful .qr-ico[data-ico='bot'] { --ico: var(--qri-bot); }
-html.theme-playful .qr-ico[data-ico='moon'] { --ico: var(--qri-moon); }
-html.theme-playful .qr-ico[data-ico='palette'] { --ico: var(--qri-palette); }
-html.theme-playful .qr-ico[data-ico='graduation'] { --ico: var(--qri-graduation); }
-html.theme-playful .qr-ico[data-ico='gauge'] { --ico: var(--qri-gauge); }
-html.theme-playful .qr-ico[data-ico='skip'] { --ico: var(--qri-skip); }
-html.theme-playful .qr-ico[data-ico='sliders'] { --ico: var(--qri-sliders); }
-html.theme-playful .qr-ico[data-ico='volume'] { --ico: var(--qri-volume); }
-html.theme-playful .qr-ico[data-ico='vibrate'] { --ico: var(--qri-vibrate); }
-html.theme-playful .qr-ico[data-ico='pause-circle'] { --ico: var(--qri-pause-circle); }
-html.theme-playful .qr-ico[data-ico='bell'] { --ico: var(--qri-bell); }
-html.theme-playful .qr-ico[data-ico='book'] { --ico: var(--qri-book); }
-html.theme-playful .qr-ico[data-ico='info'] { --ico: var(--qri-info); }
-html.theme-playful .qr-ico[data-ico='user'] { --ico: var(--qri-user); }
-html.theme-playful .qr-ico[data-ico='log-out'] { --ico: var(--qri-log-out); }
-html.theme-playful .qr-ico[data-ico='trash'] { --ico: var(--qri-trash); }
-html.theme-playful .qr-ico[data-ico='download'] { --ico: var(--qri-download); }
-html.theme-playful .qr-ico[data-ico='layers'] { --ico: var(--qri-layers); }
-html.theme-playful .qr-ico[data-ico='swords'] { --ico: var(--qri-swords); }
-html.theme-playful .qr-ico[data-ico='calendar'] { --ico: var(--qri-calendar); }
-html.theme-playful .qr-ico[data-ico='lock'] { --ico: var(--qri-lock); }
-html.theme-playful .qr-ico[data-ico='flame'] { --ico: var(--qri-flame); }
-html.theme-playful .qr-ico[data-ico='alert'] { --ico: var(--qri-alert); }
-html.theme-playful .qr-ico[data-ico='flag'] { --ico: var(--qri-flag); }
+.qr-ico[data-ico='home'] { --ico: var(--qri-home); }
+.qr-ico[data-ico='practice'] { --ico: var(--qri-target); }
+.qr-ico[data-ico='learn'] { --ico: var(--qri-book-open); }
+.qr-ico[data-ico='stats'] { --ico: var(--qri-chart-bar); }
+.qr-ico[data-ico='settings'] { --ico: var(--qri-cog); }
+.qr-ico[data-ico='zap'] { --ico: var(--qri-zap); }
+.qr-ico[data-ico='activity'] { --ico: var(--qri-activity); }
+.qr-ico[data-ico='timer'] { --ico: var(--qri-timer); }
+.qr-ico[data-ico='chart-bar'] { --ico: var(--qri-chart-bar); }
+.qr-ico[data-ico='nodes'] { --ico: var(--qri-nodes); }
+.qr-ico[data-ico='target'] { --ico: var(--qri-target); }
+.qr-ico[data-ico='shuffle'] { --ico: var(--qri-shuffle); }
+.qr-ico[data-ico='rotate'] { --ico: var(--qri-rotate); }
+.qr-ico[data-ico='file-text'] { --ico: var(--qri-file-text); }
+.qr-ico[data-ico='bot'] { --ico: var(--qri-bot); }
+.qr-ico[data-ico='moon'] { --ico: var(--qri-moon); }
+.qr-ico[data-ico='palette'] { --ico: var(--qri-palette); }
+.qr-ico[data-ico='graduation'] { --ico: var(--qri-graduation); }
+.qr-ico[data-ico='gauge'] { --ico: var(--qri-gauge); }
+.qr-ico[data-ico='skip'] { --ico: var(--qri-skip); }
+.qr-ico[data-ico='sliders'] { --ico: var(--qri-sliders); }
+.qr-ico[data-ico='volume'] { --ico: var(--qri-volume); }
+.qr-ico[data-ico='vibrate'] { --ico: var(--qri-vibrate); }
+.qr-ico[data-ico='pause-circle'] { --ico: var(--qri-pause-circle); }
+.qr-ico[data-ico='bell'] { --ico: var(--qri-bell); }
+.qr-ico[data-ico='book'] { --ico: var(--qri-book); }
+.qr-ico[data-ico='info'] { --ico: var(--qri-info); }
+.qr-ico[data-ico='user'] { --ico: var(--qri-user); }
+.qr-ico[data-ico='log-out'] { --ico: var(--qri-log-out); }
+.qr-ico[data-ico='trash'] { --ico: var(--qri-trash); }
+.qr-ico[data-ico='download'] { --ico: var(--qri-download); }
+.qr-ico[data-ico='layers'] { --ico: var(--qri-layers); }
+.qr-ico[data-ico='swords'] { --ico: var(--qri-swords); }
+.qr-ico[data-ico='calendar'] { --ico: var(--qri-calendar); }
+.qr-ico[data-ico='lock'] { --ico: var(--qri-lock); }
+.qr-ico[data-ico='flame'] { --ico: var(--qri-flame); }
+.qr-ico[data-ico='alert'] { --ico: var(--qri-alert); }
+.qr-ico[data-ico='flag'] { --ico: var(--qri-flag); }
 /* Report modal chrome (ADR-099): bind the icons the report sheet uses so Playful paints masks instead of the
    neutral-dot fallback. 'robot' reuses the existing bot glyph. */
-html.theme-playful .qr-ico[data-ico='close'] { --ico: var(--qri-x); }
-html.theme-playful .qr-ico[data-ico='back'] { --ico: var(--qri-chevron-left); }
-html.theme-playful .qr-ico[data-ico='send'] { --ico: var(--qri-send); }
-html.theme-playful .qr-ico[data-ico='check'] { --ico: var(--qri-check); }
-html.theme-playful .qr-ico[data-ico='robot'] { --ico: var(--qri-bot); }
+.qr-ico[data-ico='close'] { --ico: var(--qri-x); }
+.qr-ico[data-ico='back'] { --ico: var(--qri-chevron-left); }
+.qr-ico[data-ico='send'] { --ico: var(--qri-send); }
+.qr-ico[data-ico='check'] { --ico: var(--qri-check); }
+.qr-ico[data-ico='robot'] { --ico: var(--qri-bot); }
 /* Contact card (ADR-100) */
-html.theme-playful .qr-ico[data-ico='mail'] { --ico: var(--qri-mail); }
-html.theme-playful .qr-ico[data-ico='copy'] { --ico: var(--qri-copy); }
+.qr-ico[data-ico='mail'] { --ico: var(--qri-mail); }
+.qr-ico[data-ico='copy'] { --ico: var(--qri-copy); }
 /* Language settings rows (ADR-111) */
-html.theme-playful .qr-ico[data-ico='globe'] { --ico: var(--qri-globe); }
-html.theme-playful .qr-ico[data-ico='book-open'] { --ico: var(--qri-book-open); }
+.qr-ico[data-ico='globe'] { --ico: var(--qri-globe); }
+.qr-ico[data-ico='book-open'] { --ico: var(--qri-book-open); }
 
 /* glyph tokens (URL-encoded monochrome SVG masks) */
-html.theme-playful {
+:root {
   --qri-dot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Ccircle cx='12' cy='12' r='5' fill='%23000' stroke='none'/%3E%3C/svg%3E");
   --qri-activity: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'/%3E%3C/svg%3E");
   --qri-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Ccircle cx='12' cy='17' r='1' fill='%23000' stroke='none'/%3E%3C/svg%3E");
