@@ -314,6 +314,78 @@ GEN_FILES.forEach(function (eng) {
   });
 });
 
+/* ============================================================================
+ * 10. DI cross-language invariance + chart-text surface safety (F-M5)
+ *   The DI engine generates directly in the active study language. For a fixed RNG seed the dataset, answer and chart
+ *   NUMBERS must be identical across en/hi/mr — only wording (stem + chart title/axis/labels/columns) differs. Leak +
+ *   Devanagari-digit checks apply only where a language's DI pack is actually authored (registerDI called); until then
+ *   hi/mr fall back to EN and are reported as gaps.
+ * ==========================================================================*/
+section('10. DI cross-language invariance + chart-text safety (F-M5)');
+var DI = require('../js/di-engine.js');
+require('../locales/gen/en.di.js'); require('../locales/gen/hi.di.js'); require('../locales/gen/mr.di.js');
+var DICATS = ['di-bar', 'di-line', 'di-pie', 'di-table', 'di-caselet'];
+function genDIAt(lang, cat, diff, seed) {
+  var orig = Math.random;
+  global.QRI18n = { studyLang: function () { return lang; }, langs: function () { return { app: lang, study: lang }; } };
+  Math.random = makeLCG(seed);
+  var q; try { q = DI.generate(cat, diff); } catch (e) { q = null; }
+  Math.random = orig; delete global.QRI18n;
+  return q;
+}
+/* language-neutral fingerprint of a chart: kind + all NUMBERS + structural counts/flags (NO text). */
+function chartNums(c) {
+  if (!c) return 'none';
+  var p = [c.kind];
+  if (c.labels) p.push('L' + c.labels.length);
+  if (c.values) p.push('V' + c.values.join(','));
+  if (c.series) p.push('S' + c.series.map(function (s) { return s.values.join(','); }).join(';') + '#' + c.series.length);
+  if (c.rows) p.push('R' + c.rows.map(function (r) { return r.slice(1).join(','); }).join(';'));
+  if (c.columns) p.push('C' + c.columns.length);
+  if (c.horizontal != null) p.push('h' + c.horizontal);
+  if (c.stacked != null) p.push('k' + c.stacked);
+  return p.join('|');
+}
+/* all localizable TEXT on a chart spec (for leak/Devanagari checks). */
+function chartText(c) {
+  if (!c) return '';
+  var t = [c.title || '', c.unit || '', c.xLabel || '', c.yLabel || ''];
+  if (c.series) c.series.forEach(function (s) { t.push(s.name); });
+  if (c.columns) t = t.concat(c.columns);
+  if (c.rows) c.rows.forEach(function (r) { t.push(r[0]); });   // row label (col 0) is an entity name
+  return t.join(' ‖ ');
+}
+/* DI DNT: exam/brand acronyms + single-letter entity codes + unit tokens that stay Latin even in hi/mr. */
+var DI_DNT = ['crore', 'lakh', 'tonnes', 'units', 'MW', 'Kharif', 'Rabi'];
+var diInv = 0, diLeak = 0, diDev = 0, diChecked = 0, diActive = 0;
+var diAuthored = { hi: !!QRGenI18n._di.hi, mr: !!QRGenI18n._di.mr };
+DICATS.forEach(function (cat, ci) {
+  DIFFS8.forEach(function (diff, di) {
+    for (var s = 0; s < 60; s++) {
+      var seed = 0x3d1a + ci * 6113 + di * 211 + s * 23;
+      var en = genDIAt('en', cat, diff, seed), hi = genDIAt('hi', cat, diff, seed), mr = genDIAt('mr', cat, diff, seed);
+      if (!en || !hi || !mr) continue;
+      diChecked++;
+      /* MATH invariance: answer + subtype + chart NUMBERS identical across languages. */
+      var fEn = en.answer + '§' + en.subtype + '§' + chartNums(en.chart);
+      if (hi.answer + '§' + hi.subtype + '§' + chartNums(hi.chart) !== fEn) diInv++;
+      if (mr.answer + '§' + mr.subtype + '§' + chartNums(mr.chart) !== fEn) diInv++;
+      /* Surface safety only where the language's DI pack is authored (else it is EN-fallback → English, not testable). */
+      [['hi', hi], ['mr', mr]].forEach(function (p) {
+        if (!diAuthored[p[0]]) return;
+        diActive++;
+        var surf = p[1].question + ' ‖ ' + chartText(p[1].chart);
+        if (genLeaks(surf, DI_DNT)) diLeak++;
+        if (hasDevanagariDigit(surf)) diDev++;
+      });
+    }
+  });
+});
+ok(diInv === 0, 'DI cross-language invariance holds (answer/subtype/chart-numbers) — ' + diChecked + ' samples/lang');
+ok(diLeak === 0, 'no Latin leak in authored hi/mr DI surfaces (' + diActive + ' active)');
+ok(diDev === 0, 'no Devanagari digits in DI output');
+console.log('  di.hi authored=' + diAuthored.hi + ', di.mr authored=' + diAuthored.mr + ' (fall back to EN until F-M5.2/5.3)');
+
 /* ============================================================================ */
 module.exports = { makeLCG: makeLCG, digitMultiset: digitMultiset, hasDevanagariDigit: hasDevanagariDigit, genLeaks: genLeaks, assertInvariant: assertInvariant };
 
