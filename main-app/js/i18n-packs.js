@@ -24,7 +24,10 @@ var QRPacks = (function () {
     'data/knowledge/i18n/{lang}/numbers.js',     // G-M3
     'data/knowledge/i18n/{lang}/arithmetic.js',  // G-M4
     'data/knowledge/i18n/{lang}/commercial.js',  // G-M5
-    'data/knowledge/i18n/{lang}/algebra.js'      // G-M5
+    'data/knowledge/i18n/{lang}/algebra.js',      // G-M5
+    'data/knowledge/i18n/{lang}/modern.js',       // G-M6
+    'data/knowledge/i18n/{lang}/geometry.js',     // G-M6
+    'data/knowledge/i18n/{lang}/mensuration.js'   // G-M6
   ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
