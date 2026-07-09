@@ -66,6 +66,17 @@ var QRPacks = (function () {
   /** True once the language's packs are loaded (or for English, always). */
   function ready(lang) { lang = _valid(lang); return lang === 'en' || _state[lang] === true; }
 
+  /* Self-wiring: whenever the STUDY language changes, ensure that language's packs (gen + content) are present before
+     consumers re-render. A no-op for 'en' and while the flag is OFF (setLanguages coerces study to 'en'), so nothing
+     loads pre-launch. Guarded for non-DOM/boot-order. Consumers that must block on load can still call ensure() with a
+     callback; this hook covers the common "switch language, then the views repaint" path. */
+  try {
+    if (typeof QRI18n !== 'undefined' && QRI18n.onChange) {
+      QRI18n.onChange(function (app, study) { ensure(study); });
+      if (QRI18n.studyLang) ensure(QRI18n.studyLang());   // boot: load the already-active study language
+    }
+  } catch (_) {}
+
   var API = { ensure: ensure, ready: ready, files: _files, registerContent: registerContent };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof window !== 'undefined') window.QRPacks = API;

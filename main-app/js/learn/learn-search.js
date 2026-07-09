@@ -122,7 +122,14 @@
     return out;
   }
 
-  var LearnSearch = { build: build, query: query, queryCards: queryCards };
+  /* Drop both cached indexes so the next query re-reads the KnowledgeBase. The merged view returns the active study
+     language's title + BILINGUAL searchTerms (EN base + translated union), so a rebuild makes search work in either
+     script — "percentage" AND "प्रतिशत" AND "शेकडेवारी" all resolve the same topic (ADR-111 Phase G, G-M1). */
+  function invalidate() { _index = null; _cardIndex = null; }
+  /* Rebuild on a language switch (LearnView.invalidateHub already re-renders the hub on the same signal). */
+  try { if (typeof QRI18n !== 'undefined' && QRI18n.onChange) QRI18n.onChange(invalidate); } catch (_) {}
+
+  var LearnSearch = { build: build, query: query, queryCards: queryCards, invalidate: invalidate };
   if (typeof module !== 'undefined' && module.exports) module.exports = LearnSearch;
   if (typeof window !== 'undefined') window.LearnSearch = LearnSearch;
   else root.LearnSearch = LearnSearch;

@@ -24,6 +24,13 @@ var BlockRenderers = (function () {
     return e;
   }
   function _itemText(it) { return typeof it === 'string' ? it : (it && it.text) || ''; }
+  /* Renderer chrome (section labels + inline block headings) follows the APP language via t() (ADR-111 Phase G,
+     blueprint §6.4.5): a diverged app=en/study=hi page shows Devanagari CONTENT under English chrome. Guarded for the
+     node render check (no QRI18n); when the flag is OFF, t() returns the English catalog value byte-identically. */
+  function _tx(key, fallback) {
+    try { if (typeof QRI18n !== 'undefined' && QRI18n.t) { var v = QRI18n.t('learn.' + key); if (v && v !== 'learn.' + key) return v; } } catch (_) {}
+    return fallback;
+  }
   function _title(id) {
     var KB = (typeof window !== 'undefined' && window.KnowledgeBase) ? window.KnowledgeBase
       : (typeof KnowledgeBase !== 'undefined' ? KnowledgeBase : null);
@@ -46,11 +53,11 @@ var BlockRenderers = (function () {
       (b.items || []).forEach(function (it) {
         var blk = _el('div', 'formula-block');           // reuse the existing formula card identity
         blk.appendChild(_el('h3', 'formula-block-title', _esc(it.name)));
-        blk.appendChild(_el('div', 'formula-label', 'Formula:'));
+        blk.appendChild(_el('div', 'formula-label', _tx('blkFormula', 'Formula:')));
         blk.appendChild(_el('p', 'formula-text', _esc(it.expr)));
-        if (it.when) { blk.appendChild(_el('div', 'formula-label', 'Use when:')); blk.appendChild(_el('p', 'formula-tip', _esc(it.when))); }
-        if (it.whenNot) { blk.appendChild(_el('div', 'formula-label kx-label-warn', 'Avoid when:')); blk.appendChild(_el('p', 'formula-tip', _esc(it.whenNot))); }
-        if (it.trap) { blk.appendChild(_el('div', 'formula-label kx-label-trap', 'Trap:')); blk.appendChild(_el('p', 'formula-tip', _esc(it.trap))); }
+        if (it.when) { blk.appendChild(_el('div', 'formula-label', _tx('blkUseWhen', 'Use when:'))); blk.appendChild(_el('p', 'formula-tip', _esc(it.when))); }
+        if (it.whenNot) { blk.appendChild(_el('div', 'formula-label kx-label-warn', _tx('blkAvoidWhen', 'Avoid when:'))); blk.appendChild(_el('p', 'formula-tip', _esc(it.whenNot))); }
+        if (it.trap) { blk.appendChild(_el('div', 'formula-label kx-label-trap', _tx('blkTrap', 'Trap:'))); blk.appendChild(_el('p', 'formula-tip', _esc(it.trap))); }
         wrap.appendChild(blk);
       });
       return wrap;
@@ -58,7 +65,7 @@ var BlockRenderers = (function () {
 
     trick: function (b) {
       var d = _el('div', 'kx-callout kx-trick');
-      d.appendChild(_el('h3', 'kx-callout-head', '⚡ ' + _esc(b.title || 'Speed trick')));
+      d.appendChild(_el('h3', 'kx-callout-head', '⚡ ' + _esc(b.title || _tx('blkSpeedTrick', 'Speed trick'))));
       var ul = _el('ul', 'kx-callout-list');
       (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
       d.appendChild(ul);
@@ -67,7 +74,7 @@ var BlockRenderers = (function () {
 
     trap: function (b) {
       var d = _el('div', 'kx-callout kx-trap');
-      d.appendChild(_el('h3', 'kx-callout-head', '⚠️ ' + _esc(b.title || 'Common mistakes')));
+      d.appendChild(_el('h3', 'kx-callout-head', '⚠️ ' + _esc(b.title || _tx('blkCommonMistakes', 'Common mistakes'))));
       var ul = _el('ul', 'kx-callout-list');
       (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
       d.appendChild(ul);
@@ -76,7 +83,7 @@ var BlockRenderers = (function () {
 
     exam: function (b) {
       var d = _el('div', 'kx-callout kx-exam');
-      d.appendChild(_el('h3', 'kx-callout-head', '📌 ' + _esc(b.title || 'Exam strategy')));
+      d.appendChild(_el('h3', 'kx-callout-head', '📌 ' + _esc(b.title || _tx('blkExamStrategy', 'Exam strategy'))));
       var ul = _el('ul', 'kx-callout-list');
       (b.items || []).forEach(function (it) { ul.appendChild(_el('li', null, _esc(_itemText(it)))); });
       d.appendChild(ul);
@@ -85,19 +92,19 @@ var BlockRenderers = (function () {
 
     memory: function (b) {
       var d = _el('div', 'kx-callout kx-memory');
-      d.appendChild(_el('h3', 'kx-callout-head', '🧠 Memory hook'));
+      d.appendChild(_el('h3', 'kx-callout-head', '🧠 ' + _tx('blkMemoryHook', 'Memory hook')));
       d.appendChild(_el('p', 'kx-callout-body', _esc(b.text)));
       return d;
     },
 
     example: function (b) {
       var d = _el('div', 'kx-example');
-      d.appendChild(_el('h3', 'kx-example-head', '📝 Solved example'));
+      d.appendChild(_el('h3', 'kx-example-head', '📝 ' + _tx('blkSolvedExample', 'Solved example')));
       d.appendChild(_el('p', 'kx-example-problem', _esc(b.problem)));
       var ol = _el('ol', 'kx-example-steps');
       (b.steps || []).forEach(function (s) { ol.appendChild(_el('li', null, _esc(s))); });
       d.appendChild(ol);
-      d.appendChild(_el('div', 'kx-example-answer', 'Answer: ' + _esc(b.answer)));
+      d.appendChild(_el('div', 'kx-example-answer', _tx('blkAnswer', 'Answer:') + ' ' + _esc(b.answer)));
       return d;
     },
 
@@ -146,20 +153,27 @@ var BlockRenderers = (function () {
     return R[block.type](block);
   }
 
-  /** Section-nav labels for the in-page topic navigation. Richer, textbook-style headings (ADR-081). */
+  /** Section-nav labels for the in-page topic navigation. Richer, textbook-style headings (ADR-081). English is the
+     byte-identical fallback; each maps to a `learn.sec*` catalog key resolved (app language) at render time. */
   var SECTION_LABELS = {
     overview: 'Overview', concept: 'Concept', formula: 'Key Formulae', trick: 'Shortcuts & Tricks',
     trap: 'Common Mistakes', exam: 'Exam Strategy', example: 'Solved Example', table: 'At a Glance',
     memory: 'Memory Hook', revision: 'Key Takeaways', related: 'Related'
   };
+  var SECTION_KEYS = {
+    overview: 'secOverview', concept: 'secConcept', formula: 'secFormula', trick: 'secTrick',
+    trap: 'secTrap', exam: 'secExam', example: 'secExample', table: 'secTable',
+    memory: 'secMemory', revision: 'secRevision', related: 'secRelated'
+  };
 
   /* The heading shown above a section + on its nav pill. A concept names itself (its own title) and a table prefers
      its caption — so a chapter reads as a real table of contents ("The overlap of +1", "Mirror vs Water") instead of
-     "Concept · Concept · Table". Falls back to the generic label. */
+     "Concept · Concept · Table". Falls back to the generic (localized) label. */
   function sectionLabel(block) {
     if (!block) return '';
     if (block.type === 'concept' && block.title) return String(block.title);
     if (block.type === 'table' && block.caption) return String(block.caption);
+    if (SECTION_KEYS[block.type]) return _tx(SECTION_KEYS[block.type], SECTION_LABELS[block.type]);
     return SECTION_LABELS[block.type] || block.type;
   }
 
