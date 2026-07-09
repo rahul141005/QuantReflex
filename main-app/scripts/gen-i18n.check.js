@@ -386,6 +386,79 @@ ok(diLeak === 0, 'no Latin leak in authored hi/mr DI surfaces (' + diActive + ' 
 ok(diDev === 0, 'no Devanagari digits in DI output');
 console.log('  di.hi authored=' + diAuthored.hi + ', di.mr authored=' + diAuthored.mr + ' (fall back to EN until F-M5.2/5.3)');
 
+/* ============================================================================
+ * 11. LR cross-language invariance + option-term surface safety (F-M6)
+ *   The LR engine (like DI) generates directly in the active study language via a rich pack (locales/gen/<lang>.lr.js).
+ *   LR output is FULLY deterministic, so EN byte-identity is separately proven by lr-census.js (exact djb2 hashes).
+ *   Here we prove BEHAVIOURAL EQUIVALENCE across en/hi/mr: for a fixed RNG seed the subtype, the number of options, and
+ *   the ANSWER'S INDEX within the option list must be identical — text-MCQ answers are language-specific STRINGS
+ *   (Daughter/पुत्री/मुलगी), so correctness is compared by INDEX, never by text; numeric answers (ranking/clock/io) carry
+ *   no options and are compared by value (digits are language-neutral). Digit multiset is preserved across languages.
+ *   Leak + Devanagari-digit checks apply only where a language's LR pack is authored (registerLR called); until then
+ *   hi/mr fall back to EN and are reported as gaps — mirroring §10.
+ * ==========================================================================*/
+section('11. LR cross-language invariance + option-term safety (F-M6)');
+var LR = require('../js/lr-engine.js');
+require('../locales/gen/en.lr.js');
+try { require('../locales/gen/hi.lr.js'); } catch (_) { /* not authored yet */ }
+try { require('../locales/gen/mr.lr.js'); } catch (_) { /* not authored yet */ }
+var LRCATS = ['lr-coding', 'lr-blood', 'lr-direction', 'lr-ranking', 'lr-odd', 'lr-analogy', 'lr-syllogism',
+  'lr-series', 'lr-inequality', 'lr-calendar', 'lr-clock', 'lr-io'];
+function genLRAt(lang, cat, diff, seed) {
+  var orig = Math.random;
+  global.QRI18n = { studyLang: function () { return lang; }, langs: function () { return { app: lang, study: lang }; } };
+  Math.random = makeLCG(seed);
+  var q; try { q = LR.generate(cat, diff); } catch (e) { q = null; }
+  Math.random = orig; delete global.QRI18n;
+  return q;
+}
+/* Language-neutral behavioural fingerprint: subtype + option count + answer INDEX (or the numeric answer when
+   there are no options). This is what MUST match across languages; the option STRINGS legitimately differ. */
+function lrFingerprint(q) {
+  if (!q) return 'none';
+  var opts = q.options || [];
+  var idx = opts.indexOf(q.answer);
+  return q.subtype + '§n' + opts.length + '§' + (opts.length ? ('i' + idx) : ('a' + String(q.answer)));
+}
+/* All localizable TEXT on an LR question (for leak/Devanagari checks) — stem + rendered option strings. */
+function lrText(q) { return (q.question || '') + ' ‖ ' + (q.options || []).join(' ‖ '); }
+/* LR DNT: coding cipher substrates and single variable letters are already handled by the all-caps rule / <3-run rule
+   in genLeaks; only add tokens that survive those and are legitimately Latin in hi/mr LR books. */
+var LR_DNT = [];
+var lrInv = 0, lrDig = 0, lrLeak = 0, lrDev = 0, lrChecked = 0, lrActive = 0;
+var lrAuthored = { hi: !!(QRGenI18n._rich.lr && QRGenI18n._rich.lr.hi), mr: !!(QRGenI18n._rich.lr && QRGenI18n._rich.lr.mr) };
+LRCATS.forEach(function (cat, ci) {
+  DIFFS8.forEach(function (diff, di) {
+    for (var s = 0; s < 60; s++) {
+      var seed = 0x5c2b + ci * 7127 + di * 349 + s * 29;
+      var en = genLRAt('en', cat, diff, seed), hi = genLRAt('hi', cat, diff, seed), mr = genLRAt('mr', cat, diff, seed);
+      if (!en || !hi || !mr) continue;
+      lrChecked++;
+      /* BEHAVIOURAL invariance: subtype + option count + answer index identical across languages. */
+      var fEn = lrFingerprint(en);
+      if (lrFingerprint(hi) !== fEn) lrInv++;
+      if (lrFingerprint(mr) !== fEn) lrInv++;
+      /* Digit multiset preserved (digits stay 0-9 across languages). */
+      var dEn = digitMultiset(lrText(en));
+      if (digitMultiset(lrText(hi)) !== dEn) lrDig++;
+      if (digitMultiset(lrText(mr)) !== dEn) lrDig++;
+      /* Surface safety only where the language's LR pack is authored (else EN-fallback → English, not testable). */
+      [['hi', hi], ['mr', mr]].forEach(function (p) {
+        if (!lrAuthored[p[0]]) return;
+        lrActive++;
+        var surf = lrText(p[1]);
+        if (genLeaks(surf, LR_DNT)) lrLeak++;
+        if (hasDevanagariDigit(surf)) lrDev++;
+      });
+    }
+  });
+});
+ok(lrInv === 0, 'LR cross-language behavioural invariance holds (subtype/option-count/answer-index) — ' + lrChecked + ' samples/lang');
+ok(lrDig === 0, 'LR digit multiset preserved across languages');
+ok(lrLeak === 0, 'no Latin leak in authored hi/mr LR option/stem surfaces (' + lrActive + ' active)');
+ok(lrDev === 0, 'no Devanagari digits in LR output');
+console.log('  lr.hi authored=' + lrAuthored.hi + ', lr.mr authored=' + lrAuthored.mr + ' (fall back to EN until F-M6.2/6.3)');
+
 /* ============================================================================ */
 module.exports = { makeLCG: makeLCG, digitMultiset: digitMultiset, hasDevanagariDigit: hasDevanagariDigit, genLeaks: genLeaks, assertInvariant: assertInvariant };
 
