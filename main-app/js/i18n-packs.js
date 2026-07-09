@@ -28,7 +28,8 @@ var QRPacks = (function () {
     'data/knowledge/i18n/{lang}/modern.js',       // G-M6
     'data/knowledge/i18n/{lang}/geometry.js',     // G-M6
     'data/knowledge/i18n/{lang}/mensuration.js',  // G-M6
-    'data/knowledge/i18n/{lang}/di.js'            // G-M7
+    'data/knowledge/i18n/{lang}/di.js',           // G-M7
+    'data/knowledge/i18n/{lang}/lr.js'            // G-M8
   ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
