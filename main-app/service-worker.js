@@ -60,6 +60,8 @@ var ASSETS = [
   './data/knowledge/i18n/mr/geometry.js',
   './data/knowledge/i18n/hi/mensuration.js',
   './data/knowledge/i18n/mr/mensuration.js',
+  './data/knowledge/i18n/hi/di.js',
+  './data/knowledge/i18n/mr/di.js',
   './js/questions.js',
   './js/answer-format.js',
   './js/di-engine.js',
