@@ -198,3 +198,34 @@ The following are intentional and bounded:
 - **Rationale:** the blueprint scoped F-M5 to the ENGINE's text pools ("di-charts.js needs zero changes"); the kind
   prefix is renderer chrome, not engine content. Low exposure (screen-reader only, one word), and the localized title
   immediately follows. Can be localized in a later renderer-chrome pass; recorded so certification does not flag it.
+
+## Phase F-M6 — LR generated content (locales/gen/{hi,mr}.lr.js)
+
+### Syllogism noun number-agreement — intentional approximation
+- **Detail:** the syllogism generator swaps a single plural-neutral noun form into every quantifier frame, so a noun
+  reads correctly under "All"/"सभी"/"सर्व" (plural) but is a mild number-mismatch under "No"/"कोई…नहीं"/"एकही…नाही"
+  (e.g. HI "कोई बिल्लियाँ, कुत्ते नहीं है"). One noun form cannot satisfy every quantifier's number simultaneously.
+- **Rationale:** the model-checker operates on the A/B/C/D letter scaffolds, not the surface nouns, so this never
+  affects logical validity or the answer; it matches how many printed Hindi/Marathi practice sets render these. A
+  per-quantifier noun-inflection table is out of scope. The abstract categories ("Some farmers are roses") are also
+  intentionally surreal — inherited from the EN noun-swap design and identical across languages.
+
+### Marathi collapses grandparent/grandchild lineage — by design, NOT a Hindi calque
+- **Detail:** Marathi renders both paternal and maternal grandfather as आजोबा (grandmother आजी), and both son's- and
+  daughter's-side grandchild as नातू / नात — where Hindi distinguishes दादा/नाना, पोता/नाती. This is a genuine feature
+  of the Marathi kinship system, not a missing distinction.
+- **Rationale:** Marathi was authored from its own kinship terminology (it DOES distinguish काका/मामा, आत्या/मावशी,
+  पुतण्या/भाचा — the distinctions Marathi speakers actually make). The 36-pair truth table (`fixtures/lr-kinship.json`,
+  asserted by `lr-kinship.check.js`) encodes each language's real system; the collapse is expected and verified.
+
+### Latin-script tokens inside Devanagari LR output — by design
+- Cipher substrates (word puzzles like CAT→DBU), single variable letters (A–F, P–U, X, Y), coded operator/relation
+  symbols (@ # & % $, > ≥ < ≤ =), Roman numerals (I, II) and 0-9 digits stay Latin/symbolic in hi/mr — aspirants solve
+  letter-shift and coded puzzles on the English alphabet exactly as their exam books present them. Allowlisted by the LR
+  leak heuristic (gen-i18n.check §11: all-caps strip + <3-letter-run rule). Distance keeps the Latin unit `km`
+  (consistent with the quant/DI packs).
+
+### Per-language sentence terminator (syllogism premises/conclusion)
+- The premise/conclusion terminator lives in the pack (`syllo.period`): EN and MR use "." (modern Marathi / Maharashtra
+  State Board convention), HI uses the danda "।". The engine change is EN-preserving — the EN period is unchanged, so
+  the lr-census byte-identity (36/36 hashes) holds. Not a limitation; recorded so the mixed terminators are not flagged.

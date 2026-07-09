@@ -276,6 +276,59 @@ genitive चा/ची/चे); caselet counts use the जणांनी (peopl
 | Clocks & Calendars | घड़ी और कैलेंडर | घड्याळ व दिनदर्शिका | |
 | Statement & Conclusion | कथन और निष्कर्ष | विधान व निष्कर्ष | |
 
+## LR (Logical Reasoning) generated-content vocabulary (F-M6)
+
+The LR engine generates directly in the study language via `locales/gen/{hi,mr}.lr.js`. These are the canonical terms
+those packs use; one concept = one rendering per language. Cipher substrates (CAT→DBU), variable letters (A–F, P–U, X, Y),
+coded symbols (@#&%$, >≥<≤=) and Roman numerals (I, II) stay Latin in every language (exam-book convention).
+
+### Kinship — the correctness-critical map (relTerm)
+
+`_compose2` yields a generic ENGLISH relation-id; `relTerm(id, specifier)` renders the SPECIFIC native word for the
+answer and the CANONICAL word for distractors. **Hindi distinguishes grandparent lineage (दादा vs नाना); Marathi does
+NOT (आजोबा covers both) — Marathi is authored from its own kinship system, not calqued from Hindi.**
+
+| Composition (A is r1 of B, B is r2 of C ⇒ A is … of C) | English (generic) | Hindi (specific) | Marathi (specific) |
+|---|---|---|---|
+| father→father (paternal grandfather) | Grandfather | दादा | आजोबा |
+| father→mother / via mother (maternal grandfather) | Grandfather | नाना | आजोबा |
+| mother→father (paternal grandmother) | Grandmother | दादी | आजी |
+| via mother (maternal grandmother) | Grandmother | नानी | आजी |
+| brother→father (father's brother) | Uncle | चाचा | काका |
+| brother→mother (mother's brother) | Uncle | मामा | मामा |
+| sister→father (father's sister) | Aunt | बुआ | आत्या |
+| sister→mother (mother's sister) | Aunt | मौसी | मावशी |
+| son→son (grandson via son) | Grandson | पोता | नातू |
+| son→daughter (grandson via daughter) | Grandson | नाती | नातू |
+| daughter→son / daughter (granddaughter) | Granddaughter | पोती / नातिन | नात |
+| son→brother (brother's son) | Nephew | भतीजा | पुतण्या |
+| son→sister (sister's son) | Nephew | भांजा | भाचा |
+| daughter→brother / sister (niece) | Niece | भतीजी / भांजी | पुतणी / भाची |
+| Father / Mother / Brother / Sister / Son / Daughter | (same) | पिता / माता / भाई / बहन / पुत्र / पुत्री | वडील / आई / भाऊ / बहीण / मुलगा / मुलगी |
+| Cousin (distractor only) | Cousin | चचेरा भाई | चुलत भाऊ |
+
+The full 36-pair truth table is committed as `scripts/fixtures/lr-kinship.json` and asserted by `lr-kinship.check.js`.
+
+### Directions, syllogism verdicts, inequality verdicts
+
+| English | Hindi | Marathi | Note |
+|---|---|---|---|
+| North / South / East / West | उत्तर / दक्षिण / पूर्व / पश्चिम | उत्तर / दक्षिण / पूर्व / पश्चिम | |
+| North-East / North-West / South-East / South-West | उत्तर-पूर्व / उत्तर-पश्चिम / दक्षिण-पूर्व / दक्षिण-पश्चिम | ईशान्य / वायव्य / आग्नेय / नैऋत्य | **MR uses the Sanskrit intercardinals** (Maharashtra textbook standard) |
+| Conclusion follows / does not follow | निष्कर्ष निकलता है / निष्कर्ष नहीं निकलता | निष्कर्ष निघतो / निष्कर्ष निघत नाही | syllogism verdict pair (answered by index) |
+| All X are Y / No X are Y / Some X are Y | सभी X, Y हैं / कोई X, Y नहीं है / कुछ X, Y हैं | सर्व X, Y आहेत / एकही X, Y नाही / काही X, Y आहेत | R.S. Aggarwal (HI) / MPSC (MR) quantifier forms |
+| Only I / Only II / Both / Either / Neither | केवल I / केवल II / I और II दोनों / या तो I या II / न तो I और न ही II | फक्त I / फक्त II / I आणि II दोन्ही / एकतर I किंवा II / एकही नाही | coded-inequality verdicts (…सत्य है/आहे) |
+| Odd one out | विषम (भिन्न) | विषम (वेगळे) | classification stem |
+| Sorting-machine step (input-output) | चरण / इनपुट पंक्ति | टप्पा / इनपुट ओळ | |
+| Clock hands / angle (degrees) | घंटे व मिनट की सुई / कोण (डिग्री) | तास व मिनिट काटा / कोन (अंश) | |
+| Mirror image (of a clock) | दर्पण-प्रतिबिंब | आरशातील प्रतिबिंब | |
+
+**Grammar-engineering notes (recorded once):** HI uses a gender-safe possessive frame where the marker agrees with the
+possessed noun (चाल f → की, मुख m → का), and a relation-word marker map (पिता→का, माता→की) for blood stems. MR suffixes
+the genitive without a space (मीराची), carries a marker+copula map for honorific वडील (…चे…आहेत), and uses an appositive
+dash frame for direction so masculine common-noun actors never mis-inflect. Distances keep the Latin unit `km`
+(consistent with the quant/DI packs). Ordinals: HI `n+वें`, MR `n+व्या`, always followed by स्थान.
+
 ## UI / product vocabulary
 
 | English | Hindi | Marathi | Rationale |
