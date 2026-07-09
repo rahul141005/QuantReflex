@@ -128,14 +128,14 @@
 
     /* 3. direction sense (nominalised "चाल"/"मुख" frames — no actor-gendered finite verb) */
     direction: {
-      dist2: function (actor, a, nWord, b, eWord) { return actor + ' की चाल: ' + a + ' किमी ' + nWord + ', फिर ' + b + ' किमी ' + eWord + '। अब प्रारंभिक बिंदु से दूरी (किमी में) कितनी है?'; },
-      dist3: function (actor, p1, nWord, extra, opp, b, eWord) { return actor + ' की चाल: ' + p1 + ' किमी ' + nWord + ', फिर ' + extra + ' किमी ' + opp + ', फिर ' + b + ' किमी ' + eWord + '। प्रारंभिक बिंदु से दूरी (किमी में) कितनी है?'; },
+      dist2: function (actor, a, nWord, b, eWord) { return actor + ' की चाल: ' + a + ' km ' + nWord + ', फिर ' + b + ' km ' + eWord + '। अब प्रारंभिक बिंदु से दूरी (km में) कितनी है?'; },
+      dist3: function (actor, p1, nWord, extra, opp, b, eWord) { return actor + ' की चाल: ' + p1 + ' km ' + nWord + ', फिर ' + extra + ' km ' + opp + ', फिर ' + b + ' km ' + eWord + '। प्रारंभिक बिंदु से दूरी (km में) कितनी है?'; },
       turns: function (who, start, seq, subject) { return who + ' का मुख आरंभ में ' + start + ' की ओर है। घुमावों का क्रम: ' + seq + '। अब उसका मुख किस दिशा में होगा?'; },
       /* EN carries digits only in the about-turn ("180°"); left/right stay digit-free so the digit multiset matches EN. */
       turnPhrase: function (tn) { return tn === 'about' ? '180° (विपरीत दिशा)' : (tn === 'left' ? 'बाएँ ओर' : 'दाएँ ओर'); },
       turnJoin: ', फिर ',
       turnSubjectPerson: 'वह व्यक्ति',
-      diagonal: function (actor, north, south, east, west) { return actor + ' की चाल: ' + north + ' किमी उत्तर, ' + south + ' किमी दक्षिण, ' + east + ' किमी पूर्व और ' + west + ' किमी पश्चिम। अब प्रारंभिक बिंदु से किस दिशा में है?'; }
+      diagonal: function (actor, north, south, east, west) { return actor + ' की चाल: ' + north + ' km उत्तर, ' + south + ' km दक्षिण, ' + east + ' km पूर्व और ' + west + ' km पश्चिम। अब प्रारंभिक बिंदु से किस दिशा में है?'; }
     },
 
     /* 4. ranking & ordering */

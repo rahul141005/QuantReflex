@@ -457,7 +457,7 @@ ok(lrInv === 0, 'LR cross-language behavioural invariance holds (subtype/option-
 ok(lrDig === 0, 'LR digit multiset preserved across languages');
 ok(lrLeak === 0, 'no Latin leak in authored hi/mr LR option/stem surfaces (' + lrActive + ' active)');
 ok(lrDev === 0, 'no Devanagari digits in LR output');
-console.log('  lr.hi authored=' + lrAuthored.hi + ', lr.mr authored=' + lrAuthored.mr + ' (fall back to EN until F-M6.2/6.3)');
+console.log('  lr.hi authored=' + lrAuthored.hi + ', lr.mr authored=' + lrAuthored.mr + ' (unauthored languages fall back to EN)');
 
 /* ============================================================================ */
 module.exports = { makeLCG: makeLCG, digitMultiset: digitMultiset, hasDevanagariDigit: hasDevanagariDigit, genLeaks: genLeaks, assertInvariant: assertInvariant };
