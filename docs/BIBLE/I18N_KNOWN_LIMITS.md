@@ -248,3 +248,28 @@ The following are intentional and bounded:
   language. Cross-language figure identity is proven at the SPEC level (gen-i18n.check §12 asserts the figure specs are
   byte-identical across en/hi/mr) and at the render level after normalising the counter. Not a localisation limitation;
   recorded so the id churn is not mistaken for a rendering difference.
+
+## Phase F-M8 — Mistake Archive (js/mistake-archive.js)
+
+### Cross-language replay freezes in the captured language — by design (extension point reserved)
+- **Detail:** a mistake replays in the language it was practised in (the archive stores the fully-rendered question —
+  stem, options, explanation, machine specs — frozen). Switching study language later does NOT re-render an old mistake
+  into the new language.
+- **Rationale:** the rich engines (DI, LR, LR-visual) own their RNG and generate directly in the active language; exactly
+  re-rendering a PAST question in a different language would require storing per-engine regeneration seeds/slots and
+  re-running under a stubbed RNG — deferred. The `gen` provenance field is RESERVED for this future extension. Reviewing
+  the exact question you got wrong, in the language you saw it, is pedagogically sound. English rendering is unaffected
+  (the archive never regenerates content — EN byte-identity holds).
+
+### Shared-context SETs are archived but not drill-re-servable
+- **Detail:** lr-seating, lr-puzzle and di-caselet mistakes are captured with full metadata (searchable, filterable,
+  analytics-ready) but are excluded from the review DRILL — a single stored question cannot reconstruct the shared
+  scenario / caselet prose that spans the whole set.
+- **Rationale:** DI single charts and LR-visual figures ARE re-servable now (the drill re-renders the stored spec); only
+  genuine multi-question SETS are skipped. `QRMistakeArchive.isReviewable` owns this decision; recorded so certification
+  does not flag the exclusion.
+
+### Archive is capped at the 100 most-recent mistakes
+- **Detail:** the archive keeps the 100 most-recent records (CAP), bounding localStorage and the Firestore `practice/data`
+  doc; older mistakes age out. Unchanged from v1. Configurable via `QRMistakeArchive.CAP`; a future paged/subcollection
+  store is an extension point that needs no record-schema redesign (the v2 record is already the canonical unit).
