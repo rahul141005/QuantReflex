@@ -48,6 +48,7 @@
      against the design-lint census (only literal `border-radius:` / `box-shadow:` / etc. declarations do). ── */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 24px; --r-full: 999px;
+  --el-0: 0 0 0 1px var(--qr-border);                                    /* flat / hairline (no lift) */
   --el-1: 0 6px 20px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.03);   /* resting card */
   --el-2: 0 12px 28px rgba(15,23,42,.10), 0 2px 6px rgba(15,23,42,.05);  /* raised / hover / sheet */
   --el-3: 0 24px 48px rgba(15,23,42,.16), 0 6px 16px rgba(15,23,42,.08); /* dialog */
@@ -69,7 +70,7 @@
 }
 html.dark-mode {
   --qr-bg: #0f172a; --qr-accent: #60a5fa;
-  --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #93a3b8;   /* ADR-095: was #64748b (~3.2:1 on dark surfaces, below AA); #93a3b8 clears 4.5:1 for small tertiary text */
+  --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #94a3b8;   /* ADR-095: was #64748b (~3.2:1 on dark surfaces, below AA); #94a3b8 clears 4.5:1 for small tertiary text */
   --qr-surface: rgba(30,41,59,.88); --qr-surface-solid: #1e293b; --qr-surface-2: #0f172a; --qr-surface-3: #334155;
   --qr-border: #334155; --qr-border-strong: #475569;
   --qr-accent-2: #3b82f6; --qr-accent-strong: #3b82f6;
@@ -896,6 +897,7 @@ html.dark-mode .benchmark-stat-block { background: rgba(0,0,0,.3); }
 .benchmark-stat-value {
   font-size: 1.2rem;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   color: #7c3aed;
   line-height: 1;
 }
@@ -3378,6 +3380,7 @@ body.web-mode #wordProblemsSetup {
 .stat-card .value {
   font-size: 1.5rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: #2563eb;
   line-height: 1.2;
   overflow: hidden;
@@ -10938,11 +10941,12 @@ html.dark-mode .authored-explanation { background: #1e293b; color: #e2e8f0; }
 html.dark-mode .category-tier-label { color: #94a3b8; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   QR ICON SYSTEM — two-personality themes, one markup (see qrIco() in app.js)
-   Classic Blue: the emoji text node inside .qr-ico renders as-is (expressive).
-   Playful Professional: the emoji is collapsed (font-size:0) and a monochrome
-   SVG mask paints in currentColor — so playful+dark tints automatically and a
-   theme switch needs no JS re-render. Unbound names degrade to a neutral dot.
+   QR ICON SYSTEM — one markup, all four themes (see qrIco() in app.js)
+   The emoji text node inside .qr-ico is unconditionally collapsed (font-size:0)
+   in EVERY theme (light/dark/playful/playful-dark); a monochrome SVG mask paints
+   in currentColor, so a theme switch needs no JS re-render and icons tint with
+   their text. The emoji stays in markup only as a copy/paste-safe fallback.
+   Unbound data-ico names degrade to a neutral dot.
    ═══════════════════════════════════════════════════════════════════════════ */
 .qr-ico {
   display: inline-flex;
@@ -10985,6 +10989,7 @@ html.theme-playful .bottom-nav a.active .nav-icon .qr-ico { color: var(--qr-grad
 .qr-ico[data-ico='learn'] { --ico: var(--qri-book-open); }
 .qr-ico[data-ico='stats'] { --ico: var(--qri-chart-bar); }
 .qr-ico[data-ico='settings'] { --ico: var(--qri-cog); }
+.qr-ico[data-ico='cog'] { --ico: var(--qri-cog); }
 .qr-ico[data-ico='zap'] { --ico: var(--qri-zap); }
 .qr-ico[data-ico='activity'] { --ico: var(--qri-activity); }
 .qr-ico[data-ico='timer'] { --ico: var(--qri-timer); }
