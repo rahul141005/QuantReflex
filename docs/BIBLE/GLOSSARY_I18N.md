@@ -112,6 +112,8 @@ language. Marathi column filled in F-M4.
 | speed / distance / time | चाल / दूरी / समय | — | TSD chapter uses चाल for speed |
 | car / train / bus | कार / रेलगाड़ी / बस | — | |
 | average speed / relative speed | औसत चाल / सापेक्ष चाल | — | |
+| harmonic mean / worker-days / inversely proportional | हरात्मक माध्य / श्रमिक-दिन / व्युत्क्रमानुपाती | — | net rate शुद्ध दर, combined time संयुक्त समय |
+| constant difference / interleaved series | अचर अंतर / अंतर्निहित श्रेढ़ी | — | AP समांतर श्रेढ़ी, GP गुणोत्तर श्रेढ़ी |
 | platform / pole / metre / second | प्लेटफ़ॉर्म / खंभा / मीटर / सेकंड | — | |
 | work / days / workers | कार्य / दिन / श्रमिक | — | |
 | together / finish | मिलकर / पूरा करना | — | |

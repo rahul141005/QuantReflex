@@ -296,6 +296,128 @@
     'compound-interest:hard:ciSiDiff': {
       s: [function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से 2 वर्षों के लिए चक्रवृद्धि ब्याज और साधारण ब्याज का अंतर = ₹?'; }],
       e: [function (s) { return '2 वर्षों के लिए, CI − SI = P(R/100)² = ' + s.P + ' × (' + s.R + '/100)² = ₹' + s.d + '.'; }]
+    },
+
+    /* ── Batch 5: समय-चाल-दूरी, समय-कार्य, संख्या श्रेढ़ी, नल-टंकी, आयु, साझेदारी (names via .hi; units km/h·m/s stay) ── */
+
+    /* समय, चाल और दूरी */
+    'time-speed-distance:*:distance': {
+      s: [function (s) { return 'एक कार ' + s.sp + ' km/h की चाल से ' + s.t + ' घंटे चलती है। तय की गई दूरी = ? km'; }, function (s) { return s.sp + ' km/h की चाल से ' + s.t + ' घंटे चलते हुए एक रेलगाड़ी ? km तय करती है'; }, function (s) { return 'लगातार ' + s.sp + ' km/h की चाल से ' + s.t + ' घंटे में दूरी = ? km'; }],
+      e: [function (s) { return 'दूरी = चाल × समय = ' + s.sp + ' × ' + s.t + ' = ' + (s.sp * s.t) + ' km.'; }]
+    },
+    'time-speed-distance:*:time': {
+      s: [function (s) { return 'एक कार ' + s.d + ' km की दूरी ' + s.sp + ' km/h की चाल से तय करती है। लगा समय = ? घंटे'; }, function (s) { return s.sp + ' km/h की चाल से ' + s.d + ' km तय करने में लगा समय = ? घंटे'; }, function (s) { return s.d + ' km को ' + s.sp + ' km/h की चाल से तय करने में ? घंटे लगते हैं'; }],
+      e: [function (s) { return 'समय = दूरी ÷ चाल = ' + s.d + ' ÷ ' + s.sp + ' = ' + s.t + ' घंटे।'; }]
+    },
+    'time-speed-distance:*:speed': {
+      s: [function (s) { return 'एक रेलगाड़ी ' + s.d + ' km, ' + s.t + ' घंटे में तय करती है। इसकी चाल = ? km/h'; }, function (s) { return s.d + ' km को ' + s.t + ' घंटे में तय करते हुए, चाल = ? km/h'; }, function (s) { return 'एक बस ' + s.d + ' km, ' + s.t + ' घंटे में चलती है। औसत चाल = ? km/h'; }],
+      e: [function (s) { return 'चाल = दूरी ÷ समय = ' + s.d + ' ÷ ' + s.t + ' = ' + s.sp + ' km/h.'; }]
+    },
+    'time-speed-distance:medium:unitConvert': {
+      s: [function (s) { return s.x + ' km/h को मीटर प्रति सेकंड में व्यक्त कीजिए।'; }, function (s) { return 'एक रेलगाड़ी ' + s.x + ' km/h से चलती है। इसकी चाल m/s में = ?'; }, function (s) { return s.x + ' m/s को km/h में व्यक्त कीजिए।'; }, function (s) { return 'एक धावक ' + s.x + ' m/s से दौड़ता है। वह चाल km/h में = ?'; }],
+      e: [function (s) { return 'km/h → m/s: 5/18 से गुणा कीजिए। ' + s.x + ' × 5/18 = ' + s.ans + ' m/s.'; }, function (s) { return 'km/h → m/s: 5/18 से गुणा कीजिए। ' + s.x + ' × 5/18 = ' + s.ans + ' m/s.'; }, function (s) { return 'm/s → km/h: 18/5 से गुणा कीजिए। ' + s.x + ' × 18/5 = ' + s.ans + ' km/h.'; }, function (s) { return 'm/s → km/h: 18/5 से गुणा कीजिए। ' + s.x + ' × 18/5 = ' + s.ans + ' km/h.'; }]
+    },
+    'time-speed-distance:hard:avgSpeed': {
+      s: [function (s) { return 'एक व्यक्ति समान दूरियाँ ' + s.s1 + ' km/h और ' + s.s2 + ' km/h की चाल से तय करता है। पूरी यात्रा की औसत चाल = ? km/h'; }],
+      e: [function (s) { return 'समान दूरियों के लिए, औसत चाल = 2·s₁·s₂/(s₁+s₂) = 2×' + s.s1 + '×' + s.s2 + '/(' + s.s1 + '+' + s.s2 + ') = ' + s.ans + ' km/h — हरात्मक माध्य, कभी सरल औसत नहीं।'; }]
+    },
+    'time-speed-distance:hard:relativeSpeed': {
+      s: [function (s) { return 'दो रेलगाड़ियाँ ' + s.d + ' km की दूरी पर एक-दूसरे की ओर ' + s.s1 + ' km/h और ' + s.s2 + ' km/h की चाल से चलती हैं। कितने घंटों बाद वे मिलती हैं?'; }, function (s) { return 'दो कारें ' + s.d + ' km की दूरी पर एक-दूसरे की ओर ' + s.s1 + ' km/h और ' + s.s2 + ' km/h से चलती हैं। वे ? घंटों बाद मिलती हैं'; }],
+      e: [function (s) { return 'एक-दूसरे की ओर चलते हुए चालें जुड़ती हैं: सापेक्ष चाल = ' + s.s1 + ' + ' + s.s2 + ' = ' + (s.s1 + s.s2) + ' km/h. समय = ' + s.d + ' ÷ ' + (s.s1 + s.s2) + ' = ' + s.t + ' घंटे।'; }]
+    },
+    'time-speed-distance:hard:trainCrossing': {
+      s: [function (s) { return 'एक ' + s.len + ' m लंबी रेलगाड़ी ' + s.spd + ' km/h से चल रही है। एक खंभे को पार करने में कितने सेकंड लगते हैं?'; }, function (s) { return 'एक ' + s.len2 + ' m लंबी रेलगाड़ी ' + s.spd + ' km/h से चलते हुए ' + s.plat + ' m लंबे प्लेटफ़ॉर्म को ? सेकंड में पार करती है'; }],
+      e: [function (s) { return 'चाल बदलिए: ' + s.spd + ' km/h = ' + s.ms + ' m/s. खंभा पार करने का अर्थ है अपनी ही लंबाई तय करना: ' + s.len + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }, function (s) { return 'चाल = ' + s.spd + ' km/h = ' + s.ms + ' m/s. प्लेटफ़ॉर्म पार करने के लिए रेलगाड़ी, गाड़ी + प्लेटफ़ॉर्म = ' + s.len2 + ' + ' + s.plat + ' = ' + (s.len2 + s.plat) + ' m तय करती है। समय = ' + (s.len2 + s.plat) + ' ÷ ' + s.ms + ' = ' + s.t + ' s.'; }]
+    },
+
+    /* समय और कार्य */
+    'time-and-work:*:together': {
+      s: [function (s) { return 'A किसी कार्य को ' + s.a + ' दिनों में और B, ' + s.b + ' दिनों में कर सकता है। मिलकर काम करते हुए वे इसे ? दिनों में पूरा करते हैं'; }],
+      e: [function (s) { return 'मिलकर लगने वाला समय = (a × b)/(a + b) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + (s.a * s.b) + '/' + (s.a + s.b) + ' = ' + ((s.a * s.b) / (s.a + s.b)) + ' दिन। दरें जोड़िए (1/a + 1/b), दिन कभी नहीं।'; }]
+    },
+    'time-and-work:*:workDone': {
+      s: [function (s) { return 'A किसी काम को ' + s.days + ' दिनों में पूरा कर सकता है। ' + s.wd + ' दिनों में वह काम का ? % पूरा करता है।'; }],
+      e: [function (s) { return 'किया गया अंश = ' + s.wd + '/' + s.days + ', अतः ' + s.wd + '/' + s.days + ' × 100 = ' + (s.wd * 100 / s.days) + '%.'; }]
+    },
+    'time-and-work:*:workersScale': {
+      s: [function (s) { return 'यदि ' + s.w1 + ' श्रमिक किसी कार्य को ' + s.dp + ' दिनों में पूरा करते हैं, तो ' + s.w2 + ' श्रमिक उसी कार्य को ? दिनों में पूरा करेंगे'; }],
+      e: [function (s) { return 'कुल कार्य = ' + s.w1 + ' × ' + s.dp + ' = ' + s.tot + ' श्रमिक-दिन। ' + s.w2 + ' श्रमिकों के लिए समय = ' + s.tot + ' ÷ ' + s.w2 + ' = ' + (s.tot / s.w2) + ' दिन (श्रमिक और दिन व्युत्क्रमानुपाती होते हैं)।'; }]
+    },
+    'time-and-work:hard:inverseTogether': {
+      s: [function (s) { return s.nm[0].hi + ' और ' + s.nm[1].hi + ' मिलकर किसी कार्य को ' + s.T + ' दिनों में पूरा कर सकते हैं। ' + s.nm[0].hi + ' अकेला इसे ' + s.a + ' दिनों में कर सकता है। ' + s.nm[1].hi + ' अकेला इसे कितने दिनों में पूरा करेगा?'; }],
+      e: [function (s) { return 'दरों से हल कीजिए: 1/' + s.nm[1].hi + ' = 1/' + s.T + ' − 1/' + s.a + ' = (' + s.a + ' − ' + s.T + ')/(' + s.a + '×' + s.T + ') = ' + (s.a - s.T) + '/' + (s.a * s.T) + '. अतः ' + s.nm[1].hi + ' अकेला = ' + (s.a * s.T) + '/' + (s.a - s.T) + ' = ' + s.b + ' दिन।'; }]
+    },
+
+    /* संख्या श्रेढ़ी */
+    'number-series:*:arithmetic': {
+      s: [function (s) { return 'अगली संख्या ज्ञात कीजिए: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return s.step + ' का अचर अंतर (समांतर श्रेढ़ी): ' + s.terms[s.terms.length - 1] + ' + ' + s.step + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:*:geometric': {
+      s: [function (s) { return 'अगली संख्या ज्ञात कीजिए: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'प्रत्येक पद × ' + s.r + ' (गुणोत्तर श्रेढ़ी): ' + s.terms[s.terms.length - 1] + ' × ' + s.r + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:*:growingGap': {
+      s: [function (s) { return 'अगली संख्या ज्ञात कीजिए: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'प्रत्येक चरण में अंतर ' + s.base + ' से बढ़ता है (अचर द्वितीय अंतर): अगला अंतर ' + s.gap + ' है, अतः ' + s.terms[s.terms.length - 1] + ' + ' + s.gap + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:hard:squaresSeries': {
+      s: [function (s) { return 'अगली संख्या ज्ञात कीजिए: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'प्रत्येक पद एक पूर्ण वर्ग ' + (s.k >= 0 ? 'जमा ' + s.k : 'घटा ' + Math.abs(s.k)) + ': ' + s.terms.map(function (v, i) { return (s.s + i) + '²' + (s.k >= 0 ? '+' + s.k : '−' + Math.abs(s.k)); }).join(', ') + '. अगला = ' + (s.s + 4) + '²' + (s.k >= 0 ? '+' + s.k : '−' + Math.abs(s.k)) + ' = ' + s.ans + '.'; }]
+    },
+    'number-series:hard:alternating': {
+      s: [function (s) { return 'अगली संख्या ज्ञात कीजिए: ' + s.terms.join(', ') + ', ?'; }],
+      e: [function (s) { return 'दो श्रेढ़ियाँ अंतर्निहित हैं: विषम स्थानों पर ' + s.a0 + ', ' + (s.a0 + s.d1) + ', ' + (s.a0 + 2 * s.d1) + ', … (+' + s.d1 + ') और सम स्थान अपनी अलग श्रृंखला बनाते हैं। अगला पद पहली श्रृंखला को जारी रखता है: ' + (s.a0 + 2 * s.d1) + ' + ' + s.d1 + ' = ' + s.ans + '.'; }]
+    },
+
+    /* नल और टंकी */
+    'pipes-cisterns:*:together': {
+      s: [function (s) { return 'नल A किसी टंकी को ' + s.a + ' घंटे में और नल B इसे ' + s.b + ' घंटे में भरता है। यदि दोनों एक साथ खोले जाएँ, तो टंकी ? घंटे में भर जाती है'; }],
+      e: [function (s) { return 'संयुक्त समय = (A × B)/(A + B) = (' + s.a + ' × ' + s.b + ')/(' + s.a + ' + ' + s.b + ') = ' + ((s.a * s.b) / (s.a + s.b)) + ' घंटे — दरें जोड़िए 1/' + s.a + ' + 1/' + s.b + '.'; }]
+    },
+    'pipes-cisterns:*:netFill': {
+      s: [function (s) { return 'एक प्रवेश नल किसी टंकी को ' + s.a + ' घंटे में भरता है जबकि एक निकास नल इसे ' + s.b + ' घंटे में खाली करता है। यदि दोनों एक साथ खोले जाएँ, तो टंकी ? घंटे में भरती है'; }],
+      e: [function (s) { return 'शुद्ध दर = 1/' + s.a + ' − 1/' + s.b + '; समय = (A × B)/(B − A) = (' + s.a + ' × ' + s.b + ')/(' + s.b + ' − ' + s.a + ') = ' + ((s.a * s.b) / (s.b - s.a)) + ' घंटे।'; }]
+    },
+    'pipes-cisterns:hard:inverseFill': {
+      s: [function (s) { return 'दो नल मिलकर किसी टंकी को ' + s.tog + ' घंटे में भरते हैं। यदि पहला नल अकेला इसे ' + s.a + ' घंटे में भरता है, तो दूसरा नल अकेला इसे ? घंटे में भरेगा'; }],
+      e: [function (s) { return 'दरें घटाइए: 1/दूसरा = 1/' + s.tog + ' − 1/' + s.a + ' = ' + (s.a - s.tog) + '/' + (s.a * s.tog) + ', अतः दूसरा नल अकेला ' + s.b + ' घंटे लेता है।'; }]
+    },
+    'pipes-cisterns:hard:leakEmpty': {
+      s: [function (s) { return 'नल A और B किसी टंकी को क्रमशः ' + s.a + ' और ' + s.b + ' घंटे में भरते हैं, जबकि नल C इसे ' + s.c + ' घंटे में खाली करता है। तीनों खुले होने पर टंकी ? घंटे में भरती है'; }],
+      e: [function (s) { return 'शुद्ध दर = 1/' + s.a + ' + 1/' + s.b + ' − 1/' + s.c + '. एक LCM-आकार की टंकी पर यह ' + s.den + ' इकाई/घंटा है, ' + s.num + ' इकाइयों के लिए, अतः समय = ' + (s.num / s.den) + ' घंटे।'; }]
+    },
+
+    /* आयु संबंधी प्रश्न */
+    'ages:*:ratioSum': {
+      s: [function (s) { return s.nm[0].hi + ' और ' + s.nm[1].hi + ' की वर्तमान आयु ' + s.p0 + ' : ' + s.p1 + ' के अनुपात में है। यदि उनकी आयु का योग ' + s.S + ' वर्ष है, तो ' + s.nm[0].hi + ' की वर्तमान आयु = ? वर्ष'; }],
+      e: [function (s) { return 'मान लीजिए आयु ' + s.p0 + 'x और ' + s.p1 + 'x हैं। तब (' + s.p0 + ' + ' + s.p1 + ')x = ' + s.S + ' → x = ' + s.k + '. ' + s.nm[0].hi + ' = ' + s.p0 + 'x = ' + (s.p0 * s.k) + ' वर्ष।'; }]
+    },
+    'ages:easy:presentAge': {
+      s: [function (s) { return s.t + ' वर्ष पहले, ' + s.nm.hi + ' ' + s.a + ' वर्ष के थे। ' + s.nm.hi + ' की वर्तमान आयु = ? वर्ष'; }],
+      e: [function (s) { return 'वर्तमान आयु = तब की आयु + बीता समय = ' + s.a + ' + ' + s.t + ' = ' + (s.a + s.t) + ' वर्ष। (समय में आगे बढ़ने पर जोड़ते हैं; "पहले" का अर्थ है वापस जोड़ना।)'; }]
+    },
+    'ages:*:ageDiff': {
+      s: [function (s) { return s.nm[0].hi + ', ' + s.nm[1].hi + ' से ' + s.x + ' वर्ष बड़े हैं। ' + s.t + ' वर्षों में, ' + s.nm[0].hi + ', ' + s.nm[1].hi + ' से ' + s.mult + ' गुना उम्र के हो जाएँगे। ' + s.nm[1].hi + ' की वर्तमान आयु = ? वर्ष'; }],
+      e: [function (s) { return s.nm[0].hi + ' = ' + s.nm[1].hi + ' + ' + s.x + '. ' + s.t + ' वर्षों में: (' + s.nm[1].hi + ' + ' + s.x + ' + ' + s.t + ') = ' + s.mult + '(' + s.nm[1].hi + ' + ' + s.t + ') → ' + s.nm[1].hi + ' = ' + s.B + ' वर्ष।'; }]
+    },
+    'ages:hard:fatherSon': {
+      s: [function (s) { return 'एक पिता इस समय अपने पुत्र से ' + s.n + ' गुना उम्र का है। ' + s.t + ' वर्षों में वह अपने पुत्र से ' + s.m + ' गुना उम्र का हो जाएगा। पुत्र की वर्तमान आयु = ? वर्ष'; }],
+      e: [function (s) { return 'मान लीजिए पुत्र = s, पिता = ' + s.n + 's. ' + s.t + ' वर्षों में: ' + s.n + 's + ' + s.t + ' = ' + s.m + '(s + ' + s.t + ') → s = ' + s.t + '(' + s.m + '−1)/(' + s.n + '−' + s.m + ') = ' + s.sn + ' वर्ष।'; }]
+    },
+
+    /* साझेदारी */
+    'partnership:easy:shareRatio': {
+      s: [function (s) { return s.nm[0].hi + ' और ' + s.nm[1].hi + ' किसी व्यवसाय में क्रमशः ₹' + s.x + ' और ₹' + s.y + ' निवेश करते हैं। वार्षिक लाभ को उनके बीच किस अनुपात में बाँटा जाना चाहिए?'; }],
+      e: [function (s) { return 'लाभ सदैव निवेशित पूँजियों के अनुपात में बाँटा जाता है। ' + s.x + ' : ' + s.y + ', दोनों को उनके म.स.प. ' + s.g + ' से भाग देने पर, ' + (s.x / s.g) + ' : ' + (s.y / s.g) + ' प्राप्त होता है।'; }]
+    },
+    'partnership:*:share2': {
+      s: [function (s) { return s.nm[0].hi + ' और ' + s.nm[1].hi + ' क्रमशः ₹' + s.x + ' और ₹' + s.y + ' निवेश करके एक व्यवसाय शुरू करते हैं। ₹' + s.profit + ' के कुल लाभ में से ' + s.nm[0].hi + ' का हिस्सा = ₹?'; }],
+      e: [function (s) { return 'लाभ निवेशों के अनुपात ' + s.x + ' : ' + s.y + ' में बाँटा जाता है। ' + s.nm[0].hi + ' का हिस्सा = ' + s.x + '/(' + s.x + '+' + s.y + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
+    },
+    'partnership:*:shareTime': {
+      s: [function (s) { return s.nm[0].hi + ' ₹' + s.x + ' को ' + s.m + ' महीनों के लिए और ' + s.nm[1].hi + ' ₹' + s.y + ' को ' + s.n + ' महीनों के लिए निवेश करते हैं। ₹' + s.profit + ' के लाभ में से ' + s.nm[0].hi + ' का हिस्सा = ₹?'; }],
+      e: [function (s) { return 'प्रत्येक साझेदार को पूँजी × समय से भारित कीजिए: ' + s.nm[0].hi + ' = ' + s.x + '×' + s.m + ' = ' + s.cx + ', ' + s.nm[1].hi + ' = ' + s.y + '×' + s.n + ' = ' + s.cy + '. ' + s.nm[0].hi + ' का हिस्सा = ' + s.cx + '/(' + s.cx + '+' + s.cy + ') × ' + s.profit + ' = ₹' + s.share + '.'; }]
     }
   } };
 
