@@ -144,6 +144,7 @@
         return 'Some ' + x + ' are ' + (neg ? 'not ' : '') + y;
       },
       verdict: { 'Follows': 'Follows', 'Does not follow': 'Does not follow' },
+      period: '.',   // sentence terminator for premises/conclusion (EN Latin period; hi/mr use danda ।)
       wrap: function (premises, conclusion) { return 'Statements: ' + premises + ' Conclusion: ' + conclusion + ' Does the conclusion logically follow?'; }
     },
 

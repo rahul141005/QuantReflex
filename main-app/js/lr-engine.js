@@ -303,8 +303,9 @@
     var P = _P();
     var spec = _pick(SYLLO[diff] || SYLLO.medium), n = _pickN(P.nouns, 4);
     var vm = { A: n[0], B: n[1], C: n[2], D: n[3] };
-    var prem = spec.p.map(function (s) { return _renderSyllo(s, vm) + '.'; }).join(' ');
-    var concl = _renderSyllo(spec.c, vm) + '.';
+    var period = (P.syllo && P.syllo.period) || '.';   // EN '.', hi/mr '।' — sentence terminator lives in the pack.
+    var prem = spec.p.map(function (s) { return _renderSyllo(s, vm) + period; }).join(' ');
+    var concl = _renderSyllo(spec.c, vm) + period;
     return { question: P.syllo.wrap(prem, concl), answer: P.syllo.verdict[spec.f], options: _shuffle([P.syllo.verdict['Follows'], P.syllo.verdict['Does not follow']]), subtype: diff + ':syllogism' };
   }
 
