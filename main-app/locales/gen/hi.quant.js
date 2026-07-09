@@ -14,7 +14,11 @@
   var GI = (typeof QRGenI18n !== 'undefined') ? QRGenI18n
     : (typeof require !== 'undefined' ? require('../../js/gen-i18n.js') : null);
 
-  var pack = { pools: {}, tpl: {
+  /* Index-aligned pools (Hindi) — same length + inner arity as en.quant.js (enforced by gen-i18n.check §7).
+     Only the descriptor word translates ('more'→अधिक, 'less'→कम); the % numbers and the ratio answer are neutral. */
+  var RAT_PCT_POOL = [['25% अधिक', '5:4'], ['20% कम', '4:5'], ['50% अधिक', '3:2'], ['20% अधिक', '6:5'], ['25% कम', '3:4'], ['10% कम', '9:10'], ['12.5% अधिक', '9:8'], ['16.66% कम', '5:6'], ['37.5% अधिक', '11:8'], ['11.11% कम', '8:9'], ['66.66% अधिक', '5:3'], ['150% अधिक', '5:2'], ['40% अधिक', '7:5'], ['75% अधिक', '7:4']];
+
+  var pack = { pools: { RAT_PCT_POOL: RAT_PCT_POOL }, tpl: {
     /* ── Batch 1: वर्ग, घन, भिन्न, गुणा, सरलीकरण (pure-arithmetic core; no names, no pools) ── */
 
     /* वर्ग और वर्गमूल */
@@ -240,6 +244,58 @@
     'profit-loss:hard:successive': {
       s: [function (s) { return '₹' + s.cp + ' लागत वाली एक वस्तु ' + s.p0 + '% लाभ पर बेची जाती है, और फिर उस मूल्य को ' + s.p1 + '% और बढ़ा दिया जाता है। अंतिम विक्रय मूल्य = ₹?'; }],
       e: [function (s) { return 'गुणकों को श्रृंखलाबद्ध कीजिए: ' + s.cp + ' × ' + (1 + s.p0 / 100) + ' × ' + (1 + s.p1 / 100) + ' = ₹' + s.sp + '.'; }]
+    },
+
+    /* ── Batch 4: अनुपात (+RAT_PCT pool), साधारण ब्याज, चक्रवृद्धि ब्याज (names via .hi; SI/CI/P/R/T Latin in formulas) ── */
+
+    /* अनुपात और समानुपात */
+    'ratios:*:divide': {
+      s: [function (s) { return '₹' + s.total + ' को ' + s.nm[0].hi + ' और ' + s.nm[1].hi + ' के बीच ' + s.p0 + ' : ' + s.p1 + ' के अनुपात में बाँटा जाता है। ' + s.nm[0].hi + ' को ₹? मिलते हैं।'; }],
+      e: [function (s) { return 'कुल भाग = ' + s.p0 + ' + ' + s.p1 + ' = ' + s.parts + '. एक भाग = ' + s.total + ' ÷ ' + s.parts + ' = ' + (s.total / s.parts) + '. ' + s.nm[0].hi + ' = ' + s.p0 + ' × ' + (s.total / s.parts) + ' = ' + (s.total * s.p0 / s.parts) + '.'; }]
+    },
+    'ratios:*:findTerm': {
+      s: [function (s) { return 'A : B = ' + s.p0 + ' : ' + s.p1 + ' और A = ' + s.aVal + '. B = ?'; }],
+      e: [function (s) { return 'एक भाग = A ÷ ' + s.p0 + ' = ' + s.aVal + ' ÷ ' + s.p0 + ' = ' + s.one + '. B = ' + s.p1 + ' × ' + s.one + ' = ' + s.bVal + '.'; }]
+    },
+    'ratios:hard:combine': {
+      s: [function (s) { return 'A : B = ' + s.ab0 + ' : ' + s.ab1 + ' और B : C = ' + s.bc0 + ' : ' + s.bc1 + '. A : C = ?'; }],
+      e: [function (s) { return 'B उभयनिष्ठ है (' + s.ab1 + '=' + s.bc0 + '), इसलिए A : C = ' + s.ab0 + ' : ' + s.bc1 + ' = ' + (s.ab0 / s.g) + ' : ' + (s.bc1 / s.g) + ', ' + s.g + ' से भाग देने पर।'; }]
+    },
+    'ratios:*:pctRatio': {
+      s: [function (s) { return 'A, B से ' + RAT_PCT_POOL[s.idx][0] + ' है। A : B = ?'; }],
+      e: [function (s) { return 'A को B के भिन्न के रूप में लिखिए: "' + RAT_PCT_POOL[s.idx][0] + '" → A/B = ' + s.ratio.replace(':', '/') + ', इसलिए A : B = ' + s.ratio + ' निम्नतम पदों में।'; }]
+    },
+
+    /* साधारण ब्याज (person names via .hi; SI/P/R/T Latin in formula) */
+    'simple-interest:*:si': {
+      s: [function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों का साधारण ब्याज ज्ञात कीजिए।'; }, function (s) { return s.nm.hi + ' किसी योजना में ₹' + s.P + ' जमा करते हैं जो ' + s.R + '% प्रति वर्ष साधारण ब्याज देती है। ' + s.T + ' वर्षों में अर्जित ब्याज = ₹?'; }, function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों में कितना साधारण ब्याज मिलेगा?'; }],
+      e: [function (s) { return 'SI = P × R × T ÷ 100 = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '.'; }]
+    },
+    'simple-interest:*:amount': {
+      s: [function (s) { return '₹' + s.P + ' की राशि ' + s.R + '% प्रति वर्ष साधारण ब्याज पर उधार दी जाती है। ' + s.T + ' वर्षों बाद मिश्रधन = ₹?'; }, function (s) { return s.nm.hi + ' ' + s.R + '% प्रति वर्ष साधारण ब्याज पर ₹' + s.P + ' उधार लेते हैं। ' + s.T + ' वर्षों बाद कितना लौटाना होगा (₹ में)?'; }],
+      e: [function (s) { return 'SI = ' + s.P + ' × ' + s.R + ' × ' + s.T + ' ÷ 100 = ₹' + s.si + '; मिश्रधन = P + SI = ' + s.P + ' + ' + s.si + ' = ₹' + (s.P + s.si) + '.'; }]
+    },
+    'simple-interest:*:findRate': {
+      s: [function (s) { return 'किस वार्षिक दर प्रतिशत पर ₹' + s.P + ', ' + s.T + ' वर्षों में ₹' + s.si + ' साधारण ब्याज देता है?'; }, function (s) { return '₹' + s.P + ' की राशि ' + s.T + ' वर्षों में ₹' + s.si + ' साधारण ब्याज अर्जित करती है। वार्षिक दर = ? %'; }],
+      e: [function (s) { return 'R = SI × 100 ÷ (P × T) = ' + s.si + ' × 100 ÷ (' + s.P + ' × ' + s.T + ') = ' + s.R + '%.'; }]
+    },
+    'simple-interest:hard:findPrincipal': {
+      s: [function (s) { return 'कोई राशि ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों में ₹' + s.si + ' साधारण ब्याज अर्जित करती है। राशि ज्ञात कीजिए।'; }, function (s) { return 'कौन-सा मूलधन ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों में ₹' + s.si + ' साधारण ब्याज देता है?'; }],
+      e: [function (s) { return 'P = SI × 100 ÷ (R × T) = ' + s.si + ' × 100 ÷ (' + s.R + ' × ' + s.T + ') = ₹' + s.P + '.'; }]
+    },
+
+    /* चक्रवृद्धि ब्याज */
+    'compound-interest:*:amount': {
+      s: [function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों के लिए वार्षिक चक्रवृद्धि पर मिश्रधन ज्ञात कीजिए।'; }, function (s) { return s.nm.hi + ' ₹' + s.P + ' को ' + s.R + '% प्रति वर्ष की दर पर, वार्षिक चक्रवृद्धि के साथ निवेश करते हैं। ' + s.T + ' वर्षों बाद मिश्रधन = ₹?'; }],
+      e: [function (s) { return 'A = P(1 + R/100)ᵀ = ' + s.P + ' × ' + (1 + s.R / 100) + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '.'; }]
+    },
+    'compound-interest:*:ci': {
+      s: [function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से ' + s.T + ' वर्षों का चक्रवृद्धि ब्याज ज्ञात कीजिए, जो वार्षिक रूप से चक्रवृद्धि होता है।'; }, function (s) { return '₹' + s.P + ' का ऋण ' + s.R + '% प्रति वर्ष की दर पर, वार्षिक चक्रवृद्धि के साथ लिया जाता है। ' + s.T + ' वर्षों बाद देय चक्रवृद्धि ब्याज = ₹?'; }],
+      e: [function (s) { return 'A = ' + s.P + '(1 + ' + s.R + '/100)' + (s.T === 2 ? '²' : '³') + ' = ₹' + s.A + '; CI = A − P = ' + s.A + ' − ' + s.P + ' = ₹' + (s.A - s.P) + '.'; }]
+    },
+    'compound-interest:hard:ciSiDiff': {
+      s: [function (s) { return '₹' + s.P + ' पर ' + s.R + '% प्रति वर्ष की दर से 2 वर्षों के लिए चक्रवृद्धि ब्याज और साधारण ब्याज का अंतर = ₹?'; }],
+      e: [function (s) { return '2 वर्षों के लिए, CI − SI = P(R/100)² = ' + s.P + ' × (' + s.R + '/100)² = ₹' + s.d + '.'; }]
     }
   } };
 

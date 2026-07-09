@@ -98,6 +98,7 @@ language. Marathi column filled in F-M4.
 | fraction | भिन्न | — | |
 | multiply / product | गुणा / गुणनफल | — | |
 | ratio / proportion | अनुपात / समानुपात | — | |
+| common (to both) / lend | उभयनिष्ठ / उधार देना | — | per annum प्रति वर्ष; compounded annually वार्षिक चक्रवृद्धि |
 | part / share (in ratio) | भाग / हिस्सा | — | |
 | divide (a sum) | बाँटना / विभाजित करना | — | |
 | average / mean | औसत / माध्य | — | |
