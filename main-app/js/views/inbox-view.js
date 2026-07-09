@@ -176,12 +176,12 @@ var InboxView = (function () {
     _notifications.forEach(function(n) {
       var bg = n.isRead ? 'var(--bg-surface)' : 'var(--bg-elevated)';
       var weight = n.isRead ? '500' : '700';
-      var border = n.isRead ? '1px solid var(--border-color)' : '1px solid var(--accent-primary, #ef4444)';
+      var border = n.isRead ? '1px solid var(--border-color)' : '1px solid var(--qr-danger, #ef4444)';
 
       // ADR-066: prefer the pipeline-provided icon; fall back to a type/category guess for older docs.
       var icon = n.icon || ({ direct_message: '💬', topic_nudge: '🎯' })[n.type] || _catMeta(n.category).icon;
       var cat = _catMeta(n.category);
-      var unreadDot = n.isRead ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--accent-primary,#ef4444);flex-shrink:0;"></span>';
+      var unreadDot = n.isRead ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--qr-danger,#ef4444);flex-shrink:0;"></span>';
 
       html += '<div class="notification-card" data-id="' + n.id + '" data-link="' + _escapeHtml(n.deepLink || '') + '" style="background:' + bg + '; border:' + border + '; border-radius:var(--radius-lg); padding:1rem; cursor:pointer; transition:transform 0.15s, background 0.2s;">';
       html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; gap:0.5rem;">';

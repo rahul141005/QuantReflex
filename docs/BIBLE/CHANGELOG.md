@@ -6,6 +6,42 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-10 — UI/UX Excellence Phase 1 (design-system overhaul) — M0 + M1
+
+Executing the approved UI/UX blueprint (`/docs/BIBLE/` ADR to follow at phase end). Milestone-gated: each
+lands `npm test` green + design-lint green + a rendered light/dark/playful screenshot matrix, no regressions.
+
+- **M0 — Guardrails.** New `scripts/design-lint.check.js` (wired into `npm test`) counts distinct
+  border-radius / box-shadow / font-size / motion-duration / easing / z-index / gradient values and the
+  raw-color:var() ratio in `css/style.css`, failing above ceilings pinned at the audited baseline; ceilings
+  ratchet DOWN as consolidation lands and can never regress. Screenshot baseline = the audit `u-*` matrix.
+- **M1 — Foundation & Light default.**
+  - **Default appearance is now LIGHT, not System** (mandate). `settings.js appearanceMode()` fallback
+    `s.appearance || (s.darkMode ? 'dark' : 'light')` — a fresh install starts light; users who explicitly
+    chose Dark/System keep it (stored value wins; legacy `darkMode:true` stays dark). Proven: fresh profile
+    under OS-dark still renders light.
+  - **Pre-paint theme script** (index.html head) mirrors that exact chain and adds the theme class to
+    `<html>` before `<body>` parses → the first frame is already correct (no dark→light flash). Theme classes
+    migrated from `body.*` to `html.*` across all 1,318 selectors in `css/style.css` (dark 818, playful 500;
+    JS sets both html+body for one release as belt-and-braces). `body` background/color are now token-driven
+    (`var(--qr-bg)`/`var(--qr-text)`) so the body element themes via the html-level token cascade — this fixed
+    a real dark/playful regression the migration introduced (hardcoded `body{background:#f8fafc}` stayed light).
+    `duel-manager` now sets `drill-session-active` on `<html>` too (matches session-manager/router) so the
+    migrated compound selectors match during duels. `theme-color` meta now tracks the resolved mode (light
+    `#2563eb` / dark `#0f172a`) at pre-paint and on every appearance change.
+  - **Design-system foundation tokens** added to `:root` (additive; legacy names kept): 9-step spacing scale,
+    5-step radius, 3-step elevation + hairline, 2 glass blurs, 7-step z-index, 9-step type scale, arrival spring.
+  - **Flagship buttons de-blinded:** `.btn-primary/.btn-secondary` were hardcoded (`#f1f5f9`/`#334155`) and
+    theme-blind (a light button on the dark UI); now token-driven and correct in all four themes.
+  - **A11y P0:** pinch-zoom re-enabled (dropped `maximum-scale/user-scalable=0`, WCAG 1.4.4) + global
+    `touch-action: manipulation` on controls; global focus policy (`:focus:not(:focus-visible)` + `[tabindex="-1"]`
+    no-ring) removes the browser default ring flashing on scroll-anchor headings; the lone amber focus ring
+    (`#d97706`) → accent; light `--qr-text-mut` `#94a3b8`→`#64748b` (was ~2.9:1, now ≥4.5:1); `--accent-primary`
+    alias remapped danger→accent with the 4 red-wanting consumers switched to `--qr-danger` explicitly.
+  - Verification: `npm test` 14,395 green; design-lint green; `m1-theme-proof` (10 assertions: Light default
+    under OS-dark, pre-paint dark, dark retained through boot+auth-transition, System→OS both ways, Playful);
+    rendered dark matrix (home/settings/practice/learn) all correct.
+
 ## 2026-07-09 — Internationalization Final Stabilization: audit fix batch + post-fix re-audit (ADR-111)
 
 Every verified finding from the independent production audit re-validated against the tree and fixed, plus additional

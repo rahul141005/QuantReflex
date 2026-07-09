@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
-  <meta name="theme-color" content="#2563eb" />
+  <!-- UI Phase 1 §13-P0: pinch-zoom re-enabled (WCAG 1.4.4) — dropped maximum-scale/user-scalable. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" id="themeColorMeta" />
   <meta name="description" content="Train Speed Aptitude — Quant, Data Interpretation &amp; Logical Reasoning — for exams like CAT, MAH-CET, IBPS and SSC. Daily drills, QuanAI coaching, and performance analytics." />
   <title>QuantReflex</title>
   <link rel="manifest" href="manifest.json" />
@@ -14,6 +15,26 @@
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
   <script>window.QR_APP_VERSION = 'v223';</script>
+  <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
+       parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
+       frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
+       a fresh install (no `appearance`, no `darkMode`) starts light. This fallback chain is IDENTICAL to
+       settings.js `appearanceMode()`/`resolveDarkMode()` — keep them in lockstep. -->
+  <script>
+  (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+      var mode = s.appearance || (s.darkMode ? 'dark' : 'light');   /* LIGHT default */
+      var dark = mode === 'dark' ||
+        (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var el = document.documentElement;
+      if (dark) el.classList.add('dark-mode');
+      if (s.theme === 'playful') el.classList.add('theme-playful');
+      var m = document.getElementById('themeColorMeta') || document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', dark ? '#0f172a' : '#2563eb');
+    } catch (_) { /* light default */ }
+  })();
+  </script>
   <!-- ADR-111: pre-paint language application (flash-of-English guard). Sets <html lang> and the
        locale hook before first paint so a saved Hindi/Marathi choice never flashes English chrome.
        I18N_ON must stay in LOCKSTEP with QRI18n.ENABLED (js/i18n.js) — scripts/i18n.check.js
@@ -236,7 +257,7 @@
               </div>
               <button class="inbox-bell-btn" id="inboxBellBtn" style="background:transparent; border:none; position:relative; padding:0.5rem; cursor:pointer; color:var(--text-primary); border-radius:50%; transition:background 0.2s;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span id="inboxUnreadBadge" style="display:none; position:absolute; top:2px; right:4px; background:var(--accent-primary, #ef4444); color:#fff; font-size:10px; font-weight:700; width:16px; height:16px; border-radius:50%; justify-content:center; align-items:center;">0</span>
+                <span id="inboxUnreadBadge" style="display:none; position:absolute; top:2px; right:4px; background:var(--qr-danger, #ef4444); color:#fff; font-size:10px; font-weight:700; width:16px; height:16px; border-radius:50%; justify-content:center; align-items:center;">0</span>
               </button>
             </div>
           </div>
@@ -1408,7 +1429,7 @@
         <label for="deleteAccountPassword" id="deleteAccountPasswordLabel" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.5rem;" data-i18n="modals.deletePasswordLabel">To confirm, please enter your password:</label>
         <input type="password" id="deleteAccountPassword" placeholder="Your password" data-i18n-attr="placeholder:modals.deletePasswordPlaceholder" class="input-text" style="width:100%;" />
         <p id="deleteAccountProviderNote" class="secondary-text" style="display:none; font-size:0.85rem;" data-i18n="modals.deleteGoogleNote">For security, you'll be asked to confirm with your Google account.</p>
-        <div id="deleteAccountError" style="color:var(--accent-primary, #ef4444); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
+        <div id="deleteAccountError" style="color:var(--qr-danger, #ef4444); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary modal-cancel" id="deleteAccountCancel" data-i18n="modals.cancel">Cancel</button>

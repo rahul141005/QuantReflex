@@ -44,22 +44,26 @@ function saveSettings(s) {
  * @param {string} theme - 'classic' or 'playful'
  */
 function applyTheme(theme) {
-  document.body.classList.remove('theme-playful');
-  if (theme === 'playful') {
-    document.body.classList.add('theme-playful');
-  }
-  /* Icons are theme-driven purely in CSS (QR icon system) — toggling the body class is enough. */
+  /* UI Phase 1: theme classes live on <html> (so the pre-paint head script can set them before <body>
+     parses — no flash). Body is kept in lockstep as belt-and-braces for one release. */
+  var on = theme === 'playful';
+  document.documentElement.classList.toggle('theme-playful', on);
+  document.body.classList.toggle('theme-playful', on);
+  /* Icons are theme-driven purely in CSS (QR icon system) — toggling the class is enough. */
 }
 
-/* ---- Appearance: System / Light / Dark (ADR-091) ----
+/* ---- Appearance: System / Light / Dark (ADR-091; default→Light in UI Phase 1) ----
    ONE resolver owns the light/dark decision. `settings.appearance` is canonical
    ('system' | 'light' | 'dark'); when absent, the legacy boolean migrates lazily:
-   darkMode:true → 'dark' (an explicit choice stays), darkMode:false → 'system'
-   (overwhelmingly "never touched" — and System is the honest default). All 981
-   dark-mode CSS rules keep keying off body.dark-mode; only JS resolves the OS
-   preference, so there is no duplicated stylesheet. */
+   darkMode:true → 'dark' (an explicit choice stays), darkMode:false → 'light'.
+   UI Phase 1 mandate: the default is now LIGHT, not System — a fresh install (no
+   `appearance`, no `darkMode`) starts light. Users who explicitly chose Dark or
+   System keep it (the stored `appearance` wins; legacy darkMode:true users stay
+   dark via the middle term). Theme classes live on <html> (pre-paint, no flash);
+   this resolver only decides the OS branch for System mode. The inline head script
+   in index.html mirrors THIS EXACT fallback chain — keep them in lockstep. */
 function appearanceMode(s) {
-  return s.appearance || (s.darkMode ? 'dark' : 'system');
+  return s.appearance || (s.darkMode ? 'dark' : 'light');
 }
 
 function resolveDarkMode(s) {
@@ -69,8 +73,20 @@ function resolveDarkMode(s) {
   try { return window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (_) { return false; }
 }
 
+/* Keep the browser/OS status-bar tint (theme-color meta) in sync with the resolved mode. */
+function _syncThemeColor(dark) {
+  try {
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', dark ? '#0f172a' : '#2563eb');
+  } catch (_) {}
+}
+
 function applyAppearance(s) {
-  document.body.classList.toggle('dark-mode', resolveDarkMode(s || loadSettings()));
+  var dark = resolveDarkMode(s || loadSettings());
+  /* Theme class on <html> (lockstep with the pre-paint script) + body for one release (belt-and-braces). */
+  document.documentElement.classList.toggle('dark-mode', dark);
+  document.body.classList.toggle('dark-mode', dark);
+  _syncThemeColor(dark);
 }
 
 /* Follow live OS scheme changes while in System mode (e.g. sunset auto-dark). */

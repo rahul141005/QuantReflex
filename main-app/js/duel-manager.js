@@ -275,6 +275,7 @@ var DuelManager = (function () {
     if (_hbTimer) clearInterval(_hbTimer);
     _hbTimer = setInterval(function () { DuelCore.heartbeat(_code); }, 10000);
     document.body.classList.add('drill-session-active');
+    document.documentElement.classList.add('drill-session-active');   /* UI Phase 1: theme selectors moved to <html>; keep this class on html too (matches session-manager/router) */
     _showContainer('duelActive', true);
     var container = _el('duelActive');
     /* Engine question objects: TEXT ONLY (no `answer` — the key is server-only). */
@@ -409,6 +410,7 @@ var DuelManager = (function () {
     _runner = null;
     if (typeof hideCustomNumpad === 'function') hideCustomNumpad();
     document.body.classList.remove('drill-session-active');
+    document.documentElement.classList.remove('drill-session-active');
   }
 
   /* Best-effort finalize when the player leaves the solving screen (keepalive beacon). SOLVING ONLY — a close
