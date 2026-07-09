@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-09 — Internationalization Phase F: generated questions/solutions in en/hi/mr + durable Mistake Archive (ADR-111)
+
+Every procedurally-generated string now renders in the study language as grammar-engineered, exam-book Hindi/Marathi
+while the MATH is provably untouched, still feature-flagged OFF (English byte-identical).
+
+- **Architecture.** Engines separate math from surface. Quant: `js/gen-i18n.js` (`QRGenI18n`) render/slots model + 3
+  packs `locales/gen/{en,hi,mr}.quant.js` (170/170 archetypes each). DI/LR/LR-visual: rich-pack model — the engine owns
+  all RNG/geometry/figure-specs and generates directly in the active language via `registerDI/LR/LRV` + `diPack/lrPack/
+  lrvPack`, packs `locales/gen/{en,hi,mr}.{di,lr,lrv}.js`. `js/i18n-packs.js` lazy-loads hi/mr; all SW-precached.
+- **EN identity + invariance.** Exact-hash censuses `scripts/{di,lr,lrv}-census.js` (DI masked-set; LR 36 djb2; LRV 30
+  djb2) prove EN unchanged after each refactor. `scripts/gen-i18n.check.js` §§8–12 assert cross-language invariance
+  (answer / option-index / subtype / figure-spec identical), digit-multiset preservation, no Latin leak, no Devanagari
+  numerals — 2160 (LR) / 1800 (LRV) samples/language.
+- **Kinship.** Generic-relation-id → native-term map (`relTerm`); `scripts/lr-kinship.check.js` + `fixtures/lr-kinship.json`
+  are a hand-written 36-pair truth table across en+hi+mr (Hindi splits दादा/नाना; Marathi collapses to आजोबा — each
+  language's real system) with an option-collision-safety proof.
+- **Mistake Archive.** `js/mistake-archive.js` (`QRMistakeArchive`) rebuilds the mistake log as a durable v3 learning
+  substrate: versioned reproduce-exact records across every engine (frozen question + chart/figure specs + rich
+  metadata incl. `lang`), merge-by-id offline↔cloud reconciliation (no dup/loss/corruption), and a query/mutation API —
+  bookmarks, SM-2 spaced repetition (`dueTs`/`interval`/`ease`), `qkey` per-question grouping, export/import, reserved
+  `ext` namespace — certified extensible for AI coaching / analytics / adaptive learning without structural redesign.
+  Wired via `progress.js` / `drill-engine.js` / `questions.js` / `firestore-sync.js` (guarded hydration merge).
+- **Checks.** New `scripts/mistake-archive.check.js`, `scripts/lr-kinship.check.js`, gen-i18n §§11–12; `quant-engine.check`
+  EN-pinned. npm test at **40 scripts, all green**.
+- **Playwright.** Per-engine sweeps (DI / LR / LR-visual, 6 viewport configs incl. TWA + landscape) + a comprehensive
+  cross-engine harness through the real `i18n.js` + `DICharts`/`LRFigures`, proving the **diverged app=en/study=hi** case
+  (English chrome + Devanagari content simultaneously) across all four engines. Archive Playwright (create/retrieve/
+  filter/sort/search/delete/restore/sync + a11y/offline/perf) green.
+- **Governance.** `docs/BIBLE/GLOSSARY_I18N.md` gained Quant/DI/LR/LR-visual generated-content vocabularies (kinship
+  map, MR Sanskrit intercardinals, etc.); `I18N_KNOWN_LIMITS.md` gained the Phase-F entries; milestone certification
+  reports `I18N_FM6…FM9_*`. Rides SW v223.
+
 ## 2026-07-08 — Internationalization Phase E: QuanAI + notifications + planner in en/hi/mr (ADR-111)
 
 QuanAI now answers in the user's STUDY language, every deterministic server-composed string and the

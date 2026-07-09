@@ -9,12 +9,30 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.141 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.142 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.142 (2026-07-09)** — **Internationalization Phase F (ADR-111).** Every RUNTIME-GENERATED string —
+> Quant stems + inline explanations, DI set stems + chart text, LR stems + option terms, and the LR-visual
+> stems + explanations — now renders in the study language (हिन्दी / मराठी) as grammar-engineered, exam-book
+> content, still feature-flagged OFF (English byte-identical). Architecture: the four engines separate MATH
+> from SURFACE. Quant uses the pure `QRGenI18n.render(engine,key,v,slots)` model (12 packs under
+> `locales/gen/`); DI/LR/LR-visual own their RNG and generate directly in the active language via rich packs
+> (`registerDI/LR/LRV` + `diPack/lrPack/lrvPack`). EN identity is proven by exact-hash censuses
+> (`di-census`, `lr-census` 36, `lrv-census` 30) and cross-language invariance by `gen-i18n.check` §§8–12
+> (answer/option-index/subtype/figure-spec identical; digit-multiset preserved; no Latin leak; no Devanagari
+> numerals). Kinship is a generic-id → native-term map with a hand-written 36-pair truth table
+> (`lr-kinship.check`, en+hi+mr — Hindi splits दादा/नाना, Marathi collapses to आजोबा by design). The Mistake
+> Archive was rebuilt as a durable v3 learning substrate (`js/mistake-archive.js`): versioned reproduce-exact
+> records across every engine, merge-by-id offline↔cloud sync, a query/mutation API (bookmarks, SM-2 spaced
+> repetition, qkey per-question grouping, export/import, `ext` namespace) certified extensible for AI coaching /
+> analytics / adaptive learning. New checks: `mistake-archive.check`, `lr-kinship.check`, gen-i18n §§11–12
+> (npm test at 40 scripts, all green). Comprehensive cross-engine Playwright (incl. the diverged app=en/study=hi
+> case) + per-engine sweeps green at 360/820/TWA. Rides SW v223.
+>
 > **2.141 (2026-07-08)** — **Internationalization Phase E (ADR-111).** QuanAI now answers in the
 > user's STUDY language and every deterministic server-composed string, the notification system, and
 > the remaining AI client chrome (companion + 7-screen setup wizard + planner calendar) are localized

@@ -9,6 +9,49 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Phase F addendum (2026-07-09) — generated questions/solutions localized + durable Mistake Archive.** Every
+  RUNTIME-GENERATED string (Quant stems + inline explanations, DI stems + chart text, LR stems + option terms, LR-visual
+  stems + explanations) now renders in the study language as grammar-engineered exam-book Hindi/Marathi while the MATH is
+  provably untouched. Flag still OFF; EN byte-identical.
+  - **Separate math from surface.** Quant uses the pure render/slots model — `js/gen-i18n.js` (`QRGenI18n.render(engine,
+    key,v,slots)` picks `templates[v % length]` with ZERO random draws) + packs `locales/gen/{en,hi,mr}.quant.js`. DI, LR
+    and LR-visual own their RNG/geometry/figure-specs and generate DIRECTLY in the active language via a rich-pack registry
+    (`registerRich/richPack` + `registerDI/LR/LRV` + `diPack/lrPack/lrvPack`), packs `locales/gen/{en,hi,mr}.{di,lr,lrv}.js`.
+    RNG draw ORDER is preserved by passing localized pool arrays of the SAME length to the engine's `_mcq`/`_pick`.
+    `js/i18n-packs.js` (`QRPacks`) lazy-loads hi/mr; all packs SW-precached (offline in any language).
+  - **EN identity + invariance.** Exact-hash censuses `scripts/{di,lr,lrv}-census.js` (DI masked-shape SET; LR 36 djb2 of a
+    seeded output sequence; LRV 30 djb2 over stem+explanation+answer+options+FIGURE-SPECS) reproduce byte-for-byte after
+    each refactor. `scripts/gen-i18n.check.js` §§8–12 assert cross-language invariance — for a fixed RNG seed the answer,
+    option-INDEX set (text-MCQ answers are language-specific strings, compared by index not text), subtype and (DI/LRV)
+    FIGURE SPECS are identical across en/hi/mr — plus digit-multiset preservation, no Latin leak, no Devanagari numerals.
+  - **Kinship (highest correctness risk).** `_compose2(r1,r2)` returns a GENERIC English relation-id (EN option sets stay
+    dedup-clean); `_specifier(combo,r2)` derives lineage; the pack's `relTerm(id, spec)` renders the SPECIFIC native word
+    for the answer and the canonical word for distractors. `scripts/lr-kinship.check.js` + `fixtures/lr-kinship.json` are a
+    hand-written 36-pair truth table asserted across en+hi+mr — **Hindi splits grandparent lineage (दादा/नाना), Marathi
+    collapses to आजोबा** (each language's real system, not a calque) — with an option-collision-safety proof.
+  - **Grammar engineering.** Hindi: gender-safe possessive frames (marker agrees with the possessed noun), ergativity-safe
+    perfective verbs, R.S. Aggarwal quantifier forms, danda "।". Marathi (first-class, MPSC/State-Board register): किती
+    gender-invariant, "." terminator, Sanskrit intercardinals (ईशान्य/आग्नेय), suffixed genitives, honorific copula
+    agreement, appositive dash frame for direction. Every digit / ₹ / % / formula / symbol preserved from the EN twin.
+  - **Mistake Archive (F-M8) — durable v3 learning substrate.** `js/mistake-archive.js` (`QRMistakeArchive`): a versioned,
+    forward-compatible record that reproduces the attempt EXACTLY (frozen rendered question in its capture language + the
+    machine chart/figure specs → DI + LR-visual reviewable) with rich metadata (lang, selected, timing, hints, difficulty,
+    engine, source, sessionType, ts) and a merge-by-stable-id reconciliation that keeps offline cache and cloud free of
+    duplicates/loss/corruption. A query/mutation API (filter/sort/search/facets + bookmark/resolve/delete/restore) is the
+    foundation for review/coaching/analytics. **Extensibility-certified (v3):** `qkey` (per-question grouping → multiple
+    attempts + difficulty progression), SM-2 spaced repetition (`dueTs`/`interval`/`ease` + `scheduleReview`), reserved
+    `ext` namespace (AI coaching notes), and `exportArchive`/`importArchive` — all 10 named future capabilities accommodated
+    with no structural redesign; v1/v2 records upgrade in place and unknown future fields are preserved.
+  - **Known-limits (recorded, none critical).** Syllogism noun number-agreement approximation (logic-neutral); Marathi
+    grandparent-lineage collapse (intentional); Latin cipher/variable/km tokens by design; figure `aria-label` spec-derived
+    English (renderer chrome, consistent with the F-M5 DI kind-prefix); mistake replay freezes in its capture language
+    (cross-language re-render reserved via the `gen` provenance field); shared-context SETs archived but not drill-re-servable;
+    archive cap-100.
+  - **Verification.** npm test at **40 scripts, all green** (new: mistake-archive.check, lr-kinship.check, gen-i18n §§11–12;
+    quant-engine.check EN-pinned; di/lr/lrv-engine checks unmodified-green). Per-engine Playwright sweeps + a comprehensive
+    cross-engine harness through the real `i18n.js` + `DICharts`/`LRFigures` proving the **diverged app=en/study=hi** case
+    (English chrome + Devanagari content simultaneously) across all four engines at 360/820/TWA. Six milestone certification
+    reports (`I18N_FM6…FM9_*`). Rides SW v223; flag stays OFF until the Phase-H Final Localization Certification.
 - **Phase E addendum (2026-07-08) — QuanAI, notifications & planner localized (server + client seams).**
   QuanAI now answers in the user's STUDY language and every deterministic server-composed string, the
   notification system, and the remaining AI client chrome are localized. Flag still OFF; EN byte-identical.
