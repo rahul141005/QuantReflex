@@ -188,5 +188,5 @@ The following are intentional and bounded:
   §10 `DI_DNT` + all-caps strip).
 
 ### hi/mr DI packs — coverage
-- `di.hi` authored in F-M5.2, `di.mr` in F-M5.3. Until a language's DI pack is registered (`registerDI`), that language
+- `di.hi` authored in F-M5.2, `di.mr` in F-M5.3 — both now registered (`registerDI`); DI renders natively in EN + HI + MR. Until a language's DI pack is registered (`registerDI`), that language
   falls back to EN for DI (the leak/Devanagari checks skip it and report the gap), mirroring the quant coverage model.

@@ -238,6 +238,27 @@ SBI, ICICI, BSNL, MTNL, ACT, KIMS, ELSS, UPI, GDP, AC, ICU, EV, MW), and unit sy
 | percent / ratio / times / difference / contribute | प्रतिशत / अनुपात / गुना / अंतर / योगदान | — | "1 दशमलव स्थान तक", "निरपेक्ष मान", "सरलतम रूप a:b" |
 | caselet: surveyed / men / women / passed / approved | सर्वेक्षित / पुरुष / महिलाएँ / पास की / स्वीकृति पाई | — | acts are perfective (survey = completed measurement; see known-limits) |
 
+### Marathi DI canonical terms (F-M5.3) — Maharashtra register
+
+Gender-safe by construction: किती is invariant, and stems use the locative मध्ये / मधील / पैकी (never the gender-agreeing
+genitive चा/ची/चे); caselet counts use the जणांनी (people-ergative) frame with transitive-perfective acts.
+
+| English | Marathi | Note |
+|---|---|---|
+| chart / table / graph | चार्ट / तक्ता / आलेख | lead: "वरील चार्ट पाहा", "दिलेला तक्ता पाहून उत्तर द्या" |
+| Year / over the years / share of / entity-wise | वर्ष / वर्षांनुसार / … चा वाटा / …निहाय | title: "विक्री (₹ कोटी मध्ये), कंपनीनिहाय" |
+| (in `<unit>`) | (`<unit>` मध्ये) | metricUnit |
+| Sales / Revenue / Profit / Exports / Imports | विक्री / महसूल / नफा / निर्यात / आयात | |
+| Production / Output / Units Sold | उत्पादन / उत्पादन / विकलेले नग | |
+| Population / Employees / Students Enrolled / Subscribers | लोकसंख्या / कर्मचारी / प्रवेशित विद्यार्थी / ग्राहक | |
+| Loans Disbursed / Premiums Collected / Assets Managed | वितरित कर्ज / जमा प्रीमियम / व्यवस्थापित मालमत्ता | |
+| Rainfall / Wheat Production / Electricity Generated / Footfall | पर्जन्य / गहू उत्पादन / निर्मित वीज / आगंतुक संख्या | |
+| Tourist Arrivals / Passengers Carried / Flights Handled / Orders | पर्यटक आगमन / वाहून नेलेले प्रवासी / हाताळलेली विमाने / ऑर्डर | |
+| crore / lakh / tonnes / units / million | कोटी / लाख / टन / नग / दशलक्ष | ₹/%/mm/MW/`'000` stay |
+| Company/Bank Branch/State/Country/Hospital/Fund/District/Factory/Team/Mall | कंपनी / बँक शाखा / राज्य / देश / रुग्णालय / फंड / जिल्हा / कारखाना / संघ / मॉल | entities |
+| highest/lowest/total/average/difference/ratio/times | सर्वाधिक / सर्वात कमी / एकूण / सरासरी / फरक / गुणोत्तर / पट | "1 दशांश स्थळापर्यंत", "निरपेक्ष मूल्य", "सोप्या रूपात a:b" |
+| caselet: surveyed / passed / approved / discharged / booked | सर्वेक्षण केलेले / उत्तीर्ण केली / मंजुरी मिळवली / सुट्टी मिळवली / आरक्षण केले | जणांनी-ergative + transitive perfective |
+
 ## Reasoning subjects
 
 | English (app) | Hindi | Marathi | Note |
