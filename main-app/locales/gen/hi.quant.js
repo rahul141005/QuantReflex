@@ -22,7 +22,14 @@
      Only the descriptor word translates ('more'→अधिक, 'less'→कम); the % numbers and the ratio answer are neutral. */
   var RAT_PCT_POOL = [['25% अधिक', '5:4'], ['20% कम', '4:5'], ['50% अधिक', '3:2'], ['20% अधिक', '6:5'], ['25% कम', '3:4'], ['10% कम', '9:10'], ['12.5% अधिक', '9:8'], ['16.66% कम', '5:6'], ['37.5% अधिक', '11:8'], ['11.11% कम', '8:9'], ['66.66% अधिक', '5:3'], ['150% अधिक', '5:2'], ['40% अधिक', '7:5'], ['75% अधिक', '7:4']];
 
-  var pack = { pools: { RAT_PCT_POOL: RAT_PCT_POOL }, tpl: {
+  /* Trigonometry structure nouns (index-aligned with EN TRIG_STRUCT) — height-and-distance objects, standard
+     exam-book Hindi (मीनार = tower, ध्वजदंड = flagpole). Latin loan लाइटहाउस kept (recognized term). */
+  var TRIG_STRUCT = ['मीनार', 'खंभा', 'इमारत', 'पेड़', 'ध्वजदंड', 'लाइटहाउस', 'चिमनी'];
+  /* Trigonometric identities (index-aligned with EN TRIG_IDENT; arity 2). [0] is the expression to evaluate
+     (byte-identical Latin/symbol math); [1] is the descriptive phrase (सर्वसमिका = identity). */
+  var TRIG_IDENT = [['sin²θ + cos²θ', 'पाइथागोरस सर्वसमिका sin²θ + cos²θ = 1'], ['sec²θ − tan²θ', 'सर्वसमिका sec²θ − tan²θ = 1'], ['cosec²θ − cot²θ', 'सर्वसमिका cosec²θ − cot²θ = 1']];
+
+  var pack = { pools: { RAT_PCT_POOL: RAT_PCT_POOL, TRIG_STRUCT: TRIG_STRUCT, TRIG_IDENT: TRIG_IDENT }, tpl: {
     /* ── Batch 1: वर्ग, घन, भिन्न, गुणा, सरलीकरण (pure-arithmetic core; no names, no pools) ── */
 
     /* वर्ग और वर्गमूल */
@@ -566,6 +573,79 @@
     'inequalities-modulus:hard:modIneqCountLe': {
       s: [function (s) { return 'x के कितने पूर्णांक मान |x − ' + s.a + '| ≤ ' + s.b + ' को संतुष्ट करते हैं?'; }],
       e: [function (s) { return '|x − ' + s.a + '| ≤ ' + s.b + ' का अर्थ है ' + (s.a - s.b) + ' ≤ x ≤ ' + (s.a + s.b) + ', सम्मिलित = 2·' + s.b + ' + 1 = ' + (2 * s.b + 1) + ' पूर्णांक।'; }]
+    },
+
+    /* ── Batch 7: ज्यामिति, निर्देशांक ज्यामिति, त्रिकोणमिति (angles, Pythagoras, coordinate formulae, trig) ──
+       Angles in degrees (° kept), formula symbols (√, ², x₁/y₂, Δx, tan) DNT; TRIG_STRUCT/TRIG_IDENT ride pools. */
+
+    /* ज्यामिति — कोण, त्रिभुज, बहुभुज */
+    'geometry-basics:easy:complement': {
+      s: [function (s) { return s.a + '° के कोण का पूरक कोण क्या है?'; }, function (s) { return 'दो कोण पूरक हैं और उनमें से एक ' + s.a + '° का है। दूसरा कोण ज्ञात कीजिए (डिग्री में)।'; }],
+      e: [function (s) { return 'पूरक कोणों का योग 90° होता है, इसलिए पूरक = 90° − ' + s.a + '° = ' + (90 - s.a) + '°.'; }]
+    },
+    'geometry-basics:easy:supplement': {
+      s: [function (s) { return s.a + '° के कोण का संपूरक कोण क्या है?'; }, function (s) { return 'दो कोण एक सरल रेखा पर स्थित हैं और एक ' + s.a + '° का है। दूसरा कोण ज्ञात कीजिए (डिग्री में)।'; }],
+      e: [function (s) { return 'संपूरक कोणों का योग 180° होता है, इसलिए संपूरक = 180° − ' + s.a + '° = ' + (180 - s.a) + '°.'; }]
+    },
+    'geometry-basics:*:triangleThird': {
+      s: [function (s) { return 'एक त्रिभुज के दो कोण ' + s.a + '° और ' + s.b + '° हैं। तीसरा कोण ज्ञात कीजिए।'; }, function (s) { return 'एक त्रिभुज में दो कोण ' + s.a + '° और ' + s.b + '° हैं। तीसरा कोण = ?°'; }],
+      e: [function (s) { return 'त्रिभुज के कोणों का योग 180° होता है, इसलिए तीसरा = 180° − ' + s.a + '° − ' + s.b + '° = ' + (180 - s.a - s.b) + '°.'; }]
+    },
+    'geometry-basics:medium:pythHyp': {
+      s: [function (s) { return 'एक समकोण त्रिभुज की भुजाएँ ' + s.t0 + ' और ' + s.t1 + ' हैं। कर्ण ज्ञात कीजिए।'; }, function (s) { return 'एक सीढ़ी का निचला सिरा दीवार से ' + s.t0 + ' मीटर दूर है और वह दीवार पर ' + s.t1 + ' मीटर ऊपर तक पहुँचती है। सीढ़ी की लंबाई कितनी है (मीटर में)?'; }],
+      e: [function (s) { return 'कर्ण = √(' + s.t0 + '² + ' + s.t1 + '²) = √(' + (s.t0 * s.t0) + ' + ' + (s.t1 * s.t1) + ') = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'geometry-basics:medium:isosceles': {
+      s: [function (s) { return 'एक समद्विबाहु त्रिभुज का शीर्ष कोण ' + s.v + '° है। प्रत्येक आधार कोण ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'दोनों आधार कोण बराबर होते हैं और तीनों का योग 180° होता है: प्रत्येक = (180° − ' + s.v + '°)/2 = ' + ((180 - s.v) / 2) + '°.'; }]
+    },
+    'geometry-basics:hard:pythLeg': {
+      s: [function (s) { return 'एक समकोण त्रिभुज का कर्ण ' + s.t2 + ' और एक भुजा ' + s.t1 + ' है। दूसरी भुजा ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'दूसरी भुजा = √(' + s.t2 + '² − ' + s.t1 + '²) = √(' + (s.t2 * s.t2) + ' − ' + (s.t1 * s.t1) + ') = √' + (s.t0 * s.t0) + ' = ' + s.t0 + '.'; }]
+    },
+    'geometry-basics:hard:polygonSum': {
+      s: [function (s) { return s.n + ' भुजाओं वाले बहुभुज के अंतःकोणों का योग ज्ञात कीजिए।'; }, function (s) { return s.n + ' भुजाओं वाले बहुभुज के अंतःकोणों का योग = ?°'; }],
+      e: [function (s) { return 'अंतःकोणों का योग = (n − 2) × 180° = (' + s.n + ' − 2) × 180° = ' + ((s.n - 2) * 180) + '°.'; }]
+    },
+    'geometry-basics:hard:polygonEach': {
+      s: [function (s) { return s.n + ' भुजाओं वाले सम बहुभुज का प्रत्येक अंतःकोण ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'प्रत्येक अंतःकोण = (n − 2) × 180° / n = ' + ((s.n - 2) * 180) + '° / ' + s.n + ' = ' + ((s.n - 2) * 180 / s.n) + '°.'; }]
+    },
+
+    /* निर्देशांक ज्यामिति — दूरी, मध्यबिंदु, ढाल, विभाजन */
+    'coordinate-geometry-basics:*:distance': {
+      s: [function (s) { return 'बिंदुओं (' + s.x1 + ', ' + s.y1 + ') और (' + s.x2 + ', ' + s.y2 + ') के बीच की दूरी ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'दूरी = √[(Δx)² + (Δy)²] = √[' + s.t0 + '² + ' + s.t1 + '²] = √' + (s.t2 * s.t2) + ' = ' + s.t2 + '.'; }]
+    },
+    'coordinate-geometry-basics:*:midpointX': {
+      s: [function (s) { return '(' + s.x1 + ', ' + s.y1 + ') और (' + s.x2 + ', ' + s.y2 + ') के मध्यबिंदु का x-निर्देशांक ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'मध्यबिंदु x = (x₁ + x₂)/2 = (' + s.x1 + ' + ' + s.x2 + ')/2 = ' + ((s.x1 + s.x2) / 2) + '.'; }]
+    },
+    'coordinate-geometry-basics:*:slope': {
+      s: [function (s) { return '(' + s.x1 + ', ' + s.y1 + ') और (' + s.x2 + ', ' + s.y2 + ') को मिलाने वाली रेखा की ढाल ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'ढाल = (y₂ − y₁)/(x₂ − x₁) = (' + (s.y2 - s.y1) + ')/(' + (s.x2 - s.x1) + ') = ' + ((s.y2 - s.y1) / (s.x2 - s.x1)) + '.'; }]
+    },
+    'coordinate-geometry-basics:hard:sectionX': {
+      s: [function (s) { return 'बिंदु P, (' + s.x1 + ', ' + s.y1 + ') और (' + s.x2 + ', ' + s.y2 + ') को मिलाने वाली रेखा को ' + s.m + ':' + s.n + ' के अनुपात में आंतरिक रूप से विभाजित करता है। P का x-निर्देशांक ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'विभाजन सूत्र: x = (m·x₂ + n·x₁)/(m + n) = (' + s.m + '·' + s.x2 + ' + ' + s.n + '·' + s.x1 + ')/(' + s.m + ' + ' + s.n + ') = ' + s.x + '.'; }]
+    },
+
+    /* त्रिकोणमिति — मानक कोण, पूरक-कोण सर्वसमिका, सर्वसमिका, ऊँचाई-दूरी */
+    'trigonometry:*:standardEval': {
+      s: [function (s) { return s.fn + ' ' + s.ang + '° = ?'; }],
+      e: [function (s) { return 'मानक कोण सारणी से, ' + s.fn + ' ' + s.ang + '° = ' + s.val + '.'; }]
+    },
+    'trigonometry:*:complementary': {
+      s: [function (s) { return 'यदि ' + s.p0 + ' θ = ' + s.p1 + ' ' + s.x + '°, तो न्यून कोण θ ज्ञात कीजिए (डिग्री में)।'; }],
+      e: [function (s) { return s.p0 + ' θ = ' + s.p1 + '(90° − θ), इसलिए θ = 90° − ' + s.x + '° = ' + (90 - s.x) + '°.'; }]
+    },
+    'trigonometry:*:identity': {
+      s: [function (s) { return TRIG_IDENT[s.idx][0] + ' का मान ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'यह ' + TRIG_IDENT[s.idx][1] + ' है — तीन पाइथागोरस सर्वसमिकाओं में से एक, जो सभी sin²θ + cos²θ = 1 से व्युत्पन्न हैं (अन्य दो के लिए cos²θ या sin²θ से भाग दीजिए)। प्रत्येक कोण θ के लिए इसका मान 1 नियत रहता है, इसलिए किसी विशिष्ट कोण की आवश्यकता नहीं। (सावधानी: वर्ग फलनों पर होता है, जैसे sin²θ का अर्थ (sinθ)² है, sin(θ²) नहीं।)'; }]
+    },
+    'trigonometry:hard:heightElev': {
+      s: [function (s) { return 'एक ' + TRIG_STRUCT[s.stIdx] + ' के शिखर का उन्नयन कोण, उसके आधार से ' + s.base + ' मीटर दूर एक बिंदु से 45° है। ' + TRIG_STRUCT[s.stIdx] + ' की ऊँचाई ज्ञात कीजिए (मीटर में)।'; }],
+      e: [function (s) { return 'tan(45°) = ऊँचाई / आधार = 1, इसलिए ऊँचाई = आधार = ' + s.base + ' मीटर।'; }]
     }
   } };
 
