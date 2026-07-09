@@ -29,7 +29,22 @@
      (byte-identical Latin/symbol math); [1] is the descriptive phrase (सर्वसमिका = identity). */
   var TRIG_IDENT = [['sin²θ + cos²θ', 'पाइथागोरस सर्वसमिका sin²θ + cos²θ = 1'], ['sec²θ − tan²θ', 'सर्वसमिका sec²θ − tan²θ = 1'], ['cosec²θ − cot²θ', 'सर्वसमिका cosec²θ − cot²θ = 1']];
 
-  var pack = { pools: { RAT_PCT_POOL: RAT_PCT_POOL, TRIG_STRUCT: TRIG_STRUCT, TRIG_IDENT: TRIG_IDENT }, tpl: {
+  /* Probability colour pools (index-aligned; balls गेंदें are feminine → feminine colour forms नीली/हरी/पीली/काली). */
+  var PROB_COL = [['लाल', 'नीली'], ['हरी', 'पीली'], ['काली', 'सफ़ेद'], ['लाल', 'हरी']];
+  var PROB_COLC = [['लाल', 'नीली'], ['हरी', 'पीली'], ['काली', 'सफ़ेद']];
+  /* Set-theory context pairs (index-aligned) — the two liked-things per Venn problem. Subject/sport/food nouns in
+     exam-book Hindi; अंग्रेज़ी (school subject) is Devanagari, not the DNT brand "English". */
+  var SET_CTX = [['चाय', 'कॉफ़ी'], ['फुटबॉल', 'क्रिकेट'], ['गणित', 'विज्ञान'], ['हिन्दी', 'अंग्रेज़ी'], ['सेब', 'संतरे'], ['शतरंज', 'कैरम'], ['भौतिकी', 'रसायन'], ['बैडमिंटन', 'टेनिस'], ['इतिहास', 'भूगोल'], ['चित्रकला', 'संगीत'], ['गिटार', 'पियानो'], ['कुत्ते', 'बिल्लियाँ'], ['क्रिकेट', 'हॉकी'], ['पिज़्ज़ा', 'बर्गर']];
+  /* Mixture item pool (index-aligned; plain strings like EN). Templates are worded gender-invariantly (नमूने/मात्रा/
+     दर carry agreement, not the commodity) so grammar holds for every item regardless of its gender. */
+  var MIX_ITEMS = ['चावल', 'गेहूँ', 'चीनी', 'चाय', 'कॉफ़ी', 'दाल', 'आटा', 'नमक'];
+  /* Quantity-comparison relation pool (index 0=>, 1=<, 2==). Quantity → राशि; I/II Roman numerals and >,<,= neutral.
+     qcOhi/qcAnshi render options/answer from THIS pool by the indices build stored in slots (grading self-consistent). */
+  var QC_REL = ['राशि I > राशि II', 'राशि I < राशि II', 'राशि I = राशि II'];
+  function qcOhi(s) { return s.ord.map(function (i) { return QC_REL[i]; }); }
+  function qcAnshi(s) { return QC_REL[s.relIdx]; }
+
+  var pack = { complete: true, pools: { RAT_PCT_POOL: RAT_PCT_POOL, TRIG_STRUCT: TRIG_STRUCT, TRIG_IDENT: TRIG_IDENT, PROB_COL: PROB_COL, PROB_COLC: PROB_COLC, SET_CTX: SET_CTX, MIX_ITEMS: MIX_ITEMS, QC_REL: QC_REL }, tpl: {
     /* ── Batch 1: वर्ग, घन, भिन्न, गुणा, सरलीकरण (pure-arithmetic core; no names, no pools) ── */
 
     /* वर्ग और वर्गमूल */
@@ -646,6 +661,143 @@
     'trigonometry:hard:heightElev': {
       s: [function (s) { return 'एक ' + TRIG_STRUCT[s.stIdx] + ' के शिखर का उन्नयन कोण, उसके आधार से ' + s.base + ' मीटर दूर एक बिंदु से 45° है। ' + TRIG_STRUCT[s.stIdx] + ' की ऊँचाई ज्ञात कीजिए (मीटर में)।'; }],
       e: [function (s) { return 'tan(45°) = ऊँचाई / आधार = 1, इसलिए ऊँचाई = आधार = ' + s.base + ' मीटर।'; }]
+    },
+
+    /* ── Batch 8: क्रमचय-संचय, प्रायिकता, समुच्चय सिद्धांत, सांख्यिकी, मिश्रण, राशि-तुलना ──
+       nPr/nCr/factorial and set/probability symbols (∪, ∩, P, |A|) DNT; colour/context/commodity nouns ride the
+       PROB_COL / PROB_COLC / SET_CTX / MIX_ITEMS pools; QC options/answer render from QC_REL by index. */
+
+    /* क्रमचय एवं संचय */
+    'permutation-combination:easy:factorial': {
+      s: [function (s) { return s.n + '! = ?'; }],
+      e: [function (s) { return s.n + '! = ' + s.n + ' × ' + (s.n - 1) + ' × … × 1 = ' + s.val + '.'; }]
+    },
+    'permutation-combination:*:arrange': {
+      s: [function (s) { return s.n + ' विभिन्न पुस्तकों को एक पंक्ति में कितने प्रकार से व्यवस्थित किया जा सकता है?'; }],
+      e: [function (s) { return 'सभी ' + s.n + ' को व्यवस्थित करना = ' + s.n + '! = ' + s.val + '.'; }]
+    },
+    'permutation-combination:medium:nPr': {
+      s: [function (s) { return s.n + 'P' + s.r + ' का मान ज्ञात कीजिए (' + s.n + ' में से ' + s.r + ' का क्रमचय)।'; }],
+      e: [function (s) { return 'nPr = n!/(n−r)! = ' + s.n + '!/' + (s.n - s.r) + '! = ' + s.val + '.'; }]
+    },
+    'permutation-combination:medium:nCr': {
+      s: [function (s) { return s.n + 'C' + s.r + ' का मान ज्ञात कीजिए (' + s.n + ' में से ' + s.r + ' का संचय)।'; }],
+      e: [function (s) { return 'nCr = n!/[r!(n−r)!] = ' + s.n + '!/[' + s.r + '!·' + (s.n - s.r) + '!] = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:committee': {
+      s: [function (s) { return s.n + ' व्यक्तियों में से ' + s.r + ' सदस्यों की कितनी भिन्न समितियाँ बनाई जा सकती हैं?'; }],
+      e: [function (s) { return 'क्रम महत्वपूर्ण नहीं → संचय: ' + s.n + 'C' + s.r + ' = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:handshakes': {
+      s: [function (s) { return 'एक पार्टी में ' + s.n + ' व्यक्ति हैं, प्रत्येक व्यक्ति हर दूसरे व्यक्ति से एक बार हाथ मिलाता है। कुल कितने हस्तमिलाप होते हैं?'; }],
+      e: [function (s) { return 'प्रत्येक हस्तमिलाप एक युग्म है → ' + s.n + 'C2 = ' + s.n + '×' + (s.n - 1) + '/2 = ' + s.val + '.'; }]
+    },
+    'permutation-combination:hard:circular': {
+      s: [function (s) { return s.n + ' व्यक्तियों को एक वृत्ताकार मेज़ के चारों ओर कितने प्रकार से बैठाया जा सकता है?'; }],
+      e: [function (s) { return 'वृत्त में समान घूर्णनों को हटाने के लिए एक स्थान नियत किया जाता है, शेष (n − 1)! = ' + (s.n - 1) + '! = ' + s.val + ' व्यवस्थाएँ।'; }]
+    },
+    'permutation-combination:hard:atLeastOne': {
+      s: [function (s) { return s.w + ' महिलाओं और ' + s.m + ' पुरुषों में से ' + s.r + ' सदस्यों की एक समिति चुनी जाती है। कितनी समितियों में कम-से-कम एक महिला होगी?'; }],
+      e: [function (s) { return 'पूरक गिनिए: कुल समितियाँ ' + (s.w + s.m) + 'C' + s.r + ' = ' + s.total + ', में से केवल-पुरुष समितियाँ ' + s.m + 'C' + s.r + ' = ' + s.allMen + ' घटाने पर ' + s.ans + '। “कम-से-कम एक” का अर्थ लगभग हमेशा शून्य-स्थिति को घटाना होता है।'; }]
+    },
+
+    /* प्रायिकता */
+    'probability:*:bagSingle': {
+      s: [function (s) { return 'एक थैले में ' + s.r + ' ' + PROB_COL[s.colIdx][0] + ' और ' + s.b + ' ' + PROB_COL[s.colIdx][1] + ' गेंदें हैं। एक गेंद यादृच्छिक रूप से निकाली जाती है। इसके ' + PROB_COL[s.colIdx][0] + ' होने की प्रायिकता क्या है? (दशमलव में)'; }],
+      e: [function (s) { return 'P = अनुकूल/कुल = ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:easy:allHeads': {
+      s: [function (s) { return s.n + ' न्यायसंगत ' + (s.n === 1 ? 'सिक्का उछाला जाता है' : 'सिक्के उछाले जाते हैं') + '। ' + (s.n === 1 ? 'चित आने' : 'सभी चित आने') + ' की प्रायिकता क्या है? (दशमलव में)'; }],
+      e: [function (s) { return 'P(सभी चित) = (1/2)^' + s.n + ' = ' + s.ans + '.'; }]
+    },
+    'probability:*:complement': {
+      s: [function (s) { return 'एक थैले में ' + s.r + ' ' + PROB_COLC[s.colIdx][0] + ' और ' + s.b + ' ' + PROB_COLC[s.colIdx][1] + ' गेंदें हैं। एक गेंद यादृच्छिक रूप से निकाली जाती है। इसके ' + PROB_COLC[s.colIdx][0] + ' न होने की प्रायिकता क्या है? (दशमलव में)'; }],
+      e: [function (s) { return 'P(' + PROB_COLC[s.colIdx][0] + ' नहीं) = 1 − ' + s.r + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+    'probability:*:multipleProb': {
+      s: [function (s) { return '1 से ' + s.T + ' तक एक संख्या यादृच्छिक रूप से चुनी जाती है। इसके ' + s.d + ' के गुणज होने की प्रायिकता क्या है? (दशमलव में)'; }],
+      e: [function (s) { return s.T + ' तक ' + s.d + ' के गुणज: ' + s.fav + '. P = ' + s.fav + '/' + s.T + ' = ' + s.ans + '.'; }]
+    },
+
+    /* समुच्चय सिद्धांत — समावेशन-अपवर्जन */
+    'set-theory:*:union': {
+      s: [function (s) { return 'एक समूह में ' + s.a + ' व्यक्ति ' + SET_CTX[s.ci][0] + ' पसंद करते हैं, ' + s.b + ' व्यक्ति ' + SET_CTX[s.ci][1] + ' पसंद करते हैं, और ' + s.both + ' दोनों पसंद करते हैं। कितने व्यक्ति दोनों में से कम-से-कम एक पसंद करते हैं?'; }],
+      e: [function (s) { return '|A∪B| = |A| + |B| − |A∩B| = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + (s.a + s.b - s.both) + '.'; }]
+    },
+    'set-theory:easy:onlyA': {
+      s: [function (s) { return 'एक समूह में ' + s.a + ' व्यक्ति ' + SET_CTX[s.ci][0] + ' पसंद करते हैं और उनमें से ' + s.both + ' व्यक्ति ' + SET_CTX[s.ci][1] + ' भी पसंद करते हैं। कितने व्यक्ति केवल ' + SET_CTX[s.ci][0] + ' पसंद करते हैं?'; }],
+      e: [function (s) { return 'केवल ' + SET_CTX[s.ci][0] + ' = |A| − |A∩B| = ' + s.a + ' − ' + s.both + ' = ' + (s.a - s.both) + '.'; }]
+    },
+    'set-theory:*:neither': {
+      s: [function (s) { return s.total + ' विद्यार्थियों की एक कक्षा में ' + s.a + ' ' + SET_CTX[s.ci][0] + ' पसंद करते हैं, ' + s.b + ' ' + SET_CTX[s.ci][1] + ' पसंद करते हैं और ' + s.both + ' दोनों पसंद करते हैं। कितने किसी को भी पसंद नहीं करते?'; }],
+      e: [function (s) { return 'कम-से-कम एक पसंद = ' + s.a + ' + ' + s.b + ' − ' + s.both + ' = ' + s.union + '. कोई नहीं = ' + s.total + ' − ' + s.union + ' = ' + s.neither + '.'; }]
+    },
+    'set-theory:*:both': {
+      s: [function (s) { return s.total + ' विद्यार्थियों की एक कक्षा में ' + s.a + ' ' + SET_CTX[s.ci][0] + ' पसंद करते हैं, ' + s.b + ' ' + SET_CTX[s.ci][1] + ' पसंद करते हैं और ' + s.neither + ' किसी को भी पसंद नहीं करते। कितने दोनों पसंद करते हैं?'; }],
+      e: [function (s) { return 'कम-से-कम एक पसंद = ' + s.total + ' − ' + s.neither + ' = ' + s.union + '. दोनों = |A| + |B| − संघ = ' + s.a + ' + ' + s.b + ' − ' + s.union + ' = ' + s.both + '.'; }]
+    },
+    'set-theory:hard:threeUnion': {
+      s: [function (s) { return 'एक सर्वेक्षण में ' + s.a + ' व्यक्ति A पढ़ते हैं, ' + s.b + ' व्यक्ति B पढ़ते हैं, ' + s.cc + ' व्यक्ति C पढ़ते हैं; ' + s.ab + ' A और B पढ़ते हैं, ' + s.bc + ' B और C पढ़ते हैं, ' + s.ca + ' A और C पढ़ते हैं, और ' + s.abc + ' तीनों पढ़ते हैं। कितने कम-से-कम एक पढ़ते हैं?'; }],
+      e: [function (s) { return '|A∪B∪C| = (' + s.a + '+' + s.b + '+' + s.cc + ') − (' + s.ab + '+' + s.bc + '+' + s.ca + ') + ' + s.abc + ' = ' + s.union + '.'; }]
+    },
+
+    /* सांख्यिकी */
+    'statistics-basics:*:median': {
+      s: [function (s) { return s.a.join(', ') + ' की माध्यिका ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'क्रम में लगाइए: ' + s.sorted.join(', ') + '. ' + s.k + ' मानों के साथ माध्यिका मध्य मान है = ' + s.med + '.'; }]
+    },
+    'statistics-basics:*:range': {
+      s: [function (s) { return s.a.join(', ') + ' का परिसर ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'परिसर = सबसे बड़ा − सबसे छोटा = ' + s.mx + ' − ' + s.mn + ' = ' + (s.mx - s.mn) + '.'; }]
+    },
+    'statistics-basics:*:mode': {
+      s: [function (s) { return s.a.join(', ') + ' का बहुलक ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'बहुलक सबसे अधिक बार आने वाला मान है। ' + s.m + ' 3 बार आता है — किसी अन्य से अधिक — इसलिए बहुलक ' + s.m + ' है।'; }]
+    },
+    'statistics-basics:hard:mean': {
+      s: [function (s) { return s.a.join(', ') + ' का माध्य (औसत) ज्ञात कीजिए।'; }],
+      e: [function (s) { return 'माध्य = योग ÷ संख्या = ' + s.sum + ' ÷ ' + s.k + ' = ' + s.M + '.'; }]
+    },
+
+    /* मिश्रण एवं मिश्रण नियम — commodity via MIX_ITEMS; wording gender-invariant (नमूने/मात्रा/दर carry agreement) */
+    'mixtures:*:alligationRatio': {
+      s: [function (s) { return MIX_ITEMS[s.itIdx] + ' के दो नमूने, ₹' + s.a + ' प्रति kg तथा ₹' + s.b + ' प्रति kg की दर पर, किस अनुपात में मिलाए जाएँ ताकि मिश्रण ₹' + s.m + ' प्रति kg का हो?'; }],
+      e: [function (s) { return 'मिश्रण नियम से, सस्ता : महँगा = (महँगा − माध्य) : (माध्य − सस्ता) = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + ' = ' + (s.lo / s.g) + ' : ' + (s.hi / s.g) + '.'; }]
+    },
+    'mixtures:*:meanPrice': {
+      s: [function (s) { return s.x + ' kg ' + MIX_ITEMS[s.itIdx] + ' (₹' + s.a + ' प्रति kg) को ' + s.y + ' kg ' + MIX_ITEMS[s.itIdx] + ' (₹' + s.b + ' प्रति kg) के साथ मिलाया जाता है। मिश्रण का औसत मूल्य = ₹? प्रति kg'; }],
+      e: [function (s) { return 'औसत = कुल लागत ÷ कुल भार = (' + s.x + '×' + s.a + ' + ' + s.y + '×' + s.b + ') ÷ (' + s.x + '+' + s.y + ') = ' + (s.a * s.x + s.b * s.y) + ' ÷ ' + (s.x + s.y) + ' = ₹' + s.mean + '.'; }]
+    },
+    'mixtures:hard:alligationQty': {
+      s: [function (s) { return 'कितनी मात्रा (kg में) ' + MIX_ITEMS[s.itIdx] + ' (₹' + s.a + ' प्रति kg) को ' + s.y + ' kg ' + MIX_ITEMS[s.itIdx] + ' (₹' + s.b + ' प्रति kg) के साथ मिलाई जाए ताकि मिश्रण ₹' + s.m + ' प्रति kg का हो?'; }],
+      e: [function (s) { return 'मिश्रण नियम से, सस्ता : महँगा = (' + s.b + '−' + s.m + ') : (' + s.m + '−' + s.a + ') = ' + s.lo + ' : ' + s.hi + '. सस्ती मात्रा = ' + s.y + ' × ' + s.lo + '/' + s.hi + ' = ' + s.x + ' kg.'; }]
+    },
+
+    /* राशि-तुलना — एकमात्र text-MCQ quant प्रारूप; options/answer QC_REL से index द्वारा (qcOhi/qcAnshi) */
+    'quantity-comparison:*:pct': {
+      s: [function (s) { return 'दोनों राशियों की तुलना कीजिए।  राशि I: ' + s.b + ' का ' + s.a + '%।  राशि II: ' + s.q2 + '।'; }],
+      e: [function (s) { return s.b + ' का ' + s.a + '% = ' + s.q1 + '. अतः राशि I = ' + s.q1 + ' और राशि II = ' + s.q2 + ', जिससे “' + QC_REL[s.relIdx] + '”।'; }],
+      o: qcOhi, ans: qcAnshi
+    },
+    'quantity-comparison:*:product': {
+      s: [function (s) { return 'दोनों राशियों की तुलना कीजिए।  राशि I: ' + s.a + ' × ' + s.b + '।  राशि II: ' + s.c + ' × ' + s.d + '।'; }],
+      e: [function (s) { return s.a + ' × ' + s.b + ' = ' + s.q1 + '; ' + s.c + ' × ' + s.d + ' = ' + s.q2 + '. अतः राशि I = ' + s.q1 + ' और राशि II = ' + s.q2 + ', जिससे “' + QC_REL[s.relIdx] + '”।'; }],
+      o: qcOhi, ans: qcAnshi
+    },
+    'quantity-comparison:*:solve': {
+      s: [function (s) { return 'दोनों राशियों की तुलना कीजिए।  राशि I: x का मान, जहाँ ' + s.m + 'x + ' + s.n + ' = ' + s.c + '।  राशि II: ' + s.q2 + '।'; }],
+      e: [function (s) { return s.m + 'x + ' + s.n + ' = ' + s.c + ' → x = ' + s.x + '. अतः राशि I = ' + s.q1 + ' और राशि II = ' + s.q2 + ', जिससे “' + QC_REL[s.relIdx] + '”।'; }],
+      o: qcOhi, ans: qcAnshi
+    },
+    'quantity-comparison:*:average': {
+      s: [function (s) { return 'दोनों राशियों की तुलना कीजिए।  राशि I: ' + s.list.join(', ') + ' का औसत।  राशि II: ' + s.q2 + '।'; }],
+      e: [function (s) { return 'औसत = (' + s.list.join(' + ') + ')/3 = ' + s.q1 + '. अतः राशि I = ' + s.q1 + ' और राशि II = ' + s.q2 + ', जिससे “' + QC_REL[s.relIdx] + '”।'; }],
+      o: qcOhi, ans: qcAnshi
+    },
+    'quantity-comparison:*:square': {
+      s: [function (s) { return 'दोनों राशियों की तुलना कीजिए।  राशि I: ' + s.a + '²।  राशि II: ' + s.q2 + '।'; }],
+      e: [function (s) { return s.a + '² = ' + s.q1 + '. अतः राशि I = ' + s.q1 + ' और राशि II = ' + s.q2 + ', जिससे “' + QC_REL[s.relIdx] + '”।'; }],
+      o: qcOhi, ans: qcAnshi
     }
   } };
 

@@ -151,10 +151,12 @@ language. Marathi column filled in F-M4.
 | red/blue/green/yellow/black/white | लाल / नीला / हरा / पीला / काला / सफ़ेद | — | PROB_COL pool |
 | set / union / only / both / neither | समुच्चय / सम्मिलन / केवल / दोनों / कोई नहीं | — | group समूह, class कक्षा, students विद्यार्थी, like पसंद करना, survey सर्वेक्षण |
 | tea/coffee, football/cricket, hockey, chess, carrom, tennis, badminton | चाय/कॉफ़ी, फुटबॉल/क्रिकेट, हॉकी, शतरंज, कैरम, टेनिस, बैडमिंटन | — | SET_CTX pool (games/drinks transliterate; subjects translate) |
-| Maths/Science/Hindi/English/Physics/Chemistry/History/Geography | गणित / विज्ञान / हिंदी / अंग्रेज़ी / भौतिकी / रसायन / इतिहास / भूगोल | — | SET_CTX school subjects (school subject, not the language picker) |
+| Maths/Science/Hindi/English/Physics/Chemistry/History/Geography | गणित / विज्ञान / हिन्दी / अंग्रेज़ी / भौतिकी / रसायन / इतिहास / भूगोल | — | SET_CTX school subjects (school subject, not the language picker) |
 | apples/oranges, pizza/burgers, painting/music, guitar/piano, dogs/cats | सेब/संतरे, पिज़्ज़ा/बर्गर, चित्रकला/संगीत, गिटार/पियानो, कुत्ते/बिल्लियाँ | — | SET_CTX pool |
+| median / range / mode / mean | माध्यिका / परिसर / बहुलक / माध्य | — | sort क्रम में लगाना, most frequent सबसे अधिक बार आने वाला, average औसत |
 | rice/wheat/sugar/tea/coffee/pulses/flour/salt | चावल / गेहूँ / चीनी / चाय / कॉफ़ी / दाल / आटा / नमक | — | MIX_ITEMS pool |
-| Quantity I / Quantity II / compare | राशि I / राशि II / तुलना कीजिए | — | QC_REL: "राशि I > राशि II" etc. (I/II Roman, > < = symbols) |
+| alligation / cheaper / dearer / mean / sample | मिश्रण नियम / सस्ता / महँगा / माध्य / नमूना | — | mixture worded gender-invariantly (नमूने/मात्रा/दर carry agreement, not the commodity) |
+| Quantity I / Quantity II / compare | राशि I / राशि II / तुलना कीजिए | — | QC_REL: "राशि I > राशि II" etc. (I/II Roman, > < = symbols); "दोनों राशियों की तुलना कीजिए" |
 | more / less (than) | अधिक / कम | — | RAT_PCT descriptor: "B से 25% अधिक" |
 
 ## Reasoning subjects

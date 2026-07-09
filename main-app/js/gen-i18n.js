@@ -42,6 +42,7 @@ var QRGenI18n = (function () {
     var src;
     if (pack.pools) { for (var p in pack.pools) if (Object.prototype.hasOwnProperty.call(pack.pools, p)) slot.pools[p] = pack.pools[p]; }
     if (pack.tpl) { src = pack.tpl; for (var k in src) if (Object.prototype.hasOwnProperty.call(src, k)) slot.tpl[k] = src[k]; }
+    if (pack.complete) slot.complete = true;  /* F-M3/M4: a language pack declares 100% coverage → flips the gen-i18n.check coverage hard-gate. */
   }
 
   function _packFor(engine, lang) { return (_store[engine] && _store[engine][lang]) || null; }
