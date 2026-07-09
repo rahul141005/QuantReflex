@@ -84,49 +84,54 @@
 
   var STEM_VARIETY = { total: 3, avg: 3 };
 
+  /* Gender-safe frame (ADR-111 F-M5.2): Hindi का/की and कितना/कितनी agree with the metric's gender, which varies
+     (बिक्री f, राजस्व m, …). To read natively for EVERY metric without a fragile per-metric gender map, the metric is
+     quantified as "METRIC का मान" (मान = value, masculine → का/क्या/था invariant) inside a locative "LABEL में" frame —
+     natural DI register ("the value of X in Y"). Percent/ratio stems where का already agrees with प्रतिशत/अनुपात/गुना
+     (masc) need no मान. */
   var ENTITY_STEM = {
-    read: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ' कितना है?'; },
-    max: function (d) { return 'किस ' + d.entity + ' का ' + d.metric + ' सबसे अधिक है? वह मान दर्ज कीजिए।'; },
-    min: function (d) { return 'किस ' + d.entity + ' का ' + d.metric + ' सबसे कम है? वह मान दर्ज कीजिए।'; },
-    rank: function (d, c) { return 'इन ' + d.entity + ' में ' + (c.r === 2 ? 'दूसरा' : 'तीसरा') + ' सबसे अधिक ' + d.metric + ' कितना है?'; },
+    read: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान क्या है?'; },
+    max: function (d) { return 'किस ' + d.entity + ' में ' + d.metric + ' का मान सबसे अधिक है? वह मान दर्ज कीजिए।'; },
+    min: function (d) { return 'किस ' + d.entity + ' में ' + d.metric + ' का मान सबसे कम है? वह मान दर्ज कीजिए।'; },
+    rank: function (d, c) { return 'इन ' + d.entity + ' में ' + d.metric + ' का ' + (c.r === 2 ? 'दूसरा' : 'तीसरा') + ' सबसे अधिक मान क्या है?'; },
     total: function (d, c) { return [
-      'दिखाए गए सभी ' + ents(d) + ' का कुल ' + d.metric + ' कितना है?',
-      'इन ' + ents(d) + ' का संयुक्त ' + d.metric + ' कितना है?',
-      'सभी मिलाकर, इन ' + ents(d) + ' का कुल ' + d.metric + ' कितना है?'][c.vi]; },
-    diff: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ', ' + d.labels[c.j] + ' के ' + d.metric + ' से कितना भिन्न है? (अंतर दर्ज कीजिए)'; },
+      'दिखाए गए सभी ' + ents(d) + ' में कुल ' + d.metric + ' का मान क्या है?',
+      'इन ' + ents(d) + ' में संयुक्त ' + d.metric + ' का मान क्या है?',
+      'सभी मिलाकर, इन ' + ents(d) + ' में कुल ' + d.metric + ' का मान क्या है?'][c.vi]; },
+    diff: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान, ' + d.labels[c.j] + ' में ' + d.metric + ' के मान से कितना भिन्न है? (अंतर दर्ज कीजिए)'; },
     avg: function (d, c) { return [
-      'सभी ' + ents(d) + ' में औसत ' + d.metric + ' कितना है?',
-      'इन ' + ents(d) + ' में प्रति ' + d.entity + ' औसत ' + d.metric + ' कितना है?',
-      'औसतन, इन ' + ents(d) + ' में एक ' + d.entity + ' का ' + d.metric + ' कितना है?'][c.vi]; },
+      'सभी ' + ents(d) + ' में औसत ' + d.metric + ' का मान क्या है?',
+      'इन ' + ents(d) + ' में प्रति ' + d.entity + ' औसत ' + d.metric + ' का मान क्या है?',
+      'औसतन, इन ' + ents(d) + ' में एक ' + d.entity + ' में ' + d.metric + ' का मान क्या है?'][c.vi]; },
     share: function (d, c) { return d.labels[c.i] + ', कुल ' + d.metric + ' का कितने प्रतिशत है? (1 दशमलव स्थान तक)'; },
-    missing: function (d, c) { return 'सभी ' + d.labels.length + ' ' + d.entity + ' का कुल ' + d.metric + ' ' + c.total + ' है। यदि ' + d.labels[c.i] + ' को छोड़कर हर मान दिखाए अनुसार है, तो ' + d.labels[c.i] + ' का ' + d.metric + ' क्या है?'; },
-    pctMore: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ', ' + d.labels[c.j] + ' के ' + d.metric + ' से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
-    deviation: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ', सभी ' + d.labels.length + ' के औसत से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
+    missing: function (d, c) { return 'सभी ' + d.labels.length + ' ' + d.entity + ' में कुल ' + d.metric + ' का मान ' + c.total + ' है। यदि ' + d.labels[c.i] + ' को छोड़कर हर मान दिखाए अनुसार है, तो ' + d.labels[c.i] + ' में ' + d.metric + ' का मान क्या है?'; },
+    pctMore: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान, ' + d.labels[c.j] + ' में ' + d.metric + ' के मान से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
+    deviation: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान, सभी ' + d.labels.length + ' के औसत से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
     combinedShare: function (d, c) { return d.labels[c.i] + ' और ' + d.labels[c.j] + ' मिलकर कुल ' + d.metric + ' का कितने प्रतिशत योगदान करते हैं? (1 दशमलव स्थान तक)'; },
-    ratioSimplest: function (d, c) { return d.labels[c.i] + ' के ' + d.metric + ' का ' + d.labels[c.j] + ' के ' + d.metric + ' से अनुपात क्या है? इसे सरलतम रूप a:b में व्यक्त कीजिए और a दर्ज कीजिए।'; },
-    ratioTimes: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ', ' + d.labels[c.j] + ' के ' + d.metric + ' का कितने गुना है? (1 दशमलव स्थान तक)'; },
-    pctMorePrimary: function (d, c) { return d.labels[c.i] + ' का ' + d.metric + ', ' + d.labels[c.j] + ' के ' + d.metric + ' से कितने प्रतिशत अधिक है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; }
+    ratioSimplest: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' के मान का ' + d.labels[c.j] + ' में ' + d.metric + ' के मान से अनुपात क्या है? इसे सरलतम रूप a:b में व्यक्त कीजिए और a दर्ज कीजिए।'; },
+    ratioTimes: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान, ' + d.labels[c.j] + ' में ' + d.metric + ' के मान का कितने गुना है? (1 दशमलव स्थान तक)'; },
+    pctMorePrimary: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान, ' + d.labels[c.j] + ' में ' + d.metric + ' के मान से कितने प्रतिशत अधिक है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; }
   };
 
   var TIME_STEM = {
-    read: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' कितना था?'; },
-    peak: function (d) { return 'किसी एक वर्ष में दर्ज सबसे अधिक ' + d.metric + ' कितना था? वह मान दर्ज कीजिए।'; },
-    trough: function (d) { return 'किसी एक वर्ष में दर्ज सबसे कम ' + d.metric + ' कितना था? वह मान दर्ज कीजिए।'; },
-    total: function (d) { return 'सभी ' + d.labels.length + ' वर्षों में कुल ' + d.metric + ' कितना है?'; },
-    diff: function (d, c) { return d.labels[c.i - 1] + ' से ' + d.labels[c.i] + ' तक ' + d.metric + ' में कितना परिवर्तन हुआ? (अंतर दर्ज कीजिए)'; },
-    avg: function (d) { return 'इन ' + d.labels.length + ' वर्षों में औसत वार्षिक ' + d.metric + ' कितना है?'; },
-    biggestJump: function (d) { return 'किन्हीं दो लगातार वर्षों के बीच ' + d.metric + ' में सबसे बड़ा परिवर्तन क्या है?'; },
-    yoy: function (d, c) { return d.labels[c.y - 1] + ' से ' + d.labels[c.y] + ' तक ' + d.metric + ' में कितने प्रतिशत परिवर्तन हुआ? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
+    read: function (d, c) { return d.labels[c.i] + ' में ' + d.metric + ' का मान क्या था?'; },
+    peak: function (d) { return 'किसी एक वर्ष में दर्ज ' + d.metric + ' का सबसे अधिक मान क्या था? वह मान दर्ज कीजिए।'; },
+    trough: function (d) { return 'किसी एक वर्ष में दर्ज ' + d.metric + ' का सबसे कम मान क्या था? वह मान दर्ज कीजिए।'; },
+    total: function (d) { return 'सभी ' + d.labels.length + ' वर्षों में कुल ' + d.metric + ' का मान क्या है?'; },
+    diff: function (d, c) { return d.labels[c.i - 1] + ' से ' + d.labels[c.i] + ' तक ' + d.metric + ' के मान में कितना परिवर्तन हुआ? (अंतर दर्ज कीजिए)'; },
+    avg: function (d) { return 'इन ' + d.labels.length + ' वर्षों में औसत वार्षिक ' + d.metric + ' का मान क्या है?'; },
+    biggestJump: function (d) { return 'किन्हीं दो लगातार वर्षों के बीच ' + d.metric + ' के मान में सबसे बड़ा परिवर्तन क्या है?'; },
+    yoy: function (d, c) { return d.labels[c.y - 1] + ' से ' + d.labels[c.y] + ' तक ' + d.metric + ' के मान में कितने प्रतिशत परिवर्तन हुआ? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
     cumulativeShare: function (d, c) { return 'पहले ' + c.half + ' वर्षों ने कुल ' + d.metric + ' का कितने प्रतिशत योगदान दिया? (1 दशमलव स्थान तक)'; },
-    overallGrowth: function (d) { return 'पूरी अवधि (' + d.labels[0] + ' से ' + d.labels[d.labels.length - 1] + ') में ' + d.metric + ' कितने प्रतिशत बदला? (1 दशमलव स्थान तक, निरपेक्ष मान)'; }
+    overallGrowth: function (d) { return 'पूरी अवधि (' + d.labels[0] + ' से ' + d.labels[d.labels.length - 1] + ') में ' + d.metric + ' का मान कितने प्रतिशत बदला? (1 दशमलव स्थान तक, निरपेक्ष मान)'; }
   };
 
   var MULTI_STEM = {
-    m_pctDiff: function (d, c) { return d.labels[c.yi] + ' में, ' + c.aName + ' का ' + d.metric + ', ' + c.bName + ' के ' + d.metric + ' से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
+    m_pctDiff: function (d, c) { return d.labels[c.yi] + ' में, ' + c.aName + ' में ' + d.metric + ' का मान, ' + c.bName + ' में ' + d.metric + ' के मान से कितने प्रतिशत भिन्न है? (1 दशमलव स्थान तक, निरपेक्ष मान)'; },
     m_ratioYear: function (d, c) { return d.labels[c.yi] + ' में, ' + c.aName + ' का ' + c.bName + ' से अनुपात (' + d.metric + ') क्या है? सरलतम रूप a:b में व्यक्त कीजिए और a दर्ज कीजिए।'; },
-    m_seriesShare: function (d, c) { return d.labels[c.yi] + ' में, ' + c.aName + ', उस प्रविष्टि के सभी शृंखलाओं के संयुक्त ' + d.metric + ' का कितने प्रतिशत है? (1 दशमलव स्थान तक)'; },
+    m_seriesShare: function (d, c) { return d.labels[c.yi] + ' में, ' + c.aName + ', उस प्रविष्टि की सभी शृंखलाओं के संयुक्त ' + d.metric + ' का कितने प्रतिशत है? (1 दशमलव स्थान तक)'; },
     m_combinedShare: function (d, c) { return 'दिखाई गई सभी शृंखलाओं और प्रविष्टियों में, ' + d.labels[c.yi] + ' में ' + c.aName + ' और ' + c.bName + ' मिलकर कुल ' + d.metric + ' का कितने प्रतिशत बनाते हैं? (1 दशमलव स्थान तक)'; },
-    m_trendCompare: function (d, c) { return d.labels[0] + ' से ' + d.labels[d.labels.length - 1] + ' तक, ' + d.metric + ' में बड़ा परिवर्तन छोटे से कितनी इकाई अधिक रहा? (' + c.aName + ' और ' + c.bName + ' की तुलना)'; }
+    m_trendCompare: function (d, c) { return d.labels[0] + ' से ' + d.labels[d.labels.length - 1] + ' तक, ' + d.metric + ' के मान में बड़ा परिवर्तन छोटे से कितनी इकाई अधिक रहा? (' + c.aName + ' और ' + c.bName + ' की तुलना)'; }
   };
 
   var CASE_STEM = {
