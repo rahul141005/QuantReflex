@@ -76,6 +76,56 @@ R.S. Aggarwal / Disha / Testbook / Adda247), आप-form when addressing the stu
 actors. Math notation (sin, cos, tan, log, nPr, nCr, √, ², ³, ×, ÷, −, ₹, %, digits) stays Latin/symbolic in every
 language. Marathi column filled in F-M4.
 
+### Marathi canonical terms (F-M4) — Maharashtra register (State Board / MPSC / Target Publications / K'Sagar)
+
+The single authority for `locales/gen/mr.quant.js`. Authored FRESH for MPSC / Talathi / ZP / Police Bharti / Forest /
+Revenue aspirants (तुम्ही-form, imperatives काढा/शोधा/सोडवा), NOT translated from the Hindi pack. One concept → one
+Marathi rendering, app-wide. Board abbreviations म.सा.वि. (HCF) / ल.सा.वि. (LCM) are used inline (never Latin HCF/LCM).
+
+| English | Marathi | Note |
+|---|---|---|
+| square / square root / cube / cube root | वर्ग / वर्गमूळ / घन / घनमूळ | |
+| fraction / percentage / percent | अपूर्णांक / टक्केवारी / टक्के | lowest terms लघुतम रूप |
+| multiply / divide / add / subtract | गुणाकार / भागाकार / बेरीज / वजाबाकी | remainder उरलेली बाकी (avoids "mod") |
+| area / volume / surface area | क्षेत्रफळ / घनफळ / पृष्ठफळ | TSA एकूण पृष्ठफळ, LSA/CSA पार्श्व/वक्र पृष्ठफळ |
+| side / length / breadth / height / radius / base | बाजू / लांबी / रुंदी / उंची / त्रिज्या / पाया | |
+| rectangle / square / triangle / circle | आयत / चौरस / त्रिकोण / वर्तुळ | |
+| parallelogram / trapezium / cube / cuboid / cylinder / sphere / cone | समांतरभुज चौकोन / समलंब चौकोन / घन / इष्टिकाचिती / दंडगोल / गोल / शंकू | |
+| profit / loss / cost price / selling price | नफा / तोटा / खरेदी किंमत / विक्री किंमत | CP/SP kept Latin in formula lines |
+| simple interest / compound interest / principal / rate / amount / per annum | सरळव्याज / चक्रवाढ व्याज / मुद्दल / दर / रास / वार्षिक | रास = P + व्याज |
+| ratio / average / mean | गुणोत्तर / सरासरी / मध्य | weighted mean भारित मध्य |
+| speed / distance / time | वेग / अंतर / वेळ | harmonic mean हरात्मक मध्य |
+| work / days / together / workers | काम / दिवस / एकत्र / कामगार | worker-days कामगार-दिवस |
+| pipe / tank / fill / empty / inlet / outlet | नळ / टाकी / भरणे / रिकामे करणे / आवक नळ / जावक नळ | |
+| age / present age / years ago | वय / सध्याचे वय / वर्षांपूर्वी | |
+| partnership / invest / capital / share | भागीदारी / गुंतवणूक / भांडवल / वाटा | |
+| HCF / LCM / Euclid | म.सा.वि. / ल.सा.वि. / युक्लिड | full: महत्तम साधारण विभाजक / लघुत्तम साधारण विभाज्य |
+| factors (divisors) / unit digit / power | अवयव (विभाजक) / एकक अंक / घात | |
+| equation / solve / system / elimination / substitution | समीकरण / सोडवा / निकाय / विलोपन / प्रतिस्थापन | |
+| quadratic / roots / discriminant / Vieta | वर्गसमीकरण / मुळे / विवेचक / विएटा | larger/smaller root मोठे/लहान मूळ |
+| indices / surds / value / quotient law | घातांक / करणी / मूल्य / भागाकार नियम | |
+| logarithm / base | लॉगरिथम / आधार | "b आधारी N चा लॉगरिथम" |
+| AP / GP / term / first term / common difference / common ratio | अंकगणिती श्रेढी / भौमितिक श्रेढी / पद / पहिले पद / सामाईक फरक / सामाईक गुणोत्तर | nth term "n वे पद" (ordmr) |
+| inequality / modulus / integer / smallest | असमानता / निरपेक्ष मूल्य / पूर्णांक / सर्वात लहान | |
+| angle / complement / supplement | कोन / पूरक कोन / संपूरक कोन | degree अंश (°) |
+| isosceles / hypotenuse / right-angled / vertex angle / base angle | समद्विभुज / कर्ण / काटकोन / शिरोकोन / पायाचा कोन | |
+| polygon / interior angle / regular | बहुभुज / अंतःकोन / नियमित | |
+| coordinate / point / midpoint / slope / section formula | निर्देशक / बिंदू / मध्यबिंदू / उतार / विभाजन सूत्र | |
+| trigonometry / angle of elevation / identity / standard-angle table | त्रिकोणमिती / उन्नतकोन / नित्यसमीकरण / प्रमाण कोन सारणी | |
+| tower/pole/building/tree/flagpole/lighthouse/chimney | मनोरा / खांब / इमारत / झाड / ध्वजस्तंभ / दीपगृह / चिमणी | TRIG_STRUCT pool |
+| permutation / combination / factorial | क्रमचय / संचय / क्रमगुणित | arrange मांडणे, committee समिती, handshake हस्तांदोलन, circular वर्तुळाकार |
+| probability / bag / ball / toss / coin / head / decimal / multiple / at random | संभाव्यता / पिशवी / चेंडू / उडवणे / नाणे / छापा / दशांश / गुणक / यादृच्छिकपणे | tails काटा |
+| red/blue/green/yellow/black/white | लाल / निळे / हिरवे / पिवळे / काळे / पांढरे | PROB_COL (चेंडू masc → masc-pl forms) |
+| set / union / intersection / only / both / neither | समुच्चय / संघ / छेद / फक्त / दोन्ही / एकही नाही | group गट, class वर्ग, students विद्यार्थी, like आवडणे, survey सर्वेक्षण |
+| SET_CTX subjects/games | गणित/विज्ञान, हिंदी/इंग्रजी, बुद्धिबळ/कॅरम, भौतिकशास्त्र/रसायनशास्त्र, इतिहास/भूगोल | बुद्धिबळ = chess; इंग्रजी = English subject |
+| median / range / mode / mean | मध्यगा / पल्ला / बहुलक / सरासरी | |
+| rice/wheat/sugar/tea/coffee/pulses/flour/salt | तांदूळ / गहू / साखर / चहा / कॉफी / डाळ / पीठ / मीठ | MIX_ITEMS pool |
+| alligation / cheaper / dearer / mean / sample | मिश्रण नियम / स्वस्त / महाग / मध्य / नमुना | wording gender-invariant (नमुने/प्रमाण/दर carry agreement) |
+| Quantity I / Quantity II / compare | राशी I / राशी II / तुलना करा | QC_REL "राशी I > राशी II"; "दोन राशींची तुलना करा" |
+| more / less (than) | जास्त / कमी | RAT_PCT descriptor "B पेक्षा 25% जास्त" |
+
+### Shared Hindi table (F-M3; Marathi column deprecated in favour of the canonical Marathi table above)
+
 | English | Hindi | Marathi | Note |
 |---|---|---|---|
 | square (n²) | वर्ग | — | |
