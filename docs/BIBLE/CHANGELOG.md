@@ -6,6 +6,68 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-09 — Internationalization Final Stabilization: audit fix batch + post-fix re-audit (ADR-111)
+
+Every verified finding from the independent production audit re-validated against the tree and fixed, plus additional
+defects found by the post-fix sweeps. Flag stays OFF; EN behaviour byte-identical (scripted proof per key).
+
+- **M1 — Quick-Ref stale-render:** `quick-ref-renderer.js` drops its `_built` latch on `QRI18n.onChange` (mirrors
+  `invalidateHub`); the false comment in `quick-ref-i18n.js` corrected. Proven end-to-end: build EN → switch hi →
+  next render is Devanagari (stabilization-proof harness).
+- **M2 — JS-rendered dynamic chrome leaks:** duel-manager home card (all states + Create/Join CTAs), opponent
+  fallback ×4, Finished/Solving chip, 3 abandonment toasts, `_err` fallback → `_t()` + 13 new `duel.*` keys (+ reuses
+  `home.duelDesc`, `share.opponent`, `duel.chipFinished/createBtn/joinBtn/yourOpponent`); app.js auth-reset path →
+  existing `auth.tabRegister/submitLogin/googleContinue`.
+- **M3 — pack-load contract:** `settings.js _applyLanguageChange` repaints inside `QRPacks.ensure(study, cb)` — the
+  first hi/mr switch now repaints with packs registered (proven with the real 19 lazy files: `ready(mr)` true and the
+  mr overlay resolvable inside the callback). Synchronous for en/loaded → no behaviour change there.
+- **Minors fixed:** revise-flow empty state (`learn.revNoNotes`); duel-archive `Loading…` (`duel.loadingMore`);
+  tables.js `Table of {n}` ×2 + close aria (`learn.tableOf`/`tableCloseAria`); the entire never-localized My-Notes
+  chrome in learn-manager.js (modal titles/fields/placeholders/confirms + Save/Cancel via `modals.save/cancel`,
+  20 new `learn.notes*` keys); `_resolve` plural count coerces finite numeric strings; dead `qr_settings` key removed
+  (pre-paint + app.js fallbacks now read `quant_reflex_settings`); `lang=studyLanguage` set on the drill question
+  container, Learn topic body, quick-ref host and companion envelope (WCAG 3.1.2 known-limit resolved and removed
+  from the register). Eager hi/mr catalogs (~380 KB) intentionally unchanged (Phase-A architecture: instant switch,
+  SW-precached).
+- **Additional discoveries (post-fix sweeps + fresh adversarial pass):** session-manager End-Session confirm reset
+  was overwriting its data-i18n-tagged modal with English literals — routed through the EXISTING
+  `modals.exitSessionTitle/Body/keepGoing/endSession` keys; inbox empty state localized (`modals.inboxEmpty` ×3);
+  four hardcoded aria-labels fixed (drill pause overlay → `drill.pausedAria`, topic back-nav ×2 → `learn.qrBackAria`,
+  email-copy state → `settings.emailCopiedAria`/`copyEmailAria`).
+- **Second adversarial pass — five whole surfaces the audits under-scoped, now fully localized:**
+  - **Battle Archive (duel-archive.js), entire UI:** trigger label, modal title/close aria, empty state + CTA,
+    rivalry banner (W/L streak notation via `{n}` keys), all 23 mini-stat labels, filter chips (reusing
+    `guide.difficulty*`), search placeholder/aria, no-results messages, Load more, WIN/LOSS/DRAW/NO CONTEST badges,
+    challenged-direction, outcome labels, View rivalry, achievements header/Locked + all 10 achievement names+descs
+    (resolved at render time so a language switch never shows stale names), month abbreviations
+    (`duel.archMonths`, split at render), and duration/speed formats (`{s}s` / `{m}m {s}s`). ~83 `duel.arch*`/`ach*` keys.
+  - **Guided Revision (revise-flow.js):** caught-up/done screens (plural `revDoneSub`), Revising counter, exit aria,
+    Read-full-chapter, Revised-Next/Finish, plus `lang=studyLanguage` on the revision head/body (WCAG 3.1.2).
+  - **Inbox (inbox-view.js):** the 6 category badge labels and the relative-time strings (`inbox.ago*`, `justNow`) —
+    EN keeps its exact legacy shapes (`{n}d ago`, `{n} years ago`).
+  - **Learn (learn-view.js):** the Premium locked-chapter page (title/sub `{title}`/CTA), Coming-soon badge ×2,
+    Premium badge (card + `_syncPremiumLocks` live badge), Quick-reference search-group header, strip lock/done
+    aria-labels; My-Notes action tooltips (Bookmark/Edit/Delete/Remove Bookmark/Rename/Delete Topic) in learn-manager.js.
+  - **Practice category picker (category-picker.js):** For-You strip (aria + label + 4 row titles), subject group
+    names (reusing `subjects.*`), LR tier titles + More Reasoning, pin/unpin arias (`{label}`), topic counts (plural)
+    — **and a label-resolution order bug: `_catLabel` consulted the raw English `QuantTopics.CATEGORY_LABELS` /
+    `DI.label` BEFORE the localized `formatCategoryName` layer, pinning every picker chip label to English even with
+    translations present. Order flipped; EN output identical (formatCategoryName falls through to the same maps).**
+  - **Arias:** planner readiness explainer (`planner.readinessAria`), numpad Backspace/Submit
+    (`drill.numpad*Aria`) with a `QRI18n.onChange` grid-signature reset so the cached keypad layout re-resolves
+    its labels after a language switch. Intentional non-translations documented in the known-limits register:
+    AM/PM time notation and the `±`/`+` margin prefixes (Latin numerals/notation by design).
+- **Verification:** npm test 14,395 assertions green (every new key auto-covered by i18n.check parity/leak/placeholder);
+  stabilization-proof, batch2-proof (21 DOM proofs — archive/revision/numpad/picker rendered in hi with EN
+  byte-identity), cert-proofs (15, incl. flag-off EN identity in a fresh process), cert-chrome (rendered-DOM
+  leak detector), and the three Phase-G harnesses all green; repo-wide textContent/innerHTML + aria/placeholder/title
+  literal sweeps clean (0 hits); stale-latch census (only language-independent latches remain un-invalidated); onChange
+  subscriber census (all invalidate-only, none reads packs synchronously). 169 new keys ×3 across both passes, EN
+  values byte-equal to the removed literals (scripted diff: 107 simple + 14 parameterized compositions).
+  Bible 2.144; rides SW v223; flag OFF.
+
+---
+
 ## 2026-07-09 — Internationalization Phase G: Learn library, Quick-Reference, authored-LR bank, auto-tips in en/hi/mr (ADR-111)
 
 The complete STUDY LIBRARY now renders in हिन्दी / मराठी at textbook quality, still feature-flagged OFF (English

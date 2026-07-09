@@ -303,20 +303,30 @@ The following are intentional and bounded:
   translating them would break those. Overlays are display-only by construction and the checks fail on any forbidden
   field. ids never render as prose, so this is not a leak.
 
-### Study-content container `lang` in the diverged case — app-language `html lang` (WCAG 3.1.2, non-blocking)
-- **Detail:** `document.documentElement.lang` reflects the APP language. In the diverged app=en / study=hi (or mr) setting,
-  study content (drill question, Learn topic, quick-ref card, companion envelope) renders in Devanagari under an English
-  `html lang`, so an assistive screen reader may voice it with the app-language voice. WCAG 3.1.2 "Language of Parts" (AA)
-  would have each such container carry `lang=studyLanguage`.
-- **Rationale / classification:** NON-BLOCKING. Impact is bounded — diverged app/study is an opt-in power-user setting and
-  this affects screen-reader users only; the aligned majority (app=study) and ALL app chrome have a correct `html lang`,
-  and the visible rendering (shaping, digits, layout) is unaffected. Recommended fast-follow (not release-blocking): set
-  `lang=studyLanguage` on the drill question container, the Learn topic body, the quick-ref host and the companion envelope
-  body. Surfaced by the Phase-H rendered-DOM audit and recorded so certification classifies it explicitly rather than
-  silently.
-
 ### Authored-LR labels I / II and cipher substrates stay Latin
 - **Detail:** authored Statement/Cause/Course items keep the statement/action labels I and II (`कथन I`, `विधान II`,
   `Courses of action: I. … II. …`) as Roman numerals, and any coding-decoding substrate stays on the English alphabet.
 - **Rationale:** Roman numerals I/II are single/2-char tokens (pass the leak heuristic) and are the standard exam-book
   labels; Indian exam books pose letter-shift puzzles on the English alphabet. The prose around them is fully translated.
+
+---
+
+## Final Stabilization (second pass, 2026-07-09)
+
+### AM/PM time notation in Battle Archive card details stays Latin
+- **Detail:** `duel-archive.js _fmtTime` renders the duel's clock time as `h:mm AM/PM` in every language. Dates
+  (day + month + year) ARE localized (`duel.archMonths` supplies Devanagari month abbreviations); durations and
+  speeds are localized (`duel.archDurSecs` / `archDurMinSecs`); only the AM/PM meridiem token stays Latin.
+- **Rationale:** AM/PM is the standard clock notation in Indian Hindi/Marathi UI convention (watch faces, tickets,
+  phone lock screens); a 2-letter token, it passes the leak heuristic by design. Translating it (पूर्वाह्न/अपराह्न)
+  would read as bureaucratic prose, not a clock.
+
+### Score/margin notation `±`, `+`, `–` and the `{n}%` shapes stay symbolic
+- **Detail:** the archive's closest-margin (`±3`), average-margin (`+1.5`), score separator (`7–4`) and all `%`
+  values keep their mathematical notation in every language; the LABELS around them are fully localized.
+- **Rationale:** mathematical notation, not prose (same rule as the formula-symbols entry above).
+
+### Category-picker section hints are dead model data (not rendered)
+- **Detail:** `_diSections`/`_lrSections` still carry English `hint` strings ('read charts & tables, fast',
+  'reason under time pressure'); `_sectionHtml` never renders them.
+- **Rationale:** not user-visible; left for a future design that may surface them (would need keys then).

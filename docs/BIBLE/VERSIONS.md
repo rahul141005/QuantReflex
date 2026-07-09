@@ -9,12 +9,40 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.143 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.144 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.144 (2026-07-09)** — **Internationalization Final Stabilization (ADR-111, post-audit fix batch).** The
+> independent production audit's three Major + all Minor findings re-validated and fixed, plus additional defects the
+> post-fix sweep surfaced. Fixed: (M1) Quick-Reference `_built` latch now drops on `QRI18n.onChange` so the library
+> rebuilds localized on the next visit; (M2) all JS-rendered dynamic chrome routed through the catalogs — duel-manager
+> home card/status chip/toasts/error fallback (13 new `duel.*` keys + reuses), app.js auth-reset labels
+> (`auth.tabRegister`/`submitLogin`/`googleContinue`); (M3) the settings language-switch repaint now runs inside
+> `QRPacks.ensure(study, cb)` so the first hi/mr switch renders localized study content. Minors: revise-flow empty
+> state, duel-archive Loading…, tables.js titles + close aria, the entire My-Notes (learn-manager) chrome (20 new
+> `learn.*` keys), plural `count` numeric-string coercion, dead `qr_settings` key removed, and `lang=studyLanguage`
+> on the four study-content containers (drill question, Learn topic, quick-ref host, companion envelope — WCAG 3.1.2
+> known-limit resolved). Additional discoveries fixed: session-manager End-Session confirm reset bypassing its
+> existing `modals.*` keys; inbox empty state (`modals.inboxEmpty`); four hardcoded aria-labels (pause overlay, topic
+> back-nav ×2, email-copy state). **Second adversarial pass — five whole surfaces the audits under-scoped, now fully
+> localized:** the entire Battle Archive (trigger, modal, rivalry banner, personal stats, filters, cards, badges,
+> achievements ×10, month abbreviations, durations — `duel.arch*`/`duel.ach*`); the Guided Revision flow (counter,
+> progress chrome, done/caught-up screens with plural, study-language `lang` on the revision body — `learn.rev*`);
+> the inbox category badges + relative times (`inbox.*`); the Learn locked-chapter page, Coming-soon/Premium badges,
+> Quick-reference search group, strip aria-labels (`learn.locked*`/`badge*`); the Practice category picker (For-You
+> strip, subject groups, LR tier titles, pin arias, topic counts — `picker.*` — **plus a label-resolution order bug:
+> `_catLabel` consulted the raw English `CATEGORY_LABELS` before the localized `formatCategoryName` layer, pinning
+> every picker chip to English**); My-Notes action tooltips; planner readiness aria; numpad Backspace/Submit arias
+> (with an `onChange` grid-signature reset so a language switch re-resolves them). 169 new catalog keys ×3 languages
+> in total, every EN value byte-identical to the removed literal (scripted proof, 107 simple keys + 14 parameterized
+> compositions). Verified: npm test 14,395 green; stabilization-proof harness (M1 rebuild, M3 ensure-cb
+> ordering with the real lazy packs, M2 compositions, EN identity); batch2-proof (21 DOM proofs: archive/revision/
+> numpad/picker rendered in hi + EN byte-identity); cert-proofs 15/15; cert-chrome clean; Phase-G
+> harnesses re-run green; repo-wide literal/aria/latch/onChange sweeps clean (0 hits). Flag remains OFF; rides SW v223.
+>
 > **2.143 (2026-07-09)** — **Internationalization Phase G (ADR-111).** The complete STUDY LIBRARY now renders in
 > हिन्दी / मराठी at textbook quality, still feature-flagged OFF (English byte-identical): all **62 Learn KB topics**,
 > the **21 Quick-Reference cards**, the **92-item authored Logical-Reasoning bank** (Critical/Statement/Cause/Course/

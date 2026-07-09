@@ -9,6 +9,29 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 ---
 
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
+- **Final-stabilization addendum (2026-07-09) — audit fix batch.** The independent production audit (adversarial,
+  code-only) found 3 Major + 7 Minor implementation defects, all post-flag-flip-only. Each was re-validated against
+  the tree and fixed; post-fix sweeps surfaced and fixed three more (session-manager confirm reset bypassing its own
+  localized keys, inbox empty state, four hardcoded aria-labels). **Decisions:** (1) stale-render latches that bake
+  language into DOM must drop on `QRI18n.onChange` — quick-ref now mirrors the hub's `invalidateHub` pattern; the
+  latch census confirms no other language-bearing latch remains. (2) JS updaters that overwrite data-i18n-tagged
+  nodes must route through the SAME catalog keys as the static markup (session-manager, app.js auth reset). (3) The
+  settings language-switch repaint runs inside `QRPacks.ensure(study, cb)` — the documented ensure-before-re-render
+  contract is now real code, proven against the actual 19 lazy pack files. (4) EN byte-identity for every new key is
+  proven by scripted diff (42 keys ×3 languages; EN value = removed literal verbatim). (5) The ~380 KB eager hi/mr
+  catalogs stay eager — deliberate Phase-A architecture (instant switching, SW precache), documented not "fixed".
+  WCAG 3.1.2 study-content `lang` attributes added (drill/topic/quick-ref/companion + the revision flow body) and the
+  corresponding known-limit removed. A SECOND adversarial pass then localized five surfaces the audits under-scoped
+  wholesale — the entire Battle Archive, the Guided Revision flow, inbox categories/relative-times, the Learn
+  locked-chapter page + badges, and the Practice category picker — and fixed a picker label-resolution order bug
+  (raw English `CATEGORY_LABELS` consulted before the localized `formatCategoryName` layer). **Additional decisions:**
+  (6) render-time resolution for module-level display constants — the achievements array and month table resolve
+  through `_t` per render, never at load, so a language switch cannot freeze them; (7) cached DOM signatures that
+  embed localized text (the numpad grid) reset on `QRI18n.onChange`; (8) AM/PM time notation and `±`/`+` margin
+  prefixes stay Latin by design (register entry). Verification: npm test 14,395 green; stabilization-proof +
+  batch2-proof (21 DOM proofs) + cert-proofs + cert-chrome + Phase-G harnesses green; literal/aria/latch/onChange
+  sweeps clean (0 hits); 169 new keys ×3 with scripted EN byte-identity. Bible 2.144. Flag remains OFF pending the
+  live-AI matrix + explicit release go-ahead.
 - **Phase G addendum (2026-07-09) — the complete STUDY LIBRARY localized (Learn KB, Quick-Reference, authored-LR,
   auto-tips).** The 62 Learn KB topics, 21 Quick-Reference cards, 92-item authored Logical-Reasoning bank
   (Critical/Statement/Cause/Course/Decision) and 85 auto-tips now render in हिन्दी / मराठी at textbook quality, still
