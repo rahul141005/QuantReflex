@@ -777,7 +777,6 @@ html.dark-mode .drill-exit-btn:active {
 .badge-excellent { background: #dcfce7; color: #15803d; }
 .badge-good      { background: #dbeafe; color: #1d4ed8; }
 .badge-practice  { background: #fef9c3; color: #a16207; }
-.badge-weak      { background: #fee2e2; color: #dc2626; }
 /* Neutral, honest verdict for <50% sessions — informational slate, not celebration-in-red */
 .badge-review    { background: #f1f5f9; color: #475569; }
 html.dark-mode .badge-review { background: #1e293b; color: #cbd5e1; }
@@ -911,14 +910,6 @@ html.dark-mode .benchmark-stat-value { color: #a78bfa; }
 }
 html.dark-mode .benchmark-stat-label { color: #94a3b8; }
 .benchmark-ai-section { margin-top: -4px; min-height: 4rem; }
-.benchmark-loading {
-  font-size: .82rem;
-  color: #7c3aed;
-  text-align: center;
-  margin: 0;
-  animation: pulse-opacity 1.2s ease-in-out infinite;
-}
-html.dark-mode .benchmark-loading { color: #a78bfa; }
 @keyframes pulse-opacity {
   0%, 100% { opacity: 1; }
   50%       { opacity: .4; }
@@ -960,54 +951,10 @@ html.dark-mode .benchmark-suggestion { color: #c4b5fd; }
 }
 html.dark-mode .benchmark-tip-label { color: #a78bfa; }
 
-.benchmark-unlock-btn {
-  width: 100%;
-  padding: .65rem 1rem;
-  background: rgba(124,58,237,.08);
-  border: 1.5px dashed #7c3aed;
-  border-radius: 10px;
-  color: #7c3aed;
-  font-size: .83rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s;
-}
-.benchmark-unlock-btn:hover { background: rgba(124,58,237,.15); }
-html.dark-mode .benchmark-unlock-btn {
-  background: rgba(124,58,237,.18);
-  border-color: #a78bfa;
-  color: #c4b5fd;
-}
-
 /* ---- Daily Goal ---- */
 .goal-card { position: relative; overflow: hidden; }
-.goal-progress-bar {
-  height: .5rem;
-  background: #e2e8f0;
-  border-radius: .25rem;
-  overflow: hidden;
-  margin-top: .75rem;
-}
-.goal-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
-  border-radius: .25rem;
-  transition: width .4s ease;
-}
 .goal-progress-fill.goal-met {
   background: linear-gradient(90deg, #16a34a, #22c55e);
-}
-.goal-text {
-  font-size: .85rem;
-  color: #64748b;
-  margin-top: .35rem;
-  display: flex;
-  justify-content: space-between;
-}
-.goal-count {
-  font-weight: 700;
-  color: #2563eb;
-  font-size: 1.5rem;
 }
 
 /* ---- Learn Page ---- */
@@ -1044,7 +991,6 @@ html.dark-mode .benchmark-unlock-btn {
   margin-top: .35rem;
 }
 .custom-practice-start-btn { margin-top: .75rem; width: 100%; }
-.category-back-btn { margin-top: 1rem; }
 
 /* ---- Learn Search ---- */
 .learn-search-container {
@@ -1103,21 +1049,6 @@ html.dark-mode .benchmark-unlock-btn {
 .math-expr { color: #0f172a; font-weight: 600; min-width: 2.5rem; text-align: right; }
 .math-eq { color: #64748b; }
 .math-val { color: #2563eb; font-weight: 600; }
-
-/* ---- Shortcut Table (legacy support) ---- */
-.shortcut-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: .75rem;
-}
-.shortcut-table th,
-.shortcut-table td {
-  padding: .45rem .6rem;
-  text-align: left;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: .9rem;
-}
-.shortcut-table th { color: #64748b; font-weight: 600; }
 
 /* ---- Table Selector (Learn page) ---- */
 /* CSS Grid ensures exactly 6 columns × 5 rows regardless of device width */
@@ -1672,12 +1603,6 @@ html.dark-mode .timer-seconds-input:focus { border-color: #3b82f6; }
 }
 html.dark-mode .timer-unit-label { color: #94a3b8; }
 
-/* Paywall hero icon */
-.paywall-hero-icon {
-  font-size: 2.5rem;
-  margin-bottom: .25rem;
-}
-
 /* Daily limit banner */
 .daily-limit-banner {
   background: linear-gradient(135deg, #fef3c7, #fde68a);
@@ -1702,24 +1627,11 @@ html.dark-mode .daily-limit-banner {
   border-color: #d97706;
   color: #fef3c7;
 }
-
-/* ---- Settings Page ---- */
-.settings-group {
-  margin-bottom: 0;
-}
 .settings-group .card {
   margin-bottom: .75rem;
 }
 .settings-group .card:last-child {
   margin-bottom: 0;
-}
-.settings-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 1.25rem 0;
-}
-html.dark-mode .settings-divider {
-  background: #334155;
 }
 
 /* Settings Sections */
@@ -1772,10 +1684,6 @@ html.dark-mode .settings-row-divider {
 html.dark-mode .settings-row-block h3 {
   color: #f1f5f9;
 }
-.settings-row-disabled {
-  opacity: .5;
-  pointer-events: none;
-}
 
 .settings-row {
   display: flex;
@@ -1797,17 +1705,6 @@ html.dark-mode .settings-row-block h3 {
   font-size: .8rem;
   color: #64748b;
   line-height: 1.35;
-}
-
-/* Home greeting */
-.home-greeting {
-  color: #64748b;
-  margin-top: .35rem;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-html.dark-mode .home-greeting {
-  color: #94a3b8;
 }
 
 /* Toast Notifications */
@@ -2166,19 +2063,6 @@ body.paywall-open {
   z-index: 2;
   flex-shrink: 0;
 }
-
-/* --- Paywall Header --- */
-.stat-card-locked,
-.category-locked-card {
-  width: 100%;
-  border: 1px dashed #93c5fd;
-  background: #eff6ff;
-  color: #1e3a8a;
-  border-radius: .8rem;
-  padding: .9rem;
-  text-align: left;
-  cursor: pointer;
-}
 .stats-insights-locked {
   width: 100%;
   min-height: 164px;
@@ -2231,11 +2115,6 @@ body.paywall-open {
   color: #1d4ed8;
 }
 
-.category-locked-card span {
-  display: block;
-  margin-top: .25rem;
-}
-
 html.dark-mode .paywall-card {
   background: #0f172a;
 }
@@ -2243,54 +2122,11 @@ html.dark-mode .paywall-close {
   background: rgba(148, 163, 184, .2);
   color: #e2e8f0;
 }
-html.dark-mode .paywall-title { color: #f1f5f9; }
-html.dark-mode .paywall-tagline { color: #94a3b8; }
-html.dark-mode .paywall-context-accent {
-  background: rgba(37,99,235,.18);
-  color: #93c5fd;
-}
-html.dark-mode .paywall-benefits li { color: #e2e8f0; }
-html.dark-mode .paywall-plan-plus {
-  background: #1e293b;
-  border-color: #334155;
-  color: #f1f5f9;
-}
-html.dark-mode .paywall-plan-plus .paywall-plan-features { color: #94a3b8; }
-html.dark-mode .paywall-plus-toggle-btn {
-  background: #1e293b;
-  border-color: #475569;
-  color: #94a3b8;
-}
 html.dark-mode .paywall-plus-toggle-btn.active {
   background: #6366f1;
   border-color: #6366f1;
   color: #fff;
 }
-html.dark-mode .paywall-compare th {
-  color: #94a3b8;
-  border-bottom-color: #334155;
-}
-html.dark-mode .paywall-compare td {
-  color: #94a3b8;
-  border-bottom-color: #1e293b;
-}
-html.dark-mode .paywall-compare tbody tr:nth-child(even) td {
-  background: #1e293b;
-}
-html.dark-mode .paywall-compare tbody tr:nth-child(even) td.paywall-compare-highlight {
-  background: rgba(37,99,235,.18);
-}
-html.dark-mode .paywall-compare-highlight {
-  background: rgba(37,99,235,.15);
-  color: #93c5fd !important;
-}
-html.dark-mode .paywall-trust,
-html.dark-mode .paywall-urgency { color: #94a3b8; }
-html.dark-mode .paywall-sticky-footer { background: #0f172a; }
-html.dark-mode .paywall-free-continue { color: #64748b; }
-html.dark-mode .paywall-free-continue:hover { color: #94a3b8; }
-html.dark-mode .paywall-footnote { color: #94a3b8; }
-html.dark-mode .paywall-badge { color: #93c5fd; }
 /* Post-session soft upgrade prompt (free users, results screen). ADR-088: authored this base rule — previously ONLY a
    html.dark-mode rule existed, so the banner rendered completely unstyled in Light + Playful. Fully token-driven, so
    every theme (incl. Playful) styles it automatically; the dark rule below still overrides bg/border/text. The CTA text
@@ -2330,12 +2166,6 @@ html.dark-mode .session-upgrade-dismiss { color: #94a3b8; }
 .quota-reached-actions .btn-primary,
 .quota-reached-actions .btn-secondary { width: 100%; }
 .quota-reached-reset { font-size: .78rem; color: var(--qr-text-mut); margin: .1rem 0 0; opacity: .85; }
-html.dark-mode .stat-card-locked,
-html.dark-mode .category-locked-card {
-  background: rgba(30, 41, 59, .8);
-  border-color: #334155;
-  color: #bfdbfe;
-}
 html.dark-mode .stats-insights-locked {
   border-color: rgba(96,165,250,.25);
   background:
@@ -2867,7 +2697,6 @@ html.dark-mode .goal-input {
   border-color: #334155;
   color: #e2e8f0;
 }
-html.dark-mode .goal-progress-bar { background: #334155; }
 html.dark-mode .drill-progress-bar { background: #334155; }
 html.dark-mode .feedback.correct { background: rgba(22,163,74,.15); }
 html.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
@@ -3308,17 +3137,6 @@ html.dark-mode .training-card {
   text-align: center;
   transition: background .15s;
 }
-.duel-setup-back {
-  background: transparent;
-  color: #64748b;
-  border: none;
-  font-size: .9rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: .8rem;
-  width: 100%;
-  text-align: center;
-}
 .training-card-back:active {
   background: rgba(0,0,0,.04);
 }
@@ -3453,63 +3271,6 @@ html.dark-mode .analytics-card {
   border-color: rgba(51,65,85,.5);
 }
 
-/* ---- Practice Mode Teaser Card ---- */
-.mode-card-teaser {
-  opacity: .55;
-  position: relative;
-  border: 1.5px dashed rgba(148,163,184,.5);
-  box-shadow: none;
-}
-.mode-card-teaser::after {
-  content: 'Coming Soon';
-  position: absolute;
-  top: .5rem;
-  right: .65rem;
-  font-size: .6rem;
-  font-weight: 700;
-  color: #64748b;
-  background: rgba(226,232,240,.7);
-  padding: .15rem .45rem;
-  border-radius: .35rem;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-}
-html.dark-mode .mode-card-teaser::after {
-  background: rgba(51,65,85,.7);
-  color: #94a3b8;
-}
-.mode-card-teaser h3 {
-  color: #94a3b8;
-}
-.mode-card-teaser p {
-  color: #94a3b8;
-  font-style: italic;
-}
-html.dark-mode .mode-card-teaser {
-  border-color: rgba(100,116,139,.4);
-}
-html.dark-mode .mode-card-teaser h3,
-html.dark-mode .mode-card-teaser p {
-  color: #64748b;
-}
-
-/* ---- Quick Links Edit Button ---- */
-.quick-links-edit-btn {
-  background: none;
-  border: 1.5px solid #e2e8f0;
-  border-radius: .5rem;
-  padding: .25rem .5rem;
-  font-size: .85rem;
-  cursor: pointer;
-  color: #64748b;
-  transition: background .15s, border-color .15s;
-  line-height: 1;
-}
-.quick-links-edit-btn:active {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
-
 /* Quick Link Option (modal) */
 .quick-link-option {
   display: flex;
@@ -3533,16 +3294,6 @@ html.dark-mode .mode-card-teaser p {
   width: 1.1rem;
   height: 1.1rem;
   flex-shrink: 0;
-}
-
-/* Dark mode additions for new elements */
-html.dark-mode .quick-links-edit-btn {
-  border-color: #334155;
-  color: #94a3b8;
-}
-html.dark-mode .quick-links-edit-btn:active {
-  background: #334155;
-  border-color: #60a5fa;
 }
 html.dark-mode .quick-link-option {
   border-color: #334155;
@@ -3580,149 +3331,13 @@ html.dark-mode .practice-container {
     grid-template-columns: repeat(3, 1fr);
   }
 }
-
-/* ---- Login Screen ---- */
-.login-screen {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: #f8fafc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 500;
-  padding: 1rem;
-  animation: viewFadeIn .3s ease;
-}
-.login-card {
-  background: rgba(255,255,255,.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 1.25rem;
-  padding: 2rem 1.5rem;
-  width: 100%;
-  max-width: 380px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.08), 0 8px 32px rgba(0,0,0,.06);
-  border: 1px solid rgba(226,232,240,.6);
-}
-.login-header {
-  text-align: center;
-  margin-bottom: 1.75rem;
-}
-.login-title {
-  font-size: 1.5rem;
-  letter-spacing: .05em;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: .35rem;
-}
-.login-subtitle {
-  color: #64748b;
-  font-size: .9rem;
-}
 .login-field {
   margin-bottom: 1rem;
-}
-.login-label {
-  display: block;
-  font-size: .85rem;
-  color: #64748b;
-  margin-bottom: .3rem;
-  font-weight: 500;
-}
-.login-input {
-  width: 100%;
-  padding: .8rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: .75rem;
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 1rem;
-  outline: none;
-  transition: border-color .2s ease, box-shadow .2s ease;
-}
-.login-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
-}
-.login-btn {
-  width: 100%;
-  max-width: 100%;
-  margin-top: .5rem;
-}
-.login-signup-btn {
-  background: transparent;
-  border: 2px solid #e2e8f0;
-  color: #2563eb;
-}
-.login-signup-btn:hover {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
-.login-error {
-  background: #fef2f2;
-  color: #dc2626;
-  padding: .6rem .85rem;
-  border-radius: .6rem;
-  font-size: .85rem;
-  margin-bottom: .5rem;
-  text-align: center;
-  border: 1px solid #fecaca;
-}
-.login-footer {
-  text-align: center;
-  font-size: .75rem;
-  color: #94a3b8;
-  margin-top: 1.5rem;
-  padding-top: .85rem;
-  border-top: 1px solid rgba(226,232,240,.5);
-  letter-spacing: .01em;
-}
-.login-validation-hint {
-  text-align: center;
-  margin-bottom: .75rem;
-  padding: .45rem .75rem;
-  background: rgba(37,99,235,.04);
-  border-radius: .5rem;
-  border: 1px solid rgba(37,99,235,.08);
-}
-.login-validation-hint p {
-  font-size: .72rem;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.5;
-  letter-spacing: .01em;
-}
-html.dark-mode .login-validation-hint {
-  background: rgba(96,165,250,.06);
-  border-color: rgba(96,165,250,.12);
-}
-html.dark-mode .login-validation-hint p {
-  color: #94a3b8;
 }
 
 /* ---- Coaching ID Field (always visible) ---- */
 .coaching-id-field {
   /* No slide-in animation — field is always present */
-}
-.login-coaching-hint {
-  font-size: .72rem;
-  color: #94a3b8;
-  margin: .35rem 0 0 0;
-  line-height: 1.4;
-  letter-spacing: .01em;
-}
-html.dark-mode .login-coaching-hint {
-  color: #64748b;
-}
-.login-optional-tag {
-  font-weight: 400;
-  font-size: .75rem;
-  color: #94a3b8;
-}
-html.dark-mode .login-optional-tag {
-  color: #64748b;
 }
 
 /* ---- Realtime Field Validation ---- */
@@ -3845,13 +3460,6 @@ html.dark-mode .login-input.input-valid:focus {
     transform: translateY(0);
   }
 }
-.login-coaching-hint {
-  font-size: .72rem;
-  color: #94a3b8;
-  margin: .25rem 0 0;
-  line-height: 1.3;
-}
-html.dark-mode .login-coaching-hint { color: #64748b; }
 
 /* ---- Clear Data Modal ---- */
 .clear-data-modal {
@@ -3903,49 +3511,6 @@ html.dark-mode .login-coaching-hint { color: #64748b; }
   font-size: .78rem;
   color: #64748b;
   line-height: 1.3;
-}
-
-/* Dark mode: login screen */
-html.dark-mode .login-screen {
-  background: #0f172a;
-}
-html.dark-mode .login-card {
-  background: rgba(30,41,59,.92);
-  border-color: rgba(51,65,85,.6);
-}
-html.dark-mode .login-title {
-  background: linear-gradient(135deg, #60a5fa, #3b82f6);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-html.dark-mode .login-subtitle,
-html.dark-mode .login-label {
-  color: #94a3b8;
-}
-html.dark-mode .login-input {
-  background: #334155;
-  border-color: #475569;
-  color: #e2e8f0;
-}
-html.dark-mode .login-input:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96,165,250,.2);
-}
-html.dark-mode .login-signup-btn {
-  border-color: #475569;
-  color: #60a5fa;
-}
-html.dark-mode .login-signup-btn:hover {
-  background: rgba(96,165,250,.1);
-  border-color: #60a5fa;
-}
-html.dark-mode .login-error {
-  background: rgba(220,38,38,.15);
-  border-color: rgba(248,113,113,.3);
-  color: #f87171;
-}
-html.dark-mode .login-footer {
-  color: #64748b;
 }
 
 /* Dark mode: clear data modal */
@@ -4235,12 +3800,6 @@ html.dark-mode.drill-session-active .drill-actions.has-skip .skip-btn { backgrou
 img {
   -webkit-user-drag: none;
   user-drag: none;
-}
-
-/* Ripple effect for interactive elements */
-.ripple-container {
-  position: relative;
-  overflow: hidden;
 }
 .ripple-effect {
   position: absolute;
@@ -4699,9 +4258,6 @@ html.dark-mode .onboarding-back-btn:hover { color: #cbd5e1; }
   0% { opacity: 0; transform: scale(.7); }
   100% { opacity: 1; transform: scale(1); }
 }
-.onboarding-shake {
-  animation: obShake .35s ease;
-}
 @keyframes obShake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-5px); }
@@ -4885,7 +4441,6 @@ html.theme-playful .settings-row-divider { background: #f0efec; }
 html.theme-playful .settings-label h3 { color: #1a1a2e; }
 html.theme-playful .settings-label p { color: #5a6275; }
 html.theme-playful .settings-row-block h3 { color: #1a1a2e; }
-html.theme-playful .settings-divider { background: #e2ded6; }
 html.theme-playful .settings-link:active { background: rgba(79,143,247,.06); }
 html.theme-playful .settings-chevron { color: #8b8fa3; }
 
@@ -4918,7 +4473,6 @@ html.theme-playful .adaptive-pill-easy { background: var(--qr-success-bg); color
 html.theme-playful .badge-good,
 html.theme-playful .adaptive-pill-medium { background: var(--qr-surface-3); color: var(--qr-accent); }
 html.theme-playful .badge-practice { background: var(--qr-surface-3); color: var(--qr-warn); }
-html.theme-playful .badge-weak { background: var(--qr-danger-bg); color: var(--qr-danger-fg); }
 html.theme-playful .badge-review { background: var(--qr-surface-2); color: var(--qr-text-dim); }
 html.theme-playful .adaptive-pill-hard { background: var(--qr-surface-3); color: var(--qr-info-fg); }
 
@@ -4932,14 +4486,11 @@ html.theme-playful .benchmark-summary { color: var(--qr-text); }
 html.theme-playful .benchmark-stat-label,
 html.theme-playful .benchmark-suggestion { color: var(--qr-text-dim); }
 html.theme-playful .benchmark-level { background: linear-gradient(135deg, var(--qr-grad-a), var(--qr-grad-b)); box-shadow: none; }
-html.theme-playful .benchmark-unlock-btn { border-color: var(--qr-accent); color: var(--qr-accent); }
 
 /* Insight / auto-explain / wrong-answer / percentile-delta → accent + status tokens. */
 html.theme-playful .session-insight-card { color: var(--qr-text); background: var(--qr-surface-2); border-left-color: var(--qr-accent); }
 html.theme-playful .auto-explain-tip { color: var(--qr-accent); background: var(--qr-surface-2); border-left-color: var(--qr-accent); }
 html.theme-playful .wrong-answer-card { background: var(--qr-danger-bg); border-left-color: var(--qr-danger-border); }
-html.theme-playful .wrong-answer-header { color: var(--qr-danger-fg); }
-html.theme-playful .wrong-answer-correct { color: var(--qr-text); }
 html.theme-playful .percentile-delta.delta-up { color: var(--qr-success-fg); }
 html.theme-playful .percentile-delta.delta-down { color: var(--qr-danger-fg); }
 
@@ -4961,10 +4512,7 @@ html.theme-playful .goal-input {
   color: #1a1a2e;
 }
 html.theme-playful .goal-input:focus { border-color: #4f8ff7; }
-html.theme-playful .goal-progress-bar { background: #e8e6e1; }
 html.theme-playful .drill-progress-bar { background: #e8e6e1; }
-
-html.theme-playful .home-greeting { color: #5a6275; }
 html.theme-playful .toast {
   background: #1a1a2e;
   color: #f1f5f9;
@@ -5009,7 +4557,6 @@ html.theme-playful .shortcut-table th,
 html.theme-playful .math-table th { color: #5a6275; }
 
 html.theme-playful .cat-bar-container { background: #e8e6e1; }
-html.theme-playful .cat-name { color: #1a1a2e; }
 
 html.theme-playful .math-grid-item { background: #f5f4f1; }
 html.theme-playful .math-expr { color: #1a1a2e; }
@@ -5128,21 +4675,6 @@ html.theme-playful .analytics-card {
   border-color: rgba(226,222,214,.5);
   box-shadow: 0 1px 4px rgba(120,100,70,.05), 0 2px 8px rgba(120,100,70,.03);
 }
-
-html.theme-playful .mode-card-teaser::after {
-  background: rgba(226,222,214,.7);
-  color: #5a6275;
-}
-html.theme-playful .mode-card-teaser { border-color: rgba(139,143,163,.4); }
-
-html.theme-playful .quick-links-edit-btn {
-  border-color: #e2ded6;
-  color: #5a6275;
-}
-html.theme-playful .quick-links-edit-btn:active {
-  background: rgba(79,143,247,.06);
-  border-color: #4f8ff7;
-}
 html.theme-playful .quick-link-option {
   border-color: #e2ded6;
   color: #1a1a2e;
@@ -5155,43 +4687,6 @@ html.theme-playful .quick-link-option input[type="checkbox"] {
   accent-color: #4f8ff7;
 }
 html.theme-playful .practice-container { background: transparent; }
-
-html.theme-playful .login-screen { background: #faf9f7; }
-html.theme-playful .login-card {
-  background: rgba(255,255,255,.92);
-  border-color: rgba(226,222,214,.5);
-}
-html.theme-playful .login-title {
-  background: linear-gradient(135deg, var(--qr-grad-a), var(--qr-grad-b));
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-html.theme-playful .login-subtitle,
-html.theme-playful .login-label { color: #5a6275; }
-html.theme-playful .login-input {
-  background: #ffffff;
-  border-color: #e2ded6;
-  color: #1a1a2e;
-}
-html.theme-playful .login-input:focus {
-  border-color: #4f8ff7;
-  box-shadow: 0 0 0 3px rgba(79,143,247,.15);
-}
-html.theme-playful .login-signup-btn {
-  border-color: #e2ded6;
-  color: #4f8ff7;
-}
-html.theme-playful .login-signup-btn:hover {
-  background: rgba(79,143,247,.06);
-  border-color: #4f8ff7;
-}
-html.theme-playful .login-error {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-html.theme-playful .login-footer { color: #8b8fa3; }
-html.theme-playful .login-optional-tag { color: #8b8fa3; }
 html.theme-playful .login-input.input-error { border-color: #f87171; }
 html.theme-playful .login-input.input-error:focus {
   border-color: #dc2626;
@@ -5242,11 +4737,6 @@ html.theme-playful .toggle input:checked + .toggle-slider { background: #4f8ff7;
 html.theme-playful .strength-moderate { background: rgba(79,143,247,.12); color: #3d7de5; }
 
 html.theme-playful .bookmarks-card { border-left-color: #f59e0b; }
-
-html.theme-playful .goal-count { color: #4f8ff7; }
-html.theme-playful .goal-progress-fill {
-  background: linear-gradient(90deg, #4f8ff7, #2dd4bf);
-}
 html.theme-playful .drill-progress-fill {
   background: linear-gradient(90deg, #4f8ff7, #2dd4bf);
 }
@@ -5391,7 +4881,6 @@ html.theme-playful.dark-mode .settings-section-card {
 }
 html.theme-playful.dark-mode .settings-row-divider { background: rgba(255,255,255,.06); }
 html.theme-playful.dark-mode .settings-row-block h3 { color: #e6edf3; }
-html.theme-playful.dark-mode .settings-divider { background: rgba(255,255,255,.06); }
 html.theme-playful.dark-mode .settings-link:active { background: rgba(88,166,255,.08); }
 html.theme-playful.dark-mode .settings-chevron { color: #484f58; }
 
@@ -5415,10 +4904,7 @@ html.theme-playful.dark-mode .goal-input {
   color: #e6edf3;
 }
 html.theme-playful.dark-mode .goal-input:focus { border-color: #58a6ff; }
-html.theme-playful.dark-mode .goal-progress-bar { background: rgba(22,27,45,.7); }
 html.theme-playful.dark-mode .drill-progress-bar { background: rgba(22,27,45,.7); }
-
-html.theme-playful.dark-mode .home-greeting { color: #8b949e; }
 html.theme-playful.dark-mode .toast {
   background: rgba(22,27,45,.95);
   color: #e6edf3;
@@ -5582,23 +5068,6 @@ html.theme-playful.dark-mode .analytics-card {
   border-color: rgba(79,143,247,.10);
   box-shadow: 0 1px 4px rgba(0,0,0,.25);
 }
-
-html.theme-playful.dark-mode .mode-card-teaser::after {
-  background: rgba(255,255,255,.06);
-  color: #8b949e;
-}
-html.theme-playful.dark-mode .mode-card-teaser { border-color: rgba(255,255,255,.08); }
-html.theme-playful.dark-mode .mode-card-teaser h3,
-html.theme-playful.dark-mode .mode-card-teaser p { color: #484f58; }
-
-html.theme-playful.dark-mode .quick-links-edit-btn {
-  border-color: rgba(255,255,255,.06);
-  color: #8b949e;
-}
-html.theme-playful.dark-mode .quick-links-edit-btn:active {
-  background: rgba(88,166,255,.10);
-  border-color: #58a6ff;
-}
 html.theme-playful.dark-mode .quick-link-option {
   border-color: rgba(255,255,255,.06);
   color: #e6edf3;
@@ -5611,49 +5080,11 @@ html.theme-playful.dark-mode .practice-container {
   background: rgba(22,27,45,.88);
   border-color: rgba(79,143,247,.10);
 }
-
-html.theme-playful.dark-mode .login-screen { background: #0d1117; }
-html.theme-playful.dark-mode .login-card {
-  background: rgba(22,27,45,.92);
-  border-color: rgba(79,143,247,.12);
-}
-html.theme-playful.dark-mode .login-title {
-  background: linear-gradient(135deg, #58a6ff, #3ddbd9);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-html.theme-playful.dark-mode .login-subtitle,
-html.theme-playful.dark-mode .login-label { color: #8b949e; }
-html.theme-playful.dark-mode .login-input {
-  background: #161b2d;
-  border-color: rgba(255,255,255,.06);
-  color: #e6edf3;
-}
-html.theme-playful.dark-mode .login-input:focus {
-  border-color: #58a6ff;
-  box-shadow: 0 0 0 3px rgba(88,166,255,.18);
-}
-html.theme-playful.dark-mode .login-signup-btn {
-  border-color: rgba(255,255,255,.06);
-  color: #58a6ff;
-}
-html.theme-playful.dark-mode .login-signup-btn:hover {
-  background: rgba(88,166,255,.08);
-  border-color: #58a6ff;
-}
-html.theme-playful.dark-mode .login-error {
-  background: rgba(248,81,73,.12);
-  border-color: rgba(248,81,73,.25);
-  color: #f85149;
-}
-html.theme-playful.dark-mode .login-footer { color: #484f58; }
-html.theme-playful.dark-mode .login-optional-tag { color: #484f58; }
 html.theme-playful.dark-mode .login-input.input-error { border-color: rgba(248,81,73,.5); }
 html.theme-playful.dark-mode .login-input.input-valid { border-color: rgba(74,222,128,.4); }
 html.theme-playful.dark-mode .login-field-validation li.val-error { color: #f85149; }
 html.theme-playful.dark-mode .login-field-validation li.val-pass { color: #3fb950; }
 html.theme-playful.dark-mode .login-field-validation .val-summary { color: #3fb950; }
-html.theme-playful.dark-mode .login-coaching-hint { color: #484f58; }
 
 
 html.theme-playful.dark-mode .clear-option-btn {
@@ -5697,11 +5128,6 @@ html.theme-playful.dark-mode .toggle input:checked + .toggle-slider { background
 html.theme-playful.dark-mode .strength-strong { background: rgba(63,185,80,.15); color: #3fb950; }
 html.theme-playful.dark-mode .strength-moderate { background: rgba(88,166,255,.15); color: #58a6ff; }
 html.theme-playful.dark-mode .strength-weak { background: rgba(248,81,73,.15); color: #f85149; }
-
-html.theme-playful.dark-mode .goal-count { color: #58a6ff; }
-html.theme-playful.dark-mode .goal-progress-fill {
-  background: linear-gradient(90deg, #58a6ff, #3ddbd9);
-}
 html.theme-playful.dark-mode .drill-progress-fill {
   background: linear-gradient(90deg, #58a6ff, #3ddbd9);
 }
@@ -5772,34 +5198,9 @@ html.theme-playful.dark-mode .profile-banner {
   border: 1px solid rgba(88,166,255,.15);
   color: #e6edf3;
 }
-
-/* ---- Password Field with Eye Toggle ---- */
-.profile-password-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
 .profile-password-wrapper .profile-input {
   padding-right: 2.75rem;
 }
-.profile-eye-toggle {
-  position: absolute;
-  right: .75rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.1rem;
-  color: #5a6275;
-  padding: .25rem;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: .7;
-  transition: opacity .15s;
-}
-.profile-eye-toggle:active { opacity: 1; }
-html.theme-playful.dark-mode .profile-eye-toggle { color: #8b949e; }
 
 /* ---- Theme Selector ---- */
 .theme-select {
@@ -5852,7 +5253,6 @@ html.dark-mode .profile-banner {
   border: 1px solid rgba(96,165,250,.15);
   color: #e2e8f0;
 }
-html.dark-mode .profile-eye-toggle { color: #94a3b8; }
 html.dark-mode .theme-select {
   background-color: #1e293b;
   border-color: #334155;
@@ -6021,15 +5421,6 @@ html.dark-mode .trial-upgrade-list {
 html.dark-mode .about-user-status-text {
   color: #e2e8f0;
 }
-
-/* ---- AI Features ---- */
-.ai-coach-card {
-  border-left: 3px solid #8b5cf6;
-}
-.ai-coach-card h3 {
-  margin-bottom: .5rem;
-  font-size: 1.05rem;
-}
 .ai-coach-locked .secondary-text {
   margin-bottom: .75rem;
 }
@@ -6038,57 +5429,6 @@ html.dark-mode .about-user-status-text {
 }
 .ai-coach-body {
   min-height: 3rem;
-}
-.ai-insight-block {
-  padding: .6rem .75rem;
-  border-radius: .75rem;
-  background: #f1f5f9;
-  margin-bottom: .5rem;
-  font-size: .9rem;
-  line-height: 1.5;
-  color: #334155;
-}
-.ai-insight-block:last-child { margin-bottom: 0; }
-.ai-insight-text {
-  margin: 0;
-  font-weight: 500;
-  color: #0f172a;
-}
-.ai-insight-problem {
-  border-left: 3px solid #f59e0b;
-  background: #fffbeb;
-}
-.ai-insight-action {
-  border-left: 3px solid #22c55e;
-  background: #f0fdf4;
-}
-html.dark-mode .ai-insight-block {
-  background: #1e293b;
-  color: #cbd5e1;
-}
-html.dark-mode .ai-insight-text { color: #e2e8f0; }
-html.dark-mode .ai-insight-problem {
-  background: rgba(245,158,11,.1);
-  border-left-color: #f59e0b;
-}
-html.dark-mode .ai-insight-action {
-  background: rgba(34,197,94,.1);
-  border-left-color: #22c55e;
-}
-html.dark-mode .ai-coach-card {
-  border-left-color: #a78bfa;
-}
-
-.ai-loading {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .5rem 0;
-}
-.ai-loading p {
-  font-size: .9rem;
-  color: #64748b;
-  margin: 0;
 }
 .ai-spinner {
   width: 24px;
@@ -6118,84 +5458,12 @@ html.dark-mode .ai-spinner {
   border-top-color: #60a5fa;
 }
 
-.ai-error {
-  color: #dc2626;
-  font-size: .9rem;
-  padding: .5rem 0;
-}
-
-.ai-explain-overlay {
-  z-index: 1000;
-}
-.ai-explain-modal {
-  max-width: 420px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-.ai-explain-body {
-  margin: .75rem 0;
-  min-height: 4rem;
-}
-.ai-explain-section {
-  margin-bottom: .85rem;
-}
-.ai-explain-section h4 {
-  font-size: .85rem;
-  color: #64748b;
-  margin-bottom: .35rem;
-}
-.ai-explain-section p {
-  font-size: .92rem;
-  line-height: 1.5;
-  color: #0f172a;
-  margin: 0;
-}
-.ai-steps-list {
-  padding-left: 1.2rem;
-  margin: 0;
-}
-.ai-steps-list li {
-  font-size: .9rem;
-  line-height: 1.5;
-  margin-bottom: .3rem;
-  color: #0f172a;
-}
-.ai-tip-section {
-  background: #f0fdf4;
-  padding: .6rem .75rem;
-  border-radius: .5rem;
-  border-left: 3px solid #22c55e;
-}
-html.dark-mode .ai-explain-section p,
-html.dark-mode .ai-steps-list li {
-  color: #e2e8f0;
-}
-html.dark-mode .ai-explain-section h4 {
-  color: #94a3b8;
-}
-html.dark-mode .ai-tip-section {
-  background: rgba(34,197,94,.1);
-}
-
 .ai-quota-text {
   font-size: .82rem;
   color: #8b5cf6;
   font-weight: 600;
   margin-bottom: .75rem;
   text-align: center;
-}
-.ai-wp-config {
-  display: flex;
-  flex-direction: column;
-  gap: .35rem;
-  margin-bottom: 1rem;
-}
-.ai-wp-select {
-  width: 100%;
-}
-
-.ai-stats-body {
-  min-height: 3rem;
 }
 
 .wp-config-section {
@@ -6224,26 +5492,9 @@ html.dark-mode .ai-tip-section {
   font-size: inherit;
   min-height: auto;
 }
-.wrong-answer-header {
-  font-size: .95rem;
-  font-weight: 700;
-  color: #dc2626;
-}
-.wrong-answer-correct {
-  font-size: .95rem;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.4;
-}
 html.dark-mode .wrong-answer-card {
   border-left-color: #f87171 !important;
   background: rgba(239,68,68,.1) !important;
-}
-html.dark-mode .wrong-answer-header {
-  color: #f87171;
-}
-html.dark-mode .wrong-answer-correct {
-  color: #e2e8f0;
 }
 /* AI Explain button — tokenized to --qr-info (ADR-087). Classic/Dark values equal the previous hardcoded #8b5cf6/
    #a78bfa exactly (pixel-identical); Playful now inherits its own deep-violet info tone automatically. */
@@ -6504,20 +5755,6 @@ html.dark-mode .auto-explain-locked {
 html.dark-mode .auto-explain-locked .auto-explain-unlock {
   color: #a78bfa;
 }
-
-/* ---- New Best badge ---- */
-.new-best-badge {
-  display: inline-block;
-  background: linear-gradient(135deg, #f59e0b, #ef4444);
-  color: #fff;
-  font-weight: 700;
-  font-size: .9rem;
-  border-radius: 2rem;
-  padding: .35rem 1rem;
-  margin-bottom: .5rem;
-  letter-spacing: .02em;
-  animation: newBestPop .4s cubic-bezier(.175,.885,.32,1.275) both;
-}
 @keyframes newBestPop {
   from { transform: scale(.7); opacity: 0; }
   to   { transform: scale(1);  opacity: 1; }
@@ -6625,10 +5862,6 @@ body.reduced-motion .sparkline-bar { animation: none !important; }
   opacity: .45;
   text-transform: uppercase;
   letter-spacing: .03em;
-}
-.sparkline-empty {
-  padding: .5rem 0;
-  font-size: .85rem;
 }
 .sparkline-trend-label {
   font-size: .72rem;
@@ -6744,13 +5977,6 @@ html.dark-mode .duel-exit-btn:active { background: rgba(248,113,113,.2); }
 .duel-countdown-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.92); z-index: 1000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .duel-countdown-num { font-size: 6rem; font-weight: 900; color: #fff; animation: duelCountdownPop .55s cubic-bezier(.17,.67,.35,1.2); }
 @keyframes duelCountdownPop { 0% { transform: scale(1.9); opacity: 0; } 55% { transform: scale(.95); opacity: 1; } 100% { transform: scale(1); } }
-.duel-active-card { cursor: pointer; }
-.duel-active-card-row { display: flex; align-items: center; gap: .75rem; }
-.duel-active-card-body { flex: 1; min-width: 0; }
-.duel-active-card-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.duel-active-card-sub { color: #64748b; font-size: .8rem; }
-html.dark-mode .duel-active-card-sub { color: #94a3b8; }
-.duel-active-card-cta { color: #2563eb; font-weight: 600; font-size: .85rem; flex: none; }
 
 /* Duel solving REUSES the Practice fixed-shell (ADR-011/033). The drill engine renders into #duelActive (the
    duel's visible container — #drillContainer lives in the hidden practice view and a position:fixed child of a
@@ -6786,129 +6012,16 @@ body.drill-session-active .duel-solve-header { position: fixed; top: .55rem; lef
   background: rgba(0,0,0,.35);
   padding: 1rem;
 }
-.duel-setup-card {
-  background: rgba(255,255,255,.95);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 24px rgba(0,0,0,.10), 0 1px 6px rgba(0,0,0,.06);
-  border: 1px solid rgba(226,232,240,.7);
-  width: 100%;
-  max-width: 420px;
-  max-height: calc(var(--vh, 1vh) * 90);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-html.dark-mode .duel-setup-card {
-  background: rgba(30,41,59,.97);
-  border-color: rgba(51,65,85,.6);
-}
-.duel-setup-header {
-  flex-shrink: 0;
-  text-align: center;
-  padding: 1.25rem 1.25rem .5rem;
-}
-.duel-setup-header h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #6d28d9;
-  margin-bottom: .25rem;
-}
-html.dark-mode .duel-setup-header h3 { color: #a78bfa; }
-.duel-setup-header p {
-  font-size: .82rem;
-  color: #64748b;
-}
-.duel-setup-body {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  scrollbar-width: none;
-  padding: .75rem 1.25rem 1.25rem;
-}
-.duel-setup-body::-webkit-scrollbar { display: none; }
-.duel-setup-footer {
-  flex-shrink: 0;
-  padding: 1rem 1.25rem 1.25rem;
-  background: inherit;
-  border-top: 1px solid rgba(226,232,240,0.6);
-  border-radius: 0 0 1.25rem 1.25rem;
-}
-html.dark-mode .duel-setup-footer {
-  border-top-color: rgba(51,65,85,0.6);
-}
-
-/* Question mode toggle */
-.duel-mode-toggle {
-  display: flex;
-  gap: .5rem;
-  margin-bottom: 1rem;
-}
-.duel-mode-btn {
-  flex: 1;
-  padding: .6rem .5rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: .7rem;
-  background: transparent;
-  font-size: .78rem;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  transition: border-color .18s ease, background-color .18s ease, color .18s ease;
-  text-align: center;
-}
 .duel-mode-btn.active {
   border-color: #7c3aed;
   background: rgba(124,58,237,.06);
   color: #6d28d9;
-}
-html.dark-mode .duel-mode-btn {
-  border-color: #334155;
-  color: #94a3b8;
 }
 html.dark-mode .duel-mode-btn.active {
   border-color: #7c3aed;
   background: rgba(124,58,237,.15);
   color: #a78bfa;
 }
-
-/* Duel start button */
-.duel-create-btn {
-  width: 100%;
-  padding: .85rem;
-  border: none;
-  border-radius: .75rem;
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  color: #fff;
-  font-size: .95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform .12s ease, box-shadow .18s ease;
-  touch-action: manipulation;
-}
-.duel-create-btn:active {
-  transform: scale(.96);
-}
-.duel-create-btn:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
-.duel-setup-back {
-  display: block;
-  width: 100%;
-  padding: .65rem;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: .85rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-}
-html.dark-mode .duel-setup-back { color: #94a3b8; }
 
 /* ======== Math Duel — Waiting Room ======== */
 
@@ -6926,77 +6039,6 @@ html.dark-mode .duel-setup-back { color: #94a3b8; }
 html.dark-mode #duelWaiting {
   background: #0f172a;
 }
-.duel-room-card {
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-}
-.duel-room-code {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #6d28d9;
-  letter-spacing: .15em;
-  margin: .75rem 0;
-  font-family: 'Courier New', monospace;
-}
-html.dark-mode .duel-room-code { color: #a78bfa; }
-.duel-room-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin-bottom: .35rem;
-}
-html.dark-mode .duel-room-title { color: #f1f5f9; }
-.duel-room-subtitle {
-  font-size: .85rem;
-  color: #64748b;
-  margin-bottom: 1.25rem;
-}
-
-/* Duel config summary pills */
-.duel-config-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: .4rem;
-  margin-bottom: 1.25rem;
-}
-.duel-config-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .25rem;
-  padding: .3rem .65rem;
-  border-radius: 999px;
-  font-size: .72rem;
-  font-weight: 600;
-  background: rgba(124,58,237,.08);
-  color: #6d28d9;
-}
-html.dark-mode .duel-config-pill {
-  background: rgba(124,58,237,.18);
-  color: #c4b5fd;
-}
-
-/* Player slots */
-.duel-players {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin: 1.25rem 0;
-}
-.duel-player-slot {
-  flex: 1;
-  max-width: 140px;
-  padding: 1rem .75rem;
-  border-radius: 1rem;
-  background: rgba(255,255,255,.88);
-  border: 1.5px solid #e2e8f0;
-  text-align: center;
-}
-html.dark-mode .duel-player-slot {
-  background: rgba(30,41,59,.8);
-  border-color: #334155;
-}
 .duel-player-slot.filled {
   border-color: #7c3aed;
   background: rgba(124,58,237,.05);
@@ -7008,32 +6050,6 @@ html.dark-mode .duel-player-slot.filled {
 .duel-player-slot.empty {
   border-style: dashed;
   opacity: .6;
-}
-.duel-player-icon {
-  font-size: 1.5rem;
-  margin-bottom: .35rem;
-}
-.duel-player-name {
-  font-size: .8rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-html.dark-mode .duel-player-name { color: #e2e8f0; }
-.duel-player-status {
-  font-size: .68rem;
-  color: #64748b;
-  margin-top: .15rem;
-}
-
-/* Waiting animation (keyframes consolidated at the later duelPulse definition) */
-.duel-waiting-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  margin: 1rem 0;
-  font-size: .85rem;
-  color: #64748b;
 }
 .duel-waiting-indicator .dot {
   width: 6px;
@@ -7063,40 +6079,9 @@ html.dark-mode .duel-player-name { color: #e2e8f0; }
   touch-action: manipulation;
 }
 .duel-share-btn:active { transform: scale(.96); }
-
-/* Start duel button (when both ready) */
-.duel-start-btn {
-  width: 100%;
-  max-width: 280px;
-  padding: .85rem;
-  border: none;
-  border-radius: .75rem;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 1rem;
-  transition: transform .12s ease;
-  touch-action: manipulation;
-  animation: duelStartPulse 2s ease-in-out infinite;
-}
 @keyframes duelStartPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,.3); }
   50% { box-shadow: 0 0 0 8px rgba(22,163,74,0); }
-}
-.duel-start-btn:active { transform: scale(.96); }
-
-.duel-leave-btn {
-  display: block;
-  margin: 1rem auto 0;
-  padding: .5rem 1.5rem;
-  border: none;
-  background: transparent;
-  color: #dc2626;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* ======== Math Duel — Active Screen ======== */
@@ -7112,49 +6097,6 @@ html.dark-mode .duel-player-name { color: #e2e8f0; }
 }
 html.dark-mode #duelActive {
   background: #0f172a;
-}
-
-/* Duel scoreboard header */
-.duel-scoreboard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .75rem 1rem;
-  background: rgba(124,58,237,.06);
-  border-bottom: 1px solid rgba(124,58,237,.12);
-}
-html.dark-mode .duel-scoreboard {
-  background: rgba(124,58,237,.1);
-  border-bottom-color: rgba(124,58,237,.2);
-}
-.duel-sb-player {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-.duel-sb-name {
-  font-size: .68rem;
-  font-weight: 600;
-  color: #6d28d9;
-  margin-bottom: .1rem;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-html.dark-mode .duel-sb-name { color: #c4b5fd; }
-.duel-sb-score {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #0f172a;
-}
-html.dark-mode .duel-sb-score { color: #f1f5f9; }
-.duel-sb-vs {
-  font-size: .75rem;
-  font-weight: 800;
-  color: #7c3aed;
-  padding: 0 .5rem;
 }
 
 /* ======== Math Duel — Results host ======== */
@@ -7249,56 +6191,6 @@ html.dark-mode .drv-explain { background: rgba(96, 165, 250, .14); color: #93c5f
 @media (max-width: 340px) {
   .duel-result-score { font-size: 1.6rem; }
 }
-
-/* ======== Math Duel V2 — Username Search ======== */
-
-.duel-username-input-container {
-  margin-bottom: 1rem;
-}
-.duel-username-input-row {
-  display: flex;
-  gap: .4rem;
-}
-.duel-username-input {
-  flex: 1;
-  padding: .65rem .85rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: .6rem;
-  font-size: .88rem;
-  background: #fff;
-  color: #0f172a;
-  outline: none;
-  transition: border-color .18s ease;
-}
-.duel-username-input:focus {
-  border-color: #7c3aed;
-}
-html.dark-mode .duel-username-input {
-  background: #1e293b;
-  border-color: #334155;
-  color: #f1f5f9;
-}
-html.dark-mode .duel-username-input:focus {
-  border-color: #7c3aed;
-}
-.duel-username-search-btn {
-  padding: .5rem .75rem;
-  border: 1.5px solid #7c3aed;
-  border-radius: .6rem;
-  background: rgba(124,58,237,.06);
-  color: #6d28d9;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background .15s ease;
-}
-.duel-username-search-btn:active {
-  background: rgba(124,58,237,.15);
-}
-.duel-username-status {
-  font-size: .75rem;
-  margin-top: .35rem;
-  min-height: 1rem;
-}
 .duel-username-status.loading {
   color: #7c3aed;
 }
@@ -7315,37 +6207,8 @@ html.dark-mode .duel-username-input:focus {
 html.dark-mode .duel-username-status.found { color: #4ade80; }
 html.dark-mode .duel-username-status.error { color: #f87171; }
 html.dark-mode .duel-username-status.warning { color: #fbbf24; }
-.duel-search-spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(124,58,237,.2);
-  border-top-color: #7c3aed;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  vertical-align: middle;
-  margin-right: .3rem;
-}
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-/* Found user card */
-.duel-username-user-card {
-  margin-top: .5rem;
-}
-.duel-found-user-card {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  padding: .65rem .85rem;
-  border-radius: .7rem;
-  background: rgba(22,163,74,.06);
-  border: 1px solid rgba(22,163,74,.2);
-}
-html.dark-mode .duel-found-user-card {
-  background: rgba(22,163,74,.1);
-  border-color: rgba(22,163,74,.25);
 }
 /* .duel-premium-badge visuals consolidated into the unified .qr-badge-pro rule (see PRO badge block). */
 
@@ -7356,78 +6219,6 @@ html.dark-mode .duel-found-user-card {
   border-radius: .7rem;
   background: linear-gradient(135deg, rgba(124,58,237,.05), rgba(37,99,235,.05));
   border: 1px solid rgba(124,58,237,.15);
-}
-html.dark-mode .duel-premium-notice {
-  background: linear-gradient(135deg, rgba(124,58,237,.1), rgba(37,99,235,.08));
-  border-color: rgba(124,58,237,.25);
-}
-
-/* ======== Math Duel V2 — Player Avatars ======== */
-
-.duel-player-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .9rem;
-  font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
-}
-.duel-player-avatar.avatar-purple {
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-}
-.duel-player-avatar.avatar-blue {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-}
-.duel-player-avatar.empty-avatar {
-  background: #e2e8f0;
-  color: #94a3b8;
-  border: 2px dashed #cbd5e1;
-}
-html.dark-mode .duel-player-avatar.empty-avatar {
-  background: #334155;
-  color: #64748b;
-  border-color: #475569;
-}
-.duel-player-avatar.winner-glow {
-  box-shadow: 0 0 12px rgba(22,163,74,.4);
-}
-
-/* ======== Math Duel V2 — Waiting Room Enhanced ======== */
-
-.duel-waiting-room-card {
-  width: 100%;
-  max-width: 380px;
-  text-align: center;
-}
-.duel-room-header-section {
-  margin-bottom: 1rem;
-}
-.duel-players-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .75rem;
-  margin: 1.25rem 0;
-}
-.duel-player-card {
-  flex: 1;
-  max-width: 130px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .35rem;
-  padding: 1rem .5rem;
-  border-radius: 1rem;
-  background: rgba(255,255,255,.88);
-  border: 1.5px solid #e2e8f0;
-}
-html.dark-mode .duel-player-card {
-  background: rgba(30,41,59,.8);
-  border-color: #334155;
 }
 .duel-player-card.filled {
   border-color: #7c3aed;
@@ -7441,174 +6232,21 @@ html.dark-mode .duel-player-card.filled {
   border-style: dashed;
   opacity: .55;
 }
-.duel-player-username {
-  font-size: .65rem;
-  color: #94a3b8;
-}
-.duel-player-connection-dot {
-  display: flex;
-  align-items: center;
-  gap: .25rem;
-  font-size: .6rem;
-  font-weight: 600;
-}
 .duel-player-connection-dot.online { color: #16a34a; }
 .duel-player-connection-dot.offline { color: #94a3b8; }
 html.dark-mode .duel-player-connection-dot.online { color: #4ade80; }
-.dot-pulse {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #16a34a;
-  animation: dotPulseAnim 1.5s ease-in-out infinite;
-}
 @keyframes dotPulseAnim {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .5; transform: scale(.7); }
-}
-
-/* VS separator */
-.duel-vs-separator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.duel-vs-separator span {
-  font-size: 1rem;
-  font-weight: 800;
-  color: #7c3aed;
-  text-shadow: 0 0 12px rgba(124,58,237,.3);
-}
-
-/* ======== Math Duel V2 — Invitation Banner ======== */
-
-.duel-invite-banner {
-  position: relative;
-  border-radius: 1rem;
-  padding: 2px;
-  background: linear-gradient(135deg, #7c3aed, #2563eb, #7c3aed);
-  background-size: 200% 200%;
-  animation: duelInviteBorderGlow 3s ease infinite;
-  margin-bottom: .75rem;
-  overflow: hidden;
 }
 @keyframes duelInviteBorderGlow {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
-.duel-invite-banner-content {
-  background: rgba(255,255,255,.97);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: calc(1rem - 2px);
-  padding: .85rem;
-}
-html.dark-mode .duel-invite-banner-content {
-  background: rgba(15,23,42,.97);
-}
-.duel-invite-banner-header {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  margin-bottom: .6rem;
-}
-.duel-invite-banner-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-.duel-invite-banner-info {
-  flex: 1;
-  min-width: 0;
-}
-.duel-invite-banner-title {
-  font-size: .85rem;
-  font-weight: 700;
-  color: #6d28d9;
-}
-html.dark-mode .duel-invite-banner-title { color: #a78bfa; }
-.duel-invite-banner-from {
-  font-size: .75rem;
-  color: #64748b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.duel-invite-countdown {
-  font-size: .75rem;
-  font-weight: 700;
-  color: #16a34a;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
 .duel-invite-countdown.urgent {
   color: #dc2626;
   animation: duelPulse 1s ease-in-out infinite;
 }
-.duel-invite-banner-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .3rem;
-  margin-bottom: .65rem;
-}
-.duel-invite-banner-actions {
-  display: flex;
-  gap: .5rem;
-}
-.duel-invite-accept-btn {
-  flex: 1;
-  padding: .55rem;
-  border: none;
-  border-radius: .6rem;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: #fff;
-  font-size: .82rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform .1s ease;
-  touch-action: manipulation;
-}
-.duel-invite-accept-btn:active { transform: scale(.96); }
-.duel-invite-accept-btn:disabled { opacity: .5; }
-.duel-invite-reject-btn {
-  padding: .55rem .85rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: .6rem;
-  background: transparent;
-  color: #64748b;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .12s ease;
-}
-.duel-invite-reject-btn:active { background: rgba(0,0,0,.04); }
-.duel-invite-reject-btn:disabled { opacity: .5; }
-html.dark-mode .duel-invite-reject-btn {
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-/* ======== Math Duel V2 — Header Bar + Exit Button ======== */
-
-.duel-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .65rem 1rem;
-  background: rgba(124,58,237,.06);
-  border-bottom: 1px solid rgba(124,58,237,.1);
-  z-index: 95;
-}
-html.dark-mode .duel-header-bar {
-  background: rgba(124,58,237,.1);
-  border-bottom-color: rgba(124,58,237,.2);
-}
-.duel-header-title {
-  font-size: .85rem;
-  font-weight: 700;
-  color: #6d28d9;
-}
-html.dark-mode .duel-header-title { color: #a78bfa; }
 .duel-exit-btn {
   padding: .3rem .7rem;
   border: 1.5px solid #fca5a5;
@@ -7625,18 +6263,6 @@ html.dark-mode .duel-exit-btn {
   border-color: rgba(248,113,113,.3);
   background: rgba(220,38,38,.1);
   color: #f87171;
-}
-
-/* Duel answer input */
-.duel-answer-input {
-  width: 100%;
-  max-width: 200px;
-  text-align: center;
-  font-size: 1.3rem;
-  font-weight: 700;
-  padding: .6rem .75rem;
-  border-radius: .7rem;
-  margin-top: .75rem;
 }
 
 /* ======== Share Preview Modal ======== */
@@ -8649,7 +7275,6 @@ html.dark-mode .home-bento-glow {
 }
 .icon-amber { background: rgba(245,158,11,0.15); }
 .icon-blue { background: rgba(59,130,246,0.15); }
-.icon-purple { background: rgba(168,85,247,0.15); }
 /* Playful: soft neutral tiles + accent-tinted mask icons — one visual system with the CTAs */
 html.theme-playful .home-bento-icon-squircle { background: var(--qr-surface-2); border: 1px solid var(--qr-border); }
 html.theme-playful .home-bento-icon.qr-ico { color: var(--qr-accent); }
@@ -8677,16 +7302,6 @@ html.theme-playful .home-bento-icon.qr-ico { color: var(--qr-accent); }
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid rgba(16,185,129,0.2);
   z-index: 2;
-}
-html.dark-mode .home-bento-duel-live {
-  background: rgba(30,41,59,0.9);
-}
-.live-dot {
-  width: 6px;
-  height: 6px;
-  background-color: #10b981;
-  border-radius: 50%;
-  animation: pulseLive 2s infinite;
 }
 @keyframes pulseLive {
   0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
@@ -9079,7 +7694,6 @@ html.dark-mode .pw-plan-save { color: #4ade80; }
   font-size: .82rem; font-weight: 700; color: #64748b; text-decoration: none;
 }
 .pw-footer-link:hover { color: #2563eb; }
-.pw-continue-free { color: #1d4ed8; }
 
 /* Responsive */
 @media (max-width: 420px) {
@@ -9595,10 +8209,6 @@ html.dark-mode .cb-celebrate { color: #86efac; }
 
 /* chips */
 .companion-chips { display: flex; flex-wrap: wrap; gap: .45rem; margin: .7rem 0 .3rem; }
-.companion-otherwrap { display: flex; gap: .45rem; margin: .7rem 0 .3rem; flex-wrap: wrap; }
-.companion-otherinput { flex: 1 1 60%; min-width: 12rem; border: 1px solid rgba(15, 23, 42, .16); border-radius: .8rem; padding: .55rem .8rem; font-size: .9rem; color: #0f172a; background: #fff; }
-.companion-otherinput:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
-html.dark-mode .companion-otherinput { background: rgba(255, 255, 255, .06); color: #f1f5f9; border-color: rgba(255, 255, 255, .16); }
 .companion-chip { border: 1px solid rgba(15, 23, 42, .14); background: #fff; color: #1e293b; border-radius: 999px; padding: .5rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer; transition: transform .1s ease, background .1s ease, border-color .1s ease; min-height: 38px; }
 .companion-chip:active { transform: scale(.96); }
 html.dark-mode .companion-chip { background: rgba(255, 255, 255, .06); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }
@@ -9664,9 +8274,6 @@ html.dark-mode .ps-day { background: rgba(255, 255, 255, .06); color: #cbd5e1; b
 .ps-nav { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: 1.1rem; }
 .ps-nav .ps-next { min-width: 110px; }
 .ps-nav .companion-chip[disabled] { opacity: .4; cursor: not-allowed; }
-
-/* ---- QuanAI Planner calendar view (ADR-046) ---- */
-.planner-wrap { padding: .1rem 0 calc(.5rem + env(safe-area-inset-bottom, 0px)); max-width: 720px; margin: 0 auto; }
 .planner-loading { text-align: center; color: #94a3b8; font-weight: 600; padding: 2.5rem 0; }
 .planner-empty { text-align: center; padding: 3rem 1rem; }
 .planner-empty .pe-emoji { font-size: 2.6rem; }
@@ -9693,7 +8300,6 @@ html.dark-mode .pr-band { color: #e2e8f0; }
 .pr-label { font-size: .78rem; color: #64748b; text-transform: uppercase; letter-spacing: .03em; font-weight: 700; }
 .pr-forecast { font-size: .88rem; color: #1d4ed8; font-weight: 600; margin-top: .35rem; }
 .pr-forecast.is-behind { color: #d97706; }
-.pr-plus { font-size: .8rem; color: #64748b; margin-top: .15rem; }
 .planner-rationale { font-size: .92rem; color: #334155; line-height: 1.5; background: rgba(15, 23, 42, .03); border-radius: 12px; padding: .7rem .85rem; margin-bottom: .9rem; }
 html.dark-mode .planner-rationale { color: #cbd5e1; background: rgba(255, 255, 255, .04); }
 .planner-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; margin-bottom: 1rem; }
@@ -9725,15 +8331,12 @@ html.dark-mode .pt-task { background: rgba(255, 255, 255, .04); border-color: rg
 .pt-main { flex: 1; min-width: 0; }
 .pt-title { font-weight: 700; color: #0f172a; font-size: .98rem; }
 html.dark-mode .pt-title { color: #e2e8f0; }
-.pt-rev { color: #7c3aed; font-weight: 800; }
 .pt-meta { font-size: .78rem; color: #64748b; margin-top: .15rem; display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
 .pt-dot { color: #cbd5e1; }
 .pt-diff { font-weight: 700; text-transform: capitalize; }
 .pt-diff.d-easy { color: #16a34a; } .pt-diff.d-medium { color: #d97706; } .pt-diff.d-hard { color: #dc2626; }
 .pt-reason { font-size: .82rem; color: #475569; margin-top: .35rem; line-height: 1.4; }
 html.dark-mode .pt-reason { color: #94a3b8; }
-.pt-drill { align-self: center; background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-.pt-self { align-self: center; font-size: .72rem; color: #94a3b8; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 /* Planner footer — three clear actions: Rebuild (primary), an optional end-of-block hint, and a de-emphasized,
    hairline-separated destructive "Start over" (ADR-070). */
 .planner-foot { margin-top: 1.2rem; display: flex; flex-direction: column; align-items: stretch; gap: .45rem; }
@@ -9775,26 +8378,17 @@ html.dark-mode .planner-verdict { color: #e2e8f0; background: rgba(96, 165, 250,
 .planner-recovery { display: flex; align-items: center; gap: .7rem; background: rgba(217, 119, 6, .1); border: 1px solid rgba(217, 119, 6, .28); border-radius: 12px; padding: .7rem .85rem; margin-bottom: 1rem; }
 .prc-text { flex: 1; font-size: .88rem; color: #92400e; line-height: 1.45; }
 html.dark-mode .prc-text { color: #fbbf24; }
-.prc-drill { background: #d97706; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .planner-section-title { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #64748b; margin: 1.1rem 0 .6rem; }
 .planner-sched-title { border-top: 1px solid rgba(15, 23, 42, .08); padding-top: 1rem; margin-top: 1.4rem; }
 html.dark-mode .planner-sched-title { border-color: rgba(255, 255, 255, .08); }
-.planner-milestones { display: flex; flex-direction: column; }
 .pm { display: flex; gap: .7rem; padding-bottom: .9rem; position: relative; }
 .pm::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: -2px; width: 2px; background: rgba(15, 23, 42, .1); }
 .pm:last-child::before { display: none; }
 html.dark-mode .pm::before { background: rgba(255, 255, 255, .12); }
-.pm-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; background: #cbd5e1; box-shadow: 0 0 0 3px rgba(203, 213, 225, .25); z-index: 1; }
 .pm.is-done .pm-dot { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .2); }
 .pm.is-active .pm-dot { background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, .22); }
-.pm-body { flex: 1; min-width: 0; }
-.pm-name { font-weight: 800; color: #0f172a; font-size: .98rem; }
-html.dark-mode .pm-name { color: #e2e8f0; }
 .pm.is-upcoming .pm-name { color: #64748b; }
 .pm-now { font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; background: #2563eb; border-radius: 999px; padding: .1rem .4rem; vertical-align: middle; }
-.pm-obj { font-size: .85rem; color: #475569; line-height: 1.45; margin-top: .15rem; }
-html.dark-mode .pm-obj { color: #94a3b8; }
-.pm-meta { font-size: .76rem; color: #94a3b8; font-weight: 600; margin-top: .25rem; }
 .pm-bar { height: 5px; border-radius: 999px; background: rgba(15, 23, 42, .08); margin-top: .4rem; overflow: hidden; }
 .pm-bar span { display: block; height: 100%; background: #2563eb; border-radius: 999px; transition: width .4s ease; }
 .pm.is-done .pm-bar span { background: #16a34a; }
@@ -9805,7 +8399,6 @@ html.dark-mode .pf { background: rgba(255, 255, 255, .04); border-color: rgba(25
 .pf-head { display: flex; align-items: center; gap: .7rem; }
 .pf-label { flex: 1; font-weight: 700; color: #0f172a; font-size: .98rem; min-width: 0; }
 html.dark-mode .pf-label { color: #e2e8f0; }
-.pf-drill { background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: .45rem .7rem; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .pf-why { font-size: .84rem; color: #475569; line-height: 1.45; margin-top: .35rem; }
 html.dark-mode .pf-why { color: #94a3b8; }
 .pf-impact { font-size: .8rem; color: #16a34a; font-weight: 700; margin-top: .25rem; }
@@ -9916,10 +8509,6 @@ html.dark-mode .pf-suggest, html.dark-mode .pt-suggest { color: #93c5fd; }
 .pt-unlocks { font-size: .78rem; color: #7c3aed; margin-top: .3rem; }
 html.dark-mode .pt-unlocks { color: #c4b5fd; }
 .pt-st { font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; border-radius: 999px; padding: .12rem .45rem; vertical-align: middle; }
-.pt-st-first-learning { color: #1d4ed8; background: rgba(37, 99, 235, .12); }
-.pt-st-practice { color: #b45309; background: rgba(217, 119, 6, .14); }
-.pt-st-revision { color: #7c3aed; background: rgba(124, 58, 237, .14); }
-.pt-st-mock { color: #db2777; background: rgba(219, 39, 119, .14); }
 
 /* ---- ADR-049 micro-polish: premium calendar feel ---- */
 .pd-cell { transition: transform .12s cubic-bezier(.2,.7,.3,1), border-color .12s ease, box-shadow .12s ease, background .12s ease; }
@@ -10237,9 +8826,6 @@ html.dark-mode .kx-tc-title { color: #f1f5f9; }
 
 /* difficulty + exam-frequency + status badges */
 .kx-badge { font-size: .66rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; padding: .16rem .42rem; border-radius: .4rem; }
-.kx-diff-foundation { background: rgba(22,163,74,.14); color: #15803d; }
-.kx-diff-core { background: rgba(37,99,235,.14); color: #2563eb; }
-.kx-diff-advanced { background: rgba(217,119,6,.16); color: #d97706; }
 .kx-freq { background: rgba(100,116,139,.14); color: #475569; }
 .kx-status-scaffold { background: rgba(100,116,139,.14); color: #475569; }
 /* ADR-109: Premium-gated Learn topic badge + card affordance. */
@@ -10255,9 +8841,6 @@ html.dark-mode .kx-status-premium { background: rgba(96,165,250,.2); color: #93c
 .kx-locked-sub { font-size: .92rem; line-height: 1.5; color: var(--qr-text-mut); margin: 0; }
 .kx-locked-cta { width: 100%; max-width: 18rem; margin-top: .35rem; }
 html.dark-mode .kx-locked-icon { color: #93c5fd; }
-html.dark-mode .kx-diff-foundation { background: rgba(22,163,74,.2); color: #4ade80; }
-html.dark-mode .kx-diff-core { background: rgba(37,99,235,.22); color: #60a5fa; }
-html.dark-mode .kx-diff-advanced { background: rgba(217,119,6,.22); color: #fbbf24; }
 html.dark-mode .kx-freq, html.dark-mode .kx-status-scaffold { background: rgba(148,163,184,.18); color: #cbd5e1; }
 
 /* ---- topic page ---- */
@@ -10583,9 +9166,7 @@ html.dark-mode .kx-topic-card.is-complete .kx-tc-title::after { color: #4ade80; 
 /* Each subject is now a labelled role="group" (screen-reader grouping); preserve the inter-group rhythm the old
    grid→label sibling rule gave, now that the label is nested inside its group wrapper. */
 .category-group + .category-group { margin-top: 1.1rem; }
-.category-subject-hint { text-transform: none; font-weight: 500; color: #94a3b8; font-size: .72rem; letter-spacing: 0; }
 html.dark-mode .category-subject-label { color: #cbd5e1; }
-html.dark-mode .category-subject-hint { color: #64748b; }
 
 /* ADR-084: dynamic category picker — search + collapsible sections. Reuses .category-grid / .category-btn. */
 .category-search-wrap { padding: .25rem .15rem .1rem; }
@@ -10931,11 +9512,6 @@ html.dark-mode .q-figure-stage { background: #1e293b; border-color: #334155; }
    extends toward the corner can never render under the A/B/C/D badge. */
 .mcq-opt-letter { position: absolute; top: .3rem; left: .3rem; z-index: 1; font-size: .68rem; font-weight: 800; color: #475569; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(15,23,42,.08); border-radius: .5rem; padding: .05rem .38rem; line-height: 1.3; }
 html.dark-mode .mcq-opt-letter { color: #cbd5e1; background: #1e293b; border-color: #334155; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-
-/* ── authored teaching explanation (ADR-079): shown on reveal under the feedback ── */
-.authored-explanation { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; background: #f1f5f9; border-left: 3px solid var(--qr-accent, #2563eb); font-size: .9rem; line-height: 1.5; color: #1e293b; text-align: left; }
-.authored-explanation-head { font-weight: 800; color: var(--qr-accent, #2563eb); }
-html.dark-mode .authored-explanation { background: #1e293b; color: #e2e8f0; }
 /* LR syllabus tier sub-headings inside the Logical Reasoning category group */
 .category-tier-label { margin: .55rem 0 .3rem; font-size: .66rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #64748b; }
 html.dark-mode .category-tier-label { color: #94a3b8; }
