@@ -21,7 +21,8 @@ var QRPacks = (function () {
      SAME commit, so a study language lazy-loads exactly the content that exists. Registered via the same ensure()
      channel + SW precache as the gen packs, so offline works in any language once installed. */
   var CONTENT = [
-    'data/knowledge/i18n/{lang}/numbers.js'      // G-M3
+    'data/knowledge/i18n/{lang}/numbers.js',     // G-M3
+    'data/knowledge/i18n/{lang}/arithmetic.js'   // G-M4
   ];
   function _files(lang) {
     var out = GEN.map(function (g) { return 'locales/gen/' + lang + '.' + g + '.js'; });
