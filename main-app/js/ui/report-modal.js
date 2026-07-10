@@ -153,7 +153,11 @@
         '<div class="report-sheet-body"></div>' +
       '</div>';
     document.body.appendChild(_overlay);
-    document.body.classList.add('modal-open');
+    /* FW-W2: ref-counted lock via the shared controller so stacking with other overlays can't
+       unlock early. The rest of this sheet's lifecycle stays bespoke DELIBERATELY: its Escape
+       closes even a dirty form while backdrop/drag are dirty-guarded (ADR-099 verified UX) — an
+       asymmetry QROverlay's uniform closeGuard cannot express. */
+    if (typeof QROverlay !== 'undefined') QROverlay.lock(); else document.body.classList.add('modal-open');
 
     _sheet = _overlay.querySelector('.report-sheet');
     _body = _overlay.querySelector('.report-sheet-body');
@@ -186,7 +190,7 @@
     var onClose = st && st.onClose;
     document.removeEventListener('keydown', _keyHandler, true);
     if (_overlay.parentNode) _overlay.parentNode.removeChild(_overlay);
-    document.body.classList.remove('modal-open');
+    if (typeof QROverlay !== 'undefined') QROverlay.unlock(); else document.body.classList.remove('modal-open');
     _overlay = _sheet = _body = _titleEl = _backEl = null;
     _keyHandler = null; _open = false; st = null;
     try { if (_lastFocus && _lastFocus.focus) _lastFocus.focus(); } catch (_) {}

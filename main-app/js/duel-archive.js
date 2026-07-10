@@ -23,7 +23,7 @@ var DuelArchive = (function () {
   var _cursor = null;             // Firestore startAfter cursor (last snapshot of the active query)
   var _morePages = true;          // could the active query have more docs?
   var _loading = false;
-  var _escHandler = null;         // Escape-to-close handler for the modal (added on open, removed on close)
+  var _handle = null;             // QROverlay handle for the open modal (FW-W2)
   var _premium = false;
   var _queryKey = '';             // identity of the active server query (filters) — changing it resets paging
   var _reqToken = 0;              // monotonic fetch token — a stale in-flight page response is ignored
@@ -234,28 +234,22 @@ var DuelArchive = (function () {
         '<div class="ba-modal-body ba-body" id="baBody"></div>' +
       '</div>';
     document.body.appendChild(overlay);
-    document.body.classList.add('modal-open');
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) _closeModal(); });
-    var cls = document.getElementById('baModalClose'); if (cls) cls.addEventListener('click', _closeModal);
-    _escHandler = function (e) { if (e.key === 'Escape') { e.preventDefault(); _closeModal(); } };
-    document.addEventListener('keydown', _escHandler);
-    if (typeof SoundEngine !== 'undefined' && SoundEngine.play) { try { SoundEngine.play('settingsToggle'); } catch (_) {} }
+    /* FW-W2: shared lifecycle (lock/Escape/trap/restore + 200ms closing anim); the pending-search
+       timer is cleared in onClose so a debounced query can't fire into the torn-down body. */
+    _handle = QROverlay.open(overlay, {
+      dialogEl: overlay.querySelector('.ba-modal-card'),
+      removeOnClose: true, closingClass: 'closing', closeMs: 200,
+      initialFocus: '#baModalTitle',
+      sound: 'settingsToggle',
+      onClose: function () {
+        if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }
+        _handle = null;
+      }
+    });
     _loadAndPaint();
-    var title = document.getElementById('baModalTitle');
-    if (title && title.focus) { try { title.focus({ preventScroll: true }); } catch (_) { title.focus(); } }
   }
 
-  function _closeModal() {
-    var overlay = document.getElementById('baModalOverlay'); if (!overlay) return;
-    if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }   // don't fire a pending search into a torn-down body
-    if (_escHandler) { document.removeEventListener('keydown', _escHandler); _escHandler = null; }
-    overlay.classList.add('closing');
-    document.body.classList.remove('modal-open');
-    setTimeout(function () {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      var trigger = document.getElementById('baOpen'); if (trigger && trigger.focus) { try { trigger.focus({ preventScroll: true }); } catch (_) { trigger.focus(); } }
-    }, 200);
-  }
+  function _closeModal() { if (_handle) _handle.close(); }
 
   /* Paint the modal body: from the in-memory cache if still valid (same filter, page held — no refetch, keeps scroll),
      else show the skeleton and load summary + page 1. onLocalDuelComplete() nulls the cache so a post-duel reopen refreshes. */

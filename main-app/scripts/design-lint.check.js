@@ -75,7 +75,7 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 /* ---- ceilings: baseline 2026-07-09 (ratchet DOWN only; blueprint goals in comments) ---- */
 const CEIL = {
   radii: 49,        // goal ≤8   (M6: 51→49)
-  shadows: 132,     // goal ≤6   (M6: 141→132, dead-CSS + focus-ring token)
+  shadows: 131,     // goal ≤6   (M6: 141→132; FW-W2: 132→131, planner confirm shell → shared .qr-dialog)
   fontSizes: 80,    // goal ≤14  (M6: 81→80)
   durations: 44,    // goal 4 (3 tokens + 0s)
   easings: 4,       // goal 3 (2 tokens + linear)  (M6: 18→4, bezier zoo → --qr-ease/-out/-spring)

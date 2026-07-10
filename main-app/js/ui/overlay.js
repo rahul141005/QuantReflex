@@ -20,12 +20,13 @@
   'use strict';
 
   /* Ref-counted scroll-lock so stacked overlays (e.g. paywall over settings) don't unlock early. */
-  var _lockCount = 0;
-  /* Always (idempotently) ensure the class is present while any overlay is open, and only drop it at
-     count 0. Ensuring on every lock keeps scroll-lock correct even if some overlay is torn down
-     externally (e.g. a route change hides it) without going through doClose. */
-  function _lock() { _lockCount++; document.body.classList.add('modal-open'); }
-  function _unlock() { _lockCount = Math.max(0, _lockCount - 1); if (_lockCount === 0) document.body.classList.remove('modal-open'); }
+  /* Per-class ref-counts (FW-W2): most overlays lock via body.modal-open, but the paywall keeps its
+     historical body.paywall-open (its CSS + router teardown key on it). Always (idempotently) ensure
+     the class is present while any overlay holding it is open, and only drop it at count 0 — so
+     stacked overlays and external teardown (route change) can't unlock early or leak. */
+  var _locks = {};
+  function _lock(cls) { cls = cls || 'modal-open'; _locks[cls] = (_locks[cls] || 0) + 1; document.body.classList.add(cls); }
+  function _unlock(cls) { cls = cls || 'modal-open'; _locks[cls] = Math.max(0, (_locks[cls] || 0) - 1); if (_locks[cls] === 0) document.body.classList.remove(cls); }
 
   function _reduced() {
     try {
@@ -33,6 +34,11 @@
         (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } catch (_) { return false; }
   }
+
+  /* Open-overlay stack (FW-W2): each open() pushes a token; Escape and the Tab focus-trap only act
+     on the TOP-MOST overlay, so a stacked pair (confirm over paywall, paywall over settings) closes
+     one layer per Esc instead of collapsing together, and two live traps can't fight. */
+  var _stack = [];
 
   function _focusables(scope) {
     if (!scope) return [];
@@ -64,28 +70,35 @@
       overlayEl.firstElementChild || overlayEl;
     var lastFocus = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
     var closed = false;
+    var token = {};
+    _stack.push(token);
 
-    _lock();
+    _lock(opts.lockClass);
 
     function doClose() {
       if (closed) return;
       if (opts.closeGuard && opts.closeGuard()) return;
       closed = true;
+      var si = _stack.indexOf(token); if (si !== -1) _stack.splice(si, 1);
       document.removeEventListener('keydown', keyHandler, true);
       overlayEl.removeEventListener('click', backdropHandler);
       var ms = (opts.animate === false || _reduced()) ? 0 : (opts.closeMs != null ? opts.closeMs : 200);
       var closingClass = (opts.closingClass === null) ? null : (opts.closingClass || 'closing');
-      if (ms > 0 && closingClass) overlayEl.classList.add(closingClass);
-      setTimeout(function () {
+      var finish = function () {
         if (opts.removeOnClose) { if (overlayEl.parentNode) overlayEl.parentNode.removeChild(overlayEl); }
         else { overlayEl.style.display = 'none'; if (closingClass) overlayEl.classList.remove(closingClass); }
-        _unlock();
+        _unlock(opts.lockClass);
         try { if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true }); } catch (_) {}
         if (opts.onClose) { try { opts.onClose(); } catch (_) {} }
-      }, ms);
+      };
+      /* An instant close (ms 0) tears down SYNCHRONOUSLY so close-then-reopen sequences (e.g. duel
+         arena-full → "Create my own") can't race a deferred hide that would blank the new overlay. */
+      if (ms > 0 && closingClass) overlayEl.classList.add(closingClass);
+      if (ms > 0) setTimeout(finish, ms); else finish();
     }
 
     var keyHandler = function (e) {
+      if (_stack[_stack.length - 1] !== token) return;   // only the top-most overlay handles keys
       if (e.key === 'Escape' && opts.closeOnEsc !== false) { e.preventDefault(); doClose(); return; }
       if (e.key === 'Tab') {
         var f = _focusables(dialog);
@@ -140,12 +153,27 @@
 
     var handle = open(ov, {
       removeOnClose: true,
-      initialFocus: '[data-act="confirm"]',
+      initialFocus: opts.initialFocus || '[data-act="confirm"]',   // pass '[data-act="cancel"]' for destructive flows
       sound: opts.sound,
       onClose: function () { if (!resolved && opts.onCancel) { try { opts.onCancel(); } catch (_) {} } }   // Esc / backdrop = cancel
     });
-    ov.querySelector('[data-act="cancel"]').addEventListener('click', function () { resolved = true; handle.close(); if (opts.onCancel) { try { opts.onCancel(); } catch (_) {} } });
-    ov.querySelector('[data-act="confirm"]').addEventListener('click', function () { resolved = true; handle.close(); if (opts.onConfirm) { try { opts.onConfirm(); } catch (_) {} } });
+    var cancelBtn = ov.querySelector('[data-act="cancel"]');
+    var confirmBtn = ov.querySelector('[data-act="confirm"]');
+    cancelBtn.addEventListener('click', function () { resolved = true; handle.close(); if (opts.onCancel) { try { opts.onCancel(); } catch (_) {} } });
+    confirmBtn.addEventListener('click', function () {
+      resolved = true;
+      var r;
+      if (opts.onConfirm) { try { r = opts.onConfirm(); } catch (_) {} }
+      /* FW-W2: async onConfirm — a thenable keeps the dialog up in a loading state and closes on
+         resolve; on reject the buttons re-enable so the user can retry or cancel. */
+      if (r && typeof r.then === 'function') {
+        confirmBtn.disabled = true; cancelBtn.disabled = true; confirmBtn.classList.add('is-loading');
+        r.then(function () { handle.close(); }, function () {
+          resolved = false;
+          confirmBtn.disabled = false; cancelBtn.disabled = false; confirmBtn.classList.remove('is-loading');
+        });
+      } else { handle.close(); }
+    });
     return handle;
   }
 

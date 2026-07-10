@@ -55,6 +55,10 @@ var Router = (function () {
 
     var _paywallOverlay = document.getElementById('paywallModalOverlay');
     if (_paywallOverlay) {
+      /* FW-W2: close through the paywall's QROverlay handle first so its document-level key
+         listener and ref-counted body lock are released; the instant removal below keeps this
+         teardown synchronous (the handle's own delayed removal then no-ops). */
+      if (typeof Paywall !== 'undefined' && Paywall.closeModal) { try { Paywall.closeModal(); } catch (_) {} }
       if (_paywallOverlay.parentNode) _paywallOverlay.parentNode.removeChild(_paywallOverlay);
       document.body.classList.remove('paywall-open');
     }

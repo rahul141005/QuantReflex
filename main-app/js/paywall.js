@@ -41,7 +41,7 @@ var PAYMENT_SLOW_MS = 5000;
 var _paywallModalOpen = false;
 var _paywallLastOpenAt = 0;
 var _paywallGuestPromptAt = 0;
-var _paywallEscHandler = null;
+var _paywallHandle = null;   /* QROverlay handle (FW-W2) — owns Esc/backdrop/focus-trap/body.paywall-open */
 var _paymentBusy = false;
 var _paymentSafetyTimer = null;
 var _paymentSlowTimer = null;
@@ -354,6 +354,11 @@ function openPremiumPayment(planType, userId) {
 /* ─────────────────────────── Paywall modal ─────────────────────────── */
 
 function _closePaywallModal() {
+  /* FW-W2: the QROverlay handle owns the lifecycle (Esc/backdrop listeners, ref-counted
+     body.paywall-open, focus restore) — closing through it keeps all of that balanced.
+     The legacy body below stays as a fallback for teardown paths that find an overlay
+     without a live handle (e.g. after an external DOM removal). */
+  if (_paywallHandle) { _paywallHandle.close(); return; }
   var overlay = document.getElementById('paywallModalOverlay');
   if (!overlay || overlay.classList.contains('closing')) {
     _paywallModalOpen = false;
@@ -362,7 +367,6 @@ function _closePaywallModal() {
   }
   overlay.classList.add('closing');
   document.body.classList.remove('paywall-open');
-  if (_paywallEscHandler) { document.removeEventListener('keydown', _paywallEscHandler); _paywallEscHandler = null; }
   setTimeout(function () {
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     _paywallModalOpen = false;
@@ -500,11 +504,20 @@ function showPaywall(featureType) {
       '</div>' +
     '</div>';
 
-  overlay.addEventListener('click', function (e) { if (e.target === overlay) _closePaywallModal(); });
   document.body.appendChild(overlay);
-  document.body.classList.add('paywall-open');
-  _paywallEscHandler = function (event) { if (event.key === 'Escape') _closePaywallModal(); };
-  document.addEventListener('keydown', _paywallEscHandler);
+  /* FW-W2: shared lifecycle. lockClass keeps the historical body.paywall-open (its CSS and the
+     router teardown key on it); Esc stays unguarded during checkout — parity with the old handler
+     (Razorpay opens its own iframe layer; closing our sheet under it is harmless and was always
+     possible). Initial focus lands on the CTA, the dialog's primary action. */
+  _paywallHandle = QROverlay.open(overlay, {
+    dialogEl: overlay.querySelector('.pw-card'),
+    lockClass: 'paywall-open',
+    removeOnClose: true,
+    closingClass: 'closing',
+    closeMs: 220,
+    initialFocus: '.pw-cta',
+    onClose: function () { _paywallModalOpen = false; _paywallHandle = null; }
+  });
 
   var closeBtn = overlay.querySelector('.pw-close');
   if (closeBtn) closeBtn.addEventListener('click', _closePaywallModal);
@@ -556,6 +569,7 @@ global.Paywall = {
   canAccessFeature: canAccessFeature,
   requirePremium: requirePremium,
   showPaywall: showPaywall,
+  closeModal: _closePaywallModal,   /* FW-W2: router nav-teardown closes via the handle (listeners + lock stay balanced) */
   openPremiumPayment: openPremiumPayment,
   getDailyQuestionLimit: getDailyQuestionLimit,
   hasReachedDailyLimit: hasReachedDailyLimit,

@@ -831,7 +831,12 @@ function openProfileModal() {
   var modal = document.getElementById('profileModal');
   if (!modal) return;
   modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
+  /* FW-W2: shared lifecycle (gains Escape + focus-trap + focus-restore); static markup unchanged. */
+  var _pmHandle = QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.modal-content'),
+    removeOnClose: false, closingClass: null, closeMs: 0,
+    initialFocus: document.getElementById('profileName')
+  });
 
   var nameInput = document.getElementById('profileName');
   var handleInput = document.getElementById('profileHandle');
@@ -900,15 +905,9 @@ function openProfileModal() {
     }
   }
 
-  function closeModal() {
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  }
+  function closeModal() { _pmHandle.close(); }
 
   cancelBtn.onclick = closeModal;
-  modal.onclick = function (e) {
-    if (e.target === modal) closeModal();
-  };
 
   saveBtn.onclick = function () {
     var newName = nameInput ? nameInput.value.trim() : '';
@@ -943,10 +942,19 @@ function openDeleteAccountModal() {
   var modal = document.getElementById('deleteAccountModal');
   if (!modal) return;
   modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
 
   var cancelBtn = document.getElementById('deleteAccountCancel');
   var confirmBtn = document.getElementById('deleteAccountConfirm');
+
+  /* FW-W2: shared lifecycle; destructive flow — initial focus on the SAFE cancel, and a closeGuard
+     blocks backdrop/Escape while the re-auth + server deletion is in flight. */
+  var _deleting = false;
+  var _daHandle = QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.modal-content'),
+    removeOnClose: false, closingClass: null, closeMs: 0,
+    initialFocus: cancelBtn,
+    closeGuard: function () { return _deleting; }
+  });
   var passInput = document.getElementById('deleteAccountPassword');
   var errDiv = document.getElementById('deleteAccountError');
 
@@ -963,12 +971,10 @@ function openDeleteAccountModal() {
   if (passLabel) passLabel.style.display = _hasPasswordProvider ? '' : 'none';
   if (providerNote) providerNote.style.display = _hasPasswordProvider ? 'none' : '';
 
-  function closeModal() {
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  }
+  function closeModal() { _daHandle.close(); }
 
   function _setDeleteLoading(loading) {
+    _deleting = loading;   // closeGuard reads this — no dismissal mid-deletion
     if (confirmBtn) {
       confirmBtn.disabled = loading;
       confirmBtn.textContent = loading ? QRI18n.t('settings.deleting') : QRI18n.t('settings.deleteForever');
@@ -1010,9 +1016,6 @@ function openDeleteAccountModal() {
   }
 
   cancelBtn.onclick = closeModal;
-  modal.onclick = function (e) {
-    if (e.target === modal) closeModal();
-  };
 
   confirmBtn.onclick = function () {
     var passInput = document.getElementById('deleteAccountPassword');

@@ -319,63 +319,48 @@ var Planner = (function () {
      server deletes the plan and clears the exam mirror; we drop the active-exam cache, mark AI dirty (so Coach/
      Insights rebuild exam-agnostic), and reopen the setup wizard fresh. */
   function startOver() {
-    // Remember who opened the dialog so keyboard focus returns there on close (a11y).
-    var opener = (document.activeElement && document.activeElement.focus) ? document.activeElement : null;
-    var overlay = document.createElement('div');
-    overlay.className = 'qr-confirm-overlay';
-    overlay.innerHTML =
-      '<div class="qr-confirm-card" role="dialog" aria-modal="true" aria-labelledby="qrConfirmTitle" aria-describedby="qrConfirmBody">' +
-        '<div class="qr-confirm-title" id="qrConfirmTitle">' + esc(_t('planner.soTitle')) + '</div>' +
-        '<div class="qr-confirm-body" id="qrConfirmBody">' +
-          '<p class="qr-confirm-lead">' + esc(_t('planner.soLead')) + '</p>' +
-          '<div class="qr-confirm-list-label">' + esc(_t('planner.soDelLabel')) + '</div>' +
-          '<ul class="qr-confirm-list is-del">' +
-            '<li>' + esc(_t('planner.soDel1')) + '</li>' +
-            '<li>' + esc(_t('planner.soDel2')) + '</li>' +
-            '<li>' + esc(_t('planner.soDel3')) + '</li>' +
-            '<li>' + esc(_t('planner.soDel4')) + '</li>' +
-          '</ul>' +
-          '<div class="qr-confirm-list-label">' + esc(_t('planner.soKeepLabel')) + '</div>' +
-          '<ul class="qr-confirm-list is-keep">' +
-            '<li>' + esc(_t('planner.soKeep1')) + '</li>' +
-          '</ul>' +
-          '<p class="qr-confirm-note">' + esc(_t('planner.soNote')) + '</p>' +
-        '</div>' +
-        '<div class="qr-confirm-actions">' +
-          '<button class="qr-confirm-cancel" type="button">' + esc(_t('planner.soCancel')) + '</button>' +
-          '<button class="qr-confirm-danger" type="button">' + esc(_t('planner.soConfirm')) + '</button>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    document.body.classList.add('modal-open');   // lock background scroll while the confirm is open
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    function close() {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      document.removeEventListener('keydown', onKey);
-      document.body.classList.remove('modal-open');
-      try { if (opener && opener.focus) opener.focus(); } catch (_) {}   // return focus to the opener (a11y)
-    }
-    document.addEventListener('keydown', onKey);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    overlay.querySelector('.qr-confirm-cancel').onclick = close;
-    var danger = overlay.querySelector('.qr-confirm-danger');
-    function fail() {
-      danger.disabled = false; danger.textContent = _t('planner.soConfirm');
-      try { if (typeof showToast === 'function') showToast(_t('planner.soFail')); } catch (_) {}
-    }
-    danger.onclick = function () {
-      danger.disabled = true; danger.textContent = _t('planner.soConfirming');
-      api('reset').then(function (res) {
-        if (res.ok && res.data && res.data.ok) {
+    /* FW-W2: the shared QROverlay.confirm owns the shell (lock, Esc, focus trap+restore, buttons);
+       the explicit delete/keep lists stay as the dialog body. The async onConfirm keeps the dialog
+       up in a loading state while the server resets; a failure re-enables the buttons (reject) so
+       the user can retry or cancel. Initial focus lands on the SAFE action — never the destructive
+       button — so a stray Enter can't trigger the reset. */
+    var handle = QROverlay.confirm({
+      title: esc(_t('planner.soTitle')),
+      body:
+        '<p class="qr-confirm-lead">' + esc(_t('planner.soLead')) + '</p>' +
+        '<div class="qr-confirm-list-label">' + esc(_t('planner.soDelLabel')) + '</div>' +
+        '<ul class="qr-confirm-list is-del">' +
+          '<li>' + esc(_t('planner.soDel1')) + '</li>' +
+          '<li>' + esc(_t('planner.soDel2')) + '</li>' +
+          '<li>' + esc(_t('planner.soDel3')) + '</li>' +
+          '<li>' + esc(_t('planner.soDel4')) + '</li>' +
+        '</ul>' +
+        '<div class="qr-confirm-list-label">' + esc(_t('planner.soKeepLabel')) + '</div>' +
+        '<ul class="qr-confirm-list is-keep">' +
+          '<li>' + esc(_t('planner.soKeep1')) + '</li>' +
+        '</ul>' +
+        '<p class="qr-confirm-note">' + esc(_t('planner.soNote')) + '</p>',
+      danger: true,
+      confirmText: esc(_t('planner.soConfirm')),
+      cancelText: esc(_t('planner.soCancel')),
+      initialFocus: '[data-act="cancel"]',
+      onConfirm: function () {
+        var btn = handle.el.querySelector('[data-act="confirm"]');
+        if (btn) btn.textContent = _t('planner.soConfirming');
+        return api('reset').then(function (res) {
+          if (!(res && res.ok && res.data && res.data.ok)) throw new Error('reset_failed');
           try { if (typeof TargetExam !== 'undefined') TargetExam.clear(); else localStorage.removeItem('qr_active_exam'); } catch (_) {}
           _markAiDirty(); _plan = null; _sel = null;
-          close();
-          if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true);
-        } else fail();
-      }).catch(fail);
-    };
-    // Focus the SAFE action by default — never the destructive button — so a stray Enter can't trigger the reset.
-    setTimeout(function () { try { overlay.querySelector('.qr-confirm-cancel').focus(); } catch (_) {} }, 30);
+          /* Reopen the setup wizard AFTER the confirm has started closing (macrotask), matching the
+             old close-then-open ordering. */
+          setTimeout(function () { if (window.Companion && Companion.openStudyPlanner) Companion.openStudyPlanner(true); }, 0);
+        }).catch(function (e) {
+          if (btn) btn.textContent = _t('planner.soConfirm');
+          try { if (typeof showToast === 'function') showToast(_t('planner.soFail')); } catch (_) {}
+          throw e;   // reject → QROverlay re-enables the buttons
+        });
+      }
+    });
   }
 
   return { open: open, renderInto: renderInto };

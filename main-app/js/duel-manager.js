@@ -83,11 +83,15 @@ var DuelManager = (function () {
 
   /* Setup/Join render as a bottom-sheet MODAL over Home (no route switch) — the user configures a session, never
      navigates to another screen. Lobby/solving/waiting/results remain full duel-view screens. */
-  /* FW-W1: the container's lifecycle (scroll-lock, focus-trap, focus-restore) runs through the shared
-     QROverlay. Backdrop/Escape stay with the per-render handlers (duel-ui) because their semantics
-     differ per phase (join's backdrop is back-to-setup, not close). One handle spans re-renders —
-     setup→join re-paints the same open container. */
+  /* FW-W1/W2: the container's lifecycle (scroll-lock, Escape, focus-trap, focus-restore) runs through
+     the shared QROverlay; onClose owns the FULL teardown so Esc and cancel are equivalent. Backdrop
+     stays with the per-render handlers (duel-ui) because its target can differ per screen (arena-full
+     routes to switch-to-create). One handle spans re-renders — setup→join re-paints the same open
+     container — and closes synchronously (closeMs 0), so close-then-reopen chains are race-free.
+     closeGuard blocks Esc/backdrop while a create/join call is in flight; the success paths clear
+     _setupBusy BEFORE closing so the programmatic close passes the same guard. */
   var _setupHandle = null;
+  var _setupBusy = false;
   function _openSetupModal() {
     var m = _el('duelSetupModal');
     if (m) {
@@ -95,17 +99,24 @@ var DuelManager = (function () {
       if (typeof QROverlay !== 'undefined' && !_setupHandle) {
         _setupHandle = QROverlay.open(m, {
           dialogEl: m, removeOnClose: false, closingClass: null, closeMs: 0,
-          closeOnBackdrop: false, closeOnEsc: false,
-          onClose: function () { _setupHandle = null; }
+          closeOnBackdrop: false,
+          closeGuard: function () { return _setupBusy; },
+          onClose: function () {
+            _setupHandle = null;
+            m.style.display = 'none'; m.innerHTML = ''; m.onclick = null;
+            if (_phase === 'setup' || _phase === 'join') _phase = 'idle';
+          }
         });
       } else if (typeof QROverlay === 'undefined') { document.body.classList.add('modal-open'); }
     }
     return m;
   }
+  /* keepPhase is only meaningful on the legacy (no-QROverlay) path: with the handle, teardown is
+     synchronous and every keep-phase caller re-sets _phase immediately after this returns. */
   function _closeSetupModal(keepPhase) {
+    if (_setupHandle) { _setupHandle.close(); return; }
     var m = _el('duelSetupModal');
-    if (_setupHandle) { _setupHandle.close(); }
-    else { document.body.classList.remove('modal-open'); }
+    document.body.classList.remove('modal-open');
     if (m) { m.style.display = 'none'; m.innerHTML = ''; m.onclick = null; }
     if (!keepPhase && (_phase === 'setup' || _phase === 'join')) _phase = 'idle';
   }
@@ -162,8 +173,9 @@ var DuelManager = (function () {
     DuelUI.renderSetup(modal, {
       onBack: _closeSetupModal,
       onCreate: function (config, done) {
-        DuelCore.createDuel(config, _myName()).then(function (res) { _closeSetupModal(true); _enterLobby(res.code, res.duel); })
-          .catch(function (e) { done && done(); _toast(_err(e)); if (e && e.code === 'DUEL_IN_PROGRESS' && e.payload && e.payload.code) { _closeSetupModal(true); DuelCore.fetchState(e.payload.code).then(function (r) { _routeRecovered(e.payload.code, r.duel, r.my); }).catch(function () {}); } });
+        _setupBusy = true;
+        DuelCore.createDuel(config, _myName()).then(function (res) { _setupBusy = false; _closeSetupModal(true); _enterLobby(res.code, res.duel); })
+          .catch(function (e) { _setupBusy = false; done && done(); _toast(_err(e)); if (e && e.code === 'DUEL_IN_PROGRESS' && e.payload && e.payload.code) { _closeSetupModal(true); DuelCore.fetchState(e.payload.code).then(function (r) { _routeRecovered(e.payload.code, r.duel, r.my); }).catch(function () {}); } });
       }
     });
   }
@@ -177,8 +189,9 @@ var DuelManager = (function () {
       onBack: _closeSetupModal,
       onSwitchToCreate: function () { _closeSetupModal(true); openSetup(); },
       onJoin: function (code, done) {
-        DuelCore.joinDuel(code, _myName()).then(function (res) { _closeSetupModal(true); _enterLobby(res.code, res.duel); })
-          .catch(function (e) { done && done(_err(e), e && e.code); });
+        _setupBusy = true;
+        DuelCore.joinDuel(code, _myName()).then(function (res) { _setupBusy = false; _closeSetupModal(true); _enterLobby(res.code, res.duel); })
+          .catch(function (e) { _setupBusy = false; done && done(_err(e), e && e.code); });
       }
     });
     if (prefill) { var inp = _el('duJoinCode'); var btn = _el('duJoinBtn'); if (inp) inp.value = prefill; if (btn) setTimeout(function () { btn.click(); }, 50); }
@@ -682,8 +695,14 @@ var DuelManager = (function () {
     if (_deadlineTimer) { clearTimeout(_deadlineTimer); _deadlineTimer = null; }
     if (_recoverTimer) { clearTimeout(_recoverTimer); _recoverTimer = null; }
     _teardownSolving();
+    /* FW-W2: force-teardown closes through the handle (synchronous) so its Esc listener and
+       ref-counted lock are released — clearing _setupBusy first so the guard can't block a reset.
+       The raw class strip stays on the legacy path only; with the handle, _unlock owns the count
+       (a raw remove here could strip modal-open from under another stacked overlay). */
+    _setupBusy = false;
+    if (_setupHandle) { try { _setupHandle.close(); } catch (_) {} }
+    else { document.body.classList.remove('modal-open'); }
     var _sm = _el('duelSetupModal'); if (_sm) { _sm.style.display = 'none'; _sm.innerHTML = ''; _sm.onclick = null; }   // no setup-modal ghost
-    document.body.classList.remove('modal-open');
     _lobbySig = '';
     _code = null; _duel = null; _my = null; _solvePrompts = null; _phase = 'idle'; _finalizing = false;
     _myAnswerCache = {}; _myReview = null;   // ADR-064: clear post-match review state
