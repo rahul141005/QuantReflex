@@ -8,6 +8,67 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-112 — Final UI Wave: 100% blueprint closure (W0–W8, v229–v242) (2026-07-10)
+
+- **Context.** The UI/UX Excellence blueprint (M0–M6) had five deliberately-deferred groups: (G1) full modal
+  consolidation onto one overlay controller, (G2) the unbuilt design-system primitives plus the `.qr-card`
+  namespace collision, (G3) the Inter webfont + Home/Practice/Duel surface refits, (G4) the landscape drill
+  layout + manifest orientation, (G5) the deepest §14 token ceilings. This wave closed all five with a
+  zero-regression gate per commit (px-diff + computed-style equality + 14k-assertion suite).
+- **G1 — one overlay controller (W1/W2, v229–v230).** 16 modals migrated onto `QROverlay`
+  (`js/ui/overlay.js`): per-class ref-counted scroll locks (`lockClass`, paywall keeps `body.paywall-open`
+  byte-identical), Escape/Tab focus-trap with an overlay STACK (only the top-most overlay handles keys),
+  focus-restore, `closeGuard` for in-flight async (checkout, re-auth, report dirty-state), async
+  `onConfirm` (thenable → `.is-loading`), and synchronous teardown at `closeMs:0` (close-then-reopen
+  race-free — required by the duel container). Documented skips: duel calc transition (transient,
+  no user-close) and drill pause (container-scoped, Esc must mean *resume*).
+- **G2 — primitives with adopters (W3, v231).** Quick-Ref renamed to `.qref-*` (frees canonical
+  namespace); `.qr-sheet/-card/-grabber/-chip/-row/-input/-segment/-skel` authored token-only and
+  co-declared with real adopters in the same commit (report/companion/duel sheets, settings rows,
+  modal inputs, timer pills, ba-skeleton) so no primitive shipped unconsumed.
+- **G3 — surfaces + Inter (W4, v232).** Inter variable latin subset self-hosted (48 KB woff2,
+  `font-display:swap`, unicode-range preserves Devanagari fallback). Home: streak chip into the Goal
+  card, 4th Explore tile (Quick Reference). Practice: dead Word Problems teaser deleted end-to-end
+  (frontend only — backend wordproblems anchors untouched), Advanced wall → disclosure rows keeping
+  `data-mode` hooks. **Quick Study v2** (user decision: stays on Home): the hardcoded 8-destination /
+  max-4 picker replaced by `js/services/quick-links-registry.js` — the catalog derives AT RUNTIME from
+  the mode list, KB registry (62 topics, localized, premium locks) and quick-ref sections, so it grows
+  with the app; legacy stored ids migrate via alias table (read-only until first save); cap removed
+  (soft-max hint at 12); picker rebuilt on `.qr-sheet` with search + collapsible categories.
+- **G4 — landscape drill (W5, v233).** Pure CSS re-pinning of the four fixed drill layers
+  (card left / numpad+actions right) under `(min-width:960px) and (orientation:landscape)`; %-based
+  offsets (containing-block-safe after dropping the `viewSlideIn` fill-mode transform trap). Manifest
+  `orientation: portrait → any` shipped only after the probe passed tablet AND phone landscape
+  (37 assertions: taps, keyboard, feedback, zero bounding-box intersections).
+- **G5 — §14 ceilings (W6–W7, v234–v241).** Duel silo refit onto the primitives, then six scripted,
+  census-anchored burn-downs, each gated by px-diff with a committed reviewed manifest: durations 44→3,
+  easings 4→3 (v236); radii 45→6, z-index 20→1 via VALUE-PRESERVING `--z-*` tokens — no stacking order
+  can change (v237); shadows 130→4 onto `--el-*`/glow/ring tokens (v238); gradients 64→10 — the identity
+  set built FROM color tokens so themes re-declare colors, never gradients (v239); font-sizes 79→12 onto
+  the `--fs-*` scale at 576 sites (v240); colors — 567 property-aware semantic folds + 183 veil folds onto
+  15 theme-INVARIANT `--qr-veil-*` tokens took rawColor:var from 1.07 to 0.55 (v241). All eight §14
+  ceilings now sit at blueprint goals and are enforced by the ratchet.
+- **Content-art doctrine.** Renderer-coupled ART is *not* design system: the splash amoeba and the
+  di-chart/lr-figure block (SVG viewBox-scaled px type, chart inks) live inside
+  `design-lint:content-art` marker regions that the census strips — guarded (paired markers, ≤3 regions,
+  ≤200 lines each) so the escape hatch can't silently grow. 2 of 3 budget used.
+- **Override-deletion proof (W7f).** Redundant theme overrides were deleted only under a machine proof:
+  full-DOM computed-style equality (7 screens × 4 themes × 51k elements × 14 paint properties). The
+  proof rejected two rules static analysis had approved — `html.dark-mode .bottom-nav a` out-specifying
+  the base `.active` rule, and `.btn-secondary`/`.modal-cancel` co-class interference in playful —
+  exactly the failure classes that justified requiring the proof. 27 rules deleted, byte-identical.
+- **Reviewed theme normalizations (recorded in the expected-diffs manifests, not regressions):** dark
+  CTAs are dark-accent-native, playful paints teal CTAs and its own warm greige secondary surfaces
+  everywhere, elevation follows the `--el-*` system.
+- **Verification.** Per wave: npm test (14,334 assertions green), design-lint ratchet DOWN in the same
+  commit, px-diff matrix vs committed manifests, booted regression + i18n-live certs. W8 final: px-diff
+  determinism self-test, stacked-modal cert (21), landscape probe (37), Quick Study cert (24), overflow
+  probe (21 screens), full suite. SW v228 → v242 lockstep with `QR_APP_VERSION`.
+- **Consequences.** One overlay controller owns every modal lifecycle; the design system is enforced by
+  ceilings at goal values, so any new bespoke radius/shadow/font-size/gradient/color literal FAILS CI;
+  themes are expressed almost entirely through token re-resolution; the Quick Study catalog and the
+  primitives are the extension points for future surfaces.
+
 ## ADR-111 — Full internationalization: English + हिन्दी + मराठी (2026-07-07)
 - **Final-stabilization addendum (2026-07-09) — audit fix batch.** The independent production audit (adversarial,
   code-only) found 3 Major + 7 Minor implementation defects, all post-flag-flip-only. Each was re-validated against

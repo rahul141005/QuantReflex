@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-10 — Final UI Wave: 100% blueprint closure (ADR-112, W0–W8, SW v228→v242)
+
+The five deferred groups of the UI/UX Excellence blueprint landed across 14 gated commits
+(`e5ca722`…`6042890` + this governance commit):
+
+- **W0 tooling** (`e5ca722`): `scripts/dev/px-diff.js` (deterministic 8-screen × 3-theme screenshot
+  gate with committed expected-diffs manifests) + `css-census.js`; later joined by `style-eq.js`
+  (computed-style equality harness).
+- **W1/W2 modal consolidation** (`0c4b5e8`, `d6f2e25`, v229–v230): 16 modals onto `QROverlay` — overlay
+  stack, per-class ref-counted locks (paywall's `body.paywall-open` byte-identical), `closeGuard`,
+  async `onConfirm`, synchronous `closeMs:0` teardown. Razorpay/resume flows untouched and re-certified.
+- **W3 primitives + `.qref-*` rename** (`3576b57`, v231): 9 token-only primitives, each shipped WITH
+  its adopters; Quick-Ref freed the canonical `.qr-card`/`.qr-empty` names.
+- **W4 Home/Practice/Inter + Quick Study v2** (`430cb9b`, v232): Inter latin-subset self-hosted;
+  streak chip into Goal card; Quick Reference bento tile; Word Problems teaser deleted (frontend only);
+  Advanced modes → disclosure rows; Quick Study rebuilt on a runtime registry
+  (`js/services/quick-links-registry.js`) — cap removed, all major destinations eligible, legacy
+  selections migrated via alias table, `.qr-sheet` picker with search + collapsible categories
+  (+13/−16 locale keys ×3).
+- **W5 landscape drill** (`a371858`, v233): pure re-pinning split (card left, numpad right) at
+  landscape ≥960px; manifest `orientation: any` gated on tablet + phone landscape probes.
+- **W6 duel refit** (`507fddc`, `716284a`, v234–v235): setup/join/results/waiting/archive onto the
+  primitives; ONE `--qr-grad-duel` identity gradient.
+- **W7 token burn-down** (`7fe5738`→`6042890`, v236–v241): every §14 ceiling to its blueprint goal —
+  durations 3, easings 3, radii 6, z 1 (value-preserving tokens), shadows 4, gradients 10,
+  font-sizes 12, rawColor:var 0.55. Content-art marker regions (splash, di/lr figures) with lint
+  guards; 27 redundant theme overrides deleted under a full-DOM computed-style equality proof
+  (51k elements × 4 themes, IDENTICAL).
+- **W8 certification (this commit, v242):** px-diff determinism self-test ALL PASS; stacked-modal
+  cert 21/21; landscape probe 37/37; Quick Study cert 24/24; overflow probe 21/21 screens;
+  i18n-live + booted regression ALL PASS; `npm test` 14,334 passed / 0 failed (suite count reflects
+  legitimately deleted Word-Problems/quick-link locale keys). Docs: ADR-112, VERSIONS 2.145.
+
 ## 2026-07-10 — i18n LAUNCH + Final Production Excellence Audit (a11y/polish/perf)
 
 **Languages are LIVE.** `QRI18n.ENABLED` and the lockstep inline `I18N_ON` flipped to true — the

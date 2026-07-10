@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.144 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.64 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.145 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.65 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.145 (2026-07-10)** — **Final UI Wave: 100% blueprint closure (ADR-112, SW v228→v242).** Architecture 2.64→2.65:
+> two new client modules own cross-cutting concerns — `js/ui/overlay.js` (`QROverlay`: the ONE modal lifecycle
+> controller — stack, ref-counted locks, focus-trap/restore, closeGuard, async confirm) now hosts 16 migrated
+> modals, and `js/services/quick-links-registry.js` derives the Quick Study catalog at runtime from the mode
+> list/KB registry/quick-ref sections (legacy-id alias migration). Design system fully enforced: all eight §14
+> design-lint ceilings ratcheted to blueprint goals (durations 3, easings 3, radii 6, z 1, shadows 4,
+> gradients 10, font-sizes 12, rawColor:var 0.55); content-art marker regions (splash + di/lr, guarded ≤3/≤200
+> lines); 27 redundant theme overrides deleted under a full-DOM computed-style equality proof. Inter latin
+> subset self-hosted; manifest `orientation:any` with the landscape drill split; duel silo on shared primitives.
+> No Firestore/Security/Payment surface changes (paywall DOM/flows byte-preserved and re-certified).
 
 > **2.144 (2026-07-09)** — **Internationalization Final Stabilization (ADR-111, post-audit fix batch).** The
 > independent production audit's three Major + all Minor findings re-validated and fixed, plus additional defects the
