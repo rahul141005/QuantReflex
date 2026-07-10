@@ -789,9 +789,7 @@ html.dark-mode .badge-review { background: #1e293b; color: #cbd5e1; }
   color: var(--qr-info-fg);
   font-style: italic;
   text-align: center;
-}
-html.dark-mode .adaptive-hint-text { color: #c4b5fd; }
-.adaptive-lock { font-size: .85em; opacity: .7; pointer-events: none; }
+}.adaptive-lock { font-size: .85em; opacity: .7; pointer-events: none; }
 
 /* ---- Speed Benchmark (premium redesign) ---- */
 @keyframes sb-slide-up {
@@ -861,9 +859,7 @@ html.dark-mode .benchmark-highlight-pct { color: #e2e8f0; }
 .benchmark-band-mid    .benchmark-highlight-pct strong { color: var(--qr-accent); }
 .benchmark-band-bottom .benchmark-highlight-pct strong { color: var(--qr-danger); }
 html.dark-mode .benchmark-band-top    .benchmark-highlight-pct strong { color: #4ade80; }
-html.dark-mode .benchmark-band-mid    .benchmark-highlight-pct strong { color: #60a5fa; }
-html.dark-mode .benchmark-band-bottom .benchmark-highlight-pct strong { color: #f87171; }
-.benchmark-stats-row {
+html.dark-mode .benchmark-band-mid    .benchmark-highlight-pct strong { color: #60a5fa; }.benchmark-stats-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -1605,11 +1601,7 @@ html.dark-mode .daily-limit-banner {
   letter-spacing: .05em;
   margin-bottom: .5rem;
   padding-left: .25rem;
-}
-html.dark-mode .settings-section-title {
-  color: #94a3b8;
-}
-.settings-section-card {
+}.settings-section-card {
   background: var(--qr-surface-solid);
   border-radius: var(--r-lg);
   padding: .75rem 1rem;
@@ -1956,11 +1948,7 @@ html.dark-mode .info-premium-chip { color: #fcd34d; background: rgba(245,158,11,
   margin-bottom: .35rem;
   text-transform: uppercase;
   letter-spacing: .06em;
-}
-html.dark-mode .profile-field-label {
-  color: #94a3b8;
-}
-.profile-input {
+}.profile-input {
   width: 100%;
   box-sizing: border-box;
 }
@@ -2524,22 +2512,14 @@ html.dark-mode .info-modal-overlay {
 html.dark-mode .info-modal-content {
   background: #0f172a;
   box-shadow: var(--el-3);
-}
-html.dark-mode .info-hero {
-  background: #0f172a;
-}
-html.dark-mode .info-modal-scroll::after {
+}html.dark-mode .info-modal-scroll::after {
   display: none;
 }
 html.dark-mode .info-modal-close {
   background: var(--qr-veil-w-8);
   color: #94a3b8;
-}
-html.dark-mode .info-modal-title { color: #e2e8f0; }
-html.dark-mode .info-modal-subtitle { color: #94a3b8; }
-html.dark-mode .info-section-title { color: #64748b; }
-html.dark-mode .info-block h4 { color: #e2e8f0; }
-html.dark-mode .info-block p { color: #94a3b8; }
+}html.dark-mode .info-modal-subtitle { color: #94a3b8; }
+html.dark-mode .info-section-title { color: #64748b; }html.dark-mode .info-block p { color: #94a3b8; }
 html.dark-mode .info-block {
   background: #1e293b;
   border-color: rgba(51,65,85,.5);
@@ -2557,8 +2537,6 @@ html.dark-mode .info-tip {
 }
 html.dark-mode .info-version { color: #64748b; }
 html.dark-mode .info-quote { border-left-color: #60a5fa; }
-html.dark-mode .info-quote p { color: #94a3b8; }
-
 /* Guide section animations */
 .guide-animate-section {
   opacity: 0;
@@ -2770,14 +2748,8 @@ html.dark-mode .formula-text {
   color: #e2e8f0;
 }
 html.dark-mode .formula-block { border-bottom-color: #334155; }
-html.dark-mode .formula-block-title { color: #f8fafc; }
-html.dark-mode .formula-label { color: #94a3b8; }
-html.dark-mode .formula-tip { color: #cbd5e1; }
-html.dark-mode .section-title { color: #60a5fa; }
-html.dark-mode .cat-bar-container { background: #1e293b; }
-html.dark-mode .math-grid-item { background: #334155; }
-html.dark-mode .math-expr { color: #e2e8f0; }
-html.dark-mode .math-val { color: #60a5fa; }
+html.dark-mode .formula-block-title { color: #f8fafc; }html.dark-mode .formula-tip { color: #cbd5e1; }html.dark-mode .cat-bar-container { background: #1e293b; }
+html.dark-mode .math-grid-item { background: #334155; }html.dark-mode .math-val { color: #60a5fa; }
 html.dark-mode .table-select-btn {
   background: #1e293b;
   border-color: #334155;
@@ -2792,9 +2764,7 @@ html.dark-mode .btn {
   background: #334155;
   color: #e2e8f0;
 }
-html.dark-mode .btn.accent { background: var(--qr-grad-cta); color: #ffffff; }
-html.dark-mode .drill-progress-bar { background: #334155; }
-html.dark-mode .feedback.correct { background: rgba(22,163,74,.15); }
+html.dark-mode .btn.accent { background: var(--qr-grad-cta); color: #ffffff; }html.dark-mode .feedback.correct { background: rgba(22,163,74,.15); }
 html.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
 
 /* ---- Custom Formulas & Topics ---- */
@@ -2988,9 +2958,7 @@ html.dark-mode .add-topic-btn:hover {
 html.dark-mode .modal-content { background: rgba(30, 41, 59, 0.75); border: 1px solid var(--qr-veil-w-8); box-shadow: var(--el-key); }
 html.dark-mode .modal-content::after {
   display: none;
-}
-html.dark-mode .modal-title { color: #60a5fa; }
-html.dark-mode .modal-cancel { background: #334155; color: #e2e8f0; }
+}html.dark-mode .modal-cancel { background: #334155; color: #e2e8f0; }
 
 /* ---- Table Expansion Modal ---- */
 .table-modal-overlay {
@@ -3098,10 +3066,6 @@ html.dark-mode .table-modal-close {
   background: var(--qr-veil-w-8);
   color: #94a3b8;
 }
-html.dark-mode .table-modal-title {
-  color: #60a5fa;
-}
-
 /* ---- Practice: fixed app shell (ADR-011) ---- */
 /* When Practice is active the app-level scroller (.container) yields scroll control to this
    shell, so the fixed header and bottom nav never drift (eliminates the double scroll). */
@@ -3594,11 +3558,7 @@ html.dark-mode .clear-option-danger {
 html.dark-mode .clear-option-danger:hover {
   border-color: #f87171;
   background: rgba(220,38,38,.1);
-}
-html.dark-mode .clear-option-info strong {
-  color: #e2e8f0;
-}
-html.dark-mode .clear-option-info span {
+}html.dark-mode .clear-option-info span {
   color: #94a3b8;
 }
 
@@ -4362,9 +4322,7 @@ html.dark-mode .onboarding-overlay {
 html.dark-mode .onboarding-card {
   background: #1e293b;
   box-shadow: var(--el-1);
-}
-html.dark-mode .onboarding-title { color: #e2e8f0; }
-html.dark-mode .onboarding-desc { color: #94a3b8; }
+}html.dark-mode .onboarding-desc { color: #94a3b8; }
 html.dark-mode .onboarding-hint {
   background: #0f172a;
   border-color: #334155;
@@ -4379,9 +4337,7 @@ html.dark-mode .onboarding-preview-label { color: #94a3b8; }
 html.dark-mode .onboarding-stat-item {
   background: #0f172a;
   border-color: #334155;
-}
-html.dark-mode .onboarding-stat-val { color: #60a5fa; }
-html.dark-mode .onboarding-stat-label { color: #94a3b8; }
+}html.dark-mode .onboarding-stat-label { color: #94a3b8; }
 html.dark-mode .onboarding-goal-btn {
   background: #0f172a;
   border-color: #334155;
@@ -4391,11 +4347,7 @@ html.dark-mode .onboarding-goal-btn.onboarding-goal-active {
   border-color: #60a5fa;
   background: rgba(96, 165, 250, .12);
   color: #60a5fa;
-}
-html.dark-mode .onboarding-q-text { color: #e2e8f0; }
-html.dark-mode .onboarding-q-label { color: #64748b; }
-html.dark-mode .onboarding-dot { background: #334155; }
-html.dark-mode .onboarding-dot-active { background: #60a5fa; }
+}html.dark-mode .onboarding-q-label { color: #64748b; }html.dark-mode .onboarding-dot-active { background: #60a5fa; }
 html.dark-mode .onboarding-dot-completed { background: #1e40af; }
 html.dark-mode .onboarding-skip-btn { color: #64748b; }
 html.dark-mode .onboarding-skip-btn:hover { color: #94a3b8; }
@@ -4488,9 +4440,7 @@ html.theme-playful .stat-card .value,
 html.theme-playful .result-value { color: #4f8ff7; }
 html.theme-playful .stat-card .label,
 html.theme-playful .result-label { color: #5a6275; }
-html.theme-playful .stat-card.highlight { border-left-color: #4f8ff7; }
-html.theme-playful .stat-card-positive .value { color: #16a34a; }
-html.theme-playful .stat-card-negative .value { color: #dc2626; }
+html.theme-playful .stat-card.highlight { border-left-color: #4f8ff7; }html.theme-playful .stat-card-negative .value { color: #dc2626; }
 
 html.theme-playful .settings-section-title { color: #5a6275; }
 html.theme-playful .settings-section-card {
@@ -4565,10 +4515,7 @@ html.theme-playful .mcq-option.mcq-wrong { background: var(--qr-danger-bg); bord
 html.theme-playful .feedback.correct { color: var(--qr-success-fg); }
 html.theme-playful .feedback.wrong { color: var(--qr-danger-fg); }
 html.theme-playful .drill-progress { color: var(--qr-text-dim); }
-html.theme-playful.drill-session-active .drill-actions.has-skip .skip-btn { background: var(--qr-surface-2); color: var(--qr-text-dim); }
-
-html.theme-playful .drill-progress-bar { background: #e8e6e1; }
-html.theme-playful .toast {
+html.theme-playful.drill-session-active .drill-actions.has-skip .skip-btn { background: var(--qr-surface-2); color: var(--qr-text-dim); }html.theme-playful .toast {
   background: #1a1a2e;
   color: #f1f5f9;
 }
@@ -4610,9 +4557,6 @@ html.theme-playful .math-table td {
 }
 html.theme-playful .shortcut-table th,
 html.theme-playful .math-table th { color: #5a6275; }
-
-html.theme-playful .cat-bar-container { background: #e8e6e1; }
-
 html.theme-playful .math-grid-item { background: #f5f4f1; }
 html.theme-playful .math-expr { color: #1a1a2e; }
 html.theme-playful .math-val { color: #4f8ff7; }
@@ -4646,11 +4590,7 @@ html.theme-playful .info-modal-overlay { background: rgba(26,26,46,.4); }
 html.theme-playful .info-modal-content {
   background: #faf9f7;
   box-shadow: var(--el-3);
-}
-html.theme-playful .info-hero {
-  background: #faf9f7;
-}
-html.theme-playful .info-modal-close {
+}html.theme-playful .info-modal-close {
   background: rgba(0,0,0,.05);
   color: #5a6275;
 }
@@ -5785,8 +5725,6 @@ html.dark-mode .auto-explain-locked .auto-explain-unlock {
 .delta-up   { color: var(--qr-success); }
 .delta-down { color: var(--qr-danger); }
 html.dark-mode .delta-up   { color: #4ade80; }
-html.dark-mode .delta-down { color: #f87171; }
-
 /* ---- Share button on results (premium gradient accent) ----
    ADR-087: consolidated from two rules (a base outlined style + a later `!important` gradient override that made the
    base background/color/hover/dark-bg declarations dead-on-arrival) into this single coherent rule — renders identically. */
@@ -6219,9 +6157,7 @@ html.dark-mode .drv-explain { background: rgba(96, 165, 250, .14); color: #93c5f
 .duel-username-status.warning {
   color: #d97706;
 }
-html.dark-mode .duel-username-status.found { color: #4ade80; }
-html.dark-mode .duel-username-status.error { color: #f87171; }
-html.dark-mode .duel-username-status.warning { color: #fbbf24; }
+html.dark-mode .duel-username-status.found { color: #4ade80; }html.dark-mode .duel-username-status.warning { color: #fbbf24; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -8461,14 +8397,10 @@ html.dark-mode .psec-tlabel { color: #cbd5e1; }
 .psec-tmeta { font-size: var(--fs-caption); color: #94a3b8; font-weight: 600; white-space: nowrap; }
 .pf-pri { font-size: var(--fs-caption); font-weight: 800; color: var(--qr-accent); background: rgba(37, 99, 235, .1); border-radius: var(--r-sm); padding: .1rem .45rem; }
 .pf-tags { font-size: var(--fs-caption); color: var(--qr-text-dim); font-weight: 600; margin-top: .3rem; }
-.pf-unlocks { font-size: var(--fs-caption); color: var(--qr-info-fg); margin-top: .25rem; }
-html.dark-mode .pf-unlocks { color: #c4b5fd; }
-.pf-suggest, .pt-suggest { font-size: var(--fs-caption); color: var(--qr-accent); margin-top: .4rem; }
+.pf-unlocks { font-size: var(--fs-caption); color: var(--qr-info-fg); margin-top: .25rem; }.pf-suggest, .pt-suggest { font-size: var(--fs-caption); color: var(--qr-accent); margin-top: .4rem; }
 html.dark-mode .pf-suggest, html.dark-mode .pt-suggest { color: #93c5fd; }
 .pt-suggest.pt-ext { color: #94a3b8; }
-.pt-unlocks { font-size: var(--fs-caption); color: var(--qr-info-fg); margin-top: .3rem; }
-html.dark-mode .pt-unlocks { color: #c4b5fd; }
-.pt-st { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; border-radius: var(--r-full); padding: .12rem .45rem; vertical-align: middle; }
+.pt-unlocks { font-size: var(--fs-caption); color: var(--qr-info-fg); margin-top: .3rem; }.pt-st { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; border-radius: var(--r-full); padding: .12rem .45rem; vertical-align: middle; }
 
 /* ---- ADR-049 micro-polish: premium calendar feel ---- */
 .pd-cell { transition: transform var(--qr-dur-fast) var(--qr-ease), border-color var(--qr-dur-fast) var(--qr-ease-out), box-shadow var(--qr-dur-fast) var(--qr-ease-out), background var(--qr-dur-fast) var(--qr-ease-out); }
