@@ -207,17 +207,20 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   ok('6 no t()/tc() channel cross-wiring' + (offenders.length ? ' — ' + offenders.join('; ') : ''), offenders.length === 0);
 })();
 
-/* ── 7. runtime behavior: flag-off coercion, then preview-mode switching/fallback/plurals ── */
+/* ── 7. runtime behavior: shipped-ON switching, then preview-mode fallback/plurals ── */
 (function () {
-  /* 7a. flag off, no preview → languages hard-forced to English */
+  /* 7a. flag shipped ON (UI Phase 1 final audit) → languages switch live, no preview needed.
+     ENABLED stays as the emergency kill-switch; the coercion path it guards (isOn() false →
+     hard-force 'en') remains covered structurally by the lockstep + declaration checks in §5. */
   delete require.cache[require.resolve(p('js/i18n'))];
   var I = require(p('js/i18n'));
-  ok('7 flag ships OFF', I.ENABLED === false);
+  ok('7 flag ships ON', I.ENABLED === true);
   I.register('en', { test: { hello: 'Hello {name}', items: { one: '{count} item', other: '{count} items' } } });
   I.register('hi', { test: { hello: 'नमस्ते {name}', items: { one: '{count} प्रश्न', other: '{count} प्रश्न' } } });
   I.setLanguages('hi', 'mr');
-  ok('7 flag-off forces app=en', I.appLang() === 'en');
-  ok('7 flag-off forces study=en', I.studyLang() === 'en');
+  ok('7 shipped flag: app language switches', I.appLang() === 'hi');
+  ok('7 shipped flag: study language switches', I.studyLang() === 'mr');
+  I.setLanguages('en', 'en');
   ok('7 t() interpolates params', I.t('test.hello', { name: 'Asha' }) === 'Hello Asha');
   ok('7 unknown key returns the key', I.t('test.nope') === 'test.nope');
   ok('7 plural en count=1', I.t('test.items', { count: 1 }) === '1 item');

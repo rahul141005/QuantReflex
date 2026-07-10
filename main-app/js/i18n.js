@@ -8,11 +8,11 @@
  * Changing App language defaults Study language to match unless the user has
  * explicitly diverged them (settings.js owns that rule).
  *
- * FEATURE FLAG: ENABLED is false until every surface is localized and the full
- * three-language QA pass is done (ADR-111 rollout decision). While off, both
- * channels are hard-forced to 'en', the Settings language rows do not render,
- * and applyDom() no-ops — English behavior stays byte-identical. Internal QA
- * force-enables via localStorage qr_i18n_preview = '1' (read once at boot).
+ * FEATURE FLAG: ENABLED shipped true once every surface was localized and the full
+ * three-language QA pass was done (ADR-111 Phase H certification). The flag (and the
+ * qr_i18n_preview localStorage override, read once at boot) remain as the emergency
+ * kill-switch: flipping ENABLED back to false hard-forces both channels to 'en',
+ * hides the Settings language rows, and no-ops applyDom() — byte-identical English.
  *
  * Catalogs are same-origin IIFE files (locales/en.js|hi.js|mr.js) that call
  * QRI18n.register(lang, catalog) — the report-taxonomy.js pattern; never
@@ -25,8 +25,9 @@
 var QRI18n = (function () {
   'use strict';
 
-  /* Flip to true only in the final rollout phase (ADR-111 Phase H). */
-  var ENABLED = false;
+  /* SHIPPED (UI Phase 1 final audit): every surface is localized, the three-language QA pass and
+     the ADR-111 Phase-H certification are done — the Settings language rows are live in production. */
+  var ENABLED = true;
 
   var SUPPORTED = ['en', 'hi', 'mr'];
 

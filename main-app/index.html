@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v226';</script>
+  <script>window.QR_APP_VERSION = 'v227';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -23,7 +23,10 @@
   <script>
   (function () {
     try {
-      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+      /* Read the CANONICAL settings key first (AppState/ADR-095 writes qr_settings), falling back to
+         the legacy key for not-yet-migrated installs — otherwise a user's appearance change (saved to
+         qr_settings) would be invisible here and the first frame would flash the OLD theme. */
+      var s = JSON.parse(localStorage.getItem('qr_settings') || localStorage.getItem('quant_reflex_settings') || '{}');
       var mode = s.appearance || (s.darkMode ? 'dark' : 'light');   /* LIGHT default */
       var dark = mode === 'dark' ||
         (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -38,13 +41,14 @@
   <!-- ADR-111: pre-paint language application (flash-of-English guard). Sets <html lang> and the
        locale hook before first paint so a saved Hindi/Marathi choice never flashes English chrome.
        I18N_ON must stay in LOCKSTEP with QRI18n.ENABLED (js/i18n.js) — scripts/i18n.check.js
-       enforces it. qr_i18n_preview is the internal-QA override while the feature is unreleased. -->
+       enforces it. Shipped ON (UI Phase 1 final audit); qr_i18n_preview stays as the QA override. -->
   <script>
   (function () {
-    var I18N_ON = false;
+    var I18N_ON = true;
     try {
       if (!I18N_ON && localStorage.getItem('qr_i18n_preview') !== '1') return;
-      var s = JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
+      /* Canonical key first (see the theme pre-paint above) — a language change is saved to qr_settings. */
+      var s = JSON.parse(localStorage.getItem('qr_settings') || localStorage.getItem('quant_reflex_settings') || '{}');
       var l = (s.appLanguage === 'hi' || s.appLanguage === 'mr') ? s.appLanguage : 'en';
       document.documentElement.lang = l;
       document.documentElement.setAttribute('data-app-locale', l);
