@@ -3342,6 +3342,15 @@ html.dark-mode .practice-container {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+/* Global container ladder (blueprint §6.9): landscape tablets / desktop PWA get more room instead of a
+   stretched phone column. Learn keeps its own wider reading ladder below. */
+@media (min-width: 960px)  { .container { max-width: 900px; } }
+@media (min-width: 1100px) { .container { max-width: 1040px; } }
+/* Bottom-nav (blueprint §6.9): keep the bar full-width but centre the 5 tabs in a 640px zone on wide
+   screens so they stop scattering across a tablet's full width. */
+@media (min-width: 900px) {
+  .bottom-nav { padding-left: calc((100% - 640px) / 2); padding-right: calc((100% - 640px) / 2); }
+}
 .login-field {
   margin-bottom: 1rem;
 }
