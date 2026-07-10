@@ -73,7 +73,18 @@ const shadows = (() => {
 })();
 const fontSizes = distinct(/font-size:\s*([^;}]+)[;}]/g);
 const zIndexes = distinct(/z-index:\s*([^;}]+)[;}]/g);
-const gradients = distinct(/((?:linear|radial|conic)-gradient\([^;}]*\))/g);
+/* Gradients: mask-image gradients are GEOMETRY (scroll-fade clips), not color design — excluded (FW-W7c). */
+const cssNoMasks = css.replace(/(?:-webkit-)?mask(?:-image)?:[^;}]+[;}]/g, ' ');
+const gradients = (() => {
+  const set = new Set();
+  const re = /((?:linear|radial|conic)-gradient\([^;}]*\))/g;
+  let m;
+  while ((m = re.exec(cssNoMasks)) !== null) {
+    const v = m[1].trim().replace(/\s+/g, ' ');
+    set.add(v);
+  }
+  return set;
+})();
 
 /* durations: any Ns / Nms literal in transition/animation shorthand or *-duration */
 const durSet = new Set();
@@ -111,7 +122,7 @@ const CEIL = {
   durations: 4,     // GOAL REACHED (FW-W7a: 44→3 — 0s + 25s ambient + reduced-motion 0.01ms; slack 1)
   easings: 3,       // GOAL REACHED (FW-W7a: every literal easing → --qr-ease/-out; linear kept)
   zIndexes: 7,      // GOAL REACHED (FW-W7b: 20→1 — value-preserving --z-* tokens; only literal 0 remains)
-  gradients: 64,    // goal ≤10  (M6: 70→64)
+  gradients: 10,    // GOAL REACHED (FW-W7c: 64→10 — the identity set; mask-geometry gradients excluded)
   colorRatio: 3.8   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8; FW-W4: →4.3; FW-W6: →3.8, duel silo + archive tokens)
 };
 
