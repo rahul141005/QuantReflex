@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v231';
+const APP_VERSION = 'v232';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -20,6 +20,7 @@ var ASSETS = [
   './locales/hi.js',
   './locales/mr.js',
   './fonts/noto-sans-devanagari.woff2',
+  './fonts/inter-var-latin.woff2',
   './js/firebase.js',
   './js/session.js',
   './js/security-events.js',
@@ -133,6 +134,7 @@ var ASSETS = [
   './js/services/scoring-service.js',
   './js/services/share-service.js',
   './js/services/target-exam.js',
+  './js/services/quick-links-registry.js',
   './js/services/ai-analytics.js',
   './js/utils/auth-validators.js',
   './js/ui/report-taxonomy.js',
@@ -147,7 +149,6 @@ var ASSETS = [
   './js/ui/category-picker.js',
   './js/ui/overlay.js',
   './js/ui/numpad.js',
-  './js/ui/coming-soon.js',
   './js/ui/swipe-nav.js',
   './js/learn-entitlements.js',
   './js/views/home-view.js',

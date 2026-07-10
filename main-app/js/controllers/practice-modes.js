@@ -443,19 +443,9 @@ function initPracticeView() {
     var modeCards = modeSelect.querySelectorAll('.mode-card');
     for (var i = 0; i < modeCards.length; i++) {
       modeCards[i].addEventListener('click', function () {
-        /* Word Problems is intentionally staged for a future launch — open the Coming Soon modal and do
-           NOTHING else: no session, no question generation, no navigation, no analytics, no backend (ADR-031
-           release scope). Intercept BEFORE the practice-action gate / sound / dispatch. */
-        if (this.getAttribute('data-mode') === 'wordproblems') {
-          if (typeof showComingSoon === 'function') showComingSoon({ title: QRI18n.t('practice.wordProblems'), blurb: QRI18n.t('practice.wordProblemsSoonBlurb') });
-          return;
-        }
         if (!_tryPracticeAction()) return;
         SoundEngine.play('settingsToggle');
         var modeKey = this.getAttribute('data-mode');
-        /* NOTE: Word Problems is intercepted at the top of this handler (Coming-Soon modal + return), so it never
-           reaches the dispatch below — the old live-session launcher that used to live here was unreachable dead code
-           and was removed in ADR-087. */
         if (modeKey === 'custom') {
           if (!canAccessFeature('custom_training')) { showPaywall('custom_training'); return; }
           _customPracticeActive = true;

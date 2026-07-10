@@ -14,19 +14,15 @@
  *   canAccessFeature, showPaywall, AIFeatures
  */
 
-/* ---- Quick Study Links Configuration ---- */
+/* ---- Quick Study Links (v2, FW-W4) ----
+   The catalog now lives in QuickLinksRegistry (derived at runtime from the Quick-Ref library,
+   the practice mode list, the Learn knowledge base and the feature surfaces). Stored ids keep
+   the same key (`qr_quick_links` via AppState); legacy ids from the old 8-shortcut system are
+   preserved on disk and mapped through the registry's alias table at read time — a user's
+   selection survives the migration without a write. The old max-4 cap is gone. */
 var QUICK_LINKS_KEY = 'quant_quick_links';
-var AVAILABLE_QUICK_LINKS = [
-  { id: 'fractionTable', icon: '📐', title: 'Fraction → Percentage', desc: 'Master common fraction-to-percentage conversions.', type: 'learn' },
-  { id: 'tablesContainer', icon: '✖️', title: 'Multiplication Tables', desc: 'Review tables from 1 to 30.', type: 'learn' },
-  { id: 'formulaSections', icon: '📝', title: 'Quant Formulas', desc: 'Percentages, ratios, averages, area, volume and more.', type: 'learn' },
-  { id: 'mentalTricks', icon: '💡', title: 'Shortcut Tricks', desc: 'Mental math tricks for faster calculations.', type: 'learn' },
-  { id: 'squaresSection', icon: '🔢', title: 'Squares & Cubes', desc: 'Quick reference for squares and cubes.', type: 'learn' },
-  { id: 'practice', icon: '🎯', title: 'Practice Drills', desc: 'Jump into practice drills and tests.', type: 'nav' },
-  { id: 'stats', icon: '📊', title: 'Stats', desc: 'View your performance statistics.', type: 'nav' },
-  { id: 'bookmarksSection', icon: '⭐', title: 'Starred Formulas', desc: 'View your bookmarked formulas.', type: 'learn' }
-];
 var DEFAULT_QUICK_LINKS = ['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks'];
+var QUICK_LINKS_SOFT_MAX = 12;   /* advisory only — the picker hints, never blocks */
 
 function loadQuickLinks() {
   try {
@@ -38,10 +34,9 @@ function loadQuickLinks() {
       data = JSON.parse(raw);
     }
     if (Array.isArray(data) && data.length > 0) {
-      /* Deduplicate and validate */
       var seen = {};
       var unique = [];
-      for (var i = 0; i < data.length && unique.length < 4; i++) {
+      for (var i = 0; i < data.length; i++) {
         if (typeof data[i] === 'string' && !seen[data[i]]) {
           seen[data[i]] = true;
           unique.push(data[i]);
@@ -55,185 +50,222 @@ function loadQuickLinks() {
 
 function saveQuickLinks(links) {
   try {
-    var sliced = links.slice(0, 4);
+    var list = links.slice();
     if (typeof AppState !== 'undefined') {
-      AppState.setQuickLinks(sliced);
+      AppState.setQuickLinks(list);
     } else {
-      localStorage.setItem(QUICK_LINKS_KEY, JSON.stringify(sliced));
+      localStorage.setItem(QUICK_LINKS_KEY, JSON.stringify(list));
     }
     if (typeof FirestoreSync !== 'undefined') {
-      FirestoreSync.syncQuickLinks(sliced);
+      FirestoreSync.syncQuickLinks(list);
     }
   } catch (_) { /* ignore */ }
+}
+
+function _qlEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+  });
+}
+
+function _qlChipInner(entry) {
+  var icon = entry.ico
+    ? '<span class="qr-ico" data-ico="' + _qlEsc(entry.ico) + '" aria-hidden="true"></span>'
+    : (entry.emoji ? '<span class="qs-chip-emoji" aria-hidden="true">' + entry.emoji + '</span>' : '');
+  return icon + '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
 }
 
 function renderQuickStudyLinks() {
   var container = document.getElementById('quickStudyContainer');
   if (!container) return;
   container.innerHTML = '';
-  var selectedIds = loadQuickLinks();
+  if (typeof QuickLinksRegistry === 'undefined') return;
 
-  for (var i = 0; i < selectedIds.length; i++) {
-    var linkData = null;
-    for (var j = 0; j < AVAILABLE_QUICK_LINKS.length; j++) {
-      if (AVAILABLE_QUICK_LINKS[j].id === selectedIds[i]) {
-        linkData = AVAILABLE_QUICK_LINKS[j];
-        break;
-      }
-    }
-    if (!linkData) continue;
-
-    var card = document.createElement('a');
-    var colorClass = '';
-    if (linkData.id === 'fractionTable') colorClass = ' quick-study-blue';
-    else if (linkData.id === 'tablesContainer') colorClass = ' quick-study-orange';
-    else if (linkData.id === 'formulaSections') colorClass = ' quick-study-purple';
-    else if (linkData.id === 'mentalTricks') colorClass = ' quick-study-green';
-    else if (linkData.id === 'squaresSection') colorClass = ' quick-study-purple';
-    else if (linkData.id === 'practice') colorClass = ' quick-study-blue';
-    else if (linkData.id === 'stats') colorClass = ' quick-study-orange';
-    else if (linkData.id === 'bookmarksSection') colorClass = ' quick-study-green';
-    
-    card.className = 'study-card' + colorClass;
-
-    if (linkData.type === 'learn') {
-      card.href = '#learn';
-      card.setAttribute('data-learn-section', linkData.id);
-    } else {
-      card.href = '#' + linkData.id;
-    }
-
-    card.innerHTML = '<div class="study-card-content">' +
-                     '<h3>' + linkData.icon + ' ' + QRI18n.t('home.ql_' + linkData.id + 'Title') + '</h3>' +
-                     '<p>' + QRI18n.t('home.ql_' + linkData.id + 'Desc') + '</p>' +
-                     '</div><div class="study-card-arrow">→</div>';
-    container.appendChild(card);
-  }
-
-  /* Re-bind click handlers for learn section links.
-     ADR-092 moved most condensed reference into the Quick-Reference library — each legacy link routes to the
-     content's new single home (library card via QuickRef.reveal, or a hub section). `formulaSections` had NO DOM
-     target since ADR-069 replaced the old formula sections; it now honestly opens the library (the formula home). */
-  var LEARN_LINK_DEST = {
-    fractionTable: { qr: 'frac-pct' },
-    mentalTricks: { qr: 'mult-tricks' },
-    squaresSection: { qr: 'squares' },
-    formulaSections: { qr: null },              /* library root */
-    bookmarksSection: { hub: 'myNotesSection' } /* starred formulas live inside the My-notes card */
-  };
-  var studyLinks = container.querySelectorAll('[data-learn-section]');
-  for (var s = 0; s < studyLinks.length; s++) {
-    studyLinks[s].addEventListener('click', function (e) {
-      e.preventDefault();
-      var section = this.getAttribute('data-learn-section');
-      var dest = LEARN_LINK_DEST[section];
-      if (dest && 'qr' in dest) {
-        Router.showView('learn', { path: 'quick-ref' });
-        if (dest.qr) setTimeout(function () { try { if (typeof QuickRef !== 'undefined' && QuickRef.reveal) QuickRef.reveal(dest.qr); } catch (_) {} }, 120);
-        return;
-      }
-      var targetId = (dest && dest.hub) || section;
-      Router.showView('learn');
-      setTimeout(function () {
-        var target = document.getElementById(targetId);
-        if (target) {
-          var header = target.querySelector('.collapsible-header');
-          if (header) {
-            var content = header.nextElementSibling;
-            if (content && window.getComputedStyle(content).display === 'none') {
-              toggleSection(header);
-            }
-          }
-          target.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
+  /* Chips wrap naturally, so any number of shortcuts stays tidy on phones and tablets. Tapping a
+     locked entry still runs go() — the destination's own premium gate shows the right paywall. */
+  var entries = QuickLinksRegistry.resolve(loadQuickLinks());
+  var wrap = document.createElement('div');
+  wrap.className = 'qr-card quick-study-card';
+  entries.forEach(function (entry) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'qr-chip qs-chip';
+    chip.innerHTML = _qlChipInner(entry);
+    chip.addEventListener('click', function () {
+      try { if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle'); } catch (_) {}
+      try { entry.go(); } catch (_) {}
     });
-  }
-
-  /* Bind nav-type links */
-  var navLinks = container.querySelectorAll('a[href^="#"]:not([data-learn-section])');
-  for (var n = 0; n < navLinks.length; n++) {
-    navLinks[n].addEventListener('click', function (e) {
-      e.preventDefault();
-      var view = this.getAttribute('href').replace('#', '');
-      Router.showView(view);
-    });
-  }
+    wrap.appendChild(chip);
+  });
+  container.appendChild(wrap);
 }
 
+/* Quick Study picker v2 (FW-W4) — a categorized, searchable .qr-sheet over the full registry.
+   Reference is expanded by default (simple for new users); Practice / Learn topics / Features are
+   collapsed (the whole app for power users). Learn topics carry their KB category as subheaders
+   and a lock chip when premium-gated. Selection is unlimited; a soft hint appears above ~12. */
 function openQuickLinksEditor() {
-  var selectedIds = loadQuickLinks();
+  if (typeof QuickLinksRegistry === 'undefined' || typeof QROverlay === 'undefined') return;
+
+  var storedIds = loadQuickLinks();
+  /* Selection state starts as the RESOLVED ids (legacy ids mapped forward) in stored order. */
+  var selected = QuickLinksRegistry.resolve(storedIds).map(function (e) { return e.id; });
+  var catalog = QuickLinksRegistry.catalog();
+
+  function _row(entry) {
+    var checked = selected.indexOf(entry.id) !== -1;
+    return '<label class="qr-row qs-pick-row" data-qlid="' + _qlEsc(entry.id) + '" data-label="' + _qlEsc(entry.label().toLowerCase()) + '">' +
+      '<span class="qs-pick-main">' + _qlChipInner(entry) +
+        (entry.locked() ? '<span class="qs-pick-lock qr-chip"><span class="qr-ico" data-ico="lock" aria-hidden="true"></span>' + _qlEsc(QRI18n.t('home.proBadge')) + '</span>' : '') +
+      '</span>' +
+      '<input type="checkbox" value="' + _qlEsc(entry.id) + '"' + (checked ? ' checked' : '') + ' />' +
+    '</label>';
+  }
+
+  var sectionsHtml = QuickLinksRegistry.CATEGORIES.map(function (cat, idx) {
+    var entries = catalog.filter(function (e) { return e.category === cat.id; });
+    if (!entries.length) return '';
+    var body;
+    if (cat.id === 'learn') {
+      /* subheaders per KB category, in KB order */
+      var groups = {}, order = [];
+      entries.forEach(function (e) {
+        var k = e.subcat || 'other';
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(e);
+      });
+      body = order.map(function (k) {
+        var lbl = QRI18n.t('learn.cat_' + k + 'Title');
+        if (lbl === 'learn.cat_' + k + 'Title') lbl = k;
+        return '<div class="qs-pick-subhead">' + _qlEsc(lbl) + '</div>' + groups[k].map(_row).join('');
+      }).join('');
+    } else {
+      body = entries.map(_row).join('');
+    }
+    var open = idx === 0;   /* Reference expanded by default */
+    return '<section class="qs-pick-section' + (open ? ' is-open' : '') + '" data-cat="' + cat.id + '">' +
+      '<button type="button" class="qs-pick-header" aria-expanded="' + open + '">' +
+        '<span>' + _qlEsc(QRI18n.t(cat.labelKey)) + '</span>' +
+        '<span class="qs-pick-count" data-role="count"></span>' +
+        '<span class="qs-pick-caret" aria-hidden="true">▾</span>' +
+      '</button>' +
+      '<div class="qs-pick-list"' + (open ? '' : ' hidden') + '>' + body + '</div>' +
+    '</section>';
+  }).join('');
 
   var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  var modal = document.createElement('div');
-  modal.className = 'modal-content';
-
-  var html = '<h3 class="modal-title">' + QRI18n.t('home.customizeQuickLinks') + '</h3>';
-  html += '<p class="secondary-text" style="margin-bottom:.75rem;">' + QRI18n.t('home.selectUpTo4') + '</p>';
-
-  for (var i = 0; i < AVAILABLE_QUICK_LINKS.length; i++) {
-    var link = AVAILABLE_QUICK_LINKS[i];
-    var isChecked = selectedIds.indexOf(link.id) !== -1;
-    html += '<label class="quick-link-option' + (isChecked ? ' selected' : '') + '">';
-    html += '<input type="checkbox" value="' + link.id + '"' + (isChecked ? ' checked' : '') + ' />';
-    html += '<span>' + link.icon + ' ' + QRI18n.t('home.ql_' + link.id + 'Title') + '</span>';
-    html += '</label>';
-  }
-
-  html += '<div class="modal-actions">';
-  html += '<button class="btn-secondary modal-cancel">' + QRI18n.t('modals.cancel') + '</button>';
-  html += '<button class="btn-primary modal-save">' + QRI18n.t('modals.save') + '</button>';
-  html += '</div>';
-
-  modal.innerHTML = html;
-  overlay.appendChild(modal);
+  overlay.className = 'qr-sheet qs-picker-overlay';
+  overlay.innerHTML =
+    '<div class="qr-sheet-card qs-picker" role="dialog" aria-modal="true" aria-labelledby="qsPickerTitle">' +
+      '<div class="qr-sheet-grabber" aria-hidden="true"></div>' +
+      '<div class="qs-picker-head">' +
+        '<h3 class="qs-picker-title" id="qsPickerTitle" tabindex="-1">' + QRI18n.t('home.customizeQuickLinks') + '</h3>' +
+        '<span class="qs-picker-selcount" id="qsPickerSelCount"></span>' +
+      '</div>' +
+      '<div class="qs-picker-search"><input type="search" class="qr-input" id="qsPickerSearch" autocomplete="off" ' +
+        'placeholder="' + _qlEsc(QRI18n.t('home.qlSearchPh')) + '" aria-label="' + _qlEsc(QRI18n.t('home.qlSearchPh')) + '" /></div>' +
+      '<div class="qs-picker-body">' + sectionsHtml +
+        '<p class="qs-picker-empty secondary-text" id="qsPickerEmpty" hidden>' + QRI18n.t('home.qlNoMatches') + '</p>' +
+      '</div>' +
+      '<p class="qs-picker-hint secondary-text" id="qsPickerHint" hidden>' + QRI18n.t('home.qlSoftMaxHint') + '</p>' +
+      '<div class="qs-picker-actions">' +
+        '<button type="button" class="qr-btn qr-btn-secondary" data-act="cancel">' + QRI18n.t('modals.cancel') + '</button>' +
+        '<button type="button" class="qr-btn qr-btn-primary" data-act="save">' + QRI18n.t('modals.save') + '</button>' +
+      '</div>' +
+    '</div>';
   document.body.appendChild(overlay);
-  document.body.classList.add('modal-open');
 
-  /* Limit to 4 selections */
-  var checkboxes = modal.querySelectorAll('input[type="checkbox"]');
-  function updateCheckboxStates() {
-    var checkedCount = 0;
-    for (var c = 0; c < checkboxes.length; c++) {
-      if (checkboxes[c].checked) checkedCount++;
-    }
-    for (var d = 0; d < checkboxes.length; d++) {
-      var label = checkboxes[d].closest('.quick-link-option');
-      if (checkboxes[d].checked) {
-        label.classList.add('selected');
-        checkboxes[d].disabled = false;
-      } else {
-        label.classList.remove('selected');
-        checkboxes[d].disabled = checkedCount >= 4;
-      }
-    }
-  }
-
-  for (var k = 0; k < checkboxes.length; k++) {
-    checkboxes[k].addEventListener('change', updateCheckboxStates);
-  }
-  updateCheckboxStates();
-
-  function closeModal() {
-    if (overlay.parentNode) document.body.removeChild(overlay);
-    document.body.classList.remove('modal-open');
-  }
-
-  overlay.querySelector('.modal-cancel').addEventListener('click', closeModal);
-  overlay.addEventListener('click', function (e) {
-    if (e.target === overlay) closeModal();
+  var handle = QROverlay.open(overlay, {
+    dialogEl: overlay.querySelector('.qs-picker'),
+    removeOnClose: true,
+    closingClass: 'closing',
+    closeMs: 200,
+    initialFocus: '#qsPickerSearch',
+    sound: 'settingsToggle'
   });
-  overlay.querySelector('.modal-save').addEventListener('click', function () {
-    var newLinks = [];
-    for (var m = 0; m < checkboxes.length; m++) {
-      if (checkboxes[m].checked) newLinks.push(checkboxes[m].value);
+
+  function _syncCounts() {
+    selected = Array.prototype.map.call(
+      overlay.querySelectorAll('input[type="checkbox"]:checked'),
+      function (cb) { return cb.value; }
+    );
+    var selEl = overlay.querySelector('#qsPickerSelCount');
+    if (selEl) selEl.textContent = QRI18n.t('home.qlSelectedCount', { count: selected.length });
+    var hint = overlay.querySelector('#qsPickerHint');
+    if (hint) hint.hidden = selected.length <= QUICK_LINKS_SOFT_MAX;
+    overlay.querySelectorAll('.qs-pick-section').forEach(function (sec) {
+      var n = sec.querySelectorAll('input[type="checkbox"]:checked').length;
+      var c = sec.querySelector('[data-role="count"]');
+      if (c) c.textContent = n ? String(n) : '';
+    });
+  }
+
+  overlay.addEventListener('change', function (e) {
+    if (e.target && e.target.type === 'checkbox') {
+      var row = e.target.closest('.qs-pick-row');
+      if (row) row.classList.toggle('is-selected', e.target.checked);
+      _syncCounts();
     }
+  });
+  overlay.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+    var row = cb.closest('.qs-pick-row');
+    if (row) row.classList.add('is-selected');
+  });
+
+  overlay.querySelectorAll('.qs-pick-header').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var sec = btn.closest('.qs-pick-section');
+      var list = sec.querySelector('.qs-pick-list');
+      var open = list.hidden;
+      list.hidden = !open;
+      sec.classList.toggle('is-open', open);
+      btn.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  /* Live search across ALL categories — matching rows show, sections with matches expand,
+     an empty query restores the default collapsed state. */
+  var searchInput = overlay.querySelector('#qsPickerSearch');
+  searchInput.addEventListener('input', function () {
+    var q = searchInput.value.trim().toLowerCase();
+    var any = false;
+    overlay.querySelectorAll('.qs-pick-section').forEach(function (sec, idx) {
+      var list = sec.querySelector('.qs-pick-list');
+      var matches = 0;
+      sec.querySelectorAll('.qs-pick-row').forEach(function (row) {
+        var hit = !q || row.getAttribute('data-label').indexOf(q) !== -1;
+        row.hidden = !hit;
+        if (hit) matches++;
+      });
+      sec.querySelectorAll('.qs-pick-subhead').forEach(function (sh) { sh.hidden = !!q; });
+      if (q) {
+        sec.hidden = matches === 0;
+        list.hidden = matches === 0;
+        sec.classList.toggle('is-open', matches > 0);
+      } else {
+        sec.hidden = false;
+        var open = idx === 0;
+        list.hidden = !open;
+        sec.classList.toggle('is-open', open);
+      }
+      var btn = sec.querySelector('.qs-pick-header');
+      if (btn) btn.setAttribute('aria-expanded', String(!list.hidden));
+      if (matches) any = true;
+    });
+    var empty = overlay.querySelector('#qsPickerEmpty');
+    if (empty) empty.hidden = any;
+  });
+
+  overlay.querySelector('[data-act="cancel"]').addEventListener('click', function () { handle.close(); });
+  overlay.querySelector('[data-act="save"]').addEventListener('click', function () {
+    var newLinks = selected.slice();
     if (newLinks.length === 0) newLinks = DEFAULT_QUICK_LINKS.slice();
     saveQuickLinks(newLinks);
     renderQuickStudyLinks();
-    closeModal();
+    handle.close();
   });
+
+  _syncCounts();
 }
 
 /**
@@ -485,6 +517,19 @@ function initHomeView() {
   if (editBtn) {
     editBtn.addEventListener('click', function () {
       openQuickLinksEditor();
+    });
+  }
+
+  /* ---- Quick Reference explore tile (FW-W4) ---- */
+  var quickRefTile = document.getElementById('homeBentoQuickRef');
+  if (quickRefTile) {
+    var _openQuickRefLib = function () {
+      SoundEngine.play('settingsToggle');
+      Router.showView('learn', { path: 'quick-ref' });
+    };
+    quickRefTile.addEventListener('click', _openQuickRefLib);
+    quickRefTile.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _openQuickRefLib(); }
     });
   }
 

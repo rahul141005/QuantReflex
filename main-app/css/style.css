@@ -179,6 +179,18 @@ html::-webkit-scrollbar { display: none; } /* Chrome, Edge, Samsung Internet */
   src: url('../fonts/noto-sans-devanagari.woff2') format('woff2');
   unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF, U+11B00-11B09;
 }
+/* Inter (FW-W4, blueprint §5): ONE bundled brand face for Latin UI text — a variable font, so every
+   weight the app uses ships in a single 48KB latin-subset file. font-display:swap keeps first paint
+   on the system face; unicode-range scopes Inter to Latin so Devanagari sessions still resolve
+   through Noto/native faces exactly as before. Numerals get Inter's tabular-friendly forms. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../fonts/inter-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 /* Devanagari NEVER letter-spaces: positive tracking breaks matra positioning and conjunct/ligature
    shaping. The app's ~60 uppercase micro-labels pair letter-spacing for a small-caps affordance —
    a Latin-only treatment. Under a Devanagari app locale (or inside any hi/mr content container)
@@ -189,7 +201,7 @@ html::-webkit-scrollbar { display: none; } /* Chrome, Edge, Samsung Internet */
 }
 
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Devanagari', sans-serif; /* mobile-first: let each OS serve its native face; bundled Devanagari fallback (ADR-111) */
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Devanagari', sans-serif; /* Inter for Latin (FW-W4, latin unicode-range only); native faces + bundled Devanagari fallback behind it (ADR-111) */
   /* UI Phase 1: token-driven so the body element itself themes from the <html>-level token blocks.
      (The theme class moved to <html>; a hardcoded body bg here would stay light in dark/playful.) */
   background: var(--qr-bg);
@@ -216,7 +228,7 @@ body.modal-open {
 }
 
 /* Enforce instant tap registration and prevent double-tap zoom on all interactive elements */
-button, a, input, select, textarea, .mode-card, .category-btn, .numpad-key, .clear-option-btn, .quick-link-option {
+button, a, input, select, textarea, .mode-card, .category-btn, .numpad-key, .clear-option-btn {
   touch-action: manipulation;
 }
 
@@ -458,104 +470,9 @@ h1 .qr-ico.header-icon { margin-right: .35rem; }
   margin-top: 14px;
 }
 
-/* ---- Study Cards (Home page) ---- */
-.study-card {
-  background: #ffffff;
-  border-radius: var(--qr-card-radius);
-  padding: var(--qr-card-padding);
-  margin-bottom: 1rem;
-  box-shadow: var(--qr-shadow-light);
-  border: var(--qr-card-border-light);
-  display: block;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.study-card:active {
-  transform: scale(0.98);
-  box-shadow: 0 2px 10px rgba(15,23,42,0.06);
-}
-html.dark-mode .study-card {
-  background: rgba(30,41,59,0.7);
-  border: var(--qr-card-border-dark);
-  box-shadow: var(--qr-shadow-dark);
-}
-.study-card h3 {
-  font-size: 1.05rem;
-  color: #0f172a;
-  margin-bottom: .3rem;
-}
-.study-card p {
-  font-size: .88rem;
-  color: #64748b;
-  line-height: 1.4;
-}
-
-/* Quick Study Color Accents */
-.study-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-.study-card-content {
-  flex: 1;
-}
-.study-card-arrow {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #94a3b8;
-  opacity: 0.5;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.study-card:active .study-card-arrow {
-  opacity: 1;
-  transform: translateX(4px);
-}
-html.dark-mode .study-card-arrow { color: #64748b; }
-
-.quick-study-blue {
-  background: hsl(217, 91%, 97%);
-  border: 1px solid hsl(217, 91%, 90%);
-}
-html.dark-mode .quick-study-blue {
-  background: hsla(217, 91%, 60%, 0.1);
-  border-color: hsla(217, 91%, 60%, 0.25);
-}
-.quick-study-blue:active { border-color: hsl(217, 91%, 80%); }
-
-.quick-study-orange {
-  background: hsl(25, 95%, 97%);
-  border: 1px solid hsl(25, 95%, 90%);
-}
-html.dark-mode .quick-study-orange {
-  background: hsla(25, 95%, 60%, 0.1);
-  border-color: hsla(25, 95%, 60%, 0.25);
-}
-.quick-study-orange:active { border-color: hsl(25, 95%, 80%); }
-
-.quick-study-purple {
-  background: hsl(271, 91%, 97%);
-  border: 1px solid hsl(271, 91%, 90%);
-}
-html.dark-mode .quick-study-purple {
-  background: hsla(271, 91%, 65%, 0.1);
-  border-color: hsla(271, 91%, 65%, 0.25);
-}
-.quick-study-purple:active { border-color: hsl(271, 91%, 80%); }
-
-.quick-study-green {
-  background: hsl(142, 71%, 97%);
-  border: 1px solid hsl(142, 71%, 85%);
-}
-html.dark-mode .quick-study-green {
-  background: hsla(142, 71%, 45%, 0.1);
-  border-color: hsla(142, 71%, 45%, 0.25);
-}
-.quick-study-green:active { border-color: hsl(142, 71%, 70%); }
-
 /* Prevent 300ms tap delay on interactive elements */
 a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
-.table-select-btn, .study-card, .quick-link-option,
+.table-select-btn,
 .bottom-nav a, .collapsible-header {
   touch-action: manipulation;
 }
@@ -584,7 +501,6 @@ a, button, input, select, textarea, label, .btn, .mode-card, .category-btn,
 @media (pointer: coarse) {
   .btn:hover { background: #e2e8f0; }
   .btn.accent:hover { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
-  .study-card:hover { transform: none; }
   .mode-card:hover { transform: none; }
 }
 
@@ -1850,6 +1766,69 @@ html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { backg
 .notification-card { cursor: pointer; }
 .notification-card.is-unread { background: var(--qr-surface-2); border-color: var(--qr-danger); }
 
+/* ============================================================================
+   Quick Study v2 (FW-W4) — shortcut chips on Home + the categorized picker
+   sheet. Built ENTIRELY on the primitives above (.qr-card/.qr-chip/.qr-sheet/
+   .qr-row/.qr-input/.qr-btn); only Quick-Study-specific arrangement lives here.
+   ========================================================================== */
+.quick-study-card { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.qs-chip { border: 1px solid var(--qr-border); background: var(--qr-surface-solid); color: var(--qr-text); }
+.qs-chip:active { background: var(--qr-surface-2); }
+.qs-chip .qr-ico { --qr-ico-size: 1rem; color: var(--qr-accent); }
+.qs-chip-emoji { font-size: 1rem; line-height: 1; }
+.qs-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
+
+/* Picker sheet */
+.qs-picker-overlay { z-index: var(--z-sheet); animation: modalOverlayFadeIn var(--qr-dur) var(--qr-ease); }
+.qs-picker-overlay.closing { animation: modalOverlayFadeOut var(--qr-dur) var(--qr-ease) forwards; }
+.qs-picker-overlay.closing .qs-picker { opacity: 0; transform: translateY(12px); transition: opacity var(--qr-dur) var(--qr-ease), transform var(--qr-dur) var(--qr-ease); }
+.qs-picker-head { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4) 0; }
+.qs-picker-title { flex: 1; font-size: var(--fs-h3); font-weight: 800; color: var(--qr-text); }
+.qs-picker-title:focus { outline: none; }
+.qs-picker-selcount { flex: 0 0 auto; font-size: var(--fs-caption); font-weight: 700; color: var(--qr-text-dim); }
+.qs-picker-search { padding: var(--sp-2) var(--sp-4); }
+.qs-picker-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 var(--sp-4) var(--sp-2); }
+.qs-pick-section { border: 1px solid var(--qr-border); border-radius: var(--r-md); margin-bottom: var(--sp-2); overflow: hidden; background: var(--qr-surface-solid); }
+.qs-pick-header {
+  width: 100%; display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3); border: 0; background: var(--qr-surface-2);
+  font: inherit; font-size: var(--fs-sub); font-weight: 800; color: var(--qr-text);
+  cursor: pointer; text-align: left;
+}
+.qs-pick-header:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: -2px; }
+.qs-pick-header span:first-child { flex: 1; }
+.qs-pick-count { font-size: var(--fs-micro); font-weight: 800; color: var(--qr-accent); }
+.qs-pick-caret { color: var(--qr-text-dim); transition: transform var(--qr-dur) var(--qr-ease); }
+.qs-pick-section.is-open .qs-pick-caret { transform: rotate(180deg); }
+.qs-pick-list { padding: var(--sp-1) var(--sp-3); }
+.qs-pick-subhead { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--qr-text-dim); margin: var(--sp-2) 0 0; }
+.qs-pick-row { cursor: pointer; min-height: 44px; }
+.qs-pick-row + .qs-pick-row { border-top: 1px solid var(--qr-border); }
+.qs-pick-main { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; flex: 1; font-size: var(--fs-sub); color: var(--qr-text); }
+.qs-pick-main .qr-ico { --qr-ico-size: 1rem; color: var(--qr-accent); flex: 0 0 auto; }
+.qs-pick-main .qs-chip-label { max-width: none; }
+.qs-pick-lock { min-height: 0; padding: .1rem .45rem; font-size: var(--fs-micro); gap: 2px; display: inline-flex; align-items: center; color: var(--qr-text-dim); }
+.qs-pick-lock .qr-ico { --qr-ico-size: .7rem; color: inherit; }
+.qs-pick-row input[type="checkbox"] { accent-color: var(--qr-accent); width: 1.15rem; height: 1.15rem; flex-shrink: 0; }
+.qs-picker-hint { padding: 0 var(--sp-4); margin: 0 0 var(--sp-1); font-size: var(--fs-caption); }
+.qs-picker-empty { text-align: center; padding: var(--sp-4) 0; }
+.qs-picker-actions { display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--qr-border); }
+.qs-picker-actions .qr-btn { flex: 1; }
+
+/* Streak chip — now lives in the Daily Goal card header (FW-W4); ids unchanged for home-view.js */
+.home-streak-chip { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.1); color: var(--qr-text); gap: 4px; cursor: default; }
+.home-streak-chip .streak-fire { font-size: .9rem; line-height: 1; }
+.home-streak-chip .streak-count { font-weight: 800; }
+
+/* Advanced practice modes as compact disclosure rows (FW-W4) — same .mode-card hooks, row skin */
+.practice-mode-group--rows { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--qr-border); border-radius: var(--r-md); background: var(--qr-surface-solid); overflow: hidden; }
+.mode-card--row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); margin: 0; border: 0; border-radius: inherit; box-shadow: none; cursor: pointer; }
+.mode-card--row + .mode-card--row { border-top: 1px solid var(--qr-border); }
+.mode-card--row h3 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sub); margin: 0; flex: 0 0 auto; }
+.mode-card--row p { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.mode-card--row::after { content: '›'; color: var(--qr-text-dim); font-size: 1.1rem; font-weight: 700; flex: 0 0 auto; }
+.mode-card--row:active { background: var(--qr-surface-2); transform: none; }
+
 /* ---- Dialog (centered, focus-trapped by QROverlay) ---- */
 .qr-dialog-overlay {
   position: fixed; inset: 0; z-index: var(--z-dialog);
@@ -2627,8 +2606,7 @@ html.dark-mode .info-quote p { color: #94a3b8; }
 /* ---- Text Overflow Protection ---- */
 .cat-name,
 .settings-label h3,
-.mode-card h3,
-.study-card h3 {
+.mode-card h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2706,11 +2684,9 @@ html.dark-mode .stat-card .value,
 html.dark-mode .result-value { color: #60a5fa; }
 html.dark-mode .stat-card .label,
 html.dark-mode .result-label { color: #94a3b8; }
-html.dark-mode .study-card h3,
 html.dark-mode .mode-card h3,
 html.dark-mode .settings-label h3,
 html.dark-mode .cat-name { color: #e2e8f0; }
-html.dark-mode .study-card p,
 html.dark-mode .mode-card p,
 html.dark-mode .settings-label p { color: #94a3b8; }
 html.dark-mode .table-card {
@@ -3330,38 +3306,6 @@ html.dark-mode .analytics-card {
   border-color: rgba(51,65,85,.5);
 }
 
-/* Quick Link Option (modal) */
-.quick-link-option {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  padding: .65rem .75rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: .75rem;
-  margin-bottom: .5rem;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-  font-size: .9rem;
-  color: #0f172a;
-}
-.quick-link-option.selected {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
-.quick-link-option input[type="checkbox"] {
-  accent-color: #2563eb;
-  width: 1.1rem;
-  height: 1.1rem;
-  flex-shrink: 0;
-}
-html.dark-mode .quick-link-option {
-  border-color: #334155;
-  color: #e2e8f0;
-}
-html.dark-mode .quick-link-option.selected {
-  background: #334155;
-  border-color: #60a5fa;
-}
 html.dark-mode .practice-container {
   background: rgba(30,41,59,.88);
   border-color: rgba(51,65,85,.6);
@@ -3888,8 +3832,8 @@ html.dark-mode .ripple-effect {
 }
 
 /* Enhanced press feedback for buttons */
-.btn, .mode-card, .category-btn, .study-card,
-.table-select-btn, .clear-option-btn, .quick-link-option,
+.btn, .mode-card, .category-btn,
+.table-select-btn, .clear-option-btn,
 .numpad-btn, .formula-action-btn {
   -webkit-tap-highlight-color: transparent;
 }
@@ -4409,7 +4353,6 @@ html.dark-mode .onboarding-retry-msg { color: #fbbf24; }
 /* ---- Smooth Transitions ---- */
 html.theme-playful,
 html.theme-playful .card,
-html.theme-playful .study-card,
 html.theme-playful .mode-card,
 html.theme-playful .bottom-nav,
 html.theme-playful .settings-section-card,
@@ -4436,7 +4379,6 @@ html.theme-playful header h1 {
 }
 
 html.theme-playful .card,
-html.theme-playful .study-card,
 html.theme-playful .training-card {
   background: rgba(255,255,255,.94);
   border-color: rgba(226,222,214,.5);
@@ -4448,15 +4390,12 @@ html.theme-playful .mode-card {
   box-shadow: 0 2px 8px rgba(120,100,70,.06), 0 4px 16px rgba(120,100,70,.04);
 }
 html.theme-playful .card:hover,
-html.theme-playful .study-card:hover,
 html.theme-playful .mode-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(79,143,247,.10), 0 2px 8px rgba(120,100,70,.06);
 }
 
-html.theme-playful .study-card h3,
 html.theme-playful .mode-card h3 { color: #1a1a2e; }
-html.theme-playful .study-card p,
 html.theme-playful .mode-card p { color: #5a6275; }
 
 html.theme-playful .bottom-nav {
@@ -4730,17 +4669,6 @@ html.theme-playful .analytics-card {
   border-color: rgba(226,222,214,.5);
   box-shadow: 0 1px 4px rgba(120,100,70,.05), 0 2px 8px rgba(120,100,70,.03);
 }
-html.theme-playful .quick-link-option {
-  border-color: #e2ded6;
-  color: #1a1a2e;
-}
-html.theme-playful .quick-link-option.selected {
-  background: rgba(79,143,247,.06);
-  border-color: #4f8ff7;
-}
-html.theme-playful .quick-link-option input[type="checkbox"] {
-  accent-color: #4f8ff7;
-}
 html.theme-playful .practice-container { background: transparent; }
 html.theme-playful .login-input.input-error { border-color: #f87171; }
 html.theme-playful .login-input.input-error:focus {
@@ -4858,24 +4786,20 @@ html.theme-playful.dark-mode .training-card {
   box-shadow: 0 4px 24px rgba(0,0,0,.35), 0 0 1px rgba(79,143,247,.15);
 }
 html.theme-playful.dark-mode .card,
-html.theme-playful.dark-mode .study-card,
 html.theme-playful.dark-mode .mode-card {
   background: rgba(22,27,45,.88);
   border-color: rgba(79,143,247,.12);
   box-shadow: 0 2px 12px rgba(0,0,0,.3), 0 0 1px rgba(79,143,247,.15);
 }
 html.theme-playful.dark-mode .card:hover,
-html.theme-playful.dark-mode .study-card:hover,
 html.theme-playful.dark-mode .mode-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 20px rgba(0,0,0,.35), 0 0 8px rgba(79,143,247,.10);
 }
 
-html.theme-playful.dark-mode .study-card h3,
 html.theme-playful.dark-mode .mode-card h3,
 html.theme-playful.dark-mode .settings-label h3,
 html.theme-playful.dark-mode .cat-name { color: #e6edf3; }
-html.theme-playful.dark-mode .study-card p,
 html.theme-playful.dark-mode .mode-card p,
 html.theme-playful.dark-mode .settings-label p { color: #8b949e; }
 
@@ -5110,14 +5034,6 @@ html.theme-playful.dark-mode .analytics-card {
   background: rgba(22,27,45,.88);
   border-color: rgba(79,143,247,.10);
   box-shadow: 0 1px 4px rgba(0,0,0,.25);
-}
-html.theme-playful.dark-mode .quick-link-option {
-  border-color: rgba(255,255,255,.06);
-  color: #e6edf3;
-}
-html.theme-playful.dark-mode .quick-link-option.selected {
-  background: rgba(88,166,255,.10);
-  border-color: #58a6ff;
 }
 html.theme-playful.dark-mode .practice-container {
   background: rgba(22,27,45,.88);
@@ -7786,25 +7702,6 @@ html.dark-mode .practice-container .mode-card p { color: #94a3b8; }
 /* ADR-081: Subject Sets are grouped by the "Subject Sets" section header + typography — no decorative rail/eyebrow
    (removed as visual clutter). The cards are plain .mode-card so every Practice card reads identically. */
 
-/* ── Coming-soon staged feature (Word Problems, ADR-031 release scope) ──────────────────
-   Kept visible + inviting (an UPCOMING premium feature, not a disabled one). The card stays
-   tappable; the tap opens the Coming Soon modal (no session/generation/analytics/backend). */
-.mode-card-soon { position: relative; }
-.mode-card-soon .coming-soon-pill {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  color: #c7d2fe;
-  background: rgba(129, 140, 248, 0.16);
-  border: 1px solid rgba(129, 140, 248, 0.4);
-  pointer-events: none;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DUEL V2 — redesigned §10A surfaces (one design language with Practice).

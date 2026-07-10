@@ -1,0 +1,23 @@
+{
+  "home-light":     "FW-W4: Inter webfont + Quick Study chips + streak chip in goal card + 4th Explore tile",
+  "home-dark":      "FW-W4: Inter webfont + Quick Study chips + streak chip in goal card + 4th Explore tile",
+  "home-playful":   "FW-W4: Inter webfont + Quick Study chips + streak chip in goal card + 4th Explore tile",
+  "practice-light": "FW-W4: Inter webfont + Word Problems teaser removed + Advanced disclosure rows",
+  "practice-dark":  "FW-W4: Inter webfont + Word Problems teaser removed + Advanced disclosure rows",
+  "practice-playful":"FW-W4: Inter webfont + Word Problems teaser removed + Advanced disclosure rows",
+  "settings-light": "FW-W4: Inter webfont (global type re-baseline)",
+  "settings-dark":  "FW-W4: Inter webfont (global type re-baseline)",
+  "settings-playful":"FW-W4: Inter webfont (global type re-baseline)",
+  "learn-light":    "FW-W4: Inter webfont (global type re-baseline)",
+  "learn-dark":     "FW-W4: Inter webfont (global type re-baseline)",
+  "learn-playful":  "FW-W4: Inter webfont (global type re-baseline)",
+  "stats-light":    "FW-W4: Inter webfont (global type re-baseline)",
+  "stats-dark":     "FW-W4: Inter webfont (global type re-baseline)",
+  "stats-playful":  "FW-W4: Inter webfont (global type re-baseline)",
+  "about-light":    "FW-W4: Inter webfont (global type re-baseline)",
+  "about-dark":     "FW-W4: Inter webfont (global type re-baseline)",
+  "about-playful":  "FW-W4: Inter webfont (global type re-baseline)",
+  "quickref-light": "FW-W4: Inter webfont (global type re-baseline)",
+  "quickref-dark":  "FW-W4: Inter webfont (global type re-baseline)",
+  "quickref-playful":"FW-W4: Inter webfont (global type re-baseline)"
+}
