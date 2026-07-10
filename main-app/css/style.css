@@ -364,18 +364,28 @@ a { color: inherit; text-decoration: none; }
   scroll-padding-bottom: 1rem; /* prevent last card clipping behind nav */
 }
 
+/* App bar (blueprint §7-global): left-aligned neutral title + dimmed leading icon + optional action slot.
+   Replaces the old centered-blue emoji headers used by Practice / Learn / Stats / Settings. */
 header {
-  text-align: center;
-  padding: 0.9rem 0 0.45rem; /* tighter — reduces Practice tab vertical waste */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  text-align: left;
+  padding: 0.9rem 0 0.55rem; /* tighter — reduces Practice tab vertical waste */
 }
 header h1 {
-  font-size: 1.5rem;
-  letter-spacing: .05em;
-  color: #2563eb;
+  font-size: var(--fs-h1);
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--qr-text);
   display: inline-flex;
   align-items: center;
-  gap: .4rem;
+  gap: .5rem;
+  margin: 0;
+  min-width: 0;
 }
+header h1 .qr-ico { color: var(--qr-text-dim); }
 .header-icon {
   width: 24px;
   height: 24px;
@@ -2595,7 +2605,7 @@ html.dark-mode {
   color: #e2e8f0;
 }
 html.dark-mode header h1 {
-  color: #60a5fa;
+  color: var(--qr-text);
 }
 html.dark-mode .card,
 html.dark-mode .mode-card {
