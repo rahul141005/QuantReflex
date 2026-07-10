@@ -888,6 +888,11 @@ function createDrillEngine(container, opts) {
        nextQuestion()'s re-render restores it. */
     if (!(autoAdvance && correct)) hideCustomNumpad();
 
+    /* FW-W5: on short viewports (landscape split, small phones) the verdict can land below the
+       card's internal scroll fold — bring the learning moment into view. block:'nearest' makes
+       this a no-op whenever the feedback already fits. */
+    try { feedback.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {}
+
     if (typeof AIFeatures !== 'undefined' && (!correct || reviewMode)) {
       var explainBtn = document.createElement('button');
       explainBtn.className = 'drill-explain-btn';

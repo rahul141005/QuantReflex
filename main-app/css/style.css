@@ -15,7 +15,7 @@
   --qr-card-radius-sm: 1.25rem;    /* 20px — small cards / tiles */
   --qr-btn-radius: 1.125rem;       /* 18px — buttons / CTAs */
   --qr-card-padding: 1.25rem;      /* 20px */
-  --qr-numpad-h: 13.75rem;         /* single source for the custom-numpad height reservation (drill card + numpad-active body padding) — ADR-087 */
+  --qr-numpad-h: 15rem;            /* single source for the custom-numpad height reservation (drill card + numpad-active body padding) — ADR-087; FW-W5: was 13.75rem, UNDER the keypad's real 238px (4×50px rows + gaps + padding) — the action bar overlapped the keypad top by ~10px */
   --qr-card-border-light: 1px solid rgba(15,23,42,0.06);
   --qr-card-border-dark: 1px solid rgba(255,255,255,0.08); /* soft hairline on navy */
   --qr-shadow-light: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.03);
@@ -355,8 +355,15 @@ a { color: inherit; text-decoration: none; }
 }
 .spa-view-active {
   display: block;
-  animation: viewSlideIn .18s var(--qr-ease-out) both;
+  /* FW-W5: no fill-mode. The `to` state equals the natural state, so `both` only RETAINED the
+     animation's transform fill — which made the view a containing block for position:fixed
+     descendants forever, silently trapping the drill's fixed layers inside the 720px .container
+     in web-mode (the pwa-mode variant below never had a fill). */
+  animation: viewSlideIn .18s var(--qr-ease-out);
 }
+/* Belt-and-braces: a live drill re-pins its layers to the real viewport — never animate the view
+   shell underneath it (an active transform animation would re-trap the fixed layers). */
+body.drill-session-active .spa-view-active { animation: none; }
 @keyframes viewSlideIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
@@ -3896,7 +3903,7 @@ html.dark-mode .correct-flash {
   /* Shrink numpad buttons slightly */
   .numpad-btn { min-height: 44px; font-size: 1.15rem; }
   /* Tighten the spacing rhythm + top inset on short screens so the card never overlaps the numpad */
-  body.drill-session-active { --drill-card-gap: .7rem; --drill-submit-gap: .35rem; }
+  body.drill-session-active { --drill-card-gap: .7rem; --drill-submit-gap: .35rem; --qr-numpad-h: 13.4rem; }   /* 44px rows */
   body.drill-session-active #drillContainer > .card {
     top: 2.6rem;
   }
@@ -3907,6 +3914,7 @@ html.dark-mode .correct-flash {
 @media (max-height: 500px) {
   .question-text { font-size: 1.4rem; }
   .numpad-btn { min-height: 40px; }
+  body.drill-session-active { --qr-numpad-h: 12.5rem; }   /* 40px rows */
 }
 
 /* ---- PWA Standalone Mode ---- */
@@ -9633,6 +9641,57 @@ html.theme-playful .bottom-nav a.active .nav-icon .qr-ico { color: var(--qr-grad
     margin-left: 0;
     margin-right: 0;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   LANDSCAPE DRILL SPLIT (FW-W5, blueprint §12) — in landscape the stacked phone
+   layout starves the question card (card + actions + keypad don't fit a short
+   viewport). Because every drill layer is independently position:fixed, landscape
+   is pure RE-PINNING — no DOM moves: the question card takes the LEFT pane
+   (full height), the keypad + action bar take the RIGHT pane. Same recipe for
+   Practice (#drillContainer) and Duels (#duelActive). The action bar keeps its
+   calc() off --qr-numpad-h, so one variable re-pins both right-pane layers.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) and (min-width: 640px) {
+  /* Card owns the left ~58% — full height under the top controls. Covers the numpad,
+     no-numpad (MCQ/LR) and duel variants, all of which pin differently in portrait. */
+  body.drill-session-active #drillContainer > .card,
+  body.drill-session-active:not(.numpad-active) #drillContainer > .card,
+  body.drill-session-active #duelActive > .card {
+    top: 3.4rem;
+    left: .75rem;
+    right: calc(42% + .5rem);   /* .5rem gutter between the panes */
+    bottom: calc(.75rem + var(--drill-safe-b));
+    max-width: none;
+  }
+  body.drill-session-active #duelActive > .card { top: 3.9rem; }   /* duel header band */
+  /* Keypad + actions own the right pane. width:auto + transform reset undo the ≥768px
+     phone-column centering (max-width 640 + translateX(-50%)). */
+  body.drill-session-active .custom-numpad {
+    left: 58%;
+    right: .75rem;
+    width: auto;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+  body.drill-session-active .custom-numpad.visible { transform: translateY(0); }
+  body.drill-session-active .drill-actions,
+  body.drill-session-active:not(.numpad-active) .drill-actions {
+    left: 58%;
+    right: .75rem;
+    width: auto;
+    max-width: none;
+    transform: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+/* Tablet landscape (≥960px): the right pane has room — taller keys for comfortable
+   two-handed answering; the reservation var recomputes the card/actions pins for free. */
+@media (orientation: landscape) and (min-width: 960px) {
+  body.drill-session-active { --qr-numpad-h: 17.5rem; }   /* 60px rows */
+  body.drill-session-active .numpad-btn { min-height: 60px; }
 }
 
 /* Programmatic focus lands on the results heading for screen readers (ADR-088 A6);
