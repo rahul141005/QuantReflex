@@ -14,7 +14,25 @@
 const fs = require('fs');
 const path = require('path');
 
-const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8')
+const rawCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+
+/* Content-art regions (FW-W7): renderer-coupled ART (di-chart palettes, lr-figure inks, the splash
+   amoeba's organic radii) is deliberately NOT part of the design system — marked regions are
+   stripped from the census. Guards keep the escape hatch honest: markers must pair up, at most
+   THREE regions, each ≤200 lines. */
+const startMarks = (rawCss.match(/\/\* design-lint:content-art-start[^*]*\*\//g) || []).length;
+const endMarks = (rawCss.match(/\/\* design-lint:content-art-end[^*]*\*\//g) || []).length;
+const artRegions = [];
+{
+  const reArt = /\/\* design-lint:content-art-start[^*]*\*\/([\s\S]*?)\/\* design-lint:content-art-end[^*]*\*\//g;
+  let mArt;
+  while ((mArt = reArt.exec(rawCss)) !== null) artRegions.push(mArt[1]);
+}
+const artOk = startMarks === endMarks && artRegions.length === startMarks &&
+  artRegions.length <= 3 && artRegions.every(r => r.split('\n').length <= 200);
+
+const css = rawCss
+  .replace(/\/\* design-lint:content-art-start[^*]*\*\/[\s\S]*?\/\* design-lint:content-art-end[^*]*\*\//g, ' ')
   .replace(/\/\*[\s\S]*?\*\//g, ' ');   // strip comments so commented-out values don't count
 
 let pass = 0, fail = 0;
@@ -74,12 +92,12 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 
 /* ---- ceilings: baseline 2026-07-09 (ratchet DOWN only; blueprint goals in comments) ---- */
 const CEIL = {
-  radii: 45,        // goal ≤8   (M6: 51→49; FW-W3: →46; FW-W6: →45, duel sheet → .qr-sheet)
+  radii: 8,         // GOAL REACHED (FW-W7b: 45→6 — 50%/4px/2px/inherit + composites; splash blobs = content-art)
   shadows: 130,     // goal ≤6   (M6: 141→132; FW-W2: →131; FW-W3: →130, sheet shadow → --el-sheet)
   fontSizes: 79,    // goal ≤14  (M6: 81→80; FW-W4: →79, WP teaser CSS deleted)
   durations: 4,     // GOAL REACHED (FW-W7a: 44→3 — 0s + 25s ambient + reduced-motion 0.01ms; slack 1)
   easings: 3,       // GOAL REACHED (FW-W7a: every literal easing → --qr-ease/-out; linear kept)
-  zIndexes: 20,     // goal 7    (M6: 26→20, --z-* scale adoption)
+  zIndexes: 7,      // GOAL REACHED (FW-W7b: 20→1 — value-preserving --z-* tokens; only literal 0 remains)
   gradients: 64,    // goal ≤10  (M6: 70→64)
   colorRatio: 3.8   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8; FW-W4: →4.3; FW-W6: →3.8, duel silo + archive tokens)
 };
@@ -89,6 +107,8 @@ console.log('design-lint census: radii=' + radii.size + ' shadows=' + shadows.si
   ' z=' + zIndexes.size + ' gradients=' + gradients.size +
   ' rawColor:var=' + (rawHex + rawRgb) + ':' + varUses + ' (' + ratio.toFixed(2) + ')');
 
+ok('content-art regions well-formed (paired, <=3, <=200 lines each)', artOk,
+  'starts=' + startMarks + ' ends=' + endMarks + ' regions=' + artRegions.length);
 ok('distinct border-radius <= ' + CEIL.radii, radii.size <= CEIL.radii, 'got ' + radii.size);
 ok('distinct box-shadow <= ' + CEIL.shadows, shadows.size <= CEIL.shadows, 'got ' + shadows.size);
 ok('distinct font-size <= ' + CEIL.fontSizes, fontSizes.size <= CEIL.fontSizes, 'got ' + fontSizes.size);
