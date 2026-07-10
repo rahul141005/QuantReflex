@@ -147,9 +147,19 @@ var Companion = (function () {
           '<div class="companion-scroll"></div>' +
         '</div></div>');
     document.body.appendChild(overlay);
-    document.body.classList.add('modal-open');   // UI Phase 1 / M3: lock background scroll like every other overlay
-    var _opener = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
+    /* P1-final: the shared overlay controller now owns scroll-lock, focus-TRAP (the companion sheet
+       previously let Tab escape into the page behind it), Escape, backdrop-close, focus-restore and the
+       overlay stack. The bespoke drag-to-dismiss gesture below stays and simply calls close(). The manual
+       fallback is kept for load order (QROverlay absent). */
+    var _ovHandle = (typeof QROverlay !== 'undefined') ? QROverlay.open(overlay, {
+      dialogEl: overlay.querySelector('.companion-sheet'),
+      removeOnClose: true, closingClass: null, closeMs: 0,
+      initialFocus: overlay.querySelector('.companion-close'),
+      onClose: function () { _state = null; }
+    }) : null;
+    var _opener = _ovHandle ? null : ((document.activeElement && document.activeElement !== document.body) ? document.activeElement : null);
     function close() {
+      if (_ovHandle) { _ovHandle.close(); return; }
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       document.body.classList.remove('modal-open');
       _state = null;
@@ -157,11 +167,13 @@ var Companion = (function () {
     }
     if (opts.onReport) { var _rb = overlay.querySelector('.companion-report'); if (_rb) _rb.addEventListener('click', function () { opts.onReport(); }); }
     overlay.querySelector('.companion-close').addEventListener('click', close);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    /* Keyboard parity with touch's drag-to-dismiss: Escape closes the sheet (standard dialog expectation). */
-    overlay.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); close(); } });
-    /* Move focus into the sheet so keyboard/screen-reader users land inside the dialog (and Escape is heard). */
-    try { overlay.querySelector('.companion-close').focus(); } catch (_) {}
+    if (!_ovHandle) {
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+      /* Keyboard parity with touch's drag-to-dismiss: Escape closes the sheet (standard dialog expectation). */
+      overlay.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); close(); } });
+      /* Move focus into the sheet so keyboard/screen-reader users land inside the dialog. */
+      try { overlay.querySelector('.companion-close').focus(); } catch (_) {}
+    }
 
     // Drag-down-to-dismiss on the grabber/head — native bottom-sheet feel (ADR-049). Drag past 90px → close,
     // else snap back. Only starts from the grabber or head so it never fights with body scrolling.
