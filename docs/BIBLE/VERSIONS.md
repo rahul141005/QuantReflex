@@ -9,11 +9,19 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.145 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.146 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.65 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.146 (2026-07-10)** — **Phase-1 UI finalization: independent-audit closure (ADR-113, SW v242→v246).** An
+> independent post-implementation audit re-verified Phase 1 and returned a short punch-list, closed here: Settings/
+> Profile/timer form controls are now all programmatically labelled (aria-labelledby / `for=` / aria-label); the
+> remaining structural-chrome emoji became monochrome `.qr-ico` line icons; the companion sheet folded onto
+> QROverlay (gaining a focus-trap it lacked); and the dead Word-Problems client (JS + CSS + DOM lookup) was pruned
+> (server `aiBrain.wordProblem` untouched). No doc-schema, Firestore, Security or Payment change. Verified: npm
+> test 14,342/0, design-lint 10/10, px-diff determinism + overflow + landscape + overlay + i18n-live all green.
 
 > **2.145 (2026-07-10)** — **Final UI Wave: 100% blueprint closure (ADR-112, SW v228→v242).** Architecture 2.64→2.65:
 > two new client modules own cross-cutting concerns — `js/ui/overlay.js` (`QROverlay`: the ONE modal lifecycle

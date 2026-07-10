@@ -6,6 +6,25 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-10 — Phase-1 UI finalization: independent-audit closure (ADR-113, SW v242→v246)
+
+An independent post-implementation audit re-verified Phase 1 from scratch and returned a short punch-list;
+this closed it to a zero-remaining-issues bar across four gated waves:
+
+- **Wave A** (`v243`): `aria-labelledby` on all 6 Settings selects + Daily-Goal input (WCAG 1.3.1/4.1.2);
+  removed the dead Word Problems client — ~16 KB unreachable JS from `ai-features.js` + its dead CSS
+  (`#wordProblemsSetup`/`.wp-*`/`.ai-quota-text`) + a dead `practice-config` lookup. Server `aiBrain.wordProblem`
+  untouched; live `AIFeatures` exports verified intact by boot smoke.
+- **Wave B** (`v244`): remaining structural-chrome emoji → monochrome `.qr-ico` line icons (Clear Data, Confirm,
+  Delete Account, Profile, All topics, My notes) + emoji stripped from those strings and two trailing decorations
+  across en/hi/mr. px-diff = only intended learn/settings deltas.
+- **Wave C** (`v245`): companion sheet folded onto `QROverlay`, adding a focus-trap it lacked (Tab could escape) —
+  drag-to-dismiss preserved. Inbox drawer + session-manager assessed and intentionally left (already correct).
+- **Wave D** (`v246`): fresh sweep fixed the remaining unlabeled controls (Profile field `for=` labels, custom-timer
+  `aria-label` + `practice.timerSecondsAria` ×3); final matrix — npm test 14,342/0, design-lint 10/10, px-diff
+  determinism ALL PASS, overflow 21/21, landscape 37/37, overlay cert 21/21, i18n-live ALL PASS. Docs: ADR-113,
+  VERSIONS 2.146.
+
 ## 2026-07-10 — Final UI Wave: 100% blueprint closure (ADR-112, W0–W8, SW v228→v242)
 
 The five deferred groups of the UI/UX Excellence blueprint landed across 14 gated commits

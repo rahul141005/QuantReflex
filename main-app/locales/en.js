@@ -685,6 +685,7 @@
       perQues: 'Per Ques.',
       total: 'Total',
       seconds: 'seconds',
+      timerSecondsAria: 'Timer seconds per question',
       startFocus: 'Start Focus Session',
       numQuestions: 'Number of Questions',
       youWillSolveStatic: 'You will solve 20 questions',

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v244';</script>
+  <script>window.QR_APP_VERSION = 'v246';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -510,7 +510,7 @@
                   <button class="timer-pill" data-pill="total" type="button" data-i18n="practice.total">Total</button>
                 </div>
                 <div class="timer-input-row">
-                  <input type="number" id="timerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" />
+                  <input type="number" id="timerSecondsInput" class="timer-seconds-input" min="5" max="600" value="15" aria-label="Timer seconds per question" data-i18n-attr="aria-label:practice.timerSecondsAria" />
                   <span class="timer-unit-label" data-i18n="practice.seconds">seconds</span>
                 </div>
               </div>
@@ -1410,15 +1410,15 @@
       <h3 class="modal-title" id="profileModalTitle"><span class="qr-ico" data-ico="user" aria-hidden="true">👤</span> <span data-i18n="modals.profileTitle">Profile</span></h3>
       <div class="profile-banner" id="profileBanner"></div>
       <div class="profile-field">
-        <label class="profile-field-label" data-i18n="modals.nameLabel">Name</label>
+        <label class="profile-field-label" for="profileName" data-i18n="modals.nameLabel">Name</label>
         <input type="text" id="profileName" class="input profile-input" placeholder="Your name" data-i18n-attr="placeholder:modals.namePlaceholder" maxlength="50" />
       </div>
       <div class="profile-field">
-        <label class="profile-field-label" data-i18n="modals.handleLabel">Handle</label>
+        <label class="profile-field-label" for="profileHandle" data-i18n="modals.handleLabel">Handle</label>
         <input type="text" id="profileHandle" class="input profile-input" readonly disabled />
       </div>
       <div class="profile-field">
-        <label class="profile-field-label" data-i18n="modals.coachingIdLabel">Coaching ID</label>
+        <label class="profile-field-label" for="profileCoachingId" data-i18n="modals.coachingIdLabel">Coaching ID</label>
         <input type="text" id="profileCoachingId" class="input profile-input" readonly disabled style="text-transform:uppercase;" />
         <p id="profileCoachingHelper" class="secondary-text" style="display:none; font-size:0.78rem; margin-top:0.35rem;" data-i18n="modals.coachingBindNote">Have a coaching code? Enter it once — it can't be changed later.</p>
       </div>

@@ -8,6 +8,43 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-113 — Phase-1 UI finalization: independent-audit closure + polish (v243–v246) (2026-07-10)
+
+- **Context.** After ADR-112 closed the UI blueprint, an independent post-implementation audit re-verified every
+  milestone from scratch (fresh repo read + live boot across viewports/themes). It confirmed the work
+  production-ready and surfaced a short, honest punch-list of minor gaps. This ADR records completing that
+  punch-list to a zero-remaining-issues bar, each wave gated by the full suite + a booted proof.
+- **Wave A (v243) — a11y labels + dead-code.** Added `aria-labelledby` to all six Settings `<select>`s and the
+  Daily-Goal input, pointing at their visible label spans (WCAG 1.3.1/4.1.2 — previously SR users heard "combo box"
+  with no name). Removed the verifiably-dead Word Problems CLIENT unit: ~16 KB of unreachable JS from
+  `ai-features.js` (every symbol WP-scoped, no live caller, not check-asserted), its dead CSS
+  (`#wordProblemsSetup`, `.wp-config-section`, `.wp-timer-section`, `.ai-quota-text`) and the dead
+  `practice-config` DOM lookup. The server generator `aiBrain.wordProblem` is untouched; `AIFeatures` live
+  exports (coach card, study plan, benchmark, explanation modal) verified intact by boot smoke.
+- **Wave B (v244) — icon-language cohesion.** Migrated the remaining structural-chrome emoji to monochrome
+  `.qr-ico` line icons (Clear Data → trash, Confirm/Delete Account → alert, All topics → layers, My notes →
+  file-text, Profile → user), each via the icon-sibling + `data-i18n`-on-inner-span pattern so `aria-labelledby`
+  still resolves (qr-ico is `aria-hidden`). Emoji stripped from those title strings + two trailing decorations
+  (Premium 🚀, Adaptive ✨) across en/hi/mr. Left intentionally (no registry icon / content / standard symbol):
+  ⭐ starred, ✖ multiplication, 🔍 search placeholder, 📡 offline banner, 🔥 streak, App-Guide prose glyphs, →/←
+  arrows. px-diff confirmed only the intended learn/settings deltas (reviewed manifest committed).
+- **Wave C (v245) — modal consolidation completed.** Folded the companion sheet (AI explanation / coach /
+  insights / study planner) onto `QROverlay`, adding a **focus-trap** it previously lacked (Tab could escape into
+  the page behind the sheet — verified fixed across 8× Tab). Its bespoke drag-to-dismiss gesture is preserved and
+  simply calls `close()`. Assessed and intentionally left: the session-manager exit dialog is already on QROverlay
+  (its manual lock is the QROverlay-absent fallback, matching report-modal/duel-manager); the inbox drawer already
+  has full lock/Escape/focus-move/restore and a bespoke horizontal-slide animation a migration would risk for no
+  practical gain (nothing stacks a dialog over it).
+- **Wave D (v246) — fresh sweep + matrix + governance.** A second adversarial sweep found and fixed a few more
+  unlabeled controls: `for=` association on the three Profile field labels and an `aria-label` (+`practice.timerSecondsAria`
+  ×3) on the custom-timer input; confirmed all `role="dialog"` elements are labelled and no dead JS files remain.
+  Final verification: npm test 14,342/0, design-lint 10/10 (all §14 ceilings still at goal), px-diff determinism
+  self-test ALL PASS, overflow probe 21/21, landscape drill probe 37/37, overlay cert 21/21, i18n-live ALL PASS.
+- **Consequences.** Every modal now flows through one controller; the icon language is uniformly monochrome in
+  structural chrome; all form controls in Settings/Profile/timer are programmatically labelled; the dead
+  Word-Problems client is gone. No Firestore/Security/Payment surface changed. Phase 1 is closed with no
+  significant issues remaining.
+
 ## ADR-112 — Final UI Wave: 100% blueprint closure (W0–W8, v229–v242) (2026-07-10)
 
 - **Context.** The UI/UX Excellence blueprint (M0–M6) had five deliberately-deferred groups: (G1) full modal

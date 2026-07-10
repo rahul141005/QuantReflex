@@ -680,6 +680,7 @@
       perQues: 'प्रति प्रश्न',
       total: 'कुल',
       seconds: 'सेकंड',
+      timerSecondsAria: 'प्रति प्रश्न टाइमर सेकंड',
       startFocus: 'फोकस सेशन शुरू करें',
       numQuestions: 'प्रश्नों की संख्या',
       youWillSolveStatic: 'आप 20 प्रश्न हल करेंगे',
