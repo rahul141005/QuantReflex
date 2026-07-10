@@ -81,7 +81,7 @@ const CEIL = {
   easings: 4,       // goal 3 (2 tokens + linear)  (M6: 18→4, bezier zoo → --qr-ease/-out/-spring)
   zIndexes: 20,     // goal 7    (M6: 26→20, --z-* scale adoption)
   gradients: 64,    // goal ≤10  (M6: 70→64)
-  colorRatio: 4.1   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8; FW-W4: →4.3; FW-W6: →4.1, duel sheet/results tokens)
+  colorRatio: 3.8   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8; FW-W4: →4.3; FW-W6: →3.8, duel silo + archive tokens)
 };
 
 console.log('design-lint census: radii=' + radii.size + ' shadows=' + shadows.size +
