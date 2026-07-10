@@ -3205,21 +3205,6 @@ body.web-mode #categorySelect {
   position: fixed;
 }
 
-#wordProblemsSetup {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-  z-index: var(--z-nav);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.35);
-  padding: 1rem;
-}
-body.web-mode #wordProblemsSetup {
-  position: fixed;
-}
-
 /* ---- Stats Grid Improvements ---- */
 .stat-grid {
   display: grid;
@@ -5411,22 +5396,6 @@ html.dark-mode .about-user-status-text {
 html.dark-mode .ai-spinner {
   border-color: #334155;
   border-top-color: #60a5fa;
-}
-
-.ai-quota-text {
-  font-size: var(--fs-caption);
-  color: var(--qr-info);
-  font-weight: 600;
-  margin-bottom: .75rem;
-  text-align: center;
-}
-
-.wp-config-section {
-  margin-top: 1rem;
-  padding: 0 4px;
-}
-.wp-timer-section {
-  margin-top: .75rem;
 }
 
 .wrong-answer-card {

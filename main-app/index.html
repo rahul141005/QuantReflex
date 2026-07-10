@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v242';</script>
+  <script>window.QR_APP_VERSION = 'v243';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -458,9 +458,9 @@
               <h3><span class="qr-ico" data-ico="file-text" aria-hidden="true">📝</span> <span data-i18n="practice.timedMock">Timed Mock</span></h3>
               <p data-i18n="practice.timedMockDesc">Exam-style section · Your target exam · Real clock &amp; marking scheme</p>
             </div>
-            <!-- Word Problems teaser removed (FW-W4): the app sells what it has today. The AI generation
-                 pipeline stays future-ready (aiBrain.wordProblem + AIFeatures.renderWordProblemsSetup, both
-                 dormant); when it ships, add the live mode row back here. -->
+            <!-- Word Problems teaser removed (FW-W4) and its dormant client UI pruned in Phase-1 finalization
+                 (dead render/quota code + CSS). The server generator (aiBrain.wordProblem) is unchanged; when the
+                 mode ships, re-add the client setup + a live mode row here. -->
           </div>
         </section>
       </div>
@@ -724,10 +724,10 @@
         <div class="settings-section-card">
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="moon" aria-hidden="true">🌙</span> <span data-i18n="settings.appearanceTitle">Appearance</span></h3>
+              <h3><span class="qr-ico" data-ico="moon" aria-hidden="true">🌙</span> <span id="lblAppearance" data-i18n="settings.appearanceTitle">Appearance</span></h3>
               <p data-i18n="settings.appearanceDesc">Follow your device, or set light or dark</p>
             </div>
-            <select id="appearanceSelect" class="theme-select">
+            <select id="appearanceSelect" class="theme-select" aria-labelledby="lblAppearance">
               <option value="light" data-i18n="settings.appearanceLight">Light</option>
               <option value="dark" data-i18n="settings.appearanceDark">Dark</option>
               <option value="system" data-i18n="settings.appearanceSystem">System</option>
@@ -740,10 +740,10 @@
             <div class="settings-row-divider"></div>
             <div class="settings-row">
               <div class="settings-label">
-                <h3><span class="qr-ico" data-ico="globe" aria-hidden="true">🌐</span> <span data-i18n="settings.appLanguageTitle">App language</span></h3>
+                <h3><span class="qr-ico" data-ico="globe" aria-hidden="true">🌐</span> <span id="lblAppLanguage" data-i18n="settings.appLanguageTitle">App language</span></h3>
                 <p data-i18n="settings.appLanguageDesc">Menus, buttons and screens</p>
               </div>
-              <select id="appLanguageSelect" class="theme-select">
+              <select id="appLanguageSelect" class="theme-select" aria-labelledby="lblAppLanguage">
                 <option value="en">English</option>
                 <option value="hi">हिन्दी</option>
                 <option value="mr">मराठी</option>
@@ -752,10 +752,10 @@
             <div class="settings-row-divider"></div>
             <div class="settings-row">
               <div class="settings-label">
-                <h3><span class="qr-ico" data-ico="book-open" aria-hidden="true">📚</span> <span data-i18n="settings.studyLanguageTitle">Study language</span></h3>
+                <h3><span class="qr-ico" data-ico="book-open" aria-hidden="true">📚</span> <span id="lblStudyLanguage" data-i18n="settings.studyLanguageTitle">Study language</span></h3>
                 <p data-i18n="settings.studyLanguageDesc">Questions, solutions and Learn chapters</p>
               </div>
-              <select id="studyLanguageSelect" class="theme-select">
+              <select id="studyLanguageSelect" class="theme-select" aria-labelledby="lblStudyLanguage">
                 <option value="en">English</option>
                 <option value="hi">हिन्दी</option>
                 <option value="mr">मराठी</option>
@@ -765,10 +765,10 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="palette" aria-hidden="true">🎨</span> <span data-i18n="settings.themeTitle">Theme</span></h3>
+              <h3><span class="qr-ico" data-ico="palette" aria-hidden="true">🎨</span> <span id="lblTheme" data-i18n="settings.themeTitle">Theme</span></h3>
               <p data-i18n="settings.themeDesc">Choose a visual style</p>
             </div>
-            <select id="themeSelect" class="theme-select">
+            <select id="themeSelect" class="theme-select" aria-labelledby="lblTheme">
               <option value="classic">Classic Blue</option>
               <option value="playful">Playful Professional</option>
             </select>
@@ -782,20 +782,20 @@
         <div class="settings-section-card">
           <div class="settings-row" id="targetExamSettingsRow">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="graduation" aria-hidden="true">🎓</span> <span data-i18n="settings.targetExamTitle">Target Exam</span></h3>
+              <h3><span class="qr-ico" data-ico="graduation" aria-hidden="true">🎓</span> <span id="lblTargetExam" data-i18n="settings.targetExamTitle">Target Exam</span></h3>
               <p data-i18n="settings.targetExamDesc">Shapes mocks, study focus and recommendations</p>
             </div>
-            <select id="targetExamSelect" class="theme-select">
+            <select id="targetExamSelect" class="theme-select" aria-labelledby="lblTargetExam">
               <option value="" data-i18n="settings.targetExamNotSet">Not set</option>
             </select>
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row" id="difficultySettingsRow">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="gauge" aria-hidden="true">📈</span> <span data-i18n="settings.difficultyTitle">Difficulty Level</span></h3>
+              <h3><span class="qr-ico" data-ico="gauge" aria-hidden="true">📈</span> <span id="lblDifficulty" data-i18n="settings.difficultyTitle">Difficulty Level</span></h3>
               <p data-i18n="settings.difficultyDesc">Adjusts question complexity</p>
             </div>
-            <select id="difficultySelect" class="theme-select">
+            <select id="difficultySelect" class="theme-select" aria-labelledby="lblDifficulty">
               <option value="easy" data-i18n="settings.difficultyEasy">Easy</option>
               <option value="medium" selected data-i18n="settings.difficultyMedium">Medium</option>
               <option value="hard" data-i18n="settings.difficultyHard">Hard</option>
@@ -804,10 +804,10 @@
           <div class="settings-row-divider"></div>
           <div class="settings-row">
             <div class="settings-label">
-              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> <span data-i18n="settings.dailyGoalTitle">Daily Goal</span></h3>
+              <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> <span id="lblDailyGoal" data-i18n="settings.dailyGoalTitle">Daily Goal</span></h3>
               <p data-i18n="settings.dailyGoalDesc">Set your daily question target (above 20 needs Premium)</p>
             </div>
-            <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="100" step="10" value="20" />
+            <input type="number" id="dailyGoalInput" class="goal-input" min="10" max="100" step="10" value="20" aria-labelledby="lblDailyGoal" />
           </div>
           <div class="settings-row-divider"></div>
           <div class="settings-row">

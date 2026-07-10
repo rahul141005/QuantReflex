@@ -266,13 +266,8 @@ function _resetPracticeUiToModes() {
     drillContainer.classList.remove('drill-results-active');
     drillContainer.innerHTML = '';
   }
-  var wpSetup = document.getElementById('wordProblemsSetup');
-  if (wpSetup) wpSetup.style.display = 'none';
   _resetTimerSelection();
   _resetAdaptiveToggle();
-  if (typeof AIFeatures !== 'undefined' && typeof AIFeatures.resetWpAdaptive === 'function') {
-    AIFeatures.resetWpAdaptive();
-  }
   _resetCustomPracticeState();
   var limitBanner = document.querySelector('.daily-limit-banner');
   if (limitBanner && limitBanner.parentNode) limitBanner.parentNode.removeChild(limitBanner);
