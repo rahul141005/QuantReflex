@@ -402,15 +402,17 @@ function _hideAppLoader() {
  * Called on navigation to prevent stale modals.
  */
 function _closeAllInfoModals() {
+  /* FW-W1: the open info modal is a QROverlay now — close through its handle so the controller's
+     keydown listener, scroll-lock refcount and focus-restore are all torn down properly. */
+  if (typeof _infoModalHandle !== 'undefined' && _infoModalHandle) {
+    try { _infoModalHandle.close(); } catch (_) {}
+    _infoModalHandle = null;
+  }
+  /* Belt-and-braces instant hide (navigation shouldn't wait out the 200ms close animation). */
   var modals = document.querySelectorAll('.info-modal-overlay');
   for (var i = 0; i < modals.length; i++) {
     modals[i].style.display = 'none';
     modals[i].classList.remove('closing');
-  }
-  /* Clean up any active Escape key handler from openInfoModal */
-  if (typeof _infoModalEscapeHandler === 'function') {
-    document.removeEventListener('keydown', _infoModalEscapeHandler);
-    _infoModalEscapeHandler = null;
   }
 }
 

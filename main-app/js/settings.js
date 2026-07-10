@@ -672,26 +672,22 @@ function openClearDataModal() {
   if (confirmModal) confirmModal.style.display = 'none';
 
   modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
+  /* FW-W1: shared overlay lifecycle (lock/Escape/trap/restore); static markup unchanged. */
+  var handle = QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.modal-content'),
+    removeOnClose: false, closingClass: null, closeMs: 0,
+    initialFocus: document.getElementById('clearDataCancel')
+  });
 
   var cancelBtn = document.getElementById('clearDataCancel');
   var optionBtns = modal.querySelectorAll('.clear-option-btn');
+  cancelBtn.onclick = function () { handle.close(); };
 
-  /* Cancel */
-  function closeModal() {
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  }
-  cancelBtn.onclick = closeModal;
-  modal.onclick = function (e) {
-    if (e.target === modal) closeModal();
-  };
-
-  /* Option handlers */
+  /* Option handlers — close the chooser, then chain into the type-specific confirm. */
   for (var i = 0; i < optionBtns.length; i++) {
     optionBtns[i].onclick = function () {
       var type = this.getAttribute('data-clear');
-      closeModal();
+      handle.close();
       openClearConfirmModal(type);
     };
   }
@@ -716,16 +712,15 @@ function openClearConfirmModal(type) {
   };
   textEl.textContent = messages[type] || QRI18n.t('settings.confirmFallback');
   modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
-
-  function closeModal() {
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  }
+  /* FW-W1: shared lifecycle; static markup kept (it doubles as app.js showCustomConfirm's
+     no-QROverlay fallback shell). Focus lands on the SAFE cancel — this is destructive. */
+  var handle = QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.modal-content'),
+    removeOnClose: false, closingClass: null, closeMs: 0,
+    initialFocus: cancelBtn
+  });
+  function closeModal() { handle.close(); }
   cancelBtn.onclick = closeModal;
-  modal.onclick = function (e) {
-    if (e.target === modal) closeModal();
-  };
 
   okBtn.onclick = function () {
     closeModal();
@@ -1112,42 +1107,26 @@ function openInfoModal(modalId) {
   if (!modal) return;
   modal.style.display = 'flex';   /* overlay flex-centers the card (matches .info-modal-overlay) */
   modal.classList.remove('closing');
-  document.body.classList.add('modal-open');
-  SoundEngine.play('tableModal');
+
+  /* FW-W1: lifecycle (scroll-lock, Escape, focus-trap, title-focus, focus-restore, 200ms closing
+     animation) now comes from the shared controller — this used to be ~40 bespoke lines. */
+  _infoModalHandle = QROverlay.open(modal, {
+    dialogEl: modal.querySelector('.info-modal-content') || modal.firstElementChild,
+    removeOnClose: false,
+    closingClass: 'closing',
+    closeMs: 200,
+    initialFocus: modal.querySelector('.info-modal-title'),
+    sound: 'tableModal',
+    onClose: function () { SoundEngine.play('tableModal'); _infoModalHandle = null; }
+  });
 
   var closeBtn = modal.querySelector('.info-modal-close');
+  if (closeBtn) closeBtn.onclick = function () { if (_infoModalHandle) _infoModalHandle.close(); };
 
-  /* ADR-110 a11y: remember what opened us, move focus to the modal title (tabindex="-1"), and hand focus back on
-     close — so keyboard/SR users land inside the dialog and aren't stranded on a hidden trigger afterwards. */
-  var _trigger = (document.activeElement && document.activeElement !== document.body) ? document.activeElement : null;
-  var _title = modal.querySelector('.info-modal-title');
-  if (_title && _title.focus) { try { _title.focus({ preventScroll: true }); } catch (_) { try { _title.focus(); } catch (_2) {} } }
-
-  function closeModal() {
-    modal.classList.add('closing');
-    SoundEngine.play('tableModal');
-    document.removeEventListener('keydown', _infoModalEscapeHandler);
-    _infoModalEscapeHandler = null;
-    setTimeout(function () {
-      modal.style.display = 'none';
-      modal.classList.remove('closing');
-      document.body.classList.remove('modal-open');
-      if (_trigger && _trigger.focus && document.contains(_trigger)) { try { _trigger.focus({ preventScroll: true }); } catch (_) {} }
-    }, 200);
-  }
-
-  /* Store handler reference on module scope for cleanup by _closeAllInfoModals */
-  _infoModalEscapeHandler = function (e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeModal();
-    }
-  };
-
-  if (closeBtn) closeBtn.onclick = closeModal;
   modal.onclick = function (e) {
     /* ADR-110: TOC chips (App Guide) scroll their target section within .info-modal-scroll. Delegated here so the
-       chips need no per-chip wiring; honours reduced motion (instant jump instead of smooth scroll). */
+       chips need no per-chip wiring; honours reduced motion (instant jump instead of smooth scroll). Backdrop
+       close itself is the controller's job now. */
     var chip = e.target && e.target.closest ? e.target.closest('.info-toc-chip') : null;
     if (chip && modal.contains(chip)) {
       var targetEl = document.getElementById(chip.getAttribute('data-target') || '');
@@ -1157,12 +1136,9 @@ function openInfoModal(modalId) {
         try { targetEl.scrollIntoView({ behavior: _instant ? 'auto' : 'smooth', block: 'start' }); }
         catch (_) { targetEl.scrollIntoView(); }
       }
-      return;
     }
-    if (e.target === modal) closeModal();
   };
-  document.addEventListener('keydown', _infoModalEscapeHandler);
 }
 
-/* Reference to the active info modal Escape handler for cleanup */
-var _infoModalEscapeHandler = null;
+/* Handle of the currently-open info modal (App Guide / About) — lets _closeAllInfoModals tear it down. */
+var _infoModalHandle = null;

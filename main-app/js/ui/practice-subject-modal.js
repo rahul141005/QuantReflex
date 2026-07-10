@@ -46,13 +46,10 @@ var PracticeSubjectModal = (function () {
 
   function _isOpen() { return !!document.getElementById('psmOverlay'); }
 
-  function _close(overlay) {
-    if (!overlay) overlay = document.getElementById('psmOverlay');
-    if (!overlay) return;
-    overlay.classList.add('closing');
-    document.body.classList.remove('modal-open');
-    setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
-  }
+  /* FW-W1: the overlay lifecycle lives in QROverlay now; _close routes through the active handle
+     (kept as a function so external callers keep working). */
+  var _handle = null;
+  function _close() { if (_handle) { _handle.close(); _handle = null; } }
 
   function open(onPick) {
     if (_isOpen()) return;
@@ -83,33 +80,30 @@ var PracticeSubjectModal = (function () {
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
-    document.body.classList.add('modal-open');
+    /* FW-W1: shared lifecycle — adds the focus-trap and focus-restore this modal never had. */
+    _handle = QROverlay.open(overlay, {
+      dialogEl: overlay.querySelector('.ba-modal-card'),
+      removeOnClose: true, closingClass: 'closing', closeMs: 200,
+      initialFocus: '#psmTitle',
+      onClose: function () { _handle = null; }
+    });
 
     function pick(subjectId) {
       if (!VALID[subjectId]) return;
       var dontAsk = !!(document.getElementById('psmDontAsk') && document.getElementById('psmDontAsk').checked);
       _saveSubjectPrefs(dontAsk ? false : true, subjectId);
-      _close(overlay);
+      _close();
       if (typeof SoundEngine !== 'undefined') { try { SoundEngine.play('settingsToggle'); } catch (_) {} }
       if (typeof triggerHaptic === 'function') { try { triggerHaptic(12); } catch (_) {} }
       if (typeof onPick === 'function') onPick(subjectId);
     }
 
     overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) { _close(overlay); return; }
       var card = e.target.closest ? e.target.closest('.psm-card') : null;
       if (card) pick(card.getAttribute('data-subject'));
     });
     var closeBtn = document.getElementById('psmClose');
-    if (closeBtn) closeBtn.addEventListener('click', function () { _close(overlay); });
-
-    function onKey(e) {
-      if (e.key === 'Escape') { e.preventDefault(); _close(overlay); document.removeEventListener('keydown', onKey); }
-    }
-    document.addEventListener('keydown', onKey);
-
-    var title = document.getElementById('psmTitle');
-    if (title && title.focus) { try { title.focus({ preventScroll: true }); } catch (_) { title.focus(); } }
+    if (closeBtn) closeBtn.addEventListener('click', function () { _close(); });
   }
 
   return { shouldAsk: shouldAsk, lastSubject: lastSubject, open: open };

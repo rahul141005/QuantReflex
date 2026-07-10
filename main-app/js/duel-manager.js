@@ -83,15 +83,30 @@ var DuelManager = (function () {
 
   /* Setup/Join render as a bottom-sheet MODAL over Home (no route switch) — the user configures a session, never
      navigates to another screen. Lobby/solving/waiting/results remain full duel-view screens. */
+  /* FW-W1: the container's lifecycle (scroll-lock, focus-trap, focus-restore) runs through the shared
+     QROverlay. Backdrop/Escape stay with the per-render handlers (duel-ui) because their semantics
+     differ per phase (join's backdrop is back-to-setup, not close). One handle spans re-renders —
+     setup→join re-paints the same open container. */
+  var _setupHandle = null;
   function _openSetupModal() {
     var m = _el('duelSetupModal');
-    if (m) { m.style.display = 'flex'; document.body.classList.add('modal-open'); }
+    if (m) {
+      m.style.display = 'flex';
+      if (typeof QROverlay !== 'undefined' && !_setupHandle) {
+        _setupHandle = QROverlay.open(m, {
+          dialogEl: m, removeOnClose: false, closingClass: null, closeMs: 0,
+          closeOnBackdrop: false, closeOnEsc: false,
+          onClose: function () { _setupHandle = null; }
+        });
+      } else if (typeof QROverlay === 'undefined') { document.body.classList.add('modal-open'); }
+    }
     return m;
   }
   function _closeSetupModal(keepPhase) {
     var m = _el('duelSetupModal');
+    if (_setupHandle) { _setupHandle.close(); }
+    else { document.body.classList.remove('modal-open'); }
     if (m) { m.style.display = 'none'; m.innerHTML = ''; m.onclick = null; }
-    document.body.classList.remove('modal-open');
     if (!keepPhase && (_phase === 'setup' || _phase === 'join')) _phase = 'idle';
   }
 

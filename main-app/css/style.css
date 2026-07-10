@@ -6335,6 +6335,10 @@ html.dark-mode .duel-exit-btn {
 .share-preview-visible .share-preview-modal {
   transform: translateY(0) scale(1);
 }
+/* FW-W1: QROverlay drives close with a .closing class — mirror the exit transition (defined after
+   .share-preview-visible so it wins at equal specificity). */
+.share-preview-overlay.closing { opacity: 0; }
+.share-preview-overlay.closing .share-preview-modal { transform: translateY(20px) scale(.96); }
 
 .share-preview-header {
   display: flex;

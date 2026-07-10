@@ -444,7 +444,7 @@ var ShareService = (function () {
     var overlay = document.createElement('div');
     overlay.className = 'share-preview-overlay';
     overlay.innerHTML =
-      '<div class="share-preview-modal">' +
+      '<div class="share-preview-modal" role="dialog" aria-modal="true" aria-label="' + _t('share.previewTitle') + '">' +
         '<div class="share-preview-header">' +
           '<h3 class="share-preview-title">🏆 ' + _t('share.previewTitle') + '</h3>' +
           '<button class="share-preview-close" aria-label="' + _t('share.closeAria') + '">&times;</button>' +
@@ -494,28 +494,20 @@ var ShareService = (function () {
     });
     actionsDiv.appendChild(regenBtn);
 
-    /* Close handlers */
-    overlay.querySelector('.share-preview-close').addEventListener('click', function () {
-      _closeModal(overlay);
-    });
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) _closeModal(overlay);
-    });
-
-    /* Show with animation */
+    /* Show with animation, lifecycle via the shared controller (FW-W1) — gains Escape, focus-trap
+       and focus-restore this modal never had. The .closing class mirrors the entrance transition. */
     document.body.appendChild(overlay);
-    document.body.classList.add('modal-open');
+    var handle = QROverlay.open(overlay, {
+      dialogEl: overlay.querySelector('.share-preview-modal'),
+      removeOnClose: true, closingClass: 'closing', closeMs: 250,
+      initialFocus: '.share-preview-close'
+    });
+    overlay.querySelector('.share-preview-close').addEventListener('click', function () {
+      handle.close();
+    });
     requestAnimationFrame(function () {
       overlay.classList.add('share-preview-visible');
     });
-  }
-
-  function _closeModal(overlay) {
-    overlay.classList.remove('share-preview-visible');
-    setTimeout(function () {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      document.body.classList.remove('modal-open');
-    }, 250);
   }
 
   /* ---- Share / Save Actions ---- */
