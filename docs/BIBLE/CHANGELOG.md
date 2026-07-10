@@ -6,6 +6,43 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-10 — UI/UX Excellence Phase 1 — end-to-end pass (Phase-0 re-audit + M4 + M5 + M6)
+
+Continuous execution of the remaining blueprint after M3, opened by an **independent fresh-eyes re-audit
+of M0–M3** (four parallel review agents against the blueprint, not against prior output). Every change
+below landed `npm test` 14,395 green + design-lint green + a booted-app phone/tablet × light/dark/playful
+regression (no page errors, no horizontal overflow). SW v224 → v225.
+
+- **Phase-0 re-audit fixes.** Added the missing `--el-0` hairline elevation token; fixed a dark
+  `--qr-text-mut` transposition (`#93a3b8`→`#94a3b8`); bound `.qr-ico[data-ico='cog']` to the existing
+  `--qri-cog` mask (About→Developer was a bare dot); added `tabular-nums` to `.stat-card .value` /
+  `.benchmark-stat-value`; corrected the stale icon-system comment (icons paint in all four themes).
+- **M6 dead-CSS burn-down.** Rigorous zero-consumer analysis (full literal scan of every js + index.html,
+  with dynamic-construction prefixes — `'duel-'+x`, `' is-'+type`, `'di-series-'+i`, … — detected and
+  EXCLUDED, and the M4-pending `qr-*` primitives protected). A rule was removed only when its ENTIRE
+  selector referenced solely dead classes. Removed the superseded silos (old duel UI 66, old AI panel 18,
+  old paywall 16, old login 14, + ~70 singletons) — **323 rules / ~1,450 lines**. Provably pixel-neutral
+  (dead selectors match no elements). `css/style.css` 11,340 → 9,887 lines.
+- **M6 tokenization.** Motion: the whole cubic-bezier zoo (13 spellings) → 3 semantic tokens
+  (`--qr-ease`, new `--qr-ease-out`, `--qr-spring`); easings 18 → 4. z-index: exact-match `--z-*` scale
+  adoption (100/200/1000/1100/1200), identical values, zero stacking change; z 26 → 20. Focus ring: new
+  theme-adaptive `--qr-focus-ring` (color-mix off `--qr-accent`) replaces the 5 blue accent-ring spellings
+  (semantic green/red state rings kept). Ceilings ratcheted: radii 49, shadows 132, font-size 80,
+  easings 4, z 20, gradients 64, raw-color:var **8.5→5.4**. (The intertwined 9998–10010 boot/gate z cluster
+  is intentionally left intact — its deliberate relative order maps poorly onto the 7-token scale.)
+- **M4 app-bar (§7-global).** The four view headers (Practice/Learn/Stats/Settings — the only bare
+  `<header>`s) go from centered blue emoji+text to a left-aligned neutral app-bar: `--fs-h1`/`--qr-text`
+  bold title + dimmed (`--qr-text-dim`) SVG leading icon + a `space-between` action slot. Drops the
+  hardcoded `#2563eb`/`#60a5fa` header colors. Pure CSS on the shared element; markup + scroll anchor
+  preserved. Validated light + dark.
+- **M4 Settings selects (§16.2).** `.theme-select` (Appearance/Theme/Target-exam/Difficulty/Language)
+  tokenized (`--qr-surface`/`--qr-border`/`--qr-text`/`--r-md`) with a 44px touch target and
+  `--qr-focus-ring`; every inline `min-width` override dropped so widths are consistent; Appearance options
+  reordered **Light / Dark / System** so the mandated default is first (value-based JS unaffected).
+- **M5 responsive (§6.9).** Global container ladder extended past the old 720 cap (900@960, 1040@1100) so
+  landscape tablets / desktop PWA get real room; bottom-nav bar stays full-width but its 5 tabs are centred
+  in a 640px zone ≥900px (fixes the "scattered tabs"). No horizontal overflow at any breakpoint.
+
 ## 2026-07-10 — UI/UX Excellence Phase 1 (design-system overhaul) — M0 + M1
 
 Executing the approved UI/UX blueprint (`/docs/BIBLE/` ADR to follow at phase end). Milestone-gated: each
