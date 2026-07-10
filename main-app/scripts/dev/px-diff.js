@@ -44,7 +44,10 @@ const SCREENS = {
   stats:    "Router.showView('stats'); try { if (typeof StatsView !== 'undefined' && StatsView.render) StatsView.render(); } catch(_){}",
   about:    "Router.showView('settings'); try { initSettingsView(); } catch(_){} try { openInfoModal('aboutModal'); } catch(_){}",
   /* runs after `about` in the same page — close the leftover info modal before rendering */
-  quickref: "try { if (typeof _closeAllInfoModals === 'function') _closeAllInfoModals(); } catch(_){} document.querySelectorAll('#aboutModal, .info-modal').forEach(function(m){ m.style.display='none'; }); document.body.classList.remove('modal-open'); Router.showView('learn', { path: 'quick-ref' });"
+  quickref: "try { if (typeof _closeAllInfoModals === 'function') _closeAllInfoModals(); } catch(_){} document.querySelectorAll('#aboutModal, .info-modal').forEach(function(m){ m.style.display='none'; }); document.body.classList.remove('modal-open'); Router.showView('learn', { path: 'quick-ref' });",
+  /* duel setup sheet (FW-W6): render the sheet DIRECTLY via DuelUI — bypasses the PWA/premium
+     gates (stubbing navigator.standalone wedges the page in this environment). */
+  duelsetup: "var m = document.getElementById('duelSetupModal'); m.style.display = 'flex'; DuelUI.renderSetup(m, { onBack: function () {}, onCreate: function () {} });"
 };
 
 async function boot(page) {

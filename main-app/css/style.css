@@ -1687,14 +1687,14 @@ html.dark-mode .toast {
    ========================================================================== */
 
 /* ---- Bottom sheet (phone) → centered dialog (≥600px) ---- */
-.qr-sheet, .report-sheet-overlay, .companion-overlay {
+.qr-sheet, .report-sheet-overlay, .companion-overlay, .duel-sheet-overlay {
   position: fixed; inset: 0;
   background: rgba(15,23,42,.55);
   display: flex; align-items: flex-end; justify-content: center;
   -webkit-backdrop-filter: var(--glass-scrim); backdrop-filter: var(--glass-scrim);
 }
 .qr-sheet { z-index: var(--z-sheet); }
-.qr-sheet-card, .report-sheet, .companion-sheet {
+.qr-sheet-card, .report-sheet, .companion-sheet, .duel-sheet {
   width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh;
   background: var(--qr-surface-solid);
   border-radius: var(--r-sheet-top);
@@ -1706,8 +1706,8 @@ html.dark-mode .toast {
   margin: .5rem auto .1rem; flex-shrink: 0; cursor: grab;
 }
 @media (min-width: 600px) {
-  .qr-sheet, .report-sheet-overlay, .companion-overlay { align-items: center; }
-  .qr-sheet-card, .report-sheet, .companion-sheet { border-radius: var(--r-sheet); max-height: 84vh; }
+  .qr-sheet, .report-sheet-overlay, .companion-overlay, .duel-sheet-overlay { align-items: center; }
+  .qr-sheet-card, .report-sheet, .companion-sheet, .duel-sheet { border-radius: var(--r-sheet); max-height: 84vh; }
   .qr-sheet-grabber, .report-sheet-grabber, .companion-grabber { display: none; }
 }
 
@@ -1739,13 +1739,13 @@ html.dark-mode .toast {
 }
 
 /* ---- Input ---- */
-.qr-input, .modal-input, .goal-input {
+.qr-input, .modal-input, .goal-input, .duel-join-input {
   border: 2px solid var(--qr-border); border-radius: var(--r-md);
   outline: none; color: var(--qr-text); background: var(--qr-surface-solid);
   transition: border-color var(--qr-dur);
 }
 .qr-input { width: 100%; box-sizing: border-box; padding: .6rem .75rem; font: inherit; font-size: var(--fs-sub); }
-.qr-input:focus, .modal-input:focus, .goal-input:focus { border-color: var(--qr-accent); box-shadow: var(--qr-focus-ring); }
+.qr-input:focus, .modal-input:focus, .goal-input:focus, .duel-join-input:focus { border-color: var(--qr-accent); box-shadow: var(--qr-focus-ring); }
 
 /* ---- Segment (single-select pill row) ---- */
 .qr-segment, .timer-pill-selector { display: flex; background: #e8edf3; border-radius: .6rem; padding: 3px; gap: 3px; }
@@ -7718,25 +7718,12 @@ html.dark-mode .practice-container .mode-card p { color: #94a3b8; }
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ---- Setup / Join bottom-sheet modal ---- */
-.duel-sheet-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-critical);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(2, 6, 23, .55);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-}
+/* Shell (scrim/geometry/shadow/>=600px centering) comes from the .qr-sheet primitive (FW-W6);
+   only the duel-specific z-order, width and entrance motion live here. .training-card supplies
+   the surface identity by cascade, as before. */
+.duel-sheet-overlay { z-index: var(--z-critical); }
 @keyframes duelSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.duel-sheet {
-  width: 100%;
-  max-width: 480px;
-  max-height: 88vh;
-  border-radius: 1.25rem 1.25rem 0 0;
-  animation: duelSheetUp .26s var(--qr-ease);
-}
+.duel-sheet { max-width: 480px; animation: duelSheetUp .26s var(--qr-ease); }
 .duel-sheet-compact { max-width: 420px; }
 .duel-sheet-title { text-align: center; }
 .duel-sheet-body { padding: 0 1rem .75rem; }
@@ -7746,9 +7733,8 @@ html.dark-mode .practice-container .mode-card p { color: #94a3b8; }
   flex-direction: column;
   gap: .5rem;
   padding: .8rem 1rem calc(.8rem + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(15, 23, 42, .08);
+  border-top: 1px solid var(--qr-border);
 }
-html.dark-mode .duel-sheet-footer { border-top-color: rgba(255, 255, 255, .08); }
 .duel-sheet-cta { width: 100%; }
 .duel-field { margin: 1rem .25rem 0; }
 .duel-field:first-child { margin-top: .5rem; }
@@ -7757,14 +7743,14 @@ html.dark-mode .duel-sheet-footer { border-top-color: rgba(255, 255, 255, .08); 
   font-weight: 600;
   font-size: .92rem;
   margin: 0 0 .5rem;
-  color: #0f172a;
+  color: var(--qr-text);
 }
-html.dark-mode .duel-field-label { color: #e2e8f0; }
-.duel-field-hint { color: #64748b; font-weight: 400; font-size: .8rem; }
-.duel-skip-hint { margin: .45rem 0 0; color: #64748b; font-size: .8rem; }
+.duel-field-hint { color: var(--qr-text-dim); font-weight: 400; font-size: .8rem; }
+.duel-skip-hint { margin: .45rem 0 0; color: var(--qr-text-dim); font-size: .8rem; }
 .duel-topic-grid { margin-top: .35rem; }
 
 .duel-join-help { text-align: center; margin: .5rem 0 1rem; }
+/* Box/border/focus come from the .qr-input primitive (FW-W6); the code-entry sizing lives here. */
 .duel-join-input {
   width: 100%;
   text-align: center;
@@ -7773,20 +7759,11 @@ html.dark-mode .duel-field-label { color: #e2e8f0; }
   font-weight: 800;
   text-transform: uppercase;
   padding: .9rem;
-  border-radius: .9rem;
-  border: 2px solid #e2e8f0;
-  background: #fff;
-  color: #0f172a;
-  outline: none;
 }
-.duel-join-input:focus { border-color: #2563eb;
-  box-shadow: var(--qr-focus-ring); }
-html.dark-mode .duel-join-input { background: #0f172a; border-color: #334155; color: #fff; }
-.duel-join-err { color: #dc2626; font-size: .85rem; min-height: 1.1rem; margin-top: .5rem; text-align: center; }
+.duel-join-err { color: var(--qr-danger); font-size: .85rem; min-height: 1.1rem; margin-top: .5rem; text-align: center; }
 .duel-arena-full { text-align: center; padding: 1.5rem 1.25rem .5rem; }
 .duel-arena-emoji { font-size: 2.8rem; line-height: 1; }
-.duel-arena-title { font-size: 1.25rem; font-weight: 800; margin: .6rem 0 .4rem; color: #0f172a; }
-html.dark-mode .duel-arena-title { color: #fff; }
+.duel-arena-title { font-size: 1.25rem; font-weight: 800; margin: .6rem 0 .4rem; color: var(--qr-text); }
 
 /* ---- Shared duel screens (lobby / waiting / results) ---- */
 .duel-screen {
@@ -7963,15 +7940,15 @@ html.dark-mode .duel-opp-status { background: rgba(15, 23, 42, .5); color: #cbd5
   font-weight: 800;
   margin-bottom: 1.1rem;
 }
-.duel-result-banner.is-win { color: #16a34a; }
-.duel-result-banner.is-loss { color: #dc2626; }
-.duel-result-banner.is-draw { color: #64748b; }
+.duel-result-banner.is-win { color: var(--qr-success); }
+.duel-result-banner.is-loss { color: var(--qr-danger); }
+.duel-result-banner.is-draw { color: var(--qr-text-dim); }
 /* Layout for .duel-result-vs / .duel-result-col / .duel-result-crown lives in the CENTERED block below.
    Here we keep only the visual tokens (colors, name/caption typography) shared by both. */
 .duel-vs-sep { display: flex; align-items: center; color: #94a3b8; font-weight: 800; font-size: .8rem; padding: 0 .5rem; }
 .duel-result-name {
   font-size: .85rem;
-  color: #64748b;
+  color: var(--qr-text-dim);
   margin-top: .3rem;
   max-width: 100%;
   white-space: nowrap;
@@ -7981,14 +7958,12 @@ html.dark-mode .duel-opp-status { background: rgba(15, 23, 42, .5); color: #cbd5
 .duel-result-score { color: #0f172a; }
 html.dark-mode .duel-result-score { color: #f1f5f9; }
 .duel-result-correct { font-size: .72rem; color: #94a3b8; }
-.duel-result-why { text-align: center; color: #475569; font-size: .92rem; margin-bottom: 1.1rem; }
-html.dark-mode .duel-result-why { color: #cbd5e1; }
 .duel-result-actions { display: flex; gap: .5rem; }
 .duel-result-actions .btn-secondary, .duel-result-actions .btn-primary { flex: 1; }
 
 /* ---- Submit & Leave modal (de-indigo, blue) ---- */
 .duel-exit-modal { max-width: 380px; text-align: left; }
-.duel-exit-title { font-size: 1.25rem; font-weight: 800; margin: 0 0 .6rem; color: #0f172a; }
+.duel-exit-title { font-size: 1.25rem; font-weight: 800; margin: 0 0 .6rem; color: var(--qr-text); }
 html.dark-mode .duel-exit-title { color: #f1f5f9; }
 .duel-exit-body { color: #475569; font-size: .92rem; line-height: 1.55; margin-bottom: 1rem; }
 html.dark-mode .duel-exit-body { color: #cbd5e1; }
@@ -7999,7 +7974,7 @@ html.dark-mode .duel-exit-body { color: #cbd5e1; }
 .duel-sheet .timer-pill { min-height: 40px; }                         /* audit mobile-ux-perf-09 */
 .duel-share-btn { min-height: 40px; }                                 /* audit mobile-ux-perf-10 */
 .duel-leave-link { min-height: 40px; }
-html.dark-mode .duel-result-banner.is-draw { color: #94a3b8; }        /* audit mobile-ux-perf-07 (Draw contrast) */
+/* (FW-W6: dark Draw contrast now re-resolves through --qr-text-dim — audit mobile-ux-perf-07 preserved) */
 body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-inset-top, 0px)); }  /* audit mobile-ux-perf-01 (notch) */
 /* Landscape: never let the duel question card collapse under the fixed numpad/header (audit mobile-ux-perf-02). */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -8008,7 +7983,7 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
 }
 /* The compact Join sheet sits CENTERED (not as a bottom sheet) so the soft keyboard rising from the bottom doesn't
    hide its footer "Join Duel" button (audit mobile-ux-perf-03). */
-.duel-sheet-compact { align-self: center; border-radius: 1.25rem; }
+.duel-sheet-compact { align-self: center; border-radius: var(--r-sheet); }
 
 /* ---- Result screen: CENTERED composition on a single vertical axis, full data restored ---- */
 .duel-result-card { padding: 1.7rem 1.3rem; text-align: center; }
@@ -8028,10 +8003,10 @@ body.drill-session-active .duel-solve-header { top: calc(.55rem + env(safe-area-
 .duel-result-col { display: flex; flex-direction: column; align-items: center; padding: .25rem; }
 .duel-result-crown { height: 1.6rem; line-height: 1.6rem; font-size: 1.15rem; }
 .duel-result-score { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
-.duel-result-col.is-winner .duel-avatar { box-shadow: 0 0 0 3px #2563eb, 0 0 0 6px rgba(37, 99, 235, .18); }
+.duel-result-col.is-winner .duel-avatar { box-shadow: 0 0 0 3px var(--qr-accent), 0 0 0 6px rgba(37, 99, 235, .18); }
 /* Stats: THREE perfectly equal rows, each its own symmetric 1fr·auto·1fr grid, hairline divider between. */
 .duel-result-stats {
-  background: #f1f5f9;
+  background: var(--qr-surface-2);
   border-radius: var(--qr-card-radius-sm, 1.25rem);
   padding: .15rem 1rem;
   margin-bottom: 1.2rem;
@@ -8047,20 +8022,17 @@ html.dark-mode .duel-result-stats { background: rgba(15, 23, 42, .5); }
 }
 .rs-row:last-child { border-bottom: none; }
 html.dark-mode .rs-row { border-bottom-color: rgba(255, 255, 255, .07); }
-.rs-you { text-align: right; font-weight: 700; color: #0f172a; }
-.rs-opp { text-align: left; font-weight: 700; color: #0f172a; }
-html.dark-mode .rs-you, html.dark-mode .rs-opp { color: #e2e8f0; }
-.rs-label { text-align: center; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: #64748b; white-space: nowrap; }
-.duel-result-why { margin-bottom: 1.3rem; font-size: .85rem; color: #64748b; letter-spacing: .01em; }
-html.dark-mode .duel-result-why { color: #94a3b8; }
+.rs-you { text-align: right; font-weight: 700; color: var(--qr-text); }
+.rs-opp { text-align: left; font-weight: 700; color: var(--qr-text); }
+.rs-label { text-align: center; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--qr-text-dim); white-space: nowrap; }
+.duel-result-why { text-align: center; margin-bottom: 1.3rem; font-size: .85rem; color: var(--qr-text-dim); letter-spacing: .01em; }
 .duel-result-actions .duel-finish-btn { flex: 1.5; font-weight: 700; }
 
 
 /* ---- PWA install gate (ADR-038) ---- */
 .duel-installgate { text-align: center; padding: 1.6rem 1.3rem .5rem; }
 .duel-installgate-icon { font-size: 2.8rem; line-height: 1; }
-.duel-installgate-title { font-size: 1.25rem; font-weight: 800; margin: .6rem 0 .45rem; color: #0f172a; }
-html.dark-mode .duel-installgate-title { color: #fff; }
+.duel-installgate-title { font-size: 1.25rem; font-weight: 800; margin: .6rem 0 .45rem; color: var(--qr-text); }
 
 /* ═══════════════════ AI Companion — one design language (ADR-039) ═══════════════════ */
 /* Shell comes from the .qr-sheet primitive (FW-W3); companion keeps its z-order, entrance motion,

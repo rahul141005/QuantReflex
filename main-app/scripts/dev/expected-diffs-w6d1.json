@@ -1,0 +1,5 @@
+{
+  "duelsetup-light":   "FW-W6 D1: duel sheet onto .qr-sheet primitive (scrim/blur/radius/max-height normalized to the app-wide sheet identity; join input onto .qr-input) — reviewed",
+  "duelsetup-dark":    "FW-W6 D1: duel sheet onto .qr-sheet primitive — reviewed",
+  "duelsetup-playful": "FW-W6 D1: duel sheet onto .qr-sheet primitive — reviewed"
+}
