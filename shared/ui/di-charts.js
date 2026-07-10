@@ -23,7 +23,7 @@
   'use strict';
 
   /* Series color is applied via a CSS class painting with `currentColor`, so the light/dark categorical palette lives
-     in ONE place (css/style.css `:root` / `body.dark-mode` `--di-series-*`) and the renderer stays theme-unaware
+     in ONE place (css/style.css `:root` / `html.dark-mode` `--di-series-*`) and the renderer stays theme-unaware
      (VIS-3 single-series = one color, VIS-4 dark-tuned). Fixed slot order, never cycled per datum. */
   function _sc(i) { return 'di-series-' + (i % 6); }
   /* Evenly-spaced tick values 0→niceMax for the value axis (VIS-1). */

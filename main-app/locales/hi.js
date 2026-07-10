@@ -395,6 +395,7 @@
     },
 
     nav: {
+      mainAria: 'मुख्य',
       home: 'होम',
       practice: 'अभ्यास',
       learn: 'सीखें',
@@ -532,6 +533,7 @@
 
 
     modals: {
+      closeAria: 'बंद करें',
       clearTitle: '🗑️ डेटा साफ़ करें',
       clearIntro: 'क्या साफ़ करना है चुनें। यह क्रिया पूर्ववत नहीं हो सकती।',
       clearStats: 'आँकड़े साफ़ करें',
@@ -591,7 +593,8 @@
       joinDuel: 'डुएल जॉइन करें',
       aiCoachTitle: 'AI कोच',
       mathDuelTitle: 'Math Duel',
-      proBadge: '🔒 PRO',
+      inboxBellAria: 'सूचनाएँ',
+      proBadge: 'PRO',
       proBadgeTitle: 'Premium',
       aiCoachDesc: 'व्यक्तिगत तैयारी मार्गदर्शन',
       plannerTitle: 'स्टडी प्लानर',

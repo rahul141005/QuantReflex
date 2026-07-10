@@ -6,6 +6,50 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-10 — i18n LAUNCH + Final Production Excellence Audit (a11y/polish/perf)
+
+**Languages are LIVE.** `QRI18n.ENABLED` and the lockstep inline `I18N_ON` flipped to true — the
+App language / Study language rows now render in Settings for every user (the certified ADR-111
+pipeline: persistence, linked defaults, lazy pack load, live repaint, pre-paint `<html lang>`).
+The flag stays in code as the emergency kill-switch. Verified live (17 Playwright assertions):
+reveal → switch to Hindi (chrome/nav/toast → Devanagari instantly, canonical blob persisted) →
+reload keeps Hindi from the first frame → exact English restore. SW v226→v228.
+
+**Real bug fixed en route:** both head pre-paint scripts (theme AND language) read the LEGACY
+storage key (`quant_reflex_settings`) while the app saves through AppState to the CANONICAL key
+(`qr_settings`, ADR-095) — so after any real settings change the first frame used stale values;
+the flash guards were silently broken for exactly the users they protect. Both now read
+canonical-first with the legacy fallback for unmigrated installs.
+
+**Fresh production audit (2 independent reviewers) — every verified finding fixed:**
+- *A11y:* bottom nav de-tablisted (`aria-label` via `nav.mainAria` ×3 locales + `aria-current="page"`
+  in router.js, replacing the broken `role=tablist/tab/aria-selected` contract); `role="dialog"
+  aria-modal aria-labelledby` added to the paywall card and 7 static modals (clearData, clearConfirm,
+  exitSession, exitDuel via duel-ui builder, profile, deleteAccount, inbox drawer); `aria-label` on
+  the 3 unlabeled icon buttons (inbox close/bell — new `home.inboxBellAria` + `modals.closeAria`
+  keys ×3 — and quick-links edit); the OS `prefers-reduced-motion` kill unified with the in-app
+  class kill (now covers pseudo-elements, delays, scroll-behavior, ripple); the companion loading
+  text-rotation interval respects reduced motion.
+- *Latent visual bug:* the unified PRO badge's lock icon sized with `.85em` under the icon system's
+  `font-size:0` collapse — **the lock was invisible** on Premium chips and full-color emoji on Home
+  badges. Home badges now use the masked `.qr-ico[data-ico=lock]`, sized via `--qr-ico-size:.8rem`,
+  `color:inherit`; `home.proBadge` locale value `'🔒 PRO'`→`'PRO'` ×3.
+- *Polish:* `.modal-content` radius outlier `1.1rem`→`--qr-card-radius`; duel-results 48px button
+  overrides removed (54px everywhere); home-duel-btn radius `.65rem`→`--qr-btn-radius` (matches its
+  sibling CTA); insight-card one-off radii (12px/14px)→`--qr-card-radius-sm`; `.qr-btn` gains a 44px
+  floor; press feedback normalized to `var(--qr-dur-fast)` + `scale(.97)` (was .1–.25s / .95–.98);
+  uppercase eyebrow tracking normalized to `.06em` (7 rules + the PRO badge); `--qr-focus-ring`
+  added to the 4 border-only input focus states.
+- *Perf/arch:* dead body-level theme mirrors removed from settings.js/app.js (zero selectors/readers
+  consumed them post html-migration); permanent `will-change` dropped from the hidden numpad and the
+  non-compositable `will-change:contents` on question text; dead `qr_appUpdating` write removed;
+  stale `body.dark-mode` comment in di-charts fixed (synced byte-identical across shared/ +
+  super-admin mirrors per the lockstep guard).
+
+Verification: npm test **14,419** green (24 new locale-parity assertions); design-lint 9/9 (census
+radii 48, raw-color ratio 5.17); booted-app phone/tablet × light/dark/playful regression + live
+i18n flow ALL PASS; badge/select/app-bar renders eyeballed.
+
 ## 2026-07-10 — UI/UX Excellence Phase 1 — end-to-end pass (Phase-0 re-audit + M4 + M5 + M6)
 
 Continuous execution of the remaining blueprint after M3, opened by an **independent fresh-eyes re-audit

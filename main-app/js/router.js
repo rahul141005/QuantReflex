@@ -121,7 +121,7 @@ var Router = (function () {
     for (var j = 0; j < navLinks.length; j++) {
       var isActive = navLinks[j].getAttribute('data-view') === viewId;
       navLinks[j].classList.toggle('active', isActive);
-      navLinks[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
+      if (isActive) navLinks[j].setAttribute('aria-current', 'page'); else navLinks[j].removeAttribute('aria-current');
     }
 
     if (currentView && currentView !== viewId) {
@@ -258,7 +258,7 @@ var Router = (function () {
     var navLinks = document.querySelectorAll('.bottom-nav a');
     for (var j = 0; j < navLinks.length; j++) {
       navLinks[j].classList.remove('active');
-      navLinks[j].setAttribute('aria-selected', 'false');
+      navLinks[j].removeAttribute('aria-current');
     }
     
     var _allModals = document.querySelectorAll('.modal-overlay');

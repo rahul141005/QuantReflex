@@ -44,11 +44,11 @@ function saveSettings(s) {
  * @param {string} theme - 'classic' or 'playful'
  */
 function applyTheme(theme) {
-  /* UI Phase 1: theme classes live on <html> (so the pre-paint head script can set them before <body>
-     parses — no flash). Body is kept in lockstep as belt-and-braces for one release. */
+  /* UI Phase 1: theme classes live on <html> — the pre-paint head script sets them before <body>
+     parses (no flash), and every selector keys off html.*. (The transitional body-level toggle was
+     removed once zero selectors/readers consumed it.) */
   var on = theme === 'playful';
   document.documentElement.classList.toggle('theme-playful', on);
-  document.body.classList.toggle('theme-playful', on);
   /* Icons are theme-driven purely in CSS (QR icon system) — toggling the class is enough. */
 }
 
@@ -83,9 +83,8 @@ function _syncThemeColor(dark) {
 
 function applyAppearance(s) {
   var dark = resolveDarkMode(s || loadSettings());
-  /* Theme class on <html> (lockstep with the pre-paint script) + body for one release (belt-and-braces). */
+  /* Theme class on <html> (lockstep with the pre-paint script). */
   document.documentElement.classList.toggle('dark-mode', dark);
-  document.body.classList.toggle('dark-mode', dark);
   _syncThemeColor(dark);
 }
 
@@ -565,7 +564,6 @@ function initSettingsView() {
       if (typeof QRUpdateManager !== 'undefined') {
         QRUpdateManager.applyUpdate();
       } else {
-        try { localStorage.setItem('qr_appUpdating', 'true'); } catch (_) {}
         window.location.href = window.location.pathname;
       }
     });

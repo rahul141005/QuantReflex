@@ -56,14 +56,13 @@
     /* Appearance (ADR-091): System/Light/Dark resolved by settings.js's resolveDarkMode (loads
        before app.js); the darkMode boolean remains the guarded fallback. */
     var _dark = (typeof resolveDarkMode === 'function') ? resolveDarkMode(settings) : !!settings.darkMode;
-    /* Theme classes live on <html> (lockstep with the pre-paint head script); mirror on body for one
-       release (belt-and-braces). Use toggle so the ELSE branch clears any stale pre-paint class. */
+    /* Theme classes live on <html> (lockstep with the pre-paint head script); every selector keys off
+       html.* — the transitional body mirror was removed once nothing consumed it. Use toggle so the
+       ELSE branch clears any stale pre-paint class. */
     document.documentElement.classList.toggle('dark-mode', _dark);
-    document.body.classList.toggle('dark-mode', _dark);
     if (settings.reducedMotion) document.body.classList.add('reduced-motion');
     var _playful = settings.theme === 'playful';
     document.documentElement.classList.toggle('theme-playful', _playful);
-    document.body.classList.toggle('theme-playful', _playful);
     if (typeof _syncThemeColor === 'function') _syncThemeColor(_dark);
     /* Languages (ADR-111): applied with the other appearance state so static chrome is already
        localized before first paint completes (the inline head script covered <html lang> pre-paint). */
@@ -514,7 +513,7 @@ document.addEventListener('DOMContentLoaded', function () {
       try {
         var s = (typeof AppState !== 'undefined') ? AppState.getSettings() : JSON.parse(localStorage.getItem('quant_reflex_settings') || '{}');
         if (typeof applyAppearance === 'function') { applyAppearance(s); }
-        else { document.documentElement.classList.toggle('dark-mode', !!s.darkMode); document.body.classList.toggle('dark-mode', !!s.darkMode); }
+        else { document.documentElement.classList.toggle('dark-mode', !!s.darkMode); }
         if (typeof applyTheme === 'function') applyTheme(s.theme || 'classic');
         /* ADR-111: re-apply languages after Firestore hydration (settings may have synced from
            another device where the user picked a different language). */

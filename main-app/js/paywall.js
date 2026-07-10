@@ -463,7 +463,7 @@ function showPaywall(featureType) {
   overlay.id = 'paywallModalOverlay';
   overlay.className = 'paywall-overlay';
   overlay.innerHTML =
-    '<div class="paywall-card pw-card">' +
+    '<div class="paywall-card pw-card" role="dialog" aria-modal="true" aria-labelledby="pwHeroTitle">' +
       '<button class="paywall-close pw-close" type="button" aria-label="' + QRI18n.t('paywall.closeAria') + '">×</button>' +
 
       /* Price-first structure: hero → why-you're-here → plans + CTA on the first screen, the
@@ -471,7 +471,7 @@ function showPaywall(featureType) {
          table) pushed the price two screens down — a paywall that hides its price reads as one. */
       '<div class="pw-hero">' +
         '<div class="pw-hero-icon">🧠</div>' +
-        '<h2 class="pw-hero-title">' + QRI18n.t('paywall.heroTitle') + '</h2>' +
+        '<h2 class="pw-hero-title" id="pwHeroTitle">' + QRI18n.t('paywall.heroTitle') + '</h2>' +
         '<p class="pw-hero-sub">' + QRI18n.t('paywall.heroSub') + '</p>' +
       '</div>' +
 

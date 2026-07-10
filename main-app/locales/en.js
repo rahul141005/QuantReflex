@@ -400,6 +400,7 @@
     },
 
     nav: {
+      mainAria: 'Main',
       home: 'Home',
       practice: 'Practice',
       learn: 'Learn',
@@ -537,6 +538,7 @@
 
 
     modals: {
+      closeAria: 'Close',
       clearTitle: '🗑️ Clear Data',
       clearIntro: 'Choose what data to clear. This action cannot be undone.',
       clearStats: 'Clear Statistics',
@@ -596,7 +598,8 @@
       joinDuel: 'Join Duel',
       aiCoachTitle: 'AI Coach',
       mathDuelTitle: 'Math Duel',
-      proBadge: '🔒 PRO',
+      inboxBellAria: 'Notifications',
+      proBadge: 'PRO',
       proBadgeTitle: 'Premium',
       aiCoachDesc: 'Personalized preparation guidance',
       plannerTitle: 'Study Planner',

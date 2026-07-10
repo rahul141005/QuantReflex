@@ -224,6 +224,13 @@ var Companion = (function () {
         '<div class="companion-loadmsg">' + esc(seq[0]) + '</div>' +
       '</div>';
     var msg = bodyEl.querySelector('.companion-loadmsg'), i = 0;
+    /* Reduced motion (OS preference or in-app toggle): hold the first message instead of rotating. */
+    var _rm = false;
+    try {
+      _rm = document.body.classList.contains('reduced-motion') ||
+        (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (_) {}
+    if (_rm) return function () {};
     /* Self-terminate once the loading node leaves the document (sheet closed mid-load via X / backdrop / Escape /
        drag) — otherwise the rotation keeps writing to a detached node until the caller's stop() fires. The
        document.body.contains guard clears it within one tick of any close, for every showLoading caller. */

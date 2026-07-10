@@ -549,8 +549,8 @@ var DuelUI = (function () {
   function showExitModal(opts) {
     var modal = _el('exitDuelModal'); if (!modal) { opts.onConfirm(); return; }
     modal.innerHTML =
-      '<div class="modal-content duel-exit-modal">' +
-        '<h3 class="duel-exit-title">' + _esc(_t('duel.exitTitle')) + '</h3>' +
+      '<div class="modal-content duel-exit-modal" role="dialog" aria-modal="true" aria-labelledby="duExitTitle">' +
+        '<h3 class="duel-exit-title" id="duExitTitle">' + _esc(_t('duel.exitTitle')) + '</h3>' +
         '<p class="duel-exit-body">' + _t('duel.exitAnswered', { n: '<strong>' + opts.answered + ' / ' + opts.total + '</strong>' }) + ' ' + _t('duel.exitNoRejoin') + '</p>' +
         '<div class="duel-exit-actions">' +
           '<button id="duExitCancel" class="btn-secondary" type="button">' + _esc(_t('duel.exitKeep')) + '</button>' +

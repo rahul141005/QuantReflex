@@ -395,6 +395,7 @@
     },
 
     nav: {
+      mainAria: 'मुख्य',
       home: 'होम',
       practice: 'सराव',
       learn: 'शिका',
@@ -532,6 +533,7 @@
 
 
     modals: {
+      closeAria: 'बंद करा',
       clearTitle: '🗑️ डेटा पुसा',
       clearIntro: 'काय पुसायचे ते निवडा. ही कृती पूर्ववत होऊ शकत नाही.',
       clearStats: 'आकडेवारी पुसा',
@@ -591,7 +593,8 @@
       joinDuel: 'ड्युएल जॉइन करा',
       aiCoachTitle: 'AI कोच',
       mathDuelTitle: 'Math Duel',
-      proBadge: '🔒 PRO',
+      inboxBellAria: 'सूचना',
+      proBadge: 'PRO',
       proBadgeTitle: 'Premium',
       aiCoachDesc: 'वैयक्तिक तयारीचे मार्गदर्शन',
       plannerTitle: 'स्टडी प्लॅनर',
