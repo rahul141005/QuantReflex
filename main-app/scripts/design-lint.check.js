@@ -118,7 +118,7 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 const CEIL = {
   radii: 8,         // GOAL REACHED (FW-W7b: 45→6 — 50%/4px/2px/inherit + composites; splash blobs = content-art)
   shadows: 6,       // GOAL REACHED (FW-W7b2: 130→4 — none + 3 stragglers; keyframe pulse states excluded as motion)
-  fontSizes: 79,    // goal ≤14  (M6: 81→80; FW-W4: →79, WP teaser CSS deleted)
+  fontSizes: 14,    // GOAL REACHED (FW-W7d: 79→12 — --fs-* scale + icon display tokens; keeps: root 16px, drill question trio, sparkline SVG 9px, bento clamps, 6rem countdown, qr-ico 0, .85em, inherit)
   durations: 4,     // GOAL REACHED (FW-W7a: 44→3 — 0s + 25s ambient + reduced-motion 0.01ms; slack 1)
   easings: 3,       // GOAL REACHED (FW-W7a: every literal easing → --qr-ease/-out; linear kept)
   zIndexes: 7,      // GOAL REACHED (FW-W7b: 20→1 — value-preserving --z-* tokens; only literal 0 remains)
