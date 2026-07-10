@@ -57,7 +57,20 @@ function distinct(re, normalize) {
 
 /* ---- distinct-value censuses ---- */
 const radii = distinct(/border-radius:\s*([^;}]+)[;}]/g);
-const shadows = distinct(/box-shadow:\s*([^;}]+)[;}]/g);
+/* Shadows: @keyframes interpolation STATES (pulse rings animating alpha 0↔1) are motion design,
+   not resting elevations — the shadows census measures the declared elevation system only (FW-W7b). */
+const cssNoKeyframes = css.replace(/@keyframes[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, ' ');
+const shadows = (() => {
+  const set = new Set();
+  const re = /box-shadow:\s*([^;}]+)[;}]/g;
+  let m;
+  while ((m = re.exec(cssNoKeyframes)) !== null) {
+    const v = m[1].trim().replace(/\s+/g, ' ');
+    if (/^var\(--[\w-]+\)$/.test(v)) continue;
+    set.add(v);
+  }
+  return set;
+})();
 const fontSizes = distinct(/font-size:\s*([^;}]+)[;}]/g);
 const zIndexes = distinct(/z-index:\s*([^;}]+)[;}]/g);
 const gradients = distinct(/((?:linear|radial|conic)-gradient\([^;}]*\))/g);
@@ -93,7 +106,7 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 /* ---- ceilings: baseline 2026-07-09 (ratchet DOWN only; blueprint goals in comments) ---- */
 const CEIL = {
   radii: 8,         // GOAL REACHED (FW-W7b: 45→6 — 50%/4px/2px/inherit + composites; splash blobs = content-art)
-  shadows: 130,     // goal ≤6   (M6: 141→132; FW-W2: →131; FW-W3: →130, sheet shadow → --el-sheet)
+  shadows: 6,       // GOAL REACHED (FW-W7b2: 130→4 — none + 3 stragglers; keyframe pulse states excluded as motion)
   fontSizes: 79,    // goal ≤14  (M6: 81→80; FW-W4: →79, WP teaser CSS deleted)
   durations: 4,     // GOAL REACHED (FW-W7a: 44→3 — 0s + 25s ambient + reduced-motion 0.01ms; slack 1)
   easings: 3,       // GOAL REACHED (FW-W7a: every literal easing → --qr-ease/-out; linear kept)
