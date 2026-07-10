@@ -123,7 +123,7 @@ const CEIL = {
   easings: 3,       // GOAL REACHED (FW-W7a: every literal easing → --qr-ease/-out; linear kept)
   zIndexes: 7,      // GOAL REACHED (FW-W7b: 20→1 — value-preserving --z-* tokens; only literal 0 remains)
   gradients: 10,    // GOAL REACHED (FW-W7c: 64→10 — the identity set; mask-geometry gradients excluded)
-  colorRatio: 3.8   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8; FW-W4: →4.3; FW-W6: →3.8, duel silo + archive tokens)
+  colorRatio: 1.0   // GOAL REACHED (FW-W7e: 3.8→0.56 — 567 semantic folds onto --qr-* tokens + 183 veil folds onto invariant --qr-veil-* tokens)
 };
 
 console.log('design-lint census: radii=' + radii.size + ' shadows=' + shadows.size +
