@@ -42,7 +42,9 @@ const SCREENS = {
   settings: "Router.showView('settings'); try { initSettingsView(); } catch(_){}",
   learn:    "Router.showView('learn'); try { if (typeof LearnView !== 'undefined' && LearnView.renderHub) LearnView.renderHub(); } catch(_){}",
   stats:    "Router.showView('stats'); try { if (typeof StatsView !== 'undefined' && StatsView.render) StatsView.render(); } catch(_){}",
-  about:    "Router.showView('settings'); try { initSettingsView(); } catch(_){} try { openInfoModal('aboutModal'); } catch(_){}"
+  about:    "Router.showView('settings'); try { initSettingsView(); } catch(_){} try { openInfoModal('aboutModal'); } catch(_){}",
+  /* runs after `about` in the same page — close the leftover info modal before rendering */
+  quickref: "try { if (typeof _closeAllInfoModals === 'function') _closeAllInfoModals(); } catch(_){} document.querySelectorAll('#aboutModal, .info-modal').forEach(function(m){ m.style.display='none'; }); document.body.classList.remove('modal-open'); Router.showView('learn', { path: 'quick-ref' });"
 };
 
 async function boot(page) {

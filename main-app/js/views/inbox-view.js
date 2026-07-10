@@ -186,16 +186,16 @@ var InboxView = (function () {
 
     var html = '';
     _notifications.forEach(function(n) {
-      var bg = n.isRead ? 'var(--bg-surface)' : 'var(--bg-elevated)';
       var weight = n.isRead ? '500' : '700';
-      var border = n.isRead ? '1px solid var(--border-color)' : '1px solid var(--qr-danger, #ef4444)';
 
       // ADR-066: prefer the pipeline-provided icon; fall back to a type/category guess for older docs.
       var icon = n.icon || ({ direct_message: '💬', topic_nudge: '🎯' })[n.type] || _catMeta(n.category).icon;
       var cat = _catMeta(n.category);
       var unreadDot = n.isRead ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--qr-danger,#ef4444);flex-shrink:0;"></span>';
 
-      html += '<div class="notification-card" data-id="' + n.id + '" data-link="' + _escapeHtml(n.deepLink || '') + '" style="background:' + bg + '; border:' + border + '; border-radius:var(--radius-lg); padding:1rem; cursor:pointer; transition:transform 0.15s, background 0.2s;">';
+      /* FW-W3: shell styling moved onto the .qr-card primitive (+ .is-unread state in CSS). The old
+         inline shell referenced var(--radius-lg), which was never defined — cards rendered square. */
+      html += '<div class="qr-card notification-card' + (n.isRead ? '' : ' is-unread') + '" data-id="' + n.id + '" data-link="' + _escapeHtml(n.deepLink || '') + '">';
       html += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; gap:0.5rem;">';
       html += '    <span style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:' + cat.color + '; background:' + cat.bg + '; padding:0.12rem 0.5rem; border-radius:999px;">' + cat.label + '</span>';
       html += '    <span style="display:flex;align-items:center;gap:0.4rem;"><span style="font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">' + timeAgo(n.timestamp) + '</span>' + unreadDot + '</span>';

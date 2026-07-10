@@ -56,22 +56,22 @@ var QuickRef = (function () {
     var KB = _KB();
     var card = _resolve(rawCard);   // study-language merged view (EN base + hi/mr overlay); id/section/links unchanged
     var wrap = document.createElement('div');
-    wrap.className = 'qr-card';
+    wrap.className = 'qref-card';
     wrap.setAttribute('data-card', card.id);
     /* BILINGUAL search: index the translated title + the EN title + the (union) searchTerms, so a query in either script hits. */
     var terms = [card.title, rawCard.title].concat(card.searchTerms || []).join(' ').toLowerCase();
     wrap.setAttribute('data-terms', terms);
 
     var head = document.createElement('div');
-    head.className = 'qr-card-head';
-    head.innerHTML = '<span class="qr-card-ico">' + _esc(card.icon || '📎') + '</span><span class="qr-card-title">' + _esc(card.title) + '</span>';
+    head.className = 'qref-card-head';
+    head.innerHTML = '<span class="qref-card-ico">' + _esc(card.icon || '📎') + '</span><span class="qref-card-title">' + _esc(card.title) + '</span>';
     wrap.appendChild(head);
 
     wrap.appendChild(_blockNode(card.block));
 
     /* cross-links — only shown when the target genuinely exists (Learn topic in the registry / Quant drill category) */
     var links = document.createElement('div');
-    links.className = 'qr-card-links';
+    links.className = 'qref-card-links';
     if (card.learn && KB && KB.has(card.learn)) {
       var lb = document.createElement('button');
       lb.type = 'button'; lb.className = 'qr-link qr-link-learn'; lb.textContent = _t('qrLinkLearn', '📖 Learn');
@@ -150,7 +150,7 @@ var QuickRef = (function () {
     host.appendChild(body);
 
     var empty = document.createElement('p');
-    empty.className = 'qr-empty secondary-text';
+    empty.className = 'qref-empty secondary-text';
     empty.id = 'quickRefEmpty';
     empty.style.display = 'none';
     empty.textContent = _t('qrEmpty', 'No formulas match your search.');
@@ -176,7 +176,7 @@ var QuickRef = (function () {
       var secId = sec.getAttribute('data-sec');
       var anyInSec = false;
 
-      sec.querySelectorAll('.qr-card').forEach(function (cardEl) {
+      sec.querySelectorAll('.qref-card').forEach(function (cardEl) {
         var match = !q || (cardEl.getAttribute('data-terms') || '').indexOf(q) !== -1;
         cardEl.style.display = match ? '' : 'none';
         if (match) anyInSec = true;
@@ -206,7 +206,7 @@ var QuickRef = (function () {
      Safe no-op if the library isn't rendered yet or the id is unknown. */
   function reveal(cardId) {
     var host = document.getElementById('learnQuickRef'); if (!host) return;
-    var cardEl = host.querySelector('.qr-card[data-card="' + String(cardId).replace(/"/g, '') + '"]');
+    var cardEl = host.querySelector('.qref-card[data-card="' + String(cardId).replace(/"/g, '') + '"]');
     if (!cardEl || !cardEl.closest) return;
     var sec = cardEl.closest('.qr-sec');
     if (sec) {
@@ -221,8 +221,8 @@ var QuickRef = (function () {
     var behavior = 'smooth';
     try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) behavior = 'auto'; } catch (_) {}
     try { cardEl.scrollIntoView({ behavior: behavior, block: 'start' }); } catch (_) { cardEl.scrollIntoView(); }
-    cardEl.classList.add('qr-card-flash');
-    setTimeout(function () { cardEl.classList.remove('qr-card-flash'); }, 1600);
+    cardEl.classList.add('qref-card-flash');
+    setTimeout(function () { cardEl.classList.remove('qref-card-flash'); }, 1600);
   }
 
   /* ADR-111 stabilization: the library is built once (_built) with language-resolved card content, section chrome

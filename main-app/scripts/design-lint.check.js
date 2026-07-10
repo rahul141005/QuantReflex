@@ -74,14 +74,14 @@ const ratio = (rawHex + rawRgb) / Math.max(1, varUses);
 
 /* ---- ceilings: baseline 2026-07-09 (ratchet DOWN only; blueprint goals in comments) ---- */
 const CEIL = {
-  radii: 49,        // goal ≤8   (M6: 51→49)
-  shadows: 131,     // goal ≤6   (M6: 141→132; FW-W2: 132→131, planner confirm shell → shared .qr-dialog)
+  radii: 46,        // goal ≤8   (M6: 51→49; FW-W3: 49→46, sheet/segment/input radii → tokens)
+  shadows: 130,     // goal ≤6   (M6: 141→132; FW-W2: →131; FW-W3: →130, sheet shadow → --el-sheet)
   fontSizes: 80,    // goal ≤14  (M6: 81→80)
   durations: 44,    // goal 4 (3 tokens + 0s)
   easings: 4,       // goal 3 (2 tokens + linear)  (M6: 18→4, bezier zoo → --qr-ease/-out/-spring)
   zIndexes: 20,     // goal 7    (M6: 26→20, --z-* scale adoption)
   gradients: 64,    // goal ≤10  (M6: 70→64)
-  colorRatio: 5.5   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5)
+  colorRatio: 4.8   // goal ≤1.0 (chrome CSS)  (M6: 7.0→5.5; FW-W3: →4.8, input/pill/empty/toc theme re-declarations deleted)
 };
 
 console.log('design-lint census: radii=' + radii.size + ' shadows=' + shadows.size +

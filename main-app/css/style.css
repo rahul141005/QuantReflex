@@ -49,10 +49,14 @@
      against the design-lint census (only literal `border-radius:` / `box-shadow:` / etc. declarations do). ── */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 24px; --r-full: 999px;
+  --r-sheet-top: 1.4rem 1.4rem 0 0; --r-sheet: 1.4rem;   /* bottom-sheet top corners / ≥600px centered form (FW-W3) */
   --el-0: 0 0 0 1px var(--qr-border);                                    /* flat / hairline (no lift) */
   --el-1: 0 6px 20px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.03);   /* resting card */
   --el-2: 0 12px 28px rgba(15,23,42,.10), 0 2px 6px rgba(15,23,42,.05);  /* raised / hover / sheet */
   --el-3: 0 24px 48px rgba(15,23,42,.16), 0 6px 16px rgba(15,23,42,.08); /* dialog */
+  --el-sheet: 0 -8px 40px rgba(2,6,23,.28);                              /* bottom sheet (upward throw) */
+  --qr-dur-pulse: 1.2s;                    /* ambient pulse loops (skeletons) */
+  --qr-skel-veil: rgba(15,23,42,.05);      /* skeleton row veil */
   --glass-nav: blur(12px); --glass-scrim: blur(4px);
   --z-nav: 100; --z-sticky: 200; --z-drawer: 800; --z-sheet: 900; --z-dialog: 1000; --z-toast: 1100; --z-critical: 1200;
   --fs-h1: 1.5rem; --fs-h2: 1.25rem; --fs-h3: 1.125rem; --fs-body: 1rem; --fs-sub: .875rem; --fs-caption: .75rem; --fs-micro: .6875rem;
@@ -81,6 +85,7 @@ html.dark-mode {
   --qr-focus-ring: 0 0 0 3px rgba(96,165,250,.4);
   /* deeper elevation on navy so cards read against the dark surface */
   --el-1: 0 8px 24px rgba(2,6,23,.45); --el-2: 0 14px 32px rgba(2,6,23,.55); --el-3: 0 24px 48px rgba(2,6,23,.6);
+  --qr-skel-veil: rgba(255,255,255,.06);
 }
 /* Playful skin — a COMPLETE token identity (ADR-087): warm off-white surfaces, its own confident blue accent, warm
    ink, and matching status/focus tokens. Every token-driven component (start screen, keypad symbols, teaching panel,
@@ -1546,37 +1551,7 @@ html.dark-mode .timer-toggle-label { color: #e2e8f0; }
 .timer-config-area {
   margin-top: .85rem;
 }
-.timer-pill-selector {
-  display: flex;
-  background: #e8edf3;
-  border-radius: .6rem;
-  padding: 3px;
-  gap: 3px;
-}
-html.dark-mode .timer-pill-selector { background: #1e293b; }
-.timer-pill {
-  flex: 1;
-  padding: .45rem .5rem;
-  border: none;
-  border-radius: .5rem;
-  background: transparent;
-  color: #64748b;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  transition: background .18s ease, color .18s ease, transform .18s ease, opacity .18s ease;
-}
-.timer-pill.active {
-  background: #ffffff;
-  color: #1d4ed8;
-  box-shadow: 0 1px 3px rgba(0,0,0,.08);
-}
-html.dark-mode .timer-pill { color: #94a3b8; }
-html.dark-mode .timer-pill.active {
-  background: #334155;
-  color: #93c5fd;
-}
+/* Timer pills co-declare with the .qr-segment primitive (FW-W3) — see the design-system block. */
 .timer-input-row {
   display: flex;
   align-items: center;
@@ -1696,14 +1671,7 @@ html.dark-mode .settings-row-block h3 {
   color: #f1f5f9;
 }
 
-.settings-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  min-height: 48px;
-  padding: .25rem 0;
-}
+/* .settings-row co-declares with the .qr-row primitive (FW-W3) — see the design-system block. */
 /* min-width:0 lets the text column shrink below its content width so a long subtitle wraps INSIDE its own
    column instead of shoving the fixed-width control past the card's right padding (the flexbox-overflow fix). */
 .settings-label { flex: 1; min-width: 0; }
@@ -1785,6 +1753,102 @@ html.dark-mode .toast {
 .qr-btn-sm { padding: .55rem .9rem; font-size: var(--fs-caption); }
 .qr-btn-lg { padding: 1.05rem 1.4rem; font-size: var(--fs-body); }
 .qr-btn-block { width: 100%; }
+
+/* ============================================================================
+   FW-W3 — design-system primitives (token-only). Authored EARLY in the file on
+   purpose: component rules further down co-declare onto these (real adopters:
+   report + companion sheets, timer pills, settings rows, About TOC chips,
+   duel-archive skeleton, inbox cards, modal/goal inputs) and keep only their
+   deltas — the cascade lets a component override a primitive simply by coming
+   later. New surfaces (W4 Quick Study chips/picker) use the bare .qr-* classes.
+   ========================================================================== */
+
+/* ---- Bottom sheet (phone) → centered dialog (≥600px) ---- */
+.qr-sheet, .report-sheet-overlay, .companion-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,.55);
+  display: flex; align-items: flex-end; justify-content: center;
+  -webkit-backdrop-filter: var(--glass-scrim); backdrop-filter: var(--glass-scrim);
+}
+.qr-sheet { z-index: var(--z-sheet); }
+.qr-sheet-card, .report-sheet, .companion-sheet {
+  width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh;
+  background: var(--qr-surface-solid);
+  border-radius: var(--r-sheet-top);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: var(--el-sheet);
+}
+.qr-sheet-grabber, .report-sheet-grabber, .companion-grabber {
+  width: 38px; height: 4px; border-radius: var(--r-full); background: var(--qr-border-strong);
+  margin: .5rem auto .1rem; flex-shrink: 0; cursor: grab;
+}
+@media (min-width: 600px) {
+  .qr-sheet, .report-sheet-overlay, .companion-overlay { align-items: center; }
+  .qr-sheet-card, .report-sheet, .companion-sheet { border-radius: var(--r-sheet); max-height: 84vh; }
+  .qr-sheet-grabber, .report-sheet-grabber, .companion-grabber { display: none; }
+}
+
+/* ---- Card ---- */
+.qr-card {
+  background: var(--qr-surface-solid); color: var(--qr-text);
+  border: 1px solid var(--qr-border); border-radius: var(--qr-card-radius-sm);
+  padding: var(--sp-4);
+}
+
+/* ---- Chip (pill-shaped tap target) ---- */
+.qr-chip, .info-toc-chip {
+  font: inherit; font-weight: 700;
+  border: 1px solid var(--qr-border); border-radius: var(--r-full);
+  padding: .3rem .7rem; min-height: 2.25rem;   /* 36px minimum touch target (ADR-110) */
+  cursor: pointer;
+}
+.qr-chip {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  background: var(--qr-surface-2); color: var(--qr-text-dim); font-size: var(--fs-caption);
+}
+.qr-chip:active, .info-toc-chip:active { transform: scale(.97); }
+.qr-chip:focus-visible, .info-toc-chip:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
+
+/* ---- Row (label left, control right; 48px comfortable line) ---- */
+.qr-row, .settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: var(--sp-4); min-height: 48px; padding: var(--sp-1) 0;
+}
+
+/* ---- Input ---- */
+.qr-input, .modal-input, .goal-input {
+  border: 2px solid var(--qr-border); border-radius: var(--r-md);
+  outline: none; color: var(--qr-text); background: var(--qr-surface-solid);
+  transition: border-color var(--qr-dur);
+}
+.qr-input { width: 100%; box-sizing: border-box; padding: .6rem .75rem; font: inherit; font-size: var(--fs-sub); }
+.qr-input:focus, .modal-input:focus, .goal-input:focus { border-color: var(--qr-accent); box-shadow: var(--qr-focus-ring); }
+
+/* ---- Segment (single-select pill row) ---- */
+.qr-segment, .timer-pill-selector { display: flex; background: #e8edf3; border-radius: .6rem; padding: 3px; gap: 3px; }
+html.dark-mode .qr-segment, html.dark-mode .timer-pill-selector { background: #1e293b; }
+.qr-segment-btn, .timer-pill {
+  flex: 1; padding: .45rem .5rem; border: none; border-radius: var(--r-sm);
+  background: transparent; color: var(--qr-text-dim); font-size: .82rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+  transition: background .18s ease, color .18s ease, transform .18s ease, opacity .18s ease;
+}
+.qr-segment-btn.active, .timer-pill.active { background: #ffffff; color: var(--qr-accent-strong); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { background: #334155; color: #93c5fd; }
+
+/* ---- Skeleton (ambient loading pulse) ---- */
+.qr-skel, .ba-skeleton { display: flex; flex-direction: column; gap: .5rem; }
+.qr-skel-row, .ba-skel-row {
+  height: 3.2rem; border-radius: var(--qr-card-radius-sm);
+  background: var(--qr-skel-veil);
+  animation: qrSkelPulse var(--qr-dur-pulse) ease-in-out infinite;
+}
+@keyframes qrSkelPulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* ---- Inbox card adoption (was inline-styled; var(--radius-lg) was undefined → radius silently
+   computed to 0. The .qr-card shell fixes that and gives the drawer real theme surfaces.) ---- */
+.notification-card { cursor: pointer; }
+.notification-card.is-unread { background: var(--qr-surface-2); border-color: var(--qr-danger); }
 
 /* ---- Dialog (centered, focus-trapped by QROverlay) ---- */
 .qr-dialog-overlay {
@@ -1936,22 +2000,15 @@ body.reduced-motion .guide-animate-section { opacity: 1 !important; transform: n
 .toggle input:checked + .toggle-slider::before { transform: translateX(1.25rem); }
 
 /* Goal input */
+/* Box/border/focus come from the .qr-input primitive (FW-W3); only the size deltas live here. */
 .goal-input {
   width: 5rem;
   flex-shrink: 0;
   padding: .5rem;
-  border: 2px solid #e2e8f0;
-  border-radius: .75rem;
   font-size: 1rem;
   font-weight: 600;
   text-align: center;
-  outline: none;
-  transition: border-color .2s;
-  color: #0f172a;
-  background: #ffffff;
 }
-.goal-input:focus { border-color: #2563eb;
-  box-shadow: var(--qr-focus-ring); }
 
 /* ---- Settings Info Sections ---- */
 .settings-link {
@@ -2323,22 +2380,15 @@ html.dark-mode .stats-insights-locked-cta {
   padding-bottom: .15rem;
 }
 .info-toc::-webkit-scrollbar { display: none; }
+/* Shell (border/radius/padding/touch-target/:active/:focus) comes from the .qr-chip primitive
+   (FW-W3); only the TOC-specific ink/surface deltas live here. */
 .info-toc-chip {
   flex: 0 0 auto;
-  font: inherit;
   font-size: .72rem;
-  font-weight: 700;
   color: #475569;
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: .3rem .7rem;
-  cursor: pointer;
-  min-height: 2.25rem;   /* ADR-110 cert: 36px minimum touch target (was 1.9rem/30px) */
 }
-.info-toc-chip:active { transform: scale(.97); }
-.info-toc-chip:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-html.dark-mode .info-toc-chip { color: #cbd5e1; background: #1e293b; border-color: #334155; }
+html.dark-mode .info-toc-chip { color: #cbd5e1; background: #1e293b; }
 /* ADR-110: inline Premium marker — replaces the bare 🔒 glyph in prose with a self-explanatory chip. */
 /* .info-premium-chip visuals consolidated into the unified .qr-badge-pro rule (see PRO badge block). */
 
@@ -2713,11 +2763,6 @@ html.dark-mode .btn {
   color: #e2e8f0;
 }
 html.dark-mode .btn.accent { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; }
-html.dark-mode .goal-input {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
-}
 html.dark-mode .drill-progress-bar { background: #334155; }
 html.dark-mode .feedback.correct { background: rgba(22,163,74,.15); }
 html.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
@@ -2869,19 +2914,12 @@ html.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
   margin-bottom: .25rem;
   margin-top: .5rem;
 }
+/* Box/border/focus come from the .qr-input primitive (FW-W3); only the size deltas live here. */
 .modal-input {
   width: 100%;
   padding: .6rem .75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: .75rem;
   font-size: .9rem;
-  outline: none;
-  color: #0f172a;
-  background: #ffffff;
-  transition: border-color .2s;
 }
-.modal-input:focus { border-color: #2563eb;
-  box-shadow: var(--qr-focus-ring); }
 textarea.modal-input { min-height: 4rem; resize: vertical; font-family: inherit; }
 .modal-actions {
   display: flex;
@@ -2921,7 +2959,6 @@ html.dark-mode .modal-content { background: rgba(30, 41, 59, 0.75); border: 1px 
 html.dark-mode .modal-content::after {
   display: none;
 }
-html.dark-mode .modal-input { background: #334155; border-color: #475569; color: #e2e8f0; }
 html.dark-mode .modal-title { color: #60a5fa; }
 html.dark-mode .modal-cancel { background: #334155; color: #e2e8f0; }
 
@@ -4536,12 +4573,6 @@ html.theme-playful .feedback.wrong { color: var(--qr-danger-fg); }
 html.theme-playful .drill-progress { color: var(--qr-text-dim); }
 html.theme-playful.drill-session-active .drill-actions.has-skip .skip-btn { background: var(--qr-surface-2); color: var(--qr-text-dim); }
 
-html.theme-playful .goal-input {
-  background: #ffffff;
-  border-color: #e2ded6;
-  color: #1a1a2e;
-}
-html.theme-playful .goal-input:focus { border-color: #4f8ff7; }
 html.theme-playful .drill-progress-bar { background: #e8e6e1; }
 html.theme-playful .toast {
   background: #1a1a2e;
@@ -4679,12 +4710,6 @@ html.theme-playful .modal-content { background: #faf9f7; }
 html.theme-playful .modal-content::after {
   display: none;
 }
-html.theme-playful .modal-input {
-  background: #ffffff;
-  border-color: #e2ded6;
-  color: #1a1a2e;
-}
-html.theme-playful .modal-input:focus { border-color: #4f8ff7; }
 html.theme-playful .modal-title { color: #4f8ff7; }
 html.theme-playful .modal-cancel { background: #e8e6e1; }
 
@@ -4928,12 +4953,6 @@ html.theme-playful.dark-mode .btn.accent {
   color: #ffffff;
 }
 
-html.theme-playful.dark-mode .goal-input {
-  background: #161b2d;
-  border-color: rgba(255,255,255,.06);
-  color: #e6edf3;
-}
-html.theme-playful.dark-mode .goal-input:focus { border-color: #58a6ff; }
 html.theme-playful.dark-mode .drill-progress-bar { background: rgba(22,27,45,.7); }
 html.theme-playful.dark-mode .toast {
   background: rgba(22,27,45,.95);
@@ -5069,12 +5088,6 @@ html.theme-playful.dark-mode .modal-content {
 html.theme-playful.dark-mode .modal-content::after {
   display: none;
 }
-html.theme-playful.dark-mode .modal-input {
-  background: #0d1117;
-  border-color: rgba(255,255,255,.06);
-  color: #e6edf3;
-}
-html.theme-playful.dark-mode .modal-input:focus { border-color: #58a6ff; }
 html.theme-playful.dark-mode .modal-title { color: #58a6ff; }
 html.theme-playful.dark-mode .modal-cancel {
   background: rgba(255,255,255,.06);
@@ -7552,24 +7565,23 @@ html.dark-mode .home-bento-action-btn:hover {
   width: 120px;
   height: 120px;
   margin-bottom: 1.5rem;
-  color: #cbd5e1;
+  color: var(--qr-border-strong);
   filter: drop-shadow(0 8px 16px rgba(0,0,0,0.05));
 }
 .qr-empty-state h2 {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--qr-text);
   margin-bottom: 0.5rem;
 }
 .qr-empty-state p {
   font-size: 0.95rem;
-  color: #64748b;
+  color: var(--qr-text-dim);
   max-width: 280px;
   margin-bottom: 2rem;
   line-height: 1.5;
 }
 html.dark-mode .qr-empty-state h2 { color: #f8fafc; }
-html.dark-mode .qr-empty-state p { color: #94a3b8; }
 html.dark-mode .qr-empty-state svg { color: #334155; }
 
 /* PART 1 - LEARN TAB BUTTON FIX */
@@ -8146,15 +8158,16 @@ html.dark-mode .duel-result-why { color: #94a3b8; }
 html.dark-mode .duel-installgate-title { color: #fff; }
 
 /* ═══════════════════ AI Companion — one design language (ADR-039) ═══════════════════ */
-.companion-overlay { position: fixed; inset: 0; z-index: 600; background: rgba(15, 23, 42, .55); display: flex; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: cpnFade .18s ease; }
+/* Shell comes from the .qr-sheet primitive (FW-W3); companion keeps its z-order, entrance motion,
+   its slightly-tinted surface, its softer grabber ink and its 82vh desktop height. */
+.companion-overlay { z-index: 600; animation: cpnFade .18s ease; }
 @keyframes cpnFade { from { opacity: 0; } to { opacity: 1; } }
-.companion-sheet { width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh; background: #f8fafc; border-radius: 1.4rem 1.4rem 0 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 -8px 40px rgba(2, 6, 23, .28); animation: cpnRise .22s var(--qr-ease); }
+.companion-sheet { background: #f8fafc; animation: cpnRise .22s var(--qr-ease); }
 @keyframes cpnRise { from { transform: translateY(24px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
-@media (min-width: 600px) { .companion-overlay { align-items: center; } .companion-sheet { border-radius: 1.4rem; max-height: 82vh; } }
+@media (min-width: 600px) { .companion-sheet { max-height: 82vh; } }
 html.dark-mode .companion-sheet { background: #0f172a; }
-.companion-grabber { width: 38px; height: 4px; border-radius: 999px; background: rgba(15, 23, 42, .18); margin: .5rem auto .1rem; flex-shrink: 0; cursor: grab; }
+.companion-grabber { background: rgba(15, 23, 42, .18); }
 html.dark-mode .companion-grabber { background: rgba(255, 255, 255, .22); }
-@media (min-width: 600px) { .companion-grabber { display: none; } }
 .companion-head { display: flex; align-items: center; gap: .6rem; padding: .7rem 1.1rem .9rem; border-bottom: 1px solid rgba(15, 23, 42, .07); touch-action: none; }
 html.dark-mode .companion-head { border-bottom-color: rgba(255, 255, 255, .07); }
 .companion-badge { font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #2563eb; background: rgba(37, 99, 235, .1); padding: .22rem .5rem; border-radius: 999px; }
@@ -8658,10 +8671,8 @@ html.dark-mode .psm-kinds { color: #94a3b8; }
 html.dark-mode .psm-ico { background: rgba(37,99,235,.22); }
 html.dark-mode .psm-dontask { color: #94a3b8; }
 
-.ba-skeleton { display: flex; flex-direction: column; gap: .5rem; }
-.ba-skel-row { height: 3.2rem; border-radius: var(--qr-card-radius-sm); background: rgba(15,23,42,0.05); animation: baPulse 1.2s ease-in-out infinite; }
-html.dark-mode .ba-skel-row { background: rgba(255,255,255,0.06); }
-@keyframes baPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+/* .ba-skeleton/.ba-skel-row co-declare with the .qr-skel primitive (FW-W3) — veil + pulse come
+   from --qr-skel-veil / --qr-dur-pulse; the dark veil re-resolves through the token. */
 
 /* ---- mini stat tile (shared by personal strip + rivalry + card detail) ---- */
 .ba-mini { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; padding: .45rem .25rem; text-align: center; min-width: 0; }
@@ -9157,12 +9168,12 @@ html.dark-mode .kx-rev-full:hover { color: #60a5fa; }
 
 /* quick-ref card reveal flash (unified search → library) */
 @keyframes qrCardFlash { 0% { box-shadow: 0 0 0 3px rgba(37,99,235,.55); } 100% { box-shadow: 0 0 0 3px rgba(37,99,235,0); } }
-.qr-card-flash { animation: qrCardFlash 1.5s ease-out both; border-radius: var(--qr-card-radius-sm); }
+.qref-card-flash { animation: qrCardFlash 1.5s ease-out both; border-radius: var(--qr-card-radius-sm); }
 
 @media (prefers-reduced-motion: reduce) {
   .kx-upnext, .kx-revise-card, .kx-rev-fill { transition: none !important; }
   .kx-upnext:hover, .kx-upnext:active, .kx-revise-card:hover, .kx-revise-card:active { transform: none !important; }
-  .qr-card-flash { animation: none !important; }
+  .qref-card-flash { animation: none !important; }
 }
 
 /* completion tick on the category topic cards */
@@ -9269,28 +9280,28 @@ html.dark-mode .category-section-count { color: #94a3b8; }
   font-size: .68rem; font-weight: 700; color: #64748b; background: rgba(100,116,139,.12);
   border-radius: 999px; padding: 1px 8px; text-transform: uppercase; letter-spacing: .03em;
 }
-.qr-card { padding: .7rem 0; border-top: 1px solid rgba(0,0,0,.06); }
-.qr-card:first-child { border-top: 0; padding-top: .2rem; }
-.qr-card-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
-.qr-card-ico { font-size: 1.05rem; line-height: 1; }
-.qr-card-title { font-size: .92rem; font-weight: 700; color: #0f172a; }
+.qref-card { padding: .7rem 0; border-top: 1px solid rgba(0,0,0,.06); }
+.qref-card:first-child { border-top: 0; padding-top: .2rem; }
+.qref-card-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.qref-card-ico { font-size: 1.05rem; line-height: 1; }
+.qref-card-title { font-size: .92rem; font-weight: 700; color: #0f172a; }
 .qr-grid { margin-top: .2rem; }
-.qr-card-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.qref-card-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
 .qr-link {
   border: 1px solid rgba(37,99,235,.25); background: #eff6ff; color: #1d4ed8; font: inherit; font-size: .76rem;
   font-weight: 600; padding: .32rem .7rem; border-radius: 999px; cursor: pointer; transition: background .14s ease;
 }
 .qr-link:active { transform: scale(.97); }
 .qr-link-practice { border-color: rgba(22,163,74,.28); background: #ecfdf5; color: #15803d; }
-.qr-empty { text-align: center; padding: 1rem .5rem; }
+.qref-empty { text-align: center; padding: 1rem .5rem; }
 html.dark-mode .qr-lib-entry { background: linear-gradient(135deg, #172033 0%, #1e1b2e 100%); border-color: rgba(96,165,250,.28); color: #e2e8f0; }
 html.dark-mode .qr-lib-entry-txt small { color: #94a3b8; }
 html.dark-mode .qr-lib-entry-arrow, html.dark-mode .qr-lib-back { color: #60a5fa; }
 html.dark-mode .qr-search-input { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,.12); }
 html.dark-mode .qr-search-input::placeholder { color: #64748b; }
 html.dark-mode .qr-sec-count { color: #94a3b8; background: rgba(148,163,184,.16); }
-html.dark-mode .qr-card { border-top-color: rgba(255,255,255,.08); }
-html.dark-mode .qr-card-title { color: #e2e8f0; }
+html.dark-mode .qref-card { border-top-color: rgba(255,255,255,.08); }
+html.dark-mode .qref-card-title { color: #e2e8f0; }
 html.dark-mode .qr-link { background: #1e293b; color: #93c5fd; border-color: rgba(96,165,250,.28); }
 html.dark-mode .qr-link-practice { background: #10241b; color: #6ee7b7; border-color: rgba(52,211,153,.3); }
 
@@ -9748,27 +9759,12 @@ html.dark-mode .companion-report { background: rgba(96, 165, 250, .14); color: #
    sheet). Same shell / motion / grabber / drag-to-dismiss, responsive→centred ≥600px, dark + reduced-motion
    + safe-area aware. z-index 700 so an "ai_explain" report opened over the companion sheet (z-index 600)
    renders on top. Tokens: --qr-*. ============================================================ */
-.report-sheet-overlay {
-  position: fixed; inset: 0; z-index: 700; background: rgba(15, 23, 42, .55);
-  display: flex; align-items: flex-end; justify-content: center;
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  animation: rptFade .18s ease;
-}
+/* Shell (position/scrim/geometry/shadow/grabber/≥600px centering) comes from the .qr-sheet
+   primitive (FW-W3); only the report-specific z-order + entrance motion live here. */
+.report-sheet-overlay { z-index: 700; animation: rptFade .18s ease; }
 @keyframes rptFade { from { opacity: 0; } to { opacity: 1; } }
-.report-sheet {
-  width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh;
-  background: var(--qr-surface-solid); color: var(--qr-text);
-  border-radius: 1.4rem 1.4rem 0 0; display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 -8px 40px rgba(2, 6, 23, .28);
-  animation: rptRise .22s var(--qr-ease);
-}
+.report-sheet { color: var(--qr-text); animation: rptRise .22s var(--qr-ease); }
 @keyframes rptRise { from { transform: translateY(24px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
-@media (min-width: 600px) {
-  .report-sheet-overlay { align-items: center; }
-  .report-sheet { border-radius: 1.4rem; max-height: 84vh; }
-}
-.report-sheet-grabber { width: 38px; height: 4px; border-radius: 999px; background: var(--qr-border-strong); margin: .5rem auto .1rem; flex-shrink: 0; cursor: grab; }
-@media (min-width: 600px) { .report-sheet-grabber { display: none; } }
 .report-sheet-head {
   display: flex; align-items: center; gap: .5rem; padding: .55rem 1rem .75rem;
   border-bottom: 1px solid var(--qr-border); touch-action: none; flex-shrink: 0;
