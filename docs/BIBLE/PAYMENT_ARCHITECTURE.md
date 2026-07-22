@@ -16,8 +16,8 @@ Companion: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) ·
 
 | Plan key | Price | Duration | Grants |
 |---|---|---|---|
-| `premium_6m` | ₹349 (34900 paise) | 182 days | `plan:'premium'` |
-| `premium_12m` | ₹499 (49900 paise) | 365 days | `plan:'premium'` |
+| `premium_6m` | ₹299 (29900 paise) | 182 days | `plan:'premium'` |
+| `premium_12m` | ₹399 (39900 paise) | 365 days | `plan:'premium'` |
 
 **One Premium tier, two durations.** There is no lifetime plan and no second "plus" tier — Premium
 includes everything (all training features + the full AI suite + Math Duel). 12-month is the default

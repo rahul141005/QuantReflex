@@ -12,6 +12,10 @@
  */
 const admin = require('firebase-admin');
 
+/* HISTORICAL fallback only — used exclusively for legacy payments docs written before the `amount`
+   field existed (pre 2026-06-11), which were all sold at the launch prices below. Every modern doc
+   carries its own `amount`, so this map must NOT track live price changes (₹299/₹399 since Phase 4)
+   or historical revenue would be misreported. Deliberately exempt from payment-parity.check.js. */
 const PREMIUM_PRICE_PAISE = { premium_6m: 34900, premium_12m: 49900 };
 
 /* Normalize any stored timestamp (Firestore Timestamp | ISO/locale string | number | {_seconds}) to ms. */

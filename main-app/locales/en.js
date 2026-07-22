@@ -1859,7 +1859,7 @@
       couldNotOpen: 'Could not open payment. Check your network and retry.',
       couldNotConnect: 'Could not connect to payment service. Check your network.',
       bestValue: 'BEST VALUE',
-      save28: 'Save 28% vs 6 months',
+      savePct: 'Save 33% vs 6 months',
       perMonth: '≈ ₹{amount}/month',
       closeAria: 'Close',
       heroTitle: 'Unlock Your Full Potential',
