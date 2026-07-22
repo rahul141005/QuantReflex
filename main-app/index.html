@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v246';</script>
+  <script>window.QR_APP_VERSION = 'v247';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -367,15 +367,6 @@
           <p class="home-bento-desc" data-i18n="home.plannerDesc">AI-generated study schedule</p>
           <div id="aiStudyPlanContainer"></div>
         </div>
-
-        <!-- Quick Reference Card (FW-W4: the library earns its Explore tile) -->
-        <div class="home-bento-card home-bento-quickref home-twin-card" id="homeBentoQuickRef" role="button" tabindex="0">
-          <div class="home-bento-header">
-            <div class="home-bento-icon-squircle icon-blue"><span class="home-bento-icon qr-ico" data-ico="book-open" aria-hidden="true">📚</span></div>
-            <h4 class="home-bento-title"><span data-i18n="home.quickRefTile">Quick Reference</span></h4>
-          </div>
-          <p class="home-bento-desc" data-i18n="home.quickRefTileDesc">Tables, formulas and shortcuts — every exam fact in one library.</p>
-        </div>
       </div>
 
       <!-- QUICK STUDY -->
@@ -433,28 +424,29 @@
           </div>
         </section>
 
-        <!-- Advanced — compact disclosure rows (FW-W4): five power modes read as a list, not a card
-             wall. Same .mode-card + data-mode hooks, so practice-modes.js wiring is untouched. -->
+        <!-- Advanced — restored to the uniform .mode-card wall (UI Recovery): five power modes read as
+             full cards matching Quick Start / Subject Sets, not truncating disclosure rows. Same
+             .mode-card + data-mode hooks, so practice-modes.js wiring is untouched. -->
         <section class="practice-section">
           <div class="home-section-header"><h3 class="home-section-title" data-i18n="practice.advanced">Advanced</h3></div>
-          <div class="practice-mode-group practice-mode-group--rows">
-            <div class="mode-card mode-card--row" data-mode="focus">
+          <div class="practice-mode-group">
+            <div class="mode-card" data-mode="focus">
               <h3><span class="qr-ico" data-ico="target" aria-hidden="true">🎯</span> <span data-i18n="practice.focusTraining">Focus Training</span></h3>
               <p data-i18n="practice.focusTrainingDesc">10 questions · Choose a category</p>
             </div>
-            <div class="mode-card mode-card--row" data-mode="custom">
+            <div class="mode-card" data-mode="custom">
               <h3><span class="mode-icon mode-icon-custom qr-ico" data-ico="layers" aria-hidden="true">📑</span> <span data-i18n="practice.customTraining">Custom Training</span></h3>
               <p data-i18n="practice.customTrainingDesc">Multi-topic session · 1–100 questions · Fully personalized</p>
             </div>
-            <div class="mode-card mode-card--row" data-mode="mixed">
+            <div class="mode-card" data-mode="mixed">
               <h3><span class="qr-ico" data-ico="shuffle" aria-hidden="true">🎨</span> <span data-i18n="practice.mixedAptitude">Mixed Aptitude</span></h3>
               <p data-i18n="practice.mixedAptitudeDesc">12 questions across Quant, Data Interpretation &amp; Reasoning · one full sprint</p>
             </div>
-            <div class="mode-card mode-card--row" data-mode="review">
+            <div class="mode-card" data-mode="review">
               <h3><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> <span data-i18n="practice.reviewMistakes">Review Mistakes</span></h3>
               <p data-i18n="practice.reviewMistakesDesc">Practice your previously wrong answers</p>
             </div>
-            <div class="mode-card mode-card--row" data-mode="mock">
+            <div class="mode-card" data-mode="mock">
               <h3><span class="qr-ico" data-ico="file-text" aria-hidden="true">📝</span> <span data-i18n="practice.timedMock">Timed Mock</span></h3>
               <p data-i18n="practice.timedMockDesc">Exam-style section · Your target exam · Real clock &amp; marking scheme</p>
             </div>

@@ -8,6 +8,51 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-114 — Home & Practice UI recovery: restore FW-W4 presentation regressions, keep the architecture (v247) (2026-07-22)
+
+- **Context.** A live review of the shipped app (7 screenshots) found that the multi-wave UI overhaul —
+  specifically commit `430cb9b` "FW-W4" — had regressed the *presentation* of Home and Practice while the
+  underlying architecture (design tokens, primitives, the `qr-ico` icon system, `QROverlay`, light-default, the
+  runtime Quick-Links registry) remained sound. The directive was explicit: **stabilize first** — restore what
+  regressed, keep the architecture, don't chase novelty. Two independent git-archaeology passes pinned every
+  regression to an exact cause and produced the pre-regression markup/CSS as the restore reference. The fixes are
+  small, surgical, and architecture-preserving.
+- **Decision.** Recover the presentation layer to the pre-FW-W4 quality bar on Home + Practice without reverting
+  any architectural gain. Four surgical changes, each root-caused:
+  - **Practice — faithful restore (UIR-A).** FW-W4 collapsed the Advanced group from a uniform card wall into thin
+    single-line disclosure rows; `.mode-card--row p` (`white-space:nowrap; text-overflow:ellipsis`) was what
+    truncated the detail text ("10 ques…", "Multi…"). The Quick-Start cards never actually grew — they only looked
+    oversized by contrast to the collapsed rows. Restore = drop `practice-mode-group--rows` + the five
+    `mode-card--row` classes (inner markup and every `data-mode` hook byte-identical → **zero JS change**) and
+    delete the now-dead `.practice-mode-group--rows` / `.mode-card--row` CSS block (incl. the `::after` chevron and
+    the truncating `p` rule). Result: one uniform `.mode-card` wall (Quick Start · Subject Sets · Advanced), no
+    truncation, calm rhythm — the "stronger screen" recovered.
+  - **Home Explore — balanced bento (UIR-B).** `.home-bento-grid` is a hard 2-col grid; Math Duel spans full width;
+    FW-W4 *added* a third `.home-twin-card` (Quick Reference), and an odd 3rd twin orphaned into the last row beside
+    an empty cell — the large void in the screenshot. Restore = remove the orphan Quick Reference tile (markup +
+    its click/keydown wiring in `home-view.js`) → the balanced pre-FW-W4 Explore returns (Duel full-width, then
+    AI Coach | Study Planner twins). Quick Reference remains reachable via its Quick-Study chip and the Learn tab,
+    so no destination is lost.
+  - **Quick Study — monochrome chips (UIR-C).** `_qlChipInner` preferred a monochrome `ico` mask but fell back to a
+    raw color `emoji`; reference/learn registry entries carry only `emoji` (🍕 frac-pct, gray ✖ tables), so the
+    default strip mixed color emoji with one clean icon — the unprofessional look. Fix (render layer, registry
+    kept): every chip and picker row now resolves a line-icon via a small category-aware helper (reference →
+    `book-open`, learn → `graduation`, practice → `target`, features → `layers`), so the strip is uniformly
+    monochrome accent-tinted `qr-ico` masks. The v2 registry / `.qs-chip` / picker / pencil-edit affordance are
+    untouched (better foundation — scales, localizes, tokenized).
+  - **Chrome-emoji cleanup (UIR-D).** Stripped the decorative ✨ from the visible Explore CTA/label strings
+    (`home.unlockAiCoach/createStudyPlan`, `ai.unlockCoach/talkToCoach/openPlanner/wizCreatePlan`, `paywall.ctx_*`)
+    across en/hi/mr — values only, keys unchanged (i18n parity holds). Consistent with the Wave-B chrome-emoji policy.
+- **Consequences.** Home reads stronger than both the original and the interrupted redesign; Practice is faithfully
+  restored to its uniform card wall with no truncation. The design system stays token-enforced — the restore
+  *removes* CSS and reuses existing classes/tokens, so design-lint ceilings hold by construction (no raw literals
+  reintroduced). Out of scope and deliberately untouched: Home hero/stats/Start-Training/Today's-Goal, the AI Coach
+  and Study Planner cards themselves (already the preferred version), Word Problems (intentionally removed
+  end-to-end earlier), and every other screen. This is a presentation recovery, not a redesign — architecture is
+  preserved wholesale. **Verified:** npm test 14,340/0 (−2 vs 14,342 = the two removed Quick-Reference-tile
+  data-i18n nodes, 0 failed), payment-parity 25/0, design-lint 10/10; live Playwright screenshots of Home +
+  Practice across light/dark × phone/tablet confirm the restore. SW v246→v247.
+
 ## ADR-113 — Phase-1 UI finalization: independent-audit closure + polish (v243–v246) (2026-07-10)
 
 - **Context.** After ADR-112 closed the UI blueprint, an independent post-implementation audit re-verified every

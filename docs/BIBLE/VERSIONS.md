@@ -9,12 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.146 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.147 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.65 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.147 (2026-07-22)** — **Home & Practice UI recovery: restore FW-W4 presentation regressions (ADR-114, SW
+> v246→v247).** A live app review found real visual regressions on Home + Practice from the multi-wave overhaul
+> (`430cb9b` "FW-W4") while the architecture stayed sound. Four root-caused, surgical restores: Practice Advanced
+> disclosure-rows → the uniform `.mode-card` wall (kills detail-text truncation, zero JS change); the orphan Home
+> Explore Quick-Reference tile removed → balanced Duel + AI-Coach|Study-Planner bento; Quick Study chips forced to
+> monochrome `qr-ico` line-icons (no raw 🍕/✖ emoji), v2 registry kept; decorative ✨ stripped from Explore CTA
+> strings ×3 locales. Presentation-only — removes CSS, reuses tokens (design-lint 10/10 holds by construction);
+> architecture (tokens/primitives/QROverlay/registry/light-default) preserved wholesale. No Firestore/Security/
+> Payment change. Verified: npm test 14,340/0, payment-parity 25/0, design-lint 10/10, live Playwright light/dark ×
+> phone/tablet.
+>
 > **2.146 (2026-07-10)** — **Phase-1 UI finalization: independent-audit closure (ADR-113, SW v242→v246).** An
 > independent post-implementation audit re-verified Phase 1 and returned a short punch-list, closed here: Settings/
 > Profile/timer form controls are now all programmatically labelled (aria-labelledby / `for=` / aria-label); the

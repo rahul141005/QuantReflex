@@ -618,8 +618,8 @@
       goalHalfway: '💪 आधा लक्ष्य पूरा!',
       goalKeepGoing: 'जारी रखें!',
       goalStart: 'लक्ष्य पाने के लिए अभ्यास शुरू करें',
-      unlockAiCoach: 'AI कोच अनलॉक करें ✨',
-      createStudyPlan: 'स्टडी प्लान बनाएँ ✨',
+      unlockAiCoach: 'AI कोच अनलॉक करें',
+      createStudyPlan: 'स्टडी प्लान बनाएँ',
       streakAtRisk: '{count} दिन की स्ट्रीक खतरे में!',
       streakProtect: 'स्ट्रीक बचाने के लिए एक सेशन पूरा करें।',
       go: 'चलें',
@@ -1358,10 +1358,10 @@
     /* QuanAI शीट — क्लाइंट-स्वामित्व वाली त्रुटि पंक्तियाँ + मुफ़्त-व्याख्या नोट (companion-ui.js) */
     ai: {
       reopenApp: 'AI इस्तेमाल करने के लिए ऐप दोबारा खोलें।',
-      unlockCoach: 'AI कोच अनलॉक करें ✨',
-      talkToCoach: 'अपने कोच से बात करें ✨',
+      unlockCoach: 'AI कोच अनलॉक करें',
+      talkToCoach: 'अपने कोच से बात करें',
       unlockPremium: '🔒 Premium से अनलॉक करें',
-      openPlanner: 'अपना स्टडी प्लानर खोलें ✨',
+      openPlanner: 'अपना स्टडी प्लानर खोलें',
       errBusy: '{persona} थोड़ी देर आराम कर रहा है — कृपया कुछ देर बाद फिर से प्रयास करें।',
       errPremium: 'यह Premium सुविधा है।',
       errFreeExplainsUsed: 'आपने सभी 5 मुफ़्त व्याख्याएँ इस्तेमाल कर ली हैं। असीमित QuanAI व्याख्याओं के लिए Premium लें।',
@@ -1425,7 +1425,7 @@
       wizBack: '← पीछे',
       wizNext: 'आगे →',
       wizSkip: 'छोड़ें →',
-      wizCreatePlan: 'मेरी योजना बनाएँ ✨',
+      wizCreatePlan: 'मेरी योजना बनाएँ',
       chipGotIt: 'समझ गया ✓',
       chipAnother: 'ऐसा ही एक और',
       chipDrillThis: 'इसका अभ्यास'
@@ -1900,8 +1900,8 @@
       ctx_diset_limit: '📊 आज का मुफ़्त DI सेट हो गया। Premium में असीमित सेट।',
       ctx_lrset_limit: '🧩 आज का मुफ़्त रीजनिंग सेट हो गया। Premium में असीमित सेट।',
       ctx_stats: '📊 गहरे प्रदर्शन इनसाइट्स Premium सुविधा हैं।',
-      ctx_settings: '✨ यह Premium सुविधा है।',
-      ctx_premium_required: '✨ यह Premium सुविधा है।',
+      ctx_settings: 'यह Premium सुविधा है।',
+      ctx_premium_required: 'यह Premium सुविधा है।',
       ctx_upgrade: '🚀 Premium के साथ सब कुछ अनलॉक करें।'
     },
 

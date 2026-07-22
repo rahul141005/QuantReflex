@@ -618,8 +618,8 @@
       goalHalfway: '💪 अर्धे उद्दिष्ट पूर्ण!',
       goalKeepGoing: 'सुरू ठेवा!',
       goalStart: 'उद्दिष्ट गाठण्यासाठी सराव सुरू करा',
-      unlockAiCoach: 'AI कोच अनलॉक करा ✨',
-      createStudyPlan: 'स्टडी प्लॅन तयार करा ✨',
+      unlockAiCoach: 'AI कोच अनलॉक करा',
+      createStudyPlan: 'स्टडी प्लॅन तयार करा',
       streakAtRisk: '{count} दिवसांची स्ट्रीक धोक्यात!',
       streakProtect: 'स्ट्रीक वाचवण्यासाठी एक सेशन पूर्ण करा.',
       go: 'चला',
@@ -1358,10 +1358,10 @@
     /* QuanAI शीट — क्लायंट-मालकीच्या त्रुटी ओळी + मोफत-स्पष्टीकरण नोंदी (companion-ui.js) */
     ai: {
       reopenApp: 'AI वापरण्यासाठी ॲप पुन्हा उघडा.',
-      unlockCoach: 'AI कोच अनलॉक करा ✨',
-      talkToCoach: 'तुमच्या कोचशी बोला ✨',
+      unlockCoach: 'AI कोच अनलॉक करा',
+      talkToCoach: 'तुमच्या कोचशी बोला',
       unlockPremium: '🔒 Premium ने अनलॉक करा',
-      openPlanner: 'तुमचा स्टडी प्लॅनर उघडा ✨',
+      openPlanner: 'तुमचा स्टडी प्लॅनर उघडा',
       errBusy: '{persona} थोडा वेळ विश्रांती घेत आहे — कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.',
       errPremium: 'ही Premium सुविधा आहे.',
       errFreeExplainsUsed: 'तुम्ही सर्व 5 मोफत स्पष्टीकरणे वापरली आहेत. अमर्याद QuanAI स्पष्टीकरणांसाठी Premium घ्या.',
@@ -1425,7 +1425,7 @@
       wizBack: '← मागे',
       wizNext: 'पुढे →',
       wizSkip: 'वगळा →',
-      wizCreatePlan: 'माझी योजना तयार करा ✨',
+      wizCreatePlan: 'माझी योजना तयार करा',
       chipGotIt: 'समजलं ✓',
       chipAnother: 'असाच आणखी एक',
       chipDrillThis: 'याचा सराव'
@@ -1900,8 +1900,8 @@
       ctx_diset_limit: '📊 आजचा मोफत DI सेट झाला. Premium मध्ये अमर्याद सेट.',
       ctx_lrset_limit: '🧩 आजचा मोफत रीझनिंग सेट झाला. Premium मध्ये अमर्याद सेट.',
       ctx_stats: '📊 सखोल कामगिरी इनसाइट्स ही Premium सुविधा आहे.',
-      ctx_settings: '✨ ही Premium सुविधा आहे.',
-      ctx_premium_required: '✨ ही Premium सुविधा आहे.',
+      ctx_settings: 'ही Premium सुविधा आहे.',
+      ctx_premium_required: 'ही Premium सुविधा आहे.',
       ctx_upgrade: '🚀 Premium सह सर्व काही अनलॉक करा.'
     },
 

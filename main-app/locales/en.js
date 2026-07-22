@@ -623,8 +623,8 @@
       goalHalfway: '💪 Halfway to your goal!',
       goalKeepGoing: 'Keep going!',
       goalStart: 'Start training to hit your goal',
-      unlockAiCoach: 'Unlock AI Coach ✨',
-      createStudyPlan: 'Create Study Plan ✨',
+      unlockAiCoach: 'Unlock AI Coach',
+      createStudyPlan: 'Create Study Plan',
       streakAtRisk: '{count}-day streak at risk!',
       streakProtect: 'Complete a session to protect your streak.',
       go: 'Go',
@@ -1368,10 +1368,10 @@
        study content and ride the Phase E lang param. */
     ai: {
       reopenApp: 'Reopen the app to use AI.',
-      unlockCoach: 'Unlock AI Coach ✨',
-      talkToCoach: 'Talk to your coach ✨',
+      unlockCoach: 'Unlock AI Coach',
+      talkToCoach: 'Talk to your coach',
       unlockPremium: '🔒 Unlock with Premium',
-      openPlanner: 'Open your Study Planner ✨',
+      openPlanner: 'Open your Study Planner',
       errBusy: '{persona} is resting for a bit — please try again shortly.',
       errPremium: 'This is a Premium feature.',
       errFreeExplainsUsed: "You've used all 5 free explanations. Upgrade to Premium for unlimited QuanAI explanations.",
@@ -1435,7 +1435,7 @@
       wizBack: '← Back',
       wizNext: 'Next →',
       wizSkip: 'Skip →',
-      wizCreatePlan: 'Create my plan ✨',
+      wizCreatePlan: 'Create my plan',
       chipGotIt: 'Got it ✓',
       chipAnother: 'Another like this',
       chipDrillThis: 'Drill this'
@@ -1911,8 +1911,8 @@
       ctx_diset_limit: '📊 You’ve done today’s free Data Interpretation set. Premium unlocks unlimited sets.',
       ctx_lrset_limit: '🧩 You’ve done today’s free Reasoning set. Premium unlocks unlimited sets.',
       ctx_stats: '📊 Deep performance insights are a Premium feature.',
-      ctx_settings: '✨ This is a Premium feature.',
-      ctx_premium_required: '✨ This is a Premium feature.',
+      ctx_settings: 'This is a Premium feature.',
+      ctx_premium_required: 'This is a Premium feature.',
       ctx_upgrade: '🚀 Unlock everything with Premium.'
     },
 

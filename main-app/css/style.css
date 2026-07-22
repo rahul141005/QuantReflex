@@ -1821,7 +1821,6 @@ html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { backg
 .qs-chip { border: 1px solid var(--qr-border); background: var(--qr-surface-solid); color: var(--qr-text); }
 .qs-chip:active { background: var(--qr-surface-2); }
 .qs-chip .qr-ico { --qr-ico-size: 1rem; color: var(--qr-accent); }
-.qs-chip-emoji { font-size: var(--fs-body); line-height: 1; }
 .qs-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
 
 /* Picker sheet */
@@ -1865,15 +1864,6 @@ html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { backg
 .home-streak-chip { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.1); color: var(--qr-text); gap: 4px; cursor: default; }
 .home-streak-chip .streak-fire { font-size: var(--fs-sub); line-height: 1; }
 .home-streak-chip .streak-count { font-weight: 800; }
-
-/* Advanced practice modes as compact disclosure rows (FW-W4) — same .mode-card hooks, row skin */
-.practice-mode-group--rows { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--qr-border); border-radius: var(--r-md); background: var(--qr-surface-solid); overflow: hidden; }
-.mode-card--row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); margin: 0; border: 0; border-radius: inherit; box-shadow: none; cursor: pointer; }
-.mode-card--row + .mode-card--row { border-top: 1px solid var(--qr-border); }
-.mode-card--row h3 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sub); margin: 0; flex: 0 0 auto; }
-.mode-card--row p { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
-.mode-card--row::after { content: '›'; color: var(--qr-text-dim); font-size: var(--fs-h3); font-weight: 700; flex: 0 0 auto; }
-.mode-card--row:active { background: var(--qr-surface-2); transform: none; }
 
 /* ---- Dialog (centered, focus-trapped by QROverlay) ---- */
 .qr-dialog-overlay {

@@ -68,11 +68,17 @@ function _qlEsc(s) {
   });
 }
 
+/* Every Quick-Study chip/picker row renders a monochrome, accent-tinted qr-ico mask — never a raw
+   colour emoji (UI Recovery). Practice/Feature registry entries carry their own `ico`; Reference and
+   Learn entries only have an `emoji`, so they fall back to a per-category line icon that reads as one
+   consistent, premium system instead of a jumble of 🍕/✖️ glyphs. */
+var _QL_CATEGORY_ICO = { reference: 'book-open', learn: 'graduation', practice: 'target', features: 'layers' };
+function _qlIco(entry) {
+  return entry.ico || _QL_CATEGORY_ICO[entry.category] || 'book-open';
+}
 function _qlChipInner(entry) {
-  var icon = entry.ico
-    ? '<span class="qr-ico" data-ico="' + _qlEsc(entry.ico) + '" aria-hidden="true"></span>'
-    : (entry.emoji ? '<span class="qs-chip-emoji" aria-hidden="true">' + entry.emoji + '</span>' : '');
-  return icon + '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
+  return '<span class="qr-ico" data-ico="' + _qlEsc(_qlIco(entry)) + '" aria-hidden="true"></span>' +
+    '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
 }
 
 function renderQuickStudyLinks() {
@@ -517,19 +523,6 @@ function initHomeView() {
   if (editBtn) {
     editBtn.addEventListener('click', function () {
       openQuickLinksEditor();
-    });
-  }
-
-  /* ---- Quick Reference explore tile (FW-W4) ---- */
-  var quickRefTile = document.getElementById('homeBentoQuickRef');
-  if (quickRefTile) {
-    var _openQuickRefLib = function () {
-      SoundEngine.play('settingsToggle');
-      Router.showView('learn', { path: 'quick-ref' });
-    };
-    quickRefTile.addEventListener('click', _openQuickRefLib);
-    quickRefTile.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _openQuickRefLib(); }
     });
   }
 
