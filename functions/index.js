@@ -168,7 +168,18 @@ exports.enforceEntitlementExpiry = onSchedule(
 
         snapshot.forEach((doc) => {
           const data = doc.data();
-          if (!data.planExpiry) return; /* indefinite admin grant — never auto-expires */
+          /* No permanent tier (ADR-115): a premium doc with a null/absent expiry is illegitimate legacy
+             data (no grant path creates it) and must be revoked to free, not skipped. Matches the client
+             (paywall.hasPremiumAccess) and server (resolveUserAuth). */
+          if (!data.planExpiry) {
+            const isoNull = new Date().toISOString();
+            batch.update(doc.ref, {
+              plan: 'free', planType: null, planExpiry: null, planSource: null,
+              isTrial: false, trialEnd: null, planUpdatedAt: isoNull, updatedAt: isoNull
+            });
+            revokedCount++;
+            return;
+          }
 
           let expiryMs = 0;
           if (typeof data.planExpiry === 'number') {

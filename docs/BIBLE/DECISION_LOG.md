@@ -57,9 +57,11 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   1. **Canonical `hasActivePremium`** — promoted as the single decision (alias of `hasPremiumAccess`,
      `paywall.js`), already backing `canAccess`/`requirePremium`; exported app-wide.
   2. **No permanent tier** — a `premium` doc with a **null/invalid expiry now resolves to NOT-premium**
-     (fail-safe). The admin grant endpoint was verified finite-only already (`super-admin-app/api/admin/
-     entitlements.js` — 6m/12m/trial/revoke, 182/365-day expiries); the null-expiry *resolution* path was legacy
-     dead handling and is closed.
+     (fail-safe) **consistently across client, server, and cron** (`paywall.hasPremiumAccess`,
+     `aiService.resolveUserAuth`, `functions/index.js` expiry sweep — all self-heal/revoke; the final adversarial
+     re-audit caught that the first pass had flipped only the client, leaving the server granting such docs). The
+     admin grant endpoint was verified finite-only already (`super-admin-app/api/admin/entitlements.js` —
+     6m/12m/trial/revoke, 182/365-day expiries); the null-expiry *resolution* path was legacy dead handling, closed.
   3. **No overlapping plans / no duplicate purchase** — `openPremiumPayment` no-ops for active premium (client),
      and `create-order` refuses with `ALREADY_PREMIUM` when `req.userPremium` (server) — a duplicate charge is
      blocked before any Razorpay order is created.

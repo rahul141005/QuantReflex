@@ -34,8 +34,14 @@ replay lock, transactional quotas, single-device enforcement, listener lifecycle
   `i18n.check §8` now guards JS-built modals. Minor: report-context `fullscreen` telemetry; stale version fallback;
   🍕→🥧. Dead code: removed `AppState.getKeys()` + a vestigial `fetchSpeedBenchmark` param.
 - **Wave S5 — verification & governance:** SW v247→v248 (lockstep); one final **independent adversarial re-audit**
-  of the diff; ADR-115/116; VERSIONS 2.148. Final matrix: npm test **14,507/0**, all 34 checks green, live
-  Playwright certs.
+  of the whole diff, which surfaced 5 issues — all fixed: completed the null-expiry rule on the **server** +
+  **expiry cron** (the first pass had flipped only the client → a client-free/server-premium divergence); fixed the
+  misleading `ALREADY_PREMIUM` copy (now "purchase again after it expires", matching the no-renewal-while-active
+  rule); added a **clock-safe freshness guard** to the durable write buffer (server `updatedAt` on both sides — a
+  newer server state drops a stale buffer instead of clobbering it); gave `flushUpdatesAsync` the same
+  uid/generation guard `_flushUpdates` has; made auth-first account deletion **retry-safe** (swallow
+  `user-not-found` so a retry finishes the data deletes). ADR-115/116; VERSIONS 2.148. Final matrix: npm test
+  **14,507/0**, all 34 checks green (entitlement-invariants 22 incl. server/cron), live Playwright certs.
 
 ## 2026-07-22 — Home & Practice UI recovery: restore FW-W4 presentation regressions (ADR-114, SW v246→v247)
 

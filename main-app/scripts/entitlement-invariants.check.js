@@ -39,11 +39,18 @@ ok('admin premium_6m grant computes finite 182-day expiry', /_expiryAfterDays\(\
 ok('admin premium grant never sets planExpiry to null on a premium action',
   !/plan\s*=\s*'premium'[\s\S]{0,200}planExpiry\s*=\s*null/.test(entSrc));
 
-/* ---- 2. null/invalid expiry resolves to NOT-premium (client) ---- */
+/* ---- 2. null/invalid expiry resolves to NOT-premium — CLIENT AND SERVER (no permanent tier) ---- */
 const pw = R('js/paywall.js');
 ok('paywall hasPremiumAccess: null expiry => not premium', /if \(!expiryMs\) return false;/.test(pw), 'expected `if (!expiryMs) return false;`');
 ok('paywall hasPremiumAccess: no legacy `return true` indefinite branch', !/if \(!expiryMs\) return true;/.test(pw));
 ok('paywall exposes canonical hasActivePremium', /function hasActivePremium\b/.test(pw) && /global\.hasActivePremium\s*=/.test(pw));
+/* server must MATCH the client — resolveUserAuth treats a non-positive/absent expiry as not-premium */
+const aiSrc0 = R('services/aiService.js');
+ok('server resolveUserAuth: null/invalid expiry => not premium', /if \(!\(expiryMs > 0\) \|\| expiryMs < Date\.now\(\)\)/.test(aiSrc0), 'server still uses the old `expiryMs > 0 && ...` skip');
+ok('server resolveUserAuth: no old skip-null-expiry branch', !/if \(expiryMs > 0 && expiryMs < Date\.now\(\)\) \{/.test(aiSrc0));
+/* the (undeployed) expiry cron must REVOKE a null-expiry premium doc, not skip it */
+const cron = RR('functions/index.js');
+ok('expiry cron revokes null-expiry premium (no indefinite skip)', !/if \(!data\.planExpiry\) return;/.test(cron));
 
 /* ---- 3. server no-shorten stacking (any active premium, not just purchase) ---- */
 const ai = R('services/aiService.js');

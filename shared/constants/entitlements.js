@@ -134,7 +134,12 @@ var PREMIUM_LEARN = {
 // RESOLUTION RULE
 // ══════════════════════════════════════════════
 //
-//   premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+//   premium ⟺ plan === 'premium' && planExpiry is a real FUTURE timestamp (planExpiry > now)
+//
+//   There is NO permanent/indefinite tier (ADR-115): a premium doc with a null/invalid expiry
+//   resolves to NOT-premium and is self-healed to free everywhere (client paywall, server
+//   resolveUserAuth, expiry cron). Every grant path writes a finite expiry (admin 6m/12m/trial,
+//   purchase 6m/12m).
 //
 // A trial is plan:'premium' with planSource:'trial', isTrial:true,
 // trialEnd === planExpiry. On expiry, state self-heals to free:

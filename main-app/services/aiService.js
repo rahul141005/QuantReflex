@@ -82,21 +82,29 @@ async function resolveUserAuth(uid) {
     var activeSessionId = (typeof data.activeSessionId === 'string' && data.activeSessionId) ? data.activeSessionId : null;
     if (data.plan !== 'premium') return { plan: 'free', premium: false, activeSessionId: activeSessionId };
     var expiryMs = _toExpiryMillis(data.planExpiry);
-    if (expiryMs > 0 && expiryMs < Date.now()) {
+    /* No permanent tier (ADR-115): active premium requires a real FUTURE expiry. A null/invalid expiry
+       is illegitimate legacy data (no grant path creates it) and resolves to NOT-premium — matching the
+       client (paywall.hasPremiumAccess). Both genuine-expiry and null-expiry self-heal to free; only a
+       genuine past-date expiry sends the one-time "expired" notice (a null-expiry doc never had a real
+       term, so notifying "expired" would mislead). */
+    if (!(expiryMs > 0) || expiryMs < Date.now()) {
+      var genuineExpiry = expiryMs > 0;
       try {
         await safeUserUpdate(uid, {
           plan: 'free', planType: null, planExpiry: null, planSource: null,
           isTrial: false, trialEnd: null, planUpdatedAt: new Date().toISOString()
         }, 'resolvePlan:expiry');
         // ADR-066: notify the user their Premium expired — through the ONE pipeline (Inbox + best-effort push).
-        // Fires exactly once, on the premium→free transition. Fire-and-forget so it never delays the entitlement check.
-        try {
-          require('./notificationService').notify(db, admin.messaging(), {
-            recipients: { uids: [uid] },
-            notification: { title: 'Your Premium has expired', body: 'Renew to keep your AI Coach, Planner, Insights and Math Duels.', type: 'premium', category: 'billing', deepLink: '#settings' },
-            logSegment: 'billing'
-          }).catch(function () {});
-        } catch (_) {}
+        // Fires exactly once, on a genuine premium→free expiry transition. Fire-and-forget so it never delays the check.
+        if (genuineExpiry) {
+          try {
+            require('./notificationService').notify(db, admin.messaging(), {
+              recipients: { uids: [uid] },
+              notification: { title: 'Your Premium has expired', body: 'Renew to keep your AI Coach, Planner, Insights and Math Duels.', type: 'premium', category: 'billing', deepLink: '#settings' },
+              logSegment: 'billing'
+            }).catch(function () {});
+          } catch (_) {}
+        }
       } catch (expiryErr) {
         console.error('[aiService:resolveUserAuth] expiry self-heal failed (uid: ' + uid + '):', expiryErr.message);
       }

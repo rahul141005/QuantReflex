@@ -73,7 +73,12 @@ var FirestoreSync = (function () {
       var out = {};
       for (var i = 0; i < keys.length; i++) { if (keys[i] !== 'updatedAt') out[keys[i]] = _pendingUpdates[keys[i]]; }
       if (Object.keys(out).length === 0) return;
-      localStorage.setItem(PENDING_BUFFER_KEY, JSON.stringify({ uid: uid, updates: out }));
+      /* Record the SERVER updatedAt of the state we last saw. On replay we compare it to the freshly
+         loaded server updatedAt: if the server has advanced (another device wrote), our buffered
+         whole-field values are stale and must not clobber the newer state. Both are server timestamps
+         → clock-safe. */
+      var baseUpdatedAt = _toMillis(_memoryCache && _memoryCache.updatedAt) || 0;
+      localStorage.setItem(PENDING_BUFFER_KEY, JSON.stringify({ uid: uid, updates: out, baseUpdatedAt: baseUpdatedAt }));
     } catch (_) { /* quota / serialization — best-effort */ }
   }
   function _clearPendingBuffer() {
@@ -87,6 +92,13 @@ var FirestoreSync = (function () {
       if (!raw) return;
       var parsed = JSON.parse(raw);
       if (!parsed || parsed.uid !== currentUserId || !parsed.updates) return;
+      /* Freshness guard (clock-safe, server timestamps both sides): if the server doc has advanced
+         since we buffered — i.e. another device wrote in the meantime — replaying our stale whole-field
+         values (e.g. stats) would clobber the newer server state. Newer server state wins: drop the
+         stale buffer and skip. (base===0/unknown → replay, preferring data preservation.) */
+      var base = parsed.baseUpdatedAt || 0;
+      var loadedUpdatedAt = _toMillis(_memoryCache && _memoryCache.updatedAt) || 0;
+      if (base > 0 && loadedUpdatedAt > base) { _clearPendingBuffer(); return; }
       var fields = Object.keys(parsed.updates);
       for (var i = 0; i < fields.length; i++) {
         /* live in-memory edits win over a stale buffered value for the same field */
@@ -834,6 +846,13 @@ var FirestoreSync = (function () {
       if (callback) callback();
       return;
     }
+    /* Capture the auth context at entry so a fast logout→relogin-as-different-user race can't cross-wire
+       user A's write/buffer into user B (mirrors the guard _flushUpdates has). */
+    var currentUserId = FirebaseApp.getUserId();
+    var gen = _syncGeneration;
+    function _contextChanged() {
+      return gen !== _syncGeneration || !_loadedUserId || FirebaseApp.getUserId() !== currentUserId;
+    }
     var snapshot = {};
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
@@ -848,6 +867,7 @@ var FirestoreSync = (function () {
     _flushInFlight = true;
     docRef.set(snapshot, { merge: true }).then(function () {
       _flushInFlight = false;
+      if (_contextChanged()) { if (callback) callback(); return; }
       /* Success: drop exactly the fields we wrote (preserve any newer edits queued meanwhile). */
       for (var k = 0; k < keys.length; k++) {
         if (_pendingUpdates[keys[k]] === snapshot[keys[k]]) delete _pendingUpdates[keys[k]];
@@ -856,6 +876,9 @@ var FirestoreSync = (function () {
       if (callback) callback();
     }).catch(function (err) {
       _flushInFlight = false;
+      /* If the auth context changed during the failed write, do NOT re-persist — that would tag user
+         A's data with user B's uid. Drop it (resetSyncState already cleared the queue). */
+      if (_contextChanged()) { if (callback) callback(); return; }
       /* Failure: keep the data in _pendingUpdates AND in the durable buffer so it survives the
          logout/unload and replays on the next load — never silently lost. */
       console.warn('[FirestoreSync] flushUpdatesAsync failed (data retained for retry):', err && (err.message || err));

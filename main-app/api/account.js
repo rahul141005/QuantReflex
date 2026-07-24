@@ -85,9 +85,22 @@ async function _delete(req, res, db) {
        step fails, the account can no longer sign in, and any residual data is swept by uid out-of-band.
        (This request was already authenticated by the middleware; the Admin SDK does not re-check the
        caller's token, so the subsequent Firestore deletes still proceed.) */
-    await admin.auth().deleteUser(uid);
-    report.authAccount = true;
-    console.log('[account:delete] Auth account deleted for uid:', uid);
+    try {
+      await admin.auth().deleteUser(uid);
+      report.authAccount = true;
+      console.log('[account:delete] Auth account deleted for uid:', uid);
+    } catch (authErr) {
+      /* Idempotent: a retry after a partial deletion (auth already gone) must PROCEED to finish the
+         Firestore data deletes, not abort — otherwise residual user data is stranded (GDPR). Only
+         'user-not-found' is swallowed; any other auth error is fatal (data deletion must not run while
+         the account may still be usable). */
+      if (authErr && authErr.code === 'auth/user-not-found') {
+        report.authAccount = true;
+        console.log('[account:delete] Auth account already absent (retry) — continuing data cleanup for uid:', uid);
+      } else {
+        throw authErr;
+      }
+    }
 
     /* Delete all subcollections in parallel. */
     const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'aiEvents', 'duelHistory', 'duelStats'];

@@ -43,7 +43,7 @@ async function _createOrder(req, res) {
        backstop. */
     if (req.userPremium) {
       return res.status(409).json({
-        error: { code: 'ALREADY_PREMIUM', message: 'You already have an active Premium plan. You can renew once it is close to expiring.', retryable: false }
+        error: { code: 'ALREADY_PREMIUM', message: 'You already have an active Premium plan. You can purchase again after it expires.', retryable: false }
       });
     }
     var body = req.body || {};
