@@ -46,7 +46,10 @@
 
   function _standalone() {
     return _safe(function () {
-      if (root.matchMedia && root.matchMedia('(display-mode: standalone)').matches) return true;
+      /* Match the app's own installed-PWA detection (app.js/duel-manager) which also treats
+         display-mode:fullscreen as installed; previously this omitted it, so a fullscreen-launched
+         PWA was mis-reported as standalone:false in every bug report's context (audit MIN3). */
+      if (root.matchMedia && (root.matchMedia('(display-mode: standalone)').matches || root.matchMedia('(display-mode: fullscreen)').matches)) return true;
       if (root.navigator && root.navigator.standalone === true) return true;
       return false;
     });

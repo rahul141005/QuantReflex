@@ -89,9 +89,8 @@ var AIFeatures = (function () {
   }
 
   /* The 4th arg was once a simulated percentile band — the fabricated cohort comparison is gone
-     (removed with computePercentile), so the summary is strictly self-referential now. The arg slot
-     is kept for call-site compatibility and ignored. */
-  function fetchSpeedBenchmark(accuracy, avgTimeSec, speedScore, _unusedBand, questionCount, mode, callback) {
+     (removed with computePercentile), so the summary is strictly self-referential now. */
+  function fetchSpeedBenchmark(accuracy, avgTimeSec, speedScore, questionCount, mode, callback) {
     try {
       var result = _generateLocalBenchmark(accuracy, avgTimeSec, speedScore);
       callback(null, result);

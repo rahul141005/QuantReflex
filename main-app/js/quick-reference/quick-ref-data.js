@@ -76,7 +76,7 @@
 
     /* ── Arithmetic & Commercial ── */
     {
-      id: 'frac-pct', section: 'arithmetic', title: 'Fraction ⇄ Decimal ⇄ Percent', icon: '🍕',
+      id: 'frac-pct', section: 'arithmetic', title: 'Fraction ⇄ Decimal ⇄ Percent', icon: '🥧',
       learn: 'fractions', drill: 'fractions',
       searchTerms: ['fraction', 'decimal', 'percentage', 'percent', 'conversion'],
       /* The complete classic memorisation table (ADR-092: absorbed the Learn-hub static table — single source). */

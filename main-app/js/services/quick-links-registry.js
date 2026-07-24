@@ -180,7 +180,7 @@
      legacy 8 (read-only until the sources heal; stored selections are never rewritten here). */
   function _legacyFallback() {
     return [
-      { id: 'qr:frac-pct', category: 'reference', emoji: '🍕', label: function () { return 'Fraction ⇄ Percent'; }, locked: _no, go: function () { _goQuickRefCard('frac-pct'); } },
+      { id: 'qr:frac-pct', category: 'reference', emoji: '🥧', label: function () { return 'Fraction ⇄ Percent'; }, locked: _no, go: function () { _goQuickRefCard('frac-pct'); } },
       { id: 'ref:tables', category: 'reference', emoji: '✖️', label: function () { return _t('home.qlTables'); }, locked: _no, go: function () { _goHubSection('tablesContainer'); } },
       { id: 'feat:quickref', category: 'features', ico: 'book-open', label: function () { return _t('home.quickRefTile'); }, locked: _no, go: function () { _go('learn', { path: 'quick-ref' }); } },
       { id: 'qr:mult-tricks', category: 'reference', emoji: '✖️', label: function () { return 'Multiplication Shortcuts'; }, locked: _no, go: function () { _goQuickRefCard('mult-tricks'); } },

@@ -1537,7 +1537,7 @@ function createDrillEngine(container, opts) {
     /* Speed Score summary — generated locally, available to all users */
     var benchmarkPlaceholder = container.querySelector('#benchmarkAiPlaceholder');
     if (benchmarkPlaceholder && typeof AIFeatures !== 'undefined' && typeof AIFeatures.fetchSpeedBenchmark === 'function') {
-      AIFeatures.fetchSpeedBenchmark(accNum, parseFloat(avg), speedScore, null, count, mode, function (err, data) {
+      AIFeatures.fetchSpeedBenchmark(accNum, parseFloat(avg), speedScore, count, mode, function (err, data) {
         if (err || !data) {
           benchmarkPlaceholder.innerHTML = '';
           return;

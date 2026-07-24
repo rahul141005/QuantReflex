@@ -300,20 +300,6 @@ var AppState = (function () {
     return JSON.parse(JSON.stringify(obj));
   }
 
-  /**
-   * Expose key constants for external use (e.g. FirestoreSync bulk writes).
-   * Returns canonical (qr_) keys. Callers should prefer AppState
-   * getters/setters over direct key access.
-   * @returns {Object} map of logical names → localStorage key strings
-   */
-  function getKeys() {
-    var copy = {};
-    for (var k in KEYS) {
-      if (KEYS.hasOwnProperty(k)) copy[k] = KEYS[k];
-    }
-    return copy;
-  }
-
 
 
 
@@ -353,7 +339,6 @@ var AppState = (function () {
     setOnboardingDone: setOnboardingDone,
 
     /* Utility */
-    getKeys: getKeys,
     clearAll: clearAll,
 
     /* Expose defaults for reset operations */

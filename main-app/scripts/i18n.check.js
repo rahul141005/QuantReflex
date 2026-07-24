@@ -282,5 +282,29 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   delete global.localStorage;
 })();
 
+/* ── 8. JS-built modal i18n guard (audit B1): the Practice subject-picker builds its UI via innerHTML,
+   which §4's data-i18n scan cannot see. It once shipped 100% hardcoded English. Lock it to i18n. ── */
+(function () {
+  var src = fs.readFileSync(p('js/ui/practice-subject-modal.js'), 'utf8');
+  ok('8 subject-modal routes strings through QRI18n', /QRI18n\.t/.test(src) && /practice\.subject/.test(src));
+  /* the specific English UI literals that used to be hardcoded must not reappear in the RENDERED code
+     (strip the JSDoc block comment, which legitimately names the subjects in prose). */
+  var codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, '');
+  ['What would you like to practice?', 'Quantitative Aptitude', 'Data Interpretation', 'Logical Reasoning',
+   'Mixed Aptitude', "Don't ask again"].forEach(function (lit) {
+    ok('8 subject-modal has no hardcoded "' + lit + '"', codeOnly.indexOf(lit) === -1);
+  });
+  /* every subject key resolves in all three catalogs (parity is enforced by §1; this is explicit) */
+  var subjKeys = ['subjectHeading', 'subjectLast', 'subjectDontAsk', 'subjectClose',
+    'subjectQuantTitle', 'subjectQuantDesc', 'subjectQuantKinds', 'subjectDiTitle', 'subjectDiDesc',
+    'subjectDiKinds', 'subjectLrTitle', 'subjectLrDesc', 'subjectLrKinds', 'subjectMixedTitle',
+    'subjectMixedDesc', 'subjectMixedKinds'];
+  LANGS.forEach(function (lang) {
+    subjKeys.forEach(function (k) {
+      ok('8 ' + lang + ' practice.' + k, !!(catalogs[lang].practice && catalogs[lang].practice[k]));
+    });
+  });
+})();
+
 console.log('  ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

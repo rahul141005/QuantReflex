@@ -19,13 +19,18 @@
 var PracticeSubjectModal = (function () {
   'use strict';
 
+  /* Localized at render time (QRI18n may not be ready at module load). `k` is the locale-key stem. */
   var SUBJECTS = [
-    { id: 'quant', icon: '🔢', title: 'Quantitative Aptitude', desc: 'Arithmetic, numbers & speed math', kinds: 'Percentages · Ratios · Time-Speed · Profit-Loss' },
-    { id: 'di',    icon: '📊', title: 'Data Interpretation',   desc: 'Read charts, tables & caselets',    kinds: 'Bar · Line · Pie · Tables · Caselets' },
-    { id: 'lr',    icon: '🧩', title: 'Logical Reasoning',     desc: 'Puzzles, arrangements & deduction', kinds: 'Coding · Syllogisms · Seating · Series' },
-    { id: 'mixed', icon: '🎯', title: 'Mixed Aptitude',        desc: 'A balanced cross-subject sprint',   kinds: 'Quant + DI + Reasoning together' }
+    { id: 'quant', icon: '🔢', k: 'Quant' },
+    { id: 'di',    icon: '📊', k: 'Di' },
+    { id: 'lr',    icon: '🧩', k: 'Lr' },
+    { id: 'mixed', icon: '🎯', k: 'Mixed' }
   ];
   var VALID = { quant: 1, di: 1, lr: 1, mixed: 1 };
+
+  /* i18n helper — QRI18n.t returns the en value (ultimate fallback) if a locale is missing a key. */
+  function _t(key) { return (typeof QRI18n !== 'undefined' && QRI18n.t) ? QRI18n.t(key) : key; }
+  function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   function _settings() {
     try { if (typeof loadSettings === 'function') return loadSettings(); } catch (_) {}
@@ -54,13 +59,17 @@ var PracticeSubjectModal = (function () {
   function open(onPick) {
     if (_isOpen()) return;
     var last = lastSubject();
+    var lastTag = _esc(_t('practice.subjectLast'));
     var cards = SUBJECTS.map(function (s) {
+      var title = _esc(_t('practice.subject' + s.k + 'Title'));
+      var desc = _esc(_t('practice.subject' + s.k + 'Desc'));
+      var kinds = _esc(_t('practice.subject' + s.k + 'Kinds'));
       return '<button class="psm-card' + (s.id === last ? ' is-last' : '') + '" type="button" data-subject="' + s.id + '">' +
         '<span class="psm-ico" aria-hidden="true">' + s.icon + '</span>' +
         '<span class="psm-text">' +
-          '<span class="psm-title">' + s.title + (s.id === last ? ' <span class="psm-last-tag">Last</span>' : '') + '</span>' +
-          '<span class="psm-desc">' + s.desc + '</span>' +
-          '<span class="psm-kinds">' + s.kinds + '</span>' +
+          '<span class="psm-title">' + title + (s.id === last ? ' <span class="psm-last-tag">' + lastTag + '</span>' : '') + '</span>' +
+          '<span class="psm-desc">' + desc + '</span>' +
+          '<span class="psm-kinds">' + kinds + '</span>' +
         '</span>' +
       '</button>';
     }).join('');
@@ -71,12 +80,12 @@ var PracticeSubjectModal = (function () {
     overlay.innerHTML =
       '<div class="ba-modal-card psm-card-wrap" role="dialog" aria-modal="true" aria-labelledby="psmTitle">' +
         '<div class="ba-modal-head">' +
-          '<h2 class="ba-modal-title" id="psmTitle" tabindex="-1">What would you like to practice?</h2>' +
-          '<button class="ba-modal-close" id="psmClose" type="button" aria-label="Close">✕</button>' +
+          '<h2 class="ba-modal-title" id="psmTitle" tabindex="-1">' + _esc(_t('practice.subjectHeading')) + '</h2>' +
+          '<button class="ba-modal-close" id="psmClose" type="button" aria-label="' + _esc(_t('practice.subjectClose')) + '">✕</button>' +
         '</div>' +
         '<div class="ba-modal-body">' +
           '<div class="psm-grid">' + cards + '</div>' +
-          '<label class="psm-dontask"><input type="checkbox" id="psmDontAsk"> <span>Don\'t ask again — start with my last choice</span></label>' +
+          '<label class="psm-dontask"><input type="checkbox" id="psmDontAsk"> <span>' + _esc(_t('practice.subjectDontAsk')) + '</span></label>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
