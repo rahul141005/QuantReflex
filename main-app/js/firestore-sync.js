@@ -34,7 +34,8 @@ var FirestoreSync = (function () {
   var _dataLoaded = false; /* Whether initial load has completed */
   var _drillActive = false; /* Whether a drill is in progress (defers syncing) */
   var _loadedUserId = null; /* UID whose data is currently loaded — detects user switches */
-  var _planExpiryPersistInFlight = false;
+  var _loadRetryCount = 0;  /* transient load-failure retries (S1-ENT4: don't latch a paying user to free) */
+  var _MAX_LOAD_RETRIES = 3;
   var _flushRetryCount = 0;
   var _flushRetryTimer = null;
   var _flushInFlight = false;
@@ -179,9 +180,9 @@ var FirestoreSync = (function () {
     _pendingUpdates = {};
     _drillActive = false;
     _loadedUserId = null;
+    _loadRetryCount = 0;
     _flushRetryCount = 0;
     _flushInFlight = false;
-    _planExpiryPersistInFlight = false;
     if (_flushRetryTimer) {
       clearTimeout(_flushRetryTimer);
       _flushRetryTimer = null;
@@ -189,6 +190,11 @@ var FirestoreSync = (function () {
     if (_syncTimer) {
       clearTimeout(_syncTimer);
       _syncTimer = null;
+    }
+
+    /* Reset per-user paywall UX state (free-explain-exhausted hint) so user B never inherits A's. */
+    if (typeof Paywall !== 'undefined' && typeof Paywall.resetPaywallUserState === 'function') {
+      Paywall.resetPaywallUserState();
     }
 
     /* Clear all user-related localStorage keys to prevent data leakage */
@@ -257,6 +263,7 @@ var FirestoreSync = (function () {
     } catch (_) {}
 
     docRef.get().then(function (doc) {
+      _loadRetryCount = 0; /* a successful read clears the transient-failure counter */
       if (doc.exists) {
         var data = doc.data();
         _normalizeMonetization(data, docRef);
@@ -319,7 +326,17 @@ var FirestoreSync = (function () {
 
     }).catch(function (err) {
       console.warn('Firestore load failed:', err);
-      _dataLoaded = true; /* Mark as loaded to prevent retries */
+      /* S1-ENT4: a transient read failure must NOT latch a paying user to a null cache (which
+         getAccessState would resolve as free for the rest of the session). Retry a bounded number of
+         times with backoff before giving up; only after exhausting retries do we proceed (the server
+         still gates every premium API call, so a genuine persistent failure degrades safely). */
+      if (_loadRetryCount < _MAX_LOAD_RETRIES) {
+        _loadRetryCount++;
+        setTimeout(function () { loadFromFirestore(callback); }, 800 * _loadRetryCount);
+        return;
+      }
+      _loadRetryCount = 0;
+      _dataLoaded = true; /* retries exhausted — proceed so the app isn't wedged; server remains authoritative */
       if (callback) callback(false);
     });
   }
@@ -557,35 +574,33 @@ var FirestoreSync = (function () {
   }
 
   /**
-   * v2: client-side premium expiry self-heal. Covers both paid premium and
-   * trials (a trial is plan:'premium' with planExpiry===trialEnd). If the
-   * active premium has lapsed, downgrade to free locally + persist. Rules
-   * allow this client write (plan→'free' is a permitted revocation).
+   * v3: client-side premium expiry self-heal — LOCAL VIEW ONLY.
+   * Covers paid premium and trials (a trial is plan:'premium' with planExpiry===trialEnd). If the
+   * active premium looks lapsed, downgrade the in-memory/cached view so the UI locks immediately.
+   *
+   * The client MUST NOT persist a plan→'free' write. The server (resolveUserAuth per-request
+   * self-heal) is the SOLE writer of the expiry transition. A client persist here was unsafe on two
+   * fronts: (a) a device clock set FORWARD past expiry would permanently revoke a valid entitlement
+   * server-side, and (b) with offline IndexedDB persistence, `docRef.get()` can resolve a STALE
+   * cached snapshot (pre-purchase) whose downgrade would clobber a fresh server grant on reconnect.
+   * Server is the source of truth; the client only reflects it locally.
    */
-  function _enforcePremiumExpiry(data, docRef) {
+  function _enforcePremiumExpiry(data /*, docRef */) {
     if (!data || data.plan !== 'premium') return;
     var expiryMs = _toMillis(data.planExpiry);
     var now = Date.now();
     var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
     /* Clock-rewind guard: if device clock is >5min behind last server write,
-       treat as far-future so a wrong local clock can't revoke valid premium. */
+       treat as far-future so a wrong local clock can't hide valid premium. */
     if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
     if (!expiryMs || expiryMs >= now) return;
+    /* Local-only downgrade — never written back to Firestore (server is authoritative). */
     data.plan = 'free';
     data.planType = null;
     data.planExpiry = null;
     data.planSource = null;
     data.isTrial = false;
     data.trialEnd = null;
-    docRef.set({
-      plan: 'free', planType: null, planExpiry: null, planSource: null,
-      isTrial: false, trialEnd: null,
-      planUpdatedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-    }, { merge: true }).then(function () {
-
-    }).catch(function (err) {
-      console.warn('[FirestoreSync:_enforcePremiumExpiry] failed to persist expiry:', err.message || err);
-    });
   }
 
   /**
@@ -1083,7 +1098,10 @@ var FirestoreSync = (function () {
     getAccessState: function () {
       if (!_memoryCache) return null;
       var now = Date.now();
-      /* Self-heal expired premium/trial (covers both — a trial is plan:'premium') */
+      /* Self-heal expired premium/trial — LOCAL VIEW ONLY (covers both; a trial is plan:'premium').
+         The client never persists a plan→'free' write: the server is the sole authority for the
+         expiry transition. See _enforcePremiumExpiry for the full rationale (forward-clock +
+         stale-offline-cache can otherwise clobber a valid/fresh server entitlement). */
       if (_memoryCache.plan === 'premium') {
         var expMs = _toMillis(_memoryCache.planExpiry);
         if (expMs > 0 && expMs < now) {
@@ -1093,21 +1111,6 @@ var FirestoreSync = (function () {
           _memoryCache.planSource = null;
           _memoryCache.isTrial = false;
           _memoryCache.trialEnd = null;
-          if (!_planExpiryPersistInFlight) {
-            var docRef = _getUserDocRef();
-            if (docRef) {
-              _planExpiryPersistInFlight = true;
-              docRef.set({
-                plan: 'free', planType: null, planExpiry: null, planSource: null,
-                isTrial: false, trialEnd: null,
-                planUpdatedAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-              }, { merge: true }).catch(function (err) {
-                console.warn('Failed to persist premium expiry from access state:', err);
-              }).finally(function () {
-                _planExpiryPersistInFlight = false;
-              });
-            }
-          }
         }
       }
 

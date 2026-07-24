@@ -133,19 +133,38 @@ async function handler(req, res) {
       return res.status(200).json({ status: 'ignored', reason: 'missing fields' });
     }
 
-    /* If uid or plan is missing from notes, try to fetch from Razorpay order */
-    if (!plan) {
+    /* Razorpay copies order notes onto the payment entity inconsistently, so if EITHER uid or plan is
+       missing from payment.notes, recover BOTH from the order — the server-side source of truth.
+       (Previously only `plan` had this fallback; a missing `uid` silently acked success and stranded
+       the captured payment forever — audit S1-ENT7.) */
+    if (!uid || !plan) {
       try {
-        plan = await paymentService.fetchOrderPlan(orderId);
+        var order = await paymentService.fetchOrder(orderId);
+        var onotes = (order && order.notes) || {};
+        if (!plan) plan = onotes.plan;
+        if (!uid) uid = onotes.uid;
       } catch (fetchErr) {
-        console.error('[webhook] Could not fetch order plan:', fetchErr.message);
+        console.error('[webhook] Could not fetch order for uid/plan recovery:', fetchErr.message);
         return res.status(200).json({ status: 'ignored', reason: 'order fetch failed' });
       }
     }
 
     if (!uid) {
-      console.error('[PaymentFlow] PAYMENT_FAILED | webhook missing uid | orderId: ' + orderId + ' | paymentId: ' + paymentId);
-      return res.status(200).json({ status: 'ok', warning: 'no uid' });
+      /* Captured money we cannot attribute to a user. Record an orphan for manual reconciliation
+         instead of silently acking success (which strands the payment). Server-only collection
+         (Admin SDK bypasses rules); best-effort so the ack still returns 200 and Razorpay won't retry
+         a fundamentally un-attributable event. */
+      console.error('[PaymentFlow] PAYMENT_ORPHAN | webhook missing uid after order lookup | orderId: ' + orderId + ' | paymentId: ' + paymentId);
+      try {
+        await admin.firestore().collection('paymentOrphans').doc(String(paymentId)).set({
+          provider: 'razorpay', paymentId: String(paymentId), orderId: String(orderId),
+          plan: plan || null, reason: 'no_uid', status: 'unresolved',
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (orphanErr) {
+        console.error('[webhook] Failed to write paymentOrphans record:', orphanErr.message);
+      }
+      return res.status(200).json({ status: 'ok', warning: 'no uid — orphan recorded' });
     }
 
     /* Validate plan is known */

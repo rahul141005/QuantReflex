@@ -53,14 +53,10 @@ var Auth = (function () {
       if (user) {
         var _afterSession = function () {
           var claimsPromise = user.getIdTokenResult(false).then(function (result) {
-            if (result && result.claims) {
-              var claims = result.claims;
-              if (typeof AppState !== 'undefined') {
-                AppState.setPremiumStatus(!!claims.premium);
-              } else {
-                localStorage.setItem('qr_premium', claims.premium ? 'true' : 'false');
-              }
-            }
+            /* Entitlement is resolved solely via FirestoreSync.getAccessState()/hasActivePremium();
+               the old qr_premium localStorage mirror was write-only (zero readers) and a misleading
+               second source of truth, so it's no longer written. We still fetch the token result here
+               because callers downstream use `result` (e.g. coaching claim). */
             return result;
           }).catch(function (err) {
             console.warn('[Auth] Error fetching token claims:', err);

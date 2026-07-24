@@ -85,16 +85,24 @@ function _getAccessUserState() {
 }
 
 /**
- * THE entitlement check: does this user currently have Premium?
- * premium ⟺ plan==='premium' && (planExpiry==null || planExpiry>now)
+ * THE single canonical entitlement decision: does this user currently have active Premium?
+ * premium ⟺ plan==='premium' && planExpiry is a real future timestamp.
+ *
+ * There is NO permanent/indefinite Premium tier in QuantReflex — every grant (purchase 6m/12m,
+ * admin 6m/12m, or a finite trial) carries a finite planExpiry. A `premium` doc with a null/NaN
+ * expiry is therefore illegitimate legacy data and resolves to NOT-premium (fail-safe), rather than
+ * granting indefinite access. This is the ONE function every gate and purchase entry point uses;
+ * `hasActivePremium` is the canonical alias.
  */
 function hasPremiumAccess(user) {
   var u = user || _getAccessUserState();
   if (!u || u.plan !== 'premium') return false;
   var expiryMs = _toMillis(u.planExpiry);
-  if (!expiryMs) return true; /* indefinite admin grant */
+  if (!expiryMs) return false; /* no permanent tier — null/invalid expiry is not active premium */
   return _clockSafeNow(u) <= expiryMs;
 }
+/* Canonical name (used app-wide + by the purchase-block guards). Same decision, clearer intent. */
+function hasActivePremium(user) { return hasPremiumAccess(user); }
 
 function canAccess(feature, user) {
   var u = user || _getAccessUserState();
@@ -142,6 +150,9 @@ function requirePremium(featureKey, opts) {
    rest of the session instead of making the user tap into a dead end. Premium users are always allowed. */
 var _freeExplainExhausted = false;
 function markFreeExplainExhausted() { _freeExplainExhausted = true; }
+/* Per-user UX flag — must be cleared on logout / user-switch so user B never inherits user A's
+   exhausted-state hint. Called by FirestoreSync.resetSyncState(). */
+function resetPaywallUserState() { _freeExplainExhausted = false; }
 function canOpenExplain() {
   if (hasPremiumAccess(_getAccessUserState())) return true;
   return !_freeExplainExhausted;   // free users may attempt until the server says they're out
@@ -204,6 +215,9 @@ function _resetPaymentGuards() {
  * Start the Premium purchase for a given plan type ('premium_6m' | 'premium_12m').
  */
 function openPremiumPayment(planType, userId) {
+  /* No overlapping plans: an active-premium user (purchase / Play / admin — any source) can never
+     start a purchase. Belt-and-braces with showPaywall's guard, since this is also callable directly. */
+  if (hasActivePremium(_getAccessUserState())) return;
   if (_paymentBusy) return;
   if (!PLANS[planType]) planType = DEFAULT_PLAN;
   _paymentBusy = true;
@@ -564,6 +578,7 @@ global.openPremiumPayment = openPremiumPayment;
 global.getDailyQuestionLimit = getDailyQuestionLimit;
 global.hasReachedDailyLimit = hasReachedDailyLimit;
 global.hasPremiumAccess = hasPremiumAccess;
+global.hasActivePremium = hasActivePremium;   /* canonical alias — one active-premium decision app-wide */
 global.Paywall = {
   canAccess: canAccess,
   canAccessFeature: canAccessFeature,
@@ -574,7 +589,9 @@ global.Paywall = {
   getDailyQuestionLimit: getDailyQuestionLimit,
   hasReachedDailyLimit: hasReachedDailyLimit,
   hasPremiumAccess: hasPremiumAccess,
+  hasActivePremium: hasActivePremium,
   canOpenExplain: canOpenExplain,
-  markFreeExplainExhausted: markFreeExplainExhausted
+  markFreeExplainExhausted: markFreeExplainExhausted,
+  resetPaywallUserState: resetPaywallUserState
 };
 })(window);

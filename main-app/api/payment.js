@@ -35,6 +35,17 @@ async function _createOrder(req, res) {
     if (await isEnabled('paymentKillSwitch')) {
       return res.status(503).json({ error: { code: 'PAYMENTS_DISABLED', message: 'Payments are temporarily disabled. Please try again shortly.', retryable: true } });
     }
+    /* No overlapping plans (audit S1-ENT2): a user with an active Premium entitlement — from ANY
+       source (Razorpay / Google Play / admin grant / trial) — cannot start another purchase until it
+       expires. req.userPremium is the server-resolved, expiry-checked entitlement (resolveUserAuth,
+       which also self-heals expired plans). This blocks a duplicate charge BEFORE any Razorpay order
+       is created; the client hides the purchase UI for premium users, and this is the authoritative
+       backstop. */
+    if (req.userPremium) {
+      return res.status(409).json({
+        error: { code: 'ALREADY_PREMIUM', message: 'You already have an active Premium plan. You can renew once it is close to expiring.', retryable: false }
+      });
+    }
     var body = req.body || {};
     var plan = body.plan;
     if (!plan || !paymentService.PLAN_CONFIG[plan]) {

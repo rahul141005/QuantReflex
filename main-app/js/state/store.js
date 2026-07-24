@@ -24,7 +24,6 @@
  *   quant_bookmarks            → qr_bookmarks
  *   quant_notifications_enabled→ qr_notif_enabled
  *   quant_onboarding_complete  → qr_onboarding_done
- *   premiumStatus              → qr_premium
  */
 
 var AppState = (function () {
@@ -40,8 +39,7 @@ var AppState = (function () {
     customFormulas: 'qr_custom_formulas',
     bookmarks:      'qr_bookmarks',
     notifEnabled:   'qr_notif_enabled',
-    onboardingDone: 'qr_onboarding_done',
-    premium:        'qr_premium'
+    onboardingDone: 'qr_onboarding_done'
   };
 
   /* Legacy → canonical map (ADR-095): the module always documented a lazy read-time migration but never implemented
@@ -56,8 +54,7 @@ var AppState = (function () {
     'qr_custom_formulas': 'quant_custom_formulas',
     'qr_bookmarks':       'quant_bookmarks',
     'qr_notif_enabled':   'quant_notifications_enabled',
-    'qr_onboarding_done': 'quant_onboarding_complete',
-    'qr_premium':         'premiumStatus'
+    'qr_onboarding_done': 'quant_onboarding_complete'
   };
 
   /* Return the stored raw string for a canonical key, migrating a legacy value into it on first read. */
@@ -264,21 +261,6 @@ var AppState = (function () {
     _writeString(KEYS.onboardingDone, done ? 'true' : 'false');
   }
 
-  /* ---- Premium Status ---- */
-
-  function getPremiumStatus() {
-    var val = _readString(KEYS.premium, null);
-    return val || null;
-  }
-
-  function setPremiumStatus(status) {
-    if (status === null || status === undefined) {
-      try { localStorage.removeItem(KEYS.premium); } catch (_) {}
-    } else {
-      _writeString(KEYS.premium, String(status));
-    }
-  }
-
   /* ---- Utility ---- */
 
   /**
@@ -294,6 +276,9 @@ var AppState = (function () {
     for (var i = 0; i < allKeys.length; i++) {
       try { localStorage.removeItem(allKeys[i]); } catch (_) {}
     }
+    /* Purge any stale legacy premium flags (removed as a source of truth — entitlement is resolved
+       solely via FirestoreSync.getAccessState/hasActivePremium). Harmless if absent. */
+    try { localStorage.removeItem('qr_premium'); localStorage.removeItem('premiumStatus'); } catch (_) {}
 
     /* Sweep per-user AI cache keys that embed the user's UID.
        Prefixes: quant_ai_wp_usage_, quant_ai_coach_cache_, quant_ai_sp_, quant_ai_sp_last_ */
@@ -366,10 +351,6 @@ var AppState = (function () {
     /* Onboarding */
     getOnboardingDone: getOnboardingDone,
     setOnboardingDone: setOnboardingDone,
-
-    /* Premium */
-    getPremiumStatus: getPremiumStatus,
-    setPremiumStatus: setPremiumStatus,
 
     /* Utility */
     getKeys: getKeys,

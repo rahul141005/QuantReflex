@@ -212,13 +212,18 @@ async function activatePremium(uid, planType, paymentId, orderId) {
       }, { merge: true });
       return;
     }
-    /* Renewal stacking (ADR-107 cert fix): a user who renews while still an UNEXPIRED purchase-premium keeps their
-       remaining days — the new term stacks on top instead of resetting to now+days. Only for an active purchase
-       (never a trial or an already-expired plan, which correctly restart from now). */
+    /* No-shorten renewal (ADR-107 + audit S1-ENT2): a new grant must NEVER reduce an existing active
+       entitlement, regardless of how it was obtained (purchase / admin / coaching / trial). The new
+       term extends from the LATER of {now, current expiry}. Previously this only stacked for
+       planSource==='purchase', so a purchase landing on top of a longer admin/coaching grant
+       overwrote it with a shorter now+days expiry — a paying user could lose months of access.
+       (A premium doc with a null/invalid expiry is not a valid active grant under the no-permanent-
+       tier rule, so it does not extend — base stays `now`.) The client + create-order block prevent a
+       purchase while premium is active; this server guard is the defense-in-depth backstop. */
     var baseMs = Date.now();
     if (userDoc.exists) {
       var ud = userDoc.data() || {};
-      if (ud.plan === 'premium' && ud.planSource === 'purchase' && ud.planExpiry) {
+      if (ud.plan === 'premium' && ud.planExpiry) {
         var curMs = Date.parse(ud.planExpiry);
         if (!isNaN(curMs) && curMs > baseMs) baseMs = curMs;
       }
