@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-24 — Entitlement Architecture Hardening: ONE canonical implementation (ADR-117, SW v248→v249)
+
+Phase S1.1 treated the preceding audit as a hypothesis and independently re-verified it — **overturning
+three findings** (`ai-features.js` raw-plan check is unreachable dead code; the clear-data lockout is
+~500 ms online and never damages the server doc; slow-boot shows stale *chrome*, not a lockout, because
+gates re-check live) and **escalating one** (the `activatePremium` replay hole is reachable indefinitely
+via `?action=verify`, which has no recency check). Ground truth: **12 writers** across 4 deploy roots
+with only ONE implementing never-shorten, **20 readers** of which 6 disagreed, and a **5th store** (the
+Auth `premium` claim) that no revoke path ever cleared.
+
+- **Canonical core** — new `main-app/data/entitlement-core.js`: pure, dependency-free, dual-export.
+  One physical file serves the main-app browser (`window.QR_ENTITLEMENT`) **and** the serverless API;
+  `functions/` and `super-admin-app/` get byte-identical generated mirrors
+  (`scripts/sync-entitlement-core.js`) because they deploy from their own roots.
+- **Readers unified** — `paywall.hasPremiumAccess`, `firestore-sync.getAccessState` +
+  `_enforcePremiumExpiry`, `aiService.resolveUserAuth`, the expiry cron, and the super-admin badge
+  resolver all resolve through the core. Normalising `getAccessState` also fixed `settings.js`'s raw
+  `plan === 'premium'` reads at the source. The cron no longer *skips* NaN/≤0 expiries (which left docs
+  premium forever and inflated dashboard counts); the super-admin UI no longer renders a null-expiry
+  doc as an active green "Premium" badge while the product treats it as free.
+- **Writers hardened** — the `activatePremium` **replay** branch now keeps the LATER of {stored payment
+  expiry, current entitlement} and preserves a stronger grant's `planSource` (a stale webhook could
+  previously roll a user back and relabel an admin grant as a purchase, after which the next auth
+  resolution downgraded them to FREE); the fresh branch uses `stackExpiry` (and the tolerant parser —
+  `Date.parse` returned NaN for Timestamp/number expiries, silently discarding the remaining term);
+  admin grants read the user's current entitlement (snapshots were already in hand) so a bulk trial can
+  never truncate paid premium, and `trialDays` is clamped to `MAX_TRIAL_DAYS`; coaching **suspend** now
+  applies the same `planSource === 'coaching'` guard its twin delete path always had, so it can no
+  longer wipe self-purchased premium irreversibly; `claimsService` merges custom claims instead of
+  replacing them (a super-admin who bought Premium lost `admin:true`) and clears `premium` on revoke.
+- **Payment UX** — trial users no longer see an "Unlock Premium" card whose button was completely inert
+  (it called `showPaywall`, which early-returns for active premium); a settled-failed Razorpay
+  `<script>` no longer deadlocks the CTA on "Processing…" for 120 s; and entitlement arriving after the
+  6 s boot timeout now re-renders the view, so a paying user stops seeing free-tier chrome.
+- **Tests became behavioural** — new `entitlement-core.check.js` **executes** the module (93 assertions
+  across purchase, grant, extension, expiry, replay, reinstall, offline, multi-device, duplicate
+  payment, clock tampering, malformed expiries, mirror byte-identity and browser load order);
+  `entitlement-invariants.check` retargeted from regex-on-source to delegation assertions (22→30).
+  Full suite **14,507/0**; live Playwright confirms premium *and* trial accounts cannot reach a
+  purchase. Docs: ADR-117, `shared/entitlements/README.md` corrected (it still documented the old
+  `planExpiry == null ⇒ premium` rule), VERSIONS 2.149.
+
 ## 2026-07-24 — Ultimate Production Bug Audit & Stabilization (ADR-115/116, SW v247→v248)
 
 A repository-wide adversarial audit (5 agents + independent file:line verification) against a clean baseline, then

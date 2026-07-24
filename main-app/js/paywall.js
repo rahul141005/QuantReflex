@@ -48,32 +48,27 @@ var _paymentSlowTimer = null;
 var _attemptId = 0;
 var _lastPaywallFeature = '';   /* ADR-109: the feature key of the most recently shown paywall, for upgrade attribution */
 
+/* ADR-117: entitlement arithmetic lives in ONE place (data/entitlement-core.js, window.QR_ENTITLEMENT
+   — the same physical module the serverless API require()s). These thin wrappers keep the existing
+   call sites unchanged while removing the duplicate implementations. The `||` fallbacks are
+   fail-closed: if the core somehow failed to load, expiry parses to 0 ⇒ NOT premium. */
+function _core() { return (typeof QR_ENTITLEMENT !== 'undefined') ? QR_ENTITLEMENT : null; }
+
 function _toMillis(value) {
-  if (!value) return 0;
-  if (typeof value === 'number') return value;
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'string') { var p = Date.parse(value); return isNaN(p) ? 0 : p; }
-  if (typeof value.toDate === 'function') { try { return value.toDate().getTime(); } catch (_) { return 0; } }
-  return 0;
+  var c = _core();
+  return c ? c.toMillis(value) : 0;
 }
 
 /**
  * Clock-safe now — if the device clock is set >5min behind the last server
  * write, use the server timestamp so a rewound clock can't extend access.
  */
+/* Clock-rewind guard (ADR-108) — anchors to the most recent server write so a rewound device clock
+   cannot extend access. Implementation is in the canonical core; see its clockSafeNow() for the
+   full rationale (max() not first-truthy; pending serverTimestamp sentinels resolve to 0). */
 function _clockSafeNow(u) {
-  var now = Date.now();
-  if (u) {
-    /* Anchor to the MOST RECENT server write, so a rewound device clock snaps forward as far as any trustworthy
-       timestamp allows. Must be max(), not first-truthy: planUpdatedAt is frozen at purchase time (the oldest stamp)
-       and is present for every purchased user, so a `||` chain would always pick it and discard `updatedAt` — the
-       field firestore-sync writes via FieldValue.serverTimestamp() SPECIFICALLY as the tamper-resistant skew anchor.
-       Absent fields → _toMillis 0 (ignored); a pending serverTimestamp sentinel → 0 (no false lockout); updatedAt
-       can't be future, so a legitimate clock is unaffected. (ADR-108 cert fix, corrected in cert pass #3.) */
-    var lastUpdateMs = Math.max(_toMillis(u.planUpdatedAt), _toMillis(u.updatedAt), _toMillis(u.createdAt));
-    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = lastUpdateMs;
-  }
-  return now;
+  var c = _core();
+  return c ? c.clockSafeNow(u) : Date.now();
 }
 
 function _getAccessUserState() {
@@ -96,10 +91,9 @@ function _getAccessUserState() {
  */
 function hasPremiumAccess(user) {
   var u = user || _getAccessUserState();
-  if (!u || u.plan !== 'premium') return false;
-  var expiryMs = _toMillis(u.planExpiry);
-  if (!expiryMs) return false; /* no permanent tier — null/invalid expiry is not active premium */
-  return _clockSafeNow(u) <= expiryMs;
+  var c = _core();
+  /* Fail-closed if the canonical core is unavailable (it is precached + loaded before this file). */
+  return c ? c.isActivePremium(u) : false;
 }
 /* Canonical name (used app-wide + by the purchase-block guards). Same decision, clearer intent. */
 function hasActivePremium(user) { return hasPremiumAccess(user); }
@@ -186,16 +180,28 @@ function _loadRazorpayScript(callback) {
   if (typeof Razorpay !== 'undefined') { if (callback) callback(null); return; }
   var existing = document.getElementById('razorpayCheckoutScript');
   if (existing) {
-    existing.addEventListener('load', function () { if (callback) callback(null); }, { once: true });
-    existing.addEventListener('error', function () { if (callback) callback('script_load_failed'); }, { once: true });
-    return;
+    /* ADR-117: `load`/`error` never REPLAY on an element that has already settled, so attaching
+       listeners to a settled-failed tag left the callback permanently uninvoked — the CTA sat
+       disabled on "Processing…" until the 120s safety timer. showPaywall() preloads this script,
+       so a failed preload (offline / ad-blocker / DNS) made that the normal path. Track the state
+       on the element and answer immediately; a failed tag is discarded so the tap can retry. */
+    var state = existing.getAttribute('data-load-state');
+    if (state === 'ok') { if (callback) callback(null); return; }
+    if (state === 'error') {
+      try { existing.parentNode && existing.parentNode.removeChild(existing); } catch (_) {}
+      /* fall through and create a fresh tag — a retry may well succeed */
+    } else {
+      existing.addEventListener('load', function () { if (callback) callback(null); }, { once: true });
+      existing.addEventListener('error', function () { if (callback) callback('script_load_failed'); }, { once: true });
+      return;
+    }
   }
   var script = document.createElement('script');
   script.id = 'razorpayCheckoutScript';
   script.src = 'https://checkout.razorpay.com/v1/checkout.js';
   script.async = true;
-  script.onload = function () { if (callback) callback(null); };
-  script.onerror = function () { if (callback) callback('script_load_failed'); };
+  script.onload = function () { script.setAttribute('data-load-state', 'ok'); if (callback) callback(null); };
+  script.onerror = function () { script.setAttribute('data-load-state', 'error'); if (callback) callback('script_load_failed'); };
   document.body.appendChild(script);
 }
 

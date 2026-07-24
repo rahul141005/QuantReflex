@@ -2,6 +2,18 @@ const { withAdminAuth, methodGuard, parseBody, formatError } = require('../_lib/
 const { writeAuditLog } = require('../_lib/audit');
 const { sendNotification } = require('../_lib/notifyClient');   // ADR-066: the ONE pipeline (main-app /api/notify)
 const admin = require('firebase-admin');
+/* ADR-117: byte-identical mirror of main-app/data/entitlement-core.js (super-admin deploys from its
+   own root and cannot require across it). Regenerate with scripts/sync-entitlement-core.js. */
+const entitlement = require('../_lib/entitlement-core');
+
+/* Admin trials are a courtesy, not a tier: bound the duration so a "finite" grant can never become
+   de-facto permanent (36500 days would satisfy "has an expiry" while defeating the no-permanent-tier
+   rule AND permanently blocking purchase via ALREADY_PREMIUM). */
+function _clampTrialDays(v) {
+  var n = parseInt(v, 10);
+  if (!isFinite(n) || n < 1) n = 1;
+  return Math.min(entitlement.MAX_TRIAL_DAYS, n);
+}
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -28,8 +40,14 @@ async function handler(req, res) {
   if (VALID_ACTIONS.indexOf(action) === -1) {
     return res.status(400).json({ error: { code: 'INVALID_ACTION', message: 'action must be one of: ' + VALID_ACTIONS.join(', ') + '.' } });
   }
-  if (action === 'trial' && (!trialDays || parseInt(trialDays, 10) < 1)) {
-    return res.status(400).json({ error: { code: 'INVALID_TRIAL', message: 'trialDays (positive integer) is required for a trial grant.' } });
+  if (action === 'trial') {
+    const _td = parseInt(trialDays, 10);
+    if (!trialDays || !isFinite(_td) || _td < 1) {
+      return res.status(400).json({ error: { code: 'INVALID_TRIAL', message: 'trialDays (positive integer) is required for a trial grant.' } });
+    }
+    if (_td > entitlement.MAX_TRIAL_DAYS) {
+      return res.status(400).json({ error: { code: 'INVALID_TRIAL', message: 'trialDays must be ' + entitlement.MAX_TRIAL_DAYS + ' or fewer — longer courtesy access should be granted as a 6- or 12-month plan.' } });
+    }
   }
 
   try {
@@ -63,40 +81,44 @@ async function handler(req, res) {
     const CHUNK_SIZE = 200;
     let updatedCount = 0;
 
-    /* v2 grant actions. Trial supports a custom duration (trialDays). */
-    const _expiryAfterDays = (days) => {
-      const end = new Date();
-      end.setDate(end.getDate() + days);
-      return end.toISOString();
-    };
-
-    const buildUpdates = () => {
+    /* v2 grant actions. Trial supports a custom duration (trialDays).
+       ADR-117: expiry arithmetic comes from the canonical entitlement core (never-shorten), and the
+       user's CURRENT state is now read — previously buildUpdates() took no arguments and wrote
+       `now + N days` unconditionally, so a bulk 7-day trial applied to a coaching silently truncated
+       every student who had months of PAID premium. */
+    const buildUpdates = (userData) => {
+      const ud = userData || {};
       const nowIso = new Date().toISOString();
       const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp(), planUpdatedAt: nowIso };
+      const hasActive = entitlement.isActivePremium(ud);
+      const currentExpiry = hasActive ? ud.planExpiry : null;   /* lapsed/absent ⇒ restart from now */
 
       if (action === 'premium_6m' || action === 'premium_12m') {
         updates.plan = 'premium';
         updates.planType = action === 'premium_12m' ? 'premium_12m' : 'premium_6m';
-        updates.planExpiry = _expiryAfterDays(action === 'premium_12m' ? 365 : 182);
+        updates.planExpiry = entitlement.stackExpiry(currentExpiry, action === 'premium_12m' ? 365 : 182);
         updates.planSource = 'admin';
         updates.isTrial = false;
         updates.trialEnd = null;
       } else if (action === 'trial') {
-        const days = Math.max(1, parseInt(trialDays, 10) || 0);
-        const exp = _expiryAfterDays(days);
+        const exp = entitlement.stackExpiry(currentExpiry, _clampTrialDays(trialDays));
         updates.plan = 'premium';
-        updates.planType = null;
         updates.planExpiry = exp;
-        updates.planSource = 'trial';
-        updates.isTrial = true;
-        updates.trialEnd = exp;
+        if (hasActive && ud.isTrial !== true) {
+          /* Extending someone who already holds a PAID/admin entitlement: add the days but never
+             relabel them as a trial (that would misreport a paying customer and flip planSource). */
+          updates.planType = ud.planType || null;
+          updates.planSource = ud.planSource || 'admin';
+          updates.isTrial = false;
+          updates.trialEnd = null;
+        } else {
+          updates.planType = null;
+          updates.planSource = 'trial';
+          updates.isTrial = true;
+          updates.trialEnd = exp;
+        }
       } else if (action === 'revoke') {
-        updates.plan = 'free';
-        updates.planType = null;
-        updates.planExpiry = null;
-        updates.planSource = null;
-        updates.isTrial = false;
-        updates.trialEnd = null;
+        Object.assign(updates, entitlement.revokeFields());
       }
 
       return updates;
@@ -108,7 +130,9 @@ async function handler(req, res) {
 
       chunk.forEach(userDoc => {
         const userRef = userDoc.ref;
-        const updates = buildUpdates();
+        /* Per-user: the grant is computed FROM the user's current entitlement so it can only ever
+           extend it (the snapshots were already fetched above — no extra read). */
+        const updates = buildUpdates(typeof userDoc.data === 'function' ? userDoc.data() : null);
 
         batch.update(userRef, updates);
 

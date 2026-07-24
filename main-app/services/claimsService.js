@@ -38,9 +38,23 @@ async function setEntitlementClaims(uid, claims) {
   }
 
   try {
-    await admin.auth().setCustomUserClaims(uid, {
-      premium: !!claims.premium
-    });
+    /* ADR-117: setCustomUserClaims REPLACES the entire claims object, so writing `{premium}` alone
+       silently destroyed every other claim on the account — a super-admin (`admin:true`) or coaching
+       admin (`coaching_admin`) who bought Premium in the main app was instantly locked out of their
+       console. Merge onto the existing claims instead.
+       Also: `premium` is a mirror of the Firestore entitlement, never the source of truth — it must
+       be cleared on revocation too, so a stale `true` can never outlive the entitlement. */
+    var existing = {};
+    try {
+      var userRec = await admin.auth().getUser(uid);
+      if (userRec && userRec.customClaims) existing = userRec.customClaims;
+    } catch (readErr) {
+      console.warn('[Claims] could not read existing claims for uid:', uid, '-', readErr.message);
+    }
+    var merged = {};
+    for (var k in existing) { if (Object.prototype.hasOwnProperty.call(existing, k)) merged[k] = existing[k]; }
+    merged.premium = !!claims.premium;
+    await admin.auth().setCustomUserClaims(uid, merged);
 
   } catch (err) {
     /* Non-fatal — Firestore entitlement still works as source of truth.

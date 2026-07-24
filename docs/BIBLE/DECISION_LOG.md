@@ -8,6 +8,50 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-117 — ONE canonical entitlement implementation (v249) (2026-07-24)
+
+- **Context.** Phase S1.1 re-verified the previous audit as a *hypothesis* rather than truth (two
+  adversarial agents + first-hand execution), which **overturned three findings** and **escalated one**.
+  The verified ground truth: **12 entitlement writers** across 4 deploy roots, of which only ONE
+  (`activatePremium`'s fresh-grant branch) implemented never-shorten; **20 readers**, of which 6
+  disagreed with the canonical rule; and a **5th parallel store** — the Firebase Auth `premium` custom
+  claim — written `true` by grants, cleared by nothing, read by no one.
+- **Decision.** One canonical implementation, `main-app/data/entitlement-core.js` — pure, dependency
+  -free, dual-export. It defines the read rule (`isActivePremium`), the write rule (`stackExpiry`,
+  never-shorten), the tolerant parser (`toMillis`), the clock-rewind anchor (`clockSafeNow`) and the
+  canonical `revokeFields()`.
+- **Why not `shared/`.** `shared/` sits outside every deploy root; a past attempt 404'd into the SPA
+  rewrite in production (`index.html:1507-1508`). `data/` and `services/` are both inside the main-app
+  root, so ONE physical file serves the browser (`window.QR_ENTITLEMENT`) **and** the serverless API
+  (`require`). `functions/` and `super-admin-app/` deploy separately and get **byte-identical generated
+  mirrors** (`scripts/sync-entitlement-core.js`), guarded by a parity assertion — the same convention
+  already used for update-manager and the visual renderers.
+- **Consequences — defects closed.** (1) `activatePremium`'s **replay branch** wrote the stored payment
+  expiry unconditionally, moving entitlement BACKWARD whenever the user had since gained a longer grant
+  (and relabelling `planSource:'admin'`→`'purchase'`); the next `resolveUserAuth` then self-healed them
+  to FREE — silently destroying paid access. Reachable **indefinitely**, because `?action=verify` has no
+  recency or already-claimed check. (2) Coaching **suspend** blanket-revoked every enrolled student,
+  wiping premium bought with their own money, while its twin delete path guarded correctly and its own
+  comment called suspend the "reversible soft path". (3) Admin grants overwrote expiry blind — a bulk
+  7-day trial truncated months of paid premium. (4) `trialDays` was unbounded (a 100-year "trial"
+  defeats the no-permanent-tier rule *and* permanently blocks purchase via `ALREADY_PREMIUM`); now
+  clamped to `MAX_TRIAL_DAYS`. (5) `setCustomUserClaims` replaced the whole claims object, so a
+  super-admin who bought Premium lost `admin:true`; now merged, and `premium` is cleared on revocation.
+  (6) Trial users were shown an "Unlock Premium" card whose button called `showPaywall`, which
+  early-returns for active premium — a fully inert CTA with no modal, toast, or telemetry.
+- **Product rules now enforced structurally.** No permanent tier (null/invalid expiry ⇒ NOT premium,
+  in client, server *and* cron); one active entitlement at a time; a grant can never shorten another,
+  whatever its source; an active-premium user — purchased, admin-granted, **or on trial** — never sees
+  a purchase surface; the server remains the sole writer of the expiry transition, so a forward-set
+  clock or stale offline cache can degrade the local view but never corrupt the entitlement.
+- **Verification.** `entitlement-core.check.js` **executes** the module (93 assertions: purchase, admin
+  grant, extension, expiry, replay-stale-vs-newer, reinstall, offline, multi-device, duplicate payment,
+  clock rewind/forward, every malformed expiry shape, mirror byte-identity, and browser wiring/load
+  order). `entitlement-invariants.check` was retargeted from brittle regex-on-source to delegation
+  assertions (22→30). Live Playwright: premium and trial accounts cannot open the paywall or inject the
+  Razorpay script; zero page errors. Full suite 14,507/0. Forward-compatible with Play Billing: a second
+  provider adds a grant caller, not a second rule.
+
 ## ADR-116 — Stabilization: robustness of session lifecycle, Firestore durability, i18n & dead-code (v248) (2026-07-24)
 
 - **Context.** The Ultimate Production Bug Audit (5 adversarial agents + independent verification, see ADR-115

@@ -277,7 +277,18 @@ async function handler(req, res) {
           const page = await q.get();
           if (page.empty) break;
           const batch = db.batch();
-          page.forEach((userDoc) => batch.update(userDoc.ref, revokeFields));
+          /* ADR-117 (audit B2): revoke ONLY entitlements this coaching actually granted — the same
+             guard the hard-delete path applies (see the `planSource === 'coaching'` check above).
+             This block used to apply revokeFields UNCONDITIONALLY, so suspending a coaching (the
+             documented "reversible soft path") permanently wiped premium that students had bought
+             with their OWN money — and `activate` restores the coaching + owner claims but has no
+             un-revoke cascade, so it was unrecoverable. Self-purchased ('purchase') and super-admin
+             grants ('admin'/'trial') now keep their plan untouched, exactly as this file's own
+             policy comment states. */
+          page.forEach((userDoc) => {
+            const ud = userDoc.data() || {};
+            if (ud.plan === 'premium' && ud.planSource === 'coaching') batch.update(userDoc.ref, revokeFields);
+          });
           await batch.commit();
           last = page.docs[page.docs.length - 1];
           if (page.size < 400) break;

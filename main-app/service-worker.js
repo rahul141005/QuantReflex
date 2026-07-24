@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v248';
+const APP_VERSION = 'v249';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -96,6 +96,7 @@ var ASSETS = [
   './data/syllabus.js',
   './js/mock-engine.js',
   './data/statMath.js',
+  './data/entitlement-core.js',
   './services/quantTopics.js',
   './data/subjects.js',
   './js/mistake-archive.js',

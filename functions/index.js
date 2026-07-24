@@ -35,6 +35,10 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const logger = require('firebase-functions/logger');
+/* ADR-117: byte-identical mirror of main-app/data/entitlement-core.js — functions/ deploys from its
+   own directory and cannot require across the repo. Regenerate with scripts/sync-entitlement-core.js
+   (scripts/entitlement-core.check.js fails the build on drift). */
+const entitlement = require('./entitlement-core');
 
 /* Initialize Firebase Admin — automatically picks up project credentials */
 initializeApp();
@@ -168,33 +172,16 @@ exports.enforceEntitlementExpiry = onSchedule(
 
         snapshot.forEach((doc) => {
           const data = doc.data();
-          /* No permanent tier (ADR-115): a premium doc with a null/absent expiry is illegitimate legacy
-             data (no grant path creates it) and must be revoked to free, not skipped. Matches the client
-             (paywall.hasPremiumAccess) and server (resolveUserAuth). */
-          if (!data.planExpiry) {
-            const isoNull = new Date().toISOString();
-            batch.update(doc.ref, {
-              plan: 'free', planType: null, planExpiry: null, planSource: null,
-              isTrial: false, trialEnd: null, planUpdatedAt: isoNull, updatedAt: isoNull
-            });
-            revokedCount++;
-            return;
-          }
+          /* ADR-117: resolve with the SAME canonical rule the client and server use
+             (entitlement-core.isActivePremium — a byte-identical generated mirror, since functions/
+             deploys from its own root). This replaces the hand-rolled type-coercion below, which
+             SKIPPED any expiry that parsed to NaN / <= 0 (e.g. a garbage string or a raw
+             {seconds} map) and therefore left such docs marked premium forever — inflating every
+             `plan == 'premium'` aggregate in the admin dashboards. */
+          if (entitlement.isActivePremium(data, now)) return;
 
-          let expiryMs = 0;
-          if (typeof data.planExpiry === 'number') {
-            expiryMs = data.planExpiry;
-          } else if (typeof data.planExpiry === 'string') {
-            expiryMs = Date.parse(data.planExpiry);
-          } else if (data.planExpiry.toMillis) {
-            expiryMs = data.planExpiry.toMillis();
-          } else if (data.planExpiry.toDate) {
-            expiryMs = data.planExpiry.toDate().getTime();
-          }
-
-          if (isNaN(expiryMs) || expiryMs <= 0) return;
-
-          if (expiryMs < now) {
+          const expiryMs = entitlement.toMillis(data.planExpiry);
+          {
             const iso = new Date().toISOString();
             batch.update(doc.ref, {
               plan: 'free',
@@ -208,7 +195,7 @@ exports.enforceEntitlementExpiry = onSchedule(
             });
             revokedCount++;
             logger.info('[expiry] Reverting premium→free for uid:', doc.id,
-              'expired:', new Date(expiryMs).toISOString());
+              'expired:', expiryMs > 0 ? new Date(expiryMs).toISOString() : '(no valid expiry)');
           }
         });
 

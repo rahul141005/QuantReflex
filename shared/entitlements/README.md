@@ -5,22 +5,44 @@
 
 ## Resolution Algorithm
 
-Main App, Admin App, Coaching App, and Cloud Functions MUST interpret entitlements identically:
+**There is exactly ONE implementation (ADR-117): `main-app/data/entitlement-core.js`.** Do not
+re-derive this rule anywhere. That single physical file is loaded by the main-app browser
+(`window.QR_ENTITLEMENT`) *and* `require()`d by the main-app serverless API. `functions/` and
+`super-admin-app/` deploy from their own roots and cannot require across the boundary, so they carry
+byte-identical **generated mirrors** (`node scripts/sync-entitlement-core.js`); drift fails
+`main-app/scripts/entitlement-core.check.js` in `npm test`.
 
 ```
-function isPremium(user):
+isActivePremium(user, now):
   return user.plan === 'premium'
-      && (user.planExpiry == null || parse(user.planExpiry) > now)
-  // otherwise → FREE
+      && toMillis(user.planExpiry) > 0        // NO permanent tier — see below
+      && clockSafeNow(user, now) <= toMillis(user.planExpiry)
 ```
 
-A trial is `plan:'premium'` with `isTrial:true` and `trialEnd === planExpiry` — it passes the same gate.
+**There is NO permanent/indefinite Premium tier.** Every legitimate grant (purchase 6m/12m, admin
+6m/12m, finite trial ≤ `MAX_TRIAL_DAYS`) writes a finite expiry, so a `premium` doc with a
+null/NaN/garbage expiry is illegitimate data and resolves to **NOT premium** (fail-safe) — it is not
+"premium forever". `clockSafeNow` only ever moves `now` *forward*, anchored to the newest
+server-written timestamp, so a rewound device clock cannot extend access.
+
+A trial is `plan:'premium'` with `isTrial:true` and `trialEnd === planExpiry` — it passes the same
+gate, which means **a trial user is an active-premium user and must never be shown a purchase flow.**
+
+## Grant Arithmetic — never shorten
+
+All writers compute new expiries with `entitlement.stackExpiry(currentExpiry, days)`, which extends
+from the **LATER of {now, current expiry}**. A grant of any kind — purchase, renewal, admin 6m/12m,
+bulk trial, or a replayed payment — can therefore never reduce an entitlement the user already holds,
+regardless of how they obtained it.
 
 ## Expiry Enforcement
 
-- Live, on read: `aiService.resolvePlan` (server) and `getAccessState`/`_enforcePremiumExpiry` (client)
-  revert an expired `plan:'premium'` to free and persist it.
-- Sweep: `enforceEntitlementExpiry` Cloud Function (every 6h).
+- Live, on read (server): `aiService.resolveUserAuth` reverts a lapsed `plan:'premium'` to free and
+  **persists** it. The server is the sole writer of the expiry transition.
+- Live, on read (client): `getAccessState` / `_enforcePremiumExpiry` downgrade the **local view only**
+  and never write — a forward-set device clock or a stale offline cache must not be able to revoke or
+  corrupt a real entitlement.
+- Sweep: `enforceEntitlementExpiry` Cloud Function (every 6h), resolving with the same core.
 
 ## Grant Precedence Rules
 

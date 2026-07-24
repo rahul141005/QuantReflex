@@ -224,11 +224,16 @@ var AdminUtils = (function () {
   function entitlementState(u) {
     u = u || {};
     var now = Date.now();
-    var expMs = u.planExpiry ? toMillis(u.planExpiry) : 0;
-    var active = (u.plan === 'premium') && (!u.planExpiry || expMs > now);
+    /* ADR-117: resolve with THE canonical rule (entitlement-core, byte-identical mirror of the one
+       the app itself uses). This previously read `!u.planExpiry || expMs > now`, i.e. a null expiry
+       counted as ACTIVE — the exact opposite of the client, server and cron, so support saw a green
+       "Premium" badge for an account the product treats as free. */
+    var core = (typeof QR_ENTITLEMENT !== 'undefined') ? QR_ENTITLEMENT : null;
+    var expMs = core ? core.toMillis(u.planExpiry) : (u.planExpiry ? toMillis(u.planExpiry) : 0);
+    var active = core ? core.isActivePremium(u, now) : ((u.plan === 'premium') && expMs > now);
     if (active && u.isTrial) return { state: 'trial', label: 'Trial', badgeClass: 'badge-draft' };
     if (active) return { state: 'premium', label: (u.planType === 'premium_12m' ? 'Premium 12m' : (u.planType === 'premium_6m' ? 'Premium 6m' : 'Premium')), badgeClass: 'badge-active' };
-    if (u.plan === 'premium' && u.planExpiry && expMs <= now) return { state: 'expired', label: 'Expired', badgeClass: 'badge-archived' };
+    if (u.plan === 'premium') return { state: 'expired', label: 'Expired', badgeClass: 'badge-archived' };
     return { state: 'free', label: 'Free', badgeClass: 'badge-draft' };
   }
 

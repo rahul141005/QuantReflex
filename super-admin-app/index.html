@@ -144,6 +144,9 @@
        instead of only dumping raw JSON (REP-1). Pure, dependency-free; expose window.DICharts / window.LRFigures. -->
   <script src="js/ui/di-charts.js"></script>
   <script src="js/ui/lr-figures.js"></script>
+  <!-- ADR-117: canonical entitlement rule (generated mirror of main-app/data/entitlement-core.js).
+       Must load before utils.js, whose entitlementState() badge resolver delegates to it. -->
+  <script src="js/entitlement-core.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/views/users.js"></script>
   <script src="js/views/coachings.js"></script>

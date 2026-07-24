@@ -149,8 +149,12 @@ function initSettingsView() {
   var accessState = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
     ? FirestoreSync.getAccessState()
     : {};
-  var isPremiumUser = accessState && accessState.plan === 'premium';
-  var isTrialUser = accessState && accessState.isTrial === true;
+  /* ADR-117: resolve through THE canonical decision rather than a raw plan-string read, so Settings
+     can never disagree with the gates (getAccessState now also normalises, so both agree twice over). */
+  var isPremiumUser = (typeof hasActivePremium === 'function')
+    ? hasActivePremium(accessState)
+    : !!(accessState && accessState.plan === 'premium');
+  var isTrialUser = isPremiumUser && accessState && accessState.isTrial === true;
 
   var appearanceSelect = document.getElementById('appearanceSelect');
   var soundToggle = document.getElementById('soundToggle');
@@ -571,7 +575,13 @@ function initSettingsView() {
 
   var trialUpgradeSection = document.getElementById('trialUpgradeSection');
   if (trialUpgradeSection) {
-    trialUpgradeSection.style.display = (!isPremiumUser || isTrialUser) ? 'block' : 'none';
+    /* ADR-117: an ACTIVE entitlement of any kind — purchased, admin-granted, or a trial — must never
+       be shown a purchase surface. This used to include `|| isTrialUser`, so trial users saw a full
+       "Unlock Premium" card whose button called showPaywall() → which early-returns for anyone with
+       active premium. The result was a completely inert CTA: no modal, no toast, not even telemetry.
+       Trials now see their plan-status card ("Trial — N days left") instead, and the server agrees
+       (create-order answers ALREADY_PREMIUM until the entitlement genuinely lapses). */
+    trialUpgradeSection.style.display = isPremiumUser ? 'none' : 'block';
   }
   var trialUpgradeBtn = document.getElementById('trialUpgradeBtn');
   if (trialUpgradeBtn) {

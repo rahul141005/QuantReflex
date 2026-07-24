@@ -385,6 +385,18 @@ var FirestoreSync = (function () {
       /* ADR-054: the user is now ready — flush any updates that were buffered before Firebase/auth came up
          (e.g. questions answered during onboarding), so a first session always reaches users/{uid}.stats. */
       _flushPending();
+      /* ADR-117: if the 6s boot-hydration timeout already fired, the app was revealed with a null
+         cache — every render-time surface (Home "Unlock AI Coach" / PRO badges, Stats deep-dive)
+         painted the FREE chrome for what may be a paying user, and the boot transition is a one-shot
+         latch so nothing repainted when the data finally arrived. Now that real entitlement is in
+         hand, re-render the current view. Gates were always correct (they re-check live at click
+         time); this fixes the stale chrome. Cheap + idempotent: views register via Router.onShow. */
+      try {
+        if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
+          var _cv = Router.getCurrentView();
+          if (_cv) Router.showView(_cv);
+        }
+      } catch (_) { /* never block hydration on a re-render */ }
       if (callback) callback(true);
 
     }).catch(function (err) {
@@ -516,18 +528,12 @@ var FirestoreSync = (function () {
     });
   }
 
+  /* ADR-117: delegate to the canonical entitlement core (data/entitlement-core.js). Fail-closed:
+     if it is unavailable, every timestamp parses to 0 ⇒ treated as "no valid expiry". */
+  function _core() { return (typeof QR_ENTITLEMENT !== 'undefined') ? QR_ENTITLEMENT : null; }
   function _toMillis(ts) {
-    if (!ts) return 0;
-    if (typeof ts === 'number') return ts;
-    if (typeof ts === 'string') {
-      var parsed = Date.parse(ts);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    if (typeof ts.toDate === 'function') {
-      try { return ts.toDate().getTime(); } catch (_) { return 0; }
-    }
-    if (ts instanceof Date) return ts.getTime();
-    return 0;
+    var c = _core();
+    return c ? c.toMillis(ts) : 0;
   }
 
   function _normalizeMonetization(data, docRef) {
@@ -650,20 +656,16 @@ var FirestoreSync = (function () {
    */
   function _enforcePremiumExpiry(data /*, docRef */) {
     if (!data || data.plan !== 'premium') return;
-    var expiryMs = _toMillis(data.planExpiry);
-    var now = Date.now();
-    var lastUpdateMs = _toMillis(data.updatedAt) || _toMillis(data.createdAt);
-    /* Clock-rewind guard: if device clock is >5min behind last server write,
-       treat as far-future so a wrong local clock can't hide valid premium. */
-    if (lastUpdateMs > 0 && now < lastUpdateMs - 300000) now = Number.MAX_SAFE_INTEGER;
-    if (!expiryMs || expiryMs >= now) return;
+    /* ADR-117: the SAME canonical decision the paywall and the server use — including the
+       clock-rewind anchor (previously this used MAX_SAFE_INTEGER, which downgraded ANY rewound
+       clock, even for a user whose premium was still valid) and the no-permanent-tier rule
+       (a null/invalid expiry is not an active grant). */
+    var c = _core();
+    if (c && c.isActivePremium(data)) return;
+    if (!c) return;  /* core unavailable: leave the doc untouched, the paywall fails closed anyway */
     /* Local-only downgrade — never written back to Firestore (server is authoritative). */
-    data.plan = 'free';
-    data.planType = null;
-    data.planExpiry = null;
-    data.planSource = null;
-    data.isTrial = false;
-    data.trialEnd = null;
+    var revoked = c.revokeFields();
+    for (var k in revoked) { if (Object.prototype.hasOwnProperty.call(revoked, k)) data[k] = revoked[k]; }
   }
 
   /**
@@ -1195,28 +1197,27 @@ var FirestoreSync = (function () {
     },
     getAccessState: function () {
       if (!_memoryCache) return null;
-      var now = Date.now();
-      /* Self-heal expired premium/trial — LOCAL VIEW ONLY (covers both; a trial is plan:'premium').
+      /* Self-heal lapsed premium/trial — LOCAL VIEW ONLY (covers both; a trial is plan:'premium').
          The client never persists a plan→'free' write: the server is the sole authority for the
          expiry transition. See _enforcePremiumExpiry for the full rationale (forward-clock +
-         stale-offline-cache can otherwise clobber a valid/fresh server entitlement). */
-      if (_memoryCache.plan === 'premium') {
-        var expMs = _toMillis(_memoryCache.planExpiry);
-        if (expMs > 0 && expMs < now) {
-          _memoryCache.plan = 'free';
-          _memoryCache.planType = null;
-          _memoryCache.planExpiry = null;
-          _memoryCache.planSource = null;
-          _memoryCache.isTrial = false;
-          _memoryCache.trialEnd = null;
-        }
+         stale-offline-cache can otherwise clobber a valid/fresh server entitlement).
+         ADR-117: resolved through the canonical core, so the state this function RETURNS already
+         obeys the no-permanent-tier rule. That matters because consumers such as settings.js read
+         `accessState.plan` directly — normalising here keeps every such reader in agreement with
+         hasActivePremium() instead of each re-deriving the rule. */
+      var _c = _core();
+      if (_memoryCache.plan === 'premium' && _c && !_c.isActivePremium(_memoryCache)) {
+        var _revoked = _c.revokeFields();
+        for (var _rk in _revoked) { if (Object.prototype.hasOwnProperty.call(_revoked, _rk)) _memoryCache[_rk] = _revoked[_rk]; }
       }
 
-      /* Days remaining on an active trial (for "Trial — N days left" UI) */
+      /* Days remaining on an active trial (for "Trial — N days left" UI) — same clock-safe anchor
+         as every other entitlement computation (ADR-117). */
       var computedTrialDays = null;
       if (_memoryCache.isTrial === true && _memoryCache.trialEnd) {
         var _teMs = _toMillis(_memoryCache.trialEnd);
-        if (_teMs > 0) computedTrialDays = Math.max(0, Math.ceil((_teMs - now) / 86400000));
+        var _trialNow = _c ? _c.clockSafeNow(_memoryCache) : Date.now();
+        if (_teMs > 0) computedTrialDays = Math.max(0, Math.ceil((_teMs - _trialNow) / 86400000));
       }
 
       return {

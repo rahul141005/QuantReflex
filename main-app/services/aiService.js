@@ -2,6 +2,8 @@ const OpenAI = require('openai');
 const admin = require('firebase-admin');
 const pricing = require('./aiPricing');   // SINGLE source of truth for model pricing + cost math
 const freeExplainPolicy = require('./freeExplainPolicy');   // ADR-103: pure free-explain allowance decision
+const entitlement = require('../data/entitlement-core');    // ADR-117: THE canonical entitlement rule + grant arithmetic
+                                                            // (same physical module the browser loads as window.QR_ENTITLEMENT)
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -59,12 +61,16 @@ async function verifyIdToken(idToken) {
 }
 
 /**
- * Resolve a user's entitlement (v2). The ONLY entitlement check.
+ * Resolve a user's entitlement (v2). The ONLY server entitlement check.
  *
- *   premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+ *   premium ⟺ plan === 'premium' && planExpiry is a real FUTURE timestamp
  *
- * Self-heals: an expired premium/trial is written back to 'free' on read,
- * so dashboards and gates stay consistent even if the sweep function lags.
+ * (ADR-117) The rule itself lives in `data/entitlement-core.js` — the same module the browser
+ * loads — so client, server and cron can never drift. There is NO permanent tier: a null/invalid
+ * expiry resolves to NOT premium and is self-healed away.
+ *
+ * Self-heals: a lapsed premium/trial is written back to 'free' on read, so dashboards and gates
+ * stay consistent even if the sweep function lags.
  *
  * @returns {'free'|'premium'}
  */
@@ -81,19 +87,23 @@ async function resolveUserAuth(uid) {
     var data = doc.data();
     var activeSessionId = (typeof data.activeSessionId === 'string' && data.activeSessionId) ? data.activeSessionId : null;
     if (data.plan !== 'premium') return { plan: 'free', premium: false, activeSessionId: activeSessionId };
-    var expiryMs = _toExpiryMillis(data.planExpiry);
-    /* No permanent tier (ADR-115): active premium requires a real FUTURE expiry. A null/invalid expiry
-       is illegitimate legacy data (no grant path creates it) and resolves to NOT-premium — matching the
-       client (paywall.hasPremiumAccess). Both genuine-expiry and null-expiry self-heal to free; only a
-       genuine past-date expiry sends the one-time "expired" notice (a null-expiry doc never had a real
-       term, so notifying "expired" would mislead). */
-    if (!(expiryMs > 0) || expiryMs < Date.now()) {
+    var expiryMs = entitlement.toMillis(data.planExpiry);
+    /* No permanent tier (ADR-115/117): active premium requires a real FUTURE expiry. The decision is
+       the canonical `entitlement.isActivePremium` — byte-identical to the client's. A null/invalid
+       expiry is illegitimate data and resolves to NOT-premium; both it and a genuine lapse self-heal
+       to free, but only a genuine past-date expiry sends the one-time "expired" notice (a null-expiry
+       doc never had a real term, so notifying "expired" would mislead). */
+    if (!entitlement.isActivePremium(data)) {
       var genuineExpiry = expiryMs > 0;
       try {
-        await safeUserUpdate(uid, {
-          plan: 'free', planType: null, planExpiry: null, planSource: null,
-          isTrial: false, trialEnd: null, planUpdatedAt: new Date().toISOString()
-        }, 'resolvePlan:expiry');
+        var _revoke = entitlement.revokeFields();
+        _revoke.planUpdatedAt = new Date().toISOString();
+        await safeUserUpdate(uid, _revoke, 'resolvePlan:expiry');
+        /* ADR-117: the JWT `premium` claim is a MIRROR of the Firestore entitlement, never a source
+           of truth. It was previously set true on every grant and cleared by nothing, leaving a
+           permanently stale `true` that any future fast-path would wrongly trust. Clear it here, on
+           the one code path every lapse funnels through. Best-effort — never blocks the resolution. */
+        try { require('./claimsService').setEntitlementClaims(uid, { premium: false }); } catch (_) {}
         // ADR-066: notify the user their Premium expired — through the ONE pipeline (Inbox + best-effort push).
         // Fires exactly once, on a genuine premium→free expiry transition. Fire-and-forget so it never delays the check.
         if (genuineExpiry) {
@@ -139,21 +149,9 @@ async function claimSession(uid, sessionId) {
   return sid;
 }
 
-function _toExpiryMillis(value) {
-  if (!value) return 0;
-  if (typeof value === 'number') return value;
-  if (typeof value.toMillis === 'function') {
-    try { return value.toMillis(); } catch (_) { return 0; }
-  }
-  if (typeof value.toDate === 'function') {
-    try { return value.toDate().getTime(); } catch (_) { return 0; }
-  }
-  if (typeof value === 'string') {
-    var parsed = Date.parse(value);
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-}
+/* ADR-117: kept as a thin alias so any future caller lands on the canonical parser rather than
+   hand-rolling a fourth one. The implementation is data/entitlement-core.js#toMillis. */
+function _toExpiryMillis(value) { return entitlement.toMillis(value); }
 
 async function safeUserUpdate(uid, data, caller) {
   if (!uid) {
@@ -199,25 +197,42 @@ async function activatePremium(uid, planType, paymentId, orderId) {
     /* All reads MUST precede all writes in a Firestore transaction. */
     var paymentDoc = await tx.get(paymentRef);
     var userDoc = await tx.get(userRef);
+    var ud0 = (userDoc.exists ? userDoc.data() : null) || {};
     if (paymentDoc.exists) {
       var existing = paymentDoc.data();
       if (existing.uid !== uid) {
         console.error('[aiService:activatePremium] PAYMENT_REPLAY detected (uid: ' + uid + ', paymentId: ' + paymentId + ', existingUid: ' + existing.uid + ')');
         throw new AIServiceError('PAYMENT_REPLAY', 'Payment already used by another account.', false);
       }
-      /* Same-uid replay (verify + webhook both fire) — re-apply safely */
-      finalExpiry = existing.expiry || expiry;
-      tx.set(userRef, {
+      /* Same-uid replay (verify + webhook both fire, or a late Razorpay redelivery, or the user
+         re-submits an old (orderId,paymentId,signature) triple — `?action=verify` has no recency
+         check, so this branch is reachable indefinitely).
+         ADR-117 (audit B1): this used to write `existing.expiry` UNCONDITIONALLY, which moved a
+         user's entitlement BACKWARD whenever they had since gained a longer one (e.g. an admin
+         12-month grant after a 6-month purchase) — the next resolveUserAuth then self-healed them
+         to FREE, silently destroying paid access. A replay must be a no-op for a user who is
+         already at-or-beyond the expiry this payment granted: keep the LATER of the two, and never
+         downgrade planType/planSource away from a stronger existing grant. */
+      var currentMs = entitlement.toMillis(ud0.planExpiry);
+      var grantedMs = entitlement.toMillis(existing.expiry || expiry);
+      var keepCurrent = ud0.plan === 'premium' && currentMs > grantedMs;
+      finalExpiry = keepCurrent ? ud0.planExpiry : (existing.expiry || expiry);
+      var replayPatch = {
         plan: 'premium',
-        planType: existing.plan || planType,
         planExpiry: finalExpiry,
-        planSource: 'purchase',
         isTrial: false,
         trialEnd: null,
         lastPaymentId: String(paymentId),
         planUpdatedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+      /* Preserve the provenance of a stronger existing grant (an admin grant must not be relabelled
+         'purchase' by a stale webhook); otherwise record this payment as the source. */
+      if (!keepCurrent) {
+        replayPatch.planType = existing.plan || planType;
+        replayPatch.planSource = 'purchase';
+      }
+      tx.set(userRef, replayPatch, { merge: true });
       return;
     }
     /* No-shorten renewal (ADR-107 + audit S1-ENT2): a new grant must NEVER reduce an existing active
@@ -227,16 +242,15 @@ async function activatePremium(uid, planType, paymentId, orderId) {
        overwrote it with a shorter now+days expiry — a paying user could lose months of access.
        (A premium doc with a null/invalid expiry is not a valid active grant under the no-permanent-
        tier rule, so it does not extend — base stays `now`.) The client + create-order block prevent a
-       purchase while premium is active; this server guard is the defense-in-depth backstop. */
-    var baseMs = Date.now();
-    if (userDoc.exists) {
-      var ud = userDoc.data() || {};
-      if (ud.plan === 'premium' && ud.planExpiry) {
-        var curMs = Date.parse(ud.planExpiry);
-        if (!isNaN(curMs) && curMs > baseMs) baseMs = curMs;
-      }
-    }
-    finalExpiry = new Date(baseMs + days * 24 * 60 * 60 * 1000).toISOString();
+       purchase while premium is active; this server guard is the defense-in-depth backstop.
+       ADR-117: the arithmetic now lives in the canonical core (`stackExpiry`), shared by every
+       writer — and it uses the tolerant `toMillis` parser rather than `Date.parse`, which returned
+       NaN (silently discarding the user's remaining term) for a Firestore Timestamp or numeric
+       expiry. */
+    finalExpiry = entitlement.stackExpiry(
+      (ud0.plan === 'premium') ? ud0.planExpiry : null,
+      days
+    );
     var paymentDoc2 = { uid: uid, plan: planType, amount: (PREMIUM_PRICE_PAISE[planType] || 0), status: 'paid', expiry: finalExpiry, claimedAt: new Date().toISOString() };
     if (orderId) paymentDoc2.orderId = String(orderId);
     tx.create(paymentRef, paymentDoc2);

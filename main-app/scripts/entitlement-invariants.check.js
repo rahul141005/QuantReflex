@@ -35,31 +35,46 @@ if (actionsM) {
     !/(indefinite|lifetime|permanent|forever)/i.test(actions), actions.trim());
 }
 /* premium grants must compute a finite expiry (182/365 days), never null */
-ok('admin premium_6m grant computes finite 182-day expiry', /_expiryAfterDays\(\s*action === 'premium_12m' \? 365 : 182\s*\)/.test(entSrc));
+/* ADR-117: durations are still finite 365/182, but the arithmetic moved to the canonical core's
+   never-shorten stackExpiry(). Assert BOTH: the finite durations AND that the grant is computed
+   from the user's CURRENT entitlement (buildUpdates now takes the user doc). */
+ok('admin premium_6m/12m grants stay finite (365/182 days)', /action === 'premium_12m' \? 365 : 182/.test(entSrc));
+ok('admin grants use the canonical never-shorten stackExpiry', /entitlement\.stackExpiry\(/.test(entSrc));
+ok('admin grants read the user\'s current entitlement (no blind overwrite)', /buildUpdates\s*=\s*\(userData\)/.test(entSrc) && /buildUpdates\(\s*typeof userDoc\.data/.test(entSrc));
+ok('admin trial duration is upper-bounded', /MAX_TRIAL_DAYS/.test(entSrc));
 ok('admin premium grant never sets planExpiry to null on a premium action',
   !/plan\s*=\s*'premium'[\s\S]{0,200}planExpiry\s*=\s*null/.test(entSrc));
 
 /* ---- 2. null/invalid expiry resolves to NOT-premium — CLIENT AND SERVER (no permanent tier) ---- */
 const pw = R('js/paywall.js');
-ok('paywall hasPremiumAccess: null expiry => not premium', /if \(!expiryMs\) return false;/.test(pw), 'expected `if (!expiryMs) return false;`');
+/* ADR-117: the rule itself now lives in data/entitlement-core.js (behaviourally verified by
+   entitlement-core.check.js, incl. every null/garbage expiry). Here we assert the DELEGATION —
+   that paywall.js resolves through the canonical core rather than re-deriving the rule. */
+ok('paywall delegates the decision to the canonical core', /c\.isActivePremium\(/.test(pw), 'hasPremiumAccess must call QR_ENTITLEMENT.isActivePremium');
+ok('paywall fails closed when the core is unavailable', /return c \? c\.isActivePremium\(u\) : false;/.test(pw));
+ok('paywall no longer re-implements expiry parsing', !/Date\.parse\(/.test(pw), 'timestamp parsing belongs to entitlement-core');
 ok('paywall hasPremiumAccess: no legacy `return true` indefinite branch', !/if \(!expiryMs\) return true;/.test(pw));
 ok('paywall exposes canonical hasActivePremium', /function hasActivePremium\b/.test(pw) && /global\.hasActivePremium\s*=/.test(pw));
 /* server must MATCH the client — resolveUserAuth treats a non-positive/absent expiry as not-premium */
 const aiSrc0 = R('services/aiService.js');
-ok('server resolveUserAuth: null/invalid expiry => not premium', /if \(!\(expiryMs > 0\) \|\| expiryMs < Date\.now\(\)\)/.test(aiSrc0), 'server still uses the old `expiryMs > 0 && ...` skip');
+ok('server resolveUserAuth delegates to the canonical core', /if \(!entitlement\.isActivePremium\(data\)\)/.test(aiSrc0), 'server must resolve via entitlement.isActivePremium');
 ok('server resolveUserAuth: no old skip-null-expiry branch', !/if \(expiryMs > 0 && expiryMs < Date\.now\(\)\) \{/.test(aiSrc0));
+ok('server requires the canonical core module', /require\('\.\.\/data\/entitlement-core'\)/.test(aiSrc0), 'client and server must share ONE physical module');
 /* the (undeployed) expiry cron must REVOKE a null-expiry premium doc, not skip it */
 const cron = RR('functions/index.js');
 ok('expiry cron revokes null-expiry premium (no indefinite skip)', !/if \(!data\.planExpiry\) return;/.test(cron));
 
 /* ---- 3. server no-shorten stacking (any active premium, not just purchase) ---- */
 const ai = R('services/aiService.js');
-const stackM = ai.match(/var baseMs = Date\.now\(\);[\s\S]{0,320}?finalExpiry = new Date\(baseMs/);
-ok('aiService stacking block found', !!stackM);
-if (stackM) {
-  ok('stacking no longer gated on planSource===\'purchase\'', !/planSource\s*===\s*'purchase'/.test(stackM[0]), 'a purchase must never shorten an admin/coaching grant');
-  ok('stacking extends from existing planExpiry', /ud\.plan === 'premium' && ud\.planExpiry/.test(stackM[0]));
-}
+/* ADR-117: the fresh-grant path now delegates to the canonical never-shorten stackExpiry (the
+   arithmetic itself is behaviourally proven in entitlement-core.check.js), and — critically — the
+   REPLAY path is guarded too: it used to write the stored payment expiry unconditionally, moving a
+   user's entitlement BACKWARD if they had since gained a longer one. */
+ok('aiService fresh grant uses canonical stackExpiry', /finalExpiry = entitlement\.stackExpiry\(/.test(ai));
+ok('aiService no longer hand-rolls baseMs arithmetic', !/var baseMs = Date\.now\(\);/.test(ai));
+ok('aiService no longer parses expiry with Date.parse', !/Date\.parse\(ud\.planExpiry\)/.test(ai), 'Date.parse returns NaN for Timestamp/number expiries, discarding the term');
+ok('replay path compares against the CURRENT entitlement', /var keepCurrent = ud0\.plan === 'premium' && currentMs > grantedMs;/.test(ai), 'a stale replay must never shorten a longer current grant');
+ok('replay path preserves stronger grant provenance', /if \(!keepCurrent\) \{[\s\S]{0,200}?planSource = 'purchase';/.test(ai), 'a stale webhook must not relabel an admin grant as a purchase');
 
 /* ---- 4. create-order refuses a duplicate purchase while premium ---- */
 const pay = R('api/payment.js');

@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.148 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.65 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.149 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.66 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.6 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.149 (2026-07-24)** — **Entitlement Architecture Hardening: ONE canonical implementation (ADR-117, SW
+> v248→v249).** Architecture 2.65→2.66, Payment 2.6→2.7: the Premium rule + grant arithmetic now live in a
+> single pure module (`main-app/data/entitlement-core.js`) loaded by the main-app browser AND require()'d by
+> its serverless API, with byte-identical generated mirrors for `functions/` and `super-admin-app/` (separate
+> deploy roots). Independent re-verification overturned 3 prior findings and escalated 1. Closed: the
+> `activatePremium` replay path could move an entitlement BACKWARD (and relabel an admin grant as a purchase)
+> — reachable indefinitely via `?action=verify`; coaching *suspend* blanket-revoked self-purchased premium;
+> admin grants overwrote expiry blind; `trialDays` was unbounded; `setCustomUserClaims` wiped other claims;
+> trial users saw an inert "Unlock Premium" CTA. Rules now structural: no permanent tier (client+server+cron),
+> never-shorten for every writer, no purchase surface for any active entitlement incl. trials, server sole
+> writer of the expiry transition. Verified: npm test 14,507/0, new behavioural `entitlement-core.check` (93),
+> `entitlement-invariants` 22→30, live Playwright. Forward-compatible with Play Billing.
 
 > **2.148 (2026-07-24)** — **Ultimate Production Bug Audit & Stabilization (ADR-115/116, SW v247→v248).** Payment
 > 2.5→2.6. Five behavior-preserving waves off a 5-agent adversarial audit: (S1) entitlement/premium correctness —
