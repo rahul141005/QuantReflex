@@ -9,12 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.147 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.148 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.65 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.5 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.6 | Razorpay flows, plan config, entitlement grant logic. |
 
+> **2.148 (2026-07-24)** — **Ultimate Production Bug Audit & Stabilization (ADR-115/116, SW v247→v248).** Payment
+> 2.5→2.6. Five behavior-preserving waves off a 5-agent adversarial audit: (S1) entitlement/premium correctness —
+> canonical `hasActivePremium`, no permanent tier (null-expiry ⇒ not-premium; admin grants finite-only),
+> active-premium users blocked from any purchase (client + `ALREADY_PREMIUM` create-order), no-shorten stacking,
+> removed the write-only `qr_premium` mirror, webhook uid recovery; (S2) session-displacement login-screen wedge
+> (hydration-latch reset + `onReplaced` reload) + cold-start deep-link preservation; (S3) client premium self-heal
+> is local-view-only (fixes forward-clock + stale-cache entitlement clobber), durable offline write buffer +
+> no-data-loss logout flush, auth-first account deletion, bounded `usageCache`; (S4) the hardcoded-English Practice
+> subject-picker fully localized (×3) + `i18n.check §8` guard, minor fixes, provably-dead-code removal. No schema/
+> rules change; Phase 4 stays paused (refund revocation = WS2). npm test 14,507/0, 34 checks green (new
+> `entitlement-invariants` + `firestore-durability`), live Playwright. Bible 2.147→2.148.
+>
 > **2.147 (2026-07-22)** — **Home & Practice UI recovery: restore FW-W4 presentation regressions (ADR-114, SW
 > v246→v247).** A live app review found real visual regressions on Home + Practice from the multi-wave overhaul
 > (`430cb9b` "FW-W4") while the architecture stayed sound. Four root-caused, surgical restores: Practice Advanced

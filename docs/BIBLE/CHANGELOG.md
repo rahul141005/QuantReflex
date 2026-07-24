@@ -6,6 +6,37 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-24 — Ultimate Production Bug Audit & Stabilization (ADR-115/116, SW v247→v248)
+
+A repository-wide adversarial audit (5 agents + independent file:line verification) against a clean baseline, then
+five behavior-preserving stabilization waves. No schema/rules change; Phase 4 stays paused (its refund-revocation
+gap remains WS2). A large surface was verified **sound** and left untouched (duel finalize idempotency, payment
+replay lock, transactional quotas, single-device enforcement, listener lifecycle, drill/duel Back handling).
+
+- **Wave S1 — entitlement/premium correctness (ADR-115, Payment 2.5→2.6):** canonical `hasActivePremium`; a
+  `premium` doc with null/invalid expiry now resolves to **not-premium** (no permanent tier — admin grants verified
+  finite-only); active-premium users are blocked from any purchase (`openPremiumPayment` guard + `create-order`
+  `ALREADY_PREMIUM`); `activatePremium` **no-shorten** stacking (extend from `max(existing, now)` for any source, so
+  a purchase can't overwrite a longer admin grant); removed the write-only `qr_premium` second-source-of-truth;
+  webhook `uid` recovery + `paymentOrphans`; `_freeExplainExhausted` reset on user-switch. New
+  `entitlement-invariants.check` (19).
+- **Wave S2 — session/nav lifecycle (ADR-116):** fixed the session-displacement **login-screen wedge** (reset the
+  `_hydrationStarted` latch on `unauthenticated`; `Session.onReplaced()` reloads after logout, cleanly tearing down
+  drill/duel state); `Router.teardown()` stops wiping the hash so a logged-out **deep link** replays after login.
+- **Wave S3 — Firestore durability & serverless hygiene (ADR-116):** the client premium self-heal is now
+  **local-view-only** (never persists `plan:'free'` — fixes forward-clock permanent-revocation AND stale-offline-
+  cache clobber of a fresh grant); `flushUpdatesAsync` no longer drops data on a failed logout write (server
+  timestamp + retain-until-confirmed) and a uid-scoped durable `qr_pending_writes` buffer survives an offline
+  close; transient load failure retries instead of latching a paying user to "free"; **auth-first** account
+  deletion (no resurrection); `usageCache` TTL + size cap. New `firestore-durability.check` (15).
+- **Wave S4 — i18n regression + minor + dead code (ADR-116):** the Practice subject-picker modal was 100%
+  hardcoded English (CI-invisible JS-innerHTML) → fully localized (`practice.subject*` ×3), verified live in Hindi;
+  `i18n.check §8` now guards JS-built modals. Minor: report-context `fullscreen` telemetry; stale version fallback;
+  🍕→🥧. Dead code: removed `AppState.getKeys()` + a vestigial `fetchSpeedBenchmark` param.
+- **Wave S5 — verification & governance:** SW v247→v248 (lockstep); one final **independent adversarial re-audit**
+  of the diff; ADR-115/116; VERSIONS 2.148. Final matrix: npm test **14,507/0**, all 34 checks green, live
+  Playwright certs.
+
 ## 2026-07-22 — Home & Practice UI recovery: restore FW-W4 presentation regressions (ADR-114, SW v246→v247)
 
 A live review of the shipped app surfaced real *visual* regressions on Home and Practice introduced by the

@@ -8,6 +8,73 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-116 — Stabilization: robustness of session lifecycle, Firestore durability, i18n & dead-code (v248) (2026-07-24)
+
+- **Context.** The Ultimate Production Bug Audit (5 adversarial agents + independent verification, see ADR-115
+  for the entitlement half) surfaced a set of robustness bugs across session/nav, Firestore durability, and a
+  CI-invisible localization regression. This ADR records those behavior-preserving fixes.
+- **Session-displacement reload contract (S2).** A single-device session displacement logs out **in place** (no
+  reload). Two coupled bugs: the `_hydrationStarted` latch (`app.js`) was never reset, so a re-login on the same
+  tab early-returned from `startHydrationAndShowApp` and **wedged on the login screen** until a manual reload; and
+  per-user drill/duel runtime state was left stranded. **Decision:** reset `_hydrationStarted`/`_hydrationRetryCount`
+  on every transition to `unauthenticated`, and make `Session.onReplaced()` **reload after `Auth.logout()`
+  completes** — matching the settings-logout contract, which is the clean full teardown. Also: `Router.teardown()`
+  no longer wipes `window.location.hash`, so a logged-out cold-start **deep link survives** to `Router.init()` and
+  replays after login (previously always lost to `#home`).
+- **Client is a mirror, never a writer, of entitlement expiry (S1/S3).** The client premium expiry self-heal
+  (`firestore-sync.js`) is now **local-view-only** — it never persists `plan:'free'`. This closes two revenue-
+  affecting paths at once: a device clock set **forward** past expiry permanently revoking a valid grant
+  server-side, and (with offline IndexedDB persistence on) a **stale cached** snapshot's downgrade clobbering a
+  fresh server grant on reconnect. The server (`resolveUserAuth` per-request self-heal) is the sole writer.
+- **No data loss on logout / offline (S3).** `flushUpdatesAsync` used a client-clock `updatedAt` and cleared the
+  pending buffer **before** the write, silently dropping stats on a failed logout write; it now uses a server
+  timestamp and retains data until the write confirms. A uid-scoped durable `qr_pending_writes` buffer is written
+  on unload and replayed on next load (only for the matching user), closing the offline-close data-loss window. A
+  transient Firestore load failure retries with backoff instead of latching a paying user to a null cache (which
+  read as free all session).
+- **Auth-first account deletion (S3).** Account deletion now removes the **Firebase Auth account before** the
+  Firestore data. Previously auth was deleted last, so a partial failure left a live login whose next sign-in
+  re-seeded a fresh profile — a "deleted" account silently resurrecting. Auth-first makes resurrection impossible.
+- **Bounded serverless cache (S3).** `aiService.usageCache` gained a short TTL + size cap with oldest-eviction
+  (display/pre-check only; the hard caps stay transactional, so no over-grant is possible).
+- **Localization regression (S4).** The Practice subject-picker modal (`practice-subject-modal.js`) shipped 100%
+  hardcoded English via JS `innerHTML`, invisible to the `data-i18n`-only CI scan — hi/mr users saw it entirely in
+  English. Routed through `QRI18n.t()` with new `practice.subject*` keys ×3; added `i18n.check §8` to lock JS-built
+  modals to i18n going forward. Plus minor fixes (report-context `fullscreen` telemetry, stale version fallback,
+  🍕→🥧) and provably-dead-code removal (`AppState.getKeys`, a vestigial param).
+- **Consequences.** Behavior-preserving throughout; no schema/rules change. Verified: npm test 14,507/0, all 34
+  check scripts green (incl. new `firestore-durability.check`, `entitlement-invariants.check`, `i18n.check §8`);
+  live Playwright — displacement/deep-link + Hindi subject-modal. SW v247→v248.
+
+## ADR-115 — Stabilization: entitlement/premium correctness + no permanent Premium tier (v248) (2026-07-24)
+
+- **Context.** The Ultimate Production Bug Audit found live entitlement/payment defects, and the product owner set
+  authoritative rules: **there is no permanent/indefinite Premium tier** (admin grants only finite 6m/12m/trial);
+  active-Premium users — from **any** source (Razorpay / Google Play / admin) — must **never** reach a purchase
+  flow; there is **one canonical active-premium decision** used everywhere; and the **server is the source of
+  truth** (device-clock manipulation must never permanently revoke access). This ADR records enforcing them.
+- **Decision.**
+  1. **Canonical `hasActivePremium`** — promoted as the single decision (alias of `hasPremiumAccess`,
+     `paywall.js`), already backing `canAccess`/`requirePremium`; exported app-wide.
+  2. **No permanent tier** — a `premium` doc with a **null/invalid expiry now resolves to NOT-premium**
+     (fail-safe). The admin grant endpoint was verified finite-only already (`super-admin-app/api/admin/
+     entitlements.js` — 6m/12m/trial/revoke, 182/365-day expiries); the null-expiry *resolution* path was legacy
+     dead handling and is closed.
+  3. **No overlapping plans / no duplicate purchase** — `openPremiumPayment` no-ops for active premium (client),
+     and `create-order` refuses with `ALREADY_PREMIUM` when `req.userPremium` (server) — a duplicate charge is
+     blocked before any Razorpay order is created.
+  4. **No-shorten stacking** — `activatePremium` now extends from `max(existingExpiry, now)` for **any** active
+     premium source (was `planSource==='purchase'` only), so a purchase can never overwrite a longer admin/coaching
+     grant with a shorter expiry. The idempotent same-uid replay branch is unchanged.
+  5. **One source of truth** — removed the write-only `qr_premium` localStorage mirror (zero readers; a misleading
+     second premium source) from `store.js`/`auth.js`.
+  6. Plus: webhook `uid` recovery from the order (+ `paymentOrphans` record instead of a silent success-ack) so a
+     captured payment is never silently stranded; and `_freeExplainExhausted` reset on user-switch.
+- **Consequences.** Forward-compatible with the paused Phase 4 payment architecture (Google Play adds a provider
+  behind the same canonical decision and grant path). Payment Version 2.5→2.6. New `entitlement-invariants.check`
+  (19 assertions) locks these against regression. Refund/chargeback revocation remains **Phase 4 WS2** (a known,
+  tracked gap). Verified: payment-parity 25/0, entitlement-invariants 19/0, npm test 14,507/0.
+
 ## ADR-114 — Home & Practice UI recovery: restore FW-W4 presentation regressions, keep the architecture (v247) (2026-07-22)
 
 - **Context.** A live review of the shipped app (7 screenshots) found that the multi-wave UI overhaul —
