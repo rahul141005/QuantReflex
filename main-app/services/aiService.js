@@ -254,15 +254,34 @@ var WP_PREMIUM_DAILY = 30;
    live in the dependency-free services/freeExplainPolicy.js (single source of truth, unit-tested there). */
 var FREE_EXPLAIN_LIMIT = freeExplainPolicy.FREE_EXPLAIN_LIMIT;
 var MAX_QUESTION_LENGTH = 300;
+/* Per-uid usage cache for display/pre-check reads only. The authoritative caps
+   (consumeWordProblemQuota / consumeFreeExplain) always read fresh inside a Firestore transaction,
+   so this cache can never cause an over-grant. S3-FS4: bound it on a warm serverless instance with a
+   short TTL (so a stale cross-request read self-corrects) and a size cap (so it can't grow unbounded
+   across many uids). */
 var usageCache = {};
+var usageCacheTs = {};
+var USAGE_CACHE_TTL_MS = 60000;
+var USAGE_CACHE_MAX = 500;
+
+function _cacheUsage(uid, data) {
+  usageCache[uid] = data;
+  usageCacheTs[uid] = Date.now();
+  var uids = Object.keys(usageCache);
+  if (uids.length > USAGE_CACHE_MAX) {
+    uids.sort(function (a, b) { return (usageCacheTs[a] || 0) - (usageCacheTs[b] || 0); });
+    var evict = uids.length - USAGE_CACHE_MAX;
+    for (var i = 0; i < evict; i++) { delete usageCache[uids[i]]; delete usageCacheTs[uids[i]]; }
+  }
+  return data;
+}
 
 async function _loadUsage(uid) {
-  if (usageCache[uid]) return usageCache[uid];
+  if (usageCache[uid] && (Date.now() - (usageCacheTs[uid] || 0) < USAGE_CACHE_TTL_MS)) return usageCache[uid];
   try {
     var doc = await db.collection('users').doc(uid).collection('usage').doc('ai').get();
     if (doc.exists) {
-      usageCache[uid] = _normalizeUsageDoc(doc.data());
-      return usageCache[uid];
+      return _cacheUsage(uid, _normalizeUsageDoc(doc.data()));
     }
   } catch (err) {
     console.warn('Usage read failed:', err.message);
@@ -280,7 +299,7 @@ async function _loadUsage(uid) {
         freeExplanationsUsed: 0,
         insightsGeneratedDate: null
       };
-      usageCache[uid] = migrated;
+      _cacheUsage(uid, migrated);
       db.collection('users').doc(uid).collection('usage').doc('ai').set(migrated, { merge: true }).catch(function (e) { console.warn('Legacy migration write failed:', e.message); });
       return migrated;
     }
@@ -296,8 +315,7 @@ async function _loadUsage(uid) {
     freeExplanationsUsed: 0,
     insightsGeneratedDate: null
   };
-  usageCache[uid] = fresh;
-  return fresh;
+  return _cacheUsage(uid, fresh);
 }
 
 function _normalizeUsageDoc(data) {
@@ -606,7 +624,7 @@ async function trackExplanationUsage(uid) {
   var entry = await _loadUsage(uid);
   entry.explanationsUsed = (entry.explanationsUsed || 0) + 1;
   entry.lastUsageDate = new Date().toISOString();
-  usageCache[uid] = entry;
+  _cacheUsage(uid, entry);
   await _saveUsage(uid);
   await trackGlobalAIUsage('explanations', 1);
 }
@@ -617,7 +635,7 @@ async function trackInsightsUsage(uid) {
   var dateKey = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
   entry.insightsGeneratedDate = dateKey;
   entry.lastUsageDate = today.toISOString();
-  usageCache[uid] = entry;
+  _cacheUsage(uid, entry);
   await _saveUsage(uid);
   await trackGlobalAIUsage('insights', 1);
 }

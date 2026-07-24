@@ -78,6 +78,17 @@ async function _delete(req, res, db) {
     let coachingIdForCount = null;
     try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (_) { /* ignore */ }
 
+    /* Delete the Firebase Auth account FIRST (audit S3-FS3). Previously auth was deleted LAST, so a
+       failure after the user doc was removed but before the auth account was deleted left a live login
+       whose next sign-in re-seeded a fresh users/{uid} via ensure-profile — a "deleted" account that
+       silently resurrects. Deleting auth first makes resurrection impossible: if a later data-deletion
+       step fails, the account can no longer sign in, and any residual data is swept by uid out-of-band.
+       (This request was already authenticated by the middleware; the Admin SDK does not re-check the
+       caller's token, so the subsequent Firestore deletes still proceed.) */
+    await admin.auth().deleteUser(uid);
+    report.authAccount = true;
+    console.log('[account:delete] Auth account deleted for uid:', uid);
+
     /* Delete all subcollections in parallel. */
     const subcollections = ['performance', 'practice', 'ai', 'usage', 'profile', 'practiceSessions', 'notifications', 'aiEvents', 'duelHistory', 'duelStats'];
     await Promise.all(subcollections.map(function (sub) {
@@ -116,11 +127,6 @@ async function _delete(req, res, db) {
     if (coachingIdForCount) {
       try { await db.collection('coachings').doc(coachingIdForCount).update({ studentCount: admin.firestore.FieldValue.increment(-1) }); } catch (_) { /* coaching may be gone */ }
     }
-
-    /* Delete the Firebase Auth account. */
-    await admin.auth().deleteUser(uid);
-    report.authAccount = true;
-    console.log('[account:delete] Auth account deleted for uid:', uid);
 
     console.log('[account:delete] Complete deletion report:', JSON.stringify(report));
     return res.status(200).json({ success: true, report: report });

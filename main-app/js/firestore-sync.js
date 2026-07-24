@@ -49,6 +49,53 @@ var FirestoreSync = (function () {
   var SYNC_DEBOUNCE_MS = 2000; /* batch updates every 2 seconds */
   var FLUSH_RETRY_DELAY_MS = 5000;
   var FLUSH_MAX_RETRIES = 2;
+  var PENDING_BUFFER_KEY = 'qr_pending_writes'; /* S3-FS2: durable offline buffer, uid-scoped */
+
+  /* Server-authoritative timestamp for the doc `updatedAt`; falls back to a client ISO only when the
+     Firestore SDK isn't loaded. Used everywhere we write updatedAt so a client clock can't poison the
+     clock-skew reference the entitlement expiry guard relies on. */
+  function _serverTs() {
+    return (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue)
+      ? firebase.firestore.FieldValue.serverTimestamp()
+      : new Date().toISOString();
+  }
+
+  /* S3-FS2: persist the in-memory pending updates to a durable, uid-scoped localStorage buffer so
+     nothing is lost if the PWA is closed while OFFLINE (where the Firestore write promise never
+     resolves and the debounce/beforeunload flush can't reach the server). Best-effort. */
+  function _persistPendingBuffer() {
+    try {
+      var uid = FirebaseApp.getUserId && FirebaseApp.getUserId();
+      var keys = Object.keys(_pendingUpdates);
+      if (!uid || keys.length === 0) return;
+      /* updatedAt sentinels aren't serializable/meaningful in the buffer — omit; the replay flush
+         stamps a fresh serverTimestamp. */
+      var out = {};
+      for (var i = 0; i < keys.length; i++) { if (keys[i] !== 'updatedAt') out[keys[i]] = _pendingUpdates[keys[i]]; }
+      if (Object.keys(out).length === 0) return;
+      localStorage.setItem(PENDING_BUFFER_KEY, JSON.stringify({ uid: uid, updates: out }));
+    } catch (_) { /* quota / serialization — best-effort */ }
+  }
+  function _clearPendingBuffer() {
+    try { localStorage.removeItem(PENDING_BUFFER_KEY); } catch (_) {}
+  }
+  /* Replay a durable buffer that belongs to the CURRENT user, merging it into _pendingUpdates so the
+     normal flush persists it. A buffer for a different uid is left untouched (no cross-user write). */
+  function _replayPendingBuffer(currentUserId) {
+    try {
+      var raw = localStorage.getItem(PENDING_BUFFER_KEY);
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      if (!parsed || parsed.uid !== currentUserId || !parsed.updates) return;
+      var fields = Object.keys(parsed.updates);
+      for (var i = 0; i < fields.length; i++) {
+        /* live in-memory edits win over a stale buffered value for the same field */
+        if (!_pendingUpdates.hasOwnProperty(fields[i])) _pendingUpdates[fields[i]] = parsed.updates[fields[i]];
+      }
+      _clearPendingBuffer();
+      if (fields.length > 0) { if (_syncTimer) clearTimeout(_syncTimer); _syncTimer = setTimeout(_flushUpdates, 0); }
+    } catch (_) { _clearPendingBuffer(); }
+  }
   /* Early-user and auto-trial systems removed (v1.2) */
 
   /* All localStorage keys that store user-specific data */
@@ -319,6 +366,10 @@ var FirestoreSync = (function () {
       /* ADR-072: start the single-device session listener — if another device claims the active session, this
          device is signed out within ~1-3s (the server also hard-rejects its requests with 409). */
       _listenForSession(currentUserId);
+      /* S3-FS2: replay any durable pending-writes buffer left by a previous offline/closed session
+         (uid-scoped — a buffer for another user is ignored, never cross-written). Merged into
+         _pendingUpdates so the flush below persists it. */
+      _replayPendingBuffer(currentUserId);
       /* ADR-054: the user is now ready — flush any updates that were buffered before Firebase/auth came up
          (e.g. questions answered during onboarding), so a first session always reaches users/{uid}.stats. */
       _flushPending();
@@ -734,8 +785,11 @@ var FirestoreSync = (function () {
       }
       
       if (Object.keys(_pendingUpdates).length > 0) {
+        _persistPendingBuffer();   /* still-pending edits stay durable */
         if (_syncTimer) clearTimeout(_syncTimer);
         _syncTimer = setTimeout(_flushUpdates, SYNC_DEBOUNCE_MS);
+      } else {
+        _clearPendingBuffer();     /* everything reached the server — buffer is stale */
       }
     }).catch(function (err) {
       _flushInFlight = false;
@@ -748,6 +802,7 @@ var FirestoreSync = (function () {
           _pendingUpdates[keys[k]] = snapshot[keys[k]];
         }
       }
+      _persistPendingBuffer();   /* keep the re-queued data durable across an unload/offline window */
       _flushRetryCount++;
       if (_flushRetryCount <= FLUSH_MAX_RETRIES) {
         console.warn('[FirestoreSync:_flushUpdates] write failed (attempt ' + _flushRetryCount + '/' + FLUSH_MAX_RETRIES + '), retrying in ' + (FLUSH_RETRY_DELAY_MS / 1000) + 's:', err.message || err);
@@ -783,12 +838,28 @@ var FirestoreSync = (function () {
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
     }
-    snapshot.updatedAt = new Date().toISOString();
-    _pendingUpdates = {};
+    /* S3-FS1: server timestamp (was a client-clock ISO — reintroducing the clock-poisoning vector the
+       debounced path deliberately closed). */
+    snapshot.updatedAt = _serverTs();
+    /* Do NOT clear _pendingUpdates before the write confirms (the old code cleared first, so a failed
+       logout write silently DROPPED the user's freshly-answered stats). Persist a durable buffer up
+       front so an offline/closing tab can replay them next load. */
+    _persistPendingBuffer();
+    _flushInFlight = true;
     docRef.set(snapshot, { merge: true }).then(function () {
+      _flushInFlight = false;
+      /* Success: drop exactly the fields we wrote (preserve any newer edits queued meanwhile). */
+      for (var k = 0; k < keys.length; k++) {
+        if (_pendingUpdates[keys[k]] === snapshot[keys[k]]) delete _pendingUpdates[keys[k]];
+      }
+      if (Object.keys(_pendingUpdates).length === 0) _clearPendingBuffer();
       if (callback) callback();
     }).catch(function (err) {
-      console.warn('[FirestoreSync] flushUpdatesAsync failed:', err);
+      _flushInFlight = false;
+      /* Failure: keep the data in _pendingUpdates AND in the durable buffer so it survives the
+         logout/unload and replays on the next load — never silently lost. */
+      console.warn('[FirestoreSync] flushUpdatesAsync failed (data retained for retry):', err && (err.message || err));
+      _persistPendingBuffer();
       if (callback) callback();
     });
   }
@@ -1035,9 +1106,12 @@ var FirestoreSync = (function () {
     }
   }
 
-  /* Flush pending updates when the page is closing */
+  /* Flush pending updates when the page is closing. Persist a durable buffer FIRST (synchronously) so
+     that if we're offline — where the Firestore write promise never resolves before the tab dies —
+     the data survives and replays on next load (S3-FS2). */
   window.addEventListener('beforeunload', function () {
     if (Object.keys(_pendingUpdates).length > 0) {
+      _persistPendingBuffer();
       _flushUpdates();
     }
   });
@@ -1045,6 +1119,7 @@ var FirestoreSync = (function () {
   /* Flush when app goes to background (mobile PWA) */
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden' && Object.keys(_pendingUpdates).length > 0) {
+      _persistPendingBuffer();
       _flushUpdates();
     }
   });
