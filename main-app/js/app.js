@@ -444,6 +444,12 @@ document.addEventListener('DOMContentLoaded', function () {
     _currentAppState = state;
     
     if (state === 'unauthenticated') {
+      /* S2-NAV1: clear the hydration latch on every transition to unauthenticated. Without this, a
+         re-login that does NOT reload the page — notably a single-device session displacement, which
+         logs out in place — would hit `if (_hydrationStarted) return;` in startHydrationAndShowApp and
+         never reach setAppState('app'), wedging the user on the login screen until a manual reload. */
+      _hydrationStarted = false;
+      _hydrationRetryCount = 0;
       _hideAppLoader();
       document.body.classList.remove('auth-resolved');
       document.body.style.overflow = '';

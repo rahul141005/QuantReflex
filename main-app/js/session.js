@@ -74,7 +74,14 @@ var Session = (function () {
     try { localStorage.setItem(REPLACED_KEY, '1'); } catch (_) {}
     clearClaim();
     try {
-      if (window.Auth && typeof Auth.logout === 'function') { Auth.logout(); return; }
+      if (window.Auth && typeof Auth.logout === 'function') {
+        /* S2-NAV2: reload AFTER logout completes so every per-user runtime state is torn down —
+           drill-session flags, duel phase, armed beforeunload guards, hidden bottom-nav — matching
+           the settings-logout contract. Previously this returned without reloading, leaving that
+           state stranded on the login screen (and, with the old hydration latch, wedging re-login). */
+        Auth.logout(function () { try { location.reload(); } catch (_) {} });
+        return;
+      }
     } catch (_) {}
     try { location.reload(); } catch (_) {}
   }

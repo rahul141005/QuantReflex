@@ -257,8 +257,12 @@ var Router = (function () {
       views[i].classList.remove('spa-view-active');
     }
     currentView = null;
-    window.location.hash = '';
-    
+    /* S2-NAV3: do NOT wipe the hash here. A logged-out cold start (auth resolves to no-user →
+       setAppState('unauthenticated') → teardown) would otherwise destroy a deep link like
+       #learn/percentages before the login screen appears, so after login Router.init() read an empty
+       hash and always landed on #home. Preserving the hash lets the intended route replay post-login.
+       (Reload-based logouts re-read the URL anyway, so this is safe for them.) */
+
     var navLinks = document.querySelectorAll('.bottom-nav a');
     for (var j = 0; j < navLinks.length; j++) {
       navLinks[j].classList.remove('active');
