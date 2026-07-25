@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v250';
+const APP_VERSION = 'v251';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -11,6 +11,7 @@ var ASSETS = [
   './',
   './index.html',
   './css/style.css',
+  './js/state/storage-registry.js',
   './js/state/store.js',
   /* Localization (ADR-111): core + all three UI catalogs precached so every language works offline;
      .js entries stay network-first, so translation fixes ship without a version bump. The bundled
@@ -25,6 +26,7 @@ var ASSETS = [
   './js/session.js',
   './js/security-events.js',
   './js/maintenance-gate.js',
+  './js/identity.js',
   './js/auth.js',
   './js/firestore-sync.js',
   './js/app.js',

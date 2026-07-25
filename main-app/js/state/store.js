@@ -23,7 +23,8 @@
  *   quant_custom_formulas      → qr_custom_formulas
  *   quant_bookmarks            → qr_bookmarks
  *   quant_notifications_enabled→ qr_notif_enabled
- *   quant_onboarding_complete  → qr_onboarding_done
+ *
+ * Per-user purge + ownership of every persisted key lives in js/state/storage-registry.js (ADR-119).
  */
 
 var AppState = (function () {
@@ -38,8 +39,7 @@ var AppState = (function () {
     customTopics:   'qr_custom_topics',
     customFormulas: 'qr_custom_formulas',
     bookmarks:      'qr_bookmarks',
-    notifEnabled:   'qr_notif_enabled',
-    onboardingDone: 'qr_onboarding_done'
+    notifEnabled:   'qr_notif_enabled'
   };
 
   /* Legacy → canonical map (ADR-095): the module always documented a lazy read-time migration but never implemented
@@ -53,8 +53,7 @@ var AppState = (function () {
     'qr_custom_topics':   'quant_custom_topics',
     'qr_custom_formulas': 'quant_custom_formulas',
     'qr_bookmarks':       'quant_bookmarks',
-    'qr_notif_enabled':   'quant_notifications_enabled',
-    'qr_onboarding_done': 'quant_onboarding_complete'
+    'qr_notif_enabled':   'quant_notifications_enabled'
   };
 
   /* Return the stored raw string for a canonical key, migrating a legacy value into it on first read. */
@@ -90,24 +89,14 @@ var AppState = (function () {
 
   var DEFAULT_QUICK_LINKS = ['fractionTable', 'tablesContainer', 'formulaSections', 'mentalTricks'];
 
-  /* ---- Cross-Tab Synchronization ---- */
-  /* This ensures that if another tab modifies localStorage, this tab can react to it. */
-  if (typeof window !== 'undefined') {
-    window.addEventListener('storage', function(e) {
-      if (!e.key) return;
-      var isManaged = false;
-      for (var k in KEYS) {
-        if (KEYS[k] === e.key) { isManaged = true; break; }
-      }
-      if (!isManaged) return;
-      
-      if (isManaged) {
-        /* Broadcast an internal event so the active view can re-render if necessary */
-        var syncEvent = new CustomEvent('qr_storage_sync', { detail: { key: e.key, newValue: e.newValue } });
-        window.dispatchEvent(syncEvent);
-      }
-    });
-  }
+  /* ---- Cross-Tab Synchronization ----
+     REMOVED (ADR-119): this block claimed to implement cross-tab sync but only dispatched a
+     `qr_storage_sync` CustomEvent that NOTHING in the repository listened for — a comment asserting a
+     behaviour the code did not provide, on every cross-tab write. It is also unnecessary: Firebase Auth
+     persistence is shared across tabs of one origin, so a sign-in in another tab already fires this
+     tab's onAuthStateChanged, which drives the canonical account-change lifecycle (Auth.onStateChange →
+     QRIdentity.beginTransition). That is the supported multi-tab contract; a storage-event side channel
+     would only add a second, weaker one. */
 
   /* ---- Generic helpers ---- */
 
@@ -250,16 +239,15 @@ var AppState = (function () {
     _writeString(KEYS.notifEnabled, enabled ? 'true' : 'false');
   }
 
-  /* ---- Onboarding Done ---- */
-
-  function getOnboardingDone() {
-    var val = _readString(KEYS.onboardingDone, null);
-    return val === 'true' || val === '1';
-  }
-
-  function setOnboardingDone(done) {
-    _writeString(KEYS.onboardingDone, done ? 'true' : 'false');
-  }
+  /* ---- Onboarding ----
+     REMOVED (ADR-119): getOnboardingDone/setOnboardingDone + KEYS.onboardingDone +
+     LEGACY['qr_onboarding_done'] were a dead parallel onboarding-state API with ZERO callers. The live
+     gate is `settings.onboardingCompleted` (js/onboarding.js shouldShow), which rides the synced
+     `qr_settings` object and is therefore per-user correct.
+     It was not merely dead, it was armed: `quant_onboarding_complete` was the one LEGACY twin missing
+     from the purge list, so _rawWithMigration would RESURRECT user A's completed-onboarding flag into
+     the canonical key after an account purge. Harmless only because nothing read it — a trap for
+     whoever wired it up next. Deleted rather than purge-listed so it cannot be revived by accident. */
 
   /* ---- Utility ---- */
 
@@ -267,33 +255,26 @@ var AppState = (function () {
    * Remove ALL user-specific localStorage keys (both canonical AND legacy).
    * Called on logout and user-switch to guarantee zero cross-user data leakage.
    */
+  /**
+   * Purge every user-scoped persisted key (ADR-119).
+   *
+   * This used to enumerate the 8 names in KEYS plus two legacy premium flags plus a `quant_ai_`
+   * prefix sweep — a hand-maintained list that a dozen other modules never registered with, so 15
+   * live keys (target exam, free-hint credits, best scores, queued reports, the `qr_ai_` generation
+   * the old sweep did not match, …) survived an account change and became the next user's state.
+   *
+   * Ownership now lives in ONE place (`js/state/storage-registry.js`) and the sweep is prefix-driven
+   * with an explicit survivor allow-list, so a key nobody classified is purged rather than inherited.
+   * The registry is a hard dependency: silently falling back to the old partial list would recreate
+   * exactly the leak this replaced, so its absence is loud.
+   */
   function clearAll() {
-    var allKeys = [];
-    var k;
-    for (k in KEYS) {
-      if (KEYS.hasOwnProperty(k)) allKeys.push(KEYS[k]);
+    if (typeof QRStorage === 'undefined' || typeof QRStorage.purgeUserScoped !== 'function') {
+      console.error('[AppState.clearAll] storage-registry unavailable — user-scoped purge SKIPPED. ' +
+        'js/state/storage-registry.js must load before js/state/store.js.');
+      return [];
     }
-    for (var i = 0; i < allKeys.length; i++) {
-      try { localStorage.removeItem(allKeys[i]); } catch (_) {}
-    }
-    /* Purge any stale legacy premium flags (removed as a source of truth — entitlement is resolved
-       solely via FirestoreSync.getAccessState/hasActivePremium). Harmless if absent. */
-    try { localStorage.removeItem('qr_premium'); localStorage.removeItem('premiumStatus'); } catch (_) {}
-
-    /* Sweep per-user AI cache keys that embed the user's UID.
-       Prefixes: quant_ai_wp_usage_, quant_ai_coach_cache_, quant_ai_sp_, quant_ai_sp_last_ */
-    try {
-      var aiPrefixes = ['quant_ai_'];
-      var allStorageKeys = Object.keys(localStorage);
-      for (var j = 0; j < allStorageKeys.length; j++) {
-        for (var p = 0; p < aiPrefixes.length; p++) {
-          if (allStorageKeys[j].indexOf(aiPrefixes[p]) === 0) {
-            localStorage.removeItem(allStorageKeys[j]);
-            break;
-          }
-        }
-      }
-    } catch (_) {}
+    return QRStorage.purgeUserScoped();
   }
 
   function _clone(obj) {
@@ -335,8 +316,6 @@ var AppState = (function () {
     setNotifEnabled: setNotifEnabled,
 
     /* Onboarding */
-    getOnboardingDone: getOnboardingDone,
-    setOnboardingDone: setOnboardingDone,
 
     /* Utility */
     clearAll: clearAll,

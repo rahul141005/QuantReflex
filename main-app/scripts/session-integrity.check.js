@@ -23,7 +23,7 @@ var sync = R('js/firestore-sync.js');
    The flush inside resetSyncState is guarded by getUserId() === _loadedUserId. If _currentUser is
    reassigned first, that guard trips and the outgoing user's queued work is DISCARDED (reachable with
    no reload: Firebase Auth persistence is shared across tabs). Order is the whole fix. */
-var handler = auth.slice(auth.indexOf('_auth.onAuthStateChanged'), auth.indexOf('_auth.onAuthStateChanged') + 1600);
+var handler = auth.slice(auth.indexOf('_auth.onAuthStateChanged'), auth.indexOf('_auth.onAuthStateChanged') + 4200);
 var iReset = handler.indexOf('FirestoreSync.resetSyncState()');
 var iAssign = handler.indexOf('_currentUser = user;');
 ok(iReset > 0 && iAssign > 0, '1 auth handler contains both the reset and the identity assignment');
@@ -89,7 +89,7 @@ ok(/_stateChangeListeners\.indexOf\(callback\) === -1/.test(osc), '4 duplicate r
 ok(/for \(var i = 0; i < _stateChangeListeners\.length; i\+\+\)/.test(auth), '4 dispatcher iterates the listener array');
 
 /* ── 5. Listener/timer teardown on logout + user switch (leak invariants) ───────────── */
-var reset = sync.slice(sync.indexOf('function resetSyncState'), sync.indexOf('function resetSyncState') + 2000);
+var reset = sync.slice(sync.indexOf('function resetSyncState'), sync.indexOf('function resetSyncState') + 3800);
 ['_notifUnsub', '_sessionUnsub'].forEach(function (u) {
   ok(new RegExp(u + '\\(\\)').test(reset) || new RegExp('if \\(' + u + '\\)').test(reset),
     '5 resetSyncState tears down ' + u);

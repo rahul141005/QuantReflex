@@ -422,6 +422,36 @@ function _closeAllInfoModals() {
 /* ---- Initialize SPA when DOM is ready ---- */
 document.addEventListener('DOMContentLoaded', function () {
 
+  /* ---- The single teardown contract (ADR-119) ----
+     Registered BEFORE FirebaseApp.init() (which starts the auth observer) so the very first identity
+     change already has a complete contract to run.
+
+     This exists because teardown used to be duplicated and divergent: Auth.logout() stopped the duel
+     listener, while the account-switch path stopped only the Firestore listeners — so a switch with no
+     logout (reachable across tabs) left user A's duel-room subscription and every view-level listener
+     alive under user B. Registering here means logout, account switch, deletion, session replacement
+     and forced sign-out all run the SAME set, and adding a subsystem is one registration rather than an
+     edit to several lifecycle paths. Hooks must be individually safe to run when the subsystem is idle. */
+  if (typeof QRIdentity !== 'undefined') {
+    QRIdentity.onTeardown('duel', function () {
+      if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') DuelCore.stopListening();
+    });
+    QRIdentity.onTeardown('view-listeners', function () {
+      /* Router.teardown() also clears the hash; EventRegistry.clearAll() is the listener-only half and
+         is what must run on every identity change. */
+      if (typeof EventRegistry !== 'undefined' && typeof EventRegistry.clearAll === 'function') EventRegistry.clearAll();
+    });
+    QRIdentity.onTeardown('drill', function () {
+      /* A drill in progress belongs to the outgoing account: stop its timers and drop the body flag so
+         the incoming user cannot resume it or have their repaint suppressed by it. */
+      try {
+        if (typeof DrillEngine !== 'undefined' && typeof DrillEngine.cleanup === 'function') DrillEngine.cleanup();
+        document.body.classList.remove('drill-session-active');
+        document.documentElement.classList.remove('drill-session-active');
+      } catch (_) { /* best-effort */ }
+    });
+  }
+
   /* ---- Initialize Firebase ---- */
   if (typeof FirebaseApp !== 'undefined') {
     FirebaseApp.init();
@@ -507,10 +537,61 @@ document.addEventListener('DOMContentLoaded', function () {
   var _hydrationRetryCount = 0;
   var _MAX_HYDRATION_RETRIES = 30; /* 3 seconds at 100ms intervals */
 
-  function startHydrationAndShowApp() {
-    if (_currentAppState === 'app') return;
+  /**
+   * Hydrate the signed-in user's state and reveal the app.
+   *
+   * ADR-119: "the app is rendered" and "the CORRECT user's state is hydrated" are different conditions,
+   * and conflating them was a HIGH defect. This used to open with a bare `if (_currentAppState === 'app')
+   * return;`, so a direct A→B switch (no logout, no reload — reachable because Firebase Auth persistence
+   * is shared across tabs) returned immediately and never ran _executeTransition(). That function is the
+   * ONLY caller of applyAppearance/applyTheme/QRI18n.init and of _launchOnboardingOrShowMain, so user B
+   * ran inside user A's theme, dark-mode and UI language, and a brand-new B never saw onboarding — while
+   * the data repaints introduced by earlier waves redrew B's data underneath A's chrome.
+   *
+   * The gate is now keyed on IDENTITY, not on render state: an account boundary always re-enters the
+   * transition; a same-user re-notification (token refresh, resume, duplicate observer fire) still
+   * short-circuits exactly as before, so the common path is unchanged.
+   *
+   * @param {string|null} [uid] - the uid this hydration is for; defaults to the live auth uid.
+   */
+  function startHydrationAndShowApp(uid) {
+    var targetUid = uid || (typeof FirebaseApp !== 'undefined' && FirebaseApp.getUserId && FirebaseApp.getUserId()) || null;
+    var boundary = (typeof QRIdentity !== 'undefined') ? QRIdentity.isAccountBoundary(targetUid) : false;
+
+    /* The decision itself is a pure, exported, unit-executed function (QRIdentity.hydrationDecision) so
+       the invariant "an account boundary ALWAYS rehydrates" is verified by running a truth table rather
+       than by grepping this file — which is how the first cut of this fix shipped broken. */
+    var decision = (typeof QRIdentity !== 'undefined' && QRIdentity.hydrationDecision)
+      ? QRIdentity.hydrationDecision(boundary, _currentAppState, _hydrationStarted)
+      : ((_currentAppState === 'app' || _hydrationStarted) ? 'SKIP' : 'HYDRATE');
+    if (decision === 'SKIP') return;
+
+    if (boundary) {
+      /* Account boundary. The latch is ALWAYS released here, whether the previous identity finished
+         hydrating (latch left true by its own successful run) or is still in flight (latch true and the
+         app not yet shown). Anything less re-creates the original defect one switch later: after the
+         first login the latch is permanently true, so a bare `if (_hydrationStarted) return` would
+         swallow every subsequent A→B. The previous identity's in-flight callbacks are already inert —
+         QRIdentity bumped the generation before teardown — so releasing the latch cannot let them
+         resurface. */
+      _hydrationStarted = false;
+      _hydrationRetryCount = 0;
+    }
     if (_hydrationStarted) return;
     _hydrationStarted = true;
+
+    /* Account boundary while the app is already on screen: show the transitional state so the outgoing
+       user's rendered data is never visible under the incoming user's session. Cheap and correct beats
+       200 ms of somebody else's stats. */
+    if (boundary && _currentAppState === 'app') {
+      _currentAppState = 'hydrating';
+      try {
+        document.body.classList.remove('auth-resolved');
+        if (container) container.style.display = 'none';
+        if (bottomNav) bottomNav.style.display = 'none';
+        if (typeof Router !== 'undefined' && typeof Router.teardown === 'function') Router.teardown();
+      } catch (_) { /* never block the transition on chrome */ }
+    }
 
     setAppState('hydrating');
     
@@ -527,6 +608,11 @@ document.addEventListener('DOMContentLoaded', function () {
            another device where the user picked a different language). */
         if (typeof QRI18n !== 'undefined') QRI18n.init(s);
       } catch (_) { /* ignore */ }
+      /* ADR-119: the app state is now built for this account — appearance, theme and language have been
+         re-applied from THIS user's settings, and the onboarding decision below uses them. Marking the
+         identity active here (before render) is what lets the next observer fire tell a same-user
+         re-notification apart from a genuine account boundary. */
+      if (typeof QRIdentity !== 'undefined') QRIdentity.completeTransition(targetUid);
       _launchOnboardingOrShowMain();
     }
 
@@ -597,9 +683,11 @@ document.addEventListener('DOMContentLoaded', function () {
     Auth.onStateChange(function (user) {
       clearTimeout(_authTimeoutId);
       if (user) {
-
-        startHydrationAndShowApp();
+        /* ADR-119: pass the uid so an A→B boundary re-enters the full lifecycle instead of being
+           swallowed by the "already rendered" short-circuit. */
+        startHydrationAndShowApp(user.uid);
       } else {
+        if (typeof QRIdentity !== 'undefined') QRIdentity.clear();
         setAppState('unauthenticated');
         /* ADR-072: if this sign-out was caused by the account being opened on another device, explain it once. */
         try {
@@ -614,8 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Auth.onAuthReady(function (user) {
       clearTimeout(_authTimeoutId);
       if (user) {
-
-        startHydrationAndShowApp();
+        startHydrationAndShowApp(user.uid);
       }
       else setAppState('unauthenticated');
     });

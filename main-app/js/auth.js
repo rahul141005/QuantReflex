@@ -51,7 +51,31 @@ var Auth = (function () {
          as B in tab 2 fires this handler in tab 1). Resetting first keeps the outgoing identity
          current, so the flush resolves the OUTGOING user's docRef and their data is persisted; the
          cross-user guard still prevents any write landing on the incoming user. */
-      if (previousUser && (!user || user.uid !== previousUser.uid)) {
+      /* ADR-119: an identity change is a lifecycle event, not just a variable assignment. Ordering is
+         load-bearing and is asserted by session-integrity.check:
+           1. beginTransition bumps the generation FIRST, so every token captured under the outgoing
+              user is already invalid before any teardown/purge runs — in-flight A work becomes inert
+              instead of racing the purge (and can never complete as B).
+           2. runTeardown() executes the ONE registered teardown contract (Firestore listeners, duel
+              listener, view listeners, timers). Previously only Auth.logout() tore the duel listener
+              down, so a switch with no logout left A's room subscription live under B.
+           3. resetSyncState() flushes the outgoing user's queued writes and purges their state. It
+              still runs BEFORE `_currentUser = user` because the flush resolves its docRef through
+              FirebaseApp.getUserId() → Auth.getUserId() → _currentUser; flipping identity first made
+              the cross-user guard trip and DISCARD that data (reachable with no reload, since Firebase
+              Auth persistence is shared across tabs).
+           4. Only then does _currentUser advance to the incoming user.
+         The teardown/purge CONDITION is deliberately unchanged from before ADR-119: it fires ONLY when
+         there was a previous user. A first observer fire with no user (cold boot, signed out) must NOT
+         purge — that would destroy the local pre-login/offline progress that loadFromFirestore later
+         merges into the account. */
+      var _leavingUser = !!previousUser && (!user || user.uid !== previousUser.uid);
+      var _identityChanged = (previousUser ? previousUser.uid : null) !== (user ? user.uid : null);
+      if (_identityChanged && typeof QRIdentity !== 'undefined') {
+        QRIdentity.beginTransition(user ? user.uid : null);
+      }
+      if (_leavingUser) {
+        if (typeof QRIdentity !== 'undefined') QRIdentity.runTeardown();
         if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.resetSyncState === 'function') {
           FirestoreSync.resetSyncState();
         }
@@ -339,8 +363,14 @@ var Auth = (function () {
       return;
     }
 
-    /* Clean up specific app modules before signing out */
-    if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
+    /* ADR-119: run the ONE registered teardown contract rather than a hand-picked module list. This
+       used to stop only the duel listener here, which is precisely how logout and account-switch drifted
+       apart — the switch path stopped Firestore listeners and this path stopped the duel listener, so
+       neither was complete. Running it before signOut() also means no listener can fire mid-transition.
+       The observer runs it again when it sees the sign-out; hooks are idempotent, so that is harmless. */
+    if (typeof QRIdentity !== 'undefined' && typeof QRIdentity.runTeardown === 'function') {
+      QRIdentity.runTeardown();
+    } else if (typeof DuelCore !== 'undefined' && typeof DuelCore.stopListening === 'function') {
       DuelCore.stopListening();
     }
     /* ADR-072: drop the single-device claim so the NEXT login on this device re-claims (and displaces others). */

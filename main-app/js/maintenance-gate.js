@@ -31,7 +31,10 @@
       db.collection('config').doc('maintenance').get().then(function (snap) {
         if (!snap.exists || !snap.data().enabled) return;
         var msg = snap.data().message;
-        var u = (firebase.auth && firebase.auth().currentUser) || null;
+        /* ADR-119: identity via Auth, not the SDK (see duel-core._uid). This only gates an admin
+           bypass of the maintenance overlay, but a mid-transition read here would evaluate the wrong
+           account's claims. */
+        var u = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
         if (u && u.getIdTokenResult) {
           u.getIdTokenResult().then(function (t) {
             if (!(t && t.claims && t.claims.admin)) _showMaintenance(msg);

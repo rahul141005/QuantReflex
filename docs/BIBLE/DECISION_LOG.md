@@ -8,6 +8,95 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-119 — Account isolation as a boundary: storage ownership + identity lifecycle (v251) (2026-07-25)
+
+- **Context.** An adversarial re-audit of Wave S2 **disproved** its close-out claim. ADR-118 had asserted
+  "user-switch state purge — VERIFIED SOUND"; that was wrong. Two HIGH defects were confirmed against live
+  code, and the guard that should have caught them reported 42/42 green because it asserted that cleanup
+  *functions are called* rather than that cleanup is *complete*. Account isolation is treated here as a
+  data-integrity boundary, not a housekeeping detail.
+
+- **Decision 1 — invert the storage default (fixes the 15-key leak).** Ownership of every persisted key now
+  lives in one place, `main-app/js/state/storage-registry.js`, and the purge is **prefix-driven with an
+  explicit survivor allow-list**. Previously `AppState.clearAll()` enumerated 8 names plus a `quant_ai_`
+  prefix sweep while twelve modules invented keys independently, so **forgetting to register a key meant
+  user A's state survived into user B's session** — target exam, in-drill free-hint credits, best scores,
+  speed score, queued bug reports, the `qr_ai_` generation the old sweep did not even match, pinned/recent
+  categories, and more. Now anything under `qr_`/`quant_` is user-scoped unless it is *named* as
+  device/installation/user-deferred state, so **forgetting fails safe (purged) instead of unsafe
+  (inherited)**. Categories: `user` · `device` · `installation` · `user-deferred` (uid-tagged, guarded at
+  read) · `foreign` (another app on the origin; never touched).
+  - The worst leak was deterministic, not probabilistic: `clearAll()` removes `qr_settings`, so
+    `TargetExam.get()` *always* fell through to the unpurged legacy `qr_active_exam` and returned the
+    previous student's exam.
+  - Legacy fallback chains are now guarded structurally: every `LEGACY` twin must classify as user-scoped,
+    or a purged canonical key could resurrect A's value via `_rawWithMigration`.
+
+- **Decision 2 — "rendered" ≠ "hydrated for this account" (fixes the switch that never transitioned).**
+  `startHydrationAndShowApp()` opened with `if (_currentAppState === 'app') return;`, so a direct A→B
+  switch — reachable with no logout and no reload, because Firebase Auth persistence is shared across tabs
+  — returned immediately and never ran `_executeTransition()`, the only caller of
+  `applyAppearance`/`applyTheme`/`QRI18n.init` and of the onboarding check. B therefore ran in A's theme,
+  dark-mode and **UI language**, and a brand-new B **skipped onboarding**. The gate is now keyed on
+  identity via `QRIdentity.hydrationDecision(boundary, appState, latch)` — a pure, exported, unit-executed
+  function. Same-account re-notifications (token refresh, resume, duplicate observer fire) still
+  short-circuit, so the common path is unchanged.
+  - A boundary while the app is on screen now shows the transitional state and tears the view down first,
+    so the outgoing user's rendered data is never visible under the incoming session.
+
+- **Decision 3 — one identity authority and one teardown contract.** New `main-app/js/identity.js`
+  (`QRIdentity`) owns an explicit phase machine (`idle → transitioning → active`) over *which account the
+  app state belongs to*, plus `onTeardown`/`runTeardown`. Teardown used to be duplicated and divergent —
+  `Auth.logout()` stopped the duel listener while the switch path stopped only the Firestore listeners, so
+  a switch left A's duel-room subscription and every view listener alive under B. Logout, account switch,
+  deletion, session replacement and forced sign-out now run the same registered set (duel, view listeners,
+  drill). Adding a subsystem is one registration, not an edit to several lifecycle paths.
+  - `firebase.auth().currentUser` is no longer read anywhere outside `auth.js`. During a transition the SDK
+    already reports the INCOMING user while the app is still finalising the outgoing one, so those reads
+    (`duel-core`, `duel-archive`, `maintenance-gate`) were a window in which subsystems could disagree
+    about who was signed in. A check now enforces this repo-wide.
+
+- **Decision 4 — async work cannot cross identities.** `capture()` returns a token bound to uid **and** a
+  monotonic generation; `isCurrent(token)`/`guard(token, fn)` make a late callback, retry or queued
+  submission from the previous account a silent no-op. `beginTransition()` bumps the generation **before**
+  any teardown or purge, so in-flight A work is already inert rather than racing the purge. Because the
+  discriminator is the generation and not the uid, even A→B→A does not revive A's original work.
+
+- **Decision 5 — the farewell flush no longer drops data (V2-B4/V2-B5).** `resetSyncState()` used to skip
+  its flush entirely when a write was already in flight and then clear the queue anyway, discarding
+  anything queued during that window. It now persists the residue to the durable buffer
+  **unconditionally, before** the flush attempt — the flush's own failure path cannot help, because the
+  generation bump makes it drop the snapshot. Duplicate writes are impossible: on replay the buffered
+  `baseUpdatedAt` is compared with the freshly loaded server `updatedAt`, so a buffer whose write landed is
+  discarded as stale. The buffer is also now keyed **per uid** (`qr_pending_writes_<uid>`), so a second
+  account's residue on a shared device can no longer overwrite the first account's unflushed work before
+  its owner returns; the pre-ADR-119 single slot is migrated on first matching login.
+
+- **Decision 6 — test outcomes, not invocations.** `main-app/scripts/account-isolation.check.js` seeds a
+  fake `Storage` with a real signed-in footprint, runs the **real** purge and asserts on the result; runs
+  the identity machine and the gate decision as executed truth tables; and **derives the persisted-key
+  inventory from source** (literals *and* `var *_KEY = '…'` constants — a literal-only scan is exactly how
+  the leaking modules stayed invisible), failing when a key falls outside the ownership model or when the
+  set of survivors changes. Adding persistent user state now requires an explicit ownership decision.
+  - This section earned its keep immediately: the first cut of Decision 2 passed a source pattern-match
+    while still being wrong (`_hydrationStarted` stays true after a successful hydration, so the boundary
+    branch fell through to `if (_hydrationStarted) return` and every switch **after the first** was
+    swallowed). The executed truth table caught it; the structural assertion could not.
+
+- **Also removed.** The dead `getOnboardingDone`/`setOnboardingDone` API plus `KEYS.onboardingDone` and
+  `LEGACY['qr_onboarding_done']` — zero callers, while `quant_onboarding_complete` was the one legacy twin
+  missing from the purge, so `_rawWithMigration` would have resurrected A's completed-onboarding flag. It
+  was harmless only because nothing read it: dead, identity-sensitive, and armed. Deleted rather than
+  purge-listed. Also removed the `storage`-event handler that dispatched a `qr_storage_sync` CustomEvent
+  with **zero listeners** — it claimed a cross-tab sync the code never provided; shared Auth persistence
+  already drives the real multi-tab contract.
+
+- **Consequence.** Wave S2's earlier "purge verified sound" claim is formally retracted in the CHANGELOG.
+  Live two-account, two-tab and offline runs against a real Firebase project remain unverified in CI (the
+  sandbox blocks Firebase auth), so a short manual validation checklist ships with this ADR.
+
+---
+
 ## ADR-118 — Session integrity: flush before identity, live user-doc refresh, additive auth gate (v250) (2026-07-25)
 
 - **Context.** Wave S2 audited authentication, session management, user identity and Firestore

@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.150 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.67 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.151 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.68 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
+| **Security Version** | 2.19 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.151 (2026-07-25)** — **Account isolation hardening (Wave S2 remediation, ADR-119, SW v250→v251).**
+> Architecture 2.67→2.68, Security 2.18→2.19: cross-account client-state contamination is now treated as a
+> data-integrity boundary. **Retracts the 2.150 claim that the user-switch purge was sound** — an adversarial
+> re-audit found 15 live user-scoped keys surviving an account switch (target exam deterministically, plus
+> free-hint credits, best/speed scores, queued bug reports, AI badge state, pinned/recent categories) and a
+> HIGH defect where a direct A→B switch never ran the hydration transition, so B ran in A's theme, dark mode
+> and UI language and a brand-new B skipped onboarding. Storage ownership now lives in ONE registry with a
+> prefix purge + explicit survivor allow-list, so an unregistered key is purged rather than inherited; a new
+> identity lifecycle (`js/identity.js`) gives deterministic ownership, ONE teardown contract for
+> logout/switch/deletion/displacement, and generation-scoped tokens so late work from the previous account
+> cannot mutate the new one. `firebase.auth().currentUser` is no longer read outside `js/auth.js`. Flush
+> residue is made durable before the attempt and buffered per uid. Verified: npm test 14,507/0, new
+> behavioural `account-isolation.check` (92) which derives the key inventory from source and caught a bug in
+> this pass, plus a real-Chromium purge run (0 leaked, 0 wrongly destroyed). Live two-account / two-tab /
+> offline runs against a real Firebase project remain unverified — the sandbox blocks Firebase auth.
 
 > **2.150 (2026-07-25)** — **Session integrity & user-data consistency (Wave S2, ADR-118, SW v249→v250).**
 > Architecture 2.66→2.67: the ADR-072 single-device listener becomes the app's live user-state refresh path

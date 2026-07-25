@@ -6,6 +6,66 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Account isolation hardening (Wave S2 remediation, ADR-119, SW v250→v251)
+
+**Retraction first.** The ADR-118 entry below claims "**user-switch state purge — VERIFIED SOUND**". That
+claim was **wrong** and is withdrawn. An adversarial re-audit found 15 live user-scoped localStorage keys
+surviving an account switch, and a HIGH defect in which a direct A→B switch never ran the hydration
+transition at all. The guard reported 42/42 green because it asserted that cleanup *functions are called*,
+not that cleanup is *complete* — the testing strategy failed, not just the code.
+
+- **Storage ownership model (fixes 15 leaking keys).** New `main-app/js/state/storage-registry.js` owns the
+  lifecycle of every persisted key; `AppState.clearAll()` delegates to it and refuses loudly if it is
+  absent. The purge is prefix-driven with an explicit survivor allow-list, so **an unregistered key is
+  purged (safe) instead of inherited (unsafe)**. Closed leaks include `qr_active_exam` (deterministic —
+  `qr_settings` is cleared, so `TargetExam.get()` always fell through to the legacy mirror and returned the
+  previous student's exam), `qr_explain_credits` (spent in-drill free hints), `qr_report_queue` (A's queued
+  bug reports would submit under B's token), `qr_best_scores`, `qr_last_speed_score`, `qr_sessions_count`,
+  `qr_ai_dirty_at` / `qr_ai_seen_*` (the old sweep matched `quant_ai_` only), `qr_recent_cats`,
+  `qr_pinned_cats`, `qr_catpicker_open`, `qr_quickref_open`, `qr_learn_filter`, `qr_duel_acked`,
+  `qr_exam_nudge_dismissed`. Device/installation state (`qr_session_*`, `qr_last_uid`, `qr_i18n_preview`,
+  `qr_appUpdating`, `qr_update_*`) is preserved by declaration; other apps' keys on the origin are untouched.
+- **A→B now runs the full lifecycle (HIGH).** `js/app.js` `startHydrationAndShowApp()` was gated on
+  `_currentAppState === 'app'`, so a switch with no logout and no reload (Firebase Auth persistence is
+  shared across tabs) skipped `_executeTransition()` — the only caller of `applyAppearance`, `applyTheme`,
+  `QRI18n.init` and the onboarding check. User B ran in user A's theme, dark-mode and **UI language**, and a
+  brand-new B **skipped onboarding**. The gate is now keyed on identity, with a transitional state so A's
+  rendered data is never shown under B's session.
+- **One identity authority, one teardown contract.** New `js/identity.js` (`QRIdentity`) owns an explicit
+  `idle → transitioning → active` phase machine plus a teardown registry. Logout, account switch, deletion,
+  session replacement and forced sign-out now run the same set (duel listener, view listeners, drill) —
+  previously `Auth.logout()` stopped the duel listener and the switch path did not, so A's duel-room
+  subscription and every view listener survived into B. `firebase.auth().currentUser` is no longer read
+  outside `js/auth.js` (`duel-core`, `duel-archive`, `maintenance-gate` rerouted), removing the window in
+  which the SDK reported B while the app was still finalising A.
+- **Async work cannot cross accounts.** `QRIdentity.capture()`/`isCurrent()`/`guard()` bind work to a uid
+  **and** a monotonic generation, bumped before teardown — so a late callback, retry or queued submission
+  from the previous account is a no-op, and A→B→A does not revive A's original work.
+- **Flush/queue safety.** `resetSyncState()` previously skipped its farewell flush when a write was in
+  flight and cleared the queue anyway. It now persists the residue durably **before** the flush attempt
+  (the flush's failure path cannot help — the generation bump makes it drop the snapshot), and the buffer is
+  keyed **per uid** so a second account's residue cannot overwrite the first's unflushed work. Duplicate
+  writes are impossible: a buffer whose write landed is discarded as stale via `baseUpdatedAt`.
+- **Removed dead, identity-sensitive code.** `getOnboardingDone`/`setOnboardingDone` + `KEYS.onboardingDone`
+  + `LEGACY['qr_onboarding_done']` (zero callers, and `quant_onboarding_complete` was the one legacy twin
+  missing from the purge, so it would have resurrected A's onboarding flag). Also the `storage` handler that
+  dispatched a `qr_storage_sync` event with zero listeners — a documented behaviour the code never provided.
+
+New `main-app/scripts/account-isolation.check.js` (**92 assertions**) executes the real purge against a
+seeded fake `Storage`, runs the identity machine and gate decision as truth tables, and **derives the key
+inventory from source** so an unclassified new key fails CI. It caught a bug in this very pass: the first
+cut of the gate fix passed a pattern-match while still swallowing every switch after the first.
+
+Verified: `npm test` **14,507/0** plus account-isolation 92/0, session-integrity 42/0, entitlement-core
+93/0, entitlement-invariants 30/0, payment-parity 25/0, firestore-durability 15/0, design-lint 10/10.
+Real-Chromium run against the live page: A's exam `"cat"` → `null` after the purge, **0** keys leaked, **0**
+survivors wrongly destroyed, settings fall back to defaults (not A's playful/hi), late-A work inert, all
+three teardown hooks registered at boot, 0 page errors. **Still unverified:** live two-account, two-tab and
+offline flows against a real Firebase project — the sandbox blocks Firebase auth. Bible 2.150→2.151,
+Architecture 2.67→2.68, Security 2.18→2.19.
+
+---
+
 ## 2026-07-25 — Session integrity & user-data consistency (Wave S2, ADR-118, SW v249→v250)
 
 Independent audit of authentication, session management, user identity and Firestore consistency,

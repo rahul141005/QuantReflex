@@ -77,6 +77,13 @@ var FirestoreSync = (function () {
   /* S3-FS2: persist the in-memory pending updates to a durable, uid-scoped localStorage buffer so
      nothing is lost if the PWA is closed while OFFLINE (where the Firestore write promise never
      resolves and the debounce/beforeunload flush can't reach the server). Best-effort. */
+  /* ADR-119 (V2-B5): the buffer is keyed PER UID. It used to be a single slot, so a second account
+     leaving residue on the same device overwrote the first account's unflushed work before its owner
+     could sign back in and replay it — a silent, permanent loss on shared devices. The uid field is
+     kept inside the payload as well, so the replay guard still validates ownership even if a key were
+     ever hand-edited. */
+  function _bufferKey(uid) { return PENDING_BUFFER_KEY + '_' + uid; }
+
   function _persistPendingBuffer() {
     try {
       var uid = FirebaseApp.getUserId && FirebaseApp.getUserId();
@@ -92,20 +99,31 @@ var FirestoreSync = (function () {
          whole-field values are stale and must not clobber the newer state. Both are server timestamps
          → clock-safe. */
       var baseUpdatedAt = _toMillis(_memoryCache && _memoryCache.updatedAt) || 0;
-      localStorage.setItem(PENDING_BUFFER_KEY, JSON.stringify({ uid: uid, updates: out, baseUpdatedAt: baseUpdatedAt }));
+      localStorage.setItem(_bufferKey(uid), JSON.stringify({ uid: uid, updates: out, baseUpdatedAt: baseUpdatedAt }));
     } catch (_) { /* quota / serialization — best-effort */ }
   }
-  function _clearPendingBuffer() {
-    try { localStorage.removeItem(PENDING_BUFFER_KEY); } catch (_) {}
+  function _clearPendingBuffer(uid) {
+    try {
+      var u = uid || (FirebaseApp.getUserId && FirebaseApp.getUserId());
+      if (u) localStorage.removeItem(_bufferKey(u));
+    } catch (_) {}
   }
   /* Replay a durable buffer that belongs to the CURRENT user, merging it into _pendingUpdates so the
      normal flush persists it. A buffer for a different uid is left untouched (no cross-user write). */
   function _replayPendingBuffer(currentUserId) {
     try {
-      var raw = localStorage.getItem(PENDING_BUFFER_KEY);
-      if (!raw) return;
+      var raw = localStorage.getItem(_bufferKey(currentUserId));
+      var legacyRaw = null;
+      if (!raw) {
+        /* One-time migration from the pre-ADR-119 single-slot key: adopt it only if it belongs to the
+           user signing in now, otherwise leave it for its rightful owner. */
+        legacyRaw = localStorage.getItem(PENDING_BUFFER_KEY);
+        if (!legacyRaw) return;
+        raw = legacyRaw;
+      }
       var parsed = JSON.parse(raw);
       if (!parsed || parsed.uid !== currentUserId || !parsed.updates) return;
+      if (legacyRaw) { try { localStorage.removeItem(PENDING_BUFFER_KEY); } catch (_) {} }
       /* Freshness guard (clock-safe, server timestamps both sides): if the server doc has advanced
          since we buffered — i.e. another device wrote in the meantime — replaying our stale whole-field
          values (e.g. stats) would clobber the newer server state. Newer server state wins: drop the
@@ -237,8 +255,25 @@ var FirestoreSync = (function () {
    * leaks to the next session.
    */
   function resetSyncState() {
-    if (Object.keys(_pendingUpdates).length > 0 && !_flushInFlight) {
-      _flushUpdates();
+    /* V2-B4 (ADR-119): the farewell flush used to be skipped entirely when a write was already in
+       flight — and the queue was then cleared unconditionally a few lines below, so anything queued
+       DURING that in-flight write was silently discarded on logout/switch. That is the same data-loss
+       class the ordering fix was meant to close, just in a narrower window (the ~2 s debounce).
+       Now: flush when we can, and when we cannot, persist the residue to the durable uid-scoped buffer
+       so it replays on this user's next load instead of evaporating. _persistPendingBuffer stamps the
+       buffer with FirebaseApp.getUserId(), which is still the OUTGOING user here (identity flips only
+       after this function returns), so the buffer is tagged to its rightful owner and _replayPendingBuffer
+       will refuse to hand it to anyone else.
+       The buffer is written UNCONDITIONALLY, before the flush attempt, because the flush's own failure
+       path cannot save us here: resetSyncState bumps _syncGeneration immediately below, so when that
+       write rejects, the catch sees a changed generation and drops the snapshot (correctly — it must
+       not re-queue A's data into B's session). Persisting first covers both outcomes, and it cannot
+       cause a duplicate write: on replay, _replayPendingBuffer compares the buffered baseUpdatedAt with
+       the freshly loaded server updatedAt, so a buffer whose write actually landed is discarded as
+       stale. Worst case we replay values identical to what the server already holds. */
+    if (Object.keys(_pendingUpdates).length > 0) {
+      _persistPendingBuffer();
+      if (!_flushInFlight) _flushUpdates();
     }
 
     _syncGeneration++;

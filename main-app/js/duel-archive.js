@@ -51,7 +51,14 @@ var DuelArchive = (function () {
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]; }); }
   function _initial(name) { var n = String(name || '?').trim(); return n ? n.charAt(0).toUpperCase() : '?'; }
   function _db() { return firebase.firestore(); }
-  function _uid() { try { return (typeof DuelCore !== 'undefined' && DuelCore.getMyUid) ? DuelCore.getMyUid() : (firebase.auth().currentUser || {}).uid; } catch (_) { return null; } }
+  /* ADR-119: never read firebase.auth().currentUser directly — see duel-core._uid. */
+  function _uid() {
+    try {
+      if (typeof DuelCore !== 'undefined' && DuelCore.getMyUid) return DuelCore.getMyUid();
+      if (typeof Auth !== 'undefined' && Auth.getUserId) return Auth.getUserId();
+      return null;
+    } catch (_) { return null; }
+  }
   function _el() { return document.getElementById(SECTION_ID); }
   /* i18n (ADR-111): app-language channel; guarded so a harness without QRI18n still gets the key. */
   function _t(key, params) { return (typeof QRI18n !== 'undefined') ? QRI18n.t(key, params) : key; }

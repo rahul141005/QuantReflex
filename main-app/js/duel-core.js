@@ -36,20 +36,26 @@ var DuelCore = (function () {
 
   function _db() { return firebase.firestore(); }
   function _uid() {
+    /* ADR-119: the application identity authority is Auth (→ FirebaseApp.getUserId, which delegates to
+       it). The old `firebase.auth().currentUser` fallback is deliberately GONE: during an account
+       transition the SDK already reports the INCOMING user while the app is still finalising the
+       outgoing one, so that fallback was a window in which this subsystem could disagree with the rest
+       of the app and act for the wrong account. No signed-in identity ⇒ null, and callers already
+       treat null as "not signed in". */
     if (typeof Auth !== 'undefined' && Auth.getUserId) return Auth.getUserId();
     if (typeof FirebaseApp !== 'undefined' && FirebaseApp.getUserId) return FirebaseApp.getUserId();
-    var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
-    return u ? u.uid : null;
+    return null;
   }
 
   /* ── Authenticated endpoint call (one attempt) ── */
   function _apiOnce(action, body) {
     return Promise.resolve()
       .then(function () {
+        /* ADR-119: token minting goes through the identity authority too — a token fetched straight
+           from the SDK mid-transition would authenticate the request as the INCOMING user while the
+           payload was built for the outgoing one. */
         if (typeof Auth !== 'undefined' && Auth.getIdToken) return Auth.getIdToken();
-        var u = firebase.auth().currentUser;
-        if (!u) { var ae = new Error('Not signed in.'); ae.noRetry = true; throw ae; }
-        return u.getIdToken();
+        var ae = new Error('Not signed in.'); ae.noRetry = true; throw ae;
       })
       .then(function (token) {
         return fetch('/api/duel?action=' + encodeURIComponent(action), {
