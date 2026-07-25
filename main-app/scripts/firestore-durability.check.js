@@ -54,73 +54,180 @@ ok('usageCache has a TTL', /USAGE_CACHE_TTL_MS/.test(ai) && /Date\.now\(\) - \(u
 ok('usageCache has a size cap + eviction', /USAGE_CACHE_MAX/.test(ai) && /delete usageCache\[uids\[i\]\]/.test(ai));
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════════
-   ADR-121 — EXECUTED coverage.
+   ADR-121 / ADR-122 — EXECUTED coverage.
 
    Everything above this line is a source pattern-match. That is how the FS1 defect shipped green: the
    ratchet confirmed flushUpdatesAsync "retains data on failure" and "does not clear _pendingUpdates up
    front", both true, while the SUCCESS path silently dropped the user's last answers because it compared
    queued values by object identity — and `stats` is the very object the app mutates in place. A pattern
-   cannot see that. These sections run the real logic.
+   cannot see that.
+
+   ADR-122: the FIRST version of this section was itself part of the problem. It declared local copies of
+   the cleanup and the deletion-counter logic and exercised THOSE, so reverting the production cleanup to
+   `===` would have left the suite green — "executed", but executing the wrong code. Everything below now
+   runs the shipped functions: the whole of js/firestore-sync.js is loaded into a vm with stubbed browser
+   + Firebase globals and driven end to end, and the pure decision helpers are vm-sliced out of their real
+   files. A guard at the bottom asserts this file re-implements nothing.
    ══════════════════════════════════════════════════════════════════════════════════════════════════ */
 const vm = require('vm');
-
-/* ── FS1-a: an in-place mutation during the write must NOT be mistaken for "unchanged" ───────────── */
-/* The real signature + cleanup logic, lifted verbatim from js/firestore-sync.js. */
-function sigOf(value) { try { return JSON.stringify(value); } catch (_) { return null; } }
-function cleanupAfterWrite(pending, keys, snapSig) {
-  for (let k = 0; k < keys.length; k++) {
-    const key = keys[k];
-    if (!Object.prototype.hasOwnProperty.call(pending, key)) continue;
-    const cur = sigOf(pending[key]);
-    if (cur !== null && snapSig[key] !== null && cur === snapSig[key]) delete pending[key];
-  }
-  return pending;
-}
-
-/* The production shape: loadProgress() hands back the cached object BY REFERENCE, recordAnswer mutates it
-   in place, saveProgress re-queues the SAME object. */
-const progress = { totalAttempted: 10, dailyStreak: 3 };
-let pending = { stats: progress };
-const keys = Object.keys(pending);
-const snapSig = {}; keys.forEach(k => { snapSig[k] = sigOf(pending[k]); });
-progress.totalAttempted = 11;                 /* ← the answer recorded while the write was in flight */
-pending = cleanupAfterWrite(pending, keys, snapSig);
-ok('FS1 an in-place edit during the write survives the success cleanup',
-  Object.prototype.hasOwnProperty.call(pending, 'stats') && pending.stats.totalAttempted === 11);
-
-/* Control: genuinely unchanged data IS cleared, so the queue does not grow without bound. */
-const stable = { totalAttempted: 10 };
-let pending2 = { stats: stable };
-const keys2 = Object.keys(pending2);
-const snapSig2 = {}; keys2.forEach(k => { snapSig2[k] = sigOf(pending2[k]); });
-pending2 = cleanupAfterWrite(pending2, keys2, snapSig2);
-ok('FS1 unchanged data is still cleared after a successful write',
-  !Object.prototype.hasOwnProperty.call(pending2, 'stats'));
-
-/* A replaced (new-object, same content) value is also cleared — content, not identity, is the test. */
-let pending3 = { stats: { a: 1 } };
-const keys3 = Object.keys(pending3);
-const snapSig3 = {}; keys3.forEach(k => { snapSig3[k] = sigOf(pending3[k]); });
-pending3.stats = { a: 1 };
-pending3 = cleanupAfterWrite(pending3, keys3, snapSig3);
-ok('FS1 a distinct object with identical content is cleared (content, not identity)',
-  !Object.prototype.hasOwnProperty.call(pending3, 'stats'));
-
-/* Unserializable value ⇒ null signature ⇒ KEEP. Never drop data on an unknown. */
-const circular = {}; circular.self = circular;
-let pending4 = { stats: circular };
-const keys4 = Object.keys(pending4);
-const snapSig4 = {}; keys4.forEach(k => { snapSig4[k] = sigOf(pending4[k]); });
-pending4 = cleanupAfterWrite(pending4, keys4, snapSig4);
-ok('FS1 an unserializable value is retained, never silently dropped',
-  Object.prototype.hasOwnProperty.call(pending4, 'stats'));
-
-/* ── FS1-b: the in-flight hold has ONE owner ─────────────────────────────────────────────────────── */
 const holdSrc = R('js/firestore-sync.js');
-const holdCtx = { _flushHold: 0, _flushHoldSeq: 0, _flushInFlight: false };
+const acctSrc = R('api/account.js');
+
+/* ── The harness: the REAL js/firestore-sync.js, executed. ────────────────────────────────────────
+   Only the environment is faked (localStorage, window/document listeners, the Firebase doc handle);
+   every line of sync logic under test is the shipped line. `opts.onWrite(payload, n)` fires
+   synchronously inside docRef.set — i.e. genuinely DURING the write — and returning `false` from
+   `opts.settle(n)` leaves that write pending forever (the offline / in-flight case). */
+function makeStore(seed) {
+  const m = Object.assign({}, seed || {});
+  return {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null),
+    setItem: (k, v) => { m[k] = String(v); },
+    removeItem: (k) => { delete m[k]; },
+    _m: m
+  };
+}
+function harness(opts) {
+  opts = opts || {};
+  const store = opts.store || makeStore();
+  const writes = [];
+  const events = {};
+  let uid = opts.uid || 'userA';
+  const docRef = {
+    set(payload) {
+      /* deep-copy at call time: a real write serializes the payload before returning, so a later
+         in-place mutation of a queued object must not retroactively rewrite what we "sent" */
+      try { writes.push(JSON.parse(JSON.stringify(payload))); } catch (_) { writes.push(payload); }
+      if (opts.onWrite) opts.onWrite(payload, writes.length);
+      if (opts.settle && opts.settle(writes.length) === false) return new Promise(function () {});
+      return Promise.resolve();
+    },
+    get() {
+      return Promise.resolve({
+        exists: true,
+        data: () => ({
+          plan: 'free', planType: null, planExpiry: null, isTrial: false, trialEnd: null,
+          updatedAt: opts.updatedAt || '2026-01-01T00:00:00.000Z'
+        })
+      });
+    },
+    onSnapshot() { return function () {}; }
+  };
+  const ctx = {
+    console: { log() {}, warn() {}, error() {} },
+    JSON, Object, Array, Date, Math, isNaN, String, Number, Boolean, Promise, setTimeout, clearTimeout,
+    localStorage: store,
+    window: { addEventListener: (e, f) => { events[e] = f; } },
+    document: { addEventListener: (e, f) => { events[e] = f; }, visibilityState: 'visible' },
+    firebase: { firestore: { FieldValue: { serverTimestamp: () => '__serverTs__' } } },
+    FirebaseApp: {
+      isReady: () => true,
+      getUserId: () => uid,
+      getDb: () => ({ collection: () => ({ doc: () => docRef }) })
+    }
+  };
+  ctx.self = ctx; ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  /* the real entitlement core supplies _toMillis — without it baseUpdatedAt would always be 0 and the
+     buffer freshness guard below could never be exercised */
+  vm.runInContext(R('data/entitlement-core.js'), ctx, { filename: 'entitlement-core.js' });
+  vm.runInContext(holdSrc, ctx, { filename: 'firestore-sync.js' });
+  return { ctx, store, writes, events, sync: ctx.FirestoreSync };
+}
+const tick = () => new Promise((r) => setTimeout(r, 15));
+
+const tests = [];
+function test(fn) { tests.push(fn); }
+
+/* ── FS1-a (ADR-122): the logout flush must still WRITE while another flush is in flight ──────────
+   The regression this replaces: ADR-121's first cut returned early here and relied on the durable
+   buffer replaying. It cannot — see the freshness proof in the next test. This fails on that code. */
+test(async function () {
+  const h = harness({ settle: (n) => n !== 1 });     /* the first (unload) write never resolves */
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncStats({ totalAttempted: 10 });
+  h.events.beforeunload();                            /* a debounced/unload flush takes the hold */
+  ok('FS1 the in-flight flush issued its write and still holds it', h.writes.length === 1);
+  h.sync.syncStats({ totalAttempted: 11 });           /* the answer recorded inside the write window */
+  let calledBack = false;
+  h.sync.flushUpdatesAsync(function () { calledBack = true; });
+  await tick();
+  ok('FS1 the logout flush WRITES rather than deferring to the in-flight one (ADR-122 regression)',
+    h.writes.length === 2, 'writes=' + h.writes.length);
+  ok('FS1 that write carries the edit made after the in-flight snapshot',
+    h.writes.length === 2 && h.writes[1].stats && h.writes[1].stats.totalAttempted === 11);
+  ok('FS1 logout is not blocked — the callback still fires', calledBack === true);
+});
+
+/* ── FS1-a2: why deferring to the buffer could never work — the real replay guard, executed ───────
+   _persistPendingBuffer stamps baseUpdatedAt from the last KNOWN server updatedAt; the in-flight write
+   carries serverTimestamp() and moves the server past it; _replayPendingBuffer then drops the buffer. */
+test(async function () {
+  const T0 = Date.parse('2026-07-01T00:00:00.000Z');
+  const T1 = Date.parse('2026-07-02T00:00:00.000Z');   /* the server advanced (e.g. that in-flight write) */
+  const store = makeStore({
+    'qr_pending_writes_userA': JSON.stringify({
+      uid: 'userA', updates: { stats: { totalAttempted: 11 } }, baseUpdatedAt: T0
+    })
+  });
+  const h = harness({ store: store, updatedAt: new Date(T1).toISOString() });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  await tick();
+  ok('FS1 a buffer whose base predates the server updatedAt is DISCARDED on replay',
+    store._m['qr_pending_writes_userA'] === undefined);
+  const replayed = h.writes.some((w) => w.stats && w.stats.totalAttempted === 11);
+  ok('FS1 its contents never reach the server — so "let the buffer replay" loses the data', !replayed);
+});
+
+/* ── FS1-a3: an in-place mutation during the write is NOT mistaken for "unchanged" (end to end) ─── */
+test(async function () {
+  const progress = { totalAttempted: 10, dailyStreak: 3 };
+  let armed = false;
+  const h = harness({
+    /* the answer recorded while the logout write is in flight — the app mutates the very object it
+       queued (loadProgress returns _progressCache by reference; recordAnswer mutates it in place).
+       Armed only after hydration, so the defaults-fill write during load doesn't trigger it. */
+    onWrite: () => { if (armed) progress.totalAttempted = 11; }
+  });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  armed = true;
+  h.writes.length = 0;
+  h.sync.syncStats(progress);
+  await new Promise((res) => h.sync.flushUpdatesAsync(res));
+  await tick();
+  ok('FS1 the flush wrote the value it snapshotted', h.writes.length === 1 && h.writes[0].stats.totalAttempted === 10);
+  /* the mutated field must still be queued — the next flush is what proves it wasn't dropped */
+  armed = false;
+  h.events.pagehide();
+  await tick();
+  ok('FS1 an in-place edit during the write is retained and reaches the server on the next flush',
+    h.writes.length === 2 && h.writes[1].stats && h.writes[1].stats.totalAttempted === 11,
+    'writes=' + JSON.stringify(h.writes.map((w) => w.stats && w.stats.totalAttempted)));
+});
+
+/* Control: genuinely unchanged data clears the queue AND the buffer, so neither grows without bound. */
+test(async function () {
+  const h = harness();
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncStats({ totalAttempted: 10 });
+  await new Promise((res) => h.sync.flushUpdatesAsync(res));
+  await tick();
+  ok('FS1 unchanged data is cleared after a successful write (durable buffer removed)',
+    h.store._m['qr_pending_writes_userA'] === undefined);
+  h.events.pagehide();
+  await tick();
+  ok('FS1 …and no redundant follow-up write is issued', h.writes.length === 1);
+});
+
+/* ── FS1-b: the hold helpers + the success cleanup, sliced straight out of the production file ──── */
+const holdCtx = { _flushHold: 0, _flushHoldSeq: 0, _flushInFlight: false, Object: Object, JSON: JSON };
 vm.createContext(holdCtx);
 vm.runInContext(
   holdSrc.slice(holdSrc.indexOf('function _acquireFlushHold'), holdSrc.indexOf('var _syncGeneration')), holdCtx);
+ok('the real _applySuccessCleanup / hold helpers were loaded (not re-implemented here)',
+  typeof holdCtx._applySuccessCleanup === 'function' && typeof holdCtx._acquireFlushHold === 'function');
 const tokA = holdCtx._acquireFlushHold();
 const tokB = holdCtx._acquireFlushHold();
 ok('FS1 a second acquirer is refused while a write is in flight', tokA > 0 && tokB === 0);
@@ -129,10 +236,33 @@ ok('FS1 the owner releases its own hold', holdCtx._releaseFlushHold(tokA) === tr
 const tokC = holdCtx._acquireFlushHold();
 ok('FS1 a stale token from an earlier write cannot release the current one',
   holdCtx._releaseFlushHold(tokA) === false && holdCtx._flushInFlight === true && tokC !== tokA);
-ok('FS1 flushUpdatesAsync defers instead of stealing the hold',
-  /if \(_flushInFlight\) \{[\s\S]{0,220}?_persistPendingBuffer\(\);[\s\S]{0,120}?return;/.test(holdSrc));
+holdCtx._releaseFlushHold(tokC);
+
+/* the cleanup's edge cases, against the REAL function */
+function cleanupCase(before, mutate) {
+  const pending = { stats: before };
+  const keys = Object.keys(pending);
+  const snapSig = {}; keys.forEach((k) => { snapSig[k] = holdCtx._sigOf(pending[k]); });
+  if (mutate) mutate(pending);
+  return holdCtx._applySuccessCleanup(pending, keys, snapSig);
+}
+ok('FS1 a distinct object with identical content is cleared (content, not identity)',
+  !Object.prototype.hasOwnProperty.call(cleanupCase({ a: 1 }, (p) => { p.stats = { a: 1 }; }), 'stats'));
+ok('FS1 a changed value is retained',
+  Object.prototype.hasOwnProperty.call(cleanupCase({ a: 1 }, (p) => { p.stats = { a: 2 }; }), 'stats'));
+const circular = {}; circular.self = circular;
+ok('FS1 an unserializable value is retained, never silently dropped',
+  Object.prototype.hasOwnProperty.call(cleanupCase(circular, null), 'stats'));
+
+const fuaBody = (holdSrc.match(/function flushUpdatesAsync\(callback\)[\s\S]*?\n  \}/) || [''])[0];
+ok('FS1 flushUpdatesAsync no longer short-circuits on _flushInFlight (ADR-122)',
+  !/if \(_flushInFlight\)/.test(fuaBody));
+ok('FS1 it uses the shared cleanup rather than an inline copy',
+  /_applySuccessCleanup\(_pendingUpdates, keys, snapSig\)/.test(fuaBody));
 ok('FS1 no path sets _flushInFlight directly outside the acquire helper',
   (holdSrc.match(/_flushInFlight = true/g) || []).length === 1);
+ok('FS1 the debounced flush no longer computes a signature it never reads',
+  !/snapSig/.test((holdSrc.match(/function _flushUpdates\(\)[\s\S]*?\n  \}/) || [''])[0]));
 
 /* ── FS2: pagehide is wired alongside beforeunload + visibilitychange ────────────────────────────── */
 ok('FS2 pagehide persists the durable buffer (mobile discard fires no beforeunload)',
@@ -143,13 +273,20 @@ ok('FS2 pagehide persists the durable buffer (mobile discard fires no beforeunlo
 });
 
 /* ── FS3: the coaching decrement is idempotent across a retry, in BOTH crash positions ───────────── */
+/* The DECISION is production code, vm-sliced out of api/account.js; only the Firestore mechanics
+   (apply the update, decrement the counter) live in the harness. */
+const acctCtx = {};
+vm.createContext(acctCtx);
+vm.runInContext(
+  acctSrc.slice(acctSrc.indexOf('function _coachingDecrementPlan'), acctSrc.indexOf('/* ── ?action=delete (POST) ── */')),
+  acctCtx);
+ok('the real _coachingDecrementPlan was loaded (not re-implemented here)',
+  typeof acctCtx._coachingDecrementPlan === 'function');
 function runDeletionCounterTx(world) {
-  /* Mirrors api/account.js: read user doc → if it still carries coachingId, clear it AND decrement,
-     atomically. Returns true when a decrement happened. */
-  const u = world.users[world.uid];
-  if (!u) return false;                       /* doc already deleted by a prior attempt */
-  const cid = u.coachingId || null;
-  if (!cid) return false;                     /* already decremented by a prior attempt */
+  const u = world.users[world.uid] || null;
+  const cid = acctCtx._coachingDecrementPlan(u);          /* ← production decision */
+  if (!cid) return false;
+  if (!world.coachings[cid]) return false;               /* ADR-122: missing coaching doc ⇒ skip, don't abort */
   delete u.coachingId;
   world.coachings[cid].studentCount -= 1;
   return true;
@@ -171,9 +308,14 @@ ok('FS3 retry after the user doc is gone still decrements exactly once (the old 
 let w3 = { uid: 'u3', users: { u3: {} }, coachings: { c3: { studentCount: 2 } } };
 ok('FS3 a user with no coaching decrements nothing',
   runDeletionCounterTx(w3) === false && w3.coachings.c3.studentCount === 2);
-const acctSrc = R('api/account.js');
+/* ADR-122: a deleted coaching must not take the transaction (and the coachingId clear) down with it */
+let w4 = { uid: 'u4', users: { u4: { coachingId: 'gone' } }, coachings: {} };
+ok('FS3 a missing coaching doc is skipped, not treated as a decrement',
+  runDeletionCounterTx(w4) === false);
 ok('FS3 the decrement runs inside a transaction that also clears coachingId',
-  /runTransaction\([\s\S]{0,700}?coachingId: admin\.firestore\.FieldValue\.delete\(\)[\s\S]{0,300}?studentCount: admin\.firestore\.FieldValue\.increment\(-1\)/.test(acctSrc));
+  /runTransaction\([\s\S]{0,1200}?coachingId: admin\.firestore\.FieldValue\.delete\(\)[\s\S]{0,300}?studentCount: admin\.firestore\.FieldValue\.increment\(-1\)/.test(acctSrc));
+ok('FS3 the transaction reads the coaching doc before updating it (tx.update throws on a missing doc)',
+  /tx\.get\(db\.collection\('coachings'\)\.doc\(cid\)\)[\s\S]{0,200}?if \(!cSnap\.exists\) return;/.test(acctSrc));
 ok('FS3 the old post-delete best-effort decrement is gone (single path only)',
   (acctSrc.match(/studentCount: admin\.firestore\.FieldValue\.increment\(-1\)/g) || []).length === 1);
 
@@ -201,5 +343,24 @@ ok('FS4 a stale entry is never served — _loadUsage re-checks the TTL on read',
 ok('FS4 the cache is display-only — quota decisions run in Firestore transactions',
   /consumeFreeExplain[\s\S]{0,600}?runTransaction/.test(aiSrc));
 
-console.log('firestore-durability.check: ' + pass + ' passed, ' + fail + ' failed');
-if (fail > 0) process.exit(1);
+/* ── GUARD (ADR-122): this file must not carry a private copy of any logic it claims to verify ──── */
+const selfSrc = fs.readFileSync(__filename, 'utf8');
+ok('GUARD no local re-implementation of the flush cleanup or its signature helper',
+  !/function\s+(sigOf|cleanupAfterWrite|applySuccessCleanup)\s*\(/.test(selfSrc));
+ok('GUARD the cleanup + hold + deletion decisions all come from production sources',
+  typeof holdCtx._applySuccessCleanup === 'function' &&
+  typeof holdCtx._sigOf === 'function' &&
+  typeof acctCtx._coachingDecrementPlan === 'function');
+ok('GUARD the flush behaviour is driven through the real module, not a model of it',
+  /vm\.runInContext\(holdSrc, ctx/.test(selfSrc) && /h\.sync\.flushUpdatesAsync\(/.test(selfSrc));
+
+/* the executed end-to-end tests are async; run them in order, then report */
+(async function () {
+  for (const t of tests) {
+    try { await t(); } catch (err) { fail++; console.log('  FAIL executed test threw — ' + (err && err.message)); }
+  }
+  console.log('firestore-durability.check: ' + pass + ' passed, ' + fail + ' failed');
+  /* explicit: the executed harnesses leave the module's own debounce timers armed inside the vm, which
+     would otherwise keep the event loop alive after the report */
+  process.exit(fail > 0 ? 1 : 0);
+})();

@@ -61,6 +61,27 @@ var FirestoreSync = (function () {
     _flushInFlight = false;
     return true;
   }
+  /* ADR-121 (FS1) / ADR-122: after a successful write, drop exactly the fields we wrote — and ONLY if
+     their CONTENT is still what we wrote. This used to compare by object identity
+     (`_pendingUpdates[k] === snapshot[k]`) while claiming to "preserve any newer edits queued meanwhile".
+     It did the opposite for the dominant case: `stats` is the very object the app mutates in place
+     (loadProgress returns _progressCache by reference → recordAnswer mutates it → saveProgress re-queues
+     the SAME object), so an answer recorded after the snapshot left the reference identical while the
+     content had moved on. The entry was deleted, the pre-mutation write had already been serialized, the
+     durable buffer was cleared, and the next load overwrote local stats from the server — the answer was
+     gone for good, in the logout/unload path this exists to protect.
+     An unserializable value yields a null signature and is deliberately KEPT (never drop on unknown).
+     ADR-122: this lives at module scope rather than inline so scripts/firestore-durability.check.js can
+     execute THIS function instead of a copy of it. */
+  function _applySuccessCleanup(pending, keys, snapSig) {
+    for (var k = 0; k < keys.length; k++) {
+      var key = keys[k];
+      if (!Object.prototype.hasOwnProperty.call(pending, key)) continue;
+      var cur = _sigOf(pending[key]);
+      if (cur !== null && snapSig[key] !== null && cur === snapSig[key]) delete pending[key];
+    }
+    return pending;
+  }
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
   var _notifUnsub = null;  /* the active notifications onSnapshot unsubscribe — torn down on re-listen + logout */
@@ -862,14 +883,8 @@ var FirestoreSync = (function () {
 
     var snapshot = {};
     var keys = Object.keys(_pendingUpdates);
-    /* ADR-121 (FS1): capture a CONTENT signature per field alongside the reference. The queue holds the
-       very objects the app mutates — loadProgress() returns _progressCache by reference (progress.js:33),
-       recordAnswer mutates it in place, and saveProgress re-queues the SAME object. So identity is not
-       evidence that nothing changed; only the serialized value is. */
-    var snapSig = {};
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
-      snapSig[keys[i]] = _sigOf(_pendingUpdates[keys[i]]);
     }
     /* Use Firestore server timestamp for the main document updatedAt
        to prevent client-side clock manipulation from poisoning the
@@ -958,14 +973,18 @@ var FirestoreSync = (function () {
     function _contextChanged() {
       return gen !== _syncGeneration || !_loadedUserId || FirebaseApp.getUserId() !== currentUserId;
     }
-    /* ADR-121 (FS1): if a debounced flush already holds the write, do NOT start a second one and do NOT
-       steal its hold. The queue is already durable (persisted below), so the right move is to leave that
-       write alone and let the buffer replay — logout still proceeds because the callback fires. */
-    if (_flushInFlight) {
-      _persistPendingBuffer();
-      if (callback) callback();
-      return;
-    }
+    /* ADR-122: an overlapping debounced flush must NOT stop this write. The first cut of ADR-121 returned
+       early here ("the queue is already durable, let the buffer replay"), which was wrong and strictly a
+       regression: _persistPendingBuffer stamps baseUpdatedAt from the last KNOWN server updatedAt, while
+       the in-flight write carries serverTimestamp() and therefore advances the server value past that
+       base — so _replayPendingBuffer's freshness guard (`base > 0 && loadedUpdatedAt > base`) discarded
+       the buffer on next login, GUARANTEED, precisely because we deferred to a write that moves updatedAt.
+       Answers queued after the in-flight write's snapshot were lost on logout.
+       We therefore proceed. _acquireFlushHold() returns 0 when someone else owns the hold and
+       _releaseFlushHold(0) is a safe no-op, so ownership stays correct (we never steal or release another
+       path's hold) while durability is restored. Two overlapping set(…, {merge:true}) writes on one doc
+       are field-level last-write-wins, and this snapshot is the superset (the debounced flush already
+       emptied _pendingUpdates before writing), so the later write is the correct one. */
     var snapshot = {};
     var snapSig = {};
     for (var i = 0; i < keys.length; i++) {
@@ -983,22 +1002,9 @@ var FirestoreSync = (function () {
     docRef.set(snapshot, { merge: true }).then(function () {
       _releaseFlushHold(_hold);
       if (_contextChanged()) { if (callback) callback(); return; }
-      /* Success: drop exactly the fields we wrote, and ONLY if their content is still what we wrote.
-         ADR-121 (FS1): this used to compare by reference (`_pendingUpdates[k] === snapshot[k]`) while
-         claiming to "preserve any newer edits queued meanwhile". It did the opposite for the dominant
-         case: `stats` is the very object the app mutates in place (loadProgress returns _progressCache by
-         reference → recordAnswer mutates it → saveProgress re-queues the SAME object), so an answer
-         recorded after the snapshot left the reference identical while the content had moved on. The
-         entry was deleted, the pre-mutation write had already been serialized, _clearPendingBuffer
-         dropped the durable copy, and the next load overwrote local stats from the server — the answer
-         was gone for good, in the logout/unload path this function exists to protect.
-         An unserializable value yields a null signature and is deliberately KEPT (never drop on unknown). */
-      for (var k = 0; k < keys.length; k++) {
-        var _key = keys[k];
-        if (!Object.prototype.hasOwnProperty.call(_pendingUpdates, _key)) continue;
-        var _curSig = _sigOf(_pendingUpdates[_key]);
-        if (_curSig !== null && snapSig[_key] !== null && _curSig === snapSig[_key]) delete _pendingUpdates[_key];
-      }
+      /* Success: drop exactly the fields we wrote, and ONLY if their content is still what we wrote
+         (see _applySuccessCleanup — content, never object identity). */
+      _applySuccessCleanup(_pendingUpdates, keys, snapSig);
       if (Object.keys(_pendingUpdates).length === 0) _clearPendingBuffer();
       if (callback) callback();
     }).catch(function (err) {

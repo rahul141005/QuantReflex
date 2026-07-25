@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.153 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.70 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.154 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.71 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.154 (2026-07-25)** — **Wave S3 release-gate remediation (ADR-122, SW v253→v254).** Architecture
+> 2.70→2.71. An independent release gate on Wave S3 returned FAIL. Two findings: ADR-121's own remediation
+> introduced a **data-loss regression** — `flushUpdatesAsync` deferred to an in-flight write on the reasoning
+> that the durable buffer would replay, but the buffer's `baseUpdatedAt` is the last KNOWN server value while
+> that write advances `updatedAt` past it, so the replay freshness guard discarded it every time; it now
+> proceeds without taking the hold, preserving ownership and restoring durability. And the "39 executed
+> assertions" claim was overstated — two harnesses ran local COPIES of the cleanup and deletion logic, so
+> reverting the production cleanup would have left the suite green. `_applySuccessCleanup` and
+> `_coachingDecrementPlan` are now module-scope and executed, the whole sync module runs in a vm so
+> `flushUpdatesAsync` is driven end to end, and a guard fails the check on any re-implementation:
+> **39 → 57 assertions**, with the new concurrency test verified to fail on the previous HEAD. Also: the FS3
+> transaction now reads the coaching doc before updating it (a missing doc aborted the whole transaction),
+> and a per-flush signature the debounced path never read was removed. No Firestore, Security or Payment
+> surface change.
 
 > **2.153 (2026-07-25)** — **Wave S3 audit remediation (ADR-121, SW v252→v253).** Architecture 2.69→2.70.
 > An adversarial verification audit of the already-implemented Wave S3 found five specified requirements
@@ -23,8 +38,9 @@ Every governed change updates the relevant version number here and records a mig
 > release a debounced flush's hold — now a token only its acquirer can release; no `pagehide` handler despite
 > "unexpected unload" being specified; `studentCount` drifted +1 on a retried deletion — now decremented in
 > one transaction that also clears `coachingId`; and usageCache evicted stale entries only at the size cap.
-> The durability check moves from 15 source pattern-matches to **39 executed assertions** — the pattern-only
-> ratchet is exactly why the flush defect shipped green. No Firestore, Security or Payment surface change.
+> The durability check moves from 15 source pattern-matches to 39 assertions — the pattern-only
+> ratchet is exactly why the flush defect shipped green. (ADR-122 later found two of those harnesses ran
+> copies rather than production code, and corrected both the harnesses and this claim.) No Firestore, Security or Payment surface change.
 
 > **2.152 (2026-07-25)** — **Release-gate fixes (ADR-120, SW v251→v252).** Architecture 2.68→2.69,
 > Security 2.19→2.20. An independent black-box gate against ADR-119 returned FAIL; validation retracted

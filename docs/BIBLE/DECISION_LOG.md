@@ -8,6 +8,66 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-122 — Wave S3 release-gate remediation: the deferred-logout write, and tests that run copies (v254) (2026-07-25)
+
+- **Context.** An independent release-gate audit of Wave S3 at `148d995` returned **FAIL**. FS2, FS4, the
+  hold-ownership model and FS3's transaction shape all verified clean under attack. Two things did not: a
+  **regression introduced by ADR-121 itself**, and a test-coverage claim that was overstated. Recording both
+  plainly matters more than the fix — ADR-121's own remediation shipped a new instance of the very class of
+  defect it was written to close, and its green suite is *why* that was possible.
+
+- **Decision 1 — an overlapping flush must not stop the logout write (the regression).** ADR-121 Decision 2
+  made `flushUpdatesAsync` return early when a debounced flush held the write, on the reasoning that "the
+  queue is already durable … let the buffer replay". The buffer **cannot** replay in exactly this case, and
+  the mechanism is deterministic:
+  - `_persistPendingBuffer` stamps `baseUpdatedAt` from the last **known** server `updatedAt` — the value
+    from *before* the in-flight write lands.
+  - That in-flight write carries `updatedAt: serverTimestamp()`, so the server value advances past the base.
+  - `_replayPendingBuffer`'s freshness guard is `if (base > 0 && loadedUpdatedAt > base) { clear; return; }`,
+    so on next login the buffer is **discarded — guaranteed** — precisely *because* we deferred to a write
+    that moves `updatedAt`.
+
+  So answers queued after the in-flight write's snapshot were lost on logout. Before ADR-121 the same path
+  clobbered the flag but *did write them*; this was strictly a regression, in the logout-durability
+  guarantee S3-FS1 exists to provide, reachable by finishing a drill and tapping Log out inside the
+  write-latency window. The fix is to **proceed without the hold**: `_acquireFlushHold()` returns `0` when
+  another path owns it and `_releaseFlushHold(0)` is already a safe no-op, so ownership (ADR-121 Decision 2's
+  sound half) is preserved while durability is restored. Two overlapping `set(…, {merge:true})` writes on one
+  document are field-level last-write-wins, and this snapshot is the superset — the debounced flush emptied
+  `_pendingUpdates` before writing — so the later write is the correct one.
+
+- **Decision 2 — a check that re-implements the code it guards is not coverage.** ADR-121 claimed
+  `firestore-durability.check.js` moved "from 15 source pattern-matches to 39 executed assertions". Two of
+  those harnesses declared their own `cleanupAfterWrite` and `runDeletionCounterTx` and exercised **those**;
+  reverting the production cleanup to `===` would have left the suite green. Only the hold and cache
+  harnesses executed production code. The rule adopted here: **a check either executes the shipped function
+  or it is a pattern-match — there is no third category, and copies must not be described as either.**
+  Concretely: `_applySuccessCleanup` (`js/firestore-sync.js`) and `_coachingDecrementPlan`
+  (`api/account.js`) were lifted to module scope so the check can `vm`-slice and run them; the whole of
+  `js/firestore-sync.js` is now loaded into a `vm` with stubbed browser/Firebase globals and driven end to
+  end, so `flushUpdatesAsync` is exercised as shipped; and a **guard assertion** fails the check if it ever
+  again defines a local `sigOf`/`cleanupAfterWrite`/`applySuccessCleanup`. The Decision-1 test was verified
+  to **fail on the previous HEAD** (`writes=1`, the deferred write never issued) and pass after.
+
+- **Decision 3 — the FS3 transaction reads the coaching doc before updating it.** `tx.update()` on a missing
+  document throws and aborts the whole transaction, which would also roll back the `coachingId` clear, so a
+  deleted coaching left the transaction failing on every retry. It now `tx.get`s the coaching doc first and
+  skips when absent — correct, because with no coaching document there is no counter to drift. All reads
+  still precede all writes.
+
+- **Also removed.** The debounced `_flushUpdates` computed a per-field `JSON.stringify` signature it never
+  read (it clears the whole queue up front) — assigned once, read zero times, on the hot path including
+  `stats` (mistakes array, response times, daily history).
+
+- **Assertion count.** `firestore-durability.check.js` 39 → **57**, of which the flush behaviour, the
+  cleanup, the hold and the deletion decision now run shipped code.
+
+- **Still unverifiable here** (unchanged): no flow requiring a real signed-in Firebase account has ever run
+  in this sandbox — the CDN and auth endpoints are blocked. `docs/BIBLE/ACCOUNT_ISOLATION_VALIDATION.md`
+  remains the manual gate.
+
+---
+
 ## ADR-121 — Wave S3 audit remediation: flush durability, unload signal, deletion idempotency (v253) (2026-07-25)
 
 - **Context.** Wave S3 (S3-FS1…FS4) was implemented in the original stabilization pass (ADR-115/116) and
@@ -34,6 +94,8 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   token (`_acquireFlushHold`/`_releaseFlushHold`): only the acquirer can release it, and `flushUpdatesAsync`
   **defers** — persisting the durable buffer and invoking its callback — rather than starting a second write
   or stealing the hold. Logout still completes; the buffer replays.
+  **⚠ CORRECTED by ADR-122.** The deferral half of this decision was wrong: the buffer *cannot* replay in
+  this situation, so deferring lost the data. The token/ownership half stands. See ADR-122.
 
 - **Decision 3 — `pagehide` joins the unload signals.** "Unexpected unload" was an explicit S3-FS2
   requirement. `beforeunload` is unreliable on mobile (iOS Safari and Android Chrome frequently freeze or
@@ -62,6 +124,9 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   real logic (**15 → 39 assertions**): an in-place mutation during an in-flight write, hold ownership
   including stale-token release, the deletion counter driven twice at both crash positions, and TTL/cap
   eviction with a stale entry never served.
+  **⚠ CORRECTED by ADR-122.** "Executes the real logic" was overstated: two of those harnesses ran local
+  *copies* of the cleanup and the deletion decision, so reverting the production cleanup would have left the
+  suite green. Only the hold and cache harnesses executed production code. Fixed in ADR-122.
 
 - **Documented, not changed** (per the wave's "document rather than implement" constraint): the FS2 replay
   is all-or-nothing, so a buffer is dropped wholesale when the server `updatedAt` advanced — per-field

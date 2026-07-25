@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Wave S3 release-gate remediation: the deferred-logout write, and tests that ran copies (ADR-122, SW v253→v254)
+
+An independent release-gate audit of Wave S3 returned **FAIL**. FS2 (`pagehide`), FS4 (TTL sweep), the
+hold-ownership token and FS3's transaction shape all verified clean under attack. Two things did not.
+
+- **Regression introduced by ADR-121 — the deferred logout write lost data.** ADR-121 made
+  `flushUpdatesAsync` return early when a debounced flush held the write, reasoning that the durable buffer
+  would replay. It cannot, deterministically: `_persistPendingBuffer` stamps `baseUpdatedAt` from the last
+  *known* server `updatedAt`, the in-flight write carries `serverTimestamp()` and advances past it, and
+  `_replayPendingBuffer`'s freshness guard then discards the buffer on next login — *because* we deferred to
+  a write that moves `updatedAt`. Answers queued after that write's snapshot were lost on logout, in the
+  guarantee S3-FS1 exists to provide. It now proceeds without the hold (`_acquireFlushHold()` returns `0`;
+  `_releaseFlushHold(0)` is a safe no-op), so ownership is preserved and durability restored.
+- **The "39 executed assertions" claim was overstated.** Two harnesses in `firestore-durability.check.js`
+  declared their own `cleanupAfterWrite` / `runDeletionCounterTx` and exercised those — reverting the
+  production cleanup to `===` would have left the suite green. `_applySuccessCleanup` and
+  `_coachingDecrementPlan` are now module-scope so the check `vm`-slices and runs them, the whole of
+  `js/firestore-sync.js` is loaded into a `vm` and `flushUpdatesAsync` driven end to end, and a guard
+  assertion fails the check if it ever re-declares a local copy. **39 → 57 assertions.** The new
+  concurrency test was verified to **fail on the previous HEAD** (`writes=1`) and pass after.
+- **FS3 · a missing coaching doc aborted the whole transaction.** `tx.update()` throws on a non-existent
+  document, which also rolled back the `coachingId` clear. The transaction now `tx.get`s the coaching doc
+  first and skips when absent (no counter ⇒ no drift). All reads still precede all writes.
+- **Removed dead work on the hot path** — the debounced `_flushUpdates` computed a `JSON.stringify`
+  signature per queued field (including `stats`) that it never read, since it clears the queue up front.
+
+Docs kept in sync: ADR-122 added; ADR-121 Decision 2 and its test-philosophy paragraph annotated with the
+correction rather than rewritten. SW `v253 → v254` lockstep (`service-worker.js:6`, `index.html:17`, About
+line). Verified: `npm test` **14,507/0** · firestore-durability **57/0** · account-isolation 121/0 ·
+session-integrity 42/0 · entitlement-core 93/0 · design-lint 10/10 · real-Chromium purge run (exam
+`cat`→`null`, 0 leaked, 0 wrongly destroyed) and boot smoke (0 page errors, 3 teardown hooks) re-run clean.
+
+---
+
 ## 2026-07-25 — Wave S3 audit remediation: flush durability, unload signal, deletion idempotency (ADR-121, SW v252→v253)
 
 Wave S3 was implemented in the original stabilization pass (ADR-115/116). An independent adversarial

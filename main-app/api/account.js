@@ -63,6 +63,18 @@ async function _deleteByField(db, collectionName, fieldName, uid) {
   return deleted;
 }
 
+/* ADR-122: the DECISION half of the studentCount maintenance below, extracted to module scope so
+   scripts/firestore-durability.check.js executes THIS function rather than a re-implementation of it.
+   Pure: given the user-doc data (or null when the doc is already gone), return the coaching id whose
+   counter must be decremented, or null to skip. The idempotency lives here — `coachingId` present on the
+   user doc IS the record of "this student is still counted". */
+function _coachingDecrementPlan(userDocData) {
+  if (!userDocData) return null;                    /* doc already deleted by a prior attempt */
+  const cid = userDocData.coachingId || null;
+  if (!cid) return null;                            /* already decremented by a prior attempt */
+  return cid;
+}
+
 /* ── ?action=delete (POST) ── */
 async function _delete(req, res, db) {
   const uid = req.userId;
@@ -84,9 +96,14 @@ async function _delete(req, res, db) {
     try {
       await db.runTransaction(async function (tx) {
         const uSnap = await tx.get(userDocRef);
-        if (!uSnap.exists) return;                        /* already deleted by a prior attempt */
-        const cid = uSnap.data().coachingId || null;
-        if (!cid) return;                                 /* already decremented by a prior attempt */
+        const cid = _coachingDecrementPlan(uSnap.exists ? uSnap.data() : null);
+        if (!cid) return;
+        /* ADR-122: read the coaching doc inside the same transaction. tx.update() on a missing document
+           THROWS and aborts the whole transaction, which would also roll back the coachingId clear — so
+           a deleted coaching used to leave the transaction failing on every retry. Skipping the whole
+           block is correct: with no coaching doc there is no counter to drift. */
+        const cSnap = await tx.get(db.collection('coachings').doc(cid));
+        if (!cSnap.exists) return;
         tx.update(userDocRef, { coachingId: admin.firestore.FieldValue.delete() });
         tx.update(db.collection('coachings').doc(cid), {
           studentCount: admin.firestore.FieldValue.increment(-1)
