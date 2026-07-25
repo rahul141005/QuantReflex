@@ -33,7 +33,7 @@ ok(/var previousUser = _currentUser;/.test(handler), '1 previous user is capture
 /* the guard that makes ordering matter must still exist (it is what prevents cross-user contamination) */
 ok(/currentUserId !== _loadedUserId/.test(sync), '1 cross-user flush guard still present');
 /* and the flush must snapshot its payload synchronously, before _pendingUpdates is cleared */
-var flush = sync.slice(sync.indexOf('function _flushUpdates'), sync.indexOf('function _flushUpdates') + 1400);
+var flush = sync.slice(sync.indexOf('function _flushUpdates'), sync.indexOf('function _flushUpdates') + 2400);
 var iSnap = flush.indexOf('var snapshot = {}');
 var iClear = flush.indexOf('_pendingUpdates = {};', iSnap);
 var iWrite = flush.indexOf('docRef.set(snapshot');

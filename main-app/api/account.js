@@ -73,16 +73,37 @@ async function _delete(req, res, db) {
   try {
     const userDocRef = db.collection('users').doc(uid);
 
-    /* Capture the user's coaching BEFORE deletion so we can keep its studentCount correct (ADR-032 — the
-       trigger that used to do this doesn't run on Spark). Best-effort; never blocks deletion. */
-    let coachingIdForCount = null;
-    try { const uSnap = await userDocRef.get(); if (uSnap.exists) coachingIdForCount = uSnap.data().coachingId || null; } catch (_) { /* ignore */ }
+    /* studentCount maintenance (ADR-032 — the trigger that would do this doesn't run on Spark).
+       ADR-121 (FS3): this must be IDEMPOTENT under retry. It used to capture coachingId here and decrement
+       AFTER userDocRef.delete(); if the request died between those two steps, a retry found no user doc,
+       captured null, and never decremented — the coaching kept a phantom student forever. Doing it in one
+       transaction that ALSO clears the field makes the field itself the record of "already counted": a
+       retry sees coachingId absent (or no doc at all) and correctly skips, whether the crash landed before
+       or after. Mirrors _claimCoaching, which already maintains this counter transactionally.
+       Best-effort: a failure here must never block the deletion the user asked for. */
+    try {
+      await db.runTransaction(async function (tx) {
+        const uSnap = await tx.get(userDocRef);
+        if (!uSnap.exists) return;                        /* already deleted by a prior attempt */
+        const cid = uSnap.data().coachingId || null;
+        if (!cid) return;                                 /* already decremented by a prior attempt */
+        tx.update(userDocRef, { coachingId: admin.firestore.FieldValue.delete() });
+        tx.update(db.collection('coachings').doc(cid), {
+          studentCount: admin.firestore.FieldValue.increment(-1)
+        });
+      });
+    } catch (countErr) {
+      console.warn('[account:delete] studentCount maintenance skipped for uid:', uid, countErr.message);
+    }
 
     /* Delete the Firebase Auth account FIRST (audit S3-FS3). Previously auth was deleted LAST, so a
        failure after the user doc was removed but before the auth account was deleted left a live login
        whose next sign-in re-seeded a fresh users/{uid} via ensure-profile — a "deleted" account that
        silently resurrects. Deleting auth first makes resurrection impossible: if a later data-deletion
-       step fails, the account can no longer sign in, and any residual data is swept by uid out-of-band.
+       step fails, the account can no longer sign in. NOTE (ADR-121): there is no out-of-band sweeper in
+       this repository — residual data after a partial failure stays until this endpoint is retried, which
+       is safe (unreachable, since the login is gone) but not automatically reclaimed. Recorded as a known
+       gap rather than silently implied by an earlier version of this comment.
        (This request was already authenticated by the middleware; the Admin SDK does not re-check the
        caller's token, so the subsequent Firestore deletes still proceed.) */
     try {
@@ -135,11 +156,6 @@ async function _delete(req, res, db) {
     await userDocRef.delete();
     report.userDoc = true;
     console.log('[account:delete] User document deleted for uid:', uid);
-
-    /* studentCount maintenance (ADR-032) — decrement the coaching this user belonged to, best-effort. */
-    if (coachingIdForCount) {
-      try { await db.collection('coachings').doc(coachingIdForCount).update({ studentCount: admin.firestore.FieldValue.increment(-1) }); } catch (_) { /* coaching may be gone */ }
-    }
 
     console.log('[account:delete] Complete deletion report:', JSON.stringify(report));
     return res.status(200).json({ success: true, report: report });

@@ -288,7 +288,22 @@ var USAGE_CACHE_MAX = 500;
 
 function _cacheUsage(uid, data) {
   usageCache[uid] = data;
-  usageCacheTs[uid] = Date.now();
+  var now = Date.now();
+  usageCacheTs[uid] = now;
+  /* ADR-121 (FS4): evict entries past the TTL on every write. Eviction used to happen ONLY when the size
+     cap was exceeded, so a warm instance serving fewer than USAGE_CACHE_MAX uids retained expired entries
+     for the life of the instance. They were never served (the TTL is re-checked on read in _loadUsage),
+     so this is memory hygiene rather than correctness — but "automatically evict stale entries" is the
+     stated requirement, and an unbounded-in-time map on a long-lived serverless instance is exactly the
+     shape this item exists to prevent. */
+  var stale = Object.keys(usageCache);
+  for (var s = 0; s < stale.length; s++) {
+    var k = stale[s];
+    if (k !== uid && (now - (usageCacheTs[k] || 0)) >= USAGE_CACHE_TTL_MS) {
+      delete usageCache[k];
+      delete usageCacheTs[k];
+    }
+  }
   var uids = Object.keys(usageCache);
   if (uids.length > USAGE_CACHE_MAX) {
     uids.sort(function (a, b) { return (usageCacheTs[a] || 0) - (usageCacheTs[b] || 0); });

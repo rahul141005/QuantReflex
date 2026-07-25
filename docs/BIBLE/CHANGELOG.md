@@ -6,6 +6,44 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Wave S3 audit remediation: flush durability, unload signal, deletion idempotency (ADR-121, SW v252→v253)
+
+Wave S3 was implemented in the original stabilization pass (ADR-115/116). An independent adversarial
+verification audit found it **substantially implemented but not fully correct** — FS3's auth-first ordering
+and FS4's display-only invariant held under attack, but **five specified requirements were unmet**.
+
+- **FS1 · silent data loss on a successful flush (the item's own purpose).** `flushUpdatesAsync` cleared its
+  queue by object identity while claiming to "preserve any newer edits queued meanwhile". `loadProgress()`
+  returns `_progressCache` by reference, `recordAnswer` mutates it in place, `saveProgress` re-queues the
+  same object — so an answer recorded during the write left the reference identical, the entry was deleted,
+  the durable copy cleared, and the next load overwrote local stats from the server. Now compared by content
+  signature; unserializable values are kept, never dropped.
+- **FS1 · `_flushInFlight` had two owners** — a logout flush could release a debounced flush's hold. Now a
+  token only its acquirer can release; `flushUpdatesAsync` defers rather than starting a second write.
+- **FS2 · no `pagehide` handler.** `beforeunload` is unreliable on mobile discard; "unexpected unload" was an
+  explicit requirement. Added alongside the existing two, reusing the repo's established pattern.
+- **FS3 · `studentCount` drifted +1 on a retried deletion** — the decrement ran after the user doc was
+  deleted, so a retry found nothing to decrement. Now decremented in one transaction that also clears
+  `coachingId`, making the field the record of "already counted"; correct at both crash positions.
+- **FS4 · stale entries were evicted only at the 500 cap** — a warm instance under the cap kept them for its
+  lifetime. Now swept by TTL on every write. (Never served — the TTL is re-checked on read.)
+
+**Test philosophy fixed — this is why FS1 shipped.** All 15 durability assertions were source
+pattern-matches, and they correctly confirmed the failure path while the *success* path lost data. The check
+now executes the real logic (**15 → 39**): an in-place mutation during an in-flight write, hold ownership
+including stale-token release, the deletion counter driven twice at both crash positions, TTL/cap eviction.
+
+**Documented, not changed:** FS2 replay is all-or-nothing when the server `updatedAt` advanced ·
+`api/account.js` claimed an out-of-band sweeper that does not exist (comment corrected) ·
+`trackExplanationUsage`/`trackInsightsUsage` do a non-transactional read-modify-write on display counters,
+verified to gate nothing.
+
+Verified: `npm test` **14,507/0** plus firestore-durability **39/0**, account-isolation 121/0,
+session-integrity 42/0, entitlement-core 93/0, payment-parity 25/0, design-lint 10/10. Bible 2.152→2.153,
+Architecture 2.69→2.70.
+
+---
+
 ## 2026-07-25 — Release-gate fixes: identity-bound report queue, fail-closed purge (ADR-120, SW v251→v252)
 
 An independent black-box gate against ADR-119 returned FAIL; a follow-up evidence-driven validation pass

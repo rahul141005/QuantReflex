@@ -39,6 +39,28 @@ var FirestoreSync = (function () {
   var _flushRetryCount = 0;
   var _flushRetryTimer = null;
   var _flushInFlight = false;
+  /* ADR-121 (FS1): _flushInFlight is written by BOTH _flushUpdates and flushUpdatesAsync. Previously each
+     set it to true and cleared it unconditionally, so a logout flush overlapping a debounced flush could
+     release the OTHER write's hold and admit a third concurrent flush. The hold is now a token: only the
+     path that acquired it can release it. */
+  var _flushHold = 0, _flushHoldSeq = 0;
+  function _acquireFlushHold() {
+    if (_flushHold) return 0;              /* someone else is mid-write — caller must not proceed */
+    _flushHold = ++_flushHoldSeq;
+    _flushInFlight = true;
+    return _flushHold;
+  }
+  /* Serialized value of a queued field, or null when it cannot be serialized (in which case callers must
+     treat it as "possibly changed" and keep the entry — never drop data on an unknown). */
+  function _sigOf(value) {
+    try { return JSON.stringify(value); } catch (_) { return null; }
+  }
+  function _releaseFlushHold(token) {
+    if (!token || _flushHold !== token) return false;   /* not ours: leave the other write's hold intact */
+    _flushHold = 0;
+    _flushInFlight = false;
+    return true;
+  }
   var _syncGeneration = 0;
   var _pendingCoachingId = null;
   var _notifUnsub = null;  /* the active notifications onSnapshot unsubscribe — torn down on re-listen + logout */
@@ -276,6 +298,7 @@ var FirestoreSync = (function () {
     _loadRetryCount = 0;
     _flushRetryCount = 0;
     _flushInFlight = false;
+    _flushHold = 0;              /* a reset invalidates any outstanding hold (generation guard drops the write) */
     if (_flushRetryTimer) {
       clearTimeout(_flushRetryTimer);
       _flushRetryTimer = null;
@@ -839,8 +862,14 @@ var FirestoreSync = (function () {
 
     var snapshot = {};
     var keys = Object.keys(_pendingUpdates);
+    /* ADR-121 (FS1): capture a CONTENT signature per field alongside the reference. The queue holds the
+       very objects the app mutates — loadProgress() returns _progressCache by reference (progress.js:33),
+       recordAnswer mutates it in place, and saveProgress re-queues the SAME object. So identity is not
+       evidence that nothing changed; only the serialized value is. */
+    var snapSig = {};
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
+      snapSig[keys[i]] = _sigOf(_pendingUpdates[keys[i]]);
     }
     /* Use Firestore server timestamp for the main document updatedAt
        to prevent client-side clock manipulation from poisoning the
@@ -849,11 +878,11 @@ var FirestoreSync = (function () {
       ? firebase.firestore.FieldValue.serverTimestamp()
       : new Date().toISOString();
     _pendingUpdates = {};
-    _flushInFlight = true;
+    var _hold = _acquireFlushHold();
     var gen = _syncGeneration;
 
     docRef.set(snapshot, { merge: true }).then(function () {
-      _flushInFlight = false;
+      _releaseFlushHold(_hold);
       if (gen !== _syncGeneration) {
         console.warn('[FirestoreSync:_flushUpdates] generation changed after write, discarding follow-up');
         return;
@@ -880,7 +909,7 @@ var FirestoreSync = (function () {
         _clearPendingBuffer();     /* everything reached the server — buffer is stale */
       }
     }).catch(function (err) {
-      _flushInFlight = false;
+      _releaseFlushHold(_hold);
       if (gen !== _syncGeneration || !_loadedUserId || FirebaseApp.getUserId() !== currentUserId) {
         console.warn('[FirestoreSync:_flushUpdates] user context changed during failed write, dropping snapshot to prevent cross-user leak');
         return;
@@ -929,9 +958,19 @@ var FirestoreSync = (function () {
     function _contextChanged() {
       return gen !== _syncGeneration || !_loadedUserId || FirebaseApp.getUserId() !== currentUserId;
     }
+    /* ADR-121 (FS1): if a debounced flush already holds the write, do NOT start a second one and do NOT
+       steal its hold. The queue is already durable (persisted below), so the right move is to leave that
+       write alone and let the buffer replay — logout still proceeds because the callback fires. */
+    if (_flushInFlight) {
+      _persistPendingBuffer();
+      if (callback) callback();
+      return;
+    }
     var snapshot = {};
+    var snapSig = {};
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
+      snapSig[keys[i]] = _sigOf(_pendingUpdates[keys[i]]);
     }
     /* S3-FS1: server timestamp (was a client-clock ISO — reintroducing the clock-poisoning vector the
        debounced path deliberately closed). */
@@ -940,18 +979,30 @@ var FirestoreSync = (function () {
        logout write silently DROPPED the user's freshly-answered stats). Persist a durable buffer up
        front so an offline/closing tab can replay them next load. */
     _persistPendingBuffer();
-    _flushInFlight = true;
+    var _hold = _acquireFlushHold();
     docRef.set(snapshot, { merge: true }).then(function () {
-      _flushInFlight = false;
+      _releaseFlushHold(_hold);
       if (_contextChanged()) { if (callback) callback(); return; }
-      /* Success: drop exactly the fields we wrote (preserve any newer edits queued meanwhile). */
+      /* Success: drop exactly the fields we wrote, and ONLY if their content is still what we wrote.
+         ADR-121 (FS1): this used to compare by reference (`_pendingUpdates[k] === snapshot[k]`) while
+         claiming to "preserve any newer edits queued meanwhile". It did the opposite for the dominant
+         case: `stats` is the very object the app mutates in place (loadProgress returns _progressCache by
+         reference → recordAnswer mutates it → saveProgress re-queues the SAME object), so an answer
+         recorded after the snapshot left the reference identical while the content had moved on. The
+         entry was deleted, the pre-mutation write had already been serialized, _clearPendingBuffer
+         dropped the durable copy, and the next load overwrote local stats from the server — the answer
+         was gone for good, in the logout/unload path this function exists to protect.
+         An unserializable value yields a null signature and is deliberately KEPT (never drop on unknown). */
       for (var k = 0; k < keys.length; k++) {
-        if (_pendingUpdates[keys[k]] === snapshot[keys[k]]) delete _pendingUpdates[keys[k]];
+        var _key = keys[k];
+        if (!Object.prototype.hasOwnProperty.call(_pendingUpdates, _key)) continue;
+        var _curSig = _sigOf(_pendingUpdates[_key]);
+        if (_curSig !== null && snapSig[_key] !== null && _curSig === snapSig[_key]) delete _pendingUpdates[_key];
       }
       if (Object.keys(_pendingUpdates).length === 0) _clearPendingBuffer();
       if (callback) callback();
     }).catch(function (err) {
-      _flushInFlight = false;
+      _releaseFlushHold(_hold);
       /* If the auth context changed during the failed write, do NOT re-persist — that would tag user
          A's data with user B's uid. Drop it (resetSyncState already cleared the queue). */
       if (_contextChanged()) { if (callback) callback(); return; }
@@ -1209,6 +1260,18 @@ var FirestoreSync = (function () {
      that if we're offline — where the Firestore write promise never resolves before the tab dies —
      the data survives and replays on next load (S3-FS2). */
   window.addEventListener('beforeunload', function () {
+    if (Object.keys(_pendingUpdates).length > 0) {
+      _persistPendingBuffer();
+      _flushUpdates();
+    }
+  });
+
+  /* ADR-121 (FS2): `pagehide` is the reliable unload signal on mobile — iOS Safari and Android Chrome
+     frequently freeze/discard a page WITHOUT firing beforeunload, and visibilitychange covers the
+     backgrounding but not the discard that follows it. Same body as the other two handlers; this is the
+     established pattern in js/services/ai-analytics.js and js/duel-manager.js. Persisting is idempotent,
+     so overlapping handlers firing together cost nothing. */
+  window.addEventListener('pagehide', function () {
     if (Object.keys(_pendingUpdates).length > 0) {
       _persistPendingBuffer();
       _flushUpdates();

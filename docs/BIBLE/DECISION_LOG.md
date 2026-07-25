@@ -8,6 +8,71 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-121 — Wave S3 audit remediation: flush durability, unload signal, deletion idempotency (v253) (2026-07-25)
+
+- **Context.** Wave S3 (S3-FS1…FS4) was implemented in the original stabilization pass (ADR-115/116) and
+  guarded by `firestore-durability.check.js`. An independent adversarial verification audit found the wave
+  **substantially implemented but not fully correct**: FS3's auth-first ordering and FS4's display-only
+  invariant both held under attack, but **five specified requirements were unmet**. One was a silent
+  data-loss path in the exact function S3-FS1 exists to make durable.
+
+- **Decision 1 — the flush success path compares CONTENT, not object identity.** `flushUpdatesAsync`
+  cleared its queue with `_pendingUpdates[k] === snapshot[k]` while its comment claimed to "preserve any
+  newer edits queued meanwhile". It did the opposite for the dominant case: `loadProgress()` returns
+  `_progressCache` **by reference** (`js/progress.js:33`), `recordAnswer` mutates it in place (`:142-154`),
+  and `saveProgress` re-queues the **same object**. An answer recorded after the snapshot therefore left
+  the reference identical while the content had moved on — the entry was deleted, the write had already
+  serialized the pre-mutation state, `_clearPendingBuffer()` dropped the durable copy, and the next load
+  overwrote local `stats` from the server (only `mistakes` is merged). The answer was gone permanently, in
+  the logout/unload path. Each field now carries a `JSON.stringify` signature captured at snapshot time and
+  is dropped only when the queued value still serializes identically. An unserializable value yields a null
+  signature and is deliberately **kept** — never drop data on an unknown.
+
+- **Decision 2 — the in-flight hold has one owner.** `_flushInFlight` was written by both `_flushUpdates`
+  and `flushUpdatesAsync`; each set it and cleared it unconditionally, so a logout flush overlapping a
+  debounced flush could release the *other* write's hold and admit a third concurrent flush. It is now a
+  token (`_acquireFlushHold`/`_releaseFlushHold`): only the acquirer can release it, and `flushUpdatesAsync`
+  **defers** — persisting the durable buffer and invoking its callback — rather than starting a second write
+  or stealing the hold. Logout still completes; the buffer replays.
+
+- **Decision 3 — `pagehide` joins the unload signals.** "Unexpected unload" was an explicit S3-FS2
+  requirement. `beforeunload` is unreliable on mobile (iOS Safari and Android Chrome frequently freeze or
+  discard a page without firing it) and `visibilitychange` covers the backgrounding but not the discard
+  that follows. `pagehide` is the standard signal and was already this repo's pattern
+  (`js/services/ai-analytics.js:42`, `js/duel-manager.js:129`). Same body; persisting is idempotent, so
+  overlapping handlers cost nothing.
+
+- **Decision 4 — the coaching decrement is idempotent under retry.** `coachingIdForCount` was read from the
+  user doc and the decrement ran **after** `userDocRef.delete()`; a request dying between them left a retry
+  finding no doc, capturing null, and never decrementing — a phantom student forever. The decrement now
+  happens in one transaction that also **clears `coachingId`**, making the field itself the record of
+  "already counted": a retry sees it absent (or no doc at all) and correctly skips, whether the crash landed
+  before or after. Mirrors `_claimCoaching`, which already maintained this counter transactionally.
+
+- **Decision 5 — `usageCache` evicts on time, not only on size.** Eviction ran only when the 500-entry cap
+  was exceeded, so a warm instance under the cap retained expired entries for its lifetime. They were never
+  served (the TTL is re-checked on read), so this was memory hygiene rather than correctness — but
+  "automatically evict stale entries" is the stated requirement. `_cacheUsage` now sweeps expired entries
+  before the cap check.
+
+- **Test philosophy — the reason Decision 1 shipped.** All 15 assertions in
+  `firestore-durability.check.js` were source pattern-matches. They correctly confirmed that
+  `flushUpdatesAsync` "retains data on failure" and "does not clear `_pendingUpdates` up front" — both true —
+  while the **success** path silently dropped data. A pattern cannot see that. The check now executes the
+  real logic (**15 → 39 assertions**): an in-place mutation during an in-flight write, hold ownership
+  including stale-token release, the deletion counter driven twice at both crash positions, and TTL/cap
+  eviction with a stale entry never served.
+
+- **Documented, not changed** (per the wave's "document rather than implement" constraint): the FS2 replay
+  is all-or-nothing, so a buffer is dropped wholesale when the server `updatedAt` advanced — per-field
+  freshness would be a redesign · `api/account.js` previously claimed residual data is "swept by uid
+  out-of-band"; no such sweeper exists, and the comment now says so · `trackExplanationUsage`/
+  `trackInsightsUsage` do a non-transactional read-modify-write and can lose an increment across concurrent
+  warm instances — display/analytics counters only, verified to gate nothing (`freeExplainPolicy`
+  enforcement runs transactionally in `consumeFreeExplain`).
+
+---
+
 ## ADR-120 — Release-gate fixes: identity-bound report queue, fail-closed purge (v252) (2026-07-25)
 
 - **Context.** An independent black-box gate against ADR-119 returned FAIL, and a follow-up

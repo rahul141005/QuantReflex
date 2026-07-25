@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.152 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.69 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.153 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.70 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.153 (2026-07-25)** — **Wave S3 audit remediation (ADR-121, SW v252→v253).** Architecture 2.69→2.70.
+> An adversarial verification audit of the already-implemented Wave S3 found five specified requirements
+> unmet. Closed: flushUpdatesAsync cleared its queue by object IDENTITY, so an answer recorded during the
+> write (stats is mutated in place and re-queued as the same object) was deleted from the queue and lost
+> permanently — now compared by content signature; the in-flight hold had two owners and a logout flush could
+> release a debounced flush's hold — now a token only its acquirer can release; no `pagehide` handler despite
+> "unexpected unload" being specified; `studentCount` drifted +1 on a retried deletion — now decremented in
+> one transaction that also clears `coachingId`; and usageCache evicted stale entries only at the size cap.
+> The durability check moves from 15 source pattern-matches to **39 executed assertions** — the pattern-only
+> ratchet is exactly why the flush defect shipped green. No Firestore, Security or Payment surface change.
 
 > **2.152 (2026-07-25)** — **Release-gate fixes (ADR-120, SW v251→v252).** Architecture 2.68→2.69,
 > Security 2.19→2.20. An independent black-box gate against ADR-119 returned FAIL; validation retracted
