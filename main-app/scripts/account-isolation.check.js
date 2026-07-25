@@ -174,13 +174,18 @@ jsFiles.forEach(function (f) {
   var m;
   var direct = /(?:localStorage|sessionStorage)\.(?:set|remove|get)Item\(\s*'([^']+)'/g;
   while ((m = direct.exec(src))) add(m[1], rel);
-  var constDecl = /var\s+(\w*(?:KEY|PREFIX)\w*)\s*=\s*'([^']+)'/g;
+  /* ADR-120 (R5 insurance): widened from /var\s+.../ to var|let|const, and the qr_/quant_ prefix gate
+     is gone — a NON-prefixed key held in a constant is precisely the case that would escape both this
+     scan and the prefix purge (premiumStatus is the historical example), so it must be discoverable. */
+  var constDecl = /(?:var|let|const)\s+(\w*(?:KEY|PREFIX)\w*)\s*=\s*'([^']+)'/g;
   while ((m = constDecl.exec(src))) {
     var name = m[1], val = m[2];
-    if (!/^(qr_|quant_)/.test(val)) continue;
-    if (new RegExp('(?:set|remove|get)Item\\(\\s*' + name + '\\b').test(src) ||
-        new RegExp('\\b' + name + '\\s*\\+').test(src) ||
-        new RegExp(':\\s*' + name + '\\b').test(src)) add(val, rel);
+    /* The usage gate must prove this constant is actually a STORAGE key. The old gate also accepted
+       `NAME +` and `: NAME` anywhere in the file, which — once the qr_/quant_ prefix filter was removed —
+       started matching unrelated constants that merely end in _KEY (the VAPID public key, the Razorpay
+       key id). Require the name to appear INSIDE a storage call, which still covers prefix constants
+       concatenated into a key, e.g. getItem(PREFIX + uid). */
+    if (new RegExp('(?:localStorage|sessionStorage)\\.[a-zA-Z]*Item\\([^)]*\\b' + name + '\\b').test(src)) add(val, rel);
   }
   function add(k, where) { (discovered[k] = discovered[k] || []).push(where); }
 });
@@ -403,5 +408,145 @@ ok(/localStorage\.getItem\(PENDING_BUFFER_KEY\)/.test(sync), '7 the pre-ADR-119 
 ok(!/queueUpdate\(\s*'plan'/.test(sync) && !/queueUpdate\(\s*'planExpiry'/.test(sync),
   '7 entitlement fields are never client-queued (server stays authoritative)');
 
-console.log('\naccount-isolation.check: ' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail === 0 ? 0 : 1);
+/* ── 8. ADR-120 release-gate fixes, verified by EXECUTION ─────────────────────────────────────── */
+var vm = require('vm');
+
+function FakeStorageFrom(seed) { return FakeStorage(seed); }
+
+/* 8a. R1 — a queued report may only ever be submitted as the account that wrote it.
+   The real report-queue module is executed; an account switch is injected between report #1 and
+   report #2, which is where the bearer token for #2 is fetched. Before ADR-120 this sent A's report
+   body with B's credentials (the server attributes by req.userId). */
+function runReportQueueSwitch(opts) {
+  var rqSrc = R('js/services/report-queue.js');
+  var idSrc = R('js/identity.js');
+  var current = 'A', posts = [], release;
+  var gate = new Promise(function (r) { release = r; });
+  var entry = function (k) {
+    var e = { payload: { clientKey: k, title: 'A-' + k }, attempts: 0, nextAt: 0 };
+    if (opts.stamped) e.uid = 'A';
+    return e;
+  };
+  var ls = FakeStorageFrom({ qr_report_queue: JSON.stringify([entry('k1'), entry('k2')]) });
+  var sb = {
+    console: console, JSON: JSON, Date: Date, Math: Math, Promise: Promise, Array: Array,
+    Object: Object, String: String, Number: Number, isFinite: isFinite,
+    setTimeout: setTimeout, clearTimeout: clearTimeout,
+    localStorage: ls, navigator: { onLine: true },
+    Auth: { getIdToken: function () { return Promise.resolve('TOKEN_' + current); },
+            getUserId: function () { return current; } },
+    Session: { id: function () { return 'sid'; } },
+    addEventListener: function () {},
+    fetch: function (url, o) {
+      var tok = (o.headers.Authorization || '').replace('Bearer ', '');
+      posts.push({ key: JSON.parse(o.body).clientKey, token: tok });
+      var wait = posts.length === 1 ? gate : Promise.resolve();
+      return wait.then(function () {
+        return { ok: true, status: 200, json: function () { return Promise.resolve({ id: 'x' }); } };
+      });
+    }
+  };
+  sb.window = sb; sb.self = sb; sb.globalThis = sb;
+  vm.createContext(sb);
+  if (opts.identity) {
+    vm.runInContext(idSrc, sb);
+    sb.QRIdentity.beginTransition('A'); sb.QRIdentity.completeTransition('A');
+  }
+  vm.runInContext(rqSrc, sb);
+  var done = sb.ReportQueue.flush();
+  setTimeout(function () {
+    current = 'B';
+    if (opts.identity) { sb.QRIdentity.beginTransition('B'); sb.QRIdentity.completeTransition('B'); }
+    QRStorage.purgeUserScoped(ls);
+    release();
+  }, 5);
+  return done.then(function () {
+    return { crossed: posts.filter(function (p) { return p.token === 'TOKEN_B'; }).length,
+             queue: ls.getItem('qr_report_queue') };
+  });
+}
+
+/* 8b. R2 — clearAll must degrade, never skip, when the storage registry is unavailable. */
+function runClearAllWithoutRegistry() {
+  var ls = FakeStorageFrom({
+    qr_settings: '{}', qr_active_exam: 'cat', qr_progress: '{}', qr_report_queue: '[]',
+    premiumStatus: 'premium', quant_reflex_settings: '{}',
+    qr_session_id: 's', qr_last_uid: 'A', qr_i18n_preview: '1', qr_appUpdating: 't',
+    'qr_update_x': 'seen', 'qr_pending_writes_uidA': '{}', otherApp: 'keep'
+  });
+  var sb = { localStorage: ls, console: { warn: function () {}, error: function () {} } };
+  sb.self = sb; sb.globalThis = sb;
+  vm.createContext(sb);
+  vm.runInContext(R('js/state/store.js'), sb);   /* storage-registry deliberately NOT loaded */
+  var removed = sb.AppState.clearAll();
+  return { removed: removed, ls: ls };
+}
+
+var fallback = runClearAllWithoutRegistry();
+ok(fallback.removed.length === 6,
+  '8 R2 registry-absent fallback still purges every user-scoped key (got ' + fallback.removed.length + '/6)');
+['qr_settings', 'qr_active_exam', 'qr_progress', 'qr_report_queue', 'premiumStatus', 'quant_reflex_settings']
+  .forEach(function (k) {
+    ok(fallback.ls.getItem(k) === null, '8 R2 fallback purged ' + k + ' (a silent skip re-enables the whole leak set)');
+  });
+['qr_session_id', 'qr_last_uid', 'qr_i18n_preview', 'qr_appUpdating', 'qr_update_x', 'qr_pending_writes_uidA', 'otherApp']
+  .forEach(function (k) {
+    ok(fallback.ls.getItem(k) !== null, '8 R2 fallback preserved survivor ' + k);
+  });
+/* the inline survivor list must not drift from the registry it mirrors */
+var storeSrc2 = R('js/state/store.js');
+var fbBlock = storeSrc2.slice(storeSrc2.indexOf('var FALLBACK_SURVIVORS'), storeSrc2.indexOf('function clearAll'));
+var fbKeys = (fbBlock.match(/'([^']+)'/g) || []).map(function (x) { return x.replace(/'/g, ''); });
+var registrySurvivors = QRStorage.DEVICE_SCOPED.concat(QRStorage.INSTALLATION_SCOPED)
+  .concat(QRStorage.USER_DEFERRED).concat(QRStorage.INSTALLATION_PREFIXES)
+  .concat(QRStorage.USER_DEFERRED_PREFIXES).sort();
+ok(JSON.stringify(fbKeys.slice().sort()) === JSON.stringify(registrySurvivors),
+  '8 R2 the inline fallback survivor list matches the registry exactly (no drift)\n      inline:   ' +
+  JSON.stringify(fbKeys.slice().sort()) + '\n      registry: ' + JSON.stringify(registrySurvivors));
+
+/* 8c. R6 — a hydration that outlives a sign-out must not reveal the app. */
+ok(/var _hydrationTimeoutId = null;/.test(app), '8 R6 the hydration timeout id is reachable outside the hydration fn');
+var unauth = app.slice(app.indexOf("if (state === 'unauthenticated') {"), app.indexOf("} else if (state === 'hydrating')"));
+ok(/clearTimeout\(_hydrationTimeoutId\)/.test(unauth),
+  '8 R6 signing out cancels the in-flight hydration timeout');
+var launch = app.slice(app.indexOf('function _launchOnboardingOrShowMain'), app.indexOf('function _launchOnboardingOrShowMain') + 900);
+ok(/if \(!hasUid\) \{[\s\S]{0,160}?setAppState\('unauthenticated'\);[\s\S]{0,40}?return;/.test(launch),
+  '8 R6 the app is never revealed without a live uid');
+
+/* 8d. R7 — sessionStorage is inside the ownership model. */
+ok(/purgeUserScoped\(sessionStorage\)/.test(storeSrc2), '8 R7 clearAll sweeps sessionStorage too');
+var sess = FakeStorageFrom({ qr_google_redirect: '1', foreignSession: 'keep' });
+QRStorage.purgeUserScoped(sess);
+ok(sess.getItem('qr_google_redirect') === null && sess.getItem('foreignSession') !== null,
+  '8 R7 the registry purges user-scoped sessionStorage keys and leaves foreign ones');
+
+/* 8e. R9 — the redundant legacy list is gone (one model, not two). */
+ok(!/_USER_STORAGE_KEYS/.test(sync), '8 R9 the duplicated legacy key list is removed from firestore-sync');
+
+/* 8f. R3 — the identity guard APIs are no longer built-but-unused. */
+var rq = R('js/services/report-queue.js');
+ok(/QRIdentity\.capture\(\)/.test(rq), '8 R3 capture() now has a production caller');
+ok(/QRIdentity\.isCurrent\(ticket\)/.test(rq), '8 R3 isCurrent() now guards a real async boundary');
+ok(/entry\.uid = _currentUid\(\)/.test(rq), '8 R1 reports are stamped with their author at enqueue');
+
+/* The R1 cases are asynchronous (they drive a real flush across a simulated switch), so the summary
+   and exit code must wait for them — otherwise the process would exit before they ever ran. */
+Promise.all([
+  runReportQueueSwitch({ stamped: true,  identity: true  }),
+  runReportQueueSwitch({ stamped: false, identity: true  }),
+  runReportQueueSwitch({ stamped: true,  identity: false }),
+  runReportQueueSwitch({ stamped: false, identity: false })
+]).then(function (r) {
+  ok(r[0].crossed === 0, '8 R1 stamped entry + identity lifecycle: no cross-account send');
+  ok(r[1].crossed === 0, '8 R1 legacy entry (no uid) + identity lifecycle: no cross-account send');
+  ok(r[2].crossed === 0, '8 R1 stamped entry, identity module absent: no cross-account send');
+  ok(r[3].crossed === 0, '8 R1 legacy entry, identity module absent: no cross-account send');
+  /* the unattributable worst case must DEFER, never drop — ADR-101 "never lose a report" */
+  ok(r[3].queue && JSON.parse(r[3].queue).length === 2,
+    '8 R1 unattributable reports stay queued rather than being sent as the wrong user or dropped');
+}).catch(function (e) {
+  fail++; console.log('  ✗ 8 R1 harness threw: ' + (e && e.message));
+}).then(function () {
+  console.log('\naccount-isolation.check: ' + pass + ' passed, ' + fail + ' failed');
+  process.exit(fail === 0 ? 0 : 1);
+});

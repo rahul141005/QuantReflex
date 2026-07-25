@@ -143,33 +143,18 @@ var FirestoreSync = (function () {
   /* Early-user and auto-trial systems removed (v1.2) */
 
   /* All localStorage keys that store user-specific data */
-  var _USER_STORAGE_KEYS = [
-    'quant_reflex_settings',
-    'quant_reflex_progress',
-    'quant_quick_links',
-    'quant_custom_topics',
-    'quant_custom_formulas',
-    'quant_bookmarks',
-    'quant_learn_progress',
-    'quant_learn_bookmarks',
-    'quant_notifications_enabled'
-  ];
-
   /**
    * Remove all user-related keys from localStorage.
    * Prevents data from one user leaking to another session.
-   * Clears BOTH canonical (qr_*) and legacy (quant_*) key families
-   * via AppState.clearAll() to guarantee complete purge.
+   * Delegates entirely to AppState.clearAll() → the storage-registry prefix purge, which already covers
+   * BOTH the canonical (qr_*) and legacy (quant_*) families. The hand-maintained legacy list that used to
+   * sit here was fully subsumed by that sweep (ADR-120) — a second list can only drift from the model.
    */
   function _clearUserLocalStorage() {
     try {
       /* Use centralized AppState purge to cover ALL key families */
       if (typeof AppState !== 'undefined' && typeof AppState.clearAll === 'function') {
         AppState.clearAll();
-      }
-      /* Also clear legacy keys explicitly as a defense-in-depth measure */
-      for (var i = 0; i < _USER_STORAGE_KEYS.length; i++) {
-        localStorage.removeItem(_USER_STORAGE_KEYS[i]);
       }
       /* Invalidate progress cache to prevent stale reads after user switch */
       if (typeof invalidateProgressCache === 'function') invalidateProgressCache();

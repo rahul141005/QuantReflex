@@ -8,6 +8,75 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-120 — Release-gate fixes: identity-bound report queue, fail-closed purge (v252) (2026-07-25)
+
+- **Context.** An independent black-box gate against ADR-119 returned FAIL, and a follow-up
+  evidence-driven validation pass re-tested every finding. Two did not survive and were **retracted**
+  (see below) — the remaining three are fixed here. Each fix is verified by executing the real module,
+  not by inspecting it.
+
+- **Decision 1 — a queued report may only ever be submitted as the account that wrote it.**
+  `ReportQueue.flush()` snapshotted the queue synchronously but fetched the bearer token
+  **asynchronously, per report**, so an account switch landing between report *i* and report *i+1* (a
+  full network round-trip of window) sent user A's report body with user B's token. The server
+  attributes by `req.userId` (`api/report.js:38`), so A's report was filed against B. **Reproduced
+  deterministically** against the real module before the fix; the ADR-119 purge could not prevent it
+  because the payload was already in memory, beyond storage's reach.
+  - `_enqueue` stamps `entry.uid` at creation. `_post` re-checks ownership **after** the token resolves —
+    that is the exact instant the wrong credential could be attached — and returns the existing
+    transient shape so the report is kept and retried, never sent wrong and never dropped (ADR-101).
+  - `flush()` captures a `QRIdentity` ticket for the batch and stops the whole batch once identity
+    moves, without touching attempts/backoff (nothing was actually tried). The ticket is
+    generation-scoped, so it also catches **A→B→A**, where the uid matches again but the session in
+    between belonged to somebody else.
+  - An entry with no `uid` (queued by a build before this ADR) is **unattributable**. Guessing "send as
+    whoever is signed in" is precisely how A's report becomes B's, so when there is also no identity
+    module to fall back on, it defers instead — the report stays queued and flushes on the next healthy
+    boot. Verified across all four combinations of {stamped, legacy} × {identity present, absent}.
+
+- **Decision 2 — `AppState.clearAll()` degrades, never skips.** It previously logged and returned `[]`
+  when the storage registry was unavailable, purging **nothing** — silently switching account isolation
+  off, a strictly worse failure mode than the pre-ADR-119 inline list it replaced. This is reachable in
+  production, not theoretical: the service worker pre-caches with `Promise.allSettled` and a swallowing
+  per-file `catch` ("one failing asset won't abort install"), so a single failed fetch activates a worker
+  missing that dependency, and a later offline session serves 503 for the script while the rest of the
+  app runs from cache. It also killed the `qr_last_uid` cold-boot defence, which routes through the same
+  call. There is now an inline prefix sweep with the same survivor allow-list, and a check asserts the
+  inline list matches the registry exactly so the two cannot drift.
+
+- **Decision 3 — the identity guard APIs are no longer built-but-unused.** A mechanical call graph showed
+  `capture`/`isCurrent`/`guard` had **zero production callers**, making ADR-119's "async work cannot
+  cross identities" false as shipped. Decision 1 adopts them at a real async boundary. The claim is now
+  scoped honestly: the report queue is guarded; **AI requests, duel writes and analytics are not**, and
+  that is recorded as known scope rather than implied coverage.
+
+- **Also in this pass.** A hydration that outlives a sign-out can no longer reveal the app: the 6 s
+  timeout is hoisted so `setAppState('unauthenticated')` can cancel it (as a closure local it was
+  unreachable from the sign-out path), and `_launchOnboardingOrShowMain` returns to the login screen when
+  there is no live uid instead of falling through to an unconditional `setAppState('app')`. ·
+  `sessionStorage` joins the ownership model, which previously documented more than it enforced. · The
+  duplicated `_USER_STORAGE_KEYS` legacy list is deleted — fully subsumed by the prefix purge, and a
+  second list can only drift. · The drift guard is widened to `var|let|const` with the prefix gate
+  removed, so a **non-prefixed** key held in a constant (the one shape that escapes both the scan and the
+  prefix purge — `premiumStatus` is the historical example) now fails CI; its usage gate was tightened to
+  require the constant to appear inside a storage call, so unrelated `*_KEY` constants no longer match.
+
+- **Retracted findings (recorded so they are not "fixed" again).**
+  - *Drift-guard bypass* — measured against the actual repository the guard missed **0 of 28** keys
+    (100%). The bypass shapes are real as code patterns but no such writer exists, and prefixed keys fail
+    safe regardless. Downgraded to future-proofing; the widening above is insurance, not a fix.
+  - *Firestore IndexedDB remanence* — real (`clearPersistence` is never called, so cached documents
+    survive sign-out, switch and account deletion) but **not** in-app reachable: paths are uid-scoped and
+    no code reads another uid's path, and no doc or UI string promises local-cache removal. Clearing it
+    requires terminating the Firestore client, which would jeopardise offline persistence, the
+    single-device listener and the durable write buffer. Documented as a known limitation instead.
+
+- **Consequence.** `account-isolation.check` grows to **121 assertions**, now including the executed
+  report-queue switch matrix and the registry-absent fallback. Live two-account / two-tab / offline runs
+  against a real Firebase project remain unverified in CI.
+
+---
+
 ## ADR-119 — Account isolation as a boundary: storage ownership + identity lifecycle (v251) (2026-07-25)
 
 - **Context.** An adversarial re-audit of Wave S2 **disproved** its close-out claim. ADR-118 had asserted

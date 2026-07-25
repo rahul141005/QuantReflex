@@ -6,6 +6,49 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Release-gate fixes: identity-bound report queue, fail-closed purge (ADR-120, SW v251→v252)
+
+An independent black-box gate against ADR-119 returned FAIL; a follow-up evidence-driven validation pass
+re-tested every finding, **retracted two**, and fixed the rest. Each fix is verified by executing the real
+module, not by inspecting it.
+
+- **Cross-account report attribution (HIGH).** `ReportQueue.flush()` snapshotted the queue synchronously
+  but fetched the bearer token asynchronously per report, so an account switch landing between report i
+  and i+1 sent user A's report body with user B's token — the server attributes by `req.userId`.
+  Reproduced deterministically. Reports are now stamped with their author at enqueue, ownership is
+  re-checked *after* the token resolves, and a generation-scoped `QRIdentity` ticket stops the batch when
+  identity moves (also catching A→B→A). Unattributable pre-upgrade entries defer rather than guess —
+  kept queued, never sent as the wrong user and never dropped.
+- **The purge could silently fail open (HIGH).** `AppState.clearAll()` returned `[]` and purged nothing
+  when the storage registry was unavailable — worse than the inline list it replaced, and reachable: the
+  service worker pre-caches with `Promise.allSettled` + a swallowing per-file catch, so one failed fetch
+  activates a worker missing that dependency and a later offline session serves 503 for the script. It
+  now falls back to an inline prefix sweep with the same survivor allow-list, with a check asserting the
+  two lists cannot drift.
+- **The identity guards were built but unused.** A mechanical call graph showed `capture`/`isCurrent`/
+  `guard` had zero production callers, so ADR-119's "async work cannot cross identities" was false as
+  shipped. They now guard the report queue; AI requests, duel writes and analytics remain unguarded and
+  that is stated as known scope rather than implied.
+- **Smaller:** a hydration outliving a sign-out can no longer reveal the app (timeout hoisted so the
+  sign-out path can cancel it; no app reveal without a live uid) · `sessionStorage` joins the ownership
+  model · the duplicated `_USER_STORAGE_KEYS` legacy list is deleted · the drift guard is widened to
+  `var|let|const` with the prefix gate removed and its usage gate tightened.
+
+**Retracted (not defects):** the drift-guard bypass — measured coverage against the actual repo is
+**100% (0 of 28 keys missed)**, so it is future-proofing, not a leak; and Firestore IndexedDB remanence —
+real (`clearPersistence` is never called) but not in-app reachable, promised nowhere, and clearing it
+would jeopardise offline persistence. Documented as a known limitation instead.
+
+Verified: `npm test` **14,507/0** plus account-isolation **121/0** (now including the executed
+report-queue switch matrix across {stamped, legacy} × {identity present, absent}, and the registry-absent
+fallback), session-integrity 42/0, entitlement-core 93/0, entitlement-invariants 30/0, payment-parity
+25/0, firestore-durability 15/0, design-lint 10/10; real-Chromium purge run unchanged (A's exam `cat` →
+`null`, 0 leaked, 0 wrongly destroyed, 0 page errors). Still unverified: live two-account / two-tab /
+offline flows against a real Firebase project. Bible 2.151→2.152, Architecture 2.68→2.69, Security
+2.19→2.20.
+
+---
+
 ## 2026-07-25 — Account isolation hardening (Wave S2 remediation, ADR-119, SW v250→v251)
 
 **Retraction first.** The ADR-118 entry below claims "**user-switch state purge — VERIFIED SOUND**". That

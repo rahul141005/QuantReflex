@@ -47,10 +47,62 @@
        silently drop the newest submission on a long-offline device). */
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(arr.slice(-MAX_QUEUE))); } catch (_) {}
   }
+  /* ── Report ownership (ADR-120) ────────────────────────────────────────────────────────────────
+     A queued report belongs to the account that WROTE it, and must only ever be submitted as that
+     account. Before this, flush() snapshotted the queue synchronously but fetched the bearer token
+     asynchronously per report — so an account switch landing between report i and report i+1 (a full
+     network round-trip of window) sent user A's report body with user B's token, and the server
+     attributes by req.userId. Reproduced deterministically against this module.
+     The ADR-119 purge could not prevent it: the payload was already in memory, beyond storage's reach. */
+  function _currentUid() {
+    try { if (root.Auth && Auth.getUserId) return Auth.getUserId(); } catch (_) {}
+    return null;
+  }
+  /* A generation-scoped ticket, when the identity lifecycle is present. Null when no identity is
+     established yet (cold boot) so we degrade to plain uid comparison rather than blocking forever. */
+  function _captureIdentity() {
+    try {
+      if (root.QRIdentity && QRIdentity.capture) {
+        var t = QRIdentity.capture();
+        return (t && t.uid) ? t : null;
+      }
+    } catch (_) {}
+    return null;
+  }
+  /**
+   * May this entry be sent right now, as the account that created it?
+   * Both halves are needed: the uid check proves the entry belongs to whoever is signed in, and the
+   * ticket proves the identity has not changed since the flush began — which also catches A→B→A, where
+   * the uid matches again but the session in between was somebody else's.
+   */
+  function _stillOwner(ownerUid, ticket) {
+    var haveIdentity = false;
+    try { haveIdentity = !!(root.QRIdentity && root.QRIdentity.isCurrent); } catch (_) {}
+
+    if (ownerUid) {
+      /* Stamped entry: it may only go out as its author. */
+      if (_currentUid() !== ownerUid) return false;
+    } else if (!haveIdentity) {
+      /* Unattributable entry (queued by a build before ADR-120) AND no identity lifecycle to fall back
+         on. There is genuinely no author information to recover here, so guessing "send it as whoever is
+         signed in" is how A's report becomes B's. Defer instead: the entry stays queued (never dropped —
+         ADR-101) and flushes on the next boot where identity.js is present. */
+      return false;
+    }
+    /* Generation ticket: identity must not have moved since the batch began. This is what protects
+       unattributable legacy entries, and it also catches A→B→A, where the uid matches again but the
+       session in between belonged to somebody else. */
+    try {
+      if (ticket && haveIdentity && !QRIdentity.isCurrent(ticket)) return false;
+    } catch (_) {}
+    return true;
+  }
+
   function _enqueue(entry) {
     var q = _load();
     /* Dedupe by clientKey so the same report is never queued twice (double-tap while offline). */
     for (var i = 0; i < q.length; i++) { if (q[i] && q[i].payload && q[i].payload.clientKey === entry.payload.clientKey) return; }
+    if (!entry.uid) entry.uid = _currentUid();   /* ADR-120: stamp the author at creation time */
     q.push(entry);
     _save(q);
   }
@@ -69,11 +121,16 @@
   }
 
   /* One network attempt. Resolves { ok, status, data } or { ok:false, network:true } on transport failure. */
-  function _post(payload) {
+  function _post(payload, ownerUid, ticket) {
     return _token().then(function (token) {
       /* No token yet (auth not ready / signed out mid-flush) → treat as a transient transport failure so the
          report is KEPT in the queue and retried later, never dropped ("never lose a report"). */
       if (!token) return { ok: false, network: true };
+      /* ADR-120: the token was resolved asynchronously — re-check ownership NOW, with the credential in
+         hand, because that is the exact instant the wrong identity could be attached. Same transient
+         shape as a missing token, so the report is kept and retried rather than sent as the wrong user
+         or dropped. */
+      if (!_stillOwner(ownerUid, ticket)) return { ok: false, network: true };
       var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
       try { if (root.Session && Session.id) headers['X-Session-Id'] = Session.id(); } catch (_) {}
       return root.fetch('/api/report?action=create', {
@@ -122,7 +179,7 @@
       return Promise.resolve({ ok: true, queued: true, clientKey: payload.clientKey });
     }
 
-    return _post(payload).then(function (res) {
+    return _post(payload, _currentUid(), _captureIdentity()).then(function (res) {
       if (res.ok) {
         _removeByKey(payload.clientKey);   /* in case a prior attempt queued it */
         var d = res.data || {};
@@ -152,11 +209,18 @@
 
     var now = _now();
     var due = q.filter(function (e) { return !e.nextAt || e.nextAt <= now; });
+    /* ADR-120: `due` is an in-memory snapshot taken here; every later send is checked against the
+       identity captured now, so nothing in this batch can be submitted as a different account. */
+    var ticket = _captureIdentity();
 
     function step(i) {
       if (i >= due.length) return Promise.resolve();
       var entry = due[i];
-      return _post(entry.payload).then(function (res) {
+      /* Stop the whole batch, not just this entry: once identity has moved on, no remaining entry in
+         this snapshot is sendable either. They stay queued untouched — attempts/backoff are NOT bumped,
+         because nothing was actually tried. */
+      if (!_stillOwner(entry.uid, ticket)) return Promise.resolve();
+      return _post(entry.payload, entry.uid, ticket).then(function (res) {
         if (res.ok) {
           _removeByKey(entry.payload.clientKey);
         } else if (_isRetryable(res)) {

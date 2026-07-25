@@ -40,3 +40,21 @@ deployed build, not a local file server.
 and merge-sensitive), so a **language / theme / target-exam / stats change made on another device** reaches
 this device on next relaunch rather than instantly. That is by design (ADR-118) and is not a failure of any
 check above.
+
+## Known limitations (ADR-120, accepted)
+
+- **Firestore offline cache is never cleared.** `enablePersistence` is on (`js/firebase.js:75`) and
+  nothing calls `clearPersistence()`, so documents cached for one account remain in IndexedDB after
+  sign-out, after an account switch, and after account deletion. Not reachable through the app — every
+  read is uid-scoped and no code reads another uid's path — so this is data *remanence* recoverable only
+  with device access + DevTools, not in-app leakage. Clearing it requires terminating the Firestore
+  client, which would jeopardise offline persistence, the ADR-072 single-device listener and the durable
+  write buffer; that is its own change, not a release-gate fix. **On a genuinely shared/public device,
+  treat "sign out" as hiding data from the app, not erasing it from the disk.**
+- **Async identity guards cover the report queue only.** `QRIdentity.capture`/`isCurrent` guard
+  `ReportQueue` (ADR-120). AI requests, duel writes and analytics are **not** identity-guarded; they rely
+  on server-side token attribution and the account-change purge. Do not read ADR-119 Decision 4 as
+  blanket coverage.
+- **Unattributable legacy reports defer.** A report queued by a build older than ADR-120 carries no
+  author. If the identity module is also unavailable, it is held in the queue rather than sent, and
+  flushes on the next boot where `js/identity.js` loads.

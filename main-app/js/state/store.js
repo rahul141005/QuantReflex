@@ -268,13 +268,52 @@ var AppState = (function () {
    * The registry is a hard dependency: silently falling back to the old partial list would recreate
    * exactly the leak this replaced, so its absence is loud.
    */
+  /* ADR-120 fail-closed fallback. Mirrors storage-registry's survivor set; a check asserts the two stay
+     in lockstep, so this list cannot silently drift from the real model. */
+  var FALLBACK_SURVIVORS = [
+    'qr_session_id', 'qr_session_uid', 'qr_session_replaced', 'qr_last_uid',
+    'qr_i18n_preview', 'qr_appUpdating', 'qr_pending_writes'
+  ];
+  var FALLBACK_SURVIVOR_PREFIXES = ['qr_update_', 'qr_pending_writes_'];
+
   function clearAll() {
-    if (typeof QRStorage === 'undefined' || typeof QRStorage.purgeUserScoped !== 'function') {
-      console.error('[AppState.clearAll] storage-registry unavailable — user-scoped purge SKIPPED. ' +
-        'js/state/storage-registry.js must load before js/state/store.js.');
-      return [];
+    if (typeof QRStorage !== 'undefined' && typeof QRStorage.purgeUserScoped === 'function') {
+      var out = QRStorage.purgeUserScoped();
+      /* ADR-120 (R7): sessionStorage is part of the same ownership model — the purge used to cover
+         localStorage only, so the model documented more than it enforced. Today this is just the
+         transient Google-redirect flag, but the sweep must not depend on that staying true. */
+      try {
+        if (typeof sessionStorage !== 'undefined') out = out.concat(QRStorage.purgeUserScoped(sessionStorage));
+      } catch (_) { /* sessionStorage unavailable — nothing to purge */ }
+      return out;
     }
-    return QRStorage.purgeUserScoped();
+    /* ADR-120: this used to log and return [], purging NOTHING — which silently switched account
+       isolation off. That is reachable in production, not theoretical: the service worker pre-caches with
+       Promise.allSettled and a swallowing per-file catch ("one failing asset won't abort install"), so a
+       single failed fetch activates a worker with this dependency missing; a later offline session then
+       serves 503 for the script while the rest of the app runs from cache. The result was the entire
+       leak set returning, plus the qr_last_uid cold-boot defence going dead — with only a console error.
+       So: degrade, never skip. Same prefix sweep + survivor allow-list as the registry. */
+    console.error('[AppState.clearAll] storage-registry unavailable — using the inline fallback purge. ' +
+      'js/state/storage-registry.js should load before js/state/store.js.');
+    var removed = [];
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k) keys.push(k); }
+      for (var j = 0; j < keys.length; j++) {
+        var key = keys[j];
+        var isOurs = key.indexOf('qr_') === 0 || key.indexOf('quant_') === 0 || key === 'premiumStatus';
+        if (!isOurs) continue;
+        var survives = false;
+        for (var s = 0; s < FALLBACK_SURVIVORS.length; s++) { if (FALLBACK_SURVIVORS[s] === key) { survives = true; break; } }
+        for (var p = 0; !survives && p < FALLBACK_SURVIVOR_PREFIXES.length; p++) {
+          if (key.indexOf(FALLBACK_SURVIVOR_PREFIXES[p]) === 0) survives = true;
+        }
+        if (survives) continue;
+        try { localStorage.removeItem(key); removed.push(key); } catch (_) {}
+      }
+    } catch (_) { /* storage disabled — nothing to purge */ }
+    return removed;
   }
 
   function _clone(obj) {

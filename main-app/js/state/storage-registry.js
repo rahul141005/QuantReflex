@@ -21,6 +21,9 @@
  *                    user does not lose unflushed work, and can never be replayed for anyone else.
  *   'foreign'      — not ours (another app on the same origin); never touched.
  *
+ * Applies to BOTH localStorage and sessionStorage — `purgeUserScoped(area)` takes any Storage, and
+ * AppState.clearAll() sweeps both (ADR-120).
+ *
  * Dual-export (the `data/statMath.js` pattern) so the check harness can execute the real classifier
  * instead of re-implementing it.
  */

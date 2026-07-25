@@ -480,6 +480,9 @@ document.addEventListener('DOMContentLoaded', function () {
          never reach setAppState('app'), wedging the user on the login screen until a manual reload. */
       _hydrationStarted = false;
       _hydrationRetryCount = 0;
+      /* ADR-120: kill any in-flight hydration timeout — otherwise a hydration started before the
+         sign-out fires later and reveals the app to a signed-out user. */
+      if (_hydrationTimeoutId) { clearTimeout(_hydrationTimeoutId); _hydrationTimeoutId = null; }
       _hideAppLoader();
       document.body.classList.remove('auth-resolved');
       document.body.style.overflow = '';
@@ -535,6 +538,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   var _hydrationStarted = false;
   var _hydrationRetryCount = 0;
+  /* ADR-120: hoisted out of startHydrationAndShowApp so setAppState('unauthenticated') can cancel it.
+     As a closure-local it was unreachable from the sign-out path, so a hydration that hung past 6 s would
+     still fire its timeout AFTER the user was signed out and reveal the app shell. */
+  var _hydrationTimeoutId = null;
   var _MAX_HYDRATION_RETRIES = 30; /* 3 seconds at 100ms intervals */
 
   /**
@@ -616,7 +623,9 @@ document.addEventListener('DOMContentLoaded', function () {
       _launchOnboardingOrShowMain();
     }
 
-    var timeoutId = setTimeout(function() {
+    if (_hydrationTimeoutId) clearTimeout(_hydrationTimeoutId);
+    var timeoutId = _hydrationTimeoutId = setTimeout(function() {
+      _hydrationTimeoutId = null;
       console.warn('Hydration timeout — bypassing onboarding to prevent state corruption.');
       _executeTransition();
     }, 6000);
@@ -624,28 +633,36 @@ document.addEventListener('DOMContentLoaded', function () {
     if (typeof FirestoreSync !== 'undefined' && typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && FirebaseApp.getUserId()) {
       FirestoreSync.loadFromFirestore(function (success) {
 
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId); _hydrationTimeoutId = null;
         _executeTransition();
       });
     } else {
       /* Wait and retry if ID hasn't propagated yet, preventing onboarding bypass */
       if (FirebaseApp.isReady() && typeof Auth !== 'undefined' && Auth.isLoggedIn() && !FirebaseApp.getUserId()) {
          if (_hydrationRetryCount++ < _MAX_HYDRATION_RETRIES) {
-           clearTimeout(timeoutId);
+           clearTimeout(timeoutId); _hydrationTimeoutId = null;
            _hydrationStarted = false; /* Allow retry */
            setTimeout(startHydrationAndShowApp, 100);
            return;
          }
          console.error('[BOOT] getUserId() still null after ' + _MAX_HYDRATION_RETRIES + ' retries. Proceeding without Firestore.');
       }
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId); _hydrationTimeoutId = null;
       _executeTransition();
     }
   }
 
   function _launchOnboardingOrShowMain() {
     var hasUid = typeof FirebaseApp !== 'undefined' && FirebaseApp.isReady() && !!FirebaseApp.getUserId();
-    
+
+    /* ADR-120: hasUid used to gate ONLY the onboarding branch, so the else fell through to
+       setAppState('app') unconditionally — revealing the app shell when no one is signed in (reachable
+       when a server-forced sign-out lands during a slow hydration). Nobody signed in ⇒ nothing to show. */
+    if (!hasUid) {
+      setAppState('unauthenticated');
+      return;
+    }
+
     if (typeof Onboarding !== 'undefined' && Onboarding.shouldShow() && hasUid) {
       if (authScreen) authScreen.style.display = 'none';
       _hideAppLoader();

@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.151 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.68 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.152 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.69 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
-| **Security Version** | 2.19 | Auth model, rules, claims, abuse controls. |
+| **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.152 (2026-07-25)** — **Release-gate fixes (ADR-120, SW v251→v252).** Architecture 2.68→2.69,
+> Security 2.19→2.20. An independent black-box gate against ADR-119 returned FAIL; validation retracted
+> two findings and fixed three. Closed: a queued bug report could be submitted under another account's
+> credentials (flush snapshotted the queue synchronously but fetched the token per report, so a switch
+> mid-batch attached the wrong bearer — reproduced deterministically, now identity-stamped and
+> generation-guarded); `AppState.clearAll()` purged NOTHING when the storage registry failed to load,
+> silently disabling account isolation (reachable via the SW's tolerant pre-cache + an offline session) —
+> now an inline fail-closed fallback; and the identity guard APIs, which had zero production callers,
+> making ADR-119's async-isolation claim false as shipped. Also: no app reveal after sign-out,
+> sessionStorage inside the ownership model, redundant legacy list deleted, drift guard widened.
+> Retracted: the drift-guard bypass (measured 100% coverage, 0/28 missed) and Firestore IndexedDB
+> remanence (real but not in-app reachable; documented as a known limitation). Verified: npm test
+> 14,507/0, account-isolation 121/0 incl. an executed report-queue switch matrix. No Firestore or Payment
+> surface change.
 
 > **2.151 (2026-07-25)** — **Account isolation hardening (Wave S2 remediation, ADR-119, SW v250→v251).**
 > Architecture 2.67→2.68, Security 2.18→2.19: cross-account client-state contamination is now treated as a
