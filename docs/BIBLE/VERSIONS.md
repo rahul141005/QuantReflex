@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.149 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.66 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.150 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.67 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.18 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.150 (2026-07-25)** — **Session integrity & user-data consistency (Wave S2, ADR-118, SW v249→v250).**
+> Architecture 2.66→2.67: the ADR-072 single-device listener becomes the app's live user-state refresh path
+> (same snapshot, zero extra reads), and auth-state notification is additive instead of single-slot. Closed: a
+> user switch flushed the outgoing user's queued writes AFTER flipping identity, so the guard tripped and that
+> data was discarded — reachable with no reload because Firebase Auth persistence is shared across tabs; a
+> cross-device entitlement/coaching/profile change never reached other devices until a full relaunch; and (found
+> in the same pass) the new live refresh could revert a field with an unflushed local edit, now prevented by a
+> pending-update conflict rule. `Auth.onStateChange` could silently replace the app's auth gate. `settings`/`stats`
+> stay excluded from live refresh by design, so language/theme/target-exam/stats still propagate on relaunch only.
+> Verified: npm test 14,507/0, new behavioural `session-integrity.check` (42), design-lint 10/10, Chromium boot
+> smoke clean. Live two-account / two-tab / offline flows NOT run — they require real Firebase auth, unreachable
+> from the audit sandbox. No Firestore, Security or Payment surface change.
 
 > **2.149 (2026-07-24)** — **Entitlement Architecture Hardening: ONE canonical implementation (ADR-117, SW
 > v248→v249).** Architecture 2.65→2.66, Payment 2.6→2.7: the Premium rule + grant arithmetic now live in a

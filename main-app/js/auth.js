@@ -41,14 +41,23 @@ var Auth = (function () {
 
     _auth.onAuthStateChanged(function (user) {
       var previousUser = _currentUser;
-      _currentUser = user;
 
-      // Handle user change (e.g. logout or switch)
+      /* Handle user change (logout or switch) BEFORE flipping `_currentUser` (ADR-118).
+         resetSyncState() begins by flushing the outgoing user's pending writes, and that flush is
+         guarded by `FirebaseApp.getUserId() === _loadedUserId` (firebase.js:47 → Auth.getUserId() →
+         _currentUser). If we reassign _currentUser first, getUserId() already returns the INCOMING
+         user, the guard trips, and the outgoing user's queued work is dropped instead of saved —
+         reachable with no reload, because Firebase Auth persistence is shared across tabs (signing in
+         as B in tab 2 fires this handler in tab 1). Resetting first keeps the outgoing identity
+         current, so the flush resolves the OUTGOING user's docRef and their data is persisted; the
+         cross-user guard still prevents any write landing on the incoming user. */
       if (previousUser && (!user || user.uid !== previousUser.uid)) {
         if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.resetSyncState === 'function') {
           FirestoreSync.resetSyncState();
         }
       }
+
+      _currentUser = user;
 
       if (user) {
         var _afterSession = function () {
@@ -133,8 +142,16 @@ var Auth = (function () {
     }
   }
 
+  /* ADR-118: additive, not single-slot. This used to be a bare assignment, so a second caller would
+     silently REPLACE the app's auth gate (app.js) and the gate would simply stop running — a failure
+     with no error. The first registration keeps the primary slot (preserving today's exact ordering);
+     any further listeners are appended to `_stateChangeListeners`, which the dispatcher at the top of
+     this file already iterates. Duplicate registrations of the same function are ignored. */
   function onStateChange(callback) {
-    _appStateChangeListener = callback;
+    if (typeof callback !== 'function') return;
+    if (!_appStateChangeListener) { _appStateChangeListener = callback; return; }
+    if (_appStateChangeListener === callback) return;
+    if (_stateChangeListeners.indexOf(callback) === -1) _stateChangeListeners.push(callback);
   }
 
   function getReadableError(error) {

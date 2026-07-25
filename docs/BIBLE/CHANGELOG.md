@@ -6,6 +6,66 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Session integrity & user-data consistency (Wave S2, ADR-118, SW v249→v250)
+
+Independent audit of authentication, session management, user identity and Firestore consistency,
+with every prior audit treated as untrusted. Three defects confirmed first-hand; a fourth was
+introduced by the second fix and caught in the same pass.
+
+- **S2-F1 · data loss on user switch** — `main-app/js/auth.js`: `FirestoreSync.resetSyncState()` now
+  runs **before** `_currentUser = user`. The reset's opening flush is guarded by
+  `FirebaseApp.getUserId() === _loadedUserId`; flipping identity first made that guard see the
+  incoming user, so the outgoing user's queued writes (e.g. just-answered questions) were **discarded**
+  rather than saved. Cross-user contamination was always prevented — only the outgoing user lost data.
+  Reachable with **no reload**, because Firebase Auth persistence is shared across tabs of one origin.
+  Safe to reorder because `_flushUpdates` snapshots its payload synchronously before clearing the queue.
+- **S2-F2 · cross-device staleness** — `main-app/js/firestore-sync.js` `_listenForSession`: the live
+  `users/{uid}` snapshot read only `activeSessionId` and threw the rest of the document away. With
+  `refreshFromServer` having zero callers there was **no live refresh path**, so an entitlement /
+  coaching / profile change on device A never reached device B until a full relaunch. The handler now
+  folds `plan`/`planType`/`planSource`/`isTrial`/`coachingId`, the four plan timestamps (compared by
+  resolved millis, so Timestamp-vs-ISO is not a spurious change) and `profile` into `_memoryCache` and
+  repaints — **zero extra reads**, never during an active drill. `settings`/`stats` stay excluded as
+  client-owned and merge-sensitive, so language/theme/target-exam/stats still propagate on relaunch only.
+- **S2-F3 · pending-edit clobber (regression from S2-F2, found and fixed in this pass)** — our own
+  debounced write echoes back a document that predates the local edit, so a just-renamed profile
+  visibly reverted for the debounce window. New `_hasPendingUpdate(field)` makes an unflushed local
+  edit win: every refreshed group skips a field with a queued write.
+- **S2-F4 · latent auth-gate replacement** — `main-app/js/auth.js` `onStateChange` was a bare
+  single-slot assignment, so a second caller would silently replace the app's auth gate with no error.
+  It is now additive (first registration keeps the primary slot; the rest append to the array the
+  dispatcher already iterated), with duplicate registrations ignored.
+
+**Verified sound (evidence-backed, no action):** exactly ONE `onAuthStateChanged` and ONE
+`Auth.onStateChange` consumer repo-wide · notifications + session listeners unsubscribe before
+re-listen and on logout, all timers/caches/paywall flags cleared in `resetSyncState` · server-side
+`verifyIdToken(idToken, true)` checks revocation, so a disabled/revoked account is rejected on the
+next request · the app-update path navigates (`location.href`), which fires `beforeunload` → durable
+buffer persisted → replayed on the next load, so an update never loses queued writes · offline login
+is non-blocking (`Session.claim` failure is caught, hydration proceeds) and a transient read failure
+retries with backoff instead of latching a paying user to a null cache · `claim-coaching` is
+transactional, bind-once and idempotent, with `studentCount` maintained in the same transaction and
+decremented on account deletion · deletion is auth-first, so a purged account cannot resurrect.
+
+**Documented, not fixed** (recorded honestly rather than silently narrowed): `studentCount` can drift
++1 if a deletion is retried after the user doc is already gone (admin-visible counter only, no user
+data effect; an idempotent fix needs a deletion marker) · a 409 `SESSION_REPLACED` only routes to
+`Session.onReplaced()` from `companion-ui.js`, other callers rely on the listener as the primary
+displacement path · on a no-reload user switch the previous user's already-rendered DOM stays visible
+until the incoming user's data lands.
+
+Version lockstep SW `v249→v250` (`service-worker.js:6`, `index.html:17`, About line `:1356`).
+New `main-app/scripts/session-integrity.check.js` (42 assertions, part behavioural — it executes the
+real cross-user flush guard for a simulated A→B switch and the pending-conflict predicate) wired into
+`npm test`. Verified: npm test **14,507/0** plus payment-parity 25/0, entitlement-core 93/0,
+entitlement-invariants 30/0, session-integrity 42/0, firestore-durability 15/0, design-lint 10/10;
+Chromium boot smoke clean (no page errors, all modules wired, additive registration exercised).
+Live two-account / two-tab / offline flows were **not** run — they need real Firebase auth, which the
+audit sandbox cannot reach (Firebase CDN and auth endpoints are blocked). Bible 2.149→2.150,
+Architecture 2.66→2.67.
+
+---
+
 ## 2026-07-24 — Entitlement Architecture Hardening: ONE canonical implementation (ADR-117, SW v248→v249)
 
 Phase S1.1 treated the preceding audit as a hypothesis and independently re-verified it — **overturning

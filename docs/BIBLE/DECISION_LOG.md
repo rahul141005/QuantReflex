@@ -8,6 +8,61 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-118 — Session integrity: flush before identity, live user-doc refresh, additive auth gate (v250) (2026-07-25)
+
+- **Context.** Wave S2 audited authentication, session management, user identity and Firestore
+  consistency from live code, treating every prior audit as untrusted. Three defects were confirmed
+  first-hand at file:line, and a fourth was introduced by (and then caught in) the fix for the second.
+
+- **Decision 1 — flush the OUTGOING user before flipping identity.** `auth.js`'s
+  `onAuthStateChanged` handler now calls `FirestoreSync.resetSyncState()` **before**
+  `_currentUser = user`. `resetSyncState` begins by flushing the outgoing user's queued writes, and
+  that flush is guarded by `FirebaseApp.getUserId() === _loadedUserId` (which resolves through
+  `Auth.getUserId()` → `_currentUser`). Assigning identity first made the guard see the INCOMING
+  user, so the guard tripped and the outgoing user's queue was discarded instead of saved. This is
+  reachable with **no reload**: Firebase Auth persistence is shared across tabs of one origin, so
+  signing in as B in a second tab fires this handler in tab 1. The reorder is safe because
+  `_flushUpdates` snapshots its payload synchronously before clearing the queue and issuing the
+  write, and the cross-user guard still prevents any write landing on the incoming user.
+  - *Rejected:* threading `previousUser.uid` into `resetSyncState` and resolving the outgoing
+    docRef explicitly. Equivalent outcome, larger surface — the ordering fix needs no new parameter.
+
+- **Decision 2 — consume the snapshot the session listener already receives.** The ADR-072
+  single-device listener holds a live `onSnapshot` on `users/{uid}` but read only `activeSessionId`,
+  discarding the rest of a document that is billed either way. With `refreshFromServer` having zero
+  callers, there was **no live refresh path at all**, so an entitlement / coaching / profile change
+  made on another device never reached this one until a full relaunch. The handler now folds the
+  server-authoritative fields into `_memoryCache` (`REFRESH_SCALARS`, `REFRESH_STAMPS` compared by
+  resolved millis so a Timestamp and an equivalent ISO string are not a spurious change, plus
+  `profile`) and repaints the current view. **Zero extra reads.**
+  - `settings` and `stats` are deliberately EXCLUDED: they are client-owned and merge-sensitive, and
+    live-overwriting them would fight the local drill accumulation and could switch a device's theme
+    mid-session. Consequence, stated plainly: **language, theme, target exam and stats still
+    propagate across devices on relaunch only.**
+  - The repaint never interrupts an active drill (`_drillActive` / `body.drill-session-active`);
+    gates re-check live at action time, so deferring costs nothing.
+
+- **Decision 3 — an unflushed LOCAL edit always wins over the incoming snapshot.** Decision 2, as
+  first written, introduced a regression found during this pass: our own debounced write echoes back
+  a document that predates the local edit, so a just-renamed profile visibly reverted to the old name
+  for the length of the debounce window (the queued write itself was never lost — `_pendingUpdates`
+  holds its own reference — but the rendered state regressed). Every refreshed group now consults
+  `_hasPendingUpdate(field)` and skips any field with a queued local write.
+
+- **Decision 4 — `Auth.onStateChange` is additive, not single-slot.** It used to be a bare
+  assignment, so a second caller would silently REPLACE the app's auth gate and the gate would stop
+  running with no error. The first registration keeps the primary slot (preserving today's exact
+  ordering); further listeners append to `_stateChangeListeners`, which the dispatcher already
+  iterated but which no public API had ever populated. Duplicate registrations are ignored.
+
+- **Consequence.** `scripts/session-integrity.check.js` (42 assertions, part behavioural — it
+  executes the real cross-user flush guard for a simulated A→B switch and the pending-conflict
+  predicate) is wired into `npm test`. Coverage limits for this wave are recorded in the Wave S2
+  report rather than implied: live two-account, two-tab and offline flows need real Firebase auth,
+  which the audit sandbox cannot reach.
+
+---
+
 ## ADR-117 — ONE canonical entitlement implementation (v249) (2026-07-24)
 
 - **Context.** Phase S1.1 re-verified the previous audit as a *hypothesis* rather than truth (two

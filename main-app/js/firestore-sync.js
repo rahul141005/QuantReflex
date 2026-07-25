@@ -51,6 +51,20 @@ var FirestoreSync = (function () {
   var FLUSH_MAX_RETRIES = 2;
   var PENDING_BUFFER_KEY = 'qr_pending_writes'; /* S3-FS2: durable offline buffer, uid-scoped */
 
+  /* ADR-118: the server-authoritative fields the live user-doc listener folds into the local view.
+     `settings` and `stats` are deliberately absent — they are client-owned and merge-sensitive. */
+  var REFRESH_SCALARS = ['plan', 'planType', 'planSource', 'isTrial', 'coachingId'];
+  var REFRESH_STAMPS = ['planExpiry', 'trialEnd', 'planUpdatedAt', 'updatedAt'];
+
+  /* Conflict rule for that refresh: a field with an unflushed LOCAL edit is never overwritten by the
+     snapshot. Without this, our own debounced write echoing back an older document reverts the just-made
+     local edit in the cache (and repaints it), so e.g. a renamed profile visibly flips back to the old
+     name for the length of the debounce window. The queued write itself was never lost (_pendingUpdates
+     holds its own reference), but the UI regressed — so local pending edits win until they flush. */
+  function _hasPendingUpdate(field) {
+    return Object.prototype.hasOwnProperty.call(_pendingUpdates, field);
+  }
+
   /* Server-authoritative timestamp for the doc `updatedAt`; falls back to a client ISO only when the
      Firestore SDK isn't loaded. Used everywhere we write updatedAt so a client clock can't poison the
      clock-skew reference the entitlement expiry guard relies on. */
@@ -282,10 +296,50 @@ var FirestoreSync = (function () {
     if (_sessionUnsub) { try { _sessionUnsub(); } catch (_) {} _sessionUnsub = null; }
     _sessionUnsub = db.collection('users').doc(uid).onSnapshot(function (snap) {
       if (!snap || !snap.exists) return;
-      var active = snap.data().activeSessionId;
+      var d = snap.data() || {};
+      var active = d.activeSessionId;
       if (active && active !== Session.id()) {
         try { Session.onReplaced(); } catch (_) {}
+        return;   /* this device is being displaced — don't bother refreshing its view */
       }
+      /* ADR-118: this listener already receives the WHOLE user document on every change (the read is
+         billed either way) but historically read only activeSessionId, so an entitlement / coaching /
+         profile change made on another device never reached this one until a full relaunch — there is
+         no other live refresh path. Fold those server-authoritative fields into the local view here.
+         Deliberately EXCLUDES `settings` and `stats`: those are client-owned and merge-sensitive, so
+         live-overwriting them could clobber edits this device has queued but not yet flushed. */
+      if (!_memoryCache || _loadedUserId !== uid) return;
+      var changed = false;
+      for (var i = 0; i < REFRESH_SCALARS.length; i++) {
+        var k = REFRESH_SCALARS[i];
+        if (_hasPendingUpdate(k)) continue;
+        if (d[k] !== undefined && _memoryCache[k] !== d[k]) { _memoryCache[k] = d[k]; changed = true; }
+      }
+      /* Timestamp-ish fields: compare by resolved millis so a Timestamp vs ISO representation of the
+         same instant is not mistaken for a change (which would re-render on every snapshot). */
+      for (var j = 0; j < REFRESH_STAMPS.length; j++) {
+        var sk = REFRESH_STAMPS[j];
+        if (d[sk] === undefined || _hasPendingUpdate(sk)) continue;
+        if (_toMillis(d[sk]) !== _toMillis(_memoryCache[sk])) { _memoryCache[sk] = d[sk]; changed = true; }
+      }
+      if (d.profile && typeof d.profile === 'object' && !_hasPendingUpdate('profile')) {
+        try {
+          if (JSON.stringify(d.profile) !== JSON.stringify(_memoryCache.profile || null)) {
+            _memoryCache.profile = d.profile; changed = true;
+          }
+        } catch (_) { /* unserialisable — skip rather than thrash */ }
+      }
+      if (!changed) return;
+      /* Repaint so badges/CTAs reflect the new truth immediately. Never interrupt an active drill —
+         gates re-check live at action time, so deferring the repaint costs nothing. */
+      if (_drillActive) return;
+      try {
+        if (document.body && document.body.classList.contains('drill-session-active')) return;
+        if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
+          var cv = Router.getCurrentView();
+          if (cv) Router.showView(cv);
+        }
+      } catch (_) { /* a repaint must never break the session listener */ }
     }, function (err) { console.warn('[FirestoreSync] session listener error', err); });
   }
 
