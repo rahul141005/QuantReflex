@@ -8,6 +8,10 @@
 
 var SETTINGS_KEY = 'quant_reflex_settings';
 var _logoutInFlight = false;
+/* ADR-123 (S3-V3): how long logout waits on the farewell flush before proceeding anyway. The durable
+   pending-writes buffer is persisted synchronously before the network write, so the wait is a courtesy
+   (let the write land and clear the buffer), never a correctness requirement. */
+var LOGOUT_FLUSH_TIMEOUT_MS = 3000;
 
 function loadSettings() {
   if (typeof AppState !== 'undefined') return AppState.getSettings();
@@ -510,7 +514,20 @@ function initSettingsView() {
         /* Flush pending Firestore writes and clear local state BEFORE
            signing out, while the user context is still valid */
         if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.flushUpdatesAsync === 'function') {
-          FirestoreSync.flushUpdatesAsync(function() {
+          /* ADR-123 (S3-V3): this callback is the ONLY thing gating the rest of logout, and it fires from a
+             Firestore set() promise — which never settles while offline (the write stays locally pending).
+             Without a fallback, an offline logout left the user signed IN while the UI above had already
+             hidden the app and shown the auth screen, with _logoutInFlight and the disabled button blocking
+             every retry: a wedge recoverable only by a manual reload. Proceeding after a short wait is safe
+             because flushUpdatesAsync persists the durable uid-scoped buffer synchronously BEFORE the network
+             write, so the queued data replays on this user's next load either way. Once-only: whichever of
+             the callback and the watchdog arrives first wins. */
+          var _logoutDone = false;
+          var _logoutWatchdog = null;
+          var _finishLogout = function () {
+            if (_logoutDone) return;
+            _logoutDone = true;
+            if (_logoutWatchdog) { clearTimeout(_logoutWatchdog); _logoutWatchdog = null; }
             FirestoreSync.resetSyncState();
             Auth.logout(function (err) {
               _logoutInFlight = false;
@@ -523,7 +540,9 @@ function initSettingsView() {
                 window.location.reload();
               }
             });
-          });
+          };
+          _logoutWatchdog = setTimeout(_finishLogout, LOGOUT_FLUSH_TIMEOUT_MS);
+          FirestoreSync.flushUpdatesAsync(_finishLogout);
           return;
         } else if (typeof FirestoreSync !== 'undefined') {
           FirestoreSync.resetSyncState();

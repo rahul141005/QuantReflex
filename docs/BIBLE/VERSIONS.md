@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.154 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.71 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.155 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.72 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.155 (2026-07-25)** — **Wave S3 final verification (ADR-123, SW v254→v255).** Architecture 2.71→2.72.
+> A final adversarial pass, run by loading the real firestore-sync module into a vm and driving its real
+> lifecycle handlers, found three reproducible defects. **S3-V1** (regression from ADR-122): once the logout
+> flush writes instead of deferring, a *failing* debounced write re-queues its own older snapshot for fields
+> the newer write already replaced, and the retry silently reverts theme / language / target exam / profile
+> — fixed with a monotonic write sequence plus a per-field ack map. **S3-V2** (original Wave S3 defect that
+> ADR-121's defer had masked): offline, every backgrounding enqueued another full-document mutation — 8
+> lifecycle events produced 8 mutations at HEAD and at v248, 1 under ADR-121 — fixed by having
+> flushUpdatesAsync persist-and-return only when a write is outstanding AND no caller is waiting, which
+> leaves ADR-122's logout guarantee intact. **S3-V3** (pre-dates Wave S3): logout gated everything on a
+> Firestore promise that never settles offline, with no timeout, wedging the app on a signed-out-looking
+> screen while still signed in — now a once-only continuation plus a 3 s watchdog. Durability check
+> **57 → 73 assertions**, all ten new ones verified to fail on the previous HEAD. No Firestore, Security or
+> Payment surface change.
 
 > **2.154 (2026-07-25)** — **Wave S3 release-gate remediation (ADR-122, SW v253→v254).** Architecture
 > 2.70→2.71. An independent release gate on Wave S3 returned FAIL. Two findings: ADR-121's own remediation

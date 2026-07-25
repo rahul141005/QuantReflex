@@ -61,6 +61,24 @@ var FirestoreSync = (function () {
     _flushInFlight = false;
     return true;
   }
+  /* ADR-123 (S3-V1): a monotonic write sequence plus a per-field acknowledgement map. ADR-122 made an
+     overlapping logout flush write instead of deferring, which exposed this: when the DEBOUNCED write then
+     rejects, its catch re-queues its own (older) snapshot value for any field whose queue entry is missing —
+     and the entry is missing precisely BECAUSE the newer async write already succeeded and cleaned it up.
+     The 5 s retry then wrote the stale value over the fresh one, silently reverting a user-visible field
+     (theme, language, target exam, profile name, quick links, bookmarks, custom topics/formulas). `stats` was
+     immune only by accident: it is mutated in place, so the re-queued reference already held the new value.
+     Recording which sequence last acknowledged each field makes "has someone newer already written this?"
+     answerable, so a failed older write can never resurrect what a newer successful one replaced. */
+  var _writeSeq = 0;
+  var _ackedSeq = {};
+  function _markAcked(keys, seq) {
+    for (var i = 0; i < keys.length; i++) {
+      if (!((_ackedSeq[keys[i]] || 0) > seq)) _ackedSeq[keys[i]] = seq;
+    }
+  }
+  function _isSuperseded(field, seq) { return (_ackedSeq[field] || 0) > seq; }
+
   /* ADR-121 (FS1) / ADR-122: after a successful write, drop exactly the fields we wrote — and ONLY if
      their CONTENT is still what we wrote. This used to compare by object identity
      (`_pendingUpdates[k] === snapshot[k]`) while claiming to "preserve any newer edits queued meanwhile".
@@ -320,6 +338,7 @@ var FirestoreSync = (function () {
     _flushRetryCount = 0;
     _flushInFlight = false;
     _flushHold = 0;              /* a reset invalidates any outstanding hold (generation guard drops the write) */
+    _ackedSeq = {};              /* ADR-123: field acks belong to the outgoing user's queue, which is gone */
     if (_flushRetryTimer) {
       clearTimeout(_flushRetryTimer);
       _flushRetryTimer = null;
@@ -895,9 +914,11 @@ var FirestoreSync = (function () {
     _pendingUpdates = {};
     var _hold = _acquireFlushHold();
     var gen = _syncGeneration;
+    var seq = ++_writeSeq;   /* ADR-123: identifies this write for the supersede check below */
 
     docRef.set(snapshot, { merge: true }).then(function () {
       _releaseFlushHold(_hold);
+      _markAcked(keys, seq);
       if (gen !== _syncGeneration) {
         console.warn('[FirestoreSync:_flushUpdates] generation changed after write, discarding follow-up');
         return;
@@ -930,7 +951,10 @@ var FirestoreSync = (function () {
         return;
       }
       for (var k = 0; k < keys.length; k++) {
-        if (!_pendingUpdates.hasOwnProperty(keys[k])) {
+        /* ADR-123 (S3-V1): absent from the queue does NOT mean "safe to restore". A concurrent
+           flushUpdatesAsync (logout) may have written a NEWER value for this field and cleaned it out; putting
+           our older snapshot back would let the retry overwrite it. Only re-queue what nothing newer acked. */
+        if (!_pendingUpdates.hasOwnProperty(keys[k]) && !_isSuperseded(keys[k], seq)) {
           _pendingUpdates[keys[k]] = snapshot[keys[k]];
         }
       }
@@ -983,8 +1007,21 @@ var FirestoreSync = (function () {
        We therefore proceed. _acquireFlushHold() returns 0 when someone else owns the hold and
        _releaseFlushHold(0) is a safe no-op, so ownership stays correct (we never steal or release another
        path's hold) while durability is restored. Two overlapping set(…, {merge:true}) writes on one doc
-       are field-level last-write-wins, and this snapshot is the superset (the debounced flush already
-       emptied _pendingUpdates before writing), so the later write is the correct one. */
+       are field-level last-write-wins, and the debounced flush emptied _pendingUpdates before writing, so
+       for every field this payload carries, this is the newer value and the correct one.
+
+       ADR-123 (S3-V2), the one exception: the UNLOAD callers (session-manager.js beforeunload /
+       visibilitychange) pass no callback — they need durability, not completion. Offline the write promise
+       never settles, so the hold is held forever and _flushUpdates early-returns, but this function did not:
+       every backgrounding enqueued ANOTHER full-document mutation into the SDK's offline queue (measured: 8
+       lifecycle events ⇒ 8 mutations, each carrying the whole stats blob). The durable localStorage buffer
+       already covers a process kill for those callers, so when a write is outstanding and nobody is waiting
+       on us, persist and return. The logout caller (settings.js) DOES pass a callback and must still write —
+       that is exactly the guarantee ADR-122 restored, and it is preserved untouched. */
+    if (_flushInFlight && !callback) {
+      _persistPendingBuffer();
+      return;
+    }
     var snapshot = {};
     var snapSig = {};
     for (var i = 0; i < keys.length; i++) {
@@ -999,8 +1036,10 @@ var FirestoreSync = (function () {
        front so an offline/closing tab can replay them next load. */
     _persistPendingBuffer();
     var _hold = _acquireFlushHold();
+    var seq = ++_writeSeq;   /* ADR-123: so a failing older flush can never resurrect what this one wrote */
     docRef.set(snapshot, { merge: true }).then(function () {
       _releaseFlushHold(_hold);
+      _markAcked(keys, seq);
       if (_contextChanged()) { if (callback) callback(); return; }
       /* Success: drop exactly the fields we wrote, and ONLY if their content is still what we wrote
          (see _applySuccessCleanup — content, never object identity). */

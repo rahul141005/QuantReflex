@@ -8,6 +8,69 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-123 — Wave S3 final verification: superseded-write resurrection, offline write amplification, logout watchdog (v255) (2026-07-25)
+
+- **Context.** A final adversarial verification pass over Wave S3 at `1bb8e3f`, run with executed harnesses
+  that load the real `js/firestore-sync.js` into a `vm` and drive it through its real lifecycle handlers.
+  Three defects reproduced deterministically. Everything else Wave S3 claims held under attack.
+
+- **Decision 1 — a failed older write may never resurrect what a newer one already wrote (S3-V1, a
+  regression from ADR-122).** ADR-122 made an overlapping logout flush write instead of deferring. That
+  exposed a latent hole in the debounced flush's failure path: it re-queues its own snapshot for any field
+  missing from `_pendingUpdates`, guarded only by `hasOwnProperty` — and the field is missing *precisely
+  because* the newer async write succeeded and `_applySuccessCleanup` removed it. The 5 s retry then wrote
+  the stale value back. Measured: `[settings@classic, settings@playful, settings@classic]`, versus
+  `[classic, playful]` before ADR-122. User-visible and silent: theme, app language, target exam, profile
+  name, quick links, bookmarks, custom topics/formulas. `stats` was immune only by accident — it is mutated
+  in place, so the re-queued reference already held the current value.
+  The fix is a monotonic `_writeSeq` plus a per-field `_ackedSeq` map: each flush stamps a sequence at
+  snapshot time and marks the fields it wrote on success, and the failure path re-queues a field only when
+  nothing newer has acknowledged it. Cleared in `resetSyncState` (the acks belong to the outgoing user).
+  **Reachability:** needs the debounced write to reject while the async write succeeds — a payload-specific
+  rejection (a `stats` document crossing 1 MiB, an invalid nested value), not a plain network drop, where
+  the SDK rejects neither. Narrow, but silent and permanent when it happens.
+
+- **Decision 2 — the unload path must not amplify writes while offline (S3-V2, an ORIGINAL Wave S3 defect
+  that ADR-121 masked).** Offline the write promise never settles, so the hold is held forever and
+  `_flushUpdates` early-returns — but `flushUpdatesAsync` did not, so every backgrounding enqueued another
+  full-document mutation into the SDK's offline queue, each carrying the whole `stats` blob (mistakes,
+  responseTimes, dailyHistory). Measured across 8 real `visibilitychange` dispatches: **8 mutations at HEAD,
+  8 at the original Wave S3 (v248), 1 under ADR-121's defer.** So this is not new in ADR-122 — ADR-121's
+  (wrong) deferral merely hid it. Final state was always correct, so this is cost, IndexedDB growth and
+  reconnect latency rather than corruption.
+  The two call classes are already distinguishable: the unload callers (`js/session-manager.js:180,189`)
+  pass **no callback** — they need durability, which the durable buffer provides — while the logout caller
+  (`js/settings.js`) passes one and must still write. So `flushUpdatesAsync` now persists and returns when a
+  write is outstanding **and no callback was supplied**. ADR-122's guarantee is untouched.
+
+- **Decision 3 — logout gets a watchdog (S3-V3, pre-dates Wave S3).** `js/settings.js` gates
+  `resetSyncState()` → `Auth.logout()` → reload entirely on the `flushUpdatesAsync` callback, which fires
+  from a Firestore `set()` promise. That promise never settles while offline (verified by execution: the
+  callback does not fire), and there was no timeout — the `return` after the flush call makes the
+  non-flush path unreachable. An offline logout therefore left the user **signed in** while the UI had
+  already hidden the app and shown the auth screen, with `_logoutInFlight` and the disabled button blocking
+  every retry: recoverable only by a manual reload. Verified identical at `6279c04`, before Wave S3 — not a
+  Wave S3 regression, but squarely in the logout/offline surface under review. A once-only `_finishLogout`
+  plus a 3 s `LOGOUT_FLUSH_TIMEOUT_MS` watchdog now runs the same sequence. Safe because
+  `_persistPendingBuffer()` has already run synchronously, so proceeding cannot lose data.
+
+- **Tests.** `firestore-durability.check.js` 57 → **73**. All ten new assertions were verified to fail on
+  `1bb8e3f` and pass after, including both behavioural ones with their evidence
+  (`writes=["classic","playful","classic"]`, `writes=8`). New coverage: the differential-failure
+  interleaving, a control proving an *unsuperseded* failed write is still retried (the guard costs no
+  durability), the offline write count across 8 real lifecycle dispatches with a buffer-content assertion,
+  and an executed proof of the S3-V3 premise (offline, the callback never fires; the buffer is already
+  written). The harness gained per-write `resolve`/`reject` handles and multi-handler event dispatch.
+
+- **Reported, not changed** (pre-existing, outside Wave S3's changes): `usageCache` has no invalidation on
+  premium activation or account deletion — display-only, 60 s TTL, unreachable post-deletion since the auth
+  account goes first · `_flushUpdates`'s cross-user abort clears the queue without persisting the buffer
+  first · `clearUserData()` never clears `_pendingUpdates`, so a queued `stats` update can re-flush over a
+  reset · an AI request authenticated just before deletion can recreate `users/{uid}/usage/ai` via
+  `_saveUsage`, leaving an orphan doc under a deleted user.
+
+---
+
 ## ADR-122 — Wave S3 release-gate remediation: the deferred-logout write, and tests that run copies (v254) (2026-07-25)
 
 - **Context.** An independent release-gate audit of Wave S3 at `148d995` returned **FAIL**. FS2, FS4, the
@@ -35,6 +98,9 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   sound half) is preserved while durability is restored. Two overlapping `set(…, {merge:true})` writes on one
   document are field-level last-write-wins, and this snapshot is the superset — the debounced flush emptied
   `_pendingUpdates` before writing — so the later write is the correct one.
+  **⚠ EXTENDED by ADR-123.** Proceeding is right, but this decision did not consider two consequences: a
+  *failing* older write could resurrect its stale snapshot over the newer value, and the unload callers
+  (which pass no callback) amplified writes while offline. Both fixed in ADR-123; the decision stands.
 
 - **Decision 2 — a check that re-implements the code it guards is not coverage.** ADR-121 claimed
   `firestore-durability.check.js` moved "from 15 source pattern-matches to 39 executed assertions". Two of

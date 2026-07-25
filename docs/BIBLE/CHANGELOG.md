@@ -6,6 +6,52 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-25 — Wave S3 final verification: superseded writes, offline amplification, logout watchdog (ADR-123, SW v254→v255)
+
+A final adversarial verification pass over Wave S3, run with executed harnesses that load the real
+`js/firestore-sync.js` into a `vm` and drive it through its real lifecycle handlers. Three defects
+reproduced deterministically; everything else Wave S3 claims held under attack.
+
+- **S3-V1 · a failed older write resurrected a stale value (regression from ADR-122).** ADR-122 made an
+  overlapping logout flush write instead of deferring. When the *debounced* write then rejects, its catch
+  re-queues its own older snapshot for any field missing from the queue — missing precisely because the
+  newer write succeeded and cleaned it up — and the 5 s retry wrote the stale value back. Measured
+  `[classic, playful, classic]` vs `[classic, playful]` before ADR-122. Silent revert of theme, app
+  language, target exam, profile name, quick links, bookmarks, custom topics/formulas (`stats` was immune
+  only because it is mutated in place). Fixed with a monotonic write sequence plus a per-field ack map, so
+  a failing older write can never overwrite what a newer successful one replaced.
+- **S3-V2 · offline write amplification (original Wave S3 defect, masked by ADR-121).** Offline the write
+  promise never settles, so the hold is held forever and `_flushUpdates` early-returns — but
+  `flushUpdatesAsync` did not, so every backgrounding enqueued another full-document mutation carrying the
+  whole `stats` blob. Measured over 8 real `visibilitychange` dispatches: **8 mutations at HEAD, 8 at the
+  original Wave S3 (v248), 1 under ADR-121's defer** — so ADR-121 hid it rather than causing it. The unload
+  callers pass no callback and are covered by the durable buffer; the logout caller passes one and must
+  still write. `flushUpdatesAsync` now persists and returns only when a write is outstanding *and* nobody
+  is waiting on it. Back to 1 mutation; ADR-122's guarantee untouched.
+- **S3-V3 · offline logout wedged the app (pre-dates Wave S3).** `js/settings.js` gated `resetSyncState()`
+  → `Auth.logout()` → reload entirely on the flush callback, which fires from a Firestore `set()` promise
+  that never settles offline — with no timeout, while the UI had already hidden the app and shown the auth
+  screen and the disabled button blocked every retry. Verified identical at `6279c04`, before Wave S3. Now
+  a once-only continuation plus a 3 s watchdog; safe because the durable buffer is written synchronously
+  first.
+
+**Tests: 57 → 73 durability assertions.** All ten new ones were verified to fail on `1bb8e3f` and pass
+after, including both behavioural ones with their evidence. Added: the differential-failure interleaving, a
+control proving an *unsuperseded* failed write is still retried, the offline write count across 8 real
+lifecycle dispatches plus a buffer-content assertion, and an executed proof that the logout callback never
+fires offline.
+
+**Reported, not changed** (pre-existing, outside Wave S3): `usageCache` has no invalidation on premium
+activation or account deletion (display-only, 60 s TTL, unreachable post-deletion) · `_flushUpdates`'s
+cross-user abort clears the queue without persisting first · `clearUserData()` never clears
+`_pendingUpdates` · an AI request authenticated just before deletion can recreate `users/{uid}/usage/ai`.
+
+Docs: ADR-123 added; ADR-122 Decision 1 annotated as extended. SW `v254 → v255` lockstep. Verified:
+`npm test` **14,507/0** · firestore-durability **73/0** · account-isolation 121/0 · session-integrity 42/0 ·
+entitlement-core 93/0 · design-lint 10/10 · Chromium purge run and boot smoke clean (0 page errors).
+
+---
+
 ## 2026-07-25 — Wave S3 release-gate remediation: the deferred-logout write, and tests that ran copies (ADR-122, SW v253→v254)
 
 An independent release-gate audit of Wave S3 returned **FAIL**. FS2 (`pagehide`), FS4 (TTL sweep), the

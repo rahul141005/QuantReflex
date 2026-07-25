@@ -91,15 +91,20 @@ function harness(opts) {
   opts = opts || {};
   const store = opts.store || makeStore();
   const writes = [];
-  const events = {};
+  const pending = {};      /* write index → { resolve, reject } for writes held open by opts.settle */
+  const events = {};       /* event name → array of handlers, in registration order */
+  const fire = (name) => (events[name] || []).forEach((f) => f());
   let uid = opts.uid || 'userA';
   const docRef = {
     set(payload) {
       /* deep-copy at call time: a real write serializes the payload before returning, so a later
          in-place mutation of a queued object must not retroactively rewrite what we "sent" */
       try { writes.push(JSON.parse(JSON.stringify(payload))); } catch (_) { writes.push(payload); }
-      if (opts.onWrite) opts.onWrite(payload, writes.length);
-      if (opts.settle && opts.settle(writes.length) === false) return new Promise(function () {});
+      const n = writes.length;
+      if (opts.onWrite) opts.onWrite(payload, n);
+      if (opts.settle && opts.settle(n) === false) {
+        return new Promise(function (resolve, reject) { pending[n] = { resolve, reject }; });
+      }
       return Promise.resolve();
     },
     get() {
@@ -117,8 +122,8 @@ function harness(opts) {
     console: { log() {}, warn() {}, error() {} },
     JSON, Object, Array, Date, Math, isNaN, String, Number, Boolean, Promise, setTimeout, clearTimeout,
     localStorage: store,
-    window: { addEventListener: (e, f) => { events[e] = f; } },
-    document: { addEventListener: (e, f) => { events[e] = f; }, visibilityState: 'visible' },
+    window: { addEventListener: (e, f) => { (events[e] = events[e] || []).push(f); } },
+    document: { addEventListener: (e, f) => { (events[e] = events[e] || []).push(f); }, visibilityState: 'visible' },
     firebase: { firestore: { FieldValue: { serverTimestamp: () => '__serverTs__' } } },
     FirebaseApp: {
       isReady: () => true,
@@ -132,7 +137,7 @@ function harness(opts) {
      buffer freshness guard below could never be exercised */
   vm.runInContext(R('data/entitlement-core.js'), ctx, { filename: 'entitlement-core.js' });
   vm.runInContext(holdSrc, ctx, { filename: 'firestore-sync.js' });
-  return { ctx, store, writes, events, sync: ctx.FirestoreSync };
+  return { ctx, store, writes, events, pending, fire, sync: ctx.FirestoreSync };
 }
 const tick = () => new Promise((r) => setTimeout(r, 15));
 
@@ -147,7 +152,7 @@ test(async function () {
   await new Promise((res) => h.sync.loadFromFirestore(res));
   h.writes.length = 0;
   h.sync.syncStats({ totalAttempted: 10 });
-  h.events.beforeunload();                            /* a debounced/unload flush takes the hold */
+  h.fire('beforeunload');                             /* a debounced/unload flush takes the hold */
   ok('FS1 the in-flight flush issued its write and still holds it', h.writes.length === 1);
   h.sync.syncStats({ totalAttempted: 11 });           /* the answer recorded inside the write window */
   let calledBack = false;
@@ -199,7 +204,7 @@ test(async function () {
   ok('FS1 the flush wrote the value it snapshotted', h.writes.length === 1 && h.writes[0].stats.totalAttempted === 10);
   /* the mutated field must still be queued — the next flush is what proves it wasn't dropped */
   armed = false;
-  h.events.pagehide();
+  h.fire('pagehide');
   await tick();
   ok('FS1 an in-place edit during the write is retained and reaches the server on the next flush',
     h.writes.length === 2 && h.writes[1].stats && h.writes[1].stats.totalAttempted === 11,
@@ -216,10 +221,104 @@ test(async function () {
   await tick();
   ok('FS1 unchanged data is cleared after a successful write (durable buffer removed)',
     h.store._m['qr_pending_writes_userA'] === undefined);
-  h.events.pagehide();
+  h.fire('pagehide');
   await tick();
   ok('FS1 …and no redundant follow-up write is issued', h.writes.length === 1);
 });
+
+/* ── S3-V1 (ADR-123): a FAILING older flush must never resurrect what a newer one already wrote ────
+   Found by the final adversarial pass. ADR-122 made the logout flush write instead of deferring; when the
+   debounced write then rejects, its catch re-queues its own older snapshot for any field missing from the
+   queue — and it is missing precisely BECAUSE the newer write succeeded and cleaned it up. The 5 s retry
+   then reverted the user's theme/language/exam/profile. Fails without the _ackedSeq guard. */
+test(async function () {
+  const h = harness({ settle: (n) => n !== 1 });          /* hold the debounced write open */
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncSettings({ theme: 'classic' });              /* settings@A */
+  h.fire('beforeunload');                                 /* debounced flush writes A, stays in flight */
+  h.sync.syncSettings({ theme: 'playful' });              /* settings@B — changed inside the window */
+  await new Promise((res) => h.sync.flushUpdatesAsync(res));   /* logout flush writes B, succeeds */
+  await tick();
+  ok('S3-V1 the newer value is written while the older write is still in flight',
+    h.writes.length === 2 && h.writes[1].settings.theme === 'playful');
+  h.pending[1].reject(new Error('simulated transient write failure'));
+  await new Promise((r) => setTimeout(r, 5300));          /* FLUSH_RETRY_DELAY_MS + margin */
+  const last = h.writes[h.writes.length - 1];
+  ok('S3-V1 the failed older write does NOT resurrect its stale value on retry',
+    last.settings === undefined || last.settings.theme === 'playful',
+    'writes=' + JSON.stringify(h.writes.map((w) => w.settings && w.settings.theme)));
+});
+
+/* Control: a failed flush with nothing newer acked must STILL re-queue and retry (durability intact). */
+test(async function () {
+  const h = harness({ settle: (n) => n !== 1 });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncSettings({ theme: 'classic' });
+  h.fire('beforeunload');
+  h.pending[1].reject(new Error('simulated transient write failure'));
+  await new Promise((r) => setTimeout(r, 5300));
+  ok('S3-V1 an unsuperseded failed write is still retried (no durability lost to the new guard)',
+    h.writes.length === 2 && h.writes[1].settings && h.writes[1].settings.theme === 'classic',
+    'writes=' + JSON.stringify(h.writes.map((w) => w.settings && w.settings.theme)));
+});
+
+/* ── S3-V2 (ADR-123): repeated unload events while OFFLINE must not amplify writes ─────────────────
+   Offline the write promise never settles, so the hold is held forever and _flushUpdates early-returns —
+   but flushUpdatesAsync did not, so every backgrounding enqueued another full-document mutation into the
+   SDK's offline queue (measured 8 events ⇒ 8 mutations, each carrying the whole stats blob). The unload
+   callers pass no callback; the logout caller does, and must still write. */
+const smSrc = R('js/session-manager.js');
+ok('S3-V2 the unload callers pass NO callback (durability is the buffer’s job there)',
+  (smSrc.match(/FirestoreSync\.flushUpdatesAsync\(\);/g) || []).length === 2 &&
+  !/FirestoreSync\.flushUpdatesAsync\(\s*function/.test(smSrc));
+ok('S3-V2 the logout caller DOES pass a callback (so it still writes — the ADR-122 guarantee)',
+  /FirestoreSync\.flushUpdatesAsync\(_finishLogout\)/.test(R('js/settings.js')));
+test(async function () {
+  const h = harness({ settle: () => false });             /* OFFLINE: no write ever settles */
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  /* session-manager's visibilitychange handler is one line — mirror the call it makes (asserted above) */
+  h.events.visibilitychange.push(function () { h.sync.flushUpdatesAsync(); });
+  h.ctx.document.visibilityState = 'hidden';
+  const progress = { totalAttempted: 0, mistakes: [] };
+  for (let i = 1; i <= 8; i++) {
+    progress.totalAttempted = i; progress.mistakes.push({ id: 'q' + i });
+    h.sync.syncStats(progress);
+    h.fire('visibilitychange');
+    await tick();
+  }
+  ok('S3-V2 eight offline background events queue ONE mutation, not eight',
+    h.writes.length === 1, 'writes=' + h.writes.length);
+  ok('S3-V2 the data is still durable — the buffer holds the latest offline work',
+    JSON.parse(h.store._m['qr_pending_writes_userA']).updates.stats.totalAttempted === 8);
+});
+
+/* ── S3-V3 (ADR-123): logout must not hang on a promise that never settles ────────────────────────
+   Executed proof of the premise: offline, flushUpdatesAsync's callback never fires. settings.js gates
+   resetSyncState + Auth.logout + reload on it, so without a watchdog an offline logout wedges the app
+   showing a signed-out screen while the user is still signed in. */
+test(async function () {
+  const h = harness({ settle: () => false });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.sync.syncStats({ totalAttempted: 3 });
+  let calledBack = false;
+  h.sync.flushUpdatesAsync(function () { calledBack = true; });
+  await new Promise((r) => setTimeout(r, 200));
+  ok('S3-V3 offline, the logout callback genuinely never fires (the premise for the watchdog)',
+    calledBack === false);
+  ok('S3-V3 …but the durable buffer is already written, so proceeding anyway loses nothing',
+    !!h.store._m['qr_pending_writes_userA']);
+});
+const setSrc = R('js/settings.js');
+ok('S3-V3 logout arms a watchdog so it cannot hang on the flush',
+  /LOGOUT_FLUSH_TIMEOUT_MS/.test(setSrc) &&
+  /_logoutWatchdog = setTimeout\(_finishLogout, LOGOUT_FLUSH_TIMEOUT_MS\)/.test(setSrc));
+ok('S3-V3 the logout continuation is once-only (callback and watchdog cannot both run it)',
+  /if \(_logoutDone\) return;\s*_logoutDone = true;/.test(setSrc));
+ok('S3-V3 the watchdog is cancelled when the flush does complete',
+  /clearTimeout\(_logoutWatchdog\)/.test(setSrc));
 
 /* ── FS1-b: the hold helpers + the success cleanup, sliced straight out of the production file ──── */
 const holdCtx = { _flushHold: 0, _flushHoldSeq: 0, _flushInFlight: false, Object: Object, JSON: JSON };
@@ -263,6 +362,15 @@ ok('FS1 no path sets _flushInFlight directly outside the acquire helper',
   (holdSrc.match(/_flushInFlight = true/g) || []).length === 1);
 ok('FS1 the debounced flush no longer computes a signature it never reads',
   !/snapSig/.test((holdSrc.match(/function _flushUpdates\(\)[\s\S]*?\n  \}/) || [''])[0]));
+ok('S3-V1 the failure path consults the supersede map before re-queueing',
+  /!_pendingUpdates\.hasOwnProperty\(keys\[k\]\) && !_isSuperseded\(keys\[k\], seq\)/.test(holdSrc));
+ok('S3-V1 both flush paths stamp a sequence and ack the fields they wrote',
+  (holdSrc.match(/var seq = \+\+_writeSeq;/g) || []).length === 2 &&
+  (holdSrc.match(/_markAcked\(keys, seq\);/g) || []).length === 2);
+ok('S3-V1 the ack map is cleared on reset (it belongs to the outgoing user)',
+  /_ackedSeq = \{\};\s+\/\* ADR-123/.test(holdSrc));
+ok('S3-V2 flushUpdatesAsync skips only when nobody is waiting on it',
+  /if \(_flushInFlight && !callback\) \{[\s\S]{0,120}?_persistPendingBuffer\(\);[\s\S]{0,40}?return;/.test(fuaBody));
 
 /* ── FS2: pagehide is wired alongside beforeunload + visibilitychange ────────────────────────────── */
 ok('FS2 pagehide persists the durable buffer (mobile discard fires no beforeunload)',
