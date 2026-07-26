@@ -9,11 +9,28 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.158 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.75 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.159 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.159 (2026-07-26)** — **Language switching becomes a directional cascade (ADR-127, SW v258→v259).**
+> Architecture 2.75→2.76. ADR-126 was correct but read as a refresh: the dim sat on the **view root**, so the
+> whole screen went flat at once. The Translation Pass moves the fade to the active view's **visible direct
+> children**, ordered by on-screen top edge, finishing on the bottom-nav labels — measured mid-exit
+> `[0.50, 0.57, 0.75, 1.00]` and mid-return `[0.93, 0.84, 0.61]`. This is safe because **no view replaces its
+> own direct children** (ADR-126 assumed otherwise), which also retires the opacity-compounding trap (0.379
+> measured under a nominal 0.45 floor; now exactly 0.45) and the FW-W5 transform hazard. Off-screen sections
+> never animate, so the wave self-scales: 3 units / 446 ms at 320 px, 4 / 477 ms at 390 px, 4 / 483 ms at
+> 768 px. The transition runs **only on the visible screen, exactly once** — 0 morph classes across seven
+> later navigations and 0 on cold boot. Overlay discovery deleted (its first selector, `.qr-overlay`, existed
+> nowhere; the rest matched modals that cannot re-render). The pack load moved under the exit so latency is
+> absorbed: the dim starts at 37 ms regardless, and a pack that never resolves is capped rather than hanging.
+> No total-duration constant survives — JS reads the resolved timings off a real unit. Two pre-existing Learn
+> leaks fixed: one listener stacked per switch (1 → 2 → 3 → 4 invocations) and 30 DOM nodes duplicated per
+> switch (30 → 120 buttons). Frame pacing 17 ms median at 1×/4×/6× CPU, CLS 0, `npm test` **14,589/0**,
+> design-lint **10/10** with `durations=3` / `easings=3` unchanged. Wave S5 and Phase 4 payments untouched.
 
 > **2.158 (2026-07-26)** — **Premium language switching, the "Language Morph" coordinator (ADR-126, SW
 > v257→v258).** Architecture 2.74→2.75. Measured before designing: the hard cut hid three real defects — the

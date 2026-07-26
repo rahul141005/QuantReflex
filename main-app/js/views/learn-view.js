@@ -45,6 +45,13 @@ var LearnView = (function () {
   'use strict';
 
   var _hubBuilt = false;
+  /* ADR-127: _buildHub() re-runs on every language change (invalidateHub clears _hubBuilt), but three of
+     the nodes it wires — #quickRefEntry, #addTopicBtn, #learnSearch — are STATIC markup that survives the
+     rebuild, and none of those listeners goes through EventRegistry. So each rebuild used to stack another
+     handler on the same node: measured 1 → 2 → 3 → 4 invocations after 0 → 3 language switches, i.e. one
+     tap on "Quick Reference" eventually firing four navigations. Content is still rebuilt every time; only
+     the once-per-document wiring is latched. */
+  var _staticWired = false;
   var _searchTimer = null;
   var _io = null;   // IntersectionObserver for sticky section-nav highlighting (torn down between topics)
   var _hubScroll = 0;   // remembered hub scroll position, restored when returning from a topic page
@@ -142,19 +149,29 @@ var LearnView = (function () {
   /* ───────────────────────── hub ───────────────────────── */
 
   function _buildHub() {
-    /* The loved multiplication tables (tables.js) — kept on the hub as a first-class revision shortcut (ADR-092).
-       All other condensed reference (squares, cubes, fraction↔percent, mental math) now lives ONLY in the
-       Quick-Reference library — one intentional home instead of three historical ones. */
+    _renderCategories();
+    if (typeof renderBookmarksSection === 'function') renderBookmarksSection();
+    if (typeof renderCustomTopicSections === 'function') renderCustomTopicSections();
+
+    /* ADR-127: everything above rebuilds content and must run on every hub build. Everything below binds
+       a listener to a node that SURVIVES the rebuild, so it must run exactly once per document — see the
+       _staticWired note at the top of the module. The handlers read QRI18n at call time, so latching the
+       wiring costs no localization correctness. */
+    if (_staticWired) return;
+    _staticWired = true;
+
+    /* The loved multiplication tables (tables.js) — kept on the hub as a first-class revision shortcut
+       (ADR-092). All other condensed reference (squares, cubes, fraction↔percent, mental math) now lives
+       ONLY in the Quick-Reference library — one intentional home instead of three historical ones.
+       renderTableSelector APPENDS 30 buttons plus a control row and never clears, so calling it on every
+       hub build duplicated them: measured 30 → 60 → 90 → 120 buttons after 0 → 3 language switches, with
+       #view-learn growing 631 → 730 nodes. It carries no localized text, so building it once is correct. */
     var tableSelector = document.getElementById('tableSelector');
     var tableDisplay = document.getElementById('tableDisplay');
     if (tableSelector && tableDisplay && typeof renderTableSelector === 'function') renderTableSelector(tableSelector, tableDisplay, 30);
 
     var qrEntry = document.getElementById('quickRefEntry');
     if (qrEntry) qrEntry.addEventListener('click', function () { try { if (typeof Router !== 'undefined' && Router.showView) Router.showView('learn', { path: 'quick-ref' }); } catch (_) {} });
-
-    _renderCategories();
-    if (typeof renderBookmarksSection === 'function') renderBookmarksSection();
-    if (typeof renderCustomTopicSections === 'function') renderCustomTopicSections();
 
     var addTopicBtn = document.getElementById('addTopicBtn');
     if (addTopicBtn) {

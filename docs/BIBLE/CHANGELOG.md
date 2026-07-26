@@ -6,6 +6,82 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-26 — Language switching becomes a directional cascade (ADR-127, SW v258→v259)
+
+ADR-126 made the switch correct. It did not make it feel like a flagship interaction, and measuring the
+pipeline showed why: the dim was on the **view root**, so the whole screen went flat at once and only the
+reveal staggered. A uniform instantaneous dim is the visual signature of a page reload.
+
+**The Translation Pass.** A wave travels down the screen — each on-screen section dims, holds while the
+text is swapped, and returns, in on-screen order, finishing on the bottom-nav labels. Measured mid-exit at
+390 px: `[0.50, 0.57, 0.75, 1.00]` top to bottom; mid-return: `[0.93, 0.84, 0.61]`. A band, both ways.
+
+- **Per-section, not whole-view — and ADR-126's reason for the view-root fade was wrong.** It claimed the
+  commit destroys the faded elements. It does not: no view replaces its own direct children; the only
+  `cloneNode`+`replaceChild` in the app is Settings' `rebind()`, three levels down on leaf controls. Fading
+  sections instead means opacity can no longer **compound** (ADR-126 measured an effective alpha of 0.379
+  under a nominal 0.45 floor — now exactly **0.45**) and no transform ever lands on `.spa-view-active`,
+  which FW-W5 forbids.
+- **Only what is on screen moves.** Below-the-fold sections get no class, no delay, no layer — verified
+  **zero** morph classes on off-screen sections. The wave compresses and expands by itself: 3 units /
+  446 ms at 320 px, 4 units / 477 ms at 390 px, 4 units / 483 ms at 768 px. No breakpoint logic.
+- **One switch, one animation, one screen.** Navigating to Home / Practice / Learn / Stats / Duel after a
+  switch replays nothing: **29 morph-class mutations during the switch, 0 across seven later navigations**,
+  and 0 on a cold boot into the new language.
+- **Overlay participation deleted, not extended.** The old class list led with `.qr-overlay`, which does
+  not exist anywhere in the repo, and the classes that did match included JS-built modals with no
+  re-render path — they would have dimmed and revealed showing the *same* text. A forced-open static modal
+  now stays open, never animates, and still retranslates via `applyDom`.
+- **Latency absorbed, never introduced.** The pack load moved *under* the exit cascade. The dim begins at
+  **37 ms regardless** of pack latency; commit at 218 ms with an instant pack, 793 ms with a 700 ms pack,
+  and 1296 ms via the hard cap when the pack **never resolves** — no hang, correct language either way.
+- **No total-duration constant.** JS reads the resolved durations and delays back off a real unit, so the
+  five CSS tokens are the single source of timing. `--qr-morph-total` retired.
+- **Never animate over live, timed content.** An active drill takes the reduced-motion path: commit,
+  restore, announce, no motion — verified 0 morph classes, `#drillContainer` transform `none`, opacity 1.
+- **`data-i18n-morph="hold"` retired.** Under a cascade, holding a section back leaves its own labels
+  swapping at full opacity — a pop under the user's finger. It had already been wrong twice.
+
+**Two pre-existing leaks found while inspecting the pipeline, both triggered by any language change and
+both invisible to ADR-126's leak test because that test never left Settings:**
+- Learn stacked an event listener per switch — `_buildHub()` re-`addEventListener`s on the surviving
+  `#quickRefEntry` / `#addTopicBtn` / `#learnSearch`, none via `EventRegistry`. Measured **1 → 2 → 3 → 4**
+  handler invocations for a single tap after 0 → 3 switches.
+- Learn duplicated 30 DOM nodes per switch — `renderTableSelector` appends and never clears. Measured
+  **30 → 60 → 90 → 120** buttons, `#view-learn` growing 631 → 730 nodes.
+Both fixed with one `_staticWired` latch separating content rebuild (every time) from static wiring (once);
+both re-measured flat, with the hub still re-localizing.
+
+- **Performance.** 1× CPU 468 ms / longest task 60 ms · 4× 708 ms / 258 ms · 6× 833 ms / 363 ms. Frame
+  pacing **17 ms median, 17-18 ms p95 at every tier** — 60 fps sustained straight through a 363 ms
+  main-thread block. CLS **0** throughout.
+- **Adversarial.** 10 spam taps in 500 ms (last-wins, 0 stuck-dim, floor never breached) · 300 sequential
+  switches (nodes 1361 → 1364, exactly 1 announcer, 0 leftover classes) · reduced motion under **both**
+  switches (0 morph classes, still commits, restores focus and announces) · all-language round trip ·
+  modal open across a switch · cold boot · 0 page errors in every run.
+- **Tests.** `scripts/i18n.check.js` §10 rewritten — 38 assertions covering the cascade contract (direct
+  children, viewport-scoped, top-edge ordering, nav-last, capped index, post-commit re-enumeration,
+  orphan release), no overlay discovery, emergent timing, the pack cap, the drill/reduced-motion skip,
+  compositor-only tokenised CSS, the exit-tighter-than-return invariant, the paired reduced-motion
+  overrides, and the two Learn latches. **11 of them verified to fail against the prior HEAD.**
+- **Regression.** `npm test` **14,589/0** · design-lint **10/10** with `durations=3` / `easings=3`
+  unchanged · update.check 34/0 with the v259 lockstep · S4 suite (picker en/hi/mr, mixed-locale
+  `D_MIXED:false`, 72-combination overflow matrix: 0 problems) · account-isolation 121/0 ·
+  session-integrity 42/0 · firestore-durability 73/0 · entitlement-core 93/0 · Chromium purge run
+  (11 purged, 0 leaked, 0 wrongly destroyed) and boot smoke (0 page errors) · `node --check` on every file.
+- **Files.** `main-app/js/i18n-transition.js` · `main-app/css/style.css` · `main-app/js/views/learn-view.js`
+  · `main-app/scripts/i18n.check.js` · `main-app/index.html` · `main-app/service-worker.js` ·
+  `docs/BIBLE/{DECISION_LOG,CHANGELOG,VERSIONS,I18N_KNOWN_LIMITS}.md`. `js/settings.js` and `js/router.js`
+  unchanged.
+- **Documented, not implemented** (each unreachable because language changes only from Settings):
+  `refreshCurrentView()` drops route `params`; a Practice refresh resets the mode configuration;
+  `_capture()` misses `#modeSelect.practice-container`; `view-duel` has no `onShow` so the fallback
+  `showView` would clean up overlays and reset scroll; `js/app.js:616` re-applies language on sign-in
+  without announcing.
+- **Scope.** Wave S5 untouched. Payments / Phase 4 (P4-WS1…WS8) untouched.
+
+---
+
 ## 2026-07-26 — Premium language switching: the "Language Morph" coordinator (ADR-126, SW v257→v258)
 
 A Staff-UX-level rebuild of what happens when the app language changes. Measured first, and the framing

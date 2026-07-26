@@ -9768,65 +9768,71 @@ html.theme-playful .report-success-check .qr-ico { --qr-ico-size: 2.75rem; verti
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════════
-   Language Morph (ADR-126) — the language-switch transition.
+   Translation Pass (ADR-127, replacing the ADR-126 "Language Morph") — the language-switch transition.
 
-   Compositor-only by design: opacity + transform ONLY. The switch commit blocks the main thread for
-   88 ms (1x CPU) to 196 ms (6x), and a compositor-driven animation keeps running through that block —
-   anything main-thread-driven, or any layout-affecting property, would visibly stutter instead.
+   THE SHAPE. A wave of re-typesetting travels down the screen: each visible section of the active view
+   dims, holds while the text is swapped, and returns — in on-screen order, finishing on the bottom-nav
+   labels. ADR-126 faded the VIEW ROOT, so the whole screen went flat at once, which is the visual
+   signature of a page reload. Fading the SECTIONS is what makes the change read as directional.
+
+   WHY PER-SECTION IS SAFE (it was assumed unsafe in ADR-126). No view replaces its own direct children:
+   every onShow handler mutates descendants' innerHTML/textContent or a direct child's style.display, and
+   the only cloneNode+replaceChild in the app is Settings' rebind(), three levels down on leaf controls.
+   Two hazards disappear with the view-root fade: opacity can no longer COMPOUND down the tree (ADR-126
+   measured an effective alpha of 0.379 under a nominal 0.45 floor), and no transform is ever applied to
+   .spa-view-active, which FW-W5 (style.css:405) forbids because it makes the view a containing block and
+   traps the drill's position:fixed layers. The transition is skipped outright while a drill is active.
+
+   Compositor-only by design: opacity + transform ONLY. The commit blocks the main thread for 88 ms (1x
+   CPU) to 196 ms (6x), and a compositor-driven animation keeps running through that block — anything
+   main-thread-driven, or any layout-affecting property, would visibly stutter instead.
 
    Motion budget: every timing is calc() on an existing token, which is both the repo's established
-   escape hatch for off-scale timings and free against the design-lint census. Easings are pinned at
-   3/3 with zero slack, so var(--qr-ease-out) is the only easing used here — a literal cubic-bezier
-   would fail the build.
+   escape hatch for off-scale timings and free against the design-lint census. Easings are pinned at 3/3
+   with zero slack — a literal cubic-bezier here would fail the build — so this uses var(--qr-ease)
+   (cubic-bezier(.2,.7,.2,1)), whose fast start and long decelerating tail is the right curve for both
+   halves: the exit leaves decisively, the return arrives without ever snapping.
 
-   FW-W5 (style.css:405) applies: a retained transform on .spa-view-active makes the view a containing
-   block and traps the drill's position:fixed layers. So the view root animates OPACITY ONLY; the 3px
-   settle lives on its children, and every class is removed on completion.
+   There is deliberately NO total-duration token. JS reads the resolved transition/animation duration and
+   delay back off a real unit, so the whole schedule follows these five values and can never drift.
    ══════════════════════════════════════════════════════════════════════════════════════════════════ */
 :root {
-  --qr-morph-out: calc(var(--qr-dur-fast) * 0.9);      /* 108ms — dim */
-  --qr-morph-in: calc(var(--qr-dur) * 0.95);           /* 190ms — reveal */
-  --qr-morph-step: calc(var(--qr-dur-fast) * 0.2);     /* 24ms  — per-group stagger */
-  --qr-morph-floor: 0.45;                              /* never lower: content stays readable */
-  --qr-morph-total: 320ms;                             /* JS reads this for cleanup — single source */
+  --qr-morph-out: calc(var(--qr-dur-fast) * 0.6);        /*  72ms — a section dims                */
+  --qr-morph-out-step: calc(var(--qr-dur-fast) * 0.1);   /*  12ms — exit cascade interval (tight) */
+  --qr-morph-in: calc(var(--qr-dur) * 0.85);             /* 170ms — a section returns             */
+  --qr-morph-step: calc(var(--qr-dur-fast) * 0.22);      /*  26ms — reveal cascade interval (wide)*/
+  --qr-morph-floor: 0.45;                                /* never lower: content stays readable   */
 }
 
 /* The container is scroll-behavior:smooth, which turned the router's scrollTop=0 into a visible glide
-   to the top. Suppressed for the duration of the morph so the scroll RESTORE lands instantly. */
+   to the top. Suppressed for the duration so the scroll RESTORE lands instantly. */
 html.qr-lang-morphing .container { scroll-behavior: auto; }
 
 /* NOTE: there is deliberately NO `html.qr-lang-morphing .spa-view-active { animation: none }` rule here.
-   Suppressing viewSlideIn by class only defers the problem — a CSS animation restarts the instant its name
-   becomes non-none again, so removing the suppression at cleanup made the view flash from opacity 0 at the
-   very END of the transition (measured). The fix is upstream: the morph uses Router.refreshCurrentView(),
-   which never re-adds .spa-view-active, so the entry animation is never queued in the first place. */
+   Suppressing viewSlideIn by class only defers the problem — a CSS animation restarts the instant its
+   name becomes non-none again, so removing the suppression at cleanup made the view flash from opacity 0
+   at the very END of the transition (measured). The fix is upstream: the transition uses
+   Router.refreshCurrentView(), which never re-adds .spa-view-active, so the entry animation is never
+   queued in the first place. */
 
+/* EXIT — fast, tight, cascaded by --qr-morph-i (the unit's position in the wave, written by JS). */
 .qr-lang-morph-out {
   opacity: var(--qr-morph-floor);
-  transition: opacity var(--qr-morph-out) var(--qr-ease-out);
+  transition: opacity var(--qr-morph-out) var(--qr-ease);
+  transition-delay: calc(var(--qr-morph-i, 0) * var(--qr-morph-out-step));
 }
-.qr-lang-morph-in {
-  opacity: 1;
-  transition: opacity var(--qr-morph-in) var(--qr-ease-out);
-}
-/* The settle. Children only (never the view root — see FW-W5 above), staggered in ≤5 groups so the
-   change reads as a wave of transformation rather than a single blink.
 
-   TRANSFORM ONLY — deliberately no opacity in these keyframes. Opacity COMPOUNDS down the tree: a child
-   at .45 inside a root at .45 paints at .20, so an opacity wave here would silently break the floor the
-   root establishes. Measured before this rule was corrected: effective on-screen alpha 0.379 while the
-   root still read 0.84. The root owns the opacity story; the children own the movement story. */
-.qr-lang-morph-in > * {
-  animation: qrLangSettle var(--qr-morph-in) var(--qr-ease-out) both;
+/* RETURN — longer, wider spacing. One animation carrying BOTH properties, with `both` fill so a unit
+   holds the floor through its delay instead of snapping to full opacity and then re-dimming. Safe from
+   the ADR-126 compounding trap because these units sit inside a view root that is never faded. */
+.qr-lang-morph-in {
+  animation: qrLangSettle var(--qr-morph-in) var(--qr-ease) both;
   animation-delay: calc(var(--qr-morph-i, 0) * var(--qr-morph-step));
 }
 @keyframes qrLangSettle {
-  from { transform: translateY(3px); }
-  to   { transform: none; }
+  from { opacity: var(--qr-morph-floor); transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
 }
-/* The held section does not lift. Skipping it in _applyStagger only withholds its delay variable — it
-   would still match the rule above and animate at delay 0 — so the opt-out has to be stated here too. */
-.qr-lang-morph-in > [data-i18n-morph="hold"] { animation: none; }
 
 /* Screen-reader-only live region (the announcer). Clipped rather than display:none so it is still
    read; no layout impact. */
@@ -9841,13 +9847,13 @@ html.qr-lang-morphing .container { scroll-behavior: auto; }
   border: 0;
 }
 
-/* Reduced motion: NO transition at all, not a faster one. The commit still happens and the change is
-   still announced — only the motion is removed. Written as the repo's established pair (OS media query
-   + the body.reduced-motion class that Settings toggles). */
+/* Reduced motion: NO transition at all, not a faster one. The commit still happens, scroll and focus are
+   still restored and the change is still announced — only the motion is removed. Written as the repo's
+   established pair (OS media query + the body.reduced-motion class that Settings toggles). The JS also
+   skips applying these classes entirely, so this is belt-and-braces for a mid-transition preference flip. */
 @media (prefers-reduced-motion: reduce) {
-  .qr-lang-morph-out, .qr-lang-morph-in { opacity: 1 !important; transition: none !important; }
-  .qr-lang-morph-in > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .qr-lang-morph-out { opacity: 1 !important; transition: none !important; }
+  .qr-lang-morph-in { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
-body.reduced-motion .qr-lang-morph-out,
-body.reduced-motion .qr-lang-morph-in { opacity: 1 !important; transition: none !important; }
-body.reduced-motion .qr-lang-morph-in > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+body.reduced-motion .qr-lang-morph-out { opacity: 1 !important; transition: none !important; }
+body.reduced-motion .qr-lang-morph-in { animation: none !important; opacity: 1 !important; transform: none !important; }

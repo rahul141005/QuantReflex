@@ -335,3 +335,47 @@ The following are intentional and bounded:
      exists. Per this register's own rule ("when an entry stops being true, remove it") it is retired rather
      than left standing. There is nothing left to declare here: `grep -n hint js/ui/category-picker.js`
      returns no matches. -->
+
+---
+
+## Language-transition scope limits (ADR-127) — unreachable by construction
+
+The Translation Pass runs only on the screen that is visible when the language changes. Because the two
+language selects live in the Settings view and nowhere else, several paths that a language switch would
+otherwise touch are **not reachable through the product**. They are recorded here rather than fixed, so
+that a future entry point (an onboarding language step, a second selector) knows exactly what it must
+handle first. Each was verified from source during ADR-127.
+
+- **`Router.refreshCurrentView()` passes no route `params`** (`js/router.js:52`). Only `Router.onShow('learn')`
+  consumes params, so a refresh while reading `#learn/<topicId>` would call `renderLearnRoute(undefined)`
+  and render the **hub**, clearing `#learnTopic`. Unreachable today: `refreshCurrentView()` is only ever
+  invoked with `currentView === 'settings'`. A future non-Settings language control must fix this first.
+- **A Practice refresh discards the mode configuration.** `_resetPracticeUiToModes()`
+  (`js/controllers/practice-config.js:259-271`) unconditionally hides `#categorySelect`, shows `#modeSelect`
+  and resets the timer, adaptive and custom-count controls.
+- **Scroll capture covers `.container` only** (`js/i18n-transition.js`). While `body.view-practice-active`
+  is set, `.container` is `overflow:hidden` and the real scroller is `#modeSelect.practice-container`
+  (`css/style.css:3080-3100`), which would not be restored.
+- **`view-duel` has no `onShow` hook**, so `refreshCurrentView()` returns `false` and the fallback
+  `Router.showView('duel')` would run `_cleanupOverlays()` plus `scrollTo(0,0)` and `pushState` — closing
+  sheets and resetting scroll.
+- **A live drill keeps its own JS-rendered strings until the next question.** The commit deliberately skips
+  the view refresh while `body.drill-session-active` (`drill-engine.js` renders 88 localized strings by
+  innerHTML), and ADR-127 additionally skips the animation entirely so a timed question is never dimmed or
+  nudged. Static chrome still retranslates through `applyDom`.
+- **JS-built modals do not retranslate and do not animate.** Paywall, report sheet, AI companion, duel
+  sheets and onboarding build their markup with `QRI18n.t()` at open time and register no `onChange`
+  handler, so a language change behind an open one leaves it in the old language. They are deliberately
+  excluded from the transition rather than animated, because dimming and revealing unchanged text is worse
+  than not animating: it promises a change that does not happen. Unreachable while Settings is the only
+  entry point. Static modals (About, App Guide, profile, delete-account, exit-session, clear-data) are
+  `data-i18n` markup and **do** retranslate through `applyDom` — verified live.
+- **`js/app.js:616` re-applies the language on every sign-in and account boundary** from the remote settings
+  blob, with no transition and no announcement. This is app construction, not a user-initiated language
+  change, so it is out of the transition's scope; noted because it is a second, silent write path to
+  `QRI18n.init`.
+- **The Learn hub's table selector is built once per document** (ADR-127). It carries no localized text
+  ("Show All" / "Clear All" are hardcoded English — a separate, pre-existing i18n gap), and rebuilding it
+  on every language change duplicated 30 buttons per switch.
+- **At 320 px the Hindi language-row titles truncate** ("ऐप की …"). A static layout property of that
+  breakpoint, present in the settled state and unrelated to the transition.

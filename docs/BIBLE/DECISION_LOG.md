@@ -8,6 +8,104 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-127 — The language switch is a directional cascade, scoped to the visible screen (v259) (2026-07-26)
+
+- **Context.** ADR-126 made the switch *correct* — single commit pass, focus and scroll preserved, reduced
+  motion honoured, announced to assistive tech. It did not make it *feel* like a flagship interaction, and
+  measuring the pipeline rather than watching it showed why: the dim was applied to the **view root**, so
+  the whole screen went flat simultaneously and only the reveal staggered. A uniform, instantaneous dim is
+  the visual signature of a page reload — the one feeling the brief forbids.
+
+- **Decision 1 — cascade units are the active view's visible direct children, not the view root.** A wave
+  travels down the screen: each on-screen section dims, holds while the text is swapped, and returns, in
+  `getBoundingClientRect().top` order. Measured mid-exit at 390 px: `[0.50, 0.57, 0.75, 1.00]` top to
+  bottom; mid-return: `[0.93, 0.84, 0.61]` — a band travelling in the same direction both ways.
+
+- **Decision 2 — this is safe, and ADR-126's stated reason for the view-root fade was wrong.** ADR-126
+  said "the commit DESTROYS the elements faded out". It does not: **no view replaces its own direct
+  children.** Every `onShow` handler mutates descendants' `innerHTML`/`textContent` or a direct child's
+  `style.display`, and the only `cloneNode`+`replaceChild` in the app is Settings' `rebind()`
+  (`js/settings.js:171-177`), three levels down on leaf controls. Fading the sections instead removes two
+  hazards for free: opacity can no longer **compound** down the tree (ADR-126 measured an effective alpha
+  of 0.379 under a nominal 0.45 floor), and no transform is ever applied to `.spa-view-active`, which
+  FW-W5 (`css/style.css:405`) forbids because it makes the view a containing block and traps the drill's
+  `position:fixed` layers. Post-change the true on-screen alpha floor measures **exactly 0.45**.
+
+- **Decision 3 — only what is on screen moves.** Sections below the fold get no class, no delay and no
+  compositor layer; they are simply already translated when scrolled to. The wave therefore **compresses
+  on a small phone and expands on a tablet with no breakpoint logic**: measured 3 units / 446 ms at 320 px,
+  4 units / 477 ms at 390 px, 4 units / 483 ms at 768 px. Off-screen sections were verified to receive a
+  morph class **zero** times.
+
+- **Decision 4 — the nav settles last.** The bottom-nav labels are one final unit at the maximum index, so
+  the change leaves through the bottom of the screen and the interface reads as settling into its new
+  language. The bar and every icon hold — they do not change language, and fading them reads as a reload.
+
+- **Decision 5 — one switch, one animation, on one screen.** The transition runs only on the view that is
+  visible when the language changes — in practice always Settings, the sole entry point. Navigating to
+  Home / Practice / Learn / Stats / Duel afterwards replays nothing: verified with a MutationObserver
+  across seven subsequent navigations — **29 morph-class mutations during the switch, 0 after it**, and
+  **0 on a cold boot** into the new language.
+
+- **Decision 6 — overlay participation is deleted, not extended.** ADR-126 discovered overlays by class
+  name. That list led with `.qr-overlay`, which **does not exist anywhere in the repo**, and the classes
+  that did match included JS-built modals with no re-render path — they would have dimmed and revealed
+  showing the *same* text. Because language is only changeable from the Settings view, no sheet can be
+  open during the interaction; a forced-open static modal was verified to stay open, never animate, and
+  still retranslate through `applyDom` ("About QuantReflex" → "QuantReflex के बारे में").
+
+- **Decision 7 — latency is absorbed, never introduced.** ADR-126 loaded the study pack *before* touching
+  the screen, so a cold pack (19 script files per language) meant a dead-looking UI. The exit cascade now
+  starts on the tap and the load runs underneath it. Measured: dim begins at **37 ms regardless** of pack
+  latency; with the pack instant the commit lands at 218 ms, with a 700 ms pack at 793 ms, and with a pack
+  that **never resolves** the `PACK_CAP_MS` cap commits at 1296 ms — no hang, correct language, no stuck
+  state. The commit still waits for the exit to land, which is a physical requirement (a section still at
+  full opacity would visibly pop), not padding.
+
+- **Decision 8 — there is no total-duration constant.** JS reads the resolved `transitionDuration` /
+  `transitionDelay` / `animationDuration` / `animationDelay` back off a real unit, so the five CSS tokens
+  are the single source of timing and a retune never needs a JS edit. `--qr-morph-total` is retired.
+
+- **Decision 9 — never animate over live, timed content.** An active drill takes the reduced-motion path:
+  commit, restore, announce, **no motion at all**. Verified: 0 morph classes, `#drillContainer` transform
+  `none` and opacity 1, language still committed. Unreachable today (Settings is behind the drill) but it
+  is the correct behaviour and it removes the FW-W5 hazard by construction.
+
+- **Decision 10 — the `data-i18n-morph="hold"` opt-out is retired.** Under a whole-view fade it was a
+  mitigation for the screen going flat at once. Under a per-section cascade, holding one section back
+  leaves its own labels swapping language at full opacity — a pop, directly under the user's finger.
+  Participating is the coherent behaviour, and this deletes a concept that had already been wrong twice.
+
+- **Motion.** Exit is fast and tight, return is longer and wider — the exit compresses, the entrance
+  expands, which is what makes it read as authored rather than mechanical. All timings are `calc()` over
+  existing tokens (zero duration census) and the only easing is `var(--qr-ease)` = `cubic-bezier(.2,.7,.2,1)`,
+  whose fast start and long decelerating tail suits both halves; the easing census is pinned at 3/3 with
+  zero slack, so a literal `cubic-bezier` here would fail the build. `design-lint` stays **10/10** with
+  `durations=3` / `easings=3` unchanged.
+
+- **Two leaks found and fixed while inspecting the pipeline** (both pre-existing, both triggered by *any*
+  language change, both invisible to ADR-126's leak test because it never left Settings):
+  - **Learn stacked an event listener per switch.** `QRI18n.onChange` → `invalidateHub()` → the next Learn
+    visit re-runs `_buildHub()`, which re-`addEventListener`s on the **surviving** `#quickRefEntry`,
+    `#addTopicBtn` and `#learnSearch`; none goes through `EventRegistry`. Measured **1 → 2 → 3 → 4**
+    handler invocations for one tap after 0 → 3 switches. Fixed with a `_staticWired` latch.
+  - **Learn duplicated 30 DOM nodes per switch.** `renderTableSelector` **appends** 30 buttons plus a
+    control row and never clears. Measured **30 → 60 → 90 → 120** buttons, `#view-learn` growing
+    631 → 730 nodes. It carries no localized text, so it moved under the same latch. Both now flat.
+
+- **Performance.** 1× CPU: 468 ms total, longest task 60 ms. 4×: 708 ms, longest task 258 ms. 6×: 833 ms,
+  longest task 363 ms. Frame pacing held at **17 ms median and 17-18 ms p95 at every tier** — 60 fps
+  sustained straight through a 363 ms main-thread block, which is the compositor-only claim demonstrated
+  rather than asserted. CLS **0** at all three tiers.
+
+- **Documented, not implemented — each unreachable because language changes only from Settings.**
+  `Router.refreshCurrentView()` passes no route `params`, so a refresh on `#learn/<topic>` would render the
+  hub; a Practice refresh would reset the mode configuration (`js/controllers/practice-config.js:259-271`);
+  `_capture()` reads only `.container`, missing `#modeSelect.practice-container`; `view-duel` has no
+  `onShow` hook so the fallback `Router.showView('duel')` would run `_cleanupOverlays` and reset scroll;
+  and `js/app.js:616` re-applies the language on every sign-in from a possibly-different remote settings
+  blob with no announcement. Recorded in `I18N_KNOWN_LIMITS.md`.
+
 ## ADR-126 — Language switching is a coordinated transition, not a re-render (v258) (2026-07-26)
 
 - **Context.** Changing app language felt unfinished. Measured at HEAD `9c464a6` before designing anything,
