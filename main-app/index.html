@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v257';</script>
+  <script>window.QR_APP_VERSION = 'v258';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -711,7 +711,12 @@
       </div>
 
       <!-- SECTION 2 — Appearance & Personalization -->
-      <div class="settings-section">
+      <!-- ADR-126: data-i18n-morph="hold" belongs on a DIRECT child of the view — that is the level the
+           settle wave staggers. On the language row itself it was inert (measured: neither a morph root
+           nor a stagger group, so neither guard fired). Held here, the section under the user's finger
+           does not lift while the rest of the screen settles. It still shares the view's opacity dip:
+           opacity composites down the tree, so nothing inside a fading root can paint brighter than it. -->
+      <div class="settings-section" data-i18n-morph="hold">
         <h3 class="settings-section-title" data-i18n="settings.sectionAppearance">Appearance &amp; Personalization</h3>
         <div class="settings-section-card">
           <div class="settings-row">
@@ -1353,7 +1358,7 @@
         <div class="info-section guide-animate-section">
           <h3 class="info-section-title"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> <span data-i18n="about.s6Title">Version &amp; Updates</span></h3>
           <div class="info-block">
-            <p class="info-version" id="aboutVersionLine">Version v257</p>
+            <p class="info-version" id="aboutVersionLine">Version v258</p>
             <p class="info-version" id="aboutUpdateStatus" data-i18n="about.s6Update">Checking for updates…</p>
             <p data-i18n="about.s6P1">QuantReflex updates itself in the background — when a new version is ready, install it in one tap from Settings → Update App.</p>
           </div>
@@ -1595,6 +1600,9 @@
   <script defer src="js/quick-reference/quick-ref-i18n.js"></script>
   <script defer src="js/quick-reference/quick-ref-renderer.js"></script>
   <script defer src="js/ui/overlay.js"></script>
+  <!-- ADR-126: the language-switch coordinator. After overlay.js (reuses QROverlay.reducedMotion)
+       and after i18n.js / i18n-packs.js, whose APIs it drives. -->
+  <script defer src="js/i18n-transition.js"></script>
   <script defer src="js/settings.js"></script>
   <script defer src="js/notifications.js"></script>
   <script defer src="js/soundEngine.js"></script>

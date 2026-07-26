@@ -196,25 +196,42 @@ function initSettingsView() {
   if (langBlock && typeof QRI18n !== 'undefined' && QRI18n.isOn()) {
     langBlock.style.display = '';
     function _applyLanguageChange() {
-      QRI18n.init(settings);
       saveSettings(settings);
-      /* Re-render AFTER the study-language packs are in (ADR-111 stabilization): QRI18n.init fires onChange, which
-         starts the lazy hi/mr pack load; ensure() queues this callback onto that same in-flight load, so the view
-         repaint below sees localized generated/authored content on the very first switch. ensure() is synchronous
-         for 'en' and for already-loaded languages — behavior there is unchanged. Guarded for load-order safety. */
-      function _repaint() {
-        /* Re-render the active view so JS-rendered strings (plan status, banners) switch instantly;
-           static text is already re-applied by QRI18n.applyDom inside init(). */
+      /* Tactile feedback fires NOW, on the tap — not after the transition. Direct manipulation should
+         answer the finger immediately; the visual/language change follows. */
+      try { SoundEngine.play('settingsToggle'); } catch (_) {}
+      if (typeof triggerHaptic === 'function') { try { triggerHaptic(15); } catch (_) {} }
+
+      /* Everything else is owned by QRI18nTransition (ADR-126): it loads the study pack before touching
+         the screen, dims the content, runs QRI18n.init + the view re-render as ONE commit pass (this used
+         to be a double render costing 88-196 ms), restores scroll and focus across it — both of which were
+         silently lost before — reveals with a staggered settle, and announces the change to assistive tech.
+         `_commit` is the Settings-specific extra work; it runs inside that single pass, after
+         QRI18n.init, so QRI18n.t() here already returns the NEW language. */
+      function _commit() {
         if (typeof updateAboutUserStatus === 'function') { try { updateAboutUserStatus(); } catch (_) {} }
+        try { showToast(QRI18n.t('settings.languageUpdated')); } catch (_) {}
+      }
+      if (typeof QRI18nTransition !== 'undefined' && QRI18nTransition.switchTo) {
+        QRI18nTransition.switchTo(settings, _commit);
+        return;
+      }
+      /* Fallback if the coordinator failed to load (a missing script must never strand the user in a
+         half-switched state): commit directly, preserving the original ordering. */
+      QRI18n.init(settings);
+      function _repaint() {
+        _commit();
         if (typeof Router !== 'undefined' && Router.getCurrentView && Router.showView) {
           try { Router.showView(Router.getCurrentView() || 'settings'); } catch (_) {}
         }
-        SoundEngine.play('settingsToggle');
-        if (typeof triggerHaptic === 'function') triggerHaptic(15);
-        showToast(QRI18n.t('settings.languageUpdated'));
       }
       if (typeof QRPacks !== 'undefined' && QRPacks.ensure) QRPacks.ensure(settings.studyLanguage || 'en', _repaint);
       else _repaint();
+    }
+    /* Warm the other two study packs while the user is looking at Settings, so committing a switch is
+       never gated on the network. Bounded: two small files, and ensure() is a no-op once loaded. */
+    if (typeof QRI18nTransition !== 'undefined' && QRI18nTransition.warm) {
+      QRI18nTransition.warm(settings.studyLanguage || settings.appLanguage || 'en');
     }
     var appLanguageSelect = rebind(document.getElementById('appLanguageSelect'), 'change', function () {
       settings.appLanguage = this.value;

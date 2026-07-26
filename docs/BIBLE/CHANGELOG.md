@@ -6,6 +6,85 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-26 — Premium language switching: the "Language Morph" coordinator (ADR-126, SW v257→v258)
+
+A Staff-UX-level rebuild of what happens when the app language changes. Measured first, and the framing
+"the transition feels unfinished" turned out to be a third of the story — three real defects hid behind the
+hard cut, and an animation layered over them would have been lipstick.
+
+- **The switch was a double render.** `applyDom(document)` mutates ~428 static nodes, then `Router.showView`
+  re-runs `initSettingsView`, whose `rebind()` `cloneNode`+`replaceChild`s 24 controls. Measured commit:
+  **88 ms @1× CPU / 141 ms @4× / 196 ms @6×**, `showView` alone 80-132 ms of it.
+- **Focus was destroyed** — `rebind` replaced the very `<select>` whose `change` handler was on the stack;
+  `activeElement` fell to `BODY`. Now preserved: `appLanguageSelect` before *and* after, same node.
+- **Scroll was reset visibly** — `showView`'s `scrollTop = 0` has no same-view guard and `.container` is
+  `scroll-behavior: smooth`, so switching while scrolled smooth-glided the user to the top. Now captured and
+  restored with `scroll-behavior` suppressed for the duration.
+
+**New** `main-app/js/i18n-transition.js` (`QRI18nTransition`) owns the whole lifecycle: generation counter
+(last-wins; a second tap cancels the first and never queues) → `QRPacks.ensure` before any visual change →
+capture scroll/focus → dim to ≥0.45 → single-pass commit *under* the dim → restore scroll/focus
+(`preventScroll: true`) → staggered reveal (≤5 groups) → unconditional cleanup → polite announcement in the
+new language. `js/settings.js` routes through it (original ordering kept as a fallback) and warms the other
+two study packs when Settings is shown, so the common path is the instant path. Reusable by **auto-discovery,
+not registration** — every future screen is a `.spa-view`, so it inherits this with no work.
+
+**New** `Router.refreshCurrentView()` — re-runs the current view's `onShow` hooks *without* re-adding
+`.spa-view-active`. This fixed a defect in my own first implementation: `showView` re-adds that class, which
+replays `viewSlideIn` (opacity 0→1); suppressing it by class only deferred the flash to cleanup time
+(measured `minOpacity: 0` at the very end). Fixed upstream; the CSS suppression was deleted with a comment
+explaining why it must not return. Post-fix: one clean ramp, `minOpacity` 0.45-0.48.
+
+**Two corrections found by my own adversarial verification, not by tests:**
+- `data-i18n-morph="hold"` was **inert** on the language `.settings-row` — the row is neither a morph root
+  nor a direct child of the view, so neither guard fired. Moved to the `.settings-section` (a direct child,
+  the level the settle wave staggers) and the opt-out is now stated in CSS too, because skipping the element
+  in `_applyStagger` alone only withheld its delay and left it lifting at delay 0.
+- The settle keyframes **compounded opacity** with the root's fade: deep content painted at an effective
+  alpha of **0.379** while the root still read 0.84, silently breaking the 0.45 floor the design promises.
+  Keyframes are now transform-only — the root owns opacity, children own movement. Re-measured floor:
+  **0.525**, exactly the root's own value.
+  Documented honestly in ADR-126: under a root-level fade, opacity composites, so "the control you touched
+  stays solid" is not achievable. `hold` buys stillness, not brightness; hand continuity comes from focus and
+  scroll retention.
+
+**Verified by execution, with numbers.** Focus preserved (falls to `BODY` on the prior HEAD) · scroll 240 →
+254 with `sameContentInView: true` (prior HEAD resets to 0 and glides there) · opacity floor 0.48/0.45/0.45
+at 1×/4×/6× CPU, settling at 1 · long tasks 88/304/446 ms · CLS 0.013 · rapid toggling (10 switches in
+500 ms) last-wins with 0 stuck-dim roots · **300 sequential switches**: node growth **0**, exactly **1**
+announcer, 0 stuck classes · drill guard holds (marker inside `#view-practice` survives; no re-render over a
+live drill) · overlay stays open across a switch · all-language round trip correct · reduced motion under
+**both** switches applies **zero** morph classes (`minOpacity: 1`) while still committing and announcing ·
+mid-transition screenshots at 320/390/768 px × light/dark/playful: never blank, never below the floor, no
+horizontal overflow, held section still, focus retained, **0 page errors in every run**.
+
+- **Tests.** `scripts/i18n.check.js` §10 — 26 assertions covering coordinator routing, the single commit
+  pass, capture/restore, `preventScroll`, the drill guard, the generation counter, the reduced-motion skip,
+  reuse of `QROverlay.reducedMotion`, the announcer, packs-before-transition, no per-switch `onChange`,
+  unconditional cleanup, compositor-only CSS, `calc()` motion tokens, no literal `cubic-bezier`, the opacity
+  floor, `scroll-behavior` suppression, `refreshCurrentView`, the paired reduced-motion overrides, no
+  retained transform on the view root (FW-W5), the script tag, load order, the SW precache entry, the
+  held-section contract at the stagger level, its CSS half, and transform-only settle keyframes.
+- **Regression.** `npm test` **14,573/0** (i18n.check grew from 14,547) · design-lint **10/10** with
+  `durations=3` / `easings=3` **unchanged** (motion tokens are `calc()` over existing tokens — zero census
+  cost — and the only easing used is `var(--qr-ease-out)`, the ceiling having zero slack) · update.check 34/0
+  with the v258 lockstep · account-isolation 121/0 · session-integrity 42/0 · firestore-durability 73/0 ·
+  entitlement-core 93/0 · payment-parity 25/0 · S4 suite re-run (picker en/hi/mr, subject-modal
+  `en→hi→mr→hi→en→mr`, 72-combination overflow matrix: 0 problems) · Chromium purge run (11 purged, 0 leaked,
+  0 wrongly destroyed, exam → `null`) and boot smoke (0 page errors, deep-link hash preserved) ·
+  `node --check` on every modified file.
+- **Files.** `main-app/js/i18n-transition.js` (new) · `main-app/js/router.js` · `main-app/js/settings.js` ·
+  `main-app/css/style.css` (appended only — no existing rule modified) · `main-app/index.html` ·
+  `main-app/service-worker.js` (precache + `v257→v258`) · `main-app/scripts/i18n.check.js` ·
+  `docs/BIBLE/{DECISION_LOG,CHANGELOG,VERSIONS}.md`.
+- **Documented, not implemented.** Chrome's `overflow-anchor` shifts the restored scroll by a few pixels when
+  the new locale is taller — correct behaviour (same content stays in view), left alone. At 320 px the Hindi
+  language-row titles truncate; a pre-existing static layout property of that breakpoint, present in the
+  settled state and provably untouched here.
+- **Scope.** Wave S5 untouched. Payments / Phase 4 (P4-WS1…WS8) untouched.
+
+---
+
 ## 2026-07-26 — Wave S4 confidence pass: picker locale invalidation + certification-register debt (ADR-125, SW v256→v257)
 
 An ultra-adversarial confidence pass over Wave S4, using three angles no earlier pass used: ADR-124 (my own

@@ -8,6 +8,103 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-126 — Language switching is a coordinated transition, not a re-render (v258) (2026-07-26)
+
+- **Context.** Changing app language felt unfinished. Measured at HEAD `9c464a6` before designing anything,
+  the hard cut was only a third of the story — three real defects hid behind it:
+  - **It was a double render.** `applyDom(document)` mutated ~428 static nodes, then `Router.showView`
+    re-ran `initSettingsView`, whose `rebind()` (`js/settings.js:171-177`) `cloneNode`+`replaceChild`s 24
+    controls. Commit cost **88 ms @1× CPU / 141 ms @4× / 196 ms @6×**, of which `showView` was 80-132 ms.
+  - **Focus was destroyed.** `rebind` replaced the very `<select>` whose `change` handler was on the stack;
+    `activeElement` fell to `BODY`. Keyboard and screen-reader users lost their place on every switch.
+  - **Scroll was reset, visibly.** `showView` ends with `window.scrollTo(0,0)` + `.container.scrollTop = 0`
+    with no same-view guard, and `.container` is `scroll-behavior: smooth` — so switching while scrolled
+    *smooth-glided the user to the top*.
+
+- **Decision 1 — one coordinator owns the whole lifecycle.** New `main-app/js/i18n-transition.js`
+  (`QRI18nTransition.switchTo(settings, commit)`): generation counter (last-wins, a second tap cancels the
+  first and never queues) → `QRPacks.ensure` **before** any visual change → capture scroll + focus → dim →
+  single-pass commit under the dim → restore scroll and focus (`preventScroll: true`) → staggered reveal →
+  unconditional cleanup. `js/settings.js`'s `_applyLanguageChange` is now a call into it, with the original
+  ordering retained as a fallback if the coordinator failed to load.
+
+- **Decision 2 — refresh in place; never replay the view entry animation.** New
+  `Router.refreshCurrentView()` re-runs the current view's `onShow` hooks **without** re-adding
+  `.spa-view-active`. This was a fix to my own first implementation: `showView` re-adds that class, which
+  replays `viewSlideIn` (opacity 0→1). Suppressing it with
+  `html.qr-lang-morphing .spa-view-active { animation: none }` only *deferred* the problem — a CSS animation
+  restarts the instant its name becomes non-none again, so clearing the class at cleanup made the view flash
+  from opacity 0 at the very end. Measured as a second dip, `minOpacity: 0`. Fixed upstream instead; the CSS
+  rule was deleted and replaced with a comment stating why it must not come back. Post-fix the trace is a
+  single clean ramp with `minOpacity` 0.45-0.48.
+
+- **Decision 3 — conceal the layout change; do not animate it.** Devanagari changes text widths, so a FLIP
+  animation would need a layout read per moved element — exactly the thrash to avoid on a main thread that is
+  already blocked for up to ~196 ms. Measured shift is CLS 0.013, invisible inside a low-opacity window.
+  Everything animated is compositor-only (opacity/transform), which is also why the animation keeps running
+  smoothly *through* the commit rather than stuttering with it.
+
+- **Decision 4 — reusable by auto-discovery, not registration.** Roots are discovered per switch:
+  `.spa-view-active`, `.bottom-nav a > span[data-i18n]` (labels only — never the bar or the icons, which do
+  not change language), any visible overlay, plus `[data-i18n-morph="root"]` to opt in. Every new screen is a
+  `.spa-view`, so future screens inherit the behaviour with no work. The coordinator registers its
+  `QRI18n.onChange` **once at load** — `onChange` is append-only with no unsubscribe (`js/i18n.js:178`), so a
+  per-switch registration would be a guaranteed leak.
+
+- **Decision 5 — what `data-i18n-morph="hold"` can and cannot promise.** The intent was "the control you
+  touched stays solid". **Opacity composites down the tree, so that is not achievable under a root-level
+  fade** — nothing inside a fading root can paint brighter than the root. Two measured corrections to my own
+  first implementation:
+  - On the language `.settings-row` the attribute was **inert**: the row is neither a morph root nor a direct
+    child of the view, so neither guard fired. It moved up to the `.settings-section`, which *is* a direct
+    child — the level the settle wave staggers — and the opt-out is now stated in CSS as well
+    (`.qr-lang-morph-in > [data-i18n-morph="hold"] { animation: none; }`), because skipping the element in
+    `_applyStagger` alone only withheld its delay and left it lifting at delay 0.
+  - The settle keyframes are now **transform-only**. They previously faded from `--qr-morph-floor`, and that
+    **compounded** with the root's fade: deep content painted at an effective alpha of **0.379** while the
+    root still read 0.84 — silently breaking the 0.45 floor the design promises. The root owns opacity; the
+    children own movement. Re-measured after the fix: deep-content alpha floor **0.525**, exactly the root's
+    own value, with no compounding.
+  So the honest description of the interaction is: chrome, nav surface and icons hold; the content area dips
+  uniformly and never below 0.45; the touched section does not move; and continuity for the user's hands is
+  carried by **focus and scroll retention**, not by a brightness exception.
+
+- **Decision 6 — reduced motion removes the motion, not the behaviour.** Under either switch
+  (`prefers-reduced-motion: reduce` **or** `body.reduced-motion`, the repo's established pair) the commit,
+  the scroll/focus restore and the announcement all still happen; only the animation is skipped. Verified by
+  MutationObserver over the whole switch: **zero** morph classes ever applied, `minOpacity: 1`, correct
+  final language, announcement present. Reduced motion is read through `QROverlay.reducedMotion()` — the
+  repo's canonical check — rather than a second copy of the predicate.
+
+- **Decision 7 — announce separately from the toast.** One persistent `aria-live="polite"` sr-only region,
+  written *after* `documentElement.lang`, with its own `lang` attribute so the new language is pronounced
+  correctly. The toast remains the visual confirmation. Exactly one region exists after 300 switches.
+
+- **Options considered and rejected.** Per-character/per-word text morphing (428 nodes today; per-glyph
+  would be thousands of DOM writes — guaranteed jank at 6× CPU, and every mutation is a screen-reader event,
+  turning one announcement into hundreds) · shimmer (implies loading when the data is usually already in
+  memory) · `backdrop-filter` blur (known low-end Android GPU trap) · a full-screen fade (reads as "the page
+  reloaded", the one feeling to avoid) · blocking the switch during report submission or AI streaming
+  (blocking is never the premium choice; an in-flight request already captured its `lang` at build time,
+  which correctly reflects the UI the user saw) · a `showView` rewrite (out of scope — the scroll fix is a
+  capture/restore plus a `scroll-behavior` suppression).
+
+- **Consequence.** ~320 ms @1×, ~430 ms @6×, smooth at both because nothing animated touches the main
+  thread. Focus and scroll now survive a switch (both were broken before). The S4 localization *correctness*
+  layer is untouched: `setLanguages`, `applyDom` and the subscriber contract are unchanged, so every Wave S4
+  guarantee still holds. `design-lint` stays 10/10 with `durations=3` / `easings=3` **unchanged** — the
+  motion tokens are `calc()` expressions over existing tokens (zero census cost) and the only easing used is
+  `var(--qr-ease-out)`, because the easing ceiling has zero slack. Cost: one new runtime file, which needs a
+  script tag *and* a service-worker precache entry by hand (no generic guard exists for that in this repo) —
+  both asserted in `i18n.check` §10.
+
+- **Documented, not implemented (outside this change).** Chrome's `overflow-anchor: auto` shifts the restored
+  scroll position by a few pixels when the new locale's content is taller (240 → 254 measured; Hindi Settings
+  is 51 px taller). Investigated and left alone: it keeps the *same content* in view, which is better than a
+  pixel-exact `scrollTop`. Also observed: at 320 px the Hindi language-row titles truncate ("ऐप की …") —
+  a pre-existing static layout property of that breakpoint, present in the settled state and provably
+  untouched by this change (the CSS diff is purely appended; no existing rule was modified).
+
 ## ADR-125 — Wave S4 confidence pass: picker locale invalidation + certification-register debt (v257) (2026-07-26)
 
 - **Context.** An ultra-adversarial confidence pass over Wave S4, run with three angles no earlier pass

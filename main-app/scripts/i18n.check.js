@@ -351,5 +351,83 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   });
 })();
 
+/* ── 10. Language-switch transition coordinator (ADR-126) ──────────────────────────────────────────
+   The switch used to be a double render that also lost focus and smooth-scrolled the user to the top.
+   QRI18nTransition owns the lifecycle now; these assertions lock the properties that make it correct,
+   because every one of them is invisible to a rendering test that only checks the final strings. ── */
+(function () {
+  var src = fs.readFileSync(p('js/i18n-transition.js'), 'utf8');
+  var set = fs.readFileSync(p('js/settings.js'), 'utf8');
+  var html = fs.readFileSync(p('index.html'), 'utf8');
+  var sw = fs.readFileSync(p('service-worker.js'), 'utf8');
+  var css = fs.readFileSync(p('css/style.css'), 'utf8');
+
+  ok('10 settings routes the switch through the coordinator',
+    /QRI18nTransition\.switchTo\(settings, _commit\)/.test(set));
+  ok('10 a single commit pass owns init + the view re-render (no double render)',
+    /QRI18n\.init\(settings\)/.test(src) && /Router\.showView\(Router\.getCurrentView\(\)/.test(src));
+  ok('10 scroll and focus are captured and restored across the commit',
+    /function _capture\(/.test(src) && /function _restore\(/.test(src) &&
+    /snap\.focusId/.test(src) && /scrollTop = snap\.scrollTop/.test(src));
+  ok('10 focus restore does not scroll the page',
+    /focus\(\{ preventScroll: true \}\)/.test(src));
+  ok('10 a live drill is never re-rendered over',
+    /_drillActive\(\)/.test(src) && /if \(!_drillActive\(\)\)/.test(src));
+  ok('10 rapid switching is last-wins via a generation counter, never queued',
+    /var gen = \+\+_gen;/.test(src) && (src.match(/gen !== _gen/g) || []).length >= 4);
+  ok('10 reduced motion skips the animation entirely (not merely shortens it)',
+    /if \(_reduced\(\)\) \{[\s\S]{0,200}?doCommit\(\)/.test(src));
+  ok('10 it reuses QROverlay.reducedMotion rather than re-rolling matchMedia',
+    /QROverlay\.reducedMotion\(\)/.test(src));
+  ok('10 the change is announced in a dedicated polite region carrying lang=',
+    /aria-live', 'polite'/.test(src) && /setAttribute\('lang', appLang/.test(src));
+  ok('10 packs load BEFORE the transition starts (never a held fade)',
+    /QRPacks\.ensure\(studyLang, proceed\)/.test(src));
+  ok('10 the coordinator subscribes to nothing per-switch (onChange has no unsubscribe)',
+    !/QRI18n\.onChange/.test(src));
+  ok('10 cleanup is unconditional so content can never be left dimmed',
+    /function _finish\(/.test(src) && /_finish\(\);/.test(src));
+
+  /* CSS: compositor-only, tokenised, and paired reduced-motion — the three things that keep it smooth
+     under a 196 ms main-thread commit and keep design-lint at 10/10. */
+  ok('10 the morph transitions only opacity/transform',
+    /\.qr-lang-morph-out \{[\s\S]{0,160}?transition: opacity/.test(css) &&
+    !/\.qr-lang-morph-(out|in) \{[\s\S]{0,200}?(width|height|top|left|margin|padding|filter):/.test(css));
+  ok('10 morph timings are calc() on existing tokens (zero design-lint cost)',
+    /--qr-morph-out: calc\(var\(--qr-dur-fast\)/.test(css) && /--qr-morph-in: calc\(var\(--qr-dur\)/.test(css));
+  ok('10 the morph uses only an existing easing token (easings are pinned at 3/3)',
+    !/qr-lang-morph[\s\S]{0,400}?cubic-bezier\(/.test(css));
+  ok('10 content never fades below a readable floor', /--qr-morph-floor: 0\.4[0-9]/.test(css));
+  ok('10 smooth-scroll is suppressed during the morph so the restore lands instantly',
+    /html\.qr-lang-morphing \.container \{ scroll-behavior: auto; \}/.test(css));
+  ok('10 the morph refreshes in place and never replays the view entry animation',
+    /Router\.refreshCurrentView\(\)/.test(src) && /function refreshCurrentView\(/.test(fs.readFileSync(p('js/router.js'), 'utf8')));
+  ok('10 reduced motion is a paired override (media query + body.reduced-motion)',
+    /@media \(prefers-reduced-motion: reduce\) \{\s*\.qr-lang-morph-out/.test(css) &&
+    /body\.reduced-motion \.qr-lang-morph-out/.test(css));
+  ok('10 the view root itself never retains a transform (FW-W5: traps fixed drill layers)',
+    !/\.qr-lang-morph-in \{[\s\S]{0,120}?transform:/.test(css));
+
+  /* Wiring: a new runtime file needs BOTH a script tag and a precache entry, and there is no generic
+     guard for that in this repo — so assert both here. */
+  ok('10 index.html loads the coordinator', /src="js\/i18n-transition\.js"/.test(html));
+  ok('10 it loads after overlay.js (whose reducedMotion it reuses)',
+    html.indexOf('js/ui/overlay.js') !== -1 &&
+    html.indexOf('js/ui/overlay.js') < html.indexOf('js/i18n-transition.js'));
+  ok('10 the service worker precaches the coordinator', /'\.\/js\/i18n-transition\.js'/.test(sw));
+  /* The held-section contract, asserted at the level where it is actually honoured. A hold mark deeper
+     than a direct child of the view is inert (measured), so assert it sits on a .settings-section, and
+     that BOTH halves of the opt-out exist — the JS skip alone would only withhold the delay. */
+  ok('10 the touched section opts out of the settle wave, at the stagger level',
+    /<div class="settings-section" data-i18n-morph="hold">/.test(html));
+  ok('10 the hold opt-out is stated in CSS too, not only in the stagger loop',
+    /\.qr-lang-morph-in > \[data-i18n-morph="hold"\] \{ animation: none; \}/.test(css) &&
+    /data-i18n-morph'\) === 'hold'\) continue;/.test(src));
+  /* The 0.45 floor is only real if it cannot compound: a child fading from .45 inside a root at .45
+     paints at .20. The settle keyframes must therefore carry no opacity at all. */
+  ok('10 the settle keyframes are transform-only, so the opacity floor cannot compound',
+    /@keyframes qrLangSettle \{\s*from \{ transform: translateY\(3px\); \}\s*to\s+\{ transform: none; \}\s*\}/.test(css));
+})();
+
 console.log('  ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

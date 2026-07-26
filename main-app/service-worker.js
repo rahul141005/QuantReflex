@@ -3,7 +3,7 @@
  * Caches all assets for offline use.
  */
 
-const APP_VERSION = 'v257';
+const APP_VERSION = 'v258';
 const CACHE_NAME = 'qr-cache-' + APP_VERSION;   /* derived so the two version strings can never drift (ADR-095) */
 const NET_FIRST_TIMEOUT_MS = 3000;              /* network-first JS/CSS falls back to cache after this on "lie-fi" (ADR-095) */
 
@@ -37,6 +37,7 @@ var ASSETS = [
   './js/utils/generative-helpers.js',
   './js/gen-i18n.js',
   './js/i18n-packs.js',
+  './js/i18n-transition.js',
   './locales/gen/en.quant.js',
   './locales/gen/en.di.js',
   './locales/gen/en.lr.js',

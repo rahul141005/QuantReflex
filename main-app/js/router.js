@@ -31,6 +31,31 @@ var Router = (function () {
   }
 
   /**
+   * ADR-126: re-run the CURRENT view's show hooks without navigating.
+   *
+   * Re-rendering a view in place used to mean calling showView() with the view it was already on, which
+   * does three things that are wrong for an in-place refresh:
+   *   - it re-adds .spa-view-active, so the view REPLAYS its viewSlideIn entry animation (opacity 0 -> 1).
+   *     During a language morph that is a second, competing animation, and suppressing it with a class
+   *     only defers the problem: a CSS animation restarts the moment its name becomes non-none again, so
+   *     removing the suppression at cleanup made the view flash from opacity 0 at the very end.
+   *   - it resets scroll (`window.scrollTo(0,0)` + `.container.scrollTop = 0`) with no same-view guard,
+   *     and .container is scroll-behavior:smooth, so the user visibly glided to the top.
+   *   - it pushes history state.
+   * None of that belongs to "the strings changed, re-render". This runs only the onShow hooks, which is
+   * the part that actually rebuilds JS-rendered content, and it is also ~half the work.
+   */
+  function refreshCurrentView() {
+    if (!currentView) return false;
+    var cbs = afterShowCallbacks[currentView];
+    if (!cbs) return false;
+    for (var i = 0; i < cbs.length; i++) {
+      try { cbs[i](); } catch (_) { /* one bad hook must not abort the refresh */ }
+    }
+    return true;
+  }
+
+  /**
    * Globally destroys all active overlays, modals, and sessions.
    * Called on auth transitions or major route shifts to ensure a clean slate.
    */
@@ -286,6 +311,7 @@ var Router = (function () {
     getCurrentView: getCurrentView,
     onInit: onInit,
     onShow: onShow,
+    refreshCurrentView: refreshCurrentView,
     teardown: teardown
   };
 })();

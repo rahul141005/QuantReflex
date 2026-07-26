@@ -9,11 +9,34 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.157 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.74 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.158 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.75 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.158 (2026-07-26)** — **Premium language switching, the "Language Morph" coordinator (ADR-126, SW
+> v257→v258).** Architecture 2.74→2.75. Measured before designing: the hard cut hid three real defects — the
+> switch was a **double render** (~428 `applyDom` nodes plus `initSettingsView`'s 24-control `rebind`; commit
+> 88 ms @1× CPU / 141 ms @4× / 196 ms @6×), **focus was destroyed** (`rebind` replaced the very `<select>`
+> whose handler was on the stack; `activeElement` → `BODY`), and **scroll was reset visibly** (`showView`'s
+> `scrollTop = 0` has no same-view guard and `.container` is `scroll-behavior: smooth`, so switching while
+> scrolled smooth-glided the user to the top). New `js/i18n-transition.js` owns the lifecycle — last-wins
+> generation counter, packs loaded before any visual change, scroll/focus captured and restored, a single
+> commit pass running *under* a compositor-only dim that never goes below 0.45, staggered reveal,
+> unconditional cleanup, and a polite announcement in the new language. New `Router.refreshCurrentView()`
+> refreshes in place so the view's `viewSlideIn` entry animation is never replayed — a defect in my own first
+> implementation, where suppressing the animation by class merely deferred the flash to cleanup
+> (`minOpacity: 0`, measured). Two further self-found corrections: `data-i18n-morph="hold"` was **inert** on
+> the language row (neither a morph root nor a stagger group) and moved up to the `.settings-section` with the
+> opt-out also stated in CSS; and the settle keyframes **compounded** opacity with the root fade (effective
+> alpha **0.379** while the root read 0.84), so they are now transform-only and the floor re-measures at
+> **0.525**. Recorded honestly in ADR-126: under a root-level fade opacity composites, so `hold` buys
+> stillness, not brightness — hand continuity comes from focus and scroll retention. Reduced motion (both the
+> media query and `body.reduced-motion`) applies zero morph classes while still committing, restoring and
+> announcing. The S4 localization correctness layer is unchanged — `setLanguages`, `applyDom` and the
+> subscriber contract are untouched. `npm test` **14,573/0**; design-lint **10/10** with `durations=3` /
+> `easings=3` unchanged. Wave S5 and Phase 4 payments untouched.
 
 > **2.157 (2026-07-26)** — **Wave S4 confidence pass (ADR-125, SW v256→v257).** Architecture 2.73→2.74.
 > An ultra-adversarial pass that treated ADR-124 — the previous remediation — as the prime suspect, attacked
