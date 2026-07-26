@@ -300,6 +300,32 @@
     if (empty) empty.style.display = (q && !anyMatch) ? 'block' : 'none';
   }
 
+  /* ADR-125 (S4-U3): invalidate on a language change. ADR-124 made these headers locale-dependent, which
+     created a staleness class that did not exist before it: nothing here carries a data-i18n attribute, so
+     QRI18n.applyDom cannot reach it, and the app does not reload on a language switch (settings.js runs
+     QRI18n.init → applyDom → Router.showView(current)). The rendered tree therefore keeps the old locale
+     indefinitely. Reproduced: with the picker visible, switching locale and then tapping a pin star rebuilt
+     the "For You" strip in Hindi while the section headers beside it stayed English.
+     That state is not reachable through the UI today — the language select lives in Settings, leaving
+     Practice hides #categorySelect, and both reveal paths call render() in the same synchronous block — but
+     it rests on a navigation coincidence no test asserts, and render()'s `if (!groups.length) return;`
+     leaves the previous tree in place rather than clearing it. Clearing the host removes the whole class:
+     a stale tree can never be preserved, and a visible picker repaints immediately.
+     Same contract as the other localized JS surfaces (js/views/learn-view.js:991,
+     js/quick-reference/quick-ref-renderer.js:232, js/ui/numpad.js:26). */
+  if (typeof QRI18n !== 'undefined' && QRI18n.onChange) {
+    QRI18n.onChange(function () {
+      try {
+        var host = document.getElementById('categoryGroups');
+        if (!host) return;
+        var sel = document.getElementById('categorySelect');
+        var showing = !!(sel && sel.style.display !== 'none');
+        host.innerHTML = '';                 /* never let a stale-locale tree survive */
+        if (showing) render();               /* visible right now ⇒ repaint in the new locale */
+      } catch (_) { /* a language switch must never throw */ }
+    });
+  }
+
   var CategoryPicker = { render: render, filter: filter, noteRecent: noteRecent };
   if (typeof module !== 'undefined' && module.exports) module.exports = CategoryPicker;
   if (typeof window !== 'undefined') window.CategoryPicker = CategoryPicker;

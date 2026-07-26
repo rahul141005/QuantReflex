@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.156 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.73 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.157 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.74 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.157 (2026-07-26)** — **Wave S4 confidence pass (ADR-125, SW v256→v257).** Architecture 2.73→2.74.
+> An ultra-adversarial pass that treated ADR-124 — the previous remediation — as the prime suspect, attacked
+> locale *transitions* rather than first render, and audited the project's own certification gate against the
+> code. **S4-U3**: the Category Picker was the only localized JS-built surface with no `QRI18n.onChange`
+> handler; since the app does not reload on a language switch and `applyDom` cannot reach innerHTML text, the
+> rendered tree kept the old locale — reproduced as a visible mixed-locale state (Hindi strip labels beside
+> English headers). Not reachable through the UI today, but ADR-124 is what made the surface locale-dependent
+> and thus created the class; now invalidated and guarded by a new check. **S4-U1/U2**: two entries in
+> `I18N_KNOWN_LIMITS.md` had stopped being true — one documented `hint` fields ADR-124 deleted, the other
+> quoted `Version v223`, cited a wrong line, and argued against the very pinning ADR-124 introduced with CI
+> enforcement. Both corrected per the register's own rule. Eliminated as false positives with evidence: no
+> layout regression from the longer Devanagari headers (72 combinations, zero clipping), and MIN3 verified by
+> an executed truth table (6/7 predicates agree; the lone divergence is a path where app.js and duel-manager
+> already disagree by design). No Firestore, Security or Payment surface change. Wave S5 untouched.
 
 > **2.156 (2026-07-26)** — **Wave S4 final verification (ADR-124, SW v255→v256).** Architecture 2.72→2.73.
 > Wave S4 shipped at v248; this adversarial pass verified it from source and a live Chromium run. The

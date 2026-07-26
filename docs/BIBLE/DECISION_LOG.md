@@ -8,6 +8,77 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-125 — Wave S4 confidence pass: picker locale invalidation + certification-register debt (v257) (2026-07-26)
+
+- **Context.** An ultra-adversarial confidence pass over Wave S4, run with three angles no earlier pass
+  used: (1) treat ADR-124 — my own remediation — as the prime suspect, (2) attack locale *transitions*
+  rather than first render, (3) audit the project's own certification gate
+  (`docs/BIBLE/I18N_KNOWN_LIMITS.md`) against the code. The third angle is where S4 broke, and one of the
+  breaks was caused by ADR-124.
+
+- **Decision 1 — the Category Picker invalidates on a language change (S4-U3).** `CategoryPicker` was the
+  only localized JS-built surface in the repo with no `QRI18n.onChange` handler; six siblings have one
+  (`js/views/learn-view.js:991`, `js/quick-reference/quick-ref-renderer.js:232`, `js/ui/numpad.js:26`,
+  `js/views/stats-view.js:319`, `js/knowledge/registry.js:191`,
+  `js/quick-reference/quick-ref-i18n.js:75`). The app does **not** reload on a language change —
+  `js/settings.js:198-218` runs `QRI18n.init` → `applyDom` → `Router.showView(current)` — and `applyDom`
+  (`js/i18n.js:211/223/241`) only touches `[data-i18n]`/`[data-i18n-html]`/`[data-i18n-attr]`, none of which
+  the picker emits. So the rendered tree kept the old locale indefinitely.
+  **Reproduced live:** with the picker visible, switching locale and then tapping a pin star rebuilt
+  `.category-foryou` via `_stripHtml()` in Hindi (`★ पिन किए गए`) while the section headers beside it stayed
+  English (`🔟 Numbers`) — a visible mixed-locale state.
+  **Honest reachability:** *not* reachable through the product UI today. The language select lives in
+  Settings, leaving Practice hides `#categorySelect`, and both reveal paths
+  (`js/controllers/practice-modes.js:454/463` and `502/509`) call `render()` in the same synchronous block.
+  A Practice→Settings→Practice round trip leaves the picker hidden.
+  **Why it was still fixed:** before ADR-124 the headers were English in every locale, so nothing could go
+  stale — *ADR-124 is what made this surface locale-dependent and therefore created this staleness class.*
+  Its correctness rested on a navigation coincidence no test asserted, and `render()`'s
+  `if (!groups.length) return;` (`category-picker.js:225`) leaves the previous tree in place rather than
+  clearing it. The handler clears `#categoryGroups` (so a stale tree can never be preserved) and re-renders
+  when the picker is currently visible. Guarded by a new `i18n.check` §9 assertion, verified to fail on
+  `fff4f9c`.
+
+- **Decision 2 — the certification register must match the code (S4-U1, S4-U2).**
+  `docs/BIBLE/I18N_KNOWN_LIMITS.md` declares itself the release gate: *"anything English at certification
+  time that is NOT listed here is a critical finding … when an entry stops being true, remove it."* Two
+  entries had stopped being true, and no prior pass had audited the register itself:
+  - **S4-U1:** "Category-picker section hints are dead model data" described three English `hint` fields that
+    **ADR-124 deleted**. My own change orphaned the entry. Retired with a note rather than left standing.
+  - **S4-U2:** the Phase-D `#aboutVersionLine` entry — the exact artifact S4-MIN2 fixed — quoted
+    `Version v223` (source: `v257`), cited `settings.js:429` (actual: `js/settings.js:472-473`), and argued
+    **against** pinning the literal as *"a maintenance trap"*. ADR-124 pinned it deliberately and added the
+    enforcing assertion (`scripts/update.check.js`), precisely because leaving it unpinned let it drift
+    v223 → v247 → v255 unnoticed. Entry rewritten to describe what shipped.
+
+- **False positives eliminated, with evidence.** ADR-124 injected longer Devanagari into fixed-width
+  headers; a **72-combination** matrix (6 viewports incl. 320 px and landscape × en/hi/mr × classic/playful ×
+  light/dark) found **0** clipped titles, 0 overflowing rows, 0 page-level horizontal overflow, 0 page
+  errors — no visual regression. MIN3 was re-verified by an **executed truth table** over the real
+  vm-sliced `_standalone()` versus the app.js and duel-manager predicates: **6 of 7 cases agree**; the only
+  divergence is the `matchMedia`-throws path, where app.js (`false`) and duel-manager (`true`, deliberate
+  fail-open) already disagree with each other, so "matching both" is unachievable — already documented in
+  ADR-124. CDP `display-mode` emulation proved **inert** in this headless build (every mode read `false`) and
+  is therefore recorded as inconclusive, not as evidence. No section-header code path bypasses `_t()`;
+  `render()` is the single producer and no section model is memoized. The subject modal is rebuilt per open
+  (`removeOnClose: true`), so it has no cross-open staleness. All 13 S4-relevant files are precached, and a
+  full diff of all 110 local `<script src>` tags against `ASSETS` found zero missing.
+
+- **Documented, not changed** (outside Wave S4): `docs/BIBLE/I18N_CERTIFICATION.md:5-6` states the i18n
+  feature flag *"was NOT flipped … remains `ENABLED = false` / `I18N_ON = false`"*, but `js/i18n.js:30` and
+  `index.html:47` both read `true` — the doc describes behaviour that no longer exists · present-tense
+  `SW v223` as a live constraint in `I18N_EXECUTION_BLUEPRINT.md:53`,
+  `I18N_PHASEF_ARCHITECTURE_FREEZE.md:20,69`, `I18N_CERTIFICATION.md:8,148` · `I18N_EXECUTION_BLUEPRINT.md:53`
+  claims *"i18n.check section 5 fails otherwise"* for generic SW-precache coverage, but §5 checks only five
+  named i18n files — no script asserts `ASSETS` ⊇ `<script src>`, and `service-worker.js:203-214` swallows
+  precache failures via `Promise.allSettled` while `activate` (`:220-227`) wipes runtime-healed entries on
+  every bump, so an omission is silently unreportable (S4 added no new files, so there is no S4 exposure) ·
+  `router.js:81-85` sweeps only `.modal-overlay`, so `#psmOverlay` (`.ba-modal-overlay`) is not hidden on
+  back-navigation — effectively unreachable, but guarded by CSS stacking and a backdrop handler rather than an
+  invariant.
+
+---
+
 ## ADR-124 — Wave S4 final verification: the half-localized Category Picker (v256) (2026-07-26)
 
 - **Context.** Final adversarial verification of Wave S4 (ADR-116, shipped at `19d4185`/v248), verified from

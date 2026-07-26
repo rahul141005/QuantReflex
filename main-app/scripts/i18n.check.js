@@ -321,6 +321,12 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
     /title: _catSectionTitle\(sid, meta\[sid\] && meta\[sid\]\.title\)/.test(src));
   ok('9 picker carries no untranslated hint strings',
     !/hint:\s*'[^']/.test(src));
+  /* ADR-125 (S4-U3): ADR-124 made these headers locale-dependent, so the picker must invalidate on a
+     language switch like every other localized JS-built surface — applyDom cannot reach innerHTML text and
+     the app does not reload. Without this, a visible picker keeps the old locale (reproduced as a
+     mixed-locale state: Hindi strip labels beside English section headers). */
+  ok('9 picker invalidates its rendered tree on a language change',
+    /QRI18n\.onChange\(/.test(src) && /getElementById\('categoryGroups'\)[\s\S]{0,300}?innerHTML = ''/.test(src));
 
   /* derive the ids from the registry source so a newly added quant category fails this check until it
      is translated — the drift guard §8's fixed key list does not have */

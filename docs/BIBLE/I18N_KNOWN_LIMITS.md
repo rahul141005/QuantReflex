@@ -38,17 +38,21 @@ comprehension.
 
 ### About modal — version line (`#aboutVersionLine`)
 
-- **String:** the static fallback `Version v223` in the About modal (index.html, "Version &
-  Updates" section).
-- **Status:** intentionally NOT tagged with `data-i18n`.
+- **String:** the static fallback `Version <APP_VERSION>` in the About modal
+  (`index.html` `#aboutVersionLine`, "Version & Updates" section). Currently `Version v257`.
+- **Status:** intentionally NOT tagged with `data-i18n`; **pinned to `APP_VERSION` and CI-enforced**
+  (ADR-124, `scripts/update.check.js` — the literal must equal the service-worker `APP_VERSION`).
 - **Rationale:** this node is **always** overwritten synchronously by `settings.js`
-  `updateAboutUserStatus()` — which runs *before* the modal is shown (settings.js:429 calls
+  `updateAboutUserStatus()` — which runs *before* the modal is shown (`js/settings.js:472-473` calls
   `updateAboutUserStatus()` then `openInfoModal('aboutModal')`) — with the already-localized,
   parameter-bearing `settings.versionLine` key (`Version {version}` / `संस्करण {version}` /
-  `आवृत्ती {version}`). The static text is therefore never rendered. Tagging it with a param-free
-  `data-i18n` would either hard-code a build version that drifts on every SW bump (a maintenance
-  trap under this project's strict version-lockstep discipline) or render a literal `{version}`
-  token. The node **is** localized — via the existing JS path — so this is not untranslated
+  `आवृत्ती {version}`). The static text is therefore never rendered in normal operation; it is visible
+  only if `updateAboutUserStatus()` throws before assigning. A param-free `data-i18n` cannot serve here —
+  it would render a literal `{version}` token — so the node stays untagged and is localized through the JS
+  path. **Corrected by ADR-125:** this entry previously quoted `Version v223`, cited `settings.js:429`, and
+  argued *against* pinning the literal as "a maintenance trap". ADR-124 pinned it deliberately and added the
+  enforcing assertion, precisely because leaving it unpinned let it drift v223 → v247 → v255 unnoticed. The
+  drift risk is now a CI failure rather than a silent staleness. The node **is** localized — via the existing JS path — so this is not untranslated
   content; it is a documented decision to localize it through JS rather than a static `data-i18n`
   fallback. The two sibling JS-written nodes with no embedded token (`#aboutUserStatusMessage`
   "Free Plan" → `about.s5Status`; `#aboutUpdateStatus` "Checking for updates…" → `about.s6Update`)
@@ -326,7 +330,8 @@ The following are intentional and bounded:
   values keep their mathematical notation in every language; the LABELS around them are fully localized.
 - **Rationale:** mathematical notation, not prose (same rule as the formula-symbols entry above).
 
-### Category-picker section hints are dead model data (not rendered)
-- **Detail:** `_diSections`/`_lrSections` still carry English `hint` strings ('read charts & tables, fast',
-  'reason under time pressure'); `_sectionHtml` never renders them.
-- **Rationale:** not user-visible; left for a future design that may surface them (would need keys then).
+<!-- REMOVED (ADR-125): "Category-picker section hints are dead model data" — ADR-124 deleted the three
+     English `hint` fields from `_diSections`/`_lrSections`, so the entry documented code that no longer
+     exists. Per this register's own rule ("when an entry stops being true, remove it") it is retired rather
+     than left standing. There is nothing left to declare here: `grep -n hint js/ui/category-picker.js`
+     returns no matches. -->

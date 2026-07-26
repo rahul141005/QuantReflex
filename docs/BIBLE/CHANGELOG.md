@@ -6,6 +6,52 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-26 — Wave S4 confidence pass: picker locale invalidation + certification-register debt (ADR-125, SW v256→v257)
+
+An ultra-adversarial confidence pass over Wave S4, using three angles no earlier pass used: ADR-124 (my own
+remediation) as the prime suspect, locale *transitions* rather than first render, and an audit of the
+project's own certification gate against the code.
+
+- **S4-U3 · the Category Picker never invalidated on a language change.** It was the only localized
+  JS-built surface with no `QRI18n.onChange` handler — six siblings have one. The app does not reload on a
+  language switch, and `applyDom` only touches `data-i18n*` nodes, which the picker doesn't emit, so the
+  rendered tree kept the old locale. **Reproduced:** with the picker visible, switching locale then tapping
+  a pin star rebuilt the "For You" strip in Hindi while the section headers stayed English. **Not reachable
+  through the UI today** (the language select is in Settings; leaving Practice hides the picker; every reveal
+  path re-renders) — but ADR-124 is what made this surface locale-dependent, so it created the staleness
+  class, and correctness rested on a navigation coincidence no test asserted. Now clears `#categoryGroups`
+  and repaints when visible; guarded by a new `i18n.check` §9 assertion verified to fail on `fff4f9c`.
+- **S4-U1 · ADR-124 orphaned a certification-register entry.** `I18N_KNOWN_LIMITS.md` documented three
+  English `hint` fields in the picker that ADR-124 had deleted. Retired per the register's own rule.
+- **S4-U2 · the register's entry for the S4-MIN2 artifact was wrong three ways.** It quoted
+  `Version v223` (source: v257), cited `settings.js:429` (actual `:472-473`), and argued *against* pinning
+  the literal as "a maintenance trap" — which is exactly what ADR-124 did on purpose, with CI enforcement,
+  because leaving it unpinned let it drift v223 → v247 → v255 unnoticed. Rewritten to match what shipped.
+
+**False positives eliminated with evidence.** ADR-124 injected longer Devanagari into fixed-width headers: a
+**72-combination** matrix (6 viewports incl. 320 px and landscape × en/hi/mr × classic/playful × light/dark)
+found **0** clipped titles, 0 overflowing rows, 0 page overflow, 0 page errors. MIN3 re-verified by an
+executed truth table over the real vm-sliced `_standalone()` vs the app.js and duel-manager predicates —
+**6 of 7 agree**; the lone divergence is the `matchMedia`-throws path where those two already disagree by
+design, so "matching both" is unachievable. CDP `display-mode` emulation proved **inert** in this headless
+build and is recorded as inconclusive, not evidence. No header path bypasses `_t()`; the subject modal is
+rebuilt per open; all 13 S4 files precached (full 110-tag diff → zero missing).
+
+**Documented, not changed** (outside S4): `I18N_CERTIFICATION.md:5-6` claims the i18n flag was never flipped,
+but `js/i18n.js:30` and `index.html:47` are both `true` · present-tense `SW v223` in four i18n phase docs ·
+`I18N_EXECUTION_BLUEPRINT.md:53` claims i18n.check §5 enforces generic precache coverage (it checks five
+named files); no script asserts `ASSETS` ⊇ `<script src>`, and precache failures are swallowed by
+`Promise.allSettled` while `activate` wipes runtime-healed entries each bump · `router.js:81-85` sweeps only
+`.modal-overlay`, so `#psmOverlay` isn't hidden on back-navigation.
+
+Docs: ADR-125; `I18N_KNOWN_LIMITS.md` corrected; SW `v256 → v257` lockstep. Verified: `npm test`
+**14,547/0** · update.check 34/0 · account-isolation 121/0 · session-integrity 42/0 · entitlement-core 93/0 ·
+firestore-durability 73/0 · design-lint 10/10 · live: mixed-locale attack now `D_MIXED: false`, picker
+localized in en/hi/mr, subject modal clean across `en→hi→mr→hi→en→mr`, purge run and boot smoke clean, 0 page
+errors throughout. **Wave S5 remains untouched.**
+
+---
+
 ## 2026-07-26 — Wave S4 final verification: the half-localized Category Picker (ADR-124, SW v255→v256)
 
 Final adversarial verification of Wave S4 (ADR-116, shipped at `19d4185`/v248), done from source and a real
