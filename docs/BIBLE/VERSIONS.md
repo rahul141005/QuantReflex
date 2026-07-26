@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.155 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.72 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.156 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.73 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.156 (2026-07-26)** — **Wave S4 final verification (ADR-124, SW v255→v256).** Architecture 2.72→2.73.
+> Wave S4 shipped at v248; this adversarial pass verified it from source and a live Chromium run. The
+> subject modal, MIN3, DEAD1 and DEAD2 all held. **S4-V1**: the Category Picker — recorded by S4 as "a
+> non-issue, already localizes all rendered strings" — took its Quant section titles from the knowledge
+> registry, which stores English only, so seven headers (Numbers … Mensuration) rendered in English for
+> hi/mr users on Practice, beside DI/LR headers that translated. The `learn.cat_<id>Title` translations
+> already existed and are now resolved. **S4-V2**: MIN2 edited the version-fallback literal without adding
+> a guard, so it could silently re-stale; `update.check` now locks it to APP_VERSION. Plus the last 🍕
+> (the `fractions` Learn topic), a comment S4's own edit made false, and three dead untranslated `hint`
+> fields. New `i18n.check §9` derives the quant category ids from the registry source so a new category
+> fails until translated — closing the JS-innerHTML blind spot that §4 cannot see and §8 covered for only
+> one component. Both new guards verified to fail on the previous HEAD. i18n assertions 14,507 → 14,546.
+> No Firestore, Security or Payment surface change. Wave S5 untouched.
 
 > **2.155 (2026-07-25)** — **Wave S3 final verification (ADR-123, SW v254→v255).** Architecture 2.71→2.72.
 > A final adversarial pass, run by loading the real firestore-sync module into a vm and driving its real

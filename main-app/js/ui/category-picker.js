@@ -99,7 +99,20 @@
     return key;
   }
 
-  /* ---- section models: [{ id, title, icon, hint, cats:[{key,label}] }] ---- */
+  /* ADR-124 (S4-V1): the knowledge registry stores category titles in English only
+     (data/knowledge/categories.js), so taking meta.title straight from it left the seven Quant section
+     headers — Numbers, Arithmetic, Commercial Math, Algebra, Modern Math, Geometry, Mensuration — in
+     English for hi/mr users, on the Practice screen, while the DI/LR headers beside them translated.
+     The translations already existed as learn.cat_<id>Title and were simply never consulted here.
+     Same resolve-with-fallback the Learn hub uses (js/views/home-view.js:144-145): an unknown id makes
+     QRI18n.t return the key itself, which we detect and fall back from. */
+  function _catSectionTitle(id, fallback) {
+    var key = 'learn.cat_' + id + 'Title';
+    var v = _t(key);
+    return (v && v !== key) ? v : (fallback || id);
+  }
+
+  /* ---- section models: [{ id, title, icon, cats:[{key,label}] }] ---- */
 
   function _quantSections() {
     var out = [], KB = root.KnowledgeBase, QT = root.QuantTopics;
@@ -110,7 +123,7 @@
       if (!topics.length) return;
       out.push({
         id: 'quant-' + sid,
-        title: (meta[sid] && meta[sid].title) || sid,
+        title: _catSectionTitle(sid, meta[sid] && meta[sid].title),
         icon: (meta[sid] && meta[sid].icon) || '',
         cats: topics.map(function (t) { return { key: t.drillCategory, label: _catLabel(t.drillCategory) }; })
       });
@@ -123,7 +136,7 @@
     if (!DI || !DI.categories) return [];
     var cats = (DI.categories() || []).map(function (k) { return { key: k, label: _catLabel(k) }; });
     if (!cats.length) return [];
-    return [{ id: 'di-all', title: _t('subjects.di'), icon: '📊', hint: 'read charts & tables, fast', cats: cats }];
+    return [{ id: 'di-all', title: _t('subjects.di'), icon: '📊', cats: cats }];
   }
 
   /* LR keys come from the source (subjectToCategories); tier grouping is presentation only, with a fallback bucket so
@@ -144,7 +157,7 @@
     var seen = {}, out = [];
     LR_TIERS.forEach(function (tier, i) {
       var cats = tier.keys.filter(function (k) { return all.indexOf(k) !== -1; }).map(function (k) { seen[k] = 1; return { key: k, label: _catLabel(k) }; });
-      if (cats.length) out.push({ id: 'lr-' + i, title: _t(tier.tk), icon: i === 0 ? '🧠' : '', hint: i === 0 ? 'reason under time pressure' : '', cats: cats });
+      if (cats.length) out.push({ id: 'lr-' + i, title: _t(tier.tk), icon: i === 0 ? '🧠' : '', cats: cats });
     });
     var rest = all.filter(function (k) { return !seen[k]; }).map(function (k) { return { key: k, label: _catLabel(k) }; });
     if (rest.length) out.push({ id: 'lr-more', title: _t('picker.lrMore'), icon: '', cats: rest });

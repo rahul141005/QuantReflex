@@ -57,6 +57,18 @@ APPS.forEach(function (a) {
   ok(a.name + ': index.html defines window.' + a.global, !!htmlVer);
   ok(a.name + ': SW APP_VERSION === index.html window.' + a.global + ' (lockstep)', !!swVer && swVer === htmlVer);
 
+  /* ADR-124 (audit S4-V2): the About panel ships a STATIC version line that settings.js overwrites at
+     runtime — unless init throws, which is exactly the case it exists for. Wave S4 fixed it by editing
+     the literal (v223 → v247) and added no guard, so it can silently re-stale on the next bump. It only
+     survived v247 → v255 by hand. Lock it to APP_VERSION. main-app only: the admin apps have no
+     equivalent node. */
+  if (a.name === 'main-app') {
+    var aboutVer = (html.match(/id="aboutVersionLine"[^>]*>Version\s+([^<\s]+)</) || [])[1];
+    ok(a.name + ': index.html has the static #aboutVersionLine fallback', !!aboutVer);
+    ok(a.name + ': #aboutVersionLine fallback === APP_VERSION (' + aboutVer + ' vs ' + swVer + ')',
+      !!aboutVer && aboutVer === swVer);
+  }
+
   ok(a.name + ": CACHE_NAME derived from APP_VERSION ('" + a.prefix + "' + APP_VERSION)",
     new RegExp("CACHE_NAME\\s*=\\s*'" + a.prefix.replace(/[-]/g, '\\-') + "'\\s*\\+\\s*APP_VERSION").test(sw));
 

@@ -8,6 +8,61 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-124 — Wave S4 final verification: the half-localized Category Picker (v256) (2026-07-26)
+
+- **Context.** Final adversarial verification of Wave S4 (ADR-116, shipped at `19d4185`/v248), verified from
+  source and from a real Chromium run rather than from the completion report. S4-I18N1 (subject modal),
+  MIN3, DEAD1 and DEAD2 all hold under attack. One named requirement does not, and it was closed on an
+  incorrect premise.
+
+- **Decision 1 — the Category Picker resolves its section titles through i18n (S4-V1).** The S4 commit
+  recorded *"B2: confirmed a non-issue — category-picker.js already localizes all rendered strings via
+  `_t()`; 'Recently practised' appears only in a code comment."* The first clause is true — `picker.*` is
+  fully translated — but the conclusion was wrong. `_quantSections` took its title straight from the
+  knowledge registry (`title: (meta[sid] && meta[sid].title) || sid`), and `data/knowledge/categories.js`
+  stores English only. So on Practice — the app's primary screen — hi/mr users saw **Numbers · Arithmetic ·
+  Commercial Math · Algebra · Modern Math · Geometry · Mensuration** in English, directly beside DI/LR
+  headers and subject labels that translated correctly. Verified live in Chromium in both locales.
+  The translations already existed as `learn.cat_<id>Title` and were simply never consulted here;
+  `_catSectionTitle` now resolves them with a fallback, mirroring `js/views/home-view.js:144-145`.
+
+- **Decision 2 — the guard follows the defect, not the file (S4-V1 test gap).** `i18n.check` §4 scans
+  `data-i18n` attributes, so JS-`innerHTML` text is invisible to it; §8, added by S4, locked exactly one
+  such surface — the subject modal — with a fixed list of six literals and sixteen key names. The sibling
+  component was never covered, which is why a defect of the same class survived the wave that existed to
+  remove it. New §9 asserts the picker resolves through `learn.cat_<id>Title`, derives the id list **from
+  the registry source** so a newly added quant category fails until it is translated, and checks the hi/mr
+  values are not English copies — a failure mode §8 does not test for.
+
+- **Decision 3 — the version fallback is locked to APP_VERSION (S4-V2).** MIN2 fixed `index.html`'s static
+  `#aboutVersionLine` from `v223` to `v247` and added no guard. `update.check.js` locks SW `APP_VERSION` ↔
+  `window.QR_APP_VERSION` but never read this node, so it survived v247 → v255 by hand alone and would
+  silently re-stale on any bump that missed it — the exact defect MIN2 names. Now asserted equal to
+  `APP_VERSION` (main-app only; the admin apps have no equivalent node).
+
+- **Decision 4 — finish MIN1 and correct what S4 made wrong.** The last 🍕 lived on the *same concept* S4
+  fixed — `data/knowledge/numbers.js:199`, the `fractions` Learn topic — and rendered unmasked in the topic
+  header; swapped to 🥧 for consistency with the Quick-Ref card. Separately, S4 removed `_unusedBand` from
+  `fetchSpeedBenchmark` but left the comment saying *"the 4th arg was once a simulated percentile band"*,
+  which after the removal describes `questionCount`; the comment was made wrong **by** S4 and is corrected.
+  The three dead English `hint` fields in the picker (declared, populated, never rendered) are deleted —
+  dead untranslated copy inside the component S4 was auditing for exactly that.
+  **Note on the MIN1 spec deviation:** the master plan said "🍕 → monochrome `qr-ico`"; S4 swapped the
+  glyph instead, reasoning that the Quick-Ref card list is an emoji set by design. That reasoning is
+  correct — `quick-ref-data.js` carries 24 emoji, all rendered — so the deviation stands, now finished.
+
+- **Documented, not changed** (outside Wave S4): seven provably dead `emoji:` properties in
+  `js/services/quick-links-registry.js` (`_qlChipInner` reads only `ico`) · `js/state/store.js:322-325`
+  orphan blank lines from the DEAD1 excision · `category-picker.js:93` `_t` returns the raw key when
+  `QRI18n` is absent, where `js/ui/numpad.js:25` has the safer English-fallback pattern ·
+  `subjects.di` renders `आँकड़ा निर्वचन (DI)` while `practice.subjectDiTitle` renders it without the
+  parenthetical · `questionCount`/`mode` in `fetchSpeedBenchmark` are also unread but pre-date S4 · large
+  unlocalized surfaces outside S4's named scope (`js/ui/report-taxonomy.js` has zero i18n;
+  `report-modal.js` option tables; `lr-figures.js` and `di-charts.js` aria prose) · `report-context._safe`
+  returns `null` on a `matchMedia` throw where `app.js` returns `false` and `duel-manager` returns `true`.
+
+---
+
 ## ADR-123 — Wave S3 final verification: superseded-write resurrection, offline write amplification, logout watchdog (v255) (2026-07-25)
 
 - **Context.** A final adversarial verification pass over Wave S3 at `1bb8e3f`, run with executed harnesses
@@ -490,7 +545,10 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
   re-seeded a fresh profile — a "deleted" account silently resurrecting. Auth-first makes resurrection impossible.
 - **Bounded serverless cache (S3).** `aiService.usageCache` gained a short TTL + size cap with oldest-eviction
   (display/pre-check only; the hard caps stay transactional, so no over-grant is possible).
-- **Localization regression (S4).** The Practice subject-picker modal (`practice-subject-modal.js`) shipped 100%
+- **Localization regression (S4).** ⚠ **PARTLY CORRECTED by ADR-124** — the claim below that
+  `category-picker.js` "already localizes all rendered strings" was wrong: seven Quant section headers
+  rendered in English for hi/mr. Fixed in ADR-124; the subject-modal half of this decision stands.
+  The Practice subject-picker modal (`practice-subject-modal.js`) shipped 100%
   hardcoded English via JS `innerHTML`, invisible to the `data-i18n`-only CI scan — hi/mr users saw it entirely in
   English. Routed through `QRI18n.t()` with new `practice.subject*` keys ×3; added `i18n.check §8` to lock JS-built
   modals to i18n going forward. Plus minor fixes (report-context `fullscreen` telemetry, stale version fallback,

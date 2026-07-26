@@ -196,7 +196,7 @@
       ]
     },
     {
-      id: 'fractions', title: 'Fractions, Decimals & Percentages', icon: '🍕', category: 'numbers',
+      id: 'fractions', title: 'Fractions, Decimals & Percentages', icon: '🥧', category: 'numbers',
       difficulty: 'foundation', examFrequency: 'very-high', status: 'published',
       drillCategory: 'fractions', syllabusTopicId: 'fractions_decimals', revisionIntervalDays: 5,
       related: ['percentages', 'simplification', 'ratio-proportion'],

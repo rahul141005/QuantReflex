@@ -88,8 +88,12 @@ var AIFeatures = (function () {
     });
   }
 
-  /* The 4th arg was once a simulated percentile band — the fabricated cohort comparison is gone
-     (removed with computePercentile), so the summary is strictly self-referential now. */
+  /* The summary is strictly self-referential — the fabricated cohort comparison is gone (removed with
+     computePercentile), and Wave S4 dropped the `_unusedBand` parameter that carried its simulated
+     percentile band. ADR-124: that edit left this comment describing "the 4th arg", which after the
+     removal is `questionCount`, not the band. Stated accurately now.
+     `questionCount` and `mode` are likewise unread — _generateLocalBenchmark takes only the first three —
+     but they pre-date Wave S4 and removing them is outside its scope; recorded as a known residual. */
   function fetchSpeedBenchmark(accuracy, avgTimeSec, speedScore, questionCount, mode, callback) {
     try {
       var result = _generateLocalBenchmark(accuracy, avgTimeSec, speedScore);

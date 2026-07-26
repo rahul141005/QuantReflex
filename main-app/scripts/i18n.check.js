@@ -306,5 +306,44 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   });
 })();
 
+/* ── 9. Category-picker section headers (ADR-124, audit S4-V1) ────────────────────────────────────
+   §8 locked ONE JS-innerHTML surface and stopped there. The sibling component — the Practice category
+   picker — took its Quant section titles straight from the knowledge registry, which stores English
+   only, so seven headers (Numbers … Mensuration) rendered in English for hi/mr users on the Practice
+   screen while the DI/LR headers beside them translated. §4 could not see it (no data-i18n) and §8 did
+   not cover it. This section closes that gap: the picker must resolve titles through i18n, and every
+   quant category id declared in the registry must have a translated title in all three catalogs. ── */
+(function () {
+  var src = fs.readFileSync(p('js/ui/category-picker.js'), 'utf8');
+  ok('9 picker resolves section titles through i18n (learn.cat_<id>Title)',
+    /function _catSectionTitle\(/.test(src) && /'learn\.cat_' \+ id \+ 'Title'/.test(src));
+  ok('9 the quant section model uses it rather than the raw registry title',
+    /title: _catSectionTitle\(sid, meta\[sid\] && meta\[sid\]\.title\)/.test(src));
+  ok('9 picker carries no untranslated hint strings',
+    !/hint:\s*'[^']/.test(src));
+
+  /* derive the ids from the registry source so a newly added quant category fails this check until it
+     is translated — the drift guard §8's fixed key list does not have */
+  var catSrc = fs.readFileSync(p('data/knowledge/categories.js'), 'utf8');
+  var ids = [];
+  catSrc.replace(/\{\s*id:\s*'([^']+)'[^}]*?subject:\s*'quant'/g, function (_m, id) { ids.push(id); return _m; });
+  ok('9 found the quant category ids in the registry (got ' + ids.length + ')', ids.length >= 7);
+  LANGS.forEach(function (lang) {
+    ids.forEach(function (id) {
+      var v = catalogs[lang].learn && catalogs[lang].learn['cat_' + id + 'Title'];
+      ok('9 ' + lang + ' learn.cat_' + id + 'Title', !!v);
+    });
+  });
+  /* and they must actually be translated, not English copies (the failure §8 never tests for) */
+  ['hi', 'mr'].forEach(function (lang) {
+    ids.forEach(function (id) {
+      var k = 'cat_' + id + 'Title';
+      var en = catalogs.en.learn && catalogs.en.learn[k];
+      var v = catalogs[lang].learn && catalogs[lang].learn[k];
+      ok('9 ' + lang + ' learn.' + k + ' is translated, not an English copy', !!v && v !== en);
+    });
+  });
+})();
+
 console.log('  ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

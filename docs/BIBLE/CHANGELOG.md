@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-26 — Wave S4 final verification: the half-localized Category Picker (ADR-124, SW v255→v256)
+
+Final adversarial verification of Wave S4 (ADR-116, shipped at `19d4185`/v248), done from source and a real
+Chromium run rather than from the completion report. The subject modal, MIN3, DEAD1 and DEAD2 all held.
+
+- **S4-V1 · the Category Picker rendered seven Quant section headers in raw English (hi + mr).** Wave S4
+  recorded this component as "a non-issue — already localizes all rendered strings via `_t()`". The
+  `picker.*` strings are indeed translated, but `_quantSections` took its title from the knowledge
+  registry, which stores English only — so on Practice, hi/mr users saw **Numbers · Arithmetic · Commercial
+  Math · Algebra · Modern Math · Geometry · Mensuration** beside DI/LR headers that translated correctly.
+  The translations already existed as `learn.cat_<id>Title`; the picker now resolves them, reusing the
+  Learn hub's pattern. Verified live in Chromium: all eleven headers localize in hi and mr.
+- **S4-V2 · MIN2 changed the value, not the invariant.** The static `#aboutVersionLine` fallback was moved
+  `v223 → v247` with no guard; nothing read it, so it survived to v255 by hand alone and would silently
+  re-stale on the next bump. `update.check.js` now asserts it equals `APP_VERSION`.
+- **S4-V3 · MIN1 finished.** The last 🍕 was on the same concept — the `fractions` Learn topic
+  (`data/knowledge/numbers.js:199`), rendered unmasked in the topic header → 🥧.
+- **S4-V4 · a comment S4 made wrong.** After `_unusedBand` was removed, the comment still described "the
+  4th arg" as the percentile band; the 4th arg is now `questionCount`. Corrected.
+- **S4-V5 · dead untranslated English** — three never-rendered `hint` fields in the picker, deleted.
+
+**Test gap closed.** `i18n.check` §4 cannot see JS-`innerHTML` text and §8 locked only the subject modal,
+which is why a defect of the same class survived the wave meant to remove it. New **§9** asserts the picker
+resolves through i18n, derives the quant category ids **from the registry source** so a new category fails
+until translated, and checks hi/mr are not English copies. Both new guards were verified to **fail on
+`8c8b1ee`** (3 assertions for §9, 1 for the version fallback) and pass after. `i18n.check` 14,507 → 14,546.
+
+**Documented, not changed** (outside S4): seven dead `emoji:` properties in `quick-links-registry.js` ·
+orphan blank lines at `store.js:322-325` · `category-picker.js` `_t` returns the raw key when QRI18n is
+absent · `subjects.di` "(DI)" vs `practice.subjectDiTitle` wording · `questionCount`/`mode` also unread in
+`fetchSpeedBenchmark` (pre-dates S4) · `report-taxonomy.js` (zero i18n), `report-modal.js` option tables,
+`lr-figures.js`/`di-charts.js` aria prose · `report-context._safe` returns `null` on a `matchMedia` throw
+where `app.js`→`false` and `duel-manager`→`true`.
+
+Docs: ADR-124 added; ADR-116's category-picker claim annotated as partly corrected. SW `v255 → v256`
+lockstep. Verified: `npm test` **14,546/0** · `update.check` 34/0 · account-isolation 121/0 ·
+session-integrity 42/0 · entitlement-core 93/0 · firestore-durability 73/0 · design-lint 10/10 · live
+Chromium: picker localized in en/hi/mr, subject modal clean across `en→hi→mr→hi→en→mr`, 0 page errors.
+**Wave S5 remains untouched.**
+
+---
+
 ## 2026-07-25 — Wave S3 final verification: superseded writes, offline amplification, logout watchdog (ADR-123, SW v254→v255)
 
 A final adversarial verification pass over Wave S3, run with executed harnesses that load the real
