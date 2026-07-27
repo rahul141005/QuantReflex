@@ -140,10 +140,18 @@
           if (_visible(kids[k])) vis.push({ el: kids[k], top: kids[k].getBoundingClientRect().top });
         }
         vis.sort(function (a, b) { return a.top - b.top; });
-        for (var v = 0; v < vis.length; v++) out.push({ el: vis[v].el, i: Math.min(v, STAGGER_GROUPS - 1) });
+        /* Content caps one slot BELOW the ceiling: the last slot is reserved for the nav (see below).
+           Capping content at STAGGER_GROUPS-1 instead let the nav collide with content from the sixth
+           visible section onward — on a tall tablet the chrome then moved WITH the last sections rather
+           than after them, silently dropping the "settles last" beat. */
+        for (var v = 0; v < vis.length; v++) out.push({ el: vis[v].el, i: Math.min(v, STAGGER_GROUPS - 2) });
       }
-      /* The nav labels are ONE final step: same index for all of them, one past the content wave, so the
-         change lands on the chrome last and the interface reads as settling. */
+      /* The nav labels are ONE final step, always strictly after every content unit, so the change lands
+         on the chrome last and the interface reads as settling into its new language.
+         Derived rather than pinned to the ceiling: content is capped at STAGGER_GROUPS-2 above, so
+         `lastContent + 1` is <= STAGGER_GROUPS-1 and therefore ALWAYS strictly greater than every content
+         index — while staying tight on a short screen. Pinning it to the ceiling instead would idle the
+         nav at slot 5 even when only three sections are visible, which measured +90 ms of dead wait. */
       var last = out.length ? Math.min(out[out.length - 1].i + 1, STAGGER_GROUPS - 1) : 0;
       var labels = document.querySelectorAll('.bottom-nav a > span[data-i18n]');
       for (var n = 0; n < labels.length; n++) {
@@ -326,10 +334,21 @@
     }
 
     /* Reduced motion: no animation at all — not a shorter one. Commit, restore, announce.
-       A live drill takes the same path: never dim, delay or nudge a timed question someone is reading. */
+       A live drill takes the same path: never dim, delay or nudge a timed question someone is reading.
+       This branch is capped exactly like the animated one below. Without the cap a pack request that
+       neither loads nor errors would leave the language silently unchanged forever, and it would leave
+       the accessibility path strictly less robust than the default path — the wrong asymmetry. */
     if (_reduced() || _drillActive()) {
-      if (root.QRPacks && QRPacks.ensure) { try { QRPacks.ensure(studyLang, function () { if (gen === _gen) commitInstant(); }); return; } catch (_) {} }
-      commitInstant();
+      var didInstant = false;
+      function commitOnce() { if (didInstant || gen !== _gen) return; didInstant = true; commitInstant(); }
+      if (root.QRPacks && QRPacks.ensure) {
+        try {
+          QRPacks.ensure(studyLang, commitOnce);
+          setTimeout(commitOnce, PACK_CAP_MS);
+          return;
+        } catch (_) {}
+      }
+      commitOnce();
       return;
     }
 
@@ -362,10 +381,15 @@
       else { packReady = true; }
     } catch (_) { packReady = true; }
     /* ensure() calls back synchronously for 'en' and for already-loaded packs, so on the common path
-       packReady is already true by the time the exit lands and the commit costs nothing extra. */
-    tryCommit();
+       packReady is already true by the time the exit lands. (No tryCommit() call here: exitLanded is
+       still false at this point, so it could only ever be a no-op.) */
 
     function reveal() {
+      /* Re-capture, do NOT reuse the t=0 snapshot. Nothing blocks interaction during the dim, and on a
+         cold pack the dim can hold for up to PACK_CAP_MS — restoring a snapshot taken over a second ago
+         would yank a user who scrolled or tabbed while waiting back to where they started. What needs
+         preserving is state across the COMMIT, which is the only thing that disturbs it. */
+      snap = _capture();
       doCommit();
       if (gen !== _gen) return;   /* a tap during the commit wins */
       _restore(snap);
@@ -376,6 +400,16 @@
       var live = _units();
       if (!live.length) { _finish(); _announce(appLang); return; }
 
+      /* ONLY WHAT DIMMED RISES. A unit the commit newly brought into view was never part of the wave and
+         is already correct at full opacity; giving it IN_CLASS would apply `both` fill and yank it down
+         to the floor to animate back up. Whether that ever reached the screen was not provable either
+         way (the sampling frame and the reveal frame coincide), so the path is removed rather than
+         argued about — and "only what dimmed rises" is the honest statement of the effect anyway. */
+      var wave = [];
+      for (var w = 0; w < live.length; w++) {
+        if (_activeUnits.indexOf(live[w].el) !== -1) wave.push(live[w]);
+      }
+
       /* Anything dimmed on the way out that is no longer a unit must still be released, or it would be
          left sitting at the floor. _finish() clears the union, but the reveal has to reach it too. */
       var stillOut = [];
@@ -385,15 +419,17 @@
         if (!found && document.contains(el)) stillOut.push({ el: el, i: 0 });
       }
 
+      if (!wave.length && !stillOut.length) { _finish(); _announce(appLang); return; }
+
       root.requestAnimationFrame(function () {
         if (gen !== _gen) return;
-        var all = live.concat(stillOut);
+        var all = wave.concat(stillOut);
         for (var i = 0; i < all.length; i++) {
           try { all[i].el.classList.remove(OUT_CLASS); } catch (_) {}
         }
         _mark(all, IN_CLASS);
         _announce(appLang);
-        var revealMs = _windowMs(live, 'reveal');
+        var revealMs = _windowMs(all, 'reveal');
         setTimeout(function () { if (gen === _gen) _finish(); }, revealMs);
       });
     }

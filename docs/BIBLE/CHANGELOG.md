@@ -6,6 +6,48 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-27 — Language-transition acceptance gate: four defects in ADR-127 (ADR-128, SW v259→v260)
+
+Final production gate, run against ADR-127 with its own reports treated as untrusted. Four defects found
+and fixed; each has an assertion demonstrated to fail on `78dd8d3`.
+
+- **F1 · "the bottom nav finishes last" silently stopped being true.** Content indices and the derived nav
+  index both saturated at `STAGGER_GROUPS - 1`, so from the **sixth** visible section onward the nav moved
+  *with* the last content rather than after it. Reproduced: Settings shows **6 visible sections at 1024×1400
+  and 9 at 1024×2000** — supported tablet sizes. Content now caps one slot lower and the nav index stays
+  derived, which is provably strictly greater at any section count; `i18n.check` proves that arithmetically
+  over 1…40 sections. My first fix pinned the nav to the ceiling and **cost +90 ms of dead wait on a
+  three-section phone (446 → 538 ms)** — reverted.
+- **F2 · the accessibility path was less robust than the default path.** The reduced-motion / drill branch
+  had no `PACK_CAP_MS` guard, so a pack that neither loaded nor errored would leave the language silently
+  unchanged. Capped, with a once-only guard. Verified with `ensure` stubbed to never call back: commits at
+  **1300 ms** (reduced motion) and **1275 ms** (drill).
+- **F3 · state captured at tap time, restored up to 1.2 s later.** Nothing blocks interaction during the
+  dim, so a user who scrolled while waiting was yanked back. Capture moved to immediately before the commit.
+  Verified: tap at 122, user scrolls to 420 during a 700 ms wait, final **420**.
+- **F4 · only what dimmed may rise.** A section the commit newly brought into view still got the reveal
+  animation, whose `both` fill starts at the floor. Whether that ever painted was **not provable** — the
+  sampler and the coordinator share a frame — so the path was removed rather than argued about. The same
+  section now traces `1, 1, 1, 1, 1, 1, 1, 1`.
+
+**Refuted, no defect:** nav labels have no competing `transition` (the only one is on the anchor,
+`css/style.css:1340`); the Learn `_staticWired` latch cannot strand a dead button (all four latched nodes
+are static markup, and `EventRegistry.clearAll()` only removes what it registered); the retired `hold`
+opt-out survives only in a comment and in the assertion proving its absence; no TODO/FIXME/debugger, and
+`js/i18n-transition.js` has no `console.*`.
+
+- **Regression.** `npm test` **14,593/0** · design-lint **10/10**, `durations=3` / `easings=3` unchanged ·
+  update.check 34/0 with the v260 lockstep · 29 morph-class mutations during a switch and **0** across seven
+  later navigations, 0 on cold boot, 0 under both reduced-motion switches, 0 during a live drill · 10 spam
+  taps last-wins with 0 stuck-dim and floor never below 0.45 · 300 switches (nodes 1361→1364, 1 announcer) ·
+  Learn leaks still flat (1 handler, 30 buttons, 631 nodes) · 1×/4×/6× CPU frame median 17 ms, CLS 0 ·
+  S4 72-combination matrix 0 problems · purge 11/0/0 · boot smoke 0 page errors · `node --check` all files.
+- **Files.** `main-app/js/i18n-transition.js` · `main-app/scripts/i18n.check.js` · `main-app/index.html` +
+  `main-app/service-worker.js` (v260 lockstep) · `docs/BIBLE/{DECISION_LOG,CHANGELOG,VERSIONS}.md`.
+- **Scope.** Wave S5 untouched. Payments / Phase 4 untouched.
+
+---
+
 ## 2026-07-26 — Language switching becomes a directional cascade (ADR-127, SW v258→v259)
 
 ADR-126 made the switch correct. It did not make it feel like a flagship interaction, and measuring the

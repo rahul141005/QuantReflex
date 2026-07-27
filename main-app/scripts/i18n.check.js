@@ -396,15 +396,41 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
     /r\.bottom > 0 && r\.top < vh/.test(src) && /if \(_visible\(kids\[k\]\)\)/.test(src));
   ok('10 units are ordered by their on-screen top edge, so the wave travels downward',
     /vis\.sort\(function \(a, b\) \{ return a\.top - b\.top; \}\)/.test(src));
+  /* ADR-128 F1: the nav slot is RESERVED, not derived from the last content index. Deriving it
+     (Math.min(lastContentIndex + 1, cap)) collided with content from the sixth visible section onward,
+     so on a tall tablet the chrome moved WITH the last sections instead of after them. Content must cap
+     one slot below the ceiling and the nav must take the ceiling — assert both halves. */
   ok('10 the bottom-nav labels are the FINAL step, so the change settles on the chrome',
     /bottom-nav a > span\[data-i18n\]/.test(src) &&
-    /out\[out\.length - 1\]\.i \+ 1/.test(src));
-  ok('10 the stagger index is capped so a tall screen cannot stagger indefinitely',
-    /STAGGER_GROUPS/.test(src) && /Math\.min\(v, STAGGER_GROUPS - 1\)/.test(src));
+    /var last = out\.length \? Math\.min\(out\[out\.length - 1\]\.i \+ 1, STAGGER_GROUPS - 1\) : 0;/.test(src));
+  ok('10 content caps one slot BELOW the nav so the two can never collide',
+    /STAGGER_GROUPS/.test(src) && /Math\.min\(v, STAGGER_GROUPS - 2\)/.test(src));
+  /* The two above are only jointly sufficient: the derived nav index is strictly greater than every
+     content index ONLY because content is capped one slot lower. Prove the arithmetic here rather than
+     trusting the pair to stay in sync — this is the exact invariant ADR-128 F1 restored. */
+  ok('10 nav index is provably > every content index at any section count',
+    (function () {
+      var cap = /var STAGGER_GROUPS = (\d+);/.exec(src);
+      if (!cap) return false;
+      var G = parseInt(cap[1], 10);
+      for (var n = 1; n <= 40; n++) {
+        var idx = [];
+        for (var v = 0; v < n; v++) idx.push(Math.min(v, G - 2));
+        var navI = Math.min(idx[idx.length - 1] + 1, G - 1);
+        if (navI <= Math.max.apply(null, idx)) return false;
+      }
+      return true;
+    })());
   ok('10 units are re-enumerated after the commit (a render can insert a direct child)',
     /var live = _units\(\);/.test(src));
   ok('10 a unit dimmed on the way out is always released, even if it is no longer a unit',
     /stillOut/.test(src));
+  /* ADR-128 F5: only what actually dimmed may rise. A unit the commit newly brought into view was never
+     part of the wave; giving it IN_CLASS applies `both` fill and yanks it to the floor to animate back
+     up — a dip on content that never participated. Assert the reveal set is filtered by _activeUnits. */
+  ok('10 only units that actually dimmed take part in the reveal',
+    /if \(_activeUnits\.indexOf\(live\[w\]\.el\) !== -1\) wave\.push\(live\[w\]\);/.test(src) &&
+    /var all = wave\.concat\(stillOut\);/.test(src));
 
   /* ---- ADR-127: overlays no longer participate (the old list led with a dead selector) ---- */
   /* Matched against SELECTOR STRINGS, not prose — the header comment explains why the old class list
@@ -420,6 +446,18 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
     /_mark\(units, OUT_CLASS\)[\s\S]{0,900}?QRPacks\.ensure\(studyLang, function \(\) \{ packReady = true/.test(src));
   ok('10 a slow pack can never hang the transition (hard cap, then commit anyway)',
     /PACK_CAP_MS/.test(src) && /capped = true; tryCommit\(\)/.test(src));
+  /* ADR-128 F2: the reduced-motion / drill branch returns early and used to have NO cap, so a pack that
+     neither loaded nor errored left the language silently unchanged — the accessibility path being less
+     robust than the default path. Assert it is capped, and that the cap and the pack callback share a
+     once-only guard so they cannot both commit. */
+  ok('10 the reduced-motion / drill branch is capped too, and commits at most once',
+    /function commitOnce\(\)/.test(src) && /didInstant = true; commitInstant\(\)/.test(src) &&
+    /QRPacks\.ensure\(studyLang, commitOnce\);\s*\n\s*setTimeout\(commitOnce, PACK_CAP_MS\);/.test(src));
+  /* ADR-128 F3: scroll/focus must be captured immediately before the commit, not at tap time. The dim can
+     hold for up to PACK_CAP_MS and nothing blocks interaction, so a t=0 snapshot would yank a user who
+     scrolled or tabbed while waiting back to where they started. */
+  ok('10 state is captured immediately before the commit, not at tap time',
+    /snap = _capture\(\);\s*\n\s*doCommit\(\);/.test(src));
   ok('10 the commit waits for the exit to land so no section swaps text at full opacity',
     /if \(!exitLanded\) return;/.test(src));
 

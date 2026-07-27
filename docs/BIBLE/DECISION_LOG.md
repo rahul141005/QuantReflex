@@ -8,6 +8,63 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-128 — Language-transition acceptance gate: four defects in ADR-127, found by auditing it (v260) (2026-07-27)
+
+- **Context.** Final production acceptance gate for the language transition, run against ADR-127 at HEAD
+  `78dd8d3` with its own reports treated as untrusted. Three exploration agents were killed by an account
+  spend limit, so the static half was done by hand; it found four defects, one of which broke a contract
+  item stated in the brief. All four are fixed here, each with an assertion demonstrated to fail on
+  `78dd8d3`.
+
+- **F1 — "the bottom nav finishes last" silently stopped being true.** `_units()` capped content indices at
+  `STAGGER_GROUPS - 1` and then derived the nav index as `min(lastContent + 1, STAGGER_GROUPS - 1)`. Both
+  therefore saturated at 5, so from the **sixth** visible section onward the nav moved *with* the last
+  content instead of after it. **Reachable and reproduced**: Settings shows **6 visible sections at
+  1024×1400 and 9 at 1024×2000** — tablet sizes this app supports. Fixed by capping content one slot lower
+  (`STAGGER_GROUPS - 2`) and keeping the derived nav index, which is then provably strictly greater at any
+  section count. A first attempt pinned the nav to the ceiling instead; that was correct but **cost +90 ms
+  of dead wait on a three-section phone (446 → 538 ms)**, so it was reverted in favour of the derived form.
+  `i18n.check` now proves the invariant arithmetically over 1…40 sections rather than trusting two regexes
+  to stay in sync.
+
+- **F2 — the accessibility path was strictly less robust than the default path.** The reduced-motion /
+  live-drill branch returned early after `QRPacks.ensure(...)` with **no cap**, while the animated path
+  guarded the same call with `PACK_CAP_MS`. A pack request that neither loads nor errors would have left
+  the language silently unchanged forever, for exactly the users least able to work around it. Fixed with
+  the same cap plus a once-only `commitOnce` guard so the pack callback and the cap cannot both commit.
+  Verified: with `ensure` stubbed to never call back, the commit still lands at **1300 ms** (reduced
+  motion) and **1275 ms** (drill), focus preserved and the change announced.
+
+- **F3 — state was captured at tap time and force-restored up to 1.2 s later.** `_capture()` ran at t=0 but
+  `_restore()` ran after the commit, which on a cold pack is `PACK_CAP_MS` later. Nothing blocks interaction
+  during the dim, so a user who scrolled or tabbed while waiting was yanked back. In a feature whose
+  headline is state preservation that is state *destruction*. Fixed by capturing immediately before
+  `doCommit()` — the commit is the only thing that disturbs scroll and focus. Verified: tap at scrollTop
+  122, user scrolls to 420 during a 700 ms pack wait, final position **420**, not 122.
+
+- **F4 — only what dimmed may rise.** A section the commit newly brought into view still received
+  `IN_CLASS`, whose `both` fill starts at the 0.45 floor — pulling content that never participated down and
+  animating it back up. Sampling showed `1 → 0.45 → 0.45 → 0.531 → …` on such a section, but **whether that
+  ever reached the screen was not provable**: the sampler's rAF and the coordinator's rAF land in the same
+  frame, and the animation had been garbage-collected before `startTime` could be read. Rather than argue
+  paint timing — which this feature has already got wrong twice — the path was removed: the reveal set is
+  filtered to units that actually dimmed. Re-measured, the same section now traces `1, 1, 1, 1, 1, 1, 1, 1`.
+  This also makes the code match the principle the design claims ("only what changes, moves").
+
+- **Consequence.** Timing is back on target (**446 / 473 / 500 ms** at 320 / 390 / 768 px), the wave is
+  unchanged (`maxAlphaSpread` 0.43-0.50, floor exactly 0.45), and the invariants ADR-127 established all
+  still hold: 29 morph-class mutations during a switch and **0** across seven later navigations, 0 on cold
+  boot, 0 under either reduced-motion switch, 0 during a live drill. `npm test` **14,593/0**, design-lint
+  **10/10** with `durations=3` / `easings=3` unchanged.
+
+- **Investigated and refuted (no defect).** The nav labels have no competing `transition` — the only nav
+  transition is on the anchor (`css/style.css:1340`), not the `> span` the class lands on, so `_windowMs()`
+  is reading the right numbers. The Learn `_staticWired` latch cannot strand a dead button: all four latched
+  nodes are static markup nothing replaces, and `EventRegistry.clearAll()` only removes listeners it
+  registered (`js/utils/event-registry.js:62-69`), so logout cannot orphan them. The retired `hold` opt-out
+  survives only in an explanatory comment and in the assertion proving its absence. No TODO/FIXME/debugger
+  anywhere in the changed files; `js/i18n-transition.js` contains no `console.*` at all.
+
 ## ADR-127 — The language switch is a directional cascade, scoped to the visible screen (v259) (2026-07-26)
 
 - **Context.** ADR-126 made the switch *correct* — single commit pass, focus and scroll preserved, reduced

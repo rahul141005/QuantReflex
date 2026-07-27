@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.159 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.160 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.160 (2026-07-27)** — **Language-transition acceptance gate (ADR-128, SW v259→v260).** Four defects
+> found by auditing ADR-127 with its own reports treated as untrusted. **F1**: content and nav indices both
+> saturated at the stagger ceiling, so from the sixth visible section onward the nav stopped finishing last —
+> reproduced at 1024×1400 (6 sections) and 1024×2000 (9); content now caps one slot lower and the invariant is
+> proved arithmetically over 1…40 sections. **F2**: the reduced-motion / drill branch had no pack cap, so a
+> request that neither loaded nor errored left the language silently unchanged — capped, verified committing at
+> 1300 ms / 1275 ms with the pack stubbed to never resolve. **F3**: scroll and focus were captured at tap time
+> and force-restored up to 1.2 s later, overriding a user who scrolled during the wait — capture moved to
+> immediately before the commit. **F4**: a section the commit newly revealed still received the reveal
+> animation and its floor-start fill; whether that painted was not provable, so the path was removed rather
+> than argued. Timing back on target (446 / 473 / 500 ms), `npm test` **14,593/0**, design-lint 10/10 with
+> `durations=3` / `easings=3` unchanged. Wave S5 and Phase 4 payments untouched.
 
 > **2.159 (2026-07-26)** — **Language switching becomes a directional cascade (ADR-127, SW v258→v259).**
 > Architecture 2.75→2.76. ADR-126 was correct but read as a refresh: the dim sat on the **view root**, so the
