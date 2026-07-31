@@ -9,11 +9,30 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.160 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.161 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.161 (2026-07-31)** — **Wave S5 final production verification (ADR-129, SW v260→v261).** Cross-wave
+> re-verification of Waves S1–S4 with every prior report treated as untrusted. **No code regression found in
+> S1–S4** — every fix still present, none reverted or shadowed, entitlement mirrors still md5-identical,
+> `js/auth.js` and `js/app.js` unchanged since S2. The failures were in governance and in the tests.
+> **FAIL-1**: `I18N_CERTIFICATION.md` — the document `I18N_KNOWN_LIMITS.md` names as the certification gate —
+> asserted the i18n flag was OFF while source shipped it ON, telling a reviewer localization was dark when
+> every user was on the live path; corrected, and `i18n.check` §5 now pins the gate to the flag's live value
+> (3 assertions, demonstrated failing on `b5b1d8c`). **FAIL-2**: four checks could not fail and two files had
+> zero coverage — `session-integrity` asserted its own copies, `category-source` swallowed its skip,
+> `auth-validators` executed no validators (8 → **107**), and `js/services/report-context.js` was untested, so
+> the S4-MIN3 fullscreen fix was deletable with the suite green (`report.check` 674 → **715**). The new
+> executed cross-user flush test surfaced a real asymmetry in `_persistPendingBuffer()` (buffer keyed on the
+> current rather than the loaded identity) — verified **latent, not live**, and hardened anyway.
+> **W1**: `reminderCron.js` hand-rolled a fourth expiry parser that silently dropped `{toDate}`-shaped
+> expiries from the reminder bucket — now delegates to `entitlement-core.toMillis`. **W4** resolved on
+> evidence (teardown mid-morph is clean). Runtime: premium/trial never reach a purchase surface, expired fails
+> closed with 0 persisted keys, 300 switches leak nothing, timing 416 / 566 / 771 ms at 1× / 4× / 6×.
+> `npm test` exit 0, design-lint 10/10 unchanged. Wave S5 feature work and Phase 4 payments untouched.
 
 > **2.160 (2026-07-27)** — **Language-transition acceptance gate (ADR-128, SW v259→v260).** Four defects
 > found by auditing ADR-127 with its own reports treated as untrusted. **F1**: content and nav indices both

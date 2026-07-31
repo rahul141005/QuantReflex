@@ -24,13 +24,13 @@ function _langOf(u) { var l = u.settings && u.settings.appLanguage; return (l ==
 
 function _dateKey(now) { return new Date(now).toISOString().slice(0, 10); }            // UTC YYYY-MM-DD
 function _startOfDayUTC(now) { var d = new Date(now); d.setUTCHours(0, 0, 0, 0); return d.getTime(); }
-function _expiryMs(v) {
-  if (v == null) return 0;
-  if (typeof v === 'number') return v;
-  if (typeof v.toMillis === 'function') { try { return v.toMillis(); } catch (_) { return 0; } }
-  if (typeof v === 'string') { var t = Date.parse(v); return isNaN(t) ? 0 : t; }
-  return 0;
-}
+/* ADR-129: delegate rather than hand-roll. This was a FOURTH private expiry parser and it was the least
+   tolerant of them — no Date-instance branch, no toDate() fallback, no isFinite guard — so an expiry that
+   arrived as a plain {toDate} object or a non-finite number read as 0 and silently dropped that user out
+   of the "expires in <= 3 days" reminder bucket below. aiService.js:153 already names entitlement-core's
+   toMillis as the one implementation; this is the last caller that did not use it. */
+const entitlement = require('../data/entitlement-core');
+function _expiryMs(v) { return entitlement.toMillis(v); }
 
 /**
  * Generate the day's reminders. Idempotent: a `systemMetrics/reminders_{date}` marker is claimed via create()

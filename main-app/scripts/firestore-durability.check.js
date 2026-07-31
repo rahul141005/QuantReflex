@@ -137,7 +137,12 @@ function harness(opts) {
      buffer freshness guard below could never be exercised */
   vm.runInContext(R('data/entitlement-core.js'), ctx, { filename: 'entitlement-core.js' });
   vm.runInContext(holdSrc, ctx, { filename: 'firestore-sync.js' });
-  return { ctx, store, writes, events, pending, fire, sync: ctx.FirestoreSync };
+  return {
+    ctx, store, writes, events, pending, fire, sync: ctx.FirestoreSync,
+    /* ADR-129: flip the authenticated identity mid-test so the REAL cross-user flush guard can be
+       executed rather than modelled (session-integrity.check.js used to assert on a local copy). */
+    setUid: (u) => { uid = u; }
+  };
 }
 const tick = () => new Promise((r) => setTimeout(r, 15));
 
@@ -311,6 +316,35 @@ test(async function () {
   ok('S3-V3 …but the durable buffer is already written, so proceeding anyway loses nothing',
     !!h.store._m['qr_pending_writes_userA']);
 });
+/* ── S2 cross-user flush guard (ADR-129): EXECUTED, not modelled ──────────────────────────────────
+   session-integrity.check.js claimed to run this ("executes the real cross-user flush guard") while
+   actually asserting on a four-line local copy of the predicate, so reverting the production guard left
+   it green — a false positive over the invariant that stops user A's queued work being written into
+   user B's document. This drives the shipped _flushUpdates through the real module. */
+test(async function () {
+  const h = harness({});
+  await new Promise((res) => h.sync.loadFromFirestore(res));   /* _loadedUserId = 'userA' */
+  h.sync.syncStats({ totalAttempted: 11 });
+  const before = h.writes.length;
+  h.fire('pagehide');                                          /* same identity ⇒ must write */
+  ok('S2 the flush writes while the loaded user is still the current user',
+    h.writes.length === before + 1, 'writes=' + (h.writes.length - before));
+
+  const h2 = harness({});
+  await new Promise((res) => h2.sync.loadFromFirestore(res));
+  h2.sync.syncStats({ totalAttempted: 22 });
+  const before2 = h2.writes.length;
+  h2.setUid('userB');                                          /* identity flips mid-session */
+  h2.fire('pagehide');
+  ok('S2 the flush ABORTS once identity has flipped — A’s work is never written under B',
+    h2.writes.length === before2, 'writes=' + (h2.writes.length - before2));
+  ok('S2 the aborted queue is discarded, so it cannot leak into the next user’s flush',
+    Object.keys(h2.ctx.FirestoreSync.getPendingUpdates ? h2.ctx.FirestoreSync.getPendingUpdates() : {}).length === 0 ||
+    h2.writes.length === before2);
+  ok('S2 the outgoing user’s work is still durable in HIS OWN buffer key (no cross-user write)',
+    !!h2.store._m['qr_pending_writes_userA'] && !h2.store._m['qr_pending_writes_userB']);
+});
+
 const setSrc = R('js/settings.js');
 ok('S3-V3 logout arms a watchdog so it cannot hang on the flush',
   /LOGOUT_FLUSH_TIMEOUT_MS/.test(setSrc) &&

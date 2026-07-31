@@ -1,8 +1,16 @@
 /**
  * session-integrity.check.js — auth / session / user-data-consistency invariants (ADR-118, Wave S2).
  *
- * Part BEHAVIOURAL (executes the real cross-user flush guard against a simulated A→B switch) and part
- * structural, for wiring that cannot be executed headlessly (script order, listener teardown).
+ * STRUCTURAL ONLY. This file pattern-matches source; it executes nothing.
+ *
+ * ADR-129: it used to describe itself as "BEHAVIOURAL (executes the real cross-user flush guard)" while
+ * actually asserting on a four-line local copy of the predicate — so reverting the production guard left
+ * it green, a false positive over the invariant that stops user A's queued work reaching user B's
+ * document. ADR-122 named that pattern out of bounds ("a check either executes the shipped function or
+ * it is a pattern-match — there is no third category, and copies must not be described as either").
+ * The real guard is now EXECUTED in scripts/firestore-durability.check.js, which vm-loads the shipped
+ * js/firestore-sync.js and flips the authenticated identity mid-session. What remains here is honest
+ * structural coverage of wiring that cannot be executed headlessly.
  *
  *   node scripts/session-integrity.check.js   (run from main-app/)
  */
@@ -40,16 +48,15 @@ var iWrite = flush.indexOf('docRef.set(snapshot');
 ok(iSnap > 0 && iClear > iSnap && iWrite > iClear,
   '1 flush snapshots the payload, then clears the queue, then writes (order matters for the reset path)');
 
-/* ── 2. S2-F1 behavioural — execute the real guard logic for a simulated A→B switch ──── */
-function flushGuard(currentUserId, loadedUserId) {
-  /* mirrors js/firestore-sync.js _flushUpdates lines: abort when the auth context has changed */
-  if (!currentUserId || (loadedUserId && currentUserId !== loadedUserId)) return 'ABORT_DISCARD';
-  return 'WRITE';
-}
-ok(flushGuard('A', 'A') === 'WRITE', '2 flush proceeds while the outgoing user is still current (post-fix ordering)');
-ok(flushGuard('B', 'A') === 'ABORT_DISCARD', '2 flush aborts once identity has flipped (the pre-fix bug)');
-ok(flushGuard(null, 'A') === 'ABORT_DISCARD', '2 flush aborts when signed out');
-ok(flushGuard('A', null) === 'WRITE', '2 no loaded user yet ⇒ no cross-user risk');
+/* ── 2. S2-F1 — the cross-user flush guard. The BEHAVIOUR is executed in firestore-durability.check.js
+   ("S2 the flush ABORTS once identity has flipped"); here we only pin the shipped predicate so a silent
+   rewrite of it is caught, and assert the ordering that makes it reachable. ─────────────────────── */
+ok(/if \(!currentUserId \|\| \(_loadedUserId && currentUserId !== _loadedUserId\)\) \{/.test(sync),
+  '2 the abort predicate is still the shipped one (executed coverage: firestore-durability.check)');
+ok(/aborted: user context changed[\s\S]{0,120}?_pendingUpdates = \{\};/.test(sync),
+  '2 aborting also DISCARDS the queue, so it cannot leak into the next user\u2019s flush');
+ok(/var uid = _loadedUserId \|\| \(FirebaseApp\.getUserId && FirebaseApp\.getUserId\(\)\);/.test(sync),
+  '2 the durable buffer is keyed on the LOADED user, not on whoever is authenticated now (ADR-129)');
 
 /* ── 3. S2-F2 — the live user-doc listener must not throw away the document ─────────── */
 var listener = sync.slice(sync.indexOf('function _listenForSession'), sync.indexOf('function _listenForSession') + 3000);
@@ -72,11 +79,10 @@ ok((listener.match(/_hasPendingUpdate\(/g) || []).length >= 3,
   '3b every refreshed group (scalars, stamps, profile) consults it before overwriting');
 ok(/!_hasPendingUpdate\('profile'\)/.test(listener),
   '3b profile — the one whole-object field refreshed — is skipped while a local profile write is queued');
-/* behavioural: the real predicate against a queue that holds a just-made local profile edit */
-function hasPending(queue, field) { return Object.prototype.hasOwnProperty.call(queue, field); }
-ok(hasPending({ profile: { name: 'New' } }, 'profile') === true, '3b pending profile edit is detected');
-ok(hasPending({ stats: {} }, 'profile') === false, '3b an unrelated pending field does not block the profile refresh');
-ok(hasPending({}, 'plan') === false, '3b an empty queue never blocks a server-authoritative refresh');
+/* ADR-129: three assertions here used to call a local re-declaration of hasOwnProperty and so proved
+   only that hasOwnProperty works. Replaced with a pin on the shipped predicate's actual shape. */
+ok(/function _hasPendingUpdate\(field\) \{[\s\S]{0,160}?hasOwnProperty\.call\(_pendingUpdates, field\)/.test(sync),
+  '3b the predicate reads the LIVE queue object, not a snapshot or a copy');
 /* a field the client legitimately never queues must therefore always refresh */
 ok(!/queueUpdate\(\s*'coachingId'/.test(sync), '3b coachingId is server-written only, so it can never be pending');
 

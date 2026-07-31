@@ -60,6 +60,93 @@ ok(read('super-admin-app/js/firebase/auth.js').indexOf('AuthValidators') === -1 
    !/auth-validators/.test(read('super-admin-app/index.html')),
   'super-admin neither references nor loads AuthValidators (dead cross-root script removed)');
 
+/* ───────── Behavioural: EXECUTE all three copies against one truth table (ADR-129) ─────────
+   Everything above is textual parity — it proves the three files AGREE, never that they are RIGHT. A rule
+   edited identically in all three (or a canonical rewritten wholesale) sailed through green. These cases
+   run the real validators and pin the rules themselves: the email shape, the four signup requirements, and
+   the deliberate login/signup asymmetry (login accepts 6 chars, signup demands 8 + classes). */
+var vm = require('vm');
+function loadValidators(src, label) {
+  var sandbox = {};
+  vm.runInNewContext(src, sandbox, { filename: label });
+  return sandbox.AuthValidators;
+}
+var COPIES = [
+  ['canonical', canonical],
+  ['main-app copy', mainCopy],
+  ['coaching copy', coachCopy]
+];
+COPIES.forEach(function (entry) {
+  var name = entry[0];
+  var V = loadValidators(entry[1], name);
+  function t(label, cond) { ok(cond, name + ' — ' + label); }
+
+  t('exports the four validators',
+    V && typeof V.validateEmail === 'function' && typeof V.validatePasswordStrength === 'function' &&
+    typeof V.validateLogin === 'function' && typeof V.validateSignup === 'function');
+  if (!V) return;
+
+  /* validateEmail */
+  [
+    ['a@b.co', true], ['user.name+tag@sub.domain.org', true], ['  A@B.CO  ', true],
+    ['', false], [null, false], [undefined, false], ['no-at-sign', false],
+    ['a@b', false],            // bare host, no TLD
+    ['a@@b.co', false], ['a b@c.co', false], ['@b.co', false], ['a@.co', false]
+  ].forEach(function (c) {
+    t('validateEmail(' + JSON.stringify(c[0]) + ') === ' + c[1], V.validateEmail(c[0]) === c[1]);
+  });
+
+  /* validatePasswordStrength — the four signup rules, asserted individually so weakening any one fails */
+  t('strength: Abcdefg1 is valid', V.validatePasswordStrength('Abcdefg1').valid === true);
+  t('strength: exposes exactly 4 rules', V.validatePasswordStrength('Abcdefg1').rules.length === 4);
+  t('strength: a valid password reports no errors', V.validatePasswordStrength('Abcdefg1').errors.length === 0);
+  t('strength: 7 chars fails the length rule',
+    V.validatePasswordStrength('Abcdef1').errors.indexOf('At least 8 characters') !== -1);
+  t('strength: no uppercase fails',
+    V.validatePasswordStrength('abcdefg1').errors.indexOf('One uppercase letter') !== -1);
+  t('strength: no lowercase fails',
+    V.validatePasswordStrength('ABCDEFG1').errors.indexOf('One lowercase letter') !== -1);
+  t('strength: no digit fails',
+    V.validatePasswordStrength('Abcdefgh').errors.indexOf('One number') !== -1);
+  t('strength: empty password fails all four rules', V.validatePasswordStrength('').errors.length === 4);
+  t('strength: null password is handled, not thrown', V.validatePasswordStrength(null).valid === false);
+  t('strength: reports EVERY failure at once (checklist UX contract)',
+    V.validatePasswordStrength('abc').errors.length === 3);
+
+  /* validateLogin — deliberately laxer than signup: 6 chars, no character classes */
+  t('login: valid credentials return null', V.validateLogin('a@b.co', 'sixsix') === null);
+  t('login: 6-char all-lowercase password is accepted (not signup rules)',
+    V.validateLogin('a@b.co', 'abcdef') === null);
+  t('login: 5-char password is rejected', typeof V.validateLogin('a@b.co', 'abcde') === 'string');
+  t('login: bad email is rejected before the password', /email/i.test(V.validateLogin('nope', 'abcdef') || ''));
+  t('login: missing password is rejected', typeof V.validateLogin('a@b.co', '') === 'string');
+
+  /* validateSignup — stricter, and it must NOT leak which rule failed */
+  t('signup: valid credentials return null', V.validateSignup('a@b.co', 'Abcdefg1') === null);
+  t('signup: a login-legal weak password is rejected',
+    V.validateSignup('a@b.co', 'abcdef') === 'Password does not meet requirements.');
+  t('signup: bad email is rejected', /email/i.test(V.validateSignup('nope', 'Abcdefg1') || ''));
+  t('signup: is strictly stronger than login',
+    V.validateLogin('a@b.co', 'abcdef') === null && V.validateSignup('a@b.co', 'abcdef') !== null);
+});
+
+/* And the three executed copies must produce IDENTICAL verdicts on every case — behavioural parity on top
+   of the textual parity above, so a copy that diverges only at runtime still fails. */
+(function () {
+  var Vs = COPIES.map(function (e) { return loadValidators(e[1], e[0]); });
+  var EMAILS = ['a@b.co', 'x', '', 'A@B.CO', 'a@b', 'user+tag@a.b.co'];
+  var PWDS = ['', 'abc', 'abcdef', 'Abcdefg1', 'ABCDEFG1', 'Abcdefgh', 'Abcdef1'];
+  var same = true;
+  EMAILS.forEach(function (e) {
+    if (Vs[0].validateEmail(e) !== Vs[1].validateEmail(e) || Vs[0].validateEmail(e) !== Vs[2].validateEmail(e)) same = false;
+    PWDS.forEach(function (w) {
+      if (Vs[0].validateLogin(e, w) !== Vs[1].validateLogin(e, w) || Vs[0].validateLogin(e, w) !== Vs[2].validateLogin(e, w)) same = false;
+      if (Vs[0].validateSignup(e, w) !== Vs[1].validateSignup(e, w) || Vs[0].validateSignup(e, w) !== Vs[2].validateSignup(e, w)) same = false;
+    });
+  });
+  ok(same, 'all three copies return identical verdicts across ' + (EMAILS.length * (1 + PWDS.length * 2)) + ' executed cases');
+})();
+
 console.log('\n──────────────────────────────');
 console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

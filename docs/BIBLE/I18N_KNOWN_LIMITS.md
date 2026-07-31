@@ -39,12 +39,15 @@ comprehension.
 ### About modal — version line (`#aboutVersionLine`)
 
 - **String:** the static fallback `Version <APP_VERSION>` in the About modal
-  (`index.html` `#aboutVersionLine`, "Version & Updates" section). Currently `Version v257`.
+  (`index.html` `#aboutVersionLine`, "Version & Updates" section). The literal tracks the
+  service-worker `APP_VERSION` and is CI-enforced, so it is deliberately NOT quoted here — this entry
+  quoted `v223`, then `v257`, and re-staled each time (ADR-129).
 - **Status:** intentionally NOT tagged with `data-i18n`; **pinned to `APP_VERSION` and CI-enforced**
   (ADR-124, `scripts/update.check.js` — the literal must equal the service-worker `APP_VERSION`).
 - **Rationale:** this node is **always** overwritten synchronously by `settings.js`
-  `updateAboutUserStatus()` — which runs *before* the modal is shown (`js/settings.js:472-473` calls
-  `updateAboutUserStatus()` then `openInfoModal('aboutModal')`) — with the already-localized,
+  `updateAboutUserStatus()` — which runs *before* the modal is shown (settings.js calls
+  `updateAboutUserStatus()` then `openInfoModal('aboutModal')`; line numbers deliberately omitted, they have
+  drifted twice) — with the already-localized,
   parameter-bearing `settings.versionLine` key (`Version {version}` / `संस्करण {version}` /
   `आवृत्ती {version}`). The static text is therefore never rendered in normal operation; it is visible
   only if `updateAboutUserStatus()` throws before assigning. A param-free `data-i18n` cannot serve here —

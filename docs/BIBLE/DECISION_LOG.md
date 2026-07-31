@@ -8,6 +8,84 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-129 — Wave S5 final production verification: the release gate contradicted the code, and four "green" checks were not testing anything (v261) (2026-07-31)
+
+**Context.** Final cross-wave verification of Waves S1–S4 at `b5b1d8c` (SW v260). Every previous report,
+ADR, comment and completion claim was treated as an untrusted assertion; only the current source and
+executed behaviour counted. The brief named cross-wave regression the highest priority and warned that a
+false "all clear" is itself an audit failure.
+
+**Decision 1 — no code regression exists in S1–S4, and that is stated with citations rather than asserted.**
+Every fix from all four waves is still present, none was reverted, and none has a shadow implementation.
+S1: `hasActivePremium` remains the single gate, `openPremiumPayment` refuses while premium is active
+(`js/paywall.js:92-99, :226`) with a server backstop (`api/payment.js:44` `ALREADY_PREMIUM`), the client
+still never persists `plan:'free'` (`js/firestore-sync.js:794-806`), and all four `entitlement-core.js`
+copies remain md5-identical. S2: the farewell flush still precedes the `_currentUser` flip
+(`js/auth.js:72-84`), `clearAll()` still fails closed, the report queue still re-checks ownership after the
+token resolves. S3: `_writeSeq`/`_ackedSeq`/`_isSuperseded` still guard the re-queue, the coaching decrement
+is still one transaction. `js/auth.js` and `js/app.js` have had **zero** commits since S2.
+
+**Decision 2 — a certification document that contradicts the code is a release defect, not a typo (FAIL-1).**
+`docs/BIBLE/I18N_CERTIFICATION.md` stated verbatim *"The feature flag was NOT flipped; it remains
+`QRI18n.ENABLED = false` / `I18N_ON = false`. No merge to `main` and no production-facing change was made."*
+while `js/i18n.js:30` and `index.html:47` both shipped `true`. This is the file `I18N_KNOWN_LIMITS.md` names
+as the certification gate: it told a reviewer that localization was dark when **every user was on the live
+i18n path**, and Wave S4 exists precisely because those defects were live. A gate that is wrong in its
+headline is worse than no gate, because it stops people looking. The document was corrected, and — the
+substantive part — the gate now carries the flag's current value the way `#aboutVersionLine` carries
+`APP_VERSION` (ADR-124): `i18n.check` §5 fails if the flag flips without the doc following, if the retracted
+present-tense claim reappears, or if the doc omits the live-flag statement while source ships it on.
+Demonstrated to fail on `b5b1d8c` (3 assertions) and pass after. Scoped to that one file deliberately —
+`DECISION_LOG.md` legitimately *quotes* the retracted claim in the ADR-125 record, and ADR-111's own
+decision text is provenance, not a current-state claim.
+
+**Decision 3 — a check that cannot fail is not coverage, and four of them could not fail (FAIL-2).**
+- `session-integrity.check.js` copied production strings into the check and then asserted the copies matched
+  themselves. Replaced with source pins, including `/var uid = _loadedUserId \|\| \(FirebaseApp\.getUserId …/`.
+- `firestore-durability.check.js` gained an **executed** cross-user flush test. Its third assertion failed on
+  first run and exposed a real asymmetry: `_persistPendingBuffer()` keyed the durable buffer on the *current*
+  identity rather than the *loaded* one. Verified honestly as **latent, not live** — `js/auth.js:79-84` runs
+  `resetSyncState()` before `_currentUser = user`, so the queue is empty at the flip — and hardened anyway
+  (`js/firestore-sync.js`: `var uid = _loadedUserId || (FirebaseApp.getUserId && FirebaseApp.getUserId());`).
+- `category-source.check.js` swallowed its own skip in `catch (e) { /* skip */ }`. It now fails loudly.
+- `auth-validators.check.js` executed **zero** validators — it compared three files textually, so a rule
+  weakened identically in all three sailed through. It now runs all three copies against one truth table
+  (email shapes, the four signup rules individually, the deliberate login/signup asymmetry) and cross-checks
+  that the three return identical verdicts across 90 executed cases. 8 → **107** assertions; weakening the
+  8-character rule in all three copies at once now fails 3 assertions.
+- `js/services/report-context.js` had **zero** coverage anywhere: the S4-MIN3 `display-mode: fullscreen` fix
+  could be deleted and the whole suite stayed green. `report.check.js` now vm-executes the real module over
+  the MIN3 truth table, the `matchMedia`-throws divergence, the formFactor ladder, the error ring buffer, the
+  `snapshotQuestion` contract, and a **client⇄server `source` normalisation parity** case (two independent
+  inline ternaries that nothing held in lockstep). Deleting the fullscreen clause now fails.
+- The ADR-125 picker guard asserted the invalidation but not the repaint, across a 300-char window that
+  comments could span — deleting `if (showing) render()` left it green while a visible picker went blank.
+  Now split into three assertions over the comment-stripped `onChange` body; the repaint one is demonstrated
+  to fail when the line is removed.
+
+**Decision 4 — delegate the fourth expiry parser rather than keep it (W1).** `services/reminderCron.js`
+hand-rolled `_expiryMs` with no `Date`-instance branch, no `toDate()` fallback and no `isFinite` guard, so an
+expiry shaped as a plain `{toDate}` object read as 0 and silently dropped that user from the "expires in ≤3
+days" reminder bucket. It now calls `entitlement-core.toMillis`, the implementation `aiService.js:153`
+already names as canonical. Not a gate — it grants and revokes nothing.
+
+**Decision 5 — W4 is resolved, not deferred.** The interim report flagged that a language switch could
+outlive a logout, since nothing blocks interaction during the dim. Measured at runtime: tearing the view
+down mid-morph throws nothing, leaves **0** stuck units and no `qr-lang-morphing` class, and the commit still
+lands (`hi`), with 0 page errors. Downgraded from WARNING to PASS on evidence.
+
+**Consequences.** Six checks got real failure signals and two files got zero-to-real coverage; suite
+14,593 → **14,598 + 99 elsewhere**. The `_persistPendingBuffer` hardening is the only behavioural client
+change and is a strict narrowing. Everything else is tests and documentation. Wave S5 feature work and
+Phase 4 payments (P4-WS1…WS8) remain untouched. Items outside the wave stay documented, not implemented.
+
+**Known limits.** No live Firebase in the sandbox, so two-account / two-tab / offline-replay flows remain
+manual (`ACCOUNT_ISOLATION_VALIDATION.md`). CDP `display-mode` emulation is inert in this headless build, so
+MIN3 is verified by executing the predicate, not by emulating a PWA. The service worker serves the language
+packs, so `page.route` cannot throttle them — latency is driven at the `QRPacks.ensure` API boundary instead.
+
+---
+
 ## ADR-128 — Language-transition acceptance gate: four defects in ADR-127, found by auditing it (v260) (2026-07-27)
 
 - **Context.** Final production acceptance gate for the language transition, run against ADR-127 at HEAD

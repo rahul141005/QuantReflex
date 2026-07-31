@@ -169,6 +169,25 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   ok('5 inline I18N_ON declared', !!htmlFlag);
   ok('5 flag lockstep (index.html I18N_ON === js/i18n.js ENABLED)', !!coreFlag && !!htmlFlag && coreFlag[1] === htmlFlag[1]);
 
+  /* ADR-129 FAIL-1 — extend the lockstep to the DOCUMENT that gates the release.
+     `I18N_KNOWN_LIMITS.md` names `I18N_CERTIFICATION.md` as the certification gate, and that file asserted
+     verbatim: "The feature flag was NOT flipped; it remains QRI18n.ENABLED = false / I18N_ON = false. No
+     merge to main and no production-facing change was made." — while the source shipped `true` on both.
+     A reviewer reading the gate would conclude localization was dark for every user; Wave S4 exists
+     precisely because those defects were LIVE. A gate that is wrong in its headline is worse than no gate,
+     because it stops people looking. So the gate now carries the flag's current value the same way
+     `#aboutVersionLine` carries APP_VERSION (ADR-124): flip the flag without updating the doc and this
+     fails. Scoped to this one file on purpose — DECISION_LOG.md legitimately QUOTES the retracted claim in
+     the ADR-125 record, and ADR-111's own historical decision text is provenance, not a current-state claim. */
+  var cert = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'BIBLE', 'I18N_CERTIFICATION.md'), 'utf8');
+  var flag = coreFlag ? coreFlag[1] : '';
+  ok('5 certification gate pins the CURRENT flag value (var ENABLED = ' + flag + ')',
+    cert.indexOf('var ENABLED = ' + flag + ';') !== -1);
+  ok('5 certification gate does not carry the retracted present-tense claim',
+    !/The feature flag was NOT flipped/.test(cert) && !/it remains\s+`?QRI18n\.ENABLED = false/.test(cert));
+  ok('5 certification gate states the flag is live while the source ships it on',
+    flag !== 'true' || /FLAG IS NOW ON/i.test(cert));
+
   var sw = fs.readFileSync(p('service-worker.js'), 'utf8');
   ['./js/i18n.js', './locales/en.js', './locales/hi.js', './locales/mr.js', './fonts/noto-sans-devanagari.woff2']
     .forEach(function (a) { ok('5 SW precaches ' + a, sw.indexOf("'" + a + "'") !== -1); });
@@ -325,8 +344,20 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
      language switch like every other localized JS-built surface — applyDom cannot reach innerHTML text and
      the app does not reload. Without this, a visible picker keeps the old locale (reproduced as a
      mixed-locale state: Hindi strip labels beside English section headers). */
-  ok('9 picker invalidates its rendered tree on a language change',
-    /QRI18n\.onChange\(/.test(src) && /getElementById\('categoryGroups'\)[\s\S]{0,300}?innerHTML = ''/.test(src));
+  /* ADR-129 (C-3): the previous form asserted only the invalidation, and matched across an arbitrary
+     300-char window that comments could span — so deleting the repaint (`if (showing) render()`) left
+     this green while a VISIBLE picker went blank on every switch. Assert both halves, inside the
+     onChange body, with comments stripped so a citation of the code cannot satisfy the guard. */
+  var pickerBody = (function () {
+    var noComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    var m = /QRI18n\.onChange\(function\s*\([^)]*\)\s*\{([\s\S]*?)\n\s*\}\);/.exec(noComments);
+    return m ? m[1] : '';
+  })();
+  ok('9 picker registers a QRI18n.onChange handler', pickerBody.length > 0);
+  ok('9 picker clears the stale-locale tree inside that handler',
+    /getElementById\('categoryGroups'\)/.test(pickerBody) && /\.innerHTML\s*=\s*''/.test(pickerBody));
+  ok('9 picker repaints when it is currently visible (blank-picker guard)',
+    /categorySelect/.test(pickerBody) && /if \(showing\) render\(\)/.test(pickerBody));
 
   /* derive the ids from the registry source so a newly added quant category fails this check until it
      is translated — the drift guard §8's fixed key list does not have */

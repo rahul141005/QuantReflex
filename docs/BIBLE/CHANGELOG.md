@@ -6,6 +6,65 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-07-31 — Wave S5 final production verification (ADR-129, SW v260→v261)
+
+Cross-wave verification of Waves S1–S4 with every prior report treated as untrusted. **No code regression
+was found in S1–S4** — every fix is still present, none reverted, none shadowed, and the four
+`entitlement-core.js` copies are still md5-identical. What failed was the governance layer and the tests.
+
+- **FAIL-1 · the release gate asserted the opposite of the code.** `docs/BIBLE/I18N_CERTIFICATION.md:5-6`
+  said the i18n feature flag *"remains `QRI18n.ENABLED = false` / `I18N_ON = false`"* while `js/i18n.js:30`
+  and `index.html:47` both ship `true`. Corrected, and `scripts/i18n.check.js` §5 now pins the gate document
+  to the flag's live value the way `update.check` pins `#aboutVersionLine` to `APP_VERSION` — 3 assertions,
+  demonstrated to fail on `b5b1d8c`.
+- **FAIL-2 · four checks could not fail, and two files had no coverage at all.**
+  `scripts/session-integrity.check.js` asserted its own copies of production strings (now source pins, 39/0);
+  `scripts/category-source.check.js` swallowed its skip in a bare `catch` (now fails loudly, 110/0);
+  `scripts/auth-validators.check.js` executed **zero** validators (now runs all three copies against one truth
+  table — 8 → **107** assertions; weakening the 8-char rule in all three at once fails 3);
+  `js/services/report-context.js` had zero coverage, so the S4-MIN3 `display-mode: fullscreen` fix could be
+  deleted with the suite still green (`scripts/report.check.js` now vm-executes the real module — 674 → **715**
+  — including a client⇄server `source` normalisation parity case; deleting the fullscreen clause now fails).
+  The ADR-125 picker guard asserted the invalidation but not the repaint (now 3 assertions over the
+  comment-stripped handler body; removing `if (showing) render()` fails).
+- **New finding, found by a failing assertion, not by reading.** The executed cross-user flush test exposed
+  that `_persistPendingBuffer()` keyed the durable buffer on the *current* identity rather than the *loaded*
+  one. Verified **latent, not live** (`js/auth.js:79-84` resets before the identity flip, so the queue is
+  empty) and hardened anyway — `js/firestore-sync.js`:
+  `var uid = _loadedUserId || (FirebaseApp.getUserId && FirebaseApp.getUserId());`
+  (`scripts/firestore-durability.check.js` 73 → **77**).
+- **W1 · fourth expiry parser deleted.** `services/reminderCron.js` `_expiryMs` lacked the `Date`-instance,
+  `toDate()` and `isFinite` handling of `entitlement-core.toMillis`, so a `{toDate}`-shaped expiry read as 0
+  and dropped that user from the "expires in ≤3 days" reminder bucket. Now delegates (12/12 cases verified).
+- **W2/W3 · stale docs and dead code.** `I18N_EXECUTION_BLUEPRINT.md` (2 spots), `I18N_KNOWN_LIMITS.md`
+  (a re-staling `Version v257` quote and a twice-drifted `settings.js:472-473` citation), `README.md`
+  (5 version numbers), `TECHNICAL_BIBLE.md` (Architecture 2.52→2.76, 14→36 categories, 25→29-category LR,
+  196→589 assertions) corrected; the dead `var isTrialUser` local removed (`js/settings.js:161`).
+- **W4 · resolved on evidence, not deferred.** A language switch outliving a logout: tearing the view down
+  mid-morph throws nothing, leaves 0 stuck units and no `qr-lang-morphing` class, and the commit still lands.
+
+**Runtime verification (real Chromium).** S1 gates under a premium stub: paywall never opens, checkout never
+opens, upsell hidden for premium **and** trial; expired ⇒ gates close, **0** new localStorage keys, no
+`qr_premium`/`premiumStatus` slot; null/`''`/`0`/`NaN`/garbage/undefined expiry all fail **closed**.
+S4 picker: 11 localized section titles in en/hi/mr, **0** identical to English in hi/mr, 0 ASCII leaks, and
+0 mixed-locale titles after a switch while visible. Cross-wave: 0 stray morph classes across all six views
+after navigating away mid-transition; backgrounding mid-transition still commits (starvation guard); reload
+mid-transition lands clean; **300 sequential switches → node growth 0, exactly 1 announcer, 0 stuck units**.
+Transition timing median **416 / 566 / 771 ms** at 1× / 4× / 6× CPU (uninstrumented; the same run with a
+`PerformanceObserver` + rAF ticker attached reads 539 / 762 / 1123, which is measurement overhead, not
+regression). Purge run clean (11 purged, 0 leaked, 0 wrongly destroyed, exam → `null`); boot smoke 0 page
+errors with the deep-link hash surviving teardown.
+
+**Regression.** `npm test` exit 0 — `i18n.check` **14,598/0**, `report.check` **715/0**,
+`auth-validators.check` **107/0**, `firestore-durability` **77/0**, `session-integrity` **39/0**,
+`account-isolation` **121/0**, `entitlement-core` **93/0**, `entitlement-invariants` **30/0**,
+`payment-parity` **25/0**, `category-source` **110/0**, `update.check` **34/0**, `design-lint` **10/10**
+with `durations=3` / `easings=3` / `gradients=10` unchanged. `node --check` clean on every modified file.
+v260→v261 lockstep across `service-worker.js`, `index.html` `QR_APP_VERSION` and the `#aboutVersionLine`
+literal. Bible 2.160 → 2.161. Wave S5 feature work and Phase 4 payments (P4-WS1…WS8) untouched.
+
+---
+
 ## 2026-07-27 — Language-transition acceptance gate: four defects in ADR-127 (ADR-128, SW v259→v260)
 
 Final production gate, run against ADR-127 with its own reports treated as untrusted. Four defects found

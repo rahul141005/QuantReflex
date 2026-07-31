@@ -158,7 +158,6 @@ function initSettingsView() {
   var isPremiumUser = (typeof hasActivePremium === 'function')
     ? hasActivePremium(accessState)
     : !!(accessState && accessState.plan === 'premium');
-  var isTrialUser = isPremiumUser && accessState && accessState.isTrial === true;
 
   var appearanceSelect = document.getElementById('appearanceSelect');
   var soundToggle = document.getElementById('soundToggle');

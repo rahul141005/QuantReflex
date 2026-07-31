@@ -1,11 +1,26 @@
 # QuantReflex Internationalization — Final Localization Certification (ADR-111, Phase H)
 
-**Verdict:** ✅ **CERTIFIED — zero open critical findings.** Localization into English + हिन्दी + मराठी is release-ready
-**pending two explicit gates that remain the user's to close** (see §10): (1) the live-AI manual matrix, which cannot be
-run in this environment, and (2) the user's go-ahead to flip the feature flag. **The feature flag was NOT flipped;** it
-remains `QRI18n.ENABLED = false` / `I18N_ON = false`. No merge to `main` and no production-facing change was made.
+> ## ⚠️ STATUS UPDATE (Wave S5, ADR-129) — THE FLAG IS NOW ON. READ THIS FIRST.
+> Everything below records the state **at certification time (Phase H, SW v223, Bible 2.143)** and is kept
+> verbatim for provenance. It is **no longer a description of production.** Current reality:
+> `main-app/js/i18n.js:30` `var ENABLED = true;` and `main-app/index.html:47` `var I18N_ON = true;` — the
+> localization path is **live for every user**, on SW v260+ / Bible 2.160+.
+>
+> This matters because this file is the certification gate named by `I18N_KNOWN_LIMITS.md`: a reader who
+> took the original headline at face value would conclude that no user sees हिन्दी/मराठी. Wave S4
+> (ADR-116/124/125) exists precisely because localization defects were **live**, not dark. The Wave S5 audit
+> classified the stale headline as a governance FAIL and corrected it here rather than leaving the gate
+> asserting the opposite of the code. Superseded by ADR-116 → ADR-128; see CHANGELOG.
 
-**Branch:** `claude/quantreflex-product-audit-5d7p2n`. **Bible:** 2.143. **SW:** v223 (unreleased).
+**Verdict (as certified in Phase H):** ✅ **CERTIFIED — zero open critical findings.** Localization into
+English + हिन्दी + मराठी was release-ready **pending two explicit gates that remained the user's to close**
+(see §10): (1) the live-AI manual matrix, which cannot be run in this environment, and (2) the user's
+go-ahead to flip the feature flag. **At that time the feature flag had NOT been flipped** — it stood at
+`QRI18n.ENABLED = false` / `I18N_ON = false`, with no merge to `main` and no production-facing change.
+**That gate has since been closed and the flag is ON** (see the status note above).
+
+**Branch:** `claude/quantreflex-product-audit-5d7p2n`. **Bible at certification:** 2.143.
+**SW at certification:** v223 (unreleased at the time).
 **Audit stance:** adversarial — every phase was treated as a claim to be falsified, including fresh-eyes subagent review
 of the Hindi and Marathi content by reviewers who did not author it.
 

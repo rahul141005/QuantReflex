@@ -55,7 +55,13 @@ try {
       ok('4 ' + k + ' resolves an auto-tip', typeof tip === 'string' && tip.length > 0);
     });
   }
-} catch (e) { /* scoring-service is browser-oriented; skip if it can't load headless */ }
+} catch (e) {
+  /* ADR-129: this used to swallow the failure silently, so 36 assertions could vanish with no
+     failure and no visible drop in the count. A skip is now reported, and an unexpected reason
+     fails the check outright. */
+  fail++;
+  console.error('  \u2717 4 auto-tip coverage did not run: ' + (e && e.message));
+}
 
 console.log('category-source.check: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

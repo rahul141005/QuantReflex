@@ -336,6 +336,115 @@ ok('sanitizeQuestion derives isMCQ=false when no options', S.sanitizeQuestion({ 
 ok('sanitizeQuestion keeps answerFormat', S.sanitizeQuestion({ questionId: 'Q4', questionText: 'x', answer: '3:2', answerFormat: 'ratio' }).answerFormat === 'ratio');
 ok('typed-answer report round-trips a fraction answer', S.validateCreatePayload({ type: 'answer_wrong', source: 'drill', question: { questionId: 'Q5', questionText: 'x', answer: '7/12', selectedAnswer: '1/2', isMCQ: false } }).clean.question.answer === '7/12');
 
+/* ───────── ReportContext — EXECUTED against the real js/services/report-context.js (ADR-129) ─────────
+   Wave S5 found this file had ZERO coverage anywhere in the suite: the S4-MIN3 `display-mode: fullscreen`
+   clause could be deleted and every check stayed green. It is the client half of the report contract that
+   `sanitizeContext` above validates, so it belongs here. Loaded per-case into a fresh vm context so each
+   truth-table row gets its own globals — the module reads them off `root` at call time. */
+(function () {
+  var vm = require('vm');
+  var fs = require('fs');
+  var RC_SRC = fs.readFileSync(p('js/services/report-context.js'), 'utf8');
+
+  /* mm: map of media-query string -> matches. `null` installs no matchMedia at all; 'throw' makes it throw. */
+  function load(g) {
+    var sandbox = Object.assign({ innerWidth: 390, innerHeight: 844 }, g || {});
+    vm.runInNewContext(RC_SRC, sandbox, { filename: 'report-context.js' });
+    return sandbox.ReportContext;
+  }
+  function mq(map) {
+    return function (q) { return { matches: !!(map && map[q]) }; };
+  }
+  var STANDALONE = '(display-mode: standalone)', FULLSCREEN = '(display-mode: fullscreen)';
+  function standaloneOf(g) { return load(g).collect('settings').device.standalone; }
+
+  /* The MIN3 truth table. Row 3 is the assertion that was missing: a fullscreen-launched PWA must not be
+     reported as standalone:false. Deleting the `|| ...fullscreen...` clause fails exactly that row. */
+  ok('RC standalone: no signals at all -> false', standaloneOf({}) === false);
+  ok('RC standalone: display-mode standalone -> true',
+    standaloneOf({ matchMedia: mq((function (o) { o[STANDALONE] = true; return o; })({})) }) === true);
+  ok('RC standalone: display-mode FULLSCREEN -> true (S4-MIN3)',
+    standaloneOf({ matchMedia: mq((function (o) { o[FULLSCREEN] = true; return o; })({})) }) === true);
+  ok('RC standalone: both display-modes -> true',
+    standaloneOf({ matchMedia: mq((function (o) { o[STANDALONE] = true; o[FULLSCREEN] = true; return o; })({})) }) === true);
+  ok('RC standalone: browser display-mode + navigator.standalone true -> true',
+    standaloneOf({ matchMedia: mq({}), navigator: { standalone: true } }) === true);
+  ok('RC standalone: browser display-mode + navigator.standalone false -> false',
+    standaloneOf({ matchMedia: mq({}), navigator: { standalone: false } }) === false);
+  /* Documented divergence (ADR-124): report-context reports null where app.js fails closed and
+     duel-manager fails open. Pinned so the divergence cannot silently change shape. */
+  ok('RC standalone: matchMedia throws -> null (documented, not false)',
+    standaloneOf({ matchMedia: function () { throw new Error('boom'); } }) === null);
+
+  ok('RC reducedMotion follows the media query',
+    load({ matchMedia: mq((function (o) { o['(prefers-reduced-motion: reduce)'] = true; return o; })({})) })
+      .collect('settings').device.reducedMotion === true);
+
+  /* Collecting context must NEVER throw and block a report — even with every optional global absent. */
+  var bare = null;
+  try { bare = load({}).collect('drill'); } catch (e) { bare = null; }
+  ok('RC collect() survives a completely bare environment', !!bare && typeof bare === 'object');
+  ok('RC collect() still reports the required top-level shape',
+    !!bare && bare.app && bare.device && bare.locale && Array.isArray(bare.recentErrors) && typeof bare.submittedAtMs === 'number');
+
+  /* `source` is normalised client-side to the same four values the server enum accepts. */
+  ok('RC source drill preserved', bare.app.source === 'drill');
+  ['ai_explain', 'learn', 'settings'].forEach(function (s) {
+    ok('RC source ' + s + ' preserved', load({}).collect(s).app.source === s);
+  });
+  ok('RC unknown source falls back to settings', load({}).collect('nonsense').app.source === 'settings');
+  ok('RC undefined source falls back to settings', load({}).collect().app.source === 'settings');
+  /* Client and server normalise `source` with two independent inline ternaries (report-context.js:80 and
+     report-schema.js:328). Neither side exports an enum, so nothing held them in lockstep — assert it by
+     running BOTH normalisers over the same inputs, including the junk cases. */
+  ['settings', 'drill', 'ai_explain', 'learn', 'nonsense', '', 'DRILL'].forEach(function (s) {
+    var client = load({}).collect(s).app.source;
+    var server = S.validateCreatePayload({ type: 'bug', source: s, description: 'x' }).clean.source;
+    ok('RC source normalisation agrees with the server for ' + JSON.stringify(s), client === server);
+  });
+
+  /* Error ring buffer: prefer the app-level accessor, else the raw array, capped at the last 10. */
+  ok('RC recentErrors uses getRecentErrors when present',
+    load({ getRecentErrors: function () { return ['e1', 'e2']; } }).collect('settings').recentErrors.length === 2);
+  var many = []; for (var i = 0; i < 25; i++) many.push('e' + i);
+  var ring = load({ __qrErrors: many }).collect('settings').recentErrors;
+  ok('RC recentErrors falls back to __qrErrors capped at 10', ring.length === 10 && ring[9] === 'e24');
+  ok('RC recentErrors is [] when the accessor throws',
+    load({ getRecentErrors: function () { throw new Error('x'); } }).collect('settings').recentErrors.length === 0);
+
+  /* formFactor ladder — the field the admin triages layout reports by. */
+  ok('RC formFactor phone at 390x844', load({ innerWidth: 390, innerHeight: 844 }).collect('s').device.formFactor === 'phone');
+  ok('RC formFactor desktop at 768x1024 (min side hits the 768 rung)',
+    load({ innerWidth: 768, innerHeight: 1024 }).collect('s').device.formFactor === 'desktop');
+  ok('RC formFactor tablet at 600x900', load({ innerWidth: 600, innerHeight: 900 }).collect('s').device.formFactor === 'tablet');
+  ok('RC formFactor null when the viewport is unmeasurable', load({ innerWidth: 0, innerHeight: 0 }).collect('s').device.formFactor === null);
+
+  /* route + version are capped/guarded rather than trusted. */
+  var longHash = '#' + new Array(400).join('x');
+  ok('RC route is capped at 200 chars',
+    load({ location: { hash: longHash } }).collect('s').route.length === 200);
+  ok('RC version reads window.QR_APP_VERSION', load({ QR_APP_VERSION: 'v261' }).collect('s').app.version === 'v261');
+
+  /* snapshotQuestion — the in-drill payload sanitizeQuestion above consumes. */
+  var RCm = load({});
+  ok('RC snapshotQuestion(null) is null', RCm.snapshotQuestion(null) === null);
+  ok('RC snapshotQuestion derives isMCQ from options',
+    RCm.snapshotQuestion({ questionId: 'Q1', question: 'x', options: ['a', 'b'] }, {}).isMCQ === true);
+  ok('RC snapshotQuestion isMCQ false for a typed question',
+    RCm.snapshotQuestion({ questionId: 'Q2', question: 'x', answer: '7/12' }, {}).isMCQ === false);
+  ok('RC snapshotQuestion accepts the duel-review questionText shape',
+    RCm.snapshotQuestion({ questionId: 'Q3', questionText: 'from duel' }, {}).questionText === 'from duel');
+  ok('RC snapshotQuestion caps options at 12',
+    RCm.snapshotQuestion({ questionId: 'Q4', question: 'x', options: new Array(30).fill('o') }, {}).options.length === 12);
+  ok('RC snapshotQuestion keeps an explicit answerFormat',
+    RCm.snapshotQuestion({ questionId: 'Q5', question: 'x', answerFormat: 'ratio' }, {}).answerFormat === 'ratio');
+  ok('RC snapshotQuestion carries the drill state through',
+    (function () { var s = RCm.snapshotQuestion({ questionId: 'Q6', question: 'x' }, { mode: 'focus', wasCorrect: false, score: 3 });
+      return s.mode === 'focus' && s.wasCorrect === false && s.score === 3; })());
+  ok('RC snapshotQuestion tolerates a missing state bag',
+    RCm.snapshotQuestion({ questionId: 'Q7', question: 'x' }).mode === null);
+})();
+
 /* ───────── done ───────── */
 console.log('\nreport.check.js: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

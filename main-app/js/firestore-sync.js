@@ -147,7 +147,15 @@ var FirestoreSync = (function () {
 
   function _persistPendingBuffer() {
     try {
-      var uid = FirebaseApp.getUserId && FirebaseApp.getUserId();
+      /* ADR-129: key the buffer on the user whose data this actually IS (_loadedUserId), not on whoever
+         is authenticated right now. The queue holds the LOADED user's work; if those two ever diverge,
+         keying on the current identity would file A's pending stats under B's buffer key AND stamp it
+         uid:B, so B's next _replayPendingBuffer would accept it as its own and write A's data into B's
+         document. Not reachable today — auth.js:79-84 runs resetSyncState() (which empties the queue)
+         BEFORE _currentUser flips — but that is an ordering invariant in another file, and this buffer
+         should not depend on it. Falls back to the live uid for pre-login work, where there is no
+         loaded user yet and the two cannot disagree. */
+      var uid = _loadedUserId || (FirebaseApp.getUserId && FirebaseApp.getUserId());
       var keys = Object.keys(_pendingUpdates);
       if (!uid || keys.length === 0) return;
       /* updatedAt sentinels aren't serializable/meaningful in the buffer — omit; the replay flush
