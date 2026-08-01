@@ -128,7 +128,17 @@ var DuelArchive = (function () {
   }
 
   function _loadSummary() {
-    var uid = _uid(); if (!uid) return Promise.resolve(null);
+    /* ADR-130: this early return used to be `return Promise.resolve(null)` — the ONLY path in this
+       function that resolved WITHOUT assigning _summary. _renderTrigger() re-enters itself from
+       `if (!have) _loadSummary().then(… _renderTrigger())`, and `have` is `_summary != null`, so with a
+       null uid the pair recursed through microtasks forever, rewriting sec.innerHTML and attaching a new
+       listener on every pass. Measured: it KILLS THE RENDERER (the tab dies; a page-level try/catch
+       cannot intercept it, because nothing throws). Reachable because render()'s premium flag comes from
+       the ENTITLEMENT cache (hasPremiumAccess, home-view.js:464) while _uid() comes from AUTH — two
+       different sources with no guarantee they agree, e.g. across a logout/teardown window.
+       Assigning {} matches what the .catch path below already does, so `have` becomes true and the
+       re-entry terminates after one pass. */
+    var uid = _uid(); if (!uid) { _summary = _summary || {}; return Promise.resolve(_summary); }
     return _db().collection('users').doc(uid).collection('duelStats').doc('summary').get()
       .then(function (snap) { _summary = snap.exists ? snap.data() : {}; return _summary; })
       .catch(function () { _summary = _summary || {}; return _summary; });

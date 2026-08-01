@@ -164,5 +164,30 @@ console.log('duel-archive.check — Battle Archive aggregate math (ADR-068)');
   eq('10 prior summary not mutated', JSON.stringify(s1), snapshot);
 })();
 
+/* ── 11. the client render loop cannot re-enter forever (ADR-130) ──
+   _renderTrigger() re-enters itself via `if (!have) _loadSummary().then(… _renderTrigger())`, where
+   `have` is `_summary != null`. Every _loadSummary() return path must therefore ASSIGN _summary —
+   otherwise the pair recurses through microtasks forever, rewriting innerHTML and attaching a listener
+   each pass. Measured before the fix: it KILLS THE RENDERER (the tab dies; a page-level try/catch cannot
+   intercept it, because nothing throws). The uid-guard was the one path that returned
+   `Promise.resolve(null)` without assigning, and it is reachable because render()'s premium flag comes
+   from the ENTITLEMENT cache (hasPremiumAccess, home-view.js) while _uid() comes from AUTH — two sources
+   with no guarantee they agree. Executed coverage is impractical here (it needs a live Firestore handle),
+   so this is a deliberate SOURCE assertion: it pins the shape that made the loop terminate. */
+(function () {
+  var fs = require('fs');
+  var path = require('path');
+  var src = fs.readFileSync(path.join(__dirname, '..', 'js', 'duel-archive.js'), 'utf8');
+  /* Comments are stripped first: the fix's own explanatory comment quotes the old
+     `return Promise.resolve(null)`, and a guard that a comment can satisfy is not a guard. */
+  var body = src.slice(src.indexOf('function _loadSummary'), src.indexOf('function _loadPage'))
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  eq('11 the re-entry guard still keys on _summary', /var have = _summary != null;/.test(src), true);
+  eq('11 _renderTrigger still re-enters through _loadSummary', /if \(!have\) \{ _loadSummary\(\)/.test(src), true);
+  eq('11 the uid-guard assigns _summary before resolving (loop terminates)',
+    /if \(!uid\) \{ _summary = _summary \|\| \{\}; return Promise\.resolve\(_summary\); \}/.test(body), true);
+  eq('11 no _loadSummary path resolves with a bare null', /return Promise\.resolve\(null\)/.test(body), false);
+})();
+
 console.log('\nduel-archive.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);
