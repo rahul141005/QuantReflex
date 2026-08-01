@@ -160,6 +160,79 @@ var indexHtml = fs.readFileSync(p('index.html'), 'utf8');
   });
 })();
 
+/* ── 4b. CODE → CATALOG resolution (ADR-130) ──
+   Every other section here checks the catalogs against EACH OTHER: en⇄hi⇄mr key parity (§1), placeholder
+   parity (§2), glossary (§3), and §4 checks that keys named in index.html resolve. None of them notices
+   when JS asks for a key that exists in NO catalog — and `QRI18n.t` answers an unknown key by RETURNING
+   THE KEY STRING, so the raw identifier lands in the DOM, in every language including English.
+
+   That is exactly how `js/duel-archive.js` shipped `_t('guide.difficultyEasy')` — a namespace with no
+   difficulty keys — and rendered "guide.difficultyEasy" on the Battle Archive filter chips and on every
+   archive card subtitle. Catalog parity was perfect throughout, because all three catalogs agree the key
+   lives under `settings.`. The guard was running in the wrong direction.
+
+   Only COMPLETE literal first arguments are checked (the closing quote must be followed by `)` or `,`),
+   so dynamically composed keys — `_t('learn.cat_' + id + 'Title')`, `_t('report.mode_' + m)` — are
+   skipped rather than false-flagged. */
+(function () {
+  function resolves(key) {
+    var parts = key.split('.'), cur = catalogs.en;
+    for (var i = 0; i < parts.length; i++) {
+      if (cur == null || typeof cur !== 'object' || !(parts[i] in cur)) return false;
+      cur = cur[parts[i]];
+    }
+    return cur != null;
+  }
+  function walk(dir, out) {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(function (e) {
+      var full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full, out);
+      else if (e.name.endsWith('.js')) out.push(full);
+    });
+    return out;
+  }
+
+  var LITERAL = /(?:QRI18n\.t|QRI18n\.tc|_t|_tc)\(\s*'([a-zA-Z][\w.]*\.[\w.]+)'\s*(?=[),])/g;
+  var scanned = 0, unresolved = [];
+  walk(p('js'), []).forEach(function (f) {
+    var src = fs.readFileSync(f, 'utf8'), m;
+    LITERAL.lastIndex = 0;
+    while ((m = LITERAL.exec(src)) !== null) {
+      scanned++;
+      if (!resolves(m[1])) {
+        unresolved.push(path.relative(p('.'), f) + ':' + src.slice(0, m.index).split('\n').length + ' -> ' + m[1]);
+      }
+    }
+  });
+  ok('4b scanned a meaningful number of literal t() keys in js/ (>800, got ' + scanned + ')', scanned > 800);
+  ok('4b EVERY literal t() key in js/ resolves in the en catalog' +
+     (unresolved.length ? ' — unresolved: ' + unresolved.slice(0, 8).join(' | ') : ''), unresolved.length === 0);
+
+  /* Same direction for the declarative channel. §4 asserts the key EXISTS in all catalogs; these assert
+     the same thing from the code side and keep the two halves symmetrical. */
+  var attrBad = [], attrSeen = 0, m2, ATTR = /data-i18n(?:-html)?="([^"]+)"/g;
+  while ((m2 = ATTR.exec(indexHtml)) !== null) {
+    attrSeen++;
+    if (!resolves(m2[1])) attrBad.push('index.html:' + indexHtml.slice(0, m2.index).split('\n').length + ' -> ' + m2[1]);
+  }
+  ok('4b scanned the data-i18n attribute set (>300, got ' + attrSeen + ')', attrSeen > 300);
+  ok('4b every data-i18n / data-i18n-html key resolves' +
+     (attrBad.length ? ' — ' + attrBad.slice(0, 8).join(' | ') : ''), attrBad.length === 0);
+
+  var pairBad = [], pairSeen = 0, m3, ATTRMAP = /data-i18n-attr="([^"]+)"/g;
+  while ((m3 = ATTRMAP.exec(indexHtml)) !== null) {
+    var line = indexHtml.slice(0, m3.index).split('\n').length;
+    m3[1].split(';').forEach(function (pair) {
+      var t = pair.trim(); if (!t) return;
+      pairSeen++;
+      var key = t.split(':').slice(1).join(':').trim();
+      if (!key || !resolves(key)) pairBad.push('index.html:' + line + ' -> ' + t);
+    });
+  }
+  ok('4b scanned the data-i18n-attr pair set (>20, got ' + pairSeen + ')', pairSeen > 20);
+  ok('4b every data-i18n-attr key resolves' + (pairBad.length ? ' — ' + pairBad.join(' | ') : ''), pairBad.length === 0);
+})();
+
 /* ── 5. flag lockstep + SW/script/font wiring ── */
 (function () {
   var i18nSrc = fs.readFileSync(p('js/i18n.js'), 'utf8');

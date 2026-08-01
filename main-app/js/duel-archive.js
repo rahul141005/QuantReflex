@@ -70,7 +70,12 @@ var DuelArchive = (function () {
   function _fmtDur(ms) { if (!ms || ms < 0) return '—'; var s = Math.round(ms / 1000); if (s < 60) return _t('duel.archDurSecs', { s: s }); var m = Math.floor(s / 60); return _t('duel.archDurMinSecs', { m: m, s: s % 60 }); }
   function _fmtSpeed(sec) { return (sec && sec > 0) ? _t('duel.archDurSecs', { s: Math.round(sec * 10) / 10 }) : '—'; }
   function _cap(s) { s = String(s || ''); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-  function _diffLabel(diff) { return diff === 'easy' ? _t('guide.difficultyEasy') : (diff === 'medium' ? _t('guide.difficultyMedium') : (diff === 'hard' ? _t('guide.difficultyHard') : _cap(diff))); }
+  /* ADR-130: these were `guide.difficulty*`, a namespace that carries no difficulty keys — so QRI18n.t()
+     fell through to its unknown-key branch and RENDERED THE KEY ITSELF ("guide.difficultyMedium") into
+     every archive card subtitle and onto the filter chips below, in all three languages. The keys have
+     always lived under `settings.` (drill-engine.js and report-modal.js resolve them correctly); this
+     file was the lone outlier. Guarded now by i18n.check §4b, which resolves every literal t() key. */
+  function _diffLabel(diff) { return diff === 'easy' ? _t('settings.difficultyEasy') : (diff === 'medium' ? _t('settings.difficultyMedium') : (diff === 'hard' ? _t('settings.difficultyHard') : _cap(diff))); }
   function _outLabel(o) { return o === 'win' ? _t('duel.archOutWin') : (o === 'loss' ? _t('duel.archOutLoss') : (o === 'no_contest' ? _t('duel.archOutNc') : _t('duel.archOutDraw'))); }
   function _rangeCutoff(range) {
     if (range === 'all') return 0;
@@ -366,7 +371,7 @@ var DuelArchive = (function () {
     return '' +
       '<div class="ba-filters">' +
         chips('outcome', [{ v: 'all', l: _t('duel.archFAll') }, { v: 'win', l: _t('duel.archStatWins') }, { v: 'loss', l: _t('duel.archStatLosses') }, { v: 'draw', l: _t('duel.archStatDraws') }], _f.outcome) +
-        chips('difficulty', [{ v: 'all', l: _t('duel.archFAny') }, { v: 'easy', l: _t('guide.difficultyEasy') }, { v: 'medium', l: _t('guide.difficultyMedium') }, { v: 'hard', l: _t('guide.difficultyHard') }], _f.difficulty) +
+        chips('difficulty', [{ v: 'all', l: _t('duel.archFAny') }, { v: 'easy', l: _t('settings.difficultyEasy') }, { v: 'medium', l: _t('settings.difficultyMedium') }, { v: 'hard', l: _t('settings.difficultyHard') }], _f.difficulty) +
         chips('range', [{ v: 'all', l: _t('duel.archFAllTime') }, { v: 'today', l: _t('duel.archFToday') }, { v: 'week', l: _t('duel.archFWeek') }, { v: 'month', l: _t('duel.archFMonth') }], _f.range) +
         '<input class="ba-search" type="search" id="baSearch" placeholder="' + _esc(_t('duel.archSearchPh')) + '" value="' + _esc(_f.search) + '" aria-label="' + _esc(_t('duel.archSearchAria')) + '" />' +
       '</div>';
