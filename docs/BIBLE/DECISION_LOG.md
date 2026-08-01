@@ -8,6 +8,78 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-130 — Final certification of Waves S1–S4: the i18n guards were running in the wrong direction, and the one file no harness ever opened held two defects (v262) (2026-08-01)
+
+**Context.** Zero-assumption certification of Waves S1–S4 at `5f59b51` (SW v261). Every prior report, ADR
+and PASS was discarded. Two defects were found, both in `js/duel-archive.js`, and both **predate Waves
+S1–S4** — they are not wave regressions; they are pre-existing defects the waves were chartered to find
+and did not. A third finding is about how the tests themselves were written.
+
+**Decision 1 — validate the code against the catalog, not only the catalogs against each other (F1).**
+`js/duel-archive.js` asked for `guide.difficultyEasy|Medium|Hard`. Those keys do not exist; the real ones
+live under `settings.` (`drill-engine.js` and `report-modal.js` already resolve them correctly). `QRI18n.t`
+answers an unknown key by **returning the key**, so the literal `guide.difficultyMedium` was rendered onto
+the Battle Archive difficulty chips and into every archive card subtitle, identically in en/hi/mr —
+developer-identifier leakage, visibly broken in the default locale too.
+
+Every existing guard was structurally incapable of seeing it: §1 compares the three catalogs against
+**each other** and they agree perfectly (all three carry `settings.difficulty*`); §2 checks placeholders;
+§4 scans `data-i18n` attributes in `index.html`, invisible to a JS-injected string; §8/§9 target the two
+surfaces earlier audits had already been burned by. The Wave S4 heuristic was *"does this file call
+`_t()`?"* — and this file calls it 40+ times. **The check ran in the wrong direction.** New `i18n.check`
+§4b resolves every complete-literal `t()`/`tc()` key in `js/**` against the English catalog, plus every
+`data-i18n`, `data-i18n-html` and `data-i18n-attr` key in `index.html`; composed keys are skipped rather
+than false-flagged. Measured scope: **1052 literal keys, exactly 6 unresolved — all 6 were these 3 keys in
+this 1 file**; all 403 `data-i18n` and all 30 `data-i18n-attr` keys already resolved.
+
+**Decision 2 — a client render loop must terminate by construction (F4).** `DuelArchive.render(true)` with
+a null uid **kills the renderer** — not an exception; a page-level `try/catch` cannot intercept it because
+nothing throws. `_renderTrigger()` re-enters itself through
+`if (!have) _loadSummary().then(… _renderTrigger())` where `have` is `_summary != null`, and the uid-guard
+was the one `_loadSummary()` path that resolved **without assigning** `_summary` — so the pair recursed
+through microtasks forever, rewriting `innerHTML` and attaching a listener each pass. It is reachable in
+principle because `render()`'s premium flag comes from the **entitlement cache** (`hasPremiumAccess`) while
+`_uid()` comes from **auth** — two sources with no guarantee they agree, e.g. across a logout window. The
+guard now assigns `_summary` exactly as the sibling `.catch` path already does. Verified in a real browser:
+before, the tab died; after, `render(true)` returns normally and the trigger is present.
+
+**Decision 3 — enforce the S1 entitlement invariant by construction, not by convention (F2).** Wave S1
+removed the two client paths that could persist a plan downgrade, but nothing *prevented* a new one:
+`queueUpdate()` wrote any field name it was handed, `_replayPendingBuffer()` restores from user-writable
+localStorage, and the Firestore rules deliberately **allow** a client `plan→'free'` write. The only guard
+was four negative regexes over the **deleted code's error strings** plus one asserting a **comment** exists.
+Demonstrated bypass: with the guard removed and a non-stale `baseUpdatedAt`, a poisoned buffer delivered
+`{"plan":"free","planExpiry":null,"isTrial":false}` into **two** real writes. `entitlement-core.js` now
+exports `clientImmutableFields()` **derived from `revokeFields()`**, and `firestore-sync.js` applies one
+`_stripEntitlementFields` choke point at queue entry, buffer replay and both flush snapshots — root-only,
+so a nested `settings.plan` passes through untouched.
+
+**Decision 4 — correct the rules comment, do not tighten the rule (F3).** The comment justified the
+client-downgrade permission by naming `_enforcePremiumExpiry`/`getAccessState`, which Wave S1 deleted. The
+rule is deliberately kept: users on a stale service worker still run the older client that writes, and
+tightening would start failing their harmless downgrade-only writes.
+
+**Consequences.** Suite 14,598 → **14,604** (i18n §4b), firestore-durability 77 → **119**,
+entitlement-invariants 30 → **35**, duel-archive 44 → **49**. Every new guard was demonstrated to fail on
+the defect it covers. The only behavioural client changes are the two one-line fixes and the entitlement
+choke point, which is a strict narrowing.
+
+**Two corrections to my own work, recorded because the brief demands the audit be audited.** I briefly
+concluded `scripts/sync-entitlement-core.js` did not exist and wrote a duplicate under `main-app/scripts/`;
+that was a working-directory error — the generator has existed at the repo root since ADR-117 beside its
+two siblings. The duplicate was removed. And my first poisoned-buffer test passed even with the guard
+removed, because a stale `baseUpdatedAt` is discarded by the FS1 freshness guard before replay ever runs;
+the test was rewritten around a realistic base before it proved anything.
+
+**Known limits, stated rather than hidden.** The sandbox blocks Firebase, so: the archive modal's chip
+**labels** could not be observed at runtime (the modal opens, but its body needs Firestore) — F1 is proven
+by the resolver and the source, not by reading the rendered chips; the offline **durability** half is
+covered by the executed durability suite, not by the browser (no uid ⇒ no pending buffer); and two-account
+flows remain manual per `ACCOUNT_ISOLATION_VALIDATION.md`. The px-diff visual-regression sweep (§12) was
+not run.
+
+---
+
 ## ADR-129 — Wave S5 final production verification: the release gate contradicted the code, and four "green" checks were not testing anything (v261) (2026-07-31)
 
 **Context.** Final cross-wave verification of Waves S1–S4 at `b5b1d8c` (SW v260). Every previous report,

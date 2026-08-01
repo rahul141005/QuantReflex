@@ -40,5 +40,5 @@ synchronized with the code, and the version registry is updated.** See [GOVERNAN
 ---
 
 **Current versions** — [VERSIONS.md](VERSIONS.md) is the single source of truth; this line is a
-convenience copy and must be updated with it: Bible 2.161 · Architecture 2.76 ·
+convenience copy and must be updated with it: Bible 2.162 · Architecture 2.76 ·
 Firestore 2.32 · Security 2.20 · Payment 2.7.

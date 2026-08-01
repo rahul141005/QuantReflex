@@ -6,6 +6,59 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-01 — Final certification of Waves S1–S4 (ADR-130, SW v261→v262)
+
+Zero-assumption certification with every prior report and PASS discarded. **Two live defects found, both
+in `js/duel-archive.js` — the one file no runtime harness had ever opened — and both PREDATING Waves
+S1–S4**, so neither is a wave regression; they are pre-existing defects the waves were chartered to catch.
+
+- **F1 · HIGH — raw i18n keys rendered as visible UI text.** `_t('guide.difficultyEasy|Medium|Hard')`
+  named a namespace with no difficulty keys; `QRI18n.t` returns the key on a miss, so
+  `guide.difficultyMedium` was painted onto the Battle Archive difficulty chips and every archive card
+  subtitle — identically in en, hi and mr. The real keys have always been `settings.difficulty*`
+  (`drill-engine.js`, `report-modal.js` use them correctly). Fixed; 6 occurrences, one file.
+- **The reason every audit missed it, which matters more than the fix.** Every i18n guard validated the
+  **catalogs against each other** — and all three agree perfectly — while nothing validated the **code
+  against the catalog**. New `i18n.check` §4b closes that direction: 1052 literal `t()` keys in `js/**`
+  resolved against the English catalog (exactly 6 unresolved, all of them this defect), plus all 403
+  `data-i18n`/`data-i18n-html` and 30 `data-i18n-attr` keys. Composed keys are skipped, not false-flagged.
+- **F4 · HIGH — a render loop that kills the renderer.** `DuelArchive.render(true)` with a null uid takes
+  the one `_loadSummary()` path that resolved **without assigning `_summary`**, so `_renderTrigger()`'s
+  re-entry guard never cleared and the pair recursed through microtasks forever, rewriting `innerHTML`
+  each pass. Not an exception — a page-level `try/catch` cannot intercept it; the tab dies. Reachable in
+  principle because the premium flag comes from the entitlement cache while the uid comes from auth.
+  Fixed by assigning `_summary` exactly as the sibling `.catch` path already does.
+- **F2 · MEDIUM — the S1 "client never persists an entitlement downgrade" invariant was enforced by
+  convention and tested by fingerprint.** Guarded only by negative regexes over the deleted code's error
+  strings plus one assertion that a comment exists. Demonstrated bypass: a poisoned localStorage replay
+  buffer delivered `{"plan":"free",…}` into two real writes with the guard removed. Now enforced by
+  construction — `clientImmutableFields()` derived from `revokeFields()` in the canonical core, and one
+  `_stripEntitlementFields` choke point at queue entry, buffer replay and both flush snapshots (root-only,
+  so a nested `settings.plan` is untouched).
+- **F3 · LOW — the security rules justified a permission by naming code Wave S1 deleted.** Comment
+  corrected; the rule deliberately NOT tightened, because clients on a stale service worker still write.
+
+**Runtime (real Chromium).** Raw-key sweep across 6 views × en/hi/mr plus the Battle Archive: **0** raw
+keys, **0** page errors. Language transition: 529 ms, 0 stuck units, class cleared; **0** stray morph
+classes across all six views afterwards; theme change, scroll and `refreshCurrentView()` produce **0**
+morph triggers. 200 sequential switches: node growth **0**, announcer count stable, 0 stuck. Rapid
+navigation during a transition and teardown mid-morph: no throw, 0 stuck, correct final language. Deep
+link survives teardown. No horizontal overflow at 320/768/1024. Two tabs: tab 2 stays usable with 0 stray
+morph classes and self-heals from the shared settings blob (no cross-tab push exists, by design, ADR-119).
+
+**Regression.** `npm test` exit 0 — i18n.check **14,604/0**, firestore-durability **119/0**,
+entitlement-invariants **35/0**, duel-archive **49/0**, entitlement-core 93/0, account-isolation 121/0,
+session-integrity 39/0, payment-parity 25/0, update.check 34/0, design-lint 10/10 with `durations=3` /
+`easings=3` / `gradients=10` unchanged. Every new guard demonstrated to fail on the defect it covers.
+v261→v262 lockstep; Bible 2.161 → 2.162.
+
+**Limits, stated rather than hidden.** Firebase is blocked in the sandbox, so the archive modal's chip
+*labels* could not be read at runtime (F1 is proven by the resolver and the source); offline durability is
+covered by the executed durability suite rather than the browser; two-account flows stay manual. The
+px-diff visual-regression sweep was not run.
+
+---
+
 ## 2026-07-31 — Wave S5 final production verification (ADR-129, SW v260→v261)
 
 Cross-wave verification of Waves S1–S4 with every prior report treated as untrusted. **No code regression

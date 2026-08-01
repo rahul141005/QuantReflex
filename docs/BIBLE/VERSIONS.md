@@ -9,11 +9,29 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.161 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.162 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.162 (2026-08-01)** — **Final certification of Waves S1–S4 (ADR-130, SW v261→v262).** Zero-assumption
+> pass with every prior report and PASS discarded. **Two live defects, both in `js/duel-archive.js` — the
+> one file no runtime harness had ever opened — and both PREDATING the waves**, so neither is a wave
+> regression. **F1 (HIGH)**: `_t('guide.difficulty*')` named keys that do not exist, and `QRI18n.t` returns
+> the key on a miss, so `guide.difficultyMedium` was rendered onto the Battle Archive filter chips and every
+> card subtitle in all three languages. Every i18n guard validated the catalogs against EACH OTHER — which
+> agree perfectly — and none validated the CODE against the catalog; new `i18n.check` §4b closes that
+> direction (1052 literal keys scanned, exactly 6 unresolved, all of them this defect). **F4 (HIGH)**:
+> `DuelArchive.render(true)` with a null uid killed the renderer — the uid-guard was the one `_loadSummary()`
+> path resolving without assigning `_summary`, so `_renderTrigger()` recursed forever; not an exception, so
+> no `try/catch` could intercept it. **F2 (MEDIUM)**: the S1 "client never persists an entitlement
+> downgrade" invariant was guarded only by regexes over deleted code's error strings; a poisoned
+> localStorage buffer put `{"plan":"free",…}` into two writes with the guard removed. Now enforced by
+> construction from a list derived from `revokeFields()`, at three choke points. **F3 (LOW)**: rules comment
+> named deleted code; corrected, rule deliberately not tightened. Runtime: 0 raw keys and 0 page errors
+> across 6 views × 3 locales + the archive; transition 529 ms with 0 stray classes anywhere afterwards; 200
+> switches with 0 node growth. `npm test` exit 0, design-lint 10/10 unchanged.
 
 > **2.161 (2026-07-31)** — **Wave S5 final production verification (ADR-129, SW v260→v261).** Cross-wave
 > re-verification of Waves S1–S4 with every prior report treated as untrusted. **No code regression found in
