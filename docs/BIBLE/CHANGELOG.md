@@ -27,7 +27,15 @@ S1–S4**, so neither is a wave regression; they are pre-existing defects the wa
   re-entry guard never cleared and the pair recursed through microtasks forever, rewriting `innerHTML`
   each pass. Not an exception — a page-level `try/catch` cannot intercept it; the tab dies. Reachable in
   principle because the premium flag comes from the entitlement cache while the uid comes from auth.
-  Fixed by assigning `_summary` exactly as the sibling `.catch` path already does.
+  Fixed at the **call site**: `_renderTrigger` re-enters only when the promise actually produced a summary,
+  so the null-uid path stops immediately while every other path still re-renders exactly once.
+- **A wrong first attempt at that fix, recorded rather than buried.** It assigned `_summary = {}` to break
+  the loop. `_summary` is the *"have I loaded?"* sentinel for both the trigger and the modal, so that would
+  have left a premium user's Battle Archive stuck on the empty state — 0 battles, 0 rivals, 0 achievements —
+  for the rest of the session, with real data on the server. A loud crash traded for a silent wrong answer.
+  The final verification pass caught it; `duel-archive.check.js` §11 now rejects both the original loop and
+  that flawed fix, and the corrected behaviour is confirmed in a real browser (tab survives **and** a later
+  render still attempts the fetch).
 - **F2 · MEDIUM — the S1 "client never persists an entitlement downgrade" invariant was enforced by
   convention and tested by fingerprint.** Guarded only by negative regexes over the deleted code's error
   strings plus one assertion that a comment exists. Demonstrated bypass: a poisoned localStorage replay

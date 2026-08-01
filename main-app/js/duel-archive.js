@@ -127,18 +127,15 @@ var DuelArchive = (function () {
     return true;
   }
 
+  /* ADR-130: `_summary` is this module's "have I loaded?" SENTINEL — `_renderTrigger` (`have`) and
+     `_loadAndPaint` (`needSummary`) both branch on `_summary == null`. It must stay null until a real
+     load has happened, so the uid-guard below deliberately resolves WITHOUT assigning it.
+     The renderer-killing loop that made this function suspect is fixed at the CALL SITE instead — see
+     _renderTrigger — because assigning a placeholder here to break the loop would permanently convince
+     both readers that the summary was already loaded, leaving a premium user's Battle Archive stuck on
+     the empty state with 0 rivals and 0 achievements. */
   function _loadSummary() {
-    /* ADR-130: this early return used to be `return Promise.resolve(null)` — the ONLY path in this
-       function that resolved WITHOUT assigning _summary. _renderTrigger() re-enters itself from
-       `if (!have) _loadSummary().then(… _renderTrigger())`, and `have` is `_summary != null`, so with a
-       null uid the pair recursed through microtasks forever, rewriting sec.innerHTML and attaching a new
-       listener on every pass. Measured: it KILLS THE RENDERER (the tab dies; a page-level try/catch
-       cannot intercept it, because nothing throws). Reachable because render()'s premium flag comes from
-       the ENTITLEMENT cache (hasPremiumAccess, home-view.js:464) while _uid() comes from AUTH — two
-       different sources with no guarantee they agree, e.g. across a logout/teardown window.
-       Assigning {} matches what the .catch path below already does, so `have` becomes true and the
-       re-entry terminates after one pass. */
-    var uid = _uid(); if (!uid) { _summary = _summary || {}; return Promise.resolve(_summary); }
+    var uid = _uid(); if (!uid) return Promise.resolve(null);
     return _db().collection('users').doc(uid).collection('duelStats').doc('summary').get()
       .then(function (snap) { _summary = snap.exists ? snap.data() : {}; return _summary; })
       .catch(function () { _summary = _summary || {}; return _summary; });
@@ -238,8 +235,17 @@ var DuelArchive = (function () {
       '</button>';
     var btn = document.getElementById('baOpen');
     if (btn) btn.addEventListener('click', function () { _openModal(); });
-    // Lazily warm the count if we don't have the summary yet (1 cheap read), then refresh the trigger label.
-    if (!have) { _loadSummary().then(function () { if (!_isOpen()) _renderTrigger(); }); }
+    /* Lazily warm the count if we don't have the summary yet (1 cheap read), then refresh the trigger label.
+       ADR-130: the re-entry is gated on the RESOLVED summary. It used to re-enter unconditionally, and
+       _loadSummary()'s uid-guard resolves without assigning _summary, so with a null uid this pair recursed
+       through microtasks forever — rewriting innerHTML and attaching a listener every pass until the
+       RENDERER DIED (measured; a page-level try/catch cannot intercept it, because nothing throws).
+       Reachable because render()'s premium flag comes from the ENTITLEMENT cache (hasPremiumAccess,
+       home-view.js) while _uid() comes from AUTH — two sources with no guarantee they agree, e.g. across a
+       logout window. Every other _loadSummary() path assigns a truthy _summary, so this re-enters at most
+       once; the null-uid path stops immediately AND leaves _summary unloaded, so a later render once auth
+       lands still fetches it. */
+    if (!have) { _loadSummary().then(function (s) { if (s && !_isOpen()) _renderTrigger(); }); }
   }
 
   /* Build the centered premium modal (reuses the paywall shell's dim/scale/scroll), append to <body>, then load. */

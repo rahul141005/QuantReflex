@@ -25,7 +25,10 @@ Every governed change updates the relevant version number here and records a mig
 > direction (1052 literal keys scanned, exactly 6 unresolved, all of them this defect). **F4 (HIGH)**:
 > `DuelArchive.render(true)` with a null uid killed the renderer — the uid-guard was the one `_loadSummary()`
 > path resolving without assigning `_summary`, so `_renderTrigger()` recursed forever; not an exception, so
-> no `try/catch` could intercept it. **F2 (MEDIUM)**: the S1 "client never persists an entitlement
+> no `try/catch` could intercept it. Fixed at the call site (re-enter only when the promise produced a
+> summary); a first attempt that assigned `_summary = {}` was itself wrong — it poisons the "have I loaded?"
+> sentinel and would have left the archive stuck on the empty state — and the final verification pass caught
+> and corrected it. **F2 (MEDIUM)**: the S1 "client never persists an entitlement
 > downgrade" invariant was guarded only by regexes over deleted code's error strings; a poisoned
 > localStorage buffer put `{"plan":"free",…}` into two writes with the guard removed. Now enforced by
 > construction from a list derived from `revokeFields()`, at three choke points. **F3 (LOW)**: rules comment

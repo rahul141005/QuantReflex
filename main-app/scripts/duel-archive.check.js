@@ -180,13 +180,21 @@ console.log('duel-archive.check — Battle Archive aggregate math (ADR-068)');
   var src = fs.readFileSync(path.join(__dirname, '..', 'js', 'duel-archive.js'), 'utf8');
   /* Comments are stripped first: the fix's own explanatory comment quotes the old
      `return Promise.resolve(null)`, and a guard that a comment can satisfy is not a guard. */
-  var body = src.slice(src.indexOf('function _loadSummary'), src.indexOf('function _loadPage'))
-    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  function strip(s) { return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''); }
+  var body = strip(src.slice(src.indexOf('function _loadSummary'), src.indexOf('function _loadPage')));
   eq('11 the re-entry guard still keys on _summary', /var have = _summary != null;/.test(src), true);
   eq('11 _renderTrigger still re-enters through _loadSummary', /if \(!have\) \{ _loadSummary\(\)/.test(src), true);
-  eq('11 the uid-guard assigns _summary before resolving (loop terminates)',
-    /if \(!uid\) \{ _summary = _summary \|\| \{\}; return Promise\.resolve\(_summary\); \}/.test(body), true);
-  eq('11 no _loadSummary path resolves with a bare null', /return Promise\.resolve\(null\)/.test(body), false);
+  /* The loop is broken at the CALL SITE: re-enter only when the promise actually produced a summary.
+     Every path except the uid-guard assigns a truthy _summary, so this re-enters at most once. */
+  eq('11 the re-entry is gated on the RESOLVED summary (loop terminates)',
+    /if \(!have\) \{ _loadSummary\(\)\.then\(function \(s\) \{ if \(s && !_isOpen\(\)\) _renderTrigger\(\); \}\); \}/.test(strip(src)), true);
+  /* …and NOT by assigning a placeholder here. _summary is the "have I loaded?" sentinel for both
+     _renderTrigger (`have`) and _loadAndPaint (`needSummary`); poisoning it to break the loop would leave a
+     premium user's archive stuck on the empty state with 0 rivals and 0 achievements for the session. */
+  eq('11 the uid-guard resolves WITHOUT assigning _summary (lazy load survives)',
+    /if \(!uid\) return Promise\.resolve\(null\);/.test(body), true);
+  eq('11 _summary is assigned only inside the fetch then/catch',
+    (body.match(/_summary =/g) || []).length, 2);
 })();
 
 console.log('\nduel-archive.check: ' + pass + ' passed, ' + fail + ' failed');

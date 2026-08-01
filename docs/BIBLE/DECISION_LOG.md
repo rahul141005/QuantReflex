@@ -39,9 +39,22 @@ nothing throws. `_renderTrigger()` re-enters itself through
 was the one `_loadSummary()` path that resolved **without assigning** `_summary` — so the pair recursed
 through microtasks forever, rewriting `innerHTML` and attaching a listener each pass. It is reachable in
 principle because `render()`'s premium flag comes from the **entitlement cache** (`hasPremiumAccess`) while
-`_uid()` comes from **auth** — two sources with no guarantee they agree, e.g. across a logout window. The
-guard now assigns `_summary` exactly as the sibling `.catch` path already does. Verified in a real browser:
-before, the tab died; after, `render(true)` returns normally and the trigger is present.
+`_uid()` comes from **auth** — two sources with no guarantee they agree, e.g. across a logout window.
+
+The loop is broken at the **call site**, not in the guard: `_renderTrigger` re-enters only when the promise
+actually produced a summary (`.then(function (s) { if (s && !_isOpen()) _renderTrigger(); })`). Every path
+except the uid-guard assigns a truthy `_summary`, so it re-enters at most once.
+
+**A first attempt at this fix was wrong and is recorded rather than buried.** It broke the loop by assigning
+`_summary = {}` in the uid-guard. That terminates, but `_summary` is the module's *"have I loaded?"*
+sentinel — read by `_renderTrigger` (`have`) **and** `_loadAndPaint` (`needSummary`) — so poisoning it means
+the summary is never fetched afterwards, and `_paintBody` renders the empty state: a premium user who passed
+through the null-uid window once would see "no battles yet", 0 rivals and 0 achievements for the rest of the
+session, with real data on the server. I had traded a loud crash for a silent wrong answer. The final
+verification pass caught it, and the guard in `duel-archive.check.js` §11 now rejects **both** the original
+loop and that flawed fix. Verified in a real browser: `render(true)` with a null uid returns normally and
+the tab is alive with the trigger present, and a subsequent render once a uid exists still **attempts** the
+fetch — proving the sentinel was not poisoned.
 
 **Decision 3 — enforce the S1 entitlement invariant by construction, not by convention (F2).** Wave S1
 removed the two client paths that could persist a plan downgrade, but nothing *prevented* a new one:
