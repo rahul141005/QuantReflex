@@ -128,6 +128,41 @@
     };
   }
 
+  /**
+   * THE canonical set of ROOT user-document fields the CLIENT must never persist (ADR-130 — closing the
+   * S1-ENT3 invariant by construction rather than by convention).
+   *
+   * Wave S1 removed the two client write paths that could downgrade a live entitlement, because a stale
+   * offline cache or a forward device clock could otherwise clobber a fresh server grant — permanent,
+   * silent premium loss. Removal is not enforcement: `queueUpdate()` wrote whatever field name it was
+   * handed, `_replayPendingBuffer()` restores fields from USER-WRITABLE localStorage, and the Firestore
+   * rules deliberately ALLOW a client plan→'free' write (they were authored while the client still
+   * self-healed), so nothing downstream would have refused one either. The invariant rested entirely on
+   * nobody ever writing one line.
+   *
+   * DERIVED from revokeFields() so a future entitlement field is denied the moment it is declared there —
+   * the list can never drift from the revocation set — plus the two server-written provenance fields that
+   * have no revokeFields() counterpart. Verified safe: no legitimate client path writes any of these (the
+   * client's own activatePremium is memory-only); the sole exception is the brand-new-user document seed,
+   * which never goes through the queue.
+   */
+  var SERVER_OWNED_EXTRA = ['planUpdatedAt', 'lastPaymentId'];
+
+  function clientImmutableFields() {
+    var out = [], revoked = revokeFields(), k;
+    for (k in revoked) { if (Object.prototype.hasOwnProperty.call(revoked, k)) out.push(k); }
+    for (var i = 0; i < SERVER_OWNED_EXTRA.length; i++) {
+      if (out.indexOf(SERVER_OWNED_EXTRA[i]) === -1) out.push(SERVER_OWNED_EXTRA[i]);
+    }
+    return out;
+  }
+
+  /** True when `name` is a ROOT field the client may never write. Root-only on purpose: a nested
+      `settings.plan` is app state, not entitlement state, and must pass through untouched. */
+  function isClientImmutableField(name) {
+    return clientImmutableFields().indexOf(String(name)) !== -1;
+  }
+
   var API = {
     DAY_MS: DAY_MS,
     PLAN_PREMIUM: PLAN_PREMIUM,
@@ -139,7 +174,9 @@
     isActivePremium: isActivePremium,
     stackExpiry: stackExpiry,
     daysRemaining: daysRemaining,
-    revokeFields: revokeFields
+    revokeFields: revokeFields,
+    clientImmutableFields: clientImmutableFields,
+    isClientImmutableField: isClientImmutableField
   };
 
   /* Dual-mode export (same pattern as data/statMath.js): <script> on the client exposes

@@ -200,10 +200,15 @@ var FirestoreSync = (function () {
       var base = parsed.baseUpdatedAt || 0;
       var loadedUpdatedAt = _toMillis(_memoryCache && _memoryCache.updatedAt) || 0;
       if (base > 0 && loadedUpdatedAt > base) { _clearPendingBuffer(); return; }
-      var fields = Object.keys(parsed.updates);
+      /* ADR-130 choke point 2 of 3 (buffer replay). This buffer lives in localStorage — user-writable and
+         upgrade-surviving — so it is the one place an entitlement field can re-enter the write path
+         without any client code calling queueUpdate(). Demonstrated: with this strip removed, a seeded
+         buffer delivered plan/planExpiry/isTrial into two real writes. */
+      var replayable = _stripEntitlementFields(parsed.updates);
+      var fields = Object.keys(replayable);
       for (var i = 0; i < fields.length; i++) {
         /* live in-memory edits win over a stale buffered value for the same field */
-        if (!_pendingUpdates.hasOwnProperty(fields[i])) _pendingUpdates[fields[i]] = parsed.updates[fields[i]];
+        if (!_pendingUpdates.hasOwnProperty(fields[i])) _pendingUpdates[fields[i]] = replayable[fields[i]];
       }
       _clearPendingBuffer();
       if (fields.length > 0) { if (_syncTimer) clearTimeout(_syncTimer); _syncTimer = setTimeout(_flushUpdates, 0); }
@@ -681,6 +686,41 @@ var FirestoreSync = (function () {
     return c ? c.toMillis(ts) : 0;
   }
 
+  /* ─── ADR-130: entitlement fields are SERVER-OWNED, enforced by construction ───
+     Wave S1 (S1-ENT3) REMOVED the two client paths that could persist a plan downgrade — a stale offline
+     cache or a forward device clock could otherwise clobber a fresh server grant, losing paid premium
+     silently and permanently. Removal is not enforcement: queueUpdate() wrote whatever field name it was
+     handed, _replayPendingBuffer() restores fields from USER-WRITABLE localStorage, and the Firestore
+     rules deliberately ALLOW a client plan→'free' write, so no layer downstream would have refused one.
+     The invariant rested on nobody ever writing one line.
+
+     These two helpers are the choke point, applied at all THREE places a field can enter or leave the
+     write path — queue entry, durable-buffer replay, and the snapshot handed to set(…, {merge:true}) — so
+     partial updates, merge writes and queue replay are covered by one guard rather than three that drift.
+
+     The field list is DERIVED from the canonical core's revokeFields(), so a future entitlement field is
+     denied the moment it is declared. Fail-closed: with the core unavailable, fall back to the literal set
+     rather than letting everything through. Scope is deliberately ROOT-ONLY — `settings.plan` is app
+     state, not entitlement state. The one legitimate client write of these fields is the brand-new-user
+     seed (_createDefaultDocument), which never goes through the queue. */
+  var _IMMUTABLE_FALLBACK = ['plan', 'planType', 'planExpiry', 'planSource', 'isTrial', 'trialEnd', 'planUpdatedAt', 'lastPaymentId'];
+  function _isEntitlementField(name) {
+    var c = _core();
+    if (c && typeof c.isClientImmutableField === 'function') return c.isClientImmutableField(name);
+    return _IMMUTABLE_FALLBACK.indexOf(String(name)) !== -1;
+  }
+  /** A copy of `obj` with every server-owned entitlement field removed. Never mutates its input. */
+  function _stripEntitlementFields(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    var out = {}, k;
+    for (k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      if (_isEntitlementField(k)) continue;
+      out[k] = obj[k];
+    }
+    return out;
+  }
+
   function _normalizeMonetization(data, docRef) {
     if (!data) return;
     var hasAll =
@@ -873,6 +913,14 @@ var FirestoreSync = (function () {
    * @param {*} value - Value to write
    */
   function queueUpdate(field, value) {
+    /* ADR-130 choke point 1 of 3 (entry). Entitlement state is server-owned: a client write here could
+       silently destroy a paid plan, and the rules would accept it. Refuse rather than sanitise, so a
+       mistaken caller fails loudly in development instead of half-working. */
+    if (_isEntitlementField(field)) {
+      try { console.error('[FirestoreSync] refused client write to server-owned entitlement field: ' + field); } catch (_) {}
+      return;
+    }
+
     /* Update in-memory cache */
     if (_memoryCache) {
       _memoryCache[field] = value;
@@ -909,7 +957,9 @@ var FirestoreSync = (function () {
     }
 
     var snapshot = {};
-    var keys = Object.keys(_pendingUpdates);
+    /* ADR-130 choke point 3 of 3 (exit) — the last thing between the queue and a merge write. Belt and
+       braces with the entry guard: this holds even if a future path populates _pendingUpdates directly. */
+    var keys = Object.keys(_stripEntitlementFields(_pendingUpdates));
     for (var i = 0; i < keys.length; i++) {
       snapshot[keys[i]] = _pendingUpdates[keys[i]];
     }
@@ -988,7 +1038,8 @@ var FirestoreSync = (function () {
    * Used for graceful logout to prevent data loss.
    */
   function flushUpdatesAsync(callback) {
-    var keys = Object.keys(_pendingUpdates);
+    /* ADR-130 choke point 3 of 3, logout half — same guard as the debounced flush. */
+    var keys = Object.keys(_stripEntitlementFields(_pendingUpdates));
     if (keys.length === 0) {
       if (callback) callback();
       return;

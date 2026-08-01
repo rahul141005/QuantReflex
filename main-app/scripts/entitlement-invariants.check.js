@@ -80,15 +80,37 @@ ok('replay path preserves stronger grant provenance', /if \(!keepCurrent\) \{[\s
 const pay = R('api/payment.js');
 ok('create-order blocks purchase when already premium', /if \(req\.userPremium\)/.test(pay) && /ALREADY_PREMIUM/.test(pay));
 
-/* ---- 5. client never persists a plan:'free' downgrade (self-heal is local-view-only) ---- */
+/* ---- 5. client never persists an entitlement downgrade (self-heal is local-view-only) ----
+   ADR-130: this section used to be four NEGATIVE regexes asserting that three error-message strings from
+   the DELETED code were absent, plus one asserting a COMMENT exists. That is a fingerprint of the old
+   implementation, not the invariant — any newly written persist path with a different message satisfied
+   all four and the whole suite stayed green. The BEHAVIOUR is now proven by EXECUTION in
+   firestore-durability.check.js (the "ENT …" block: an expired premium downgrades in memory and writes
+   nothing; a poisoned localStorage buffer cannot replay entitlement state; legitimate fields still
+   write). What remains here is the STRUCTURAL half — that the enforcement exists and is centralised. */
 const fs2 = R('js/firestore-sync.js');
-/* The two removed persist blocks each carried a unique catch message; their absence proves the
-   client no longer writes plan:'free' from the expiry self-heal. (The legitimate plan:'free' in
-   _createDefaultDocument — full new-user doc — is intentionally untouched.) */
-ok('no _enforcePremiumExpiry persist (removed)', !/failed to persist expiry/i.test(fs2));
-ok('no getAccessState persist (removed)', !/persist premium expiry from access state/i.test(fs2));
-ok('no _planExpiryPersistInFlight state remains', !/_planExpiryPersistInFlight/.test(fs2));
+const core = R('data/entitlement-core.js');
+
+/* the canonical list lives in ONE place and is derived from the revocation set, so it cannot drift */
+ok('entitlement-core exports the client-immutable field list',
+  /clientImmutableFields\s*:/.test(core) && /isClientImmutableField\s*:/.test(core));
+ok('the immutable list is DERIVED from revokeFields (cannot drift from the revocation set)',
+  /function clientImmutableFields\(\)[\s\S]{0,400}revokeFields\(\)/.test(core));
+
+/* all three choke points are wired — queue entry, durable-buffer replay, and the write snapshots */
+ok('sync refuses entitlement fields at queue entry', /if \(_isEntitlementField\(field\)\)/.test(fs2));
+ok('sync strips entitlement fields when replaying the durable buffer',
+  /_stripEntitlementFields\(parsed\.updates\)/.test(fs2));
+const stripAtWrite = (fs2.match(/Object\.keys\(_stripEntitlementFields\(_pendingUpdates\)\)/g) || []).length;
+ok('both flush paths strip entitlement fields before writing (debounced + logout)', stripAtWrite === 2,
+  'found ' + stripAtWrite + ' of 2');
+ok('the guard fails closed when the core is unavailable', /_IMMUTABLE_FALLBACK/.test(fs2));
+
+/* the self-heal still mutates only the in-memory view — no docRef parameter, so it cannot write */
+ok('_enforcePremiumExpiry takes no docRef (cannot write)',
+  /function _enforcePremiumExpiry\(data\s*\/\*,\s*docRef\s*\*\//.test(fs2));
 ok('firestore-sync self-heal documents local-view-only', /LOCAL VIEW ONLY/.test(fs2));
+ok('no _planExpiryPersistInFlight state remains', !/_planExpiryPersistInFlight/.test(fs2));
 
 /* ---- 6. qr_premium write-only mirror removed (one source of truth) ---- */
 const store = R('js/state/store.js');

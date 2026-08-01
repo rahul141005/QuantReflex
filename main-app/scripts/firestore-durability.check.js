@@ -110,10 +110,10 @@ function harness(opts) {
     get() {
       return Promise.resolve({
         exists: true,
-        data: () => ({
+        data: () => Object.assign({
           plan: 'free', planType: null, planExpiry: null, isTrial: false, trialEnd: null,
           updatedAt: opts.updatedAt || '2026-01-01T00:00:00.000Z'
-        })
+        }, opts.docData || {})   /* ADR-130: lets a test load a PREMIUM doc and exercise the expiry self-heal */
       });
     },
     onSnapshot() { return function () {}; }
@@ -497,6 +497,173 @@ ok('GUARD the flush behaviour is driven through the real module, not a model of 
   /vm\.runInContext\(holdSrc, ctx/.test(selfSrc) && /h\.sync\.flushUpdatesAsync\(/.test(selfSrc));
 
 /* the executed end-to-end tests are async; run them in order, then report */
+/* ═══ ADR-130 · entitlement fields are server-owned, enforced by construction ═══
+   Wave S1 (S1-ENT3) REMOVED the two client paths that could persist a plan downgrade. Nothing PREVENTED a
+   new one: queueUpdate() wrote any field name it was handed, the durable replay buffer lives in
+   user-writable localStorage, and the Firestore rules deliberately ALLOW a client plan→'free' write, so
+   there was no backstop at any layer. The only guard was entitlement-invariants.check.js asserting that
+   three error-message strings from the DELETED code were absent — a fingerprint of the old
+   implementation, not the invariant — plus one assertion that a comment exists.
+
+   These tests execute the real shipped module and attack the guard from every direction I could
+   construct. Each is demonstrated to fail with the guard neutered. */
+const ENT_FIELDS = ['plan', 'planType', 'planExpiry', 'planSource', 'isTrial', 'trialEnd', 'planUpdatedAt', 'lastPaymentId'];
+
+/* The canonical list is DERIVED from revokeFields() so it can never drift from the revocation set. */
+test(async function () {
+  const E = require('../data/entitlement-core.js');
+  const derived = E.clientImmutableFields();
+  const revoked = Object.keys(E.revokeFields());
+  ok('ENT the immutable list covers every revokeFields() key (derived, cannot drift)',
+    revoked.every((k) => derived.indexOf(k) !== -1),
+    'missing: ' + revoked.filter((k) => derived.indexOf(k) === -1).join(','));
+  ok('ENT the immutable list matches the full expected set',
+    ENT_FIELDS.every((f) => E.isClientImmutableField(f)) && derived.length === ENT_FIELDS.length);
+  ok('ENT non-entitlement fields are NOT immutable',
+    ['stats', 'settings', 'profile', 'quickLinks', 'bookmarks', 'customTopics', 'customFormulas', 'learnProgress', 'updatedAt']
+      .every((f) => !E.isClientImmutableField(f)));
+  ok('ENT a fresh array each call — a caller cannot mutate the shared list',
+    E.clientImmutableFields() !== E.clientImmutableFields());
+});
+
+/* Attack 1 — the guards themselves, sliced out of the production file and executed (same idiom as the
+   hold helpers above). Note queueUpdate is module-PRIVATE — not on the exported API — so an external
+   caller cannot reach it; the entry guard defends against a future INTERNAL caller, which is exactly how
+   S1-ENT3 arose. The externally reachable vector is the localStorage buffer, attacked in test 4. */
+const ENT_SLICE = holdSrc.slice(holdSrc.indexOf('var _IMMUTABLE_FALLBACK'), holdSrc.indexOf('function _normalizeMonetization'));
+const stripCtx = { Object: Object, String: String, QR_ENTITLEMENT: require('../data/entitlement-core.js') };
+vm.createContext(stripCtx);
+vm.runInContext('function _core(){return QR_ENTITLEMENT;}' + ENT_SLICE, stripCtx, { filename: 'firestore-sync.js#entitlement-guard' });
+test(async function () {
+  ok('ENT the real guards were loaded from source (not re-implemented in this file)',
+    typeof stripCtx._isEntitlementField === 'function' && typeof stripCtx._stripEntitlementFields === 'function');
+  ENT_FIELDS.forEach(function (f) {
+    ok('ENT _isEntitlementField rejects "' + f + '"', stripCtx._isEntitlementField(f) === true);
+  });
+  ['stats', 'settings', 'profile', 'quickLinks', 'bookmarks', 'customTopics', 'customFormulas',
+   'learnProgress', 'learnTopicBookmarks', 'updatedAt'].forEach(function (f) {
+    ok('ENT _isEntitlementField allows "' + f + '"', stripCtx._isEntitlementField(f) === false);
+  });
+  const mixed = { stats: { a: 1 }, settings: { theme: 'x' }, plan: 'free', planExpiry: null, isTrial: false, lastPaymentId: 'p1' };
+  const out = stripCtx._stripEntitlementFields(mixed);
+  ok('ENT strip removes every entitlement key', ENT_FIELDS.every((f) => !Object.prototype.hasOwnProperty.call(out, f)));
+  ok('ENT strip keeps every legitimate key', out.stats.a === 1 && out.settings.theme === 'x');
+  ok('ENT strip does not mutate its input', Object.prototype.hasOwnProperty.call(mixed, 'plan'));
+  /* root-only: a settings blob containing `plan` is APP state and must survive — an over-reaching guard
+     would silently eat user settings, a worse bug than the one being prevented. */
+  const nested = stripCtx._stripEntitlementFields({ settings: { plan: 'premium', theme: 'classic' } });
+  ok('ENT a NESTED settings.plan is untouched (root-only scope, no over-reach)',
+    nested.settings.plan === 'premium' && nested.settings.theme === 'classic');
+  /* fail-closed: with the core absent the fallback list must still deny everything */
+  const bare = { Object: Object, String: String };
+  vm.createContext(bare);
+  vm.runInContext('function _core(){return null;}' + ENT_SLICE, bare);
+  ok('ENT with the core UNAVAILABLE the guard still denies all 8 (fail-closed)',
+    ENT_FIELDS.every((f) => bare._isEntitlementField(f) === true));
+});
+
+/* Attack 2 — the legitimate path must be completely unaffected (the regression that would matter most). */
+test(async function () {
+  const h = harness();
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncStats({ totalAttempted: 7 });
+  h.sync.syncSettings({ theme: 'playful' });
+  h.sync.flushUpdatesAsync(function () {});
+  await tick();
+  const w = h.writes[h.writes.length - 1] || {};
+  ok('ENT legitimate stats still writes', w.stats && w.stats.totalAttempted === 7);
+  ok('ENT legitimate settings still writes', w.settings && w.settings.theme === 'playful');
+  ok('ENT the write still carries a server updatedAt', Object.prototype.hasOwnProperty.call(w, 'updatedAt'));
+  ok('ENT the write carries NO entitlement field', ENT_FIELDS.every((f) => !Object.prototype.hasOwnProperty.call(w, f)));
+});
+
+/* Attack 3 — a settings blob carrying `plan` must round-trip through the REAL sync path untouched. */
+test(async function () {
+  const h = harness();
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  h.sync.syncSettings({ plan: 'premium', theme: 'classic' });
+  h.sync.flushUpdatesAsync(function () {});
+  await tick();
+  const w = h.writes[h.writes.length - 1] || {};
+  ok('ENT a nested settings.plan survives the real write path',
+    w.settings && w.settings.plan === 'premium' && w.settings.theme === 'classic');
+  ok('ENT ...and never becomes a ROOT plan field', !Object.prototype.hasOwnProperty.call(w, 'plan'));
+});
+
+/* Attack 4 — the externally reachable bypass no previous audit examined: the durable buffer is
+   localStorage, user-writable and upgrade-surviving. */
+test(async function () {
+  const T0 = Date.parse('2026-07-01T00:00:00.000Z');
+  /* baseUpdatedAt must be >= the loaded server updatedAt or the FS1 freshness guard discards the buffer
+     before replay runs — correct for a STALE buffer, but it makes this test vacuous (verified: with a
+     stale base it passes even with the guard removed). A live offline session buffers with a current
+     base, so this is the realistic case. */
+  const store = makeStore({
+    'qr_pending_writes_userA': JSON.stringify({
+      uid: 'userA',
+      updates: { plan: 'free', planExpiry: null, isTrial: false, stats: { totalAttempted: 3 } },
+      baseUpdatedAt: Date.parse('2099-01-01T00:00:00.000Z')
+    })
+  });
+  const h = harness({ store: store, updatedAt: new Date(T0).toISOString() });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  await new Promise((r) => setTimeout(r, 60));
+  await new Promise((res) => h.sync.flushUpdatesAsync(res));
+  await tick();
+  const leaked = h.writes.filter((w) => ENT_FIELDS.some((f) => Object.prototype.hasOwnProperty.call(w, f)));
+  ok('ENT a POISONED localStorage buffer cannot replay entitlement state', leaked.length === 0,
+    'leaked: ' + JSON.stringify(leaked.slice(0, 2)));
+  /* the pipeline must still RUN — a guard that worked by breaking replay entirely would also pass above */
+  ok('ENT ...and the buffer is still consumed and the sync pipeline still writes',
+    h.store._m['qr_pending_writes_userA'] === undefined && h.writes.length > 0);
+});
+
+/* Attack 5 — offline/in-flight: prove the buffer PERSISTED for the next session is itself clean, so a
+   later build with a weaker guard still cannot replay entitlement state from it. */
+test(async function () {
+  const store = makeStore({
+    'qr_pending_writes_userA': JSON.stringify({
+      uid: 'userA', updates: { plan: 'free', trialEnd: null, stats: { totalAttempted: 5 } },
+      baseUpdatedAt: Date.parse('2099-01-01T00:00:00.000Z')
+    })
+  });
+  const h = harness({ store: store, updatedAt: '2026-07-01T00:00:00.000Z', settle: () => false });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  await new Promise((r) => setTimeout(r, 60));
+  /* the first flush is in flight and never settles (offline); queue more real work behind it so there IS
+     a pending queue to persist when the process is killed */
+  h.sync.syncStats({ totalAttempted: 6 });
+  await new Promise((r) => setTimeout(r, 60));
+  h.fire('pagehide');
+  const buf = h.store._m['qr_pending_writes_userA'];
+  ok('ENT the persisted buffer exists after pagehide', !!buf);
+  if (buf) {
+    const updates = JSON.parse(buf).updates || {};
+    ok('ENT the persisted buffer contains NO entitlement field',
+      ENT_FIELDS.every((f) => !Object.prototype.hasOwnProperty.call(updates, f)), 'buffer: ' + JSON.stringify(updates));
+    ok('ENT ...but does contain the legitimate queued work', !!updates.stats);
+  }
+  const leaked = h.writes.filter((w) => ENT_FIELDS.some((f) => Object.prototype.hasOwnProperty.call(w, f)));
+  ok('ENT no entitlement field reached a write on the offline path', leaked.length === 0);
+});
+
+/* Attack 6 — the self-heal itself. S1-ENT3's actual behaviour: an expired premium downgrades the
+   IN-MEMORY view (so gates close at once) and persists NOTHING. This is what the four negative regexes
+   in entitlement-invariants.check.js were only approximating. */
+test(async function () {
+  const past = new Date(Date.now() - 30 * 864e5).toISOString();
+  const h = harness({ docData: { plan: 'premium', planType: 'premium_6m', planExpiry: past, planSource: 'purchase' } });
+  await new Promise((res) => h.sync.loadFromFirestore(res));
+  h.writes.length = 0;
+  const st = h.sync.getAccessState();
+  ok('ENT getAccessState resolves an expired premium to free (memory-only downgrade)', !st || st.plan === 'free');
+  await tick();
+  ok('ENT the expiry self-heal persists NOTHING', h.writes.length === 0,
+    'writes: ' + JSON.stringify(h.writes.slice(0, 2)));
+});
+
 (async function () {
   for (const t of tests) {
     try { await t(); } catch (err) { fail++; console.log('  FAIL executed test threw — ' + (err && err.message)); }

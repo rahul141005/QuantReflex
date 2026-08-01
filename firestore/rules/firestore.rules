@@ -59,8 +59,21 @@ service cloud.firestore {
     // For UPDATES to existing user documents: validate that protected
     // plan/trial fields can only be set to downgrade-safe values
     // (plan→'free' / null / false). This prevents users from self-granting
-    // premium via browser console while still allowing client-side expiry
-    // self-heal (_enforcePremiumExpiry / getAccessState).
+    // premium via browser console.
+    //
+    // ADR-130 — this comment used to end "...while still allowing client-side
+    // expiry self-heal (_enforcePremiumExpiry / getAccessState)". Wave S1
+    // (S1-ENT3) deliberately REMOVED those client writes: a stale offline cache
+    // or a forward device clock could persist a downgrade over a fresh server
+    // grant and destroy paid premium. The current client self-heals in memory
+    // only, and ADR-130 blocks entitlement fields at three choke points in
+    // js/firestore-sync.js, so no shipped client path writes these fields.
+    //
+    // The permission is deliberately KEPT rather than tightened: users on a
+    // stale service-worker version still run the older firestore-sync.js that
+    // does write, and tightening would start failing their (harmless,
+    // downgrade-only) writes. Revisit once that version is out of circulation.
+    // Grants to 'premium' are, and always were, Admin-SDK only.
     //
     // Admin SDK bypasses these rules entirely — server-side entitlement
     // grants (payment verification, admin panel) are unaffected.
