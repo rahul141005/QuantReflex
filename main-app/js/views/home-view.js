@@ -68,17 +68,27 @@ function _qlEsc(s) {
   });
 }
 
-/* Every Quick-Study chip/picker row renders a monochrome, accent-tinted qr-ico mask — never a raw
-   colour emoji (UI Recovery). Practice/Feature registry entries carry their own `ico`; Reference and
-   Learn entries only have an `emoji`, so they fall back to a per-category line icon that reads as one
-   consistent, premium system instead of a jumble of 🍕/✖️ glyphs. */
+/* Quick-Study chips carry BOTH representations and the theme picks one (ADR-131). Playful paints the
+   monochrome, accent-tinted qr-ico mask; Classic shows the emoji text node underneath it. The UI-Recovery
+   complaint this replaces was a jumble of 🍕/✖️ glyphs sitting NEXT TO clean line icons in the same view —
+   that mixing is gone, because each theme is now internally consistent rather than the chips being
+   pinned to one language. Practice/Feature entries carry an `ico` (their emoji comes from the shared
+   ico→emoji pairing in app.js); Reference/Learn entries carry their own content `emoji` and map to a
+   per-category line icon for Playful. */
 var _QL_CATEGORY_ICO = { reference: 'book-open', learn: 'graduation', practice: 'target', features: 'layers' };
 function _qlIco(entry) {
   return entry.ico || _QL_CATEGORY_ICO[entry.category] || 'book-open';
 }
+/* ADR-131: route through the canonical qrIco() so the chip carries its emoji text node. Playful still
+   paints the monochrome mask over it exactly as before (font-size:0 + ::before); Classic now shows the
+   glyph, which is the whole point of the two icon languages. Reference/Learn entries bring their own
+   content emoji; Practice/Feature entries fall back to the shared ico→emoji pairing in app.js. */
 function _qlChipInner(entry) {
-  return '<span class="qr-ico" data-ico="' + _qlEsc(_qlIco(entry)) + '" aria-hidden="true"></span>' +
-    '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
+  var ico = _qlIco(entry);
+  var mark = (typeof qrIco === 'function')
+    ? qrIco(_qlEsc(ico), entry.emoji || '')
+    : '<span class="qr-ico" data-ico="' + _qlEsc(ico) + '" aria-hidden="true">' + _qlEsc(entry.emoji || '') + '</span>';
+  return mark + '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
 }
 
 function renderQuickStudyLinks() {
@@ -122,7 +132,7 @@ function openQuickLinksEditor() {
     var checked = selected.indexOf(entry.id) !== -1;
     return '<label class="qr-row qs-pick-row" data-qlid="' + _qlEsc(entry.id) + '" data-label="' + _qlEsc(entry.label().toLowerCase()) + '">' +
       '<span class="qs-pick-main">' + _qlChipInner(entry) +
-        (entry.locked() ? '<span class="qs-pick-lock qr-chip"><span class="qr-ico" data-ico="lock" aria-hidden="true"></span>' + _qlEsc(QRI18n.t('home.proBadge')) + '</span>' : '') +
+        (entry.locked() ? '<span class="qs-pick-lock qr-chip">' + ((typeof qrIco === 'function') ? qrIco('lock') : '') + _qlEsc(QRI18n.t('home.proBadge')) + '</span>' : '') +
       '</span>' +
       '<input type="checkbox" value="' + _qlEsc(entry.id) + '"' + (checked ? ' checked' : '') + ' />' +
     '</label>';

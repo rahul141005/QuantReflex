@@ -320,8 +320,23 @@ function formatCategoryName(key) {
    JS re-render. The old updateNavigationIcons() img-swap (and its 8.3MB appicons/tab PNGs-in-SVG)
    was replaced by this system. qrIco() is a plain string-builder for generated markup — it reads no
    theme, so it can never go stale. */
+/* ADR-131: the canonical ico → emoji pairing, lifted verbatim from the pairs index.html already ships
+   so generated chrome and static chrome speak the SAME Classic vocabulary. Before this, callers that
+   passed no emoji rendered the literal string "undefined" into the span — invisible only because
+   Playful sets font-size:0 on it, and about to become visible the moment Classic shows the text node. */
+var QR_ICO_EMOJI = {
+  'trash': '🗑️', 'alert': '⚠️', 'lock': '🔒', 'zap': '⚡', 'activity': '🧠', 'timer': '⏱',
+  'chart-bar': '📊', 'nodes': '🧩', 'target': '🎯', 'shuffle': '🎨', 'rotate': '🔄',
+  'file-text': '📝', 'layers': '📚', 'download': '📲', 'moon': '🌙', 'globe': '🌐',
+  'book-open': '📚', 'palette': '🎨', 'graduation': '🎓', 'gauge': '📈', 'skip': '⏭️',
+  'sliders': '🎚️', 'volume': '🔊', 'vibrate': '📳', 'pause-circle': '🐢', 'bell': '🔔',
+  'flag': '⚑', 'mail': '✉️', 'copy': '📋', 'book': '📖', 'info': '💡', 'user': '👤',
+  'log-out': '🚪', 'bot': '🤖', 'flame': '🔥', 'cog': '👨‍💻', 'home': '🏠', 'practice': '🎯',
+  'learn': '📖', 'stats': '📊', 'settings': '⚙️', 'swords': '⚔️', 'calendar': '📅'
+};
 function qrIco(name, emoji) {
-  return '<span class="qr-ico" data-ico="' + name + '" aria-hidden="true">' + emoji + '</span>';
+  var glyph = emoji || QR_ICO_EMOJI[name] || '';
+  return '<span class="qr-ico" data-ico="' + name + '" aria-hidden="true">' + glyph + '</span>';
 }
 
 function _handleTabPopAnimationEnd() {

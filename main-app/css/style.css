@@ -63,8 +63,12 @@
   --el-inset: inset 0 0 0 1px var(--qr-border);                          /* inset hairline */
   --el-key: 0 4px 16px rgba(0,0,0,.04), inset 0 1px 1px rgba(255,255,255,.4);      /* keypad key */
   --el-key-raised: 0 6px 20px rgba(0,0,0,.06), inset 0 1px 1px rgba(255,255,255,.6);
-  --qr-glow-accent: 0 4px 12px rgba(37,99,235,.25);                      /* accent CTA glow */
-  --qr-glow-accent-strong: 0 10px 26px rgba(37,99,235,.4);
+  /* ADR-131: these two used to hardcode rgba(37,99,235,…) — the CLASSIC accent — so the Playful theme
+     glowed classic-blue no matter what its palette said. They now read accent-veil tokens, which each
+     theme re-declares. A custom-property DEFINITION is not a `box-shadow:` declaration, so per-theme
+     glow costs ZERO shadow census (scripts/design-lint.check.js counts declarations only). */
+  --qr-glow-accent: 0 4px 12px var(--qr-veil-accent-25);                 /* accent CTA glow */
+  --qr-glow-accent-strong: 0 10px 26px var(--qr-veil-accent-40);
   --qr-glow-duel: 0 4px 14px rgba(217,119,6,.3);                         /* duel amber glow */
   --qr-ring-ok: 0 0 0 3px rgba(22,163,74,.12);                           /* success feedback ring */
   --qr-ring-danger: 0 0 0 3px rgba(220,38,38,.12);                       /* danger feedback ring */
@@ -77,9 +81,13 @@
   --qr-grad-bar-ok: linear-gradient(90deg, var(--qr-success), var(--qr-success-border));
   --qr-grad-bar-warn: linear-gradient(90deg, var(--qr-warn), #fbbf24);
   --qr-grad-bar-danger: linear-gradient(90deg, var(--qr-danger), var(--qr-danger-border));
-  --qr-grad-wash: linear-gradient(135deg, rgba(37,99,235,.12), rgba(37,99,235,.03));
+  /* ADR-131: the wash/glow stops were hardcoded classic-blue, so every theme washed and haloed in the
+     same hue. They now read accent-veil tokens. The gradient LITERAL is unchanged in count — the census
+     measures distinct gradient strings, and swapping a colour for a var() leaves exactly one — so the
+     10/10 gradient ceiling is untouched while both themes (and the hero) can re-tint by declaring vars. */
+  --qr-grad-wash: linear-gradient(135deg, var(--qr-wash-a), var(--qr-wash-b));
   --qr-grad-wash-duel: linear-gradient(135deg, rgba(217,119,6,.12), rgba(245,158,11,.05));
-  --qr-grad-glow: radial-gradient(circle, rgba(37,99,235,.12), transparent 62%);
+  --qr-grad-glow: radial-gradient(circle, var(--qr-glow-stop), transparent 62%);
   --qr-grad-skel: linear-gradient(90deg, var(--qr-skel-veil) 25%, var(--qr-skel-mid) 37%, var(--qr-skel-veil) 63%);
   --qr-skel-mid: rgba(15,23,42,.11);
   --qr-dur-pulse: 1.2s;                    /* ambient pulse loops (skeletons) */
@@ -92,7 +100,13 @@
   --qr-veil-ink-3: rgba(15,23,42,.03); --qr-veil-ink-5: rgba(15,23,42,.05);
   --qr-veil-ink-6: rgba(15,23,42,.06); --qr-veil-ink-8: rgba(15,23,42,.08);
   --qr-veil-ink-10: rgba(15,23,42,.1); --qr-veil-ink-14: rgba(15,23,42,.14);
+  /* ADR-131 — the accent-veil ladder. THIS is the theme's atmosphere dial: every wash, halo and glow in
+     the app resolves through it, so re-declaring these five values under a theme re-tints the whole
+     ambience without touching a single gradient or shadow literal. Classic = its slate-blue #2563eb. */
   --qr-veil-accent-8: rgba(37,99,235,.08); --qr-veil-accent-12: rgba(37,99,235,.12);
+  --qr-veil-accent-25: rgba(37,99,235,.25); --qr-veil-accent-40: rgba(37,99,235,.4);
+  --qr-wash-a: rgba(37,99,235,.12); --qr-wash-b: rgba(37,99,235,.03);   /* app-wide wash stops */
+  --qr-glow-stop: rgba(37,99,235,.12);                                   /* radial halo stop */
   --qr-skel-veil: rgba(15,23,42,.05);      /* skeleton row veil */
   --glass-nav: blur(12px); --glass-scrim: blur(4px);
   --z-nav: 100; --z-sticky: 200; --z-drawer: 800; --z-sheet: 900; --z-dialog: 1000; --z-toast: 1100; --z-critical: 1200;
@@ -144,10 +158,40 @@ html.theme-playful {
   --qr-text: #2a2521; --qr-text-dim: #6a6055; --qr-text-mut: #6f6455;
   --qr-surface: #faf9f7; --qr-surface-solid: #faf9f7; --qr-surface-2: #f0eee9; --qr-surface-3: #e8e6e1;
   --qr-border: #e8e6e1; --qr-border-strong: #d9d5cc;
-  --qr-success: #16a34a; --qr-success-fg: #146a31; --qr-success-bg: rgba(22,163,74,.12); --qr-success-border: #22c55e;
-  --qr-danger: #dc2626; --qr-danger-fg: #991b1b; --qr-danger-bg: rgba(220,38,38,.10); --qr-danger-border: #ef4444;
+  /* ADR-131: --qr-success{,-bg,-border} and --qr-danger{,-fg,-bg,-border} were re-declared here with
+     values byte-identical to :root — 7 of Playful's 28 "overrides" changed nothing. Only the two that
+     genuinely differ from Classic are kept. */
+  --qr-success-fg: #146a31;
+  --qr-danger-fg: #991b1b;
   --qr-warn: #9a4708; --qr-info: #6d28d9; --qr-info-fg: #6d28d9;
   --qr-focus-ring: 0 0 0 3px rgba(42,99,198,.35);
+
+  /* ── ADR-131: Playful's ATMOSPHERE ──────────────────────────────────────────────────────────────
+     Before this, Playful re-declared 28 tokens out of 205 — and 7 of those set values identical to
+     Classic. It inherited the entire depth layer, so both themes shipped byte-identical shadows and a
+     classic-blue glow: a different palette on the same object. Depth, not hue, is what the eye reads as
+     "a different app", so Playful now owns its own.
+
+     Classic is crisp and cool: tight slate shadows, an electric blue halo, 24px cards.
+     Playful is warm paper: softer and further-thrown shadows in the same warm brown its
+     --qr-shadow-playful token already implied, a teal-leaning halo drawn from its own --qr-grad-b,
+     and a rounder silhouette.
+
+     All of it is FREE under design-lint: custom-property definitions are not `box-shadow:` /
+     `border-radius:` declarations, and the gradients only change which var() they read. */
+  --el-1: 0 8px 26px rgba(120,100,70,.10), 0 1px 3px rgba(120,100,70,.05);
+  --el-2: 0 16px 36px rgba(120,100,70,.13), 0 3px 8px rgba(120,100,70,.06);
+  --el-3: 0 28px 56px rgba(120,100,70,.18), 0 8px 20px rgba(120,100,70,.09);
+  --el-nav: 0 -2px 16px rgba(120,100,70,.09);
+  --el-key: 0 4px 16px rgba(120,100,70,.06), inset 0 1px 1px rgba(255,255,255,.7);
+  --el-key-raised: 0 8px 24px rgba(120,100,70,.09), inset 0 1px 1px rgba(255,255,255,.85);
+  /* teal-leaning ambience (its own --qr-grad-b), so washes/halos/glows stop reading classic-blue */
+  --qr-veil-accent-8: rgba(45,212,191,.10); --qr-veil-accent-12: rgba(45,212,191,.15);
+  --qr-veil-accent-25: rgba(45,212,191,.28); --qr-veil-accent-40: rgba(45,212,191,.42);
+  --qr-wash-a: rgba(45,212,191,.14); --qr-wash-b: rgba(79,143,247,.05);
+  --qr-glow-stop: rgba(45,212,191,.16);
+  /* rounder silhouette — the token is read through border-radius: var(), so this costs no census */
+  --qr-card-radius: 1.75rem; --qr-card-radius-sm: 1.5rem; --qr-btn-radius: 1.375rem;
 }
 html.theme-playful.dark-mode {
   --qr-bg: #0d1117;
@@ -6763,14 +6807,57 @@ html.dark-mode .login-field-validation.success {
   inset: 0;
   z-index: 0;
 }
+/* ADR-131 — the hero is a BESPOKE surface again.
+   FW-W7c (05d9642, "gradients 64→10") swapped this layer's own 3-stop OPAQUE ramp
+   `linear-gradient(145deg, #eff6ff 0%, #dbeafe 60%, #bfdbfe 100%)` for the generic app-wide
+   `--qr-grad-wash`, which is a 12%→3% ALPHA wash. Over a white page that renders as almost-white-blue:
+   the hero stopped being the centrepiece and became a faint tint. Dark mode fared worse — it lost its
+   navy ramp `#0f172a → #1e3a8a → #172554` entirely and the override below was left setting the exact
+   same value as the light rule, a no-op duplicate.
+   The richness is restored through the hero's own wash STOPS rather than a new gradient literal, so the
+   10/10 gradient ceiling is untouched. Each theme/appearance declares its own ramp; the shared
+   --qr-grad-wash keeps serving its other consumers unchanged. */
 .home-hero-bg-layer1 {
   position: absolute;
   inset: 0;
   background: var(--qr-grad-wash);
 }
-html.dark-mode .home-hero-bg-layer1 {
-  background: var(--qr-grad-wash);
+.home-hero {
+  /* The two gradients are RE-DECLARED here, not just their stops. A custom property's `var()`s are
+     substituted on the element that DECLARES it, and the resolved string is what inherits — so the
+     `:root` copies of these already baked in `:root`'s stops before ever reaching the hero. Overriding
+     `--qr-wash-a` on a descendant cannot reach back into them. Declaring the gradients on `.home-hero`
+     moves substitution to the element where the hero's own stops live. The literals are byte-identical
+     to the `:root` ones, and design-lint counts DISTINCT gradient strings, so the ceiling is untouched. */
+  --qr-grad-wash: linear-gradient(135deg, var(--qr-wash-a), var(--qr-wash-b));
+  --qr-grad-glow: radial-gradient(circle, var(--qr-glow-stop), transparent 62%);
+  --qr-wash-a: #dbeafe;
+  --qr-wash-b: #bfdbfe;
+  --qr-glow-stop: rgba(59,130,246,.20);   /* the halo was 0.2 before the burn-down flattened it to .12 */
 }
+html.dark-mode .home-hero {
+  --qr-wash-a: #1e3a8a;
+  --qr-wash-b: #172554;
+  --qr-glow-stop: rgba(96,165,250,.15);
+}
+html.theme-playful .home-hero {
+  --qr-wash-a: #d9f5f0;                    /* Playful's own hero: warm paper washed with its teal */
+  --qr-wash-b: #bfe9e2;
+  --qr-glow-stop: rgba(45,212,191,.22);
+}
+html.theme-playful.dark-mode .home-hero {
+  --qr-wash-a: #0f3b3a;
+  --qr-wash-b: #0b2b33;
+  --qr-glow-stop: rgba(45,212,191,.18);
+}
+/* Restoring the ramp to OPAQUE changes the backdrop the greeting sits on, so its contrast has to be
+   re-tuned for the new surface — the same reasoning that set the global --qr-text-dim values (see the
+   token block). Measured against each ramp's worst stop: classic light slate-500 on #bfdbfe = 3.35 and
+   classic dark slate-400 on #1e3a8a = 4.04, both under AA, so classic gets one step more contrast
+   (5.33 and 6.98). Playful already clears AA on its own dims (4.67 / 4.92) and is deliberately left
+   alone so it keeps its warm caption. Scoped to the hero only — the global token is untouched. */
+html:not(.theme-playful) .home-hero { --qr-text-dim: #475569; }
+html:not(.theme-playful).dark-mode .home-hero { --qr-text-dim: #cbd5e1; }
 .home-hero-bg-layer2 {
   position: absolute;
   top: -60px;
@@ -6783,7 +6870,8 @@ html.dark-mode .home-hero-bg-layer1 {
   mix-blend-mode: multiply;
 }
 html.dark-mode .home-hero-bg-layer2 {
-  background: var(--qr-grad-glow);
+  /* ADR-131: the colour now comes from the hero's own --qr-glow-stop (declared per theme/appearance
+     above); only the BLEND differs by appearance — multiply darkens on paper, screen lifts on navy. */
   mix-blend-mode: screen;
 }
 @keyframes slowSpin {
@@ -6831,7 +6919,10 @@ html.dark-mode .home-hero-bg-layer2 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-html.dark-mode .home-hero-greeting { color: #94a3b8; }
+/* ADR-131: the hardcoded dark override that used to live here restated the dark theme's own
+   --qr-text-dim, so it was a no-op outside the hero — but inside the hero it beat the scoped
+   override above on specificity. Dropping it lets the single `color: var(--qr-text-dim)` declaration
+   resolve per theme/appearance, and removes a raw colour. */
 
 .home-hero-title {
   font-size: var(--fs-h1);
@@ -9373,13 +9464,18 @@ html.dark-mode .category-tier-label { color: #94a3b8; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0 !important;
-  line-height: 0 !important;
   width: var(--qr-ico-size, 1.2rem);
   height: var(--qr-ico-size, 1.2rem);
   vertical-align: -0.22em;
   color: var(--qr-accent);
   --ico: var(--qri-dot);
+}
+/* ADR-131: collapsing the emoji text node is PLAYFUL's behaviour, not a universal one — it moved off
+   the base rule so Classic can show the glyph without an !important fight. (An `!important` value also
+   fails design-lint's pure-var() test, so keeping it off the Classic rule protects the font-size ceiling.) */
+html.theme-playful .qr-ico {
+  font-size: 0 !important;
+  line-height: 0 !important;
 }
 .qr-ico::before {
   content: '';
@@ -9390,6 +9486,34 @@ html.dark-mode .category-tier-label { color: #94a3b8; }
   -webkit-mask: var(--ico) center / contain no-repeat;
   mask: var(--ico) center / contain no-repeat;
 }
+
+/* ── ADR-131 — the two themes own two different ICON LANGUAGES ───────────────────────────────────
+   P1-final Wave B (b93b0cf) converted chrome emoji to masked SVG for BOTH themes, which is what made
+   Classic and Playful read as the same product. It did, however, keep every emoji in the DOM as the
+   element's text (all 78 .qr-ico spans in index.html still carry theirs), and hides it with
+   `font-size: 0` + the ::before mask above. So Classic's personality is restored purely in CSS.
+
+   Classic  = the original emoji set: warm, playful, instantly recognisable.
+   Playful  = the generated monochrome icon system: minimal and modern.
+   Neither theme mixes the two. Content emoji (Learn topic icons, Quick-Ref cards, report reasons) are
+   authored per-item DATA, not chrome, and stay emoji in both themes — the one documented exception,
+   because converting them would mean rewriting translated strings and inventing ~100 new glyphs. */
+html:not(.theme-playful) .qr-ico {
+  /* pure var() reference on purpose: both `var(--x, fallback)` and a trailing `!important` fail
+     design-lint's pure-var() test and would spend a slot off the 12-value font-size ceiling.
+     --qr-ico-em carries the fallback, and no !important is needed now that the masking rule above is
+     scoped to Playful — this selector is already more specific than `.qr-ico`. */
+  --qr-ico-em: var(--qr-ico-size, 1.2rem);
+  font-size: var(--qr-ico-em);
+  line-height: 1;
+  width: auto;
+  height: auto;
+  color: inherit;
+  /* emoji sit optically high in their em box; -0.22em was tuned for a masked SVG square, not a glyph.
+     Alignment is re-measured per surface by the ADR-131 harness — this is the shared starting point. */
+  vertical-align: -0.14em;
+}
+html:not(.theme-playful) .qr-ico::before { content: none; }
 
 /* Context sizing & tinting (playful only) */
 .bottom-nav .nav-icon .qr-ico { --qr-ico-size: 1.4rem; }
