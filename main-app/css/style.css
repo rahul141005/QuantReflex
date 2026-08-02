@@ -1855,23 +1855,35 @@ html.dark-mode .toast {
    96px for text needing 147px, and 6 of 17 labels ellipsised. Solving the width budget shows the
    problem reaches every viewport below 371px, so 360px devices were affected too.
 
-   The row is rebalanced fluidly rather than by breakpoint, and the label/control stay on one line at
-   every width. The control keeps ONE width per viewport across all rows, so the column still aligns. */
-.settings-row { gap: clamp(.5rem, 2vw, 1rem); }
+   ADR-136 — the ADR-135 repair was fluid (`clamp(7.5rem, 34vw, 8.5rem)`), which fixed truncation but
+   bought it with inconsistency: the same control measured 120px on a 320px phone and 136px on a 390px
+   one, with the arrow at a different inset on each. The control is now FIXED, so every dropdown is
+   pixel-identical on every device.
+
+   That is safe only because ADR-135's real fix was the label rule below — labels wrap instead of
+   ellipsising, so the control no longer has to give width back. Worst case, 320px:
+   320 − 40 (.container) − 19.2 (.settings-section-card, whose 3vw padding is KEPT and is load-bearing
+   here) − 16 (gap) − 136 (select) = 108.8px of label column against a 96px longest single word
+   ("Appearance"). Nothing breaks mid-word and nothing clips. */
 .settings-row .theme-select {
-  flex: 0 0 clamp(7.5rem, 34vw, 8.5rem);
-  min-width: 0;                       /* the clamp above is the width; min-width must not fight it */
+  /* `width` as well as the flex basis: the base rule is `width: auto; min-width: 8.5rem`, so without
+     it a select is as wide as its own longest option and "Playful Professional" would outgrow "Easy".
+     Pinning both is what makes all six identical to EACH OTHER, not just across devices. */
+  flex: 0 0 8.5rem;
+  width: 8.5rem;
+  min-width: 0;
+  /* The arrow gutter and inset are fixed for the same reason — a chevron sitting 8px from the edge on
+     one phone and 13.6px on another is the same control drawn two ways. These restate the base
+     `.theme-select` values deliberately, so the fixed contract reads in one place instead of depending
+     on the absence of a fluid rule. */
+  padding-right: 2.25rem;
+  background-position: right .85rem center;
 }
 /* The label WRAPS rather than ellipsising. It sat in the `.cat-name / .mode-card h3` nowrap+ellipsis
    group, which is right for a single-line card title and wrong here: a Settings label names the control
-   beside it and must always be readable in full. Wrapping also frees width for the control, so the
-   dropdown stays comfortable instead of being squeezed to fit the label on one line. */
+   beside it and must always be readable in full. Wrapping is also what makes the fixed control width
+   above safe: the label gives, so the dropdown never has to. */
 .settings-label h3 { white-space: normal; overflow-wrap: break-word; }
-/* the arrow gutter shrinks with the control so the option text keeps its room */
-.settings-row .theme-select {
-  padding-right: clamp(1.5rem, 6vw, 2.25rem);
-  background-position: right clamp(.5rem, 2.5vw, .85rem) center;
-}
 
 /* ---- Input ---- */
 .qr-input, .modal-input, .goal-input, .duel-join-input {
@@ -1909,17 +1921,79 @@ html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { backg
 .notification-card.is-unread { background: var(--qr-surface-2); border-color: var(--qr-danger); }
 
 /* ============================================================================
-   Quick Study v2 (FW-W4) — shortcut chips on Home + the categorized picker
-   sheet. Built ENTIRELY on the primitives above (.qr-card/.qr-chip/.qr-sheet/
-   .qr-row/.qr-input/.qr-btn); only Quick-Study-specific arrangement lives here.
+   Quick Study v2 (FW-W4) — the Home shortcut tray + the categorized picker
+   sheet. Built ENTIRELY on existing components (.mode-card + the Practice tray
+   on Home; .qr-sheet/.qr-row/.qr-input/.qr-btn in the picker); only
+   Quick-Study-specific arrangement lives here.
    ========================================================================== */
-.quick-study-card { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.qs-chip { border: 1px solid var(--qr-border); background: var(--qr-surface-solid); color: var(--qr-text); }
-.qs-chip:active { background: var(--qr-surface-2); }
-.qs-chip .qr-ico { --qr-ico-size: 1rem; color: var(--qr-accent); }
-.qs-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
+/* ---- Home tray (ADR-136) — Practice's smaller sibling ----------------------------------------
+   Quick Study used to be a wrapping row of `.qs-chip` pills inside one `.qr-card`: a tag cloud that
+   read as metadata rather than as a set of destinations, and that pushed Home arbitrarily long as
+   shortcuts were added. It is now the Practice pattern at a smaller scale — the same grouping tray
+   (`.practice-container`) around the same cards (`.mode-card`) at the same rhythm
+   (`.practice-mode-group`'s 16px column).
 
-/* Picker sheet */
+   The cards genuinely ARE `.mode-card`s, so every theme rule, the `:active` press scale and the global
+   ripple come along automatically and can never drift apart from Practice. Only the arrangement lives
+   here: a single line of leading icon, title, trailing chevron. */
+.qs-tray {
+  display: flex;
+  flex-direction: column;
+  /* the .practice-container surface, verbatim */
+  background: var(--qr-panel);
+  border-radius: var(--qr-card-radius);
+  padding: 1rem .75rem;
+  /* Cap at four cards. The px value is measured and set by home-view.js — at 1–4 cards it equals the
+     content height exactly (tight wrap, no dead space, no scrollbar); at 5+ it freezes at the fourth.
+     `max-height: none` here is the pre-measurement state, never a rendered one. */
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  /* required: the tray is nested inside the scrolling Home view and must not chain its overscroll */
+  overscroll-behavior-y: contain;
+}
+.qs-tray::-webkit-scrollbar { display: none; }
+/* Armed one frame after the first paint, so the tray does not animate open on load — only later
+   add/remove of shortcuts animates. */
+.qs-tray.is-ready { transition: max-height var(--qr-dur-slow) var(--qr-ease-out); }
+/* `flex: 0 0 auto` is defensive: as the tray's only flex item the group must overflow the capped
+   height, never shrink to fit it. (`.mode-card` carries the same guard inside Practice.) */
+.qs-group { display: flex; flex-direction: column; gap: var(--sp-4); flex: 0 0 auto; }
+.qs-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  /* Height is set by the RADIUS, not by the text. `--qr-card-radius` is 24px in Classic and 28px in
+     Playful; once the radius approaches half the height the corners meet and the card reads as a
+     pill — the exact shape this redesign replaces. Measured at the first pass: 60px gave 24/60 = 0.40
+     in Classic and 28/60 = 0.47 in Playful, and the Playful screenshot was unmistakably a pill. 68px
+     brings the ratios to 0.35 / 0.41 against Practice's own 24/87 = 0.28, and the card reads as a
+     card in all four themes. Horizontal padding matches Practice's 1.25rem exactly. */
+  min-height: 68px;
+  padding: .75rem 1.25rem;
+  margin-bottom: 0;
+  font: inherit;
+  text-align: left;
+}
+.qs-card .qr-ico { --qr-ico-size: 1.15rem; flex: 0 0 auto; color: var(--qr-accent); }
+.qs-card-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  color: var(--qr-text);
+  overflow-wrap: break-word;
+}
+.qs-card .settings-chevron { font-size: var(--fs-h2); }
+.qs-card:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
+
+/* Picker sheet — .qs-chip-label is the picker row's title (see `.qs-pick-main .qs-chip-label`), which
+   is why it outlived the Home chips it was named for. */
+.qs-chip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 12rem; }
 .qs-picker-overlay { z-index: var(--z-sheet); animation: modalOverlayFadeIn var(--qr-dur) var(--qr-ease); }
 .qs-picker-overlay.closing { animation: modalOverlayFadeOut var(--qr-dur) var(--qr-ease) forwards; }
 .qs-picker-overlay.closing .qs-picker { opacity: 0; transform: translateY(12px); transition: opacity var(--qr-dur) var(--qr-ease), transform var(--qr-dur) var(--qr-ease); }
@@ -7279,6 +7353,18 @@ html.dark-mode .home-section-title { color: #94a3b8; }
   transition: opacity var(--qr-dur-fast);
 }
 .home-section-edit:hover { opacity: 1; }
+/* ADR-136: the glyph moved into a .qr-ico so Playful paints a line pencil instead of leaving a lone
+   colour emoji in a screen of SVG. Sized through the contract, never through width/height.
+
+   The layout gate flagged the swap shrinking the button's visible box 27→26px. The first repair —
+   forcing a 44px flex box — was wrong and was reverted: the gate measures the VISIBLE box, but this
+   control's touch target is already a real 44×44 via the invisible `::after` added in ADR-133, so the
+   44px box bought nothing and cost 17px of Home height, pushing the whole Quick Study section down on
+   a screen the brief asks to keep compact. The icon simply keeps the system's default 1.2rem, which
+   restores the original 27px box exactly. Don't inflate layout to satisfy a proxy metric. */
+.home-section-edit { transition: opacity var(--qr-dur-fast), transform var(--qr-dur-fast) var(--qr-ease-out); }
+.home-section-edit .qr-ico { color: var(--qr-text-dim); }
+.home-section-edit:active { transform: scale(var(--qr-press-sm)); }
 
 /* ---- Bento Grid ---- */
 .home-bento-grid {
@@ -9658,6 +9744,11 @@ html.theme-playful .bottom-nav a.active .nav-icon .qr-ico { color: var(--qr-grad
 .qr-ico[data-ico='gauge'] { --ico: var(--qri-gauge); }
 .qr-ico[data-ico='skip'] { --ico: var(--qri-skip); }
 .qr-ico[data-ico='sliders'] { --ico: var(--qri-sliders); }
+/* ADR-136: the Quick Study "customize" button shipped a bare ✏️ in its text node. It carried
+   `data-i18n-attr`, which translates only title/aria-label — but the icon-identity guard's
+   translated-string exemption matched the attribute and waved the glyph through, so the single
+   colour emoji sat in a screen of line icons in Playful. The guard is tightened alongside this. */
+.qr-ico[data-ico='edit'] { --ico: var(--qri-edit); }
 .qr-ico[data-ico='volume'] { --ico: var(--qri-volume); }
 .qr-ico[data-ico='vibrate'] { --ico: var(--qri-vibrate); }
 .qr-ico[data-ico='pause-circle'] { --ico: var(--qri-pause-circle); }
@@ -9726,6 +9817,7 @@ html.theme-playful .bottom-nav a.active .nav-icon .qr-ico { color: var(--qr-grad
   --qri-rotate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='23 4 23 10 17 10'/%3E%3Cpath d='M20.49 15a9 9 0 1 1-2.12-9.36L23 10'/%3E%3C/svg%3E");
   --qri-shuffle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='16 3 21 3 21 8'/%3E%3Cline x1='4' y1='20' x2='21' y2='3'/%3E%3Cpolyline points='21 16 21 21 16 21'/%3E%3Cline x1='15' y1='15' x2='21' y2='21'/%3E%3Cline x1='4' y1='4' x2='9' y2='9'/%3E%3C/svg%3E");
   --qri-skip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolygon points='5 4 15 12 5 20 5 4' fill='%23000' stroke='none'/%3E%3Cline x1='19' y1='5' x2='19' y2='19'/%3E%3C/svg%3E");
+  --qri-edit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E");
   --qri-sliders: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cline x1='21' y1='6' x2='14' y2='6'/%3E%3Cline x1='10' y1='6' x2='3' y2='6'/%3E%3Cline x1='21' y1='12' x2='12' y2='12'/%3E%3Cline x1='8' y1='12' x2='3' y2='12'/%3E%3Cline x1='21' y1='18' x2='16' y2='18'/%3E%3Cline x1='12' y1='18' x2='3' y2='18'/%3E%3Cline x1='14' y1='4' x2='14' y2='8'/%3E%3Cline x1='8' y1='10' x2='8' y2='14'/%3E%3Cline x1='16' y1='16' x2='16' y2='20'/%3E%3C/svg%3E");
   --qri-swords: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpolyline points='3 3 6 3 17 14 14 17 3 6 3 3'/%3E%3Cline x1='13' y1='19' x2='19' y2='13'/%3E%3Cline x1='16' y1='16' x2='20' y2='20'/%3E%3Cpolyline points='21 3 18 3 7 14 10 17 21 6 21 3'/%3E%3Cline x1='5' y1='13' x2='8' y2='16'/%3E%3Cline x1='4' y1='20' x2='8' y2='16'/%3E%3C/svg%3E");
   --qri-target: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Ccircle cx='12' cy='12' r='4.5'/%3E%3Ccircle cx='12' cy='12' r='1' fill='%23000'/%3E%3C/svg%3E");

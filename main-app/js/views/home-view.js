@@ -91,29 +91,115 @@ function _qlChipInner(entry) {
   return mark + '<span class="qs-chip-label">' + _qlEsc(entry.label()) + '</span>';
 }
 
+/* ADR-136 — the Home card body. Deliberately icon + title + chevron and NOTHING else: a registry entry
+   exposes label()/ico/emoji/locked()/go() and no description, so there is no subtitle to render and
+   none is invented. The chevron is the app's existing `.settings-chevron` affordance (a themed `›`
+   glyph), not a new .qr-ico: no `chevron-right` exists in the mask set, and minting one would force a
+   chevron EMOJI into Classic — the mixed-surface problem ADR-131 removed. */
+function _qlCardInner(entry) {
+  var ico = _qlIco(entry);
+  var mark = (typeof qrIco === 'function')
+    ? qrIco(_qlEsc(ico), entry.emoji || '')
+    : '<span class="qr-ico" data-ico="' + _qlEsc(ico) + '" aria-hidden="true">' + _qlEsc(entry.emoji || '') + '</span>';
+  return mark +
+    '<span class="qs-card-label">' + _qlEsc(entry.label()) + '</span>' +
+    '<span class="settings-chevron" aria-hidden="true">›</span>';
+}
+
+/* The tray shows at most four cards, then scrolls internally (ADR-136). */
+var QS_VISIBLE_MAX = 4;
+var _qsTrayRO = null;
+
+/* Measure rather than hardcode. A CSS `max-height: calc(4 * 60px + ...)` would be wrong the moment a
+   card wraps to two lines (hi/mr, 125% font scaling) and would leave dead space below 1–3 cards. The
+   measured sum is exact in every state: at n<=4 it EQUALS the content height, so the container wraps
+   tightly and `overflow-y: auto` produces no scrollbar; at n>=5 it freezes at the fourth card. It is
+   also the only form that animates — `max-height: auto` does not transition. Gap and padding are read
+   back from computed style so the stylesheet stays the single source of truth for spacing. */
+function _qsSyncTrayHeight(tray) {
+  if (!tray || !tray.isConnected) return;
+  var group = tray.firstElementChild;
+  if (!group) return;
+  var cards = group.children;
+  var n = Math.min(cards.length, QS_VISIBLE_MAX);
+  if (!n) return;
+  var gcs = window.getComputedStyle(group);
+  var gap = parseFloat(gcs.rowGap) || parseFloat(gcs.gap) || 0;
+  var tcs = window.getComputedStyle(tray);
+  /* box-sizing is border-box app-wide, so max-height must include the tray's own padding + border */
+  var chrome = (parseFloat(tcs.paddingTop) || 0) + (parseFloat(tcs.paddingBottom) || 0) +
+               (parseFloat(tcs.borderTopWidth) || 0) + (parseFloat(tcs.borderBottomWidth) || 0);
+  var h = 0;
+  for (var i = 0; i < n; i++) h += cards[i].getBoundingClientRect().height;
+  tray.style.maxHeight = Math.ceil(h + (n - 1) * gap + chrome) + 'px';
+}
+
+/* ADR-136 — Quick Study is Practice's smaller sibling, not a tag cloud.
+   Each shortcut is a real `.mode-card`, reusing the class rather than copying its look: every theme's
+   card rule, the :active press scale and the global ripple selector then apply to it automatically and
+   stay in step forever. Nothing binds `.mode-card` globally — practice-modes.js and the registry both
+   scope their queries to #modeSelect — so borrowing it is inert.
+   Tapping a locked entry still runs go(); the destination's own premium gate shows the right paywall. */
 function renderQuickStudyLinks() {
   var container = document.getElementById('quickStudyContainer');
   if (!container) return;
-  container.innerHTML = '';
-  if (typeof QuickLinksRegistry === 'undefined') return;
+  if (typeof QuickLinksRegistry === 'undefined') { container.innerHTML = ''; return; }
 
-  /* Chips wrap naturally, so any number of shortcuts stays tidy on phones and tablets. Tapping a
-     locked entry still runs go() — the destination's own premium gate shows the right paywall. */
   var entries = QuickLinksRegistry.resolve(loadQuickLinks());
-  var wrap = document.createElement('div');
-  wrap.className = 'qr-card quick-study-card';
+  if (!entries.length) {
+    /* nothing selected — render nothing, rather than an empty box holding the Home layout open */
+    if (_qsTrayRO) { try { _qsTrayRO.disconnect(); } catch (_) {} _qsTrayRO = null; }
+    container.innerHTML = '';
+    return;
+  }
+
+  /* The tray element SURVIVES re-renders. Rebuilding it would restart from `max-height: none` and the
+     add/remove height change would snap instead of animating; keeping it means only the cards swap. */
+  var tray = container.querySelector('.qs-tray');
+  var group;
+  var isNew = !tray;
+  if (isNew) {
+    tray = document.createElement('div');
+    tray.className = 'qs-tray';
+    group = document.createElement('div');
+    group.className = 'qs-group';
+    tray.appendChild(group);
+    container.innerHTML = '';
+    container.appendChild(tray);
+  } else {
+    group = tray.firstElementChild;
+    group.innerHTML = '';
+  }
+
   entries.forEach(function (entry) {
-    var chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'qr-chip qs-chip';
-    chip.innerHTML = _qlChipInner(entry);
-    chip.addEventListener('click', function () {
+    var card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'mode-card qs-card';
+    card.innerHTML = _qlCardInner(entry);
+    card.addEventListener('click', function () {
       try { if (typeof SoundEngine !== 'undefined') SoundEngine.play('settingsToggle'); } catch (_) {}
       try { entry.go(); } catch (_) {}
     });
-    wrap.appendChild(chip);
+    group.appendChild(card);
   });
-  container.appendChild(wrap);
+
+  _qsSyncTrayHeight(tray);
+
+  if (isNew) {
+    /* Arm the transition only after the first paint, so the tray does not animate open on page load. */
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { tray.classList.add('is-ready'); });
+    });
+    /* Re-measure whenever the content box changes: locale swap, font scaling, rotation, a card wrapping
+       to two lines. Observing the GROUP (content-sized) cannot feed back from setting the tray's
+       max-height, so there is no resize loop. */
+    if (typeof ResizeObserver !== 'undefined') {
+      _qsTrayRO = new ResizeObserver(function () { _qsSyncTrayHeight(tray); });
+      _qsTrayRO.observe(group);
+    } else {
+      window.addEventListener('resize', function () { _qsSyncTrayHeight(tray); });
+    }
+  }
 }
 
 /* Quick Study picker v2 (FW-W4) — a categorized, searchable .qr-sheet over the full registry.

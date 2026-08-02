@@ -6,6 +6,55 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Quick Study rebuilt on Practice; dropdowns stop resizing per phone (ADR-136, SW v267→v268)
+
+Part 2 of the production certification — layout quality, usability and interaction rather than visual
+identity.
+
+- **Quick Study is Practice's smaller sibling.** The wrapping row of `.qs-chip` pills inside one
+  `.qr-card` — a tag cloud that read as metadata and stretched Home without bound — is now the
+  Practice pattern at a smaller scale. The cards genuinely **are** `.mode-card`s, so all four themes'
+  rules, the `:active` press and the global ripple apply automatically and can never drift from
+  Practice. Verified inert first: nothing binds `.mode-card` globally. Layout is leading icon, title,
+  trailing chevron — and nothing else, because the registry has no description and none was invented.
+  The chevron reuses `.settings-chevron` rather than minting a chevron *emoji* for Classic.
+- **Shrink to fit, cap at four.** `max-height` is measured in JS from the first four cards (gap and
+  padding read back from computed style). At 390px: 1→100px, 2→184, 3→268, 4→352, all with
+  `clientHeight === scrollHeight` — tight wrap, no dead space, no premature scrollbar; 5→352/436 and
+  12→352/1024 scroll internally. Add/remove animates because the tray node survives re-renders; a
+  `ResizeObserver` re-measures on locale swap, rotation and font scaling, and self-heals a tray first
+  measured while Home was hidden (80px → 320px).
+- **Card height is set by the radius.** 60px gave 24/60 = 0.40 in Classic and 28/60 = 0.47 in Playful —
+  a pill, the exact shape the redesign existed to remove. 68px gives 0.35 / 0.41 against Practice's
+  own 0.28. Caught by looking; every metric passed at 60px too.
+- **The six dropdowns are now pixel-identical.** ADR-135's fluid `clamp()` measured 120px at 320 and
+  136px at 390 with the arrow at a different inset on each. Width, gutter and arrow inset are fixed,
+  with an explicit `width` beside the flex basis so "Playful Professional" can't outgrow "Easy".
+  Across 42 configurations: one width (136px), one height (44px), one gutter, one arrow position, one
+  font-size, one radius; 0 of 17 labels truncated.
+- **A bare ✏️ had been hiding from the guard built to catch it.** The customize button's
+  `data-i18n-attr` translates attributes only, but `icon-identity`'s exemption matched it anywhere on
+  the line — so the one colour emoji among Playful's line icons survived four ADRs, directly above the
+  section being redesigned. Glyph moved into a `.qr-ico` with a new `edit` mask; the guard now exempts
+  only the hooks that own an element's text, strips attributes before testing, and counts only true
+  emoji-presentation codepoints. Reverting the markup fails it.
+- **The layout gate caught a regression in that repair, then caught the over-correction.** The icon
+  swap shrank the button 27→26px; forcing a real 44px box fixed the metric but grew the Home header
+  17px and pushed Quick Study down at every width — and bought nothing, because ADR-133's invisible
+  `::after` already made the target 44×44. The icon now takes the system default 1.2rem: 27.8px box,
+  44×44 target, header height unchanged.
+- **Stated, not papered over:** the native `<select>` popup is OS-drawn and unstyleable; and at 320px
+  only, "🌙 Appearance" puts its icon on its own line — the label column is 106.8px and the icon plus
+  the unbreakable 95.6px word need 120.6px, so with identical dropdowns and no truncation a two-line
+  label is forced.
+- Gate over 432 contexts / 88,992 elements: **0 new overflow, 0 new clipping**; all 624 disappearances
+  are the replaced Quick Study subtree, **0 elsewhere**; all wraps (100, all at 320px) and moves
+  confined to `settings` + `about`, every other screen zero.
+- `npm test` 0 failed; design-lint 21/21, every ceiling unchanged; icon-identity 13/13.
+- Docs: ADR-136, VERSIONS 2.167→2.168, lockstep v267→v268.
+
+---
+
 ## 2026-08-02 — Adversarial certification: honest census + Settings truncation (ADR-135, SW v266→v267)
 
 A release-blocking attempt to disprove the ADR-133/134 certification. It survives on quality, but its

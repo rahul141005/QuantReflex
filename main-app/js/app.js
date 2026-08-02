@@ -332,7 +332,7 @@ var QR_ICO_EMOJI = {
   'sliders': '🎚️', 'volume': '🔊', 'vibrate': '📳', 'pause-circle': '🐢', 'bell': '🔔',
   'flag': '⚑', 'mail': '✉️', 'copy': '📋', 'book': '📖', 'info': '💡', 'user': '👤',
   'log-out': '🚪', 'bot': '🤖', 'flame': '🔥', 'cog': '👨‍💻', 'home': '🏠', 'practice': '🎯',
-  'learn': '📖', 'stats': '📊', 'settings': '⚙️', 'swords': '⚔️', 'calendar': '📅'
+  'learn': '📖', 'stats': '📊', 'settings': '⚙️', 'swords': '⚔️', 'calendar': '📅', 'edit': '✏️'
 };
 function qrIco(name, emoji) {
   var glyph = emoji || QR_ICO_EMOJI[name] || '';

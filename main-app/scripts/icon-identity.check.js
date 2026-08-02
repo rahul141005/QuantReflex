@@ -96,14 +96,29 @@ ok('Playful paints the SVG mask', /\.qr-ico::before\s*\{[^}]*mask:\s*var\(--ico\
 
 /* ── 5. no bare chrome emoji left in static markup ─────────────────────────────────────────────── */
 /* Translated strings are excluded by rule: their glyphs live in the locale catalogues, and rewriting
-   translations is explicitly out of scope for a visual restoration. */
-const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+   translations is explicitly out of scope for a visual restoration.
+
+   ADR-136 — that exemption was too coarse and hid a real offender for four ADRs. The Quick Study
+   "customize" button carried `data-i18n-attr="title:…;aria-label:…"`, which translates ATTRIBUTES
+   only; its text node — a bare ✏️ — was authored right here in index.html. The old test matched
+   `data-i18n(-html|-attr)?=` anywhere on the line and waved it through, so the one colour emoji on a
+   screen of line icons was invisible to the gate that exists to catch exactly that.
+
+   Two corrections:
+     - only `data-i18n` / `data-i18n-html` exempt a line, because only those own the TEXT. A line
+       whose sole i18n hook is `data-i18n-attr` still has an author-written text node.
+     - attributes are stripped before testing, so `title="🔒 …"` no longer needs a blanket exemption
+       and a glyph in rendered text can no longer hide behind one.
+   Text-presentation marks (✕ U+2715, ⚑ U+2691) are NOT emoji: they render as glyphs in the text font
+   in both themes and create no mixed surface. Only default-emoji codepoints and anything carrying the
+   emoji presentation selector U+FE0F count. */
+const EMOJI = /[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]\u{FE0F}/u;
 const strippedHtml = html.replace(ICO_SPAN, '');
 const bareChrome = [];
 strippedHtml.split('\n').forEach((line, i) => {
-  if (!EMOJI.test(line)) return;
-  if (/data-i18n(-html|-attr)?=/.test(line)) return;         // owned by the locale catalogues
-  if (/placeholder=|title=|aria-label=/.test(line)) return;  // attribute text, not a rendered icon
+  if (/data-i18n(-html)?=/.test(line)) return;               // owned by the locale catalogues
+  const rendered = line.replace(/[\w-]+="[^"]*"/g, '').replace(/[\w-]+='[^']*'/g, '');
+  if (!EMOJI.test(rendered)) return;                         // attribute text is not a rendered icon
   bareChrome.push((i + 1) + ': ' + line.trim().slice(0, 80));
 });
 ok('no bare chrome emoji outside .qr-ico in index.html',

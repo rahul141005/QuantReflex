@@ -9,11 +9,28 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.167 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.168 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.168 (2026-08-02)** — **Quick Study rebuilt on Practice; dropdowns pinned (ADR-136, SW v267→v268).**
+> Part 2 of the production certification: layout, usability and interaction. Quick Study's wrapping row
+> of chips inside one card is now the Practice pattern at a smaller scale — the cards genuinely **are**
+> `.mode-card`s, so every theme rule, the press scale and the ripple come along and can never drift;
+> layout is icon + title + chevron and nothing else, because the registry has no description to show.
+> The tray's `max-height` is measured from the first four cards, so 1–4 wrap tightly
+> (`clientHeight === scrollHeight`, no dead space, no scrollbar) and 5+ scroll internally, with a real
+> height animation and a `ResizeObserver` that self-heals a tray measured while Home was hidden. Card
+> height is set by the RADIUS: 60px read as a pill in Playful (28/60), 68px reads as a card. The six
+> Settings dropdowns are now pixel-identical across 42 configurations — one width, one height, one
+> gutter, one arrow inset — reversing ADR-135's fluid clamp, safe because its label-wrap fix removed
+> the width pressure. A bare ✏️ that had hidden behind the `data-i18n-attr` exemption for four ADRs is
+> fixed and the guard tightened. Gate: 0 new overflow/clipping over 88,992 elements; every
+> disappearance is the replaced Quick Study subtree; all wraps and moves confined to settings/about.
+> Two limits recorded rather than claimed: the native `<select>` popup is OS-drawn, and at 320px
+> "🌙 Appearance" is forced onto two lines.
 
 > **2.167 (2026-08-02)** — **Adversarial certification (ADR-135, SW v266→v267).** The census measured
 > only `css/style.css`, so its reported figures were not the shipped figures: ~84 inline styles in

@@ -8,6 +8,115 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-136 — Quick Study becomes Practice's smaller sibling; the dropdowns stop resizing with the phone (v268) (2026-08-02)
+
+**Context.** Part 1 (ADR-131…135) settled *visual identity*. This pass is about layout quality,
+usability and interaction. Two components were wrong in ways no census could see.
+
+**D1 — Quick Study was the wrong component.** It rendered one `.qr-card` holding a wrapping row of
+`.qs-chip` pills: a tag cloud. It read as metadata rather than as destinations, looked nothing like
+Practice — the app's best screen — and grew without bound, so twelve shortcuts stretched Home.
+
+Rebuilt as the Practice pattern at a smaller scale. The decisive choice was to **reuse `.mode-card`
+itself** rather than clone its look: all four themes' card rules, the `:active` press scale and the
+global ripple selector then apply automatically and can never drift apart from Practice. Verified
+inert first — `practice-modes.js` and `quick-links-registry.js` both scope their queries to
+`#modeSelect`, so nothing binds `.mode-card` globally. Only the arrangement is new: leading icon,
+title, trailing chevron, on one line.
+
+*No fabricated UI.* A registry entry exposes `label()`, `ico`/`emoji`, `locked()` and `go()` — there is
+no description, so no subtitle is invented to make the resemblance closer. The chevron is the app's
+existing `.settings-chevron` affordance, not a new `.qr-ico`: there is no `chevron-right` in the mask
+set and minting one would have forced a chevron *emoji* into Classic, the mixed surface ADR-131
+removed.
+
+*Shrink to fit, cap at four.* `max-height` is measured in JS from the first four cards, with gap and
+padding read back from computed style so CSS stays the single source of truth. A CSS constant cannot
+do this job: it is wrong the moment a card wraps to two lines (hi/mr, 125% font scaling), it leaves
+dead space below four cards, and `max-height: auto` does not animate. Measured behaviour at 390px:
+
+| shortcuts | client height | scroll height | scrollbar |
+|---|---|---|---|
+| 1 | 100 | 100 | none |
+| 2 | 184 | 184 | none |
+| 3 | 268 | 268 | none |
+| 4 | 352 | 352 | none |
+| 5 | 352 | 436 | internal |
+| 12 | 352 | 1024 | internal |
+
+`clientHeight === scrollHeight` at every count ≤ 4 — the container wraps tightly with zero blank
+space and no premature scrollbar. Add/remove is animated because the tray NODE survives re-renders
+(rebuilding it would restart from `max-height: none` and snap); a `ResizeObserver` on the card column
+re-measures on locale swap, rotation and font scaling, and self-heals a tray first measured while Home
+was hidden (verified: 80px → 320px on becoming visible). The transition is armed one frame after first
+paint so nothing animates open on load, and the global reduced-motion kill-switch zeroes it.
+
+**Card height is set by the radius, not by the text.** At the first pass 60px gave 24/60 = 0.40 in
+Classic and 28/60 = 0.47 in Playful; the Playful screenshot was unmistakably a pill — the exact shape
+the redesign existed to remove. 68px brings the ratios to 0.35 / 0.41 against Practice's own
+24/87 = 0.28. Caught by looking, not by a metric; every number in this ADR passed at 60px too.
+
+**D2 — the dropdowns resized with the viewport.** ADR-135 fixed a real truncation bug by making the
+control fluid (`clamp(7.5rem, 34vw, 8.5rem)`), which bought correctness with inconsistency: the same
+control measured 120px on a 320px phone and 136px on a 390px one, with the arrow at a different inset
+on each. Width, arrow gutter and arrow inset are now fixed, and an explicit `width` accompanies the
+flex basis — without it a select is as wide as its own longest option, so "Playful Professional" would
+outgrow "Easy". Measured across 42 configurations (2 themes × 3 locales × 7 widths, all six selects
+visible): **one** distinct width (136px), **one** height (44px), **one** padding-right, **one** arrow
+position, **one** font-size, **one** radius. 0 of 17 labels truncated; 0 rows overflowing.
+
+Safe only because ADR-135's real fix was making labels *wrap* instead of ellipsise, so the label gives
+and the control never has to.
+
+**Two limits, stated rather than papered over.**
+- The native `<select>` **popup** is drawn by the OS and cannot be styled from CSS. "Popup sizing" is
+  unreachable without replacing the control with a custom listbox — a functional change well outside
+  this brief. Not done, and not claimed.
+- At **320px only**, "🌙 Appearance" puts its icon on its own line. Measured: the label column is
+  106.8px and needs 21 (icon) + 4 + 95.6 ("Appearance" is one unbreakable word) = 120.6px. With the
+  dropdown pinned identical and labels never truncated — both explicit requirements — a two-line label
+  is forced, and icon-on-line-one is the best of the available renderings (gluing the icon to the text
+  would break the word mid-way instead). Narrowing the control to buy the 14px would clip
+  "Playful Professional" further, which it already clips at 136px.
+
+**D3 — a bare ✏️ had been hiding from the guard that exists to catch it.** The Quick Study customize
+button carried `data-i18n-attr`, which translates *attributes* only; its text node was an
+author-written emoji. `icon-identity`'s translated-string exemption matched the attribute anywhere on
+the line and waved the glyph through, so for four ADRs the one colour emoji on a screen of line icons
+sat directly above the section this pass was redesigning. Fixed both ends: the glyph moves into a
+`.qr-ico` with a new `edit` mask (Classic keeps the identical ✏️), and the guard now exempts only
+`data-i18n`/`data-i18n-html` — the hooks that own an element's *text* — strips attributes before
+testing, and counts only true emoji-presentation codepoints, so text marks like ✕ and ⚑ are correctly
+ignored. Proven load-bearing: reverting the markup fails the assertion, restoring it passes.
+
+**A regression the layout gate caught in my own repair — and an over-correction it caught next.**
+Swapping the emoji for the icon shrank the button's visible box 27px → 26px, flagged at 48
+configurations. The first repair forced a real 44px flex box. Re-running the gate showed why that was
+wrong: the header grew 17px and pushed the whole Quick Study section down at every width, on a screen
+the brief explicitly asks to keep compact — and it bought nothing, because this control's touch target
+was *already* a real 44×44 through the invisible `::after` added in ADR-133. The gate measures the
+visible box; the target it stands in for was never broken. The icon now simply takes the system's
+default 1.2rem, restoring a 27.8px box (≥ the original 27) with the 44×44 `::after` intact. Do not
+inflate layout to satisfy a proxy metric.
+
+**Consequences.**
+- Layout gate over 432 contexts (4 themes × 3 locales × 4 widths × 9 screens, 88,992 elements
+  compared): **0 new overflow, 0 new clipping.** All 624 disappearances are the `.quick-study-card` /
+  `.qs-chip` subtree this ADR replaces — **0 elsewhere.** All wraps and moves are confined to
+  `settings` + `about`; every other screen shows **zero**.
+- The 100 new wraps are all at **320px** and are the priced cost of D2: a fixed 136px control reclaims
+  16px from the label column, so a description takes one more line. No truncation, no clipping — the
+  trade the brief asked for.
+- Quick Study verified over 48 configurations: 0 truncated labels, 0 horizontal overflow, 0 cards under
+  the 44px touch floor, tray and card radius/padding/gap identical to Practice in every theme.
+- `npm test` 0 failed; `design-lint` 21/21 with every ceiling unchanged (the new CSS adds no radius,
+  shadow, duration, easing, glass or press literal); `icon-identity` 13/13.
+- **Not done, deliberately:** the inline-style cleanup remains deferred. Content emoji in Learn and
+  Quick-Ref stay emoji in both themes under ADR-131's documented exception — converting them means
+  rewriting translated strings.
+
+---
+
 ## ADR-135 — Adversarial certification: the census measured only the stylesheet, and Settings labels truncated below 371px (v267) (2026-08-02)
 
 **Context.** A release-blocking attempt to disprove the ADR-133/134 certification. Three findings. The
