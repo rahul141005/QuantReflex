@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.162 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.163 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.163 (2026-08-02)** — **Visual identity restoration (ADR-131, SW v262→v263).** `main-app` only;
+> restoration, not redesign. The two themes had become ~86% the same object: `:root` defined 205 tokens,
+> `html.theme-playful` overrode 28, and **7 of those set values byte-identical to Classic**. Playful
+> inherited the whole depth-and-atmosphere layer, so every elevation matched byte-for-byte and the glow /
+> veil / wash tokens baked *Classic's* accent at `:root`, where no palette work under
+> `html.theme-playful` could reach. The hero had lost its 3-stop opaque ramp to a 12%→3% alpha wash in
+> `05d9642`, and dark mode had lost its navy ramp entirely. Classic's emoji personality is restored purely
+> in CSS, with neither theme mixing icon languages (measured: Classic 95 glyphs / 0 masks, Playful 0 / 95).
+> Alignment was re-tuned from measurement — `vertical-align` turned out to reach only four inline surfaces,
+> and Playful's constant had been **inert all along** — taking offenders over 1px from **50 to 0** across
+> 105 pairs. New `icon-identity.check.js` (10) and a design-lint theme-distinctness pair (10→12), each
+> verified against the pre-fix tree. Every census ceiling unchanged. No logic, Firestore, auth, payment,
+> routing, state, AI, analytics or translation change; the ADR-126/127/128 language transition re-verified.
 
 > **2.162 (2026-08-01)** — **Final certification of Waves S1–S4 (ADR-130, SW v261→v262).** Zero-assumption
 > pass with every prior report and PASS discarded. **Two live defects, both in `js/duel-archive.js` — the

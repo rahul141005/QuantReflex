@@ -8,6 +8,109 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-131 — The two themes had become the same object, and the hero stopped being the centrepiece: a measured visual restoration (v263) (2026-08-02)
+
+**Context.** Twelve waves of UI work (UI-M1…M6, FW-W1…W8, P1-final A–D, ADR-114) each did something
+defensible, and the cumulative effect was a loss of visual identity. Scope: `main-app` only, restoration
+not redesign — no layout changes, no logic changes, no translation changes. Every claim below is measured;
+where a measurement contradicted an assumption, the measurement won.
+
+**Root cause — the burn-down waves traded identity for census.** FW-W7 collapsed 64 gradients to 10 and
+130 shadows to 4 to hit the design-lint ceilings. Collapsing per-theme, per-surface values into single
+shared tokens necessarily replaced identity with uniformity. The census got clean; the app got flat.
+
+**Decision 1 — atmosphere is per theme, and the invariant is enforced structurally.** `:root` defined 205
+tokens; `html.theme-playful` overrode 28, and 7 of those set values byte-identical to Classic — an
+effective 21. Playful therefore inherited the entire depth-and-atmosphere layer: every elevation was
+byte-identical across themes, and `--qr-glow-accent`, `--qr-veil-accent-*` and the wash tokens baked
+`rgba(37,99,235,…)` — Classic's accent — at `:root`, where no amount of palette work under
+`html.theme-playful` can reach. Playful now owns its own elevation ramp, halo, radius step and wash
+stops. All of it is free under the census: a custom-property *definition* is not a `box-shadow:` or
+`border-radius:` declaration, and tokenising a gradient's stops leaves one distinct literal.
+
+The regression is now structural rather than remembered: design-lint asserts that an ATMOSPHERE token may
+not hard-code a colour Playful cannot override — satisfied either by Playful re-declaring it, or by the
+`:root` value being composed purely of `var()` references. A new `--el-*` or `--qr-veil-accent-*` is
+covered the moment it is added. Verified against the pre-fix CSS: 11 violations and 25 real overrides
+before, 0 and 42 after. **Documented exception:** `*-duel` tokens. Duel's amber is a FEATURE identity,
+deliberately the same in both themes, which is why `--qr-grad-wash-duel` is shared too.
+
+**Decision 2 — the hero is a bespoke surface again.** `05d9642` (FW-W7c) replaced the hero's own 3-stop
+OPAQUE ramp with the generic `--qr-grad-wash`, a 12%→3% ALPHA wash. Over a white page that renders as
+almost-white-blue — the hero stopped being the centrepiece and became a faint tint. Dark mode fared
+worse: it lost its navy ramp entirely and its override was left setting the same value as the light rule,
+a no-op duplicate. The halo dropped from 0.20 to 0.12 alpha.
+
+Restored through hero-scoped stop variables, so the 10/10 gradient ceiling is untouched, with Playful
+given a teal ramp of its own. The gradients had to be **re-declared on `.home-hero`**, not just their
+stops: a custom property's `var()`s are substituted on the element that DECLARES it, so the `:root`
+copies had already baked in `:root`'s stops before reaching the hero, and overriding the stops on a
+descendant could not reach back into them. The theme overrides work only because `:root` and
+`html.theme-playful` are the same element.
+
+Making the ramp opaque changes the backdrop the greeting sits on, and that measured as a real contrast
+regression: classic light 3.86 → 3.35, classic dark from passing to 4.04, both under AA. Corrected with a
+hero-scoped `--qr-text-dim` for Classic only (now 5.33 and 6.98); Playful already cleared AA on its own
+dims (4.67 / 4.92) and keeps its warm caption.
+
+**Decision 3 — one icon language per theme.** `b93b0cf` (P1-final Wave B) converted chrome emoji to
+masked SVG for BOTH themes, which is what made the two themes read as the same product. It did keep every
+emoji in the DOM as the element's text, so Classic's personality is restored purely in CSS: Classic shows
+the glyph and suppresses the mask, Playful collapses the glyph and paints it. Measured in-browser:
+Classic 95 emoji glyphs visible / 0 masks active, Playful 0 / 95 — a clean split with zero mixed
+surfaces. `qrIco()` was also emitting the literal string `undefined` when called with one argument; it
+now falls back through a 43-entry name→emoji map.
+
+`icon-identity.check.js` pins the split in both directions, plus the prerequisite that every `.qr-ico`
+carries its emoji — an empty span is an invisible icon in Classic, and invisible to anyone developing in
+Playful. Six of its ten assertions fail on the pre-fix tree.
+
+**Documented exception — content emoji stay emoji in both themes.** Learn topic icons, Quick-Ref card
+glyphs, report-taxonomy reasons and question data are authored PER-ITEM DATA, not chrome; converting them
+would mean rewriting translated strings (explicitly out of scope) and inventing ~100 new glyphs.
+Decorative art — the onboarding and paywall hero glyphs, empty-state illustrations, the duel crown — is
+illustration rather than iconography and is likewise out. Static chrome itself is now clean: 93 `.qr-ico`
+spans, 0 empty, 0 bare chrome emoji outside translated strings. JS-rendered surfaces still contain
+~85 raw-emoji sites in those two buckets; they are recorded here rather than left implicit.
+
+**Decision 4 — alignment is fixed from measurement, not from eyeballing.** Wave B rewrote text-node emoji
+into an `inline-flex` box positioned by a single `vertical-align` constant tuned for a masked SVG square.
+A glyph and a square do not share an optical centre, so restoring emoji without re-tuning alignment would
+have made it worse. `scripts/dev/align-probe.js` compares the icon's INK centre, read from rendered
+pixels, against the label's CAP-HEIGHT centre, derived from that text's own font metrics — ink for the
+icon because an emoji's box and its glyph are not concentric, cap height for the label because ink would
+move with descenders.
+
+Building it surfaced five instrument defects that each produced confident wrong numbers, all fixed before
+any CSS changed: elements measured through an overlying modal (11.6px), icons scored against the first
+line of a MULTI-LINE block (8.3px), a container walk that escaped its subtree (343px), a free-seeded
+profile that `initSettingsView` silently downgraded to Classic so every "playful" measurement was really
+a classic one, and a background estimator plus frozen entry animations that dropped the About modal
+entirely.
+
+With the instrument trustworthy the result was unambiguous: every icon in a FLEX parent was already
+within 0.6px, because `align-items` does the work and `vertical-align` is ignored there. The property
+reaches only four inline surfaces, and all four were off in opposite directions per theme. Classic sat
+2.24 / 2.25 / 2.80px BELOW the cap centre and needed about +0.134em — which lands on roughly zero, the
+point being that an emoji at baseline sits where it did as a plain text node before Wave B wrapped it in
+a box. Playful's `-0.22em` had been INERT all along: `em` resolves against a font-size the masking rule
+sets to 0, so its icons sat at plain baseline ~2.5px high, and the correction has to be size-relative to
+survive that. Offenders off by more than 1px: **50 before, 0 after**, across 105 pairs.
+
+**Consequences.**
+- Every design-lint ceiling is unchanged: radii 6 / shadows 4 / font-sizes 12 / durations 3 / easings 3 /
+  z 1 / gradients 10. Two ceilings were nearly spent twice during this work, because
+  `var(--x, fallback)` and a trailing `!important` both fail design-lint's pure-`var()` test and count as
+  new literals.
+- The suite gains `icon-identity.check.js` (10) and two design-lint assertions (10 → 12).
+- `px-diff.js` carries the same latent defect this work found in its own harness: seeded as a free user,
+  its playful screenshots silently degrade to Classic from the `settings` screen onward, because Playful
+  Professional is a premium theme. Recorded as a known limitation of that instrument.
+- Untouched by construction: no JS logic, no Firestore/auth/payments/routing/state/AI/analytics, no locale
+  values, and the ADR-126/127/128 language transition is re-verified rather than modified.
+
+---
+
 ## ADR-130 — Final certification of Waves S1–S4: the i18n guards were running in the wrong direction, and the one file no harness ever opened held two defects (v262) (2026-08-01)
 
 **Context.** Zero-assumption certification of Waves S1–S4 at `5f59b51` (SW v261). Every prior report, ADR
