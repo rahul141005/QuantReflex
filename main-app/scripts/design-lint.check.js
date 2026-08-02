@@ -186,6 +186,39 @@ ok('every backdrop-filter names a --glass-* tier', glassLiterals.length === CEIL
 ok('press feedback uses --qr-press-* tokens, not literal scales', pressVals.size === CEIL2.pressScales,
   pressVals.size ? 'literals: ' + [...pressVals].join(', ') : 'no literal press scales');
 
+/* ── ADR-134: no orphaned design tokens ───────────────────────────────────────────────────────────
+   A custom property that nothing reads is design-system rot: it looks like part of the system, gets
+   maintained per theme, and silently isn't. ADR-131 gave Playful its own `--el-key-raised` and
+   `--qr-glow-accent-strong`; ADR-133 aliased `--glass-nav` rather than deleting it. All three were
+   dead, and a whole duplicate spacing scale (--sp-xs/sm/md/lg) sat unused beside --sp-1…12.
+
+   The scan MUST cover js/ and index.html, not just the stylesheet. `--text-secondary` looks dead in
+   CSS alone and is in fact read by js/views/inbox-view.js — removing it on CSS evidence would have
+   broken the inbox. That near-miss is the reason this check reads every consumer. */
+function tokenRefs() {
+  const seen = new Set();
+  const scan = src => { let m; const re = /var\(\s*(--[\w-]+)/g; while ((m = re.exec(src)) !== null) seen.add(m[1]); };
+  scan(rawCss);
+  scan(fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'));
+  (function walk(dir) {
+    for (const f of fs.readdirSync(dir)) {
+      const fp = path.join(dir, f);
+      if (fs.statSync(fp).isDirectory()) walk(fp);
+      else if (f.endsWith('.js')) scan(fs.readFileSync(fp, 'utf8'));
+    }
+  })(path.join(__dirname, '..', 'js'));
+  return seen;
+}
+const declaredTokens = new Set();
+{ let m; const re = /(^|[;{\s])(--[\w-]+)\s*:/g; while ((m = re.exec(rawCss)) !== null) declaredTokens.add(m[2]); }
+const referenced = tokenRefs();
+/* Documented exception: --sp-8/10/12 complete the canonical 4px scale. A scale is allowed steps that
+   are not yet used — deleting them would leave it ragged and invite someone to reinvent the value. */
+const SCALE_RESERVED = /^--sp-\d+$/;
+const orphans = [...declaredTokens].filter(t => !referenced.has(t) && !SCALE_RESERVED.test(t)).sort();
+ok('no orphaned custom properties (nothing declared that nothing reads)',
+  orphans.length === 0, orphans.length ? orphans.join(', ') : declaredTokens.size + ' tokens, all referenced');
+
 /* ── ADR-131: theme distinctness ──────────────────────────────────────────────────────────────────
    The census above measures the SIZE of the design vocabulary; it says nothing about whether the two
    themes actually use different values. That blind spot is how the burn-down waves left Playful

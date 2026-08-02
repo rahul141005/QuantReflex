@@ -20,10 +20,9 @@
   --qr-card-border-dark: 1px solid rgba(255,255,255,0.08); /* soft hairline on navy */
   --qr-shadow-light: 0 6px 20px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.03);
   --qr-shadow-dark: 0 8px 24px rgba(2,6,23,0.45);          /* soft navy shadow */
-  --sp-xs: 8px;
-  --sp-sm: 12px;
-  --sp-md: 16px;
-  --sp-lg: 24px;
+  /* ADR-134: the --sp-xs/sm/md/lg t-shirt scale lived here and duplicated --sp-1…12 below. Two
+     spacing token systems is one too many, and all four t-shirt tokens were referenced ZERO times.
+     --sp-1…12 is canonical. */
   --qr-nav-h: 3.75rem;             /* bottom-nav height — single source of truth (ADR-011) */
   --qr-practice-gap: .6rem;        /* Practice scroll-panel: equal top/bottom inset */
   --qr-bg: #f8fafc;                /* app background (light) — used by sticky surfaces e.g. Learn section nav */
@@ -58,7 +57,6 @@
   --r-round-b: 0 0 1.5rem 1.5rem;  /* bottom-rounded band */
   --r-bubble: 1rem 1rem .25rem 1rem;   /* chat bubble (companion user turn) */
   --r-round-r: 0 12px 12px 0;      /* right-rounded rail */
-  --el-0: 0 0 0 1px var(--qr-border);                                    /* flat / hairline (no lift) */
   --el-1: 0 6px 20px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.03);   /* resting card */
   --el-2: 0 12px 28px rgba(15,23,42,.10), 0 2px 6px rgba(15,23,42,.05);  /* raised / hover / sheet */
   --el-3: 0 24px 48px rgba(15,23,42,.16), 0 6px 16px rgba(15,23,42,.08); /* dialog */
@@ -66,13 +64,11 @@
   --el-nav: 0 -2px 12px rgba(0,0,0,.06);                                 /* bottom nav (soft up) */
   --el-inset: inset 0 0 0 1px var(--qr-border);                          /* inset hairline */
   --el-key: 0 4px 16px rgba(0,0,0,.04), inset 0 1px 1px rgba(255,255,255,.4);      /* keypad key */
-  --el-key-raised: 0 6px 20px rgba(0,0,0,.06), inset 0 1px 1px rgba(255,255,255,.6);
   /* ADR-131: these two used to hardcode rgba(37,99,235,…) — the CLASSIC accent — so the Playful theme
      glowed classic-blue no matter what its palette said. They now read accent-veil tokens, which each
      theme re-declares. A custom-property DEFINITION is not a `box-shadow:` declaration, so per-theme
      glow costs ZERO shadow census (scripts/design-lint.check.js counts declarations only). */
   --qr-glow-accent: 0 4px 12px var(--qr-veil-accent-25);                 /* accent CTA glow */
-  --qr-glow-accent-strong: 0 10px 26px var(--qr-veil-accent-40);
   --qr-glow-duel: 0 4px 14px rgba(217,119,6,.3);                         /* duel amber glow */
   --qr-ring-ok: 0 0 0 3px rgba(22,163,74,.12);                           /* success feedback ring */
   --qr-ring-danger: 0 0 0 3px rgba(220,38,38,.12);                       /* danger feedback ring */
@@ -108,7 +104,7 @@
      the app resolves through it, so re-declaring these five values under a theme re-tints the whole
      ambience without touching a single gradient or shadow literal. Classic = its slate-blue #2563eb. */
   --qr-veil-accent-8: rgba(37,99,235,.08); --qr-veil-accent-12: rgba(37,99,235,.12);
-  --qr-veil-accent-25: rgba(37,99,235,.25); --qr-veil-accent-40: rgba(37,99,235,.4);
+  --qr-veil-accent-25: rgba(37,99,235,.25);   /* ADR-134: -40 removed with its only consumer, --qr-glow-accent-strong */
   --qr-wash-a: rgba(37,99,235,.12); --qr-wash-b: rgba(37,99,235,.03);   /* app-wide wash stops */
   --qr-glow-stop: rgba(37,99,235,.12);                                   /* radial halo stop */
   --qr-skel-veil: rgba(15,23,42,.05);      /* skeleton row veil */
@@ -125,8 +121,7 @@
   --glass-scrim: blur(6px);      /* page-dimming overlays behind modals and sheets */
   --glass-surface: blur(10px);   /* elevated content on the page: cards, chips, stat panels */
   --glass-chrome: blur(16px);    /* the app's own shells: modal bodies, nav, auth card */
-  --glass-nav: var(--glass-chrome);
-  --z-nav: 100; --z-sticky: 200; --z-drawer: 800; --z-sheet: 900; --z-dialog: 1000; --z-toast: 1100; --z-critical: 1200;
+  --z-nav: 100; --z-sticky: 200; --z-sheet: 900; --z-dialog: 1000; --z-toast: 1100; --z-critical: 1200;
   /* FW-W7b: VALUE-PRESERVING z tokens — each keeps its historical value so no stacking order
      can change; consolidation is nominal (census) now, semantic re-layering can come later. */
   --z-above: 1; --z-lift: 2; --z-lift-2: 3; --z-lift-3: 5; --z-lift-4: 6;
@@ -143,7 +138,6 @@
      flow through automatically. Prefer --qr-* in all new code. */
   --text-primary: var(--qr-text);
   --text-secondary: var(--qr-text-dim);
-  --accent-primary: var(--qr-accent);   /* UI Phase 1 §6.3: was --qr-danger (semantic mismatch); the ~4 red-wanting consumers now use --qr-danger explicitly */
   --bg-surface: var(--qr-surface-solid);
   --bg-elevated: var(--qr-surface-2);
   --border-color: var(--qr-border);
@@ -204,11 +198,10 @@ html.theme-playful {
   --el-3: 0 28px 56px rgba(120,100,70,.18), 0 8px 20px rgba(120,100,70,.09);
   --el-nav: 0 -2px 16px rgba(120,100,70,.09);
   --el-key: 0 4px 16px rgba(120,100,70,.06), inset 0 1px 1px rgba(255,255,255,.7);
-  --el-key-raised: 0 8px 24px rgba(120,100,70,.09), inset 0 1px 1px rgba(255,255,255,.85);
   --el-sheet: 0 -8px 44px rgba(120,100,70,.22);
   /* teal-leaning ambience (its own --qr-grad-b), so washes/halos/glows stop reading classic-blue */
   --qr-veil-accent-8: rgba(45,212,191,.10); --qr-veil-accent-12: rgba(45,212,191,.15);
-  --qr-veil-accent-25: rgba(45,212,191,.28); --qr-veil-accent-40: rgba(45,212,191,.42);
+  --qr-veil-accent-25: rgba(45,212,191,.28);
   --qr-wash-a: rgba(45,212,191,.14); --qr-wash-b: rgba(79,143,247,.05);
   --qr-glow-stop: rgba(45,212,191,.16);
   /* rounder silhouette — the token is read through border-radius: var(), so this costs no census */
@@ -240,7 +233,6 @@ html.theme-playful.dark-mode {
   --el-nav: 0 -2px 16px rgba(0,0,0,.44);
   --el-sheet: 0 -8px 44px rgba(0,0,0,.50);
   --el-key: 0 4px 16px rgba(0,0,0,.34), inset 0 1px 1px rgba(255,255,255,.05);
-  --el-key-raised: 0 8px 24px rgba(0,0,0,.42), inset 0 1px 1px rgba(255,255,255,.07);
 }
 
 /* ---- Reset & Base ---- */
@@ -1527,7 +1519,7 @@ html.dark-mode .quota-upgrade-link { color: #60a5fa; }
   margin-top: .25rem;
 }
 .category-btn {
-  padding: 8px;
+  padding: 12px 8px;
   min-height: 44px;                 /* ADR-095: meet the 44px touch-target minimum for this dense picker grid */
   border: 2px solid rgba(0,0,0,.08);/* 2px in BOTH states so selection is a colour change, never a width reflow */
   border-radius: var(--r-md);
@@ -2903,7 +2895,7 @@ html.dark-mode .feedback.wrong   { background: rgba(220,38,38,.15); }
 /* ---- Add Topic Button ---- */
 .add-topic-btn {
   font-size: var(--fs-body);
-  padding: .75rem;
+  padding: 1rem .75rem;
   margin-top: .75rem;
   margin-bottom: 1rem;
   width: 100%;
@@ -3171,7 +3163,7 @@ body.view-practice-active > .container {
   /* Equal top/bottom margin → panel visually centered between header and nav. */
   margin: var(--qr-practice-gap) auto;
   /* Symmetric internal padding → dedicated-panel feel. */
-  padding: .75rem;
+  padding: 1rem .75rem;
   /* ADR-132: the grouping SURFACE, restored. This rule had lost its background, so the panel existed
      only in the two dark themes — which have their own background rules — and the mode cards floated
      directly on the page in both light themes. Three independent traces of the original are still in
@@ -3268,7 +3260,7 @@ html.dark-mode .training-card {
   display: block;
   width: calc(100% - 2rem);
   margin: .75rem 1rem;
-  padding: .5rem;
+  padding: .75rem .5rem;
   border: 1px solid rgba(0,0,0,.08);
   border-radius: var(--r-md);
   background: transparent;
@@ -3411,7 +3403,7 @@ html.dark-mode .analytics-card {
     font-size: var(--fs-h1);
   }
   .analytics-card {
-    padding: .5rem;
+    padding: .75rem .5rem;
   }
 }
 @media (min-width: 600px) {
@@ -6695,7 +6687,7 @@ html.dark-mode .auth-error {
 
 .auth-btn {
   width: 100%;
-  padding: 12px;
+  padding: 16px 12px;
   background: var(--qr-grad-cta);
   border: none;
   border-radius: var(--r-md);
@@ -7087,7 +7079,7 @@ html.dark-mode .hero-exam-chip { background: rgba(30,41,59,.8); color: var(--qr-
 .exam-nudge-btn { min-height: 40px; padding: .5rem .75rem; font-size: var(--fs-caption); white-space: nowrap; }
 .exam-nudge-dismiss {
   background: none; border: none; color: var(--qr-text-mut);
-  font-size: var(--fs-h2); line-height: 1; padding: .25rem; cursor: pointer;
+  font-size: var(--fs-h2); line-height: 1; padding: .5rem .25rem; cursor: pointer;
 }
 html.dark-mode .home-streak-badge {
   background: rgba(30,41,59,0.8);
@@ -7846,7 +7838,7 @@ html.dark-mode .practice-container .mode-card p { color: #94a3b8; }
   font-size: var(--fs-d2);
   font-weight: 800;
   text-transform: uppercase;
-  padding: .75rem;
+  padding: 1rem .75rem;
 }
 .duel-join-err { color: var(--qr-danger); font-size: var(--fs-sub); min-height: 1.1rem; margin-top: .5rem; text-align: center; }
 .duel-arena-full { text-align: center; padding: 1.5rem 1.25rem .5rem; }
@@ -8794,7 +8786,7 @@ html.dark-mode .kx-hub-head { color: #f1f5f9; border-top-color: var(--qr-veil-w-
 @media (min-width: 960px)  { .kx-topic-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1400px) { .kx-topic-grid { grid-template-columns: repeat(4, 1fr); } }
 
-.kx-topic-card { display: flex; flex-direction: column; gap: .5rem; text-align: left; width: 100%; padding: .75rem; border: 1px solid rgba(15,23,42,.07); border-radius: var(--qr-card-radius-sm); background: rgba(255,255,255,.85); box-shadow: var(--qr-shadow-light); cursor: pointer; font: inherit; color: inherit; transition: transform var(--qr-dur-fast) var(--qr-ease-out), box-shadow var(--qr-dur-fast) var(--qr-ease-out), border-color var(--qr-dur-fast); }
+.kx-topic-card { display: flex; flex-direction: column; gap: .5rem; text-align: left; width: 100%; padding: 1rem .75rem; border: 1px solid rgba(15,23,42,.07); border-radius: var(--qr-card-radius-sm); background: rgba(255,255,255,.85); box-shadow: var(--qr-shadow-light); cursor: pointer; font: inherit; color: inherit; transition: transform var(--qr-dur-fast) var(--qr-ease-out), box-shadow var(--qr-dur-fast) var(--qr-ease-out), border-color var(--qr-dur-fast); }
 .kx-topic-card:hover { transform: translateY(-2px); box-shadow: var(--el-2); border-color: #bfdbfe; }
 .kx-topic-card:active { transform: scale(var(--qr-press-lg)); }
 .kx-topic-card:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
@@ -9168,7 +9160,8 @@ html.dark-mode .category-subject-label { color: #cbd5e1; }
 /* ADR-084: dynamic category picker — search + collapsible sections. Reuses .category-grid / .category-btn. */
 .category-search-wrap { padding: .25rem .125rem .125rem; }
 .category-search-input {
-  width: 100%; box-sizing: border-box; padding: .5rem .75rem; border: 1px solid rgba(0,0,0,.10);
+  /* ADR-134: vertical padding rounds UP — see .qr-search-input below for the reasoning. */
+  width: 100%; box-sizing: border-box; padding: .75rem .75rem; border: 1px solid rgba(0,0,0,.10);
   border-radius: var(--r-md); background: var(--qr-surface-solid); color: #111827; font-size: var(--fs-sub); -webkit-appearance: none; appearance: none;
 }
 .category-search-input::placeholder { color: #94a3b8; }
@@ -9184,7 +9177,7 @@ html.dark-mode .category-subject-label { color: #cbd5e1; }
 .category-section-icon { font-size: var(--fs-body); }
 .category-section-count { flex: 0 0 auto; font-size: var(--fs-micro); font-weight: 700; color: var(--qr-text-dim); text-transform: uppercase; letter-spacing: .04em; }
 .category-section-header .collapse-icon { flex: 0 0 auto; font-size: var(--fs-micro); color: #94a3b8; }
-.category-section .category-grid { padding: 8px; margin: 0; animation: catSectionIn var(--qr-dur) var(--qr-ease-out); }
+.category-section .category-grid { padding: 12px 8px; margin: 0; animation: catSectionIn var(--qr-dur) var(--qr-ease-out); }
 @keyframes catSectionIn { from { opacity: .3; } to { opacity: 1; } }
 .category-picker-empty { text-align: center; padding: 1rem .5rem; }
 /* pin star + most-asked marker on each category button */
@@ -9226,12 +9219,18 @@ html.dark-mode .category-section-count { color: #94a3b8; }
 .qr-lib-head { margin-bottom: .5rem; }
 .qr-lib-back {
   border: 0; background: none; color: var(--qr-accent); font: inherit; font-weight: 600; font-size: var(--fs-sub);
-  padding: .25rem 0 .5rem; cursor: pointer;
+  /* ADR-134: top padding rounds UP (.3rem->.5rem, not .25rem). This is a back button already below
+     the touch floor; nearest-rounding shaved another 0.8px off it. The 44px hit area still does the
+     real work, but the grid should not make an undersized control smaller. */
+  padding: .5rem 0 .5rem; cursor: pointer;
 }
 .qr-lib-back:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; border-radius: var(--r-sm); }
 .qr-search-wrap { margin: .25rem 0 .75rem; }
 .qr-search-input {
-  width: 100%; box-sizing: border-box; padding: .5rem .75rem; border: 1px solid rgba(0,0,0,.10);
+  /* ADR-134: vertical padding rounds UP here, not to nearest. Nearest took this field from 37.2px to
+     34px, and an input is a touch target — the one place the grid must not be allowed to make an
+     already-undersized control smaller. Horizontal still floors, so the text keeps its room. */
+  width: 100%; box-sizing: border-box; padding: .75rem .75rem; border: 1px solid rgba(0,0,0,.10);
   border-radius: var(--r-md); background: var(--qr-surface-solid); color: #111827; font-size: var(--fs-sub); -webkit-appearance: none; appearance: none;
 }
 .qr-search-input::placeholder { color: #94a3b8; }
@@ -10083,6 +10082,9 @@ body.reduced-motion .qr-lang-morph-in { animation: none !important; opacity: 1 !
    ═══════════════════════════════════════════════════════════════════════════ */
 .pw-close, .info-modal-close, .home-section-edit,
 .qr-lib-back, .training-card-back, .inbox-bell-btn { position: relative; }
+/* ADR-134: the bell carried a 24px SVG before it joined the icon system; without this it fell back to
+   the 1.2rem default and the button lost 4.8px of height. */
+.inbox-bell-btn .qr-ico { --qr-ico-size: 1.5rem; }
 .pw-close::after, .info-modal-close::after, .home-section-edit::after,
 .qr-lib-back::after, .training-card-back::after, .inbox-bell-btn::after {
   content: '';

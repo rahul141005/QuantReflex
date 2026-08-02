@@ -9,11 +9,22 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.165 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.166 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.166 (2026-08-02)** — **Independent certification of ADR-133 (ADR-134, SW v265→v266).** Adversarial
+> review conducted as if another engineer had written it; **it should have been rejected.** The spacing
+> transform floored VERTICAL padding despite its ADR documenting nearest-rounding, costing 10
+> declarations up to 4px per side and taking `.training-card-back` from 38.8 to 34px — a control already
+> under the touch floor. The gate missed it because it only flagged controls *crossing* 44px; tightened,
+> it reports 128 regressions on the original pair and 0 after the fix. Also removed a duplicate
+> `--sp-xs/sm/md/lg` scale and 6 orphaned tokens (three created by ADR-131/133), with a new assertion
+> that scans js/ and index.html — `--text-secondary` looks dead in CSS but is read by the Inbox view.
+> The `gap` asymmetry is acknowledged and deliberately left, since flooring 48 gaps would tighten the app
+> with no measured defect behind it. Spacing settles at 13 values; design-lint 15→16.
 
 > **2.165 (2026-08-02)** — **Production visual certification (ADR-133, SW v264→v265).** design-lint
 > censused eight axes, all at 1–12 distinct values; the axes it did NOT census had drifted — spacing to

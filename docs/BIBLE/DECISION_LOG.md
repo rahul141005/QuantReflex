@@ -8,6 +8,74 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-134 — Independent certification of ADR-133: the spacing transform did not do what its own ADR said (v266) (2026-08-02)
+
+**Context.** An independent adversarial review of ADR-133, conducted as if someone else had written it
+and the goal were to reject it. It should have been rejected. Five defects, one of which shipped as a
+visible regression, three of which are design-system rot ADR-133 claimed to have addressed, and one a
+hole in the measurement gate that let the first through.
+
+**D1 — the rule floored VERTICAL padding (shipped regression).** ADR-133 documents *"vertical spacing
+rounds to NEAREST, so overall density is preserved; horizontal padding and gap FLOOR"*. The transform
+classified a **single-value shorthand** as horizontal (`if (c === 1) return true`) and floored it on all
+four sides. Ten declarations lost up to 4px per side versus the documented rule, always tighter:
+`.kx-topic-card` 80.3→76px, `.analytics-card`, `.training-card-back` 38.8→**34px** (a control already
+under the touch floor made worse), `.category-btn`, `.auth-btn`, `.practice-container`,
+`.duel-join-input`, `.add-topic-btn`, `.exam-nudge-dismiss`, `.category-section .category-grid`.
+
+Fixed by splitting those shorthands into `vertical horizontal` — `padding: .9rem` → `padding: 1rem
+.75rem` — so vertical rounds as documented while horizontal still floors and wrap-safety is kept by
+construction. Only the 10 where floor ≠ nearest changed.
+
+**D2 — horizontal `gap` rounds up while horizontal padding floors: acknowledged, deliberately NOT
+"fixed".** The asymmetry is real (`.category-grid` 10→12px, the same direction that caused ADR-133's 32
+wraps). But flooring it would tighten 48 horizontal gaps with no defect behind it. Measured at the
+tightest width: of 7,472 elements at 320px, exactly **4** grew ≥8px and none from a gap-driven reflow.
+Consistency that costs density with no evidence is not an improvement, so the asymmetry stays, recorded.
+
+**D3 — two competing spacing token systems.** `--sp-xs/sm/md/lg` sat beside `--sp-1…12`; all four
+t-shirt tokens were referenced zero times. Removed; `--sp-1…12` is canonical.
+
+**D4 — 14 orphaned custom properties**, three of them created by the previous two ADRs: `--glass-nav`
+(ADR-133 aliased rather than deleted it), `--el-key-raised` and `--qr-glow-accent-strong` (ADR-131 gave
+Playful its own values for tokens nothing reads). Six removed, and deleting
+`--qr-glow-accent-strong` immediately orphaned `--qr-veil-accent-40` — caught by the new guard within
+seconds of writing it, which is the best evidence it works.
+
+`--sp-8/10/12` are kept as a documented exception: a scale may have steps not yet used, and a ragged
+scale invites someone to reinvent the value. **`--text-secondary` looks dead in CSS and is read by
+`js/views/inbox-view.js`** — removing it on CSS evidence alone would have broken the Inbox, which is why
+the new assertion scans `js/**` and `index.html`, not just the stylesheet.
+
+**D5 — the touch gate only caught crossings.** It flagged a control only when it went from ≥44px to
+<44px, so `.training-card-back` at 38.8→34 was invisible. Now it flags **any** control that shrinks
+while under the floor. Re-run against the original ADR-133 pair it reports **128** regressions — the
+defect it should have caught. After the fixes: **0**.
+
+Three further corrections fell out of that: `.qr-search-input` and `.category-search-input` now round
+vertical padding **up** (an input is a touch target and 34px is well under the floor), `.qr-lib-back`
+likewise, and the bell regained `--qr-ico-size: 1.5rem` after the ADR-133 SVG→`.qr-ico` conversion
+silently dropped it to the 1.2rem default.
+
+**A mistake made and caught during this work,** recorded because it is the same class as the ones being
+fixed: the `.qr-search-input` edit first landed on `.category-search-input`, which has byte-identical
+declaration text, because a string replace took the first match. Found by re-measuring rather than by
+re-reading, which is why the gate exists.
+
+**Consequences.**
+- Layout gate: **0 new overflow, 0 clipping, 0 text wraps, 0 touch-target regressions.** The 32
+  "disappeared" records are the bell `<svg>`/`<path>` deliberately replaced in ADR-133.
+- Spacing settles at **13 distinct values** — `[2,4,8,12,16,20,24,28,32,36,40,44,48]`.
+- design-lint 15 → 16 assertions; `npm test` 0 failed; `align-probe` 0 offenders; language transition
+  ~215–238 ms, 1 `QRI18n.init` call, 0 page errors.
+- Verified correct and left untouched: the four duplicate-property rules are `100vh`/`100dvh`
+  progressive enhancement; 23 of 58 `!important` are `prefers-reduced-motion` overrides; wrapping
+  *improved* (10→9 cards at 320px); expanded hit areas steal no neighbouring taps.
+- **Known residual:** `.inbox-bell-btn` is 40px versus 43px before, because an inline-flex `.qr-ico` has
+  no inline line-height overhead. It carries a 44px hit area, so the tap target is unaffected.
+
+---
+
 ## ADR-133 — The census was the mechanism: four uncontrolled axes normalised and added to it (v265) (2026-08-02)
 
 **Context.** A full production visual certification of `main-app`. Auditing the CSS architecture by

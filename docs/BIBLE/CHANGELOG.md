@@ -6,6 +6,39 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Independent certification of ADR-133 (ADR-134, SW v265→v266)
+
+An adversarial review of ADR-133 conducted as if someone else had written it. **It should have been
+rejected:** the spacing transform did not do what its own ADR described. Five defects.
+
+- **The rule floored VERTICAL padding.** ADR-133 documents "vertical rounds to nearest, horizontal
+  floors"; the transform classified single-value shorthands as horizontal and floored all four sides.
+  10 declarations lost up to 4px per side — `.kx-topic-card` 80.3→76px, `.training-card-back`
+  38.8→**34px** (a control already under the touch floor made worse), plus `.analytics-card`,
+  `.category-btn`, `.auth-btn`, `.practice-container` and others. Fixed by splitting into
+  `vertical horizontal`, so vertical rounds as documented and horizontal still floors.
+- **The touch gate only caught crossings**, which is why the above shipped: a control already under
+  44px could shrink invisibly. It now flags any control that shrinks while under the floor — re-run
+  against the original ADR-133 pair it reports **128** regressions. After the fixes: **0**.
+- **Two competing spacing token systems.** `--sp-xs/sm/md/lg` sat unused beside `--sp-1…12`. Removed.
+- **14 orphaned custom properties**, three created by ADR-131/133 themselves. Six removed, and deleting
+  one immediately orphaned `--qr-veil-accent-40` — caught by the new guard within seconds of writing it.
+  `--text-secondary` looks dead in CSS but is read by `js/views/inbox-view.js`, so the assertion scans
+  `js/**` and `index.html` too; removing it on CSS evidence alone would have broken the Inbox.
+- **`gap` asymmetry acknowledged and deliberately NOT "fixed".** Flooring 48 gaps would tighten the app
+  with no defect behind it — of 7,472 elements at 320px, only 4 grew ≥8px and none from a gap reflow.
+- Follow-on fixes: search inputs and the Quick-Ref back button now round vertical padding **up** (an
+  input is a touch target); the bell regained `--qr-ico-size: 1.5rem` after its SVG→`.qr-ico` conversion
+  silently dropped it to the default.
+- Verified correct and left alone: the duplicate-property rules are `100vh`/`100dvh` fallbacks; 23 of 58
+  `!important` are `prefers-reduced-motion`; wrapping improved 10→9 at 320px; hit areas steal no taps.
+- Gate: 0 overflow / clipping / wraps / touch regressions · spacing at **13** values
+  `[2,4,8,12,16,20,24,28,32,36,40,44,48]` · design-lint 15→16 · npm test 0 failed · align-probe 0
+  offenders · language transition ~215–238 ms, 1 init call, 0 errors.
+- Docs: ADR-134, VERSIONS 2.165→2.166, lockstep v265→v266.
+
+---
+
 ## 2026-08-02 — Production visual certification: the four uncensused axes (ADR-133, SW v264→v265)
 
 A full visual certification of `main-app`, audited by measurement. One finding explains most of the

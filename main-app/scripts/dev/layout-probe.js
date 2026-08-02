@@ -175,8 +175,12 @@ function diff(a, b) {
       if (!x.ovY && y.ovY) f.overflow.push(ctxKey + ' ' + k + ' (y)');
       if (!x.clip && y.clip) f.clip.push(ctxKey + ' ' + k);
       if (x.lines && y.lines && y.lines > x.lines) f.wrap.push(ctxKey + ' ' + k + ' ' + x.lines + '->' + y.lines);
-      if (x.ctl && Math.min(x.w, x.h) >= TOUCH_MIN && Math.min(y.w, y.h) < TOUCH_MIN)
-        f.touch.push(ctxKey + ' ' + k + ' ' + Math.min(x.w, x.h) + '->' + Math.min(y.w, y.h));
+      /* ADR-134: flag ANY control that shrinks while under the floor, not only one that CROSSES it.
+         The crossing-only test let a real regression through: .training-card-back was already 38.8px,
+         so 38.8 -> 34 was invisible to the gate even though it made an under-sized target worse. */
+      const ta = Math.min(x.w, x.h), tb = Math.min(y.w, y.h);
+      if (x.ctl && tb < ta && tb < TOUCH_MIN)
+        f.touch.push(ctxKey + ' ' + k + ' ' + ta + '->' + tb + (ta >= TOUCH_MIN ? ' (crossed the floor)' : ' (already under the floor, shrank further)'));
       /* Position and SIZE are judged separately. A tall list legitimately grows a few hundred px when
          every row gains a pixel of rhythm — that is the change working, not a defect. What would be a
          defect is an element shifting away from its parent's edge, or a small control resizing. */
