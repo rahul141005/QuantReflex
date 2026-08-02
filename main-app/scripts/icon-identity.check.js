@@ -138,5 +138,28 @@ ok('icon size never uses em (collapses to 0 against Playful font-size:0)',
   emViolations.length === 0,
   emViolations.length ? emViolations.join(' | ') : 'no em-relative icon sizing');
 
+/* ── 7. no raw inline <svg> used as a CHROME ICON (ADR-133) ───────────────────────────────────────
+   Check 5 hunts bare EMOJI outside `.qr-ico`; it is blind to the mirror-image mistake — a raw inline
+   <svg> icon, which renders as a monochrome line glyph in Classic among a screen full of emoji. The
+   notification bell shipped that way in both the Home header and the Inbox drawer title.
+
+   EXEMPT, and deliberately so:
+     - brand marks (the Google logo) — a brand may never be redrawn as an emoji
+     - data graphics (the goal progress ring) — a chart, not an icon
+     - the auth password show/hide toggles — pre-app chrome, and no emoji reads as "reveal password" */
+const EXEMPT_SVG = /auth-google-logo|home-goal-ring|eye-icon-(show|hide)/;
+const rawSvg = [];
+{
+  const re = /<svg[^>]*>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    if (EXEMPT_SVG.test(m[0])) continue;
+    const line = html.slice(0, m.index).split('\n').length;
+    rawSvg.push(line + ': ' + m[0].slice(0, 70));
+  }
+}
+ok('no raw inline <svg> chrome icon outside .qr-ico',
+  rawSvg.length === 0, rawSvg.length ? rawSvg.join(' | ') : 'only exempt brand/graphic SVGs remain');
+
 console.log('\nicon-identity.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

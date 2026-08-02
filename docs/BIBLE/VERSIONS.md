@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.164 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.165 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.165 (2026-08-02)** — **Production visual certification (ADR-133, SW v264→v265).** design-lint
+> censused eight axes, all at 1–12 distinct values; the axes it did NOT census had drifted — spacing to
+> 60, glass blur to 9, press scale to 12. Spacing normalised to **13** values (vertical rounds, horizontal
+> FLOORS so text can never be squeezed into a new line — measured, rounding produced 32 wraps), glass to
+> three purposeful tiers at the lower end of each cluster, press feedback to two tokens. Six icon buttons
+> raised to the 44px touch floor with invisible hit areas. The notification bell was a raw inline SVG
+> rendering as a line glyph among Classic's emoji — converted and guarded. New `layout-probe` instrument
+> diffs structural facts across 144 contexts / ~29,900 records: 0 new overflow, clipping, wraps or touch
+> regressions. design-lint 12→15, icon-identity 12→13, all new assertions proven to fail pre-fix.
 
 > **2.164 (2026-08-02)** — **Adversarial re-verification of the UI restoration (ADR-132, SW v263→v264).**
 > Hostile re-check of ADR-131 against the live runtime with every prior report discarded. ADR-131's claims

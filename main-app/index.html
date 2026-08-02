@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <!-- ADR-096: app build tag attached to every report's auto-context. Bump in LOCKSTEP with the
        service-worker APP_VERSION so triage always sees which build a report came from. -->
-  <script>window.QR_APP_VERSION = 'v264';</script>
+  <script>window.QR_APP_VERSION = 'v265';</script>
   <!-- UI Phase 1 §16.1: pre-paint THEME application (flash-of-unstyled-color guard). Runs before <body>
        parses and adds the theme class to <html> (where all dark/playful CSS now keys), so the very first
        frame is already the correct surface — no white flash for dark/System users. The default is LIGHT:
@@ -198,7 +198,7 @@
     <div id="inboxDrawer" role="dialog" aria-modal="true" aria-labelledby="inboxDrawerTitle" style="position:fixed; top:0; right:-400px; width:100%; max-width:400px; height:100%; background:var(--bg-surface); z-index:10000; box-shadow:-4px 0 20px rgba(0,0,0,0.1); transition:right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column;">
       <div style="padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); background:var(--bg-elevated);">
         <h2 style="font-size:1.25rem; font-weight:700; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:0.5rem;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <span class="qr-ico" data-ico="bell" aria-hidden="true">🔔</span>
           <span id="inboxDrawerTitle" data-i18n="modals.inboxTitle">Inbox</span>
         </h2>
         <div style="display:flex; gap:0.5rem;">
@@ -256,7 +256,7 @@
             </div>
             <div class="hero-streak-col" style="display:flex; align-items:center; gap:0.5rem;">
               <button class="inbox-bell-btn" id="inboxBellBtn" aria-label="Notifications" data-i18n-attr="aria-label:home.inboxBellAria" style="background:transparent; border:none; position:relative; padding:0.5rem; cursor:pointer; color:var(--text-primary); border-radius:50%; transition:background 0.2s;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span class="qr-ico" data-ico="bell" aria-hidden="true">🔔</span>
                 <span id="inboxUnreadBadge" style="display:none; position:absolute; top:2px; right:4px; background:var(--qr-danger, #ef4444); color:#fff; font-size:10px; font-weight:700; width:16px; height:16px; border-radius:50%; justify-content:center; align-items:center;">0</span>
               </button>
             </div>
@@ -1358,7 +1358,7 @@
         <div class="info-section guide-animate-section">
           <h3 class="info-section-title"><span class="qr-ico" data-ico="rotate" aria-hidden="true">🔄</span> <span data-i18n="about.s6Title">Version &amp; Updates</span></h3>
           <div class="info-block">
-            <p class="info-version" id="aboutVersionLine">Version v264</p>
+            <p class="info-version" id="aboutVersionLine">Version v265</p>
             <p class="info-version" id="aboutUpdateStatus" data-i18n="about.s6Update">Checking for updates…</p>
             <p data-i18n="about.s6P1">QuantReflex updates itself in the background — when a new version is ready, install it in one tap from Settings → Update App.</p>
           </div>

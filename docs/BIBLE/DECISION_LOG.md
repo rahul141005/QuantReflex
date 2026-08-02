@@ -8,6 +8,84 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-133 — The census was the mechanism: four uncontrolled axes normalised and added to it (v265) (2026-08-02)
+
+**Context.** A full production visual certification of `main-app`. Auditing the CSS architecture by
+measurement rather than impression produced one finding that explains most of the reported
+inconsistency as a single root cause rather than dozens of unrelated ones.
+
+**The finding.** `design-lint.check.js` censused eight design axes. **Every axis it censused sat at 1–12
+distinct values. Every axis it did not census had drifted.**
+
+| Axis | Censused before | Distinct values |
+|---|---|---|
+| radius / shadow / font-size / duration / easing / z-index / gradient | ✅ | 6 / 4 / 12 / 3 / 3 / 1 / 10 |
+| spacing | ❌ | **60** across ~1350 declarations |
+| glass blur | ❌ | **9** across 48 `backdrop-filter` declarations |
+| press-feedback scale | ❌ | **12** |
+
+The census is not a report — it is the mechanism that produced the discipline everywhere else. Tokens
+already existed for two of the drifted axes and were almost unused: `--sp-1…12` was referenced 22 times
+against ~1350 spacing declarations, and `--glass-*` twice against 48.
+
+**Decision 1 — spacing snaps to a 4px grid, but the grid does not get the final word.** 60 distinct
+values → **13**, every declaration moving ≤2px. Two rules make it safe rather than merely tidy:
+
+- *Vertical spacing rounds to NEAREST*, so overall density is preserved and nothing is quietly loosened.
+- *Horizontal padding and gap FLOOR.* Rounding a horizontal value up narrows the content box, and a
+  1.6px squeeze is enough to tip borderline text onto a second line. Measured: rounding horizontals
+  produced **32 new text wraps** across the topic grid, practice mode cards and the About contact card.
+  Flooring cannot, by construction.
+- Values below 3px snap to 2px rather than to 0. A plain nearest-4 rule would have deleted 33 optical
+  hairlines (`.1rem`/`.12rem` separators) outright.
+
+**Decision 2 — glass becomes three roles, not nine numbers.** `--glass-scrim` (6px, page-dimming
+overlays), `--glass-surface` (10px, elevated content), `--glass-chrome` (16px, the app's own shells).
+All 48 declarations route through them, and each tier takes the **lower** end of the cluster it
+replaces, so consolidating *reduces* total backdrop-filter work rather than adding to it.
+
+**Decision 3 — press feedback becomes two values.** `--qr-press-lg: .98` for large surfaces and
+`--qr-press-sm: .96` for small controls, replacing twelve scattered values from .88 to .995.
+Celebratory *grow* animations are a different thing and are left alone.
+
+**Decision 4 — touch-target floor.** Six isolated icon buttons measured below 44px at 390px, the worst
+being the paywall close at 32px — dismissing a paid-conversion modal. The hit area is expanded with an
+invisible pseudo-element rather than padding, so the painted control is byte-identical and these
+deliberately quiet buttons do not become oversized. Only isolated corner/header buttons are treated this
+way, never controls in a row where an expanded target could steal a neighbour's tap. Verified: a
+28×27px button now accepts taps across the full 44×44 area, 6/6 probe points including diagonals.
+
+**Decision 5 — the guard the icon audit was missing.** ADR-131's check hunts bare *emoji* outside
+`.qr-ico` and was blind to the mirror-image mistake: a raw inline `<svg>`, which renders as a
+monochrome line glyph in Classic among a screen full of emoji. The notification bell shipped that way
+in both the Home header and the Inbox drawer. Converted, and `icon-identity` now fails on raw chrome
+SVG, with brand marks (Google logo), data graphics (goal ring) and the auth password toggles exempt.
+
+**Verification — pixel diffing was the wrong instrument, so a new one was built.** Snapping ~1350
+declarations moves nearly every element a pixel or two; px-diff would report "everything changed" and
+carry no signal. `scripts/dev/layout-probe.js` records structural facts per element across 144 contexts
+(4 themes × 4 widths × 9 screens, ~29,900 element records) and diffs those. Its own determinism
+self-test passes with zero differences before any comparison is trusted.
+
+Final gate: **0 new overflow, 0 new clipping, 0 new text wraps, 0 touch-target regressions, 0 elements
+disappeared.** Two instrument corrections were needed first, both found by disbelieving the output: an
+absolute-position metric reported 15,510 "moves" for cumulative scroll offset (position is now
+parent-relative, and size is judged separately from position), and an `overflow: visible` box was
+flagged as overflowing when nothing was clipped at all.
+
+**Consequences.**
+- design-lint 12 → 15 assertions; all three new ones fail on the pre-fix tree with exact evidence
+  (spacing 60, glass 48 literals, press 11 literals).
+- `icon-identity` 12 → 13. `npm test` 0 failed. `align-probe` holds at 0 offenders >1px.
+- Language transition re-verified: ~191 ms, exactly 1 `QRI18n.init` call, 0 page errors, icon split
+  intact in both themes.
+- **Recorded, not fixed:** `index.html` carries 84 inline `style` attributes, 35 of them containing
+  spacing, transition or colour. Inline styles bypass both the token system and every census. That is
+  an architectural cleanup of its own and is deliberately not bundled into a visual pass.
+- Untouched: business logic, Firestore, auth, payments, routing, state, AI, analytics, translations.
+
+---
+
 ## ADR-132 — Adversarial re-verification of ADR-131: the Practice tray had been missing in both LIGHT themes, and two icons bypassed the sizing contract (v264) (2026-08-02)
 
 **Context.** A hostile re-verification of ADR-131 against the current repository and live runtime, with every

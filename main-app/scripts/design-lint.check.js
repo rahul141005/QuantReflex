@@ -142,6 +142,50 @@ ok('distinct z-index <= ' + CEIL.zIndexes, zIndexes.size <= CEIL.zIndexes, 'got 
 ok('distinct gradients <= ' + CEIL.gradients, gradients.size <= CEIL.gradients, 'got ' + gradients.size);
 ok('raw-color:var ratio <= ' + CEIL.colorRatio, ratio <= CEIL.colorRatio, 'got ' + ratio.toFixed(2));
 
+/* ── ADR-133: the four axes the census never covered ──────────────────────────────────────────────
+   Every axis this file censuses sat at 1–12 distinct values. Every axis it did NOT census had drifted:
+   spacing to 81 values, glass blur to 9, press-feedback scale to 12, opacity to ~14. The census is not
+   a report — it is the mechanism that produced the discipline everywhere else, and these four were
+   simply never added to it. Ceilings are set at the post-normalisation count so they ratchet down. */
+const spacingVals = new Set();
+{
+  const re = /(^|[;{}\s])(padding|margin|gap|row-gap|column-gap|padding-(?:top|bottom|left|right)|margin-(?:top|bottom|left|right))\s*:\s*([^;}]+)/g;
+  let m;
+  while ((m = re.exec(css)) !== null) {
+    m[3].trim().split(/\s+/).forEach(tok => {
+      if (!/^-?[\d.]+(rem|px)$/.test(tok)) return;
+      const n = parseFloat(tok);
+      spacingVals.add(Math.abs(tok.endsWith('rem') ? n * 16 : n));
+    });
+  }
+}
+/* glass: every backdrop-filter must name a tier token, never a literal radius */
+/* @supports conditions are capability PROBES, not styling — `@supports (backdrop-filter: blur(2px))`
+   asks the browser a question and must not be read as a declared blur radius. */
+const cssNoSupports = css.replace(/@supports[^{]*\{/g, '{');
+const glassLiterals = (cssNoSupports.match(/(?:-webkit-)?backdrop-filter:\s*blur\([^)]*\)/g) || [])
+  .filter(d => !/var\(--glass-/.test(d));
+/* press feedback: scale() inside an :active rule */
+const pressVals = new Set();
+{
+  const re = /([^{}]*:active[^{}]*)\{([^{}]*)\}/g;
+  let m;
+  while ((m = re.exec(css)) !== null) {
+    const sc = m[2].match(/scale\(([0-9.]+)\)/g) || [];
+    sc.forEach(v => { const n = parseFloat(v.replace(/[^0-9.]/g, '')); if (n <= 1) pressVals.add(n); });
+  }
+}
+
+const CEIL2 = { spacing: 18, glassLiterals: 0, pressScales: 0 };
+console.log('design-lint census-2: spacing=' + spacingVals.size +
+  ' glassLiterals=' + glassLiterals.length + ' pressLiterals=' + pressVals.size);
+ok('distinct spacing values <= ' + CEIL2.spacing, spacingVals.size <= CEIL2.spacing,
+  'got ' + spacingVals.size + ' [' + [...spacingVals].sort((a, b) => a - b).join(',') + ']');
+ok('every backdrop-filter names a --glass-* tier', glassLiterals.length === CEIL2.glassLiterals,
+  glassLiterals.length ? glassLiterals.slice(0, 3).join(' | ') : 'no literal blur radii');
+ok('press feedback uses --qr-press-* tokens, not literal scales', pressVals.size === CEIL2.pressScales,
+  pressVals.size ? 'literals: ' + [...pressVals].join(', ') : 'no literal press scales');
+
 /* ── ADR-131: theme distinctness ──────────────────────────────────────────────────────────────────
    The census above measures the SIZE of the design vocabulary; it says nothing about whether the two
    themes actually use different values. That blind spot is how the burn-down waves left Playful

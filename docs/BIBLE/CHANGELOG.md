@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Production visual certification: the four uncensused axes (ADR-133, SW v264→v265)
+
+A full visual certification of `main-app`, audited by measurement. One finding explains most of the
+reported inconsistency: **design-lint censused eight axes and every one sat at 1–12 distinct values;
+every axis it did NOT census had drifted** — spacing to 60, glass blur to 9, press-feedback scale to 12.
+The census is the mechanism that produced the discipline, and these were never added to it.
+
+- **Spacing 60 → 13 distinct values**, every declaration moving ≤2px. Vertical rounds to nearest so
+  density is preserved; **horizontal padding and gap FLOOR**, because rounding a horizontal value up
+  narrows the content box — measured, that produced 32 new text wraps. Sub-3px values snap to 2px
+  rather than 0, which would have deleted 33 optical hairlines.
+- **Glass 9 blur radii → 3 roles**: `--glass-scrim` 6px, `--glass-surface` 10px, `--glass-chrome` 16px,
+  across all 48 `backdrop-filter` declarations. Each tier takes the lower end of its cluster, so this
+  *reduces* backdrop-filter work rather than adding to it.
+- **Press feedback 12 scales → 2**: `--qr-press-lg: .98`, `--qr-press-sm: .96`. Celebratory grow
+  animations left alone.
+- **Touch-target floor.** Six isolated icon buttons were under 44px at 390px — worst the paywall close
+  at 32px. Expanded with an invisible pseudo-element, never padding, so the painted control is
+  unchanged. Verified 6/6 probe points on a 28×27px button.
+- **The bell was a raw inline `<svg>`**, so Classic rendered a line glyph among emoji. Converted in the
+  Home header and Inbox drawer; `icon-identity` now catches raw chrome SVG (brand marks, data graphics
+  and the auth password toggles exempt).
+- **New instrument, because px-diff was wrong for this.** `scripts/dev/layout-probe.js` diffs structural
+  facts — overflow, clipping, text wrapping, touch targets — across 144 contexts and ~29,900 element
+  records. Final gate: **0 new overflow, 0 clipping, 0 wraps, 0 touch regressions, 0 disappeared.**
+  Two instrument corrections were needed first: absolute position reported 15,510 phantom "moves" for
+  cumulative scroll offset, and `overflow: visible` boxes were flagged when nothing was clipped.
+- Guards: design-lint 12 → 15, `icon-identity` 12 → 13; all new assertions proven to fail on the
+  pre-fix tree. `npm test` 0 failed, `align-probe` 0 offenders, language transition ~191 ms / 1 init call.
+- **Recorded, not fixed:** 84 inline `style` attributes in `index.html` (35 with spacing/transition/
+  colour) bypass the token system and every census — an architectural cleanup of its own.
+- Docs: ADR-133, VERSIONS 2.164→2.165, lockstep v264→v265.
+
+---
+
 ## 2026-08-02 — Adversarial re-verification of the UI restoration (ADR-132, SW v263→v264)
 
 A hostile re-verification of ADR-131 against the current repository and live runtime, with every prior
