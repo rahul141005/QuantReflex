@@ -8,6 +8,101 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-137 — Adversarial re-certification of ADR-136: a premium theme that outlived its subscription, and a neon halo pretending to be elevation (v269) (2026-08-02)
+
+**Context.** An audit of ADR-136 conducted as if someone else had written it, with instructions to
+disprove rather than confirm it. Two defects were confirmed from source before anything was touched.
+Neither was visible to any gate ADR-136 ran — because every gate asked *"did this change break
+something?"*, and neither of these was a change.
+
+**F1 — Playful Dark dressed content surfaces in a coloured halo.** `--qr-glow-accent` resolves, inside
+`html.theme-playful.dark-mode`, to `0 4px 12px rgba(45,212,191,.28)` — teal, because that block
+re-declares `--qr-veil-accent-25` in its own palette. Four rules used it as the *entire* `box-shadow`
+of the shared card component (`.card`/`.mode-card`, their `:hover`, `.training-card`,
+`.onboarding-card`), plus one in Playful Light. Quick Study wore it because its cards genuinely *are*
+`.mode-card`s — so Home, Practice, Learn and Quick Study all glowed identically. Classic Dark was
+measured and left alone: it uses `--qr-shadow-dark`, a real shadow, not a glow.
+
+The replacement was not invented. `html.theme-playful.dark-mode` already declares
+`--el-1: 0 8px 26px rgba(0,0,0,.42), 0 1px 3px rgba(0,0,0,.30)`, and `.settings-section-card` and
+`.analytics-card` **in the same block** already read it. The card was the outlier. Swapping to the
+ladder (`--el-1` at rest, `--el-2` on hover, `--el-3` for the onboarding panel) *increases* depth — a
+26px double-throw against the glow's single 12px — so hierarchy strengthens rather than flattens, while
+glass, borders and surface separation are untouched. Every change reads an existing `var()`, so the
+shadow census is unmoved at 4.
+
+The durable rule, now a design-lint assertion: **a coloured glow belongs to accent ACTIONS, never to
+content SURFACES.** The nine CTA consumers keep their halo — that is intentional emphasis.
+
+**F2 — the premium theme survived expiry on every launch.** Playful Professional is premium, and
+exactly one code path enforced that: `initSettingsView()`. The other three applied it straight from
+persisted settings — the pre-paint head script, the boot IIFE in `app.js`, and the post-hydration
+`applyTheme()` call. A user whose subscription lapsed therefore kept the premium theme through every
+cold start, warm start, offline launch and restore, indefinitely, unless they happened to open the
+Settings tab.
+
+`applyTheme()` is now the single enforcement point, and it is **tri-state**. That distinction is the
+whole design: entitlement is unknowable before Firestore hydration (`getAccessState()` returns null, so
+`canAccessFeature()` correctly fails closed to free). Treating unknown as not-entitled would downgrade
+and *persist* Classic on every launch, stripping a paying user's theme — a worse bug than the original.
+So: **yes** → render and refresh the hint; **no** → render Classic, silently migrate the saved theme,
+clear the hint; **unknown** → render from the hint and persist nothing.
+
+The hint (`qr_theme_ent`) holds the confirmed entitlement's expiry, capped at 30 days, and exists only
+so the pre-paint script has something synchronous to consult. It is deliberately powerless: it gates
+one CSS class, every real premium gate still calls `canAccessFeature()` → Firestore, an absent/stale/
+garbage value falls to Classic, and `applyTheme()` overwrites it against live entitlement on every
+boot. It is unregistered in `storage-registry.js`, whose fail-safe default classifies unknown `qr_`
+keys as user-scoped — so logout and account switch purge it automatically.
+
+**Verified by execution, 12/12**, sampling the class on `<html>` per animation frame rather than
+reading the code: first install · free user with `playful` planted · forged future hint · premium happy
+path · premium with no hint · expiry with a lapsed hint · early revoke · offline cached start · offline
+with no hint · garbage hint · a hint rewritten ten years out · the 30-day cap. Zero premium frames in
+every unentitled case except the three where the stored expiry outlives the real entitlement (early
+revoke, refund, tampering) — undetectable before the first sync, so the pre-paint script honours it
+once. Those cases assert the property that actually matters instead: **relaunch in the same storage is
+clean** — `class=false saved=classic hint=null`. Recorded as a bounded residual, not hidden.
+
+**Three of my own instruments were lying, and each was caught by execution.**
+
+1. *The new glow assertion passed while the glow was still planted.* Its rule regex was
+   `/(^|\})\s*([^{}]*?)\{…/` — the `(^|\})` anchor **consumes** the previous rule's closing brace, and a
+   regex cannot re-use a consumed character, so the scan silently reads only every *other* rule.
+2. *`icon-identity.check.js` had shipped that same pattern since ADR-132* — it was reading **54 of the
+   stylesheet's 89** `.qr-ico` rules, blind to 35 including `.settings-label h3 .qr-ico` and most
+   `data-ico` bindings. Two assertions whose entire purpose is catching a raw `width`/`height` or an
+   `em` size had only ever inspected 61% of their subject. Widened; a violation planted in the former
+   blind spot now fails, and the shipped source proved clean.
+3. *The no-flash sampler never ran.* `document.documentElement` is **null** inside a Playwright init
+   script, so reading `.classList` there threw and aborted the whole script — no observer was installed
+   and all 11 cases reported "never showed playful", including the ones that legitimately do. A
+   no-flash gate that cannot observe a flash is not a gate. It now observes `document` with subtree,
+   samples per frame, and **self-tests**: a case expected to render Playful must positively observe it,
+   or the run fails.
+
+Two further harness bugs looked exactly like product failures: `addInitScript` re-seeds on *every*
+navigation, so the relaunch case overwrote the storage it existed to inspect; and MutationObserver
+callbacks are microtask-queued, so reading the flag in the same `evaluate` that toggled the class read
+it before the observer ran.
+
+**Consequences.**
+- Layout gate over 432 contexts / 4 themes × 3 locales × 4 widths × 9 screens: 0 new overflow, 0 new
+  clipping, 0 wraps, 0 touch regressions, 0 disappearances. `box-shadow` cannot move geometry and the
+  gate confirms it.
+- `npm test` 45 suites, 0 failed. design-lint 21 → **22** assertions, every census ceiling unchanged.
+  icon-identity 13/13 at full coverage. New `theme-entitlement.check` at **12** assertions, each proven
+  load-bearing by planting the exact defect it targets (revert the pre-paint gate, let app.js derive
+  the theme again, collapse the tri-state, leak the hint into `paywall.js`, register it as a logout
+  survivor — all five fail).
+- The probe harnesses had to learn about entitlement: seeding `theme:'playful'` alone now renders
+  Classic, which is itself end-to-end proof the gate works.
+- **Not done, deliberately:** the inline-style cleanup stays deferred. Classic Dark's card shadow is
+  unchanged — measured, it was never a glow. Content emoji in Learn and Quick-Ref stay emoji in both
+  themes under ADR-131's documented exception.
+
+---
+
 ## ADR-136 — Quick Study becomes Practice's smaller sibling; the dropdowns stop resizing with the phone (v268) (2026-08-02)
 
 **Context.** Part 1 (ADR-131…135) settled *visual identity*. This pass is about layout quality,

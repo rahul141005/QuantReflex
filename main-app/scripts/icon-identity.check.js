@@ -136,11 +136,18 @@ ok('no bare chrome emoji outside .qr-ico in index.html',
    entirely. Both failure modes shipped — `.kx-status-premium .qr-ico { width:.8em; height:.8em }`
    rendered 24x19px in Classic and 0x0 in Playful, and `.kx-locked-icon .qr-ico { width:2.2rem }` was
    silently overridden to `auto` in Classic. Use rem, or calc() over a rem-based token. */
-const ICO_RULE = /(^|\})\s*([^{}]*\.qr-ico[^{}]*)\{([^{}]*)\}/g;
+/* ADR-137 — this pattern was `/(^|\})\s*([^{}]*\.qr-ico[^{}]*)\{…/`, and the `(^|\})` anchor CONSUMES
+   the previous rule's closing brace. A regex cannot re-use a consumed character, so every second rule
+   was skipped: the contract below was reading 54 of the stylesheet's 89 `.qr-ico` rules and was blind
+   to the other 35 — including `.home-section-edit .qr-ico`, `.settings-label h3 .qr-ico` and most of
+   the `data-ico` bindings. Two assertions that exist precisely to catch a raw `width`/`height` or an
+   `em` size were therefore only ever inspecting 61% of their subject. Excluding braces from the
+   selector class delimits rules on its own and visits all of them. */
+const ICO_RULE = /([^{}]*\.qr-ico[^{}]*)\{([^{}]*)\}/g;
 const boxViolations = [], emViolations = [];
 for (const m of css.matchAll(ICO_RULE)) {
-  const sel = m[2].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
-  const body = m[3].replace(/\/\*[\s\S]*?\*\//g, '');
+  const sel = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
+  const body = m[2].replace(/\/\*[\s\S]*?\*\//g, '');
   /* the two theme rules below legitimately own width/height — they ARE the contract's implementation */
   const isContractOwner = /^(\.qr-ico|html\.theme-playful \.qr-ico|html:not\(\.theme-playful\) \.qr-ico)(::before)?$/.test(sel);
   if (!isContractOwner && /(^|;|\s)(width|height)\s*:/.test(body)) boxViolations.push(sel);

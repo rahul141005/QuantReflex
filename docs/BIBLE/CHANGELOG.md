@@ -6,6 +6,43 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Adversarial re-certification: an unenforced premium theme, and a neon halo (ADR-137, SW v268→v269)
+
+An audit of ADR-136 run as if someone else had written it. Two defects confirmed from source; neither
+was a *change*, which is why no gate had ever asked about them.
+
+- **Playful Dark used a coloured halo as elevation.** `--qr-glow-accent` resolves to teal
+  `rgba(45,212,191,.28)` in that block and was the *entire* box-shadow of the shared card component —
+  so Home, Practice, Learn and Quick Study all glowed. Replaced with the elevation ladder that block
+  already declares and that its own `.settings-section-card` / `.analytics-card` already used
+  (`--el-1` at rest, `--el-2` on hover, `--el-3` for the onboarding panel). Depth *increases*: a 26px
+  double-throw against the glow's single 12px. Glass, borders and separation untouched; CTAs keep their
+  halo. Classic Dark measured and left alone — it was never a glow. New design-lint assertion: a
+  coloured glow belongs to accent **actions**, never to content **surfaces**.
+- **The premium theme outlived its subscription on every launch.** Playful Professional was enforced in
+  exactly one place — `initSettingsView()` — while three other paths applied it straight from saved
+  settings (pre-paint script, boot IIFE, post-hydration). A lapsed user kept it through every cold
+  start, offline launch and restore, forever, unless they opened Settings. `applyTheme()` is now the
+  single, **tri-state** enforcement point: unknown ≠ not-entitled, because entitlement is unknowable
+  before hydration and collapsing the two would strip a paying user's theme on every launch. A capped,
+  fail-closed `qr_theme_ent` hint lets the pre-paint script avoid a flash; it gates one CSS class,
+  never a feature, and is purged on logout by the storage registry's fail-safe default.
+- **Verified by execution, 12/12**, sampling `<html>` per animation frame: first install, forged hint,
+  premium happy path, expiry, early revoke, offline, garbage values, and the 30-day cap. The three
+  cases where a stored expiry outlives the real entitlement are undetectable before the first sync, so
+  they flash once and then self-heal — the relaunch assertion proves `class=false saved=classic
+  hint=null`. Recorded as a bounded residual, not hidden.
+- **Three of my own instruments were lying.** The new glow assertion passed while the glow was still
+  planted; `icon-identity` had shipped the same regex bug since ADR-132 and was reading **54 of 89**
+  `.qr-ico` rules; and the no-flash sampler never ran at all, because `document.documentElement` is
+  null inside a Playwright init script. All three fixed, and each now self-tests.
+- Gate: 0 new overflow / clipping / wraps / touch regressions / disappearances across 432 contexts.
+  npm test 45 suites 0 failed; design-lint 21→22 with ceilings unchanged; icon-identity 13/13 at full
+  coverage; new theme-entitlement.check at 12 assertions, all five negative tests failing as designed.
+- Docs: ADR-137, VERSIONS 2.168→2.169, lockstep v268→v269.
+
+---
+
 ## 2026-08-02 — Quick Study rebuilt on Practice; dropdowns stop resizing per phone (ADR-136, SW v267→v268)
 
 Part 2 of the production certification — layout quality, usability and interaction rather than visual

@@ -134,7 +134,16 @@ async function capture(tag) {
     for (const width of WIDTHS) {
       const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1 });
       await ctx.addInitScript(function (s) {
-        try { localStorage.setItem('qr_settings', JSON.stringify(s)); } catch (_) {}
+        try {
+          localStorage.setItem('qr_settings', JSON.stringify(s));
+          /* ADR-137: Playful Professional is premium and is now gated on every boot path, so a
+             harness that seeds only `theme:'playful'` renders CLASSIC and the whole playful half of
+             the matrix silently becomes a duplicate of the classic half. These contexts model a
+             PREMIUM user (they already force canAccessFeature true after load), so seed the
+             entitlement hint the pre-paint script consults. Expressed against the frozen clock
+             installed below, not the wall clock. */
+          localStorage.setItem('qr_theme_ent', String(1780000000000 + 30 * 86400000));
+        } catch (_) {}
         var F = 1780000000000; Date.now = function () { return F; };
         var seed = 42; Math.random = function () { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
       }, Object.assign({ hasOnboarded: true, appLanguage: locale, studyLanguage: locale }, theme.settings));

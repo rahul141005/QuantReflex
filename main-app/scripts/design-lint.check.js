@@ -312,6 +312,42 @@ const realOverrides = Object.keys(playfulTokens).filter(
 ok('Playful overrides >= ' + PLAYFUL_OVERRIDE_FLOOR + ' tokens with values differing from Classic',
   realOverrides.length >= PLAYFUL_OVERRIDE_FLOOR, 'got ' + realOverrides.length);
 
+/* ── glow belongs to ACTIONS, never to SURFACES (ADR-137) ──────────────────────────────────────────
+   `--qr-glow-accent` is a coloured halo, and every theme re-declares the colour it draws from
+   (`--qr-veil-accent-25`), so in Playful Dark it resolves to a teal `rgba(45,212,191,.28)`. On a
+   primary button that is intentional emphasis. On a CARD it is the whole elevation story rendered as
+   neon: four rules gave `.card`, `.mode-card`, `.training-card` and `.onboarding-card` a halo INSTEAD
+   of a shadow, so Home, Practice, Learn and Quick Study all glowed — they are one component.
+
+   Content surfaces belong on the elevation ladder (`--el-1/2/3`), which every theme already declares
+   and which the sibling surfaces in the very same blocks (`.settings-section-card`, `.analytics-card`)
+   already used. This assertion makes the split structural rather than a habit: a card that reaches for
+   the glow again fails here. Actions are matched by intent (btn/cta/pill/cell/cta-like), and a
+   `:focus`/`focus-visible` ring is exempt — a focus halo IS the correct affordance. */
+const SURFACE_SEL = /\.(card|mode-card|training-card|onboarding-card|analytics-card|settings-section-card|qs-card|qs-tray|home-bento|practice-container)\b/;
+const ACTION_SEL = /\.(btn|cta|pill|chip|key|tab|nav|pic|share|submit|numpad)/;
+const glowOnSurface = [];
+{
+  /* NOT `/(^|\})\s*([^{}]*?)\{…/` — that anchor CONSUMES the previous rule's closing brace, so the
+     next match cannot re-use it and the scan silently reads only every OTHER rule. The first cut of
+     this assertion used it and passed while the glow was still planted on `.mode-card`. Excluding
+     braces from the selector class is enough to delimit rules, and it visits all of them. */
+  const RULE = /([^{}]*)\{([^{}]*)\}/g;
+  let m;
+  while ((m = RULE.exec(css)) !== null) {
+    const sel = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
+    const body = m[2].replace(/\/\*[\s\S]*?\*\//g, '');
+    if (!/box-shadow\s*:[^;]*var\(--qr-glow-accent\)/.test(body)) continue;
+    if (/:focus(-visible)?\b/.test(sel)) continue;      // a focus ring is a legitimate halo
+    if (!SURFACE_SEL.test(sel)) continue;
+    if (ACTION_SEL.test(sel)) continue;                 // an action that merely lives on a card
+    glowOnSurface.push(sel.slice(0, 80));
+  }
+}
+ok('no coloured glow used as a content surface\'s elevation (glow is for actions)',
+  glowOnSurface.length === 0,
+  glowOnSurface.length ? glowOnSurface.join(' | ') : 'surfaces use the --el ladder');
+
 /* Design-token presence: the foundation tokens must exist once M1 lands (soft until then). */
 const REQUIRED_TOKENS_M1 = ['--r-lg', '--el-1', '--z-dialog', '--fs-h1', '--sp-6'];
 const tokensPresent = REQUIRED_TOKENS_M1.every(t => css.indexOf(t + ':') !== -1);

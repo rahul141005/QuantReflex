@@ -42,18 +42,108 @@ function saveSettings(s) {
   }
 }
 
+/* ─────────────────────── Theme entitlement (ADR-137) ───────────────────────
+   Playful Professional is premium. Before this, the ONLY enforcement lived in initSettingsView(), so
+   the gate ran when — and only when — the user opened the Settings tab. Every other path applied the
+   theme straight from persisted settings: the pre-paint head script, the boot IIFE in app.js, and the
+   post-hydration applyTheme() call. A user whose subscription lapsed therefore kept the premium theme
+   through every cold start, warm start, offline launch and restore, indefinitely.
+
+   applyTheme() is now the single enforcement point, and it is TRI-STATE. That distinction is the whole
+   design: entitlement is unknowable before Firestore hydration (getAccessState() returns null, so
+   canAccessFeature() correctly fails closed to "free"). Treating unknown as "not entitled" would
+   downgrade and PERSIST classic on every launch, stripping a paying user's theme — a worse bug than
+   the one being fixed. So:
+
+     yes      → render Playful, refresh the hint
+     no       → render Classic, silently migrate the saved theme, clear the hint
+     unknown  → render from the HINT, and persist nothing
+
+   The hint is one key holding the confirmed entitlement's expiry in millis. It exists so the pre-paint
+   script — which runs before any module — has something synchronous to consult, and it is deliberately
+   powerless: it gates ONE CSS class. Every real premium gate still calls canAccessFeature() → Firestore,
+   so a forged hint buys a colour scheme and nothing else, it can only ever WITHHOLD the theme (an
+   absent/stale/garbage value falls to Classic), and applyTheme() overwrites it against live entitlement
+   on every boot. `qr_theme_ent` is unregistered in storage-registry.js, whose fail-safe default
+   classifies unknown `qr_` keys as user-scoped — so logout and account switch purge it automatically. */
+var THEME_ENT_KEY = 'qr_theme_ent';
+
+/** 'yes' | 'no' | 'unknown' — never throws, never guesses entitled. */
+function themeEntitlement() {
+  try {
+    var st = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
+      ? FirestoreSync.getAccessState() : null;
+    if (!st) return 'unknown';                       /* pre-hydration / signed out */
+    return (typeof canAccessFeature === 'function' && canAccessFeature('advanced_theme')) ? 'yes' : 'no';
+  } catch (_) { return 'unknown'; }
+}
+
+/** The pre-paint predicate, in ONE place. index.html inlines this exact rule — keep them in lockstep
+    (scripts/theme-entitlement.check.js asserts it). */
+function themeHintValid() {
+  try {
+    var v = parseInt(localStorage.getItem(THEME_ENT_KEY) || '0', 10);
+    return v > Date.now();
+  } catch (_) { return false; }
+}
+
+/* The hint is capped as well as expiry-bound. On the ordinary expiry path the two coincide — the hint
+   dies at exactly the moment entitlement does, so that path never shows a premium frame at all. The
+   cap exists for the paths where the stored expiry OUTLIVES the real entitlement: an early revoke,
+   refund or chargeback, or a hand-edited value. Those cannot be detected before the first sync, so the
+   pre-paint script will honour the hint once; the cap bounds how long "once" can keep recurring if the
+   device never syncs again. 30 days is chosen to sit far beyond any realistic offline stretch — a
+   premium user offline for a month keeps their theme — while stopping a forged value asserting years. */
+var THEME_ENT_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+
+function _writeThemeHint(entitled) {
+  try {
+    if (!entitled) { localStorage.removeItem(THEME_ENT_KEY); return; }
+    var st = (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.getAccessState === 'function')
+      ? FirestoreSync.getAccessState() : null;
+    var core = (typeof QR_ENTITLEMENT !== 'undefined') ? QR_ENTITLEMENT : null;
+    var exp = (st && core) ? core.toMillis(st.planExpiry) : 0;
+    var now = Date.now();
+    var capped = Math.min(exp, now + THEME_ENT_MAX_MS);
+    /* entitlement-core guarantees an active plan carries a real future expiry; anything else is
+       illegitimate data, so writing no hint (⇒ Classic next boot) is the fail-safe answer. */
+    if (capped > now) localStorage.setItem(THEME_ENT_KEY, String(capped));
+    else localStorage.removeItem(THEME_ENT_KEY);
+  } catch (_) { /* storage disabled — the theme simply falls back to Classic next boot */ }
+}
+
 /**
- * Apply a theme by class name.
+ * Apply a theme by class name — and enforce entitlement while doing it.
  * Removes all theme classes and applies the selected one.
  * @param {string} theme - 'classic' or 'playful'
+ * @returns {string} the theme actually applied
  */
 function applyTheme(theme) {
   /* UI Phase 1: theme classes live on <html> — the pre-paint head script sets them before <body>
      parses (no flash), and every selector keys off html.*. (The transitional body-level toggle was
      removed once zero selectors/readers consumed it.) */
-  var on = theme === 'playful';
+  var wanted = (theme === 'playful') ? 'playful' : 'classic';
+  var ent = themeEntitlement();
+  var on = (wanted === 'playful') && (ent === 'yes' || (ent === 'unknown' && themeHintValid()));
+
   document.documentElement.classList.toggle('theme-playful', on);
   /* Icons are theme-driven purely in CSS (QR icon system) — toggling the class is enough. */
+
+  if (ent === 'yes') {
+    _writeThemeHint(true);
+  } else if (ent === 'no') {
+    _writeThemeHint(false);
+    /* Silently migrate a saved premium theme the user is no longer entitled to, so the next pre-paint
+       reads 'classic' and no launch can ever show an expired premium theme. Only ever writes when
+       entitlement is KNOWN — never on the unknown branch. */
+    if (wanted === 'playful') {
+      try {
+        var s = loadSettings();
+        if (s && s.theme && s.theme !== 'classic') { s.theme = 'classic'; saveSettings(s); }
+      } catch (_) { /* never block rendering on a settings write */ }
+    }
+  }
+  return on ? 'playful' : 'classic';
 }
 
 /* ---- Appearance: System / Light / Dark (ADR-091; default→Light in UI Phase 1) ----
@@ -264,12 +354,12 @@ function initSettingsView() {
       saveSettings(settings);
       SoundEngine.play('settingsToggle');
     });
-    if ((settings.theme || 'classic') !== 'classic' && !canAccessFeature('advanced_theme')) {
-      settings.theme = 'classic';
-      applyTheme('classic');
-      saveSettings(settings);
-    }
-    themeSelect.value = settings.theme || 'classic';
+    /* ADR-137: this used to BE the enforcement point, and was the only one. applyTheme() now owns the
+       decision for every path, so this just runs it and reflects the result — one rule, no second
+       implementation to drift. The downgrade write lives inside applyTheme(). */
+    var applied = applyTheme(settings.theme || 'classic');
+    if (applied !== (settings.theme || 'classic')) settings.theme = applied;
+    themeSelect.value = applied;
   }
 
   soundToggle = rebind(soundToggle, 'change', function () {

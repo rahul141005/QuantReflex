@@ -9,11 +9,28 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.168 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.169 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.169 (2026-08-02)** — **Adversarial re-certification of ADR-136 (ADR-137, SW v268→v269).** Two
+> defects that no gate had ever asked about, because neither was a change. Playful Dark used
+> `--qr-glow-accent` — teal `rgba(45,212,191,.28)` in that block — as the ENTIRE box-shadow of the
+> shared card component, so Home, Practice, Learn and Quick Study all wore a neon halo; replaced with
+> the elevation ladder the same theme block already declared and its own sibling surfaces already used,
+> which *increases* depth (26px double-throw vs a single 12px) while leaving glass, borders and
+> separation intact. CTAs keep their halo: glow is for actions, never for surfaces, now a design-lint
+> assertion. Separately, Playful Professional — a PREMIUM theme — was enforced in exactly one place
+> (`initSettingsView`), while the pre-paint script, the boot IIFE and the post-hydration call all
+> applied it straight from saved settings; a lapsed subscription kept the premium theme on every launch
+> forever. `applyTheme()` is now the single, tri-state enforcement point (unknown ≠ not-entitled, or
+> every launch would strip a paying user's theme), backed by a capped fail-closed hint that gates one
+> CSS class and is purged on logout. Verified by execution 12/12, sampling `<html>` per frame. Three of
+> my own instruments were found lying: the new glow assertion passed while the glow was planted,
+> `icon-identity` had been reading 54 of 89 `.qr-ico` rules since ADR-132, and the no-flash sampler
+> never ran because `document.documentElement` is null in a Playwright init script.
 
 > **2.168 (2026-08-02)** — **Quick Study rebuilt on Practice; dropdowns pinned (ADR-136, SW v267→v268).**
 > Part 2 of the production certification: layout, usability and interaction. Quick Study's wrapping row

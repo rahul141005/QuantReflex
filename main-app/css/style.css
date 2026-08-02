@@ -4561,7 +4561,9 @@ html.theme-playful .mode-card {
 html.theme-playful .card:hover,
 html.theme-playful .mode-card:hover {
   transform: translateY(-1px);
-  box-shadow: var(--qr-glow-accent);
+  /* ADR-137: the light variant had the same teal halo on hover (Playful re-declares
+     --qr-veil-accent-25 for both variants). Elevation, not hue — matches the dark rule below. */
+  box-shadow: var(--el-2);
 }
 
 html.theme-playful .mode-card h3 { color: #1a1a2e; }
@@ -4939,21 +4941,36 @@ html.theme-playful.dark-mode header h1 {
   color: #58a6ff;
 }
 
+/* ADR-137 — content surfaces get ELEVATION, never a coloured halo.
+   These four rules used `--qr-glow-accent`, which inside this block resolves to
+   `0 4px 12px rgba(45,212,191,.28)` — a teal glow, because Playful Dark re-declares
+   `--qr-veil-accent-25` in its own palette. As the card's ENTIRE box-shadow that reads as neon rather
+   than depth, and it was the whole elevation story for `.card` and `.mode-card`: Home, Practice, Learn
+   and Quick Study all wore the same halo, because they are all the same component.
+
+   The replacement is not new — it is what this theme's OTHER surfaces already use.
+   `html.theme-playful.dark-mode` declares `--el-1: 0 8px 26px rgba(0,0,0,.42), 0 1px 3px rgba(0,0,0,.30)`
+   and `.settings-section-card` / `.analytics-card` in this very block already read it. The card was the
+   outlier. Swapping to the ladder INCREASES depth — a 26px double-throw against the glow's single 12px —
+   so hierarchy strengthens rather than flattens, and glass, borders and surface separation are untouched.
+
+   The durable rule this encodes, asserted by design-lint: a coloured glow belongs to accent ACTIONS
+   (CTAs, active pills, primary buttons), never to content SURFACES. */
 html.theme-playful.dark-mode .training-card {
   background: rgba(22,27,45,.94);
   border-color: rgba(79,143,247,.12);
-  box-shadow: var(--qr-glow-accent);
+  box-shadow: var(--el-1);
 }
 html.theme-playful.dark-mode .card,
 html.theme-playful.dark-mode .mode-card {
   background: rgba(22,27,45,.88);
   border-color: rgba(79,143,247,.12);
-  box-shadow: var(--qr-glow-accent);
+  box-shadow: var(--el-1);
 }
 html.theme-playful.dark-mode .card:hover,
 html.theme-playful.dark-mode .mode-card:hover {
   transform: translateY(-1px);
-  box-shadow: var(--qr-glow-accent);
+  box-shadow: var(--el-2);        /* one step up the ladder — lift reads as rising, not as lighting up */
 }
 
 html.theme-playful.dark-mode .mode-card h3,
@@ -5252,7 +5269,9 @@ html.theme-playful.dark-mode .drill-progress-fill {
 html.theme-playful.dark-mode .onboarding-overlay { background: rgba(0,0,0,.7); }
 html.theme-playful.dark-mode .onboarding-card {
   background: #161b2d;
-  box-shadow: var(--qr-glow-accent);
+  /* ADR-137: a modal panel is a content surface, not an accent action — elevation, not a halo.
+     --el-3 rather than --el-1 because it floats above an overlay; the ladder already says so. */
+  box-shadow: var(--el-3);
 }
 html.theme-playful.dark-mode .onboarding-title { color: #e6edf3; }
 html.theme-playful.dark-mode .onboarding-desc { color: #8b949e; }

@@ -61,8 +61,12 @@
        ELSE branch clears any stale pre-paint class. */
     document.documentElement.classList.toggle('dark-mode', _dark);
     if (settings.reducedMotion) document.body.classList.add('reduced-motion');
-    var _playful = settings.theme === 'playful';
-    document.documentElement.classList.toggle('theme-playful', _playful);
+    /* ADR-137: this used to derive the theme itself (`settings.theme === 'playful'`), which made it one
+       of three ungated boot paths — a lapsed subscription kept rendering the premium theme forever.
+       applyTheme() is the single enforcement point now; at this moment entitlement is still unknown
+       (Firestore has not hydrated), so it renders from the fail-closed hint and persists nothing. */
+    if (typeof applyTheme === 'function') applyTheme(settings.theme);
+    else document.documentElement.classList.remove('theme-playful');   /* fail closed */
     if (typeof _syncThemeColor === 'function') _syncThemeColor(_dark);
     /* Languages (ADR-111): applied with the other appearance state so static chrome is already
        localized before first paint completes (the inline head script covered <html lang> pre-paint). */
