@@ -9,11 +9,25 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.163 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.164 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.164 (2026-08-02)** — **Adversarial re-verification of the UI restoration (ADR-132, SW v263→v264).**
+> Hostile re-check of ADR-131 against the live runtime with every prior report discarded. ADR-131's claims
+> survived; **four defects were found.** The Practice grouping tray had been missing in **both light themes**
+> (the base rule had lost its `background`; predates ADR-131 and the shallow clone cannot date it), and the
+> obvious fix was **invisible** — `var(--qr-surface)` is a 6/255 delta on classic light's page, which px-diff
+> scored as zero changed pixels — so a semantic `--qr-panel` token now names the tray per theme (deltas
+> 22/16/14/19) with dark byte-identical. Three dead `border-color` declarations removed; the matching border
+> deliberately not restored, as it would move Dark. Two icons bypassed the `--qr-ico-size` contract: the Learn
+> premium badge was **0×0 invisible in Playful** (`em` against `font-size: 0`) and 2.5× oversized in Classic,
+> and the locked-topic icon was silently overridden by ADR-131's own theme rule on specificity. Both fixed and
+> now guarded structurally. **px-diff's determinism, broken by ADR-131, is repaired and proven** — infinite
+> animations were landing on a random phase, up to 2.75% noise; the shoot-twice self-test now passes on all 32
+> screens. Every census ceiling unchanged; `align-probe` still 0 offenders >1px.
 
 > **2.163 (2026-08-02)** — **Visual identity restoration (ADR-131, SW v262→v263).** `main-app` only;
 > restoration, not redesign. The two themes had become ~86% the same object: `:root` defined 205 tokens,

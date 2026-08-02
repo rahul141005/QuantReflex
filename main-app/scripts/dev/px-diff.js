@@ -93,10 +93,14 @@ async function shoot(tag) {
     await page.addInitScript(function () {
       document.addEventListener('DOMContentLoaded', function () {
         var st = document.createElement('style');
-        /* ADR-131: zero DURATION, not `none`. `animation:none` freezes an entry animation on its FIRST
-           frame, so opacity-0 intro sections (the About modal's .guide-animate-section) shoot blank.
-           A near-zero duration is equally deterministic but settles on the FINAL frame. */
-        st.textContent = '*,*::before,*::after{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important;transition-delay:0s!important;caret-color:transparent!important}';
+        /* Motion is collapsed to a single instantaneous pass that STICKS on its final frame.
+           `animation:none` freezes an entry animation on its FIRST frame, so opacity-0 intro sections
+           (the About modal's .guide-animate-section) shoot blank. But a near-zero duration alone is NOT
+           deterministic: an INFINITE animation (the hero's 25s slowSpin) then cycles endlessly and each
+           shot catches a different phase — measured as up to 2.75% frame-to-frame noise on home/about,
+           enough to swamp a real regression. iteration-count:1 + fill-mode:forwards stops every
+           animation on its end frame, which is both settled and reproducible. */
+        st.textContent = '*,*::before,*::after{animation-duration:.001s!important;animation-delay:0s!important;animation-iteration-count:1!important;animation-fill-mode:forwards!important;transition-duration:.001s!important;transition-delay:0s!important;caret-color:transparent!important}';
         document.head.appendChild(st);
       });
     });

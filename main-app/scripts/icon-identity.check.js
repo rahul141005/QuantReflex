@@ -109,5 +109,34 @@ strippedHtml.split('\n').forEach((line, i) => {
 ok('no bare chrome emoji outside .qr-ico in index.html',
   bareChrome.length === 0, bareChrome.length ? bareChrome.join(' | ') : 'clean');
 
+/* ── 6. the SIZING CONTRACT (ADR-132) ──────────────────────────────────────────────────────────────
+   An icon's size must be set through the `--qr-ico-size` custom property, never through `width`/
+   `height` on `.qr-ico` itself, because the two themes consume the size differently: Playful uses it
+   as the mask BOX, Classic as the glyph's FONT-SIZE. A raw width/height therefore cannot describe
+   both, and it silently loses to the theme rules anyway — `html:not(.theme-playful) .qr-ico` has
+   specificity (0,2,1), which outranks a plain `.some-class .qr-ico` at (0,2,0).
+
+   `em` is banned for the same property for a sharper reason: Playful's masking rule sets
+   `font-size: 0`, so ANY em-relative length on a `.qr-ico` resolves to 0px and the icon vanishes
+   entirely. Both failure modes shipped — `.kx-status-premium .qr-ico { width:.8em; height:.8em }`
+   rendered 24x19px in Classic and 0x0 in Playful, and `.kx-locked-icon .qr-ico { width:2.2rem }` was
+   silently overridden to `auto` in Classic. Use rem, or calc() over a rem-based token. */
+const ICO_RULE = /(^|\})\s*([^{}]*\.qr-ico[^{}]*)\{([^{}]*)\}/g;
+const boxViolations = [], emViolations = [];
+for (const m of css.matchAll(ICO_RULE)) {
+  const sel = m[2].replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/\s+/g, ' ');
+  const body = m[3].replace(/\/\*[\s\S]*?\*\//g, '');
+  /* the two theme rules below legitimately own width/height — they ARE the contract's implementation */
+  const isContractOwner = /^(\.qr-ico|html\.theme-playful \.qr-ico|html:not\(\.theme-playful\) \.qr-ico)(::before)?$/.test(sel);
+  if (!isContractOwner && /(^|;|\s)(width|height)\s*:/.test(body)) boxViolations.push(sel);
+  if (/--qr-ico-size\s*:[^;]*\d(\.\d+)?em\b/.test(body) || /(^|;|\s)(width|height)\s*:[^;]*\d(\.\d+)?em\b/.test(body)) emViolations.push(sel);
+}
+ok('icon size is set via --qr-ico-size, never raw width/height on .qr-ico',
+  boxViolations.length === 0,
+  boxViolations.length ? boxViolations.join(' | ') : 'no raw box sizing');
+ok('icon size never uses em (collapses to 0 against Playful font-size:0)',
+  emViolations.length === 0,
+  emViolations.length ? emViolations.join(' | ') : 'no em-relative icon sizing');
+
 console.log('\nicon-identity.check: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

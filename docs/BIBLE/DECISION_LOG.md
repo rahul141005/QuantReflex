@@ -8,6 +8,82 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-132 — Adversarial re-verification of ADR-131: the Practice tray had been missing in both LIGHT themes, and two icons bypassed the sizing contract (v264) (2026-08-02)
+
+**Context.** A hostile re-verification of ADR-131 against the current repository and live runtime, with every
+prior report — including ADR-131's own — discarded. The goal was to prove the work wrong. Four defects were
+found. ADR-131's headline claims survived re-measurement: hero ramps correct in all four combinations, four
+distinct elevation ramps, a clean 97/0 vs 0/97 icon split, and the language transition still one commit pass
+at ~180 ms with zero page errors.
+
+**Decision 1 — the grouping tray is a SEMANTIC token, not "the surface colour" (D1).** `.practice-container`
+had lost its `background`, so the Practice mode cards floated directly on the page in **both light themes**
+while both dark themes kept their panel — the reported regression was broader than reported. Four independent
+traces of the original survive in the file: the `:active` rule cancels `.card`'s tap-scale on an element that
+no longer carries that class; the dark rule's value is *exactly* dark's `--qr-surface`; Playful's rule
+overrode a background that no longer existed; and the base rule's own comment calls it a glass panel. Git
+could not date the loss — the clone is shallow at 85 commits and no available revision has the background —
+so this **predates ADR-131**, which never touched the rule.
+
+The fix is not `background: var(--qr-surface)`. That is token-correct and **invisible**: in classic light it
+composites to `rgb(254,254,255)` on a `rgb(248,250,252)` page, a 6/255 delta that px-diff scored as *zero*
+changed pixels. "The surface colour" and "a tray that reads against this theme's page" are different ideas in
+different palettes, so a `--qr-panel` token now names the second one per theme: classic light
+`--qr-surface-3` (delta 22), classic dark `--qr-surface` (16, byte-identical to before), playful light
+`--qr-surface-2` (14), playful dark its explicit `.analytics-card` mirror (19). Near white a larger absolute
+delta is needed for the same perceived step, which is why the light numbers sit higher.
+
+Deliberately background-only: the matching `border: 1px solid` is **not** restored, because adding one would
+make the dark themes render an edge they do not render today. The three orphaned `border-color` declarations
+are deleted instead — measured `border-top-width: 0px` in all four themes, so they painted nothing (D2).
+
+**Decision 2 — icon size belongs to `--qr-ico-size`, and never to `em` (D3, D4).** Two rules sized `.qr-ico`
+with raw `width`/`height`, which cannot work in a system where Playful consumes the size as a mask BOX and
+Classic as the glyph's FONT-SIZE:
+
+- `.kx-status-premium .qr-ico` used `.8em`. In Playful, `em` resolves against the masking rule's
+  `font-size: 0`, so the lock was **0×0 — invisible** (pre-existing, in both themes before ADR-131). In
+  Classic it rendered **24×19px**, roughly 2.5× its authored size, because the rule lost the cascade.
+- `.kx-locked-icon .qr-ico` used `2.2rem` and was silently overridden to `auto` in Classic — **introduced by
+  ADR-131**, whose `html:not(.theme-playful) .qr-ico` is specificity (0,2,1) against this rule's (0,2,0).
+
+Both now route through `--qr-ico-size`. The premium badge keeps its authored proportions exactly:
+`--fs-micro` is `.6875rem` = 11px, so the authored `.8em` is precisely `.55rem`, written as
+`calc(var(--fs-micro) * .8)` so the intent is self-documenting and survives a type-scale change while
+avoiding `em`. Deliberately **not** matched to the `.8rem` sibling premium chips — this badge was authored
+smaller, and fidelity beats uniformity. Measured after: 8.8px tall in all four themes, vertically centred to
+within **0.01px**, chip height/padding/gap unchanged, identical at DPR 1, 2 and 3.
+
+`icon-identity.check.js` now enforces the contract structurally: no raw `width`/`height` on a `.qr-ico`
+outside the three rules that implement the contract, and no `em` anywhere in icon sizing. Both assertions
+fail on the pre-fix tree and name exactly the two offenders.
+
+**Decision 3 — px-diff's determinism was broken by ADR-131 and is now proven, not assumed.** ADR-131 replaced
+`animation: none` with `animation-duration: .001s` so the About modal's opacity-0 intro sections would settle
+rather than freeze blank. That fixed entry animations and broke **infinite** ones: the hero's 25 s `slowSpin`
+now cycled endlessly and each shot caught a different phase. Measured frame-to-frame noise of up to **2.75%**
+on home and about — enough to swamp a real regression, and enough that ADR-131's own "ALL PASS" was
+unreliable on those screens. Adding `animation-iteration-count: 1` + `animation-fill-mode: forwards` stops
+every animation on its end frame. The harness's own acceptance gate — shoot twice, compare — now passes with
+**all 32 screens byte-identical**, and that self-test was run *before* trusting any comparison.
+
+**Consequences.**
+- px-diff base↔candidate: **ALL PASS** with only `practice-light` and `practice-playful` differing. Every
+  `*-dark` and `*-playfuldark` screen is byte-identical, which was the primary acceptance gate.
+- Suite: `icon-identity` 10 → 12, design-lint unchanged at 12 with every ceiling held
+  (radii 6 / shadows 4 / font-sizes 12 / durations 3 / easings 3 / z 1 / gradients 10).
+- `align-probe` holds at 0 offenders >1px across 105 pairs after the icon-size changes.
+- **Known blind spot recorded:** px-diff seeds a premium profile, so no content is locked and the
+  `.kx-status-premium` / `.kx-locked-icon` surfaces never render in its matrix. Both were verified by direct
+  measurement and element screenshots instead.
+- **Observation recorded, not changed:** `.practice-container:active` sets `box-shadow: var(--el-1)` while the
+  element has no rest shadow, so a shadow pops in on tap. Pre-existing, affects all four themes equally, and
+  changing it would move Dark.
+- Untouched: business logic, Firestore, auth, payments, state, AI, analytics, routing, translations, and the
+  ADR-126/127/128 language transition (re-verified at ~180 ms, one `QRI18n.init` call, 0 page errors).
+
+---
+
 ## ADR-131 — The two themes had become the same object, and the hero stopped being the centrepiece: a measured visual restoration (v263) (2026-08-02)
 
 **Context.** Twelve waves of UI work (UI-M1…M6, FW-W1…W8, P1-final A–D, ADR-114) each did something

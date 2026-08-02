@@ -34,6 +34,10 @@
      Light defaults below; dark + playful override the same names. ── */
   --qr-text: #0f172a; --qr-text-dim: #64748b; --qr-text-mut: #64748b;   /* UI Phase 1 §6.3: was #94a3b8 (~2.9:1 on white, sub-AA); #64748b clears 4.5:1 for muted body text */
   --qr-surface: rgba(255,255,255,.88); --qr-surface-solid: #ffffff; --qr-surface-2: #f1f5f9; --qr-surface-3: #e2e8f0;
+  /* ADR-132: the grouping-tray step. Near white you need a LARGER absolute delta for the same
+     perceived step, so classic light takes --qr-surface-3 (delta 22 vs the page) where dark takes
+     --qr-surface (delta 16). Both read as the same tray; the numbers differ because the palettes do. */
+  --qr-panel: var(--qr-surface-3);
   --qr-border: #e2e8f0; --qr-border-strong: #cbd5e1;
   --qr-accent-2: #3b82f6; --qr-accent-strong: #1d4ed8; --qr-on-accent: #fff;   /* text on accent fills — invariant (FW-W7e) */
   --qr-success: #16a34a; --qr-success-fg: #15803d; --qr-success-bg: rgba(22,163,74,.12); --qr-success-border: #22c55e;
@@ -135,6 +139,7 @@ html.dark-mode {
   --qr-bg: #0f172a; --qr-accent: #60a5fa;
   --qr-text: #e2e8f0; --qr-text-dim: #94a3b8; --qr-text-mut: #94a3b8;   /* ADR-095: was #64748b (~3.2:1 on dark surfaces, below AA); #94a3b8 clears 4.5:1 for small tertiary text */
   --qr-surface: rgba(30,41,59,.88); --qr-surface-solid: #1e293b; --qr-surface-2: #0f172a; --qr-surface-3: #334155;
+  --qr-panel: var(--qr-surface);          /* byte-identical to the value this theme shipped before */
   --qr-border: #334155; --qr-border-strong: #475569;
   --qr-accent-2: #3b82f6; --qr-accent-strong: #3b82f6;
   --qr-success: #22c55e; --qr-success-fg: #86efac; --qr-success-bg: rgba(22,163,74,.20); --qr-success-border: #22c55e;
@@ -157,6 +162,8 @@ html.theme-playful {
   --qr-shadow-playful: 0 4px 24px rgba(120,100,70,.08), 0 1px 6px rgba(120,100,70,.04);
   --qr-text: #2a2521; --qr-text-dim: #6a6055; --qr-text-mut: #6f6455;
   --qr-surface: #faf9f7; --qr-surface-solid: #faf9f7; --qr-surface-2: #f0eee9; --qr-surface-3: #e8e6e1;
+  /* --qr-surface IS Playful's page colour, so the tray must step to warm paper instead */
+  --qr-panel: var(--qr-surface-2);
   --qr-border: #e8e6e1; --qr-border-strong: #d9d5cc;
   /* ADR-131: --qr-success{,-bg,-border} and --qr-danger{,-fg,-bg,-border} were re-declared here with
      values byte-identical to :root — 7 of Playful's 28 "overrides" changed nothing. Only the two that
@@ -201,6 +208,7 @@ html.theme-playful.dark-mode {
   --qr-shadow-playful: 0 8px 24px rgba(0,0,0,.35);
   --qr-text: #e6edf3; --qr-text-dim: #9aa5b1; --qr-text-mut: #7f8b99;
   --qr-surface: rgba(30,35,48,.9); --qr-surface-solid: #1b2130; --qr-surface-2: #141926; --qr-surface-3: #2a3346;
+  --qr-panel: rgba(22,27,45,.88);         /* mirrors .analytics-card, byte-identical to before */
   --qr-border: #2a3346; --qr-border-strong: #3a465e;
   --qr-success: #22c55e; --qr-success-fg: #86efac; --qr-success-bg: rgba(22,163,74,.20); --qr-success-border: #22c55e;
   --qr-danger: #f87171; --qr-danger-fg: #fca5a5; --qr-danger-bg: rgba(220,38,38,.22); --qr-danger-border: #ef4444;
@@ -3151,6 +3159,22 @@ body.view-practice-active > .container {
   margin: var(--qr-practice-gap) auto;
   /* Symmetric internal padding → dedicated-panel feel. */
   padding: .9rem;
+  /* ADR-132: the grouping SURFACE, restored. This rule had lost its background, so the panel existed
+     only in the two dark themes — which have their own background rules — and the mode cards floated
+     directly on the page in both light themes. Three independent traces of the original are still in
+     this file: the `:active` rule below cancels `.card`'s tap-scale on an element that no longer
+     carries that class, the dark rule's value is EXACTLY dark's --qr-surface, and Playful's rule
+     overrode a background that no longer existed. The comment above already called it a glass panel.
+     Deliberately background-only: the matching `border: 1px solid` is NOT restored, because adding one
+     would make the dark themes render an edge they do not render today.
+
+     The value is a SEMANTIC token, not `--qr-surface`, because "the surface colour" and "a grouping
+     tray that reads against this theme's page" are not the same thing in every palette. Measured
+     against each theme's page background, max channel delta: classic dark 16 and playful light 14 —
+     both clearly readable — but classic light's `--qr-surface` composites to rgb(254,254,255) on a
+     rgb(248,250,252) page, a delta of 6. That is invisible: px-diff scored the whole screen as ZERO
+     changed pixels. Each theme therefore names its own panel step below. */
+  background: var(--qr-panel);
   /* Soft glass-panel corners — same radius as Home cards, so it reads as an intentional
      container rather than a sharp rectangle. (Visual refinement of the ADR-011 panel.) */
   border-radius: var(--qr-card-radius);
@@ -3361,10 +3385,9 @@ html.dark-mode .analytics-card {
   border-color: rgba(51,65,85,.5);
 }
 
-html.dark-mode .practice-container {
-  background: rgba(30,41,59,.88);
-  border-color: rgba(51,65,85,.6);
-}
+/* ADR-132: this rule is gone. Its background was byte-identical to dark's --qr-surface, which the base
+   rule now reads, so dark renders exactly as before; and its `border-color` was dead, since nothing has
+   ever given this element a border-width (measured 0px in all four themes). */
 
 /* ---- Responsive ---- */
 @media (max-width: 359px) {
@@ -4701,7 +4724,9 @@ html.theme-playful .analytics-card {
   border-color: rgba(226,222,214,.5);
   box-shadow: var(--el-1);
 }
-html.theme-playful .practice-container { background: transparent; }
+/* ADR-132: this rule is gone. It used to force `transparent`, overriding a base background that had
+   already been lost — a dead opt-out, and the reason Playful light had no grouping panel either.
+   Playful's tray colour now comes from its own --qr-panel token. */
 html.theme-playful .login-input.input-error { border-color: #f87171; }
 html.theme-playful .login-input.input-error:focus {
   border-color: #dc2626;
@@ -5067,10 +5092,9 @@ html.theme-playful.dark-mode .analytics-card {
   border-color: rgba(79,143,247,.10);
   box-shadow: var(--el-1);
 }
-html.theme-playful.dark-mode .practice-container {
-  background: rgba(22,27,45,.88);
-  border-color: rgba(79,143,247,.10);
-}
+/* ADR-132: this rule is gone too — Playful dark's tray value moved to its --qr-panel token (still
+   mirroring .analytics-card, still byte-identical), and its `border-color` was dead, since nothing has
+   ever given this element a border-width. */
 html.theme-playful.dark-mode .login-input.input-error { border-color: rgba(248,81,73,.5); }
 html.theme-playful.dark-mode .login-input.input-valid { border-color: rgba(74,222,128,.4); }
 html.theme-playful.dark-mode .login-field-validation li.val-error { color: #f85149; }
@@ -8780,13 +8804,23 @@ html.dark-mode .kx-tc-title { color: #f1f5f9; }
 .kx-status-scaffold { background: rgba(100,116,139,.14); color: #475569; }
 /* ADR-109: Premium-gated Learn topic badge + card affordance. */
 .kx-status-premium { background: rgba(37,99,235,.14); color: var(--qr-accent); display: inline-flex; align-items: center; gap: .25rem; font-weight: 700; }
-.kx-status-premium .qr-ico { width: .8em; height: .8em; }
+/* ADR-132: was `width/height: .8em`, which broke in BOTH themes for two different reasons. Playful's
+   masking rule sets font-size:0, so `.8em` resolved to 0px and the lock was invisible; Classic ignored
+   it entirely, because `html:not(.theme-playful) .qr-ico` (0,2,1) outranks this selector (0,2,0), so
+   the glyph fell back to the 1.2rem default and rendered 24x19px — roughly 2.5x its authored size.
+   The authored intent is kept exactly: --fs-micro is .6875rem (11px), so .8em is precisely .55rem.
+   Expressing it as calc() over the token documents the intent and survives a type-scale change, while
+   avoiding `em`. Deliberately smaller than the .8rem sibling premium chips — that was the design. */
+.kx-status-premium .qr-ico { --qr-ico-size: calc(var(--fs-micro) * .8); }
 .kx-topic-card.is-premium .kx-tc-title { opacity: .82; }
 html.dark-mode .kx-status-premium { background: rgba(96,165,250,.2); color: #93c5fd; }
 /* ADR-109: locked topic page (rendered in place of the chapter for a gated topic the user hasn't unlocked). */
 .kx-topic-locked { text-align: center; max-width: 30rem; margin: 1.5rem auto 0; display: flex; flex-direction: column; align-items: center; gap: .75rem; padding: 1.5rem 1.1rem; border: 1px solid var(--qr-border); border-radius: var(--r-lg); background: var(--qr-surface-2); }
 .kx-locked-icon { font-size: var(--fs-icon); line-height: 1; color: var(--qr-accent); }
-.kx-locked-icon .qr-ico { width: 2.2rem; height: 2.2rem; }
+/* ADR-132: same contract violation — the authored 2.2rem box was silently overridden to `auto` in
+   Classic by `html:not(.theme-playful) .qr-ico` (0,2,1 beats 0,2,0), leaving the locked-topic glyph at
+   the 1.2rem default. Routed through --qr-ico-size so both themes honour the authored size. */
+.kx-locked-icon .qr-ico { --qr-ico-size: 2.2rem; }
 .kx-locked-title { font-size: var(--fs-h2); font-weight: 800; color: var(--qr-text); margin: 0; }
 .kx-locked-sub { font-size: var(--fs-sub); line-height: 1.5; color: var(--qr-text-mut); margin: 0; }
 .kx-locked-cta { width: 100%; max-width: 18rem; margin-top: .35rem; }

@@ -6,6 +6,49 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Adversarial re-verification of the UI restoration (ADR-132, SW v263→v264)
+
+A hostile re-verification of ADR-131 against the current repository and live runtime, with every prior
+report — including ADR-131's own — discarded. ADR-131's headline claims survived: hero ramps correct in all
+four combinations, four distinct elevation ramps, a clean 97/0 vs 0/97 icon split, and the language
+transition still one commit pass at ~180 ms with zero page errors. **Four defects were found.**
+
+- **The Practice grouping tray was missing in BOTH light themes** (reported for Classic light; also true of
+  Playful light). `.practice-container` had lost its `background`, so the mode cards floated on the page
+  while both dark themes kept their panel. Four traces of the original survive in the file — the `:active`
+  rule cancels `.card` tap-scale on an element that no longer has that class, the dark value is *exactly*
+  dark's `--qr-surface`, Playful's rule overrode a background that no longer existed, and the base comment
+  calls it a glass panel. **Predates ADR-131**; the shallow 85-commit clone cannot date it further.
+- **The obvious fix was invisible, and measurement caught it.** `background: var(--qr-surface)` composites to
+  `rgb(254,254,255)` on a `rgb(248,250,252)` page — a 6/255 delta that px-diff scored as *zero* changed
+  pixels. A `--qr-panel` token now names the tray per theme: classic light `--qr-surface-3` (delta 22),
+  classic dark `--qr-surface` (16, byte-identical), playful light `--qr-surface-2` (14), playful dark its
+  `.analytics-card` mirror (19). Geometry untouched — border-width still 0, radius 24/28px, padding 14.4px,
+  panel 350px, card 321px in every theme.
+- **Three dead `border-color` declarations deleted** (`border-top-width: 0px` measured in all four themes).
+  The matching `border` is deliberately *not* restored: it would make Dark render an edge it does not today.
+- **Two icons bypassed the icon-size contract.** `.kx-status-premium .qr-ico` used `.8em`, which resolves
+  against Playful's masking `font-size: 0` and rendered **0×0 — invisible** (pre-existing), while Classic
+  showed it at **24×19px**, ~2.5× its authored size. `.kx-locked-icon .qr-ico` was silently overridden to
+  `auto` in Classic — **introduced by ADR-131**, whose `html:not(.theme-playful) .qr-ico` at specificity
+  (0,2,1) outranks it at (0,2,0). Both now route through `--qr-ico-size`; the badge keeps its authored
+  proportions exactly as `calc(var(--fs-micro) * .8)` = the original `.8em`. Measured after: 8.8px in all
+  four themes, centred to 0.01px, chip metrics unchanged, identical at DPR 1/2/3.
+- **px-diff's determinism was broken by ADR-131 and is now proven.** Replacing `animation: none` with
+  `animation-duration: .001s` fixed frozen entry animations but left *infinite* ones cycling, so the hero's
+  25 s `slowSpin` landed on a random phase each shot — up to **2.75%** frame-to-frame noise on home/about,
+  meaning ADR-131's own ALL PASS was unreliable there. `animation-iteration-count: 1` +
+  `animation-fill-mode: forwards` fixes it; the shoot-twice self-test now passes on **all 32 screens**.
+- Guards: `icon-identity.check.js` 10 → 12 assertions (no raw `width`/`height` on `.qr-ico`, no `em` in icon
+  sizing), both proven to fail on the pre-fix tree. design-lint holds at 12 with every ceiling unchanged;
+  `align-probe` holds at 0 offenders >1px.
+- **Blind spot recorded:** px-diff seeds a premium profile, so locked/premium-gated surfaces never render in
+  its matrix; the badge fixes were verified by direct measurement and element screenshots instead.
+- Docs: ADR-132, VERSIONS (Bible 2.163→2.164), SW/app lockstep v263→v264.
+- Untouched: business logic, Firestore, auth, payments, state, AI, analytics, routing, translations.
+
+---
+
 ## 2026-08-02 — Visual identity restoration: themes, hero, icons, alignment (ADR-131, SW v262→v263)
 
 A deep visual audit and restoration of `main-app` — not a redesign. No layout changes, no logic changes,
