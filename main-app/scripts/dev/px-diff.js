@@ -28,7 +28,12 @@ const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const THEMES = [
   { name: 'light', settings: { appearance: 'light', hasOnboarded: true } },
   { name: 'dark', settings: { appearance: 'dark', hasOnboarded: true } },
-  { name: 'playful', settings: { appearance: 'light', theme: 'playful', hasOnboarded: true } }
+  { name: 'playful', settings: { appearance: 'light', theme: 'playful', hasOnboarded: true } },
+  /* ADR-131: playful DARK was never shot, and that is exactly where the last inherited-elevation
+     defect was hiding — html.dark-mode and html.theme-playful have equal specificity, so Playful
+     dark had been painting Playful light's warm paper shadows onto a near-black background. Three
+     themes cannot cover a two-by-two matrix. */
+  { name: 'playfuldark', settings: { appearance: 'dark', theme: 'playful', hasOnboarded: true } }
 ];
 const VIEWPORT = { width: 390, height: 844 };
 const THRESHOLD = 0.0025;   // differing-pixel fraction per screen
