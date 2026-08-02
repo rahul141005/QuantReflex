@@ -142,6 +142,61 @@ ok('distinct z-index <= ' + CEIL.zIndexes, zIndexes.size <= CEIL.zIndexes, 'got 
 ok('distinct gradients <= ' + CEIL.gradients, gradients.size <= CEIL.gradients, 'got ' + gradients.size);
 ok('raw-color:var ratio <= ' + CEIL.colorRatio, ratio <= CEIL.colorRatio, 'got ' + ratio.toFixed(2));
 
+/* ── ADR-131: theme distinctness ──────────────────────────────────────────────────────────────────
+   The census above measures the SIZE of the design vocabulary; it says nothing about whether the two
+   themes actually use different values. That blind spot is how the burn-down waves left Playful
+   Professional inheriting Classic's entire depth-and-atmosphere layer: identical elevations, and
+   washes/halos/glows drawn in classic blue because the tokens holding them baked
+   `rgba(37,99,235,…)` at `:root`, where no amount of palette work under `html.theme-playful` can
+   reach. Both themes passed every ceiling while shipping as the same object.
+
+   The invariant: an ATMOSPHERE token may not hard-code a colour that Playful cannot override. It is
+   satisfied either by Playful re-declaring the token, or by the `:root` value being composed purely
+   of var() references, so overriding the referenced token retunes it automatically. Structural, not
+   a fixed list — a new `--el-*` or `--qr-veil-accent-*` is covered the moment it is added. */
+function tokenBlock(startLine) {
+  const lines = rawCss.split('\n');
+  let depth = 0, started = false, out = [];
+  for (let i = startLine; i < lines.length; i++) {
+    for (const ch of lines[i]) { if (ch === '{') { depth++; started = true; } else if (ch === '}') depth--; }
+    if (started && i > startLine) out.push(lines[i]);
+    if (started && depth === 0) break;
+  }
+  return out.join('\n');
+}
+function tokensOf(selRe) {
+  const lines = rawCss.split('\n');
+  const found = {};
+  lines.forEach((l, i) => {
+    if (!selRe.test(l.trim())) return;
+    const body = tokenBlock(i);
+    (body.match(/--[\w-]+\s*:\s*[^;]+/g) || []).forEach(t => {
+      found[t.split(':')[0].trim()] = t.slice(t.indexOf(':') + 1).trim();
+    });
+  });
+  return found;
+}
+const rootTokens = tokensOf(/^:root\s*\{$/);
+const playfulTokens = tokensOf(/^html\.theme-playful(\.dark-mode)?\s*\{$/);
+const ATMOSPHERE = /^--(el-|qr-glow|qr-veil-accent|qr-wash)/;
+/* Duel is a FEATURE identity, not a theme identity: its amber reads the same in both themes by
+   design (--qr-grad-wash-duel is shared for the same reason). The single documented exception. */
+const ATMOSPHERE_EXEMPT = /-duel$/;
+const hasRawColour = v => /#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(v);
+const atmosphereTokens = Object.keys(rootTokens).filter(k => ATMOSPHERE.test(k) && !ATMOSPHERE_EXEMPT.test(k));
+const unthemed = atmosphereTokens.filter(k => hasRawColour(rootTokens[k]) && playfulTokens[k] === undefined);
+ok('atmosphere tokens are theme-overridable (no baked classic accent)', unthemed.length === 0,
+  unthemed.length ? 'inherited by Playful: ' + unthemed.join(', ') : atmosphereTokens.length + ' checked');
+
+/* A floor on how much Playful actually re-declares. Before ADR-131 it overrode 28 of :root's tokens
+   and 7 of those were byte-identical to Classic — an effective 21. Counting only tokens whose value
+   genuinely DIFFERS keeps this honest: re-declaring a token with the same value cannot satisfy it. */
+const PLAYFUL_OVERRIDE_FLOOR = 30;
+const realOverrides = Object.keys(playfulTokens).filter(
+  k => rootTokens[k] !== undefined && rootTokens[k] !== playfulTokens[k]);
+ok('Playful overrides >= ' + PLAYFUL_OVERRIDE_FLOOR + ' tokens with values differing from Classic',
+  realOverrides.length >= PLAYFUL_OVERRIDE_FLOOR, 'got ' + realOverrides.length);
+
 /* Design-token presence: the foundation tokens must exist once M1 lands (soft until then). */
 const REQUIRED_TOKENS_M1 = ['--r-lg', '--el-1', '--z-dialog', '--fs-h1', '--sp-6'];
 const tokensPresent = REQUIRED_TOKENS_M1.every(t => css.indexOf(t + ':') !== -1);

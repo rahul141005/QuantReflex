@@ -289,7 +289,7 @@ function _renderRecommendation(p, SM, ER, weightedCats) {
   if (rec.thenCat) sentence += QRI18n.t('stats.recThen', { topic: _statCatLabel(rec.thenCat) });
   sentence += QRI18n.t('stats.fullStop');
   el.innerHTML = '<div class="stats-rec-card">' +
-    '<div class="stats-rec-head"><span class="stats-rec-ico">🤖</span><span class="stats-rec-by">QuanAI</span></div>' +
+    '<div class="stats-rec-head"><span class="stats-rec-ico qr-ico" data-ico="bot" aria-hidden="true">🤖</span><span class="stats-rec-by">QuanAI</span></div>' +
     '<p class="stats-rec-text">' + sentence + '</p>' +
     '<button class="btn-primary stats-rec-btn" type="button" data-cat="' + rec.reviseCat + '">' + QRI18n.t('stats.practiseTopic', { topic: revise }) + '</button></div>';
   var btn = el.querySelector('.stats-rec-btn');

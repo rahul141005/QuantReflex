@@ -185,6 +185,7 @@ html.theme-playful {
   --el-nav: 0 -2px 16px rgba(120,100,70,.09);
   --el-key: 0 4px 16px rgba(120,100,70,.06), inset 0 1px 1px rgba(255,255,255,.7);
   --el-key-raised: 0 8px 24px rgba(120,100,70,.09), inset 0 1px 1px rgba(255,255,255,.85);
+  --el-sheet: 0 -8px 44px rgba(120,100,70,.22);
   /* teal-leaning ambience (its own --qr-grad-b), so washes/halos/glows stop reading classic-blue */
   --qr-veil-accent-8: rgba(45,212,191,.10); --qr-veil-accent-12: rgba(45,212,191,.15);
   --qr-veil-accent-25: rgba(45,212,191,.28); --qr-veil-accent-40: rgba(45,212,191,.42);
@@ -1214,7 +1215,7 @@ html.dark-mode .offline-banner {
   border: 1px solid var(--qr-warn);
   margin-bottom: .75rem;
 }
-.streak-risk-icon { font-size: var(--fs-h1); }
+.streak-risk-icon { --qr-ico-size: var(--fs-h1); font-size: var(--fs-h1); }
 .streak-risk-content {
   display: flex;
   flex-direction: column;
@@ -1248,7 +1249,7 @@ html.dark-mode .offline-banner {
   border: 1px solid #14b8a6;
   margin-bottom: .75rem;
 }
-.suggested-icon { font-size: var(--fs-h1); }
+.suggested-icon { --qr-ico-size: var(--fs-h1); font-size: var(--fs-h1); }
 .suggested-content {
   display: flex;
   flex-direction: column;
@@ -1906,7 +1907,7 @@ html.dark-mode .qr-segment-btn.active, html.dark-mode .timer-pill.active { backg
 
 /* Streak chip — now lives in the Daily Goal card header (FW-W4); ids unchanged for home-view.js */
 .home-streak-chip { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.1); color: var(--qr-text); gap: 4px; cursor: default; }
-.home-streak-chip .streak-fire { font-size: var(--fs-sub); line-height: 1; }
+.home-streak-chip .streak-fire { --qr-ico-size: var(--fs-sub); font-size: var(--fs-sub); line-height: 1; }
 .home-streak-chip .streak-count { font-weight: 800; }
 
 /* ---- Dialog (centered, focus-trapped by QROverlay) ---- */
@@ -7049,7 +7050,7 @@ html.dark-mode .home-streak-badge.streak-active {
   border-color: rgba(245,158,11,0.3);
   color: #fbbf24;
 }
-.streak-fire { font-size: var(--fs-body); }
+.streak-fire { --qr-ico-size: var(--fs-body); font-size: var(--fs-body); }
 .streak-count { font-weight: 800; }
 
 /* ---- Primary CTA Button ---- */
@@ -8397,7 +8398,7 @@ html.dark-mode .stats-weak-name { color: #e2e8f0; }
 /* QuanAI recommendation card */
 .stats-rec-card { padding: .2rem 0; }
 .stats-rec-head { display: flex; align-items: center; gap: .4rem; margin-bottom: .5rem; }
-.stats-rec-ico { font-size: var(--fs-h3); }
+.stats-rec-ico { --qr-ico-size: var(--fs-h3); font-size: var(--fs-h3); }
 .stats-rec-by { font-size: var(--fs-caption); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--qr-accent); }
 .stats-rec-text { margin: 0 0 .9rem; font-size: var(--fs-body); line-height: 1.5; color: #334155; }
 html.dark-mode .stats-rec-text { color: #cbd5e1; }
@@ -9152,7 +9153,7 @@ html.dark-mode .category-section-count { color: #94a3b8; }
 }
 .qr-lib-entry:active { transform: scale(.99); }
 .qr-lib-entry:focus-visible { outline: 2px solid var(--qr-accent); outline-offset: 2px; }
-.qr-lib-entry-ico { flex: 0 0 auto; font-size: var(--fs-h1); line-height: 1; }
+.qr-lib-entry-ico { --qr-ico-size: var(--fs-h1); flex: 0 0 auto; font-size: var(--fs-h1); line-height: 1; }
 .qr-lib-entry-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .qr-lib-entry-txt strong { font-size: var(--fs-body); font-weight: 700; }
 .qr-lib-entry-txt small { font-size: var(--fs-caption); color: var(--qr-text-dim); line-height: 1.3; }

@@ -576,7 +576,7 @@ function _renderStreakAtRisk(progress) {
   container.style.display = '';
   container.innerHTML =
     '<div class="streak-risk-card">' +
-      '<span class="streak-risk-icon">🔥</span>' +
+      '<span class="streak-risk-icon qr-ico" data-ico="flame" aria-hidden="true">🔥</span>' +
       '<div class="streak-risk-content">' +
         '<strong>' + QRI18n.t('home.streakAtRisk', { count: streak }) + '</strong>' +
          '<span class="streak-risk-sub">' + QRI18n.t('home.streakProtect') + '</span>' +
@@ -616,7 +616,7 @@ function _renderSuggestedPractice() {
   container.style.display = '';
   container.innerHTML =
     '<div class="suggested-practice-card">' +
-      '<span class="suggested-icon">🎯</span>' +
+      '<span class="suggested-icon qr-ico" data-ico="target" aria-hidden="true">🎯</span>' +
       '<div class="suggested-content">' +
         '<strong>' + QRI18n.t('home.focusOn', { label: label }) + '</strong>' +
          '<span class="suggested-sub">' + QRI18n.t('home.weakestTopicSub') + '</span>' +

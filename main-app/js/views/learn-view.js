@@ -619,7 +619,7 @@ var LearnView = (function () {
   function _reportTopicLine(topic, cat) {
     if (typeof ReportModal === 'undefined' || !ReportModal.open) return null;
     var rep = document.createElement('button'); rep.className = 'kx-report-line'; rep.type = 'button';
-    rep.innerHTML = '<span class="kx-report-ico" aria-hidden="true">⚑</span> ' + QRI18n.t('learn.reportPrompt') + ' <span class="kx-report-cta">' + QRI18n.t('learn.reportCta') + '</span>';
+    rep.innerHTML = '<span class="kx-report-ico qr-ico" data-ico="flag" aria-hidden="true">⚑</span> ' + QRI18n.t('learn.reportPrompt') + ' <span class="kx-report-cta">' + QRI18n.t('learn.reportCta') + '</span>';
     rep.addEventListener('click', function () {
       ReportModal.open({ source: 'learn', topic: {
         id: topic.id, title: topic.title, category: topic.category,
