@@ -67,7 +67,7 @@ const THEMES = [
   { name: 'playful-dark',   settings: { appearance: 'dark',  theme: 'playful' } },
   { name: 'classic-free',   settings: { appearance: 'light' }, free: true }
 ];
-const LOCALES = FULL ? ['en', 'hi', 'mr'] : ['en'];
+const LOCALES = FULL ? ['en', 'hi', 'mr'] : (process.env.AP_LOCALES ? process.env.AP_LOCALES.split(',') : ['en']);
 const WIDTHS  = FULL ? [320, 390, 768, 1024] : [390];
 
 /* ── in-page: collect every icon/label pair with its geometry and typographic reference ──────── */
@@ -152,6 +152,16 @@ function collectPairs() {
 
     var cs = getComputedStyle(node.parentElement);
     cv.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    /* CALIBRATION LIMIT — this reference is valid for LATIN labels only, and the numbers say so.
+       Against Devanagari, `H` produces a constant +2.00px offset on every surface with the variance
+       unchanged (sd 0.24 in en, hi and mr alike); switching the reference to the label's own ink
+       ascent moves that same offset to about +4.6px while leaving every English number untouched.
+       Two reference definitions, two different Devanagari answers, one unchanged English answer: it
+       is the REFERENCE that moves, not the icon. Devanagari's optical centre sits on the shirorekha
+       rather than at half the ink ascent (tall matras are sparse accents, not the body of the text),
+       and measuring that reliably is a separate problem. So hi/mr results are reported as OUTSIDE
+       the instrument's calibrated range rather than as defects — the icon geometry is identical
+       across locales, since nothing in the CSS keys off language. */
     var m = cv.measureText('H');
     var fAsc = m.fontBoundingBoxAscent, fDesc = m.fontBoundingBoxDescent;
     var cap = m.actualBoundingBoxAscent;

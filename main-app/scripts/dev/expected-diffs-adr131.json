@@ -1,0 +1,35 @@
+{
+  "_note": "ADR-131 visual identity restoration. EVERY screen is expected to differ, because the changes are theme-wide by design: Classic swaps the whole icon language from masked SVG back to emoji, Playful gains its own elevation ramp / halo / radius step, and both gain a re-tuned icon baseline. Screens are listed individually so a screen that DOES NOT change would still be noticed. The base and cand shoots also both include the harness fixes (premium seeding + zero-duration animations), so the playful shots are genuinely playful for the first time.",
+
+  "home-light": "Hero ramp restored to the 3-stop opaque blue (was a 12%->3% alpha wash), halo 0.12->0.20, greeting contrast 3.35->5.33, Classic icon language back to emoji, icon baseline re-tuned, streak flame + streak-risk + suggested-practice icons joined the icon system",
+  "home-dark": "Hero navy ramp restored (dark had been rendering the light value), halo restored, greeting contrast 4.04->6.98, Classic emoji icon language, icon baseline re-tuned",
+  "home-playful": "Playful hero teal ramp (was inheriting the classic-blue wash), own elevation ramp and halo, rounder card radius, icon baseline re-tuned",
+
+  "practice-light": "Classic emoji icon language on the mode cards, mode-card h3 icons re-tuned from 2.25px low to 0, off-scale 750 title weight snapped to 700",
+  "practice-dark": "Classic emoji icon language, mode-card icon baseline re-tuned, 750->700 title weight",
+  "practice-playful": "Playful elevation ramp and card radius, mode-card icon baseline re-tuned from 2.79px high to 0, 750->700 title weight",
+
+  "settings-light": "Classic emoji icon language on the settings rows, settings-label h3 icons re-tuned from 2.24px low to 0",
+  "settings-dark": "Classic emoji icon language, settings icon baseline re-tuned",
+  "settings-playful": "Playful elevation ramp, radius step and teal glow, settings icon baseline re-tuned from 2.42px high to 0",
+
+  "learn-light": "Classic emoji icon language, kx-hub-head icon re-tuned from 2.80px low to 0, Quick-Reference entry glyph joined the icon system, learn report flag joined the icon system",
+  "learn-dark": "Classic emoji icon language, kx-hub-head icon re-tuned, Quick-Reference entry and report flag joined the icon system",
+  "learn-playful": "Playful elevation ramp and radius step, kx-hub-head icon re-tuned from 2.39px high to 0",
+
+  "stats-light": "Classic emoji icon language, recommendation robot icon joined the icon system",
+  "stats-dark": "Classic emoji icon language, recommendation robot icon joined the icon system",
+  "stats-playful": "Playful elevation ramp and radius step, recommendation robot now paints as a mask",
+
+  "about-light": "Classic emoji icon language, info-section-title icons re-tuned from 1.88px high to 0, info-block h4 off-scale 650 weight snapped to 700",
+  "about-dark": "Classic emoji icon language, info-section-title icons re-tuned, 650->700 weight",
+  "about-playful": "Playful elevation ramp, info-section-title icons re-tuned from 2.38px high to 0, 650->700 weight",
+
+  "quickref-light": "Classic emoji icon language, Quick-Reference heading icon",
+  "quickref-dark": "Classic emoji icon language, Quick-Reference heading icon",
+  "quickref-playful": "Playful elevation ramp and radius step",
+
+  "duelsetup-light": "Classic emoji icon language in the duel setup sheet",
+  "duelsetup-dark": "Classic emoji icon language in the duel setup sheet",
+  "duelsetup-playful": "Playful elevation ramp, sheet shadow now warm (--el-sheet was the last elevation token inheriting Classic's cool slate)"
+}

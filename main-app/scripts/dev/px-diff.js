@@ -60,6 +60,11 @@ async function boot(page) {
     var n = document.querySelector('.bottom-nav'); if (n) n.style.display = '';
     document.body.classList.add('auth-resolved');
     try { if (window.Router && !window.__pxr) { window.__pxr = 1; Router.init(); } } catch (_) {}
+    /* ADR-131: Playful Professional is a PREMIUM theme. Seeded as a free profile, initSettingsView()
+       correctly downgrades it to classic and PERSISTS that, so every "playful" screenshot from the
+       settings screen onward was silently a classic one — the playful third of this matrix was not
+       testing what it claimed to. Granting the entitlement is what makes those shots real. */
+    window.canAccessFeature = function () { return true; };
   });
 }
 
@@ -83,7 +88,10 @@ async function shoot(tag) {
     await page.addInitScript(function () {
       document.addEventListener('DOMContentLoaded', function () {
         var st = document.createElement('style');
-        st.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}';
+        /* ADR-131: zero DURATION, not `none`. `animation:none` freezes an entry animation on its FIRST
+           frame, so opacity-0 intro sections (the About modal's .guide-animate-section) shoot blank.
+           A near-zero duration is equally deterministic but settles on the FINAL frame. */
+        st.textContent = '*,*::before,*::after{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important;transition-delay:0s!important;caret-color:transparent!important}';
         document.head.appendChild(st);
       });
     });
