@@ -206,6 +206,20 @@ html.theme-playful.dark-mode {
   --qr-danger: #f87171; --qr-danger-fg: #fca5a5; --qr-danger-bg: rgba(220,38,38,.22); --qr-danger-border: #ef4444;
   --qr-warn: #fbbf24; --qr-info: #a78bfa; --qr-info-fg: #c4b5fd;
   --qr-focus-ring: 0 0 0 3px rgba(88,166,255,.4);
+
+  /* ADR-131: Playful DARK was rendering Playful LIGHT's shadows. `html.dark-mode` and
+     `html.theme-playful` have equal specificity, so source order decides and the later
+     `html.theme-playful` block won — meaning the warm paper ramp (brown at 10% alpha, tuned for an
+     off-white surface) was painting on a #0d1117 background, where it is effectively invisible.
+     Classic dark has always declared its own; Playful dark now does too. Measured before the fix:
+     playful-dark reported byte-identical --el-* and --el-sheet to playful-light. */
+  --el-1: 0 8px 26px rgba(0,0,0,.42), 0 1px 3px rgba(0,0,0,.30);
+  --el-2: 0 16px 36px rgba(0,0,0,.52), 0 3px 8px rgba(0,0,0,.34);
+  --el-3: 0 28px 56px rgba(0,0,0,.60), 0 8px 20px rgba(0,0,0,.38);
+  --el-nav: 0 -2px 16px rgba(0,0,0,.44);
+  --el-sheet: 0 -8px 44px rgba(0,0,0,.50);
+  --el-key: 0 4px 16px rgba(0,0,0,.34), inset 0 1px 1px rgba(255,255,255,.05);
+  --el-key-raised: 0 8px 24px rgba(0,0,0,.42), inset 0 1px 1px rgba(255,255,255,.07);
 }
 
 /* ---- Reset & Base ---- */
