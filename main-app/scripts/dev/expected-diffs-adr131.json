@@ -29,7 +29,7 @@
   "quickref-dark": "Classic emoji icon language, Quick-Reference heading icon",
   "quickref-playful": "Playful elevation ramp and radius step",
 
-  "duelsetup-light": "Classic emoji icon language in the duel setup sheet",
-  "duelsetup-dark": "Classic emoji icon language in the duel setup sheet",
+  "duelsetup-light": "NO CHANGE EXPECTED and none observed: the duel setup sheet renders raw duel emoji rather than .qr-ico chrome, so the icon-language switch does not reach it. Listed so that a future change here would be noticed.",
+  "duelsetup-dark": "NO CHANGE EXPECTED and none observed, same reason as duelsetup-light.",
   "duelsetup-playful": "Playful elevation ramp, sheet shadow now warm (--el-sheet was the last elevation token inheriting Classic's cool slate)"
 }
