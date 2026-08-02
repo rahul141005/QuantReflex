@@ -9476,6 +9476,13 @@ html.dark-mode .category-tier-label { color: #94a3b8; }
 html.theme-playful .qr-ico {
   font-size: 0 !important;
   line-height: 0 !important;
+  /* The base rule's `-0.22em` is INERT here: `em` resolves against this element's own font-size,
+     which the line above sets to 0, so it has always computed to 0px. Playful icons have therefore
+     been sitting at plain baseline — an inline-flex box with no baseline-bearing item aligns its
+     bottom margin edge to the text baseline, which rides ~2.5px above the label's cap centre.
+     Measured by scripts/dev/align-probe.js: -2.42 / -2.79 / -2.39px on the three inline surfaces.
+     The correction has to be size-relative rather than `em` to survive the zero font-size. */
+  vertical-align: calc(var(--qr-ico-size, 1.2rem) * -0.135);
 }
 .qr-ico::before {
   content: '';
@@ -9509,11 +9516,24 @@ html:not(.theme-playful) .qr-ico {
   width: auto;
   height: auto;
   color: inherit;
-  /* emoji sit optically high in their em box; -0.22em was tuned for a masked SVG square, not a glyph.
-     Alignment is re-measured per surface by the ADR-131 harness — this is the shared starting point. */
-  vertical-align: -0.14em;
+  /* Measured, not guessed (scripts/dev/align-probe.js). `vertical-align` only ever reaches the three
+     INLINE surfaces — .settings-label h3, .mode-card h3, .kx-hub-head; every other icon sits in a
+     flex parent where align-items does the work and this property is ignored. On those three the
+     inherited -0.14em put the glyph 2.24 / 2.25 / 2.80px BELOW the label's cap centre, so it needed
+     raising by ~0.134em. That lands on ~0 — which is the point: an emoji at baseline sits where it
+     did as a plain text node, before Wave B wrapped it in a box. Residuals: -0.03 / -0.15 / +0.29px. */
+  vertical-align: -0.01em;
 }
 html:not(.theme-playful) .qr-ico::before { content: none; }
+
+/* The About modal's section titles are the fourth (and last) INLINE icon surface, and the only one
+   where the icon is far larger than its label — a 1.2rem default icon beside an --fs-caption
+   uppercase heading. That size ratio is pre-existing drift and is deliberately left alone here (a
+   resize would be a redesign, not a restoration); only the alignment is corrected. Measured at the
+   shared constants: -1.88 / -1.89px in Classic and -2.17 / -2.59px in Playful, i.e. riding high in
+   both. Residuals after this correction: ±0.01px Classic, ±0.21px Playful. */
+html:not(.theme-playful) .info-section-title .qr-ico { vertical-align: -0.108em; }
+html.theme-playful .info-section-title .qr-ico { vertical-align: calc(var(--qr-ico-size, 1.2rem) * -0.259); }
 
 /* Context sizing & tinting (playful only) */
 .bottom-nav .nav-icon .qr-ico { --qr-ico-size: 1.4rem; }
