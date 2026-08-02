@@ -8,6 +8,69 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-135 — Adversarial certification: the census measured only the stylesheet, and Settings labels truncated below 371px (v267) (2026-08-02)
+
+**Context.** A release-blocking attempt to disprove the ADR-133/134 certification. Three findings. The
+work survives on quality, but its **central claim was factually false as shipped**, and one real
+user-visible defect had never been looked for — because every gate asked *"did we make it worse?"* and
+never *"is it good?"*
+
+**Survived, re-measured rather than trusted.** Three stress tests that had never been run all pass:
+`prefers-reduced-motion` genuinely halts every animation (0 running), 125% font scaling gives 0
+clipping and 0 overflow, landscape (844×390) is clean. Non-English layout is no worse than English —
+hi/mr clip *less*. Spacing is a true 13-value 4px scale; `align-probe` holds at 0.
+
+**F1 — the census only ever read the stylesheet.** `design-lint` measures `css/style.css` alone, so the
+reported figures were not the shipped figures. `index.html` ships ~84 inline `style` attributes that
+breach **every** dimension: durations `0.3s`/`0.2s` (matching no token — the scale is `.12/.4/1.2s`), a
+fourth easing `cubic-bezier(0.4,0,0.2,1)`, a fifth box-shadow, z-index `9999`/`10000`, eight font sizes
+including an off-scale `0.9rem`, and nine raw colours. The inbox drawer is effectively a component
+styled outside the design system.
+
+Per the deferral of the cleanup itself, the tooling is made honest **without touching a single inline
+style**: five new INLINE dimensions are censused separately from the stylesheet, with ceilings pinned at
+today's counts. The output now also prints the *true shipped totals* — durations 5, easings 4, shadows
+5, z 3 — so no report can overstate the position again. Proven load-bearing: planting one inline
+`transition/box-shadow/z-index/font-size` fails all five assertions; removing it restores 21/21.
+
+**F2 — Settings labels truncated below 371px.** At 320px, **6 of 17 labels ellipsised**; "📚 Study
+language" lost 53px. Root cause: `.settings-row` is flex and the select was `flex: 0 1 auto` with a hard
+`min-width: 8.5rem`, so it refused to shrink and starved the `flex: 1` label —
+`320 − 40 − 32 − 16 − 136 = 96px` for text needing 147px. Solving `W − 224 ≥ 147` puts the threshold at
+**371px**, so **360px devices were affected too**; the earlier sampling of 320/390/430 skipped 360
+entirely. Worst case is **English** (147px), not Devanagari (hi 115, mr 129).
+
+Fixed by rebalancing the row fluidly, keeping label and control on one line at every width: the card's
+horizontal padding and the row gap become `clamp()`s, the control becomes
+`flex: 0 0 clamp(7.5rem, 34vw, 8.5rem)` — one width per viewport across all rows, so the column still
+aligns — and the arrow gutter scales with it. The decisive change is that the label now **wraps instead
+of ellipsising**: it sat in the `.cat-name / .mode-card h3` nowrap+ellipsis group, which is correct for
+a one-line card title and wrong for a control's name. Wrapping also frees width, so the dropdown reads
+comfortably rather than being squeezed.
+
+Verified across **30 configurations** — 320/360/375/390/412/768/1024 × en/hi/mr × all four themes:
+**0 of 17 labels truncated anywhere**, select width consistent within each viewport (120→136px), height
+exactly 44px throughout.
+
+**A false pass I caught by looking rather than measuring.** The first attempt reported 0 truncated at
+all 30 configurations while the rendered screenshot plainly showed "Study langua…". The label box was
+147px for text needing 147.x, and my threshold was `scrollWidth − clientWidth > 1`, which swallowed the
+sub-pixel case. The metric was re-run at `> 0` *and* cross-checked against a screenshot. A gate that
+rounds in its own favour is not a gate.
+
+**F3 — the layout gate was English-only.** `layout-probe.js` had no locale handling, so nothing it
+certified covered Devanagari. Locale is an axis now.
+
+**Consequences.**
+- Layout gate: 0 new overflow, clipping, text wraps, touch regressions or disappearances. All 2,108
+  changed elements are confined to `settings` and `about` (the About modal opens over Settings);
+  Home, Practice, Learn, Stats, Quick-Ref, Duel setup and Paywall show **zero**.
+- design-lint 16 → 21 assertions. `npm test` 0 failed; `align-probe` 0 offenders; language transition
+  ~210 ms, 1 `QRI18n.init` call, 0 page errors.
+- **Not done, deliberately:** the inline-style cleanup. It is now measured and capped, not fixed.
+
+---
+
 ## ADR-134 — Independent certification of ADR-133: the spacing transform did not do what its own ADR said (v266) (2026-08-02)
 
 **Context.** An independent adversarial review of ADR-133, conducted as if someone else had written it

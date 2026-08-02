@@ -40,6 +40,9 @@ const THEMES = [
   { name: 'playful-dark', settings: { appearance: 'dark', theme: 'playful' } }
 ];
 const WIDTHS = [320, 390, 768, 1024];
+/* ADR-135: the layout gate was English-only, so nothing it certified covered Devanagari — where
+   string lengths differ enough to change wrapping and overflow. Locale is an axis now. */
+const LOCALES = (process.env.LAYOUT_LOCALES || 'en,hi,mr').split(',');
 
 const SCREENS = {
   home: "Router.showView('home'); try { HomeView.render(); } catch(_){}",
@@ -127,13 +130,14 @@ async function capture(tag) {
   const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
   const data = {};
   for (const theme of THEMES) {
+   for (const locale of LOCALES) {
     for (const width of WIDTHS) {
       const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1 });
       await ctx.addInitScript(function (s) {
         try { localStorage.setItem('qr_settings', JSON.stringify(s)); } catch (_) {}
         var F = 1780000000000; Date.now = function () { return F; };
         var seed = 42; Math.random = function () { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-      }, Object.assign({ hasOnboarded: true }, theme.settings));
+      }, Object.assign({ hasOnboarded: true, appLanguage: locale, studyLanguage: locale }, theme.settings));
       const page = await ctx.newPage();
       await page.addInitScript(function () {
         document.addEventListener('DOMContentLoaded', function () {
@@ -147,11 +151,12 @@ async function capture(tag) {
         try {
           await page.evaluate(new Function(prep));
           await page.waitForTimeout(380);
-          data[theme.name + '|' + width + '|' + screen] = await page.evaluate(snapshot);
+          data[theme.name + '|' + locale + '|' + width + '|' + screen] = await page.evaluate(snapshot);
         } catch (_) { /* screen unavailable in this config */ }
       }
       await ctx.close();
     }
+   }
   }
   await browser.close();
   fs.writeFileSync(path.join(OUT, tag + '.json'), JSON.stringify(data));

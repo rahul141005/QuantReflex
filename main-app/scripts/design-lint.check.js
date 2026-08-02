@@ -186,6 +186,44 @@ ok('every backdrop-filter names a --glass-* tier', glassLiterals.length === CEIL
 ok('press feedback uses --qr-press-* tokens, not literal scales', pressVals.size === CEIL2.pressScales,
   pressVals.size ? 'literals: ' + [...pressVals].join(', ') : 'no literal press scales');
 
+/* ── ADR-135: the census only ever read the STYLESHEET ────────────────────────────────────────────
+   Every ceiling above measures css/style.css alone, so the reported figures were not the shipped
+   figures: index.html also ships ~84 inline `style` attributes, and they breach every dimension —
+   two motion durations matching no token (0.3s, 0.2s), a fourth easing, a fifth box-shadow, z-index
+   9999/10000 and eight font sizes. The inbox drawer is effectively styled outside the design system.
+
+   These are counted as their OWN dimensions rather than folded into the ceilings above, so the two
+   numbers stay separable and a future cleanup has an exact target. Ceilings are pinned at today's
+   counts: CI stays green while the inline styles remain, but any NEW inline duration, easing, shadow,
+   z-index or font size fails immediately. Ratchet down only — never raise these. */
+const inlineHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const inlineStyles = [...inlineHtml.matchAll(/style="([^"]*)"/g)].map(m => m[1]);
+function inlineSet(re, pick) {
+  const set = new Set();
+  inlineStyles.forEach(st => (st.match(re) || []).forEach(v => set.add(pick ? pick(v) : v.trim())));
+  return set;
+}
+const inlineDur = inlineSet(/(?:transition|animation)[^;]*?(?:\d*\.\d+|\d+)m?s\b/g,
+  v => { const d = v.match(/(\d*\.\d+|\d+)m?s\b/)[0]; return String(d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000); });
+const inlineEase = inlineSet(/cubic-bezier\([^)]*\)|ease-in-out|ease-in|ease-out|linear/g, v => v.replace(/\s+/g, ''));
+const inlineShadow = inlineSet(/box-shadow:\s*([^;]+)/g, v => v.replace(/box-shadow:\s*/, '').trim());
+const inlineZ = inlineSet(/z-index:\s*([^;]+)/g, v => v.replace(/z-index:\s*/, '').trim());
+const inlineFont = inlineSet(/font-size:\s*([^;]+)/g, v => v.replace(/font-size:\s*/, '').trim());
+
+const CEIL3 = { dur: 2, ease: 1, shadow: 1, z: 2, font: 8 };
+console.log('design-lint census-3 (INLINE, index.html): durations=' + inlineDur.size +
+  ' easings=' + inlineEase.size + ' shadows=' + inlineShadow.size +
+  ' z=' + inlineZ.size + ' fontSizes=' + inlineFont.size +
+  '  [true shipped totals: durations=' + (durSet.size + inlineDur.size) +
+  ' easings=' + (easeSet.size + inlineEase.size) +
+  ' shadows=' + (shadows.size + inlineShadow.size) +
+  ' z=' + (zIndexes.size + inlineZ.size) + ']');
+ok('inline durations <= ' + CEIL3.dur, inlineDur.size <= CEIL3.dur, 'got ' + inlineDur.size + ' [' + [...inlineDur].join(',') + ']');
+ok('inline easings <= ' + CEIL3.ease, inlineEase.size <= CEIL3.ease, 'got ' + inlineEase.size);
+ok('inline box-shadows <= ' + CEIL3.shadow, inlineShadow.size <= CEIL3.shadow, 'got ' + inlineShadow.size);
+ok('inline z-index values <= ' + CEIL3.z, inlineZ.size <= CEIL3.z, 'got ' + inlineZ.size);
+ok('inline font-sizes <= ' + CEIL3.font, inlineFont.size <= CEIL3.font, 'got ' + inlineFont.size);
+
 /* ── ADR-134: no orphaned design tokens ───────────────────────────────────────────────────────────
    A custom property that nothing reads is design-system rot: it looks like part of the system, gets
    maintained per theme, and silently isn't. ADR-131 gave Playful its own `--el-key-raised` and

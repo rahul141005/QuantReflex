@@ -1676,7 +1676,9 @@ html.dark-mode .daily-limit-banner {
 }.settings-section-card {
   background: var(--qr-surface-solid);
   border-radius: var(--r-lg);
-  padding: .75rem 1rem;
+  /* ADR-135: horizontal padding is fluid so a 320px phone reclaims ~13px of row width. Vertical is
+     unchanged; at >=360px this resolves to the original 1rem, so nothing moves on normal phones. */
+  padding: .75rem clamp(.5rem, 3vw, 1rem);
   box-shadow: var(--el-1);
   border: 1px solid rgba(226,232,240,.5);
 }
@@ -1847,6 +1849,28 @@ html.dark-mode .toast {
 .qr-row, .settings-row {
   display: flex; justify-content: space-between; align-items: center;
   gap: var(--sp-4); min-height: 48px; padding: var(--sp-1) 0;
+}
+/* ADR-135 — Settings rows must never truncate their label. The select was `flex: 0 1 auto` with a hard
+   `min-width: 8.5rem`, so it refused to shrink and starved the `flex: 1` label: at 320px the label got
+   96px for text needing 147px, and 6 of 17 labels ellipsised. Solving the width budget shows the
+   problem reaches every viewport below 371px, so 360px devices were affected too.
+
+   The row is rebalanced fluidly rather than by breakpoint, and the label/control stay on one line at
+   every width. The control keeps ONE width per viewport across all rows, so the column still aligns. */
+.settings-row { gap: clamp(.5rem, 2vw, 1rem); }
+.settings-row .theme-select {
+  flex: 0 0 clamp(7.5rem, 34vw, 8.5rem);
+  min-width: 0;                       /* the clamp above is the width; min-width must not fight it */
+}
+/* The label WRAPS rather than ellipsising. It sat in the `.cat-name / .mode-card h3` nowrap+ellipsis
+   group, which is right for a single-line card title and wrong here: a Settings label names the control
+   beside it and must always be readable in full. Wrapping also frees width for the control, so the
+   dropdown stays comfortable instead of being squeezed to fit the label on one line. */
+.settings-label h3 { white-space: normal; overflow-wrap: break-word; }
+/* the arrow gutter shrinks with the control so the option text keeps its room */
+.settings-row .theme-select {
+  padding-right: clamp(1.5rem, 6vw, 2.25rem);
+  background-position: right clamp(.5rem, 2.5vw, .85rem) center;
 }
 
 /* ---- Input ---- */
@@ -2702,7 +2726,6 @@ html.dark-mode .info-quote { border-left-color: #60a5fa; }
 
 /* ---- Text Overflow Protection ---- */
 .cat-name,
-.settings-label h3,
 .mode-card h3 {
   overflow: hidden;
   text-overflow: ellipsis;

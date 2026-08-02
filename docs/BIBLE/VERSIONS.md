@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.166 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.167 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.167 (2026-08-02)** — **Adversarial certification (ADR-135, SW v266→v267).** The census measured
+> only `css/style.css`, so its reported figures were not the shipped figures: ~84 inline styles in
+> index.html add two off-token durations, a fourth easing, a fifth shadow, z-index 9999/10000 and eight
+> font sizes. Five INLINE dimensions are now censused separately with ceilings at today's counts, and
+> the true shipped totals are printed — **no inline style was touched**, only the measurement made
+> honest. Separately, Settings labels truncated below **371px** (6 of 17 at 320px), so 360px devices
+> were affected and earlier sampling had missed it; fixed by a fluid row rebalance plus letting the
+> label wrap rather than ellipsise. 0 of 17 truncated across 30 configurations. A false pass was caught
+> by screenshot when the metric's `> 1` threshold swallowed a sub-pixel shortfall. design-lint 16→21.
 
 > **2.166 (2026-08-02)** — **Independent certification of ADR-133 (ADR-134, SW v265→v266).** Adversarial
 > review conducted as if another engineer had written it; **it should have been rejected.** The spacing

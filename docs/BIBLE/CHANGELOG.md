@@ -6,6 +6,38 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-02 — Adversarial certification: honest census + Settings truncation (ADR-135, SW v266→v267)
+
+A release-blocking attempt to disprove the ADR-133/134 certification. It survives on quality, but its
+central claim was **false as shipped** and one real defect had never been looked for.
+
+- **The census only ever read the stylesheet.** `index.html` ships ~84 inline `style` attributes that
+  breach every dimension: durations `0.3s`/`0.2s` (the token scale is `.12/.4/1.2s`), a fourth easing,
+  a fifth box-shadow, z-index `9999`/`10000`, eight font sizes. Five new INLINE dimensions are now
+  censused **separately**, ceilings pinned at today's counts, and the output prints the true shipped
+  totals (durations 5, easings 4, shadows 5, z 3). **No inline style was touched** — the cleanup stays
+  deferred; only the measurement is made honest. Planting one violation fails all five assertions.
+- **Settings labels truncated below 371px.** At 320px, 6 of 17 ellipsised ("📚 Study language" lost
+  53px) because the select was `flex: 0 1 auto` with `min-width: 8.5rem` and starved the `flex: 1`
+  label. The threshold is 371px, so **360px was affected too** — earlier sampling of 320/390/430 missed
+  it. Fixed by a fluid rebalance (card padding, row gap and control width become `clamp()`s, one
+  control width per viewport so the column still aligns) and by letting the label **wrap instead of
+  ellipsising** — it sat in the `.cat-name / .mode-card h3` nowrap group, right for a card title and
+  wrong for a control's name. Verified across 30 configurations: **0 of 17 truncated anywhere**,
+  control 120→136px, height exactly 44px.
+- **A false pass, caught by looking rather than measuring.** The first attempt reported 0 truncated
+  while the screenshot plainly showed "Study langua…" — the threshold was `> 1` and the shortfall was
+  sub-pixel. Re-run at `> 0` and cross-checked visually.
+- **The layout gate was English-only** — `layout-probe` had no locale handling. Locale is an axis now.
+- Verified and left alone: reduced-motion genuinely halts all animation, 125% font scaling and
+  landscape are clean, hi/mr clip *less* than English.
+- Gate: 0 new overflow/clipping/wraps/touch regressions; all 2,108 changed elements confined to
+  `settings` and `about`, every other screen zero. design-lint 16→21, npm test 0 failed, align-probe 0
+  offenders, language transition ~210 ms / 1 init call.
+- Docs: ADR-135, VERSIONS 2.166→2.167, lockstep v266→v267.
+
+---
+
 ## 2026-08-02 — Independent certification of ADR-133 (ADR-134, SW v265→v266)
 
 An adversarial review of ADR-133 conducted as if someone else had written it. **It should have been
