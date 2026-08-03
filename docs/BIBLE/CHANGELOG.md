@@ -6,6 +6,43 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-03 — Final production certification: the gate was narrower than its claims (ADR-138, SW v269→v270)
+
+Release sign-off for the whole ADR-133 → ADR-137 arc, baselined against the commit *before* ADR-133
+(v264) so the diff certifies the entire arc rather than the last step.
+
+- **The layout gate had never tested 360px, 412px or landscape**, and omitted Auth, Onboarding, bottom
+  sheets and the Inbox — so every prior "0 regressions" claim was narrower than it read. `WIDTHS` is now
+  `VIEWPORTS` carrying orientation (incl. 844×390 and 1024×768), screens 9→13, URL env-overridable so a
+  worktree baseline uses the same probe binary, plus axis filters. **432 → 1,092 contexts; 89,904 →
+  242,268 records.** Proven to bite first: all four new screens render their own markup in 7/7 viewports.
+- **Quick Study picker search field was 37px.** ADR-133's spacing snap took an already-sub-floor control
+  (40.2px) down further. Fixed at the floor — `min-height: 44px` on `.qr-input`, the convention every
+  sibling control already followed. Blast radius measured: exactly 252 moves of 7px, all in the picker.
+- **Quick Study observers leaked** — 1→11 live ResizeObservers and 2→12 resize listeners over ten
+  rebuild cycles, now 1→1 and 2→2. The common path never reaches it, which is why it read as fine.
+- **My own ADR-136 chevrons were the largest contrast regression**: 2.50/3.08/3.17/**2.07**:1 per theme,
+  ×12 cards. The colours were the pre-token literals the design system had already rejected in writing
+  (line 34: `#94a3b8` "sub-AA on white"; line 147: `#64748b` "below AA on dark"). Routed through
+  `--qr-text-dim`. `.home-goal-status` had the same orphaned literal at 2.44:1 on real caption text —
+  pre-existing, fixed alongside, recorded as pre-existing.
+- **Gate result vs v264, 237,060 elements:** 0 new overflow, 0 new clipping, **0 touch regressions**, 0
+  unexplained disappearances (all 4,032 trace to intended ADR-134/136 removals).
+- **Accessibility measured against the same baseline:** sub-44px controls on Home **14→0**, picker
+  **19→4**; 200% clipping in Settings **15→0**; low-contrast text **8/1/9/1 → 7/0/8/0**. Performance:
+  61fps scrolling the 12-card tray, blur on or off, zero forced layouts.
+- **Three of my own instruments were wrong** — the contrast probe scored icons as text, misread
+  gradient backdrops as the page beneath, and counted a checkbox instead of its 44px label row. Fixed
+  before any conclusion was drawn from them.
+- **Code quality: reported, never changed.** New `docs/BIBLE/TECH_DEBT_INVENTORY.md` — 80 class
+  candidates, 3 token candidates, 20 repeated selectors, 58 `!important`, 84 inline styles, each with
+  evidence and a confidence grade. Nothing removed, by instruction.
+- npm test 45 suites 0 failed; design-lint 22/22 with ceilings unchanged and raw-colour ratio
+  0.54→0.53; icon-identity 13/13; theme-entitlement 12/12; theme lifecycle 12/12.
+- Docs: ADR-138, TECH_DEBT_INVENTORY, VERSIONS 2.169→2.170, lockstep v269→v270.
+
+---
+
 ## 2026-08-02 — Adversarial re-certification: an unenforced premium theme, and a neon halo (ADR-137, SW v268→v269)
 
 An audit of ADR-136 run as if someone else had written it. Two defects confirmed from source; neither

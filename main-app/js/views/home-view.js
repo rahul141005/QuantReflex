@@ -109,6 +109,22 @@ function _qlCardInner(entry) {
 /* The tray shows at most four cards, then scrolls internally (ADR-136). */
 var QS_VISIBLE_MAX = 4;
 var _qsTrayRO = null;
+var _qsResizeHandler = null;   /* ADR-138: the no-ResizeObserver fallback needs a handle to remove */
+
+/* ADR-138 — release-certification finding. Both observers were attached without ever being detached:
+   `_qsTrayRO` was REASSIGNED on a fresh tray (orphaning the previous observer), and the
+   `window.addEventListener('resize', …)` fallback was added per tray creation and never removed, so on
+   a browser without ResizeObserver the listener count grew without bound. The common path is safe —
+   `Router.teardown()` does not wipe view DOM, so the tray survives and `isNew` stays false — which is
+   exactly why this reads as fine and is not. Anything that clears #quickStudyContainer (the
+   zero-shortcuts branch, an account switch that empties the selection, a future re-render) reaches it. */
+function _qsDetachObservers() {
+  if (_qsTrayRO) { try { _qsTrayRO.disconnect(); } catch (_) {} _qsTrayRO = null; }
+  if (_qsResizeHandler) {
+    try { window.removeEventListener('resize', _qsResizeHandler); } catch (_) {}
+    _qsResizeHandler = null;
+  }
+}
 
 /* Measure rather than hardcode. A CSS `max-height: calc(4 * 60px + ...)` would be wrong the moment a
    card wraps to two lines (hi/mr, 125% font scaling) and would leave dead space below 1–3 cards. The
@@ -148,7 +164,7 @@ function renderQuickStudyLinks() {
   var entries = QuickLinksRegistry.resolve(loadQuickLinks());
   if (!entries.length) {
     /* nothing selected — render nothing, rather than an empty box holding the Home layout open */
-    if (_qsTrayRO) { try { _qsTrayRO.disconnect(); } catch (_) {} _qsTrayRO = null; }
+    _qsDetachObservers();
     container.innerHTML = '';
     return;
   }
@@ -159,6 +175,7 @@ function renderQuickStudyLinks() {
   var group;
   var isNew = !tray;
   if (isNew) {
+    _qsDetachObservers();          /* a previous tray's observers must not outlive it */
     tray = document.createElement('div');
     tray.className = 'qs-tray';
     group = document.createElement('div');
@@ -197,7 +214,8 @@ function renderQuickStudyLinks() {
       _qsTrayRO = new ResizeObserver(function () { _qsSyncTrayHeight(tray); });
       _qsTrayRO.observe(group);
     } else {
-      window.addEventListener('resize', function () { _qsSyncTrayHeight(tray); });
+      _qsResizeHandler = function () { _qsSyncTrayHeight(tray); };
+      window.addEventListener('resize', _qsResizeHandler);
     }
   }
 }

@@ -28,7 +28,10 @@ const fs = require('fs');
 const path = require('path');
 
 const OUT = process.env.LAYOUT_DIR || '/tmp/claude-0/-home-user-QuantReflex/7e53b69d-aca7-5f58-88cb-b12cacc45419/scratchpad/layout';
-const URL = 'http://localhost:8321/index.html';
+/* ADR-138: overridable so a BASELINE can be captured from a git worktree served on its own port while
+   HEAD is served on another — the same probe binary on both sides, which is what makes the diff
+   apples-to-apples. Editing the constant between captures silently changes the instrument mid-run. */
+const URL = process.env.LAYOUT_URL || 'http://localhost:8321/index.html';
 const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const TOUCH_MIN = 44;      // px — usability floor for a real control
 const MOVE_MAX = 4;        // px — beyond this a spacing snap has changed design intent, not rhythm
@@ -39,10 +42,31 @@ const THEMES = [
   { name: 'playful-light', settings: { appearance: 'light', theme: 'playful' } },
   { name: 'playful-dark', settings: { appearance: 'dark', theme: 'playful' } }
 ];
-const WIDTHS = [320, 390, 768, 1024];
+/* ADR-138 — VIEWPORTS, not WIDTHS. The gate ran at [320, 390, 768, 1024] with a FIXED 844px height, so
+   every "0 regressions" claim from ADR-133 onward silently excluded 360px and 412px — two of the most
+   common Android widths — and every landscape orientation. A gate whose axes are narrower than the
+   claims made from it is the same failure as ADR-135's English-only blind spot, so orientation is now
+   a first-class axis rather than an occasional spot check: height travels WITH the width, and a
+   landscape entry is just a viewport whose height is the short side. */
+const VIEWPORTS = [
+  { name: '320', w: 320, h: 844 },              /* smallest supported phone */
+  { name: '360', w: 360, h: 844 },              /* the most common Android width — never gated before */
+  { name: '390', w: 390, h: 844 },              /* modal iPhone */
+  { name: '412', w: 412, h: 844 },              /* large Android — never gated before */
+  { name: '768', w: 768, h: 1024 },             /* tablet portrait */
+  { name: '844x390L', w: 844, h: 390 },         /* phone LANDSCAPE — never gated before */
+  { name: '1024x768L', w: 1024, h: 768 }        /* tablet LANDSCAPE — never gated before */
+];
 /* ADR-135: the layout gate was English-only, so nothing it certified covered Devanagari — where
    string lengths differ enough to change wrapping and overflow. Locale is an axis now. */
 const LOCALES = (process.env.LAYOUT_LOCALES || 'en,hi,mr').split(',');
+/* ADR-138: axis filters, so the full ~1,100-context matrix can be smoke-tested or bisected in a couple
+   of minutes. A gate this large has to be verifiable cheaply, or nobody checks that it still records
+   what it claims to — which is precisely how three instruments shipped this session reporting success
+   while never actually running. */
+const ONLY_THEMES = process.env.LAYOUT_THEMES ? process.env.LAYOUT_THEMES.split(',') : null;
+const ONLY_VIEWPORTS = process.env.LAYOUT_VIEWPORTS ? process.env.LAYOUT_VIEWPORTS.split(',') : null;
+const ONLY_SCREENS = process.env.LAYOUT_SCREENS ? process.env.LAYOUT_SCREENS.split(',') : null;
 
 const SCREENS = {
   home: "Router.showView('home'); try { HomeView.render(); } catch(_){}",
@@ -53,7 +77,17 @@ const SCREENS = {
   about: "Router.showView('settings'); try { initSettingsView(); } catch(_){} try { openInfoModal('aboutModal'); } catch(_){}",
   quickref: "try { _closeAllInfoModals(); } catch(_){} document.querySelectorAll('#aboutModal, .info-modal').forEach(function(m){ m.style.display='none'; }); document.body.classList.remove('modal-open'); Router.showView('learn', { path: 'quick-ref' });",
   duelsetup: "var m = document.getElementById('duelSetupModal'); m.style.display='flex'; DuelUI.renderSetup(m, { onBack: function(){}, onCreate: function(){} });",
-  paywall: "try { showPaywall('advanced_theme'); } catch(_){}"
+  paywall: "try { showPaywall('advanced_theme'); } catch(_){}",
+  /* ADR-138 — four surfaces the brief names that the gate had never seen. Auth and Onboarding are the
+     first screens a new user meets and were entirely outside every previous certification; `qspicker`
+     is the bottom sheet ADR-136 deliberately preserved without ever verifying it; `inbox` is the drawer
+     ADR-135 identified as styled almost entirely outside the design system. Each closes whatever the
+     previous screen opened first — the probe walks screens within one page, so a leftover overlay
+     would otherwise be measured as part of the next screen. */
+  auth: "try { _closeAllInfoModals(); } catch(_){} document.querySelectorAll('.info-modal, .qr-sheet, .modal-overlay').forEach(function(m){ m.style.display='none'; }); document.body.classList.remove('modal-open','auth-resolved'); var a=document.getElementById('authScreen'); if(a) a.style.display='flex';",
+  onboarding: "var a=document.getElementById('authScreen'); if(a) a.style.display='none'; document.body.classList.add('auth-resolved'); try { Onboarding.show(); } catch(_){}",
+  qspicker: "var o=document.getElementById('onboardingOverlay'); if(o) o.style.display='none'; document.querySelectorAll('.qr-sheet').forEach(function(m){ if(m.parentNode) m.parentNode.removeChild(m); }); Router.showView('home'); try { HomeView.render(); } catch(_){} try { openQuickLinksEditor(); } catch(_){}",
+  inbox: "document.querySelectorAll('.qr-sheet').forEach(function(m){ if(m.parentNode) m.parentNode.removeChild(m); }); try { InboxView.open(); } catch(_){}"
 };
 
 /* in-page: structural facts for every visible element */
@@ -129,10 +163,13 @@ async function capture(tag) {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
   const data = {};
-  for (const theme of THEMES) {
+  const themes = ONLY_THEMES ? THEMES.filter(t => ONLY_THEMES.indexOf(t.name) !== -1) : THEMES;
+  const viewports = ONLY_VIEWPORTS ? VIEWPORTS.filter(v => ONLY_VIEWPORTS.indexOf(v.name) !== -1) : VIEWPORTS;
+  const screenList = Object.entries(SCREENS).filter(([k]) => !ONLY_SCREENS || ONLY_SCREENS.indexOf(k) !== -1);
+  for (const theme of themes) {
    for (const locale of LOCALES) {
-    for (const width of WIDTHS) {
-      const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1 });
+    for (const vp of viewports) {
+      const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: 1 });
       await ctx.addInitScript(function (s) {
         try {
           localStorage.setItem('qr_settings', JSON.stringify(s));
@@ -156,11 +193,11 @@ async function capture(tag) {
         });
       });
       try { await boot(page); } catch (e) { await ctx.close(); continue; }
-      for (const [screen, prep] of Object.entries(SCREENS)) {
+      for (const [screen, prep] of screenList) {
         try {
           await page.evaluate(new Function(prep));
           await page.waitForTimeout(380);
-          data[theme.name + '|' + locale + '|' + width + '|' + screen] = await page.evaluate(snapshot);
+          data[theme.name + '|' + locale + '|' + vp.name + '|' + screen] = await page.evaluate(snapshot);
         } catch (_) { /* screen unavailable in this config */ }
       }
       await ctx.close();

@@ -8,6 +8,84 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-138 — Final production certification: the gate was narrower than the claims made from it (v270) (2026-08-03)
+
+**Context.** Release sign-off for the whole ADR-133 → ADR-137 arc, run as an independent auditor whose
+brief was to prove the build is *not* ready. Every previous conclusion was treated as unverified, and
+the baseline for comparison is **the commit before ADR-133** (`3aa0ab3`, v264) rather than the last
+commit — so the diff certifies the entire arc, not just the most recent step.
+
+**F0 — the layout gate had been narrower than every claim made from it.** `layout-probe.js` ran at
+`[320, 390, 768, 1024]` with a **fixed 844px height**: it had never tested **360px**, **412px** or
+**any landscape orientation**, and its screen list omitted Authentication, Onboarding, bottom sheets
+(including the Quick Study picker that ADR-136 deliberately preserved) and the Inbox drawer. Every
+"0 regressions" statement in ADR-133→137 was therefore a narrower statement than it read — the same
+failure as ADR-135's English-only blind spot.
+
+The gate is now the permanent standard: `WIDTHS` → `VIEWPORTS` carrying orientation
+(320/360/390/412 × 844, 768×1024, **844×390**, **1024×768**), screens 9 → 13, an env-overridable URL so
+a baseline can be served from a worktree on a second port with the *same* probe binary, and axis
+filters so a ~1,100-context matrix stays cheap to smoke-test. **432 → 1,092 contexts; 89,904 → 242,268
+element records.** Proven to bite before use: all four new screens show their own markup in 7/7
+viewports.
+
+**F1 — the Quick Study picker's search field was 37px.** ADR-133's spacing normalisation snapped its
+padding from 0.6rem to the nearest 4px step (9.6px → 8px), which is the transform working exactly as
+documented — but it took a control **already** below the 44px touch floor (40.2px) and made it worse.
+Invisible until the gate learned about bottom sheets. Fixed at the floor, not the padding:
+`min-height: 44px` on `.qr-input`, matching the convention `.theme-select`, `.settings-action-btn`,
+`.qs-pick-row` and `.numpad-btn` already follow. 37 → **44px**; blast radius measured at exactly 252
+moves of 7px, all inside the picker, 0 clipping and 0 overflow anywhere.
+
+**F2 — the Quick Study observers leaked.** `_qsTrayRO` was reassigned on a fresh tray without
+disconnecting the previous observer, and the no-`ResizeObserver` fallback added a `window.resize`
+listener per tray creation and never removed one. Measured on the pre-fix code: **1 → 11 live
+observers** and **2 → 12 listeners** after ten destroy/rebuild cycles; 1→1 and 2→2 after. The common
+path never reaches it (`Router.teardown()` does not wipe view DOM), which is precisely why it read as
+fine.
+
+**F3 — my own ADR-136 chevrons were the app's largest contrast regression.** Measured per theme,
+`.settings-chevron` sat at 2.50 / 3.08 / 3.17 / **2.07** : 1 — and ADR-136 put one on every Quick Study
+card, so the count rose by 12 per theme. The colours turned out to be the pre-token literals the design
+system had already rejected in writing: line 34 records `#94a3b8` as "~2.9:1 on white, sub-AA" and line
+147 records `#64748b` as "below AA on dark surfaces". The chevron was simply never migrated when
+`--qr-text-dim` was introduced. Routed through the token (and the three theme overrides removed,
+because they would defeat it). `.home-goal-status` carried the same orphaned literal at 2.44–2.56:1 on
+real caption text and was fixed alongside it — **pre-existing, not a regression, and recorded as such**.
+
+**Result against the pre-ADR-133 baseline, 237,060 elements compared:** 0 new overflow, 0 new clipping,
+**0 touch-target regressions**, 0 unexplained disappearances. All 4,032 disappearances trace to
+documented intended removals (3,276 the ADR-136 Quick Study chip subtree, 756 the ADR-134 raw-SVG →
+`.qr-ico` conversions). The 71,671 moves are ADR-133's deliberate re-spacing of ~1,350 declarations.
+
+**Accessibility, measured against the same baseline rather than asserted.** Sub-44px controls on Home
+**14 → 0** and in the picker **19 → 4**; 200% font-scale clipping in Settings **15 → 0**; low-contrast
+text per theme **8/1/9/1 → 7/0/8/0**, i.e. equal or better everywhere and clean in both dark themes.
+Performance: 61fps sustained while scrolling the 12-card tray, blur on or off, in both themes, with
+zero forced layouts — the blur is not the jank source it is often assumed to be *in this environment*.
+
+**Three instrument bugs, all caught by execution.** My contrast probe scored icons as text and read a
+gradient-backed element's backdrop as the page beneath it (`backgroundColor` is transparent under a
+gradient), producing ~1:1 nonsense; and it counted a checkbox as an 18px target when its 44px `<label>`
+row is the real hit area. Fixed before any conclusion was drawn from it — the corrected instrument is
+what produced the numbers above.
+
+**Consequences.**
+- `npm test` 45 suites, 0 failed. design-lint 22/22 with every ceiling unchanged and the raw-colour
+  ratio improved 0.54 → **0.53** (five literals became tokens). icon-identity 13/13.
+  theme-entitlement 12/12. Theme lifecycle 12/12. Quick Study state machine exact at every count.
+- **Code quality: reported, not changed.** `docs/BIBLE/TECH_DEBT_INVENTORY.md` inventories 80 class
+  candidates, 3 token candidates, 20 repeated selectors, 58 `!important` and 84 inline styles, each
+  with its evidence and a confidence grade. Nothing was removed: this branch carries regression fixes,
+  UI corrections and gate improvements only, by explicit instruction.
+- **Known limitations, unchanged and accepted:** the native `<select>` popup is OS-drawn; at 320px
+  "🌙 Appearance" is forced onto two lines; an early subscription revoke flashes the premium theme once
+  before self-healing. Two cosmetic reflows introduced by ADR-133's re-spacing are recorded and not
+  fixed — the Daily-Goal caption takes a second line at 320px in Marathi, and a Guide-modal paragraph
+  reflows at 412px English. Neither clips nor overflows.
+
+---
+
 ## ADR-137 — Adversarial re-certification of ADR-136: a premium theme that outlived its subscription, and a neon halo pretending to be elevation (v269) (2026-08-02)
 
 **Context.** An audit of ADR-136 conducted as if someone else had written it, with instructions to

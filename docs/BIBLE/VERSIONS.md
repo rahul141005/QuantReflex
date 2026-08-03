@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.169 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.170 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.170 (2026-08-03)** — **Final production certification (ADR-138, SW v269→v270).** Release sign-off
+> for the whole ADR-133→137 arc, baselined against the commit BEFORE ADR-133 (v264). The headline
+> finding is about the tooling: `layout-probe` had run at [320, 390, 768, 1024] with a fixed 844px
+> height, so it had never tested 360px, 412px or ANY landscape, and it omitted Auth, Onboarding, bottom
+> sheets and the Inbox — every prior "0 regressions" claim was narrower than it read. The gate is now
+> the permanent standard: viewports carry orientation, screens 9→13, 432→1,092 contexts, 89,904→242,268
+> records, proven to bite before use. It immediately found a 37px search field in the Quick Study
+> picker (ADR-133's spacing snap had pushed an already-sub-floor control further down; fixed at the
+> 44px floor) and a leaking observer pair (1→11 observers, 2→12 listeners over ten rebuild cycles).
+> Contrast measurement then showed ADR-136's own chevrons were the app's largest contrast regression at
+> 2.07:1 in Playful Dark — the colours were the pre-token literals the design system had already
+> rejected in writing, never migrated to `--qr-text-dim`. Against v264: 0 new overflow, 0 clipping, 0
+> touch regressions, 0 unexplained disappearances; sub-44px controls on Home 14→0; 200% clipping in
+> Settings 15→0; 61fps scrolling with blur on. Three of my own instruments were found wrong and fixed
+> before conclusions were drawn. Code quality was INVENTORIED, not changed — see TECH_DEBT_INVENTORY.md.
 
 > **2.169 (2026-08-02)** — **Adversarial re-certification of ADR-136 (ADR-137, SW v268→v269).** Two
 > defects that no gate had ever asked about, because neither was a change. Playful Dark used

@@ -1891,7 +1891,14 @@ html.dark-mode .toast {
   outline: none; color: var(--qr-text); background: var(--qr-surface-solid);
   transition: border-color var(--qr-dur);
 }
-.qr-input { width: 100%; box-sizing: border-box; padding: .5rem .75rem; font: inherit; font-size: var(--fs-sub); }
+/* ADR-138 — release-certification finding, caught only once the gate learned about bottom sheets.
+   This input is the Quick Study picker's search field, and it was 40.2px tall before ADR-133 and 37px
+   after: the spacing normalisation snapped its 0.6rem padding to the nearest 4px step (9.6px → 8px),
+   which is the transform working exactly as documented — but it took a control that was ALREADY under
+   the 44px touch floor and made it worse. The floor is the fix, not the padding: `.theme-select`,
+   `.settings-action-btn`, `.qs-pick-row`, `.numpad-btn` and the duel buttons all already carry
+   `min-height: 44px`, so the text input was simply the one control the convention had missed. */
+.qr-input { width: 100%; box-sizing: border-box; padding: .5rem .75rem; font: inherit; font-size: var(--fs-sub); min-height: 44px; }
 .qr-input:focus, .modal-input:focus, .goal-input:focus, .duel-join-input:focus { border-color: var(--qr-accent); box-shadow: var(--qr-focus-ring); }
 
 /* ---- Segment (single-select pill row) ---- */
@@ -2202,7 +2209,16 @@ body.reduced-motion .guide-animate-section { opacity: 1 !important; transform: n
 }
 .settings-chevron {
   font-size: var(--fs-h1);
-  color: #94a3b8;
+  /* ADR-138 — was a hardcoded #94a3b8, with three per-theme literals overriding it. Those are the
+     PRE-TOKEN values the design system already rejected: line 34 records #94a3b8 as "~2.9:1 on white,
+     sub-AA" and line 147 records #64748b as "below AA on dark surfaces" — the chevron simply never got
+     migrated when `--qr-text-dim` was introduced. Measured on Quick Study cards it sat at 2.50 / 3.08 /
+     3.17 / 2.07 : 1 across the four themes, the last well under the 3:1 floor for a UI affordance.
+     ADR-136 then multiplied the problem by putting a chevron on every Quick Study card.
+     Routing through the token fixes both at once, per theme, and drops four colour literals. The three
+     theme overrides below are removed BECAUSE they would defeat the token — that is the mechanism of
+     the fix, not opportunistic cleanup. */
+  color: var(--qr-text-dim);
   font-weight: 300;
   line-height: 1;
   flex-shrink: 0;
@@ -2210,7 +2226,6 @@ body.reduced-motion .guide-animate-section { opacity: 1 !important; transform: n
 html.dark-mode .settings-link:active {
   background: rgba(96,165,250,.08);
 }
-html.dark-mode .settings-chevron { color: #64748b; }
 
 /* ---- Contact support card (ADR-100 → ADR-102 premium redesign) — a STANDALONE card in the Feedback
    section: mail avatar + address (tap to email) + a copy button (tap to copy). Adopts the About modal's
@@ -4617,7 +4632,6 @@ html.theme-playful .settings-label h3 { color: #1a1a2e; }
 html.theme-playful .settings-label p { color: #5a6275; }
 html.theme-playful .settings-row-block h3 { color: #1a1a2e; }
 html.theme-playful .settings-link:active { background: rgba(79,143,247,.06); }
-html.theme-playful .settings-chevron { color: #8b8fa3; }
 
 html.theme-playful .btn {
   background: #e8e6e1;
@@ -5037,7 +5051,6 @@ html.theme-playful.dark-mode .settings-section-card {
 html.theme-playful.dark-mode .settings-row-divider { background: var(--qr-veil-w-6); }
 html.theme-playful.dark-mode .settings-row-block h3 { color: #e6edf3; }
 html.theme-playful.dark-mode .settings-link:active { background: rgba(88,166,255,.08); }
-html.theme-playful.dark-mode .settings-chevron { color: #484f58; }
 
 html.theme-playful.dark-mode .btn {
   background: rgba(22,27,45,.9);
@@ -7342,7 +7355,12 @@ html.dark-mode .home-goal-title { color: #f1f5f9; }
 html.dark-mode .home-goal-detail { color: #94a3b8; }
 .home-goal-status {
   font-size: var(--fs-caption);
-  color: #94a3b8;
+  /* ADR-138 — PRE-EXISTING (not an ADR-133+ regression), fixed because it is the same one-line class of
+     defect found next to it: another survivor of the hardcoded #94a3b8 that line 34 records as
+     "~2.9:1 on white, sub-AA". Measured 2.56:1 classic-light / 2.44:1 playful-light on real caption
+     text — a clear AA failure on a line users actually read. The token carries the per-theme values
+     chosen to clear the threshold. */
+  color: var(--qr-text-dim);
   margin: 0;
 }
 
