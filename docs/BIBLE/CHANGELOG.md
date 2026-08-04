@@ -6,6 +6,44 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-04 — Refunds revoke: PR-1 / Phase-4 WS2 (ADR-141)
+
+Foundation for hybrid payments. Per the blueprint's §13 law, WS2 ships **before any Play code** — this
+commit contains none. Repairs a defect that was live.
+
+- **Fixed — a refunded payment could be redeemed again, forever.** `activatePremium`'s existing-doc
+  branch re-applied the entitlement unconditionally (`services/aiService.js:201`). Razorpay redelivers
+  `payment.captured` on its own schedule and `?action=verify` has no recency check, so a customer could
+  buy, charge back, and keep renewing Premium off the same `paymentId`. `payments/{id}.status` is now a
+  lifecycle; a terminal status (`refunded`/`revoked`/`chargeback`) refuses the grant with **zero
+  writes** and a typed `PAYMENT_REFUNDED`. `'pending'` completes normally.
+- **Added — `refund.processed`** (`api/payment/webhook.js`). The grant path was one-way: money returned
+  while the entitlement ran to its natural expiry. Full refund → `revokePayment`; partial → marked
+  `partially_refunded`, entitlement **retained**, `securityEvents` for a human (stated policy — there is
+  no defensible way to turn "40% back" into days). An unreadable capture total is treated as partial.
+- **Added — `services/entitlementLedger.js`**, the pure replay algebra (no Firebase, no ambient clock).
+  Revocation **replays the surviving purchases**, never subtracts days: refunding an already-lapsed
+  purchase must not shorten a later valid one, which subtraction gets wrong by a whole term.
+- **Added — `aiService.revokePayment(uid, paymentId)`**, the one revoke path both providers will use.
+  Tombstones **even when the grant never landed** (a refund can precede its capture), refuses to touch
+  an entitlement whose `planSource` is no longer `'purchase'`, may only ever shorten, and abandons the
+  recompute entirely if any surviving row is unreadable. Every skip → `securityEvents`.
+- **W4 — the payment row now records the gateway-reported amount**, tagged `amountSource`. A mismatch
+  still grants (the money was captured) and is flagged. A reported `0` means "no evidence", not "₹0".
+- **Fixed — transaction-retry hazard.** Both transactions publish a verdict to the enclosing scope;
+  Firestore retries the callback on contention, so an attempt that lost the commit race could have
+  carried a stale `refused`/`skipped` out of a transaction that never committed. Reset per attempt.
+- **Indexes** — `payments [uid, status, claimedAt]` and `[status, claimedAt]`, plus `paymentOrphans`.
+  A missing composite index would fail *only during a refund*. The ledger query deliberately carries
+  **no `orderBy`** (it would drop legacy rows lacking the field, shortening a real entitlement);
+  `recomputeExpiry` sorts internally.
+- **Schema is additive only** — zero migration; legacy rows without `days` recover it from the plan id.
+- npm test 0 failed · **new:** `entitlement-ledger.check` 49, `payment-refund.check` 84 (drives the real
+  aiService *and* the real webhook through a genuine HMAC) · `entitlement-invariants` 40 → 59 ·
+  payment-parity 26 · design-lint 22. Six mutation runs confirm every new guard bites.
+- Razorpay non-regression pinned by execution: verify+webhook double-fire, no-shorten replay over a
+  longer admin grant, cross-uid `PAYMENT_REPLAY`, partial-refund re-apply.
+
 ## 2026-08-04 — Hybrid payment implementation gate: READY (ADR-140)
 
 Final engineering certification before hybrid payments. No Play code written. **Verdict: READY FOR

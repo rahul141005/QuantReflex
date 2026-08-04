@@ -8,6 +8,86 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-141 — Refunds revoke: the entitlement pipeline becomes two-way before Play Billing (v271) (2026-08-04)
+
+**Context.** PR-1 of the hybrid-payment work — Phase-4 **WS2**, which the blueprint's §13 makes a law:
+*"WS2 ships before any Play code, because the `activatePremium` refund guards protect both providers."*
+The grant path was one-way. `payments/{paymentId}` existed purely as an idempotency lock; nothing ever
+wrote a terminal state to it, and nothing consumed one. Razorpay's `refund.processed` event was not
+handled at all.
+
+**The live defect.** `activatePremium`'s existing-doc branch re-applied the entitlement
+**unconditionally**. Razorpay redelivers `payment.captured` on its own schedule, `?action=verify` has
+no recency check (a valid `(orderId, paymentId, signature)` triple stays cryptographically valid
+forever), and Play's RTDN stream replays PURCHASED after a voided purchase. So a customer could buy,
+charge back, and then renew Premium for free off the same `paymentId` indefinitely — and separately,
+a refund returned the money while the entitlement it bought ran to its natural expiry. Adding Play on
+top would have doubled the surface of a bug that was already live.
+
+**Decision.**
+
+1. **`payments/{paymentId}.status` becomes a lifecycle, not a flag.** `'paid'` → `'refunded'`
+   (TERMINAL, alongside `'revoked'`/`'chargeback'`) or `'partially_refunded'`; `'pending'` → `'paid'`.
+   A grant landing on a terminal status is refused with **zero writes** and a typed
+   `PAYMENT_REFUNDED` — not a falsy return, so no caller can read it as success. Unknown statuses are
+   treated as `'paid'`, never as re-grantable.
+
+2. **Revocation REPLAYS the surviving ledger; it never subtracts days.** New pure module
+   `services/entitlementLedger.js` (the `freeExplainPolicy.js` convention: no Firebase, no ambient
+   clock, unit-testable in isolation). The counter-example that forces this, using real durations:
+   P1 bought 1 Jan (182d, lapses 2 Jul), P2 bought 1 Oct (182d → 1 Apr). Refunding P1 by subtraction
+   gives 1 Apr − 182d = 1 Oct — **the user loses the entire second purchase they still own.** Correct
+   answer: P1 contributed nothing, expiry stays 1 Apr. The only general solution is to discard the
+   refunded row and replay what remains: `running = max(claimedAt, running) + days`, oldest first —
+   the same never-shorten rule `entitlement-core.stackExpiry` applies at grant time, run over history.
+
+3. **`revokePayment(uid, paymentId)` tombstones even when there is no grant to remove.** A refund can
+   legitimately precede its capture. Writing `status:'refunded'` on a not-yet-existent doc means the
+   late grant hits the refuse branch. Without it the refund is silently undone seconds later.
+
+4. **Three fail-safes, all erring toward keeping access.** A refund never touches an entitlement whose
+   `planSource` is no longer `'purchase'` (an admin/coaching/trial grant landed since — the refund has
+   no authority over it). A revoke may only ever *shorten*. And if any **surviving** paid row cannot be
+   read — retired plan id, corrupt `claimedAt` — the recompute is abandoned entirely rather than run
+   over a ledger that is silently short. Each skip is recorded to `securityEvents`, never swallowed.
+
+5. **Partial refunds do not revoke.** There is no defensible conversion from "40% of the money back"
+   into a number of days, and shortening a paying customer's term is the worse error. The row is marked
+   `'partially_refunded'`, the entitlement stands, and a human decides. Stated policy, not an omission.
+   An unreadable capture total is likewise treated as partial.
+
+6. **W4 — the payment row records the GATEWAY's amount, not our catalog price.** `PREMIUM_PRICE_PAISE`
+   is a catalog that drifts the moment a price changes; reconciliation needs evidence. Tagged
+   `amountSource:'gateway'|'catalog'`. A mismatch still **grants** (the money was already captured;
+   refusing would take payment without giving access) and is flagged instead. A reported `0` counts as
+   *no evidence* — Razorpay's `order.amount_paid` can lag the capture, and neither plan is free.
+
+**Options considered.** *Subtract the refunded days* — rejected, steals unrelated purchases (above).
+*Refuse the grant on an amount mismatch* — rejected, takes money without access. *Revoke on partial
+refunds pro-rata* — rejected, no defensible arithmetic. *Let the refused grant return `null`* —
+rejected, a falsy return is silently mistakable for success.
+
+**Consequence.** One revoke path serves both providers: Play's `voidedPurchaseNotification` (PR-2)
+calls `revokePayment` rather than reimplementing it. Schema is **additive only** (`days`,
+`amountSource`, `amountExpected`, `amountMismatch`, `currency`, `refundedAt`, `refundReason`,
+`refundId`, `tombstone`) — zero migration; legacy rows without `days` recover their term from the plan
+id. Two composite `payments` indexes declared, because a missing index would fail *only during a
+refund* — the worst possible moment to find out.
+
+**Verified by execution, not by reading.** `entitlement-ledger.check.js` (49 assertions, pure algebra)
+and `payment-refund.check.js` (84 assertions) — the latter drives the **real** `aiService` against an
+in-memory Firestore whose transactions buffer writes exactly as the real one does, and the **real**
+webhook handler through a genuine HMAC signature. Every new guard was proven load-bearing by six
+mutation runs: deleting the refunded-status guard fails 6 assertions, substituting naive subtraction
+fails 6, dropping the `planSource` guard fails 3, removing the tombstone fails 2, removing the
+indeterminate-term fail-safe fails 3, and treating every refund as full fails 7. Razorpay
+non-regression is pinned by T4/T5/T7/T17 (double-fire, no-shorten replay, cross-uid rejection,
+partial-refund re-apply). `entitlement-invariants` 40 → 59.
+
+**Not done here (PR-2, ADR-142):** all Play Billing code. This commit contains no Play code by design.
+
+---
+
 ## ADR-140 — Hybrid payment implementation gate: READY, with the entitlement audit trail closed (v270) (2026-08-04)
 
 **Context.** The final engineering certification before hybrid payments (Razorpay for Web/PWA, Play

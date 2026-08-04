@@ -23,6 +23,16 @@
  * - Uses payments/{paymentId} Firestore document as a lock
  * - If the document already exists, entitlement is re-applied (safe replay)
  * - Both /api/payment?action=verify AND this webhook can fire — no double-granting
+ *
+ * REFUNDS (ADR-141, WS2):
+ * - `refund.processed` is the symmetric counterpart of `payment.captured`. Without it the grant path
+ *   was one-way: money could be returned to the customer while the entitlement it bought stayed live
+ *   until its natural expiry, and a redelivered `payment.captured` would then renew it indefinitely.
+ * - FULL refund → aiService.revokePayment (tombstone + ledger replay).
+ * - PARTIAL refund → the row is marked 'partially_refunded' and the entitlement STANDS. This is a
+ *   stated policy, not an omission: there is no defensible way to convert "40% of the money back"
+ *   into a number of days, and silently shortening a paying customer's term is the worse error. It is
+ *   written to securityEvents so a human decides.
  */
 
 const crypto = require('crypto');
@@ -179,7 +189,12 @@ async function handler(req, res) {
       /* v2: single Premium tier. activatePremium uses payments/{paymentId} as a
          transactional lock, so verify + webhook both firing will not double-grant,
          and a replay from another account is rejected with PAYMENT_REPLAY. */
-      await aiService.activatePremium(uid, plan, paymentId, orderId);
+      /* W4 (ADR-141): hand the grant the amount RAZORPAY says it captured, not our local price map.
+         `payment.amount` is in paise and is the authoritative capture figure. */
+      await aiService.activatePremium(uid, plan, paymentId, orderId, {
+        amountPaise: Number(payment.amount),
+        currency: payment.currency || 'INR'
+      });
 
       /* Set JWT custom claim so token reflects entitlement immediately */
       try {
@@ -199,13 +214,140 @@ async function handler(req, res) {
         console.log('[webhook] Payment already processed (replay) — uid:', uid, 'paymentId:', paymentId);
         return res.status(200).json({ status: 'ok', replay: true });
       }
+      if (grantErr.code === 'PAYMENT_REFUNDED') {
+        /* ADR-141: a `payment.captured` redelivery arriving AFTER the refund. Nothing was granted and
+           nothing will be. ACK 200 — a 500 would make Razorpay retry this forever, and the outcome
+           can never change. Already recorded to securityEvents by revokePayment's counterpart. */
+        console.warn('[webhook] Captured event for a refunded payment — refused. uid:', uid, 'paymentId:', paymentId);
+        return res.status(200).json({ status: 'ok', refused: 'refunded' });
+      }
       console.error('[PaymentFlow] PAYMENT_FAILED | webhook grant failed: ' + grantErr.message);
       /* Return 500 so Razorpay retries the webhook */
       return res.status(500).json({ error: 'Grant failed — will retry' });
     }
   }
 
-  /* ── Step 6: Handle payment.failed ── */
+  /* ── Step 6: Handle refund.processed (ADR-141, WS2) ── */
+  if (event === 'refund.processed') {
+    var refund = (payload.refund && payload.refund.entity) || {};
+    var refPayment = (payload.payment && payload.payment.entity) || {};
+    var refPaymentId = refund.payment_id || refPayment.id;
+
+    if (!refPaymentId) {
+      console.error('[webhook] refund.processed missing payment_id');
+      return res.status(200).json({ status: 'ignored', reason: 'missing payment_id' });
+    }
+
+    /* FULL vs PARTIAL. Prefer the payment entity's running `amount_refunded` — it accounts for several
+       partial refunds that together add up to the whole capture, which comparing this single refund
+       against the capture would miss. Fall back to this refund's own amount when the payment entity is
+       absent from the payload. If we cannot establish the capture amount at all, treat it as PARTIAL:
+       the conservative direction, since a wrong "full" would strip a paying customer's access. */
+    var capturedPaise = Number(refPayment.amount);
+    var refundedPaise = Number(refPayment.amount_refunded);
+    if (!isFinite(refundedPaise) || refundedPaise <= 0) refundedPaise = Number(refund.amount);
+    var isFullRefund = isFinite(capturedPaise) && capturedPaise > 0 &&
+                       isFinite(refundedPaise) && refundedPaise >= capturedPaise;
+
+    /* Whose entitlement is this? Three sources, most-trusted first. The payments doc is checked last
+       but is the only one that survives a Razorpay notes/order lookup failure, and the only one
+       available for a payment made through a flow that never wrote notes. */
+    var rUid = (refPayment.notes && refPayment.notes.uid) || (refund.notes && refund.notes.uid) || null;
+    var rPlan = (refPayment.notes && refPayment.notes.plan) || null;
+    if (!rUid && refPayment.order_id) {
+      try {
+        var rOrder = await paymentService.fetchOrder(refPayment.order_id);
+        var rNotes = (rOrder && rOrder.notes) || {};
+        rUid = rUid || rNotes.uid;
+        rPlan = rPlan || rNotes.plan;
+      } catch (rFetchErr) {
+        console.warn('[webhook] refund order lookup failed:', rFetchErr.message);
+      }
+    }
+    if (!rUid) {
+      try {
+        var pDoc = await admin.firestore().collection('payments').doc(String(refPaymentId)).get();
+        if (pDoc.exists) { rUid = pDoc.data().uid || null; rPlan = rPlan || pDoc.data().plan || null; }
+      } catch (pReadErr) {
+        console.warn('[webhook] refund payments-doc lookup failed:', pReadErr.message);
+      }
+    }
+
+    if (!rUid) {
+      /* A refund we cannot attribute. Record an orphan rather than acking silently — the entitlement
+         it should have revoked is still live and a human has to close the loop. Returning 200 is
+         correct: retrying will not make the uid appear. */
+      console.error('[PaymentFlow] REFUND_ORPHAN | cannot attribute refund | paymentId: ' + refPaymentId + ' | refundId: ' + (refund.id || 'n/a'));
+      try {
+        await admin.firestore().collection('paymentOrphans').doc('refund_' + String(refPaymentId)).set({
+          provider: 'razorpay', paymentId: String(refPaymentId), refundId: refund.id ? String(refund.id) : null,
+          plan: rPlan || null, reason: 'refund_no_uid', status: 'unresolved',
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (rOrphanErr) {
+        console.error('[webhook] Failed to write refund orphan:', rOrphanErr.message);
+      }
+      return res.status(200).json({ status: 'ok', warning: 'no uid — refund orphan recorded' });
+    }
+
+    if (!isFullRefund) {
+      /* Documented policy: mark and escalate, do not revoke.
+         The mark is applied ONLY to an existing row. Creating one here would invent a half-formed
+         ledger entry — no `plan`, no `days`, no `claimedAt` — and a later full refund of a DIFFERENT
+         payment would then replay a ledger that silently omits this purchase, shortening the user.
+         (A partial refund that precedes its own capture should not be possible; if it happens, an
+         orphan for a human beats a fabricated row.) */
+      try {
+        var partialRef = admin.firestore().collection('payments').doc(String(refPaymentId));
+        var partialDoc = await partialRef.get();
+        if (!partialDoc.exists) {
+          console.error('[PaymentFlow] REFUND_ORPHAN | partial refund with no captured payment row | paymentId: ' + refPaymentId);
+          await admin.firestore().collection('paymentOrphans').doc('refund_' + String(refPaymentId)).set({
+            provider: 'razorpay', paymentId: String(refPaymentId), refundId: refund.id ? String(refund.id) : null,
+            uid: String(rUid), plan: rPlan || null, reason: 'partial_refund_before_capture', status: 'unresolved',
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          return res.status(200).json({ status: 'ok', partial: true, warning: 'no captured row — orphan recorded' });
+        }
+        await partialRef.set({
+          uid: rUid,
+          status: 'partially_refunded',
+          amountRefunded: isFinite(refundedPaise) ? refundedPaise : null,
+          refundedAt: new Date().toISOString(),
+          refundId: refund.id ? String(refund.id) : null
+        }, { merge: true });
+        admin.firestore().collection('securityEvents').add({
+          type: 'payment_partial_refund', app: 'main', emailHash: null,
+          reason: ('razorpay:partial ' + refundedPaise + '/' + capturedPaise).slice(0, 120),
+          errorCode: null, paymentId: String(refPaymentId).slice(0, 128),
+          uid: String(rUid).slice(0, 128), userAgent: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }).catch(function () {});
+      } catch (partialErr) {
+        console.error('[PaymentFlow] PAYMENT_FAILED | partial-refund mark failed: ' + partialErr.message);
+        return res.status(500).json({ error: 'Partial refund mark failed — will retry' });
+      }
+      console.warn('[PaymentFlow] PARTIAL_REFUND | uid: ' + rUid + ' | paymentId: ' + refPaymentId + ' | entitlement retained for manual review');
+      return res.status(200).json({ status: 'ok', partial: true });
+    }
+
+    try {
+      var revokeResult = await aiService.revokePayment(rUid, refPaymentId, {
+        reason: 'razorpay_refund',
+        refundId: refund.id ? String(refund.id) : undefined,
+        plan: rPlan || undefined
+      });
+      console.info('[PaymentFlow] REFUND_PROCESSED | uid: ' + rUid + ' | paymentId: ' + refPaymentId +
+        ' | revoked: ' + revokeResult.revoked + ' | skipped: ' + (revokeResult.skipped || 'none'));
+      return res.status(200).json({ status: 'ok', revoked: revokeResult.revoked, skipped: revokeResult.skipped });
+    } catch (revokeErr) {
+      console.error('[PaymentFlow] PAYMENT_FAILED | refund revoke failed: ' + revokeErr.message);
+      /* 500 so Razorpay retries — revokePayment is idempotent, so a retry is safe. */
+      return res.status(500).json({ error: 'Revoke failed — will retry' });
+    }
+  }
+
+  /* ── Step 7: Handle payment.failed ── */
   if (event === 'payment.failed') {
     var failedPayment = (payload.payment && payload.payment.entity) || {};
     console.warn('[webhook] Payment failed — id:', failedPayment.id,

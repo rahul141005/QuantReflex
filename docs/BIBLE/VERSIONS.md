@@ -9,11 +9,28 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.173 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.174 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
-| **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
+| **Firestore Version** | 2.33 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.8 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.9 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.174 (2026-08-04)** — **Refunds revoke (ADR-141, PR-1 / Phase-4 WS2).** Foundation for hybrid
+> payments; **no Play code** by design, per the blueprint's §13 law that WS2 ships first. Repairs a live
+> defect: `activatePremium` re-applied the entitlement unconditionally on an existing payment doc, so a
+> redelivered `payment.captured` — or a re-submitted `(orderId, paymentId, signature)` triple, which
+> stays cryptographically valid forever — could renew Premium off a payment that had been **refunded**.
+> `payments/{id}.status` is now a lifecycle; a terminal status refuses the grant with zero writes and a
+> typed `PAYMENT_REFUNDED`. `refund.processed` is handled for the first time (the grant path was
+> one-way). Revocation **replays the surviving ledger** via the new pure `services/entitlementLedger.js`
+> rather than subtracting days — subtraction steals a whole unrelated purchase whenever the refunded
+> term had already lapsed. New `revokePayment` tombstones even when the grant never landed, refuses to
+> touch an entitlement whose `planSource` is no longer `'purchase'`, may only ever shorten, and abandons
+> the recompute if any surviving row is unreadable. Partial refunds retain the entitlement by stated
+> policy. W4: the row records the gateway-reported amount, not the catalog price. Firestore 2.32→2.33
+> (additive fields + two `payments` composite indexes + `paymentOrphans`; zero migration).
+> Payment 2.8→2.9. Verified by execution: `entitlement-ledger.check` 49, `payment-refund.check` 84
+> (real aiService, real webhook, real HMAC), `entitlement-invariants` 40→59, six mutation runs.
 
 > **2.173 (2026-08-04)** — **Hybrid payment implementation gate: READY (ADR-140).** Final certification
 > before Razorpay + Play Billing implementation; no Play code written. One new Medium finding, fixed: the

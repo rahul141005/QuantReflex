@@ -200,7 +200,13 @@ completedAt, createdAt }`.
   SECURITY). Removed on account deletion (`account.js` subcollections list includes `duelStats`).
 
 ### `payments/{paymentId}`
-`{uid, plan, amount, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = price in **paise** (int), `status:'paid'`) — **idempotency lock.** Written by `aiService.activatePremium` on every Premium purchase. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=49900). The lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`). Read/delete: owner; create/update: admin only.
+`{uid, plan, days, amount, amountSource, currency, status, expiry, orderId, claimedAt}` (here `plan` = the purchased `planType`, e.g. `premium_6m`; `amount` = **paise** (int)) — **idempotency lock AND the purchase ledger.** Written by `aiService.activatePremium` on every Premium purchase; the lock rejects reuse of a `paymentId` by a different uid (`PAYMENT_REPLAY`).
+
+**`status` is a lifecycle, not a flag (ADR-141):** `'paid'` → `'refunded'` (TERMINAL — a grant landing on it is refused with zero writes and `PAYMENT_REFUNDED`; `'revoked'`/`'chargeback'` are equally terminal) or `'partially_refunded'` (entitlement STANDS); `'pending'` → `'paid'`. A refund arriving **before** its capture writes a `{tombstone:true, claimedAt:null, amount:0}` row so the late grant is refused rather than silently undoing the refund. Revocation adds `refundedAt`, `refundReason`, `refundId`; a mismatch between the gateway's amount and the catalog adds `amountExpected`/`amountMismatch`.
+
+`aiService.revokePayment` replays the surviving `status:'paid'` rows for a uid to recompute `planExpiry` (see [PAYMENT_ARCHITECTURE.md §5.1](PAYMENT_ARCHITECTURE.md)) — hence the composite indexes `[uid, status, claimedAt]` and `[status, claimedAt]`. **All ADR-141 fields are additive: zero migration.** `days` lets the replay avoid re-deriving a term from a plan id that may since have been retired; rows written before it recover the term from `plan`. `amount`/`status` were added 2026-06-11 (Super Admin Phase 1); **historical docs may lack `amount`**, so the revenue rollup falls back to the plan→price map (`premium_6m`=34900, `premium_12m`=49900). `amountSource` records whether `amount` is gateway-reported evidence or that catalog fallback.
+
+Rules: **read: owner only; create/update/delete: denied to every client** (Admin SDK bypasses). The delete denial is load-bearing (ADR-139) — a client-erasable lock is an unbounded premium self-grant, since a replayed `(orderId, paymentId, signature)` triple would fall through to the fresh-grant branch. Asserted by `entitlement-invariants.check.js`.
 
 ### AI caches
 - `explanations/{contentHash}` — `{question, answer, category, concept, steps[], mistake, tip, usageCount, createdAt}`

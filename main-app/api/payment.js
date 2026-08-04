@@ -115,8 +115,16 @@ async function _verify(req, res) {
 
     console.info('[PaymentFlow] PAYMENT_VERIFIED | backend | uid: ' + req.userId + ' | plan: ' + trustedPlan + ' | paymentId: ' + paymentId);
 
-    /* v2: single Premium tier — time-limited unlock (idempotent + replay-protected) */
-    var expiry = await aiService.activatePremium(req.userId, trustedPlan, paymentId, orderId);
+    /* v2: single Premium tier — time-limited unlock (idempotent + replay-protected)
+       W4 (ADR-141): `order.amount_paid` is Razorpay's own record of what was actually captured against
+       this order, so the payment row stores evidence rather than our catalog price. It can still read
+       0 if we fetch the order before Razorpay has settled the capture onto it, so fall back to the
+       order total; activatePremium treats a 0 as "no evidence" and records the catalog price instead.
+       The webhook (payment.entity.amount) is the authoritative figure either way and lands later. */
+    var expiry = await aiService.activatePremium(req.userId, trustedPlan, paymentId, orderId, {
+      amountPaise: Number(order.amount_paid) > 0 ? Number(order.amount_paid) : Number(order.amount),
+      currency: order.currency || 'INR'
+    });
 
     /* Set JWT claim so the token reflects premium status on next refresh */
     try { await setEntitlementClaims(req.userId, { premium: true }); } catch (_) {}
@@ -127,6 +135,12 @@ async function _verify(req, res) {
     console.error('Verify payment error:', err.message);
     if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REPLAY') {
       return res.status(409).json({ error: { code: 'PAYMENT_REPLAY', message: err.message, retryable: false } });
+    }
+    /* ADR-141: re-submitting a refunded (orderId, paymentId, signature) triple. The signature is still
+       cryptographically valid forever — the refund, not the signature, is what makes it unredeemable. */
+    if (err instanceof aiService.AIServiceError && err.code === 'PAYMENT_REFUNDED') {
+      _recordPaymentFailure('refunded_replay', req.userId);
+      return res.status(409).json({ error: { code: 'PAYMENT_REFUNDED', message: err.message, retryable: false } });
     }
     _recordPaymentFailure('verify_error', req.userId);
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Could not activate payment. Please contact support.', retryable: false } });

@@ -100,7 +100,16 @@ line). History files are deliberately excluded — they must stay period-accurat
 
 This matters for Play because the blueprint's Play Console setup reads its product prices from prose.
 
-## A4 · No `payments` composite indexes · **Medium — needed by WS2, not before**
+## A4 · No `payments` composite indexes · **Medium — RESOLVED in ADR-141 (WS2)**
+
+> **Status 2026-08-04 (ADR-141):** declared. `firestore/indexes/firestore.indexes.json` now carries
+> `payments [uid, status, claimedAt]`, `payments [status, claimedAt]` and
+> `paymentOrphans [status, createdAt]`. `entitlement-invariants.check.js` asserts the first one exists,
+> so it cannot be dropped silently. The WS6 `[provider, acknowledged]` reconcile index is deliberately
+> **not** declared yet — the field does not exist until Play code lands (PR-2). The original finding is
+> preserved below.
+
+## A4 (original) · No `payments` composite indexes · **Medium — needed by WS2, not before**
 
 `firestore/indexes/firestore.indexes.json` declares 32 indexes, **none on `payments`**. Nothing today
 needs one (`api/account.js:157` deletes by single-field `uid`, which Firestore auto-indexes). But the
@@ -159,7 +168,19 @@ An integrator following §11 verbatim would treat `planExpiry: null` as "indefin
 nobody premium. It also constrains §9.4's `revokePayment` ledger replay: its "revert to free" branch
 must write `plan:'free'`, never a null expiry meaning indefinite.
 
-### 🟠 P1-1 · Refunded-purchase re-grant is live today · *blueprint W1/§9.4, WS2*
+### ✅ P1-1 · Refunded-purchase re-grant · **FIXED in ADR-141 (WS2, PR-1)**
+
+> **Resolved 2026-08-04.** `payments/{id}.status` is now a lifecycle; a terminal status
+> (`refunded`/`revoked`/`chargeback`) refuses the grant with **zero writes** and a typed
+> `PAYMENT_REFUNDED`. `refund.processed` is handled, `aiService.revokePayment` + the pure
+> `services/entitlementLedger.js` ship as designed, and a refund arriving before its capture writes a
+> tombstone so the late grant is refused too. Proven by execution — `payment-refund.check.js` T6/T11 —
+> and proven load-bearing: deleting the guard fails 6 assertions. Also closed the wider hole the
+> original finding understates: the re-grant was reachable not only via a webhook retry but via
+> `?action=verify`, which has no recency check, so a user could re-submit their own refunded
+> `(orderId, paymentId, signature)` triple indefinitely. The original finding is preserved below.
+
+### 🟠 P1-1 (original) · Refunded-purchase re-grant is live today · *blueprint W1/§9.4, WS2*
 
 `activatePremium` guards only cross-uid replay; there is no `status:'refunded'` check although
 `status:'paid'` is written (`aiService.js:254`). Today refunds are manual super-admin revokes, so an
@@ -200,6 +221,10 @@ W9 offline clock-rewind. All documented in the blueprint; none blocks Play Billi
 | W5 price/duration parity ×4 | **CLOSED** — `payment-parity.check.js`, in `npm test` |
 | Entitlement canonicalization + no-permanent-tier | **CLOSED** — ADR-115/117 |
 | Vercel function budget | **10 of 12** measured (§2.4's "8" is stale; §9.1's "10" correct). RTDN as #11 fits with one spare |
+| W1 refunded-purchase re-grant | **CLOSED** — ADR-141 (PR-1/WS2); terminal `status` refuses the grant with zero writes |
+| W4 gateway-reported amount | **CLOSED** — ADR-141; the row records the gateway's captured amount, tagged `amountSource` |
+| §9.4 revoke + purchase ledger | **CLOSED** — ADR-141; `aiService.revokePayment` + pure `services/entitlementLedger.js` |
+| A4 `payments` composite indexes | **CLOSED** — ADR-141; `[uid, status, claimedAt]` + `[status, claimedAt]`, asserted by `entitlement-invariants` |
 
 ---
 
@@ -208,10 +233,13 @@ W9 offline clock-rewind. All documented in the blueprint; none blocks Play Billi
 The blueprint's WS order stands, with P0-2 and P0-3 corrected in the document **first** — they are
 consumed by humans (Play Console setup, and any engineer reading §11) before code exists.
 
-`Correct blueprint (P0-2, P0-3)` → `WS2 refund/ledger (P1-1)` → `WS1 platform truth (P1-2)` →
-`WS3 restore` → `WS4 facade` → `WS5 verify-play` → `WS6 RTDN` → `WS7 wrapper` → `WS8 rollout`.
+`Correct blueprint (P0-2, P0-3)` → ~~`WS2 refund/ledger (P1-1)`~~ **← DONE, ADR-141 (PR-1)** →
+`WS1 platform truth (P1-2)` → `WS3 restore` → `WS4 facade` → `WS5 verify-play` → `WS6 RTDN` →
+`WS7 wrapper` → `WS8 rollout`.
 
-P0-1 is already fixed and needs no workstream.
+P0-1 is already fixed and needs no workstream. **WS7/WS8 are blocked on ops, not code** — they need a
+real Play Console application and a real Play App Signing certificate, so no `assetlinks.json`, no
+signing fingerprint and no Play-dependent production config exists in this repo by design.
 
 ---
 

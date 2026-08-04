@@ -4,6 +4,7 @@ const pricing = require('./aiPricing');   // SINGLE source of truth for model pr
 const freeExplainPolicy = require('./freeExplainPolicy');   // ADR-103: pure free-explain allowance decision
 const entitlement = require('../data/entitlement-core');    // ADR-117: THE canonical entitlement rule + grant arithmetic
                                                             // (same physical module the browser loads as window.QR_ENTITLEMENT)
+const ledger = require('./entitlementLedger');              // ADR-141: pure refund/replay algebra (WS2)
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -173,6 +174,31 @@ var PREMIUM_DURATION_DAYS = { premium_6m: 182, premium_12m: 365 };
 var PREMIUM_PRICE_PAISE = { premium_6m: 29900, premium_12m: 39900 }; /* canonical plan→price (paise) — revenue accounting */
 
 /**
+ * ADR-141 (WS2): the payment-doc lifecycle. `payments/{paymentId}` is not just an idempotency lock —
+ * its `status` is the ledger row that decides whether money is still owed as entitlement.
+ *
+ *   (absent) ──grant──> 'paid' ──refund──> 'refunded'   ← TERMINAL, never re-granted
+ *        │                  └──partial──> 'partially_refunded'  (entitlement stands; flagged for review)
+ *        └──RTDN/orphan──> 'pending' ──grant──> 'paid'
+ *   (absent) ──refund-before-grant──> 'refunded' (tombstone)  ← the late grant then lands on TERMINAL
+ *
+ * A status not in this set is treated as 'paid' (defensive: an unknown future status must not silently
+ * become re-grantable). */
+var PAYMENT_STATUS_TERMINAL = { refunded: true, revoked: true, chargeback: true };
+
+/** Read the gateway-reported captured amount out of the provider payload (W4). Returns null when the
+    caller could not supply one — the local price map is then the recorded fallback, clearly labelled.
+    ZERO counts as "no evidence", not as "captured ₹0": Razorpay's `order.amount_paid` can still read 0
+    when `?action=verify` fetches the order moments after checkout, and recording that would both write
+    a false amount onto the ledger row and fire a bogus mismatch alert. Neither plan is free, so a
+    genuine zero capture does not exist here. */
+function _reportedPaise(gateway) {
+  if (!gateway) return null;
+  var v = Number(gateway.amountPaise);
+  return (isFinite(v) && v > 0) ? Math.round(v) : null;
+}
+
+/**
  * Activate the single Premium plan from a verified payment (v2).
  *
  * Idempotent + replay-protected: uses payments/{paymentId} as a transactional
@@ -183,9 +209,14 @@ var PREMIUM_PRICE_PAISE = { premium_6m: 29900, premium_12m: 39900 }; /* canonica
  * @param {string} planType - 'premium_6m' | 'premium_12m'
  * @param {string|number} paymentId
  * @param {string} [orderId]
+ * @param {{amountPaise?:number, currency?:string}} [gateway] gateway-reported capture facts (W4).
+ *        When omitted the local price map is recorded instead, tagged `amountSource:'catalog'`.
  * @returns {string} planExpiry (ISO 8601)
+ * @throws {AIServiceError} PAYMENT_REPLAY — the payment belongs to another account.
+ * @throws {AIServiceError} PAYMENT_REFUNDED — the payment was refunded; the grant is refused and
+ *         NOTHING is written (see PAYMENT_STATUS_TERMINAL).
  */
-async function activatePremium(uid, planType, paymentId, orderId) {
+async function activatePremium(uid, planType, paymentId, orderId, gateway) {
   var days = PREMIUM_DURATION_DAYS[planType] || 182;
   var expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -193,47 +224,89 @@ async function activatePremium(uid, planType, paymentId, orderId) {
   var userRef = db.collection('users').doc(uid);
   var finalExpiry = expiry;
 
+  var reportedPaise = _reportedPaise(gateway);
+  var expectedPaise = PREMIUM_PRICE_PAISE[planType] || 0;
+  /* W4: an amount that disagrees with the catalog still gets the entitlement — the money was already
+     captured, and refusing here would take payment without giving access. It is recorded and flagged
+     instead, so revenue reconciliation and the fraud alert both see it. */
+  var amountMismatch = (reportedPaise !== null && expectedPaise > 0 && reportedPaise !== expectedPaise);
+  var outcome = 'granted';
+
   await db.runTransaction(async function (tx) {
+    /* Firestore RETRIES this callback on contention, so every value it publishes to the enclosing
+       scope must be reset here. Without this, an attempt that hit the refuse branch and then lost the
+       commit race would leave `outcome` set, and the successful attempt would still throw
+       PAYMENT_REFUNDED over a grant it had just written. */
+    outcome = 'granted';
+    finalExpiry = expiry;
     /* All reads MUST precede all writes in a Firestore transaction. */
     var paymentDoc = await tx.get(paymentRef);
     var userDoc = await tx.get(userRef);
     var ud0 = (userDoc.exists ? userDoc.data() : null) || {};
-    if (paymentDoc.exists) {
-      var existing = paymentDoc.data();
+    var existing = paymentDoc.exists ? paymentDoc.data() : null;
+    var completingPending = false;
+
+    if (existing) {
       if (existing.uid !== uid) {
         console.error('[aiService:activatePremium] PAYMENT_REPLAY detected (uid: ' + uid + ', paymentId: ' + paymentId + ', existingUid: ' + existing.uid + ')');
         throw new AIServiceError('PAYMENT_REPLAY', 'Payment already used by another account.', false);
       }
-      /* Same-uid replay (verify + webhook both fire, or a late Razorpay redelivery, or the user
-         re-submits an old (orderId,paymentId,signature) triple — `?action=verify` has no recency
-         check, so this branch is reachable indefinitely).
-         ADR-117 (audit B1): this used to write `existing.expiry` UNCONDITIONALLY, which moved a
-         user's entitlement BACKWARD whenever they had since gained a longer one (e.g. an admin
-         12-month grant after a 6-month purchase) — the next resolveUserAuth then self-healed them
-         to FREE, silently destroying paid access. A replay must be a no-op for a user who is
-         already at-or-beyond the expiry this payment granted: keep the LATER of the two, and never
-         downgrade planType/planSource away from a stronger existing grant. */
-      var currentMs = entitlement.toMillis(ud0.planExpiry);
-      var grantedMs = entitlement.toMillis(existing.expiry || expiry);
-      var keepCurrent = ud0.plan === 'premium' && currentMs > grantedMs;
-      finalExpiry = keepCurrent ? ud0.planExpiry : (existing.expiry || expiry);
-      var replayPatch = {
-        plan: 'premium',
-        planExpiry: finalExpiry,
-        isTrial: false,
-        trialEnd: null,
-        lastPaymentId: String(paymentId),
-        planUpdatedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      /* Preserve the provenance of a stronger existing grant (an admin grant must not be relabelled
-         'purchase' by a stale webhook); otherwise record this payment as the source. */
-      if (!keepCurrent) {
-        replayPatch.planType = existing.plan || planType;
-        replayPatch.planSource = 'purchase';
+      var status = existing.status || 'paid';
+
+      /* ADR-141 (WS2, the defect this workstream exists to close): a REFUNDED payment must never grant
+         again. Razorpay redelivers `payment.captured` on its own schedule, `?action=verify` has no
+         recency check, and Play's RTDN stream can replay an old PURCHASED notification after a voided
+         purchase — so a captured-event retry arriving after a refund was, until now, a free premium
+         renewal for anyone who bought and then charged back. Refuse with ZERO writes: not even the
+         user patch below, because re-writing planExpiry from `existing.expiry` would restore exactly
+         the entitlement the refund removed. The refusal is raised as a typed PAYMENT_REFUNDED after
+         the transaction commits (see below) so no caller can mistake it for success — but it is a
+         PERMANENT state, not a transient failure, so the webhook must ack 200 rather than let the
+         gateway retry it forever. */
+      if (PAYMENT_STATUS_TERMINAL[status]) {
+        outcome = 'refused_' + status;
+        return;
       }
-      tx.set(userRef, replayPatch, { merge: true });
-      return;
+
+      if (status !== 'pending') {
+        /* Same-uid replay (verify + webhook both fire, or a late Razorpay redelivery, or the user
+           re-submits an old (orderId,paymentId,signature) triple — `?action=verify` has no recency
+           check, so this branch is reachable indefinitely).
+           ADR-117 (audit B1): this used to write `existing.expiry` UNCONDITIONALLY, which moved a
+           user's entitlement BACKWARD whenever they had since gained a longer one (e.g. an admin
+           12-month grant after a 6-month purchase) — the next resolveUserAuth then self-healed them
+           to FREE, silently destroying paid access. A replay must be a no-op for a user who is
+           already at-or-beyond the expiry this payment granted: keep the LATER of the two, and never
+           downgrade planType/planSource away from a stronger existing grant. */
+        var currentMs = entitlement.toMillis(ud0.planExpiry);
+        var grantedMs = entitlement.toMillis(existing.expiry || expiry);
+        var keepCurrent = ud0.plan === 'premium' && currentMs > grantedMs;
+        finalExpiry = keepCurrent ? ud0.planExpiry : (existing.expiry || expiry);
+        var replayPatch = {
+          plan: 'premium',
+          planExpiry: finalExpiry,
+          isTrial: false,
+          trialEnd: null,
+          lastPaymentId: String(paymentId),
+          planUpdatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        /* Preserve the provenance of a stronger existing grant (an admin grant must not be relabelled
+           'purchase' by a stale webhook); otherwise record this payment as the source. */
+        if (!keepCurrent) {
+          replayPatch.planType = existing.plan || planType;
+          replayPatch.planSource = 'purchase';
+        }
+        tx.set(userRef, replayPatch, { merge: true });
+        outcome = 'replay';
+        return;
+      }
+
+      /* status === 'pending': a row was reserved before the money was confirmed (a Play RTDN that
+         carries no uid, an orphan reconciliation). Fall through to the normal grant — the ONLY
+         difference is that the doc is merged rather than created, since tx.create would abort. */
+      completingPending = true;
+      outcome = 'completed_pending';
     }
     /* No-shorten renewal (ADR-107 + audit S1-ENT2): a new grant must NEVER reduce an existing active
        entitlement, regardless of how it was obtained (purchase / admin / coaching / trial). The new
@@ -251,9 +324,26 @@ async function activatePremium(uid, planType, paymentId, orderId) {
       (ud0.plan === 'premium') ? ud0.planExpiry : null,
       days
     );
-    var paymentDoc2 = { uid: uid, plan: planType, amount: (PREMIUM_PRICE_PAISE[planType] || 0), status: 'paid', expiry: finalExpiry, claimedAt: new Date().toISOString() };
+    var paymentDoc2 = {
+      uid: uid,
+      plan: planType,
+      /* W4: prefer what the GATEWAY says it captured over what our own price map says it should have
+         cost. The local map is a catalog, not evidence — it drifts the moment a price changes, and a
+         refund/reconciliation that trusts it would refund an amount that was never charged. */
+      amount: (reportedPaise !== null) ? reportedPaise : expectedPaise,
+      amountSource: (reportedPaise !== null) ? 'gateway' : 'catalog',
+      /* ADR-141: the term length is recorded on the row itself so the refund replay never has to
+         re-derive it from a plan id that may since have been retired from PREMIUM_DURATION_DAYS. */
+      days: days,
+      status: 'paid',
+      expiry: finalExpiry,
+      claimedAt: new Date().toISOString()
+    };
+    if (gateway && gateway.currency) paymentDoc2.currency = String(gateway.currency).slice(0, 8);
+    if (amountMismatch) { paymentDoc2.amountExpected = expectedPaise; paymentDoc2.amountMismatch = true; }
     if (orderId) paymentDoc2.orderId = String(orderId);
-    tx.create(paymentRef, paymentDoc2);
+    if (completingPending) tx.set(paymentRef, paymentDoc2, { merge: true });
+    else tx.create(paymentRef, paymentDoc2);
     tx.set(userRef, {
       plan: 'premium',
       planType: planType,
@@ -267,7 +357,229 @@ async function activatePremium(uid, planType, paymentId, orderId) {
     }, { merge: true });
   });
 
+  if (outcome.indexOf('refused_') === 0) {
+    /* Signalled as a typed error rather than a falsy return so no caller can mistake a refused grant
+       for a successful one. The transaction wrote NOTHING, and the securityEvent is recorded here —
+       outside the transaction — so a Firestore contention retry cannot duplicate it. Callers on the
+       webhook path must ack 200 (the gateway would otherwise retry forever); the interactive verify
+       path surfaces it to the user. */
+    console.warn('[PaymentFlow] GRANT_REFUSED | ' + outcome + ' | uid: ' + uid + ' | paymentId: ' + paymentId);
+    _recordEntitlementSecurityEvent('grant_after_refund', uid, paymentId, outcome);
+    throw new AIServiceError('PAYMENT_REFUNDED', 'This payment was refunded and cannot be redeemed.', false);
+  }
+  if (amountMismatch) {
+    console.warn('[PaymentFlow] AMOUNT_MISMATCH | uid: ' + uid + ' | paymentId: ' + paymentId +
+      ' | reported: ' + reportedPaise + ' | expected: ' + expectedPaise);
+    _recordEntitlementSecurityEvent('payment_amount_mismatch', uid, paymentId,
+      'reported:' + reportedPaise + ' expected:' + expectedPaise);
+  }
+
   return finalExpiry;
+}
+
+/* Best-effort, never-throwing securityEvents row for the entitlement anomalies WS2 introduces. Shaped
+   like the existing payment_failure writer in api/payment/webhook.js so the Phase-5 alerting queries
+   need no change. Deliberately fire-and-forget: an audit write must not fail a money-path request. */
+function _recordEntitlementSecurityEvent(type, uid, paymentId, reason) {
+  try {
+    db.collection('securityEvents').add({
+      type: String(type), app: 'main', emailHash: null,
+      reason: String(reason || '').slice(0, 120),
+      errorCode: null,
+      paymentId: paymentId ? String(paymentId).slice(0, 128) : null,
+      uid: uid ? String(uid).slice(0, 128) : null, userAgent: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(function () {});
+  } catch (_) { /* non-fatal */ }
+}
+
+/**
+ * Revoke the entitlement a refunded/voided payment granted (ADR-141, Phase-4 WS2 §9.4).
+ *
+ * The counterpart to activatePremium, and the ONE revoke path both providers use: Razorpay's
+ * `refund.processed` webhook and (in PR-2) Play's `voidedPurchaseNotification` both land here.
+ *
+ * THREE THINGS THIS DOES THAT A NAIVE IMPLEMENTATION DOES NOT:
+ *
+ * 1. TOMBSTONES EVEN WHEN THERE IS NO GRANT TO REMOVE. A refund can legitimately arrive before the
+ *    grant — the capture webhook is retried on the gateway's schedule and can be minutes late, and
+ *    Play voids purchases that were never acknowledged. Writing `status:'refunded'` on a doc that does
+ *    not exist yet means the late grant hits activatePremium's TERMINAL branch and is refused. Without
+ *    the tombstone the refund is simply undone seconds later, silently.
+ *
+ * 2. REPLAYS THE SURVIVING LEDGER instead of subtracting days. See services/entitlementLedger.js for
+ *    the counter-example — subtraction steals a whole unrelated purchase whenever the refunded term
+ *    had already lapsed.
+ *
+ * 3. REFUSES TO TOUCH AN ENTITLEMENT IT DOES NOT OWN. If the user's `planSource` is no longer
+ *    'purchase' — an admin grant, a coaching grant or a trial landed after the purchase — the doc is
+ *    still tombstoned (so the money is correctly recorded as returned) but the user's fields are left
+ *    exactly as they are. Recomputing them from the purchase ledger would delete a grant this refund
+ *    has no authority over. The skip is logged for manual review rather than silently swallowed.
+ *
+ * @param {string} uid
+ * @param {string|number} paymentId
+ * @param {{reason?:string, refundId?:string, plan?:string}} [opts]
+ * @returns {Promise<{status:string, tombstoned:boolean, revoked:boolean, planExpiry:(string|null), skipped:(string|null)}>}
+ */
+async function revokePayment(uid, paymentId, opts) {
+  if (!uid || !paymentId) throw new AIServiceError('BAD_REQUEST', 'revokePayment requires uid and paymentId.', false);
+  var o = opts || {};
+  var now = Date.now();
+  var nowIso = new Date(now).toISOString();
+  var paymentRef = db.collection('payments').doc(String(paymentId));
+  var userRef = db.collection('users').doc(uid);
+  var out = { status: 'refunded', tombstoned: false, revoked: false, planExpiry: null, skipped: null };
+
+  await db.runTransaction(async function (tx) {
+    /* Reset on every attempt — see the same note in activatePremium. A retried transaction must not
+       inherit a `skipped` reason (or a `revoked` verdict) from an attempt that never committed. */
+    out.tombstoned = false; out.revoked = false; out.planExpiry = null; out.skipped = null;
+    /* All reads first. The ledger query is EQUALITY-ONLY and deliberately carries no orderBy: an
+       orderBy('claimedAt') would silently DROP any historical row that predates the field, and a
+       dropped row shortens a legitimate entitlement. entitlementLedger.recomputeExpiry sorts. */
+    var paymentDoc = await tx.get(paymentRef);
+    var userDoc = await tx.get(userRef);
+    var ledgerSnap = await tx.get(
+      db.collection('payments').where('uid', '==', uid).where('status', '==', 'paid')
+    );
+
+    var ud0 = (userDoc.exists ? userDoc.data() : null) || {};
+    var existing = paymentDoc.exists ? paymentDoc.data() : null;
+
+    if (existing && existing.uid && existing.uid !== uid) {
+      /* Refunding someone else's payment would revoke the wrong account. Refuse loudly. */
+      console.error('[aiService:revokePayment] OWNER MISMATCH (uid: ' + uid + ', paymentId: ' + paymentId + ', docUid: ' + existing.uid + ')');
+      throw new AIServiceError('PAYMENT_OWNER_MISMATCH', 'Payment belongs to a different account.', false);
+    }
+
+    var tomb = {
+      uid: uid,
+      status: 'refunded',
+      refundedAt: nowIso,
+      refundReason: String(o.reason || 'refund').slice(0, 120)
+    };
+    if (o.refundId) tomb.refundId = String(o.refundId).slice(0, 128);
+    if (!existing) {
+      /* Refund-before-grant: there is no row yet, so this one is purely a tombstone. `plan`/`days` are
+         recorded when the caller knows them, but the row must NEVER read as 'paid' — a tombstone that
+         accidentally looked like a purchase would be replayed into the ledger as free entitlement. */
+      tomb.tombstone = true;
+      tomb.plan = o.plan || null;
+      tomb.amount = 0;
+      tomb.amountSource = 'tombstone';
+      tomb.claimedAt = null;
+      tomb.expiry = null;
+    }
+    tx.set(paymentRef, tomb, { merge: true });
+    out.tombstoned = !existing;
+
+    if (!existing) { out.skipped = 'no_grant'; return; }
+
+    var prevStatus = existing.status || 'paid';
+    if (prevStatus !== 'paid' && prevStatus !== 'partially_refunded') {
+      /* Already refunded/revoked — a duplicate refund webhook. The tombstone re-write above is
+         harmless and idempotent; recomputing the ledger a second time is not (the row is already
+         excluded, so a second pass would be a no-op today but would compound if the ledger ever
+         gained history-dependent fields). Stop here. */
+      out.skipped = 'status:' + prevStatus;
+      return;
+    }
+
+    if (ud0.plan !== 'premium') { out.skipped = 'not_premium'; return; }
+    if (ud0.planSource !== 'purchase') {
+      /* Point 3 above: an admin/coaching/trial grant now owns this entitlement. Record the refund,
+         change nothing else, and surface it. */
+      out.skipped = 'planSource:' + (ud0.planSource || 'unknown');
+      return;
+    }
+
+    /* Replay every SURVIVING paid purchase. The refunded row is still 'paid' in this snapshot (our
+       write above is not visible to our own read), so exclude it by id. */
+    var entries = [];
+    var indeterminate = null;
+    ledgerSnap.forEach(function (d) {
+      if (d.id === String(paymentId)) return;
+      var v = d.data() || {};
+      if (v.uid !== uid) return;                       /* defensive: query already filters */
+      var pdays = Number(v.days);
+      /* Rows written before ADR-141 have no `days` — recover the term from the plan id. */
+      if (!isFinite(pdays) || pdays <= 0) pdays = Number(PREMIUM_DURATION_DAYS[v.plan]) || 0;
+      var claimedAtMs = entitlement.toMillis(v.claimedAt);
+      if (!(pdays > 0) || !(claimedAtMs > 0)) { indeterminate = indeterminate || d.id; return; }
+      entries.push({ claimedAtMs: claimedAtMs, days: pdays });
+    });
+
+    if (indeterminate) {
+      /* A surviving PAID purchase we cannot place in time or whose term we cannot determine (an
+         unmappable/retired plan id, a corrupt claimedAt). entitlementLedger would drop it, and a
+         dropped row makes the replay come out SHORT — i.e. it would silently take away access the
+         user paid for. Refuse to recompute at all: the refund is still recorded, the entitlement is
+         left alone, and a human is told. Erring toward keeping access is the only safe direction when
+         the ledger is not fully readable. */
+      out.skipped = 'indeterminate_term:' + indeterminate;
+      return;
+    }
+
+    var newExpiryMs = ledger.recomputeExpiry(entries, now);
+    var patch;
+    if (newExpiryMs !== null && ledger.isStillPremium(newExpiryMs, now)) {
+      /* A revoke may only ever SHORTEN. If the stored expiry is already earlier than the replay says
+         (an admin trimmed it, or a legacy row is missing from the ledger), keep the stored one —
+         a refund must never hand out access. */
+      var curMs = entitlement.toMillis(ud0.planExpiry);
+      var finalMs = (curMs > 0 && curMs < newExpiryMs) ? curMs : newExpiryMs;
+      patch = { plan: 'premium', planExpiry: new Date(finalMs).toISOString() };
+      out.planExpiry = patch.planExpiry;
+      out.revoked = false;
+    } else {
+      /* Nothing survives, or what survives has already lapsed → back to free. Note recomputeExpiry
+         returning null means "revert to free", NOT "indefinite": under ADR-115 a premium doc with a
+         null expiry resolves to NOT premium, so plan MUST be written to 'free' alongside it. */
+      patch = entitlement.revokeFields();
+      out.revoked = true;
+    }
+    patch.planUpdatedAt = nowIso;
+    patch.updatedAt = nowIso;
+    tx.set(userRef, patch, { merge: true });
+
+    /* Server-owned audit trail (ADR-140 closed this subcollection to client writes). Same shape as the
+       super-admin entitlement writer so one query reads every entitlement change, however it arose. */
+    tx.set(userRef.collection('entitlementLogs').doc(), {
+      type: 'payment',
+      action: 'revoke',
+      source: String(o.reason || 'refund').slice(0, 40),
+      paymentId: String(paymentId),
+      adminId: null,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: patch
+    });
+  });
+
+  if (out.skipped === 'no_grant') {
+    /* Not an anomaly: the refund simply beat the capture webhook. The tombstone is the whole point. */
+    console.info('[PaymentFlow] REFUND_TOMBSTONE | uid: ' + uid + ' | paymentId: ' + paymentId +
+      ' | no grant to revoke — a late capture will now be refused');
+  } else if (out.skipped) {
+    console.warn('[PaymentFlow] REVOKE_SKIPPED | ' + out.skipped + ' | uid: ' + uid + ' | paymentId: ' + paymentId);
+    _recordEntitlementSecurityEvent('refund_revoke_skipped', uid, paymentId, out.skipped);
+  } else {
+    console.info('[PaymentFlow] PREMIUM_REVOKED | uid: ' + uid + ' | paymentId: ' + paymentId +
+      ' | revoked: ' + out.revoked + ' | expiry: ' + (out.planExpiry || 'none') + ' | tombstone: ' + out.tombstoned);
+  }
+
+  /* Mirror the entitlement into the JWT claim. Non-fatal: Firestore is the source of truth, and a
+     stale `premium:true` claim is re-checked against Firestore by every gate (ADR-117). */
+  if (out.revoked) {
+    try {
+      var claimsService = require('./claimsService');
+      await claimsService.setEntitlementClaims(uid, { premium: false });
+    } catch (claimErr) {
+      console.warn('[aiService:revokePayment] claim clear failed (non-fatal):', claimErr.message);
+    }
+  }
+
+  return out;
 }
 
 var WP_FREE_LIMIT = 5;
@@ -765,4 +1077,4 @@ async function enforceAiBudget() {
   if (blocked) throw new AIServiceError('AI_BUDGET_EXCEEDED', 'AI is resting for today — please try again later.', true);
 }
 
-module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, consumeWordProblemQuota, refundWordProblemQuota, consumeFreeExplain, refundFreeExplain, FREE_EXPLAIN_LIMIT, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };
+module.exports = { verifyIdToken, resolvePlan, resolveUserAuth, isUserPremium, claimSession, activatePremium, revokePayment, consumeWordProblemQuota, refundWordProblemQuota, consumeFreeExplain, refundFreeExplain, FREE_EXPLAIN_LIMIT, enforceAiThrottle, trackExplanationUsage, trackInsightsUsage, trackGptCost, recordAiRequest, trackGlobalAIUsage, getMemory, updateMemory, enforceAiBudget, safeUserUpdate, AIServiceError };

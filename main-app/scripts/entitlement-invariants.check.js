@@ -146,6 +146,67 @@ if (blanket) {
     blanket[1].replace(/\s+/g, ' ').slice(0, 140));
 }
 
+/* ---- 9. A refunded payment must never grant again (ADR-141, WS2) ----
+   Razorpay redelivers `payment.captured` on its own schedule, `?action=verify` has no recency check,
+   and (once WS1 lands) Play replays PURCHASED notifications after a voided purchase. Before ADR-141
+   the existing-doc branch re-applied the entitlement UNCONDITIONALLY, so a customer could buy, charge
+   back, and then renew Premium for free off the same paymentId forever. The behaviour is proven by
+   execution in payment-refund.check.js (T6/T11); this is the source-level ratchet that stops the
+   guard being deleted, and the wiring assertions that check.js cannot see. */
+const aiSrc = R('services/aiService.js');
+ok('PAYMENT_STATUS_TERMINAL declares refunded as a terminal payment status',
+  /PAYMENT_STATUS_TERMINAL\s*=\s*\{[^}]*\brefunded:\s*true/.test(aiSrc));
+ok('activatePremium refuses a grant on a terminal payment status',
+  /if\s*\(PAYMENT_STATUS_TERMINAL\[status\]\)/.test(aiSrc));
+ok('the refusal is signalled as a typed PAYMENT_REFUNDED error (never a falsy return)',
+  /AIServiceError\('PAYMENT_REFUNDED'/.test(aiSrc));
+ok('revokePayment exists and is exported',
+  /async function revokePayment\(/.test(aiSrc) && /module\.exports\s*=\s*\{[^}]*\brevokePayment\b/.test(aiSrc));
+ok('revoke recomputes the expiry by REPLAYING the surviving ledger, never by subtracting days',
+  /ledger\.recomputeExpiry\(/.test(aiSrc) && !/planExpiry[^\n]*-\s*\w*[Dd]ays\s*\*/.test(aiSrc));
+ok('revoke reverts to free through the canonical field-set (entitlement-core.revokeFields)',
+  /patch\s*=\s*entitlement\.revokeFields\(\)/.test(aiSrc));
+ok('revoke refuses to touch an entitlement whose planSource is no longer a purchase',
+  /ud0\.planSource\s*!==\s*'purchase'/.test(aiSrc));
+ok('revoke tombstones even when the grant never landed (a late capture then hits the refuse branch)',
+  /tomb\.tombstone\s*=\s*true/.test(aiSrc) && /out\.tombstoned\s*=\s*!existing/.test(aiSrc));
+ok('the ledger query carries no orderBy (a missing field must not silently drop a purchase)',
+  /where\('uid',\s*'==',\s*uid\)\.where\('status',\s*'==',\s*'paid'\)/.test(aiSrc) &&
+  !/where\('status',\s*'==',\s*'paid'\)\s*\.orderBy/.test(aiSrc));
+
+/* W4: the payment row must record what the GATEWAY said it captured, not our own catalog price. */
+ok('the payment row records the gateway-reported amount when available (W4)',
+  /amount:\s*\(reportedPaise\s*!==\s*null\)\s*\?\s*reportedPaise\s*:\s*expectedPaise/.test(aiSrc));
+ok('…and labels which source it used, so reconciliation can tell evidence from catalog',
+  /amountSource:\s*\(reportedPaise\s*!==\s*null\)\s*\?\s*'gateway'\s*:\s*'catalog'/.test(aiSrc));
+ok('…and the term length is recorded on the row for the refund replay',
+  /days:\s*days,/.test(aiSrc));
+
+/* The webhook is the only place a refund can arrive from Razorpay. Without a handler the grant path
+   is one-way: money returned, entitlement retained until natural expiry. */
+const whSrc = R('api/payment/webhook.js');
+ok('the webhook handles refund.processed', /event\s*===\s*'refund\.processed'/.test(whSrc));
+ok('a FULL refund routes through the single canonical revoke path',
+  /aiService\.revokePayment\(/.test(whSrc));
+ok('a PARTIAL refund does not revoke — it marks the row and escalates',
+  /'partially_refunded'/.test(whSrc) && /payment_partial_refund/.test(whSrc));
+ok('partially_refunded is NOT terminal (a partial refund keeps the entitlement)',
+  !/PAYMENT_STATUS_TERMINAL\s*=\s*\{[^}]*partially_refunded/.test(aiSrc));
+ok('a redelivered capture for a refunded payment is ACKed, not retried forever',
+  /grantErr\.code\s*===\s*'PAYMENT_REFUNDED'/.test(whSrc));
+ok('the interactive verify path surfaces PAYMENT_REFUNDED to the caller',
+  /err\.code\s*===\s*'PAYMENT_REFUNDED'/.test(R('api/payment.js')));
+
+/* A4: the ledger replay runs inside a transaction during a refund — the single worst moment to
+   discover a missing composite index, because the money has already moved. */
+const idx = JSON.parse(RR('firestore/indexes/firestore.indexes.json'));
+const payIdx = idx.indexes.filter((i) => i.collectionGroup === 'payments');
+ok('a payments composite index is declared for the ledger replay [uid, status, claimedAt]',
+  payIdx.some((i) => {
+    const f = i.fields.map((x) => x.fieldPath).join(',');
+    return f === 'uid,status,claimedAt';
+  }), payIdx.map((i) => i.fields.map((x) => x.fieldPath).join(',')).join(' | ') || 'none');
+
 /* ---- 6. qr_premium write-only mirror removed (one source of truth) ---- */
 const store = R('js/state/store.js');
 const auth = R('js/auth.js');
