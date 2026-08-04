@@ -131,6 +131,21 @@ if (payMatch) {
     /allow\s+create,\s*update,\s*delete:\s*if\s+false/.test(body));
 }
 
+/* ---- 8. The entitlement audit trail must not be client-writable (ADR-140) ----
+   `users/{uid}/entitlementLogs` records every grant, trial and revoke. The blanket owner-write over
+   `users/{uid}/{subcollection}/{doc}` excluded duelHistory/duelStats/aiEvents/notifications but NOT
+   this, so an owner could erase their own revoke or forge a grant. It never granted premium (plan
+   fields are root-level, downgrade-only, server-owned) and the immutable root `auditLogs` copy always
+   survived — but refund/chargeback/voided-purchase disputes are read from this per-user history, so a
+   forgeable copy misleads the investigation. Assert the carve-out stays. */
+const blanket = rules.match(/match\s+\/\{subcollection\}\/\{document\}\s*\{([\s\S]*?)\n\s{6}\}/);
+ok('firestore.rules blanket subcollection block parses', !!blanket);
+if (blanket) {
+  ok('entitlementLogs is excluded from the blanket owner-write (audit trail is server-owned)',
+    /subcollection\s*!=\s*'entitlementLogs'/.test(blanket[1]),
+    blanket[1].replace(/\s+/g, ' ').slice(0, 140));
+}
+
 /* ---- 6. qr_premium write-only mirror removed (one source of truth) ---- */
 const store = R('js/state/store.js');
 const auth = R('js/auth.js');

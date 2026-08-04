@@ -9,11 +9,23 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.172 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.173 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.8 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.173 (2026-08-04)** — **Hybrid payment implementation gate: READY (ADR-140).** Final certification
+> before Razorpay + Play Billing implementation; no Play code written. One new Medium finding, fixed: the
+> blanket owner-write over user subcollections excluded duelHistory/duelStats/aiEvents/notifications but
+> **not `entitlementLogs`**, so a user could erase their own revoke record or forge a grant. It could
+> never grant premium (plan fields are root-level, downgrade-only, server-owned) and the immutable root
+> `auditLogs` copy always survived — but refund and voided-purchase disputes are investigated through
+> that per-user history, so it is closed before WS2 makes it evidence, timed to ride the deploy in
+> flight. Certified by measurement: 108 entitlement call sites with zero provider-awareness,
+> `activatePremium` carrying no provider concept, Razorpay confined to four files, zero price literals in
+> index.html or any locale, and Play requiring additive fields only. Implementation roadmap published in
+> PAYMENT_READINESS §E. entitlement-invariants 38→40.
 
 > **2.172 (2026-08-04)** — **Pre-payment validation (ADR-139 cont.).** Three "committed ≠ shipped"
 > findings. **Critical/operational:** the P0-1 rules fix is NOT deployed — the Firebase Deploy workflow is

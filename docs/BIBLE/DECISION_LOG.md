@@ -8,6 +8,60 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-140 — Hybrid payment implementation gate: READY, with the entitlement audit trail closed (v270) (2026-08-04)
+
+**Context.** The final engineering certification before hybrid payments (Razorpay for Web/PWA, Play
+Billing for the TWA) are implemented. Rules deploy in progress; ₹299/₹399 confirmed canonical. No Play
+code written.
+
+**Verdict: READY FOR IMPLEMENTATION.** One new Medium finding, fixed in this pass; no architectural
+blocker remains.
+
+**F-1 — the entitlement audit trail was client-writable. FIXED.** `firestore.rules` granted the owner
+blanket write over `users/{uid}/{subcollection}/{doc}`, excluding only `duelHistory`, `duelStats`,
+`aiEvents` and `notifications`. **`entitlementLogs` was not excluded and had no explicit match** — so an
+owner could erase the record of their own revoke, or forge a grant entry, in the per-user history that
+super-admin writes (`entitlements.js:140`) and the admin UI reads back (`users.js:110`).
+
+Medium rather than Critical: it could not grant premium (plan fields are root-level, downgrade-only and
+server-owned under ADR-130), and the authoritative copy always survived in the immutable root
+`auditLogs` — `entitlements.js:172` calls `writeAuditLog()` alongside, which confirms
+`PAYMENT_ARCHITECTURE §6`'s "logged to both" claim rather than leaving it asserted. But refunds,
+chargebacks and Play voided-purchase disputes are investigated through exactly this per-user history, so
+a forgeable copy misleads the investigator — closed *before* WS2 makes it evidence, and timed to ride
+the deploy already in flight rather than cost a second one. Same carve-out pattern as
+`duelHistory`/`aiEvents`, plus an explicit read-only match; two new `entitlement-invariants` assertions
+(38 → 40) proven to fail on the pre-fix rule.
+
+**Certified clean, by measurement rather than assumption.**
+- **Pricing:** four canonical code sites plus `paywall.PLANS` all at ₹299/₹399; **`index.html` and all
+  three locales contain zero price literals** (everything renders from `PLANS`); the only divergent map
+  is `metrics.js`'s documented historical fallback. Nothing stale outside append-only history.
+- **Provider neutrality:** **108** entitlement call sites across main-app, functions, super-admin and
+  coaching — **zero** provider-aware. `activatePremium(uid, planType, paymentId, orderId)` carries no
+  provider concept and its only Razorpay string is a comment. Razorpay is confined to four files, exactly
+  the WS4/WS5 surface.
+- **`planSource`:** `'purchase'` means *the user paid*, gateway-agnostic; only `'coaching'` is
+  behaviourally special (`coachings.js:190,290`). Correct for hybrid as-is.
+- **No duplicate purchase:** enforced server-side on `req.userPremium` (`api/payment.js:38`); the comment
+  already names "Razorpay / Google Play / admin grant / trial".
+- **Rules:** `payments` read-only to clients, `auditLogs` fully write-denied, plan fields downgrade-only.
+  Every non-denied `delete`/`write` in the ruleset was swept; the remainder are user-owned content, not
+  locks.
+- **Data model:** Play needs **additive fields only** — zero migration, no rewrite of any existing doc.
+
+**Consequences.**
+- `npm test` 45 suites 0 failed; `entitlement-invariants` 38 → 40; `payment-parity` 26; design-lint 22
+  with ceilings unchanged.
+- `PAYMENT_READINESS.md` gains §A1 (the gate verdict) and §E (the implementation roadmap: F-1 deploy →
+  WS2 → WS1 → WS3 → WS4 → WS5 → WS6 → WS7 → WS8, each with risk and rollback). WS2 leads because it
+  repairs a defect that is live today and its guards protect both providers; WS1 follows because
+  Razorpay inside a Play build is the one unrecoverable policy violation.
+- **Still owned by you, outside this repo:** the blueprint's ₹349/₹499 product prices and its
+  `planExpiry == null ⇒ premium` restatement (P0-2/P0-3) must be corrected before WS7 ops setup.
+
+---
+
 ## ADR-139 — Pre-payment certification: the idempotency lock was client-erasable (v270) (2026-08-03)
 
 **Context.** The final engineering gate before Google Play Billing work begins. Certification only — no

@@ -6,6 +6,32 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-04 — Hybrid payment implementation gate: READY (ADR-140)
+
+Final engineering certification before hybrid payments. No Play code written. **Verdict: READY FOR
+IMPLEMENTATION** — one new Medium finding, fixed; no architectural blocker remains.
+
+- **Fixed — the entitlement audit trail was client-writable.** The blanket owner-write over
+  `users/{uid}/{subcollection}/{doc}` excluded `duelHistory`/`duelStats`/`aiEvents`/`notifications` but
+  **not `entitlementLogs`**, so an owner could erase the record of their own revoke or forge a grant.
+  Medium, not Critical: it cannot grant premium (plan fields are root-level, downgrade-only,
+  server-owned) and the immutable root `auditLogs` copy always survived. But refund/chargeback/voided-
+  purchase disputes read exactly this history — closed before WS2 makes it evidence, and timed to ride
+  the deploy already in flight. Two `entitlement-invariants` assertions added (38→40), proven to bite.
+- **Certified by measurement:** 108 entitlement call sites, zero provider-aware · `activatePremium`
+  carries no provider concept · Razorpay confined to 4 files · `index.html` and all 3 locales contain
+  **zero** price literals (all from `PLANS`) · `planSource:'purchase'` is gateway-agnostic · duplicate
+  purchase blocked server-side · Play needs **additive fields only**, zero migration.
+- **Roadmap published** (`PAYMENT_READINESS.md` §E): F-1 deploy → WS2 → WS1 → WS3 → WS4 → WS5 → WS6 →
+  WS7 → WS8, each with risk and rollback. WS2 leads (repairs a live defect, protects both providers);
+  WS1 second (Razorpay in a Play build is the one unrecoverable policy violation).
+- Still yours to correct outside this repo: the blueprint's ₹349/₹499 product prices and its
+  `planExpiry == null ⇒ premium` restatement, both before WS7 ops setup.
+- npm test 45 suites 0 failed; entitlement-invariants 40; payment-parity 26; design-lint 22.
+- Docs: ADR-140, PAYMENT_READINESS §A1 + §E, VERSIONS 2.172 → 2.173.
+
+---
+
 ## 2026-08-04 — Pre-payment validation: the fix was never deployed, and four docs still quoted the old price (ADR-139 cont.)
 
 Final readiness pass over the ADR-139 report. Three findings, all in the "committed ≠ shipped" family.

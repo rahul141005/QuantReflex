@@ -1,6 +1,7 @@
-# QuantReflex — Google Play Billing Readiness Register (ADR-139)
+# QuantReflex — Google Play Billing Readiness Register (ADR-139 → ADR-140)
 
-**Status:** Pre-implementation certification. **No Play Billing code was written.**
+**Status:** Implementation gate passed — **READY FOR IMPLEMENTATION** (see §A1).
+**No Play Billing code has been written.**
 **Architectural source of truth:** the Phase 4 blueprint in `QuantReflex-Stabilization-Plan.md`
 (§1–§21). This register does not restate it; it certifies the foundation the blueprint assumes and
 lists what would obstruct an integrator starting WS1.
@@ -27,6 +28,40 @@ second adapter feeding the same grant path.* Measured:
 
 **Conclusion:** Play Billing can be added as specified without touching entitlement resolution, the 57
 gate sites, or the schema beyond the additive fields in §10.
+
+---
+
+## A1 · FINAL GATE (ADR-140) — verdict: **READY FOR IMPLEMENTATION**
+
+Re-certified at the implementation gate, with the rules deploy in progress and ₹299/₹399 confirmed
+canonical. One new Medium finding, fixed; no architectural blocker remains.
+
+**F-1 · `users/{uid}/entitlementLogs` was client-writable and client-deletable — Medium · FIXED.**
+`firestore.rules:194` granted the owner blanket write over `users/{uid}/{subcollection}/{doc}`,
+excluding only `duelHistory`, `duelStats`, `aiEvents` and `notifications`. `entitlementLogs` — the
+per-user audit trail of every grant, trial and revoke (`super-admin/api/admin/entitlements.js:140`,
+read by the admin UI at `users.js:110`) — was not excluded and had no explicit match. An owner could
+**erase the record of their own revoke or forge a grant entry**.
+
+Not Critical, because it could not grant premium: plan fields are root-level, downgrade-only and
+server-owned (ADR-130), and the authoritative copy always survived in the immutable root `auditLogs`
+(`_lib/audit.js:40`, written alongside at `entitlements.js:172` — confirming §6's "logged to both").
+But refund, chargeback and Play voided-purchase disputes are investigated through exactly this
+per-user history, so a forgeable copy misleads the investigator — which is why it is closed *before*
+WS2 makes it evidence. Fixed by the same carve-out pattern already used for `duelHistory`/`aiEvents`,
+plus an explicit read-only match, guarded by two new `entitlement-invariants` assertions (38 → 40)
+proven to fail on the pre-fix rule.
+
+**Verified clean at this gate:**
+
+| Area | Evidence |
+|---|---|
+| Pricing | 4 code sites + `PLANS` at ₹299/₹399; `index.html` and all 3 locales contain **zero** price literals; only the documented historical fallback differs |
+| Provider neutrality | **108** entitlement call sites, **zero** provider-aware; `activatePremium` has no provider concept; Razorpay confined to 4 files |
+| `planSource` | `'purchase'` is gateway-agnostic; only `'coaching'` is behaviourally special |
+| No duplicate purchase | server-side `req.userPremium` block (`api/payment.js:38`), comment already names Google Play |
+| Rules | `payments` read-only to clients; `auditLogs` write-denied; plan fields downgrade-only; every non-denied delete/write swept |
+| Data model | Play needs **additive fields only** — zero migration |
 
 ---
 
@@ -177,3 +212,30 @@ consumed by humans (Play Console setup, and any engineer reading §11) before co
 `WS3 restore` → `WS4 facade` → `WS5 verify-play` → `WS6 RTDN` → `WS7 wrapper` → `WS8 rollout`.
 
 P0-1 is already fixed and needs no workstream.
+
+---
+
+## E. Implementation roadmap (ADR-140)
+
+**Prerequisites (ops, before WS5–WS7):** Play Console account · final package name · Play App Signing ·
+two managed products at **₹299/₹399** (not the ₹349/₹499 the blueprint's Prerequisites still say) ·
+`FIREBASE_SERVICE_ACCOUNT` invited with finance + order-management · androidpublisher API enabled ·
+Pub/Sub topic (resolve the Spark-plan question first) · `GOOGLE_PLAY_PACKAGE_NAME` on Vercel.
+
+| Order | Workstream | Why here | Risk | Rollback |
+|---|---|---|---|---|
+| 0 | **F-1 rules fix + deploy** | one word; must precede WS2 making the audit log dispute evidence | Low | revert rule, redeploy |
+| 1 | **WS2** refund symmetry + ledger hardening | repairs the **live** P1-1 re-grant, protects both providers; blueprint mandates it before any Play code | Med | pure module + tombstone are additive; revert commit |
+| 2 | **WS1** platform truth (`platform.js`) | P1-2 is policy-fatal; everything downstream keys off correct detection | Low | one new module + 3 delegations |
+| 3 | **WS3** restore + live entitlement | small, independent, improves the web channel today | Low | remove the CTA |
+| 4 | **WS4** client facade | behaviour-preserving Razorpay extraction; gate with px-diff + paywall certs | Med | revert to direct `openPremiumPayment` |
+| 5 | **WS5** server `verify-play` | needs WS1 (detection) + WS2 (guards); folds into `payment.js`, no new function | Med | `config/playBilling` off ⇒ reader mode |
+| 6 | **WS6** RTDN + reconcile | function #11 of 12; **gate on Pub/Sub availability first** | Med | degraded = reconcile-only, ≤24h refund lag |
+| 7 | **WS7** TWA wrapper + assetlinks | last; needs the origin serving `.well-known` | Med | halt staged rollout, previous AAB |
+| 8 | **WS8** rollout + governance | dashboards, docs, ADRs, Payment Version 3.0 | Low | — |
+
+**Sequencing rationale.** WS2 leads because it fixes a defect that is live *today* and because its
+`activatePremium` status guards protect both providers — shipping Play code first would double the
+surface of a known re-grant bug. WS1 is second because showing Razorpay inside a Play-distributed
+build is the one unrecoverable policy violation, and every later workstream keys off correct platform
+detection.

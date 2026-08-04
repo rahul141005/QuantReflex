@@ -191,9 +191,23 @@ service cloud.firestore {
       // EXCEPTION (ADR-031): duelHistory is server-written (authoritative duel results) — the client may
       // READ its own history but must NOT write it (would let a player forge wins). The carve-out narrows
       // this blanket grant because Firestore unions all matching rules (a later deny cannot revoke a grant).
+      //
+      // EXCEPTION (ADR-140): entitlementLogs is the per-user audit trail of every Premium grant, trial and
+      // revoke, written server-side by super-admin (`api/admin/entitlements.js:140`) and read back by the
+      // admin UI (`api/admin/users.js:110`). It was NOT in this exclusion list and has no explicit match,
+      // so the owner could erase the record of their own revoke or forge a grant entry. It cannot grant
+      // premium — plan fields live on the root doc, downgrade-only and server-owned (ADR-130) — and the
+      // authoritative copy survives in the immutable root `auditLogs` (`_lib/audit.js:40`, written
+      // alongside at `entitlements.js:172`). But refund, chargeback and Play voided-purchase disputes are
+      // investigated through exactly this per-user history, so a forgeable copy misleads the investigator.
+      // Closed before the hybrid-payment work makes it dispute evidence.
       match /{subcollection}/{document} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'duelStats' && subcollection != 'aiEvents' && subcollection != 'notifications';
+        allow write: if isOwner(userId) && subcollection != 'duelHistory' && subcollection != 'duelStats' && subcollection != 'aiEvents' && subcollection != 'notifications' && subcollection != 'entitlementLogs';
+      }
+      // Explicit (read-only) entitlementLogs match for clarity; write stays denied (no allow write here).
+      match /entitlementLogs/{logId} {
+        allow read: if isOwner(userId);
       }
       // Explicit (read-only) duelHistory match for clarity; write stays denied (no allow write here).
       match /duelHistory/{duelId} {
