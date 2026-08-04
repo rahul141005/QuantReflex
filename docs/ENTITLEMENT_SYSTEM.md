@@ -11,7 +11,12 @@
 | Tier | Price | Duration | Features |
 |------|-------|----------|----------|
 | **Free** | ₹0 | Forever | 20 daily questions, 5 AI explanation credits |
-| **Premium** | ₹349 / ₹499 | 6 months / 12 months | Everything — unlimited practice, all modes, full AI suite, Math Duel |
+| **Premium** | ₹299 / ₹399 | 6 months / 12 months | Everything — unlimited practice, all modes, full AI suite, Math Duel |
+
+> **ADR-139 correction:** this table read ₹349/₹499 — the prices before commit `b4481a0` (2026-07-22)
+> lowered them to ₹299/₹399. Canonical source is `services/paymentService.js` `PLAN_CONFIG`, held equal
+> across four code sites by `payment-parity.check.js`. That check covers code and locale copy but **not
+> documentation**, which is why this line drifted for ~2 weeks.
 
 One paid tier. A **trial** is an admin-granted, custom-duration Premium (`isTrial:true`).
 
@@ -34,9 +39,15 @@ One paid tier. A **trial** is an admin-granted, custom-duration Premium (`isTria
 ## Resolution Algorithm
 
 ```
-premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+premium ⟺ plan === 'premium' && planExpiry parses to a real, FUTURE timestamp
 otherwise → free
 ```
+> **Corrected in ADR-139.** This read `(planExpiry == null || planExpiry > now)` — i.e. a null expiry
+> granted premium forever. **Wave S1 / ADR-115 removed the permanent tier**: an absent, null or
+> unparseable expiry resolves to **NOT premium**, fail-safe
+> (`main-app/data/entitlement-core.js:86` — `if (!(expiryMs > 0)) return false;`). Every legitimate
+> grant writes a finite expiry, so a `premium` doc without one is illegitimate data, not a licence.
+> `planExpiry: null` stays correct **only** alongside `plan:'free'` (the `revokeFields()` direction).
 
 Expired premium/trials self-heal to free on read (server `aiService.resolvePlan`, client
 `getAccessState`/`_enforcePremiumExpiry`) and via the `enforceEntitlementExpiry` function.

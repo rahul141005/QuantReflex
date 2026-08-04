@@ -107,8 +107,10 @@ engine in capture-only mode (client never grades). Result screen + shareable ima
 ELO/leaderboards/replay/rematch are acknowledged debt (ROADMAP DEBT-4/5) and correctly **not surfaced** in the UI.
 
 ### 2.7 Premium / entitlement — `docs/BIBLE/PAYMENT_ARCHITECTURE.md`, `js/paywall.js`, `js/firestore-sync.js`
-One Premium tier, two durations (₹349/6-mo, ₹499/12-mo). `premium ⟺ plan==='premium' && (planExpiry==null ||
-planExpiry>now)`; expiry self-heals to free on read, with a **clock-rewind guard** (`_clockSafeNow`,
+One Premium tier, two durations (**₹299/6-mo, ₹399/12-mo** — ADR-139 correction; the ₹349/₹499 figures
+here predated commit `b4481a0`). `premium ⟺ plan==='premium' && planExpiry parses to a real, FUTURE
+timestamp` (ADR-139 correction — was `(planExpiry==null || planExpiry>now)`; ADR-115 removed the
+permanent tier); expiry self-heals to free on read, with a **clock-rewind guard** (`_clockSafeNow`,
 `paywall.js:54-61`). Razorpay one-time Orders; double-submit-guarded client flow; idempotent server grant + webhook
 safety net.
 

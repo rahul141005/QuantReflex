@@ -6,6 +6,35 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-04 — Pre-payment validation: the fix was never deployed, and four docs still quoted the old price (ADR-139 cont.)
+
+Final readiness pass over the ADR-139 report. Three findings, all in the "committed ≠ shipped" family.
+
+- **Critical (operational) — the P0-1 rules fix is NOT live, and it is not alone.** The Firebase Deploy
+  workflow is `workflow_dispatch` only; merging never deploys rules. Last successful deploy: **2026-07-06**.
+  Three rules commits have landed since — including **ADR-130 part 2's server-owned entitlement-field
+  enforcement (2026-08-01)** and the ADR-139 payments-delete fix. Production is running July rules, so the
+  entitlement-inflation hole is live *now*. Running the deploy workflow is the single highest-priority action.
+- **Medium — a live price change shipped without governance, and that caused documentation drift.**
+  `b4481a0` (2026-07-22) lowered ₹349/₹499 → ₹299/₹399 in code and locales with **no ADR, no CHANGELOG
+  entry and no Payment Version bump**, which PAYMENT_ARCHITECTURE's own change-control clause requires.
+  Four current-state docs kept the old price for ~2 weeks: TECHNICAL_BIBLE, PRODUCT_AUDIT,
+  ENTITLEMENT_SYSTEM (a pricing **table**) and its resolution rule. My previous pass corrected only
+  PAYMENT_ARCHITECTURE — an incomplete fix, now finished across all five.
+- **The stale entitlement rule was in four docs, not one.** ENTITLEMENT_SYSTEM, FIRESTORE_BLUEPRINT and
+  PRODUCT_AUDIT all still stated `planExpiry == null ⇒ premium`. Corrected; history files deliberately
+  untouched.
+- **`payment-parity.check` now scans current-state docs** for retired price points (25 → 26), proven to
+  fail on a reverted line. It guarded code and locale copy but never documentation — which is precisely
+  how the drift survived, and docs are what a human executes from during Play Console setup.
+- **Medium — no `payments` composite indexes** (32 declared, none on that collection). Nothing needs one
+  today; WS2's `revokePayment` and WS6's reconcile sweeps will. Declare with WS2.
+- npm test 45 suites 0 failed; entitlement-invariants 38; payment-parity 26.
+- Docs: PAYMENT_READINESS §A2–A4, ENTITLEMENT_SYSTEM, FIRESTORE_BLUEPRINT, PRODUCT_AUDIT,
+  TECHNICAL_BIBLE corrected; VERSIONS 2.171 → 2.172.
+
+---
+
 ## 2026-08-03 — Pre-payment certification: the idempotency lock was client-erasable (ADR-139)
 
 Final engineering gate before Google Play Billing. Certification only — no Play code written. No app

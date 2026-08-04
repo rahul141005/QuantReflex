@@ -9,11 +9,21 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.171 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.172 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.8 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.172 (2026-08-04)** — **Pre-payment validation (ADR-139 cont.).** Three "committed ≠ shipped"
+> findings. **Critical/operational:** the P0-1 rules fix is NOT deployed — the Firebase Deploy workflow is
+> manual-only, the last successful run was 2026-07-06, and three rules commits have landed since,
+> including ADR-130 part 2's entitlement-field enforcement. Production runs July rules, so the
+> entitlement-inflation hole is live until someone runs the workflow. **Medium:** commit b4481a0 changed
+> live prices with no ADR, no CHANGELOG entry and no Payment Version bump — the governance miss that let
+> four current-state docs quote ₹349/₹499 for two weeks (my previous pass fixed only one of them). All
+> five corrected; `payment-parity.check` now scans current-state docs for retired prices (25→26), proven
+> to bite. **Medium:** no `payments` composite indexes — not needed today, required by WS2/WS6.
 
 > **2.171 (2026-08-03)** — **Pre-payment certification (ADR-139).** Final gate before Google Play
 > Billing; certification only, no Play code, no SW bump. Found and fixed a **Critical** live

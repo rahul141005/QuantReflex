@@ -58,7 +58,7 @@ Companion: [TECHNICAL_BIBLE.md](TECHNICAL_BIBLE.md) · [SECURITY_ARCHITECTURE.md
 
 **Removed in v2** (do not reintroduce): `isPremium, hasPaid, isEarlyUser, isPremiumPlus, premiumPlusPlan, premiumPlusExpiry, premiumPlusStatus, lastPremiumPlusPaymentId`.
 
-**Resolution rule:** `premium ⟺ plan==='premium' && (planExpiry==null || planExpiry>now)`. Expired premium/trials self-heal to free on read (server `resolvePlan`, client `getAccessState`/`_enforcePremiumExpiry`).
+**Resolution rule:** `premium ⟺ plan==='premium' && planExpiry parses to a real, FUTURE timestamp` (ADR-139 correction — this previously read `(planExpiry==null || planExpiry>now)`; Wave S1/ADR-115 removed the permanent tier, so a null/invalid expiry now resolves to **NOT premium**, fail-safe — `data/entitlement-core.js:86`. `planExpiry:null` is valid only alongside `plan:'free'`). Expired premium/trials self-heal to free on read (server `resolvePlan`, client `getAccessState`/`_enforcePremiumExpiry`).
 
 **Entitlement write rule (client):** clients may only DOWNGRADE — `plan`→`'free'`, and clear `planType/planExpiry/planSource/trialEnd`→null, `isTrial`→false. Grants are admin-only. Enforced by `entitlementFieldsSafe()` in rules. See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 

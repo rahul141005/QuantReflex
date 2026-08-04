@@ -81,6 +81,39 @@ if (ps6 && ps12 && aiPrice && pw6 && pw12 && sh6 && sh12) {
   }
 }
 
+/* ---- ADR-139: the CURRENT-STATE DOCS must not quote a retired price ----------------------------
+   This check has always guarded code + locale copy, and never documentation. That gap is not
+   theoretical: commit b4481a0 lowered ₹349/₹499 → ₹299/₹399 across all four code sites and the three
+   locales, updated PAYMENT_ARCHITECTURE.md, and left TECHNICAL_BIBLE.md, PRODUCT_AUDIT.md and
+   ENTITLEMENT_SYSTEM.md quoting the old price for ~2 weeks — including a pricing TABLE. Docs are what
+   a human executes from (the Play Console product setup in the Phase 4 blueprint reads its price from
+   prose), so a stale doc is an operational defect, not a cosmetic one.
+
+   Scope note: only CURRENT-STATE docs are scanned. DECISION_LOG / CHANGELOG / VERSIONS are append-only
+   history and MUST keep their period-accurate prices — scanning them would force falsifying the record.
+   Lines carrying an explicit ADR-139 correction note are exempt: they quote the old value to explain it. */
+{
+  const CURRENT_STATE_DOCS = [
+    'docs/BIBLE/TECHNICAL_BIBLE.md',
+    'docs/BIBLE/PRODUCT_AUDIT.md',
+    'docs/BIBLE/PAYMENT_ARCHITECTURE.md',
+    'docs/BIBLE/FIRESTORE_BLUEPRINT.md',
+    'docs/ENTITLEMENT_SYSTEM.md'
+  ];
+  const retired = /₹(349|499|599|89)\b/;
+  const exempt = /ADR-139|correction|previously|predated|historical|blueprint|launch price|v1 had/i;
+  const offenders = [];
+  for (const rel of CURRENT_STATE_DOCS) {
+    const p = path.join(__dirname, '..', '..', rel);
+    if (!fs.existsSync(p)) continue;
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      if (retired.test(line) && !exempt.test(line)) offenders.push(rel + ':' + (i + 1));
+    });
+  }
+  ok('current-state docs quote no retired price point',
+    offenders.length === 0, offenders.join(', '));
+}
+
 /* ---- historical-fallback exemption stays documented ---- */
 const metricsSrc = RR('super-admin-app/api/_lib/metrics.js');
 ok('metrics.js historical fallback exemption documented',

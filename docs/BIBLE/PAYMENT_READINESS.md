@@ -30,6 +30,54 @@ gate sites, or the schema beyond the additive fields in §10.
 
 ---
 
+## A2 · DEPLOYMENT STATE — the fix is NOT live · **Critical, operational**
+
+**The P0-1 rules fix is committed but not deployed, and it is not the only one.**
+
+`.github/workflows/firebase-deploy.yml` is `workflow_dispatch` only — there is no `push:` trigger, so
+merging to `main` never deploys rules. Measured from the Actions history: the last successful
+**Firebase Deploy was 2026-07-06** (`e4586d1f`). Three commits have touched `firestore/rules/` since:
+
+| Commit | Date | What is undeployed |
+|---|---|---|
+| `e58b774` | 2026-07-09 | rules touched during i18n Phase G |
+| `b67af6b` | 2026-08-01 | **ADR-130 part 2 — "enforce server-owned entitlement fields by construction"** |
+| `9c8470b` | 2026-08-04 | **ADR-139 P0-1 — the payments-delete fix** |
+
+So production is running rules from ~2026-07-06: the entitlement-inflation hole is **live right now**,
+and ADR-130's entitlement-field hardening has never taken effect either. Committing a rules fix is not
+shipping it.
+
+**Action (before anything else):** run the *Firebase Deploy* workflow with the default targets
+(`firestore,functions:cleanupExpiredDuels`), then confirm in the Firebase console that the payments
+block reads `allow read` only. Everything else in this register can wait; this cannot.
+
+## A3 · Governance gap that caused the documentation drift · **Medium**
+
+Commit `b4481a0` (2026-07-22) lowered prices ₹349/₹499 → ₹299/₹399 across all four code sites and the
+three locales — but shipped with **no ADR, no CHANGELOG entry and no Payment Version bump**, which
+`PAYMENT_ARCHITECTURE.md`'s own change-control clause requires for any plan-config change. With no ADR
+to propagate, four current-state docs kept quoting the old price for ~2 weeks:
+`TECHNICAL_BIBLE.md:19`, `PRODUCT_AUDIT.md:110`, `ENTITLEMENT_SYSTEM.md:14` (a pricing **table**), and
+the same file's resolution rule. **All corrected in this pass**, and `payment-parity.check.js` now
+scans current-state docs for retired price points (25 → 26 assertions, proven to fail on a reverted
+line). History files are deliberately excluded — they must stay period-accurate.
+
+This matters for Play because the blueprint's Play Console setup reads its product prices from prose.
+
+## A4 · No `payments` composite indexes · **Medium — needed by WS2, not before**
+
+`firestore/indexes/firestore.indexes.json` declares 32 indexes, **none on `payments`**. Nothing today
+needs one (`api/account.js:157` deletes by single-field `uid`, which Firestore auto-indexes). But the
+blueprint's WS2/WS6 queries do:
+
+- §9.4 `revokePayment` — the uid's non-refunded `'paid'` docs in `claimedAt` order ⇒ `[uid, status, claimedAt]`
+- §9.3 reconcile — `acknowledged:false` sweep ⇒ `[provider, acknowledged]`
+- §9.3 stale-pending sweep ⇒ `[status, claimedAt]`
+
+Declare them with WS2. A missing composite index fails at runtime *only* under the rare, high-stakes
+condition (a refund) — the worst time to discover it.
+
 ## B. Blockers
 
 ### 🔴 P0-1 · `payments/{id}` was client-deletable — unbounded premium self-grant · **FIXED**
