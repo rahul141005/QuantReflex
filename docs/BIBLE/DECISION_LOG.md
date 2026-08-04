@@ -8,6 +8,86 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-142 — One platform truth, and Restore becomes reachable (v272) (2026-08-04)
+
+**Context.** PR-2 of the hybrid-payment work, built on the hardened pipeline ADR-141 delivered.
+**WS1 and WS3 are complete; WS4–WS6 are not started** — see the honest status table at the end.
+
+**WS1 — `js/platform.js` is now THE single source of platform truth.** Three independent installed-app
+detectors survived in `js/app.js`, `js/duel-manager.js` and `js/services/report-context.js`. They had
+already drifted once (report-context omitted `display-mode: fullscreen`, so a fullscreen-launched PWA
+was mis-reported in every bug report — audit MIN3), and **none of them could tell an installed PWA
+from a Play-store TWA.** A TWA renders this exact origin inside Chrome and satisfies the installed-app
+media query, so every detector classified it `pwa-mode` — and a `pwa-mode` build offers Razorpay.
+Charging for digital goods inside a Play app through anything but Play Billing is the one
+**unrecoverable** Play-policy violation: the listing is removed, and no client-side repair undoes it.
+
+The module answers two **deliberately asymmetric** questions, and the asymmetry is the design:
+
+| | Evidence | Combined | Wrong answer costs |
+|---|---|---|---|
+| `isPlayDistribution()` | `android-app://` referrer · `?src=play` · Digital Goods API present | **OR** — any hint suppresses Razorpay | false positive: a web user loses one payment method (recoverable) |
+| `canUsePlayBilling(skus)` | service resolves **and** every SKU comes back | **AND** — all of it | false positive: we take money we cannot fulfil |
+
+The gap between them is intentional: a build that *looks* like Play but cannot transact shows
+**neither** payment path. Reader mode is the correct policy-safe failure — never "fall back to
+Razorpay". A half-configured Play Console (one SKU live) is refused for the same reason: a
+half-catalogue would let a user buy the plan we happened to configure rather than the one they chose.
+
+**Computed per boot, never persisted.** A TWA shares Chrome's profile storage with ordinary browsing
+of this origin, so a cached flag leaks in *both* directions — a stored `true` would hide Razorpay from
+a web user forever, a stored `false` would expose it inside the Play build. The `?src=play` latch is
+`sessionStorage`, so it dies with the tab. Memoising per boot also stops the payment path changing
+under the user mid-checkout. `twa-mode` is **additive**: a TWA keeps `pwa-mode`, so every existing
+installed-app rule and the Math Duel gate work unchanged.
+
+*Superseded divergence:* ADR-124 recorded that report-context reported `null` on a `matchMedia` throw
+where app.js failed closed and duel-manager failed open. With one detector there is one answer, and it
+fails **closed**, because the same value feeds the Duel install gate where a `null` would hard-block a
+legitimate installed user. `null` survives only where it is now the genuine unknown — `QRPlatform`
+absent. Bug reports gained `platformMode`, so a Play-build report is triageable as one.
+
+**WS3 — Restore.** `FirestoreSync.refreshFromServer` existed with **zero callers**: a purchase made on
+another device, or one whose grant landed by webhook after the tab closed, had no route into the
+session short of a full relaunch. It is now the paywall's "Already purchased? Restore access" action,
+with a 12s safety timeout mirroring `openPremiumPayment`'s. The verdict is read from the **canonical**
+`canAccess()` rather than by re-reading fields, and a successful restore closes the paywall — which is
+by then wrong to be open. Because the grant is server-side and provider-neutral, **one button serves
+both providers**, which is also what Play requires: a reinstall must recover an entitlement without
+paying again.
+
+**WS3's live-entitlement half needed no work.** The plan proposed extending the ADR-072 root-doc
+`onSnapshot`; on inspection **ADR-118 already did it** — `REFRESH_SCALARS`/`REFRESH_STAMPS`
+(`firestore-sync.js:117`) already fold `plan`, `planType`, `planSource`, `isTrial`, `planExpiry`,
+`trialEnd` and `planUpdatedAt` into the live view on every snapshot. Blueprint **W6 is therefore
+already closed**; adding a second listener would have duplicated a working mechanism and doubled the
+read cost. Recorded here because "already done" is a result, not a skipped task.
+
+**Verification.** `scripts/platform.check.js` (39 assertions, in `npm test`) is both a **source
+ratchet** — `display-mode: standalone` and `navigator.standalone` must each appear in exactly one
+module, and `platform.js` must load before `app.js` — and a behaviour suite driving the real module in
+a synthesised global through every TWA/PWA/web scenario. `report.check.js` now loads the real
+`platform.js` into its sandbox, so the MIN3 truth table became an end-to-end assertion over the
+delegation rather than over a duplicate implementation.
+
+**Status of the rest.**
+
+| WS | State |
+|---|---|
+| WS1 platform truth | **DONE** |
+| WS3 restore + live entitlement | **DONE** (live half was already closed by ADR-118) |
+| WS4 `js/payments/` facade | **NOT STARTED** — Razorpay still called directly from `paywall.js` |
+| WS5 `?action=verify-play` + `playBillingService` | **NOT STARTED** |
+| WS6 `play-rtdn.js` + reconcile cron | **NOT STARTED** |
+| WS7 Play Console artifacts | **DEFERRED BY DESIGN** — needs a real Play Console application and a real Play App Signing certificate. No `assetlinks.json`, no placeholder fingerprint and no Play-dependent production config exists in this repo. See `PAYMENT_READINESS.md` §F. |
+
+**Nothing shipped here changes payment behaviour for any existing user.** Razorpay's path is
+byte-identical; `platform.js` only classifies, and today no code branches on `twa-mode`. That is
+deliberate: WS1 is the *prerequisite* for suppressing Razorpay in a Play build, and the suppression
+itself belongs to WS4, where the facade is the only thing that decides which provider is offered.
+
+---
+
 ## ADR-141 — Refunds revoke: the entitlement pipeline becomes two-way before Play Billing (v271) (2026-08-04)
 
 **Context.** PR-1 of the hybrid-payment work — Phase-4 **WS2**, which the blueprint's §13 makes a law:

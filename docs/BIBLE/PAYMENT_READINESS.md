@@ -267,3 +267,42 @@ Pub/Sub topic (resolve the Spark-plan question first) · `GOOGLE_PLAY_PACKAGE_NA
 surface of a known re-grant bug. WS1 is second because showing Razorpay inside a Play-distributed
 build is the one unrecoverable policy violation, and every later workstream keys off correct platform
 detection.
+
+---
+
+## F · WS7 handoff — the real values that must be supplied after the Play Console app exists
+
+**Nothing in this section can be created in the repository first, and none of it has been.** WS7 needs
+a real Play Console application and a real Play App Signing certificate. Scaffolding it with invented
+values is worse than leaving it empty: a fabricated `assetlinks.json` or placeholder fingerprint
+**verifies successfully against nothing**, so the TWA silently falls back to a Chrome Custom Tab —
+showing the URL bar, and (because the fallback is a normal browser tab) offering Razorpay inside what
+users experience as the Play app. That is the unrecoverable policy violation, arrived at through a
+file that looked correct in review. So this is a checklist, not a stub.
+
+### Ops — must exist before any of the below can be filled in
+
+| # | Item | Where it comes from | Consumed by |
+|---|---|---|---|
+| 1 | **Final package name** (e.g. `com.quantreflex.app`) — immutable once published | your decision, before first upload | `assetlinks.json`, `GOOGLE_PLAY_PACKAGE_NAME`, TWA manifest |
+| 2 | **Play App Signing SHA-256 fingerprint** | Play Console → Setup → App integrity → *App signing key certificate*. **Not** your upload key — Play re-signs, so the upload key's fingerprint will fail verification | `assetlinks.json` |
+| 3 | **Two managed products** (one-time, **not** subscriptions) at **₹299** and **₹399** | Play Console → Monetise → In-app products. Product ids must equal the `planType` values `premium_6m` / `premium_12m`, or WS5's server-side allowlist rejects them | Play Billing, WS5 allowlist |
+| 4 | **Service-account invitation** | Play Console → Users and permissions → invite the `FIREBASE_SERVICE_ACCOUNT` email with *View financial data* + *Manage orders and subscriptions* | WS5 `androidpublisher` calls |
+| 5 | **`androidpublisher` API enabled** | Google Cloud console, same project as the service account | WS5 |
+| 6 | **Pub/Sub topic + push subscription** to `/api/payment/play-rtdn`, and the topic name entered in Play Console → Monetisation setup | **Resolve the Spark-plan question first** — if Pub/Sub is unavailable, WS6 degrades to reconcile-only with a ≤24h refund lag, which is a decision, not a bug | WS6 |
+| 7 | **`GOOGLE_PLAY_PACKAGE_NAME`** on Vercel (all environments) | item 1 | WS5 pins it server-side so a token from another app cannot be redeemed |
+
+### Repo work that unblocks the moment 1–2 land
+
+- `public/.well-known/assetlinks.json` — `{relation:["delegate_permission/common.handle_all_urls"], target:{namespace:"android_app", package_name:<1>, sha256_cert_fingerprints:[<2>]}}`, plus the Vercel rewrite that serves it at the domain root **without** the SPA catch-all swallowing it. Verify with Google's Statement List Tester **before** the first internal-test upload.
+- `manifest.json` → `related_applications` + `prefer_related_applications`.
+- The `android/` TWA wrapper project itself.
+
+### Two things to check that are easy to miss
+
+- The TWA's `start_url` must carry **`?src=play`** — it is one of the three signals
+  `QRPlatform.isPlayDistribution()` reads, and the only one that survives the launch referrer being
+  dropped after the first in-app navigation.
+- **Verify on a real device before release** that `document.body` carries `twa-mode`. Everything that
+  suppresses Razorpay in the Play build keys off that class. It is one line to check and the single
+  highest-value pre-release test in this list.

@@ -515,6 +515,14 @@ function showPaywall(featureType) {
 
       '<div class="pw-trust">' + trust + '</div>' +
 
+      /* ADR-142 (WS3): Restore. `FirestoreSync.refreshFromServer` existed with ZERO callers, so a
+         purchase made on another device — or one whose grant landed via the webhook after the tab
+         closed — had no way into this session short of a full relaunch. It becomes reachable here.
+         It is also the mechanism Play requires: a reinstall must be able to recover an entitlement
+         without paying again, and because the grant is server-side and provider-neutral, one button
+         serves both providers. */
+      '<button class="pw-restore" type="button">' + _esc(QRI18n.t('paywall.restore')) + '</button>' +
+
       '<div class="pw-footer">' +
         '<a class="pw-footer-link" href="#terms" data-view="terms">' + QRI18n.t('paywall.terms') + '</a>' +
         '<span class="pw-footer-dot">·</span>' +
@@ -567,6 +575,41 @@ function showPaywall(featureType) {
       return;
     }
     openPremiumPayment(selected, userId);
+  });
+
+  /* Restore (ADR-142, WS3) */
+  var restoreBtn = overlay.querySelector('.pw-restore');
+  if (restoreBtn) restoreBtn.addEventListener('click', function () {
+    if (!userId) { showToast(QRI18n.t('paywall.loginToContinue')); return; }
+    if (restoreBtn.disabled) return;                       /* one in flight at a time */
+    restoreBtn.disabled = true;
+    var original = restoreBtn.textContent;
+    restoreBtn.textContent = QRI18n.t('paywall.restoreChecking');
+    var done = false;
+    function finish(msgKey, closeAfter) {
+      if (done) return; done = true;
+      showToast(QRI18n.t(msgKey));
+      restoreBtn.disabled = false;
+      restoreBtn.textContent = original;
+      if (closeAfter) _closePaywallModal();
+    }
+    /* Safety timeout mirrors openPremiumPayment's: a hung network must never leave a dead button. */
+    var t = setTimeout(function () { finish('paywall.restoreFailed', false); }, 12000);
+    if (typeof FirestoreSync === 'undefined' || typeof FirestoreSync.refreshFromServer !== 'function') {
+      clearTimeout(t); finish('paywall.restoreFailed', false); return;
+    }
+    try {
+      FirestoreSync.refreshFromServer(function (okRead) {
+        clearTimeout(t);
+        if (!okRead) { finish('paywall.restoreFailed', false); return; }
+        /* Decided by the ONE canonical rule, not by re-reading fields here. If it says premium, the
+           paywall itself is now wrong to be open — close it. */
+        finish(canAccess() ? 'paywall.restoreFound' : 'paywall.restoreNone', canAccess());
+      });
+    } catch (_) {
+      clearTimeout(t);
+      finish('paywall.restoreFailed', false);
+    }
   });
 
   /* Footer is minimal (Terms · Privacy) — dismissal is via the × / backdrop / Esc. */

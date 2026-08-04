@@ -7881,6 +7881,21 @@ html.dark-mode .pw-plan-save { color: #4ade80; }
 .pw-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem .75rem; margin: .75rem 0 .25rem; }
 .pw-trust-item { font-size: var(--fs-caption); color: var(--qr-text-dim); font-weight: 600; }
 
+/* Restore (ADR-142, WS3). A quiet secondary action: it must be findable — Play requires a reinstall
+   to recover an entitlement without paying again — without competing with the primary CTA. 44px min
+   height keeps the ADR-133 touch-target floor; the disabled state is what the in-flight label uses. */
+.pw-restore {
+  display: block; width: 100%; min-height: 44px; margin: .5rem 0 0;
+  background: none; border: none; cursor: pointer;
+  font-size: var(--fs-caption); font-weight: 700; color: var(--qr-text-dim);
+  text-decoration: underline; text-underline-offset: 3px;
+  transition: color var(--qr-dur-fast) var(--qr-ease-out), opacity var(--qr-dur-fast) var(--qr-ease-out);
+}
+.pw-restore:hover { color: var(--qr-accent); }
+.pw-restore:active { transform: scale(var(--qr-press-sm)); }
+.pw-restore:disabled { cursor: default; opacity: .6; text-decoration: none; }
+html.dark-mode .pw-restore { color: #94a3b8; }
+
 /* Footer */
 .pw-footer {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center;

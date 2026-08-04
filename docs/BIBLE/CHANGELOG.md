@@ -6,6 +6,41 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-04 — One platform truth; Restore reachable (ADR-142, PR-2 WS1+WS3)
+
+Built on the pipeline ADR-141 hardened. **WS1 and WS3 complete; WS4–WS6 not started; WS7 deferred by
+design** (needs a real Play Console app + App Signing certificate — see `PAYMENT_READINESS.md` §F).
+
+- **Added `js/platform.js`** — THE single source of platform truth. Replaces three independently
+  drifting installed-app detectors (`js/app.js`, `js/duel-manager.js`, `js/services/report-context.js`)
+  that had already diverged once (MIN3) and, more importantly, could not tell an installed PWA from a
+  Play-store TWA. A TWA satisfies the installed-app media query, so it classified as `pwa-mode` — and a
+  `pwa-mode` build offers Razorpay, which inside a Play app is the one **unrecoverable** policy
+  violation. Two deliberately asymmetric predicates: `isPlayDistribution()` weak-OR (any hint
+  suppresses Razorpay — a false positive costs one payment method, a false negative costs the listing),
+  `canUsePlayBilling()` strong-AND (service resolves *and* every SKU returns, else **reader mode** —
+  never a Razorpay fallback; a half-configured Play Console is refused all-or-nothing).
+- **Never persisted.** A TWA shares Chrome's profile storage with ordinary browsing of this origin, so
+  a cached flag leaks both ways. `?src=play` is latched to `sessionStorage` only. `twa-mode` is
+  additive to `pwa-mode`, so existing installed-app CSS and the Duel gate are untouched.
+- **Added Restore** (`paywall.js`). `FirestoreSync.refreshFromServer` had **zero callers**: a purchase
+  made on another device, or granted by webhook after the tab closed, could not reach the session
+  without a relaunch. 12s safety timeout; the verdict comes from canonical `canAccess()`, and a
+  successful restore closes the paywall. One button serves both providers. i18n in all three locales.
+- **W6 was already closed.** The plan proposed a new listener; ADR-118's `REFRESH_SCALARS`/
+  `REFRESH_STAMPS` already fold every plan field into the live view on each snapshot. A second listener
+  would have duplicated a working mechanism and doubled the read cost. Recorded, not silently skipped.
+- **Supersedes the ADR-124 divergence.** With one detector there is one answer, and it fails **closed**
+  on a `matchMedia` throw — the same value feeds the Duel install gate, where `null` would hard-block a
+  legitimate installed user. `null` survives only where it is the genuine unknown (`QRPlatform` absent).
+  Bug reports gained `platformMode`.
+- **No payment behaviour changes for any existing user.** Razorpay's path is byte-identical; nothing
+  branches on `twa-mode` yet — the suppression itself belongs to WS4, where the facade decides which
+  provider is offered.
+- npm test 0 failed · **new** `platform.check` 39 (source ratchet: `display-mode: standalone` and
+  `navigator.standalone` in exactly one module, load order enforced) · `report.check` 714 → 717, now
+  driving the real `platform.js`.
+
 ## 2026-08-04 — Refunds revoke: PR-1 / Phase-4 WS2 (ADR-141)
 
 Foundation for hybrid payments. Per the blueprint's §13 law, WS2 ships **before any Play code** — this

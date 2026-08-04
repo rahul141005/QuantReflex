@@ -9,11 +9,27 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.174 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.175 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.77 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.33 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
 | **Payment Version** | 2.9 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.175 (2026-08-04)** — **One platform truth; Restore reachable (ADR-142, PR-2 WS1+WS3).**
+> `js/platform.js` replaces three drifting installed-app detectors, none of which could tell an
+> installed PWA from a Play-store TWA — a TWA satisfies the installed-app media query, would classify
+> as `pwa-mode`, and a `pwa-mode` build offers Razorpay, which inside a Play app is the one
+> unrecoverable policy violation. Two deliberately asymmetric predicates: `isPlayDistribution()`
+> weak-OR (any hint suppresses Razorpay), `canUsePlayBilling()` strong-AND (all signals, or reader
+> mode — never a Razorpay fallback). Computed per boot, never persisted, because a TWA shares Chrome's
+> profile storage with ordinary browsing of this origin. `twa-mode` is additive to `pwa-mode`.
+> `FirestoreSync.refreshFromServer` had zero callers and is now the paywall's Restore action — one
+> button for both providers. WS3's live-entitlement half needed no work: **ADR-118 already closed
+> blueprint W6.** Supersedes the ADR-124 `matchMedia`-throw divergence (one detector, fails closed).
+> Architecture 2.76→2.77. `platform.check.js` 39 assertions; `report.check.js` now drives the real
+> platform.js. **WS4–WS6 not started; WS7 deferred by design** — see `PAYMENT_READINESS.md` §F.
+> No payment behaviour changes for any existing user: Razorpay's path is byte-identical and nothing
+> yet branches on `twa-mode`.
 
 > **2.174 (2026-08-04)** — **Refunds revoke (ADR-141, PR-1 / Phase-4 WS2).** Foundation for hybrid
 > payments; **no Play code** by design, per the blueprint's §13 law that WS2 ships first. Repairs a live
