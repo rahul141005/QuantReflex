@@ -304,12 +304,31 @@ service cloud.firestore {
     // ════════════════════════════════════════════
     // PAYMENTS COLLECTION
     // ════════════════════════════════════════════
-    // Users can only read and delete their own payment records.
-    // Payment creation/updates are server-side only (Admin SDK).
+    // Users can only READ their own payment records. Every write — including DELETE — is
+    // server-side only (Admin SDK).
+    //
+    // ADR-139 (Critical): `delete` used to be granted to the owner, and that made the
+    // `payments/{paymentId}` doc — which IS the idempotency lock — client-erasable. The chain:
+    //   1. `?action=verify` has no recency or one-time-use check (aiService.js:208 says so out
+    //      loud); a Razorpay order stays `status:'paid'` forever, so an old
+    //      (orderId, paymentId, signature) triple stays replayable indefinitely.
+    //   2. `activatePremium`'s ONLY replay defence is `if (paymentDoc.exists)` (aiService.js:201).
+    //   3. With the lock deleted, a replay falls through to the NEW-grant branch, whose
+    //      `stackExpiry(current expiry, days)` (aiService.js:252) extends from the user's CURRENT
+    //      expiry — adding a whole 182/365-day term.
+    // So: buy once → delete the doc from the client SDK → re-POST the same triple → +6/12 months,
+    // repeatable without limit. Nothing in any client calls delete here (grep-verified), and
+    // account deletion purges payments server-side via the Admin SDK
+    // (`main-app/api/account.js:157`), which bypasses rules entirely — so the permission bought
+    // no feature and cost the whole idempotency guarantee.
+    //
+    // This also protects the paused Play Billing work: its doc id is `gp_<sha256(purchaseToken)>`
+    // and PAYMENT_ARCHITECTURE §12 claims "same token can never grant twice" — a claim that is
+    // only true while the lock cannot be erased, since `listPurchases()` returns the token again.
     match /payments/{paymentId} {
-      allow read, delete: if request.auth != null
+      allow read: if request.auth != null
         && resource.data.uid == request.auth.uid;
-      allow create, update: if false; // Admin SDK bypasses this
+      allow create, update, delete: if false; // Admin SDK bypasses this
     }
 
     // ════════════════════════════════════════════

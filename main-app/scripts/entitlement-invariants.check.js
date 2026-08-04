@@ -112,6 +112,25 @@ ok('_enforcePremiumExpiry takes no docRef (cannot write)',
 ok('firestore-sync self-heal documents local-view-only', /LOCAL VIEW ONLY/.test(fs2));
 ok('no _planExpiryPersistInFlight state remains', !/_planExpiryPersistInFlight/.test(fs2));
 
+/* ---- 7. The idempotency lock must not be client-erasable (ADR-139) ----
+   `payments/{paymentId}` is the ONLY thing standing between a replayed (orderId, paymentId,
+   signature) triple and a second grant: `?action=verify` has no recency check, a paid Razorpay order
+   stays paid forever, and activatePremium's sole replay defence is `if (paymentDoc.exists)`. If a
+   client can delete that doc, the replay falls through to the new-grant branch and stackExpiry adds
+   another full term — unbounded self-service premium. Assert the collection is read-only to clients.
+   Also guards the paused Play work, whose `gp_<sha256(token)>` lock rests on the same rule. */
+const rules = RR('firestore/rules/firestore.rules');
+const payMatch = rules.match(/match\s+\/payments\/\{[^}]*\}\s*\{([\s\S]*?)\n\s*\}/);
+ok('firestore.rules payments block parses', !!payMatch);
+if (payMatch) {
+  const body = payMatch[1];
+  const allowsClientDelete = /allow[^;]*\bdelete\b[^;]*:\s*if\s+(?!false)/.test(body);
+  ok('payments/{id} is NOT client-deletable (the idempotency lock must survive a replay)',
+    !allowsClientDelete, body.trim().replace(/\s+/g, ' ').slice(0, 120));
+  ok('payments/{id} denies client create/update/delete',
+    /allow\s+create,\s*update,\s*delete:\s*if\s+false/.test(body));
+}
+
 /* ---- 6. qr_premium write-only mirror removed (one source of truth) ---- */
 const store = R('js/state/store.js');
 const auth = R('js/auth.js');

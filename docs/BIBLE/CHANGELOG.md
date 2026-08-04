@@ -6,6 +6,40 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-03 — Pre-payment certification: the idempotency lock was client-erasable (ADR-139)
+
+Final engineering gate before Google Play Billing. Certification only — no Play code written. No app
+behaviour changed, so **no service-worker bump** (still v270).
+
+- **Critical, fixed — `payments/{id}` was client-deletable, and deleting it granted premium.**
+  `firestore.rules` let the owner `delete` the idempotency lock. `?action=verify` has no recency check
+  (`aiService.js:208` says so), a paid Razorpay order stays paid forever, and `activatePremium`'s only
+  replay defence is `if (paymentDoc.exists)` (`:201`). Delete the doc and a replay falls through to the
+  new-grant branch, where `stackExpiry` extends from the user's **current** expiry — buy once, then
+  +6/12 months per replay, unbounded. The permission bought nothing: no client calls it, and account
+  deletion purges payments via the Admin SDK (`api/account.js:157`), which bypasses rules. Now read-only,
+  with two `entitlement-invariants` assertions (36→38) proven to fail on the pre-fix rule.
+- **The blueprint would misdirect its own integrator (documentation, handed back):** it specifies Play
+  products at ₹349/₹499 while the app sells ₹299/₹399 — an instruction executed in Play Console before
+  any code runs; and §2.2/§11 still state `planExpiry == null ⇒ premium` under the heading "UNCHANGED",
+  though Wave S1/ADR-115 removed the permanent tier. `PAYMENT_ARCHITECTURE.md` §2/§7 carried the same
+  stale rule and **is corrected here**.
+- **The architecture itself is verified sound and unchanged.** `activatePremium` is genuinely
+  provider-neutral (no provider concept in its signature; its only Razorpay mention is a comment);
+  Razorpay is contained to the four files WS4/WS5 will touch; only two sanctioned paths write
+  `plan:'premium'`, both finite; all four `entitlement-core.js` mirrors byte-identical under
+  `entitlement-parity.check`.
+- **Deliberately not fixed:** the missing `status:'refunded'` guard (WS2's designed scope) and the three
+  TWA-blind platform detectors (WS1). Ranked with everything else in the new register.
+- Phases 1–3 re-verified on unchanged HEAD — all deterministic gates green, no drift, so ADR-138's
+  layout certification stands without re-running its 1,092-context matrix.
+- New `docs/BIBLE/PAYMENT_READINESS.md`. No `PROVIDER_ABSTRACTION.md` — blueprint §5–§7 already
+  specifies it, and duplicating a source of truth is what caused the drift above.
+- `npm test` 45 suites 0 failed; design-lint 22/22 ceilings unchanged.
+- Docs: ADR-139, PAYMENT_READINESS, PAYMENT_ARCHITECTURE §2/§7 corrected, VERSIONS 2.170→2.171.
+
+---
+
 ## 2026-08-03 — Final production certification: the gate was narrower than its claims (ADR-138, SW v269→v270)
 
 Release sign-off for the whole ADR-133 → ADR-137 arc, baselined against the commit *before* ADR-133

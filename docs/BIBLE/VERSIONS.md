@@ -9,11 +9,26 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.170 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Bible Version** | 2.171 | The documentation set as a whole (these `/docs/BIBLE/` files). |
 | **Architecture Version** | 2.76 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.32 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.7 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.8 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.171 (2026-08-03)** — **Pre-payment certification (ADR-139).** Final gate before Google Play
+> Billing; certification only, no Play code, no SW bump. Found and fixed a **Critical** live
+> vulnerability: `payments/{id}` was client-deletable, and that doc IS the idempotency lock. Because
+> `?action=verify` has no recency check and a paid Razorpay order stays paid forever, a user could buy
+> once, delete the lock from the client SDK, replay the same (orderId, paymentId, signature) triple and
+> land in the NEW-grant branch, where `stackExpiry` extends from their CURRENT expiry — +6/12 months per
+> replay, unbounded. The permission bought no feature (no client calls it; account deletion purges via
+> the Admin SDK). Now read-only, guarded by two `entitlement-invariants` assertions (36→38) proven to
+> fail on the pre-fix rule. Separately, the Phase 4 blueprint would misdirect its own integrator: it
+> specifies Play products at ₹349/₹499 while the app sells ₹299/₹399, and it still states
+> `planExpiry == null ⇒ premium` under a heading saying "UNCHANGED" although Wave S1/ADR-115 removed the
+> permanent tier — `PAYMENT_ARCHITECTURE.md` §2/§7 corrected here, the blueprint handed back. The
+> architecture itself is verified sound: `activatePremium` is genuinely provider-neutral, Razorpay is
+> contained to four files, and all four entitlement-core mirrors are byte-identical.
 
 > **2.170 (2026-08-03)** — **Final production certification (ADR-138, SW v269→v270).** Release sign-off
 > for the whole ADR-133→137 arc, baselined against the commit BEFORE ADR-133 (v264). The headline

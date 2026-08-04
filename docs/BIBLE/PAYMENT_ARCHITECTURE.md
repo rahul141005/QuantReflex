@@ -27,8 +27,18 @@ selection in the paywall and carries the **BEST VALUE** badge (≈₹42/mo vs �
 
 Access resolves entirely through `plan` on `users/{uid}`:
 ```
-premium ⟺ plan === 'premium' && (planExpiry == null || planExpiry > now)
+premium ⟺ plan === 'premium' && planExpiry parses to a real, FUTURE timestamp
 ```
+> **Corrected in ADR-139.** This section previously read
+> `plan === 'premium' && (planExpiry == null || planExpiry > now)` — i.e. a null expiry granted
+> premium indefinitely. **Wave S1 / ADR-115 removed the permanent tier**: an absent, null or
+> unparseable expiry now resolves to **NOT premium**, fail-safe
+> (`main-app/data/entitlement-core.js:86` — `if (!(expiryMs > 0)) return false;`). Every legitimate
+> grant (purchase 6m/12m, admin 6m/12m, finite trial) writes a finite expiry, so a `premium` doc
+> without one is illegitimate data rather than a licence. The stale text mattered because it is what
+> a Play Billing integrator would read: writing `planExpiry: null` to mean "active" would silently
+> grant nobody premium. `planExpiry: null` remains correct **only** paired with `plan:'free'` — the
+> revoke/default direction (`revokeFields()`).
 Fields: `plan`, `planType`, `planExpiry`, `planSource`, `isTrial`, `trialEnd`, `planUpdatedAt`,
 `lastPaymentId` (see [FIRESTORE_BLUEPRINT.md](FIRESTORE_BLUEPRINT.md)). A **trial** is `plan:'premium'`
 with `planSource:'trial'`, `isTrial:true`, `trialEnd === planExpiry` — so it passes the same gate as a
@@ -88,7 +98,10 @@ trial-days input + Grant Trial, and Revoke.
 
 - **Live (authoritative):** `resolvePlan` reverts expired premium/trials to free on any access.
 - **Sweep:** `enforceEntitlementExpiry` (every 6h) reverts `plan:'premium'` docs whose `planExpiry`
-  is past → free. `planExpiry:null` (indefinite admin grant) is never auto-expired.
+  is past → free. **ADR-139 correction:** this line previously read "`planExpiry:null` (indefinite
+  admin grant) is never auto-expired". There is no indefinite grant — admin actions are 6m/12m/trial/
+  revoke only (`entitlement-invariants.check.js` asserts it), and a null expiry resolves to NOT
+  premium rather than to a permanent licence, so nothing needs sweeping.
 - **Clock-skew defense:** client uses `serverTimestamp()`-anchored `updatedAt`; a device clock >5 min
   behind server uses server time, preventing both rewind-exploits and false lockouts.
 

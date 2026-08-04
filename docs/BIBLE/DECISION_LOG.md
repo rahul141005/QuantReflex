@@ -8,6 +8,66 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-139 — Pre-payment certification: the idempotency lock was client-erasable (v270) (2026-08-03)
+
+**Context.** The final engineering gate before Google Play Billing work begins. Certification only — no
+Play code was written. The Phase 4 blueprint in `QuantReflex-Stabilization-Plan.md` is the architectural
+source of truth; this ADR certifies the foundation it assumes and records what would obstruct WS1.
+
+**The architecture is sound and is not being changed.** The blueprint's central bet — that
+`activatePremium` is already provider-neutral, so Play is just a second adapter — is verified true:
+its signature carries no provider concept (`aiService.js:188`), its only Razorpay mention is a comment
+(`:207`), Razorpay is contained to exactly the four files WS4/WS5 will touch, `plan:'premium'` is
+written by only two sanctioned paths (both finite via `stackExpiry`), and all four `entitlement-core.js`
+mirrors are byte-identical (`md5 eab2e3ee8d56`) under `entitlement-parity.check.js`.
+
+**P0-1 — the idempotency lock was client-erasable, and erasing it granted premium. FIXED.**
+`firestore.rules` granted the owner `delete` on `payments/{paymentId}`. That document is the only thing
+standing between a replayed payment and a second grant:
+
+1. `?action=verify` has no recency or one-time-use check — `aiService.js:208` says so outright — and a
+   Razorpay order stays `status:'paid'` forever, so an old `(orderId, paymentId, signature)` triple is
+   replayable indefinitely.
+2. `activatePremium`'s sole replay defence is `if (paymentDoc.exists)` (`:201`).
+3. With the lock deleted the replay falls through to the NEW-grant branch, whose
+   `stackExpiry(current expiry, days)` (`:252`) extends from the user's **current** expiry.
+
+Buy once → delete the doc from the client SDK → re-POST the same triple → **+182/+365 days, repeatable
+without limit.** The permission bought nothing: no client code calls delete (grep-verified) and account
+deletion purges payments server-side through the Admin SDK (`api/account.js:157`), which bypasses rules
+entirely. Now `allow read` only. Two assertions added to `entitlement-invariants.check` (36 → 38),
+proven load-bearing — they fail on the pre-fix rule and pass after.
+
+This also repairs a false claim in the paused Play design: blueprint §12 states "Play id = token hash
+⇒ same token can never grant twice", which held only while the lock could not be erased —
+`listPurchases()` re-supplies the token after a delete.
+
+**P0-2 / P0-3 — the blueprint would misdirect its own integrator.** Both are documentation defects in
+text a human executes:
+- It specifies Play products at **₹349/₹499** (§2.1, §4, §16, Prerequisites); the app sells
+  **₹299/₹399** (`paymentService.js:21-22`). That instruction is carried out in Play Console *before
+  any code runs*, and would make the TWA charge more than web for the same product — breaking §14's
+  own price-coherence rule, with prices hard to correct post-launch.
+- §2.2/§11 restate `planExpiry == null ⇒ premium` and title the section "UNCHANGED (by design)", but
+  Wave S1 / ADR-115 removed the permanent tier. `PAYMENT_ARCHITECTURE.md` §2/§7 carried the same stale
+  rule and **is corrected here**; the blueprint correction is handed back for its owner to apply.
+
+**Deliberately not fixed.** P1-1 (no `status:'refunded'` guard, so an admin revoke followed by a late
+webhook retry re-grants) is real but is precisely WS2's designed scope — `revokePayment` plus the pure
+`entitlementLedger.js` module — not a certification patch. P1-2 (three TWA-blind platform detectors)
+is WS1. Restore-as-dead-code, gateway-reported amount and assetlinks plumbing remain WS3/W4/WS7.
+
+**Consequences.**
+- `npm test` 45 suites, 0 failed. `entitlement-invariants` 36 → 38. No `design-lint` ceiling moved.
+- Phases 1–3 re-verified on unchanged HEAD (`c3e11f6`): all deterministic gates green, no drift, so the
+  ADR-138 layout certification stands without re-running its 1,092-context matrix.
+- New `docs/BIBLE/PAYMENT_READINESS.md` — the ranked blocker register with evidence per item.
+- **No `PROVIDER_ABSTRACTION.md` was written.** Blueprint §5–§7 already specify the facade, both
+  adapters and the selection predicates more precisely than a derived document would; extracting it
+  would create a second source of truth and invite exactly the drift this ADR reports.
+
+---
+
 ## ADR-138 — Final production certification: the gate was narrower than the claims made from it (v270) (2026-08-03)
 
 **Context.** Release sign-off for the whole ADR-133 → ADR-137 arc, run as an independent auditor whose
