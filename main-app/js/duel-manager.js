@@ -31,12 +31,15 @@ var DuelManager = (function () {
 
   function _el(id) { return document.getElementById(id); }
   function _premiumOk() { return (typeof canAccessFeature === 'function') && canAccessFeature('math_duel'); }
-  /* Math Duel is PWA-ONLY (ADR-038): real-time multiplayer needs the installed app — browser tabs don't run duels. */
+  /* Math Duel is PWA-ONLY (ADR-038): real-time multiplayer needs the installed app — browser tabs don't run duels.
+     ADR-142 (WS1): delegates to QRPlatform, THE single source of platform truth. A Play TWA IS an
+     installed app, so it passes this gate — `isInstalledApp()` covers standalone AND twa. */
   function _pwaOk() {
     try {
+      if (window.QRPlatform) return window.QRPlatform.isInstalledApp();
       if (document.body.classList.contains('pwa-mode')) return true;
       if (document.body.classList.contains('web-mode')) return false;
-      return !!((window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone === true);
+      return true;
     } catch (_) { return true; }   // fail-open: never hard-block a legitimate installed user on a detection error
   }
   function _showInstallGate() {

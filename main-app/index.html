@@ -1511,6 +1511,11 @@
   <!-- ADR-119: storage ownership registry MUST load before store.js — AppState.clearAll() delegates
        its user-scoped purge to it and refuses to run (loudly) if it is absent. -->
   <script defer src="js/state/storage-registry.js"></script>
+  <!-- ADR-142 (WS1): THE single source of platform truth (window.QRPlatform). Pure + dependency-free,
+       and MUST load before app.js, which asks it for the web-mode/pwa-mode/twa-mode container class
+       at parse time. It is what tells a Play-store TWA apart from an installed PWA — the distinction
+       that decides whether Razorpay may be offered at all. -->
+  <script defer src="js/platform.js"></script>
   <script defer src="js/state/store.js"></script>
   <!-- ADR-117: THE canonical entitlement implementation (window.QR_ENTITLEMENT). Pure + dependency
        -free, so it loads early — before firestore-sync.js and paywall.js, which resolve every

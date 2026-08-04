@@ -46,13 +46,22 @@
 
   function _standalone() {
     return _safe(function () {
-      /* Match the app's own installed-PWA detection (app.js/duel-manager) which also treats
-         display-mode:fullscreen as installed; previously this omitted it, so a fullscreen-launched
-         PWA was mis-reported as standalone:false in every bug report's context (audit MIN3). */
-      if (root.matchMedia && (root.matchMedia('(display-mode: standalone)').matches || root.matchMedia('(display-mode: fullscreen)').matches)) return true;
-      if (root.navigator && root.navigator.standalone === true) return true;
-      return false;
+      /* ADR-142 (WS1): delegates to QRPlatform so a bug report can never disagree with the app about
+         what it is running in. (Previously this omitted display-mode:fullscreen, so a fullscreen-
+         launched PWA was mis-reported as standalone:false in every report's context — audit MIN3.
+         Now there is one implementation, so that class of drift cannot recur.) */
+      /* No local fallback ON PURPOSE: a second copy of the detector is the drift this consolidation
+         removes, and platform.js is a hard dependency of boot anyway. `null` honestly reports
+         "unknown" in a diagnostic payload rather than asserting a false `false`. */
+      return root.QRPlatform ? root.QRPlatform.isStandalone() : null;
     });
+  }
+
+  /* ADR-142: the container the report came from — 'web-mode' | 'pwa-mode' | 'twa-mode'. A Play-build
+     bug report reads completely differently from a web one (no Razorpay, Play Billing, store update
+     cadence), so triage needs to know which it is. */
+  function _platformMode() {
+    return _safe(function () { return root.QRPlatform ? root.QRPlatform.mode() : null; });
   }
 
   function _reducedMotion() {
@@ -98,6 +107,7 @@
         deviceMemory: _num(nav.deviceMemory),
         hardwareConcurrency: _num(nav.hardwareConcurrency),
         standalone: _standalone(),
+        platformMode: _platformMode(),
         reducedMotion: _reducedMotion()
       },
       locale: {

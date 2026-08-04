@@ -345,11 +345,21 @@ ok('typed-answer report round-trips a fraction answer', S.validateCreatePayload(
   var vm = require('vm');
   var fs = require('fs');
   var RC_SRC = fs.readFileSync(p('js/services/report-context.js'), 'utf8');
+  /* ADR-142 (WS1): the standalone probe now DELEGATES to QRPlatform — there is exactly one detector in
+     the app, and report-context keeps no private copy (a second copy is the drift this consolidation
+     removes; `platform.check.js` fails if one reappears). So the real platform.js is loaded into the
+     same sandbox, which makes the truth table below an end-to-end assertion over the delegation rather
+     than over a duplicate implementation. */
+  var PLATFORM_SRC = fs.readFileSync(p('js/platform.js'), 'utf8');
 
   /* mm: map of media-query string -> matches. `null` installs no matchMedia at all; 'throw' makes it throw. */
   function load(g) {
     var sandbox = Object.assign({ innerWidth: 390, innerHeight: 844 }, g || {});
-    vm.runInNewContext(RC_SRC, sandbox, { filename: 'report-context.js' });
+    sandbox.self = sandbox;
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(PLATFORM_SRC, sandbox, { filename: 'platform.js' });
+    vm.runInContext(RC_SRC, sandbox, { filename: 'report-context.js' });
     return sandbox.ReportContext;
   }
   function mq(map) {
@@ -371,10 +381,25 @@ ok('typed-answer report round-trips a fraction answer', S.validateCreatePayload(
     standaloneOf({ matchMedia: mq({}), navigator: { standalone: true } }) === true);
   ok('RC standalone: browser display-mode + navigator.standalone false -> false',
     standaloneOf({ matchMedia: mq({}), navigator: { standalone: false } }) === false);
-  /* Documented divergence (ADR-124): report-context reports null where app.js fails closed and
-     duel-manager fails open. Pinned so the divergence cannot silently change shape. */
-  ok('RC standalone: matchMedia throws -> null (documented, not false)',
-    standaloneOf({ matchMedia: function () { throw new Error('boom'); } }) === null);
+  /* ADR-142 SUPERSEDES the ADR-124 divergence. There used to be three detectors, and report-context's
+     reported `null` on a matchMedia throw where app.js failed closed and duel-manager failed open.
+     With one detector there is one answer: platform.js fails CLOSED (false), because the same value
+     also feeds the Math Duel install gate and a null there would hard-block a legitimate installed
+     user. The honest-`null` case survives only where it is now the real unknown — QRPlatform absent
+     entirely. Pinned so neither branch can silently change shape. */
+  ok('RC standalone: matchMedia throws -> false (one detector, fails closed — ADR-142)',
+    standaloneOf({ matchMedia: function () { throw new Error('boom'); } }) === false);
+  ok('RC standalone: QRPlatform absent -> null (the real "unknown", not an asserted false)',
+    (function () {
+      var sb = { innerWidth: 390, innerHeight: 844, matchMedia: mq({}) };
+      sb.self = sb; sb.window = sb;
+      vm.createContext(sb);
+      vm.runInContext(RC_SRC, sb, { filename: 'report-context.js' });
+      return sb.ReportContext.collect('settings').device.standalone;
+    })() === null);
+  ok('RC reports the platform container so a Play-build report is triageable as one (ADR-142)',
+    load({ matchMedia: mq({}), document: { referrer: 'android-app://com.example.qr' } })
+      .collect('settings').device.platformMode === 'twa-mode');
 
   ok('RC reducedMotion follows the media query',
     load({ matchMedia: mq((function (o) { o['(prefers-reduced-motion: reduce)'] = true; return o; })({})) })

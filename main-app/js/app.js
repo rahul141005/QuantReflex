@@ -19,21 +19,25 @@
  *   - js/session-manager.js
  */
 
-/* ---- Detect runtime mode (PWA standalone vs browser tab) ---- */
+/* ---- Detect runtime mode (browser tab vs installed PWA vs Play TWA) ----
+   ADR-142 (WS1): the detection itself moved to js/platform.js, THE single source of platform truth.
+   It used to live here as one of three drifting copies, and none of them could tell an installed PWA
+   from a Play-store TWA — which matters because a TWA satisfies the installed-app media query, would
+   classify as `pwa-mode`, and a `pwa-mode` build offers Razorpay. Charging for digital goods inside a
+   Play app through anything but Play Billing is the one unrecoverable Play-policy violation.
+   `twa-mode` is ADDITIVE: a TWA still carries `pwa-mode` too, so every existing installed-app rule
+   keeps working unchanged. */
 (function () {
-  var isPWA = false;
-  try {
-    isPWA = !!(
-      (window.matchMedia && (
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.matchMedia('(display-mode: fullscreen)').matches
-      )) ||
-      navigator.standalone === true
-    );
-  } catch (e) { /* ignore */ }
-
-  document.documentElement.classList.add(isPWA ? 'pwa-mode' : 'web-mode');
-  document.body.classList.add(isPWA ? 'pwa-mode' : 'web-mode');
+  if (window.QRPlatform && typeof window.QRPlatform.applyModeClasses === 'function') {
+    window.QRPlatform.applyModeClasses();
+    return;
+  }
+  /* Fail-safe if platform.js failed to load: classify as a plain web tab. Deliberately the SAFE
+     direction — a web tab shows Razorpay, which is correct outside a Play build, and the Play build
+     is additionally protected server-side. */
+  console.error('[app] QRPlatform missing — platform.js must load before app.js');
+  document.documentElement.classList.add('web-mode');
+  document.body.classList.add('web-mode');
 })();
 
 /* ---- Apply dark mode, theme and reduced motion from settings immediately ---- */
