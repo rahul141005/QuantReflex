@@ -50,6 +50,7 @@ var App = (function () {
     'coachings':      { cid: 'view-coachings',       view: 'CoachingsView' },
     'reports':        { cid: 'view-reports',         view: 'ReportsView' },
     'revenue':        { cid: 'view-revenue',         view: 'RevenueCenter' },
+    'refunds':        { cid: 'view-refunds',         view: 'RefundsView' },
     'content':        { cid: 'view-questions',       view: 'QuestionsView' },
     'ai':             { cid: 'view-ai',              view: 'AIAnalyticsView' },
     'operations':     { cid: 'view-operations',      view: 'OperationsView' },

@@ -426,6 +426,32 @@ console.log('Refund workflow — request → review → provider → revocation 
   ok(/revokePayment/.test(rrSrc),
     'T18 the header still explains why (the rule is documented where a maintainer will read it)');
 
+  /* ── T19 — the Super Admin review screen is actually REACHABLE (ADR-143 certification) ───────
+     The certification audit found the refund API shipped with ZERO callers: no view file, no nav
+     entry, no container, no script tag. The workflow was therefore unreachable — users could submit
+     requests and no admin could ever action them, so they accumulated in `pending` forever. A
+     backend with no route to it passes every behavioural test ever written about it, which is
+     exactly why reachability has to be asserted structurally. */
+  var fs19 = require('fs');
+  var SA = path.join(__dirname, '..', '..', 'super-admin-app');
+  var shell = fs19.readFileSync(path.join(SA, 'index.html'), 'utf8');
+  var appJs = fs19.readFileSync(path.join(SA, 'js', 'app.js'), 'utf8');
+  ok(fs19.existsSync(path.join(SA, 'api', 'admin', 'refunds.js')), 'T19 the refund review API exists');
+  ok(fs19.existsSync(path.join(SA, 'js', 'views', 'refunds.js')), 'T19 ★ the refund review VIEW exists');
+  ok(/<script src="js\/views\/refunds\.js"><\/script>/.test(shell), 'T19 ★ the view is script-tagged in the shell');
+  ok(/data-view="refunds"/.test(shell), 'T19 ★ a nav entry routes to it');
+  ok(/id="view-refunds"/.test(shell), 'T19 ★ its container div exists');
+  ok(/'refunds':\s*\{[^}]*view:\s*'RefundsView'/.test(appJs), 'T19 ★ the router maps refunds → RefundsView');
+  var apiClient = fs19.readFileSync(path.join(SA, 'js', 'services', 'api.js'), 'utf8');
+  ok(/action=decide/.test(apiClient), 'T19 the API client can actually reach the decide endpoint');
+  var viewSrc = fs19.readFileSync(path.join(SA, 'js', 'views', 'refunds.js'), 'utf8');
+  ok(/needsManualEligibilityReview/.test(viewSrc),
+    'T19 the queue surfaces the manual-review badge (legacy rows a human must decide)');
+  ok(/submittedWithinWindow/.test(viewSrc),
+    'T19 …and whether the request was inside the 24h policy when submitted');
+  ok(/does <strong>not<\/strong> change the entitlement|not<\/strong> issue the refund/.test(viewSrc),
+    'T19 ★ the UI states that approval neither issues the refund nor changes entitlement');
+
   console.log('\n──────────────────────────────');
   console.log((fail === 0 ? '✓ ALL PASSED' : '✗ FAILURES') + ' — ' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail === 0 ? 0 : 1);

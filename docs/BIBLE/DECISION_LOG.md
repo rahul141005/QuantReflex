@@ -98,6 +98,18 @@ assertions, letting a capture correction move later fails 1 + 1, restoring the 7
 **Not done here:** no automatic refunds and no provider-side refund API call — approval hands off to
 the provider's own dashboard, and the app waits for confirmation. WS4–WS6 remain paused.
 
+**CORRECTION (certification audit, same day).** As first written, this ADR shipped the refund review
+**API with zero callers** — no `js/views/refunds.js`, no nav entry, no `view-refunds` container, no
+script tag, no router mapping. The workflow was therefore **unreachable**: users could submit refund
+requests and no admin could ever action them, so they would have accumulated in `pending` forever.
+The ADR and CHANGELOG described the workflow as delivered, which was accurate about the API and
+misleading about the workflow. Repaired by adding the Super Admin **Refunds** view and its four
+wiring points, plus `refund-workflow.check.js` T19 — a structural reachability ratchet (view file
+exists, script-tagged, nav entry, container, router mapping, API client can reach `action=decide`).
+The lesson generalises: a backend with no route to it passes every behavioural test ever written
+about it, so reachability must be asserted structurally rather than assumed. Proven load-bearing by
+three mutations (remove the script tag / the router mapping / the view file — each fails T19).
+
 ---
 
 ## ADR-142 — One platform truth, and Restore becomes reachable (v272) (2026-08-04)

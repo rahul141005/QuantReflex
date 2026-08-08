@@ -48,7 +48,13 @@ is integrated, per instruction.
   `amountRefunded`, tombstones are excluded from gross entirely. Net is the admin headline with Gross
   and Refunded beside it. `revenueTotalINR` **keeps its gross meaning** — redefining it would silently
   rewrite what every past daily snapshot meant.
-- npm test 0 failed · **new** `refund-policy.check` 45, `refund-workflow.check` 78 (drives the real
+- **Certification repair (same day).** The refund review API had shipped with **zero callers** — no
+  view, nav entry, container, script tag or router mapping — so the workflow was unreachable and
+  requests would have piled up in `pending` forever. Added `super-admin-app/js/views/refunds.js` (the
+  queue: status filter, manual-review badge, within-24h badge, full audit history, approve/reject) and
+  its wiring, plus `refund-workflow.check.js` **T19**, a structural reachability ratchet. A backend
+  with no route to it passes every behavioural test written about it — hence the structural assertion.
+- npm test 0 failed · **new** `refund-policy.check` 45, `refund-workflow.check` 88 (drives the real
   services and the real payment API against a buffered-write Firestore stub) · `entitlement-invariants`
   59 to 78 · `payment-parity` 26 to 30. Five mutation runs confirm every guard bites.
 

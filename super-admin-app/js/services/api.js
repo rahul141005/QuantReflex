@@ -242,6 +242,21 @@ var API = (function () {
   }
   function getReportDetails(id) { return _fetch('/api/admin/reports?action=details&id=' + encodeURIComponent(id)); }
   function getReportsAnalytics() { return _fetch('/api/admin/reports?action=analytics'); }
+
+  /* Refund review (ADR-143). The refund REQUEST queue — approve/reject only. Issuing the actual
+     refund happens in the provider's own dashboard; entitlement is revoked later by the provider
+     webhook, never by these calls. */
+  function getRefunds(status, limit) {
+    var url = '/api/admin/refunds?action=list';
+    if (status && status !== 'all') url += '&status=' + encodeURIComponent(status);
+    if (limit) url += '&limit=' + encodeURIComponent(limit);
+    return _fetch(url);
+  }
+  function getRefundDetails(id) { return _fetch('/api/admin/refunds?action=details&id=' + encodeURIComponent(id)); }
+  function getRefundsAnalytics() { return _fetch('/api/admin/refunds?action=analytics'); }
+  function decideRefund(id, decision, note) {
+    return _fetch('/api/admin/refunds?action=decide', { method: 'POST', body: JSON.stringify({ id: id, decision: decision, note: note || '' }) });
+  }
   function updateReportStatus(id, status) { return _fetch('/api/admin/reports?action=update-status', { method: 'POST', body: JSON.stringify({ id: id, status: status }) }); }
   function assignReport(id, assignTo, assignToEmail) { return _fetch('/api/admin/reports?action=assign', { method: 'POST', body: JSON.stringify({ id: id, assignTo: assignTo, assignToEmail: assignToEmail }) }); }
   function setReportPriority(id, priority) { return _fetch('/api/admin/reports?action=priority', { method: 'POST', body: JSON.stringify({ id: id, priority: priority }) }); }
@@ -316,6 +331,10 @@ var API = (function () {
     getReports: getReports,
     getReportDetails: getReportDetails,
     getReportsAnalytics: getReportsAnalytics,
+    getRefunds: getRefunds,
+    getRefundDetails: getRefundDetails,
+    getRefundsAnalytics: getRefundsAnalytics,
+    decideRefund: decideRefund,
     updateReportStatus: updateReportStatus,
     assignReport: assignReport,
     setReportPriority: setReportPriority,
