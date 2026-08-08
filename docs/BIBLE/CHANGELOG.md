@@ -6,6 +6,36 @@ Source-of-truth docs: [README.md](README.md) · [TECHNICAL_BIBLE.md](TECHNICAL_B
 
 ---
 
+## 2026-08-08 — Provider-neutral payment facade (ADR-144, WS4)
+
+The architectural bridge between the existing Razorpay system and the future Play Billing provider.
+Entitlement, refund and ledger behaviour are **untouched** — WS1-WS3 and ADR-141/143 remain canonical.
+
+- **Closed the Play-policy gap WS1 left open.** WS1 classified the platform but nothing branched on it,
+  so a Play/TWA build would have rendered the normal paywall and offered Razorpay — the one
+  unrecoverable Play-policy violation. WS4 makes the boundary real.
+- **Added `js/payments/`** — `gateway.js` (the `QRPayments` facade: routing, lifecycle, normalisation),
+  `razorpay-provider.js` (behaviour-preserving extraction; the **only** shipped file with a Razorpay
+  API surface), `play-provider.js` (**a boundary, not an implementation** — `isReady()` hard-false).
+- **`paywall.js` is presentation only.** `window.openPremiumPayment` **removed**; the CTA is gated on
+  `QRPayments.canPurchase()`; Restore routed through `QRPayments.restore`. The Razorpay key, the SDK
+  loader and the purchase orchestration all moved out unchanged — same order of operations, same
+  `[PaymentFlow]` log lines, same stale-attempt guard.
+- **"Play not ready" never means "use Razorpay."** There is no code path from a Play verdict to the
+  Razorpay adapter. With `QRPlatform` absent the facade fails **safe** (answers `play`, refuses to
+  purchase) rather than open. Play/TWA renders the value proposition with **no purchase control**, no
+  external route, and Restore intact.
+- **`play-provider.js` deliberately does not consult `canUsePlayBilling()`** — a reachable billing
+  service is necessary but not sufficient while no server-side verification exists to grant against.
+  Returning true on that alone would let a user complete a purchase nothing could honour.
+- **Neutralised the "Payments are processed by Razorpay" About line** (all three locales) — factually
+  wrong in a Play build.
+- npm test 0 failed (54 suites) · **new** `payment-facade.check` 44 assertions: source ratchets plus
+  behaviour with the Razorpay SDK **instrumented**, proving Play mode makes zero constructions, zero
+  script appends and zero create-order calls. Seven mutation runs confirm every guard bites.
+- Razorpay's web/PWA path is unchanged and verified: an installed PWA still selects Razorpay and can
+  still purchase.
+
 ## 2026-08-04 — 24-hour refund policy + manual refund workflow (ADR-143)
 
 A canonical business rule, applied consistently across the architecture. WS4-WS6 stay paused until it

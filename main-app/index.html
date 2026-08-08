@@ -1422,7 +1422,7 @@
         <div class="info-section guide-animate-section">
           <h3 class="info-section-title"><span class="qr-ico" data-ico="lock" aria-hidden="true">🔐</span> <span data-i18n="about.s9Title">Privacy</span></h3>
           <div class="info-block">
-            <p data-i18n="about.s9P1">Your progress is stored securely in your account and synced across your devices. Payments are processed by Razorpay — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.</p>
+            <p data-i18n="about.s9P1">Your progress is stored securely in your account and synced across your devices. Payments are processed by our payment provider — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.</p>
           </div>
         </div>
 
@@ -1561,6 +1561,13 @@
   <script defer src="js/utils/auth-validators.js"></script>
   <script defer src="js/auth.js"></script>
   <script defer src="js/firestore-sync.js"></script>
+  <!-- ADR-144 (WS4): the provider-neutral payment facade. Loads after platform.js (it reads the
+       platform verdict) and before paywall.js (which consumes only QRPayments). razorpay-provider.js
+       is the ONLY shipped file permitted to mention Razorpay; play-provider.js is a boundary that
+       refuses until WS5 — never a fallback to the other provider. -->
+  <script defer src="js/payments/gateway.js"></script>
+  <script defer src="js/payments/razorpay-provider.js"></script>
+  <script defer src="js/payments/play-provider.js"></script>
   <script defer src="js/services/adaptive-state.js"></script>
   <script defer src="js/services/scoring-service.js"></script>
   <script defer src="js/services/share-service.js"></script>

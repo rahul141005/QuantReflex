@@ -313,7 +313,7 @@
       s8CopyAria: 'Copy email address',
       s8CopyTitle: 'Copy email',
       s9Title: 'Privacy',
-      s9P1: 'Your progress is stored securely in your account and synced across your devices. Payments are processed by Razorpay — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.',
+      s9P1: 'Your progress is stored securely in your account and synced across your devices. Payments are processed by our payment provider — your card details never touch QuantReflex. Your data is used for one thing only: running the app for you.',
       quote: '"Speed is a skill. Train it like one."'
     },
 
@@ -1916,6 +1916,7 @@
       cmpYes: '✓',
       trustSecure: 'Secure Payments',
       trustRefund: '24-Hour Refund',
+      purchaseUnavailable: 'Purchasing isn\u2019t available in this version of the app yet. If you already have Premium, use Restore access below.',
       trustInstant: 'Instant Activation',
       restore: 'Already purchased? Restore access',
       restoreChecking: 'Checking your purchase…',

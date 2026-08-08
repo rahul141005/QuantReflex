@@ -9,11 +9,24 @@ Every governed change updates the relevant version number here and records a mig
 
 | Track | Version | Meaning |
 |---|---|---|
-| **Bible Version** | 2.176 | The documentation set as a whole (these `/docs/BIBLE/` files). |
-| **Architecture Version** | 2.77 | App topology, service boundaries, data-flow contracts. |
+| **Bible Version** | 2.177 | The documentation set as a whole (these `/docs/BIBLE/` files). |
+| **Architecture Version** | 2.78 | App topology, service boundaries, data-flow contracts. |
 | **Firestore Version** | 2.34 | Collection/field/path schema + indexes. |
 | **Security Version** | 2.20 | Auth model, rules, claims, abuse controls. |
-| **Payment Version** | 2.10 | Razorpay flows, plan config, entitlement grant logic. |
+| **Payment Version** | 2.11 | Razorpay flows, plan config, entitlement grant logic. |
+
+> **2.177 (2026-08-08)** — **Provider-neutral payment facade (ADR-144, WS4).** WS1 established
+> platform truth but nothing branched on it — a Play/TWA build would have offered Razorpay, the one
+> unrecoverable Play-policy violation. `js/payments/` now holds a facade (`QRPayments`) plus two
+> adapters; `paywall.js` becomes presentation only and `window.openPremiumPayment` is removed.
+> Razorpay's API surface exists in exactly one shipped module. Provider selection is a weak-evidence
+> OR on `QRPlatform.isPlayDistribution()`, and **"Play not ready" resolves to no purchase path, never
+> to Razorpay** — there is no code path from a Play verdict to the Razorpay adapter. `play-provider.js`
+> is a boundary with `isReady()` hard-false, deliberately NOT driven by `canUsePlayBilling()` (a
+> reachable billing service is necessary but not sufficient while no server verification exists to
+> grant against). Play/TWA renders the value proposition with no purchase control, no external route,
+> and Restore intact. Entitlement, refund and ledger behaviour are untouched. Architecture 2.77→2.78,
+> Payment 2.10→2.11. `payment-facade.check` 44 assertions; seven mutation runs; 54 suites green.
 
 > **2.176 (2026-08-04)** — **24-hour refund policy + manual refund workflow (ADR-143).** A canonical
 > business rule: a user may REQUEST a refund only within 24 hours of gateway capture, identically for

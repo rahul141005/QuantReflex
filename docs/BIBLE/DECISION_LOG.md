@@ -8,6 +8,82 @@ Companion: [GOVERNANCE.md](GOVERNANCE.md) · [VERSIONS.md](VERSIONS.md) · [CHAN
 
 ---
 
+## ADR-144 — The provider-neutral payment facade (v274) (2026-08-08)
+
+**Context.** Phase-4 **WS4**. WS1 established platform truth but nothing branched on it: a Play/TWA
+build would have rendered the normal paywall and offered Razorpay — the one **unrecoverable**
+Play-policy violation (the listing is removed; no client-side repair undoes it). WS4 makes that
+boundary real, and is the seam Google Play Billing plugs into in WS5 without a second redesign.
+
+The surface turned out far narrower than the blueprint assumed: **Razorpay lived entirely inside
+`js/paywall.js`** — one function, one key, one script loader. Every other repo hit was a comment. So
+WS4 is an extraction plus a routing layer, not a rewrite.
+
+```
+UI (paywall.js — presentation only)
+      ↓  QRPayments.purchase() / .restore() / .canPurchase()
+js/payments/gateway.js        routing, lifecycle, normalisation. No payment logic.
+      ↓
+├── razorpay-provider.js      the ONLY shipped file with a Razorpay API surface
+└── play-provider.js          boundary; refuses until WS5
+      ↓
+existing canonical server pipeline (unchanged)
+```
+
+### Decisions
+
+1. **The facade routes; it never validates.** Prices come from `PLAN_CONFIG` server-side, payments are
+   verified server-side, entitlement is granted only by `aiService.activatePremium`. Duplicating any
+   of that in the client would create a second source of truth for money — precisely what WS1–WS3
+   exist to prevent. The facade grants nothing.
+
+2. **Provider selection is asymmetric, and that is the design.** It reads
+   `QRPlatform.isPlayDistribution()` — a *weak-evidence OR*. Any hint of a Play build selects the Play
+   provider, because the costs are lopsided: a wrong `play` verdict costs a web user one payment method
+   for a session (recoverable); a wrong `razorpay` verdict costs the listing (not recoverable).
+
+3. **"Play is not ready" NEVER means "use Razorpay".** It means there is no purchase path. There is no
+   code path from a Play verdict to the Razorpay adapter — not a fallback, not a retry, not a website
+   redirect. `canPurchase() === false` is a complete answer.
+
+4. **`play-provider.js` is a boundary, not an implementation.** `isReady()` is hard-`false`. It
+   deliberately does *not* consult `QRPlatform.canUsePlayBilling()`: that answers "is the billing
+   service reachable", which is necessary but **not sufficient** while no server-side verification
+   exists to grant against. Returning true on a resolvable service alone would let a user complete a
+   purchase nothing could honour. Writing a speculative adapter would also have made the abstraction
+   *look* finished — the failure mode the ADR-143 certification audit already caught once.
+
+5. **Restore stays available in Play mode**, routed through the facade. Entitlement is server truth, so
+   restore is provider-neutral; a user who bought on the web must be able to unlock the Play build. It
+   only ever refreshes from the server — it cannot grant, and it reports honest failure rather than
+   fabricating success.
+
+6. **`window.openPremiumPayment` removed.** The UI's only payment entry point is the facade, ratcheted
+   so no provider-shaped global reappears.
+
+**Options considered.** *Keep a delegating alias for the old global* — rejected, it leaves a
+provider-shaped name in the public surface for someone to reach for. *Let `canUsePlayBilling()` drive
+`isReady()`* — rejected, see (4). *Show a disabled buy button in Play mode* — rejected, a dead control
+invites tapping and is the closest of the options to a policy problem.
+
+**Play/TWA behaviour until WS5:** the paywall opens and explains Premium, renders **no purchase
+control of any kind**, offers no external route, and keeps Restore.
+
+**Verification.** `payment-facade.check.js` — 44 assertions in two halves. Source ratchets (Razorpay
+API surface in exactly one module; no provider-shaped global; no external payment navigation; one
+provider-selection site; load order) plus behaviour: the real gateway and both real adapters run in a
+synthesised global with the Razorpay SDK **instrumented**, so "did Play mode touch Razorpay at all?"
+is answered rather than assumed — zero constructions, zero script appends, zero `create-order` calls.
+Seven mutation runs confirm every guard bites: a Play adapter claiming readiness fails 4; a gateway
+fallback to Razorpay fails 2; failing open with no platform module fails 1; an ungated CTA fails 1; a
+direct Razorpay call from the paywall fails 2; re-exporting the global fails 1; restoring via the data
+layer fails 1. Full suite (54 suites) green — Razorpay's web path is unchanged.
+
+**Deferred to WS5/WS6:** the real Play purchase, `?action=verify-play`, `playBillingService`, RTDN,
+reconciliation. All of it lands inside `play-provider.js` and the server; nothing else moves.
+
+---
+
 ## ADR-143 — A 24-hour refund policy, and the manual refund workflow it needs (v273) (2026-08-04)
 
 **Context.** A canonical business rule: **a user may request a refund only within 24 hours of

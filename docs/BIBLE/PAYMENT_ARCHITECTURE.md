@@ -49,9 +49,27 @@ Free tier: 20 questions/day, 5 lifetime-total AI explanation credits.
 
 ## 3. Purchase Flow (happy path)
 
+**ADR-144 (WS4): the client is provider-neutral.** The UI holds no payment mechanics — it calls the
+facade, which selects a provider and normalises the outcome:
+
 ```
-Client (paywall.js)
-  openPremiumPayment(planType)                         planType ∈ {premium_6m, premium_12m}
+paywall.js  →  QRPayments (js/payments/gateway.js)  →  provider adapter  →  server pipeline
+                                                       ├── razorpay-provider.js   (web / PWA)
+                                                       └── play-provider.js       (Play / TWA — WS5)
+```
+
+Provider selection reads `QRPlatform.isPlayDistribution()`, a **weak-evidence OR**: any Play signal
+selects the Play provider. **"Play not ready" resolves to NO purchase path — never to Razorpay.** In a
+Play build today the paywall renders the value proposition with **no purchase control at all**, no
+external route, and Restore still available. `payment-facade.check.js` proves Play mode never
+constructs Razorpay, never loads checkout.js and never calls create-order.
+
+`js/payments/razorpay-provider.js` is the only shipped file with a Razorpay API surface. Restore is
+provider-neutral (server truth) and routed through `QRPayments.restore`.
+
+```
+Client (paywall.js → QRPayments → razorpay-provider.js)
+  QRPayments.purchase(planType)                        planType ∈ {premium_6m, premium_12m}
    └─ POST /api/payment?action=create-order { plan: planType }     (withAuth)
         paymentService.createOrder → Razorpay order (notes:{plan,uid})
    └─ Razorpay checkout sheet (client, RAZORPAY_LIVE_KEY)

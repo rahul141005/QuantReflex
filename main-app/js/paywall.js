@@ -1,5 +1,8 @@
 /**
- * paywall.js — Premium access control + paywall + Razorpay flow (v2)
+ * paywall.js — Premium access control + the paywall UI (v2)
+ *
+ * ADR-144 (WS4): PRESENTATION ONLY. Purchase mechanics live behind the provider-neutral facade
+ * `QRPayments` (js/payments/), so the paywall neither knows nor can reach a payment provider.
  *
  * v2 monetization: a single Premium tier (₹299 / 6 months, ₹399 / 12 months).
  * Every gated feature resolves through `plan === 'premium'`. The legacy lifetime
@@ -8,7 +11,6 @@
  */
 
 (function (global) {
-var RAZORPAY_LIVE_KEY = 'rzp_live_STanzIgCpSAfL7';
 
 /* Pricing (display only — server is source of truth via PLAN_CONFIG) */
 var PLANS = {
@@ -165,46 +167,6 @@ function hasReachedDailyLimit() {
 
 /* ─────────────────────────── Payment flow ─────────────────────────── */
 
-function _getIdToken(callback) {
-  if (typeof Auth !== 'undefined' && typeof Auth.getCurrentUser === 'function') {
-    var u = Auth.getCurrentUser();
-    if (u && typeof u.getIdToken === 'function') {
-      u.getIdToken().then(function (tok) { callback(tok); }).catch(function () { callback(null); });
-      return;
-    }
-  }
-  callback(null);
-}
-
-function _loadRazorpayScript(callback) {
-  if (typeof Razorpay !== 'undefined') { if (callback) callback(null); return; }
-  var existing = document.getElementById('razorpayCheckoutScript');
-  if (existing) {
-    /* ADR-117: `load`/`error` never REPLAY on an element that has already settled, so attaching
-       listeners to a settled-failed tag left the callback permanently uninvoked — the CTA sat
-       disabled on "Processing…" until the 120s safety timer. showPaywall() preloads this script,
-       so a failed preload (offline / ad-blocker / DNS) made that the normal path. Track the state
-       on the element and answer immediately; a failed tag is discarded so the tap can retry. */
-    var state = existing.getAttribute('data-load-state');
-    if (state === 'ok') { if (callback) callback(null); return; }
-    if (state === 'error') {
-      try { existing.parentNode && existing.parentNode.removeChild(existing); } catch (_) {}
-      /* fall through and create a fresh tag — a retry may well succeed */
-    } else {
-      existing.addEventListener('load', function () { if (callback) callback(null); }, { once: true });
-      existing.addEventListener('error', function () { if (callback) callback('script_load_failed'); }, { once: true });
-      return;
-    }
-  }
-  var script = document.createElement('script');
-  script.id = 'razorpayCheckoutScript';
-  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-  script.async = true;
-  script.onload = function () { script.setAttribute('data-load-state', 'ok'); if (callback) callback(null); };
-  script.onerror = function () { script.setAttribute('data-load-state', 'error'); if (callback) callback('script_load_failed'); };
-  document.body.appendChild(script);
-}
-
 function _resetPaymentGuards() {
   if (_paymentSafetyTimer) { clearTimeout(_paymentSafetyTimer); _paymentSafetyTimer = null; }
   if (_paymentSlowTimer) { clearTimeout(_paymentSlowTimer); _paymentSlowTimer = null; }
@@ -218,157 +180,82 @@ function _resetPaymentGuards() {
 }
 
 /**
- * Start the Premium purchase for a given plan type ('premium_6m' | 'premium_12m').
+ * Start the Premium purchase (ADR-144, WS4).
+ *
+ * PRESENTATION ONLY. Every provider mechanic — SDK load, order creation, the checkout sheet, server
+ * verification — lives behind `QRPayments`, so this function cannot reach a provider directly and
+ * needs no change when Play Billing arrives in WS5.
+ *
+ * Not exported globally any more: the UI's only payment entry point is the facade.
  */
-function openPremiumPayment(planType, userId) {
+function _startPurchase(planType, userId) {
   /* No overlapping plans: an active-premium user (purchase / Play / admin — any source) can never
-     start a purchase. Belt-and-braces with showPaywall's guard, since this is also callable directly. */
+     start a purchase. Belt-and-braces with showPaywall's guard. */
   if (hasActivePremium(_getAccessUserState())) return;
-  if (_paymentBusy) return;
   if (!PLANS[planType]) planType = DEFAULT_PLAN;
-  _paymentBusy = true;
-  var attempt = ++_attemptId;
 
-  var btn = document.querySelector('.pw-cta');
-  if (btn) { btn.disabled = true; btn.textContent = QRI18n.t('paywall.processing'); btn.classList.add('pw-cta--loading'); }
-
-  console.info('[PaymentFlow] PAYMENT_INITIATED | plan: ' + planType + ' | uid: ' + userId);
   _track('upgrade_initiated', _lastPaywallFeature, { plan: planType });   /* ADR-109 telemetry */
 
-  if (_paymentSlowTimer) clearTimeout(_paymentSlowTimer);
-  _paymentSlowTimer = setTimeout(function () {
-    var b = document.querySelector('.pw-cta');
-    if (b && _paymentBusy) b.textContent = QRI18n.t('paywall.stillProcessing');
-  }, PAYMENT_SLOW_MS);
-
-  if (_paymentSafetyTimer) clearTimeout(_paymentSafetyTimer);
-  _paymentSafetyTimer = setTimeout(function () { ++_attemptId; _resetPaymentGuards(); }, PAYMENT_TIMEOUT_MS);
-
-  _loadRazorpayScript(function (loadErr) {
-    if (attempt !== _attemptId) return;
-    if (loadErr || typeof Razorpay === 'undefined') {
-      _resetPaymentGuards();
-      showToast(QRI18n.t('paywall.svcUnavailable'));
-      return;
-    }
-    _getIdToken(function (idToken) {
-      if (attempt !== _attemptId) return;
-      if (!idToken) { _resetPaymentGuards(); showToast(QRI18n.t('paywall.loginToContinue')); return; }
-
-      fetch('/api/payment?action=create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken, 'X-Session-Id': (window.Session ? Session.id() : '') },
-        body: JSON.stringify({ plan: planType })
-      })
-        .then(function (resp) {
-          if (attempt !== _attemptId) return null;
-          if (!resp.ok) {
-            return resp.json().catch(function () { return {}; }).then(function (errData) {
-              _resetPaymentGuards();
-              showToast((errData && errData.error && errData.error.message) || QRI18n.t('paywall.couldNotCreate'));
-              return null;
-            });
-          }
-          return resp.json();
-        })
-        .then(function (data) {
-          if (attempt !== _attemptId || !data) return;
-          if (!data.orderId) { _resetPaymentGuards(); showToast(QRI18n.t('paywall.couldNotCreate')); return; }
-
-          console.info('[PaymentFlow] ORDER_CREATED | plan: ' + planType + ' | orderId: ' + data.orderId);
-          var planInfo = PLANS[planType] || PLANS[DEFAULT_PLAN];
-          var options = {
-            key: RAZORPAY_LIVE_KEY,
-            order_id: data.orderId,
-            amount: data.amount,
-            currency: 'INR',
-            name: 'QuantReflex',
-            description: 'Premium · ' + planInfo.label,
-            modal: { ondismiss: function () { _resetPaymentGuards(); showToast(QRI18n.t('paywall.cancelled')); } },
-            handler: function (response) {
-              if (attempt !== _attemptId) return;
-              var paymentId = response.razorpay_payment_id;
-              var rzpOrderId = response.razorpay_order_id;
-              var signature = response.razorpay_signature;
-              if (!paymentId || !rzpOrderId || !signature) {
-                _resetPaymentGuards();
-                showToast(QRI18n.t('paywall.verificationFailed'));
-                return;
-              }
-              console.info('[PaymentFlow] PAYMENT_SUCCESS | paymentId: ' + paymentId + ' | orderId: ' + rzpOrderId);
-
-              _getIdToken(function (freshToken) {
-                fetch('/api/payment?action=verify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (freshToken || idToken), 'X-Session-Id': (window.Session ? Session.id() : '') },
-                  body: JSON.stringify({ orderId: rzpOrderId, paymentId: paymentId, signature: signature })
-                })
-                  .then(function (r) {
-                    if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { return { success: false, _serverError: (e && e.error && e.error.message) || null }; });
-                    return r.json();
-                  })
-                  .then(function (result) {
-                    _resetPaymentGuards();
-                    if (!result || !result.success) {
-                      showToast((result && result._serverError) || QRI18n.t('paywall.activationFailed'));
-                      return;
-                    }
-                    console.info('[PaymentFlow] PAYMENT_VERIFIED | plan: ' + result.plan);
-                    _track('upgrade_completed', _lastPaywallFeature, { plan: result.plan });   /* ADR-109 */
-                    _track('feature_unlocked', _lastPaywallFeature);
-                    /* Force-refresh JWT so the new `premium` claim is available immediately */
-                    try {
-                      var _cu = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
-                      if (_cu && _cu.getIdToken) _cu.getIdToken(true).catch(function () {});
-                    } catch (_) {}
-                    if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.activatePremium === 'function') {
-                      FirestoreSync.activatePremium(result.plan, result.expiry, paymentId, function () {
-                        console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
-                        showToast(QRI18n.t('paywall.unlocked'));
-                        _closePaywallModal();
-                        /* Seamless in-session resume (ADR-107, Phase 5A): if a drill paused at the free daily cap
-                           registered a one-shot resume hook, run it INSTEAD of the default view re-render — the
-                           re-render would tear down the paused drill container and lose the session. The hook
-                           continues the very same session at the blocked question (now Premium → no cap). It clears
-                           itself; if it's absent (any other paywall entry point) we fall back to the normal refresh. */
-                        var _resume = window.__qrResumeAfterUpgrade;
-                        if (typeof _resume === 'function') {
-                          try { _resume(); return; } catch (_e) { window.__qrResumeAfterUpgrade = null; }
-                        }
-                        var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
-                        if (currentView && typeof Router !== 'undefined' && Router.showView) Router.showView(currentView);
-                      });
-                    } else {
-                      showToast(QRI18n.t('paywall.unlockedRefresh'));
-                      _closePaywallModal();
-                    }
-                  })
-                  .catch(function () { _resetPaymentGuards(); showToast(QRI18n.t('paywall.activationFailed')); });
-              });
-            }
-          };
-
-          try {
-            var rzp = new Razorpay(options);
-            rzp.on('payment.failed', function (resp) {
-              _resetPaymentGuards();
-              console.error('[PaymentFlow] PAYMENT_FAILED | Razorpay error:', resp.error);
-              showToast(QRI18n.t('paywall.failed'));
-            });
-            console.info('[PaymentFlow] RAZORPAY_OPENED');
-            rzp.open();
-          } catch (_) {
-            _resetPaymentGuards();
-            showToast(QRI18n.t('paywall.couldNotOpen'));
-          }
-        })
-        .catch(function () {
-          if (attempt !== _attemptId) return;
-          _resetPaymentGuards();
-          showToast(QRI18n.t('paywall.couldNotConnect'));
-        });
-    });
+  QRPayments.purchase(planType, userId, {
+    onBusy: function (busy) {
+      var btn = document.querySelector('.pw-cta');
+      if (!btn) return;
+      btn.disabled = busy;
+      btn.classList.toggle('pw-cta--loading', busy);
+      btn.textContent = busy ? QRI18n.t('paywall.processing') : QRI18n.t('paywall.startPremium');
+    },
+    onSlow: function () {
+      var b = document.querySelector('.pw-cta');
+      if (b) b.textContent = QRI18n.t('paywall.stillProcessing');
+    },
+    onDone: function (result) { _onPurchaseResult(result); }
   });
+}
+
+/**
+ * Render one normalised purchase outcome. Provider-neutral by construction — this never mentions a
+ * provider, so WS5 adds Play without touching it.
+ */
+function _onPurchaseResult(result) {
+  var R = QRPayments.RESULT;
+  var code = (result && result.code) || R.FAILED;
+
+  if (code !== R.OK) {
+    /* PROVIDER_UNAVAILABLE deliberately carries no provider-specific message — the copy stays neutral. */
+    showToast((result && result.message) ||
+      (code === R.PROVIDER_UNAVAILABLE ? QRI18n.t('paywall.purchaseUnavailable') : QRI18n.t('paywall.failed')));
+    return;
+  }
+
+  _track('upgrade_completed', _lastPaywallFeature, { plan: result.plan });   /* ADR-109 */
+  _track('feature_unlocked', _lastPaywallFeature);
+
+  /* Force-refresh the JWT so the new `premium` claim is available immediately. */
+  try {
+    var _cu = (typeof Auth !== 'undefined' && Auth.getCurrentUser) ? Auth.getCurrentUser() : null;
+    if (_cu && _cu.getIdToken) _cu.getIdToken(true).catch(function () {});
+  } catch (_) {}
+
+  if (typeof FirestoreSync !== 'undefined' && typeof FirestoreSync.activatePremium === 'function') {
+    /* In-memory display cache only — the server already granted the entitlement. */
+    FirestoreSync.activatePremium(result.plan, result.expiry, result.paymentId, function () {
+      console.info('[PaymentFlow] PREMIUM_GRANTED | fully synced');
+      showToast(QRI18n.t('paywall.unlocked'));
+      _closePaywallModal();
+      /* Seamless in-session resume (ADR-107, Phase 5A): if a drill paused at the free daily cap
+         registered a one-shot resume hook, run it INSTEAD of the default view re-render — the
+         re-render would tear down the paused drill container and lose the session. */
+      var _resume = window.__qrResumeAfterUpgrade;
+      if (typeof _resume === 'function') {
+        try { _resume(); return; } catch (_e) { window.__qrResumeAfterUpgrade = null; }
+      }
+      var currentView = (typeof Router !== 'undefined' && Router.getCurrentView) ? Router.getCurrentView() : 'home';
+      if (currentView && typeof Router !== 'undefined' && Router.showView) Router.showView(currentView);
+    });
+  } else {
+    showToast(QRI18n.t('paywall.unlockedRefresh'));
+    _closePaywallModal();
+  }
 }
 
 /* ─────────────────────────── Paywall modal ─────────────────────────── */
@@ -471,6 +358,10 @@ function showPaywall(featureType) {
   var userId = (typeof Auth !== 'undefined' && typeof Auth.getUserId === 'function') ? Auth.getUserId() : '';
   var accent = _contextAccent(featureType);
   var selected = DEFAULT_PLAN;
+  /* ADR-144 (WS4): asked ONCE per render so the markup and the handlers can never disagree about
+     whether a purchase is possible. False in a Play build until WS5 — and false is a complete
+     answer, never a cue to try the other provider. */
+  var _canBuy = (typeof QRPayments !== 'undefined') && QRPayments.canPurchase();
 
   var compareRows = _COMPARE_ROWS.map(function (r) {
     return '<tr><td class="pw-compare-feat">' + _esc(QRI18n.t(r[0])) + '</td>' +
@@ -503,8 +394,13 @@ function showPaywall(featureType) {
 
       '<div class="pw-plans" role="group" aria-label="' + QRI18n.t('paywall.choosePlanAria') + '">' + _buildPlansHTML(selected) + '</div>' +
 
-      '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
-      '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>' +
+      /* ADR-144 (WS4): no purchase control unless the platform's provider can actually take money.
+         In a Play build before WS5 this renders the explanation instead — never a dead button, never
+         a link to a website, and never a fallback to the other provider. */
+      (_canBuy
+        ? '<button class="pw-cta" type="button">' + QRI18n.t('paywall.startPremium') + '</button>' +
+          '<p class="pw-cta-note">' + QRI18n.t('paywall.ctaNote') + '</p>'
+        : '<p class="pw-cta-note pw-unavailable">' + QRI18n.t('paywall.purchaseUnavailable') + '</p>') +
 
       '<div class="pw-compare-wrap">' +
         '<table class="pw-compare">' +
@@ -574,7 +470,7 @@ function showPaywall(featureType) {
       showToast(QRI18n.t('paywall.loginToContinue'));
       return;
     }
-    openPremiumPayment(selected, userId);
+    _startPurchase(selected, userId);
   });
 
   /* Restore (ADR-142, WS3) */
@@ -593,13 +489,18 @@ function showPaywall(featureType) {
       restoreBtn.textContent = original;
       if (closeAfter) _closePaywallModal();
     }
-    /* Safety timeout mirrors openPremiumPayment's: a hung network must never leave a dead button. */
+    /* Safety timeout mirrors the purchase path's: a hung network must never leave a dead button. */
     var t = setTimeout(function () { finish('paywall.restoreFailed', false); }, 12000);
-    if (typeof FirestoreSync === 'undefined' || typeof FirestoreSync.refreshFromServer !== 'function') {
+    /* ADR-144 (WS4): routed through the facade, not FirestoreSync directly. Restore is provider-NEUTRAL
+       today (entitlement is server truth, so restoring is re-reading it), but going through
+       QRPayments keeps one restore entry point for WS5 to extend, and keeps the paywall free of any
+       direct data-layer call. It can only ever REFRESH from the server — it never grants, and it
+       reports honest failure rather than fabricating success. */
+    if (typeof QRPayments === 'undefined' || typeof QRPayments.restore !== 'function') {
       clearTimeout(t); finish('paywall.restoreFailed', false); return;
     }
     try {
-      FirestoreSync.refreshFromServer(function (okRead) {
+      QRPayments.restore(function (okRead) {
         clearTimeout(t);
         if (!okRead) { finish('paywall.restoreFailed', false); return; }
         /* Decided by the ONE canonical rule, not by re-reading fields here. If it says premium, the
@@ -614,7 +515,9 @@ function showPaywall(featureType) {
 
   /* Footer is minimal (Terms · Privacy) — dismissal is via the × / backdrop / Esc. */
 
-  _loadRazorpayScript(null);
+  /* Warm the active provider's SDK while the user reads, so the tap doesn't pay the download cost.
+     Routed through the facade's adapter so the paywall never names a provider. */
+  if (_canBuy) { try { QRPayments.preloadProvider(); } catch (_) {} }
 }
 
 global.canAccess = canAccess;
@@ -623,7 +526,6 @@ global.requirePremium = requirePremium;
 global.canOpenExplain = canOpenExplain;
 global.markFreeExplainExhausted = markFreeExplainExhausted;
 global.showPaywall = showPaywall;
-global.openPremiumPayment = openPremiumPayment;
 global.getDailyQuestionLimit = getDailyQuestionLimit;
 global.hasReachedDailyLimit = hasReachedDailyLimit;
 global.hasPremiumAccess = hasPremiumAccess;
@@ -634,7 +536,6 @@ global.Paywall = {
   requirePremium: requirePremium,
   showPaywall: showPaywall,
   closeModal: _closePaywallModal,   /* FW-W2: router nav-teardown closes via the handle (listeners + lock stay balanced) */
-  openPremiumPayment: openPremiumPayment,
   getDailyQuestionLimit: getDailyQuestionLimit,
   hasReachedDailyLimit: hasReachedDailyLimit,
   hasPremiumAccess: hasPremiumAccess,
